@@ -2031,95 +2031,70 @@ function Folha({ data, showToast }) {
 
   const paymentHolidays = getPayrollHolidays(data, year);
 
-const holidaysInPeriod = days.filter(d =>
-  paymentHolidays.includes(d) && prIsWeekdayIso(d)
-);
+  const holidaysInPeriod = days.filter(d =>
+    paymentHolidays.includes(d) && prIsWeekdayIso(d)
+  );
 
-const paymentInfo = getPayrollPaymentCalendar(year, month, q, data);
+  const paymentInfo = getPayrollPaymentCalendar(year, month, q, data);
 
-const paymentDateLabel = fmtDate(paymentInfo.paymentDate);
-const paymentBaseLabel = fmtDate(paymentInfo.baseDate);
+  const paymentDateLabel = fmtDate(paymentInfo.paymentDate);
+  const paymentBaseLabel = fmtDate(paymentInfo.baseDate);
 
-const paymentObs = paymentInfo.adjusted
-  ? `Ajustado de ${paymentBaseLabel} para ${paymentDateLabel}`
-  : "Data normal de pagamento";
+  const paymentObs = paymentInfo.adjusted
+    ? `Ajustado de ${paymentBaseLabel} para ${paymentDateLabel}`
+    : "Data normal de pagamento";
 
   const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
   const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
 
   const calcRow = e => {
-  let gross = 0;
-  let presentes = 0;
-  let meiodia = 0;
-  let faltas = 0;
-  let semRegistro = 0;
-  let ot = 0;
-  let vt = 0;
-  let vr = 0;
+    let gross = 0;
+    let presentes = 0;
+    let meiodia = 0;
+    let faltas = 0;
+    let semRegistro = 0;
+    let ot = 0;
+    let vt = 0;
+    let vr = 0;
 
-  days.forEach(d => {
-    const isHoliday = holidaysInPeriod.includes(d);
+    days.forEach(d => {
+      const isHoliday = holidaysInPeriod.includes(d);
 
-    // Feriado em dia útil não entra como "sem registro".
-    // O valor do feriado será calculado pela regra específica.
-    if (isHoliday) return;
+      if (isHoliday) return;
 
-    const a = getAtt(data, e.id, d);
-    const s = a?.status;
-    const o = a?.ot || 0;
+      const a = getAtt(data, e.id, d);
+      const s = a?.status;
+      const o = a?.ot || 0;
 
-    if (s === "P") {
-      gross += e.dailyRate || 0;
-      presentes++;
-      ot += o;
-      vt += e.vtDaily || 0;
-      vr += e.vrDaily || 0;
-    } else if (s === "M") {
-      gross += (e.dailyRate || 0) * 0.5;
-      meiodia++;
-      ot += o;
-      vt += (e.vtDaily || 0) * 0.5;
-      vr += (e.vrDaily || 0) * 0.5;
-    } else if (s === "F") {
-      faltas++;
-    } else {
-      semRegistro++;
-    }
-  });
+      if (s === "P") {
+        gross += e.dailyRate || 0;
+        presentes++;
+        ot += o;
+        vt += e.vtDaily || 0;
+        vr += e.vrDaily || 0;
+      } else if (s === "M") {
+        gross += (e.dailyRate || 0) * 0.5;
+        meiodia++;
+        ot += o;
+        vt += (e.vtDaily || 0) * 0.5;
+        vr += (e.vrDaily || 0) * 0.5;
+      } else if (s === "F") {
+        faltas++;
+      } else {
+        semRegistro++;
+      }
+    });
 
-  const holidayRules = holidaysInPeriod.map(h =>
-    getHolidayPayRule(data, e, h, paymentHolidays)
-  );
+    const holidayRules = holidaysInPeriod.map(h =>
+      getHolidayPayRule(data, e, h, paymentHolidays)
+    );
 
-  const feriadosPagos = holidayRules.filter(h => !h.losesHoliday).length;
-  const feriadosPerdidos = holidayRules.filter(h => h.losesHoliday).length;
-  const holidayPay = holidayRules.reduce((s, h) => s + h.amount, 0);
+    const feriadosPagos = holidayRules.filter(h => !h.losesHoliday).length;
+    const feriadosPerdidos = holidayRules.filter(h => h.losesHoliday).length;
+    const holidayPay = holidayRules.reduce((s, h) => s + h.amount, 0);
 
-  gross += holidayPay;
+    gross += holidayPay;
 
-  const advTotal = (data.advances || [])
-    .filter(a => a.empId === e.id && a.date >= days[0] && a.date <= days[days.length - 1])
-    .reduce((s, a) => s + (a.amount || 0), 0);
-
-  return {
-    ...e,
-    gross,
-    presentes,
-    meiodia,
-    faltas,
-    semRegistro,
-    ot,
-    vt,
-    vr,
-    feriadosPagos,
-    feriadosPerdidos,
-    holidayPay,
-    holidayRules,
-    advances: advTotal,
-    net: gross + vt + vr - advTotal,
-    days: days.length,
-  };
-};
     const advTotal = (data.advances || [])
       .filter(a => a.empId === e.id && a.date >= days[0] && a.date <= days[days.length - 1])
       .reduce((s, a) => s + (a.amount || 0), 0);
@@ -2134,6 +2109,10 @@ const paymentObs = paymentInfo.adjusted
       ot,
       vt,
       vr,
+      feriadosPagos,
+      feriadosPerdidos,
+      holidayPay,
+      holidayRules,
       advances: advTotal,
       net: gross + vt + vr - advTotal,
       days: days.length,
@@ -2154,25 +2133,25 @@ const paymentObs = paymentInfo.adjusted
     .filter(e => e.active !== false || hasAttendanceInPeriod(e))
     .map(calcRow)
     .filter(r =>
-  r.presentes > 0 ||
-  r.meiodia > 0 ||
-  r.faltas > 0 ||
-  r.feriadosPagos > 0 ||
-  r.feriadosPerdidos > 0 ||
-  r.advances > 0 ||
-  r.gross > 0
-);
+      r.presentes > 0 ||
+      r.meiodia > 0 ||
+      r.faltas > 0 ||
+      r.feriadosPagos > 0 ||
+      r.feriadosPerdidos > 0 ||
+      r.advances > 0 ||
+      r.gross > 0
+    );
 
-const T = {
-  gross: rows.reduce((s, r) => s + r.gross, 0),
-  vt: rows.reduce((s, r) => s + r.vt, 0),
-  vr: rows.reduce((s, r) => s + r.vr, 0),
-  advances: rows.reduce((s, r) => s + r.advances, 0),
-  net: rows.reduce((s, r) => s + r.net, 0),
-  holidayPay: rows.reduce((s, r) => s + (r.holidayPay || 0), 0),
-  feriadosPagos: rows.reduce((s, r) => s + (r.feriadosPagos || 0), 0),
-  feriadosPerdidos: rows.reduce((s, r) => s + (r.feriadosPerdidos || 0), 0),
-};
+  const T = {
+    gross: rows.reduce((s, r) => s + r.gross, 0),
+    vt: rows.reduce((s, r) => s + r.vt, 0),
+    vr: rows.reduce((s, r) => s + r.vr, 0),
+    advances: rows.reduce((s, r) => s + r.advances, 0),
+    net: rows.reduce((s, r) => s + r.net, 0),
+    holidayPay: rows.reduce((s, r) => s + (r.holidayPay || 0), 0),
+    feriadosPagos: rows.reduce((s, r) => s + (r.feriadosPagos || 0), 0),
+    feriadosPerdidos: rows.reduce((s, r) => s + (r.feriadosPerdidos || 0), 0),
+  };
 
   const printPDF = () => {
     const html = `
@@ -2194,12 +2173,12 @@ const T = {
               width: 100%;
               border-collapse: collapse;
               margin-top: 20px;
-              font-size: 12px;
+              font-size: 10px;
             }
 
             th, td {
               border: 1px solid #ccc;
-              padding: 6px;
+              padding: 5px;
               text-align: left;
             }
 
@@ -2232,54 +2211,54 @@ const T = {
           <h1>${data.config.companyName || "ArcD Obras"}</h1>
           ${data.config.cnpj ? `<p>CNPJ: ${data.config.cnpj}</p>` : ""}
           <h2>Folha de Pagamento — ${periodLabel}</h2>
-<p><strong>Data de pagamento:</strong> ${paymentDateLabel}</p>
-<p><strong>Regra aplicada:</strong> ${paymentObs}</p>
+          <p><strong>Data de pagamento:</strong> ${paymentDateLabel}</p>
+          <p><strong>Regra aplicada:</strong> ${paymentObs}</p>
 
           <table>
             <thead>
               <tr>
-              <th>Funcionário</th>
-<th>Cargo</th>
-<th>Obra</th>
-<th>P</th>
-<th>M</th>
-<th>F</th>
-<th>S/R</th>
-<th>FP</th>
-<th>FD</th>
-<th>Valor Feriado</th>
-<th>HE</th>
-<th>Diária</th>
-<th>Bruto</th>
-<th>VT</th>
-<th>VR</th>
-<th>Adiant.</th>
-<th>Líquido</th>
+                <th>Funcionário</th>
+                <th>Cargo</th>
+                <th>Obra</th>
+                <th>P</th>
+                <th>M</th>
+                <th>F</th>
+                <th>S/R</th>
+                <th>FP</th>
+                <th>FD</th>
+                <th>Valor Feriado</th>
+                <th>HE</th>
+                <th>Diária</th>
+                <th>Bruto</th>
+                <th>VT</th>
+                <th>VR</th>
+                <th>Adiant.</th>
+                <th>Líquido</th>
               </tr>
             </thead>
 
             <tbody>
-             ${rows.map(r => `
-  <tr>
-    <td>${r.name}</td>
-    <td>${r.role || "-"}</td>
-    <td>${obraName(r.obra)}</td>
-    <td>${r.presentes}</td>
-    <td>${r.meiodia}</td>
-    <td>${r.faltas}</td>
-    <td>${r.semRegistro}</td>
-    <td>${r.feriadosPagos}</td>
-    <td>${r.feriadosPerdidos}</td>
-    <td>R$ ${r.holidayPay.toFixed(2)}</td>
-    <td>${r.ot || 0}h</td>
-    <td>R$ ${(r.dailyRate || 0).toFixed(2)}</td>
-    <td>R$ ${r.gross.toFixed(2)}</td>
-    <td>R$ ${r.vt.toFixed(2)}</td>
-    <td>R$ ${r.vr.toFixed(2)}</td>
-    <td>R$ ${r.advances.toFixed(2)}</td>
-    <td>R$ ${r.net.toFixed(2)}</td>
-  </tr>
-`).join("")}
+              ${rows.map(r => `
+                <tr>
+                  <td>${r.name}</td>
+                  <td>${r.role || "-"}</td>
+                  <td>${obraName(r.obra)}</td>
+                  <td>${r.presentes}</td>
+                  <td>${r.meiodia}</td>
+                  <td>${r.faltas}</td>
+                  <td>${r.semRegistro}</td>
+                  <td>${r.feriadosPagos}</td>
+                  <td>${r.feriadosPerdidos}</td>
+                  <td>R$ ${r.holidayPay.toFixed(2)}</td>
+                  <td>${r.ot || 0}h</td>
+                  <td>R$ ${(r.dailyRate || 0).toFixed(2)}</td>
+                  <td>R$ ${r.gross.toFixed(2)}</td>
+                  <td>R$ ${r.vt.toFixed(2)}</td>
+                  <td>R$ ${r.vr.toFixed(2)}</td>
+                  <td>R$ ${r.advances.toFixed(2)}</td>
+                  <td>R$ ${r.net.toFixed(2)}</td>
+                </tr>
+              `).join("")}
 
               <tr class="total">
                 <td colspan="12">TOTAL — ${rows.length} funcionário(s)</td>
@@ -2320,46 +2299,50 @@ const T = {
     const wb = XLSX.utils.book_new();
 
     const header = [
-  "Funcionário",
-  "Cargo",
-  "Obra",
-  "Pres.",
-  "Meio Dia",
-  "Faltas",
-  "Sem Registro",
-  "Feriados Pagos",
-  "Feriados Perdidos",
-  "Valor Feriado",
-  "HE",
-  "Diária",
-  "Bruto",
-  "VT",
-  "VR",
-  "Adiant.",
-  "Líquido",
-];
+      "Funcionário",
+      "Cargo",
+      "Obra",
+      "Pres.",
+      "Meio Dia",
+      "Faltas",
+      "Sem Registro",
+      "Feriados Pagos",
+      "Feriados Perdidos",
+      "Valor Feriado",
+      "HE",
+      "Diária",
+      "Bruto",
+      "VT",
+      "VR",
+      "Adiant.",
+      "Líquido",
+    ];
 
     const body = rows.map(r => [
-  r.name,
-  r.role || "",
-  obraName(r.obra),
-  r.presentes,
-  r.meiodia,
-  r.faltas,
-  r.semRegistro,
-  r.feriadosPagos,
-  r.feriadosPerdidos,
-  r.holidayPay,
-  r.ot,
-  r.dailyRate,
-  r.gross,
-  r.vt,
-  r.vr,
-  r.advances,
-  r.net,
-]);
+      r.name,
+      r.role || "",
+      obraName(r.obra),
+      r.presentes,
+      r.meiodia,
+      r.faltas,
+      r.semRegistro,
+      r.feriadosPagos,
+      r.feriadosPerdidos,
+      r.holidayPay,
+      r.ot,
+      r.dailyRate,
+      r.gross,
+      r.vt,
+      r.vr,
+      r.advances,
+      r.net,
+    ]);
 
     const ws = XLSX.utils.aoa_to_sheet([
+      ["Folha de Pagamento", periodLabel],
+      ["Data de pagamento", paymentDateLabel],
+      ["Regra aplicada", paymentObs],
+      [],
       header,
       ...body,
       [
@@ -2370,6 +2353,9 @@ const T = {
         rows.reduce((s, r) => s + r.meiodia, 0),
         rows.reduce((s, r) => s + r.faltas, 0),
         rows.reduce((s, r) => s + r.semRegistro, 0),
+        rows.reduce((s, r) => s + r.feriadosPagos, 0),
+        rows.reduce((s, r) => s + r.feriadosPerdidos, 0),
+        rows.reduce((s, r) => s + r.holidayPay, 0),
         rows.reduce((s, r) => s + r.ot, 0),
         "",
         T.gross,
@@ -2389,21 +2375,21 @@ const T = {
   };
 
   const buildText = () => [
-  `FOLHA DE PAGAMENTO — ARCD OBRAS`,
-  `${data.config.companyName || ""}`,
-  `${periodLabel}`,
-  `Pagamento: ${paymentDateLabel}`,
-  `${paymentObs}`,
-  ``,
-  ...rows.map(r => `• ${r.name} (${obraName(r.obra)}): ${fmt(r.net)} | ${r.feriadosPagos}FP ${r.feriadosPerdidos}FD`),
-  ``,
-  `TOTAL LÍQUIDO: ${fmt(T.net)}`,
-  `FERIADOS PAGOS: ${T.feriadosPagos}`,
-  `FERIADOS PERDIDOS: ${T.feriadosPerdidos}`,
-  `VALOR TOTAL DE FERIADOS: ${fmt(T.holidayPay)}`,
-  `${rows.length} funcionário(s)`,
-  `Gerado em ${new Date().toLocaleDateString("pt-BR")}`,
-].join("\n");
+    `FOLHA DE PAGAMENTO — ARCD OBRAS`,
+    `${data.config.companyName || ""}`,
+    `${periodLabel}`,
+    `Pagamento: ${paymentDateLabel}`,
+    `${paymentObs}`,
+    ``,
+    ...rows.map(r => `• ${r.name} (${obraName(r.obra)}): ${fmt(r.net)} | ${r.feriadosPagos}FP ${r.feriadosPerdidos}FD`),
+    ``,
+    `TOTAL LÍQUIDO: ${fmt(T.net)}`,
+    `FERIADOS PAGOS: ${T.feriadosPagos}`,
+    `FERIADOS PERDIDOS: ${T.feriadosPerdidos}`,
+    `VALOR TOTAL DE FERIADOS: ${fmt(T.holidayPay)}`,
+    `${rows.length} funcionário(s)`,
+    `Gerado em ${new Date().toLocaleDateString("pt-BR")}`,
+  ].join("\n");
 
   const years = [];
 
@@ -2478,22 +2464,22 @@ const T = {
         </p>
 
         <p style={{ fontSize: 12, fontWeight: 600 }}>
-  {rows.length} funcionário(s) · {periodLabel}
-</p>
+          {rows.length} funcionário(s) · {periodLabel}
+        </p>
 
-<p style={{ fontSize: 13, fontWeight: 800, marginTop: 6 }}>
-  Pagamento: {paymentDateLabel}
-</p>
+        <p style={{ fontSize: 13, fontWeight: 800, marginTop: 6 }}>
+          Pagamento: {paymentDateLabel}
+        </p>
 
-<p style={{ fontSize: 11, fontWeight: 600, opacity: 0.85 }}>
-  {paymentObs}
-</p>
+        <p style={{ fontSize: 11, fontWeight: 600, opacity: 0.85 }}>
+          {paymentObs}
+        </p>
 
-{T.feriadosPagos + T.feriadosPerdidos > 0 && (
-  <p style={{ fontSize: 11, fontWeight: 600, opacity: 0.85, marginTop: 4 }}>
-    Feriados: {T.feriadosPagos} pago(s), {T.feriadosPerdidos} perdido(s) · Valor: {fmt(T.holidayPay)}
-  </p>
-)}
+        {T.feriadosPagos + T.feriadosPerdidos > 0 && (
+          <p style={{ fontSize: 11, fontWeight: 600, opacity: 0.85, marginTop: 4 }}>
+            Feriados: {T.feriadosPagos} pago(s), {T.feriadosPerdidos} perdido(s) · Valor: {fmt(T.holidayPay)}
+          </p>
+        )}
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8, fontSize: 12 }}>
           <span>Bruto: {fmt(T.gross)}</span>
@@ -2589,17 +2575,16 @@ const T = {
             >
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
                 {[
-                 {[
-  ["Diária", fmt(r.dailyRate)],
-  ["Bruto", fmt(r.gross)],
-  ["VT+VR", fmt(r.vt + r.vr)],
-  ["Adiant.", fmt(r.advances), C.red],
-  ["Líquido", fmt(r.net), C.yellow],
-  ["HE", `${r.ot}h`],
-  ["Feriados pagos", r.feriadosPagos],
-  ["Feriados perdidos", r.feriadosPerdidos, C.red],
-  ["Valor feriado", fmt(r.holidayPay), C.green],
-].map(([l, v, c]) => (
+                  ["Diária", fmt(r.dailyRate)],
+                  ["Bruto", fmt(r.gross)],
+                  ["VT+VR", fmt(r.vt + r.vr)],
+                  ["Adiant.", fmt(r.advances), C.red],
+                  ["Líquido", fmt(r.net), C.yellow],
+                  ["HE", `${r.ot}h`],
+                  ["Feriados pagos", r.feriadosPagos],
+                  ["Feriados perdidos", r.feriadosPerdidos, C.red],
+                  ["Valor feriado", fmt(r.holidayPay), C.green],
+                ].map(([l, v, c]) => (
                   <div key={l} style={{ background: C.card, padding: 8, border: `1px solid ${C.border}` }}>
                     <p style={{ fontSize: 10, color: C.muted, textTransform: "uppercase" }}>
                       {l}
@@ -2612,6 +2597,20 @@ const T = {
                 ))}
               </div>
 
+              {r.holidayRules && r.holidayRules.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <p style={{ fontSize: 11, color: C.yellow, fontWeight: 800, textTransform: "uppercase", marginBottom: 6 }}>
+                    Regra de feriados
+                  </p>
+
+                  {r.holidayRules.map(h => (
+                    <p key={h.holidayIso} style={{ fontSize: 12, color: h.losesHoliday ? C.red : C.green, marginBottom: 3 }}>
+                      {fmtDate(h.holidayIso)}: {h.losesHoliday ? "perdido" : "pago"} · anterior {fmtDate(h.before)} · posterior {fmtDate(h.after)}
+                    </p>
+                  ))}
+                </div>
+              )}
+
               {r.pixKey && (
                 <p style={{ fontSize: 12, color: C.subtle, marginBottom: 10 }}>
                   PIX: {r.pixKey}
@@ -2622,7 +2621,8 @@ const T = {
                 {days.map(d => {
                   const a = getAtt(data, r.id, d);
                   const s = a?.status;
-                  const col = s === "P" ? C.green : s === "M" ? C.yellow : s === "F" ? C.red : C.muted;
+                  const isHoliday = holidaysInPeriod.includes(d);
+                  const col = isHoliday ? C.blue : s === "P" ? C.green : s === "M" ? C.yellow : s === "F" ? C.red : C.muted;
 
                   return (
                     <div
@@ -2639,7 +2639,7 @@ const T = {
                       </p>
 
                       <p style={{ color: col, fontWeight: 900 }}>
-                        {s || "–"}
+                        {isHoliday ? "FER" : s || "–"}
                       </p>
                     </div>
                   );
