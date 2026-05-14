@@ -2,33 +2,37 @@ import { useEffect, useState } from 'react';
 import Auth from './Auth';
 import { getCurrentUser, onAuthStateChange, logout } from './supabase';
 
-const colors = {
-  primary: '#111111',
-  secondary: '#D6A84F',
-  background: '#F7F2E8',
-  card: '#FFFFFF',
-  text: '#1C1C1C',
-  muted: '#777777',
-  border: '#E6DDCC',
+const C = {
+  bg: '#111317',
+  bg2: '#1C1F26',
+  yellow: '#D6A84F',
+  yellowD: '#B8892E',
+  cream: '#F7F2E8',
+  white: '#FFFFFF',
+  mutedWhite: 'rgba(255,255,255,0.70)',
+  borderDark: 'rgba(255,255,255,0.14)',
 };
 
-function BrandLogo({ size = 40 }) {
-  const [error, setError] = useState(false);
+const font = "'Barlow Condensed', Arial, sans-serif";
 
-  if (error) {
+function BrandMark({ size = 42 }) {
+  const [logoError, setLogoError] = useState(false);
+
+  if (logoError) {
     return (
       <div
         style={{
           width: size,
           height: size,
-          borderRadius: 12,
-          background: colors.primary,
-          color: colors.secondary,
+          background: C.yellow,
+          color: C.bg,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          fontFamily: font,
           fontWeight: 900,
-          fontSize: size * 0.42,
+          fontSize: size * 0.46,
+          letterSpacing: -0.5,
           flex: '0 0 auto',
         }}
       >
@@ -41,7 +45,7 @@ function BrandLogo({ size = 40 }) {
     <img
       src="/logo-arcd.png"
       alt="Logomarca ArcD"
-      onError={() => setError(true)}
+      onError={() => setLogoError(true)}
       style={{
         width: size,
         height: size,
@@ -93,41 +97,48 @@ export default function AuthGate({ children }) {
       <main
         style={{
           minHeight: '100vh',
-          background: colors.background,
+          background: C.bg,
+          color: C.white,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: 20,
-          fontFamily: 'Arial, sans-serif',
-          color: colors.text,
+          fontFamily: font,
         }}
       >
         <div
           style={{
             width: '100%',
             maxWidth: 340,
-            background: colors.card,
-            borderRadius: 20,
-            padding: 24,
             textAlign: 'center',
-            border: `1px solid ${colors.border}`,
-            boxShadow: '0 12px 34px rgba(0,0,0,0.08)',
+            padding: 26,
+            border: `1px solid ${C.borderDark}`,
+            background: C.bg2,
           }}
         >
-          <BrandLogo size={76} />
+          <BrandMark size={74} />
 
           <strong
             style={{
               display: 'block',
-              marginTop: 12,
-              fontSize: 18,
-              color: colors.primary,
+              marginTop: 14,
+              fontSize: 24,
+              color: C.white,
+              letterSpacing: 0.4,
+              textTransform: 'uppercase',
             }}
           >
             Ponto ArcD
           </strong>
 
-          <p style={{ margin: '8px 0 0', color: colors.muted, fontSize: 13 }}>
+          <p
+            style={{
+              margin: '8px 0 0',
+              color: C.mutedWhite,
+              fontSize: 15,
+              letterSpacing: 0.4,
+            }}
+          >
             Carregando acesso...
           </p>
         </div>
@@ -141,58 +152,48 @@ export default function AuthGate({ children }) {
 
   return (
     <>
-      <main
-        style={{
-          minHeight: '100vh',
-          paddingBottom: 'calc(96px + env(safe-area-inset-bottom))',
-          background: colors.background,
-        }}
-      >
-        {children}
-      </main>
+      <main>{children}</main>
 
-      <nav
+      <footer
         style={{
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 50,
-          background: colors.card,
-          borderTop: `1px solid ${colors.border}`,
-          boxShadow: '0 -8px 26px rgba(0,0,0,0.08)',
-          padding: '10px 14px calc(10px + env(safe-area-inset-bottom))',
-          fontFamily: 'Arial, sans-serif',
+          background: C.bg,
+          color: C.white,
+          borderTop: `3px solid ${C.yellow}`,
+          padding: '18px 16px 22px',
+          fontFamily: font,
         }}
       >
         <div
           style={{
             width: '100%',
-            maxWidth: 480,
+            maxWidth: 520,
             margin: '0 auto',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 10,
+            gap: 14,
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 9,
+              gap: 10,
               minWidth: 0,
             }}
           >
-            <BrandLogo size={38} />
+            <BrandMark size={40} />
 
             <div style={{ minWidth: 0 }}>
               <strong
                 style={{
                   display: 'block',
-                  color: colors.primary,
-                  fontSize: 14,
-                  lineHeight: 1.1,
+                  color: C.white,
+                  fontSize: 18,
+                  lineHeight: 1,
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
                 }}
               >
                 Ponto ArcD
@@ -201,12 +202,14 @@ export default function AuthGate({ children }) {
               <span
                 style={{
                   display: 'block',
-                  color: colors.muted,
-                  fontSize: 11,
+                  marginTop: 4,
+                  color: C.mutedWhite,
+                  fontSize: 13,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  maxWidth: 170,
+                  maxWidth: 190,
+                  letterSpacing: 0.3,
                 }}
               >
                 {user.email}
@@ -219,13 +222,16 @@ export default function AuthGate({ children }) {
             onClick={handleLogout}
             disabled={signingOut}
             style={{
-              border: 0,
-              borderRadius: 999,
-              padding: '10px 15px',
-              background: colors.primary,
-              color: '#FFFFFF',
-              fontSize: 12,
-              fontWeight: 800,
+              border: 'none',
+              borderRadius: 0,
+              padding: '10px 18px',
+              background: `linear-gradient(135deg, ${C.yellow}, ${C.yellowD})`,
+              color: C.bg,
+              fontFamily: font,
+              fontWeight: 900,
+              fontSize: 15,
+              letterSpacing: 0.6,
+              textTransform: 'uppercase',
               cursor: signingOut ? 'not-allowed' : 'pointer',
               opacity: signingOut ? 0.7 : 1,
               flex: '0 0 auto',
@@ -234,7 +240,7 @@ export default function AuthGate({ children }) {
             {signingOut ? 'Saindo...' : 'Sair'}
           </button>
         </div>
-      </nav>
+      </footer>
     </>
   );
 }
