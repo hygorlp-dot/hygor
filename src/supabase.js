@@ -7,16 +7,57 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const DATA_KEY = 'arced_ponto_v1';
 
+export const getCurrentUser = async () => {
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error) {
+    console.error('Erro ao buscar usuário:', error);
+    return null;
+  }
+
+  return data.user;
+};
+
+export const onAuthStateChange = (callback) => {
+  return supabase.auth.onAuthStateChange(callback);
+};
+
+export const signUpEmail = async (email, password) => {
+  return await supabase.auth.signUp({
+    email,
+    password,
+  });
+};
+
+export const signInEmail = async (email, password) => {
+  return await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+};
+
+export const logout = async () => {
+  return await supabase.auth.signOut();
+};
+
 export const loadData = async () => {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      console.warn('Nenhum usuário logado.');
+      return null;
+    }
+
     const { data, error } = await supabase
-      .from('app_data')
+      .from('user_app_data')
       .select('value')
+      .eq('user_id', user.id)
       .eq('key', DATA_KEY)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      console.error('Erro ao carregar dados do Supabase:', error);
+      console.error('Erro ao carregar dados:', error);
       return null;
     }
 
@@ -24,29 +65,43 @@ export const loadData = async () => {
 
     return JSON.parse(data.value);
   } catch (err) {
-    console.error('Erro inesperado ao carregar dados:', err);
+    console.error('Erro inesperado ao carregar:', err);
     return null;
   }
 };
 
 export const saveData = async (payload) => {
   try {
-    const { error } = await supabase
-      .from('app_data')
-      .upsert(
-        { key: DATA_KEY, value: JSON.stringify(payload) },
-        { onConflict: 'key' }
-      );
+    const user = await getCurrentUser();
 
-    if (error) {
-      console.error('Erro ao salvar dados no Supabase:', error);
+    if (!user) {
+      console.warn('Nenhum usuário logado. Dados não salvos.');
       return false;
     }
 
-    console.log('Dados salvos no Supabase com sucesso');
+    const { error } = await supabase
+      .from('user_app_data')
+      .upsert(
+        {
+          user_id: user.id,
+          key: DATA_KEY,
+          value: JSON.stringify(payload),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'user_id,key',
+        }
+      );
+
+    if (error) {
+      console.error('Erro ao salvar dados:', error);
+      return false;
+    }
+
+    console.log('Dados salvos com sucesso.');
     return true;
   } catch (err) {
-    console.error('Erro inesperado ao salvar dados:', err);
+    console.error('Erro inesperado ao salvar:', err);
     return false;
   }
 };
