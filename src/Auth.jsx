@@ -1,269 +1,40 @@
 import { useState } from 'react';
 import { signInEmail, signUpEmail } from './supabase';
 
-const BRAND = {
+const brand = {
   name: 'Ponto ArcD',
-  company: 'ArcD Obras',
-  subtitle: 'Gestão de pessoas, obras e frequência',
-  slogan: 'Controle sua equipe de obra com mais segurança, clareza e velocidade.',
+  subtitle: 'Acesso ao sistema',
+  logo: '/logo-arcd.png',
 };
 
 const colors = {
-  dark: '#111317',
-  dark2: '#1C1F26',
-  gold: '#D6A84F',
-  gold2: '#F3D68B',
-  cream: '#F7F2E8',
-  muted: '#7B7F8A',
-  border: '#E8DDC8',
-  white: '#FFFFFF',
+  primary: '#111111',
+  secondary: '#D6A84F',
+  background: '#F7F2E8',
+  card: '#FFFFFF',
+  text: '#1C1C1C',
+  muted: '#777777',
+  border: '#E6DDCC',
   error: '#B42318',
   success: '#1F7A4D',
-};
-
-const styles = {
-  page: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    fontFamily: 'Inter, Arial, sans-serif',
-    background:
-      'radial-gradient(circle at top left, rgba(214,168,79,0.28), transparent 34%), linear-gradient(135deg, #111317 0%, #1C1F26 48%, #F7F2E8 48%, #F7F2E8 100%)',
-  },
-  shell: {
-    width: '100%',
-    maxWidth: 1080,
-    display: 'flex',
-    flexWrap: 'wrap',
-    background: 'rgba(255,255,255,0.94)',
-    borderRadius: 28,
-    overflow: 'hidden',
-    boxShadow: '0 24px 80px rgba(0,0,0,0.24)',
-    border: '1px solid rgba(255,255,255,0.42)',
-  },
-  brandPanel: {
-    flex: '1 1 430px',
-    minHeight: 560,
-    padding: 42,
-    color: colors.white,
-    background:
-      'linear-gradient(160deg, rgba(17,19,23,0.98), rgba(28,31,38,0.96)), radial-gradient(circle at top right, rgba(214,168,79,0.35), transparent 36%)',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-  },
-  brandTop: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14,
-  },
-  logo: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    background: `linear-gradient(135deg, ${colors.gold}, ${colors.gold2})`,
-    color: colors.dark,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 900,
-    fontSize: 20,
-    letterSpacing: -1,
-    boxShadow: '0 12px 30px rgba(214,168,79,0.28)',
-  },
-  brandName: {
-    margin: 0,
-    fontSize: 23,
-    letterSpacing: -0.6,
-  },
-  brandCompany: {
-    margin: '3px 0 0',
-    color: 'rgba(255,255,255,0.64)',
-    fontSize: 13,
-    textTransform: 'uppercase',
-    letterSpacing: 1.6,
-  },
-  heroTitle: {
-    margin: '56px 0 12px',
-    fontSize: 42,
-    lineHeight: 1.05,
-    letterSpacing: -1.5,
-    maxWidth: 460,
-  },
-  heroText: {
-    margin: 0,
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 17,
-    lineHeight: 1.6,
-    maxWidth: 460,
-  },
-  stats: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: 12,
-    marginTop: 34,
-  },
-  statCard: {
-    padding: 16,
-    borderRadius: 18,
-    background: 'rgba(255,255,255,0.08)',
-    border: '1px solid rgba(255,255,255,0.12)',
-  },
-  statValue: {
-    display: 'block',
-    color: colors.gold2,
-    fontWeight: 800,
-    fontSize: 19,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.68)',
-  },
-  footerText: {
-    marginTop: 42,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.52)',
-  },
-  formPanel: {
-    flex: '1 1 380px',
-    padding: 42,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: colors.cream,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 420,
-    background: colors.white,
-    padding: 34,
-    borderRadius: 24,
-    border: `1px solid ${colors.border}`,
-    boxShadow: '0 18px 50px rgba(17,19,23,0.10)',
-  },
-  pill: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '8px 12px',
-    borderRadius: 999,
-    background: '#FFF8E7',
-    color: '#7A5B19',
-    border: '1px solid #F0DCA8',
-    fontSize: 12,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  title: {
-    margin: '22px 0 8px',
-    fontSize: 30,
-    lineHeight: 1.1,
-    color: colors.dark,
-    letterSpacing: -0.8,
-  },
-  desc: {
-    margin: '0 0 26px',
-    color: colors.muted,
-    fontSize: 15,
-    lineHeight: 1.5,
-  },
-  label: {
-    display: 'block',
-    fontSize: 13,
-    fontWeight: 800,
-    color: colors.dark2,
-    marginBottom: 7,
-  },
-  input: {
-    width: '100%',
-    boxSizing: 'border-box',
-    padding: '13px 14px',
-    borderRadius: 14,
-    border: `1px solid ${colors.border}`,
-    background: '#FFFCF7',
-    color: colors.dark,
-    outline: 'none',
-    fontSize: 15,
-    marginBottom: 16,
-  },
-  passwordWrap: {
-    position: 'relative',
-  },
-  showButton: {
-    position: 'absolute',
-    right: 8,
-    top: 8,
-    border: 0,
-    background: 'transparent',
-    color: colors.muted,
-    cursor: 'pointer',
-    padding: '6px 8px',
-    fontSize: 12,
-    fontWeight: 700,
-  },
-  primaryButton: {
-    width: '100%',
-    padding: '14px 16px',
-    border: 0,
-    borderRadius: 16,
-    background: `linear-gradient(135deg, ${colors.dark}, ${colors.dark2})`,
-    color: colors.white,
-    cursor: 'pointer',
-    fontWeight: 900,
-    fontSize: 15,
-    boxShadow: '0 14px 32px rgba(17,19,23,0.22)',
-  },
-  secondaryButton: {
-    width: '100%',
-    padding: '12px 16px',
-    marginTop: 14,
-    border: `1px solid ${colors.border}`,
-    borderRadius: 16,
-    background: '#FFFCF7',
-    color: colors.dark,
-    cursor: 'pointer',
-    fontWeight: 800,
-    fontSize: 14,
-  },
-  message: {
-    marginTop: 18,
-    padding: 12,
-    borderRadius: 14,
-    fontSize: 13,
-    lineHeight: 1.45,
-  },
-  small: {
-    margin: '18px 0 0',
-    color: colors.muted,
-    fontSize: 12,
-    lineHeight: 1.45,
-  },
 };
 
 function friendlyError(errorMessage) {
   const msg = String(errorMessage || '').toLowerCase();
 
   if (msg.includes('invalid login credentials')) {
-    return 'E-mail ou senha incorretos. Confira os dados e tente novamente.';
+    return 'E-mail ou senha incorretos.';
   }
 
   if (msg.includes('email not confirmed')) {
-    return 'Este e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
+    return 'Confirme seu e-mail antes de entrar.';
   }
 
   if (msg.includes('password')) {
     return 'A senha precisa ter pelo menos 6 caracteres.';
   }
 
-  if (msg.includes('rate limit')) {
-    return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.';
-  }
-
-  return errorMessage || 'Não foi possível concluir a operação. Tente novamente.';
+  return errorMessage || 'Não foi possível concluir. Tente novamente.';
 }
 
 export default function Auth() {
@@ -276,13 +47,13 @@ export default function Auth() {
 
   const isSignup = mode === 'signup';
 
-  const handleEmailAuth = async (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-
-    const cleanEmail = email.trim().toLowerCase();
 
     setLoading(true);
     setMessage(null);
+
+    const cleanEmail = email.trim().toLowerCase();
 
     const result = isSignup
       ? await signUpEmail(cleanEmail, password)
@@ -301,7 +72,7 @@ export default function Auth() {
     if (isSignup) {
       setMessage({
         type: 'success',
-        text: 'Conta criada com sucesso. Se a confirmação de e-mail estiver ativa no Supabase, confirme o e-mail antes de entrar.',
+        text: 'Conta criada. Agora faça login.',
       });
       setMode('login');
       setPassword('');
@@ -310,151 +81,262 @@ export default function Auth() {
 
     setMessage({
       type: 'success',
-      text: 'Login realizado com sucesso. Carregando o painel...',
+      text: 'Login realizado com sucesso.',
     });
   };
 
-  const toggleMode = () => {
-    setMode(isSignup ? 'login' : 'signup');
-    setMessage(null);
-    setPassword('');
-  };
-
   return (
-    <main style={styles.page}>
-      <section style={styles.shell}>
-        <aside style={styles.brandPanel}>
-          <div>
-            <div style={styles.brandTop}>
-              <div style={styles.logo}>A</div>
-              <div>
-                <h1 style={styles.brandName}>{BRAND.name}</h1>
-                <p style={styles.brandCompany}>{BRAND.company}</p>
-              </div>
-            </div>
+    <main
+      style={{
+        minHeight: '100vh',
+        background: colors.background,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 18,
+        fontFamily: 'Arial, sans-serif',
+      }}
+    >
+      <section
+        style={{
+          width: '100%',
+          maxWidth: 390,
+          background: colors.card,
+          borderRadius: 22,
+          padding: 24,
+          boxShadow: '0 14px 40px rgba(0,0,0,0.10)',
+          border: `1px solid ${colors.border}`,
+        }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <img
+            src={brand.logo}
+            alt="Logomarca ArcD"
+            style={{
+              width: 96,
+              height: 96,
+              objectFit: 'contain',
+              marginBottom: 12,
+            }}
+          />
 
-            <h2 style={styles.heroTitle}>{BRAND.slogan}</h2>
-            <p style={styles.heroText}>
-              Acompanhe funcionários, obras, presença, status e movimentações em um painel único para sua rotina de construtora.
-            </p>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 26,
+              color: colors.primary,
+              letterSpacing: -0.6,
+            }}
+          >
+            {brand.name}
+          </h1>
 
-            <div style={styles.stats}>
-              <div style={styles.statCard}>
-                <span style={styles.statValue}>RH</span>
-                <span style={styles.statLabel}>cadastros e vínculos</span>
-              </div>
-              <div style={styles.statCard}>
-                <span style={styles.statValue}>Ponto</span>
-                <span style={styles.statLabel}>frequência por obra</span>
-              </div>
-              <div style={styles.statCard}>
-                <span style={styles.statValue}>Gestão</span>
-                <span style={styles.statLabel}>controle em tempo real</span>
-              </div>
-            </div>
-          </div>
-
-          <p style={styles.footerText}>
-            Sistema interno protegido por login individual. Cada conta acessa seus próprios dados no Supabase.
+          <p
+            style={{
+              margin: '6px 0 0',
+              color: colors.muted,
+              fontSize: 14,
+            }}
+          >
+            {brand.subtitle}
           </p>
-        </aside>
+        </div>
 
-        <section style={styles.formPanel}>
-          <div style={styles.card}>
-            <span style={styles.pill}>
-              {isSignup ? 'Novo acesso' : 'Acesso restrito'}
-            </span>
+        <div
+          style={{
+            display: 'flex',
+            background: '#F4EFE5',
+            borderRadius: 14,
+            padding: 4,
+            marginBottom: 22,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setMode('login');
+              setMessage(null);
+            }}
+            style={{
+              flex: 1,
+              border: 0,
+              borderRadius: 11,
+              padding: 10,
+              background: !isSignup ? colors.primary : 'transparent',
+              color: !isSignup ? '#FFFFFF' : colors.primary,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Entrar
+          </button>
 
-            <h2 style={styles.title}>
-              {isSignup ? 'Criar conta' : 'Entrar no painel'}
-            </h2>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('signup');
+              setMessage(null);
+            }}
+            style={{
+              flex: 1,
+              border: 0,
+              borderRadius: 11,
+              padding: 10,
+              background: isSignup ? colors.primary : 'transparent',
+              color: isSignup ? '#FFFFFF' : colors.primary,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Criar conta
+          </button>
+        </div>
 
-            <p style={styles.desc}>
-              {isSignup
-                ? 'Cadastre um e-mail e uma senha para acessar o Ponto ArcD.'
-                : 'Informe suas credenciais para continuar para o sistema.'}
-            </p>
+        <form onSubmit={handleSubmit}>
+          <label
+            htmlFor="email"
+            style={{
+              display: 'block',
+              fontSize: 13,
+              fontWeight: 700,
+              marginBottom: 6,
+              color: colors.text,
+            }}
+          >
+            E-mail
+          </label>
 
-            <form onSubmit={handleEmailAuth}>
-              <label style={styles.label} htmlFor="email">
-                E-mail
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seuemail@empresa.com"
-                style={styles.input}
-              />
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="seuemail@empresa.com"
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: '14px 13px',
+              borderRadius: 13,
+              border: `1px solid ${colors.border}`,
+              fontSize: 15,
+              marginBottom: 14,
+              outline: 'none',
+              background: '#FFFCF7',
+            }}
+          />
 
-              <label style={styles.label} htmlFor="password">
-                Senha
-              </label>
-              <div style={styles.passwordWrap}>
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete={isSignup ? 'new-password' : 'current-password'}
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="mínimo 6 caracteres"
-                  style={{ ...styles.input, paddingRight: 78 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  style={styles.showButton}
-                >
-                  {showPassword ? 'Ocultar' : 'Mostrar'}
-                </button>
-              </div>
+          <label
+            htmlFor="password"
+            style={{
+              display: 'block',
+              fontSize: 13,
+              fontWeight: 700,
+              marginBottom: 6,
+              color: colors.text,
+            }}
+          >
+            Senha
+          </label>
 
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  ...styles.primaryButton,
-                  opacity: loading ? 0.72 : 1,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {loading
-                  ? 'Processando...'
-                  : isSignup
-                    ? 'Criar minha conta'
-                    : 'Entrar no sistema'}
-              </button>
-            </form>
+          <div style={{ position: 'relative', marginBottom: 18 }}>
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete={isSignup ? 'new-password' : 'current-password'}
+              required
+              minLength={6}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="mínimo 6 caracteres"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '14px 76px 14px 13px',
+                borderRadius: 13,
+                border: `1px solid ${colors.border}`,
+                fontSize: 15,
+                outline: 'none',
+                background: '#FFFCF7',
+              }}
+            />
 
-            <button type="button" onClick={toggleMode} style={styles.secondaryButton}>
-              {isSignup
-                ? 'Já tenho conta. Fazer login'
-                : 'Não tenho conta. Criar conta'}
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                border: 0,
+                background: 'transparent',
+                color: colors.muted,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                padding: 7,
+              }}
+            >
+              {showPassword ? 'Ocultar' : 'Mostrar'}
             </button>
-
-            {message && (
-              <div
-                style={{
-                  ...styles.message,
-                  color: message.type === 'error' ? colors.error : colors.success,
-                  background: message.type === 'error' ? '#FFF0EE' : '#EEF8F2',
-                  border: `1px solid ${message.type === 'error' ? '#F2B8B5' : '#B8E2C8'}`,
-                }}
-              >
-                {message.text}
-              </div>
-            )}
-
-            <p style={styles.small}>
-              Acesso exclusivo por e-mail e senha. O login com Gmail/Google não foi incluído.
-            </p>
           </div>
-        </section>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              border: 0,
+              borderRadius: 14,
+              padding: 15,
+              background: colors.primary,
+              color: '#FFFFFF',
+              fontWeight: 800,
+              fontSize: 15,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.72 : 1,
+              boxShadow: '0 10px 24px rgba(0,0,0,0.18)',
+            }}
+          >
+            {loading
+              ? 'Processando...'
+              : isSignup
+                ? 'Criar conta'
+                : 'Entrar no sistema'}
+          </button>
+        </form>
+
+        {message && (
+          <div
+            style={{
+              marginTop: 16,
+              padding: 12,
+              borderRadius: 13,
+              fontSize: 13,
+              lineHeight: 1.45,
+              color: message.type === 'error' ? colors.error : colors.success,
+              background: message.type === 'error' ? '#FFF0EE' : '#EEF8F2',
+              border: `1px solid ${
+                message.type === 'error' ? '#F2B8B5' : '#B8E2C8'
+              }`,
+            }}
+          >
+            {message.text}
+          </div>
+        )}
+
+        <p
+          style={{
+            margin: '18px 0 0',
+            color: colors.muted,
+            fontSize: 12,
+            textAlign: 'center',
+            lineHeight: 1.45,
+          }}
+        >
+          Acesso exclusivo por e-mail e senha.
+        </p>
       </section>
     </main>
   );
