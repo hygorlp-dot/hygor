@@ -278,7 +278,7 @@ function NameScreen({onEnter}){
       <div style={{width:"100%",maxWidth:360}}>
         <div style={{textAlign:"center",marginBottom:32}}>
           <h1 style={{fontFamily:"'Bebas Neue'",fontSize:26,color:C.yellow,letterSpacing:6,textTransform:"uppercase",marginBottom:4}}>
-            ArcD Ponto PRO
+            ArcD Construtech
           </h1>
           <p style={{fontSize:12,color:C.muted,letterSpacing:1}}>Gestão de equipe em obras</p>
           <div style={{height:1,background:`linear-gradient(90deg,transparent,${C.yellow},transparent)`,marginTop:12}}/>
@@ -633,110 +633,411 @@ function Obras({data,update,showToast}){
 // ═══════════════════════════════════════════════════════════════════
 // EQUIPE
 // ═══════════════════════════════════════════════════════════════════
-function Equipe({data,update,showToast}){
-  const emptyEmp={id:"",name:"",role:"",cpf:"",phone:"",pixKey:"",dailyRate:"",vtDaily:"",vrDaily:"",obra:"",active:true,startDate:""};
-  const [modal,setModal]=useState(false);
-  const [advModal,setAdvModal]=useState(null);
-  const [form,setForm]=useState(emptyEmp);
-  const [search,setSearch]=useState("");
-  const [filterObra,setFilterObra]=useState("all");
-  const [expandedId,setExpandedId]=useState(null);
-  const [advForm,setAdvForm]=useState({amount:"",description:"",date:today()});
-  const F=k=>v=>setForm(f=>({...f,[k]:v}));
-
-  const saveEmp=()=>{
-    if(!form.name.trim()||!form.dailyRate){showToast("Nome e diária obrigatórios","error");return;}
-    const employees=form.id
-      ?data.employees.map(e=>e.id===form.id?{...form,dailyRate:parseFloat(form.dailyRate),vtDaily:parseFloat(form.vtDaily||0),vrDaily:parseFloat(form.vrDaily||0)}:e)
-      :[...data.employees,{...form,id:uid(),dailyRate:parseFloat(form.dailyRate),vtDaily:parseFloat(form.vtDaily||0),vrDaily:parseFloat(form.vrDaily||0)}];
-    update({...data,employees});setModal(false);showToast(form.id?"Atualizado!":"Cadastrado!");
+function Equipe({data,update,showToast}) {
+  const emptyEmp = {
+    id: "",
+    name: "",
+    role: "",
+    cpf: "",
+    phone: "",
+    pixKey: "",
+    dailyRate: "",
+    vtDaily: "",
+    vrDaily: "",
+    obra: "",
+    active: true,
+    startDate: "",
+    endDate: "",
+    terminationReason: "",
+    lastObra: "",
   };
-  const removeEmp=id=>{
-    const att={...data.attendance};delete att[id];
-    update({...data,employees:data.employees.filter(e=>e.id!==id),attendance:att,advances:(data.advances||[]).filter(a=>a.empId!==id)});
-    showToast("Removido.");
-  };
-  const saveAdv=()=>{
-    if(!advForm.amount||isNaN(advForm.amount)){showToast("Valor inválido","error");return;}
-    const advances=[...(data.advances||[]),{id:uid(),empId:advModal,date:advForm.date,amount:parseFloat(advForm.amount),description:advForm.description||"Adiantamento"}];
-    update({...data,advances});setAdvModal(null);setAdvForm({amount:"",description:"",date:today()});showToast("Adiantamento registrado!");
-  };
-  const removeAdv=id=>update({...data,advances:(data.advances||[]).filter(a=>a.id!==id)});
 
-  const list=data.employees.filter(e=>(filterObra==="all"||e.obra===filterObra)&&e.name.toLowerCase().includes(search.toLowerCase()));
-  const obraName=id=>data.obras.find(o=>o.id===id)?.name||"—";
-  const empAdvances=eid=>(data.advances||[]).filter(a=>a.empId===eid);
+  const [modal, setModal] = useState(false);
+  const [advModal, setAdvModal] = useState(null);
+  const [form, setForm] = useState(emptyEmp);
+  const [search, setSearch] = useState("");
+  const [filterObra, setFilterObra] = useState("all");
+  const [expandedId, setExpandedId] = useState(null);
+  const [advForm, setAdvForm] = useState({
+    amount: "",
+    description: "",
+    date: today(),
+  });
 
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:12}} className="anim">
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div><h2 style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:C.yellow}}>Equipe</h2>
-          <p style={{color:C.muted,fontSize:13}}>{data.employees.length} funcionários</p></div>
-        <Btn onClick={()=>{setForm({...emptyEmp,obra:data.obras[0]?.id||""});setModal(true)}}><Ic n="plus" s={16}/>Novo</Btn>
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+  const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
+  const empAdvances = eid => (data.advances || []).filter(a => a.empId === eid);
+
+  const saveEmp = () => {
+    if (!form.name.trim() || !form.dailyRate || !form.startDate || !form.obra) {
+      showToast("Nome, admissão, diária e obra são obrigatórios", "error");
+      return;
+    }
+
+    if (form.active === false && !form.endDate) {
+      showToast("Informe a data de término para inativar/demitir o funcionário", "error");
+      return;
+    }
+
+    const before = data.employees.find(e => e.id === form.id);
+
+    const payload = {
+      ...form,
+      id: form.id || uid(),
+      dailyRate: parseFloat(form.dailyRate) || 0,
+      vtDaily: parseFloat(form.vtDaily || 0) || 0,
+      vrDaily: parseFloat(form.vrDaily || 0) || 0,
+      active: form.active !== false,
+      endDate: form.active === false ? form.endDate : "",
+      terminationReason: form.active === false ? (form.terminationReason || "Inativado") : "",
+      lastObra: form.active === false ? (before?.obra || form.obra) : (form.lastObra || ""),
+    };
+
+    const changeLog = [...(data.changeLog || [])];
+
+    if (!form.id) {
+      changeLog.push({
+        id: uid(),
+        date: today(),
+        type: "created",
+        empId: payload.id,
+        empName: payload.name,
+        message: `Funcionário cadastrado em ${today()}`,
+      });
+    }
+
+    if (before && before.obra !== payload.obra) {
+      const from = obraName(before.obra);
+      const to = obraName(payload.obra);
+
+      changeLog.push({
+        id: uid(),
+        date: today(),
+        empId: payload.id,
+        empName: payload.name,
+        type: "transfer",
+        from,
+        to,
+        message: `${payload.name} transferido de ${from} para ${to}`,
+      });
+    }
+
+    if (before && before.active !== false && payload.active === false) {
+      changeLog.push({
+        id: uid(),
+        date: payload.endDate || today(),
+        empId: payload.id,
+        empName: payload.name,
+        type: "dismissal",
+        from: obraName(before.obra),
+        message: `${payload.name} inativado/demitido em ${payload.endDate}`,
+      });
+    }
+
+    const employees = form.id
+      ? data.employees.map(e => e.id === form.id ? payload : e)
+      : [...data.employees, payload];
+
+    update({ ...data, employees, changeLog });
+    setModal(false);
+    showToast(form.id ? "Funcionário atualizado!" : "Funcionário cadastrado!");
+  };
+
+  const archiveEmp = id => {
+    const emp = data.employees.find(e => e.id === id);
+    if (!emp) return;
+
+    const ok = window.confirm(
+      `Deseja inativar ${emp.name}? O histórico de ponto, folha e adiantamentos será preservado.`
+    );
+
+    if (!ok) return;
+
+    const endDate = window.prompt("Informe a data de término no formato AAAA-MM-DD:", today());
+
+    if (!endDate) {
+      showToast("Data de término obrigatória para inativar", "error");
+      return;
+    }
+
+    const employees = data.employees.map(e =>
+      e.id === id
+        ? {
+            ...e,
+            active: false,
+            endDate,
+            terminationReason: "Inativado",
+            lastObra: e.obra,
+          }
+        : e
+    );
+
+    const changeLog = [
+      ...(data.changeLog || []),
+      {
+        id: uid(),
+        date: endDate,
+        empId: emp.id,
+        empName: emp.name,
+        type: "dismissal",
+        from: obraName(emp.obra),
+        message: `${emp.name} foi inativado em ${endDate}`,
+      },
+    ];
+
+    update({ ...data, employees, changeLog });
+    showToast("Funcionário inativado com histórico preservado.");
+  };
+
+  const saveAdv = () => {
+    if (!advForm.amount || isNaN(advForm.amount)) {
+      showToast("Valor inválido", "error");
+      return;
+    }
+
+    const advances = [
+      ...(data.advances || []),
+      {
+        id: uid(),
+        empId: advModal,
+        date: advForm.date,
+        amount: parseFloat(advForm.amount),
+        description: advForm.description || "Adiantamento",
+      },
+    ];
+
+    update({ ...data, advances });
+    setAdvModal(null);
+    setAdvForm({ amount: "", description: "", date: today() });
+    showToast("Adiantamento registrado!");
+  };
+
+  const removeAdv = id => {
+    update({
+      ...data,
+      advances: (data.advances || []).filter(a => a.id !== id),
+    });
+  };
+
+  const list = data.employees.filter(e =>
+    (filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra) &&
+    (e.name || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }} className="anim">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 28, letterSpacing: 2, color: C.yellow }}>
+            Equipe
+          </h2>
+          <p style={{ color: C.muted, fontSize: 13 }}>
+            {data.employees.length} funcionários cadastrados
+          </p>
+        </div>
+
+        <Btn onClick={() => {
+          setForm({ ...emptyEmp, obra: data.obras[0]?.id || "" });
+          setModal(true);
+        }}>
+          <Ic n="plus" s={16} />
+          Novo
+        </Btn>
       </div>
-      <Inp value={search} onChange={setSearch} placeholder="🔍 Buscar por nome..."/>
-      <Sel value={filterObra} onChange={setFilterObra}
-        options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
 
-      {list.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:C.muted}}><div style={{fontSize:36,marginBottom:8}}>👷</div><p>Nenhum funcionário encontrado.</p></div>}
+      <Inp value={search} onChange={setSearch} placeholder=" Buscar por nome..." />
 
-      {list.map(e=>{
-        const advs=empAdvances(e.id);
-        const totalAdv=advs.reduce((s,a)=>s+(a.amount||0),0);
-        const exp=expandedId===e.id;
-        return(
-          <div key={e.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${e.active===false?C.muted:C.yellow}`}}>
-            <div style={{padding:"13px 15px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                <div style={{flex:1,cursor:"pointer"}} onClick={()=>setExpandedId(exp?null:e.id)}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                    <span style={{fontFamily:"'Barlow Condensed'",fontWeight:800,fontSize:17}}>{e.name}</span>
-                    {e.active===false&&<Badge color={C.muted}>Inativo</Badge>}
-                    {e.role&&<Badge color={C.subtle}>{e.role}</Badge>}
+      <Sel
+        value={filterObra}
+        onChange={setFilterObra}
+        options={[
+          { v: "all", l: "Todas as obras" },
+          ...data.obras.map(o => ({ v: o.id, l: o.name })),
+        ]}
+      />
+
+      {list.length === 0 && (
+        <div style={{ textAlign: "center", padding: "40px 0", color: C.muted }}>
+          <div style={{ fontSize: 36, marginBottom: 8 }}></div>
+          <p>Nenhum funcionário encontrado.</p>
+        </div>
+      )}
+
+      {list.map(e => {
+        const advs = empAdvances(e.id);
+        const totalAdv = advs.reduce((s, a) => s + (a.amount || 0), 0);
+        const exp = expandedId === e.id;
+
+        return (
+          <div
+            key={e.id}
+            style={{
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              borderLeft: `4px solid ${e.active === false ? C.muted : C.yellow}`,
+            }}
+          >
+            <div style={{ padding: "13px 15px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setExpandedId(exp ? null : e.id)}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 17 }}>
+                      {e.name}
+                    </span>
+
+                    {e.active === false && <Badge color={C.muted}>Inativo</Badge>}
+                    {e.role && <Badge color={C.subtle}>{e.role}</Badge>}
                   </div>
-                  <p style={{fontSize:12,color:C.muted,marginTop:2}}>{obraName(e.obra)}</p>
-                  <div style={{display:"flex",gap:10,marginTop:4,flexWrap:"wrap"}}>
-                    <span style={{fontSize:14,color:C.yellow,fontWeight:700}}>{fmt(e.dailyRate)}<span style={{fontSize:10,color:C.muted,fontWeight:400}}>/dia</span></span>
-                    {(e.vtDaily>0)&&<span style={{fontSize:12,color:C.blue}}>VT: {fmt(e.vtDaily)}</span>}
-                    {(e.vrDaily>0)&&<span style={{fontSize:12,color:C.green}}>VR: {fmt(e.vrDaily)}</span>}
-                    {totalAdv>0&&<span style={{fontSize:12,color:C.red}}>Adiant: {fmt(totalAdv)}</span>}
+
+                  <p style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                    {obraName(e.obra)}
+                  </p>
+
+                  <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 14, color: C.yellow, fontWeight: 700 }}>
+                      {fmt(e.dailyRate)}
+                      <span style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>/dia</span>
+                    </span>
+
+                    {e.vtDaily > 0 && <span style={{ fontSize: 12, color: C.blue }}>VT: {fmt(e.vtDaily)}</span>}
+                    {e.vrDaily > 0 && <span style={{ fontSize: 12, color: C.green }}>VR: {fmt(e.vrDaily)}</span>}
+                    {totalAdv > 0 && <span style={{ fontSize: 12, color: C.red }}>Adiant: {fmt(totalAdv)}</span>}
                   </div>
                 </div>
-                <div style={{display:"flex",gap:5}}>
-                  <Btn onClick={()=>{setForm({...e,dailyRate:String(e.dailyRate),vtDaily:String(e.vtDaily||0),vrDaily:String(e.vrDaily||0)});setModal(true)}} v="ghost" size="sm"><Ic n="edit" s={13}/></Btn>
-                  <Btn onClick={()=>removeEmp(e.id)} v="danger" size="sm"><Ic n="trash" s={13}/></Btn>
+
+                <div style={{ display: "flex", gap: 5 }}>
+                  <Btn
+                    onClick={() => {
+                      setForm({
+                        ...e,
+                        dailyRate: String(e.dailyRate),
+                        vtDaily: String(e.vtDaily || 0),
+                        vrDaily: String(e.vrDaily || 0),
+                        endDate: e.endDate || "",
+                        terminationReason: e.terminationReason || "",
+                        lastObra: e.lastObra || "",
+                      });
+                      setModal(true);
+                    }}
+                    v="ghost"
+                    size="sm"
+                  >
+                    <Ic n="edit" s={13} />
+                  </Btn>
+
+                  <Btn onClick={() => archiveEmp(e.id)} v="danger" size="sm">
+                    <Ic n="x" s={13} />
+                  </Btn>
                 </div>
               </div>
             </div>
-            {exp&&(
-              <div style={{borderTop:`1px solid ${C.border}`,padding:"12px 15px",background:C.surface}}>
-                {e.phone&&<p style={{fontSize:12,color:C.subtle,marginBottom:4}}><Ic n="phone" s={12}/> {e.phone}</p>}
-                {e.cpf&&<p style={{fontSize:12,color:C.subtle,marginBottom:4}}>CPF: {e.cpf}</p>}
-                {e.pixKey&&<p style={{fontSize:12,color:C.subtle,marginBottom:4}}>PIX: {e.pixKey}</p>}
-                {e.startDate&&<p style={{fontSize:12,color:C.subtle,marginBottom:8}}>Admissão: {fmtDate(e.startDate)}</p>}
-                <Divider/>
-                {/* Quick Transfer */}
-                <div style={{marginBottom:12}}>
-                  <p style={{fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Transferência Rápida</p>
-                  <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
-                    <div style={{flex:1}}>
-                      <Sel value="" onChange={v=>{ if(!v)return; const changeLog=[...(data.changeLog||[])]; changeLog.push({id:uid(),date:today(),empId:e.id,empName:e.name,type:"transfer",from:obraName(e.obra),to:data.obras.find(o=>o.id===v)?.name||"?"}); update({...data,employees:data.employees.map(emp=>emp.id===e.id?{...emp,obra:v}:emp),changeLog}); showToast(`${e.name} transferido!`); setExpandedId(null); }}
-                        options={[{v:"",l:"→ Transferir para..."}, ...data.obras.filter(o=>o.id!==e.obra&&o.status!=="done").map(o=>({v:o.id,l:o.name}))]}/>
+
+            {exp && (
+              <div style={{ borderTop: `1px solid ${C.border}`, padding: "12px 15px", background: C.surface }}>
+                {e.phone && <p style={{ fontSize: 12, color: C.subtle, marginBottom: 4 }}><Ic n="phone" s={12} /> {e.phone}</p>}
+                {e.cpf && <p style={{ fontSize: 12, color: C.subtle, marginBottom: 4 }}>CPF: {e.cpf}</p>}
+                {e.pixKey && <p style={{ fontSize: 12, color: C.subtle, marginBottom: 4 }}>PIX: {e.pixKey}</p>}
+                {e.startDate && <p style={{ fontSize: 12, color: C.subtle, marginBottom: 4 }}>Admissão: {fmtDate(e.startDate)}</p>}
+                {e.endDate && <p style={{ fontSize: 12, color: C.red, marginBottom: 8 }}>Término: {fmtDate(e.endDate)}</p>}
+
+                {e.active !== false && (
+                  <>
+                    <Divider />
+
+                    <div style={{ marginBottom: 12 }}>
+                      <p style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: C.yellow,
+                        textTransform: "uppercase",
+                        letterSpacing: .5,
+                        marginBottom: 8,
+                      }}>
+                        Transferência Rápida
+                      </p>
+
+                      <Sel
+                        value=""
+                        onChange={v => {
+                          if (!v) return;
+
+                          const from = obraName(e.obra);
+                          const to = data.obras.find(o => o.id === v)?.name || "?";
+
+                          const changeLog = [
+                            ...(data.changeLog || []),
+                            {
+                              id: uid(),
+                              date: today(),
+                              empId: e.id,
+                              empName: e.name,
+                              type: "transfer",
+                              from,
+                              to,
+                              message: `${e.name} transferido de ${from} para ${to}`,
+                            },
+                          ];
+
+                          update({
+                            ...data,
+                            employees: data.employees.map(emp =>
+                              emp.id === e.id
+                                ? { ...emp, obra: v, lastObra: emp.obra }
+                                : emp
+                            ),
+                            changeLog,
+                          });
+
+                          showToast(`${e.name} transferido!`);
+                          setExpandedId(null);
+                        }}
+                        options={[
+                          { v: "", l: "→ Transferir para..." },
+                          ...data.obras
+                            .filter(o => o.id !== e.obra && o.status !== "done")
+                            .map(o => ({ v: o.id, l: o.name })),
+                        ]}
+                      />
                     </div>
-                  </div>
+                  </>
+                )}
+
+                <Divider />
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: .5 }}>
+                    Adiantamentos
+                  </span>
+
+                  <Btn onClick={() => setAdvModal(e.id)} v="warning" size="sm">
+                    <Ic n="plus" s={12} />
+                    Novo
+                  </Btn>
                 </div>
-                <Divider/>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                  <span style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>Adiantamentos</span>
-                  <Btn onClick={()=>setAdvModal(e.id)} v="warning" size="sm"><Ic n="plus" s={12}/>Novo</Btn>
-                </div>
-                {advs.length===0&&<p style={{fontSize:12,color:C.muted}}>Nenhum adiantamento.</p>}
-                {advs.map(a=>(
-                  <div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
-                    <div><p style={{fontSize:13,fontWeight:600}}>{a.description}</p><p style={{fontSize:11,color:C.muted}}>{fmtDate(a.date)}</p></div>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{color:C.red,fontWeight:700,fontSize:14}}>{fmt(a.amount)}</span>
-                      <Btn onClick={()=>removeAdv(a.id)} v="danger" size="sm"><Ic n="trash" s={12}/></Btn>
+
+                {advs.length === 0 && <p style={{ fontSize: 12, color: C.muted }}>Nenhum adiantamento.</p>}
+
+                {advs.map(a => (
+                  <div
+                    key={a.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "6px 0",
+                      borderBottom: `1px solid ${C.border}`,
+                    }}
+                  >
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600 }}>{a.description}</p>
+                      <p style={{ fontSize: 11, color: C.muted }}>{fmtDate(a.date)}</p>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ color: C.red, fontWeight: 700, fontSize: 14 }}>{fmt(a.amount)}</span>
+                      <Btn onClick={() => removeAdv(a.id)} v="danger" size="sm">
+                        <Ic n="trash" s={12} />
+                      </Btn>
                     </div>
                   </div>
                 ))}
@@ -746,37 +1047,107 @@ function Equipe({data,update,showToast}){
         );
       })}
 
-      {modal&&(
-        <Modal title={form.id?"Editar Funcionário":"Novo Funcionário"} onClose={()=>setModal(false)} wide>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <div style={{gridColumn:"1/-1"}}><Inp label="Nome Completo *" value={form.name} onChange={F("name")} placeholder="João da Silva"/></div>
-            <Inp label="Cargo / Função" value={form.role} onChange={F("role")} placeholder="Pedreiro"/>
-            <Inp label="Admissão" type="date" value={form.startDate} onChange={F("startDate")}/>
-            <Inp label="Diária (R$) *" type="number" value={form.dailyRate} onChange={F("dailyRate")} placeholder="180.00"/>
-            <div style={{gridColumn:"1/-1"}}><Sel label="Obra *" value={form.obra} onChange={F("obra")} options={data.obras.map(o=>({v:o.id,l:o.name}))}/></div>
-            <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} placeholder="0.00"/>
-            <Inp label="VR/VA diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} placeholder="0.00"/>
-            <Inp label="CPF" value={form.cpf} onChange={v=>F("cpf")(fmtCPF(v))} placeholder="000.000.000-00"/>
-            <Inp label="Telefone" value={form.phone} onChange={v=>F("phone")(fmtPhone(v))} placeholder="(00) 00000-0000"/>
-            <div style={{gridColumn:"1/-1"}}><Inp label="Chave PIX" value={form.pixKey} onChange={F("pixKey")} placeholder="CPF, e-mail ou telefone"/></div>
-            <Sel label="Status" value={String(form.active!==false)} onChange={v=>F("active")(v==="true")}
-              options={[{v:"true",l:"Ativo"},{v:"false",l:"Inativo"}]}/>
+      {modal && (
+        <Modal title={form.id ? "Editar Funcionário" : "Novo Funcionário"} onClose={() => setModal(false)} wide>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ gridColumn: "1/-1" }}>
+              <Inp label="Nome Completo *" value={form.name} onChange={F("name")} placeholder="João da Silva" />
+            </div>
+
+            <Inp label="Cargo / Função" value={form.role} onChange={F("role")} placeholder="Pedreiro" />
+            <Inp label="Admissão *" type="date" value={form.startDate} onChange={F("startDate")} />
+            <Inp label="Diária (R$) *" type="number" value={form.dailyRate} onChange={F("dailyRate")} placeholder="180.00" />
+
+            <div style={{ gridColumn: "1/-1" }}>
+              <Sel
+                label="Obra *"
+                value={form.obra}
+                onChange={F("obra")}
+                options={data.obras.map(o => ({ v: o.id, l: o.name }))}
+              />
+            </div>
+
+            <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} placeholder="0.00" />
+            <Inp label="VR/VA diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} placeholder="0.00" />
+            <Inp label="CPF" value={form.cpf} onChange={v => F("cpf")(fmtCPF(v))} placeholder="000.000.000-00" />
+            <Inp label="Telefone" value={form.phone} onChange={v => F("phone")(fmtPhone(v))} placeholder="(00) 00000-0000" />
+
+            <div style={{ gridColumn: "1/-1" }}>
+              <Inp label="Chave PIX" value={form.pixKey} onChange={F("pixKey")} placeholder="CPF, e-mail ou telefone" />
+            </div>
+
+            <Sel
+              label="Status"
+              value={String(form.active !== false)}
+              onChange={v => F("active")(v === "true")}
+              options={[
+                { v: "true", l: "Ativo" },
+                { v: "false", l: "Inativo / Demitido" },
+              ]}
+            />
+
+            {form.active === false && (
+              <>
+                <Inp
+                  label="Data de término *"
+                  type="date"
+                  value={form.endDate}
+                  onChange={F("endDate")}
+                />
+
+                <div style={{ gridColumn: "1/-1" }}>
+                  <Inp
+                    label="Motivo da inativação"
+                    value={form.terminationReason}
+                    onChange={F("terminationReason")}
+                    placeholder="Ex.: Demitido, fim de contrato, desligamento..."
+                  />
+                </div>
+              </>
+            )}
           </div>
-          <div style={{display:"flex",gap:8,marginTop:16}}>
-            <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
-            <Btn onClick={saveEmp} full><Ic n="check" s={16}/>{form.id?"Salvar":"Cadastrar"}</Btn>
+
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
+            <Btn onClick={saveEmp} full>
+              <Ic n="check" s={16} />
+              {form.id ? "Salvar" : "Cadastrar"}
+            </Btn>
           </div>
         </Modal>
       )}
-      {advModal&&(
-        <Modal title="Novo Adiantamento" onClose={()=>setAdvModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <Inp label="Valor (R$) *" type="number" value={advForm.amount} onChange={v=>setAdvForm(f=>({...f,amount:v}))} placeholder="500.00"/>
-            <Inp label="Descrição" value={advForm.description} onChange={v=>setAdvForm(f=>({...f,description:v}))} placeholder="Adiantamento de quinzena"/>
-            <Inp label="Data" type="date" value={advForm.date} onChange={v=>setAdvForm(f=>({...f,date:v}))}/>
-            <div style={{display:"flex",gap:8,marginTop:6}}>
-              <Btn v="ghost" onClick={()=>setAdvModal(null)} full>Cancelar</Btn>
-              <Btn v="warning" onClick={saveAdv} full><Ic n="check" s={16}/>Registrar</Btn>
+
+      {advModal && (
+        <Modal title="Novo Adiantamento" onClose={() => setAdvModal(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Inp
+              label="Valor (R$) *"
+              type="number"
+              value={advForm.amount}
+              onChange={v => setAdvForm(f => ({ ...f, amount: v }))}
+              placeholder="500.00"
+            />
+
+            <Inp
+              label="Descrição"
+              value={advForm.description}
+              onChange={v => setAdvForm(f => ({ ...f, description: v }))}
+              placeholder="Adiantamento de quinzena"
+            />
+
+            <Inp
+              label="Data"
+              type="date"
+              value={advForm.date}
+              onChange={v => setAdvForm(f => ({ ...f, date: v }))}
+            />
+
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <Btn v="ghost" onClick={() => setAdvModal(null)} full>Cancelar</Btn>
+              <Btn v="warning" onClick={saveAdv} full>
+                <Ic n="check" s={16} />
+                Registrar
+              </Btn>
             </div>
           </div>
         </Modal>
@@ -784,122 +1155,336 @@ function Equipe({data,update,showToast}){
     </div>
   );
 }
-
 // ═══════════════════════════════════════════════════════════════════
 // PONTO
 // ═══════════════════════════════════════════════════════════════════
-function Ponto({data,update,showToast,onDailyCheck}){
-  const [selDate,setSelDate]=useState(today());
-  const [filterObra,setFilterObra]=useState("all");
-  const [noteModal,setNoteModal]=useState(null);
-  const [noteText,setNoteText]=useState("");
-  const [otModal,setOtModal]=useState(null);
-  const [otHours,setOtHours]=useState("0");
+function Ponto({data,update,showToast,onDailyCheck}) {
+  const [selDate, setSelDate] = useState(today());
+  const [filterObra, setFilterObra] = useState("all");
+  const [noteModal, setNoteModal] = useState(null);
+  const [noteText, setNoteText] = useState("");
+  const [otModal, setOtModal] = useState(null);
+  const [otHours, setOtHours] = useState("0");
 
-  // Auto-trigger daily check if not done today
-  useEffect(()=>{
-    const t=today();
-    const hasEmps=data.employees.filter(e=>e.active!==false).length>0;
-    if(hasEmps && data.dailyCheckDate!==t){
+  const dailyCheckPending =
+    selDate === today() &&
+    data.employees.filter(e => e.active !== false).length > 0 &&
+    data.dailyCheckDate !== today();
+
+  const requireDailyCheck = () => {
+    if (!dailyCheckPending) return false;
+
+    onDailyCheck();
+    showToast(
+      "Antes de lançar o ponto, confirme se algum trabalhador foi transferido ou demitido.",
+      "warn"
+    );
+
+    return true;
+  };
+
+  useEffect(() => {
+    if (dailyCheckPending) {
       onDailyCheck();
     }
-  },[]);
+  }, [dailyCheckPending]);
 
-  const setAtt=(eid,status)=>{
-    const prev=getAtt(data,eid,selDate)||{status:null,ot:0,note:""};
-    const v=prev.status===status?null:status;
-    update({...data,attendance:{...data.attendance,[eid]:{...(data.attendance[eid]||{}),[selDate]:{...prev,status:v}}}});
-  };
-  const saveNote=()=>{
-    const prev=getAtt(data,noteModal,selDate)||{status:null,ot:0,note:""};
-    update({...data,attendance:{...data.attendance,[noteModal]:{...(data.attendance[noteModal]||{}),[selDate]:{...prev,note:noteText}}}});
-    setNoteModal(null);showToast("Observação salva!");
-  };
-  const saveOT=()=>{
-    const prev=getAtt(data,otModal,selDate)||{status:null,ot:0,note:""};
-    update({...data,attendance:{...data.attendance,[otModal]:{...(data.attendance[otModal]||{}),[selDate]:{...prev,ot:parseFloat(otHours)||0}}}});
-    setOtModal(null);showToast("Hora extra registrada!");
-  };
-  const markAll=status=>{
-    const att={...data.attendance};
-    list.forEach(e=>{att[e.id]={...(att[e.id]||{}),[selDate]:{...(getAtt(data,e.id,selDate)||{}),status}};});
-    update({...data,attendance:att});showToast("Ponto marcado para todos!");
+  const list = data.employees.filter(e =>
+    (filterObra === "all" || e.obra === filterObra) &&
+    e.active !== false
+  );
+
+  const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
+
+  const setAtt = (eid, status) => {
+    if (requireDailyCheck()) return;
+
+    const prev = getAtt(data, eid, selDate) || { status: null, ot: 0, note: "" };
+    const v = prev.status === status ? null : status;
+
+    update({
+      ...data,
+      attendance: {
+        ...data.attendance,
+        [eid]: {
+          ...(data.attendance[eid] || {}),
+          [selDate]: {
+            ...prev,
+            status: v,
+          },
+        },
+      },
+    });
   };
 
-  const list=data.employees.filter(e=>(filterObra==="all"||e.obra===filterObra)&&e.active!==false);
-  const counts={P:0,M:0,F:0};
-  list.forEach(e=>{const s=attStatus(data,e.id,selDate);if(s)counts[s]=(counts[s]||0)+1;});
-  const semReg=list.length-counts.P-counts.M-counts.F;
-  const obraName=id=>data.obras.find(o=>o.id===id)?.name||"—";
+  const saveNote = () => {
+    if (requireDailyCheck()) return;
 
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:12}} className="anim">
-      <div><h2 style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:C.yellow}}>Registro de Ponto</h2>
-        <p style={{color:C.muted,fontSize:13}}>Marque a presença diária</p></div>
-      <Inp label="Data" type="date" value={selDate} onChange={setSelDate} max={today()}/>
-      <Sel value={filterObra} onChange={setFilterObra}
-        options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
-        {[["P",counts.P,C.green,"Pres."],["–",semReg,C.muted,"S/reg"],["M",counts.M,C.yellow,"½dia"],["F",counts.F,C.red,"Falta"]].map(([k,n,c,l])=>(
-          <div key={k} style={{background:C.card,border:`1px solid ${c}44`,borderTop:`3px solid ${c}`,padding:"8px",textAlign:"center"}}>
-            <p style={{fontSize:22,fontWeight:900,fontFamily:"'Bebas Neue'",color:c,letterSpacing:1}}>{n}</p>
-            <p style={{fontSize:10,color:C.muted}}>{l}</p>
+    const prev = getAtt(data, noteModal, selDate) || { status: null, ot: 0, note: "" };
+
+    update({
+      ...data,
+      attendance: {
+        ...data.attendance,
+        [noteModal]: {
+          ...(data.attendance[noteModal] || {}),
+          [selDate]: {
+            ...prev,
+            note: noteText,
+          },
+        },
+      },
+    });
+
+    setNoteModal(null);
+    showToast("Observação salva!");
+  };
+
+  const saveOT = () => {
+    if (requireDailyCheck()) return;
+
+    const prev = getAtt(data, otModal, selDate) || { status: null, ot: 0, note: "" };
+
+    update({
+      ...data,
+      attendance: {
+        ...data.attendance,
+        [otModal]: {
+          ...(data.attendance[otModal] || {}),
+          [selDate]: {
+            ...prev,
+            ot: parseFloat(otHours) || 0,
+          },
+        },
+      },
+    });
+
+    setOtModal(null);
+    showToast("Hora extra registrada!");
+  };
+
+  const markAll = status => {
+    if (requireDailyCheck()) return;
+
+    const att = { ...data.attendance };
+
+    list.forEach(e => {
+      att[e.id] = {
+        ...(att[e.id] || {}),
+        [selDate]: {
+          ...(getAtt(data, e.id, selDate) || {}),
+          status,
+        },
+      };
+    });
+
+    update({ ...data, attendance: att });
+    showToast("Ponto marcado para todos!");
+  };
+
+  const counts = { P: 0, M: 0, F: 0 };
+
+  list.forEach(e => {
+    const s = attStatus(data, e.id, selDate);
+    if (s) counts[s] = (counts[s] || 0) + 1;
+  });
+
+  const semReg = list.length - counts.P - counts.M - counts.F;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }} className="anim">
+      <div>
+        <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 28, letterSpacing: 2, color: C.yellow }}>
+          Registro de Ponto
+        </h2>
+        <p style={{ color: C.muted, fontSize: 13 }}>
+          Marque a presença diária
+        </p>
+      </div>
+
+      <Inp label="Data" type="date" value={selDate} onChange={setSelDate} max={today()} />
+
+      {dailyCheckPending && (
+        <button
+          onClick={onDailyCheck}
+          style={{
+            background: `${C.yellow}18`,
+            border: `1.5px solid ${C.yellow}`,
+            borderLeft: `4px solid ${C.yellow}`,
+            color: C.yellow,
+            padding: "12px 14px",
+            textAlign: "left",
+            cursor: "pointer",
+            fontFamily: "'Barlow Condensed'",
+            fontWeight: 800,
+            letterSpacing: .5,
+            textTransform: "uppercase",
+          }}
+        >
+          Verificação obrigatória pendente: confirme se houve transferência ou demissão antes de lançar o ponto.
+        </button>
+      )}
+
+      <Sel
+        value={filterObra}
+        onChange={setFilterObra}
+        options={[
+          { v: "all", l: "Todas as obras" },
+          ...data.obras.map(o => ({ v: o.id, l: o.name })),
+        ]}
+      />
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6 }}>
+        {[
+          ["P", counts.P, C.green, "Pres."],
+          ["–", semReg, C.muted, "S/reg"],
+          ["M", counts.M, C.yellow, "½dia"],
+          ["F", counts.F, C.red, "Falta"],
+        ].map(([k, n, c, l]) => (
+          <div
+            key={k}
+            style={{
+              background: C.card,
+              border: `1px solid ${c}44`,
+              borderTop: `3px solid ${c}`,
+              padding: "8px",
+              textAlign: "center",
+            }}
+          >
+            <p style={{ fontSize: 22, fontWeight: 900, fontFamily: "'Bebas Neue'", color: c, letterSpacing: 1 }}>
+              {n}
+            </p>
+            <p style={{ fontSize: 10, color: C.muted }}>{l}</p>
           </div>
         ))}
       </div>
-      <div style={{display:"flex",gap:8}}>
-        <Btn onClick={()=>markAll("P")} v="success" size="sm" full><Ic n="check" s={14}/>Todos Presentes</Btn>
-        <Btn onClick={()=>markAll("F")} v="danger" size="sm" full><Ic n="x" s={14}/>Todos com Falta</Btn>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <Btn onClick={() => markAll("P")} v="success" size="sm" full>
+          <Ic n="check" s={14} />
+          Todos Presentes
+        </Btn>
+
+        <Btn onClick={() => markAll("F")} v="danger" size="sm" full>
+          <Ic n="x" s={14} />
+          Todos com Falta
+        </Btn>
       </div>
-      {list.map(e=>{
-        const att=getAtt(data,e.id,selDate);
-        const status=att?.status;
-        const ot=att?.ot||0;
-        const note=att?.note||"";
-        const borderCol=status==="P"?C.green:status==="M"?C.yellow:status==="F"?C.red:C.border;
-        return(
-          <div key={e.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${borderCol}`,padding:"12px 13px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:9}}>
+
+      {list.map(e => {
+        const att = getAtt(data, e.id, selDate);
+        const status = att?.status;
+        const ot = att?.ot || 0;
+        const note = att?.note || "";
+        const borderCol = status === "P" ? C.green : status === "M" ? C.yellow : status === "F" ? C.red : C.border;
+
+        return (
+          <div
+            key={e.id}
+            style={{
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              borderLeft: `4px solid ${borderCol}`,
+              padding: "12px 13px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 9 }}>
               <div>
-                <p style={{fontFamily:"'Barlow Condensed'",fontWeight:800,fontSize:16,letterSpacing:.3}}>{e.name}</p>
-                <p style={{fontSize:11,color:C.muted}}>{obraName(e.obra)}{e.role?` · ${e.role}`:""}</p>
-                {ot>0&&<Badge color={C.purple}>{ot}h extra</Badge>}
-                {note&&<p style={{fontSize:11,color:C.subtle,marginTop:2,fontStyle:"italic"}}>"{note}"</p>}
+                <p style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 16, letterSpacing: .3 }}>
+                  {e.name}
+                </p>
+
+                <p style={{ fontSize: 11, color: C.muted }}>
+                  {obraName(e.obra)}
+                  {e.role ? ` · ${e.role}` : ""}
+                </p>
+
+                {ot > 0 && <Badge color={C.purple}>{ot}h extra</Badge>}
+                {note && <p style={{ fontSize: 11, color: C.subtle, marginTop: 2, fontStyle: "italic" }}>"{note}"</p>}
               </div>
-              <div style={{display:"flex",gap:5}}>
-                {status==="P"&&<Btn onClick={()=>{setOtModal(e.id);setOtHours(String(ot));}} v="ghost" size="sm"><Ic n="clock" s={12}/>+HE</Btn>}
-                <Btn onClick={()=>{setNoteModal(e.id);setNoteText(note);}} v="ghost" size="sm"><Ic n="edit" s={12}/></Btn>
+
+              <div style={{ display: "flex", gap: 5 }}>
+                {status === "P" && (
+                  <Btn onClick={() => { setOtModal(e.id); setOtHours(String(ot)); }} v="ghost" size="sm">
+                    <Ic n="clock" s={12} />
+                    +HE
+                  </Btn>
+                )}
+
+                <Btn onClick={() => { setNoteModal(e.id); setNoteText(note); }} v="ghost" size="sm">
+                  <Ic n="edit" s={12} />
+                </Btn>
               </div>
             </div>
-            <div style={{display:"flex",gap:5}}>
-              {[["P","check",C.green,"PRESENTE"],["M","money",C.yellow,"MEIO DIA"],["F","x",C.red,"FALTA"]].map(([s,ic,col,lbl])=>(
-                <button key={s} onClick={()=>setAtt(e.id,s)} style={{
-                  flex:1,padding:"8px 4px",border:`2px solid ${status===s?col:C.border}`,
-                  background:status===s?col+"22":"transparent",color:status===s?col:C.muted,
-                  cursor:"pointer",fontSize:11,fontWeight:800,display:"flex",flexDirection:"column",
-                  alignItems:"center",gap:2,fontFamily:"'Barlow Condensed'",transition:"all .15s",
-                }}>
-                  <Ic n={ic} s={14}/>{lbl}
+
+            <div style={{ display: "flex", gap: 5 }}>
+              {[
+                ["P", "check", C.green, "PRESENTE"],
+                ["M", "money", C.yellow, "MEIO DIA"],
+                ["F", "x", C.red, "FALTA"],
+              ].map(([s, ic, col, lbl]) => (
+                <button
+                  key={s}
+                  onClick={() => setAtt(e.id, s)}
+                  style={{
+                    flex: 1,
+                    padding: "8px 4px",
+                    border: `2px solid ${status === s ? col : C.border}`,
+                    background: status === s ? col + "22" : "transparent",
+                    color: status === s ? col : C.muted,
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 2,
+                    fontFamily: "'Barlow Condensed'",
+                    transition: "all .15s",
+                  }}
+                >
+                  <Ic n={ic} s={14} />
+                  {lbl}
                 </button>
               ))}
             </div>
           </div>
         );
       })}
-      {noteModal&&<Modal title="Observação" onClose={()=>setNoteModal(null)}>
-        <Inp label="Observação" value={noteText} onChange={setNoteText} placeholder="Ex: Saiu mais cedo..."/>
-        <div style={{display:"flex",gap:8,marginTop:12}}>
-          <Btn v="ghost" onClick={()=>setNoteModal(null)} full>Cancelar</Btn>
-          <Btn onClick={saveNote} full><Ic n="check" s={16}/>Salvar</Btn>
-        </div>
-      </Modal>}
-      {otModal&&<Modal title="Horas Extras" onClose={()=>setOtModal(null)}>
-        <Inp label="Quantidade de horas" type="number" value={otHours} onChange={setOtHours} placeholder="Ex: 2.5"/>
-        <div style={{display:"flex",gap:8,marginTop:12}}>
-          <Btn v="ghost" onClick={()=>setOtModal(null)} full>Cancelar</Btn>
-          <Btn onClick={saveOT} full v="info"><Ic n="check" s={16}/>Registrar</Btn>
-        </div>
-      </Modal>}
+
+      {noteModal && (
+        <Modal title="Observação" onClose={() => setNoteModal(null)}>
+          <Inp label="Observação" value={noteText} onChange={setNoteText} placeholder="Ex: Saiu mais cedo..." />
+
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <Btn v="ghost" onClick={() => setNoteModal(null)} full>Cancelar</Btn>
+            <Btn onClick={saveNote} full>
+              <Ic n="check" s={16} />
+              Salvar
+            </Btn>
+          </div>
+        </Modal>
+      )}
+
+      {otModal && (
+        <Modal title="Horas Extras" onClose={() => setOtModal(null)}>
+          <Inp
+            label="Quantidade de horas"
+            type="number"
+            value={otHours}
+            onChange={setOtHours}
+            placeholder="Ex: 2.5"
+          />
+
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <Btn v="ghost" onClick={() => setOtModal(null)} full>Cancelar</Btn>
+            <Btn onClick={saveOT} full v="info">
+              <Ic n="check" s={16} />
+              Registrar
+            </Btn>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -920,18 +1505,80 @@ function Folha({data,showToast}){
   const obraName=id=>data.obras.find(o=>o.id===id)?.name||"—";
   const periodLabel=`${q==="1"?"1ª":"2ª"} Quinzena de ${fullMonth(month)} ${year}`;
 
-  const calcRow=e=>{
-    let gross=0,presentes=0,meiodia=0,faltas=0,ot=0,vt=0,vr=0;
-    days.forEach(d=>{
-      const a=getAtt(data,e.id,d);
-      const s=a?.status;const o=a?.ot||0;
-      if(s==="P"){gross+=e.dailyRate||0;presentes++;ot+=o;vt+=e.vtDaily||0;vr+=e.vrDaily||0;}
-      else if(s==="M"){gross+=(e.dailyRate||0)*.5;meiodia++;ot+=o;vt+=(e.vtDaily||0)*.5;vr+=(e.vrDaily||0)*.5;}
-      else faltas++;
-    });
-    const advTotal=(data.advances||[]).filter(a=>a.empId===e.id&&a.date>=days[0]&&a.date<=days[days.length-1]).reduce((s,a)=>s+(a.amount||0),0);
-    return{...e,gross,presentes,meiodia,faltas,ot,vt,vr,advances:advTotal,net:gross+vt+vr-advTotal,days:days.length};
+const calcRow = e => {
+  let gross = 0;
+  let presentes = 0;
+  let meiodia = 0;
+  let faltas = 0;
+  let semRegistro = 0;
+  let ot = 0;
+  let vt = 0;
+  let vr = 0;
+
+  days.forEach(d => {
+    const a = getAtt(data, e.id, d);
+    const s = a?.status;
+    const o = a?.ot || 0;
+
+    if (s === "P") {
+      gross += e.dailyRate || 0;
+      presentes++;
+      ot += o;
+      vt += e.vtDaily || 0;
+      vr += e.vrDaily || 0;
+    } else if (s === "M") {
+      gross += (e.dailyRate || 0) * 0.5;
+      meiodia++;
+      ot += o;
+      vt += (e.vtDaily || 0) * 0.5;
+      vr += (e.vrDaily || 0) * 0.5;
+    } else if (s === "F") {
+      faltas++;
+    } else {
+      semRegistro++;
+    }
+  });
+
+  const advTotal = (data.advances || [])
+    .filter(a => a.empId === e.id && a.date >= days[0] && a.date <= days[days.length - 1])
+    .reduce((s, a) => s + (a.amount || 0), 0);
+
+  return {
+    ...e,
+    gross,
+    presentes,
+    meiodia,
+    faltas,
+    semRegistro,
+    ot,
+    vt,
+    vr,
+    advances: advTotal,
+    net: gross + vt + vr - advTotal,
+    days: days.length,
   };
+};
+
+const hasAttendanceInPeriod = e =>
+  days.some(d => {
+    const a = getAtt(data, e.id, d);
+    return a?.status || a?.ot || a?.note;
+  });
+
+const belongsToSelectedObra = e =>
+  filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra;
+
+const rows = data.employees
+  .filter(e => belongsToSelectedObra(e))
+  .filter(e => e.active !== false || hasAttendanceInPeriod(e))
+  .map(calcRow)
+  .filter(r =>
+    r.presentes > 0 ||
+    r.meiodia > 0 ||
+    r.faltas > 0 ||
+    r.advances > 0 ||
+    r.gross > 0
+  );
 
   const rows=data.employees.filter(e=>(filterObra==="all"||e.obra===filterObra)&&e.active!==false).map(calcRow);
   const T={gross:rows.reduce((s,r)=>s+r.gross,0),vt:rows.reduce((s,r)=>s+r.vt,0),vr:rows.reduce((s,r)=>s+r.vr,0),advances:rows.reduce((s,r)=>s+r.advances,0),net:rows.reduce((s,r)=>s+r.net,0)};
@@ -1022,7 +1669,7 @@ function Folha({data,showToast}){
           <button onClick={()=>setExpandedId(expandedId===r.id?null:r.id)} style={{background:C.card,border:`1px solid ${C.border}`,padding:"13px 15px",width:"100%",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",borderLeft:`4px solid ${C.yellow}`}}>
             <div style={{textAlign:"left"}}>
               <p style={{fontFamily:"'Barlow Condensed'",fontWeight:800,fontSize:16,letterSpacing:.3}}>{r.name}</p>
-              <p style={{fontSize:11,color:C.muted,marginTop:2}}>{obraName(r.obra)} · {r.presentes}P {r.meiodia}M {r.faltas}F{r.ot>0?` · ${r.ot}h`:""}</p>
+              <p style={{fontSize:11,color:C.muted,marginTop:2}}>{obraName(r.obra)} · {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R{r.ot>0?` · ${r.ot}h`:""}</p>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontFamily:"'Bebas Neue'",fontWeight:900,fontSize:20,color:C.yellow,letterSpacing:1}}>{fmt(r.net)}</span>
@@ -1280,201 +1927,263 @@ function Config({data,update,showToast,onLogout}){
 // ═══════════════════════════════════════════════════════════════════
 // DAILY CHECK MODAL
 // ═══════════════════════════════════════════════════════════════════
-function DailyCheckModal({data,update,showToast,onClose}){
-  const [phase,setPhase]=useState(1);
-  const [empStatus,setEmpStatus]=useState({}); // {id: 'same'|'transfer'|'fired'}
-  const [empNewObra,setEmpNewObra]=useState({}); // {id: obraId}
+function DailyCheckModal({data,update,showToast,onClose}) {
+  const [empStatus, setEmpStatus] = useState({});
+  const [empNewObra, setEmpNewObra] = useState({});
+  const [empEndDate, setEmpEndDate] = useState({});
 
-  const activeEmps=data.employees.filter(e=>e.active!==false);
-  const obraName=id=>data.obras.find(o=>o.id===id)?.name||"—";
+  const activeEmps = (data.employees || []).filter(e => e.active !== false);
+  const activeObras = (data.obras || []).filter(o => o.status !== "done");
 
-  // Group by obra
-  const byObra=data.obras.map(o=>({
-    ...o, emps:activeEmps.filter(e=>e.obra===o.id)
-  })).filter(o=>o.emps.length>0);
+  const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
+  const getStatus = id => empStatus[id] || "same";
 
-  // Employees without a valid obra
-  const semObra=activeEmps.filter(e=>!data.obras.find(o=>o.id===e.obra));
+  const setStatus = (id, status) => {
+    setEmpStatus(prev => ({ ...prev, [id]: status }));
+  };
 
-  const getStatus=id=>empStatus[id]||"same";
-
-  const confirmAll=()=>{
-    let employees=[...data.employees];
-    const changeLog=[...(data.changeLog||[])];
-    let changes=0;
-
-    activeEmps.forEach(e=>{
-      const s=getStatus(e.id);
-      if(s==="transfer"&&empNewObra[e.id]){
-        const from=obraName(e.obra);
-        const to=obraName(empNewObra[e.id]);
-        employees=employees.map(emp=>emp.id===e.id?{...emp,obra:empNewObra[e.id]}:emp);
-        changeLog.push({id:uid(),date:today(),empId:e.id,empName:e.name,type:"transfer",from,to});
-        changes++;
-      } else if(s==="fired"){
-        employees=employees.map(emp=>emp.id===e.id?{...emp,active:false}:emp);
-        changeLog.push({id:uid(),date:today(),empId:e.id,empName:e.name,type:"dismissal",from:obraName(e.obra)});
-        changes++;
-      }
+  const confirmAllSame = () => {
+    update({
+      ...data,
+      dailyCheckDate: today(),
+      changeLog: [
+        ...(data.changeLog || []),
+        {
+          id: uid(),
+          date: today(),
+          type: "daily_check",
+          message: "Verificação diária concluída: todos continuam nas mesmas obras.",
+        },
+      ],
     });
 
-    update({...data,employees,changeLog,dailyCheckDate:today()});
-    showToast(changes>0?`${changes} mudança${changes>1?"s":""} aplicada${changes>1?"s":""}!`:"Verificação concluída!");
+    showToast("Verificação diária concluída!");
     onClose();
   };
 
-  const confirmSame=()=>{
-    update({...data,dailyCheckDate:today()});
-    showToast("Verificação concluída! ✓");
+  const confirmChanges = () => {
+    const transferWithoutObra = activeEmps.find(e =>
+      getStatus(e.id) === "transfer" && !empNewObra[e.id]
+    );
+
+    if (transferWithoutObra) {
+      showToast(`Selecione a nova obra de ${transferWithoutObra.name}`, "error");
+      return;
+    }
+
+    let changes = 0;
+    const changeLog = [...(data.changeLog || [])];
+
+    const employees = data.employees.map(emp => {
+      const status = getStatus(emp.id);
+
+      if (status === "transfer") {
+        const newObra = empNewObra[emp.id];
+        const from = obraName(emp.obra);
+        const to = obraName(newObra);
+
+        changes++;
+
+        changeLog.push({
+          id: uid(),
+          date: today(),
+          empId: emp.id,
+          empName: emp.name,
+          type: "transfer",
+          from,
+          to,
+          message: `${emp.name} transferido de ${from} para ${to}`,
+        });
+
+        return {
+          ...emp,
+          obra: newObra,
+          lastObra: emp.obra,
+          active: true,
+          endDate: "",
+          terminationReason: "",
+        };
+      }
+
+      if (status === "fired") {
+        const endDate = empEndDate[emp.id] || today();
+        const from = obraName(emp.obra);
+
+        changes++;
+
+        changeLog.push({
+          id: uid(),
+          date: endDate,
+          empId: emp.id,
+          empName: emp.name,
+          type: "dismissal",
+          from,
+          message: `${emp.name} demitido/inativado em ${endDate}`,
+        });
+
+        return {
+          ...emp,
+          active: false,
+          endDate,
+          terminationReason: "Demitido",
+          lastObra: emp.obra,
+        };
+      }
+
+      return emp;
+    });
+
+    update({
+      ...data,
+      employees,
+      changeLog,
+      dailyCheckDate: today(),
+    });
+
+    showToast(
+      changes > 0
+        ? `${changes} alteração${changes > 1 ? "es" : ""} aplicada${changes > 1 ? "s" : ""}!`
+        : "Verificação diária concluída!"
+    );
+
     onClose();
   };
 
-  // ── Phase 1: pergunta geral ────────────────────────────────────────
-  if(phase===1) return(
-    <div style={{position:"fixed",inset:0,background:"#000e",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div className="animUp" style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`4px solid ${C.yellow}`,borderRadius:0,padding:28,width:"100%",maxWidth:420,textAlign:"center"}}>
-        <div style={{fontSize:52,marginBottom:12}}>🏗️</div>
-        <p style={{fontFamily:"'Bebas Neue'",fontSize:13,color:C.yellow,letterSpacing:3,marginBottom:4}}>VERIFICAÇÃO DIÁRIA</p>
-        <p style={{fontFamily:"'Bebas Neue'",fontSize:26,color:C.text,letterSpacing:1,marginBottom:6}}>
-          {new Date().getDate()} de {fullMonth(new Date().getMonth())}
-        </p>
-        <p style={{fontSize:15,color:C.subtle,lineHeight:1.5,marginBottom:28}}>
-          Todos os <b style={{color:C.text}}>{activeEmps.length} funcionários</b> continuam
-          nas <b style={{color:C.text}}>mesmas obras</b> de ontem?
-        </p>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <button onClick={confirmSame} style={{
-            background:C.yellow,color:C.bg,border:"none",padding:"14px",cursor:"pointer",
-            fontFamily:"'Bebas Neue'",fontSize:19,letterSpacing:2,display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+  return (
+    <Modal
+      title="Verificação obrigatória da equipe"
+      wide
+      onClose={() => showToast("A verificação é obrigatória antes de lançar o ponto.", "warn")}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{
+          background: C.yellow + "14",
+          border: `1px solid ${C.yellow}55`,
+          borderLeft: `4px solid ${C.yellow}`,
+          padding: "12px 14px",
+        }}>
+          <p style={{
+            color: C.yellow,
+            fontFamily: "'Barlow Condensed'",
+            fontWeight: 800,
+            fontSize: 16,
+            letterSpacing: .5,
+            textTransform: "uppercase",
           }}>
-            <Ic n="check" s={20} style={{color:C.bg}}/> SIM, TODOS NAS MESMAS OBRAS
-          </button>
-          <button onClick={()=>setPhase(2)} style={{
-            background:"transparent",color:C.yellow,border:`1.5px solid ${C.yellow}`,padding:"12px",cursor:"pointer",
-            fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1.5,display:"flex",alignItems:"center",justifyContent:"center",gap:8,
-          }}>
-            <Ic n="alert" s={17}/> NÃO, HOUVE MUDANÇAS
-          </button>
-          <button onClick={onClose} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:12,padding:"6px"}}>
-            Verificar depois
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+            Antes de lançar o ponto, confirme a situação de cada trabalhador.
+          </p>
 
-  // ── Phase 2: detalhamento por funcionário ─────────────────────────
-  return(
-    <div style={{position:"fixed",inset:0,background:"#000e",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-      <div className="animUp" style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`4px solid ${C.yellow}`,width:"100%",maxWidth:480,maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
-        {/* Header */}
-        <div style={{padding:"16px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",background:C.surface}}>
-          <div>
-            <p style={{fontFamily:"'Bebas Neue'",fontSize:18,color:C.yellow,letterSpacing:2}}>MUDANÇAS DE EQUIPE</p>
-            <p style={{fontSize:12,color:C.muted}}>Selecione o que aconteceu com cada funcionário</p>
-          </div>
-          <button onClick={onClose} style={{background:"none",border:"none",color:C.muted,cursor:"pointer"}}><Ic n="x" s={20}/></button>
+          <p style={{ color: C.subtle, fontSize: 12, marginTop: 4 }}>
+            Informe se permaneceu na mesma obra, se foi transferido ou se foi demitido/inativado.
+          </p>
         </div>
 
-        {/* Employee list */}
-        <div style={{flex:1,overflowY:"auto",padding:"14px 14px 0"}}>
-          {byObra.map(obra=>(
-            <div key={obra.id} style={{marginBottom:18}}>
-              {/* Obra header */}
-              <div style={{background:C.yellow,padding:"6px 12px",display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                <Ic n="building" s={13} style={{color:C.bg,flexShrink:0}}/>
-                <span style={{fontFamily:"'Bebas Neue'",letterSpacing:1,color:C.bg,fontSize:14}}>{obra.name} · {obra.emps.length} funcionário{obra.emps.length>1?"s":""}</span>
+        {activeEmps.length === 0 && (
+          <p style={{ color: C.muted, fontSize: 13 }}>
+            Nenhum funcionário ativo para verificar.
+          </p>
+        )}
+
+        {activeEmps.map(emp => {
+          const status = getStatus(emp.id);
+
+          return (
+            <div
+              key={emp.id}
+              style={{
+                background: C.card,
+                border: `1px solid ${C.border}`,
+                borderLeft: `4px solid ${
+                  status === "same" ? C.green :
+                  status === "transfer" ? C.yellow :
+                  C.red
+                }`,
+                padding: 12,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div>
+                <p style={{
+                  fontFamily: "'Barlow Condensed'",
+                  fontWeight: 800,
+                  fontSize: 17,
+                  color: C.text,
+                }}>
+                  {emp.name}
+                </p>
+
+                <p style={{ fontSize: 12, color: C.muted }}>
+                  Obra atual: {obraName(emp.obra)}
+                  {emp.role ? ` · ${emp.role}` : ""}
+                </p>
               </div>
 
-              {obra.emps.map(e=>{
-                const s=getStatus(e.id);
-                const borderCol=s==="same"?C.green:s==="transfer"?C.yellow:C.red;
-                return(
-                  <div key={e.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`4px solid ${borderCol}`,padding:"11px 13px",marginBottom:7}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:9}}>
-                      <div>
-                        <p style={{fontFamily:"'Barlow Condensed'",fontWeight:800,fontSize:16}}>{e.name}</p>
-                        {e.role&&<p style={{fontSize:11,color:C.muted}}>{e.role}</p>}
-                      </div>
-                      {s==="same"&&<Badge color={C.green}>✓ Mesma obra</Badge>}
-                      {s==="transfer"&&<Badge color={C.yellow}>↗ Transferido</Badge>}
-                      {s==="fired"&&<Badge color={C.red}>✕ Demitido</Badge>}
-                    </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
+                <Btn
+                  v={status === "same" ? "success" : "ghost"}
+                  size="sm"
+                  onClick={() => setStatus(emp.id, "same")}
+                >
+                  Mesma obra
+                </Btn>
 
-                    {/* Action buttons */}
-                    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:s==="transfer"?10:0}}>
-                      {[
-                        ["same","check",C.green,"Mesma Obra"],
-                        ["transfer","send",C.yellow,"Transferido"],
-                        ["fired","x",C.red,"Demitido"],
-                      ].map(([val,ic,col,lbl])=>(
-                        <button key={val} onClick={()=>setEmpStatus(p=>({...p,[e.id]:val}))} style={{
-                          padding:"5px 11px",border:`2px solid ${s===val?col:C.border}`,
-                          background:s===val?col+"22":"transparent",color:s===val?col:C.muted,
-                          cursor:"pointer",fontSize:11,fontWeight:800,fontFamily:"'Barlow Condensed'",
-                          display:"flex",alignItems:"center",gap:4,transition:"all .12s",
-                        }}>
-                          <Ic n={ic} s={12}/>{lbl}
-                        </button>
-                      ))}
-                    </div>
+                <Btn
+                  v={status === "transfer" ? "warning" : "ghost"}
+                  size="sm"
+                  onClick={() => setStatus(emp.id, "transfer")}
+                >
+                  Transferido
+                </Btn>
 
-                    {/* Transfer: obra selector */}
-                    {s==="transfer"&&(
-                      <div style={{marginTop:2}}>
-                        <Sel label="Transferir para qual obra" value={empNewObra[e.id]||""}
-                          onChange={v=>setEmpNewObra(p=>({...p,[e.id]:v}))}
-                          options={[{v:"",l:"— Selecionar obra —"},...data.obras.filter(o=>o.id!==e.obra&&o.status!=="done").map(o=>({v:o.id,l:o.name}))]}/>
-                      </div>
-                    )}
-
-                    {/* Fired: confirmation warning */}
-                    {s==="fired"&&(
-                      <div style={{marginTop:6,background:C.red+"15",border:`1px solid ${C.red}33`,padding:"7px 10px",fontSize:11,color:C.red}}>
-                        ⚠️ O funcionário será desativado e não aparecerá mais no ponto.
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-
-          {/* Employees without obra */}
-          {semObra.length>0&&(
-            <div style={{marginBottom:18}}>
-              <div style={{background:C.muted,padding:"6px 12px",marginBottom:8}}>
-                <span style={{fontFamily:"'Bebas Neue'",letterSpacing:1,color:"#fff",fontSize:14}}>Sem Obra Definida ({semObra.length})</span>
+                <Btn
+                  v={status === "fired" ? "danger" : "ghost"}
+                  size="sm"
+                  onClick={() => setStatus(emp.id, "fired")}
+                >
+                  Demitido
+                </Btn>
               </div>
-              {semObra.map(e=>(
-                <div key={e.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`4px solid ${C.muted}`,padding:"11px 13px",marginBottom:7}}>
-                  <p style={{fontFamily:"'Barlow Condensed'",fontWeight:800,fontSize:16,marginBottom:8}}>{e.name}</p>
-                  <Sel label="Alocar na obra" value={empNewObra[e.id]||""}
-                    onChange={v=>{ setEmpNewObra(p=>({...p,[e.id]:v})); setEmpStatus(p=>({...p,[e.id]:"transfer"})); }}
-                    options={[{v:"",l:"— Selecionar obra —"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
-                </div>
-              ))}
-            </div>
-          )}
 
-          {byObra.length===0&&semObra.length===0&&(
-            <div style={{textAlign:"center",padding:"40px 0",color:C.muted}}>
-              <p>Nenhum funcionário ativo cadastrado.</p>
-            </div>
-          )}
-        </div>
+              {status === "transfer" && (
+                <Sel
+                  label="Nova obra *"
+                  value={empNewObra[emp.id] || ""}
+                  onChange={v => setEmpNewObra(prev => ({ ...prev, [emp.id]: v }))}
+                  options={[
+                    { v: "", l: "Selecione a nova obra" },
+                    ...activeObras
+                      .filter(o => o.id !== emp.obra)
+                      .map(o => ({ v: o.id, l: o.name })),
+                  ]}
+                />
+              )}
 
-        {/* Confirm button */}
-        <div style={{padding:"14px",borderTop:`1px solid ${C.border}`,background:C.surface}}>
-          <button onClick={confirmAll} style={{
-            background:C.yellow,color:C.bg,border:"none",padding:"14px",cursor:"pointer",width:"100%",
-            fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:2,display:"flex",alignItems:"center",justifyContent:"center",gap:10,
-          }}>
-            <Ic n="check" s={20} style={{color:C.bg}}/> CONFIRMAR MUDANÇAS
-          </button>
+              {status === "fired" && (
+                <Inp
+                  label="Data de término *"
+                  type="date"
+                  value={empEndDate[emp.id] || today()}
+                  onChange={v => setEmpEndDate(prev => ({ ...prev, [emp.id]: v }))}
+                />
+              )}
+            </div>
+          );
+        })}
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
+          <Btn v="ghost" onClick={confirmAllSame} full>
+            Todos continuam iguais
+          </Btn>
+
+          <Btn onClick={confirmChanges} full>
+            <Ic n="check" s={16} />
+            Confirmar verificação
+          </Btn>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
