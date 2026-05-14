@@ -47,8 +47,6 @@ const getAtt = (data,eid,date) => { const v=data.attendance?.[eid]?.[date]; if(!
 const attStatus = (data,eid,date) => getAtt(data,eid,date)?.status || null;
 const fmtCPF = v => v.replace(/\D/g,"").replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,"$1.$2.$3-$4").slice(0,14);
 const fmtPhone = v => v.replace(/\D/g,"").replace(/(\d{2})(\d{5})(\d{4})/,"($1) $2-$3").slice(0,15);
-// Simple hash for password storage
-const hashPwd = async s => { const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join(""); };
 
 // ─── Storage (Supabase) ────────────────────────────────────────────
 const DEFAULT = () => ({
