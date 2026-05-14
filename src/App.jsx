@@ -50,25 +50,75 @@ const fmtPhone = v => v.replace(/\D/g,"").replace(/(\d{2})(\d{5})(\d{4})/,"($1) 
 
 // ─── Storage (Supabase) ────────────────────────────────────────────
 const DEFAULT = () => ({
-  userName:"",
-  config:{companyName:"ArcD",hrEmail:"",hrName:"",cnpj:""},
-  obras:[
-    {id:uid(),name:"Obra 1",address:"",engineer:"",startDate:"",status:"active"},
-    {id:uid(),name:"Obra 2",address:"",engineer:"",startDate:"",status:"active"},
+  userName: "",
+  config: {
+    companyName: "ArcD Obras",
+    productName: "Gestão de Equipes",
+    hrEmail: "",
+    hrName: "",
+    cnpj: ""
+  },
+  obras: [
+    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active" },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active" },
   ],
-  employees:[],
-  attendance:{},
-  advances:[],
-  dailyCheckDate:"",
-  changeLog:[],
+  employees: [],
+  attendance: {},
+  advances: [],
+  dailyCheckDate: "",
+  changeLog: [],
 });
+const normalizeData = (incoming) => {
+  const base = DEFAULT();
+  const d = incoming || {};
+
+  return {
+    ...base,
+    ...d,
+    config: {
+      ...base.config,
+      ...(d.config || {}),
+    },
+    obras: Array.isArray(d.obras) ? d.obras : base.obras,
+    employees: Array.isArray(d.employees)
+      ? d.employees.map(e => ({
+          id: e.id || uid(),
+          name: e.name || "",
+          role: e.role || "",
+          cpf: e.cpf || "",
+          phone: e.phone || "",
+          pixKey: e.pixKey || "",
+          dailyRate: Number(e.dailyRate || 0),
+          vtDaily: Number(e.vtDaily || 0),
+          vrDaily: Number(e.vrDaily || 0),
+          obra: e.obra || "",
+          active: e.active !== false,
+          startDate: e.startDate || "",
+          endDate: e.endDate || "",
+          terminationReason: e.terminationReason || "",
+          lastObra: e.lastObra || "",
+        }))
+      : [],
+    attendance: d.attendance || {},
+    advances: Array.isArray(d.advances) ? d.advances : [],
+    dailyCheckDate: d.dailyCheckDate || "",
+    changeLog: Array.isArray(d.changeLog) ? d.changeLog : [],
+  };
+};
+
+const isDailyCheckPending = (data, date = today()) => {
+  const isToday = date === today();
+  const hasActiveEmployees = (data.employees || []).some(e => e.active !== false);
+
+  return isToday && hasActiveEmployees && data.dailyCheckDate !== today();
+};
 
 const loadData = async () => {
   try {
     const d = await supabaseLoad();
-    return d || DEFAULT();
+    return normalizeData(d || DEFAULT());
   } catch {
-    return DEFAULT();
+    return normalizeData(DEFAULT());
   }
 };
 
