@@ -1,23 +1,62 @@
 import { useState } from 'react';
 import { signInEmail, signUpEmail } from './supabase';
 
-const brand = {
-  name: 'Ponto ArcD',
-  subtitle: 'Acesso ao sistema',
-  logo: '/logo-arcd.png',
+const C = {
+  bg: '#111317',
+  bg2: '#1C1F26',
+  yellow: '#D6A84F',
+  yellowD: '#B8892E',
+  white: '#FFFFFF',
+  mutedWhite: 'rgba(255,255,255,0.68)',
+  borderDark: 'rgba(255,255,255,0.16)',
+  inputBg: 'rgba(255,255,255,0.06)',
+  error: '#FFB4AB',
+  success: '#B8E2C8',
 };
 
-const colors = {
-  primary: '#111111',
-  secondary: '#D6A84F',
-  background: '#F7F2E8',
-  card: '#FFFFFF',
-  text: '#1C1C1C',
-  muted: '#777777',
-  border: '#E6DDCC',
-  error: '#B42318',
-  success: '#1F7A4D',
-};
+const font = "'Barlow Condensed', Arial, sans-serif";
+
+function BrandMark({ size = 86 }) {
+  const [logoError, setLogoError] = useState(false);
+
+  if (logoError) {
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          background: C.yellow,
+          color: C.bg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: font,
+          fontWeight: 900,
+          fontSize: size * 0.44,
+          letterSpacing: -0.5,
+          margin: '0 auto',
+        }}
+      >
+        A
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src="/logo-arcd.png"
+      alt="Logomarca ArcD"
+      onError={() => setLogoError(true)}
+      style={{
+        width: size,
+        height: size,
+        objectFit: 'contain',
+        display: 'block',
+        margin: '0 auto',
+      }}
+    />
+  );
+}
 
 function friendlyError(errorMessage) {
   const msg = String(errorMessage || '').toLowerCase();
@@ -89,65 +128,59 @@ export default function Auth() {
     <main
       style={{
         minHeight: '100vh',
-        background: colors.background,
+        background: C.bg,
+        color: C.white,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 18,
-        fontFamily: 'Arial, sans-serif',
+        fontFamily: font,
       }}
     >
       <section
         style={{
           width: '100%',
           maxWidth: 390,
-          background: colors.card,
-          borderRadius: 22,
+          background: C.bg2,
+          border: `1px solid ${C.borderDark}`,
           padding: 24,
-          boxShadow: '0 14px 40px rgba(0,0,0,0.10)',
-          border: `1px solid ${colors.border}`,
+          boxShadow: '0 18px 44px rgba(0,0,0,0.32)',
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img
-            src={brand.logo}
-            alt="Logomarca ArcD"
-            style={{
-              width: 96,
-              height: 96,
-              objectFit: 'contain',
-              marginBottom: 12,
-            }}
-          />
+          <BrandMark size={92} />
 
           <h1
             style={{
-              margin: 0,
-              fontSize: 26,
-              color: colors.primary,
-              letterSpacing: -0.6,
+              margin: '16px 0 4px',
+              fontSize: 32,
+              color: C.white,
+              fontWeight: 900,
+              textTransform: 'uppercase',
+              letterSpacing: 0.8,
+              lineHeight: 1,
             }}
           >
-            {brand.name}
+            Ponto ArcD
           </h1>
 
           <p
             style={{
-              margin: '6px 0 0',
-              color: colors.muted,
-              fontSize: 14,
+              margin: 0,
+              color: C.mutedWhite,
+              fontSize: 15,
+              letterSpacing: 0.5,
+              textTransform: 'uppercase',
             }}
           >
-            {brand.subtitle}
+            Gestão de pessoas e obras
           </p>
         </div>
 
         <div
           style={{
             display: 'flex',
-            background: '#F4EFE5',
-            borderRadius: 14,
-            padding: 4,
+            border: `1px solid ${C.borderDark}`,
             marginBottom: 22,
           }}
         >
@@ -160,11 +193,14 @@ export default function Auth() {
             style={{
               flex: 1,
               border: 0,
-              borderRadius: 11,
-              padding: 10,
-              background: !isSignup ? colors.primary : 'transparent',
-              color: !isSignup ? '#FFFFFF' : colors.primary,
-              fontWeight: 700,
+              padding: 12,
+              background: !isSignup ? C.yellow : 'transparent',
+              color: !isSignup ? C.bg : C.white,
+              fontFamily: font,
+              fontWeight: 900,
+              fontSize: 15,
+              textTransform: 'uppercase',
+              letterSpacing: 0.6,
               cursor: 'pointer',
             }}
           >
@@ -180,11 +216,14 @@ export default function Auth() {
             style={{
               flex: 1,
               border: 0,
-              borderRadius: 11,
-              padding: 10,
-              background: isSignup ? colors.primary : 'transparent',
-              color: isSignup ? '#FFFFFF' : colors.primary,
-              fontWeight: 700,
+              padding: 12,
+              background: isSignup ? C.yellow : 'transparent',
+              color: isSignup ? C.bg : C.white,
+              fontFamily: font,
+              fontWeight: 900,
+              fontSize: 15,
+              textTransform: 'uppercase',
+              letterSpacing: 0.6,
               cursor: 'pointer',
             }}
           >
@@ -197,10 +236,12 @@ export default function Auth() {
             htmlFor="email"
             style={{
               display: 'block',
-              fontSize: 13,
-              fontWeight: 700,
+              fontSize: 15,
+              fontWeight: 900,
               marginBottom: 6,
-              color: colors.text,
+              color: C.white,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
             }}
           >
             E-mail
@@ -217,13 +258,15 @@ export default function Auth() {
             style={{
               width: '100%',
               boxSizing: 'border-box',
-              padding: '14px 13px',
-              borderRadius: 13,
-              border: `1px solid ${colors.border}`,
-              fontSize: 15,
+              padding: '13px 12px',
+              border: `1px solid ${C.borderDark}`,
+              fontSize: 16,
               marginBottom: 14,
               outline: 'none',
-              background: '#FFFCF7',
+              background: C.inputBg,
+              color: C.white,
+              fontFamily: font,
+              letterSpacing: 0.4,
             }}
           />
 
@@ -231,10 +274,12 @@ export default function Auth() {
             htmlFor="password"
             style={{
               display: 'block',
-              fontSize: 13,
-              fontWeight: 700,
+              fontSize: 15,
+              fontWeight: 900,
               marginBottom: 6,
-              color: colors.text,
+              color: C.white,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
             }}
           >
             Senha
@@ -253,12 +298,14 @@ export default function Auth() {
               style={{
                 width: '100%',
                 boxSizing: 'border-box',
-                padding: '14px 76px 14px 13px',
-                borderRadius: 13,
-                border: `1px solid ${colors.border}`,
-                fontSize: 15,
+                padding: '13px 76px 13px 12px',
+                border: `1px solid ${C.borderDark}`,
+                fontSize: 16,
                 outline: 'none',
-                background: '#FFFCF7',
+                background: C.inputBg,
+                color: C.white,
+                fontFamily: font,
+                letterSpacing: 0.4,
               }}
             />
 
@@ -268,12 +315,14 @@ export default function Auth() {
               style={{
                 position: 'absolute',
                 right: 8,
-                top: 8,
+                top: 7,
                 border: 0,
                 background: 'transparent',
-                color: colors.muted,
-                fontSize: 12,
-                fontWeight: 700,
+                color: C.yellow,
+                fontFamily: font,
+                fontSize: 13,
+                fontWeight: 900,
+                textTransform: 'uppercase',
                 cursor: 'pointer',
                 padding: 7,
               }}
@@ -288,15 +337,16 @@ export default function Auth() {
             style={{
               width: '100%',
               border: 0,
-              borderRadius: 14,
-              padding: 15,
-              background: colors.primary,
-              color: '#FFFFFF',
-              fontWeight: 800,
-              fontSize: 15,
+              padding: 14,
+              background: `linear-gradient(135deg, ${C.yellow}, ${C.yellowD})`,
+              color: C.bg,
+              fontFamily: font,
+              fontWeight: 900,
+              fontSize: 17,
+              textTransform: 'uppercase',
+              letterSpacing: 0.7,
               cursor: loading ? 'not-allowed' : 'pointer',
               opacity: loading ? 0.72 : 1,
-              boxShadow: '0 10px 24px rgba(0,0,0,0.18)',
             }}
           >
             {loading
@@ -312,14 +362,20 @@ export default function Auth() {
             style={{
               marginTop: 16,
               padding: 12,
-              borderRadius: 13,
-              fontSize: 13,
-              lineHeight: 1.45,
-              color: message.type === 'error' ? colors.error : colors.success,
-              background: message.type === 'error' ? '#FFF0EE' : '#EEF8F2',
+              fontSize: 15,
+              lineHeight: 1.35,
+              color: message.type === 'error' ? C.error : C.success,
+              background:
+                message.type === 'error'
+                  ? 'rgba(255,180,171,0.10)'
+                  : 'rgba(184,226,200,0.10)',
               border: `1px solid ${
-                message.type === 'error' ? '#F2B8B5' : '#B8E2C8'
+                message.type === 'error'
+                  ? 'rgba(255,180,171,0.35)'
+                  : 'rgba(184,226,200,0.35)'
               }`,
+              fontFamily: font,
+              letterSpacing: 0.4,
             }}
           >
             {message.text}
@@ -329,10 +385,11 @@ export default function Auth() {
         <p
           style={{
             margin: '18px 0 0',
-            color: colors.muted,
-            fontSize: 12,
+            color: C.mutedWhite,
+            fontSize: 13,
             textAlign: 'center',
-            lineHeight: 1.45,
+            lineHeight: 1.35,
+            letterSpacing: 0.4,
           }}
         >
           Acesso exclusivo por e-mail e senha.
