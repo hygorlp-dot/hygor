@@ -23,17 +23,11 @@ export const onAuthStateChange = (callback) => {
 };
 
 export const signUpEmail = async (email, password) => {
-  return await supabase.auth.signUp({
-    email,
-    password,
-  });
+  return await supabase.auth.signUp({ email, password });
 };
 
 export const signInEmail = async (email, password) => {
-  return await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  return await supabase.auth.signInWithPassword({ email, password });
 };
 
 export const logout = async () => {
@@ -86,9 +80,7 @@ export const saveData = async (payload) => {
           value: JSON.stringify(payload),
           updated_at: new Date().toISOString(),
         },
-        {
-          onConflict: 'key',
-        }
+        { onConflict: 'key' }
       );
 
     if (error) {
