@@ -372,6 +372,51 @@ const buildPermissionEmail = ({ to, obraName, date, employeeName, reason, approv
 };
 
 // ═══════════════════════════════════════════════════════════════════
+// Controle de ponto cadastrado por obra
+// ═══════════════════════════════════════════════════════════════════
+
+const getAttendanceStatusForDate = (data, empId, date) => getAtt(data, empId, date)?.status || null;
+
+const isValidAttendanceStatus = status => status === "P" || status === "M" || status === "F";
+
+const getObraAttendanceSummary = (data, date) => {
+  const activeObras = (data?.obras || []).filter(o => o.status !== "done");
+  const activeEmployees = (data?.employees || []).filter(e => e.active !== false);
+
+  return activeObras.map(obra => {
+    const employees = activeEmployees.filter(e => e.obra === obra.id && isEmployeeEmployedOnDate(e, date));
+    const registeredEmployees = employees.filter(e => isValidAttendanceStatus(getAttendanceStatusForDate(data, e.id, date)));
+    const missingEmployees = employees.filter(e => !isValidAttendanceStatus(getAttendanceStatusForDate(data, e.id, date)));
+
+    return {
+      obraId: obra.id,
+      obraName: obra.name,
+      totalEmployees: employees.length,
+      registeredCount: registeredEmployees.length,
+      missingCount: missingEmployees.length,
+      completed: employees.length > 0 && missingEmployees.length === 0,
+      hasTeam: employees.length > 0,
+      missingEmployees,
+    };
+  });
+};
+
+const getAttendanceCompletionMessage = summary => {
+  const obrasWithTeam = summary.filter(o => o.hasTeam);
+  const pendingObras = summary.filter(o => o.hasTeam && !o.completed);
+  const completedObras = summary.filter(o => o.hasTeam && o.completed);
+  const obrasWithoutTeam = summary.filter(o => !o.hasTeam);
+
+  return {
+    allDone: obrasWithTeam.length > 0 && pendingObras.length === 0,
+    pendingObras,
+    completedObras,
+    obrasWithoutTeam,
+    totalWithTeam: obrasWithTeam.length,
+  };
+};
+
+// ═══════════════════════════════════════════════════════════════════
 // Dados padrão e normalização
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1341,6 +1386,7 @@ function Ponto({ data, update, showToast }) {
   const [otHours, setOtHours] = useState("0");
   const [movementModal, setMovementModal] = useState(null);
   const [unlockModal, setUnlockModal] = useState(null);
+  const [lastAllDoneNotification, setLastAllDoneNotification] = useState("");
 
   const activeEmployees = data.employees.filter(e => e.active !== false);
   const dailyCheckPending = selDate === today() && activeEmployees.length > 0 && data.dailyCheckDate !== today();
@@ -1348,6 +1394,17 @@ function Ponto({ data, update, showToast }) {
   const selectedObra = filterObra !== "all" ? data.obras.find(o => o.id === filterObra) : null;
   const selectedObraLocked = selectedObra ? isAttendanceLocked(data, selectedObra.id, selDate) : false;
   const selectedObraCanEdit = selectedObra ? canEditAttendance(data, selectedObra.id, selDate) : true;
+  const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
+  const attendanceCompletion = getAttendanceCompletionMessage(obraAttendanceSummary);
+
+  useEffect(() => {
+    const notificationKey = `${selDate}__all_done`;
+
+    if (attendanceCompletion.allDone && lastAllDoneNotification !== notificationKey) {
+      showToast("Todos os pontos de todas as obras foram cadastrados!", "success");
+      setLastAllDoneNotification(notificationKey);
+    }
+  }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification]);
 
   const list = data.employees
     .filter(e => e.active !== false)
@@ -1388,9 +1445,10 @@ function Ponto({ data, update, showToast }) {
     const obra = data.obras.find(o => o.id === filterObra);
     if (!obra) return;
 
-    const semRegistro = list.filter(e => !attStatus(data, e.id, selDate)).length;
-    const msg = semRegistro > 0
-      ? `Existem ${semRegistro} trabalhador(es) sem registro. Deseja finalizar mesmo assim?`
+    const obraSummary = getObraAttendanceSummary(data, selDate).find(o => o.obraId === filterObra);
+    const missingNames = obraSummary?.missingEmployees?.map(e => e.name).join(", ") || "";
+    const msg = obraSummary && obraSummary.missingCount > 0
+      ? `Existem ${obraSummary.missingCount} trabalhador(es) sem registro nesta obra:\n\n${missingNames}\n\nDeseja finalizar mesmo assim?`
       : `Finalizar o ponto da obra "${obra.name}" em ${fmtDateFull(selDate)}?`;
 
     if (!window.confirm(`${msg}\n\nDepois disso, alterações precisarão de permissão.`)) return;
@@ -1509,6 +1567,82 @@ function Ponto({ data, update, showToast }) {
       </div>
 
       <Inp label="Data" type="date" value={selDate} onChange={setSelDate} max={today()} />
+
+      <div
+        style={{
+          background: attendanceCompletion.allDone ? `${C.green}18` : `${C.yellow}18`,
+          border: `1.5px solid ${attendanceCompletion.allDone ? C.green : C.yellow}`,
+          borderLeft: `5px solid ${attendanceCompletion.allDone ? C.green : C.yellow}`,
+          padding: 12,
+        }}
+      >
+        <p
+          style={{
+            color: attendanceCompletion.allDone ? C.green : C.yellow,
+            fontFamily: "'Barlow Condensed'",
+            fontWeight: 900,
+            letterSpacing: 0.5,
+            textTransform: "uppercase",
+            marginBottom: 6,
+          }}
+        >
+          {attendanceCompletion.allDone ? "Todos os pontos foram cadastrados" : "Existem obras com ponto pendente"}
+        </p>
+
+        {attendanceCompletion.allDone ? (
+          <p style={{ color: C.subtle, fontSize: 12 }}>
+            Todas as obras com equipe ativa já possuem ponto lançado em {fmtDateFull(selDate)}.
+          </p>
+        ) : (
+          <>
+            <p style={{ color: C.subtle, fontSize: 12, marginBottom: 8 }}>
+              Obras faltando cadastrar ponto em {fmtDateFull(selDate)}:
+            </p>
+
+            {attendanceCompletion.pendingObras.length === 0 ? (
+              <p style={{ color: C.muted, fontSize: 12 }}>Nenhuma obra com equipe ativa nesta data.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {attendanceCompletion.pendingObras.map(o => (
+                  <button
+                    key={o.obraId}
+                    onClick={() => setFilterObra(o.obraId)}
+                    style={{
+                      background: C.card,
+                      border: `1px solid ${C.border}`,
+                      borderLeft: `4px solid ${C.red}`,
+                      color: C.text,
+                      padding: "9px 10px",
+                      textAlign: "left",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <strong style={{ color: C.red }}>{o.obraName}</strong>
+                    <span style={{ color: C.muted, fontSize: 12 }}> · {o.missingCount} trabalhador(es) sem ponto</span>
+                    {o.missingEmployees.length > 0 && (
+                      <p style={{ color: C.subtle, fontSize: 11, marginTop: 3 }}>
+                        Faltando: {o.missingEmployees.map(e => e.name).join(", ")}
+                      </p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {attendanceCompletion.completedObras.length > 0 && (
+          <p style={{ color: C.green, fontSize: 11, marginTop: 8 }}>
+            Obras completas: {attendanceCompletion.completedObras.map(o => o.obraName).join(", ")}
+          </p>
+        )}
+
+        {attendanceCompletion.obrasWithoutTeam.length > 0 && (
+          <p style={{ color: C.muted, fontSize: 11, marginTop: 6 }}>
+            Sem equipe ativa: {attendanceCompletion.obrasWithoutTeam.map(o => o.obraName).join(", ")}
+          </p>
+        )}
+      </div>
 
       {dailyCheckPending && (
         <div style={{ background: `${C.yellow}18`, border: `1.5px solid ${C.yellow}`, borderLeft: `5px solid ${C.yellow}`, padding: 12 }}>
