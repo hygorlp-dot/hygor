@@ -48,16 +48,250 @@ const attStatus = (data,eid,date) => getAtt(data,eid,date)?.status || null;
 const fmtCPF = v => v.replace(/\D/g,"").replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,"$1.$2.$3-$4").slice(0,14);
 const fmtPhone = v => v.replace(/\D/g,"").replace(/(\d{2})(\d{5})(\d{4})/,"($1) $2-$3").slice(0,15);
 
+// ═══════════════════════════════════════════════════════════════════
+// CALENDÁRIO DE FERIADOS E PAGAMENTOS — ARCD OBRAS
+// Regras:
+// - Trabalhadores recebem dia 05 e dia 20.
+// - 1ª quinzena: pagamento base dia 20 do mês atual.
+// - 2ª quinzena: pagamento base dia 05 do mês seguinte.
+// - Sábado ou feriado comum: paga no dia útil anterior.
+// - Domingo ou feriado imediatamente após domingo: paga no dia útil posterior.
+// - Feriado durante a semana é pago, salvo falta no dia útil anterior/posterior.
+// ═══════════════════════════════════════════════════════════════════
+
+const prDateAtNoon = (year, monthIndex, day) => {
+  return new Date(year, monthIndex, day, 12, 0, 0);
+};
+
+const prIso = date => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+const prParseIso = iso => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return prDateAtNoon(y, m - 1, d);
+};
+
+const prAddDays = (date, days) => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return prDateAtNoon(d.getFullYear(), d.getMonth(), d.getDate());
+};
+
+const prUniqueDates = arr => [...new Set(arr.filter(Boolean))].sort();
+
+const prEasterDate = year => {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+
+  return prDateAtNoon(year, month, day);
+};
+
+const getOfficialHolidaysCaruaruPE = year => {
+  const easter = prEasterDate(year);
+
+  const goodFriday = prIso(prAddDays(easter, -2));
+  const corpusChristi = prIso(prAddDays(easter, 60));
+
+  return prUniqueDates([
+    // NACIONAIS
+    `${year}-01-01`, // Confraternização Universal
+    `${year}-04-21`, // Tiradentes
+    `${year}-05-01`, // Dia do Trabalho
+    `${year}-09-07`, // Independência do Brasil
+    `${year}-10-12`, // Nossa Senhora Aparecida
+    `${year}-11-02`, // Finados
+    `${year}-11-15`, // Proclamação da República
+    `${year}-11-20`, // Consciência Negra
+    `${year}-12-25`, // Natal
+
+    // ESTADUAL — PERNAMBUCO
+    `${year}-03-06`, // Data Magna de Pernambuco
+
+    // MUNICIPAIS — CARUARU
+    goodFriday,       // Sexta-feira da Paixão
+    `${year}-05-18`,  // Emancipação Política de Caruaru
+    corpusChristi,    // Corpus Christi
+    `${year}-06-24`,  // São João
+    `${year}-09-15`,  // Nossa Senhora das Dores
+
+    // 29/06 São Pedro não entra, pois deixou de ser feriado municipal em Caruaru.
+  ]);
+};
+
+const getPayrollHolidays = (data, year) => {
+  const official = getOfficialHolidaysCaruaruPE(year);
+
+  // Feriados extras opcionais, caso queira adicionar depois por SQL/configuração.
+  const custom = data?.config?.paymentHolidays || [];
+
+  const customDates = custom
+    .map(h => {
+      if (typeof h === "string") return h;
+      if (h?.date) return h.date;
+      return "";
+    })
+    .filter(Boolean);
+
+  return prUniqueDates([...official, ...customDates]);
+};
+
+const prIsHoliday = (date, holidays) => {
+  return holidays.includes(prIso(date));
+};
+
+const prIsWeekend = date => {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+};
+
+const prIsNonBusinessDay = (date, holidays) => {
+  return prIsWeekend(date) || prIsHoliday(date, holidays);
+};
+
+const prPreviousBusinessDay = (date, holidays) => {
+  let d = prAddDays(date, -1);
+
+  while (prIsNonBusinessDay(d, holidays)) {
+    d = prAddDays(d, -1);
+  }
+
+  return d;
+};
+
+const prNextBusinessDay = (date, holidays) => {
+  let d = prAddDays(date, 1);
+
+  while (prIsNonBusinessDay(d, holidays)) {
+    d = prAddDays(d, 1);
+  }
+
+  return d;
+};
+
+const adjustPayrollPaymentDate = (baseDate, holidays) => {
+  const day = baseDate.getDay();
+  const isHoliday = prIsHoliday(baseDate, holidays);
+
+  // Sábado: antecipa.
+  if (day === 6) {
+    return prPreviousBusinessDay(baseDate, holidays);
+  }
+
+  // Domingo: posterga.
+  if (day === 0) {
+    return prNextBusinessDay(baseDate, holidays);
+  }
+
+  // Feriado em segunda-feira, ou seja, feriado após domingo: posterga.
+  if (isHoliday) {
+    const previousDay = prAddDays(baseDate, -1);
+
+    if (previousDay.getDay() === 0) {
+      return prNextBusinessDay(baseDate, holidays);
+    }
+
+    // Demais feriados: antecipa.
+    return prPreviousBusinessDay(baseDate, holidays);
+  }
+
+  return baseDate;
+};
+
+const getPayrollPaymentCalendar = (year, monthIndex, q, data) => {
+  const paymentMonth = q === "1" ? monthIndex : monthIndex + 1;
+  const paymentYear = paymentMonth > 11 ? year + 1 : year;
+  const normalizedPaymentMonth = paymentMonth > 11 ? 0 : paymentMonth;
+
+  const baseDay = q === "1" ? 20 : 5;
+  const baseDate = prDateAtNoon(paymentYear, normalizedPaymentMonth, baseDay);
+
+  const holidays = getPayrollHolidays(data, paymentYear);
+  const adjustedDate = adjustPayrollPaymentDate(baseDate, holidays);
+
+  return {
+    baseDate: prIso(baseDate),
+    paymentDate: prIso(adjustedDate),
+    adjusted: prIso(baseDate) !== prIso(adjustedDate),
+  };
+};
+
+const prIsWeekdayIso = iso => {
+  const d = prParseIso(iso);
+  const day = d.getDay();
+  return day >= 1 && day <= 5;
+};
+
+const prPreviousWorkdayIso = (iso, holidays) => {
+  let d = prAddDays(prParseIso(iso), -1);
+
+  while (prIsNonBusinessDay(d, holidays)) {
+    d = prAddDays(d, -1);
+  }
+
+  return prIso(d);
+};
+
+const prNextWorkdayIso = (iso, holidays) => {
+  let d = prAddDays(prParseIso(iso), 1);
+
+  while (prIsNonBusinessDay(d, holidays)) {
+    d = prAddDays(d, 1);
+  }
+
+  return prIso(d);
+};
+
+const prIsMarkedAbsent = (data, empId, dateIso) => {
+  return getAtt(data, empId, dateIso)?.status === "F";
+};
+
+const getHolidayPayRule = (data, employee, holidayIso, holidays) => {
+  const before = prPreviousWorkdayIso(holidayIso, holidays);
+  const after = prNextWorkdayIso(holidayIso, holidays);
+
+  const missedBefore = prIsMarkedAbsent(data, employee.id, before);
+  const missedAfter = prIsMarkedAbsent(data, employee.id, after);
+
+  const losesHoliday = missedBefore || missedAfter;
+
+  return {
+    holidayIso,
+    before,
+    after,
+    missedBefore,
+    missedAfter,
+    losesHoliday,
+    amount: losesHoliday ? 0 : (employee.dailyRate || 0),
+  };
+};
+
 // ─── Storage (Supabase) ────────────────────────────────────────────
 const DEFAULT = () => ({
   userName: "",
-  config: {
-    companyName: "ArcD Obras",
-    productName: "Gestão de Equipes",
-    hrEmail: "",
-    hrName: "",
-    cnpj: ""
-  },
+config: {
+  companyName: "ArcD Obras",
+  productName: "Gestão de Equipes",
+  hrEmail: "",
+  hrName: "",
+  cnpj: "",
+  paymentHolidays: []
+},
   obras: [
     { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active" },
     { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active" },
@@ -1795,43 +2029,97 @@ function Folha({ data, showToast }) {
   const { q1, q2 } = getQ(year, month);
   const days = q === "1" ? q1 : q2;
 
+  const paymentHolidays = getPayrollHolidays(data, year);
+
+const holidaysInPeriod = days.filter(d =>
+  paymentHolidays.includes(d) && prIsWeekdayIso(d)
+);
+
+const paymentInfo = getPayrollPaymentCalendar(year, month, q, data);
+
+const paymentDateLabel = fmtDate(paymentInfo.paymentDate);
+const paymentBaseLabel = fmtDate(paymentInfo.baseDate);
+
+const paymentObs = paymentInfo.adjusted
+  ? `Ajustado de ${paymentBaseLabel} para ${paymentDateLabel}`
+  : "Data normal de pagamento";
+
   const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
   const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
 
   const calcRow = e => {
-    let gross = 0;
-    let presentes = 0;
-    let meiodia = 0;
-    let faltas = 0;
-    let semRegistro = 0;
-    let ot = 0;
-    let vt = 0;
-    let vr = 0;
+  let gross = 0;
+  let presentes = 0;
+  let meiodia = 0;
+  let faltas = 0;
+  let semRegistro = 0;
+  let ot = 0;
+  let vt = 0;
+  let vr = 0;
 
-    days.forEach(d => {
-      const a = getAtt(data, e.id, d);
-      const s = a?.status;
-      const o = a?.ot || 0;
+  days.forEach(d => {
+    const isHoliday = holidaysInPeriod.includes(d);
 
-      if (s === "P") {
-        gross += e.dailyRate || 0;
-        presentes++;
-        ot += o;
-        vt += e.vtDaily || 0;
-        vr += e.vrDaily || 0;
-      } else if (s === "M") {
-        gross += (e.dailyRate || 0) * 0.5;
-        meiodia++;
-        ot += o;
-        vt += (e.vtDaily || 0) * 0.5;
-        vr += (e.vrDaily || 0) * 0.5;
-      } else if (s === "F") {
-        faltas++;
-      } else {
-        semRegistro++;
-      }
-    });
+    // Feriado em dia útil não entra como "sem registro".
+    // O valor do feriado será calculado pela regra específica.
+    if (isHoliday) return;
 
+    const a = getAtt(data, e.id, d);
+    const s = a?.status;
+    const o = a?.ot || 0;
+
+    if (s === "P") {
+      gross += e.dailyRate || 0;
+      presentes++;
+      ot += o;
+      vt += e.vtDaily || 0;
+      vr += e.vrDaily || 0;
+    } else if (s === "M") {
+      gross += (e.dailyRate || 0) * 0.5;
+      meiodia++;
+      ot += o;
+      vt += (e.vtDaily || 0) * 0.5;
+      vr += (e.vrDaily || 0) * 0.5;
+    } else if (s === "F") {
+      faltas++;
+    } else {
+      semRegistro++;
+    }
+  });
+
+  const holidayRules = holidaysInPeriod.map(h =>
+    getHolidayPayRule(data, e, h, paymentHolidays)
+  );
+
+  const feriadosPagos = holidayRules.filter(h => !h.losesHoliday).length;
+  const feriadosPerdidos = holidayRules.filter(h => h.losesHoliday).length;
+  const holidayPay = holidayRules.reduce((s, h) => s + h.amount, 0);
+
+  gross += holidayPay;
+
+  const advTotal = (data.advances || [])
+    .filter(a => a.empId === e.id && a.date >= days[0] && a.date <= days[days.length - 1])
+    .reduce((s, a) => s + (a.amount || 0), 0);
+
+  return {
+    ...e,
+    gross,
+    presentes,
+    meiodia,
+    faltas,
+    semRegistro,
+    ot,
+    vt,
+    vr,
+    feriadosPagos,
+    feriadosPerdidos,
+    holidayPay,
+    holidayRules,
+    advances: advTotal,
+    net: gross + vt + vr - advTotal,
+    days: days.length,
+  };
+};
     const advTotal = (data.advances || [])
       .filter(a => a.empId === e.id && a.date >= days[0] && a.date <= days[days.length - 1])
       .reduce((s, a) => s + (a.amount || 0), 0);
@@ -1866,20 +2154,25 @@ function Folha({ data, showToast }) {
     .filter(e => e.active !== false || hasAttendanceInPeriod(e))
     .map(calcRow)
     .filter(r =>
-      r.presentes > 0 ||
-      r.meiodia > 0 ||
-      r.faltas > 0 ||
-      r.advances > 0 ||
-      r.gross > 0
-    );
+  r.presentes > 0 ||
+  r.meiodia > 0 ||
+  r.faltas > 0 ||
+  r.feriadosPagos > 0 ||
+  r.feriadosPerdidos > 0 ||
+  r.advances > 0 ||
+  r.gross > 0
+);
 
-  const T = {
-    gross: rows.reduce((s, r) => s + r.gross, 0),
-    vt: rows.reduce((s, r) => s + r.vt, 0),
-    vr: rows.reduce((s, r) => s + r.vr, 0),
-    advances: rows.reduce((s, r) => s + r.advances, 0),
-    net: rows.reduce((s, r) => s + r.net, 0),
-  };
+const T = {
+  gross: rows.reduce((s, r) => s + r.gross, 0),
+  vt: rows.reduce((s, r) => s + r.vt, 0),
+  vr: rows.reduce((s, r) => s + r.vr, 0),
+  advances: rows.reduce((s, r) => s + r.advances, 0),
+  net: rows.reduce((s, r) => s + r.net, 0),
+  holidayPay: rows.reduce((s, r) => s + (r.holidayPay || 0), 0),
+  feriadosPagos: rows.reduce((s, r) => s + (r.feriadosPagos || 0), 0),
+  feriadosPerdidos: rows.reduce((s, r) => s + (r.feriadosPerdidos || 0), 0),
+};
 
   const printPDF = () => {
     const html = `
@@ -1939,49 +2232,57 @@ function Folha({ data, showToast }) {
           <h1>${data.config.companyName || "ArcD Obras"}</h1>
           ${data.config.cnpj ? `<p>CNPJ: ${data.config.cnpj}</p>` : ""}
           <h2>Folha de Pagamento — ${periodLabel}</h2>
+<p><strong>Data de pagamento:</strong> ${paymentDateLabel}</p>
+<p><strong>Regra aplicada:</strong> ${paymentObs}</p>
 
           <table>
             <thead>
               <tr>
-                <th>Funcionário</th>
-                <th>Cargo</th>
-                <th>Obra</th>
-                <th>P</th>
-                <th>M</th>
-                <th>F</th>
-                <th>S/R</th>
-                <th>HE</th>
-                <th>Diária</th>
-                <th>Bruto</th>
-                <th>VT</th>
-                <th>VR</th>
-                <th>Adiant.</th>
-                <th>Líquido</th>
+              <th>Funcionário</th>
+<th>Cargo</th>
+<th>Obra</th>
+<th>P</th>
+<th>M</th>
+<th>F</th>
+<th>S/R</th>
+<th>FP</th>
+<th>FD</th>
+<th>Valor Feriado</th>
+<th>HE</th>
+<th>Diária</th>
+<th>Bruto</th>
+<th>VT</th>
+<th>VR</th>
+<th>Adiant.</th>
+<th>Líquido</th>
               </tr>
             </thead>
 
             <tbody>
-              ${rows.map(r => `
-                <tr>
-                  <td>${r.name}</td>
-                  <td>${r.role || "-"}</td>
-                  <td>${obraName(r.obra)}</td>
-                  <td>${r.presentes}</td>
-                  <td>${r.meiodia}</td>
-                  <td>${r.faltas}</td>
-                  <td>${r.semRegistro}</td>
-                  <td>${r.ot || 0}h</td>
-                  <td>R$ ${(r.dailyRate || 0).toFixed(2)}</td>
-                  <td>R$ ${r.gross.toFixed(2)}</td>
-                  <td>R$ ${r.vt.toFixed(2)}</td>
-                  <td>R$ ${r.vr.toFixed(2)}</td>
-                  <td>R$ ${r.advances.toFixed(2)}</td>
-                  <td>R$ ${r.net.toFixed(2)}</td>
-                </tr>
-              `).join("")}
+             ${rows.map(r => `
+  <tr>
+    <td>${r.name}</td>
+    <td>${r.role || "-"}</td>
+    <td>${obraName(r.obra)}</td>
+    <td>${r.presentes}</td>
+    <td>${r.meiodia}</td>
+    <td>${r.faltas}</td>
+    <td>${r.semRegistro}</td>
+    <td>${r.feriadosPagos}</td>
+    <td>${r.feriadosPerdidos}</td>
+    <td>R$ ${r.holidayPay.toFixed(2)}</td>
+    <td>${r.ot || 0}h</td>
+    <td>R$ ${(r.dailyRate || 0).toFixed(2)}</td>
+    <td>R$ ${r.gross.toFixed(2)}</td>
+    <td>R$ ${r.vt.toFixed(2)}</td>
+    <td>R$ ${r.vr.toFixed(2)}</td>
+    <td>R$ ${r.advances.toFixed(2)}</td>
+    <td>R$ ${r.net.toFixed(2)}</td>
+  </tr>
+`).join("")}
 
               <tr class="total">
-                <td colspan="9">TOTAL — ${rows.length} funcionário(s)</td>
+                <td colspan="12">TOTAL — ${rows.length} funcionário(s)</td>
                 <td>R$ ${T.gross.toFixed(2)}</td>
                 <td>R$ ${T.vt.toFixed(2)}</td>
                 <td>R$ ${T.vr.toFixed(2)}</td>
@@ -2019,38 +2320,44 @@ function Folha({ data, showToast }) {
     const wb = XLSX.utils.book_new();
 
     const header = [
-      "Funcionário",
-      "Cargo",
-      "Obra",
-      "Pres.",
-      "Meio Dia",
-      "Faltas",
-      "Sem Registro",
-      "HE",
-      "Diária",
-      "Bruto",
-      "VT",
-      "VR",
-      "Adiant.",
-      "Líquido",
-    ];
+  "Funcionário",
+  "Cargo",
+  "Obra",
+  "Pres.",
+  "Meio Dia",
+  "Faltas",
+  "Sem Registro",
+  "Feriados Pagos",
+  "Feriados Perdidos",
+  "Valor Feriado",
+  "HE",
+  "Diária",
+  "Bruto",
+  "VT",
+  "VR",
+  "Adiant.",
+  "Líquido",
+];
 
     const body = rows.map(r => [
-      r.name,
-      r.role || "",
-      obraName(r.obra),
-      r.presentes,
-      r.meiodia,
-      r.faltas,
-      r.semRegistro,
-      r.ot,
-      r.dailyRate,
-      r.gross,
-      r.vt,
-      r.vr,
-      r.advances,
-      r.net,
-    ]);
+  r.name,
+  r.role || "",
+  obraName(r.obra),
+  r.presentes,
+  r.meiodia,
+  r.faltas,
+  r.semRegistro,
+  r.feriadosPagos,
+  r.feriadosPerdidos,
+  r.holidayPay,
+  r.ot,
+  r.dailyRate,
+  r.gross,
+  r.vt,
+  r.vr,
+  r.advances,
+  r.net,
+]);
 
     const ws = XLSX.utils.aoa_to_sheet([
       header,
@@ -2073,7 +2380,7 @@ function Folha({ data, showToast }) {
       ],
     ]);
 
-    ws["!cols"] = [20, 15, 15, 8, 8, 8, 10, 6, 10, 12, 10, 10, 10, 12].map(w => ({ wch: w }));
+    ws["!cols"] = [20, 15, 15, 8, 8, 8, 10, 14, 16, 14, 6, 10, 12, 10, 10, 10, 12].map(w => ({ wch: w }));
 
     XLSX.utils.book_append_sheet(wb, ws, "Folha");
     XLSX.writeFile(wb, `arcd-folha-${year}-${String(month + 1).padStart(2, "0")}-Q${q}.xlsx`);
@@ -2082,16 +2389,21 @@ function Folha({ data, showToast }) {
   };
 
   const buildText = () => [
-    `FOLHA DE PAGAMENTO — ARCD OBRAS`,
-    `${data.config.companyName || ""}`,
-    `${periodLabel}`,
-    ``,
-    ...rows.map(r => `• ${r.name} (${obraName(r.obra)}): ${fmt(r.net)}`),
-    ``,
-    `TOTAL LÍQUIDO: ${fmt(T.net)}`,
-    `${rows.length} funcionário(s)`,
-    `Gerado em ${new Date().toLocaleDateString("pt-BR")}`,
-  ].join("\n");
+  `FOLHA DE PAGAMENTO — ARCD OBRAS`,
+  `${data.config.companyName || ""}`,
+  `${periodLabel}`,
+  `Pagamento: ${paymentDateLabel}`,
+  `${paymentObs}`,
+  ``,
+  ...rows.map(r => `• ${r.name} (${obraName(r.obra)}): ${fmt(r.net)} | ${r.feriadosPagos}FP ${r.feriadosPerdidos}FD`),
+  ``,
+  `TOTAL LÍQUIDO: ${fmt(T.net)}`,
+  `FERIADOS PAGOS: ${T.feriadosPagos}`,
+  `FERIADOS PERDIDOS: ${T.feriadosPerdidos}`,
+  `VALOR TOTAL DE FERIADOS: ${fmt(T.holidayPay)}`,
+  `${rows.length} funcionário(s)`,
+  `Gerado em ${new Date().toLocaleDateString("pt-BR")}`,
+].join("\n");
 
   const years = [];
 
@@ -2166,8 +2478,22 @@ function Folha({ data, showToast }) {
         </p>
 
         <p style={{ fontSize: 12, fontWeight: 600 }}>
-          {rows.length} funcionário(s) · {periodLabel}
-        </p>
+  {rows.length} funcionário(s) · {periodLabel}
+</p>
+
+<p style={{ fontSize: 13, fontWeight: 800, marginTop: 6 }}>
+  Pagamento: {paymentDateLabel}
+</p>
+
+<p style={{ fontSize: 11, fontWeight: 600, opacity: 0.85 }}>
+  {paymentObs}
+</p>
+
+{T.feriadosPagos + T.feriadosPerdidos > 0 && (
+  <p style={{ fontSize: 11, fontWeight: 600, opacity: 0.85, marginTop: 4 }}>
+    Feriados: {T.feriadosPagos} pago(s), {T.feriadosPerdidos} perdido(s) · Valor: {fmt(T.holidayPay)}
+  </p>
+)}
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8, fontSize: 12 }}>
           <span>Bruto: {fmt(T.gross)}</span>
@@ -2235,7 +2561,7 @@ function Folha({ data, showToast }) {
               </p>
 
               <p style={{ fontSize: 12, color: C.muted }}>
-                {obraName(r.obra)} · {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R{r.ot > 0 ? ` · ${r.ot}h` : ""}
+                {obraName(r.obra)} · {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R · {r.feriadosPagos}FP {r.feriadosPerdidos}FD{r.ot > 0 ? ` · ${r.ot}h` : ""}
               </p>
             </div>
 
@@ -2263,13 +2589,17 @@ function Folha({ data, showToast }) {
             >
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
                 {[
-                  ["Diária", fmt(r.dailyRate)],
-                  ["Bruto", fmt(r.gross)],
-                  ["VT+VR", fmt(r.vt + r.vr)],
-                  ["Adiant.", fmt(r.advances), C.red],
-                  ["Líquido", fmt(r.net), C.yellow],
-                  ["HE", `${r.ot}h`],
-                ].map(([l, v, c]) => (
+                 {[
+  ["Diária", fmt(r.dailyRate)],
+  ["Bruto", fmt(r.gross)],
+  ["VT+VR", fmt(r.vt + r.vr)],
+  ["Adiant.", fmt(r.advances), C.red],
+  ["Líquido", fmt(r.net), C.yellow],
+  ["HE", `${r.ot}h`],
+  ["Feriados pagos", r.feriadosPagos],
+  ["Feriados perdidos", r.feriadosPerdidos, C.red],
+  ["Valor feriado", fmt(r.holidayPay), C.green],
+].map(([l, v, c]) => (
                   <div key={l} style={{ background: C.card, padding: 8, border: `1px solid ${C.border}` }}>
                     <p style={{ fontSize: 10, color: C.muted, textTransform: "uppercase" }}>
                       {l}
