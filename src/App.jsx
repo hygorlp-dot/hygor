@@ -1165,34 +1165,41 @@ function Ponto({data,update,showToast,onDailyCheck}) {
   const [noteText, setNoteText] = useState("");
   const [otModal, setOtModal] = useState(null);
   const [otHours, setOtHours] = useState("0");
+  const [movementModal, setMovementModal] = useState(null);
 
   const dailyCheckPending =
     selDate === today() &&
     data.employees.filter(e => e.active !== false).length > 0 &&
     data.dailyCheckDate !== today();
 
-  const openMovementCheck = () => {
-    onDailyCheck();
-  };
-
   const requireDailyCheck = () => {
     if (!dailyCheckPending) return false;
 
-    onDailyCheck();
-
     showToast(
-      "Antes de lançar o ponto, confirme se algum trabalhador foi transferido ou demitido.",
+      "Antes de lançar o ponto, confirme se a equipe permanece sem alterações ou movimente o trabalhador individualmente.",
       "warn"
     );
 
     return true;
   };
 
-  useEffect(() => {
-    if (dailyCheckPending) {
-      onDailyCheck();
-    }
-  }, [dailyCheckPending]);
+  const confirmTeamWithoutChanges = () => {
+    update({
+      ...data,
+      dailyCheckDate: today(),
+      changeLog: [
+        ...(data.changeLog || []),
+        {
+          id: uid(),
+          date: today(),
+          type: "daily_check",
+          message: "Verificação diária concluída: equipe sem alterações.",
+        },
+      ],
+    });
+
+    showToast("Equipe confirmada sem alterações.");
+  };
 
   const list = data.employees.filter(e =>
     (filterObra === "all" || e.obra === filterObra) &&
@@ -1304,35 +1311,42 @@ function Ponto({data,update,showToast,onDailyCheck}) {
         </h2>
 
         <p style={{ color: C.muted, fontSize: 13 }}>
-          Marque a presença diária
+          Marque a presença diária e movimente trabalhadores individualmente
         </p>
       </div>
 
       <Inp label="Data" type="date" value={selDate} onChange={setSelDate} max={today()} />
 
-      <Btn onClick={openMovementCheck} v="warning" full>
-        Transferência / Demissão de Trabalhador
-      </Btn>
-
       {dailyCheckPending && (
-        <button
-          onClick={onDailyCheck}
+        <div
           style={{
             background: `${C.yellow}18`,
             border: `1.5px solid ${C.yellow}`,
             borderLeft: `4px solid ${C.yellow}`,
-            color: C.yellow,
             padding: "12px 14px",
-            textAlign: "left",
-            cursor: "pointer",
-            fontFamily: "'Barlow Condensed'",
-            fontWeight: 800,
-            letterSpacing: .5,
-            textTransform: "uppercase",
           }}
         >
-          Verificação obrigatória pendente: confirme se houve transferência ou demissão antes de lançar o ponto.
-        </button>
+          <p
+            style={{
+              color: C.yellow,
+              fontFamily: "'Barlow Condensed'",
+              fontWeight: 800,
+              letterSpacing: .5,
+              textTransform: "uppercase",
+              marginBottom: 8,
+            }}
+          >
+            Verificação obrigatória pendente
+          </p>
+
+          <p style={{ color: C.subtle, fontSize: 12, marginBottom: 10 }}>
+            Se algum trabalhador foi transferido ou demitido, use os botões no card do próprio trabalhador.
+          </p>
+
+          <Btn onClick={confirmTeamWithoutChanges} v="ghost" full>
+            Confirmar equipe sem alterações hoje
+          </Btn>
+        </div>
       )}
 
       <Sel
@@ -1401,45 +1415,26 @@ function Ponto({data,update,showToast,onDailyCheck}) {
               padding: "12px 13px",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 9 }}>
-              <div>
-                <p style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 16, letterSpacing: .3 }}>
-                  {e.name}
+            <div style={{ marginBottom: 9 }}>
+              <p style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 16, letterSpacing: .3 }}>
+                {e.name}
+              </p>
+
+              <p style={{ fontSize: 11, color: C.muted }}>
+                {obraName(e.obra)}
+                {e.role ? ` · ${e.role}` : ""}
+              </p>
+
+              {ot > 0 && <Badge color={C.purple}>{ot}h extra</Badge>}
+
+              {note && (
+                <p style={{ fontSize: 11, color: C.subtle, marginTop: 2, fontStyle: "italic" }}>
+                  "{note}"
                 </p>
-
-                <p style={{ fontSize: 11, color: C.muted }}>
-                  {obraName(e.obra)}
-                  {e.role ? ` · ${e.role}` : ""}
-                </p>
-
-                {ot > 0 && <Badge color={C.purple}>{ot}h extra</Badge>}
-
-                {note && (
-                  <p style={{ fontSize: 11, color: C.subtle, marginTop: 2, fontStyle: "italic" }}>
-                    "{note}"
-                  </p>
-                )}
-              </div>
-
-              <div style={{ display: "flex", gap: 5 }}>
-                <Btn onClick={openMovementCheck} v="warning" size="sm">
-                  Movimentar
-                </Btn>
-
-                {status === "P" && (
-                  <Btn onClick={() => { setOtModal(e.id); setOtHours(String(ot)); }} v="ghost" size="sm">
-                    <Ic n="clock" s={12} />
-                    +HE
-                  </Btn>
-                )}
-
-                <Btn onClick={() => { setNoteModal(e.id); setNoteText(note); }} v="ghost" size="sm">
-                  <Ic n="edit" s={12} />
-                </Btn>
-              </div>
+              )}
             </div>
 
-            <div style={{ display: "flex", gap: 5 }}>
+            <div style={{ display: "flex", gap: 5, marginBottom: 8 }}>
               {[
                 ["P", "check", C.green, "PRESENTE"],
                 ["M", "money", C.yellow, "MEIO DIA"],
@@ -1470,9 +1465,70 @@ function Ponto({data,update,showToast,onDailyCheck}) {
                 </button>
               ))}
             </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 5 }}>
+              <Btn
+                onClick={() => setMovementModal({ emp: e, mode: "transfer" })}
+                v="warning"
+                size="sm"
+                full
+              >
+                Transferir
+              </Btn>
+
+              <Btn
+                onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}
+                v="danger"
+                size="sm"
+                full
+              >
+                Demitir
+              </Btn>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+              <Btn
+                onClick={() => {
+                  if (requireDailyCheck()) return;
+                  setOtModal(e.id);
+                  setOtHours(String(ot));
+                }}
+                v="ghost"
+                size="sm"
+                full
+              >
+                <Ic n="clock" s={12} />
+                Hora Extra
+              </Btn>
+
+              <Btn
+                onClick={() => {
+                  if (requireDailyCheck()) return;
+                  setNoteModal(e.id);
+                  setNoteText(note);
+                }}
+                v="ghost"
+                size="sm"
+                full
+              >
+                <Ic n="edit" s={12} />
+                Observação
+              </Btn>
+            </div>
           </div>
         );
       })}
+
+      {movementModal && (
+        <WorkerMovementModal
+          data={data}
+          update={update}
+          showToast={showToast}
+          employee={movementModal.emp}
+          initialMode={movementModal.mode}
+          onClose={() => setMovementModal(null)}
+        />
+      )}
 
       {noteModal && (
         <Modal title="Observação" onClose={() => setNoteModal(null)}>
@@ -1516,6 +1572,214 @@ function Ponto({data,update,showToast,onDailyCheck}) {
     </div>
   );
 }
+
+function WorkerMovementModal({ data, update, showToast, employee, initialMode = "transfer", onClose }) {
+  const [mode, setMode] = useState(initialMode);
+  const [newObra, setNewObra] = useState("");
+  const [endDate, setEndDate] = useState(today());
+  const [reason, setReason] = useState("Demitido");
+
+  const activeObras = (data.obras || []).filter(o => o.status !== "done");
+  const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
+
+  const saveTransfer = () => {
+    if (!newObra) {
+      showToast("Selecione a nova obra.", "error");
+      return;
+    }
+
+    if (newObra === employee.obra) {
+      showToast("Selecione uma obra diferente da atual.", "error");
+      return;
+    }
+
+    const from = obraName(employee.obra);
+    const to = obraName(newObra);
+
+    const employees = data.employees.map(emp =>
+      emp.id === employee.id
+        ? {
+            ...emp,
+            obra: newObra,
+            lastObra: emp.obra,
+            active: true,
+            endDate: "",
+            terminationReason: "",
+          }
+        : emp
+    );
+
+    const changeLog = [
+      ...(data.changeLog || []),
+      {
+        id: uid(),
+        date: today(),
+        empId: employee.id,
+        empName: employee.name,
+        type: "transfer",
+        from,
+        to,
+        message: `${employee.name} transferido de ${from} para ${to}`,
+      },
+    ];
+
+    update({
+      ...data,
+      employees,
+      changeLog,
+      dailyCheckDate: today(),
+    });
+
+    showToast(`${employee.name} transferido para ${to}.`);
+    onClose();
+  };
+
+  const saveDismissal = () => {
+    if (!endDate) {
+      showToast("Informe a data de término.", "error");
+      return;
+    }
+
+    const from = obraName(employee.obra);
+
+    const employees = data.employees.map(emp =>
+      emp.id === employee.id
+        ? {
+            ...emp,
+            active: false,
+            endDate,
+            terminationReason: reason || "Demitido",
+            lastObra: emp.obra,
+          }
+        : emp
+    );
+
+    const changeLog = [
+      ...(data.changeLog || []),
+      {
+        id: uid(),
+        date: endDate,
+        empId: employee.id,
+        empName: employee.name,
+        type: "dismissal",
+        from,
+        message: `${employee.name} demitido/inativado em ${endDate}`,
+      },
+    ];
+
+    update({
+      ...data,
+      employees,
+      changeLog,
+      dailyCheckDate: today(),
+    });
+
+    showToast(`${employee.name} demitido/inativado.`);
+    onClose();
+  };
+
+  const save = () => {
+    if (mode === "transfer") {
+      saveTransfer();
+    } else {
+      saveDismissal();
+    }
+  };
+
+  return (
+    <Modal
+      title={mode === "transfer" ? "Transferir Trabalhador" : "Demitir Trabalhador"}
+      onClose={onClose}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div
+          style={{
+            background: C.card,
+            border: `1px solid ${C.border}`,
+            borderLeft: `4px solid ${mode === "transfer" ? C.yellow : C.red}`,
+            padding: 12,
+          }}
+        >
+          <p style={{
+            fontFamily: "'Barlow Condensed'",
+            fontWeight: 800,
+            fontSize: 18,
+            color: C.text,
+          }}>
+            {employee.name}
+          </p>
+
+          <p style={{ fontSize: 12, color: C.muted }}>
+            Obra atual: {obraName(employee.obra)}
+            {employee.role ? ` · ${employee.role}` : ""}
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <Btn
+            v={mode === "transfer" ? "warning" : "ghost"}
+            onClick={() => setMode("transfer")}
+            full
+          >
+            Transferir
+          </Btn>
+
+          <Btn
+            v={mode === "dismiss" ? "danger" : "ghost"}
+            onClick={() => setMode("dismiss")}
+            full
+          >
+            Demitir
+          </Btn>
+        </div>
+
+        {mode === "transfer" && (
+          <Sel
+            label="Nova obra *"
+            value={newObra}
+            onChange={setNewObra}
+            options={[
+              { v: "", l: "Selecione a nova obra" },
+              ...activeObras
+                .filter(o => o.id !== employee.obra)
+                .map(o => ({ v: o.id, l: o.name })),
+            ]}
+          />
+        )}
+
+        {mode === "dismiss" && (
+          <>
+            <Inp
+              label="Data de término *"
+              type="date"
+              value={endDate}
+              onChange={setEndDate}
+            />
+
+            <Inp
+              label="Motivo"
+              value={reason}
+              onChange={setReason}
+              placeholder="Ex.: Demitido, fim de contrato, desligamento..."
+            />
+          </>
+        )}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          <Btn v="ghost" onClick={onClose} full>
+            Cancelar
+          </Btn>
+
+          <Btn v={mode === "transfer" ? "warning" : "danger"} onClick={save} full>
+            <Ic n="check" s={16} />
+            {mode === "transfer" ? "Confirmar Transferência" : "Confirmar Demissão"}
+          </Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // FOLHA
 // ═══════════════════════════════════════════════════════════════════
