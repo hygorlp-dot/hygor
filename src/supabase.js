@@ -8,14 +8,14 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DATA_KEY = 'arced_ponto_empresa_v1';
 
 export const getCurrentUser = async () => {
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getSession();
 
   if (error) {
-    console.error('Erro ao buscar usuário:', error);
+    console.error('Erro ao buscar sessão:', error);
     return null;
   }
 
-  return data.user;
+  return data.session?.user ?? null;
 };
 
 export const onAuthStateChange = (callback) => {
