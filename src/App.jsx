@@ -28,6 +28,8 @@ import { loadData as supabaseLoad, saveData as supabaseSave } from "./supabase";
 // - Ajuste de pagamento por sábado/domingo/feriados
 // - Feriados nacionais + Pernambuco + Caruaru
 // - Regra: falta em dia útil imediatamente anterior/posterior perde feriado
+// - Relatórios com gasto por obra, metragem quadrada e custo de mão de obra por m²
+// - Interface reforçada para o Registro de Ponto, com ícones e navegação em destaque
 // ═══════════════════════════════════════════════════════════════════
 
 const C = {
@@ -58,6 +60,11 @@ html,body,#root{min-height:100%}
 body{background:${C.bg};color:${C.text};font-family:'Barlow',Arial,sans-serif;-webkit-tap-highlight-color:transparent}
 input,select,textarea,button{font-family:'Barlow',Arial,sans-serif}
 button:disabled{opacity:.55;cursor:not-allowed!important}
+button{touch-action:manipulation}
+button:hover{filter:brightness(1.04)}
+input:focus,select:focus,textarea:focus{outline:1.5px solid ${C.yellow};border-color:${C.yellow}!important}
+.point-pulse{box-shadow:0 0 0 0 ${C.yellow}44;animation:pulseYellow 2.2s infinite}
+@keyframes pulseYellow{0%{box-shadow:0 0 0 0 ${C.yellow}44}70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:${C.surface}}
 ::-webkit-scrollbar-thumb{background:${C.border};border-radius:3px}
@@ -432,8 +439,8 @@ const DEFAULT = () => ({
     paymentHolidays: [],
   },
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active" },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active" },
+    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0 },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0 },
   ],
   employees: [],
   attendance: {},
@@ -464,6 +471,7 @@ const normalizeData = incoming => {
       engineer: o.engineer || "",
       startDate: o.startDate || "",
       status: o.status || "active",
+      areaM2: Number(o.areaM2 || 0),
     })) : base.obras,
     employees: Array.isArray(d.employees) ? d.employees.map(e => ({
       id: e.id || uid(),
@@ -497,7 +505,7 @@ const normalizeData = incoming => {
 // UI base
 // ═══════════════════════════════════════════════════════════════════
 
-function Ic({ n, s = 16 }) {
+function Ic({ n, s = 16, color }) {
   const map = {
     home: "⌂",
     users: "👥",
@@ -523,7 +531,18 @@ function Ic({ n, s = 16 }) {
   };
 
   return (
-    <span style={{ fontSize: s, lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: s }}>
+    <span
+      style={{
+        fontSize: s,
+        lineHeight: 1,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: s,
+        color: color || `var(--ic-color, ${C.yellow})`,
+        fontWeight: 900,
+      }}
+    >
       {map[n] || "•"}
     </span>
   );
@@ -564,7 +583,10 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
         alignItems: "center",
         justifyContent: "center",
         fontSize: size === "sm" ? 12 : 14,
+        borderRadius: 10,
+        boxShadow: v === "primary" || v === "warning" ? `0 8px 22px ${C.yellow}22` : "none",
         transition: "all .15s ease",
+        "--ic-color": v === "primary" || v === "warning" || v === "success" ? C.bg : C.yellow,
         ...style,
       }}
     >
@@ -878,7 +900,7 @@ function Dashboard({ data, onTab }) {
 // ═══════════════════════════════════════════════════════════════════
 
 function Obras({ data, update, showToast }) {
-  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active" };
+  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "" };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
@@ -891,7 +913,19 @@ function Obras({ data, update, showToast }) {
       return;
     }
 
-    const payload = { ...form, id: form.id || uid() };
+    const areaM2 = Number(form.areaM2 || 0);
+
+    if (areaM2 < 0) {
+      showToast("A metragem quadrada não pode ser negativa.", "error");
+      return;
+    }
+
+    const payload = {
+      ...form,
+      id: form.id || uid(),
+      areaM2,
+    };
+
     const obras = form.id ? data.obras.map(o => (o.id === form.id ? payload : o)) : [...data.obras, payload];
     update({ ...data, obras });
     setModal(false);
@@ -930,6 +964,7 @@ function Obras({ data, update, showToast }) {
       {list.map(o => {
         const count = data.employees.filter(e => e.active !== false && e.obra === o.id).length;
         const st = statusMap[o.status] || statusMap.active;
+        const area = Number(o.areaM2 || 0);
         return (
           <div key={o.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${st.c}`, padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
@@ -937,12 +972,13 @@ function Obras({ data, update, showToast }) {
                 <p style={{ fontFamily: "'Barlow Condensed'", fontWeight: 900, fontSize: 18 }}>{o.name}</p>
                 <Badge color={st.c}>{st.l}</Badge>
                 <p style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>{count} trabalhador{count !== 1 ? "es" : ""} ativo{count !== 1 ? "s" : ""}</p>
+                {area > 0 && <p style={{ color: C.yellow, fontSize: 12, marginTop: 4 }}>Área: {area.toLocaleString("pt-BR")} m²</p>}
                 {o.address && <p style={{ color: C.subtle, fontSize: 12, marginTop: 4 }}>{o.address}</p>}
                 {o.engineer && <p style={{ color: C.subtle, fontSize: 12 }}>Responsável: {o.engineer}</p>}
                 {o.startDate && <p style={{ color: C.subtle, fontSize: 12 }}>Início: {fmtDateFull(o.startDate)}</p>}
               </div>
               <div style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
-                <Btn v="ghost" size="sm" onClick={() => { setForm(o); setModal(true); }}><Ic n="edit" /></Btn>
+                <Btn v="ghost" size="sm" onClick={() => { setForm({ ...o, areaM2: String(o.areaM2 || "") }); setModal(true); }}><Ic n="edit" /></Btn>
                 <Btn v="danger" size="sm" onClick={() => remove(o.id)}><Ic n="trash" /></Btn>
               </div>
             </div>
@@ -954,6 +990,7 @@ function Obras({ data, update, showToast }) {
         <Modal title={form.id ? "Editar obra" : "Nova obra"} onClose={() => setModal(false)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <Inp label="Nome *" value={form.name} onChange={setField("name")} />
+            <Inp label="Metragem quadrada (m²)" type="number" value={form.areaM2} onChange={setField("areaM2")} placeholder="Ex.: 250" />
             <Inp label="Endereço" value={form.address} onChange={setField("address")} />
             <Inp label="Responsável" value={form.engineer} onChange={setField("engineer")} />
             <Inp label="Data de início" type="date" value={form.startDate} onChange={setField("startDate")} />
@@ -1558,15 +1595,74 @@ function Ponto({ data, update, showToast }) {
     if (st) counts[st] = (counts[st] || 0) + 1;
   });
   const semReg = Math.max(0, list.length - counts.P - counts.M - counts.F);
+  const registeredCount = counts.P + counts.M + counts.F;
+  const completionPct = list.length ? Math.round((registeredCount / list.length) * 100) : 0;
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div>
-        <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 30, letterSpacing: 2, color: C.yellow }}>Registro de Ponto</h2>
-        <p style={{ color: C.muted, fontSize: 13 }}>Marque a presença diária, finalize a obra e bloqueie alterações indevidas.</p>
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div
+        className="point-pulse"
+        style={{
+          background: `linear-gradient(135deg, ${C.yellow} 0%, ${C.yellowD} 52%, #5a5200 100%)`,
+          color: C.bg,
+          border: `1px solid ${C.yellow}`,
+          padding: 18,
+          borderRadius: 18,
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            right: -18,
+            top: -22,
+            fontFamily: "'Bebas Neue'",
+            fontSize: 118,
+            lineHeight: 1,
+            color: "rgba(0,0,0,.12)",
+            pointerEvents: "none",
+          }}
+        >
+          PONTO
+        </div>
+
+        <div style={{ position: "relative", display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start" }}>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1, opacity: .78 }}>Função principal do app</p>
+            <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 42, letterSpacing: 2, lineHeight: .95 }}>Registro de Ponto</h2>
+            <p style={{ fontSize: 13, fontWeight: 700, marginTop: 6, maxWidth: 500 }}>
+              Lance presença, meio dia ou falta por trabalhador. Finalize a obra para bloquear alterações.
+            </p>
+          </div>
+
+          <div style={{ minWidth: 92, textAlign: "right" }}>
+            <p style={{ fontFamily: "'Bebas Neue'", fontSize: 42, lineHeight: 1 }}>{completionPct}%</p>
+            <p style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: .8 }}>cadastrado</p>
+          </div>
+        </div>
+
+        <div style={{ position: "relative", marginTop: 14, height: 8, background: "rgba(0,0,0,.22)", borderRadius: 99, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${completionPct}%`, background: C.bg, borderRadius: 99, transition: "width .25s ease" }} />
+        </div>
+
+        <div style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 12 }}>
+          {[
+            ["Data", fmtDateFull(selDate)],
+            ["Obra", selectedObra?.name || "Todas"],
+            ["Equipe", `${registeredCount}/${list.length}`],
+          ].map(([label, value]) => (
+            <div key={label} style={{ background: "rgba(0,0,0,.18)", padding: 9, borderRadius: 12 }}>
+              <p style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", opacity: .74 }}>{label}</p>
+              <p style={{ fontWeight: 900, fontSize: 13 }}>{value}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <Inp label="Data" type="date" value={selDate} onChange={setSelDate} max={today()} />
+      <div style={{ background: C.card, border: `1px solid ${C.yellow}55`, borderLeft: `5px solid ${C.yellow}`, padding: 12, borderRadius: 14 }}>
+        <Inp label="Data do ponto" type="date" value={selDate} onChange={setSelDate} max={today()} />
+      </div>
 
       <div
         style={{
@@ -1704,7 +1800,7 @@ function Ponto({ data, update, showToast }) {
         const borderCol = cardLocked ? C.red : status === "P" ? C.green : status === "M" ? C.yellow : status === "F" ? C.red : C.border;
 
         return (
-          <div key={e.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${borderCol}`, padding: 13, opacity: cardLocked ? 0.86 : 1 }}>
+          <div key={e.id} style={{ background: `linear-gradient(180deg, ${C.card}, ${C.surface})`, border: `1px solid ${C.border}`, borderLeft: `5px solid ${borderCol}`, padding: 14, opacity: cardLocked ? 0.86 : 1, borderRadius: 16, boxShadow: status ? `0 10px 28px ${borderCol}12` : "none" }}>
             <div style={{ marginBottom: 9 }}>
               <p style={{ fontFamily: "'Barlow Condensed'", fontWeight: 900, fontSize: 17 }}>{e.name}</p>
               <p style={{ color: C.muted, fontSize: 12 }}>{obraName(e.obra)}{e.role ? ` · ${e.role}` : ""}</p>
@@ -1725,9 +1821,9 @@ function Ponto({ data, update, showToast }) {
                   ].map(([st, icon, col, label]) => (
                     <button key={st} onClick={() => setAtt(e.id, st)} style={{
                       border: `2px solid ${status === st ? col : C.border}`,
-                      background: status === st ? `${col}22` : "transparent",
-                      color: status === st ? col : C.muted,
-                      padding: "8px 4px",
+                      background: status === st ? `linear-gradient(180deg, ${col}33, ${col}18)` : C.surface,
+                      color: status === st ? col : C.subtle,
+                      padding: "12px 4px",
                       cursor: "pointer",
                       fontFamily: "'Barlow Condensed'",
                       fontWeight: 900,
@@ -1735,7 +1831,10 @@ function Ponto({ data, update, showToast }) {
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
-                      gap: 3,
+                      gap: 5,
+                      borderRadius: 12,
+                      boxShadow: status === st ? `0 0 0 2px ${col}22` : "none",
+                      "--ic-color": status === st ? col : C.yellow,
                     }}>
                       <Ic n={icon} s={14} /> {label}
                     </button>
@@ -1743,8 +1842,8 @@ function Ponto({ data, update, showToast }) {
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 5 }}>
-                  <Btn v="warning" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}>Transferir</Btn>
-                  <Btn v="danger" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}>Demitir</Btn>
+                  <Btn v="warning" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}><Ic n="home" /> Transferir</Btn>
+                  <Btn v="danger" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}><Ic n="x" /> Demitir</Btn>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                   <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setOtModal(e.id); setOtHours(String(ot)); }}><Ic n="clock" /> Hora extra</Btn>
@@ -2088,31 +2187,211 @@ function Folha({ data, showToast }) {
 function Relatorios({ data }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
+  const [filterObra, setFilterObra] = useState("all");
+
   const days = getDays(year, month);
   const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
+  const payrollHolidays = getPayrollHolidays(data, year);
+  const holidaysInMonth = days.filter(d => payrollHolidays.includes(d) && prIsWeekdayIso(d));
 
-  const byObra = data.obras.map(o => {
-    const emps = data.employees.filter(e => e.obra === o.id && e.active !== false);
-    const presentes = emps.reduce((sum, e) => sum + days.filter(d => attStatus(data, e.id, d) === "P").length, 0);
-    const faltas = emps.reduce((sum, e) => sum + days.filter(d => attStatus(data, e.id, d) === "F").length, 0);
-    return { name: o.name, trabalhadores: emps.length, presentes, faltas };
+  const obraCostRows = data.obras.map(o => {
+    const emps = data.employees.filter(e => e.obra === o.id || e.lastObra === o.id);
+    const activeEmps = emps.filter(e => e.active !== false && e.obra === o.id);
+
+    let presentes = 0;
+    let meiodia = 0;
+    let faltas = 0;
+    let semRegistro = 0;
+    let laborCost = 0;
+    let benefitCost = 0;
+    let holidayPay = 0;
+
+    emps.forEach(e => {
+      const belongsNow = e.obra === o.id;
+      const hasAnyAttendance = days.some(d => !!getAtt(data, e.id, d));
+
+      // Observação: a estrutura atual do ponto não grava a obra por dia.
+      // Portanto, para relatórios históricos, o custo é atribuído à obra atual do trabalhador.
+      // lastObra serve apenas para manter vínculo de histórico após demissão/arquivamento.
+      if (!belongsNow && !hasAnyAttendance) return;
+
+      days.forEach(d => {
+        if (!isEmployeeEmployedOnDate(e, d)) return;
+        if (holidaysInMonth.includes(d)) return;
+
+        const a = getAtt(data, e.id, d);
+        const s = a?.status;
+
+        if (s === "P") {
+          presentes++;
+          laborCost += Number(e.dailyRate || 0);
+          benefitCost += Number(e.vtDaily || 0) + Number(e.vrDaily || 0);
+        } else if (s === "M") {
+          meiodia++;
+          laborCost += Number(e.dailyRate || 0) * 0.5;
+          benefitCost += (Number(e.vtDaily || 0) + Number(e.vrDaily || 0)) * 0.5;
+        } else if (s === "F") {
+          faltas++;
+        } else if (belongsNow && e.active !== false) {
+          semRegistro++;
+        }
+      });
+
+      holidaysInMonth.forEach(h => {
+        if (!isEmployeeEmployedOnDate(e, h)) return;
+        if (!belongsNow && e.active !== false) return;
+        const rule = getHolidayPayRule(data, e, h, payrollHolidays);
+        holidayPay += Number(rule.amount || 0);
+      });
+    });
+
+    const areaM2 = Number(o.areaM2 || 0);
+    laborCost += holidayPay;
+    const totalCost = laborCost + benefitCost;
+    const laborCostPerM2 = areaM2 > 0 ? laborCost / areaM2 : 0;
+    const totalCostPerM2 = areaM2 > 0 ? totalCost / areaM2 : 0;
+
+    return {
+      id: o.id,
+      name: o.name,
+      areaM2,
+      trabalhadores: activeEmps.length,
+      presentes,
+      meiodia,
+      faltas,
+      semRegistro,
+      laborCost,
+      benefitCost,
+      holidayPay,
+      totalCost,
+      laborCostPerM2,
+      totalCostPerM2,
+    };
   });
 
+  const filteredRows = obraCostRows.filter(r => filterObra === "all" || r.id === filterObra);
+
+  const totals = filteredRows.reduce((acc, r) => ({
+    areaM2: acc.areaM2 + r.areaM2,
+    trabalhadores: acc.trabalhadores + r.trabalhadores,
+    presentes: acc.presentes + r.presentes,
+    meiodia: acc.meiodia + r.meiodia,
+    faltas: acc.faltas + r.faltas,
+    semRegistro: acc.semRegistro + r.semRegistro,
+    laborCost: acc.laborCost + r.laborCost,
+    benefitCost: acc.benefitCost + r.benefitCost,
+    holidayPay: acc.holidayPay + r.holidayPay,
+    totalCost: acc.totalCost + r.totalCost,
+  }), {
+    areaM2: 0,
+    trabalhadores: 0,
+    presentes: 0,
+    meiodia: 0,
+    faltas: 0,
+    semRegistro: 0,
+    laborCost: 0,
+    benefitCost: 0,
+    holidayPay: 0,
+    totalCost: 0,
+  });
+
+  const totalLaborCostPerM2 = totals.areaM2 > 0 ? totals.laborCost / totals.areaM2 : 0;
+  const totalCostPerM2 = totals.areaM2 > 0 ? totals.totalCost / totals.areaM2 : 0;
+
+  const byObra = filteredRows.map(r => ({
+    name: r.name,
+    trabalhadores: r.trabalhadores,
+    presentes: r.presentes,
+    faltas: r.faltas,
+    custo: r.laborCost,
+    custoTotal: r.totalCost,
+    custoM2: r.laborCostPerM2,
+  }));
+
   const topCost = data.employees.map(e => {
-    const total = days.reduce((s, d) => {
+    if (filterObra !== "all" && e.obra !== filterObra && e.lastObra !== filterObra) return null;
+
+    let total = 0;
+
+    days.forEach(d => {
+      if (!isEmployeeEmployedOnDate(e, d)) return;
+      if (holidaysInMonth.includes(d)) return;
       const st = attStatus(data, e.id, d);
-      if (st === "P") return s + Number(e.dailyRate || 0);
-      if (st === "M") return s + Number(e.dailyRate || 0) * 0.5;
-      return s;
-    }, 0);
+      if (st === "P") total += Number(e.dailyRate || 0);
+      if (st === "M") total += Number(e.dailyRate || 0) * 0.5;
+    });
+
+    holidaysInMonth.forEach(h => {
+      if (!isEmployeeEmployedOnDate(e, h)) return;
+      total += Number(getHolidayPayRule(data, e, h, payrollHolidays).amount || 0);
+    });
+
     return { name: e.name, obra: obraName(e.obra), total };
-  }).filter(i => i.total > 0).sort((a, b) => b.total - a.total).slice(0, 10);
+  }).filter(i => i && i.total > 0).sort((a, b) => b.total - a.total).slice(0, 10);
+
+  const exportObraCosts = () => {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Relatório de gasto por obra", `${fullMonth(month)} ${year}`],
+      ["Filtro", filterObra === "all" ? "Todas as obras" : obraName(filterObra)],
+      [],
+      [
+        "Obra",
+        "Área (m²)",
+        "Trabalhadores ativos",
+        "Presenças",
+        "Meio dia",
+        "Faltas",
+        "Sem registro",
+        "Mão de obra",
+        "Feriados pagos",
+        "VT/VR",
+        "Total com benefícios",
+        "Mão de obra por m²",
+        "Total por m²",
+      ],
+      ...filteredRows.map(r => [
+        r.name,
+        r.areaM2,
+        r.trabalhadores,
+        r.presentes,
+        r.meiodia,
+        r.faltas,
+        r.semRegistro,
+        r.laborCost,
+        r.holidayPay,
+        r.benefitCost,
+        r.totalCost,
+        r.laborCostPerM2,
+        r.totalCostPerM2,
+      ]),
+      [
+        "TOTAL",
+        totals.areaM2,
+        totals.trabalhadores,
+        totals.presentes,
+        totals.meiodia,
+        totals.faltas,
+        totals.semRegistro,
+        totals.laborCost,
+        totals.holidayPay,
+        totals.benefitCost,
+        totals.totalCost,
+        totalLaborCostPerM2,
+        totalCostPerM2,
+      ],
+    ]);
+
+    ws["!cols"] = [22, 10, 16, 10, 10, 10, 12, 14, 14, 12, 18, 18, 14].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, ws, "Gasto por Obra");
+    XLSX.writeFile(wb, `arcd-gasto-obra-${year}-${String(month + 1).padStart(2, "0")}.xlsx`);
+  };
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
         <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 30, letterSpacing: 2, color: C.yellow }}>Relatórios</h2>
-        <p style={{ color: C.muted, fontSize: 13 }}>Indicadores mensais de presença e custo.</p>
+        <p style={{ color: C.muted, fontSize: 13 }}>Indicadores mensais de presença, gasto por obra e custo de mão de obra por m².</p>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -2120,8 +2399,50 @@ function Relatorios({ data }) {
         <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
       </div>
 
+      <Sel
+        label="Filtrar gasto por obra"
+        value={filterObra}
+        onChange={setFilterObra}
+        options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]}
+      />
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+        {[
+          ["Mão de obra", fmt(totals.laborCost), C.yellow],
+          ["Custo / m²", totals.areaM2 > 0 ? fmt(totalLaborCostPerM2) : "Sem área", totals.areaM2 > 0 ? C.green : C.muted],
+          ["Total com VT/VR", fmt(totals.totalCost), C.blue],
+          ["Área considerada", `${totals.areaM2.toLocaleString("pt-BR")} m²`, C.subtle],
+        ].map(([label, value, color]) => (
+          <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: `3px solid ${color}`, padding: 12 }}>
+            <p style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", fontWeight: 800, letterSpacing: .6 }}>{label}</p>
+            <p style={{ color, fontFamily: "'Barlow Condensed'", fontSize: 22, fontWeight: 900 }}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <Btn onClick={exportObraCosts} v="success" full>
+        <Ic n="download" s={15} />
+        Exportar gasto por obra
+      </Btn>
+
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Presenças por obra</h3>
+        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Gasto de mão de obra por obra</h3>
+        <div style={{ height: 260 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={byObra}>
+              <CartesianGrid stroke={C.border} vertical={false} />
+              <XAxis dataKey="name" stroke={C.muted} fontSize={10} />
+              <YAxis stroke={C.muted} fontSize={10} />
+              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, color: C.text }} formatter={v => fmt(v)} />
+              <Bar dataKey="custo" name="Mão de obra" fill={C.yellow} />
+              <Bar dataKey="custoTotal" name="Total c/ VT-VR" fill={C.blue} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
+        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Presenças e faltas por obra</h3>
         <div style={{ height: 250 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={byObra}>
@@ -2136,27 +2457,53 @@ function Relatorios({ data }) {
         </div>
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Top custos do mês</h3>
-        <div style={{ height: 250 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={topCost}>
-              <CartesianGrid stroke={C.border} vertical={false} />
-              <XAxis dataKey="name" stroke={C.muted} fontSize={10} />
-              <YAxis stroke={C.muted} fontSize={10} />
-              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, color: C.text }} formatter={v => fmt(v)} />
-              <Line type="monotone" dataKey="total" stroke={C.yellow} strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {filteredRows.map(r => (
+          <div key={r.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+              <div>
+                <p style={{ fontFamily: "'Barlow Condensed'", fontWeight: 900, fontSize: 17 }}>{r.name}</p>
+                <p style={{ color: C.muted, fontSize: 12 }}>
+                  Área: {r.areaM2 > 0 ? `${r.areaM2.toLocaleString("pt-BR")} m²` : "não cadastrada"} · {r.trabalhadores} trabalhador(es)
+                </p>
+                <p style={{ color: C.subtle, fontSize: 12 }}>
+                  {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R
+                </p>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ color: C.yellow, fontWeight: 900 }}>{fmt(r.laborCost)}</p>
+                <p style={{ color: r.areaM2 > 0 ? C.green : C.muted, fontSize: 12, fontWeight: 800 }}>
+                  {r.areaM2 > 0 ? `${fmt(r.laborCostPerM2)}/m²` : "sem m²"}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginTop: 10 }}>
+              {[
+                ["Feriados pagos", fmt(r.holidayPay), C.green],
+                ["VT/VR", fmt(r.benefitCost), C.blue],
+                ["Total", fmt(r.totalCost), C.yellow],
+              ].map(([label, value, color]) => (
+                <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 8 }}>
+                  <p style={{ fontSize: 10, color: C.muted, textTransform: "uppercase" }}>{label}</p>
+                  <p style={{ color, fontWeight: 900 }}>{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {topCost.map(i => (
-        <div key={i.name} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 12, display: "flex", justifyContent: "space-between" }}>
-          <div><p style={{ fontWeight: 900 }}>{i.name}</p><p style={{ color: C.muted, fontSize: 12 }}>{i.obra}</p></div>
-          <p style={{ color: C.yellow, fontWeight: 900 }}>{fmt(i.total)}</p>
-        </div>
-      ))}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
+        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Top custos do mês</h3>
+        {topCost.length === 0 && <p style={{ color: C.muted, fontSize: 13 }}>Nenhum custo lançado no período.</p>}
+        {topCost.map(i => (
+          <div key={`${i.name}-${i.obra}`} style={{ borderTop: `1px solid ${C.border}`, padding: "9px 0", display: "flex", justifyContent: "space-between" }}>
+            <div><p style={{ fontWeight: 900 }}>{i.name}</p><p style={{ color: C.muted, fontSize: 12 }}>{i.obra}</p></div>
+            <p style={{ color: C.yellow, fontWeight: 900 }}>{fmt(i.total)}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2405,23 +2752,28 @@ export default function App() {
           <div style={{ maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
             {tabs.map(t => {
               const active = tab === t.id;
+              const isMainPoint = t.id === "ponto";
               return (
                 <button key={t.id} onClick={() => setTab(t.id)} style={{
-                  background: active ? `${C.yellow}12` : "transparent",
-                  color: active ? C.yellow : C.muted,
-                  border: 0,
-                  borderTop: active ? `3px solid ${C.yellow}` : "3px solid transparent",
-                  padding: "8px 2px 9px",
+                  background: isMainPoint ? (active ? C.yellow : C.yellowDim) : active ? `${C.yellow}12` : "transparent",
+                  color: isMainPoint ? (active ? C.bg : C.yellow) : active ? C.yellow : C.muted,
+                  border: isMainPoint ? `1px solid ${C.yellow}` : 0,
+                  borderTop: isMainPoint ? `1px solid ${C.yellow}` : active ? `3px solid ${C.yellow}` : "3px solid transparent",
+                  borderRadius: isMainPoint ? "16px 16px 0 0" : 0,
+                  margin: isMainPoint ? "-10px 3px 0" : 0,
+                  padding: isMainPoint ? "10px 2px 11px" : "8px 2px 9px",
                   cursor: "pointer",
-                  fontSize: 10,
-                  fontWeight: 800,
+                  fontSize: isMainPoint ? 11 : 10,
+                  fontWeight: 900,
                   textTransform: "uppercase",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   gap: 3,
+                  boxShadow: isMainPoint ? `0 -8px 25px ${C.yellow}22` : "none",
+                  "--ic-color": isMainPoint ? (active ? C.bg : C.yellow) : active ? C.yellow : C.yellow,
                 }}>
-                  <Ic n={t.icon} s={16} />
+                  <Ic n={t.icon} s={isMainPoint ? 20 : 16} />
                   {t.label}
                 </button>
               );
