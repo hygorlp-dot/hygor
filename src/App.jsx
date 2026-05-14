@@ -1171,10 +1171,15 @@ function Ponto({data,update,showToast,onDailyCheck}) {
     data.employees.filter(e => e.active !== false).length > 0 &&
     data.dailyCheckDate !== today();
 
+  const openMovementCheck = () => {
+    onDailyCheck();
+  };
+
   const requireDailyCheck = () => {
     if (!dailyCheckPending) return false;
 
     onDailyCheck();
+
     showToast(
       "Antes de lançar o ponto, confirme se algum trabalhador foi transferido ou demitido.",
       "warn"
@@ -1297,12 +1302,17 @@ function Ponto({data,update,showToast,onDailyCheck}) {
         <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 28, letterSpacing: 2, color: C.yellow }}>
           Registro de Ponto
         </h2>
+
         <p style={{ color: C.muted, fontSize: 13 }}>
           Marque a presença diária
         </p>
       </div>
 
       <Inp label="Data" type="date" value={selDate} onChange={setSelDate} max={today()} />
+
+      <Btn onClick={openMovementCheck} v="warning" full>
+        Transferência / Demissão de Trabalhador
+      </Btn>
 
       {dailyCheckPending && (
         <button
@@ -1354,7 +1364,10 @@ function Ponto({data,update,showToast,onDailyCheck}) {
             <p style={{ fontSize: 22, fontWeight: 900, fontFamily: "'Bebas Neue'", color: c, letterSpacing: 1 }}>
               {n}
             </p>
-            <p style={{ fontSize: 10, color: C.muted }}>{l}</p>
+
+            <p style={{ fontSize: 10, color: C.muted }}>
+              {l}
+            </p>
           </div>
         ))}
       </div>
@@ -1400,10 +1413,19 @@ function Ponto({data,update,showToast,onDailyCheck}) {
                 </p>
 
                 {ot > 0 && <Badge color={C.purple}>{ot}h extra</Badge>}
-                {note && <p style={{ fontSize: 11, color: C.subtle, marginTop: 2, fontStyle: "italic" }}>"{note}"</p>}
+
+                {note && (
+                  <p style={{ fontSize: 11, color: C.subtle, marginTop: 2, fontStyle: "italic" }}>
+                    "{note}"
+                  </p>
+                )}
               </div>
 
               <div style={{ display: "flex", gap: 5 }}>
+                <Btn onClick={openMovementCheck} v="warning" size="sm">
+                  Movimentar
+                </Btn>
+
                 {status === "P" && (
                   <Btn onClick={() => { setOtModal(e.id); setOtHours(String(ot)); }} v="ghost" size="sm">
                     <Ic n="clock" s={12} />
@@ -1457,7 +1479,10 @@ function Ponto({data,update,showToast,onDailyCheck}) {
           <Inp label="Observação" value={noteText} onChange={setNoteText} placeholder="Ex: Saiu mais cedo..." />
 
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <Btn v="ghost" onClick={() => setNoteModal(null)} full>Cancelar</Btn>
+            <Btn v="ghost" onClick={() => setNoteModal(null)} full>
+              Cancelar
+            </Btn>
+
             <Btn onClick={saveNote} full>
               <Ic n="check" s={16} />
               Salvar
@@ -1477,7 +1502,10 @@ function Ponto({data,update,showToast,onDailyCheck}) {
           />
 
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <Btn v="ghost" onClick={() => setOtModal(null)} full>Cancelar</Btn>
+            <Btn v="ghost" onClick={() => setOtModal(null)} full>
+              Cancelar
+            </Btn>
+
             <Btn onClick={saveOT} full v="info">
               <Ic n="check" s={16} />
               Registrar
@@ -1488,7 +1516,6 @@ function Ponto({data,update,showToast,onDailyCheck}) {
     </div>
   );
 }
-
 // ═══════════════════════════════════════════════════════════════════
 // FOLHA
 // ═══════════════════════════════════════════════════════════════════
@@ -2380,11 +2407,11 @@ function DailyCheckModal({data,update,showToast,onClose}) {
   };
 
   return (
-    <Modal
-      title="Verificação obrigatória da equipe"
-      wide
-      onClose={() => showToast("A verificação é obrigatória antes de lançar o ponto.", "warn")}
-    >
+   <Modal
+  title="Transferência / Demissão de Trabalhador"
+  wide
+  onClose={onClose}
+>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{
           background: C.yellow + "14",
