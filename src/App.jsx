@@ -30,6 +30,7 @@ import { loadData as supabaseLoad, saveData as supabaseSave } from "./supabase";
 // - Regra: falta em dia útil imediatamente anterior/posterior perde feriado
 // - Relatórios com gasto por obra, metragem quadrada e custo de mão de obra por m²
 // - Interface reforçada para o Registro de Ponto, com ícones e navegação em destaque
+// - Agente de IA para apoiar ponto, folha, obras, custos e alertas
 // ═══════════════════════════════════════════════════════════════════
 
 const C = {
@@ -512,6 +513,9 @@ function Ic({ n, s = 16, color }) {
     clock: "⏱",
     dollar: "R$",
     chart: "◔",
+    ia: "◆",
+    brain: "✦",
+    robot: "◎",
     plus: "+",
     edit: "✎",
     trash: "×",
@@ -2508,6 +2512,440 @@ function Relatorios({ data }) {
   );
 }
 
+
+// ═══════════════════════════════════════════════════════════════════
+// Agente de IA — apoio operacional
+// Funciona com análise local do app e, se existir backend /api/ai-agent,
+// usa o endpoint de IA sem expor chave no navegador.
+// ═══════════════════════════════════════════════════════════════════
+
+const agentNormalize = value => String(value || "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase();
+
+const agentDateLabel = iso => fmtDateFull(iso) || "—";
+
+const getAgentMonthCostByObra = (data, year = new Date().getFullYear(), month = new Date().getMonth()) => {
+  const days = getDays(year, month);
+  const holidays = getPayrollHolidays(data, year);
+  const holidaysInMonth = days.filter(d => holidays.includes(d) && prIsWeekdayIso(d));
+
+  return (data.obras || []).map(obra => {
+    let laborCost = 0;
+    let benefitCost = 0;
+    let presentes = 0;
+    let meiodia = 0;
+    let faltas = 0;
+    let semRegistro = 0;
+
+    (data.employees || []).forEach(emp => {
+      if (emp.obra !== obra.id && emp.lastObra !== obra.id) return;
+
+      days.forEach(day => {
+        if (!isEmployeeEmployedOnDate(emp, day)) return;
+        if (holidaysInMonth.includes(day)) return;
+        const status = attStatus(data, emp.id, day);
+
+        if (status === "P") {
+          presentes++;
+          laborCost += Number(emp.dailyRate || 0);
+          benefitCost += Number(emp.vtDaily || 0) + Number(emp.vrDaily || 0);
+        } else if (status === "M") {
+          meiodia++;
+          laborCost += Number(emp.dailyRate || 0) * 0.5;
+          benefitCost += (Number(emp.vtDaily || 0) + Number(emp.vrDaily || 0)) * 0.5;
+        } else if (status === "F") {
+          faltas++;
+        } else if (emp.active !== false && emp.obra === obra.id) {
+          semRegistro++;
+        }
+      });
+
+      holidaysInMonth.forEach(h => {
+        if (!isEmployeeEmployedOnDate(emp, h)) return;
+        if (emp.obra !== obra.id) return;
+        laborCost += Number(getHolidayPayRule(data, emp, h, holidays).amount || 0);
+      });
+    });
+
+    const areaM2 = Number(obra.areaM2 || 0);
+    const totalCost = laborCost + benefitCost;
+
+    return {
+      obraId: obra.id,
+      obraName: obra.name,
+      areaM2,
+      laborCost,
+      benefitCost,
+      totalCost,
+      laborCostPerM2: areaM2 > 0 ? laborCost / areaM2 : 0,
+      totalCostPerM2: areaM2 > 0 ? totalCost / areaM2 : 0,
+      presentes,
+      meiodia,
+      faltas,
+      semRegistro,
+    };
+  }).sort((a, b) => b.totalCost - a.totalCost);
+};
+
+const buildAgentContext = data => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const todayIso = today();
+  const activeEmployees = (data.employees || []).filter(e => e.active !== false);
+  const activeObras = (data.obras || []).filter(o => o.status !== "done");
+  const attendanceSummary = getObraAttendanceSummary(data, todayIso);
+  const completion = getAttendanceCompletionMessage(attendanceSummary);
+  const costs = getAgentMonthCostByObra(data, currentYear, currentMonth);
+  const pendingUnlocks = (data.unlockRequests || []).filter(r => r.status === "pending");
+  const noArea = activeObras.filter(o => !Number(o.areaM2 || 0));
+  const noTeam = activeObras.filter(o => !activeEmployees.some(e => e.obra === o.id));
+  const incompleteEmployees = activeEmployees.filter(e =>
+    !e.name || !e.role || !e.obra || !e.startDate || !Number(e.dailyRate || 0)
+  );
+  const missingPointEmployees = completion.pendingObras.flatMap(o =>
+    o.missingEmployees.map(e => ({ name: e.name, obra: o.obraName }))
+  );
+  const paymentInfo = getPayrollPaymentCalendar(
+    currentYear,
+    currentMonth,
+    now.getDate() <= 15 ? "1" : "2",
+    data
+  );
+
+  return {
+    today: todayIso,
+    companyName: data.config?.companyName || "ArcD Obras",
+    totalObras: (data.obras || []).length,
+    activeObras: activeObras.length,
+    totalEmployees: (data.employees || []).length,
+    activeEmployees: activeEmployees.length,
+    pendingPointObras: completion.pendingObras.map(o => ({
+      obraName: o.obraName,
+      missingCount: o.missingCount,
+      missingEmployees: o.missingEmployees.map(e => e.name),
+    })),
+    completedPointObras: completion.completedObras.map(o => o.obraName),
+    allPointsDoneToday: completion.allDone,
+    missingPointEmployees,
+    pendingUnlocks: pendingUnlocks.map(r => ({ obraName: r.obraName, date: r.date, employeeName: r.employeeName || "Todos / obra", reason: r.reason })),
+    noAreaObras: noArea.map(o => o.name),
+    noTeamObras: noTeam.map(o => o.name),
+    incompleteEmployees: incompleteEmployees.slice(0, 30).map(e => ({
+      name: e.name,
+      role: e.role || "sem função",
+      obra: activeObras.find(o => o.id === e.obra)?.name || "sem obra",
+      missing: [
+        !e.role ? "função" : "",
+        !e.obra ? "obra" : "",
+        !e.startDate ? "data de admissão" : "",
+        !Number(e.dailyRate || 0) ? "diária" : "",
+      ].filter(Boolean),
+    })),
+    monthlyCosts: costs.slice(0, 10).map(c => ({
+      obraName: c.obraName,
+      laborCost: c.laborCost,
+      totalCost: c.totalCost,
+      areaM2: c.areaM2,
+      laborCostPerM2: c.laborCostPerM2,
+      totalCostPerM2: c.totalCostPerM2,
+    })),
+    paymentDate: paymentInfo.paymentDate,
+    paymentBaseDate: paymentInfo.baseDate,
+    paymentAdjusted: paymentInfo.adjusted,
+  };
+};
+
+const agentFormatPendingPoints = ctx => {
+  if (ctx.allPointsDoneToday) {
+    return `Todos os pontos de hoje (${agentDateLabel(ctx.today)}) estão cadastrados nas obras com equipe ativa.`;
+  }
+
+  if (!ctx.pendingPointObras.length) {
+    return `Não encontrei obras com equipe ativa pendente de ponto em ${agentDateLabel(ctx.today)}.`;
+  }
+
+  return [
+    `Existem ${ctx.pendingPointObras.length} obra(s) com ponto pendente hoje (${agentDateLabel(ctx.today)}):`,
+    ...ctx.pendingPointObras.map(o => `• ${o.obraName}: ${o.missingCount} trabalhador(es) sem ponto — ${o.missingEmployees.join(", ")}`),
+  ].join("\n");
+};
+
+const agentFormatCosts = ctx => {
+  if (!ctx.monthlyCosts.length) return "Ainda não há custo de mão de obra lançado no mês atual.";
+
+  return [
+    "Resumo de gasto de mão de obra por obra no mês atual:",
+    ...ctx.monthlyCosts.map(c => {
+      const m2 = c.areaM2 > 0 ? ` · ${fmt(c.laborCostPerM2)}/m² mão de obra` : " · área m² não cadastrada";
+      return `• ${c.obraName}: ${fmt(c.laborCost)} mão de obra | ${fmt(c.totalCost)} com benefícios${m2}`;
+    }),
+  ].join("\n");
+};
+
+const agentFormatIncompletes = ctx => {
+  const parts = [];
+
+  if (ctx.incompleteEmployees.length) {
+    parts.push("Funcionários ativos com cadastro incompleto:");
+    parts.push(...ctx.incompleteEmployees.map(e => `• ${e.name}: falta ${e.missing.join(", ")}.`));
+  }
+
+  if (ctx.noAreaObras.length) {
+    parts.push("\nObras sem metragem cadastrada:");
+    parts.push(...ctx.noAreaObras.map(name => `• ${name}`));
+  }
+
+  if (ctx.noTeamObras.length) {
+    parts.push("\nObras ativas sem equipe vinculada:");
+    parts.push(...ctx.noTeamObras.map(name => `• ${name}`));
+  }
+
+  return parts.length ? parts.join("\n") : "Não encontrei pendências cadastrais relevantes nos dados atuais.";
+};
+
+const agentFormatPayroll = ctx => {
+  const obs = ctx.paymentAdjusted
+    ? `A data base ${agentDateLabel(ctx.paymentBaseDate)} foi ajustada para ${agentDateLabel(ctx.paymentDate)}.`
+    : `A data de pagamento permanece em ${agentDateLabel(ctx.paymentDate)}.`;
+
+  return [
+    `Próximo pagamento calculado: ${agentDateLabel(ctx.paymentDate)}.`,
+    obs,
+    `Pontos de hoje: ${ctx.allPointsDoneToday ? "todos cadastrados" : `${ctx.pendingPointObras.length} obra(s) pendente(s)`}.`,
+    ctx.pendingUnlocks.length ? `Há ${ctx.pendingUnlocks.length} solicitação(ões) de permissão pendente(s).` : "Não há solicitação de permissão pendente.",
+  ].join("\n");
+};
+
+const agentFormatPriorities = ctx => {
+  const priorities = [];
+
+  if (ctx.pendingPointObras.length) priorities.push(`Finalizar ponto de ${ctx.pendingPointObras.length} obra(s) pendente(s).`);
+  if (ctx.pendingUnlocks.length) priorities.push(`Analisar ${ctx.pendingUnlocks.length} solicitação(ões) de alteração de ponto.`);
+  if (ctx.noAreaObras.length) priorities.push(`Cadastrar metragem de ${ctx.noAreaObras.length} obra(s) para custo por m².`);
+  if (ctx.incompleteEmployees.length) priorities.push(`Corrigir cadastro de ${ctx.incompleteEmployees.length} funcionário(s) ativo(s).`);
+  if (!priorities.length) priorities.push("Não há alertas críticos. Mantenha a rotina de finalizar o ponto por obra ao fim do dia.");
+
+  return [
+    "Prioridades sugeridas pelo agente:",
+    ...priorities.map((p, i) => `${i + 1}. ${p}`),
+  ].join("\n");
+};
+
+const generateLocalAgentAnswer = (data, question) => {
+  const ctx = buildAgentContext(data);
+  const q = agentNormalize(question);
+
+  if (!q.trim()) return agentFormatPriorities(ctx);
+  if (q.includes("ponto") || q.includes("falt") || q.includes("pendente") || q.includes("cadastrar")) return agentFormatPendingPoints(ctx);
+  if (q.includes("custo") || q.includes("gasto") || q.includes("m2") || q.includes("metro") || q.includes("obra")) return agentFormatCosts(ctx);
+  if (q.includes("cadastro") || q.includes("incompleto") || q.includes("diaria") || q.includes("metragem")) return agentFormatIncompletes(ctx);
+  if (q.includes("folha") || q.includes("pagamento") || q.includes("feriado") || q.includes("salario")) return agentFormatPayroll(ctx);
+  if (q.includes("prioridade") || q.includes("risco") || q.includes("alerta") || q.includes("resumo")) return agentFormatPriorities(ctx);
+
+  return [
+    "Análise geral do agente:",
+    agentFormatPriorities(ctx),
+    "",
+    agentFormatPendingPoints(ctx),
+    "",
+    agentFormatPayroll(ctx),
+  ].join("\n");
+};
+
+async function askRemoteAgentIfAvailable(data, question) {
+  try {
+    const response = await fetch("/api/ai-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question,
+        context: buildAgentContext(data),
+      }),
+    });
+
+    if (!response.ok) return null;
+    const payload = await response.json().catch(() => null);
+    return payload?.answer || null;
+  } catch {
+    return null;
+  }
+}
+
+function AgenteIA({ data, showToast, onTab }) {
+  const [input, setInput] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const initialAnswer = useMemo(() => generateLocalAgentAnswer(data, "prioridades"), [data]);
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      text: "Sou o Agente IA da ArcD Obras. Posso ajudar com ponto pendente, folha, custo por obra, custo por m², cadastros incompletos e alertas operacionais.",
+    },
+    { role: "assistant", text: initialAnswer },
+  ]);
+
+  const ctx = useMemo(() => buildAgentContext(data), [data]);
+
+  const quickPrompts = [
+    "O que falta no ponto de hoje?",
+    "Quais obras estão gastando mais?",
+    "Quais cadastros estão incompletos?",
+    "Resumo da folha e pagamento",
+    "Quais são as prioridades de hoje?",
+  ];
+
+  const sendQuestion = async (question = input) => {
+    const q = String(question || "").trim();
+    if (!q) return;
+
+    setInput("");
+    setMessages(prev => [...prev, { role: "user", text: q }]);
+    setThinking(true);
+
+    const remote = await askRemoteAgentIfAvailable(data, q);
+    const answer = remote || generateLocalAgentAnswer(data, q);
+
+    setMessages(prev => [...prev, { role: "assistant", text: answer }]);
+    setThinking(false);
+  };
+
+  const copyLastAnswer = () => {
+    const last = [...messages].reverse().find(m => m.role === "assistant")?.text || "";
+    if (!last) return;
+    navigator.clipboard.writeText(last).then(() => showToast("Resposta copiada.")).catch(() => showToast("Erro ao copiar.", "error"));
+  };
+
+  const goToPendingPoint = () => {
+    onTab?.("ponto");
+    if (ctx.pendingPointObras.length) showToast("Abra a obra pendente no filtro do ponto.", "warn");
+  };
+
+  return (
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div
+        style={{
+          background: `linear-gradient(135deg, ${C.yellow}, ${C.yellowD})`,
+          color: C.bg,
+          border: `1px solid ${C.yellow}`,
+          padding: 16,
+          borderRadius: 14,
+          boxShadow: `0 16px 36px ${C.yellow}22`,
+        }}
+      >
+        <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", opacity: 0.78 }}>
+          Assistente operacional
+        </p>
+        <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 36, letterSpacing: 2, lineHeight: 1 }}>
+          Agente IA ArcD
+        </h2>
+        <p style={{ fontSize: 13, fontWeight: 700, maxWidth: 720 }}>
+          Analisa ponto, folha, obras, pendências, custo por obra e custo de mão de obra por m².
+        </p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+        {[
+          [ctx.allPointsDoneToday ? "Ponto completo" : "Ponto pendente", ctx.allPointsDoneToday ? "Todas as obras" : `${ctx.pendingPointObras.length} obra(s)`, ctx.allPointsDoneToday ? C.green : C.red],
+          ["Funcionários ativos", ctx.activeEmployees, C.yellow],
+          ["Solicitações", ctx.pendingUnlocks.length, ctx.pendingUnlocks.length ? C.red : C.green],
+          ["Obras sem m²", ctx.noAreaObras.length, ctx.noAreaObras.length ? C.orange : C.green],
+        ].map(([label, value, color]) => (
+          <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: `3px solid ${color}`, padding: 12, borderRadius: 12 }}>
+            <p style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", fontWeight: 900 }}>{label}</p>
+            <p style={{ color, fontFamily: "'Barlow Condensed'", fontSize: 23, fontWeight: 900 }}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <Btn v="warning" onClick={goToPendingPoint} full><Ic n="clock" /> Ir para Ponto</Btn>
+        <Btn v="ghost" onClick={() => onTab?.("relat")} full><Ic n="chart" /> Ver Relatórios</Btn>
+      </div>
+
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14, borderRadius: 14 }}>
+        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, fontSize: 18, textTransform: "uppercase", marginBottom: 10 }}>
+          Perguntas rápidas
+        </h3>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+          {quickPrompts.map(p => (
+            <button
+              key={p}
+              onClick={() => sendQuestion(p)}
+              style={{
+                background: C.surface,
+                color: C.text,
+                border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${C.yellow}`,
+                padding: "8px 10px",
+                borderRadius: 999,
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 12, borderRadius: 14, minHeight: 300 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, fontSize: 18, textTransform: "uppercase" }}>
+            Conversa com o agente
+          </h3>
+          <Btn v="ghost" size="sm" onClick={copyLastAnswer}><Ic n="copy" /> Copiar</Btn>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 9, maxHeight: 390, overflowY: "auto", paddingRight: 3 }}>
+          {messages.map((m, idx) => (
+            <div
+              key={`${m.role}-${idx}`}
+              style={{
+                alignSelf: m.role === "user" ? "flex-end" : "stretch",
+                maxWidth: m.role === "user" ? "86%" : "100%",
+                background: m.role === "user" ? C.yellow : C.surface,
+                color: m.role === "user" ? C.bg : C.text,
+                border: `1px solid ${m.role === "user" ? C.yellow : C.border}`,
+                borderLeft: m.role === "assistant" ? `4px solid ${C.yellow}` : undefined,
+                borderRadius: 12,
+                padding: "10px 12px",
+                whiteSpace: "pre-wrap",
+                fontSize: 13,
+                lineHeight: 1.35,
+              }}
+            >
+              {m.text}
+            </div>
+          ))}
+          {thinking && (
+            <div style={{ color: C.yellow, fontSize: 12, fontWeight: 800, padding: "6px 2px" }}>
+              Agente analisando dados...
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+        <Inp
+          value={input}
+          onChange={setInput}
+          placeholder="Pergunte: quais obras faltam ponto? qual maior custo por m²?"
+        />
+        <Btn onClick={() => sendQuestion()} disabled={thinking || !input.trim()}>
+          <Ic n="brain" /> Enviar
+        </Btn>
+      </div>
+
+      <p style={{ color: C.muted, fontSize: 11, lineHeight: 1.35 }}>
+        O agente usa os dados já cadastrados no sistema. Se existir uma rota segura <strong>/api/ai-agent</strong>, ele usa IA generativa; caso contrário, responde com análise local automática, sem expor chaves no navegador.
+      </p>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Configurações / aprovações
 // ═══════════════════════════════════════════════════════════════════
@@ -2703,6 +3141,7 @@ export default function App() {
     { id: "ponto", label: "Ponto", icon: "clock" },
     { id: "folha", label: "Folha", icon: "dollar" },
     { id: "relat", label: "Relatórios", icon: "chart" },
+    { id: "ia", label: "IA", icon: "brain" },
     { id: "config", label: "Config", icon: "settings" },
   ];
 
@@ -2745,6 +3184,7 @@ export default function App() {
           {tab === "ponto" && <Ponto data={data} update={update} showToast={showToast} />}
           {tab === "folha" && <Folha data={data} showToast={showToast} />}
           {tab === "relat" && <Relatorios data={data} />}
+          {tab === "ia" && <AgenteIA data={data} showToast={showToast} onTab={setTab} />}
           {tab === "config" && <Config data={data} update={update} showToast={showToast} />}
         </main>
 
