@@ -5,7 +5,7 @@ const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const DATA_KEY = 'arced_ponto_v1';
+const DATA_KEY = 'arced_ponto_empresa_v1';
 
 export const getCurrentUser = async () => {
   const { data, error } = await supabase.auth.getUser();
@@ -45,19 +45,18 @@ export const loadData = async () => {
     const user = await getCurrentUser();
 
     if (!user) {
-      console.warn('Nenhum usuário logado.');
+      console.warn('Nenhum usuário logado. Dados não carregados.');
       return null;
     }
 
     const { data, error } = await supabase
-      .from('user_app_data')
+      .from('app_data')
       .select('value')
-      .eq('user_id', user.id)
       .eq('key', DATA_KEY)
       .maybeSingle();
 
     if (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('Erro ao carregar dados da empresa:', error);
       return null;
     }
 
@@ -65,7 +64,7 @@ export const loadData = async () => {
 
     return JSON.parse(data.value);
   } catch (err) {
-    console.error('Erro inesperado ao carregar:', err);
+    console.error('Erro inesperado ao carregar dados:', err);
     return null;
   }
 };
@@ -80,28 +79,27 @@ export const saveData = async (payload) => {
     }
 
     const { error } = await supabase
-      .from('user_app_data')
+      .from('app_data')
       .upsert(
         {
-          user_id: user.id,
           key: DATA_KEY,
           value: JSON.stringify(payload),
           updated_at: new Date().toISOString(),
         },
         {
-          onConflict: 'user_id,key',
+          onConflict: 'key',
         }
       );
 
     if (error) {
-      console.error('Erro ao salvar dados:', error);
+      console.error('Erro ao salvar dados da empresa:', error);
       return false;
     }
 
-    console.log('Dados salvos com sucesso.');
+    console.log('Dados da empresa salvos com sucesso.');
     return true;
   } catch (err) {
-    console.error('Erro inesperado ao salvar:', err);
+    console.error('Erro inesperado ao salvar dados:', err);
     return false;
   }
-};
+}; 
