@@ -31,51 +31,66 @@ import { loadData as supabaseLoad, saveData as supabaseSave } from "./supabase";
 // - Relatórios com gasto por obra, metragem quadrada e custo de mão de obra por m²
 // - Interface reforçada para o Registro de Ponto, com ícones e navegação em destaque
 // - Agente de IA para apoiar ponto, folha, obras, custos e alertas
+// - Rebranding visual ARCD OBRA: linguagem gráfica geométrica, foco no ponto e navegação mais intuitiva
 // ═══════════════════════════════════════════════════════════════════
 
 const C = {
-  bg: "#080808",
-  surface: "#101010",
-  card: "#161616",
-  card2: "#1c1c1c",
-  border: "#2a2a2a",
-  yellow: "#f0df00",
-  yellowD: "#b8a800",
-  yellowDim: "#3a3600",
-  green: "#22c55e",
-  red: "#ef4444",
-  blue: "#3b82f6",
-  orange: "#f97316",
-  purple: "#a855f7",
-  text: "#f5f5f5",
-  muted: "#777777",
-  subtle: "#aaaaaa",
+  bg: "#090907",
+  surface: "#11110f",
+  card: "#181713",
+  card2: "#211f18",
+  border: "#34301f",
+  yellow: "#f6d833",
+  yellowD: "#c39a16",
+  yellowDim: "#30280d",
+  green: "#52d273",
+  red: "#ff5a47",
+  blue: "#54a0ff",
+  orange: "#ff9f1c",
+  purple: "#b779ff",
+  text: "#fff7d6",
+  muted: "#8f8661",
+  subtle: "#d7c98d",
+  ivory: "#fff4c2",
+  ink: "#050504",
+  sand: "#c7b46a",
+  line: "#4a4227",
+  shadow: "rgba(0,0,0,.44)",
 };
 
 const CHART_COLORS = [C.yellow, C.green, C.blue, C.orange, C.purple, C.red, "#06b6d4", "#ec4899"];
 
 const G = `
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap');
+:root{--bg:${C.bg};--surface:${C.surface};--card:${C.card};--yellow:${C.yellow};--text:${C.text};--muted:${C.muted}}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{min-height:100%}
-body{background:${C.bg};color:${C.text};font-family:'Barlow',Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+body{
+  background:
+    radial-gradient(circle at 16% 0%, ${C.yellow}15 0, transparent 24%),
+    radial-gradient(circle at 100% 4%, ${C.orange}10 0, transparent 26%),
+    linear-gradient(135deg, ${C.bg} 0%, #0d0c08 45%, #050504 100%);
+  color:${C.text};font-family:'Barlow',Arial,sans-serif;-webkit-tap-highlight-color:transparent;
+}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.12;background-image:linear-gradient(${C.yellow}22 1px, transparent 1px),linear-gradient(90deg, ${C.yellow}22 1px, transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom, black, transparent 80%)}
 input,select,textarea,button{font-family:'Barlow',Arial,sans-serif}
 button:disabled{opacity:.55;cursor:not-allowed!important}
 button{touch-action:manipulation}
-button:hover{filter:brightness(1.04)}
-input:focus,select:focus,textarea:focus{outline:1.5px solid ${C.yellow};border-color:${C.yellow}!important}
+button:hover{filter:brightness(1.05);transform:translateY(-1px)}
+button:active{transform:translateY(0) scale(.99)}
+input:focus,select:focus,textarea:focus{outline:2px solid ${C.yellow}88;border-color:${C.yellow}!important;box-shadow:0 0 0 4px ${C.yellow}18}
+.brand-slice{position:relative;overflow:hidden}.brand-slice:after{content:"";position:absolute;inset:auto -30px -26px auto;width:120px;height:120px;background:${C.yellow}16;transform:rotate(-18deg);border:1px solid ${C.yellow}25}
 .point-pulse{box-shadow:0 0 0 0 ${C.yellow}44;animation:pulseYellow 2.2s infinite}
-@keyframes pulseYellow{0%{box-shadow:0 0 0 0 ${C.yellow}44}70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
-::-webkit-scrollbar{width:5px;height:5px}
+.lift-card{transition:transform .16s ease, border-color .16s ease, background .16s ease}.lift-card:hover{transform:translateY(-2px);border-color:${C.yellow}80;background:${C.card2}}
+@keyframes pulseYellow{0%{box-shadow:0 0 0 0 ${C.yellow}44}70%{box-shadow:0 0 0 12px transparent}100%{box-shadow:0 0 0 0 transparent}}
+::-webkit-scrollbar{width:7px;height:7px}
 ::-webkit-scrollbar-track{background:${C.surface}}
-::-webkit-scrollbar-thumb{background:${C.border};border-radius:3px}
+::-webkit-scrollbar-thumb{background:${C.line};border-radius:8px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
 @keyframes spin{to{transform:rotate(360deg)}}
-.anim{animation:fadeIn .25s ease}
-.animUp{animation:fadeInUp .35s ease}
-.no-scroll{overflow:hidden}
-@media print{.no-print{display:none!important} body{background:#fff;color:#000}}
+.anim{animation:fadeIn .25s ease}.animUp{animation:fadeInUp .35s ease}.no-scroll{overflow:hidden}
+@media print{.no-print{display:none!important} body{background:#fff;color:#000} body:before{display:none}}
 `;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -509,11 +524,11 @@ const normalizeData = incoming => {
 function Ic({ n, s = 16, color }) {
   const map = {
     home: "⌂",
-    users: "👥",
-    clock: "⏱",
-    dollar: "R$",
+    users: "▥",
+    clock: "◷",
+    dollar: "$",
     chart: "◔",
-    ia: "◆",
+    ia: "✦",
     brain: "✦",
     robot: "◎",
     plus: "+",
@@ -522,10 +537,10 @@ function Ic({ n, s = 16, color }) {
     x: "×",
     check: "✓",
     mail: "✉",
-    lock: "🔒",
-    unlock: "🔓",
-    file: "▣",
-    download: "⇩",
+    lock: "▣",
+    unlock: "▢",
+    file: "▤",
+    download: "↓",
     copy: "⧉",
     money: "½",
     calendar: "▦",
@@ -536,15 +551,18 @@ function Ic({ n, s = 16, color }) {
 
   return (
     <span
+      aria-hidden="true"
       style={{
+        width: s + 4,
+        height: s + 4,
         fontSize: s,
         lineHeight: 1,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        minWidth: s,
         color: color || `var(--ic-color, ${C.yellow})`,
         fontWeight: 900,
+        fontFamily: "'Barlow Condensed', Arial, sans-serif",
       }}
     >
       {map[n] || "•"}
@@ -552,19 +570,67 @@ function Ic({ n, s = 16, color }) {
   );
 }
 
+function BrandMark({ compact = false, dark = false }) {
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+      <div
+        style={{
+          width: compact ? 34 : 42,
+          height: compact ? 34 : 42,
+          background: C.yellow,
+          color: C.ink,
+          display: "grid",
+          placeItems: "center",
+          fontFamily: "'Bebas Neue', Arial, sans-serif",
+          fontSize: compact ? 22 : 28,
+          letterSpacing: -1,
+          boxShadow: `8px 8px 0 ${dark ? "rgba(0,0,0,.18)" : C.yellowDim}`,
+          transform: "skew(-7deg)",
+          flex: "0 0 auto",
+        }}
+      >
+        A
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <p style={{ fontFamily: "'Bebas Neue', Arial, sans-serif", color: dark ? C.ink : C.yellow, fontSize: compact ? 24 : 30, lineHeight: .9, letterSpacing: 1.6 }}>
+          ARCD OBRA
+        </p>
+        {!compact && (
+          <p style={{ color: dark ? "rgba(5,5,4,.72)" : C.muted, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1.4 }}>
+            Ponto · Equipe · Custo
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({ eyebrow, title, subtitle, action }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, marginBottom: 2 }}>
+      <div>
+        {eyebrow && <p style={{ color: C.yellow, fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 3 }}>{eyebrow}</p>}
+        <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 34, lineHeight: .95, letterSpacing: 1.6, color: C.text }}>{title}</h2>
+        {subtitle && <p style={{ color: C.muted, fontSize: 13, marginTop: 5 }}>{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
 function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, type = "button", style = {} }) {
   const variants = {
-    primary: { bg: C.yellow, color: C.bg, border: C.yellow },
-    warning: { bg: C.yellow, color: C.bg, border: C.yellow },
-    danger: { bg: C.red, color: "white", border: C.red },
-    success: { bg: C.green, color: C.bg, border: C.green },
-    info: { bg: C.blue, color: "white", border: C.blue },
-    ghost: { bg: "transparent", color: C.text, border: C.border },
-    dark: { bg: C.card, color: C.text, border: C.border },
+    primary: { bg: C.yellow, color: C.ink, border: C.yellow, shadow: `${C.yellow}28` },
+    warning: { bg: C.yellow, color: C.ink, border: C.yellow, shadow: `${C.yellow}28` },
+    danger: { bg: C.red, color: "white", border: C.red, shadow: `${C.red}22` },
+    success: { bg: C.green, color: C.ink, border: C.green, shadow: `${C.green}18` },
+    info: { bg: C.blue, color: "white", border: C.blue, shadow: `${C.blue}20` },
+    ghost: { bg: "rgba(255,255,255,.02)", color: C.text, border: C.line, shadow: "transparent" },
+    dark: { bg: C.card2, color: C.text, border: C.line, shadow: "transparent" },
   };
   const vv = variants[v] || variants.primary;
-  const py = size === "sm" ? 7 : size === "lg" ? 13 : 10;
-  const px = size === "sm" ? 10 : 14;
+  const py = size === "sm" ? 8 : size === "lg" ? 15 : 11;
+  const px = size === "sm" ? 11 : 15;
 
   return (
     <button
@@ -579,18 +645,18 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
         padding: `${py}px ${px}px`,
         cursor: disabled ? "not-allowed" : "pointer",
         fontFamily: "'Barlow Condensed', Arial, sans-serif",
-        fontWeight: 800,
-        letterSpacing: 0.7,
+        fontWeight: 900,
+        letterSpacing: 0.85,
         textTransform: "uppercase",
         display: "inline-flex",
-        gap: 6,
+        gap: 7,
         alignItems: "center",
         justifyContent: "center",
         fontSize: size === "sm" ? 12 : 14,
-        borderRadius: 10,
-        boxShadow: v === "primary" || v === "warning" ? `0 8px 22px ${C.yellow}22` : "none",
-        transition: "all .15s ease",
-        "--ic-color": v === "primary" || v === "warning" || v === "success" ? C.bg : C.yellow,
+        borderRadius: 14,
+        boxShadow: `0 10px 26px ${vv.shadow}`,
+        transition: "transform .15s ease, filter .15s ease, box-shadow .15s ease",
+        "--ic-color": v === "primary" || v === "warning" || v === "success" ? C.ink : C.yellow,
         ...style,
       }}
     >
@@ -616,12 +682,13 @@ function Inp({ label, value, onChange, type = "text", placeholder = "", max, min
         rows={multiline ? 4 : undefined}
         style={{
           width: "100%",
-          background: disabled ? C.surface : C.card,
-          border: `1px solid ${C.border}`,
+          background: disabled ? C.surface : C.card2,
+          border: `1px solid ${C.line}`,
           color: C.text,
-          padding: "11px 12px",
+          padding: "12px 13px",
           outline: "none",
           fontSize: 14,
+          borderRadius: 14,
           resize: "vertical",
         }}
       />
@@ -639,12 +706,13 @@ function Sel({ label, value, onChange, options = [], disabled = false }) {
         disabled={disabled}
         style={{
           width: "100%",
-          background: disabled ? C.surface : C.card,
-          border: `1px solid ${C.border}`,
+          background: disabled ? C.surface : C.card2,
+          border: `1px solid ${C.line}`,
           color: C.text,
-          padding: "11px 12px",
+          padding: "12px 13px",
           outline: "none",
           fontSize: 14,
+          borderRadius: 14,
         }}
       >
         {options.map(o => <option key={String(o.v)} value={o.v}>{o.l}</option>)}
@@ -659,7 +727,7 @@ function Badge({ children, color = C.yellow }) {
       display: "inline-flex",
       alignItems: "center",
       gap: 4,
-      padding: "3px 7px",
+      padding: "4px 8px",
       border: `1px solid ${color}66`,
       background: `${color}18`,
       color,
@@ -669,6 +737,7 @@ function Badge({ children, color = C.yellow }) {
       textTransform: "uppercase",
       marginTop: 4,
       marginRight: 4,
+      borderRadius: 999,
     }}>
       {children}
     </span>
@@ -676,7 +745,7 @@ function Badge({ children, color = C.yellow }) {
 }
 
 function Divider() {
-  return <div style={{ height: 1, background: C.border, margin: "10px 0" }} />;
+  return <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.line}, transparent)`, margin: "12px 0" }} />;
 }
 
 function Modal({ title, children, onClose, wide = false }) {
@@ -692,7 +761,8 @@ function Modal({ title, children, onClose, wide = false }) {
         position: "fixed",
         inset: 0,
         zIndex: 999,
-        background: "rgba(0,0,0,.78)",
+        background: "rgba(5,5,4,.78)",
+        backdropFilter: "blur(10px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -709,9 +779,10 @@ function Modal({ title, children, onClose, wide = false }) {
           maxWidth: wide ? 720 : 460,
           maxHeight: "92vh",
           overflowY: "auto",
-          background: C.surface,
-          border: `1px solid ${C.border}`,
-          boxShadow: "0 20px 80px rgba(0,0,0,.5)",
+          background: `linear-gradient(180deg, ${C.card2}, ${C.surface})`,
+          border: `1px solid ${C.line}`,
+          borderRadius: 22,
+          boxShadow: `0 24px 90px ${C.shadow}`,
         }}
       >
         <div style={{
@@ -720,7 +791,7 @@ function Modal({ title, children, onClose, wide = false }) {
           alignItems: "center",
           padding: "14px 16px",
           borderBottom: `1px solid ${C.border}`,
-          background: C.card,
+          background: C.card2,
         }}>
           <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, fontSize: 20, letterSpacing: 0.8, textTransform: "uppercase" }}>{title}</h3>
           <button onClick={onClose} style={{ background: "transparent", border: 0, color: C.text, fontSize: 24, cursor: "pointer" }}>×</button>
@@ -742,14 +813,15 @@ function Toast({ toast }) {
       transform: "translateX(-50%)",
       zIndex: 1200,
       maxWidth: "calc(100vw - 28px)",
-      background: C.card,
+      background: `linear-gradient(180deg, ${C.card2}, ${C.card})`,
       border: `1px solid ${color}`,
       borderLeft: `5px solid ${color}`,
       color: C.text,
       padding: "12px 14px",
       boxShadow: "0 10px 40px rgba(0,0,0,.45)",
       fontSize: 13,
-      fontWeight: 700,
+      fontWeight: 800,
+      borderRadius: 16,
     }}>
       {toast.msg}
     </div>
@@ -776,6 +848,7 @@ function Dashboard({ data, onTab }) {
   const meiodia = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "M").length;
   const semReg = Math.max(0, activeEmps.length - presentes - faltas - meiodia);
   const checkPending = activeEmps.length > 0 && data.dailyCheckDate !== todayIso;
+  const todayCompletion = activeEmps.length ? Math.round(((presentes + faltas + meiodia) / activeEmps.length) * 100) : 0;
 
   const qTotal = activeEmps.reduce((sum, e) => {
     const empValue = qDays.reduce((s, d) => {
@@ -808,73 +881,97 @@ function Dashboard({ data, onTab }) {
   ].filter(i => i.value > 0);
 
   const Stat = ({ label, value, sub, color, icon, tab }) => (
-    <button onClick={() => tab && onTab(tab)} style={{
-      background: C.card,
-      border: `1px solid ${C.border}`,
-      borderLeft: `4px solid ${color}`,
+    <button onClick={() => tab && onTab(tab)} className="lift-card" style={{
+      background: `linear-gradient(180deg, ${C.card2}, ${C.card})`,
+      border: `1px solid ${C.line}`,
+      borderTop: `4px solid ${color}`,
       padding: 14,
+      borderRadius: 18,
       textAlign: "left",
       color: C.text,
       cursor: tab ? "pointer" : "default",
-      minHeight: 88,
+      minHeight: 104,
+      boxShadow: `0 12px 34px ${C.shadow}`,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <span style={{ color, fontSize: 13, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>{label}</span>
-        <Ic n={icon} s={18} />
+        <span style={{ color: C.subtle, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1.1 }}>{label}</span>
+        <Ic n={icon} s={20} color={color} />
       </div>
-      <p style={{ fontFamily: "'Bebas Neue'", color, fontSize: 34, letterSpacing: 1 }}>{value}</p>
-      {sub && <p style={{ color: C.muted, fontSize: 12 }}>{sub}</p>}
+      <p style={{ fontFamily: "'Bebas Neue'", color, fontSize: 36, letterSpacing: 1, lineHeight: .95, marginTop: 8 }}>{value}</p>
+      {sub && <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{sub}</p>}
     </button>
   );
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div>
-        <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 30, letterSpacing: 2, color: C.yellow }}>Painel Geral</h2>
-        <p style={{ color: C.muted, fontSize: 13 }}>Resumo de equipes, obras e ponto diário</p>
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="brand-slice" style={{
+        background: `linear-gradient(135deg, ${C.yellow} 0%, ${C.yellowD} 58%, #5d4b0d 100%)`,
+        color: C.ink,
+        borderRadius: 24,
+        padding: 18,
+        border: `1px solid ${C.yellow}`,
+        boxShadow: `0 20px 60px ${C.yellow}1f`,
+      }}>
+        <BrandMark dark />
+        <div style={{ display: "grid", gridTemplateColumns: "1.25fr .75fr", gap: 14, alignItems: "end", marginTop: 18 }}>
+          <div>
+            <p style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: 1.4, fontSize: 11, opacity: .72 }}>Ação principal</p>
+            <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 46, lineHeight: .88, letterSpacing: 1.8 }}>Registrar o ponto sem ruído.</h2>
+            <p style={{ fontWeight: 700, fontSize: 13, marginTop: 9, maxWidth: 520 }}>Obras, equipes, folha e custos em uma leitura rápida. O ponto é o centro da operação.</p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ fontFamily: "'Bebas Neue'", fontSize: 58, lineHeight: .85 }}>{todayCompletion}%</p>
+            <p style={{ fontWeight: 900, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>do ponto hoje</p>
+          </div>
+        </div>
+        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <Btn onClick={() => onTab("ponto")} v="dark" full style={{ background: C.ink, color: C.yellow, borderColor: C.ink, "--ic-color": C.yellow }}><Ic n="clock" /> Abrir ponto</Btn>
+          <Btn onClick={() => onTab("ia")} v="ghost" full style={{ borderColor: "rgba(5,5,4,.35)", color: C.ink, background: "rgba(5,5,4,.08)", "--ic-color": C.ink }}><Ic n="brain" /> Agente IA</Btn>
+        </div>
       </div>
 
       {checkPending && (
-        <button onClick={() => onTab("ponto")} style={{
-          background: `${C.yellow}18`,
-          border: `1px solid ${C.yellow}`,
-          borderLeft: `5px solid ${C.yellow}`,
+        <button onClick={() => onTab("ponto")} className="lift-card" style={{
+          background: `${C.yellow}14`,
+          border: `1px solid ${C.yellow}88`,
+          borderLeft: `6px solid ${C.yellow}`,
           color: C.yellow,
+          borderRadius: 18,
           padding: 14,
           cursor: "pointer",
           textAlign: "left",
         }}>
           <p style={{ fontFamily: "'Barlow Condensed'", fontSize: 18, fontWeight: 900, textTransform: "uppercase" }}>Verificação diária pendente</p>
-          <p style={{ color: C.subtle, fontSize: 12 }}>Confirme movimentações de transferência/demissão antes de lançar o ponto.</p>
+          <p style={{ color: C.subtle, fontSize: 12 }}>Confirme transferência/demissão antes de lançar o ponto.</p>
         </button>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-        <Stat label="Ativos" value={activeEmps.length} sub="trabalhadores" color={C.yellow} icon="users" tab="equipe" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+        <Stat label="Trabalhadores" value={activeEmps.length} sub="ativos" color={C.yellow} icon="users" tab="equipe" />
         <Stat label="Obras" value={activeObras.length} sub="em andamento" color={C.blue} icon="home" tab="obras" />
         <Stat label="Presentes" value={presentes} sub={`${semReg} sem registro hoje`} color={C.green} icon="check" tab="ponto" />
         <Stat label="Quinzena" value={fmt(qTotal)} sub={`${qDays.length} dias no período`} color={C.purple} icon="dollar" tab="folha" />
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>Presença — últimos 7 dias</h3>
+      <div className="lift-card" style={{ background: `linear-gradient(180deg, ${C.card2}, ${C.card})`, border: `1px solid ${C.line}`, padding: 14, borderRadius: 20 }}>
+        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Presença — últimos 7 dias</h3>
         <div style={{ height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={last7}>
               <CartesianGrid stroke={C.border} vertical={false} />
               <XAxis dataKey="d" stroke={C.muted} fontSize={11} />
               <YAxis stroke={C.muted} fontSize={11} allowDecimals={false} />
-              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, color: C.text }} />
-              <Bar dataKey="P" stackId="a" fill={C.green} />
+              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.line}`, color: C.text }} />
+              <Bar dataKey="P" stackId="a" fill={C.green} radius={[6, 6, 0, 0]} />
               <Bar dataKey="M" stackId="a" fill={C.yellow} />
-              <Bar dataKey="F" stackId="a" fill={C.red} />
+              <Bar dataKey="F" stackId="a" fill={C.red} radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>Distribuição de hoje</h3>
+      <div className="lift-card" style={{ background: `linear-gradient(180deg, ${C.card2}, ${C.card})`, border: `1px solid ${C.line}`, padding: 14, borderRadius: 20 }}>
+        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Distribuição de hoje</h3>
         <div style={{ height: 210 }}>
           {pieData.length === 0 ? (
             <p style={{ color: C.muted }}>Sem dados de ponto hoje.</p>
@@ -884,7 +981,7 @@ function Dashboard({ data, onTab }) {
                 <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
                   {pieData.map((entry, index) => <Cell key={entry.name} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} />)}
                 </Pie>
-                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, color: C.text }} />
+                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.line}`, color: C.text }} />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -893,11 +990,12 @@ function Dashboard({ data, onTab }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
         <Btn onClick={() => onTab("ponto")} full><Ic n="clock" /> Registrar ponto</Btn>
-        <Btn onClick={() => onTab("folha")} v="success" full><Ic n="dollar" /> Gerar folha</Btn>
+        <Btn onClick={() => onTab("relat")} v="ghost" full><Ic n="chart" /> Ver custos</Btn>
       </div>
     </div>
   );
 }
+
 
 // ═══════════════════════════════════════════════════════════════════
 // Obras
@@ -3140,9 +3238,9 @@ export default function App() {
     { id: "equipe", label: "Equipe", icon: "users" },
     { id: "ponto", label: "Ponto", icon: "clock" },
     { id: "folha", label: "Folha", icon: "dollar" },
-    { id: "relat", label: "Relatórios", icon: "chart" },
+    { id: "relat", label: "Custos", icon: "chart" },
     { id: "ia", label: "IA", icon: "brain" },
-    { id: "config", label: "Config", icon: "settings" },
+    { id: "config", label: "Ajustes", icon: "settings" },
   ];
 
   if (loading || !data) {
@@ -3152,8 +3250,8 @@ export default function App() {
         <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ width: 44, height: 44, border: `4px solid ${C.border}`, borderTopColor: C.yellow, borderRadius: "50%", animation: "spin 1s linear infinite", margin: "0 auto 14px" }} />
-            <h1 style={{ fontFamily: "'Bebas Neue'", color: C.yellow, letterSpacing: 2 }}>ArcD Obras</h1>
-            <p style={{ color: C.muted }}>Carregando dados...</p>
+            <BrandMark />
+            <p style={{ color: C.muted, marginTop: 14 }}>Carregando operação...</p>
           </div>
         </div>
       </>
@@ -3163,21 +3261,35 @@ export default function App() {
   return (
     <>
       <style>{G}</style>
-      <div style={{ minHeight: "100vh", background: C.bg, color: C.text, paddingBottom: 78 }}>
-        <header className="no-print" style={{ position: "sticky", top: 0, zIndex: 50, background: C.bg, borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ maxWidth: 980, margin: "0 auto", padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-            <div>
-              <h1 style={{ fontFamily: "'Bebas Neue'", color: C.yellow, fontSize: 30, lineHeight: 1, letterSpacing: 2 }}>ArcD Obras</h1>
-              <p style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.7 }}>{data.config.productName || "Gestão de Equipes"}</p>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <p style={{ color: C.subtle, fontSize: 12 }}>{data.config.companyName || "ArcD Obras"}</p>
-              <p style={{ color: C.muted, fontSize: 11 }}>{today().split("-").reverse().join("/")}</p>
-            </div>
+      <div style={{ minHeight: "100vh", background: "transparent", color: C.text, paddingBottom: 92 }}>
+        <header className="no-print" style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(9,9,7,.86)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${C.line}` }}>
+          <div style={{ maxWidth: 1080, margin: "0 auto", padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <BrandMark compact />
+            <button
+              onClick={() => setTab("ponto")}
+              style={{
+                background: tab === "ponto" ? C.yellow : `${C.yellow}16`,
+                color: tab === "ponto" ? C.ink : C.yellow,
+                border: `1px solid ${C.yellow}`,
+                borderRadius: 999,
+                padding: "9px 13px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                cursor: "pointer",
+                fontFamily: "'Barlow Condensed'",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: .8,
+                "--ic-color": tab === "ponto" ? C.ink : C.yellow,
+              }}
+            >
+              <Ic n="clock" /> Ponto agora
+            </button>
           </div>
         </header>
 
-        <main style={{ maxWidth: 980, margin: "0 auto", padding: 14 }}>
+        <main style={{ maxWidth: 1080, margin: "0 auto", padding: 14 }}>
           {tab === "home" && <Dashboard data={data} onTab={setTab} />}
           {tab === "obras" && <Obras data={data} update={update} showToast={showToast} />}
           {tab === "equipe" && <Equipe data={data} update={update} showToast={showToast} />}
@@ -3188,32 +3300,33 @@ export default function App() {
           {tab === "config" && <Config data={data} update={update} showToast={showToast} />}
         </main>
 
-        <nav className="no-print" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.surface, borderTop: `1px solid ${C.border}`, zIndex: 80 }}>
-          <div style={{ maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
+        <nav className="no-print" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "rgba(17,17,15,.92)", backdropFilter: "blur(18px)", borderTop: `1px solid ${C.line}`, zIndex: 80 }}>
+          <div style={{ maxWidth: 1080, margin: "0 auto", display: "flex", gap: 7, overflowX: "auto", padding: "8px 10px 10px" }}>
             {tabs.map(t => {
               const active = tab === t.id;
               const isMainPoint = t.id === "ponto";
               return (
                 <button key={t.id} onClick={() => setTab(t.id)} style={{
-                  background: isMainPoint ? (active ? C.yellow : C.yellowDim) : active ? `${C.yellow}12` : "transparent",
-                  color: isMainPoint ? (active ? C.bg : C.yellow) : active ? C.yellow : C.muted,
-                  border: isMainPoint ? `1px solid ${C.yellow}` : 0,
-                  borderTop: isMainPoint ? `1px solid ${C.yellow}` : active ? `3px solid ${C.yellow}` : "3px solid transparent",
-                  borderRadius: isMainPoint ? "16px 16px 0 0" : 0,
-                  margin: isMainPoint ? "-10px 3px 0" : 0,
-                  padding: isMainPoint ? "10px 2px 11px" : "8px 2px 9px",
+                  minWidth: isMainPoint ? 92 : 72,
+                  background: isMainPoint ? (active ? C.yellow : `${C.yellow}18`) : active ? `${C.yellow}13` : "transparent",
+                  color: isMainPoint ? (active ? C.ink : C.yellow) : active ? C.yellow : C.muted,
+                  border: isMainPoint ? `1px solid ${C.yellow}` : `1px solid ${active ? C.yellow + "55" : "transparent"}`,
+                  borderRadius: 16,
+                  padding: isMainPoint ? "10px 8px" : "9px 7px",
                   cursor: "pointer",
-                  fontSize: isMainPoint ? 11 : 10,
+                  fontSize: 10,
                   fontWeight: 900,
                   textTransform: "uppercase",
+                  letterSpacing: .4,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   gap: 3,
-                  boxShadow: isMainPoint ? `0 -8px 25px ${C.yellow}22` : "none",
-                  "--ic-color": isMainPoint ? (active ? C.bg : C.yellow) : active ? C.yellow : C.yellow,
+                  boxShadow: isMainPoint ? `0 0 28px ${C.yellow}20` : "none",
+                  "--ic-color": isMainPoint ? (active ? C.ink : C.yellow) : C.yellow,
+                  flex: "0 0 auto",
                 }}>
-                  <Ic n={t.icon} s={isMainPoint ? 20 : 16} />
+                  <Ic n={t.icon} s={isMainPoint ? 21 : 17} />
                   {t.label}
                 </button>
               );
