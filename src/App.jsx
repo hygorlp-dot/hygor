@@ -1492,212 +1492,542 @@ function Ponto({data,update,showToast,onDailyCheck}) {
 // ═══════════════════════════════════════════════════════════════════
 // FOLHA
 // ═══════════════════════════════════════════════════════════════════
-function Folha({data,showToast}){
-  const now=new Date();
-  const [year,setYear]=useState(now.getFullYear());
-  const [month,setMonth]=useState(now.getMonth());
-  const [q,setQ]=useState(now.getDate()<=15?"1":"2");
-  const [filterObra,setFilterObra]=useState("all");
-  const [expandedId,setExpandedId]=useState(null);
+function Folha({ data, showToast }) {
+  const now = new Date();
 
-  const {q1,q2}=getQ(year,month);
-  const days=q==="1"?q1:q2;
-  const obraName=id=>data.obras.find(o=>o.id===id)?.name||"—";
-  const periodLabel=`${q==="1"?"1ª":"2ª"} Quinzena de ${fullMonth(month)} ${year}`;
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  const [q, setQ] = useState(now.getDate() <= 15 ? "1" : "2");
+  const [filterObra, setFilterObra] = useState("all");
+  const [expandedId, setExpandedId] = useState(null);
 
-const calcRow = e => {
-  let gross = 0;
-  let presentes = 0;
-  let meiodia = 0;
-  let faltas = 0;
-  let semRegistro = 0;
-  let ot = 0;
-  let vt = 0;
-  let vr = 0;
+  const { q1, q2 } = getQ(year, month);
+  const days = q === "1" ? q1 : q2;
 
-  days.forEach(d => {
-    const a = getAtt(data, e.id, d);
-    const s = a?.status;
-    const o = a?.ot || 0;
+  const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
+  const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
 
-    if (s === "P") {
-      gross += e.dailyRate || 0;
-      presentes++;
-      ot += o;
-      vt += e.vtDaily || 0;
-      vr += e.vrDaily || 0;
-    } else if (s === "M") {
-      gross += (e.dailyRate || 0) * 0.5;
-      meiodia++;
-      ot += o;
-      vt += (e.vtDaily || 0) * 0.5;
-      vr += (e.vrDaily || 0) * 0.5;
-    } else if (s === "F") {
-      faltas++;
-    } else {
-      semRegistro++;
-    }
-  });
+  const calcRow = e => {
+    let gross = 0;
+    let presentes = 0;
+    let meiodia = 0;
+    let faltas = 0;
+    let semRegistro = 0;
+    let ot = 0;
+    let vt = 0;
+    let vr = 0;
 
-  const advTotal = (data.advances || [])
-    .filter(a => a.empId === e.id && a.date >= days[0] && a.date <= days[days.length - 1])
-    .reduce((s, a) => s + (a.amount || 0), 0);
+    days.forEach(d => {
+      const a = getAtt(data, e.id, d);
+      const s = a?.status;
+      const o = a?.ot || 0;
 
-  return {
-    ...e,
-    gross,
-    presentes,
-    meiodia,
-    faltas,
-    semRegistro,
-    ot,
-    vt,
-    vr,
-    advances: advTotal,
-    net: gross + vt + vr - advTotal,
-    days: days.length,
-  };
-};
+      if (s === "P") {
+        gross += e.dailyRate || 0;
+        presentes++;
+        ot += o;
+        vt += e.vtDaily || 0;
+        vr += e.vrDaily || 0;
+      } else if (s === "M") {
+        gross += (e.dailyRate || 0) * 0.5;
+        meiodia++;
+        ot += o;
+        vt += (e.vtDaily || 0) * 0.5;
+        vr += (e.vrDaily || 0) * 0.5;
+      } else if (s === "F") {
+        faltas++;
+      } else {
+        semRegistro++;
+      }
+    });
 
-const hasAttendanceInPeriod = e =>
-  days.some(d => {
-    const a = getAtt(data, e.id, d);
-    return a?.status || a?.ot || a?.note;
-  });
+    const advTotal = (data.advances || [])
+      .filter(a => a.empId === e.id && a.date >= days[0] && a.date <= days[days.length - 1])
+      .reduce((s, a) => s + (a.amount || 0), 0);
 
-const belongsToSelectedObra = e =>
-  filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra;
-
-const rows = data.employees
-  .filter(e => belongsToSelectedObra(e))
-  .filter(e => e.active !== false || hasAttendanceInPeriod(e))
-  .map(calcRow)
-  .filter(r =>
-    r.presentes > 0 ||
-    r.meiodia > 0 ||
-    r.faltas > 0 ||
-    r.advances > 0 ||
-    r.gross > 0
-  );
-
-  const rows=data.employees.filter(e=>(filterObra==="all"||e.obra===filterObra)&&e.active!==false).map(calcRow);
-  const T={gross:rows.reduce((s,r)=>s+r.gross,0),vt:rows.reduce((s,r)=>s+r.vt,0),vr:rows.reduce((s,r)=>s+r.vr,0),advances:rows.reduce((s,r)=>s+r.advances,0),net:rows.reduce((s,r)=>s+r.net,0)};
-
-  const printPDF=()=>{
-    const html=`<!DOCTYPE html><html><head><title>Folha - ${periodLabel}</title>
-    <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;padding:24px;color:#111;background:#fff}
-    .header{display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #f0df00}
-    .logo{background:#080808;padding:10px 14px;font-family:Georgia,serif;font-size:28px;color:#f0df00;font-weight:900;letter-spacing:2px}
-    h2{font-size:16px;color:#555;font-weight:400;margin-bottom:16px}
-    table{width:100%;border-collapse:collapse;font-size:11px}
-    th{background:#f0df00;color:#080808;border:1px solid #ddd;padding:7px 6px;text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-    td{border:1px solid #eee;padding:6px 6px}
-    .tot{font-weight:bold;background:#fffde7;border-top:2px solid #f0df00}
-    .right{text-align:right}
-    .sign{margin-top:50px;display:flex;justify-content:space-between;gap:30px}
-    .sign div{flex:1;border-top:1px solid #999;padding-top:8px;font-size:11px;color:#666}
-    @media print{button{display:none}}</style></head>
-    <body>
-    <button onclick="window.print()" style="margin-bottom:16px;padding:8px 16px;background:#f0df00;color:#080808;border:none;cursor:pointer;font-weight:700">🖨️ Imprimir / Salvar PDF</button>
-    <div class="header"><div class="logo">ArcD</div><div><h1 style="font-size:20px">${data.config.companyName||"ArcD Construtora"}</h1>${data.config.cnpj?`<p style="font-size:12px;color:#777">CNPJ: ${data.config.cnpj}</p>`:""}</div></div>
-    <h2>Folha de Pagamento — ${periodLabel}</h2>
-    <table><thead><tr><th>Funcionário</th><th>Cargo</th><th>Obra</th><th>P</th><th>M</th><th>F</th><th>HE</th><th class="right">Diária</th><th class="right">Bruto</th><th class="right">VT</th><th class="right">VR</th><th class="right">Adiant.</th><th class="right">Líquido</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td>${r.name}</td><td>${r.role||"-"}</td><td>${obraName(r.obra)}</td><td>${r.presentes}</td><td>${r.meiodia}</td><td>${r.faltas}</td><td>${r.ot||0}h</td><td class="right">R$${r.dailyRate.toFixed(2)}</td><td class="right">R$${r.gross.toFixed(2)}</td><td class="right">R$${r.vt.toFixed(2)}</td><td class="right">R$${r.vr.toFixed(2)}</td><td class="right">R$${r.advances.toFixed(2)}</td><td class="right"><b>R$${r.net.toFixed(2)}</b></td></tr>`).join("")}
-    <tr class="tot"><td colspan="8"><b>TOTAL — ${rows.length} funcionários</b></td><td class="right">R$${T.gross.toFixed(2)}</td><td class="right">R$${T.vt.toFixed(2)}</td><td class="right">R$${T.vr.toFixed(2)}</td><td class="right">R$${T.advances.toFixed(2)}</td><td class="right">R$${T.net.toFixed(2)}</td></tr></tbody></table>
-    <div class="sign"><div>Responsável RH: ${data.config.hrName||"_______________________"}</div><div>Aprovado por: _______________________</div><div>Data: ___/___/_____</div></div>
-    </body></html>`;
-    const w=window.open("","_blank");w.document.write(html);w.document.close();
+    return {
+      ...e,
+      gross,
+      presentes,
+      meiodia,
+      faltas,
+      semRegistro,
+      ot,
+      vt,
+      vr,
+      advances: advTotal,
+      net: gross + vt + vr - advTotal,
+      days: days.length,
+    };
   };
 
-  const exportXLS=()=>{
-    const wb=XLSX.utils.book_new();
-    const header=["Funcionário","Cargo","Obra","Pres.","Meio Dia","Faltas","HE","Diária","Bruto","VT","VR","Adiant.","Líquido"];
-    const body=rows.map(r=>[r.name,r.role||"",obraName(r.obra),r.presentes,r.meiodia,r.faltas,r.ot,r.dailyRate,r.gross,r.vt,r.vr,r.advances,r.net]);
-    const ws=XLSX.utils.aoa_to_sheet([header,...body,["TOTAL","","",rows.reduce((s,r)=>s+r.presentes,0),"","","","",T.gross,T.vt,T.vr,T.advances,T.net]]);
-    ws["!cols"]=[20,15,15,5,7,6,5,10,12,10,10,10,12].map(w=>({wch:w}));
-    XLSX.utils.book_append_sheet(wb,ws,"Folha");
-    XLSX.writeFile(wb,`arced-folha-${year}-${String(month+1).padStart(2,"0")}-Q${q}.xlsx`);
+  const hasAttendanceInPeriod = e =>
+    days.some(d => {
+      const a = getAtt(data, e.id, d);
+      return a?.status || a?.ot || a?.note;
+    });
+
+  const belongsToSelectedObra = e =>
+    filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra;
+
+  const rows = data.employees
+    .filter(e => belongsToSelectedObra(e))
+    .filter(e => e.active !== false || hasAttendanceInPeriod(e))
+    .map(calcRow)
+    .filter(r =>
+      r.presentes > 0 ||
+      r.meiodia > 0 ||
+      r.faltas > 0 ||
+      r.advances > 0 ||
+      r.gross > 0
+    );
+
+  const T = {
+    gross: rows.reduce((s, r) => s + r.gross, 0),
+    vt: rows.reduce((s, r) => s + r.vt, 0),
+    vr: rows.reduce((s, r) => s + r.vr, 0),
+    advances: rows.reduce((s, r) => s + r.advances, 0),
+    net: rows.reduce((s, r) => s + r.net, 0),
+  };
+
+  const printPDF = () => {
+    const html = `
+      <html>
+        <head>
+          <title>Folha - ${periodLabel}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 30px;
+              color: #111;
+            }
+
+            h1, h2 {
+              margin: 0;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+              font-size: 12px;
+            }
+
+            th, td {
+              border: 1px solid #ccc;
+              padding: 6px;
+              text-align: left;
+            }
+
+            th {
+              background: #f0f0f0;
+            }
+
+            .total {
+              font-weight: bold;
+              background: #f7f7f7;
+            }
+
+            .signatures {
+              margin-top: 50px;
+              display: flex;
+              justify-content: space-between;
+              gap: 40px;
+            }
+
+            .signature {
+              flex: 1;
+              border-top: 1px solid #111;
+              padding-top: 8px;
+              text-align: center;
+            }
+          </style>
+        </head>
+
+        <body>
+          <h1>${data.config.companyName || "ArcD Obras"}</h1>
+          ${data.config.cnpj ? `<p>CNPJ: ${data.config.cnpj}</p>` : ""}
+          <h2>Folha de Pagamento — ${periodLabel}</h2>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Funcionário</th>
+                <th>Cargo</th>
+                <th>Obra</th>
+                <th>P</th>
+                <th>M</th>
+                <th>F</th>
+                <th>S/R</th>
+                <th>HE</th>
+                <th>Diária</th>
+                <th>Bruto</th>
+                <th>VT</th>
+                <th>VR</th>
+                <th>Adiant.</th>
+                <th>Líquido</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${r.name}</td>
+                  <td>${r.role || "-"}</td>
+                  <td>${obraName(r.obra)}</td>
+                  <td>${r.presentes}</td>
+                  <td>${r.meiodia}</td>
+                  <td>${r.faltas}</td>
+                  <td>${r.semRegistro}</td>
+                  <td>${r.ot || 0}h</td>
+                  <td>R$ ${(r.dailyRate || 0).toFixed(2)}</td>
+                  <td>R$ ${r.gross.toFixed(2)}</td>
+                  <td>R$ ${r.vt.toFixed(2)}</td>
+                  <td>R$ ${r.vr.toFixed(2)}</td>
+                  <td>R$ ${r.advances.toFixed(2)}</td>
+                  <td>R$ ${r.net.toFixed(2)}</td>
+                </tr>
+              `).join("")}
+
+              <tr class="total">
+                <td colspan="9">TOTAL — ${rows.length} funcionário(s)</td>
+                <td>R$ ${T.gross.toFixed(2)}</td>
+                <td>R$ ${T.vt.toFixed(2)}</td>
+                <td>R$ ${T.vr.toFixed(2)}</td>
+                <td>R$ ${T.advances.toFixed(2)}</td>
+                <td>R$ ${T.net.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="signatures">
+            <div class="signature">
+              Responsável RH: ${data.config.hrName || "_______________________"}
+            </div>
+
+            <div class="signature">
+              Aprovado por
+            </div>
+          </div>
+
+          <p style="margin-top:30px;">Data: ___/___/_____</p>
+
+          <script>
+            window.print();
+          </script>
+        </body>
+      </html>
+    `;
+
+    const w = window.open("", "_blank");
+    w.document.write(html);
+    w.document.close();
+  };
+
+  const exportXLS = () => {
+    const wb = XLSX.utils.book_new();
+
+    const header = [
+      "Funcionário",
+      "Cargo",
+      "Obra",
+      "Pres.",
+      "Meio Dia",
+      "Faltas",
+      "Sem Registro",
+      "HE",
+      "Diária",
+      "Bruto",
+      "VT",
+      "VR",
+      "Adiant.",
+      "Líquido",
+    ];
+
+    const body = rows.map(r => [
+      r.name,
+      r.role || "",
+      obraName(r.obra),
+      r.presentes,
+      r.meiodia,
+      r.faltas,
+      r.semRegistro,
+      r.ot,
+      r.dailyRate,
+      r.gross,
+      r.vt,
+      r.vr,
+      r.advances,
+      r.net,
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([
+      header,
+      ...body,
+      [
+        "TOTAL",
+        "",
+        "",
+        rows.reduce((s, r) => s + r.presentes, 0),
+        rows.reduce((s, r) => s + r.meiodia, 0),
+        rows.reduce((s, r) => s + r.faltas, 0),
+        rows.reduce((s, r) => s + r.semRegistro, 0),
+        rows.reduce((s, r) => s + r.ot, 0),
+        "",
+        T.gross,
+        T.vt,
+        T.vr,
+        T.advances,
+        T.net,
+      ],
+    ]);
+
+    ws["!cols"] = [20, 15, 15, 8, 8, 8, 10, 6, 10, 12, 10, 10, 10, 12].map(w => ({ wch: w }));
+
+    XLSX.utils.book_append_sheet(wb, ws, "Folha");
+    XLSX.writeFile(wb, `arcd-folha-${year}-${String(month + 1).padStart(2, "0")}-Q${q}.xlsx`);
+
     showToast("Excel gerado!");
   };
 
-  const buildText=()=>[
-    `📋 FOLHA DE PAGAMENTO — ARCED`,`${data.config.companyName||""}`,`${periodLabel}`,``,
-    ...rows.map(r=>`• ${r.name} (${obraName(r.obra)}): ${fmt(r.net)}`),
-    ``,`💰 TOTAL LÍQUIDO: ${fmt(T.net)}`,`👷 ${rows.length} funcionários`,
-    `📅 Gerado em ${new Date().toLocaleDateString("pt-BR")}`,
+  const buildText = () => [
+    `FOLHA DE PAGAMENTO — ARCD OBRAS`,
+    `${data.config.companyName || ""}`,
+    `${periodLabel}`,
+    ``,
+    ...rows.map(r => `• ${r.name} (${obraName(r.obra)}): ${fmt(r.net)}`),
+    ``,
+    `TOTAL LÍQUIDO: ${fmt(T.net)}`,
+    `${rows.length} funcionário(s)`,
+    `Gerado em ${new Date().toLocaleDateString("pt-BR")}`,
   ].join("\n");
 
-  const years=[];for(let i=now.getFullYear()-1;i<=now.getFullYear()+1;i++)years.push({v:String(i),l:String(i)});
+  const years = [];
 
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:14}} className="anim">
-      <div><h2 style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:C.yellow}}>Folha de Pagamento</h2>
-        <p style={{color:C.muted,fontSize:13}}>Cálculo automático quinzenal</p></div>
+  for (let i = now.getFullYear() - 1; i <= now.getFullYear() + 1; i++) {
+    years.push({ v: String(i), l: String(i) });
+  }
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-        <Sel label="Ano" value={String(year)} onChange={v=>setYear(Number(v))} options={years}/>
-        <Sel label="Mês" value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:monthName(i)}))}/>
-        <Sel label="Quinzena" value={q} onChange={setQ} options={[{v:"1",l:"1ª (1-15)"},{v:"2",l:"2ª (16+)"}]}/>
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }} className="anim">
+      <div>
+        <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 28, letterSpacing: 2, color: C.yellow }}>
+          Folha de Pagamento
+        </h2>
+
+        <p style={{ color: C.muted, fontSize: 13 }}>
+          Cálculo automático quinzenal
+        </p>
       </div>
-      <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
 
-      {/* Total banner */}
-      <div style={{background:C.yellow,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div>
-          <p style={{fontFamily:"'Bebas Neue'",fontSize:12,color:C.bg+"99",letterSpacing:2}}>TOTAL LÍQUIDO</p>
-          <p style={{fontFamily:"'Bebas Neue'",fontSize:36,color:C.bg,letterSpacing:1,lineHeight:1}}>{fmt(T.net)}</p>
-          <p style={{fontSize:11,color:C.bg+"88",marginTop:2}}>{rows.length} func · {periodLabel}</p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <Sel value={String(year)} onChange={v => setYear(Number(v))} options={years} />
+
+        <Sel
+          value={String(month)}
+          onChange={v => setMonth(Number(v))}
+          options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: monthName(i) }))}
+        />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <Sel
+          value={q}
+          onChange={setQ}
+          options={[
+            { v: "1", l: "1ª Quinzena" },
+            { v: "2", l: "2ª Quinzena" },
+          ]}
+        />
+
+        <Sel
+          value={filterObra}
+          onChange={setFilterObra}
+          options={[
+            { v: "all", l: "Todas as obras" },
+            ...data.obras.map(o => ({ v: o.id, l: o.name })),
+          ]}
+        />
+      </div>
+
+      <div
+        style={{
+          background: `linear-gradient(135deg, ${C.yellow}, ${C.yellowD})`,
+          color: C.bg,
+          padding: "18px 16px",
+          border: `1px solid ${C.yellow}`,
+        }}
+      >
+        <p
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: 1,
+            textTransform: "uppercase",
+            opacity: 0.8,
+          }}
+        >
+          Total Líquido
+        </p>
+
+        <p style={{ fontFamily: "'Bebas Neue'", fontSize: 36, letterSpacing: 2 }}>
+          {fmt(T.net)}
+        </p>
+
+        <p style={{ fontSize: 12, fontWeight: 600 }}>
+          {rows.length} funcionário(s) · {periodLabel}
+        </p>
+
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8, fontSize: 12 }}>
+          <span>Bruto: {fmt(T.gross)}</span>
+          {T.vt > 0 && <span>VT: {fmt(T.vt)}</span>}
+          {T.vr > 0 && <span>VR: {fmt(T.vr)}</span>}
+          {T.advances > 0 && <span>Adiant.: -{fmt(T.advances)}</span>}
         </div>
-        <div style={{textAlign:"right"}}>
-          <p style={{fontSize:11,color:C.bg+"88"}}>Bruto: {fmt(T.gross)}</p>
-          {T.vt>0&&<p style={{fontSize:11,color:C.bg+"88"}}>VT: {fmt(T.vt)}</p>}
-          {T.vr>0&&<p style={{fontSize:11,color:C.bg+"88"}}>VR: {fmt(T.vr)}</p>}
-          {T.advances>0&&<p style={{fontSize:11,color:C.bg+"88"}}>Adiant: -{fmt(T.advances)}</p>}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <Btn onClick={printPDF} v="ghost">
+          <Ic n="file" s={15} />
+          PDF / Imprimir
+        </Btn>
+
+        <Btn onClick={exportXLS} v="success">
+          <Ic n="download" s={15} />
+          Excel .xlsx
+        </Btn>
+
+        <Btn
+          onClick={() => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`)}
+          v="info"
+        >
+          <Ic n="mail" s={15} />
+          E-mail
+        </Btn>
+
+        <Btn
+          onClick={() => navigator.clipboard.writeText(buildText()).then(() => showToast("Copiado!")).catch(() => showToast("Erro ao copiar", "error"))}
+          v="success"
+        >
+          <Ic n="copy" s={15} />
+          WhatsApp
+        </Btn>
+      </div>
+
+      {rows.length === 0 && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 20, textAlign: "center" }}>
+          <p style={{ color: C.muted }}>Nenhum funcionário com movimentação nesta quinzena.</p>
         </div>
-      </div>
+      )}
 
-      {/* Export */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <Btn onClick={printPDF} v="ghost"><Ic n="print" s={15}/>PDF / Imprimir</Btn>
-        <Btn onClick={exportXLS} v="ghost" style={{color:C.green,borderColor:C.green+"44"}}><Ic n="excel" s={15}/>Excel .xlsx</Btn>
-        <Btn onClick={()=>window.open(`mailto:${data.config.hrEmail||""}?subject=${encodeURIComponent("Folha - "+periodLabel)}&body=${encodeURIComponent(buildText())}`)} v="info"><Ic n="mail" s={15}/>Enviar E-mail</Btn>
-        <Btn onClick={()=>navigator.clipboard.writeText(buildText()).then(()=>showToast("Copiado!")).catch(()=>showToast("Erro","error"))} v="success"><Ic n="whatsapp" s={15}/>Copiar WhatsApp</Btn>
-      </div>
-
-      {rows.map(r=>(
+      {rows.map(r => (
         <div key={r.id}>
-          <button onClick={()=>setExpandedId(expandedId===r.id?null:r.id)} style={{background:C.card,border:`1px solid ${C.border}`,padding:"13px 15px",width:"100%",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",borderLeft:`4px solid ${C.yellow}`}}>
-            <div style={{textAlign:"left"}}>
-              <p style={{fontFamily:"'Barlow Condensed'",fontWeight:800,fontSize:16,letterSpacing:.3}}>{r.name}</p>
-              <p style={{fontSize:11,color:C.muted,marginTop:2}}>{obraName(r.obra)} · {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R{r.ot>0?` · ${r.ot}h`:""}</p>
+          <button
+            onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+            style={{
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              padding: "13px 15px",
+              width: "100%",
+              cursor: "pointer",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              borderLeft: `4px solid ${C.yellow}`,
+              color: C.text,
+              textAlign: "left",
+            }}
+          >
+            <div>
+              <p style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 16 }}>
+                {r.name}
+              </p>
+
+              <p style={{ fontSize: 12, color: C.muted }}>
+                {obraName(r.obra)} · {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R{r.ot > 0 ? ` · ${r.ot}h` : ""}
+              </p>
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontFamily:"'Bebas Neue'",fontWeight:900,fontSize:20,color:C.yellow,letterSpacing:1}}>{fmt(r.net)}</span>
-              <Ic n="chevR" s={15} style={{color:C.muted,transform:expandedId===r.id?"rotate(90deg)":"none",transition:"transform .2s"}}/>
+
+            <div style={{ textAlign: "right" }}>
+              <p style={{ fontFamily: "'Barlow Condensed'", fontWeight: 900, fontSize: 18, color: C.yellow }}>
+                {fmt(r.net)}
+              </p>
+
+              {r.advances > 0 && (
+                <p style={{ fontSize: 11, color: C.red }}>
+                  -{fmt(r.advances)}
+                </p>
+              )}
             </div>
           </button>
-          {expandedId===r.id&&(
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:"none",padding:"12px 15px"}}>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}}>
-                {[["Diária",fmt(r.dailyRate)],["Bruto",fmt(r.gross)],["VT+VR",fmt(r.vt+r.vr)],["Adiant.",fmt(r.advances),C.red],["Líquido",fmt(r.net),C.yellow],["HE",`${r.ot}h`]].map(([l,v,c])=>(
-                  <div key={l} style={{textAlign:"center"}}><p style={{fontSize:10,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:14,fontWeight:700,color:c||C.text,marginTop:2}}>{v}</p></div>
+
+          {expandedId === r.id && (
+            <div
+              style={{
+                background: C.surface,
+                border: `1px solid ${C.border}`,
+                borderTop: 0,
+                padding: 14,
+              }}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
+                {[
+                  ["Diária", fmt(r.dailyRate)],
+                  ["Bruto", fmt(r.gross)],
+                  ["VT+VR", fmt(r.vt + r.vr)],
+                  ["Adiant.", fmt(r.advances), C.red],
+                  ["Líquido", fmt(r.net), C.yellow],
+                  ["HE", `${r.ot}h`],
+                ].map(([l, v, c]) => (
+                  <div key={l} style={{ background: C.card, padding: 8, border: `1px solid ${C.border}` }}>
+                    <p style={{ fontSize: 10, color: C.muted, textTransform: "uppercase" }}>
+                      {l}
+                    </p>
+
+                    <p style={{ fontWeight: 800, color: c || C.text }}>
+                      {v}
+                    </p>
+                  </div>
                 ))}
               </div>
-              {r.pixKey&&<p style={{fontSize:12,color:C.subtle,marginBottom:8}}>PIX: {r.pixKey}</p>}
-              <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
-                {days.map(d=>{
-                  const a=getAtt(data,r.id,d);const s=a?.status;
-                  const col=s==="P"?C.green:s==="M"?C.yellow:s==="F"?C.red:C.muted;
-                  return<div key={d} style={{background:col+"22",border:`1px solid ${col}55`,padding:"3px 5px",textAlign:"center",minWidth:32}}>
-                    <p style={{fontSize:9,color:C.muted}}>{fmtDate(d)}</p><p style={{fontSize:11,fontWeight:700,color:col}}>{s||"–"}</p>
-                  </div>;
+
+              {r.pixKey && (
+                <p style={{ fontSize: 12, color: C.subtle, marginBottom: 10 }}>
+                  PIX: {r.pixKey}
+                </p>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(42px, 1fr))", gap: 4 }}>
+                {days.map(d => {
+                  const a = getAtt(data, r.id, d);
+                  const s = a?.status;
+                  const col = s === "P" ? C.green : s === "M" ? C.yellow : s === "F" ? C.red : C.muted;
+
+                  return (
+                    <div
+                      key={d}
+                      style={{
+                        background: C.card,
+                        border: `1px solid ${C.border}`,
+                        padding: 5,
+                        textAlign: "center",
+                      }}
+                    >
+                      <p style={{ fontSize: 9, color: C.muted }}>
+                        {fmtDate(d)}
+                      </p>
+
+                      <p style={{ color: col, fontWeight: 900 }}>
+                        {s || "–"}
+                      </p>
+                    </div>
+                  );
                 })}
               </div>
             </div>
           )}
         </div>
       ))}
-      {rows.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:C.muted}}><p>Nenhum funcionário para este filtro.</p></div>}
     </div>
   );
 }
