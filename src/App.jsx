@@ -3170,12 +3170,32 @@ export default function App() {
     showToast._t = window.setTimeout(() => setToast(null), 3200);
   }, []);
 
-  const update = useCallback((next) => {
+  const update = useCallback(async (next) => {
     const normalized = normalizeData(next);
+
+    // Atualização otimista para manter a interface rápida.
     setData(normalized);
-    supabaseSave(normalized).then(ok => {
-      if (!ok) showToast("Não foi possível salvar no Supabase.", "error");
-    }).catch(() => showToast("Erro ao salvar no Supabase.", "error"));
+
+    try {
+      const result = await supabaseSave(normalized);
+
+      if (result && typeof result === "object" && result.reason === "STALE_DATA") {
+        const fresh = await supabaseLoad();
+        setData(normalizeData(fresh || normalized));
+        showToast(
+          "A base foi alterada por outro usuário. Recarreguei os dados para evitar apagar alocações ou pontos fechados.",
+          "error"
+        );
+        return;
+      }
+
+      if (result !== true) {
+        showToast("Não foi possível salvar no Supabase. Confira a conexão antes de continuar.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Erro ao salvar no Supabase. Nenhuma alteração remota foi confirmada.", "error");
+    }
   }, [showToast]);
 
   useEffect(() => {
