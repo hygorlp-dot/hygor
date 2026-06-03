@@ -176,19 +176,58 @@ const getPayrollSettings = config => {
   };
 };
 
+// Lista todos os dias (ISO) entre duas datas, inclusive — seguro para
+// períodos que cruzam a virada do mês (ex.: 16 de um mês a 05 do seguinte).
+const iterateDaysIso = (startIso, endIso) => {
+  const out = [];
+  if (!startIso || !endIso) return out;
+  let d = new Date(`${startIso}T12:00:00`);
+  const end = new Date(`${endIso}T12:00:00`);
+  if (Number.isNaN(d.getTime()) || Number.isNaN(end.getTime()) || d > end) return out;
+  let guard = 0;
+  while (d <= end && guard < 400) {
+    out.push(toLocalISODate(d));
+    d.setDate(d.getDate() + 1);
+    guard += 1;
+  }
+  return out;
+};
+
+// Monta o intervalo (start/end ISO) de uma quinzena a partir do dia de
+// abertura/fechamento. Se o dia de fechamento for MENOR que o de abertura,
+// o período fecha no mês seguinte. closeDay === 0 = último dia do mês.
+const buildQuinzenaRange = (year, monthIndex, openDay, closeDay) => {
+  const monthLen = new Date(year, monthIndex + 1, 0).getDate();
+  const open = Math.min(Math.max(Number(openDay) || 1, 1), monthLen);
+  const start = new Date(year, monthIndex, open, 12, 0, 0);
+
+  let end;
+  if (closeDay === 0) {
+    end = new Date(year, monthIndex, monthLen, 12, 0, 0); // último dia do mês
+  } else if (Number(closeDay) >= open) {
+    end = new Date(year, monthIndex, Math.min(Number(closeDay), monthLen), 12, 0, 0); // mesmo mês
+  } else {
+    const nextLen = new Date(year, monthIndex + 2, 0).getDate(); // fecha no mês seguinte
+    end = new Date(year, monthIndex + 1, Math.min(Number(closeDay), nextLen), 12, 0, 0);
+  }
+
+  return { start: toLocalISODate(start), end: toLocalISODate(end) };
+};
+
+const getQuinzenaRange = (year, monthIndex, q, config) => {
+  const s = getPayrollSettings(config);
+  return q === "1"
+    ? buildQuinzenaRange(year, monthIndex, s.q1OpenDay, s.q1CloseDay)
+    : buildQuinzenaRange(year, monthIndex, s.q2OpenDay, s.q2CloseDay);
+};
+
 const getQ = (year, monthIndex, config) => {
   const s = getPayrollSettings(config);
-  const all = getDays(year, monthIndex);
-  const lastNum = Number(all[all.length - 1].split("-")[2]);
-  const q1Close = Math.min(s.q1CloseDay, lastNum);
-  const q2Close = s.q2CloseDay === 0 ? lastNum : Math.min(s.q2CloseDay, lastNum);
-  const inRange = (d, from, to) => {
-    const n = Number(d.split("-")[2]);
-    return from <= to && n >= from && n <= to;
-  };
+  const r1 = getQuinzenaRange(year, monthIndex, "1", config);
+  const r2 = getQuinzenaRange(year, monthIndex, "2", config);
   return {
-    q1: all.filter(d => inRange(d, s.q1OpenDay, q1Close)),
-    q2: all.filter(d => inRange(d, s.q2OpenDay, q2Close)),
+    q1: iterateDaysIso(r1.start, r1.end),
+    q2: iterateDaysIso(r2.start, r2.end),
     settings: s,
   };
 };
@@ -2044,17 +2083,42 @@ function Folha({ data, showToast }) {
   const [filterObra, setFilterObra] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
 
-  const { q1, q2 } = getQ(year, month, data.config);
-  const days = q === "1" ? q1 : q2;
-  const paymentHolidays = getPayrollHolidays(data, year);
+  // Intervalo do período de apuração por CALENDÁRIO (start/end ISO).
+  // O ano/mês/quinzena servem como atalho que pré-preenche o intervalo;
+  // o usuário pode ajustar livremente as datas (inclusive cruzando meses).
+  const presetRange = useMemo(() => getQuinzenaRange(year, month, q, data.config), [year, month, q, data.config]);
+  const [range, setRange] = useState(presetRange);
+  const [customRange, setCustomRange] = useState(false);
+
+  // Enquanto o usuário não editar manualmente, o intervalo acompanha o atalho.
+  useEffect(() => {
+    if (!customRange) setRange(presetRange);
+  }, [presetRange, customRange]);
+
+  const setStart = v => { setCustomRange(true); setRange(r => ({ start: v, end: r.end && v && v > r.end ? v : r.end })); };
+  const setEnd = v => { setCustomRange(true); setRange(r => ({ start: r.start && v && v < r.start ? v : r.start, end: v })); };
+  const resetRange = () => { setCustomRange(false); setRange(presetRange); };
+
+  const days = useMemo(() => iterateDaysIso(range.start, range.end), [range]);
+  const startYear = range.start ? Number(range.start.split("-")[0]) : year;
+  const rangeYear = range.end ? Number(range.end.split("-")[0]) : year;
+  const crossesMonth = range.start && range.end && range.start.slice(0, 7) !== range.end.slice(0, 7);
+
+  const paymentHolidays = useMemo(() => {
+    const a = getPayrollHolidays(data, startYear);
+    if (rangeYear === startYear) return a;
+    return Array.from(new Set([...a, ...getPayrollHolidays(data, rangeYear)]));
+  }, [data, startYear, rangeYear]);
   const holidaysInPeriod = days.filter(d => paymentHolidays.includes(d) && prIsWeekdayIso(d));
   const paymentInfo = getPayrollPaymentCalendar(year, month, q, data);
   const paymentDateLabel = fmtDateFull(paymentInfo.paymentDate);
   const paymentBaseLabel = fmtDateFull(paymentInfo.baseDate);
   const paymentObs = paymentInfo.adjusted ? `Ajustado de ${paymentBaseLabel} para ${paymentDateLabel}` : "Data normal de pagamento";
   const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
-  const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
-  const periodRangeLabel = days.length ? `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length - 1])}` : "Período sem dias (verifique a abertura/fechamento nas configurações)";
+  const periodLabel = customRange
+    ? `Período de ${fmtDate(range.start)} a ${fmtDate(range.end)}`
+    : `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
+  const periodRangeLabel = days.length ? `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length - 1])}` : "Período sem dias (verifique as datas de início e fim)";
 
   const calcRow = employee => {
     let gross = 0;
@@ -2241,12 +2305,31 @@ function Folha({ data, showToast }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel value={String(year)} onChange={v => setYear(Number(v))} options={years} />
-        <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+        <Sel value={String(year)} onChange={v => { setCustomRange(false); setYear(Number(v)); }} options={years} />
+        <Sel value={String(month)} onChange={v => { setCustomRange(false); setMonth(Number(v)); }} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena" }, { v: "2", l: "2ª quinzena" }]} />
+        <Sel value={q} onChange={v => { setCustomRange(false); setQ(v); }} options={[{ v: "1", l: "1ª quinzena" }, { v: "2", l: "2ª quinzena" }]} />
         <Sel value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+      </div>
+
+      <div style={{ background: C.card, border: `1px solid ${customRange ? C.yellow : C.border}`, borderRadius: 14, padding: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          <p style={{ color: C.subtle, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Período de apuração (calendário)</p>
+          {customRange && (
+            <button onClick={resetRange} style={{ background: `${C.yellow}18`, color: C.yellow, border: `1px solid ${C.yellow}66`, borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.4, cursor: "pointer" }}>
+              Restaurar quinzena
+            </button>
+          )}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <Inp label="Início" type="date" value={range.start} onChange={setStart} />
+          <Inp label="Fim" type="date" value={range.end} onChange={setEnd} max={range.end && range.start && range.end < range.start ? range.start : undefined} />
+        </div>
+        <p style={{ color: days.length ? C.muted : C.red, fontSize: 12, marginTop: 8 }}>
+          {days.length ? `${days.length} dia(s) no período${crossesMonth ? " · cruza a virada do mês" : ""}` : "Nenhum dia no intervalo — verifique as datas de início e fim."}
+        </p>
+        {customRange && <p style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>Intervalo personalizado ativo. Os atalhos de mês e quinzena acima voltam a preencher as datas se você clicar em “Restaurar quinzena”.</p>}
       </div>
 
       <div style={{ background: `linear-gradient(135deg, ${C.yellow}, ${C.yellowD})`, color: C.bg, padding: 18, border: `1px solid ${C.yellow}` }}>
