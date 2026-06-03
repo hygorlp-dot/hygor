@@ -21,7 +21,7 @@ import { loadData as supabaseLoad, saveData as supabaseSave } from "./supabase";
 // - Base compartilhada Supabase via supabase.js
 // - Cadastro de obras, equipe, ponto, folha, relatórios e configurações
 // - Transferência/demissão individual no ponto
-// - Bloqueio do ponto por obra/data após finalização
+// - Ponto sempre editável: conferência da obra não bloqueia ajustes posteriores
 // - Solicitação de permissão por e-mail para hygorlp@gmail.com
 // - Link de aprovação temporária por 30 minutos
 // - Pagamento dia 20 para 1ª quinzena e dia 05 do mês seguinte para 2ª quinzena
@@ -418,7 +418,9 @@ const getHolidayPayRule = (data, employee, holidayIso, holidays) => {
 
 const attendanceLockKey = (obraId, date) => `${date}__${obraId}`;
 const getAttendanceLock = (data, obraId, date) => data?.attendanceLocks?.[attendanceLockKey(obraId, date)] || null;
-const isAttendanceLocked = (data, obraId, date) => !!getAttendanceLock(data, obraId, date)?.locked;
+// Bloqueio desativado: o ponto continua editável mesmo após finalizar/fechar a obra.
+// Mantido como função para preservar todas as chamadas existentes sem efeito de bloqueio.
+const isAttendanceLocked = () => false;
 
 const hasApprovedUnlock = (data, obraId, date) => {
   const now = new Date();
@@ -1595,7 +1597,6 @@ function Ponto({ data, update, showToast }) {
   const dailyCheckPending = selDate === today() && activeEmployees.length > 0 && data.dailyCheckDate !== today();
   const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
   const selectedObra = filterObra !== "all" ? data.obras.find(o => o.id === filterObra) : null;
-  const selectedObraLocked = selectedObra ? isAttendanceLocked(data, selectedObra.id, selDate) : false;
   const selectedObraCanEdit = selectedObra ? canEditAttendance(data, selectedObra.id, selDate) : true;
   const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
   const attendanceCompletion = getAttendanceCompletionMessage(obraAttendanceSummary);
@@ -1641,7 +1642,7 @@ function Ponto({ data, update, showToast }) {
 
   const finalizeObraAttendance = () => {
     if (filterObra === "all") {
-      showToast("Selecione uma obra específica para finalizar o ponto.", "error");
+      showToast("Selecione uma obra específica para concluir a conferência.", "error");
       return;
     }
 
@@ -1651,26 +1652,14 @@ function Ponto({ data, update, showToast }) {
     const obraSummary = getObraAttendanceSummary(data, selDate).find(o => o.obraId === filterObra);
     const missingNames = obraSummary?.missingEmployees?.map(e => e.name).join(", ") || "";
     const msg = obraSummary && obraSummary.missingCount > 0
-      ? `Existem ${obraSummary.missingCount} trabalhador(es) sem registro nesta obra:\n\n${missingNames}\n\nDeseja finalizar mesmo assim?`
-      : `Finalizar o ponto da obra "${obra.name}" em ${fmtDateFull(selDate)}?`;
+      ? `Existem ${obraSummary.missingCount} trabalhador(es) sem registro nesta obra:\n\n${missingNames}\n\nDeseja concluir a conferência mesmo assim?`
+      : `Concluir a conferência do ponto da obra "${obra.name}" em ${fmtDateFull(selDate)}?`;
 
-    if (!window.confirm(`${msg}\n\nDepois disso, alterações precisarão de permissão.`)) return;
+    if (!window.confirm(`${msg}\n\nVocê poderá ajustar o ponto normalmente depois, sem precisar de permissão.`)) return;
 
-    const key = attendanceLockKey(filterObra, selDate);
-    const attendanceLocks = {
-      ...data.attendanceLocks,
-      [key]: {
-        id: key,
-        obraId: filterObra,
-        obraName: obra.name,
-        date: selDate,
-        locked: true,
-        lockedAt: new Date().toISOString(),
-      },
-    };
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "attendance_lock", message: `Ponto finalizado e bloqueado: ${obra.name} em ${fmtDateFull(selDate)}.` }];
-    update({ ...data, attendanceLocks, changeLog });
-    showToast("Ponto da obra finalizado e bloqueado.");
+    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "attendance_review", message: `Conferência do ponto concluída: ${obra.name} em ${fmtDateFull(selDate)}.` }];
+    update({ ...data, changeLog });
+    showToast("Conferência concluída. O ponto continua liberado para ajustes.");
   };
 
   const setAtt = (empId, status) => {
@@ -1798,7 +1787,7 @@ function Ponto({ data, update, showToast }) {
             <p style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1, opacity: .78 }}>Função principal do app</p>
             <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 42, letterSpacing: 2, lineHeight: .95 }}>Registro de Ponto</h2>
             <p style={{ fontSize: 13, fontWeight: 700, marginTop: 6, maxWidth: 500 }}>
-              Lance presença, meio dia ou falta por trabalhador. Finalize a obra para bloquear alterações.
+              Lance presença, meio dia ou falta por trabalhador. Os ajustes podem ser feitos a qualquer momento, mesmo após concluir a conferência.
             </p>
           </div>
 
@@ -1918,21 +1907,17 @@ function Ponto({ data, update, showToast }) {
 
       {filterObra === "all" && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 12 }}>
-          <p style={{ color: C.yellow, fontWeight: 900, fontSize: 13 }}>Selecione uma obra específica para marcar todos e finalizar/bloquear o ponto.</p>
+          <p style={{ color: C.yellow, fontWeight: 900, fontSize: 13 }}>Selecione uma obra específica para marcar todos e concluir a conferência do ponto.</p>
         </div>
       )}
 
       {selectedObra && (
-        <div style={{ background: selectedObraLocked ? `${C.red}18` : C.card, border: `1px solid ${selectedObraLocked ? C.red : C.border}`, borderLeft: `4px solid ${selectedObraLocked ? C.red : C.green}`, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-          <p style={{ color: selectedObraLocked ? C.red : C.green, fontFamily: "'Barlow Condensed'", fontWeight: 900, fontSize: 17, textTransform: "uppercase" }}>
-            {selectedObraLocked ? "Ponto finalizado e bloqueado" : "Ponto aberto para edição"}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.green}`, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+          <p style={{ color: C.green, fontFamily: "'Barlow Condensed'", fontWeight: 900, fontSize: 17, textTransform: "uppercase" }}>
+            Ponto aberto para edição
           </p>
           <p style={{ color: C.subtle, fontSize: 12 }}>Obra: {selectedObra.name} · Data: {fmtDateFull(selDate)}</p>
-          {selectedObraLocked ? (
-            <Btn v="warning" onClick={() => setUnlockModal({ obraId: selectedObra.id, date: selDate, employee: null })} full><Ic n="mail" /> Solicitar permissão para alterar</Btn>
-          ) : (
-            <Btn v="danger" onClick={finalizeObraAttendance} full><Ic n="lock" /> Finalizar ponto da obra</Btn>
-          )}
+          <Btn v="success" onClick={finalizeObraAttendance} full><Ic n="check" /> Concluir conferência da obra</Btn>
         </div>
       )}
 
