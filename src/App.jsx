@@ -138,12 +138,68 @@ const getDays = (year, monthIndex) => {
   return days;
 };
 
-const getQ = (year, monthIndex) => {
-  const all = getDays(year, monthIndex);
-  return {
-    q1: all.filter(d => Number(d.split("-")[2]) <= 15),
-    q2: all.filter(d => Number(d.split("-")[2]) > 15),
+// Configuração personalizável do período da folha (quinzenas).
+// q2CloseDay === 0 significa "último dia do mês".
+const PAYROLL_DEFAULTS = {
+  q1OpenDay: 1,
+  q1CloseDay: 15,
+  q2OpenDay: 16,
+  q2CloseDay: 0,
+  q1PayDay: 20,
+  q1PayMonth: "same", // "same" = mesmo mês | "next" = mês seguinte
+  q2PayDay: 5,
+  q2PayMonth: "next",
+  adjustPayDate: true, // ajustar pagamento para dia útil (fim de semana/feriado)
+};
+
+const getPayrollSettings = config => {
+  const p = (config && typeof config.payroll === "object" && config.payroll) || {};
+  const day = (v, def) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= 1 && n <= 31 ? n : def;
   };
+  const closeDay = (v, def) => {
+    if (v === 0 || v === "0" || v === "last" || v === "ultimo") return 0; // último dia do mês
+    return day(v, def);
+  };
+  const payMonth = (v, def) => (v === "next" || v === "same" ? v : def);
+  return {
+    q1OpenDay: day(p.q1OpenDay, PAYROLL_DEFAULTS.q1OpenDay),
+    q1CloseDay: day(p.q1CloseDay, PAYROLL_DEFAULTS.q1CloseDay),
+    q2OpenDay: day(p.q2OpenDay, PAYROLL_DEFAULTS.q2OpenDay),
+    q2CloseDay: closeDay(p.q2CloseDay, PAYROLL_DEFAULTS.q2CloseDay),
+    q1PayDay: day(p.q1PayDay, PAYROLL_DEFAULTS.q1PayDay),
+    q1PayMonth: payMonth(p.q1PayMonth, PAYROLL_DEFAULTS.q1PayMonth),
+    q2PayDay: day(p.q2PayDay, PAYROLL_DEFAULTS.q2PayDay),
+    q2PayMonth: payMonth(p.q2PayMonth, PAYROLL_DEFAULTS.q2PayMonth),
+    adjustPayDate: p.adjustPayDate !== false,
+  };
+};
+
+const getQ = (year, monthIndex, config) => {
+  const s = getPayrollSettings(config);
+  const all = getDays(year, monthIndex);
+  const lastNum = Number(all[all.length - 1].split("-")[2]);
+  const q1Close = Math.min(s.q1CloseDay, lastNum);
+  const q2Close = s.q2CloseDay === 0 ? lastNum : Math.min(s.q2CloseDay, lastNum);
+  const inRange = (d, from, to) => {
+    const n = Number(d.split("-")[2]);
+    return from <= to && n >= from && n <= to;
+  };
+  return {
+    q1: all.filter(d => inRange(d, s.q1OpenDay, q1Close)),
+    q2: all.filter(d => inRange(d, s.q2OpenDay, q2Close)),
+    settings: s,
+  };
+};
+
+// Identifica em qual quinzena configurada um dia (número) se encaixa.
+const quinzenaForDay = (dayNum, config, lastNum = 31) => {
+  const s = getPayrollSettings(config);
+  const q2Close = s.q2CloseDay === 0 ? lastNum : s.q2CloseDay;
+  if (dayNum >= s.q2OpenDay && dayNum <= q2Close) return "2";
+  if (dayNum >= s.q1OpenDay && dayNum <= s.q1CloseDay) return "1";
+  return dayNum <= s.q1CloseDay ? "1" : "2";
 };
 
 const fmtCPF = value => {
@@ -296,15 +352,21 @@ const adjustPayrollPaymentDate = (baseDate, holidays) => {
 };
 
 const getPayrollPaymentCalendar = (year, monthIndex, q, data) => {
-  // 1ª quinzena do mês selecionado paga dia 20 do mesmo mês.
-  // 2ª quinzena do mês selecionado paga dia 05 do mês seguinte.
-  const paymentMonth = q === "1" ? monthIndex : monthIndex + 1;
-  const paymentYear = paymentMonth > 11 ? year + 1 : year;
-  const normalizedPaymentMonth = paymentMonth > 11 ? 0 : paymentMonth;
-  const baseDay = q === "1" ? 20 : 5;
-  const baseDate = prDateAtNoon(paymentYear, normalizedPaymentMonth, baseDay);
+  // Datas de pagamento definidas nas configurações (por quinzena).
+  // Padrão: 1ª quinzena dia 20 (mesmo mês), 2ª quinzena dia 05 (mês seguinte).
+  const s = getPayrollSettings(data?.config);
+  const isQ1 = q === "1";
+  const payDay = isQ1 ? s.q1PayDay : s.q2PayDay;
+  const payMonthMode = isQ1 ? s.q1PayMonth : s.q2PayMonth;
+  const offset = payMonthMode === "next" ? 1 : 0;
+  const rawMonth = monthIndex + offset;
+  const paymentYear = year + Math.floor(rawMonth / 12);
+  const normalizedPaymentMonth = ((rawMonth % 12) + 12) % 12;
+  const monthLen = new Date(paymentYear, normalizedPaymentMonth + 1, 0).getDate();
+  const safeDay = Math.min(payDay, monthLen);
+  const baseDate = prDateAtNoon(paymentYear, normalizedPaymentMonth, safeDay);
   const holidays = getPayrollHolidays(data, paymentYear);
-  const adjustedDate = adjustPayrollPaymentDate(baseDate, holidays);
+  const adjustedDate = s.adjustPayDate ? adjustPayrollPaymentDate(baseDate, holidays) : baseDate;
 
   return {
     baseDate: prIso(baseDate),
@@ -453,6 +515,7 @@ const DEFAULT = () => ({
     cnpj: "",
     approverEmail: "hygorlp@gmail.com",
     paymentHolidays: [],
+    payroll: { ...PAYROLL_DEFAULTS },
   },
   obras: [
     { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0 },
@@ -479,6 +542,7 @@ const normalizeData = incoming => {
       ...(d.config || {}),
       approverEmail: d.config?.approverEmail || "hygorlp@gmail.com",
       paymentHolidays: Array.isArray(d.config?.paymentHolidays) ? d.config.paymentHolidays : [],
+      payroll: getPayrollSettings(d.config),
     },
     obras: Array.isArray(d.obras) ? d.obras.map(o => ({
       id: o.id || uid(),
@@ -837,8 +901,8 @@ function Dashboard({ data, onTab }) {
   const year = now.getFullYear();
   const month = now.getMonth();
   const day = now.getDate();
-  const { q1, q2 } = getQ(year, month);
-  const qDays = day <= 15 ? q1 : q2;
+  const { q1, q2 } = getQ(year, month, data.config);
+  const qDays = quinzenaForDay(day, data.config, new Date(year, month + 1, 0).getDate()) === "1" ? q1 : q2;
   const todayIso = today();
   const activeEmps = data.employees.filter(e => e.active !== false);
   const activeObras = data.obras.filter(o => o.status !== "done");
@@ -1991,11 +2055,11 @@ function Folha({ data, showToast }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
-  const [q, setQ] = useState(now.getDate() <= 15 ? "1" : "2");
+  const [q, setQ] = useState(quinzenaForDay(now.getDate(), data.config, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()));
   const [filterObra, setFilterObra] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
 
-  const { q1, q2 } = getQ(year, month);
+  const { q1, q2 } = getQ(year, month, data.config);
   const days = q === "1" ? q1 : q2;
   const paymentHolidays = getPayrollHolidays(data, year);
   const holidaysInPeriod = days.filter(d => paymentHolidays.includes(d) && prIsWeekdayIso(d));
@@ -2005,6 +2069,7 @@ function Folha({ data, showToast }) {
   const paymentObs = paymentInfo.adjusted ? `Ajustado de ${paymentBaseLabel} para ${paymentDateLabel}` : "Data normal de pagamento";
   const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
   const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
+  const periodRangeLabel = days.length ? `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length - 1])}` : "Período sem dias (verifique a abertura/fechamento nas configurações)";
 
   const calcRow = employee => {
     let gross = 0;
@@ -2120,6 +2185,7 @@ function Folha({ data, showToast }) {
           <h1>${escapeHtml(data.config.companyName || "ArcD Obras")}</h1>
           ${data.config.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
           <h2>Folha de Pagamento — ${escapeHtml(periodLabel)}</h2>
+          <p><strong>Período de apuração:</strong> ${escapeHtml(periodRangeLabel)}</p>
           <p><strong>Data de pagamento:</strong> ${escapeHtml(paymentDateLabel)}</p>
           <p><strong>Regra aplicada:</strong> ${escapeHtml(paymentObs)}</p>
           <table>
@@ -2154,7 +2220,7 @@ function Folha({ data, showToast }) {
     const header = ["Funcionário", "Cargo", "Obra", "Pres.", "Meio Dia", "Faltas", "Sem Registro", "Feriados Pagos", "Feriados Perdidos", "Valor Feriado", "HE", "Diária", "Bruto", "VT", "VR", "Adiant.", "Líquido"];
     const body = rows.map(r => [r.name, r.role || "", obraName(r.obra), r.presentes, r.meiodia, r.faltas, r.semRegistro, r.feriadosPagos, r.feriadosPerdidos, r.holidayPay, r.ot, r.dailyRate, r.gross, r.vt, r.vr, r.advances, r.net]);
     const total = ["TOTAL", "", "", rows.reduce((s, r) => s + r.presentes, 0), rows.reduce((s, r) => s + r.meiodia, 0), rows.reduce((s, r) => s + r.faltas, 0), rows.reduce((s, r) => s + r.semRegistro, 0), T.feriadosPagos, T.feriadosPerdidos, T.holidayPay, rows.reduce((s, r) => s + r.ot, 0), "", T.gross, T.vt, T.vr, T.advances, T.net];
-    const ws = XLSX.utils.aoa_to_sheet([["Folha de Pagamento", periodLabel], ["Data de pagamento", paymentDateLabel], ["Regra aplicada", paymentObs], [], header, ...body, total]);
+    const ws = XLSX.utils.aoa_to_sheet([["Folha de Pagamento", periodLabel], ["Período de apuração", periodRangeLabel], ["Data de pagamento", paymentDateLabel], ["Regra aplicada", paymentObs], [], header, ...body, total]);
     ws["!cols"] = [20, 15, 15, 8, 10, 8, 12, 15, 17, 14, 6, 10, 12, 10, 10, 10, 12].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, ws, "Folha");
     XLSX.writeFile(wb, `arcd-folha-${year}-${String(month + 1).padStart(2, "0")}-Q${q}.xlsx`);
@@ -2165,6 +2231,7 @@ function Folha({ data, showToast }) {
     "FOLHA DE PAGAMENTO — ARCD OBRAS",
     data.config.companyName || "",
     periodLabel,
+    `Apuração: ${periodRangeLabel}`,
     `Pagamento: ${paymentDateLabel}`,
     paymentObs,
     "",
@@ -2185,7 +2252,7 @@ function Folha({ data, showToast }) {
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
         <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 30, letterSpacing: 2, color: C.yellow }}>Folha de Pagamento</h2>
-        <p style={{ color: C.muted, fontSize: 13 }}>Cálculo automático quinzenal com feriados e datas de pagamento.</p>
+        <p style={{ color: C.muted, fontSize: 13 }}>Período e datas de pagamento personalizáveis em Ajustes › Período da folha.</p>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -2201,6 +2268,7 @@ function Folha({ data, showToast }) {
         <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase", opacity: 0.78 }}>Total líquido</p>
         <p style={{ fontFamily: "'Bebas Neue'", fontSize: 38, letterSpacing: 2 }}>{fmt(T.net)}</p>
         <p style={{ fontSize: 12, fontWeight: 700 }}>{rows.length} funcionário(s) · {periodLabel}</p>
+        <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.86 }}>Apuração: {periodRangeLabel}</p>
         <p style={{ fontSize: 14, fontWeight: 900, marginTop: 6 }}>Pagamento: {paymentDateLabel}</p>
         <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.86 }}>{paymentObs}</p>
         {(T.feriadosPagos + T.feriadosPerdidos) > 0 && <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.86, marginTop: 4 }}>Feriados: {T.feriadosPagos} pago(s), {T.feriadosPerdidos} perdido(s) · Valor: {fmt(T.holidayPay)}</p>}
@@ -2709,7 +2777,7 @@ const buildAgentContext = data => {
   const paymentInfo = getPayrollPaymentCalendar(
     currentYear,
     currentMonth,
-    now.getDate() <= 15 ? "1" : "2",
+    quinzenaForDay(now.getDate(), data.config, new Date(currentYear, currentMonth + 1, 0).getDate()),
     data
   );
 
@@ -3052,6 +3120,14 @@ function Config({ data, update, showToast }) {
   const [form, setForm] = useState(data.config);
   const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
+  const pr = getPayrollSettings(form);
+  const setPayroll = key => value => setForm(f => ({ ...f, payroll: { ...getPayrollSettings(f), [key]: value } }));
+  const prPreviewBase = new Date();
+  const prPreview = getQ(prPreviewBase.getFullYear(), prPreviewBase.getMonth(), form);
+  const prRange = arr => (arr.length ? `${fmtDate(arr[0])} a ${fmtDate(arr[arr.length - 1])}` : "vazio");
+  const dayOptions = Array.from({ length: 31 }, (_, i) => ({ v: String(i + 1), l: String(i + 1) }));
+  const closeOptions = [{ v: "0", l: "Último dia do mês" }, ...dayOptions];
+  const payMonthOptions = [{ v: "same", l: "Mesmo mês" }, { v: "next", l: "Mês seguinte" }];
   const holidays = getPayrollHolidays(data, holidayYear);
 
   const saveConfig = () => {
@@ -3108,6 +3184,40 @@ function Config({ data, update, showToast }) {
           <Inp label="E-mail aprovador" value={form.approverEmail} onChange={setField("approverEmail")} />
         </div>
         <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
+      </div>
+
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
+        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", marginBottom: 4 }}>Período da folha</h3>
+        <p style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>Defina os dias de abertura e fechamento de cada quinzena e as datas de pagamento. Vale para a visualização e para a exportação (PDF, Excel, e-mail e WhatsApp).</p>
+
+        <p style={{ color: C.subtle, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>1ª quinzena</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Sel label="Dia de abertura" value={String(pr.q1OpenDay)} onChange={v => setPayroll("q1OpenDay")(Number(v))} options={dayOptions} />
+          <Sel label="Dia de fechamento" value={String(pr.q1CloseDay)} onChange={v => setPayroll("q1CloseDay")(Number(v))} options={dayOptions} />
+          <Sel label="Dia de pagamento" value={String(pr.q1PayDay)} onChange={v => setPayroll("q1PayDay")(Number(v))} options={dayOptions} />
+          <Sel label="Pagamento no" value={pr.q1PayMonth} onChange={v => setPayroll("q1PayMonth")(v)} options={payMonthOptions} />
+        </div>
+
+        <p style={{ color: C.subtle, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, margin: "14px 0 8px" }}>2ª quinzena</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Sel label="Dia de abertura" value={String(pr.q2OpenDay)} onChange={v => setPayroll("q2OpenDay")(Number(v))} options={dayOptions} />
+          <Sel label="Dia de fechamento" value={String(pr.q2CloseDay)} onChange={v => setPayroll("q2CloseDay")(Number(v))} options={closeOptions} />
+          <Sel label="Dia de pagamento" value={String(pr.q2PayDay)} onChange={v => setPayroll("q2PayDay")(Number(v))} options={dayOptions} />
+          <Sel label="Pagamento no" value={pr.q2PayMonth} onChange={v => setPayroll("q2PayMonth")(v)} options={payMonthOptions} />
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <Sel label="Ajustar pagamento para dia útil (fim de semana/feriado)" value={pr.adjustPayDate ? "on" : "off"} onChange={v => setPayroll("adjustPayDate")(v === "on")} options={[{ v: "on", l: "Sim, evitar sábado/domingo/feriado" }, { v: "off", l: "Não, manter o dia exato" }]} />
+        </div>
+
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 12, marginTop: 14 }}>
+          <p style={{ color: C.subtle, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Prévia ({fullMonth(prPreviewBase.getMonth())} {prPreviewBase.getFullYear()})</p>
+          <p style={{ color: prPreview.q1.length ? C.text : C.red, fontSize: 13 }}>1ª quinzena: {prRange(prPreview.q1)} ({prPreview.q1.length} dia(s))</p>
+          <p style={{ color: prPreview.q2.length ? C.text : C.red, fontSize: 13 }}>2ª quinzena: {prRange(prPreview.q2)} ({prPreview.q2.length} dia(s))</p>
+          {(prPreview.q1.length === 0 || prPreview.q2.length === 0) && <p style={{ color: C.red, fontSize: 12, marginTop: 6 }}>Atenção: uma das quinzenas ficou vazia. Verifique se o dia de abertura é menor ou igual ao de fechamento.</p>}
+        </div>
+
+        <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar período da folha</Btn></div>
       </div>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
