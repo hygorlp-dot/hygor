@@ -21,7 +21,7 @@ import { loadData as supabaseLoad, saveData as supabaseSave } from "./supabase";
 // - Base compartilhada Supabase via supabase.js
 // - Cadastro de obras, equipe, ponto, folha, relatórios e configurações
 // - Transferência/demissão individual no ponto
-// - Ponto sempre editável: conferência da obra não bloqueia ajustes posteriores
+// - Bloqueio do ponto por obra/data após finalização
 // - Solicitação de permissão por e-mail para hygorlp@gmail.com
 // - Link de aprovação temporária por 30 minutos
 // - Pagamento dia 20 para 1ª quinzena e dia 05 do mês seguinte para 2ª quinzena
@@ -138,107 +138,12 @@ const getDays = (year, monthIndex) => {
   return days;
 };
 
-// Configuração personalizável do período da folha (quinzenas).
-// q2CloseDay === 0 significa "último dia do mês".
-const PAYROLL_DEFAULTS = {
-  q1OpenDay: 1,
-  q1CloseDay: 15,
-  q2OpenDay: 16,
-  q2CloseDay: 0,
-  q1PayDay: 20,
-  q1PayMonth: "same", // "same" = mesmo mês | "next" = mês seguinte
-  q2PayDay: 5,
-  q2PayMonth: "next",
-  adjustPayDate: true, // ajustar pagamento para dia útil (fim de semana/feriado)
-};
-
-const getPayrollSettings = config => {
-  const p = (config && typeof config.payroll === "object" && config.payroll) || {};
-  const day = (v, def) => {
-    const n = Math.round(Number(v));
-    return Number.isFinite(n) && n >= 1 && n <= 31 ? n : def;
-  };
-  const closeDay = (v, def) => {
-    if (v === 0 || v === "0" || v === "last" || v === "ultimo") return 0; // último dia do mês
-    return day(v, def);
-  };
-  const payMonth = (v, def) => (v === "next" || v === "same" ? v : def);
+const getQ = (year, monthIndex) => {
+  const all = getDays(year, monthIndex);
   return {
-    q1OpenDay: day(p.q1OpenDay, PAYROLL_DEFAULTS.q1OpenDay),
-    q1CloseDay: day(p.q1CloseDay, PAYROLL_DEFAULTS.q1CloseDay),
-    q2OpenDay: day(p.q2OpenDay, PAYROLL_DEFAULTS.q2OpenDay),
-    q2CloseDay: closeDay(p.q2CloseDay, PAYROLL_DEFAULTS.q2CloseDay),
-    q1PayDay: day(p.q1PayDay, PAYROLL_DEFAULTS.q1PayDay),
-    q1PayMonth: payMonth(p.q1PayMonth, PAYROLL_DEFAULTS.q1PayMonth),
-    q2PayDay: day(p.q2PayDay, PAYROLL_DEFAULTS.q2PayDay),
-    q2PayMonth: payMonth(p.q2PayMonth, PAYROLL_DEFAULTS.q2PayMonth),
-    adjustPayDate: p.adjustPayDate !== false,
+    q1: all.filter(d => Number(d.split("-")[2]) <= 15),
+    q2: all.filter(d => Number(d.split("-")[2]) > 15),
   };
-};
-
-// Lista todos os dias (ISO) entre duas datas, inclusive — seguro para
-// períodos que cruzam a virada do mês (ex.: 16 de um mês a 05 do seguinte).
-const iterateDaysIso = (startIso, endIso) => {
-  const out = [];
-  if (!startIso || !endIso) return out;
-  let d = new Date(`${startIso}T12:00:00`);
-  const end = new Date(`${endIso}T12:00:00`);
-  if (Number.isNaN(d.getTime()) || Number.isNaN(end.getTime()) || d > end) return out;
-  let guard = 0;
-  while (d <= end && guard < 400) {
-    out.push(toLocalISODate(d));
-    d.setDate(d.getDate() + 1);
-    guard += 1;
-  }
-  return out;
-};
-
-// Monta o intervalo (start/end ISO) de uma quinzena a partir do dia de
-// abertura/fechamento. Se o dia de fechamento for MENOR que o de abertura,
-// o período fecha no mês seguinte. closeDay === 0 = último dia do mês.
-const buildQuinzenaRange = (year, monthIndex, openDay, closeDay) => {
-  const monthLen = new Date(year, monthIndex + 1, 0).getDate();
-  const open = Math.min(Math.max(Number(openDay) || 1, 1), monthLen);
-  const start = new Date(year, monthIndex, open, 12, 0, 0);
-
-  let end;
-  if (closeDay === 0) {
-    end = new Date(year, monthIndex, monthLen, 12, 0, 0); // último dia do mês
-  } else if (Number(closeDay) >= open) {
-    end = new Date(year, monthIndex, Math.min(Number(closeDay), monthLen), 12, 0, 0); // mesmo mês
-  } else {
-    const nextLen = new Date(year, monthIndex + 2, 0).getDate(); // fecha no mês seguinte
-    end = new Date(year, monthIndex + 1, Math.min(Number(closeDay), nextLen), 12, 0, 0);
-  }
-
-  return { start: toLocalISODate(start), end: toLocalISODate(end) };
-};
-
-const getQuinzenaRange = (year, monthIndex, q, config) => {
-  const s = getPayrollSettings(config);
-  return q === "1"
-    ? buildQuinzenaRange(year, monthIndex, s.q1OpenDay, s.q1CloseDay)
-    : buildQuinzenaRange(year, monthIndex, s.q2OpenDay, s.q2CloseDay);
-};
-
-const getQ = (year, monthIndex, config) => {
-  const s = getPayrollSettings(config);
-  const r1 = getQuinzenaRange(year, monthIndex, "1", config);
-  const r2 = getQuinzenaRange(year, monthIndex, "2", config);
-  return {
-    q1: iterateDaysIso(r1.start, r1.end),
-    q2: iterateDaysIso(r2.start, r2.end),
-    settings: s,
-  };
-};
-
-// Identifica em qual quinzena configurada um dia (número) se encaixa.
-const quinzenaForDay = (dayNum, config, lastNum = 31) => {
-  const s = getPayrollSettings(config);
-  const q2Close = s.q2CloseDay === 0 ? lastNum : s.q2CloseDay;
-  if (dayNum >= s.q2OpenDay && dayNum <= q2Close) return "2";
-  if (dayNum >= s.q1OpenDay && dayNum <= s.q1CloseDay) return "1";
-  return dayNum <= s.q1CloseDay ? "1" : "2";
 };
 
 const fmtCPF = value => {
@@ -391,21 +296,15 @@ const adjustPayrollPaymentDate = (baseDate, holidays) => {
 };
 
 const getPayrollPaymentCalendar = (year, monthIndex, q, data) => {
-  // Datas de pagamento definidas nas configurações (por quinzena).
-  // Padrão: 1ª quinzena dia 20 (mesmo mês), 2ª quinzena dia 05 (mês seguinte).
-  const s = getPayrollSettings(data?.config);
-  const isQ1 = q === "1";
-  const payDay = isQ1 ? s.q1PayDay : s.q2PayDay;
-  const payMonthMode = isQ1 ? s.q1PayMonth : s.q2PayMonth;
-  const offset = payMonthMode === "next" ? 1 : 0;
-  const rawMonth = monthIndex + offset;
-  const paymentYear = year + Math.floor(rawMonth / 12);
-  const normalizedPaymentMonth = ((rawMonth % 12) + 12) % 12;
-  const monthLen = new Date(paymentYear, normalizedPaymentMonth + 1, 0).getDate();
-  const safeDay = Math.min(payDay, monthLen);
-  const baseDate = prDateAtNoon(paymentYear, normalizedPaymentMonth, safeDay);
+  // 1ª quinzena do mês selecionado paga dia 20 do mesmo mês.
+  // 2ª quinzena do mês selecionado paga dia 05 do mês seguinte.
+  const paymentMonth = q === "1" ? monthIndex : monthIndex + 1;
+  const paymentYear = paymentMonth > 11 ? year + 1 : year;
+  const normalizedPaymentMonth = paymentMonth > 11 ? 0 : paymentMonth;
+  const baseDay = q === "1" ? 20 : 5;
+  const baseDate = prDateAtNoon(paymentYear, normalizedPaymentMonth, baseDay);
   const holidays = getPayrollHolidays(data, paymentYear);
-  const adjustedDate = s.adjustPayDate ? adjustPayrollPaymentDate(baseDate, holidays) : baseDate;
+  const adjustedDate = adjustPayrollPaymentDate(baseDate, holidays);
 
   return {
     baseDate: prIso(baseDate),
@@ -457,9 +356,7 @@ const getHolidayPayRule = (data, employee, holidayIso, holidays) => {
 
 const attendanceLockKey = (obraId, date) => `${date}__${obraId}`;
 const getAttendanceLock = (data, obraId, date) => data?.attendanceLocks?.[attendanceLockKey(obraId, date)] || null;
-// Bloqueio desativado: o ponto continua editável mesmo após finalizar/fechar a obra.
-// Mantido como função para preservar todas as chamadas existentes sem efeito de bloqueio.
-const isAttendanceLocked = () => false;
+const isAttendanceLocked = (data, obraId, date) => !!getAttendanceLock(data, obraId, date)?.locked;
 
 const hasApprovedUnlock = (data, obraId, date) => {
   const now = new Date();
@@ -556,7 +453,6 @@ const DEFAULT = () => ({
     cnpj: "",
     approverEmail: "hygorlp@gmail.com",
     paymentHolidays: [],
-    payroll: { ...PAYROLL_DEFAULTS },
   },
   obras: [
     { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0 },
@@ -583,7 +479,6 @@ const normalizeData = incoming => {
       ...(d.config || {}),
       approverEmail: d.config?.approverEmail || "hygorlp@gmail.com",
       paymentHolidays: Array.isArray(d.config?.paymentHolidays) ? d.config.paymentHolidays : [],
-      payroll: getPayrollSettings(d.config),
     },
     obras: Array.isArray(d.obras) ? d.obras.map(o => ({
       id: o.id || uid(),
@@ -942,8 +837,8 @@ function Dashboard({ data, onTab }) {
   const year = now.getFullYear();
   const month = now.getMonth();
   const day = now.getDate();
-  const { q1, q2 } = getQ(year, month, data.config);
-  const qDays = quinzenaForDay(day, data.config, new Date(year, month + 1, 0).getDate()) === "1" ? q1 : q2;
+  const { q1, q2 } = getQ(year, month);
+  const qDays = day <= 15 ? q1 : q2;
   const todayIso = today();
   const activeEmps = data.employees.filter(e => e.active !== false);
   const activeObras = data.obras.filter(o => o.status !== "done");
@@ -1636,6 +1531,7 @@ function Ponto({ data, update, showToast }) {
   const dailyCheckPending = selDate === today() && activeEmployees.length > 0 && data.dailyCheckDate !== today();
   const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
   const selectedObra = filterObra !== "all" ? data.obras.find(o => o.id === filterObra) : null;
+  const selectedObraLocked = selectedObra ? isAttendanceLocked(data, selectedObra.id, selDate) : false;
   const selectedObraCanEdit = selectedObra ? canEditAttendance(data, selectedObra.id, selDate) : true;
   const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
   const attendanceCompletion = getAttendanceCompletionMessage(obraAttendanceSummary);
@@ -1681,7 +1577,7 @@ function Ponto({ data, update, showToast }) {
 
   const finalizeObraAttendance = () => {
     if (filterObra === "all") {
-      showToast("Selecione uma obra específica para concluir a conferência.", "error");
+      showToast("Selecione uma obra específica para finalizar o ponto.", "error");
       return;
     }
 
@@ -1691,14 +1587,26 @@ function Ponto({ data, update, showToast }) {
     const obraSummary = getObraAttendanceSummary(data, selDate).find(o => o.obraId === filterObra);
     const missingNames = obraSummary?.missingEmployees?.map(e => e.name).join(", ") || "";
     const msg = obraSummary && obraSummary.missingCount > 0
-      ? `Existem ${obraSummary.missingCount} trabalhador(es) sem registro nesta obra:\n\n${missingNames}\n\nDeseja concluir a conferência mesmo assim?`
-      : `Concluir a conferência do ponto da obra "${obra.name}" em ${fmtDateFull(selDate)}?`;
+      ? `Existem ${obraSummary.missingCount} trabalhador(es) sem registro nesta obra:\n\n${missingNames}\n\nDeseja finalizar mesmo assim?`
+      : `Finalizar o ponto da obra "${obra.name}" em ${fmtDateFull(selDate)}?`;
 
-    if (!window.confirm(`${msg}\n\nVocê poderá ajustar o ponto normalmente depois, sem precisar de permissão.`)) return;
+    if (!window.confirm(`${msg}\n\nDepois disso, alterações precisarão de permissão.`)) return;
 
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "attendance_review", message: `Conferência do ponto concluída: ${obra.name} em ${fmtDateFull(selDate)}.` }];
-    update({ ...data, changeLog });
-    showToast("Conferência concluída. O ponto continua liberado para ajustes.");
+    const key = attendanceLockKey(filterObra, selDate);
+    const attendanceLocks = {
+      ...data.attendanceLocks,
+      [key]: {
+        id: key,
+        obraId: filterObra,
+        obraName: obra.name,
+        date: selDate,
+        locked: true,
+        lockedAt: new Date().toISOString(),
+      },
+    };
+    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "attendance_lock", message: `Ponto finalizado e bloqueado: ${obra.name} em ${fmtDateFull(selDate)}.` }];
+    update({ ...data, attendanceLocks, changeLog });
+    showToast("Ponto da obra finalizado e bloqueado.");
   };
 
   const setAtt = (empId, status) => {
@@ -1826,7 +1734,7 @@ function Ponto({ data, update, showToast }) {
             <p style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1, opacity: .78 }}>Função principal do app</p>
             <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 42, letterSpacing: 2, lineHeight: .95 }}>Registro de Ponto</h2>
             <p style={{ fontSize: 13, fontWeight: 700, marginTop: 6, maxWidth: 500 }}>
-              Lance presença, meio dia ou falta por trabalhador. Os ajustes podem ser feitos a qualquer momento, mesmo após concluir a conferência.
+              Lance presença, meio dia ou falta por trabalhador. Finalize a obra para bloquear alterações.
             </p>
           </div>
 
@@ -1946,17 +1854,21 @@ function Ponto({ data, update, showToast }) {
 
       {filterObra === "all" && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 12 }}>
-          <p style={{ color: C.yellow, fontWeight: 900, fontSize: 13 }}>Selecione uma obra específica para marcar todos e concluir a conferência do ponto.</p>
+          <p style={{ color: C.yellow, fontWeight: 900, fontSize: 13 }}>Selecione uma obra específica para marcar todos e finalizar/bloquear o ponto.</p>
         </div>
       )}
 
       {selectedObra && (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.green}`, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-          <p style={{ color: C.green, fontFamily: "'Barlow Condensed'", fontWeight: 900, fontSize: 17, textTransform: "uppercase" }}>
-            Ponto aberto para edição
+        <div style={{ background: selectedObraLocked ? `${C.red}18` : C.card, border: `1px solid ${selectedObraLocked ? C.red : C.border}`, borderLeft: `4px solid ${selectedObraLocked ? C.red : C.green}`, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+          <p style={{ color: selectedObraLocked ? C.red : C.green, fontFamily: "'Barlow Condensed'", fontWeight: 900, fontSize: 17, textTransform: "uppercase" }}>
+            {selectedObraLocked ? "Ponto finalizado e bloqueado" : "Ponto aberto para edição"}
           </p>
           <p style={{ color: C.subtle, fontSize: 12 }}>Obra: {selectedObra.name} · Data: {fmtDateFull(selDate)}</p>
-          <Btn v="success" onClick={finalizeObraAttendance} full><Ic n="check" /> Concluir conferência da obra</Btn>
+          {selectedObraLocked ? (
+            <Btn v="warning" onClick={() => setUnlockModal({ obraId: selectedObra.id, date: selDate, employee: null })} full><Ic n="mail" /> Solicitar permissão para alterar</Btn>
+          ) : (
+            <Btn v="danger" onClick={finalizeObraAttendance} full><Ic n="lock" /> Finalizar ponto da obra</Btn>
+          )}
         </div>
       )}
 
@@ -2079,46 +1991,38 @@ function Folha({ data, showToast }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
-  const [q, setQ] = useState(quinzenaForDay(now.getDate(), data.config, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()));
+  const [q, setQ] = useState(now.getDate() <= 15 ? "1" : "2");
   const [filterObra, setFilterObra] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
 
-  // Intervalo do período de apuração por CALENDÁRIO (start/end ISO).
-  // O ano/mês/quinzena servem como atalho que pré-preenche o intervalo;
-  // o usuário pode ajustar livremente as datas (inclusive cruzando meses).
-  const presetRange = useMemo(() => getQuinzenaRange(year, month, q, data.config), [year, month, q, data.config]);
-  const [range, setRange] = useState(presetRange);
-  const [customRange, setCustomRange] = useState(false);
-
-  // Enquanto o usuário não editar manualmente, o intervalo acompanha o atalho.
-  useEffect(() => {
-    if (!customRange) setRange(presetRange);
-  }, [presetRange, customRange]);
-
-  const setStart = v => { setCustomRange(true); setRange(r => ({ start: v, end: r.end && v && v > r.end ? v : r.end })); };
-  const setEnd = v => { setCustomRange(true); setRange(r => ({ start: r.start && v && v < r.start ? v : r.start, end: v })); };
-  const resetRange = () => { setCustomRange(false); setRange(presetRange); };
-
-  const days = useMemo(() => iterateDaysIso(range.start, range.end), [range]);
-  const startYear = range.start ? Number(range.start.split("-")[0]) : year;
-  const rangeYear = range.end ? Number(range.end.split("-")[0]) : year;
-  const crossesMonth = range.start && range.end && range.start.slice(0, 7) !== range.end.slice(0, 7);
-
-  const paymentHolidays = useMemo(() => {
-    const a = getPayrollHolidays(data, startYear);
-    if (rangeYear === startYear) return a;
-    return Array.from(new Set([...a, ...getPayrollHolidays(data, rangeYear)]));
-  }, [data, startYear, rangeYear]);
+  const { q1, q2 } = getQ(year, month);
+  const days = q === "1" ? q1 : q2;
+  const paymentHolidays = getPayrollHolidays(data, year);
   const holidaysInPeriod = days.filter(d => paymentHolidays.includes(d) && prIsWeekdayIso(d));
   const paymentInfo = getPayrollPaymentCalendar(year, month, q, data);
   const paymentDateLabel = fmtDateFull(paymentInfo.paymentDate);
   const paymentBaseLabel = fmtDateFull(paymentInfo.baseDate);
   const paymentObs = paymentInfo.adjusted ? `Ajustado de ${paymentBaseLabel} para ${paymentDateLabel}` : "Data normal de pagamento";
   const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
-  const periodLabel = customRange
-    ? `Período de ${fmtDate(range.start)} a ${fmtDate(range.end)}`
-    : `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
-  const periodRangeLabel = days.length ? `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length - 1])}` : "Período sem dias (verifique as datas de início e fim)";
+  const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
+
+  // ── Reconstrói a obra do operário em uma data específica via changeLog ──
+  const getEmpObraIdOnDate = (employee, dateIso) => {
+    const transfers = (data.changeLog || [])
+      .filter(e => e.type === "transfer" && e.empId === employee.id && e.date)
+      .sort((a, b) => b.date.localeCompare(a.date)); // desc
+
+    let obraId = employee.obra || employee.lastObra || "";
+    for (const t of transfers) {
+      if (t.date > dateIso) {
+        const found = data.obras.find(o => o.name === t.from);
+        if (found) obraId = found.id;
+      } else {
+        break;
+      }
+    }
+    return obraId;
+  };
 
   const calcRow = employee => {
     let gross = 0;
@@ -2129,6 +2033,15 @@ function Folha({ data, showToast }) {
     let ot = 0;
     let vt = 0;
     let vr = 0;
+    // mapa: obraId → { presentes, meiodia, faltas, dias }
+    const obrasPorDia = {};
+
+    const addToObra = (obraId, tipo) => {
+      if (!obrasPorDia[obraId]) obrasPorDia[obraId] = { presentes: 0, meiodia: 0, faltas: 0 };
+      if (tipo === "P") obrasPorDia[obraId].presentes++;
+      else if (tipo === "M") obrasPorDia[obraId].meiodia++;
+      else if (tipo === "F") obrasPorDia[obraId].faltas++;
+    };
 
     days.forEach(d => {
       if (!isEmployeeEmployedOnDate(employee, d)) return;
@@ -2137,6 +2050,7 @@ function Folha({ data, showToast }) {
       const a = getAtt(data, employee.id, d);
       const st = a?.status;
       const extra = Number(a?.ot || 0);
+      const obraId = getEmpObraIdOnDate(employee, d);
 
       if (st === "P") {
         gross += Number(employee.dailyRate || 0);
@@ -2144,14 +2058,17 @@ function Folha({ data, showToast }) {
         ot += extra;
         vt += Number(employee.vtDaily || 0);
         vr += Number(employee.vrDaily || 0);
+        addToObra(obraId, "P");
       } else if (st === "M") {
         gross += Number(employee.dailyRate || 0) * 0.5;
         meiodia++;
         ot += extra;
         vt += Number(employee.vtDaily || 0) * 0.5;
         vr += Number(employee.vrDaily || 0) * 0.5;
+        addToObra(obraId, "M");
       } else if (st === "F") {
         faltas++;
+        addToObra(obraId, "F");
       } else {
         semRegistro++;
       }
@@ -2167,6 +2084,18 @@ function Folha({ data, showToast }) {
     const advTotal = data.advances
       .filter(a => a.empId === employee.id && a.date >= days[0] && a.date <= days[days.length - 1])
       .reduce((s, a) => s + Number(a.amount || 0), 0);
+
+    // Converte mapa para array ordenado por dias trabalhados desc
+    const obrasPorDiaArr = Object.entries(obrasPorDia)
+      .map(([obraId, v]) => ({
+        obraId,
+        obraName: data.obras.find(o => o.id === obraId)?.name || "—",
+        presentes: v.presentes,
+        meiodia: v.meiodia,
+        faltas: v.faltas,
+        totalDias: v.presentes + v.meiodia + v.faltas,
+      }))
+      .sort((a, b) => b.totalDias - a.totalDias);
 
     return {
       ...employee,
@@ -2185,6 +2114,7 @@ function Folha({ data, showToast }) {
       advances: advTotal,
       net: gross + vt + vr - advTotal,
       days: days.length,
+      obrasPorDia: obrasPorDiaArr,
     };
   };
 
@@ -2214,18 +2144,33 @@ function Folha({ data, showToast }) {
   };
 
   const printPDF = () => {
+    // Monta a tabela de detalhe por obra para o PDF
+    const detalheRows = [];
+    rows.forEach(r => {
+      if (r.obrasPorDia.length <= 1) {
+        const o = r.obrasPorDia[0] || { obraName: obraName(r.obra), presentes: 0, meiodia: 0, faltas: 0, totalDias: 0 };
+        detalheRows.push(`<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.role || "-")}</td><td>${escapeHtml(o.obraName)}</td><td>${o.presentes}</td><td>${o.meiodia}</td><td>${o.faltas}</td><td>${o.totalDias}</td></tr>`);
+      } else {
+        r.obrasPorDia.forEach((o, i) => {
+          detalheRows.push(`<tr${i === 0 ? ` style="border-top:2px solid #f0df00"` : ""}><td>${i === 0 ? escapeHtml(r.name) : ""}</td><td>${i === 0 ? escapeHtml(r.role || "-") : ""}</td><td>${escapeHtml(o.obraName)}</td><td>${o.presentes}</td><td>${o.meiodia}</td><td>${o.faltas}</td><td>${o.totalDias}</td></tr>`);
+        });
+        detalheRows.push(`<tr style="background:#fffde7;font-style:italic"><td></td><td></td><td><b>Total ${escapeHtml(r.name)}</b></td><td><b>${r.presentes}</b></td><td><b>${r.meiodia}</b></td><td><b>${r.faltas}</b></td><td><b>${r.presentes + r.meiodia + r.faltas}</b></td></tr>`);
+      }
+    });
+
     const html = `
       <html>
         <head>
           <title>Folha - ${escapeHtml(periodLabel)}</title>
           <style>
             body{font-family:Arial,sans-serif;padding:30px;color:#111}
-            h1,h2{margin:0 0 8px 0}
+            h1,h2,h3{margin:0 0 8px 0}
             p{margin:4px 0}
-            table{width:100%;border-collapse:collapse;margin-top:20px;font-size:10px}
+            table{width:100%;border-collapse:collapse;margin-top:12px;font-size:10px}
             th,td{border:1px solid #ccc;padding:5px;text-align:left}
             th{background:#f0f0f0}
             .total{font-weight:bold;background:#f7f7f7}
+            .section{margin-top:36px;padding-top:16px;border-top:3px solid #f0df00}
             .signatures{margin-top:50px;display:flex;justify-content:space-between;gap:40px}
             .signature{flex:1;border-top:1px solid #111;padding-top:8px;text-align:center}
           </style>
@@ -2234,13 +2179,14 @@ function Folha({ data, showToast }) {
           <h1>${escapeHtml(data.config.companyName || "ArcD Obras")}</h1>
           ${data.config.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
           <h2>Folha de Pagamento — ${escapeHtml(periodLabel)}</h2>
-          <p><strong>Período de apuração:</strong> ${escapeHtml(periodRangeLabel)}</p>
           <p><strong>Data de pagamento:</strong> ${escapeHtml(paymentDateLabel)}</p>
           <p><strong>Regra aplicada:</strong> ${escapeHtml(paymentObs)}</p>
+
+          <!-- Tabela principal -->
           <table>
             <thead>
               <tr>
-                <th>Funcionário</th><th>Cargo</th><th>Obra</th><th>P</th><th>M</th><th>F</th><th>S/R</th><th>FP</th><th>FD</th><th>Valor Feriado</th><th>HE</th><th>Diária</th><th>Bruto</th><th>VT</th><th>VR</th><th>Adiant.</th><th>Líquido</th>
+                <th>Funcionário</th><th>Cargo</th><th>Obra Atual</th><th>P</th><th>M</th><th>F</th><th>S/R</th><th>FP</th><th>FD</th><th>Valor Feriado</th><th>HE</th><th>Diária</th><th>Bruto</th><th>VT</th><th>VR</th><th>Adiant.</th><th>Líquido</th>
               </tr>
             </thead>
             <tbody>
@@ -2253,6 +2199,23 @@ function Folha({ data, showToast }) {
               <tr class="total"><td colspan="12">TOTAL — ${rows.length} funcionário(s)</td><td>R$ ${T.gross.toFixed(2)}</td><td>R$ ${T.vt.toFixed(2)}</td><td>R$ ${T.vr.toFixed(2)}</td><td>R$ ${T.advances.toFixed(2)}</td><td>R$ ${T.net.toFixed(2)}</td></tr>
             </tbody>
           </table>
+
+          <!-- Tabela de detalhe por obra -->
+          <div class="section">
+            <h3>Detalhe de Dias Trabalhados por Obra</h3>
+            <p style="font-size:11px;color:#555">Período: ${escapeHtml(fmtDateFull(days[0]))} a ${escapeHtml(fmtDateFull(days[days.length - 1]))}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Funcionário</th><th>Cargo</th><th>Obra</th><th>Presentes</th><th>Meio Dia</th><th>Faltas</th><th>Total c/ Registro</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detalheRows.join("")}
+              </tbody>
+            </table>
+          </div>
+
           <div class="signatures"><div class="signature">Responsável RH: ${escapeHtml(data.config.hrName || "_______________________")}</div><div class="signature">Aprovado por</div></div>
           <p style="margin-top:30px;">Data: ___/___/_____</p>
           <script>window.print();</script>
@@ -2266,21 +2229,61 @@ function Folha({ data, showToast }) {
 
   const exportXLS = () => {
     const wb = XLSX.utils.book_new();
-    const header = ["Funcionário", "Cargo", "Obra", "Pres.", "Meio Dia", "Faltas", "Sem Registro", "Feriados Pagos", "Feriados Perdidos", "Valor Feriado", "HE", "Diária", "Bruto", "VT", "VR", "Adiant.", "Líquido"];
+
+    // ── Aba 1: Folha resumo (igual ao original) ────────────────────
+    const header = ["Funcionário", "Cargo", "Obra Atual", "Pres.", "Meio Dia", "Faltas", "Sem Registro", "Feriados Pagos", "Feriados Perdidos", "Valor Feriado", "HE", "Diária", "Bruto", "VT", "VR", "Adiant.", "Líquido"];
     const body = rows.map(r => [r.name, r.role || "", obraName(r.obra), r.presentes, r.meiodia, r.faltas, r.semRegistro, r.feriadosPagos, r.feriadosPerdidos, r.holidayPay, r.ot, r.dailyRate, r.gross, r.vt, r.vr, r.advances, r.net]);
     const total = ["TOTAL", "", "", rows.reduce((s, r) => s + r.presentes, 0), rows.reduce((s, r) => s + r.meiodia, 0), rows.reduce((s, r) => s + r.faltas, 0), rows.reduce((s, r) => s + r.semRegistro, 0), T.feriadosPagos, T.feriadosPerdidos, T.holidayPay, rows.reduce((s, r) => s + r.ot, 0), "", T.gross, T.vt, T.vr, T.advances, T.net];
-    const ws = XLSX.utils.aoa_to_sheet([["Folha de Pagamento", periodLabel], ["Período de apuração", periodRangeLabel], ["Data de pagamento", paymentDateLabel], ["Regra aplicada", paymentObs], [], header, ...body, total]);
-    ws["!cols"] = [20, 15, 15, 8, 10, 8, 12, 15, 17, 14, 6, 10, 12, 10, 10, 10, 12].map(w => ({ wch: w }));
-    XLSX.utils.book_append_sheet(wb, ws, "Folha");
+    const ws1 = XLSX.utils.aoa_to_sheet([
+      ["Folha de Pagamento", periodLabel],
+      ["Data de pagamento", paymentDateLabel],
+      ["Regra aplicada", paymentObs],
+      [],
+      header,
+      ...body,
+      total,
+    ]);
+    ws1["!cols"] = [20, 15, 15, 8, 10, 8, 12, 15, 17, 14, 6, 10, 12, 10, 10, 10, 12].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, ws1, "Folha");
+
+    // ── Aba 2: Detalhe de dias por obra ────────────────────────────
+    const header2 = ["Funcionário", "Cargo", "Obra", "Presentes", "Meio Dia", "Faltas", "Total Dias c/ Registro"];
+    const body2 = [];
+    rows.forEach(r => {
+      if (r.obrasPorDia.length === 0) {
+        body2.push([r.name, r.role || "", obraName(r.obra), 0, 0, 0, 0]);
+      } else if (r.obrasPorDia.length === 1) {
+        const o = r.obrasPorDia[0];
+        body2.push([r.name, r.role || "", o.obraName, o.presentes, o.meiodia, o.faltas, o.totalDias]);
+      } else {
+        // Várias obras — primeira linha com nome do funcionário
+        r.obrasPorDia.forEach((o, i) => {
+          body2.push([i === 0 ? r.name : "", i === 0 ? (r.role || "") : "", o.obraName, o.presentes, o.meiodia, o.faltas, o.totalDias]);
+        });
+        // Subtotal do funcionário
+        body2.push(["", "", `↳ TOTAL ${r.name}`, r.presentes, r.meiodia, r.faltas, r.presentes + r.meiodia + r.faltas]);
+        body2.push([]); // linha em branco entre funcionários
+      }
+    });
+
+    const ws2 = XLSX.utils.aoa_to_sheet([
+      ["Detalhe de Dias por Obra", periodLabel],
+      ["Período", `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length - 1])}`],
+      [],
+      header2,
+      ...body2,
+    ]);
+    ws2["!cols"] = [22, 15, 20, 10, 10, 8, 18].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, ws2, "Dias por Obra");
+
     XLSX.writeFile(wb, `arcd-folha-${year}-${String(month + 1).padStart(2, "0")}-Q${q}.xlsx`);
-    showToast("Excel gerado.");
+    showToast("Excel gerado com 2 abas.");
   };
 
   const buildText = () => [
     "FOLHA DE PAGAMENTO — ARCD OBRAS",
     data.config.companyName || "",
     periodLabel,
-    `Apuração: ${periodRangeLabel}`,
     `Pagamento: ${paymentDateLabel}`,
     paymentObs,
     "",
@@ -2301,42 +2304,22 @@ function Folha({ data, showToast }) {
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
         <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 30, letterSpacing: 2, color: C.yellow }}>Folha de Pagamento</h2>
-        <p style={{ color: C.muted, fontSize: 13 }}>Período e datas de pagamento personalizáveis em Ajustes › Período da folha.</p>
+        <p style={{ color: C.muted, fontSize: 13 }}>Cálculo automático quinzenal com feriados e datas de pagamento.</p>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel value={String(year)} onChange={v => { setCustomRange(false); setYear(Number(v)); }} options={years} />
-        <Sel value={String(month)} onChange={v => { setCustomRange(false); setMonth(Number(v)); }} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+        <Sel value={String(year)} onChange={v => setYear(Number(v))} options={years} />
+        <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel value={q} onChange={v => { setCustomRange(false); setQ(v); }} options={[{ v: "1", l: "1ª quinzena" }, { v: "2", l: "2ª quinzena" }]} />
+        <Sel value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena" }, { v: "2", l: "2ª quinzena" }]} />
         <Sel value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
-      </div>
-
-      <div style={{ background: C.card, border: `1px solid ${customRange ? C.yellow : C.border}`, borderRadius: 14, padding: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-          <p style={{ color: C.subtle, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Período de apuração (calendário)</p>
-          {customRange && (
-            <button onClick={resetRange} style={{ background: `${C.yellow}18`, color: C.yellow, border: `1px solid ${C.yellow}66`, borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.4, cursor: "pointer" }}>
-              Restaurar quinzena
-            </button>
-          )}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <Inp label="Início" type="date" value={range.start} onChange={setStart} />
-          <Inp label="Fim" type="date" value={range.end} onChange={setEnd} max={range.end && range.start && range.end < range.start ? range.start : undefined} />
-        </div>
-        <p style={{ color: days.length ? C.muted : C.red, fontSize: 12, marginTop: 8 }}>
-          {days.length ? `${days.length} dia(s) no período${crossesMonth ? " · cruza a virada do mês" : ""}` : "Nenhum dia no intervalo — verifique as datas de início e fim."}
-        </p>
-        {customRange && <p style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>Intervalo personalizado ativo. Os atalhos de mês e quinzena acima voltam a preencher as datas se você clicar em “Restaurar quinzena”.</p>}
       </div>
 
       <div style={{ background: `linear-gradient(135deg, ${C.yellow}, ${C.yellowD})`, color: C.bg, padding: 18, border: `1px solid ${C.yellow}` }}>
         <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase", opacity: 0.78 }}>Total líquido</p>
         <p style={{ fontFamily: "'Bebas Neue'", fontSize: 38, letterSpacing: 2 }}>{fmt(T.net)}</p>
         <p style={{ fontSize: 12, fontWeight: 700 }}>{rows.length} funcionário(s) · {periodLabel}</p>
-        <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.86 }}>Apuração: {periodRangeLabel}</p>
         <p style={{ fontSize: 14, fontWeight: 900, marginTop: 6 }}>Pagamento: {paymentDateLabel}</p>
         <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.86 }}>{paymentObs}</p>
         {(T.feriadosPagos + T.feriadosPerdidos) > 0 && <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.86, marginTop: 4 }}>Feriados: {T.feriadosPagos} pago(s), {T.feriadosPerdidos} perdido(s) · Valor: {fmt(T.holidayPay)}</p>}
@@ -2845,7 +2828,7 @@ const buildAgentContext = data => {
   const paymentInfo = getPayrollPaymentCalendar(
     currentYear,
     currentMonth,
-    quinzenaForDay(now.getDate(), data.config, new Date(currentYear, currentMonth + 1, 0).getDate()),
+    now.getDate() <= 15 ? "1" : "2",
     data
   );
 
@@ -3188,14 +3171,6 @@ function Config({ data, update, showToast }) {
   const [form, setForm] = useState(data.config);
   const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
-  const pr = getPayrollSettings(form);
-  const setPayroll = key => value => setForm(f => ({ ...f, payroll: { ...getPayrollSettings(f), [key]: value } }));
-  const prPreviewBase = new Date();
-  const prPreview = getQ(prPreviewBase.getFullYear(), prPreviewBase.getMonth(), form);
-  const prRange = arr => (arr.length ? `${fmtDate(arr[0])} a ${fmtDate(arr[arr.length - 1])}` : "vazio");
-  const dayOptions = Array.from({ length: 31 }, (_, i) => ({ v: String(i + 1), l: String(i + 1) }));
-  const closeOptions = [{ v: "0", l: "Último dia do mês" }, ...dayOptions];
-  const payMonthOptions = [{ v: "same", l: "Mesmo mês" }, { v: "next", l: "Mês seguinte" }];
   const holidays = getPayrollHolidays(data, holidayYear);
 
   const saveConfig = () => {
@@ -3252,40 +3227,6 @@ function Config({ data, update, showToast }) {
           <Inp label="E-mail aprovador" value={form.approverEmail} onChange={setField("approverEmail")} />
         </div>
         <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
-      </div>
-
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", marginBottom: 4 }}>Período da folha</h3>
-        <p style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>Defina os dias de abertura e fechamento de cada quinzena e as datas de pagamento. Vale para a visualização e para a exportação (PDF, Excel, e-mail e WhatsApp).</p>
-
-        <p style={{ color: C.subtle, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>1ª quinzena</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <Sel label="Dia de abertura" value={String(pr.q1OpenDay)} onChange={v => setPayroll("q1OpenDay")(Number(v))} options={dayOptions} />
-          <Sel label="Dia de fechamento" value={String(pr.q1CloseDay)} onChange={v => setPayroll("q1CloseDay")(Number(v))} options={dayOptions} />
-          <Sel label="Dia de pagamento" value={String(pr.q1PayDay)} onChange={v => setPayroll("q1PayDay")(Number(v))} options={dayOptions} />
-          <Sel label="Pagamento no" value={pr.q1PayMonth} onChange={v => setPayroll("q1PayMonth")(v)} options={payMonthOptions} />
-        </div>
-
-        <p style={{ color: C.subtle, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, margin: "14px 0 8px" }}>2ª quinzena</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <Sel label="Dia de abertura" value={String(pr.q2OpenDay)} onChange={v => setPayroll("q2OpenDay")(Number(v))} options={dayOptions} />
-          <Sel label="Dia de fechamento" value={String(pr.q2CloseDay)} onChange={v => setPayroll("q2CloseDay")(Number(v))} options={closeOptions} />
-          <Sel label="Dia de pagamento" value={String(pr.q2PayDay)} onChange={v => setPayroll("q2PayDay")(Number(v))} options={dayOptions} />
-          <Sel label="Pagamento no" value={pr.q2PayMonth} onChange={v => setPayroll("q2PayMonth")(v)} options={payMonthOptions} />
-        </div>
-
-        <div style={{ marginTop: 14 }}>
-          <Sel label="Ajustar pagamento para dia útil (fim de semana/feriado)" value={pr.adjustPayDate ? "on" : "off"} onChange={v => setPayroll("adjustPayDate")(v === "on")} options={[{ v: "on", l: "Sim, evitar sábado/domingo/feriado" }, { v: "off", l: "Não, manter o dia exato" }]} />
-        </div>
-
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 12, marginTop: 14 }}>
-          <p style={{ color: C.subtle, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Prévia ({fullMonth(prPreviewBase.getMonth())} {prPreviewBase.getFullYear()})</p>
-          <p style={{ color: prPreview.q1.length ? C.text : C.red, fontSize: 13 }}>1ª quinzena: {prRange(prPreview.q1)} ({prPreview.q1.length} dia(s))</p>
-          <p style={{ color: prPreview.q2.length ? C.text : C.red, fontSize: 13 }}>2ª quinzena: {prRange(prPreview.q2)} ({prPreview.q2.length} dia(s))</p>
-          {(prPreview.q1.length === 0 || prPreview.q2.length === 0) && <p style={{ color: C.red, fontSize: 12, marginTop: 6 }}>Atenção: uma das quinzenas ficou vazia. Verifique se o dia de abertura é menor ou igual ao de fechamento.</p>}
-        </div>
-
-        <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar período da folha</Btn></div>
       </div>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
