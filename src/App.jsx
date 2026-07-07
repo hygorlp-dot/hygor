@@ -470,6 +470,7 @@ const getWeekRange = (fridayIso) => {
 };
 
 
+const CONTRACT_TYPES = [
   { v: "fixed_labor",       l: "Preço fechado — MO" },
   { v: "fixed_labor_admin", l: "Preço fechado — MO + % Admin" },
   { v: "admin_only",        l: "Somente administração (% Admin)" },
