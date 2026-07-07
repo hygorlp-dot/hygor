@@ -489,6 +489,7 @@ const DEFAULT = () => ({
     productName: "Gestão de Equipes",
     hrEmail: "",
     hrName: "",
+    hrPhone: "",
     cnpj: "",
     approverEmail: "hygorlp@gmail.com",
     paymentHolidays: [],
@@ -520,6 +521,7 @@ const normalizeData = incoming => {
       ...base.config,
       ...(d.config || {}),
       approverEmail: d.config?.approverEmail || "hygorlp@gmail.com",
+      hrPhone: d.config?.hrPhone || "",
       paymentHolidays: Array.isArray(d.config?.paymentHolidays) ? d.config.paymentHolidays : [],
     },
     obras: Array.isArray(d.obras) ? d.obras.map(o => ({
@@ -1129,6 +1131,38 @@ function Dashboard({ data, onTab }) {
         </div>
       )}
 
+      {/* Alertas ativos */}
+      {(() => {
+        const alerts = buildQuickAlerts(data);
+        if (alerts.length === 0) return null;
+        const msg = buildAlertMessage(data);
+        const phone = data.config.hrPhone || "";
+        const waUrl = phone
+          ? `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`
+          : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+        return (
+          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden"}}>
+            <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:15,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>🔔 {alerts.length} alerta(s) ativo(s)</p>
+              <a href={waUrl} target="_blank" rel="noreferrer" style={{
+                background:"#25D366",color:"#fff",border:"none",padding:"6px 12px",
+                fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:12,letterSpacing:.5,
+                cursor:"pointer",borderRadius:8,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:5,
+              }}>📲 Enviar WhatsApp</a>
+            </div>
+            {alerts.map((a,i)=>(
+              <div key={i} style={{padding:"9px 14px",borderBottom:i<alerts.length-1?`1px solid ${C.line}`:"none",borderLeft:`4px solid ${a.color}`,display:"flex",gap:10,alignItems:"flex-start"}}>
+                <span style={{fontSize:16,flexShrink:0}}>{a.icon}</span>
+                <div>
+                  <p style={{fontWeight:700,fontSize:13,color:C.text}}>{a.title}</p>
+                  <p style={{fontSize:11,color:C.muted,marginTop:2}}>{a.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Widget terceirizados — esta sexta */}
       {(() => {
         const fri = getFridayOfWeek(0);
@@ -1238,15 +1272,16 @@ function Financeiro({ data, update, showToast }) {
     Margem:  Math.round(r.margin),
   }));
 
-  // Gráfico: receitas por mês (últimos 6 meses)
-  const monthlyChart = Array.from({length:6},(_,i)=>{
+  // Gráfico: receitas por mês (últimos 6 meses) — memoizado
+  const monthlyChart = useMemo(() => Array.from({length:6},(_,i)=>{
     const d=new Date(year,month-5+i,1);
     const ym=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
     const rec=(data.payments||[]).filter(p=>(filterObra==="all"||p.obraId===filterObra)&&p.date&&p.date.startsWith(ym)).reduce((s,p)=>s+Number(p.amount||0),0);
     const mdays=getDays(d.getFullYear(),d.getMonth());
     const cost=data.obras.filter(o=>filterObra==="all"||o.id===filterObra).reduce((s,o)=>s+calcObraLaborCost(data,o.id,mdays).laborCost,0);
-    return { mes:`${monthName(d.getMonth())}/${String(d.getFullYear()).slice(2)}`, Recebido:Math.round(rec), CustoMO:Math.round(cost) };
-  });
+    const terc=(data.pagsTerceiros||[]).filter(p=>(filterObra==="all"||p.obraId===filterObra)&&p.date&&p.date.startsWith(ym)).reduce((s,p)=>s+Number(p.amount||0),0);
+    return { mes:`${monthName(d.getMonth())}/${String(d.getFullYear()).slice(2)}`, Recebido:Math.round(rec), CustoMO:Math.round(cost), Terceiros:Math.round(terc) };
+  }), [data, year, month, filterObra]);
 
   const savePayment = () => {
     if(!payForm.obraId||!payForm.amount||isNaN(Number(payForm.amount))){
@@ -1350,7 +1385,7 @@ function Financeiro({ data, update, showToast }) {
 
       {/* Gráfico mensal recebimentos vs custo */}
       <div style={{background:C.card,border:`1px solid ${C.line}`,padding:14,borderRadius:18}}>
-        <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:10}}>Recebimentos × Custo MO — 6 meses</p>
+        <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:10}}>Recebimentos × Custos — 6 meses</p>
         <div style={{height:200}}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={monthlyChart}>
@@ -1358,12 +1393,16 @@ function Financeiro({ data, update, showToast }) {
               <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
               <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
               <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text,borderRadius:10}} formatter={v=>fmt(v)}/>
-              <Line type="monotone" dataKey="Recebido" stroke={C.green} strokeWidth={2} dot={{r:4,fill:C.green}}/>
-              <Line type="monotone" dataKey="CustoMO"  stroke={C.orange} strokeWidth={2} dot={{r:4,fill:C.orange}}/>
+              <Line type="monotone" dataKey="Recebido"   stroke={C.green}  strokeWidth={2} dot={{r:3,fill:C.green}}/>
+              <Line type="monotone" dataKey="CustoMO"    stroke={C.orange} strokeWidth={2} dot={{r:3,fill:C.orange}}/>
+              <Line type="monotone" dataKey="Terceiros"  stroke={C.purple} strokeWidth={2} dot={{r:3,fill:C.purple}} strokeDasharray="4 2"/>
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Fluxo de caixa */}
+      <FluxoCaixa data={data}/>
 
       {/* Cards por obra */}
       <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Análise por obra — {fullMonth(month)} {year}</p>
@@ -2622,8 +2661,10 @@ function Folha({ data, showToast }) {
     const holidayPay = holidayRules.reduce((s, h) => s + h.amount, 0);
     gross += holidayPay;
 
+    const periIni = days.length > 0 ? days[0] : "";
+    const periFim = days.length > 0 ? days[days.length - 1] : "";
     const advTotal = data.advances
-      .filter(a => a.empId === employee.id && a.date >= days[0] && a.date <= days[days.length - 1])
+      .filter(a => a.empId === employee.id && periIni && periFim && a.date >= periIni && a.date <= periFim)
       .reduce((s, a) => s + Number(a.amount || 0), 0);
 
     // Converte mapa para array ordenado por dias trabalhados desc
@@ -2953,6 +2994,267 @@ const calcObraTercCost = (data, obraId, periodStart, periodEnd) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════
+// ALERTAS WHATSAPP — gerador de mensagens
+// ═══════════════════════════════════════════════════════════════════
+
+const buildAlertMessage = (data) => {
+  const todayIso = today();
+  const fri = getFridayOfWeek(0);
+  const { start: ws } = getWeekRange(fri);
+  const nowD = new Date();
+  const day  = nowD.getDate();
+  const lines = [
+    `🏗️ *${data.config.companyName || "ArcD Obras"} — Alertas*`,
+    `📅 ${fmtDateFull(todayIso)}`,
+    "",
+  ];
+
+  // Terceirizados pendentes esta sexta
+  const activeTerc = (data.terceirizados||[]).filter(t => t.active !== false);
+  const pendingTerc = activeTerc.filter(t =>
+    !(data.pagsTerceiros||[]).some(p => p.tercId===t.id && p.date>=ws && p.date<=fri)
+  );
+  if (pendingTerc.length > 0) {
+    const total = pendingTerc.reduce((s,t) => s+Number(t.weeklyRate||0), 0);
+    lines.push(`💰 *PAGAMENTOS DESTA SEXTA (${fmtDateFull(fri)})*`);
+    pendingTerc.forEach(t => {
+      const on = data.obras.find(o=>o.id===t.obraId)?.name || "—";
+      lines.push(`• ${t.name} (${on}) — ${fmt(t.weeklyRate)}`);
+    });
+    lines.push(`*Total: ${fmt(total)}*`);
+    lines.push("");
+  }
+
+  // Ponto pendente hoje
+  const summary = getObraAttendanceSummary(data, todayIso);
+  const pendingPonto = summary.filter(o => o.hasTeam && !o.completed);
+  if (pendingPonto.length > 0) {
+    lines.push(`📋 *PONTO PENDENTE HOJE*`);
+    pendingPonto.forEach(o => {
+      const names = o.missingEmployees.slice(0,3).map(e=>e.name).join(", ");
+      const extra = o.missingEmployees.length > 3 ? ` +${o.missingEmployees.length-3}` : "";
+      lines.push(`• ${o.obraName}: ${o.missingCount} sem registro (${names}${extra})`);
+    });
+    lines.push("");
+  }
+
+  // Alertas de contrato >80%
+  const now2 = new Date();
+  const mdays = getDays(now2.getFullYear(), now2.getMonth());
+  const contractAlerts = data.obras
+    .filter(o => o.status !== "done" && o.contractValue > 0)
+    .map(o => {
+      const { laborCost } = calcObraLaborCost(data, o.id, mdays);
+      const pct = (laborCost / o.contractValue) * 100;
+      return { name: o.name, pct, saldo: o.contractValue - laborCost };
+    })
+    .filter(o => o.pct > 80)
+    .sort((a,b) => b.pct - a.pct);
+  if (contractAlerts.length > 0) {
+    lines.push(`⚠️ *CONTRATOS COM ATENÇÃO*`);
+    contractAlerts.forEach(o =>
+      lines.push(`• ${o.name}: ${o.pct.toFixed(0)}% comprometido — saldo ${fmt(o.saldo)}`)
+    );
+    lines.push("");
+  }
+
+  // Folha em breve
+  if (day >= 14 && day <= 16) {
+    lines.push(`💼 *FOLHA EM BREVE — 1ª quinzena*`);
+    lines.push(`• Pagamento previsto dia 20. Confirme todos os pontos.`);
+    lines.push("");
+  }
+  if (day >= 29 || day <= 3) {
+    lines.push(`💼 *FOLHA EM BREVE — 2ª quinzena*`);
+    lines.push(`• Pagamento previsto dia 05. Confirme todos os pontos.`);
+    lines.push("");
+  }
+
+  if (lines.length <= 4) lines.push("✅ Nenhum alerta pendente no momento.");
+  lines.push(`_Enviado via ArcD Obras_`);
+  return lines.join("\n");
+};
+
+const buildQuickAlerts = (data) => {
+  const todayIso = today();
+  const fri = getFridayOfWeek(0);
+  const { start: ws } = getWeekRange(fri);
+  const alerts = [];
+
+  // Terceirizados pendentes
+  const activeTerc = (data.terceirizados||[]).filter(t => t.active !== false);
+  const pendingTerc = activeTerc.filter(t =>
+    !(data.pagsTerceiros||[]).some(p => p.tercId===t.id && p.date>=ws && p.date<=fri)
+  );
+  if (pendingTerc.length > 0) {
+    alerts.push({
+      type: "payment", color: "#ff9f1c", icon: "💰",
+      title: `${pendingTerc.length} terceirizado(s) a pagar esta sexta`,
+      sub: `${fmtDateFull(fri)} · Total ${fmt(pendingTerc.reduce((s,t)=>s+Number(t.weeklyRate||0),0))}`,
+    });
+  }
+
+  // Ponto pendente
+  const summary = getObraAttendanceSummary(data, todayIso);
+  const pendingPonto = summary.filter(o => o.hasTeam && !o.completed);
+  if (pendingPonto.length > 0) {
+    alerts.push({
+      type: "ponto", color: "#ff5a47", icon: "📋",
+      title: `Ponto pendente em ${pendingPonto.length} obra(s)`,
+      sub: pendingPonto.map(o=>`${o.obraName}: ${o.missingCount}`).join(" · "),
+    });
+  }
+
+  // Contratos em alerta
+  const now2 = new Date();
+  const mdays = getDays(now2.getFullYear(), now2.getMonth());
+  const contractAlerts = data.obras
+    .filter(o => o.status !== "done" && o.contractValue > 0)
+    .map(o => {
+      const { laborCost } = calcObraLaborCost(data, o.id, mdays);
+      return { name: o.name, pct: (laborCost/o.contractValue)*100 };
+    })
+    .filter(o => o.pct > 80);
+  if (contractAlerts.length > 0) {
+    alerts.push({
+      type: "contract", color: "#f6d833", icon: "⚠️",
+      title: `${contractAlerts.length} contrato(s) acima de 80%`,
+      sub: contractAlerts.map(o=>`${o.name}: ${o.pct.toFixed(0)}%`).join(" · "),
+    });
+  }
+  return alerts;
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// FLUXO DE CAIXA
+// ═══════════════════════════════════════════════════════════════════
+
+function FluxoCaixa({ data }) {
+  const now = new Date();
+  const [months, setMonths] = useState(6);
+
+  // Calcula histórico real + projeção futura
+  const cashflow = useMemo(() => {
+    const result = [];
+    for (let i = -(months-1); i <= 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const ym = `${y}-${String(m+1).padStart(2,"0")}`;
+      const mdays = getDays(y, m);
+      const isFuture = d > new Date(now.getFullYear(), now.getMonth(), 1);
+
+      if (!isFuture) {
+        // Real
+        const received = (data.payments||[]).filter(p=>p.date?.startsWith(ym)).reduce((s,p)=>s+Number(p.amount||0),0);
+        const laborCost = data.obras.reduce((s,o)=>s+calcObraLaborCost(data,o.id,mdays).laborCost,0);
+        const tercCost = (data.pagsTerceiros||[]).filter(p=>p.date?.startsWith(ym)).reduce((s,p)=>s+Number(p.amount||0),0);
+        const totalOut = laborCost + tercCost;
+        result.push({ mes: monthName(m)+"/"+String(y).slice(2), received, laborCost, tercCost, totalOut, balance: received-totalOut, isProjection: false, isCurrent: i===0 });
+      } else {
+        // Projeção
+        const workDays = mdays.filter(d=>{const wd=new Date(d+"T12:00:00").getDay();return wd>=1&&wd<=6;}).length;
+        const activeEmps = data.employees.filter(e=>e.active!==false);
+        const laborEst = activeEmps.reduce((s,e)=>s+Number(e.dailyRate||0)*workDays*0.82,0);
+        const tercEst = (data.terceirizados||[]).filter(t=>t.active!==false).reduce((s,t)=>s+Number(t.weeklyRate||0)*4.3,0);
+        const revenueEst = data.obras.filter(o=>o.status!=="done").reduce((s,o)=>{const{laborCost}=calcObraLaborCost(data,o.id,mdays);return s+calcObraRevenue(o,laborCost).revenue;},0);
+        result.push({ mes: monthName(m)+"/"+String(y).slice(2), received: revenueEst, laborCost: laborEst, tercCost: tercEst, totalOut: laborEst+tercEst, balance: revenueEst-(laborEst+tercEst), isProjection: true, isCurrent: false });
+      }
+    }
+    return result;
+  }, [data, months]);
+
+  const maxVal = Math.max(...cashflow.map(c=>Math.max(c.received,c.totalOut,1)));
+  const totalReceived = cashflow.filter(c=>!c.isProjection).reduce((s,c)=>s+c.received,0);
+  const totalOut = cashflow.filter(c=>!c.isProjection).reduce((s,c)=>s+c.totalOut,0);
+  const projReceived = cashflow.filter(c=>c.isProjection).reduce((s,c)=>s+c.received,0);
+  const projOut = cashflow.filter(c=>c.isProjection).reduce((s,c)=>s+c.totalOut,0);
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <p style={{fontSize:11,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Histórico + Projeção</p>
+          <h3 style={{fontFamily:"'Bebas Neue'",fontSize:26,letterSpacing:1.5,color:C.text}}>Fluxo de Caixa</h3>
+        </div>
+        <Sel value={String(months)} onChange={v=>setMonths(Number(v))} options={[{v:"3",l:"3 meses"},{v:"6",l:"6 meses"},{v:"12",l:"12 meses"}]}/>
+      </div>
+
+      {/* KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+        {[
+          ["Recebido (real)", fmt(totalReceived),    C.green],
+          ["Saída (real)",    fmt(totalOut),          C.red],
+          ["Receita proj.",   fmt(projReceived),      C.blue],
+          ["Saída proj.",     fmt(projOut),           C.orange],
+        ].map(([l,v,c])=>(
+          <div key={l} style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${c}`,padding:"10px 12px",borderRadius:14}}>
+            <p style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase"}}>{l}</p>
+            <p style={{fontFamily:"'Bebas Neue'",color:c,fontSize:22,lineHeight:1.1,marginTop:3}}>{v}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Gráfico visual (barras CSS customizadas) */}
+      <div style={{background:C.card,border:`1px solid ${C.line}`,padding:14,borderRadius:18}}>
+        <p style={{fontSize:11,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:12}}>Receita × Saída por mês</p>
+        <div style={{display:"flex",gap:6,alignItems:"flex-end",height:140}}>
+          {cashflow.map((c,i)=>{
+            const hRec = Math.round((c.received/maxVal)*120);
+            const hOut = Math.round((c.totalOut/maxVal)*120);
+            const isPos = c.balance >= 0;
+            return (
+              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                <div style={{display:"flex",gap:2,alignItems:"flex-end",height:120}}>
+                  <div style={{width:12,height:hRec||2,background:c.isProjection?C.blue+"88":C.green,borderRadius:"3px 3px 0 0",transition:"height .3s"}}/>
+                  <div style={{width:12,height:hOut||2,background:c.isProjection?C.orange+"88":C.red,borderRadius:"3px 3px 0 0",transition:"height .3s"}}/>
+                </div>
+                <p style={{fontSize:8,color:c.isCurrent?C.yellow:c.isProjection?C.blue:C.muted,fontWeight:c.isCurrent?900:700,textAlign:"center",whiteSpace:"nowrap"}}>{c.mes}</p>
+                <div style={{width:12,height:3,background:isPos?C.green:C.red,borderRadius:99}}/>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{display:"flex",gap:12,marginTop:10,flexWrap:"wrap"}}>
+          {[["▮ Recebido/Proj",C.green],["▮ Saída/Proj",C.red],["▮ Projeção",C.blue+"88"]].map(([l,c])=>(
+            <p key={l} style={{fontSize:10,color:c,fontWeight:700}}>{l}</p>
+          ))}
+          <p style={{fontSize:10,color:C.muted}}>▬ Saldo (verde=positivo)</p>
+        </div>
+      </div>
+
+      {/* Tabela mês a mês */}
+      <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden"}}>
+        <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"1.2fr 1fr 1fr 1fr 1fr",gap:4}}>
+          {["Mês","Recebido","MO","Terceiros","Saldo"].map(h=>(
+            <p key={h} style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase"}}>{h}</p>
+          ))}
+        </div>
+        {cashflow.map((c,i)=>(
+          <div key={i} style={{
+            padding:"9px 14px",
+            borderBottom:i<cashflow.length-1?`1px solid ${C.line}`:"none",
+            display:"grid",gridTemplateColumns:"1.2fr 1fr 1fr 1fr 1fr",gap:4,
+            background:c.isCurrent?`${C.yellow}0a`:c.isProjection?`${C.blue}07`:"transparent",
+          }}>
+            <p style={{fontSize:12,fontWeight:c.isCurrent?900:600,color:c.isCurrent?C.yellow:c.isProjection?C.blue:C.text}}>
+              {c.mes}{c.isProjection?" *":""}{c.isCurrent?" ◀":""}
+            </p>
+            <p style={{fontSize:12,color:C.green,fontWeight:700}}>{fmt(c.received)}</p>
+            <p style={{fontSize:12,color:C.orange}}>{fmt(c.laborCost)}</p>
+            <p style={{fontSize:12,color:C.purple}}>{fmt(c.tercCost)}</p>
+            <p style={{fontSize:12,color:c.balance>=0?C.green:C.red,fontWeight:900}}>{fmt(c.balance)}</p>
+          </div>
+        ))}
+        <div style={{padding:"8px 14px",background:C.surface,borderTop:`2px solid ${C.line}`}}>
+          <p style={{fontSize:9,color:C.muted}}>* Projeção: MO estimada com 82% de presença · Terceiros com 4,3 semanas/mês</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // TERCEIROS — cadastro e pagamentos semanais
 // ═══════════════════════════════════════════════════════════════════
 
@@ -3091,8 +3393,8 @@ function Terceiros({ data, update, showToast }) {
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          <Sel value={filterSpec} onChange={setFilterSpec} options={[{v:"all",l:"Todas especialidades"},...SPECIALTIES.map(s=>({v:s.v,l:s.emoji+" "+s.l}))]}/>
           <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
-          <Sel value={filterSpec} onChange={setFilterSpec} options={[{v:"all",l:"Todas"},...SPECIALTIES.map(s=>({v:s.v,l:s.emoji+" "+s.l}))]}/>
         </div>
 
         {filteredTerc.length === 0 && (
@@ -3101,99 +3403,143 @@ function Terceiros({ data, update, showToast }) {
           </div>
         )}
 
-        {filteredTerc.map(t => {
-          const sp = specInfo(t.specialty);
-          const pago = (data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).reduce((s,p)=>s+Number(p.amount||0),0);
-          const saldo = Number(t.contractValue||0) - pago;
-          const pct = t.contractValue>0 ? Math.min((pago/t.contractValue)*100, 100) : 0;
-          const exp = expanded === t.id;
-          return (
-            <div key={t.id} style={{ background:C.card, border:`1px solid ${C.line}`, borderRadius:16, overflow:"hidden", opacity:t.active===false?0.6:1 }}>
-              <button onClick={() => setExpanded(exp ? null : t.id)} style={{
-                width:"100%", background:"transparent", border:0, color:C.text,
-                padding:"14px 16px", textAlign:"left", cursor:"pointer",
-                borderLeft:`5px solid ${sp.color}`,
-              }}>
-                <div style={{ display:"flex", justifyContent:"space-between", gap:10 }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-                      <span style={{ fontSize:18 }}>{sp.emoji}</span>
-                      <p style={{ fontFamily:"'Barlow Condensed'", fontWeight:900, fontSize:18 }}>{t.name}</p>
-                      {t.active === false && <Badge color={C.muted}>Inativo</Badge>}
-                    </div>
-                    <p style={{ color:C.muted, fontSize:12 }}>{sp.l} · {obraName(t.obraId)}</p>
-                    <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:4 }}>
-                      {t.weeklyRate>0 && <Badge color={C.orange}>{fmt(t.weeklyRate)}/semana</Badge>}
-                      {t.contractValue>0 && <Badge color={C.subtle}>Contrato: {fmt(t.contractValue)}</Badge>}
-                    </div>
+        {/* Agrupado por obra */}
+        {data.obras
+          .filter(o => filteredTerc.some(t => t.obraId===o.id))
+          .map(obra => {
+            const obraTerc = filteredTerc.filter(t => t.obraId===obra.id);
+            const obraPago = obraTerc.reduce((s,t) => s+(data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).reduce((s2,p)=>s2+Number(p.amount||0),0), 0);
+            const obraWeekly = obraTerc.filter(t=>t.active!==false).reduce((s,t)=>s+Number(t.weeklyRate||0),0);
+            return (
+              <div key={obra.id}>
+                {/* Cabeçalho da obra */}
+                <div style={{
+                  background:`linear-gradient(90deg,${C.orange}18,transparent)`,
+                  borderLeft:`4px solid ${C.orange}`,borderBottom:`1px solid ${C.line}`,
+                  padding:"8px 14px",borderRadius:"12px 12px 0 0",marginBottom:-1,
+                  display:"flex",justifyContent:"space-between",alignItems:"center",
+                }}>
+                  <div>
+                    <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:16,color:C.orange}}>{obra.name}</p>
+                    <p style={{fontSize:11,color:C.muted,marginTop:1}}>{obraTerc.length} terceirizado(s) · {fmt(obraWeekly)}/semana · {fmt(obraPago)} pago total</p>
                   </div>
-                  <div style={{ textAlign:"right", flexShrink:0 }}>
-                    <p style={{ fontFamily:"'Bebas Neue'", fontSize:18, color:saldo>=0?C.green:C.red, lineHeight:1 }}>{fmt(saldo)}</p>
-                    <p style={{ fontSize:10, color:C.muted, marginTop:2 }}>saldo</p>
-                  </div>
+                  <Badge color={C.orange}>{obraTerc.filter(t=>t.active!==false).length} ativos</Badge>
                 </div>
-                {t.contractValue>0 && (
-                  <div style={{ marginTop:8 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
-                      <p style={{ fontSize:10, color:C.muted }}>Comprometimento</p>
-                      <p style={{ fontSize:10, color:pct>90?C.red:C.green, fontWeight:900 }}>{pct.toFixed(0)}%</p>
-                    </div>
-                    <div style={{ height:5, background:C.surface, borderRadius:99, overflow:"hidden" }}>
-                      <div style={{ height:"100%", width:`${pct}%`, background:pct>90?C.red:C.green, borderRadius:99 }}/>
-                    </div>
-                  </div>
-                )}
-              </button>
 
-              {exp && (
-                <div style={{ borderTop:`1px solid ${C.line}`, padding:"12px 16px", background:C.surface, display:"flex", flexDirection:"column", gap:10 }}>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-                    {[["Pago total",fmt(pago),C.blue],["Saldo",fmt(saldo),saldo>=0?C.green:C.red],["Semanal",fmt(t.weeklyRate),C.orange]].map(([l,v,c])=>(
-                      <div key={l} style={{ background:C.card, border:`1px solid ${C.line}`, padding:"8px 10px", borderRadius:10 }}>
-                        <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>{l}</p>
-                        <p style={{ fontSize:14, fontWeight:900, color:c }}>{v}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {t.phone && <p style={{ fontSize:12, color:C.subtle }}>📞 {t.phone}</p>}
-                  {t.pixKey && <p style={{ fontSize:12, color:C.subtle }}>PIX: {t.pixKey}</p>}
-                  {t.notes && <p style={{ fontSize:12, color:C.muted, fontStyle:"italic" }}>"{t.notes}"</p>}
+                {obraTerc.map(t => {
+                  const sp = specInfo(t.specialty);
+                  const pago = (data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).reduce((s,p)=>s+Number(p.amount||0),0);
+                  const saldo = Number(t.contractValue||0) - pago;
+                  const pct = t.contractValue>0 ? Math.min((pago/t.contractValue)*100, 100) : 0;
+                  const exp = expanded === t.id;
+                  return (
+                    <div key={t.id} style={{ background:C.card, border:`1px solid ${C.line}`, borderRadius: exp?"0":"0", overflow:"hidden", opacity:t.active===false?0.6:1, marginBottom:1 }}>
+                      <button onClick={() => setExpanded(exp ? null : t.id)} style={{
+                        width:"100%", background:"transparent", border:0, color:C.text,
+                        padding:"12px 16px", textAlign:"left", cursor:"pointer",
+                        borderLeft:`5px solid ${sp.color}`,
+                      }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", gap:10 }}>
+                          <div style={{ flex:1 }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
+                              <span style={{ fontSize:16 }}>{sp.emoji}</span>
+                              <p style={{ fontFamily:"'Barlow Condensed'", fontWeight:900, fontSize:17 }}>{t.name}</p>
+                              {t.active === false && <Badge color={C.muted}>Inativo</Badge>}
+                            </div>
+                            <p style={{ color:C.muted, fontSize:11 }}>{sp.l}</p>
+                            <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:3 }}>
+                              {t.weeklyRate>0 && <Badge color={C.orange}>{fmt(t.weeklyRate)}/sem</Badge>}
+                              {t.contractValue>0 && <Badge color={C.subtle}>Contrato: {fmt(t.contractValue)}</Badge>}
+                            </div>
+                          </div>
+                          <div style={{ textAlign:"right", flexShrink:0 }}>
+                            <p style={{ fontFamily:"'Bebas Neue'", fontSize:18, color:saldo>=0?C.green:C.red, lineHeight:1 }}>{fmt(saldo)}</p>
+                            <p style={{ fontSize:10, color:C.muted }}>saldo</p>
+                          </div>
+                        </div>
+                        {t.contractValue>0 && (
+                          <div style={{ marginTop:6 }}>
+                            <div style={{ height:4, background:C.surface, borderRadius:99, overflow:"hidden" }}>
+                              <div style={{ height:"100%", width:`${pct}%`, background:pct>90?C.red:C.green, borderRadius:99 }}/>
+                            </div>
+                          </div>
+                        )}
+                      </button>
 
-                  {/* Histórico pagamentos */}
-                  <p style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase", marginTop:4 }}>Últimos pagamentos</p>
-                  {(data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).slice(-5).reverse().map(p=>(
-                    <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.line}`, paddingBottom:6 }}>
-                      <div>
-                        <p style={{ fontSize:13, fontWeight:700 }}>{p.description}</p>
-                        <p style={{ fontSize:11, color:C.muted }}>{fmtDateFull(p.date)}</p>
-                      </div>
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <p style={{ color:C.green, fontWeight:900 }}>{fmt(p.amount)}</p>
-                        <Btn v="danger" size="sm" onClick={()=>removePay(p.id)}><Ic n="trash"/></Btn>
-                      </div>
+                      {exp && (
+                        <div style={{ borderTop:`1px solid ${C.line}`, padding:"12px 16px", background:C.surface, display:"flex", flexDirection:"column", gap:10 }}>
+                          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+                            {[["Pago total",fmt(pago),C.blue],["Saldo",fmt(saldo),saldo>=0?C.green:C.red],["Semanal",fmt(t.weeklyRate),C.orange]].map(([l,v,c])=>(
+                              <div key={l} style={{ background:C.card, border:`1px solid ${C.line}`, padding:"8px 10px", borderRadius:10 }}>
+                                <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>{l}</p>
+                                <p style={{ fontSize:14, fontWeight:900, color:c }}>{v}</p>
+                              </div>
+                            ))}
+                          </div>
+                          {t.phone && <p style={{ fontSize:12, color:C.subtle }}>📞 {t.phone}</p>}
+                          {t.pixKey && <p style={{ fontSize:12, color:C.subtle }}>PIX: {t.pixKey}</p>}
+                          {t.notes && <p style={{ fontSize:12, color:C.muted, fontStyle:"italic" }}>"{t.notes}"</p>}
+                          <p style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase" }}>Últimos pagamentos</p>
+                          {(data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).slice(-5).reverse().map(p=>(
+                            <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.line}`, paddingBottom:6 }}>
+                              <div>
+                                <p style={{ fontSize:13, fontWeight:700 }}>{p.description}</p>
+                                <p style={{ fontSize:11, color:C.muted }}>{fmtDateFull(p.date)}</p>
+                              </div>
+                              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                                <p style={{ color:C.green, fontWeight:900 }}>{fmt(p.amount)}</p>
+                                <Btn v="danger" size="sm" onClick={()=>removePay(p.id)}><Ic n="trash"/></Btn>
+                              </div>
+                            </div>
+                          ))}
+                          {!(data.pagsTerceiros||[]).some(p=>p.tercId===t.id) && (
+                            <p style={{ fontSize:12, color:C.muted }}>Nenhum pagamento registrado.</p>
+                          )}
+                          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                            <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));}}>
+                              <Ic n="dollar"/> Registrar pagamento
+                            </Btn>
+                            <Btn size="sm" v="ghost" onClick={()=>{setForm({...t,weeklyRate:String(t.weeklyRate||""),contractValue:String(t.contractValue||"")});setModal(true);}}>
+                              <Ic n="edit"/> Editar
+                            </Btn>
+                            <Btn size="sm" v={t.active===false?"success":"dark"} onClick={()=>toggleActive(t.id)}>
+                              {t.active===false?"Reativar":"Inativar"}
+                            </Btn>
+                            <Btn size="sm" v="danger" onClick={()=>removeTerc(t.id)}><Ic n="trash"/></Btn>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  {!(data.pagsTerceiros||[]).some(p=>p.tercId===t.id) && (
-                    <p style={{ fontSize:12, color:C.muted }}>Nenhum pagamento registrado.</p>
-                  )}
+                  );
+                })}
+                <div style={{height:8}}/>
+              </div>
+            );
+          })
+        }
 
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
-                    <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));}}>
-                      <Ic n="dollar"/> Registrar pagamento
-                    </Btn>
-                    <Btn size="sm" v="ghost" onClick={()=>{setForm({...t,weeklyRate:String(t.weeklyRate||""),contractValue:String(t.contractValue||"")});setModal(true);}}>
-                      <Ic n="edit"/> Editar
-                    </Btn>
-                    <Btn size="sm" v={t.active===false?"success":"dark"} onClick={()=>toggleActive(t.id)}>
-                      {t.active===false?"Reativar":"Inativar"}
-                    </Btn>
-                    <Btn size="sm" v="danger" onClick={()=>removeTerc(t.id)}><Ic n="trash"/></Btn>
-                  </div>
-                </div>
-              )}
+        {/* Sem obra definida */}
+        {filteredTerc.filter(t=>!t.obraId).length > 0 && (
+          <div>
+            <div style={{borderLeft:`4px solid ${C.muted}`,padding:"8px 14px",marginBottom:4}}>
+              <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:14,color:C.muted}}>Sem obra definida</p>
             </div>
-          );
-        })}
+            {filteredTerc.filter(t=>!t.obraId).map(t=>{
+              const sp=specInfo(t.specialty);
+              return(
+                <div key={t.id} style={{background:C.card,border:`1px solid ${C.line}`,borderLeft:`4px solid ${sp.color}`,padding:"12px 14px",borderRadius:12,marginBottom:4}}>
+                  <div style={{display:"flex",justifyContent:"space-between"}}>
+                    <p style={{fontWeight:700}}>{sp.emoji} {t.name}</p>
+                    <Btn size="sm" v="ghost" onClick={()=>{setForm({...t,weeklyRate:String(t.weeklyRate||""),contractValue:String(t.contractValue||"")});setModal(true);}}>
+                      <Ic n="edit"/>
+                    </Btn>
+                  </div>
+                  <p style={{fontSize:11,color:C.muted,marginTop:3}}>Nenhuma obra vinculada — edite para vincular</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </>)}
 
       {/* ── VIEW: PAGAMENTOS ───────────────────────────────────── */}
@@ -3808,6 +4154,14 @@ const buildAgentContext = data => {
     paymentDate: paymentInfo.paymentDate,
     paymentBaseDate: paymentInfo.baseDate,
     paymentAdjusted: paymentInfo.adjusted,
+    // Terceirizados
+    activeTerc: (data.terceirizados||[]).filter(t=>t.active!==false).length,
+    tercPendingThisWeek: (() => {
+      const fri = getFridayOfWeek(0);
+      const {start: ws} = getWeekRange(fri);
+      return (data.terceirizados||[]).filter(t=>t.active!==false&&!(data.pagsTerceiros||[]).some(p=>p.tercId===t.id&&p.date>=ws&&p.date<=fri)).length;
+    })(),
+    tercWeeklyTotal: (data.terceirizados||[]).filter(t=>t.active!==false).reduce((s,t)=>s+Number(t.weeklyRate||0),0),
   };
 };
 
@@ -4160,6 +4514,7 @@ function Config({ data, update, showToast }) {
           <Inp label="CNPJ" value={form.cnpj} onChange={setField("cnpj")} />
           <Inp label="Responsável RH" value={form.hrName} onChange={setField("hrName")} />
           <Inp label="E-mail RH" value={form.hrEmail} onChange={setField("hrEmail")} />
+          <Inp label="WhatsApp RH (c/ DDI)" value={form.hrPhone} onChange={setField("hrPhone")} placeholder="5581999990000" />
           <Inp label="E-mail aprovador" value={form.approverEmail} onChange={setField("approverEmail")} />
         </div>
         <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
