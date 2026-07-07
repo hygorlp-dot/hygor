@@ -443,7 +443,33 @@ const getAttendanceCompletionMessage = summary => {
 // Dados padrão e normalização
 // ═══════════════════════════════════════════════════════════════════
 
-const CONTRACT_TYPES = [
+// ─── Especialidades de terceirizados ────────────────────────────────
+const SPECIALTIES = [
+  { v: "eletricista",  l: "Eletricista",  emoji: "⚡", color: "#f6d833" },
+  { v: "encanador",    l: "Encanador",    emoji: "🔧", color: "#54a0ff" },
+  { v: "serralheiro",  l: "Serralheiro",  emoji: "🔩", color: "#ff9f1c" },
+  { v: "armador",      l: "Armador",      emoji: "🏗",  color: "#b779ff" },
+  { v: "outros",       l: "Outros",       emoji: "👷",  color: "#8f8661" },
+];
+const specInfo = v => SPECIALTIES.find(s => s.v === v) || { l: "Outros", emoji: "👷", color: "#8f8661" };
+
+// Retorna a sexta-feira da semana atual, navegável por weekOffset
+const getFridayOfWeek = (weekOffset = 0) => {
+  const d = new Date();
+  const day = d.getDay(); // 0=Dom..6=Sab
+  const toFri = (5 - day + 7) % 7;
+  const adjusted = (day === 0 || day === 6) ? toFri - 7 : toFri;
+  d.setDate(d.getDate() + adjusted + weekOffset * 7);
+  return toLocalISODate(d);
+};
+
+const getWeekRange = (fridayIso) => {
+  const fri = new Date(fridayIso + "T12:00:00");
+  const mon = new Date(fri); mon.setDate(fri.getDate() - 4);
+  return { start: toLocalISODate(mon), end: fridayIso };
+};
+
+
   { v: "fixed_labor",       l: "Preço fechado — MO" },
   { v: "fixed_labor_admin", l: "Preço fechado — MO + % Admin" },
   { v: "admin_only",        l: "Somente administração (% Admin)" },
@@ -474,6 +500,8 @@ const DEFAULT = () => ({
   attendance: {},
   advances: [],
   payments: [],
+  terceirizados: [],
+  pagsTerceiros: [],
   attendanceLocks: {},
   unlockRequests: [],
   dailyCheckDate: "",
@@ -527,6 +555,20 @@ const normalizeData = incoming => {
     attendance: d.attendance || {},
     advances: Array.isArray(d.advances) ? d.advances : [],
     payments: Array.isArray(d.payments) ? d.payments : [],
+    terceirizados: Array.isArray(d.terceirizados) ? d.terceirizados.map(t => ({
+      id: t.id || uid(),
+      name: t.name || "",
+      specialty: t.specialty || "outros",
+      obraId: t.obraId || "",
+      contractValue: Number(t.contractValue || 0),
+      weeklyRate: Number(t.weeklyRate || 0),
+      phone: t.phone || "",
+      pixKey: t.pixKey || "",
+      notes: t.notes || "",
+      active: t.active !== false,
+      startDate: t.startDate || "",
+    })) : [],
+    pagsTerceiros: Array.isArray(d.pagsTerceiros) ? d.pagsTerceiros : [],
     attendanceLocks: d.attendanceLocks || {},
     unlockRequests: Array.isArray(d.unlockRequests) ? d.unlockRequests : [],
     dailyCheckDate: d.dailyCheckDate || "",
@@ -564,6 +606,11 @@ function Ic({ n, s = 16, color }) {
     alert: "!",
     settings: "⚙",
     phone: "☎",
+    terc: "◈",
+    pay: "₽",
+    week: "◫",
+    chevL: "‹",
+    chevR: "›",
   };
 
   return (
@@ -1081,6 +1128,40 @@ function Dashboard({ data, onTab }) {
         </div>
       )}
 
+      {/* Widget terceirizados — esta sexta */}
+      {(() => {
+        const fri = getFridayOfWeek(0);
+        const { start: ws } = getWeekRange(fri);
+        const activeTerc = (data.terceirizados||[]).filter(t => t.active !== false);
+        const pending = activeTerc.filter(t => !(data.pagsTerceiros||[]).some(p=>p.tercId===t.id&&p.date>=ws&&p.date<=fri));
+        if(activeTerc.length === 0) return null;
+        return (
+          <button onClick={()=>onTab("terc")} className="lift-card" style={{
+            background:`${C.orange}12`, border:`1px solid ${C.orange}55`,
+            borderLeft:`5px solid ${C.orange}`, padding:"12px 14px",
+            borderRadius:16, textAlign:"left", color:C.text, cursor:"pointer",
+          }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <p style={{ fontFamily:"'Barlow Condensed'", fontWeight:900, fontSize:16, textTransform:"uppercase", color:C.orange }}>
+                  💰 Pagamentos desta sexta — {fmtDateFull(fri)}
+                </p>
+                {pending.length > 0 ? (
+                  <p style={{ fontSize:12, color:C.subtle, marginTop:3 }}>
+                    {pending.length} pendente(s) · {fmt(pending.reduce((s,t)=>s+Number(t.weeklyRate||0),0))} a pagar
+                  </p>
+                ) : (
+                  <p style={{ fontSize:12, color:C.green, marginTop:3 }}>✓ Todos os {activeTerc.length} terceirizados já foram pagos</p>
+                )}
+              </div>
+              <div style={{ background:pending.length>0?C.orange:C.green, color:C.ink, borderRadius:999, padding:"4px 10px", fontFamily:"'Bebas Neue'", fontSize:18, letterSpacing:1 }}>
+                {pending.length>0?pending.length:"✓"}
+              </div>
+            </div>
+          </button>
+        );
+      })()}
+
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
         <Btn onClick={()=>onTab("ponto")} full><Ic n="clock"/> Registrar ponto</Btn>
         <Btn onClick={()=>onTab("fin")} v="ghost" full><Ic n="dollar"/> Ver financeiro</Btn>
@@ -1106,12 +1187,19 @@ function Financeiro({ data, update, showToast }) {
   const days = getDays(year, month);
   const years = Array.from({length:4},(_,i)=>now.getFullYear()-1+i).map(y=>({v:String(y),l:String(y)}));
 
-  // Calcula KPIs por obra
+  // Calcula KPIs por obra — inclui terceirizados
+  const periodStart = days[0] || "";
+  const periodEnd   = days[days.length-1] || "";
+
   const obraRows = data.obras
     .filter(o => filterObra==="all" || o.id===filterObra)
     .map(o => {
       const {laborCost, benefitCost, totalCost} = calcObraLaborCost(data, o.id, days);
-      const {revenue, margin, marginPct, commitment} = calcObraRevenue(o, laborCost);
+      const tercCost = calcObraTercCost(data, o.id, periodStart, periodEnd);
+      const totalLaborAll = laborCost + tercCost;
+      const {revenue, margin: marginMO, marginPct: marginPctMO, commitment} = calcObraRevenue(o, laborCost);
+      const marginReal = revenue - totalLaborAll;
+      const marginRealPct = revenue > 0 ? (marginReal/revenue)*100 : 0;
       const received = (data.payments||[])
         .filter(p => p.obraId===o.id && p.date && p.date.slice(0,7)===`${year}-${String(month+1).padStart(2,"0")}`)
         .reduce((s,p)=>s+Number(p.amount||0), 0);
@@ -1119,14 +1207,20 @@ function Financeiro({ data, update, showToast }) {
         .filter(p => p.obraId===o.id)
         .reduce((s,p)=>s+Number(p.amount||0), 0);
       const activeEmps = data.employees.filter(e=>e.active!==false&&e.obra===o.id).length;
-      return { ...o, laborCost, benefitCost, totalCost, revenue, margin, marginPct, commitment, received, receivedTotal, activeEmps };
+      const activeTercCount = (data.terceirizados||[]).filter(t=>t.active!==false&&t.obraId===o.id).length;
+      return {
+        ...o, laborCost, benefitCost, totalCost, tercCost, totalLaborAll,
+        revenue, margin: marginReal, marginPct: marginRealPct, marginMO, marginPctMO,
+        commitment, received, receivedTotal, activeEmps, activeTercCount,
+      };
     });
 
   const T = {
-    revenue:   obraRows.reduce((s,r)=>s+r.revenue,  0),
-    labor:     obraRows.reduce((s,r)=>s+r.laborCost, 0),
-    margin:    obraRows.reduce((s,r)=>s+r.margin,    0),
-    received:  obraRows.reduce((s,r)=>s+r.received,  0),
+    revenue:  obraRows.reduce((s,r)=>s+r.revenue,      0),
+    labor:    obraRows.reduce((s,r)=>s+r.laborCost,     0),
+    terc:     obraRows.reduce((s,r)=>s+r.tercCost,      0),
+    margin:   obraRows.reduce((s,r)=>s+r.margin,        0),
+    received: obraRows.reduce((s,r)=>s+r.received,      0),
   };
   const totalMarginPct = T.revenue>0 ? (T.margin/T.revenue)*100 : 0;
 
@@ -1219,14 +1313,16 @@ function Financeiro({ data, update, showToast }) {
       {/* KPI totais */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
         {[
-          ["Receita esperada", fmt(T.revenue), C.green, "dollar"],
-          ["Recebido no mês",  fmt(T.received), C.blue, "check"],
-          ["Custo MO",         fmt(T.labor),    C.orange, "users"],
-          ["Margem estimada",  `${fmt(T.margin)} (${totalMarginPct.toFixed(0)}%)`, T.margin>=0?C.green:C.red, "chart"],
+          ["Receita esperada", fmt(T.revenue),                C.green,  "dollar"],
+          ["Recebido",         fmt(T.received),               C.blue,   "check"],
+          ["Custo MO própria", fmt(T.labor),                  C.orange, "users"],
+          ["Custo terceiros",  fmt(T.terc),                   C.purple, "terc"],
+          ["Total trabalho",   fmt(T.labor+T.terc),           C.red,    "users"],
+          ["Margem real",      `${fmt(T.margin)} (${totalMarginPct.toFixed(0)}%)`, T.margin>=0?C.green:C.red, "chart"],
         ].map(([l,v,c,ic])=>(
           <div key={l} style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${c}`,padding:"12px 14px",borderRadius:16}}>
             <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
-            <p style={{fontFamily:"'Bebas Neue'",color:c,fontSize:24,lineHeight:1.1,marginTop:4,letterSpacing:.5}}>{v}</p>
+            <p style={{fontFamily:"'Bebas Neue'",color:c,fontSize:22,lineHeight:1.1,marginTop:4,letterSpacing:.5}}>{v}</p>
           </div>
         ))}
       </div>
@@ -1287,12 +1383,12 @@ function Financeiro({ data, update, showToast }) {
                   <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>
                     <Badge color={C.yellow}>{CONTRACT_LABELS[r.contractType]||r.contractType}</Badge>
                     {r.contractValue>0 && <Badge color={C.subtle}>Contrato: {fmt(r.contractValue)}</Badge>}
-                    <Badge color={C.muted}>{r.activeEmps} trabalhadores</Badge>
+                    <Badge color={C.muted}>{r.activeEmps} MO · {r.activeTercCount} terceiros</Badge>
                   </div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:marginColor,letterSpacing:.5,lineHeight:1}}>{fmt(r.margin)}</p>
-                  <p style={{fontSize:10,color:C.muted,marginTop:2}}>margem {r.marginPct.toFixed(0)}%</p>
+                  <p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:r.margin>=0?C.green:C.red,letterSpacing:.5,lineHeight:1}}>{fmt(r.margin)}</p>
+                  <p style={{fontSize:10,color:C.muted,marginTop:2}}>margem real {r.marginPct.toFixed(0)}%</p>
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:10}}>
@@ -1325,12 +1421,15 @@ function Financeiro({ data, update, showToast }) {
                     ["Contrato",fmt(r.contractValue),C.subtle],
                     ["Admin %",r.adminPercentage>0?`${r.adminPercentage}%`:"—",C.subtle],
                     ["Área",r.areaM2>0?`${r.areaM2.toLocaleString("pt-BR")} m²`:"—",C.subtle],
-                    ["Custo MO+Ben",fmt(r.totalCost),C.orange],
+                    ["Custo MO própria",fmt(r.laborCost),C.orange],
+                    ["Custo terceiros",fmt(r.tercCost),C.purple],
+                    ["Total trabalho",fmt(r.totalLaborAll),C.red],
                     ["Benefícios",fmt(r.benefitCost),C.muted],
                     ["Total recebido",fmt(r.receivedTotal),C.blue],
+                    ["Margem s/ terc",fmt(r.marginMO),r.marginMO>=0?C.yellow:C.red],
+                    ["Receita",fmt(r.revenue),C.green],
+                    ["Margem real",fmt(r.margin),r.margin>=0?C.green:C.red],
                     ["Saldo contrato",fmt(r.contractValue-r.laborCost),r.contractValue-r.laborCost>=0?C.green:C.red],
-                    ["Receita esperada",fmt(r.revenue),C.green],
-                    ["Margem",fmt(r.margin),marginColor],
                   ].map(([l,v,c])=>(
                     <div key={l} style={{background:C.card,border:`1px solid ${C.line}`,padding:"8px 10px",borderRadius:10}}>
                       <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,marginBottom:3}}>{l}</p>
@@ -2843,6 +2942,401 @@ function Folha({ data, showToast }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// HELPER — custo de terceiros por obra/período
+// ═══════════════════════════════════════════════════════════════════
+
+const calcObraTercCost = (data, obraId, periodStart, periodEnd) => {
+  return (data.pagsTerceiros || [])
+    .filter(p => p.obraId === obraId && p.date >= periodStart && p.date <= periodEnd)
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// TERCEIROS — cadastro e pagamentos semanais
+// ═══════════════════════════════════════════════════════════════════
+
+function Terceiros({ data, update, showToast }) {
+  const emptyT = { id:"", name:"", specialty:"eletricista", obraId:"", contractValue:"", weeklyRate:"", phone:"", pixKey:"", notes:"", startDate:today() };
+  const [view,        setView]        = useState("cadastro");
+  const [weekOffset,  setWeekOffset]  = useState(0);
+  const [modal,       setModal]       = useState(false);
+  const [form,        setForm]        = useState(emptyT);
+  const [payModal,    setPayModal]    = useState(null);
+  const [payAmount,   setPayAmount]   = useState("");
+  const [payDesc,     setPayDesc]     = useState("");
+  const [filterObra,  setFilterObra]  = useState("all");
+  const [filterSpec,  setFilterSpec]  = useState("all");
+  const [expanded,    setExpanded]    = useState(null);
+
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+  const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
+
+  const friday     = getFridayOfWeek(weekOffset);
+  const { start: weekStart, end: weekEnd } = getWeekRange(friday);
+  const allTerc    = data.terceirizados || [];
+  const activeTerc = allTerc.filter(t => t.active !== false);
+
+  const wasPaidThisWeek = id =>
+    (data.pagsTerceiros || []).some(p => p.tercId === id && p.date >= weekStart && p.date <= weekEnd);
+  const thisWeekPay = id =>
+    (data.pagsTerceiros || []).find(p => p.tercId === id && p.date >= weekStart && p.date <= weekEnd);
+
+  // KPIs
+  const totalWeekly     = activeTerc.reduce((s, t) => s + Number(t.weeklyRate || 0), 0);
+  const totalContracts  = allTerc.reduce((s, t) => s + Number(t.contractValue || 0), 0);
+  const totalPaidAll    = (data.pagsTerceiros || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+  const pendingCount    = activeTerc.filter(t => !wasPaidThisWeek(t.id)).length;
+  const pendingTotal    = activeTerc.filter(t => !wasPaidThisWeek(t.id)).reduce((s,t) => s+Number(t.weeklyRate||0), 0);
+
+  const filteredTerc = allTerc
+    .filter(t => filterObra === "all" || t.obraId === filterObra)
+    .filter(t => filterSpec === "all" || t.specialty === filterSpec)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const saveTerc = () => {
+    if (!form.name.trim()) { showToast("Nome obrigatório.", "error"); return; }
+    const payload = { ...form, id: form.id || uid(), weeklyRate: Number(form.weeklyRate || 0), contractValue: Number(form.contractValue || 0) };
+    const terceirizados = form.id ? allTerc.map(t => t.id === form.id ? payload : t) : [...allTerc, payload];
+    update({ ...data, terceirizados });
+    setModal(false);
+    showToast(form.id ? "Terceirizado atualizado." : "Terceirizado cadastrado.");
+  };
+
+  const removeTerc = id => {
+    if (!window.confirm("Remover terceirizado? O histórico de pagamentos será mantido.")) return;
+    update({ ...data, terceirizados: allTerc.filter(t => t.id !== id) });
+    showToast("Terceirizado removido.");
+  };
+
+  const toggleActive = id => {
+    const terceirizados = allTerc.map(t => t.id === id ? { ...t, active: !t.active } : t);
+    update({ ...data, terceirizados });
+    showToast("Status atualizado.");
+  };
+
+  const savePay = terc => {
+    const amount = Number(payAmount || terc.weeklyRate || 0);
+    if (!amount) { showToast("Informe o valor.", "error"); return; }
+    const pagsTerceiros = [...(data.pagsTerceiros || []), {
+      id: uid(), tercId: terc.id, tercName: terc.name, specialty: terc.specialty,
+      obraId: terc.obraId, date: friday, amount, description: payDesc || `Pagamento semanal ${fmtDateFull(friday)}`,
+    }];
+    update({ ...data, pagsTerceiros });
+    setPayModal(null); setPayAmount(""); setPayDesc("");
+    showToast(`${terc.name} — pagamento registrado.`);
+  };
+
+  const removePay = id => {
+    if (!window.confirm("Remover pagamento?")) return;
+    update({ ...data, pagsTerceiros: (data.pagsTerceiros || []).filter(p => p.id !== id) });
+    showToast("Pagamento removido.");
+  };
+
+  const paidThisWeekAmount = activeTerc.reduce((s, t) => {
+    const p = thisWeekPay(t.id);
+    return s + (p ? Number(p.amount) : 0);
+  }, 0);
+
+  // ── JSX ────────────────────────────────────────────────────────
+  return (
+    <div className="anim" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+      {/* Header */}
+      <div style={{
+        background:`linear-gradient(135deg,${C.orange}22 0%,${C.card} 60%)`,
+        border:`1px solid ${C.orange}44`, borderLeft:`5px solid ${C.orange}`,
+        padding:"16px 18px", borderRadius:18,
+      }}>
+        <p style={{ fontSize:11, fontWeight:900, color:C.orange, textTransform:"uppercase", letterSpacing:1.2, marginBottom:4 }}>Subcontratados</p>
+        <h2 style={{ fontFamily:"'Bebas Neue'", fontSize:34, letterSpacing:2, color:C.text, lineHeight:1 }}>Terceirizados</h2>
+        <p style={{ color:C.muted, fontSize:13, marginTop:4 }}>Contratos, especialidades e pagamentos toda sexta-feira.</p>
+      </div>
+
+      {/* KPI bar */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+        {[
+          ["Ativos",       activeTerc.length,     C.orange, "terc"],
+          ["Custo/semana", fmt(totalWeekly),       C.yellow, "dollar"],
+          ["Total contratos", fmt(totalContracts), C.green,  "dollar"],
+          ["Total pago",   fmt(totalPaidAll),      C.blue,   "check"],
+        ].map(([l,v,c,ic]) => (
+          <div key={l} style={{ background:C.card, border:`1px solid ${C.line}`, borderTop:`3px solid ${c}`, padding:"12px 14px", borderRadius:16 }}>
+            <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>{l}</p>
+            <p style={{ fontFamily:"'Bebas Neue'", color:c, fontSize:26, lineHeight:1.1, marginTop:4 }}>{v}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Sub-nav */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+        {[["cadastro","👷 Cadastro"],["pagamentos","💰 Pagamentos"]].map(([v,l]) => (
+          <button key={v} onClick={() => setView(v)} style={{
+            padding:"11px 0", border:`2px solid ${view===v ? C.orange : C.line}`,
+            background: view===v ? `${C.orange}18` : "transparent",
+            color: view===v ? C.orange : C.muted,
+            fontFamily:"'Barlow Condensed'", fontWeight:900, fontSize:14, letterSpacing:.5,
+            cursor:"pointer", borderRadius:12,
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {/* ── VIEW: CADASTRO ─────────────────────────────────────── */}
+      {view === "cadastro" && (<>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:1 }}>
+            {filteredTerc.length} terceirizado(s)
+          </p>
+          <Btn onClick={() => { setForm(emptyT); setModal(true); }} size="sm"><Ic n="plus"/> Novo</Btn>
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+          <Sel value={filterSpec} onChange={setFilterSpec} options={[{v:"all",l:"Todas"},...SPECIALTIES.map(s=>({v:s.v,l:s.emoji+" "+s.l}))]}/>
+        </div>
+
+        {filteredTerc.length === 0 && (
+          <div style={{ background:C.card, border:`1px solid ${C.line}`, padding:24, textAlign:"center", color:C.muted, borderRadius:14 }}>
+            Nenhum terceirizado cadastrado.
+          </div>
+        )}
+
+        {filteredTerc.map(t => {
+          const sp = specInfo(t.specialty);
+          const pago = (data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).reduce((s,p)=>s+Number(p.amount||0),0);
+          const saldo = Number(t.contractValue||0) - pago;
+          const pct = t.contractValue>0 ? Math.min((pago/t.contractValue)*100, 100) : 0;
+          const exp = expanded === t.id;
+          return (
+            <div key={t.id} style={{ background:C.card, border:`1px solid ${C.line}`, borderRadius:16, overflow:"hidden", opacity:t.active===false?0.6:1 }}>
+              <button onClick={() => setExpanded(exp ? null : t.id)} style={{
+                width:"100%", background:"transparent", border:0, color:C.text,
+                padding:"14px 16px", textAlign:"left", cursor:"pointer",
+                borderLeft:`5px solid ${sp.color}`,
+              }}>
+                <div style={{ display:"flex", justifyContent:"space-between", gap:10 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                      <span style={{ fontSize:18 }}>{sp.emoji}</span>
+                      <p style={{ fontFamily:"'Barlow Condensed'", fontWeight:900, fontSize:18 }}>{t.name}</p>
+                      {t.active === false && <Badge color={C.muted}>Inativo</Badge>}
+                    </div>
+                    <p style={{ color:C.muted, fontSize:12 }}>{sp.l} · {obraName(t.obraId)}</p>
+                    <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:4 }}>
+                      {t.weeklyRate>0 && <Badge color={C.orange}>{fmt(t.weeklyRate)}/semana</Badge>}
+                      {t.contractValue>0 && <Badge color={C.subtle}>Contrato: {fmt(t.contractValue)}</Badge>}
+                    </div>
+                  </div>
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <p style={{ fontFamily:"'Bebas Neue'", fontSize:18, color:saldo>=0?C.green:C.red, lineHeight:1 }}>{fmt(saldo)}</p>
+                    <p style={{ fontSize:10, color:C.muted, marginTop:2 }}>saldo</p>
+                  </div>
+                </div>
+                {t.contractValue>0 && (
+                  <div style={{ marginTop:8 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
+                      <p style={{ fontSize:10, color:C.muted }}>Comprometimento</p>
+                      <p style={{ fontSize:10, color:pct>90?C.red:C.green, fontWeight:900 }}>{pct.toFixed(0)}%</p>
+                    </div>
+                    <div style={{ height:5, background:C.surface, borderRadius:99, overflow:"hidden" }}>
+                      <div style={{ height:"100%", width:`${pct}%`, background:pct>90?C.red:C.green, borderRadius:99 }}/>
+                    </div>
+                  </div>
+                )}
+              </button>
+
+              {exp && (
+                <div style={{ borderTop:`1px solid ${C.line}`, padding:"12px 16px", background:C.surface, display:"flex", flexDirection:"column", gap:10 }}>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+                    {[["Pago total",fmt(pago),C.blue],["Saldo",fmt(saldo),saldo>=0?C.green:C.red],["Semanal",fmt(t.weeklyRate),C.orange]].map(([l,v,c])=>(
+                      <div key={l} style={{ background:C.card, border:`1px solid ${C.line}`, padding:"8px 10px", borderRadius:10 }}>
+                        <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>{l}</p>
+                        <p style={{ fontSize:14, fontWeight:900, color:c }}>{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {t.phone && <p style={{ fontSize:12, color:C.subtle }}>📞 {t.phone}</p>}
+                  {t.pixKey && <p style={{ fontSize:12, color:C.subtle }}>PIX: {t.pixKey}</p>}
+                  {t.notes && <p style={{ fontSize:12, color:C.muted, fontStyle:"italic" }}>"{t.notes}"</p>}
+
+                  {/* Histórico pagamentos */}
+                  <p style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase", marginTop:4 }}>Últimos pagamentos</p>
+                  {(data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).slice(-5).reverse().map(p=>(
+                    <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.line}`, paddingBottom:6 }}>
+                      <div>
+                        <p style={{ fontSize:13, fontWeight:700 }}>{p.description}</p>
+                        <p style={{ fontSize:11, color:C.muted }}>{fmtDateFull(p.date)}</p>
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <p style={{ color:C.green, fontWeight:900 }}>{fmt(p.amount)}</p>
+                        <Btn v="danger" size="sm" onClick={()=>removePay(p.id)}><Ic n="trash"/></Btn>
+                      </div>
+                    </div>
+                  ))}
+                  {!(data.pagsTerceiros||[]).some(p=>p.tercId===t.id) && (
+                    <p style={{ fontSize:12, color:C.muted }}>Nenhum pagamento registrado.</p>
+                  )}
+
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
+                    <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));}}>
+                      <Ic n="dollar"/> Registrar pagamento
+                    </Btn>
+                    <Btn size="sm" v="ghost" onClick={()=>{setForm({...t,weeklyRate:String(t.weeklyRate||""),contractValue:String(t.contractValue||"")});setModal(true);}}>
+                      <Ic n="edit"/> Editar
+                    </Btn>
+                    <Btn size="sm" v={t.active===false?"success":"dark"} onClick={()=>toggleActive(t.id)}>
+                      {t.active===false?"Reativar":"Inativar"}
+                    </Btn>
+                    <Btn size="sm" v="danger" onClick={()=>removeTerc(t.id)}><Ic n="trash"/></Btn>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </>)}
+
+      {/* ── VIEW: PAGAMENTOS ───────────────────────────────────── */}
+      {view === "pagamentos" && (<>
+        {/* Navegador de semana */}
+        <div style={{ background:C.card, border:`1px solid ${C.line}`, borderTop:`3px solid ${C.orange}`, padding:"14px 16px", borderRadius:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+            <button onClick={()=>setWeekOffset(w=>w-1)} style={{ background:"transparent", border:`1px solid ${C.line}`, color:C.text, padding:"6px 14px", cursor:"pointer", borderRadius:10, fontWeight:900, fontSize:18 }}>‹</button>
+            <div style={{ textAlign:"center" }}>
+              <p style={{ fontFamily:"'Bebas Neue'", fontSize:24, color:C.orange, letterSpacing:1, lineHeight:1 }}>
+                💰 Sexta-feira
+              </p>
+              <p style={{ fontFamily:"'Bebas Neue'", fontSize:32, color:C.text, letterSpacing:1, lineHeight:1 }}>
+                {fmtDateFull(friday)}
+              </p>
+              <p style={{ fontSize:11, color:C.muted, marginTop:2 }}>
+                Semana: {fmtDateFull(weekStart)} → {fmtDateFull(weekEnd)}
+              </p>
+            </div>
+            <button onClick={()=>setWeekOffset(w=>w+1)} style={{ background:"transparent", border:`1px solid ${C.line}`, color:C.text, padding:"6px 14px", cursor:"pointer", borderRadius:10, fontWeight:900, fontSize:18 }}>›</button>
+          </div>
+
+          {/* Status da semana */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginTop:4 }}>
+            {[
+              ["Pagos",      `${activeTerc.length - pendingCount}/${activeTerc.length}`, C.green ],
+              ["Pendentes",  fmt(pendingTotal),  pendingCount>0 ? C.red : C.green ],
+              ["Pago semana",fmt(paidThisWeekAmount), C.blue ],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{ background:C.surface, padding:"8px 10px", borderRadius:10, textAlign:"center" }}>
+                <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:900 }}>{l}</p>
+                <p style={{ fontFamily:"'Bebas Neue'", fontSize:20, color:c, letterSpacing:.5 }}>{v}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Lista de terceirizados com status de pagamento */}
+        {activeTerc.length === 0 && (
+          <div style={{ background:C.card, border:`1px solid ${C.line}`, padding:24, textAlign:"center", color:C.muted, borderRadius:14 }}>
+            Nenhum terceirizado ativo. Cadastre na aba Cadastro.
+          </div>
+        )}
+
+        {activeTerc
+          .filter(t => filterObra==="all" || t.obraId===filterObra)
+          .sort((a,b) => {
+            // Pendentes primeiro
+            const pa = wasPaidThisWeek(a.id), pb = wasPaidThisWeek(b.id);
+            if(pa !== pb) return pa ? 1 : -1;
+            return a.name.localeCompare(b.name);
+          })
+          .map(t => {
+            const sp = specInfo(t.specialty);
+            const paid = wasPaidThisWeek(t.id);
+            const paidEntry = thisWeekPay(t.id);
+            return (
+              <div key={t.id} style={{
+                background: paid ? `${C.green}10` : C.card,
+                border: `1px solid ${paid ? C.green+"44" : C.line}`,
+                borderLeft: `5px solid ${paid ? C.green : C.orange}`,
+                padding:"14px 16px", borderRadius:16,
+                display:"flex", justifyContent:"space-between", alignItems:"center", gap:12,
+              }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                    <span style={{ fontSize:16 }}>{sp.emoji}</span>
+                    <p style={{ fontFamily:"'Barlow Condensed'", fontWeight:900, fontSize:17 }}>{t.name}</p>
+                    {paid && <Badge color={C.green}>✓ Pago</Badge>}
+                  </div>
+                  <p style={{ fontSize:12, color:C.muted }}>{sp.l} · {obraName(t.obraId)}</p>
+                  {paid && paidEntry && (
+                    <p style={{ fontSize:12, color:C.green, marginTop:3 }}>
+                      {fmt(paidEntry.amount)} · {fmtDateFull(paidEntry.date)}
+                    </p>
+                  )}
+                  {!paid && t.weeklyRate>0 && (
+                    <p style={{ fontSize:12, color:C.orange, marginTop:3, fontWeight:700 }}>
+                      Previsto: {fmt(t.weeklyRate)}
+                    </p>
+                  )}
+                </div>
+                <div style={{ flexShrink:0 }}>
+                  {!paid ? (
+                    <Btn v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));}}>
+                      <Ic n="dollar"/> Pagar
+                    </Btn>
+                  ) : (
+                    <Btn v="ghost" size="sm" onClick={()=>paidEntry&&removePay(paidEntry.id)}>
+                      <Ic n="x"/> Desfazer
+                    </Btn>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        }
+
+        <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+      </>)}
+
+      {/* Modal: cadastro */}
+      {modal && (
+        <Modal title={form.id?"Editar terceirizado":"Novo terceirizado"} onClose={()=>setModal(false)} wide>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <div style={{ gridColumn:"1/-1" }}><Inp label="Nome completo *" value={form.name} onChange={F("name")}/></div>
+            <Sel label="Especialidade *" value={form.specialty} onChange={F("specialty")} options={SPECIALTIES.map(s=>({v:s.v,l:s.emoji+" "+s.l}))}/>
+            <Sel label="Obra *" value={form.obraId} onChange={F("obraId")} options={[{v:"",l:"Selecione"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+            <Inp label="Valor contrato (R$)" type="number" value={form.contractValue} onChange={F("contractValue")} placeholder="0,00"/>
+            <Inp label="Valor semanal (R$)" type="number" value={form.weeklyRate} onChange={F("weeklyRate")} placeholder="Ex: 2000"/>
+            <Inp label="Telefone" value={form.phone} onChange={F("phone")} placeholder="(81) 9XXXX-XXXX"/>
+            <Inp label="Chave PIX" value={form.pixKey} onChange={F("pixKey")}/>
+            <Inp label="Data de início" type="date" value={form.startDate} onChange={F("startDate")}/>
+            <div style={{ gridColumn:"1/-1" }}><Inp label="Observações" value={form.notes} onChange={F("notes")} multiline placeholder="Informações sobre o serviço, escopo..."/></div>
+          </div>
+          <div style={{ display:"flex", gap:8, marginTop:16 }}>
+            <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
+            <Btn onClick={saveTerc} full><Ic n="check"/> Salvar</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal: registrar pagamento */}
+      {payModal && (
+        <Modal title={`Pagamento — ${payModal.name}`} onClose={()=>{setPayModal(null);setPayAmount("");setPayDesc("");}}>
+          <div style={{ background:C.card, border:`1px solid ${C.line}`, borderLeft:`4px solid ${C.orange}`, padding:"10px 14px", borderRadius:12, marginBottom:12 }}>
+            <p style={{ fontSize:12, color:C.muted }}>{specInfo(payModal.specialty).emoji} {specInfo(payModal.specialty).l} · {obraName(payModal.obraId)}</p>
+            <p style={{ fontSize:13, color:C.orange, fontWeight:700, marginTop:2 }}>Sexta-feira: {fmtDateFull(friday)}</p>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <Inp label="Valor (R$) *" type="number" value={payAmount} onChange={setPayAmount} placeholder={`Sugerido: ${fmt(payModal.weeklyRate)}`}/>
+            <Inp label="Descrição" value={payDesc} onChange={setPayDesc} placeholder={`Pagamento semanal ${fmtDateFull(friday)}`}/>
+            <div style={{ display:"flex", gap:8 }}>
+              <Btn v="ghost" onClick={()=>setPayModal(null)} full>Cancelar</Btn>
+              <Btn v="warning" onClick={()=>savePay(payModal)} full><Ic n="check"/> Confirmar pagamento</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Relatórios
 // ═══════════════════════════════════════════════════════════════════
 
@@ -3813,15 +4307,16 @@ export default function App() {
   }, [data, loading, showToast, update]);
 
   const tabs = [
-    { id: "home",   label: "Painel",  icon: "home"     },
-    { id: "obras",  label: "Obras",   icon: "home"     },
-    { id: "equipe", label: "Equipe",  icon: "users"    },
-    { id: "ponto",  label: "Ponto",   icon: "clock"    },
-    { id: "folha",  label: "Folha",   icon: "dollar"   },
-    { id: "fin",    label: "Fin.",    icon: "chart"    },
-    { id: "relat",  label: "Custos",  icon: "chart"    },
-    { id: "ia",     label: "IA",      icon: "brain"    },
-    { id: "config", label: "Ajustes", icon: "settings" },
+    { id: "home",   label: "Painel",   icon: "home"     },
+    { id: "obras",  label: "Obras",    icon: "home"     },
+    { id: "equipe", label: "Equipe",   icon: "users"    },
+    { id: "terc",   label: "Terceiros",icon: "terc"     },
+    { id: "ponto",  label: "Ponto",    icon: "clock"    },
+    { id: "folha",  label: "Folha",    icon: "dollar"   },
+    { id: "fin",    label: "Fin.",     icon: "chart"    },
+    { id: "relat",  label: "Custos",   icon: "chart"    },
+    { id: "ia",     label: "IA",       icon: "brain"    },
+    { id: "config", label: "Ajustes",  icon: "settings" },
   ];
 
   if (loading || !data) {
@@ -3874,6 +4369,7 @@ export default function App() {
           {tab === "home"   && <Dashboard data={data} onTab={setTab} />}
           {tab === "obras"  && <Obras data={data} update={update} showToast={showToast} />}
           {tab === "equipe" && <Equipe data={data} update={update} showToast={showToast} />}
+          {tab === "terc"   && <Terceiros data={data} update={update} showToast={showToast} />}
           {tab === "ponto"  && <Ponto data={data} update={update} showToast={showToast} />}
           {tab === "folha"  && <Folha data={data} showToast={showToast} />}
           {tab === "fin"    && <Financeiro data={data} update={update} showToast={showToast} />}
