@@ -443,6 +443,18 @@ const getAttendanceCompletionMessage = summary => {
 // Dados padrão e normalização
 // ═══════════════════════════════════════════════════════════════════
 
+const CONTRACT_TYPES = [
+  { v: "fixed_labor",       l: "Preço fechado — MO" },
+  { v: "fixed_labor_admin", l: "Preço fechado — MO + % Admin" },
+  { v: "admin_only",        l: "Somente administração (% Admin)" },
+];
+
+const CONTRACT_LABELS = {
+  fixed_labor:       "MO Fechado",
+  fixed_labor_admin: "MO + Admin",
+  admin_only:        "Só Admin",
+};
+
 const DEFAULT = () => ({
   userName: "",
   config: {
@@ -455,12 +467,13 @@ const DEFAULT = () => ({
     paymentHolidays: [],
   },
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0 },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0 },
+    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0 },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0 },
   ],
   employees: [],
   attendance: {},
   advances: [],
+  payments: [],
   attendanceLocks: {},
   unlockRequests: [],
   dailyCheckDate: "",
@@ -488,6 +501,9 @@ const normalizeData = incoming => {
       startDate: o.startDate || "",
       status: o.status || "active",
       areaM2: Number(o.areaM2 || 0),
+      contractType: o.contractType || "fixed_labor",
+      contractValue: Number(o.contractValue || 0),
+      adminPercentage: Number(o.adminPercentage || 0),
     })) : base.obras,
     employees: Array.isArray(d.employees) ? d.employees.map(e => ({
       id: e.id || uid(),
@@ -510,6 +526,7 @@ const normalizeData = incoming => {
     })) : [],
     attendance: d.attendance || {},
     advances: Array.isArray(d.advances) ? d.advances : [],
+    payments: Array.isArray(d.payments) ? d.payments : [],
     attendanceLocks: d.attendanceLocks || {},
     unlockRequests: Array.isArray(d.unlockRequests) ? d.unlockRequests : [],
     dailyCheckDate: d.dailyCheckDate || "",
@@ -832,6 +849,50 @@ function Toast({ toast }) {
 // Dashboard
 // ═══════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════
+// HELPERS FINANCEIROS
+// ═══════════════════════════════════════════════════════════════════
+
+const calcObraLaborCost = (data, obraId, days) => {
+  const year = days[0] ? Number(days[0].slice(0,4)) : new Date().getFullYear();
+  const holidays = getPayrollHolidays(data, year);
+  const holidaysInPeriod = days.filter(d => holidays.includes(d) && prIsWeekdayIso(d));
+  let laborCost = 0, benefitCost = 0;
+  data.employees.forEach(e => {
+    if (e.obra !== obraId && e.lastObra !== obraId) return;
+    days.forEach(d => {
+      if (!isEmployeeEmployedOnDate(e, d)) return;
+      if (holidaysInPeriod.includes(d)) return;
+      const st = attStatus(data, e.id, d);
+      if (st === "P") { laborCost += Number(e.dailyRate||0); benefitCost += Number(e.vtDaily||0)+Number(e.vrDaily||0); }
+      else if (st === "M") { laborCost += Number(e.dailyRate||0)*.5; benefitCost += (Number(e.vtDaily||0)+Number(e.vrDaily||0))*.5; }
+    });
+    holidaysInPeriod.forEach(h => {
+      if (!isEmployeeEmployedOnDate(e, h) || e.obra !== obraId) return;
+      laborCost += Number(getHolidayPayRule(data, e, h, holidays).amount||0);
+    });
+  });
+  return { laborCost, benefitCost, totalCost: laborCost + benefitCost };
+};
+
+const calcObraRevenue = (obra, laborCost) => {
+  const ct = obra.contractType || "fixed_labor";
+  const cv = Number(obra.contractValue||0);
+  const ap = Number(obra.adminPercentage||0)/100;
+  let revenue = 0;
+  if (ct === "fixed_labor")       revenue = cv;
+  else if (ct === "fixed_labor_admin") revenue = cv + laborCost * ap;
+  else if (ct === "admin_only")   revenue = laborCost * ap;
+  const margin = revenue - laborCost;
+  const marginPct = revenue > 0 ? (margin/revenue)*100 : 0;
+  const commitment = cv > 0 ? (laborCost/cv)*100 : null;
+  return { revenue, margin, marginPct, commitment };
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// DASHBOARD — redesenhado
+// ═══════════════════════════════════════════════════════════════════
+
 function Dashboard({ data, onTab }) {
   const now = new Date();
   const year = now.getFullYear();
@@ -844,165 +905,495 @@ function Dashboard({ data, onTab }) {
   const activeObras = data.obras.filter(o => o.status !== "done");
 
   const presentes = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "P").length;
-  const faltas = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "F").length;
-  const meiodia = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "M").length;
-  const semReg = Math.max(0, activeEmps.length - presentes - faltas - meiodia);
+  const faltas   = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "F").length;
+  const meiodia  = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "M").length;
+  const semReg   = Math.max(0, activeEmps.length - presentes - faltas - meiodia);
   const checkPending = activeEmps.length > 0 && data.dailyCheckDate !== todayIso;
-  const todayCompletion = activeEmps.length ? Math.round(((presentes + faltas + meiodia) / activeEmps.length) * 100) : 0;
+  const todayCompletion = activeEmps.length ? Math.round(((presentes+faltas+meiodia)/activeEmps.length)*100) : 0;
 
-  const qTotal = activeEmps.reduce((sum, e) => {
-    const empValue = qDays.reduce((s, d) => {
-      const st = attStatus(data, e.id, d);
-      if (st === "P") return s + Number(e.dailyRate || 0);
-      if (st === "M") return s + Number(e.dailyRate || 0) * 0.5;
-      return s;
-    }, 0);
-    return sum + empValue;
-  }, 0);
+  const qTotal = activeEmps.reduce((sum,e) => sum + qDays.reduce((s,d) => {
+    const st = attStatus(data,e.id,d);
+    if(st==="P") return s+Number(e.dailyRate||0);
+    if(st==="M") return s+Number(e.dailyRate||0)*.5;
+    return s;
+  },0), 0);
+
+  // KPIs financeiros do mês — memoizados para não travar o UI a cada re-render
+  const { totalLaborMonth, totalRevenueMonth } = useMemo(() => {
+    const mdays = getDays(year, month);
+    let labor = 0, revenue = 0;
+    data.obras.filter(o => o.status !== "done").forEach(o => {
+      const { laborCost } = calcObraLaborCost(data, o.id, mdays);
+      labor   += laborCost;
+      revenue += calcObraRevenue(o, laborCost).revenue;
+    });
+    return { totalLaborMonth: labor, totalRevenueMonth: revenue };
+  }, [data, year, month]); // roda só quando data/mês mudam, não em todo re-render
+
+  const monthPayments = (data.payments||[]).filter(p => p.date && p.date.startsWith(`${year}-${String(month+1).padStart(2,"0")}`));
+  const monthReceived = monthPayments.reduce((s,p) => s+Number(p.amount||0), 0);
 
   const last7 = [];
-  for (let i = 6; i >= 0; i--) {
-    const dt = new Date();
-    dt.setDate(dt.getDate() - i);
-    const iso = toLocalISODate(dt);
-    last7.push({
-      d: fmtDate(iso),
-      P: activeEmps.filter(e => attStatus(data, e.id, iso) === "P").length,
-      M: activeEmps.filter(e => attStatus(data, e.id, iso) === "M").length,
-      F: activeEmps.filter(e => attStatus(data, e.id, iso) === "F").length,
-    });
+  for(let i=6;i>=0;i--){
+    const dt=new Date(); dt.setDate(dt.getDate()-i);
+    const iso=toLocalISODate(dt);
+    last7.push({ d:fmtDate(iso), P:activeEmps.filter(e=>attStatus(data,e.id,iso)==="P").length, M:activeEmps.filter(e=>attStatus(data,e.id,iso)==="M").length, F:activeEmps.filter(e=>attStatus(data,e.id,iso)==="F").length });
   }
 
   const pieData = [
-    { name: "Presente", value: presentes, color: C.green },
-    { name: "Meio dia", value: meiodia, color: C.yellow },
-    { name: "Falta", value: faltas, color: C.red },
-    { name: "Sem registro", value: semReg, color: C.muted },
-  ].filter(i => i.value > 0);
+    {name:"Presente",value:presentes,color:C.green},
+    {name:"Meio dia",value:meiodia,color:C.yellow},
+    {name:"Falta",value:faltas,color:C.red},
+    {name:"Sem registro",value:semReg,color:C.muted},
+  ].filter(i=>i.value>0);
 
-  const Stat = ({ label, value, sub, color, icon, tab }) => (
-    <button onClick={() => tab && onTab(tab)} className="lift-card" style={{
-      background: `linear-gradient(180deg, ${C.card2}, ${C.card})`,
-      border: `1px solid ${C.line}`,
-      borderTop: `4px solid ${color}`,
-      padding: 14,
-      borderRadius: 18,
-      textAlign: "left",
-      color: C.text,
-      cursor: tab ? "pointer" : "default",
-      minHeight: 104,
-      boxShadow: `0 12px 34px ${C.shadow}`,
+  const KpiCard = ({label,value,sub,color,icon,tab}) => (
+    <button onClick={()=>tab&&onTab(tab)} className="lift-card" style={{
+      background:`linear-gradient(160deg,${C.card2} 0%,${C.card} 100%)`,
+      border:`1px solid ${C.line}`,borderTop:`3px solid ${color}`,
+      padding:"14px 12px",borderRadius:18,textAlign:"left",color:C.text,
+      cursor:tab?"pointer":"default",boxShadow:`0 8px 28px ${C.shadow}`,
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <span style={{ color: C.subtle, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1.1 }}>{label}</span>
-        <Ic n={icon} s={20} color={color} />
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+        <span style={{color:C.muted,fontSize:10,fontWeight:900,textTransform:"uppercase",letterSpacing:1}}>{label}</span>
+        <Ic n={icon} s={16} color={color}/>
       </div>
-      <p style={{ fontFamily: "'Bebas Neue'", color, fontSize: 36, letterSpacing: 1, lineHeight: .95, marginTop: 8 }}>{value}</p>
-      {sub && <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{sub}</p>}
+      <p style={{fontFamily:"'Bebas Neue'",color,fontSize:28,letterSpacing:.5,lineHeight:1}}>{value}</p>
+      {sub&&<p style={{color:C.muted,fontSize:11,marginTop:4}}>{sub}</p>}
     </button>
   );
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div className="brand-slice" style={{
-        background: `linear-gradient(135deg, ${C.yellow} 0%, ${C.yellowD} 58%, #5d4b0d 100%)`,
-        color: C.ink,
-        borderRadius: 24,
-        padding: 18,
-        border: `1px solid ${C.yellow}`,
-        boxShadow: `0 20px 60px ${C.yellow}1f`,
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
+
+      {/* Hero banner */}
+      <div style={{
+        background:`linear-gradient(135deg,${C.yellow} 0%,${C.yellowD} 55%,#4a3c0a 100%)`,
+        color:C.ink,borderRadius:22,padding:"18px 20px",
+        border:`1px solid ${C.yellow}`,boxShadow:`0 24px 60px ${C.yellow}20`,
+        position:"relative",overflow:"hidden",
       }}>
-        <BrandMark dark />
-        <div style={{ display: "grid", gridTemplateColumns: "1.25fr .75fr", gap: 14, alignItems: "end", marginTop: 18 }}>
+        <div style={{position:"absolute",right:-10,top:-20,fontFamily:"'Bebas Neue'",fontSize:110,lineHeight:1,opacity:.08,pointerEvents:"none",color:C.ink}}>ARCD</div>
+        <BrandMark dark/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:14,alignItems:"flex-end",marginTop:16}}>
           <div>
-            <p style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: 1.4, fontSize: 11, opacity: .72 }}>Ação principal</p>
-            <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 46, lineHeight: .88, letterSpacing: 1.8 }}>Registrar o ponto sem ruído.</h2>
-            <p style={{ fontWeight: 700, fontSize: 13, marginTop: 9, maxWidth: 520 }}>Obras, equipes, folha e custos em uma leitura rápida. O ponto é o centro da operação.</p>
+            <p style={{fontSize:11,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",opacity:.7}}>Central de operações</p>
+            <h2 style={{fontFamily:"'Bebas Neue'",fontSize:40,lineHeight:.9,letterSpacing:1.6,margin:"4px 0 8px"}}>Ponto · Equipe · Resultado.</h2>
+            <p style={{fontSize:12,fontWeight:700,opacity:.8}}>Controle em tempo real. Decisão com dado.</p>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ fontFamily: "'Bebas Neue'", fontSize: 58, lineHeight: .85 }}>{todayCompletion}%</p>
-            <p style={{ fontWeight: 900, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>do ponto hoje</p>
+          <div style={{textAlign:"right"}}>
+            <p style={{fontFamily:"'Bebas Neue'",fontSize:52,lineHeight:.9,letterSpacing:1}}>{todayCompletion}%</p>
+            <p style={{fontSize:10,fontWeight:900,textTransform:"uppercase",letterSpacing:.8,opacity:.75}}>ponto hoje</p>
           </div>
         </div>
-        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <Btn onClick={() => onTab("ponto")} v="dark" full style={{ background: C.ink, color: C.yellow, borderColor: C.ink, "--ic-color": C.yellow }}><Ic n="clock" /> Abrir ponto</Btn>
-          <Btn onClick={() => onTab("ia")} v="ghost" full style={{ borderColor: "rgba(5,5,4,.35)", color: C.ink, background: "rgba(5,5,4,.08)", "--ic-color": C.ink }}><Ic n="brain" /> Agente IA</Btn>
+        <div style={{marginTop:14,height:6,background:"rgba(0,0,0,.18)",borderRadius:99,overflow:"hidden"}}>
+          <div style={{height:"100%",width:`${todayCompletion}%`,background:C.ink,borderRadius:99,transition:"width .3s"}}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:14}}>
+          <Btn onClick={()=>onTab("ponto")} v="dark" full style={{background:C.ink,color:C.yellow,borderColor:C.ink,"--ic-color":C.yellow}}>
+            <Ic n="clock"/> Registrar Ponto
+          </Btn>
+          <Btn onClick={()=>onTab("fin")} v="ghost" full style={{borderColor:"rgba(5,5,4,.3)",color:C.ink,background:"rgba(5,5,4,.1)","--ic-color":C.ink}}>
+            <Ic n="dollar"/> Financeiro
+          </Btn>
         </div>
       </div>
 
       {checkPending && (
-        <button onClick={() => onTab("ponto")} className="lift-card" style={{
-          background: `${C.yellow}14`,
-          border: `1px solid ${C.yellow}88`,
-          borderLeft: `6px solid ${C.yellow}`,
-          color: C.yellow,
-          borderRadius: 18,
-          padding: 14,
-          cursor: "pointer",
-          textAlign: "left",
+        <button onClick={()=>onTab("ponto")} className="lift-card" style={{
+          background:`${C.yellow}12`,border:`1px solid ${C.yellow}`,borderLeft:`5px solid ${C.yellow}`,
+          color:C.yellow,borderRadius:16,padding:"12px 14px",cursor:"pointer",textAlign:"left",
         }}>
-          <p style={{ fontFamily: "'Barlow Condensed'", fontSize: 18, fontWeight: 900, textTransform: "uppercase" }}>Verificação diária pendente</p>
-          <p style={{ color: C.subtle, fontSize: 12 }}>Confirme transferência/demissão antes de lançar o ponto.</p>
+          <p style={{fontFamily:"'Barlow Condensed'",fontSize:16,fontWeight:900,textTransform:"uppercase"}}>⚡ Verificação diária pendente</p>
+          <p style={{color:C.subtle,fontSize:12,marginTop:2}}>Confirme ou movimente a equipe antes de lançar o ponto.</p>
         </button>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-        <Stat label="Trabalhadores" value={activeEmps.length} sub="ativos" color={C.yellow} icon="users" tab="equipe" />
-        <Stat label="Obras" value={activeObras.length} sub="em andamento" color={C.blue} icon="home" tab="obras" />
-        <Stat label="Presentes" value={presentes} sub={`${semReg} sem registro hoje`} color={C.green} icon="check" tab="ponto" />
-        <Stat label="Quinzena" value={fmt(qTotal)} sub={`${qDays.length} dias no período`} color={C.purple} icon="dollar" tab="folha" />
+      {/* KPIs operacionais */}
+      <div>
+        <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Operacional — hoje</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+          <KpiCard label="Trabalhadores" value={activeEmps.length} sub={`${activeObras.length} obras ativas`} color={C.yellow} icon="users" tab="equipe"/>
+          <KpiCard label="Presentes hoje" value={presentes} sub={`${semReg} sem registro`} color={C.green} icon="check" tab="ponto"/>
+          <KpiCard label="Custo quinzena" value={fmt(qTotal)} sub={`${qDays.length} dias`} color={C.purple} icon="dollar" tab="folha"/>
+          <KpiCard label="Faltas hoje" value={faltas} sub={`${meiodia} meio período`} color={faltas>0?C.red:C.muted} icon="alert" tab="ponto"/>
+        </div>
       </div>
 
-      <div className="lift-card" style={{ background: `linear-gradient(180deg, ${C.card2}, ${C.card})`, border: `1px solid ${C.line}`, padding: 14, borderRadius: 20 }}>
-        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Presença — últimos 7 dias</h3>
-        <div style={{ height: 220 }}>
+      {/* KPIs financeiros */}
+      <div>
+        <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Financeiro — mês atual</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+          <KpiCard label="Receita esperada" value={fmt(totalRevenueMonth)} sub="calculada por contrato" color={C.green} icon="dollar" tab="fin"/>
+          <KpiCard label="Recebido" value={fmt(monthReceived)} sub={`${monthPayments.length} pagamento(s)`} color={C.blue} icon="check" tab="fin"/>
+          <KpiCard label="Custo MO" value={fmt(totalLaborMonth)} sub="mão de obra própria" color={C.orange} icon="users" tab="relat"/>
+          <KpiCard label="Margem estimada" value={fmt(totalRevenueMonth-totalLaborMonth)} sub={totalRevenueMonth>0?`${Math.round(((totalRevenueMonth-totalLaborMonth)/totalRevenueMonth)*100)}% da receita`:"—"} color={totalRevenueMonth>totalLaborMonth?C.green:C.red} icon="chart" tab="fin"/>
+        </div>
+      </div>
+
+      {/* Gráfico 7 dias */}
+      <div className="lift-card" style={{background:`linear-gradient(180deg,${C.card2},${C.card})`,border:`1px solid ${C.line}`,padding:14,borderRadius:20}}>
+        <h3 style={{fontFamily:"'Barlow Condensed'",color:C.yellow,textTransform:"uppercase",letterSpacing:1,marginBottom:8,fontSize:16}}>
+          Presença — últimos 7 dias
+        </h3>
+        <div style={{height:200}}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={last7}>
-              <CartesianGrid stroke={C.border} vertical={false} />
-              <XAxis dataKey="d" stroke={C.muted} fontSize={11} />
-              <YAxis stroke={C.muted} fontSize={11} allowDecimals={false} />
-              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.line}`, color: C.text }} />
-              <Bar dataKey="P" stackId="a" fill={C.green} radius={[6, 6, 0, 0]} />
-              <Bar dataKey="M" stackId="a" fill={C.yellow} />
-              <Bar dataKey="F" stackId="a" fill={C.red} radius={[6, 6, 0, 0]} />
+            <BarChart data={last7} barSize={18}>
+              <CartesianGrid stroke={C.border} vertical={false}/>
+              <XAxis dataKey="d" stroke={C.muted} fontSize={11}/>
+              <YAxis stroke={C.muted} fontSize={11} allowDecimals={false}/>
+              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text,borderRadius:10}}/>
+              <Bar dataKey="P" name="Presente" stackId="a" fill={C.green} radius={[6,6,0,0]}/>
+              <Bar dataKey="M" name="Meio dia" stackId="a" fill={C.yellow}/>
+              <Bar dataKey="F" name="Falta"    stackId="a" fill={C.red} radius={[6,6,0,0]}/>
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      <div className="lift-card" style={{ background: `linear-gradient(180deg, ${C.card2}, ${C.card})`, border: `1px solid ${C.line}`, padding: 14, borderRadius: 20 }}>
-        <h3 style={{ fontFamily: "'Barlow Condensed'", color: C.yellow, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Distribuição de hoje</h3>
-        <div style={{ height: 210 }}>
-          {pieData.length === 0 ? (
-            <p style={{ color: C.muted }}>Sem dados de ponto hoje.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
-                  {pieData.map((entry, index) => <Cell key={entry.name} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.line}`, color: C.text }} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
+      {/* Distribuição do dia */}
+      {pieData.length > 0 && (
+        <div className="lift-card" style={{background:`linear-gradient(180deg,${C.card2},${C.card})`,border:`1px solid ${C.line}`,padding:14,borderRadius:20}}>
+          <h3 style={{fontFamily:"'Barlow Condensed'",color:C.yellow,textTransform:"uppercase",letterSpacing:1,marginBottom:8,fontSize:16}}>Distribuição de hoje</h3>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",alignItems:"center",gap:12}}>
+            <div style={{height:180}}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={40} outerRadius={68} paddingAngle={3}>
+                    {pieData.map((e,i)=><Cell key={e.name} fill={e.color||CHART_COLORS[i]}/>)}
+                  </Pie>
+                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text}}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {pieData.map(i=>(
+                <div key={i.name} style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:10,height:10,borderRadius:3,background:i.color,flexShrink:0}}/>
+                  <div>
+                    <p style={{fontSize:11,fontWeight:700,color:C.text}}>{i.name}</p>
+                    <p style={{fontFamily:"'Bebas Neue'",fontSize:20,color:i.color,lineHeight:1}}>{i.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-        <Btn onClick={() => onTab("ponto")} full><Ic n="clock" /> Registrar ponto</Btn>
-        <Btn onClick={() => onTab("relat")} v="ghost" full><Ic n="chart" /> Ver custos</Btn>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <Btn onClick={()=>onTab("ponto")} full><Ic n="clock"/> Registrar ponto</Btn>
+        <Btn onClick={()=>onTab("fin")} v="ghost" full><Ic n="dollar"/> Ver financeiro</Btn>
       </div>
     </div>
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// FINANCEIRO — KPIs por obra, receitas e contratos
+// ═══════════════════════════════════════════════════════════════════
+
+function Financeiro({ data, update, showToast }) {
+  const now = new Date();
+  const [year,  setYear]  = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  const [filterObra, setFilterObra] = useState("all");
+  const [expanded, setExpanded] = useState(null);
+  const [payModal, setPayModal] = useState(false);
+  const [payForm, setPayForm] = useState({ obraId:"", date:today(), amount:"", description:"" });
+  const PF = k => v => setPayForm(f=>({...f,[k]:v}));
+
+  const days = getDays(year, month);
+  const years = Array.from({length:4},(_,i)=>now.getFullYear()-1+i).map(y=>({v:String(y),l:String(y)}));
+
+  // Calcula KPIs por obra
+  const obraRows = data.obras
+    .filter(o => filterObra==="all" || o.id===filterObra)
+    .map(o => {
+      const {laborCost, benefitCost, totalCost} = calcObraLaborCost(data, o.id, days);
+      const {revenue, margin, marginPct, commitment} = calcObraRevenue(o, laborCost);
+      const received = (data.payments||[])
+        .filter(p => p.obraId===o.id && p.date && p.date.slice(0,7)===`${year}-${String(month+1).padStart(2,"0")}`)
+        .reduce((s,p)=>s+Number(p.amount||0), 0);
+      const receivedTotal = (data.payments||[])
+        .filter(p => p.obraId===o.id)
+        .reduce((s,p)=>s+Number(p.amount||0), 0);
+      const activeEmps = data.employees.filter(e=>e.active!==false&&e.obra===o.id).length;
+      return { ...o, laborCost, benefitCost, totalCost, revenue, margin, marginPct, commitment, received, receivedTotal, activeEmps };
+    });
+
+  const T = {
+    revenue:   obraRows.reduce((s,r)=>s+r.revenue,  0),
+    labor:     obraRows.reduce((s,r)=>s+r.laborCost, 0),
+    margin:    obraRows.reduce((s,r)=>s+r.margin,    0),
+    received:  obraRows.reduce((s,r)=>s+r.received,  0),
+  };
+  const totalMarginPct = T.revenue>0 ? (T.margin/T.revenue)*100 : 0;
+
+  // Receitas do período filtrado
+  const allPayments = (data.payments||[])
+    .filter(p => (filterObra==="all"||p.obraId===filterObra))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+
+  // Gráfico: receita vs custo MO por obra
+  const chartData = obraRows.map(r=>({
+    name: r.name.length>12 ? r.name.slice(0,12)+"…" : r.name,
+    Receita: Math.round(r.revenue),
+    CustoMO: Math.round(r.laborCost),
+    Margem:  Math.round(r.margin),
+  }));
+
+  // Gráfico: receitas por mês (últimos 6 meses)
+  const monthlyChart = Array.from({length:6},(_,i)=>{
+    const d=new Date(year,month-5+i,1);
+    const ym=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    const rec=(data.payments||[]).filter(p=>(filterObra==="all"||p.obraId===filterObra)&&p.date&&p.date.startsWith(ym)).reduce((s,p)=>s+Number(p.amount||0),0);
+    const mdays=getDays(d.getFullYear(),d.getMonth());
+    const cost=data.obras.filter(o=>filterObra==="all"||o.id===filterObra).reduce((s,o)=>s+calcObraLaborCost(data,o.id,mdays).laborCost,0);
+    return { mes:`${monthName(d.getMonth())}/${String(d.getFullYear()).slice(2)}`, Recebido:Math.round(rec), CustoMO:Math.round(cost) };
+  });
+
+  const savePayment = () => {
+    if(!payForm.obraId||!payForm.amount||isNaN(Number(payForm.amount))){
+      showToast("Preencha obra, data e valor.","error"); return;
+    }
+    const payments=[...(data.payments||[]),{id:uid(),obraId:payForm.obraId,date:payForm.date,amount:Number(payForm.amount),description:payForm.description||"Recebimento"}];
+    update({...data,payments});
+    setPayModal(false);
+    setPayForm({obraId:"",date:today(),amount:"",description:""});
+    showToast("Recebimento registrado.");
+  };
+
+  const removePayment = id => {
+    if(!window.confirm("Remover recebimento?")) return;
+    update({...data,payments:(data.payments||[]).filter(p=>p.id!==id)});
+    showToast("Removido.");
+  };
+
+  const exportXLS = () => {
+    const wb=XLSX.utils.book_new();
+    // Aba KPIs
+    const h1=["Obra","Tipo Contrato","Valor Contrato","Custo MO","Custo MO+Ben","Receita Esperada","Margem","Margem %","Recebido (mês)","Comprometimento %"];
+    const b1=obraRows.map(r=>[r.name,CONTRACT_LABELS[r.contractType]||r.contractType,r.contractValue,r.laborCost,r.totalCost,r.revenue,r.margin,r.marginPct.toFixed(1)+"%",r.received,r.commitment!=null?r.commitment.toFixed(1)+"%":"—"]);
+    const ws1=XLSX.utils.aoa_to_sheet([[`KPIs Financeiros — ${fullMonth(month)} ${year}`],[],h1,...b1,["TOTAL","","",T.labor,"",T.revenue,T.margin,(totalMarginPct).toFixed(1)+"%",T.received,""]]);
+    ws1["!cols"]=[22,16,14,12,14,16,12,10,14,14].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb,ws1,"KPIs por Obra");
+    // Aba recebimentos
+    const h2=["Data","Obra","Valor","Descrição"];
+    const b2=allPayments.map(p=>[p.date,data.obras.find(o=>o.id===p.obraId)?.name||"—",p.amount,p.description]);
+    const ws2=XLSX.utils.aoa_to_sheet([["Recebimentos registrados"],[],h2,...b2]);
+    ws2["!cols"]=[12,22,12,30].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb,ws2,"Recebimentos");
+    XLSX.writeFile(wb,`arcd-financeiro-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
+    showToast("Excel exportado.");
+  };
+
+  const obraName = id => data.obras.find(o=>o.id===id)?.name||"—";
+
+  const StatusBar = ({pct, color=C.green}) => (
+    <div style={{height:6,background:C.surface,borderRadius:99,overflow:"hidden",marginTop:6}}>
+      <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>100?C.red:color,borderRadius:99,transition:"width .3s"}}/>
+    </div>
+  );
+
+  return (
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
+      {/* Header */}
+      <div style={{
+        background:`linear-gradient(135deg,${C.green}22 0%,${C.card} 60%)`,
+        border:`1px solid ${C.green}44`,borderLeft:`5px solid ${C.green}`,
+        padding:"16px 18px",borderRadius:18,
+      }}>
+        <p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Gestão financeira</p>
+        <h2 style={{fontFamily:"'Bebas Neue'",fontSize:34,letterSpacing:2,color:C.text,lineHeight:1}}>Financeiro por Obra</h2>
+        <p style={{color:C.muted,fontSize:13,marginTop:4}}>KPIs de margem, contrato, custo MO e recebimentos.</p>
+      </div>
+
+      {/* Filtros */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <Sel value={String(year)} onChange={v=>setYear(Number(v))} options={years}/>
+        <Sel value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/>
+      </div>
+      <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+
+      {/* KPI totais */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+        {[
+          ["Receita esperada", fmt(T.revenue), C.green, "dollar"],
+          ["Recebido no mês",  fmt(T.received), C.blue, "check"],
+          ["Custo MO",         fmt(T.labor),    C.orange, "users"],
+          ["Margem estimada",  `${fmt(T.margin)} (${totalMarginPct.toFixed(0)}%)`, T.margin>=0?C.green:C.red, "chart"],
+        ].map(([l,v,c,ic])=>(
+          <div key={l} style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${c}`,padding:"12px 14px",borderRadius:16}}>
+            <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
+            <p style={{fontFamily:"'Bebas Neue'",color:c,fontSize:24,lineHeight:1.1,marginTop:4,letterSpacing:.5}}>{v}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Gráfico receita vs custo */}
+      {chartData.length>0 && (
+        <div style={{background:C.card,border:`1px solid ${C.line}`,padding:14,borderRadius:18}}>
+          <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:10}}>Receita vs Custo MO por obra</p>
+          <div style={{height:220}}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} barSize={14}>
+                <CartesianGrid stroke={C.border} vertical={false}/>
+                <XAxis dataKey="name" stroke={C.muted} fontSize={10}/>
+                <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
+                <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text,borderRadius:10}} formatter={v=>fmt(v)}/>
+                <Bar dataKey="Receita" fill={C.green} radius={[6,6,0,0]}/>
+                <Bar dataKey="CustoMO" fill={C.orange} radius={[6,6,0,0]}/>
+                <Bar dataKey="Margem"  fill={C.blue}   radius={[6,6,0,0]}/>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Gráfico mensal recebimentos vs custo */}
+      <div style={{background:C.card,border:`1px solid ${C.line}`,padding:14,borderRadius:18}}>
+        <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:10}}>Recebimentos × Custo MO — 6 meses</p>
+        <div style={{height:200}}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={monthlyChart}>
+              <CartesianGrid stroke={C.border} vertical={false}/>
+              <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
+              <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
+              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text,borderRadius:10}} formatter={v=>fmt(v)}/>
+              <Line type="monotone" dataKey="Recebido" stroke={C.green} strokeWidth={2} dot={{r:4,fill:C.green}}/>
+              <Line type="monotone" dataKey="CustoMO"  stroke={C.orange} strokeWidth={2} dot={{r:4,fill:C.orange}}/>
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Cards por obra */}
+      <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Análise por obra — {fullMonth(month)} {year}</p>
+      {obraRows.map(r => {
+        const exp = expanded===r.id;
+        const marginColor = r.margin>=0 ? C.green : C.red;
+        const commitColor = r.commitment!=null&&r.commitment>100 ? C.red : r.commitment!=null&&r.commitment>80 ? C.orange : C.green;
+        return (
+          <div key={r.id} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden"}}>
+            <button onClick={()=>setExpanded(exp?null:r.id)} style={{
+              width:"100%",background:"transparent",border:0,color:C.text,
+              padding:"14px 16px",textAlign:"left",cursor:"pointer",
+              borderLeft:`5px solid ${marginColor}`,
+            }}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+                <div style={{flex:1}}>
+                  <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:18,letterSpacing:.3}}>{r.name}</p>
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>
+                    <Badge color={C.yellow}>{CONTRACT_LABELS[r.contractType]||r.contractType}</Badge>
+                    {r.contractValue>0 && <Badge color={C.subtle}>Contrato: {fmt(r.contractValue)}</Badge>}
+                    <Badge color={C.muted}>{r.activeEmps} trabalhadores</Badge>
+                  </div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:marginColor,letterSpacing:.5,lineHeight:1}}>{fmt(r.margin)}</p>
+                  <p style={{fontSize:10,color:C.muted,marginTop:2}}>margem {r.marginPct.toFixed(0)}%</p>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:10}}>
+                {[
+                  ["Receita",fmt(r.revenue),C.green],
+                  ["Custo MO",fmt(r.laborCost),C.orange],
+                  ["Recebido",fmt(r.received),C.blue],
+                ].map(([l,v,c])=>(
+                  <div key={l} style={{background:C.surface,padding:"6px 8px",borderRadius:10}}>
+                    <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
+                    <p style={{fontSize:13,fontWeight:900,color:c}}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              {r.commitment!=null && (
+                <div style={{marginTop:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                    <p style={{fontSize:10,color:C.muted}}>Comprometimento do contrato</p>
+                    <p style={{fontSize:10,fontWeight:900,color:commitColor}}>{r.commitment.toFixed(1)}%</p>
+                  </div>
+                  <StatusBar pct={r.commitment} color={commitColor}/>
+                </div>
+              )}
+            </button>
+
+            {exp && (
+              <div style={{borderTop:`1px solid ${C.line}`,padding:"14px 16px",background:C.surface,display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                  {[
+                    ["Contrato",fmt(r.contractValue),C.subtle],
+                    ["Admin %",r.adminPercentage>0?`${r.adminPercentage}%`:"—",C.subtle],
+                    ["Área",r.areaM2>0?`${r.areaM2.toLocaleString("pt-BR")} m²`:"—",C.subtle],
+                    ["Custo MO+Ben",fmt(r.totalCost),C.orange],
+                    ["Benefícios",fmt(r.benefitCost),C.muted],
+                    ["Total recebido",fmt(r.receivedTotal),C.blue],
+                    ["Saldo contrato",fmt(r.contractValue-r.laborCost),r.contractValue-r.laborCost>=0?C.green:C.red],
+                    ["Receita esperada",fmt(r.revenue),C.green],
+                    ["Margem",fmt(r.margin),marginColor],
+                  ].map(([l,v,c])=>(
+                    <div key={l} style={{background:C.card,border:`1px solid ${C.line}`,padding:"8px 10px",borderRadius:10}}>
+                      <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,marginBottom:3}}>{l}</p>
+                      <p style={{fontSize:13,fontWeight:900,color:c}}>{v}</p>
+                    </div>
+                  ))}
+                </div>
+                {r.contractType==="fixed_labor_admin"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = Contrato ({fmt(r.contractValue)}) + {r.adminPercentage}% sobre MO ({fmt(r.laborCost)})</p>}
+                {r.contractType==="admin_only"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = {r.adminPercentage}% sobre MO total ({fmt(r.laborCost)})</p>}
+                {r.contractType==="fixed_labor"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = valor fixo do contrato ({fmt(r.contractValue)})</p>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {obraRows.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:C.muted}}>Nenhuma obra com dados no período.</div>}
+
+      {/* Recebimentos */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}>
+        <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Recebimentos registrados</p>
+        <Btn onClick={()=>setPayModal(true)} size="sm"><Ic n="plus"/> Novo</Btn>
+      </div>
+
+      {allPayments.length===0&&<div style={{background:C.card,border:`1px solid ${C.line}`,padding:"20px",textAlign:"center",color:C.muted,borderRadius:14}}>Nenhum recebimento registrado ainda.</div>}
+      {allPayments.map(p=>(
+        <div key={p.id} style={{background:C.card,border:`1px solid ${C.line}`,borderLeft:`4px solid ${C.green}`,padding:"12px 14px",borderRadius:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+          <div>
+            <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:16}}>{p.description}</p>
+            <p style={{color:C.muted,fontSize:12}}>{obraName(p.obraId)} · {fmtDateFull(p.date)}</p>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <p style={{fontFamily:"'Bebas Neue'",fontSize:20,color:C.green,letterSpacing:.5}}>{fmt(p.amount)}</p>
+            <Btn v="danger" size="sm" onClick={()=>removePayment(p.id)}><Ic n="trash"/></Btn>
+          </div>
+        </div>
+      ))}
+
+      <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Exportar Excel (KPIs + Recebimentos)</Btn>
+
+      {payModal&&(
+        <Modal title="Registrar recebimento" onClose={()=>setPayModal(false)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <Sel label="Obra *" value={payForm.obraId} onChange={PF("obraId")} options={[{v:"",l:"Selecione a obra"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+            <Inp label="Data *" type="date" value={payForm.date} onChange={PF("date")}/>
+            <Inp label="Valor recebido (R$) *" type="number" value={payForm.amount} onChange={PF("amount")} placeholder="0,00"/>
+            <Inp label="Descrição" value={payForm.description} onChange={PF("description")} placeholder="Ex.: Medição #1, parcela 50%..."/>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setPayModal(false)} full>Cancelar</Btn>
+              <Btn v="success" onClick={savePayment} full><Ic n="check"/> Salvar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // Obras
 // ═══════════════════════════════════════════════════════════════════
 
 function Obras({ data, update, showToast }) {
-  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "" };
+  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "" };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
@@ -1026,6 +1417,8 @@ function Obras({ data, update, showToast }) {
       ...form,
       id: form.id || uid(),
       areaM2,
+      contractValue: Number(form.contractValue || 0),
+      adminPercentage: Number(form.adminPercentage || 0),
     };
 
     const obras = form.id ? data.obras.map(o => (o.id === form.id ? payload : o)) : [...data.obras, payload];
@@ -1073,6 +1466,8 @@ function Obras({ data, update, showToast }) {
               <div>
                 <p style={{ fontFamily: "'Barlow Condensed'", fontWeight: 900, fontSize: 18 }}>{o.name}</p>
                 <Badge color={st.c}>{st.l}</Badge>
+                {o.contractValue > 0 && <Badge color={C.green}>{CONTRACT_LABELS[o.contractType]||"Contrato"}: {fmt(o.contractValue)}</Badge>}
+                {(o.contractType==="fixed_labor_admin"||o.contractType==="admin_only") && o.adminPercentage > 0 && <Badge color={C.purple}>{o.adminPercentage}% admin</Badge>}
                 <p style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>{count} trabalhador{count !== 1 ? "es" : ""} ativo{count !== 1 ? "s" : ""}</p>
                 {area > 0 && <p style={{ color: C.yellow, fontSize: 12, marginTop: 4 }}>Área: {area.toLocaleString("pt-BR")} m²</p>}
                 {o.address && <p style={{ color: C.subtle, fontSize: 12, marginTop: 4 }}>{o.address}</p>}
@@ -1101,6 +1496,15 @@ function Obras({ data, update, showToast }) {
               { v: "paused", l: "Pausada" },
               { v: "done", l: "Concluída" },
             ]} />
+            <div style={{ gridColumn:"1/-1", height:1, background:`linear-gradient(90deg,transparent,${C.line},transparent)`, margin:"4px 0" }}/>
+            <div style={{ gridColumn:"1/-1" }}>
+              <p style={{ fontSize:11, fontWeight:700, color:C.yellow, textTransform:"uppercase", letterSpacing:.7, marginBottom:8 }}>Contrato financeiro</p>
+            </div>
+            <Sel label="Tipo de contrato" value={form.contractType} onChange={setField("contractType")} options={CONTRACT_TYPES}/>
+            <Inp label="Valor do contrato (R$)" type="number" value={form.contractValue} onChange={setField("contractValue")} placeholder="0,00"/>
+            {(form.contractType === "fixed_labor_admin" || form.contractType === "admin_only") && (
+              <Inp label="% de administração" type="number" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12"/>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
               <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
               <Btn onClick={save} full><Ic n="check" /> Salvar</Btn>
@@ -1181,7 +1585,18 @@ function Equipe({ data, update, showToast }) {
     }
 
     if (before && before.obra !== payload.obra) {
-      changeLog.push({ id: uid(), date: today(), type: "transfer", empId: payload.id, empName: payload.name, from: obraName(before.obra), to: obraName(payload.obra), message: `${payload.name} transferido de ${obraName(before.obra)} para ${obraName(payload.obra)}` });
+      changeLog.push({
+        id: uid(),
+        date: today(),
+        type: "transfer",
+        empId: payload.id,
+        empName: payload.name,
+        from: obraName(before.obra),
+        to: obraName(payload.obra),
+        fromId: before.obra,   // ← ID gravado
+        toId: payload.obra,    // ← ID gravado
+        message: `${payload.name} transferido de ${obraName(before.obra)} para ${obraName(payload.obra)}`,
+      });
     }
 
     if (before && before.active !== false && payload.active === false) {
@@ -1375,8 +1790,17 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
       showToast("Selecione a nova obra.", "error");
       return;
     }
+    if (!employee.obra) {
+      showToast("Este trabalhador não tem obra atual definida. Edite o cadastro dele na aba Equipe.", "error");
+      return;
+    }
     if (newObra === employee.obra) {
       showToast("Selecione uma obra diferente da atual.", "error");
+      return;
+    }
+    const obraDestino = data.obras.find(o => o.id === newObra);
+    if (!obraDestino) {
+      showToast("Obra de destino não encontrada. Atualize a página.", "error");
       return;
     }
 
@@ -1391,7 +1815,18 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
       terminationReason: "",
     } : emp);
 
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "transfer", empId: employee.id, empName: employee.name, from, to, message: `${employee.name} transferido de ${from} para ${to}` }];
+    const changeLog = [...data.changeLog, {
+      id: uid(),
+      date: today(),
+      type: "transfer",
+      empId: employee.id,
+      empName: employee.name,
+      from,
+      to,
+      fromId: employee.obra,  // ← ID gravado para busca confiável
+      toId: newObra,          // ← ID gravado para busca confiável
+      message: `${employee.name} transferido de ${from} para ${to}`,
+    }];
     update({ ...data, employees, changeLog, dailyCheckDate: today() });
     showToast(`${employee.name} transferido para ${to}.`);
     onClose();
@@ -2009,16 +2444,22 @@ function Folha({ data, showToast }) {
   // ── Reconstrói a obra do operário em uma data específica via changeLog ──
   const getEmpObraIdOnDate = (employee, dateIso) => {
     const transfers = (data.changeLog || [])
-      .filter(e => e.type === "transfer" && e.empId === employee.id && e.date)
-      .sort((a, b) => b.date.localeCompare(a.date)); // desc
+      .filter(t => t.type === "transfer" && t.empId === employee.id && t.date)
+      .sort((a, b) => b.date.localeCompare(a.date)); // desc — mais recente primeiro
 
     let obraId = employee.obra || employee.lastObra || "";
+
     for (const t of transfers) {
       if (t.date > dateIso) {
-        const found = data.obras.find(o => o.name === t.from);
-        if (found) obraId = found.id;
+        // Usa fromId (gravado nas novas entradas) ou fallback por nome (entradas antigas)
+        if (t.fromId) {
+          obraId = t.fromId;
+        } else {
+          const found = data.obras.find(o => o.name === t.from);
+          if (found) obraId = found.id;
+        }
       } else {
-        break;
+        break; // transferências anteriores à data não afetam
       }
     }
     return obraId;
@@ -3372,13 +3813,14 @@ export default function App() {
   }, [data, loading, showToast, update]);
 
   const tabs = [
-    { id: "home", label: "Painel", icon: "home" },
-    { id: "obras", label: "Obras", icon: "home" },
-    { id: "equipe", label: "Equipe", icon: "users" },
-    { id: "ponto", label: "Ponto", icon: "clock" },
-    { id: "folha", label: "Folha", icon: "dollar" },
-    { id: "relat", label: "Custos", icon: "chart" },
-    { id: "ia", label: "IA", icon: "brain" },
+    { id: "home",   label: "Painel",  icon: "home"     },
+    { id: "obras",  label: "Obras",   icon: "home"     },
+    { id: "equipe", label: "Equipe",  icon: "users"    },
+    { id: "ponto",  label: "Ponto",   icon: "clock"    },
+    { id: "folha",  label: "Folha",   icon: "dollar"   },
+    { id: "fin",    label: "Fin.",    icon: "chart"    },
+    { id: "relat",  label: "Custos",  icon: "chart"    },
+    { id: "ia",     label: "IA",      icon: "brain"    },
     { id: "config", label: "Ajustes", icon: "settings" },
   ];
 
@@ -3429,13 +3871,14 @@ export default function App() {
         </header>
 
         <main style={{ maxWidth: 1080, margin: "0 auto", padding: 14 }}>
-          {tab === "home" && <Dashboard data={data} onTab={setTab} />}
-          {tab === "obras" && <Obras data={data} update={update} showToast={showToast} />}
+          {tab === "home"   && <Dashboard data={data} onTab={setTab} />}
+          {tab === "obras"  && <Obras data={data} update={update} showToast={showToast} />}
           {tab === "equipe" && <Equipe data={data} update={update} showToast={showToast} />}
-          {tab === "ponto" && <Ponto data={data} update={update} showToast={showToast} />}
-          {tab === "folha" && <Folha data={data} showToast={showToast} />}
-          {tab === "relat" && <Relatorios data={data} />}
-          {tab === "ia" && <AgenteIA data={data} showToast={showToast} onTab={setTab} />}
+          {tab === "ponto"  && <Ponto data={data} update={update} showToast={showToast} />}
+          {tab === "folha"  && <Folha data={data} showToast={showToast} />}
+          {tab === "fin"    && <Financeiro data={data} update={update} showToast={showToast} />}
+          {tab === "relat"  && <Relatorios data={data} />}
+          {tab === "ia"     && <AgenteIA data={data} showToast={showToast} onTab={setTab} />}
           {tab === "config" && <Config data={data} update={update} showToast={showToast} />}
         </main>
 
