@@ -504,6 +504,7 @@ const DEFAULT = () => ({
   payments: [],
   terceirizados: [],
   pagsTerceiros: [],
+  rescisoes: [],
   attendanceLocks: {},
   unlockRequests: [],
   dailyCheckDate: "",
@@ -572,6 +573,7 @@ const normalizeData = incoming => {
       startDate: t.startDate || "",
     })) : [],
     pagsTerceiros: Array.isArray(d.pagsTerceiros) ? d.pagsTerceiros : [],
+    rescisoes: Array.isArray(d.rescisoes) ? d.rescisoes : [],
     attendanceLocks: d.attendanceLocks || {},
     unlockRequests: Array.isArray(d.unlockRequests) ? d.unlockRequests : [],
     dailyCheckDate: d.dailyCheckDate || "",
@@ -4454,6 +4456,423 @@ function AgenteIA({ data, showToast, onTab }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// RESCISÃO — cálculo e PDF
+// ═══════════════════════════════════════════════════════════════════
+
+const TIPOS_RESCISAO = [
+  { v: "sem_justa_causa",   l: "Dispensa sem justa causa (empregador)" },
+  { v: "justa_causa",       l: "Dispensa por justa causa" },
+  { v: "pedido_demissao",   l: "Pedido de demissão (funcionário)" },
+  { v: "acordo_mutuo",      l: "Acordo mútuo (art. 484-A CLT)" },
+  { v: "termino_contrato",  l: "Término de contrato de prazo determinado" },
+];
+
+const TIPO_LABEL = Object.fromEntries(TIPOS_RESCISAO.map(t => [t.v, t.l]));
+
+const calcRescisao = (form) => {
+  const { admissao, demissao, valorMensal, diasNoMes, tipo,
+    incluirSaldo, incluir13, incluirFerias, incluirAviso, descAdiantamento, descOutros } = form;
+  if (!admissao || !demissao) return null;
+
+  const dataAdm = new Date(admissao + "T12:00:00");
+  const dataDem = new Date(demissao + "T12:00:00");
+  if (dataDem < dataAdm) return null;
+
+  // Tempo de serviço
+  let anos = dataDem.getFullYear() - dataAdm.getFullYear();
+  let meses = dataDem.getMonth() - dataAdm.getMonth();
+  let dias  = dataDem.getDate()  - dataAdm.getDate();
+  if (dias < 0)  { meses--; dias += 30; }
+  if (meses < 0) { anos--;  meses += 12; }
+  const totalMeses = anos * 12 + meses;
+  const diasResto  = dias;
+  // Avos = meses completos + 1 se fração ≥ 15 dias
+  const avos13     = totalMeses + (diasResto >= 15 ? 1 : 0);
+  const avosFerias = avos13; // mesma base
+
+  const vm  = Number(valorMensal || 0);
+  const dd  = Number(diasNoMes || 0);
+  const descAdiant = Number(descAdiantamento || 0);
+  const descOut    = Number(descOutros || 0);
+
+  const saldoSalario   = incluirSaldo  ? (vm / 30) * dd : 0;
+  const dec13          = incluir13     ? (vm / 12) * avos13 : 0;
+  const feriasBruto    = incluirFerias ? (vm / 12) * avosFerias : 0;
+  const feriasTotal    = feriasBruto * (4 / 3); // com 1/3 constitucional
+  const aviso          = incluirAviso && tipo === "sem_justa_causa" ? vm : 0;
+  const avisoAcordo    = incluirAviso && tipo === "acordo_mutuo"    ? vm * 0.5 : 0;
+  const avisoPrevio    = aviso + avisoAcordo;
+  const totalBruto     = saldoSalario + dec13 + feriasTotal + avisoPrevio;
+  const totalDesc      = descAdiant + descOut;
+  const totalLiquido   = Math.max(0, totalBruto - totalDesc);
+
+  return {
+    anos, totalMeses, diasResto, avos13, avosFerias,
+    saldoSalario, dec13, feriasBruto, feriasTotal, avisoPrevio,
+    totalBruto, totalDesc, totalLiquido,
+  };
+};
+
+function Rescisao({ data, update, showToast }) {
+  const emptyForm = {
+    empId: "", empName: "", empCPF: "", empFuncao: "", obraName: "",
+    admissao: "", demissao: today(), valorMensal: "", diasNoMes: "",
+    tipo: "sem_justa_causa",
+    incluirSaldo: true, incluir13: true, incluirFerias: true,
+    incluirAviso: false,
+    descAdiantamento: "", descOutros: "", obsDesc: "",
+    obs: "",
+  };
+
+  const [form, setForm]       = useState(emptyForm);
+  const [history, setHistory] = useState(false); // toggle
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+
+  // Ao selecionar funcionário da lista
+  const selectEmp = empId => {
+    if (!empId) { setForm(f => ({ ...f, empId:"", empName:"", empCPF:"", empFuncao:"", obraName:"", admissao:"", valorMensal:"", diasNoMes:"" })); return; }
+    const emp = data.employees.find(e => e.id === empId);
+    if (!emp) return;
+    const obra = data.obras.find(o => o.id === emp.obra);
+    const vm   = Number(emp.dailyRate || 0) * 26; // 26 dias úteis/mês
+    const pendAdv = (data.advances||[]).filter(a => a.empId === empId).reduce((s,a)=>s+Number(a.amount||0),0);
+    setForm(f => ({
+      ...f,
+      empId, empName: emp.name, empCPF: emp.cpf||"",
+      empFuncao: emp.role||"", obraName: obra?.name||"",
+      admissao: emp.startDate||"",
+      valorMensal: String(Math.round(vm)),
+      descAdiantamento: pendAdv > 0 ? String(pendAdv) : "",
+    }));
+  };
+
+  const calc = calcRescisao(form);
+
+  // Salvar rescisão
+  const salvar = () => {
+    if (!form.empName.trim() || !calc) { showToast("Preencha os dados obrigatórios.", "error"); return; }
+    const rec = {
+      id: uid(), ...form,
+      ...calc,
+      createdAt: new Date().toISOString(),
+    };
+    update({ ...data, rescisoes: [...(data.rescisoes||[]), rec] });
+    showToast("Rescisão salva no histórico.");
+  };
+
+  // Gerar PDF
+  const gerarPDF = () => {
+    if (!calc) { showToast("Complete o cálculo primeiro.", "error"); return; }
+    const c = calc;
+    const tempoStr = `${c.anos > 0 ? c.anos+"a " : ""}${c.totalMeses % 12}m ${c.diasResto}d`;
+    const rows = [
+      form.incluirSaldo  && ["Saldo de salário",   `${form.diasNoMes} dias em ${fmtDateFull(form.demissao)}`, c.saldoSalario],
+      form.incluir13     && [`13º salário proporcional`, `${c.avos13}/12 avos`, c.dec13],
+      form.incluirFerias && [`Férias proporcionais + 1/3`, `${c.avosFerias}/12 avos × 4/3`, c.feriasTotal],
+      form.incluirAviso  && c.avisoPrevio > 0 && ["Aviso prévio", "30 dias", c.avisoPrevio],
+    ].filter(Boolean);
+    const descs = [
+      Number(form.descAdiantamento||0) > 0 && ["Adiantamentos", Number(form.descAdiantamento)],
+      Number(form.descOutros||0) > 0       && [form.obsDesc||"Outros descontos", Number(form.descOutros)],
+    ].filter(Boolean);
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Rescisão — ${escapeHtml(form.empName)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Arial',sans-serif;color:#111;background:#fff;padding:32px;font-size:12px}
+  .header{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:3px solid #111;margin-bottom:20px}
+  .logo-box{background:#080808;color:#f6d833;padding:10px 16px;font-family:Georgia,serif;font-size:26px;font-weight:900;letter-spacing:2px;flex-shrink:0}
+  .company-info h1{font-size:18px;font-weight:900;letter-spacing:1px}
+  .company-info p{font-size:11px;color:#555;margin-top:3px}
+  h2{font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin:18px 0 10px;border-bottom:1px solid #ccc;padding-bottom:5px}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;margin-bottom:16px}
+  .info-item p.lbl{font-size:10px;color:#777;text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+  .info-item p.val{font-size:13px;font-weight:600;margin-top:1px}
+  table{width:100%;border-collapse:collapse;margin:12px 0}
+  th{background:#111;color:#fff;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px}
+  td.right{text-align:right;font-weight:700}
+  tr.desc td{color:#c00}
+  tr.subtotal td{background:#f5f5f5;font-weight:900;font-size:13px}
+  tr.total td{background:#111;color:#fff;font-size:15px;font-weight:900;padding:12px 10px}
+  .ext-valor{font-size:12px;color:#555;margin:10px 0 20px;font-style:italic}
+  .declaracao{background:#f9f9f9;border:1px solid #ddd;padding:14px;margin:20px 0;font-size:11px;line-height:1.6}
+  .signs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px}
+  .sign-box{border-top:1px solid #111;padding-top:8px;text-align:center}
+  .sign-box p{font-size:11px;color:#333;margin-top:4px}
+  .sign-box .name{font-weight:900;font-size:13px;margin-top:2px}
+  .footer{margin-top:30px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
+  @media print{button{display:none!important}}
+</style>
+</head>
+<body>
+<button onclick="window.print()" style="position:fixed;top:10px;right:10px;background:#111;color:#f6d833;border:none;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;z-index:99">🖨 Imprimir / PDF</button>
+
+<div class="header">
+  <div class="logo-box">ArcD</div>
+  <div class="company-info">
+    <h1>${escapeHtml(data.config.companyName||"ArcD Construtora")}</h1>
+    ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
+    <p>Recibo de Rescisão de Contrato de Trabalho</p>
+  </div>
+</div>
+
+<h2>Dados do Trabalhador</h2>
+<div class="info-grid">
+  <div class="info-item"><p class="lbl">Nome</p><p class="val">${escapeHtml(form.empName)}</p></div>
+  <div class="info-item"><p class="lbl">CPF</p><p class="val">${escapeHtml(form.empCPF||"—")}</p></div>
+  <div class="info-item"><p class="lbl">Função</p><p class="val">${escapeHtml(form.empFuncao||"—")}</p></div>
+  <div class="info-item"><p class="lbl">Obra</p><p class="val">${escapeHtml(form.obraName||"—")}</p></div>
+  <div class="info-item"><p class="lbl">Data de Admissão</p><p class="val">${fmtDateFull(form.admissao)||"—"}</p></div>
+  <div class="info-item"><p class="lbl">Data de Rescisão</p><p class="val">${fmtDateFull(form.demissao)||"—"}</p></div>
+  <div class="info-item"><p class="lbl">Tempo de Serviço</p><p class="val">${tempoStr}</p></div>
+  <div class="info-item"><p class="lbl">Motivo</p><p class="val">${escapeHtml(TIPO_LABEL[form.tipo]||form.tipo)}</p></div>
+  <div class="info-item"><p class="lbl">Valor Mensal</p><p class="val">R$ ${Number(form.valorMensal||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}</p></div>
+</div>
+
+<h2>Demonstrativo de Valores</h2>
+<table>
+  <thead><tr><th>Verba</th><th>Base de Cálculo</th><th style="text-align:right">Valor (R$)</th></tr></thead>
+  <tbody>
+    ${rows.map(([v,b,val])=>`<tr><td>${escapeHtml(v)}</td><td style="color:#555">${escapeHtml(b)}</td><td class="right">R$ ${Number(val).toLocaleString("pt-BR",{minimumFractionDigits:2})}</td></tr>`).join("")}
+    <tr class="subtotal"><td colspan="2">Subtotal de Vencimentos</td><td class="right">R$ ${c.totalBruto.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td></tr>
+    ${descs.map(([v,val])=>`<tr class="desc"><td>(-) ${escapeHtml(v)}</td><td></td><td class="right">R$ ${Number(val).toLocaleString("pt-BR",{minimumFractionDigits:2})}</td></tr>`).join("")}
+    <tr class="total"><td colspan="2">TOTAL LÍQUIDO A RECEBER</td><td class="right">R$ ${c.totalLiquido.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td></tr>
+  </tbody>
+</table>
+
+<p class="ext-valor">Valor por extenso: <strong>${valorPorExtenso(c.totalLiquido)}</strong></p>
+
+${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml(form.obs)}</div>`:""}
+
+<div class="declaracao">
+  Declaro ter recebido da empresa <strong>${escapeHtml(data.config.companyName||"ArcD Construtora")}</strong> a importância acima discriminada,
+  referente à rescisão do meu contrato de trabalho, dando plena, geral e irrevogável quitação de todos
+  os valores acima mencionados, nada mais tendo a reclamar a qualquer título.
+  <br><br>
+  <strong>Caruaru – PE, ${new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}</strong>
+</div>
+
+<div class="signs">
+  <div class="sign-box">
+    <p class="name">${escapeHtml(form.empName)}</p>
+    <p>Trabalhador(a)</p>
+    <p>CPF: ${escapeHtml(form.empCPF||"________________")}</p>
+  </div>
+  <div class="sign-box">
+    <p class="name">${escapeHtml(data.config.hrName||"Responsável")}</p>
+    <p>${escapeHtml(data.config.companyName||"ArcD Construtora")}</p>
+    ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
+  </div>
+</div>
+
+<div class="footer">Documento gerado pelo ArcD Ponto PRO · ${new Date().toLocaleString("pt-BR")} · Via do empregador / Via do trabalhador</div>
+</body></html>`;
+    const w = window.open("","_blank");
+    w.document.write(html);
+    w.document.close();
+  };
+
+  // Valor por extenso (simplificado até 999.999,99)
+  function valorPorExtenso(n) {
+    if(!n||isNaN(n)) return "zero reais";
+    const inteiro = Math.floor(n);
+    const centavos = Math.round((n - inteiro)*100);
+    const u = ["","um","dois","três","quatro","cinco","seis","sete","oito","nove","dez","onze","doze","treze","quatorze","quinze","dezesseis","dezessete","dezoito","dezenove"];
+    const d = ["","","vinte","trinta","quarenta","cinquenta","sessenta","setenta","oitenta","noventa"];
+    const c = ["","cem","duzentos","trezentos","quatrocentos","quinhentos","seiscentos","setecentos","oitocentos","novecentos"];
+    function grupo(n) {
+      if(n===0) return "";
+      if(n===100) return "cem";
+      const cent = Math.floor(n/100), dez = Math.floor((n%100)/10), un = n%10;
+      const parts = [];
+      if(cent) parts.push(c[cent]);
+      if(dez>=2){ parts.push(d[dez]); if(un) parts.push(u[un]); }
+      else if(dez===1||un) parts.push(u[Math.floor(n%100)>19?un:n%100]);
+      return parts.join(" e ");
+    }
+    const mil = Math.floor(inteiro/1000), resto = inteiro%1000;
+    const partes = [];
+    if(mil>0) partes.push((mil===1?"mil":grupo(mil)+" mil"));
+    if(resto>0) partes.push(grupo(resto)+(resto===1?" real":" reais"));
+    if(partes.length===0) partes.push("zero reais");
+    if(centavos>0) partes.push(grupo(centavos)+(centavos===1?" centavo":" centavos"));
+    return partes.join(" e ");
+  }
+
+  const activeEmps = data.employees.filter(e => e.active !== false);
+  const rescisoes  = (data.rescisoes||[]).slice().reverse();
+
+  return (
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
+
+      {/* Header */}
+      <div style={{background:`linear-gradient(135deg,${C.red}22 0%,${C.card} 65%)`,border:`1px solid ${C.red}44`,borderLeft:`5px solid ${C.red}`,padding:"16px 18px",borderRadius:18}}>
+        <p style={{fontSize:11,fontWeight:900,color:C.red,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Documentos</p>
+        <h2 style={{fontFamily:"'Bebas Neue'",fontSize:34,letterSpacing:2,color:C.text,lineHeight:1}}>Cálculo de Rescisão</h2>
+        <p style={{color:C.muted,fontSize:13,marginTop:4}}>Gere o cálculo e o PDF para assinatura do trabalhador.</p>
+      </div>
+
+      {/* Selecionar funcionário */}
+      <div style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${C.yellow}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
+        <p style={{fontSize:11,fontWeight:900,color:C.yellow,textTransform:"uppercase",letterSpacing:.8}}>① Trabalhador</p>
+        <Sel label="Selecionar da lista (ou preencha manualmente abaixo)"
+          value={form.empId}
+          onChange={selectEmp}
+          options={[{v:"",l:"— Preenchimento manual —"},...activeEmps.map(e=>({v:e.id,l:`${e.name}${e.role?" · "+e.role:""}`}))]}
+        />
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Inp label="Nome completo *" value={form.empName} onChange={F("empName")} placeholder="Nome do trabalhador"/>
+          <Inp label="CPF" value={form.empCPF} onChange={v=>F("empCPF")(fmtCPF(v))} placeholder="000.000.000-00"/>
+          <Inp label="Função" value={form.empFuncao} onChange={F("empFuncao")} placeholder="Pedreiro, servente..."/>
+          <Inp label="Obra" value={form.obraName} onChange={F("obraName")} placeholder="Nome da obra"/>
+        </div>
+      </div>
+
+      {/* Datas e valores */}
+      <div style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${C.orange}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
+        <p style={{fontSize:11,fontWeight:900,color:C.orange,textTransform:"uppercase",letterSpacing:.8}}>② Período e Valores</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Inp label="Data de admissão *"  type="date" value={form.admissao}    onChange={F("admissao")}/>
+          <Inp label="Data de rescisão *"  type="date" value={form.demissao}    onChange={F("demissao")}/>
+          <Inp label="Valor mensal (R$) *" type="number" value={form.valorMensal} onChange={F("valorMensal")} placeholder="Diária × 26 dias"/>
+          <Inp label="Dias trabalhados no mês" type="number" value={form.diasNoMes} onChange={F("diasNoMes")} placeholder="Ex: 12"/>
+        </div>
+        <Sel label="Motivo da rescisão *" value={form.tipo} onChange={F("tipo")} options={TIPOS_RESCISAO}/>
+        {form.admissao && form.demissao && calc && (
+          <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}33`,padding:"10px 14px",borderRadius:10}}>
+            <p style={{fontSize:12,color:C.yellow,fontWeight:700}}>
+              ⏱ {calc.anos > 0 ? `${calc.anos} ano(s), ` : ""}{calc.totalMeses % 12} mês(es) e {calc.diasResto} dia(s) de serviço
+              · <span style={{color:C.subtle}}>{calc.avos13} avo(s) para 13º e férias</span>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Verbas */}
+      <div style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${C.green}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
+        <p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:.8}}>③ Verbas rescisórias</p>
+        {[
+          ["incluirSaldo",  "Saldo de salário",              true],
+          ["incluir13",     "13º salário proporcional",      true],
+          ["incluirFerias", "Férias proporcionais + 1/3",    true],
+          ["incluirAviso",  "Aviso prévio (30 dias)",        false],
+        ].map(([key, label, def]) => (
+          <label key={key} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 10px",background:form[key]?`${C.green}0d`:"transparent",borderRadius:10,border:`1px solid ${form[key]?C.green+"33":C.line}`}}>
+            <div onClick={()=>F(key)(!form[key])} style={{width:20,height:20,border:`2px solid ${form[key]?C.green:C.muted}`,background:form[key]?C.green:"transparent",borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+              {form[key] && <span style={{color:C.ink,fontSize:13,fontWeight:900,lineHeight:1}}>✓</span>}
+            </div>
+            <div style={{flex:1}}>
+              <p style={{fontSize:13,fontWeight:700,color:form[key]?C.text:C.muted}}>{label}</p>
+              {calc && form[key] && (
+                <p style={{fontSize:11,color:C.green,marginTop:1}}>
+                  {key==="incluirSaldo"  && `${form.diasNoMes||0} dias × R$ ${Number((Number(form.valorMensal||0)/30)).toFixed(2)} = ${fmt(calc.saldoSalario)}`}
+                  {key==="incluir13"     && `${calc.avos13}/12 × ${fmt(Number(form.valorMensal||0))} = ${fmt(calc.dec13)}`}
+                  {key==="incluirFerias" && `${calc.avosFerias}/12 × ${fmt(Number(form.valorMensal||0))} × 4/3 = ${fmt(calc.feriasTotal)}`}
+                  {key==="incluirAviso"  && (form.tipo==="sem_justa_causa"||form.tipo==="acordo_mutuo") && `${fmt(calc.avisoPrevio)}`}
+                  {key==="incluirAviso"  && form.tipo!=="sem_justa_causa" && form.tipo!=="acordo_mutuo" && <span style={{color:C.red}}>não aplicável neste tipo de rescisão</span>}
+                </p>
+              )}
+            </div>
+          </label>
+        ))}
+      </div>
+
+      {/* Descontos */}
+      <div style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${C.red}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
+        <p style={{fontSize:11,fontWeight:900,color:C.red,textTransform:"uppercase",letterSpacing:.8}}>④ Descontos</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Inp label="Adiantamentos (R$)" type="number" value={form.descAdiantamento} onChange={F("descAdiantamento")} placeholder="0,00"/>
+          <Inp label="Outros descontos (R$)" type="number" value={form.descOutros} onChange={F("descOutros")} placeholder="0,00"/>
+        </div>
+        {Number(form.descOutros||0)>0 && <Inp label="Descrição dos outros descontos" value={form.obsDesc} onChange={F("obsDesc")} placeholder="Ex.: materiais, equipamentos..."/>}
+      </div>
+
+      {/* Resultado */}
+      {calc ? (
+        <div style={{background:`linear-gradient(135deg,${C.yellow} 0%,${C.yellowD} 60%,#4a3c0a 100%)`,color:C.ink,padding:"18px 20px",borderRadius:18,border:`1px solid ${C.yellow}`}}>
+          <p style={{fontSize:11,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",opacity:.75}}>Total líquido a receber</p>
+          <p style={{fontFamily:"'Bebas Neue'",fontSize:48,letterSpacing:1,lineHeight:.95}}>{fmt(calc.totalLiquido)}</p>
+          <p style={{fontSize:12,fontWeight:700,marginTop:6,opacity:.85}}>{valorPorExtenso(calc.totalLiquido)}</p>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:14}}>
+            {[
+              ["Vencimentos",fmt(calc.totalBruto)],
+              ["Descontos",  fmt(calc.totalDesc)],
+              ["Líquido",    fmt(calc.totalLiquido)],
+            ].map(([l,v])=>(
+              <div key={l} style={{background:"rgba(0,0,0,.15)",padding:"8px 10px",borderRadius:10}}>
+                <p style={{fontSize:9,fontWeight:900,textTransform:"uppercase",opacity:.7}}>{l}</p>
+                <p style={{fontWeight:900,fontSize:15}}>{v}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{background:C.card,border:`1px solid ${C.line}`,padding:20,textAlign:"center",color:C.muted,borderRadius:14}}>
+          Preencha nome, datas e valor mensal para calcular.
+        </div>
+      )}
+
+      {/* Observações e ações */}
+      <Inp label="Observações (aparece no documento)" value={form.obs} onChange={F("obs")} multiline placeholder="Informações adicionais, acordos, pendências..."/>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <Btn v="ghost" onClick={()=>setForm(emptyForm)} full><Ic n="x"/> Limpar</Btn>
+        <Btn v="danger" onClick={gerarPDF} full disabled={!calc}><Ic n="file"/> Gerar PDF</Btn>
+      </div>
+      <Btn onClick={salvar} full disabled={!calc}><Ic n="check"/> Salvar no histórico</Btn>
+
+      {/* Histórico */}
+      <button onClick={()=>setHistory(h=>!h)} style={{background:"transparent",border:`1px solid ${C.line}`,color:C.muted,padding:"10px 14px",cursor:"pointer",borderRadius:12,fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:14,textTransform:"uppercase",letterSpacing:.5,textAlign:"left"}}>
+        {history?"▲ Ocultar":"▼ Ver"} histórico de rescisões ({rescisoes.length})
+      </button>
+
+      {history && rescisoes.length === 0 && (
+        <div style={{background:C.card,border:`1px solid ${C.line}`,padding:16,textAlign:"center",color:C.muted,borderRadius:14}}>
+          Nenhuma rescisão salva ainda.
+        </div>
+      )}
+
+      {history && rescisoes.map(r => (
+        <div key={r.id} style={{background:C.card,border:`1px solid ${C.line}`,borderLeft:`4px solid ${C.red}`,padding:"12px 16px",borderRadius:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+            <div>
+              <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:17}}>{r.empName}</p>
+              <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+                {r.empFuncao&&`${r.empFuncao} · `}{r.obraName&&`${r.obraName} · `}
+                {fmtDateFull(r.admissao)} → {fmtDateFull(r.demissao)}
+              </p>
+              <p style={{fontSize:11,color:C.subtle,marginTop:2}}>{TIPO_LABEL[r.tipo]||r.tipo}</p>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:C.yellow,letterSpacing:.5}}>{fmt(r.totalLiquido)}</p>
+              <p style={{fontSize:10,color:C.muted}}>{new Date(r.createdAt).toLocaleDateString("pt-BR")}</p>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:6,marginTop:10}}>
+            <Btn size="sm" v="ghost" onClick={()=>{setForm({...r});setHistory(false);}}>
+              <Ic n="edit"/> Reabrir
+            </Btn>
+            <Btn size="sm" v="danger" onClick={()=>{
+              const html2 = ""; // Re-uses gerarPDF logic via form re-open
+              showToast("Reabra o cadastro e clique em Gerar PDF.");
+            }}>
+              <Ic n="file"/> PDF
+            </Btn>
+            <Btn size="sm" v="danger" onClick={()=>{
+              if(!window.confirm("Remover esta rescisão do histórico?")) return;
+              update({...data,rescisoes:(data.rescisoes||[]).filter(rc=>rc.id!==r.id)});
+              showToast("Removida.");
+            }}><Ic n="trash"/></Btn>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Configurações / aprovações
 // ═══════════════════════════════════════════════════════════════════
 
@@ -4663,16 +5082,17 @@ export default function App() {
   }, [data, loading, showToast, update]);
 
   const tabs = [
-    { id: "home",   label: "Painel",   icon: "home"     },
-    { id: "obras",  label: "Obras",    icon: "home"     },
-    { id: "equipe", label: "Equipe",   icon: "users"    },
-    { id: "terc",   label: "Terceiros",icon: "terc"     },
-    { id: "ponto",  label: "Ponto",    icon: "clock"    },
-    { id: "folha",  label: "Folha",    icon: "dollar"   },
-    { id: "fin",    label: "Fin.",     icon: "chart"    },
-    { id: "relat",  label: "Custos",   icon: "chart"    },
-    { id: "ia",     label: "IA",       icon: "brain"    },
-    { id: "config", label: "Ajustes",  icon: "settings" },
+    { id: "home",   label: "Painel",    icon: "home"     },
+    { id: "obras",  label: "Obras",     icon: "home"     },
+    { id: "equipe", label: "Equipe",    icon: "users"    },
+    { id: "terc",   label: "Terceiros", icon: "terc"     },
+    { id: "ponto",  label: "Ponto",     icon: "clock"    },
+    { id: "folha",  label: "Folha",     icon: "dollar"   },
+    { id: "resc",   label: "Rescisão",  icon: "file"     },
+    { id: "fin",    label: "Fin.",      icon: "chart"    },
+    { id: "relat",  label: "Custos",    icon: "chart"    },
+    { id: "ia",     label: "IA",        icon: "brain"    },
+    { id: "config", label: "Ajustes",   icon: "settings" },
   ];
 
   if (loading || !data) {
@@ -4728,6 +5148,7 @@ export default function App() {
           {tab === "terc"   && <Terceiros data={data} update={update} showToast={showToast} />}
           {tab === "ponto"  && <Ponto data={data} update={update} showToast={showToast} />}
           {tab === "folha"  && <Folha data={data} showToast={showToast} />}
+          {tab === "resc"   && <Rescisao data={data} update={update} showToast={showToast} />}
           {tab === "fin"    && <Financeiro data={data} update={update} showToast={showToast} />}
           {tab === "relat"  && <Relatorios data={data} />}
           {tab === "ia"     && <AgenteIA data={data} showToast={showToast} onTab={setTab} />}
