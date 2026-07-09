@@ -3686,6 +3686,74 @@ function Terceiros({ data, update, showToast }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// HELPER — Relatório mensal completo por obra
+// ═══════════════════════════════════════════════════════════════════
+
+const calcRelatorioMensal = (data, year, month) => {
+  const days   = getDays(year, month);
+  const ym     = `${year}-${String(month+1).padStart(2,"0")}`;
+  const per0   = days[0]  || "";
+  const perF   = days[days.length-1] || "";
+
+  return data.obras.map(obra => {
+    // Mão de obra própria
+    const moData = calcObraLaborCost(data, obra.id, days);
+
+    // Terceirizados
+    const tercCost = calcObraTercCost(data, obra.id, per0, perF);
+    const tercDetalhes = (data.pagsTerceiros||[]).filter(p =>
+      p.obraId === obra.id && p.date && p.date.startsWith(ym)
+    );
+
+    // Rescisões vinculadas à obra no mês
+    const rescDetalhes = (data.rescisoes||[]).filter(r =>
+      r.obraName === obra.name && r.demissao && r.demissao.startsWith(ym)
+    );
+    const rescTotal = rescDetalhes.reduce((s,r) => s+Number(r.totalLiquido||0), 0);
+
+    // Adiantamentos pagos no mês para funcionários desta obra
+    const empIds = data.employees
+      .filter(e => e.obra===obra.id || e.lastObra===obra.id)
+      .map(e => e.id);
+    const adiantDetalhes = (data.advances||[]).filter(a =>
+      empIds.includes(a.empId) && a.date && a.date.startsWith(ym)
+    );
+    const adiantTotal = adiantDetalhes.reduce((s,a)=>s+Number(a.amount||0),0);
+
+    // Receita recebida no mês
+    const recDetalhes = (data.payments||[]).filter(p =>
+      p.obraId===obra.id && p.date?.startsWith(ym)
+    );
+    const received = recDetalhes.reduce((s,p)=>s+Number(p.amount||0),0);
+
+    // Receita esperada pelo contrato
+    const { revenue: revenueEsperada } = calcObraRevenue(obra, moData.laborCost);
+
+    // Presença
+    const empsDaObra = data.employees.filter(e=>e.obra===obra.id||e.lastObra===obra.id);
+    const presencaDias = empsDaObra.reduce((s,e)=>
+      s+days.filter(d=>attStatus(data,e.id,d)==="P").length, 0);
+    const faltas = empsDaObra.reduce((s,e)=>
+      s+days.filter(d=>attStatus(data,e.id,d)==="F").length, 0);
+    const activeEmps = data.employees.filter(e=>e.active!==false&&e.obra===obra.id).length;
+    const activeTercs = (data.terceirizados||[]).filter(t=>t.active!==false&&t.obraId===obra.id).length;
+
+    // DRE
+    const totalDespesas  = moData.laborCost + moData.benefitCost + tercCost + rescTotal + adiantTotal;
+    const margem         = received - (moData.laborCost + moData.benefitCost + tercCost + rescTotal);
+    const margemEsperada = revenueEsperada - (moData.laborCost + moData.benefitCost + tercCost + rescTotal);
+    const margemPct      = received > 0 ? (margem/received)*100 : 0;
+
+    return {
+      obra, moData, tercCost, tercDetalhes, rescTotal, rescDetalhes,
+      adiantTotal, adiantDetalhes, received, recDetalhes,
+      revenueEsperada, totalDespesas, margem, margemEsperada, margemPct,
+      activeEmps, activeTercs, presencaDias, faltas,
+    };
+  });
+};
+
+// ═══════════════════════════════════════════════════════════════════
 // Relatórios
 // ═══════════════════════════════════════════════════════════════════
 
@@ -3693,6 +3761,7 @@ function Relatorios({ data }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
   const [filterObra, setFilterObra] = useState("all");
+  const [view, setView] = useState("custos"); // "custos" | "relatorio"
 
   const days = getDays(year, month);
   const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
@@ -3897,6 +3966,21 @@ function Relatorios({ data }) {
       <div>
         <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: 30, letterSpacing: 2, color: C.yellow }}>Relatórios</h2>
         <p style={{ color: C.muted, fontSize: 13 }}>Indicadores mensais de presença, gasto por obra e custo de mão de obra por m².</p>
+
+        {/* Toggle de view */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginTop:4 }}>
+          {[["custos","📊 Indicadores"],["relatorio","📋 Relatório Mensal"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setView(v)} style={{
+              padding:"10px 0", border:`2px solid ${view===v?C.yellow:C.line}`,
+              background:view===v?`${C.yellow}18`:"transparent",
+              color:view===v?C.yellow:C.muted,
+              fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:14,letterSpacing:.5,
+              cursor:"pointer",borderRadius:12,
+            }}>{l}</button>
+          ))}
+        </div>
+
+        {/* Seletor de período (compartilhado) */}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -3904,6 +3988,11 @@ function Relatorios({ data }) {
         <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
       </div>
 
+      {/* ── RELATÓRIO MENSAL COMPLETO ───────────────────────── */}
+      {view === "relatorio" && <RelatorioMensal data={data} year={year} month={month}/>}
+
+      {/* ── INDICADORES (view padrão) ───────────────────────── */}
+      {view === "custos" && <>
       <Sel
         label="Filtrar gasto por obra"
         value={filterObra}
@@ -4009,10 +4098,392 @@ function Relatorios({ data }) {
           </div>
         ))}
       </div>
+      </> /* fim view==="custos" */}
     </div>
   );
 }
 
+
+// ═══════════════════════════════════════════════════════════════════
+// RELATÓRIO MENSAL COMPLETO POR OBRA
+// ═══════════════════════════════════════════════════════════════════
+
+function RelatorioMensal({ data, year, month }) {
+  const rows   = useMemo(() => calcRelatorioMensal(data, year, month), [data, year, month]);
+  const period = `${fullMonth(month)} ${year}`;
+
+  // Totais consolidados
+  const tot = rows.reduce((acc, r) => ({
+    received:       acc.received       + r.received,
+    revenueEsp:     acc.revenueEsp     + r.revenueEsperada,
+    laborCost:      acc.laborCost      + r.moData.laborCost,
+    benefitCost:    acc.benefitCost    + r.moData.benefitCost,
+    tercCost:       acc.tercCost       + r.tercCost,
+    rescTotal:      acc.rescTotal      + r.rescTotal,
+    adiantTotal:    acc.adiantTotal    + r.adiantTotal,
+    totalDespesas:  acc.totalDespesas  + r.totalDespesas,
+    margem:         acc.margem         + r.margem,
+  }), { received:0, revenueEsp:0, laborCost:0, benefitCost:0, tercCost:0, rescTotal:0, adiantTotal:0, totalDespesas:0, margem:0 });
+
+  const fmt2 = n => Number(n||0).toFixed(2).replace(".",",");
+
+  // ── PDF ───────────────────────────────────────────────────────
+  const gerarPDF = () => {
+    const dreRow = (label, value, cls="") =>
+      `<tr class="${cls}"><td>${label}</td><td class="val">${value>=0?"":"(-)"} R$ ${fmt2(Math.abs(value))}</td></tr>`;
+
+    const obraBlocks = rows.map(r => `
+      <div class="obra-block">
+        <div class="obra-header">
+          <div>
+            <p class="obra-nome">${escapeHtml(r.obra.name)}</p>
+            <p class="obra-sub">${CONTRACT_LABELS[r.obra.contractType]||"Contrato"} · ${r.activeEmps} func. ativos · ${r.activeTercs} terceiros · ${r.presencaDias} presenças</p>
+          </div>
+          <div class="margem-badge ${r.margem>=0?"pos":"neg"}">
+            <p class="mb-label">Margem</p>
+            <p class="mb-val">R$ ${fmt2(r.margem)}</p>
+            <p class="mb-pct">${r.margemPct.toFixed(1)}%</p>
+          </div>
+        </div>
+        <table class="dre">
+          <thead><tr><th>Descrição</th><th class="val">Valor</th></tr></thead>
+          <tbody>
+            <tr class="section-header"><td colspan="2">RECEITAS</td></tr>
+            ${dreRow("(+) Receita recebida", r.received, "entry")}
+            ${dreRow("(+) Receita esperada (contrato)", r.revenueEsperada, "entry muted")}
+            <tr class="section-header"><td colspan="2">DESPESAS</td></tr>
+            ${dreRow("(-) Mão de obra própria", r.moData.laborCost, "entry desp")}
+            ${dreRow("(-) Benefícios (VT/VR)", r.moData.benefitCost, "entry desp")}
+            ${dreRow("(-) Terceirizados", r.tercCost, "entry desp")}
+            ${r.rescTotal>0 ? dreRow("(-) Rescisões", r.rescTotal, "entry desp") : ""}
+            ${r.adiantTotal>0 ? dreRow("(-) Adiantamentos", r.adiantTotal, "entry desp") : ""}
+            <tr class="subtotal desp"><td>Total de Despesas</td><td class="val">R$ ${fmt2(r.totalDespesas)}</td></tr>
+            <tr class="section-header"><td colspan="2">RESULTADO</td></tr>
+            <tr class="result ${r.margem>=0?"pos":"neg"}"><td>Margem (Receb. − Desp.)</td><td class="val">R$ ${fmt2(r.margem)}</td></tr>
+            <tr class="result-esp"><td>Margem Esperada</td><td class="val">R$ ${fmt2(r.margemEsperada)}</td></tr>
+          </tbody>
+        </table>
+        ${r.tercDetalhes.length>0 ? `
+          <p class="detail-title">Terceirizados pagos no mês:</p>
+          <ul class="detail-list">${r.tercDetalhes.map(p=>`<li>${escapeHtml(p.tercName||"—")} — R$ ${fmt2(p.amount)} (${fmtDateFull(p.date)})</li>`).join("")}</ul>` : ""}
+        ${r.rescDetalhes.length>0 ? `
+          <p class="detail-title">Rescisões no mês:</p>
+          <ul class="detail-list">${r.rescDetalhes.map(r=>`<li>${escapeHtml(r.empName||"—")} — R$ ${fmt2(r.totalLiquido)} (${fmtDateFull(r.demissao)})</li>`).join("")}</ul>` : ""}
+      </div>`).join("");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Relatório Mensal — ${escapeHtml(period)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;color:#111;background:#fff;padding:28px;font-size:11px}
+.print-btn{position:fixed;top:10px;right:10px;background:#080808;color:#f6d833;border:none;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;z-index:99}
+.page-header{display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:3px solid #080808;margin-bottom:20px}
+.logo-box{background:#080808;color:#f6d833;padding:10px 16px;font-family:Georgia,serif;font-size:24px;font-weight:900;letter-spacing:2px;flex-shrink:0}
+.company h1{font-size:17px;font-weight:900;letter-spacing:.5px}
+.company p{font-size:10px;color:#666;margin-top:2px}
+.period{font-size:20px;font-weight:900;text-align:right;flex:1;color:#080808}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0;page-break-inside:avoid}
+.sum-card{border:1px solid #ddd;padding:10px 12px;border-top:3px solid #ccc}
+.sum-card.green{border-top-color:#16a34a}.sum-card.red{border-top-color:#dc2626}.sum-card.blue{border-top-color:#2563eb}.sum-card.purple{border-top-color:#9333ea}
+.sum-card .sc-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#777}
+.sum-card .sc-val{font-size:16px;font-weight:900;margin-top:4px}
+h2{font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;margin:22px 0 10px;border-bottom:1.5px solid #080808;padding-bottom:5px}
+.obra-block{margin-bottom:24px;page-break-inside:avoid;border:1px solid #e5e7eb;border-radius:2px;overflow:hidden}
+.obra-header{background:#f9f9f9;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #e5e7eb}
+.obra-nome{font-size:14px;font-weight:900;letter-spacing:.3px}
+.obra-sub{font-size:10px;color:#777;margin-top:3px}
+.margem-badge{text-align:right;min-width:100px}
+.margem-badge.pos .mb-val{color:#16a34a}.margem-badge.neg .mb-val{color:#dc2626}
+.mb-label{font-size:9px;color:#999;text-transform:uppercase;font-weight:700}
+.mb-val{font-size:16px;font-weight:900;margin-top:1px}
+.mb-pct{font-size:10px;color:#999;margin-top:1px}
+table.dre{width:100%;border-collapse:collapse;font-size:11px}
+table.dre th{background:#080808;color:#fff;padding:6px 10px;text-align:left;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+table.dre th.val,table.dre td.val{text-align:right;min-width:110px}
+table.dre td{padding:5px 10px;border-bottom:1px solid #f0f0f0}
+.section-header td{background:#f3f4f6;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:#555;padding:4px 10px}
+.entry.desp td{color:#333}.entry.muted td{color:#999;font-style:italic}
+.subtotal td{font-weight:900;background:#fef2f2;color:#dc2626;font-size:12px;border-top:2px solid #fca5a5}
+.subtotal.desp td{background:#fef2f2}
+.result td{font-weight:900;font-size:13px;border-top:2px solid #080808}
+.result.pos td{color:#16a34a}.result.neg td{color:#dc2626}
+.result-esp td{color:#9333ea;font-weight:700;font-size:11px;border-bottom:2px solid #080808}
+.detail-title{font-size:10px;font-weight:700;color:#555;margin:8px 14px 3px;text-transform:uppercase;letter-spacing:.5px}
+.detail-list{font-size:10px;color:#666;margin:0 14px 10px;padding-left:14px}
+.detail-list li{margin-bottom:2px}
+.consolidado table.dre{border:2px solid #080808}
+.consolidado th{background:#080808}
+.footer{margin-top:30px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #eee;padding-top:8px}
+@media print{.print-btn{display:none!important} body{padding:18px}}
+</style></head>
+<body>
+<button class="print-btn" onclick="window.print()">🖨 Imprimir / PDF</button>
+<div class="page-header">
+  <div class="logo-box">ArcD</div>
+  <div class="company">
+    <h1>${escapeHtml(data.config.companyName||"ArcD Construtora")}</h1>
+    ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
+    <p>Relatório Gerencial Mensal</p>
+  </div>
+  <div class="period">${escapeHtml(period)}</div>
+</div>
+
+<div class="summary">
+  <div class="sum-card green"><p class="sc-label">Receita recebida</p><p class="sc-val">R$ ${fmt2(tot.received)}</p></div>
+  <div class="sum-card blue"><p class="sc-label">Custo MO própria</p><p class="sc-val">R$ ${fmt2(tot.laborCost+tot.benefitCost)}</p></div>
+  <div class="sum-card purple"><p class="sc-label">Terceiros + Rescisões</p><p class="sc-val">R$ ${fmt2(tot.tercCost+tot.rescTotal)}</p></div>
+  <div class="sum-card ${tot.margem>=0?"green":"red"}"><p class="sc-label">Margem global</p><p class="sc-val">R$ ${fmt2(tot.margem)}</p></div>
+</div>
+
+<h2>Detalhamento por Obra</h2>
+${obraBlocks}
+
+<h2>Consolidado Geral — ${escapeHtml(period)}</h2>
+<div class="consolidado">
+<table class="dre">
+  <thead><tr><th>Descrição</th><th class="val">Valor</th></tr></thead>
+  <tbody>
+    <tr class="section-header"><td colspan="2">RECEITAS</td></tr>
+    ${dreRow("(+) Receita recebida total", tot.received, "entry")}
+    ${dreRow("(+) Receita esperada total", tot.revenueEsp, "entry muted")}
+    <tr class="section-header"><td colspan="2">DESPESAS</td></tr>
+    ${dreRow("(-) Mão de obra própria", tot.laborCost, "entry desp")}
+    ${dreRow("(-) Benefícios (VT/VR)", tot.benefitCost, "entry desp")}
+    ${dreRow("(-) Terceirizados", tot.tercCost, "entry desp")}
+    ${tot.rescTotal>0?dreRow("(-) Rescisões", tot.rescTotal, "entry desp"):""}
+    ${tot.adiantTotal>0?dreRow("(-) Adiantamentos", tot.adiantTotal, "entry desp"):""}
+    <tr class="subtotal desp"><td>Total de Despesas</td><td class="val">R$ ${fmt2(tot.totalDespesas)}</td></tr>
+    <tr class="section-header"><td colspan="2">RESULTADO FINAL</td></tr>
+    <tr class="result ${tot.margem>=0?"pos":"neg"}"><td><strong>Margem Global (Receb. − Desp.)</strong></td><td class="val"><strong>R$ ${fmt2(tot.margem)}</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="footer">Gerado por ArcD Ponto PRO · ${new Date().toLocaleString("pt-BR")} · ${escapeHtml(data.config.hrName||"")}</div>
+</body></html>`;
+    const w = window.open("","_blank"); w.document.write(html); w.document.close();
+  };
+
+  // ── Excel ─────────────────────────────────────────────────────
+  const exportXLS = () => {
+    const wb = XLSX.utils.book_new();
+
+    // Aba 1 — Resumo consolidado
+    const ws1 = XLSX.utils.aoa_to_sheet([
+      [`Relatório Mensal — ${period}`],
+      [`Empresa: ${data.config.companyName||"ArcD"}`],
+      [],
+      ["Indicador","Valor"],
+      ["Receita recebida",        tot.received],
+      ["Receita esperada",        tot.revenueEsp],
+      ["(-) Mão de obra própria", tot.laborCost],
+      ["(-) Benefícios",          tot.benefitCost],
+      ["(-) Terceirizados",       tot.tercCost],
+      ["(-) Rescisões",           tot.rescTotal],
+      ["(-) Adiantamentos",       tot.adiantTotal],
+      ["Total despesas",          tot.totalDespesas],
+      ["Margem global",           tot.margem],
+    ]);
+    ws1["!cols"] = [{wch:28},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, ws1, "Resumo");
+
+    // Aba 2 — Detalhe por obra
+    const header2 = ["Obra","Tipo Contrato","Recebido","Receita Esp.","MO Própria","Benefícios","Terceiros","Rescisões","Adiantamentos","Total Desp.","Margem","Margem %","Presenças","Faltas","Func.Ativos","Terceiros Ativos"];
+    const body2 = rows.map(r=>[
+      r.obra.name,
+      CONTRACT_LABELS[r.obra.contractType]||r.obra.contractType,
+      r.received, r.revenueEsperada,
+      r.moData.laborCost, r.moData.benefitCost,
+      r.tercCost, r.rescTotal, r.adiantTotal, r.totalDespesas,
+      r.margem, r.margemPct.toFixed(1)+"%",
+      r.presencaDias, r.faltas, r.activeEmps, r.activeTercs,
+    ]);
+    const total2 = ["TOTAL","",tot.received,tot.revenueEsp,tot.laborCost,tot.benefitCost,tot.tercCost,tot.rescTotal,tot.adiantTotal,tot.totalDespesas,tot.margem,"","","","",""];
+    const ws2 = XLSX.utils.aoa_to_sheet([[`Detalhe por obra — ${period}`],[],header2,...body2,total2]);
+    ws2["!cols"] = [22,16,12,12,12,12,12,12,12,12,12,10,10,8,10,12].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws2, "Por Obra");
+
+    // Aba 3 — Pagamentos recebidos
+    const h3=["Data","Obra","Valor","Descrição"];
+    const b3=rows.flatMap(r=>r.recDetalhes.map(p=>[p.date, r.obra.name, p.amount, p.description]));
+    const ws3=XLSX.utils.aoa_to_sheet([[`Pagamentos recebidos — ${period}`],[],h3,...b3]);
+    ws3["!cols"]=[12,22,12,30].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws3, "Recebimentos");
+
+    // Aba 4 — Terceiros
+    const h4=["Data","Obra","Terceirizado","Especialidade","Valor","Descrição"];
+    const b4=rows.flatMap(r=>r.tercDetalhes.map(p=>[p.date,r.obra.name,p.tercName||"—",p.specialty||"—",p.amount,p.description||"—"]));
+    const ws4=XLSX.utils.aoa_to_sheet([[`Pagamentos terceiros — ${period}`],[],h4,...b4]);
+    ws4["!cols"]=[12,22,20,14,12,28].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws4, "Terceiros");
+
+    // Aba 5 — Rescisões
+    const h5=["Obra","Funcionário","CPF","Admissão","Rescisão","Tipo","Total Líquido"];
+    const b5=rows.flatMap(r=>r.rescDetalhes.map(rc=>[r.obra.name,rc.empName||"—",rc.empCPF||"—",rc.admissao,rc.demissao,TIPO_LABEL[rc.tipo]||rc.tipo,rc.totalLiquido]));
+    if(b5.length>0){
+      const ws5=XLSX.utils.aoa_to_sheet([[`Rescisões — ${period}`],[],h5,...b5]);
+      ws5["!cols"]=[22,22,14,12,12,30,12].map(w=>({wch:w}));
+      XLSX.utils.book_append_sheet(wb, ws5, "Rescisões");
+    }
+
+    XLSX.writeFile(wb, `arcd-relatorio-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
+  };
+
+  // ── UI ────────────────────────────────────────────────────────
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:14}} className="anim">
+
+      {/* Cabeçalho */}
+      <div style={{
+        background:`linear-gradient(135deg,${C.yellow} 0%,${C.yellowD} 55%,#4a3c0a 100%)`,
+        color:C.ink, padding:"16px 20px", borderRadius:18,
+        border:`1px solid ${C.yellow}`, boxShadow:`0 20px 50px ${C.yellow}18`,
+      }}>
+        <p style={{fontSize:11,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",opacity:.7}}>Relatório Gerencial</p>
+        <h2 style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:2,lineHeight:1,margin:"4px 0 8px"}}>{fullMonth(month)} {year}</h2>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginTop:10}}>
+          {[
+            ["Receita recebida", fmt(tot.received),  C.green],
+            ["Margem global",    fmt(tot.margem),    tot.margem>=0?"#14532d":"#7f1d1d"],
+            ["Total despesas",   fmt(tot.totalDespesas), C.red],
+            ["Receita esperada", fmt(tot.revenueEsp), "#1e3a5f"],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{background:"rgba(0,0,0,.18)",padding:"8px 12px",borderRadius:10}}>
+              <p style={{fontSize:9,fontWeight:900,textTransform:"uppercase",opacity:.7}}>{l}</p>
+              <p style={{fontWeight:900,fontSize:16,marginTop:2}}>{v}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Ações */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> Relatório PDF</Btn>
+        <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Excel Completo</Btn>
+      </div>
+
+      {/* Cards por obra */}
+      {rows.map(r => {
+        const margemColor = r.margem >= 0 ? C.green : C.red;
+        return (
+          <div key={r.obra.id} style={{
+            background:C.card, border:`1px solid ${C.line}`,
+            borderLeft:`5px solid ${margemColor}`, borderRadius:16, overflow:"hidden",
+          }}>
+            {/* Header da obra */}
+            <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+              <div>
+                <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:18,letterSpacing:.3}}>{r.obra.name}</p>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>
+                  <Badge color={C.yellow}>{CONTRACT_LABELS[r.obra.contractType]||"Contrato"}</Badge>
+                  <Badge color={C.blue}>{r.activeEmps} func.</Badge>
+                  {r.activeTercs>0&&<Badge color={C.orange}>{r.activeTercs} terceiros</Badge>}
+                  <Badge color={C.muted}>{r.presencaDias} presenças</Badge>
+                </div>
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:margemColor,letterSpacing:.5,lineHeight:1}}>{fmt(r.margem)}</p>
+                <p style={{fontSize:10,color:C.muted,marginTop:2}}>margem {r.margemPct.toFixed(0)}%</p>
+              </div>
+            </div>
+
+            {/* DRE mini */}
+            <div style={{padding:"10px 16px",display:"flex",flexDirection:"column",gap:0}}>
+              {/* Receitas */}
+              <p style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>Receitas</p>
+              {[
+                ["Recebido no mês",  r.received,         C.green],
+                ["Esperado (contrato)", r.revenueEsperada, C.subtle],
+              ].map(([l,v,c])=>(
+                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:`1px solid ${C.line}44`}}>
+                  <p style={{fontSize:12,color:c}}>{l}</p>
+                  <p style={{fontSize:12,color:c,fontWeight:700}}>{fmt(v)}</p>
+                </div>
+              ))}
+
+              {/* Despesas */}
+              <p style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginTop:8,marginBottom:4}}>Despesas</p>
+              {[
+                ["(-) MO própria",       r.moData.laborCost,   C.orange],
+                ["(-) Benefícios VT/VR", r.moData.benefitCost, C.muted],
+                ["(-) Terceirizados",    r.tercCost,           C.purple, r.tercCost===0],
+                ["(-) Rescisões",        r.rescTotal,          C.red,    r.rescTotal===0],
+                ["(-) Adiantamentos",    r.adiantTotal,        C.muted,  r.adiantTotal===0],
+              ].filter(([,,, skip])=>!skip).map(([l,v,c])=>(
+                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:`1px solid ${C.line}44`}}>
+                  <p style={{fontSize:12,color:C.muted}}>{l}</p>
+                  <p style={{fontSize:12,color:c,fontWeight:700}}>{fmt(v)}</p>
+                </div>
+              ))}
+
+              {/* Totais */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:10}}>
+                <div style={{background:C.surface,border:`1px solid ${C.line}`,padding:"8px 10px",borderRadius:10}}>
+                  <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>Total despesas</p>
+                  <p style={{fontSize:15,color:C.red,fontWeight:900,marginTop:2}}>{fmt(r.totalDespesas)}</p>
+                </div>
+                <div style={{background:C.surface,border:`1px solid ${margemColor}44`,padding:"8px 10px",borderRadius:10}}>
+                  <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>Margem esp.</p>
+                  <p style={{fontSize:15,color:r.margemEsperada>=0?C.green:C.red,fontWeight:900,marginTop:2}}>{fmt(r.margemEsperada)}</p>
+                </div>
+              </div>
+
+              {/* Detalhe terceiros/rescisões se houver */}
+              {r.tercDetalhes.length>0&&(
+                <div style={{marginTop:8}}>
+                  <p style={{fontSize:10,fontWeight:700,color:C.purple,textTransform:"uppercase",marginBottom:3}}>Terceiros pagos</p>
+                  {r.tercDetalhes.map(p=>(
+                    <div key={p.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,padding:"2px 0"}}>
+                      <span>{p.tercName||"—"} <span style={{color:C.muted,fontSize:10}}>({fmtDateFull(p.date)})</span></span>
+                      <span style={{color:C.purple,fontWeight:700}}>{fmt(p.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {r.rescDetalhes.length>0&&(
+                <div style={{marginTop:8}}>
+                  <p style={{fontSize:10,fontWeight:700,color:C.red,textTransform:"uppercase",marginBottom:3}}>Rescisões</p>
+                  {r.rescDetalhes.map(rc=>(
+                    <div key={rc.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,padding:"2px 0"}}>
+                      <span>{rc.empName||"—"} <span style={{color:C.muted,fontSize:10}}>({TIPO_LABEL[rc.tipo]||rc.tipo})</span></span>
+                      <span style={{color:C.red,fontWeight:700}}>{fmt(rc.totalLiquido)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Totais finais */}
+      <div style={{background:C.card,border:`2px solid ${C.yellow}`,borderRadius:16,padding:"14px 16px"}}>
+        <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:16,color:C.yellow,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>Consolidado Geral — {fullMonth(month)} {year}</p>
+        {[
+          ["Receita recebida",  tot.received,          C.green],
+          ["Receita esperada",  tot.revenueEsp,        C.subtle],
+          ["MO própria",        tot.laborCost,         C.orange],
+          ["Benefícios",        tot.benefitCost,       C.muted],
+          ["Terceirizados",     tot.tercCost,          C.purple],
+          ["Rescisões",         tot.rescTotal,         C.red],
+          ["Adiantamentos",     tot.adiantTotal,       C.muted],
+          ["Total despesas",    tot.totalDespesas,     C.red],
+          ["Margem global",     tot.margem,            tot.margem>=0?C.green:C.red],
+        ].map(([l,v,c])=>(
+          <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${C.line}44`}}>
+            <p style={{fontSize:13,color:C.muted}}>{l}</p>
+            <p style={{fontSize:13,color:c,fontWeight:900}}>{fmt(v)}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> PDF</Btn>
+        <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Excel</Btn>
+      </div>
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // Agente de IA — apoio operacional
