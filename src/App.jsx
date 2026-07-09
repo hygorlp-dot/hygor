@@ -4465,13 +4465,15 @@ const TIPOS_RESCISAO = [
   { v: "pedido_demissao",   l: "Pedido de demissão (funcionário)" },
   { v: "acordo_mutuo",      l: "Acordo mútuo (art. 484-A CLT)" },
   { v: "termino_contrato",  l: "Término de contrato de prazo determinado" },
+  { v: "acordo_interno",    l: "Acordo interno — valor fixo × tempo ativo" },
 ];
 
 const TIPO_LABEL = Object.fromEntries(TIPOS_RESCISAO.map(t => [t.v, t.l]));
 
 const calcRescisao = (form) => {
   const { admissao, demissao, valorMensal, diasNoMes, tipo,
-    incluirSaldo, incluir13, incluirFerias, incluirAviso, descAdiantamento, descOutros } = form;
+    incluirSaldo, incluir13, incluirFerias, incluirAviso,
+    valorFixoAcordo, descAdiantamento, descOutros } = form;
   if (!admissao || !demissao) return null;
 
   const dataAdm = new Date(admissao + "T12:00:00");
@@ -4479,34 +4481,52 @@ const calcRescisao = (form) => {
   if (dataDem < dataAdm) return null;
 
   // Tempo de serviço
-  let anos = dataDem.getFullYear() - dataAdm.getFullYear();
-  let meses = dataDem.getMonth() - dataAdm.getMonth();
-  let dias  = dataDem.getDate()  - dataAdm.getDate();
+  let anos  = dataDem.getFullYear() - dataAdm.getFullYear();
+  let meses = dataDem.getMonth()    - dataAdm.getMonth();
+  let dias  = dataDem.getDate()     - dataAdm.getDate();
   if (dias < 0)  { meses--; dias += 30; }
   if (meses < 0) { anos--;  meses += 12; }
   const totalMeses = anos * 12 + meses;
   const diasResto  = dias;
-  // Avos = meses completos + 1 se fração ≥ 15 dias
   const avos13     = totalMeses + (diasResto >= 15 ? 1 : 0);
-  const avosFerias = avos13; // mesma base
+  const avosFerias = avos13;
 
-  const vm  = Number(valorMensal || 0);
-  const dd  = Number(diasNoMes || 0);
-  const descAdiant = Number(descAdiantamento || 0);
-  const descOut    = Number(descOutros || 0);
+  const vm          = Number(valorMensal || 0);
+  const dd          = Number(diasNoMes   || 0);
+  const descAdiant  = Number(descAdiantamento || 0);
+  const descOut     = Number(descOutros       || 0);
+  const totalDesc   = descAdiant + descOut;
 
-  const saldoSalario   = incluirSaldo  ? (vm / 30) * dd : 0;
-  const dec13          = incluir13     ? (vm / 12) * avos13 : 0;
-  const feriasBruto    = incluirFerias ? (vm / 12) * avosFerias : 0;
-  const feriasTotal    = feriasBruto * (4 / 3); // com 1/3 constitucional
-  const aviso          = incluirAviso && tipo === "sem_justa_causa" ? vm : 0;
-  const avisoAcordo    = incluirAviso && tipo === "acordo_mutuo"    ? vm * 0.5 : 0;
-  const avisoPrevio    = aviso + avisoAcordo;
-  const totalBruto     = saldoSalario + dec13 + feriasTotal + avisoPrevio;
-  const totalDesc      = descAdiant + descOut;
-  const totalLiquido   = Math.max(0, totalBruto - totalDesc);
+  // ── ACORDO INTERNO — cálculo especial ──────────────────────────
+  if (tipo === "acordo_interno") {
+    const vf = Number(valorFixoAcordo || vm || 0);
+    // Meses completos + fração proporcional de dias
+    const mesesAtivos = totalMeses + (diasResto / 30);
+    const totalBruto  = vf * mesesAtivos;
+    const totalLiquido = Math.max(0, totalBruto - totalDesc);
+    return {
+      isAcordoInterno: true,
+      anos, totalMeses, diasResto, avos13: 0, avosFerias: 0,
+      mesesAtivos: Number(mesesAtivos.toFixed(4)),
+      valorFixoAcordo: vf,
+      saldoSalario: 0, dec13: 0, feriasBruto: 0, feriasTotal: 0, avisoPrevio: 0,
+      totalBruto, totalDesc, totalLiquido,
+    };
+  }
+
+  // ── DEMAIS MODALIDADES ─────────────────────────────────────────
+  const saldoSalario = incluirSaldo  ? (vm / 30) * dd : 0;
+  const dec13        = incluir13     ? (vm / 12) * avos13 : 0;
+  const feriasBruto  = incluirFerias ? (vm / 12) * avosFerias : 0;
+  const feriasTotal  = feriasBruto * (4 / 3);
+  const aviso        = incluirAviso && tipo === "sem_justa_causa" ? vm       : 0;
+  const avisoAcordo  = incluirAviso && tipo === "acordo_mutuo"    ? vm * 0.5 : 0;
+  const avisoPrevio  = aviso + avisoAcordo;
+  const totalBruto   = saldoSalario + dec13 + feriasTotal + avisoPrevio;
+  const totalLiquido = Math.max(0, totalBruto - totalDesc);
 
   return {
+    isAcordoInterno: false,
     anos, totalMeses, diasResto, avos13, avosFerias,
     saldoSalario, dec13, feriasBruto, feriasTotal, avisoPrevio,
     totalBruto, totalDesc, totalLiquido,
@@ -4518,6 +4538,7 @@ function Rescisao({ data, update, showToast }) {
     empId: "", empName: "", empCPF: "", empFuncao: "", obraName: "",
     admissao: "", demissao: today(), valorMensal: "", diasNoMes: "",
     tipo: "sem_justa_causa",
+    valorFixoAcordo: "",
     incluirSaldo: true, incluir13: true, incluirFerias: true,
     incluirAviso: false,
     descAdiantamento: "", descOutros: "", obsDesc: "",
@@ -4565,12 +4586,16 @@ function Rescisao({ data, update, showToast }) {
     if (!calc) { showToast("Complete o cálculo primeiro.", "error"); return; }
     const c = calc;
     const tempoStr = `${c.anos > 0 ? c.anos+"a " : ""}${c.totalMeses % 12}m ${c.diasResto}d`;
-    const rows = [
-      form.incluirSaldo  && ["Saldo de salário",   `${form.diasNoMes} dias em ${fmtDateFull(form.demissao)}`, c.saldoSalario],
-      form.incluir13     && [`13º salário proporcional`, `${c.avos13}/12 avos`, c.dec13],
-      form.incluirFerias && [`Férias proporcionais + 1/3`, `${c.avosFerias}/12 avos × 4/3`, c.feriasTotal],
-      form.incluirAviso  && c.avisoPrevio > 0 && ["Aviso prévio", "30 dias", c.avisoPrevio],
-    ].filter(Boolean);
+    const rows = c.isAcordoInterno
+      ? [["Acordo interno — valor fixo × tempo ativo",
+          `${fmt(c.valorFixoAcordo)} × ${c.mesesAtivos.toFixed(2)} meses`,
+          c.totalBruto]]
+      : [
+          form.incluirSaldo  && ["Saldo de salário",   `${form.diasNoMes} dias em ${fmtDateFull(form.demissao)}`, c.saldoSalario],
+          form.incluir13     && [`13º salário proporcional`, `${c.avos13}/12 avos`, c.dec13],
+          form.incluirFerias && [`Férias proporcionais + 1/3`, `${c.avosFerias}/12 avos × 4/3`, c.feriasTotal],
+          form.incluirAviso  && c.avisoPrevio > 0 && ["Aviso prévio", "30 dias", c.avisoPrevio],
+        ].filter(Boolean);
     const descs = [
       Number(form.descAdiantamento||0) > 0 && ["Adiantamentos", Number(form.descAdiantamento)],
       Number(form.descOutros||0) > 0       && [form.obsDesc||"Outros descontos", Number(form.descOutros)],
@@ -4740,6 +4765,34 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
           <Inp label="Dias trabalhados no mês" type="number" value={form.diasNoMes} onChange={F("diasNoMes")} placeholder="Ex: 12"/>
         </div>
         <Sel label="Motivo da rescisão *" value={form.tipo} onChange={F("tipo")} options={TIPOS_RESCISAO}/>
+
+        {/* Acordo interno — campo especial */}
+        {form.tipo === "acordo_interno" && (
+          <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderLeft:`4px solid ${C.yellow}`,padding:"12px 14px",borderRadius:12,display:"flex",flexDirection:"column",gap:10}}>
+            <p style={{fontSize:12,fontWeight:700,color:C.yellow}}>⭐ Acordo Interno — cálculo simplificado</p>
+            <p style={{fontSize:12,color:C.subtle}}>
+              Total = Valor fixo mensal × meses ativos (+ fração proporcional de dias).
+            </p>
+            <Inp
+              label="Valor fixo mensal do acordo (R$) *"
+              type="number"
+              value={form.valorFixoAcordo}
+              onChange={F("valorFixoAcordo")}
+              placeholder={form.valorMensal ? `Sugerido: R$ ${Number(form.valorMensal).toLocaleString("pt-BR")}` : "Ex.: 3.000,00"}
+            />
+            {calc && calc.isAcordoInterno && (
+              <div style={{background:`${C.yellow}20`,borderRadius:10,padding:"10px 14px"}}>
+                <p style={{fontSize:13,color:C.yellow,fontWeight:900}}>
+                  {fmt(Number(form.valorFixoAcordo||form.valorMensal||0))} × {calc.mesesAtivos.toFixed(2)} meses = {fmt(calc.totalBruto)}
+                </p>
+                <p style={{fontSize:11,color:C.subtle,marginTop:3}}>
+                  ({calc.totalMeses} meses completos + {calc.diasResto} dias = {calc.mesesAtivos.toFixed(4)} meses)
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {form.admissao && form.demissao && calc && (
           <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}33`,padding:"10px 14px",borderRadius:10}}>
             <p style={{fontSize:12,color:C.yellow,fontWeight:700}}>
@@ -4750,7 +4803,8 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
         )}
       </div>
 
-      {/* Verbas */}
+      {/* Verbas rescisórias — ocultar no acordo interno */}
+      {form.tipo !== "acordo_interno" && (
       <div style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${C.green}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
         <p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:.8}}>③ Verbas rescisórias</p>
         {[
@@ -4778,6 +4832,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
           </label>
         ))}
       </div>
+      )} {/* fim {form.tipo !== "acordo_interno"} */}
 
       {/* Descontos */}
       <div style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${C.red}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
@@ -4983,6 +5038,51 @@ function Config({ data, update, showToast }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// NAVEGAÇÃO — grupos e sub-tabs
+// ═══════════════════════════════════════════════════════════════════
+
+const NAV_GROUPS = [
+  {
+    id: "painel", label: "Painel", icon: "home", color: C.yellow,
+    tabs: ["home"],
+  },
+  {
+    id: "obras_grp", label: "Obras", icon: "home", color: C.blue,
+    tabs: ["obras", "ponto", "equipe", "terc"],
+  },
+  {
+    id: "rh_grp", label: "RH", icon: "users", color: C.green,
+    tabs: ["folha", "resc"],
+  },
+  {
+    id: "fin_grp", label: "Financeiro", icon: "dollar", color: C.purple,
+    tabs: ["fin", "relat"],
+  },
+  {
+    id: "ia_grp", label: "IA", icon: "brain", color: C.orange,
+    tabs: ["ia"],
+  },
+  {
+    id: "cfg_grp", label: "Ajustes", icon: "settings", color: C.muted,
+    tabs: ["config"],
+  },
+];
+
+const TAB_META = {
+  home:   { label: "Dashboard",  icon: "home",     group: "painel"   },
+  obras:  { label: "Obras",      icon: "home",     group: "obras_grp"},
+  ponto:  { label: "Ponto",      icon: "clock",    group: "obras_grp"},
+  equipe: { label: "Equipe",     icon: "users",    group: "obras_grp"},
+  terc:   { label: "Terceiros",  icon: "terc",     group: "obras_grp"},
+  folha:  { label: "Folha",      icon: "dollar",   group: "rh_grp"  },
+  resc:   { label: "Rescisão",   icon: "file",     group: "rh_grp"  },
+  fin:    { label: "KPIs",       icon: "chart",    group: "fin_grp" },
+  relat:  { label: "Relatórios", icon: "chart",    group: "fin_grp" },
+  ia:     { label: "IA",         icon: "brain",    group: "ia_grp"  },
+  config: { label: "Ajustes",    icon: "settings", group: "cfg_grp" },
+};
+
+// ═══════════════════════════════════════════════════════════════════
 // App principal
 // ═══════════════════════════════════════════════════════════════════
 
@@ -5081,29 +5181,50 @@ export default function App() {
     window.history.replaceState({}, "", window.location.pathname + window.location.hash);
   }, [data, loading, showToast, update]);
 
-  const tabs = [
-    { id: "home",   label: "Painel",    icon: "home"     },
-    { id: "obras",  label: "Obras",     icon: "home"     },
-    { id: "equipe", label: "Equipe",    icon: "users"    },
-    { id: "terc",   label: "Terceiros", icon: "terc"     },
-    { id: "ponto",  label: "Ponto",     icon: "clock"    },
-    { id: "folha",  label: "Folha",     icon: "dollar"   },
-    { id: "resc",   label: "Rescisão",  icon: "file"     },
-    { id: "fin",    label: "Fin.",      icon: "chart"    },
-    { id: "relat",  label: "Custos",    icon: "chart"    },
-    { id: "ia",     label: "IA",        icon: "brain"    },
-    { id: "config", label: "Ajustes",   icon: "settings" },
-  ];
+  // ── Navegação por grupos ────────────────────────────────────────
+  const activeGroup  = NAV_GROUPS.find(g => g.tabs.includes(tab)) || NAV_GROUPS[0];
+  const hasSubTabs   = activeGroup.tabs.length > 1;
+  const navHeight    = hasSubTabs ? 132 : 80;
+
+  const goGroup = (group) => {
+    // Se já está no grupo, não muda de sub-tab
+    if (group.tabs.includes(tab)) return;
+    setTab(group.tabs[0]);
+  };
+
+  // Alerta rápido: ponto pendente hoje?
+  const pontoPending = data
+    ? getObraAttendanceSummary(data, today()).some(o => o.hasTeam && !o.completed)
+    : false;
+
+  // Alerta: terceiros a pagar esta sexta?
+  const tercPending = data ? (() => {
+    const fri = getFridayOfWeek(0);
+    const { start: ws } = getWeekRange(fri);
+    return (data.terceirizados||[]).filter(t=>t.active!==false).some(
+      t => !(data.pagsTerceiros||[]).some(p=>p.tercId===t.id&&p.date>=ws&&p.date<=fri)
+    );
+  })() : false;
+
+  // Badges por grupo
+  const groupBadge = {
+    obras_grp: pontoPending ? "!" : null,
+    rh_grp:    null,
+    fin_grp:   null,
+    ia_grp:    tercPending ? "!" : null,
+    painel:    null,
+    cfg_grp:   null,
+  };
 
   if (loading || !data) {
     return (
       <>
         <style>{G}</style>
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ width: 44, height: 44, border: `4px solid ${C.border}`, borderTopColor: C.yellow, borderRadius: "50%", animation: "spin 1s linear infinite", margin: "0 auto 14px" }} />
-            <BrandMark />
-            <p style={{ color: C.muted, marginTop: 14 }}>Carregando operação...</p>
+        <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:C.bg }}>
+          <div style={{ textAlign:"center" }}>
+            <div style={{ width:44, height:44, border:`4px solid ${C.border}`, borderTopColor:C.yellow, borderRadius:"50%", animation:"spin 1s linear infinite", margin:"0 auto 14px" }}/>
+            <BrandMark/>
+            <p style={{ color:C.muted, marginTop:14 }}>Carregando operação...</p>
           </div>
         </div>
       </>
@@ -5113,83 +5234,153 @@ export default function App() {
   return (
     <>
       <style>{G}</style>
-      <div style={{ minHeight: "100vh", background: "transparent", color: C.text, paddingBottom: 92 }}>
-        <header className="no-print" style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(9,9,7,.86)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${C.line}` }}>
-          <div style={{ maxWidth: 1080, margin: "0 auto", padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <BrandMark compact />
+      <div style={{ minHeight:"100vh", background:"transparent", color:C.text, paddingBottom:navHeight+8 }}>
+
+        {/* ── HEADER ─────────────────────────────────────────────── */}
+        <header className="no-print" style={{
+          position:"sticky", top:0, zIndex:50,
+          background:"rgba(9,9,7,.92)", backdropFilter:"blur(18px)",
+          borderBottom:`1px solid ${C.line}`,
+        }}>
+          <div style={{ maxWidth:1080, margin:"0 auto", padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <BrandMark compact/>
+              {/* Breadcrumb */}
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ fontSize:11, color:activeGroup.color, fontWeight:900, textTransform:"uppercase", letterSpacing:.8 }}>
+                  {activeGroup.label}
+                </span>
+                {hasSubTabs && (
+                  <>
+                    <span style={{ fontSize:11, color:C.muted }}>›</span>
+                    <span style={{ fontSize:11, color:C.subtle, fontWeight:700 }}>
+                      {TAB_META[tab]?.label}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            {/* Ação rápida contextual */}
             <button
               onClick={() => setTab("ponto")}
               style={{
-                background: tab === "ponto" ? C.yellow : `${C.yellow}16`,
-                color: tab === "ponto" ? C.ink : C.yellow,
-                border: `1px solid ${C.yellow}`,
-                borderRadius: 999,
-                padding: "9px 13px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 7,
-                cursor: "pointer",
-                fontFamily: "'Barlow Condensed'",
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: .8,
-                "--ic-color": tab === "ponto" ? C.ink : C.yellow,
+                background: tab==="ponto" ? C.blue : `${C.blue}18`,
+                color: tab==="ponto" ? C.ink : C.blue,
+                border:`1px solid ${C.blue}`,
+                borderRadius:999, padding:"8px 12px",
+                display:"inline-flex", alignItems:"center", gap:6,
+                cursor:"pointer", fontFamily:"'Barlow Condensed'",
+                fontWeight:900, textTransform:"uppercase", letterSpacing:.8,
+                fontSize:13, flexShrink:0,
+                "--ic-color": tab==="ponto" ? C.ink : C.blue,
+                position:"relative",
               }}
             >
-              <Ic n="clock" /> Ponto agora
+              <Ic n="clock" s={15}/> Ponto
+              {pontoPending && tab!=="ponto" && (
+                <span style={{ position:"absolute", top:-4, right:-4, width:10, height:10, background:C.red, borderRadius:"50%", border:`2px solid ${C.bg}` }}/>
+              )}
             </button>
           </div>
         </header>
 
-        <main style={{ maxWidth: 1080, margin: "0 auto", padding: 14 }}>
-          {tab === "home"   && <Dashboard data={data} onTab={setTab} />}
-          {tab === "obras"  && <Obras data={data} update={update} showToast={showToast} />}
-          {tab === "equipe" && <Equipe data={data} update={update} showToast={showToast} />}
-          {tab === "terc"   && <Terceiros data={data} update={update} showToast={showToast} />}
-          {tab === "ponto"  && <Ponto data={data} update={update} showToast={showToast} />}
-          {tab === "folha"  && <Folha data={data} showToast={showToast} />}
-          {tab === "resc"   && <Rescisao data={data} update={update} showToast={showToast} />}
-          {tab === "fin"    && <Financeiro data={data} update={update} showToast={showToast} />}
-          {tab === "relat"  && <Relatorios data={data} />}
-          {tab === "ia"     && <AgenteIA data={data} showToast={showToast} onTab={setTab} />}
-          {tab === "config" && <Config data={data} update={update} showToast={showToast} />}
+        {/* ── CONTEÚDO ───────────────────────────────────────────── */}
+        <main style={{ maxWidth:1080, margin:"0 auto", padding:14 }}>
+          {tab === "home"   && <Dashboard   data={data} onTab={setTab} />}
+          {tab === "obras"  && <Obras       data={data} update={update} showToast={showToast} />}
+          {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
+          {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} />}
+          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
+          {tab === "folha"  && <Folha       data={data} showToast={showToast} />}
+          {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
+          {tab === "fin"    && <Financeiro  data={data} update={update} showToast={showToast} />}
+          {tab === "relat"  && <Relatorios  data={data} />}
+          {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
+          {tab === "config" && <Config      data={data} update={update} showToast={showToast} />}
         </main>
 
-        <nav className="no-print" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "rgba(17,17,15,.92)", backdropFilter: "blur(18px)", borderTop: `1px solid ${C.line}`, zIndex: 80 }}>
-          <div style={{ maxWidth: 1080, margin: "0 auto", display: "flex", gap: 7, overflowX: "auto", padding: "8px 10px 10px" }}>
-            {tabs.map(t => {
-              const active = tab === t.id;
-              const isMainPoint = t.id === "ponto";
-              return (
-                <button key={t.id} onClick={() => setTab(t.id)} style={{
-                  minWidth: isMainPoint ? 92 : 72,
-                  background: isMainPoint ? (active ? C.yellow : `${C.yellow}18`) : active ? `${C.yellow}13` : "transparent",
-                  color: isMainPoint ? (active ? C.ink : C.yellow) : active ? C.yellow : C.muted,
-                  border: isMainPoint ? `1px solid ${C.yellow}` : `1px solid ${active ? C.yellow + "55" : "transparent"}`,
-                  borderRadius: 16,
-                  padding: isMainPoint ? "10px 8px" : "9px 7px",
-                  cursor: "pointer",
-                  fontSize: 10,
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: .4,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 3,
-                  boxShadow: isMainPoint ? `0 0 28px ${C.yellow}20` : "none",
-                  "--ic-color": isMainPoint ? (active ? C.ink : C.yellow) : C.yellow,
-                  flex: "0 0 auto",
-                }}>
-                  <Ic n={t.icon} s={isMainPoint ? 21 : 17} />
-                  {t.label}
-                </button>
-              );
-            })}
+        {/* ── NAV 2 NÍVEIS ───────────────────────────────────────── */}
+        <nav className="no-print" style={{
+          position:"fixed", bottom:0, left:0, right:0, zIndex:80,
+          background:"rgba(9,9,7,.96)", backdropFilter:"blur(20px)",
+          borderTop:`1px solid ${C.line}`,
+          boxShadow:`0 -8px 32px rgba(0,0,0,.45)`,
+        }}>
+          <div style={{ maxWidth:1080, margin:"0 auto" }}>
+
+            {/* Sub-tabs (só aparece quando grupo tem >1 aba) */}
+            {hasSubTabs && (
+              <div style={{
+                display:"flex", gap:5, overflowX:"auto", padding:"8px 12px 6px",
+                borderBottom:`1px solid ${C.line}55`,
+                scrollbarWidth:"none",
+              }}>
+                {activeGroup.tabs.map(tabId => {
+                  const meta = TAB_META[tabId];
+                  const isActive = tab === tabId;
+                  return (
+                    <button key={tabId} onClick={() => setTab(tabId)} style={{
+                      flexShrink:0,
+                      background: isActive ? `${activeGroup.color}22` : "transparent",
+                      color: isActive ? activeGroup.color : C.muted,
+                      border: `1.5px solid ${isActive ? activeGroup.color : C.line}`,
+                      borderRadius:999, padding:"5px 14px",
+                      fontFamily:"'Barlow Condensed'", fontWeight:900, fontSize:13,
+                      letterSpacing:.5, cursor:"pointer", whiteSpace:"nowrap",
+                      display:"flex", alignItems:"center", gap:5,
+                      transition:"all .15s ease",
+                      "--ic-color": isActive ? activeGroup.color : C.muted,
+                    }}>
+                      <Ic n={meta.icon} s={12}/>
+                      {meta.label}
+                      {isActive && <span style={{ width:5, height:5, background:activeGroup.color, borderRadius:"50%", flexShrink:0 }}/>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Grupos principais */}
+            <div style={{
+              display:"grid",
+              gridTemplateColumns:`repeat(${NAV_GROUPS.length}, 1fr)`,
+              padding:"6px 8px 10px",
+            }}>
+              {NAV_GROUPS.map(group => {
+                const isActive = activeGroup.id === group.id;
+                const badge = groupBadge[group.id];
+                return (
+                  <button key={group.id} onClick={() => goGroup(group)} style={{
+                    background: isActive ? `${group.color}15` : "transparent",
+                    color: isActive ? group.color : C.muted,
+                    border:"none",
+                    borderTop: isActive ? `2px solid ${group.color}` : "2px solid transparent",
+                    padding:"7px 4px 4px",
+                    cursor:"pointer", fontSize:9, fontWeight:900,
+                    textTransform:"uppercase", letterSpacing:.5,
+                    display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+                    position:"relative",
+                    transition:"all .15s ease",
+                    "--ic-color": isActive ? group.color : C.muted,
+                  }}>
+                    <Ic n={group.icon} s={isActive ? 20 : 18}/>
+                    {group.label}
+                    {badge && (
+                      <span style={{
+                        position:"absolute", top:4, right:"calc(50% - 14px)",
+                        background:C.red, color:"#fff",
+                        width:8, height:8, borderRadius:"50%",
+                        border:`2px solid ${C.bg}`, fontSize:0,
+                      }}/>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </nav>
       </div>
-      <Toast toast={toast} />
+      <Toast toast={toast}/>
     </>
   );
 }
