@@ -495,13 +495,14 @@ const DEFAULT = () => ({
     paymentHolidays: [],
   },
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0 },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0 },
+    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0 },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0 },
   ],
   employees: [],
   attendance: {},
   advances: [],
   payments: [],
+  medicoes: [],
   terceirizados: [],
   pagsTerceiros: [],
   rescisoes: [],
@@ -536,6 +537,8 @@ const normalizeData = incoming => {
       contractType: o.contractType || "fixed_labor",
       contractValue: Number(o.contractValue || 0),
       adminPercentage: Number(o.adminPercentage || 0),
+      billingType: o.billingType || "mensal_fixo",
+      parcelaMensal: Number(o.parcelaMensal || 0),
     })) : base.obras,
     employees: Array.isArray(d.employees) ? d.employees.map(e => ({
       id: e.id || uid(),
@@ -559,6 +562,19 @@ const normalizeData = incoming => {
     attendance: d.attendance || {},
     advances: Array.isArray(d.advances) ? d.advances : [],
     payments: Array.isArray(d.payments) ? d.payments : [],
+    medicoes: Array.isArray(d.medicoes) ? d.medicoes.map(m => ({
+      id: m.id || uid(),
+      obraId: m.obraId || "",
+      competencia: m.competencia || "",       // "YYYY-MM"
+      tipo: m.tipo || "mensal_fixo",          // "mensal_fixo" | "percentual"
+      percentualAcumulado: Number(m.percentualAcumulado || 0),
+      percentualPeriodo: Number(m.percentualPeriodo || 0),
+      valorPrevisto: Number(m.valorPrevisto || 0),
+      valorRecebido: Number(m.valorRecebido || 0),
+      dataPagamento: m.dataPagamento || "",
+      descricao: m.descricao || "",
+      recebido: !!m.recebido,
+    })) : [],
     terceirizados: Array.isArray(d.terceirizados) ? d.terceirizados.map(t => ({
       id: t.id || uid(),
       name: t.name || "",
@@ -1208,6 +1224,401 @@ function Dashboard({ data, onTab }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// MEDIÇÕES / FATURAMENTO — por obra
+// ═══════════════════════════════════════════════════════════════════
+
+const BILLING_LABELS = {
+  mensal_fixo: "Parcela mensal fixa",
+  percentual:  "Por % de avanço",
+  livre:       "Livre",
+};
+
+function MedicoesView({ data, update, showToast }) {
+  const now = new Date();
+  const [selObra, setSelObra]   = useState(data.obras[0]?.id || "");
+  const [modal,   setModal]     = useState(false);
+  const [editId,  setEditId]    = useState(null);
+
+  const emptyM = {
+    competencia: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`,
+    tipo: "mensal_fixo",
+    percentualAcumulado: "",
+    valorPrevisto: "",
+    valorRecebido: "",
+    dataPagamento: today(),
+    descricao: "",
+    recebido: false,
+  };
+  const [form, setForm] = useState(emptyM);
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+
+  const obra = data.obras.find(o => o.id === selObra);
+  const medicoes = (data.medicoes || [])
+    .filter(m => m.obraId === selObra)
+    .sort((a, b) => a.competencia.localeCompare(b.competencia));
+
+  // Percentual acumulado anterior (para calcular período)
+  const prevAcumulado = (competencia) => {
+    const sorted = medicoes.filter(m => m.tipo==="percentual" && m.competencia < competencia);
+    return sorted.length ? sorted[sorted.length-1].percentualAcumulado : 0;
+  };
+
+  // Cálculo do valor previsto conforme tipo
+  const calcPrevisto = (f, o) => {
+    if (!o) return 0;
+    if (f.tipo === "mensal_fixo") return Number(o.parcelaMensal || f.valorPrevisto || 0);
+    if (f.tipo === "percentual") {
+      const prev = prevAcumulado(f.competencia);
+      const periodo = Math.max(0, Number(f.percentualAcumulado||0) - prev);
+      return (periodo / 100) * Number(o.contractValue || 0);
+    }
+    return Number(f.valorPrevisto || 0);
+  };
+
+  // Totais
+  const totalPrevisto = medicoes.reduce((s,m) => s+m.valorPrevisto, 0);
+  const totalRecebido = medicoes.filter(m=>m.recebido).reduce((s,m) => s+m.valorRecebido, 0);
+  const totalPendente = medicoes.filter(m=>!m.recebido).reduce((s,m) => s+m.valorPrevisto, 0);
+  const saldo         = Number(obra?.contractValue||0) - totalRecebido;
+  const pctRecebido   = obra?.contractValue>0 ? (totalRecebido/obra.contractValue)*100 : 0;
+
+  const openNew = () => {
+    const defaultTipo = obra?.billingType || "mensal_fixo";
+    const pct = defaultTipo === "percentual"
+      ? Math.min(100, (prevAcumulado("9999-99")||0) + 10)
+      : 0;
+    setForm({
+      ...emptyM,
+      tipo: defaultTipo,
+      percentualAcumulado: defaultTipo === "percentual" ? String(pct) : "",
+      valorPrevisto: obra?.parcelaMensal>0 ? String(obra.parcelaMensal) : "",
+    });
+    setEditId(null);
+    setModal(true);
+  };
+
+  const openEdit = m => {
+    setForm({
+      competencia:         m.competencia,
+      tipo:                m.tipo,
+      percentualAcumulado: String(m.percentualAcumulado||""),
+      valorPrevisto:       String(m.valorPrevisto||""),
+      valorRecebido:       String(m.valorRecebido||""),
+      dataPagamento:       m.dataPagamento||today(),
+      descricao:           m.descricao||"",
+      recebido:            m.recebido,
+    });
+    setEditId(m.id);
+    setModal(true);
+  };
+
+  const saveMedicao = () => {
+    if (!selObra) { showToast("Selecione uma obra.", "error"); return; }
+    if (!form.competencia) { showToast("Informe a competência.", "error"); return; }
+
+    const previsto = calcPrevisto(form, obra);
+    const periodo  = form.tipo==="percentual"
+      ? Math.max(0, Number(form.percentualAcumulado||0) - prevAcumulado(form.competencia))
+      : 0;
+
+    const payload = {
+      id: editId || uid(),
+      obraId: selObra,
+      competencia:         form.competencia,
+      tipo:                form.tipo,
+      percentualAcumulado: Number(form.percentualAcumulado||0),
+      percentualPeriodo:   periodo,
+      valorPrevisto:       previsto,
+      valorRecebido:       form.recebido ? Number(form.valorRecebido||previsto) : 0,
+      dataPagamento:       form.recebido ? (form.dataPagamento||today()) : "",
+      descricao:           form.descricao,
+      recebido:            form.recebido,
+    };
+
+    const medicoes = editId
+      ? (data.medicoes||[]).map(m => m.id===editId ? payload : m)
+      : [...(data.medicoes||[]), payload];
+
+    update({ ...data, medicoes });
+    setModal(false);
+    showToast(editId ? "Medição atualizada." : "Medição registrada.");
+  };
+
+  const toggleRecebido = (m) => {
+    const updated = {
+      ...m,
+      recebido: !m.recebido,
+      valorRecebido: !m.recebido ? (m.valorPrevisto) : 0,
+      dataPagamento: !m.recebido ? today() : "",
+    };
+    const medicoes = (data.medicoes||[]).map(x => x.id===m.id ? updated : x);
+    update({ ...data, medicoes });
+    showToast(!m.recebido ? "Marcado como recebido." : "Marcado como pendente.");
+  };
+
+  const deleteMedicao = id => {
+    if (!window.confirm("Remover esta medição?")) return;
+    update({ ...data, medicoes: (data.medicoes||[]).filter(m => m.id!==id) });
+    showToast("Medição removida.");
+  };
+
+  // Percentual acumulado da obra (último lançado)
+  const pctObraAtual = medicoes.length
+    ? Math.max(...medicoes.filter(m=>m.tipo==="percentual").map(m=>m.percentualAcumulado), 0)
+    : 0;
+
+  // Valor previsto em tempo real no form
+  const formPrevisto = calcPrevisto(form, obra);
+  const formPeriodo  = form.tipo==="percentual"
+    ? Math.max(0, Number(form.percentualAcumulado||0) - prevAcumulado(form.competencia === emptyM.competencia && !editId ? form.competencia : form.competencia))
+    : 0;
+
+  return (
+    <div className="anim" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+      {/* Header */}
+      <div style={{ background:`linear-gradient(135deg,${C.blue}22,${C.card} 65%)`, border:`1px solid ${C.blue}44`, borderLeft:`5px solid ${C.blue}`, padding:"16px 18px", borderRadius:18 }}>
+        <p style={{ fontSize:11, fontWeight:900, color:C.blue, textTransform:"uppercase", letterSpacing:1.2, marginBottom:4 }}>Faturamento estruturado</p>
+        <h2 style={{ fontFamily:"'Bebas Neue'", fontSize:34, letterSpacing:2, color:C.text, lineHeight:1 }}>Medições por Obra</h2>
+        <p style={{ color:C.muted, fontSize:13, marginTop:4 }}>Parcela fixa mensal, avanço percentual ou lançamento livre.</p>
+      </div>
+
+      {/* Seletor de obra */}
+      <Sel
+        label="Obra"
+        value={selObra}
+        onChange={setSelObra}
+        options={data.obras.map(o => ({ v:o.id, l:`${o.name} · ${BILLING_LABELS[o.billingType]||"—"}` }))}
+      />
+
+      {obra && (
+        <>
+          {/* Info da obra */}
+          <div style={{ background:C.card, border:`1px solid ${C.line}`, borderTop:`3px solid ${C.blue}`, padding:"12px 16px", borderRadius:16 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+              <div>
+                <p style={{ fontFamily:"'Barlow Condensed'", fontWeight:900, fontSize:17 }}>{obra.name}</p>
+                <p style={{ fontSize:12, color:C.muted, marginTop:2 }}>
+                  {CONTRACT_LABELS[obra.contractType]} · {BILLING_LABELS[obra.billingType]}
+                  {obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && ` · ${fmt(obra.parcelaMensal)}/mês`}
+                  {obra.billingType==="percentual" && obra.contractValue>0 && ` · Contrato ${fmt(obra.contractValue)}`}
+                </p>
+              </div>
+              <Btn onClick={openNew} size="sm"><Ic n="plus"/> Nova</Btn>
+            </div>
+
+            {/* Barra de progresso */}
+            {obra.contractValue > 0 && (
+              <div style={{ marginTop:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <p style={{ fontSize:11, color:C.muted }}>Recebido: {fmt(totalRecebido)} de {fmt(obra.contractValue)}</p>
+                  <p style={{ fontSize:11, fontWeight:900, color:pctRecebido>100?C.red:C.blue }}>{pctRecebido.toFixed(1)}%</p>
+                </div>
+                <div style={{ height:7, background:C.surface, borderRadius:99, overflow:"hidden" }}>
+                  <div style={{ height:"100%", width:`${Math.min(pctRecebido,100)}%`, background:pctRecebido>100?C.red:C.blue, borderRadius:99, transition:"width .4s" }}/>
+                </div>
+                {obra.billingType==="percentual" && pctObraAtual>0 && (
+                  <p style={{ fontSize:11, color:C.muted, marginTop:4 }}>Avanço físico registrado: {pctObraAtual}%</p>
+                )}
+              </div>
+            )}
+
+            {/* KPIs */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginTop:12 }}>
+              {[
+                ["Faturado",  fmt(totalPrevisto), C.blue],
+                ["Recebido",  fmt(totalRecebido), C.green],
+                ["Pendente",  fmt(totalPendente), totalPendente>0?C.orange:C.muted],
+              ].map(([l,v,c])=>(
+                <div key={l} style={{ background:C.surface, padding:"8px 10px", borderRadius:10 }}>
+                  <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>{l}</p>
+                  <p style={{ fontSize:14, fontWeight:900, color:c, marginTop:2 }}>{v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Lista de medições */}
+          {medicoes.length===0 && (
+            <div style={{ background:C.card, border:`1px solid ${C.line}`, padding:24, textAlign:"center", color:C.muted, borderRadius:14 }}>
+              Nenhuma medição registrada para esta obra.
+            </div>
+          )}
+
+          {medicoes.map((m, idx) => {
+            const prev = medicoes.slice(0,idx).filter(x=>x.tipo==="percentual");
+            const prevPct = prev.length ? prev[prev.length-1].percentualAcumulado : 0;
+            return (
+              <div key={m.id} style={{
+                background: m.recebido ? `${C.green}0a` : C.card,
+                border:`1px solid ${m.recebido?C.green+"44":C.line}`,
+                borderLeft:`5px solid ${m.recebido?C.green:C.blue}`,
+                padding:"12px 16px", borderRadius:14,
+              }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
+                      <p style={{ fontFamily:"'Barlow Condensed'", fontWeight:900, fontSize:17 }}>{compLabel(m.competencia)}</p>
+                      <Badge color={m.recebido?C.green:C.orange}>{m.recebido?"✓ Recebido":"Pendente"}</Badge>
+                      {m.tipo==="percentual" && <Badge color={C.blue}>{prevPct}% → {m.percentualAcumulado}% (+{m.percentualPeriodo.toFixed(1)}%)</Badge>}
+                    </div>
+                    {m.descricao && <p style={{ fontSize:12, color:C.muted, marginBottom:4 }}>{m.descricao}</p>}
+                    <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+                      <div>
+                        <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>Previsto</p>
+                        <p style={{ fontSize:14, fontWeight:900, color:C.blue }}>{fmt(m.valorPrevisto)}</p>
+                      </div>
+                      {m.recebido && (
+                        <div>
+                          <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>Recebido</p>
+                          <p style={{ fontSize:14, fontWeight:900, color:C.green }}>{fmt(m.valorRecebido)}</p>
+                        </div>
+                      )}
+                      {m.recebido && m.dataPagamento && (
+                        <div>
+                          <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>Data</p>
+                          <p style={{ fontSize:13, color:C.subtle }}>{fmtDateFull(m.dataPagamento)}</p>
+                        </div>
+                      )}
+                      {m.recebido && m.valorRecebido !== m.valorPrevisto && (
+                        <div>
+                          <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>Diferença</p>
+                          <p style={{ fontSize:13, color:m.valorRecebido>m.valorPrevisto?C.green:C.red, fontWeight:700 }}>{fmt(m.valorRecebido-m.valorPrevisto)}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:5, flexShrink:0 }}>
+                    <Btn size="sm" v={m.recebido?"ghost":"success"} onClick={()=>toggleRecebido(m)}>
+                      {m.recebido?"Desfazer":"✓ Receber"}
+                    </Btn>
+                    <Btn size="sm" v="ghost" onClick={()=>openEdit(m)}><Ic n="edit"/></Btn>
+                    <Btn size="sm" v="danger" onClick={()=>deleteMedicao(m.id)}><Ic n="trash"/></Btn>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Saldo do contrato */}
+          {obra.contractValue > 0 && (
+            <div style={{ background:C.card, border:`2px solid ${saldo>=0?C.blue:C.red}`, borderRadius:14, padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <p style={{ fontSize:11, fontWeight:900, color:C.muted, textTransform:"uppercase" }}>Saldo do contrato</p>
+                <p style={{ fontSize:13, color:C.muted, marginTop:2 }}>Contrato {fmt(obra.contractValue)} − Recebido {fmt(totalRecebido)}</p>
+              </div>
+              <p style={{ fontFamily:"'Bebas Neue'", fontSize:28, color:saldo>=0?C.blue:C.red, letterSpacing:.5 }}>{fmt(saldo)}</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Modal nova/editar medição */}
+      {modal && obra && (
+        <Modal title={editId?"Editar medição":"Nova medição"} onClose={()=>setModal(false)}>
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+
+            {/* Tipo */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+              {[
+                ["mensal_fixo","📅 Fixo"],
+                ["percentual", "📊 % Avanço"],
+                ["livre",      "✏️ Livre"],
+              ].map(([v,l])=>(
+                <button key={v} onClick={()=>F("tipo")(v)} style={{
+                  padding:"8px 4px", border:`2px solid ${form.tipo===v?C.blue:C.line}`,
+                  background:form.tipo===v?`${C.blue}18`:"transparent",
+                  color:form.tipo===v?C.blue:C.muted,
+                  fontFamily:"'Barlow Condensed'", fontWeight:900, fontSize:13,
+                  cursor:"pointer", borderRadius:10, textAlign:"center",
+                }}>{l}</button>
+              ))}
+            </div>
+
+            {/* Competência */}
+            <div>
+              <p style={{ fontSize:11, fontWeight:700, color:C.subtle, textTransform:"uppercase", marginBottom:5 }}>Competência (mês/ano)</p>
+              <input type="month" value={form.competencia} onChange={e=>F("competencia")(e.target.value)} style={{
+                width:"100%", background:C.card, border:`1px solid ${C.line}`, color:C.text,
+                padding:"11px 13px", borderRadius:14, fontSize:14, outline:"none",
+              }}/>
+            </div>
+
+            {/* Campos por tipo */}
+            {form.tipo === "mensal_fixo" && (
+              <div style={{ background:`${C.blue}10`, border:`1px solid ${C.blue}33`, borderRadius:12, padding:"10px 14px" }}>
+                <p style={{ fontSize:12, color:C.blue, fontWeight:700, marginBottom:6 }}>
+                  Parcela mensal fixa
+                  {obra.parcelaMensal>0 && ` · Configurado: ${fmt(obra.parcelaMensal)}`}
+                </p>
+                <Inp label="Valor da parcela (R$)" type="number" value={form.valorPrevisto} onChange={F("valorPrevisto")} placeholder={obra.parcelaMensal>0?`${obra.parcelaMensal}`:"Ex.: 15.000"}/>
+              </div>
+            )}
+
+            {form.tipo === "percentual" && (
+              <div style={{ background:`${C.blue}10`, border:`1px solid ${C.blue}33`, borderRadius:12, padding:"10px 14px", display:"flex", flexDirection:"column", gap:8 }}>
+                <p style={{ fontSize:12, color:C.blue, fontWeight:700 }}>
+                  Avanço por % da obra
+                  {obra.contractValue>0 && ` · Contrato: ${fmt(obra.contractValue)}`}
+                </p>
+                <Inp label="% acumulado até este mês *" type="number" value={form.percentualAcumulado} onChange={F("percentualAcumulado")} placeholder="Ex.: 35"/>
+                {Number(form.percentualAcumulado)>0 && obra.contractValue>0 && (() => {
+                  const prev = prevAcumulado(editId ? `${form.competencia}_` : form.competencia);
+                  const periodo = Math.max(0, Number(form.percentualAcumulado||0) - prev);
+                  const val = (periodo/100)*Number(obra.contractValue||0);
+                  return (
+                    <div style={{ background:`${C.blue}18`, borderRadius:8, padding:"8px 12px" }}>
+                      <p style={{ fontSize:12, color:C.blue }}>
+                        Avanço anterior: <b>{prev}%</b> → Período: <b>+{periodo.toFixed(1)}%</b>
+                      </p>
+                      <p style={{ fontSize:14, fontWeight:900, color:C.blue, marginTop:2 }}>
+                        Valor calculado: {fmt(val)}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {form.tipo === "livre" && (
+              <Inp label="Valor previsto (R$)" type="number" value={form.valorPrevisto} onChange={F("valorPrevisto")} placeholder="0,00"/>
+            )}
+
+            {/* Recebido? */}
+            <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer", padding:"8px 12px", background:form.recebido?`${C.green}10`:"transparent", borderRadius:10, border:`1px solid ${form.recebido?C.green+"44":C.line}` }}>
+              <div onClick={()=>F("recebido")(!form.recebido)} style={{ width:20, height:20, border:`2px solid ${form.recebido?C.green:C.muted}`, background:form.recebido?C.green:"transparent", borderRadius:5, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
+                {form.recebido && <span style={{ color:C.ink, fontSize:13, fontWeight:900 }}>✓</span>}
+              </div>
+              <p style={{ fontSize:13, fontWeight:700, color:form.recebido?C.green:C.muted }}>Valor já recebido</p>
+            </label>
+
+            {form.recebido && (<>
+              <Inp label="Valor efetivamente recebido (R$)" type="number" value={form.valorRecebido} onChange={F("valorRecebido")} placeholder={String(formPrevisto||"")}/>
+              <Inp label="Data de recebimento" type="date" value={form.dataPagamento} onChange={F("dataPagamento")}/>
+            </>)}
+
+            <Inp label="Descrição / observação" value={form.descricao} onChange={F("descricao")} placeholder="Ex.: Medição #3, Parcela de março..."/>
+
+            {/* Preview do valor */}
+            {formPrevisto > 0 && (
+              <div style={{ background:`${C.blue}15`, border:`1px solid ${C.blue}33`, borderRadius:10, padding:"8px 14px" }}>
+                <p style={{ fontSize:11, color:C.muted }}>Valor que será registrado</p>
+                <p style={{ fontFamily:"'Bebas Neue'", fontSize:26, color:C.blue, letterSpacing:.5 }}>{fmt(formPrevisto)}</p>
+              </div>
+            )}
+
+            <div style={{ display:"flex", gap:8 }}>
+              <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
+              <Btn onClick={saveMedicao} full><Ic n="check"/> Salvar medição</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // FINANCEIRO — KPIs por obra, receitas e contratos
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1534,7 +1945,7 @@ function Financeiro({ data, update, showToast }) {
 // ═══════════════════════════════════════════════════════════════════
 
 function Obras({ data, update, showToast }) {
-  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "" };
+  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "" };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
@@ -1560,6 +1971,7 @@ function Obras({ data, update, showToast }) {
       areaM2,
       contractValue: Number(form.contractValue || 0),
       adminPercentage: Number(form.adminPercentage || 0),
+      parcelaMensal: Number(form.parcelaMensal || 0),
     };
 
     const obras = form.id ? data.obras.map(o => (o.id === form.id ? payload : o)) : [...data.obras, payload];
@@ -1645,6 +2057,14 @@ function Obras({ data, update, showToast }) {
             <Inp label="Valor do contrato (R$)" type="number" value={form.contractValue} onChange={setField("contractValue")} placeholder="0,00"/>
             {(form.contractType === "fixed_labor_admin" || form.contractType === "admin_only") && (
               <Inp label="% de administração" type="number" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12"/>
+            )}
+            <Sel label="Forma de faturamento" value={form.billingType} onChange={setField("billingType")} options={[
+              { v:"mensal_fixo",  l:"Parcela mensal fixa" },
+              { v:"percentual",   l:"Por % de avanço de obra" },
+              { v:"livre",        l:"Livre (lançamento manual)" },
+            ]}/>
+            {form.billingType === "mensal_fixo" && (
+              <Inp label="Valor da parcela mensal (R$)" type="number" value={form.parcelaMensal} onChange={setField("parcelaMensal")} placeholder="Ex.: 15.000"/>
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
@@ -3685,6 +4105,12 @@ function Terceiros({ data, update, showToast }) {
   );
 }
 
+const compLabel = ym => {
+  if (!ym) return "—";
+  const [y, m] = ym.split("-");
+  return `${fullMonth(Number(m)-1)} ${y}`;
+};
+
 // ═══════════════════════════════════════════════════════════════════
 // HELPER — Relatório mensal completo por obra
 // ═══════════════════════════════════════════════════════════════════
@@ -3720,11 +4146,19 @@ const calcRelatorioMensal = (data, year, month) => {
     );
     const adiantTotal = adiantDetalhes.reduce((s,a)=>s+Number(a.amount||0),0);
 
-    // Receita recebida no mês
-    const recDetalhes = (data.payments||[]).filter(p =>
-      p.obraId===obra.id && p.date?.startsWith(ym)
+    // Receita recebida no mês — usa medições estruturadas (prioritário) + payments livres
+    const medDoMes = (data.medicoes||[]).filter(m =>
+      m.obraId===obra.id && m.competencia===ym && m.recebido
     );
-    const received = recDetalhes.reduce((s,p)=>s+Number(p.amount||0),0);
+    const recMedicoes = medDoMes.reduce((s,m)=>s+Number(m.valorRecebido||0),0);
+    const recPagamentos = (data.payments||[]).filter(p =>
+      p.obraId===obra.id && p.date?.startsWith(ym)
+    ).reduce((s,p)=>s+Number(p.amount||0),0);
+    const received = recMedicoes + recPagamentos;
+    const recDetalhes = [
+      ...medDoMes.map(m=>({ id:m.id, date:m.dataPagamento, amount:m.valorRecebido, description:m.descricao||compLabel(m.competencia), tipo:"medicao" })),
+      ...(data.payments||[]).filter(p=>p.obraId===obra.id&&p.date?.startsWith(ym)),
+    ];
 
     // Receita esperada pelo contrato
     const { revenue: revenueEsperada } = calcObraRevenue(obra, moData.laborCost);
@@ -5527,7 +5961,7 @@ const NAV_GROUPS = [
   },
   {
     id: "fin_grp", label: "Financeiro", icon: "dollar", color: C.purple,
-    tabs: ["fin", "relat"],
+    tabs: ["fin", "medicoes", "relat"],
   },
   {
     id: "ia_grp", label: "IA", icon: "brain", color: C.orange,
@@ -5547,8 +5981,9 @@ const TAB_META = {
   terc:   { label: "Terceiros",  icon: "terc",     group: "obras_grp"},
   folha:  { label: "Folha",      icon: "dollar",   group: "rh_grp"  },
   resc:   { label: "Rescisão",   icon: "file",     group: "rh_grp"  },
-  fin:    { label: "KPIs",       icon: "chart",    group: "fin_grp" },
-  relat:  { label: "Relatórios", icon: "chart",    group: "fin_grp" },
+  fin:      { label: "KPIs",        icon: "chart",    group: "fin_grp" },
+  medicoes: { label: "Medições",    icon: "dollar",   group: "fin_grp" },
+  relat:    { label: "Relatórios",  icon: "chart",    group: "fin_grp" },
   ia:     { label: "IA",         icon: "brain",    group: "ia_grp"  },
   config: { label: "Ajustes",    icon: "settings", group: "cfg_grp" },
 };
@@ -5764,8 +6199,9 @@ export default function App() {
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
-          {tab === "fin"    && <Financeiro  data={data} update={update} showToast={showToast} />}
-          {tab === "relat"  && <Relatorios  data={data} />}
+          {tab === "fin"      && <Financeiro  data={data} update={update} showToast={showToast} />}
+          {tab === "medicoes" && <MedicoesView data={data} update={update} showToast={showToast} />}
+          {tab === "relat"    && <Relatorios  data={data} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
           {tab === "config" && <Config      data={data} update={update} showToast={showToast} />}
         </main>
