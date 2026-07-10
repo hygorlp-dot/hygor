@@ -557,8 +557,8 @@ const DEFAULT = () => ({
     paymentHolidays: [],
   },
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0 },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0 },
+    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0 },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0 },
   ],
   employees: [],
   attendance: {},
@@ -603,6 +603,9 @@ const normalizeData = incoming => {
       adminPercentage: Number(o.adminPercentage || 0),
       billingType: o.billingType || "mensal_fixo",
       parcelaMensal: Number(o.parcelaMensal || 0),
+      contractStart: o.contractStart || "",
+      contractEnd:   o.contractEnd   || "",
+      totalParcelas: Number(o.totalParcelas || 0),
     })) : base.obras,
     employees: Array.isArray(d.employees) ? d.employees.map(e => ({
       id: e.id || uid(),
@@ -1946,63 +1949,69 @@ const BILLING_LABELS = {
 };
 
 function MedicoesView({ data, update, showToast }) {
-  const now = new Date();
-  const [selObra, setSelObra]   = useState(data.obras[0]?.id || "");
-  const [modal,   setModal]     = useState(false);
-  const [editId,  setEditId]    = useState(null);
+  const now   = new Date();
+  const [selObra,  setSelObra]  = useState(data.obras[0]?.id || "");
+  const [modal,    setModal]    = useState(false);
+  const [editId,   setEditId]   = useState(null);
+  const [gerarModal, setGerarModal] = useState(false);
+  const [gerarOpts,  setGerarOpts]  = useState({ sobreescrever: false });
 
   const emptyM = {
     competencia: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`,
-    tipo: "mensal_fixo",
-    percentualAcumulado: "",
-    valorPrevisto: "",
-    valorRecebido: "",
-    dataPagamento: today(),
-    descricao: "",
-    recebido: false,
+    tipo: "mensal_fixo", percentualAcumulado: "", valorPrevisto: "",
+    valorRecebido: "", dataPagamento: today(), descricao: "", recebido: false,
   };
   const [form, setForm] = useState(emptyM);
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
 
   const obra = data.obras.find(o => o.id === selObra);
-  const medicoes = (data.medicoes || [])
+  const medicoes = (data.medicoes||[])
     .filter(m => m.obraId === selObra)
-    .sort((a, b) => a.competencia.localeCompare(b.competencia));
+    .sort((a,b) => a.competencia.localeCompare(b.competencia));
 
-  // Percentual acumulado anterior (para calcular período)
-  const prevAcumulado = (competencia) => {
-    const sorted = medicoes.filter(m => m.tipo==="percentual" && m.competencia < competencia);
+  // % acumulado anterior (para calcular período)
+  const prevAcumulado = (competencia, excludeId) => {
+    const sorted = medicoes.filter(m => m.tipo==="percentual" && m.competencia < competencia && m.id !== excludeId);
     return sorted.length ? sorted[sorted.length-1].percentualAcumulado : 0;
   };
 
-  // Cálculo do valor previsto conforme tipo
   const calcPrevisto = (f, o) => {
     if (!o) return 0;
     if (f.tipo === "mensal_fixo") return Number(o.parcelaMensal || f.valorPrevisto || 0);
     if (f.tipo === "percentual") {
-      const prev = prevAcumulado(f.competencia);
+      const prev = prevAcumulado(f.competencia, editId || undefined);
       const periodo = Math.max(0, Number(f.percentualAcumulado||0) - prev);
       return (periodo / 100) * Number(o.contractValue || 0);
     }
     return Number(f.valorPrevisto || 0);
   };
 
-  // Totais
+  // ── Totais ──────────────────────────────────────────────────
   const totalPrevisto = medicoes.reduce((s,m) => s+m.valorPrevisto, 0);
   const totalRecebido = medicoes.filter(m=>m.recebido).reduce((s,m) => s+m.valorRecebido, 0);
   const totalPendente = medicoes.filter(m=>!m.recebido).reduce((s,m) => s+m.valorPrevisto, 0);
   const saldo         = Number(obra?.contractValue||0) - totalRecebido;
   const pctRecebido   = obra?.contractValue>0 ? (totalRecebido/obra.contractValue)*100 : 0;
+  const pctFaturado   = obra?.contractValue>0 ? (totalPrevisto/obra.contractValue)*100 : 0;
 
+  // ── Abrir nova medição com defaults inteligentes ─────────────
   const openNew = () => {
     const defaultTipo = obra?.billingType || "mensal_fixo";
-    const pct = defaultTipo === "percentual"
-      ? Math.min(100, (prevAcumulado("9999-99")||0) + 10)
-      : 0;
+    const pctAtual = defaultTipo === "percentual"
+      ? Math.min(100, (prevAcumulado("9999-99")||0) + 10) : 0;
+    // Próxima competência após a última medição
+    const ultimaComp = medicoes.length ? medicoes[medicoes.length-1].competencia : null;
+    let proximaComp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+    if (ultimaComp) {
+      const [y,m] = ultimaComp.split("-").map(Number);
+      const d = new Date(y, m, 1); // próximo mês
+      proximaComp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    }
     setForm({
       ...emptyM,
+      competencia: proximaComp,
       tipo: defaultTipo,
-      percentualAcumulado: defaultTipo === "percentual" ? String(pct) : "",
+      percentualAcumulado: defaultTipo === "percentual" ? String(pctAtual) : "",
       valorPrevisto: obra?.parcelaMensal>0 ? String(obra.parcelaMensal) : "",
     });
     setEditId(null);
@@ -2011,317 +2020,392 @@ function MedicoesView({ data, update, showToast }) {
 
   const openEdit = m => {
     setForm({
-      competencia:         m.competencia,
-      tipo:                m.tipo,
+      competencia: m.competencia, tipo: m.tipo,
       percentualAcumulado: String(m.percentualAcumulado||""),
-      valorPrevisto:       String(m.valorPrevisto||""),
-      valorRecebido:       String(m.valorRecebido||""),
-      dataPagamento:       m.dataPagamento||today(),
-      descricao:           m.descricao||"",
-      recebido:            m.recebido,
+      valorPrevisto: String(m.valorPrevisto||""), valorRecebido: String(m.valorRecebido||""),
+      dataPagamento: m.dataPagamento||today(), descricao: m.descricao||"", recebido: m.recebido,
     });
     setEditId(m.id);
     setModal(true);
   };
 
   const saveMedicao = () => {
-    if (!selObra) { showToast("Selecione uma obra.", "error"); return; }
-    if (!form.competencia) { showToast("Informe a competência.", "error"); return; }
-
+    if (!selObra) { showToast("Selecione uma obra.","error"); return; }
+    if (!form.competencia) { showToast("Informe a competência.","error"); return; }
     const previsto = calcPrevisto(form, obra);
     const periodo  = form.tipo==="percentual"
-      ? Math.max(0, Number(form.percentualAcumulado||0) - prevAcumulado(form.competencia))
-      : 0;
-
+      ? Math.max(0, Number(form.percentualAcumulado||0) - prevAcumulado(form.competencia, editId||undefined)) : 0;
     const payload = {
-      id: editId || uid(),
-      obraId: selObra,
-      competencia:         form.competencia,
-      tipo:                form.tipo,
-      percentualAcumulado: Number(form.percentualAcumulado||0),
-      percentualPeriodo:   periodo,
-      valorPrevisto:       previsto,
-      valorRecebido:       form.recebido ? Number(form.valorRecebido||previsto) : 0,
-      dataPagamento:       form.recebido ? (form.dataPagamento||today()) : "",
-      descricao:           form.descricao,
-      recebido:            form.recebido,
+      id: editId || uid(), obraId: selObra,
+      competencia: form.competencia, tipo: form.tipo,
+      percentualAcumulado: Number(form.percentualAcumulado||0), percentualPeriodo: periodo,
+      valorPrevisto: previsto,
+      valorRecebido: form.recebido ? Number(form.valorRecebido||previsto) : 0,
+      dataPagamento: form.recebido ? (form.dataPagamento||today()) : "",
+      descricao: form.descricao, recebido: form.recebido,
     };
-
     const medicoes = editId
       ? (data.medicoes||[]).map(m => m.id===editId ? payload : m)
       : [...(data.medicoes||[]), payload];
-
     update({ ...data, medicoes });
     setModal(false);
     showToast(editId ? "Medição atualizada." : "Medição registrada.");
   };
 
+  // ── Geração automática de parcelas fixas ─────────────────────
+  const gerarParcelasFixas = () => {
+    if (!obra?.contractStart || !obra?.parcelaMensal) {
+      showToast("Configure início do contrato e parcela mensal na obra.","error"); return;
+    }
+    const [y,m] = obra.contractStart.split("-").map(Number);
+    const total = obra.totalParcelas || 12;
+    const novas = [];
+    for (let i=0; i<total; i++) {
+      const d = new Date(y, m-1+i, 1);
+      const comp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      // Pula se já existe medição para esta competência (a não ser que sobreescrever=true)
+      const existe = (data.medicoes||[]).some(x => x.obraId===selObra && x.competencia===comp);
+      if (existe && !gerarOpts.sobreescrever) continue;
+      if (existe && gerarOpts.sobreescrever) {
+        // remove a existente primeiro
+      }
+      novas.push({
+        id: uid(), obraId: selObra, competencia: comp, tipo: "mensal_fixo",
+        percentualAcumulado: 0, percentualPeriodo: 0,
+        valorPrevisto: Number(obra.parcelaMensal),
+        valorRecebido: 0, dataPagamento: "", descricao: `Parcela ${i+1}/${total}`,
+        recebido: false,
+      });
+    }
+    if (novas.length === 0) { showToast("Todas as parcelas já estão lançadas.","warn"); return; }
+    let medicoesList = gerarOpts.sobreescrever
+      ? (data.medicoes||[]).filter(x => !(x.obraId===selObra && x.tipo==="mensal_fixo"))
+      : (data.medicoes||[]);
+    medicoesList = [...medicoesList, ...novas].sort((a,b)=>a.competencia.localeCompare(b.competencia));
+    update({...data, medicoes: medicoesList});
+    setGerarModal(false);
+    showToast(`${novas.length} parcelas geradas automaticamente!`);
+  };
+
   const toggleRecebido = (m) => {
-    const updated = {
-      ...m,
-      recebido: !m.recebido,
-      valorRecebido: !m.recebido ? (m.valorPrevisto) : 0,
-      dataPagamento: !m.recebido ? today() : "",
-    };
-    const medicoes = (data.medicoes||[]).map(x => x.id===m.id ? updated : x);
-    update({ ...data, medicoes });
-    showToast(!m.recebido ? "Marcado como recebido." : "Marcado como pendente.");
+    const updated = { ...m, recebido: !m.recebido, valorRecebido: !m.recebido ? m.valorPrevisto : 0, dataPagamento: !m.recebido ? today() : "" };
+    update({...data, medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
+    showToast(!m.recebido ? "✓ Marcado como recebido." : "Desmarcado.");
   };
 
   const deleteMedicao = id => {
     if (!window.confirm("Remover esta medição?")) return;
-    update({ ...data, medicoes: (data.medicoes||[]).filter(m => m.id!==id) });
+    update({...data, medicoes:(data.medicoes||[]).filter(m=>m.id!==id)});
     showToast("Medição removida.");
   };
 
-  // Percentual acumulado da obra (último lançado)
-  const pctObraAtual = medicoes.length
-    ? Math.max(...medicoes.filter(m=>m.tipo==="percentual").map(m=>m.percentualAcumulado), 0)
-    : 0;
-
-  // Valor previsto em tempo real no form
   const formPrevisto = calcPrevisto(form, obra);
-  const formPeriodo  = form.tipo==="percentual"
-    ? Math.max(0, Number(form.percentualAcumulado||0) - prevAcumulado(form.competencia === emptyM.competencia && !editId ? form.competencia : form.competencia))
-    : 0;
+
+  // ── Info do período do contrato ──────────────────────────────
+  const contratoInfo = (() => {
+    if (!obra?.contractStart) return null;
+    const start = new Date(obra.contractStart+"T12:00:00");
+    const end   = obra.contractEnd ? new Date(obra.contractEnd+"T12:00:00") : null;
+    const hoje  = new Date();
+    const mesesDecorridos = Math.max(0, (hoje.getFullYear()-start.getFullYear())*12 + (hoje.getMonth()-start.getMonth()));
+    const total = obra.totalParcelas || (end ? Math.round((end-start)/(1000*60*60*24*30.4)) : 0);
+    const pctTempo = total>0 ? Math.min((mesesDecorridos/total)*100,100) : 0;
+    return { start, end, mesesDecorridos, total, pctTempo };
+  })();
 
   return (
-    <div className="anim" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
 
       {/* Header */}
-      <div style={{ background:`linear-gradient(135deg,${C.blue}22,${C.card} 65%)`, border:`1px solid ${C.blue}44`, borderLeft:`5px solid ${C.blue}`, padding:"16px 18px", borderRadius:18 }}>
-        <p style={{ fontSize:11, fontWeight:900, color:C.blue, textTransform:"uppercase", letterSpacing:1.2, marginBottom:4 }}>Faturamento estruturado</p>
-        <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:34, letterSpacing:2, color:C.text, lineHeight:1 }}>Medições por Obra</h2>
-        <p style={{ color:C.muted, fontSize:13, marginTop:4 }}>Parcela fixa mensal, avanço percentual ou lançamento livre.</p>
+      <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.blue}`,padding:"16px 18px",borderRadius:10}}>
+        <p style={{fontSize:11,fontWeight:700,color:C.blue,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Faturamento estruturado</p>
+        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:22,fontWeight:800,color:C.text,lineHeight:1}}>Medições por Obra</p>
+        <p style={{color:C.muted,fontSize:13,marginTop:4}}>Parcela fixa automática · Avanço % · Lançamento livre</p>
       </div>
 
       {/* Seletor de obra */}
-      <Sel
-        label="Obra"
-        value={selObra}
-        onChange={setSelObra}
-        options={data.obras.map(o => ({ v:o.id, l:`${o.name} · ${BILLING_LABELS[o.billingType]||"—"}` }))}
-      />
+      <Sel value={selObra} onChange={v=>{setSelObra(v);}} options={data.obras.map(o=>({v:o.id,l:o.name+" · "+BILLING_LABELS[o.billingType]}))}/>
 
-      {obra && (
-        <>
-          {/* Info da obra */}
-          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderTop:`3px solid ${C.blue}`, padding:"12px 16px", borderRadius:16 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
-              <div>
-                <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:17 }}>{obra.name}</p>
-                <p style={{ fontSize:12, color:C.muted, marginTop:2 }}>
-                  {CONTRACT_LABELS[obra.contractType]} · {BILLING_LABELS[obra.billingType]}
-                  {obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && ` · ${fmt(obra.parcelaMensal)}/mês`}
-                  {obra.billingType==="percentual" && obra.contractValue>0 && ` · Contrato ${fmt(obra.contractValue)}`}
+      {obra && (<>
+        {/* Card da obra com período do contrato */}
+        <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+          <div style={{background:C.surface,borderBottom:`1.5px solid ${C.border}`,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+            <div style={{flex:1}}>
+              <p style={{fontWeight:800,fontSize:16,color:C.text}}>{obra.name}</p>
+              <p style={{fontSize:12,color:C.muted,marginTop:2}}>
+                {CONTRACT_LABELS[obra.contractType]} · {BILLING_LABELS[obra.billingType]}
+                {obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && ` · ${fmt(obra.parcelaMensal)}/mês`}
+              </p>
+              {/* Período do contrato */}
+              {obra.contractStart && (
+                <p style={{fontSize:11,color:C.muted,marginTop:4}}>
+                  📅 {fmtDateFull(obra.contractStart)}{obra.contractEnd && ` → ${fmtDateFull(obra.contractEnd)}`}
+                  {obra.totalParcelas>0 && ` · ${obra.totalParcelas} parcelas`}
                 </p>
-              </div>
-              <Btn onClick={openNew} size="sm"><Ic n="plus"/> Nova</Btn>
+              )}
             </div>
-
-            {/* Barra de progresso */}
-            {obra.contractValue > 0 && (
-              <div style={{ marginTop:12 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <p style={{ fontSize:11, color:C.muted }}>Recebido: {fmt(totalRecebido)} de {fmt(obra.contractValue)}</p>
-                  <p style={{ fontSize:11, fontWeight:900, color:pctRecebido>100?C.red:C.blue }}>{pctRecebido.toFixed(1)}%</p>
-                </div>
-                <div style={{ height:7, background:C.surface, borderRadius:99, overflow:"hidden" }}>
-                  <div style={{ height:"100%", width:`${Math.min(pctRecebido,100)}%`, background:pctRecebido>100?C.red:C.blue, borderRadius:99, transition:"width .4s" }}/>
-                </div>
-                {obra.billingType==="percentual" && pctObraAtual>0 && (
-                  <p style={{ fontSize:11, color:C.muted, marginTop:4 }}>Avanço físico registrado: {pctObraAtual}%</p>
-                )}
-              </div>
-            )}
-
-            {/* KPIs */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginTop:12 }}>
-              {[
-                ["Faturado",  fmt(totalPrevisto), C.blue],
-                ["Recebido",  fmt(totalRecebido), C.green],
-                ["Pendente",  fmt(totalPendente), totalPendente>0?C.orange:C.muted],
-              ].map(([l,v,c])=>(
-                <div key={l} style={{ background:C.surface, padding:"8px 10px", borderRadius:10 }}>
-                  <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>{l}</p>
-                  <p style={{ fontSize:14, fontWeight:900, color:c, marginTop:2 }}>{v}</p>
-                </div>
-              ))}
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              {/* Botão gerar parcelas — só para mensal fixo */}
+              {obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && obra.contractStart && (
+                <Btn size="sm" v="primary" onClick={()=>setGerarModal(true)}>⚡ Gerar parcelas</Btn>
+              )}
+              <Btn size="sm" onClick={openNew}><Ic n="plus"/> Nova</Btn>
             </div>
           </div>
 
-          {/* Lista de medições */}
-          {medicoes.length===0 && (
-            <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:24, textAlign:"center", color:C.muted, borderRadius:14 }}>
-              Nenhuma medição registrada para esta obra.
+          {/* Timeline do contrato */}
+          {contratoInfo && (
+            <div style={{padding:"10px 16px",borderBottom:`1px solid ${C.line}`}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:10}}>
+                {[
+                  ["Decorrido",    `${contratoInfo.mesesDecorridos} meses`, C.blue],
+                  ["Total prev.",  `${contratoInfo.total||"—"} meses`,     C.muted],
+                  ["Prazo",        `${contratoInfo.pctTempo.toFixed(0)}%`,  contratoInfo.pctTempo>90?C.red:C.green],
+                ].map(([l,v,c])=>(
+                  <div key={l} style={{background:C.surface,borderRadius:6,padding:"6px 10px"}}>
+                    <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
+                    <p style={{fontSize:13,fontWeight:800,color:c,marginTop:2}}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              {/* Barra dupla: tempo x financeiro */}
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:1}}>
+                  <p style={{fontSize:9,color:C.muted,fontWeight:600}}>PRAZO {contratoInfo.pctTempo.toFixed(0)}%</p>
+                  <p style={{fontSize:9,color:C.muted,fontWeight:600}}>FINANCEIRO {pctFaturado.toFixed(0)}%</p>
+                </div>
+                <div style={{height:5,background:C.surface,borderRadius:99,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.min(contratoInfo.pctTempo,100)}%`,background:contratoInfo.pctTempo>100?C.red:C.blue,borderRadius:99}}/>
+                </div>
+                <div style={{height:4,background:C.surface,borderRadius:99,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.min(pctFaturado,100)}%`,background:C.yellow,borderRadius:99}}/>
+                </div>
+                <div style={{height:3,background:C.surface,borderRadius:99,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.min(pctRecebido,100)}%`,background:C.green,borderRadius:99}}/>
+                </div>
+                <p style={{fontSize:9,color:C.muted}}>
+                  <span style={{color:C.blue}}>█</span> Prazo &nbsp;
+                  <span style={{color:C.yellow}}>█</span> Faturado {pctFaturado.toFixed(0)}% &nbsp;
+                  <span style={{color:C.green}}>█</span> Recebido {pctRecebido.toFixed(0)}%
+                </p>
+              </div>
             </div>
           )}
 
-          {medicoes.map((m, idx) => {
-            const prev = medicoes.slice(0,idx).filter(x=>x.tipo==="percentual");
-            const prevPct = prev.length ? prev[prev.length-1].percentualAcumulado : 0;
-            return (
-              <div key={m.id} style={{
-                background: m.recebido ? `${C.green}0a` : C.card,
-                border:`1px solid ${m.recebido?C.green+"44":C.line}`,
-                borderLeft:`5px solid ${m.recebido?C.green:C.blue}`,
-                padding:"12px 16px", borderRadius:14,
-              }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
-                      <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:17 }}>{compLabel(m.competencia)}</p>
-                      <Badge color={m.recebido?C.green:C.orange}>{m.recebido?"✓ Recebido":"Pendente"}</Badge>
-                      {m.tipo==="percentual" && <Badge color={C.blue}>{prevPct}% → {m.percentualAcumulado}% (+{m.percentualPeriodo.toFixed(1)}%)</Badge>}
-                    </div>
-                    {m.descricao && <p style={{ fontSize:12, color:C.muted, marginBottom:4 }}>{m.descricao}</p>}
-                    <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
-                      <div>
-                        <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>Previsto</p>
-                        <p style={{ fontSize:14, fontWeight:900, color:C.blue }}>{fmt(m.valorPrevisto)}</p>
-                      </div>
-                      {m.recebido && (
-                        <div>
-                          <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>Recebido</p>
-                          <p style={{ fontSize:14, fontWeight:900, color:C.green }}>{fmt(m.valorRecebido)}</p>
-                        </div>
-                      )}
-                      {m.recebido && m.dataPagamento && (
-                        <div>
-                          <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>Data</p>
-                          <p style={{ fontSize:13, color:C.subtle }}>{fmtDateFull(m.dataPagamento)}</p>
-                        </div>
-                      )}
-                      {m.recebido && m.valorRecebido !== m.valorPrevisto && (
-                        <div>
-                          <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>Diferença</p>
-                          <p style={{ fontSize:13, color:m.valorRecebido>m.valorPrevisto?C.green:C.red, fontWeight:700 }}>{fmt(m.valorRecebido-m.valorPrevisto)}</p>
-                        </div>
-                      )}
-                    </div>
+          {/* KPIs */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",padding:"10px 16px",gap:8}}>
+            {[
+              ["Faturado",   fmt(totalPrevisto), C.yellow],
+              ["Recebido",   fmt(totalRecebido), C.green],
+              ["Pendente",   fmt(totalPendente), totalPendente>0?C.orange:C.muted],
+              ["Saldo cto.", fmt(saldo),         saldo>=0?C.blue:C.red],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{background:C.surface,padding:"7px 10px",borderRadius:6}}>
+                <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
+                <p style={{fontSize:13,fontWeight:800,color:c,marginTop:2}}>{v}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Lista de medições */}
+        {medicoes.length===0 && (
+          <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:20,textAlign:"center"}}>
+            <p style={{color:C.muted,fontSize:13,marginBottom:8}}>Nenhuma medição registrada.</p>
+            {obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && obra.contractStart && (
+              <Btn onClick={()=>setGerarModal(true)} v="primary">⚡ Gerar todas as parcelas automaticamente</Btn>
+            )}
+          </div>
+        )}
+
+        {medicoes.map((m,idx) => {
+          const prevMeds = medicoes.slice(0,idx).filter(x=>x.tipo==="percentual");
+          const prevPct  = prevMeds.length ? prevMeds[prevMeds.length-1].percentualAcumulado : 0;
+          return (
+            <div key={m.id} style={{
+              background:m.recebido?`${C.green}08`:C.bg,
+              border:`1.5px solid ${m.recebido?C.green+"55":C.border}`,
+              borderLeft:`4px solid ${m.recebido?C.green:C.yellow}`,
+              borderRadius:8, padding:"12px 14px",
+              boxShadow:`0 1px 3px ${C.shadow}`,
+            }}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                    <p style={{fontWeight:800,fontSize:15,color:C.text}}>{compLabel(m.competencia)}</p>
+                    <span style={{
+                      fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,
+                      background:m.recebido?`${C.green}20`:"`${C.orange}18`",
+                      color:m.recebido?C.green:C.orange,
+                    }}>{m.recebido?"✓ RECEBIDO":"PENDENTE"}</span>
+                    {m.tipo==="percentual"&&<span style={{fontSize:10,color:C.blue,fontWeight:600,background:`${C.blue}12`,padding:"2px 8px",borderRadius:4}}>{prevPct}% → {m.percentualAcumulado}% (+{m.percentualPeriodo.toFixed(1)}%)</span>}
+                    {m.descricao&&<span style={{fontSize:11,color:C.muted}}>{m.descricao}</span>}
                   </div>
-                  <div style={{ display:"flex", flexDirection:"column", gap:5, flexShrink:0 }}>
-                    <Btn size="sm" v={m.recebido?"ghost":"success"} onClick={()=>toggleRecebido(m)}>
-                      {m.recebido?"Desfazer":"✓ Receber"}
-                    </Btn>
-                    <Btn size="sm" v="ghost" onClick={()=>openEdit(m)}><Ic n="edit"/></Btn>
-                    <Btn size="sm" v="danger" onClick={()=>deleteMedicao(m.id)}><Ic n="trash"/></Btn>
+                  <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                    <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Previsto</p><p style={{fontSize:15,fontWeight:800,color:C.yellow}}>{fmt(m.valorPrevisto)}</p></div>
+                    {m.recebido&&<><div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Recebido</p><p style={{fontSize:15,fontWeight:800,color:C.green}}>{fmt(m.valorRecebido)}</p></div>
+                    <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Data</p><p style={{fontSize:13,color:C.muted}}>{fmtDateFull(m.dataPagamento)}</p></div></>}
+                    {m.recebido&&m.valorRecebido!==m.valorPrevisto&&<div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Diferença</p><p style={{fontSize:13,fontWeight:700,color:m.valorRecebido>m.valorPrevisto?C.green:C.red}}>{fmt(m.valorRecebido-m.valorPrevisto)}</p></div>}
                   </div>
                 </div>
+                <div style={{display:"flex",flexDirection:"column",gap:5,flexShrink:0}}>
+                  <Btn size="sm" v={m.recebido?"ghost":"success"} onClick={()=>toggleRecebido(m)}>
+                    {m.recebido?"Desfazer":"✓ Receber"}
+                  </Btn>
+                  <Btn size="sm" v="ghost" onClick={()=>openEdit(m)}><Ic n="edit"/></Btn>
+                  <Btn size="sm" v="danger" onClick={()=>deleteMedicao(m.id)}><Ic n="trash"/></Btn>
+                </div>
               </div>
-            );
-          })}
-
-          {/* Saldo do contrato */}
-          {obra.contractValue > 0 && (
-            <div style={{ background:C.card, border:`2px solid ${saldo>=0?C.blue:C.red}`, borderRadius:14, padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div>
-                <p style={{ fontSize:11, fontWeight:900, color:C.muted, textTransform:"uppercase" }}>Saldo do contrato</p>
-                <p style={{ fontSize:13, color:C.muted, marginTop:2 }}>Contrato {fmt(obra.contractValue)} − Recebido {fmt(totalRecebido)}</p>
-              </div>
-              <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:28, color:saldo>=0?C.blue:C.red, letterSpacing:.5 }}>{fmt(saldo)}</p>
             </div>
-          )}
-        </>
-      )}
+          );
+        })}
 
-      {/* Modal nova/editar medição */}
+        {obra.contractValue>0&&(
+          <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:`0 1px 3px ${C.shadow}`}}>
+            <p style={{fontSize:12,color:C.muted}}>Saldo do contrato: <strong style={{color:C.text}}>{fmt(saldo)}</strong></p>
+            <p style={{fontSize:12,color:C.muted}}>Recebido: <strong style={{color:C.green}}>{pctRecebido.toFixed(1)}%</strong></p>
+          </div>
+        )}
+      </>)}
+
+      {/* Modal: nova/editar medição */}
       {modal && obra && (
         <Modal title={editId?"Editar medição":"Nova medição"} onClose={()=>setModal(false)}>
-          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {/* Tipo */}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
-              {[
-                ["mensal_fixo","📅 Fixo"],
-                ["percentual", "📊 % Avanço"],
-                ["livre",      "✏️ Livre"],
-              ].map(([v,l])=>(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+              {[["mensal_fixo","📅 Fixo"],["percentual","📊 % Avanço"],["livre","✏️ Livre"]].map(([v,l])=>(
                 <button key={v} onClick={()=>F("tipo")(v)} style={{
-                  padding:"8px 4px", border:`2px solid ${form.tipo===v?C.blue:C.line}`,
-                  background:form.tipo===v?`${C.blue}18`:"transparent",
-                  color:form.tipo===v?C.blue:C.muted,
-                  fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:13,
-                  cursor:"pointer", borderRadius:10, textAlign:"center",
+                  padding:"8px 4px",border:`2px solid ${form.tipo===v?C.yellow:C.border}`,
+                  background:form.tipo===v?`${C.yellow}15`:"transparent",
+                  color:form.tipo===v?C.text:C.muted,
+                  fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:12,
+                  cursor:"pointer",borderRadius:8,textAlign:"center",
                 }}>{l}</button>
               ))}
             </div>
 
             {/* Competência */}
             <div>
-              <p style={{ fontSize:11, fontWeight:700, color:C.subtle, textTransform:"uppercase", marginBottom:5 }}>Competência (mês/ano)</p>
-              <input type="month" value={form.competencia} onChange={e=>F("competencia")(e.target.value)} style={{
-                width:"100%", background:C.card, border:`1px solid ${C.border}`, color:C.text,
-                padding:"11px 13px", borderRadius:14, fontSize:14, outline:"none",
-              }}/>
+              <p style={{fontSize:11,fontWeight:700,color:C.text,textTransform:"uppercase",marginBottom:5,letterSpacing:.7}}>Mês de competência *</p>
+              <input type="month" value={form.competencia} onChange={e=>F("competencia")(e.target.value)} style={{width:"100%",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"10px 12px",borderRadius:8,fontSize:14,outline:"none",fontFamily:"'Inter','Inter Display',sans-serif"}}/>
             </div>
 
-            {/* Campos por tipo */}
-            {form.tipo === "mensal_fixo" && (
-              <div style={{ background:`${C.blue}10`, border:`1px solid ${C.blue}33`, borderRadius:12, padding:"10px 14px" }}>
-                <p style={{ fontSize:12, color:C.blue, fontWeight:700, marginBottom:6 }}>
+            {/* Fixo */}
+            {form.tipo==="mensal_fixo"&&(
+              <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"10px 14px"}}>
+                <p style={{fontSize:12,color:C.text,fontWeight:700,marginBottom:6}}>
                   Parcela mensal fixa
-                  {obra.parcelaMensal>0 && ` · Configurado: ${fmt(obra.parcelaMensal)}`}
+                  {obra.parcelaMensal>0&&<span style={{color:C.yellow,marginLeft:8}}>→ {fmt(obra.parcelaMensal)}</span>}
                 </p>
-                <Inp label="Valor da parcela (R$)" type="number" value={form.valorPrevisto} onChange={F("valorPrevisto")} placeholder={obra.parcelaMensal>0?`${obra.parcelaMensal}`:"Ex.: 15.000"}/>
+                <Inp label="Valor da parcela (R$)" type="number" value={form.valorPrevisto} onChange={F("valorPrevisto")} placeholder={obra.parcelaMensal>0?String(obra.parcelaMensal):"0,00"}/>
+                {!form.valorPrevisto && obra.parcelaMensal>0 && (
+                  <button onClick={()=>F("valorPrevisto")(String(obra.parcelaMensal))} style={{marginTop:6,background:"transparent",border:`1px solid ${C.yellow}`,color:C.yellow,padding:"4px 10px",borderRadius:4,fontSize:11,cursor:"pointer",fontWeight:700}}>
+                    Usar parcela configurada ({fmt(obra.parcelaMensal)})
+                  </button>
+                )}
               </div>
             )}
 
-            {form.tipo === "percentual" && (
-              <div style={{ background:`${C.blue}10`, border:`1px solid ${C.blue}33`, borderRadius:12, padding:"10px 14px", display:"flex", flexDirection:"column", gap:8 }}>
-                <p style={{ fontSize:12, color:C.blue, fontWeight:700 }}>
-                  Avanço por % da obra
-                  {obra.contractValue>0 && ` · Contrato: ${fmt(obra.contractValue)}`}
+            {/* % Avanço */}
+            {form.tipo==="percentual"&&(
+              <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"10px 14px",display:"flex",flexDirection:"column",gap:8}}>
+                <p style={{fontSize:12,fontWeight:700,color:C.text}}>
+                  % acumulado da obra até este mês
+                  {obra.contractValue>0&&<span style={{color:C.muted,marginLeft:4,fontWeight:400}}> (Contrato: {fmt(obra.contractValue)})</span>}
                 </p>
-                <Inp label="% acumulado até este mês *" type="number" value={form.percentualAcumulado} onChange={F("percentualAcumulado")} placeholder="Ex.: 35"/>
+                <Inp label="% acumulado *" type="number" value={form.percentualAcumulado} onChange={F("percentualAcumulado")} placeholder="Ex.: 35"/>
                 {Number(form.percentualAcumulado)>0 && obra.contractValue>0 && (() => {
-                  const prev = prevAcumulado(editId ? `${form.competencia}_` : form.competencia);
+                  const prev = prevAcumulado(form.competencia, editId||undefined);
                   const periodo = Math.max(0, Number(form.percentualAcumulado||0) - prev);
                   const val = (periodo/100)*Number(obra.contractValue||0);
                   return (
-                    <div style={{ background:`${C.blue}18`, borderRadius:8, padding:"8px 12px" }}>
-                      <p style={{ fontSize:12, color:C.blue }}>
-                        Avanço anterior: <b>{prev}%</b> → Período: <b>+{periodo.toFixed(1)}%</b>
-                      </p>
-                      <p style={{ fontSize:14, fontWeight:900, color:C.blue, marginTop:2 }}>
-                        Valor calculado: {fmt(val)}
-                      </p>
+                    <div style={{background:`${C.yellow}15`,borderRadius:6,padding:"8px 12px"}}>
+                      <p style={{fontSize:11,color:C.muted}}>Anterior: <strong>{prev}%</strong> → Este período: <strong>+{periodo.toFixed(1)}%</strong></p>
+                      <p style={{fontSize:16,fontWeight:800,color:C.yellow,marginTop:2}}>{fmt(val)}</p>
                     </div>
                   );
                 })()}
               </div>
             )}
 
-            {form.tipo === "livre" && (
+            {/* Livre */}
+            {form.tipo==="livre"&&(
               <Inp label="Valor previsto (R$)" type="number" value={form.valorPrevisto} onChange={F("valorPrevisto")} placeholder="0,00"/>
             )}
 
             {/* Recebido? */}
-            <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer", padding:"8px 12px", background:form.recebido?`${C.green}10`:"transparent", borderRadius:10, border:`1px solid ${form.recebido?C.green+"44":C.line}` }}>
-              <div onClick={()=>F("recebido")(!form.recebido)} style={{ width:20, height:20, border:`2px solid ${form.recebido?C.green:C.muted}`, background:form.recebido?C.green:"transparent", borderRadius:5, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
-                {form.recebido && <span style={{ color:C.ink, fontSize:13, fontWeight:900 }}>✓</span>}
+            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 12px",background:form.recebido?`${C.green}10`:"transparent",borderRadius:8,border:`1.5px solid ${form.recebido?C.green+"55":C.border}`}}>
+              <div onClick={()=>F("recebido")(!form.recebido)} style={{width:20,height:20,border:`2px solid ${form.recebido?C.green:C.muted}`,background:form.recebido?C.green:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+                {form.recebido&&<span style={{color:"#fff",fontSize:13,fontWeight:900}}>✓</span>}
               </div>
-              <p style={{ fontSize:13, fontWeight:700, color:form.recebido?C.green:C.muted }}>Valor já recebido</p>
+              <p style={{fontSize:13,fontWeight:700,color:form.recebido?C.green:C.muted}}>Valor já recebido</p>
             </label>
 
-            {form.recebido && (<>
+            {form.recebido&&(<>
               <Inp label="Valor efetivamente recebido (R$)" type="number" value={form.valorRecebido} onChange={F("valorRecebido")} placeholder={String(formPrevisto||"")}/>
               <Inp label="Data de recebimento" type="date" value={form.dataPagamento} onChange={F("dataPagamento")}/>
             </>)}
 
-            <Inp label="Descrição / observação" value={form.descricao} onChange={F("descricao")} placeholder="Ex.: Medição #3, Parcela de março..."/>
+            <Inp label="Descrição / observação" value={form.descricao} onChange={F("descricao")} placeholder="Ex.: Medição #3, Parcela março..."/>
 
-            {/* Preview do valor */}
-            {formPrevisto > 0 && (
-              <div style={{ background:`${C.blue}15`, border:`1px solid ${C.blue}33`, borderRadius:10, padding:"8px 14px" }}>
-                <p style={{ fontSize:11, color:C.muted }}>Valor que será registrado</p>
-                <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:26, color:C.blue, letterSpacing:.5 }}>{fmt(formPrevisto)}</p>
+            {formPrevisto>0&&(
+              <div style={{background:`${C.yellow}15`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <p style={{fontSize:11,color:C.muted}}>Valor que será registrado</p>
+                <p style={{fontSize:18,fontWeight:800,color:C.yellow}}>{fmt(formPrevisto)}</p>
               </div>
             )}
 
-            <div style={{ display:"flex", gap:8 }}>
+            <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
               <Btn onClick={saveMedicao} full><Ic n="check"/> Salvar medição</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal: gerar parcelas automáticas */}
+      {gerarModal && obra && (
+        <Modal title="Gerar parcelas automaticamente" onClose={()=>setGerarModal(false)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"12px 14px"}}>
+              <p style={{fontWeight:700,fontSize:14,color:C.text,marginBottom:6}}>{obra.name}</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[
+                  ["Parcela mensal",  fmt(obra.parcelaMensal)],
+                  ["Total parcelas",  `${obra.totalParcelas||"—"}`],
+                  ["Início",          fmtDateFull(obra.contractStart)],
+                  ["Fim previsto",    obra.contractEnd?fmtDateFull(obra.contractEnd):"—"],
+                ].map(([l,v])=>(
+                  <div key={l}>
+                    <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
+                    <p style={{fontSize:13,fontWeight:700,color:C.text,marginTop:1}}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginTop:10,padding:"8px 0",borderTop:`1px solid ${C.line}`}}>
+                <p style={{fontSize:13,color:C.text,fontWeight:700}}>
+                  Total gerado: {fmt(Number(obra.parcelaMensal)*(obra.totalParcelas||12))}
+                </p>
+                <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+                  {obra.totalParcelas||12} parcelas de {fmt(obra.parcelaMensal)}
+                </p>
+              </div>
+            </div>
+
+            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"10px 12px",background:C.surface,borderRadius:8,border:`1.5px solid ${C.border}`}}>
+              <div onClick={()=>setGerarOpts(o=>({...o,sobreescrever:!o.sobreescrever}))} style={{width:18,height:18,border:`2px solid ${gerarOpts.sobreescrever?C.red:C.muted}`,background:gerarOpts.sobreescrever?C.red:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+                {gerarOpts.sobreescrever&&<span style={{color:"#fff",fontSize:11,fontWeight:900}}>✓</span>}
+              </div>
+              <div>
+                <p style={{fontSize:13,fontWeight:700,color:gerarOpts.sobreescrever?C.red:C.muted}}>Substituir medições existentes</p>
+                <p style={{fontSize:11,color:C.muted}}>Se desmarcado, pula meses que já têm medição</p>
+              </div>
+            </label>
+
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setGerarModal(false)} full>Cancelar</Btn>
+              <Btn v="primary" onClick={gerarParcelasFixas} full>⚡ Gerar {obra.totalParcelas||12} parcelas</Btn>
             </div>
           </div>
         </Modal>
@@ -2657,7 +2741,7 @@ function Financeiro({ data, update, showToast }) {
 // ═══════════════════════════════════════════════════════════════════
 
 function Obras({ data, update, showToast }) {
-  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "" };
+  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "" };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
@@ -2684,6 +2768,9 @@ function Obras({ data, update, showToast }) {
       contractValue: Number(form.contractValue || 0),
       adminPercentage: Number(form.adminPercentage || 0),
       parcelaMensal: Number(form.parcelaMensal || 0),
+      contractStart: form.contractStart || "",
+      contractEnd:   form.contractEnd   || "",
+      totalParcelas: Number(form.totalParcelas || 0),
     };
 
     const obras = form.id ? data.obras.map(o => (o.id === form.id ? payload : o)) : [...data.obras, payload];
@@ -2777,6 +2864,22 @@ function Obras({ data, update, showToast }) {
             ]}/>
             {form.billingType === "mensal_fixo" && (
               <Inp label="Valor da parcela mensal (R$)" type="number" value={form.parcelaMensal} onChange={setField("parcelaMensal")} placeholder="Ex.: 15.000"/>
+            )}
+            <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
+            <p style={{gridColumn:"1/-1",fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Período do contrato</p>
+            <Inp label="Início do contrato" type="date" value={form.contractStart} onChange={setField("contractStart")}/>
+            <Inp label="Fim previsto do contrato" type="date" value={form.contractEnd} onChange={setField("contractEnd")}/>
+            <Inp label="Total de parcelas / medições" type="number" value={form.totalParcelas} onChange={setField("totalParcelas")} placeholder="Ex.: 12 (meses)"/>
+            {/* Cálculo automático da parcela */}
+            {form.billingType === "mensal_fixo" && form.contractValue && form.totalParcelas && Number(form.totalParcelas)>0 && (
+              <div style={{gridColumn:"1/-1",background:`${C.yellow}15`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:"8px 12px"}}>
+                <p style={{fontSize:12,color:C.yellow,fontWeight:600}}>
+                  Parcela calculada: {fmt(Number(form.contractValue)/Number(form.totalParcelas))} / mês
+                  <button type="button" onClick={()=>setField("parcelaMensal")(String(Math.round(Number(form.contractValue)/Number(form.totalParcelas))))} style={{marginLeft:8,background:C.yellow,border:"none",color:"#fff",padding:"2px 8px",borderRadius:4,fontSize:11,cursor:"pointer",fontWeight:700}}>
+                    Usar
+                  </button>
+                </p>
+              </div>
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
