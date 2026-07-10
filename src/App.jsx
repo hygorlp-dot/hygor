@@ -39,14 +39,14 @@ const ARCD_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABXgAAAV4CAYAAAA
 const C = {
   // ── ARCD Brand Identity ───────────────────────────────────────
   bg:       "#FFFFFF",     // Fundo branco
-  surface:  "#F5F3EE",     // Areia ARCD
+  surface:  "#F5F3EE",     // Areia ARCD — surfaces, headers
   card:     "#FFFFFF",     // Cards brancos
-  card2:    "#FAFAF7",     // Card levemente aquecido
-  border:   "#E8E4DC",     // Borda suave
+  card2:    "#F9F7F2",     // Card levemente aquecido
+  border:   "#C8C2B6",     // Borda visível em fundo branco ← REFORÇADA
   // Ouro ARCD — cor principal
-  yellow:   "#D4AF37",     // Ouro ARCD #D4AF37
+  yellow:   "#D4AF37",     // Ouro ARCD
   yellowD:  "#B8930F",     // Ouro escuro
-  yellowDim:"#F5EBC0",     // Ouro claro (fundos)
+  yellowDim:"#F0E6B8",     // Ouro claro
   // Grafite ARCD
   text:     "#121212",     // Grafite — texto principal
   muted:    "#6B6459",     // Cinza quente — texto secundário
@@ -57,13 +57,13 @@ const C = {
   sand:     "#F5F3EE",     // Areia
   ivory:    "#F0EDE5",
   // Sistema
-  green:    "#2E7D32",     // Sucesso
-  red:      "#C62828",     // Erro
-  blue:     "#1565C0",     // Info
-  orange:   "#D84315",     // Aviso
-  purple:   "#6A1B9A",     // Roxo
-  line:     "#DDD9CF",     // Linha divisória
-  shadow:   "rgba(18,18,18,.08)",
+  green:    "#1E6B31",     // Verde técnico
+  red:      "#B71C1C",     // Vermelho técnico
+  blue:     "#0D47A1",     // Azul técnico
+  orange:   "#BF360C",     // Laranja técnico
+  purple:   "#4A148C",     // Roxo técnico
+  line:     "#E0DAD0",     // Linha divisória suave
+  shadow:   "rgba(18,18,18,.07)",
 };
 
 const CHART_COLORS = [C.yellow, C.green, C.blue, C.orange, C.purple, C.red, "#06b6d4", "#ec4899"];
@@ -110,6 +110,13 @@ input:focus,select:focus,textarea:focus{
 /* Cards e elevação */
 .lift-card{transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
 .lift-card:hover{transform:translateY(-2px);border-color:${C.yellow}88;box-shadow:0 8px 24px ${C.shadow}}
+/* Elevação padrão para cards em fundo branco */
+.card-base{
+  background:${C.card};
+  border:1.5px solid ${C.border};
+  box-shadow:0 1px 4px ${C.shadow};
+  border-radius:10px;
+}
 /* Linha de acento ouro */
 .brand-slice{position:relative;overflow:hidden}
 .brand-slice:after{
@@ -559,6 +566,7 @@ const DEFAULT = () => ({
   payments: [],
   medicoes: [],
   outrasDesp: [],
+  usuarios: [],   // sistema de login e permissões
   terceirizados: [],
   pagsTerceiros: [],
   rescisoes: [],
@@ -653,6 +661,16 @@ const normalizeData = incoming => {
       categoria: x.categoria || "outros",
       descricao: x.descricao || "",
       valor: Number(x.valor || 0),
+    })) : [],
+    usuarios: Array.isArray(d.usuarios) ? d.usuarios.map(u => ({
+      id:       u.id       || uid(),
+      nome:     u.nome     || "",
+      pin:      u.pin      || "",   // SHA-256 hex do PIN
+      role:     u.role     || "engenheiro",
+      email:    u.email    || "",
+      obraId:   u.obraId   || "",   // restringe a uma obra (opcional)
+      active:   u.active   !== false,
+      createdAt:u.createdAt|| "",
     })) : [],
     attendanceLocks: d.attendanceLocks || {},
     unlockRequests: Array.isArray(d.unlockRequests) ? d.unlockRequests : [],
@@ -786,7 +804,7 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
     success: { bg: C.green,    color: "#FFFFFF",  border: C.green,   shadow: `${C.green}18`  },
     info:    { bg: C.blue,     color: "#FFFFFF",  border: C.blue,    shadow: `${C.blue}18`   },
     ghost:   { bg: "transparent",color:C.text,    border: C.line,    shadow: "transparent"   },
-    dark:    { bg: C.surface,  color: C.text,     border: C.line,    shadow: "transparent"   },
+    dark:    { bg: C.surface,  color: C.text,     border: "#C0BAB0", shadow: "transparent"   },
   };
   const vv = variants[v] || variants.primary;
   const py = size === "sm" ? 7 : size === "lg" ? 14 : 10;
@@ -939,7 +957,7 @@ function Modal({ title, children, onClose, wide = false }) {
         width:"100%", maxWidth:wide?720:460,
         maxHeight:"92vh", overflowY:"auto",
         background:C.bg,
-        border:`1px solid ${C.line}`,
+        border:`1px solid ${C.border}`,
         borderRadius:12,
         boxShadow:`0 24px 80px rgba(18,18,18,.18)`,
       }}>
@@ -1086,7 +1104,7 @@ function Dashboard({ data, onTab }) {
   const KpiCard = ({label,value,sub,color,icon,tab}) => (
     <button onClick={()=>tab&&onTab(tab)} className="lift-card" style={{
       background:`linear-gradient(160deg,${C.card2} 0%,${C.card} 100%)`,
-      border:`1px solid ${C.line}`,borderTop:`3px solid ${color}`,
+      border:`1px solid ${C.border}`,borderTop:`3px solid ${color}`,
       padding:"14px 12px",borderRadius:18,textAlign:"left",color:C.text,
       cursor:tab?"pointer":"default",boxShadow:`0 8px 28px ${C.shadow}`,
     }}>
@@ -1159,7 +1177,7 @@ function Dashboard({ data, onTab }) {
       {/* KPIs financeiros — DRE do mês */}
       <div>
         <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Financeiro — {fullMonth(month)} {year}</p>
-        <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden",marginBottom:8}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden",marginBottom:8}}>
           <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)"}}>
             {[
               ["Faturamento",  dre.faturamento,  C.green,  "dre"],
@@ -1181,14 +1199,14 @@ function Dashboard({ data, onTab }) {
             <div style={{padding:"8px 14px",borderTop:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <p style={{fontSize:11,color:C.muted}}>Margem bruta: <span style={{color:dre.lucroBruto>=0?C.green:C.red,fontWeight:900}}>{dre.margemBruta.toFixed(1)}%</span></p>
               <p style={{fontSize:11,color:C.muted}}>A receber: <span style={{color:dre.aReceber>0?C.orange:C.muted,fontWeight:700}}>{fmt(dre.aReceber)}</span></p>
-              <button onClick={()=>onTab("dre")} style={{background:"transparent",border:`1px solid ${C.line}`,color:C.muted,padding:"3px 10px",borderRadius:8,cursor:"pointer",fontSize:10,fontWeight:700}}>Ver DRE →</button>
+              <button onClick={()=>onTab("dre")} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"3px 10px",borderRadius:8,cursor:"pointer",fontSize:10,fontWeight:700}}>Ver DRE →</button>
             </div>
           )}
         </div>
       </div>
 
       {/* Gráfico 7 dias */}
-      <div className="lift-card" style={{background:`linear-gradient(180deg,${C.card2},${C.card})`,border:`1px solid ${C.line}`,padding:14,borderRadius:20}}>
+      <div className="lift-card" style={{background:`linear-gradient(180deg,${C.card2},${C.card})`,border:`1px solid ${C.border}`,padding:14,borderRadius:20}}>
         <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",color:C.yellow,textTransform:"uppercase",letterSpacing:1,marginBottom:8,fontSize:16}}>
           Presença — últimos 7 dias
         </h3>
@@ -1198,7 +1216,7 @@ function Dashboard({ data, onTab }) {
               <CartesianGrid stroke={C.border} vertical={false}/>
               <XAxis dataKey="d" stroke={C.muted} fontSize={11}/>
               <YAxis stroke={C.muted} fontSize={11} allowDecimals={false}/>
-              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text,borderRadius:10}}/>
+              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text,borderRadius:10}}/>
               <Bar dataKey="P" name="Presente" stackId="a" fill={C.green} radius={[6,6,0,0]}/>
               <Bar dataKey="M" name="Meio dia" stackId="a" fill={C.yellow}/>
               <Bar dataKey="F" name="Falta"    stackId="a" fill={C.red} radius={[6,6,0,0]}/>
@@ -1209,7 +1227,7 @@ function Dashboard({ data, onTab }) {
 
       {/* Distribuição do dia */}
       {pieData.length > 0 && (
-        <div className="lift-card" style={{background:`linear-gradient(180deg,${C.card2},${C.card})`,border:`1px solid ${C.line}`,padding:14,borderRadius:20}}>
+        <div className="lift-card" style={{background:`linear-gradient(180deg,${C.card2},${C.card})`,border:`1px solid ${C.border}`,padding:14,borderRadius:20}}>
           <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",color:C.yellow,textTransform:"uppercase",letterSpacing:1,marginBottom:8,fontSize:16}}>Distribuição de hoje</h3>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",alignItems:"center",gap:12}}>
             <div style={{height:180}}>
@@ -1218,7 +1236,7 @@ function Dashboard({ data, onTab }) {
                   <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={40} outerRadius={68} paddingAngle={3}>
                     {pieData.map((e,i)=><Cell key={e.name} fill={e.color||CHART_COLORS[i]}/>)}
                   </Pie>
-                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text}}/>
+                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text}}/>
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -1247,7 +1265,7 @@ function Dashboard({ data, onTab }) {
           ? `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`
           : `https://wa.me/?text=${encodeURIComponent(msg)}`;
         return (
-          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden"}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden"}}>
             <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>🔔 {alerts.length} alerta(s) ativo(s)</p>
               <a href={waUrl} target="_blank" rel="noreferrer" style={{
@@ -1486,7 +1504,7 @@ function DRE({ data, update, showToast }) {
     const lucroCor = d.lucroBruto>=0?C.green:C.red;
     const caixaCor = d.saldoCaixa>=0?C.blue:C.red;
     return (
-      <div key={d.obra.id} style={{background:C.card,border:`1px solid ${C.line}`,borderLeft:`4px solid ${lucroCor}`,borderRadius:14,overflow:"hidden"}}>
+      <div key={d.obra.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${lucroCor}`,borderRadius:14,overflow:"hidden"}}>
         {/* Header obra */}
         <div style={{background:`${lucroCor}10`,padding:"10px 14px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
           <div>
@@ -1731,7 +1749,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           ["Total Custos", dre.totalCustos,  C.red,    `MO+Terc+Outros`],
           ["Lucro Bruto",  dre.lucroBruto,   dre.lucroBruto>=0?C.green:C.red, `margem ${dre.margemBruta.toFixed(1)}%`],
         ].map(([l,v,c,s])=>(
-          <div key={l} style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${c}`,padding:"12px 14px",borderRadius:16}}>
+          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,padding:"12px 14px",borderRadius:16}}>
             <p style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,color:c,fontSize:26,lineHeight:1.1,marginTop:4}}>{fmt(v)}</p>
             <p style={{fontSize:10,color:C.muted,marginTop:3}}>{s}</p>
@@ -1742,7 +1760,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       {/* ── VIEW: CONSOLIDADO ─────────────────────────────────── */}
       {view==="consolidado"&&(
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:14,overflow:"hidden"}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden"}}>
             <div style={{padding:"8px 14px",background:`${C.green}10`,borderBottom:`1px solid ${C.line}`}}>
               <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.green,textTransform:"uppercase"}}>DRE Consolidado — {period}</p>
             </div>
@@ -1767,7 +1785,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           </div>
 
           {/* Gráfico: Faturamento vs Lucro 6 meses */}
-          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:14}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:14}}>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:8}}>Evolução — Faturamento × Lucro</p>
             <div style={{height:200}}>
               <ResponsiveContainer width="100%" height="100%">
@@ -1775,7 +1793,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
                   <CartesianGrid stroke={C.border} vertical={false}/>
                   <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
                   <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
-                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text,borderRadius:10}} formatter={v=>fmt(v)}/>
+                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text,borderRadius:10}} formatter={v=>fmt(v)}/>
                   <Bar dataKey="faturamento" name="Faturamento" fill={C.green} radius={[4,4,0,0]}/>
                   <Bar dataKey="recebido"    name="Recebido"    fill={C.blue}  radius={[4,4,0,0]}/>
                   <Bar dataKey="lucroBruto"  name="Lucro Bruto" fill={C.yellow} radius={[4,4,0,0]}/>
@@ -1785,7 +1803,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           </div>
 
           {/* Distribuição de custos */}
-          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:14}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:14}}>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:8}}>Distribuição de Custos</p>
             <div style={{height:180}}>
               <ResponsiveContainer width="100%" height="100%">
@@ -1799,7 +1817,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
                   ].filter(d=>d.value>0)} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={2}>
                     {[C.orange,C.muted,C.purple,C.red,C.yellow].map((c,i)=><Cell key={i} fill={c}/>)}
                   </Pie>
-                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text}} formatter={v=>fmt(v)}/>
+                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text}} formatter={v=>fmt(v)}/>
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -1822,7 +1840,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       {/* ── VIEW: HISTÓRICO ───────────────────────────────────── */}
       {view==="historico"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden"}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden"}}>
             <div style={{padding:"8px 14px",borderBottom:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:4}}>
               {["Mês","Faturamento","Recebido","Lucro","Margem"].map(h=>(
                 <p key={h} style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase"}}>{h}</p>
@@ -1843,7 +1861,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             ))}
           </div>
           {/* Gráfico margem */}
-          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:14}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:14}}>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:8}}>Evolução da Margem</p>
             <div style={{height:180}}>
               <ResponsiveContainer width="100%" height="100%">
@@ -1851,7 +1869,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
                   <CartesianGrid stroke={C.border} vertical={false}/>
                   <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
                   <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v.toFixed(0)+"%"}/>
-                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text}} formatter={v=>v.toFixed(1)+"%"}/>
+                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text}} formatter={v=>v.toFixed(1)+"%"}/>
                   <Line type="monotone" dataKey="margemBruta" name="Margem Bruta" stroke={C.green} strokeWidth={2.5} dot={{r:4,fill:C.green}}/>
                   <Line type="monotone" dataKey="margemCaixa" name="Margem Caixa" stroke={C.blue}  strokeWidth={2} dot={{r:3,fill:C.blue}} strokeDasharray="4 2"/>
                 </LineChart>
@@ -1872,7 +1890,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
       {/* Outras despesas do mês */}
       {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`).length>0&&(
-        <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:14,overflow:"hidden"}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden"}}>
           <div style={{padding:"8px 14px",borderBottom:`1px solid ${C.line}`,background:`${C.orange}10`}}>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:14,color:C.orange,textTransform:"uppercase"}}>Outras despesas — {period}</p>
           </div>
@@ -1904,7 +1922,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             <Sel label="Obra *" value={despForm.obraId} onChange={DF("obraId")} options={[{v:"",l:"Selecione"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
             <div>
               <p style={{fontSize:11,fontWeight:700,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Competência (mês/ano) *</p>
-              <input type="month" value={despForm.competencia} onChange={e=>DF("competencia")(e.target.value)} style={{width:"100%",background:C.card,border:`1px solid ${C.line}`,color:C.text,padding:"11px 13px",borderRadius:14,fontSize:14,outline:"none"}}/>
+              <input type="month" value={despForm.competencia} onChange={e=>DF("competencia")(e.target.value)} style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,color:C.text,padding:"11px 13px",borderRadius:14,fontSize:14,outline:"none"}}/>
             </div>
             <Sel label="Categoria *" value={despForm.categoria} onChange={DF("categoria")} options={OUTRAS_CATEGORIAS}/>
             <Inp label="Descrição" value={despForm.descricao} onChange={DF("descricao")} placeholder="Ex.: Concreto fck 25 — 20m³, Andaime locado..."/>
@@ -2088,7 +2106,7 @@ function MedicoesView({ data, update, showToast }) {
       {obra && (
         <>
           {/* Info da obra */}
-          <div style={{ background:C.card, border:`1px solid ${C.line}`, borderTop:`3px solid ${C.blue}`, padding:"12px 16px", borderRadius:16 }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderTop:`3px solid ${C.blue}`, padding:"12px 16px", borderRadius:16 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
               <div>
                 <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:17 }}>{obra.name}</p>
@@ -2134,7 +2152,7 @@ function MedicoesView({ data, update, showToast }) {
 
           {/* Lista de medições */}
           {medicoes.length===0 && (
-            <div style={{ background:C.card, border:`1px solid ${C.line}`, padding:24, textAlign:"center", color:C.muted, borderRadius:14 }}>
+            <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:24, textAlign:"center", color:C.muted, borderRadius:14 }}>
               Nenhuma medição registrada para esta obra.
             </div>
           )}
@@ -2233,7 +2251,7 @@ function MedicoesView({ data, update, showToast }) {
             <div>
               <p style={{ fontSize:11, fontWeight:700, color:C.subtle, textTransform:"uppercase", marginBottom:5 }}>Competência (mês/ano)</p>
               <input type="month" value={form.competencia} onChange={e=>F("competencia")(e.target.value)} style={{
-                width:"100%", background:C.card, border:`1px solid ${C.line}`, color:C.text,
+                width:"100%", background:C.card, border:`1px solid ${C.border}`, color:C.text,
                 padding:"11px 13px", borderRadius:14, fontSize:14, outline:"none",
               }}/>
             </div>
@@ -2463,7 +2481,7 @@ function Financeiro({ data, update, showToast }) {
           ["Total trabalho",   fmt(T.labor+T.terc),           C.red,    "users"],
           ["Margem real",      `${fmt(T.margin)} (${totalMarginPct.toFixed(0)}%)`, T.margin>=0?C.green:C.red, "chart"],
         ].map(([l,v,c,ic])=>(
-          <div key={l} style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${c}`,padding:"12px 14px",borderRadius:16}}>
+          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,padding:"12px 14px",borderRadius:16}}>
             <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,color:c,fontSize:22,lineHeight:1.1,marginTop:4,letterSpacing:.5}}>{v}</p>
           </div>
@@ -2472,7 +2490,7 @@ function Financeiro({ data, update, showToast }) {
 
       {/* Gráfico receita vs custo */}
       {chartData.length>0 && (
-        <div style={{background:C.card,border:`1px solid ${C.line}`,padding:14,borderRadius:18}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,padding:14,borderRadius:18}}>
           <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:10}}>Receita vs Custo MO por obra</p>
           <div style={{height:220}}>
             <ResponsiveContainer width="100%" height="100%">
@@ -2480,7 +2498,7 @@ function Financeiro({ data, update, showToast }) {
                 <CartesianGrid stroke={C.border} vertical={false}/>
                 <XAxis dataKey="name" stroke={C.muted} fontSize={10}/>
                 <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
-                <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text,borderRadius:10}} formatter={v=>fmt(v)}/>
+                <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text,borderRadius:10}} formatter={v=>fmt(v)}/>
                 <Bar dataKey="Receita" fill={C.green} radius={[6,6,0,0]}/>
                 <Bar dataKey="CustoMO" fill={C.orange} radius={[6,6,0,0]}/>
                 <Bar dataKey="Margem"  fill={C.blue}   radius={[6,6,0,0]}/>
@@ -2491,7 +2509,7 @@ function Financeiro({ data, update, showToast }) {
       )}
 
       {/* Gráfico mensal recebimentos vs custo */}
-      <div style={{background:C.card,border:`1px solid ${C.line}`,padding:14,borderRadius:18}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,padding:14,borderRadius:18}}>
         <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:10}}>Recebimentos × Custos — 6 meses</p>
         <div style={{height:200}}>
           <ResponsiveContainer width="100%" height="100%">
@@ -2499,7 +2517,7 @@ function Financeiro({ data, update, showToast }) {
               <CartesianGrid stroke={C.border} vertical={false}/>
               <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
               <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
-              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text,borderRadius:10}} formatter={v=>fmt(v)}/>
+              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text,borderRadius:10}} formatter={v=>fmt(v)}/>
               <Line type="monotone" dataKey="Recebido"   stroke={C.green}  strokeWidth={2} dot={{r:3,fill:C.green}}/>
               <Line type="monotone" dataKey="CustoMO"    stroke={C.orange} strokeWidth={2} dot={{r:3,fill:C.orange}}/>
               <Line type="monotone" dataKey="Terceiros"  stroke={C.purple} strokeWidth={2} dot={{r:3,fill:C.purple}} strokeDasharray="4 2"/>
@@ -2518,7 +2536,7 @@ function Financeiro({ data, update, showToast }) {
         const marginColor = r.margin>=0 ? C.green : C.red;
         const commitColor = r.commitment!=null&&r.commitment>100 ? C.red : r.commitment!=null&&r.commitment>80 ? C.orange : C.green;
         return (
-          <div key={r.id} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden"}}>
+          <div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden"}}>
             <button onClick={()=>setExpanded(exp?null:r.id)} style={{
               width:"100%",background:"transparent",border:0,color:C.text,
               padding:"14px 16px",textAlign:"left",cursor:"pointer",
@@ -2578,7 +2596,7 @@ function Financeiro({ data, update, showToast }) {
                     ["Margem real",fmt(r.margin),r.margin>=0?C.green:C.red],
                     ["Saldo contrato",fmt(r.contractValue-r.laborCost),r.contractValue-r.laborCost>=0?C.green:C.red],
                   ].map(([l,v,c])=>(
-                    <div key={l} style={{background:C.card,border:`1px solid ${C.line}`,padding:"8px 10px",borderRadius:10}}>
+                    <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,padding:"8px 10px",borderRadius:10}}>
                       <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,marginBottom:3}}>{l}</p>
                       <p style={{fontSize:13,fontWeight:900,color:c}}>{v}</p>
                     </div>
@@ -2600,9 +2618,9 @@ function Financeiro({ data, update, showToast }) {
         <Btn onClick={()=>setPayModal(true)} size="sm"><Ic n="plus"/> Novo</Btn>
       </div>
 
-      {allPayments.length===0&&<div style={{background:C.card,border:`1px solid ${C.line}`,padding:"20px",textAlign:"center",color:C.muted,borderRadius:14}}>Nenhum recebimento registrado ainda.</div>}
+      {allPayments.length===0&&<div style={{background:C.card,border:`1px solid ${C.border}`,padding:"20px",textAlign:"center",color:C.muted,borderRadius:14}}>Nenhum recebimento registrado ainda.</div>}
       {allPayments.map(p=>(
-        <div key={p.id} style={{background:C.card,border:`1px solid ${C.line}`,borderLeft:`4px solid ${C.green}`,padding:"12px 14px",borderRadius:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+        <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${C.green}`,padding:"12px 14px",borderRadius:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
           <div>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:16}}>{p.description}</p>
             <p style={{color:C.muted,fontSize:12}}>{obraName(p.obraId)} · {fmtDateFull(p.date)}</p>
@@ -4304,7 +4322,7 @@ function FluxoCaixa({ data }) {
           ["Receita proj.",   fmt(projReceived),      C.blue],
           ["Saída proj.",     fmt(projOut),           C.orange],
         ].map(([l,v,c])=>(
-          <div key={l} style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${c}`,padding:"10px 12px",borderRadius:14}}>
+          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,padding:"10px 12px",borderRadius:14}}>
             <p style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase"}}>{l}</p>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,color:c,fontSize:22,lineHeight:1.1,marginTop:3}}>{v}</p>
           </div>
@@ -4312,7 +4330,7 @@ function FluxoCaixa({ data }) {
       </div>
 
       {/* Gráfico visual (barras CSS customizadas) */}
-      <div style={{background:C.card,border:`1px solid ${C.line}`,padding:14,borderRadius:18}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,padding:14,borderRadius:18}}>
         <p style={{fontSize:11,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:12}}>Receita × Saída por mês</p>
         <div style={{display:"flex",gap:6,alignItems:"flex-end",height:140}}>
           {cashflow.map((c,i)=>{
@@ -4340,7 +4358,7 @@ function FluxoCaixa({ data }) {
       </div>
 
       {/* Tabela mês a mês */}
-      <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden"}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden"}}>
         <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"1.2fr 1fr 1fr 1fr 1fr",gap:4}}>
           {["Mês","Recebido","MO","Terceiros","Saldo"].map(h=>(
             <p key={h} style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase"}}>{h}</p>
@@ -4479,7 +4497,7 @@ function Terceiros({ data, update, showToast }) {
           ["Total contratos", fmt(totalContracts), C.green,  "dollar"],
           ["Total pago",   fmt(totalPaidAll),      C.blue,   "check"],
         ].map(([l,v,c,ic]) => (
-          <div key={l} style={{ background:C.card, border:`1px solid ${C.line}`, borderTop:`3px solid ${c}`, padding:"12px 14px", borderRadius:16 }}>
+          <div key={l} style={{ background:C.card, border:`1px solid ${C.border}`, borderTop:`3px solid ${c}`, padding:"12px 14px", borderRadius:16 }}>
             <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>{l}</p>
             <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, color:c, fontSize:26, lineHeight:1.1, marginTop:4 }}>{v}</p>
           </div>
@@ -4514,7 +4532,7 @@ function Terceiros({ data, update, showToast }) {
         </div>
 
         {filteredTerc.length === 0 && (
-          <div style={{ background:C.card, border:`1px solid ${C.line}`, padding:24, textAlign:"center", color:C.muted, borderRadius:14 }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:24, textAlign:"center", color:C.muted, borderRadius:14 }}>
             Nenhum terceirizado cadastrado.
           </div>
         )}
@@ -4549,7 +4567,7 @@ function Terceiros({ data, update, showToast }) {
                   const pct = t.contractValue>0 ? Math.min((pago/t.contractValue)*100, 100) : 0;
                   const exp = expanded === t.id;
                   return (
-                    <div key={t.id} style={{ background:C.card, border:`1px solid ${C.line}`, borderRadius: exp?"0":"0", overflow:"hidden", opacity:t.active===false?0.6:1, marginBottom:1 }}>
+                    <div key={t.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius: exp?"0":"0", overflow:"hidden", opacity:t.active===false?0.6:1, marginBottom:1 }}>
                       <button onClick={() => setExpanded(exp ? null : t.id)} style={{
                         width:"100%", background:"transparent", border:0, color:C.text,
                         padding:"12px 16px", textAlign:"left", cursor:"pointer",
@@ -4586,7 +4604,7 @@ function Terceiros({ data, update, showToast }) {
                         <div style={{ borderTop:`1px solid ${C.line}`, padding:"12px 16px", background:C.surface, display:"flex", flexDirection:"column", gap:10 }}>
                           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
                             {[["Pago total",fmt(pago),C.blue],["Saldo",fmt(saldo),saldo>=0?C.green:C.red],["Semanal",fmt(t.weeklyRate),C.orange]].map(([l,v,c])=>(
-                              <div key={l} style={{ background:C.card, border:`1px solid ${C.line}`, padding:"8px 10px", borderRadius:10 }}>
+                              <div key={l} style={{ background:C.card, border:`1px solid ${C.border}`, padding:"8px 10px", borderRadius:10 }}>
                                 <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>{l}</p>
                                 <p style={{ fontSize:14, fontWeight:900, color:c }}>{v}</p>
                               </div>
@@ -4643,7 +4661,7 @@ function Terceiros({ data, update, showToast }) {
             {filteredTerc.filter(t=>!t.obraId).map(t=>{
               const sp=specInfo(t.specialty);
               return(
-                <div key={t.id} style={{background:C.card,border:`1px solid ${C.line}`,borderLeft:`4px solid ${sp.color}`,padding:"12px 14px",borderRadius:12,marginBottom:4}}>
+                <div key={t.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${sp.color}`,padding:"12px 14px",borderRadius:12,marginBottom:4}}>
                   <div style={{display:"flex",justifyContent:"space-between"}}>
                     <p style={{fontWeight:700}}>{sp.emoji} {t.name}</p>
                     <Btn size="sm" v="ghost" onClick={()=>{setForm({...t,weeklyRate:String(t.weeklyRate||""),contractValue:String(t.contractValue||"")});setModal(true);}}>
@@ -4661,9 +4679,9 @@ function Terceiros({ data, update, showToast }) {
       {/* ── VIEW: PAGAMENTOS ───────────────────────────────────── */}
       {view === "pagamentos" && (<>
         {/* Navegador de semana */}
-        <div style={{ background:C.card, border:`1px solid ${C.line}`, borderTop:`3px solid ${C.orange}`, padding:"14px 16px", borderRadius:16 }}>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderTop:`3px solid ${C.orange}`, padding:"14px 16px", borderRadius:16 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-            <button onClick={()=>setWeekOffset(w=>w-1)} style={{ background:"transparent", border:`1px solid ${C.line}`, color:C.text, padding:"6px 14px", cursor:"pointer", borderRadius:10, fontWeight:900, fontSize:18 }}>‹</button>
+            <button onClick={()=>setWeekOffset(w=>w-1)} style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.text, padding:"6px 14px", cursor:"pointer", borderRadius:10, fontWeight:900, fontSize:18 }}>‹</button>
             <div style={{ textAlign:"center" }}>
               <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:24, color:C.orange, letterSpacing:1, lineHeight:1 }}>
                 💰 Sexta-feira
@@ -4675,7 +4693,7 @@ function Terceiros({ data, update, showToast }) {
                 Semana: {fmtDateFull(weekStart)} → {fmtDateFull(weekEnd)}
               </p>
             </div>
-            <button onClick={()=>setWeekOffset(w=>w+1)} style={{ background:"transparent", border:`1px solid ${C.line}`, color:C.text, padding:"6px 14px", cursor:"pointer", borderRadius:10, fontWeight:900, fontSize:18 }}>›</button>
+            <button onClick={()=>setWeekOffset(w=>w+1)} style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.text, padding:"6px 14px", cursor:"pointer", borderRadius:10, fontWeight:900, fontSize:18 }}>›</button>
           </div>
 
           {/* Status da semana */}
@@ -4695,7 +4713,7 @@ function Terceiros({ data, update, showToast }) {
 
         {/* Lista de terceirizados com status de pagamento */}
         {activeTerc.length === 0 && (
-          <div style={{ background:C.card, border:`1px solid ${C.line}`, padding:24, textAlign:"center", color:C.muted, borderRadius:14 }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:24, textAlign:"center", color:C.muted, borderRadius:14 }}>
             Nenhum terceirizado ativo. Cadastre na aba Cadastro.
           </div>
         )}
@@ -4781,7 +4799,7 @@ function Terceiros({ data, update, showToast }) {
       {/* Modal: registrar pagamento */}
       {payModal && (
         <Modal title={`Pagamento — ${payModal.name}`} onClose={()=>{setPayModal(null);setPayAmount("");setPayDesc("");}}>
-          <div style={{ background:C.card, border:`1px solid ${C.line}`, borderLeft:`4px solid ${C.orange}`, padding:"10px 14px", borderRadius:12, marginBottom:12 }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${C.orange}`, padding:"10px 14px", borderRadius:12, marginBottom:12 }}>
             <p style={{ fontSize:12, color:C.muted }}>{specInfo(payModal.specialty).emoji} {specInfo(payModal.specialty).l} · {obraName(payModal.obraId)}</p>
             <p style={{ fontSize:13, color:C.orange, fontWeight:700, marginTop:2 }}>Sexta-feira: {fmtDateFull(friday)}</p>
           </div>
@@ -5495,7 +5513,7 @@ ${obraBlocks}
         const margemColor = r.margem >= 0 ? C.green : C.red;
         return (
           <div key={r.obra.id} style={{
-            background:C.card, border:`1px solid ${C.line}`,
+            background:C.card, border:`1px solid ${C.border}`,
             borderLeft:`5px solid ${margemColor}`, borderRadius:16, overflow:"hidden",
           }}>
             {/* Header da obra */}
@@ -5546,7 +5564,7 @@ ${obraBlocks}
 
               {/* Totais */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:10}}>
-                <div style={{background:C.surface,border:`1px solid ${C.line}`,padding:"8px 10px",borderRadius:10}}>
+                <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:"8px 10px",borderRadius:10}}>
                   <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>Total despesas</p>
                   <p style={{fontSize:15,color:C.red,fontWeight:900,marginTop:2}}>{fmt(r.totalDespesas)}</p>
                 </div>
@@ -6339,7 +6357,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
       </div>
 
       {/* Selecionar funcionário */}
-      <div style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${C.yellow}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
         <p style={{fontSize:11,fontWeight:900,color:C.yellow,textTransform:"uppercase",letterSpacing:.8}}>① Trabalhador</p>
         <Sel label="Selecionar da lista (ou preencha manualmente abaixo)"
           value={form.empId}
@@ -6355,7 +6373,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
       </div>
 
       {/* Datas e valores */}
-      <div style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${C.orange}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.orange}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
         <p style={{fontSize:11,fontWeight:900,color:C.orange,textTransform:"uppercase",letterSpacing:.8}}>② Período e Valores</p>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Inp label="Data de admissão *"  type="date" value={form.admissao}    onChange={F("admissao")}/>
@@ -6404,7 +6422,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
 
       {/* Verbas rescisórias — ocultar no acordo interno */}
       {form.tipo !== "acordo_interno" && (
-      <div style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${C.green}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.green}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
         <p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:.8}}>③ Verbas rescisórias</p>
         {[
           ["incluirSaldo",  "Saldo de salário",              true],
@@ -6434,7 +6452,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
       )} {/* fim {form.tipo !== "acordo_interno"} */}
 
       {/* Descontos */}
-      <div style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${C.red}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.red}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
         <p style={{fontSize:11,fontWeight:900,color:C.red,textTransform:"uppercase",letterSpacing:.8}}>④ Descontos</p>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Inp label="Adiantamentos (R$)" type="number" value={form.descAdiantamento} onChange={F("descAdiantamento")} placeholder="0,00"/>
@@ -6463,7 +6481,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
           </div>
         </div>
       ) : (
-        <div style={{background:C.card,border:`1px solid ${C.line}`,padding:20,textAlign:"center",color:C.muted,borderRadius:14}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,padding:20,textAlign:"center",color:C.muted,borderRadius:14}}>
           Preencha nome, datas e valor mensal para calcular.
         </div>
       )}
@@ -6478,18 +6496,18 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
       <Btn onClick={salvar} full disabled={!calc}><Ic n="check"/> Salvar no histórico</Btn>
 
       {/* Histórico */}
-      <button onClick={()=>setHistory(h=>!h)} style={{background:"transparent",border:`1px solid ${C.line}`,color:C.muted,padding:"10px 14px",cursor:"pointer",borderRadius:12,fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:14,textTransform:"uppercase",letterSpacing:.5,textAlign:"left"}}>
+      <button onClick={()=>setHistory(h=>!h)} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"10px 14px",cursor:"pointer",borderRadius:12,fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:14,textTransform:"uppercase",letterSpacing:.5,textAlign:"left"}}>
         {history?"▲ Ocultar":"▼ Ver"} histórico de rescisões ({rescisoes.length})
       </button>
 
       {history && rescisoes.length === 0 && (
-        <div style={{background:C.card,border:`1px solid ${C.line}`,padding:16,textAlign:"center",color:C.muted,borderRadius:14}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,padding:16,textAlign:"center",color:C.muted,borderRadius:14}}>
           Nenhuma rescisão salva ainda.
         </div>
       )}
 
       {history && rescisoes.map(r => (
-        <div key={r.id} style={{background:C.card,border:`1px solid ${C.line}`,borderLeft:`4px solid ${C.red}`,padding:"12px 16px",borderRadius:14}}>
+        <div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${C.red}`,padding:"12px 16px",borderRadius:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
             <div>
               <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:17}}>{r.empName}</p>
@@ -6530,7 +6548,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
 // Configurações / aprovações
 // ═══════════════════════════════════════════════════════════════════
 
-function Config({ data, update, showToast }) {
+function Config({ data, update, showToast, currentUser, onLogout }) {
   const [form, setForm] = useState(data.config);
   const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
@@ -6628,10 +6646,347 @@ function Config({ data, update, showToast }) {
         </div>
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Backup</h3>
-        <Btn v="ghost" onClick={exportBackup}><Ic n="download" /> Exportar backup JSON</Btn>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:14, borderRadius:10 }}>
+        <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color:C.yellow, textTransform:"uppercase", marginBottom:10, fontSize:13, fontWeight:700 }}>Backup</h3>
+        <Btn v="ghost" onClick={exportBackup}><Ic n="download"/> Exportar backup JSON</Btn>
       </div>
+
+      {/* Gestão de usuários */}
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:14, borderRadius:10 }}>
+        <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color:C.yellow, textTransform:"uppercase", marginBottom:12, fontSize:13, fontWeight:700 }}>Usuários e Permissões</h3>
+        <GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser}/>
+      </div>
+
+      {/* Logout */}
+      <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, padding:14, borderRadius:10 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+          <div>
+            <p style={{ fontWeight:700, fontSize:14, color:C.text }}>{currentUser?.nome||"—"}</p>
+            <p style={{ fontSize:11, color:C.muted, marginTop:2 }}>{ROLES.find(r=>r.v===currentUser?.role)?.l||"—"}</p>
+          </div>
+          <Btn v="danger" size="sm" onClick={onLogout}>Sair</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SISTEMA DE LOGIN E PERMISSÕES
+// ═══════════════════════════════════════════════════════════════════
+
+const ROLES = [
+  { v:"admin",      l:"Administrador",     desc:"Acesso total ao sistema",             color:"#D4AF37" },
+  { v:"engenheiro", l:"Engenheiro de Campo",desc:"Obras, Ponto, Equipe, Terceiros",    color:"#1565C0" },
+  { v:"rh",         l:"RH / Gestão",       desc:"Equipe, Folha, Rescisão",             color:"#2E7D32" },
+  { v:"financeiro", l:"Financeiro",         desc:"DRE, KPIs, Medições, Relatórios",    color:"#6A1B9A" },
+  { v:"visualizador",l:"Visualizador",      desc:"Somente Dashboard (somente leitura)", color:"#6B6459" },
+];
+
+const ROLE_TABS = {
+  admin:       ["home","obras","ponto","equipe","terc","folha","resc","dre","fin","medicoes","relat","ia","config"],
+  engenheiro:  ["home","obras","ponto","equipe","terc","ia"],
+  rh:          ["home","equipe","folha","resc","ia"],
+  financeiro:  ["home","dre","fin","medicoes","relat","ia"],
+  visualizador:["home"],
+};
+
+const hashPin = async (pin) => {
+  const buf  = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+};
+
+// ── Tela de Login ────────────────────────────────────────────────
+
+function LoginScreen({ data, onLogin, onFirstSetup }) {
+  const [step,     setStep]     = useState("select"); // "select" | "pin"
+  const [selUser,  setSelUser]  = useState(null);
+  const [pin,      setPin]      = useState("");
+  const [erro,     setErro]     = useState("");
+  const [loading,  setLoading]  = useState(false);
+
+  const usuarios = (data.usuarios||[]).filter(u => u.active !== false);
+  const isFirst  = usuarios.length === 0;
+
+  const handlePinKey = (digit) => {
+    if (pin.length < 6) setPin(p => p + digit);
+  };
+  const handleBackspace = () => setPin(p => p.slice(0,-1));
+
+  const handleLogin = async () => {
+    if (!selUser) return;
+    if (pin.length < 4) { setErro("PIN deve ter mínimo 4 dígitos."); return; }
+    setLoading(true); setErro("");
+    const h = await hashPin(pin);
+    if (h !== selUser.pin) {
+      setErro("PIN incorreto. Tente novamente.");
+      setPin("");
+      setLoading(false);
+      return;
+    }
+    onLogin(selUser);
+    setLoading(false);
+  };
+
+  // Automaticamente faz login quando PIN tem 6 dígitos
+  const handleDigit = async (d) => {
+    const newPin = pin.length < 6 ? pin + d : pin;
+    setPin(newPin);
+    setErro("");
+    if (newPin.length === 6) {
+      setLoading(true);
+      const h = await hashPin(newPin);
+      if (h !== selUser.pin) {
+        setErro("PIN incorreto.");
+        setPin("");
+        setLoading(false);
+      } else {
+        onLogin(selUser);
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <div className="animUp" style={{
+      minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", padding:24,
+    }}>
+      <style>{G}</style>
+
+      {/* Logo */}
+      <div style={{marginBottom:32,textAlign:"center"}}>
+        <img src={ARCD_LOGO} alt="ARCD" style={{width:72,height:72,objectFit:"contain",marginBottom:12}}/>
+        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:22,fontWeight:800,letterSpacing:4,color:C.text,textTransform:"uppercase"}}>ARCD</p>
+        <p style={{fontSize:11,color:C.muted,letterSpacing:2,fontWeight:500,marginTop:2}}>CONSTRUTECH</p>
+      </div>
+
+      <div style={{width:"100%",maxWidth:340}}>
+        {/* Linha ouro */}
+        <div style={{height:2,background:`linear-gradient(90deg,transparent,${C.yellow},transparent)`,marginBottom:28}}/>
+
+        {isFirst ? (
+          // Primeiro acesso — criar admin
+          <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:10,padding:24}}>
+            <p style={{fontSize:13,fontWeight:700,color:C.yellow,textAlign:"center",marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>Primeiro acesso</p>
+            <p style={{fontSize:12,color:C.muted,textAlign:"center",marginBottom:20}}>Configure a conta de Administrador</p>
+            <Btn onClick={onFirstSetup} v="primary" full size="lg">Configurar conta admin</Btn>
+          </div>
+        ) : step === "select" ? (
+          // Seleção de usuário
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <p style={{fontSize:11,fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Selecione seu perfil</p>
+            {usuarios.map(u => {
+              const role = ROLES.find(r=>r.v===u.role)||ROLES[0];
+              return (
+                <button key={u.id} onClick={()=>{setSelUser(u);setStep("pin");setPin("");setErro("");}} style={{
+                  background:C.bg, border:`1.5px solid ${C.border}`,
+                  borderLeft:`4px solid ${role.color}`,
+                  borderRadius:8, padding:"12px 14px", textAlign:"left", cursor:"pointer",
+                  display:"flex", justifyContent:"space-between", alignItems:"center",
+                  boxShadow:`0 1px 4px ${C.shadow}`,
+                }}>
+                  <div>
+                    <p style={{fontWeight:700,fontSize:14,color:C.text}}>{u.nome}</p>
+                    <p style={{fontSize:11,color:C.muted,marginTop:2}}>{role.l}</p>
+                  </div>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:role.color,flexShrink:0}}/>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          // PIN entry
+          <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:10,padding:20}}>
+            <button onClick={()=>{setStep("select");setPin("");setErro("");}} style={{
+              background:"transparent",border:0,color:C.muted,cursor:"pointer",
+              fontSize:12,fontWeight:600,marginBottom:14,padding:0,display:"flex",alignItems:"center",gap:4,
+            }}>← Voltar</button>
+
+            <div style={{textAlign:"center",marginBottom:18}}>
+              <p style={{fontWeight:700,fontSize:16,color:C.text}}>{selUser?.nome}</p>
+              <p style={{fontSize:11,color:C.muted,marginTop:2}}>{ROLES.find(r=>r.v===selUser?.role)?.l}</p>
+            </div>
+
+            {/* PIN dots */}
+            <div style={{display:"flex",justifyContent:"center",gap:10,marginBottom:16}}>
+              {Array.from({length:6},(_,i)=>(
+                <div key={i} style={{
+                  width:14,height:14,borderRadius:"50%",
+                  background:i<pin.length ? C.yellow : "transparent",
+                  border:`2px solid ${i<pin.length?C.yellow:C.border}`,
+                  transition:"all .12s",
+                }}/>
+              ))}
+            </div>
+
+            {erro && <p style={{fontSize:12,color:C.red,textAlign:"center",marginBottom:10,fontWeight:600}}>{erro}</p>}
+
+            {/* Teclado numérico */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+              {[1,2,3,4,5,6,7,8,9,"",0,"←"].map((d,i)=>(
+                <button key={i} onClick={()=>d===""?null:d==="←"?handleBackspace():handleDigit(String(d))} style={{
+                  background:d===""?"transparent":C.bg,
+                  border:`1.5px solid ${d===""?"transparent":C.border}`,
+                  borderRadius:8, padding:"14px 0",
+                  fontFamily:"'Inter Display','Inter',sans-serif",
+                  fontSize:18,fontWeight:700,color:d==="←"?C.muted:C.text,
+                  cursor:d===""?"default":"pointer",
+                  boxShadow:d===""?"none":`0 1px 3px ${C.shadow}`,
+                  opacity:loading?0.5:1,
+                }}>
+                  {d}
+                </button>
+              ))}
+            </div>
+
+            {pin.length >= 4 && pin.length < 6 && (
+              <Btn onClick={handleLogin} v="primary" full style={{marginTop:12}} disabled={loading}>
+                {loading ? "Verificando..." : "Entrar"}
+              </Btn>
+            )}
+          </div>
+        )}
+
+        <p style={{textAlign:"center",fontSize:10,color:C.muted,marginTop:20,letterSpacing:.5}}>
+          ARCD Construtech · Sistema de Gestão
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Gestão de Usuários (dentro de Config) ────────────────────────
+
+function GestaoUsuarios({ data, update, showToast, currentUser }) {
+  const emptyU = { id:"", nome:"", role:"engenheiro", email:"", obraId:"", active:true };
+  const [modal,   setModal]   = useState(false);
+  const [pinModal,setPinModal] = useState(null); // userId
+  const [form,    setForm]    = useState(emptyU);
+  const [newPin,  setNewPin]  = useState("");
+  const [newPin2, setNewPin2] = useState("");
+  const F = k => v => setForm(f=>({...f,[k]:v}));
+
+  const saveUser = async () => {
+    if (!form.nome.trim()) { showToast("Nome obrigatório.","error"); return; }
+    const payload = { ...form, id: form.id||uid(), createdAt: form.createdAt||new Date().toISOString() };
+    // PIN só é definido via modal separado
+    if (!form.id) payload.pin = ""; // novo usuário sem PIN → admin define depois
+    const usuarios = form.id
+      ? (data.usuarios||[]).map(u=>u.id===form.id?payload:u)
+      : [...(data.usuarios||[]), payload];
+    update({...data, usuarios});
+    setModal(false);
+    showToast(form.id?"Usuário atualizado.":"Usuário cadastrado. Defina o PIN agora.");
+    if (!form.id) setPinModal(payload.id);
+  };
+
+  const savePin = async (userId) => {
+    if (newPin.length < 4) { showToast("PIN mínimo 4 dígitos.","error"); return; }
+    if (newPin !== newPin2) { showToast("PINs não coincidem.","error"); return; }
+    const h = await hashPin(newPin);
+    const usuarios = (data.usuarios||[]).map(u=>u.id===userId?{...u,pin:h}:u);
+    update({...data, usuarios});
+    setPinModal(null); setNewPin(""); setNewPin2("");
+    showToast("PIN definido com sucesso.");
+  };
+
+  const toggleActive = (id) => {
+    const usuarios = (data.usuarios||[]).map(u=>u.id===id?{...u,active:!u.active}:u);
+    update({...data,usuarios});
+    showToast("Status atualizado.");
+  };
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:15,fontWeight:700,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Usuários do Sistema</p>
+          <p style={{fontSize:12,color:C.muted,marginTop:2}}>{(data.usuarios||[]).length} cadastrados</p>
+        </div>
+        {currentUser?.role==="admin"&&<Btn size="sm" onClick={()=>{setForm(emptyU);setModal(true);}}><Ic n="plus"/> Novo</Btn>}
+      </div>
+
+      {(data.usuarios||[]).length===0&&(
+        <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:20,textAlign:"center",color:C.muted}}>
+          Nenhum usuário cadastrado. Crie o admin primeiro.
+        </div>
+      )}
+
+      {(data.usuarios||[]).map(u=>{
+        const role=ROLES.find(r=>r.v===u.role)||ROLES[0];
+        const hasPIN=!!u.pin;
+        return(
+          <div key={u.id} style={{
+            background:C.bg,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${role.color}`,
+            borderRadius:8,padding:"12px 14px",
+            boxShadow:`0 1px 4px ${C.shadow}`,
+            opacity:u.active===false?0.55:1,
+          }}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <p style={{fontWeight:700,fontSize:14,color:C.text}}>{u.nome}</p>
+                  {u.id===currentUser?.id&&<span style={{fontSize:10,background:C.yellow,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:700}}>VOCÊ</span>}
+                  {!hasPIN&&<span style={{fontSize:10,background:C.orange,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:700}}>SEM PIN</span>}
+                </div>
+                <p style={{fontSize:11,color:role.color,fontWeight:600,marginTop:2}}>{role.l}</p>
+                {u.email&&<p style={{fontSize:11,color:C.muted,marginTop:1}}>{u.email}</p>}
+                <p style={{fontSize:10,color:C.muted,marginTop:3}}>{role.desc}</p>
+              </div>
+              {currentUser?.role==="admin"&&(
+                <div style={{display:"flex",gap:4,flexShrink:0}}>
+                  <Btn size="sm" v="ghost" onClick={()=>setPinModal(u.id)}>PIN</Btn>
+                  <Btn size="sm" v="ghost" onClick={()=>{setForm({...u});setModal(true);}}><Ic n="edit"/></Btn>
+                  <Btn size="sm" v={u.active===false?"success":"dark"} onClick={()=>toggleActive(u.id)}>
+                    {u.active===false?"Ativar":"Inativar"}
+                  </Btn>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Modal: cadastro de usuário */}
+      {modal&&(
+        <Modal title={form.id?"Editar usuário":"Novo usuário"} onClose={()=>setModal(false)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <Inp label="Nome completo *" value={form.nome} onChange={F("nome")} placeholder="Nome do usuário"/>
+            <Sel label="Perfil de acesso *" value={form.role} onChange={F("role")} options={ROLES.map(r=>({v:r.v,l:r.l}))}/>
+            <Inp label="E-mail" value={form.email} onChange={F("email")} placeholder="email@empresa.com"/>
+            <Sel label="Restringir a obra (opcional)" value={form.obraId} onChange={F("obraId")}
+              options={[{v:"",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+              <p style={{fontSize:11,color:C.muted}}>
+                {ROLES.find(r=>r.v===form.role)?.desc||""}
+              </p>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
+              <Btn onClick={saveUser} full><Ic n="check"/> Salvar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal: definir PIN */}
+      {pinModal&&(
+        <Modal title="Definir PIN de acesso" onClose={()=>{setPinModal(null);setNewPin("");setNewPin2("");}}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"10px 14px"}}>
+              <p style={{fontSize:12,color:C.muted}}>Usuário: <strong style={{color:C.text}}>{(data.usuarios||[]).find(u=>u.id===pinModal)?.nome||"—"}</strong></p>
+              <p style={{fontSize:11,color:C.muted,marginTop:4}}>O PIN é pessoal e deve ter entre 4 e 6 dígitos numéricos.</p>
+            </div>
+            <Inp label="Novo PIN *" type="password" value={newPin} onChange={setNewPin} placeholder="4 a 6 dígitos"/>
+            <Inp label="Confirmar PIN *" type="password" value={newPin2} onChange={setNewPin2} placeholder="Repita o PIN"/>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>{setPinModal(null);setNewPin("");setNewPin2("");}} full>Cancelar</Btn>
+              <Btn v="primary" onClick={()=>savePin(pinModal)} full><Ic n="check"/> Definir PIN</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -6688,9 +7043,11 @@ const TAB_META = {
 // ═══════════════════════════════════════════════════════════════════
 
 export default function App() {
-  const [data, setData] = useState(null);
-  const [tab, setTab] = useState("home");
-  const [loading, setLoading] = useState(true);
+  const [data,        setData]        = useState(null);
+  const [tab,         setTab]         = useState("home");
+  const [loading,     setLoading]     = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);  // usuário logado
+  const [firstSetup,  setFirstSetup]  = useState(false); // modal criação admin
   const [toast, setToast] = useState(null);
   const approvalHandledRef = useRef(false);
 
@@ -6782,13 +7139,21 @@ export default function App() {
     window.history.replaceState({}, "", window.location.pathname + window.location.hash);
   }, [data, loading, showToast, update]);
 
-  // ── Navegação por grupos ────────────────────────────────────────
-  const activeGroup  = NAV_GROUPS.find(g => g.tabs.includes(tab)) || NAV_GROUPS[0];
-  const hasSubTabs   = activeGroup.tabs.length > 1;
+  // ── Navegação por grupos (filtrada por role) ─────────────────────
+  const userRole     = currentUser?.role || "admin";
+  const allowedTabs  = ROLE_TABS[userRole] || ROLE_TABS.admin;
+
+  // Filtra grupos para mostrar apenas os que o usuário pode acessar
+  const visibleGroups = NAV_GROUPS.map(g => ({
+    ...g,
+    tabs: g.tabs.filter(t => allowedTabs.includes(t)),
+  })).filter(g => g.tabs.length > 0);
+
+  const activeGroup  = visibleGroups.find(g => g.tabs.includes(tab)) || visibleGroups[0];
+  const hasSubTabs   = activeGroup?.tabs.length > 1;
   const navHeight    = hasSubTabs ? 132 : 80;
 
   const goGroup = (group) => {
-    // Se já está no grupo, não muda de sub-tab
     if (group.tabs.includes(tab)) return;
     setTab(group.tabs[0]);
   };
@@ -6832,6 +7197,50 @@ export default function App() {
     );
   }
 
+  // ── Tela de login se não há usuário logado ──────────────────────
+  if (!currentUser) {
+    const handleLogin = (usuario) => {
+      setCurrentUser(usuario);
+      // Redirecionar para a primeira aba permitida pela role
+      const allowed = ROLE_TABS[usuario.role] || ROLE_TABS.admin;
+      setTab(allowed[0] || "home");
+    };
+
+    const handleFirstSetup = () => setFirstSetup(true);
+
+    if (firstSetup) {
+      // Modal de criação do primeiro admin
+      return (
+        <>
+          <style>{G}</style>
+          <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+            <div style={{ width:"100%", maxWidth:360 }}>
+              <div style={{ textAlign:"center", marginBottom:28 }}>
+                <img src={ARCD_LOGO} alt="ARCD" style={{ width:56, height:56, objectFit:"contain", marginBottom:10 }}/>
+                <p style={{ fontWeight:800, fontSize:18, letterSpacing:3, color:C.text, textTransform:"uppercase" }}>ARCD</p>
+                <p style={{ fontSize:11, color:C.muted, letterSpacing:1.5, marginTop:2 }}>Configuração inicial</p>
+              </div>
+              <GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={{role:"admin"}}/>
+              {(data.usuarios||[]).length > 0 && (
+                <Btn onClick={()=>{setFirstSetup(false);}} v="primary" full style={{marginTop:16}}>
+                  Ir para o login
+                </Btn>
+              )}
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <LoginScreen
+        data={data}
+        onLogin={handleLogin}
+        onFirstSetup={handleFirstSetup}
+      />
+    );
+  }
+
   return (
     <>
       <style>{G}</style>
@@ -6840,48 +7249,64 @@ export default function App() {
         {/* ── HEADER ─────────────────────────────────────────────── */}
         <header className="no-print" style={{
           position:"sticky", top:0, zIndex:50,
-          background:"rgba(255,255,255,.96)", backdropFilter:"blur(18px)",
-          borderBottom:`1px solid ${C.line}`,
+          background:"rgba(255,255,255,.97)", backdropFilter:"blur(18px)",
+          borderBottom:`1.5px solid ${C.border}`,
+          boxShadow:`0 1px 8px ${C.shadow}`,
         }}>
           <div style={{ maxWidth:1080, margin:"0 auto", padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
             <div style={{ display:"flex", alignItems:"center", gap:12 }}>
               <BrandMark compact/>
               {/* Breadcrumb */}
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ fontSize:11, color:activeGroup.color, fontWeight:900, textTransform:"uppercase", letterSpacing:.8 }}>
-                  {activeGroup.label}
+                <span style={{ fontSize:11, color:activeGroup?.color, fontWeight:700, textTransform:"uppercase", letterSpacing:.8 }}>
+                  {activeGroup?.label}
                 </span>
                 {hasSubTabs && (
                   <>
                     <span style={{ fontSize:11, color:C.muted }}>›</span>
-                    <span style={{ fontSize:11, color:C.subtle, fontWeight:700 }}>
+                    <span style={{ fontSize:11, color:C.muted, fontWeight:600 }}>
                       {TAB_META[tab]?.label}
                     </span>
                   </>
                 )}
               </div>
             </div>
-            {/* Ação rápida contextual */}
-            <button
-              onClick={() => setTab("ponto")}
-              style={{
-                background: tab==="ponto" ? C.blue : `${C.blue}18`,
-                color: tab==="ponto" ? C.ink : C.blue,
-                border:`1px solid ${C.blue}`,
-                borderRadius:999, padding:"8px 12px",
-                display:"inline-flex", alignItems:"center", gap:6,
-                cursor:"pointer", fontFamily:"'Inter Display','Inter',sans-serif",
-                fontWeight:900, textTransform:"uppercase", letterSpacing:.8,
-                fontSize:13, flexShrink:0,
-                "--ic-color": tab==="ponto" ? C.ink : C.blue,
-                position:"relative",
-              }}
-            >
-              <Ic n="clock" s={15}/> Ponto
-              {pontoPending && tab!=="ponto" && (
-                <span style={{ position:"absolute", top:-4, right:-4, width:10, height:10, background:C.red, borderRadius:"50%", border:`2px solid ${C.bg}` }}/>
+
+            {/* Usuário logado + ponto rápido */}
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              {/* Badge do usuário */}
+              <div style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 10px", background:C.surface, borderRadius:6, border:`1px solid ${C.border}` }}>
+                <div style={{ width:7, height:7, borderRadius:"50%", background:ROLES.find(r=>r.v===currentUser?.role)?.color||C.yellow, flexShrink:0 }}/>
+                <p style={{ fontSize:11, fontWeight:600, color:C.text, maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{currentUser?.nome}</p>
+                <button onClick={()=>setCurrentUser(null)} style={{
+                  background:"transparent", border:0, color:C.muted, fontSize:14,
+                  cursor:"pointer", lineHeight:1, padding:"0 2px",
+                }} title="Sair">×</button>
+              </div>
+
+              {/* Ponto rápido */}
+              {allowedTabs.includes("ponto") && (
+                <button
+                  onClick={() => setTab("ponto")}
+                  style={{
+                    background: tab==="ponto" ? C.yellow : C.surface,
+                    color: tab==="ponto" ? "#fff" : C.text,
+                    border:`1.5px solid ${tab==="ponto"?C.yellow:C.border}`,
+                    borderRadius:6, padding:"7px 12px",
+                    display:"inline-flex", alignItems:"center", gap:5,
+                    cursor:"pointer", fontFamily:"'Inter Display','Inter',sans-serif",
+                    fontWeight:700, textTransform:"uppercase", letterSpacing:.6, fontSize:12,
+                    position:"relative",
+                    "--ic-color": tab==="ponto" ? "#fff" : C.text,
+                  }}
+                >
+                  <Ic n="clock" s={13}/> Ponto
+                  {pontoPending && tab!=="ponto" && (
+                    <span style={{ position:"absolute", top:-4, right:-4, width:9, height:9, background:C.red, borderRadius:"50%", border:`2px solid ${C.bg}` }}/>
+                  )}
+                </button>
               )}
-            </button>
+            </div>
           </div>
         </header>
 
@@ -6899,7 +7324,7 @@ export default function App() {
           {tab === "medicoes" && <MedicoesView data={data} update={update} showToast={showToast} />}
           {tab === "relat"    && <Relatorios   data={data} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
-          {tab === "config" && <Config      data={data} update={update} showToast={showToast} />}
+          {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={()=>setCurrentUser(null)} />}
         </main>
 
         {/* ── NAV 2 NÍVEIS ───────────────────────────────────────── */}
@@ -6918,7 +7343,7 @@ export default function App() {
                 borderBottom:`1px solid ${C.line}55`,
                 scrollbarWidth:"none",
               }}>
-                {activeGroup.tabs.map(tabId => {
+                {activeGroup?.tabs.map(tabId => {
                   const meta = TAB_META[tabId];
                   const isActive = tab === tabId;
                   return (
@@ -6949,8 +7374,8 @@ export default function App() {
               gridTemplateColumns:`repeat(${NAV_GROUPS.length}, 1fr)`,
               padding:"6px 8px 10px",
             }}>
-              {NAV_GROUPS.map(group => {
-                const isActive = activeGroup.id === group.id;
+              {visibleGroups.map(group => {
+                const isActive = activeGroup?.id === group.id;
                 const badge = groupBadge[group.id];
                 return (
                   <button key={group.id} onClick={() => goGroup(group)} style={{
