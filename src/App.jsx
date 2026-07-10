@@ -533,16 +533,22 @@ const getWeekRange = (fridayIso) => {
 
 
 const CONTRACT_TYPES = [
-  { v: "fixed_labor",       l: "Preço fechado — MO" },
-  { v: "fixed_labor_admin", l: "Preço fechado — MO + % Admin" },
-  { v: "admin_only",        l: "Somente administração (% Admin)" },
+  { v: "fixed_labor",       l: "Somente MO — entrada + parcelas fixas"                },
+  { v: "admin_only",        l: "Somente Administração — % sobre custo MO"             },
+  { v: "fixed_labor_admin", l: "Misto — MO fixo + % Administração"                    },
 ];
 
 const CONTRACT_LABELS = {
-  fixed_labor:       "MO Fechado",
-  fixed_labor_admin: "MO + Admin",
-  admin_only:        "Só Admin",
+  fixed_labor:       "Somente MO",
+  admin_only:        "Só Administração",
+  fixed_labor_admin: "MO + Admin %",
 };
+
+// Frequência de cobrança
+const FREQ_OPTS = [
+  { v:"mensal",    l:"Mensal — dia 1 de cada mês"     },
+  { v:"quinzenal", l:"Quinzenal — dias 1 e 15 do mês" },
+];
 
 const DEFAULT = () => ({
   userName: "",
@@ -557,8 +563,8 @@ const DEFAULT = () => ({
     paymentHolidays: [],
   },
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0 },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0 },
+    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "" },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "" },
   ],
   employees: [],
   attendance: {},
@@ -606,6 +612,9 @@ const normalizeData = incoming => {
       contractStart: o.contractStart || "",
       contractEnd:   o.contractEnd   || "",
       totalParcelas: Number(o.totalParcelas || 0),
+      billingFrequency: o.billingFrequency || "mensal",
+      entrada:    Number(o.entrada    || 0),
+      entradaDate: o.entradaDate || "",
     })) : base.obras,
     employees: Array.isArray(d.employees) ? d.employees.map(e => ({
       id: e.id || uid(),
@@ -630,17 +639,21 @@ const normalizeData = incoming => {
     advances: Array.isArray(d.advances) ? d.advances : [],
     payments: Array.isArray(d.payments) ? d.payments : [],
     medicoes: Array.isArray(d.medicoes) ? d.medicoes.map(m => ({
-      id: m.id || uid(),
-      obraId: m.obraId || "",
-      competencia: m.competencia || "",       // "YYYY-MM"
-      tipo: m.tipo || "mensal_fixo",          // "mensal_fixo" | "percentual"
+      id:                  m.id || uid(),
+      obraId:              m.obraId || "",
+      competencia:         m.competencia || "",
+      dataVencimento:      m.dataVencimento || "",
+      numeroParcela:       m.numeroParcela  || "",
+      tipo:                m.tipo || "mensal_fixo",
       percentualAcumulado: Number(m.percentualAcumulado || 0),
-      percentualPeriodo: Number(m.percentualPeriodo || 0),
-      valorPrevisto: Number(m.valorPrevisto || 0),
-      valorRecebido: Number(m.valorRecebido || 0),
-      dataPagamento: m.dataPagamento || "",
-      descricao: m.descricao || "",
-      recebido: !!m.recebido,
+      percentualPeriodo:   Number(m.percentualPeriodo   || 0),
+      valorMOFixo:         Number(m.valorMOFixo   || 0),
+      valorAdminPct:       Number(m.valorAdminPct || 0),
+      valorPrevisto:       Number(m.valorPrevisto || 0),
+      valorRecebido:       Number(m.valorRecebido || 0),
+      dataPagamento:       m.dataPagamento || "",
+      descricao:           m.descricao     || "",
+      recebido:            !!m.recebido,
     })) : [],
     terceirizados: Array.isArray(d.terceirizados) ? d.terceirizados.map(t => ({
       id: t.id || uid(),
@@ -2053,38 +2066,101 @@ function MedicoesView({ data, update, showToast }) {
   };
 
   // ── Geração automática de parcelas fixas ─────────────────────
-  const gerarParcelasFixas = () => {
-    if (!obra?.contractStart || !obra?.parcelaMensal) {
-      showToast("Configure início do contrato e parcela mensal na obra.","error"); return;
+  // Calcula a data de vencimento de uma parcela
+  const calcDataVencimento = (contractStart, parcelaIdx, freq) => {
+    const [y, m] = contractStart.split("-").map(Number);
+    if (freq === "quinzenal") {
+      const mesOffset = Math.floor(parcelaIdx / 2);
+      const isSecond  = parcelaIdx % 2 === 1;
+      const d = new Date(y, m-1+mesOffset, isSecond ? 15 : 1);
+      return toLocalISODate(d);
+    } else {
+      // mensal — dia 1
+      const d = new Date(y, m-1+parcelaIdx, 1);
+      return toLocalISODate(d);
     }
-    const [y,m] = obra.contractStart.split("-").map(Number);
+  };
+
+  // Calcula competência (mês) de uma parcela
+  const calcCompetencia = (contractStart, parcelaIdx, freq) => {
+    const [y, m] = contractStart.split("-").map(Number);
+    const mesOffset = freq==="quinzenal" ? Math.floor(parcelaIdx/2) : parcelaIdx;
+    const d = new Date(y, m-1+mesOffset, 1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+  };
+
+  const gerarParcelasFixas = () => {
+    if (!obra?.contractStart) {
+      showToast("Configure a data de início do contrato na obra.","error"); return;
+    }
+    const tipo = obra.contractType || "fixed_labor";
+    const freq = obra.billingFrequency || "mensal";
     const total = obra.totalParcelas || 12;
     const novas = [];
-    for (let i=0; i<total; i++) {
-      const d = new Date(y, m-1+i, 1);
-      const comp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
-      // Pula se já existe medição para esta competência (a não ser que sobreescrever=true)
-      const existe = (data.medicoes||[]).some(x => x.obraId===selObra && x.competencia===comp);
-      if (existe && !gerarOpts.sobreescrever) continue;
-      if (existe && gerarOpts.sobreescrever) {
-        // remove a existente primeiro
+
+    // ── Entrada (somente para MO fixo e Misto) ──────────────────
+    if (tipo !== "admin_only" && Number(obra.entrada||0) > 0 && obra.entradaDate) {
+      const existeEntrada = (data.medicoes||[]).some(x=>x.obraId===selObra && x.numeroParcela==="E");
+      if (!existeEntrada || gerarOpts.sobreescrever) {
+        novas.push({
+          id: uid(), obraId: selObra,
+          competencia: obra.contractStart.slice(0,7),
+          dataVencimento: obra.entradaDate,
+          numeroParcela: "E",
+          tipo: "mensal_fixo",
+          percentualAcumulado: 0, percentualPeriodo: 0,
+          valorMOFixo: Number(obra.entrada), valorAdminPct: 0,
+          valorPrevisto: Number(obra.entrada),
+          valorRecebido: 0, dataPagamento: "",
+          descricao: "Entrada do contrato",
+          recebido: false,
+        });
       }
+    }
+
+    // ── Parcelas regulares ───────────────────────────────────────
+    for (let i=0; i<total; i++) {
+      const dataVenc = calcDataVencimento(obra.contractStart, i, freq);
+      const comp     = calcCompetencia(obra.contractStart, i, freq);
+      const numParcela = i+1;
+      const isQuinzenaSegunda = freq==="quinzenal" && i%2===1;
+      const descPrefix = freq==="quinzenal"
+        ? `${isQuinzenaSegunda?"2ª":"1ª"} quinzena`
+        : `Parcela ${numParcela}/${total}`;
+
+      // Componentes por tipo
+      const valorMOFixo   = (tipo==="fixed_labor"||tipo==="fixed_labor_admin") ? Number(obra.parcelaMensal||0) : 0;
+      const valorAdminPct = (tipo==="admin_only"||tipo==="fixed_labor_admin")  ? 0 : 0; // calculado depois com base no custo MO real
+      const valorPrevisto = valorMOFixo; // admin_pct será calculado manualmente
+
+      // Verifica duplicata por dataVencimento
+      const existe = (data.medicoes||[]).some(x=>x.obraId===selObra && x.dataVencimento===dataVenc);
+      if (existe && !gerarOpts.sobreescrever) continue;
+
       novas.push({
-        id: uid(), obraId: selObra, competencia: comp, tipo: "mensal_fixo",
+        id: uid(), obraId: selObra, competencia: comp,
+        dataVencimento: dataVenc,
+        numeroParcela: numParcela,
+        tipo: tipo==="admin_only" ? "admin_pct" : "mensal_fixo",
         percentualAcumulado: 0, percentualPeriodo: 0,
-        valorPrevisto: Number(obra.parcelaMensal),
-        valorRecebido: 0, dataPagamento: "", descricao: `Parcela ${i+1}/${total}`,
+        valorMOFixo, valorAdminPct,
+        valorPrevisto: valorMOFixo,
+        valorRecebido: 0, dataPagamento: "",
+        descricao: `${descPrefix} · ${compLabel(comp)}`,
         recebido: false,
       });
     }
+
     if (novas.length === 0) { showToast("Todas as parcelas já estão lançadas.","warn"); return; }
+
     let medicoesList = gerarOpts.sobreescrever
-      ? (data.medicoes||[]).filter(x => !(x.obraId===selObra && x.tipo==="mensal_fixo"))
+      ? (data.medicoes||[]).filter(x=>x.obraId!==selObra)
       : (data.medicoes||[]);
-    medicoesList = [...medicoesList, ...novas].sort((a,b)=>a.competencia.localeCompare(b.competencia));
+    medicoesList = [...medicoesList, ...novas]
+      .sort((a,b)=>(a.dataVencimento||a.competencia).localeCompare(b.dataVencimento||b.competencia));
     update({...data, medicoes: medicoesList});
     setGerarModal(false);
-    showToast(`${novas.length} parcelas geradas automaticamente!`);
+    showToast(`${novas.length} parcelas geradas!${tipo==="admin_only"||tipo==="fixed_labor_admin"?" Calcule o valor Admin % mês a mês conforme executado.":""}`);
   };
 
   const toggleRecebido = (m) => {
@@ -2122,6 +2198,57 @@ function MedicoesView({ data, update, showToast }) {
         <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:22,fontWeight:800,color:C.text,lineHeight:1}}>Medições por Obra</p>
         <p style={{color:C.muted,fontSize:13,marginTop:4}}>Parcela fixa automática · Avanço % · Lançamento livre</p>
       </div>
+
+      {/* Painel de vencimentos — todas as obras */}
+      {(() => {
+        const todayDate = new Date();
+        const proximasAll = (data.medicoes||[]).filter(m => {
+          if (m.recebido || !m.dataVencimento) return false;
+          const venc = new Date(m.dataVencimento+"T12:00:00");
+          const diff = Math.round((venc-todayDate)/(1000*60*60*24));
+          return diff <= 7;
+        }).map(m => {
+          const o = data.obras.find(x=>x.id===m.obraId);
+          const venc = new Date(m.dataVencimento+"T12:00:00");
+          const diff = Math.round((venc-todayDate)/(1000*60*60*24));
+          return {...m, obraName:o?.name||"—", diff};
+        }).sort((a,b)=>a.dataVencimento.localeCompare(b.dataVencimento));
+
+        if (proximasAll.length===0) return null;
+        const totalPendente = proximasAll.reduce((s,m)=>s+m.valorPrevisto,0);
+        const vencidas = proximasAll.filter(m=>m.diff<0);
+
+        return (
+          <div style={{background:vencidas.length>0?`${C.red}06`:`${C.orange}06`,border:`1.5px solid ${vencidas.length>0?C.red:C.orange}`,borderRadius:10,overflow:"hidden"}}>
+            <div style={{padding:"10px 14px",borderBottom:`1px solid ${vencidas.length>0?C.red+"33":C.orange+"33"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <p style={{fontWeight:800,fontSize:14,color:vencidas.length>0?C.red:C.orange}}>
+                {vencidas.length>0?`🔴 ${vencidas.length} vencida(s) + `:""}{proximasAll.length-vencidas.length} vencendo em até 7 dias
+              </p>
+              <p style={{fontSize:13,fontWeight:800,color:C.text}}>{fmt(totalPendente)}</p>
+            </div>
+            {proximasAll.map(m=>(
+              <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 14px",borderBottom:`1px solid ${C.line}33`}}>
+                <div>
+                  <p style={{fontSize:13,fontWeight:700,color:C.text}}>{m.obraName}</p>
+                  <p style={{fontSize:11,color:m.diff<0?C.red:m.diff<=3?C.orange:C.muted}}>
+                    {m.diff<0?`Venceu há ${Math.abs(m.diff)}d`:m.diff===0?"Vence HOJE":`Vence em ${m.diff}d`}
+                    {" — "}{fmtDateFull(m.dataVencimento)}
+                    {m.descricao?` · ${m.descricao}`:""}
+                  </p>
+                </div>
+                <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                  <p style={{fontSize:14,fontWeight:800,color:m.diff<0?C.red:C.text}}>{fmt(m.valorPrevisto)}</p>
+                  <Btn size="sm" v="success" onClick={()=>{
+                    const updated={...m,recebido:true,valorRecebido:m.valorPrevisto,dataPagamento:today()};
+                    update({...data,medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
+                    showToast(`✓ ${m.obraName} — ${fmt(m.valorPrevisto)} recebido.`);
+                  }}>✓</Btn>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Seletor de obra */}
       <Sel value={selObra} onChange={v=>{setSelObra(v);}} options={data.obras.map(o=>({v:o.id,l:o.name+" · "+BILLING_LABELS[o.billingType]}))}/>
@@ -2221,33 +2348,85 @@ function MedicoesView({ data, update, showToast }) {
         {medicoes.map((m,idx) => {
           const prevMeds = medicoes.slice(0,idx).filter(x=>x.tipo==="percentual");
           const prevPct  = prevMeds.length ? prevMeds[prevMeds.length-1].percentualAcumulado : 0;
+          // Status de vencimento
+          const venc = m.dataVencimento ? new Date(m.dataVencimento+"T12:00:00") : null;
+          const diffDias = venc ? Math.round((venc - new Date())/(1000*60*60*24)) : null;
+          const statusVenc = m.recebido ? "pago"
+            : diffDias === null ? "sem_data"
+            : diffDias < 0 ? "vencido"
+            : diffDias <= 3 ? "alerta"
+            : "normal";
+          const statusColor = {pago:C.green,vencido:C.red,alerta:C.orange,normal:C.border,sem_data:C.border}[statusVenc];
+          const statusLabel = {pago:"✓ RECEBIDO",vencido:`VENCIDO (${Math.abs(diffDias)}d)`,alerta:`VENCE ${diffDias===0?"HOJE":`EM ${diffDias}d`}`,normal:`Vence ${fmtDateFull(m.dataVencimento)}`,sem_data:"Pendente"}[statusVenc];
+
+          // Calcular Admin % real para o período
+          const calcAdminPct = () => {
+            if (!m.competencia) return 0;
+            const [y,mo] = m.competencia.split("-").map(Number);
+            const mdays = getDays(y,mo-1);
+            const {laborCost} = calcObraLaborCost(data,selObra,mdays);
+            return laborCost * Number(obra?.adminPercentage||0)/100;
+          };
+
+          const contemAdmin = obra?.contractType==="admin_only"||obra?.contractType==="fixed_labor_admin";
+
           return (
             <div key={m.id} style={{
-              background:m.recebido?`${C.green}08`:C.bg,
-              border:`1.5px solid ${m.recebido?C.green+"55":C.border}`,
-              borderLeft:`4px solid ${m.recebido?C.green:C.yellow}`,
+              background:m.recebido?`${C.green}06`:C.bg,
+              border:`1.5px solid ${statusColor}`,
+              borderLeft:`4px solid ${statusColor}`,
               borderRadius:8, padding:"12px 14px",
               boxShadow:`0 1px 3px ${C.shadow}`,
             }}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
                 <div style={{flex:1}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                    {m.numeroParcela && <span style={{fontSize:11,fontWeight:800,color:C.muted}}>#{m.numeroParcela}</span>}
                     <p style={{fontWeight:800,fontSize:15,color:C.text}}>{compLabel(m.competencia)}</p>
                     <span style={{
                       fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,
-                      background:m.recebido?`${C.green}20`:"`${C.orange}18`",
-                      color:m.recebido?C.green:C.orange,
-                    }}>{m.recebido?"✓ RECEBIDO":"PENDENTE"}</span>
-                    {m.tipo==="percentual"&&<span style={{fontSize:10,color:C.blue,fontWeight:600,background:`${C.blue}12`,padding:"2px 8px",borderRadius:4}}>{prevPct}% → {m.percentualAcumulado}% (+{m.percentualPeriodo.toFixed(1)}%)</span>}
-                    {m.descricao&&<span style={{fontSize:11,color:C.muted}}>{m.descricao}</span>}
+                      background:`${statusColor}18`,color:statusColor,
+                    }}>{statusLabel}</span>
+                    {m.tipo==="percentual"&&<span style={{fontSize:10,color:C.blue,fontWeight:600,background:`${C.blue}10`,padding:"2px 8px",borderRadius:4}}>{prevPct}%→{m.percentualAcumulado}% (+{m.percentualPeriodo.toFixed(1)}%)</span>}
                   </div>
-                  <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-                    <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Previsto</p><p style={{fontSize:15,fontWeight:800,color:C.yellow}}>{fmt(m.valorPrevisto)}</p></div>
-                    {m.recebido&&<><div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Recebido</p><p style={{fontSize:15,fontWeight:800,color:C.green}}>{fmt(m.valorRecebido)}</p></div>
-                    <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Data</p><p style={{fontSize:13,color:C.muted}}>{fmtDateFull(m.dataPagamento)}</p></div></>}
-                    {m.recebido&&m.valorRecebido!==m.valorPrevisto&&<div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Diferença</p><p style={{fontSize:13,fontWeight:700,color:m.valorRecebido>m.valorPrevisto?C.green:C.red}}>{fmt(m.valorRecebido-m.valorPrevisto)}</p></div>}
+                  {m.descricao&&<p style={{fontSize:11,color:C.muted,marginBottom:4}}>{m.descricao}</p>}
+
+                  <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+                    {/* Componente MO fixo */}
+                    {m.valorMOFixo>0&&(
+                      <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>MO Fixo</p><p style={{fontSize:14,fontWeight:800,color:C.yellow}}>{fmt(m.valorMOFixo)}</p></div>
+                    )}
+                    {/* Componente Admin % */}
+                    {m.valorAdminPct>0&&(
+                      <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Admin {obra?.adminPercentage||0}%</p><p style={{fontSize:14,fontWeight:800,color:C.purple}}>{fmt(m.valorAdminPct)}</p></div>
+                    )}
+                    {/* Total previsto */}
+                    {m.valorPrevisto>0&&(
+                      <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Total previsto</p><p style={{fontSize:14,fontWeight:800,color:C.text}}>{fmt(m.valorPrevisto)}</p></div>
+                    )}
+                    {/* Recebido */}
+                    {m.recebido&&<><div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Recebido</p><p style={{fontSize:14,fontWeight:800,color:C.green}}>{fmt(m.valorRecebido)}</p></div>
+                    <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Data pgto</p><p style={{fontSize:12,color:C.muted}}>{fmtDateFull(m.dataPagamento)}</p></div></>}
                   </div>
+
+                  {/* Botão calcular Admin % (se não calculado) */}
+                  {contemAdmin && m.valorAdminPct===0 && m.competencia && !m.recebido && (
+                    <button onClick={()=>{
+                      const adminVal = calcAdminPct();
+                      if (adminVal===0) { showToast("Lance o ponto do período para calcular.","error"); return; }
+                      const novoTotal = Number(m.valorMOFixo||0) + adminVal;
+                      const updated = {...m, valorAdminPct:adminVal, valorPrevisto:novoTotal};
+                      update({...data,medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
+                      showToast(`Admin ${fmt(adminVal)} calculado com base na MO do período.`);
+                    }} style={{
+                      marginTop:8,background:"transparent",border:`1px solid ${C.purple}`,
+                      color:C.purple,padding:"3px 10px",borderRadius:4,fontSize:11,cursor:"pointer",fontWeight:700,
+                    }}>
+                      📊 Calcular Admin {obra?.adminPercentage||0}% sobre MO real
+                    </button>
+                  )}
                 </div>
+
                 <div style={{display:"flex",flexDirection:"column",gap:5,flexShrink:0}}>
                   <Btn size="sm" v={m.recebido?"ghost":"success"} onClick={()=>toggleRecebido(m)}>
                     {m.recebido?"Desfazer":"✓ Receber"}
@@ -2741,7 +2920,7 @@ function Financeiro({ data, update, showToast }) {
 // ═══════════════════════════════════════════════════════════════════
 
 function Obras({ data, update, showToast }) {
-  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "" };
+  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", entrada: "", entradaDate: "" };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
@@ -2767,10 +2946,13 @@ function Obras({ data, update, showToast }) {
       areaM2,
       contractValue: Number(form.contractValue || 0),
       adminPercentage: Number(form.adminPercentage || 0),
-      parcelaMensal: Number(form.parcelaMensal || 0),
-      contractStart: form.contractStart || "",
-      contractEnd:   form.contractEnd   || "",
-      totalParcelas: Number(form.totalParcelas || 0),
+      parcelaMensal:     Number(form.parcelaMensal     || 0),
+      contractStart:     form.contractStart     || "",
+      contractEnd:       form.contractEnd       || "",
+      totalParcelas:     Number(form.totalParcelas     || 0),
+      billingFrequency:  form.billingFrequency  || "mensal",
+      entrada:           Number(form.entrada    || 0),
+      entradaDate:       form.entradaDate       || "",
     };
 
     const obras = form.id ? data.obras.map(o => (o.id === form.id ? payload : o)) : [...data.obras, payload];
@@ -2852,33 +3034,32 @@ function Obras({ data, update, showToast }) {
             <div style={{ gridColumn:"1/-1" }}>
               <p style={{ fontSize:11, fontWeight:700, color:C.yellow, textTransform:"uppercase", letterSpacing:.7, marginBottom:8 }}>Contrato financeiro</p>
             </div>
-            <Sel label="Tipo de contrato" value={form.contractType} onChange={setField("contractType")} options={CONTRACT_TYPES}/>
-            <Inp label="Valor do contrato (R$)" type="number" value={form.contractValue} onChange={setField("contractValue")} placeholder="0,00"/>
+            <Sel label="Modalidade do contrato *" value={form.contractType} onChange={setField("contractType")} options={CONTRACT_TYPES}/>
+            <Inp label="Valor total do contrato (R$)" type="number" value={form.contractValue} onChange={setField("contractValue")} placeholder="0,00"/>
             {(form.contractType === "fixed_labor_admin" || form.contractType === "admin_only") && (
-              <Inp label="% de administração" type="number" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12"/>
+              <Inp label="% Administração sobre custo MO" type="number" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12"/>
             )}
-            <Sel label="Forma de faturamento" value={form.billingType} onChange={setField("billingType")} options={[
-              { v:"mensal_fixo",  l:"Parcela mensal fixa" },
-              { v:"percentual",   l:"Por % de avanço de obra" },
-              { v:"livre",        l:"Livre (lançamento manual)" },
-            ]}/>
-            {form.billingType === "mensal_fixo" && (
-              <Inp label="Valor da parcela mensal (R$)" type="number" value={form.parcelaMensal} onChange={setField("parcelaMensal")} placeholder="Ex.: 15.000"/>
+            {(form.contractType === "fixed_labor" || form.contractType === "fixed_labor_admin") && (
+              <Inp label="Valor parcela MO fixo (R$)" type="number" value={form.parcelaMensal} onChange={setField("parcelaMensal")} placeholder="Ex.: 15.000"/>
             )}
             <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
-            <p style={{gridColumn:"1/-1",fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Período do contrato</p>
-            <Inp label="Início do contrato" type="date" value={form.contractStart} onChange={setField("contractStart")}/>
-            <Inp label="Fim previsto do contrato" type="date" value={form.contractEnd} onChange={setField("contractEnd")}/>
-            <Inp label="Total de parcelas / medições" type="number" value={form.totalParcelas} onChange={setField("totalParcelas")} placeholder="Ex.: 12 (meses)"/>
-            {/* Cálculo automático da parcela */}
-            {form.billingType === "mensal_fixo" && form.contractValue && form.totalParcelas && Number(form.totalParcelas)>0 && (
-              <div style={{gridColumn:"1/-1",background:`${C.yellow}15`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:"8px 12px"}}>
-                <p style={{fontSize:12,color:C.yellow,fontWeight:600}}>
-                  Parcela calculada: {fmt(Number(form.contractValue)/Number(form.totalParcelas))} / mês
-                  <button type="button" onClick={()=>setField("parcelaMensal")(String(Math.round(Number(form.contractValue)/Number(form.totalParcelas))))} style={{marginLeft:8,background:C.yellow,border:"none",color:"#fff",padding:"2px 8px",borderRadius:4,fontSize:11,cursor:"pointer",fontWeight:700}}>
-                    Usar
-                  </button>
-                </p>
+            <p style={{gridColumn:"1/-1",fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Cronograma de cobrança</p>
+            <Sel label="Frequência de cobrança *" value={form.billingFrequency} onChange={setField("billingFrequency")} options={FREQ_OPTS}/>
+            <Inp label="Total de parcelas" type="number" value={form.totalParcelas} onChange={setField("totalParcelas")} placeholder={form.billingFrequency==="quinzenal"?"Ex.: 24":"Ex.: 12"}/>
+            <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
+            <p style={{gridColumn:"1/-1",fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Período e entrada</p>
+            <Inp label="Início do contrato *" type="date" value={form.contractStart} onChange={setField("contractStart")}/>
+            <Inp label="Fim previsto" type="date" value={form.contractEnd} onChange={setField("contractEnd")}/>
+            {form.contractType !== "admin_only" && (<>
+              <Inp label="Entrada (R$)" type="number" value={form.entrada} onChange={setField("entrada")} placeholder="0,00"/>
+              <Inp label="Data da entrada" type="date" value={form.entradaDate} onChange={setField("entradaDate")}/>
+            </>)}
+            {form.contractValue && form.totalParcelas && Number(form.totalParcelas)>0 && form.contractType !== "admin_only" && !form.parcelaMensal && (
+              <div style={{gridColumn:"1/-1",background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:"8px 12px"}}>
+                <p style={{fontSize:11,color:C.muted}}>Parcela MO sugerida: <strong style={{color:C.yellow}}>{(((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong></p>
+                <button type="button" onClick={()=>setField("parcelaMensal")(String(Math.round((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))))} style={{marginTop:4,background:C.yellow,border:"none",color:"#fff",padding:"3px 10px",borderRadius:4,fontSize:11,cursor:"pointer",fontWeight:700}}>
+                  Usar este valor →
+                </button>
               </div>
             )}
             <div style={{ display: "flex", gap: 8 }}>
@@ -4314,9 +4495,44 @@ const buildAlertMessage = (data) => {
 
 const buildQuickAlerts = (data) => {
   const todayIso = today();
+  const todayDate = new Date(todayIso+"T12:00:00");
   const fri = getFridayOfWeek(0);
   const { start: ws } = getWeekRange(fri);
   const alerts = [];
+
+  // ── Parcelas vencidas ou vencendo em até 3 dias ──────────────
+  const alertaCobranca = (data.medicoes||[]).filter(m => {
+    if (m.recebido || !m.dataVencimento) return false;
+    const venc = new Date(m.dataVencimento+"T12:00:00");
+    const diffDias = Math.round((venc - todayDate)/(1000*60*60*24));
+    return diffDias <= 3; // vence nos próximos 3 dias ou já venceu
+  }).map(m => {
+    const obra = data.obras.find(o=>o.id===m.obraId);
+    const venc = new Date(m.dataVencimento+"T12:00:00");
+    const diffDias = Math.round((venc - todayDate)/(1000*60*60*24));
+    return { m, obraName: obra?.name||"—", diffDias };
+  });
+  const vencidas  = alertaCobranca.filter(x=>x.diffDias<0);
+  const vencendo  = alertaCobranca.filter(x=>x.diffDias>=0);
+
+  if (vencidas.length > 0) {
+    const total = vencidas.reduce((s,x)=>s+x.m.valorPrevisto,0);
+    alerts.push({
+      type:"vencido", color:"#B71C1C", icon:"🔴",
+      title:`${vencidas.length} parcela(s) VENCIDA(S) — ${fmt(total)}`,
+      sub: vencidas.slice(0,3).map(x=>`${x.obraName}: ${fmt(x.m.valorPrevisto)} (${Math.abs(x.diffDias)}d atraso)`).join(" · "),
+      tab:"medicoes",
+    });
+  }
+  if (vencendo.length > 0) {
+    const total = vencendo.reduce((s,x)=>s+x.m.valorPrevisto,0);
+    alerts.push({
+      type:"vencendo", color:"#D84315", icon:"🟡",
+      title:`${vencendo.length} parcela(s) vencem em até 3 dias — ${fmt(total)}`,
+      sub: vencendo.slice(0,3).map(x=>`${x.obraName}: ${fmt(x.m.valorPrevisto)} (${x.diffDias===0?"hoje":`em ${x.diffDias}d`})`).join(" · "),
+      tab:"medicoes",
+    });
+  }
 
   // Terceirizados pendentes
   const activeTerc = (data.terceirizados||[]).filter(t => t.active !== false);
@@ -4325,7 +4541,7 @@ const buildQuickAlerts = (data) => {
   );
   if (pendingTerc.length > 0) {
     alerts.push({
-      type: "payment", color: "#ff9f1c", icon: "💰",
+      type: "payment", color: "#D84315", icon: "💰",
       title: `${pendingTerc.length} terceirizado(s) a pagar esta sexta`,
       sub: `${fmtDateFull(fri)} · Total ${fmt(pendingTerc.reduce((s,t)=>s+Number(t.weeklyRate||0),0))}`,
     });
@@ -4336,7 +4552,7 @@ const buildQuickAlerts = (data) => {
   const pendingPonto = summary.filter(o => o.hasTeam && !o.completed);
   if (pendingPonto.length > 0) {
     alerts.push({
-      type: "ponto", color: "#ff5a47", icon: "📋",
+      type: "ponto", color: "#B71C1C", icon: "📋",
       title: `Ponto pendente em ${pendingPonto.length} obra(s)`,
       sub: pendingPonto.map(o=>`${o.obraName}: ${o.missingCount}`).join(" · "),
     });
@@ -4354,8 +4570,8 @@ const buildQuickAlerts = (data) => {
     .filter(o => o.pct > 80);
   if (contractAlerts.length > 0) {
     alerts.push({
-      type: "contract", color: "#f6d833", icon: "⚠️",
-      title: `${contractAlerts.length} contrato(s) acima de 80%`,
+      type: "contract", color: "#D4AF37", icon: "⚠️",
+      title: `${contractAlerts.length} contrato(s) acima de 80% comprometido`,
       sub: contractAlerts.map(o=>`${o.name}: ${o.pct.toFixed(0)}%`).join(" · "),
     });
   }
