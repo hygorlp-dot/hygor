@@ -62,36 +62,74 @@ const CHART_COLORS = [C.yellow, C.green, C.blue, C.orange, C.purple, C.red, "#06
 
 const G = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap');
-:root{--bg:${C.bg};--surface:${C.surface};--card:${C.card};--yellow:${C.yellow};--text:${C.text};--muted:${C.muted}}
+:root{
+  --bg:${C.bg};--surface:${C.surface};--card:${C.card};
+  --yellow:${C.yellow};--text:${C.text};--muted:${C.muted};
+  --green:${C.green};--red:${C.red};--blue:${C.blue};--purple:${C.purple};--orange:${C.orange};
+}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{min-height:100%}
 body{
   background:
-    radial-gradient(circle at 16% 0%, ${C.yellow}15 0, transparent 24%),
-    radial-gradient(circle at 100% 4%, ${C.orange}10 0, transparent 26%),
-    linear-gradient(135deg, ${C.bg} 0%, #0d0c08 45%, #050504 100%);
-  color:${C.text};font-family:'Barlow',Arial,sans-serif;-webkit-tap-highlight-color:transparent;
+    radial-gradient(ellipse at 15% 0%, ${C.yellow}12 0, transparent 28%),
+    radial-gradient(ellipse at 90% 8%,  ${C.orange}08 0, transparent 30%),
+    radial-gradient(ellipse at 50% 100%,${C.purple}06 0, transparent 40%),
+    linear-gradient(160deg, ${C.bg} 0%, #0b0a07 50%, #050504 100%);
+  color:${C.text};
+  font-family:'Barlow',Arial,sans-serif;
+  -webkit-tap-highlight-color:transparent;
+  font-size:14px;
+  line-height:1.4;
 }
-body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.12;background-image:linear-gradient(${C.yellow}22 1px, transparent 1px),linear-gradient(90deg, ${C.yellow}22 1px, transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom, black, transparent 80%)}
+body:before{
+  content:"";position:fixed;inset:0;pointer-events:none;
+  opacity:.07;
+  background-image:
+    linear-gradient(${C.yellow}33 1px,transparent 1px),
+    linear-gradient(90deg,${C.yellow}33 1px,transparent 1px);
+  background-size:36px 36px;
+  mask-image:linear-gradient(to bottom,black 0%,transparent 70%);
+}
 input,select,textarea,button{font-family:'Barlow',Arial,sans-serif}
-button:disabled{opacity:.55;cursor:not-allowed!important}
-button{touch-action:manipulation}
-button:hover{filter:brightness(1.05);transform:translateY(-1px)}
-button:active{transform:translateY(0) scale(.99)}
-input:focus,select:focus,textarea:focus{outline:2px solid ${C.yellow}88;border-color:${C.yellow}!important;box-shadow:0 0 0 4px ${C.yellow}18}
-.brand-slice{position:relative;overflow:hidden}.brand-slice:after{content:"";position:absolute;inset:auto -30px -26px auto;width:120px;height:120px;background:${C.yellow}16;transform:rotate(-18deg);border:1px solid ${C.yellow}25}
-.point-pulse{box-shadow:0 0 0 0 ${C.yellow}44;animation:pulseYellow 2.2s infinite}
-.lift-card{transition:transform .16s ease, border-color .16s ease, background .16s ease}.lift-card:hover{transform:translateY(-2px);border-color:${C.yellow}80;background:${C.card2}}
-@keyframes pulseYellow{0%{box-shadow:0 0 0 0 ${C.yellow}44}70%{box-shadow:0 0 0 12px transparent}100%{box-shadow:0 0 0 0 transparent}}
-::-webkit-scrollbar{width:7px;height:7px}
-::-webkit-scrollbar-track{background:${C.surface}}
-::-webkit-scrollbar-thumb{background:${C.line};border-radius:8px}
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-@keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
-@keyframes spin{to{transform:rotate(360deg)}}
-.anim{animation:fadeIn .25s ease}.animUp{animation:fadeInUp .35s ease}.no-scroll{overflow:hidden}
-@media print{.no-print{display:none!important} body{background:#fff;color:#000} body:before{display:none}}
+button:disabled{opacity:.45;cursor:not-allowed!important}
+button{touch-action:manipulation;transition:all .14s ease}
+button:not(:disabled):hover{filter:brightness(1.06);transform:translateY(-1px)}
+button:not(:disabled):active{transform:translateY(0) scale(.98)}
+input:focus,select:focus,textarea:focus{
+  outline:none;
+  border-color:${C.yellow}!important;
+  box-shadow:0 0 0 3px ${C.yellow}20;
+}
+/* Cards */
+.lift-card{transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
+.lift-card:hover{transform:translateY(-2px);border-color:${C.yellow}66;box-shadow:0 12px 32px rgba(0,0,0,.35)}
+/* Animações */
+.brand-slice{position:relative;overflow:hidden}
+.brand-slice:after{content:"";position:absolute;inset:auto -30px -26px auto;width:120px;height:120px;background:${C.yellow}14;transform:rotate(-18deg);border:1px solid ${C.yellow}22}
+.point-pulse{animation:pulseYellow 2.4s infinite}
+@keyframes pulseYellow{0%{box-shadow:0 0 0 0 ${C.yellow}40}70%{box-shadow:0 0 0 14px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@keyframes fadeIn   {from{opacity:0;transform:translateY(8px)}  to{opacity:1;transform:none}}
+@keyframes fadeInUp {from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:none}}
+@keyframes spin     {to{transform:rotate(360deg)}}
+@keyframes slideIn  {from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+.anim   {animation:fadeIn    .22s ease}
+.animUp {animation:fadeInUp  .32s ease}
+.animSl {animation:slideIn   .18s ease}
+.no-scroll{overflow:hidden}
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:${C.line};border-radius:99px}
+/* Print */
+@media print{
+  .no-print{display:none!important}
+  body{background:#fff;color:#000;font-size:11px}
+  body:before{display:none}
+}
+/* Sub-nav hide scrollbar */
+div::-webkit-scrollbar{height:0;width:0}
 `;
+
 
 // ═══════════════════════════════════════════════════════════════════
 // Helpers gerais
@@ -503,6 +541,7 @@ const DEFAULT = () => ({
   advances: [],
   payments: [],
   medicoes: [],
+  outrasDesp: [],
   terceirizados: [],
   pagsTerceiros: [],
   rescisoes: [],
@@ -590,6 +629,14 @@ const normalizeData = incoming => {
     })) : [],
     pagsTerceiros: Array.isArray(d.pagsTerceiros) ? d.pagsTerceiros : [],
     rescisoes: Array.isArray(d.rescisoes) ? d.rescisoes : [],
+    outrasDesp: Array.isArray(d.outrasDesp) ? d.outrasDesp.map(x => ({
+      id: x.id || uid(),
+      obraId: x.obraId || "",
+      competencia: x.competencia || "",
+      categoria: x.categoria || "outros",
+      descricao: x.descricao || "",
+      valor: Number(x.valor || 0),
+    })) : [],
     attendanceLocks: d.attendanceLocks || {},
     unlockRequests: Array.isArray(d.unlockRequests) ? d.unlockRequests : [],
     dailyCheckDate: d.dailyCheckDate || "",
@@ -973,11 +1020,12 @@ function Dashboard({ data, onTab }) {
   const activeObras = data.obras.filter(o => o.status !== "done");
 
   const presentes = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "P").length;
-  const faltas   = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "F").length;
-  const meiodia  = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "M").length;
-  const semReg   = Math.max(0, activeEmps.length - presentes - faltas - meiodia);
-  const checkPending = activeEmps.length > 0 && data.dailyCheckDate !== todayIso;
-  const todayCompletion = activeEmps.length ? Math.round(((presentes+faltas+meiodia)/activeEmps.length)*100) : 0;
+  const faltas    = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "F").length;
+  const meiodia   = activeEmps.filter(e => attStatus(data, e.id, todayIso) === "M").length;
+  const semReg    = Math.max(0, activeEmps.length - presentes - faltas - meiodia);
+  const checkPending  = activeEmps.length > 0 && data.dailyCheckDate !== todayIso;
+  const todayCompletion = activeEmps.length
+    ? Math.round(((presentes+faltas+meiodia)/activeEmps.length)*100) : 0;
 
   const qTotal = activeEmps.reduce((sum,e) => sum + qDays.reduce((s,d) => {
     const st = attStatus(data,e.id,d);
@@ -986,33 +1034,26 @@ function Dashboard({ data, onTab }) {
     return s;
   },0), 0);
 
-  // KPIs financeiros do mês — memoizados para não travar o UI a cada re-render
-  const { totalLaborMonth, totalRevenueMonth } = useMemo(() => {
-    const mdays = getDays(year, month);
-    let labor = 0, revenue = 0;
-    data.obras.filter(o => o.status !== "done").forEach(o => {
-      const { laborCost } = calcObraLaborCost(data, o.id, mdays);
-      labor   += laborCost;
-      revenue += calcObraRevenue(o, laborCost).revenue;
-    });
-    return { totalLaborMonth: labor, totalRevenueMonth: revenue };
-  }, [data, year, month]); // roda só quando data/mês mudam, não em todo re-render
-
-  const monthPayments = (data.payments||[]).filter(p => p.date && p.date.startsWith(`${year}-${String(month+1).padStart(2,"0")}`));
-  const monthReceived = monthPayments.reduce((s,p) => s+Number(p.amount||0), 0);
+  // DRE do mês — memoizado
+  const dre = useMemo(() => calcDREConsolidado(data, year, month), [data, year, month]);
 
   const last7 = [];
   for(let i=6;i>=0;i--){
     const dt=new Date(); dt.setDate(dt.getDate()-i);
     const iso=toLocalISODate(dt);
-    last7.push({ d:fmtDate(iso), P:activeEmps.filter(e=>attStatus(data,e.id,iso)==="P").length, M:activeEmps.filter(e=>attStatus(data,e.id,iso)==="M").length, F:activeEmps.filter(e=>attStatus(data,e.id,iso)==="F").length });
+    last7.push({
+      d: fmtDate(iso),
+      P: activeEmps.filter(e=>attStatus(data,e.id,iso)==="P").length,
+      M: activeEmps.filter(e=>attStatus(data,e.id,iso)==="M").length,
+      F: activeEmps.filter(e=>attStatus(data,e.id,iso)==="F").length,
+    });
   }
 
   const pieData = [
-    {name:"Presente",value:presentes,color:C.green},
-    {name:"Meio dia",value:meiodia,color:C.yellow},
-    {name:"Falta",value:faltas,color:C.red},
-    {name:"Sem registro",value:semReg,color:C.muted},
+    {name:"Presente",    value:presentes, color:C.green},
+    {name:"Meio dia",    value:meiodia,   color:C.yellow},
+    {name:"Falta",       value:faltas,    color:C.red},
+    {name:"Sem registro",value:semReg,    color:C.muted},
   ].filter(i=>i.value>0);
 
   const KpiCard = ({label,value,sub,color,icon,tab}) => (
@@ -1088,14 +1129,34 @@ function Dashboard({ data, onTab }) {
         </div>
       </div>
 
-      {/* KPIs financeiros */}
+      {/* KPIs financeiros — DRE do mês */}
       <div>
-        <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Financeiro — mês atual</p>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
-          <KpiCard label="Receita esperada" value={fmt(totalRevenueMonth)} sub="calculada por contrato" color={C.green} icon="dollar" tab="fin"/>
-          <KpiCard label="Recebido" value={fmt(monthReceived)} sub={`${monthPayments.length} pagamento(s)`} color={C.blue} icon="check" tab="fin"/>
-          <KpiCard label="Custo MO" value={fmt(totalLaborMonth)} sub="mão de obra própria" color={C.orange} icon="users" tab="relat"/>
-          <KpiCard label="Margem estimada" value={fmt(totalRevenueMonth-totalLaborMonth)} sub={totalRevenueMonth>0?`${Math.round(((totalRevenueMonth-totalLaborMonth)/totalRevenueMonth)*100)}% da receita`:"—"} color={totalRevenueMonth>totalLaborMonth?C.green:C.red} icon="chart" tab="fin"/>
+        <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Financeiro — {fullMonth(month)} {year}</p>
+        <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden",marginBottom:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)"}}>
+            {[
+              ["Faturamento",  dre.faturamento,  C.green,  "dre"],
+              ["Recebido",     dre.recebido,     C.blue,   "dre"],
+              ["Custos",       dre.totalCustos,  C.red,    "dre"],
+              ["Lucro Bruto",  dre.lucroBruto,   dre.lucroBruto>=0?C.green:C.red, "dre"],
+            ].map(([l,v,c,t],i)=>(
+              <button key={l} onClick={()=>onTab(t)} style={{
+                background:"transparent",border:0,borderRight:i%2===0?`1px solid ${C.line}`:"none",
+                borderBottom:i<2?`1px solid ${C.line}`:"none",
+                color:C.text,cursor:"pointer",padding:"12px 14px",textAlign:"left",
+              }}>
+                <p style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
+                <p style={{fontFamily:"'Bebas Neue'",color:c,fontSize:22,letterSpacing:.5,lineHeight:1.1,marginTop:3}}>{fmt(v)}</p>
+              </button>
+            ))}
+          </div>
+          {dre.faturamento>0&&(
+            <div style={{padding:"8px 14px",borderTop:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <p style={{fontSize:11,color:C.muted}}>Margem bruta: <span style={{color:dre.lucroBruto>=0?C.green:C.red,fontWeight:900}}>{dre.margemBruta.toFixed(1)}%</span></p>
+              <p style={{fontSize:11,color:C.muted}}>A receber: <span style={{color:dre.aReceber>0?C.orange:C.muted,fontWeight:700}}>{fmt(dre.aReceber)}</span></p>
+              <button onClick={()=>onTab("dre")} style={{background:"transparent",border:`1px solid ${C.line}`,color:C.muted,padding:"3px 10px",borderRadius:8,cursor:"pointer",fontSize:10,fontWeight:700}}>Ver DRE →</button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1217,7 +1278,7 @@ function Dashboard({ data, onTab }) {
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
         <Btn onClick={()=>onTab("ponto")} full><Ic n="clock"/> Registrar ponto</Btn>
-        <Btn onClick={()=>onTab("fin")} v="ghost" full><Ic n="dollar"/> Ver financeiro</Btn>
+        <Btn onClick={()=>onTab("dre")} v="ghost" full><Ic n="chart"/> Ver DRE</Btn>
       </div>
     </div>
   );
@@ -1226,6 +1287,612 @@ function Dashboard({ data, onTab }) {
 // ═══════════════════════════════════════════════════════════════════
 // MEDIÇÕES / FATURAMENTO — por obra
 // ═══════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════
+// DRE GERENCIAL — helpers e componente
+// ═══════════════════════════════════════════════════════════════════
+
+const OUTRAS_CATEGORIAS = [
+  { v:"material",       l:"Material / Insumos"     },
+  { v:"equipamento",    l:"Equipamentos / Locação"  },
+  { v:"subempreitada",  l:"Subempreitada"           },
+  { v:"taxa",           l:"Taxa / Licença / Imposto"},
+  { v:"overhead",       l:"Overhead / Administrativo"},
+  { v:"outros",         l:"Outros"                  },
+];
+
+const calcDREObra = (data, obraId, year, month) => {
+  const ym      = `${year}-${String(month+1).padStart(2,"0")}`;
+  const days    = getDays(year, month);
+  const per0    = days[0]  || "";
+  const perF    = days[days.length-1] || "";
+  const obra    = data.obras.find(o => o.id === obraId);
+
+  // ── FATURAMENTO (emissão de medições) ──────────────────────────
+  const medDoMes   = (data.medicoes||[]).filter(m => m.obraId===obraId && m.competencia===ym);
+  const faturamento = medDoMes.reduce((s,m) => s+m.valorPrevisto, 0);
+
+  // ── RECEBIMENTO (caixa) ────────────────────────────────────────
+  const recMed   = medDoMes.filter(m=>m.recebido).reduce((s,m)=>s+m.valorRecebido, 0);
+  const recLivre = (data.payments||[]).filter(p=>p.obraId===obraId&&p.date?.startsWith(ym)).reduce((s,p)=>s+Number(p.amount||0),0);
+  const recebido = recMed + recLivre;
+  const aReceber = faturamento - recMed;
+
+  // ── CUSTOS DIRETOS ─────────────────────────────────────────────
+  const moData      = calcObraLaborCost(data, obraId, days);
+  const tercCost    = calcObraTercCost(data, obraId, per0, perF);
+  const rescTotal   = (data.rescisoes||[]).filter(r =>
+    r.obraName===(obra?.name||"") && r.demissao?.startsWith(ym)
+  ).reduce((s,r)=>s+Number(r.totalLiquido||0), 0);
+  const outrasTotal = (data.outrasDesp||[]).filter(d=>d.obraId===obraId&&d.competencia===ym)
+    .reduce((s,d)=>s+Number(d.valor||0), 0);
+  const outrasDesp  = (data.outrasDesp||[]).filter(d=>d.obraId===obraId&&d.competencia===ym);
+
+  const totalCustos = moData.laborCost + moData.benefitCost + tercCost + rescTotal + outrasTotal;
+
+  // ── RESULTADO ──────────────────────────────────────────────────
+  const lucroBruto   = faturamento - totalCustos;
+  const margemBruta  = faturamento > 0 ? (lucroBruto/faturamento)*100 : 0;
+  const saldoCaixa   = recebido - totalCustos;
+  const margemCaixa  = recebido > 0 ? (saldoCaixa/recebido)*100 : 0;
+
+  // ── POSIÇÃO ACUMULADA DO CONTRATO ──────────────────────────────
+  const contratoTotal   = Number(obra?.contractValue||0);
+  const faturadoAcum    = (data.medicoes||[]).filter(m=>m.obraId===obraId).reduce((s,m)=>s+m.valorPrevisto,0);
+  const recebidoAcum    = (data.medicoes||[]).filter(m=>m.obraId===obraId&&m.recebido).reduce((s,m)=>s+m.valorRecebido,0)
+    + (data.payments||[]).filter(p=>p.obraId===obraId).reduce((s,p)=>s+Number(p.amount||0),0);
+  const aReceberAcum    = Math.max(0, faturadoAcum - recebidoAcum);
+  const backlog         = Math.max(0, contratoTotal - faturadoAcum);
+  const pctFaturado     = contratoTotal>0 ? (faturadoAcum/contratoTotal)*100 : 0;
+  const pctRecebido     = contratoTotal>0 ? (recebidoAcum/contratoTotal)*100 : 0;
+  const pctAvanco       = (() => {
+    const meds = (data.medicoes||[]).filter(m=>m.obraId===obraId&&m.tipo==="percentual");
+    return meds.length ? Math.max(...meds.map(m=>m.percentualAcumulado)) : 0;
+  })();
+
+  return {
+    obra, ym,
+    // Faturamento
+    faturamento, recebido, aReceber, medDoMes,
+    // Custos
+    moData, tercCost, rescTotal, outrasTotal, outrasDesp, totalCustos,
+    // Resultado
+    lucroBruto, margemBruta, saldoCaixa, margemCaixa,
+    // Posição
+    contratoTotal, faturadoAcum, recebidoAcum, aReceberAcum, backlog, pctFaturado, pctRecebido, pctAvanco,
+  };
+};
+
+// Calcula DRE consolidado (todas as obras)
+const calcDREConsolidado = (data, year, month) => {
+  const rows = data.obras.map(o => calcDREObra(data, o.id, year, month));
+  const sum  = (key, sub) => rows.reduce((s,r) => s+(sub ? r[sub][key]||0 : r[key]||0), 0);
+  return {
+    obras: rows,
+    faturamento:  sum("faturamento"),
+    recebido:     sum("recebido"),
+    aReceber:     sum("aReceber"),
+    laborCost:    sum("laborCost","moData"),
+    benefitCost:  sum("benefitCost","moData"),
+    tercCost:     sum("tercCost"),
+    rescTotal:    sum("rescTotal"),
+    outrasTotal:  sum("outrasTotal"),
+    totalCustos:  sum("totalCustos"),
+    lucroBruto:   sum("lucroBruto"),
+    saldoCaixa:   sum("saldoCaixa"),
+    faturadoAcum: sum("faturadoAcum"),
+    recebidoAcum: sum("recebidoAcum"),
+    backlog:      sum("backlog"),
+    margemBruta:  (() => { const f=sum("faturamento"); return f>0?(sum("lucroBruto")/f)*100:0; })(),
+    margemCaixa:  (() => { const r=sum("recebido");    return r>0?(sum("saldoCaixa") /r)*100:0; })(),
+  };
+};
+
+// Série histórica para gráficos (últimos N meses)
+const calcDREHistorico = (data, year, month, nMeses=6) => {
+  return Array.from({length:nMeses},(_,i)=>{
+    const d = new Date(year, month-nMeses+1+i, 1);
+    const y = d.getFullYear(), m = d.getMonth();
+    const c = calcDREConsolidado(data, y, m);
+    return { mes:`${monthName(m)}/${String(y).slice(2)}`, ...c, y, m };
+  });
+};
+
+function DRE({ data, update, showToast }) {
+  const now   = new Date();
+  const [year,  setYear]   = useState(now.getFullYear());
+  const [month, setMonth]  = useState(now.getMonth());
+  const [view,  setView]   = useState("consolidado"); // "consolidado" | "obra" | "historico"
+  const [selObra, setSelObra] = useState(data.obras[0]?.id||"");
+  const [despModal, setDespModal] = useState(false);
+  const [despForm,  setDespForm]  = useState({ obraId:"", competencia:"", categoria:"material", descricao:"", valor:"" });
+  const DF = k => v => setDespForm(f=>({...f,[k]:v}));
+
+  const dre   = useMemo(()=>calcDREConsolidado(data,year,month), [data,year,month]);
+  const dreObra = useMemo(()=>calcDREObra(data,selObra,year,month), [data,selObra,year,month]);
+  const hist  = useMemo(()=>calcDREHistorico(data,year,month,6), [data,year,month]);
+
+  const years = Array.from({length:4},(_,i)=>now.getFullYear()-2+i).map(y=>({v:String(y),l:String(y)}));
+  const period = `${fullMonth(month)} ${year}`;
+  const fmt2 = n=>Number(n||0).toFixed(2).replace(".",",");
+
+  const saveDesp = () => {
+    if(!despForm.obraId||!despForm.competencia||!despForm.valor) { showToast("Preencha obra, competência e valor.","error"); return; }
+    const item = { id:uid(), ...despForm, valor:Number(despForm.valor||0) };
+    update({...data, outrasDesp:[...(data.outrasDesp||[]),item]});
+    setDespModal(false);
+    setDespForm({obraId:"",competencia:"",categoria:"material",descricao:"",valor:""});
+    showToast("Despesa registrada.");
+  };
+
+  const delDesp = id => {
+    if(!window.confirm("Remover despesa?")) return;
+    update({...data,outrasDesp:(data.outrasDesp||[]).filter(d=>d.id!==id)});
+    showToast("Despesa removida.");
+  };
+
+  // ── Linha DRE reutilizável
+  const DRERow = ({label,value,color=C.text,bold=false,indent=0,pct=null}) => (
+    <div style={{
+      display:"flex",justifyContent:"space-between",alignItems:"center",
+      padding:`${bold?"8px":"5px"} ${indent*12}px 5px ${12+indent*12}px`,
+      borderBottom:`1px solid ${C.line}22`,
+      background:bold?`${color}08`:"transparent",
+    }}>
+      <p style={{fontSize:bold?13:12,color:bold?color:C.muted,fontWeight:bold?900:400}}>{label}</p>
+      <div style={{textAlign:"right",flexShrink:0}}>
+        <p style={{fontSize:bold?15:12,color,fontWeight:bold?900:700}}>{fmt(value)}</p>
+        {pct!==null&&<p style={{fontSize:9,color:color+"99",marginTop:1}}>{pct.toFixed(1)}%</p>}
+      </div>
+    </div>
+  );
+  const DRESection = ({title,color=C.yellow}) => (
+    <div style={{background:`${color}15`,borderLeft:`4px solid ${color}`,padding:"5px 12px",marginTop:6}}>
+      <p style={{fontSize:9,fontWeight:900,color,textTransform:"uppercase",letterSpacing:1}}>{title}</p>
+    </div>
+  );
+  const DRESeparator = () => <div style={{height:1,background:`linear-gradient(90deg,transparent,${C.line},transparent)`,margin:"4px 0"}}/>;
+
+  // ── DRE de uma obra (card)
+  const renderObraDRE = (d, compact=false) => {
+    if(!d.obra) return null;
+    const lucroCor = d.lucroBruto>=0?C.green:C.red;
+    const caixaCor = d.saldoCaixa>=0?C.blue:C.red;
+    return (
+      <div key={d.obra.id} style={{background:C.card,border:`1px solid ${C.line}`,borderLeft:`4px solid ${lucroCor}`,borderRadius:14,overflow:"hidden"}}>
+        {/* Header obra */}
+        <div style={{background:`${lucroCor}10`,padding:"10px 14px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+          <div>
+            <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:17}}>{d.obra.name}</p>
+            <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+              {CONTRACT_LABELS[d.obra.contractType]||"Contrato"}
+              {d.obra.contractValue>0&&` · ${fmt(d.obra.contractValue)}`}
+              {d.pctAvanco>0&&` · ${d.pctAvanco}% executado`}
+            </p>
+          </div>
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>Lucro Bruto</p>
+            <p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:lucroCor,letterSpacing:.5}}>{fmt(d.lucroBruto)}</p>
+            <p style={{fontSize:10,color:lucroCor+"99"}}>{d.margemBruta.toFixed(1)}%</p>
+          </div>
+        </div>
+
+        {/* DRE */}
+        <div style={{padding:"8px 0"}}>
+          <DRESection title="Receitas" color={C.green}/>
+          <DRERow label="Faturamento emitido" value={d.faturamento} color={C.green} bold/>
+          <DRERow label="Recebido em caixa"   value={d.recebido}    color={C.blue}  indent={1}/>
+          <DRERow label="A receber"            value={d.aReceber}    color={d.aReceber>0?C.orange:C.muted} indent={1}/>
+
+          <DRESection title="Custos Diretos" color={C.red}/>
+          <DRERow label="(-) MO própria"       value={d.moData.laborCost}   color={C.orange}  indent={1}/>
+          <DRERow label="(-) Benefícios VT/VR" value={d.moData.benefitCost} color={C.muted}   indent={1}/>
+          <DRERow label="(-) Terceirizados"    value={d.tercCost}            color={C.purple}  indent={1}/>
+          {d.rescTotal>0&&<DRERow label="(-) Rescisões" value={d.rescTotal} color={C.red} indent={1}/>}
+          {d.outrasTotal>0&&<DRERow label="(-) Outras despesas" value={d.outrasTotal} color={C.orange} indent={1}/>}
+          <DRERow label="Total custos" value={d.totalCustos} color={C.red} bold/>
+
+          <DRESeparator/>
+          <DRERow label="Lucro Bruto" value={d.lucroBruto} color={lucroCor} bold pct={d.margemBruta}/>
+          <DRERow label="Saldo de Caixa" value={d.saldoCaixa} color={caixaCor} bold pct={d.margemCaixa}/>
+
+          {!compact && d.obra.contractValue>0&&(<>
+            <DRESection title="Posição do Contrato (Acumulado)" color={C.blue}/>
+            <DRERow label="Contrato total"    value={d.contratoTotal}  color={C.subtle}/>
+            <DRERow label="Faturado acumulado" value={d.faturadoAcum} color={C.blue}  pct={d.pctFaturado}/>
+            <DRERow label="Recebido acumulado" value={d.recebidoAcum} color={C.green} pct={d.pctRecebido}/>
+            <DRERow label="A receber (acum.)"  value={d.aReceberAcum} color={d.aReceberAcum>0?C.orange:C.muted}/>
+            <DRERow label="Backlog disponível"  value={d.backlog}      color={d.backlog>0?C.yellow:C.muted}/>
+            {/* Barra de progresso do contrato */}
+            <div style={{padding:"8px 14px 4px"}}>
+              <div style={{height:5,background:C.surface,borderRadius:99,overflow:"hidden",marginBottom:2}}>
+                <div style={{height:"100%",width:`${Math.min(d.pctFaturado,100)}%`,background:C.blue,borderRadius:99}}/>
+              </div>
+              <div style={{height:3,background:C.surface,borderRadius:99,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${Math.min(d.pctRecebido,100)}%`,background:C.green,borderRadius:99}}/>
+              </div>
+              <p style={{fontSize:9,color:C.muted,marginTop:3}}>█ Faturado {d.pctFaturado.toFixed(0)}% · <span style={{color:C.green}}>█</span> Recebido {d.pctRecebido.toFixed(0)}%</p>
+            </div>
+          </>)}
+
+          {/* Outras despesas detalhadas */}
+          {!compact && d.outrasDesp.length>0&&(
+            <div style={{padding:"6px 14px 8px"}}>
+              <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:900,marginBottom:4}}>Detalhamento outras despesas</p>
+              {d.outrasDesp.map(x=>(
+                <div key={x.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,padding:"2px 0"}}>
+                  <span>{x.descricao||x.categoria} <span style={{color:C.muted,fontSize:9}}>({fmtDateFull(x.competencia+"-01")})</span></span>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <span style={{color:C.orange,fontWeight:700}}>{fmt(x.valor)}</span>
+                    <button onClick={()=>delDesp(x.id)} style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:11,padding:0}}>×</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ── PDF do DRE
+  const gerarPDF = () => {
+    const isConsolidado = view==="consolidado"||view==="historico";
+    const d = isConsolidado ? null : dreObra;
+    const titulo = isConsolidado ? `DRE Consolidado — ${period}` : `DRE ${dreObra.obra?.name||""} — ${period}`;
+
+    const dreTableRows = (obj) => `
+      <tr class="sec"><td colspan="2">RECEITAS</td></tr>
+      <tr class="entry"><td>Faturamento emitido (medições)</td><td class="val pos">R$ ${fmt2(obj.faturamento)}</td></tr>
+      <tr class="entry sub"><td>&nbsp;&nbsp;Recebido em caixa</td><td class="val">R$ ${fmt2(obj.recebido||0)}</td></tr>
+      <tr class="entry sub"><td>&nbsp;&nbsp;A receber</td><td class="val warn">R$ ${fmt2(obj.aReceber||0)}</td></tr>
+      <tr class="sec"><td colspan="2">CUSTOS DIRETOS</td></tr>
+      <tr class="entry"><td>(-) Mão de obra própria</td><td class="val neg">R$ ${fmt2(obj.laborCost||obj.moData?.laborCost||0)}</td></tr>
+      <tr class="entry sub"><td>&nbsp;&nbsp;(-) Benefícios (VT/VR)</td><td class="val">R$ ${fmt2(obj.benefitCost||obj.moData?.benefitCost||0)}</td></tr>
+      <tr class="entry"><td>(-) Terceirizados</td><td class="val neg">R$ ${fmt2(obj.tercCost||0)}</td></tr>
+      ${(obj.rescTotal||0)>0?`<tr class="entry"><td>(-) Rescisões</td><td class="val neg">R$ ${fmt2(obj.rescTotal)}</td></tr>`:""}
+      ${(obj.outrasTotal||0)>0?`<tr class="entry"><td>(-) Outras despesas</td><td class="val neg">R$ ${fmt2(obj.outrasTotal)}</td></tr>`:""}
+      <tr class="subtotal"><td>Total Custos</td><td class="val neg">R$ ${fmt2(obj.totalCustos||0)}</td></tr>
+      <tr class="result ${(obj.lucroBruto||0)>=0?"pos":"neg"}">
+        <td><strong>LUCRO BRUTO</strong></td>
+        <td class="val"><strong>R$ ${fmt2(obj.lucroBruto||0)} (${(obj.margemBruta||0).toFixed(1)}%)</strong></td>
+      </tr>
+      <tr class="result ${(obj.saldoCaixa||0)>=0?"caixa":"neg"}">
+        <td>Saldo de Caixa</td>
+        <td class="val">R$ ${fmt2(obj.saldoCaixa||0)} (${(obj.margemCaixa||0).toFixed(1)}%)</td>
+      </tr>`;
+
+    const obrasSect = isConsolidado ? dre.obras.map(o=>`
+      <h3 style="font-size:13px;margin:18px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px">${escapeHtml(o.obra?.name||"")}</h3>
+      <table class="dre-table"><tbody>${dreTableRows(o)}</tbody></table>`).join("") : "";
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>${escapeHtml(titulo)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;color:#111;background:#fff;padding:28px;font-size:11px}
+.print-btn{position:fixed;top:10px;right:10px;background:#080808;color:#f6d833;border:none;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer}
+.page-header{display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:3px solid #080808;margin-bottom:20px}
+.logo-box{background:#080808;color:#f6d833;padding:10px 16px;font-family:Georgia,serif;font-size:24px;font-weight:900;letter-spacing:2px;flex-shrink:0}
+.company h1{font-size:16px;font-weight:900}.company p{font-size:10px;color:#666;margin-top:2px}
+.period{font-size:18px;font-weight:900;text-align:right;flex:1}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0;page-break-inside:avoid}
+.kpi{border:1px solid #ddd;padding:10px 12px;border-top:3px solid #999}
+.kpi.green{border-top-color:#16a34a}.kpi.blue{border-top-color:#2563eb}.kpi.red{border-top-color:#dc2626}.kpi.purple{border-top-color:#9333ea}
+.kpi-l{font-size:9px;font-weight:700;text-transform:uppercase;color:#777;letter-spacing:.5px}
+.kpi-v{font-size:16px;font-weight:900;margin-top:4px}
+.dre-table{width:100%;border-collapse:collapse;margin:10px 0}
+.dre-table td{padding:5px 8px;border-bottom:1px solid #f0f0f0;font-size:11px}
+.dre-table td.val{text-align:right;font-weight:700;min-width:120px}
+.dre-table .pos{color:#16a34a}.dre-table .neg{color:#dc2626}.dre-table .warn{color:#d97706}.dre-table .caixa{color:#2563eb}
+.dre-table .sec td{background:#f3f4f6;font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:#555;padding:4px 8px}
+.dre-table .sub td{color:#888;font-style:italic}
+.dre-table .subtotal td{font-weight:900;background:#fef2f2;border-top:2px solid #fca5a5}
+.dre-table .result td{font-size:13px;font-weight:900;border-top:2px solid #111}
+.dre-table .result.pos td{color:#16a34a}.dre-table .result.neg td{color:#dc2626}.dre-table .result.caixa td{color:#2563eb}
+h2{font-size:14px;font-weight:900;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #111;padding-bottom:5px}
+h3{font-size:12px;font-weight:900;color:#2563eb}
+.footer{margin-top:28px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #eee;padding-top:8px}
+@media print{.print-btn{display:none!important}}
+</style></head>
+<body>
+<button class="print-btn" onclick="window.print()">🖨 Imprimir / PDF</button>
+<div class="page-header">
+  <div class="logo-box">ArcD</div>
+  <div class="company">
+    <h1>${escapeHtml(data.config.companyName||"ArcD Construtora")}</h1>
+    ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
+    <p>DRE Gerencial — Demonstrativo de Resultado</p>
+  </div>
+  <div class="period">${escapeHtml(titulo.split("—").pop())}</div>
+</div>
+
+<div class="kpis">
+  <div class="kpi green"><p class="kpi-l">Faturamento</p><p class="kpi-v">R$ ${fmt2(dre.faturamento)}</p></div>
+  <div class="kpi blue"><p class="kpi-l">Recebido</p><p class="kpi-v">R$ ${fmt2(dre.recebido)}</p></div>
+  <div class="kpi red"><p class="kpi-l">Total Custos</p><p class="kpi-v">R$ ${fmt2(dre.totalCustos)}</p></div>
+  <div class="kpi ${dre.lucroBruto>=0?"green":"red"}"><p class="kpi-l">Lucro Bruto</p><p class="kpi-v">R$ ${fmt2(dre.lucroBruto)}</p></div>
+</div>
+
+<h2>${isConsolidado?"DRE Consolidado":"DRE — "+escapeHtml(dreObra.obra?.name||"")}</h2>
+<table class="dre-table"><tbody>${dreTableRows(isConsolidado?dre:dreObra)}</tbody></table>
+
+${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`:""}
+
+<div class="footer">Gerado por ArcD Ponto PRO · ${new Date().toLocaleString("pt-BR")}</div>
+</body></html>`;
+    const w=window.open("","_blank"); w.document.write(html); w.document.close();
+  };
+
+  // ── Excel do DRE
+  const exportXLS = () => {
+    const wb = XLSX.utils.book_new();
+    const dreRows = (obj) => [
+      ["RECEITAS"],
+      ["Faturamento emitido", obj.faturamento],
+      ["Recebido em caixa",   obj.recebido||0],
+      ["A receber",           obj.aReceber||0],
+      ["CUSTOS DIRETOS"],
+      ["(-) MO própria",      obj.laborCost||obj.moData?.laborCost||0],
+      ["(-) Benefícios",      obj.benefitCost||obj.moData?.benefitCost||0],
+      ["(-) Terceirizados",   obj.tercCost||0],
+      ["(-) Rescisões",       obj.rescTotal||0],
+      ["(-) Outras despesas", obj.outrasTotal||0],
+      ["Total Custos",        obj.totalCustos||0],
+      ["LUCRO BRUTO",         obj.lucroBruto||0],
+      ["Margem Bruta %",      (obj.margemBruta||0).toFixed(1)+"%"],
+      ["Saldo de Caixa",      obj.saldoCaixa||0],
+      ["Margem de Caixa %",   (obj.margemCaixa||0).toFixed(1)+"%"],
+    ];
+    const ws1=XLSX.utils.aoa_to_sheet([[`DRE Consolidado — ${period}`],[],["Linha","Valor"],...dreRows(dre)]);
+    ws1["!cols"]=[30,14].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb,ws1,"DRE Consolidado");
+
+    // Uma aba por obra
+    dre.obras.forEach(o=>{
+      if(!o.obra) return;
+      const ws=XLSX.utils.aoa_to_sheet([[`DRE — ${o.obra.name} — ${period}`],[],["Linha","Valor"],...dreRows(o)]);
+      ws["!cols"]=[30,14].map(w=>({wch:w}));
+      XLSX.utils.book_append_sheet(wb,ws,(o.obra.name||"Obra").slice(0,30));
+    });
+
+    // Histórico
+    const histHeader=["Mês","Faturamento","Recebido","Custos","Lucro Bruto","Margem %"];
+    const histBody=hist.map(h=>[h.mes,h.faturamento,h.recebido,h.totalCustos,h.lucroBruto,h.margemBruta.toFixed(1)+"%"]);
+    const wsH=XLSX.utils.aoa_to_sheet([["Histórico 6 meses"],[],histHeader,...histBody]);
+    wsH["!cols"]=[14,14,12,12,14,10].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb,wsH,"Histórico");
+
+    XLSX.writeFile(wb,`arcd-dre-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
+    showToast("Excel DRE gerado!");
+  };
+
+  // ── RENDER ────────────────────────────────────────────────────
+  return (
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
+
+      {/* Header */}
+      <div style={{background:`linear-gradient(135deg,${C.green}22 0%,${C.card} 65%)`,border:`1px solid ${C.green}44`,borderLeft:`5px solid ${C.green}`,padding:"16px 18px",borderRadius:18}}>
+        <p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Demonstrativo Gerencial</p>
+        <h2 style={{fontFamily:"'Bebas Neue'",fontSize:34,letterSpacing:2,color:C.text,lineHeight:1}}>DRE por Obra</h2>
+        <p style={{color:C.muted,fontSize:13,marginTop:4}}>Faturamento · Custos · Lucro · Caixa · Posição de Contrato</p>
+      </div>
+
+      {/* Período */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <Sel value={String(year)} onChange={v=>setYear(Number(v))} options={years}/>
+        <Sel value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/>
+      </div>
+
+      {/* View toggle */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+        {[["consolidado","🏢 Consolidado"],["obra","🏗 Por Obra"],["historico","📈 Histórico"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setView(v)} style={{
+            padding:"9px 4px",border:`2px solid ${view===v?C.green:C.line}`,
+            background:view===v?`${C.green}18`:"transparent",
+            color:view===v?C.green:C.muted,
+            fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:13,cursor:"pointer",borderRadius:12,
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {/* KPI cards sempre visíveis */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+        {[
+          ["Faturamento",  dre.faturamento,  C.green,  `${period}`],
+          ["Recebido",     dre.recebido,     C.blue,   `a receber: ${fmt(dre.aReceber)}`],
+          ["Total Custos", dre.totalCustos,  C.red,    `MO+Terc+Outros`],
+          ["Lucro Bruto",  dre.lucroBruto,   dre.lucroBruto>=0?C.green:C.red, `margem ${dre.margemBruta.toFixed(1)}%`],
+        ].map(([l,v,c,s])=>(
+          <div key={l} style={{background:C.card,border:`1px solid ${C.line}`,borderTop:`3px solid ${c}`,padding:"12px 14px",borderRadius:16}}>
+            <p style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
+            <p style={{fontFamily:"'Bebas Neue'",color:c,fontSize:26,lineHeight:1.1,marginTop:4}}>{fmt(v)}</p>
+            <p style={{fontSize:10,color:C.muted,marginTop:3}}>{s}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── VIEW: CONSOLIDADO ─────────────────────────────────── */}
+      {view==="consolidado"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:14,overflow:"hidden"}}>
+            <div style={{padding:"8px 14px",background:`${C.green}10`,borderBottom:`1px solid ${C.line}`}}>
+              <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:15,color:C.green,textTransform:"uppercase"}}>DRE Consolidado — {period}</p>
+            </div>
+            <DRESection title="Receitas" color={C.green}/>
+            <DRERow label="Faturamento total" value={dre.faturamento} color={C.green} bold/>
+            <DRERow label="Recebido em caixa"  value={dre.recebido}    color={C.blue}  indent={1}/>
+            <DRERow label="A receber"           value={dre.aReceber}    color={dre.aReceber>0?C.orange:C.muted} indent={1}/>
+            <DRESection title="Custos Diretos" color={C.red}/>
+            <DRERow label="(-) MO própria"       value={dre.laborCost}    color={C.orange} indent={1}/>
+            <DRERow label="(-) Benefícios VT/VR" value={dre.benefitCost}  color={C.muted}  indent={1}/>
+            <DRERow label="(-) Terceirizados"    value={dre.tercCost}     color={C.purple} indent={1}/>
+            {dre.rescTotal>0&&<DRERow label="(-) Rescisões" value={dre.rescTotal} color={C.red} indent={1}/>}
+            {dre.outrasTotal>0&&<DRERow label="(-) Outras despesas" value={dre.outrasTotal} color={C.orange} indent={1}/>}
+            <DRERow label="Total custos" value={dre.totalCustos} color={C.red} bold/>
+            <DRESeparator/>
+            <DRERow label="LUCRO BRUTO" value={dre.lucroBruto} color={dre.lucroBruto>=0?C.green:C.red} bold pct={dre.margemBruta}/>
+            <DRERow label="Saldo de Caixa" value={dre.saldoCaixa} color={dre.saldoCaixa>=0?C.blue:C.red} bold pct={dre.margemCaixa}/>
+            <DRESection title="Posição Acumulada (Todas as Obras)" color={C.blue}/>
+            <DRERow label="Faturado acumulado" value={dre.faturadoAcum} color={C.blue}/>
+            <DRERow label="Recebido acumulado" value={dre.recebidoAcum} color={C.green}/>
+            <DRERow label="Backlog disponível"  value={dre.backlog}      color={dre.backlog>0?C.yellow:C.muted}/>
+          </div>
+
+          {/* Gráfico: Faturamento vs Lucro 6 meses */}
+          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:14}}>
+            <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:8}}>Evolução — Faturamento × Lucro</p>
+            <div style={{height:200}}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={hist} barSize={18}>
+                  <CartesianGrid stroke={C.border} vertical={false}/>
+                  <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
+                  <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
+                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text,borderRadius:10}} formatter={v=>fmt(v)}/>
+                  <Bar dataKey="faturamento" name="Faturamento" fill={C.green} radius={[4,4,0,0]}/>
+                  <Bar dataKey="recebido"    name="Recebido"    fill={C.blue}  radius={[4,4,0,0]}/>
+                  <Bar dataKey="lucroBruto"  name="Lucro Bruto" fill={C.yellow} radius={[4,4,0,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Distribuição de custos */}
+          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:14}}>
+            <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:8}}>Distribuição de Custos</p>
+            <div style={{height:180}}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={[
+                    {name:"MO Própria",    value:Math.round(dre.laborCost),   fill:C.orange},
+                    {name:"Benefícios",    value:Math.round(dre.benefitCost), fill:C.muted},
+                    {name:"Terceiros",     value:Math.round(dre.tercCost),    fill:C.purple},
+                    {name:"Rescisões",     value:Math.round(dre.rescTotal),   fill:C.red},
+                    {name:"Outras Desp.",  value:Math.round(dre.outrasTotal), fill:C.yellow},
+                  ].filter(d=>d.value>0)} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={2}>
+                    {[C.orange,C.muted,C.purple,C.red,C.yellow].map((c,i)=><Cell key={i} fill={c}/>)}
+                  </Pie>
+                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text}} formatter={v=>fmt(v)}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Por obra compact */}
+          <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Resumo por obra</p>
+          {dre.obras.map(o=>renderObraDRE(o,true))}
+        </div>
+      )}
+
+      {/* ── VIEW: POR OBRA ────────────────────────────────────── */}
+      {view==="obra"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <Sel value={selObra} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:o.name}))}/>
+          {renderObraDRE(dreObra,false)}
+        </div>
+      )}
+
+      {/* ── VIEW: HISTÓRICO ───────────────────────────────────── */}
+      {view==="historico"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden"}}>
+            <div style={{padding:"8px 14px",borderBottom:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:4}}>
+              {["Mês","Faturamento","Recebido","Lucro","Margem"].map(h=>(
+                <p key={h} style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase"}}>{h}</p>
+              ))}
+            </div>
+            {hist.map((h,i)=>(
+              <div key={i} style={{
+                padding:"8px 14px",borderBottom:i<hist.length-1?`1px solid ${C.line}22`:"none",
+                display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:4,
+                background:h.m===month&&h.y===year?`${C.yellow}0a`:"transparent",
+              }}>
+                <p style={{fontSize:12,fontWeight:h.m===month&&h.y===year?900:500,color:h.m===month&&h.y===year?C.yellow:C.text}}>{h.mes}{h.m===month&&h.y===year?" ◀":""}</p>
+                <p style={{fontSize:12,color:C.green,fontWeight:700}}>{fmt(h.faturamento)}</p>
+                <p style={{fontSize:12,color:C.blue}}>{fmt(h.recebido)}</p>
+                <p style={{fontSize:12,color:h.lucroBruto>=0?C.green:C.red,fontWeight:700}}>{fmt(h.lucroBruto)}</p>
+                <p style={{fontSize:12,color:h.margemBruta>=0?C.green:C.red,fontWeight:900}}>{h.margemBruta.toFixed(1)}%</p>
+              </div>
+            ))}
+          </div>
+          {/* Gráfico margem */}
+          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:14}}>
+            <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:8}}>Evolução da Margem</p>
+            <div style={{height:180}}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={hist}>
+                  <CartesianGrid stroke={C.border} vertical={false}/>
+                  <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
+                  <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v.toFixed(0)+"%"}/>
+                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.line}`,color:C.text}} formatter={v=>v.toFixed(1)+"%"}/>
+                  <Line type="monotone" dataKey="margemBruta" name="Margem Bruta" stroke={C.green} strokeWidth={2.5} dot={{r:4,fill:C.green}}/>
+                  <Line type="monotone" dataKey="margemCaixa" name="Margem Caixa" stroke={C.blue}  strokeWidth={2} dot={{r:3,fill:C.blue}} strokeDasharray="4 2"/>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Botão: lançar outras despesas */}
+      <button onClick={()=>{setDespForm({obraId:selObra||data.obras[0]?.id||"",competencia:`${year}-${String(month+1).padStart(2,"0")}`,categoria:"material",descricao:"",valor:""});setDespModal(true);}} style={{
+        background:`${C.orange}10`,border:`1px dashed ${C.orange}66`,borderRadius:12,
+        color:C.orange,padding:"10px 14px",cursor:"pointer",fontFamily:"'Barlow Condensed'",
+        fontWeight:900,fontSize:13,letterSpacing:.5,textAlign:"left",display:"flex",alignItems:"center",gap:8,
+      }}>
+        <Ic n="plus" color={C.orange}/> Lançar outras despesas (materiais, equipamentos, taxas...)
+      </button>
+
+      {/* Outras despesas do mês */}
+      {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`).length>0&&(
+        <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:14,overflow:"hidden"}}>
+          <div style={{padding:"8px 14px",borderBottom:`1px solid ${C.line}`,background:`${C.orange}10`}}>
+            <p style={{fontFamily:"'Barlow Condensed'",fontWeight:900,fontSize:14,color:C.orange,textTransform:"uppercase"}}>Outras despesas — {period}</p>
+          </div>
+          {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`).map(d=>(
+            <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderBottom:`1px solid ${C.line}22`}}>
+              <div>
+                <p style={{fontSize:13,fontWeight:700}}>{d.descricao||d.categoria}</p>
+                <p style={{fontSize:11,color:C.muted}}>{OUTRAS_CATEGORIAS.find(c=>c.v===d.categoria)?.l||d.categoria} · {data.obras.find(o=>o.id===d.obraId)?.name||"—"}</p>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <p style={{color:C.orange,fontWeight:900}}>{fmt(d.valor)}</p>
+                <Btn size="sm" v="danger" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Exportações */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> DRE PDF</Btn>
+        <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Excel Completo</Btn>
+      </div>
+
+      {/* Modal: outras despesas */}
+      {despModal&&(
+        <Modal title="Lançar Outras Despesas" onClose={()=>setDespModal(false)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <Sel label="Obra *" value={despForm.obraId} onChange={DF("obraId")} options={[{v:"",l:"Selecione"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+            <div>
+              <p style={{fontSize:11,fontWeight:700,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Competência (mês/ano) *</p>
+              <input type="month" value={despForm.competencia} onChange={e=>DF("competencia")(e.target.value)} style={{width:"100%",background:C.card,border:`1px solid ${C.line}`,color:C.text,padding:"11px 13px",borderRadius:14,fontSize:14,outline:"none"}}/>
+            </div>
+            <Sel label="Categoria *" value={despForm.categoria} onChange={DF("categoria")} options={OUTRAS_CATEGORIAS}/>
+            <Inp label="Descrição" value={despForm.descricao} onChange={DF("descricao")} placeholder="Ex.: Concreto fck 25 — 20m³, Andaime locado..."/>
+            <Inp label="Valor (R$) *" type="number" value={despForm.valor} onChange={DF("valor")} placeholder="0,00"/>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setDespModal(false)} full>Cancelar</Btn>
+              <Btn v="warning" onClick={saveDesp} full><Ic n="check"/> Lançar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 
 const BILLING_LABELS = {
   mensal_fixo: "Parcela mensal fixa",
@@ -5961,7 +6628,7 @@ const NAV_GROUPS = [
   },
   {
     id: "fin_grp", label: "Financeiro", icon: "dollar", color: C.purple,
-    tabs: ["fin", "medicoes", "relat"],
+    tabs: ["dre", "fin", "medicoes", "relat"],
   },
   {
     id: "ia_grp", label: "IA", icon: "brain", color: C.orange,
@@ -5981,9 +6648,10 @@ const TAB_META = {
   terc:   { label: "Terceiros",  icon: "terc",     group: "obras_grp"},
   folha:  { label: "Folha",      icon: "dollar",   group: "rh_grp"  },
   resc:   { label: "Rescisão",   icon: "file",     group: "rh_grp"  },
-  fin:      { label: "KPIs",        icon: "chart",    group: "fin_grp" },
-  medicoes: { label: "Medições",    icon: "dollar",   group: "fin_grp" },
-  relat:    { label: "Relatórios",  icon: "chart",    group: "fin_grp" },
+  dre:      { label: "DRE",        icon: "chart",    group: "fin_grp" },
+  fin:      { label: "KPIs",       icon: "dollar",   group: "fin_grp" },
+  medicoes: { label: "Medições",   icon: "dollar",   group: "fin_grp" },
+  relat:    { label: "Relatórios", icon: "chart",    group: "fin_grp" },
   ia:     { label: "IA",         icon: "brain",    group: "ia_grp"  },
   config: { label: "Ajustes",    icon: "settings", group: "cfg_grp" },
 };
@@ -6199,9 +6867,10 @@ export default function App() {
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
-          {tab === "fin"      && <Financeiro  data={data} update={update} showToast={showToast} />}
+          {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} />}
+          {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} />}
           {tab === "medicoes" && <MedicoesView data={data} update={update} showToast={showToast} />}
-          {tab === "relat"    && <Relatorios  data={data} />}
+          {tab === "relat"    && <Relatorios   data={data} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
           {tab === "config" && <Config      data={data} update={update} showToast={showToast} />}
         </main>
