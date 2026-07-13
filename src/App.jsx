@@ -188,7 +188,13 @@ const fmtDateFull = iso => {
 const monthName = m => ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][m] || "";
 const fullMonth = m => ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][m] || "";
 
+// getDays é função pura de (year, month) → cache permanente
+const _daysCache = new Map();
 const getDays = (year, monthIndex) => {
+  const key = `${year}-${monthIndex}`;
+  const hit = _daysCache.get(key);
+  if (hit) return hit;
+
   const days = [];
   const dt = new Date(year, monthIndex, 1, 12, 0, 0);
 
@@ -197,6 +203,7 @@ const getDays = (year, monthIndex) => {
     dt.setDate(dt.getDate() + 1);
   }
 
+  _daysCache.set(key, days);
   return days;
 };
 
@@ -284,12 +291,17 @@ const prEasterDate = year => {
   return prDateAtNoon(year, month, day);
 };
 
+// Feriados oficiais são função pura do ano → cache permanente
+const _holidaysCache = new Map();
 const getOfficialHolidaysCaruaruPE = year => {
+  const hit = _holidaysCache.get(year);
+  if (hit) return hit;
+
   const easter = prEasterDate(year);
   const goodFriday = prIso(prAddDays(easter, -2));
   const corpusChristi = prIso(prAddDays(easter, 60));
 
-  return prUniqueDates([
+  const result = prUniqueDates([
     // Nacionais
     `${year}-01-01`,
     `${year}-04-21`,
@@ -313,6 +325,8 @@ const getOfficialHolidaysCaruaruPE = year => {
 
     // São Pedro, 29/06, não foi incluído por ter sido substituído por Corpus Christi em 2024.
   ]);
+  _holidaysCache.set(year, result);
+  return result;
 };
 
 const getPayrollHolidays = (data, year) => {
@@ -559,12 +573,17 @@ const DEFAULT = () => ({
     hrName: "",
     hrPhone: "",
     cnpj: "",
+    aliquotaISS: 0,
+    aliquotaPIS: 0,
+    aliquotaCOFINS: 0,
+    aliquotaIR: 0,
+    aliquotaCSLL: 0,
     approverEmail: "hygorlp@gmail.com",
     paymentHolidays: [],
   },
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "" },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "" },
+    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "", hasCaixa: false },
   ],
   employees: [],
   attendance: {},
@@ -572,6 +591,10 @@ const DEFAULT = () => ({
   payments: [],
   medicoes: [],
   outrasDesp: [],
+  despesasEmpresa: [],   // despesas fixas e variáveis da empresa
+  caixaObra: [],         // caixa de obra (aportes do cliente + gastos)
+  orcamentos: [],        // orçamentos (itens com preço congelado na data-base)
+  baseFavoritos: [],     // composições usadas com frequência (base curada)
   usuarios: [],   // sistema de login e permissões
   terceirizados: [],
   pagsTerceiros: [],
@@ -594,6 +617,11 @@ const normalizeData = incoming => {
       ...(d.config || {}),
       approverEmail: d.config?.approverEmail || "hygorlp@gmail.com",
       hrPhone: d.config?.hrPhone || "",
+      aliquotaISS:    Number(d.config?.aliquotaISS    || 0),
+      aliquotaPIS:    Number(d.config?.aliquotaPIS    || 0),
+      aliquotaCOFINS: Number(d.config?.aliquotaCOFINS || 0),
+      aliquotaIR:     Number(d.config?.aliquotaIR     || 0),
+      aliquotaCSLL:   Number(d.config?.aliquotaCSLL   || 0),
       paymentHolidays: Array.isArray(d.config?.paymentHolidays) ? d.config.paymentHolidays : [],
     },
     obras: Array.isArray(d.obras) ? d.obras.map(o => ({
@@ -615,6 +643,7 @@ const normalizeData = incoming => {
       billingFrequency: o.billingFrequency || "mensal",
       entrada:    Number(o.entrada    || 0),
       entradaDate: o.entradaDate || "",
+      hasCaixa:   !!o.hasCaixa,
     })) : base.obras,
     employees: Array.isArray(d.employees) ? d.employees.map(e => ({
       id: e.id || uid(),
@@ -678,6 +707,73 @@ const normalizeData = incoming => {
       descricao: x.descricao || "",
       valor: Number(x.valor || 0),
     })) : [],
+    despesasEmpresa: Array.isArray(d.despesasEmpresa) ? d.despesasEmpresa.map(x => ({
+      id:          x.id          || uid(),
+      competencia: x.competencia || "",
+      categoria:   x.categoria   || "outros",
+      descricao:   x.descricao   || "",
+      valor:       Number(x.valor || 0),
+      recorrente:  !!x.recorrente,
+    })) : [],
+    caixaObra: Array.isArray(d.caixaObra) ? d.caixaObra.map(x => ({
+      id:          x.id          || uid(),
+      obraId:      x.obraId      || "",
+      data:        x.data        || today(),
+      tipo:        x.tipo        || "aporte",   // "aporte" | "despesa"
+      categoria:   x.categoria   || "material",
+      descricao:   x.descricao   || "",
+      valor:       Number(x.valor || 0),
+      comprovante: x.comprovante || "",
+    })) : [],
+    orcamentos: Array.isArray(d.orcamentos) ? d.orcamentos.map(o => ({
+      id:          o.id          || uid(),
+      obraId:      o.obraId      || "",
+      nome:        o.nome        || "Orçamento sem nome",
+      cliente:     o.cliente     || "",
+      local:       o.local       || "",
+      areaM2:      Number(o.areaM2 || 0),
+      fonte:       o.fonte       || "SINAPI",
+      dataBase:    o.dataBase    || "",
+      uf:          o.uf          || "PE",
+      desonerado:  o.desonerado  !== false,
+      bdi:         Number(o.bdi  ?? 23.25),
+      // Memória de cálculo do BDI (Acórdão 2622/2013) — guardada para que o
+      // orçamento consiga demonstrar como o BDI foi obtido, não só o número.
+      bdiTipo:     o.bdiTipo || "edificios",
+      bdiParams:   o.bdiParams ? {
+        ac:       Number(o.bdiParams.ac       ?? 4.00),
+        seguro:   Number(o.bdiParams.seguro   ?? 0.80),
+        risco:    Number(o.bdiParams.risco    ?? 1.27),
+        garantia: Number(o.bdiParams.garantia ?? 0),
+        df:       Number(o.bdiParams.df       ?? 1.23),
+        lucro:    Number(o.bdiParams.lucro    ?? 7.40),
+        pis:      Number(o.bdiParams.pis      ?? 0.65),
+        cofins:   Number(o.bdiParams.cofins   ?? 3.00),
+        iss:      Number(o.bdiParams.iss      ?? 2.00),
+        cprb:     Number(o.bdiParams.cprb     ?? 0),
+      } : null,
+      status:      o.status      || "rascunho",
+      createdAt:   o.createdAt   || "",
+      etapas: Array.isArray(o.etapas) ? o.etapas.map(e => ({
+        id:       e.id       || uid(),
+        nome:     e.nome     || "Etapa",
+        parentId: e.parentId || "",   // "" = nível raiz; senão, id da etapa-mãe
+      })) : [],
+      itens:  Array.isArray(o.itens)  ? o.itens.map(it => ({
+        id:         it.id         || uid(),
+        etapaId:    it.etapaId    || "",
+        // "item"   = composição com código, unidade, quantidade e preço
+        // "titulo" = linha de texto puro (rótulo dentro da planilha, sem valor)
+        tipo:       it.tipo === "titulo" ? "titulo" : "item",
+        codigo:     it.codigo     || "",
+        fonte:      it.fonte      || "SINAPI",
+        descricao:  it.descricao  || "",
+        unidade:    it.unidade    || "un",
+        quantidade: Number(it.quantidade || 0),
+        precoUnit:  Number(it.precoUnit  || 0),
+      })) : [],
+    })) : [],
+    baseFavoritos: Array.isArray(d.baseFavoritos) ? d.baseFavoritos : [],
     usuarios: Array.isArray(d.usuarios) ? d.usuarios.map(u => ({
       id:       u.id       || uid(),
       nome:     u.nome     || "",
@@ -953,6 +1049,8 @@ function Divider() {
 }
 
 function Modal({ title, children, onClose, wide = false }) {
+  const { isDesktop } = useBreakpoint();
+
   useEffect(() => {
     document.body.classList.add("no-scroll");
     return () => document.body.classList.remove("no-scroll");
@@ -970,7 +1068,7 @@ function Modal({ title, children, onClose, wide = false }) {
       onMouseDown={e => { if(e.target===e.currentTarget) onClose?.(); }}
     >
       <div className="animUp" style={{
-        width:"100%", maxWidth:wide?720:460,
+        width:"100%", maxWidth: wide ? (isDesktop?860:720) : (isDesktop?520:460),
         maxHeight:"92vh", overflowY:"auto",
         background:C.bg,
         border:`1px solid ${C.border}`,
@@ -1029,7 +1127,30 @@ function Toast({ toast }) {
 // HELPERS FINANCEIROS
 // ═══════════════════════════════════════════════════════════════════
 
+// ── Cache de cálculos pesados ──────────────────────────────────────
+// calcObraLaborCost é chamada dezenas de vezes por render com os mesmos
+// argumentos (DRE, Relatórios, Dashboard, Financeiro). O cache evita
+// recalcular o mesmo período/obra repetidamente. É invalidado sempre que
+// o objeto `data` muda de referência (imutabilidade garante correção).
+let _laborCacheData = null;
+let _laborCache = new Map();
+
 const calcObraLaborCost = (data, obraId, days) => {
+  // Invalida o cache quando `data` muda (nova referência de objeto)
+  if (_laborCacheData !== data) {
+    _laborCacheData = data;
+    _laborCache = new Map();
+  }
+  const key = `${obraId}|${days[0]||""}|${days[days.length-1]||""}|${days.length}`;
+  const hit = _laborCache.get(key);
+  if (hit) return hit;
+
+  const result = _calcObraLaborCostRaw(data, obraId, days);
+  _laborCache.set(key, result);
+  return result;
+};
+
+const _calcObraLaborCostRaw = (data, obraId, days) => {
   const year = days[0] ? Number(days[0].slice(0,4)) : new Date().getFullYear();
   const holidays = getPayrollHolidays(data, year);
   const holidaysInPeriod = days.filter(d => holidays.includes(d) && prIsWeekdayIso(d));
@@ -1070,6 +1191,7 @@ const calcObraRevenue = (obra, laborCost) => {
 // ═══════════════════════════════════════════════════════════════════
 
 function Dashboard({ data, onTab }) {
+  const { cols } = useBreakpoint();
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -1097,6 +1219,10 @@ function Dashboard({ data, onTab }) {
 
   // DRE do mês — memoizado
   const dre = useMemo(() => calcDREConsolidado(data, year, month), [data, year, month]);
+
+  // Alertas — memoizados (buildQuickAlerts percorre todas as obras/medições)
+  const quickAlerts = useMemo(() => buildQuickAlerts(data), [data]);
+  const alertMsg    = useMemo(() => buildAlertMessage(data), [data]);
 
   const last7 = [];
   for(let i=6;i>=0;i--){
@@ -1182,7 +1308,7 @@ function Dashboard({ data, onTab }) {
       {/* KPIs operacionais */}
       <div>
         <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Operacional — hoje</p>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
           <KpiCard label="Trabalhadores" value={activeEmps.length} sub={`${activeObras.length} obras ativas`} color={C.yellow} icon="users" tab="equipe"/>
           <KpiCard label="Presentes hoje" value={presentes} sub={`${semReg} sem registro`} color={C.green} icon="check" tab="ponto"/>
           <KpiCard label="Custo quinzena" value={fmt(qTotal)} sub={`${qDays.length} dias`} color={C.purple} icon="dollar" tab="folha"/>
@@ -1273,9 +1399,9 @@ function Dashboard({ data, onTab }) {
 
       {/* Alertas ativos */}
       {(() => {
-        const alerts = buildQuickAlerts(data);
+        const alerts = quickAlerts;
         if (alerts.length === 0) return null;
-        const msg = buildAlertMessage(data);
+        const msg = alertMsg;
         const phone = data.config.hrPhone || "";
         const waUrl = phone
           ? `https://wa.me/${phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`
@@ -1460,6 +1586,7 @@ const calcDREHistorico = (data, year, month, nMeses=6) => {
 };
 
 function DRE({ data, update, showToast }) {
+  const { cols } = useBreakpoint();
   const now   = new Date();
   const [year,  setYear]   = useState(now.getFullYear());
   const [month, setMonth]  = useState(now.getMonth());
@@ -1740,7 +1867,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       </div>
 
       {/* Período */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:cols("1fr 1fr","1fr 1fr","240px 240px"),gap:8}}>
         <Sel value={String(year)} onChange={v=>setYear(Number(v))} options={years}/>
         <Sel value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/>
       </div>
@@ -1962,6 +2089,7 @@ const BILLING_LABELS = {
 };
 
 function MedicoesView({ data, update, showToast }) {
+  const { cols } = useBreakpoint();
   const now   = new Date();
   const [selObra,  setSelObra]  = useState(data.obras[0]?.id || "");
   const [modal,    setModal]    = useState(false);
@@ -2320,7 +2448,7 @@ function MedicoesView({ data, update, showToast }) {
           )}
 
           {/* KPIs */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",padding:"10px 16px",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),padding:"10px 16px",gap:8}}>
             {[
               ["Faturado",   fmt(totalPrevisto), C.yellow],
               ["Recebido",   fmt(totalRecebido), C.green],
@@ -2614,7 +2742,7 @@ function Financeiro({ data, update, showToast }) {
   const periodStart = days[0] || "";
   const periodEnd   = days[days.length-1] || "";
 
-  const obraRows = data.obras
+  const obraRows = useMemo(() => data.obras
     .filter(o => filterObra==="all" || o.id===filterObra)
     .map(o => {
       const {laborCost, benefitCost, totalCost} = calcObraLaborCost(data, o.id, days);
@@ -2636,15 +2764,15 @@ function Financeiro({ data, update, showToast }) {
         revenue, margin: marginReal, marginPct: marginRealPct, marginMO, marginPctMO,
         commitment, received, receivedTotal, activeEmps, activeTercCount,
       };
-    });
+    }), [data, filterObra, days, year, month, periodStart, periodEnd]);
 
-  const T = {
+  const T = useMemo(() => ({
     revenue:  obraRows.reduce((s,r)=>s+r.revenue,      0),
     labor:    obraRows.reduce((s,r)=>s+r.laborCost,     0),
     terc:     obraRows.reduce((s,r)=>s+r.tercCost,      0),
     margin:   obraRows.reduce((s,r)=>s+r.margin,        0),
     received: obraRows.reduce((s,r)=>s+r.received,      0),
-  };
+  }), [obraRows]);
   const totalMarginPct = T.revenue>0 ? (T.margin/T.revenue)*100 : 0;
 
   // Receitas do período filtrado
@@ -2920,7 +3048,8 @@ function Financeiro({ data, update, showToast }) {
 // ═══════════════════════════════════════════════════════════════════
 
 function Obras({ data, update, showToast }) {
-  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", entrada: "", entradaDate: "" };
+  const { formGrid } = useBreakpoint();
+  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
@@ -2953,6 +3082,7 @@ function Obras({ data, update, showToast }) {
       billingFrequency:  form.billingFrequency  || "mensal",
       entrada:           Number(form.entrada    || 0),
       entradaDate:       form.entradaDate       || "",
+      hasCaixa:          !!form.hasCaixa,
     };
 
     const obras = form.id ? data.obras.map(o => (o.id === form.id ? payload : o)) : [...data.obras, payload];
@@ -3018,8 +3148,11 @@ function Obras({ data, update, showToast }) {
       })}
 
       {modal && (
-        <Modal title={form.id ? "Editar obra" : "Nova obra"} onClose={() => setModal(false)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <Modal title={form.id ? "Editar obra" : "Nova obra"} onClose={() => setModal(false)} wide>
+          {/* Grid de verdade: 1 coluna no celular, 2 no resto. Os separadores de
+              seção usam gridColumn:"1/-1", que só funciona em container grid —
+              dentro do flex antigo eram CSS morto. */}
+          <div style={{ display: "grid", gridTemplateColumns: formGrid(2), gap: 12 }}>
             <Inp label="Nome *" value={form.name} onChange={setField("name")} />
             <Inp label="Metragem quadrada (m²)" type="number" value={form.areaM2} onChange={setField("areaM2")} placeholder="Ex.: 250" />
             <Inp label="Endereço" value={form.address} onChange={setField("address")} />
@@ -3062,7 +3195,18 @@ function Obras({ data, update, showToast }) {
                 </button>
               </div>
             )}
-            <div style={{ display: "flex", gap: 8 }}>
+            {/* Caixa de obra */}
+            <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
+            <label style={{gridColumn:"1/-1",display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"10px 12px",background:form.hasCaixa?`${C.green}08`:C.surface,borderRadius:8,border:`1.5px solid ${form.hasCaixa?C.green+"55":C.border}`}}>
+              <div onClick={()=>setField("hasCaixa")(!form.hasCaixa)} style={{width:20,height:20,border:`2px solid ${form.hasCaixa?C.green:C.muted}`,background:form.hasCaixa?C.green:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+                {form.hasCaixa&&<span style={{color:"#fff",fontSize:13,fontWeight:900}}>✓</span>}
+              </div>
+              <div>
+                <p style={{fontSize:13,fontWeight:700,color:form.hasCaixa?C.green:C.text}}>💰 Esta obra possui caixa de obra</p>
+                <p style={{fontSize:11,color:C.muted,marginTop:1}}>Cliente faz aportes para compra de materiais — controle separado de entradas e gastos</p>
+              </div>
+            </label>
+            <div style={{ gridColumn:"1/-1", display: "flex", gap: 8, marginTop: 4 }}>
               <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
               <Btn onClick={save} full><Ic n="check" /> Salvar</Btn>
             </div>
@@ -3078,6 +3222,7 @@ function Obras({ data, update, showToast }) {
 // ═══════════════════════════════════════════════════════════════════
 
 function Equipe({ data, update, showToast }) {
+  const { formGrid } = useBreakpoint();
   const emptyEmp = {
     id: "",
     name: "",
@@ -3109,7 +3254,7 @@ function Equipe({ data, update, showToast }) {
 
   const F = key => value => setForm(f => ({ ...f, [key]: value }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "—";
-  const empAdvances = id => data.advances.filter(a => a.empId === id);
+  const empAdvances = id => (data.advances||[]).filter(a => a.empId === id);
 
   const saveEmp = () => {
     if (!form.name.trim() || !form.dailyRate || !form.startDate || !form.obra) {
@@ -3196,7 +3341,7 @@ function Equipe({ data, update, showToast }) {
 
   const removeAdv = id => {
     if (!window.confirm("Remover adiantamento?")) return;
-    update({ ...data, advances: data.advances.filter(a => a.id !== id) });
+    update({ ...data, advances: (data.advances||[]).filter(a => a.id !== id) });
   };
 
   const list = data.employees
@@ -3283,7 +3428,7 @@ function Equipe({ data, update, showToast }) {
 
       {modal && (
         <Modal title={form.id ? "Editar funcionário" : "Novo funcionário"} onClose={() => setModal(false)} wide>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
             <div style={{ gridColumn: "1/-1" }}><Inp label="Nome completo *" value={form.name} onChange={F("name")} /></div>
             <Inp label="Função" value={form.role} onChange={F("role")} />
             <Inp label="Admissão *" type="date" value={form.startDate} onChange={F("startDate")} />
@@ -3334,6 +3479,7 @@ function Equipe({ data, update, showToast }) {
 // ═══════════════════════════════════════════════════════════════════
 
 function WorkerMovementModal({ data, update, showToast, employee, initialMode = "transfer", onClose }) {
+  const { formGrid } = useBreakpoint();
   const [mode, setMode] = useState(initialMode);
   const [newObra, setNewObra] = useState("");
   const [endDate, setEndDate] = useState(today());
@@ -3417,7 +3563,7 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
           <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 18 }}>{employee.name}</p>
           <p style={{ color: C.muted, fontSize: 12 }}>Obra atual: {obraName(employee.obra)}{employee.role ? ` · ${employee.role}` : ""}</p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 8 }}>
           <Btn v={mode === "transfer" ? "warning" : "ghost"} onClick={() => setMode("transfer")} full>Transferir</Btn>
           <Btn v={mode === "dismiss" ? "danger" : "ghost"} onClick={() => setMode("dismiss")} full>Demitir</Btn>
         </div>
@@ -4712,6 +4858,7 @@ function FluxoCaixa({ data }) {
 // ═══════════════════════════════════════════════════════════════════
 
 function Terceiros({ data, update, showToast }) {
+  const { formGrid } = useBreakpoint();
   const emptyT = { id:"", name:"", specialty:"eletricista", obraId:"", contractValue:"", weeklyRate:"", phone:"", pixKey:"", notes:"", startDate:today() };
   const [view,        setView]        = useState("cadastro");
   const [weekOffset,  setWeekOffset]  = useState(0);
@@ -5097,7 +5244,7 @@ function Terceiros({ data, update, showToast }) {
       {/* Modal: cadastro */}
       {modal && (
         <Modal title={form.id?"Editar terceirizado":"Novo terceirizado"} onClose={()=>setModal(false)} wide>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <div style={{ display:"grid", gridTemplateColumns:formGrid(2), gap:12 }}>
             <div style={{ gridColumn:"1/-1" }}><Inp label="Nome completo *" value={form.name} onChange={F("name")}/></div>
             <Sel label="Especialidade *" value={form.specialty} onChange={F("specialty")} options={SPECIALTIES.map(s=>({v:s.v,l:s.emoji+" "+s.l}))}/>
             <Sel label="Obra *" value={form.obraId} onChange={F("obraId")} options={[{v:"",l:"Selecione"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
@@ -6470,6 +6617,7 @@ const calcRescisao = (form) => {
 };
 
 function Rescisao({ data, update, showToast }) {
+  const { formGrid } = useBreakpoint();
   const emptyForm = {
     empId: "", empName: "", empCPF: "", empFuncao: "", obraName: "",
     admissao: "", demissao: today(), valorMensal: "", diasNoMes: "",
@@ -6683,7 +6831,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
           onChange={selectEmp}
           options={[{v:"",l:"— Preenchimento manual —"},...activeEmps.map(e=>({v:e.id,l:`${e.name}${e.role?" · "+e.role:""}`}))]}
         />
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
           <Inp label="Nome completo *" value={form.empName} onChange={F("empName")} placeholder="Nome do trabalhador"/>
           <Inp label="CPF" value={form.empCPF} onChange={v=>F("empCPF")(fmtCPF(v))} placeholder="000.000.000-00"/>
           <Inp label="Função" value={form.empFuncao} onChange={F("empFuncao")} placeholder="Pedreiro, servente..."/>
@@ -6694,7 +6842,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
       {/* Datas e valores */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.orange}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
         <p style={{fontSize:11,fontWeight:900,color:C.orange,textTransform:"uppercase",letterSpacing:.8}}>② Período e Valores</p>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
           <Inp label="Data de admissão *"  type="date" value={form.admissao}    onChange={F("admissao")}/>
           <Inp label="Data de rescisão *"  type="date" value={form.demissao}    onChange={F("demissao")}/>
           <Inp label="Valor mensal (R$) *" type="number" value={form.valorMensal} onChange={F("valorMensal")} placeholder="Diária × 26 dias"/>
@@ -6773,7 +6921,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
       {/* Descontos */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.red}`,padding:14,borderRadius:16,display:"flex",flexDirection:"column",gap:10}}>
         <p style={{fontSize:11,fontWeight:900,color:C.red,textTransform:"uppercase",letterSpacing:.8}}>④ Descontos</p>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
           <Inp label="Adiantamentos (R$)" type="number" value={form.descAdiantamento} onChange={F("descAdiantamento")} placeholder="0,00"/>
           <Inp label="Outros descontos (R$)" type="number" value={form.descOutros} onChange={F("descOutros")} placeholder="0,00"/>
         </div>
@@ -6868,6 +7016,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
 // ═══════════════════════════════════════════════════════════════════
 
 function Config({ data, update, showToast, currentUser, onLogout }) {
+  const { formGrid } = useBreakpoint();
   const [form, setForm] = useState(data.config);
   const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
@@ -6880,20 +7029,20 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
 
   const approveRequest = id => {
     const validUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-    const unlockRequests = data.unlockRequests.map(r => r.id === id ? { ...r, status: "approved", approvedAt: new Date().toISOString(), validUntil } : r);
-    const req = data.unlockRequests.find(r => r.id === id);
+    const unlockRequests = (data.unlockRequests||[]).map(r => r.id === id ? { ...r, status: "approved", approvedAt: new Date().toISOString(), validUntil } : r);
+    const req = (data.unlockRequests||[]).find(r => r.id === id);
     const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "unlock_approved", message: `Permissão aprovada para ${req?.obraName || "obra"} em ${fmtDateFull(req?.date)} até ${new Date(validUntil).toLocaleTimeString("pt-BR")}.` }];
     update({ ...data, unlockRequests, changeLog });
     showToast("Permissão aprovada por 30 minutos.");
   };
 
   const rejectRequest = id => {
-    const unlockRequests = data.unlockRequests.map(r => r.id === id ? { ...r, status: "rejected", rejectedAt: new Date().toISOString() } : r);
+    const unlockRequests = (data.unlockRequests||[]).map(r => r.id === id ? { ...r, status: "rejected", rejectedAt: new Date().toISOString() } : r);
     update({ ...data, unlockRequests });
     showToast("Solicitação recusada.");
   };
 
-  const pending = data.unlockRequests.filter(r => r.status === "pending").slice().reverse();
+  const pending = (data.unlockRequests||[]).filter(r => r.status === "pending").slice().reverse();
   const recent = data.unlockRequests.slice().reverse().slice(0, 12);
 
   const exportBackup = () => {
@@ -6918,7 +7067,7 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Empresa</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 10 }}>
           <Inp label="Empresa" value={form.companyName} onChange={setField("companyName")} />
           <Inp label="Produto" value={form.productName} onChange={setField("productName")} />
           <Inp label="CNPJ" value={form.cnpj} onChange={setField("cnpj")} />
@@ -6928,6 +7077,31 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
           <Inp label="E-mail aprovador" value={form.approverEmail} onChange={setField("approverEmail")} />
         </div>
         <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
+      </div>
+
+      {/* DRE — Alíquotas e tributação */}
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:14 }}>
+        <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:700, color:C.yellow, textTransform:"uppercase", letterSpacing:.5, marginBottom:4, fontSize:13 }}>DRE — Tributação</h3>
+        <p style={{ fontSize:11, color:C.muted, marginBottom:12 }}>Configure as alíquotas para o cálculo automático do DRE da empresa.</p>
+        <div style={{ display:"grid", gridTemplateColumns:formGrid(2), gap:10 }}>
+          <Inp label="ISS (%)" type="number" value={String(form.aliquotaISS||"")} onChange={v=>setField("aliquotaISS")(v)} placeholder="Ex.: 5"/>
+          <Inp label="PIS (%)" type="number" value={String(form.aliquotaPIS||"")} onChange={v=>setField("aliquotaPIS")(v)} placeholder="Ex.: 0.65"/>
+          <Inp label="COFINS (%)" type="number" value={String(form.aliquotaCOFINS||"")} onChange={v=>setField("aliquotaCOFINS")(v)} placeholder="Ex.: 3"/>
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",display:"flex",alignItems:"center"}}>
+            <p style={{fontSize:11,color:C.muted}}>Simples Nacional: use ISS apenas (alíquota efetiva total)</p>
+          </div>
+          <Inp label="IR — Alíquota estimada (%)" type="number" value={String(form.aliquotaIR||"")} onChange={v=>setField("aliquotaIR")(v)} placeholder="Ex.: 15"/>
+          <Inp label="CSLL — Alíquota estimada (%)" type="number" value={String(form.aliquotaCSLL||"")} onChange={v=>setField("aliquotaCSLL")(v)} placeholder="Ex.: 9"/>
+        </div>
+        {(Number(form.aliquotaISS||0)+Number(form.aliquotaPIS||0)+Number(form.aliquotaCOFINS||0))>0&&(
+          <div style={{marginTop:10,background:`${C.yellow}10`,border:`1px solid ${C.yellow}33`,borderRadius:8,padding:"8px 12px"}}>
+            <p style={{fontSize:11,color:C.text}}>
+              Carga sobre faturamento: <strong style={{color:C.yellow}}>{(Number(form.aliquotaISS||0)+Number(form.aliquotaPIS||0)+Number(form.aliquotaCOFINS||0)).toFixed(2)}%</strong>
+              {(Number(form.aliquotaIR||0)+Number(form.aliquotaCSLL||0))>0&&<> · Provisão IR+CSLL: <strong style={{color:C.yellow}}>{(Number(form.aliquotaIR||0)+Number(form.aliquotaCSLL||0)).toFixed(1)}%</strong></>}
+            </p>
+          </div>
+        )}
+        <div style={{marginTop:10}}><Btn onClick={saveConfig}><Ic n="check"/> Salvar alíquotas</Btn></div>
       </div>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
@@ -7003,10 +7177,10 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","obras","ponto","equipe","terc","folha","resc","dre","fin","medicoes","relat","ia","config"],
-  engenheiro:  ["home","obras","ponto","equipe","terc","ia"],
+  admin:       ["home","obras","orc","ponto","equipe","terc","folha","resc","dre_emp","dre","fin","medicoes","caixa","relat","ia","config"],
+  engenheiro:  ["home","obras","orc","ponto","equipe","terc","caixa","ia"],
   rh:          ["home","equipe","folha","resc","ia"],
-  financeiro:  ["home","dre","fin","medicoes","relat","ia"],
+  financeiro:  ["home","orc","dre_emp","dre","fin","medicoes","caixa","relat","ia"],
   visualizador:["home"],
 };
 
@@ -7178,6 +7352,7 @@ function LoginScreen({ data, onLogin, onFirstSetup }) {
 // ── Gestão de Usuários (dentro de Config) ────────────────────────
 
 function GestaoUsuarios({ data, update, showToast, currentUser }) {
+  const { cols } = useBreakpoint();
   const emptyU = { id:"", nome:"", role:"engenheiro", email:"", obraId:"", active:true };
   const [modal,   setModal]   = useState(false);
   const [pinModal,setPinModal] = useState(null); // userId
@@ -7311,6 +7486,2479 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// ORÇAMENTO — planilha orçamentária com base SINAPI / ORSE
+// ═══════════════════════════════════════════════════════════════════
+//
+// ARQUITETURA (importante):
+// A base SINAPI completa (~10k composições) NÃO é persistida no Supabase —
+// isso inflaria o blob salvo a cada operação do app. Em vez disso:
+//   1. O XLSX é importado e fica em memória durante a sessão (baseImport)
+//   2. Ao adicionar um item, o preço é COPIADO para dentro do orçamento
+//      (snapshot). Isso é tecnicamente correto: um orçamento com data-base
+//      SINAPI mai/2026 deve manter aqueles preços mesmo que a base mude.
+//   3. Itens usados vão para `baseFavoritos` (base curada, leve, persistida)
+// ═══════════════════════════════════════════════════════════════════
+
+const ETAPAS_PADRAO = [
+  "SERVIÇOS PRELIMINARES",
+  "MOVIMENTO DE TERRA",
+  "INFRAESTRUTURA / FUNDAÇÕES",
+  "SUPRAESTRUTURA",
+  "PAREDES E PAINÉIS",
+  "COBERTURA",
+  "IMPERMEABILIZAÇÃO",
+  "INSTALAÇÕES HIDROSSANITÁRIAS",
+  "INSTALAÇÕES ELÉTRICAS",
+  "ESQUADRIAS",
+  "REVESTIMENTOS DE PAREDE E TETO",
+  "PISOS E PAVIMENTAÇÕES",
+  "PINTURA",
+  "LOUÇAS E METAIS",
+  "SERVIÇOS COMPLEMENTARES",
+  "LIMPEZA FINAL",
+];
+
+// ═══════════════════════════════════════════════════════════════════
+// BDI — Acórdão 2622/2013-TCU-Plenário
+// ═══════════════════════════════════════════════════════════════════
+//
+// Faixas referenciais de BDI por tipo de obra. O TCU não fixa um valor:
+// fixa um INTERVALO (1º quartil ↔ 3º quartil). Adotar valor fora dele não
+// é proibido, mas exige justificativa técnica no processo — é exatamente
+// isso que a auditoria cobra.
+const BDI_TCU = [
+  { v:"edificios",  l:"Construção de edifícios",                    q1:20.34, med:22.12, q3:25.00 },
+  { v:"rodovias",   l:"Construção de rodovias e ferrovias",         q1:19.60, med:20.97, q3:24.23 },
+  { v:"saneamento", l:"Redes de água, esgoto e correlatas",         q1:20.76, med:24.18, q3:26.44 },
+  { v:"energia",    l:"Estações e redes de distribuição de energia",q1:24.00, med:25.84, q3:27.86 },
+  { v:"portuarias", l:"Obras portuárias, marítimas e fluviais",     q1:22.80, med:27.48, q3:30.95 },
+  { v:"fornecimento",l:"Fornecimento de materiais e equipamentos",  q1:11.10, med:14.02, q3:16.80 },
+];
+
+// Faixas dos componentes para CONSTRUÇÃO DE EDIFÍCIOS (Acórdão 2622/2013).
+// Servem de baliza no modo detalhado; os demais tipos de obra têm tabelas
+// próprias — por isso o alerta de faixa usa sempre o BDI total, que é o que
+// o TCU efetivamente audita.
+const BDI_COMPONENTES_EDIF = {
+  ac:     { q1:3.00, med:4.00, q3:5.50, l:"Administração Central" },
+  seguro: { q1:0.80, med:0.80, q3:1.00, l:"Seguro e Garantia"     },
+  risco:  { q1:0.97, med:1.27, q3:1.27, l:"Risco"                 },
+  df:     { q1:0.59, med:1.23, q3:1.39, l:"Despesas Financeiras"  },
+  lucro:  { q1:6.16, med:7.40, q3:8.96, l:"Lucro"                 },
+};
+
+// Fórmula do TCU:
+//   BDI = [ (1+AC+S+R+G) × (1+DF) × (1+L) / (1 − I) ] − 1
+// I = tributos incidentes sobre o faturamento (PIS + COFINS + ISS + CPRB)
+const calcBDI = (p) => {
+  const d = (x) => Number(x || 0) / 100;
+  const ac = d(p.ac), seg = d(p.seguro), ris = d(p.risco), gar = d(p.garantia);
+  const df = d(p.df), lucro = d(p.lucro);
+  const I  = d(p.pis) + d(p.cofins) + d(p.iss) + d(p.cprb);
+
+  if (I >= 1) return { bdi: 0, tributos: I*100, erro: "Tributos somam 100% ou mais." };
+
+  const bdi = (((1 + ac + seg + ris + gar) * (1 + df) * (1 + lucro)) / (1 - I) - 1) * 100;
+  return { bdi, tributos: I * 100, erro: null };
+};
+
+// Situação do BDI face à faixa do TCU
+const situacaoBDI = (bdi, tipo) => {
+  const t = BDI_TCU.find(x => x.v === tipo) || BDI_TCU[0];
+  if (bdi < t.q1) return { st:"abaixo", cor:"#BF360C", faixa:t,
+    msg:`Abaixo do 1º quartil (${t.q1}%). Exige justificativa — o TCU questiona BDI subestimado por indício de jogo de planilha.` };
+  if (bdi > t.q3) return { st:"acima",  cor:"#B71C1C", faixa:t,
+    msg:`Acima do 3º quartil (${t.q3}%). Exige justificativa técnica expressa no processo.` };
+  return { st:"dentro", cor:"#1E6B31", faixa:t,
+    msg:`Dentro da faixa aceitável do TCU (${t.q1}% a ${t.q3}%).` };
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// RESPONSIVIDADE
+// ═══════════════════════════════════════════════════════════════════
+//
+// O app é estilizado inline, então media query pura não alcança os
+// componentes. Este hook expõe o breakpoint ao React, permitindo trocar
+// não só medidas, mas o próprio LAYOUT (barra inferior ↔ sidebar).
+//
+// Usa matchMedia em vez de listener de resize: dispara só quando cruza o
+// limite, e não a cada pixel arrastado.
+const BP = { mobile: 0, tablet: 768, desktop: 1100 };
+
+const useBreakpoint = () => {
+  const ler = () => {
+    if (typeof window === "undefined") return "desktop";   // SSR
+    const w = window.innerWidth;
+    if (w >= BP.desktop) return "desktop";
+    if (w >= BP.tablet)  return "tablet";
+    return "mobile";
+  };
+
+  const [bp, setBp] = useState(ler);
+
+  useEffect(() => {
+    const mqTablet  = window.matchMedia(`(min-width:${BP.tablet}px)`);
+    const mqDesktop = window.matchMedia(`(min-width:${BP.desktop}px)`);
+    const atualizar = () => setBp(ler());
+
+    mqTablet.addEventListener("change", atualizar);
+    mqDesktop.addEventListener("change", atualizar);
+    return () => {
+      mqTablet.removeEventListener("change", atualizar);
+      mqDesktop.removeEventListener("change", atualizar);
+    };
+  }, []);
+
+  return {
+    bp,
+    isMobile:  bp === "mobile",
+    isTablet:  bp === "tablet",
+    isDesktop: bp === "desktop",
+    // Grade responsiva: cols(1,2,4) → 1 col no celular, 2 no tablet, 4 no desktop
+    cols: (m, t, d) => `repeat(${bp==="desktop" ? d : bp==="tablet" ? t : m}, 1fr)`,
+    // Escolhe um valor conforme o breakpoint
+    pick: (m, t, d) => (bp==="desktop" ? d : bp==="tablet" ? t : m),
+    // Grade de FORMULÁRIO: empilha no celular. Campo de texto em 2 colunas
+    // num aparelho de 360px sobra ~165px — corta nome, CPF, endereço.
+    // Dropdowns curtos (ano/mês) continuam lado a lado; só texto empilha.
+    formGrid: (n = 2) => (bp === "mobile" ? "1fr" : `repeat(${n}, 1fr)`),
+  };
+};
+
+const MAX_NIVEL = 5;   // 1.1.1.1.1 — além disso a indentação fica ilegível no celular
+
+// Total de um item com BDI
+const itemTotal = (it, bdi) =>
+  Number(it.quantidade||0) * Number(it.precoUnit||0) * (1 + Number(bdi||0)/100);
+
+// ── Árvore de etapas ────────────────────────────────────────────────
+// A numeração (1, 1.1, 1.1.2) NÃO é armazenada: é derivada da posição na
+// árvore. Assim, inserir ou remover uma etapa renumera tudo automaticamente,
+// sem código de manutenção e sem risco de numeração furada.
+//
+// Dentro de uma etapa, as sub-etapas são numeradas primeiro e os itens
+// diretos continuam a contagem depois delas.
+const construirArvore = (etapas, itens) => {
+  const porPai = {};
+  (etapas||[]).forEach(e => {
+    const p = e.parentId || "";
+    (porPai[p] = porPai[p] || []).push(e);
+  });
+
+  const walk = (paiId, prefixo, nivel) => (porPai[paiId] || []).map((et, i) => {
+    const codigo = prefixo ? `${prefixo}.${i+1}` : String(i+1);
+    const sub = walk(et.id, codigo, nivel + 1);
+    const meusItens = (itens||[])
+      .filter(it => it.etapaId === et.id)
+      .map((it, j) => ({ ...it, codigoItem: `${codigo}.${sub.length + j + 1}` }));
+    return { ...et, codigo, nivel, sub, itens: meusItens };
+  });
+
+  return walk("", "", 1);
+};
+
+// Custo de um nó = itens diretos + tudo que está abaixo dele
+const ehTitulo = (it) => it.tipo === "titulo";
+
+const calcNo = (no, bdi) => {
+  const sub = no.sub.map(s => calcNo(s, bdi));
+  const cdItens = no.itens
+    .filter(it => !ehTitulo(it))   // título é rótulo: não entra no custo
+    .reduce((s,it) => s + Number(it.quantidade||0) * Number(it.precoUnit||0), 0);
+  const cdSub   = sub.reduce((s,x) => s + x.custoDireto, 0);
+  const custoDireto = cdItens + cdSub;
+  return { ...no, sub, custoDireto, total: custoDireto * (1 + Number(bdi||0)/100) };
+};
+
+// Achata a árvore na ordem de leitura (etapa → sub-etapas → itens diretos)
+const achatarArvore = (nos, out = []) => {
+  nos.forEach(n => {
+    out.push({ tipo:"etapa", ...n });
+    achatarArvore(n.sub, out);
+    n.itens.forEach(it => out.push({ tipo:"item", ...it }));
+  });
+  return out;
+};
+
+// Coleta o id de uma etapa e de todos os seus descendentes
+const idsDaSubarvore = (etapas, raizId) => {
+  const ids = [raizId];
+  let mudou = true;
+  while (mudou) {
+    mudou = false;
+    (etapas||[]).forEach(e => {
+      if (e.parentId && ids.includes(e.parentId) && !ids.includes(e.id)) {
+        ids.push(e.id); mudou = true;
+      }
+    });
+  }
+  return ids;
+};
+
+// Profundidade de uma etapa (1 = raiz)
+const nivelDaEtapa = (etapas, id) => {
+  let n = 1, atual = (etapas||[]).find(e => e.id === id);
+  while (atual && atual.parentId) {
+    n++;
+    atual = (etapas||[]).find(e => e.id === atual.parentId);
+    if (n > 20) break;   // trava contra ciclo
+  }
+  return n;
+};
+
+const calcOrcamento = (orc) => {
+  const bdi   = Number(orc.bdi||0);
+  const itens = orc.itens || [];
+
+  const reais       = itens.filter(it => !ehTitulo(it));
+  const custoDireto = reais.reduce((s,it) => s + Number(it.quantidade||0) * Number(it.precoUnit||0), 0);
+  const valorBDI    = custoDireto * (bdi/100);
+  const total       = custoDireto + valorBDI;
+  const porM2       = Number(orc.areaM2||0) > 0 ? total / Number(orc.areaM2) : 0;
+
+  const comPct = (n) => ({
+    ...n,
+    pct: total > 0 ? (n.total/total)*100 : 0,
+    sub: n.sub.map(comPct),
+  });
+  const arvore = construirArvore(orc.etapas, itens).map(n => comPct(calcNo(n, bdi)));
+
+  return { custoDireto, valorBDI, total, porM2, arvore, qtdItens: reais.length };
+};
+
+function Orcamento({ data, update, showToast }) {
+  const { cols, isDesktop, formGrid } = useBreakpoint();
+  const [view,      setView]      = useState("lista");   // "lista" | "editor"
+  const [selOrc,    setSelOrc]    = useState(null);      // id do orçamento aberto
+  const [baseImport,setBaseImport]= useState([]);        // base SINAPI/ORSE em memória
+  const [baseNome,  setBaseNome]  = useState("");
+  const [baseInfo,  setBaseInfo]  = useState(null);      // metadados da base importada
+  const [importando,setImportando]= useState(false);     // spinner durante o parse
+  const [buscaModal,setBuscaModal]= useState(false);
+  const [busca,     setBusca]     = useState("");
+  const [etapaAlvo, setEtapaAlvo] = useState("");
+  const [novoModal, setNovoModal] = useState(false);
+  const [mapModal,  setMapModal]  = useState(null);      // {headers, rows} p/ mapear colunas
+  const [colMap,    setColMap]    = useState({ codigo:"", descricao:"", unidade:"", preco:"" });
+  const [qtdModal,  setQtdModal]  = useState(null);      // item selecionado p/ informar qtd
+  const [qtd,       setQtd]       = useState("");
+  const [etapaModal,setEtapaModal]= useState(null);   // {modo:"novo"|"sub"|"editar", paiId, etapa}
+  const [etapaNome, setEtapaNome] = useState("");
+  const [bdiModal,  setBdiModal]  = useState(false);
+  const [bdiAba,    setBdiAba]    = useState("faixa");   // "faixa" | "detalhado"
+  const [bdiTipo,   setBdiTipo]   = useState("edificios");
+  const [bdiP,      setBdiP]      = useState(null);      // parâmetros em edição
+
+  const emptyOrc = {
+    nome:"", obraId:"", cliente:"", local:"", areaM2:"",
+    fonte:"SINAPI", dataBase:"", uf:"PE", desonerado:true, bdi:"23.25",
+  };
+  const [form, setForm] = useState(emptyOrc);
+  const F = k => v => setForm(f=>({...f,[k]:v}));
+
+  const orcamentos = data.orcamentos || [];
+  const orc = orcamentos.find(o => o.id === selOrc);
+  const calc = useMemo(() => orc ? calcOrcamento(orc) : null, [orc]);
+
+  // ── Importar planilha SINAPI / ORSE ──────────────────────────
+  // ── Importar planilha de referência (SINAPI / ORSE) ──────────
+  //
+  // Formato-alvo real: planilha de referência de preços com a base numa aba
+  // ("Banco"), cabeçalho lá pela linha 5, SINAPI e ORSE misturados, duas
+  // colunas de custo (desonerado / não desonerado) — muitas vezes só uma
+  // preenchida — e preços em string no padrão BR ("8,97"). O parser detecta
+  // tudo sozinho; só cai no mapeamento manual se a auto-detecção falhar.
+
+  // "1.234,56" | 1234.56 | "" → number
+  const parseBR = (v) => {
+    if (typeof v === "number") return v;
+    const s = String(v ?? "").trim();
+    if (!s) return 0;
+    const n = Number(s.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, ""));
+    return isNaN(n) ? 0 : n;
+  };
+
+  const LIXO = new Set(["", "0", "0.0", "-", "CÓDIGO REPETIDO", "CODIGO REPETIDO"]);
+  const ehLixo = (s) => LIXO.has(String(s ?? "").trim().toUpperCase());
+
+  // Localiza o cabeçalho e mapeia as colunas pelo nome
+  const detectarLayout = (rows) => {
+    for (let r = 0; r < Math.min(30, rows.length); r++) {
+      const linha = (rows[r] || []).map(c => String(c ?? "").toUpperCase().replace(/\n/g, " "));
+      const txt = linha.join(" | ");
+      const temCodigo = txt.includes("CÓDIGO") || txt.includes("CODIGO");
+      const temDesc   = txt.includes("DESCRIÇÃO") || txt.includes("DESCRICAO") || txt.includes("DISCRIMINAÇÃO");
+      if (!temCodigo || !temDesc) continue;
+
+      const cols = {};
+      linha.forEach((h, i) => {
+        if (!h.trim()) return;
+        const ehPreco = h.includes("CUSTO") || h.includes("PREÇO") || h.includes("PRECO") || h.includes("VALOR");
+        if (h.includes("FONTE") && cols.fonte === undefined) cols.fonte = i;
+        else if ((h.includes("CÓDIGO") || h.includes("CODIGO")) && cols.codigo === undefined) cols.codigo = i;
+        else if ((h.includes("DESCRIÇÃO") || h.includes("DESCRICAO") || h.includes("DISCRIMINAÇÃO")) && cols.descricao === undefined) cols.descricao = i;
+        else if ((h.includes("UNIDADE") || /\bUNID\b/.test(h) || /\bUND\b/.test(h)) && cols.unidade === undefined) cols.unidade = i;
+        else if (ehPreco) {
+          // "NÃO DESONERADO" precisa ser testado ANTES de "DESONERADO"
+          if ((h.includes("NÃO") || h.includes("NAO")) && cols.precoNao === undefined) cols.precoNao = i;
+          else if (cols.precoDes === undefined) cols.precoDes = i;
+          else if (cols.precoNao === undefined) cols.precoNao = i;
+        }
+      });
+
+      if (cols.codigo !== undefined && cols.descricao !== undefined &&
+          (cols.precoDes !== undefined || cols.precoNao !== undefined)) {
+        return { headerRow: r, cols };
+      }
+    }
+    return null;
+  };
+
+  const extrair = (rows, layout) => {
+    const { headerRow, cols } = layout;
+    const out = [];
+    for (let r = headerRow + 1; r < rows.length; r++) {
+      const row = rows[r] || [];
+      const codigoRaw = String(row[cols.codigo] ?? "").trim();
+      const descricao = String(row[cols.descricao] ?? "").trim();
+      if (ehLixo(codigoRaw) || ehLixo(descricao)) continue;
+
+      const precoDes = cols.precoDes !== undefined ? parseBR(row[cols.precoDes]) : 0;
+      const precoNao = cols.precoNao !== undefined ? parseBR(row[cols.precoNao]) : 0;
+      if (precoDes <= 0 && precoNao <= 0) continue;
+
+      out.push({
+        fonte:     cols.fonte   !== undefined ? (String(row[cols.fonte]   ?? "").trim() || "SINAPI") : "SINAPI",
+        codigo:    codigoRaw.replace(/\.0$/, ""),   // "97141.0" → "97141"
+        descricao,
+        unidade:   cols.unidade !== undefined ? (String(row[cols.unidade] ?? "").trim() || "UN") : "UN",
+        precoDes,
+        precoNao,
+      });
+    }
+    return out;
+  };
+
+  const importarXLSX = async (file) => {
+    if (!file) return;
+    setImportando(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb  = XLSX.read(buf, { type: "array" });
+
+      // Testa TODAS as abas e fica com a que rende mais itens
+      let melhor = null;
+      for (const nome of wb.SheetNames) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[nome], { header:1, defval:"", raw:false });
+        if (rows.length < 10) continue;
+        const layout = detectarLayout(rows);
+        if (!layout) continue;
+        const itens = extrair(rows, layout);
+        if (!melhor || itens.length > melhor.itens.length) melhor = { aba:nome, rows, layout, itens };
+      }
+
+      // Auto-detecção falhou → mapeamento manual
+      if (!melhor || melhor.itens.length === 0) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"", raw:false });
+        let hIdx = rows.findIndex(r => r.filter(c => String(c).trim()).length >= 4);
+        if (hIdx < 0) hIdx = 0;
+        setBaseNome(file.name);
+        setColMap({ codigo:"", descricao:"", unidade:"", preco:"" });
+        setMapModal({
+          headers: rows[hIdx].map((h,i) => String(h).trim() || `Coluna ${i+1}`),
+          rows: rows.slice(hIdx+1).filter(r => r.some(c => String(c).trim())),
+        });
+        setImportando(false);
+        showToast("Não reconheci o layout — mapeie as colunas manualmente.", "warn");
+        return;
+      }
+
+      const { itens, aba } = melhor;
+
+      // Quais colunas de preço realmente têm dado?
+      const comDes = itens.filter(i => i.precoDes > 0).length;
+      const comNao = itens.filter(i => i.precoNao > 0).length;
+
+      // Fontes presentes (SINAPI, ORSE…)
+      const porFonte = {};
+      itens.forEach(i => { porFonte[i.fonte] = (porFonte[i.fonte] || 0) + 1; });
+
+      // Data-base e localidade costumam estar acima do cabeçalho
+      const topo = melhor.rows.slice(0, melhor.layout.headerRow)
+        .flat().map(c => String(c ?? "").trim()).filter(Boolean);
+      const dataBase = topo.find(c => /^\d{2}\/\d{4}$/.test(c)) || "";
+      const localidade = topo.find(c =>
+        /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{4,}$/.test(c) &&
+        !/BANCO|CUSTO|DATA|FONTE|ORIGEM|CÓDIGO|DESCRIÇÃO|UNIDADE|COEFICIENTE|ATRIBUÍDO|COLETADO/.test(c)
+      ) || "";
+
+      setBaseImport(itens);
+      setBaseNome(file.name);
+      setBaseInfo({ aba, total: itens.length, porFonte, comDes, comNao, dataBase, localidade });
+
+      // Preenche a data-base do orçamento se estiver vazia
+      if (orc && !orc.dataBase && dataBase) salvarOrc({ dataBase });
+
+      showToast(`${itens.length.toLocaleString("pt-BR")} composições carregadas da aba "${aba}".`);
+    } catch (e) {
+      showToast("Erro ao ler o arquivo. Confirme que é .xlsx ou .xls válido.", "error");
+    }
+    setImportando(false);
+  };
+
+  // Fallback: usuário mapeou as colunas na mão
+  const confirmarMapeamento = () => {
+    if (!mapModal) return;
+    const { rows } = mapModal;
+    if (colMap.codigo==="" || colMap.descricao==="" || colMap.preco==="") {
+      showToast("Mapeie ao menos Código, Descrição e Preço.","error"); return;
+    }
+    const ci = Number(colMap.codigo), di = Number(colMap.descricao);
+    const ui = colMap.unidade==="" ? -1 : Number(colMap.unidade);
+    const pi = Number(colMap.preco);
+
+    const itens = rows.map(r => {
+      const preco = parseBR(r[pi]);
+      return {
+        fonte:     "SINAPI",
+        codigo:    String(r[ci] ?? "").trim().replace(/\.0$/, ""),
+        descricao: String(r[di] ?? "").trim(),
+        unidade:   ui >= 0 ? (String(r[ui] ?? "").trim() || "UN") : "UN",
+        precoDes:  0,
+        precoNao:  preco,   // mapeamento manual → coluna única vira "não desonerado"
+      };
+    }).filter(x => !ehLixo(x.codigo) && !ehLixo(x.descricao) && x.precoNao > 0);
+
+    if (itens.length === 0) {
+      showToast("Nenhuma linha válida. Revise o mapeamento das colunas.","error"); return;
+    }
+
+    const porFonte = { SINAPI: itens.length };
+    setBaseImport(itens);
+    setBaseInfo({ aba:"(manual)", total:itens.length, porFonte, comDes:0, comNao:itens.length, dataBase:"", localidade:"" });
+    setMapModal(null);
+    showToast(`${itens.length.toLocaleString("pt-BR")} composições carregadas de ${baseNome}.`);
+  };
+
+  // ── Preço efetivo de uma composição ──────────────────────────
+  // Favoritos já vêm com preço congelado (precoUnit). Itens vindos da base
+  // trazem as duas colunas; escolhemos conforme o orçamento (desonerado ou
+  // não) e caímos na outra se a preferida estiver vazia — comum, já que
+  // muitas planilhas de referência só preenchem uma das duas.
+  const precoDoItem = (it, orcAtual) => {
+    if (it.precoUnit != null && it.precoUnit > 0) return it.precoUnit;   // favorito
+    const des = Number(it.precoDes || 0);
+    const nao = Number(it.precoNao || 0);
+    const querDes = orcAtual?.desonerado !== false;
+    if (querDes) return des > 0 ? des : nao;
+    return nao > 0 ? nao : des;
+  };
+
+  // Indica se o preço usado veio da coluna oposta à escolhida no orçamento
+  const precoFoiSubstituido = (it, orcAtual) => {
+    if (it.precoUnit != null && it.precoUnit > 0) return false;
+    const des = Number(it.precoDes || 0);
+    const nao = Number(it.precoNao || 0);
+    const querDes = orcAtual?.desonerado !== false;
+    return querDes ? (des <= 0 && nao > 0) : (nao <= 0 && des > 0);
+  };
+
+  // ── Base de busca: importada + favoritos ─────────────────────
+  const baseBusca = useMemo(() => {
+    const favs = (data.baseFavoritos||[]).map(f => ({...f, _fav:true}));
+    const codesFav = new Set(favs.map(f=>f.codigo));
+    const imp = baseImport.filter(i => !codesFav.has(i.codigo));
+    return [...favs, ...imp];
+  }, [data.baseFavoritos, baseImport]);
+
+  // Busca sem acento: ninguém digita "VEDAÇÃO" na barra de pesquisa.
+  // Normaliza os dois lados (NFD + remove diacríticos) antes de comparar.
+  const semAcento = (s) =>
+    String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+  // Índice de busca pré-computado — evita normalizar 17k descrições a cada tecla
+  const baseIndexada = useMemo(
+    () => baseBusca.map(i => ({ ...i, _q: semAcento(i.codigo + " " + i.descricao) })),
+    [baseBusca]
+  );
+
+  const resultados = useMemo(() => {
+    const q = semAcento(busca.trim());
+    if (!q) return baseIndexada.filter(i => i._fav).slice(0, 50);
+
+    // Todos os termos precisam aparecer ("alvenaria vedacao" acha os dois)
+    const termos = q.split(/\s+/).filter(Boolean);
+    const achados = baseIndexada.filter(i => termos.every(t => i._q.includes(t)));
+
+    // Ranking por relevância. As descrições do SINAPI são longas e citam
+    // vários materiais de passagem, então sem ranking a busca por "alvenaria"
+    // devolve composições de armação que só mencionam alvenaria no fim.
+    const score = (i) => {
+      let s = 0;
+      // 1. Código exato → topo absoluto
+      if (i.codigo.toLowerCase() === q) s -= 10000;
+      // 2. Expressão inteira aparece junta
+      const junto = i._q.indexOf(q);
+      if (junto >= 0) s -= 3000 - Math.min(junto, 2000);
+      // 3. Quanto mais cedo o 1º termo aparece, melhor
+      s += Math.min(i._q.indexOf(termos[0]), 400);
+      // 4. Descrição curta é mais específica
+      s += Math.min(i.descricao.length / 20, 40);
+      // 5. Favoritos ganham um empurrão
+      if (i._fav) s -= 500;
+      return s;
+    };
+
+    return achados.sort((a, b) => score(a) - score(b)).slice(0, 60);
+  }, [busca, baseIndexada]);
+
+  // ── CRUD orçamento ───────────────────────────────────────────
+  const criarOrc = () => {
+    if (!form.nome.trim()) { showToast("Informe o nome do orçamento.","error"); return; }
+    const novo = {
+      id: uid(),
+      ...form,
+      areaM2: Number(form.areaM2||0),
+      bdi:    Number(form.bdi||0),
+      createdAt: new Date().toISOString(),
+      status: "rascunho",
+      etapas: ETAPAS_PADRAO.map(nome => ({ id:uid(), nome, parentId:"" })),
+      itens: [],
+    };
+    update({ ...data, orcamentos:[...orcamentos, novo] });
+    setNovoModal(false);
+    setForm(emptyOrc);
+    setSelOrc(novo.id);
+    setView("editor");
+    showToast("Orçamento criado com as 16 etapas padrão.");
+  };
+
+  const salvarOrc = (patch) => {
+    update({ ...data, orcamentos: orcamentos.map(o => o.id===selOrc ? {...o, ...patch} : o) });
+  };
+
+  const delOrc = (id) => {
+    if (!window.confirm("Remover este orçamento? Esta ação não pode ser desfeita.")) return;
+    update({ ...data, orcamentos: orcamentos.filter(o=>o.id!==id) });
+    if (selOrc===id) { setSelOrc(null); setView("lista"); }
+    showToast("Orçamento removido.");
+  };
+
+  // ── Itens ────────────────────────────────────────────────────
+  const addItem = () => {
+    if (!qtdModal || !orc) return;
+    const q = Number(qtd);
+    if (!q || q <= 0) { showToast("Informe uma quantidade válida.","error"); return; }
+
+    const preco = precoDoItem(qtdModal, orc);
+    if (!preco || preco <= 0) { showToast("Esta composição não tem preço na base.","error"); return; }
+
+    const unidade = qtdModal.unidade || "UN";
+    const novoItem = {
+      id: uid(),
+      etapaId:   etapaAlvo,
+      tipo:      "item",
+      codigo:    qtdModal.codigo,
+      // fonte real da linha (SINAPI ou ORSE), não a fonte global do orçamento —
+      // a planilha de referência traz as duas misturadas
+      fonte:     qtdModal.fonte || orc.fonte,
+      descricao: qtdModal.descricao,
+      unidade,
+      quantidade: q,
+      precoUnit: preco,   // ← snapshot: congela o preço na data-base
+    };
+
+    // Guarda na base de favoritos (já com o preço congelado)
+    const favs = data.baseFavoritos || [];
+    const jaFav = favs.some(f => f.codigo === qtdModal.codigo);
+    const novosFavs = jaFav ? favs : [...favs, {
+      codigo:    qtdModal.codigo,
+      fonte:     qtdModal.fonte || orc.fonte,
+      descricao: qtdModal.descricao,
+      unidade,
+      precoUnit: preco,
+    }];
+
+    update({
+      ...data,
+      baseFavoritos: novosFavs,
+      orcamentos: orcamentos.map(o => o.id===selOrc ? {...o, itens:[...o.itens, novoItem]} : o),
+    });
+    setQtdModal(null); setQtd(""); setBusca("");
+    showToast("Item adicionado ao orçamento.");
+  };
+
+  const updItemQtd = (itemId, novaQtd) => {
+    salvarOrc({ itens: orc.itens.map(it => it.id===itemId ? {...it, quantidade:Number(novaQtd)||0} : it) });
+  };
+
+  const delItem = (itemId) => {
+    salvarOrc({ itens: orc.itens.filter(it => it.id!==itemId) });
+    showToast("Linha removida.");
+  };
+
+  // ── BDI (Acórdão 2622/2013) ──────────────────────────────────
+  const abrirBDI = () => {
+    setBdiTipo(orc.bdiTipo || "edificios");
+    // A CPRB (4,5% sobre a receita) só incide na folha desonerada. Se o
+    // orçamento usa a tabela desonerada, ela ENTRA nos tributos do BDI —
+    // é o erro mais comum e o que mais gera glosa.
+    const cprbPadrao = orc.desonerado !== false ? 4.50 : 0;
+    setBdiP(orc.bdiParams || {
+      ac:4.00, seguro:0.80, risco:1.27, garantia:0, df:1.23, lucro:7.40,
+      pis:0.65, cofins:3.00, iss:2.00, cprb:cprbPadrao,
+    });
+    setBdiAba(orc.bdiParams ? "detalhado" : "faixa");
+    setBdiModal(true);
+  };
+
+  const aplicarBDI = (valor, tipo, params = null) => {
+    salvarOrc({
+      bdi: Number(Number(valor).toFixed(2)),
+      bdiTipo: tipo,
+      bdiParams: params,
+    });
+    setBdiModal(false);
+    showToast(`BDI de ${Number(valor).toFixed(2)}% aplicado ao orçamento.`);
+  };
+
+  // ── Título: linha de texto puro dentro da planilha ───────────
+  // Serve para separar blocos de itens ("Pavimento térreo", "Área de
+  // serviço") sem criar uma etapa com subtotal. Entra na numeração,
+  // mas não soma custo.
+  const addTitulo = (etapaId) => {
+    salvarOrc({
+      itens: [...(orc.itens||[]), {
+        id: uid(), etapaId, tipo: "titulo",
+        codigo: "", fonte: "", descricao: "",
+        unidade: "", quantidade: 0, precoUnit: 0,
+      }],
+    });
+    showToast("Título adicionado — digite o texto.");
+  };
+
+  const updTituloTexto = (itemId, texto) => {
+    salvarOrc({ itens: orc.itens.map(it => it.id===itemId ? {...it, descricao: texto} : it) });
+  };
+
+  // ── Reordenar linhas dentro de uma etapa ─────────────────────
+  // O título só é útil se puder ficar ANTES dos itens que ele rotula,
+  // então mover linha para cima/baixo é parte do recurso, não extra.
+  const moverLinha = (itemId, direcao) => {
+    const todos = [...(orc.itens||[])];
+    const alvo  = todos.find(it => it.id === itemId);
+    if (!alvo) return;
+
+    // Posições globais das linhas da MESMA etapa, na ordem em que aparecem
+    const posDaEtapa = todos
+      .map((it, i) => ({ it, i }))
+      .filter(x => x.it.etapaId === alvo.etapaId)
+      .map(x => x.i);
+
+    const ondeEstou = posDaEtapa.indexOf(todos.findIndex(it => it.id === itemId));
+    const ondeVou   = ondeEstou + direcao;
+    if (ondeVou < 0 || ondeVou >= posDaEtapa.length) return;   // já é a 1ª/última
+
+    // Troca as duas posições globais
+    const a = posDaEtapa[ondeEstou];
+    const b = posDaEtapa[ondeVou];
+    [todos[a], todos[b]] = [todos[b], todos[a]];
+
+    salvarOrc({ itens: todos });
+  };
+
+  // ── Etapas: criar / renomear / excluir ───────────────────────
+  const abrirNovaEtapa = (paiId = "") => {
+    setEtapaModal({ modo: paiId ? "sub" : "novo", paiId, etapa: null });
+    setEtapaNome("");
+  };
+  const abrirEditarEtapa = (etapa) => {
+    setEtapaModal({ modo:"editar", paiId: etapa.parentId || "", etapa });
+    setEtapaNome(etapa.nome);
+  };
+
+  const salvarEtapa = () => {
+    if (!etapaNome.trim()) { showToast("Informe o nome da etapa.","error"); return; }
+    const { modo, paiId, etapa } = etapaModal;
+
+    if (modo === "editar") {
+      salvarOrc({ etapas: orc.etapas.map(e => e.id===etapa.id ? {...e, nome:etapaNome.trim()} : e) });
+      showToast("Etapa renomeada.");
+    } else {
+      if (paiId && nivelDaEtapa(orc.etapas, paiId) >= MAX_NIVEL) {
+        showToast(`Limite de ${MAX_NIVEL} níveis atingido.`,"error"); return;
+      }
+      salvarOrc({ etapas: [...orc.etapas, { id:uid(), nome:etapaNome.trim(), parentId:paiId || "" }] });
+      showToast(paiId ? "Subnível criado." : "Etapa criada.");
+    }
+    setEtapaModal(null); setEtapaNome("");
+  };
+
+  const delEtapa = (etapa) => {
+    const ids = idsDaSubarvore(orc.etapas, etapa.id);
+    const nSub   = ids.length - 1;
+    const nItens = (orc.itens||[]).filter(it => ids.includes(it.etapaId)).length;
+
+    let aviso = `Excluir a etapa "${etapa.nome}"?`;
+    if (nSub || nItens) {
+      aviso += "\n\nIsto também remove:";
+      if (nSub)   aviso += `\n• ${nSub} subnível(is)`;
+      if (nItens) aviso += `\n• ${nItens} item(ns) do orçamento`;
+    }
+    if (!window.confirm(aviso)) return;
+
+    salvarOrc({
+      etapas: orc.etapas.filter(e => !ids.includes(e.id)),
+      itens:  (orc.itens||[]).filter(it => !ids.includes(it.etapaId)),
+    });
+    showToast("Etapa removida.");
+  };
+
+  // ── Exportar XLSX — planilha orçamentária hierárquica ────────
+  const exportXLSX = () => {
+    if (!orc || !calc) return;
+    const wb  = XLSX.utils.book_new();
+    const aoa = [];
+    const bdiMult = 1 + Number(orc.bdi||0)/100;
+
+    aoa.push([data.config.companyName || "ARCD CONSTRUTECH"]);
+    if (data.config.cnpj) aoa.push([`CNPJ: ${data.config.cnpj}`]);
+    aoa.push(["PLANILHA ORÇAMENTÁRIA"]);
+    aoa.push([]);
+    aoa.push(["OBRA:",     orc.nome,                 "", "CLIENTE:",   orc.cliente || "—"]);
+    aoa.push(["LOCAL:",    orc.local || "—",         "", "ÁREA (m²):", orc.areaM2 || "—"]);
+    aoa.push(["BASE:",     `${orc.fonte} ${orc.uf}`, "", "DATA-BASE:", orc.dataBase || "—"]);
+    aoa.push(["ENCARGOS:", orc.desonerado ? "Desonerado" : "Não desonerado", "", "BDI:", `${orc.bdi}%`]);
+    aoa.push([]);
+    aoa.push(["ITEM","CÓDIGO","FONTE","DESCRIÇÃO DOS SERVIÇOS","UNID.","QUANT.","P. UNIT. S/ BDI","P. UNIT. C/ BDI","TOTAL"]);
+
+    // Percorre a árvore inteira, em qualquer profundidade
+    achatarArvore(calc.arvore).forEach(n => {
+      if (n.tipo === "etapa") {
+        // Recuo visual por nível na coluna de descrição
+        const recuo = "    ".repeat(n.nivel - 1);
+        aoa.push([n.codigo, "", "", recuo + n.nome, "", "", "", "", n.total || ""]);
+      } else if (n.tipo === "titulo") {
+        // Título: só texto, sem código/unidade/valor
+        aoa.push([n.codigoItem, "", "", n.descricao || "", "", "", "", "", ""]);
+      } else {
+        aoa.push([
+          n.codigoItem, n.codigo, n.fonte, n.descricao, n.unidade,
+          Number(n.quantidade),
+          Number(n.precoUnit),
+          Number(n.precoUnit) * bdiMult,
+          Number(n.quantidade) * Number(n.precoUnit) * bdiMult,
+        ]);
+      }
+    });
+
+    aoa.push([]);
+    aoa.push(["", "", "", "CUSTO DIRETO (SEM BDI)",   "", "", "", "", calc.custoDireto]);
+    aoa.push(["", "", "", `BDI (${orc.bdi}%)`,        "", "", "", "", calc.valorBDI]);
+    aoa.push(["", "", "", "TOTAL GERAL DO ORÇAMENTO", "", "", "", "", calc.total]);
+    if (orc.areaM2 > 0) aoa.push(["", "", "", "CUSTO POR m²", "", "", "", "", calc.porM2]);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{wch:11},{wch:11},{wch:9},{wch:58},{wch:7},{wch:11},{wch:15},{wch:15},{wch:15}];
+    XLSX.utils.book_append_sheet(wb, ws, "Orçamento");
+
+    // Aba 2 — Curva ABC pelas etapas de 1º nível
+    const abc = [...calc.arvore].filter(e => e.total > 0).sort((a,b) => b.total - a.total);
+    const aoa2 = [
+      [`Resumo por etapa — ${orc.nome}`], [],
+      ["ETAPA","CUSTO DIRETO","TOTAL C/ BDI","% DO TOTAL"],
+      ...abc.map(e => [e.nome, e.custoDireto, e.total, e.pct/100]),
+      [], ["TOTAL", calc.custoDireto, calc.total, 1],
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
+    ws2["!cols"] = [{wch:42},{wch:16},{wch:16},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, ws2, "Resumo por Etapa");
+
+    XLSX.writeFile(wb, `orcamento-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
+    showToast("Planilha exportada.");
+  };
+
+  // ── Exportar PDF ─────────────────────────────────────────────
+  const exportPDF = () => {
+    if (!orc || !calc) return;
+    const bdiMult = 1 + Number(orc.bdi||0)/100;
+    const f2 = n => Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2});
+
+    // Cores por nível de hierarquia
+    const CORES_NIVEL = ["#D4AF37", "#0D47A1", "#4A148C", "#1E6B31", "#BF360C"];
+
+    const linhas = achatarArvore(calc.arvore).map(n => {
+      if (n.tipo === "etapa") {
+        const cor = CORES_NIVEL[(n.nivel - 1) % CORES_NIVEL.length];
+        const recuoPx = (n.nivel - 1) * 14;
+        const fs = Math.max(9.5 - (n.nivel - 1) * 0.4, 8);
+        return `<tr class="etapa n${n.nivel}">
+          <td style="font-weight:900;color:${cor}">${n.codigo}</td>
+          <td colspan="6" style="padding-left:${recuoPx}px;font-size:${fs}px;font-weight:${n.nivel===1?900:700}">${escapeHtml(n.nome)}</td>
+          <td class="r" style="font-weight:900">${n.total > 0 ? f2(n.total) : ""}</td>
+        </tr>`;
+      }
+      if (n.tipo === "titulo") {
+        return `<tr class="titulo">
+          <td>${n.codigoItem}</td>
+          <td colspan="7">${escapeHtml(n.descricao || "")}</td>
+        </tr>`;
+      }
+      return `<tr>
+        <td>${n.codigoItem}</td>
+        <td>${escapeHtml(n.codigo)}</td>
+        <td>${escapeHtml(n.fonte)}</td>
+        <td class="desc">${escapeHtml(n.descricao)}</td>
+        <td class="c">${escapeHtml(n.unidade)}</td>
+        <td class="r">${f2(n.quantidade)}</td>
+        <td class="r">${f2(n.precoUnit * bdiMult)}</td>
+        <td class="r">${f2(n.quantidade * n.precoUnit * bdiMult)}</td>
+      </tr>`;
+    }).join("");
+
+    // Memória de cálculo do BDI — só sai se o BDI foi montado pela fórmula
+    const p = orc.bdiParams;
+    const sitPDF = situacaoBDI(Number(orc.bdi||0), orc.bdiTipo || "edificios");
+    const blocoBDI = !p ? "" : `
+<div class="bdi-box">
+  <p class="bdi-t">MEMÓRIA DE CÁLCULO DO BDI — Acórdão 2622/2013-TCU-Plenário</p>
+  <p class="bdi-f">BDI = [ (1 + AC + S + R + G) × (1 + DF) × (1 + L) ÷ (1 − I) ] − 1</p>
+  <table class="bdi-tb">
+    <tr>
+      <td><b>AC</b> Administração Central</td><td class="r">${f2(p.ac)}%</td>
+      <td><b>S</b> Seguro</td><td class="r">${f2(p.seguro)}%</td>
+      <td><b>R</b> Risco</td><td class="r">${f2(p.risco)}%</td>
+    </tr>
+    <tr>
+      <td><b>G</b> Garantia</td><td class="r">${f2(p.garantia)}%</td>
+      <td><b>DF</b> Desp. Financeiras</td><td class="r">${f2(p.df)}%</td>
+      <td><b>L</b> Lucro</td><td class="r">${f2(p.lucro)}%</td>
+    </tr>
+    <tr class="trib">
+      <td><b>I</b> PIS</td><td class="r">${f2(p.pis)}%</td>
+      <td>COFINS</td><td class="r">${f2(p.cofins)}%</td>
+      <td>ISS</td><td class="r">${f2(p.iss)}%</td>
+    </tr>
+    <tr class="trib">
+      <td>CPRB${Number(p.cprb)>0?" (desoneração)":""}</td><td class="r">${f2(p.cprb)}%</td>
+      <td colspan="3" class="r"><b>Σ Tributos (I) = ${f2(Number(p.pis)+Number(p.cofins)+Number(p.iss)+Number(p.cprb))}%</b></td>
+    </tr>
+  </table>
+  <div class="bdi-res">
+    <span>BDI ADOTADO</span>
+    <b>${f2(orc.bdi)}%</b>
+  </div>
+  <p class="bdi-sit ${sitPDF.st}">
+    ${sitPDF.st==="dentro" ? "✓" : "⚠"} ${escapeHtml(sitPDF.msg)}
+    &nbsp;·&nbsp; Faixa para ${escapeHtml(sitPDF.faixa.l.toLowerCase())}: ${sitPDF.faixa.q1}% – ${sitPDF.faixa.q3}%
+  </p>
+</div>`;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Orçamento — ${escapeHtml(orc.nome)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;color:#121212;background:#fff;padding:22px;font-size:9.5px}
+.btn{position:fixed;top:10px;right:10px;background:#D4AF37;color:#fff;border:0;padding:10px 18px;font-weight:700;cursor:pointer}
+.ph{display:flex;align-items:center;gap:14px;padding-bottom:12px;border-bottom:3px solid #121212;margin-bottom:14px}
+.logo{background:#121212;color:#D4AF37;padding:9px 15px;font-family:Georgia;font-size:21px;font-weight:900;letter-spacing:2px}
+.co h1{font-size:15px;font-weight:900}.co p{font-size:9px;color:#666;margin-top:2px}
+.tag{font-size:14px;font-weight:900;text-align:right;flex:1}
+.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#F5F3EE;padding:10px 12px;margin-bottom:12px;border:1px solid #E0DAD0}
+.meta div p:first-child{font-size:8px;font-weight:700;text-transform:uppercase;color:#777}
+.meta div p:last-child{font-size:11px;font-weight:700;margin-top:1px}
+table{width:100%;border-collapse:collapse}
+th{background:#121212;color:#fff;padding:6px 5px;font-size:8px;text-transform:uppercase;text-align:left}
+td{padding:4px 5px;border-bottom:1px solid #eee;font-size:9px;vertical-align:top}
+td.r,th.r{text-align:right}td.c,th.c{text-align:center}
+td.desc{max-width:290px}
+tr.etapa td{background:#F5F3EE;border-top:1px solid #C8C2B6;border-bottom:1px solid #E0DAD0}
+tr.etapa.n1 td{background:#EFEBE2;border-top:2px solid #121212}
+tr.etapa.n2 td{background:#F5F3EE}
+tr.etapa.n3 td{background:#F9F7F2}
+tr.etapa.n4 td,tr.etapa.n5 td{background:#FCFBF8}
+tr.titulo td{background:#FAF9F6;font-weight:700;text-transform:uppercase;letter-spacing:.4px;font-size:9px;color:#3D3530;border-bottom:1px solid #E0DAD0}
+tfoot td{padding:7px 5px;font-weight:900;font-size:11px;border-top:2px solid #121212}
+tfoot tr.tot td{background:#121212;color:#fff;font-size:13px}
+tfoot tr.m2 td{background:#F5F3EE;font-size:10px}
+.bdi-box{border:1px solid #C8C2B6;background:#FAF9F6;padding:9px 11px;margin-bottom:12px}
+.bdi-t{font-size:8.5px;font-weight:900;letter-spacing:.4px;color:#121212;margin-bottom:3px}
+.bdi-f{font-size:8px;font-family:monospace;color:#6B6459;margin-bottom:6px}
+.bdi-tb{width:100%;border-collapse:collapse;margin:0}
+.bdi-tb td{padding:2.5px 5px;font-size:8.5px;border-bottom:1px solid #EFEBE2}
+.bdi-tb td.r{text-align:right;font-weight:700}
+.bdi-tb tr.trib td{background:#F5F3EE}
+.bdi-res{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:5px;border-top:2px solid #121212}
+.bdi-res span{font-size:9px;font-weight:900;letter-spacing:.5px}
+.bdi-res b{font-size:14px;font-weight:900;color:#D4AF37}
+.bdi-sit{font-size:8px;margin-top:5px;padding:4px 6px}
+.bdi-sit.dentro{background:#E8F2E9;color:#1E6B31}
+.bdi-sit.acima,.bdi-sit.abaixo{background:#FBEAE9;color:#B71C1C}
+.footer{margin-top:20px;text-align:center;font-size:8px;color:#aaa;border-top:1px solid #eee;padding-top:8px}
+@media print{.btn{display:none}}
+</style></head><body>
+<button class="btn" onclick="window.print()">🖨 Imprimir / PDF</button>
+<div class="ph">
+  <div class="logo">ARCD</div>
+  <div class="co">
+    <h1>${escapeHtml(data.config.companyName||"ARCD Construtech")}</h1>
+    ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
+    <p>Planilha Orçamentária</p>
+  </div>
+  <div class="tag">${escapeHtml(orc.nome)}</div>
+</div>
+<div class="meta">
+  <div><p>Cliente</p><p>${escapeHtml(orc.cliente||"—")}</p></div>
+  <div><p>Local</p><p>${escapeHtml(orc.local||"—")}</p></div>
+  <div><p>Base de preços</p><p>${escapeHtml(orc.fonte)} ${escapeHtml(orc.uf)} · ${escapeHtml(orc.dataBase||"—")}</p></div>
+  <div><p>Encargos</p><p>${orc.desonerado?"Desonerado":"Não desonerado"}</p></div>
+  <div><p>BDI aplicado</p><p>${orc.bdi}%</p></div>
+  <div><p>Área</p><p>${orc.areaM2>0?orc.areaM2+" m²":"—"}</p></div>
+  <div><p>Itens</p><p>${calc.qtdItens}</p></div>
+  <div><p>Emissão</p><p>${new Date().toLocaleDateString("pt-BR")}</p></div>
+</div>
+${blocoBDI}
+<table>
+  <thead><tr>
+    <th>Item</th><th>Código</th><th>Fonte</th><th>Discriminação dos serviços</th>
+    <th class="c">Un.</th><th class="r">Quant.</th><th class="r">P. Unit. c/ BDI</th><th class="r">Total</th>
+  </tr></thead>
+  <tbody>${linhas}</tbody>
+  <tfoot>
+    <tr><td colspan="7">CUSTO DIRETO (sem BDI)</td><td class="r">R$ ${f2(calc.custoDireto)}</td></tr>
+    <tr><td colspan="7">BDI (${orc.bdi}%)</td><td class="r">R$ ${f2(calc.valorBDI)}</td></tr>
+    <tr class="tot"><td colspan="7">TOTAL GERAL DO ORÇAMENTO</td><td class="r">R$ ${f2(calc.total)}</td></tr>
+    ${orc.areaM2>0?`<tr class="m2"><td colspan="7">CUSTO POR METRO QUADRADO</td><td class="r">R$ ${f2(calc.porM2)}/m²</td></tr>`:""}
+  </tfoot>
+</table>
+<div class="footer">Gerado por ARCD Ponto PRO · ${new Date().toLocaleString("pt-BR")} · Preços congelados na data-base ${escapeHtml(orc.dataBase||"informada")}</div>
+</body></html>`;
+    const w = window.open("","_blank"); w.document.write(html); w.document.close();
+  };
+
+  // ═══════════════ VIEW: LISTA ═══════════════
+  if (view === "lista") {
+    return (
+      <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.yellow}`,padding:"14px 18px",borderRadius:10,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+          <div>
+            <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:1.2}}>SINAPI · ORSE</p>
+            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:C.text,lineHeight:1,marginTop:2}}>Orçamentos</p>
+            <p style={{color:C.muted,fontSize:12,marginTop:4}}>Planilha orçamentária com BDI e exportação</p>
+          </div>
+          <Btn onClick={()=>{setForm(emptyOrc);setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>
+        </div>
+
+        {orcamentos.length===0 && (
+          <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,padding:30,textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
+            <p style={{fontSize:38,marginBottom:8}}>📐</p>
+            <p style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Nenhum orçamento criado</p>
+            <p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Crie um orçamento, importe a base SINAPI ou ORSE<br/>e monte a planilha por etapas.</p>
+          </div>
+        )}
+
+        {orcamentos.map(o => {
+          const c = calcOrcamento(o);
+          const obraNome = data.obras.find(x=>x.id===o.obraId)?.name;
+          return (
+            <div key={o.id} style={{background:C.bg,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.yellow}`,borderRadius:10,padding:"12px 14px",boxShadow:`0 1px 4px ${C.shadow}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <p style={{fontSize:15,fontWeight:800,color:C.text}}>{o.nome}</p>
+                  <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+                    {o.cliente && `${o.cliente} · `}
+                    {obraNome && `${obraNome} · `}
+                    {o.fonte} {o.uf} {o.dataBase && `· ${o.dataBase}`} · BDI {o.bdi}%
+                  </p>
+                  <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+                    {c.qtdItens} item(ns){o.areaM2>0 && ` · ${o.areaM2} m² · ${fmt(c.porM2)}/m²`}
+                  </p>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:19,fontWeight:800,color:C.yellow}}>{fmt(c.total)}</p>
+                  <p style={{fontSize:10,color:C.muted}}>c/ BDI</p>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:6,marginTop:10}}>
+                <Btn size="sm" onClick={()=>{setSelOrc(o.id);setView("editor");}}><Ic n="edit"/> Abrir</Btn>
+                <Btn size="sm" v="danger" onClick={()=>delOrc(o.id)}><Ic n="trash"/></Btn>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Modal novo orçamento */}
+        {novoModal && (
+          <Modal title="Novo orçamento" onClose={()=>setNovoModal(false)}>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")} placeholder="Ex.: Residência Terras Alpha — CA1-13"/>
+              <Sel label="Vincular a uma obra (opcional)" value={form.obraId} onChange={F("obraId")}
+                options={[{v:"",l:"— Nenhuma —"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+                <Inp label="Cliente" value={form.cliente} onChange={F("cliente")} placeholder="Nome do contratante"/>
+                <Inp label="Área construída (m²)" type="number" value={form.areaM2} onChange={F("areaM2")} placeholder="Ex.: 388"/>
+              </div>
+              <Inp label="Local / Endereço" value={form.local} onChange={F("local")} placeholder="Ex.: Caruaru/PE"/>
+              <div style={{height:1,background:C.line,margin:"2px 0"}}/>
+              <p style={{fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Base de preços</p>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+                <Sel label="Fonte" value={form.fonte} onChange={F("fonte")} options={[
+                  {v:"SINAPI",l:"SINAPI"},{v:"ORSE",l:"ORSE"},{v:"MISTO",l:"Misto (SINAPI + ORSE)"},
+                ]}/>
+                <Inp label="UF" value={form.uf} onChange={F("uf")} placeholder="PE"/>
+                <Inp label="Data-base" value={form.dataBase} onChange={F("dataBase")} placeholder="Ex.: mai/2026"/>
+                <Inp label="BDI (%)" type="number" value={form.bdi} onChange={F("bdi")} placeholder="23.25"/>
+              </div>
+              <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"9px 12px",background:form.desonerado?`${C.green}08`:C.surface,borderRadius:8,border:`1.5px solid ${form.desonerado?C.green+"55":C.border}`}}>
+                <div onClick={()=>F("desonerado")(!form.desonerado)} style={{width:19,height:19,border:`2px solid ${form.desonerado?C.green:C.muted}`,background:form.desonerado?C.green:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  {form.desonerado && <span style={{color:"#fff",fontSize:12,fontWeight:900}}>✓</span>}
+                </div>
+                <div>
+                  <p style={{fontSize:13,fontWeight:700,color:form.desonerado?C.green:C.text}}>Encargos desonerados</p>
+                  <p style={{fontSize:11,color:C.muted}}>Desmarque para usar a tabela não desonerada</p>
+                </div>
+              </label>
+              <div style={{display:"flex",gap:8}}>
+                <Btn v="ghost" onClick={()=>setNovoModal(false)} full>Cancelar</Btn>
+                <Btn onClick={criarOrc} full><Ic n="check"/> Criar</Btn>
+              </div>
+            </div>
+          </Modal>
+        )}
+      </div>
+    );
+  }
+
+  // ═══════════════ VIEW: EDITOR ═══════════════
+  if (!orc || !calc) { setView("lista"); return null; }
+
+  return (
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+
+      {/* Voltar + título */}
+      <button onClick={()=>{setView("lista");setSelOrc(null);}} style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600,padding:0,textAlign:"left",display:"flex",alignItems:"center",gap:4}}>
+        ← Todos os orçamentos
+      </button>
+
+      {/* Resumo */}
+      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:10,padding:"14px 16px",boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <p style={{fontSize:16,fontWeight:800,color:C.text}}>{orc.nome}</p>
+        <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+          {orc.fonte} {orc.uf} · {orc.dataBase||"sem data-base"} · {orc.desonerado?"Desonerado":"Não desonerado"} · BDI {orc.bdi}%
+        </p>
+        <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8,marginTop:12}}>
+          {/* Custo direto */}
+          <div style={{background:C.surface,padding:"7px 10px",borderRadius:6}}>
+            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>Custo direto</p>
+            <p style={{fontSize:13,fontWeight:800,color:C.muted,marginTop:2}}>{fmt(calc.custoDireto)}</p>
+          </div>
+
+          {/* BDI — clicável, com semáforo da faixa TCU */}
+          {(() => {
+            const sit = situacaoBDI(Number(orc.bdi||0), orc.bdiTipo || "edificios");
+            return (
+              <button onClick={abrirBDI} title="Configurar BDI conforme TCU" style={{
+                background: sit.st==="dentro" ? C.surface : `${sit.cor}0E`,
+                border: `1px solid ${sit.st==="dentro" ? C.border : sit.cor}`,
+                padding:"7px 10px", borderRadius:6, textAlign:"left", cursor:"pointer",
+              }}>
+                <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,display:"flex",alignItems:"center",gap:3}}>
+                  BDI {orc.bdi}% <span style={{color:sit.cor,fontSize:8}}>●</span>
+                </p>
+                <p style={{fontSize:13,fontWeight:800,color:C.blue,marginTop:2}}>{fmt(calc.valorBDI)}</p>
+              </button>
+            );
+          })()}
+
+          {/* Total */}
+          <div style={{background:C.surface,padding:"7px 10px",borderRadius:6}}>
+            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>Total</p>
+            <p style={{fontSize:13,fontWeight:800,color:C.yellow,marginTop:2}}>{fmt(calc.total)}</p>
+          </div>
+
+          {/* Por m² ou nº de itens */}
+          <div style={{background:C.surface,padding:"7px 10px",borderRadius:6}}>
+            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{orc.areaM2>0?"Por m²":"Itens"}</p>
+            <p style={{fontSize:13,fontWeight:800,color:C.green,marginTop:2}}>
+              {orc.areaM2>0 ? fmt(calc.porM2) : String(calc.qtdItens)}
+            </p>
+          </div>
+        </div>
+
+        {/* Alerta quando o BDI está fora da faixa auditável */}
+        {(() => {
+          const sit = situacaoBDI(Number(orc.bdi||0), orc.bdiTipo || "edificios");
+          if (sit.st === "dentro") return null;
+          return (
+            <button onClick={abrirBDI} style={{
+              width:"100%", marginTop:8, textAlign:"left",
+              background:`${sit.cor}0E`, border:`1px solid ${sit.cor}55`,
+              borderRadius:6, padding:"8px 11px", cursor:"pointer",
+            }}>
+              <p style={{fontSize:11,fontWeight:700,color:sit.cor}}>
+                ⚠ BDI de {orc.bdi}% fora da faixa TCU para {sit.faixa.l.toLowerCase()}
+              </p>
+              <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.45}}>{sit.msg}</p>
+            </button>
+          );
+        })()}
+      </div>
+
+      {/* Importar base */}
+      <div style={{background:baseImport.length>0?`${C.green}06`:C.surface,border:`1.5px dashed ${baseImport.length>0?C.green:C.border}`,borderRadius:10,padding:"12px 14px"}}>
+        {importando ? (
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"4px 0"}}>
+            <div style={{width:18,height:18,border:`3px solid ${C.border}`,borderTopColor:C.yellow,borderRadius:"50%",animation:"spin 1s linear infinite",flexShrink:0}}/>
+            <div>
+              <p style={{fontSize:13,fontWeight:700,color:C.text}}>Lendo a planilha…</p>
+              <p style={{fontSize:11,color:C.muted,marginTop:1}}>Bases grandes (17 mil linhas) levam alguns segundos.</p>
+            </div>
+          </div>
+        ) : baseImport.length > 0 && baseInfo ? (
+          <>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+              <div style={{minWidth:0}}>
+                <p style={{fontSize:13,fontWeight:700,color:C.green}}>
+                  ✓ {baseInfo.total.toLocaleString("pt-BR")} composições carregadas
+                </p>
+                <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+                  {baseNome} · aba <strong>{baseInfo.aba}</strong>
+                </p>
+              </div>
+              <Btn size="sm" v="ghost" onClick={()=>{setBaseImport([]);setBaseNome("");setBaseInfo(null);}}>Limpar</Btn>
+            </div>
+
+            {/* Stats da base */}
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:9}}>
+              {Object.entries(baseInfo.porFonte).map(([f,n])=>(
+                <span key={f} style={{fontSize:10,fontWeight:700,background:`${C.blue}12`,color:C.blue,padding:"3px 8px",borderRadius:4}}>
+                  {f} {n.toLocaleString("pt-BR")}
+                </span>
+              ))}
+              {baseInfo.dataBase && (
+                <span style={{fontSize:10,fontWeight:700,background:`${C.yellow}18`,color:C.yellowD,padding:"3px 8px",borderRadius:4}}>
+                  Data-base {baseInfo.dataBase}
+                </span>
+              )}
+              {baseInfo.localidade && (
+                <span style={{fontSize:10,fontWeight:700,background:C.surface,color:C.muted,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.border}`}}>
+                  {baseInfo.localidade}
+                </span>
+              )}
+            </div>
+
+            {/* Aviso: coluna de preço disponível vs escolhida no orçamento */}
+            {(() => {
+              const querDes = orc.desonerado !== false;
+              const temDes  = baseInfo.comDes > 0;
+              const temNao  = baseInfo.comNao > 0;
+              const faltaEscolhida = (querDes && !temDes) || (!querDes && !temNao);
+              if (!faltaEscolhida) {
+                return (
+                  <p style={{fontSize:10,color:C.muted,marginTop:8}}>
+                    Usando a coluna <strong style={{color:C.text}}>{querDes ? "desonerada" : "não desonerada"}</strong>, conforme o orçamento.
+                  </p>
+                );
+              }
+              return (
+                <div style={{marginTop:9,background:`${C.orange}10`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"7px 10px"}}>
+                  <p style={{fontSize:11,color:C.orange,fontWeight:700}}>
+                    ⚠ Esta base só traz preços {temNao ? "NÃO desonerados" : "desonerados"}
+                  </p>
+                  <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.5}}>
+                    O orçamento está marcado como <strong>{querDes ? "desonerado" : "não desonerado"}</strong>, mas essa coluna está vazia na planilha.
+                    Os itens usarão o preço {temNao ? "não desonerado" : "desonerado"} disponível.
+                    Se não for isso que você quer, ajuste o orçamento ou importe a outra tabela.
+                  </p>
+                </div>
+              );
+            })()}
+          </>
+        ) : (
+          <>
+            <p style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:3}}>📊 Importar base SINAPI / ORSE</p>
+            <p style={{fontSize:11,color:C.muted,marginBottom:9,lineHeight:1.5}}>
+              Importe a planilha de referência (.xls ou .xlsx). O app acha a aba certa,
+              o cabeçalho e as colunas sozinho — inclusive quando SINAPI e ORSE vêm juntos.
+              A base fica em memória; só os itens que você usar são salvos.
+            </p>
+            <label style={{display:"inline-block"}}>
+              <input type="file" accept=".xlsx,.xls" onChange={e=>importarXLSX(e.target.files?.[0])} style={{display:"none"}}/>
+              <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:8,cursor:"pointer",fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:.5}}>
+                📁 Escolher planilha
+              </span>
+            </label>
+          </>
+        )}
+
+        {(data.baseFavoritos||[]).length > 0 && (
+          <p style={{fontSize:11,color:C.muted,marginTop:9,paddingTop:9,borderTop:`1px solid ${C.line}`}}>
+            ⭐ {(data.baseFavoritos||[]).length} composição(ões) na sua base de favoritos (sempre disponível, sem reimportar)
+          </p>
+        )}
+      </div>
+
+      {/* Árvore de etapas + itens */}
+      {(() => {
+        // Render recursivo. Cada nível recua um pouco e afina a barra lateral,
+        // dando a leitura de hierarquia sem depender de ícones de expandir.
+        const CoresNivel = [C.yellow, C.blue, C.purple, C.green, C.orange];
+
+        const Etapa = ({ no }) => {
+          const cor = CoresNivel[(no.nivel - 1) % CoresNivel.length];
+          const podeSub = no.nivel < MAX_NIVEL;
+          const recuo = (no.nivel - 1) * 10;
+
+          return (
+            <div style={{ marginLeft: recuo }}>
+              <div style={{
+                background: C.bg,
+                border: `1.5px solid ${C.border}`,
+                borderLeft: `${Math.max(4 - (no.nivel - 1), 2)}px solid ${cor}`,
+                borderRadius: 8,
+                overflow: "hidden",
+                boxShadow: `0 1px 3px ${C.shadow}`,
+                marginBottom: 6,
+              }}>
+                {/* Cabeçalho da etapa */}
+                <div style={{
+                  background: no.nivel === 1 ? C.surface : `${cor}06`,
+                  padding: no.nivel === 1 ? "9px 12px" : "7px 12px",
+                  borderBottom: (no.itens.length || no.sub.length) ? `1px solid ${C.line}55` : "none",
+                  display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
+                }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{
+                      fontSize: Math.max(12 - (no.nivel - 1), 10),
+                      fontWeight: no.nivel === 1 ? 800 : 700,
+                      color: C.text, lineHeight: 1.3,
+                    }}>
+                      <span style={{ color: cor, marginRight: 5 }}>{no.codigo}</span>
+                      {no.nome}
+                    </p>
+                    {(no.itens.length > 0 || no.sub.length > 0) && (
+                      <p style={{ fontSize: 9, color: C.muted, marginTop: 1 }}>
+                        {no.sub.length > 0 && `${no.sub.length} subnível(is)`}
+                        {no.sub.length > 0 && no.itens.length > 0 && " · "}
+                        {no.itens.length > 0 && `${no.itens.length} item(ns)`}
+                        {no.total > 0 && ` · ${no.pct.toFixed(1)}%`}
+                      </p>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                    {no.total > 0 && (
+                      <p style={{ fontSize: 12, fontWeight: 800, color: cor, marginRight: 2 }}>{fmt(no.total)}</p>
+                    )}
+                    <button onClick={() => { setEtapaAlvo(no.id); setBusca(""); setBuscaModal(true); }}
+                      title="Adicionar item"
+                      style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.text,
+                               borderRadius:5, width:24, height:24, cursor:"pointer", fontSize:13, lineHeight:1 }}>+</button>
+                    <button onClick={() => addTitulo(no.id)}
+                      title="Adicionar título (texto sem valor)"
+                      style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.muted,
+                               borderRadius:5, width:24, height:24, cursor:"pointer", fontSize:10,
+                               lineHeight:1, fontWeight:800 }}>T</button>
+                    {podeSub && (
+                      <button onClick={() => abrirNovaEtapa(no.id)}
+                        title="Criar subnível"
+                        style={{ background:"transparent", border:`1px solid ${C.border}`, color:cor,
+                                 borderRadius:5, width:24, height:24, cursor:"pointer", fontSize:12, lineHeight:1, fontWeight:800 }}>⌄</button>
+                    )}
+                    <button onClick={() => abrirEditarEtapa(no)}
+                      title="Renomear"
+                      style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", fontSize:12, padding:"0 2px" }}>✎</button>
+                    <button onClick={() => delEtapa(no)}
+                      title="Excluir"
+                      style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", fontSize:15, padding:"0 2px", lineHeight:1 }}>×</button>
+                  </div>
+                </div>
+
+                {/* Sub-etapas */}
+                {no.sub.length > 0 && (
+                  <div style={{ padding: "6px 6px 0" }}>
+                    {no.sub.map(sn => <Etapa key={sn.id} no={sn} />)}
+                  </div>
+                )}
+
+                {/* Linhas desta etapa: títulos e itens */}
+                {no.itens.map((it, idx) => {
+                  const primeira = idx === 0;
+                  const ultima   = idx === no.itens.length - 1;
+
+                  // Setas de reordenar — compartilhadas pelos dois tipos de linha
+                  const Setas = () => (
+                    <div style={{ display:"flex", flexDirection:"column", gap:1, flexShrink:0 }}>
+                      <button onClick={() => moverLinha(it.id, -1)} disabled={primeira}
+                        title="Mover para cima"
+                        style={{ background:"transparent", border:0, cursor: primeira?"default":"pointer",
+                                 color: primeira ? C.line : C.muted, fontSize:9, lineHeight:1, padding:"1px 3px" }}>▲</button>
+                      <button onClick={() => moverLinha(it.id, +1)} disabled={ultima}
+                        title="Mover para baixo"
+                        style={{ background:"transparent", border:0, cursor: ultima?"default":"pointer",
+                                 color: ultima ? C.line : C.muted, fontSize:9, lineHeight:1, padding:"1px 3px" }}>▼</button>
+                    </div>
+                  );
+
+                  // ── Linha de TÍTULO: texto puro, sem código, sem valor ──
+                  if (ehTitulo(it)) {
+                    return (
+                      <div key={it.id} style={{
+                        padding: "7px 12px",
+                        borderTop: `1px solid ${C.line}33`,
+                        background: `${C.surface}`,
+                        display: "flex", gap: 8, alignItems: "center",
+                      }}>
+                        <p style={{ fontSize:9, color:C.muted, fontWeight:700, minWidth:38 }}>
+                          {it.codigoItem}
+                        </p>
+                        <input
+                          value={it.descricao}
+                          onChange={e => updTituloTexto(it.id, e.target.value)}
+                          placeholder="Título — ex.: Pavimento térreo"
+                          style={{
+                            flex:1, minWidth:0,
+                            background:"transparent", border:0, borderBottom:`1px dashed ${C.border}`,
+                            color:C.text, padding:"3px 0", outline:"none",
+                            fontSize:11.5, fontWeight:700, letterSpacing:.3,
+                            textTransform:"uppercase",
+                            fontFamily:"'Inter Display','Inter',sans-serif",
+                          }}
+                        />
+                        <Setas/>
+                        <button onClick={() => delItem(it.id)}
+                          style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer",
+                                   fontSize:14, padding:"0 2px", lineHeight:1, flexShrink:0 }}>×</button>
+                      </div>
+                    );
+                  }
+
+                  // ── Linha de ITEM: composição com valor ──
+                  const tot = itemTotal(it, orc.bdi);
+                  return (
+                    <div key={it.id} style={{
+                      padding: "8px 12px", borderTop: `1px solid ${C.line}33`,
+                      display: "flex", gap: 8, alignItems: "flex-start",
+                    }}>
+                      <p style={{ fontSize:9, color:C.muted, fontWeight:700, minWidth:38, paddingTop:2 }}>
+                        {it.codigoItem}
+                      </p>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <p style={{ fontSize:11.5, color:C.text, lineHeight:1.4 }}>{it.descricao}</p>
+                        <p style={{ fontSize:9.5, color:C.muted, marginTop:2 }}>
+                          <span style={{ fontWeight:700, color: it.fonte==="ORSE" ? C.purple : C.blue }}>{it.fonte}</span>
+                          {" "}{it.codigo} · {fmt(it.precoUnit)}/{it.unidade} s/ BDI
+                        </p>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:5 }}>
+                          <input type="number" value={it.quantidade}
+                            onChange={e => updItemQtd(it.id, e.target.value)}
+                            style={{ width:78, background:C.bg, border:`1.5px solid ${C.border}`, color:C.text,
+                                     padding:"4px 7px", borderRadius:5, fontSize:12, outline:"none",
+                                     fontFamily:"'Inter',sans-serif" }}/>
+                          <span style={{ fontSize:11, color:C.muted }}>{it.unidade}</span>
+                        </div>
+                      </div>
+                      <Setas/>
+                      <div style={{ textAlign:"right", flexShrink:0 }}>
+                        <p style={{ fontSize:12.5, fontWeight:800, color:C.text }}>{fmt(tot)}</p>
+                        <button onClick={() => delItem(it.id)}
+                          style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer",
+                                   fontSize:14, padding:"2px 0 0", marginTop:2 }}>×</button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {no.itens.length === 0 && no.sub.length === 0 && (
+                  <p style={{ padding:"9px 12px", fontSize:10.5, color:C.muted }}>Vazia — use + para item, T para título ou ⌄ para subnível.</p>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <>
+            {calc.arvore.map(no => <Etapa key={no.id} no={no} />)}
+            <Btn v="ghost" full onClick={() => abrirNovaEtapa("")} style={{ marginTop: 2 }}>
+              <Ic n="plus"/> Nova etapa de 1º nível
+            </Btn>
+          </>
+        );
+      })()}
+
+      {/* Totais finais */}
+      <div style={{background:C.text,color:"#fff",borderRadius:10,padding:"14px 16px"}}>
+        {[
+          ["Custo direto (sem BDI)", fmt(calc.custoDireto), false],
+          [`BDI (${orc.bdi}%)`,      fmt(calc.valorBDI),    false],
+        ].map(([l,v])=>(
+          <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
+            <p style={{fontSize:12,opacity:.75}}>{l}</p>
+            <p style={{fontSize:12,fontWeight:700}}>{v}</p>
+          </div>
+        ))}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:9,marginTop:6,borderTop:`1px solid rgba(255,255,255,.2)`}}>
+          <p style={{fontSize:13,fontWeight:700}}>TOTAL GERAL</p>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:24,fontWeight:800,color:C.yellow}}>{fmt(calc.total)}</p>
+        </div>
+        {orc.areaM2>0 && (
+          <p style={{fontSize:11,opacity:.7,textAlign:"right",marginTop:2}}>{fmt(calc.porM2)}/m² · {orc.areaM2} m²</p>
+        )}
+      </div>
+
+      {/* Exportar */}
+      <div style={{display:"grid",gridTemplateColumns:cols("1fr 1fr","1fr 1fr","200px 200px"),gap:8}}>
+        <Btn onClick={exportPDF}  v="danger"  full><Ic n="file"/> PDF</Btn>
+        <Btn onClick={exportXLSX} v="success" full><Ic n="download"/> Excel</Btn>
+      </div>
+
+      {/* Modal: BDI — Acórdão 2622/2013-TCU */}
+      {bdiModal && bdiP && (() => {
+        const r   = calcBDI(bdiP);
+        const sit = situacaoBDI(r.bdi, bdiTipo);
+        const t   = BDI_TCU.find(x => x.v === bdiTipo) || BDI_TCU[0];
+        const P   = k => v => setBdiP(p => ({ ...p, [k]: v }));
+
+        // Campo compacto de percentual
+        const Pct = ({ label, k, hint }) => (
+          <label style={{display:"flex",flexDirection:"column",gap:3}}>
+            <span style={{fontSize:10,fontWeight:600,color:C.text,letterSpacing:.3}}>{label}</span>
+            <div style={{display:"flex",alignItems:"center",gap:4}}>
+              <input type="number" step="0.01" value={bdiP[k]}
+                onChange={e => P(k)(e.target.value)}
+                style={{width:"100%",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,
+                        padding:"7px 9px",borderRadius:6,fontSize:13,outline:"none",
+                        fontFamily:"'Inter',sans-serif"}}/>
+              <span style={{fontSize:11,color:C.muted}}>%</span>
+            </div>
+            {hint && <span style={{fontSize:9,color:C.muted}}>{hint}</span>}
+          </label>
+        );
+
+        return (
+          <Modal title="BDI — Acórdão 2622/2013 (TCU)" onClose={()=>setBdiModal(false)} wide>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+              {/* Abas */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[["faixa","Faixa referencial"],["detalhado","Cálculo detalhado"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setBdiAba(v)} style={{
+                    padding:"8px 4px",
+                    border:`2px solid ${bdiAba===v?C.yellow:C.border}`,
+                    background:bdiAba===v?`${C.yellow}12`:"transparent",
+                    color:bdiAba===v?C.text:C.muted,
+                    fontFamily:"'Inter Display','Inter',sans-serif",
+                    fontWeight:700,fontSize:12,cursor:"pointer",borderRadius:8,
+                  }}>{l}</button>
+                ))}
+              </div>
+
+              {/* Tipo de obra — comum às duas abas */}
+              <Sel label="Tipo de obra (define a faixa auditável)" value={bdiTipo} onChange={setBdiTipo}
+                options={BDI_TCU.map(x=>({v:x.v,l:x.l}))}/>
+
+              {/* ═══ ABA: FAIXA REFERENCIAL ═══ */}
+              {bdiAba === "faixa" && (<>
+                <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
+                  O TCU não fixa um BDI: fixa um <strong style={{color:C.text}}>intervalo</strong>.
+                  Dentro dele, o valor é aceito sem questionamento. Fora, é preciso justificar tecnicamente.
+                </p>
+
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                  {[
+                    ["1º Quartil", t.q1,  C.blue,   "Mínimo aceitável"],
+                    ["Médio",      t.med, C.yellow, "Referência usual"],
+                    ["3º Quartil", t.q3,  C.orange, "Máximo aceitável"],
+                  ].map(([l,val,cor,sub])=>{
+                    const atual = Math.abs(Number(orc.bdi) - val) < 0.005;
+                    return (
+                      <button key={l} onClick={()=>aplicarBDI(val, bdiTipo, null)} style={{
+                        background: atual ? `${cor}15` : C.bg,
+                        border:`2px solid ${atual ? cor : C.border}`,
+                        borderRadius:8, padding:"11px 6px", cursor:"pointer", textAlign:"center",
+                      }}>
+                        <p style={{fontSize:9,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p>
+                        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:cor,marginTop:3,lineHeight:1}}>
+                          {val.toFixed(2)}%
+                        </p>
+                        <p style={{fontSize:9,color:C.muted,marginTop:3}}>{sub}</p>
+                        {atual && <p style={{fontSize:9,fontWeight:700,color:cor,marginTop:3}}>● EM USO</p>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px"}}>
+                  <p style={{fontSize:10.5,color:C.muted,lineHeight:1.55}}>
+                    Estes valores são o BDI <strong>total</strong>. Se você precisa demonstrar a
+                    memória de cálculo (comum em perícia e em obra pública), use a aba
+                    <strong style={{color:C.text}}> Cálculo detalhado</strong>.
+                  </p>
+                </div>
+              </>)}
+
+              {/* ═══ ABA: CÁLCULO DETALHADO ═══ */}
+              {bdiAba === "detalhado" && (<>
+                <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px"}}>
+                  <p style={{fontSize:10,fontWeight:700,color:C.text,textTransform:"uppercase",letterSpacing:.5,marginBottom:3}}>Fórmula do TCU</p>
+                  <p style={{fontSize:11,color:C.muted,fontFamily:"monospace",lineHeight:1.5}}>
+                    BDI = [ (1+AC+S+R+G) × (1+DF) × (1+L) ÷ (1−I) ] − 1
+                  </p>
+                </div>
+
+                <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Componentes</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+                  <Pct label="AC — Administração Central" k="ac"       hint="TCU edif.: 3,00 – 5,50"/>
+                  <Pct label="S — Seguro"                 k="seguro"   hint="TCU edif.: 0,80 – 1,00"/>
+                  <Pct label="R — Risco"                  k="risco"    hint="TCU edif.: 0,97 – 1,27"/>
+                  <Pct label="G — Garantia"               k="garantia" hint="Opcional"/>
+                  <Pct label="DF — Despesas Financeiras"  k="df"       hint="TCU edif.: 0,59 – 1,39"/>
+                  <Pct label="L — Lucro"                  k="lucro"    hint="TCU edif.: 6,16 – 8,96"/>
+                </div>
+
+                <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7,marginTop:2}}>
+                  I — Tributos sobre o faturamento
+                </p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+                  <Pct label="PIS"    k="pis"    hint="Cumulativo: 0,65"/>
+                  <Pct label="COFINS" k="cofins" hint="Cumulativo: 3,00"/>
+                  <Pct label="ISS"    k="iss"    hint="Municipal: 2,00 – 5,00"/>
+                  <Pct label="CPRB"   k="cprb"   hint="Só na folha desonerada: 4,50"/>
+                </div>
+
+                {/* Coerência CPRB × tabela escolhida */}
+                {(() => {
+                  const usaDes = orc.desonerado !== false;
+                  const temCprb = Number(bdiP.cprb || 0) > 0;
+                  if (usaDes && !temCprb) return (
+                    <div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"8px 11px"}}>
+                      <p style={{fontSize:11,color:C.orange,fontWeight:700}}>⚠ Orçamento desonerado sem CPRB</p>
+                      <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.5}}>
+                        Você escolheu a tabela <strong>desonerada</strong>, então a empresa recolhe CPRB (4,5% sobre a
+                        receita) — e isso precisa estar nos tributos do BDI. Deixar em zero subestima o BDI.
+                      </p>
+                    </div>
+                  );
+                  if (!usaDes && temCprb) return (
+                    <div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"8px 11px"}}>
+                      <p style={{fontSize:11,color:C.orange,fontWeight:700}}>⚠ Orçamento não desonerado com CPRB</p>
+                      <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.5}}>
+                        A tabela é <strong>não desonerada</strong> (encargos já na folha), logo não há CPRB.
+                        Mantê-la infla o BDI indevidamente.
+                      </p>
+                    </div>
+                  );
+                  return null;
+                })()}
+
+                {/* Resultado */}
+                <div style={{background:`${sit.cor}0A`,border:`2px solid ${sit.cor}`,borderRadius:10,padding:"13px 15px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <p style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.6}}>BDI calculado</p>
+                      <p style={{fontSize:10,color:C.muted,marginTop:2}}>Tributos (I) = {r.tributos.toFixed(2)}%</p>
+                    </div>
+                    <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:32,fontWeight:800,color:sit.cor,lineHeight:1}}>
+                      {r.erro ? "—" : `${r.bdi.toFixed(2)}%`}
+                    </p>
+                  </div>
+                  <div style={{marginTop:9,paddingTop:9,borderTop:`1px solid ${sit.cor}33`}}>
+                    <p style={{fontSize:11,fontWeight:700,color:sit.cor}}>
+                      {sit.st==="dentro" ? "✓ Dentro da faixa TCU" : sit.st==="acima" ? "▲ Acima do 3º quartil" : "▼ Abaixo do 1º quartil"}
+                    </p>
+                    <p style={{fontSize:10,color:C.muted,marginTop:3,lineHeight:1.5}}>
+                      {r.erro || sit.msg}
+                    </p>
+                    <p style={{fontSize:9.5,color:C.muted,marginTop:5}}>
+                      Faixa para <strong>{t.l.toLowerCase()}</strong>: {t.q1}% (1ºQ) · {t.med}% (médio) · {t.q3}% (3ºQ)
+                    </p>
+                  </div>
+                </div>
+
+                <Btn v="primary" full disabled={!!r.erro}
+                  onClick={()=>aplicarBDI(r.bdi, bdiTipo, bdiP)}>
+                  <Ic n="check"/> Aplicar {r.erro ? "" : `${r.bdi.toFixed(2)}%`} ao orçamento
+                </Btn>
+              </>)}
+
+              <p style={{fontSize:9.5,color:C.muted,textAlign:"center",lineHeight:1.5}}>
+                Faixas do Acórdão 2622/2013-TCU-Plenário. Confira sempre contra a íntegra do
+                acórdão antes de usar em processo.
+              </p>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* Modal: nova etapa / subnível / renomear */}
+      {etapaModal && (
+        <Modal
+          title={etapaModal.modo==="editar" ? "Renomear etapa"
+               : etapaModal.modo==="sub"    ? "Novo subnível"
+               : "Nova etapa"}
+          onClose={()=>{setEtapaModal(null);setEtapaNome("");}}
+        >
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {etapaModal.paiId && (() => {
+              const pai = orc.etapas.find(e=>e.id===etapaModal.paiId);
+              const nivelPai = nivelDaEtapa(orc.etapas, etapaModal.paiId);
+              return (
+                <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"9px 12px"}}>
+                  <p style={{fontSize:10,color:C.muted,textTransform:"uppercase",fontWeight:700,letterSpacing:.6}}>Dentro de</p>
+                  <p style={{fontSize:13,fontWeight:700,color:C.text,marginTop:2}}>{pai?.nome}</p>
+                  <p style={{fontSize:10,color:C.muted,marginTop:3}}>
+                    Será o nível {nivelPai+1} de {MAX_NIVEL}
+                  </p>
+                </div>
+              );
+            })()}
+            <Inp label="Nome da etapa *" value={etapaNome} onChange={setEtapaNome}
+              placeholder={etapaModal.modo==="sub" ? "Ex.: Alvenaria de vedação" : "Ex.: PAREDES E PAINÉIS"}/>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>{setEtapaModal(null);setEtapaNome("");}} full>Cancelar</Btn>
+              <Btn onClick={salvarEtapa} full><Ic n="check"/> Salvar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal: mapear colunas do XLSX */}
+      {mapModal && (
+        <Modal title="Mapear colunas da planilha" onClose={()=>setMapModal(null)} wide>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+              <p style={{fontSize:12,color:C.text,fontWeight:700}}>{baseNome}</p>
+              <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+                {mapModal.rows.length.toLocaleString("pt-BR")} linhas · {mapModal.headers.length} colunas.
+                Confirme qual coluna corresponde a cada campo.
+              </p>
+            </div>
+            {[
+              ["codigo",    "Código da composição *"],
+              ["descricao", "Descrição do serviço *"],
+              ["unidade",   "Unidade"],
+              ["preco",     "Preço unitário (sem BDI) *"],
+            ].map(([k,l])=>(
+              <Sel key={k} label={l} value={colMap[k]} onChange={v=>setColMap(m=>({...m,[k]:v}))}
+                options={[{v:"",l:"— Selecionar coluna —"}, ...mapModal.headers.map((h,i)=>({v:String(i), l:`${h}  →  ${String(mapModal.rows[0]?.[i] ?? "").slice(0,32)}`}))]}
+              />
+            ))}
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setMapModal(null)} full>Cancelar</Btn>
+              <Btn onClick={confirmarMapeamento} full><Ic n="check"/> Carregar base</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal: buscar composição */}
+      {buscaModal && (
+        <Modal title="Adicionar item à etapa" onClose={()=>{setBuscaModal(false);setBusca("");}} wide>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <Inp label="Buscar por código ou descrição" value={busca} onChange={setBusca}
+              placeholder={baseImport.length>0 ? "Ex.: 93358, alvenaria, contrapiso..." : "Importe uma base ou use seus favoritos"}/>
+
+            {baseBusca.length===0 && (
+              <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:16,textAlign:"center"}}>
+                <p style={{fontSize:12,color:C.muted}}>Nenhuma base carregada. Importe o XLSX do SINAPI/ORSE primeiro.</p>
+              </div>
+            )}
+
+            {!busca && baseBusca.some(i=>i._fav) && (
+              <p style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>⭐ Seus favoritos</p>
+            )}
+
+            <div style={{maxHeight:340,overflowY:"auto",display:"flex",flexDirection:"column",gap:5}}>
+              {resultados.map((r,i)=>(
+                <button key={`${r.codigo}-${i}`} onClick={()=>{setQtdModal(r);setQtd("");setBuscaModal(false);}} style={{
+                  background:C.bg, border:`1.5px solid ${C.border}`,
+                  borderLeft:`3px solid ${r._fav?C.yellow:(r.fonte==="ORSE"?C.purple:C.blue)}`,
+                  borderRadius:6, padding:"8px 11px", textAlign:"left", cursor:"pointer",
+                }}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <p style={{fontSize:12,color:C.text,lineHeight:1.4}}>{r.descricao}</p>
+                      <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+                        {r._fav && "⭐ "}
+                        <span style={{fontWeight:700,color:r.fonte==="ORSE"?C.purple:C.blue}}>{r.fonte||"SINAPI"}</span>
+                        {" "}{r.codigo} · {r.unidade}
+                      </p>
+                    </div>
+                    <p style={{fontSize:13,fontWeight:800,color:C.yellow,flexShrink:0}}>{fmt(precoDoItem(r, orc))}</p>
+                  </div>
+                </button>
+              ))}
+              {busca && resultados.length===0 && (
+                <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:16}}>Nenhum resultado para "{busca}".</p>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal: quantidade */}
+      {qtdModal && (
+        <Modal title="Quantidade" onClose={()=>{setQtdModal(null);setQtd("");}}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {(() => {
+              const pu = precoDoItem(qtdModal, orc);
+              const substituido = precoFoiSubstituido(qtdModal, orc);
+              return (<>
+                <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"11px 13px"}}>
+                  <p style={{fontSize:12,color:C.text,lineHeight:1.4}}>{qtdModal.descricao}</p>
+                  <p style={{fontSize:11,color:C.muted,marginTop:4}}>
+                    <span style={{fontWeight:700,color:qtdModal.fonte==="ORSE"?C.purple:C.blue}}>{qtdModal.fonte||"SINAPI"}</span>
+                    {" "}{qtdModal.codigo} · {fmt(pu)}/{qtdModal.unidade} <span style={{color:C.muted}}>(sem BDI)</span>
+                  </p>
+                  {substituido && (
+                    <p style={{fontSize:10,color:C.orange,marginTop:4,fontWeight:600}}>
+                      ⚠ Preço {orc.desonerado!==false ? "não desonerado" : "desonerado"} — a coluna escolhida no orçamento está vazia nesta base.
+                    </p>
+                  )}
+                </div>
+                <Inp label={`Quantidade (${qtdModal.unidade}) *`} type="number" value={qtd} onChange={setQtd} placeholder="0,00"/>
+                {qtd && Number(qtd)>0 && (
+                  <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:"9px 13px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                      <p style={{fontSize:11,color:C.muted}}>Custo direto</p>
+                      <p style={{fontSize:11,color:C.muted}}>{fmt(Number(qtd)*pu)}</p>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <p style={{fontSize:12,color:C.text,fontWeight:700}}>Total c/ BDI {orc.bdi}%</p>
+                      <p style={{fontSize:17,fontWeight:800,color:C.yellow}}>
+                        {fmt(Number(qtd)*pu*(1+Number(orc.bdi||0)/100))}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>);
+            })()}
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>{setQtdModal(null);setQtd("");}} full>Cancelar</Btn>
+              <Btn onClick={addItem} full><Ic n="check"/> Adicionar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CAIXA DE OBRA — aportes do cliente + controle de gastos
+// ═══════════════════════════════════════════════════════════════════
+
+const CAIXA_CATS = [
+  { v:"material",     l:"Material de construção", icon:"🧱" },
+  { v:"ferramenta",   l:"Ferramenta / Equipamento", icon:"🔧" },
+  { v:"frete",        l:"Frete / Transporte",     icon:"🚚" },
+  { v:"servico",      l:"Serviço avulso",         icon:"⚙️" },
+  { v:"taxa",         l:"Taxa / Documentação",    icon:"📋" },
+  { v:"outros",       l:"Outros",                 icon:"📦" },
+];
+
+const calcCaixaObra = (data, obraId) => {
+  const movs = (data.caixaObra||[])
+    .filter(m => m.obraId === obraId)
+    .sort((a,b) => (a.data||"").localeCompare(b.data||""));
+  let saldo = 0;
+  const comSaldo = movs.map(m => {
+    saldo += m.tipo==="aporte" ? Number(m.valor||0) : -Number(m.valor||0);
+    return { ...m, saldoAcumulado: saldo };
+  });
+  const totalAportes  = movs.filter(m=>m.tipo==="aporte").reduce((s,m)=>s+Number(m.valor||0),0);
+  const totalDespesas = movs.filter(m=>m.tipo==="despesa").reduce((s,m)=>s+Number(m.valor||0),0);
+  return { movimentos: comSaldo.reverse(), saldo, totalAportes, totalDespesas };
+};
+
+function CaixaObra({ data, update, showToast }) {
+  const { cols } = useBreakpoint();
+  const obrasComCaixa = data.obras.filter(o => o.hasCaixa);
+  const [selObra, setSelObra] = useState(obrasComCaixa[0]?.id || "");
+  const [modal,   setModal]   = useState(false);
+  const [tipoNovo,setTipoNovo]= useState("aporte");
+  const [form,    setForm]    = useState({ data:today(), tipo:"aporte", categoria:"material", descricao:"", valor:"", comprovante:"" });
+  const F = k => v => setForm(f=>({...f,[k]:v}));
+
+  const obra = data.obras.find(o=>o.id===selObra);
+  const caixa = useMemo(()=>calcCaixaObra(data, selObra), [data, selObra]);
+
+  // Consolidado de todas as obras com caixa
+  const consolidado = useMemo(()=>obrasComCaixa.map(o=>({
+    obra:o, ...calcCaixaObra(data,o.id)
+  })), [data]);
+
+  const openNew = (tipo) => {
+    setTipoNovo(tipo);
+    setForm({ data:today(), tipo, categoria:tipo==="aporte"?"aporte":"material", descricao:"", valor:"", comprovante:"" });
+    setModal(true);
+  };
+
+  const saveMov = () => {
+    if (!selObra) { showToast("Selecione uma obra.","error"); return; }
+    if (!form.valor || isNaN(Number(form.valor))) { showToast("Informe um valor válido.","error"); return; }
+    const payload = { id:uid(), obraId:selObra, ...form, valor:Number(form.valor||0) };
+    update({...data, caixaObra:[...(data.caixaObra||[]), payload]});
+    setModal(false);
+    showToast(form.tipo==="aporte"?"Aporte registrado.":"Despesa registrada.");
+  };
+
+  const delMov = id => {
+    if(!window.confirm("Remover este lançamento?")) return;
+    update({...data, caixaObra:(data.caixaObra||[]).filter(m=>m.id!==id)});
+    showToast("Lançamento removido.");
+  };
+
+  // Relatório PDF
+  const gerarPDF = () => {
+    if (!obra) return;
+    const c = caixa;
+    const movs = [...c.movimentos].reverse(); // ordem cronológica
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Caixa — ${escapeHtml(obra.name)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;color:#121212;background:#fff;padding:30px;font-size:11px}
+.btn-print{position:fixed;top:10px;right:10px;background:#D4AF37;color:#fff;border:none;padding:10px 18px;font-weight:700;cursor:pointer}
+.ph{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:3px solid #121212;margin-bottom:18px}
+.logo{background:#121212;color:#D4AF37;padding:10px 16px;font-family:Georgia;font-size:22px;font-weight:900;letter-spacing:2px}
+.company h1{font-size:16px;font-weight:900}.company p{font-size:10px;color:#666;margin-top:2px}
+.obra-tag{font-size:16px;font-weight:900;text-align:right;flex:1}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.kpi{border:1px solid #ddd;padding:12px;text-align:center}
+.kpi.green{border-top:3px solid #2E7D32}.kpi.red{border-top:3px solid #C62828}.kpi.gold{border-top:3px solid #D4AF37}
+.kpi-l{font-size:9px;font-weight:700;text-transform:uppercase;color:#777}.kpi-v{font-size:18px;font-weight:900;margin-top:4px}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th{background:#121212;color:#fff;padding:7px 10px;text-align:left;font-size:10px;text-transform:uppercase}
+th.r,td.r{text-align:right}
+td{padding:6px 10px;border-bottom:1px solid #eee;font-size:11px}
+.aporte{color:#2E7D32;font-weight:700}.despesa{color:#C62828;font-weight:700}
+.footer{margin-top:24px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #eee;padding-top:8px}
+@media print{.btn-print{display:none}}
+</style></head><body>
+<button class="btn-print" onclick="window.print()">🖨 Imprimir / PDF</button>
+<div class="ph">
+  <div class="logo">ARCD</div>
+  <div class="company"><h1>${escapeHtml(data.config.companyName||"ARCD Construtech")}</h1>${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}<p>Extrato do Caixa de Obra</p></div>
+  <div class="obra-tag">${escapeHtml(obra.name)}</div>
+</div>
+<div class="kpis">
+  <div class="kpi green"><p class="kpi-l">Total Aportes</p><p class="kpi-v" style="color:#2E7D32">R$ ${c.totalAportes.toFixed(2).replace(".",",")}</p></div>
+  <div class="kpi red"><p class="kpi-l">Total Gastos</p><p class="kpi-v" style="color:#C62828">R$ ${c.totalDespesas.toFixed(2).replace(".",",")}</p></div>
+  <div class="kpi gold"><p class="kpi-l">Saldo em Caixa</p><p class="kpi-v" style="color:${c.saldo>=0?"#2E7D32":"#C62828"}">R$ ${c.saldo.toFixed(2).replace(".",",")}</p></div>
+</div>
+<table>
+  <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th class="r">Valor</th><th class="r">Saldo</th></tr></thead>
+  <tbody>
+  ${movs.map(m=>`<tr>
+    <td>${fmtDateFull(m.data)}</td>
+    <td class="${m.tipo}">${m.tipo==="aporte"?"↑ APORTE":"↓ "+(CAIXA_CATS.find(c=>c.v===m.categoria)?.l||"Gasto")}</td>
+    <td>${escapeHtml(m.descricao||"—")}</td>
+    <td class="r ${m.tipo}">${m.tipo==="aporte"?"+":"-"} R$ ${Number(m.valor).toFixed(2).replace(".",",")}</td>
+    <td class="r">R$ ${m.saldoAcumulado.toFixed(2).replace(".",",")}</td>
+  </tr>`).join("")}
+  </tbody>
+</table>
+<div class="footer">Gerado por ARCD Ponto PRO · ${new Date().toLocaleString("pt-BR")} · ${movs.length} lançamento(s)</div>
+</body></html>`;
+    const w=window.open("","_blank"); w.document.write(html); w.document.close();
+  };
+
+  if (obrasComCaixa.length === 0) {
+    return (
+      <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.green}`,padding:"16px 18px",borderRadius:10}}>
+          <p style={{fontSize:10,fontWeight:700,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:3}}>Aportes e materiais</p>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:C.text,lineHeight:1}}>Caixa de Obra</p>
+        </div>
+        <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,padding:30,textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
+          <p style={{fontSize:40,marginBottom:8}}>💰</p>
+          <p style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Nenhuma obra com caixa ativado</p>
+          <p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Para ativar, edite uma obra em <strong>Obras</strong> e marque<br/>"Esta obra possui caixa de obra".</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+
+      {/* Header */}
+      <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.green}`,padding:"14px 18px",borderRadius:10}}>
+        <p style={{fontSize:10,fontWeight:700,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:3}}>Aportes e materiais</p>
+        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:C.text,lineHeight:1}}>Caixa de Obra</p>
+        <p style={{color:C.muted,fontSize:12,marginTop:4}}>{obrasComCaixa.length} obra(s) com caixa · aportes do cliente e controle de gastos</p>
+      </div>
+
+      {/* Consolidado */}
+      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <div style={{background:C.surface,padding:"8px 14px",borderBottom:`1px solid ${C.border}`}}>
+          <p style={{fontWeight:700,fontSize:12,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Saldos consolidados</p>
+        </div>
+        {consolidado.map(c=>(
+          <button key={c.obra.id} onClick={()=>setSelObra(c.obra.id)} style={{
+            width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
+            padding:"10px 14px",borderBottom:`1px solid ${C.line}33`,cursor:"pointer",
+            background:selObra===c.obra.id?`${C.green}08`:"transparent",border:"none",
+            borderLeft:`3px solid ${selObra===c.obra.id?C.green:"transparent"}`,textAlign:"left",
+          }}>
+            <div>
+              <p style={{fontSize:13,fontWeight:700,color:C.text}}>{c.obra.name}</p>
+              <p style={{fontSize:11,color:C.muted}}>Aportes {fmt(c.totalAportes)} · Gastos {fmt(c.totalDespesas)}</p>
+            </div>
+            <p style={{fontSize:15,fontWeight:800,color:c.saldo>=0?C.green:C.red}}>{fmt(c.saldo)}</p>
+          </button>
+        ))}
+      </div>
+
+      {obra && (<>
+        {/* Seletor + saldo grande */}
+        <Sel value={selObra} onChange={setSelObra} options={obrasComCaixa.map(o=>({v:o.id,l:o.name}))}/>
+
+        <div style={{background:caixa.saldo>=0?`${C.green}08`:`${C.red}08`,border:`1.5px solid ${caixa.saldo>=0?C.green:C.red}`,borderRadius:10,padding:"16px 18px",textAlign:"center"}}>
+          <p style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Saldo em caixa — {obra.name}</p>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:34,fontWeight:800,color:caixa.saldo>=0?C.green:C.red,lineHeight:1,margin:"4px 0"}}>{fmt(caixa.saldo)}</p>
+          <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:6}}>
+            <p style={{fontSize:12,color:C.muted}}>↑ Aportes: <strong style={{color:C.green}}>{fmt(caixa.totalAportes)}</strong></p>
+            <p style={{fontSize:12,color:C.muted}}>↓ Gastos: <strong style={{color:C.red}}>{fmt(caixa.totalDespesas)}</strong></p>
+          </div>
+        </div>
+
+        {/* Ações */}
+        <div style={{display:"grid",gridTemplateColumns:cols("1fr 1fr","1fr 1fr","220px 220px"),gap:8}}>
+          <Btn v="success" onClick={()=>openNew("aporte")} full>↑ Registrar aporte</Btn>
+          <Btn v="danger" onClick={()=>openNew("despesa")} full>↓ Registrar gasto</Btn>
+        </div>
+
+        {/* Extrato */}
+        <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+          <div style={{background:C.surface,padding:"8px 14px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <p style={{fontWeight:700,fontSize:12,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Extrato ({caixa.movimentos.length})</p>
+            {caixa.movimentos.length>0&&<Btn size="sm" v="ghost" onClick={gerarPDF}><Ic n="file"/> PDF</Btn>}
+          </div>
+          {caixa.movimentos.length===0&&(
+            <div style={{padding:20,textAlign:"center",color:C.muted,fontSize:12}}>Nenhum lançamento ainda.</div>
+          )}
+          {caixa.movimentos.map(m=>{
+            const cat = CAIXA_CATS.find(c=>c.v===m.categoria);
+            return (
+              <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderBottom:`1px solid ${C.line}33`,borderLeft:`3px solid ${m.tipo==="aporte"?C.green:C.red}`}}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:14}}>{m.tipo==="aporte"?"💵":cat?.icon||"📦"}</span>
+                    <p style={{fontSize:13,fontWeight:700,color:C.text}}>{m.descricao||(m.tipo==="aporte"?"Aporte do cliente":cat?.l||"Gasto")}</p>
+                  </div>
+                  <p style={{fontSize:11,color:C.muted,marginTop:1}}>{fmtDateFull(m.data)}{m.tipo==="despesa"&&cat?` · ${cat.l}`:""}{m.comprovante?` · ${m.comprovante}`:""}</p>
+                </div>
+                <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                  <div style={{textAlign:"right"}}>
+                    <p style={{fontSize:14,fontWeight:800,color:m.tipo==="aporte"?C.green:C.red}}>{m.tipo==="aporte"?"+":"−"}{fmt(m.valor)}</p>
+                    <p style={{fontSize:10,color:C.muted}}>saldo {fmt(m.saldoAcumulado)}</p>
+                  </div>
+                  <Btn size="sm" v="danger" onClick={()=>delMov(m.id)}><Ic n="trash"/></Btn>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>)}
+
+      {/* Modal lançamento */}
+      {modal&&obra&&(
+        <Modal title={tipoNovo==="aporte"?"Registrar aporte do cliente":"Registrar gasto"} onClose={()=>setModal(false)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {/* Toggle tipo */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              {[["aporte","↑ Aporte",C.green],["despesa","↓ Gasto",C.red]].map(([v,l,c])=>(
+                <button key={v} onClick={()=>{F("tipo")(v);if(v==="aporte")F("categoria")("aporte");else F("categoria")("material");}} style={{
+                  padding:"9px 4px",border:`2px solid ${form.tipo===v?c:C.border}`,
+                  background:form.tipo===v?`${c}12`:"transparent",color:form.tipo===v?c:C.muted,
+                  fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:13,cursor:"pointer",borderRadius:8,
+                }}>{l}</button>
+              ))}
+            </div>
+
+            <Inp label="Data" type="date" value={form.data} onChange={F("data")}/>
+
+            {form.tipo==="despesa"&&(
+              <Sel label="Categoria" value={form.categoria} onChange={F("categoria")} options={CAIXA_CATS.map(c=>({v:c.v,l:`${c.icon} ${c.l}`}))}/>
+            )}
+
+            <Inp label="Descrição" value={form.descricao} onChange={F("descricao")} placeholder={form.tipo==="aporte"?"Ex.: Aporte para compra de cimento":"Ex.: 50 sacos cimento CP-II"}/>
+            <Inp label="Valor (R$) *" type="number" value={form.valor} onChange={F("valor")} placeholder="0,00"/>
+            <Inp label="Nº nota / comprovante (opcional)" value={form.comprovante} onChange={F("comprovante")} placeholder="Ex.: NF 12345"/>
+
+            {form.valor&&!isNaN(Number(form.valor))&&(
+              <div style={{background:form.tipo==="aporte"?`${C.green}10`:`${C.red}10`,border:`1px solid ${form.tipo==="aporte"?C.green:C.red}44`,borderRadius:8,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <p style={{fontSize:11,color:C.muted}}>Novo saldo após lançamento</p>
+                <p style={{fontSize:16,fontWeight:800,color:C.text}}>{fmt(caixa.saldo + (form.tipo==="aporte"?Number(form.valor):-Number(form.valor)))}</p>
+              </div>
+            )}
+
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
+              <Btn v={form.tipo==="aporte"?"success":"danger"} onClick={saveMov} full><Ic n="check"/> Registrar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DRE DA EMPRESA — Demonstrativo de Resultado do Exercício Gerencial
+// ═══════════════════════════════════════════════════════════════════
+
+const CATS_DESP = [
+  { v:"aluguel",        l:"Aluguel / Sede",           grupo:"admin" },
+  { v:"pessoal_admin",  l:"Pessoal Administrativo",   grupo:"admin" },
+  { v:"contabilidade",  l:"Contabilidade / Honorários",grupo:"admin" },
+  { v:"energia",        l:"Energia / Água / Internet", grupo:"admin" },
+  { v:"comunicacao",    l:"Telefone / Comunicação",    grupo:"admin" },
+  { v:"material_adm",   l:"Material de Escritório",    grupo:"admin" },
+  { v:"software",       l:"Software / Assinaturas",    grupo:"admin" },
+  { v:"veiculo",        l:"Veículo / Combustível",     grupo:"admin" },
+  { v:"imposto_simples",l:"Simples Nacional / ISS",    grupo:"fiscal"},
+  { v:"imposto_ir",     l:"IR / CSLL",                 grupo:"fiscal"},
+  { v:"taxa_cartorio",  l:"Taxas / Cartório",          grupo:"fiscal"},
+  { v:"crea",           l:"CREA / IBAPE / Anuidades",  grupo:"fiscal"},
+  { v:"seg_fianca",     l:"Seguros / Fianças",         grupo:"outros"},
+  { v:"outros",         l:"Outros",                    grupo:"outros"},
+];
+
+const calcDREEmpresa = (data, year, month) => {
+  const ym    = `${year}-${String(month+1).padStart(2,"0")}`;
+  const days  = getDays(year, month);
+  const per0  = days[0]  || "";
+  const perF  = days[days.length-1] || "";
+  const cfg   = data.config || {};
+
+  // ── RECEITA BRUTA (medições emitidas + pagamentos livres) ──────
+  const medDoMes = (data.medicoes||[]).filter(m => m.competencia===ym);
+  const faturamentoObras = medDoMes.reduce((s,m)=>s+m.valorPrevisto, 0);
+  const recebidoObras    = medDoMes.filter(m=>m.recebido).reduce((s,m)=>s+m.valorRecebido,0)
+    + (data.payments||[]).filter(p=>p.date?.startsWith(ym)).reduce((s,p)=>s+Number(p.amount||0),0);
+
+  // ── DEDUÇÕES SOBRE RECEITA ─────────────────────────────────────
+  const pctISS     = Number(cfg.aliquotaISS    || 0) / 100;
+  const pctPIS     = Number(cfg.aliquotaPIS    || 0) / 100;
+  const pctCOFINS  = Number(cfg.aliquotaCOFINS || 0) / 100;
+  const deducaoISS     = faturamentoObras * pctISS;
+  const deducaoPIS     = faturamentoObras * pctPIS;
+  const deducaoCOFINS  = faturamentoObras * pctCOFINS;
+  const totalDeducoes  = deducaoISS + deducaoPIS + deducaoCOFINS;
+  const receitaLiquida = faturamentoObras - totalDeducoes;
+
+  // ── CSP — CUSTO DOS SERVIÇOS PRESTADOS ────────────────────────
+  const laborTotal  = data.obras.reduce((s,o) => s+calcObraLaborCost(data,o.id,days).laborCost, 0);
+  const benefTotal  = data.obras.reduce((s,o) => s+calcObraLaborCost(data,o.id,days).benefitCost, 0);
+  const tercTotal   = (data.pagsTerceiros||[]).filter(p=>p.date?.startsWith(ym)).reduce((s,p)=>s+Number(p.amount||0),0);
+  const rescTotal   = (data.rescisoes||[]).filter(r=>r.demissao?.startsWith(ym)).reduce((s,r)=>s+Number(r.totalLiquido||0),0);
+  const outrasDiretas= (data.outrasDesp||[]).filter(d=>d.competencia===ym).reduce((s,d)=>s+Number(d.valor||0),0);
+  const totalCSP    = laborTotal + benefTotal + tercTotal + rescTotal + outrasDiretas;
+  const lucroBruto  = receitaLiquida - totalCSP;
+  const margemBruta = receitaLiquida>0 ? (lucroBruto/receitaLiquida)*100 : 0;
+
+  // ── DESPESAS OPERACIONAIS ─────────────────────────────────────
+  const despEmp = (data.despesasEmpresa||[]).filter(d=>d.competencia===ym);
+  const despPorCat = CATS_DESP.reduce((acc,cat)=>{
+    acc[cat.v] = despEmp.filter(d=>d.categoria===cat.v).reduce((s,d)=>s+Number(d.valor||0),0);
+    return acc;
+  },{});
+  const totalDespAdmin  = CATS_DESP.filter(c=>c.grupo==="admin").reduce((s,c)=>s+despPorCat[c.v],0);
+  const totalDespFiscal = CATS_DESP.filter(c=>c.grupo==="fiscal").reduce((s,c)=>s+despPorCat[c.v],0);
+  const totalDespOutros = CATS_DESP.filter(c=>c.grupo==="outros").reduce((s,c)=>s+despPorCat[c.v],0);
+  const totalDespOp     = totalDespAdmin + totalDespFiscal + totalDespOutros;
+  const ebitda          = lucroBruto - totalDespOp;
+  const margemEbitda    = receitaLiquida>0 ? (ebitda/receitaLiquida)*100 : 0;
+
+  // ── RESULTADO FINANCEIRO (simplificado) ───────────────────────
+  // (futuro: adicionar entradas/saídas financeiras)
+  const resultFinanceiro = 0;
+  const lair = ebitda + resultFinanceiro;
+
+  // ── IR + CSLL ─────────────────────────────────────────────────
+  const pctIR   = Number(cfg.aliquotaIR   || 0) / 100;
+  const pctCSLL = Number(cfg.aliquotaCSLL || 0) / 100;
+  const provisaoIR   = lair>0 ? lair * pctIR   : 0;
+  const provisaoCSLL = lair>0 ? lair * pctCSLL  : 0;
+  const totalImpostoLucro = provisaoIR + provisaoCSLL;
+  const lucroLiquido  = lair - totalImpostoLucro;
+  const margemLiquida = receitaLiquida>0 ? (lucroLiquido/receitaLiquida)*100 : 0;
+
+  return {
+    ym, faturamentoObras, recebidoObras,
+    deducaoISS, deducaoPIS, deducaoCOFINS, totalDeducoes, receitaLiquida,
+    laborTotal, benefTotal, tercTotal, rescTotal, outrasDiretas, totalCSP,
+    lucroBruto, margemBruta,
+    despPorCat, totalDespAdmin, totalDespFiscal, totalDespOutros, totalDespOp,
+    ebitda, margemEbitda,
+    resultFinanceiro, lair,
+    provisaoIR, provisaoCSLL, totalImpostoLucro, lucroLiquido, margemLiquida,
+    despEmp,
+  };
+};
+
+function DREEmpresa({ data, update, showToast }) {
+  const { cols } = useBreakpoint();
+  const now = new Date();
+  const [year,  setYear]   = useState(now.getFullYear());
+  const [month, setMonth]  = useState(now.getMonth());
+  const [despModal, setDespModal] = useState(false);
+  const [editDesp,  setEditDesp]  = useState(null);
+  const [despForm,  setDespForm]  = useState({ competencia:"", categoria:"aluguel", descricao:"", valor:"", recorrente:false });
+  const DF = k => v => setDespForm(f=>({...f,[k]:v}));
+
+  const dre     = useMemo(()=>calcDREEmpresa(data,year,month), [data,year,month]);
+  const period  = `${fullMonth(month)} ${year}`;
+  const years   = Array.from({length:4},(_,i)=>now.getFullYear()-2+i).map(y=>({v:String(y),l:String(y)}));
+  const ym      = `${year}-${String(month+1).padStart(2,"0")}`;
+  const fmt2    = n => Number(n||0).toFixed(2).replace(".",",");
+
+  // Histórico de DREs para gráfico
+  const historico = useMemo(() => Array.from({length:6},(_,i)=>{
+    const d=new Date(year,month-5+i,1);
+    const dr=calcDREEmpresa(data,d.getFullYear(),d.getMonth());
+    return { mes:`${monthName(d.getMonth())}/${String(d.getFullYear()).slice(2)}`, ...dr };
+  }), [data,year,month]);
+
+  // Despesas recorrentes — auto-copiar para o mês atual
+  const replicarRecorrentes = () => {
+    const prevYM = month===0?`${year-1}-12`:`${year}-${String(month).padStart(2,"0")}`;
+    const recorrentes = (data.despesasEmpresa||[]).filter(d=>d.competencia===prevYM && d.recorrente);
+    const jaExistem   = (data.despesasEmpresa||[]).filter(d=>d.competencia===ym);
+    const novas = recorrentes
+      .filter(r => !jaExistem.some(j=>j.categoria===r.categoria&&j.descricao===r.descricao))
+      .map(r => ({...r, id:uid(), competencia:ym}));
+    if (!novas.length) { showToast("Nenhuma despesa recorrente do mês anterior a copiar.","warn"); return; }
+    update({...data,despesasEmpresa:[...(data.despesasEmpresa||[]),...novas]});
+    showToast(`${novas.length} despesa(s) recorrente(s) copiada(s) para ${period}.`);
+  };
+
+  const saveDesp = () => {
+    if (!despForm.competencia||!despForm.valor) { showToast("Preencha competência e valor.","error"); return; }
+    const payload = { id:editDesp||uid(), ...despForm, valor:Number(despForm.valor||0) };
+    const list = editDesp
+      ? (data.despesasEmpresa||[]).map(d=>d.id===editDesp?payload:d)
+      : [...(data.despesasEmpresa||[]),payload];
+    update({...data,despesasEmpresa:list});
+    setDespModal(false); setEditDesp(null);
+    setDespForm({competencia:"",categoria:"aluguel",descricao:"",valor:"",recorrente:false});
+    showToast(editDesp?"Despesa atualizada.":"Despesa registrada.");
+  };
+
+  const delDesp = id => {
+    if(!window.confirm("Remover despesa?")) return;
+    update({...data,despesasEmpresa:(data.despesasEmpresa||[]).filter(d=>d.id!==id)});
+    showToast("Despesa removida.");
+  };
+
+  // ── PDF gerencial ────────────────────────────────────────────
+  const gerarPDF = () => {
+    const d=dre;
+    const row=(label,value,cls="entry")=>
+      `<tr class="${cls}"><td>${label}</td><td class="val ${value<0?'neg':value>0?'pos':''}">${value<0?'(R$ '+fmt2(-value)+')':'R$ '+fmt2(value)}</td></tr>`;
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DRE — ${period}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;color:#121212;background:#fff;padding:30px;font-size:11px}
+.btn-print{position:fixed;top:10px;right:10px;background:#D4AF37;color:#fff;border:none;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer}
+.ph{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:3px solid #121212;margin-bottom:20px}
+.logo{background:#121212;color:#D4AF37;padding:10px 16px;font-family:Georgia;font-size:22px;font-weight:900;letter-spacing:2px}
+.company h1{font-size:16px;font-weight:900}.company p{font-size:10px;color:#666;margin-top:2px}
+.period{font-size:18px;font-weight:900;text-align:right;flex:1}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}
+.kpi{border:1px solid #ddd;padding:10px 12px}
+.kpi.gold{border-top:3px solid #D4AF37}.kpi.green{border-top:3px solid #2E7D32}.kpi.red{border-top:3px solid #C62828}.kpi.blue{border-top:3px solid #1565C0}
+.kpi-l{font-size:9px;font-weight:700;text-transform:uppercase;color:#777}.kpi-v{font-size:16px;font-weight:900;margin-top:4px}
+table{width:100%;border-collapse:collapse;margin:4px 0}
+td{padding:5px 8px;border-bottom:1px solid #f0f0f0;font-size:11px}
+td.val{text-align:right;font-weight:700;min-width:110px}
+.pos{color:#2E7D32}.neg{color:#C62828}
+.sec td{background:#F5F3EE;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#3D3530;padding:5px 8px;border-bottom:1px solid #E8E4DC}
+.sub td{padding-left:18px;color:#555;font-style:italic}
+.subtot td{font-weight:900;background:#F5F3EE;border-top:2px solid #C8C2B6}
+.result td{font-size:13px;font-weight:900;border-top:2px solid #121212}
+.result.liq td{font-size:15px}
+.footer{margin-top:28px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #eee;padding-top:8px}
+@media print{.btn-print{display:none}}
+</style></head>
+<body>
+<button class="btn-print" onclick="window.print()">🖨 Imprimir / PDF</button>
+<div class="ph">
+  <div class="logo">ARCD</div>
+  <div class="company">
+    <h1>${escapeHtml(data.config.companyName||"ARCD Construtech")}</h1>
+    ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
+    <p>Demonstrativo de Resultado do Exercício — DRE Gerencial</p>
+  </div>
+  <div class="period">${period}</div>
+</div>
+<div class="kpis">
+  <div class="kpi gold"><p class="kpi-l">Faturamento Bruto</p><p class="kpi-v">R$ ${fmt2(d.faturamentoObras)}</p></div>
+  <div class="kpi blue"><p class="kpi-l">Lucro Bruto</p><p class="kpi-v ${d.lucroBruto<0?'neg':'pos'}">R$ ${fmt2(d.lucroBruto)}</p></div>
+  <div class="kpi green"><p class="kpi-l">EBITDA</p><p class="kpi-v ${d.ebitda<0?'neg':'pos'}">R$ ${fmt2(d.ebitda)}</p></div>
+  <div class="kpi ${d.lucroLiquido>=0?'green':'red'}"><p class="kpi-l">Lucro Líquido</p><p class="kpi-v ${d.lucroLiquido<0?'neg':'pos'}">R$ ${fmt2(d.lucroLiquido)}</p></div>
+</div>
+<table><tbody>
+  <tr class="sec"><td>RECEITA BRUTA DE SERVIÇOS</td><td class="val">R$ ${fmt2(d.faturamentoObras)}</td></tr>
+  ${row("Faturamento obras (medições emitidas)",d.faturamentoObras,"sub")}
+  <tr class="sec"><td>(-) DEDUÇÕES DA RECEITA</td><td class="val neg">(R$ ${fmt2(d.totalDeducoes)})</td></tr>
+  ${d.deducaoISS>0?row("(-) ISS "+data.config.aliquotaISS+"%",-d.deducaoISS,"sub"):""}
+  ${d.deducaoPIS>0?row("(-) PIS "+data.config.aliquotaPIS+"%",-d.deducaoPIS,"sub"):""}
+  ${d.deducaoCOFINS>0?row("(-) COFINS "+data.config.aliquotaCOFINS+"%",-d.deducaoCOFINS,"sub"):""}
+  <tr class="subtot"><td>= RECEITA LÍQUIDA DE SERVIÇOS</td><td class="val ${d.receitaLiquida<0?'neg':'pos'}">R$ ${fmt2(d.receitaLiquida)}</td></tr>
+
+  <tr class="sec"><td>(-) CUSTO DOS SERVIÇOS PRESTADOS (CSP)</td><td class="val neg">(R$ ${fmt2(d.totalCSP)})</td></tr>
+  ${row("(-) Mão de obra direta (folha)",-d.laborTotal,"sub")}
+  ${d.benefTotal>0?row("(-) Encargos e benefícios (VT/VR)",-d.benefTotal,"sub"):""}
+  ${d.tercTotal>0?row("(-) Terceirizados",-d.tercTotal,"sub"):""}
+  ${d.rescTotal>0?row("(-) Rescisões no período",-d.rescTotal,"sub"):""}
+  ${d.outrasDiretas>0?row("(-) Outras despesas diretas de obra",-d.outrasDiretas,"sub"):""}
+  <tr class="result"><td>= LUCRO BRUTO</td><td class="val ${d.lucroBruto<0?'neg':'pos'}">R$ ${fmt2(d.lucroBruto)} (${d.margemBruta.toFixed(1)}%)</td></tr>
+
+  <tr class="sec"><td>(-) DESPESAS OPERACIONAIS</td><td class="val neg">(R$ ${fmt2(d.totalDespOp)})</td></tr>
+  <tr class="sub"><td colspan="2"><em>Despesas Administrativas</em></td></tr>
+  ${CATS_DESP.filter(c=>c.grupo==="admin"&&d.despPorCat[c.v]>0).map(c=>row("(-) "+c.l,-d.despPorCat[c.v],"sub")).join("")}
+  <tr class="sub"><td colspan="2"><em>Encargos Fiscais e Legais</em></td></tr>
+  ${CATS_DESP.filter(c=>c.grupo==="fiscal"&&d.despPorCat[c.v]>0).map(c=>row("(-) "+c.l,-d.despPorCat[c.v],"sub")).join("")}
+  ${CATS_DESP.filter(c=>c.grupo==="outros"&&d.despPorCat[c.v]>0).map(c=>row("(-) "+c.l,-d.despPorCat[c.v],"sub")).join("")}
+  <tr class="result"><td>= EBITDA (Resultado Operacional)</td><td class="val ${d.ebitda<0?'neg':'pos'}">R$ ${fmt2(d.ebitda)} (${d.margemEbitda.toFixed(1)}%)</td></tr>
+
+  <tr class="sec"><td>(+/-) RESULTADO FINANCEIRO</td><td class="val">—</td></tr>
+  <tr class="subtot"><td>= LAIR (Lucro Antes do IR)</td><td class="val ${d.lair<0?'neg':'pos'}">R$ ${fmt2(d.lair)}</td></tr>
+
+  ${d.totalImpostoLucro>0?`<tr class="sec"><td>(-) PROVISÃO PARA IR + CSLL</td><td class="val neg">(R$ ${fmt2(d.totalImpostoLucro)})</td></tr>`:""}
+  ${d.provisaoIR>0?row("(-) IR "+data.config.aliquotaIR+"%",-d.provisaoIR,"sub"):""}
+  ${d.provisaoCSLL>0?row("(-) CSLL "+data.config.aliquotaCSLL+"%",-d.provisaoCSLL,"sub"):""}
+
+  <tr class="result liq"><td>= LUCRO / PREJUÍZO LÍQUIDO</td><td class="val ${d.lucroLiquido<0?'neg':'pos'}">R$ ${fmt2(d.lucroLiquido)} (${d.margemLiquida.toFixed(1)}%)</td></tr>
+</tbody></table>
+<div class="footer">Gerado por ARCD Ponto PRO · ${new Date().toLocaleString("pt-BR")} — uso gerencial, não substitui o balanço contábil oficial</div>
+</body></html>`;
+    const w=window.open("","_blank"); w.document.write(html); w.document.close();
+  };
+
+  // ── Linha DRE reutilizável ────────────────────────────────────
+  const DRow = ({label,value,color,bold=false,indent=0,pct=null,noBorder=false})=>{
+    const c = color||(value>=0?C.text:C.red);
+    return (
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:`${bold?"8px":"5px"} 0 5px ${indent*14}px`,borderBottom:noBorder?"none":`1px solid ${C.line}22`,background:bold?`${c}05`:"transparent"}}>
+        <p style={{fontSize:bold?13:12,color:bold?c:C.muted,fontWeight:bold?700:400}}>{label}</p>
+        <div style={{textAlign:"right",flexShrink:0}}>
+          <p style={{fontSize:bold?15:12,color:c,fontWeight:bold?800:600}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
+          {pct!==null&&<p style={{fontSize:9,color:c+"99",marginTop:1}}>{pct.toFixed(1)}%</p>}
+        </div>
+      </div>
+    );
+  };
+  const DSec=({title,color=C.yellow,value=null})=>(
+    <div style={{background:color==="separator"?C.line:C.surface,borderLeft:`3px solid ${color==="separator"?C.line:color}`,padding:"5px 10px",marginTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <p style={{fontSize:9,fontWeight:700,color:color==="separator"?C.muted:color,textTransform:"uppercase",letterSpacing:1}}>{title}</p>
+      {value!==null&&<p style={{fontSize:11,fontWeight:700,color:value<0?C.red:C.green}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>}
+    </div>
+  );
+  const DResult=({label,value,pct=null,size=1})=>(
+    <div style={{background:value>=0?`${C.green}08`:`${C.red}08`,border:`1px solid ${value>=0?C.green:C.red}55`,borderRadius:6,padding:"8px 12px",marginTop:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <p style={{fontSize:11+size,fontWeight:700,color:value>=0?C.green:C.red}}>{label}</p>
+      <div style={{textAlign:"right"}}>
+        <p style={{fontSize:14+size,fontWeight:800,color:value>=0?C.green:C.red}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
+        {pct!==null&&<p style={{fontSize:10,color:(value>=0?C.green:C.red)+"99"}}>{pct.toFixed(1)}%</p>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+
+      {/* Header */}
+      <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.yellow}`,padding:"14px 18px",borderRadius:10,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+        <div>
+          <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:1.2,marginBottom:3}}>Resultado da Empresa</p>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:C.text,lineHeight:1}}>DRE Gerencial</p>
+          <p style={{color:C.muted,fontSize:12,marginTop:4}}>Demonstrativo de Resultado · Boas práticas contábeis</p>
+        </div>
+        <div style={{textAlign:"right",flexShrink:0}}>
+          <p style={{fontSize:10,color:C.muted,textTransform:"uppercase"}}>Lucro Líquido</p>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:24,fontWeight:800,color:dre.lucroLiquido>=0?C.green:C.red,lineHeight:1,marginTop:2}}>{dre.lucroLiquido<0?`(${fmt(Math.abs(dre.lucroLiquido))})`:fmt(dre.lucroLiquido)}</p>
+          <p style={{fontSize:10,color:dre.lucroLiquido>=0?C.green:C.red}}>{dre.margemLiquida.toFixed(1)}% margem</p>
+        </div>
+      </div>
+
+      {/* Período */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <Sel value={String(year)} onChange={v=>setYear(Number(v))} options={years}/>
+        <Sel value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/>
+      </div>
+
+      {/* KPI bar */}
+      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
+        {[
+          ["Faturamento Bruto",  dre.faturamentoObras,  C.yellow, ""],
+          ["Receita Líquida",    dre.receitaLiquida,    C.blue,   `após ${((dre.totalDeducoes/Math.max(dre.faturamentoObras,1))*100).toFixed(1)}% deduções`],
+          ["Lucro Bruto",        dre.lucroBruto,        dre.lucroBruto>=0?C.green:C.red, `margem ${dre.margemBruta.toFixed(1)}%`],
+          ["EBITDA",             dre.ebitda,            dre.ebitda>=0?C.green:C.red,     `margem ${dre.margemEbitda.toFixed(1)}%`],
+        ].map(([l,v,c,s])=>(
+          <div key={l} style={{background:C.bg,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${c}`,padding:"10px 12px",borderRadius:8,boxShadow:`0 1px 4px ${C.shadow}`}}>
+            <p style={{fontSize:9,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
+            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",color:c,fontSize:18,lineHeight:1.1,marginTop:3,fontWeight:800}}>{v<0?`(${fmt(Math.abs(v))})`:fmt(v)}</p>
+            {s&&<p style={{fontSize:9,color:C.muted,marginTop:2}}>{s}</p>}
+          </div>
+        ))}
+      </div>
+
+      {/* DRE estruturado */}
+      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <div style={{background:C.surface,padding:"10px 14px",borderBottom:`1px solid ${C.border}`}}>
+          <p style={{fontWeight:800,fontSize:14,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>DRE — {period}</p>
+        </div>
+        <div style={{padding:"8px 14px"}}>
+
+          <DSec title="Receita Bruta de Serviços" color={C.green} value={dre.faturamentoObras}/>
+          <DRow label="Faturamento obras (medições emitidas)" value={dre.faturamentoObras} indent={1}/>
+          <DRow label="Recebido em caixa (referência)" value={dre.recebidoObras} color={C.muted} indent={1}/>
+
+          <DSec title="(-) Deduções da Receita" color={C.red} value={-dre.totalDeducoes}/>
+          {dre.deducaoISS>0    && <DRow label={`(-) ISS ${data.config.aliquotaISS}%`}     value={-dre.deducaoISS}    indent={1}/>}
+          {dre.deducaoPIS>0    && <DRow label={`(-) PIS ${data.config.aliquotaPIS}%`}     value={-dre.deducaoPIS}    indent={1}/>}
+          {dre.deducaoCOFINS>0 && <DRow label={`(-) COFINS ${data.config.aliquotaCOFINS}%`} value={-dre.deducaoCOFINS} indent={1}/>}
+          {dre.totalDeducoes===0&&<DRow label="Configure as alíquotas em Ajustes → DRE" value={0} color={C.muted} indent={1}/>}
+          <DResult label="= Receita Líquida de Serviços" value={dre.receitaLiquida}/>
+
+          <DSec title="(-) Custo dos Serviços Prestados (CSP)" color={C.red} value={-dre.totalCSP}/>
+          <DRow label="(-) Mão de obra direta (folha)" value={-dre.laborTotal} indent={1}/>
+          {dre.benefTotal>0     && <DRow label="(-) Encargos e benefícios (VT/VR)" value={-dre.benefTotal} indent={1}/>}
+          {dre.tercTotal>0      && <DRow label="(-) Terceirizados pagos" value={-dre.tercTotal} indent={1}/>}
+          {dre.rescTotal>0      && <DRow label="(-) Rescisões" value={-dre.rescTotal} indent={1}/>}
+          {dre.outrasDiretas>0  && <DRow label="(-) Outras despesas diretas de obra" value={-dre.outrasDiretas} indent={1}/>}
+          <DResult label="= Lucro Bruto" value={dre.lucroBruto} pct={dre.margemBruta} size={1}/>
+
+          <DSec title="(-) Despesas Operacionais" color={C.orange} value={-dre.totalDespOp}/>
+          {/* Administrativas */}
+          {CATS_DESP.filter(c=>c.grupo==="admin"&&dre.despPorCat[c.v]>0).map(c=>(
+            <DRow key={c.v} label={`(-) ${c.l}`} value={-dre.despPorCat[c.v]} indent={1}/>
+          ))}
+          {/* Fiscais */}
+          {CATS_DESP.filter(c=>c.grupo==="fiscal"&&dre.despPorCat[c.v]>0).map(c=>(
+            <DRow key={c.v} label={`(-) ${c.l}`} value={-dre.despPorCat[c.v]} indent={1}/>
+          ))}
+          {/* Outros */}
+          {CATS_DESP.filter(c=>c.grupo==="outros"&&dre.despPorCat[c.v]>0).map(c=>(
+            <DRow key={c.v} label={`(-) ${c.l}`} value={-dre.despPorCat[c.v]} indent={1}/>
+          ))}
+          {dre.totalDespOp===0&&<DRow label="Nenhuma despesa lançada neste mês" value={0} color={C.muted} indent={1}/>}
+          <DResult label="= EBITDA / Resultado Operacional" value={dre.ebitda} pct={dre.margemEbitda} size={1}/>
+
+          <DSec title="(+/-) Resultado Financeiro" color={C.blue} value={0}/>
+          <DRow label="Receitas e encargos financeiros" value={0} color={C.muted} indent={1}/>
+          <DResult label="= LAIR (Lucro Antes do IR)" value={dre.lair}/>
+
+          {dre.totalImpostoLucro>0&&(<>
+            <DSec title="(-) Provisão IR + CSLL" color={C.red} value={-dre.totalImpostoLucro}/>
+            {dre.provisaoIR>0   && <DRow label={`(-) IR ${data.config.aliquotaIR}%`}   value={-dre.provisaoIR}   indent={1}/>}
+            {dre.provisaoCSLL>0 && <DRow label={`(-) CSLL ${data.config.aliquotaCSLL}%`} value={-dre.provisaoCSLL} indent={1}/>}
+          </>)}
+
+          <DResult label="= LUCRO / PREJUÍZO LÍQUIDO" value={dre.lucroLiquido} pct={dre.margemLiquida} size={2}/>
+        </div>
+      </div>
+
+      {/* Gráfico histórico */}
+      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,padding:14,boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <p style={{fontWeight:700,fontSize:13,color:C.text,marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>Evolução — 6 meses</p>
+        <div style={{height:180}}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={historico} barSize={16}>
+              <CartesianGrid stroke={C.line} vertical={false}/>
+              <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
+              <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
+              <Tooltip contentStyle={{background:C.bg,border:`1px solid ${C.border}`,color:C.text,borderRadius:8,fontSize:11}} formatter={v=>fmt(v)}/>
+              <Bar dataKey="faturamentoObras" name="Faturamento" fill={C.yellow} radius={[3,3,0,0]}/>
+              <Bar dataKey="lucroBruto"       name="Lucro Bruto" fill={C.green}  radius={[3,3,0,0]}/>
+              <Bar dataKey="lucroLiquido"     name="Lucro Líq."  fill={C.blue}   radius={[3,3,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Gestão de despesas operacionais */}
+      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <div style={{background:C.surface,padding:"10px 14px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <p style={{fontWeight:700,fontSize:13,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Despesas Operacionais — {period}</p>
+          <div style={{display:"flex",gap:6}}>
+            <Btn size="sm" v="ghost" onClick={replicarRecorrentes}>↩ Replicar recorrentes</Btn>
+            <Btn size="sm" onClick={()=>{setDespForm({competencia:ym,categoria:"aluguel",descricao:"",valor:"",recorrente:false});setEditDesp(null);setDespModal(true);}}>
+              <Ic n="plus"/> Nova
+            </Btn>
+          </div>
+        </div>
+
+        {dre.despEmp.length===0 && (
+          <div style={{padding:"20px 14px",textAlign:"center"}}>
+            <p style={{color:C.muted,fontSize:12,marginBottom:8}}>Nenhuma despesa operacional lançada em {period}.</p>
+            <Btn size="sm" v="ghost" onClick={replicarRecorrentes}>↩ Replicar despesas do mês anterior</Btn>
+          </div>
+        )}
+
+        {dre.despEmp.map(d=>(
+          <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 14px",borderBottom:`1px solid ${C.line}33`}}>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <p style={{fontSize:13,fontWeight:600,color:C.text}}>{d.descricao||CATS_DESP.find(c=>c.v===d.categoria)?.l||d.categoria}</p>
+                {d.recorrente&&<span style={{fontSize:9,fontWeight:700,background:`${C.blue}15`,color:C.blue,padding:"1px 6px",borderRadius:4}}>RECORRENTE</span>}
+              </div>
+              <p style={{fontSize:11,color:C.muted,marginTop:1}}>{CATS_DESP.find(c=>c.v===d.categoria)?.l||d.categoria}</p>
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+              <p style={{fontSize:14,fontWeight:800,color:C.red}}>({fmt(d.valor)})</p>
+              <Btn size="sm" v="ghost" onClick={()=>{setDespForm({competencia:d.competencia,categoria:d.categoria,descricao:d.descricao,valor:String(d.valor),recorrente:d.recorrente});setEditDesp(d.id);setDespModal(true);}}><Ic n="edit"/></Btn>
+              <Btn size="sm" v="danger" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
+            </div>
+          </div>
+        ))}
+
+        <div style={{padding:"8px 14px",background:C.surface,display:"flex",justifyContent:"space-between"}}>
+          <p style={{fontSize:12,fontWeight:700,color:C.text}}>Total despesas operacionais</p>
+          <p style={{fontSize:14,fontWeight:800,color:C.red}}>({fmt(dre.totalDespOp)})</p>
+        </div>
+      </div>
+
+      {/* Exportar PDF */}
+      <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> Gerar DRE PDF — {period}</Btn>
+
+      {/* Modal despesa */}
+      {despModal&&(
+        <Modal title={editDesp?"Editar despesa":"Nova despesa operacional"} onClose={()=>{setDespModal(false);setEditDesp(null);}}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div>
+              <p style={{fontSize:11,fontWeight:700,color:C.text,textTransform:"uppercase",marginBottom:5,letterSpacing:.7}}>Competência (mês/ano) *</p>
+              <input type="month" value={despForm.competencia} onChange={e=>DF("competencia")(e.target.value)} style={{width:"100%",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"10px 12px",borderRadius:8,fontSize:14,outline:"none",fontFamily:"'Inter','Inter Display',sans-serif"}}/>
+            </div>
+            <Sel label="Categoria *" value={despForm.categoria} onChange={DF("categoria")}
+              options={CATS_DESP.map(c=>({v:c.v,l:c.l}))}/>
+            <Inp label="Descrição" value={despForm.descricao} onChange={DF("descricao")} placeholder="Ex.: Aluguel sala Caruaru, Simples Nacional maio..."/>
+            <Inp label="Valor (R$) *" type="number" value={despForm.valor} onChange={DF("valor")} placeholder="0,00"/>
+            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 12px",background:despForm.recorrente?`${C.blue}08`:"transparent",borderRadius:8,border:`1.5px solid ${despForm.recorrente?C.blue+"55":C.border}`}}>
+              <div onClick={()=>DF("recorrente")(!despForm.recorrente)} style={{width:18,height:18,border:`2px solid ${despForm.recorrente?C.blue:C.muted}`,background:despForm.recorrente?C.blue:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+                {despForm.recorrente&&<span style={{color:"#fff",fontSize:11,fontWeight:900}}>✓</span>}
+              </div>
+              <div>
+                <p style={{fontSize:13,fontWeight:700,color:despForm.recorrente?C.blue:C.muted}}>Despesa recorrente</p>
+                <p style={{fontSize:11,color:C.muted}}>Aparece no botão "Replicar" do próximo mês</p>
+              </div>
+            </label>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>{setDespModal(false);setEditDesp(null);}} full>Cancelar</Btn>
+              <Btn onClick={saveDesp} full><Ic n="check"/> Salvar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // NAVEGAÇÃO — grupos e sub-tabs
 // ═══════════════════════════════════════════════════════════════════
 
@@ -7321,7 +9969,7 @@ const NAV_GROUPS = [
   },
   {
     id: "obras_grp", label: "Obras", icon: "home", color: C.blue,
-    tabs: ["obras", "ponto", "equipe", "terc"],
+    tabs: ["obras", "orc", "ponto", "equipe", "terc"],
   },
   {
     id: "rh_grp", label: "RH", icon: "users", color: C.green,
@@ -7329,7 +9977,7 @@ const NAV_GROUPS = [
   },
   {
     id: "fin_grp", label: "Financeiro", icon: "dollar", color: C.purple,
-    tabs: ["dre", "fin", "medicoes", "relat"],
+    tabs: ["dre_emp", "dre", "fin", "medicoes", "caixa", "relat"],
   },
   {
     id: "ia_grp", label: "IA", icon: "brain", color: C.orange,
@@ -7344,14 +9992,17 @@ const NAV_GROUPS = [
 const TAB_META = {
   home:   { label: "Dashboard",  icon: "home",     group: "painel"   },
   obras:  { label: "Obras",      icon: "home",     group: "obras_grp"},
+  orc:    { label: "Orçamento",  icon: "file",     group: "obras_grp"},
   ponto:  { label: "Ponto",      icon: "clock",    group: "obras_grp"},
   equipe: { label: "Equipe",     icon: "users",    group: "obras_grp"},
   terc:   { label: "Terceiros",  icon: "terc",     group: "obras_grp"},
   folha:  { label: "Folha",      icon: "dollar",   group: "rh_grp"  },
   resc:   { label: "Rescisão",   icon: "file",     group: "rh_grp"  },
-  dre:      { label: "DRE",        icon: "chart",    group: "fin_grp" },
-  fin:      { label: "KPIs",       icon: "dollar",   group: "fin_grp" },
+  dre_emp:  { label: "DRE Empresa", icon: "chart",  group: "fin_grp" },
+  dre:      { label: "DRE Obras",   icon: "chart",  group: "fin_grp" },
+  fin:      { label: "KPIs",        icon: "dollar", group: "fin_grp" },
   medicoes: { label: "Medições",   icon: "dollar",   group: "fin_grp" },
+  caixa:    { label: "Caixa Obra", icon: "dollar",   group: "fin_grp" },
   relat:    { label: "Relatórios", icon: "chart",    group: "fin_grp" },
   ia:     { label: "IA",         icon: "brain",    group: "ia_grp"  },
   config: { label: "Ajustes",    icon: "settings", group: "cfg_grp" },
@@ -7431,7 +10082,7 @@ export default function App() {
     if (!requestId) return;
     approvalHandledRef.current = true;
 
-    const req = data.unlockRequests.find(r => r.id === requestId);
+    const req = (data.unlockRequests||[]).find(r => r.id === requestId);
     if (!req) {
       showToast("Solicitação de permissão não encontrada.", "error");
       window.history.replaceState({}, "", window.location.pathname + window.location.hash);
@@ -7451,7 +10102,7 @@ export default function App() {
     }
 
     const validUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-    const unlockRequests = data.unlockRequests.map(r => r.id === requestId ? { ...r, status: "approved", approvedAt: new Date().toISOString(), validUntil } : r);
+    const unlockRequests = (data.unlockRequests||[]).map(r => r.id === requestId ? { ...r, status: "approved", approvedAt: new Date().toISOString(), validUntil } : r);
     const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "unlock_approved_link", message: `Permissão aprovada via link para ${req.obraName} em ${fmtDateFull(req.date)}.` }];
     update({ ...data, unlockRequests, changeLog });
     showToast("Permissão aprovada por 30 minutos.");
@@ -7470,7 +10121,13 @@ export default function App() {
 
   const activeGroup  = visibleGroups.find(g => g.tabs.includes(tab)) || visibleGroups[0];
   const hasSubTabs   = activeGroup?.tabs.length > 1;
-  const navHeight    = hasSubTabs ? 132 : 80;
+
+  // Layout responsivo
+  const { isMobile, isTablet, isDesktop, pick } = useBreakpoint();
+  const SIDEBAR_W = 224;
+  // No desktop a navegação vira sidebar → não há barra inferior ocupando espaço
+  const navHeight  = isDesktop ? 0 : (hasSubTabs ? 132 : 80);
+  const maxConteudo = pick(1080, 1080, 1320);
 
   const goGroup = (group) => {
     if (group.tabs.includes(tab)) return;
@@ -7563,7 +10220,103 @@ export default function App() {
   return (
     <>
       <style>{G}</style>
-      <div style={{ minHeight:"100vh", background:"transparent", color:C.text, paddingBottom:navHeight+8 }}>
+      <div style={{
+        minHeight:"100vh", background:"transparent", color:C.text,
+        paddingBottom: navHeight + 8,
+        paddingLeft: isDesktop ? SIDEBAR_W : 0,   // abre espaço p/ a sidebar
+        transition: "padding-left .18s ease",
+      }}>
+
+        {/* ── SIDEBAR (só desktop) ────────────────────────────────── */}
+        {isDesktop && (
+          <aside className="no-print" style={{
+            position:"fixed", top:0, left:0, bottom:0, width:SIDEBAR_W, zIndex:90,
+            background:C.bg, borderRight:`1.5px solid ${C.border}`,
+            display:"flex", flexDirection:"column",
+            boxShadow:`1px 0 8px ${C.shadow}`,
+          }}>
+            {/* Marca */}
+            <div style={{ padding:"16px 16px 14px", borderBottom:`1px solid ${C.line}` }}>
+              <BrandMark/>
+            </div>
+
+            {/* Navegação: no desktop cabe tudo — grupos com suas abas expandidas,
+                sem o vai-e-vem de grupo → sub-aba que faz sentido no celular */}
+            <nav style={{ flex:1, overflowY:"auto", padding:"10px 8px" }}>
+              {visibleGroups.map(group => {
+                const grupoAtivo = activeGroup?.id === group.id;
+                const badge = groupBadge[group.id];
+                return (
+                  <div key={group.id} style={{ marginBottom:6 }}>
+                    {/* Cabeçalho do grupo */}
+                    <div style={{
+                      display:"flex", alignItems:"center", gap:6,
+                      padding:"6px 8px 4px",
+                    }}>
+                      <Ic n={group.icon} s={12} color={grupoAtivo ? group.color : C.muted}/>
+                      <p style={{
+                        fontSize:9, fontWeight:800, letterSpacing:.8,
+                        textTransform:"uppercase",
+                        color: grupoAtivo ? group.color : C.muted,
+                      }}>{group.label}</p>
+                      {badge && <span style={{ width:6, height:6, background:C.red, borderRadius:"50%" }}/>}
+                    </div>
+
+                    {/* Abas do grupo */}
+                    {group.tabs.map(tabId => {
+                      const meta = TAB_META[tabId];
+                      const ativo = tab === tabId;
+                      return (
+                        <button key={tabId} onClick={() => setTab(tabId)} style={{
+                          width:"100%", textAlign:"left",
+                          display:"flex", alignItems:"center", gap:8,
+                          padding:"7px 10px", marginBottom:1,
+                          background: ativo ? `${group.color}12` : "transparent",
+                          border:"none",
+                          borderLeft:`3px solid ${ativo ? group.color : "transparent"}`,
+                          borderRadius:"0 6px 6px 0",
+                          color: ativo ? C.text : C.muted,
+                          fontSize:12.5, fontWeight: ativo ? 700 : 500,
+                          cursor:"pointer",
+                          fontFamily:"'Inter','Inter Display',sans-serif",
+                          "--ic-color": ativo ? group.color : C.muted,
+                          transition:"background .12s ease",
+                        }}>
+                          <Ic n={meta.icon} s={13}/>
+                          {meta.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </nav>
+
+            {/* Usuário + sair */}
+            <div style={{ padding:"10px 12px", borderTop:`1px solid ${C.line}`, background:C.surface }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
+                  <div style={{
+                    width:7, height:7, borderRadius:"50%", flexShrink:0,
+                    background: ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow,
+                  }}/>
+                  <div style={{ minWidth:0 }}>
+                    <p style={{ fontSize:11.5, fontWeight:700, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {currentUser?.nome}
+                    </p>
+                    <p style={{ fontSize:9, color:C.muted }}>
+                      {ROLES.find(r=>r.v===currentUser?.role)?.l}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={()=>setCurrentUser(null)} title="Sair" style={{
+                  background:"transparent", border:0, color:C.muted,
+                  fontSize:15, cursor:"pointer", lineHeight:1, padding:"0 3px", flexShrink:0,
+                }}>×</button>
+              </div>
+            </div>
+          </aside>
+        )}
 
         {/* ── HEADER ─────────────────────────────────────────────── */}
         <header className="no-print" style={{
@@ -7572,9 +10325,10 @@ export default function App() {
           borderBottom:`1.5px solid ${C.border}`,
           boxShadow:`0 1px 8px ${C.shadow}`,
         }}>
-          <div style={{ maxWidth:1080, margin:"0 auto", padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
+          <div style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "12px 22px" : "10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
             <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-              <BrandMark compact/>
+              {/* No desktop a marca vive na sidebar — repetir aqui é ruído */}
+              {!isDesktop && <BrandMark compact/>}
               {/* Breadcrumb */}
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                 <span style={{ fontSize:11, color:activeGroup?.color, fontWeight:700, textTransform:"uppercase", letterSpacing:.8 }}>
@@ -7593,8 +10347,8 @@ export default function App() {
 
             {/* Usuário logado + ponto rápido */}
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              {/* Badge do usuário */}
-              <div style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 10px", background:C.surface, borderRadius:6, border:`1px solid ${C.border}` }}>
+              {/* Badge do usuário — no desktop já aparece no rodapé da sidebar */}
+              <div style={{ display: isDesktop ? "none" : "flex", alignItems:"center", gap:6, padding:"4px 10px", background:C.surface, borderRadius:6, border:`1px solid ${C.border}` }}>
                 <div style={{ width:7, height:7, borderRadius:"50%", background:ROLES.find(r=>r.v===currentUser?.role)?.color||C.yellow, flexShrink:0 }}/>
                 <p style={{ fontSize:11, fontWeight:600, color:C.text, maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{currentUser?.nome}</p>
                 <button onClick={()=>setCurrentUser(null)} style={{
@@ -7630,28 +10384,32 @@ export default function App() {
         </header>
 
         {/* ── CONTEÚDO ───────────────────────────────────────────── */}
-        <main style={{ maxWidth:1080, margin:"0 auto", padding:14 }}>
+        <main style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "20px 22px" : 14 }}>
           {tab === "home"   && <Dashboard   data={data} onTab={setTab} />}
           {tab === "obras"  && <Obras       data={data} update={update} showToast={showToast} />}
+          {tab === "orc"    && <Orcamento   data={data} update={update} showToast={showToast} />}
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
+          {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} />}
           {tab === "medicoes" && <MedicoesView data={data} update={update} showToast={showToast} />}
+          {tab === "caixa"    && <CaixaObra    data={data} update={update} showToast={showToast} />}
           {tab === "relat"    && <Relatorios   data={data} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
           {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={()=>setCurrentUser(null)} />}
         </main>
 
-        {/* ── NAV 2 NÍVEIS ───────────────────────────────────────── */}
+        {/* ── NAV INFERIOR — só celular/tablet (no desktop é sidebar) ── */}
+        {!isDesktop && (
         <nav className="no-print" style={{
           position:"fixed", bottom:0, left:0, right:0, zIndex:80,
           background:"rgba(255,255,255,.98)", backdropFilter:"blur(20px)",
-          borderTop:`1px solid ${C.line}`,
-          boxShadow:`0 -8px 32px rgba(0,0,0,.45)`,
+          borderTop:`1px solid ${C.border}`,
+          boxShadow:`0 -4px 20px ${C.shadow}`,
         }}>
           <div style={{ maxWidth:1080, margin:"0 auto" }}>
 
@@ -7690,7 +10448,7 @@ export default function App() {
             {/* Grupos principais */}
             <div style={{
               display:"grid",
-              gridTemplateColumns:`repeat(${NAV_GROUPS.length}, 1fr)`,
+              gridTemplateColumns:`repeat(${visibleGroups.length}, 1fr)`,
               padding:"6px 8px 10px",
             }}>
               {visibleGroups.map(group => {
@@ -7726,6 +10484,7 @@ export default function App() {
             </div>
           </div>
         </nav>
+        )}
       </div>
       <Toast toast={toast}/>
     </>
