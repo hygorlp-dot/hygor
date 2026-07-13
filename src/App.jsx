@@ -850,7 +850,6 @@ function Ic({ n, s = 16, color }) {
 }
 
 function BrandMark({ compact = false, dark = false }) {
-  const textColor = dark ? C.bg : C.text;
   return (
     <div style={{ display:"inline-flex", alignItems:"center", gap: compact?8:12, minWidth:0 }}>
       {/* Logo monograma ARCD real */}
@@ -895,18 +894,6 @@ function BrandMark({ compact = false, dark = false }) {
   );
 }
 
-function SectionTitle({ eyebrow, title, subtitle, action }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, marginBottom: 2 }}>
-      <div>
-        {eyebrow && <p style={{ color: C.yellow, fontSize: 11, fontWeight: 900, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 3 }}>{eyebrow}</p>}
-        <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 34, lineHeight: .95, letterSpacing: 1.6, color: C.text }}>{title}</h2>
-        {subtitle && <p style={{ color: C.muted, fontSize: 13, marginTop: 5 }}>{subtitle}</p>}
-      </div>
-      {action}
-    </div>
-  );
-}
 
 function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, type = "button", style = {} }) {
   const variants = {
@@ -1491,8 +1478,8 @@ const OUTRAS_CATEGORIAS = [
 const calcDREObra = (data, obraId, year, month) => {
   const ym      = `${year}-${String(month+1).padStart(2,"0")}`;
   const days    = getDays(year, month);
-  const per0    = days[0]  || "";
-  const perF    = days[days.length-1] || "";
+  const per0  = days[0] || "";
+  const perF  = days[days.length - 1] || "";
   const obra    = data.obras.find(o => o.id === obraId);
 
   // ── FATURAMENTO (emissão de medições) ──────────────────────────
@@ -1726,7 +1713,6 @@ function DRE({ data, update, showToast }) {
   // ── PDF do DRE
   const gerarPDF = () => {
     const isConsolidado = view==="consolidado"||view==="historico";
-    const d = isConsolidado ? null : dreObra;
     const titulo = isConsolidado ? `DRE Consolidado — ${period}` : `DRE ${dreObra.obra?.name||""} — ${period}`;
 
     const dreTableRows = (obj) => `
@@ -2257,9 +2243,12 @@ function MedicoesView({ data, update, showToast }) {
         : `Parcela ${numParcela}/${total}`;
 
       // Componentes por tipo
+      // O componente de MO é fixo e conhecido já na geração. O de Administração
+      // depende do custo real de mão de obra do período, que só existe depois do
+      // ponto lançado — por isso nasce zerado e é calculado mês a mês pelo botão
+      // "Calcular Admin %" na própria medição.
       const valorMOFixo   = (tipo==="fixed_labor"||tipo==="fixed_labor_admin") ? Number(obra.parcelaMensal||0) : 0;
-      const valorAdminPct = (tipo==="admin_only"||tipo==="fixed_labor_admin")  ? 0 : 0; // calculado depois com base no custo MO real
-      const valorPrevisto = valorMOFixo; // admin_pct será calculado manualmente
+      const valorAdminPct = 0;
 
       // Verifica duplicata por dataVencimento
       const existe = (data.medicoes||[]).some(x=>x.obraId===selObra && x.dataVencimento===dataVenc);
@@ -3681,7 +3670,7 @@ function Ponto({ data, update, showToast }) {
       showToast("Todos os pontos de todas as obras foram cadastrados!", "success");
       setLastAllDoneNotification(notificationKey);
     }
-  }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification]);
+  }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification, showToast]);
 
   const list = data.employees
     .filter(e => e.active !== false)
@@ -4729,19 +4718,23 @@ const buildQuickAlerts = (data) => {
 // ═══════════════════════════════════════════════════════════════════
 
 function FluxoCaixa({ data }) {
-  const now = new Date();
+  // Extrai primitivos: `new Date()` gera um objeto novo a cada render, então
+  // usá-lo direto na lista de dependências faria o memo recalcular sempre.
+  const _hoje = new Date();
+  const nowY = _hoje.getFullYear();
+  const nowM = _hoje.getMonth();
   const [months, setMonths] = useState(6);
 
   // Calcula histórico real + projeção futura
   const cashflow = useMemo(() => {
     const result = [];
     for (let i = -(months-1); i <= 3; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+      const d = new Date(nowY, nowM+i, 1);
       const y = d.getFullYear();
       const m = d.getMonth();
       const ym = `${y}-${String(m+1).padStart(2,"0")}`;
       const mdays = getDays(y, m);
-      const isFuture = d > new Date(now.getFullYear(), now.getMonth(), 1);
+      const isFuture = d > new Date(nowY, nowM, 1);
 
       if (!isFuture) {
         // Real
@@ -4761,7 +4754,7 @@ function FluxoCaixa({ data }) {
       }
     }
     return result;
-  }, [data, months]);
+  }, [data, months, nowY, nowM]);
 
   const maxVal = Math.max(...cashflow.map(c=>Math.max(c.received,c.totalOut,1)));
   const totalReceived = cashflow.filter(c=>!c.isProjection).reduce((s,c)=>s+c.received,0);
@@ -6666,27 +6659,31 @@ function Rescisao({ data, update, showToast }) {
   };
 
   // Gerar PDF
-  const gerarPDF = () => {
-    if (!calc) { showToast("Complete o cálculo primeiro.", "error"); return; }
-    const c = calc;
+  // Aceita um registro do histórico. O registro salvo é {...form, ...calc},
+  // logo carrega tanto os dados cadastrais quanto o cálculo — é o que permite
+  // reemitir o PDF direto do histórico, sem reabrir o formulário.
+  const gerarPDF = (registro = null) => {
+    const fonte = registro || form;
+    const c     = registro || calc;
+    if (!c) { showToast("Complete o cálculo primeiro.", "error"); return; }
     const tempoStr = `${c.anos > 0 ? c.anos+"a " : ""}${c.totalMeses % 12}m ${c.diasResto}d`;
     const rows = c.isAcordoInterno
       ? [["Acordo interno — valor fixo × tempo ativo",
           `${fmt(c.valorFixoAcordo)} × ${c.mesesAtivos.toFixed(2)} meses`,
           c.totalBruto]]
       : [
-          form.incluirSaldo  && ["Saldo de salário",   `${form.diasNoMes} dias em ${fmtDateFull(form.demissao)}`, c.saldoSalario],
-          form.incluir13     && [`13º salário proporcional`, `${c.avos13}/12 avos`, c.dec13],
-          form.incluirFerias && [`Férias proporcionais + 1/3`, `${c.avosFerias}/12 avos × 4/3`, c.feriasTotal],
-          form.incluirAviso  && c.avisoPrevio > 0 && ["Aviso prévio", "30 dias", c.avisoPrevio],
+          fonte.incluirSaldo  && ["Saldo de salário",   `${fonte.diasNoMes} dias em ${fmtDateFull(fonte.demissao)}`, c.saldoSalario],
+          fonte.incluir13     && [`13º salário proporcional`, `${c.avos13}/12 avos`, c.dec13],
+          fonte.incluirFerias && [`Férias proporcionais + 1/3`, `${c.avosFerias}/12 avos × 4/3`, c.feriasTotal],
+          fonte.incluirAviso  && c.avisoPrevio > 0 && ["Aviso prévio", "30 dias", c.avisoPrevio],
         ].filter(Boolean);
     const descs = [
-      Number(form.descAdiantamento||0) > 0 && ["Adiantamentos", Number(form.descAdiantamento)],
-      Number(form.descOutros||0) > 0       && [form.obsDesc||"Outros descontos", Number(form.descOutros)],
+      Number(fonte.descAdiantamento||0) > 0 && ["Adiantamentos", Number(fonte.descAdiantamento)],
+      Number(fonte.descOutros||0) > 0       && [fonte.obsDesc||"Outros descontos", Number(fonte.descOutros)],
     ].filter(Boolean);
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Rescisão — ${escapeHtml(form.empName)}</title>
+<title>Rescisão — ${escapeHtml(fonte.empName)}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Arial',sans-serif;color:#111;background:#fff;padding:32px;font-size:12px}
@@ -6729,15 +6726,15 @@ function Rescisao({ data, update, showToast }) {
 
 <h2>Dados do Trabalhador</h2>
 <div class="info-grid">
-  <div class="info-item"><p class="lbl">Nome</p><p class="val">${escapeHtml(form.empName)}</p></div>
-  <div class="info-item"><p class="lbl">CPF</p><p class="val">${escapeHtml(form.empCPF||"—")}</p></div>
-  <div class="info-item"><p class="lbl">Função</p><p class="val">${escapeHtml(form.empFuncao||"—")}</p></div>
-  <div class="info-item"><p class="lbl">Obra</p><p class="val">${escapeHtml(form.obraName||"—")}</p></div>
-  <div class="info-item"><p class="lbl">Data de Admissão</p><p class="val">${fmtDateFull(form.admissao)||"—"}</p></div>
-  <div class="info-item"><p class="lbl">Data de Rescisão</p><p class="val">${fmtDateFull(form.demissao)||"—"}</p></div>
+  <div class="info-item"><p class="lbl">Nome</p><p class="val">${escapeHtml(fonte.empName)}</p></div>
+  <div class="info-item"><p class="lbl">CPF</p><p class="val">${escapeHtml(fonte.empCPF||"—")}</p></div>
+  <div class="info-item"><p class="lbl">Função</p><p class="val">${escapeHtml(fonte.empFuncao||"—")}</p></div>
+  <div class="info-item"><p class="lbl">Obra</p><p class="val">${escapeHtml(fonte.obraName||"—")}</p></div>
+  <div class="info-item"><p class="lbl">Data de Admissão</p><p class="val">${fmtDateFull(fonte.admissao)||"—"}</p></div>
+  <div class="info-item"><p class="lbl">Data de Rescisão</p><p class="val">${fmtDateFull(fonte.demissao)||"—"}</p></div>
   <div class="info-item"><p class="lbl">Tempo de Serviço</p><p class="val">${tempoStr}</p></div>
-  <div class="info-item"><p class="lbl">Motivo</p><p class="val">${escapeHtml(TIPO_LABEL[form.tipo]||form.tipo)}</p></div>
-  <div class="info-item"><p class="lbl">Valor Mensal</p><p class="val">R$ ${Number(form.valorMensal||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}</p></div>
+  <div class="info-item"><p class="lbl">Motivo</p><p class="val">${escapeHtml(TIPO_LABEL[fonte.tipo]||fonte.tipo)}</p></div>
+  <div class="info-item"><p class="lbl">Valor Mensal</p><p class="val">R$ ${Number(fonte.valorMensal||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}</p></div>
 </div>
 
 <h2>Demonstrativo de Valores</h2>
@@ -6753,7 +6750,7 @@ function Rescisao({ data, update, showToast }) {
 
 <p class="ext-valor">Valor por extenso: <strong>${valorPorExtenso(c.totalLiquido)}</strong></p>
 
-${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml(form.obs)}</div>`:""}
+${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml(fonte.obs)}</div>`:""}
 
 <div class="declaracao">
   Declaro ter recebido da empresa <strong>${escapeHtml(data.config.companyName||"ArcD Construtora")}</strong> a importância acima discriminada,
@@ -6765,9 +6762,9 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
 
 <div class="signs">
   <div class="sign-box">
-    <p class="name">${escapeHtml(form.empName)}</p>
+    <p class="name">${escapeHtml(fonte.empName)}</p>
     <p>Trabalhador(a)</p>
-    <p>CPF: ${escapeHtml(form.empCPF||"________________")}</p>
+    <p>CPF: ${escapeHtml(fonte.empCPF||"________________")}</p>
   </div>
   <div class="sign-box">
     <p class="name">${escapeHtml(data.config.hrName||"Responsável")}</p>
@@ -6993,10 +6990,7 @@ ${form.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml
             <Btn size="sm" v="ghost" onClick={()=>{setForm({...r});setHistory(false);}}>
               <Ic n="edit"/> Reabrir
             </Btn>
-            <Btn size="sm" v="danger" onClick={()=>{
-              const html2 = ""; // Re-uses gerarPDF logic via form re-open
-              showToast("Reabra o cadastro e clique em Gerar PDF.");
-            }}>
+            <Btn size="sm" v="danger" onClick={()=>gerarPDF(r)}>
               <Ic n="file"/> PDF
             </Btn>
             <Btn size="sm" v="danger" onClick={()=>{
@@ -7201,9 +7195,6 @@ function LoginScreen({ data, onLogin, onFirstSetup }) {
   const usuarios = (data.usuarios||[]).filter(u => u.active !== false);
   const isFirst  = usuarios.length === 0;
 
-  const handlePinKey = (digit) => {
-    if (pin.length < 6) setPin(p => p + digit);
-  };
   const handleBackspace = () => setPin(p => p.slice(0,-1));
 
   const handleLogin = async () => {
@@ -7352,7 +7343,6 @@ function LoginScreen({ data, onLogin, onFirstSetup }) {
 // ── Gestão de Usuários (dentro de Config) ────────────────────────
 
 function GestaoUsuarios({ data, update, showToast, currentUser }) {
-  const { cols } = useBreakpoint();
   const emptyU = { id:"", nome:"", role:"engenheiro", email:"", obraId:"", active:true };
   const [modal,   setModal]   = useState(false);
   const [pinModal,setPinModal] = useState(null); // userId
@@ -7563,6 +7553,9 @@ const calcBDI = (p) => {
 };
 
 // Situação do BDI face à faixa do TCU
+// Formata percentual no padrão BR ("3,00")
+const f2p = (n) => Number(n||0).toFixed(2).replace(".", ",") + "%";
+
 const situacaoBDI = (bdi, tipo) => {
   const t = BDI_TCU.find(x => x.v === tipo) || BDI_TCU[0];
   if (bdi < t.q1) return { st:"abaixo", cor:"#BF360C", faixa:t,
@@ -7639,17 +7632,24 @@ const itemTotal = (it, bdi) =>
 // Dentro de uma etapa, as sub-etapas são numeradas primeiro e os itens
 // diretos continuam a contagem depois delas.
 const construirArvore = (etapas, itens) => {
+  // Índice pai → filhos
   const porPai = {};
   (etapas||[]).forEach(e => {
     const p = e.parentId || "";
     (porPai[p] = porPai[p] || []).push(e);
   });
 
+  // Índice etapa → itens, montado UMA vez. Antes, cada etapa varria a lista
+  // inteira de itens (O(etapas × itens)); agora é uma passada só (O(etapas + itens)).
+  const porEtapa = {};
+  (itens||[]).forEach(it => {
+    (porEtapa[it.etapaId] = porEtapa[it.etapaId] || []).push(it);
+  });
+
   const walk = (paiId, prefixo, nivel) => (porPai[paiId] || []).map((et, i) => {
     const codigo = prefixo ? `${prefixo}.${i+1}` : String(i+1);
     const sub = walk(et.id, codigo, nivel + 1);
-    const meusItens = (itens||[])
-      .filter(it => it.etapaId === et.id)
+    const meusItens = (porEtapa[et.id] || [])
       .map((it, j) => ({ ...it, codigoItem: `${codigo}.${sub.length + j + 1}` }));
     return { ...et, codigo, nivel, sub, itens: meusItens };
   });
@@ -7727,7 +7727,7 @@ const calcOrcamento = (orc) => {
 };
 
 function Orcamento({ data, update, showToast }) {
-  const { cols, isDesktop, formGrid } = useBreakpoint();
+  const { cols, formGrid } = useBreakpoint();
   const [view,      setView]      = useState("lista");   // "lista" | "editor"
   const [selOrc,    setSelOrc]    = useState(null);      // id do orçamento aberto
   const [baseImport,setBaseImport]= useState([]);        // base SINAPI/ORSE em memória
@@ -7736,6 +7736,9 @@ function Orcamento({ data, update, showToast }) {
   const [importando,setImportando]= useState(false);     // spinner durante o parse
   const [buscaModal,setBuscaModal]= useState(false);
   const [busca,     setBusca]     = useState("");
+  // O campo responde na hora; a filtragem dos 17 mil itens espera a digitação
+  // parar. Sem isso, cada tecla dispara uma varredura completa e o input trava.
+  const [buscaDebounced, setBuscaDebounced] = useState("");
   const [etapaAlvo, setEtapaAlvo] = useState("");
   const [novoModal, setNovoModal] = useState(false);
   const [mapModal,  setMapModal]  = useState(null);      // {headers, rows} p/ mapear colunas
@@ -7748,6 +7751,11 @@ function Orcamento({ data, update, showToast }) {
   const [bdiAba,    setBdiAba]    = useState("faixa");   // "faixa" | "detalhado"
   const [bdiTipo,   setBdiTipo]   = useState("edificios");
   const [bdiP,      setBdiP]      = useState(null);      // parâmetros em edição
+
+  useEffect(() => {
+    const t = setTimeout(() => setBuscaDebounced(busca), 140);
+    return () => clearTimeout(t);
+  }, [busca]);
 
   const emptyOrc = {
     nome:"", obraId:"", cliente:"", local:"", areaM2:"",
@@ -7983,7 +7991,7 @@ function Orcamento({ data, update, showToast }) {
   );
 
   const resultados = useMemo(() => {
-    const q = semAcento(busca.trim());
+    const q = semAcento(buscaDebounced.trim());
     if (!q) return baseIndexada.filter(i => i._fav).slice(0, 50);
 
     // Todos os termos precisam aparecer ("alvenaria vedacao" acha os dois)
@@ -8009,8 +8017,13 @@ function Orcamento({ data, update, showToast }) {
       return s;
     };
 
-    return achados.sort((a, b) => score(a) - score(b)).slice(0, 60);
-  }, [busca, baseIndexada]);
+    // Pré-computa o score UMA vez por item. Chamar score() dentro do
+    // comparador o executaria ~n·log(n) vezes — com 17 mil itens isso
+    // domina o custo da busca.
+    const comScore = achados.map(i => ({ i, s: score(i) }));
+    comScore.sort((a, b) => a.s - b.s);
+    return comScore.slice(0, 60).map(x => x.i);
+  }, [buscaDebounced, baseIndexada]);
 
   // ── CRUD orçamento ───────────────────────────────────────────
   const criarOrc = () => {
@@ -8920,20 +8933,36 @@ ${blocoBDI}
         const P   = k => v => setBdiP(p => ({ ...p, [k]: v }));
 
         // Campo compacto de percentual
-        const Pct = ({ label, k, hint }) => (
-          <label style={{display:"flex",flexDirection:"column",gap:3}}>
-            <span style={{fontSize:10,fontWeight:600,color:C.text,letterSpacing:.3}}>{label}</span>
-            <div style={{display:"flex",alignItems:"center",gap:4}}>
-              <input type="number" step="0.01" value={bdiP[k]}
-                onChange={e => P(k)(e.target.value)}
-                style={{width:"100%",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,
-                        padding:"7px 9px",borderRadius:6,fontSize:13,outline:"none",
-                        fontFamily:"'Inter',sans-serif"}}/>
-              <span style={{fontSize:11,color:C.muted}}>%</span>
-            </div>
-            {hint && <span style={{fontSize:9,color:C.muted}}>{hint}</span>}
-          </label>
-        );
+        // A faixa de cada componente vem de BDI_COMPONENTES_EDIF, não de texto
+        // solto: os números do hint e os da validação passam a ser os mesmos.
+        // A tabela do acórdão é de EDIFICAÇÕES — para os outros tipos de obra o
+        // que o TCU audita é o BDI total, então a baliza por componente só
+        // aparece quando o tipo escolhido é "edificios".
+        const Pct = ({ label, k, hint }) => {
+          const ref  = bdiTipo === "edificios" ? BDI_COMPONENTES_EDIF[k] : null;
+          const val  = Number(bdiP[k] || 0);
+          const fora = ref && val > 0 && (val < ref.q1 || val > ref.q3);
+          const dica = hint || (ref ? `TCU edif.: ${f2p(ref.q1)} – ${f2p(ref.q3)}` : null);
+          return (
+            <label style={{display:"flex",flexDirection:"column",gap:3}}>
+              <span style={{fontSize:10,fontWeight:600,color:C.text,letterSpacing:.3}}>{label}</span>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <input type="number" step="0.01" value={bdiP[k]}
+                  onChange={e => P(k)(e.target.value)}
+                  style={{width:"100%",background:C.bg,
+                          border:`1.5px solid ${fora ? C.orange : C.border}`,color:C.text,
+                          padding:"7px 9px",borderRadius:6,fontSize:13,outline:"none",
+                          fontFamily:"'Inter',sans-serif"}}/>
+                <span style={{fontSize:11,color:C.muted}}>%</span>
+              </div>
+              {dica && (
+                <span style={{fontSize:9,color: fora ? C.orange : C.muted}}>
+                  {fora ? "⚠ " : ""}{dica}
+                </span>
+              )}
+            </label>
+          );
+        };
 
         return (
           <Modal title="BDI — Acórdão 2622/2013 (TCU)" onClose={()=>setBdiModal(false)} wide>
@@ -9008,12 +9037,12 @@ ${blocoBDI}
 
                 <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Componentes</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-                  <Pct label="AC — Administração Central" k="ac"       hint="TCU edif.: 3,00 – 5,50"/>
-                  <Pct label="S — Seguro"                 k="seguro"   hint="TCU edif.: 0,80 – 1,00"/>
-                  <Pct label="R — Risco"                  k="risco"    hint="TCU edif.: 0,97 – 1,27"/>
+                  <Pct label="AC — Administração Central" k="ac"       />
+                  <Pct label="S — Seguro"                 k="seguro"   />
+                  <Pct label="R — Risco"                  k="risco"    />
                   <Pct label="G — Garantia"               k="garantia" hint="Opcional"/>
-                  <Pct label="DF — Despesas Financeiras"  k="df"       hint="TCU edif.: 0,59 – 1,39"/>
-                  <Pct label="L — Lucro"                  k="lucro"    hint="TCU edif.: 6,16 – 8,96"/>
+                  <Pct label="DF — Despesas Financeiras"  k="df"       />
+                  <Pct label="L — Lucro"                  k="lucro"    />
                 </div>
 
                 <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7,marginTop:2}}>
@@ -9273,7 +9302,7 @@ const calcCaixaObra = (data, obraId) => {
 
 function CaixaObra({ data, update, showToast }) {
   const { cols } = useBreakpoint();
-  const obrasComCaixa = data.obras.filter(o => o.hasCaixa);
+  const obrasComCaixa = useMemo(() => data.obras.filter(o => o.hasCaixa), [data.obras]);
   const [selObra, setSelObra] = useState(obrasComCaixa[0]?.id || "");
   const [modal,   setModal]   = useState(false);
   const [tipoNovo,setTipoNovo]= useState("aporte");
@@ -9286,7 +9315,7 @@ function CaixaObra({ data, update, showToast }) {
   // Consolidado de todas as obras com caixa
   const consolidado = useMemo(()=>obrasComCaixa.map(o=>({
     obra:o, ...calcCaixaObra(data,o.id)
-  })), [data]);
+  })), [data, obrasComCaixa]);
 
   const openNew = (tipo) => {
     setTipoNovo(tipo);
@@ -9529,8 +9558,6 @@ const CATS_DESP = [
 const calcDREEmpresa = (data, year, month) => {
   const ym    = `${year}-${String(month+1).padStart(2,"0")}`;
   const days  = getDays(year, month);
-  const per0  = days[0]  || "";
-  const perF  = days[days.length-1] || "";
   const cfg   = data.config || {};
 
   // ── RECEITA BRUTA (medições emitidas + pagamentos livres) ──────
@@ -10123,7 +10150,7 @@ export default function App() {
   const hasSubTabs   = activeGroup?.tabs.length > 1;
 
   // Layout responsivo
-  const { isMobile, isTablet, isDesktop, pick } = useBreakpoint();
+  const { isDesktop, pick } = useBreakpoint();
   const SIDEBAR_W = 224;
   // No desktop a navegação vira sidebar → não há barra inferior ocupando espaço
   const navHeight  = isDesktop ? 0 : (hasSubTabs ? 132 : 80);
