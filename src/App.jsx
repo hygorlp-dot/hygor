@@ -546,6 +546,31 @@ const getWeekRange = (fridayIso) => {
 };
 
 
+// ═══════════════════════════════════════════════════════════════════
+// KANBAN — fases do fluxo de obra
+// ═══════════════════════════════════════════════════════════════════
+//
+// As colunas do quadro. São CADASTRÁVEIS: estas são só o ponto de partida,
+// espelhando o fluxo típico (estudo → aprovações → executivo → obra).
+// Renomear, recolorir, reordenar e excluir é tudo pela interface.
+const FASES_PADRAO = [
+  { nome: "Estudo Preliminar",      cor: "#6B6459" },
+  { nome: "Anteprojeto",            cor: "#0D47A1" },
+  { nome: "Projeto Legal",          cor: "#4A148C" },
+  { nome: "Análise do Condomínio",  cor: "#B71C1C" },
+  { nome: "Análise da Prefeitura",  cor: "#C2185B" },
+  { nome: "Projeto Executivo",      cor: "#1E6B31" },
+  { nome: "Orçamento e Planejamento", cor: "#00796B" },
+  { nome: "Obra",                   cor: "#D4AF37" },
+  { nome: "Concluída",              cor: "#3D3530" },
+];
+
+// Paleta oferecida ao criar/editar uma fase
+const CORES_FASE = [
+  "#D4AF37", "#0D47A1", "#1E6B31", "#B71C1C", "#4A148C",
+  "#C2185B", "#BF360C", "#00796B", "#6B6459", "#3D3530",
+];
+
 const CONTRACT_TYPES = [
   { v: "fixed_labor",       l: "Somente MO — entrada + parcelas fixas"                },
   { v: "admin_only",        l: "Somente Administração — % sobre custo MO"             },
@@ -581,6 +606,7 @@ const DEFAULT = () => ({
     approverEmail: "hygorlp@gmail.com",
     paymentHolidays: [],
   },
+  fases: FASES_PADRAO.map((f, i) => ({ id: uid(), nome: f.nome, cor: f.cor, ordem: i })),
   obras: [
     { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "", hasCaixa: false },
     { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "", hasCaixa: false },
@@ -644,7 +670,15 @@ const normalizeData = incoming => {
       entrada:    Number(o.entrada    || 0),
       entradaDate: o.entradaDate || "",
       hasCaixa:   !!o.hasCaixa,
+      faseId:     o.faseId || "",   // coluna do Kanban ("" = ainda não posicionada)
     })) : base.obras,
+    fases: Array.isArray(d.fases) && d.fases.length ? d.fases.map((f, i) => ({
+      id:    f.id   || uid(),
+      nome:  f.nome || "Fase",
+      cor:   f.cor  || "#6B6459",
+      ordem: Number.isFinite(f.ordem) ? f.ordem : i,
+    })).sort((a,b) => a.ordem - b.ordem)
+      : FASES_PADRAO.map((f, i) => ({ id: uid(), nome: f.nome, cor: f.cor, ordem: i })),
     employees: Array.isArray(d.employees) ? d.employees.map(e => ({
       id: e.id || uid(),
       name: e.name || "",
@@ -3038,10 +3072,105 @@ function Financeiro({ data, update, showToast }) {
 
 function Obras({ data, update, showToast }) {
   const { formGrid } = useBreakpoint();
-  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", entrada: "", entradaDate: "", hasCaixa: false };
+  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", faseId: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
+
+  // ── Kanban ────────────────────────────────────────────────────
+  const [vista,      setVista]      = useState("lista");   // "lista" | "quadro"
+  const [faseModal,  setFaseModal]  = useState(null);      // {modo:"nova"|"editar", fase}
+  const [faseNome,   setFaseNome]   = useState("");
+  const [faseCor,    setFaseCor]    = useState(CORES_FASE[0]);
+  const [arrastando, setArrastando] = useState(null);      // id da obra em arraste
+  const [sobreFase,  setSobreFase]  = useState(null);      // id da coluna sob o cursor
+  const [menuCard,   setMenuCard]   = useState(null);      // id da obra c/ menu aberto
+
+  const fases = useMemo(
+    () => [...(data.fases || [])].sort((a, b) => a.ordem - b.ordem),
+    [data.fases]
+  );
+
+  // Obras agrupadas por fase. Quem não tem fase (ou aponta pra uma fase
+  // apagada) cai na primeira coluna — nenhuma obra some do quadro.
+  const porFase = useMemo(() => {
+    const idsValidos = new Set(fases.map(f => f.id));
+    const primeira = fases[0]?.id || "";
+    const mapa = {};
+    fases.forEach(f => { mapa[f.id] = []; });
+    (data.obras || []).forEach(o => {
+      const alvo = idsValidos.has(o.faseId) ? o.faseId : primeira;
+      if (mapa[alvo]) mapa[alvo].push(o);
+    });
+    return mapa;
+  }, [data.obras, fases]);
+
+  const moverObra = (obraId, faseId) => {
+    const obra = (data.obras || []).find(o => o.id === obraId);
+    if (!obra || obra.faseId === faseId) return;
+    const fase = fases.find(f => f.id === faseId);
+    update({
+      ...data,
+      obras: data.obras.map(o => o.id === obraId ? { ...o, faseId } : o),
+    });
+    setMenuCard(null);
+    showToast(`"${obra.name}" movida para ${fase?.nome || "—"}.`);
+  };
+
+  // ── Fases: criar / renomear / excluir / reordenar ─────────────
+  const abrirNovaFase = () => {
+    setFaseModal({ modo: "nova", fase: null });
+    setFaseNome("");
+    setFaseCor(CORES_FASE[fases.length % CORES_FASE.length]);
+  };
+  const abrirEditarFase = (fase) => {
+    setFaseModal({ modo: "editar", fase });
+    setFaseNome(fase.nome);
+    setFaseCor(fase.cor);
+  };
+
+  const salvarFase = () => {
+    if (!faseNome.trim()) { showToast("Informe o nome da fase.", "error"); return; }
+    const { modo, fase } = faseModal;
+    if (modo === "editar") {
+      update({ ...data, fases: (data.fases || []).map(f =>
+        f.id === fase.id ? { ...f, nome: faseNome.trim(), cor: faseCor } : f) });
+      showToast("Fase atualizada.");
+    } else {
+      const ordem = fases.length ? Math.max(...fases.map(f => f.ordem)) + 1 : 0;
+      update({ ...data, fases: [...(data.fases || []),
+        { id: uid(), nome: faseNome.trim(), cor: faseCor, ordem }] });
+      showToast("Fase criada.");
+    }
+    setFaseModal(null); setFaseNome("");
+  };
+
+  const excluirFase = (fase) => {
+    if (fases.length <= 1) { showToast("O quadro precisa de ao menos uma fase.", "error"); return; }
+    const dentro = (porFase[fase.id] || []).length;
+    const destino = fases.find(f => f.id !== fase.id);
+    const aviso = dentro
+      ? `Excluir "${fase.nome}"?\n\nAs ${dentro} obra(s) desta coluna vão para "${destino.nome}". Nenhuma obra é apagada.`
+      : `Excluir a fase "${fase.nome}"?`;
+    if (!window.confirm(aviso)) return;
+    update({
+      ...data,
+      fases: (data.fases || []).filter(f => f.id !== fase.id),
+      // Reaponta as obras órfãs em vez de deixá-las sem coluna
+      obras: data.obras.map(o => o.faseId === fase.id ? { ...o, faseId: destino.id } : o),
+    });
+    showToast("Fase removida.");
+  };
+
+  const moverFase = (faseId, dir) => {
+    const i = fases.findIndex(f => f.id === faseId);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= fases.length) return;
+    const nova = [...fases];
+    [nova[i], nova[j]] = [nova[j], nova[i]];
+    update({ ...data, fases: nova.map((f, k) => ({ ...f, ordem: k })) });
+  };
+
 
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
 
@@ -3072,6 +3201,8 @@ function Obras({ data, update, showToast }) {
       entrada:           Number(form.entrada    || 0),
       entradaDate:       form.entradaDate       || "",
       hasCaixa:          !!form.hasCaixa,
+      // Obra nova sem fase escolhida entra na primeira coluna do quadro
+      faseId:            form.faseId || fases[0]?.id || "",
     };
 
     const obras = form.id ? data.obras.map(o => (o.id === form.id ? payload : o)) : [...data.obras, payload];
@@ -3107,6 +3238,184 @@ function Obras({ data, update, showToast }) {
         <Btn onClick={() => { setForm(empty); setModal(true); }}><Ic n="plus" /> Nova</Btn>
       </div>
 
+      {/* Alternador Lista / Quadro */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+        {[["lista","Lista"],["quadro","Quadro"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setVista(v)} style={{
+            padding:"8px 4px",
+            border:`2px solid ${vista===v?C.yellow:C.border}`,
+            background:vista===v?`${C.yellow}12`:"transparent",
+            color:vista===v?C.text:C.muted,
+            fontFamily:"'Inter Display','Inter',sans-serif",
+            fontWeight:700,fontSize:12,cursor:"pointer",borderRadius:8,
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {/* ═══════════════ QUADRO (KANBAN) ═══════════════ */}
+      {vista === "quadro" && (
+        <div style={{
+          display:"flex", gap:10, overflowX:"auto", paddingBottom:10,
+          margin:"0 -14px", padding:"0 14px 10px",
+        }}>
+          {fases.map((fase, fi) => {
+            const obrasDaFase = porFase[fase.id] || [];
+            const alvo = sobreFase === fase.id;
+            return (
+              <div key={fase.id}
+                onDragOver={e => { e.preventDefault(); setSobreFase(fase.id); }}
+                onDragLeave={() => setSobreFase(s => s===fase.id ? null : s)}
+                onDrop={e => {
+                  e.preventDefault();
+                  if (arrastando) moverObra(arrastando, fase.id);
+                  setArrastando(null); setSobreFase(null);
+                }}
+                style={{
+                  flex:"0 0 268px", minWidth:268,
+                  background: alvo ? `${fase.cor}0E` : C.surface,
+                  border:`1.5px solid ${alvo ? fase.cor : C.border}`,
+                  borderRadius:10, display:"flex", flexDirection:"column",
+                  transition:"background .12s, border-color .12s",
+                }}>
+
+                {/* Cabeçalho da coluna */}
+                <div style={{padding:"10px 11px", borderBottom:`1px solid ${C.line}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{width:9,height:9,borderRadius:2,background:fase.cor,flexShrink:0}}/>
+                    <p style={{
+                      flex:1, minWidth:0, fontSize:11, fontWeight:800,
+                      textTransform:"uppercase", letterSpacing:.6, color:C.text,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                    }}>{fase.nome}</p>
+                    <div style={{display:"flex",gap:1,flexShrink:0}}>
+                      <button onClick={()=>moverFase(fase.id,-1)} disabled={fi===0} title="Mover coluna p/ esquerda"
+                        style={{background:"transparent",border:0,cursor:fi===0?"default":"pointer",
+                                color:fi===0?C.line:C.muted,fontSize:10,padding:"0 2px"}}>◀</button>
+                      <button onClick={()=>moverFase(fase.id,+1)} disabled={fi===fases.length-1} title="Mover coluna p/ direita"
+                        style={{background:"transparent",border:0,cursor:fi===fases.length-1?"default":"pointer",
+                                color:fi===fases.length-1?C.line:C.muted,fontSize:10,padding:"0 2px"}}>▶</button>
+                      <button onClick={()=>abrirEditarFase(fase)} title="Renomear / cor"
+                        style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:11,padding:"0 2px"}}>✎</button>
+                      <button onClick={()=>excluirFase(fase)} title="Excluir fase"
+                        style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:14,padding:"0 2px",lineHeight:1}}>×</button>
+                    </div>
+                  </div>
+                  <p style={{fontSize:10,color:C.muted,marginTop:3}}>
+                    {obrasDaFase.length} obra{obrasDaFase.length===1?"":"s"}
+                  </p>
+                </div>
+
+                {/* Cards */}
+                <div style={{flex:1,padding:8,display:"flex",flexDirection:"column",gap:7,minHeight:90}}>
+                  {obrasDaFase.map(o => {
+                    const st    = statusMap[o.status] || statusMap.active;
+                    const count = data.employees.filter(e => e.active!==false && e.obra===o.name).length;
+                    const menu  = menuCard === o.id;
+                    return (
+                      <div key={o.id}
+                        draggable
+                        onDragStart={() => setArrastando(o.id)}
+                        onDragEnd={() => { setArrastando(null); setSobreFase(null); }}
+                        style={{
+                          background:C.bg,
+                          border:`1px solid ${C.border}`,
+                          borderLeft:`3px solid ${fase.cor}`,
+                          borderRadius:7, padding:"9px 10px",
+                          opacity: arrastando===o.id ? .4 : 1,
+                          cursor:"grab",
+                          boxShadow:`0 1px 3px ${C.shadow}`,
+                          position:"relative",
+                        }}>
+                        <div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}>
+                          <p style={{
+                            flex:1, minWidth:0,
+                            fontFamily:"'Inter Display','Inter',sans-serif",
+                            fontSize:12.5, fontWeight:700, color:C.text, lineHeight:1.3,
+                          }}>{o.name}</p>
+                          <button onClick={()=>setMenuCard(menu ? null : o.id)}
+                            style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",
+                                    fontSize:13,lineHeight:1,padding:"0 2px",flexShrink:0}}>⋮</button>
+                        </div>
+
+                        {o.engineer && (
+                          <p style={{fontSize:10,color:C.muted,marginTop:3}}>{o.engineer}</p>
+                        )}
+
+                        <div style={{display:"flex",alignItems:"center",gap:5,marginTop:6,flexWrap:"wrap"}}>
+                          <Badge color={st.c}>{st.l}</Badge>
+                          {Number(o.areaM2)>0 && (
+                            <span style={{fontSize:9.5,color:C.muted}}>{o.areaM2} m²</span>
+                          )}
+                          {count>0 && (
+                            <span style={{fontSize:9.5,color:C.muted}}>· {count} na equipe</span>
+                          )}
+                        </div>
+
+                        {Number(o.contractValue)>0 && (
+                          <p style={{fontSize:11,fontWeight:800,color:C.yellow,marginTop:5}}>
+                            {fmt(o.contractValue)}
+                          </p>
+                        )}
+
+                        {/* Menu "Mover para" — é o caminho que funciona no celular,
+                            onde arrastar (HTML5 drag) simplesmente não existe. */}
+                        {menu && (
+                          <div style={{
+                            position:"absolute", top:28, right:8, zIndex:20,
+                            background:C.bg, border:`1.5px solid ${C.border}`,
+                            borderRadius:8, boxShadow:`0 6px 20px ${C.shadow}`,
+                            minWidth:180, padding:5,
+                          }}>
+                            <p style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:"uppercase",
+                                       letterSpacing:.6,padding:"4px 7px"}}>Mover para</p>
+                            {fases.filter(f=>f.id!==fase.id).map(f=>(
+                              <button key={f.id} onClick={()=>moverObra(o.id, f.id)} style={{
+                                width:"100%", textAlign:"left", display:"flex", alignItems:"center", gap:6,
+                                padding:"6px 7px", background:"transparent", border:0,
+                                borderRadius:5, cursor:"pointer", fontSize:11.5, color:C.text,
+                                fontFamily:"'Inter',sans-serif",
+                              }}>
+                                <span style={{width:7,height:7,borderRadius:2,background:f.cor,flexShrink:0}}/>
+                                {f.nome}
+                              </button>
+                            ))}
+                            <div style={{height:1,background:C.line,margin:"4px 0"}}/>
+                            <button onClick={()=>{ setForm({...o, areaM2:String(o.areaM2||"")}); setModal(true); setMenuCard(null); }}
+                              style={{width:"100%",textAlign:"left",padding:"6px 7px",background:"transparent",
+                                      border:0,borderRadius:5,cursor:"pointer",fontSize:11.5,color:C.text,
+                                      fontFamily:"'Inter',sans-serif"}}>
+                              ✎ Editar obra
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {obrasDaFase.length === 0 && (
+                    <p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:"14px 6px"}}>
+                      Arraste uma obra pra cá
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Nova coluna */}
+          <div style={{flex:"0 0 168px",minWidth:168}}>
+            <button onClick={abrirNovaFase} style={{
+              width:"100%", padding:"14px 10px",
+              background:"transparent", border:`1.5px dashed ${C.border}`,
+              borderRadius:10, cursor:"pointer", color:C.muted,
+              fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:700, fontSize:12,
+            }}>+ Nova fase</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════ LISTA ═══════════════ */}
+      {vista === "lista" && <>
       <Inp value={search} onChange={setSearch} placeholder="Buscar obra..." />
 
       {list.map(o => {
@@ -3135,6 +3444,45 @@ function Obras({ data, update, showToast }) {
           </div>
         );
       })}
+      </>}
+
+      {/* Modal: nova fase / editar fase */}
+      {faseModal && (
+        <Modal title={faseModal.modo==="editar" ? "Editar fase" : "Nova fase"}
+               onClose={()=>{setFaseModal(null);setFaseNome("");}}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <Inp label="Nome da fase *" value={faseNome} onChange={setFaseNome}
+              placeholder="Ex.: Análise da Prefeitura"/>
+
+            <div>
+              <p style={{fontSize:11,fontWeight:600,color:C.text,marginBottom:6}}>Cor</p>
+              <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                {CORES_FASE.map(c=>(
+                  <button key={c} onClick={()=>setFaseCor(c)} style={{
+                    width:30,height:30,borderRadius:7,background:c,cursor:"pointer",
+                    border: faseCor===c ? `3px solid ${C.text}` : `1px solid ${C.border}`,
+                  }}/>
+                ))}
+              </div>
+            </div>
+
+            {/* Prévia da coluna */}
+            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{width:9,height:9,borderRadius:2,background:faseCor}}/>
+                <p style={{fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:.6,color:C.text}}>
+                  {faseNome || "Nome da fase"}
+                </p>
+              </div>
+            </div>
+
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>{setFaseModal(null);setFaseNome("");}} full>Cancelar</Btn>
+              <Btn onClick={salvarFase} full><Ic n="check"/> Salvar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {modal && (
         <Modal title={form.id ? "Editar obra" : "Nova obra"} onClose={() => setModal(false)} wide>
@@ -3147,6 +3495,8 @@ function Obras({ data, update, showToast }) {
             <Inp label="Endereço" value={form.address} onChange={setField("address")} />
             <Inp label="Responsável" value={form.engineer} onChange={setField("engineer")} />
             <Inp label="Data de início" type="date" value={form.startDate} onChange={setField("startDate")} />
+            <Sel label="Fase (quadro)" value={form.faseId || (fases[0]?.id||"")} onChange={setField("faseId")}
+              options={fases.map(f=>({v:f.id,l:f.nome}))}/>
             <Sel label="Status" value={form.status} onChange={setField("status")} options={[
               { v: "active", l: "Ativa" },
               { v: "paused", l: "Pausada" },
