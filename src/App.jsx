@@ -749,6 +749,52 @@ const normalizeData = incoming => {
       valor:       Number(x.valor || 0),
       recorrente:  !!x.recorrente,
     })) : [],
+    // ── CONCILIAÇÃO BANCÁRIA ──────────────────────────────────
+    extratos: Array.isArray(d.extratos) ? d.extratos.map(x => ({
+      id:          x.id     || uid(),
+      banco:       x.banco  || "",
+      conta:       x.conta  || "",
+      arquivo:     x.arquivo || "",
+      dataInicio:  x.dataInicio || "",
+      dataFim:     x.dataFim    || "",
+      importadoEm: x.importadoEm || new Date().toISOString(),
+      qtd:         Number(x.qtd || 0),
+    })) : [],
+
+    transacoes: Array.isArray(d.transacoes) ? d.transacoes.map(x => ({
+      id:        x.id        || uid(),
+      extratoId: x.extratoId || "",
+      data:      x.data      || "",
+      descricao: x.descricao || "",
+      valor:     Number(x.valor || 0),          // negativo = saída
+      // Chave de deduplicação. FITID é o ID único que o banco emite no OFX;
+      // sem ele (CSV), caímos num hash de data+valor+descrição.
+      chave:     x.chave     || "",
+      status:    x.status    || "pendente",     // pendente | conciliado | ignorado
+      // Rateio: um pagamento pode se dividir entre várias obras e a empresa.
+      // A soma dos rateios TEM que fechar com o valor da transação.
+      rateios:   Array.isArray(x.rateios) ? x.rateios.map(r => ({
+        destino:   r.destino   || "obra",       // "obra" | "empresa"
+        obraId:    r.obraId    || "",
+        categoria: r.categoria || "outros",
+        valor:     Number(r.valor || 0),
+      })) : [],
+      // Ids dos lançamentos gerados — permite desfazer sem deixar lixo no DRE
+      gerados:   Array.isArray(x.gerados) ? x.gerados : [],
+      // Vínculo com uma medição quitada por esta entrada (evita contar 2×)
+      vinculo:   x.vinculo && x.vinculo.tipo ? { tipo:x.vinculo.tipo, id:x.vinculo.id } : null,
+      obs:       x.obs || "",
+    })) : [],
+
+    // Regras de auto-classificação aprendidas do uso
+    regrasConc: Array.isArray(d.regrasConc) ? d.regrasConc.map(x => ({
+      id:        x.id        || uid(),
+      padrao:    x.padrao    || "",             // trecho da descrição
+      destino:   x.destino   || "obra",
+      obraId:    x.obraId    || "",
+      categoria: x.categoria || "outros",
+    })) : [],
+
     caixaObra: Array.isArray(d.caixaObra) ? d.caixaObra.map(x => ({
       id:          x.id          || uid(),
       obraId:      x.obraId      || "",
@@ -7521,10 +7567,10 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","obras","orc","ponto","equipe","terc","folha","resc","dre_emp","dre","fin","medicoes","caixa","relat","ia","config"],
+  admin:       ["home","obras","orc","ponto","equipe","terc","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","config"],
   engenheiro:  ["home","obras","orc","ponto","equipe","terc","caixa","ia"],
   rh:          ["home","equipe","folha","resc","ia"],
-  financeiro:  ["home","orc","dre_emp","dre","fin","medicoes","caixa","relat","ia"],
+  financeiro:  ["home","orc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   visualizador:["home"],
 };
 
@@ -9627,6 +9673,832 @@ ${blocoBDI}
 // CAIXA DE OBRA — aportes do cliente + controle de gastos
 // ═══════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════
+// CONCILIAÇÃO BANCÁRIA
+// ═══════════════════════════════════════════════════════════════════
+
+// Categorias de custo direto de obra (usadas no rateio p/ obra)
+const CATS_OBRA_CONC = [
+  { v:"material",     l:"Material" },
+  { v:"mao_obra",     l:"Mão de obra" },
+  { v:"terceirizado", l:"Terceirizado" },
+  { v:"equipamento",  l:"Equipamento / Locação" },
+  { v:"transporte",   l:"Transporte / Frete" },
+  { v:"receita",      l:"Recebimento do cliente" },
+  { v:"outros",       l:"Outros" },
+];
+
+const semAcentoConc = (s) =>
+  String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+// "1.234,56" → 1234.56
+const parseBRConc = (v) => {
+  if (typeof v === "number") return v;
+  const s = String(v ?? "").trim();
+  if (!s) return 0;
+  const neg = /^\(.*\)$/.test(s) || s.startsWith("-");
+  const n = Number(s.replace(/[()]/g,"").replace(/\./g,"").replace(",",".").replace(/[^\d.-]/g,""));
+  if (isNaN(n)) return 0;
+  return neg && n > 0 ? -n : n;
+};
+
+// "20240315120000[-3:BRT]" | "20240315"  →  "2024-03-15"
+const ofxData = (s) => {
+  const m = String(s||"").match(/^(\d{4})(\d{2})(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
+};
+
+// OFX é o formato que todo banco brasileiro exporta e, melhor, traz o FITID:
+// um identificador único da transação. É ele que torna a deduplicação exata,
+// em vez de heurística.
+const parseOFX = (texto) => {
+  const tag = (bloco, t) => {
+    const m = bloco.match(new RegExp(`<${t}>([^<\r\n]*)`, "i"));
+    return m ? m[1].trim() : "";
+  };
+  const banco = tag(texto, "ORG") || tag(texto, "BANKID") || "";
+  const conta = tag(texto, "ACCTID") || "";
+  const blocos = texto.match(/<STMTTRN>[\s\S]*?<\/STMTTRN>/gi) || [];
+  const trans = blocos.map(b => ({
+    data:      ofxData(tag(b, "DTPOSTED")),
+    descricao: (tag(b, "MEMO") || tag(b, "NAME") || "").trim(),
+    valor:     Number(String(tag(b, "TRNAMT")).replace(",", ".")),
+    fitid:     tag(b, "FITID"),
+  })).filter(t => t.data && !isNaN(t.valor) && t.valor !== 0);
+  return { banco, conta, trans };
+};
+
+// Chave de deduplicação: FITID quando existe; senão, impressão digital da linha.
+const chaveTransacao = (t) =>
+  t.fitid ? `fit:${t.fitid}`
+          : `h:${t.data}|${Number(t.valor).toFixed(2)}|${String(t.descricao).slice(0,40).toLowerCase()}`;
+
+// Soma dos rateios. O fechamento (soma == valor da transação, ±1 centavo) é
+// verificado no componente, que precisa exibir a diferença ao vivo.
+const somaRateios = (rateios) =>
+  (rateios||[]).reduce((s,r) => s + Number(r.valor||0), 0);
+
+// Sugere destino a partir das regras que o usuário foi criando
+const sugerirRateio = (tr, regras) => {
+  const d = String(tr.descricao||"").toLowerCase();
+  const regra = (regras||[]).find(r => r.padrao && d.includes(r.padrao.toLowerCase()));
+  if (!regra) return null;
+  return { destino: regra.destino, obraId: regra.obraId, categoria: regra.categoria };
+};
+
+// Distância em dias entre duas datas ISO
+const diasEntre = (a, b) => {
+  if (!a || !b) return 999;
+  return Math.abs(Math.round(
+    (new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 86400000
+  ));
+};
+
+// ── Casamento entrada bancária ↔ medição em aberto ──────────────────
+//
+// Devolve CANDIDATAS pontuadas, nunca uma decisão. Duas medições de mesmo
+// valor e mesmo vencimento empatam — é aí que o palpite automático erraria
+// metade das vezes, e por isso quem escolhe é o usuário.
+const sugerirMedicoes = (tr, data) => {
+  const v = Number(tr.valor || 0);
+  if (v <= 0) return [];                       // só entrada quita medição
+  const desc = semAcentoConc(tr.descricao);
+  const cands = [];
+
+  (data.medicoes || []).filter(m => !m.recebido).forEach(m => {
+    const obra = (data.obras || []).find(o => o.id === m.obraId);
+    const prev = Number(m.valorPrevisto || 0);
+    if (prev <= 0) return;
+
+    let score = 0;
+    const motivos = [];
+
+    // Valor
+    const dif = Math.abs(prev - v);
+    if (dif < 0.01)               { score += 100; motivos.push("valor exato"); }
+    else if (dif / prev <= 0.01)  { score += 60;  motivos.push("valor ~1%"); }
+    else if (dif / prev <= 0.05)  { score += 30;  motivos.push("valor ~5%"); }
+    else if (v < prev)            { score += 10;  motivos.push("pagamento parcial"); }
+    else return;                                 // recebeu MAIS que o previsto → não é esta
+
+    // Proximidade do vencimento
+    const d = diasEntre(tr.data, m.dataVencimento);
+    if (d <= 3)       { score += 40; motivos.push(`${d}d do vencimento`); }
+    else if (d <= 10) { score += 25; motivos.push(`${d}d do vencimento`); }
+    else if (d <= 30) { score += 8; }
+    else              { score -= 15; }
+
+    // Nome do cliente ou da obra citado no extrato
+    const prim = (s) => semAcentoConc(s).split(" ")[0];
+    if (obra?.engineer && prim(obra.engineer) && desc.includes(prim(obra.engineer))) {
+      score += 30; motivos.push("cliente na descrição");
+    }
+    if (obra?.name && prim(obra.name) && desc.includes(prim(obra.name))) {
+      score += 25; motivos.push("obra na descrição");
+    }
+
+    if (score >= 40) {
+      cands.push({ m, obra, score, motivos, parcial: v < prev - 0.01, prev });
+    }
+  });
+
+  return cands.sort((a, b) => b.score - a.score).slice(0, 3);
+};
+
+// Painel de números da conciliação
+const calcConciliacao = (data) => {
+  const trans = data.transacoes || [];
+  const pend  = trans.filter(t => t.status === "pendente");
+  const conc  = trans.filter(t => t.status === "conciliado");
+  const ign   = trans.filter(t => t.status === "ignorado");
+  const vPend = pend.reduce((s,t) => s + Math.abs(Number(t.valor||0)), 0);
+  const entradas = conc.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0);
+  const saidas   = conc.filter(t=>t.valor<0).reduce((s,t)=>s+Math.abs(t.valor),0);
+  return {
+    total: trans.length,
+    pendentes: pend.length, conciliadas: conc.length, ignoradas: ign.length,
+    valorPendente: vPend, entradas, saidas,
+    pct: trans.length ? (conc.length / trans.length) * 100 : 0,
+  };
+};
+
+function Conciliacao({ data, update, showToast }) {
+  const { cols, formGrid } = useBreakpoint();
+  const [aba,        setAba]        = useState("pendentes");  // pendentes|conciliadas|ignoradas|extratos
+  const [importando, setImportando] = useState(false);
+  const [apropModal, setApropModal] = useState(null);   // transação em apropriação
+  const [rateios,    setRateios]    = useState([]);
+  const [criarRegra, setCriarRegra] = useState(false);
+  const [padraoRegra,setPadraoRegra]= useState("");
+  const [medAlvo,    setMedAlvo]    = useState(null);   // medição que a entrada vai quitar
+
+  const calc = useMemo(() => calcConciliacao(data), [data]);
+
+  const transacoes = useMemo(() => {
+    const t = [...(data.transacoes || [])];
+    t.sort((a,b) => (b.data||"").localeCompare(a.data||""));
+    if (aba === "pendentes")   return t.filter(x => x.status === "pendente");
+    if (aba === "conciliadas") return t.filter(x => x.status === "conciliado");
+    if (aba === "ignoradas")   return t.filter(x => x.status === "ignorado");
+    return t;
+  }, [data.transacoes, aba]);
+
+  // ── Importar extrato ─────────────────────────────────────────
+  const importar = async (file) => {
+    if (!file) return;
+    setImportando(true);
+    try {
+      const nome = file.name.toLowerCase();
+      let banco = "", conta = "", brutas = [];
+
+      if (nome.endsWith(".ofx") || nome.endsWith(".qfx")) {
+        const txt = await file.text();
+        const r = parseOFX(txt);
+        banco = r.banco; conta = r.conta; brutas = r.trans;
+      } else {
+        // CSV / XLSX: detecta as colunas de data, descrição e valor
+        const buf = await file.arrayBuffer();
+        const wb  = XLSX.read(buf, { type:"array", cellDates:false });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"", raw:false });
+
+        let hIdx = -1, cData = -1, cDesc = -1, cVal = -1, cCred = -1, cDeb = -1;
+        for (let r = 0; r < Math.min(15, rows.length); r++) {
+          const linha = (rows[r]||[]).map(c => String(c??"").toUpperCase());
+          const iData = linha.findIndex(h => h.includes("DATA") || h.includes("DT"));
+          const iDesc = linha.findIndex(h => h.includes("HISTÓRICO") || h.includes("HISTORICO") ||
+                                             h.includes("DESCRI") || h.includes("LANÇAMENTO") || h.includes("MEMO"));
+          const iVal  = linha.findIndex(h => h.includes("VALOR") || h.includes("MONTANTE"));
+          const iCred = linha.findIndex(h => h.includes("CRÉDITO") || h.includes("CREDITO") || h.includes("ENTRADA"));
+          const iDeb  = linha.findIndex(h => h.includes("DÉBITO") || h.includes("DEBITO") || h.includes("SAÍDA") || h.includes("SAIDA"));
+          if (iData >= 0 && iDesc >= 0 && (iVal >= 0 || iCred >= 0 || iDeb >= 0)) {
+            hIdx = r; cData = iData; cDesc = iDesc; cVal = iVal; cCred = iCred; cDeb = iDeb;
+            break;
+          }
+        }
+        if (hIdx < 0) { showToast("Não reconheci as colunas. Use o OFX do seu banco.", "error"); setImportando(false); return; }
+
+        const pData = (v) => {
+          const s = String(v??"").trim();
+          let m = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);        // dd/mm/aaaa
+          if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+          m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);                       // aaaa-mm-dd
+          if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+          return "";
+        };
+
+        brutas = rows.slice(hIdx+1).map(r => {
+          const dt = pData(r[cData]);
+          const ds = String(r[cDesc] ?? "").trim();
+          let v = 0;
+          if (cVal >= 0)       v = parseBRConc(r[cVal]);
+          else {
+            const cr = cCred >= 0 ? parseBRConc(r[cCred]) : 0;
+            const db = cDeb  >= 0 ? parseBRConc(r[cDeb])  : 0;
+            v = cr - Math.abs(db);
+          }
+          return { data: dt, descricao: ds, valor: v, fitid: "" };
+        }).filter(t => t.data && t.descricao && t.valor !== 0 && !isNaN(t.valor));
+        banco = file.name;
+      }
+
+      if (!brutas.length) { showToast("Nenhuma transação encontrada no arquivo.", "error"); setImportando(false); return; }
+
+      // Deduplicação: nunca reimportar uma transação que já está no sistema
+      const jaTem = new Set((data.transacoes||[]).map(t => t.chave));
+      const novas = [];
+      const dups  = [];
+      brutas.forEach(t => {
+        const chave = chaveTransacao(t);
+        if (jaTem.has(chave)) { dups.push(t); return; }
+        jaTem.add(chave);   // evita duplicata dentro do próprio arquivo
+        novas.push({
+          id: uid(), extratoId: "", data: t.data, descricao: t.descricao,
+          valor: t.valor, chave, status: "pendente", rateios: [], gerados: [], obs: "",
+        });
+      });
+
+      if (!novas.length) {
+        showToast(`Todas as ${dups.length} transações já haviam sido importadas.`, "warn");
+        setImportando(false); return;
+      }
+
+      const datas = novas.map(t=>t.data).sort();
+      const extrato = {
+        id: uid(), banco, conta, arquivo: file.name,
+        dataInicio: datas[0], dataFim: datas[datas.length-1],
+        importadoEm: new Date().toISOString(), qtd: novas.length,
+      };
+      novas.forEach(t => { t.extratoId = extrato.id; });
+
+      update({
+        ...data,
+        extratos:   [...(data.extratos||[]), extrato],
+        transacoes: [...(data.transacoes||[]), ...novas],
+      });
+      showToast(
+        dups.length
+          ? `${novas.length} novas importadas · ${dups.length} já existiam (ignoradas).`
+          : `${novas.length} transações importadas.`
+      );
+    } catch (e) {
+      showToast("Erro ao ler o extrato. Confirme o formato (.ofx, .csv ou .xlsx).", "error");
+    }
+    setImportando(false);
+  };
+
+  // ── Apropriar ────────────────────────────────────────────────
+  const abrirApropriacao = (tr) => {
+    const sug = sugerirRateio(tr, data.regrasConc);
+    setRateios(
+      (tr.rateios && tr.rateios.length)
+        ? tr.rateios.map(r => ({...r, valor: String(r.valor)}))
+        : [{
+            destino:   sug?.destino   || (tr.valor > 0 ? "obra" : "empresa"),
+            obraId:    sug?.obraId    || "",
+            categoria: sug?.categoria || (tr.valor > 0 ? "receita" : "outros"),
+            valor:     String(Math.abs(tr.valor).toFixed(2)),
+          }]
+    );
+    setPadraoRegra("");
+    setCriarRegra(false);
+    setMedAlvo(null);          // nada pré-selecionado: quem casa é o usuário
+    setApropModal(tr);
+  };
+
+  // Candidatas a serem quitadas por esta entrada
+  const candidatas = useMemo(
+    () => apropModal ? sugerirMedicoes(apropModal, data) : [],
+    [apropModal, data]
+  );
+
+  // Ao escolher uma medição, o rateio já vai pronto para a obra dela
+  const escolherMedicao = (c) => {
+    if (medAlvo?.m.id === c.m.id) { setMedAlvo(null); return; }   // desmarca
+    setMedAlvo(c);
+    setRateios([{
+      destino: "obra",
+      obraId: c.m.obraId,
+      categoria: "receita",
+      valor: String(Math.abs(Number(apropModal.valor)).toFixed(2)),
+    }]);
+  };
+
+  const addRateio = () => setRateios(rs => [...rs, {
+    destino:"obra", obraId:"", categoria:"material", valor:"",
+  }]);
+  const updRateio = (i, campo, v) =>
+    setRateios(rs => rs.map((r,k) => k===i ? {...r, [campo]: v} : r));
+  const delRateio = (i) => setRateios(rs => rs.filter((_,k) => k!==i));
+
+  const totalRateado = somaRateios(rateios.map(r => ({...r, valor: Number(r.valor||0)})));
+  const alvo = apropModal ? Math.abs(Number(apropModal.valor)) : 0;
+  const diferenca = alvo - totalRateado;
+
+  const confirmarApropriacao = () => {
+    if (!apropModal) return;
+    const tr = apropModal;
+    const rs = rateios.map(r => ({ ...r, valor: Number(r.valor||0) }));
+
+    if (!rs.length)                       { showToast("Adicione ao menos um destino.", "error"); return; }
+    if (rs.some(r => r.valor <= 0))       { showToast("Todo rateio precisa de valor maior que zero.", "error"); return; }
+    if (rs.some(r => r.destino==="obra" && !r.obraId)) { showToast("Selecione a obra de cada rateio.", "error"); return; }
+    if (Math.abs(diferenca) >= 0.01) {
+      showToast(`O rateio não fecha: faltam ${fmt(Math.abs(diferenca))}.`, "error"); return;
+    }
+
+    const comp    = (tr.data || "").slice(0,7);
+    const entrada = Number(tr.valor) > 0;
+
+    // Gera os lançamentos nos MESMOS arrays que o DRE já lê. Assim a
+    // conciliação alimenta o resultado sem duplicar regra de negócio.
+    const novasOutras  = [];
+    const novasEmpresa = [];
+    const novosPagtos  = [];
+    const gerados      = [];
+
+    rs.forEach(r => {
+      const id = uid();
+      gerados.push(id);
+      if (r.destino === "obra") {
+        if (entrada) {
+          // Se a entrada quita uma MEDIÇÃO, ela NÃO vira pagamento avulso:
+          // a receita já é reconhecida pela medição. Lançar os dois contaria
+          // o mesmo dinheiro duas vezes no DRE.
+          if (medAlvo && r.obraId === medAlvo.m.obraId) {
+            gerados.pop();   // não gerou lançamento — o vínculo é com a medição
+            return;
+          }
+          novosPagtos.push({
+            id, obraId: r.obraId, date: tr.data, amount: r.valor,
+            description: `[Extrato] ${tr.descricao}`.slice(0,120),
+          });
+        } else {
+          novasOutras.push({
+            id, obraId: r.obraId, competencia: comp,
+            categoria: r.categoria,
+            descricao: `[Extrato] ${tr.descricao}`.slice(0,120),
+            valor: r.valor,
+          });
+        }
+      } else {
+        novasEmpresa.push({
+          id, competencia: comp, categoria: r.categoria,
+          descricao: `[Extrato] ${tr.descricao}`.slice(0,120),
+          valor: entrada ? -r.valor : r.valor,   // entrada na empresa reduz despesa
+          recorrente: false,
+        });
+      }
+    });
+
+    // Regra de auto-classificação para as próximas
+    const regras = [...(data.regrasConc||[])];
+    if (criarRegra && padraoRegra.trim() && rs.length === 1) {
+      regras.push({
+        id: uid(), padrao: padraoRegra.trim(),
+        destino: rs[0].destino, obraId: rs[0].obraId, categoria: rs[0].categoria,
+      });
+    }
+
+    // Quitação da medição
+    const medicoes = medAlvo
+      ? (data.medicoes||[]).map(m => m.id === medAlvo.m.id ? {
+          ...m,
+          recebido: true,
+          valorRecebido: Math.abs(Number(tr.valor)),
+          dataPagamento: tr.data,
+        } : m)
+      : (data.medicoes||[]);
+
+    update({
+      ...data,
+      transacoes: (data.transacoes||[]).map(t =>
+        t.id === tr.id ? {
+          ...t, status:"conciliado", rateios: rs, gerados,
+          vinculo: medAlvo ? { tipo:"medicao", id: medAlvo.m.id } : null,
+        } : t),
+      medicoes,
+      outrasDesp:      [...(data.outrasDesp||[]),      ...novasOutras],
+      despesasEmpresa: [...(data.despesasEmpresa||[]), ...novasEmpresa],
+      payments:        [...(data.payments||[]),        ...novosPagtos],
+      regrasConc: regras,
+    });
+    setApropModal(null); setRateios([]); setMedAlvo(null);
+    showToast(
+      medAlvo
+        ? `Conciliada e ${medAlvo.m.descricao || "medição"} marcada como recebida.`
+        : "Transação conciliada e lançada no DRE."
+    );
+  };
+
+  // Desfazer: remove os lançamentos gerados. Sem isso, "desconciliar"
+  // deixaria a despesa no DRE para sempre.
+  const desfazer = (tr) => {
+    const ger = new Set(tr.gerados || []);
+
+    // Se esta transação quitou uma medição, a medição volta a ficar em aberto.
+    // Sem isso, desfazer deixaria a parcela marcada como recebida para sempre.
+    const medicoes = tr.vinculo?.tipo === "medicao"
+      ? (data.medicoes||[]).map(m => m.id === tr.vinculo.id
+          ? { ...m, recebido:false, valorRecebido:0, dataPagamento:"" } : m)
+      : (data.medicoes||[]);
+
+    update({
+      ...data,
+      medicoes,
+      transacoes: (data.transacoes||[]).map(t =>
+        t.id === tr.id ? { ...t, status:"pendente", rateios: [], gerados: [], vinculo: null } : t),
+      outrasDesp:      (data.outrasDesp||[]).filter(x => !ger.has(x.id)),
+      despesasEmpresa: (data.despesasEmpresa||[]).filter(x => !ger.has(x.id)),
+      payments:        (data.payments||[]).filter(x => !ger.has(x.id)),
+    });
+    showToast("Conciliação desfeita e lançamentos removidos.");
+  };
+
+  const ignorar = (tr) => {
+    update({ ...data, transacoes: (data.transacoes||[]).map(t =>
+      t.id === tr.id ? { ...t, status:"ignorado" } : t) });
+    showToast("Transação ignorada (transferência interna, estorno, etc.).");
+  };
+
+  const delExtrato = (ext) => {
+    const n = (data.transacoes||[]).filter(t => t.extratoId===ext.id);
+    const conc = n.filter(t => t.status==="conciliado").length;
+    if (!window.confirm(
+      `Excluir o extrato "${ext.arquivo}"?\n\nRemove ${n.length} transação(ões)` +
+      (conc ? `, sendo ${conc} já conciliada(s) — os lançamentos no DRE também saem.` : ".")
+    )) return;
+    const ger = new Set(n.flatMap(t => t.gerados || []));
+    update({
+      ...data,
+      extratos:   (data.extratos||[]).filter(e => e.id !== ext.id),
+      transacoes: (data.transacoes||[]).filter(t => t.extratoId !== ext.id),
+      outrasDesp:      (data.outrasDesp||[]).filter(x => !ger.has(x.id)),
+      despesasEmpresa: (data.despesasEmpresa||[]).filter(x => !ger.has(x.id)),
+      payments:        (data.payments||[]).filter(x => !ger.has(x.id)),
+    });
+    showToast("Extrato removido.");
+  };
+
+  const nomeObra = (id) => (data.obras.find(o=>o.id===id)?.name) || "—";
+
+  return (
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div>
+        <p style={{fontSize:11,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Financeiro</p>
+        <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:20,color:C.text}}>
+          Conciliação Bancária
+        </h3>
+      </div>
+
+      {/* KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
+        {[
+          ["Pendentes",  String(calc.pendentes),      C.orange],
+          ["Conciliadas",String(calc.conciliadas),    C.green],
+          ["A classificar", fmt(calc.valorPendente),  C.text],
+          ["Progresso",  `${calc.pct.toFixed(0)}%`,   C.yellow],
+        ].map(([l,v,c])=>(
+          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}>
+            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,letterSpacing:.5}}>{l}</p>
+            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:16,fontWeight:800,color:c,marginTop:2}}>{v}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Importar */}
+      <div style={{background:C.surface,border:`1.5px dashed ${C.border}`,borderRadius:10,padding:"12px 14px"}}>
+        {importando ? (
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:18,height:18,border:`3px solid ${C.border}`,borderTopColor:C.yellow,
+                         borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
+            <p style={{fontSize:13,fontWeight:700,color:C.text}}>Lendo o extrato…</p>
+          </div>
+        ) : (<>
+          <p style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:3}}>🏦 Importar extrato</p>
+          <p style={{fontSize:11,color:C.muted,marginBottom:9,lineHeight:1.5}}>
+            Prefira o <strong>OFX</strong> do seu banco: ele traz o identificador único de cada
+            transação, então reimportar o mesmo período nunca duplica lançamento.
+            CSV e XLSX também funcionam.
+          </p>
+          <label style={{display:"inline-block"}}>
+            <input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls"
+              onChange={e=>importar(e.target.files?.[0])} style={{display:"none"}}/>
+            <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",
+                          border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:8,cursor:"pointer",
+                          fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:12,
+                          textTransform:"uppercase",letterSpacing:.5}}>
+              📁 Escolher extrato
+            </span>
+          </label>
+        </>)}
+      </div>
+
+      {/* Abas */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5}}>
+        {[["pendentes",`Pendentes (${calc.pendentes})`],["conciliadas","Conciliadas"],
+          ["ignoradas","Ignoradas"],["extratos","Extratos"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAba(v)} style={{
+            padding:"7px 3px",
+            border:`2px solid ${aba===v?C.yellow:C.border}`,
+            background:aba===v?`${C.yellow}12`:"transparent",
+            color:aba===v?C.text:C.muted,
+            fontFamily:"'Inter Display','Inter',sans-serif",
+            fontWeight:700,fontSize:10.5,cursor:"pointer",borderRadius:7,
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {/* Lista de extratos */}
+      {aba === "extratos" && (
+        (data.extratos||[]).length === 0
+          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>Nenhum extrato importado.</p>
+          : (data.extratos||[]).map(e=>(
+            <div key={e.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px",
+                                    display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <div style={{minWidth:0}}>
+                <p style={{fontSize:13,fontWeight:700,color:C.text}}>{e.banco || e.arquivo}</p>
+                <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
+                  {e.conta && `Conta ${e.conta} · `}{e.qtd} transações
+                  {e.dataInicio && ` · ${fmtDate(e.dataInicio)} a ${fmtDate(e.dataFim)}`}
+                </p>
+              </div>
+              <Btn size="sm" v="danger" onClick={()=>delExtrato(e)}><Ic n="trash"/></Btn>
+            </div>
+          ))
+      )}
+
+      {/* Lista de transações */}
+      {aba !== "extratos" && (
+        transacoes.length === 0
+          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>
+              {aba==="pendentes" ? "Nada pendente — tudo classificado." : "Nenhuma transação aqui."}
+            </p>
+          : transacoes.map(tr=>{
+            const entrada = Number(tr.valor) > 0;
+            const sug = tr.status==="pendente" ? sugerirRateio(tr, data.regrasConc) : null;
+            return (
+              <div key={tr.id} style={{
+                background:C.card, border:`1px solid ${C.border}`,
+                borderLeft:`3px solid ${entrada ? C.green : C.red}`,
+                borderRadius:8, padding:"10px 12px",
+              }}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontSize:12.5,color:C.text,fontWeight:600,lineHeight:1.35}}>{tr.descricao}</p>
+                    <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>{fmtDate(tr.data)}</p>
+                  </div>
+                  <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:15,fontWeight:800,
+                             color:entrada?C.green:C.red,flexShrink:0}}>
+                    {entrada ? "+" : "−"} {fmt(Math.abs(tr.valor))}
+                  </p>
+                </div>
+
+                {/* Rateio já feito */}
+                {tr.status==="conciliado" && (tr.rateios||[]).length > 0 && (
+                  <div style={{marginTop:7,paddingTop:7,borderTop:`1px solid ${C.line}`}}>
+                    {tr.rateios.map((r,i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.muted,marginTop:1}}>
+                        <span>
+                          {r.destino==="obra" ? `🏗 ${nomeObra(r.obraId)}` : "🏢 Empresa"}
+                          {" · "}{r.categoria}
+                        </span>
+                        <span style={{fontWeight:700,color:C.text}}>{fmt(r.valor)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Vínculo com medição */}
+                {tr.vinculo?.tipo === "medicao" && (
+                  <p style={{fontSize:10,color:C.green,marginTop:5,fontWeight:700}}>
+                    🔗 Quitou uma medição
+                  </p>
+                )}
+
+                {/* Sugestão automática */}
+                {sug && (
+                  <p style={{fontSize:10,color:C.blue,marginTop:5,fontWeight:600}}>
+                    💡 Sugestão: {sug.destino==="obra" ? nomeObra(sug.obraId) : "Empresa"} · {sug.categoria}
+                  </p>
+                )}
+
+                <div style={{display:"flex",gap:6,marginTop:8}}>
+                  {tr.status === "pendente" && <>
+                    <Btn size="sm" onClick={()=>abrirApropriacao(tr)} full>
+                      <Ic n="check"/> Apropriar
+                    </Btn>
+                    <Btn size="sm" v="ghost" onClick={()=>ignorar(tr)}>Ignorar</Btn>
+                  </>}
+                  {tr.status === "conciliado" && (
+                    <Btn size="sm" v="ghost" onClick={()=>desfazer(tr)} full>Desfazer conciliação</Btn>
+                  )}
+                  {tr.status === "ignorado" && (
+                    <Btn size="sm" v="ghost" onClick={()=>abrirApropriacao(tr)} full>Reclassificar</Btn>
+                  )}
+                </div>
+              </div>
+            );
+          })
+      )}
+
+      {/* ═══ Modal: apropriar ═══ */}
+      {apropModal && (
+        <Modal title="Apropriar transação" onClose={()=>{setApropModal(null);setRateios([]);setMedAlvo(null);}} wide>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+              <p style={{fontSize:12.5,color:C.text,fontWeight:600}}>{apropModal.descricao}</p>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:5}}>
+                <p style={{fontSize:11,color:C.muted}}>{fmtDate(apropModal.data)}</p>
+                <p style={{fontSize:15,fontWeight:800,
+                           color: Number(apropModal.valor)>0 ? C.green : C.red}}>
+                  {Number(apropModal.valor)>0 ? "+" : "−"} {fmt(alvo)}
+                </p>
+              </div>
+            </div>
+
+            {/* ═══ Casamento com medição em aberto ═══
+                Aparece só em ENTRADAS que têm candidata. Nada vem pré-marcado:
+                o app sugere, você decide. */}
+            {candidatas.length > 0 && (
+              <div style={{background:`${C.blue}08`,border:`1.5px solid ${C.blue}55`,
+                           borderRadius:9,padding:"11px 12px"}}>
+                <p style={{fontSize:11.5,fontWeight:800,color:C.blue,marginBottom:2}}>
+                  💡 Esta entrada parece quitar uma medição
+                </p>
+                <p style={{fontSize:10.5,color:C.muted,marginBottom:9,lineHeight:1.5}}>
+                  Se você confirmar, a parcela é marcada como <strong>recebida</strong> e a
+                  receita passa a ser reconhecida por ela — sem lançamento avulso em duplicidade.
+                </p>
+
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {candidatas.map(c => {
+                    const sel = medAlvo?.m.id === c.m.id;
+                    const obra = c.obra;
+                    return (
+                      <button key={c.m.id} onClick={()=>escolherMedicao(c)} style={{
+                        textAlign:"left", cursor:"pointer",
+                        background: sel ? `${C.blue}14` : C.bg,
+                        border:`1.5px solid ${sel ? C.blue : C.border}`,
+                        borderRadius:8, padding:"9px 11px",
+                      }}>
+                        <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
+                          <div style={{minWidth:0,flex:1}}>
+                            <p style={{fontSize:12,fontWeight:700,color:C.text}}>
+                              {sel ? "◉" : "○"} {obra?.name || "—"}
+                            </p>
+                            <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
+                              {c.m.descricao || `Parcela ${c.m.numeroParcela}`}
+                              {c.m.dataVencimento && ` · vence ${fmtDate(c.m.dataVencimento)}`}
+                            </p>
+                            <p style={{fontSize:9.5,color:C.blue,marginTop:3}}>
+                              {c.motivos.join(" · ")}
+                            </p>
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            <p style={{fontSize:12.5,fontWeight:800,color:C.text}}>{fmt(c.prev)}</p>
+                            {c.parcial && (
+                              <p style={{fontSize:9,color:C.orange,fontWeight:700,marginTop:2}}>
+                                ⚠ PARCIAL
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {medAlvo?.parcial && (
+                  <div style={{marginTop:8,background:`${C.orange}10`,border:`1px solid ${C.orange}44`,
+                               borderRadius:6,padding:"7px 10px"}}>
+                    <p style={{fontSize:10.5,color:C.orange,fontWeight:700}}>Pagamento parcial</p>
+                    <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.45}}>
+                      Recebido {fmt(alvo)} de {fmt(medAlvo.prev)} previstos.
+                      A parcela será dada por quitada com o valor recebido — se o resto ainda vem,
+                      talvez seja melhor não vincular agora.
+                    </p>
+                  </div>
+                )}
+
+                {!medAlvo && (
+                  <p style={{fontSize:10,color:C.muted,marginTop:8,fontStyle:"italic"}}>
+                    Nenhuma selecionada — a entrada será lançada como recebimento avulso da obra.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
+              Divida o valor entre obras e a empresa. Um pagamento único de material pode
+              atender várias obras — some quantos destinos precisar.
+            </p>
+
+            {/* Linhas de rateio */}
+            {rateios.map((r,i)=>(
+              <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 11px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+                  <p style={{fontSize:10,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>
+                    Destino {i+1}
+                  </p>
+                  {rateios.length > 1 && (
+                    <button onClick={()=>delRateio(i)} style={{background:"transparent",border:0,color:C.muted,
+                                                               cursor:"pointer",fontSize:15,lineHeight:1}}>×</button>
+                  )}
+                </div>
+
+                <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+                  <Sel label="Vai para" value={r.destino}
+                    onChange={v=>{ updRateio(i,"destino",v); updRateio(i,"obraId",""); }}
+                    options={[{v:"obra",l:"🏗 Uma obra"},{v:"empresa",l:"🏢 A empresa"}]}/>
+
+                  {r.destino === "obra" ? (
+                    <Sel label="Obra" value={r.obraId} onChange={v=>updRateio(i,"obraId",v)}
+                      options={[{v:"",l:"Selecione…"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+                  ) : (
+                    <Sel label="Categoria" value={r.categoria} onChange={v=>updRateio(i,"categoria",v)}
+                      options={CATS_DESP.map(c=>({v:c.v,l:c.l}))}/>
+                  )}
+
+                  {r.destino === "obra" && (
+                    <Sel label="Categoria" value={r.categoria} onChange={v=>updRateio(i,"categoria",v)}
+                      options={CATS_OBRA_CONC.map(c=>({v:c.v,l:c.l}))}/>
+                  )}
+
+                  <Inp label="Valor (R$)" type="number" value={r.valor}
+                    onChange={v=>updRateio(i,"valor",v)} placeholder="0,00"/>
+                </div>
+              </div>
+            ))}
+
+            <Btn v="ghost" onClick={addRateio} full><Ic n="plus"/> Adicionar outro destino</Btn>
+
+            {/* Fechamento do rateio */}
+            <div style={{
+              background: Math.abs(diferenca) < 0.01 ? `${C.green}0E` : `${C.orange}0E`,
+              border:`1.5px solid ${Math.abs(diferenca) < 0.01 ? C.green : C.orange}`,
+              borderRadius:8, padding:"10px 12px",
+            }}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted}}>
+                <span>Valor da transação</span><span>{fmt(alvo)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginTop:2}}>
+                <span>Rateado</span><span>{fmt(totalRateado)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                           marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`}}>
+                <span style={{fontSize:12,fontWeight:700,
+                              color: Math.abs(diferenca) < 0.01 ? C.green : C.orange}}>
+                  {Math.abs(diferenca) < 0.01 ? "✓ Rateio fecha" : "Falta distribuir"}
+                </span>
+                <span style={{fontSize:15,fontWeight:800,
+                              color: Math.abs(diferenca) < 0.01 ? C.green : C.orange}}>
+                  {fmt(Math.abs(diferenca))}
+                </span>
+              </div>
+            </div>
+
+            {/* Criar regra */}
+            {rateios.length === 1 && (
+              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+                <label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer"}}>
+                  <div onClick={()=>setCriarRegra(!criarRegra)} style={{
+                    width:19,height:19,borderRadius:5,flexShrink:0,
+                    border:`2px solid ${criarRegra?C.yellow:C.border}`,
+                    background:criarRegra?C.yellow:"transparent",
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                  }}>
+                    {criarRegra && <span style={{color:"#fff",fontSize:12,fontWeight:900}}>✓</span>}
+                  </div>
+                  <p style={{fontSize:12,fontWeight:700,color:C.text}}>
+                    Classificar assim automaticamente das próximas vezes
+                  </p>
+                </label>
+                {criarRegra && (
+                  <div style={{marginTop:9}}>
+                    <Inp label="Quando a descrição contiver" value={padraoRegra} onChange={setPadraoRegra}
+                      placeholder="Ex.: CELPE, ALUGUEL, PIX JOSE DAVID"/>
+                    <p style={{fontSize:10,color:C.muted,marginTop:4,lineHeight:1.45}}>
+                      Vira só uma <strong>sugestão</strong> — você continua confirmando cada transação.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>{setApropModal(null);setRateios([]);setMedAlvo(null);}} full>Cancelar</Btn>
+              <Btn onClick={confirmarApropriacao} full disabled={Math.abs(diferenca) >= 0.01}>
+                <Ic n="check"/> Conciliar
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 const CAIXA_CATS = [
   { v:"material",     l:"Material de construção", icon:"🧱" },
   { v:"ferramenta",   l:"Ferramenta / Equipamento", icon:"🔧" },
@@ -10354,7 +11226,7 @@ const NAV_GROUPS = [
   },
   {
     id: "fin_grp", label: "Financeiro", icon: "dollar", color: C.purple,
-    tabs: ["dre_emp", "dre", "fin", "medicoes", "caixa", "relat"],
+    tabs: ["dre_emp", "dre", "fin", "conc", "medicoes", "caixa", "relat"],
   },
   {
     id: "ia_grp", label: "IA", icon: "brain", color: C.orange,
@@ -10378,6 +11250,7 @@ const TAB_META = {
   dre_emp:  { label: "DRE Empresa", icon: "chart",  group: "fin_grp" },
   dre:      { label: "DRE Obras",   icon: "chart",  group: "fin_grp" },
   fin:      { label: "KPIs",        icon: "dollar", group: "fin_grp" },
+  conc:     { label: "Conciliação", icon: "dollar", group: "fin_grp" },
   medicoes: { label: "Medições",   icon: "dollar",   group: "fin_grp" },
   caixa:    { label: "Caixa Obra", icon: "dollar",   group: "fin_grp" },
   relat:    { label: "Relatórios", icon: "chart",    group: "fin_grp" },
@@ -10773,6 +11646,7 @@ export default function App() {
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} />}
+          {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast}/>}
           {tab === "medicoes" && <MedicoesView data={data} update={update} showToast={showToast} />}
           {tab === "caixa"    && <CaixaObra    data={data} update={update} showToast={showToast} />}
           {tab === "relat"    && <Relatorios   data={data} />}
