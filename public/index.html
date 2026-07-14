@@ -1,12 +1,17 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ArcD Ponto PRO</title>
-  </head>
-  <body>
-    <noscript>Você precisa habilitar o JavaScript para rodar este app.</noscript>
-    <div id="root"></div>
-  </body>
-</html>
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import ErrorBoundary from "./ErrorBoundary";
+
+// Sem AuthGate e sem Auth: não há mais login de e-mail/senha do Supabase.
+// O PIN do próprio app é a credencial — e ele é conferido no servidor,
+// dentro de /api/data. O navegador não guarda chave de banco nenhuma.
+const root = ReactDOM.createRoot(document.getElementById("root"));
+
+root.render(
+  <React.StrictMode>
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  </React.StrictMode>
+);
