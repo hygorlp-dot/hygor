@@ -632,6 +632,7 @@ const DEFAULT = () => ({
     approverEmail: "hygorlp@gmail.com",
     paymentHolidays: [],
   },
+  unidades: UNIDADES_PADRAO.map(u => ({ id: uid(), sigla: u.sigla, nome: u.nome })),
   fases: FASES_PADRAO.map((f, i) => ({ id: uid(), nome: f.nome, cor: f.cor, ordem: i })),
   obras: [
     { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "", hasCaixa: false },
@@ -724,6 +725,9 @@ const normalizeData = incoming => {
       terminationReason: e.terminationReason || "",
       lastObra: e.lastObra || "",
     })) : [],
+    // attendance: { empId: { "2026-07-01": { status, ot, note, obraId } } }
+    // obraId é NOVO. Registros antigos não têm — o cálculo cai na obra de
+    // lotação para eles, preservando os valores históricos.
     attendance: d.attendance || {},
     advances: Array.isArray(d.advances) ? d.advances : [],
     payments: Array.isArray(d.payments) ? d.payments : [],
@@ -895,6 +899,14 @@ const normalizeData = incoming => {
       transacaoId: x.transacaoId || "",       // casado com o pagamento no extrato
       obs:         x.obs || "",
     })) : [],
+
+    unidades: Array.isArray(d.unidades) && d.unidades.length
+      ? d.unidades.map(u => ({
+          id:    u.id    || uid(),
+          sigla: u.sigla || "un",
+          nome:  u.nome  || "",
+        }))
+      : UNIDADES_PADRAO.map(u => ({ id: uid(), sigla: u.sigla, nome: u.nome })),
 
     materiais: Array.isArray(d.materiais) ? d.materiais.map(x => ({
       id:         x.id        || uid(),
@@ -1365,17 +1377,32 @@ const _calcObraLaborCostRaw = (data, obraId, days) => {
   const holidays = getPayrollHolidays(data, year);
   const holidaysInPeriod = days.filter(d => holidays.includes(d) && prIsWeekdayIso(d));
   let laborCost = 0, benefitCost = 0;
+
+  // A obra de um dia trabalhado vem do PRÓPRIO PONTO. Registros antigos, de
+  // antes desta mudança, não têm obraId — para eles caímos na obra de lotação,
+  // que era o comportamento anterior. Assim o histórico não muda de valor.
+  const obraDoDia = (e, d) => {
+    const reg = data.attendance?.[e.id]?.[d];
+    return reg?.obraId || e.obra || "";
+  };
+
   data.employees.forEach(e => {
-    if (e.obra !== obraId && e.lastObra !== obraId) return;
+    // Não filtramos mais pelo cadastro: um funcionário pode ter trabalhado
+    // nesta obra em alguns dias mesmo estando lotado em outra.
     days.forEach(d => {
+      if (obraDoDia(e, d) !== obraId) return;
       if (!isEmployeeEmployedOnDate(e, d)) return;
       if (holidaysInPeriod.includes(d)) return;
       const st = attStatus(data, e.id, d);
       if (st === "P") { laborCost += Number(e.dailyRate||0); benefitCost += Number(e.vtDaily||0)+Number(e.vrDaily||0); }
       else if (st === "M") { laborCost += Number(e.dailyRate||0)*.5; benefitCost += (Number(e.vtDaily||0)+Number(e.vrDaily||0))*.5; }
     });
+    // Feriado segue a MESMA regra: a obra do dia, não o cadastro. Deixar o
+    // feriado amarrado à lotação faria o DSR cair numa obra e os dias
+    // trabalhados em outra.
     holidaysInPeriod.forEach(h => {
-      if (!isEmployeeEmployedOnDate(e, h) || e.obra !== obraId) return;
+      if (!isEmployeeEmployedOnDate(e, h)) return;
+      if (obraDoDia(e, h) !== obraId) return;
       laborCost += Number(getHolidayPayRule(data, e, h, holidays).amount||0);
     });
   });
@@ -4371,13 +4398,35 @@ function Ponto({ data, update, showToast }) {
 
     const prev = getAtt(data, empId, selDate) || { status: null, ot: 0, note: "" };
     const nextStatus = prev.status === status ? null : status;
+
+    // Grava EM QUAL OBRA o dia foi trabalhado.
+    //
+    // Antes, o custo da mão de obra era atribuído pela obra CADASTRADA no
+    // funcionário. Se o pedreiro está lotado na Terras Alpha mas passou a
+    // semana na Reserva, o custo inteiro dele ia para Terras Alpha — e você
+    // cobrava do cliente errado. Numa empresa de administração, onde a mão de
+    // obra é o maior custo e é repassada ao cliente, isso é dinheiro real
+    // saindo do lugar errado.
+    //
+    // Agora o dia carrega a obra. Se o ponto está filtrado por uma obra, é
+    // essa; senão, a obra de lotação do funcionário.
+    // Se o ponto está filtrado por uma obra específica, o dia é dela.
+    // Em "todas as obras", cai na lotação do funcionário — que continua sendo
+    // o caso comum: cada um no seu canteiro.
+    const obraDoDia = (filterObra && filterObra !== "all") ? filterObra : (emp?.obra || "");
+
     update({
       ...data,
       attendance: {
         ...data.attendance,
         [empId]: {
           ...(data.attendance[empId] || {}),
-          [selDate]: { ...prev, status: nextStatus },
+          [selDate]: {
+            ...prev,
+            status: nextStatus,
+            // Só carimba a obra se o dia foi efetivamente marcado
+            obraId: nextStatus ? obraDoDia : (prev.obraId || ""),
+          },
         },
       },
     });
@@ -4610,6 +4659,12 @@ function Ponto({ data, update, showToast }) {
       {filterObra === "all" && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 12 }}>
           <p style={{ color: C.yellow, fontWeight: 900, fontSize: 13 }}>Selecione uma obra específica para marcar todos e finalizar/bloquear o ponto.</p>
+          <p style={{ color: C.muted, fontSize: 11, marginTop: 4, lineHeight: 1.5 }}>
+            Em "todas as obras", cada dia é lançado na obra de lotação do funcionário.
+            Se alguém foi emprestado para outro canteiro, <strong style={{color:C.text}}>filtre
+            por aquela obra</strong> antes de marcar — o custo dele vai para lá, e é de lá que
+            você cobra.
+          </p>
         </div>
       )}
 
@@ -7799,9 +7854,9 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","obras","orc","est","cmp","ponto","equipe","terc","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","config"],
-  engenheiro:  ["home","obras","orc","est","cmp","ponto","equipe","terc","caixa","ia"],
-  rh:          ["home","equipe","folha","resc","ia"],
+  admin:       ["home","obras","orc","est","cmp","ponto","equipe","terc","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","cad","config"],
+  engenheiro:  ["home","obras","orc","est","cmp","ponto","equipe","terc","caixa","cad","ia"],
+  rh:          ["home","equipe","folha","resc","cad","ia"],
   financeiro:  ["home","orc","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   visualizador:["home"],
 };
@@ -10989,6 +11044,36 @@ const calcCompras = (data, obraId) => {
 // baixa contaria o mesmo saco de cimento duas vezes.
 // ═══════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════
+// UNIDADES DE MEDIDA
+//
+// Antes era texto livre. Alguém digitava "sc", outro "SC", outro "saco" —
+// e o sistema tratava como três coisas diferentes. Soma errada, curva ABC
+// errada, composição que não baixa. Erro silencioso, o pior tipo.
+//
+// Agora é uma lista. Estas são as unidades SINAPI mais usadas; você
+// acrescenta as suas.
+const UNIDADES_PADRAO = [
+  { sigla:"un",   nome:"Unidade" },
+  { sigla:"m",    nome:"Metro linear" },
+  { sigla:"m2",   nome:"Metro quadrado" },
+  { sigla:"m3",   nome:"Metro cúbico" },
+  { sigla:"kg",   nome:"Quilograma" },
+  { sigla:"t",    nome:"Tonelada" },
+  { sigla:"sc",   nome:"Saco" },
+  { sigla:"l",    nome:"Litro" },
+  { sigla:"gl",   nome:"Galão" },
+  { sigla:"pc",   nome:"Peça" },
+  { sigla:"cj",   nome:"Conjunto" },
+  { sigla:"br",   nome:"Barra" },
+  { sigla:"rl",   nome:"Rolo" },
+  { sigla:"cx",   nome:"Caixa" },
+  { sigla:"mlh",  nome:"Milheiro" },
+  { sigla:"h",    nome:"Hora" },
+  { sigla:"dia",  nome:"Diária" },
+  { sigla:"vb",   nome:"Verba" },
+];
+
 const CATS_MATERIAL = [
   { v:"estrutural",  l:"Estrutural (cimento, aço, brita)" },
   { v:"alvenaria",   l:"Alvenaria e argamassa" },
@@ -11968,7 +12053,382 @@ function Compras({ data, update, showToast }) {
   );
 }
 
-function ModalMaterial({ form, setForm, onSave }) {
+// ═══════════════════════════════════════════════════════════════════
+// CADASTROS — o lugar único das tabelas de referência
+//
+// Hospeda aqui os cadastros SIMPLES (unidades, materiais, fornecedores,
+// terceirizados, composições, fases).
+//
+// Obras, Equipe e Usuários NÃO são duplicados: seus formulários são grandes
+// e cheios de regra (contrato, CLT, papéis de acesso). Duplicar a interface
+// significaria dois lugares para corrigir cada bug. Aqui viram atalhos.
+// ═══════════════════════════════════════════════════════════════════
+function Cadastros({ data, update, showToast, onTab }) {
+  const { cols, formGrid } = useBreakpoint();
+  const [sec,   setSec]   = useState("menu");
+  const [busca, setBusca] = useState("");
+
+  const [uniModal,  setUniModal]  = useState(null);
+  const [matModal,  setMatModal]  = useState(null);
+  const [fornModal, setFornModal] = useState(null);
+  const [tercModal, setTercModal] = useState(null);
+  const [compModal, setCompModal] = useState(null);
+
+  const unidades  = data.unidades || [];
+  const materiais = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
+  const fornec    = useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
+
+  const filtra = (arr, campo) => {
+    const t = busca.trim().toLowerCase();
+    return t ? arr.filter(x => String(x[campo]||"").toLowerCase().includes(t)) : arr;
+  };
+
+  // ── Unidade ──────────────────────────────────────────────────
+  const salvarUnidade = (f) => {
+    const sigla = f.sigla.trim().toLowerCase();
+    if (!sigla) { showToast("Informe a sigla.", "error"); return; }
+
+    // Sigla duplicada é exatamente o que este cadastro existe para evitar.
+    const jaExiste = unidades.some(u => u.sigla.toLowerCase() === sigla && u.id !== f.id);
+    if (jaExiste) { showToast(`A sigla "${sigla}" já existe.`, "error"); return; }
+
+    const u = { id: f.id || uid(), sigla, nome: f.nome.trim() };
+    update({ ...data, unidades: f.id
+      ? unidades.map(x => x.id === f.id ? u : x)
+      : [...unidades, u] });
+    setUniModal(null);
+    showToast(f.id ? "Unidade atualizada." : "Unidade criada.");
+  };
+
+  const excluirUnidade = (u) => {
+    // Não deixa apagar unidade em uso: os materiais ficariam órfãos e o
+    // sistema voltaria a ter unidade "fantasma".
+    const emUso = (data.materiais||[]).filter(m => m.unidade === u.sigla).length
+                + (data.composicoes||[]).filter(c => c.unidade === u.sigla).length;
+    if (emUso) {
+      showToast(`"${u.sigla}" está em uso por ${emUso} item(ns). Troque-os antes.`, "error");
+      return;
+    }
+    if (!window.confirm(`Excluir a unidade "${u.sigla}"?`)) return;
+    update({ ...data, unidades: unidades.filter(x => x.id !== u.id) });
+    showToast("Unidade removida.");
+  };
+
+  // ── Material ─────────────────────────────────────────────────
+  const salvarMaterial = (f) => {
+    if (!f.descricao.trim()) { showToast("Descreva o material.", "error"); return; }
+    const p = {
+      id: f.id || uid(), codigo: f.codigo.trim(), descricao: f.descricao.trim(),
+      unidade: f.unidade || "un", categoria: f.categoria || "outros",
+      estoqueMin: Number(f.estoqueMin||0), precoMedio: Number(f.precoMedio||0), ativo: true,
+    };
+    update({ ...data, materiais: f.id
+      ? (data.materiais||[]).map(m => m.id === f.id ? p : m)
+      : [...(data.materiais||[]), p] });
+    setMatModal(null);
+    showToast(f.id ? "Material atualizado." : "Material cadastrado.");
+  };
+
+  // ── Fornecedor ───────────────────────────────────────────────
+  const salvarForn = (f) => {
+    if (!f.nome.trim()) { showToast("Informe o nome.", "error"); return; }
+    const p = { id: f.id || uid(), nome: f.nome.trim(), cnpj: f.cnpj, contato: f.contato,
+                telefone: f.telefone, email: f.email, categorias: [], obs: f.obs, ativo: true };
+    update({ ...data, fornecedores: f.id
+      ? (data.fornecedores||[]).map(x => x.id === f.id ? p : x)
+      : [...(data.fornecedores||[]), p] });
+    setFornModal(null);
+    showToast(f.id ? "Fornecedor atualizado." : "Fornecedor cadastrado.");
+  };
+
+  // ── Terceirizado ─────────────────────────────────────────────
+  const salvarTerc = (f) => {
+    if (!f.nome.trim()) { showToast("Informe o nome.", "error"); return; }
+    const p = {
+      ...(data.terceirizados||[]).find(t => t.id === f.id) || {},
+      id: f.id || uid(),
+      nome: f.nome.trim(),
+      servico: f.servico || "",
+      cnpj: f.cnpj || "",
+      telefone: f.telefone || "",
+      obraId: f.obraId || "",
+      active: true,
+    };
+    update({ ...data, terceirizados: f.id
+      ? (data.terceirizados||[]).map(t => t.id === f.id ? p : t)
+      : [...(data.terceirizados||[]), p] });
+    setTercModal(null);
+    showToast(f.id ? "Terceirizado atualizado." : "Terceirizado cadastrado.");
+  };
+
+  // ── Composição ───────────────────────────────────────────────
+  const salvarComposicao = (f) => {
+    if (!f.nome.trim()) { showToast("Dê um nome ao serviço.", "error"); return; }
+    const itens = (f.itens||[]).filter(i => i.materialId && Number(i.coef) > 0)
+      .map(i => ({ materialId: i.materialId, coef: Number(i.coef) }));
+    if (!itens.length) { showToast("Adicione ao menos um insumo.", "error"); return; }
+    const p = { id: f.id || uid(), nome: f.nome.trim(), unidade: f.unidade || "m2", itens };
+    update({ ...data, composicoes: f.id
+      ? (data.composicoes||[]).map(c => c.id === f.id ? p : c)
+      : [...(data.composicoes||[]), p] });
+    setCompModal(null);
+    showToast("Composição salva.");
+  };
+
+  const Voltar = () => (
+    <button onClick={()=>{setSec("menu");setBusca("");}} style={{
+      background:"transparent", border:0, color:C.muted, cursor:"pointer",
+      fontSize:12, padding:0, marginBottom:2, textAlign:"left",
+      fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:700,
+    }}>← Cadastros</button>
+  );
+
+  const Card = ({ id, icone, titulo, qtd, sub, atalho }) => (
+    <button
+      onClick={() => atalho ? onTab(atalho) : setSec(id)}
+      style={{
+        background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
+        padding:"13px 14px", cursor:"pointer", textAlign:"left", width:"100%",
+      }}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+        <div style={{minWidth:0}}>
+          <p style={{fontSize:18,marginBottom:4}}>{icone}</p>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,
+                     fontSize:13,color:C.text}}>{titulo}</p>
+          <p style={{fontSize:10.5,color:C.muted,marginTop:2,lineHeight:1.4}}>{sub}</p>
+        </div>
+        <div style={{textAlign:"right",flexShrink:0}}>
+          <p style={{fontSize:17,fontWeight:800,color:C.yellow,
+                     fontFamily:"'Inter Display','Inter',sans-serif"}}>{qtd}</p>
+          {atalho && <p style={{fontSize:9,color:C.muted,marginTop:2}}>abrir →</p>}
+        </div>
+      </div>
+    </button>
+  );
+
+  const Linha = ({ titulo, sub, onEdit, onDel }) => (
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,
+                 padding:"10px 12px",display:"flex",justifyContent:"space-between",
+                 alignItems:"center",gap:8}}>
+      <div onClick={onEdit} style={{minWidth:0,flex:1,cursor:"pointer"}}>
+        <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{titulo}</p>
+        {sub && <p className="brk" style={{fontSize:10.5,color:C.muted,marginTop:2}}>{sub}</p>}
+      </div>
+      <div style={{display:"flex",gap:4,flexShrink:0}}>
+        <Btn size="sm" v="ghost" onClick={onEdit}>✎</Btn>
+        {onDel && <Btn size="sm" v="danger" onClick={onDel}>×</Btn>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div>
+        <p style={{fontSize:11,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Sistema</p>
+        <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,
+                    fontSize:"clamp(19px,5vw,26px)",color:C.text}}>Cadastros</h3>
+      </div>
+
+      {/* ═══ MENU ═══ */}
+      {sec === "menu" && (<>
+        <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55}}>
+          As tabelas de referência do sistema. O que você cadastra aqui alimenta
+          orçamento, estoque, compras e folha.
+        </p>
+
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:9}}>
+          <Card id="unidades" icone="📏" titulo="Unidades de medida"
+                qtd={unidades.length}
+                sub="sc, m³, kg... a base de tudo que se mede"/>
+          <Card id="materiais" icone="🧱" titulo="Materiais"
+                qtd={materiais.length}
+                sub="cimento, tijolo, aço — o que entra no estoque"/>
+          <Card id="fornecedores" icone="🏭" titulo="Fornecedores"
+                qtd={fornec.length}
+                sub="quem te vende — usado em cotações e pedidos"/>
+          <Card id="terceirizados" icone="👷" titulo="Terceirizados"
+                qtd={(data.terceirizados||[]).length}
+                sub="empreiteiras e equipes contratadas"/>
+          <Card id="composicoes" icone="⚙️" titulo="Composições"
+                qtd={(data.composicoes||[]).length}
+                sub="quanto cada serviço consome — baixa o estoque sozinho"/>
+          <Card id="fases" icone="📋" titulo="Fases do quadro"
+                qtd={(data.fases||[]).length}
+                sub="as colunas do Kanban de obras"/>
+        </div>
+
+        <p style={{fontSize:10.5,color:C.muted,marginTop:6,lineHeight:1.5}}>
+          Obras, Equipe e Usuários têm cadastro próprio, com regras de contrato,
+          CLT e permissão. Ficam nas abas deles — duplicar aqui só criaria dois
+          lugares para o mesmo bug.
+        </p>
+
+        <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:9}}>
+          <Card icone="🏗" titulo="Obras" qtd={(data.obras||[]).length}
+                sub="contratos, Kanban" atalho="obras"/>
+          <Card icone="👥" titulo="Equipe" qtd={(data.employees||[]).filter(e=>e.active!==false).length}
+                sub="funcionários CLT" atalho="equipe"/>
+          <Card icone="🔐" titulo="Usuários" qtd={(data.usuarios||[]).length}
+                sub="acesso e papéis" atalho="config"/>
+        </div>
+      </>)}
+
+      {/* ═══ UNIDADES ═══ */}
+      {sec === "unidades" && (<>
+        <Voltar/>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+          <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
+            Antes a unidade era texto livre — alguém digitava <strong style={{color:C.text}}>sc</strong>,
+            outro <strong style={{color:C.text}}>SC</strong>, outro <strong style={{color:C.text}}>saco</strong>,
+            e o sistema tratava como três coisas diferentes. Soma errada, curva ABC errada,
+            composição que não baixa. Agora é uma lista fechada.
+          </p>
+        </div>
+        <Btn onClick={()=>setUniModal({id:"",sigla:"",nome:""})} full><Ic n="plus"/> Nova unidade</Btn>
+        <Inp value={busca} onChange={setBusca} placeholder="Buscar unidade..."/>
+        {filtra(unidades,"sigla").map(u => (
+          <Linha key={u.id} titulo={u.sigla} sub={u.nome}
+                 onEdit={()=>setUniModal(u)} onDel={()=>excluirUnidade(u)}/>
+        ))}
+      </>)}
+
+      {/* ═══ MATERIAIS ═══ */}
+      {sec === "materiais" && (<>
+        <Voltar/>
+        <Btn onClick={()=>setMatModal({id:"",codigo:"",descricao:"",unidade:unidades[0]?.sigla||"un",
+          categoria:"estrutural",estoqueMin:"",precoMedio:""})} full>
+          <Ic n="plus"/> Novo material
+        </Btn>
+        <Inp value={busca} onChange={setBusca} placeholder="Buscar material..."/>
+        {filtra(materiais,"descricao").map(m => (
+          <Linha key={m.id} titulo={m.descricao}
+                 sub={`${m.codigo ? m.codigo+" · " : ""}${m.unidade} · mín. ${m.estoqueMin}${Number(m.precoMedio)>0 ? " · "+fmt(m.precoMedio) : ""}`}
+                 onEdit={()=>setMatModal({...m, estoqueMin:String(m.estoqueMin), precoMedio:String(m.precoMedio)})}/>
+        ))}
+      </>)}
+
+      {/* ═══ FORNECEDORES ═══ */}
+      {sec === "fornecedores" && (<>
+        <Voltar/>
+        <Btn onClick={()=>setFornModal({id:"",nome:"",cnpj:"",contato:"",telefone:"",email:"",obs:""})} full>
+          <Ic n="plus"/> Novo fornecedor
+        </Btn>
+        <Inp value={busca} onChange={setBusca} placeholder="Buscar fornecedor..."/>
+        {filtra(fornec,"nome").map(f => (
+          <Linha key={f.id} titulo={f.nome}
+                 sub={[f.cnpj,f.contato,f.telefone].filter(Boolean).join(" · ") || "sem contato"}
+                 onEdit={()=>setFornModal(f)}/>
+        ))}
+      </>)}
+
+      {/* ═══ TERCEIRIZADOS ═══ */}
+      {sec === "terceirizados" && (<>
+        <Voltar/>
+        <Btn onClick={()=>setTercModal({id:"",nome:"",servico:"",cnpj:"",telefone:"",obraId:""})} full>
+          <Ic n="plus"/> Novo terceirizado
+        </Btn>
+        <Inp value={busca} onChange={setBusca} placeholder="Buscar terceirizado..."/>
+        {filtra((data.terceirizados||[]),"nome").map(t => (
+          <Linha key={t.id} titulo={t.nome}
+                 sub={[t.servico, t.cnpj, (data.obras||[]).find(o=>o.id===t.obraId)?.name]
+                        .filter(Boolean).join(" · ") || "sem detalhes"}
+                 onEdit={()=>setTercModal(t)}/>
+        ))}
+      </>)}
+
+      {/* ═══ COMPOSIÇÕES ═══ */}
+      {sec === "composicoes" && (<>
+        <Voltar/>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+          <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
+            Quanto cada serviço consome por unidade. Cadastre uma vez, e o estoque
+            baixa sozinho a cada serviço executado.
+          </p>
+        </div>
+        <Btn onClick={()=>setCompModal({id:"",nome:"",unidade:"m2",itens:[{materialId:"",coef:""}]})} full>
+          <Ic n="plus"/> Nova composição
+        </Btn>
+        {(data.composicoes||[]).map(c => (
+          <Linha key={c.id} titulo={c.nome}
+                 sub={`por 1 ${c.unidade} · ${c.itens.length} insumo(s)`}
+                 onEdit={()=>setCompModal({...c, itens: c.itens.map(i=>({...i,coef:String(i.coef)}))})}/>
+        ))}
+      </>)}
+
+      {/* ═══ FASES ═══ */}
+      {sec === "fases" && (<>
+        <Voltar/>
+        <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55}}>
+          As colunas do quadro Kanban. Editar cor, ordem e nome é mais natural
+          no próprio quadro, onde você vê o efeito.
+        </p>
+        {(data.fases||[]).sort((a,b)=>a.ordem-b.ordem).map(f => (
+          <div key={f.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,
+                                  padding:"10px 12px",display:"flex",alignItems:"center",gap:9}}>
+            <span style={{width:11,height:11,borderRadius:3,background:f.cor,flexShrink:0}}/>
+            <p style={{fontSize:12.5,fontWeight:700,color:C.text,flex:1,minWidth:0}}>{f.nome}</p>
+            <span style={{fontSize:10.5,color:C.muted,flexShrink:0}}>
+              {(data.obras||[]).filter(o=>o.faseId===f.id).length} obra(s)
+            </span>
+          </div>
+        ))}
+        <Btn v="ghost" onClick={()=>onTab("obras")} full>Abrir o quadro de obras →</Btn>
+      </>)}
+
+      {/* ═══ MODAIS ═══ */}
+      {uniModal && (
+        <Modal title={uniModal.id ? "Editar unidade" : "Nova unidade"} onClose={()=>setUniModal(null)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+              <Inp label="Sigla *" value={uniModal.sigla}
+                   onChange={v=>setUniModal(f=>({...f,sigla:v}))} placeholder="sc"/>
+              <Inp label="Nome" value={uniModal.nome}
+                   onChange={v=>setUniModal(f=>({...f,nome:v}))} placeholder="Saco"/>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setUniModal(null)} full>Cancelar</Btn>
+              <Btn onClick={()=>salvarUnidade(uniModal)} full><Ic n="check"/> Salvar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {matModal && <ModalMaterial form={matModal} setForm={setMatModal} onSave={salvarMaterial}
+                                  unidades={unidades}/>}
+      {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
+      {compModal && <ModalComposicao form={compModal} setForm={setCompModal} onSave={salvarComposicao}
+                                     materiais={materiais} unidades={unidades}/>}
+
+      {tercModal && (
+        <Modal title={tercModal.id ? "Editar terceirizado" : "Novo terceirizado"}
+               onClose={()=>setTercModal(null)} wide>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+            <Inp label="Nome *" value={tercModal.nome}
+                 onChange={v=>setTercModal(f=>({...f,nome:v}))} placeholder="Equipe Gesso Silva"/>
+            <Inp label="Serviço" value={tercModal.servico}
+                 onChange={v=>setTercModal(f=>({...f,servico:v}))} placeholder="Gesso, pintura..."/>
+            <Inp label="CNPJ / CPF" value={tercModal.cnpj}
+                 onChange={v=>setTercModal(f=>({...f,cnpj:v}))}/>
+            <Inp label="Telefone" value={tercModal.telefone}
+                 onChange={v=>setTercModal(f=>({...f,telefone:v}))}/>
+            <div style={{gridColumn:"1/-1"}}>
+              <Sel label="Obra" value={tercModal.obraId}
+                   onChange={v=>setTercModal(f=>({...f,obraId:v}))}
+                   options={[{v:"",l:"— sem obra fixa —"},
+                             ...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+            </div>
+            <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setTercModal(null)} full>Cancelar</Btn>
+              <Btn onClick={()=>salvarTerc(tercModal)} full><Ic n="check"/> Salvar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function ModalMaterial({ form, setForm, onSave, unidades = [] }) {
   const { formGrid } = useBreakpoint();
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   return (
@@ -11977,7 +12437,8 @@ function ModalMaterial({ form, setForm, onSave }) {
         <Inp label="Descrição *" value={form.descricao} onChange={F("descricao")}
              placeholder="Cimento CP-II 50kg"/>
         <Inp label="Código (SINAPI/interno)" value={form.codigo} onChange={F("codigo")} placeholder="1379"/>
-        <Inp label="Unidade *" value={form.unidade} onChange={F("unidade")} placeholder="sc, m3, un, kg"/>
+        <Sel label="Unidade *" value={form.unidade} onChange={F("unidade")}
+             options={unidades.map(u => ({ v:u.sigla, l:`${u.sigla} — ${u.nome}` }))}/>
         <Sel label="Categoria" value={form.categoria} onChange={F("categoria")}
              options={CATS_MATERIAL.map(c=>({v:c.v,l:c.l}))}/>
         <Inp label="Estoque mínimo" type="number" value={form.estoqueMin} onChange={F("estoqueMin")}
@@ -12022,7 +12483,7 @@ function ModalMovimento({ form, setForm, onSave, obras, materiais }) {
   );
 }
 
-function ModalComposicao({ form, setForm, onSave, materiais }) {
+function ModalComposicao({ form, setForm, onSave, materiais, unidades = [] }) {
   const { formGrid } = useBreakpoint();
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const setItem = (i, campo, v) =>
@@ -12036,7 +12497,8 @@ function ModalComposicao({ form, setForm, onSave, materiais }) {
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
           <Inp label="Serviço *" value={form.nome} onChange={F("nome")}
                placeholder="Alvenaria de vedação"/>
-          <Inp label="Unidade *" value={form.unidade} onChange={F("unidade")} placeholder="m2, m3, m"/>
+          <Sel label="Unidade *" value={form.unidade} onChange={F("unidade")}
+               options={unidades.map(u => ({ v:u.sigla, l:`${u.sigla} — ${u.nome}` }))}/>
         </div>
 
         <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
@@ -12588,11 +13050,12 @@ function Estoque({ data, update, showToast }) {
       )}
 
       {/* ═══ MODAIS ═══ */}
-      {matModal   && <ModalMaterial    form={matModal}  setForm={setMatModal}  onSave={salvarMaterial}/>}
+      {matModal   && <ModalMaterial    form={matModal}  setForm={setMatModal}  onSave={salvarMaterial}
+                                 unidades={data.unidades||[]}/>}
       {movModal   && <ModalMovimento   form={movModal}  setForm={setMovModal}  onSave={salvarMov}
                                        obras={obras} materiais={materiais}/>}
       {compModal  && <ModalComposicao  form={compModal} setForm={setCompModal} onSave={salvarComposicao}
-                                       materiais={materiais}/>}
+                                       materiais={materiais} unidades={data.unidades||[]}/>}
       {srvModal   && <ModalExecutar    onClose={()=>setSrvModal(false)} onRun={executarServico}
                                        composicoes={data.composicoes||[]} obras={obras}
                                        obraAtual={obraAtual} materiais={materiais} saldos={saldos}
@@ -13336,7 +13799,7 @@ const NAV_GROUPS = [
   },
   {
     id: "cfg_grp", label: "Ajustes", icon: "settings", color: C.muted,
-    tabs: ["config"],
+    tabs: ["cad","config"],
   },
 ];
 
@@ -13355,6 +13818,7 @@ const TAB_META = {
   conc:     { label: "Conciliação", icon: "dollar", group: "fin_grp" },
   est:      { label: "Estoque",     icon: "home",   group: "obras_grp" },
   cmp:      { label: "Compras",     icon: "dollar", group: "obras_grp" },
+  cad:      { label: "Cadastros",   icon: "settings", group: "cfg_grp" },
   medicoes: { label: "Medições",   icon: "dollar",   group: "fin_grp" },
   caixa:    { label: "Caixa Obra", icon: "dollar",   group: "fin_grp" },
   relat:    { label: "Relatórios", icon: "chart",    group: "fin_grp" },
@@ -13854,6 +14318,7 @@ export default function App() {
           {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast}/>}
           {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast}/>}
           {tab === "cmp"      && <Compras      data={data} update={update} showToast={showToast}/>}
+          {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab}/>}
           {tab === "medicoes" && <MedicoesView data={data} update={update} showToast={showToast} />}
           {tab === "caixa"    && <CaixaObra    data={data} update={update} showToast={showToast} />}
           {tab === "relat"    && <Relatorios   data={data} />}
