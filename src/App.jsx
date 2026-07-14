@@ -14,7 +14,11 @@ import {
   YAxis,
 } from "recharts";
 import * as XLSX from "xlsx";
-import { loadData as supabaseLoad, saveData as supabaseSave } from "./supabase";
+// O navegador não conversa mais com o banco. Fala com /api/data, que roda no
+// servidor e é quem guarda a chave. Sem chave de banco neste bundle.
+import { listarPerfis, criarPrimeiroAdmin, entrarComPin,
+         saveData, saveDataDetailed, logout as encerrarSessao,
+         loadDataWithMeta, adoptServerVersion } from "./api";
 
 // ═══════════════════════════════════════════════════════════════════
 // ARCD OBRAS — App.jsx auditado
@@ -78,6 +82,28 @@ const G = `
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{min-height:100%}
+
+/* ── LAYOUT FLUIDO ────────────────────────────────────────────────
+   Nada pode estourar a largura da tela, em nenhuma dimensão. */
+html,body{max-width:100%;overflow-x:hidden}
+
+/* Em CSS Grid e Flex, um filho tem min-width:auto por padrão: ele se
+   RECUSA a encolher abaixo da largura da palavra mais longa que contém.
+   Era isso que empurrava o "38%" do painel para fora do celular — a coluna
+   do título não cedia espaço. min-width:0 devolve o controle ao layout. */
+.fluid-grid > *{min-width:0}
+
+/* Palavra longa (e-mail, nome de obra, descrição SINAPI) não rasga o card */
+.brk{overflow-wrap:anywhere;word-break:break-word}
+
+/* Escala tipográfica fluida: cresce com a tela, sem saltos e sem estourar.
+   clamp(mínimo, ideal, máximo) — o meio usa vw, então acompanha a largura. */
+.t-hero{font-size:clamp(24px,7vw,44px);line-height:1.02;letter-spacing:.5px}
+.t-kpi {font-size:clamp(30px,9vw,54px);line-height:.92}
+.t-lead{font-size:clamp(11px,2.6vw,13px)}
+
+/* Tabelas largas (orçamento, DRE) rolam sozinhas em vez de rasgar a página */
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 body{
   background:${C.bg};
   color:${C.text};
@@ -795,6 +821,123 @@ const normalizeData = incoming => {
       categoria: x.categoria || "outros",
     })) : [],
 
+    // ── ESTOQUE ───────────────────────────────────────────────
+    //
+    // ATENÇÃO AO REGIME. Na ARCD o material vira custo NA COMPRA (quando o
+    // dinheiro sai), e a Conciliação já lança essa despesa no DRE.
+    //
+    // Portanto o estoque é um livro FÍSICO, não contábil. Ele NÃO cria
+    // lançamento em outrasDesp. Se criasse, o mesmo saco de cimento seria
+    // contado duas vezes: uma na compra, outra na baixa.
+    //
+    // O que o estoque entrega: saldo por obra, alerta de mínimo, curva ABC
+    // e — o que realmente importa — consumo REAL contra o ORÇADO.
+    // ── COMPRAS ───────────────────────────────────────────────
+    //
+    // REGRA CONTÁBIL: um pedido é COMPROMISSO, não despesa. Ninguém pagou
+    // nada ainda. A despesa nasce quando o dinheiro sai — e quem lança isso
+    // é a Conciliação, lendo o extrato. Compras NÃO escreve no DRE.
+    //
+    // O elo físico é o RECEBIMENTO: quando o material chega, o pedido gera
+    // uma entrada em movEstoque. É aí que Compras encosta no Estoque.
+    fornecedores: Array.isArray(d.fornecedores) ? d.fornecedores.map(x => ({
+      id:        x.id       || uid(),
+      nome:      x.nome     || "",
+      cnpj:      x.cnpj     || "",
+      contato:   x.contato  || "",
+      telefone:  x.telefone || "",
+      email:     x.email    || "",
+      categorias: Array.isArray(x.categorias) ? x.categorias : [],
+      obs:       x.obs      || "",
+      ativo:     x.ativo !== false,
+    })) : [],
+
+    cotacoes: Array.isArray(d.cotacoes) ? d.cotacoes.map(x => ({
+      id:         x.id         || uid(),
+      obraId:     x.obraId     || "",
+      materialId: x.materialId || "",
+      qtd:        Number(x.qtd || 0),
+      data:       x.data       || "",
+      status:     x.status     || "aberta",   // aberta | decidida | cancelada
+      propostas: Array.isArray(x.propostas) ? x.propostas.map(p => ({
+        id:           p.id           || uid(),
+        fornecedorId: p.fornecedorId || "",
+        precoUnit:    Number(p.precoUnit || 0),
+        prazoDias:    Number(p.prazoDias || 0),
+        obs:          p.obs || "",
+      })) : [],
+      escolhida:  x.escolhida  || "",         // id da proposta vencedora
+      pedidoId:   x.pedidoId   || "",         // pedido gerado a partir dela
+    })) : [],
+
+    pedidos: Array.isArray(d.pedidos) ? d.pedidos.map(x => ({
+      id:           x.id           || uid(),
+      numero:       x.numero       || "",
+      obraId:       x.obraId       || "",
+      fornecedorId: x.fornecedorId || "",
+      data:         x.data         || "",
+      previsao:     x.previsao     || "",     // previsão de entrega
+      // rascunho → enviado → parcial → recebido | cancelado
+      status:       x.status       || "rascunho",
+      itens: Array.isArray(x.itens) ? x.itens.map(i => ({
+        id:          i.id         || uid(),
+        materialId:  i.materialId || "",
+        qtd:         Number(i.qtd || 0),
+        precoUnit:   Number(i.precoUnit || 0),
+        qtdRecebida: Number(i.qtdRecebida || 0),   // permite entrega parcial
+        // Apropriação: a qual linha do orçamento esta compra pertence.
+        // A comparação é em R$, não em quantidade: o orçamento fala em
+        // SERVIÇO (m² de alvenaria) e a compra em MATERIAL (sacos de cimento).
+        // As unidades não batem — o dinheiro, sim.
+        orcItemId:   i.orcItemId  || "",
+      })) : [],
+      cotacaoId:   x.cotacaoId   || "",
+      transacaoId: x.transacaoId || "",       // casado com o pagamento no extrato
+      obs:         x.obs || "",
+    })) : [],
+
+    materiais: Array.isArray(d.materiais) ? d.materiais.map(x => ({
+      id:         x.id        || uid(),
+      codigo:     x.codigo    || "",        // SINAPI/ORSE ou interno
+      descricao:  x.descricao || "",
+      unidade:    x.unidade   || "un",
+      categoria:  x.categoria || "outros",
+      estoqueMin: Number(x.estoqueMin || 0),
+      precoMedio: Number(x.precoMedio || 0), // referência p/ curva ABC
+      ativo:      x.ativo !== false,
+    })) : [],
+
+    // Saldo NÃO é armazenado: é derivado dos movimentos. Fonte única de
+    // verdade, e todo saldo é auditável até a origem.
+    movEstoque: Array.isArray(d.movEstoque) ? d.movEstoque.map(x => ({
+      id:         x.id         || uid(),
+      obraId:     x.obraId     || "",
+      materialId: x.materialId || "",
+      tipo:       x.tipo       || "entrada",  // entrada|consumo|perda|devolucao|ajuste
+      qtd:        Number(x.qtd || 0),
+      valorUnit:  Number(x.valorUnit || 0),
+      data:       x.data       || "",
+      descricao:  x.descricao  || "",
+      // Rastreabilidade
+      transacaoId: x.transacaoId || "",       // veio da Conciliação?
+      servicoId:   x.servicoId   || "",       // baixado por qual serviço?
+      etapa:       x.etapa       || "",
+    })) : [],
+
+    // Composições: "1 m² de alvenaria consome 25 tijolos + 8kg cimento".
+    // A base SINAPI que importamos é uma lista de PREÇOS — não traz os
+    // coeficientes de composição. Então isto se cadastra uma vez, à mão,
+    // e passa a baixar o estoque sozinho a cada serviço executado.
+    composicoes: Array.isArray(d.composicoes) ? d.composicoes.map(x => ({
+      id:      x.id      || uid(),
+      nome:    x.nome    || "",
+      unidade: x.unidade || "m2",
+      itens:   Array.isArray(x.itens) ? x.itens.map(i => ({
+        materialId: i.materialId || "",
+        coef:       Number(i.coef || 0),      // consumo por 1 unidade do serviço
+      })) : [],
+    })) : [],
+
     caixaObra: Array.isArray(d.caixaObra) ? d.caixaObra.map(x => ({
       id:          x.id          || uid(),
       obraId:      x.obraId      || "",
@@ -1258,7 +1401,8 @@ const calcObraRevenue = (obra, laborCost) => {
 // ═══════════════════════════════════════════════════════════════════
 
 function Dashboard({ data, onTab }) {
-  const { cols } = useBreakpoint();
+  const { cols, estreito } = useBreakpoint();
+  const heroEmpilha = estreito;
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -1332,35 +1476,87 @@ function Dashboard({ data, onTab }) {
       {/* Hero banner */}
       <div style={{
         background:`linear-gradient(135deg,${C.yellow} 0%,${C.yellowD} 55%,#4a3c0a 100%)`,
-        color:C.ink,borderRadius:22,padding:"18px 20px",
-        border:`1px solid ${C.yellow}`,boxShadow:`0 24px 60px ${C.yellow}20`,
-        position:"relative",overflow:"hidden",
+        color:C.ink, borderRadius:22,
+        // Padding fluido: aperta no celular, respira no desktop
+        padding:"clamp(14px,4vw,26px)",
+        border:`1px solid ${C.yellow}`, boxShadow:`0 24px 60px ${C.yellow}20`,
+        position:"relative", overflow:"hidden",
       }}>
-        <div style={{position:"absolute",right:-10,top:-20,fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:110,lineHeight:1,opacity:.08,pointerEvents:"none",color:C.ink}}>ARCD</div>
+        <div style={{
+          position:"absolute", right:-10, top:-20,
+          fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:800,
+          fontSize:"clamp(90px,26vw,170px)", opacity:.07, letterSpacing:-4,
+          pointerEvents:"none", userSelect:"none",
+        }}>ARCD</div>
+
         <BrandMark dark/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:14,alignItems:"flex-end",marginTop:16}}>
-          <div>
-            <p style={{fontSize:11,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",opacity:.7}}>Central de operações</p>
-            <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:40,lineHeight:.9,letterSpacing:1.6,margin:"4px 0 8px"}}>Ponto · Equipe · Resultado.</h2>
-            <p style={{fontSize:12,fontWeight:700,opacity:.8}}>Controle em tempo real. Decisão com dado.</p>
+
+        {/*
+          A classe fluid-grid aplica min-width:0 nos filhos. Sem isso, a coluna
+          do título não encolhe abaixo da palavra "Resultado." e empurra o KPI
+          para fora da tela — era exatamente o "38%" cortado no celular.
+
+          Abaixo de 420px as duas colunas viram uma só: em tela estreita, título
+          gigante e número gigante lado a lado não cabem de jeito nenhum.
+        */}
+        <div className="fluid-grid" style={{
+          display:"grid",
+          gridTemplateColumns: heroEmpilha ? "1fr" : "1fr auto",
+          gap: heroEmpilha ? 10 : 14,
+          alignItems:"flex-end",
+          marginTop:14,
+        }}>
+          <div style={{minWidth:0}}>
+            <p style={{
+              fontSize:"clamp(9px,2.4vw,11px)", fontWeight:900, letterSpacing:1.2,
+              textTransform:"uppercase", opacity:.7,
+            }}>Central de Operações</p>
+
+            <h2 className="t-hero brk" style={{
+              fontFamily:"'Inter Display','Inter',sans-serif",
+              fontWeight:800, margin:"4px 0 8px",
+            }}>Ponto · Equipe · Resultado.</h2>
+
+            <p className="t-lead" style={{fontWeight:700, opacity:.8}}>
+              Controle em tempo real. Decisão com dado.
+            </p>
           </div>
-          <div style={{textAlign:"right"}}>
-            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:52,lineHeight:.9,letterSpacing:1}}>{todayCompletion}%</p>
-            <p style={{fontSize:10,fontWeight:900,textTransform:"uppercase",letterSpacing:.8,opacity:.75}}>ponto hoje</p>
+
+          <div style={{
+            textAlign: heroEmpilha ? "left" : "right",
+            minWidth:0, flexShrink:0,
+          }}>
+            <p className="t-kpi" style={{
+              fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:800,
+              whiteSpace:"nowrap",
+            }}>{todayCompletion}%</p>
+            <p style={{
+              fontSize:"clamp(9px,2.2vw,10px)", fontWeight:900,
+              textTransform:"uppercase", letterSpacing:.8, opacity:.75,
+              whiteSpace:"nowrap",
+            }}>Ponto de hoje</p>
           </div>
         </div>
-        <div style={{marginTop:14,height:6,background:"rgba(0,0,0,.18)",borderRadius:99,overflow:"hidden"}}>
-          <div style={{height:"100%",width:`${todayCompletion}%`,background:C.ink,borderRadius:99,transition:"width .3s"}}/>
+
+        <div style={{marginTop:14, height:6, background:"rgba(0,0,0,.18)", borderRadius:99, overflow:"hidden"}}>
+          <div style={{height:"100%", width:`${todayCompletion}%`, background:C.ink, borderRadius:99, transition:"width .5s ease"}}/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:14}}>
-          <Btn onClick={()=>onTab("ponto")} v="dark" full style={{background:C.ink,color:C.yellow,borderColor:C.ink,"--ic-color":C.yellow}}>
+
+        {/* Em tela muito estreita os botões empilham em vez de espremer o texto */}
+        <div style={{
+          display:"grid",
+          gridTemplateColumns: heroEmpilha ? "1fr" : "1fr 1fr",
+          gap:8, marginTop:14,
+        }}>
+          <Btn onClick={()=>onTab("ponto")} v="dark" full style={{background:C.ink,color:C.yellow,borderColor:C.ink}}>
             <Ic n="clock"/> Registrar Ponto
           </Btn>
-          <Btn onClick={()=>onTab("fin")} v="ghost" full style={{borderColor:C.line,color:C.muted,background:C.surface,"--ic-color":C.muted}}>
+          <Btn onClick={()=>onTab("fin")} v="ghost" full style={{borderColor:C.line,color:C.muted,background:"rgba(255,255,255,.9)"}}>
             <Ic n="dollar"/> Financeiro
           </Btn>
         </div>
       </div>
+
 
       {checkPending && (
         <button onClick={()=>onTab("ponto")} className="lift-card" style={{
@@ -1928,7 +2124,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       {/* Header */}
       <div style={{background:`linear-gradient(135deg,${C.green}22 0%,${C.card} 65%)`,border:`1px solid ${C.green}44`,borderLeft:`5px solid ${C.green}`,padding:"16px 18px",borderRadius:18}}>
         <p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Demonstrativo Gerencial</p>
-        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:34,letterSpacing:2,color:C.text,lineHeight:1}}>DRE por Obra</h2>
+        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(19px,5vw,34px)",letterSpacing:2,color:C.text,lineHeight:1}}>DRE por Obra</h2>
         <p style={{color:C.muted,fontSize:13,marginTop:4}}>Faturamento · Custos · Lucro · Caixa · Posição de Contrato</p>
       </div>
 
@@ -2920,7 +3116,7 @@ function Financeiro({ data, update, showToast }) {
         padding:"16px 18px",borderRadius:18,
       }}>
         <p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Gestão financeira</p>
-        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:34,letterSpacing:2,color:C.text,lineHeight:1}}>Financeiro por Obra</h2>
+        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(19px,5vw,34px)",letterSpacing:2,color:C.text,lineHeight:1}}>Financeiro por Obra</h2>
         <p style={{color:C.muted,fontSize:13,marginTop:4}}>KPIs de margem, contrato, custo MO e recebimentos.</p>
       </div>
 
@@ -3151,6 +3347,13 @@ function Obras({ data, update, showToast }) {
     return mapa;
   }, [data.obras, fases]);
 
+  // Total efetivamente renderizado no quadro. Se divergir de data.obras.length,
+  // alguma obra ficou de fora — e o resumo acusa em vermelho.
+  const somaQuadro = useMemo(
+    () => Object.values(porFase).reduce((s, arr) => s + arr.length, 0),
+    [porFase]
+  );
+
   const moverObra = (obraId, faseId) => {
     const obra = (data.obras || []).find(o => o.id === obraId);
     if (!obra || obra.faseId === faseId) return;
@@ -3299,7 +3502,36 @@ function Obras({ data, update, showToast }) {
       </div>
 
       {/* ═══════════════ QUADRO (KANBAN) ═══════════════ */}
-      {vista === "quadro" && (
+      {vista === "quadro" && (<>
+
+        {/* Conferência: a soma das colunas TEM que bater com o total de obras.
+            O contador dentro de cada coluna é só daquela coluna — sem este
+            resumo, não dá pra saber se alguma obra sumiu ou só está fora da
+            tela, numa coluna que exige rolar. */}
+        <div style={{
+          background:C.surface, border:`1px solid ${C.border}`, borderRadius:8,
+          padding:"9px 12px", display:"flex", justifyContent:"space-between",
+          alignItems:"center", gap:8, flexWrap:"wrap",
+        }}>
+          <div>
+            <p style={{fontSize:12.5,fontWeight:800,color:C.text,
+                       fontFamily:"'Inter Display','Inter',sans-serif"}}>
+              {(data.obras||[]).length} obra{(data.obras||[]).length===1?"":"s"} no quadro
+            </p>
+            <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
+              {fases.filter(f => (porFase[f.id]||[]).length > 0)
+                    .map(f => `${(porFase[f.id]||[]).length} em ${f.nome}`)
+                    .join(" · ") || "nenhuma posicionada"}
+            </p>
+          </div>
+          {somaQuadro !== (data.obras||[]).length && (
+            <span style={{fontSize:10.5,fontWeight:800,color:C.red,
+                          background:`${C.red}12`,padding:"4px 8px",borderRadius:6}}>
+              ⚠ {somaQuadro} exibidas de {(data.obras||[]).length}
+            </span>
+          )}
+        </div>
+
         <div style={{
           display:"flex", gap:10, overflowX:"auto", paddingBottom:10,
           margin:"0 -14px", padding:"0 14px 10px",
@@ -3458,7 +3690,7 @@ function Obras({ data, update, showToast }) {
             }}>+ Nova fase</button>
           </div>
         </div>
-      )}
+      </>)}
 
       {/* ═══════════════ LISTA ═══════════════ */}
       {vista === "lista" && <>
@@ -3746,7 +3978,7 @@ function Equipe({ data, update, showToast }) {
       </div>
 
       <Inp value={search} onChange={setSearch} placeholder="Buscar por nome, função, CPF ou telefone..." />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+      <div className="fluid-grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
         <Sel value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
         <Btn v={showInactive ? "warning" : "ghost"} onClick={() => setShowInactive(v => !v)}>{showInactive ? "Com inativos" : "Só ativos"}</Btn>
       </div>
@@ -5340,7 +5572,7 @@ function Terceiros({ data, update, showToast }) {
         padding:"16px 18px", borderRadius:18,
       }}>
         <p style={{ fontSize:11, fontWeight:900, color:C.orange, textTransform:"uppercase", letterSpacing:1.2, marginBottom:4 }}>Subcontratados</p>
-        <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:34, letterSpacing:2, color:C.text, lineHeight:1 }}>Terceirizados</h2>
+        <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:"clamp(19px,8vw,34px)", letterSpacing:2, color:C.text, lineHeight:1 }}>Terceirizados</h2>
         <p style={{ color:C.muted, fontSize:13, marginTop:4 }}>Contratos, especialidades e pagamentos toda sexta-feira.</p>
       </div>
 
@@ -5541,7 +5773,7 @@ function Terceiros({ data, update, showToast }) {
               <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:24, color:C.orange, letterSpacing:1, lineHeight:1 }}>
                 💰 Sexta-feira
               </p>
-              <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:32, color:C.text, letterSpacing:1, lineHeight:1 }}>
+              <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:"clamp(18px,8vw,32px)", color:C.text, letterSpacing:1, lineHeight:1 }}>
                 {fmtDateFull(friday)}
               </p>
               <p style={{ fontSize:11, color:C.muted, marginTop:2 }}>
@@ -6341,7 +6573,7 @@ ${obraBlocks}
         border:`1px solid ${C.yellow}`, boxShadow:`0 20px 50px ${C.yellow}18`,
       }}>
         <p style={{fontSize:11,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",opacity:.7}}>Relatório Gerencial</p>
-        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:32,letterSpacing:2,lineHeight:1,margin:"4px 0 8px"}}>{fullMonth(month)} {year}</h2>
+        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(18px,8vw,32px)",letterSpacing:2,lineHeight:1,margin:"4px 0 8px"}}>{fullMonth(month)} {year}</h2>
         <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginTop:10}}>
           {[
             ["Receita recebida", fmt(tot.received),  C.green],
@@ -6909,7 +7141,7 @@ function AgenteIA({ data, showToast, onTab }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+      <div className="fluid-grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
         <Inp
           value={input}
           onChange={setInput}
@@ -7212,7 +7444,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       {/* Header */}
       <div style={{background:`linear-gradient(135deg,${C.red}22 0%,${C.card} 65%)`,border:`1px solid ${C.red}44`,borderLeft:`5px solid ${C.red}`,padding:"16px 18px",borderRadius:18}}>
         <p style={{fontSize:11,fontWeight:900,color:C.red,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Documentos</p>
-        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:34,letterSpacing:2,color:C.text,lineHeight:1}}>Cálculo de Rescisão</h2>
+        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(19px,5vw,34px)",letterSpacing:2,color:C.text,lineHeight:1}}>Cálculo de Rescisão</h2>
         <p style={{color:C.muted,fontSize:13,marginTop:4}}>Gere o cálculo e o PDF para assinatura do trabalhador.</p>
       </div>
 
@@ -7325,7 +7557,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       {calc ? (
         <div style={{background:`linear-gradient(135deg,${C.yellow} 0%,${C.yellowD} 60%,#4a3c0a 100%)`,color:C.ink,padding:"18px 20px",borderRadius:18,border:`1px solid ${C.yellow}`}}>
           <p style={{fontSize:11,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",opacity:.75}}>Total líquido a receber</p>
-          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:48,letterSpacing:1,lineHeight:.95}}>{fmt(calc.totalLiquido)}</p>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(26px,11vw,48px)",letterSpacing:1,lineHeight:.95}}>{fmt(calc.totalLiquido)}</p>
           <p style={{fontSize:12,fontWeight:700,marginTop:6,opacity:.85}}>{valorPorExtenso(calc.totalLiquido)}</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:14}}>
             {[
@@ -7567,10 +7799,10 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","obras","orc","ponto","equipe","terc","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","config"],
-  engenheiro:  ["home","obras","orc","ponto","equipe","terc","caixa","ia"],
+  admin:       ["home","obras","orc","est","cmp","ponto","equipe","terc","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","config"],
+  engenheiro:  ["home","obras","orc","est","cmp","ponto","equipe","terc","caixa","ia"],
   rh:          ["home","equipe","folha","resc","ia"],
-  financeiro:  ["home","orc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
+  financeiro:  ["home","orc","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   visualizador:["home"],
 };
 
@@ -7581,51 +7813,135 @@ const hashPin = async (pin) => {
 
 // ── Tela de Login ────────────────────────────────────────────────
 
-function LoginScreen({ data, onLogin, onFirstSetup }) {
-  const [step,     setStep]     = useState("select"); // "select" | "pin"
-  const [selUser,  setSelUser]  = useState(null);
-  const [pin,      setPin]      = useState("");
-  const [erro,     setErro]     = useState("");
-  const [loading,  setLoading]  = useState(false);
+// Primeiro acesso: não há usuário, logo não há PIN, logo `update()` não tem
+// como salvar (ele exige sessão). Por isso esta tela fala com /api/data pela
+// ação "setup" — que o servidor só aceita enquanto a lista de usuários estiver
+// vazia. Depois do primeiro admin, aquela porta fecha.
+function PrimeiroAcesso({ onPronto, showToast }) {
+  const [nome,  setNome]  = useState("");
+  const [email, setEmail] = useState("");
+  const [pin,   setPin]   = useState("");
+  const [pin2,  setPin2]  = useState("");
+  const [salvando, setSalvando] = useState(false);
 
-  const usuarios = (data.usuarios||[]).filter(u => u.active !== false);
+  const criar = async () => {
+    if (!nome.trim())        { showToast("Informe seu nome.", "error"); return; }
+    if (pin.length < 4)      { showToast("O PIN precisa de ao menos 4 dígitos.", "error"); return; }
+    if (pin !== pin2)        { showToast("Os PINs não coincidem.", "error"); return; }
+    if (!/^\d+$/.test(pin))  { showToast("O PIN deve ter apenas números.", "error"); return; }
+
+    setSalvando(true);
+    const base = normalizeData(DEFAULT());
+    base.usuarios = [{
+      id: uid(),
+      nome: nome.trim(),
+      pin: await hashPin(pin),
+      role: "admin",
+      email: email.trim().toLowerCase(),
+      obraId: "",
+      active: true,
+      createdAt: new Date().toISOString(),
+    }];
+
+    const r = await criarPrimeiroAdmin(base);
+    setSalvando(false);
+
+    if (!r.ok) { showToast(r.erro || "Não consegui criar o administrador.", "error"); return; }
+    showToast("Administrador criado. Entre com seu PIN.");
+    onPronto();
+  };
+
+  return (
+    <div style={{
+      minHeight:"100vh", background:C.surface,
+      display:"flex", alignItems:"center", justifyContent:"center", padding:20,
+    }}>
+      <div style={{
+        width:"100%", maxWidth:380, background:C.bg,
+        border:`1px solid ${C.border}`, borderRadius:14, padding:26,
+        boxShadow:`0 8px 32px ${C.shadow}`,
+      }}>
+        <div style={{textAlign:"center", marginBottom:22}}>
+          <img src={ARCD_LOGO} alt="ARCD" style={{width:56,height:56,objectFit:"contain"}}/>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,
+                     fontSize:18,color:C.text,marginTop:10}}>Primeiro acesso</p>
+          <p style={{fontSize:11.5,color:C.muted,marginTop:3,lineHeight:1.5}}>
+            Ninguém foi cadastrado ainda. Crie o administrador — o PIN dele será
+            sua senha de entrada.
+          </p>
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <Inp label="Seu nome *" value={nome} onChange={setNome} placeholder="Hygor Marcell"/>
+          <Inp label="E-mail (opcional)" value={email} onChange={setEmail} placeholder="voce@arcd.com.br"/>
+          <Inp label="PIN (4 a 6 dígitos) *" type="password" value={pin}
+               onChange={v=>setPin(v.replace(/\D/g,"").slice(0,6))} placeholder="••••••"/>
+          <Inp label="Repita o PIN *" type="password" value={pin2}
+               onChange={v=>setPin2(v.replace(/\D/g,"").slice(0,6))} placeholder="••••••"/>
+
+          <div style={{background:`${C.yellow}0E`,border:`1px solid ${C.yellow}55`,
+                       borderRadius:8,padding:"9px 11px"}}>
+            <p style={{fontSize:10.5,color:C.subtle,lineHeight:1.5}}>
+              Use <strong>6 dígitos</strong>. Um PIN de 4 tem só 10 mil combinações —
+              o servidor trava tentativas repetidas, mas 6 dígitos é cem vezes mais seguro.
+            </p>
+          </div>
+
+          <Btn onClick={criar} full disabled={salvando}>
+            <Ic n="check"/> {salvando ? "Criando…" : "Criar administrador"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoginScreen({ perfis, onLogin, onFirstSetup }) {
+  const [step,    setStep]    = useState("select");   // "select" | "pin"
+  const [selUser, setSelUser] = useState(null);
+  const [pin,     setPin]     = useState("");
+  const [erro,    setErro]    = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // A lista vem do servidor com nome e papel apenas — sem hash de PIN.
+  const usuarios = perfis || [];
   const isFirst  = usuarios.length === 0;
 
-  const handleBackspace = () => setPin(p => p.slice(0,-1));
+  const handleBackspace = () => setPin(p => p.slice(0, -1));
 
-  const handleLogin = async () => {
+  // O PIN é conferido NO SERVIDOR. Antes ele batia contra o hash que já estava
+  // no navegador — o que significa que os dados já tinham sido baixados antes
+  // de qualquer senha. Agora é o contrário: sem PIN válido, o servidor não
+  // devolve dado nenhum.
+  const tentarEntrar = async (valor) => {
     if (!selUser) return;
-    if (pin.length < 4) { setErro("PIN deve ter mínimo 4 dígitos."); return; }
-    setLoading(true); setErro("");
-    const h = await hashPin(pin);
-    if (h !== selUser.pin) {
-      setErro("PIN incorreto. Tente novamente.");
+    if (valor.length < 4) { setErro("O PIN tem no mínimo 4 dígitos."); return; }
+
+    setLoading(true);
+    setErro("");
+
+    const r = await entrarComPin(selUser.id, valor);
+
+    if (!r.ok) {
+      setErro(r.erro || "PIN incorreto.");
       setPin("");
       setLoading(false);
       return;
     }
-    onLogin(selUser);
+
+    onLogin(r.usuario, r.data);   // devolve o usuário E os dados, juntos
     setLoading(false);
   };
 
-  // Automaticamente faz login quando PIN tem 6 dígitos
-  const handleDigit = async (d) => {
-    const newPin = pin.length < 6 ? pin + d : pin;
-    setPin(newPin);
+  const handleLogin = () => tentarEntrar(pin);
+
+  const handleDigit = (d) => {
+    const novo = pin.length < 6 ? pin + d : pin;
+    setPin(novo);
     setErro("");
-    if (newPin.length === 6) {
-      setLoading(true);
-      const h = await hashPin(newPin);
-      if (h !== selUser.pin) {
-        setErro("PIN incorreto.");
-        setPin("");
-        setLoading(false);
-      } else {
-        onLogin(selUser);
-        setLoading(false);
-      }
-    }
+    if (novo.length === 6) tentarEntrar(novo);   // 6 dígitos = valida sozinho
   };
+
 
   return (
     <div className="animUp" style={{
@@ -7972,7 +8288,9 @@ const situacaoBDI = (bdi, tipo) => {
 //
 // Usa matchMedia em vez de listener de resize: dispara só quando cruza o
 // limite, e não a cada pixel arrastado.
-const BP = { mobile: 0, tablet: 768, desktop: 1100 };
+// narrow = celulares pequenos (iPhone SE, Android de entrada). Abaixo de 420px
+// não adianta encolher fonte: certos pares lado a lado precisam EMPILHAR.
+const BP = { narrow: 420, mobile: 0, tablet: 768, desktop: 1100 };
 
 const useBreakpoint = () => {
   const ler = () => {
@@ -7982,17 +8300,23 @@ const useBreakpoint = () => {
     if (w >= BP.tablet)  return "tablet";
     return "mobile";
   };
+  const lerEstreito = () =>
+    typeof window !== "undefined" && window.innerWidth < BP.narrow;
 
   const [bp, setBp] = useState(ler);
+  const [estreito, setEstreito] = useState(lerEstreito);
 
   useEffect(() => {
+    const mqNarrow  = window.matchMedia(`(min-width:${BP.narrow}px)`);
     const mqTablet  = window.matchMedia(`(min-width:${BP.tablet}px)`);
     const mqDesktop = window.matchMedia(`(min-width:${BP.desktop}px)`);
-    const atualizar = () => setBp(ler());
+    const atualizar = () => { setBp(ler()); setEstreito(lerEstreito()); };
 
+    mqNarrow.addEventListener("change", atualizar);
     mqTablet.addEventListener("change", atualizar);
     mqDesktop.addEventListener("change", atualizar);
     return () => {
+      mqNarrow.removeEventListener("change", atualizar);
       mqTablet.removeEventListener("change", atualizar);
       mqDesktop.removeEventListener("change", atualizar);
     };
@@ -8000,6 +8324,7 @@ const useBreakpoint = () => {
 
   return {
     bp,
+    estreito,                       // < 420px: pares lado a lado devem empilhar
     isMobile:  bp === "mobile",
     isTablet:  bp === "tablet",
     isDesktop: bp === "desktop",
@@ -8859,7 +9184,7 @@ ${blocoBDI}
 
         {orcamentos.length===0 && (
           <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,padding:30,textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
-            <p style={{fontSize:38,marginBottom:8}}>📐</p>
+            <p style={{fontSize:"clamp(21px,9vw,38px)",marginBottom:8}}>📐</p>
             <p style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Nenhum orçamento criado</p>
             <p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Crie um orçamento, importe a base SINAPI ou ORSE<br/>e monte a planilha por etapas.</p>
           </div>
@@ -9483,7 +9808,7 @@ ${blocoBDI}
                       <p style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.6}}>BDI calculado</p>
                       <p style={{fontSize:10,color:C.muted,marginTop:2}}>Tributos (I) = {r.tributos.toFixed(2)}%</p>
                     </div>
-                    <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:32,fontWeight:800,color:sit.cor,lineHeight:1}}>
+                    <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(18px,8vw,32px)",fontWeight:800,color:sit.cor,lineHeight:1}}>
                       {r.erro ? "—" : `${r.bdi.toFixed(2)}%`}
                     </p>
                   </div>
@@ -10083,10 +10408,19 @@ function Conciliacao({ data, update, showToast }) {
       regrasConc: regras,
     });
     setApropModal(null); setRateios([]); setMedAlvo(null);
+
+    // Se a saída foi material para uma obra, isso é uma COMPRA — e compra
+    // tem contrapartida física. O financeiro já está lançado; o que falta é
+    // dar entrada no estoque. Avisamos, mas não fazemos sozinho: só você sabe
+    // quantos sacos vieram na nota.
+    const compraMaterial = !entrada && rs.some(r => r.destino === "obra" && r.categoria === "material");
+
     showToast(
       medAlvo
         ? `Conciliada e ${medAlvo.m.descricao || "medição"} marcada como recebida.`
-        : "Transação conciliada e lançada no DRE."
+        : compraMaterial
+          ? "Conciliada. Lembre de dar entrada no Estoque."
+          : "Transação conciliada e lançada no DRE."
     );
   };
 
@@ -10266,6 +10600,14 @@ function Conciliacao({ data, update, showToast }) {
                       </div>
                     ))}
                   </div>
+                )}
+
+                {/* Compra de material conciliada — falta a entrada física */}
+                {tr.status === "conciliado" && Number(tr.valor) < 0 &&
+                 (tr.rateios||[]).some(r => r.destino === "obra" && r.categoria === "material") && (
+                  <p style={{fontSize:10,color:C.orange,marginTop:5,fontWeight:700}}>
+                    📦 Compra de material — dê entrada no Estoque
+                  </p>
                 )}
 
                 {/* Vínculo com medição */}
@@ -10499,6 +10841,1766 @@ function Conciliacao({ data, update, showToast }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// COMPRAS
+//
+// Um pedido é COMPROMISSO, não despesa — ninguém pagou nada ainda.
+// Compras NÃO escreve no DRE. A despesa nasce no extrato, e quem a lança é
+// a Conciliação. Se os dois lançassem, o mesmo cimento contaria duas vezes.
+//
+// O que Compras faz de concreto:
+//   • Cotação      → compara fornecedores e prova que você comprou bem
+//   • Pedido       → registra o compromisso
+//   • Recebimento  → gera a ENTRADA no estoque da obra (o elo físico)
+//   • Histórico    → quanto você pagou nesse item, e com quem
+// ═══════════════════════════════════════════════════════════════════
+
+const STATUS_PEDIDO = {
+  rascunho:  { l:"Rascunho",  c:"#6B6459" },
+  enviado:   { l:"Enviado",   c:"#0D47A1" },
+  parcial:   { l:"Parcial",   c:"#BF360C" },
+  recebido:  { l:"Recebido",  c:"#1E6B31" },
+  cancelado: { l:"Cancelado", c:"#B71C1C" },
+};
+
+// Status é DERIVADO do que foi recebido, não digitado. Assim ele nunca mente.
+const statusPedido = (p) => {
+  if (p.status === "cancelado" || p.status === "rascunho") return p.status;
+  const total = (p.itens||[]).reduce((s,i) => s + Number(i.qtd||0), 0);
+  const receb = (p.itens||[]).reduce((s,i) => s + Number(i.qtdRecebida||0), 0);
+  if (receb <= 0)             return "enviado";
+  if (receb >= total - 1e-6)  return "recebido";
+  return "parcial";
+};
+
+const totalPedido    = (p) => (p.itens||[]).reduce((s,i) => s + Number(i.qtd||0) * Number(i.precoUnit||0), 0);
+const recebidoPedido = (p) => (p.itens||[]).reduce((s,i) => s + Number(i.qtdRecebida||0) * Number(i.precoUnit||0), 0);
+const pendentePedido = (p) => totalPedido(p) - recebidoPedido(p);
+
+// Histórico: só o que REALMENTE chegou. Pedido não recebido não é preço pago.
+const historicoPreco = (pedidos, materialId) => {
+  const h = [];
+  (pedidos || []).filter(p => p.status !== "cancelado").forEach(p =>
+    (p.itens||[])
+      .filter(i => i.materialId === materialId && Number(i.qtdRecebida) > 0)
+      .forEach(i => h.push({
+        data: p.data, fornecedorId: p.fornecedorId,
+        preco: Number(i.precoUnit||0), qtd: Number(i.qtdRecebida||0),
+        pedidoId: p.id,
+      }))
+  );
+  return h.sort((a, b) => (b.data||"").localeCompare(a.data||""));
+};
+
+const analisePreco = (h) => {
+  if (!h.length) return null;
+  const precos = h.map(x => x.preco);
+  const qtdTot = h.reduce((s,x) => s + x.qtd, 0);
+  // Média PONDERADA pela quantidade. A média simples mente: se você comprou
+  // 10 sacos caros e 500 baratos, ela trata os dois como se pesassem igual.
+  const medio = qtdTot ? h.reduce((s,x) => s + x.preco * x.qtd, 0) / qtdTot : 0;
+  const menor = Math.min(...precos);
+  const ultimo = h[0].preco;
+  return {
+    ultimo, menor, maior: Math.max(...precos), medio, compras: h.length,
+    variacao: menor ? ((ultimo - menor) / menor) * 100 : 0,
+  };
+};
+
+// Orçado × Comprado, por linha do orçamento.
+//
+// O "orçado" é o CUSTO da linha (quantidade × preço unitário SINAPI), sem BDI —
+// BDI é a sua margem, não entra no que você paga ao fornecedor. Comparar a
+// compra contra o preço COM BDI faria todo item parecer barato.
+const calcOrcadoComprado = (data, obraId) => {
+  const orc = (data.orcamentos||[]).find(o => o.obraId === obraId);
+  if (!orc) return { orc: null, linhas: [], semApropriacao: 0 };
+
+  // Quanto já foi comprado para cada linha
+  const comprado = {};
+  (data.pedidos||[])
+    .filter(p => p.obraId === obraId && p.status !== "cancelado")
+    .forEach(p => (p.itens||[]).forEach(i => {
+      const v = Number(i.qtd||0) * Number(i.precoUnit||0);
+      if (i.orcItemId) comprado[i.orcItemId] = (comprado[i.orcItemId] || 0) + v;
+    }));
+
+  // Compras sem apropriação: dinheiro gasto que não bate com nenhuma linha.
+  // É o número que denuncia orçamento furado ou lançamento relaxado.
+  const semApropriacao = (data.pedidos||[])
+    .filter(p => p.obraId === obraId && p.status !== "cancelado")
+    .reduce((s,p) => s + (p.itens||[])
+      .filter(i => !i.orcItemId)
+      .reduce((a,i) => a + Number(i.qtd||0) * Number(i.precoUnit||0), 0), 0);
+
+  const linhas = (orc.itens||[])
+    .filter(it => it.tipo !== "titulo")
+    .map(it => {
+      const orcado = Number(it.quantidade||0) * Number(it.precoUnit||0);
+      const comp   = comprado[it.id] || 0;
+      const etapa  = (orc.etapas||[]).find(e => e.id === it.etapaId);
+      return {
+        it, etapa: etapa?.nome || "—",
+        orcado, comprado: comp,
+        saldo: orcado - comp,
+        pct: orcado ? (comp / orcado) * 100 : (comp > 0 ? 999 : 0),
+        estourou: comp > orcado + 0.01,
+      };
+    })
+    .filter(l => l.orcado > 0 || l.comprado > 0)
+    .sort((a,b) => b.comprado - a.comprado);
+
+  return { orc, linhas, semApropriacao };
+};
+
+// Painel da obra: comprado → recebido → aplicado → pago.
+// "Previsto" (do orçamento) fica de fora de propósito: o orçamento é feito de
+// SERVIÇOS SINAPI, não de materiais. Cruzar os dois exige a composição de cada
+// serviço — que é justamente o que você cadastra no Estoque. Quando houver
+// composição para todos os serviços, dá para fechar o previsto também.
+const calcCompras = (data, obraId) => {
+  const peds = (data.pedidos||[]).filter(p => p.obraId === obraId && p.status !== "cancelado");
+  const comprado = peds.reduce((s,p) => s + totalPedido(p), 0);
+  const recebido = peds.reduce((s,p) => s + recebidoPedido(p), 0);
+
+  const aplicado = (data.movEstoque||[])
+    .filter(m => m.obraId === obraId && m.tipo === "consumo")
+    .reduce((s,m) => s + Number(m.qtd||0) * Number(m.valorUnit||0), 0);
+
+  // Pago = o que saiu do banco como material para esta obra (via Conciliação)
+  const pago = (data.transacoes||[])
+    .filter(t => t.status === "conciliado" && Number(t.valor) < 0)
+    .reduce((s,t) => s + (t.rateios||[])
+      .filter(r => r.destino === "obra" && r.obraId === obraId && r.categoria === "material")
+      .reduce((a,r) => a + Number(r.valor||0), 0), 0);
+
+  return {
+    comprado, recebido, aplicado, pago,
+    aReceber: comprado - recebido,
+    emEstoque: recebido - aplicado,
+  };
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// ESTOQUE — controle FÍSICO
+//
+// Não gera lançamento financeiro. O custo do material já entrou no DRE pela
+// Conciliação, no momento da compra (regime de caixa). Lançar de novo na
+// baixa contaria o mesmo saco de cimento duas vezes.
+// ═══════════════════════════════════════════════════════════════════
+
+const CATS_MATERIAL = [
+  { v:"estrutural",  l:"Estrutural (cimento, aço, brita)" },
+  { v:"alvenaria",   l:"Alvenaria e argamassa" },
+  { v:"eletrico",    l:"Elétrico" },
+  { v:"hidraulico",  l:"Hidráulico" },
+  { v:"acabamento",  l:"Acabamento (revestimento, tinta)" },
+  { v:"cobertura",   l:"Cobertura e impermeabilização" },
+  { v:"esquadria",   l:"Esquadrias" },
+  { v:"ferramenta",  l:"Ferramentas e EPI" },
+  { v:"outros",      l:"Outros" },
+];
+
+const TIPOS_MOV = [
+  { v:"entrada",   l:"Entrada (compra)",       sinal:+1, cor:"#1E6B31" },
+  { v:"consumo",   l:"Consumo (aplicado)",     sinal:-1, cor:"#0D47A1" },
+  { v:"perda",     l:"Perda / quebra",         sinal:-1, cor:"#B71C1C" },
+  { v:"devolucao", l:"Devolução ao fornecedor",sinal:+1, cor:"#6B6459" },
+  { v:"ajuste",    l:"Ajuste de inventário",   sinal:+1, cor:"#C2185B" },
+];
+
+const SINAL_MOV = Object.fromEntries(TIPOS_MOV.map(t => [t.v, t.sinal]));
+
+// Saldo por obra+material. NÃO é armazenado — é somado dos movimentos, para
+// que todo saldo seja rastreável até sua origem.
+const calcSaldos = (movs) => {
+  const m = {};
+  (movs || []).forEach(x => {
+    const k = `${x.obraId}|${x.materialId}`;
+    m[k] = (m[k] || 0) + (SINAL_MOV[x.tipo] ?? 0) * Number(x.qtd || 0);
+  });
+  return m;
+};
+
+const saldoDe = (saldos, obraId, materialId) => saldos[`${obraId}|${materialId}`] || 0;
+
+// "Executei 120 m² de alvenaria" → quanto sai de cada insumo
+const baixarPorComposicao = (comp, qtdExecutada) =>
+  (comp?.itens || [])
+    .filter(i => i.materialId && i.coef > 0)
+    .map(i => ({
+      materialId: i.materialId,
+      qtd: Number((i.coef * Number(qtdExecutada || 0)).toFixed(4)),
+    }));
+
+// Curva ABC pelo VALOR consumido (80/95 é o corte clássico)
+const calcCurvaABC = (movs, materiais) => {
+  const val = {};
+  (movs || []).filter(x => x.tipo === "consumo").forEach(x => {
+    val[x.materialId] = (val[x.materialId] || 0) + Number(x.qtd||0) * Number(x.valorUnit||0);
+  });
+  const lista = Object.entries(val)
+    .map(([id, v]) => ({
+      id, valor: v,
+      nome: (materiais || []).find(m => m.id === id)?.descricao || "—",
+    }))
+    .sort((a, b) => b.valor - a.valor);
+
+  const total = lista.reduce((s, x) => s + x.valor, 0);
+  let acum = 0;
+  return lista.map(x => {
+    acum += x.valor;
+    const pct = total ? (acum / total) * 100 : 0;
+    return { ...x, pctAcum: pct, classe: pct <= 80 ? "A" : pct <= 95 ? "B" : "C" };
+  });
+};
+
+function ModalFornecedor({ form, setForm, onSave }) {
+  const { formGrid } = useBreakpoint();
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+  return (
+    <Modal title={form.id ? "Editar fornecedor" : "Novo fornecedor"} onClose={()=>setForm(null)} wide>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+        <Inp label="Nome *" value={form.nome} onChange={F("nome")} placeholder="Depósito Caruaru"/>
+        <Inp label="CNPJ" value={form.cnpj} onChange={F("cnpj")} placeholder="00.000.000/0001-00"/>
+        <Inp label="Contato" value={form.contato} onChange={F("contato")} placeholder="Nome do vendedor"/>
+        <Inp label="Telefone" value={form.telefone} onChange={F("telefone")} placeholder="(81) 9...."/>
+        <div style={{gridColumn:"1/-1"}}>
+          <Inp label="E-mail" value={form.email} onChange={F("email")} placeholder="vendas@..."/>
+        </div>
+        <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
+          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
+          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc }) {
+  const { formGrid } = useBreakpoint();
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+  const setItem = (i, campo, v) =>
+    setForm(f => ({ ...f, itens: f.itens.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
+  const addItem = () => setForm(f => ({ ...f, itens:[...f.itens,
+    {id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0}] }));
+  const delItem = (i) => setForm(f => ({ ...f, itens: f.itens.filter((_,k)=>k!==i) }));
+
+  const total = (form.itens||[]).reduce((s,i) => s + Number(i.qtd||0) * Number(i.precoUnit||0), 0);
+
+  return (
+    <Modal title={form.id ? `Pedido ${form.numero}` : "Novo pedido"} onClose={()=>setForm(null)} wide>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+          <Sel label="Fornecedor *" value={form.fornecedorId} onChange={F("fornecedorId")}
+               options={[{v:"",l:"Selecione…"}, ...fornecedores.map(f=>({v:f.id,l:f.nome}))]}/>
+          <Inp label="Data" type="date" value={form.data} onChange={F("data")}/>
+          <Inp label="Previsão de entrega" type="date" value={form.previsao} onChange={F("previsao")}/>
+          <Sel label="Situação" value={form.status} onChange={F("status")}
+               options={[{v:"enviado",l:"Enviado ao fornecedor"},{v:"rascunho",l:"Rascunho"}]}/>
+        </div>
+
+        {(form.itens||[]).map((it, i) => (
+          <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,
+                               borderRadius:8,padding:"9px 11px"}}>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+              <Sel label="Material" value={it.materialId} onChange={v=>setItem(i,"materialId",v)}
+                   options={[{v:"",l:"Selecione…"}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
+              <Inp label="Quantidade" type="number" value={it.qtd} onChange={v=>setItem(i,"qtd",v)}
+                   placeholder="0"/>
+              <Inp label="Preço unitário (R$)" type="number" value={it.precoUnit}
+                   onChange={v=>setItem(i,"precoUnit",v)} placeholder="0,00"/>
+              <div style={{display:"flex",alignItems:"flex-end"}}>
+                <p style={{fontSize:12,fontWeight:800,color:C.text,paddingBottom:9}}>
+                  = {fmt(Number(it.qtd||0) * Number(it.precoUnit||0))}
+                </p>
+              </div>
+
+              {/* Apropriação ao orçamento */}
+              <div style={{gridColumn:"1/-1"}}>
+                <Sel label="Apropriar a qual item do orçamento"
+                     value={it.orcItemId || ""}
+                     onChange={v=>setItem(i,"orcItemId",v)}
+                     options={[
+                       {v:"", l: linhasOrc.length ? "— sem apropriação —" : "Nenhum orçamento nesta obra"},
+                       ...linhasOrc.map(l => ({
+                         v: l.id,
+                         l: `${l.etapa} › ${l.descricao} (${fmt(l.orcado)})`,
+                       })),
+                     ]}/>
+              </div>
+            </div>
+            {!it.orcItemId && linhasOrc.length > 0 && Number(it.qtd) > 0 && (
+              <p style={{fontSize:10,color:C.orange,marginTop:5}}>
+                Sem apropriação: esta compra não entra na comparação com o orçamento.
+              </p>
+            )}
+            {Number(it.qtdRecebida) > 0 && (
+              <p style={{fontSize:10,color:C.green,marginTop:5,fontWeight:700}}>
+                ✓ {it.qtdRecebida} já recebido — não dá para reduzir abaixo disso
+              </p>
+            )}
+            {form.itens.length > 1 && Number(it.qtdRecebida) === 0 && (
+              <button onClick={()=>delItem(i)} style={{background:"transparent",border:0,color:C.muted,
+                fontSize:10,cursor:"pointer",marginTop:6,textDecoration:"underline"}}>remover item</button>
+            )}
+          </div>
+        ))}
+
+        <Btn v="ghost" onClick={addItem} full><Ic n="plus"/> Adicionar item</Btn>
+
+        <div style={{background:C.surface,border:`1.5px solid ${C.yellow}`,borderRadius:8,
+                     padding:"10px 12px",display:"flex",justifyContent:"space-between"}}>
+          <span style={{fontSize:12,fontWeight:700,color:C.text}}>Total do pedido</span>
+          <span style={{fontSize:16,fontWeight:800,color:C.yellow,
+                        fontFamily:"'Inter Display','Inter',sans-serif"}}>{fmt(total)}</span>
+        </div>
+
+        <div style={{display:"flex",gap:8}}>
+          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
+          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ModalCotacao({ form, setForm, onSave, fornecedores, materiais }) {
+  const { formGrid } = useBreakpoint();
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+  const setP = (i, campo, v) =>
+    setForm(f => ({ ...f, propostas: f.propostas.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
+  const addP = () => setForm(f => ({ ...f, propostas:[...f.propostas,
+    {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:""}] }));
+  const delP = (i) => setForm(f => ({ ...f, propostas: f.propostas.filter((_,k)=>k!==i) }));
+
+  const validas = (form.propostas||[]).filter(p => Number(p.precoUnit) > 0);
+  const menor = validas.length ? Math.min(...validas.map(p => Number(p.precoUnit))) : 0;
+  const qtd = Number(form.qtd || 0);
+
+  return (
+    <Modal title="Nova cotação" onClose={()=>setForm(null)} wide>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+          <Sel label="Material *" value={form.materialId} onChange={F("materialId")}
+               options={[{v:"",l:"Selecione…"}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
+          <Inp label="Quantidade *" type="number" value={form.qtd} onChange={F("qtd")} placeholder="0"/>
+        </div>
+
+        <p style={{fontSize:11,color:C.muted}}>Propostas recebidas (mínimo 2):</p>
+
+        {(form.propostas||[]).map((p, i) => {
+          const eh = Number(p.precoUnit) > 0 && Number(p.precoUnit) === menor;
+          const dif = (Number(p.precoUnit||0) - menor) * qtd;
+          return (
+            <div key={i} style={{
+              background: eh ? `${C.yellow}0A` : C.surface,
+              border:`1px solid ${eh ? C.yellow : C.border}`,
+              borderRadius:8, padding:"9px 11px",
+            }}>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+                <Sel label="Fornecedor" value={p.fornecedorId} onChange={v=>setP(i,"fornecedorId",v)}
+                     options={[{v:"",l:"Selecione…"}, ...fornecedores.map(f=>({v:f.id,l:f.nome}))]}/>
+                <Inp label="Preço unitário (R$)" type="number" value={p.precoUnit}
+                     onChange={v=>setP(i,"precoUnit",v)} placeholder="0,00"/>
+                <Inp label="Prazo (dias)" type="number" value={p.prazoDias}
+                     onChange={v=>setP(i,"prazoDias",v)} placeholder="0"/>
+                <div style={{display:"flex",alignItems:"flex-end",paddingBottom:9}}>
+                  {qtd > 0 && Number(p.precoUnit) > 0 && (
+                    <div>
+                      <p style={{fontSize:12,fontWeight:800,color:C.text}}>
+                        {eh && "🏆 "}{fmt(Number(p.precoUnit) * qtd)}
+                      </p>
+                      {dif > 0.01 && (
+                        <p style={{fontSize:10,color:C.red}}>+{fmt(dif)} vs. o menor</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {form.propostas.length > 2 && (
+                <button onClick={()=>delP(i)} style={{background:"transparent",border:0,color:C.muted,
+                  fontSize:10,cursor:"pointer",marginTop:6,textDecoration:"underline"}}>remover proposta</button>
+              )}
+            </div>
+          );
+        })}
+
+        <Btn v="ghost" onClick={addP} full><Ic n="plus"/> Outra proposta</Btn>
+
+        <div style={{display:"flex",gap:8}}>
+          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
+          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar cotação</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// Recebimento — o único lugar onde Compras encosta no Estoque.
+// Aceita entrega PARCIAL, porque na obra o caminhão chega faltando item.
+function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeForn }) {
+  const [qtds, setQtds] = useState(() =>
+    Object.fromEntries(pedido.itens.map(i => {
+      const falta = Number(i.qtd) - Number(i.qtdRecebida || 0);
+      return [i.id, String(falta > 0 ? falta : 0)];   // sugere o que falta
+    }))
+  );
+
+  const set = (id, v) => setQtds(q => ({ ...q, [id]: v }));
+
+  const linhas = pedido.itens.map(i => {
+    const falta = Number(i.qtd) - Number(i.qtdRecebida || 0);
+    const chegou = Number(qtds[i.id] || 0);
+    return { ...i, falta, chegou, excede: chegou > falta + 1e-6 };
+  });
+
+  const temExcesso = linhas.some(l => l.excede);
+  const valorTotal = linhas.reduce((s,l) => s + l.chegou * Number(l.precoUnit||0), 0);
+
+  return (
+    <Modal title={`Receber — ${pedido.numero}`} onClose={onClose} wide>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+          <p style={{fontSize:12,fontWeight:700,color:C.text}}>{nomeForn(pedido.fornecedorId)}</p>
+          <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
+            Informe o que <strong>realmente chegou</strong>. Pode receber parcial — o
+            pedido fica em aberto até completar.
+          </p>
+        </div>
+
+        {linhas.map(l => (
+          <div key={l.id} style={{
+            background: l.excede ? `${C.red}08` : C.card,
+            border:`1px solid ${l.excede ? C.red : C.border}`,
+            borderRadius:8, padding:"10px 11px",
+          }}>
+            <p className="brk" style={{fontSize:12,fontWeight:700,color:C.text}}>{nomeMat(l.materialId)}</p>
+            <p style={{fontSize:10,color:C.muted,marginTop:2,marginBottom:7}}>
+              Pedido: {l.qtd} {unidMat(l.materialId)}
+              {Number(l.qtdRecebida) > 0 && ` · já recebido: ${l.qtdRecebida}`}
+              {l.falta > 0 && ` · falta: ${l.falta}`}
+            </p>
+            <Inp label={`Chegou agora (${unidMat(l.materialId)})`} type="number"
+                 value={qtds[l.id]} onChange={v=>set(l.id, v)}/>
+            {l.excede && (
+              <p style={{fontSize:10,color:C.red,marginTop:5,fontWeight:700}}>
+                ⚠ Só faltam {l.falta}. Receber a mais esconde erro de nota fiscal.
+              </p>
+            )}
+          </div>
+        ))}
+
+        <div style={{background:`${C.green}0A`,border:`1.5px solid ${C.green}`,
+                     borderRadius:8,padding:"10px 12px"}}>
+          <p style={{fontSize:11,color:C.muted}}>
+            Vai entrar no estoque da obra:
+          </p>
+          <p style={{fontSize:16,fontWeight:800,color:C.green,marginTop:2,
+                     fontFamily:"'Inter Display','Inter',sans-serif"}}>{fmt(valorTotal)}</p>
+          <p style={{fontSize:10,color:C.muted,marginTop:4,lineHeight:1.45}}>
+            Isso <strong>não</strong> lança no DRE — o custo entra quando o pagamento
+            aparecer no extrato, pela Conciliação.
+          </p>
+        </div>
+
+        <div style={{display:"flex",gap:8}}>
+          <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
+          <Btn onClick={()=>onReceber(pedido, qtds)} full disabled={temExcesso || valorTotal <= 0}>
+            <Ic n="check"/> Dar entrada no estoque
+          </Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function Compras({ data, update, showToast }) {
+  const { cols } = useBreakpoint();
+  const [aba,     setAba]     = useState("pedidos");   // pedidos|cotacoes|forn|precos
+  const [obraSel, setObraSel] = useState("");
+  const [busca,   setBusca]   = useState("");
+
+  const [pedModal,  setPedModal]  = useState(null);
+  const [recModal,  setRecModal]  = useState(null);   // recebimento
+  const [cotModal,  setCotModal]  = useState(null);
+  const [fornModal, setFornModal] = useState(null);
+
+  const obras       = data.obras || [];
+  const obraAtual   = obraSel || obras[0]?.id || "";
+  const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
+  const fornecedores= useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
+
+  const kpi = useMemo(() => calcCompras(data, obraAtual), [data, obraAtual]);
+  const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data, obraAtual]);
+
+  // Linhas do orçamento que o pedido pode apropriar
+  const linhasOrc = useMemo(() => {
+    const o = (data.orcamentos||[]).find(x => x.obraId === obraAtual);
+    if (!o) return [];
+    return (o.itens||[])
+      .filter(it => it.tipo !== "titulo")
+      .map(it => ({
+        id: it.id,
+        descricao: it.descricao || it.codigo || "—",
+        etapa: (o.etapas||[]).find(e => e.id === it.etapaId)?.nome || "—",
+        orcado: Number(it.quantidade||0) * Number(it.precoUnit||0),
+      }))
+      .filter(l => l.orcado > 0);
+  }, [data.orcamentos, obraAtual]);
+
+  const nomeForn = useCallback(
+    (id) => fornecedores.find(f => f.id === id)?.nome || "—",
+    [fornecedores]
+  );
+  const nomeMat = useCallback(
+    (id) => materiais.find(m => m.id === id)?.descricao || "—",
+    [materiais]
+  );
+  const unidMat = useCallback(
+    (id) => materiais.find(m => m.id === id)?.unidade || "un",
+    [materiais]
+  );
+
+  const pedidos = useMemo(() => {
+    const t = busca.trim().toLowerCase();
+    return (data.pedidos||[])
+      .filter(p => p.obraId === obraAtual)
+      .filter(p => !t || (p.numero||"").toLowerCase().includes(t) ||
+                          nomeForn(p.fornecedorId).toLowerCase().includes(t))
+      .sort((a,b) => (b.data||"").localeCompare(a.data||""));
+  }, [data.pedidos, obraAtual, busca, nomeForn]);
+
+  const cotacoes = useMemo(
+    () => (data.cotacoes||[]).filter(c => c.obraId === obraAtual)
+            .sort((a,b) => (b.data||"").localeCompare(a.data||"")),
+    [data.cotacoes, obraAtual]
+  );
+
+  // ── Fornecedor ───────────────────────────────────────────────
+  const salvarForn = (f) => {
+    if (!f.nome.trim()) { showToast("Informe o nome do fornecedor.", "error"); return; }
+    const p = { id: f.id || uid(), nome: f.nome.trim(), cnpj: f.cnpj, contato: f.contato,
+                telefone: f.telefone, email: f.email, categorias: [], obs: f.obs, ativo: true };
+    update({ ...data, fornecedores: f.id
+      ? (data.fornecedores||[]).map(x => x.id === f.id ? p : x)
+      : [...(data.fornecedores||[]), p] });
+    setFornModal(null);
+    showToast(f.id ? "Fornecedor atualizado." : "Fornecedor cadastrado.");
+  };
+
+  // ── Pedido ───────────────────────────────────────────────────
+  const salvarPedido = (f) => {
+    if (!f.fornecedorId) { showToast("Selecione o fornecedor.", "error"); return; }
+    const itens = (f.itens||[])
+      .filter(i => i.materialId && Number(i.qtd) > 0)
+      .map(i => ({ id: i.id || uid(), materialId: i.materialId,
+                   qtd: Number(i.qtd), precoUnit: Number(i.precoUnit||0),
+                   qtdRecebida: Number(i.qtdRecebida||0) }));
+    if (!itens.length) { showToast("Adicione ao menos um item.", "error"); return; }
+
+    const p = {
+      id: f.id || uid(),
+      numero: f.numero?.trim() || `PC-${String((data.pedidos||[]).length + 1).padStart(4,"0")}`,
+      obraId: f.obraId || obraAtual,
+      fornecedorId: f.fornecedorId,
+      data: f.data || new Date().toISOString().slice(0,10),
+      previsao: f.previsao || "",
+      status: f.status === "rascunho" ? "rascunho" : "enviado",
+      itens,
+      cotacaoId: f.cotacaoId || "",
+      transacaoId: f.transacaoId || "",
+      obs: f.obs || "",
+    };
+    update({ ...data, pedidos: f.id
+      ? (data.pedidos||[]).map(x => x.id === f.id ? p : x)
+      : [...(data.pedidos||[]), p] });
+    setPedModal(null);
+    showToast(f.id ? "Pedido atualizado." : `Pedido ${p.numero} criado.`);
+  };
+
+  // ── RECEBIMENTO — o elo com o Estoque ────────────────────────
+  const receber = (pedido, recebidos) => {
+    // recebidos: { [itemId]: qtd que chegou AGORA }
+    const linhas = pedido.itens.map(i => ({
+      ...i,
+      chegou: Number(recebidos[i.id] || 0),
+      falta: Number(i.qtd) - Number(i.qtdRecebida || 0),
+    }));
+
+    if (linhas.every(l => l.chegou <= 0)) {
+      showToast("Informe ao menos uma quantidade recebida.", "error");
+      return;
+    }
+    // Receber MAIS que o pedido esconde erro de nota fiscal — trava.
+    const excedeu = linhas.filter(l => l.chegou > l.falta + 1e-6);
+    if (excedeu.length) {
+      showToast(`"${nomeMat(excedeu[0].materialId)}": só faltam ${excedeu[0].falta}.`, "error");
+      return;
+    }
+
+    const quando = new Date().toISOString().slice(0,10);
+
+    // Cada item recebido vira ENTRADA no estoque da obra. É aqui que Compras
+    // encosta no Estoque — e é a única coisa física que um pedido gera.
+    const entradas = linhas.filter(l => l.chegou > 0).map(l => ({
+      id: uid(),
+      obraId: pedido.obraId,
+      materialId: l.materialId,
+      tipo: "entrada",
+      qtd: l.chegou,
+      valorUnit: Number(l.precoUnit || 0),
+      data: quando,
+      descricao: `Pedido ${pedido.numero} · ${nomeForn(pedido.fornecedorId)}`,
+      transacaoId: "", servicoId: "", etapa: "",
+    }));
+
+    // Atualiza o preço médio do material com o que foi efetivamente pago
+    const materiaisAtualizados = (data.materiais||[]).map(m => {
+      const l = linhas.find(x => x.materialId === m.id && x.chegou > 0);
+      return l ? { ...m, precoMedio: Number(l.precoUnit || m.precoMedio || 0) } : m;
+    });
+
+    const pedidoAtualizado = {
+      ...pedido,
+      itens: pedido.itens.map(i => {
+        const l = linhas.find(x => x.id === i.id);
+        return l && l.chegou > 0
+          ? { ...i, qtdRecebida: Number(i.qtdRecebida || 0) + l.chegou }
+          : i;
+      }),
+    };
+
+    update({
+      ...data,
+      pedidos: (data.pedidos||[]).map(p => p.id === pedido.id ? pedidoAtualizado : p),
+      movEstoque: [...(data.movEstoque||[]), ...entradas],
+      materiais: materiaisAtualizados,
+    });
+
+    setRecModal(null);
+    const st = statusPedido(pedidoAtualizado);
+    showToast(
+      st === "recebido"
+        ? `Pedido ${pedido.numero} recebido por completo. Estoque atualizado.`
+        : `Recebimento parcial registrado. ${entradas.length} item(ns) no estoque.`
+    );
+  };
+
+  const cancelarPedido = (p) => {
+    const jaRecebeu = (p.itens||[]).some(i => Number(i.qtdRecebida) > 0);
+    if (jaRecebeu) {
+      showToast("Pedido já tem material recebido. Estorne pelo Estoque antes.", "error");
+      return;
+    }
+    if (!window.confirm(`Cancelar o pedido ${p.numero}?`)) return;
+    update({ ...data, pedidos: (data.pedidos||[]).map(x =>
+      x.id === p.id ? { ...x, status: "cancelado" } : x) });
+    showToast("Pedido cancelado.");
+  };
+
+  // ── Cotação ──────────────────────────────────────────────────
+  const salvarCotacao = (f) => {
+    if (!f.materialId)      { showToast("Selecione o material.", "error"); return; }
+    if (Number(f.qtd) <= 0) { showToast("Informe a quantidade.", "error"); return; }
+    const props = (f.propostas||[])
+      .filter(p => p.fornecedorId && Number(p.precoUnit) > 0)
+      .map(p => ({ id: p.id || uid(), fornecedorId: p.fornecedorId,
+                   precoUnit: Number(p.precoUnit), prazoDias: Number(p.prazoDias||0), obs: p.obs||"" }));
+    if (props.length < 2) { showToast("Uma cotação precisa de ao menos 2 propostas.", "error"); return; }
+
+    const c = {
+      id: f.id || uid(), obraId: f.obraId || obraAtual,
+      materialId: f.materialId, qtd: Number(f.qtd),
+      data: f.data || new Date().toISOString().slice(0,10),
+      status: "aberta", propostas: props, escolhida: "", pedidoId: "",
+    };
+    update({ ...data, cotacoes: f.id
+      ? (data.cotacoes||[]).map(x => x.id === f.id ? c : x)
+      : [...(data.cotacoes||[]), c] });
+    setCotModal(null);
+    showToast("Cotação registrada.");
+  };
+
+  // Cotação decidida vira pedido, sem redigitar nada
+  const gerarPedidoDaCotacao = (cot, propostaId) => {
+    const prop = cot.propostas.find(p => p.id === propostaId);
+    if (!prop) return;
+
+    const numero = `PC-${String((data.pedidos||[]).length + 1).padStart(4,"0")}`;
+    const pedido = {
+      id: uid(), numero, obraId: cot.obraId,
+      fornecedorId: prop.fornecedorId,
+      data: new Date().toISOString().slice(0,10),
+      previsao: "", status: "enviado",
+      itens: [{ id: uid(), materialId: cot.materialId, qtd: cot.qtd,
+                precoUnit: prop.precoUnit, qtdRecebida: 0 }],
+      cotacaoId: cot.id, transacaoId: "", obs: "",
+    };
+
+    update({
+      ...data,
+      pedidos: [...(data.pedidos||[]), pedido],
+      cotacoes: (data.cotacoes||[]).map(c => c.id === cot.id
+        ? { ...c, status:"decidida", escolhida: propostaId, pedidoId: pedido.id } : c),
+    });
+    showToast(`Pedido ${numero} gerado a partir da cotação.`);
+    setAba("pedidos");
+  };
+
+  return (
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div>
+        <p style={{fontSize:11,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Suprimentos</p>
+        <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,
+                    fontSize:"clamp(19px,5vw,26px)",color:C.text}}>Compras</h3>
+      </div>
+
+      <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:8,padding:"9px 11px"}}>
+        <p style={{fontSize:10.5,color:C.subtle,lineHeight:1.55}}>
+          <strong style={{color:C.blue}}>Pedido é compromisso, não despesa.</strong> O custo entra no DRE
+          quando o dinheiro sai — pela Conciliação. Aqui você registra o combinado e,
+          no recebimento, dá entrada no estoque da obra.
+        </p>
+      </div>
+
+      <Sel label="Obra" value={obraAtual} onChange={setObraSel}
+        options={obras.map(o => ({ v:o.id, l:o.name }))}/>
+
+      {/* Cadeia comprado → recebido → aplicado → pago */}
+      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
+        {[
+          ["Comprado", fmt(kpi.comprado), C.text,   "pedidos ativos"],
+          ["Recebido", fmt(kpi.recebido), C.blue,   "entrou no estoque"],
+          ["Aplicado", fmt(kpi.aplicado), C.green,  "consumido na obra"],
+          ["Pago",     fmt(kpi.pago),     C.yellow, "saiu do banco"],
+        ].map(([l,v,c,sub])=>(
+          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}>
+            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,letterSpacing:.5}}>{l}</p>
+            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(13px,3.6vw,16px)",
+                       fontWeight:800,color:c,marginTop:2}}>{v}</p>
+            <p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {kpi.aReceber > 0.01 && (
+        <div style={{background:`${C.orange}0E`,border:`1px solid ${C.orange}66`,borderRadius:8,padding:"9px 11px"}}>
+          <p style={{fontSize:11.5,fontWeight:700,color:C.orange}}>
+            {fmt(kpi.aReceber)} comprado e ainda não recebido
+          </p>
+        </div>
+      )}
+
+      {/* Abas */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4}}>
+        {[["pedidos","Pedidos"],["orcado","Orçado ×"],["cotacoes","Cotações"],
+          ["forn","Fornec."],["precos","Preços"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAba(v)} style={{
+            padding:"7px 3px",
+            border:`2px solid ${aba===v?C.yellow:C.border}`,
+            background:aba===v?`${C.yellow}12`:"transparent",
+            color:aba===v?C.text:C.muted,
+            fontFamily:"'Inter Display','Inter',sans-serif",
+            fontWeight:700,fontSize:10.5,cursor:"pointer",borderRadius:7,
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {/* ── PEDIDOS ── */}
+      {aba === "pedidos" && (<>
+        <Inp value={busca} onChange={setBusca} placeholder="Buscar pedido ou fornecedor..."/>
+        <Btn onClick={()=>setPedModal({id:"",numero:"",obraId:obraAtual,fornecedorId:"",
+          data:new Date().toISOString().slice(0,10),previsao:"",status:"enviado",
+          itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0}],obs:""})} full>
+          <Ic n="plus"/> Novo pedido
+        </Btn>
+
+        {pedidos.length === 0
+          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>Nenhum pedido nesta obra.</p>
+          : pedidos.map(p => {
+            const st = statusPedido(p);
+            const meta = STATUS_PEDIDO[st];
+            const pend = pendentePedido(p);
+            return (
+              <div key={p.id} style={{
+                background:C.card, border:`1px solid ${C.border}`,
+                borderLeft:`3px solid ${meta.c}`, borderRadius:8, padding:"10px 12px",
+              }}>
+                <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
+                  <div style={{minWidth:0}}>
+                    <p style={{fontSize:12.5,fontWeight:800,color:C.text,
+                               fontFamily:"'Inter Display','Inter',sans-serif"}}>{p.numero}</p>
+                    <p className="brk" style={{fontSize:11,color:C.muted,marginTop:2}}>
+                      {nomeForn(p.fornecedorId)}
+                    </p>
+                    <p style={{fontSize:10,color:C.muted,marginTop:1}}>
+                      {fmtDate(p.data)} · {p.itens.length} item(ns)
+                      {p.previsao && ` · entrega ${fmtDate(p.previsao)}`}
+                    </p>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <Badge color={meta.c}>{meta.l}</Badge>
+                    <p style={{fontSize:14,fontWeight:800,color:C.text,marginTop:4,whiteSpace:"nowrap"}}>
+                      {fmt(totalPedido(p))}
+                    </p>
+                    {pend > 0.01 && st !== "rascunho" && st !== "cancelado" && (
+                      <p style={{fontSize:9.5,color:C.orange,marginTop:1}}>
+                        falta {fmt(pend)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Itens */}
+                <div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${C.line}`}}>
+                  {p.itens.map(i => {
+                    const completo = Number(i.qtdRecebida) >= Number(i.qtd) - 1e-6;
+                    return (
+                      <div key={i.id} style={{display:"flex",justifyContent:"space-between",gap:8,
+                                              fontSize:10.5,marginTop:2,alignItems:"baseline"}}>
+                        <span className="brk" style={{color:C.muted,minWidth:0}}>
+                          {nomeMat(i.materialId)}
+                          {!i.orcItemId && linhasOrc.length > 0 && (
+                            <span style={{color:C.orange,fontSize:9}}> · sem apropriação</span>
+                          )}
+                        </span>
+                        <span style={{whiteSpace:"nowrap",flexShrink:0,
+                                      color: completo ? C.green : C.text, fontWeight:600}}>
+                          {i.qtdRecebida > 0 && `${i.qtdRecebida}/`}{i.qtd} {unidMat(i.materialId)}
+                          {completo && " ✓"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>
+                  {(st === "enviado" || st === "parcial") && (
+                    <Btn size="sm" onClick={()=>setRecModal(p)} full>
+                      <Ic n="check"/> Receber material
+                    </Btn>
+                  )}
+                  {st !== "cancelado" && st !== "recebido" && (
+                    <Btn size="sm" v="ghost" onClick={()=>setPedModal({
+                      ...p, itens: p.itens.map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))
+                    })}>✎</Btn>
+                  )}
+                  {st !== "cancelado" && st !== "recebido" && (
+                    <Btn size="sm" v="danger" onClick={()=>cancelarPedido(p)}>×</Btn>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+      </>)}
+
+      {/* ── ORÇADO × COMPRADO ── */}
+      {aba === "orcado" && (
+        !orcVs.orc ? (
+          <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>
+            Esta obra ainda não tem orçamento vinculado.<br/>
+            Crie um em <strong>Orçamento</strong> e amarre-o à obra.
+          </p>
+        ) : (<>
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+            <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
+              Comparação em <strong style={{color:C.text}}>reais</strong>, não em quantidade: o
+              orçamento fala em serviço (m² de alvenaria), a compra fala em material (saco de
+              cimento). O orçado é o <strong style={{color:C.text}}>custo</strong>, sem BDI —
+              BDI é sua margem, não entra no que você paga ao fornecedor.
+            </p>
+          </div>
+
+          {/* Total */}
+          {(() => {
+            const totOrc  = orcVs.linhas.reduce((s,l) => s + l.orcado, 0);
+            const totComp = orcVs.linhas.reduce((s,l) => s + l.comprado, 0);
+            const pct = totOrc ? (totComp/totOrc)*100 : 0;
+            return (
+              <div style={{background:C.card,border:`1.5px solid ${C.yellow}`,
+                           borderRadius:9,padding:"11px 13px"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  {[["Orçado",fmt(totOrc),C.text],["Comprado",fmt(totComp),C.blue],
+                    ["Saldo",fmt(totOrc-totComp), totComp > totOrc ? C.red : C.green]].map(([l,v,c])=>(
+                    <div key={l}>
+                      <p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
+                      <p style={{fontSize:"clamp(12px,3.4vw,15px)",fontWeight:800,color:c,
+                                 whiteSpace:"nowrap",fontFamily:"'Inter Display','Inter',sans-serif"}}>{v}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{marginTop:9,height:6,background:C.line,borderRadius:99,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.min(100,pct)}%`,
+                               background: pct > 100 ? C.red : C.yellow, borderRadius:99}}/>
+                </div>
+                <p style={{fontSize:10,color:C.muted,marginTop:4}}>
+                  {pct.toFixed(1)}% do orçamento já comprado
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* Compras sem apropriação — o número que denuncia */}
+          {orcVs.semApropriacao > 0.01 && (
+            <div style={{background:`${C.orange}0E`,border:`1.5px solid ${C.orange}`,
+                         borderRadius:8,padding:"10px 12px"}}>
+              <p style={{fontSize:12,fontWeight:800,color:C.orange}}>
+                {fmt(orcVs.semApropriacao)} comprado sem apropriação
+              </p>
+              <p style={{fontSize:10.5,color:C.muted,marginTop:3,lineHeight:1.5}}>
+                Dinheiro gasto que não bate com nenhuma linha do orçamento. Ou faltou apontar
+                o item no pedido, ou o orçamento não previu esse gasto — e nos dois casos vale
+                descobrir qual.
+              </p>
+            </div>
+          )}
+
+          {/* Linhas */}
+          {orcVs.linhas.map(l => {
+            const cor = l.estourou ? C.red : l.pct >= 90 ? C.orange : C.green;
+            return (
+              <div key={l.it.id} style={{
+                background:C.card, border:`1px solid ${C.border}`,
+                borderLeft:`3px solid ${cor}`, borderRadius:8, padding:"10px 12px",
+              }}>
+                <p style={{fontSize:9.5,color:C.muted,textTransform:"uppercase",
+                           fontWeight:700,letterSpacing:.5}}>{l.etapa}</p>
+                <p className="brk" style={{fontSize:12,fontWeight:700,color:C.text,marginTop:2}}>
+                  {l.it.descricao || l.it.codigo}
+                </p>
+
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:8}}>
+                  {[["Orçado",l.orcado,C.muted],["Comprado",l.comprado,C.text],
+                    ["Saldo",l.saldo,cor]].map(([lb,v,c])=>(
+                    <div key={lb}>
+                      <p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{lb}</p>
+                      <p style={{fontSize:11.5,fontWeight:800,color:c,whiteSpace:"nowrap"}}>{fmt(v)}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{marginTop:8,height:5,background:C.line,borderRadius:99,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.min(100,l.pct)}%`,
+                               background:cor,borderRadius:99}}/>
+                </div>
+
+                {l.estourou && (
+                  <p style={{fontSize:10.5,color:C.red,marginTop:6,fontWeight:700}}>
+                    🔴 Estourou {fmt(l.comprado - l.orcado)} ({(l.pct-100).toFixed(0)}% acima)
+                  </p>
+                )}
+                {!l.estourou && l.comprado > 0 && (
+                  <p style={{fontSize:10,color:C.muted,marginTop:5}}>
+                    {l.pct.toFixed(0)}% comprado
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </>)
+      )}
+
+      {/* ── COTAÇÕES ── */}
+      {aba === "cotacoes" && (<>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+          <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
+            Você trabalha por administração: gasta o dinheiro do cliente e cobra sobre o custo.
+            <strong style={{color:C.text}}> Provar que comprou bem é parte da entrega.</strong> Aqui
+            ficam as propostas lado a lado, com a economia de cada escolha.
+          </p>
+        </div>
+        <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,materialId:"",qtd:"",
+          data:new Date().toISOString().slice(0,10),
+          propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:""},
+                     {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:""}]})} full>
+          <Ic n="plus"/> Nova cotação
+        </Btn>
+
+        {cotacoes.length === 0
+          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>Nenhuma cotação.</p>
+          : cotacoes.map(c => {
+            const ord = [...c.propostas].sort((a,b) => a.precoUnit - b.precoUnit);
+            const melhor = ord[0];
+            return (
+              <div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,
+                                      borderRadius:8,padding:"10px 12px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+                  <div style={{minWidth:0}}>
+                    <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>
+                      {nomeMat(c.materialId)}
+                    </p>
+                    <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
+                      {c.qtd} {unidMat(c.materialId)} · {fmtDate(c.data)}
+                    </p>
+                  </div>
+                  {c.status === "decidida" && <Badge color={C.green}>Decidida</Badge>}
+                </div>
+
+                <div style={{marginTop:9,display:"flex",flexDirection:"column",gap:5}}>
+                  {ord.map(p => {
+                    const eh = p.id === melhor.id;
+                    const venceu = c.escolhida === p.id;
+                    const dif = (p.precoUnit - melhor.precoUnit) * c.qtd;
+                    return (
+                      <div key={p.id} style={{
+                        background: venceu ? `${C.green}0E` : eh ? `${C.yellow}0A` : C.surface,
+                        border:`1px solid ${venceu ? C.green : eh ? C.yellow : C.border}`,
+                        borderRadius:7, padding:"8px 10px",
+                      }}>
+                        <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
+                          <div style={{minWidth:0}}>
+                            <p className="brk" style={{fontSize:11.5,fontWeight:700,color:C.text}}>
+                              {eh && "🏆 "}{nomeForn(p.fornecedorId)}
+                              {venceu && " ✓"}
+                            </p>
+                            <p style={{fontSize:10,color:C.muted,marginTop:1}}>
+                              {fmt(p.precoUnit)}/{unidMat(c.materialId)}
+                              {p.prazoDias > 0 && ` · ${p.prazoDias} dias`}
+                            </p>
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            <p style={{fontSize:12.5,fontWeight:800,color:C.text,whiteSpace:"nowrap"}}>
+                              {fmt(p.precoUnit * c.qtd)}
+                            </p>
+                            {dif > 0.01 && (
+                              <p style={{fontSize:9.5,color:C.red,marginTop:1}}>+{fmt(dif)}</p>
+                            )}
+                          </div>
+                        </div>
+                        {c.status === "aberta" && (
+                          <Btn size="sm" v={eh ? "primary" : "ghost"}
+                            onClick={()=>gerarPedidoDaCotacao(c, p.id)}
+                            full style={{marginTop:7}}>
+                            Escolher e gerar pedido
+                          </Btn>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+      </>)}
+
+      {/* ── FORNECEDORES ── */}
+      {aba === "forn" && (<>
+        <Btn onClick={()=>setFornModal({id:"",nome:"",cnpj:"",contato:"",telefone:"",email:"",obs:""})} full>
+          <Ic n="plus"/> Novo fornecedor
+        </Btn>
+        {fornecedores.length === 0
+          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>Nenhum fornecedor.</p>
+          : fornecedores.map(f => (
+            <div key={f.id} onClick={()=>setFornModal(f)} style={{background:C.card,
+              border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px",cursor:"pointer"}}>
+              <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{f.nome}</p>
+              <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
+                {[f.cnpj, f.contato, f.telefone].filter(Boolean).join(" · ") || "sem contato"}
+              </p>
+            </div>
+          ))}
+      </>)}
+
+      {/* ── HISTÓRICO DE PREÇOS ── */}
+      {aba === "precos" && (<>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+          <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
+            Só entra aqui o que <strong style={{color:C.text}}>realmente chegou</strong>. Pedido
+            não recebido não é preço pago. A média é <strong style={{color:C.text}}>ponderada pela
+            quantidade</strong> — a média simples trataria 10 sacos caros e 500 baratos como se
+            pesassem igual.
+          </p>
+        </div>
+        {materiais.map(m => {
+          const h = historicoPreco(data.pedidos, m.id);
+          const a = analisePreco(h);
+          if (!a) return null;
+          const caro = a.variacao > 5;
+          return (
+            <div key={m.id} style={{background:C.card,border:`1px solid ${C.border}`,
+              borderLeft:`3px solid ${caro ? C.red : C.green}`,borderRadius:8,padding:"10px 12px"}}>
+              <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{m.descricao}</p>
+
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:8}}>
+                {[["Último",a.ultimo,caro?C.red:C.text],["Melhor",a.menor,C.green],["Médio",a.medio,C.muted]]
+                  .map(([l,v,c])=>(
+                  <div key={l}>
+                    <p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
+                    <p style={{fontSize:12,fontWeight:800,color:c,whiteSpace:"nowrap"}}>{fmt(v)}</p>
+                  </div>
+                ))}
+              </div>
+
+              {caro && (
+                <p style={{fontSize:10.5,color:C.red,marginTop:7,fontWeight:700}}>
+                  🔴 {a.variacao.toFixed(0)}% acima do melhor preço que você já pagou
+                </p>
+              )}
+
+              <div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${C.line}`}}>
+                {h.slice(0,4).map((x,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,
+                                       fontSize:10,color:C.muted,marginTop:2}}>
+                    <span className="brk">{fmtDate(x.data)} · {nomeForn(x.fornecedorId)}</span>
+                    <span style={{whiteSpace:"nowrap",fontWeight:600,color:C.text}}>
+                      {fmt(x.preco)} ({x.qtd} {m.unidade})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </>)}
+
+      {/* ═══ MODAIS ═══ */}
+      {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
+      {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
+                                     fornecedores={fornecedores} materiais={materiais}
+                                     linhasOrc={linhasOrc}/>}
+      {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
+                                     fornecedores={fornecedores} materiais={materiais}/>}
+      {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
+                                      onReceber={receber} nomeMat={nomeMat} unidMat={unidMat}
+                                      nomeForn={nomeForn}/>}
+    </div>
+  );
+}
+
+function ModalMaterial({ form, setForm, onSave }) {
+  const { formGrid } = useBreakpoint();
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+  return (
+    <Modal title={form.id ? "Editar material" : "Novo material"} onClose={()=>setForm(null)} wide>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+        <Inp label="Descrição *" value={form.descricao} onChange={F("descricao")}
+             placeholder="Cimento CP-II 50kg"/>
+        <Inp label="Código (SINAPI/interno)" value={form.codigo} onChange={F("codigo")} placeholder="1379"/>
+        <Inp label="Unidade *" value={form.unidade} onChange={F("unidade")} placeholder="sc, m3, un, kg"/>
+        <Sel label="Categoria" value={form.categoria} onChange={F("categoria")}
+             options={CATS_MATERIAL.map(c=>({v:c.v,l:c.l}))}/>
+        <Inp label="Estoque mínimo" type="number" value={form.estoqueMin} onChange={F("estoqueMin")}
+             placeholder="0"/>
+        <Inp label="Preço médio (R$)" type="number" value={form.precoMedio} onChange={F("precoMedio")}
+             placeholder="0,00"/>
+        <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
+          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
+          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ModalMovimento({ form, setForm, onSave, obras, materiais }) {
+  const { formGrid } = useBreakpoint();
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+  return (
+    <Modal title="Movimento de estoque" onClose={()=>setForm(null)} wide>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+        <Sel label="Tipo *" value={form.tipo} onChange={F("tipo")}
+             options={TIPOS_MOV.map(t=>({v:t.v,l:t.l}))}/>
+        <Sel label="Obra *" value={form.obraId} onChange={F("obraId")}
+             options={[{v:"",l:"Selecione…"}, ...obras.map(o=>({v:o.id,l:o.name}))]}/>
+        <Sel label="Material *" value={form.materialId} onChange={F("materialId")}
+             options={[{v:"",l:"Selecione…"}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
+        <Inp label="Quantidade *" type="number" value={form.qtd} onChange={F("qtd")} placeholder="0"/>
+        <Inp label="Valor unitário (R$)" type="number" value={form.valorUnit} onChange={F("valorUnit")}
+             placeholder="0,00"/>
+        <Inp label="Data" type="date" value={form.data} onChange={F("data")}/>
+        <div style={{gridColumn:"1/-1"}}>
+          <Inp label="Observação" value={form.descricao} onChange={F("descricao")}
+               placeholder="NF 1234, fornecedor..."/>
+        </div>
+        <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
+          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
+          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Registrar</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ModalComposicao({ form, setForm, onSave, materiais }) {
+  const { formGrid } = useBreakpoint();
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+  const setItem = (i, campo, v) =>
+    setForm(f => ({ ...f, itens: f.itens.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
+  const addItem = () => setForm(f => ({ ...f, itens:[...f.itens, {materialId:"",coef:""}] }));
+  const delItem = (i) => setForm(f => ({ ...f, itens: f.itens.filter((_,k)=>k!==i) }));
+
+  return (
+    <Modal title={form.id ? "Editar composição" : "Nova composição"} onClose={()=>setForm(null)} wide>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+          <Inp label="Serviço *" value={form.nome} onChange={F("nome")}
+               placeholder="Alvenaria de vedação"/>
+          <Inp label="Unidade *" value={form.unidade} onChange={F("unidade")} placeholder="m2, m3, m"/>
+        </div>
+
+        <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
+          Quanto cada insumo é consumido para executar <strong style={{color:C.text}}>
+          1 {form.unidade || "unidade"}</strong> deste serviço.
+        </p>
+
+        {form.itens.map((it, i) => (
+          <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,
+                               borderRadius:8,padding:"9px 11px"}}>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+              <Sel label="Insumo" value={it.materialId} onChange={v=>setItem(i,"materialId",v)}
+                   options={[{v:"",l:"Selecione…"}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
+              <Inp label={`Consumo por 1 ${form.unidade||"un"}`} type="number" value={it.coef}
+                   onChange={v=>setItem(i,"coef",v)} placeholder="0,00"/>
+            </div>
+            {form.itens.length > 1 && (
+              <button onClick={()=>delItem(i)} style={{background:"transparent",border:0,color:C.muted,
+                fontSize:10,cursor:"pointer",marginTop:6,textDecoration:"underline"}}>remover insumo</button>
+            )}
+          </div>
+        ))}
+
+        <Btn v="ghost" onClick={addItem} full><Ic n="plus"/> Adicionar insumo</Btn>
+
+        <div style={{display:"flex",gap:8}}>
+          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
+          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// Executar serviço: mostra EXATAMENTE o que vai sair, e se falta saldo,
+// antes de confirmar. Baixa automática sem prévia é como assinar em branco.
+function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiais, saldos, nomeObra }) {
+  const { formGrid } = useBreakpoint();
+  const [compId, setCompId] = useState(composicoes[0]?.id || "");
+  const [obraId, setObraId] = useState(obraAtual);
+  const [qtd,    setQtd]    = useState("");
+  const [quando, setQuando] = useState(new Date().toISOString().slice(0,10));
+  const [etapa,  setEtapa]  = useState("");
+
+  const comp = composicoes.find(c => c.id === compId);
+
+  const previa = useMemo(() => {
+    if (!comp || !Number(qtd)) return [];
+    return baixarPorComposicao(comp, qtd).map(b => {
+      const m = materiais.find(x => x.id === b.materialId);
+      const disp = saldoDe(saldos, obraId, b.materialId);
+      return { ...b, mat: m, disp, falta: b.qtd > disp + 0.0001 };
+    });
+  }, [comp, qtd, obraId, materiais, saldos]);
+
+  const temFalta = previa.some(p => p.falta);
+
+  return (
+    <Modal title="Executei um serviço" onClose={onClose} wide>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {composicoes.length === 0 ? (
+          <p style={{fontSize:12,color:C.muted,lineHeight:1.55,padding:"10px 0"}}>
+            Nenhuma composição cadastrada ainda. Vá na aba <strong>Composições</strong> e
+            defina, por exemplo, quanto 1 m² de alvenaria consome de tijolo, cimento e areia.
+            Depois é só informar aqui o quanto executou.
+          </p>
+        ) : (<>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+            <Sel label="Serviço *" value={compId} onChange={setCompId}
+                 options={composicoes.map(c=>({v:c.id,l:`${c.nome} (${c.unidade})`}))}/>
+            <Sel label="Obra *" value={obraId} onChange={setObraId}
+                 options={obras.map(o=>({v:o.id,l:o.name}))}/>
+            <Inp label={`Quanto executou (${comp?.unidade || "un"}) *`} type="number"
+                 value={qtd} onChange={setQtd} placeholder="0"/>
+            <Inp label="Data" type="date" value={quando} onChange={setQuando}/>
+          </div>
+          <Inp label="Etapa / local (opcional)" value={etapa} onChange={setEtapa}
+               placeholder="Pavimento térreo, fachada oeste..."/>
+
+          {/* Prévia da baixa */}
+          {previa.length > 0 && (
+            <div style={{
+              background: temFalta ? `${C.red}08` : `${C.green}08`,
+              border:`1.5px solid ${temFalta ? C.red : C.green}`,
+              borderRadius:9, padding:"11px 12px",
+            }}>
+              <p style={{fontSize:11.5,fontWeight:800,color: temFalta ? C.red : C.green,marginBottom:7}}>
+                {temFalta ? "⚠ Saldo insuficiente" : "Vai sair do estoque"}
+              </p>
+              {previa.map((p,i) => (
+                <div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,
+                                     fontSize:11,marginTop:3,alignItems:"baseline"}}>
+                  <span className="brk" style={{color:C.text,minWidth:0}}>{p.mat?.descricao || "—"}</span>
+                  <span style={{whiteSpace:"nowrap",flexShrink:0,
+                                color: p.falta ? C.red : C.text, fontWeight:700}}>
+                    {p.qtd} {p.mat?.unidade}
+                    <span style={{color:C.muted,fontWeight:400,fontSize:10}}>
+                      {" "}(tem {p.disp.toFixed(2)})
+                    </span>
+                  </span>
+                </div>
+              ))}
+              {temFalta && (
+                <p style={{fontSize:10,color:C.muted,marginTop:7,lineHeight:1.45}}>
+                  Registre a entrada do que falta antes de baixar. O sistema não deixa o
+                  saldo ficar negativo — estoque negativo contamina todo relatório depois.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div style={{display:"flex",gap:8}}>
+            <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
+            <Btn onClick={()=>onRun(compId, obraId, qtd, quando, etapa)} full
+                 disabled={temFalta || !Number(qtd)}>
+              <Ic n="check"/> Baixar do estoque
+            </Btn>
+          </div>
+        </>)}
+      </div>
+    </Modal>
+  );
+}
+
+function Estoque({ data, update, showToast }) {
+  const { cols, formGrid } = useBreakpoint();
+  const [aba,      setAba]      = useState("saldo");   // saldo|movs|materiais|comp|abc
+  const [obraSel,  setObraSel]  = useState("");
+  const [busca,    setBusca]    = useState("");
+
+  const [matModal, setMatModal] = useState(null);
+  const [movModal, setMovModal] = useState(null);
+  const [srvModal, setSrvModal] = useState(false);     // executar serviço
+  const [compModal,setCompModal]= useState(null);
+
+  const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
+  const saldos      = useMemo(() => calcSaldos(data.movEstoque), [data.movEstoque]);
+  const obras       = data.obras || [];
+  const obraAtual   = obraSel || obras[0]?.id || "";
+
+  const matPorId = useCallback(
+    (id) => materiais.find(m => m.id === id),
+    [materiais]
+  );
+
+  // ── Saldo da obra selecionada ────────────────────────────────
+  const linhasSaldo = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    return materiais
+      .map(m => ({
+        m,
+        saldo: saldoDe(saldos, obraAtual, m.id),
+        critico: saldoDe(saldos, obraAtual, m.id) < Number(m.estoqueMin || 0),
+      }))
+      .filter(l => l.saldo !== 0 || l.critico)   // material nunca usado não polui a lista
+      .filter(l => !termo ||
+        l.m.descricao.toLowerCase().includes(termo) ||
+        String(l.m.codigo).toLowerCase().includes(termo))
+      .sort((a, b) => (b.critico ? 1 : 0) - (a.critico ? 1 : 0) ||
+                      a.m.descricao.localeCompare(b.m.descricao));
+  }, [materiais, saldos, obraAtual, busca]);
+
+  const criticos = useMemo(
+    () => linhasSaldo.filter(l => l.critico).length,
+    [linhasSaldo]
+  );
+
+  const valorEmObra = useMemo(
+    () => linhasSaldo.reduce((s, l) => s + l.saldo * Number(l.m.precoMedio || 0), 0),
+    [linhasSaldo]
+  );
+
+  const abc = useMemo(
+    () => calcCurvaABC((data.movEstoque||[]).filter(x => !obraAtual || x.obraId === obraAtual), materiais),
+    [data.movEstoque, materiais, obraAtual]
+  );
+
+  const movs = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    return (data.movEstoque||[])
+      .filter(x => !obraAtual || x.obraId === obraAtual)
+      .filter(x => !termo || (matPorId(x.materialId)?.descricao || "").toLowerCase().includes(termo))
+      .sort((a,b) => (b.data||"").localeCompare(a.data||""))
+      .slice(0, 120);
+  }, [data.movEstoque, obraAtual, busca, matPorId]);
+
+  // ── Material ─────────────────────────────────────────────────
+  const salvarMaterial = (form) => {
+    if (!form.descricao.trim()) { showToast("Descreva o material.", "error"); return; }
+    const p = {
+      id: form.id || uid(),
+      codigo: form.codigo.trim(),
+      descricao: form.descricao.trim(),
+      unidade: form.unidade || "un",
+      categoria: form.categoria || "outros",
+      estoqueMin: Number(form.estoqueMin || 0),
+      precoMedio: Number(form.precoMedio || 0),
+      ativo: true,
+    };
+    update({
+      ...data,
+      materiais: form.id
+        ? (data.materiais||[]).map(m => m.id === form.id ? p : m)
+        : [...(data.materiais||[]), p],
+    });
+    setMatModal(null);
+    showToast(form.id ? "Material atualizado." : "Material cadastrado.");
+  };
+
+  // ── Movimento avulso ─────────────────────────────────────────
+  const salvarMov = (form) => {
+    if (!form.materialId)      { showToast("Selecione o material.", "error"); return; }
+    if (!form.obraId)          { showToast("Selecione a obra.", "error"); return; }
+    if (Number(form.qtd) <= 0) { showToast("A quantidade precisa ser maior que zero.", "error"); return; }
+
+    // Saída não pode deixar saldo negativo — estoque negativo é sintoma de
+    // lançamento errado, e uma vez negativo contamina todos os relatórios.
+    const sinal = SINAL_MOV[form.tipo] ?? 0;
+    if (sinal < 0) {
+      const disp = saldoDe(saldos, form.obraId, form.materialId);
+      if (Number(form.qtd) > disp + 0.0001) {
+        showToast(`Saldo insuficiente: há ${disp.toFixed(2)} disponível.`, "error");
+        return;
+      }
+    }
+
+    update({
+      ...data,
+      movEstoque: [...(data.movEstoque||[]), {
+        id: uid(),
+        obraId: form.obraId,
+        materialId: form.materialId,
+        tipo: form.tipo,
+        qtd: Number(form.qtd),
+        valorUnit: Number(form.valorUnit || 0),
+        data: form.data || new Date().toISOString().slice(0,10),
+        descricao: form.descricao || "",
+        transacaoId: "", servicoId: "", etapa: form.etapa || "",
+      }],
+    });
+    setMovModal(null);
+    showToast("Movimento registrado.");
+  };
+
+  const excluirMov = (id) => {
+    if (!window.confirm("Excluir este movimento? O saldo será recalculado.")) return;
+    update({ ...data, movEstoque: (data.movEstoque||[]).filter(x => x.id !== id) });
+    showToast("Movimento excluído.");
+  };
+
+  // ── Composição ───────────────────────────────────────────────
+  const salvarComposicao = (form) => {
+    if (!form.nome.trim()) { showToast("Dê um nome ao serviço.", "error"); return; }
+    const itens = (form.itens||[]).filter(i => i.materialId && Number(i.coef) > 0)
+      .map(i => ({ materialId: i.materialId, coef: Number(i.coef) }));
+    if (!itens.length) { showToast("Adicione ao menos um insumo com coeficiente.", "error"); return; }
+
+    const p = { id: form.id || uid(), nome: form.nome.trim(), unidade: form.unidade || "m2", itens };
+    update({
+      ...data,
+      composicoes: form.id
+        ? (data.composicoes||[]).map(c => c.id === form.id ? p : c)
+        : [...(data.composicoes||[]), p],
+    });
+    setCompModal(null);
+    showToast(form.id ? "Composição atualizada." : "Composição criada.");
+  };
+
+  const excluirComposicao = (id) => {
+    if (!window.confirm("Excluir esta composição?")) return;
+    update({ ...data, composicoes: (data.composicoes||[]).filter(c => c.id !== id) });
+    showToast("Composição excluída.");
+  };
+
+  // ── Executar serviço → baixa automática ──────────────────────
+  const executarServico = (compId, obraId, qtdExec, dataExec, etapa) => {
+    const comp = (data.composicoes||[]).find(c => c.id === compId);
+    if (!comp) { showToast("Composição não encontrada.", "error"); return; }
+    if (Number(qtdExec) <= 0) { showToast("Informe a quantidade executada.", "error"); return; }
+    if (!obraId) { showToast("Selecione a obra.", "error"); return; }
+
+    const baixas = baixarPorComposicao(comp, qtdExec);
+
+    // Confere TODOS antes de baixar QUALQUER um. Baixar metade e travar no
+    // meio deixaria o estoque num estado inconsistente.
+    const faltando = baixas
+      .map(b => ({ ...b, disp: saldoDe(saldos, obraId, b.materialId), mat: matPorId(b.materialId) }))
+      .filter(b => b.qtd > b.disp + 0.0001);
+
+    if (faltando.length) {
+      const lista = faltando
+        .map(f => `• ${f.mat?.descricao || "?"}: precisa ${f.qtd}, tem ${f.disp.toFixed(2)}`)
+        .join("\n");
+      showToast("Saldo insuficiente. Veja o detalhe.", "error");
+      window.alert(`Não dá para baixar ${qtdExec} ${comp.unidade} de "${comp.nome}".\n\nFalta:\n${lista}`);
+      return;
+    }
+
+    const quando = dataExec || new Date().toISOString().slice(0,10);
+    const novos = baixas.map(b => ({
+      id: uid(),
+      obraId,
+      materialId: b.materialId,
+      tipo: "consumo",
+      qtd: b.qtd,
+      valorUnit: Number(matPorId(b.materialId)?.precoMedio || 0),
+      data: quando,
+      descricao: `${qtdExec} ${comp.unidade} de ${comp.nome}`,
+      transacaoId: "",
+      servicoId: comp.id,
+      etapa: etapa || "",
+    }));
+
+    update({ ...data, movEstoque: [...(data.movEstoque||[]), ...novos] });
+    setSrvModal(false);
+    showToast(`${novos.length} insumo(s) baixado(s) automaticamente.`);
+  };
+
+  const nomeObra = (id) => obras.find(o => o.id === id)?.name || "—";
+
+  return (
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div>
+        <p style={{fontSize:11,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Suprimentos</p>
+        <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,
+                    fontSize:"clamp(19px,5vw,26px)",color:C.text}}>Estoque</h3>
+      </div>
+
+      {/* Aviso de regime — o motivo de o estoque não mexer no DRE */}
+      <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:8,padding:"9px 11px"}}>
+        <p style={{fontSize:10.5,color:C.subtle,lineHeight:1.55}}>
+          <strong style={{color:C.blue}}>Controle físico.</strong> O custo do material já entra no DRE
+          pela Conciliação, no momento da compra. O estoque não lança nada de novo — se lançasse,
+          o mesmo material contaria duas vezes.
+        </p>
+      </div>
+
+      <Sel label="Obra" value={obraAtual} onChange={setObraSel}
+        options={obras.map(o => ({ v:o.id, l:o.name }))}/>
+
+      {/* KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:8}}>
+        {[
+          ["Itens em estoque", String(linhasSaldo.filter(l=>l.saldo>0).length), C.text],
+          ["Abaixo do mínimo", String(criticos), criticos ? C.red : C.green],
+          ["Valor na obra",    fmt(valorEmObra), C.yellow],
+        ].map(([l,v,c])=>(
+          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}>
+            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,letterSpacing:.5}}>{l}</p>
+            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(14px,4vw,17px)",
+                       fontWeight:800,color:c,marginTop:2}}>{v}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+        <Btn onClick={()=>setSrvModal(true)} full><Ic n="check"/> Executei um serviço</Btn>
+        <Btn v="ghost" onClick={()=>setMovModal({tipo:"entrada",obraId:obraAtual,materialId:"",qtd:"",valorUnit:"",data:new Date().toISOString().slice(0,10),descricao:"",etapa:""})} full>
+          <Ic n="plus"/> Movimento avulso
+        </Btn>
+      </div>
+
+      {/* Abas */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4}}>
+        {[["saldo","Saldo"],["movs","Movimentos"],["materiais","Materiais"],
+          ["comp","Composições"],["abc","Curva ABC"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAba(v)} style={{
+            padding:"7px 2px",
+            border:`2px solid ${aba===v?C.yellow:C.border}`,
+            background:aba===v?`${C.yellow}12`:"transparent",
+            color:aba===v?C.text:C.muted,
+            fontFamily:"'Inter Display','Inter',sans-serif",
+            fontWeight:700,fontSize:10,cursor:"pointer",borderRadius:7,
+          }}>{l}</button>
+        ))}
+      </div>
+
+      <Inp value={busca} onChange={setBusca} placeholder="Buscar material..."/>
+
+      {/* ── SALDO ── */}
+      {aba === "saldo" && (
+        linhasSaldo.length === 0
+          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>
+              Nenhum material com saldo nesta obra. Registre uma entrada.
+            </p>
+          : linhasSaldo.map(({m, saldo, critico}) => (
+            <div key={m.id} style={{
+              background:C.card, border:`1px solid ${critico ? C.red : C.border}`,
+              borderLeft:`3px solid ${critico ? C.red : C.green}`,
+              borderRadius:8, padding:"10px 12px",
+            }}>
+              <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,alignItems:"center"}}>
+                <div style={{minWidth:0}}>
+                  <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{m.descricao}</p>
+                  <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+                    {m.codigo && `${m.codigo} · `}mín. {m.estoqueMin} {m.unidade}
+                    {Number(m.precoMedio)>0 && ` · ${fmt(m.precoMedio)}/${m.unidade}`}
+                  </p>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:15,fontWeight:800,
+                             color: critico ? C.red : C.text, whiteSpace:"nowrap"}}>
+                    {saldo.toFixed(2)} <span style={{fontSize:10,color:C.muted}}>{m.unidade}</span>
+                  </p>
+                  {critico && (
+                    <p style={{fontSize:9,fontWeight:800,color:C.red,marginTop:1}}>⚠ REPOR</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+      )}
+
+      {/* ── MOVIMENTOS ── */}
+      {aba === "movs" && (
+        movs.length === 0
+          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>Nenhum movimento.</p>
+          : movs.map(x => {
+            const t = TIPOS_MOV.find(t => t.v === x.tipo) || TIPOS_MOV[0];
+            const m = matPorId(x.materialId);
+            return (
+              <div key={x.id} style={{
+                background:C.card, border:`1px solid ${C.border}`,
+                borderLeft:`3px solid ${t.cor}`, borderRadius:8, padding:"9px 11px",
+              }}>
+                <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
+                  <div style={{minWidth:0}}>
+                    <p className="brk" style={{fontSize:12,fontWeight:700,color:C.text}}>{m?.descricao || "—"}</p>
+                    <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+                      {t.l} · {fmtDate(x.data)}
+                      {x.servicoId && " · baixa automática"}
+                    </p>
+                    {x.descricao && (
+                      <p className="brk" style={{fontSize:10,color:C.subtle,marginTop:2}}>{x.descricao}</p>
+                    )}
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <p style={{fontSize:13,fontWeight:800,color:t.cor,whiteSpace:"nowrap"}}>
+                      {t.sinal > 0 ? "+" : "−"} {x.qtd} {m?.unidade}
+                    </p>
+                    <button onClick={()=>excluirMov(x.id)} style={{
+                      background:"transparent",border:0,color:C.muted,fontSize:10,
+                      cursor:"pointer",marginTop:3,textDecoration:"underline",
+                    }}>excluir</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+      )}
+
+      {/* ── MATERIAIS ── */}
+      {aba === "materiais" && (<>
+        <Btn v="ghost" onClick={()=>setMatModal({id:"",codigo:"",descricao:"",unidade:"un",
+          categoria:"estrutural",estoqueMin:"",precoMedio:""})} full>
+          <Ic n="plus"/> Novo material
+        </Btn>
+        {materiais
+          .filter(m => !busca.trim() || m.descricao.toLowerCase().includes(busca.toLowerCase()))
+          .map(m => (
+          <div key={m.id} onClick={()=>setMatModal({...m, estoqueMin:String(m.estoqueMin), precoMedio:String(m.precoMedio)})}
+            style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,
+                    padding:"9px 11px",cursor:"pointer"}}>
+            <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{m.descricao}</p>
+            <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+              {m.codigo && `${m.codigo} · `}{m.unidade} · mín. {m.estoqueMin}
+              {Number(m.precoMedio)>0 && ` · ${fmt(m.precoMedio)}`}
+            </p>
+          </div>
+        ))}
+      </>)}
+
+      {/* ── COMPOSIÇÕES ── */}
+      {aba === "comp" && (<>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+          <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
+            Cadastre <strong style={{color:C.text}}>uma vez</strong> quanto cada serviço consome por unidade.
+            Depois é só informar quanto foi executado — o estoque baixa sozinho.
+            <br/><br/>
+            A base SINAPI que importamos traz <em>preços</em>, não os coeficientes de composição.
+            Por isso estes números vêm de você.
+          </p>
+        </div>
+        <Btn v="ghost" onClick={()=>setCompModal({id:"",nome:"",unidade:"m2",itens:[{materialId:"",coef:""}]})} full>
+          <Ic n="plus"/> Nova composição
+        </Btn>
+        {(data.composicoes||[]).map(c => (
+          <div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
+              <div style={{minWidth:0,flex:1}}>
+                <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{c.nome}</p>
+                <p style={{fontSize:10,color:C.muted,marginTop:1}}>por 1 {c.unidade}</p>
+              </div>
+              <div style={{display:"flex",gap:4,flexShrink:0}}>
+                <Btn size="sm" v="ghost" onClick={()=>setCompModal({...c, itens: c.itens.map(i=>({...i,coef:String(i.coef)}))})}>✎</Btn>
+                <Btn size="sm" v="danger" onClick={()=>excluirComposicao(c.id)}>×</Btn>
+              </div>
+            </div>
+            <div style={{marginTop:7,paddingTop:7,borderTop:`1px solid ${C.line}`}}>
+              {c.itens.map((i,k) => {
+                const m = matPorId(i.materialId);
+                return (
+                  <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.muted,marginTop:2}}>
+                    <span className="brk">{m?.descricao || "—"}</span>
+                    <span style={{fontWeight:700,color:C.text,whiteSpace:"nowrap",marginLeft:8}}>
+                      {i.coef} {m?.unidade}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </>)}
+
+      {/* ── CURVA ABC ── */}
+      {aba === "abc" && (
+        abc.length === 0
+          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>
+              Sem consumo registrado ainda.
+            </p>
+          : (<>
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+              <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
+                <strong style={{color:C.text}}>A</strong> = os poucos que valem 80% do gasto — controle rigoroso.
+                <strong style={{color:C.text}}> B</strong> = 15%. <strong style={{color:C.text}}>C</strong> = os muitos que
+                valem 5% — não vale a pena vigiar.
+              </p>
+            </div>
+            {abc.map(x => {
+              const cor = x.classe === "A" ? C.red : x.classe === "B" ? C.orange : C.muted;
+              return (
+                <div key={x.id} style={{background:C.card,border:`1px solid ${C.border}`,
+                                        borderLeft:`3px solid ${cor}`,borderRadius:8,padding:"9px 11px"}}>
+                  <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"auto 1fr auto",gap:8,alignItems:"center"}}>
+                    <span style={{width:22,height:22,borderRadius:5,background:`${cor}18`,color:cor,
+                                  display:"flex",alignItems:"center",justifyContent:"center",
+                                  fontWeight:900,fontSize:11,flexShrink:0}}>{x.classe}</span>
+                    <p className="brk" style={{fontSize:12,fontWeight:600,color:C.text,minWidth:0}}>{x.nome}</p>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <p style={{fontSize:12.5,fontWeight:800,color:C.text,whiteSpace:"nowrap"}}>{fmt(x.valor)}</p>
+                      <p style={{fontSize:9,color:C.muted}}>{x.pctAcum.toFixed(0)}% acum.</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>)
+      )}
+
+      {/* ═══ MODAIS ═══ */}
+      {matModal   && <ModalMaterial    form={matModal}  setForm={setMatModal}  onSave={salvarMaterial}/>}
+      {movModal   && <ModalMovimento   form={movModal}  setForm={setMovModal}  onSave={salvarMov}
+                                       obras={obras} materiais={materiais}/>}
+      {compModal  && <ModalComposicao  form={compModal} setForm={setCompModal} onSave={salvarComposicao}
+                                       materiais={materiais}/>}
+      {srvModal   && <ModalExecutar    onClose={()=>setSrvModal(false)} onRun={executarServico}
+                                       composicoes={data.composicoes||[]} obras={obras}
+                                       obraAtual={obraAtual} materiais={materiais} saldos={saldos}
+                                       nomeObra={nomeObra}/>}
+    </div>
+  );
+}
+
 const CAIXA_CATS = [
   { v:"material",     l:"Material de construção", icon:"🧱" },
   { v:"ferramenta",   l:"Ferramenta / Equipamento", icon:"🔧" },
@@ -10622,7 +12724,7 @@ td{padding:6px 10px;border-bottom:1px solid #eee;font-size:11px}
           <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:C.text,lineHeight:1}}>Caixa de Obra</p>
         </div>
         <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,padding:30,textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
-          <p style={{fontSize:40,marginBottom:8}}>💰</p>
+          <p style={{fontSize:"clamp(22px,10vw,40px)",marginBottom:8}}>💰</p>
           <p style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Nenhuma obra com caixa ativado</p>
           <p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Para ativar, edite uma obra em <strong>Obras</strong> e marque<br/>"Esta obra possui caixa de obra".</p>
         </div>
@@ -10667,7 +12769,7 @@ td{padding:6px 10px;border-bottom:1px solid #eee;font-size:11px}
 
         <div style={{background:caixa.saldo>=0?`${C.green}08`:`${C.red}08`,border:`1.5px solid ${caixa.saldo>=0?C.green:C.red}`,borderRadius:10,padding:"16px 18px",textAlign:"center"}}>
           <p style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Saldo em caixa — {obra.name}</p>
-          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:34,fontWeight:800,color:caixa.saldo>=0?C.green:C.red,lineHeight:1,margin:"4px 0"}}>{fmt(caixa.saldo)}</p>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(19px,8vw,34px)",fontWeight:800,color:caixa.saldo>=0?C.green:C.red,lineHeight:1,margin:"4px 0"}}>{fmt(caixa.saldo)}</p>
           <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:6}}>
             <p style={{fontSize:12,color:C.muted}}>↑ Aportes: <strong style={{color:C.green}}>{fmt(caixa.totalAportes)}</strong></p>
             <p style={{fontSize:12,color:C.muted}}>↓ Gastos: <strong style={{color:C.red}}>{fmt(caixa.totalDespesas)}</strong></p>
@@ -11218,7 +13320,7 @@ const NAV_GROUPS = [
   },
   {
     id: "obras_grp", label: "Obras", icon: "home", color: C.blue,
-    tabs: ["obras", "orc", "ponto", "equipe", "terc"],
+    tabs: ["obras", "orc", "ponto", "equipe", "terc", "est", "cmp"],
   },
   {
     id: "rh_grp", label: "RH", icon: "users", color: C.green,
@@ -11251,6 +13353,8 @@ const TAB_META = {
   dre:      { label: "DRE Obras",   icon: "chart",  group: "fin_grp" },
   fin:      { label: "KPIs",        icon: "dollar", group: "fin_grp" },
   conc:     { label: "Conciliação", icon: "dollar", group: "fin_grp" },
+  est:      { label: "Estoque",     icon: "home",   group: "obras_grp" },
+  cmp:      { label: "Compras",     icon: "dollar", group: "obras_grp" },
   medicoes: { label: "Medições",   icon: "dollar",   group: "fin_grp" },
   caixa:    { label: "Caixa Obra", icon: "dollar",   group: "fin_grp" },
   relat:    { label: "Relatórios", icon: "chart",    group: "fin_grp" },
@@ -11262,13 +13366,20 @@ const TAB_META = {
 // App principal
 // ═══════════════════════════════════════════════════════════════════
 
+
 export default function App() {
   const [data,        setData]        = useState(null);
   const [tab,         setTab]         = useState("home");
   const [loading,     setLoading]     = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);  // usuário logado
-  const [firstSetup,  setFirstSetup]  = useState(false); // modal criação admin
-  const [toast, setToast] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [firstSetup,  setFirstSetup]  = useState(false);
+  const [conflito,    setConflito]    = useState(null);
+  const [toast,       setToast]       = useState(null);
+
+  // A lista de perfis vem SEM os dados. Os dados só chegam depois que o
+  // servidor confere o PIN — é o que impede alguém de abrir a URL e ler tudo.
+  const [perfis, setPerfis] = useState([]);
+
   const approvalHandledRef = useRef(false);
 
   const showToast = useCallback((msg, type = "success") => {
@@ -11279,50 +13390,43 @@ export default function App() {
 
   const update = useCallback(async (next) => {
     const normalized = normalizeData(next);
-
-    // Atualização otimista para manter a interface rápida.
-    setData(normalized);
+    setData(normalized);   // otimista: a interface não trava esperando a rede
 
     try {
-      const result = await supabaseSave(normalized);
+      const r = await saveDataDetailed(normalized);
 
-      if (result && typeof result === "object" && result.reason === "STALE_DATA") {
-        const fresh = await supabaseLoad();
-        setData(normalizeData(fresh || normalized));
-        showToast(
-          "A base foi alterada por outro usuário. Recarreguei os dados para evitar apagar alocações ou pontos fechados.",
-          "error"
-        );
-        return;
-      }
+      // Conflito dispara o evento 'arcd:data-conflict' dentro do api.js — o
+      // banner aparece sozinho e guarda o que você tentou salvar.
+      if (r.conflict) return;
 
-      if (result !== true) {
-        showToast("Não foi possível salvar no Supabase. Confira a conexão antes de continuar.", "error");
+      if (!r.ok) {
+        showToast(r.reason || "Não foi possível salvar. Confira a conexão.", "error");
       }
     } catch (err) {
       console.error(err);
-      showToast("Erro ao salvar no Supabase. Nenhuma alteração remota foi confirmada.", "error");
+      showToast("Erro ao salvar. Nada foi confirmado no servidor.", "error");
     }
   }, [showToast]);
 
+  // No boot buscamos APENAS a lista de perfis (nome + papel). Nenhum dado
+  // financeiro, nenhum CPF, nenhum hash de PIN sai do servidor aqui.
+  // Os dados só chegam depois que o PIN é conferido — lá no servidor.
   useEffect(() => {
-    let active = true;
+    let vivo = true;
     (async () => {
       try {
-        const loaded = await supabaseLoad();
-        if (!active) return;
-        setData(normalizeData(loaded || DEFAULT()));
+        const r = await listarPerfis();
+        if (!vivo) return;
+        setPerfis(r.usuarios || []);
+        if (r.precisaSetup) setFirstSetup(true);
       } catch (err) {
         console.error(err);
-        if (active) {
-          setData(normalizeData(DEFAULT()));
-          showToast("Erro ao carregar dados. Base padrão criada.", "warn");
-        }
+        if (vivo) showToast("Não consegui falar com o servidor.", "error");
       } finally {
-        if (active) setLoading(false);
+        if (vivo) setLoading(false);
       }
     })();
-    return () => { active = false; };
+    return () => { vivo = false; };
   }, [showToast]);
 
   useEffect(() => {
@@ -11377,7 +13481,11 @@ export default function App() {
   const SIDEBAR_W = 224;
   // No desktop a navegação vira sidebar → não há barra inferior ocupando espaço
   const navHeight  = isDesktop ? 0 : (hasSubTabs ? 132 : 80);
-  const maxConteudo = pick(1080, 1080, 1320);
+  // Em monitor ultrawide (21:9, 34"), esticar o conteúdo até a borda deixa a
+  // linha de texto longa demais e os cards deformados. O teto de 1440px mantém
+  // a leitura confortável e centraliza o conteúdo, sem deixar a tela "vazia":
+  // as grades já usam 4 colunas nesse tamanho.
+  const maxConteudo = pick("100%", "100%", "min(1440px, 100%)");
 
   const goGroup = (group) => {
     if (group.tabs.includes(tab)) return;
@@ -11408,7 +13516,72 @@ export default function App() {
     cfg_grp:   null,
   };
 
-  if (loading || !data) {
+  // ── Conflito de gravação ─────────────────────────────────────
+  // Tudo vive num único JSON, então DUAS pessoas mexendo em módulos
+  // DIFERENTES colidem: quem salvar depois é recusado. Antes isso virava um
+  // alert() e o trabalho evaporava — imagine perder o ponto de 40 pessoas
+  // porque o financeiro conciliou uma transação 30 segundos antes.
+  //
+  // Agora seguramos o que você tentou salvar e oferecemos reaplicar sobre a
+  // versão nova do servidor.
+  useEffect(() => {
+    const aoConflitar = (e) => setConflito(e.detail || null);
+    window.addEventListener("arcd:data-conflict", aoConflitar);
+    return () => window.removeEventListener("arcd:data-conflict", aoConflitar);
+  }, []);
+
+  const reaplicarSobreServidor = async () => {
+    const meu = conflito?.rejectedPayload;
+    setConflito(null);
+    const fresco = await loadDataWithMeta();
+    if (!fresco?.data) { showToast("Não consegui recarregar. Tente de novo.", "error"); return; }
+
+    adoptServerVersion(fresco.updatedAt, fresco.data);
+    setData(normalizeData(fresco.data));
+
+    if (meu) {
+      // Reaplica a SUA versão por cima da base atualizada. É "last write wins"
+      // consciente: você vê o aviso e escolhe. Não é merge automático — com um
+      // blob único, merge de verdade exigiria dividir a tabela por módulo.
+      const ok = await saveData(normalizeData(meu));
+      if (ok) { setData(normalizeData(meu)); showToast("Suas alterações foram reaplicadas."); }
+      else    { showToast("Ainda em conflito. Recarregue a página.", "error"); }
+    }
+  };
+
+  const descartarMinhaVersao = async () => {
+    setConflito(null);
+    const fresco = await loadDataWithMeta();
+    if (fresco?.data) {
+      adoptServerVersion(fresco.updatedAt, fresco.data);
+      setData(normalizeData(fresco.data));
+      showToast("Tela atualizada com a versão do servidor.");
+    }
+  };
+
+  // Sair e trocar usuário agora fazem a mesma coisa por baixo: limpam o PIN da
+  // memória e voltam pro login. Não existe mais uma "sessão do Supabase" por
+  // cima — o PIN É a sessão.
+  const sairDoSistema = () => {
+    if (!window.confirm("Sair do sistema?")) return;
+    setCurrentUser(null);
+    setData(null);        // os dados saem da memória junto
+    encerrarSessao();
+  };
+
+  // Tablet compartilhado na obra: troca quem opera, sem a pergunta de confirmação.
+  const trocarDeUsuario = () => {
+    setCurrentUser(null);
+    setData(null);
+    encerrarSessao();
+  };
+
+  // ATENÇÃO À ORDEM DOS PORTÕES.
+  // `data` agora é null ATÉ o PIN passar. Se testássemos `!data` antes do
+  // login, o app ficaria carregando para sempre — os dados nunca chegariam,
+  // porque ninguém teria digitado o PIN. Primeiro loading, depois setup,
+  // depois login. Só então os dados existem.
+  if (loading) {
     return (
       <>
         <style>{G}</style>
@@ -11425,9 +13598,11 @@ export default function App() {
 
   // ── Tela de login se não há usuário logado ──────────────────────
   if (!currentUser) {
-    const handleLogin = (usuario) => {
+    // O servidor devolve o usuário E os dados na mesma resposta — os dados
+    // não existiam no navegador antes do PIN passar.
+    const handleLogin = (usuario, dados) => {
+      setData(normalizeData(dados || DEFAULT()));
       setCurrentUser(usuario);
-      // Redirecionar para a primeira aba permitida pela role
       const allowed = ROLE_TABS[usuario.role] || ROLE_TABS.admin;
       setTab(allowed[0] || "home");
     };
@@ -11435,32 +13610,26 @@ export default function App() {
     const handleFirstSetup = () => setFirstSetup(true);
 
     if (firstSetup) {
-      // Modal de criação do primeiro admin
       return (
         <>
           <style>{G}</style>
-          <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
-            <div style={{ width:"100%", maxWidth:360 }}>
-              <div style={{ textAlign:"center", marginBottom:28 }}>
-                <img src={ARCD_LOGO} alt="ARCD" style={{ width:56, height:56, objectFit:"contain", marginBottom:10 }}/>
-                <p style={{ fontWeight:800, fontSize:18, letterSpacing:3, color:C.text, textTransform:"uppercase" }}>ARCD</p>
-                <p style={{ fontSize:11, color:C.muted, letterSpacing:1.5, marginTop:2 }}>Configuração inicial</p>
-              </div>
-              <GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={{role:"admin"}}/>
-              {(data.usuarios||[]).length > 0 && (
-                <Btn onClick={()=>{setFirstSetup(false);}} v="primary" full style={{marginTop:16}}>
-                  Ir para o login
-                </Btn>
-              )}
-            </div>
-          </div>
+          <PrimeiroAcesso
+            showToast={showToast}
+            onPronto={async () => {
+              // Recarrega a lista de perfis para o admin recém-criado aparecer
+              const r = await listarPerfis();
+              setPerfis(r.usuarios || []);
+              setFirstSetup(false);
+            }}
+          />
+          {toast && <Toast {...toast} />}
         </>
       );
     }
 
     return (
       <LoginScreen
-        data={data}
+        perfis={perfis}
         onLogin={handleLogin}
         onFirstSetup={handleFirstSetup}
       />
@@ -11559,10 +13728,16 @@ export default function App() {
                     </p>
                   </div>
                 </div>
-                <button onClick={()=>setCurrentUser(null)} title="Sair" style={{
-                  background:"transparent", border:0, color:C.muted,
-                  fontSize:15, cursor:"pointer", lineHeight:1, padding:"0 3px", flexShrink:0,
-                }}>×</button>
+                <div style={{display:"flex",gap:2,flexShrink:0}}>
+                  <button onClick={trocarDeUsuario} title="Trocar usuário (tablet compartilhado)" style={{
+                    background:"transparent", border:0, color:C.muted,
+                    fontSize:12, cursor:"pointer", lineHeight:1, padding:"0 3px",
+                  }}>⇄</button>
+                  <button onClick={sairDoSistema} title="Sair do sistema" style={{
+                    background:"transparent", border:0, color:C.muted,
+                    fontSize:15, cursor:"pointer", lineHeight:1, padding:"0 3px",
+                  }}>×</button>
+                </div>
               </div>
             </div>
           </aside>
@@ -11601,7 +13776,7 @@ export default function App() {
               <div style={{ display: isDesktop ? "none" : "flex", alignItems:"center", gap:6, padding:"4px 10px", background:C.surface, borderRadius:6, border:`1px solid ${C.border}` }}>
                 <div style={{ width:7, height:7, borderRadius:"50%", background:ROLES.find(r=>r.v===currentUser?.role)?.color||C.yellow, flexShrink:0 }}/>
                 <p style={{ fontSize:11, fontWeight:600, color:C.text, maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{currentUser?.nome}</p>
-                <button onClick={()=>setCurrentUser(null)} style={{
+                <button onClick={sairDoSistema} style={{
                   background:"transparent", border:0, color:C.muted, fontSize:14,
                   cursor:"pointer", lineHeight:1, padding:"0 2px",
                 }} title="Sair">×</button>
@@ -11634,6 +13809,36 @@ export default function App() {
         </header>
 
         {/* ── CONTEÚDO ───────────────────────────────────────────── */}
+        {/* Banner de conflito de gravação */}
+        {conflito && (
+          <div style={{
+            maxWidth:maxConteudo, margin:"0 auto",
+            padding: isDesktop ? "12px 22px 0" : "12px 14px 0",
+          }}>
+            <div style={{
+              background:`${C.orange}0E`, border:`1.5px solid ${C.orange}`,
+              borderRadius:10, padding:"12px 14px",
+            }}>
+              <p style={{fontSize:13,fontWeight:800,color:C.orange,fontFamily:"'Inter Display','Inter',sans-serif"}}>
+                ⚠ Seu salvamento foi recusado
+              </p>
+              <p style={{fontSize:11.5,color:C.muted,marginTop:4,lineHeight:1.55}}>
+                Outra pessoa salvou alterações enquanto você trabalhava. <strong style={{color:C.text}}>
+                Nada seu foi perdido</strong> — o que você fez está guardado aqui.
+                Você pode reaplicar por cima da versão nova, ou descartar e recomeçar da versão do servidor.
+              </p>
+              <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+                <Btn size="sm" onClick={reaplicarSobreServidor}>
+                  <Ic n="check"/> Reaplicar minhas alterações
+                </Btn>
+                <Btn size="sm" v="ghost" onClick={descartarMinhaVersao}>
+                  Descartar e recarregar
+                </Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
         <main style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "20px 22px" : 14 }}>
           {tab === "home"   && <Dashboard   data={data} onTab={setTab} />}
           {tab === "obras"  && <Obras       data={data} update={update} showToast={showToast} />}
@@ -11647,6 +13852,8 @@ export default function App() {
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} />}
           {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast}/>}
+          {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast}/>}
+          {tab === "cmp"      && <Compras      data={data} update={update} showToast={showToast}/>}
           {tab === "medicoes" && <MedicoesView data={data} update={update} showToast={showToast} />}
           {tab === "caixa"    && <CaixaObra    data={data} update={update} showToast={showToast} />}
           {tab === "relat"    && <Relatorios   data={data} />}
@@ -11662,7 +13869,7 @@ export default function App() {
           borderTop:`1px solid ${C.border}`,
           boxShadow:`0 -4px 20px ${C.shadow}`,
         }}>
-          <div style={{ maxWidth:1080, margin:"0 auto" }}>
+          <div style={{ maxWidth:maxConteudo, margin:"0 auto" }}>
 
             {/* Sub-tabs (só aparece quando grupo tem >1 aba) */}
             {hasSubTabs && (
