@@ -32,6 +32,16 @@ const db = createClient(URL, SERVICE, {
 
 const sha256 = (s) => crypto.createHash("sha256").update(String(s)).digest("hex");
 
+// Dois carimbos de tempo apontam para o mesmo instante?
+// Compara o VALOR, não o texto: "…Z" (JS) e "…+00:00" (Postgres) são o mesmo
+// momento escrito de duas formas.
+const mesmoInstante = (a, b) => {
+  const ta = new Date(a).getTime();
+  const tb = new Date(b).getTime();
+  if (isNaN(ta) || isNaN(tb)) return false;
+  return ta === tb;
+};
+
 // ── Freio contra força bruta ───────────────────────────────────────
 // Um PIN de 4 dígitos tem 10.000 combinações — um script testa tudo em
 // minutos se deixarmos. Aqui a memória é por instância (serverless recicla),
@@ -171,7 +181,15 @@ export default async function handler(req, res) {
 
       // Se outro salvou depois da sua leitura, recusa — e devolve a versão
       // do servidor + o que você tentou salvar, para o app reaplicar.
-      if (expectedUpdatedAt && updatedAt && expectedUpdatedAt !== updatedAt) {
+      //
+      // ⚠️ COMPARAR INSTANTE, NÃO STRING.
+      //
+      // Este trecho já teve um bug que travava TODO salvamento a partir do
+      // segundo. O JS gera "2026-07-14T09:46:11.545Z"; o Postgres, na coluna
+      // timestamptz, devolve "2026-07-14T09:46:11.545+00:00". É o MESMO
+      // instante, mas são strings diferentes — e comparar com !== dava
+      // conflito eterno. O ponto simplesmente não salvava.
+      if (expectedUpdatedAt && updatedAt && !mesmoInstante(expectedUpdatedAt, updatedAt)) {
         return res.status(409).json({
           conflict: true,
           reason: "Outro usuário salvou enquanto você trabalhava.",
@@ -180,15 +198,21 @@ export default async function handler(req, res) {
         });
       }
 
-      const novoUpdatedAt = new Date().toISOString();
-      const { error } = await db
+      const agora = new Date().toISOString();
+
+      // .select() devolve a linha COMO O BANCO A GUARDOU. Assim o carimbo que
+      // mandamos de volta ao navegador é exatamente o que estará lá na próxima
+      // comparação — sem discrepância de formato.
+      const { data: gravado, error } = await db
         .from("company_app_data")
-        .update({ value: payload, updated_at: novoUpdatedAt, updated_by: null })
+        .update({ value: payload, updated_at: agora, updated_by: null })
         .eq("company_id", COMPANY)
-        .eq("key", KEY);
+        .eq("key", KEY)
+        .select("updated_at")
+        .maybeSingle();
 
       if (error) throw error;
-      return res.status(200).json({ ok: true, updatedAt: novoUpdatedAt });
+      return res.status(200).json({ ok: true, updatedAt: gravado?.updated_at || agora });
     }
 
     return res.status(400).json({ error: "Ação desconhecida." });
