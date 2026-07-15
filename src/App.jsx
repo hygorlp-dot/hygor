@@ -385,6 +385,13 @@ const fmtDateFull = iso => {
 
 const monthName = m => ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][m] || "";
 const fullMonth = m => ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][m] || "";
+// Mes/ano curto a partir de uma data ISO: "ago/26". Usado na regua do Gantt.
+const fmtMesAno = iso => {
+  if (!iso) return "";
+  const meses = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+  const d = new Date(iso + "T00:00:00");
+  return `${meses[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
+};
 
 // getDays é função pura de (year, month) &rarr; cache permanente
 const _daysCache = new Map();
@@ -1181,6 +1188,32 @@ const normalizeData = incoming => {
       })) : [],
     })) : [],
     baseFavoritos: Array.isArray(d.baseFavoritos) ? d.baseFavoritos : [],
+    // Planejamento de obra (Gantt). Um plano por obra. Cada tarefa aponta para
+    // uma etapa do orcamento (etapaId) e dai herda o custo. Marcos sao pontos
+    // no tempo sem duracao (ex.: "comprar porcelanato").
+    planos: Array.isArray(d.planos) ? d.planos.map(p => ({
+      id:      p.id      || uid(),
+      obraId:  p.obraId  || "",
+      inicio:  p.inicio  || "",   // data-ancora do plano (YYYY-MM-DD)
+      tarefas: Array.isArray(p.tarefas) ? p.tarefas.map(t => ({
+        id:        t.id        || uid(),
+        etapaId:   t.etapaId   || "",   // etapa do orcamento (vazio = tarefa avulsa)
+        nome:      t.nome      || "Tarefa",
+        inicio:    t.inicio    || "",   // YYYY-MM-DD
+        fim:       t.fim       || "",   // YYYY-MM-DD
+        progresso: Math.max(0, Math.min(100, Number(t.progresso || 0))),
+        cor:       t.cor       || "",
+        depende:   Array.isArray(t.depende) ? t.depende : [],  // ids de tarefas predecessoras
+      })) : [],
+      marcos: Array.isArray(p.marcos) ? p.marcos.map(m => ({
+        id:     m.id     || uid(),
+        nome:   m.nome   || "Marco",
+        data:   m.data   || "",   // YYYY-MM-DD
+        tipo:   m.tipo   || "geral",  // geral | compra | entrega | vistoria | pagamento
+        feito:  !!m.feito,
+        nota:   m.nota   || "",
+      })) : [],
+    })) : [],
     usuarios: Array.isArray(d.usuarios) ? d.usuarios.map(u => ({
       id:       u.id       || uid(),
       nome:     u.nome     || "",
@@ -8082,10 +8115,10 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","obras","orc","est","cmp","ponto","equipe","terc","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","cad","config"],
-  engenheiro:  ["home","obras","orc","est","cmp","ponto","equipe","terc","caixa","cad","ia"],
+  admin:       ["home","obras","orc","plan","est","cmp","ponto","equipe","terc","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","cad","config"],
+  engenheiro:  ["home","obras","orc","plan","est","cmp","ponto","equipe","terc","caixa","cad","ia"],
   rh:          ["home","equipe","folha","resc","cad","ia"],
-  financeiro:  ["home","orc","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
+  financeiro:  ["home","orc","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   visualizador:["home"],
 };
 
@@ -8635,6 +8668,101 @@ const itemTotal = (it, bdi) =>
 //
 // Dentro de uma etapa, as sub-etapas são numeradas primeiro e os itens
 // diretos continuam a contagem depois delas.
+// ==============================================================
+//  MOTOR DE PLANEJAMENTO (Gantt)
+//  Funcoes puras: recebem plano + orcamento, devolvem datas, custos e
+//  a grade de tempo. Testadas isoladamente antes de virar tela.
+// ==============================================================
+
+// Dias entre duas datas ISO (fim - inicio). Positivo, minimo 0.
+const diasCorridos = (ini, fim) => {
+  if (!ini || !fim) return 0;
+  const a = new Date(ini + "T00:00:00");
+  const b = new Date(fim + "T00:00:00");
+  return Math.max(0, Math.round((b - a) / 86400000));
+};
+
+// Soma dias a uma data ISO, devolve ISO.
+const somaDias = (iso, n) => {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+// Custo de uma etapa do orcamento = soma dos itens (SEM BDI: e custo, nao preco).
+// Inclui itens de sub-etapas, para uma etapa-mae somar seus filhos.
+const custoEtapa = (orc, etapaId) => {
+  if (!orc || !etapaId) return 0;
+  const filhas = idsDaSubarvore(orc.etapas || [], etapaId); // inclui a propria
+  return (orc.itens || [])
+    .filter(it => it.tipo !== "titulo" && filhas.includes(it.etapaId))
+    .reduce((s, it) => s + Number(it.quantidade || 0) * Number(it.precoUnit || 0), 0);
+};
+
+// Acha o orcamento de uma obra (o mais recente, se houver varios).
+const orcamentoDaObra = (data, obraId) =>
+  (data.orcamentos || [])
+    .filter(o => o.obraId === obraId)
+    .slice(-1)[0] || null;
+
+// Monta as tarefas efetivas do Gantt: cada tarefa do plano, enriquecida com
+// nome e custo vindos da etapa do orcamento. Ordena por data de inicio.
+const montarTarefas = (plano, orc) => {
+  if (!plano) return [];
+  return (plano.tarefas || [])
+    .map(t => {
+      const etapa = (orc?.etapas || []).find(e => e.id === t.etapaId);
+      // Nome: se ha etapa vinculada, ela manda - a menos que o usuario tenha
+      // dado um nome proprio (diferente do default "Tarefa").
+      const nomeCustom = t.nome && t.nome !== "Tarefa";
+      return {
+        ...t,
+        nome:  nomeCustom ? t.nome : (etapa?.nome || t.nome || "Tarefa"),
+        custo: t.etapaId ? custoEtapa(orc, t.etapaId) : 0,
+        dias:  diasCorridos(t.inicio, t.fim),
+        orfa:  !!t.etapaId && !etapa,  // aponta para etapa que nao existe mais
+      };
+    })
+    .sort((a, b) => (a.inicio || "9999").localeCompare(b.inicio || "9999"));
+};
+
+// Janela de tempo do plano: menor inicio e maior fim entre tarefas e marcos.
+// Devolve {ini, fim, dias}. Vazio se nao ha nada com data.
+const janelaPlano = (tarefas, marcos) => {
+  const datas = [];
+  (tarefas || []).forEach(t => { if (t.inicio) datas.push(t.inicio); if (t.fim) datas.push(t.fim); });
+  (marcos  || []).forEach(m => { if (m.data)   datas.push(m.data); });
+  if (!datas.length) return { ini: "", fim: "", dias: 0 };
+  datas.sort();
+  return { ini: datas[0], fim: datas[datas.length - 1], dias: diasCorridos(datas[0], datas[datas.length - 1]) };
+};
+
+// Resumo financeiro do plano: custo total planejado, custo ja concluido
+// (ponderado pelo progresso de cada tarefa) e o previsto do orcamento.
+const resumoPlano = (tarefas, orc) => {
+  const planejado = (tarefas || []).reduce((s, t) => s + (t.custo || 0), 0);
+  const executado = (tarefas || []).reduce((s, t) => s + (t.custo || 0) * (t.progresso || 0) / 100, 0);
+  const orcTotal  = (orc?.itens || [])
+    .filter(it => it.tipo !== "titulo")
+    .reduce((s, it) => s + Number(it.quantidade || 0) * Number(it.precoUnit || 0), 0);
+  return {
+    planejado, executado,
+    orcTotal,
+    // quanto do orcamento ja foi colocado em tarefas do cronograma
+    coberto: orcTotal ? Math.min(100, (planejado / orcTotal) * 100) : 0,
+  };
+};
+
+// Progresso geral do plano: media do progresso ponderada pela duracao.
+// Uma tarefa de 30 dias pesa mais que uma de 2 dias.
+const progressoPlano = (tarefas) => {
+  const t = (tarefas || []).filter(x => x.dias > 0);
+  const totalDias = t.reduce((s, x) => s + x.dias, 0);
+  if (!totalDias) return 0;
+  return t.reduce((s, x) => s + x.dias * (x.progresso || 0), 0) / totalDias;
+};
+
 const construirArvore = (etapas, itens) => {
   // Índice pai &rarr; filhos
   const porPai = {};
@@ -12583,6 +12711,528 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab }) {
     </div>
   );
 }
+// ==============================================================
+//  PLANEJAMENTO DE OBRAS (Gantt editavel)
+//  - Tarefas vem das etapas do orcamento (herdam custo)
+//  - Barras arrastaveis: mover (corpo) e redimensionar (bordas)
+//  - Marcos: pontos no tempo (compra de porcelanato, vistoria...)
+//  - Ligado ao orcamento: cobertura, planejado x orcado
+// ==============================================================
+function Planejamento({ data, update, showToast }) {
+  const { isDesktop, cols } = useBreakpoint();
+
+  // Obra selecionada. Comeca na primeira obra ativa.
+  const obrasComOrc = (data.obras || []).filter(o =>
+    (data.orcamentos || []).some(x => x.obraId === o.id));
+  const [obraId, setObraId] = useState(obrasComOrc[0]?.id || "");
+
+  const orc   = orcamentoDaObra(data, obraId);
+
+  // Plano da obra (cria um vazio na memoria se ainda nao existe).
+  const plano = useMemo(() =>
+    (data.planos || []).find(p => p.obraId === obraId)
+    || { id: "", obraId, inicio: "", tarefas: [], marcos: [] },
+    [data.planos, obraId]);
+
+  const tarefas = useMemo(() => montarTarefas(plano, orc), [plano, orc]);
+  const resumo  = useMemo(() => resumoPlano(tarefas, orc), [tarefas, orc]);
+  const janela  = useMemo(() => janelaPlano(tarefas, plano.marcos), [tarefas, plano.marcos]);
+  const progresso = useMemo(() => progressoPlano(tarefas), [tarefas]);
+
+  const [tarefaModal, setTarefaModal] = useState(null);   // {modo, tarefa}
+  const [marcoModal,  setMarcoModal]  = useState(null);
+  const [zoom, setZoom] = useState("semana");             // dia | semana | mes
+
+  // ---- Persistencia: garante um plano na base e aplica mudancas ----
+  const salvarPlano = (mut) => {
+    const existe = (data.planos || []).some(p => p.obraId === obraId);
+    let planos;
+    if (existe) {
+      planos = (data.planos || []).map(p => p.obraId === obraId ? mut({ ...p }) : p);
+    } else {
+      const novo = mut({ id: uid(), obraId, inicio: today(), tarefas: [], marcos: [] });
+      planos = [...(data.planos || []), novo];
+    }
+    update({ ...data, planos });
+  };
+
+  const upsertTarefa = (t) => salvarPlano(p => {
+    const existe = (p.tarefas || []).some(x => x.id === t.id);
+    p.tarefas = existe
+      ? p.tarefas.map(x => x.id === t.id ? { ...x, ...t } : x)
+      : [...(p.tarefas || []), { ...t, id: t.id || uid() }];
+    return p;
+  });
+  const removerTarefa = (id) => salvarPlano(p => {
+    p.tarefas = (p.tarefas || []).filter(x => x.id !== id);
+    return p;
+  });
+  const upsertMarco = (m) => salvarPlano(p => {
+    const existe = (p.marcos || []).some(x => x.id === m.id);
+    p.marcos = existe
+      ? p.marcos.map(x => x.id === m.id ? { ...x, ...m } : x)
+      : [...(p.marcos || []), { ...m, id: m.id || uid() }];
+    return p;
+  });
+  const removerMarco = (id) => salvarPlano(p => {
+    p.marcos = (p.marcos || []).filter(x => x.id !== id);
+    return p;
+  });
+
+  // Cria uma tarefa a partir de uma etapa do orcamento ainda nao planejada.
+  const etapasLivres = (orc?.etapas || []).filter(e =>
+    !(plano.tarefas || []).some(t => t.etapaId === e.id));
+
+  const adicionarEtapa = (etapaId) => {
+    const etapa = (orc?.etapas || []).find(e => e.id === etapaId);
+    if (!etapa) return;
+    // Encaixa logo apos a ultima tarefa, com 7 dias de duracao default.
+    const ult = tarefas[tarefas.length - 1];
+    const ini = ult?.fim || plano.inicio || today();
+    upsertTarefa({ etapaId, nome: etapa.nome, inicio: ini, fim: somaDias(ini, 7), progresso: 0 });
+    showToast?.(`"${etapa.nome}" adicionada ao cronograma`);
+  };
+
+  // ============================================================
+  //  GANTT: grade de tempo + barras arrastaveis
+  // ============================================================
+  const GANTT_INI = janela.ini || plano.inicio || today();
+  const totalDias = Math.max(30, janela.dias + 10);   // folga de 10 dias
+  const pxPorDia  = zoom === "dia" ? 34 : zoom === "semana" ? 12 : 4;
+  const larguraGrade = totalDias * pxPorDia;
+  const ALTURA_LINHA = 38;
+
+  // Converte data -> posicao X (px) e duracao -> largura.
+  const xDeData = (iso) => diasCorridos(GANTT_INI, iso) * pxPorDia;
+
+  // ---- Arrastar barra (mover ou redimensionar) ----
+  // Guardamos o gesto em curso: qual tarefa, que modo, onde comecou.
+  const dragRef = useRef(null);
+
+  const iniciarDrag = (e, tarefa, modo) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const ponto = e.touches ? e.touches[0] : e;
+    dragRef.current = {
+      id: tarefa.id, modo,
+      x0: ponto.clientX,
+      ini0: tarefa.inicio, fim0: tarefa.fim,
+      preview: { inicio: tarefa.inicio, fim: tarefa.fim },
+    };
+    document.addEventListener("mousemove", moverDrag);
+    document.addEventListener("mouseup", soltarDrag);
+    document.addEventListener("touchmove", moverDrag, { passive: false });
+    document.addEventListener("touchend", soltarDrag);
+    setDragTick(x => x + 1);
+  };
+
+  // Forca re-render durante o arraste (o preview vive no ref).
+  const [, setDragTick] = useState(0);
+
+  const moverDrag = (e) => {
+    const d = dragRef.current;
+    if (!d) return;
+    if (e.cancelable) e.preventDefault();
+    const ponto = e.touches ? e.touches[0] : e;
+    const deltaDias = Math.round((ponto.clientX - d.x0) / pxPorDia);
+    if (d.modo === "mover") {
+      d.preview = { inicio: somaDias(d.ini0, deltaDias), fim: somaDias(d.fim0, deltaDias) };
+    } else if (d.modo === "inicio") {
+      const novoIni = somaDias(d.ini0, deltaDias);
+      // nao deixa o inicio passar do fim
+      if (diasCorridos(novoIni, d.fim0) >= 1) d.preview = { inicio: novoIni, fim: d.fim0 };
+    } else if (d.modo === "fim") {
+      const novoFim = somaDias(d.fim0, deltaDias);
+      if (diasCorridos(d.ini0, novoFim) >= 1) d.preview = { inicio: d.ini0, fim: novoFim };
+    }
+    setDragTick(x => x + 1);
+  };
+
+  const soltarDrag = () => {
+    const d = dragRef.current;
+    document.removeEventListener("mousemove", moverDrag);
+    document.removeEventListener("mouseup", soltarDrag);
+    document.removeEventListener("touchmove", moverDrag);
+    document.removeEventListener("touchend", soltarDrag);
+    if (d && d.preview) {
+      // So salva se mudou de fato.
+      if (d.preview.inicio !== d.ini0 || d.preview.fim !== d.fim0) {
+        upsertTarefa({ id: d.id, inicio: d.preview.inicio, fim: d.preview.fim });
+      }
+    }
+    dragRef.current = null;
+    setDragTick(x => x + 1);
+  };
+
+  // Marcadores de mes na regua do tempo.
+  const reguaMeses = useMemo(() => {
+    const marcas = [];
+    for (let i = 0; i <= totalDias; i++) {
+      const d = somaDias(GANTT_INI, i);
+      if (d.slice(8, 10) === "01" || i === 0) {
+        marcas.push({ x: i * pxPorDia, label: fmtMesAno(d) });
+      }
+    }
+    return marcas;
+  }, [GANTT_INI, totalDias, pxPorDia]);
+
+  const corTarefa = (t) => {
+    if (t.orfa) return C.red;
+    if (t.progresso >= 100) return C.green;
+    if (t.progresso > 0) return C.blue;
+    return C.yellow;
+  };
+
+  const TIPO_MARCO = {
+    compra:    { l: "Compra",    c: C.purple },
+    entrega:   { l: "Entrega",   c: C.blue   },
+    vistoria:  { l: "Vistoria",  c: C.orange },
+    pagamento: { l: "Pagamento", c: C.green  },
+    geral:     { l: "Marco",     c: C.muted  },
+  };
+
+  // Sem obra com orcamento: orienta o usuario.
+  if (!obrasComOrc.length) {
+    return (
+      <div style={{ padding: 24, textAlign: "center" }}>
+        <p style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Nenhuma obra com orcamento ainda</p>
+        <p style={{ fontSize: 12, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+          O planejamento nasce do orcamento: cada etapa vira uma tarefa no
+          cronograma. Crie um orcamento para a obra primeiro.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+      {/* Cabecalho: seletor de obra + progresso geral */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <Sel label="Obra" value={obraId} onChange={setObraId}
+               options={obrasComOrc.map(o => ({ v: o.id, l: o.name }))} />
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {["dia", "semana", "mes"].map(z => (
+            <button key={z} onClick={() => setZoom(z)} style={{
+              padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+              border: `1.5px solid ${zoom === z ? C.yellow : C.border}`,
+              background: zoom === z ? `${C.yellow}18` : "transparent",
+              color: zoom === z ? C.yellowD : C.muted,
+              fontSize: 12, fontWeight: 700, textTransform: "capitalize",
+            }}>{z}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Resumo financeiro: o elo com o orcamento */}
+      <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: 8 }}>
+        <MiniKpi label="Progresso" value={`${progresso.toFixed(0)}%`} cor={C.blue} />
+        <MiniKpi label="Planejado" value={fmt(resumo.planejado)} cor={C.yellow} />
+        <MiniKpi label="Executado" value={fmt(resumo.executado)} cor={C.green} />
+        <MiniKpi label="Cobertura do orcamento" value={`${resumo.coberto.toFixed(0)}%`}
+                 cor={resumo.coberto >= 99 ? C.green : C.orange}
+                 sub={resumo.coberto < 99 ? "faltam etapas no cronograma" : "tudo no cronograma"} />
+      </div>
+
+      {/* ==== GANTT ==== */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "11px 14px", borderBottom: `1px solid ${C.line}` }}>
+          <p style={{ fontSize: 12, fontWeight: 900, color: C.text, textTransform: "uppercase", letterSpacing: .5 }}>
+            Cronograma
+          </p>
+          <div style={{ display: "flex", gap: 6 }}>
+            <Btn v="ghost" size="sm" onClick={() => setMarcoModal({ modo: "novo", marco: { tipo: "compra", data: today() } })}>
+              + Marco
+            </Btn>
+            {etapasLivres.length > 0 && (
+              <Btn v="ghost" size="sm" onClick={() => setTarefaModal({ modo: "addEtapa" })}>
+                + Etapa
+              </Btn>
+            )}
+          </div>
+        </div>
+
+        {tarefas.length === 0 ? (
+          <div style={{ padding: 24, textAlign: "center" }}>
+            <p style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>
+              Nenhuma tarefa ainda. Toque em <b>+ Etapa</b> para trazer as etapas
+              do orcamento para o cronograma.
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+
+            {/* Coluna fixa: nomes das tarefas */}
+            <div style={{ flexShrink: 0, borderRight: `1px solid ${C.line}`,
+                          position: "sticky", left: 0, background: C.card, zIndex: 2 }}>
+              <div style={{ height: 30, borderBottom: `1px solid ${C.line}` }} />
+              {tarefas.map(t => (
+                <div key={t.id} onClick={() => setTarefaModal({ modo: "editar", tarefa: t })}
+                     style={{ height: ALTURA_LINHA, width: isDesktop ? 200 : 130,
+                              padding: "0 10px", display: "flex", flexDirection: "column",
+                              justifyContent: "center", cursor: "pointer",
+                              borderBottom: `1px solid ${C.line}` }}>
+                  <p className="brk" style={{ fontSize: 11.5, fontWeight: 700, color: t.orfa ? C.red : C.text,
+                             lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis",
+                             whiteSpace: "nowrap" }}>{t.nome}</p>
+                  <p style={{ fontSize: 9.5, color: C.muted }}>
+                    {t.custo > 0 ? fmt(t.custo) : "avulsa"}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Area do grafico */}
+            <div style={{ position: "relative", minWidth: larguraGrade }}>
+              {/* Regua de meses */}
+              <div style={{ height: 30, position: "relative", borderBottom: `1px solid ${C.line}` }}>
+                {reguaMeses.map((m, i) => (
+                  <div key={i} style={{ position: "absolute", left: m.x, top: 0, height: "100%",
+                                        borderLeft: `1px solid ${C.line}`, paddingLeft: 4,
+                                        display: "flex", alignItems: "center" }}>
+                    <span style={{ fontSize: 9.5, fontWeight: 700, color: C.muted, whiteSpace: "nowrap" }}>{m.label}</span>
+                  </div>
+                ))}
+                {/* Linha do hoje */}
+                <div style={{ position: "absolute", left: xDeData(today()), top: 0, height: "100%",
+                              borderLeft: `2px solid ${C.red}`, opacity: .6 }} />
+              </div>
+
+              {/* Linhas de fundo + barras */}
+              {tarefas.map((t, idx) => {
+                const drag = dragRef.current;
+                const emDrag = drag && drag.id === t.id ? drag.preview : null;
+                const ini = emDrag ? emDrag.inicio : t.inicio;
+                const fim = emDrag ? emDrag.fim : t.fim;
+                const x = xDeData(ini);
+                const w = Math.max(pxPorDia, diasCorridos(ini, fim) * pxPorDia);
+                return (
+                  <div key={t.id} style={{ height: ALTURA_LINHA, position: "relative",
+                                           borderBottom: `1px solid ${C.line}`,
+                                           background: idx % 2 ? `${C.surface}55` : "transparent" }}>
+                    {/* Barra */}
+                    <div
+                      onMouseDown={(e) => iniciarDrag(e, t, "mover")}
+                      onTouchStart={(e) => iniciarDrag(e, t, "mover")}
+                      style={{
+                        position: "absolute", left: x, top: 7, width: w, height: ALTURA_LINHA - 14,
+                        background: corTarefa(t), borderRadius: 6, cursor: "grab",
+                        boxShadow: emDrag ? `0 4px 14px ${corTarefa(t)}66` : "none",
+                        display: "flex", alignItems: "center", overflow: "hidden",
+                        touchAction: "none", userSelect: "none",
+                        transition: emDrag ? "none" : "box-shadow .1s",
+                      }}>
+                      {/* Preenchimento do progresso */}
+                      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0,
+                                    width: `${t.progresso}%`, background: "rgba(255,255,255,.28)" }} />
+                      <span style={{ position: "relative", fontSize: 9.5, fontWeight: 800,
+                                     color: "#fff", padding: "0 7px", whiteSpace: "nowrap" }}>
+                        {t.progresso > 0 ? `${t.progresso}%` : ""}
+                      </span>
+                      {/* Alca de redimensionar - inicio */}
+                      <div onMouseDown={(e) => iniciarDrag(e, t, "inicio")}
+                           onTouchStart={(e) => iniciarDrag(e, t, "inicio")}
+                           style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 10,
+                                    cursor: "ew-resize", touchAction: "none" }} />
+                      {/* Alca de redimensionar - fim */}
+                      <div onMouseDown={(e) => iniciarDrag(e, t, "fim")}
+                           onTouchStart={(e) => iniciarDrag(e, t, "fim")}
+                           style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 10,
+                                    cursor: "ew-resize", touchAction: "none" }} />
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Marcos: losangos na regua */}
+              {(plano.marcos || []).map(m => {
+                if (!m.data) return null;
+                const x = xDeData(m.data);
+                const tp = TIPO_MARCO[m.tipo] || TIPO_MARCO.geral;
+                return (
+                  <div key={m.id} onClick={() => setMarcoModal({ modo: "editar", marco: m })}
+                       title={m.nome}
+                       style={{ position: "absolute", left: x - 7,
+                                top: 30, height: tarefas.length * ALTURA_LINHA,
+                                cursor: "pointer", zIndex: 1 }}>
+                    <div style={{ width: 14, height: 14, background: tp.c, transform: "rotate(45deg)",
+                                  marginTop: 2, border: "2px solid #fff",
+                                  boxShadow: `0 1px 4px ${tp.c}88`,
+                                  opacity: m.feito ? .5 : 1 }} />
+                    <div style={{ position: "absolute", top: 0, bottom: 0, left: 6,
+                                  borderLeft: `2px dashed ${tp.c}55` }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Lista de marcos (leitura rapida, fora do grafico) */}
+      {(plano.marcos || []).length > 0 && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px" }}>
+          <p style={{ fontSize: 12, fontWeight: 900, color: C.text, textTransform: "uppercase",
+                      letterSpacing: .5, marginBottom: 9 }}>Marcos da obra</p>
+          {[...(plano.marcos || [])].sort((a, b) => (a.data || "").localeCompare(b.data || "")).map(m => {
+            const tp = TIPO_MARCO[m.tipo] || TIPO_MARCO.geral;
+            return (
+              <div key={m.id} onClick={() => setMarcoModal({ modo: "editar", marco: m })}
+                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0",
+                            borderTop: `1px solid ${C.line}`, cursor: "pointer" }}>
+                <div style={{ width: 11, height: 11, background: tp.c, transform: "rotate(45deg)",
+                              flexShrink: 0, opacity: m.feito ? .4 : 1 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="brk" style={{ fontSize: 12.5, fontWeight: 700,
+                             color: m.feito ? C.muted : C.text,
+                             textDecoration: m.feito ? "line-through" : "none" }}>{m.nome}</p>
+                  <p style={{ fontSize: 10, color: C.muted }}>{tp.l} - {fmtDate(m.data)}</p>
+                </div>
+                {m.feito && <Badge color={C.green}>Feito</Badge>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ==== MODAIS ==== */}
+      {tarefaModal?.modo === "addEtapa" && (
+        <Modal title="Adicionar etapa ao cronograma" onClose={() => setTarefaModal(null)}>
+          <p style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+            Estas etapas do orcamento ainda nao estao no cronograma. Ao adicionar,
+            a tarefa ja vem com o custo da etapa.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {etapasLivres.map(e => (
+              <button key={e.id} onClick={() => { adicionarEtapa(e.id); setTarefaModal(null); }}
+                      className="lift-card" style={{
+                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                        padding: "11px 12px", border: `1px solid ${C.border}`, borderRadius: 9,
+                        background: C.surface, cursor: "pointer", textAlign: "left" }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>{e.nome}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: C.yellowD }}>{fmt(custoEtapa(orc, e.id))}</span>
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      {(tarefaModal?.modo === "editar") && (
+        <ModalTarefa
+          tarefa={tarefaModal.tarefa}
+          onSalvar={(t) => { upsertTarefa(t); setTarefaModal(null); }}
+          onRemover={() => { removerTarefa(tarefaModal.tarefa.id); setTarefaModal(null); }}
+          onClose={() => setTarefaModal(null)}
+        />
+      )}
+
+      {marcoModal && (
+        <ModalMarco
+          marco={marcoModal.marco}
+          onSalvar={(m) => { upsertMarco(m); setMarcoModal(null); }}
+          onRemover={marcoModal.modo === "editar" ? () => { removerMarco(marcoModal.marco.id); setMarcoModal(null); } : null}
+          onClose={() => setMarcoModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Mini card de KPI para o topo do planejamento.
+function MiniKpi({ label, value, cor, sub }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`,
+                  borderTop: `3px solid ${cor}`, borderRadius: 12, padding: "10px 12px" }}>
+      <p style={{ fontSize: 9, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: .6 }}>{label}</p>
+      <p style={{ fontSize: 18, fontWeight: 800, color: cor, marginTop: 3,
+                  fontFamily: "'Inter Display','Inter',sans-serif" }}>{value}</p>
+      {sub && <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>{sub}</p>}
+    </div>
+  );
+}
+
+// Editor de tarefa: datas, progresso, ou apagar.
+function ModalTarefa({ tarefa, onSalvar, onRemover, onClose }) {
+  const [ini, setIni] = useState(tarefa.inicio || "");
+  const [fim, setFim] = useState(tarefa.fim || "");
+  const [prog, setProg] = useState(String(tarefa.progresso || 0));
+
+  const salvar = () => {
+    // Nao salva datas invertidas.
+    if (ini && fim && diasCorridos(ini, fim) < 1) return;
+    onSalvar({ id: tarefa.id, inicio: ini, fim: fim, progresso: Math.max(0, Math.min(100, Number(prog) || 0)) });
+  };
+
+  return (
+    <Modal title={tarefa.nome} onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {tarefa.custo > 0 && (
+          <div style={{ background: `${C.yellow}12`, border: `1px solid ${C.yellow}44`,
+                        borderRadius: 9, padding: "9px 11px" }}>
+            <p style={{ fontSize: 11, color: C.muted }}>Custo da etapa (do orcamento)</p>
+            <p style={{ fontSize: 16, fontWeight: 800, color: C.yellowD }}>{fmt(tarefa.custo)}</p>
+          </div>
+        )}
+        {tarefa.orfa && (
+          <div style={{ background: `${C.red}0E`, border: `1px solid ${C.red}55`,
+                        borderRadius: 9, padding: "9px 11px" }}>
+            <p style={{ fontSize: 11.5, fontWeight: 700, color: C.red }}>
+              A etapa do orcamento ligada a esta tarefa foi removida. Reassocie ou apague a tarefa.
+            </p>
+          </div>
+        )}
+        <Inp label="Inicio" type="date" value={ini} onChange={setIni} />
+        <Inp label="Fim" type="date" value={fim} onChange={setFim} />
+        {ini && fim && diasCorridos(ini, fim) < 1 && (
+          <p style={{ fontSize: 11, color: C.red }}>O fim precisa ser depois do inicio.</p>
+        )}
+        <Inp label="Progresso (%)" type="number" value={prog} onChange={setProg} min="0" max="100" />
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <Btn full onClick={salvar}>Salvar</Btn>
+          <Btn v="danger" onClick={onRemover}><Ic n="trash" /></Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// Editor de marco: nome, tipo, data, feito.
+function ModalMarco({ marco, onSalvar, onRemover, onClose }) {
+  const [nome, setNome] = useState(marco.nome || "");
+  const [tipo, setTipo] = useState(marco.tipo || "compra");
+  const [dataM, setDataM] = useState(marco.data || today());
+  const [feito, setFeito] = useState(!!marco.feito);
+  const [nota, setNota] = useState(marco.nota || "");
+
+  return (
+    <Modal title={marco.id ? "Marco" : "Novo marco"} onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <Inp label="Nome" value={nome} onChange={setNome} placeholder="Ex.: Comprar porcelanato" />
+        <Sel label="Tipo" value={tipo} onChange={setTipo} options={[
+          { v: "compra", l: "Compra" }, { v: "entrega", l: "Entrega" },
+          { v: "vistoria", l: "Vistoria" }, { v: "pagamento", l: "Pagamento" },
+          { v: "geral", l: "Geral" },
+        ]} />
+        <Inp label="Data" type="date" value={dataM} onChange={setDataM} />
+        <Inp label="Nota (opcional)" value={nota} onChange={setNota} multiline />
+        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <input type="checkbox" checked={feito} onChange={e => setFeito(e.target.checked)}
+                 style={{ width: 18, height: 18, accentColor: C.green }} />
+          <span style={{ fontSize: 12.5, color: C.text }}>Ja concluido</span>
+        </label>
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <Btn full onClick={() => onSalvar({ id: marco.id, nome, tipo, data: dataM, feito, nota })}>Salvar</Btn>
+          {onRemover && <Btn v="danger" onClick={onRemover}><Ic n="trash" /></Btn>}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+
 function Cadastros({ data, update, showToast, onTab }) {
   const { cols, formGrid } = useBreakpoint();
   const [sec,   setSec]   = useState("menu");
@@ -14303,7 +14953,7 @@ const NAV_GROUPS = [
   },
   {
     id: "obras_grp", label: "Obras", icon: "home", color: C.blue,
-    tabs: ["obras", "orc", "ponto", "equipe", "terc", "est", "cmp"],
+    tabs: ["obras", "orc", "plan", "ponto", "equipe", "terc", "est", "cmp"],
   },
   {
     id: "rh_grp", label: "RH", icon: "users", color: C.green,
@@ -14327,6 +14977,7 @@ const TAB_META = {
   home:   { label: "Dashboard",  icon: "home",     group: "painel"   },
   obras:  { label: "Obras",      icon: "home",     group: "obras_grp"},
   orc:    { label: "Orçamento",  icon: "file",     group: "obras_grp"},
+  plan:   { label: "Planejamento", icon: "calendar", group: "obras_grp"},
   ponto:  { label: "Ponto",      icon: "clock",    group: "obras_grp"},
   equipe: { label: "Equipe",     icon: "users",    group: "obras_grp"},
   terc:   { label: "Terceiros",  icon: "terc",     group: "obras_grp"},
@@ -14870,6 +15521,7 @@ export default function App() {
             : <Obras       data={data} update={update} showToast={showToast}
                            onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Orcamento   data={data} update={update} showToast={showToast} />}
+          {tab === "plan"   && <Planejamento data={data} update={update} showToast={showToast} />}
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
