@@ -437,11 +437,12 @@ const fmtPhone = value => {
 const getAtt = (data, empId, date) => {
   const value = data?.attendance?.[empId]?.[date];
   if (!value) return null;
-  if (typeof value === "string") return { status: value, ot: 0, note: "" };
+  if (typeof value === "string") return { status: value, ot: 0, note: "", obraId: "" };
   return {
     status: value.status || null,
     ot: Number(value.ot || 0),
     note: value.note || "",
+    obraId: value.obraId || "",
   };
 };
 
@@ -4647,7 +4648,262 @@ function UnlockRequestModal({ data, update, showToast, obraId, date, employee, o
 // Ponto
 // 
 
+function AjusteGeralPonto({ data, update, showToast, dailyCheckPending, onConfirmTeam, onRequestUnlock }) {
+  const [monthRef, setMonthRef] = useState(today().slice(0, 7));
+  const [filterObra, setFilterObra] = useState("all");
+  const [search, setSearch] = useState("");
+  const [obraEdicao, setObraEdicao] = useState("");
+
+  const safeMonthRef = /^\d{4}-\d{2}$/.test(monthRef) ? monthRef : today().slice(0, 7);
+  const [year, monthNumber] = safeMonthRef.split("-").map(Number);
+  const monthIndex = Math.max(0, (monthNumber || 1) - 1);
+  const days = getDays(year, monthIndex);
+  const holidaySet = new Set(getPayrollHolidays(data, year));
+  const obraName = id => data.obras.find(o => o.id === id)?.name || "Sem obra";
+  const workdays = days.filter(date => date <= today() && prIsWeekdayIso(date) && !holidaySet.has(date));
+  const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
+
+  const employees = data.employees
+    .filter(emp => days.some(date => isEmployeeEmployedOnDate(emp, date)))
+    .filter(emp => {
+      if (filterObra === "all") return true;
+      if (emp.obra === filterObra) return true;
+      return days.some(date => getAtt(data, emp.id, date)?.obraId === filterObra);
+    })
+    .filter(emp => !normalizedSearch || `${emp.name} ${emp.role || ""}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  const resolveTargetObra = employee => obraEdicao || employee.obra || "";
+
+  const requestUnlock = (employee, date, obraId) => {
+    onRequestUnlock?.({ obraId, date, employee });
+    showToast("Este ponto está bloqueado. Solicite permissão para alterar.", "warn");
+  };
+
+  const validateEdit = (employee, date, targetObra) => {
+    if (!isEmployeeEmployedOnDate(employee, date)) return false;
+    if (date > today()) {
+      showToast("Não é permitido lançar ponto em uma data futura.", "warn");
+      return false;
+    }
+    if (date === today() && dailyCheckPending) {
+      showToast("Confirme primeiro a equipe de hoje para liberar o lançamento.", "warn");
+      return false;
+    }
+
+    const currentObra = getAtt(data, employee.id, date)?.obraId || employee.obra || targetObra;
+    const lockedObra = [currentObra, targetObra].find(id => id && !canEditAttendance(data, id, date));
+    if (lockedObra) {
+      requestUnlock(employee, date, lockedObra);
+      return false;
+    }
+    return true;
+  };
+
+  const cycleAttendance = (employee, date) => {
+    const prev = getAtt(data, employee.id, date) || { status: null, ot: 0, note: "", obraId: "" };
+    const order = { "": "P", P: "M", M: "F", F: "" };
+    const nextStatus = order[prev.status || ""];
+    const targetObra = resolveTargetObra(employee);
+
+    if (nextStatus && !targetObra) {
+      showToast(`Selecione uma obra para lançar o ponto de ${employee.name}.`, "error");
+      return;
+    }
+    if (!validateEdit(employee, date, targetObra || prev.obraId)) return;
+
+    update({
+      ...data,
+      attendance: {
+        ...data.attendance,
+        [employee.id]: {
+          ...(data.attendance[employee.id] || {}),
+          [date]: {
+            ...prev,
+            status: nextStatus || null,
+            obraId: nextStatus ? targetObra : (prev.obraId || targetObra || ""),
+          },
+        },
+      },
+    });
+  };
+
+  const fillEmployeeWorkdays = employee => {
+    const targetObra = resolveTargetObra(employee);
+    if (!targetObra) {
+      showToast(`Selecione uma obra para preencher o ponto de ${employee.name}.`, "error");
+      return;
+    }
+
+    let filled = 0;
+    let locked = 0;
+    const employeeAttendance = { ...(data.attendance[employee.id] || {}) };
+
+    workdays.forEach(date => {
+      if (!isEmployeeEmployedOnDate(employee, date) || getAtt(data, employee.id, date)?.status) return;
+      if (date === today() && dailyCheckPending) return;
+      if (!canEditAttendance(data, targetObra, date)) {
+        locked++;
+        return;
+      }
+      employeeAttendance[date] = {
+        ...(getAtt(data, employee.id, date) || {}),
+        status: "P",
+        obraId: targetObra,
+      };
+      filled++;
+    });
+
+    if (!filled) {
+      showToast(locked ? "Os dias vazios estão bloqueados para edição." : "Não há dias úteis vazios para preencher.", locked ? "warn" : "info");
+      return;
+    }
+
+    update({
+      ...data,
+      attendance: { ...data.attendance, [employee.id]: employeeAttendance },
+    });
+    showToast(`${filled} dia(s) útil(eis) preenchido(s) para ${employee.name}.${locked ? ` ${locked} bloqueado(s) foram ignorados.` : ""}`);
+  };
+
+  const clearEmployeeMonth = employee => {
+    const registeredDays = days.filter(date => getAtt(data, employee.id, date)?.status);
+    if (!registeredDays.length) {
+      showToast("Este operário não possui registros no mês selecionado.", "info");
+      return;
+    }
+    if (!window.confirm(`Limpar os ${registeredDays.length} registro(s) de ${employee.name} em ${fullMonth(monthIndex)} de ${year}?`)) return;
+
+    let cleared = 0;
+    let locked = 0;
+    const employeeAttendance = { ...(data.attendance[employee.id] || {}) };
+    registeredDays.forEach(date => {
+      const prev = getAtt(data, employee.id, date);
+      const currentObra = prev?.obraId || employee.obra || "";
+      if ((currentObra && !canEditAttendance(data, currentObra, date)) || (date === today() && dailyCheckPending)) {
+        locked++;
+        return;
+      }
+      employeeAttendance[date] = { ...prev, status: null };
+      cleared++;
+    });
+
+    if (cleared) update({ ...data, attendance: { ...data.attendance, [employee.id]: employeeAttendance } });
+    showToast(`${cleared} registro(s) removido(s).${locked ? ` ${locked} bloqueado(s) foram preservados.` : ""}`, locked && !cleared ? "warn" : "success");
+  };
+
+  const totalRegistered = employees.reduce((sum, emp) => sum + days.filter(date => getAtt(data, emp.id, date)?.status).length, 0);
+  const statusColor = status => status === "P" ? C.green : status === "M" ? C.yellow : status === "F" ? C.red : C.border;
+  const weekdayLabel = date => ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"][prParseIso(date).getDay()];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `5px solid ${C.blue}`, padding: 14, borderRadius: 14 }}>
+        <h3 style={{ fontFamily: "'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 20 }}>Ajuste geral do ponto</h3>
+        <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>
+          Clique em um dia para alternar: vazio → presente → meio dia → falta → vazio. A obra escolhida abaixo será gravada no dia trabalhado.
+        </p>
+      </div>
+
+      {dailyCheckPending && monthRef === today().slice(0, 7) && (
+        <div style={{ background: `${C.yellow}18`, border: `1px solid ${C.yellow}`, borderLeft: `5px solid ${C.yellow}`, padding: 12 }}>
+          <p style={{ color: C.yellow, fontWeight: 900, textTransform: "uppercase", fontSize: 12 }}>Equipe de hoje ainda não confirmada</p>
+          <p style={{ color: C.muted, fontSize: 11, margin: "4px 0 8px" }}>Os demais dias podem ser ajustados. Para lançar o dia de hoje, confirme a equipe.</p>
+          <Btn v="warning" size="sm" onClick={onConfirmTeam}>Confirmar equipe sem alterações hoje</Btn>
+        </div>
+      )}
+
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10, borderRadius: 14 }}>
+        <Inp label="Mês do ponto" type="month" value={monthRef} onChange={setMonthRef} max={today().slice(0, 7)} />
+        <Inp label="Buscar operário" value={search} onChange={setSearch} placeholder="Nome ou função" />
+        <Sel label="Filtrar operários por obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+        <Sel label="Obra para os novos lançamentos" value={obraEdicao} onChange={setObraEdicao} options={[{ v: "", l: "Usar lotação de cada operário" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+        <div style={{ background: C.card, borderTop: `3px solid ${C.blue}`, padding: 9, textAlign: "center" }}><strong>{employees.length}</strong><p style={{ color: C.muted, fontSize: 10 }}>operários</p></div>
+        <div style={{ background: C.card, borderTop: `3px solid ${C.green}`, padding: 9, textAlign: "center" }}><strong>{totalRegistered}</strong><p style={{ color: C.muted, fontSize: 10 }}>dias lançados</p></div>
+        <div style={{ background: C.card, borderTop: `3px solid ${C.yellow}`, padding: 9, textAlign: "center" }}><strong>{workdays.length}</strong><p style={{ color: C.muted, fontSize: 10 }}>dias úteis</p></div>
+      </div>
+
+      <div style={{ overflow: "auto", maxHeight: "68vh", border: `1px solid ${C.border}`, background: C.card, borderRadius: 12 }}>
+        <table style={{ borderCollapse: "separate", borderSpacing: 0, minWidth: 270 + days.length * 58, width: "100%", fontSize: 11 }}>
+          <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
+            <tr>
+              <th style={{ position: "sticky", left: 0, zIndex: 7, minWidth: 270, width: 270, background: C.surface, color: C.text, textAlign: "left", padding: 10, borderRight: `2px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
+                Operário e ações rápidas
+              </th>
+              {days.map(date => {
+                const parsed = prParseIso(date);
+                const weekend = prIsWeekend(parsed);
+                const holiday = holidaySet.has(date);
+                return (
+                  <th key={date} title={holiday ? "Feriado cadastrado" : fmtDateFull(date)} style={{ minWidth: 58, width: 58, padding: "7px 2px", textAlign: "center", background: holiday ? `${C.red}28` : weekend ? `${C.blue}18` : C.surface, color: holiday ? C.red : weekend ? C.blue : C.text, borderRight: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
+                    <span style={{ display: "block", fontSize: 9, textTransform: "uppercase" }}>{weekdayLabel(date)}</span>
+                    <strong style={{ fontSize: 14 }}>{parsed.getDate()}</strong>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {employees.map(employee => (
+              <tr key={employee.id}>
+                <td style={{ position: "sticky", left: 0, zIndex: 3, minWidth: 270, width: 270, background: C.card, padding: 9, borderRight: `2px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
+                  <p title={employee.name} style={{ fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{employee.name}</p>
+                  <p style={{ color: C.muted, fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{employee.role || "Sem função"} · {obraName(employee.obra)}</p>
+                  <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
+                    <button onClick={() => fillEmployeeWorkdays(employee)} style={{ flex: 1, border: `1px solid ${C.green}`, background: `${C.green}18`, color: C.green, padding: "5px 6px", fontWeight: 800, fontSize: 9, cursor: "pointer", borderRadius: 6 }}>P NOS ÚTEIS VAZIOS</button>
+                    <button onClick={() => clearEmployeeMonth(employee)} style={{ border: `1px solid ${C.red}`, background: `${C.red}12`, color: C.red, padding: "5px 7px", fontWeight: 800, fontSize: 9, cursor: "pointer", borderRadius: 6 }}>LIMPAR</button>
+                  </div>
+                </td>
+                {days.map(date => {
+                  const att = getAtt(data, employee.id, date);
+                  const status = att?.status || "";
+                  const employed = isEmployeeEmployedOnDate(employee, date);
+                  const editable = employed && date <= today();
+                  const targetObra = att?.obraId || employee.obra || "";
+                  const locked = editable && targetObra && !canEditAttendance(data, targetObra, date);
+                  const parsed = prParseIso(date);
+                  const weekend = prIsWeekend(parsed);
+                  const holiday = holidaySet.has(date);
+                  const bg = !employed ? C.surface : holiday ? `${C.red}0D` : weekend ? `${C.blue}0A` : C.card;
+                  return (
+                    <td key={date} style={{ padding: 3, background: bg, borderRight: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}`, textAlign: "center" }}>
+                      <button
+                        type="button"
+                        disabled={!editable}
+                        onClick={() => cycleAttendance(employee, date)}
+                        title={!employed ? "Fora do período de vínculo" : date > today() ? "Data futura" : locked ? `Ponto bloqueado · ${obraName(targetObra)}` : `${fmtDateFull(date)} · ${status || "Sem registro"} · ${obraName(targetObra)}`}
+                        style={{ width: 48, minHeight: 42, padding: "3px 1px", border: `1.5px solid ${locked ? C.red : statusColor(status)}`, background: status ? `${statusColor(status)}22` : "transparent", color: status ? statusColor(status) : C.muted, cursor: editable ? "pointer" : "not-allowed", opacity: editable ? 1 : .35, borderRadius: 7 }}
+                      >
+                        <strong style={{ display: "block", fontSize: 14 }}>{locked ? "🔒" : status || "·"}</strong>
+                        {status && <span style={{ display: "block", fontSize: 7, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{obraName(targetObra).slice(0, 7)}</span>}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!employees.length && <div style={{ padding: 24, color: C.muted, textAlign: "center" }}>Nenhum operário encontrado para os filtros selecionados.</div>}
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, color: C.muted, fontSize: 10 }}>
+        <span><strong style={{ color: C.green }}>P</strong> Presente</span>
+        <span><strong style={{ color: C.yellow }}>M</strong> Meio dia</span>
+        <span><strong style={{ color: C.red }}>F</strong> Falta</span>
+        <span><strong style={{ color: C.blue }}>Azul</strong> Final de semana</span>
+        <span><strong style={{ color: C.red }}>Vermelho</strong> Feriado</span>
+        <span>🔒 Ponto finalizado</span>
+      </div>
+    </div>
+  );
+}
+
 function Ponto({ data, update, showToast }) {
+  const [pontoView, setPontoView] = useState("diario");
   const [selDate, setSelDate] = useState(today());
   const [filterObra, setFilterObra] = useState("all");
   const [noteModal, setNoteModal] = useState(null);
@@ -4844,6 +5100,34 @@ function Ponto({ data, update, showToast }) {
     showToast("Ponto marcado para todos.");
   };
 
+  const pontoViewTabs = (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: C.card, border: `1px solid ${C.border}`, padding: 6, borderRadius: 12 }}>
+      <Btn v={pontoView === "diario" ? "primary" : "ghost"} onClick={() => setPontoView("diario")} full>
+        <Ic n="clock" /> Ponto diário
+      </Btn>
+      <Btn v={pontoView === "geral" ? "info" : "ghost"} onClick={() => setPontoView("geral")} full>
+        <Ic n="calendar" /> Ajuste geral
+      </Btn>
+    </div>
+  );
+
+  if (pontoView === "geral") {
+    return (
+      <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {pontoViewTabs}
+        <AjusteGeralPonto
+          data={data}
+          update={update}
+          showToast={showToast}
+          dailyCheckPending={dailyCheckPending}
+          onConfirmTeam={confirmTeamWithoutChanges}
+          onRequestUnlock={setUnlockModal}
+        />
+        {unlockModal && <UnlockRequestModal data={data} update={update} showToast={showToast} obraId={unlockModal.obraId} date={unlockModal.date} employee={unlockModal.employee} onClose={() => setUnlockModal(null)} />}
+      </div>
+    );
+  }
+
   const counts = { P: 0, M: 0, F: 0 };
   list.forEach(e => {
     const st = attStatus(data, e.id, selDate);
@@ -4855,6 +5139,7 @@ function Ponto({ data, update, showToast }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {pontoViewTabs}
       <div
         className="point-pulse"
         style={{
