@@ -13623,6 +13623,8 @@ function Planejamento({ data, update, showToast }) {
   const [relacaoSelecionada, setRelacaoSelecionada] = useState("");
   const [colunasModal, setColunasModal] = useState(false);
   const [exportarModal, setExportarModal] = useState(false);
+  const [orientacaoExportacao, setOrientacaoExportacao] = useState("portrait");
+  const [modoExportacao, setModoExportacao] = useState("descricao_gantt");
   const [colunasVisiveis, setColunasVisiveis] = useState(() => {
     try {
       const salvas = JSON.parse(localStorage.getItem("arcd-colunas-gantt") || "null");
@@ -13745,6 +13747,7 @@ function Planejamento({ data, update, showToast }) {
   const pxPorDia  = zoom === "dia" ? 34 : zoom === "semana" ? 12 : 4;
   const larguraGrade = totalDias * pxPorDia;
   const ALTURA_LINHA = 38;
+  const ALTURA_REGUA = zoom === "dia" ? 50 : zoom === "semana" ? 40 : 30;
 
   // Converte data -> posicao X (px) e duracao -> largura.
   const xDeData = (iso) => diasCorridos(GANTT_INI, iso) * pxPorDia;
@@ -13800,7 +13803,7 @@ function Planejamento({ data, update, showToast }) {
     const inicio = preview?.inicio || tarefa.inicio;
     const fim = preview?.fim || tarefa.fim;
     const x = xDeData(inicio);
-    const largura = Math.max(pxPorDia, diasCorridos(inicio, fim) * pxPorDia);
+    const largura = Math.max(pxPorDia, (diasCorridos(inicio, fim) + 1) * pxPorDia);
     return { x, largura, y: indice * ALTURA_LINHA + ALTURA_LINHA / 2 };
   };
 
@@ -13809,12 +13812,16 @@ function Planejamento({ data, update, showToast }) {
     const suc = geometriaTarefa(relacao.sucessora, relacao.indiceSucessora);
     const inicioX = pred.x + pred.largura;
     const fimX = suc.x;
-    const baseX = fimX - inicioX >= 28
-      ? inicioX + (fimX - inicioX) / 2
-      : Math.max(inicioX, fimX) + Math.max(24, pxPorDia * 2);
-    const salvo = Number(relacao.sucessora.tracadoDependencias?.[relacao.predecessora.id]?.desvioDias || 0);
+    const canal = Math.max(10, Math.min(18, pxPorDia * 1.25));
+    const baseX = fimX - inicioX >= canal * 2
+      ? inicioX + canal
+      : Math.max(inicioX, fimX) + canal;
+    const limiteDias = Math.max(1, Math.round(24 / pxPorDia));
+    const salvoBruto = Number(relacao.sucessora.tracadoDependencias?.[relacao.predecessora.id]?.desvioDias || 0);
+    const salvo = Math.max(-limiteDias, Math.min(limiteDias, salvoBruto));
     const arraste = depDragRef.current;
-    const desvioDias = arraste?.chave === relacao.chave ? arraste.previewDias : salvo;
+    const desvioBruto = arraste?.chave === relacao.chave ? arraste.previewDias : salvo;
+    const desvioDias = Math.max(-limiteDias, Math.min(limiteDias, desvioBruto));
     const dobraX = Math.max(4, Math.min(larguraGrade - 4, baseX + desvioDias * pxPorDia));
     return {
       inicioX, fimX, dobraX, y1: pred.y, y2: suc.y,
@@ -13827,7 +13834,9 @@ function Planejamento({ data, update, showToast }) {
     if (!d) return;
     if (e.cancelable) e.preventDefault();
     const ponto = e.touches ? e.touches[0] : e;
-    d.previewDias = d.inicialDias + Math.round((ponto.clientX - d.x0) / pxPorDia);
+    const limiteDias = Math.max(1, Math.round(24 / pxPorDia));
+    d.previewDias = Math.max(-limiteDias, Math.min(limiteDias,
+      d.inicialDias + Math.round((ponto.clientX - d.x0) / pxPorDia)));
     setDepDragTick(x => x + 1);
   };
 
@@ -13855,7 +13864,9 @@ function Planejamento({ data, update, showToast }) {
     e.preventDefault();
     e.stopPropagation();
     const ponto = e.touches ? e.touches[0] : e;
-    const inicialDias = Number(relacao.sucessora.tracadoDependencias?.[relacao.predecessora.id]?.desvioDias || 0);
+    const limiteDias = Math.max(1, Math.round(24 / pxPorDia));
+    const inicialBruto = Number(relacao.sucessora.tracadoDependencias?.[relacao.predecessora.id]?.desvioDias || 0);
+    const inicialDias = Math.max(-limiteDias, Math.min(limiteDias, inicialBruto));
     depDragRef.current = {
       chave: relacao.chave,
       predecessoraId: relacao.predecessora.id,
@@ -13931,6 +13942,17 @@ function Planejamento({ data, update, showToast }) {
     return marcas;
   }, [GANTT_INI, totalDias, pxPorDia]);
 
+  const feriadoPorData = useMemo(() =>
+    new Map((cal.feriados || []).map(f => [f.data, f])), [cal.feriados]);
+  const diasGrade = useMemo(() => Array.from({ length: totalDias }, (_, i) => {
+    const dataDia = somaDias(GANTT_INI, i);
+    const dow = new Date(dataDia + "T00:00:00").getDay();
+    const feriado = cal.pularFeriados ? feriadoPorData.get(dataDia) : null;
+    const fimSemana = dow === 0 || dow === 6;
+    const naoTrabalhado = !(cal.diasSemana || []).includes(dow) || !!feriado;
+    return { data: dataDia, x: i * pxPorDia, dow, feriado, fimSemana, naoTrabalhado };
+  }), [GANTT_INI, totalDias, pxPorDia, cal.diasSemana, cal.pularFeriados, feriadoPorData]);
+
   const corTarefa = (t) => {
     if (t.orfa) return C.red;
     if (t.progresso >= 100) return C.green;
@@ -13966,6 +13988,16 @@ function Planejamento({ data, update, showToast }) {
 
   const exportarCronograma = (formato) => {
     const config = FORMATOS_GANTT[formato] || FORMATOS_GANTT.A4;
+    const retrato = orientacaoExportacao === "portrait";
+    const orientacaoLabel = retrato ? "RETRATO" : "PAISAGEM";
+    const tarefasPorPagina = retrato
+      ? ((modoExportacao === "descricao_gantt"
+          ? { A4: 24, A3: 38, A2: 56 }
+          : { A4: 30, A3: 46, A2: 68 })[formato] || 24)
+      : config.tarefasPorPagina;
+    const larguraDados = modoExportacao === "descricao_gantt"
+      ? (retrato ? 34 : 28)
+      : (retrato ? 50 : config.larguraDados);
     if (!tarefas.length) {
       showToast?.("Não há tarefas para exportar.", "error");
       return;
@@ -13973,17 +14005,18 @@ function Planejamento({ data, update, showToast }) {
     const inicioRelatorio = GANTT_INI;
     const fimRelatorio = janela.fim || somaDias(GANTT_INI, totalDias);
     const diasRelatorio = Math.max(1, diasCorridos(inicioRelatorio, fimRelatorio));
-    const colunasRelatorio = colunasAtivas.length
-      ? colunasAtivas
-      : [COLUNAS_GANTT.find(c => c.id === "tarefa")];
+    const colunaDescricao = { ...COLUNAS_GANTT.find(c => c.id === "tarefa"), label: "Descrição" };
+    const colunasRelatorio = modoExportacao === "descricao_gantt"
+      ? [colunaDescricao]
+      : (colunasAtivas.length ? colunasAtivas : [colunaDescricao]);
     const pesos = { item:.45, tarefa:2.5, inicio:.9, fim:.9, dias:.55, predecessoras:1.7, sucessoras:1.7, custo:1, progresso:.75 };
     const templateRelatorio = colunasRelatorio.map(c => `${pesos[c.id] || 1}fr`).join(" ");
     const paginas = [];
-    for (let i = 0; i < tarefas.length; i += config.tarefasPorPagina) {
-      paginas.push(tarefas.slice(i, i + config.tarefasPorPagina));
+    for (let i = 0; i < tarefas.length; i += tarefasPorPagina) {
+      paginas.push(tarefas.slice(i, i + tarefasPorPagina));
     }
     const larguraSvg = 1000;
-    const alturaLinha = 24;
+    const alturaLinha = modoExportacao === "descricao_gantt" ? 32 : 24;
 
     const paginasHtml = paginas.map((pagina, paginaIndice) => {
       const idsPagina = new Set(pagina.map(t => t.id));
@@ -14013,9 +14046,11 @@ function Planejamento({ data, update, showToast }) {
         const x2 = Math.max(0, Math.min(larguraSvg, inicioSuc / diasRelatorio * larguraSvg));
         const y1 = indiceLocal[r.predecessora.id] * alturaLinha + alturaLinha / 2;
         const y2 = indiceLocal[r.sucessora.id] * alturaLinha + alturaLinha / 2;
-        const base = x2 - x1 >= 28 ? x1 + (x2 - x1) / 2 : Math.max(x1, x2) + 22;
+        const canal = 14;
+        const base = x2 - x1 >= canal * 2 ? x1 + canal : Math.max(x1, x2) + canal;
         const desvio = Number(r.sucessora.tracadoDependencias?.[r.predecessora.id]?.desvioDias || 0);
-        const dobra = Math.max(2, Math.min(larguraSvg - 2, base + desvio / diasRelatorio * larguraSvg));
+        const desvioPx = Math.max(-24, Math.min(24, desvio / diasRelatorio * larguraSvg));
+        const dobra = Math.max(2, Math.min(larguraSvg - 2, base + desvioPx));
         return `<path d="M ${x1} ${y1} H ${dobra} V ${y2} H ${x2}" fill="none" stroke="#2563eb" stroke-width="1.5" marker-end="url(#seta)"/>`;
       }).join("");
       return `
@@ -14023,15 +14058,15 @@ function Planejamento({ data, update, showToast }) {
           <header>
             <div><h1>${escapeHtml(data.config.companyName || "ArcD Obras")}</h1><p>CRONOGRAMA TÉCNICO DE OBRA</p></div>
             <div class="obra"><span>OBRA</span><b>${escapeHtml(obraAtual?.name || "Obra não identificada")}</b></div>
-            <div class="folha"><b>${formato} · PAISAGEM</b><span>Página ${paginaIndice + 1}/${paginas.length}</span></div>
+            <div class="folha"><b>${formato} · ${orientacaoLabel}</b><span>Página ${paginaIndice + 1}/${paginas.length}</span></div>
           </header>
           <div class="meta"><span>Período: <b>${escapeHtml(fmtDate(inicioRelatorio))} a ${escapeHtml(fmtDate(fimRelatorio))}</b></span><span>Gerado em: <b>${escapeHtml(new Date().toLocaleString("pt-BR"))}</b></span></div>
           <div class="cronograma">
-            <div class="dados" style="width:${config.larguraDados}%">
+            <div class="dados" style="width:${larguraDados}%">
               <div class="dados-cabecalho" style="grid-template-columns:${templateRelatorio}">${cabecalhos}</div>
               ${linhasDados}
             </div>
-            <div class="tempo" style="width:${100 - config.larguraDados}%">
+            <div class="tempo" style="width:${100 - larguraDados}%">
               <div class="regua"><b>${escapeHtml(fmtMesAno(inicioRelatorio))}</b><span>Linha do tempo</span><b>${escapeHtml(fmtMesAno(fimRelatorio))}</b></div>
               <div class="grade" style="height:${pagina.length * alturaLinha}px">
                 ${linhasFundo}
@@ -14049,10 +14084,10 @@ function Planejamento({ data, update, showToast }) {
 
     const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cronograma - ${escapeHtml(obraAtual?.name || "Obra")}</title>
       <style>
-        @page{size:${formato} landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#111;font-size:${formato === "A4" ? 7 : 8}px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        @page{size:${formato} ${orientacaoExportacao};margin:8mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#111;font-size:${formato === "A4" ? 7 : 8}px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         .pagina{break-after:page;page-break-after:always}.pagina:last-child{break-after:auto;page-break-after:auto}
         header{display:grid;grid-template-columns:1.2fr 2fr .8fr;align-items:center;gap:12px;border-bottom:3px solid #d4af37;padding-bottom:6px}h1{margin:0;font-size:16px}header p{margin:2px 0 0;font-size:8px;font-weight:bold}.obra span,.folha span{display:block;font-size:7px;color:#666;text-transform:uppercase}.obra b{display:block;font-size:14px;margin-top:2px}.folha{text-align:right}.folha b{display:block;font-size:11px}
-        .meta{display:flex;justify-content:space-between;padding:5px 0;color:#444}.cronograma{display:flex;width:100%;border:1px solid #777}.dados{flex:none;border-right:2px solid #555}.dados-cabecalho,.dados-linha{display:grid}.dados-cabecalho{height:26px;background:#e5e7eb;font-weight:bold;text-transform:uppercase}.dados-cabecalho div,.dados-linha div{padding:0 4px;border-right:1px solid #aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center}.dados-linha{height:${alturaLinha}px;border-top:1px solid #bbb}.tempo{flex:none}.regua{height:26px;padding:0 5px;background:#e5e7eb;display:flex;justify-content:space-between;align-items:center;text-transform:uppercase}.grade{position:relative;overflow:hidden;background-image:linear-gradient(to right,rgba(100,116,139,.16) 1px,transparent 1px);background-size:5% 100%}.fundo-linha{position:absolute;left:0;right:0;height:${alturaLinha}px;border-top:1px solid #bbb}.grade svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:visible}.barra{position:absolute;height:${alturaLinha - 10}px;border-radius:3px;z-index:3;overflow:hidden;display:flex;align-items:center;min-width:2px}.barra span{color:#fff;font-weight:bold;padding-left:3px;font-size:6px}footer{display:flex;justify-content:space-between;border-top:1px solid #aaa;margin-top:5px;padding-top:4px;color:#555}
+        .meta{display:flex;justify-content:space-between;padding:5px 0;color:#444}.cronograma{display:flex;width:100%;border:1px solid #777}.dados{flex:none;border-right:2px solid #555}.dados-cabecalho,.dados-linha{display:grid}.dados-cabecalho{height:26px;background:#e5e7eb;font-weight:bold;text-transform:uppercase}.dados-cabecalho div,.dados-linha div{padding:0 4px;border-right:1px solid #aaa;overflow:hidden;text-overflow:ellipsis;white-space:${modoExportacao === "descricao_gantt" ? "normal" : "nowrap"};line-height:1.15;display:flex;align-items:center}.dados-linha{height:${alturaLinha}px;border-top:1px solid #bbb}.tempo{flex:none}.regua{height:26px;padding:0 5px;background:#e5e7eb;display:flex;justify-content:space-between;align-items:center;text-transform:uppercase}.grade{position:relative;overflow:hidden;background-image:linear-gradient(to right,rgba(100,116,139,.16) 1px,transparent 1px);background-size:5% 100%}.fundo-linha{position:absolute;left:0;right:0;height:${alturaLinha}px;border-top:1px solid #bbb}.grade svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:visible}.barra{position:absolute;height:${alturaLinha - 10}px;border-radius:3px;z-index:3;overflow:hidden;display:flex;align-items:center;min-width:2px}.barra span{color:#fff;font-weight:bold;padding-left:3px;font-size:6px}footer{display:flex;justify-content:space-between;border-top:1px solid #aaa;margin-top:5px;padding-top:4px;color:#555}
         @media screen{body{padding:20px;background:#ddd}.pagina{background:white;padding:18px;margin:0 auto 18px;max-width:1500px;box-shadow:0 2px 12px #0002}}
       </style></head><body>${paginasHtml}</body></html>`;
     const w = window.open("", "_blank");
@@ -14184,6 +14219,16 @@ function Planejamento({ data, update, showToast }) {
           </div>
         )}
 
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap",
+                      padding: "6px 14px", borderBottom: `1px solid ${C.line}`, background: C.surface }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, textTransform: "uppercase" }}>Legenda técnica</span>
+          <span style={{ fontSize: 9.5, color: C.text }}><i style={{ display: "inline-block", width: 9, height: 9, background: `${C.red}22`, border: `1px solid ${C.red}55`, marginRight: 4 }}/>Não trabalhado</span>
+          <span style={{ fontSize: 9.5, color: C.text }}><i style={{ display: "inline-block", width: 9, height: 9, background: `${C.blue}18`, border: `1px solid ${C.blue}55`, marginRight: 4 }}/>Fim de semana trabalhado</span>
+          <span style={{ fontSize: 9.5, color: C.text }}><i style={{ display: "inline-block", width: 9, height: 9, background: `${C.orange}45`, border: `1px solid ${C.orange}`, marginRight: 4 }}/>Feriado</span>
+          <span style={{ fontSize: 9.5, color: C.text }}><i style={{ display: "inline-block", height: 10, borderLeft: `2px solid ${C.red}`, marginRight: 5 }}/>Hoje</span>
+          <span style={{ fontSize: 9.5, color: C.muted, marginLeft: "auto" }}>{(cal.diasSemana || []).length} dias/semana · {(cal.feriados || []).length} feriado(s)</span>
+        </div>
+
         {tarefas.length === 0 ? (
           <div style={{ padding: 24, textAlign: "center" }}>
             <p style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>
@@ -14198,7 +14243,7 @@ function Planejamento({ data, update, showToast }) {
             {colunasAtivas.length > 0 && (
               <div style={{ flexShrink: 0, width: larguraColunas, borderRight: `2px solid ${C.border}`,
                             position: "sticky", left: 0, background: C.card, zIndex: 5 }}>
-                <div style={{ height: 30, display: "grid", gridTemplateColumns: templateColunas,
+                <div style={{ height: ALTURA_REGUA, display: "grid", gridTemplateColumns: templateColunas,
                               borderBottom: `1px solid ${C.line}`, background: C.surface }}>
                   {colunasAtivas.map(c => (
                     <div key={c.id} title={c.label} style={{ padding: "0 6px", display: "flex", alignItems: "center",
@@ -14231,25 +14276,57 @@ function Planejamento({ data, update, showToast }) {
 
             {/* Area do grafico */}
             <div style={{ position: "relative", minWidth: larguraGrade }}>
-              {/* Regua de meses */}
-              <div style={{ height: 30, position: "relative", borderBottom: `1px solid ${C.line}` }}>
+              {/* Régua técnica: mês, número do dia, dia da semana e exceções. */}
+              <div style={{ height: ALTURA_REGUA, position: "relative", borderBottom: `1px solid ${C.line}` }}>
                 {reguaMeses.map((m, i) => (
                   <div key={i} style={{ position: "absolute", left: m.x, top: 0, height: "100%",
                                         borderLeft: `1px solid ${C.line}`, paddingLeft: 4,
-                                        display: "flex", alignItems: "center" }}>
+                                        display: "flex", alignItems: "flex-start", paddingTop: 2 }}>
                     <span style={{ fontSize: 9.5, fontWeight: 700, color: C.muted, whiteSpace: "nowrap" }}>{m.label}</span>
                   </div>
                 ))}
+                {diasGrade.map(d => {
+                  const nomes = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB"];
+                  const bg = d.feriado ? `${C.orange}30` : d.naoTrabalhado ? `${C.red}12` : d.fimSemana ? `${C.blue}12` : "transparent";
+                  const mostrar = zoom === "dia" || (zoom === "semana" && (pxPorDia >= 10 || d.dow === 1 || d.feriado));
+                  return (
+                    <div key={d.data}
+                         title={`${fmtDateFull(d.data)}${d.feriado ? ` - ${d.feriado.nome}` : d.naoTrabalhado ? " - não trabalhado" : " - dia de trabalho"}`}
+                         style={{ position: "absolute", left: d.x, top: 18, width: pxPorDia, height: ALTURA_REGUA - 18,
+                                  background: bg, borderRight: `1px solid ${C.line}`, overflow: "hidden", textAlign: "center" }}>
+                      {mostrar && <>
+                        <span style={{ display: "block", fontSize: zoom === "dia" ? 10 : 8, fontWeight: 900,
+                                       color: d.feriado ? C.orange : d.naoTrabalhado ? C.red : C.text, lineHeight: 1.2 }}>{d.data.slice(8, 10)}</span>
+                        {zoom === "dia" && <span style={{ display: "block", fontSize: 7.5, fontWeight: 700, color: C.muted }}>{nomes[d.dow]}</span>}
+                      </>}
+                    </div>
+                  );
+                })}
                 {/* Linha do hoje */}
-                <div style={{ position: "absolute", left: xDeData(today()), top: 0, height: "100%",
-                              borderLeft: `2px solid ${C.red}`, opacity: .6 }} />
+                {today() >= GANTT_INI && today() <= somaDias(GANTT_INI, totalDias - 1) &&
+                  <div style={{ position: "absolute", left: xDeData(today()), top: 0, height: "100%",
+                                borderLeft: `2px solid ${C.red}`, opacity: .65 }} />}
+              </div>
+
+              {/* Dias não trabalhados, fins de semana e feriados em toda a altura. */}
+              <div style={{ position: "absolute", left: 0, top: ALTURA_REGUA, width: larguraGrade,
+                            height: tarefas.length * ALTURA_LINHA, pointerEvents: "none", zIndex: 0 }}>
+                {diasGrade.map(d => <div key={d.data} style={{
+                  position: "absolute", left: d.x, top: 0, width: pxPorDia, height: "100%",
+                  background: d.feriado ? `${C.orange}20` : d.naoTrabalhado ? `${C.red}0B` : d.fimSemana ? `${C.blue}09` : "transparent",
+                  borderRight: `1px solid ${C.line}88`,
+                }}/>) }
+                {today() >= GANTT_INI && today() <= somaDias(GANTT_INI, totalDias - 1) && (
+                  <div style={{ position: "absolute", left: xDeData(today()), top: 0, height: "100%",
+                                borderLeft: `2px solid ${C.red}`, opacity: .55, zIndex: 1 }}/>
+                )}
               </div>
 
               {/* Ligações técnicas entre predecessoras e sucessoras. */}
               {mostrarDependencias && relacoes.length > 0 && (
                 <svg width={larguraGrade} height={tarefas.length * ALTURA_LINHA}
                      viewBox={`0 0 ${larguraGrade} ${tarefas.length * ALTURA_LINHA}`}
-                     style={{ position: "absolute", left: 0, top: 30, overflow: "visible",
+                     style={{ position: "absolute", left: 0, top: ALTURA_REGUA, overflow: "visible",
                               zIndex: 3, pointerEvents: "none" }} aria-label="Dependências do cronograma">
                   <defs>
                     <marker id="gantt-seta-dependencia" markerWidth="7" markerHeight="7"
@@ -14295,7 +14372,7 @@ function Planejamento({ data, update, showToast }) {
                 const ini = emDrag ? emDrag.inicio : t.inicio;
                 const fim = emDrag ? emDrag.fim : t.fim;
                 const x = xDeData(ini);
-                const w = Math.max(pxPorDia, diasCorridos(ini, fim) * pxPorDia);
+                const w = Math.max(pxPorDia, (diasCorridos(ini, fim) + 1) * pxPorDia);
                 return (
                   <div key={t.id} style={{ height: ALTURA_LINHA, position: "relative",
                                            borderBottom: `1px solid ${C.line}`,
@@ -14352,7 +14429,7 @@ function Planejamento({ data, update, showToast }) {
                   <div key={m.id} onClick={() => setMarcoModal({ modo: "editar", marco: m })}
                        title={m.nome}
                        style={{ position: "absolute", left: x - 7,
-                                top: 30, height: tarefas.length * ALTURA_LINHA,
+                                 top: ALTURA_REGUA, height: tarefas.length * ALTURA_LINHA,
                                 cursor: "pointer", zIndex: 1 }}>
                     <div style={{ width: 14, height: 14, background: tp.c, transform: "rotate(45deg)",
                                   marginTop: 2, border: "2px solid #fff",
@@ -14534,21 +14611,59 @@ function Planejamento({ data, update, showToast }) {
               <p style={{ fontSize: 14, color: C.text, fontWeight: 800, marginTop: 2 }}>{obraAtual?.name || "Obra não identificada"}</p>
             </div>
             <p style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5 }}>
-              A exportação usa as colunas atualmente visíveis, inclui as ligações técnicas e divide automaticamente as tarefas em páginas.
+              Escolha a orientação e se o relatório terá todas as colunas visíveis ou somente Descrição + Gantt.
             </p>
+            <div>
+              <p style={{ fontSize: 9.5, color: C.muted, textTransform: "uppercase", fontWeight: 900, marginBottom: 6 }}>Orientação</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+                {[["portrait", "Retrato"], ["landscape", "Paisagem"]].map(([id, label]) => {
+                  const ativa = orientacaoExportacao === id;
+                  return (
+                    <button key={id} onClick={() => setOrientacaoExportacao(id)} style={{
+                      border: `1.5px solid ${ativa ? C.yellow : C.border}`, borderRadius: 8,
+                      background: ativa ? `${C.yellow}14` : C.surface, color: ativa ? C.text : C.muted,
+                      padding: "10px", cursor: "pointer", fontWeight: 800, fontFamily: "inherit" }}>{label}</button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <p style={{ fontSize: 9.5, color: C.muted, textTransform: "uppercase", fontWeight: 900, marginBottom: 6 }}>Visualização</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+                {[["descricao_gantt", "Descrição + Gantt"], ["completo", "Colunas visíveis + Gantt"]].map(([id, label]) => {
+                  const ativa = modoExportacao === id;
+                  return (
+                    <button key={id} onClick={() => setModoExportacao(id)} style={{
+                      border: `1.5px solid ${ativa ? C.blue : C.border}`, borderRadius: 8,
+                      background: ativa ? `${C.blue}12` : C.surface, color: ativa ? C.text : C.muted,
+                      padding: "10px 7px", cursor: "pointer", fontWeight: 800, fontSize: 10.5,
+                      fontFamily: "inherit" }}>{label}</button>
+                  );
+                })}
+              </div>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-              {Object.entries(FORMATOS_GANTT).map(([formato, cfg]) => (
-                <button key={formato} onClick={() => exportarCronograma(formato)} style={{
-                  border: `1.5px solid ${C.border}`, borderTop: `4px solid ${C.yellow}`,
-                  borderRadius: 9, background: C.surface, padding: "13px 8px", cursor: "pointer",
-                  color: C.text, fontFamily: "inherit" }}>
-                  <b style={{ display: "block", fontSize: 20 }}>{formato}</b>
-                  <span style={{ display: "block", color: C.muted, fontSize: 9.5, marginTop: 3 }}>Paisagem</span>
-                  <span style={{ display: "block", color: C.subtle, fontSize: 8.5, marginTop: 5 }}>
-                    ~{Math.ceil(tarefas.length / cfg.tarefasPorPagina)} página(s)
-                  </span>
-                </button>
-              ))}
+              {Object.entries(FORMATOS_GANTT).map(([formato, cfg]) => {
+                const porPagina = orientacaoExportacao === "portrait"
+                  ? (((modoExportacao === "descricao_gantt"
+                      ? { A4: 24, A3: 38, A2: 56 }
+                      : { A4: 30, A3: 46, A2: 68 })[formato]) || 24)
+                  : cfg.tarefasPorPagina;
+                return (
+                  <button key={formato} onClick={() => exportarCronograma(formato)} style={{
+                    border: `1.5px solid ${C.border}`, borderTop: `4px solid ${C.yellow}`,
+                    borderRadius: 9, background: C.surface, padding: "13px 8px", cursor: "pointer",
+                    color: C.text, fontFamily: "inherit" }}>
+                    <b style={{ display: "block", fontSize: 20 }}>{formato}</b>
+                    <span style={{ display: "block", color: C.muted, fontSize: 9.5, marginTop: 3 }}>
+                      {orientacaoExportacao === "portrait" ? "Retrato" : "Paisagem"}
+                    </span>
+                    <span style={{ display: "block", color: C.subtle, fontSize: 8.5, marginTop: 5 }}>
+                      ~{Math.ceil(tarefas.length / porPagina)} página(s)
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </Modal>
