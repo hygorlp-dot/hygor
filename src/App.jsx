@@ -21,7 +21,8 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin,
          saveData, saveDataDetailed, logout as encerrarSessao,
          loadDataWithMeta, adoptServerVersion, subirFoto,
          listarBasesReferencia, iniciarBaseReferencia, enviarLoteReferencia,
-         finalizarBaseReferencia, pesquisarBasesReferencia, removerBaseReferencia } from "./api";
+         finalizarBaseReferencia, pesquisarBasesReferencia, resolverCodigosReferencia,
+         removerBaseReferencia } from "./api";
 
 // 
 // ARCD OBRAS - App.jsx auditado
@@ -10272,6 +10273,7 @@ const calcCurvaABCOrc = (orc, calc, { agrupar = true } = {}) => {
 
 function Orcamento({ data, update, showToast }) {
   const { cols, formGrid } = useBreakpoint();
+  const dataAtualRef = useRef(data);
   const [view,      setView]      = useState("lista");   // "lista" | "editor"
   const [selOrc,    setSelOrc]    = useState(null);      // id do orçamento aberto
   const [baseImport,setBaseImport]= useState([]);        // base SINAPI/ORSE em memória
@@ -10287,6 +10289,8 @@ function Orcamento({ data, update, showToast }) {
   const [resultadosRemotos, setResultadosRemotos] = useState([]);
   const [buscaRemotaLoading, setBuscaRemotaLoading] = useState(false);
   const [buscaRemotaAviso, setBuscaRemotaAviso] = useState("");
+  const [atualizandoPrecos, setAtualizandoPrecos] = useState(false);
+  const [codigoAtualizando, setCodigoAtualizando] = useState("");
   const [buscaModal,setBuscaModal]= useState(false);
   const [busca,     setBusca]     = useState("");
   // O campo responde na hora; a filtragem dos 17 mil itens espera a digitação
@@ -10325,6 +10329,7 @@ function Orcamento({ data, update, showToast }) {
     const t = setTimeout(() => setBuscaDebounced(busca), 140);
     return () => clearTimeout(t);
   }, [busca]);
+  useEffect(() => { dataAtualRef.current = data; }, [data]);
 
   const carregarBasesRemotas = useCallback(async () => {
     setBasesCarregando(true);
@@ -10367,22 +10372,15 @@ function Orcamento({ data, update, showToast }) {
     let ativo = true;
     const term = buscaDebounced.trim();
     if (!buscaModal || !orc || term.length < 2 || !(orc.referencias || []).length) {
-      setResultadosRemotos([]);
-      setBuscaRemotaAviso("");
-      setBuscaRemotaLoading(false);
+      setResultadosRemotos([]); setBuscaRemotaAviso(""); setBuscaRemotaLoading(false);
       return () => { ativo = false; };
     }
     setBuscaRemotaLoading(true);
     const timer = window.setTimeout(async () => {
       const result = await pesquisarBasesReferencia(orc.referencias || [], term);
       if (!ativo) return;
-      if (result.ok) {
-        setResultadosRemotos(result.items || []);
-        setBuscaRemotaAviso(result.warning || "");
-      } else {
-        setResultadosRemotos([]);
-        setBuscaRemotaAviso(result.error || "Falha na pesquisa das bases cadastradas.");
-      }
+      if (result.ok) { setResultadosRemotos(result.items || []); setBuscaRemotaAviso(result.warning || ""); }
+      else { setResultadosRemotos([]); setBuscaRemotaAviso(result.error || "Falha na pesquisa das bases cadastradas."); }
       setBuscaRemotaLoading(false);
     }, 280);
     return () => { ativo = false; window.clearTimeout(timer); };
@@ -10530,11 +10528,8 @@ function Orcamento({ data, update, showToast }) {
     return out;
   };
 
-  // Leitor da planilha oficial SINAPI. CSD = sem desoneração e CCD = com
-  // desoneração; as duas abas são cruzadas por código para a UF escolhida.
   const extrairSinapiOficial = (wb, uf) => {
     const nomeAba = alvo => wb.SheetNames.find(nome => semAcento(nome).replace(/\s/g, "") === alvo.toLowerCase());
-
     const lerAba = (alvo, campoPreco) => {
       const nome = nomeAba(alvo);
       if (!nome) return { itens: [], dataBase: "" };
@@ -10545,42 +10540,33 @@ function Orcamento({ data, update, showToast }) {
         return /C[ÓO]DIGO/.test(text) && /DESCRI/.test(text) && /UNIDADE/.test(text);
       });
       if (headerRow < 0) return { itens: [], dataBase: "" };
-
       let ufColumn = -1;
       for (let r = headerRow - 1; r >= 0 && ufColumn < 0; r--) {
         ufColumn = (rows[r] || []).findIndex(value => String(value || "").trim().toUpperCase() === uf);
       }
       if (ufColumn < 0) return { itens: [], dataBase: "" };
-
       const header = (rows[headerRow] || []).map(value => semAcento(value).toUpperCase().replace(/\n/g, " "));
       const codigoColumn = header.findIndex(value => value.includes("CODIGO"));
       const descricaoColumn = header.findIndex(value => value.includes("DESCRI"));
       const unidadeColumn = header.findIndex(value => value.includes("UNIDADE"));
       if ([codigoColumn, descricaoColumn, unidadeColumn].some(index => index < 0)) return { itens: [], dataBase: "" };
-
       const itens = [];
       for (let r = headerRow + 1; r < rows.length; r++) {
         const row = rows[r] || [];
         let codigo = String(row[codigoColumn] ?? "").trim().replace(/\.0$/, "");
-        // Em algumas edições oficiais (como 06/2026), o código é uma
-        // fórmula HYPERLINK e o valor em cache vem como zero.
         if (ehLixo(codigo)) {
           const cell = sheet[XLSX.utils.encode_cell({ r, c:codigoColumn })];
-          const formula = String(cell?.f || "");
-          const matchCodigo = formula.match(/MATCH\s*\(\s*(\d+)/i);
+          const matchCodigo = String(cell?.f || "").match(/MATCH\s*\(\s*(\d+)/i);
           if (matchCodigo) codigo = matchCodigo[1];
         }
         const descricao = String(row[descricaoColumn] ?? "").trim();
         const preco = parseBR(row[ufColumn]);
         if (ehLixo(codigo) || ehLixo(descricao) || preco <= 0) continue;
-        itens.push({
-          fonte:"SINAPI", codigo, descricao,
+        itens.push({ fonte:"SINAPI", codigo, descricao,
           unidade:String(row[unidadeColumn] ?? "UN").trim() || "UN",
           precoDes:campoPreco === "precoDes" ? preco : 0,
-          precoNao:campoPreco === "precoNao" ? preco : 0,
-        });
+          precoNao:campoPreco === "precoNao" ? preco : 0 });
       }
-
       let dataBase = "";
       rows.slice(0, headerRow).flat().some(value => {
         const match = String(value || "").trim().match(/^(0[1-9]|1[0-2])\/(\d{4})$/);
@@ -10590,77 +10576,52 @@ function Orcamento({ data, update, showToast }) {
       });
       return { itens, dataBase };
     };
-
     const nao = lerAba("CSD", "precoNao");
     const des = lerAba("CCD", "precoDes");
     const merged = new Map();
     [...nao.itens, ...des.itens].forEach(item => {
       const atual = merged.get(item.codigo) || { ...item, precoDes:0, precoNao:0 };
-      merged.set(item.codigo, {
-        ...atual,
-        descricao:item.descricao || atual.descricao,
-        unidade:item.unidade || atual.unidade,
-        precoDes:item.precoDes || atual.precoDes,
-        precoNao:item.precoNao || atual.precoNao,
-      });
+      merged.set(item.codigo, { ...atual, descricao:item.descricao || atual.descricao,
+        unidade:item.unidade || atual.unidade, precoDes:item.precoDes || atual.precoDes,
+        precoNao:item.precoNao || atual.precoNao });
     });
-    return {
-      itens:[...merged.values()],
-      dataBase:des.dataBase || nao.dataBase,
-      abas:[nao.itens.length ? "CSD" : "", des.itens.length ? "CCD" : ""].filter(Boolean),
-    };
+    return { itens:[...merged.values()], dataBase:des.dataBase || nao.dataBase,
+      abas:[nao.itens.length ? "CSD" : "", des.itens.length ? "CCD" : ""].filter(Boolean) };
   };
 
   const importarSinapiSupabase = async file => {
     if (!file || !orc) return;
-    setImportando(true);
-    setUploadProgresso(1);
+    setImportando(true); setUploadProgresso(1);
     let baseCriada = null;
     try {
       const wb = XLSX.read(await file.arrayBuffer(), { type:"array" });
       const extraida = extrairSinapiOficial(wb, sinapiUf);
-      if (!extraida.itens.length || !extraida.dataBase) {
-        throw new Error("Não encontrei as abas oficiais CSD/CCD, a competência ou a coluna da UF selecionada.");
-      }
-
-      const inicio = await iniciarBaseReferencia({
-        fonte:"SINAPI", dataBase:extraida.dataBase, uf:sinapiUf,
-        desonerado:orc.desonerado !== false, arquivo:file.name,
-      });
+      if (!extraida.itens.length || !extraida.dataBase) throw new Error("Não encontrei as abas oficiais CSD/CCD, a competência ou a coluna da UF selecionada.");
+      const inicio = await iniciarBaseReferencia({ fonte:"SINAPI", dataBase:extraida.dataBase, uf:sinapiUf,
+        desonerado:orc.desonerado !== false, arquivo:file.name });
       if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível iniciar a base no Supabase.");
       baseCriada = inicio.base;
-
       const lote = 350;
       for (let i = 0; i < extraida.itens.length; i += lote) {
         const envio = await enviarLoteReferencia(baseCriada.id, extraida.itens.slice(i, i + lote));
         if (!envio.ok) throw new Error(envio.error || `Falha no lote ${Math.floor(i / lote) + 1}.`);
         setUploadProgresso(Math.min(96, Math.round(((i + lote) / extraida.itens.length) * 95)));
       }
-
       const fim = await finalizarBaseReferencia(baseCriada.id);
       if (!fim.ok || !fim.base) throw new Error(fim.error || "Não foi possível finalizar a base.");
       const refs = [...new Set([...(orc.referencias || []), fim.base.id])];
       const temOrse = basesRemotas.some(base => refs.includes(base.id) && base.fonte === "ORSE");
       salvarOrc({ referencias:refs, fonte:temOrse ? "MISTO" : "SINAPI", uf:sinapiUf, dataBase:extraida.dataBase });
-      setBaseImport(extraida.itens);
-      setBaseNome(file.name);
-      setBaseInfo({
-        aba:extraida.abas.join(" + "), total:extraida.itens.length,
-        porFonte:{SINAPI:extraida.itens.length},
-        comDes:extraida.itens.filter(item => item.precoDes > 0).length,
-        comNao:extraida.itens.filter(item => item.precoNao > 0).length,
-        dataBase:extraida.dataBase, localidade:sinapiUf,
-      });
-      setUploadProgresso(100);
-      await carregarBasesRemotas();
+      setBaseImport(extraida.itens); setBaseNome(file.name);
+      setBaseInfo({ aba:extraida.abas.join(" + "), total:extraida.itens.length,
+        porFonte:{SINAPI:extraida.itens.length}, comDes:extraida.itens.filter(i=>i.precoDes>0).length,
+        comNao:extraida.itens.filter(i=>i.precoNao>0).length, dataBase:extraida.dataBase, localidade:sinapiUf });
+      setUploadProgresso(100); await carregarBasesRemotas();
       showToast(`Base SINAPI ${extraida.dataBase} / ${sinapiUf} salva no Supabase com ${extraida.itens.length.toLocaleString("pt-BR")} composições.`);
     } catch (error) {
       if (baseCriada?.id) await removerBaseReferencia(baseCriada.id).catch(() => null);
       showToast(error?.message || "Falha ao enviar a base SINAPI.", "error");
-    } finally {
-      setImportando(false);
-      window.setTimeout(() => setUploadProgresso(0), 900);
-    }
+    } finally { setImportando(false); window.setTimeout(() => setUploadProgresso(0), 900); }
   };
 
   const cadastrarOrseSupabase = async file => {
@@ -10678,14 +10639,10 @@ function Orcamento({ data, update, showToast }) {
       const refs = [...new Set([...(orc.referencias || []), inicio.base.id])];
       const temSinapi = basesRemotas.some(base => refs.includes(base.id) && base.fonte === "SINAPI");
       salvarOrc({ referencias:refs, fonte:temSinapi ? "MISTO" : "ORSE", dataBase:orc.dataBase || dataBase });
-      setOrseDataBase(dataBase);
-      await carregarBasesRemotas();
+      setOrseDataBase(dataBase); await carregarBasesRemotas();
       showToast(`ORSE ${dataBase} vinculado. A pesquisa usará a base pública oficial da CEHOP.`);
-    } catch (error) {
-      showToast(error?.message || "Falha ao cadastrar a referência ORSE.", "error");
-    } finally {
-      setImportando(false);
-    }
+    } catch (error) { showToast(error?.message || "Falha ao cadastrar a referência ORSE.", "error"); }
+    finally { setImportando(false); }
   };
 
   const importarXLSX = async (file) => {
@@ -10874,17 +10831,14 @@ function Orcamento({ data, update, showToast }) {
   }, [buscaDebounced, baseIndexada]);
 
   const resultados = useMemo(() => {
-    const out = [];
-    const seen = new Set();
+    const out = [], seen = new Set();
     [...resultadosLocais, ...resultadosRemotos].forEach(item => {
       const key = `${item.fonte || "SINAPI"}:${String(item.codigo || "").replace(/^0+(?=\d)/, "")}`;
       if (!item.codigo || seen.has(key)) return;
-      seen.add(key);
-      out.push(item);
+      seen.add(key); out.push(item);
     });
     return out.slice(0, 80);
   }, [resultadosLocais, resultadosRemotos]);
-
   const temBasePesquisa = baseBusca.length > 0 || basesVinculadas.length > 0;
 
   //  CRUD orçamento 
@@ -10914,31 +10868,49 @@ function Orcamento({ data, update, showToast }) {
     window.requestAnimationFrame(()=>window.scrollTo({top:scrollY,behavior:"auto"}));
   };
 
-  const recalcularFonteOrc = ids => {
-    const fontes = new Set(basesRemotas.filter(base => ids.includes(base.id)).map(base => base.fonte));
-    return fontes.has("SINAPI") && fontes.has("ORSE") ? "MISTO"
-      : fontes.has("ORSE") ? "ORSE" : "SINAPI";
+  const salvarOrcAssincrono = patch => {
+    const atual = dataAtualRef.current;
+    const lista = atual.orcamentos || [];
+    const scrollY = window.scrollY;
+    update({...atual, orcamentos:lista.map(item => item.id===selOrc ? {...item,...patch} : item)});
+    window.requestAnimationFrame(()=>window.scrollTo({top:scrollY,behavior:"auto"}));
   };
 
+  const recalcularFonteOrc = ids => {
+    const fontes = new Set(basesRemotas.filter(base => ids.includes(base.id)).map(base => base.fonte));
+    return fontes.has("SINAPI") && fontes.has("ORSE") ? "MISTO" : fontes.has("ORSE") ? "ORSE" : "SINAPI";
+  };
   const vincularBaseExistente = () => {
     if (!orc || !baseParaVincular) return;
     const ids = [...new Set([...(orc.referencias || []), baseParaVincular])];
     const base = basesRemotas.find(item => item.id === baseParaVincular);
-    salvarOrc({
-      referencias:ids,
-      fonte:recalcularFonteOrc(ids),
-      ...(base?.fonte === "SINAPI" ? { uf:base.uf || orc.uf, dataBase:base.dataBase || orc.dataBase } : {}),
-    });
-    setBaseParaVincular("");
-    showToast("Base vinculada ao orçamento.");
+    salvarOrc({ referencias:ids, fonte:recalcularFonteOrc(ids),
+      ...(base?.fonte === "SINAPI" ? {uf:base.uf || orc.uf, dataBase:base.dataBase || orc.dataBase} : {}) });
+    setBaseParaVincular(""); showToast("Base vinculada ao orçamento.");
   };
-
   const desvincularBase = baseId => {
     if (!orc) return;
     const ids = (orc.referencias || []).filter(id => id !== baseId);
     salvarOrc({ referencias:ids, fonte:recalcularFonteOrc(ids) });
     showToast("Base desvinculada deste orçamento.");
   };
+
+  const normalizarCodigoRef = valor => String(valor || "").trim().toUpperCase()
+    .replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i, "").replace(/\.0$/, "");
+
+  const aplicarReferencia = (item, ref, orcAtual = orc) => ({
+    ...item,
+    codigo:ref.codigo || item.codigo,
+    fonte:ref.fonte || item.fonte || orcAtual.fonte,
+    descricao:ref.descricao || item.descricao,
+    unidade:ref.unidade || item.unidade || "UN",
+    precoUnit:precoDoItem(ref, orcAtual),
+    composicao:ref.composicao || item.composicao || "",
+    codigoNaoEncontrado:false,
+    baseData:ref.dataBase || item.baseData || orcAtual.dataBase || "",
+    baseUf:ref.uf || item.baseUf || "",
+    detailUrl:ref.detailUrl || item.detailUrl || "",
+  });
 
   const abrirEdicaoOrc = () => {
     setForm({
@@ -10991,9 +10963,9 @@ function Orcamento({ data, update, showToast }) {
       quantidade: q,
       precoUnit: preco,
       composicao: qtdModal.composicao || "",
-      baseData: qtdModal.dataBase || orc.dataBase || "",
-      baseUf: qtdModal.uf || (qtdModal.fonte === "SINAPI" ? orc.uf : ""),
-      detailUrl: qtdModal.detailUrl || "",
+      baseData:qtdModal.dataBase || orc.dataBase || "",
+      baseUf:qtdModal.uf || (qtdModal.fonte === "SINAPI" ? orc.uf : ""),
+      detailUrl:qtdModal.detailUrl || "",
     };
 
     // Guarda na base de favoritos (já com o preço congelado)
@@ -11005,9 +10977,9 @@ function Orcamento({ data, update, showToast }) {
       descricao: qtdModal.descricao,
       unidade,
       precoUnit: preco,
-      baseData: qtdModal.dataBase || orc.dataBase || "",
-      baseUf: qtdModal.uf || (qtdModal.fonte === "SINAPI" ? orc.uf : ""),
-      detailUrl: qtdModal.detailUrl || "",
+      baseData:qtdModal.dataBase || orc.dataBase || "",
+      baseUf:qtdModal.uf || (qtdModal.fonte === "SINAPI" ? orc.uf : ""),
+      detailUrl:qtdModal.detailUrl || "",
     }];
 
     update({
@@ -11057,27 +11029,40 @@ function Orcamento({ data, update, showToast }) {
     salvarOrc({ itens: orc.itens.map(it => it.id===itemId ? {...it, quantidade:Number(novaQtd)||0} : it) });
   };
 
-  const updItemCampo = (itemId, campo, valor) => {
-    salvarOrc({ itens: orc.itens.map(it => {
-      if (it.id !== itemId) return it;
-      const patch = { [campo]: valor };
-      if (campo === "codigo") {
-        const codigo = String(valor||"").trim().toUpperCase();
-        patch.codigo = codigo;
-        const chave = codigo.replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i,"").replace(/\.0$/,"");
-        const fonteAtual = String(it.fonte||"").trim().toUpperCase();
-        const ref = chave ? (referenciaPorCodigo.get(`${fonteAtual}|${chave}`)||referenciaPorCodigo.get(chave)) : null;
-        patch.codigoNaoEncontrado = !ref;
-        if (ref) {
-          patch.fonte = ref.fonte || orc.fonte;
-          patch.descricao = ref.descricao || it.descricao;
-          patch.unidade = ref.unidade || it.unidade || "UN";
-          patch.precoUnit = precoDoItem(ref,orc);
-          patch.composicao = ref.composicao || "";
+  const updItemCampo = async (itemId, campo, valor) => {
+    if (campo !== "codigo") {
+      salvarOrc({ itens:orc.itens.map(it => it.id===itemId ? {...it,[campo]:valor} : it) });
+      return;
+    }
+    const itemAtual = orc.itens.find(it => it.id === itemId);
+    if (!itemAtual) return;
+    const codigoDigitado = String(valor || "").trim().toUpperCase();
+    const chave = normalizarCodigoRef(codigoDigitado);
+    const fonteAtual = String(itemAtual.fonte || "").trim().toUpperCase();
+    let ref = chave ? (referenciaPorCodigo.get(`${fonteAtual}|${chave}`) || referenciaPorCodigo.get(chave)) : null;
+    setCodigoAtualizando(itemId);
+    try {
+      if (chave && (orc.referencias || []).length) {
+        const resposta = await resolverCodigosReferencia(orc.referencias, [{codigo:chave, fonte:fonteAtual}]);
+        if (resposta.ok && resposta.items?.length) ref = resposta.items[0];
+        else if (!resposta.ok && !ref) showToast(resposta.error || "Não foi possível consultar o código.", "warn");
+        if (!ref && fonteAtual && resposta.ok) {
+          const alternativa = await resolverCodigosReferencia(orc.referencias, [{codigo:chave, fonte:""}]);
+          if (alternativa.ok && alternativa.items?.length) ref = alternativa.items[0];
         }
       }
-      return { ...it, ...patch };
-    }) });
+      const orcVigente = (dataAtualRef.current.orcamentos || []).find(item => item.id === selOrc) || orc;
+      const itens = orcVigente.itens.map(it => {
+        if (it.id !== itemId) return it;
+        const alterado = {...it, codigo:codigoDigitado, codigoNaoEncontrado:!ref};
+        return ref && precoDoItem(ref, orcVigente) > 0 ? aplicarReferencia(alterado, ref, orcVigente) : alterado;
+      });
+      salvarOrcAssincrono({itens});
+      if (ref) showToast(`Código ${chave} atualizado pela base ${ref.fonte || "de referência"}.`);
+      else if (chave) showToast(`Código ${chave} não localizado nas bases vinculadas.`, "warn");
+    } finally {
+      setCodigoAtualizando("");
+    }
   };
 
   const salvarItemCompleto = () => {
@@ -11395,6 +11380,65 @@ function Orcamento({ data, update, showToast }) {
       } : o),
     });
     showToast(`${atualizados} item(ns) atualizado(s) pela nova base${naoEncontrados ? `; ${naoEncontrados} sem correspondência` : ""}.`);
+  };
+
+  const atualizarPrecosVinculados = async () => {
+    if (!orc || !(orc.referencias || []).length) {
+      showToast("Vincule uma base SINAPI ou ORSE antes de atualizar os preços.", "error");
+      return;
+    }
+    const candidatos = orc.itens.filter(it => it.tipo !== "titulo" && normalizarCodigoRef(it.codigo)
+      && !/^(EXTERNO|COTA[CÇ][AÃ]O)$/.test(String(it.fonte || "").trim().toUpperCase()));
+    if (!candidatos.length) {
+      showToast("O orçamento não possui itens codificados para atualizar.", "warn");
+      return;
+    }
+    const entradas = [];
+    const vistos = new Set();
+    candidatos.forEach(it => {
+      const entrada = {codigo:normalizarCodigoRef(it.codigo), fonte:String(it.fonte || "").trim().toUpperCase()};
+      const key = `${entrada.fonte}|${entrada.codigo}`;
+      if (!vistos.has(key)) { vistos.add(key); entradas.push(entrada); }
+    });
+
+    setAtualizandoPrecos(true);
+    try {
+      const encontrados = [];
+      for (let i = 0; i < entradas.length; i += 25) {
+        const resposta = await resolverCodigosReferencia(orc.referencias, entradas.slice(i, i + 25));
+        if (!resposta.ok) throw new Error(resposta.error || "Falha ao consultar as bases vinculadas.");
+        encontrados.push(...(resposta.items || []));
+      }
+      const mapa = new Map();
+      encontrados.forEach(ref => {
+        const codigo = normalizarCodigoRef(ref.codigo);
+        const fonte = String(ref.fonte || "").trim().toUpperCase();
+        if (codigo && fonte) mapa.set(`${fonte}|${codigo}`, ref);
+        if (codigo && !mapa.has(codigo)) mapa.set(codigo, ref);
+      });
+
+      let atualizados = 0, naoEncontrados = 0;
+      const orcVigente = (dataAtualRef.current.orcamentos || []).find(item => item.id === selOrc) || orc;
+      const itens = orcVigente.itens.map(it => {
+        if (it.tipo === "titulo" || /^(EXTERNO|COTA[CÇ][AÃ]O)$/.test(String(it.fonte || "").trim().toUpperCase())) return it;
+        const codigo = normalizarCodigoRef(it.codigo);
+        if (!codigo) return it;
+        const fonte = String(it.fonte || "").trim().toUpperCase();
+        const ref = mapa.get(`${fonte}|${codigo}`) || mapa.get(codigo);
+        if (!ref || !(precoDoItem(ref, orcVigente) > 0)) {
+          naoEncontrados++;
+          return {...it, codigoNaoEncontrado:true};
+        }
+        atualizados++;
+        return aplicarReferencia(it, ref, orcVigente);
+      });
+      salvarOrcAssincrono({itens});
+      showToast(`${atualizados} item(ns) atualizado(s) pelas bases vinculadas${naoEncontrados ? `; ${naoEncontrados} sem correspondência` : ""}.`);
+    } catch (error) {
+      showToast(error?.message || "Não foi possível atualizar os preços.", "error");
+    } finally {
+      setAtualizandoPrecos(false);
+    }
   };
 
   const norm = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
@@ -12046,82 +12090,48 @@ ${blocoBDI}
 
       {/* Referências persistentes do orçamento */}
       <div style={{background:C.card,border:`1.5px solid ${C.blue}55`,borderLeft:`5px solid ${C.blue}`,borderRadius:10,padding:"13px 14px",display:"flex",flexDirection:"column",gap:11}}>
-        <div>
-          <p style={{fontSize:14,fontWeight:800,color:C.text}}>Bases de referência no Supabase</p>
-          <p style={{fontSize:10.5,color:C.muted,marginTop:3,lineHeight:1.5}}>
-            Vincule SINAPI e ORSE ao mesmo orçamento. A pesquisa reúne as duas fontes e mantém a competência de cada resultado.
-          </p>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+          <div style={{minWidth:0,flex:1}}>
+            <p style={{fontSize:14,fontWeight:800,color:C.text}}>Bases de referência no Supabase</p>
+            <p style={{fontSize:10.5,color:C.muted,marginTop:3,lineHeight:1.5}}>Vincule SINAPI e ORSE ao mesmo orçamento e atualize os preços pelos códigos já lançados.</p>
+          </div>
+          <Btn size="sm" v="success" disabled={atualizandoPrecos || basesVinculadas.length===0} onClick={atualizarPrecosVinculados}>
+            {atualizandoPrecos ? "Atualizando..." : "Atualizar preços dos itens"}
+          </Btn>
         </div>
-
-        {basesCarregando ? (
-          <p style={{fontSize:11,color:C.muted}}>Carregando bases cadastradas...</p>
-        ) : basesVinculadas.length > 0 ? (
+        {basesCarregando ? <p style={{fontSize:11,color:C.muted}}>Carregando bases cadastradas...</p>
+        : basesVinculadas.length > 0 ? (
           <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {basesVinculadas.map(base => {
-              const cor = base.fonte === "ORSE" ? C.purple : C.blue;
-              return (
-                <div key={base.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:`${cor}0B`,border:`1px solid ${cor}3D`,padding:"8px 10px",borderRadius:8}}>
-                  <div style={{minWidth:0}}>
-                    <p style={{fontSize:11.5,fontWeight:800,color:cor}}>{base.fonte} · {base.dataBase}{base.uf ? ` · ${base.uf}` : ""}</p>
-                    <p title={base.arquivo} style={{fontSize:9.5,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                      {base.fonte === "ORSE" ? "Pesquisa oficial CEHOP" : `${base.total.toLocaleString("pt-BR")} composições no Supabase`}
-                      {base.arquivo ? ` · ${base.arquivo}` : ""}
-                    </p>
-                  </div>
-                  <button onClick={()=>desvincularBase(base.id)} title="Desvincular deste orçamento" style={{border:`1px solid ${C.border}`,background:C.bg,color:C.muted,width:28,height:28,borderRadius:6,cursor:"pointer",fontWeight:900}}>×</button>
+            {basesVinculadas.map(base => { const cor=base.fonte==="ORSE"?C.purple:C.blue; return (
+              <div key={base.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:`${cor}0B`,border:`1px solid ${cor}3D`,padding:"8px 10px",borderRadius:8}}>
+                <div style={{minWidth:0}}>
+                  <p style={{fontSize:11.5,fontWeight:800,color:cor}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}</p>
+                  <p title={base.arquivo} style={{fontSize:9.5,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{base.fonte==="ORSE"?"Pesquisa oficial CEHOP":`${base.total.toLocaleString("pt-BR")} composições no Supabase`}{base.arquivo?` · ${base.arquivo}`:""}</p>
                 </div>
-              );
-            })}
+                <button onClick={()=>desvincularBase(base.id)} title="Desvincular" style={{border:`1px solid ${C.border}`,background:C.bg,color:C.muted,width:28,height:28,borderRadius:6,cursor:"pointer",fontWeight:900}}>×</button>
+              </div>); })}
           </div>
-        ) : (
-          <div style={{background:C.surface,border:`1px dashed ${C.border}`,padding:10,borderRadius:8}}>
-            <p style={{fontSize:11,color:C.muted}}>Nenhuma base do Supabase vinculada a este orçamento.</p>
-          </div>
-        )}
+        ) : <div style={{background:C.surface,border:`1px dashed ${C.border}`,padding:10,borderRadius:8}}><p style={{fontSize:11,color:C.muted}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
 
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(235px,1fr))",gap:9}}>
           <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:10,borderRadius:8}}>
             <p style={{fontSize:11,fontWeight:800,color:C.blue,marginBottom:7}}>SINAPI · planilha oficial</p>
             <Sel label="Estado dos preços" value={sinapiUf} onChange={setSinapiUf} options={SINAPI_UFS.map(uf=>({v:uf,l:uf}))}/>
-            <label style={{display:"block",marginTop:8}}>
-              <input type="file" accept=".xlsx" disabled={importando} onChange={e=>{const file=e.target.files?.[0];e.target.value="";importarSinapiSupabase(file);}} style={{display:"none"}}/>
-              <span style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,background:C.blue,color:"#fff",padding:"8px 10px",borderRadius:7,cursor:importando?"wait":"pointer",fontSize:10.5,fontWeight:800,textTransform:"uppercase"}}>
-                <Ic n="download" s={13}/> Salvar SINAPI no Supabase
-              </span>
+            <label style={{display:"block",marginTop:8}}><input type="file" accept=".xlsx" disabled={importando} onChange={e=>{const file=e.target.files?.[0];e.target.value="";importarSinapiSupabase(file);}} style={{display:"none"}}/>
+              <span style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,background:C.blue,color:"#fff",padding:"8px 10px",borderRadius:7,cursor:importando?"wait":"pointer",fontSize:10.5,fontWeight:800,textTransform:"uppercase"}}><Ic n="download" s={13}/> Salvar SINAPI no Supabase</span>
             </label>
           </div>
-
           <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:10,borderRadius:8}}>
             <p style={{fontSize:11,fontWeight:800,color:C.purple,marginBottom:7}}>ORSE · data-base oficial</p>
             <Inp label="Competência" type="month" value={orseDataBase} onChange={setOrseDataBase}/>
-            <label style={{display:"block",marginTop:8}}>
-              <input type="file" accept=".ORSE,.orse" disabled={importando} onChange={e=>{const file=e.target.files?.[0];e.target.value="";cadastrarOrseSupabase(file);}} style={{display:"none"}}/>
-              <span style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,background:C.purple,color:"#fff",padding:"8px 10px",borderRadius:7,cursor:importando?"wait":"pointer",fontSize:10.5,fontWeight:800,textTransform:"uppercase"}}>
-                <Ic n="file" s={13}/> Vincular arquivo ORSE
-              </span>
+            <label style={{display:"block",marginTop:8}}><input type="file" accept=".ORSE,.orse" disabled={importando} onChange={e=>{const file=e.target.files?.[0];e.target.value="";cadastrarOrseSupabase(file);}} style={{display:"none"}}/>
+              <span style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,background:C.purple,color:"#fff",padding:"8px 10px",borderRadius:7,cursor:importando?"wait":"pointer",fontSize:10.5,fontWeight:800,textTransform:"uppercase"}}><Ic n="file" s={13}/> Vincular arquivo ORSE</span>
             </label>
           </div>
         </div>
-
-        {uploadProgresso > 0 && (
-          <div>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:C.muted,marginBottom:3}}><span>Enviando composições em lotes</span><strong>{uploadProgresso}%</strong></div>
-            <div style={{height:7,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${uploadProgresso}%`,background:C.blue,transition:"width .2s"}}/></div>
-          </div>
-        )}
-
-        {basesDisponiveis.length > 0 && (
-          <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}>
-            <Sel label="Vincular uma base já cadastrada" value={baseParaVincular} onChange={setBaseParaVincular} options={[{v:"",l:"Selecione"},...basesDisponiveis.map(base=>({v:base.id,l:`${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""} · ${base.total || "oficial"}`}))]}/>
-            <Btn size="sm" v="info" disabled={!baseParaVincular} onClick={vincularBaseExistente}>Vincular</Btn>
-          </div>
-        )}
-
-        <div style={{background:`${C.purple}08`,border:`1px solid ${C.purple}22`,padding:"8px 10px",borderRadius:7}}>
-          <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>
-            O arquivo <strong>.ORSE</strong> identifica a competência e fica registrado por nome e hash. Como ele é um pacote do ORSE 2/SQL Server, os resultados pesquisáveis são consultados na base pública oficial da CEHOP pela rota segura do servidor.
-          </p>
-        </div>
+        {uploadProgresso>0 && <div><div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:C.muted,marginBottom:3}}><span>Enviando composições em lotes</span><strong>{uploadProgresso}%</strong></div><div style={{height:7,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${uploadProgresso}%`,background:C.blue,transition:"width .2s"}}/></div></div>}
+        {basesDisponiveis.length>0 && <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Sel label="Vincular uma base já cadastrada" value={baseParaVincular} onChange={setBaseParaVincular} options={[{v:"",l:"Selecione"},...basesDisponiveis.map(base=>({v:base.id,l:`${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""} · ${base.total||"oficial"}`}))]}/><Btn size="sm" v="info" disabled={!baseParaVincular} onClick={vincularBaseExistente}>Vincular</Btn></div>}
+        <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente.</p>
       </div>
 
       {/* Importação local temporária */}
@@ -12393,7 +12403,7 @@ ${blocoBDI}
                           <input key={`${it.id}-cod-${it.codigo}`} defaultValue={it.codigo||""}
                             onBlur={e=>updItemCampo(it.id,"codigo",e.target.value)}
                             onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                            placeholder="Sem código" title={codigoPendente?"Código não localizado na base":"Código da composição"}
+                            placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}
                             style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
                       <div style={{minWidth:0,overflow:"hidden"}}>
@@ -13048,13 +13058,8 @@ ${blocoBDI}
                 <p style={{fontSize:12,color:C.muted}}>Nenhuma base vinculada. Cadastre ou vincule uma base SINAPI/ORSE neste orçamento.</p>
               </div>
             )}
-
             {buscaRemotaLoading && <p style={{fontSize:10.5,color:C.blue,fontWeight:700}}>Pesquisando nas bases vinculadas...</p>}
-            {buscaRemotaAviso && (
-              <div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:7,padding:"7px 9px"}}>
-                <p style={{fontSize:10.5,color:C.orange}}>{buscaRemotaAviso}</p>
-              </div>
-            )}
+            {buscaRemotaAviso && <div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:10.5,color:C.orange}}>{buscaRemotaAviso}</p></div>}
 
             {!busca && baseBusca.some(i=>i._fav) && (
               <p style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}> Seus favoritos</p>
@@ -13074,17 +13079,14 @@ ${blocoBDI}
                         {r._fav && " "}
                         <span style={{fontWeight:700,color:r.fonte==="ORSE"?C.purple:C.blue}}>{r.fonte||"SINAPI"}</span>
                         {" "}{r.codigo}  {r.unidade}
-                        {r.dataBase ? ` · ${r.dataBase}` : ""}{r.uf ? ` · ${r.uf}` : ""}
+                        {r.dataBase?` · ${r.dataBase}`:""}{r.uf?` · ${r.uf}`:""}
                       </p>
                     </div>
                     <p style={{fontSize:13,fontWeight:800,color:C.yellow,flexShrink:0}}>{fmt(precoDoItem(r, orc))}</p>
                   </div>
                 </button>
               ))}
-              {busca.trim().length === 1 && basesVinculadas.length > 0 && (
-                <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:16}}>Digite ao menos 2 caracteres para pesquisar nas bases vinculadas.</p>
-              )}
-              {busca.trim().length >= 2 && resultados.length===0 && !buscaRemotaLoading && (
+              {busca.trim().length>=2 && resultados.length===0 && !buscaRemotaLoading && (
                 <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:16}}>Nenhum resultado para "{busca}".</p>
               )}
             </div>
@@ -13105,11 +13107,9 @@ ${blocoBDI}
                   <p style={{fontSize:11,color:C.muted,marginTop:4}}>
                     <span style={{fontWeight:700,color:qtdModal.fonte==="ORSE"?C.purple:C.blue}}>{qtdModal.fonte||"SINAPI"}</span>
                     {" "}{qtdModal.codigo}  {fmt(pu)}/{qtdModal.unidade} <span style={{color:C.muted}}>(sem BDI)</span>
-                    {qtdModal.dataBase ? ` · ${qtdModal.dataBase}` : ""}{qtdModal.uf ? ` · ${qtdModal.uf}` : ""}
+                    {qtdModal.dataBase?` · ${qtdModal.dataBase}`:""}{qtdModal.uf?` · ${qtdModal.uf}`:""}
                   </p>
-                  {qtdModal.detailUrl && (
-                    <a href={qtdModal.detailUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:10,color:C.blue,marginTop:5,fontWeight:700}}>Ver composição oficial</a>
-                  )}
+                  {qtdModal.detailUrl && <a href={qtdModal.detailUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:10,color:C.blue,marginTop:5,fontWeight:700}}>Ver composição oficial</a>}
                   {substituido && (
                     <p style={{fontSize:10,color:C.orange,marginTop:4,fontWeight:600}}>
                       ! Preço {orc.desonerado!==false ? "não desonerado" : "desonerado"} - a coluna escolhida no orçamento está vazia nesta base.
