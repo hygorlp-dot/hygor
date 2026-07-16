@@ -130,6 +130,11 @@ const chamarReferencias = async (action, payload = {}) => {
     body: JSON.stringify({ action, userId: sessao.userId, pin: sessao.pin, ...payload }),
   });
   const json = await r.json().catch(() => ({}));
+  if (!r.ok && !json.error) {
+    json.error = r.status === 404
+      ? "A rota /api/references não foi publicada no servidor."
+      : `Falha na base de referência (HTTP ${r.status}).`;
+  }
   return { ok: r.ok, status: r.status, ...json };
 };
 
@@ -138,6 +143,7 @@ export const iniciarBaseReferencia = async meta => chamarReferencias("begin", { 
 export const enviarLoteReferencia = async (baseId, items) => chamarReferencias("chunk", { baseId, items });
 export const finalizarBaseReferencia = async baseId => chamarReferencias("finish", { baseId });
 export const pesquisarBasesReferencia = async (referenceIds, query) => chamarReferencias("search", { referenceIds, query });
+export const resolverCodigosReferencia = async (referenceIds, entries) => chamarReferencias("resolve", { referenceIds, entries });
 export const removerBaseReferencia = async baseId => chamarReferencias("delete", { baseId });
 
 // ── Sobe foto do diário de obra ───────────────────────────────────
