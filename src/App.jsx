@@ -5146,24 +5146,27 @@ function Ponto({ data, update, showToast }) {
 // Folha
 // 
 
-function Folha({ data, showToast }) {
+function Folha({ data, showToast, onTab }) {
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
-  const [q, setQ] = useState(now.getDate() <= 15 ? "1" : "2");
+  const referenciaInicial = getPayrollReferenceForDate(now);
+  const [year, setYear] = useState(referenciaInicial.year);
+  const [month, setMonth] = useState(referenciaInicial.month);
+  const [q, setQ] = useState(referenciaInicial.q);
   const [filterObra, setFilterObra] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
+  const [validacaoRelatorio, setValidacaoRelatorio] = useState(null);
 
-  const { q1, q2 } = getQ(year, month);
+  const { q1, q2 } = getPayrollCycles(year, month);
   const days = q === "1" ? q1 : q2;
-  const paymentHolidays = getPayrollHolidays(data, year);
+  const anosDoPeriodo = [...new Set(days.map(d => Number(d.slice(0, 4))))];
+  const paymentHolidays = prUniqueDates(anosDoPeriodo.flatMap(ano => getPayrollHolidays(data, ano)));
   const holidaysInPeriod = days.filter(d => paymentHolidays.includes(d) && prIsWeekdayIso(d));
   const paymentInfo = getPayrollPaymentCalendar(year, month, q, data);
   const paymentDateLabel = fmtDateFull(paymentInfo.paymentDate);
   const paymentBaseLabel = fmtDateFull(paymentInfo.baseDate);
   const paymentObs = paymentInfo.adjusted ? `Ajustado de ${paymentBaseLabel} para ${paymentDateLabel}` : "Data normal de pagamento";
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
-  const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
+  const periodLabel = `${q === "1" ? "Folha com pagamento dia 20" : "Folha com pagamento dia 05"} · ${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length - 1])}`;
 
   //  Reconstrói a obra do operário em uma data específica via changeLog 
   const getEmpObraIdOnDate = (employee, dateIso) => {
@@ -5296,7 +5299,7 @@ function Folha({ data, showToast }) {
     .filter(belongsToSelectedObra)
     .filter(e => e.active !== false || hasAttendanceInPeriod(e))
     .map(calcRow)
-    .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
+    .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.semRegistro > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const T = {
@@ -5308,6 +5311,31 @@ function Folha({ data, showToast }) {
     holidayPay: rows.reduce((s, r) => s + r.holidayPay, 0),
     feriadosPagos: rows.reduce((s, r) => s + r.feriadosPagos, 0),
     feriadosPerdidos: rows.reduce((s, r) => s + r.feriadosPerdidos, 0),
+  };
+
+  const pixPendentes = rows.filter(r => !String(r.pixKey || "").trim());
+  const registroPendentes = rows.filter(r => Number(r.semRegistro || 0) > 0);
+  const executarComValidacao = (saida, executar) => {
+    if (!pixPendentes.length && !registroPendentes.length) {
+      executar();
+      return;
+    }
+    setValidacaoRelatorio({ saida, executar });
+  };
+  const continuarMesmoAssim = () => {
+    const executar = validacaoRelatorio?.executar;
+    setValidacaoRelatorio(null);
+    if (executar) window.setTimeout(executar, 0);
+  };
+  const irPreencher = (destino) => {
+    setValidacaoRelatorio(null);
+    if (destino === "pix") {
+      showToast?.("Abra o cadastro de cada funcionário indicado e informe a chave PIX.", "info");
+      onTab?.("cad");
+    } else {
+      showToast?.("Complete os dias sem registro antes de gerar a folha.", "info");
+      onTab?.("ponto");
+    }
   };
 
   const printPDF = () => {
@@ -5513,11 +5541,14 @@ function Folha({ data, showToast }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel value={String(year)} onChange={v => setYear(Number(v))} options={years} />
-        <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+        <Sel label="Ano de referência" value={String(year)} onChange={v => setYear(Number(v))} options={years} />
+        <Sel label="Mês de início do ciclo" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena" }, { v: "2", l: "2ª quinzena" }]} />
+        <Sel label="Ciclo da folha" value={q} onChange={setQ} options={[
+          { v: "1", l: "06 a 20 · pagamento dia 20" },
+          { v: "2", l: "21 a 05 · pagamento dia 05" },
+        ]} />
         <Sel value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
       </div>
 
@@ -5537,10 +5568,10 @@ function Folha({ data, showToast }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Btn v="ghost" onClick={printPDF}><Ic n="file" /> PDF / Imprimir</Btn>
-        <Btn v="success" onClick={exportXLS}><Ic n="download" /> Excel .xlsx</Btn>
-        <Btn v="info" onClick={() => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`)}><Ic n="mail" /> E-mail</Btn>
-        <Btn v="success" onClick={() => navigator.clipboard.writeText(buildText()).then(() => showToast("Copiado.")).catch(() => showToast("Erro ao copiar.", "error"))}><Ic n="copy" /> WhatsApp</Btn>
+        <Btn v="ghost" onClick={() => executarComValidacao("PDF / impressão", printPDF)}><Ic n="file" /> PDF / Imprimir</Btn>
+        <Btn v="success" onClick={() => executarComValidacao("Excel", exportXLS)}><Ic n="download" /> Excel .xlsx</Btn>
+        <Btn v="info" onClick={() => executarComValidacao("E-mail", () => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`))}><Ic n="mail" /> E-mail</Btn>
+        <Btn v="success" onClick={() => executarComValidacao("WhatsApp", () => navigator.clipboard.writeText(buildText()).then(() => showToast("Copiado.")).catch(() => showToast("Erro ao copiar.", "error")))}><Ic n="copy" /> WhatsApp</Btn>
       </div>
 
       {rows.length === 0 && <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 20, textAlign: "center", color: C.muted }}>Nenhum funcionário com movimentação nesta quinzena.</div>}
@@ -5602,6 +5633,48 @@ function Folha({ data, showToast }) {
           )}
         </div>
       ))}
+
+      {validacaoRelatorio && (
+        <Modal title="Pendências antes de gerar a folha" onClose={() => setValidacaoRelatorio(null)} wide>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderLeft:`4px solid ${C.orange}`,borderRadius:8,padding:"10px 12px"}}>
+              <p style={{fontSize:12,fontWeight:800,color:C.orange}}>Revise antes de continuar com {validacaoRelatorio.saida}</p>
+              <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5,marginTop:3}}>
+                Você pode preencher as informações agora ou gerar o relatório mesmo com as pendências abaixo.
+              </p>
+            </div>
+
+            {pixPendentes.length > 0 && (
+              <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 11px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:6}}>
+                  <p style={{fontSize:11.5,fontWeight:900,color:C.red}}>PIX não informado</p>
+                  <span style={{fontSize:10,fontWeight:900,color:C.red}}>{pixPendentes.length} pessoa(s)</span>
+                </div>
+                <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>{pixPendentes.map(r=>r.name).join(", ")}</p>
+                <div style={{marginTop:8}}><Btn v="ghost" size="sm" full onClick={()=>irPreencher("pix")}>Preencher PIX agora</Btn></div>
+              </div>
+            )}
+
+            {registroPendentes.length > 0 && (
+              <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 11px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:6}}>
+                  <p style={{fontSize:11.5,fontWeight:900,color:C.orange}}>Dias sem registro no ciclo</p>
+                  <span style={{fontSize:10,fontWeight:900,color:C.orange}}>{registroPendentes.reduce((s,r)=>s+r.semRegistro,0)} dia(s)</span>
+                </div>
+                <div style={{maxHeight:150,overflowY:"auto",display:"flex",flexDirection:"column",gap:3}}>
+                  {registroPendentes.map(r=><p key={r.id} style={{fontSize:10.5,color:C.muted}}><strong style={{color:C.text}}>{r.name}</strong>: {r.semRegistro} dia(s) sem registro</p>)}
+                </div>
+                <div style={{marginTop:8}}><Btn v="ghost" size="sm" full onClick={()=>irPreencher("ponto")}>Completar ponto agora</Btn></div>
+              </div>
+            )}
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <Btn v="ghost" onClick={()=>setValidacaoRelatorio(null)}>Cancelar</Btn>
+              <Btn v="danger" onClick={continuarMesmoAssim}>Continuar sem preencher</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -9287,6 +9360,95 @@ const calcOrcamento = (orc) => {
   return { custoDireto, valorBDI, total, porM2, arvore, qtdItens: reais.length };
 };
 
+// Checklist de escopo para auditoria de residências de alto padrão. A ausência
+// de termos não prova que o serviço falta: indica apenas que ele não foi
+// identificado nas descrições/etapas e precisa ser conferido pelo orçamentista.
+const CHECKLIST_ALTO_PADRAO = [
+  { grupo:"Projetos e legalização", nome:"Projetos arquitetônico, estrutural e complementares", nivel:"essencial", termos:["projeto arquitetonico","projeto estrutural","projeto eletrico","projeto hidrossanitario","projetos complementares"] },
+  { grupo:"Projetos e legalização", nome:"Sondagem, topografia e locação da obra", nivel:"essencial", termos:["sondagem","topografia","levantamento planialtimetrico","locacao da obra","gabarito da obra"] },
+  { grupo:"Projetos e legalização", nome:"Licenças, alvará, ART/RRT e habite-se", nivel:"essencial", termos:["alvara","art ","rrt","habite-se","licenciamento","taxa de aprovacao"] },
+  { grupo:"Estrutura e envelope", nome:"Terraplenagem, contenções e drenagem do terreno", nivel:"essencial", termos:["terraplenagem","movimento de terra","muro de arrimo","contencao","drenagem do terreno","dreno"] },
+  { grupo:"Estrutura e envelope", nome:"Fundações e estrutura completas", nivel:"essencial", termos:["fundacao","sapata","estaca","radier","estrutura de concreto","pilar","viga"] },
+  { grupo:"Estrutura e envelope", nome:"Impermeabilização de áreas críticas", nivel:"essencial", termos:["impermeabilizacao","manta asfaltica","membrana acrilica","argamassa polimerica"] },
+  { grupo:"Estrutura e envelope", nome:"Cobertura, rufos, calhas e águas pluviais", nivel:"essencial", termos:["cobertura","telhado","telha","rufo","calha","condutor pluvial"] },
+  { grupo:"Estrutura e envelope", nome:"Esquadrias e vidros de alto desempenho", nivel:"provavel", termos:["esquadria","porta de aluminio","janela de aluminio","pele de vidro","vidro laminado","vidro temperado"] },
+  { grupo:"Estrutura e envelope", nome:"Isolamento térmico e acústico", nivel:"provavel", termos:["isolamento termico","isolamento acustico","la de rocha","la de vidro","manta acustica"] },
+  { grupo:"Instalações", nome:"Entrada elétrica, quadros, circuitos, DPS e aterramento", nivel:"essencial", termos:["entrada de energia","quadro de distribuicao","quadro eletrico","dps","aterramento","haste de aterramento"] },
+  { grupo:"Instalações", nome:"SPDA e proteção contra surtos", nivel:"provavel", termos:["spda","para-raios","protecao contra descargas","captor franklin"] },
+  { grupo:"Instalações", nome:"Água fria, água quente, pressurização e recirculação", nivel:"essencial", termos:["agua fria","agua quente","aquecedor","pressurizador","recirculacao de agua quente","boiler"] },
+  { grupo:"Instalações", nome:"Esgoto sanitário, ventilação e águas pluviais", nivel:"essencial", termos:["esgoto sanitario","tubo de esgoto","ventilacao sanitaria","caixa de inspecao","agua pluvial"] },
+  { grupo:"Instalações", nome:"Sistema de gás e abrigo de cilindros/medidores", nivel:"provavel", termos:["instalacao de gas","tubulacao de gas","abrigo de gas","central de gas"] },
+  { grupo:"Conforto e tecnologia", nome:"Climatização, drenos e infraestrutura frigorígena", nivel:"provavel", termos:["ar condicionado","climatizacao","linha frigorifica","tubulacao frigorifica","dreno de ar"] },
+  { grupo:"Conforto e tecnologia", nome:"Automação residencial e iluminação inteligente", nivel:"provavel", termos:["automacao residencial","casa inteligente","iluminacao inteligente","dimmer","protocolo knx"] },
+  { grupo:"Conforto e tecnologia", nome:"Rede estruturada, Wi-Fi, CFTV e controle de acesso", nivel:"provavel", termos:["rede estruturada","cabeamento de dados","wifi","wi-fi","cftv","camera de seguranca","controle de acesso","videoporteiro"] },
+  { grupo:"Conforto e tecnologia", nome:"Energia solar, carregador veicular e contingência", nivel:"opcional", termos:["energia solar","fotovoltaico","carregador veicular","wallbox","gerador","nobreak"] },
+  { grupo:"Conforto e tecnologia", nome:"Elevador residencial ou plataforma", nivel:"opcional", termos:["elevador residencial","plataforma elevatoria","elevador"] },
+  { grupo:"Acabamentos", nome:"Forros, sancas, cortineiros e iluminação decorativa", nivel:"provavel", termos:["forro de gesso","forro drywall","sanca","cortineiro","iluminacao decorativa","perfil de led"] },
+  { grupo:"Acabamentos", nome:"Revestimentos, pedras e bancadas especiais", nivel:"provavel", termos:["porcelanato","revestimento","granito","marmore","quartzo","bancada"] },
+  { grupo:"Acabamentos", nome:"Louças, metais e acessórios sanitários", nivel:"essencial", termos:["louca sanitaria","bacia sanitaria","cuba","torneira","misturador","chuveiro"] },
+  { grupo:"Acabamentos", nome:"Marcenaria fixa e mobiliário planejado", nivel:"provavel", termos:["marcenaria","armario planejado","movel planejado","cozinha planejada"] },
+  { grupo:"Áreas externas", nome:"Piscina, casa de máquinas, aquecimento e tratamento", nivel:"opcional", termos:["piscina","casa de maquinas","filtro de piscina","bomba de piscina","aquecimento de piscina"] },
+  { grupo:"Áreas externas", nome:"Paisagismo, irrigação e iluminação externa", nivel:"provavel", termos:["paisagismo","jardinagem","irrigacao","iluminacao externa","balizador"] },
+  { grupo:"Áreas externas", nome:"Muros, portões, pavimentação e drenagem externa", nivel:"essencial", termos:["muro","portao","pavimentacao externa","piso intertravado","drenagem externa"] },
+  { grupo:"Entrega e qualidade", nome:"Ensaios, testes e comissionamento das instalações", nivel:"essencial", termos:["comissionamento","teste de estanqueidade","teste hidrostatico","ensaio eletrico","teste das instalacoes"] },
+  { grupo:"Entrega e qualidade", nome:"Limpeza fina, as built, manuais e entrega técnica", nivel:"essencial", termos:["limpeza final","limpeza fina","as built","manual do proprietario","entrega tecnica"] },
+];
+
+const auditarOrcamentoAltoPadrao = (orc) => {
+  if (!orc) return { presentes: [], faltantes: [] };
+  const texto = agentNormalize([
+    orc.nome, orc.descricao, orc.local,
+    ...(orc.etapas || []).map(e => e.nome),
+    ...(orc.itens || []).filter(it => it.tipo !== "titulo").map(it => `${it.descricao} ${it.codigo || ""}`),
+  ].join(" | "));
+  const resultados = CHECKLIST_ALTO_PADRAO.map(c => ({
+    ...c,
+    identificado: c.termos.some(t => texto.includes(agentNormalize(t))),
+  }));
+  return {
+    presentes: resultados.filter(x => x.identificado),
+    faltantes: resultados.filter(x => !x.identificado),
+  };
+};
+
+// Ciclos financeiros inclusivos da folha:
+// - referência Q1: trabalha de 06 a 20 e paga dia 20;
+// - referência Q2: trabalha de 21 a 05 do mês seguinte e paga dia 05.
+const getPayrollCycles = (year, monthIndex) => {
+  const intervalo = (inicio, fimExclusivo) => {
+    const out = [];
+    const d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate(), 12, 0, 0);
+    while (d < fimExclusivo) {
+      out.push(toLocalISODate(d));
+      d.setDate(d.getDate() + 1);
+    }
+    return out;
+  };
+  return {
+    q1: intervalo(new Date(year, monthIndex, 6, 12), new Date(year, monthIndex, 21, 12)),
+    q2: intervalo(new Date(year, monthIndex, 21, 12), new Date(year, monthIndex + 1, 6, 12)),
+  };
+};
+
+// Período que normalmente será fechado em cada data. Nos próprios dias 05 e
+// 20, abre a folha que está sendo paga; nos demais, abre o ciclo em andamento.
+const getPayrollReferenceForDate = (date = new Date()) => {
+  const day = date.getDate();
+  let year = date.getFullYear();
+  let month = date.getMonth();
+  let q;
+  if (day <= 5) {
+    q = "2";
+    month -= 1;
+    if (month < 0) { month = 11; year -= 1; }
+  } else if (day <= 20) {
+    q = "1";
+  } else {
+    q = "2";
+  }
+  return { year, month, q };
+};
+
 function Orcamento({ data, update, showToast }) {
   const { cols, formGrid } = useBreakpoint();
   const [view,      setView]      = useState("lista");   // "lista" | "editor"
@@ -9312,6 +9474,9 @@ function Orcamento({ data, update, showToast }) {
   const [bdiAba,    setBdiAba]    = useState("faixa");   // "faixa" | "detalhado"
   const [bdiTipo,   setBdiTipo]   = useState("edificios");
   const [bdiP,      setBdiP]      = useState(null);      // parâmetros em edição
+  const [iaOrcAberta, setIaOrcAberta] = useState(false);
+  const [iaOrcTexto, setIaOrcTexto] = useState(null);
+  const [iaOrcLoad, setIaOrcLoad] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setBuscaDebounced(busca), 140);
@@ -9328,6 +9493,68 @@ function Orcamento({ data, update, showToast }) {
   const orcamentos = data.orcamentos || [];
   const orc = orcamentos.find(o => o.id === selOrc);
   const calc = useMemo(() => orc ? calcOrcamento(orc) : null, [orc]);
+  const auditoriaAltoPadrao = useMemo(() => auditarOrcamentoAltoPadrao(orc), [orc]);
+
+  useEffect(() => {
+    setIaOrcTexto(null);
+    setIaOrcAberta(false);
+  }, [selOrc]);
+
+  const analisarOrcamentoIA = async () => {
+    if (!orc || !calc) return;
+    setIaOrcLoad(true);
+    setIaOrcTexto(null);
+    const itensReais = (orc.itens || []).filter(it => it.tipo !== "titulo");
+    const itensPrompt = itensReais.slice(0, 500).map((it, i) =>
+      `${i + 1}. [${it.fonte || "SEM FONTE"} ${it.codigo || "SEM CÓDIGO"}] ${it.descricao || "SEM DESCRIÇÃO"} | `
+      + `${it.unidade || "UN"} | qtd ${Number(it.quantidade || 0)} | custo unit. ${Number(it.precoUnit || 0).toFixed(2)}`
+    ).join("\n");
+    const etapasPrompt = (orc.etapas || []).map((e, i) => `${i + 1}. ${e.nome}`).join("\n") || "Sem etapas cadastradas";
+    const faltantesPrompt = auditoriaAltoPadrao.faltantes.map(x =>
+      `- [${x.nivel.toUpperCase()}] ${x.grupo}: ${x.nome}`).join("\n") || "Nenhuma lacuna no checklist local";
+    const prompt = `Você é um engenheiro civil sênior e orçamentista especializado em residências unifamiliares de alto padrão no Brasil.\n\n`
+      + `Faça uma AUDITORIA COMPLETA deste orçamento, com foco especial em SERVIÇOS, SISTEMAS, PROJETOS, TESTES E ACABAMENTOS QUE POSSAM ESTAR FALTANDO.\n\n`
+      + `DADOS DO ORÇAMENTO:\nNome: ${orc.nome || "-"}\nDescrição: ${orc.descricao || "-"}\nLocal: ${orc.local || "-"}\n`
+      + `Área construída: ${Number(orc.areaM2 || 0)} m²\nFonte/data-base: ${orc.fonte || "-"} ${orc.dataBase || "-"} ${orc.uf || "-"}\n`
+      + `Custo direto: ${calc.custoDireto.toFixed(2)}\nBDI: ${Number(orc.bdi || 0).toFixed(2)}%\nTotal: ${calc.total.toFixed(2)}\n\n`
+      + `ETAPAS CADASTRADAS:\n${etapasPrompt}\n\nITENS DO ORÇAMENTO (${itensReais.length} no total${itensReais.length > 500 ? "; primeiros 500 enviados" : ""}):\n${itensPrompt}\n\n`
+      + `CHECKLIST LOCAL NÃO IDENTIFICOU ESTES ESCOPOS (trate como indício, não como certeza):\n${faltantesPrompt}\n\n`
+      + `CRITÉRIOS OBRIGATÓRIOS DA ANÁLISE:\n`
+      + `1. Verifique omissões em: projetos/licenças; canteiro; terraplenagem; fundações/estrutura; impermeabilização; cobertura; fachadas/esquadrias; instalações elétricas, hidráulicas, gás, SPDA e incêndio; climatização; automação; dados/CFTV; energia solar e carregador veicular; acabamentos premium; marcenaria; piscina/spa/sauna; paisagismo/irrigação; áreas externas; testes, comissionamento, as built, limpeza e entrega.\n`
+      + `2. Para cada possível omissão, classifique como ESSENCIAL, PROVÁVEL ou OPCIONAL e informe em qual etapa deve ser conferida.\n`
+      + `3. Use a expressão "não identificado no orçamento"; não afirme que está ausente quando uma composição existente puder conter o serviço.\n`
+      + `4. Não invente preços, códigos, quantitativos ou características do projeto. Quando depender do projeto, formule uma pergunta objetiva ao operador.\n`
+      + `5. Aponte também duplicidades, unidades suspeitas, quantidades zeradas, itens sem código/fonte, custos unitários zerados e escopos incompatíveis com uma casa de alto padrão.\n`
+      + `6. Considere acessibilidade, desempenho térmico/acústico, manutenção, segurança, NBR aplicáveis e interfaces entre disciplinas.\n\n`
+      + `FORMATO DA RESPOSTA:\nA) Resumo executivo\nB) Itens essenciais não identificados\nC) Itens prováveis não identificados\nD) Itens opcionais a confirmar com o cliente\nE) Inconsistências do orçamento\nF) Perguntas ao operador\nG) Próximas ações priorizadas.\n`
+      + `Se um grupo estiver adequadamente coberto, diga isso brevemente. Seja técnico, objetivo e acionável.`;
+    try {
+      const r = await fetch("/api/ai-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      if (!r.ok) throw new Error(`IA respondeu ${r.status}`);
+      const j = await r.json();
+      setIaOrcTexto(j.reply || j.text || j.message || "A IA não retornou uma análise.");
+    } catch (e) {
+      const essenciais = auditoriaAltoPadrao.faltantes.filter(x => x.nivel === "essencial");
+      const provaveis = auditoriaAltoPadrao.faltantes.filter(x => x.nivel === "provavel");
+      setIaOrcTexto([
+        "A IA está indisponível no momento. A auditoria local ainda encontrou itens que precisam ser conferidos:",
+        "",
+        `ESSENCIAIS NÃO IDENTIFICADOS (${essenciais.length}):`,
+        ...essenciais.map(x => `- ${x.nome} (${x.grupo})`),
+        "",
+        `PROVÁVEIS NÃO IDENTIFICADOS (${provaveis.length}):`,
+        ...provaveis.map(x => `- ${x.nome} (${x.grupo})`),
+        "",
+        "Observação: 'não identificado' não significa necessariamente ausente; confirme composições e projetos.",
+      ].join("\n"));
+    } finally {
+      setIaOrcLoad(false);
+    }
+  };
 
   //  Importar planilha SINAPI / ORSE 
   //  Importar planilha de referência (SINAPI / ORSE) 
@@ -10175,6 +10402,77 @@ ${blocoBDI}
             </button>
           );
         })()}
+      </div>
+
+      {/* Auditoria de IA: escopo de residência de alto padrão. */}
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+        <button onClick={()=>setIaOrcAberta(v=>!v)} style={{
+          width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,
+          padding:"12px 14px",background:"transparent",border:0,cursor:"pointer",textAlign:"left",
+        }}>
+          <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}>
+            <Ic n="brain" s={17} color={C.purple}/>
+            <div style={{minWidth:0}}>
+              <p style={{fontSize:13,fontWeight:800,color:C.text}}>Auditoria IA · residência de alto padrão</p>
+              <p style={{fontSize:10.5,color:C.muted,marginTop:1}}>
+                Procura serviços, sistemas, projetos, testes e acabamentos não identificados
+              </p>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+            <span style={{fontSize:10,fontWeight:800,color:auditoriaAltoPadrao.faltantes.length?C.orange:C.green,
+                          background:auditoriaAltoPadrao.faltantes.length?`${C.orange}14`:`${C.green}14`,
+                          padding:"2px 8px",borderRadius:20}}>
+              {auditoriaAltoPadrao.faltantes.length} a conferir
+            </span>
+            <Ic n={iaOrcAberta ? "chevron" : "chevR"} s={16} color={C.muted}/>
+          </div>
+        </button>
+
+        {iaOrcAberta && (
+          <div style={{padding:"12px 14px 14px",borderTop:`1px solid ${C.line}`}}>
+            <div style={{display:"grid",gridTemplateColumns:cols(3,3,3),gap:7,marginBottom:10}}>
+              {[ ["Essenciais", "essencial", C.red], ["Prováveis", "provavel", C.orange], ["Opcionais", "opcional", C.blue] ].map(([label,nivel,cor]) => (
+                <div key={nivel} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${cor}`,borderRadius:7,padding:"7px 9px"}}>
+                  <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>{label}</p>
+                  <p style={{fontSize:16,fontWeight:900,color:cor,marginTop:2}}>{auditoriaAltoPadrao.faltantes.filter(x=>x.nivel===nivel).length}</p>
+                </div>
+              ))}
+            </div>
+            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5,marginBottom:8}}>
+              A checagem local encontrou os escopos abaixo sem correspondência clara nas descrições. Isso é um alerta para conferência, não uma afirmação de ausência.
+            </p>
+            <div style={{maxHeight:260,overflowY:"auto",display:"flex",flexDirection:"column",gap:5,marginBottom:10}}>
+              {auditoriaAltoPadrao.faltantes.map(item => {
+                const cor = item.nivel === "essencial" ? C.red : item.nivel === "provavel" ? C.orange : C.blue;
+                return (
+                  <div key={`${item.grupo}-${item.nome}`} style={{display:"flex",alignItems:"flex-start",gap:8,
+                       background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${cor}`,borderRadius:6,padding:"7px 9px"}}>
+                    <div style={{minWidth:0,flex:1}}>
+                      <p style={{fontSize:11,fontWeight:700,color:C.text,lineHeight:1.3}}>{item.nome}</p>
+                      <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{item.grupo}</p>
+                    </div>
+                    <span style={{fontSize:8.5,fontWeight:900,color:cor,textTransform:"uppercase",flexShrink:0}}>{item.nivel}</span>
+                  </div>
+                );
+              })}
+              {auditoriaAltoPadrao.faltantes.length === 0 && (
+                <p style={{fontSize:11,color:C.green,fontWeight:700}}>Todos os grupos do checklist local possuem alguma correspondência.</p>
+              )}
+            </div>
+            <Btn v="ghost" size="sm" full onClick={analisarOrcamentoIA} disabled={iaOrcLoad}>
+              {iaOrcLoad ? "Analisando orçamento completo..." : (<><Ic n="brain" s={14}/> Analisar itens faltantes com IA</>)}
+            </Btn>
+            {iaOrcTexto && (
+              <div style={{marginTop:9,background:`${C.purple}08`,border:`1px solid ${C.purple}33`,borderRadius:8,padding:"10px 12px"}}>
+                <p style={{fontSize:11,color:C.subtle,lineHeight:1.58,whiteSpace:"pre-wrap"}}>{iaOrcTexto}</p>
+              </div>
+            )}
+            <p style={{fontSize:9.5,color:C.muted,marginTop:9,lineHeight:1.45}}>
+              A decisão final depende dos projetos, do padrão contratado e das escolhas do cliente. A IA não altera o orçamento automaticamente.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Importar base */}
@@ -18058,7 +18356,7 @@ export default function App() {
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
-          {tab === "folha"  && <Folha       data={data} showToast={showToast} />}
+          {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} />}
