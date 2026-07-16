@@ -4,6 +4,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Line,
   LineChart,
   Pie,
@@ -354,7 +355,6 @@ div::-webkit-scrollbar{height:0;width:0}
 `;
 
 
-
 // 
 // Helpers gerais
 // 
@@ -422,6 +422,27 @@ const getQ = (year, monthIndex) => {
   };
 };
 
+// Prazo da obra: dado contractStart/contractEnd, devolve % de tempo decorrido,
+// dias restantes e um rotulo/cor. null se nao ha datas de contrato.
+const prazoObra = (obra) => {
+  const ini = obra?.contractStart, fim = obra?.contractEnd;
+  if (!ini || !fim) return null;
+  const hoje = today();
+  const totalDias = diasCorridos(ini, fim);
+  if (totalDias <= 0) return null;
+  const decorridos = Math.max(0, Math.min(totalDias, diasCorridos(ini, hoje)));
+  const pct = (decorridos / totalDias) * 100;
+  // Diferenca ASSINADA em dias (negativa se o prazo ja passou). diasCorridos
+  // trava em zero, entao calculamos direto aqui.
+  const restam = Math.round((new Date(fim + "T00:00:00") - new Date(hoje + "T00:00:00")) / 86400000);
+  let rotulo, cor;
+  if (restam < 0)      { rotulo = `atrasada ${Math.abs(restam)}d`; cor = C.red; }
+  else if (restam === 0) { rotulo = "vence hoje"; cor = C.orange; }
+  else if (restam <= 15) { rotulo = `faltam ${restam}d`; cor = C.orange; }
+  else                 { rotulo = `faltam ${restam}d`; cor = C.blue; }
+  return { pct: Math.min(pct, 100), restam, totalDias, decorridos, rotulo, cor };
+};
+
 const fmtCPF = value => {
   const v = String(value || "").replace(/\D/g, "").slice(0, 11);
   return v
@@ -439,11 +460,13 @@ const fmtPhone = value => {
 const getAtt = (data, empId, date) => {
   const value = data?.attendance?.[empId]?.[date];
   if (!value) return null;
-  if (typeof value === "string") return { status: value, ot: 0, note: "", obraId: "" };
+  if (typeof value === "string") return { status: value, ot: 0, note: "" };
   return {
     status: value.status || null,
     ot: Number(value.ot || 0),
     note: value.note || "",
+    // A obra pertence ao lancamento diario do ponto. Sem devolver este campo,
+    // a folha acabava usando apenas a lotacao atual do funcionario.
     obraId: value.obraId || "",
   };
 };
@@ -545,6 +568,26 @@ const getPayrollHolidays = (data, year) => {
     .filter(Boolean);
 
   return prUniqueDates([...official, ...customDates]);
+};
+
+// A mesma fonte de feriados usada pela folha fica disponivel para o
+// planejamento. Mantemos o nome quando ele foi cadastrado pelo operador e
+// identificamos os demais como oficiais.
+const getPlanningHolidays = (data, years = []) => {
+  const anos = [...new Set(years.map(Number).filter(Boolean))];
+  const porData = new Map();
+  anos.forEach(year => {
+    getOfficialHolidaysCaruaruPE(year).forEach(dataFer => {
+      if (!porData.has(dataFer)) porData.set(dataFer, { data: dataFer, nome: "Feriado oficial" });
+    });
+  });
+  (data?.config?.paymentHolidays || []).forEach(h => {
+    const dataFer = typeof h === "string" ? h : (h?.date || h?.data || "");
+    if (!dataFer || !anos.includes(Number(dataFer.slice(0, 4)))) return;
+    const nome = typeof h === "string" ? "Feriado cadastrado" : (h?.name || h?.nome || "Feriado cadastrado");
+    porData.set(dataFer, { data: dataFer, nome });
+  });
+  return [...porData.values()].sort((a, b) => a.data.localeCompare(b.data));
 };
 
 const prIsHoliday = (date, holidays) => holidays.includes(prIso(date));
@@ -792,10 +835,27 @@ const CONTRACT_LABELS = {
 };
 
 // Frequência de cobrança
+// Os dias de vencimento NAO sao mais fixos no codigo: cada obra guarda
+// diaVenc1 / diaVenc2 (padrao 15 e 30) e o operador ajusta ao lancar a obra.
 const FREQ_OPTS = [
-  { v:"mensal",    l:"Mensal - dia 1 de cada mês"     },
-  { v:"quinzenal", l:"Quinzenal - dias 1 e 15 do mês" },
+  { v:"mensal",    l:"Mensal - 1 parcela por mês"       },
+  { v:"quinzenal", l:"Quinzenal - 2 parcelas por mês"   },
 ];
+
+// Dias de vencimento padrao do contrato ARCD: 15 e 30.
+const DIA_VENC_1_PADRAO = 15;
+const DIA_VENC_2_PADRAO = 30;
+
+// Opcoes de dia para os selects (1..31). "30" em fevereiro vira 28/29 -
+// ver clampDiaNoMes abaixo.
+const DIA_OPTS = Array.from({length:31}, (_,i) => ({ v:String(i+1), l:`Dia ${i+1}` }));
+
+// Prende o dia ao ultimo dia real do mes: pedir dia 30 em fevereiro devolve
+// 28 (ou 29 em ano bissexto), em vez de escorregar para 1/3 ou 2/3.
+const clampDiaNoMes = (ano, mesIdx, dia) => {
+  const ultimo = new Date(ano, mesIdx + 1, 0).getDate();
+  return Math.min(Math.max(Number(dia) || 1, 1), ultimo);
+};
 
 const DEFAULT = () => ({
   userName: "",
@@ -817,8 +877,8 @@ const DEFAULT = () => ({
   unidades: UNIDADES_PADRAO.map(u => ({ id: uid(), sigla: u.sigla, nome: u.nome })),
   fases: FASES_PADRAO.map((f, i) => ({ id: uid(), nome: f.nome, cor: f.cor, ordem: i })),
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "", hasCaixa: false },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
   ],
   employees: [],
   attendance: {},
@@ -876,6 +936,10 @@ const normalizeData = incoming => {
       contractEnd:   o.contractEnd   || "",
       totalParcelas: Number(o.totalParcelas || 0),
       billingFrequency: o.billingFrequency || "mensal",
+      // Dias de vencimento das parcelas. Obras antigas nao tinham esses campos:
+      // caem no padrao contratual (15 e 30) em vez de ficarem indefinidas.
+      diaVenc1: Number(o.diaVenc1 || DIA_VENC_1_PADRAO),
+      diaVenc2: Number(o.diaVenc2 || DIA_VENC_2_PADRAO),
       entrada:    Number(o.entrada    || 0),
       entradaDate: o.entradaDate || "",
       hasCaixa:   !!o.hasCaixa,
@@ -1146,6 +1210,7 @@ const normalizeData = incoming => {
       id:          o.id          || uid(),
       obraId:      o.obraId      || "",
       nome:        o.nome        || "Orçamento sem nome",
+      descricao:   o.descricao   || "",
       cliente:     o.cliente     || "",
       local:       o.local       || "",
       areaM2:      Number(o.areaM2 || 0),
@@ -1189,6 +1254,8 @@ const normalizeData = incoming => {
         unidade:    it.unidade    || "un",
         quantidade: Number(it.quantidade || 0),
         precoUnit:  Number(it.precoUnit  || 0),
+        composicao: it.composicao || "",
+        codigoNaoEncontrado: !!it.codigoNaoEncontrado,
         baseData:   it.baseData   || o.dataBase || "",
         baseUf:     it.baseUf     || (it.fonte === "SINAPI" ? (o.uf || "PE") : ""),
         detailUrl:  it.detailUrl  || "",
@@ -1211,6 +1278,7 @@ const normalizeData = incoming => {
       // Default seg-sab (padrao de obra). feriados: datas ISO nao trabalhadas.
       diasSemana: Array.isArray(p.diasSemana) ? p.diasSemana : [1,2,3,4,5,6],
       pularFeriados: p.pularFeriados !== false,   // default: pula feriados
+      usarFeriadosCadastrados: p.usarFeriadosCadastrados === true,
       feriados: Array.isArray(p.feriados) ? p.feriados.map(f => ({
         data: f.data || "", nome: f.nome || "Feriado",
       })).filter(f => f.data) : [],
@@ -1226,9 +1294,6 @@ const normalizeData = incoming => {
         // Se 0, usamos o custo da etapa ponderado pelo progresso como estimativa.
         custoReal: Number(t.custoReal || 0),
         depende:   Array.isArray(t.depende) ? t.depende : [],  // ids de tarefas predecessoras
-        // Ajuste manual do caminho das ligações no Gantt, em dias para respeitar o zoom.
-        tracadoDependencias: t.tracadoDependencias && typeof t.tracadoDependencias === "object"
-          ? t.tracadoDependencias : {},
       })) : [],
       marcos: Array.isArray(p.marcos) ? p.marcos.map(m => ({
         id:     m.id     || uid(),
@@ -2732,6 +2797,12 @@ function MedicoesView({ data, update, showToast }) {
   const [editId,   setEditId]   = useState(null);
   const [gerarModal, setGerarModal] = useState(false);
   const [gerarOpts,  setGerarOpts]  = useState({ sobreescrever: false });
+  // Ao confirmar uma medicao vencida, perguntamos a DATA DE PAGAMENTO em vez
+  // de assumir hoje - o pagamento quinzenal costuma cair em data especifica.
+  const [pagarModal, setPagarModal] = useState(null);   // {m, data}
+  // Fila de conciliacao das parcelas vencidas geradas agora:
+  // {fila:[ids], idx, modo:"vencimento"|"outra"|"aberto", dataOutra}
+  const [conciliar,  setConciliar]  = useState(null);
 
   const emptyM = {
     competencia: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`,
@@ -2831,17 +2902,23 @@ function MedicoesView({ data, update, showToast }) {
 
   //  Geração automática de parcelas fixas 
   // Calcula a data de vencimento de uma parcela
-  const calcDataVencimento = (contractStart, parcelaIdx, freq) => {
+  // Os dias vem da obra (diaVenc1/diaVenc2), nao mais fixos em 1 e 15.
+  const calcDataVencimento = (contractStart, parcelaIdx, freq, dia1, dia2) => {
     const [y, m] = contractStart.split("-").map(Number);
+    const d1 = Number(dia1 || DIA_VENC_1_PADRAO);
+    const d2 = Number(dia2 || DIA_VENC_2_PADRAO);
     if (freq === "quinzenal") {
       const mesOffset = Math.floor(parcelaIdx / 2);
       const isSecond  = parcelaIdx % 2 === 1;
-      const d = new Date(y, m-1+mesOffset, isSecond ? 15 : 1);
-      return toLocalISODate(d);
+      const mesIdx    = m - 1 + mesOffset;
+      // Ano/mes reais depois do offset, para o clamp usar o mes certo.
+      const ref  = new Date(y, mesIdx, 1);
+      const dia  = clampDiaNoMes(ref.getFullYear(), ref.getMonth(), isSecond ? d2 : d1);
+      return toLocalISODate(new Date(ref.getFullYear(), ref.getMonth(), dia));
     } else {
-      // mensal - dia 1
-      const d = new Date(y, m-1+parcelaIdx, 1);
-      return toLocalISODate(d);
+      const ref = new Date(y, m - 1 + parcelaIdx, 1);
+      const dia = clampDiaNoMes(ref.getFullYear(), ref.getMonth(), d1);
+      return toLocalISODate(new Date(ref.getFullYear(), ref.getMonth(), dia));
     }
   };
 
@@ -2884,7 +2961,7 @@ function MedicoesView({ data, update, showToast }) {
 
     //  Parcelas regulares 
     for (let i=0; i<total; i++) {
-      const dataVenc = calcDataVencimento(obra.contractStart, i, freq);
+      const dataVenc = calcDataVencimento(obra.contractStart, i, freq, obra.diaVenc1, obra.diaVenc2);
       const comp     = calcCompetencia(obra.contractStart, i, freq);
       const numParcela = i+1;
       const isQuinzenaSegunda = freq==="quinzenal" && i%2===1;
@@ -2928,6 +3005,62 @@ function MedicoesView({ data, update, showToast }) {
     update({...data, medicoes: medicoesList});
     setGerarModal(false);
     showToast(`${novas.length} parcelas geradas!${tipo==="admin_only"||tipo==="fixed_labor_admin"?" Calcule o valor Admin % mês a mês conforme executado.":""}`);
+
+    // Parcelas que ja nasceram vencidas (contrato retroativo): em vez de
+    // deixa-las todas em aberto, perguntamos uma a uma se o pagamento saiu
+    // na data do contrato. Quem gera parcela de um contrato que comecou em
+    // marco normalmente ja recebeu as primeiras.
+    const hoje = today();
+    const vencidas = novas
+      .filter(n => n.dataVencimento && n.dataVencimento < hoje && Number(n.valorPrevisto||0) > 0)
+      .sort((a,b) => a.dataVencimento.localeCompare(b.dataVencimento));
+    if (vencidas.length) {
+      setConciliar({
+        fila: vencidas.map(v => v.id),
+        idx: 0,
+        // decisao pendente da parcela atual: "" (nao escolhido) | "vencimento" | "outra" | "aberto"
+        modo: "vencimento",
+        dataOutra: today(),
+      });
+    }
+  };
+
+  //  Conciliacao das parcelas vencidas recem-geradas 
+  // Aplica a decisao da parcela atual e avanca a fila. Se acabar, fecha.
+  const conciliarAplicar = (base) => {
+    if (!conciliar) return;
+    const id  = conciliar.fila[conciliar.idx];
+    const med = (data.medicoes||[]).find(x => x.id === id);
+    let lista = data.medicoes || [];
+
+    if (med && conciliar.modo !== "aberto") {
+      const dataPg = conciliar.modo === "vencimento"
+        ? med.dataVencimento
+        : (conciliar.dataOutra || med.dataVencimento);
+      const upd = { ...med, recebido:true, valorRecebido: Number(med.valorPrevisto||0), dataPagamento: dataPg };
+      lista = lista.map(x => x.id === id ? upd : x);
+      update({ ...(base||data), medicoes: lista });
+    }
+
+    const prox = conciliar.idx + 1;
+    if (prox >= conciliar.fila.length) {
+      setConciliar(null);
+      showToast("Parcelas vencidas conciliadas.");
+    } else {
+      setConciliar(c => ({ ...c, idx: prox, modo:"vencimento", dataOutra: today() }));
+    }
+  };
+
+  // Marca TODAS as parcelas restantes da fila como pagas no proprio vencimento.
+  const conciliarTodasNoVencimento = () => {
+    if (!conciliar) return;
+    const restantes = conciliar.fila.slice(conciliar.idx);
+    const lista = (data.medicoes||[]).map(m => restantes.includes(m.id)
+      ? { ...m, recebido:true, valorRecebido: Number(m.valorPrevisto||0), dataPagamento: m.dataVencimento }
+      : m);
+    update({ ...data, medicoes: lista });
+    setConciliar(null);
+    showToast(`${restantes.length} parcela(s) marcadas como pagas no vencimento.`);
   };
 
   const toggleRecebido = (m) => {
@@ -3005,11 +3138,7 @@ function MedicoesView({ data, update, showToast }) {
                 </div>
                 <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
                   <p style={{fontSize:14,fontWeight:800,color:m.diff<0?C.red:C.text}}>{fmt(m.valorPrevisto)}</p>
-                  <Btn size="sm" v="success" onClick={()=>{
-                    const updated={...m,recebido:true,valorRecebido:m.valorPrevisto,dataPagamento:today()};
-                    update({...data,medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
-                    showToast(`ok ${m.obraName} - ${fmt(m.valorPrevisto)} recebido.`);
-                  }}>ok</Btn>
+                  <Btn size="sm" v="success" onClick={()=>setPagarModal({ m, data: today() })}>ok</Btn>
                 </div>
               </div>
             ))}
@@ -3310,7 +3439,114 @@ function MedicoesView({ data, update, showToast }) {
         </Modal>
       )}
 
+      {/* Modal: conciliar parcelas que nasceram vencidas */}
+      {conciliar && (() => {
+        const m = (data.medicoes||[]).find(x => x.id === conciliar.fila[conciliar.idx]);
+        if (!m) return null;
+        const diasAtraso = Math.max(0, Math.round(
+          (new Date(today()) - new Date(m.dataVencimento)) / 86400000));
+        const Opcao = ({ v, titulo, sub, cor }) => (
+          <label onClick={()=>setConciliar(c=>({...c,modo:v}))}
+                 style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"10px 12px",
+                         background: conciliar.modo===v ? `${cor}12` : C.surface,
+                         border:`1.5px solid ${conciliar.modo===v ? cor : C.border}`,borderRadius:8}}>
+            <div style={{width:18,height:18,borderRadius:"50%",flexShrink:0,marginTop:1,
+                         border:`2px solid ${conciliar.modo===v?cor:C.muted}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {conciliar.modo===v && <div style={{width:9,height:9,borderRadius:"50%",background:cor}}/>}
+            </div>
+            <div>
+              <p style={{fontSize:13,fontWeight:700,color:conciliar.modo===v?cor:C.text}}>{titulo}</p>
+              <p style={{fontSize:11,color:C.muted,marginTop:2,lineHeight:1.5}}>{sub}</p>
+            </div>
+          </label>
+        );
+        return (
+          <Modal title={`Parcela vencida ${conciliar.idx+1} de ${conciliar.fila.length}`} onClose={()=>setConciliar(null)}>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.red||"#C62828"}`,borderRadius:8,padding:"11px 13px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8}}>
+                  <p style={{fontSize:13,fontWeight:800,color:C.text}}>{obra?.name}</p>
+                  <p style={{fontSize:15,fontWeight:800,color:C.yellow}}>{fmt(m.valorPrevisto)}</p>
+                </div>
+                <p style={{fontSize:11.5,color:C.muted,marginTop:3,lineHeight:1.5}}>
+                  {m.descricao || "Parcela"}<br/>
+                  Venceu em <b>{fmtDate(m.dataVencimento)}</b>{diasAtraso>0 && ` - há ${diasAtraso} dia(s)`}
+                </p>
+              </div>
+
+              <p style={{fontSize:12.5,fontWeight:700,color:C.text}}>
+                O pagamento foi realizado no dia do contrato?
+              </p>
+
+              <Opcao v="vencimento" cor={C.green}
+                     titulo={`Sim - pago em ${fmtDate(m.dataVencimento)}`}
+                     sub="Registra o recebimento na própria data de vencimento do contrato."/>
+              <Opcao v="outra" cor={C.yellow}
+                     titulo="Pago, mas em outra data"
+                     sub="Use quando o dinheiro entrou fora do dia combinado."/>
+              {conciliar.modo === "outra" && (
+                <Inp label="Data real do pagamento *" type="date" value={conciliar.dataOutra}
+                     onChange={v=>setConciliar(c=>({...c,dataOutra:v}))}/>
+              )}
+              <Opcao v="aberto" cor={C.muted}
+                     titulo="Ainda não foi paga"
+                     sub="A parcela continua em aberto e aparece como vencida no painel."/>
+
+              <div style={{display:"flex",gap:8}}>
+                <Btn v="ghost" onClick={()=>setConciliar(null)} full>Decidir depois</Btn>
+                <Btn onClick={()=>conciliarAplicar()} full><Ic n="check"/> Confirmar</Btn>
+              </div>
+              {conciliar.fila.length - conciliar.idx > 1 && (
+                <button onClick={conciliarTodasNoVencimento}
+                        style={{background:"transparent",border:0,color:C.muted,fontSize:11,fontWeight:600,cursor:"pointer",textDecoration:"underline",padding:0}}>
+                  Todas as {conciliar.fila.length - conciliar.idx} restantes foram pagas no vencimento
+                </button>
+              )}
+            </div>
+          </Modal>
+        );
+      })()}
+
       {/* Modal: gerar parcelas automáticas */}
+      {/* Confirmar recebimento perguntando a DATA DE PAGAMENTO */}
+      {pagarModal && (
+        <Modal title="Confirmar recebimento" onClose={()=>setPagarModal(null)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"11px 13px"}}>
+              <p style={{fontSize:13,fontWeight:700,color:C.text}}>{pagarModal.m.obraName}</p>
+              <p style={{fontSize:12,color:C.muted,marginTop:2}}>
+                {fmt(pagarModal.m.valorPrevisto)}
+                {pagarModal.m.descricao ? ` - ${pagarModal.m.descricao}` : ""}
+              </p>
+            </div>
+            <Inp label="Data do pagamento *" type="date" value={pagarModal.data}
+                 onChange={v=>setPagarModal(p=>({...p,data:v}))}/>
+            {/* Atalho: o caso mais comum e o pagamento ter saido no dia combinado. */}
+            {pagarModal.m.dataVencimento && pagarModal.data !== pagarModal.m.dataVencimento && (
+              <button onClick={()=>setPagarModal(p=>({...p,data:p.m.dataVencimento}))}
+                      style={{alignSelf:"flex-start",background:"transparent",border:`1px solid ${C.yellow}`,color:C.yellow,
+                              padding:"4px 10px",borderRadius:4,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                Pagou no dia do contrato ({fmtDate(pagarModal.m.dataVencimento)})
+              </button>
+            )}
+            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>
+              Informe quando o valor efetivamente entrou. Costuma ser diferente do dia
+              em que voce confirma aqui.
+            </p>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setPagarModal(null)} full>Cancelar</Btn>
+              <Btn v="success" onClick={()=>{
+                const m = pagarModal.m;
+                const updated = { ...m, recebido:true, valorRecebido:m.valorPrevisto, dataPagamento: pagarModal.data || today() };
+                update({ ...data, medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x) });
+                showToast(`${m.obraName} - ${fmt(m.valorPrevisto)} recebido em ${fmtDate(pagarModal.data||today())}.`);
+                setPagarModal(null);
+              }} full><Ic n="check"/> Confirmar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {gerarModal && obra && (
         <Modal title="Gerar parcelas automaticamente" onClose={()=>setGerarModal(false)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -3427,16 +3663,41 @@ function Financeiro({ data, update, showToast }) {
     Margem:  Math.round(r.margin),
   }));
 
-  // Gráfico: receitas por mês (últimos 6 meses) - memoizado
-  const monthlyChart = useMemo(() => Array.from({length:6},(_,i)=>{
-    const d=new Date(year,month-5+i,1);
-    const ym=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
-    const rec=(data.payments||[]).filter(p=>(filterObra==="all"||p.obraId===filterObra)&&p.date&&p.date.startsWith(ym)).reduce((s,p)=>s+Number(p.amount||0),0);
-    const mdays=getDays(d.getFullYear(),d.getMonth());
-    const cost=data.obras.filter(o=>filterObra==="all"||o.id===filterObra).reduce((s,o)=>s+calcObraLaborCost(data,o.id,mdays).laborCost,0);
-    const terc=(data.pagsTerceiros||[]).filter(p=>(filterObra==="all"||p.obraId===filterObra)&&p.date&&p.date.startsWith(ym)).reduce((s,p)=>s+Number(p.amount||0),0);
-    return { mes:`${monthName(d.getMonth())}/${String(d.getFullYear()).slice(2)}`, Recebido:Math.round(rec), CustoMO:Math.round(cost), Terceiros:Math.round(terc) };
-  }), [data, year, month, filterObra]);
+  // Grafico: recebimentos e custos por QUINZENA (ultimos 4 meses = 8 quinzenas).
+  // Como o pagamento e quinzenal, o grafico segue a mesma cadencia - cada ponto
+  // e a 1a ou 2a quinzena de um mes. Recebido e Terceiros entram pela data real
+  // do lancamento; o custo de MO e rateado por dias trabalhados na quinzena.
+  const quinzenalChart = useMemo(() => {
+    const pontos = [];
+    for (let i = 3; i >= 0; i--) {
+      const d = new Date(year, month - i, 1);
+      const y = d.getFullYear(), m = d.getMonth();
+      const ym = `${y}-${String(m+1).padStart(2,"0")}`;
+      const { q1, q2 } = getQ(y, m);
+      [["1", q1, 15], ["2", q2, 31]].forEach(([qn, dias, limSup]) => {
+        const limInf = qn === "1" ? 1 : 16;
+        const naQuinzena = (iso) => {
+          if (!iso || !iso.startsWith(ym)) return false;
+          const dia = Number(iso.split("-")[2]);
+          return dia >= limInf && dia <= limSup;
+        };
+        const rec = (data.payments||[])
+          .filter(p => (filterObra==="all"||p.obraId===filterObra) && naQuinzena(p.date))
+          .reduce((s,p)=>s+Number(p.amount||0),0);
+        const terc = (data.pagsTerceiros||[])
+          .filter(p => (filterObra==="all"||p.obraId===filterObra) && naQuinzena(p.date))
+          .reduce((s,p)=>s+Number(p.amount||0),0);
+        const cost = data.obras
+          .filter(o => filterObra==="all"||o.id===filterObra)
+          .reduce((s,o)=>s+calcObraLaborCost(data,o.id,dias).laborCost,0);
+        pontos.push({
+          mes: `${qn}a ${monthName(m)}/${String(y).slice(2)}`,
+          Recebido: Math.round(rec), CustoMO: Math.round(cost), Terceiros: Math.round(terc),
+        });
+      });
+    }
+    return pontos;
+  }, [data, year, month, filterObra]);
 
   const savePayment = () => {
     if(!payForm.obraId||!payForm.amount||isNaN(Number(payForm.amount))){
@@ -3540,10 +3801,10 @@ function Financeiro({ data, update, showToast }) {
 
       {/* Gráfico mensal recebimentos vs custo */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,padding:14,borderRadius:18}}>
-        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:10}}>Recebimentos x Custos - 6 meses</p>
+        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:10}}>Recebimentos x Custos - por quinzena</p>
         <div style={{height:200}}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={monthlyChart}>
+            <LineChart data={quinzenalChart}>
               <CartesianGrid stroke={C.border} vertical={false}/>
               <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
               <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
@@ -3607,6 +3868,46 @@ function Financeiro({ data, update, showToast }) {
                   <StatusBar pct={r.commitment} color={commitColor}/>
                 </div>
               )}
+
+              {/* Prazo da obra + evolucao financeira (% recebido do contrato) */}
+              {(() => {
+                const prz = prazoObra(r);
+                const evoFin = r.contractValue > 0 ? (r.receivedTotal / r.contractValue) * 100 : null;
+                if (!prz && evoFin == null) return null;
+                return (
+                  <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:8}}>
+                    {prz && (
+                      <div>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                          <p style={{fontSize:10,color:C.muted}}>Prazo da obra</p>
+                          <p style={{fontSize:10,fontWeight:900,color:prz.cor}}>{prz.rotulo}</p>
+                        </div>
+                        <StatusBar pct={prz.pct} color={prz.cor}/>
+                        <p style={{fontSize:9,color:C.muted,marginTop:2}}>
+                          {fmtDate(r.contractStart)}{r.contractEnd ? ` a ${fmtDate(r.contractEnd)}` : ""}
+                        </p>
+                      </div>
+                    )}
+                    {evoFin != null && (
+                      <div>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                          <p style={{fontSize:10,color:C.muted}}>Evolucao financeira (recebido / contrato)</p>
+                          <p style={{fontSize:10,fontWeight:900,color:C.green}}>{evoFin.toFixed(1)}%</p>
+                        </div>
+                        <StatusBar pct={Math.min(evoFin,100)} color={C.green}/>
+                        <p style={{fontSize:9,color:C.muted,marginTop:2}}>
+                          {fmt(r.receivedTotal)} de {fmt(r.contractValue)}
+                          {prz && Math.abs(evoFin - prz.pct) >= 12 && (
+                            <span style={{color: evoFin < prz.pct ? C.red : C.orange, fontWeight:700}}>
+                              {" - "}{evoFin < prz.pct ? "recebimento atras do prazo" : "recebimento adiantado"}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </button>
 
             {exp && (
@@ -3688,7 +3989,7 @@ function Financeiro({ data, update, showToast }) {
 
 function Obras({ data, update, showToast, onAbrirObra }) {
   const { formGrid } = useBreakpoint();
-  const empty = { id: "", name: "", address: "", engineer: "", startDate: "", faseId: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", entrada: "", entradaDate: "", hasCaixa: false };
+  const empty = { id: "", name: "", cliente: "", address: "", engineer: "", startDate: "", faseId: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
@@ -3717,6 +4018,15 @@ function Obras({ data, update, showToast, onAbrirObra }) {
     (data.obras || []).forEach(o => {
       const alvo = idsValidos.has(o.faseId) ? o.faseId : primeira;
       if (mapa[alvo]) mapa[alvo].push(o);
+    });
+    // Ordena cada coluna pela data de finalizacao prevista (contractEnd).
+    // Obras sem data prevista vao para o fim da coluna.
+    Object.keys(mapa).forEach(k => {
+      mapa[k].sort((a, b) => {
+        const fa = a.contractEnd || "9999-12-31";
+        const fb = b.contractEnd || "9999-12-31";
+        return fa.localeCompare(fb);
+      });
     });
     return mapa;
   }, [data.obras, fases]);
@@ -3821,6 +4131,8 @@ function Obras({ data, update, showToast, onAbrirObra }) {
       contractEnd:       form.contractEnd       || "",
       totalParcelas:     Number(form.totalParcelas     || 0),
       billingFrequency:  form.billingFrequency  || "mensal",
+      diaVenc1:          Number(form.diaVenc1 || DIA_VENC_1_PADRAO),
+      diaVenc2:          Number(form.diaVenc2 || DIA_VENC_2_PADRAO),
       entrada:           Number(form.entrada    || 0),
       entradaDate:       form.entradaDate       || "",
       hasCaixa:          !!form.hasCaixa,
@@ -3961,7 +4273,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
                 <div style={{flex:1,padding:8,display:"flex",flexDirection:"column",gap:7,minHeight:90}}>
                   {obrasDaFase.map(o => {
                     const st    = statusMap[o.status] || statusMap.active;
-                    const count = data.employees.filter(e => e.active!==false && e.obra===o.name).length;
+                    const count = data.employees.filter(e => e.active!==false && e.obra===o.id).length;
                     const menu  = menuCard === o.id;
                     return (
                       <div key={o.id}
@@ -3989,25 +4301,51 @@ function Obras({ data, update, showToast, onAbrirObra }) {
                                     fontSize:13,lineHeight:1,padding:"0 2px",flexShrink:0}}></button>
                         </div>
 
+                        {o.cliente && (
+                          <p style={{fontSize:10.5,color:C.subtle,fontWeight:600,marginTop:2}}>{o.cliente}</p>
+                        )}
                         {o.engineer && (
-                          <p style={{fontSize:10,color:C.muted,marginTop:3}}>{o.engineer}</p>
+                          <p style={{fontSize:10,color:C.muted,marginTop:2}}>Eng. {o.engineer}</p>
                         )}
 
                         <div style={{display:"flex",alignItems:"center",gap:5,marginTop:6,flexWrap:"wrap"}}>
                           <Badge color={st.c}>{st.l}</Badge>
+                          <span style={{fontSize:9.5,color:C.muted,background:C.surface,borderRadius:4,padding:"1px 5px"}}>
+                            {CONTRACT_LABELS[o.contractType]||o.contractType}
+                          </span>
                           {Number(o.areaM2)>0 && (
-                            <span style={{fontSize:9.5,color:C.muted}}>{o.areaM2} m</span>
+                            <span style={{fontSize:9.5,color:C.muted}}>{o.areaM2} m2</span>
                           )}
                           {count>0 && (
-                            <span style={{fontSize:9.5,color:C.muted}}> {count} na equipe</span>
+                            <span style={{fontSize:9.5,color:C.muted}}>{count} func.</span>
                           )}
                         </div>
 
                         {Number(o.contractValue)>0 && (
-                          <p style={{fontSize:11,fontWeight:800,color:C.yellow,marginTop:5}}>
+                          <p style={{fontSize:12,fontWeight:800,color:C.yellow,marginTop:6}}>
                             {fmt(o.contractValue)}
                           </p>
                         )}
+
+                        {/* Datas: inicio e finalizacao prevista, com prazo restante */}
+                        {(o.contractStart || o.contractEnd) && (() => {
+                          const prz = prazoObra(o);
+                          return (
+                            <div style={{marginTop:5,display:"flex",flexDirection:"column",gap:2}}>
+                              <div style={{display:"flex",alignItems:"center",gap:5,fontSize:9.5,color:C.muted}}>
+                                <Ic n="calendar" s={11} color={C.muted}/>
+                                <span>
+                                  {o.contractStart ? fmtDate(o.contractStart) : "?"}
+                                  {" a "}
+                                  {o.contractEnd ? fmtDate(o.contractEnd) : "?"}
+                                </span>
+                              </div>
+                              {prz && (
+                                <span style={{fontSize:9.5,fontWeight:700,color:prz.cor}}>{prz.rotulo}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {/* Menu "Mover para" - é o caminho que funciona no celular,
                             onde arrastar (HTML5 drag) simplesmente não existe. */}
@@ -4032,7 +4370,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
                               </button>
                             ))}
                             <div style={{height:1,background:C.line,margin:"4px 0"}}/>
-                            <button onClick={()=>{ setForm({...o, areaM2:String(o.areaM2||"")}); setModal(true); setMenuCard(null); }}
+                            <button onClick={()=>{ setForm({...o, areaM2:String(o.areaM2||""), diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO), diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)}); setModal(true); setMenuCard(null); }}
                               style={{width:"100%",textAlign:"left",padding:"6px 7px",background:"transparent",
                                       border:0,borderRadius:5,cursor:"pointer",fontSize:11.5,color:C.text,
                                       fontFamily:"'Inter',sans-serif"}}>
@@ -4091,7 +4429,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
                 {o.startDate && <p style={{ color: C.subtle, fontSize: 12 }}>Início: {fmtDateFull(o.startDate)}</p>}
               </div>
               <div style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
-                <Btn v="ghost" size="sm" onClick={() => { setForm({ ...o, areaM2: String(o.areaM2 || "") }); setModal(true); }}><Ic n="edit" /></Btn>
+                <Btn v="ghost" size="sm" onClick={() => { setForm({ ...o, areaM2: String(o.areaM2 || ""), diaVenc1: String(o.diaVenc1 || DIA_VENC_1_PADRAO), diaVenc2: String(o.diaVenc2 || DIA_VENC_2_PADRAO) }); setModal(true); }}><Ic n="edit" /></Btn>
                 <Btn v="danger" size="sm" onClick={() => remove(o.id)}><Ic n="trash" /></Btn>
               </div>
             </div>
@@ -4155,6 +4493,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
             <Inp label="Metragem quadrada (m)" type="number" value={form.areaM2} onChange={setField("areaM2")} placeholder="Ex.: 250" />
             <Inp label="Endereço" value={form.address} onChange={setField("address")} />
             <Inp label="Responsável" value={form.engineer} onChange={setField("engineer")} />
+            <Inp label="Cliente" value={form.cliente} onChange={setField("cliente")} placeholder="Nome do contratante" />
             <Inp label="Data de início" type="date" value={form.startDate} onChange={setField("startDate")} />
             <Sel label="Fase (quadro)" value={form.faseId || (fases[0]?.id||"")} onChange={setField("faseId")}
               options={fases.map(f=>({v:f.id,l:f.nome}))}/>
@@ -4179,6 +4518,25 @@ function Obras({ data, update, showToast, onAbrirObra }) {
             <p style={{gridColumn:"1/-1",fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Cronograma de cobrança</p>
             <Sel label="Frequência de cobrança *" value={form.billingFrequency} onChange={setField("billingFrequency")} options={FREQ_OPTS}/>
             <Inp label="Total de parcelas" type="number" value={form.totalParcelas} onChange={setField("totalParcelas")} placeholder={form.billingFrequency==="quinzenal"?"Ex.: 24":"Ex.: 12"}/>
+
+            {/* Dias de vencimento - perguntados aqui, na hora de lancar a obra.
+                O padrao segue o contrato (15 e 30), mas cada obra pode fugir dele. */}
+            {form.billingFrequency === "quinzenal" ? (
+              <>
+                <Sel label="Vencimento da 1ª quinzena *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS}/>
+                <Sel label="Vencimento da 2ª quinzena *" value={String(form.diaVenc2||DIA_VENC_2_PADRAO)} onChange={setField("diaVenc2")} options={DIA_OPTS}/>
+              </>
+            ) : (
+              <Sel label="Dia de vencimento *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS}/>
+            )}
+            <div style={{gridColumn:"1/-1",background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:"9px 12px"}}>
+              <p style={{fontSize:11,color:C.subtle,lineHeight:1.6}}>
+                {form.billingFrequency === "quinzenal"
+                  ? <>Cada mês gera 2 parcelas: uma no dia <b>{form.diaVenc1||DIA_VENC_1_PADRAO}</b> e outra no dia <b>{form.diaVenc2||DIA_VENC_2_PADRAO}</b>. Padrão do contrato: 15 e 30.</>
+                  : <>Cada mês gera 1 parcela, vencendo no dia <b>{form.diaVenc1||DIA_VENC_1_PADRAO}</b>.</>}
+                {" "}Em meses mais curtos, o dia 29/30/31 cai no último dia do mês (fev &rarr; 28).
+              </p>
+            </div>
             <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
             <p style={{gridColumn:"1/-1",fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Período e entrada</p>
             <Inp label="Início do contrato *" type="date" value={form.contractStart} onChange={setField("contractStart")}/>
@@ -4654,262 +5012,7 @@ function UnlockRequestModal({ data, update, showToast, obraId, date, employee, o
 // Ponto
 // 
 
-function AjusteGeralPonto({ data, update, showToast, dailyCheckPending, onConfirmTeam, onRequestUnlock }) {
-  const [monthRef, setMonthRef] = useState(today().slice(0, 7));
-  const [filterObra, setFilterObra] = useState("all");
-  const [search, setSearch] = useState("");
-  const [obraEdicao, setObraEdicao] = useState("");
-
-  const safeMonthRef = /^\d{4}-\d{2}$/.test(monthRef) ? monthRef : today().slice(0, 7);
-  const [year, monthNumber] = safeMonthRef.split("-").map(Number);
-  const monthIndex = Math.max(0, (monthNumber || 1) - 1);
-  const days = getDays(year, monthIndex);
-  const holidaySet = new Set(getPayrollHolidays(data, year));
-  const obraName = id => data.obras.find(o => o.id === id)?.name || "Sem obra";
-  const workdays = days.filter(date => date <= today() && prIsWeekdayIso(date) && !holidaySet.has(date));
-  const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
-
-  const employees = data.employees
-    .filter(emp => days.some(date => isEmployeeEmployedOnDate(emp, date)))
-    .filter(emp => {
-      if (filterObra === "all") return true;
-      if (emp.obra === filterObra) return true;
-      return days.some(date => getAtt(data, emp.id, date)?.obraId === filterObra);
-    })
-    .filter(emp => !normalizedSearch || `${emp.name} ${emp.role || ""}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch))
-    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-
-  const resolveTargetObra = employee => obraEdicao || employee.obra || "";
-
-  const requestUnlock = (employee, date, obraId) => {
-    onRequestUnlock?.({ obraId, date, employee });
-    showToast("Este ponto está bloqueado. Solicite permissão para alterar.", "warn");
-  };
-
-  const validateEdit = (employee, date, targetObra) => {
-    if (!isEmployeeEmployedOnDate(employee, date)) return false;
-    if (date > today()) {
-      showToast("Não é permitido lançar ponto em uma data futura.", "warn");
-      return false;
-    }
-    if (date === today() && dailyCheckPending) {
-      showToast("Confirme primeiro a equipe de hoje para liberar o lançamento.", "warn");
-      return false;
-    }
-
-    const currentObra = getAtt(data, employee.id, date)?.obraId || employee.obra || targetObra;
-    const lockedObra = [currentObra, targetObra].find(id => id && !canEditAttendance(data, id, date));
-    if (lockedObra) {
-      requestUnlock(employee, date, lockedObra);
-      return false;
-    }
-    return true;
-  };
-
-  const cycleAttendance = (employee, date) => {
-    const prev = getAtt(data, employee.id, date) || { status: null, ot: 0, note: "", obraId: "" };
-    const order = { "": "P", P: "M", M: "F", F: "" };
-    const nextStatus = order[prev.status || ""];
-    const targetObra = resolveTargetObra(employee);
-
-    if (nextStatus && !targetObra) {
-      showToast(`Selecione uma obra para lançar o ponto de ${employee.name}.`, "error");
-      return;
-    }
-    if (!validateEdit(employee, date, targetObra || prev.obraId)) return;
-
-    update({
-      ...data,
-      attendance: {
-        ...data.attendance,
-        [employee.id]: {
-          ...(data.attendance[employee.id] || {}),
-          [date]: {
-            ...prev,
-            status: nextStatus || null,
-            obraId: nextStatus ? targetObra : (prev.obraId || targetObra || ""),
-          },
-        },
-      },
-    });
-  };
-
-  const fillEmployeeWorkdays = employee => {
-    const targetObra = resolveTargetObra(employee);
-    if (!targetObra) {
-      showToast(`Selecione uma obra para preencher o ponto de ${employee.name}.`, "error");
-      return;
-    }
-
-    let filled = 0;
-    let locked = 0;
-    const employeeAttendance = { ...(data.attendance[employee.id] || {}) };
-
-    workdays.forEach(date => {
-      if (!isEmployeeEmployedOnDate(employee, date) || getAtt(data, employee.id, date)?.status) return;
-      if (date === today() && dailyCheckPending) return;
-      if (!canEditAttendance(data, targetObra, date)) {
-        locked++;
-        return;
-      }
-      employeeAttendance[date] = {
-        ...(getAtt(data, employee.id, date) || {}),
-        status: "P",
-        obraId: targetObra,
-      };
-      filled++;
-    });
-
-    if (!filled) {
-      showToast(locked ? "Os dias vazios estão bloqueados para edição." : "Não há dias úteis vazios para preencher.", locked ? "warn" : "info");
-      return;
-    }
-
-    update({
-      ...data,
-      attendance: { ...data.attendance, [employee.id]: employeeAttendance },
-    });
-    showToast(`${filled} dia(s) útil(eis) preenchido(s) para ${employee.name}.${locked ? ` ${locked} bloqueado(s) foram ignorados.` : ""}`);
-  };
-
-  const clearEmployeeMonth = employee => {
-    const registeredDays = days.filter(date => getAtt(data, employee.id, date)?.status);
-    if (!registeredDays.length) {
-      showToast("Este operário não possui registros no mês selecionado.", "info");
-      return;
-    }
-    if (!window.confirm(`Limpar os ${registeredDays.length} registro(s) de ${employee.name} em ${fullMonth(monthIndex)} de ${year}?`)) return;
-
-    let cleared = 0;
-    let locked = 0;
-    const employeeAttendance = { ...(data.attendance[employee.id] || {}) };
-    registeredDays.forEach(date => {
-      const prev = getAtt(data, employee.id, date);
-      const currentObra = prev?.obraId || employee.obra || "";
-      if ((currentObra && !canEditAttendance(data, currentObra, date)) || (date === today() && dailyCheckPending)) {
-        locked++;
-        return;
-      }
-      employeeAttendance[date] = { ...prev, status: null };
-      cleared++;
-    });
-
-    if (cleared) update({ ...data, attendance: { ...data.attendance, [employee.id]: employeeAttendance } });
-    showToast(`${cleared} registro(s) removido(s).${locked ? ` ${locked} bloqueado(s) foram preservados.` : ""}`, locked && !cleared ? "warn" : "success");
-  };
-
-  const totalRegistered = employees.reduce((sum, emp) => sum + days.filter(date => getAtt(data, emp.id, date)?.status).length, 0);
-  const statusColor = status => status === "P" ? C.green : status === "M" ? C.yellow : status === "F" ? C.red : C.border;
-  const weekdayLabel = date => ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"][prParseIso(date).getDay()];
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `5px solid ${C.blue}`, padding: 14, borderRadius: 14 }}>
-        <h3 style={{ fontFamily: "'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 20 }}>Ajuste geral do ponto</h3>
-        <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>
-          Clique em um dia para alternar: vazio → presente → meio dia → falta → vazio. A obra escolhida abaixo será gravada no dia trabalhado.
-        </p>
-      </div>
-
-      {dailyCheckPending && monthRef === today().slice(0, 7) && (
-        <div style={{ background: `${C.yellow}18`, border: `1px solid ${C.yellow}`, borderLeft: `5px solid ${C.yellow}`, padding: 12 }}>
-          <p style={{ color: C.yellow, fontWeight: 900, textTransform: "uppercase", fontSize: 12 }}>Equipe de hoje ainda não confirmada</p>
-          <p style={{ color: C.muted, fontSize: 11, margin: "4px 0 8px" }}>Os demais dias podem ser ajustados. Para lançar o dia de hoje, confirme a equipe.</p>
-          <Btn v="warning" size="sm" onClick={onConfirmTeam}>Confirmar equipe sem alterações hoje</Btn>
-        </div>
-      )}
-
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10, borderRadius: 14 }}>
-        <Inp label="Mês do ponto" type="month" value={monthRef} onChange={setMonthRef} max={today().slice(0, 7)} />
-        <Inp label="Buscar operário" value={search} onChange={setSearch} placeholder="Nome ou função" />
-        <Sel label="Filtrar operários por obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
-        <Sel label="Obra para os novos lançamentos" value={obraEdicao} onChange={setObraEdicao} options={[{ v: "", l: "Usar lotação de cada operário" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-        <div style={{ background: C.card, borderTop: `3px solid ${C.blue}`, padding: 9, textAlign: "center" }}><strong>{employees.length}</strong><p style={{ color: C.muted, fontSize: 10 }}>operários</p></div>
-        <div style={{ background: C.card, borderTop: `3px solid ${C.green}`, padding: 9, textAlign: "center" }}><strong>{totalRegistered}</strong><p style={{ color: C.muted, fontSize: 10 }}>dias lançados</p></div>
-        <div style={{ background: C.card, borderTop: `3px solid ${C.yellow}`, padding: 9, textAlign: "center" }}><strong>{workdays.length}</strong><p style={{ color: C.muted, fontSize: 10 }}>dias úteis</p></div>
-      </div>
-
-      <div style={{ overflow: "auto", maxHeight: "68vh", border: `1px solid ${C.border}`, background: C.card, borderRadius: 12 }}>
-        <table style={{ borderCollapse: "separate", borderSpacing: 0, minWidth: 270 + days.length * 58, width: "100%", fontSize: 11 }}>
-          <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
-            <tr>
-              <th style={{ position: "sticky", left: 0, zIndex: 7, minWidth: 270, width: 270, background: C.surface, color: C.text, textAlign: "left", padding: 10, borderRight: `2px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
-                Operário e ações rápidas
-              </th>
-              {days.map(date => {
-                const parsed = prParseIso(date);
-                const weekend = prIsWeekend(parsed);
-                const holiday = holidaySet.has(date);
-                return (
-                  <th key={date} title={holiday ? "Feriado cadastrado" : fmtDateFull(date)} style={{ minWidth: 58, width: 58, padding: "7px 2px", textAlign: "center", background: holiday ? `${C.red}28` : weekend ? `${C.blue}18` : C.surface, color: holiday ? C.red : weekend ? C.blue : C.text, borderRight: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
-                    <span style={{ display: "block", fontSize: 9, textTransform: "uppercase" }}>{weekdayLabel(date)}</span>
-                    <strong style={{ fontSize: 14 }}>{parsed.getDate()}</strong>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map(employee => (
-              <tr key={employee.id}>
-                <td style={{ position: "sticky", left: 0, zIndex: 3, minWidth: 270, width: 270, background: C.card, padding: 9, borderRight: `2px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
-                  <p title={employee.name} style={{ fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{employee.name}</p>
-                  <p style={{ color: C.muted, fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{employee.role || "Sem função"} · {obraName(employee.obra)}</p>
-                  <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
-                    <button onClick={() => fillEmployeeWorkdays(employee)} style={{ flex: 1, border: `1px solid ${C.green}`, background: `${C.green}18`, color: C.green, padding: "5px 6px", fontWeight: 800, fontSize: 9, cursor: "pointer", borderRadius: 6 }}>P NOS ÚTEIS VAZIOS</button>
-                    <button onClick={() => clearEmployeeMonth(employee)} style={{ border: `1px solid ${C.red}`, background: `${C.red}12`, color: C.red, padding: "5px 7px", fontWeight: 800, fontSize: 9, cursor: "pointer", borderRadius: 6 }}>LIMPAR</button>
-                  </div>
-                </td>
-                {days.map(date => {
-                  const att = getAtt(data, employee.id, date);
-                  const status = att?.status || "";
-                  const employed = isEmployeeEmployedOnDate(employee, date);
-                  const editable = employed && date <= today();
-                  const targetObra = att?.obraId || employee.obra || "";
-                  const locked = editable && targetObra && !canEditAttendance(data, targetObra, date);
-                  const parsed = prParseIso(date);
-                  const weekend = prIsWeekend(parsed);
-                  const holiday = holidaySet.has(date);
-                  const bg = !employed ? C.surface : holiday ? `${C.red}0D` : weekend ? `${C.blue}0A` : C.card;
-                  return (
-                    <td key={date} style={{ padding: 3, background: bg, borderRight: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}`, textAlign: "center" }}>
-                      <button
-                        type="button"
-                        disabled={!editable}
-                        onClick={() => cycleAttendance(employee, date)}
-                        title={!employed ? "Fora do período de vínculo" : date > today() ? "Data futura" : locked ? `Ponto bloqueado · ${obraName(targetObra)}` : `${fmtDateFull(date)} · ${status || "Sem registro"} · ${obraName(targetObra)}`}
-                        style={{ width: 48, minHeight: 42, padding: "3px 1px", border: `1.5px solid ${locked ? C.red : statusColor(status)}`, background: status ? `${statusColor(status)}22` : "transparent", color: status ? statusColor(status) : C.muted, cursor: editable ? "pointer" : "not-allowed", opacity: editable ? 1 : .35, borderRadius: 7 }}
-                      >
-                        <strong style={{ display: "block", fontSize: 14 }}>{locked ? "🔒" : status || "·"}</strong>
-                        {status && <span style={{ display: "block", fontSize: 7, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{obraName(targetObra).slice(0, 7)}</span>}
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!employees.length && <div style={{ padding: 24, color: C.muted, textAlign: "center" }}>Nenhum operário encontrado para os filtros selecionados.</div>}
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, color: C.muted, fontSize: 10 }}>
-        <span><strong style={{ color: C.green }}>P</strong> Presente</span>
-        <span><strong style={{ color: C.yellow }}>M</strong> Meio dia</span>
-        <span><strong style={{ color: C.red }}>F</strong> Falta</span>
-        <span><strong style={{ color: C.blue }}>Azul</strong> Final de semana</span>
-        <span><strong style={{ color: C.red }}>Vermelho</strong> Feriado</span>
-        <span>🔒 Ponto finalizado</span>
-      </div>
-    </div>
-  );
-}
-
 function Ponto({ data, update, showToast }) {
-  const [pontoView, setPontoView] = useState("diario");
   const [selDate, setSelDate] = useState(today());
   const [filterObra, setFilterObra] = useState("all");
   const [noteModal, setNoteModal] = useState(null);
@@ -5106,34 +5209,6 @@ function Ponto({ data, update, showToast }) {
     showToast("Ponto marcado para todos.");
   };
 
-  const pontoViewTabs = (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: C.card, border: `1px solid ${C.border}`, padding: 6, borderRadius: 12 }}>
-      <Btn v={pontoView === "diario" ? "primary" : "ghost"} onClick={() => setPontoView("diario")} full>
-        <Ic n="clock" /> Ponto diário
-      </Btn>
-      <Btn v={pontoView === "geral" ? "info" : "ghost"} onClick={() => setPontoView("geral")} full>
-        <Ic n="calendar" /> Ajuste geral
-      </Btn>
-    </div>
-  );
-
-  if (pontoView === "geral") {
-    return (
-      <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {pontoViewTabs}
-        <AjusteGeralPonto
-          data={data}
-          update={update}
-          showToast={showToast}
-          dailyCheckPending={dailyCheckPending}
-          onConfirmTeam={confirmTeamWithoutChanges}
-          onRequestUnlock={setUnlockModal}
-        />
-        {unlockModal && <UnlockRequestModal data={data} update={update} showToast={showToast} obraId={unlockModal.obraId} date={unlockModal.date} employee={unlockModal.employee} onClose={() => setUnlockModal(null)} />}
-      </div>
-    );
-  }
-
   const counts = { P: 0, M: 0, F: 0 };
   list.forEach(e => {
     const st = attStatus(data, e.id, selDate);
@@ -5145,7 +5220,6 @@ function Ponto({ data, update, showToast }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {pontoViewTabs}
       <div
         className="point-pulse"
         style={{
@@ -5437,27 +5511,24 @@ function Ponto({ data, update, showToast }) {
 // Folha
 // 
 
-function Folha({ data, showToast, onTab }) {
+function Folha({ data, showToast }) {
   const now = new Date();
-  const referenciaInicial = getPayrollReferenceForDate(now);
-  const [year, setYear] = useState(referenciaInicial.year);
-  const [month, setMonth] = useState(referenciaInicial.month);
-  const [q, setQ] = useState(referenciaInicial.q);
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  const [q, setQ] = useState(now.getDate() <= 15 ? "1" : "2");
   const [filterObra, setFilterObra] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
-  const [validacaoRelatorio, setValidacaoRelatorio] = useState(null);
 
-  const { q1, q2 } = getPayrollCycles(year, month);
+  const { q1, q2 } = getQ(year, month);
   const days = q === "1" ? q1 : q2;
-  const anosDoPeriodo = [...new Set(days.map(d => Number(d.slice(0, 4))))];
-  const paymentHolidays = prUniqueDates(anosDoPeriodo.flatMap(ano => getPayrollHolidays(data, ano)));
+  const paymentHolidays = getPayrollHolidays(data, year);
   const holidaysInPeriod = days.filter(d => paymentHolidays.includes(d) && prIsWeekdayIso(d));
   const paymentInfo = getPayrollPaymentCalendar(year, month, q, data);
   const paymentDateLabel = fmtDateFull(paymentInfo.paymentDate);
   const paymentBaseLabel = fmtDateFull(paymentInfo.baseDate);
   const paymentObs = paymentInfo.adjusted ? `Ajustado de ${paymentBaseLabel} para ${paymentDateLabel}` : "Data normal de pagamento";
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
-  const periodLabel = `${q === "1" ? "Folha com pagamento dia 20" : "Folha com pagamento dia 05"} · ${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length - 1])}`;
+  const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
 
   //  Reconstrói a obra do operário em uma data específica via changeLog 
   const getEmpObraIdOnDate = (employee, dateIso) => {
@@ -5492,14 +5563,29 @@ function Folha({ data, showToast, onTab }) {
     let ot = 0;
     let vt = 0;
     let vr = 0;
-    // mapa: obraId &rarr; { presentes, meiodia, faltas, dias }
+    // Mapa por obra efetivamente registrada no ponto. Alem dos dias, guarda
+    // os valores que podem ser atribuidos com seguranca a cada canteiro.
     const obrasPorDia = {};
 
-    const addToObra = (obraId, tipo) => {
-      if (!obrasPorDia[obraId]) obrasPorDia[obraId] = { presentes: 0, meiodia: 0, faltas: 0 };
-      if (tipo === "P") obrasPorDia[obraId].presentes++;
-      else if (tipo === "M") obrasPorDia[obraId].meiodia++;
-      else if (tipo === "F") obrasPorDia[obraId].faltas++;
+    const addToObra = (obraId, tipo, valores = {}) => {
+      const chave = obraId || "__sem_obra__";
+      if (!obrasPorDia[chave]) obrasPorDia[chave] = {
+        obraId: obraId || "", presentes: 0, meiodia: 0, faltas: 0,
+        semRegistro: 0, feriadosPagos: 0, feriadosPerdidos: 0,
+        valorDias: 0, valorFeriados: 0, vt: 0, vr: 0, ot: 0,
+      };
+      const o = obrasPorDia[chave];
+      if (tipo === "P") o.presentes++;
+      else if (tipo === "M") o.meiodia++;
+      else if (tipo === "F") o.faltas++;
+      else if (tipo === "S") o.semRegistro++;
+      else if (tipo === "HP") o.feriadosPagos++;
+      else if (tipo === "HD") o.feriadosPerdidos++;
+      o.valorDias += Number(valores.valorDias || 0);
+      o.valorFeriados += Number(valores.valorFeriados || 0);
+      o.vt += Number(valores.vt || 0);
+      o.vr += Number(valores.vr || 0);
+      o.ot += Number(valores.ot || 0);
     };
 
     days.forEach(d => {
@@ -5509,27 +5595,36 @@ function Folha({ data, showToast, onTab }) {
       const a = getAtt(data, employee.id, d);
       const st = a?.status;
       const extra = Number(a?.ot || 0);
-      const obraId = getEmpObraIdOnDate(employee, d);
+      // Registro novo: usa a obra carimbada no proprio ponto. Registro antigo:
+      // reconstrucao por lotacao/transferencia preserva o historico.
+      const obraId = a?.obraId || getEmpObraIdOnDate(employee, d);
 
       if (st === "P") {
-        gross += Number(employee.dailyRate || 0);
+        const valorDia = Number(employee.dailyRate || 0);
+        const valorVT = Number(employee.vtDaily || 0);
+        const valorVR = Number(employee.vrDaily || 0);
+        gross += valorDia;
         presentes++;
         ot += extra;
-        vt += Number(employee.vtDaily || 0);
-        vr += Number(employee.vrDaily || 0);
-        addToObra(obraId, "P");
+        vt += valorVT;
+        vr += valorVR;
+        addToObra(obraId, "P", { valorDias:valorDia, vt:valorVT, vr:valorVR, ot:extra });
       } else if (st === "M") {
-        gross += Number(employee.dailyRate || 0) * 0.5;
+        const valorDia = Number(employee.dailyRate || 0) * 0.5;
+        const valorVT = Number(employee.vtDaily || 0) * 0.5;
+        const valorVR = Number(employee.vrDaily || 0) * 0.5;
+        gross += valorDia;
         meiodia++;
         ot += extra;
-        vt += Number(employee.vtDaily || 0) * 0.5;
-        vr += Number(employee.vrDaily || 0) * 0.5;
-        addToObra(obraId, "M");
+        vt += valorVT;
+        vr += valorVR;
+        addToObra(obraId, "M", { valorDias:valorDia, vt:valorVT, vr:valorVR, ot:extra });
       } else if (st === "F") {
         faltas++;
         addToObra(obraId, "F");
       } else {
         semRegistro++;
+        addToObra(obraId, "S");
       }
     });
 
@@ -5539,6 +5634,12 @@ function Folha({ data, showToast, onTab }) {
     const feriadosPerdidos = holidayRules.filter(h => h.losesHoliday).length;
     const holidayPay = holidayRules.reduce((s, h) => s + h.amount, 0);
     gross += holidayPay;
+    holidayRules.forEach(h => {
+      const obraId = getEmpObraIdOnDate(employee, h.holidayIso);
+      addToObra(obraId, h.losesHoliday ? "HD" : "HP", {
+        valorFeriados: Number(h.amount || 0),
+      });
+    });
 
     const periIni = days.length > 0 ? days[0] : "";
     const periFim = days.length > 0 ? days[days.length - 1] : "";
@@ -5547,16 +5648,17 @@ function Folha({ data, showToast, onTab }) {
       .reduce((s, a) => s + Number(a.amount || 0), 0);
 
     // Converte mapa para array ordenado por dias trabalhados desc
-    const obrasPorDiaArr = Object.entries(obrasPorDia)
-      .map(([obraId, v]) => ({
-        obraId,
-        obraName: data.obras.find(o => o.id === obraId)?.name || "-",
-        presentes: v.presentes,
-        meiodia: v.meiodia,
-        faltas: v.faltas,
-        totalDias: v.presentes + v.meiodia + v.faltas,
+    const obrasPorDiaArr = Object.values(obrasPorDia)
+      .map(v => ({
+        ...v,
+        obraName: data.obras.find(o => o.id === v.obraId)?.name || "Sem obra identificada",
+        // Dia trabalhado equivalente: meio periodo vale 0,5; falta nao conta.
+        diasTrabalhados: v.presentes + (v.meiodia * 0.5),
+        totalRegistros: v.presentes + v.meiodia + v.faltas,
+        bruto: v.valorDias + v.valorFeriados,
+        custoDireto: v.valorDias + v.valorFeriados + v.vt + v.vr,
       }))
-      .sort((a, b) => b.totalDias - a.totalDias);
+      .sort((a, b) => b.diasTrabalhados - a.diasTrabalhados || a.obraName.localeCompare(b.obraName));
 
     return {
       ...employee,
@@ -5584,13 +5686,22 @@ function Folha({ data, showToast, onTab }) {
     return a?.status || a?.ot || a?.note;
   });
 
-  const belongsToSelectedObra = e => filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra;
+  const belongsToSelectedObra = e => {
+    if (filterObra === "all") return true;
+    return days.some(d => {
+      if (!isEmployeeEmployedOnDate(e, d)) return false;
+      const a = getAtt(data, e.id, d);
+      const temLancamento = !!a?.status || holidaysInPeriod.includes(d);
+      const obraDoDia = a?.obraId || getEmpObraIdOnDate(e, d);
+      return temLancamento && obraDoDia === filterObra;
+    });
+  };
 
   const rows = data.employees
     .filter(belongsToSelectedObra)
     .filter(e => e.active !== false || hasAttendanceInPeriod(e))
     .map(calcRow)
-    .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.semRegistro > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
+    .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const T = {
@@ -5604,54 +5715,80 @@ function Folha({ data, showToast, onTab }) {
     feriadosPerdidos: rows.reduce((s, r) => s + r.feriadosPerdidos, 0),
   };
 
-  const pixPendentes = rows.filter(r => !String(r.pixKey || "").trim());
-  const registroPendentes = rows.filter(r => Number(r.semRegistro || 0) > 0);
-  const executarComValidacao = (saida, executar) => {
-    if (!pixPendentes.length && !registroPendentes.length) {
-      executar();
-      return;
-    }
-    setValidacaoRelatorio({ saida, executar });
-  };
-  const continuarMesmoAssim = () => {
-    const executar = validacaoRelatorio?.executar;
-    setValidacaoRelatorio(null);
-    if (executar) window.setTimeout(executar, 0);
-  };
-  const irPreencher = (destino) => {
-    setValidacaoRelatorio(null);
-    if (destino === "pix") {
-      showToast?.("Abra o cadastro de cada funcionário indicado e informe a chave PIX.", "info");
-      onTab?.("cad");
-    } else {
-      showToast?.("Complete os dias sem registro antes de gerar a folha.", "info");
-      onTab?.("ponto");
-    }
-  };
+  // Linhas consolidadas: uma combinacao unica de funcionario + obra. Este e
+  // o numero que responde quantos dias a pessoa efetivamente trabalhou em
+  // cada canteiro, sem contar faltas e ponderando meio periodo como 0,5.
+  const detalheObraFuncionario = rows.flatMap(r =>
+    r.obrasPorDia
+      .filter(o => filterObra === "all" || o.obraId === filterObra)
+      .map(o => ({
+        empId:r.id, funcionario:r.name, cargo:r.role || "", diaria:Number(r.dailyRate || 0),
+        ...o,
+      }))
+  ).sort((a,b) => a.obraName.localeCompare(b.obraName) || a.funcionario.localeCompare(b.funcionario));
+
+  // Resumo gerencial por obra, calculado a partir do mesmo detalhamento.
+  const resumoPorObraMap = new Map();
+  detalheObraFuncionario.forEach(l => {
+    if (!resumoPorObraMap.has(l.obraId)) resumoPorObraMap.set(l.obraId, {
+      obraId:l.obraId, obraName:l.obraName, funcionarios:new Set(), presentes:0,
+      meiodia:0, diasTrabalhados:0, faltas:0, semRegistro:0, feriadosPagos:0,
+      feriadosPerdidos:0, valorDias:0, valorFeriados:0, ot:0, vt:0, vr:0,
+      bruto:0, custoDireto:0,
+    });
+    const o = resumoPorObraMap.get(l.obraId);
+    if (l.diasTrabalhados > 0 || l.feriadosPagos > 0) o.funcionarios.add(l.empId);
+    ["presentes","meiodia","diasTrabalhados","faltas","semRegistro","feriadosPagos",
+     "feriadosPerdidos","valorDias","valorFeriados","ot","vt","vr","bruto","custoDireto"]
+      .forEach(k => { o[k] += Number(l[k] || 0); });
+  });
+  const resumoPorObra = [...resumoPorObraMap.values()]
+    .map(o => ({...o, funcionarios:o.funcionarios.size}))
+    .sort((a,b) => a.obraName.localeCompare(b.obraName));
+
+  // Espelho diario auditavel. Inclui sem registro e feriados para que o total
+  // consolidado possa ser conferido data a data no Excel.
+  const pontoDiario = rows.flatMap(r => days.map(d => {
+    if (!isEmployeeEmployedOnDate(r, d)) return null;
+    const feriado = holidaysInPeriod.includes(d);
+    const regraFer = feriado ? (r.holidayRules || []).find(h => h.holidayIso === d) : null;
+    const a = feriado ? null : getAtt(data, r.id, d);
+    const obraId = a?.obraId || getEmpObraIdOnDate(r, d);
+    if (filterObra !== "all" && obraId !== filterObra) return null;
+    const st = feriado ? (regraFer?.losesHoliday ? "Feriado perdido" : "Feriado pago")
+      : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio periodo"
+      : a?.status === "F" ? "Falta" : "Sem registro";
+    const equivalente = a?.status === "P" ? 1 : a?.status === "M" ? 0.5 : 0;
+    const valorDia = feriado ? Number(regraFer?.amount || 0) : Number(r.dailyRate || 0) * equivalente;
+    const valorVT = feriado ? 0 : Number(r.vtDaily || 0) * equivalente;
+    const valorVR = feriado ? 0 : Number(r.vrDaily || 0) * equivalente;
+    return {
+      data:d, diaSemana:["Domingo","Segunda","Terca","Quarta","Quinta","Sexta","Sabado"][new Date(d+"T00:00:00").getDay()],
+      funcionario:r.name, cargo:r.role || "", obraId,
+      obraName:data.obras.find(o => o.id === obraId)?.name || "Sem obra identificada",
+      status:st, equivalente, ot:Number(a?.ot || 0), diaria:Number(r.dailyRate || 0),
+      valorDia, vt:valorVT, vr:valorVR, totalDia:valorDia+valorVT+valorVR,
+      observacao:a?.note || "",
+    };
+  }).filter(Boolean)).sort((a,b) => a.data.localeCompare(b.data) || a.obraName.localeCompare(b.obraName) || a.funcionario.localeCompare(b.funcionario));
 
   const printPDF = () => {
     // Monta a tabela de detalhe por obra para o PDF
-    const detalheRows = [];
-    rows.forEach(r => {
-      if (r.obrasPorDia.length <= 1) {
-        const o = r.obrasPorDia[0] || { obraName: obraName(r.obra), presentes: 0, meiodia: 0, faltas: 0, totalDias: 0 };
-        detalheRows.push(`<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.role || "-")}</td><td>${escapeHtml(r.pixKey || "-")}</td><td>${escapeHtml(o.obraName)}</td><td>${o.presentes}</td><td>${o.meiodia}</td><td>${o.faltas}</td><td>${o.totalDias}</td></tr>`);
-      } else {
-        r.obrasPorDia.forEach((o, i) => {
-          detalheRows.push(`<tr${i === 0 ? ` style="border-top:2px solid #f0df00"` : ""}><td>${i === 0 ? escapeHtml(r.name) : ""}</td><td>${i === 0 ? escapeHtml(r.role || "-") : ""}</td><td>${i === 0 ? escapeHtml(r.pixKey || "-") : ""}</td><td>${escapeHtml(o.obraName)}</td><td>${o.presentes}</td><td>${o.meiodia}</td><td>${o.faltas}</td><td>${o.totalDias}</td></tr>`);
-        });
-        detalheRows.push(`<tr style="background:#fffde7;font-style:italic"><td></td><td></td><td></td><td><b>Total ${escapeHtml(r.name)}</b></td><td><b>${r.presentes}</b></td><td><b>${r.meiodia}</b></td><td><b>${r.faltas}</b></td><td><b>${r.presentes + r.meiodia + r.faltas}</b></td></tr>`);
-      }
-    });
+    const detalheRows = detalheObraFuncionario.map(l =>
+      `<tr><td>${escapeHtml(l.obraName)}</td><td>${escapeHtml(l.funcionario)}</td>`+
+      `<td>${escapeHtml(l.cargo || "-")}</td><td>${l.presentes}</td><td>${l.meiodia}</td>`+
+      `<td><b>${l.diasTrabalhados.toFixed(1).replace(".",",")}</b></td><td>${l.faltas}</td>`+
+      `<td>${l.semRegistro}</td><td>${l.feriadosPagos}</td><td class="num">${escapeHtml(fmt(l.bruto))}</td></tr>`
+    );
 
     const linhasFolha = rows.length ? rows.map(r => `
       <tr>
-        <td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.role || "-")}</td><td>${escapeHtml(r.pixKey || "-")}</td><td>${escapeHtml(obraName(r.obra))}</td>
+        <td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.role || "-")}</td><td>${escapeHtml(obraName(r.obra))}</td>
         <td class="num">${r.presentes}</td><td class="num">${r.meiodia}</td><td class="num"><b>${(r.presentes + r.meiodia * 0.5).toFixed(1).replace(".", ",")}</b></td>
         <td class="num">${r.faltas}</td><td class="num">${r.semRegistro}</td><td class="num">${r.feriadosPagos}</td><td class="num">${r.feriadosPerdidos}</td>
         <td class="num">${escapeHtml(fmt(r.holidayPay))}</td><td class="num">${r.ot || 0}h</td><td class="num">${escapeHtml(fmt(Number(r.dailyRate || 0)))}</td>
         <td class="num">${escapeHtml(fmt(r.gross))}</td><td class="num">${escapeHtml(fmt(r.vt))}</td><td class="num">${escapeHtml(fmt(r.vr))}</td><td class="num">${escapeHtml(fmt(r.advances))}</td><td class="num"><b>${escapeHtml(fmt(r.net))}</b></td>
-      </tr>`).join("") : `<tr><td colspan="19" class="vazio">Nenhum lançamento encontrado para o período selecionado.</td></tr>`;
+      </tr>`).join("") : `<tr><td colspan="18" class="vazio">Nenhum lançamento encontrado para o período selecionado.</td></tr>`;
 
     const html = `<!doctype html>
       <html lang="pt-BR">
@@ -5670,11 +5807,12 @@ function Folha({ data, showToast, onTab }) {
             .kpi{border:1px solid #bbb;border-top:3px solid #d4af37;padding:7px;background:#fafafa}
             .kpi span{display:block;font-size:8px;text-transform:uppercase;color:#666;font-weight:bold}
             .kpi b{display:block;font-size:14px;margin-top:2px}
-            table{width:100%;border-collapse:collapse;margin-top:8px;font-size:7.5px;table-layout:auto}
-            thead{display:table-header-group} tfoot{display:table-footer-group}
+            table{width:100%;border-collapse:collapse;margin-top:8px;font-size:8px;table-layout:auto}
+            thead{display:table-header-group}
+            tfoot{display:table-footer-group}
             tr{break-inside:avoid;page-break-inside:avoid}
             th,td{border:1px solid #aaa;padding:4px;text-align:left;vertical-align:middle}
-            th{background:#e8e8e8;font-size:7px;text-transform:uppercase;white-space:nowrap}
+            th{background:#e8e8e8;font-size:7.5px;text-transform:uppercase;white-space:nowrap}
             td.num{text-align:right;white-space:nowrap}
             .total{font-weight:bold;background:#fff8d6}
             .vazio{text-align:center;padding:16px;color:#666;font-style:italic}
@@ -5709,13 +5847,15 @@ function Folha({ data, showToast, onTab }) {
           <table>
             <thead>
               <tr>
-                <th>Funcionário</th><th>Cargo</th><th>PIX</th><th>Obra Atual</th><th>P</th><th>M</th><th>Dias Trab.</th><th>F</th><th>S/R</th><th>FP</th><th>FD</th><th>Valor Feriado</th><th>HE</th><th>Diária</th><th>Bruto</th><th>VT</th><th>VR</th><th>Adiant.</th><th>Líquido</th>
+                <th>Funcionário</th><th>Cargo</th><th>Obra Atual</th><th>P</th><th>M</th><th>Dias Trab.</th><th>F</th><th>S/R</th><th>FP</th><th>FD</th><th>Valor Feriado</th><th>HE</th><th>Diária</th><th>Bruto</th><th>VT</th><th>VR</th><th>Adiant.</th><th>Líquido</th>
               </tr>
             </thead>
             <tbody>
               ${linhasFolha}
             </tbody>
-            <tfoot><tr class="total"><td colspan="14">TOTAL - ${rows.length} funcionário(s)</td><td class="num">${escapeHtml(fmt(T.gross))}</td><td class="num">${escapeHtml(fmt(T.vt))}</td><td class="num">${escapeHtml(fmt(T.vr))}</td><td class="num">${escapeHtml(fmt(T.advances))}</td><td class="num">${escapeHtml(fmt(T.net))}</td></tr></tfoot>
+            <tfoot>
+              <tr class="total"><td colspan="13">TOTAL - ${rows.length} funcionário(s)</td><td class="num">${escapeHtml(fmt(T.gross))}</td><td class="num">${escapeHtml(fmt(T.vt))}</td><td class="num">${escapeHtml(fmt(T.vr))}</td><td class="num">${escapeHtml(fmt(T.advances))}</td><td class="num">${escapeHtml(fmt(T.net))}</td></tr>
+            </tfoot>
           </table>
 
           <!-- Tabela de detalhe por obra -->
@@ -5725,11 +5865,11 @@ function Folha({ data, showToast, onTab }) {
             <table>
               <thead>
                 <tr>
-                  <th>Funcionário</th><th>Cargo</th><th>PIX</th><th>Obra</th><th>Presentes</th><th>Meio Dia</th><th>Faltas</th><th>Total c/ Registro</th>
+                  <th>Obra</th><th>Funcionário</th><th>Cargo</th><th>Presentes</th><th>Meio Dia</th><th>Dias Trabalhados</th><th>Faltas</th><th>Sem Registro</th><th>Feriados Pagos</th><th>Bruto Alocado</th>
                 </tr>
               </thead>
               <tbody>
-                ${detalheRows.join("") || `<tr><td colspan="8" class="vazio">Nenhum apontamento por obra encontrado para o período selecionado.</td></tr>`}
+                ${detalheRows.join("") || `<tr><td colspan="10" class="vazio">Nenhum apontamento por obra encontrado para o período selecionado.</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -5741,7 +5881,7 @@ function Folha({ data, showToast, onTab }) {
     `;
     const w = window.open("", "_blank");
     if (!w) {
-      showToast?.("Não foi possível abrir a impressão. Permita pop-ups e tente novamente.", "error");
+      showToast("Não foi possível abrir a impressão. Permita pop-ups para este aplicativo e tente novamente.", "error");
       return;
     }
     w.document.open();
@@ -5751,13 +5891,13 @@ function Folha({ data, showToast, onTab }) {
     window.setTimeout(() => w.print(), 300);
   };
 
-  const exportXLS = () => {
+  const exportXLSLegado = () => {
     const wb = XLSX.utils.book_new();
 
     //  Aba 1: Folha resumo (igual ao original) 
-    const header = ["Funcionário", "Cargo", "PIX", "Obra Atual", "Pres.", "Meio Dia", "Dias Trabalhados", "Faltas", "Sem Registro", "Feriados Pagos", "Feriados Perdidos", "Valor Feriado", "HE", "Diária", "Bruto", "VT", "VR", "Adiant.", "Líquido"];
-    const body = rows.map(r => [r.name, r.role || "", r.pixKey || "", obraName(r.obra), r.presentes, r.meiodia, r.presentes + r.meiodia * 0.5, r.faltas, r.semRegistro, r.feriadosPagos, r.feriadosPerdidos, r.holidayPay, r.ot, r.dailyRate, r.gross, r.vt, r.vr, r.advances, r.net]);
-    const total = ["TOTAL", "", "", "", rows.reduce((s, r) => s + r.presentes, 0), rows.reduce((s, r) => s + r.meiodia, 0), rows.reduce((s, r) => s + r.presentes + r.meiodia * 0.5, 0), rows.reduce((s, r) => s + r.faltas, 0), rows.reduce((s, r) => s + r.semRegistro, 0), T.feriadosPagos, T.feriadosPerdidos, T.holidayPay, rows.reduce((s, r) => s + r.ot, 0), "", T.gross, T.vt, T.vr, T.advances, T.net];
+    const header = ["Funcionário", "Cargo", "Obra Atual", "Pres.", "Meio Dia", "Faltas", "Sem Registro", "Feriados Pagos", "Feriados Perdidos", "Valor Feriado", "HE", "Diária", "Bruto", "VT", "VR", "Adiant.", "Líquido"];
+    const body = rows.map(r => [r.name, r.role || "", obraName(r.obra), r.presentes, r.meiodia, r.faltas, r.semRegistro, r.feriadosPagos, r.feriadosPerdidos, r.holidayPay, r.ot, r.dailyRate, r.gross, r.vt, r.vr, r.advances, r.net]);
+    const total = ["TOTAL", "", "", rows.reduce((s, r) => s + r.presentes, 0), rows.reduce((s, r) => s + r.meiodia, 0), rows.reduce((s, r) => s + r.faltas, 0), rows.reduce((s, r) => s + r.semRegistro, 0), T.feriadosPagos, T.feriadosPerdidos, T.holidayPay, rows.reduce((s, r) => s + r.ot, 0), "", T.gross, T.vt, T.vr, T.advances, T.net];
     const ws1 = XLSX.utils.aoa_to_sheet([
       ["Folha de Pagamento", periodLabel],
       ["Data de pagamento", paymentDateLabel],
@@ -5767,25 +5907,25 @@ function Folha({ data, showToast, onTab }) {
       ...body,
       total,
     ]);
-    ws1["!cols"] = [20, 15, 28, 18, 8, 10, 16, 8, 12, 15, 17, 14, 6, 10, 12, 10, 10, 10, 12].map(w => ({ wch: w }));
+    ws1["!cols"] = [20, 15, 15, 8, 10, 8, 12, 15, 17, 14, 6, 10, 12, 10, 10, 10, 12].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, ws1, "Folha");
 
     //  Aba 2: Detalhe de dias por obra 
-    const header2 = ["Funcionário", "Cargo", "PIX", "Obra", "Presentes", "Meio Dia", "Dias Trabalhados", "Faltas", "Total Dias c/ Registro"];
+    const header2 = ["Funcionário", "Cargo", "Obra", "Presentes", "Meio Dia", "Faltas", "Total Dias c/ Registro"];
     const body2 = [];
     rows.forEach(r => {
       if (r.obrasPorDia.length === 0) {
-        body2.push([r.name, r.role || "", r.pixKey || "", obraName(r.obra), 0, 0, 0, 0, 0]);
+        body2.push([r.name, r.role || "", obraName(r.obra), 0, 0, 0, 0]);
       } else if (r.obrasPorDia.length === 1) {
         const o = r.obrasPorDia[0];
-        body2.push([r.name, r.role || "", r.pixKey || "", o.obraName, o.presentes, o.meiodia, o.presentes + o.meiodia * 0.5, o.faltas, o.totalDias]);
+        body2.push([r.name, r.role || "", o.obraName, o.presentes, o.meiodia, o.faltas, o.totalDias]);
       } else {
         // Várias obras - primeira linha com nome do funcionário
         r.obrasPorDia.forEach((o, i) => {
-          body2.push([i === 0 ? r.name : "", i === 0 ? (r.role || "") : "", i === 0 ? (r.pixKey || "") : "", o.obraName, o.presentes, o.meiodia, o.presentes + o.meiodia * 0.5, o.faltas, o.totalDias]);
+          body2.push([i === 0 ? r.name : "", i === 0 ? (r.role || "") : "", o.obraName, o.presentes, o.meiodia, o.faltas, o.totalDias]);
         });
         // Subtotal do funcionário
-        body2.push(["", "", "", ` TOTAL ${r.name}`, r.presentes, r.meiodia, r.presentes + r.meiodia * 0.5, r.faltas, r.presentes + r.meiodia + r.faltas]);
+        body2.push(["", "", ` TOTAL ${r.name}`, r.presentes, r.meiodia, r.faltas, r.presentes + r.meiodia + r.faltas]);
         body2.push([]); // linha em branco entre funcionários
       }
     });
@@ -5797,11 +5937,94 @@ function Folha({ data, showToast, onTab }) {
       header2,
       ...body2,
     ]);
-    ws2["!cols"] = [22, 15, 28, 20, 10, 10, 16, 8, 18].map(w => ({ wch: w }));
+    ws2["!cols"] = [22, 15, 20, 10, 10, 8, 18].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, ws2, "Dias por Obra");
 
     XLSX.writeFile(wb, `arcd-folha-${year}-${String(month + 1).padStart(2, "0")}-Q${q}.xlsx`);
     showToast("Excel gerado com 2 abas.");
+  };
+
+  // Exportacao tecnica: folha financeira + consolidacao por obra +
+  // funcionario/obra + espelho diario. Mantemos os valores numericos para que
+  // o operador possa somar, filtrar e montar tabelas dinamicas no Excel.
+  const exportXLSDetalhado = () => {
+    const wb = XLSX.utils.book_new();
+
+    const header1 = ["Funcionário", "Cargo", "Obra Atual", "Pres.", "Meio Dia", "Dias Trabalhados",
+      "Faltas", "Sem Registro", "Feriados Pagos", "Feriados Perdidos", "Valor Feriado",
+      "HE", "Diária", "Bruto", "VT", "VR", "Adiant.", "Líquido"];
+    const body1 = rows.map(r => [r.name, r.role || "", obraName(r.obra), r.presentes, r.meiodia,
+      r.presentes + r.meiodia * 0.5, r.faltas, r.semRegistro, r.feriadosPagos,
+      r.feriadosPerdidos, r.holidayPay, r.ot, r.dailyRate, r.gross, r.vt, r.vr, r.advances, r.net]);
+    const total1 = ["TOTAL", "", "",
+      ...["presentes","meiodia"].map(k=>rows.reduce((s,r)=>s+Number(r[k]||0),0)),
+      rows.reduce((s,r)=>s+Number(r.presentes||0)+Number(r.meiodia||0)*0.5,0),
+      rows.reduce((s,r)=>s+Number(r.faltas||0),0), rows.reduce((s,r)=>s+Number(r.semRegistro||0),0),
+      T.feriadosPagos, T.feriadosPerdidos, T.holidayPay, rows.reduce((s,r)=>s+Number(r.ot||0),0),
+      "", T.gross, T.vt, T.vr, T.advances, T.net];
+    const ws1 = XLSX.utils.aoa_to_sheet([
+      ["Folha de Pagamento", periodLabel], ["Data de pagamento", paymentDateLabel],
+      ["Regra aplicada", paymentObs], ["Critério de dias", "Presença = 1 dia; meio período = 0,5; falta e feriado = 0 dia trabalhado."],
+      [], header1, ...body1, total1,
+    ]);
+    ws1["!cols"] = [24,18,20,8,10,16,8,13,15,17,15,8,12,14,12,12,12,14].map(w=>({wch:w}));
+    if (body1.length) ws1["!autofilter"] = {ref:`A6:R${6+body1.length}`};
+    XLSX.utils.book_append_sheet(wb, ws1, "Folha");
+
+    const header2 = ["Obra", "Funcionários Alocados", "Presenças Integrais", "Meios Períodos",
+      "Dias Trabalhados Equivalentes", "Faltas", "Sem Registro", "Feriados Pagos",
+      "Feriados Perdidos", "HE", "Valor dos Dias", "Valor dos Feriados", "Bruto", "VT", "VR", "Custo Direto"];
+    const body2 = resumoPorObra.map(o => [o.obraName, o.funcionarios, o.presentes, o.meiodia,
+      o.diasTrabalhados, o.faltas, o.semRegistro, o.feriadosPagos, o.feriadosPerdidos,
+      o.ot, o.valorDias, o.valorFeriados, o.bruto, o.vt, o.vr, o.custoDireto]);
+    const total2 = ["TOTAL", resumoPorObra.reduce((s,o)=>s+o.funcionarios,0),
+      ...["presentes","meiodia","diasTrabalhados","faltas","semRegistro","feriadosPagos",
+          "feriadosPerdidos","ot","valorDias","valorFeriados","bruto","vt","vr","custoDireto"]
+        .map(k => resumoPorObra.reduce((s,o)=>s+Number(o[k]||0),0))];
+    const ws2 = XLSX.utils.aoa_to_sheet([
+      ["Resumo da Folha por Obra", periodLabel],
+      ["Período", `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length-1])}`],
+      ["Critério", "Dia trabalhado equivalente = presença integral + 0,5 por meio período. Faltas não contam."],
+      [], header2, ...body2, total2,
+    ]);
+    ws2["!cols"] = [26,18,18,16,24,9,13,15,17,8,15,17,14,12,12,15].map(w=>({wch:w}));
+    if (body2.length) ws2["!autofilter"] = {ref:`A5:P${5+body2.length}`};
+    XLSX.utils.book_append_sheet(wb, ws2, "Resumo por Obra");
+
+    const header3 = ["Obra", "Funcionário", "Cargo", "Presenças Integrais", "Meios Períodos",
+      "Dias Trabalhados Equivalentes", "Faltas", "Sem Registro", "Feriados Pagos",
+      "Feriados Perdidos", "HE", "Diária", "Valor dos Dias", "Valor dos Feriados",
+      "Bruto Alocado", "VT", "VR", "Custo Direto"];
+    const body3 = detalheObraFuncionario.map(l => [l.obraName, l.funcionario, l.cargo,
+      l.presentes, l.meiodia, l.diasTrabalhados, l.faltas, l.semRegistro,
+      l.feriadosPagos, l.feriadosPerdidos, l.ot, l.diaria, l.valorDias,
+      l.valorFeriados, l.bruto, l.vt, l.vr, l.custoDireto]);
+    const ws3 = XLSX.utils.aoa_to_sheet([
+      ["Folha por Obra e Funcionário", periodLabel],
+      ["Período", `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length-1])}`],
+      ["Observação", "Adiantamentos e líquido permanecem na aba Folha, pois o adiantamento não possui obra vinculada."],
+      ["Critério", "Meio período equivale a 0,5 dia trabalhado; faltas e feriados não são dias trabalhados."],
+      [], header3, ...body3,
+    ]);
+    ws3["!cols"] = [26,24,18,18,16,24,9,13,15,17,8,12,15,17,15,12,12,15].map(w=>({wch:w}));
+    if (body3.length) ws3["!autofilter"] = {ref:`A6:R${6+body3.length}`};
+    XLSX.utils.book_append_sheet(wb, ws3, "Funcionario por Obra");
+
+    const header4 = ["Data", "Dia da Semana", "Funcionário", "Cargo", "Obra", "Status",
+      "Dia Equivalente", "HE", "Diária", "Valor do Dia/Feriado", "VT", "VR", "Total Direto", "Observação"];
+    const body4 = pontoDiario.map(l => [l.data, l.diaSemana, l.funcionario, l.cargo, l.obraName,
+      l.status, l.equivalente, l.ot, l.diaria, l.valorDia, l.vt, l.vr, l.totalDia, l.observacao]);
+    const ws4 = XLSX.utils.aoa_to_sheet([
+      ["Espelho Diário por Obra e Funcionário", periodLabel],
+      ["Período", `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length-1])}`],
+      [], header4, ...body4,
+    ]);
+    ws4["!cols"] = [12,15,24,18,26,17,15,8,12,20,12,12,15,30].map(w=>({wch:w}));
+    if (body4.length) ws4["!autofilter"] = {ref:`A4:N${4+body4.length}`};
+    XLSX.utils.book_append_sheet(wb, ws4, "Ponto Diario");
+
+    XLSX.writeFile(wb, `arcd-folha-${year}-${String(month+1).padStart(2,"0")}-Q${q}.xlsx`);
+    showToast("Excel gerado com 4 abas: folha, obras, funcionários e ponto diário.");
   };
 
   const buildText = () => [
@@ -5811,7 +6034,7 @@ function Folha({ data, showToast, onTab }) {
     `Pagamento: ${paymentDateLabel}`,
     paymentObs,
     "",
-    ...rows.map(r => `- ${r.name} (${obraName(r.obra)}): ${fmt(r.net)} | PIX: ${r.pixKey || "não informado"} | ${r.feriadosPagos}FP ${r.feriadosPerdidos}FD`),
+    ...rows.map(r => `- ${r.name} (${obraName(r.obra)}): ${fmt(r.net)} | ${r.feriadosPagos}FP ${r.feriadosPerdidos}FD`),
     "",
     `TOTAL LÍQUIDO: ${fmt(T.net)}`,
     `FERIADOS PAGOS: ${T.feriadosPagos}`,
@@ -5832,14 +6055,11 @@ function Folha({ data, showToast, onTab }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel label="Ano de referência" value={String(year)} onChange={v => setYear(Number(v))} options={years} />
-        <Sel label="Mês de início do ciclo" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+        <Sel value={String(year)} onChange={v => setYear(Number(v))} options={years} />
+        <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel label="Ciclo da folha" value={q} onChange={setQ} options={[
-          { v: "1", l: "06 a 20 · pagamento dia 20" },
-          { v: "2", l: "21 a 05 · pagamento dia 05" },
-        ]} />
+        <Sel value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena" }, { v: "2", l: "2ª quinzena" }]} />
         <Sel value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
       </div>
 
@@ -5859,10 +6079,10 @@ function Folha({ data, showToast, onTab }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Btn v="ghost" onClick={() => executarComValidacao("PDF / impressão", printPDF)}><Ic n="file" /> PDF / Imprimir</Btn>
-        <Btn v="success" onClick={() => executarComValidacao("Excel", exportXLS)}><Ic n="download" /> Excel .xlsx</Btn>
-        <Btn v="info" onClick={() => executarComValidacao("E-mail", () => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`))}><Ic n="mail" /> E-mail</Btn>
-        <Btn v="success" onClick={() => executarComValidacao("WhatsApp", () => navigator.clipboard.writeText(buildText()).then(() => showToast("Copiado.")).catch(() => showToast("Erro ao copiar.", "error")))}><Ic n="copy" /> WhatsApp</Btn>
+        <Btn v="ghost" onClick={printPDF}><Ic n="file" /> PDF / Imprimir</Btn>
+        <Btn v="success" onClick={exportXLSDetalhado}><Ic n="download" /> Excel detalhado .xlsx</Btn>
+        <Btn v="info" onClick={() => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`)}><Ic n="mail" /> E-mail</Btn>
+        <Btn v="success" onClick={() => navigator.clipboard.writeText(buildText()).then(() => showToast("Copiado.")).catch(() => showToast("Erro ao copiar.", "error"))}><Ic n="copy" /> WhatsApp</Btn>
       </div>
 
       {rows.length === 0 && <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 20, textAlign: "center", color: C.muted }}>Nenhum funcionário com movimentação nesta quinzena.</div>}
@@ -5872,7 +6092,7 @@ function Folha({ data, showToast, onTab }) {
           <button onClick={() => setExpandedId(expandedId === r.id ? null : r.id)} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 14, width: "100%", cursor: "pointer", color: C.text, textAlign: "left", display: "flex", justifyContent: "space-between", gap: 8 }}>
             <div>
               <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 17 }}>{r.name}</p>
-              <p style={{ color: C.muted, fontSize: 12 }}>{obraName(r.obra)}  {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R  {r.feriadosPagos}FP {r.feriadosPerdidos}FD{r.ot > 0 ? `  ${r.ot}h` : ""}</p>
+              <p style={{ color: C.muted, fontSize: 12 }}>{obraName(r.obra)}  {(r.presentes+r.meiodia*0.5).toFixed(1).replace(".",",")} dia(s) trabalhado(s)  {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R  {r.feriadosPagos}FP {r.feriadosPerdidos}FD{r.ot > 0 ? `  ${r.ot}h` : ""}</p>
             </div>
             <div style={{ textAlign: "right" }}>
               <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 19, color: C.yellow }}>{fmt(r.net)}</p>
@@ -5904,6 +6124,26 @@ function Folha({ data, showToast, onTab }) {
                 </div>
               )}
 
+              {r.obrasPorDia.filter(o => filterObra === "all" || o.obraId === filterObra).length > 0 && (
+                <div style={{ marginBottom:12 }}>
+                  <p style={{ color:C.yellow, fontFamily:"'Inter Display','Inter',sans-serif",
+                              fontWeight:900, textTransform:"uppercase", marginBottom:6 }}>
+                    Dias trabalhados por obra
+                  </p>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:6}}>
+                    {r.obrasPorDia.filter(o => filterObra === "all" || o.obraId === filterObra).map(o => (
+                      <div key={o.obraId || "sem-obra"} style={{background:C.card,border:`1px solid ${C.border}`,padding:"8px 10px"}}>
+                        <p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{o.obraName}</p>
+                        <p style={{fontSize:15,fontWeight:900,color:C.green,marginTop:2}}>
+                          {o.diasTrabalhados.toFixed(1).replace(".",",")} dia(s)
+                        </p>
+                        <p style={{fontSize:9.5,color:C.muted}}>{o.presentes} integral(is) + {o.meiodia} meio(s) período(s) · {o.faltas} falta(s)</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {r.pixKey && <p style={{ color: C.subtle, fontSize: 12, marginBottom: 10 }}>PIX: {r.pixKey}</p>}
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(43px, 1fr))", gap: 4 }}>
@@ -5924,48 +6164,6 @@ function Folha({ data, showToast, onTab }) {
           )}
         </div>
       ))}
-
-      {validacaoRelatorio && (
-        <Modal title="Pendências antes de gerar a folha" onClose={() => setValidacaoRelatorio(null)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderLeft:`4px solid ${C.orange}`,borderRadius:8,padding:"10px 12px"}}>
-              <p style={{fontSize:12,fontWeight:800,color:C.orange}}>Revise antes de continuar com {validacaoRelatorio.saida}</p>
-              <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5,marginTop:3}}>
-                Você pode preencher as informações agora ou gerar o relatório mesmo com as pendências abaixo.
-              </p>
-            </div>
-
-            {pixPendentes.length > 0 && (
-              <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 11px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:6}}>
-                  <p style={{fontSize:11.5,fontWeight:900,color:C.red}}>PIX não informado</p>
-                  <span style={{fontSize:10,fontWeight:900,color:C.red}}>{pixPendentes.length} pessoa(s)</span>
-                </div>
-                <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>{pixPendentes.map(r=>r.name).join(", ")}</p>
-                <div style={{marginTop:8}}><Btn v="ghost" size="sm" full onClick={()=>irPreencher("pix")}>Preencher PIX agora</Btn></div>
-              </div>
-            )}
-
-            {registroPendentes.length > 0 && (
-              <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 11px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:6}}>
-                  <p style={{fontSize:11.5,fontWeight:900,color:C.orange}}>Dias sem registro no ciclo</p>
-                  <span style={{fontSize:10,fontWeight:900,color:C.orange}}>{registroPendentes.reduce((s,r)=>s+r.semRegistro,0)} dia(s)</span>
-                </div>
-                <div style={{maxHeight:150,overflowY:"auto",display:"flex",flexDirection:"column",gap:3}}>
-                  {registroPendentes.map(r=><p key={r.id} style={{fontSize:10.5,color:C.muted}}><strong style={{color:C.text}}>{r.name}</strong>: {r.semRegistro} dia(s) sem registro</p>)}
-                </div>
-                <div style={{marginTop:8}}><Btn v="ghost" size="sm" full onClick={()=>irPreencher("ponto")}>Completar ponto agora</Btn></div>
-              </div>
-            )}
-
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              <Btn v="ghost" onClick={()=>setValidacaoRelatorio(null)}>Cancelar</Btn>
-              <Btn v="danger" onClick={continuarMesmoAssim}>Continuar sem preencher</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
@@ -8998,14 +9196,12 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
 // 
 //
 // ARQUITETURA (importante):
-// A base SINAPI completa não entra no JSON geral do aplicativo. Ela fica em
-// tabelas normalizadas no Supabase e é consultada pela rota /api/references.
-// A base ORSE usa a competência cadastrada e a pesquisa pública oficial.
-// Ao adicionar um item, o preço é COPIADO para dentro do orçamento
+// A base SINAPI completa (~10k composições) NÃO é persistida no Supabase -
+// isso inflaria o blob salvo a cada operação do app. Em vez disso:
+//   1. O XLSX é importado e fica em memória durante a sessão (baseImport)
+//   2. Ao adicionar um item, o preço é COPIADO para dentro do orçamento
 //      (snapshot). Isso é tecnicamente correto: um orçamento com data-base
 //      SINAPI mai/2026 deve manter aqueles preços mesmo que a base mude.
-
-const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
 //   3. Itens usados vão para `baseFavoritos` (base curada, leve, persistida)
 // 
 
@@ -9060,6 +9256,88 @@ const BDI_COMPONENTES_EDIF = {
 // Fórmula do TCU:
 //   BDI = [ (1+AC+S+R+G) x (1+DF) x (1+L) / (1  I) ]  1
 // I = tributos incidentes sobre o faturamento (PIS + COFINS + ISS + CPRB)
+// ==============================================================
+//  CONFERENCIA DIMENSIONAL DO ORCAMENTO
+//  Compara as quantidades de servicos por AREA com a area construida
+//  da obra. Ex.: forro costuma ser ~area construida; se o orcamento
+//  tem 300 m de forro numa obra de 200 m, ha 100 m de divergencia.
+//  Roda LOCALMENTE (sem IA) - a IA so enriquece quando disponivel.
+// ==============================================================
+
+// Familias de servico por AREA e a relacao esperada com a area construida.
+// fator: quanto o servico costuma medir em relacao a area construida.
+//   1.0  = ~igual (forro, piso, contrapiso, laje, impermeab. de laje)
+//   ~2.5 = paredes tem 2 faces e pe-direito (reboco, chapisco, pintura parede)
+// tol: tolerancia (fracao) antes de virar alerta.
+const FAMILIAS_DIM = [
+  // Regras especificas precisam vir antes das genericas: "contrapiso" contem
+  // "piso" e "pintura de forro" contem "forro".
+  { chave: "pintura_teto",termos: ["pintura de teto", "pintura forro", "massa corrida teto"], fator: 1.0, tol: 0.20, obs: "Pintura de teto segue a area construida." },
+  { chave: "contrapiso",  termos: ["contrapiso", "regularizacao de piso"], fator: 1.0, tol: 0.15, obs: "Contrapiso segue a area construida." },
+  { chave: "piso",        termos: ["piso", "porcelanato", "ceramica piso", "revestimento de piso"], fator: 1.0, tol: 0.15, obs: "Piso segue a area construida." },
+  { chave: "forro",       termos: ["forro", "gesso"],                 fator: 1.0,  tol: 0.15, obs: "Forro segue de perto a area construida (menos vazios)." },
+  { chave: "laje",        termos: ["laje"],                           fator: 1.0,  tol: 0.20, obs: "Laje se aproxima da area construida por pavimento." },
+  { chave: "cobertura",   termos: ["telha", "cobertura", "telhado"],  fator: 1.2,  tol: 0.25, obs: "Cobertura costuma ser um pouco maior que a area (beirais, caimento)." },
+  { chave: "reboco",      termos: ["reboco", "emboco", "massa unica", "chapisco"], fator: 2.5, tol: 0.35, obs: "Paredes tem 2 faces e pe-direito: costuma ser ~2,5x a area." },
+  { chave: "alvenaria",   termos: ["alvenaria", "vedacao", "tijolo", "bloco ceramico", "bloco de concreto"], fator: 2.2, tol: 0.40, obs: "Alvenaria acompanha o perimetro e o pe-direito." },
+  { chave: "pintura_par", termos: ["pintura", "massa corrida", "textura"], fator: 2.5, tol: 0.40, obs: "Pintura de parede: 2 faces e pe-direito." },
+];
+
+const semAcentoDim = (s) => String(s || "").toLowerCase()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+// Classifica um item numa familia (a primeira que casar por termo).
+// So considera itens medidos em m2 (area).
+const familiaDoItem = (item) => {
+  const un = semAcentoDim(item.unidade).replace(/²/g, "2").replace(/[^a-z0-9]/g, "");
+  // Metro linear (m) nao e area e nao pode alimentar a conferencia em m2.
+  const ehArea = un === "m2";
+  if (!ehArea) return null;
+  const desc = semAcentoDim(item.descricao);
+  // pintura de teto antes de pintura de parede (mais especifico primeiro)
+  for (const fam of FAMILIAS_DIM) {
+    if (fam.termos.some(t => desc.includes(semAcentoDim(t)))) return fam;
+  }
+  return null;
+};
+
+// Roda a conferencia. Devolve as familias encontradas com quantidade somada,
+// esperada e o status (ok | alto | baixo). Precisa da area construida > 0.
+const conferenciaDimensional = (orc, areaConstruida) => {
+  const area = Number(areaConstruida || 0);
+  const itens = (orc?.itens || []).filter(it => it.tipo !== "titulo" && Number(it.quantidade || 0) > 0);
+
+  const porFamilia = {};
+  itens.forEach(it => {
+    const fam = familiaDoItem(it);
+    if (!fam) return;
+    if (!porFamilia[fam.chave]) porFamilia[fam.chave] = { fam, qtd: 0, itens: [] };
+    porFamilia[fam.chave].qtd += Number(it.quantidade || 0);
+    porFamilia[fam.chave].itens.push(it.descricao);
+  });
+
+  const linhas = Object.values(porFamilia).map(g => {
+    const esperado = area * g.fam.fator;
+    const dif = g.qtd - esperado;
+    const difPct = esperado ? (dif / esperado) : 0;
+    let status = "ok";
+    if (area > 0) {
+      if (difPct > g.fam.tol) status = "alto";
+      else if (difPct < -g.fam.tol) status = "baixo";
+    } else {
+      status = "sem_area";
+    }
+    return {
+      chave: g.fam.chave, nome: g.fam.chave.replace(/_/g, " "),
+      qtd: g.qtd, esperado, dif, difPct: difPct * 100,
+      status, obs: g.fam.obs, exemplos: g.itens.slice(0, 3),
+    };
+  }).sort((a, b) => Math.abs(b.difPct) - Math.abs(a.difPct));
+
+  const alertas = linhas.filter(l => l.status === "alto" || l.status === "baixo");
+  return { area, linhas, alertas, temArea: area > 0 };
+};
+
 const calcBDI = (p) => {
   const d = (x) => Number(x || 0) / 100;
   const ac = d(p.ac), seg = d(p.seguro), ris = d(p.risco), gar = d(p.garantia);
@@ -9198,10 +9476,19 @@ const orcamentoDaObra = (data, obraId) =>
     .filter(o => o.obraId === obraId)
     .slice(-1)[0] || null;
 
+
 // Monta as tarefas efetivas do Gantt: cada tarefa do plano, enriquecida com
-// nome e custo vindos da etapa do orcamento. Ordena por data de inicio.
+// nome e custo vindos da etapa do orcamento. A ordem visual e SEMPRE a mesma
+// do orcamento; datas diferentes nao podem reordenar o planejamento.
+const ordemEtapasOrcamento = (orc) => {
+  if (!orc) return [];
+  const arvore = construirArvore(orc.etapas || [], orc.itens || []);
+  return achatarArvore(arvore).filter(n => n.tipo === "etapa").map(n => n.id);
+};
+
 const montarTarefas = (plano, orc) => {
   if (!plano) return [];
+  const ordem = ordemEtapasOrcamento(orc);
   return (plano.tarefas || [])
     .map(t => {
       const etapa = (orc?.etapas || []).find(e => e.id === t.etapaId);
@@ -9216,7 +9503,12 @@ const montarTarefas = (plano, orc) => {
         orfa:  !!t.etapaId && !etapa,  // aponta para etapa que nao existe mais
       };
     })
-    .sort((a, b) => (a.inicio || "9999").localeCompare(b.inicio || "9999"));
+    .sort((a, b) => {
+      const ia = ordem.indexOf(a.etapaId), ib = ordem.indexOf(b.etapaId);
+      const oa = ia < 0 ? Number.MAX_SAFE_INTEGER : ia;
+      const ob = ib < 0 ? Number.MAX_SAFE_INTEGER : ib;
+      return oa - ob;
+    });
 };
 
 // Janela de tempo do plano: menor inicio e maior fim entre tarefas e marcos.
@@ -9288,7 +9580,16 @@ const diasUteis = (ini, fim, cal) => {
 // A partir de uma data, soma N dias UTEIS e devolve a data final.
 // Ex.: comeca sexta, +1 dia util com seg-sex -> segunda.
 const somaDiasUteis = (ini, nUteis, cal) => {
-  if (!ini || nUteis <= 0) return ini;
+  if (!ini || nUteis === 0) return ini;
+  if (nUteis < 0) {
+    let cur = ini, contados = 0, guard = 0;
+    while (contados < Math.abs(nUteis) && guard < 3660) {
+      cur = somaDias(cur, -1);
+      if (ehDiaUtil(cur, cal)) contados++;
+      guard++;
+    }
+    return cur;
+  }
   let cur = ini, contados = 0, guard = 0;
   // O proprio dia de inicio conta como 1 util se for util.
   if (ehDiaUtil(cur, cal)) contados = 1;
@@ -9298,6 +9599,246 @@ const somaDiasUteis = (ini, nUteis, cal) => {
     guard++;
   }
   return cur;
+};
+
+// Ajusta uma data para um dia trabalhado do calendario. E usado pela IA e
+// pelo arraste do Gantt para que barras nao comecem em domingo/feriado.
+const ajustarParaDiaUtil = (iso, cal, direcao = 1) => {
+  if (!iso) return "";
+  let cur = iso, guard = 0;
+  while (!ehDiaUtil(cur, cal) && guard < 3660) {
+    cur = somaDias(cur, direcao >= 0 ? 1 : -1);
+    guard++;
+  }
+  return cur;
+};
+
+const proximoDiaUtil = (iso, cal) =>
+  ajustarParaDiaUtil(somaDias(iso, 1), cal, 1);
+
+// ==============================================================
+//  IA - QUESTIONARIO DE PLANEJAMENTO
+//  Monta o cronograma a partir das etapas do orcamento, aplicando
+//  boas praticas de sequenciamento construtivo e respeitando o
+//  prazo desejado pelo operador. Analise LOCAL e deterministica; a
+//  IA opcional so comenta os riscos depois.
+//
+//  Sequencia construtiva padrao (ordem de execucao na obra):
+//  servicos preliminares -> fundacao -> estrutura -> alvenaria ->
+//  cobertura -> instalacoes -> revestimentos -> acabamentos ->
+//  pintura -> limpeza. Cada etapa do orcamento e classificada numa
+//  dessas fases pelo texto; o peso relativo distribui o prazo.
+// ==============================================================
+
+// Fases construtivas em ordem, com termos de reconhecimento e peso
+// relativo de prazo (quanto tempo tende a consumir na obra).
+const FASES_CONSTRUTIVAS = [
+  { chave: "preliminares", ordem: 1,  peso: 0.5, termos: ["servico preliminar", "canteiro", "tapume", "locacao", "limpeza do terreno", "demolic", "terraplen", "movimento de terra"] },
+  { chave: "fundacao",     ordem: 2,  peso: 1.2, termos: ["fundacao", "sapata", "estaca", "baldrame", "radier", "brocas", "viga baldrame"] },
+  { chave: "estrutura",    ordem: 3,  peso: 1.6, termos: ["estrutura", "pilar", "viga", "laje", "concreto", "armadura", "forma", "escoramento"] },
+  { chave: "alvenaria",    ordem: 4,  peso: 1.3, termos: ["alvenaria", "parede", "bloco", "tijolo", "vedacao"] },
+  { chave: "cobertura",    ordem: 5,  peso: 0.9, termos: ["cobertura", "telhado", "telha", "madeiramento", "estrutura de telhado"] },
+  { chave: "instalacoes",  ordem: 6,  peso: 1.2, termos: ["instalacao", "eletrica", "hidraulica", "hidrossanitaria", "tubulacao", "eletrodut", "esgoto", "agua fria", "ar condicionado", "spda"] },
+  { chave: "revestimento", ordem: 7,  peso: 1.4, termos: ["revestimento", "reboco", "chapisco", "emboco", "contrapiso", "regularizacao", "impermeabiliz", "azulejo", "ceramica", "porcelanato", "piso"] },
+  { chave: "esquadrias",   ordem: 8,  peso: 0.7, termos: ["esquadria", "porta", "janela", "batente", "ferragem", "vidro"] },
+  { chave: "forro",        ordem: 9,  peso: 0.6, termos: ["forro", "gesso", "sanca", "teto"] },
+  { chave: "pintura",      ordem: 10, peso: 0.9, termos: ["pintura", "massa corrida", "selador", "textura", "verniz"] },
+  { chave: "acabamento",   ordem: 11, peso: 0.8, termos: ["acabamento", "louca", "metal", "bancada", "marcenaria", "soleira", "rodape", "peitoril"] },
+  { chave: "limpeza",      ordem: 12, peso: 0.3, termos: ["limpeza final", "limpeza geral", "entrega", "vistoria final"] },
+];
+
+// Classifica uma etapa do orcamento numa fase construtiva.
+const faseDaEtapa = (nome) => {
+  const s = String(nome || "").toLowerCase();
+  for (const f of FASES_CONSTRUTIVAS) {
+    if (f.termos.some(t => s.includes(t))) return f;
+  }
+  return null;
+};
+
+// Matriz tecnica de precedencias. Ela nao altera a ordem visual do orcamento;
+// apenas define quais servicos precisam estar liberados antes de outro iniciar.
+const REQUISITOS_FASE = {
+  fundacao:     ["preliminares"],
+  estrutura:    ["fundacao"],
+  alvenaria:    ["estrutura"],
+  cobertura:    ["estrutura"],
+  instalacoes:  ["alvenaria", "estrutura"],
+  revestimento: ["instalacoes", "alvenaria"],
+  esquadrias:   ["alvenaria"],
+  forro:        ["instalacoes"],
+  pintura:      ["revestimento", "forro"],
+  acabamento:   ["pintura", "revestimento"],
+  limpeza:      ["acabamento", "pintura"],
+};
+
+// Sugere antecessoras por boas praticas. Em modo sequencial, a antecessora e
+// simplesmente a atividade anterior. Com paralelismo, atividades da mesma
+// fase podem compartilhar os mesmos pre-requisitos e executar em conjunto.
+const sugerirDependenciasPlanejamento = (tarefas, orc, paralelo = true) => {
+  const executaveis = (tarefas || []).filter(t =>
+    !t.titulo && !(t.etapaId && etapaEhTitulo(orc, t.etapaId)));
+  const classificadas = executaveis.map(t => ({...t, fase:faseDaEtapa(t.nome)?.chave || "outros"}));
+  const resultado = {};
+  (tarefas || []).forEach(t => { resultado[t.id] = []; });
+
+  classificadas.forEach((t, i) => {
+    if (i === 0) return;
+    const anteriores = classificadas.slice(0, i);
+    if (!paralelo) {
+      resultado[t.id] = [anteriores[anteriores.length - 1].id];
+      return;
+    }
+    const requisitos = REQUISITOS_FASE[t.fase] || [];
+    const ids = requisitos.map(fase =>
+      [...anteriores].reverse().find(a => a.fase === fase)?.id).filter(Boolean);
+    // Etapa sem classificacao ou sem requisito encontrado permanece ligada a
+    // anterior imediata para nao criar uma atividade solta sem justificativa.
+    resultado[t.id] = [...new Set(ids.length ? ids : [anteriores[anteriores.length - 1].id])];
+  });
+  return resultado;
+};
+
+const idsSucessoras = (tarefas, tarefaId) =>
+  (tarefas || []).filter(t => (t.depende || []).includes(tarefaId)).map(t => t.id);
+
+
+// Monta o cronograma a partir das respostas. Deterministico:
+//  1) preserva a ordem do orcamento e classifica cada etapa apenas para estimar duracao;
+//  2) distribui o prazo total proporcional ao peso de cada fase;
+//  3) calcula inicio/fim de cada tarefa no calendario de trabalho;
+//  4) se "paralelo=sim", sobrepoe parcialmente fases compativeis vizinhas.
+// Devolve { tarefas:[{etapaId, nome, inicio, fim, progresso}], resumo, avisos }.
+const montarCronogramaIA = (orc, respostas, calBase) => {
+  const todasEtapas = ordemEtapasOrcamento(orc)
+    .map(id => (orc?.etapas || []).find(e => e.id === id)).filter(Boolean);
+  if (!todasEtapas.length) return { tarefas: [], resumo: null, avisos: ["O orcamento nao tem etapas para planejar."] };
+  // Titulos puros nao consomem prazo proprio: suas datas sao o roll-up dos
+  // filhos. Distribuir dias para eles duplicava tempo e distorcia o limite.
+  const etapas = todasEtapas.filter(e => !etapaEhTitulo(orc, e.id));
+
+  const inicioInformado = respostas.inicio || today();
+  const prazoMeses = Math.max(1, Number(respostas.prazoMeses || 6));
+  const diasSemanaN = Number(respostas.diasSemana || 6);
+  const diasSemana = diasSemanaN === 5 ? [1,2,3,4,5] : [1,2,3,4,5,6];
+  const cal = { ...calBase, diasSemana };
+  const inicio = ajustarParaDiaUtil(inicioInformado, cal, 1);
+  const paralelo = respostas.paralelo === "sim";
+  const ritmo = respostas.ritmo || "normal";
+
+  // Classifica somente para ponderar duracoes. A posicao de cada etapa continua
+  // exatamente igual a do orcamento, inclusive quando a boa pratica sugeriria
+  // outra sequencia: a IA pode alertar, mas nao reordenar.
+  const comFase = etapas.map((e, i) => {
+    const fase = faseDaEtapa(e.nome);
+    return { etapa: e, fase, ordem: fase ? fase.ordem : 99, peso: fase ? fase.peso : 1.0, idxOrig: i };
+  });
+
+  // O prazo e uma restricao, nao um multiplicador. Obtemos a data limite em
+  // dias corridos e contamos exatamente os dias de trabalho dentro dela.
+  const prazoAlvoDias = Math.max(1, Math.round(prazoMeses * 30));
+  const fimAlvo = somaDias(inicioInformado, prazoAlvoDias - 1);
+  const prazoDiasUteis = Math.max(1, diasUteis(inicio, fimAlvo, cal));
+
+  // Distribui os dias uteis proporcional ao peso.
+  const pesoTotal = comFase.reduce((s, c) => s + c.peso, 0);
+  const avisos = [];
+
+  // O ritmo define reserva sem autorizar estouro: normal ocupa a janela;
+  // folgado guarda 10% para contingencia; apertado planeja 15% antes.
+  const fatorUso = ritmo === "folgado" ? 0.90 : ritmo === "apertado" ? 0.85 : 1;
+  const diasDistribuir = Math.max(comFase.length, Math.floor(prazoDiasUteis * fatorUso));
+  comFase.forEach(c => {
+    const exato = (c.peso / pesoTotal) * diasDistribuir;
+    c.diasUteis = Math.max(1, Math.floor(exato));
+    c.resto = exato - Math.floor(exato);
+  });
+  // Corrige o arredondamento para a soma coincidir com a janela planejada.
+  let faltam = diasDistribuir - comFase.reduce((s, c) => s + c.diasUteis, 0);
+  [...comFase].sort((a,b) => b.resto - a.resto).forEach(c => {
+    if (faltam > 0) { c.diasUteis++; faltam--; }
+  });
+
+  // Encadeia as datas. Sem paralelismo: cada tarefa comeca quando a anterior
+  // termina. Com paralelismo: fases da MESMA ordem (ex.: instalacoes que rodam
+  // junto com revestimento) podem comecar com sobreposicao de ate 40%.
+  const tarefas = [];
+  let cursor = inicio;
+  let fimAnterior = inicio;
+  let ordemAnterior = 0;
+
+  comFase.forEach((c, i) => {
+    let ini = cursor;
+    const faseAtual = c.fase?.chave || "outros";
+    const faseAnterior = tarefas[i-1]?._fase || "outros";
+    const exigeAnterior = (REQUISITOS_FASE[faseAtual] || []).includes(faseAnterior);
+    if (paralelo && i > 0 && Math.abs(c.ordem - ordemAnterior) <= 1 && c.ordem !== 99 && !exigeAnterior) {
+      // Sobrepoe 40%: comeca antes de a anterior terminar.
+      const recuar = Math.round((tarefas[i-1]?._diasUteis || c.diasUteis) * 0.4);
+      ini = somaDiasUteis(fimAnterior, -recuar, cal);
+      if ((ini || "").localeCompare(inicio) < 0) ini = inicio;
+    }
+    const fim = somaDiasUteis(ini, c.diasUteis, cal);
+    tarefas.push({
+      etapaId: c.etapa.id,
+      nome: c.etapa.nome,
+      inicio: ini, fim, progresso: 0,
+      _diasUteis: c.diasUteis, _fase: c.fase?.chave || "outros",
+    });
+    fimAnterior = fim;
+    cursor = proximoDiaUtil(fim, cal);
+    ordemAnterior = c.ordem;
+  });
+
+  // Avisos de boas praticas.
+  const semFase = comFase.filter(c => !c.fase);
+  if (semFase.length) {
+    avisos.push(`${semFase.length} etapa(s) sem fase reconhecida mantiveram a posicao original - confira as duracoes: ${semFase.slice(0,3).map(c=>c.etapa.nome).join(", ")}${semFase.length>3?"...":""}.`);
+  }
+  const temFundacao = comFase.some(c => c.fase?.chave === "fundacao");
+  const temEstrutura = comFase.some(c => c.fase?.chave === "estrutura");
+  if (temEstrutura && !temFundacao) avisos.push("Ha estrutura mas nenhuma etapa de fundacao foi identificada - verifique.");
+  if (paralelo) avisos.push("Servicos compativeis foram sobrepostos para ganhar prazo - garanta equipe suficiente para as frentes simultaneas.");
+  if (inicio !== inicioInformado) avisos.push(`A data inicial caiu em dia nao trabalhado e foi ajustada para ${fmtDate(inicio)}.`);
+  if (prazoDiasUteis < comFase.length && !paralelo) avisos.push("O prazo possui menos dias uteis que etapas; revise o prazo ou permita frentes paralelas.");
+  if (cal.pularFeriados && (cal.feriados || []).length) avisos.push(`${(cal.feriados || []).filter(f => f.data >= inicio && f.data <= fimAlvo).length} feriado(s) da janela foram retirados dos dias de trabalho.`);
+
+  // Recoloca os titulos na ordem original, com inicio/fim derivados de todas
+  // as tarefas descendentes. Assim a ordem continua identica ao orcamento.
+  const porEtapa = new Map(tarefas.map(t => [t.etapaId, t]));
+  const tarefasOrdenadas = todasEtapas.map(e => {
+    const efetiva = porEtapa.get(e.id);
+    if (efetiva) return efetiva;
+    const descendentes = idsDaSubarvore(orc.etapas || [], e.id).filter(id => id !== e.id);
+    const filhas = tarefas.filter(t => descendentes.includes(t.etapaId));
+    const ini = filhas.reduce((m,t) => !m || t.inicio < m ? t.inicio : m, inicio);
+    const fim = filhas.reduce((m,t) => !m || t.fim > m ? t.fim : m, ini);
+    return { etapaId:e.id, nome:e.nome, inicio:ini, fim, progresso:0, _diasUteis:0, _fase:"titulo" };
+  });
+  const fimObra = tarefasOrdenadas.reduce((m,t) => !m || t.fim > m ? t.fim : m, inicio);
+  // Limpa campos internos.
+  const tarefasLimpa = tarefasOrdenadas.map(({ _diasUteis, _fase, ...t }) => t);
+
+  return {
+    tarefas: tarefasLimpa,
+    resumo: {
+      inicio, fim: fimObra,
+      diasCorridos: diasCorridos(inicio, fimObra),
+      nEtapas: tarefasOrdenadas.length,
+      diasSemana: diasSemanaN,
+      dentroDoPrazo: fimObra <= fimAlvo,
+      prazoAlvoDias,
+      fimAlvo,
+      diasUteisProjeto: diasUteis(inicio, fimObra, cal),
+      diasUteisDisponiveis: prazoDiasUteis,
+      feriadosConsiderados: cal.pularFeriados
+        ? (cal.feriados || []).filter(f => f.data >= inicio && f.data <= fimAlvo).length
+        : 0,
+    },
+    avisos,
+    diasSemana,
+    calendario: { diasSemana, pularFeriados: !!cal.pularFeriados, feriados: cal.feriados || [] },
+  };
 };
 
 // ==============================================================
@@ -9653,93 +10194,80 @@ const calcOrcamento = (orc) => {
   return { custoDireto, valorBDI, total, porM2, arvore, qtdItens: reais.length };
 };
 
-// Checklist de escopo para auditoria de residências de alto padrão. A ausência
-// de termos não prova que o serviço falta: indica apenas que ele não foi
-// identificado nas descrições/etapas e precisa ser conferido pelo orçamentista.
-const CHECKLIST_ALTO_PADRAO = [
-  { grupo:"Projetos e legalização", nome:"Projetos arquitetônico, estrutural e complementares", nivel:"essencial", termos:["projeto arquitetonico","projeto estrutural","projeto eletrico","projeto hidrossanitario","projetos complementares"] },
-  { grupo:"Projetos e legalização", nome:"Sondagem, topografia e locação da obra", nivel:"essencial", termos:["sondagem","topografia","levantamento planialtimetrico","locacao da obra","gabarito da obra"] },
-  { grupo:"Projetos e legalização", nome:"Licenças, alvará, ART/RRT e habite-se", nivel:"essencial", termos:["alvara","art ","rrt","habite-se","licenciamento","taxa de aprovacao"] },
-  { grupo:"Estrutura e envelope", nome:"Terraplenagem, contenções e drenagem do terreno", nivel:"essencial", termos:["terraplenagem","movimento de terra","muro de arrimo","contencao","drenagem do terreno","dreno"] },
-  { grupo:"Estrutura e envelope", nome:"Fundações e estrutura completas", nivel:"essencial", termos:["fundacao","sapata","estaca","radier","estrutura de concreto","pilar","viga"] },
-  { grupo:"Estrutura e envelope", nome:"Impermeabilização de áreas críticas", nivel:"essencial", termos:["impermeabilizacao","manta asfaltica","membrana acrilica","argamassa polimerica"] },
-  { grupo:"Estrutura e envelope", nome:"Cobertura, rufos, calhas e águas pluviais", nivel:"essencial", termos:["cobertura","telhado","telha","rufo","calha","condutor pluvial"] },
-  { grupo:"Estrutura e envelope", nome:"Esquadrias e vidros de alto desempenho", nivel:"provavel", termos:["esquadria","porta de aluminio","janela de aluminio","pele de vidro","vidro laminado","vidro temperado"] },
-  { grupo:"Estrutura e envelope", nome:"Isolamento térmico e acústico", nivel:"provavel", termos:["isolamento termico","isolamento acustico","la de rocha","la de vidro","manta acustica"] },
-  { grupo:"Instalações", nome:"Entrada elétrica, quadros, circuitos, DPS e aterramento", nivel:"essencial", termos:["entrada de energia","quadro de distribuicao","quadro eletrico","dps","aterramento","haste de aterramento"] },
-  { grupo:"Instalações", nome:"SPDA e proteção contra surtos", nivel:"provavel", termos:["spda","para-raios","protecao contra descargas","captor franklin"] },
-  { grupo:"Instalações", nome:"Água fria, água quente, pressurização e recirculação", nivel:"essencial", termos:["agua fria","agua quente","aquecedor","pressurizador","recirculacao de agua quente","boiler"] },
-  { grupo:"Instalações", nome:"Esgoto sanitário, ventilação e águas pluviais", nivel:"essencial", termos:["esgoto sanitario","tubo de esgoto","ventilacao sanitaria","caixa de inspecao","agua pluvial"] },
-  { grupo:"Instalações", nome:"Sistema de gás e abrigo de cilindros/medidores", nivel:"provavel", termos:["instalacao de gas","tubulacao de gas","abrigo de gas","central de gas"] },
-  { grupo:"Conforto e tecnologia", nome:"Climatização, drenos e infraestrutura frigorígena", nivel:"provavel", termos:["ar condicionado","climatizacao","linha frigorifica","tubulacao frigorifica","dreno de ar"] },
-  { grupo:"Conforto e tecnologia", nome:"Automação residencial e iluminação inteligente", nivel:"provavel", termos:["automacao residencial","casa inteligente","iluminacao inteligente","dimmer","protocolo knx"] },
-  { grupo:"Conforto e tecnologia", nome:"Rede estruturada, Wi-Fi, CFTV e controle de acesso", nivel:"provavel", termos:["rede estruturada","cabeamento de dados","wifi","wi-fi","cftv","camera de seguranca","controle de acesso","videoporteiro"] },
-  { grupo:"Conforto e tecnologia", nome:"Energia solar, carregador veicular e contingência", nivel:"opcional", termos:["energia solar","fotovoltaico","carregador veicular","wallbox","gerador","nobreak"] },
-  { grupo:"Conforto e tecnologia", nome:"Elevador residencial ou plataforma", nivel:"opcional", termos:["elevador residencial","plataforma elevatoria","elevador"] },
-  { grupo:"Acabamentos", nome:"Forros, sancas, cortineiros e iluminação decorativa", nivel:"provavel", termos:["forro de gesso","forro drywall","sanca","cortineiro","iluminacao decorativa","perfil de led"] },
-  { grupo:"Acabamentos", nome:"Revestimentos, pedras e bancadas especiais", nivel:"provavel", termos:["porcelanato","revestimento","granito","marmore","quartzo","bancada"] },
-  { grupo:"Acabamentos", nome:"Louças, metais e acessórios sanitários", nivel:"essencial", termos:["louca sanitaria","bacia sanitaria","cuba","torneira","misturador","chuveiro"] },
-  { grupo:"Acabamentos", nome:"Marcenaria fixa e mobiliário planejado", nivel:"provavel", termos:["marcenaria","armario planejado","movel planejado","cozinha planejada"] },
-  { grupo:"Áreas externas", nome:"Piscina, casa de máquinas, aquecimento e tratamento", nivel:"opcional", termos:["piscina","casa de maquinas","filtro de piscina","bomba de piscina","aquecimento de piscina"] },
-  { grupo:"Áreas externas", nome:"Paisagismo, irrigação e iluminação externa", nivel:"provavel", termos:["paisagismo","jardinagem","irrigacao","iluminacao externa","balizador"] },
-  { grupo:"Áreas externas", nome:"Muros, portões, pavimentação e drenagem externa", nivel:"essencial", termos:["muro","portao","pavimentacao externa","piso intertravado","drenagem externa"] },
-  { grupo:"Entrega e qualidade", nome:"Ensaios, testes e comissionamento das instalações", nivel:"essencial", termos:["comissionamento","teste de estanqueidade","teste hidrostatico","ensaio eletrico","teste das instalacoes"] },
-  { grupo:"Entrega e qualidade", nome:"Limpeza fina, as built, manuais e entrega técnica", nivel:"essencial", termos:["limpeza final","limpeza fina","as built","manual do proprietario","entrega tecnica"] },
-];
+//  CURVA ABC 
+//  Principio de Pareto aplicado a orcamento: poucos itens respondem pela maior
+//  parte do custo. Ordena os itens por custo decrescente, acumula o percentual
+//  e corta em faixas:
+//    A - ate 80% do valor acumulado  (poucos itens, quase todo o dinheiro)
+//    B - de 80% a 95%
+//    C - o restante (muitos itens, pouco valor)
+//  Itens repetidos (mesmo codigo em etapas diferentes) sao agrupados, senao a
+//  curva mente: o mesmo servico apareceria varias vezes com valor fatiado.
+const CLASSE_ABC = { A:{ cor:"#C62828", limite:80 }, B:{ cor:"#EF6C00", limite:95 }, C:{ cor:"#2E7D32", limite:100 } };
+const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
 
-const auditarOrcamentoAltoPadrao = (orc) => {
-  if (!orc) return { presentes: [], faltantes: [] };
-  const texto = agentNormalize([
-    orc.nome, orc.descricao, orc.local,
-    ...(orc.etapas || []).map(e => e.nome),
-    ...(orc.itens || []).filter(it => it.tipo !== "titulo").map(it => `${it.descricao} ${it.codigo || ""}`),
-  ].join(" | "));
-  const resultados = CHECKLIST_ALTO_PADRAO.map(c => ({
-    ...c,
-    identificado: c.termos.some(t => texto.includes(agentNormalize(t))),
-  }));
-  return {
-    presentes: resultados.filter(x => x.identificado),
-    faltantes: resultados.filter(x => !x.identificado),
-  };
-};
+const calcCurvaABCOrc = (orc, calc, { agrupar = true } = {}) => {
+  const bdiMult = 1 + Number(orc.bdi||0)/100;
+  const reais = achatarArvore(calc.arvore)
+    .filter(n => n.tipo !== "etapa" && !ehTitulo(n) && Number(n.quantidade||0) * Number(n.precoUnit||0) > 0);
 
-// Ciclos financeiros inclusivos da folha:
-// - referência Q1: trabalha de 06 a 20 e paga dia 20;
-// - referência Q2: trabalha de 21 a 05 do mês seguinte e paga dia 05.
-const getPayrollCycles = (year, monthIndex) => {
-  const intervalo = (inicio, fimExclusivo) => {
-    const out = [];
-    const d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate(), 12, 0, 0);
-    while (d < fimExclusivo) {
-      out.push(toLocalISODate(d));
-      d.setDate(d.getDate() + 1);
-    }
-    return out;
-  };
-  return {
-    q1: intervalo(new Date(year, monthIndex, 6, 12), new Date(year, monthIndex, 21, 12)),
-    q2: intervalo(new Date(year, monthIndex, 21, 12), new Date(year, monthIndex + 1, 6, 12)),
-  };
-};
-
-// Período que normalmente será fechado em cada data. Nos próprios dias 05 e
-// 20, abre a folha que está sendo paga; nos demais, abre o ciclo em andamento.
-const getPayrollReferenceForDate = (date = new Date()) => {
-  const day = date.getDate();
-  let year = date.getFullYear();
-  let month = date.getMonth();
-  let q;
-  if (day <= 5) {
-    q = "2";
-    month -= 1;
-    if (month < 0) { month = 11; year -= 1; }
-  } else if (day <= 20) {
-    q = "1";
+  let linhas;
+  if (agrupar) {
+    const mapa = new Map();
+    reais.forEach(n => {
+      // Sem codigo (produto avulso), a descricao e a identidade do item.
+      const chave = (n.codigo || `~${(n.descricao||"").trim().toLowerCase()}`) + "|" + (n.unidade||"");
+      const custo = Number(n.quantidade||0) * Number(n.precoUnit||0);
+      const ex = mapa.get(chave);
+      if (ex) {
+        ex.quantidade += Number(n.quantidade||0);
+        ex.custoDireto += custo;
+        ex.ocorrencias += 1;
+      } else {
+        mapa.set(chave, {
+          codigo: n.codigo || "", fonte: n.fonte || "", descricao: n.descricao || "",
+          unidade: n.unidade || "", quantidade: Number(n.quantidade||0),
+          precoUnit: Number(n.precoUnit||0), custoDireto: custo, ocorrencias: 1,
+        });
+      }
+    });
+    linhas = [...mapa.values()];
   } else {
-    q = "2";
+    linhas = reais.map(n => ({
+      codigo: n.codigo || "", fonte: n.fonte || "", descricao: n.descricao || "",
+      unidade: n.unidade || "", quantidade: Number(n.quantidade||0),
+      precoUnit: Number(n.precoUnit||0),
+      custoDireto: Number(n.quantidade||0) * Number(n.precoUnit||0), ocorrencias: 1,
+    }));
   }
-  return { year, month, q };
+
+  const totalCD = linhas.reduce((s,l) => s + l.custoDireto, 0);
+  linhas.sort((a,b) => b.custoDireto - a.custoDireto);
+
+  let acum = 0;
+  const itens = linhas.map((l, i) => {
+    const pct = totalCD > 0 ? (l.custoDireto/totalCD)*100 : 0;
+    // A classe olha o acumulado ANTES deste item: quem cruza a fronteira dos 80%
+    // ainda e A. Se olhasse o acumulado depois, um orcamento onde o primeiro
+    // item ja passa de 80% ficaria com a classe A VAZIA - justo o item que mais
+    // pesa cairia em B, que e o oposto do que a curva serve para mostrar.
+    const classe = acum < CLASSE_ABC.A.limite ? "A" : acum < CLASSE_ABC.B.limite ? "B" : "C";
+    acum += pct;
+    return { ...l, ordem: i+1, total: l.custoDireto * bdiMult, pct, pctAcum: Math.min(acum, 100), classe };
+  });
+
+  const resumo = ["A","B","C"].map(c => {
+    const g = itens.filter(i => i.classe === c);
+    const cd = g.reduce((s,i) => s + i.custoDireto, 0);
+    return {
+      classe: c, cor: CLASSE_ABC[c].cor, qtd: g.length,
+      custoDireto: cd, total: cd * bdiMult,
+      pctValor: totalCD > 0 ? (cd/totalCD)*100 : 0,
+      pctItens: itens.length > 0 ? (g.length/itens.length)*100 : 0,
+    };
+  });
+
+  return { itens, resumo, totalCD, totalComBDI: totalCD * bdiMult };
 };
 
 function Orcamento({ data, update, showToast }) {
@@ -9750,7 +10278,7 @@ function Orcamento({ data, update, showToast }) {
   const [baseNome,  setBaseNome]  = useState("");
   const [baseInfo,  setBaseInfo]  = useState(null);      // metadados da base importada
   const [importando,setImportando]= useState(false);     // spinner durante o parse
-  const [basesRemotas, setBasesRemotas] = useState([]);  // metadados persistidos no Supabase
+  const [basesRemotas, setBasesRemotas] = useState([]);
   const [basesCarregando, setBasesCarregando] = useState(false);
   const [sinapiUf, setSinapiUf] = useState("PE");
   const [orseDataBase, setOrseDataBase] = useState(today().slice(0, 7));
@@ -9766,19 +10294,32 @@ function Orcamento({ data, update, showToast }) {
   const [buscaDebounced, setBuscaDebounced] = useState("");
   const [etapaAlvo, setEtapaAlvo] = useState("");
   const [novoModal, setNovoModal] = useState(false);
+  const [editMetaModal, setEditMetaModal] = useState(false);
   const [mapModal,  setMapModal]  = useState(null);      // {headers, rows} p/ mapear colunas
   const [colMap,    setColMap]    = useState({ codigo:"", descricao:"", unidade:"", preco:"" });
+  // Conferencia dimensional (IA): painel aberto e resposta da IA.
+  const [confAberta, setConfAberta] = useState(false);
+  const [confIA,      setConfIA]     = useState(null);   // texto da analise da IA
+  const [confIALoad,  setConfIALoad] = useState(false);
   const [qtdModal,  setQtdModal]  = useState(null);      // item selecionado p/ informar qtd
   const [qtd,       setQtd]       = useState("");
+  const [editItem,  setEditItem]  = useState(null);
+  const [externoModal, setExternoModal] = useState(false);
+  const [externoForm, setExternoForm] = useState({codigo:"",fonte:"EXTERNO",descricao:"",unidade:"UN",quantidade:"",precoUnit:"",composicao:""});
   const [etapaModal,setEtapaModal]= useState(null);   // {modo:"novo"|"sub"|"editar", paiId, etapa}
   const [etapaNome, setEtapaNome] = useState("");
+  const [etapasFechadas, setEtapasFechadas] = useState({});
+  // Curva ABC: painel aberto, agrupamento por codigo e classe filtrada.
+  const [abcAberta,  setAbcAberta]  = useState(false);
+  const [abcAgrupar, setAbcAgrupar] = useState(true);
+  const [abcFiltro,  setAbcFiltro]  = useState("todas");   // "todas" | "A" | "B" | "C"
+  // Importacao do orcamento (codigo + qtd) cruzada com a base.
+  const [impModal, setImpModal] = useState(null);   // {linhas, stats, substituir, incluirPend}
+  const [impLoad,  setImpLoad]  = useState(false);
   const [bdiModal,  setBdiModal]  = useState(false);
   const [bdiAba,    setBdiAba]    = useState("faixa");   // "faixa" | "detalhado"
   const [bdiTipo,   setBdiTipo]   = useState("edificios");
   const [bdiP,      setBdiP]      = useState(null);      // parâmetros em edição
-  const [iaOrcAberta, setIaOrcAberta] = useState(false);
-  const [iaOrcTexto, setIaOrcTexto] = useState(null);
-  const [iaOrcLoad, setIaOrcLoad] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setBuscaDebounced(busca), 140);
@@ -9796,7 +10337,7 @@ function Orcamento({ data, update, showToast }) {
   useEffect(() => { carregarBasesRemotas(); }, [carregarBasesRemotas]);
 
   const emptyOrc = {
-    nome:"", obraId:"", cliente:"", local:"", areaM2:"",
+    nome:"", descricao:"", obraId:"", cliente:"", local:"", areaM2:"",
     fonte:"SINAPI", dataBase:"", uf:"PE", referencias:[], desonerado:true, bdi:"23.25",
   };
   const [form, setForm] = useState(emptyOrc);
@@ -9805,7 +10346,6 @@ function Orcamento({ data, update, showToast }) {
   const orcamentos = data.orcamentos || [];
   const orc = orcamentos.find(o => o.id === selOrc);
   const calc = useMemo(() => orc ? calcOrcamento(orc) : null, [orc]);
-  const auditoriaAltoPadrao = useMemo(() => auditarOrcamentoAltoPadrao(orc), [orc]);
   const referenciaKey = (orc?.referencias || []).join("|");
   const basesVinculadas = useMemo(() => {
     const ids = new Set(orc?.referencias || []);
@@ -9848,64 +10388,55 @@ function Orcamento({ data, update, showToast }) {
     return () => { ativo = false; window.clearTimeout(timer); };
   }, [buscaDebounced, buscaModal, referenciaKey, selOrc]);
 
-  useEffect(() => {
-    setIaOrcTexto(null);
-    setIaOrcAberta(false);
-  }, [selOrc]);
+  // A curva so e recalculada quando o orcamento ou o agrupamento mudam -
+  // ordenar milhares de itens a cada render travaria a tela.
+  const abc = useMemo(
+    () => (orc && calc) ? calcCurvaABCOrc(orc, calc, { agrupar: abcAgrupar }) : null,
+    [orc, calc, abcAgrupar]
+  );
 
-  const analisarOrcamentoIA = async () => {
-    if (!orc || !calc) return;
-    setIaOrcLoad(true);
-    setIaOrcTexto(null);
-    const itensReais = (orc.itens || []).filter(it => it.tipo !== "titulo");
-    const itensPrompt = itensReais.slice(0, 500).map((it, i) =>
-      `${i + 1}. [${it.fonte || "SEM FONTE"} ${it.codigo || "SEM CÓDIGO"}] ${it.descricao || "SEM DESCRIÇÃO"} | `
-      + `${it.unidade || "UN"} | qtd ${Number(it.quantidade || 0)} | custo unit. ${Number(it.precoUnit || 0).toFixed(2)}`
-    ).join("\n");
-    const etapasPrompt = (orc.etapas || []).map((e, i) => `${i + 1}. ${e.nome}`).join("\n") || "Sem etapas cadastradas";
-    const faltantesPrompt = auditoriaAltoPadrao.faltantes.map(x =>
-      `- [${x.nivel.toUpperCase()}] ${x.grupo}: ${x.nome}`).join("\n") || "Nenhuma lacuna no checklist local";
-    const prompt = `Você é um engenheiro civil sênior e orçamentista especializado em residências unifamiliares de alto padrão no Brasil.\n\n`
-      + `Faça uma AUDITORIA COMPLETA deste orçamento, com foco especial em SERVIÇOS, SISTEMAS, PROJETOS, TESTES E ACABAMENTOS QUE POSSAM ESTAR FALTANDO.\n\n`
-      + `DADOS DO ORÇAMENTO:\nNome: ${orc.nome || "-"}\nDescrição: ${orc.descricao || "-"}\nLocal: ${orc.local || "-"}\n`
-      + `Área construída: ${Number(orc.areaM2 || 0)} m²\nFonte/data-base: ${orc.fonte || "-"} ${orc.dataBase || "-"} ${orc.uf || "-"}\n`
-      + `Custo direto: ${calc.custoDireto.toFixed(2)}\nBDI: ${Number(orc.bdi || 0).toFixed(2)}%\nTotal: ${calc.total.toFixed(2)}\n\n`
-      + `ETAPAS CADASTRADAS:\n${etapasPrompt}\n\nITENS DO ORÇAMENTO (${itensReais.length} no total${itensReais.length > 500 ? "; primeiros 500 enviados" : ""}):\n${itensPrompt}\n\n`
-      + `CHECKLIST LOCAL NÃO IDENTIFICOU ESTES ESCOPOS (trate como indício, não como certeza):\n${faltantesPrompt}\n\n`
-      + `CRITÉRIOS OBRIGATÓRIOS DA ANÁLISE:\n`
-      + `1. Verifique omissões em: projetos/licenças; canteiro; terraplenagem; fundações/estrutura; impermeabilização; cobertura; fachadas/esquadrias; instalações elétricas, hidráulicas, gás, SPDA e incêndio; climatização; automação; dados/CFTV; energia solar e carregador veicular; acabamentos premium; marcenaria; piscina/spa/sauna; paisagismo/irrigação; áreas externas; testes, comissionamento, as built, limpeza e entrega.\n`
-      + `2. Para cada possível omissão, classifique como ESSENCIAL, PROVÁVEL ou OPCIONAL e informe em qual etapa deve ser conferida.\n`
-      + `3. Use a expressão "não identificado no orçamento"; não afirme que está ausente quando uma composição existente puder conter o serviço.\n`
-      + `4. Não invente preços, códigos, quantitativos ou características do projeto. Quando depender do projeto, formule uma pergunta objetiva ao operador.\n`
-      + `5. Aponte também duplicidades, unidades suspeitas, quantidades zeradas, itens sem código/fonte, custos unitários zerados e escopos incompatíveis com uma casa de alto padrão.\n`
-      + `6. Considere acessibilidade, desempenho térmico/acústico, manutenção, segurança, NBR aplicáveis e interfaces entre disciplinas.\n\n`
-      + `FORMATO DA RESPOSTA:\nA) Resumo executivo\nB) Itens essenciais não identificados\nC) Itens prováveis não identificados\nD) Itens opcionais a confirmar com o cliente\nE) Inconsistências do orçamento\nF) Perguntas ao operador\nG) Próximas ações priorizadas.\n`
-      + `Se um grupo estiver adequadamente coberto, diga isso brevemente. Seja técnico, objetivo e acionável.`;
+  // Area de referencia para a conferencia dimensional: a do orcamento; se ela
+  // nao existir, cai na area construida da obra vinculada.
+  const areaRef = useMemo(() => {
+    if (!orc) return 0;
+    if (Number(orc.areaM2) > 0) return Number(orc.areaM2);
+    const obra = (data.obras || []).find(o => o.id === orc.obraId);
+    return Number(obra?.areaM2 || 0);
+  }, [orc, data.obras]);
+
+  // Roda a conferencia dimensional (local, sem IA).
+  const confResultado = useMemo(
+    () => orc ? conferenciaDimensional(orc, areaRef) : null,
+    [orc, areaRef]
+  );
+
+  // Pede a IA um parecer sobre as divergencias. Local sempre; IA e opcional.
+  const analisarDimensionalIA = async () => {
+    if (!confResultado || confResultado.alertas.length === 0) return;
+    setConfIALoad(true);
+    setConfIA(null);
     try {
+      const linhas = confResultado.alertas.map(a =>
+        `- ${a.nome}: lancado ${a.qtd.toFixed(1)} m2, esperado ~${a.esperado.toFixed(1)} m2 `
+        + `(${a.difPct > 0 ? "+" : ""}${a.difPct.toFixed(0)}%)`).join("\n");
+      const prompt = `Voce e engenheiro civil orcamentista conferindo quantitativos. `
+        + `A obra tem ${areaRef.toFixed(0)} m2 de area construida. `
+        + `A conferencia dimensional apontou estas divergencias entre a quantidade lancada `
+        + `no orcamento e a esperada pela area:\n${linhas}\n\n`
+        + `Para cada divergencia, diga de forma objetiva e em portugues: a causa mais provavel `
+        + `(erro de digitacao, unidade trocada, duplicidade, ou se pode ser legitimo por `
+        + `particularidade do projeto), e o que conferir na planilha. Seja direto e tecnico.`;
       const r = await fetch("/api/ai-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
       if (!r.ok) throw new Error(`IA respondeu ${r.status}`);
       const j = await r.json();
-      setIaOrcTexto(j.reply || j.text || j.message || "A IA não retornou uma análise.");
+      setConfIA(j.reply || j.text || j.message || "Sem resposta da IA.");
     } catch (e) {
-      const essenciais = auditoriaAltoPadrao.faltantes.filter(x => x.nivel === "essencial");
-      const provaveis = auditoriaAltoPadrao.faltantes.filter(x => x.nivel === "provavel");
-      setIaOrcTexto([
-        "A IA está indisponível no momento. A auditoria local ainda encontrou itens que precisam ser conferidos:",
-        "",
-        `ESSENCIAIS NÃO IDENTIFICADOS (${essenciais.length}):`,
-        ...essenciais.map(x => `- ${x.nome} (${x.grupo})`),
-        "",
-        `PROVÁVEIS NÃO IDENTIFICADOS (${provaveis.length}):`,
-        ...provaveis.map(x => `- ${x.nome} (${x.grupo})`),
-        "",
-        "Observação: 'não identificado' não significa necessariamente ausente; confirme composições e projetos.",
-      ].join("\n"));
+      setConfIA("Nao foi possivel falar com a IA agora. A conferencia local acima ja aponta o que revisar.");
     } finally {
-      setIaOrcLoad(false);
+      setConfIALoad(false);
     }
   };
 
@@ -9923,10 +10454,18 @@ function Orcamento({ data, update, showToast }) {
     if (typeof v === "number") return v;
     const s = String(v ?? "").trim();
     if (!s) return 0;
-    const normalizado = s.includes(",")
-      ? s.replace(/\./g, "").replace(",", ".")
-      : s;
-    const n = Number(normalizado.replace(/[^\d.-]/g, ""));
+    const limpo = s.replace(/[^\d,.-]/g, "");
+    const ultimaVirgula = limpo.lastIndexOf(",");
+    const ultimoPonto = limpo.lastIndexOf(".");
+    let normalizado = limpo;
+    if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+      normalizado = ultimaVirgula > ultimoPonto
+        ? limpo.replace(/\./g, "").replace(",", ".")
+        : limpo.replace(/,/g, "");
+    } else if (ultimaVirgula >= 0) {
+      normalizado = limpo.replace(/\./g, "").replace(",", ".");
+    }
+    const n = Number(normalizado);
     return isNaN(n) ? 0 : n;
   };
 
@@ -9991,9 +10530,8 @@ function Orcamento({ data, update, showToast }) {
     return out;
   };
 
-  // O arquivo oficial SINAPI possui uma coluna de custo para cada UF, nas
-  // abas CSD (sem desoneração) e CCD (com desoneração). Este leitor cruza as
-  // duas abas pelo código e guarda os dois custos para a UF escolhida.
+  // Leitor da planilha oficial SINAPI. CSD = sem desoneração e CCD = com
+  // desoneração; as duas abas são cruzadas por código para a UF escolhida.
   const extrairSinapiOficial = (wb, uf) => {
     const nomeAba = alvo => wb.SheetNames.find(nome => semAcento(nome).replace(/\s/g, "") === alvo.toLowerCase());
 
@@ -10024,9 +10562,8 @@ function Orcamento({ data, update, showToast }) {
       for (let r = headerRow + 1; r < rows.length; r++) {
         const row = rows[r] || [];
         let codigo = String(row[codigoColumn] ?? "").trim().replace(/\.0$/, "");
-        // Em algumas planilhas oficiais (ex.: 06/2026), o código é uma
-        // fórmula HYPERLINK e o valor em cache vem como zero. Recuperamos o
-        // número usado pelo MATCH da fórmula para não descartar a composição.
+        // Em algumas edições oficiais (como 06/2026), o código é uma
+        // fórmula HYPERLINK e o valor em cache vem como zero.
         if (ehLixo(codigo)) {
           const cell = sheet[XLSX.utils.encode_cell({ r, c:codigoColumn })];
           const formula = String(cell?.f || "");
@@ -10037,12 +10574,10 @@ function Orcamento({ data, update, showToast }) {
         const preco = parseBR(row[ufColumn]);
         if (ehLixo(codigo) || ehLixo(descricao) || preco <= 0) continue;
         itens.push({
-          fonte: "SINAPI",
-          codigo,
-          descricao,
-          unidade: String(row[unidadeColumn] ?? "UN").trim() || "UN",
-          precoDes: campoPreco === "precoDes" ? preco : 0,
-          precoNao: campoPreco === "precoNao" ? preco : 0,
+          fonte:"SINAPI", codigo, descricao,
+          unidade:String(row[unidadeColumn] ?? "UN").trim() || "UN",
+          precoDes:campoPreco === "precoDes" ? preco : 0,
+          precoNao:campoPreco === "precoNao" ? preco : 0,
         });
       }
 
@@ -10060,17 +10595,20 @@ function Orcamento({ data, update, showToast }) {
     const des = lerAba("CCD", "precoDes");
     const merged = new Map();
     [...nao.itens, ...des.itens].forEach(item => {
-      const key = item.codigo;
-      const atual = merged.get(key) || { ...item, precoDes:0, precoNao:0 };
-      merged.set(key, {
+      const atual = merged.get(item.codigo) || { ...item, precoDes:0, precoNao:0 };
+      merged.set(item.codigo, {
         ...atual,
-        descricao: item.descricao || atual.descricao,
-        unidade: item.unidade || atual.unidade,
-        precoDes: item.precoDes || atual.precoDes,
-        precoNao: item.precoNao || atual.precoNao,
+        descricao:item.descricao || atual.descricao,
+        unidade:item.unidade || atual.unidade,
+        precoDes:item.precoDes || atual.precoDes,
+        precoNao:item.precoNao || atual.precoNao,
       });
     });
-    return { itens:[...merged.values()], dataBase:des.dataBase || nao.dataBase, abas:[nao.itens.length ? "CSD" : "", des.itens.length ? "CCD" : ""].filter(Boolean) };
+    return {
+      itens:[...merged.values()],
+      dataBase:des.dataBase || nao.dataBase,
+      abas:[nao.itens.length ? "CSD" : "", des.itens.length ? "CCD" : ""].filter(Boolean),
+    };
   };
 
   const importarSinapiSupabase = async file => {
@@ -10086,11 +10624,8 @@ function Orcamento({ data, update, showToast }) {
       }
 
       const inicio = await iniciarBaseReferencia({
-        fonte:"SINAPI",
-        dataBase:extraida.dataBase,
-        uf:sinapiUf,
-        desonerado:orc.desonerado !== false,
-        arquivo:file.name,
+        fonte:"SINAPI", dataBase:extraida.dataBase, uf:sinapiUf,
+        desonerado:orc.desonerado !== false, arquivo:file.name,
       });
       if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível iniciar a base no Supabase.");
       baseCriada = inicio.base;
@@ -10111,7 +10646,7 @@ function Orcamento({ data, update, showToast }) {
       setBaseNome(file.name);
       setBaseInfo({
         aba:extraida.abas.join(" + "), total:extraida.itens.length,
-        porFonte:{ SINAPI:extraida.itens.length },
+        porFonte:{SINAPI:extraida.itens.length},
         comDes:extraida.itens.filter(item => item.precoDes > 0).length,
         comNao:extraida.itens.filter(item => item.precoNao > 0).length,
         dataBase:extraida.dataBase, localidade:sinapiUf,
@@ -10136,13 +10671,9 @@ function Orcamento({ data, update, showToast }) {
       const dataBase = nomeMatch ? `${nomeMatch[1]}-${nomeMatch[2]}` : orseDataBase;
       if (!/^\d{4}-\d{2}$/.test(dataBase)) throw new Error("Informe a competência ORSE.");
       const bytes = await file.arrayBuffer();
-      const digest = globalThis.crypto?.subtle
-        ? await globalThis.crypto.subtle.digest("SHA-256", bytes)
-        : null;
+      const digest = globalThis.crypto?.subtle ? await globalThis.crypto.subtle.digest("SHA-256", bytes) : null;
       const hash = digest ? [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") : "";
-      const inicio = await iniciarBaseReferencia({
-        fonte:"ORSE", dataBase, arquivo:file.name, hash,
-      });
+      const inicio = await iniciarBaseReferencia({ fonte:"ORSE", dataBase, arquivo:file.name, hash });
       if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível cadastrar a referência ORSE.");
       const refs = [...new Set([...(orc.referencias || []), inicio.base.id])];
       const temSinapi = basesRemotas.some(base => refs.includes(base.id) && base.fonte === "SINAPI");
@@ -10214,8 +10745,15 @@ function Orcamento({ data, update, showToast }) {
       setBaseNome(file.name);
       setBaseInfo({ aba, total: itens.length, porFonte, comDes, comNao, dataBase, localidade });
 
-      // Preenche a data-base do orçamento se estiver vazia
-      if (orc && !orc.dataBase && dataBase) salvarOrc({ dataBase });
+      // Identifica automaticamente uma base mista e evita que exportações com
+      // itens ORSE sejam rotuladas globalmente como apenas SINAPI.
+      const temSinapi = Object.keys(porFonte).some(f => f.toUpperCase().startsWith("SINAPI"));
+      const temOrse = Object.keys(porFonte).some(f => f.toUpperCase() === "ORSE");
+      const fonteDetectada = temSinapi && temOrse ? "MISTO" : temOrse ? "ORSE" : temSinapi ? "SINAPI" : orc?.fonte;
+      if (orc) salvarOrc({
+        ...(!orc.dataBase && dataBase ? {dataBase} : {}),
+        ...(fonteDetectada ? {fonte:fonteDetectada} : {}),
+      });
 
       showToast(`${itens.length.toLocaleString("pt-BR")} composições carregadas da aba "${aba}".`);
     } catch (e) {
@@ -10371,13 +10909,15 @@ function Orcamento({ data, update, showToast }) {
   };
 
   const salvarOrc = (patch) => {
+    const scrollY = window.scrollY;
     update({ ...data, orcamentos: orcamentos.map(o => o.id===selOrc ? {...o, ...patch} : o) });
+    window.requestAnimationFrame(()=>window.scrollTo({top:scrollY,behavior:"auto"}));
   };
 
   const recalcularFonteOrc = ids => {
     const fontes = new Set(basesRemotas.filter(base => ids.includes(base.id)).map(base => base.fonte));
-    if (fontes.size > 1) return "MISTO";
-    return [...fontes][0] || orc?.fonte || "SINAPI";
+    return fontes.has("SINAPI") && fontes.has("ORSE") ? "MISTO"
+      : fontes.has("ORSE") ? "ORSE" : "SINAPI";
   };
 
   const vincularBaseExistente = () => {
@@ -10387,8 +10927,7 @@ function Orcamento({ data, update, showToast }) {
     salvarOrc({
       referencias:ids,
       fonte:recalcularFonteOrc(ids),
-      uf:base?.fonte === "SINAPI" ? (base.uf || orc.uf) : orc.uf,
-      dataBase:orc.dataBase || base?.dataBase || "",
+      ...(base?.fonte === "SINAPI" ? { uf:base.uf || orc.uf, dataBase:base.dataBase || orc.dataBase } : {}),
     });
     setBaseParaVincular("");
     showToast("Base vinculada ao orçamento.");
@@ -10398,7 +10937,28 @@ function Orcamento({ data, update, showToast }) {
     if (!orc) return;
     const ids = (orc.referencias || []).filter(id => id !== baseId);
     salvarOrc({ referencias:ids, fonte:recalcularFonteOrc(ids) });
-    showToast("Base desvinculada. Os itens já adicionados mantêm seus preços congelados.", "info");
+    showToast("Base desvinculada deste orçamento.");
+  };
+
+  const abrirEdicaoOrc = () => {
+    setForm({
+      ...emptyOrc, ...orc,
+      areaM2:String(orc.areaM2||""), bdi:String(orc.bdi??""),
+    });
+    setEditMetaModal(true);
+  };
+
+  const salvarDadosOrc = () => {
+    if (!String(form.nome||"").trim()) { showToast("Informe o nome do orçamento.","error"); return; }
+    salvarOrc({
+      nome:String(form.nome).trim(), descricao:String(form.descricao||"").trim(),
+      obraId:form.obraId||"", cliente:String(form.cliente||"").trim(), local:String(form.local||"").trim(),
+      areaM2:parseBR(form.areaM2)||0, fonte:form.fonte||"SINAPI", uf:String(form.uf||"PE").trim().toUpperCase(),
+      dataBase:String(form.dataBase||"").trim(), desonerado:form.desonerado!==false,
+      bdi:parseBR(form.bdi)||0, status:form.status||orc.status||"rascunho",
+    });
+    setEditMetaModal(false);
+    showToast("Dados do orçamento atualizados.");
   };
 
   const delOrc = (id) => {
@@ -10429,7 +10989,8 @@ function Orcamento({ data, update, showToast }) {
       descricao: qtdModal.descricao,
       unidade,
       quantidade: q,
-      precoUnit: preco,   // &larr; snapshot: congela o preço na data-base
+      precoUnit: preco,
+      composicao: qtdModal.composicao || "",
       baseData: qtdModal.dataBase || orc.dataBase || "",
       baseUf: qtdModal.uf || (qtdModal.fonte === "SINAPI" ? orc.uf : ""),
       detailUrl: qtdModal.detailUrl || "",
@@ -10437,7 +10998,7 @@ function Orcamento({ data, update, showToast }) {
 
     // Guarda na base de favoritos (já com o preço congelado)
     const favs = data.baseFavoritos || [];
-    const jaFav = favs.some(f => f.codigo === qtdModal.codigo && (f.fonte || "SINAPI") === (qtdModal.fonte || orc.fonte));
+    const jaFav = favs.some(f => f.codigo === qtdModal.codigo && (f.fonte || "SINAPI") === (qtdModal.fonte || "SINAPI"));
     const novosFavs = jaFav ? favs : [...favs, {
       codigo:    qtdModal.codigo,
       fonte:     qtdModal.fonte || orc.fonte,
@@ -10458,8 +11019,80 @@ function Orcamento({ data, update, showToast }) {
     showToast("Item adicionado ao orçamento.");
   };
 
+  const abrirExterno = (etapaId) => {
+    setEtapaAlvo(etapaId);
+    setExternoForm({codigo:"",fonte:"EXTERNO",descricao:"",unidade:"UN",quantidade:"",precoUnit:"",composicao:""});
+    setExternoModal(true);
+  };
+
+  const salvarExterno = () => {
+    if (!orc) return;
+    const descricao = String(externoForm.descricao||"").trim();
+    const quantidade = parseBR(externoForm.quantidade)||0;
+    const precoUnit = parseBR(externoForm.precoUnit)||0;
+    if (!descricao) { showToast("Informe a descrição.","error"); return; }
+    if (!(quantidade > 0)) { showToast("Informe uma quantidade válida.","error"); return; }
+    if (!(precoUnit > 0)) { showToast("Informe o custo unitário da cotação/composição.","error"); return; }
+    const codigo = String(externoForm.codigo||"").trim().toUpperCase();
+    const item = {
+      id:uid(), etapaId:etapaAlvo, tipo:"item", codigo,
+      fonte:String(externoForm.fonte||"EXTERNO").trim(), descricao,
+      unidade:String(externoForm.unidade||"UN").trim(), quantidade, precoUnit,
+      composicao:String(externoForm.composicao||"").trim(),
+      codigoNaoEncontrado:!codigo,
+    };
+    const favoritos = data.baseFavoritos || [];
+    const jaExiste = codigo && favoritos.some(f=>String(f.codigo||"").toUpperCase()===codigo);
+    const novosFavoritos = codigo && !jaExiste ? [...favoritos, {
+      codigo, fonte:item.fonte, descricao, unidade:item.unidade, precoUnit,
+      composicao:item.composicao, externa:true,
+    }] : favoritos;
+    update({...data, baseFavoritos:novosFavoritos,
+      orcamentos:orcamentos.map(o=>o.id===selOrc?{...o,itens:[...o.itens,item]}:o)});
+    setExternoModal(false);
+    showToast("Composição externa/cotação adicionada.");
+  };
+
   const updItemQtd = (itemId, novaQtd) => {
     salvarOrc({ itens: orc.itens.map(it => it.id===itemId ? {...it, quantidade:Number(novaQtd)||0} : it) });
+  };
+
+  const updItemCampo = (itemId, campo, valor) => {
+    salvarOrc({ itens: orc.itens.map(it => {
+      if (it.id !== itemId) return it;
+      const patch = { [campo]: valor };
+      if (campo === "codigo") {
+        const codigo = String(valor||"").trim().toUpperCase();
+        patch.codigo = codigo;
+        const chave = codigo.replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i,"").replace(/\.0$/,"");
+        const fonteAtual = String(it.fonte||"").trim().toUpperCase();
+        const ref = chave ? (referenciaPorCodigo.get(`${fonteAtual}|${chave}`)||referenciaPorCodigo.get(chave)) : null;
+        patch.codigoNaoEncontrado = !ref;
+        if (ref) {
+          patch.fonte = ref.fonte || orc.fonte;
+          patch.descricao = ref.descricao || it.descricao;
+          patch.unidade = ref.unidade || it.unidade || "UN";
+          patch.precoUnit = precoDoItem(ref,orc);
+          patch.composicao = ref.composicao || "";
+        }
+      }
+      return { ...it, ...patch };
+    }) });
+  };
+
+  const salvarItemCompleto = () => {
+    if (!editItem || !orc) return;
+    if (!String(editItem.descricao||"").trim()) { showToast("Informe a descricao do item.","error"); return; }
+    const item = {
+      ...editItem,
+      codigo: String(editItem.codigo||"").trim(), fonte: String(editItem.fonte||orc.fonte||"").trim(),
+      descricao: String(editItem.descricao||"").trim(), unidade: String(editItem.unidade||"UN").trim(),
+      quantidade: Number(editItem.quantidade)||0, precoUnit: Number(editItem.precoUnit)||0,
+      composicao: String(editItem.composicao||"").trim(),
+    };
+    salvarOrc({ itens: orc.itens.map(it => it.id===item.id ? item : it) });
+    setEditItem(null);
+    showToast("Item atualizado.");
   };
 
   const delItem = (itemId) => {
@@ -10584,6 +11217,31 @@ function Orcamento({ data, update, showToast }) {
     showToast("Etapa removida.");
   };
 
+  // Na base ORSE alguns identificadores chegam como "codigo/ORSE". A fonte ja
+  // tem coluna propria na exportacao, entao o codigo deve sair sem esse sufixo.
+  const codigoParaExportar = (codigo) => String(codigo ?? "").trim()
+    .replace(/\s*\/\s*ORSE\s*$/i, "").trim();
+
+  const appendAbaComposicoes = (wb) => {
+    const linhas = (orc?.itens||[]).filter(it=>it.tipo!=="titulo" && it.composicao);
+    if (!linhas.length) return;
+    const wsComp = XLSX.utils.aoa_to_sheet([
+      ["FONTE","CÓDIGO","DESCRIÇÃO","COMPOSIÇÃO / MEMÓRIA DE PREÇOS"],
+      ...linhas.map(it=>[it.fonte||"",codigoParaExportar(it.codigo),it.descricao||"",it.composicao||""]),
+    ]);
+    wsComp["!cols"]=[{wch:11},{wch:14},{wch:58},{wch:70}];
+    XLSX.utils.book_append_sheet(wb,wsComp,"Composições");
+  };
+
+  const formatarColunasOrcamento = (ws, aoa, cabecalhoIdx) => {
+    for (let r=cabecalhoIdx+1;r<aoa.length;r++) {
+      [[6,"#,##0.00"],[7,"R$ #,##0.00"],[8,"0.00%"],[9,"R$ #,##0.00"],[10,"R$ #,##0.00"]].forEach(([c,z])=>{
+        const cel=ws[XLSX.utils.encode_cell({r,c})];
+        if (cel && typeof cel.v==="number") cel.z=z;
+      });
+    }
+  };
+
   //  Exportar XLSX - planilha orçamentária hierárquica 
   const exportXLSX = () => {
     if (!orc || !calc) return;
@@ -10596,26 +11254,28 @@ function Orcamento({ data, update, showToast }) {
     aoa.push(["PLANILHA ORÇAMENTÁRIA"]);
     aoa.push([]);
     aoa.push(["OBRA:",     orc.nome,                 "", "CLIENTE:",   orc.cliente || "-"]);
+    if (orc.descricao) aoa.push(["DESCRIÇÃO:", orc.descricao]);
     aoa.push(["LOCAL:",    orc.local || "-",         "", "ÁREA (m):", orc.areaM2 || "-"]);
     aoa.push(["BASE:",     `${orc.fonte} ${orc.uf}`, "", "DATA-BASE:", orc.dataBase || "-"]);
     aoa.push(["ENCARGOS:", orc.desonerado ? "Desonerado" : "Não desonerado", "", "BDI:", `${orc.bdi}%`]);
     aoa.push([]);
-    aoa.push(["ITEM","CÓDIGO","FONTE","DESCRIÇÃO DOS SERVIÇOS","UNID.","QUANT.","P. UNIT. S/ BDI","P. UNIT. C/ BDI","TOTAL"]);
+    aoa.push(["NÍVEL CORRIGIDO","ITEM","FONTE","CÓDIGO","DESCRIÇÃO","UNIDADE","QUANTIDADE","CUSTO UNITÁRIO (SEM BDI)","BDI (%)","PREÇO UNITÁRIO (COM BDI)","PREÇO TOTAL (R$)"]);
 
     // Percorre a árvore inteira, em qualquer profundidade
     achatarArvore(calc.arvore).forEach(n => {
       if (n.tipo === "etapa") {
         // Recuo visual por nível na coluna de descrição
         const recuo = "    ".repeat(n.nivel - 1);
-        aoa.push([n.codigo, "", "", recuo + n.nome, "", "", "", "", n.total || ""]);
+        aoa.push([n.nivel===1?"LOTE":`Nível ${n.nivel}`, n.codigo, "", "", recuo+n.nome, "", "", "", "", "", n.total||""]);
       } else if (n.tipo === "titulo") {
         // Título: só texto, sem código/unidade/valor
-        aoa.push([n.codigoItem, "", "", n.descricao || "", "", "", "", "", ""]);
+        aoa.push(["Título", n.codigoItem, "", "", n.descricao||"", "", "", "", "", "", ""]);
       } else {
         aoa.push([
-          n.codigoItem, n.codigo, n.fonte, n.descricao, n.unidade,
+          "Serviço", n.codigoItem, n.fonte, codigoParaExportar(n.codigo), n.descricao, n.unidade,
           Number(n.quantidade),
           Number(n.precoUnit),
+          Number(orc.bdi||0)/100,
           Number(n.precoUnit) * bdiMult,
           Number(n.quantidade) * Number(n.precoUnit) * bdiMult,
         ]);
@@ -10623,13 +11283,14 @@ function Orcamento({ data, update, showToast }) {
     });
 
     aoa.push([]);
-    aoa.push(["", "", "", "CUSTO DIRETO (SEM BDI)",   "", "", "", "", calc.custoDireto]);
-    aoa.push(["", "", "", `BDI (${orc.bdi}%)`,        "", "", "", "", calc.valorBDI]);
-    aoa.push(["", "", "", "TOTAL GERAL DO ORÇAMENTO", "", "", "", "", calc.total]);
-    if (orc.areaM2 > 0) aoa.push(["", "", "", "CUSTO POR m", "", "", "", "", calc.porM2]);
+    aoa.push(["", "", "", "", "CUSTO DIRETO (SEM BDI)", "", "", "", "", "", calc.custoDireto]);
+    aoa.push(["", "", "", "", `BDI (${orc.bdi}%)`, "", "", "", "", "", calc.valorBDI]);
+    aoa.push(["", "", "", "", "TOTAL GERAL DO ORÇAMENTO", "", "", "", "", "", calc.total]);
+    if (orc.areaM2 > 0) aoa.push(["", "", "", "", "CUSTO POR m²", "", "", "", "", "", calc.porM2]);
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [{wch:11},{wch:11},{wch:9},{wch:58},{wch:7},{wch:11},{wch:15},{wch:15},{wch:15}];
+    formatarColunasOrcamento(ws,aoa,aoa.findIndex(r=>r[0]==="NÍVEL CORRIGIDO"));
+    ws["!cols"] = [{wch:15},{wch:11},{wch:10},{wch:13},{wch:62},{wch:9},{wch:12},{wch:18},{wch:9},{wch:18},{wch:17}];
     XLSX.utils.book_append_sheet(wb, ws, "Orçamento");
 
     // Aba 2 - Curva ABC pelas etapas de 1º nível
@@ -10643,9 +11304,312 @@ function Orcamento({ data, update, showToast }) {
     const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
     ws2["!cols"] = [{wch:42},{wch:16},{wch:16},{wch:12}];
     XLSX.utils.book_append_sheet(wb, ws2, "Resumo por Etapa");
+    appendAbaComposicoes(wb);
 
     XLSX.writeFile(wb, `orcamento-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
     showToast("Planilha exportada.");
+  };
+
+  //  IMPORTAR ORCAMENTO (codigo + quantidade) 
+  //  A planilha do orcamento NAO traz preco nem descricao: traz o codigo e a
+  //  quantidade. Quem responde pelo resto e a base SINAPI/ORSE ja carregada no
+  //  app - o codigo e a chave. Isso evita o vicio de importar preco velho junto
+  //  com a planilha: o preco vem sempre da base na data-base escolhida.
+  //  Layout aceito (o mesmo que o "Excel padrao" exporta):
+  //    Codigo | Tipo | Item | Un. | Qtd. | ...
+  //  As colunas Item/Un. so sao usadas para etapas e para itens sem codigo.
+
+  // Indice codigo -> item da base, montado uma vez.
+  const basePorCodigo = useMemo(() => {
+    const m = new Map();
+    baseBusca.forEach(i => {
+      const c = String(i.codigo ?? "").trim().toUpperCase();
+      if (c && !m.has(c)) m.set(c, i);
+    });
+    return m;
+  }, [baseBusca]);
+
+  // Para atualizar um codigo ja digitado, a planilha de referencia carregada
+  // tem prioridade sobre favoritos antigos, garantindo preco da data-base atual.
+  const referenciaPorCodigo = useMemo(() => {
+    const m = new Map();
+    baseImport.forEach(i => {
+      const c = String(i.codigo??"").trim().toUpperCase().replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i,"").replace(/\.0$/,"");
+      const f = String(i.fonte||"").trim().toUpperCase();
+      if (c && f) m.set(`${f}|${c}`,i);
+      if (c && !m.has(c)) m.set(c,i);
+    });
+    (data.baseFavoritos||[]).forEach(i => {
+      const c = String(i.codigo??"").trim().toUpperCase().replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i,"").replace(/\.0$/,"");
+      const f = String(i.fonte||"").trim().toUpperCase();
+      if (c && f && !m.has(`${f}|${c}`)) m.set(`${f}|${c}`,i);
+      if (c && !m.has(c)) m.set(c,i);
+    });
+    return m;
+  },[baseImport,data.baseFavoritos]);
+
+  const atualizarPrecosPelaBase = () => {
+    if (!orc || baseImport.length === 0) {
+      showToast("Carregue uma planilha de referência antes de atualizar.", "error");
+      return;
+    }
+    const novaBasePorCodigo = new Map();
+    baseImport.forEach(ref => {
+      const codigo = String(ref.codigo||"").trim().toUpperCase();
+      if (codigo && !novaBasePorCodigo.has(codigo)) novaBasePorCodigo.set(codigo, ref);
+    });
+    let atualizados = 0, naoEncontrados = 0;
+    const itens = orc.itens.map(it => {
+      if (it.tipo === "titulo") return it;
+      const codigo = String(it.codigo||"").trim().toUpperCase();
+      const ref = codigo ? novaBasePorCodigo.get(codigo) : null;
+      if (!ref) {
+        naoEncontrados++;
+        return { ...it, codigoNaoEncontrado:true };
+      }
+      const preco = precoDoItem(ref, orc);
+      if (!(preco > 0)) {
+        naoEncontrados++;
+        return { ...it, codigoNaoEncontrado:true };
+      }
+      atualizados++;
+      return {
+        ...it,
+        fonte: ref.fonte || it.fonte,
+        precoUnit: preco,
+        codigoNaoEncontrado:false,
+      };
+    });
+    const favoritos = (data.baseFavoritos||[]).map(f => {
+      const ref = novaBasePorCodigo.get(String(f.codigo||"").trim().toUpperCase());
+      if (!ref) return f;
+      const preco = precoDoItem(ref, orc);
+      return preco > 0 ? {...f, fonte:ref.fonte||f.fonte, descricao:ref.descricao||f.descricao,
+        unidade:ref.unidade||f.unidade, precoUnit:preco} : f;
+    });
+    update({
+      ...data,
+      baseFavoritos: favoritos,
+      orcamentos: orcamentos.map(o => o.id===selOrc ? {
+        ...o, itens, dataBase: baseInfo?.dataBase || o.dataBase,
+      } : o),
+    });
+    showToast(`${atualizados} item(ns) atualizado(s) pela nova base${naoEncontrados ? `; ${naoEncontrados} sem correspondência` : ""}.`);
+  };
+
+  const norm = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
+
+  const importarOrcamentoXLSX = async (file) => {
+    if (!file || !orc) return;
+    if (basePorCodigo.size === 0) {
+      showToast("Carregue primeiro a planilha de referência para localizar códigos e custos.", "error");
+      return;
+    }
+    setImpLoad(true);
+    try {
+      const buf  = await file.arrayBuffer();
+      const wb   = XLSX.read(buf, { type:"array" });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"", raw:true });
+
+      // Acha o cabecalho: a linha que tem "codigo" E alguma coluna de quantidade.
+      let hIdx = -1, col = {};
+      for (let i = 0; i < Math.min(rows.length, 30); i++) {
+        const c = {};
+        (rows[i]||[]).forEach((cel, j) => {
+          const h = norm(cel);
+          if (!h) return;
+          if (c.codigo    === undefined && (h === "codigo" || h.startsWith("cod")))            c.codigo = j;
+          if (c.tipo      === undefined && h === "tipo")                                        c.tipo = j;
+          if (c.descricao === undefined && (h === "item" || h.startsWith("descri")))            c.descricao = j;
+          if (c.unidade   === undefined && (h === "un." || h === "un" || h.startsWith("unid"))) c.unidade = j;
+          if (c.qtd       === undefined && (h.startsWith("qtd") || h.startsWith("quant")))      c.qtd = j;
+          if (c.preco === undefined && (h.includes("preco unit") || h.includes("p. unit") || h === "preco" || h === "valor unitario")) c.preco = j;
+          if (c.total === undefined && (h.includes("custo total") || h.includes("valor total") || h === "total")) c.total = j;
+          if (c.composicao === undefined && (h.startsWith("compos") || h.includes("memoria de preco"))) c.composicao = j;
+          if (c.fonte === undefined && h === "fonte") c.fonte = j;
+        });
+        if (c.codigo !== undefined && c.qtd !== undefined) { hIdx = i; col = c; break; }
+      }
+      if (hIdx < 0) {
+        showToast("Não achei as colunas Código e Qtd. na planilha.", "error");
+        setImpLoad(false); return;
+      }
+
+      const linhas = [];
+      for (let i = hIdx + 1; i < rows.length; i++) {
+        const r    = rows[i] || [];
+        const cod  = String(r[col.codigo] ?? "").trim().toUpperCase();
+        const tipo = norm(col.tipo !== undefined ? r[col.tipo] : "");
+        const desc = String(col.descricao !== undefined ? r[col.descricao] : "").trim();
+        const qtd  = col.qtd !== undefined ? parseBR(r[col.qtd]) : 0;
+        if (!cod && !desc) continue;                       // linha vazia
+        if (norm(desc).startsWith("total")) continue;      // rodape de totais
+
+        // Estrutura: pelo Tipo quando existe; senao, linha com texto e sem
+        // codigo/qtd so pode ser titulo de etapa.
+        const ehNivel = tipo === "nivel" || (!tipo && !cod && qtd <= 0 && !!desc);
+        const ehSub   = tipo === "subnivel";
+        if (ehNivel || ehSub) {
+          linhas.push({ kind:"etapa", nivel: ehSub ? 2 : 1, nome: desc || "Etapa", _i:i+1 });
+          continue;
+        }
+        if (tipo === "titulo") { linhas.push({ kind:"titulo", descricao: desc, _i:i+1 }); continue; }
+
+        // Item: o codigo manda. Sem codigo, e produto avulso.
+        const b = cod ? basePorCodigo.get(cod) : null;
+        const preco = b ? precoDoItem(b, orc) : 0;
+        linhas.push({
+          kind: "item",
+          codigo: cod,
+          descricao: b ? b.descricao : (desc || "(código não localizado — sem descrição)"),
+          unidade:   b ? (b.unidade || "UN") : "UN",
+          fonte:     b ? (b.fonte || orc.fonte) : "NÃO LOCALIZADO",
+          quantidade: qtd,
+          precoUnit: preco,
+          composicao: "",
+          codigoNaoEncontrado: !cod || !b,
+          achou:  !!b,
+          semQtd: !(qtd > 0),
+          semPreco: !(preco > 0),
+          _i: i+1,
+        });
+      }
+
+      const itens = linhas.filter(l => l.kind === "item");
+      if (!itens.length) { showToast("Nenhum item com código encontrado na planilha.", "error"); setImpLoad(false); return; }
+
+      setImpModal({
+        linhas,
+        stats: {
+          etapas:   linhas.filter(l => l.kind === "etapa").length,
+          itens:    itens.length,
+          ok:       itens.filter(i => i.achou && !i.semPreco && !i.semQtd).length,
+          naoAchou: itens.filter(i => !i.achou).length,
+          semPreco: itens.filter(i => i.semPreco).length,
+          semQtd:   itens.filter(i => i.semQtd).length,
+          valor:    itens.reduce((s,i) => s + i.quantidade * i.precoUnit, 0),
+        },
+        substituir: false,
+        incluirPend: true,
+      });
+    } catch (e) {
+      showToast("Não consegui ler a planilha: " + e.message, "error");
+    }
+    setImpLoad(false);
+  };
+
+  // Aplica a importacao: cria as etapas na ordem e pendura os itens nelas.
+  const aplicarImportacao = () => {
+    if (!impModal || !orc) return;
+    const { linhas, substituir, incluirPend } = impModal;
+
+    const etapas = substituir ? [] : [...(orc.etapas||[])];
+    const itens  = substituir ? [] : [...(orc.itens ||[])];
+    let raizAtual = "", etapaAtual = "", pulados = 0;
+
+    linhas.forEach(l => {
+      if (l.kind === "etapa") {
+        const id = uid();
+        if (l.nivel === 2 && raizAtual) { etapas.push({ id, nome:l.nome, parentId: raizAtual }); etapaAtual = id; }
+        else { etapas.push({ id, nome:l.nome, parentId:"" }); raizAtual = id; etapaAtual = id; }
+        return;
+      }
+      // Item/titulo sem etapa declarada antes: cria uma para nao ficar orfao.
+      if (!etapaAtual) {
+        const id = uid();
+        etapas.push({ id, nome:"Itens importados", parentId:"" });
+        raizAtual = id; etapaAtual = id;
+      }
+      if (l.kind === "titulo") {
+        itens.push({ id:uid(), etapaId:etapaAtual, tipo:"titulo", codigo:"", fonte:orc.fonte,
+                     descricao:l.descricao, unidade:"un", quantidade:0, precoUnit:0 });
+        return;
+      }
+      const pendente = !l.achou || l.semPreco || l.semQtd;
+      if (pendente && !incluirPend) { pulados++; return; }
+      itens.push({
+        id: uid(), etapaId: etapaAtual, tipo:"item",
+        codigo: l.codigo, fonte: l.fonte, descricao: l.descricao,
+        unidade: l.unidade, quantidade: l.quantidade, precoUnit: l.precoUnit,
+        composicao: l.composicao || "",
+        codigoNaoEncontrado: !!l.codigoNaoEncontrado,
+      });
+    });
+
+    update({ ...data, orcamentos: orcamentos.map(o => o.id===selOrc ? {...o, etapas, itens} : o) });
+    setImpModal(null);
+    showToast(`Importado: ${itens.length} linha(s) no orçamento${pulados?` - ${pulados} pendente(s) ignorada(s)`:""}.`);
+  };
+
+  //  Exportar XLSX no layout "Exportado" 
+  //  Reproduz o formato da planilha que o orcamentista usa fora do app:
+  //  Codigo | Tipo | Item | Un. | Qtd. | Custo total | Status
+  //  - Tipo: Nivel (etapa raiz), Subnivel (etapa filha), Composicao (item com
+  //    codigo de tabela) ou Produto (item sem codigo, comprado direto).
+  //  - Custo total: CUSTO DIRETO, sem BDI - e o que essa planilha transporta.
+  //  - Status: herdado do status do orcamento, igual para todas as linhas.
+  const exportXLSXExportado = () => {
+    if (!orc || !calc) return;
+    const bdiMult = 1 + Number(orc.bdi||0)/100;
+    const aoa = [["Nível corrigido","Item","Fonte","Código","Descrição","Unidade","Quantidade","Custo unitário (sem BDI)","BDI (%)","Preço unitário (com BDI)","Preço total (R$)"]];
+
+    achatarArvore(calc.arvore).forEach(n => {
+      if (n.tipo === "etapa") {
+        aoa.push([n.nivel===1?"LOTE":`Nível ${n.nivel}`,n.codigo,"","",n.nome,"","","","","",n.total||0]);
+      } else if (ehTitulo(n)) {
+        aoa.push(["Título",n.codigoItem,"","",n.descricao||"","","","","","",""]);
+      } else {
+        const custo = Number(n.quantidade||0) * Number(n.precoUnit||0);
+        aoa.push([
+          "Serviço",
+          n.codigoItem,
+          n.fonte || orc.fonte || "",
+          codigoParaExportar(n.codigo),
+          n.descricao || "",
+          n.unidade || "",
+          Number(n.quantidade||0),
+          Number(n.precoUnit||0),
+          Number(orc.bdi||0)/100,
+          Number(n.precoUnit||0)*bdiMult,
+          custo*bdiMult,
+        ]);
+      }
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    formatarColunasOrcamento(ws,aoa,0);
+    ws["!cols"] = [{wch:15},{wch:11},{wch:10},{wch:13},{wch:62},{wch:9},{wch:12},{wch:18},{wch:9},{wch:18},{wch:17}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Exportado");
+    appendAbaComposicoes(wb);
+    XLSX.writeFile(wb, `exportado-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
+    showToast("Planilha exportada no formato padrão.");
+  };
+
+  //  Exportar a curva ABC 
+  const exportXLSXCurvaABC = () => {
+    if (!abc) return;
+    const aoa = [
+      [`Curva ABC - ${orc.nome}`],
+      [`${orc.fonte} ${orc.uf}  ${orc.dataBase||"sem data-base"}  BDI ${orc.bdi}%  ${abcAgrupar?"itens agrupados por código":"itens sem agrupamento"}`],
+      [],
+      ["CLASSE","QTD. ITENS","% DOS ITENS","CUSTO DIRETO","% DO VALOR"],
+      ...abc.resumo.map(r => [r.classe, r.qtd, r.pctItens/100, r.custoDireto, r.pctValor/100]),
+      [],
+      ["#","CLASSE","CÓDIGO","FONTE","DESCRIÇÃO","UNID.","QUANT.","P. UNIT.","CUSTO DIRETO","% ITEM","% ACUM."],
+      ...abc.itens.map(i => [
+        i.ordem, i.classe, codigoParaExportar(i.codigo), i.fonte, i.descricao, i.unidade,
+        i.quantidade, i.precoUnit, i.custoDireto, i.pct/100, i.pctAcum/100,
+      ]),
+      [],
+      ["", "", "", "", "TOTAL (CUSTO DIRETO)", "", "", "", abc.totalCD, 1, ""],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{wch:5},{wch:8},{wch:11},{wch:8},{wch:56},{wch:7},{wch:11},{wch:13},{wch:15},{wch:9},{wch:9}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Curva ABC");
+    XLSX.writeFile(wb, `curva-abc-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
+    showToast("Curva ABC exportada.");
   };
 
   //  Exportar PDF 
@@ -10776,6 +11740,7 @@ tfoot tr.m2 td{background:#F5F3EE;font-size:10px}
   </div>
   <div class="tag">${escapeHtml(orc.nome)}</div>
 </div>
+${orc.descricao?`<p style="font-size:10px;color:#555;margin:-5px 0 12px">${escapeHtml(orc.descricao)}</p>`:""}
 <div class="meta">
   <div><p>Cliente</p><p>${escapeHtml(orc.cliente||"-")}</p></div>
   <div><p>Local</p><p>${escapeHtml(orc.local||"-")}</p></div>
@@ -10834,6 +11799,7 @@ ${blocoBDI}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
                 <div style={{flex:1,minWidth:0}}>
                   <p style={{fontSize:15,fontWeight:800,color:C.text}}>{o.nome}</p>
+                  {o.descricao && <p style={{fontSize:11,color:C.subtle,marginTop:2,lineHeight:1.4}}>{o.descricao}</p>}
                   <p style={{fontSize:11,color:C.muted,marginTop:2}}>
                     {o.cliente && `${o.cliente}  `}
                     {obraNome && `${obraNome}  `}
@@ -10861,6 +11827,7 @@ ${blocoBDI}
           <Modal title="Novo orçamento" onClose={()=>setNovoModal(false)}>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")} placeholder="Ex.: Residência Terras Alpha - CA1-13"/>
+              <Inp label="Descrição" value={form.descricao} onChange={F("descricao")} placeholder="Resumo, escopo ou observações do orçamento"/>
               <Sel label="Vincular a uma obra (opcional)" value={form.obraId} onChange={F("obraId")}
                 options={[{v:"",l:"- Nenhuma -"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
               <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
@@ -10911,7 +11878,13 @@ ${blocoBDI}
 
       {/* Resumo */}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:10,padding:"14px 16px",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <p style={{fontSize:16,fontWeight:800,color:C.text}}>{orc.nome}</p>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+          <div style={{minWidth:0,flex:1}}>
+            <p style={{fontSize:16,fontWeight:800,color:C.text}}>{orc.nome}</p>
+            {orc.descricao && <p style={{fontSize:11,color:C.subtle,marginTop:3,lineHeight:1.45}}>{orc.descricao}</p>}
+          </div>
+          <Btn size="sm" v="ghost" onClick={abrirEdicaoOrc}><Ic n="edit"/> Dados</Btn>
+        </div>
         <p style={{fontSize:11,color:C.muted,marginTop:2}}>
           {orc.fonte} {orc.uf}  {orc.dataBase||"sem data-base"}  {orc.desonerado?"Desonerado":"Não desonerado"}  BDI {orc.bdi}%
         </p>
@@ -10973,73 +11946,100 @@ ${blocoBDI}
         })()}
       </div>
 
-      {/* Auditoria de IA: escopo de residência de alto padrão. */}
+      {/* CONFERENCIA DIMENSIONAL (IA) - forro x area construida etc */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-        <button onClick={()=>setIaOrcAberta(v=>!v)} style={{
-          width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,
-          padding:"12px 14px",background:"transparent",border:0,cursor:"pointer",textAlign:"left",
+        <button onClick={()=>setConfAberta(v=>!v)} style={{
+          width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
+          gap:8,padding:"12px 14px",background:"transparent",border:0,cursor:"pointer",textAlign:"left",
         }}>
           <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}>
             <Ic n="brain" s={17} color={C.purple}/>
             <div style={{minWidth:0}}>
-              <p style={{fontSize:13,fontWeight:800,color:C.text}}>Auditoria IA · residência de alto padrão</p>
+              <p style={{fontSize:13,fontWeight:800,color:C.text}}>Conferencia dimensional</p>
               <p style={{fontSize:10.5,color:C.muted,marginTop:1}}>
-                Procura serviços, sistemas, projetos, testes e acabamentos não identificados
+                Confere quantidades por area (forro, piso, paredes) contra a area construida
               </p>
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-            <span style={{fontSize:10,fontWeight:800,color:auditoriaAltoPadrao.faltantes.length?C.orange:C.green,
-                          background:auditoriaAltoPadrao.faltantes.length?`${C.orange}14`:`${C.green}14`,
-                          padding:"2px 8px",borderRadius:20}}>
-              {auditoriaAltoPadrao.faltantes.length} a conferir
-            </span>
-            <Ic n={iaOrcAberta ? "chevron" : "chevR"} s={16} color={C.muted}/>
+            {confResultado?.temArea && confResultado.alertas.length > 0 && (
+              <span style={{fontSize:10,fontWeight:800,color:C.red,background:`${C.red}14`,
+                            padding:"2px 8px",borderRadius:20}}>
+                {confResultado.alertas.length} alerta(s)
+              </span>
+            )}
+            {confResultado?.temArea && confResultado.alertas.length === 0 && confResultado.linhas.length > 0 && (
+              <span style={{fontSize:10,fontWeight:800,color:C.green,background:`${C.green}14`,
+                            padding:"2px 8px",borderRadius:20}}>ok</span>
+            )}
+            <Ic n={confAberta ? "chevron" : "chevR"} s={16} color={C.muted}/>
           </div>
         </button>
 
-        {iaOrcAberta && (
-          <div style={{padding:"12px 14px 14px",borderTop:`1px solid ${C.line}`}}>
-            <div style={{display:"grid",gridTemplateColumns:cols(3,3,3),gap:7,marginBottom:10}}>
-              {[ ["Essenciais", "essencial", C.red], ["Prováveis", "provavel", C.orange], ["Opcionais", "opcional", C.blue] ].map(([label,nivel,cor]) => (
-                <div key={nivel} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${cor}`,borderRadius:7,padding:"7px 9px"}}>
-                  <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>{label}</p>
-                  <p style={{fontSize:16,fontWeight:900,color:cor,marginTop:2}}>{auditoriaAltoPadrao.faltantes.filter(x=>x.nivel===nivel).length}</p>
+        {confAberta && (
+          <div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.line}`}}>
+            {!confResultado?.temArea ? (
+              <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55,marginTop:10}}>
+                Para conferir, cadastre a <strong>area construida</strong> no orcamento (campo
+                &quot;Area construida&quot; na edicao) ou na obra vinculada. Sem area de referencia
+                nao da para comparar as quantidades.
+              </p>
+            ) : confResultado.linhas.length === 0 ? (
+              <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55,marginTop:10}}>
+                Nenhum item medido em m2 reconhecido (forro, piso, paredes, pintura...).
+                A conferencia atua sobre itens de area.
+              </p>
+            ) : (
+              <>
+                <p style={{fontSize:10.5,color:C.muted,marginTop:10,marginBottom:8}}>
+                  Base: <strong>{areaRef.toFixed(0)} m2</strong> de area construida
+                </p>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {confResultado.linhas.map(l => {
+                    const cor = l.status === "alto" ? C.red
+                              : l.status === "baixo" ? C.orange : C.green;
+                    return (
+                      <div key={l.chave} style={{background:C.surface,border:`1px solid ${C.border}`,
+                           borderLeft:`3px solid ${cor}`,borderRadius:7,padding:"8px 11px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
+                          <div style={{minWidth:0,flex:1}}>
+                            <p style={{fontSize:12,fontWeight:700,color:C.text,textTransform:"capitalize"}}>{l.nome}</p>
+                            <p style={{fontSize:10,color:C.muted,marginTop:1}}>
+                              lancado {l.qtd.toLocaleString("pt-BR",{maximumFractionDigits:1})} m2
+                              {" - "}esperado ~{l.esperado.toLocaleString("pt-BR",{maximumFractionDigits:0})} m2
+                            </p>
+                          </div>
+                          <span style={{fontSize:12,fontWeight:800,color:cor,flexShrink:0}}>
+                            {l.difPct > 0 ? "+" : ""}{l.difPct.toFixed(0)}%
+                          </span>
+                        </div>
+                        {l.status !== "ok" && (
+                          <p style={{fontSize:9.5,color:C.muted,marginTop:4,lineHeight:1.4}}>{l.obs}</p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5,marginBottom:8}}>
-              A checagem local encontrou os escopos abaixo sem correspondência clara nas descrições. Isso é um alerta para conferência, não uma afirmação de ausência.
-            </p>
-            <div style={{maxHeight:260,overflowY:"auto",display:"flex",flexDirection:"column",gap:5,marginBottom:10}}>
-              {auditoriaAltoPadrao.faltantes.map(item => {
-                const cor = item.nivel === "essencial" ? C.red : item.nivel === "provavel" ? C.orange : C.blue;
-                return (
-                  <div key={`${item.grupo}-${item.nome}`} style={{display:"flex",alignItems:"flex-start",gap:8,
-                       background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${cor}`,borderRadius:6,padding:"7px 9px"}}>
-                    <div style={{minWidth:0,flex:1}}>
-                      <p style={{fontSize:11,fontWeight:700,color:C.text,lineHeight:1.3}}>{item.nome}</p>
-                      <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{item.grupo}</p>
-                    </div>
-                    <span style={{fontSize:8.5,fontWeight:900,color:cor,textTransform:"uppercase",flexShrink:0}}>{item.nivel}</span>
+
+                {confResultado.alertas.length > 0 && (
+                  <div style={{marginTop:11}}>
+                    <Btn v="ghost" size="sm" full onClick={analisarDimensionalIA} disabled={confIALoad}>
+                      {confIALoad ? "Analisando..." : (<><Ic n="brain" s={14}/> Pedir parecer da IA</>)}
+                    </Btn>
+                    {confIA && (
+                      <div style={{marginTop:9,background:`${C.purple}08`,border:`1px solid ${C.purple}33`,
+                                   borderRadius:8,padding:"10px 12px"}}>
+                        <p style={{fontSize:11,color:C.subtle,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{confIA}</p>
+                      </div>
+                    )}
                   </div>
-                );
-              })}
-              {auditoriaAltoPadrao.faltantes.length === 0 && (
-                <p style={{fontSize:11,color:C.green,fontWeight:700}}>Todos os grupos do checklist local possuem alguma correspondência.</p>
-              )}
-            </div>
-            <Btn v="ghost" size="sm" full onClick={analisarOrcamentoIA} disabled={iaOrcLoad}>
-              {iaOrcLoad ? "Analisando orçamento completo..." : (<><Ic n="brain" s={14}/> Analisar itens faltantes com IA</>)}
-            </Btn>
-            {iaOrcTexto && (
-              <div style={{marginTop:9,background:`${C.purple}08`,border:`1px solid ${C.purple}33`,borderRadius:8,padding:"10px 12px"}}>
-                <p style={{fontSize:11,color:C.subtle,lineHeight:1.58,whiteSpace:"pre-wrap"}}>{iaOrcTexto}</p>
-              </div>
+                )}
+                <p style={{fontSize:9.5,color:C.muted,marginTop:10,lineHeight:1.45}}>
+                  A conferencia e um alerta, nao uma regra: projetos com pe-direito alto, muitos
+                  vazios ou sacadas fogem dos fatores medios. Voce decide o que ajustar.
+                </p>
+              </>
             )}
-            <p style={{fontSize:9.5,color:C.muted,marginTop:9,lineHeight:1.45}}>
-              A decisão final depende dos projetos, do padrão contratado e das escolhas do cliente. A IA não altera o orçamento automaticamente.
-            </p>
           </div>
         )}
       </div>
@@ -11119,12 +12119,12 @@ ${blocoBDI}
 
         <div style={{background:`${C.purple}08`,border:`1px solid ${C.purple}22`,padding:"8px 10px",borderRadius:7}}>
           <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>
-            O arquivo <strong>.ORSE</strong> identifica a competência e fica registrado por nome e hash. Como ele é um pacote proprietário do ORSE 2/SQL Server, os resultados pesquisáveis são consultados na base pública oficial da CEHOP pela rota segura do servidor.
+            O arquivo <strong>.ORSE</strong> identifica a competência e fica registrado por nome e hash. Como ele é um pacote do ORSE 2/SQL Server, os resultados pesquisáveis são consultados na base pública oficial da CEHOP pela rota segura do servidor.
           </p>
         </div>
       </div>
 
-      {/* Importação local de planilha genérica */}
+      {/* Importação local temporária */}
       <div style={{background:baseImport.length>0?`${C.green}06`:C.surface,border:`1.5px dashed ${baseImport.length>0?C.green:C.border}`,borderRadius:10,padding:"12px 14px"}}>
         {importando ? (
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"4px 0"}}>
@@ -11145,7 +12145,14 @@ ${blocoBDI}
                   {baseNome}  aba <strong>{baseInfo.aba}</strong>
                 </p>
               </div>
-              <Btn size="sm" v="ghost" onClick={()=>{setBaseImport([]);setBaseNome("");setBaseInfo(null);}}>Limpar</Btn>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                <Btn size="sm" v="success" onClick={atualizarPrecosPelaBase}>Atualizar preços</Btn>
+                <label style={{display:"inline-flex"}}>
+                  <input type="file" accept=".xlsx,.xls" onChange={e=>{importarXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/>
+                  <span style={{display:"inline-flex",alignItems:"center",padding:"6px 10px",border:`1.5px solid ${C.border}`,borderRadius:7,cursor:"pointer",fontSize:10,fontWeight:700,color:C.text}}>Trocar planilha</span>
+                </label>
+                <Btn size="sm" v="ghost" onClick={()=>{setBaseImport([]);setBaseNome("");setBaseInfo(null);}}>Limpar</Btn>
+              </div>
             </div>
 
             {/* Stats da base */}
@@ -11228,6 +12235,7 @@ ${blocoBDI}
           const cor = CoresNivel[(no.nivel - 1) % CoresNivel.length];
           const podeSub = no.nivel < MAX_NIVEL;
           const recuo = (no.nivel - 1) * 10;
+          const recolhida = !!etapasFechadas[no.id];
 
           return (
             <div style={{ marginLeft: recuo }}>
@@ -11267,6 +12275,13 @@ ${blocoBDI}
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                    <button onClick={()=>setEtapasFechadas(f=>({...f,[no.id]:!f[no.id]}))}
+                      title={recolhida?"Expandir nível":"Recolher nível"}
+                      aria-expanded={!recolhida}
+                      style={{background:recolhida?`${cor}12`:"transparent",border:`1px solid ${C.border}`,color:cor,
+                               borderRadius:5,width:24,height:24,cursor:"pointer",fontSize:14,lineHeight:1,fontWeight:900}}>
+                      {recolhida?"▸":"▾"}
+                    </button>
                     {no.total > 0 && (
                       <p style={{ fontSize: 12, fontWeight: 800, color: cor, marginRight: 2 }}>{fmt(no.total)}</p>
                     )}
@@ -11274,6 +12289,10 @@ ${blocoBDI}
                       title="Adicionar item"
                       style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.text,
                                borderRadius:5, width:24, height:24, cursor:"pointer", fontSize:13, lineHeight:1 }}>+</button>
+                    <button onClick={() => abrirExterno(no.id)}
+                      title="Nova composição externa ou cotação"
+                      style={{background:"transparent",border:`1px solid ${C.border}`,color:C.green,
+                               borderRadius:5,width:24,height:24,cursor:"pointer",fontSize:11,lineHeight:1,fontWeight:800}}>R$</button>
                     <button onClick={() => addTitulo(no.id)}
                       title="Adicionar título (texto sem valor)"
                       style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.muted,
@@ -11295,14 +12314,14 @@ ${blocoBDI}
                 </div>
 
                 {/* Sub-etapas */}
-                {no.sub.length > 0 && (
+                {!recolhida && no.sub.length > 0 && (
                   <div style={{ padding: "6px 6px 0" }}>
                     {no.sub.map(sn => <Etapa key={sn.id} no={sn} />)}
                   </div>
                 )}
 
                 {/* Linhas desta etapa: títulos e itens */}
-                {no.itens.map((it, idx) => {
+                {!recolhida && no.itens.map((it, idx) => {
                   const primeira = idx === 0;
                   const ultima   = idx === no.itens.length - 1;
 
@@ -11355,41 +12374,66 @@ ${blocoBDI}
 
                   //  Linha de ITEM: composição com valor 
                   const tot = itemTotal(it, orc.bdi);
+                  const codigoPendente = !!it.codigoNaoEncontrado || !String(it.codigo||"").trim();
                   return (
                     <div key={it.id} style={{
-                      padding: "8px 12px", borderTop: `1px solid ${C.line}33`,
-                      display: "flex", gap: 8, alignItems: "flex-start",
+                      padding: "7px 10px", borderTop: `1px solid ${C.line}33`,
+                      display:"grid",gridTemplateColumns:"38px 68px 96px minmax(80px,1fr) 58px 82px 92px 18px 132px",
+                      gap:6,alignItems:"center",width:"100%",boxSizing:"border-box",overflow:"hidden",
+                      borderLeft: codigoPendente ? `3px solid ${C.orange}` : "3px solid transparent",
+                      background: codigoPendente ? `${C.orange}09` : "transparent",
                     }}>
-                      <p style={{ fontSize:9, color:C.muted, fontWeight:700, minWidth:38, paddingTop:2 }}>
+                      <p style={{fontSize:9,color:C.muted,fontWeight:700,minWidth:0,whiteSpace:"nowrap"}}>
                         {it.codigoItem}
                       </p>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <p style={{ fontSize:11.5, color:C.text, lineHeight:1.4 }}>{it.descricao}</p>
-                        <p style={{ fontSize:9.5, color:C.muted, marginTop:2 }}>
-                          <span style={{ fontWeight:700, color: it.fonte==="ORSE" ? C.purple : C.blue }}>{it.fonte}</span>
-                          {" "}{it.codigo}  {fmt(it.precoUnit)}/{it.unidade} s/ BDI
-                        </p>
-                        <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:5 }}>
-                          <input type="number" value={it.quantidade}
-                            onChange={e => updItemQtd(it.id, e.target.value)}
-                            style={{ width:78, background:C.bg, border:`1.5px solid ${C.border}`, color:C.text,
-                                     padding:"4px 7px", borderRadius:5, fontSize:12, outline:"none",
-                                     fontFamily:"'Inter',sans-serif" }}/>
-                          <span style={{ fontSize:11, color:C.muted }}>{it.unidade}</span>
-                        </div>
+                      <div title="Fonte" style={{minWidth:0,overflow:"hidden"}}>
+                        <span style={{display:"block",fontSize:9.5,fontWeight:800,color:it.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>{it.fonte}</span>
+                      </div>
+                      <div style={{minWidth:0,overflow:"hidden"}}>
+                          <input key={`${it.id}-cod-${it.codigo}`} defaultValue={it.codigo||""}
+                            onBlur={e=>updItemCampo(it.id,"codigo",e.target.value)}
+                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                            placeholder="Sem código" title={codigoPendente?"Código não localizado na base":"Código da composição"}
+                            style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
+                      </div>
+                      <div style={{minWidth:0,overflow:"hidden"}}>
+                        <input key={`${it.id}-desc-${it.descricao}`} defaultValue={it.descricao||""}
+                          onBlur={e=>updItemCampo(it.id,"descricao",e.target.value)}
+                          onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                          title={it.descricao||"Descrição do serviço"}
+                          style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11.5,outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontFamily:"'Inter',sans-serif"}}/>
+                      </div>
+                      <div style={{minWidth:0,overflow:"hidden"}}>
+                          <input key={`${it.id}-un-${it.unidade}`} defaultValue={it.unidade||""}
+                            onBlur={e=>updItemCampo(it.id,"unidade",e.target.value)}
+                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                            title="Unidade do item"
+                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
+                      </div>
+                      <div style={{minWidth:0,overflow:"hidden"}}>
+                          <input key={`${it.id}-qtd-${it.quantidade}`} type="number" step="any" inputMode="decimal" defaultValue={it.quantidade}
+                            onBlur={e => updItemQtd(it.id, e.target.value)}
+                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                            title="Quantidade"
+                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
+                      </div>
+                      <div title="Custo unitário sem BDI" style={{minWidth:0,overflow:"hidden",textAlign:"right"}}>
+                        <span style={{fontSize:10.5,color:C.muted,whiteSpace:"nowrap"}}>{fmt(it.precoUnit)}</span>
                       </div>
                       <Setas/>
-                      <div style={{ textAlign:"right", flexShrink:0 }}>
-                        <p style={{ fontSize:12.5, fontWeight:800, color:C.text }}>{fmt(tot)}</p>
+                      <div style={{minWidth:0,overflow:"hidden",textAlign:"right",whiteSpace:"nowrap"}}>
+                        <span title="Preço total com BDI" style={{fontSize:12,fontWeight:800,color:C.text}}>{fmt(tot)}</span>
+                        <button onClick={() => setEditItem({...it})}
+                          title={it.composicao?"Editar item e composição":"Editar item"}
+                          style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,padding:"0 3px",marginLeft:4}}>Editar</button>
                         <button onClick={() => delItem(it.id)}
-                          style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer",
-                                   fontSize:14, padding:"2px 0 0", marginTop:2 }}>x</button>
+                          style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:13,padding:0}}>x</button>
                       </div>
                     </div>
                   );
                 })}
 
-                {no.itens.length === 0 && no.sub.length === 0 && (
+                {!recolhida && no.itens.length === 0 && no.sub.length === 0 && (
                   <p style={{ padding:"9px 12px", fontSize:10.5, color:C.muted }}>Vazia - use + para item, T para título ou  para subnível.</p>
                 )}
               </div>
@@ -11399,6 +12443,10 @@ ${blocoBDI}
 
         return (
           <>
+            <div style={{display:"flex",justifyContent:"flex-end",gap:6,marginBottom:6}}>
+              <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas({})}>Expandir todos</Btn>
+              <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas(Object.fromEntries((orc.etapas||[]).map(e=>[e.id,true])))}>Recolher todos</Btn>
+            </div>
             {calc.arvore.map(no => <Etapa key={no.id} no={no} />)}
             <Btn v="ghost" full onClick={() => abrirNovaEtapa("")} style={{ marginTop: 2 }}>
               <Ic n="plus"/> Nova etapa de 1º nível
@@ -11427,13 +12475,313 @@ ${blocoBDI}
         )}
       </div>
 
+      {/*  CURVA ABC  */}
+      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <button onClick={()=>setAbcAberta(a=>!a)}
+                style={{width:"100%",background:C.surface,border:0,borderBottom:abcAberta?`1.5px solid ${C.border}`:"0",
+                        padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,textAlign:"left"}}>
+          <div>
+            <p style={{fontSize:10.5,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>Análise de Pareto</p>
+            <p style={{fontSize:15,fontWeight:800,color:C.text,marginTop:1}}>Curva ABC</p>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            {abc && abc.itens.length>0 && (
+              <p style={{fontSize:11,color:C.muted,textAlign:"right"}}>
+                <b style={{color:CLASSE_ABC.A.cor}}>{abc.resumo[0].qtd} itens</b> = {abc.resumo[0].pctValor.toFixed(1)}% do custo
+              </p>
+            )}
+            <span style={{fontSize:14,fontWeight:800,color:C.yellow}}>{abcAberta ? "-" : "+"}</span>
+          </div>
+        </button>
+
+        {abcAberta && (!abc || abc.itens.length===0) && (
+          <div style={{padding:"18px 15px",textAlign:"center"}}>
+            <p style={{fontSize:12.5,color:C.muted,lineHeight:1.6}}>
+              A curva ABC precisa de itens com quantidade e preço.<br/>Adicione composições ao orçamento para vê-la.
+            </p>
+          </div>
+        )}
+
+        {abcAberta && abc && abc.itens.length>0 && (() => {
+          const listaAbc = abcFiltro==="todas" ? abc.itens : abc.itens.filter(i=>i.classe===abcFiltro);
+          const grafico  = abc.itens.slice(0, 20).map(i => ({
+            nome: (i.descricao||"").slice(0,28) + ((i.descricao||"").length>28?"…":""),
+            custo: Number(i.custoDireto.toFixed(2)),
+            acum:  Number(i.pctAcum.toFixed(1)),
+            cor:   CLASSE_ABC[i.classe].cor,
+          }));
+          return (
+            <div style={{padding:"13px 15px",display:"flex",flexDirection:"column",gap:13}}>
+
+              {/* Resumo por classe */}
+              <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:8}}>
+                {abc.resumo.map(r => (
+                  <button key={r.classe} onClick={()=>setAbcFiltro(f=>f===r.classe?"todas":r.classe)}
+                          style={{textAlign:"left",cursor:"pointer",background:abcFiltro===r.classe?`${r.cor}12`:C.surface,
+                                  border:`1.5px solid ${abcFiltro===r.classe?r.cor:C.border}`,borderLeft:`4px solid ${r.cor}`,
+                                  borderRadius:8,padding:"9px 11px"}}>
+                    <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:6}}>
+                      <p style={{fontSize:12.5,fontWeight:800,color:r.cor}}>Classe {r.classe}</p>
+                      <p style={{fontSize:10.5,color:C.muted}}>{r.qtd} item(ns)  {r.pctItens.toFixed(0)}%</p>
+                    </div>
+                    <p style={{fontSize:16,fontWeight:800,color:C.text,marginTop:3}}>{r.pctValor.toFixed(1)}%</p>
+                    <p style={{fontSize:10.5,color:C.muted,marginTop:1}}>{fmt(r.custoDireto)} de custo direto</p>
+                  </button>
+                ))}
+              </div>
+
+              {/* Grafico: barras = custo, linha = % acumulado */}
+              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"11px 8px 4px"}}>
+                <p style={{fontSize:10.5,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.7,paddingLeft:6,marginBottom:6}}>
+                  20 itens de maior custo  linha = % acumulado
+                </p>
+                <div style={{height:250}}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={grafico} margin={{top:4,right:8,left:0,bottom:4}}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={C.line}/>
+                      <XAxis dataKey="nome" tick={false} axisLine={{stroke:C.border}} height={6}/>
+                      <YAxis yAxisId="l" tick={{fontSize:10,fill:C.muted}} axisLine={false} tickLine={false}
+                             tickFormatter={v=>`${Math.round(v/1000)}k`}/>
+                      <YAxis yAxisId="r" orientation="right" domain={[0,100]} tick={{fontSize:10,fill:C.muted}}
+                             axisLine={false} tickLine={false} tickFormatter={v=>`${v}%`}/>
+                      <Tooltip
+                        contentStyle={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,fontSize:12}}
+                        formatter={(v,n)=> n==="acum" ? [`${v}%`,"Acumulado"] : [fmt(v),"Custo direto"]}/>
+                      <Bar yAxisId="l" dataKey="custo" radius={[3,3,0,0]}>
+                        {grafico.map((g,i)=><Cell key={i} fill={g.cor}/>)}
+                      </Bar>
+                      <Line yAxisId="r" type="monotone" dataKey="acum" stroke={C.yellow} strokeWidth={2} dot={false}/>
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Controles */}
+              <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:8,justifyContent:"space-between"}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                  <div onClick={()=>setAbcAgrupar(v=>!v)}
+                       style={{width:18,height:18,borderRadius:4,flexShrink:0,cursor:"pointer",
+                               border:`2px solid ${abcAgrupar?C.green:C.muted}`,background:abcAgrupar?C.green:"transparent",
+                               display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {abcAgrupar && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
+                  </div>
+                  <p style={{fontSize:11.5,color:C.subtle}}>Agrupar o mesmo código somado entre etapas</p>
+                </label>
+                {abcFiltro!=="todas" && (
+                  <button onClick={()=>setAbcFiltro("todas")}
+                          style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"4px 10px",
+                                  borderRadius:4,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                    Mostrando classe {abcFiltro}  limpar filtro
+                  </button>
+                )}
+              </div>
+
+              {/* Tabela */}
+              <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+                <div className="scroll-x" style={{maxHeight:360,overflowY:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11.5,minWidth:660}}>
+                    <thead style={{position:"sticky",top:0,zIndex:1}}>
+                      <tr style={{background:C.surface}}>
+                        {["#","Cl.","Código","Descrição","Un.","Qtd.","Custo direto","% item","% acum."].map((h,i)=>(
+                          <th key={h} style={{padding:"7px 8px",textAlign:i>=4?"right":"left",fontSize:10,fontWeight:800,
+                                              color:C.muted,textTransform:"uppercase",letterSpacing:.5,
+                                              borderBottom:`1.5px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {listaAbc.map(i => (
+                        <tr key={`${i.codigo}-${i.ordem}`} style={{borderBottom:`1px solid ${C.line}`}}>
+                          <td style={{padding:"6px 8px",color:C.muted}}>{i.ordem}</td>
+                          <td style={{padding:"6px 8px"}}>
+                            <span style={{display:"inline-block",minWidth:17,textAlign:"center",padding:"1px 5px",borderRadius:4,
+                                          background:`${CLASSE_ABC[i.classe].cor}18`,color:CLASSE_ABC[i.classe].cor,
+                                          fontSize:10,fontWeight:800}}>{i.classe}</span>
+                          </td>
+                          <td style={{padding:"6px 8px",color:C.subtle,whiteSpace:"nowrap"}}>{i.codigo||"-"}</td>
+                          <td style={{padding:"6px 8px",color:C.text,minWidth:230}}>
+                            {i.descricao}
+                            {i.ocorrencias>1 && (
+                              <span style={{marginLeft:6,fontSize:9.5,fontWeight:700,color:C.muted}}>({i.ocorrencias}x)</span>
+                            )}
+                          </td>
+                          <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{i.unidade}</td>
+                          <td style={{padding:"6px 8px",textAlign:"right",color:C.subtle,whiteSpace:"nowrap"}}>
+                            {i.quantidade.toLocaleString("pt-BR",{maximumFractionDigits:2})}
+                          </td>
+                          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:C.text,whiteSpace:"nowrap"}}>{fmt(i.custoDireto)}</td>
+                          <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{i.pct.toFixed(2)}%</td>
+                          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[i.classe].cor}}>{i.pctAcum.toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <p style={{fontSize:10.5,color:C.muted,lineHeight:1.6}}>
+                Classe A: itens até 80% do custo acumulado  B: até 95%  C: o restante.
+                Os valores são de <b>custo direto</b>, sem BDI. Negociar preço nos itens A
+                move o orçamento; nos itens C, quase não muda.
+              </p>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Importar planilha do orçamento (código + qtd) */}
+      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,padding:"13px 15px",boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <p style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:3}}>Importar planilha do orçamento</p>
+        <p style={{fontSize:11,color:C.muted,marginBottom:9,lineHeight:1.55}}>
+          A planilha precisa das colunas <b>Código</b> e <b>Qtd.</b> - descrição, unidade e preço
+          vêm da base {orc.fonte} já carregada, na data-base deste orçamento.
+          {basePorCodigo.size === 0
+            ? <span style={{color:C.red,fontWeight:700}}> Importe a base SINAPI/ORSE antes.</span>
+            : <> Base ativa: <b>{basePorCodigo.size.toLocaleString("pt-BR")}</b> códigos.</>}
+        </p>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
+          <label style={{display:"inline-block",opacity: basePorCodigo.size===0 || impLoad ? .5 : 1}}>
+            <input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0 || impLoad}
+                   onChange={e=>{ importarOrcamentoXLSX(e.target.files?.[0]); e.target.value=""; }}
+                   style={{display:"none"}}/>
+            <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",
+                          border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:8,
+                          cursor: basePorCodigo.size===0||impLoad ? "not-allowed" : "pointer",
+                          fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:12,
+                          textTransform:"uppercase",letterSpacing:.5}}>
+              {impLoad ? "Lendo..." : "Escolher planilha"}
+            </span>
+          </label>
+          <p style={{fontSize:10.5,color:C.muted}}>
+            Use o <b>Excel padrão</b> abaixo como modelo do layout.
+          </p>
+        </div>
+      </div>
+
+      {/* Modal: conferir a importação antes de aplicar */}
+      {impModal && (() => {
+        const s = impModal.stats;
+        const pend = impModal.linhas.filter(l => l.kind==="item" && (!l.achou || l.semPreco || l.semQtd));
+        const Nm = ({v,l,cor}) => (
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
+            <p style={{fontSize:16,fontWeight:800,color:cor||C.text}}>{v}</p>
+            <p style={{fontSize:10,color:C.muted,marginTop:1}}>{l}</p>
+          </div>
+        );
+        return (
+          <Modal title="Conferir importação" onClose={()=>setImpModal(null)} wide>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
+                <Nm v={s.itens}    l="itens na planilha"/>
+                <Nm v={s.ok}       l="prontos" cor={C.green}/>
+                <Nm v={s.naoAchou} l="código fora da base" cor={s.naoAchou?C.red:C.muted}/>
+                <Nm v={s.etapas}   l="etapas"/>
+              </div>
+
+              <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:"9px 12px",
+                           display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                <p style={{fontSize:11,color:C.muted}}>Custo direto que será importado</p>
+                <p style={{fontSize:17,fontWeight:800,color:C.yellow}}>{fmt(s.valor)}</p>
+              </div>
+
+              {pend.length > 0 && (
+                <div style={{border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.red}`,borderRadius:8,overflow:"hidden"}}>
+                  <p style={{fontSize:11.5,fontWeight:700,color:C.text,padding:"8px 11px",background:C.surface}}>
+                    {pend.length} linha(s) precisam de atenção
+                  </p>
+                  <div style={{maxHeight:150,overflowY:"auto",padding:"6px 11px"}}>
+                    {pend.slice(0,40).map((p,i)=>(
+                      <p key={i} style={{fontSize:11,color:C.muted,lineHeight:1.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                        Linha {p._i}: <b style={{color:C.subtle}}>{p.codigo||"sem código"}</b>
+                        {" - "}
+                        {!p.achou   ? "não existe na base carregada"
+                         : p.semQtd ? "sem quantidade"
+                         : "a base não tem preço para este código"}
+                      </p>
+                    ))}
+                    {pend.length>40 && <p style={{fontSize:10.5,color:C.muted,marginTop:4}}>...e mais {pend.length-40}.</p>}
+                  </div>
+                </div>
+              )}
+
+              {[
+                { k:"incluirPend", cor:C.yellow, t:"Importar também as linhas com pendência",
+                  s:"Entram com preço zerado para você completar depois. Desmarcado, elas são descartadas." },
+                { k:"substituir", cor:C.red, t:"Substituir o conteúdo atual do orçamento",
+                  s:"Apaga etapas e itens já lançados neste orçamento. Desmarcado, a planilha é somada ao que existe." },
+              ].map(o => (
+                <label key={o.k} style={{display:"flex",alignItems:"flex-start",gap:9,cursor:"pointer",padding:"8px 11px",
+                        background: impModal[o.k] ? `${o.cor}10` : C.surface,
+                        border:`1.5px solid ${impModal[o.k] ? o.cor : C.border}`,borderRadius:8}}>
+                  <div onClick={()=>setImpModal(m=>({...m,[o.k]:!m[o.k]}))}
+                       style={{width:18,height:18,borderRadius:4,flexShrink:0,marginTop:1,
+                               border:`2px solid ${impModal[o.k]?o.cor:C.muted}`,background:impModal[o.k]?o.cor:"transparent",
+                               display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {impModal[o.k] && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
+                  </div>
+                  <div>
+                    <p style={{fontSize:12.5,fontWeight:700,color:impModal[o.k]?o.cor:C.text}}>{o.t}</p>
+                    <p style={{fontSize:10.5,color:C.muted,marginTop:2,lineHeight:1.5}}>{o.s}</p>
+                  </div>
+                </label>
+              ))}
+
+              <div style={{display:"flex",gap:8}}>
+                <Btn v="ghost" onClick={()=>setImpModal(null)} full>Cancelar</Btn>
+                <Btn onClick={aplicarImportacao} full><Ic n="check"/> Importar</Btn>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
+
       {/* Exportar */}
       <div style={{display:"grid",gridTemplateColumns:cols("1fr 1fr","1fr 1fr","200px 200px"),gap:8}}>
         <Btn onClick={exportPDF}  v="danger"  full><Ic n="file"/> PDF</Btn>
-        <Btn onClick={exportXLSX} v="success" full><Ic n="download"/> Excel</Btn>
+        <Btn onClick={exportXLSX} v="success" full><Ic n="download"/> Excel completo</Btn>
+        <Btn onClick={exportXLSXExportado} v="success" full><Ic n="download"/> Excel padrão</Btn>
+        <Btn onClick={exportXLSXCurvaABC} v="ghost" full><Ic n="download"/> Curva ABC</Btn>
       </div>
 
       {/* Modal: BDI - Acórdão 2622/2013-TCU */}
+      {editMetaModal && (
+        <Modal title="Editar dados do orçamento" onClose={()=>setEditMetaModal(false)} wide>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")}/>
+            <label style={{display:"flex",flexDirection:"column",gap:5}}>
+              <span style={{fontSize:11,fontWeight:700,color:C.text}}>Descrição</span>
+              <textarea value={form.descricao||""} onChange={e=>F("descricao")(e.target.value)} rows={3}
+                placeholder="Escopo, objetivo ou observações do orçamento"
+                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"'Inter',sans-serif"}}/>
+            </label>
+            <Sel label="Obra vinculada" value={form.obraId} onChange={F("obraId")}
+              options={[{v:"",l:"- Nenhuma -"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+              <Inp label="Cliente" value={form.cliente} onChange={F("cliente")}/>
+              <Inp label="Área construída (m²)" type="number" value={form.areaM2} onChange={F("areaM2")}/>
+              <Inp label="Local / Endereço" value={form.local} onChange={F("local")}/>
+              <Inp label="UF" value={form.uf} onChange={F("uf")}/>
+              <Sel label="Fonte" value={form.fonte} onChange={F("fonte")} options={[
+                {v:"SINAPI",l:"SINAPI"},{v:"ORSE",l:"ORSE"},{v:"MISTO",l:"Misto (SINAPI + ORSE)"},{v:"EXTERNO",l:"Externo / Cotações"},
+              ]}/>
+              <Inp label="Data-base" value={form.dataBase} onChange={F("dataBase")} placeholder="Ex.: mai/2026"/>
+              <Inp label="BDI (%)" type="number" value={form.bdi} onChange={F("bdi")}/>
+              <Sel label="Status" value={form.status||"rascunho"} onChange={F("status")} options={[
+                {v:"rascunho",l:"Rascunho"},{v:"revisao",l:"Em revisão"},{v:"aprovado",l:"Aprovado"},{v:"enviado",l:"Enviado"},
+              ]}/>
+            </div>
+            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"9px 12px",background:form.desonerado?`${C.green}08`:C.surface,borderRadius:8,border:`1.5px solid ${form.desonerado?C.green+"55":C.border}`}}>
+              <input type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}/>
+              <span style={{fontSize:12,fontWeight:700,color:C.text}}>Encargos desonerados</span>
+            </label>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setEditMetaModal(false)} full>Cancelar</Btn>
+              <Btn onClick={salvarDadosOrc} full><Ic n="check"/> Salvar dados</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {bdiModal && bdiP && (() => {
         const r   = calcBDI(bdiP);
         const sit = situacaoBDI(r.bdi, bdiTipo);
@@ -11701,9 +13049,7 @@ ${blocoBDI}
               </div>
             )}
 
-            {buscaRemotaLoading && (
-              <p style={{fontSize:10.5,color:C.blue,fontWeight:700}}>Pesquisando nas bases vinculadas...</p>
-            )}
+            {buscaRemotaLoading && <p style={{fontSize:10.5,color:C.blue,fontWeight:700}}>Pesquisando nas bases vinculadas...</p>}
             {buscaRemotaAviso && (
               <div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:7,padding:"7px 9px"}}>
                 <p style={{fontSize:10.5,color:C.orange}}>{buscaRemotaAviso}</p>
@@ -11728,8 +13074,7 @@ ${blocoBDI}
                         {r._fav && " "}
                         <span style={{fontWeight:700,color:r.fonte==="ORSE"?C.purple:C.blue}}>{r.fonte||"SINAPI"}</span>
                         {" "}{r.codigo}  {r.unidade}
-                        {r.dataBase ? `  · ${r.dataBase}` : ""}
-                        {r.uf ? ` · ${r.uf}` : ""}
+                        {r.dataBase ? ` · ${r.dataBase}` : ""}{r.uf ? ` · ${r.uf}` : ""}
                       </p>
                     </div>
                     <p style={{fontSize:13,fontWeight:800,color:C.yellow,flexShrink:0}}>{fmt(precoDoItem(r, orc))}</p>
@@ -11791,6 +13136,59 @@ ${blocoBDI}
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>{setQtdModal(null);setQtd("");}} full>Cancelar</Btn>
               <Btn onClick={addItem} full><Ic n="check"/> Adicionar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {editItem && (
+        <Modal title="Editar item do orçamento" onClose={()=>setEditItem(null)} wide>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+              <Inp label="Código" value={editItem.codigo||""} onChange={v=>setEditItem(x=>({...x,codigo:v}))}/>
+              <Inp label="Fonte" value={editItem.fonte||""} onChange={v=>setEditItem(x=>({...x,fonte:v}))}/>
+              <Inp label="Descrição *" value={editItem.descricao||""} onChange={v=>setEditItem(x=>({...x,descricao:v}))}/>
+              <Inp label="Unidade" value={editItem.unidade||""} onChange={v=>setEditItem(x=>({...x,unidade:v}))}/>
+              <Inp label="Quantidade" type="number" value={editItem.quantidade} onChange={v=>setEditItem(x=>({...x,quantidade:v}))}/>
+              <Inp label="Preço unitário sem BDI" type="number" value={editItem.precoUnit} onChange={v=>setEditItem(x=>({...x,precoUnit:v}))}/>
+            </div>
+            <label style={{display:"flex",flexDirection:"column",gap:5}}>
+              <span style={{fontSize:11,fontWeight:700,color:C.text}}>Composição / memória de preços</span>
+              <textarea value={editItem.composicao||""} onChange={e=>setEditItem(x=>({...x,composicao:e.target.value}))}
+                placeholder="Material, mão de obra, equipamentos, coeficientes e valores..." rows={5}
+                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"'Inter',sans-serif"}}/>
+            </label>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setEditItem(null)} full>Cancelar</Btn>
+              <Btn onClick={salvarItemCompleto} full><Ic n="check"/> Salvar alterações</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {externoModal && (
+        <Modal title="Nova composição externa / cotação" onClose={()=>setExternoModal(false)} wide>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
+              Use para serviços próprios, cotações de fornecedores ou composições que não existem na base SINAPI/ORSE.
+            </p>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+              <Inp label="Código (opcional)" value={externoForm.codigo} onChange={v=>setExternoForm(f=>({...f,codigo:v}))}/>
+              <Inp label="Fonte" value={externoForm.fonte} onChange={v=>setExternoForm(f=>({...f,fonte:v}))} placeholder="EXTERNO ou COTAÇÃO"/>
+              <Inp label="Descrição *" value={externoForm.descricao} onChange={v=>setExternoForm(f=>({...f,descricao:v}))}/>
+              <Inp label="Unidade *" value={externoForm.unidade} onChange={v=>setExternoForm(f=>({...f,unidade:v}))}/>
+              <Inp label="Quantidade *" type="number" value={externoForm.quantidade} onChange={v=>setExternoForm(f=>({...f,quantidade:v}))}/>
+              <Inp label="Custo unitário sem BDI *" type="number" value={externoForm.precoUnit} onChange={v=>setExternoForm(f=>({...f,precoUnit:v}))}/>
+            </div>
+            <label style={{display:"flex",flexDirection:"column",gap:5}}>
+              <span style={{fontSize:11,fontWeight:700,color:C.text}}>Composição / detalhes da cotação</span>
+              <textarea value={externoForm.composicao} onChange={e=>setExternoForm(f=>({...f,composicao:e.target.value}))}
+                rows={5} placeholder="Materiais, mão de obra, fornecedor, validade, coeficientes..."
+                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"'Inter',sans-serif"}}/>
+            </label>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setExternoModal(false)} full>Cancelar</Btn>
+              <Btn onClick={salvarExterno} full><Ic n="check"/> Adicionar ao orçamento</Btn>
             </div>
           </div>
         </Modal>
@@ -14524,26 +15922,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
 //  - Marcos: pontos no tempo (compra de porcelanato, vistoria...)
 //  - Ligado ao orcamento: cobertura, planejado x orcado
 // ==============================================================
-const COLUNAS_GANTT = [
-  { id: "item", label: "Item", largura: 52 },
-  { id: "tarefa", label: "Tarefa", largura: 220 },
-  { id: "inicio", label: "Início", largura: 86 },
-  { id: "fim", label: "Fim", largura: 86 },
-  { id: "dias", label: "Dias", largura: 54 },
-  { id: "predecessoras", label: "Predecessoras", largura: 150 },
-  { id: "sucessoras", label: "Sucessoras", largura: 150 },
-  { id: "custo", label: "Custo", largura: 96 },
-  { id: "progresso", label: "Progresso", largura: 76 },
-];
-const COLUNAS_GANTT_PADRAO = ["item", "tarefa", "inicio", "fim", "dias", "custo", "progresso"];
-const FORMATOS_GANTT = {
-  A4: { tarefasPorPagina: 20, larguraDados: 46 },
-  A3: { tarefasPorPagina: 32, larguraDados: 42 },
-  A2: { tarefasPorPagina: 48, larguraDados: 38 },
-};
-
 function Planejamento({ data, update, showToast }) {
-  const { cols } = useBreakpoint();
+  const { isDesktop, cols } = useBreakpoint();
 
   // Obra selecionada. Comeca na primeira obra ativa.
   const obrasComOrc = (data.obras || []).filter(o =>
@@ -14556,7 +15936,8 @@ function Planejamento({ data, update, showToast }) {
   const plano = useMemo(() =>
     (data.planos || []).find(p => p.obraId === obraId)
     || { id: "", obraId, inicio: "", tarefas: [], marcos: [],
-         diasSemana: [1,2,3,4,5,6], pularFeriados: true, feriados: [] },
+         diasSemana: [1,2,3,4,5,6], pularFeriados: true,
+         usarFeriadosCadastrados: false, feriados: [] },
     [data.planos, obraId]);
 
   // Calendario de trabalho do plano (dias da semana + feriados).
@@ -14582,24 +15963,12 @@ function Planejamento({ data, update, showToast }) {
   const [marcoModal,  setMarcoModal]  = useState(null);
   const [calModal,    setCalModal]    = useState(false);  // config do calendario
   const [iaModal,     setIaModal]     = useState(null);   // orientacao de IA
+  const [questModal,  setQuestModal]  = useState(false);  // questionario de planejamento
+  const [questPreview, setQuestPreview] = useState(null); // cronograma proposto pela IA
+  const [questIA,     setQuestIA]     = useState(null);   // parecer opcional da IA
+  const [vincPreview, setVincPreview] = useState(null);   // antecessoras/sucessoras propostas
   const [zoom, setZoom] = useState("semana");             // dia | semana | mes
   const [aba,  setAba]  = useState("gantt");              // gantt | mensal | curvaS | ff
-  const [mostrarDependencias, setMostrarDependencias] = useState(true);
-  const [relacaoSelecionada, setRelacaoSelecionada] = useState("");
-  const [colunasModal, setColunasModal] = useState(false);
-  const [exportarModal, setExportarModal] = useState(false);
-  const [orientacaoExportacao, setOrientacaoExportacao] = useState("portrait");
-  const [modoExportacao, setModoExportacao] = useState("descricao_gantt");
-  const [colunasVisiveis, setColunasVisiveis] = useState(() => {
-    try {
-      const salvas = JSON.parse(localStorage.getItem("arcd-colunas-gantt") || "null");
-      if (Array.isArray(salvas)) return salvas.filter(id => COLUNAS_GANTT.some(c => c.id === id));
-    } catch { /* usa o padrão */ }
-    return COLUNAS_GANTT_PADRAO;
-  });
-  useEffect(() => {
-    try { localStorage.setItem("arcd-colunas-gantt", JSON.stringify(colunasVisiveis)); } catch { /* sem persistência */ }
-  }, [colunasVisiveis]);
 
   // ---- Persistencia: garante um plano na base e aplica mudancas ----
   const salvarPlano = (mut) => {
@@ -14622,32 +15991,43 @@ function Planejamento({ data, update, showToast }) {
     return p;
   });
   const removerTarefa = (id) => salvarPlano(p => {
-    p.tarefas = (p.tarefas || []).filter(x => x.id !== id).map(x => {
-      const tracados = { ...(x.tracadoDependencias || {}) };
-      delete tracados[id];
-      return { ...x, depende: (x.depende || []).filter(depId => depId !== id), tracadoDependencias: tracados };
+    p.tarefas = (p.tarefas || []).filter(x => x.id !== id)
+      .map(x => ({...x, depende:(x.depende || []).filter(d => d !== id)}));
+    return p;
+  });
+
+  // Salva a tarefa e os dois lados do vinculo. Sucessora nao e um campo
+  // duplicado: ela e materializada como antecessora nas outras tarefas.
+  const salvarTarefaEVinculos = (t) => salvarPlano(p => {
+    const sucessoras = Array.isArray(t.sucessoras) ? t.sucessoras : [];
+    const { sucessoras:_, ...dados } = t;
+    p.tarefas = (p.tarefas || []).map(x => {
+      if (x.id === dados.id) return {...x,...dados,depende:[...new Set(dados.depende || [])]};
+      const deps = (x.depende || []).filter(d => d !== dados.id);
+      if (sucessoras.includes(x.id)) deps.push(dados.id);
+      return {...x,depende:[...new Set(deps)]};
     });
     return p;
   });
-  const salvarTarefaComRelacoes = (tarefaAtualizada, sucessorasIds = []) => salvarPlano(p => {
-    const sucessoras = new Set(sucessorasIds);
-    p.tarefas = (p.tarefas || []).map(original => {
-      let tarefa = original.id === tarefaAtualizada.id ? { ...original, ...tarefaAtualizada } : { ...original };
-      if (original.id !== tarefaAtualizada.id) {
-        const depende = new Set(tarefa.depende || []);
-        if (sucessoras.has(original.id)) depende.add(tarefaAtualizada.id);
-        else depende.delete(tarefaAtualizada.id);
-        tarefa.depende = [...depende];
-        if (!sucessoras.has(original.id) && tarefa.tracadoDependencias?.[tarefaAtualizada.id]) {
-          const tracados = { ...tarefa.tracadoDependencias };
-          delete tracados[tarefaAtualizada.id];
-          tarefa.tracadoDependencias = tracados;
-        }
-      }
-      return tarefa;
-    });
-    return p;
-  });
+
+  // Edicao direta das colunas do Gantt. Alterar o inicio preserva a duracao;
+  // alterar os dias recalcula o fim no calendario de trabalho.
+  const atualizarTarefaNaLinha = (t, campo, valor) => {
+    if (t.titulo) return;
+    const duracaoAtual = Math.max(1, diasUteis(t.inicio, t.fim, cal));
+    if (campo === "inicio") {
+      const inicio = ajustarParaDiaUtil(valor, cal, 1);
+      if (!inicio) return;
+      upsertTarefa({id:t.id,inicio,fim:somaDiasUteis(inicio,duracaoAtual,cal)});
+    } else if (campo === "fim") {
+      const fim = ajustarParaDiaUtil(valor, cal, -1);
+      if (!fim || fim < t.inicio) { showToast?.("A data final nao pode ser anterior ao inicio.","error"); return; }
+      upsertTarefa({id:t.id,fim});
+    } else if (campo === "dias") {
+      const n = Math.max(1, Math.min(3660, Math.round(Number(valor)||1)));
+      upsertTarefa({id:t.id,fim:somaDiasUteis(t.inicio,n,cal)});
+    }
+  };
   const upsertMarco = (m) => salvarPlano(p => {
     const existe = (p.marcos || []).some(x => x.id === m.id);
     p.marcos = existe
@@ -14663,29 +16043,189 @@ function Planejamento({ data, update, showToast }) {
     p.diasSemana = novoCal.diasSemana;
     p.pularFeriados = novoCal.pularFeriados;
     p.feriados = novoCal.feriados;
+    if (novoCal.usarFeriadosCadastrados !== undefined) {
+      p.usarFeriadosCadastrados = !!novoCal.usarFeriadosCadastrados;
+    }
     return p;
   });
-  // Pede a IA a ordem tecnica (predecessores/sucessores) das tarefas.
+
+  // Exportacao automatica do orcamento para o planejamento. Inclui etapas
+  // novas e grava as tarefas vinculadas na mesma ordem hierarquica do orcamento,
+  // preservando datas/progresso ja ajustados pelo operador ou pela IA.
+  useEffect(() => {
+    if (!orc || !obraId) return;
+    const ordem = ordemEtapasOrcamento(orc);
+    if (!ordem.length) return;
+    const atuais = plano.tarefas || [];
+    const vinculadas = atuais.filter(t => t.etapaId && ordem.includes(t.etapaId));
+    const avulsas = atuais.filter(t => !t.etapaId);
+    const orfas = atuais.filter(t => t.etapaId && !ordem.includes(t.etapaId));
+    const assinaturaAtual = vinculadas.map(t => t.etapaId).join("|");
+    const assinaturaOrc = ordem.join("|");
+    if (assinaturaAtual === assinaturaOrc && vinculadas.length === ordem.length && orfas.length === 0) return;
+
+    const porEtapa = new Map(vinculadas.map(t => [t.etapaId, t]));
+    let cursor = plano.inicio || today();
+    const sincronizadas = ordem.map(etapaId => {
+      const existente = porEtapa.get(etapaId);
+      if (existente) { cursor = existente.fim ? proximoDiaUtil(existente.fim, cal) : cursor; return existente; }
+      const etapa = (orc.etapas||[]).find(e => e.id === etapaId);
+      const inicio = cursor;
+      const fim = somaDiasUteis(inicio, 5, cal);
+      cursor = proximoDiaUtil(fim, cal);
+      return { id:uid(), etapaId, nome:etapa?.nome||"Etapa", inicio, fim, progresso:0 };
+    });
+    const planoNovo = { ...plano, id:plano.id||uid(), obraId, inicio:plano.inicio||today(), tarefas:[...sincronizadas,...avulsas] };
+    const existe = (data.planos||[]).some(p=>p.obraId===obraId);
+    const planos = existe ? (data.planos||[]).map(p=>p.obraId===obraId?planoNovo:p) : [...(data.planos||[]),planoNovo];
+    update({...data,planos});
+  }, [orc, obraId, plano, cal, data, update]);
+  // Pede a IA orientacao sobre datas e paralelismos, sem autorizar mudanca na ordem.
   const [iaCarregando, setIaCarregando] = useState(false);
   const pedirOrientacaoIA = async () => {
     setIaCarregando(true);
     try {
-      const lista = tarefas.filter(t => !t.titulo).map(t => t.nome);
-      const prompt = `Voce e engenheiro civil planejador. Dada a lista de servicos de uma obra, `
-        + `defina a ordem tecnica correta (predecessores e sucessores) segundo boa pratica `
-        + `de engenharia e sequencia construtiva. Servicos:\n${lista.map((n,i)=>`${i+1}. ${n}`).join("\n")}\n\n`
-        + `Responda em portugues, de forma objetiva: para cada servico, o que deve vir ANTES e DEPOIS, `
-        + `e alerte sobre paralelismos ou riscos de sequenciamento. Nao invente servicos que nao estao na lista.`;
+      const lista = tarefas.filter(t => !t.titulo).map(t => {
+        const ant = (t.depende || []).map(id=>tarefas.find(x=>x.id===id)?.nome).filter(Boolean);
+        return `${t.nome}: ${t.inicio} a ${t.fim} (${diasUteis(t.inicio,t.fim,cal)} dias de trabalho); `+
+          `antecessora(s): ${ant.join(", ") || "nenhuma"}`;
+      });
+      const diasTrabalho = (cal.diasSemana || []).map(d => ["dom","seg","ter","qua","qui","sex","sab"][d]).join(", ");
+      const feriadosJanela = (cal.feriados || []).filter(f => !janela.ini || (f.data >= janela.ini && f.data <= janela.fim));
+      const prompt = `Voce e engenheiro civil planejador. A ordem abaixo veio do orcamento e e IMUTAVEL. `
+        + `Nao reordene, renomeie, inclua ou exclua servicos. Analise apenas duracoes, datas, folgas, `
+        + `antecessoras, sucessoras, paralelismos possiveis e riscos segundo boas praticas de engenharia. `
+        + `Calendario obrigatorio: dias trabalhados ${diasTrabalho}; `
+        + `${cal.pularFeriados ? `${feriadosJanela.length} feriado(s) nao trabalhado(s)` : "feriados considerados dias normais"}. `
+        + `Nao sugira datas em dias nao trabalhados. Servicos na ordem oficial:\n`
+        + `${lista.map((n,i)=>`${i+1}. ${n}`).join("\n")}\n\n`
+        + `Responda em portugues e mantenha exatamente a numeracao recebida.`;
       const r = await fetch("/api/ai-agent", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
+      if (!r.ok) throw new Error(`IA respondeu ${r.status}`);
       const j = await r.json();
       setIaModal({ texto: j.reply || j.text || j.message || "Sem resposta da IA." });
     } catch (e) {
       setIaModal({ texto: "Nao foi possivel falar com a IA agora. Tente novamente." });
     } finally {
       setIaCarregando(false);
+    }
+  };
+
+  // Gera o cronograma proposto a partir das respostas do questionario.
+  // Analise LOCAL: monta as datas na hora, sem depender de rede.
+  const gerarCronogramaDoQuestionario = (respostas) => {
+    const inicio = respostas.inicio || today();
+    const fim = somaDias(inicio, Math.max(1, Math.round(Number(respostas.prazoMeses || 1) * 30)) - 1);
+    const anoIni = Number(inicio.slice(0,4)), anoFim = Number(fim.slice(0,4));
+    const anos = Array.from({length: Math.max(1, anoFim - anoIni + 1)}, (_,i) => anoIni + i);
+    const usarFeriados = respostas.usarFeriados === "sim";
+    const calendarioPerguntado = {
+      ...cal,
+      pularFeriados: usarFeriados,
+      feriados: usarFeriados ? getPlanningHolidays(data, anos) : [],
+    };
+    const proposta = montarCronogramaIA(orc, respostas, calendarioPerguntado);
+    setQuestPreview({ respostas, ...proposta });
+    setQuestModal(false);
+  };
+
+  // Aplica datas/duracoes e os vinculos tecnicos. IDs, ordem, nomes, custos e
+  // progresso continuam sendo os do orcamento/plano.
+  const aplicarCronogramaProposto = () => {
+    if (!questPreview) return;
+    salvarPlano(p => {
+      const atuais = new Map((p.tarefas||[]).filter(t=>t.etapaId).map(t=>[t.etapaId,t]));
+      const avulsas = (p.tarefas||[]).filter(t=>!t.etapaId);
+      p.inicio = questPreview.resumo.inicio;
+      p.diasSemana = questPreview.diasSemana;
+      p.pularFeriados = questPreview.calendario?.pularFeriados !== false;
+      p.feriados = questPreview.calendario?.feriados || [];
+      p.usarFeriadosCadastrados = questPreview.respostas?.usarFeriados === "sim";
+      const tarefasBase = [
+        ...questPreview.tarefas.map(t => {
+          const existente = atuais.get(t.etapaId);
+          return existente ? {...existente,inicio:t.inicio,fim:t.fim}
+            : {id:uid(),etapaId:t.etapaId,nome:t.nome,inicio:t.inicio,fim:t.fim,progresso:0};
+        }),
+        ...avulsas,
+      ];
+      const deps = sugerirDependenciasPlanejamento(
+        tarefasBase, orc, questPreview.respostas?.paralelo === "sim");
+      p.tarefas = tarefasBase.map(t => ({...t,depende:deps[t.id] || []}));
+      return p;
+    });
+    setQuestPreview(null);
+    showToast?.("Cronograma preenchido pela IA. Ajuste o que precisar no Gantt.");
+  };
+
+  // Analisa apenas os vinculos do cronograma atual e abre uma previa. Nenhuma
+  // dependencia e gravada sem confirmacao do operador.
+  const analisarVinculosIA = () => {
+    const dependencias = sugerirDependenciasPlanejamento(tarefas, orc, true);
+    const datas = {};
+    tarefas.forEach(t => {
+      if (t.titulo) { datas[t.id]={inicio:t.inicio,fim:t.fim,alterada:false}; return; }
+      const inicioAtual = t.inicio || plano.inicio || today();
+      const duracao = Math.max(1,diasUteis(inicioAtual,t.fim||inicioAtual,cal));
+      const finsAntecessoras = (dependencias[t.id] || [])
+        .map(id => datas[id]?.fim || tarefas.find(x=>x.id===id)?.fim).filter(Boolean);
+      const inicioMinimo = finsAntecessoras.length
+        ? proximoDiaUtil(finsAntecessoras.sort().slice(-1)[0],cal) : inicioAtual;
+      const inicio = inicioAtual >= inicioMinimo ? inicioAtual : inicioMinimo;
+      const fim = inicio === t.inicio && t.fim ? t.fim : somaDiasUteis(inicio,duracao,cal);
+      datas[t.id]={inicio,fim,alterada:inicio!==t.inicio||fim!==t.fim};
+    });
+    const linhas = tarefas.filter(t => !t.titulo).map(t => ({
+      id:t.id, nome:t.nome,
+      antecessoras:(dependencias[t.id] || []).map(id => tarefas.find(x=>x.id===id)?.nome).filter(Boolean),
+      sucessoras:tarefas.filter(x => (dependencias[x.id] || []).includes(t.id)).map(x=>x.nome),
+      ...datas[t.id],
+    }));
+    setVincPreview({dependencias,datas,linhas});
+  };
+
+  const aplicarVinculosIA = () => {
+    if (!vincPreview) return;
+    salvarPlano(p => {
+      p.tarefas = (p.tarefas || []).map(t => {
+        const d = vincPreview.datas?.[t.id];
+        return {...t,inicio:d?.inicio||t.inicio,fim:d?.fim||t.fim,
+          depende:[...new Set(vincPreview.dependencias[t.id] || [])]};
+      });
+      return p;
+    });
+    setVincPreview(null);
+    showToast?.("Antecessoras e sucessoras cadastradas. Os vinculos continuam editaveis.");
+  };
+
+  // Pede um parecer da IA sobre a proposta (opcional). Local sempre; IA extra.
+  const comentarCronogramaIA = async () => {
+    if (!questPreview) return;
+    try {
+      const lista = questPreview.tarefas.map((t,i) => `${i+1}. ${t.nome} (${fmtDate(t.inicio)} a ${fmtDate(t.fim)})`).join("\n");
+      const prompt = `Voce e engenheiro civil planejador. A ordem dos servicos veio do orcamento e e IMUTAVEL. `
+        + `Analise criticamente este cronograma de obra `
+        + `gerado automaticamente e aponte riscos de sequenciamento, folgas insuficientes ou servicos `
+        + `que deveriam ser paralelos/sequenciais segundo boa pratica. Seja objetivo e em portugues.\n\n`
+        + `Inicio: ${fmtDate(questPreview.resumo.inicio)} | Fim previsto: ${fmtDate(questPreview.resumo.fim)} `
+        + `(${questPreview.resumo.diasCorridos + 1} dias corridos). `
+        + `Prazo limite: ${fmtDate(questPreview.resumo.fimAlvo)}. `
+        + `Calendario: ${questPreview.diasSemana.length} dias por semana e `
+        + `${questPreview.calendario?.pularFeriados ? "feriados retirados" : "feriados trabalhados"}.\nCronograma:\n${lista}\n\n`
+        + `Nao reordene, renomeie nem invente servicos. Nao proponha inicio ou fim em dia nao trabalhado. `
+        + `Sugira somente ajustes de datas, duracoes, folgas e paralelismos dentro do prazo limite.`;
+      const r = await fetch("/api/ai-agent", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      if (!r.ok) throw new Error(`IA respondeu ${r.status}`);
+      const j = await r.json();
+      setQuestIA(j.reply || j.text || j.message || "Sem resposta da IA.");
+    } catch (e) {
+      setQuestIA("Nao foi possivel falar com a IA agora - a proposta local acima ja e valida.");
     }
   };
 
@@ -14698,7 +16238,7 @@ function Planejamento({ data, update, showToast }) {
     if (!etapa) return;
     // Encaixa logo apos a ultima tarefa, com 7 dias de duracao default.
     const ult = tarefas[tarefas.length - 1];
-    const ini = ult?.fim || plano.inicio || today();
+    const ini = ult?.fim ? proximoDiaUtil(ult.fim, cal) : (plano.inicio || today());
     // 5 dias uteis = uma semana de trabalho, ja respeitando o calendario.
     upsertTarefa({ etapaId, nome: etapa.nome, inicio: ini, fim: somaDiasUteis(ini, 5, cal), progresso: 0 });
     showToast?.(`"${etapa.nome}" adicionada ao cronograma`);
@@ -14713,6 +16253,10 @@ function Planejamento({ data, update, showToast }) {
   const larguraGrade = totalDias * pxPorDia;
   const ALTURA_LINHA = 38;
   const ALTURA_REGUA = zoom === "dia" ? 50 : zoom === "semana" ? 40 : 30;
+  const COLUNAS_TAREFA = isDesktop
+    ? "220px 112px 112px 76px 140px 140px"
+    : "150px 105px 105px 70px 130px 130px";
+  const LARGURA_TAREFAS = isDesktop ? 800 : 690;
 
   // Converte data -> posicao X (px) e duracao -> largura.
   const xDeData = (iso) => diasCorridos(GANTT_INI, iso) * pxPorDia;
@@ -14740,125 +16284,6 @@ function Planejamento({ data, update, showToast }) {
 
   // Forca re-render durante o arraste (o preview vive no ref).
   const [, setDragTick] = useState(0);
-
-  // Relações predecessora -> sucessora desenhadas sobre as barras.
-  const relacoes = useMemo(() => {
-    const porId = Object.fromEntries(tarefas.map((t, indice) => [t.id, { tarefa: t, indice }]));
-    return tarefas.flatMap((sucessora, indiceSucessora) =>
-      sucessora.titulo ? [] : (sucessora.depende || []).map(predecessoraId => {
-        const pred = porId[predecessoraId];
-        if (!pred || pred.tarefa.titulo || predecessoraId === sucessora.id) return null;
-        return {
-          chave: `${predecessoraId}->${sucessora.id}`,
-          predecessora: pred.tarefa,
-          sucessora,
-          indicePredecessora: pred.indice,
-          indiceSucessora,
-        };
-      }).filter(Boolean)
-    );
-  }, [tarefas]);
-
-  const depDragRef = useRef(null);
-  const [, setDepDragTick] = useState(0);
-
-  const geometriaTarefa = (tarefa, indice) => {
-    const drag = dragRef.current;
-    const preview = drag && drag.id === tarefa.id ? drag.preview : null;
-    const inicio = preview?.inicio || tarefa.inicio;
-    const fim = preview?.fim || tarefa.fim;
-    const x = xDeData(inicio);
-    const largura = Math.max(pxPorDia, (diasCorridos(inicio, fim) + 1) * pxPorDia);
-    return { x, largura, y: indice * ALTURA_LINHA + ALTURA_LINHA / 2 };
-  };
-
-  const geometriaRelacao = (relacao) => {
-    const pred = geometriaTarefa(relacao.predecessora, relacao.indicePredecessora);
-    const suc = geometriaTarefa(relacao.sucessora, relacao.indiceSucessora);
-    const inicioX = pred.x + pred.largura;
-    const fimX = suc.x;
-    const canal = Math.max(10, Math.min(18, pxPorDia * 1.25));
-    const baseX = fimX - inicioX >= canal * 2
-      ? inicioX + canal
-      : Math.max(inicioX, fimX) + canal;
-    const limiteDias = Math.max(1, Math.round(24 / pxPorDia));
-    const salvoBruto = Number(relacao.sucessora.tracadoDependencias?.[relacao.predecessora.id]?.desvioDias || 0);
-    const salvo = Math.max(-limiteDias, Math.min(limiteDias, salvoBruto));
-    const arraste = depDragRef.current;
-    const desvioBruto = arraste?.chave === relacao.chave ? arraste.previewDias : salvo;
-    const desvioDias = Math.max(-limiteDias, Math.min(limiteDias, desvioBruto));
-    const dobraX = Math.max(4, Math.min(larguraGrade - 4, baseX + desvioDias * pxPorDia));
-    return {
-      inicioX, fimX, dobraX, y1: pred.y, y2: suc.y,
-      d: `M ${inicioX} ${pred.y} H ${dobraX} V ${suc.y} H ${fimX}`,
-    };
-  };
-
-  const moverTracadoRelacao = (e) => {
-    const d = depDragRef.current;
-    if (!d) return;
-    if (e.cancelable) e.preventDefault();
-    const ponto = e.touches ? e.touches[0] : e;
-    const limiteDias = Math.max(1, Math.round(24 / pxPorDia));
-    d.previewDias = Math.max(-limiteDias, Math.min(limiteDias,
-      d.inicialDias + Math.round((ponto.clientX - d.x0) / pxPorDia)));
-    setDepDragTick(x => x + 1);
-  };
-
-  const soltarTracadoRelacao = () => {
-    const d = depDragRef.current;
-    document.removeEventListener("mousemove", moverTracadoRelacao);
-    document.removeEventListener("mouseup", soltarTracadoRelacao);
-    document.removeEventListener("touchmove", moverTracadoRelacao);
-    document.removeEventListener("touchend", soltarTracadoRelacao);
-    if (d) {
-      const sucessora = tarefas.find(t => t.id === d.sucessoraId);
-      upsertTarefa({
-        id: d.sucessoraId,
-        tracadoDependencias: {
-          ...(sucessora?.tracadoDependencias || {}),
-          [d.predecessoraId]: { desvioDias: d.previewDias },
-        },
-      });
-    }
-    depDragRef.current = null;
-    setDepDragTick(x => x + 1);
-  };
-
-  const iniciarTracadoRelacao = (e, relacao) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const ponto = e.touches ? e.touches[0] : e;
-    const limiteDias = Math.max(1, Math.round(24 / pxPorDia));
-    const inicialBruto = Number(relacao.sucessora.tracadoDependencias?.[relacao.predecessora.id]?.desvioDias || 0);
-    const inicialDias = Math.max(-limiteDias, Math.min(limiteDias, inicialBruto));
-    depDragRef.current = {
-      chave: relacao.chave,
-      predecessoraId: relacao.predecessora.id,
-      sucessoraId: relacao.sucessora.id,
-      x0: ponto.clientX,
-      inicialDias,
-      previewDias: inicialDias,
-    };
-    setRelacaoSelecionada(relacao.chave);
-    document.addEventListener("mousemove", moverTracadoRelacao);
-    document.addEventListener("mouseup", soltarTracadoRelacao);
-    document.addEventListener("touchmove", moverTracadoRelacao, { passive: false });
-    document.addEventListener("touchend", soltarTracadoRelacao);
-    setDepDragTick(x => x + 1);
-  };
-
-  const centralizarTracado = () => {
-    const relacao = relacoes.find(r => r.chave === relacaoSelecionada);
-    if (!relacao) return;
-    upsertTarefa({
-      id: relacao.sucessora.id,
-      tracadoDependencias: {
-        ...(relacao.sucessora.tracadoDependencias || {}),
-        [relacao.predecessora.id]: { desvioDias: 0 },
-      },
-    });
-  };
 
   const moverDrag = (e) => {
     const d = dragRef.current;
@@ -14888,7 +16313,12 @@ function Planejamento({ data, update, showToast }) {
     if (d && d.preview) {
       // So salva se mudou de fato.
       if (d.preview.inicio !== d.ini0 || d.preview.fim !== d.fim0) {
-        upsertTarefa({ id: d.id, inicio: d.preview.inicio, fim: d.preview.fim });
+        const duracao = Math.max(1, diasUteis(d.ini0, d.fim0, cal));
+        let inicioAjustado = ajustarParaDiaUtil(d.preview.inicio, cal, 1);
+        let fimAjustado = ajustarParaDiaUtil(d.preview.fim, cal, -1);
+        if (d.modo === "mover") fimAjustado = somaDiasUteis(inicioAjustado, duracao, cal);
+        if (fimAjustado < inicioAjustado) fimAjustado = inicioAjustado;
+        upsertTarefa({ id: d.id, inicio: inicioAjustado, fim: fimAjustado });
       }
     }
     dragRef.current = null;
@@ -14923,149 +16353,6 @@ function Planejamento({ data, update, showToast }) {
     if (t.progresso >= 100) return C.green;
     if (t.progresso > 0) return C.blue;
     return C.yellow;
-  };
-  const relacaoAtiva = relacoes.find(r => r.chave === relacaoSelecionada) || null;
-  const obraAtual = (data.obras || []).find(o => o.id === obraId) || null;
-  const tarefaPorId = Object.fromEntries(tarefas.map(t => [t.id, t]));
-  const colunasAtivas = COLUNAS_GANTT.filter(c => colunasVisiveis.includes(c.id));
-  const larguraColunas = colunasAtivas.reduce((s, c) => s + c.largura, 0);
-  const templateColunas = colunasAtivas.map(c => `${c.largura}px`).join(" ");
-
-  const nomesDasTarefas = (ids) => (ids || [])
-    .map(id => tarefaPorId[id]?.nome)
-    .filter(Boolean).join(", ") || "-";
-  const sucessorasDe = (id) => tarefas.filter(t => (t.depende || []).includes(id));
-  const valorColunaCronograma = (colunaId, tarefa, indice) => {
-    if (colunaId === "item") return String(indice + 1);
-    if (colunaId === "tarefa") return tarefa.nome || "-";
-    if (colunaId === "inicio") return tarefa.inicio ? fmtDate(tarefa.inicio) : "-";
-    if (colunaId === "fim") return tarefa.fim ? fmtDate(tarefa.fim) : "-";
-    if (colunaId === "dias") return String(diasCorridos(tarefa.inicio, tarefa.fim));
-    if (colunaId === "predecessoras") return nomesDasTarefas(tarefa.depende);
-    if (colunaId === "sucessoras") return sucessorasDe(tarefa.id).map(t => t.nome).join(", ") || "-";
-    if (colunaId === "custo") return tarefa.custo > 0 ? fmt(tarefa.custo) : "-";
-    if (colunaId === "progresso") return `${Number(tarefa.progresso || 0)}%`;
-    return "-";
-  };
-
-  const alternarColunaCronograma = (id) => setColunasVisiveis(prev =>
-    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-
-  const exportarCronograma = (formato) => {
-    const config = FORMATOS_GANTT[formato] || FORMATOS_GANTT.A4;
-    const retrato = orientacaoExportacao === "portrait";
-    const orientacaoLabel = retrato ? "RETRATO" : "PAISAGEM";
-    const tarefasPorPagina = retrato
-      ? ((modoExportacao === "descricao_gantt"
-          ? { A4: 24, A3: 38, A2: 56 }
-          : { A4: 30, A3: 46, A2: 68 })[formato] || 24)
-      : config.tarefasPorPagina;
-    const larguraDados = modoExportacao === "descricao_gantt"
-      ? (retrato ? 34 : 28)
-      : (retrato ? 50 : config.larguraDados);
-    if (!tarefas.length) {
-      showToast?.("Não há tarefas para exportar.", "error");
-      return;
-    }
-    const inicioRelatorio = GANTT_INI;
-    const fimRelatorio = janela.fim || somaDias(GANTT_INI, totalDias);
-    const diasRelatorio = Math.max(1, diasCorridos(inicioRelatorio, fimRelatorio));
-    const colunaDescricao = { ...COLUNAS_GANTT.find(c => c.id === "tarefa"), label: "Descrição" };
-    const colunasRelatorio = modoExportacao === "descricao_gantt"
-      ? [colunaDescricao]
-      : (colunasAtivas.length ? colunasAtivas : [colunaDescricao]);
-    const pesos = { item:.45, tarefa:2.5, inicio:.9, fim:.9, dias:.55, predecessoras:1.7, sucessoras:1.7, custo:1, progresso:.75 };
-    const templateRelatorio = colunasRelatorio.map(c => `${pesos[c.id] || 1}fr`).join(" ");
-    const paginas = [];
-    for (let i = 0; i < tarefas.length; i += tarefasPorPagina) {
-      paginas.push(tarefas.slice(i, i + tarefasPorPagina));
-    }
-    const larguraSvg = 1000;
-    const alturaLinha = modoExportacao === "descricao_gantt" ? 32 : 24;
-
-    const paginasHtml = paginas.map((pagina, paginaIndice) => {
-      const idsPagina = new Set(pagina.map(t => t.id));
-      const indiceLocal = Object.fromEntries(pagina.map((t, i) => [t.id, i]));
-      const cabecalhos = colunasRelatorio.map(c => `<div>${escapeHtml(c.label)}</div>`).join("");
-      const linhasDados = pagina.map(t => `
-        <div class="dados-linha" style="grid-template-columns:${templateRelatorio}">
-          ${colunasRelatorio.map(c => `<div title="${escapeHtml(valorColunaCronograma(c.id, t, tarefas.indexOf(t)))}">${escapeHtml(valorColunaCronograma(c.id, t, tarefas.indexOf(t)))}</div>`).join("")}
-        </div>`).join("");
-      const linhasFundo = pagina.map((_, i) => `<div class="fundo-linha" style="top:${i * alturaLinha}px"></div>`).join("");
-      const barras = pagina.map((t, indice) => {
-        const inicio = Math.max(0, diasCorridos(inicioRelatorio, t.inicio));
-        const duracao = Math.max(1, diasCorridos(t.inicio, t.fim));
-        const esquerda = Math.min(100, inicio / diasRelatorio * 100);
-        const largura = Math.max(.6, Math.min(100 - esquerda, duracao / diasRelatorio * 100));
-        const cor = corTarefa(t);
-        return `<div class="barra" title="${escapeHtml(t.nome)}: ${escapeHtml(fmtDate(t.inicio))} a ${escapeHtml(fmtDate(t.fim))}"
-                     style="left:${esquerda}%;width:${largura}%;top:${indice * alturaLinha + 5}px;background:${cor}">
-                  <span>${Number(t.progresso || 0) > 0 ? `${Number(t.progresso || 0)}%` : ""}</span>
-                </div>`;
-      }).join("");
-      const caminhos = relacoes.filter(r => idsPagina.has(r.predecessora.id) && idsPagina.has(r.sucessora.id)).map(r => {
-        const inicioPred = diasCorridos(inicioRelatorio, r.predecessora.inicio);
-        const duracaoPred = Math.max(1, diasCorridos(r.predecessora.inicio, r.predecessora.fim));
-        const inicioSuc = diasCorridos(inicioRelatorio, r.sucessora.inicio);
-        const x1 = Math.max(0, Math.min(larguraSvg, (inicioPred + duracaoPred) / diasRelatorio * larguraSvg));
-        const x2 = Math.max(0, Math.min(larguraSvg, inicioSuc / diasRelatorio * larguraSvg));
-        const y1 = indiceLocal[r.predecessora.id] * alturaLinha + alturaLinha / 2;
-        const y2 = indiceLocal[r.sucessora.id] * alturaLinha + alturaLinha / 2;
-        const canal = 14;
-        const base = x2 - x1 >= canal * 2 ? x1 + canal : Math.max(x1, x2) + canal;
-        const desvio = Number(r.sucessora.tracadoDependencias?.[r.predecessora.id]?.desvioDias || 0);
-        const desvioPx = Math.max(-24, Math.min(24, desvio / diasRelatorio * larguraSvg));
-        const dobra = Math.max(2, Math.min(larguraSvg - 2, base + desvioPx));
-        return `<path d="M ${x1} ${y1} H ${dobra} V ${y2} H ${x2}" fill="none" stroke="#2563eb" stroke-width="1.5" marker-end="url(#seta)"/>`;
-      }).join("");
-      return `
-        <section class="pagina">
-          <header>
-            <div><h1>${escapeHtml(data.config.companyName || "ArcD Obras")}</h1><p>CRONOGRAMA TÉCNICO DE OBRA</p></div>
-            <div class="obra"><span>OBRA</span><b>${escapeHtml(obraAtual?.name || "Obra não identificada")}</b></div>
-            <div class="folha"><b>${formato} · ${orientacaoLabel}</b><span>Página ${paginaIndice + 1}/${paginas.length}</span></div>
-          </header>
-          <div class="meta"><span>Período: <b>${escapeHtml(fmtDate(inicioRelatorio))} a ${escapeHtml(fmtDate(fimRelatorio))}</b></span><span>Gerado em: <b>${escapeHtml(new Date().toLocaleString("pt-BR"))}</b></span></div>
-          <div class="cronograma">
-            <div class="dados" style="width:${larguraDados}%">
-              <div class="dados-cabecalho" style="grid-template-columns:${templateRelatorio}">${cabecalhos}</div>
-              ${linhasDados}
-            </div>
-            <div class="tempo" style="width:${100 - larguraDados}%">
-              <div class="regua"><b>${escapeHtml(fmtMesAno(inicioRelatorio))}</b><span>Linha do tempo</span><b>${escapeHtml(fmtMesAno(fimRelatorio))}</b></div>
-              <div class="grade" style="height:${pagina.length * alturaLinha}px">
-                ${linhasFundo}
-                <svg viewBox="0 0 ${larguraSvg} ${pagina.length * alturaLinha}" preserveAspectRatio="none">
-                  <defs><marker id="seta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#2563eb"/></marker></defs>
-                  ${caminhos}
-                </svg>
-                ${barras}
-              </div>
-            </div>
-          </div>
-          <footer><span>As setas indicam relações predecessora → sucessora.</span><span>${escapeHtml(obraAtual?.name || "")}</span></footer>
-        </section>`;
-    }).join("");
-
-    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cronograma - ${escapeHtml(obraAtual?.name || "Obra")}</title>
-      <style>
-        @page{size:${formato} ${orientacaoExportacao};margin:8mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#111;font-size:${formato === "A4" ? 7 : 8}px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-        .pagina{break-after:page;page-break-after:always}.pagina:last-child{break-after:auto;page-break-after:auto}
-        header{display:grid;grid-template-columns:1.2fr 2fr .8fr;align-items:center;gap:12px;border-bottom:3px solid #d4af37;padding-bottom:6px}h1{margin:0;font-size:16px}header p{margin:2px 0 0;font-size:8px;font-weight:bold}.obra span,.folha span{display:block;font-size:7px;color:#666;text-transform:uppercase}.obra b{display:block;font-size:14px;margin-top:2px}.folha{text-align:right}.folha b{display:block;font-size:11px}
-        .meta{display:flex;justify-content:space-between;padding:5px 0;color:#444}.cronograma{display:flex;width:100%;border:1px solid #777}.dados{flex:none;border-right:2px solid #555}.dados-cabecalho,.dados-linha{display:grid}.dados-cabecalho{height:26px;background:#e5e7eb;font-weight:bold;text-transform:uppercase}.dados-cabecalho div,.dados-linha div{padding:0 4px;border-right:1px solid #aaa;overflow:hidden;text-overflow:ellipsis;white-space:${modoExportacao === "descricao_gantt" ? "normal" : "nowrap"};line-height:1.15;display:flex;align-items:center}.dados-linha{height:${alturaLinha}px;border-top:1px solid #bbb}.tempo{flex:none}.regua{height:26px;padding:0 5px;background:#e5e7eb;display:flex;justify-content:space-between;align-items:center;text-transform:uppercase}.grade{position:relative;overflow:hidden;background-image:linear-gradient(to right,rgba(100,116,139,.16) 1px,transparent 1px);background-size:5% 100%}.fundo-linha{position:absolute;left:0;right:0;height:${alturaLinha}px;border-top:1px solid #bbb}.grade svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:visible}.barra{position:absolute;height:${alturaLinha - 10}px;border-radius:3px;z-index:3;overflow:hidden;display:flex;align-items:center;min-width:2px}.barra span{color:#fff;font-weight:bold;padding-left:3px;font-size:6px}footer{display:flex;justify-content:space-between;border-top:1px solid #aaa;margin-top:5px;padding-top:4px;color:#555}
-        @media screen{body{padding:20px;background:#ddd}.pagina{background:white;padding:18px;margin:0 auto 18px;max-width:1500px;box-shadow:0 2px 12px #0002}}
-      </style></head><body>${paginasHtml}</body></html>`;
-    const w = window.open("", "_blank");
-    if (!w) {
-      showToast?.("Permita pop-ups para exportar o cronograma.", "error");
-      return;
-    }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    window.setTimeout(() => w.print(), 350);
-    setExportarModal(false);
   };
 
   const TIPO_MARCO = {
@@ -15150,19 +16437,15 @@ function Planejamento({ data, update, showToast }) {
           <p style={{ fontSize: 12, fontWeight: 900, color: C.text, textTransform: "uppercase", letterSpacing: .5 }}>
             Cronograma
           </p>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <Btn v="ghost" size="sm" onClick={() => setColunasModal(true)}>
-              Colunas ({colunasAtivas.length}/{COLUNAS_GANTT.length})
+          <div style={{ display: "flex", gap: 6, flexWrap:"wrap", justifyContent:"flex-end" }}>
+            <Btn v="ghost" size="sm" onClick={() => { setQuestIA(null); setQuestModal(true); }}>
+              <Ic n="brain" s={13}/> Planejar IA
             </Btn>
-            <Btn v="ghost" size="sm" onClick={() => setExportarModal(true)}>Exportar</Btn>
-            <Btn v="ghost" size="sm" onClick={() => setMostrarDependencias(v => !v)}>
-              {mostrarDependencias ? "Ocultar ligações" : "Mostrar ligações"}
-            </Btn>
-            {relacaoAtiva && mostrarDependencias && (
-              <Btn v="ghost" size="sm" onClick={centralizarTracado}>Centralizar traçado</Btn>
-            )}
             <Btn v="ghost" size="sm" onClick={pedirOrientacaoIA} disabled={iaCarregando}>
-              {iaCarregando ? "..." : <><Ic n="brain" s={13}/> Ordem IA</>}
+              {iaCarregando ? "..." : <><Ic n="brain" s={13}/> Revisar datas IA</>}
+            </Btn>
+            <Btn v="ghost" size="sm" onClick={analisarVinculosIA}>
+              <Ic n="brain" s={13}/> Vinculos IA
             </Btn>
             <Btn v="ghost" size="sm" onClick={() => setMarcoModal({ modo: "novo", marco: { tipo: "compra", data: today() } })}>
               + Marco
@@ -15175,23 +16458,15 @@ function Planejamento({ data, update, showToast }) {
           </div>
         </div>
 
-        {mostrarDependencias && relacoes.length > 0 && (
-          <div style={{ padding: "7px 14px", borderBottom: `1px solid ${C.line}`,
-                        background: `${C.blue}0A`, fontSize: 10.5, color: C.muted }}>
-            {relacaoAtiva
-              ? <><b style={{ color: C.blue }}>{relacaoAtiva.predecessora.nome}</b> → <b style={{ color: C.text }}>{relacaoAtiva.sucessora.nome}</b>. Arraste o ponto da linha para ajustar o traçado.</>
-              : <>Clique em uma linha de dependência para selecioná-la e ajustar seu traçado.</>}
-          </div>
-        )}
-
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap",
-                      padding: "6px 14px", borderBottom: `1px solid ${C.line}`, background: C.surface }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, textTransform: "uppercase" }}>Legenda técnica</span>
-          <span style={{ fontSize: 9.5, color: C.text }}><i style={{ display: "inline-block", width: 9, height: 9, background: `${C.red}22`, border: `1px solid ${C.red}55`, marginRight: 4 }}/>Não trabalhado</span>
-          <span style={{ fontSize: 9.5, color: C.text }}><i style={{ display: "inline-block", width: 9, height: 9, background: `${C.blue}18`, border: `1px solid ${C.blue}55`, marginRight: 4 }}/>Fim de semana trabalhado</span>
-          <span style={{ fontSize: 9.5, color: C.text }}><i style={{ display: "inline-block", width: 9, height: 9, background: `${C.orange}45`, border: `1px solid ${C.orange}`, marginRight: 4 }}/>Feriado</span>
-          <span style={{ fontSize: 9.5, color: C.text }}><i style={{ display: "inline-block", height: 10, borderLeft: `2px solid ${C.red}`, marginRight: 5 }}/>Hoje</span>
-          <span style={{ fontSize: 9.5, color: C.muted, marginLeft: "auto" }}>{(cal.diasSemana || []).length} dias/semana · {(cal.feriados || []).length} feriado(s)</span>
+        <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",padding:"6px 14px",
+                     borderBottom:`1px solid ${C.line}`,background:C.surface}}>
+          <span style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Legenda tecnica</span>
+          <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.red}22`,border:`1px solid ${C.red}55`,marginRight:4}}/>Nao trabalhado</span>
+          <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.blue}18`,border:`1px solid ${C.blue}55`,marginRight:4}}/>Fim de semana trabalhado</span>
+          <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.orange}45`,border:`1px solid ${C.orange}`,marginRight:4}}/>Feriado</span>
+          <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",height:10,borderLeft:`2px solid ${C.red}`,marginRight:5}}/>Hoje</span>
+          <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.orange}25`,border:`1px solid ${C.orange}`,marginRight:4}}/>Conflito de vinculo</span>
+          <span style={{fontSize:9.5,color:C.muted,marginLeft:"auto"}}>{(cal.diasSemana||[]).length} dias/semana - {(cal.feriados||[]).length} feriado(s) no calendario</span>
         </div>
 
         {tarefas.length === 0 ? (
@@ -15204,131 +16479,117 @@ function Planejamento({ data, update, showToast }) {
         ) : (
           <div style={{ display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
 
-            {/* Colunas técnicas fixas e configuráveis. */}
-            {colunasAtivas.length > 0 && (
-              <div style={{ flexShrink: 0, width: larguraColunas, borderRight: `2px solid ${C.border}`,
-                            position: "sticky", left: 0, background: C.card, zIndex: 5 }}>
-                <div style={{ height: ALTURA_REGUA, display: "grid", gridTemplateColumns: templateColunas,
-                              borderBottom: `1px solid ${C.line}`, background: C.surface }}>
-                  {colunasAtivas.map(c => (
-                    <div key={c.id} title={c.label} style={{ padding: "0 6px", display: "flex", alignItems: "center",
-                         borderRight: `1px solid ${C.line}`, color: C.muted, fontSize: 9, fontWeight: 900,
-                         textTransform: "uppercase", overflow: "hidden", whiteSpace: "nowrap" }}>{c.label}</div>
-                  ))}
-                </div>
-                {tarefas.map((t, indice) => (
-                  <div key={t.id} onClick={() => setTarefaModal({ modo: "editar", tarefa: t })}
-                       style={{ height: ALTURA_LINHA, display: "grid", gridTemplateColumns: templateColunas,
-                                cursor: "pointer", borderBottom: `1px solid ${C.line}`,
-                                background: indice % 2 ? `${C.surface}55` : C.card }}>
-                    {colunasAtivas.map(c => {
-                      const valor = valorColunaCronograma(c.id, t, indice);
-                      return (
-                        <div key={c.id} title={valor} className="brk" style={{ padding: "0 6px",
-                             display: "flex", alignItems: "center", borderRight: `1px solid ${C.line}`,
-                             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                             fontSize: c.id === "tarefa" ? 11 : 9.5,
-                             fontWeight: c.id === "tarefa" || c.id === "progresso" ? 700 : 500,
-                             color: c.id === "tarefa" && t.orfa ? C.red : c.id === "progresso" ? corTarefa(t) : C.text }}>
-                          {valor}
-                        </div>
-                      );
-                    })}
-                  </div>
+            {/* Colunas tecnicas fixas: edicao direta sem abrir popup */}
+            <div style={{ flexShrink: 0, borderRight: `1px solid ${C.line}`,
+                          position: isDesktop ? "sticky" : "relative", left: 0, background: C.card, zIndex: 2,
+                          width:LARGURA_TAREFAS }}>
+              <div style={{ height: ALTURA_REGUA, borderBottom: `1px solid ${C.line}`,
+                            display:"grid", gridTemplateColumns:COLUNAS_TAREFA, alignItems:"center" }}>
+                {["Atividade / custo","Data inicio","Data fim","Dias trab.","Antecessora","Sucessora"].map((h,i)=>(
+                  <span key={h} style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase",
+                    padding:"0 7px",borderLeft:i?`1px solid ${C.line}`:"none",height:"100%",
+                    display:"flex",alignItems:"center"}}>{h}</span>
                 ))}
               </div>
-            )}
+              {tarefas.map(t => {
+                const ant = (t.depende || []).map(id=>tarefas.find(x=>x.id===id)?.nome).filter(Boolean);
+                const suc = idsSucessoras(tarefas,t.id).map(id=>tarefas.find(x=>x.id===id)?.nome).filter(Boolean);
+                const conflitoVinculo = (t.depende || []).some(id => {
+                  const a = tarefas.find(x=>x.id===id);
+                  return a?.fim && t.inicio && t.inicio <= a.fim;
+                });
+                const estiloInput = {width:"100%",height:26,border:0,background:"transparent",color:C.text,
+                  fontSize:10,padding:"0 5px",outline:"none",fontFamily:"inherit"};
+                return (
+                  <div key={t.id} style={{height:ALTURA_LINHA,display:"grid",gridTemplateColumns:COLUNAS_TAREFA,
+                                          borderBottom:`1px solid ${C.line}`,background:conflitoVinculo?`${C.orange}0B`:"transparent"}}>
+                    <div onClick={() => setTarefaModal({ modo:"editar", tarefa:t })}
+                         title={`Antecessora(s): ${ant.join(", ")||"nenhuma"}\nSucessora(s): ${suc.join(", ")||"nenhuma"}`}
+                         style={{padding:"0 7px",display:"flex",flexDirection:"column",justifyContent:"center",cursor:"pointer",minWidth:0}}>
+                      <p style={{fontSize:10.5,fontWeight:700,color:t.orfa?C.red:conflitoVinculo?C.orange:C.text,overflow:"hidden",
+                                 textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</p>
+                      <p style={{fontSize:8.5,color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {t.custo>0?fmt(t.custo):"avulsa"} · A:{ant.length} S:{suc.length}{conflitoVinculo?" · conflito de data":""}
+                      </p>
+                    </div>
+                    <div style={{borderLeft:`1px solid ${C.line}`,display:"flex",alignItems:"center"}}>
+                      <input key={`${t.id}-ini-${t.inicio}`} type="date" defaultValue={t.inicio||""} disabled={t.titulo}
+                        onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                        onBlur={e=>e.target.value&&e.target.value!==t.inicio&&atualizarTarefaNaLinha(t,"inicio",e.target.value)} style={estiloInput}/>
+                    </div>
+                    <div style={{borderLeft:`1px solid ${C.line}`,display:"flex",alignItems:"center"}}>
+                      <input key={`${t.id}-fim-${t.fim}`} type="date" defaultValue={t.fim||""} disabled={t.titulo}
+                        onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                        onBlur={e=>e.target.value&&e.target.value!==t.fim&&atualizarTarefaNaLinha(t,"fim",e.target.value)} style={estiloInput}/>
+                    </div>
+                    <div style={{borderLeft:`1px solid ${C.line}`,display:"flex",alignItems:"center"}}>
+                      <input key={`${t.id}-dias-${t.inicio}-${t.fim}`} type="number" min="1"
+                        defaultValue={Math.max(1,diasUteis(t.inicio,t.fim,cal))} disabled={t.titulo}
+                        onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                        onBlur={e=>Number(e.target.value)!==diasUteis(t.inicio,t.fim,cal)&&atualizarTarefaNaLinha(t,"dias",e.target.value)}
+                        style={{...estiloInput,textAlign:"center"}}/>
+                    </div>
+                    <div onClick={() => setTarefaModal({modo:"editar",tarefa:t})} title={ant.join("\n")||"Sem antecessora"}
+                         style={{borderLeft:`1px solid ${C.line}`,padding:"0 6px",display:"flex",alignItems:"center",
+                                 cursor:"pointer",minWidth:0}}>
+                      <span style={{fontSize:9.5,color:ant.length?C.blue:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {ant.join(", ")||"-"}
+                      </span>
+                    </div>
+                    <div onClick={() => setTarefaModal({modo:"editar",tarefa:t})} title={suc.join("\n")||"Sem sucessora"}
+                         style={{borderLeft:`1px solid ${C.line}`,padding:"0 6px",display:"flex",alignItems:"center",
+                                 cursor:"pointer",minWidth:0}}>
+                      <span style={{fontSize:9.5,color:suc.length?C.green:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {suc.join(", ")||"-"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
             {/* Area do grafico */}
             <div style={{ position: "relative", minWidth: larguraGrade }}>
-              {/* Régua técnica: mês, número do dia, dia da semana e exceções. */}
+              {/* Regua tecnica: mes, numero do dia, dia da semana e excecoes */}
               <div style={{ height: ALTURA_REGUA, position: "relative", borderBottom: `1px solid ${C.line}` }}>
                 {reguaMeses.map((m, i) => (
                   <div key={i} style={{ position: "absolute", left: m.x, top: 0, height: "100%",
                                         borderLeft: `1px solid ${C.line}`, paddingLeft: 4,
-                                        display: "flex", alignItems: "flex-start", paddingTop: 2 }}>
+                                        display: "flex", alignItems: "flex-start", paddingTop:2 }}>
                     <span style={{ fontSize: 9.5, fontWeight: 700, color: C.muted, whiteSpace: "nowrap" }}>{m.label}</span>
                   </div>
                 ))}
                 {diasGrade.map(d => {
-                  const nomes = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB"];
+                  const nomes = ["DOM","SEG","TER","QUA","QUI","SEX","SAB"];
                   const bg = d.feriado ? `${C.orange}30` : d.naoTrabalhado ? `${C.red}12` : d.fimSemana ? `${C.blue}12` : "transparent";
-                  const mostrar = zoom === "dia" || (zoom === "semana" && (pxPorDia >= 10 || d.dow === 1 || d.feriado));
-                  return (
-                    <div key={d.data}
-                         title={`${fmtDateFull(d.data)}${d.feriado ? ` - ${d.feriado.nome}` : d.naoTrabalhado ? " - não trabalhado" : " - dia de trabalho"}`}
-                         style={{ position: "absolute", left: d.x, top: 18, width: pxPorDia, height: ALTURA_REGUA - 18,
-                                  background: bg, borderRight: `1px solid ${C.line}`, overflow: "hidden", textAlign: "center" }}>
-                      {mostrar && <>
-                        <span style={{ display: "block", fontSize: zoom === "dia" ? 10 : 8, fontWeight: 900,
-                                       color: d.feriado ? C.orange : d.naoTrabalhado ? C.red : C.text, lineHeight: 1.2 }}>{d.data.slice(8, 10)}</span>
-                        {zoom === "dia" && <span style={{ display: "block", fontSize: 7.5, fontWeight: 700, color: C.muted }}>{nomes[d.dow]}</span>}
-                      </>}
-                    </div>
-                  );
+                  const mostrar = zoom === "dia" || (zoom === "semana" && (d.dow === 1 || d.feriado));
+                  return <div key={d.data}
+                    title={`${fmtDateFull(d.data)}${d.feriado ? ` - ${d.feriado.nome}` : d.naoTrabalhado ? " - nao trabalhado" : " - dia de trabalho"}`}
+                    style={{position:"absolute",left:d.x,top:18,width:pxPorDia,height:ALTURA_REGUA-18,
+                      background:bg,borderRight:`1px solid ${C.line}`,overflow:"hidden",textAlign:"center"}}>
+                    {mostrar && <><span style={{display:"block",fontSize:zoom==="dia"?10:8,fontWeight:900,
+                      color:d.feriado?C.orange:d.naoTrabalhado?C.red:C.text,lineHeight:1.2}}>{d.data.slice(8,10)}</span>
+                    {zoom === "dia" && <span style={{display:"block",fontSize:7.5,fontWeight:700,color:C.muted}}>{nomes[d.dow]}</span>}</>}
+                  </div>;
                 })}
                 {/* Linha do hoje */}
-                {today() >= GANTT_INI && today() <= somaDias(GANTT_INI, totalDias - 1) &&
+                {today() >= GANTT_INI && today() <= somaDias(GANTT_INI,totalDias-1) &&
                   <div style={{ position: "absolute", left: xDeData(today()), top: 0, height: "100%",
-                                borderLeft: `2px solid ${C.red}`, opacity: .65 }} />}
+                                borderLeft: `2px solid ${C.red}`, opacity: .6 }} />}
               </div>
 
-              {/* Dias não trabalhados, fins de semana e feriados em toda a altura. */}
-              <div style={{ position: "absolute", left: 0, top: ALTURA_REGUA, width: larguraGrade,
-                            height: tarefas.length * ALTURA_LINHA, pointerEvents: "none", zIndex: 0 }}>
+              {/* Fins de semana e feriados continuam visiveis em todas as linhas */}
+              <div style={{position:"absolute",left:0,top:ALTURA_REGUA,width:larguraGrade,
+                           height:tarefas.length*ALTURA_LINHA,pointerEvents:"none",zIndex:0}}>
                 {diasGrade.map(d => <div key={d.data} style={{
-                  position: "absolute", left: d.x, top: 0, width: pxPorDia, height: "100%",
-                  background: d.feriado ? `${C.orange}20` : d.naoTrabalhado ? `${C.red}0B` : d.fimSemana ? `${C.blue}09` : "transparent",
-                  borderRight: `1px solid ${C.line}88`,
+                  position:"absolute",left:d.x,top:0,width:pxPorDia,height:"100%",
+                  background:d.feriado?`${C.orange}20`:d.naoTrabalhado?`${C.red}0B`:d.fimSemana?`${C.blue}09`:"transparent",
+                  borderRight:`1px solid ${C.line}88`
                 }}/>) }
-                {today() >= GANTT_INI && today() <= somaDias(GANTT_INI, totalDias - 1) && (
-                  <div style={{ position: "absolute", left: xDeData(today()), top: 0, height: "100%",
-                                borderLeft: `2px solid ${C.red}`, opacity: .55, zIndex: 1 }}/>
-                )}
+                {today() >= GANTT_INI && today() <= somaDias(GANTT_INI,totalDias-1) &&
+                  <div style={{position:"absolute",left:xDeData(today()),top:0,height:"100%",
+                               borderLeft:`2px solid ${C.red}`,opacity:.55,zIndex:1}}/>}
               </div>
-
-              {/* Ligações técnicas entre predecessoras e sucessoras. */}
-              {mostrarDependencias && relacoes.length > 0 && (
-                <svg width={larguraGrade} height={tarefas.length * ALTURA_LINHA}
-                     viewBox={`0 0 ${larguraGrade} ${tarefas.length * ALTURA_LINHA}`}
-                     style={{ position: "absolute", left: 0, top: ALTURA_REGUA, overflow: "visible",
-                              zIndex: 3, pointerEvents: "none" }} aria-label="Dependências do cronograma">
-                  <defs>
-                    <marker id="gantt-seta-dependencia" markerWidth="7" markerHeight="7"
-                            refX="6" refY="3.5" orient="auto" markerUnits="strokeWidth">
-                      <path d="M0,0 L7,3.5 L0,7 z" fill={C.blue} />
-                    </marker>
-                  </defs>
-                  {relacoes.map(relacao => {
-                    const g = geometriaRelacao(relacao);
-                    const selecionada = relacao.chave === relacaoSelecionada;
-                    const cor = selecionada ? C.yellowD : C.blue;
-                    return (
-                      <g key={relacao.chave}>
-                        <path d={g.d} fill="none" stroke="transparent" strokeWidth="14"
-                              style={{ pointerEvents: "stroke", cursor: "pointer" }}
-                              onClick={(e) => { e.stopPropagation(); setRelacaoSelecionada(relacao.chave); }} />
-                        <path d={g.d} fill="none" stroke={cor} strokeWidth={selecionada ? 2.5 : 1.6}
-                              strokeLinejoin="round" strokeLinecap="round"
-                              markerEnd="url(#gantt-seta-dependencia)" opacity={selecionada ? 1 : .72}
-                              style={{ pointerEvents: "none" }} />
-                        <circle cx={g.inicioX} cy={g.y1} r="3" fill={cor} style={{ pointerEvents: "none" }} />
-                        {selecionada && (
-                          <>
-                            <circle cx={g.dobraX} cy={(g.y1 + g.y2) / 2} r="9"
-                                    fill={`${C.yellow}30`} stroke={C.yellowD} strokeWidth="1"
-                                    style={{ pointerEvents: "all", cursor: "ew-resize" }}
-                                    onMouseDown={(e) => iniciarTracadoRelacao(e, relacao)}
-                                    onTouchStart={(e) => iniciarTracadoRelacao(e, relacao)} />
-                            <circle cx={g.dobraX} cy={(g.y1 + g.y2) / 2} r="3.5"
-                                    fill={C.yellowD} style={{ pointerEvents: "none" }} />
-                          </>
-                        )}
-                      </g>
-                    );
-                  })}
-                </svg>
-              )}
 
               {/* Linhas de fundo + barras */}
               {tarefas.map((t, idx) => {
@@ -15337,6 +16598,8 @@ function Planejamento({ data, update, showToast }) {
                 const ini = emDrag ? emDrag.inicio : t.inicio;
                 const fim = emDrag ? emDrag.fim : t.fim;
                 const x = xDeData(ini);
+                // Inicio e fim sao inclusivos; a barra precisa ocupar tambem a
+                // celula do ultimo dia para coincidir com a regua tecnica.
                 const w = Math.max(pxPorDia, (diasCorridos(ini, fim) + 1) * pxPorDia);
                 return (
                   <div key={t.id} style={{ height: ALTURA_LINHA, position: "relative",
@@ -15346,8 +16609,6 @@ function Planejamento({ data, update, showToast }) {
                     <div
                       onMouseDown={(e) => t.titulo ? null : iniciarDrag(e, t, "mover")}
                       onTouchStart={(e) => t.titulo ? null : iniciarDrag(e, t, "mover")}
-                      onDoubleClick={(e) => { e.stopPropagation(); setTarefaModal({ modo: "editar", tarefa: t }); }}
-                      title={`${t.nome} — duplo clique para editar`}
                       style={{
                         position: "absolute", left: x,
                         top: t.titulo ? 14 : 7,
@@ -15361,7 +16622,7 @@ function Planejamento({ data, update, showToast }) {
                         boxShadow: emDrag ? `0 4px 14px ${corTarefa(t)}66` : "none",
                         display: "flex", alignItems: "center", overflow: "hidden",
                         touchAction: "none", userSelect: "none",
-                        transition: emDrag ? "none" : "box-shadow .1s",
+                        transition: emDrag ? "none" : "box-shadow .1s", zIndex: 1,
                       }}>
                       {/* Preenchimento do progresso */}
                       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0,
@@ -15394,7 +16655,7 @@ function Planejamento({ data, update, showToast }) {
                   <div key={m.id} onClick={() => setMarcoModal({ modo: "editar", marco: m })}
                        title={m.nome}
                        style={{ position: "absolute", left: x - 7,
-                                 top: ALTURA_REGUA, height: tarefas.length * ALTURA_LINHA,
+                                top: ALTURA_REGUA, height: tarefas.length * ALTURA_LINHA,
                                 cursor: "pointer", zIndex: 1 }}>
                     <div style={{ width: 14, height: 14, background: tp.c, transform: "rotate(45deg)",
                                   marginTop: 2, border: "2px solid #fff",
@@ -15537,103 +16798,6 @@ function Planejamento({ data, update, showToast }) {
       )}
 
       {/* ==== MODAIS ==== */}
-      {colunasModal && (
-        <Modal title="Colunas do cronograma" onClose={() => setColunasModal(false)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <p style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5 }}>
-              Escolha quais informações ficam fixas ao lado da linha do tempo. As barras do Gantt permanecem visíveis.
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 }}>
-              {COLUNAS_GANTT.map(c => {
-                const marcada = colunasVisiveis.includes(c.id);
-                return (
-                  <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 7,
-                       border: `1px solid ${marcada ? C.yellow : C.border}`, borderRadius: 8,
-                       padding: "9px 10px", cursor: "pointer", background: marcada ? `${C.yellow}10` : C.surface }}>
-                    <input type="checkbox" checked={marcada} onChange={() => alternarColunaCronograma(c.id)}
-                           style={{ accentColor: C.yellow, width: 16, height: 16 }} />
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: marcada ? C.text : C.muted }}>{c.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-              <Btn v="ghost" size="sm" onClick={() => setColunasVisiveis(COLUNAS_GANTT.map(c => c.id))}>Mostrar todas</Btn>
-              <Btn v="ghost" size="sm" onClick={() => setColunasVisiveis(COLUNAS_GANTT_PADRAO)}>Padrão</Btn>
-              <Btn v="ghost" size="sm" onClick={() => setColunasVisiveis([])}>Somente linha do tempo</Btn>
-            </div>
-            <Btn full onClick={() => setColunasModal(false)}>Aplicar</Btn>
-          </div>
-        </Modal>
-      )}
-
-      {exportarModal && (
-        <Modal title="Exportar cronograma" onClose={() => setExportarModal(false)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ border: `1px solid ${C.yellow}66`, borderLeft: `4px solid ${C.yellow}`,
-                          background: `${C.yellow}0C`, borderRadius: 8, padding: "10px 11px" }}>
-              <p style={{ fontSize: 9.5, color: C.muted, textTransform: "uppercase", fontWeight: 900 }}>Obra do relatório</p>
-              <p style={{ fontSize: 14, color: C.text, fontWeight: 800, marginTop: 2 }}>{obraAtual?.name || "Obra não identificada"}</p>
-            </div>
-            <p style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5 }}>
-              Escolha a orientação e se o relatório terá todas as colunas visíveis ou somente Descrição + Gantt.
-            </p>
-            <div>
-              <p style={{ fontSize: 9.5, color: C.muted, textTransform: "uppercase", fontWeight: 900, marginBottom: 6 }}>Orientação</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-                {[["portrait", "Retrato"], ["landscape", "Paisagem"]].map(([id, label]) => {
-                  const ativa = orientacaoExportacao === id;
-                  return (
-                    <button key={id} onClick={() => setOrientacaoExportacao(id)} style={{
-                      border: `1.5px solid ${ativa ? C.yellow : C.border}`, borderRadius: 8,
-                      background: ativa ? `${C.yellow}14` : C.surface, color: ativa ? C.text : C.muted,
-                      padding: "10px", cursor: "pointer", fontWeight: 800, fontFamily: "inherit" }}>{label}</button>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
-              <p style={{ fontSize: 9.5, color: C.muted, textTransform: "uppercase", fontWeight: 900, marginBottom: 6 }}>Visualização</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-                {[["descricao_gantt", "Descrição + Gantt"], ["completo", "Colunas visíveis + Gantt"]].map(([id, label]) => {
-                  const ativa = modoExportacao === id;
-                  return (
-                    <button key={id} onClick={() => setModoExportacao(id)} style={{
-                      border: `1.5px solid ${ativa ? C.blue : C.border}`, borderRadius: 8,
-                      background: ativa ? `${C.blue}12` : C.surface, color: ativa ? C.text : C.muted,
-                      padding: "10px 7px", cursor: "pointer", fontWeight: 800, fontSize: 10.5,
-                      fontFamily: "inherit" }}>{label}</button>
-                  );
-                })}
-              </div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-              {Object.entries(FORMATOS_GANTT).map(([formato, cfg]) => {
-                const porPagina = orientacaoExportacao === "portrait"
-                  ? (((modoExportacao === "descricao_gantt"
-                      ? { A4: 24, A3: 38, A2: 56 }
-                      : { A4: 30, A3: 46, A2: 68 })[formato]) || 24)
-                  : cfg.tarefasPorPagina;
-                return (
-                  <button key={formato} onClick={() => exportarCronograma(formato)} style={{
-                    border: `1.5px solid ${C.border}`, borderTop: `4px solid ${C.yellow}`,
-                    borderRadius: 9, background: C.surface, padding: "13px 8px", cursor: "pointer",
-                    color: C.text, fontFamily: "inherit" }}>
-                    <b style={{ display: "block", fontSize: 20 }}>{formato}</b>
-                    <span style={{ display: "block", color: C.muted, fontSize: 9.5, marginTop: 3 }}>
-                      {orientacaoExportacao === "portrait" ? "Retrato" : "Paisagem"}
-                    </span>
-                    <span style={{ display: "block", color: C.subtle, fontSize: 8.5, marginTop: 5 }}>
-                      ~{Math.ceil(tarefas.length / porPagina)} página(s)
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </Modal>
-      )}
-
       {tarefaModal?.modo === "addEtapa" && (
         <Modal title="Adicionar etapa ao cronograma" onClose={() => setTarefaModal(null)}>
           <p style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
@@ -15658,8 +16822,9 @@ function Planejamento({ data, update, showToast }) {
       {(tarefaModal?.modo === "editar") && (
         <ModalTarefa
           tarefa={tarefaModal.tarefa}
+          cal={cal}
           tarefas={tarefas}
-          onSalvar={(t, sucessoras) => { salvarTarefaComRelacoes(t, sucessoras); setTarefaModal(null); }}
+          onSalvar={(t) => { salvarTarefaEVinculos(t); setTarefaModal(null); }}
           onRemover={() => { removerTarefa(tarefaModal.tarefa.id); setTarefaModal(null); }}
           onClose={() => setTarefaModal(null)}
         />
@@ -15682,6 +16847,34 @@ function Planejamento({ data, update, showToast }) {
         />
       )}
 
+      {vincPreview && (
+        <Modal title="Vinculos propostos pela IA" onClose={()=>setVincPreview(null)} wide>
+          <p style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginBottom:10}}>
+            A ordem do orcamento nao sera alterada. A sucessora e calculada a partir das antecessoras para manter um unico vinculo consistente.
+          </p>
+          <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden",maxHeight:420,overflowY:"auto"}}>
+            {vincPreview.linhas.map((l,i)=><div key={l.id} style={{padding:"8px 10px",borderBottom:i<vincPreview.linhas.length-1?`1px solid ${C.line}`:"none"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+                <p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{i+1}. {l.nome}</p>
+                <span style={{fontSize:9.5,color:l.alterada?C.orange:C.muted,whiteSpace:"nowrap"}}>
+                  {fmtDate(l.inicio)} - {fmtDate(l.fim)}{l.alterada?" · data ajustada":""}
+                </span>
+              </div>
+              <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+                Antecessora(s): <b style={{color:C.blue}}>{l.antecessoras.join(", ")||"nenhuma"}</b>
+              </p>
+              <p style={{fontSize:10,color:C.muted}}>
+                Sucessora(s): <b style={{color:C.green}}>{l.sucessoras.join(", ")||"nenhuma"}</b>
+              </p>
+            </div>)}
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:12}}>
+            <Btn v="ghost" onClick={()=>setVincPreview(null)} full>Cancelar</Btn>
+            <Btn onClick={aplicarVinculosIA} full><Ic n="check"/> Aplicar vinculos</Btn>
+          </div>
+        </Modal>
+      )}
+
       {iaModal && (
         <Modal title="Orientacao tecnica (IA)" onClose={() => setIaModal(null)} wide>
           <div style={{ whiteSpace: "pre-wrap", fontSize: 12.5, lineHeight: 1.6, color: C.text }}>
@@ -15689,7 +16882,156 @@ function Planejamento({ data, update, showToast }) {
           </div>
         </Modal>
       )}
+
+      {/* QUESTIONARIO DE PLANEJAMENTO: a IA pergunta e preenche o cronograma */}
+      {questModal && (
+        <QuestionarioPlanejamento
+          orc={orc}
+          plano={plano}
+          onGerar={gerarCronogramaDoQuestionario}
+          onClose={() => setQuestModal(false)}
+        />
+      )}
+
+      {/* PREVIA do cronograma proposto: operador aprova ou descarta */}
+      {questPreview && (
+        <Modal title="Cronograma proposto pela IA" onClose={() => setQuestPreview(null)} wide>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: cols(2,3,3), gap: 8 }}>
+              <MiniKpi label="Inicio" value={fmtDate(questPreview.resumo.inicio)} cor={C.blue} />
+              <MiniKpi label="Fim previsto" value={fmtDate(questPreview.resumo.fim)} cor={C.yellow} />
+              <MiniKpi label="Duracao"
+                       value={`${questPreview.resumo.diasCorridos + 1} corridos / ${questPreview.resumo.diasUteisProjeto} trabalho`}
+                       cor={questPreview.resumo.dentroDoPrazo ? C.green : C.red}
+                       sub={questPreview.resumo.dentroDoPrazo ? "dentro do prazo" : "acima do prazo desejado"} />
+            </div>
+            <p style={{fontSize:10.5,color:C.muted}}>
+              Prazo limite: <b>{fmtDate(questPreview.resumo.fimAlvo)}</b> - calendario: {questPreview.diasSemana.length} dia(s)/semana,
+              {questPreview.calendario?.pularFeriados
+                ? ` com ${questPreview.resumo.feriadosConsiderados} feriado(s) dentro do prazo`
+                : " sem retirar feriados"}.
+            </p>
+
+            {questPreview.avisos.length > 0 && (
+              <div style={{ background: `${C.orange}0E`, border: `1px solid ${C.orange}55`,
+                            borderRadius: 9, padding: "10px 12px" }}>
+                <p style={{ fontSize: 11, fontWeight: 800, color: C.orange, marginBottom: 5 }}>
+                  Observacoes de boa pratica
+                </p>
+                {questPreview.avisos.map((a, i) => (
+                  <p key={i} style={{ fontSize: 10.5, color: C.subtle, lineHeight: 1.5, marginBottom: 3 }}>- {a}</p>
+                ))}
+              </div>
+            )}
+
+            {/* Lista das tarefas propostas, na ordem imutavel do orcamento */}
+            <div style={{ border: `1px solid ${C.border}`, borderRadius: 9, overflow: "hidden" }}>
+              {questPreview.tarefas.map((t, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8,
+                     padding: "8px 11px", borderBottom: i < questPreview.tarefas.length-1 ? `1px solid ${C.line}` : "none" }}>
+                  <span style={{ fontSize: 11.5, color: C.text, minWidth: 0 }}>
+                    <b style={{ color: C.muted }}>{i+1}.</b> {t.nome}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: C.muted, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    {fmtDate(t.inicio)} - {fmtDate(t.fim)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {questIA && (
+              <div style={{ background: `${C.blue}08`, border: `1px solid ${C.blue}44`, borderRadius: 9, padding: "10px 12px" }}>
+                <p style={{ fontSize: 11, fontWeight: 800, color: C.blue, marginBottom: 5 }}>Parecer da IA</p>
+                <div style={{ whiteSpace: "pre-wrap", fontSize: 11.5, lineHeight: 1.55, color: C.text }}>{questIA}</div>
+              </div>
+            )}
+
+            <p style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.5 }}>
+              A ordem e os dados permanecem iguais aos do orcamento. Ao aplicar, entram no Gantt as datas,
+              duracoes e dependencias tecnicas; tudo continua ajustavel pelo operador.
+            </p>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Btn v="ghost" onClick={() => setQuestPreview(null)}>Descartar</Btn>
+              {!questIA && <Btn v="ghost" onClick={comentarCronogramaIA}><Ic n="brain" s={13}/> Pedir parecer</Btn>}
+              <Btn onClick={aplicarCronogramaProposto} style={{ marginLeft: "auto" }}>
+                <Ic n="check"/> Aplicar ao cronograma
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
+  );
+}
+
+// Questionario de planejamento: perguntas com boas praticas embutidas. Coleta
+// inicio, prazo, dias/semana, ritmo e paralelismo, e devolve as respostas.
+function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
+  const nEtapas = (orc?.etapas || []).length;
+  const [resp, setResp] = useState({
+    inicio: plano?.inicio || today(), prazoMeses: "",
+    diasSemana: String((plano?.diasSemana||[]).length === 5 ? 5 : 6),
+    ritmo: "normal", paralelo: "sim",
+    usarFeriados: "",
+  });
+  const set = (k) => (v) => setResp(r => ({ ...r, [k]: v }));
+
+  const podeGerar = nEtapas > 0 && Number(resp.prazoMeses) > 0 && !!resp.usarFeriados;
+
+  return (
+    <Modal title="Planejar obra com IA" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+        <p style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.55 }}>
+          Responda algumas perguntas. O planejamento preserva exatamente a ordem do orcamento
+          e distribui apenas datas e duracoes conforme o calendario de trabalho, as boas praticas
+          e o prazo limite informado.
+        </p>
+
+        {nEtapas === 0 ? (
+          <div style={{ background: `${C.orange}0E`, border: `1px solid ${C.orange}55`, borderRadius: 9, padding: "11px 13px" }}>
+            <p style={{ fontSize: 12, color: C.orange, fontWeight: 700, lineHeight: 1.5 }}>
+              Esta obra ainda nao tem etapas no orcamento. Crie o orcamento com etapas antes de planejar.
+            </p>
+          </div>
+        ) : (
+          <>
+            <p style={{ fontSize: 11, color: C.subtle }}>
+              {nEtapas} etapa(s) do orcamento serao organizadas no cronograma.
+            </p>
+
+            <Inp label="Quando a obra comeca?" type="date" value={resp.inicio} onChange={set("inicio")} />
+
+            <Inp label="Prazo desejado (meses) *" type="number" value={resp.prazoMeses}
+                 onChange={set("prazoMeses")} placeholder="Ex.: 8" />
+
+            <Sel label="Dias trabalhados na semana" value={resp.diasSemana} onChange={set("diasSemana")}
+                 options={[{ v:"6", l:"Segunda a sabado" }, { v:"5", l:"Segunda a sexta" }]} />
+
+            <Sel label="Utilizar os feriados ja cadastrados no aplicativo? *"
+                 value={resp.usarFeriados} onChange={set("usarFeriados")}
+                 options={[{v:"",l:"Selecione..."},{v:"sim",l:"Sim, retirar dos dias de trabalho"},{v:"nao",l:"Nao, considerar dias normais"}]} />
+
+            <Sel label="Ritmo da equipe" value={resp.ritmo} onChange={set("ritmo")}
+                 options={[
+                   { v:"folgado",  l:"Folgado (margem de seguranca)" },
+                   { v:"normal",   l:"Normal" },
+                   { v:"apertado", l:"Apertado (equipe reforcada)" },
+                 ]} />
+
+            <Sel label="Sobrepor servicos compativeis para ganhar tempo?" value={resp.paralelo} onChange={set("paralelo")}
+                 options={[{ v:"sim", l:"Sim, quando fizer sentido" }, { v:"nao", l:"Nao, um de cada vez" }]} />
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
+              <Btn onClick={() => onGerar(resp)} disabled={!podeGerar} full>
+                <Ic n="brain" s={13}/> Gerar cronograma
+              </Btn>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
   );
 }
 
@@ -15756,72 +17098,28 @@ function MiniKpi({ label, value, cor, sub }) {
 }
 
 // Editor de tarefa: datas, progresso, ou apagar.
-function ModalTarefa({ tarefa, tarefas = [], onSalvar, onRemover, onClose }) {
+function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
   const [ini, setIni] = useState(tarefa.inicio || "");
   const [fim, setFim] = useState(tarefa.fim || "");
   const [prog, setProg] = useState(String(tarefa.progresso || 0));
-  const [depende, setDepende] = useState(Array.isArray(tarefa.depende) ? tarefa.depende : []);
-  const [sucessoras, setSucessoras] = useState(
-    tarefas.filter(t => (t.depende || []).includes(tarefa.id)).map(t => t.id)
-  );
-  const [erroRelacao, setErroRelacao] = useState("");
-
-  const candidatas = tarefas.filter(t => !t.titulo && t.id !== tarefa.id);
-  const porId = Object.fromEntries(tarefas.map(t => [t.id, t]));
-  const alcancaPorPredecessoras = (origemId, destinoId) => {
-    const visitar = [origemId];
-    const vistos = new Set();
-    while (visitar.length) {
-      const id = visitar.pop();
-      if (id === destinoId) return true;
-      if (vistos.has(id)) continue;
-      vistos.add(id);
-      (porId[id]?.depende || []).forEach(depId => visitar.push(depId));
-    }
-    return false;
-  };
-
-  const alternarPredecessora = (id) => {
-    setErroRelacao("");
-    setDepende(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    setSucessoras(prev => prev.filter(x => x !== id));
-  };
-  const alternarSucessora = (id) => {
-    setErroRelacao("");
-    setSucessoras(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    setDepende(prev => prev.filter(x => x !== id));
-  };
+  const [preds, setPreds] = useState([...(tarefa.depende || [])]);
+  const [sucs, setSucs] = useState(idsSucessoras(tarefas, tarefa.id));
+  const indice = (tarefas || []).findIndex(t => t.id === tarefa.id);
+  const candidatasPred = (tarefas || []).filter((t,i) => i < indice && !t.titulo);
+  const candidatasSuc = (tarefas || []).filter((t,i) => i > indice && !t.titulo);
+  const alternar = (setter, id) => setter(lista =>
+    lista.includes(id) ? lista.filter(x=>x!==id) : [...lista,id]);
 
   const salvar = () => {
     // Nao salva datas invertidas.
-    if (ini && fim && diasCorridos(ini, fim) < 1) return;
-    const mapaDependencias = Object.fromEntries(tarefas.map(t => {
-      if (t.id === tarefa.id) return [t.id, [...new Set(depende)].filter(id => id !== tarefa.id)];
-      const deps = new Set(t.depende || []);
-      if (sucessoras.includes(t.id)) deps.add(tarefa.id);
-      else deps.delete(tarefa.id);
-      return [t.id, [...deps]];
-    }));
-    const estado = {};
-    const possuiCiclo = (id) => {
-      if (estado[id] === 1) return true;
-      if (estado[id] === 2) return false;
-      estado[id] = 1;
-      if ((mapaDependencias[id] || []).some(depId => mapaDependencias[depId] && possuiCiclo(depId))) return true;
-      estado[id] = 2;
-      return false;
-    };
-    if (Object.keys(mapaDependencias).some(id => possuiCiclo(id))) {
-      setErroRelacao("Esta combinação cria um ciclo entre tarefas. Remova um dos vínculos antes de salvar.");
-      return;
-    }
-    onSalvar({
-      id: tarefa.id,
-      inicio: ini,
-      fim: fim,
-      progresso: Math.max(0, Math.min(100, Number(prog) || 0)),
-      depende: [...new Set(depende)].filter(id => id !== tarefa.id),
-    }, [...new Set(sucessoras)].filter(id => id !== tarefa.id));
+    if (ini && fim && fim < ini) return;
+    const inicioFinal = ini ? ajustarParaDiaUtil(ini, cal, 1) : ini;
+    const fimFinal = fim ? ajustarParaDiaUtil(fim, cal, -1) : fim;
+    if (inicioFinal && fimFinal && fimFinal < inicioFinal) return;
+    onSalvar({ id: tarefa.id, inicio: inicioFinal, fim: fimFinal,
+               progresso: Math.max(0, Math.min(100, Number(prog) || 0)),
+               depende:preds.filter(id=>candidatasPred.some(t=>t.id===id)),
+               sucessoras:sucs.filter(id=>candidatasSuc.some(t=>t.id===id)) });
   };
 
   return (
@@ -15844,56 +17142,33 @@ function ModalTarefa({ tarefa, tarefas = [], onSalvar, onRemover, onClose }) {
         )}
         <Inp label="Inicio" type="date" value={ini} onChange={setIni} />
         <Inp label="Fim" type="date" value={fim} onChange={setFim} />
-        {ini && fim && diasCorridos(ini, fim) < 1 && (
-          <p style={{ fontSize: 11, color: C.red }}>O fim precisa ser depois do inicio.</p>
+        {ini && fim && fim < ini && (
+          <p style={{ fontSize: 11, color: C.red }}>O fim nao pode ser anterior ao inicio.</p>
+        )}
+        {((ini && !ehDiaUtil(ini,cal)) || (fim && !ehDiaUtil(fim,cal))) && (
+          <p style={{ fontSize: 11, color: C.orange }}>Ao salvar, as datas serao ajustadas para os dias trabalhados mais proximos.</p>
         )}
         <Inp label="Progresso (%)" type="number" value={prog} onChange={setProg} min="0" max="100" />
         {!tarefa.titulo && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 9, padding: 9, minWidth: 0 }}>
-              <p style={{ fontSize: 10.5, fontWeight: 900, color: C.text, textTransform: "uppercase", marginBottom: 7 }}>
-                Predecessoras
-              </p>
-              <div style={{ maxHeight: 160, overflowY: "auto", display: "flex", flexDirection: "column", gap: 5 }}>
-                {candidatas.length === 0 && <span style={{ fontSize: 11, color: C.muted }}>Nenhuma tarefa disponível.</span>}
-                {candidatas.map(c => {
-                  const marcada = depende.includes(c.id);
-                  const criaCiclo = !marcada && alcancaPorPredecessoras(c.id, tarefa.id);
-                  return (
-                    <label key={c.id} title={criaCiclo ? "Vínculo bloqueado para evitar ciclo" : ""}
-                           style={{ display: "flex", gap: 6, alignItems: "flex-start", cursor: criaCiclo ? "not-allowed" : "pointer", opacity: criaCiclo ? .45 : 1 }}>
-                      <input type="checkbox" checked={marcada} disabled={criaCiclo}
-                             onChange={() => alternarPredecessora(c.id)} style={{ accentColor: C.blue, marginTop: 2 }} />
-                      <span className="brk" style={{ fontSize: 10.5, color: C.text, lineHeight: 1.25 }}>{c.nome}</span>
-                    </label>
-                  );
-                })}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {[["Antecessoras",candidatasPred,preds,setPreds],["Sucessoras",candidatasSuc,sucs,setSucs]].map(([titulo,lista,selecionadas,setter])=>(
+              <div key={titulo} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:8,minWidth:0}}>
+                <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",marginBottom:6}}>{titulo}</p>
+                <div style={{maxHeight:135,overflowY:"auto",display:"flex",flexDirection:"column",gap:4}}>
+                  {lista.length===0 && <span style={{fontSize:10,color:C.muted}}>Nenhuma atividade disponível</span>}
+                  {lista.map(t=><label key={t.id} style={{display:"flex",gap:6,alignItems:"flex-start",fontSize:10.5,color:C.text,cursor:"pointer"}}>
+                    <input type="checkbox" checked={selecionadas.includes(t.id)} onChange={()=>alternar(setter,t.id)}
+                           style={{accentColor:C.yellow,marginTop:1}}/>
+                    <span style={{lineHeight:1.25}}>{t.nome}</span>
+                  </label>)}
+                </div>
               </div>
-            </div>
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 9, padding: 9, minWidth: 0 }}>
-              <p style={{ fontSize: 10.5, fontWeight: 900, color: C.text, textTransform: "uppercase", marginBottom: 7 }}>
-                Sucessoras
-              </p>
-              <div style={{ maxHeight: 160, overflowY: "auto", display: "flex", flexDirection: "column", gap: 5 }}>
-                {candidatas.length === 0 && <span style={{ fontSize: 11, color: C.muted }}>Nenhuma tarefa disponível.</span>}
-                {candidatas.map(c => {
-                  const marcada = sucessoras.includes(c.id);
-                  const criaCiclo = !marcada && alcancaPorPredecessoras(tarefa.id, c.id);
-                  return (
-                    <label key={c.id} title={criaCiclo ? "Vínculo bloqueado para evitar ciclo" : ""}
-                           style={{ display: "flex", gap: 6, alignItems: "flex-start", cursor: criaCiclo ? "not-allowed" : "pointer", opacity: criaCiclo ? .45 : 1 }}>
-                      <input type="checkbox" checked={marcada} disabled={criaCiclo}
-                             onChange={() => alternarSucessora(c.id)} style={{ accentColor: C.green, marginTop: 2 }} />
-                      <span className="brk" style={{ fontSize: 10.5, color: C.text, lineHeight: 1.25 }}>{c.nome}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
+            ))}
           </div>
         )}
-        {!tarefa.titulo && <p style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.4 }}>Os vínculos são desenhados no Gantt. Relações que formariam um ciclo são bloqueadas.</p>}
-        {erroRelacao && <p style={{ fontSize: 11, color: C.red, fontWeight: 700 }}>{erroRelacao}</p>}
+        <p style={{fontSize:9.5,color:C.muted,lineHeight:1.45}}>
+          Os vinculos manuais respeitam a ordem do orcamento: antecessoras anteriores e sucessoras posteriores, evitando ciclos.
+        </p>
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
           <Btn full onClick={salvar}>Salvar</Btn>
           <Btn v="danger" onClick={onRemover}><Ic n="trash" /></Btn>
@@ -18046,6 +19321,35 @@ const calcDREEmpresa = (data, year, month) => {
   const lucroLiquido  = lair - totalImpostoLucro;
   const margemLiquida = receitaLiquida>0 ? (lucroLiquido/receitaLiquida)*100 : 0;
 
+  //  RECEITAS E DESPESAS POR OBRA (para analise gerencial) 
+  // Para cada obra: receita (medicoes emitidas + recebimentos livres no mes) e
+  // despesas diretas (MO + beneficios + terceiros + outras despesas da obra no
+  // mes). O resultado por obra ajuda a ver quem puxa ou drena a margem.
+  const porObra = data.obras.map(o => {
+    const mo = calcObraLaborCost(data, o.id, days);
+    const receitaMed = medDoMes.filter(m => m.obraId === o.id).reduce((s,m)=>s+m.valorPrevisto, 0);
+    const receitaLivre = (data.payments||[])
+      .filter(p => p.obraId === o.id && p.date?.startsWith(ym))
+      .reduce((s,p)=>s+Number(p.amount||0), 0);
+    const receita = receitaMed + receitaLivre;
+    const terc = (data.pagsTerceiros||[])
+      .filter(p => p.obraId === o.id && p.date?.startsWith(ym))
+      .reduce((s,p)=>s+Number(p.amount||0), 0);
+    const outras = (data.outrasDesp||[])
+      .filter(d => d.obraId === o.id && d.competencia === ym)
+      .reduce((s,d)=>s+Number(d.valor||0), 0);
+    const despesa = mo.laborCost + mo.benefitCost + terc + outras;
+    const resultado = receita - despesa;
+    return {
+      id: o.id, name: o.name, status: o.status,
+      receita, receitaMed, receitaLivre,
+      laborCost: mo.laborCost, benefitCost: mo.benefitCost, terc, outras,
+      despesa, resultado,
+      margemPct: receita > 0 ? (resultado / receita) * 100 : null,
+    };
+  }).filter(x => x.receita !== 0 || x.despesa !== 0)
+    .sort((a, b) => b.resultado - a.resultado);
+
   return {
     ym, faturamentoObras, recebidoObras,
     deducaoISS, deducaoPIS, deducaoCOFINS, totalDeducoes, receitaLiquida,
@@ -18055,7 +19359,7 @@ const calcDREEmpresa = (data, year, month) => {
     ebitda, margemEbitda,
     resultFinanceiro, lair,
     provisaoIR, provisaoCSLL, totalImpostoLucro, lucroLiquido, margemLiquida,
-    despEmp,
+    despEmp, porObra,
   };
 };
 
@@ -18340,6 +19644,55 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Receitas e despesas POR OBRA - analise gerencial */}
+      {dre.porObra.length > 0 && (
+        <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+          <div style={{background:C.surface,padding:"10px 14px",borderBottom:`1px solid ${C.border}`}}>
+            <p style={{fontWeight:700,fontSize:13,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Receitas e despesas por obra - {period}</p>
+            <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Quem contribui e quem drena o resultado no mes. Ordenado pelo resultado.</p>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11.5,minWidth:520}}>
+              <thead>
+                <tr style={{background:C.surface,color:C.muted,textAlign:"right"}}>
+                  <th style={{padding:"8px 12px",textAlign:"left",fontWeight:700}}>Obra</th>
+                  <th style={{padding:"8px 12px",fontWeight:700}}>Receita</th>
+                  <th style={{padding:"8px 12px",fontWeight:700}}>Despesa</th>
+                  <th style={{padding:"8px 12px",fontWeight:700}}>Resultado</th>
+                  <th style={{padding:"8px 12px",fontWeight:700}}>Margem</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dre.porObra.map(o => (
+                  <tr key={o.id} style={{borderTop:`1px solid ${C.line}`}}>
+                    <td style={{padding:"8px 12px",color:C.text,fontWeight:700}}>{o.name}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:C.green}}>{fmt(o.receita)}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:C.orange}} title={`MO ${fmt(o.laborCost)} + Benef ${fmt(o.benefitCost)} + Terc ${fmt(o.terc)} + Outras ${fmt(o.outras)}`}>{fmt(o.despesa)}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",fontWeight:800,color:o.resultado>=0?C.green:C.red}}>{fmt(o.resultado)}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:o.margemPct==null?C.muted:o.margemPct>=0?C.green:C.red}}>
+                      {o.margemPct==null?"-":`${o.margemPct.toFixed(0)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{borderTop:`2px solid ${C.border}`,background:C.surface,fontWeight:800}}>
+                  <td style={{padding:"9px 12px",color:C.text}}>Total</td>
+                  <td style={{padding:"9px 12px",textAlign:"right",color:C.green}}>{fmt(dre.porObra.reduce((s,o)=>s+o.receita,0))}</td>
+                  <td style={{padding:"9px 12px",textAlign:"right",color:C.orange}}>{fmt(dre.porObra.reduce((s,o)=>s+o.despesa,0))}</td>
+                  <td style={{padding:"9px 12px",textAlign:"right",color:dre.porObra.reduce((s,o)=>s+o.resultado,0)>=0?C.green:C.red}}>{fmt(dre.porObra.reduce((s,o)=>s+o.resultado,0))}</td>
+                  <td style={{padding:"9px 12px"}}></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <p style={{fontSize:9.5,color:C.muted,padding:"8px 14px",lineHeight:1.5}}>
+            Despesa por obra = mao de obra + beneficios + terceiros + outras despesas diretas do mes.
+            Passe o mouse sobre a despesa para ver a composicao.
+          </p>
+        </div>
+      )}
 
       {/* Gestão de despesas operacionais */}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
@@ -19023,7 +20376,7 @@ export default function App() {
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
-          {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
+          {tab === "folha"  && <Folha       data={data} showToast={showToast} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} />}
