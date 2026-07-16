@@ -10000,7 +10000,8 @@ function Orcamento({ data, update, showToast }) {
     const lerAba = (alvo, campoPreco) => {
       const nome = nomeAba(alvo);
       if (!nome) return { itens: [], dataBase: "" };
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[nome], { header:1, defval:"", raw:true });
+      const sheet = wb.Sheets[nome];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:"", raw:true });
       const headerRow = rows.findIndex(row => {
         const text = row.map(v => String(v || "").toUpperCase().replace(/\n/g, " ")).join(" | ");
         return /C[ÓO]DIGO/.test(text) && /DESCRI/.test(text) && /UNIDADE/.test(text);
@@ -10022,7 +10023,16 @@ function Orcamento({ data, update, showToast }) {
       const itens = [];
       for (let r = headerRow + 1; r < rows.length; r++) {
         const row = rows[r] || [];
-        const codigo = String(row[codigoColumn] ?? "").trim().replace(/\.0$/, "");
+        let codigo = String(row[codigoColumn] ?? "").trim().replace(/\.0$/, "");
+        // Em algumas planilhas oficiais (ex.: 06/2026), o código é uma
+        // fórmula HYPERLINK e o valor em cache vem como zero. Recuperamos o
+        // número usado pelo MATCH da fórmula para não descartar a composição.
+        if (ehLixo(codigo)) {
+          const cell = sheet[XLSX.utils.encode_cell({ r, c:codigoColumn })];
+          const formula = String(cell?.f || "");
+          const matchCodigo = formula.match(/MATCH\s*\(\s*(\d+)/i);
+          if (matchCodigo) codigo = matchCodigo[1];
+        }
         const descricao = String(row[descricaoColumn] ?? "").trim();
         const preco = parseBR(row[ufColumn]);
         if (ehLixo(codigo) || ehLixo(descricao) || preco <= 0) continue;
