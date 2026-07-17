@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -10625,9 +10625,56 @@ const calcCurvaABCOrc = (orc, calc, { agrupar = true } = {}) => {
   return { itens, resumo, totalCD, totalComBDI: totalCD * bdiMult };
 };
 
+// ---------------------------------------------------------------------------
+//  Celula editavel da planilha do orcamento.
+//  O valor digitado vive em estado LOCAL enquanto o campo esta em foco; so ao
+//  sair (ou Enter) e que sobe para o orcamento. Assim o re-render do salvamento
+//  nao desmonta o input - e o que fazia a pagina saltar para o topo e perder o
+//  foco a cada edicao. Quando o campo NAO esta em foco, ele se sincroniza com o
+//  valor vindo de fora (atualizacao de precos, busca por codigo, importacao).
+// ---------------------------------------------------------------------------
+const CelulaTexto = memo(function CelulaTexto({ value, onCommit, onDigitar, onEnter, onEscape, ...rest }) {
+  const [local, setLocal] = useState(value ?? "");
+  const focado   = useRef(false);
+  const cancelar = useRef(false);
+
+  // Fora de foco, o campo obedece ao orcamento (atualizacao de precos, busca
+  // por codigo, importacao). Em foco, quem manda e quem esta digitando.
+  useEffect(() => { if (!focado.current) setLocal(value ?? ""); }, [value]);
+
+  const descartar = el => { cancelar.current = true; setLocal(value ?? ""); el.blur(); };
+
+  return (
+    <input
+      {...rest}
+      value={local}
+      onFocus={() => { focado.current = true; }}
+      onChange={e => { setLocal(e.target.value); onDigitar?.(e); }}
+      onBlur={e => {
+        focado.current = false;
+        const texto = e.target.value;
+        if (cancelar.current) { cancelar.current = false; setLocal(value ?? ""); return; }
+        if (texto !== (value ?? "")) onCommit?.(texto);
+        else setLocal(value ?? "");
+      }}
+      onKeyDown={e => {
+        if (e.key === "Escape") { onEscape?.(); descartar(e.currentTarget); return; }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          // onEnter que devolve true ja resolveu a linha (ex.: escolheu uma
+          // composicao da base); o texto digitado e descartado sem gravar.
+          if (onEnter?.(e) === true) descartar(e.currentTarget);
+          else e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+});
+
 function Orcamento({ data, update, showToast }) {
   const { cols, formGrid } = useBreakpoint();
   const dataAtualRef = useRef(data);
+  const scrollAlvoRef = useRef(null);   // posicao a preservar durante um salvamento
   const [view,      setView]      = useState("lista");   // "lista" | "editor"
   const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias
   const [selOrc,    setSelOrc]    = useState(null);      // id do orçamento aberto
@@ -10724,6 +10771,18 @@ function Orcamento({ data, update, showToast }) {
     return()=>clearTimeout(t);
   },[compBusca]);
   useEffect(() => { dataAtualRef.current = data; }, [data]);
+
+  // Rede de seguranca do scroll: a posicao e anotada no instante do salvamento
+  // e conferida DEPOIS que o React aplicou o novo estado no DOM, antes de o
+  // navegador pintar. Se algo encolheu a pagina e o scroll escorregou, ele
+  // volta sem piscar. Se nao escorregou, nada acontece - o efeito nao briga
+  // com a rolagem de quem esta lendo.
+  useLayoutEffect(() => {
+    const alvo = scrollAlvoRef.current;
+    if (alvo == null) return;
+    scrollAlvoRef.current = null;
+    if (Math.abs(window.scrollY - alvo) > 1) window.scrollTo({ top: alvo, behavior: "auto" });
+  }, [data]);
 
   const carregarBasesRemotas = useCallback(async () => {
     setBasesCarregando(true);
@@ -11406,17 +11465,15 @@ function Orcamento({ data, update, showToast }) {
   };
 
   const salvarOrc = (patch) => {
-    const scrollY = window.scrollY;
+    scrollAlvoRef.current = window.scrollY;
     update({ ...data, orcamentos: orcamentos.map(o => o.id===selOrc ? {...o, ...patch} : o) });
-    window.requestAnimationFrame(()=>window.scrollTo({top:scrollY,behavior:"auto"}));
   };
 
   const salvarOrcAssincrono = patch => {
     const atual = dataAtualRef.current;
     const lista = atual.orcamentos || [];
-    const scrollY = window.scrollY;
+    scrollAlvoRef.current = window.scrollY;
     update({...atual, orcamentos:lista.map(item => item.id===selOrc ? {...item,...patch} : item)});
-    window.requestAnimationFrame(()=>window.scrollTo({top:scrollY,behavior:"auto"}));
   };
 
   const recalcularFonteOrc = ids => {
@@ -13080,14 +13137,20 @@ ${blocoBDI}
         // dando a leitura de hierarquia sem depender de ícones de expandir.
         const CoresNivel = [C.yellow, C.blue, C.purple, C.green, C.orange];
 
-        const Etapa = ({ no }) => {
+        // Funcao de render, NAO componente. Declarar um componente dentro do
+        // corpo do render cria um tipo novo a cada passagem: o React joga fora
+        // toda a arvore de etapas e monta outra do zero. Era isso que zerava a
+        // altura da pagina - e o navegador, sem conteudo abaixo, jogava o
+        // scroll para o topo a cada tecla. Como funcao comum, o React reconhece
+        // os mesmos elementos, atualiza so o que mudou e o scroll fica parado.
+        const renderEtapa = (no) => {
           const cor = CoresNivel[(no.nivel - 1) % CoresNivel.length];
           const podeSub = no.nivel < MAX_NIVEL;
           const recuo = (no.nivel - 1) * 10;
           const recolhida = !!etapasFechadas[no.id];
 
           return (
-            <div style={{ marginLeft: recuo }}>
+            <div key={no.id} style={{ marginLeft: recuo }}>
               <div style={{
                 background: C.bg,
                 border: `1.5px solid ${C.border}`,
@@ -13165,7 +13228,7 @@ ${blocoBDI}
                 {/* Sub-etapas */}
                 {!recolhida && no.sub.length > 0 && (
                   <div style={{ padding: "6px 6px 0" }}>
-                    {no.sub.map(sn => <Etapa key={sn.id} no={sn} />)}
+                    {no.sub.map(sn => renderEtapa(sn))}
                   </div>
                 )}
 
@@ -13174,8 +13237,11 @@ ${blocoBDI}
                   const primeira = idx === 0;
                   const ultima   = idx === no.itens.length - 1;
 
-                  // Setas de reordenar - compartilhadas pelos dois tipos de linha
-                  const Setas = () => (
+                  // Setas de reordenar - compartilhadas pelos dois tipos de linha.
+                  // Funcao comum, NAO componente: um componente declarado aqui
+                  // dentro nasce com identidade nova a cada render e faria o
+                  // React desmontar e remontar a linha inteira.
+                  const setas = () => (
                     <div style={{ display:"flex", flexDirection:"column", gap:1, flexShrink:0 }}>
                       <button onClick={() => moverLinha(it.id, -1)} disabled={primeira}
                         title="Mover para cima"
@@ -13200,9 +13266,9 @@ ${blocoBDI}
                         <p style={{ fontSize:9, color:C.muted, fontWeight:700, minWidth:38 }}>
                           {it.codigoItem}
                         </p>
-                        <input
-                          value={it.descricao}
-                          onChange={e => updTituloTexto(it.id, e.target.value)}
+                        <CelulaTexto
+                          value={it.descricao||""}
+                          onCommit={valor => updTituloTexto(it.id, valor)}
                           placeholder="Título - ex.: Pavimento térreo"
                           style={{
                             flex:1, minWidth:0,
@@ -13213,7 +13279,7 @@ ${blocoBDI}
                             fontFamily:"'Inter Display','Inter',sans-serif",
                           }}
                         />
-                        <Setas/>
+                        {setas()}
                         <button onClick={() => delItem(it.id)}
                           style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer",
                                    fontSize:14, padding:"0 2px", lineHeight:1, flexShrink:0 }}>x</button>
@@ -13268,52 +13334,48 @@ ${blocoBDI}
                       </div>
                       {colsOrc.codigo && (
                       <div style={{minWidth:0,overflow:"hidden"}}>
-                          <input key={`${it.id}-cod-${it.codigo}`} defaultValue={it.codigo||""}
-                            onBlur={e=>updItemCampo(it.id,"codigo",e.target.value)}
-                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                          <CelulaTexto value={it.codigo||""}
+                            onCommit={valor=>updItemCampo(it.id,"codigo",valor)}
                             placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}
                             style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
                       )}
                       <div style={{minWidth:0,overflow:"hidden"}}>
-                        <input key={`${it.id}-desc-${it.descricao}`} defaultValue={it.descricao||""}
-                          onChange={e=>setBuscaLinha({itemId:it.id,termo:e.target.value})}
-                          onBlur={e=>{
-                            updItemCampo(it.id,"descricao",e.target.value);
+                        <CelulaTexto value={it.descricao||""}
+                          onDigitar={e=>setBuscaLinha({itemId:it.id,termo:e.target.value})}
+                          onCommit={valor=>{
+                            updItemCampo(it.id,"descricao",valor);
                             setBuscaLinha(atual=>atual.itemId===it.id?{itemId:"",termo:""}:atual);
                           }}
-                          onKeyDown={e=>{
-                            if(e.key==="Escape") { setBuscaLinha({itemId:"",termo:""}); e.currentTarget.blur(); }
-                            if(e.key==="Enter") {
-                              e.preventDefault();
-                              if(buscaLinha.itemId===it.id && resultadosLinha.length) selecionarReferenciaLinha(it.id,resultadosLinha[0]);
-                              else e.currentTarget.blur();
+                          onEscape={()=>setBuscaLinha({itemId:"",termo:""})}
+                          onEnter={()=>{
+                            if(buscaLinha.itemId===it.id && resultadosLinha.length) {
+                              selecionarReferenciaLinha(it.id,resultadosLinha[0]);
+                              return true;   // a referencia manda: nao gravar o texto digitado
                             }
+                            return false;
                           }}
                           title="Digite para pesquisar por descrição nas bases vinculadas"
                           style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11.5,outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
                       {colsOrc.unidade && (
                       <div style={{minWidth:0,overflow:"hidden"}}>
-                          <input key={`${it.id}-un-${it.unidade}`} defaultValue={it.unidade||""}
-                            onBlur={e=>updItemCampo(it.id,"unidade",e.target.value)}
-                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                          <CelulaTexto value={it.unidade||""}
+                            onCommit={valor=>updItemCampo(it.id,"unidade",valor)}
                             title="Unidade do item"
                             style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
                       )}
                       <div style={{minWidth:0,overflow:"hidden"}}>
-                          <input key={`${it.id}-qtd-${it.quantidade}`} type="number" step="any" inputMode="decimal" defaultValue={it.quantidade}
-                            onBlur={e => updItemQtd(it.id, e.target.value)}
-                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                          <CelulaTexto type="number" step="any" inputMode="decimal" value={String(it.quantidade ?? "")}
+                            onCommit={valor => updItemQtd(it.id, valor)}
                             title="Quantidade"
                             style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
                       {colsOrc.custoUnit && (
                       <div title={alterado?`Base: ${fmt(it.precoRef)} - editado`:"Custo unitário sem BDI"} style={{minWidth:0,overflow:"hidden",position:"relative"}}>
-                          <input key={`${it.id}-pu-${it.precoUnit}`} type="number" step="any" inputMode="decimal" defaultValue={it.precoUnit}
-                            onBlur={e => updItemNumero(it.id, "precoUnit", e.target.value)}
-                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                          <CelulaTexto type="number" step="any" inputMode="decimal" value={String(it.precoUnit ?? "")}
+                            onCommit={valor => updItemNumero(it.id, "precoUnit", valor)}
                             title={alterado?`Preço editado. Base da composição: ${fmt(it.precoRef)}. Duplo clique para restaurar.`:"Custo unitário sem BDI"}
                             onDoubleClick={()=>{ if(alterado) restaurarPrecoRef(it.id); }}
                             style={{width:"100%",boxSizing:"border-box",textAlign:"right",
@@ -13325,18 +13387,17 @@ ${blocoBDI}
                       )}
                       {colsOrc.bdi && (
                       <div title="BDI desta linha (vazio = usa o BDI global)" style={{minWidth:0,overflow:"hidden"}}>
-                          <input key={`${it.id}-bdi-${it.bdi}`} type="number" step="any" inputMode="decimal"
-                            defaultValue={it.bdi===""||it.bdi==null?"":it.bdi}
+                          <CelulaTexto type="number" step="any" inputMode="decimal"
+                            value={it.bdi===""||it.bdi==null?"":String(it.bdi)}
                             placeholder={String(orc.bdi)}
-                            onBlur={e => updItemNumero(it.id, "bdi", e.target.value===""?"":e.target.value)}
-                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                            onCommit={valor => updItemNumero(it.id, "bdi", valor===""?"":valor)}
                             style={{width:"100%",boxSizing:"border-box",textAlign:"right",
                               background:C.bg,border:`1.5px solid ${C.border}`,
                               color: (it.bdi!==""&&it.bdi!=null)?C.text:C.muted,
                               padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
                       )}
-                      <Setas/>
+                      {setas()}
                       {colsOrc.total && (
                       <div style={{minWidth:0,overflow:"hidden",textAlign:"right",whiteSpace:"nowrap"}}>
                         <span title={`Preço total com BDI (${bdiEfetivo}%)`} style={{fontSize:12,fontWeight:800,color:alterado?C.yellowD:C.text}}>{fmt(tot)}</span>
@@ -13417,7 +13478,7 @@ ${blocoBDI}
                 </div>
               )}
             </div>
-            {calc.arvore.map(no => <Etapa key={no.id} no={no} />)}
+            {calc.arvore.map(no => renderEtapa(no))}
             <Btn v="ghost" full onClick={() => abrirNovaEtapa("")} style={{ marginTop: 2 }}>
               <Ic n="plus"/> Nova etapa de 1º nível
             </Btn>
@@ -13764,13 +13825,15 @@ ${blocoBDI}
         // A tabela do acórdão é de EDIFICAÇÕES - para os outros tipos de obra o
         // que o TCU audita é o BDI total, então a baliza por componente só
         // aparece quando o tipo escolhido é "edificios".
-        const Pct = ({ label, k, hint }) => {
+        // Funcao de render (nao componente): declarada aqui dentro, um
+        // componente seria recriado a cada tecla e o campo perderia o foco.
+        const pct = (label, k, hint) => {
           const ref  = bdiTipo === "edificios" ? BDI_COMPONENTES_EDIF[k] : null;
           const val  = Number(bdiP[k] || 0);
           const fora = ref && val > 0 && (val < ref.q1 || val > ref.q3);
           const dica = hint || (ref ? `TCU edif.: ${f2p(ref.q1)} - ${f2p(ref.q3)}` : null);
           return (
-            <label style={{display:"flex",flexDirection:"column",gap:3}}>
+            <label key={k} style={{display:"flex",flexDirection:"column",gap:3}}>
               <span style={{fontSize:10,fontWeight:600,color:C.text,letterSpacing:.3}}>{label}</span>
               <div style={{display:"flex",alignItems:"center",gap:4}}>
                 <input type="number" step="0.01" value={bdiP[k]}
@@ -13863,22 +13926,22 @@ ${blocoBDI}
 
                 <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Componentes</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-                  <Pct label="AC - Administração Central" k="ac"       />
-                  <Pct label="S - Seguro"                 k="seguro"   />
-                  <Pct label="R - Risco"                  k="risco"    />
-                  <Pct label="G - Garantia"               k="garantia" hint="Opcional"/>
-                  <Pct label="DF - Despesas Financeiras"  k="df"       />
-                  <Pct label="L - Lucro"                  k="lucro"    />
+                  {pct("AC - Administração Central", "ac")}
+                  {pct("S - Seguro", "seguro")}
+                  {pct("R - Risco", "risco")}
+                  {pct("G - Garantia", "garantia", "Opcional")}
+                  {pct("DF - Despesas Financeiras", "df")}
+                  {pct("L - Lucro", "lucro")}
                 </div>
 
                 <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7,marginTop:2}}>
                   I - Tributos sobre o faturamento
                 </p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-                  <Pct label="PIS"    k="pis"    hint="Cumulativo: 0,65"/>
-                  <Pct label="COFINS" k="cofins" hint="Cumulativo: 3,00"/>
-                  <Pct label="ISS"    k="iss"    hint="Municipal: 2,00 - 5,00"/>
-                  <Pct label="CPRB"   k="cprb"   hint="Só na folha desonerada: 4,50"/>
+                  {pct("PIS", "pis", "Cumulativo: 0,65")}
+                  {pct("COFINS", "cofins", "Cumulativo: 3,00")}
+                  {pct("ISS", "iss", "Municipal: 2,00 - 5,00")}
+                  {pct("CPRB", "cprb", "Só na folha desonerada: 4,50")}
                 </div>
 
                 {/* Coerência CPRB x tabela escolhida */}
