@@ -21,7 +21,9 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin,
          saveData, saveDataDetailed, logout as encerrarSessao,
          loadDataWithMeta, adoptServerVersion, subirFoto,
          listarBasesReferencia, iniciarBaseReferencia, enviarLoteReferencia,
-         finalizarBaseReferencia, pesquisarBasesReferencia, resolverCodigosReferencia,
+         enviarLoteInsumosReferencia, enviarLoteComponentesReferencia,
+         finalizarBaseReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
+         resolverCodigosReferencia, detalharComposicoesReferencia,
          removerBaseReferencia } from "./api";
 
 // 
@@ -901,6 +903,8 @@ const DEFAULT = () => ({
   changeLog: [],
 });
 
+const maiusculoOrcamento = valor => String(valor ?? "").toLocaleUpperCase("pt-BR");
+
 const normalizeData = incoming => {
   const base = DEFAULT();
   const d = incoming && typeof incoming === "object" ? incoming : {};
@@ -1196,6 +1200,16 @@ const normalizeData = incoming => {
         coef:       Number(i.coef || 0),      // consumo por 1 unidade do serviço
       })) : [],
     })) : [],
+    composicoesEmpresa: Array.isArray(d.composicoesEmpresa) ? d.composicoesEmpresa.map(comp => ({
+      id:comp.id||uid(),codigo:maiusculoOrcamento(comp.codigo||""),descricao:maiusculoOrcamento(comp.descricao||""),
+      unidade:maiusculoOrcamento(comp.unidade||"UN"),origemFonte:maiusculoOrcamento(comp.origemFonte||"PRÓPRIA"),
+      origemCodigo:maiusculoOrcamento(comp.origemCodigo||""),origemDataBase:comp.origemDataBase||"",origemUf:comp.origemUf||"",
+      itens:Array.isArray(comp.itens)?comp.itens.map(item=>({
+        id:item.id||uid(),fonte:maiusculoOrcamento(item.fonte||"SINAPI"),tipoItem:item.tipoItem==="COMPOSICAO"?"COMPOSICAO":"INSUMO",
+        codigo:maiusculoOrcamento(item.codigo||""),descricao:maiusculoOrcamento(item.descricao||""),unidade:maiusculoOrcamento(item.unidade||"UN"),
+        coeficiente:Number(item.coeficiente||0),precoUnit:Number(item.precoUnit||0),dataBase:item.dataBase||"",uf:item.uf||"",
+      })):[],
+    })) : [],
 
     caixaObra: Array.isArray(d.caixaObra) ? d.caixaObra.map(x => ({
       id:          x.id          || uid(),
@@ -1240,7 +1254,7 @@ const normalizeData = incoming => {
       createdAt:   o.createdAt   || "",
       etapas: Array.isArray(o.etapas) ? o.etapas.map(e => ({
         id:       e.id       || uid(),
-        nome:     e.nome     || "Etapa",
+        nome:     maiusculoOrcamento(e.nome || "Etapa"),
         parentId: e.parentId || "",   // "" = nível raiz; senão, id da etapa-mãe
       })) : [],
       itens:  Array.isArray(o.itens)  ? o.itens.map(it => ({
@@ -1249,10 +1263,10 @@ const normalizeData = incoming => {
         // "item"   = composição com código, unidade, quantidade e preço
         // "titulo" = linha de texto puro (rótulo dentro da planilha, sem valor)
         tipo:       it.tipo === "titulo" ? "titulo" : "item",
-        codigo:     it.codigo     || "",
-        fonte:      it.fonte      || "SINAPI",
-        descricao:  it.descricao  || "",
-        unidade:    it.unidade    || "un",
+        codigo:     maiusculoOrcamento(it.codigo || ""),
+        fonte:      maiusculoOrcamento(it.fonte || "SINAPI"),
+        descricao:  maiusculoOrcamento(it.descricao || ""),
+        unidade:    maiusculoOrcamento(it.unidade || "UN"),
         quantidade: Number(it.quantidade || 0),
         precoUnit:  Number(it.precoUnit  || 0),
         composicao: it.composicao || "",
@@ -1260,6 +1274,19 @@ const normalizeData = incoming => {
         baseData:   it.baseData   || o.dataBase || "",
         baseUf:     it.baseUf     || (it.fonte === "SINAPI" ? (o.uf || "PE") : ""),
         detailUrl:  it.detailUrl  || "",
+      })) : [],
+      composicoesProprias: Array.isArray(o.composicoesProprias) ? o.composicoesProprias.map(comp => ({
+        id: comp.id || uid(), codigo:maiusculoOrcamento(comp.codigo || ""),
+        descricao:maiusculoOrcamento(comp.descricao || ""), unidade:maiusculoOrcamento(comp.unidade || "UN"),
+        origemFonte:maiusculoOrcamento(comp.origemFonte||"PRÓPRIA"),origemCodigo:maiusculoOrcamento(comp.origemCodigo||""),
+        origemDataBase:comp.origemDataBase||"",origemUf:comp.origemUf||"",
+        itens:Array.isArray(comp.itens) ? comp.itens.map(item => ({
+          id:item.id || uid(), fonte:maiusculoOrcamento(item.fonte || "SINAPI"),
+          tipoItem:item.tipoItem === "COMPOSICAO" ? "COMPOSICAO" : "INSUMO",
+          codigo:maiusculoOrcamento(item.codigo || ""), descricao:maiusculoOrcamento(item.descricao || ""),
+          unidade:maiusculoOrcamento(item.unidade || "UN"), coeficiente:Number(item.coeficiente || 0),
+          precoUnit:Number(item.precoUnit || 0), dataBase:item.dataBase || "", uf:item.uf || "",
+        })) : [],
       })) : [],
     })) : [],
     baseFavoritos: Array.isArray(d.baseFavoritos) ? d.baseFavoritos : [],
@@ -10275,6 +10302,7 @@ function Orcamento({ data, update, showToast }) {
   const { cols, formGrid } = useBreakpoint();
   const dataAtualRef = useRef(data);
   const [view,      setView]      = useState("lista");   // "lista" | "editor"
+  const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias
   const [selOrc,    setSelOrc]    = useState(null);      // id do orçamento aberto
   const [baseImport,setBaseImport]= useState([]);        // base SINAPI/ORSE em memória
   const [baseNome,  setBaseNome]  = useState("");
@@ -10291,8 +10319,24 @@ function Orcamento({ data, update, showToast }) {
   const [buscaRemotaAviso, setBuscaRemotaAviso] = useState("");
   const [atualizandoPrecos, setAtualizandoPrecos] = useState(false);
   const [codigoAtualizando, setCodigoAtualizando] = useState("");
+  const [componentesDetalhados,setComponentesDetalhados]=useState([]);
+  const [detalhesLoading,setDetalhesLoading]=useState(false);
+  const [detalhesAviso,setDetalhesAviso]=useState("");
+  const [abcInsumoFiltro,setAbcInsumoFiltro]=useState("todas");
+  const [compForm,setCompForm]=useState({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});
+  const [clonandoComposicao,setClonandoComposicao]=useState("");
+  const [compBusca,setCompBusca]=useState("");
+  const [compBuscaDebounced,setCompBuscaDebounced]=useState("");
+  const [compResultados,setCompResultados]=useState([]);
+  const [compBuscaLoading,setCompBuscaLoading]=useState(false);
+  const [compBuscaAviso,setCompBuscaAviso]=useState("");
   const [buscaModal,setBuscaModal]= useState(false);
   const [busca,     setBusca]     = useState("");
+  const [buscaLinha, setBuscaLinha] = useState({itemId:"", termo:""});
+  const [buscaLinhaDebounced, setBuscaLinhaDebounced] = useState("");
+  const [resultadosLinhaRemotos, setResultadosLinhaRemotos] = useState([]);
+  const [buscaLinhaLoading, setBuscaLinhaLoading] = useState(false);
+  const [buscaLinhaAviso, setBuscaLinhaAviso] = useState("");
   // O campo responde na hora; a filtragem dos 17 mil itens espera a digitação
   // parar. Sem isso, cada tecla dispara uma varredura completa e o input trava.
   const [buscaDebounced, setBuscaDebounced] = useState("");
@@ -10329,6 +10373,14 @@ function Orcamento({ data, update, showToast }) {
     const t = setTimeout(() => setBuscaDebounced(busca), 140);
     return () => clearTimeout(t);
   }, [busca]);
+  useEffect(() => {
+    const t = setTimeout(() => setBuscaLinhaDebounced(buscaLinha.termo), 180);
+    return () => clearTimeout(t);
+  }, [buscaLinha.termo]);
+  useEffect(() => {
+    const t=setTimeout(()=>setCompBuscaDebounced(compBusca),220);
+    return()=>clearTimeout(t);
+  },[compBusca]);
   useEffect(() => { dataAtualRef.current = data; }, [data]);
 
   const carregarBasesRemotas = useCallback(async () => {
@@ -10351,6 +10403,11 @@ function Orcamento({ data, update, showToast }) {
   const orcamentos = data.orcamentos || [];
   const orc = orcamentos.find(o => o.id === selOrc);
   const calc = useMemo(() => orc ? calcOrcamento(orc) : null, [orc]);
+  const composicoesEmpresa = useMemo(()=>{
+    const mapa=new Map();
+    [...(data.composicoesEmpresa||[]),...(orc?.composicoesProprias||[])].forEach(comp=>mapa.set(comp.id||`${comp.codigo}`,comp));
+    return[...mapa.values()];
+  },[data.composicoesEmpresa,orc?.composicoesProprias]);
   const referenciaKey = (orc?.referencias || []).join("|");
   const basesVinculadas = useMemo(() => {
     const ids = new Set(orc?.referencias || []);
@@ -10576,6 +10633,59 @@ function Orcamento({ data, update, showToast }) {
       });
       return { itens, dataBase };
     };
+    const lerInsumos = (alvo, campoPreco) => {
+      const nome = nomeAba(alvo);
+      if (!nome) return [];
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[nome], {header:1,defval:"",raw:true});
+      const headerRow = rows.findIndex(row => {
+        const text = row.map(value=>semAcento(value).toUpperCase()).join(" | ");
+        return text.includes("CODIGO DO") && text.includes("INSUMO") && text.includes("DESCRICAO DO INSUMO");
+      });
+      if (headerRow < 0) return [];
+      let ufColumn = -1;
+      for (let r=headerRow-1;r>=0 && ufColumn<0;r--) {
+        ufColumn=(rows[r]||[]).findIndex(value=>String(value||"").trim().toUpperCase()===uf);
+      }
+      if (ufColumn < 0) return [];
+      const header=(rows[headerRow]||[]).map(value=>semAcento(value).toUpperCase().replace(/\n/g," "));
+      const classColumn=header.findIndex(value=>value.includes("CLASSIFIC"));
+      const codeColumn=header.findIndex(value=>value.includes("CODIGO") && value.includes("INSUMO"));
+      const descColumn=header.findIndex(value=>value.includes("DESCRICAO") && value.includes("INSUMO"));
+      const unitColumn=header.findIndex(value=>value.includes("UNIDADE"));
+      if ([codeColumn,descColumn,unitColumn].some(index=>index<0)) return [];
+      return rows.slice(headerRow+1).map(row=>({
+        fonte:"SINAPI",codigo:String(row[codeColumn]??"").trim().replace(/\.0$/, ""),
+        descricao:String(row[descColumn]??"").trim(),unidade:String(row[unitColumn]??"UN").trim()||"UN",
+        classificacao:classColumn>=0?String(row[classColumn]??"").trim():"",
+        precoDes:campoPreco==="precoDes"?parseBR(row[ufColumn]):0,
+        precoNao:campoPreco==="precoNao"?parseBR(row[ufColumn]):0,
+      })).filter(item=>!ehLixo(item.codigo)&&!ehLixo(item.descricao)&&(item.precoDes>0||item.precoNao>0));
+    };
+    const lerAnalitico = () => {
+      const nome = wb.SheetNames.find(sheet=>semAcento(sheet).toLowerCase().trim()==="analitico");
+      if (!nome) return [];
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[nome],{header:1,defval:"",raw:true});
+      const headerRow=rows.findIndex(row=>{
+        const text=row.map(value=>semAcento(value).toUpperCase().replace(/\n/g," ")).join(" | ");
+        return text.includes("CODIGO DA COMPOSICAO") && text.includes("TIPO ITEM") && text.includes("COEFICIENTE");
+      });
+      if(headerRow<0) return [];
+      const header=(rows[headerRow]||[]).map(value=>semAcento(value).toUpperCase().replace(/\n/g," "));
+      const compositionColumn=header.findIndex(value=>value.includes("CODIGO DA COMPOSICAO"));
+      const typeColumn=header.findIndex(value=>value.includes("TIPO ITEM"));
+      const itemColumn=header.findIndex(value=>value.includes("CODIGO DO ITEM"));
+      const descColumn=header.findIndex(value=>value==="DESCRICAO"||value.startsWith("DESCRICAO "));
+      const unitColumn=header.findIndex(value=>value==="UNIDADE");
+      const coefficientColumn=header.findIndex(value=>value.includes("COEFICIENTE"));
+      const situationColumn=header.findIndex(value=>value.includes("SITUAC"));
+      return rows.slice(headerRow+1).map(row=>({
+        compositionCode:String(row[compositionColumn]??"").trim().replace(/\.0$/, ""),
+        itemType:semAcento(row[typeColumn]).toUpperCase()==="COMPOSICAO"?"COMPOSICAO":"INSUMO",
+        itemCode:String(row[itemColumn]??"").trim().replace(/\.0$/, ""),
+        descricao:String(row[descColumn]??"").trim(),unidade:String(row[unitColumn]??"UN").trim()||"UN",
+        coeficiente:parseBR(row[coefficientColumn]),situacao:situationColumn>=0?String(row[situationColumn]??"").trim():"",
+      })).filter(item=>item.compositionCode&&item.itemCode&&item.descricao&&item.coeficiente>0);
+    };
     const nao = lerAba("CSD", "precoNao");
     const des = lerAba("CCD", "precoDes");
     const merged = new Map();
@@ -10585,7 +10695,13 @@ function Orcamento({ data, update, showToast }) {
         unidade:item.unidade || atual.unidade, precoDes:item.precoDes || atual.precoDes,
         precoNao:item.precoNao || atual.precoNao });
     });
-    return { itens:[...merged.values()], dataBase:des.dataBase || nao.dataBase,
+    const insumosMerged=new Map();
+    [...lerInsumos("ISD","precoNao"),...lerInsumos("ICD","precoDes")].forEach(item=>{
+      const atual=insumosMerged.get(item.codigo)||{...item,precoDes:0,precoNao:0};
+      insumosMerged.set(item.codigo,{...atual,descricao:item.descricao||atual.descricao,unidade:item.unidade||atual.unidade,
+        classificacao:item.classificacao||atual.classificacao,precoDes:item.precoDes||atual.precoDes,precoNao:item.precoNao||atual.precoNao});
+    });
+    return { itens:[...merged.values()], insumos:[...insumosMerged.values()], componentes:lerAnalitico(), dataBase:des.dataBase || nao.dataBase,
       abas:[nao.itens.length ? "CSD" : "", des.itens.length ? "CCD" : ""].filter(Boolean) };
   };
 
@@ -10602,10 +10718,22 @@ function Orcamento({ data, update, showToast }) {
       if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível iniciar a base no Supabase.");
       baseCriada = inicio.base;
       const lote = 350;
+      const totalLinhas=extraida.itens.length+extraida.insumos.length+extraida.componentes.length;
+      let enviados=0;
       for (let i = 0; i < extraida.itens.length; i += lote) {
         const envio = await enviarLoteReferencia(baseCriada.id, extraida.itens.slice(i, i + lote));
         if (!envio.ok) throw new Error(envio.error || `Falha no lote ${Math.floor(i / lote) + 1}.`);
-        setUploadProgresso(Math.min(96, Math.round(((i + lote) / extraida.itens.length) * 95)));
+        enviados+=Math.min(lote,extraida.itens.length-i); setUploadProgresso(Math.min(96,Math.round((enviados/totalLinhas)*95)));
+      }
+      for (let i=0;i<extraida.insumos.length;i+=lote) {
+        const envio=await enviarLoteInsumosReferencia(baseCriada.id,extraida.insumos.slice(i,i+lote));
+        if(!envio.ok) throw new Error(envio.error||`Falha ao enviar insumos, lote ${Math.floor(i/lote)+1}.`);
+        enviados+=Math.min(lote,extraida.insumos.length-i); setUploadProgresso(Math.min(96,Math.round((enviados/totalLinhas)*95)));
+      }
+      for (let i=0;i<extraida.componentes.length;i+=lote) {
+        const envio=await enviarLoteComponentesReferencia(baseCriada.id,extraida.componentes.slice(i,i+lote));
+        if(!envio.ok) throw new Error(envio.error||`Falha ao enviar analítico, lote ${Math.floor(i/lote)+1}.`);
+        enviados+=Math.min(lote,extraida.componentes.length-i); setUploadProgresso(Math.min(96,Math.round((enviados/totalLinhas)*95)));
       }
       const fim = await finalizarBaseReferencia(baseCriada.id);
       if (!fim.ok || !fim.base) throw new Error(fim.error || "Não foi possível finalizar a base.");
@@ -10617,7 +10745,7 @@ function Orcamento({ data, update, showToast }) {
         porFonte:{SINAPI:extraida.itens.length}, comDes:extraida.itens.filter(i=>i.precoDes>0).length,
         comNao:extraida.itens.filter(i=>i.precoNao>0).length, dataBase:extraida.dataBase, localidade:sinapiUf });
       setUploadProgresso(100); await carregarBasesRemotas();
-      showToast(`Base SINAPI ${extraida.dataBase} / ${sinapiUf} salva no Supabase com ${extraida.itens.length.toLocaleString("pt-BR")} composições.`);
+      showToast(`Base SINAPI ${extraida.dataBase} / ${sinapiUf} salva com ${extraida.itens.length.toLocaleString("pt-BR")} composições, ${extraida.insumos.length.toLocaleString("pt-BR")} insumos e analítico completo.`);
     } catch (error) {
       if (baseCriada?.id) await removerBaseReferencia(baseCriada.id).catch(() => null);
       showToast(error?.message || "Falha ao enviar a base SINAPI.", "error");
@@ -10841,6 +10969,79 @@ function Orcamento({ data, update, showToast }) {
   }, [resultadosLocais, resultadosRemotos]);
   const temBasePesquisa = baseBusca.length > 0 || basesVinculadas.length > 0;
 
+  // Pesquisa acionada dentro da propria coluna Descricao do orcamento.
+  const resultadosLinhaLocais = useMemo(() => {
+    const q = semAcento(buscaLinhaDebounced.trim());
+    if (!buscaLinha.itemId || q.length < 2) return [];
+    const termos = q.split(/\s+/).filter(Boolean);
+    return baseIndexada
+      .filter(item => termos.every(termo => item._q.includes(termo)))
+      .map(item => {
+        const pos = item._q.indexOf(q);
+        const codigoExato = semAcento(item.codigo) === q;
+        return {item, score:(codigoExato ? -10000 : 0) + (pos >= 0 ? pos - 3000 : 0) + Math.min(item.descricao.length / 20, 40) - (item._fav ? 500 : 0)};
+      })
+      .sort((a,b) => a.score - b.score)
+      .slice(0, 30)
+      .map(resultado => resultado.item);
+  }, [buscaLinha.itemId, buscaLinhaDebounced, baseIndexada]);
+
+  const resultadosLinha = useMemo(() => {
+    const lista = [], vistos = new Set();
+    [...resultadosLinhaLocais, ...resultadosLinhaRemotos].forEach(item => {
+      const codigo = String(item.codigo || "").trim().toUpperCase().replace(/^0+(?=\d)/, "");
+      const chave = `${item.fonte || "SINAPI"}:${codigo}`;
+      if (!item.codigo || vistos.has(chave)) return;
+      vistos.add(chave);
+      lista.push(item);
+    });
+    return lista.slice(0, 40);
+  }, [resultadosLinhaLocais, resultadosLinhaRemotos]);
+
+  useEffect(() => {
+    let ativo = true;
+    const termo = buscaLinhaDebounced.trim();
+    if (!buscaLinha.itemId || termo.length < 2 || !orc || !(orc.referencias || []).length) {
+      setResultadosLinhaRemotos([]);
+      setBuscaLinhaLoading(false);
+      setBuscaLinhaAviso("");
+      return () => { ativo = false; };
+    }
+    setBuscaLinhaLoading(true);
+    setBuscaLinhaAviso("");
+    const timer = window.setTimeout(async () => {
+      const resposta = await pesquisarBasesReferencia(orc.referencias, termo);
+      if (!ativo) return;
+      if (resposta.ok) {
+        setResultadosLinhaRemotos(resposta.items || []);
+        setBuscaLinhaAviso(resposta.warning || "");
+      } else {
+        setResultadosLinhaRemotos([]);
+        setBuscaLinhaAviso(resposta.error || "Falha ao pesquisar as bases vinculadas.");
+      }
+      setBuscaLinhaLoading(false);
+    }, 120);
+    return () => { ativo = false; window.clearTimeout(timer); };
+  }, [buscaLinha.itemId, buscaLinhaDebounced, referenciaKey, selOrc]);
+
+  useEffect(()=>{
+    let ativo=true;
+    const termo=compBuscaDebounced.trim();
+    if(orcAba!=="proprias"||!orc||termo.length<2||!(orc.referencias||[]).length){
+      setCompResultados([]);setCompBuscaLoading(false);setCompBuscaAviso("");
+      return()=>{ativo=false;};
+    }
+    setCompBuscaLoading(true);setCompBuscaAviso("");
+    const timer=window.setTimeout(async()=>{
+      const resposta=await pesquisarInsumosReferencia(orc.referencias,termo);
+      if(!ativo)return;
+      if(resposta.ok){setCompResultados(resposta.items||[]);setCompBuscaAviso(resposta.warning||"");}
+      else{setCompResultados([]);setCompBuscaAviso(resposta.error||"Falha ao pesquisar insumos.");}
+      setCompBuscaLoading(false);
+    },120);
+    return()=>{ativo=false;window.clearTimeout(timer);};
+  },[compBuscaDebounced,orcAba,referenciaKey,selOrc]);
+
   //  CRUD orçamento 
   const criarOrc = () => {
     if (!form.nome.trim()) { showToast("Informe o nome do orçamento.","error"); return; }
@@ -10911,6 +11112,159 @@ function Orcamento({ data, update, showToast }) {
     baseUf:ref.uf || item.baseUf || "",
     detailUrl:ref.detailUrl || item.detailUrl || "",
   });
+
+  const carregarDetalhesComposicoes = async () => {
+    if(!orc||!(orc.referencias||[]).length){setDetalhesAviso("Vincule uma base SINAPI ou ORSE ao orçamento.");return;}
+    const entries=(orc.itens||[]).filter(item=>item.tipo!=="titulo"&&normalizarCodigoRef(item.codigo)
+      && !/^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(String(item.fonte||"").toUpperCase()))
+      .map(item=>({codigo:normalizarCodigoRef(item.codigo),fonte:item.fonte||""}));
+    if(!entries.length){setComponentesDetalhados([]);setDetalhesAviso("Não há composições oficiais codificadas neste orçamento.");return;}
+    setDetalhesLoading(true);setDetalhesAviso("");
+    try{
+      const componentes=[];
+      for(let i=0;i<entries.length;i+=100){
+        const resposta=await detalharComposicoesReferencia(orc.referencias,entries.slice(i,i+100));
+        if(!resposta.ok)throw new Error(resposta.error||"Falha ao detalhar composições.");
+        componentes.push(...(resposta.components||[]));
+        if(resposta.warning)setDetalhesAviso(resposta.warning);
+      }
+      const vistos=new Set();
+      setComponentesDetalhados(componentes.filter(item=>{
+        const chave=`${item.fonte}|${item.compositionCode}|${item.itemType}|${item.itemCode}`;
+        if(vistos.has(chave))return false;vistos.add(chave);return true;
+      }));
+      if(!componentes.length)setDetalhesAviso("As bases vinculadas ainda não possuem relações analíticas. Reenvie a planilha SINAPI após executar o schema.sql atualizado.");
+    }catch(error){setDetalhesAviso(error?.message||"Não foi possível carregar os insumos.");}
+    finally{setDetalhesLoading(false);}
+  };
+
+  const abcInsumos = useMemo(()=>{
+    if(!orc)return{itens:[],total:0,semDetalhe:[],semPreco:[]};
+    const relacoes=[...componentesDetalhados.map(item=>({...item,
+      fonte:String(item.fonte||"SINAPI").toUpperCase(),compositionCode:normalizarCodigoRef(item.compositionCode),
+      itemCode:normalizarCodigoRef(item.itemCode),precoUnit:Number(item.precoUnit||precoDoItem(item,orc)||0)}))];
+    composicoesEmpresa.forEach(comp=>(comp.itens||[]).forEach(item=>relacoes.push({
+      fonte:"PRÓPRIA",compositionCode:normalizarCodigoRef(comp.codigo),itemType:item.tipoItem||"INSUMO",
+      itemCode:normalizarCodigoRef(item.codigo),itemFonte:String(item.fonte||"SINAPI").toUpperCase(),
+      descricao:item.descricao,unidade:item.unidade,coeficiente:Number(item.coeficiente||0),precoUnit:Number(item.precoUnit||0),
+      classificacao:"COMPOSIÇÃO PRÓPRIA",
+    })));
+    const porComposicao=new Map();
+    relacoes.forEach(rel=>{
+      const chave=`${rel.fonte}|${rel.compositionCode}`;
+      if(!porComposicao.has(chave))porComposicao.set(chave,[]);
+      porComposicao.get(chave).push(rel);
+    });
+    const mapa=new Map(),semDetalhe=new Set(),semPreco=new Set();
+    const acumular=(fonte,codigo,fator,caminho=new Set(),profundidade=0)=>{
+      const chave=`${fonte}|${codigo}`;
+      if(caminho.has(chave)||profundidade>14)return;
+      const filhos=porComposicao.get(chave)||[];
+      if(!filhos.length){semDetalhe.add(chave);return;}
+      const novoCaminho=new Set(caminho);novoCaminho.add(chave);
+      filhos.forEach(rel=>{
+        const qtd=fator*Number(rel.coeficiente||0);
+        if(!(qtd>0))return;
+        const fonteItem=String(rel.itemFonte||rel.fonte||fonte).toUpperCase();
+        const chaveFilho=`${fonteItem}|${rel.itemCode}`;
+        if(rel.itemType==="COMPOSICAO"&&porComposicao.has(chaveFilho)){
+          acumular(fonteItem,rel.itemCode,qtd,novoCaminho,profundidade+1);return;
+        }
+        const key=`${fonteItem}|${rel.itemCode}|${rel.unidade||"UN"}`;
+        const atual=mapa.get(key)||{fonte:fonteItem,codigo:rel.itemCode,descricao:rel.descricao||"",
+          unidade:rel.unidade||"UN",classificacao:rel.classificacao||"",quantidade:0,precoUnit:Number(rel.precoUnit||0)};
+        atual.quantidade+=qtd;
+        if(!atual.precoUnit&&Number(rel.precoUnit)>0)atual.precoUnit=Number(rel.precoUnit);
+        mapa.set(key,atual);
+        if(!(atual.precoUnit>0))semPreco.add(`${fonteItem} ${rel.itemCode}`);
+      });
+    };
+    (orc.itens||[]).filter(item=>item.tipo!=="titulo"&&Number(item.quantidade)>0).forEach(item=>{
+      const fonte=/^PR[ÓO]PRIA$/.test(String(item.fonte||"").toUpperCase())?"PRÓPRIA":String(item.fonte||orc.fonte||"SINAPI").toUpperCase();
+      if(/^(EXTERNO|COTA[CÇ][AÃ]O)$/.test(fonte))return;
+      acumular(fonte,normalizarCodigoRef(item.codigo),Number(item.quantidade));
+    });
+    const linhas=[...mapa.values()].map(item=>({...item,custo:item.quantidade*item.precoUnit})).sort((a,b)=>b.custo-a.custo);
+    const total=linhas.reduce((s,item)=>s+item.custo,0);let acumulado=0;
+    const itens=linhas.map((item,index)=>{const pct=total>0?item.custo/total*100:0;const classe=acumulado<80?"A":acumulado<95?"B":"C";acumulado+=pct;
+      return{...item,ordem:index+1,pct,pctAcum:Math.min(100,acumulado),classe};});
+    return{itens,total,semDetalhe:[...semDetalhe],semPreco:[...semPreco]};
+  },[orc,componentesDetalhados,composicoesEmpresa]);
+
+  useEffect(()=>{
+    if(orcAba==="insumos"&&orc&&componentesDetalhados.length===0&&!detalhesLoading)carregarDetalhesComposicoes();
+  },[orcAba,selOrc,referenciaKey]);
+
+  const custoCompForm=useMemo(()=>(compForm.itens||[]).reduce((s,item)=>s+Number(item.coeficiente||0)*Number(item.precoUnit||0),0),[compForm.itens]);
+
+  const adicionarItemComposicao = referencia => {
+    const chave=`${referencia.fonte}|${referencia.codigo}|${referencia.tipoItem||"INSUMO"}`;
+    if((compForm.itens||[]).some(item=>`${item.fonte}|${item.codigo}|${item.tipoItem}`===chave)){showToast("Este item já está na composição.","warn");return;}
+    setCompForm(form=>({...form,itens:[...(form.itens||[]),{id:uid(),fonte:referencia.fonte||"SINAPI",
+      tipoItem:referencia.tipoItem||"INSUMO",codigo:referencia.codigo,descricao:referencia.descricao,
+      unidade:referencia.unidade||"UN",coeficiente:1,precoUnit:precoDoItem(referencia,orc),dataBase:referencia.dataBase||"",uf:referencia.uf||""}]}));
+    setCompBusca("");setCompResultados([]);
+  };
+
+  const clonarComposicaoReferencia = async referencia => {
+    if(!referencia||referencia.tipoItem!=="COMPOSICAO"||!orc)return;
+    if(!(orc.referencias||[]).length){showToast("Vincule a base desta composição ao orçamento.","error");return;}
+    setClonandoComposicao(`${referencia.fonte}|${referencia.codigo}`);
+    try{
+      const resposta=await detalharComposicoesReferencia(orc.referencias,[{codigo:referencia.codigo,fonte:referencia.fonte}]);
+      if(!resposta.ok)throw new Error(resposta.error||"Não foi possível abrir a composição.");
+      const codigoOrigem=normalizarCodigoRef(referencia.codigo);const fonte=String(referencia.fonte||"SINAPI").toUpperCase();
+      const diretos=(resposta.components||[]).filter(item=>String(item.fonte||"").toUpperCase()===fonte&&normalizarCodigoRef(item.compositionCode)===codigoOrigem);
+      if(!diretos.length)throw new Error("A base não devolveu os insumos desta composição. Atualize a base analítica.");
+      const baseCodigo=`EMP-${fonte}-${codigoOrigem}`;let codigoNovo=baseCodigo,sufixo=2;
+      while(composicoesEmpresa.some(comp=>normalizarCodigoRef(comp.codigo)===normalizarCodigoRef(codigoNovo)))codigoNovo=`${baseCodigo}-${sufixo++}`;
+      setCompForm({id:"",codigo:codigoNovo,descricao:referencia.descricao||"",unidade:referencia.unidade||"UN",
+        origemFonte:fonte,origemCodigo:codigoOrigem,origemDataBase:referencia.dataBase||orc.dataBase||"",origemUf:referencia.uf||orc.uf||"",
+        itens:diretos.map(item=>({id:uid(),fonte:item.fonte||fonte,tipoItem:item.itemType||"INSUMO",codigo:item.itemCode,
+          descricao:item.descricao||"",unidade:item.unidade||"UN",coeficiente:Number(item.coeficiente||0),
+          precoUnit:Number(item.precoUnit||precoDoItem(item,orc)||0),dataBase:item.dataBase||referencia.dataBase||"",uf:item.uf||referencia.uf||""}))});
+      setCompBusca("");setCompResultados([]);showToast(`Composição ${fonte} ${codigoOrigem} copiada. Ajuste os dados e salve como composição da empresa.`);
+    }catch(error){showToast(error?.message||"Não foi possível copiar a composição.","error");}
+    finally{setClonandoComposicao("");}
+  };
+
+  const salvarComposicaoPropria = () => {
+    const codigo=normalizarCodigoRef(compForm.codigo);const descricao=String(compForm.descricao||"").trim();
+    if(!codigo||!descricao||!String(compForm.unidade||"").trim()){showToast("Informe código, descrição e unidade.","error");return;}
+    if(!(compForm.itens||[]).length||compForm.itens.some(item=>!(Number(item.coeficiente)>0))){showToast("Adicione insumos com coeficientes válidos.","error");return;}
+    const antiga=composicoesEmpresa.find(item=>item.id===compForm.id);
+    const comp={...compForm,id:compForm.id||uid(),codigo,descricao,unidade:compForm.unidade,itens:compForm.itens};
+    const comps=[...composicoesEmpresa.filter(item=>item.id!==comp.id),comp];
+    const favoritos=(data.baseFavoritos||[]).filter(item=>!(String(item.fonte||"").toUpperCase()==="PRÓPRIA"&&
+      (normalizarCodigoRef(item.codigo)===codigo||normalizarCodigoRef(item.codigo)===normalizarCodigoRef(antiga?.codigo))));
+    favoritos.push({fonte:"PRÓPRIA",codigo,descricao,unidade:comp.unidade,precoUnit:custoCompForm,
+      composicao:JSON.stringify(comp.itens),externa:true});
+    const orcamentosAtualizados=orcamentos.map(orçamento=>{
+      const itens=(orçamento.itens||[]).map(item=>String(item.fonte||"").toUpperCase()==="PRÓPRIA"&&antiga&&normalizarCodigoRef(item.codigo)===normalizarCodigoRef(antiga.codigo)
+        ?{...item,codigo,descricao,unidade:comp.unidade,precoUnit:custoCompForm,composicao:JSON.stringify(comp.itens)}:item);
+      const defs=orçamento.id===selOrc?[...(orçamento.composicoesProprias||[]).filter(item=>item.id!==comp.id),comp]:(orçamento.composicoesProprias||[]);
+      return{...orçamento,itens,composicoesProprias:defs};
+    });
+    update({...data,composicoesEmpresa:comps,baseFavoritos:favoritos,orcamentos:orcamentosAtualizados});
+    setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});showToast("Composição salva no cadastro da empresa e disponível em todos os orçamentos.");
+  };
+
+  const excluirComposicaoPropria = comp => {
+    if(!window.confirm(`Excluir a composição ${comp.codigo}?`))return;
+    const comps=(data.composicoesEmpresa||[]).filter(item=>item.id!==comp.id);
+    const favoritos=(data.baseFavoritos||[]).filter(item=>!(String(item.fonte||"").toUpperCase()==="PRÓPRIA"&&normalizarCodigoRef(item.codigo)===normalizarCodigoRef(comp.codigo)));
+    update({...data,composicoesEmpresa:comps,baseFavoritos:favoritos,orcamentos:orcamentos.map(item=>item.id===selOrc?{...item,composicoesProprias:(item.composicoesProprias||[]).filter(def=>def.id!==comp.id)}:item)});
+    if(compForm.id===comp.id)setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});
+  };
+
+  const exportarABCInsumos = () => {
+    if(!abcInsumos.itens.length){showToast("Carregue os insumos antes de exportar.","warn");return;}
+    const rows=abcInsumos.itens.map(item=>({Classe:item.classe,Fonte:item.fonte,Código:item.codigo,Descrição:item.descricao,
+      Unidade:item.unidade,Quantidade:item.quantidade,"Custo unitário":item.precoUnit,"Custo total":item.custo,
+      "% item":item.pct/100,"% acumulado":item.pctAcum/100}));
+    const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[7,10,12,55,9,14,15,16,11,13].map(w=>({wch:w}));
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"ABC Insumos");XLSX.writeFile(wb,`ABC_Insumos_${orc.nome}.xlsx`);
+  };
 
   const abrirEdicaoOrc = () => {
     setForm({
@@ -10985,7 +11339,13 @@ function Orcamento({ data, update, showToast }) {
     update({
       ...data,
       baseFavoritos: novosFavs,
-      orcamentos: orcamentos.map(o => o.id===selOrc ? {...o, itens:[...o.itens, novoItem]} : o),
+      orcamentos: orcamentos.map(o => {
+        if(o.id!==selOrc)return o;
+        const propria=String(qtdModal.fonte||"").toUpperCase()==="PRÓPRIA"
+          ?(data.composicoesEmpresa||[]).find(comp=>normalizarCodigoRef(comp.codigo)===normalizarCodigoRef(qtdModal.codigo)):null;
+        const defs=propria&&!(o.composicoesProprias||[]).some(comp=>comp.id===propria.id)?[...(o.composicoesProprias||[]),propria]:(o.composicoesProprias||[]);
+        return{...o,itens:[...o.itens,novoItem],composicoesProprias:defs};
+      }),
     });
     setQtdModal(null); setQtd(""); setBusca("");
     showToast("Item adicionado ao orçamento.");
@@ -11063,6 +11423,21 @@ function Orcamento({ data, update, showToast }) {
     } finally {
       setCodigoAtualizando("");
     }
+  };
+
+  const selecionarReferenciaLinha = (itemId, referencia) => {
+    if (!referencia) return;
+    const atual = dataAtualRef.current;
+    const orcVigente = (atual.orcamentos || []).find(item => item.id === selOrc) || orc;
+    if (!orcVigente) return;
+    const itens = (orcVigente.itens || []).map(item =>
+      item.id === itemId ? aplicarReferencia(item, referencia, orcVigente) : item
+    );
+    salvarOrcAssincrono({itens});
+    setBuscaLinha({itemId:"", termo:""});
+    setResultadosLinhaRemotos([]);
+    setBuscaLinhaAviso("");
+    showToast(`${referencia.fonte || "Referencia"} ${referencia.codigo}: descricao e preco atualizados.`);
   };
 
   const salvarItemCompleto = () => {
@@ -11388,7 +11763,7 @@ function Orcamento({ data, update, showToast }) {
       return;
     }
     const candidatos = orc.itens.filter(it => it.tipo !== "titulo" && normalizarCodigoRef(it.codigo)
-      && !/^(EXTERNO|COTA[CÇ][AÃ]O)$/.test(String(it.fonte || "").trim().toUpperCase()));
+      && !/^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(String(it.fonte || "").trim().toUpperCase()));
     if (!candidatos.length) {
       showToast("O orçamento não possui itens codificados para atualizar.", "warn");
       return;
@@ -11420,7 +11795,7 @@ function Orcamento({ data, update, showToast }) {
       let atualizados = 0, naoEncontrados = 0;
       const orcVigente = (dataAtualRef.current.orcamentos || []).find(item => item.id === selOrc) || orc;
       const itens = orcVigente.itens.map(it => {
-        if (it.tipo === "titulo" || /^(EXTERNO|COTA[CÇ][AÃ]O)$/.test(String(it.fonte || "").trim().toUpperCase())) return it;
+        if (it.tipo === "titulo" || /^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(String(it.fonte || "").trim().toUpperCase())) return it;
         const codigo = normalizarCodigoRef(it.codigo);
         if (!codigo) return it;
         const fonte = String(it.fonte || "").trim().toUpperCase();
@@ -11990,6 +12365,19 @@ ${blocoBDI}
         })()}
       </div>
 
+      <div style={{display:"flex",gap:5,flexWrap:"wrap",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:5}}>
+        {[
+          ["orcamento","ORÇAMENTO"],
+          ["insumos","INSUMOS E CURVA ABC"],
+          ["proprias","COMPOSIÇÕES PRÓPRIAS"],
+        ].map(([valor,label])=><button key={valor} onClick={()=>setOrcAba(valor)} style={{
+          flex:"1 1 180px",border:`1px solid ${orcAba===valor?C.blue:C.border}`,borderRadius:6,padding:"8px 10px",
+          background:orcAba===valor?`${C.blue}12`:C.bg,color:orcAba===valor?C.blue:C.muted,
+          fontSize:10.5,fontWeight:800,cursor:"pointer",fontFamily:"'Inter Display','Inter',sans-serif",
+        }}>{label}</button>)}
+      </div>
+
+      {orcAba==="orcamento" && <>
       {/* CONFERENCIA DIMENSIONAL (IA) - forro x area construida etc */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
         <button onClick={()=>setConfAberta(v=>!v)} style={{
@@ -12404,21 +12792,32 @@ ${blocoBDI}
                             onBlur={e=>updItemCampo(it.id,"codigo",e.target.value)}
                             onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
                             placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}
-                            style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
+                            style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
                       <div style={{minWidth:0,overflow:"hidden"}}>
                         <input key={`${it.id}-desc-${it.descricao}`} defaultValue={it.descricao||""}
-                          onBlur={e=>updItemCampo(it.id,"descricao",e.target.value)}
-                          onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                          title={it.descricao||"Descrição do serviço"}
-                          style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11.5,outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontFamily:"'Inter',sans-serif"}}/>
+                          onChange={e=>setBuscaLinha({itemId:it.id,termo:e.target.value})}
+                          onBlur={e=>{
+                            updItemCampo(it.id,"descricao",e.target.value);
+                            setBuscaLinha(atual=>atual.itemId===it.id?{itemId:"",termo:""}:atual);
+                          }}
+                          onKeyDown={e=>{
+                            if(e.key==="Escape") { setBuscaLinha({itemId:"",termo:""}); e.currentTarget.blur(); }
+                            if(e.key==="Enter") {
+                              e.preventDefault();
+                              if(buscaLinha.itemId===it.id && resultadosLinha.length) selecionarReferenciaLinha(it.id,resultadosLinha[0]);
+                              else e.currentTarget.blur();
+                            }
+                          }}
+                          title="Digite para pesquisar por descrição nas bases vinculadas"
+                          style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11.5,outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
                       <div style={{minWidth:0,overflow:"hidden"}}>
                           <input key={`${it.id}-un-${it.unidade}`} defaultValue={it.unidade||""}
                             onBlur={e=>updItemCampo(it.id,"unidade",e.target.value)}
                             onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
                             title="Unidade do item"
-                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
+                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
                       <div style={{minWidth:0,overflow:"hidden"}}>
                           <input key={`${it.id}-qtd-${it.quantidade}`} type="number" step="any" inputMode="decimal" defaultValue={it.quantidade}
@@ -12439,6 +12838,39 @@ ${blocoBDI}
                         <button onClick={() => delItem(it.id)}
                           style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:13,padding:0}}>x</button>
                       </div>
+                      {buscaLinha.itemId===it.id && buscaLinha.termo.trim().length>=2 && (
+                        <div style={{
+                          gridColumn:"4 / -1",minWidth:0,maxHeight:230,overflowY:"auto",
+                          background:C.bg,border:`1.5px solid ${C.blue}`,borderRadius:7,
+                          boxShadow:`0 8px 20px ${C.shadow}`,padding:5,zIndex:20,
+                        }}>
+                          <p style={{fontSize:9.5,color:C.muted,padding:"3px 6px 5px"}}>
+                            {buscaLinhaLoading ? "Pesquisando nas bases vinculadas..." : "Selecione uma composição para atualizar código, unidade e preço"}
+                          </p>
+                          {buscaLinhaAviso && <p style={{fontSize:9.5,color:C.orange,padding:"2px 6px 5px"}}>{buscaLinhaAviso}</p>}
+                          {resultadosLinha.slice(0,12).map((resultado,indice)=>(
+                            <button key={`${resultado.fonte}-${resultado.codigo}-${indice}`}
+                              onMouseDown={e=>e.preventDefault()}
+                              onClick={()=>selecionarReferenciaLinha(it.id,resultado)}
+                              style={{width:"100%",display:"grid",gridTemplateColumns:"74px minmax(0,1fr) 78px",gap:7,
+                                alignItems:"center",background:"transparent",border:0,borderTop:indice?`1px solid ${C.line}`:"none",
+                                padding:"6px",textAlign:"left",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
+                              <span style={{fontSize:9.5,fontWeight:800,color:resultado.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>
+                                {resultado.fonte||"SINAPI"} {resultado.codigo}
+                              </span>
+                              <span title={resultado.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                                {resultado.descricao}
+                              </span>
+                              <span style={{fontSize:10,fontWeight:800,color:C.yellowD,textAlign:"right",whiteSpace:"nowrap"}}>
+                                {fmt(precoDoItem(resultado,orc))}/{resultado.unidade||"UN"}
+                              </span>
+                            </button>
+                          ))}
+                          {!buscaLinhaLoading && resultadosLinha.length===0 && (
+                            <p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:10}}>Nenhuma composição encontrada.</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -13192,6 +13624,117 @@ ${blocoBDI}
             </div>
           </div>
         </Modal>
+      )}
+      </>}
+
+      {orcAba==="insumos" && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <div>
+              <p style={{fontSize:14,fontWeight:800,color:C.text}}>QUANTITATIVOS DE INSUMOS</p>
+              <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Expansão analítica das composições SINAPI, ORSE e próprias conforme as quantidades do orçamento.</p>
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              <Btn size="sm" v="info" onClick={carregarDetalhesComposicoes} disabled={detalhesLoading}>{detalhesLoading?"CARREGANDO...":"ATUALIZAR INSUMOS"}</Btn>
+              <Btn size="sm" v="success" onClick={exportarABCInsumos}>EXCEL</Btn>
+            </div>
+          </div>
+          {detalhesAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:10.5,color:C.orange}}>{detalhesAviso}</div>}
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
+            {[
+              [abcInsumos.itens.length,"INSUMOS CONSOLIDADOS",C.blue],
+              [fmt(abcInsumos.total),"CUSTO ANALÍTICO",C.yellow],
+              [abcInsumos.semPreco.length,"SEM PREÇO",abcInsumos.semPreco.length?C.red:C.green],
+              [abcInsumos.semDetalhe.length,"SEM DETALHAMENTO",abcInsumos.semDetalhe.length?C.orange:C.green],
+            ].map(([valor,label,cor])=><div key={label} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${cor}`,borderRadius:8,padding:"9px 11px"}}>
+              <p style={{fontSize:15,fontWeight:800,color:cor}}>{valor}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>{label}</p>
+            </div>)}
+          </div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcInsumoFiltro(classe)} style={{
+              border:`1px solid ${abcInsumoFiltro===classe?(classe==="todas"?C.blue:CLASSE_ABC[classe].cor):C.border}`,
+              background:abcInsumoFiltro===classe?`${classe==="todas"?C.blue:CLASSE_ABC[classe].cor}12`:C.bg,
+              color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:800,cursor:"pointer",
+            }}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</button>)}
+          </div>
+          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.bg}}>
+            <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:10.5}}>
+              <thead><tr style={{background:C.surface}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DO INSUMO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+              <tbody>{abcInsumos.itens.filter(item=>abcInsumoFiltro==="todas"||item.classe===abcInsumoFiltro).map(item=><tr key={`${item.fonte}-${item.codigo}-${item.unidade}`} style={{borderBottom:`1px solid ${C.line}`}}>
+                <td style={{padding:"6px 8px",fontWeight:900,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td>
+                <td style={{padding:"6px 8px",fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td>
+                <td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
+                <td title={item.descricao} style={{padding:"6px 8px",color:C.text,maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
+                <td style={{padding:"6px 8px",color:C.muted}}>{item.unidade}</td>
+                <td style={{padding:"6px 8px",textAlign:"right",color:C.text}}>{item.quantidade.toLocaleString("pt-BR",{maximumFractionDigits:6})}</td>
+                <td style={{padding:"6px 8px",textAlign:"right",color:item.precoUnit?C.text:C.red}}>{fmt(item.precoUnit)}</td>
+                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:800,color:C.text}}>{fmt(item.custo)}</td>
+                <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{item.pct.toFixed(2)}%</td>
+                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
+              </tr>)}</tbody>
+            </table>
+            {!abcInsumos.itens.length&&!detalhesLoading&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum insumo calculado. Atualize os insumos ou reenvie a base analítica.</p>}
+          </div>
+          {(abcInsumos.semDetalhe.length>0||abcInsumos.semPreco.length>0)&&<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}>
+            {abcInsumos.semDetalhe.length>0&&<p style={{fontSize:10,color:C.orange,lineHeight:1.6}}><b>SEM DETALHAMENTO:</b> {abcInsumos.semDetalhe.slice(0,20).join(", ")}{abcInsumos.semDetalhe.length>20?"...":""}</p>}
+            {abcInsumos.semPreco.length>0&&<p style={{fontSize:10,color:C.red,lineHeight:1.6}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>}
+          </div>}
+        </div>
+      )}
+
+      {orcAba==="proprias" && (
+        <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","300px minmax(0,1fr)"),gap:10,alignItems:"start"}}>
+          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,marginBottom:8}}>
+              <div><p style={{fontSize:13,fontWeight:800,color:C.text}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:9.5,color:C.muted}}>{composicoesEmpresa.length} cadastrada(s) na empresa</p></div>
+              <Btn size="sm" v="ghost" onClick={()=>setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]})}>NOVA</Btn>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>{composicoesEmpresa.map(comp=>{
+              const custo=(comp.itens||[]).reduce((s,item)=>s+Number(item.coeficiente||0)*Number(item.precoUnit||0),0);
+              return <div key={comp.id} style={{border:`1px solid ${compForm.id===comp.id?C.blue:C.border}`,borderRadius:7,padding:"8px 9px",background:compForm.id===comp.id?`${C.blue}08`:C.surface}}>
+                <p style={{fontSize:10,fontWeight:800,color:C.blue}}>{comp.codigo} · {comp.unidade}</p>
+                <p title={comp.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{comp.descricao}</p>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5}}><b style={{fontSize:11,color:C.yellowD}}>{fmt(custo)}</b><span><button onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{border:0,background:"transparent",color:C.blue,fontSize:9.5,cursor:"pointer"}}>EDITAR</button><button onClick={()=>excluirComposicaoPropria(comp)} style={{border:0,background:"transparent",color:C.red,fontSize:9.5,cursor:"pointer"}}>EXCLUIR</button></span></div>
+              </div>;
+            })}{!composicoesEmpresa.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:14}}>Nenhuma composição da empresa.</p>}</div>
+          </div>
+          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:12,display:"flex",flexDirection:"column",gap:10}}>
+            <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>{compForm.id?"EDITAR COMPOSIÇÃO":"NOVA COMPOSIÇÃO PRÓPRIA"}</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>O custo unitário é calculado pelos coeficientes e preços da base vinculada.</p></div>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+              <Inp label="Código *" value={compForm.codigo} onChange={valor=>setCompForm(form=>({...form,codigo:valor}))} placeholder="Ex.: CP-001"/>
+              <Inp label="Unidade *" value={compForm.unidade} onChange={valor=>setCompForm(form=>({...form,unidade:valor}))} placeholder="M2"/>
+              <div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:700}}>CUSTO UNITÁRIO</p><p style={{fontSize:15,fontWeight:800,color:C.yellowD,marginTop:2}}>{fmt(custoCompForm)}</p></div>
+            </div>
+            <Inp label="Descrição *" value={compForm.descricao} onChange={valor=>setCompForm(form=>({...form,descricao:valor}))} placeholder="DESCRIÇÃO DA COMPOSIÇÃO"/>
+            {compForm.origemCodigo&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}35`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:800}}>COMPOSIÇÃO COPIADA DE</p><p style={{fontSize:10.5,color:C.blue,fontWeight:800,marginTop:2}}>{compForm.origemFonte} {compForm.origemCodigo}{compForm.origemDataBase?` · ${compForm.origemDataBase}`:""}{compForm.origemUf?` · ${compForm.origemUf}`:""}</p></div>}
+            <div style={{position:"relative"}}>
+              <Inp label="Pesquisar insumo ou composição nas bases vinculadas" value={compBusca} onChange={setCompBusca} placeholder="Ex.: cimento, servente, concreto..."/>
+              {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:4,maxHeight:240,overflowY:"auto",border:`1px solid ${C.blue}`,borderRadius:7,padding:4}}>
+                {compBuscaLoading&&<p style={{fontSize:10,color:C.blue,padding:6}}>PESQUISANDO...</p>}
+                {compBuscaAviso&&<p style={{fontSize:10,color:C.orange,padding:6}}>{compBuscaAviso}</p>}
+                {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"85px minmax(0,1fr) 82px auto",gap:7,padding:"6px 7px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center"}}>
+                  <b style={{fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><span style={{fontSize:10,color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
+                  <span style={{display:"flex",gap:4}}>
+                    <button onClick={()=>adicionarItemComposicao(item)} title={item.tipoItem==="COMPOSICAO"?"Usar como composição auxiliar":"Adicionar insumo"} style={{border:`1px solid ${C.border}`,background:C.bg,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>+</button>
+                    {item.tipoItem==="COMPOSICAO"&&<button disabled={!!clonandoComposicao} onClick={()=>clonarComposicaoReferencia(item)} style={{border:`1px solid ${C.green}`,background:`${C.green}10`,color:C.green,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{clonandoComposicao===`${item.fonte}|${item.codigo}`?"COPIANDO...":"CLONAR"}</button>}
+                  </span>
+                </div>)}
+                {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:9}}>Nenhum resultado.</p>}
+              </div>}
+            </div>
+            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:750,borderCollapse:"collapse",fontSize:10}}>
+              <thead><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:"6px",textAlign:h.includes("PREÇO")||h==="TOTAL"||h==="COEFICIENTE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+              <tbody>{(compForm.itens||[]).map(item=><tr key={item.id} style={{borderBottom:`1px solid ${C.line}`}}>
+                <td style={{padding:6,color:C.muted}}>{item.tipoItem}</td><td style={{padding:6,fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td><td style={{padding:6}}>{item.codigo}</td>
+                <td title={item.descricao} style={{padding:6,maxWidth:300,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:6}}>{item.unidade}</td>
+                <td style={{padding:4}}><input type="number" step="any" value={item.coeficiente} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:85,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
+                <td style={{padding:4}}><input type="number" step="any" value={item.precoUnit} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:90,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
+                <td style={{padding:6,textAlign:"right",fontWeight:800}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td><td style={{padding:4}}><button onClick={()=>setCompForm(form=>({...form,itens:form.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
+              </tr>)}</tbody>
+            </table>{!(compForm.itens||[]).length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:13}}>Pesquise e adicione os insumos.</p>}</div>
+            <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]})}>LIMPAR</Btn><Btn onClick={salvarComposicaoPropria}><Ic n="check"/> SALVAR COMPOSIÇÃO</Btn></div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -17913,11 +18456,13 @@ function Cadastros({ data, update, showToast, onTab }) {
   const [fornModal, setFornModal] = useState(null);
   const [tercModal, setTercModal] = useState(null);
   const [compModal, setCompModal] = useState(null);
+  const [compEmpresaModal, setCompEmpresaModal] = useState(null);
   const [catModal,  setCatModal]  = useState(null);
 
   const unidades  = data.unidades || [];
   const materiais = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const fornec    = useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
+  const compsEmpresa = data.composicoesEmpresa || [];
 
   const filtra = (arr, campo) => {
     const t = busca.trim().toLowerCase();
@@ -18050,6 +18595,61 @@ function Cadastros({ data, update, showToast, onTab }) {
     showToast("Composição salva.");
   };
 
+  // Composições próprias usadas pelo orçamento. Podem nascer de uma cópia
+  // SINAPI/ORSE e ficam separadas das composições de baixa de estoque.
+  const salvarComposicaoEmpresa = (f) => {
+    const codigo = maiusculoOrcamento(f.codigo).trim();
+    const descricao = maiusculoOrcamento(f.descricao).trim();
+    const unidade = maiusculoOrcamento(f.unidade || "UN").trim();
+    if (!codigo || !descricao || !unidade) { showToast("Informe código, descrição e unidade.", "error"); return; }
+    if (compsEmpresa.some(c => maiusculoOrcamento(c.codigo).trim() === codigo && c.id !== f.id)) {
+      showToast(`O código ${codigo} já pertence a outra composição da empresa.`, "error"); return;
+    }
+    const itens = (f.itens || []).filter(i => i.codigo || i.descricao).map(i => ({
+      ...i, id:i.id || uid(), fonte:maiusculoOrcamento(i.fonte || "SINAPI"),
+      tipoItem:i.tipoItem === "COMPOSICAO" ? "COMPOSICAO" : "INSUMO",
+      codigo:maiusculoOrcamento(i.codigo).trim(), descricao:maiusculoOrcamento(i.descricao).trim(),
+      unidade:maiusculoOrcamento(i.unidade || "UN").trim(), coeficiente:Number(i.coeficiente || 0),
+      precoUnit:Number(i.precoUnit || 0), dataBase:i.dataBase || "", uf:i.uf || "",
+    }));
+    if (!itens.length || itens.some(i => !(i.coeficiente > 0))) {
+      showToast("Adicione ao menos um insumo e informe coeficientes maiores que zero.", "error"); return;
+    }
+    const antiga = compsEmpresa.find(c => c.id === f.id);
+    const p = {...f,id:f.id || uid(),codigo,descricao,unidade,
+      origemFonte:maiusculoOrcamento(f.origemFonte || "PRÓPRIA"),
+      origemCodigo:maiusculoOrcamento(f.origemCodigo || ""),itens};
+    const custo = itens.reduce((s,i) => s + i.coeficiente * i.precoUnit, 0);
+    const codigoAntigo = maiusculoOrcamento(antiga?.codigo || "").trim();
+    const favoritos = (data.baseFavoritos || []).filter(item => {
+      if (maiusculoOrcamento(item.fonte) !== "PRÓPRIA") return true;
+      const cod = maiusculoOrcamento(item.codigo).trim();
+      return cod !== codigo && (!codigoAntigo || cod !== codigoAntigo);
+    });
+    favoritos.push({fonte:"PRÓPRIA",codigo,descricao,unidade,precoUnit:custo,
+      composicao:JSON.stringify(itens),externa:true});
+    const orcamentos = (data.orcamentos || []).map(orcamento => {
+      const itensOrc = (orcamento.itens || []).map(item =>
+        antiga && maiusculoOrcamento(item.fonte) === "PRÓPRIA" && maiusculoOrcamento(item.codigo).trim() === codigoAntigo
+          ? {...item,codigo,descricao,unidade,precoUnit:custo,composicao:JSON.stringify(itens)} : item);
+      const defs = (orcamento.composicoesProprias || []).map(comp => comp.id === p.id ? p : comp);
+      return {...orcamento,itens:itensOrc,composicoesProprias:defs};
+    });
+    update({...data,composicoesEmpresa:f.id ? compsEmpresa.map(c => c.id === f.id ? p : c) : [...compsEmpresa,p],
+      baseFavoritos:favoritos,orcamentos});
+    setCompEmpresaModal(null);
+    showToast(f.id ? "Composição da empresa atualizada em todos os orçamentos." : "Composição adicionada ao cadastro da empresa.");
+  };
+
+  const excluirComposicaoEmpresa = (comp) => {
+    if (!window.confirm(`Retirar ${comp.codigo} do cadastro da empresa? Os orçamentos já emitidos serão preservados.`)) return;
+    const codigo = maiusculoOrcamento(comp.codigo).trim();
+    update({...data,composicoesEmpresa:compsEmpresa.filter(c => c.id !== comp.id),
+      baseFavoritos:(data.baseFavoritos || []).filter(item => !(maiusculoOrcamento(item.fonte) === "PRÓPRIA" && maiusculoOrcamento(item.codigo).trim() === codigo))});
+    setCompEmpresaModal(null);
+    showToast("Composição retirada do catálogo. Os orçamentos existentes foram mantidos.");
+  };
+
   const Voltar = () => (
     <button onClick={()=>{setSec("menu");setBusca("");}} style={{
       background:"transparent", border:0, color:C.muted, cursor:"pointer",
@@ -18125,8 +18725,8 @@ function Cadastros({ data, update, showToast, onTab }) {
                 qtd={(data.terceirizados||[]).length}
                 sub="empreiteiras e equipes contratadas"/>
           <Card id="composicoes" icone="" titulo="Composições"
-                qtd={(data.composicoes||[]).length}
-                sub="quanto cada serviço consome - baixa o estoque sozinho"/>
+                qtd={(data.composicoes||[]).length + compsEmpresa.length}
+                sub="composições da empresa e de baixa automática do estoque"/>
           <Card id="fases" icone="" titulo="Fases do quadro"
                 qtd={(data.fases||[]).length}
                 sub="as colunas do Kanban de obras"/>
@@ -18219,12 +18819,30 @@ function Cadastros({ data, update, showToast, onTab }) {
         <Voltar/>
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
           <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
-            Quanto cada serviço consome por unidade. Cadastre uma vez, e o estoque
-            baixa sozinho a cada serviço executado.
+            As composições da empresa alimentam todos os orçamentos. Você pode copiar uma composição
+            SINAPI ou ORSE, alterar seus insumos e salvá-la com um código próprio, sem modificar a referência oficial.
           </p>
         </div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",marginTop:2}}>
+          <div><p style={{fontSize:12.5,fontWeight:900,color:C.blue}}>COMPOSIÇÕES DA EMPRESA PARA ORÇAMENTO</p><p style={{fontSize:10,color:C.muted}}>Catálogo comum a todas as obras e orçamentos.</p></div>
+          <Btn size="sm" v="ghost" onClick={()=>onTab("orc")}>PESQUISAR E CLONAR SINAPI/ORSE →</Btn>
+        </div>
+        {compsEmpresa.map(c => {
+          const custo=(c.itens||[]).reduce((s,i)=>s+Number(i.coeficiente||0)*Number(i.precoUnit||0),0);
+          const origem=c.origemCodigo?`ORIGEM ${c.origemFonte} ${c.origemCodigo}${c.origemDataBase?` · ${c.origemDataBase}`:""}${c.origemUf?` · ${c.origemUf}`:""}`:"CRIAÇÃO PRÓPRIA";
+          return <Linha key={c.id} titulo={`${c.codigo} · ${c.descricao}`}
+            sub={`${origem} · ${c.unidade} · ${(c.itens||[]).length} item(ns) · ${fmt(custo)}`}
+            onEdit={()=>setCompEmpresaModal({...c,itens:(c.itens||[]).map(i=>({...i,coeficiente:String(i.coeficiente),precoUnit:String(i.precoUnit)}))})}
+            onDel={()=>excluirComposicaoEmpresa(c)}/>;
+        })}
+        {!compsEmpresa.length&&<Vazio texto="Nenhuma composição da empresa. Use o orçamento para pesquisar e clonar uma composição SINAPI/ORSE."/>}
+
+        <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12,marginTop:4}}>
+          <p style={{fontSize:12.5,fontWeight:900,color:C.text}}>COMPOSIÇÕES DE ESTOQUE / BAIXA AUTOMÁTICA</p>
+          <p style={{fontSize:10,color:C.muted,marginTop:2}}>Quanto cada serviço executado consome dos materiais cadastrados no estoque.</p>
+        </div>
         <Btn onClick={()=>setCompModal({id:"",nome:"",unidade:"m2",itens:[{materialId:"",coef:""}]})} full>
-          <Ic n="plus"/> Nova composição
+          <Ic n="plus"/> Nova composição de estoque
         </Btn>
         {(data.composicoes||[]).map(c => (
           <Linha key={c.id} titulo={c.nome}
@@ -18317,6 +18935,33 @@ function Cadastros({ data, update, showToast, onTab }) {
       {matModal && <ModalMaterial form={matModal} setForm={setMatModal} onSave={salvarMaterial}
                                   unidades={unidades}/>}
       {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
+      {compEmpresaModal && <Modal title="Editar composição da empresa" onClose={()=>setCompEmpresaModal(null)} wide>
+        <div style={{display:"flex",flexDirection:"column",gap:11}}>
+          {compEmpresaModal.origemCodigo&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}35`,borderRadius:7,padding:"8px 10px"}}>
+            <p style={{fontSize:9,color:C.muted,fontWeight:800}}>ORIGEM PRESERVADA</p>
+            <p style={{fontSize:11,color:C.blue,fontWeight:800,marginTop:2}}>{compEmpresaModal.origemFonte} {compEmpresaModal.origemCodigo}{compEmpresaModal.origemDataBase?` · ${compEmpresaModal.origemDataBase}`:""}{compEmpresaModal.origemUf?` · ${compEmpresaModal.origemUf}`:""}</p>
+          </div>}
+          <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:9}}>
+            <Inp label="Código da empresa *" value={compEmpresaModal.codigo} onChange={v=>setCompEmpresaModal(f=>({...f,codigo:v}))}/>
+            <Inp label="Unidade *" value={compEmpresaModal.unidade} onChange={v=>setCompEmpresaModal(f=>({...f,unidade:v}))}/>
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:800}}>CUSTO UNITÁRIO</p><p style={{fontSize:15,color:C.yellowD,fontWeight:900,marginTop:2}}>{fmt((compEmpresaModal.itens||[]).reduce((s,i)=>s+Number(i.coeficiente||0)*Number(i.precoUnit||0),0))}</p></div>
+          </div>
+          <Inp label="Descrição *" value={compEmpresaModal.descricao} onChange={v=>setCompEmpresaModal(f=>({...f,descricao:v}))}/>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}><p style={{fontSize:11,fontWeight:900,color:C.text}}>INSUMOS E COMPOSIÇÕES AUXILIARES</p><Btn size="sm" v="ghost" onClick={()=>setCompEmpresaModal(f=>({...f,itens:[...(f.itens||[]),{id:uid(),fonte:"SINAPI",tipoItem:"INSUMO",codigo:"",descricao:"",unidade:"UN",coeficiente:"1",precoUnit:"0",dataBase:"",uf:""}]}))}><Ic n="plus"/> ITEM MANUAL</Btn></div>
+          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:980,borderCollapse:"collapse",fontSize:10}}>
+            <thead><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:6,textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+            <tbody>{(compEmpresaModal.itens||[]).map(item=><tr key={item.id} style={{borderBottom:`1px solid ${C.line}`}}>
+              <td style={{padding:4}}><select value={item.tipoItem||"INSUMO"} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,tipoItem:e.target.value}:x)}))} style={{width:100,padding:5,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text}}><option value="INSUMO">INSUMO</option><option value="COMPOSICAO">COMPOSIÇÃO</option></select></td>
+              {[["fonte",80],["codigo",105],["descricao",300],["unidade",65]].map(([campo,largura])=><td key={campo} style={{padding:4}}><input value={item[campo]||""} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,[campo]:e.target.value}:x)}))} style={{width:largura,boxSizing:"border-box",padding:"5px 6px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text}}/></td>)}
+              <td style={{padding:4}}><input type="number" step="any" value={item.coeficiente} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:90,padding:"5px 6px",boxSizing:"border-box",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
+              <td style={{padding:4}}><input type="number" step="any" value={item.precoUnit} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:95,padding:"5px 6px",boxSizing:"border-box",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
+              <td style={{padding:6,textAlign:"right",fontWeight:800}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td>
+              <td style={{padding:4}}><button onClick={()=>setCompEmpresaModal(f=>({...f,itens:f.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
+            </tr>)}</tbody>
+          </table></div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setCompEmpresaModal(null)}>CANCELAR</Btn><Btn onClick={()=>salvarComposicaoEmpresa(compEmpresaModal)}><Ic n="check"/> SALVAR NO CADASTRO</Btn></div>
+        </div>
+      </Modal>}
       {compModal && <ModalComposicao form={compModal} setForm={setCompModal} onSave={salvarComposicao}
                                      materiais={materiais} unidades={unidades}/>}
 
