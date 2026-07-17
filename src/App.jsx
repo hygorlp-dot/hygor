@@ -4,7 +4,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
   Line,
   LineChart,
   Pie,
@@ -19,12 +18,7 @@ import * as XLSX from "xlsx";
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
 import { listarPerfis, criarPrimeiroAdmin, entrarComPin,
          saveData, saveDataDetailed, logout as encerrarSessao,
-         loadDataWithMeta, adoptServerVersion, subirFoto,
-         listarBasesReferencia, iniciarBaseReferencia, enviarLoteReferencia,
-         enviarLoteInsumosReferencia, enviarLoteComponentesReferencia,
-         finalizarBaseReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
-         resolverCodigosReferencia, detalharComposicoesReferencia,
-         removerBaseReferencia } from "./api";
+         loadDataWithMeta, adoptServerVersion, subirFoto } from "./api";
 
 // 
 // ARCD OBRAS - App.jsx auditado
@@ -389,7 +383,6 @@ const fmtDateFull = iso => {
 };
 
 const monthName = m => ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][m] || "";
-const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const fullMonth = m => ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][m] || "";
 // Mes/ano curto a partir de uma data ISO: "ago/26". Usado na regua do Gantt.
 const fmtMesAno = iso => {
@@ -419,16 +412,10 @@ const getDays = (year, monthIndex) => {
 };
 
 const getQ = (year, monthIndex) => {
-  // Ciclos reais da folha: 06 a 20 e 21 a 05 do mes seguinte.
-  const atual = getDays(year, monthIndex);
-  const proxRef = new Date(year, monthIndex + 1, 1, 12, 0, 0);
-  const proximo = getDays(proxRef.getFullYear(), proxRef.getMonth());
+  const all = getDays(year, monthIndex);
   return {
-    q1: atual.filter(d => { const dia=Number(d.split("-")[2]); return dia >= 6 && dia <= 20; }),
-    q2: [
-      ...atual.filter(d => Number(d.split("-")[2]) >= 21),
-      ...proximo.filter(d => Number(d.split("-")[2]) <= 5),
-    ],
+    q1: all.filter(d => Number(d.split("-")[2]) <= 15),
+    q2: all.filter(d => Number(d.split("-")[2]) > 15),
   };
 };
 
@@ -475,9 +462,6 @@ const getAtt = (data, empId, date) => {
     status: value.status || null,
     ot: Number(value.ot || 0),
     note: value.note || "",
-    // A obra pertence ao lancamento diario do ponto. Sem devolver este campo,
-    // a folha acabava usando apenas a lotacao atual do funcionario.
-    obraId: value.obraId || "",
   };
 };
 
@@ -578,26 +562,6 @@ const getPayrollHolidays = (data, year) => {
     .filter(Boolean);
 
   return prUniqueDates([...official, ...customDates]);
-};
-
-// A mesma fonte de feriados usada pela folha fica disponivel para o
-// planejamento. Mantemos o nome quando ele foi cadastrado pelo operador e
-// identificamos os demais como oficiais.
-const getPlanningHolidays = (data, years = []) => {
-  const anos = [...new Set(years.map(Number).filter(Boolean))];
-  const porData = new Map();
-  anos.forEach(year => {
-    getOfficialHolidaysCaruaruPE(year).forEach(dataFer => {
-      if (!porData.has(dataFer)) porData.set(dataFer, { data: dataFer, nome: "Feriado oficial" });
-    });
-  });
-  (data?.config?.paymentHolidays || []).forEach(h => {
-    const dataFer = typeof h === "string" ? h : (h?.date || h?.data || "");
-    if (!dataFer || !anos.includes(Number(dataFer.slice(0, 4)))) return;
-    const nome = typeof h === "string" ? "Feriado cadastrado" : (h?.name || h?.nome || "Feriado cadastrado");
-    porData.set(dataFer, { data: dataFer, nome });
-  });
-  return [...porData.values()].sort((a, b) => a.data.localeCompare(b.data));
 };
 
 const prIsHoliday = (date, holidays) => holidays.includes(prIso(date));
@@ -845,27 +809,10 @@ const CONTRACT_LABELS = {
 };
 
 // Frequência de cobrança
-// Os dias de vencimento NAO sao mais fixos no codigo: cada obra guarda
-// diaVenc1 / diaVenc2 (padrao 15 e 30) e o operador ajusta ao lancar a obra.
 const FREQ_OPTS = [
-  { v:"mensal",    l:"Mensal - 1 parcela por mês"       },
-  { v:"quinzenal", l:"Quinzenal - 2 parcelas por mês"   },
+  { v:"mensal",    l:"Mensal - dia 1 de cada mês"     },
+  { v:"quinzenal", l:"Quinzenal - dias 1 e 15 do mês" },
 ];
-
-// Dias de vencimento padrao do contrato ARCD: 15 e 30.
-const DIA_VENC_1_PADRAO = 15;
-const DIA_VENC_2_PADRAO = 30;
-
-// Opcoes de dia para os selects (1..31). "30" em fevereiro vira 28/29 -
-// ver clampDiaNoMes abaixo.
-const DIA_OPTS = Array.from({length:31}, (_,i) => ({ v:String(i+1), l:`Dia ${i+1}` }));
-
-// Prende o dia ao ultimo dia real do mes: pedir dia 30 em fevereiro devolve
-// 28 (ou 29 em ano bissexto), em vez de escorregar para 1/3 ou 2/3.
-const clampDiaNoMes = (ano, mesIdx, dia) => {
-  const ultimo = new Date(ano, mesIdx + 1, 0).getDate();
-  return Math.min(Math.max(Number(dia) || 1, 1), ultimo);
-};
 
 const DEFAULT = () => ({
   userName: "",
@@ -887,8 +834,8 @@ const DEFAULT = () => ({
   unidades: UNIDADES_PADRAO.map(u => ({ id: uid(), sigla: u.sigla, nome: u.nome })),
   fases: FASES_PADRAO.map((f, i) => ({ id: uid(), nome: f.nome, cor: f.cor, ordem: i })),
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", entrada: 0, entradaDate: "", hasCaixa: false },
   ],
   employees: [],
   attendance: {},
@@ -900,10 +847,6 @@ const DEFAULT = () => ({
   caixaObra: [],         // caixa de obra (aportes do cliente + gastos)
   orcamentos: [],        // orçamentos (itens com preço congelado na data-base)
   baseFavoritos: [],     // composições usadas com frequência (base curada)
-  solicitacoesCompra: [],// requisições da engenharia/obra para o setor de compras
-  comercial: {
-    leads:[], atividades:[], reunioes:[], propostas:[], contratos:[], clientes:[], parceiros:[], metas:[], comissoes:[], vendas:[],
-  },
   usuarios: [],   // sistema de login e permissões
   terceirizados: [],
   pagsTerceiros: [],
@@ -913,8 +856,6 @@ const DEFAULT = () => ({
   dailyCheckDate: "",
   changeLog: [],
 });
-
-const maiusculoOrcamento = valor => String(valor ?? "").toLocaleUpperCase("pt-BR");
 
 const normalizeData = incoming => {
   const base = DEFAULT();
@@ -935,21 +876,6 @@ const normalizeData = incoming => {
       aliquotaCSLL:   Number(d.config?.aliquotaCSLL   || 0),
       paymentHolidays: Array.isArray(d.config?.paymentHolidays) ? d.config.paymentHolidays : [],
     },
-    comercial: (()=>{
-      const c=d.comercial&&typeof d.comercial==="object"?d.comercial:{};
-      return {
-        leads:Array.isArray(c.leads)?c.leads.map(l=>({id:l.id||uid(),nome:l.nome||"",tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone||"",whatsapp:l.whatsapp||"",email:l.email||"",cidade:l.cidade||"",origem:l.origem||"",responsavelId:l.responsavelId||"",servico:l.servico||"",orcamentoEstimado:Number(l.orcamentoEstimado||0),prazoDesejado:l.prazoDesejado||"",probabilidade:Number(l.probabilidade||10),fechamentoPrevisto:l.fechamentoPrevisto||"",temperatura:l.temperatura||"morno",observacoes:l.observacoes||"",endereco:l.endereco||"",condominio:l.condominio||"",lote:l.lote||"",areaTerreno:Number(l.areaTerreno||0),areaConstrucao:Number(l.areaConstrucao||0),pavimentos:Number(l.pavimentos||0),tipoServico:l.tipoServico||"",prazoPretendido:l.prazoPretendido||"",padrao:l.padrao||"alto",orcamentoDisponivel:Number(l.orcamentoDisponivel||0),projetosExistentes:l.projetosExistentes||"",etapa:l.etapa||"novo",etapaDesde:l.etapaDesde||l.createdAt||new Date().toISOString(),proximaAtividade:l.proximaAtividade||"",proximaAtividadeEm:l.proximaAtividadeEm||"",status:l.status||"ativo",createdAt:l.createdAt||new Date().toISOString(),updatedAt:l.updatedAt||"",documentos:Array.isArray(l.documentos)?l.documentos:[],historico:Array.isArray(l.historico)?l.historico:[],motivoPerda:l.motivoPerda||"",concorrente:l.concorrente||"",valorConcorrente:Number(l.valorConcorrente||0),reativacaoEm:l.reativacaoEm||"",qualificacao:l.qualificacao||""})):[],
-        atividades:Array.isArray(c.atividades)?c.atividades.map(a=>({...a,id:a.id||uid(),leadId:a.leadId||"",tipo:a.tipo||"followup",titulo:a.titulo||"",dataHora:a.dataHora||"",responsavelId:a.responsavelId||"",status:a.status||"pendente",observacoes:a.observacoes||"",createdAt:a.createdAt||new Date().toISOString()})):[],
-        reunioes:Array.isArray(c.reunioes)?c.reunioes.map(r=>({...r,id:r.id||uid(),leadId:r.leadId||"",dataHora:r.dataHora||"",tipo:r.tipo||"presencial",local:r.local||"",participantes:r.participantes||"",responsavelComercialId:r.responsavelComercialId||"",responsavelTecnicoId:r.responsavelTecnicoId||"",pauta:r.pauta||"",resumo:r.resumo||"",necessidades:r.necessidades||"",objecoes:r.objecoes||"",orcamentoDisponivel:Number(r.orcamentoDisponivel||0),proximosPassos:r.proximosPassos||"",proximoContato:r.proximoContato||"",status:r.status||"agendada",documentos:Array.isArray(r.documentos)?r.documentos:[]})):[],
-        propostas:Array.isArray(c.propostas)?c.propostas.map(p=>({...p,id:p.id||uid(),numero:p.numero||"",versao:Number(p.versao||1),leadId:p.leadId||"",clienteId:p.clienteId||"",objeto:p.objeto||"",escopo:p.escopo||"",inclusos:p.inclusos||"",exclusos:p.exclusos||"",entregaveis:p.entregaveis||"",prazo:p.prazo||"",valor:Number(p.valor||0),formaPagamento:p.formaPagamento||"",validade:p.validade||"",responsabilidades:p.responsabilidades||"",premissas:p.premissas||"",status:p.status||"rascunho",createdAt:p.createdAt||new Date().toISOString(),enviadoEm:p.enviadoEm||"",visualizadoEm:p.visualizadoEm||"",aceitoEm:p.aceitoEm||"",rejeitadoEm:p.rejeitadoEm||"",desconto:Number(p.desconto||0),documentos:Array.isArray(p.documentos)?p.documentos:[],historico:Array.isArray(p.historico)?p.historico:[],negociacoes:Array.isArray(p.negociacoes)?p.negociacoes:[]})):[],
-        contratos:Array.isArray(c.contratos)?c.contratos.map(k=>({...k,id:k.id||uid(),numero:k.numero||"",leadId:k.leadId||"",propostaId:k.propostaId||"",clienteId:k.clienteId||"",contratante:k.contratante||"",objeto:k.objeto||"",escopo:k.escopo||"",valor:Number(k.valor||0),entrada:Number(k.entrada||0),parcelas:Number(k.parcelas||1),diaVencimento:Number(k.diaVencimento||5),prazo:k.prazo||"",inicio:k.inicio||"",conclusao:k.conclusao||"",responsabilidades:k.responsabilidades||"",responsavelComercialId:k.responsavelComercialId||"",responsavelTecnicoId:k.responsavelTecnicoId||"",status:k.status||"elaboracao",elaboradoEm:k.elaboradoEm||new Date().toISOString(),enviadoEm:k.enviadoEm||"",visualizadoEm:k.visualizadoEm||"",assinadoEm:k.assinadoEm||"",documentosRecebidos:!!k.documentosRecebidos,entradaPaga:!!k.entradaPaga,escopoValidado:!!k.escopoValidado,obraId:k.obraId||"",documentos:Array.isArray(k.documentos)?k.documentos:[]})):[],
-        clientes:Array.isArray(c.clientes)?c.clientes.map(x=>({...x,id:x.id||uid(),leadId:x.leadId||"",nome:x.nome||"",tipoPessoa:x.tipoPessoa||"PF",documento:x.documento||"",telefone:x.telefone||"",whatsapp:x.whatsapp||"",email:x.email||"",cidade:x.cidade||"",endereco:x.endereco||"",createdAt:x.createdAt||new Date().toISOString()})):[],
-        parceiros:Array.isArray(c.parceiros)?c.parceiros.map(x=>({...x,id:x.id||uid(),nome:x.nome||"",tipo:x.tipo||"indicador",telefone:x.telefone||"",email:x.email||"",comissaoPct:Number(x.comissaoPct||0),ativo:x.ativo!==false,observacoes:x.observacoes||""})):[],
-        metas:Array.isArray(c.metas)?c.metas.map(x=>({...x,id:x.id||uid(),responsavelId:x.responsavelId||"",equipe:x.equipe||"",periodo:x.periodo||"",receita:Number(x.receita||0),contratos:Number(x.contratos||0),ticketMedio:Number(x.ticketMedio||0),conversao:Number(x.conversao||0)})):[],
-        comissoes:Array.isArray(c.comissoes)?c.comissoes.map(x=>({...x,id:x.id||uid(),vendaId:x.vendaId||"",responsavelId:x.responsavelId||"",parceiroId:x.parceiroId||"",base:Number(x.base||0),percentual:Number(x.percentual||0),valor:Number(x.valor||0),status:x.status||"prevista"})):[],
-        vendas:Array.isArray(c.vendas)?c.vendas.map(x=>({...x,id:x.id||uid(),leadId:x.leadId||"",contratoId:x.contratoId||"",clienteId:x.clienteId||"",obraId:x.obraId||"",valor:Number(x.valor||0),fechadaEm:x.fechadaEm||new Date().toISOString(),responsavelId:x.responsavelId||""})):[],
-      };
-    })(),
     obras: Array.isArray(d.obras) ? d.obras.map(o => ({
       id: o.id || uid(),
       name: o.name || "Obra sem nome",
@@ -967,10 +893,6 @@ const normalizeData = incoming => {
       contractEnd:   o.contractEnd   || "",
       totalParcelas: Number(o.totalParcelas || 0),
       billingFrequency: o.billingFrequency || "mensal",
-      // Dias de vencimento das parcelas. Obras antigas nao tinham esses campos:
-      // caem no padrao contratual (15 e 30) em vez de ficarem indefinidas.
-      diaVenc1: Number(o.diaVenc1 || DIA_VENC_1_PADRAO),
-      diaVenc2: Number(o.diaVenc2 || DIA_VENC_2_PADRAO),
       entrada:    Number(o.entrada    || 0),
       entradaDate: o.entradaDate || "",
       hasCaixa:   !!o.hasCaixa,
@@ -1121,17 +1043,6 @@ const normalizeData = incoming => {
     //
     // O elo físico é o RECEBIMENTO: quando o material chega, o pedido gera
     // uma entrada em movEstoque. É aí que Compras encosta no Estoque.
-    solicitacoesCompra: Array.isArray(d.solicitacoesCompra) ? d.solicitacoesCompra.map(x => ({
-      id:x.id||uid(),numero:x.numero||"",obraId:x.obraId||"",solicitanteId:x.solicitanteId||"",
-      solicitanteNome:x.solicitanteNome||"",criadoEm:x.criadoEm||"",necessidade:x.necessidade||"",
-      prioridade:x.prioridade||"normal",status:x.status||"enviada",observacao:x.observacao||"",
-      analisadoEm:x.analisadoEm||"",analisadoPor:x.analisadoPor||"",pedidoId:x.pedidoId||"",
-      itens:Array.isArray(x.itens)?x.itens.map(i=>({id:i.id||uid(),referenciaId:i.referenciaId||"",
-        fonteRef:i.fonteRef||"PRÓPRIO",codigoRef:i.codigoRef||"",descricaoRef:i.descricaoRef||"",
-        unidadeRef:i.unidadeRef||"UN",quantidade:Number(i.quantidade||0),precoRef:Number(i.precoRef||0),
-        dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"",observacao:i.observacao||""})):[],
-    })) : [],
-
     fornecedores: Array.isArray(d.fornecedores) ? d.fornecedores.map(x => ({
       id:        x.id       || uid(),
       nome:      x.nome     || "",
@@ -1171,8 +1082,6 @@ const normalizeData = incoming => {
       previsao:     x.previsao     || "",     // previsão de entrega
       // rascunho &rarr; enviado &rarr; parcial &rarr; recebido | cancelado
       status:       x.status       || "rascunho",
-      referenciaId:x.referenciaId || "",
-      solicitacaoId:x.solicitacaoId || "",
       itens: Array.isArray(x.itens) ? x.itens.map(i => ({
         id:          i.id         || uid(),
         materialId:  i.materialId || "",
@@ -1184,14 +1093,6 @@ const normalizeData = incoming => {
         // SERVIÇO (m de alvenaria) e a compra em MATERIAL (sacos de cimento).
         // As unidades não batem - o dinheiro, sim.
         orcItemId:   i.orcItemId  || "",
-        referenciaId:i.referenciaId || x.referenciaId || "",
-        fonteRef:    i.fonteRef    || "",
-        codigoRef:   i.codigoRef   || "",
-        descricaoRef:i.descricaoRef|| "",
-        unidadeRef:  i.unidadeRef  || "",
-        precoRef:    Number(i.precoRef || 0),
-        dataBaseRef: i.dataBaseRef || "",
-        ufRef:       i.ufRef       || "",
       })) : [],
       cotacaoId:   x.cotacaoId   || "",
       transacaoId: x.transacaoId || "",       // casado com o pagamento no extrato
@@ -1214,9 +1115,6 @@ const normalizeData = incoming => {
       categoria:  x.categoria || "outros",
       estoqueMin: Number(x.estoqueMin || 0),
       precoMedio: Number(x.precoMedio || 0), // referência p/ curva ABC
-      fonteRef:   x.fonteRef   || "",
-      dataBaseRef:x.dataBaseRef|| "",
-      ufRef:      x.ufRef      || "",
       ativo:      x.ativo !== false,
     })) : [],
 
@@ -1250,16 +1148,6 @@ const normalizeData = incoming => {
         coef:       Number(i.coef || 0),      // consumo por 1 unidade do serviço
       })) : [],
     })) : [],
-    composicoesEmpresa: Array.isArray(d.composicoesEmpresa) ? d.composicoesEmpresa.map(comp => ({
-      id:comp.id||uid(),codigo:maiusculoOrcamento(comp.codigo||""),descricao:maiusculoOrcamento(comp.descricao||""),
-      unidade:maiusculoOrcamento(comp.unidade||"UN"),origemFonte:maiusculoOrcamento(comp.origemFonte||"PRÓPRIA"),
-      origemCodigo:maiusculoOrcamento(comp.origemCodigo||""),origemDataBase:comp.origemDataBase||"",origemUf:comp.origemUf||"",
-      itens:Array.isArray(comp.itens)?comp.itens.map(item=>({
-        id:item.id||uid(),fonte:maiusculoOrcamento(item.fonte||"SINAPI"),tipoItem:item.tipoItem==="COMPOSICAO"?"COMPOSICAO":"INSUMO",
-        codigo:maiusculoOrcamento(item.codigo||""),descricao:maiusculoOrcamento(item.descricao||""),unidade:maiusculoOrcamento(item.unidade||"UN"),
-        coeficiente:Number(item.coeficiente||0),precoUnit:Number(item.precoUnit||0),dataBase:item.dataBase||"",uf:item.uf||"",
-      })):[],
-    })) : [],
 
     caixaObra: Array.isArray(d.caixaObra) ? d.caixaObra.map(x => ({
       id:          x.id          || uid(),
@@ -1275,14 +1163,12 @@ const normalizeData = incoming => {
       id:          o.id          || uid(),
       obraId:      o.obraId      || "",
       nome:        o.nome        || "Orçamento sem nome",
-      descricao:   o.descricao   || "",
       cliente:     o.cliente     || "",
       local:       o.local       || "",
       areaM2:      Number(o.areaM2 || 0),
       fonte:       o.fonte       || "SINAPI",
       dataBase:    o.dataBase    || "",
       uf:          o.uf          || "PE",
-      referencias: Array.isArray(o.referencias) ? [...new Set(o.referencias.filter(Boolean).map(String))] : [],
       desonerado:  o.desonerado  !== false,
       bdi:         Number(o.bdi  ?? 23.25),
       // Memória de cálculo do BDI (Acórdão 2622/2013) - guardada para que o
@@ -1304,7 +1190,7 @@ const normalizeData = incoming => {
       createdAt:   o.createdAt   || "",
       etapas: Array.isArray(o.etapas) ? o.etapas.map(e => ({
         id:       e.id       || uid(),
-        nome:     maiusculoOrcamento(e.nome || "Etapa"),
+        nome:     e.nome     || "Etapa",
         parentId: e.parentId || "",   // "" = nível raiz; senão, id da etapa-mãe
       })) : [],
       itens:  Array.isArray(o.itens)  ? o.itens.map(it => ({
@@ -1313,30 +1199,12 @@ const normalizeData = incoming => {
         // "item"   = composição com código, unidade, quantidade e preço
         // "titulo" = linha de texto puro (rótulo dentro da planilha, sem valor)
         tipo:       it.tipo === "titulo" ? "titulo" : "item",
-        codigo:     maiusculoOrcamento(it.codigo || ""),
-        fonte:      maiusculoOrcamento(it.fonte || "SINAPI"),
-        descricao:  maiusculoOrcamento(it.descricao || ""),
-        unidade:    maiusculoOrcamento(it.unidade || "UN"),
+        codigo:     it.codigo     || "",
+        fonte:      it.fonte      || "SINAPI",
+        descricao:  it.descricao  || "",
+        unidade:    it.unidade    || "un",
         quantidade: Number(it.quantidade || 0),
         precoUnit:  Number(it.precoUnit  || 0),
-        composicao: it.composicao || "",
-        codigoNaoEncontrado: !!it.codigoNaoEncontrado,
-        baseData:   it.baseData   || o.dataBase || "",
-        baseUf:     it.baseUf     || (it.fonte === "SINAPI" ? (o.uf || "PE") : ""),
-        detailUrl:  it.detailUrl  || "",
-      })) : [],
-      composicoesProprias: Array.isArray(o.composicoesProprias) ? o.composicoesProprias.map(comp => ({
-        id: comp.id || uid(), codigo:maiusculoOrcamento(comp.codigo || ""),
-        descricao:maiusculoOrcamento(comp.descricao || ""), unidade:maiusculoOrcamento(comp.unidade || "UN"),
-        origemFonte:maiusculoOrcamento(comp.origemFonte||"PRÓPRIA"),origemCodigo:maiusculoOrcamento(comp.origemCodigo||""),
-        origemDataBase:comp.origemDataBase||"",origemUf:comp.origemUf||"",
-        itens:Array.isArray(comp.itens) ? comp.itens.map(item => ({
-          id:item.id || uid(), fonte:maiusculoOrcamento(item.fonte || "SINAPI"),
-          tipoItem:item.tipoItem === "COMPOSICAO" ? "COMPOSICAO" : "INSUMO",
-          codigo:maiusculoOrcamento(item.codigo || ""), descricao:maiusculoOrcamento(item.descricao || ""),
-          unidade:maiusculoOrcamento(item.unidade || "UN"), coeficiente:Number(item.coeficiente || 0),
-          precoUnit:Number(item.precoUnit || 0), dataBase:item.dataBase || "", uf:item.uf || "",
-        })) : [],
       })) : [],
     })) : [],
     baseFavoritos: Array.isArray(d.baseFavoritos) ? d.baseFavoritos : [],
@@ -1356,7 +1224,6 @@ const normalizeData = incoming => {
       // Default seg-sab (padrao de obra). feriados: datas ISO nao trabalhadas.
       diasSemana: Array.isArray(p.diasSemana) ? p.diasSemana : [1,2,3,4,5,6],
       pularFeriados: p.pularFeriados !== false,   // default: pula feriados
-      usarFeriadosCadastrados: p.usarFeriadosCadastrados === true,
       feriados: Array.isArray(p.feriados) ? p.feriados.map(f => ({
         data: f.data || "", nome: f.nome || "Feriado",
       })).filter(f => f.data) : [],
@@ -1429,14 +1296,7 @@ const normalizeData = incoming => {
       nome:     u.nome     || "",
       pin:      u.pin      || "",   // SHA-256 hex do PIN
       role:     u.role     || "engenheiro",
-      // Migração: a gestão geral do ponto voltou a fazer parte da Folha/RH.
-      // Usuários existentes recebem a nova tela sem perder suas permissões atuais.
-      accessTabs:Array.isArray(u.accessTabs)?[...new Set([
-        ...u.accessTabs,
-        ...((u.role==="rh")?["ponto","ponto_geral","folha"]:(u.role==="financeiro")?["ponto_geral","folha"]:[]),
-      ])]:null,
       email:    u.email    || "",
-      maxDesconto:Number(u.maxDesconto ?? 10),
       obraId:   u.obraId   || "",   // restringe a uma obra (opcional)
       active:   u.active   !== false,
       createdAt:u.createdAt|| "",
@@ -1901,8 +1761,7 @@ function Dashboard({ data, onTab, ultimaSync }) {
   const month = now.getMonth();
   const day = now.getDate();
   const { q1, q2 } = getQ(year, month);
-  const refAnterior = new Date(year, month-1, 1);
-  const qDays = day <= 5 ? getQ(refAnterior.getFullYear(),refAnterior.getMonth()).q2 : day <= 20 ? q1 : q2;
+  const qDays = day <= 15 ? q1 : q2;
   const todayIso = today();
   const activeEmps = data.employees.filter(e => e.active !== false);
   const activeObras = data.obras.filter(o => o.status !== "done");
@@ -2191,7 +2050,7 @@ function Dashboard({ data, onTab, ultimaSync }) {
               }}> Enviar WhatsApp</a>
             </div>
             {alerts.map((a,i)=>(
-              <div key={i} onClick={()=>a.tab&&onTab(a.tab)} style={{padding:"9px 14px",borderBottom:i<alerts.length-1?`1px solid ${C.line}`:"none",borderLeft:`4px solid ${a.color}`,display:"flex",gap:10,alignItems:"flex-start",cursor:a.tab?"pointer":"default"}}>
+              <div key={i} style={{padding:"9px 14px",borderBottom:i<alerts.length-1?`1px solid ${C.line}`:"none",borderLeft:`4px solid ${a.color}`,display:"flex",gap:10,alignItems:"flex-start"}}>
                 <span style={{fontSize:16,flexShrink:0}}>{a.icon}</span>
                 <div>
                   <p style={{fontWeight:700,fontSize:13,color:C.text}}>{a.title}</p>
@@ -2886,9 +2745,6 @@ function MedicoesView({ data, update, showToast }) {
   // Ao confirmar uma medicao vencida, perguntamos a DATA DE PAGAMENTO em vez
   // de assumir hoje - o pagamento quinzenal costuma cair em data especifica.
   const [pagarModal, setPagarModal] = useState(null);   // {m, data}
-  // Fila de conciliacao das parcelas vencidas geradas agora:
-  // {fila:[ids], idx, modo:"vencimento"|"outra"|"aberto", dataOutra}
-  const [conciliar,  setConciliar]  = useState(null);
 
   const emptyM = {
     competencia: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`,
@@ -2988,23 +2844,17 @@ function MedicoesView({ data, update, showToast }) {
 
   //  Geração automática de parcelas fixas 
   // Calcula a data de vencimento de uma parcela
-  // Os dias vem da obra (diaVenc1/diaVenc2), nao mais fixos em 1 e 15.
-  const calcDataVencimento = (contractStart, parcelaIdx, freq, dia1, dia2) => {
+  const calcDataVencimento = (contractStart, parcelaIdx, freq) => {
     const [y, m] = contractStart.split("-").map(Number);
-    const d1 = Number(dia1 || DIA_VENC_1_PADRAO);
-    const d2 = Number(dia2 || DIA_VENC_2_PADRAO);
     if (freq === "quinzenal") {
       const mesOffset = Math.floor(parcelaIdx / 2);
       const isSecond  = parcelaIdx % 2 === 1;
-      const mesIdx    = m - 1 + mesOffset;
-      // Ano/mes reais depois do offset, para o clamp usar o mes certo.
-      const ref  = new Date(y, mesIdx, 1);
-      const dia  = clampDiaNoMes(ref.getFullYear(), ref.getMonth(), isSecond ? d2 : d1);
-      return toLocalISODate(new Date(ref.getFullYear(), ref.getMonth(), dia));
+      const d = new Date(y, m-1+mesOffset, isSecond ? 15 : 1);
+      return toLocalISODate(d);
     } else {
-      const ref = new Date(y, m - 1 + parcelaIdx, 1);
-      const dia = clampDiaNoMes(ref.getFullYear(), ref.getMonth(), d1);
-      return toLocalISODate(new Date(ref.getFullYear(), ref.getMonth(), dia));
+      // mensal - dia 1
+      const d = new Date(y, m-1+parcelaIdx, 1);
+      return toLocalISODate(d);
     }
   };
 
@@ -3047,7 +2897,7 @@ function MedicoesView({ data, update, showToast }) {
 
     //  Parcelas regulares 
     for (let i=0; i<total; i++) {
-      const dataVenc = calcDataVencimento(obra.contractStart, i, freq, obra.diaVenc1, obra.diaVenc2);
+      const dataVenc = calcDataVencimento(obra.contractStart, i, freq);
       const comp     = calcCompetencia(obra.contractStart, i, freq);
       const numParcela = i+1;
       const isQuinzenaSegunda = freq==="quinzenal" && i%2===1;
@@ -3091,62 +2941,6 @@ function MedicoesView({ data, update, showToast }) {
     update({...data, medicoes: medicoesList});
     setGerarModal(false);
     showToast(`${novas.length} parcelas geradas!${tipo==="admin_only"||tipo==="fixed_labor_admin"?" Calcule o valor Admin % mês a mês conforme executado.":""}`);
-
-    // Parcelas que ja nasceram vencidas (contrato retroativo): em vez de
-    // deixa-las todas em aberto, perguntamos uma a uma se o pagamento saiu
-    // na data do contrato. Quem gera parcela de um contrato que comecou em
-    // marco normalmente ja recebeu as primeiras.
-    const hoje = today();
-    const vencidas = novas
-      .filter(n => n.dataVencimento && n.dataVencimento < hoje && Number(n.valorPrevisto||0) > 0)
-      .sort((a,b) => a.dataVencimento.localeCompare(b.dataVencimento));
-    if (vencidas.length) {
-      setConciliar({
-        fila: vencidas.map(v => v.id),
-        idx: 0,
-        // decisao pendente da parcela atual: "" (nao escolhido) | "vencimento" | "outra" | "aberto"
-        modo: "vencimento",
-        dataOutra: today(),
-      });
-    }
-  };
-
-  //  Conciliacao das parcelas vencidas recem-geradas 
-  // Aplica a decisao da parcela atual e avanca a fila. Se acabar, fecha.
-  const conciliarAplicar = (base) => {
-    if (!conciliar) return;
-    const id  = conciliar.fila[conciliar.idx];
-    const med = (data.medicoes||[]).find(x => x.id === id);
-    let lista = data.medicoes || [];
-
-    if (med && conciliar.modo !== "aberto") {
-      const dataPg = conciliar.modo === "vencimento"
-        ? med.dataVencimento
-        : (conciliar.dataOutra || med.dataVencimento);
-      const upd = { ...med, recebido:true, valorRecebido: Number(med.valorPrevisto||0), dataPagamento: dataPg };
-      lista = lista.map(x => x.id === id ? upd : x);
-      update({ ...(base||data), medicoes: lista });
-    }
-
-    const prox = conciliar.idx + 1;
-    if (prox >= conciliar.fila.length) {
-      setConciliar(null);
-      showToast("Parcelas vencidas conciliadas.");
-    } else {
-      setConciliar(c => ({ ...c, idx: prox, modo:"vencimento", dataOutra: today() }));
-    }
-  };
-
-  // Marca TODAS as parcelas restantes da fila como pagas no proprio vencimento.
-  const conciliarTodasNoVencimento = () => {
-    if (!conciliar) return;
-    const restantes = conciliar.fila.slice(conciliar.idx);
-    const lista = (data.medicoes||[]).map(m => restantes.includes(m.id)
-      ? { ...m, recebido:true, valorRecebido: Number(m.valorPrevisto||0), dataPagamento: m.dataVencimento }
-      : m);
-    update({ ...data, medicoes: lista });
-    setConciliar(null);
-    showToast(`${restantes.length} parcela(s) marcadas como pagas no vencimento.`);
   };
 
   const toggleRecebido = (m) => {
@@ -3525,74 +3319,6 @@ function MedicoesView({ data, update, showToast }) {
         </Modal>
       )}
 
-      {/* Modal: conciliar parcelas que nasceram vencidas */}
-      {conciliar && (() => {
-        const m = (data.medicoes||[]).find(x => x.id === conciliar.fila[conciliar.idx]);
-        if (!m) return null;
-        const diasAtraso = Math.max(0, Math.round(
-          (new Date(today()) - new Date(m.dataVencimento)) / 86400000));
-        const Opcao = ({ v, titulo, sub, cor }) => (
-          <label onClick={()=>setConciliar(c=>({...c,modo:v}))}
-                 style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"10px 12px",
-                         background: conciliar.modo===v ? `${cor}12` : C.surface,
-                         border:`1.5px solid ${conciliar.modo===v ? cor : C.border}`,borderRadius:8}}>
-            <div style={{width:18,height:18,borderRadius:"50%",flexShrink:0,marginTop:1,
-                         border:`2px solid ${conciliar.modo===v?cor:C.muted}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              {conciliar.modo===v && <div style={{width:9,height:9,borderRadius:"50%",background:cor}}/>}
-            </div>
-            <div>
-              <p style={{fontSize:13,fontWeight:700,color:conciliar.modo===v?cor:C.text}}>{titulo}</p>
-              <p style={{fontSize:11,color:C.muted,marginTop:2,lineHeight:1.5}}>{sub}</p>
-            </div>
-          </label>
-        );
-        return (
-          <Modal title={`Parcela vencida ${conciliar.idx+1} de ${conciliar.fila.length}`} onClose={()=>setConciliar(null)}>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.red||"#C62828"}`,borderRadius:8,padding:"11px 13px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8}}>
-                  <p style={{fontSize:13,fontWeight:800,color:C.text}}>{obra?.name}</p>
-                  <p style={{fontSize:15,fontWeight:800,color:C.yellow}}>{fmt(m.valorPrevisto)}</p>
-                </div>
-                <p style={{fontSize:11.5,color:C.muted,marginTop:3,lineHeight:1.5}}>
-                  {m.descricao || "Parcela"}<br/>
-                  Venceu em <b>{fmtDate(m.dataVencimento)}</b>{diasAtraso>0 && ` - há ${diasAtraso} dia(s)`}
-                </p>
-              </div>
-
-              <p style={{fontSize:12.5,fontWeight:700,color:C.text}}>
-                O pagamento foi realizado no dia do contrato?
-              </p>
-
-              <Opcao v="vencimento" cor={C.green}
-                     titulo={`Sim - pago em ${fmtDate(m.dataVencimento)}`}
-                     sub="Registra o recebimento na própria data de vencimento do contrato."/>
-              <Opcao v="outra" cor={C.yellow}
-                     titulo="Pago, mas em outra data"
-                     sub="Use quando o dinheiro entrou fora do dia combinado."/>
-              {conciliar.modo === "outra" && (
-                <Inp label="Data real do pagamento *" type="date" value={conciliar.dataOutra}
-                     onChange={v=>setConciliar(c=>({...c,dataOutra:v}))}/>
-              )}
-              <Opcao v="aberto" cor={C.muted}
-                     titulo="Ainda não foi paga"
-                     sub="A parcela continua em aberto e aparece como vencida no painel."/>
-
-              <div style={{display:"flex",gap:8}}>
-                <Btn v="ghost" onClick={()=>setConciliar(null)} full>Decidir depois</Btn>
-                <Btn onClick={()=>conciliarAplicar()} full><Ic n="check"/> Confirmar</Btn>
-              </div>
-              {conciliar.fila.length - conciliar.idx > 1 && (
-                <button onClick={conciliarTodasNoVencimento}
-                        style={{background:"transparent",border:0,color:C.muted,fontSize:11,fontWeight:600,cursor:"pointer",textDecoration:"underline",padding:0}}>
-                  Todas as {conciliar.fila.length - conciliar.idx} restantes foram pagas no vencimento
-                </button>
-              )}
-            </div>
-          </Modal>
-        );
-      })()}
-
       {/* Modal: gerar parcelas automáticas */}
       {/* Confirmar recebimento perguntando a DATA DE PAGAMENTO */}
       {pagarModal && (
@@ -3607,14 +3333,6 @@ function MedicoesView({ data, update, showToast }) {
             </div>
             <Inp label="Data do pagamento *" type="date" value={pagarModal.data}
                  onChange={v=>setPagarModal(p=>({...p,data:v}))}/>
-            {/* Atalho: o caso mais comum e o pagamento ter saido no dia combinado. */}
-            {pagarModal.m.dataVencimento && pagarModal.data !== pagarModal.m.dataVencimento && (
-              <button onClick={()=>setPagarModal(p=>({...p,data:p.m.dataVencimento}))}
-                      style={{alignSelf:"flex-start",background:"transparent",border:`1px solid ${C.yellow}`,color:C.yellow,
-                              padding:"4px 10px",borderRadius:4,fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                Pagou no dia do contrato ({fmtDate(pagarModal.m.dataVencimento)})
-              </button>
-            )}
             <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>
               Informe quando o valor efetivamente entrou. Costuma ser diferente do dia
               em que voce confirma aqui.
@@ -3758,10 +3476,15 @@ function Financeiro({ data, update, showToast }) {
     for (let i = 3; i >= 0; i--) {
       const d = new Date(year, month - i, 1);
       const y = d.getFullYear(), m = d.getMonth();
+      const ym = `${y}-${String(m+1).padStart(2,"0")}`;
       const { q1, q2 } = getQ(y, m);
-      [["1", q1], ["2", q2]].forEach(([qn, dias]) => {
-        const datasDoCiclo=new Set(dias);
-        const naQuinzena = iso => !!iso && datasDoCiclo.has(iso);
+      [["1", q1, 15], ["2", q2, 31]].forEach(([qn, dias, limSup]) => {
+        const limInf = qn === "1" ? 1 : 16;
+        const naQuinzena = (iso) => {
+          if (!iso || !iso.startsWith(ym)) return false;
+          const dia = Number(iso.split("-")[2]);
+          return dia >= limInf && dia <= limSup;
+        };
         const rec = (data.payments||[])
           .filter(p => (filterObra==="all"||p.obraId===filterObra) && naQuinzena(p.date))
           .reduce((s,p)=>s+Number(p.amount||0),0);
@@ -4070,7 +3793,7 @@ function Financeiro({ data, update, showToast }) {
 
 function Obras({ data, update, showToast, onAbrirObra }) {
   const { formGrid } = useBreakpoint();
-  const empty = { id: "", name: "", cliente: "", address: "", engineer: "", startDate: "", faseId: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
+  const empty = { id: "", name: "", cliente: "", address: "", engineer: "", startDate: "", faseId: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
@@ -4212,8 +3935,6 @@ function Obras({ data, update, showToast, onAbrirObra }) {
       contractEnd:       form.contractEnd       || "",
       totalParcelas:     Number(form.totalParcelas     || 0),
       billingFrequency:  form.billingFrequency  || "mensal",
-      diaVenc1:          Number(form.diaVenc1 || DIA_VENC_1_PADRAO),
-      diaVenc2:          Number(form.diaVenc2 || DIA_VENC_2_PADRAO),
       entrada:           Number(form.entrada    || 0),
       entradaDate:       form.entradaDate       || "",
       hasCaixa:          !!form.hasCaixa,
@@ -4451,7 +4172,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
                               </button>
                             ))}
                             <div style={{height:1,background:C.line,margin:"4px 0"}}/>
-                            <button onClick={()=>{ setForm({...o, areaM2:String(o.areaM2||""), diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO), diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)}); setModal(true); setMenuCard(null); }}
+                            <button onClick={()=>{ setForm({...o, areaM2:String(o.areaM2||"")}); setModal(true); setMenuCard(null); }}
                               style={{width:"100%",textAlign:"left",padding:"6px 7px",background:"transparent",
                                       border:0,borderRadius:5,cursor:"pointer",fontSize:11.5,color:C.text,
                                       fontFamily:"'Inter',sans-serif"}}>
@@ -4510,7 +4231,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
                 {o.startDate && <p style={{ color: C.subtle, fontSize: 12 }}>Início: {fmtDateFull(o.startDate)}</p>}
               </div>
               <div style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
-                <Btn v="ghost" size="sm" onClick={() => { setForm({ ...o, areaM2: String(o.areaM2 || ""), diaVenc1: String(o.diaVenc1 || DIA_VENC_1_PADRAO), diaVenc2: String(o.diaVenc2 || DIA_VENC_2_PADRAO) }); setModal(true); }}><Ic n="edit" /></Btn>
+                <Btn v="ghost" size="sm" onClick={() => { setForm({ ...o, areaM2: String(o.areaM2 || "") }); setModal(true); }}><Ic n="edit" /></Btn>
                 <Btn v="danger" size="sm" onClick={() => remove(o.id)}><Ic n="trash" /></Btn>
               </div>
             </div>
@@ -4599,25 +4320,6 @@ function Obras({ data, update, showToast, onAbrirObra }) {
             <p style={{gridColumn:"1/-1",fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Cronograma de cobrança</p>
             <Sel label="Frequência de cobrança *" value={form.billingFrequency} onChange={setField("billingFrequency")} options={FREQ_OPTS}/>
             <Inp label="Total de parcelas" type="number" value={form.totalParcelas} onChange={setField("totalParcelas")} placeholder={form.billingFrequency==="quinzenal"?"Ex.: 24":"Ex.: 12"}/>
-
-            {/* Dias de vencimento - perguntados aqui, na hora de lancar a obra.
-                O padrao segue o contrato (15 e 30), mas cada obra pode fugir dele. */}
-            {form.billingFrequency === "quinzenal" ? (
-              <>
-                <Sel label="Vencimento da 1ª quinzena *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS}/>
-                <Sel label="Vencimento da 2ª quinzena *" value={String(form.diaVenc2||DIA_VENC_2_PADRAO)} onChange={setField("diaVenc2")} options={DIA_OPTS}/>
-              </>
-            ) : (
-              <Sel label="Dia de vencimento *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS}/>
-            )}
-            <div style={{gridColumn:"1/-1",background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:"9px 12px"}}>
-              <p style={{fontSize:11,color:C.subtle,lineHeight:1.6}}>
-                {form.billingFrequency === "quinzenal"
-                  ? <>Cada mês gera 2 parcelas: uma no dia <b>{form.diaVenc1||DIA_VENC_1_PADRAO}</b> e outra no dia <b>{form.diaVenc2||DIA_VENC_2_PADRAO}</b>. Padrão do contrato: 15 e 30.</>
-                  : <>Cada mês gera 1 parcela, vencendo no dia <b>{form.diaVenc1||DIA_VENC_1_PADRAO}</b>.</>}
-                {" "}Em meses mais curtos, o dia 29/30/31 cai no último dia do mês (fev &rarr; 28).
-              </p>
-            </div>
             <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
             <p style={{gridColumn:"1/-1",fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Período e entrada</p>
             <Inp label="Início do contrato *" type="date" value={form.contractStart} onChange={setField("contractStart")}/>
@@ -5092,94 +4794,6 @@ function UnlockRequestModal({ data, update, showToast, obraId, date, employee, o
 // 
 // Ponto
 // 
-
-function PontoGeral({ data, update, showToast }) {
-  const agora = new Date();
-  const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
-  const [year,setYear]=useState(refInicial.getFullYear());
-  const [month,setMonth]=useState(refInicial.getMonth());
-  const [q,setQ]=useState(agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
-  const [filterObra,setFilterObra]=useState("all");
-  const [busca,setBusca]=useState("");
-  const {q1,q2}=getQ(year,month);
-  const diasCiclo=q==="1"?q1:q2;
-  // A gestao mostra somente segunda a sexta. Feriados em dias uteis
-  // permanecem sempre visiveis e destacados, mesmo sem lancamento.
-  const days=diasCiclo.filter(prIsWeekdayIso);
-  const feriados=prUniqueDates([...new Set(diasCiclo.map(d=>Number(d.slice(0,4))))].flatMap(ano=>getPayrollHolidays(data,ano)));
-  const obraName=id=>(data.obras||[]).find(o=>o.id===id)?.name||"-";
-  const employees=(data.employees||[]).filter(e=>e.active!==false)
-    .filter(e=>filterObra==="all"||e.obra===filterObra||days.some(d=>getAtt(data,e.id,d)?.obraId===filterObra))
-    .filter(e=>[e.name,e.role,obraName(e.obra)].join(" ").toLowerCase().includes(busca.toLowerCase()))
-    .sort((a,b)=>a.name.localeCompare(b.name));
-  const diaLabel=iso=>{const d=prParseIso(iso);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
-  const semana=iso=>["DOM","SEG","TER","QUA","QUI","SEX","SÁB"][prParseIso(iso).getDay()];
-  const corStatus=st=>st==="P"?C.green:st==="M"?C.yellow:st==="F"?C.red:C.muted;
-  const proxStatus=st=>st==="P"?"M":st==="M"?"F":st==="F"?null:"P";
-
-  const salvarCelula=(emp,date,patch)=>{
-    const anterior=getAtt(data,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
-    const novo={...anterior,...patch};
-    const obraId=novo.obraId||emp.obra||"";
-    if(obraId&&!canEditAttendance(data,obraId,date)){
-      showToast(`O ponto de ${obraName(obraId)} em ${fmtDateFull(date)} está bloqueado. Libere-o no Ponto diário.`,"error");return;
-    }
-    update({...data,attendance:{...(data.attendance||{}),[emp.id]:{...(data.attendance?.[emp.id]||{}),[date]:{...novo,obraId:novo.status?obraId:(novo.obraId||obraId)}}}});
-  };
-
-  const preencherLinha=emp=>{
-    const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};let bloqueados=0;
-    days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}const ant=getAtt(data,emp.id,date)||{};mapa[date]={...ant,status:"P",obraId};});
-    attendance[emp.id]=mapa;update({...data,attendance});showToast(bloqueados?`Período preenchido; ${bloqueados} dia(s) bloqueado(s) foram mantidos.`:"Período preenchido para o funcionário.");
-  };
-
-  const limparLinha=emp=>{
-    if(!window.confirm(`Limpar os lançamentos visíveis de ${emp.name}?`))return;
-    const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};let bloqueados=0;
-    days.forEach(date=>{const ant=getAtt(data,emp.id,date);if(!ant)return;const obraId=ant.obraId||emp.obra||"";if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}delete mapa[date];});attendance[emp.id]=mapa;update({...data,attendance});showToast(bloqueados?`${bloqueados} dia(s) bloqueado(s) foram preservados.`:"Lançamentos do período removidos.");
-  };
-
-  const preencherVisiveis=()=>{
-    if(!employees.length||!window.confirm(`Marcar presença nos dias de trabalho para ${employees.length} funcionário(s) visível(is)?`))return;
-    const attendance={...(data.attendance||{})};let bloqueados=0;
-    employees.forEach(emp=>{const mapa={...(attendance[emp.id]||{})};days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}mapa[date]={...(getAtt(data,emp.id,date)||{}),status:"P",obraId};});attendance[emp.id]=mapa;});update({...data,attendance});showToast(bloqueados?`Equipe preenchida; ${bloqueados} lançamento(s) bloqueado(s) foram preservados.`:"Equipe preenchida no período.");
-  };
-
-  const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{background:`linear-gradient(135deg,${C.ink},#24324a)`,color:"#fff",borderRadius:14,padding:"16px 18px",display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-      <div><p style={{fontSize:10,fontWeight:900,color:C.yellow,letterSpacing:1,textTransform:"uppercase"}}>Folha de pagamento</p><h2 style={{fontSize:"clamp(22px,4vw,32px)"}}>Gestão geral do ponto</h2><p style={{fontSize:11,opacity:.72,marginTop:3}}>Funcionários, obras e dias trabalhados na mesma tela · {periodo}</p></div>
-      <Btn onClick={preencherVisiveis} v="success"><Ic n="check"/> PREENCHER VISÍVEIS</Btn>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:10}}>
-      <Sel label="Ciclo" value={q} onChange={setQ} options={[{v:"1",l:"1ª quinzena · 06 a 20"},{v:"2",l:"2ª quinzena · 21 a 05"}]}/>
-      <Sel label="Mês de referência" value={String(month)} onChange={v=>setMonth(Number(v))} options={MONTHS.map((m,i)=>({v:String(i),l:m}))}/>
-      <Inp label="Ano" type="number" value={year} onChange={v=>setYear(Number(v)||agora.getFullYear())}/>
-      <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-      <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
-    </div>
-    <div style={{background:`${C.blue}0D`,border:`1px solid ${C.blue}44`,borderRadius:8,padding:"8px 10px",fontSize:10.5,color:C.subtle}}>
-      Clique no status para alternar <b style={{color:C.green}}>PRESENTE</b>, <b style={{color:C.yellowD}}>MEIO DIA</b>, <b style={{color:C.red}}>FALTA</b> e sem registro. Se o trabalhador atuou em outro canteiro, escolha a obra diretamente abaixo do status.
-    </div>
-    <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:10,background:C.card,maxHeight:"68vh"}}>
-      <table style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(980,410+days.length*112),width:"100%",fontSize:10}}>
-        <thead style={{position:"sticky",top:0,zIndex:5}}><tr>
-          <th style={{position:"sticky",left:0,zIndex:7,minWidth:190,background:C.ink,color:"#fff",padding:8,textAlign:"left"}}>FUNCIONÁRIO</th>
-          <th style={{position:"sticky",left:190,zIndex:7,minWidth:150,background:C.ink,color:"#fff",padding:8,textAlign:"left"}}>LOTAÇÃO</th>
-          <th style={{minWidth:70,background:C.ink,color:"#fff",padding:8}}>DIAS</th>
-          {days.map(date=>{const feriado=feriados.includes(date);return <th key={date} title={feriado?"Feriado cadastrado":""} style={{minWidth:112,background:feriado?C.red:C.ink,color:"#fff",padding:6,borderLeft:"1px solid rgba(255,255,255,.1)",boxShadow:feriado?`inset 0 -4px 0 ${C.yellow}`:"none"}}><div>{diaLabel(date)}</div><div style={{fontSize:8,fontWeight:feriado?900:700,opacity:feriado?1:.72}}>{feriado?"FERIADO":semana(date)}</div></th>;})}
-        </tr></thead>
-        <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attStatus(data,emp.id,d);return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:`1px solid ${C.line}`}}>
-          <td style={{position:"sticky",left:0,zIndex:2,background:C.card,padding:8,borderTop:`1px solid ${C.line}`,minWidth:190}}><b style={{fontSize:11,color:C.text}}>{emp.name}</b><div style={{fontSize:8.5,color:C.muted,marginTop:2}}>{emp.role||"Funcionário"}</div><div style={{display:"flex",gap:3,marginTop:5}}><button onClick={()=>preencherLinha(emp)} style={{border:`1px solid ${C.green}`,background:`${C.green}10`,color:C.green,borderRadius:4,fontSize:8,fontWeight:800,cursor:"pointer",padding:"3px 5px"}}>PREENCHER</button><button onClick={()=>limparLinha(emp)} style={{border:`1px solid ${C.red}`,background:"transparent",color:C.red,borderRadius:4,fontSize:8,fontWeight:800,cursor:"pointer",padding:"3px 5px"}}>LIMPAR</button></div></td>
-          <td style={{position:"sticky",left:190,zIndex:2,background:C.card,padding:8,borderTop:`1px solid ${C.line}`,minWidth:150,color:C.subtle}}>{obraName(emp.obra)}</td>
-          <td style={{textAlign:"center",fontWeight:900,fontSize:13,color:C.blue,borderTop:`1px solid ${C.line}`}}>{equivalentes.toFixed(1).replace(".0","")}</td>
-          {days.map(date=>{const att=getAtt(data,emp.id,date),st=att?.status,obraId=att?.obraId||emp.obra||"",fora=!isEmployeeEmployedOnDate(emp,date),feriado=feriados.includes(date);return <td key={date} style={{padding:4,borderTop:`1px solid ${C.line}`,borderLeft:`1px solid ${C.line}`,background:feriado?`${C.red}08`:fora?C.surface:C.card,verticalAlign:"top"}}>{fora?<div style={{padding:12,textAlign:"center",color:C.muted}}>—</div>:<><button onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})} style={{width:"100%",height:28,border:`1.5px solid ${corStatus(st)}`,borderRadius:5,background:st?`${corStatus(st)}18`:C.bg,color:corStatus(st),fontWeight:900,cursor:"pointer",fontSize:9}}>{st==="P"?"PRESENTE":st==="M"?"MEIO DIA":st==="F"?"FALTA":"SEM REG."}</button><select value={obraId} onChange={e=>salvarCelula(emp,date,{obraId:e.target.value})} style={{width:"100%",marginTop:3,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:8,padding:"3px 2px"}}><option value="">Sem obra</option>{(data.obras||[]).map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></>}</td>;})}
-        </tr>;})}</tbody>
-      </table>
-      {!employees.length&&<div style={{padding:24,textAlign:"center",color:C.muted}}>Nenhum funcionário encontrado para os filtros selecionados.</div>}
-    </div>
-  </div>;
-}
 
 function Ponto({ data, update, showToast }) {
   const [selDate, setSelDate] = useState(today());
@@ -5680,22 +5294,17 @@ function Ponto({ data, update, showToast }) {
 // Folha
 // 
 
-function Folha({ data, showToast, onTab }) {
+function Folha({ data, showToast }) {
   const now = new Date();
-  const refInicial = now.getDate() <= 5 ? new Date(now.getFullYear(), now.getMonth()-1, 1) : now;
-  const [year, setYear] = useState(refInicial.getFullYear());
-  const [month, setMonth] = useState(refInicial.getMonth());
-  const [q, setQ] = useState(now.getDate() >= 6 && now.getDate() <= 20 ? "1" : "2");
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  const [q, setQ] = useState(now.getDate() <= 15 ? "1" : "2");
   const [filterObra, setFilterObra] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
-  const [relatorioPendente, setRelatorioPendente] = useState("");
 
   const { q1, q2 } = getQ(year, month);
-  // Folha e espelho diario seguem a mesma grade da gestao: segunda a sexta.
-  // Isso impede sabados e domingos de virarem "sem registro".
-  const diasCiclo = q === "1" ? q1 : q2;
-  const days = diasCiclo.filter(prIsWeekdayIso);
-  const paymentHolidays = prUniqueDates([...new Set(diasCiclo.map(d=>Number(d.slice(0,4))))].flatMap(ano=>getPayrollHolidays(data,ano)));
+  const days = q === "1" ? q1 : q2;
+  const paymentHolidays = getPayrollHolidays(data, year);
   const holidaysInPeriod = days.filter(d => paymentHolidays.includes(d) && prIsWeekdayIso(d));
   const paymentInfo = getPayrollPaymentCalendar(year, month, q, data);
   const paymentDateLabel = fmtDateFull(paymentInfo.paymentDate);
@@ -5737,29 +5346,14 @@ function Folha({ data, showToast, onTab }) {
     let ot = 0;
     let vt = 0;
     let vr = 0;
-    // Mapa por obra efetivamente registrada no ponto. Alem dos dias, guarda
-    // os valores que podem ser atribuidos com seguranca a cada canteiro.
+    // mapa: obraId &rarr; { presentes, meiodia, faltas, dias }
     const obrasPorDia = {};
 
-    const addToObra = (obraId, tipo, valores = {}) => {
-      const chave = obraId || "__sem_obra__";
-      if (!obrasPorDia[chave]) obrasPorDia[chave] = {
-        obraId: obraId || "", presentes: 0, meiodia: 0, faltas: 0,
-        semRegistro: 0, feriadosPagos: 0, feriadosPerdidos: 0,
-        valorDias: 0, valorFeriados: 0, vt: 0, vr: 0, ot: 0,
-      };
-      const o = obrasPorDia[chave];
-      if (tipo === "P") o.presentes++;
-      else if (tipo === "M") o.meiodia++;
-      else if (tipo === "F") o.faltas++;
-      else if (tipo === "S") o.semRegistro++;
-      else if (tipo === "HP") o.feriadosPagos++;
-      else if (tipo === "HD") o.feriadosPerdidos++;
-      o.valorDias += Number(valores.valorDias || 0);
-      o.valorFeriados += Number(valores.valorFeriados || 0);
-      o.vt += Number(valores.vt || 0);
-      o.vr += Number(valores.vr || 0);
-      o.ot += Number(valores.ot || 0);
+    const addToObra = (obraId, tipo) => {
+      if (!obrasPorDia[obraId]) obrasPorDia[obraId] = { presentes: 0, meiodia: 0, faltas: 0 };
+      if (tipo === "P") obrasPorDia[obraId].presentes++;
+      else if (tipo === "M") obrasPorDia[obraId].meiodia++;
+      else if (tipo === "F") obrasPorDia[obraId].faltas++;
     };
 
     days.forEach(d => {
@@ -5769,36 +5363,27 @@ function Folha({ data, showToast, onTab }) {
       const a = getAtt(data, employee.id, d);
       const st = a?.status;
       const extra = Number(a?.ot || 0);
-      // Registro novo: usa a obra carimbada no proprio ponto. Registro antigo:
-      // reconstrucao por lotacao/transferencia preserva o historico.
-      const obraId = a?.obraId || getEmpObraIdOnDate(employee, d);
+      const obraId = getEmpObraIdOnDate(employee, d);
 
       if (st === "P") {
-        const valorDia = Number(employee.dailyRate || 0);
-        const valorVT = Number(employee.vtDaily || 0);
-        const valorVR = Number(employee.vrDaily || 0);
-        gross += valorDia;
+        gross += Number(employee.dailyRate || 0);
         presentes++;
         ot += extra;
-        vt += valorVT;
-        vr += valorVR;
-        addToObra(obraId, "P", { valorDias:valorDia, vt:valorVT, vr:valorVR, ot:extra });
+        vt += Number(employee.vtDaily || 0);
+        vr += Number(employee.vrDaily || 0);
+        addToObra(obraId, "P");
       } else if (st === "M") {
-        const valorDia = Number(employee.dailyRate || 0) * 0.5;
-        const valorVT = Number(employee.vtDaily || 0) * 0.5;
-        const valorVR = Number(employee.vrDaily || 0) * 0.5;
-        gross += valorDia;
+        gross += Number(employee.dailyRate || 0) * 0.5;
         meiodia++;
         ot += extra;
-        vt += valorVT;
-        vr += valorVR;
-        addToObra(obraId, "M", { valorDias:valorDia, vt:valorVT, vr:valorVR, ot:extra });
+        vt += Number(employee.vtDaily || 0) * 0.5;
+        vr += Number(employee.vrDaily || 0) * 0.5;
+        addToObra(obraId, "M");
       } else if (st === "F") {
         faltas++;
         addToObra(obraId, "F");
       } else {
         semRegistro++;
-        addToObra(obraId, "S");
       }
     });
 
@@ -5808,31 +5393,24 @@ function Folha({ data, showToast, onTab }) {
     const feriadosPerdidos = holidayRules.filter(h => h.losesHoliday).length;
     const holidayPay = holidayRules.reduce((s, h) => s + h.amount, 0);
     gross += holidayPay;
-    holidayRules.forEach(h => {
-      const obraId = getEmpObraIdOnDate(employee, h.holidayIso);
-      addToObra(obraId, h.losesHoliday ? "HD" : "HP", {
-        valorFeriados: Number(h.amount || 0),
-      });
-    });
 
-    const periIni = diasCiclo.length > 0 ? diasCiclo[0] : "";
-    const periFim = diasCiclo.length > 0 ? diasCiclo[diasCiclo.length - 1] : "";
+    const periIni = days.length > 0 ? days[0] : "";
+    const periFim = days.length > 0 ? days[days.length - 1] : "";
     const advTotal = data.advances
       .filter(a => a.empId === employee.id && periIni && periFim && a.date >= periIni && a.date <= periFim)
       .reduce((s, a) => s + Number(a.amount || 0), 0);
 
     // Converte mapa para array ordenado por dias trabalhados desc
-    const obrasPorDiaArr = Object.values(obrasPorDia)
-      .map(v => ({
-        ...v,
-        obraName: data.obras.find(o => o.id === v.obraId)?.name || "Sem obra identificada",
-        // Dia trabalhado equivalente: meio periodo vale 0,5; falta nao conta.
-        diasTrabalhados: v.presentes + (v.meiodia * 0.5),
-        totalRegistros: v.presentes + v.meiodia + v.faltas,
-        bruto: v.valorDias + v.valorFeriados,
-        custoDireto: v.valorDias + v.valorFeriados + v.vt + v.vr,
+    const obrasPorDiaArr = Object.entries(obrasPorDia)
+      .map(([obraId, v]) => ({
+        obraId,
+        obraName: data.obras.find(o => o.id === obraId)?.name || "-",
+        presentes: v.presentes,
+        meiodia: v.meiodia,
+        faltas: v.faltas,
+        totalDias: v.presentes + v.meiodia + v.faltas,
       }))
-      .sort((a, b) => b.diasTrabalhados - a.diasTrabalhados || a.obraName.localeCompare(b.obraName));
+      .sort((a, b) => b.totalDias - a.totalDias);
 
     return {
       ...employee,
@@ -5860,16 +5438,7 @@ function Folha({ data, showToast, onTab }) {
     return a?.status || a?.ot || a?.note;
   });
 
-  const belongsToSelectedObra = e => {
-    if (filterObra === "all") return true;
-    return days.some(d => {
-      if (!isEmployeeEmployedOnDate(e, d)) return false;
-      const a = getAtt(data, e.id, d);
-      const temLancamento = !!a?.status || holidaysInPeriod.includes(d);
-      const obraDoDia = a?.obraId || getEmpObraIdOnDate(e, d);
-      return temLancamento && obraDoDia === filterObra;
-    });
-  };
+  const belongsToSelectedObra = e => filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra;
 
   const rows = data.employees
     .filter(belongsToSelectedObra)
@@ -5877,48 +5446,6 @@ function Folha({ data, showToast, onTab }) {
     .map(calcRow)
     .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
     .sort((a, b) => a.name.localeCompare(b.name));
-
-  // Conferencia previa do relatorio. A validacao usa todos os funcionarios
-  // vinculados ao periodo/obra, inclusive quem ainda nao aparece na folha por
-  // nao possuir nenhum apontamento.
-  const funcionariosParaConferencia = (data.employees || [])
-    .filter(e => days.some(d => isEmployeeEmployedOnDate(e, d)))
-    .filter(e => e.active !== false || hasAttendanceInPeriod(e) || (e.endDate && e.endDate >= (days[0] || "")))
-    .filter(e => filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra || days.some(d => {
-      if (!isEmployeeEmployedOnDate(e, d)) return false;
-      const a = getAtt(data, e.id, d);
-      return (a?.obraId || getEmpObraIdOnDate(e, d)) === filterObra;
-    }))
-    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-
-  const hojeConferencia = today();
-  const pendenciasRelatorio = funcionariosParaConferencia.map(e => {
-    const datasEsperadas = days.filter(d => {
-      if (d > hojeConferencia || !isEmployeeEmployedOnDate(e, d) || holidaysInPeriod.includes(d)) return false;
-      if (filterObra === "all") return true;
-      const a = getAtt(data, e.id, d);
-      return (a?.obraId || getEmpObraIdOnDate(e, d)) === filterObra;
-    });
-    const semRegistro = datasEsperadas.filter(d => !["P", "M", "F"].includes(getAtt(data, e.id, d)?.status));
-    const temObraNoPeriodo = datasEsperadas.some(d => {
-      const a = getAtt(data, e.id, d);
-      return !!(a?.obraId || getEmpObraIdOnDate(e, d));
-    });
-    const campos = [];
-    if (!String(e.pixKey || "").trim()) campos.push("PIX");
-    if (!temObraNoPeriodo && !e.obra && !e.lastObra) campos.push("obra");
-    if (!(Number(e.dailyRate || 0) > 0)) campos.push("valor da diaria");
-    return {
-      id: e.id,
-      nome: e.name || "Funcionario sem nome",
-      semRegistro,
-      nenhumRegistro: datasEsperadas.length > 0 && semRegistro.length === datasEsperadas.length,
-      campos,
-    };
-  }).filter(p => p.semRegistro.length > 0 || p.campos.length > 0);
-
-  const totalDiasSemRegistro = pendenciasRelatorio.reduce((s, p) => s + p.semRegistro.length, 0);
-  const totalSemPix = pendenciasRelatorio.filter(p => p.campos.includes("PIX")).length;
 
   const T = {
     gross: rows.reduce((s, r) => s + r.gross, 0),
@@ -5931,183 +5458,91 @@ function Folha({ data, showToast, onTab }) {
     feriadosPerdidos: rows.reduce((s, r) => s + r.feriadosPerdidos, 0),
   };
 
-  // Linhas consolidadas: uma combinacao unica de funcionario + obra. Este e
-  // o numero que responde quantos dias a pessoa efetivamente trabalhou em
-  // cada canteiro, sem contar faltas e ponderando meio periodo como 0,5.
-  const detalheObraFuncionario = rows.flatMap(r =>
-    r.obrasPorDia
-      .filter(o => filterObra === "all" || o.obraId === filterObra)
-      .map(o => ({
-        empId:r.id, funcionario:r.name, cargo:r.role || "", diaria:Number(r.dailyRate || 0),
-        ...o,
-      }))
-  ).sort((a,b) => a.obraName.localeCompare(b.obraName) || a.funcionario.localeCompare(b.funcionario));
-
-  // Resumo gerencial por obra, calculado a partir do mesmo detalhamento.
-  const resumoPorObraMap = new Map();
-  detalheObraFuncionario.forEach(l => {
-    if (!resumoPorObraMap.has(l.obraId)) resumoPorObraMap.set(l.obraId, {
-      obraId:l.obraId, obraName:l.obraName, funcionarios:new Set(), presentes:0,
-      meiodia:0, diasTrabalhados:0, faltas:0, semRegistro:0, feriadosPagos:0,
-      feriadosPerdidos:0, valorDias:0, valorFeriados:0, ot:0, vt:0, vr:0,
-      bruto:0, custoDireto:0,
-    });
-    const o = resumoPorObraMap.get(l.obraId);
-    if (l.diasTrabalhados > 0 || l.feriadosPagos > 0) o.funcionarios.add(l.empId);
-    ["presentes","meiodia","diasTrabalhados","faltas","semRegistro","feriadosPagos",
-     "feriadosPerdidos","valorDias","valorFeriados","ot","vt","vr","bruto","custoDireto"]
-      .forEach(k => { o[k] += Number(l[k] || 0); });
-  });
-  const resumoPorObra = [...resumoPorObraMap.values()]
-    .map(o => ({...o, funcionarios:o.funcionarios.size}))
-    .sort((a,b) => a.obraName.localeCompare(b.obraName));
-
-  // Espelho diario auditavel. Inclui sem registro e feriados para que o total
-  // consolidado possa ser conferido data a data no Excel.
-  const pontoDiario = rows.flatMap(r => days.map(d => {
-    if (!isEmployeeEmployedOnDate(r, d)) return null;
-    const feriado = holidaysInPeriod.includes(d);
-    const regraFer = feriado ? (r.holidayRules || []).find(h => h.holidayIso === d) : null;
-    const a = feriado ? null : getAtt(data, r.id, d);
-    const obraId = a?.obraId || getEmpObraIdOnDate(r, d);
-    if (filterObra !== "all" && obraId !== filterObra) return null;
-    const st = feriado ? (regraFer?.losesHoliday ? "Feriado perdido" : "Feriado pago")
-      : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio periodo"
-      : a?.status === "F" ? "Falta" : "Sem registro";
-    const equivalente = a?.status === "P" ? 1 : a?.status === "M" ? 0.5 : 0;
-    const valorDia = feriado ? Number(regraFer?.amount || 0) : Number(r.dailyRate || 0) * equivalente;
-    const valorVT = feriado ? 0 : Number(r.vtDaily || 0) * equivalente;
-    const valorVR = feriado ? 0 : Number(r.vrDaily || 0) * equivalente;
-    return {
-      data:d, diaSemana:["Domingo","Segunda","Terca","Quarta","Quinta","Sexta","Sabado"][new Date(d+"T00:00:00").getDay()],
-      funcionario:r.name, cargo:r.role || "", obraId,
-      obraName:data.obras.find(o => o.id === obraId)?.name || "Sem obra identificada",
-      status:st, equivalente, ot:Number(a?.ot || 0), diaria:Number(r.dailyRate || 0),
-      valorDia, vt:valorVT, vr:valorVR, totalDia:valorDia+valorVT+valorVR,
-      observacao:a?.note || "",
-    };
-  }).filter(Boolean)).sort((a,b) => a.data.localeCompare(b.data) || a.obraName.localeCompare(b.obraName) || a.funcionario.localeCompare(b.funcionario));
-
   const printPDF = () => {
     // Monta a tabela de detalhe por obra para o PDF
-    const detalheRows = detalheObraFuncionario.map(l =>
-      `<tr><td>${escapeHtml(l.obraName)}</td><td>${escapeHtml(l.funcionario)}</td>`+
-      `<td>${escapeHtml(l.cargo || "-")}</td><td>${l.presentes}</td><td>${l.meiodia}</td>`+
-      `<td><b>${l.diasTrabalhados.toFixed(1).replace(".",",")}</b></td><td>${l.faltas}</td>`+
-      `<td>${l.semRegistro}</td><td>${l.feriadosPagos}</td><td class="num">${escapeHtml(fmt(l.bruto))}</td></tr>`
-    );
+    const detalheRows = [];
+    rows.forEach(r => {
+      if (r.obrasPorDia.length <= 1) {
+        const o = r.obrasPorDia[0] || { obraName: obraName(r.obra), presentes: 0, meiodia: 0, faltas: 0, totalDias: 0 };
+        detalheRows.push(`<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.role || "-")}</td><td>${escapeHtml(o.obraName)}</td><td>${o.presentes}</td><td>${o.meiodia}</td><td>${o.faltas}</td><td>${o.totalDias}</td></tr>`);
+      } else {
+        r.obrasPorDia.forEach((o, i) => {
+          detalheRows.push(`<tr${i === 0 ? ` style="border-top:2px solid #f0df00"` : ""}><td>${i === 0 ? escapeHtml(r.name) : ""}</td><td>${i === 0 ? escapeHtml(r.role || "-") : ""}</td><td>${escapeHtml(o.obraName)}</td><td>${o.presentes}</td><td>${o.meiodia}</td><td>${o.faltas}</td><td>${o.totalDias}</td></tr>`);
+        });
+        detalheRows.push(`<tr style="background:#fffde7;font-style:italic"><td></td><td></td><td><b>Total ${escapeHtml(r.name)}</b></td><td><b>${r.presentes}</b></td><td><b>${r.meiodia}</b></td><td><b>${r.faltas}</b></td><td><b>${r.presentes + r.meiodia + r.faltas}</b></td></tr>`);
+      }
+    });
 
-    const linhasFolha = rows.length ? rows.map(r => `
-      <tr>
-        <td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.role || "-")}</td><td>${escapeHtml(obraName(r.obra))}</td>
-        <td class="num">${r.presentes}</td><td class="num">${r.meiodia}</td><td class="num"><b>${(r.presentes + r.meiodia * 0.5).toFixed(1).replace(".", ",")}</b></td>
-        <td class="num">${r.faltas}</td><td class="num">${r.semRegistro}</td><td class="num">${r.feriadosPagos}</td><td class="num">${r.feriadosPerdidos}</td>
-        <td class="num">${escapeHtml(fmt(r.holidayPay))}</td><td class="num">${r.ot || 0}h</td><td class="num">${escapeHtml(fmt(Number(r.dailyRate || 0)))}</td>
-        <td class="num">${escapeHtml(fmt(r.gross))}</td><td class="num">${escapeHtml(fmt(r.vt))}</td><td class="num">${escapeHtml(fmt(r.vr))}</td><td class="num">${escapeHtml(fmt(r.advances))}</td><td class="num"><b>${escapeHtml(fmt(r.net))}</b></td>
-      </tr>`).join("") : `<tr><td colspan="18" class="vazio">Nenhum lançamento encontrado para o período selecionado.</td></tr>`;
-
-    const html = `<!doctype html>
-      <html lang="pt-BR">
+    const html = `
+      <html>
         <head>
-          <meta charset="utf-8">
           <title>Folha - ${escapeHtml(periodLabel)}</title>
           <style>
-            @page{size:A4 landscape;margin:10mm}
-            *{box-sizing:border-box}
-            body{font-family:Arial,sans-serif;margin:0;color:#111;font-size:10px}
+            body{font-family:Arial,sans-serif;padding:30px;color:#111}
             h1,h2,h3{margin:0 0 8px 0}
             p{margin:4px 0}
-            .cabecalho{border-bottom:3px solid #d4af37;padding-bottom:10px;margin-bottom:10px}
-            .meta{display:flex;gap:18px;flex-wrap:wrap;color:#333}
-            .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:10px 0}
-            .kpi{border:1px solid #bbb;border-top:3px solid #d4af37;padding:7px;background:#fafafa}
-            .kpi span{display:block;font-size:8px;text-transform:uppercase;color:#666;font-weight:bold}
-            .kpi b{display:block;font-size:14px;margin-top:2px}
-            table{width:100%;border-collapse:collapse;margin-top:8px;font-size:8px;table-layout:auto}
-            thead{display:table-header-group}
-            tfoot{display:table-footer-group}
-            tr{break-inside:avoid;page-break-inside:avoid}
-            th,td{border:1px solid #aaa;padding:4px;text-align:left;vertical-align:middle}
-            th{background:#e8e8e8;font-size:7.5px;text-transform:uppercase;white-space:nowrap}
-            td.num{text-align:right;white-space:nowrap}
-            .total{font-weight:bold;background:#fff8d6}
-            .vazio{text-align:center;padding:16px;color:#666;font-style:italic}
-            .section{margin-top:18px;padding-top:10px;border-top:3px solid #d4af37;break-before:page;page-break-before:always}
-            .legenda{font-size:8px;color:#555;margin-top:5px}
-            .signatures{margin-top:32px;display:flex;justify-content:space-between;gap:40px;break-inside:avoid}
+            table{width:100%;border-collapse:collapse;margin-top:12px;font-size:10px}
+            th,td{border:1px solid #ccc;padding:5px;text-align:left}
+            th{background:#f0f0f0}
+            .total{font-weight:bold;background:#f7f7f7}
+            .section{margin-top:36px;padding-top:16px;border-top:3px solid #f0df00}
+            .signatures{margin-top:50px;display:flex;justify-content:space-between;gap:40px}
             .signature{flex:1;border-top:1px solid #111;padding-top:8px;text-align:center}
-            @media screen{body{padding:24px;max-width:1400px;margin:auto}}
           </style>
         </head>
         <body>
-          <div class="cabecalho">
-            <h1>${escapeHtml(data.config.companyName || "ArcD Obras")}</h1>
-            ${data.config.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
-            <h2>Folha de Pagamento - ${escapeHtml(periodLabel)}</h2>
-            <div class="meta">
-              <p><strong>Período:</strong> ${escapeHtml(fmtDateFull(days[0]))} a ${escapeHtml(fmtDateFull(days[days.length-1]))}</p>
-              <p><strong>Pagamento:</strong> ${escapeHtml(paymentDateLabel)}</p>
-              <p><strong>Regra:</strong> ${escapeHtml(paymentObs)}</p>
-            </div>
-          </div>
+          <h1>${escapeHtml(data.config.companyName || "ArcD Obras")}</h1>
+          ${data.config.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
+          <h2>Folha de Pagamento - ${escapeHtml(periodLabel)}</h2>
+          <p><strong>Data de pagamento:</strong> ${escapeHtml(paymentDateLabel)}</p>
+          <p><strong>Regra aplicada:</strong> ${escapeHtml(paymentObs)}</p>
 
-          <div class="kpis">
-            <div class="kpi"><span>Funcionários</span><b>${rows.length}</b></div>
-            <div class="kpi"><span>Dias trabalhados</span><b>${rows.reduce((s,r)=>s+r.presentes+r.meiodia*0.5,0).toFixed(1).replace(".",",")}</b></div>
-            <div class="kpi"><span>Total bruto</span><b>${escapeHtml(fmt(T.gross))}</b></div>
-            <div class="kpi"><span>Total líquido</span><b>${escapeHtml(fmt(T.net))}</b></div>
-          </div>
-          <p class="legenda">P = presença integral · M = meio período · F = falta · S/R = sem registro · FP = feriado pago · FD = feriado perdido</p>
-
-          <!-- Tabela principal -->
+          <!-- Tabela principal -&rarr;
           <table>
             <thead>
               <tr>
-                <th>Funcionário</th><th>Cargo</th><th>Obra Atual</th><th>P</th><th>M</th><th>Dias Trab.</th><th>F</th><th>S/R</th><th>FP</th><th>FD</th><th>Valor Feriado</th><th>HE</th><th>Diária</th><th>Bruto</th><th>VT</th><th>VR</th><th>Adiant.</th><th>Líquido</th>
+                <th>Funcionário</th><th>Cargo</th><th>Obra Atual</th><th>P</th><th>M</th><th>F</th><th>S/R</th><th>FP</th><th>FD</th><th>Valor Feriado</th><th>HE</th><th>Diária</th><th>Bruto</th><th>VT</th><th>VR</th><th>Adiant.</th><th>Líquido</th>
               </tr>
             </thead>
             <tbody>
-              ${linhasFolha}
+              ${rows.map(r => `
+                <tr>
+                  <td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.role || "-")}</td><td>${escapeHtml(obraName(r.obra))}</td>
+                  <td>${r.presentes}</td><td>${r.meiodia}</td><td>${r.faltas}</td><td>${r.semRegistro}</td><td>${r.feriadosPagos}</td><td>${r.feriadosPerdidos}</td>
+                  <td>R$ ${r.holidayPay.toFixed(2)}</td><td>${r.ot || 0}h</td><td>R$ ${Number(r.dailyRate || 0).toFixed(2)}</td><td>R$ ${r.gross.toFixed(2)}</td><td>R$ ${r.vt.toFixed(2)}</td><td>R$ ${r.vr.toFixed(2)}</td><td>R$ ${r.advances.toFixed(2)}</td><td>R$ ${r.net.toFixed(2)}</td>
+                </tr>`).join("")}
+              <tr class="total"><td colspan="12">TOTAL - ${rows.length} funcionário(s)</td><td>R$ ${T.gross.toFixed(2)}</td><td>R$ ${T.vt.toFixed(2)}</td><td>R$ ${T.vr.toFixed(2)}</td><td>R$ ${T.advances.toFixed(2)}</td><td>R$ ${T.net.toFixed(2)}</td></tr>
             </tbody>
-            <tfoot>
-              <tr class="total"><td colspan="13">TOTAL - ${rows.length} funcionário(s)</td><td class="num">${escapeHtml(fmt(T.gross))}</td><td class="num">${escapeHtml(fmt(T.vt))}</td><td class="num">${escapeHtml(fmt(T.vr))}</td><td class="num">${escapeHtml(fmt(T.advances))}</td><td class="num">${escapeHtml(fmt(T.net))}</td></tr>
-            </tfoot>
           </table>
 
-          <!-- Tabela de detalhe por obra -->
+          <!-- Tabela de detalhe por obra -&rarr;
           <div class="section">
             <h3>Detalhe de Dias Trabalhados por Obra</h3>
             <p style="font-size:11px;color:#555">Período: ${escapeHtml(fmtDateFull(days[0]))} a ${escapeHtml(fmtDateFull(days[days.length - 1]))}</p>
             <table>
               <thead>
                 <tr>
-                  <th>Obra</th><th>Funcionário</th><th>Cargo</th><th>Presentes</th><th>Meio Dia</th><th>Dias Trabalhados</th><th>Faltas</th><th>Sem Registro</th><th>Feriados Pagos</th><th>Bruto Alocado</th>
+                  <th>Funcionário</th><th>Cargo</th><th>Obra</th><th>Presentes</th><th>Meio Dia</th><th>Faltas</th><th>Total c/ Registro</th>
                 </tr>
               </thead>
               <tbody>
-                ${detalheRows.join("") || `<tr><td colspan="10" class="vazio">Nenhum apontamento por obra encontrado para o período selecionado.</td></tr>`}
+                ${detalheRows.join("")}
               </tbody>
             </table>
           </div>
 
           <div class="signatures"><div class="signature">Responsável RH: ${escapeHtml(data.config.hrName || "_______________________")}</div><div class="signature">Aprovado por</div></div>
           <p style="margin-top:30px;">Data: ___/___/_____</p>
+          <script>window.print();</script>
         </body>
       </html>
     `;
     const w = window.open("", "_blank");
-    if (!w) {
-      showToast("Não foi possível abrir a impressão. Permita pop-ups para este aplicativo e tente novamente.", "error");
-      return;
-    }
-    w.document.open();
     w.document.write(html);
     w.document.close();
-    w.focus();
-    window.setTimeout(() => w.print(), 300);
   };
 
-  const exportXLSLegado = () => {
+  const exportXLS = () => {
     const wb = XLSX.utils.book_new();
 
     //  Aba 1: Folha resumo (igual ao original) 
@@ -6158,108 +5593,6 @@ function Folha({ data, showToast, onTab }) {
 
     XLSX.writeFile(wb, `arcd-folha-${year}-${String(month + 1).padStart(2, "0")}-Q${q}.xlsx`);
     showToast("Excel gerado com 2 abas.");
-  };
-
-  // Exportacao tecnica: folha financeira + consolidacao por obra +
-  // funcionario/obra + espelho diario. Mantemos os valores numericos para que
-  // o operador possa somar, filtrar e montar tabelas dinamicas no Excel.
-  const exportXLSDetalhado = () => {
-    const wb = XLSX.utils.book_new();
-
-    const header1 = ["Funcionário", "Cargo", "Obra Atual", "Pres.", "Meio Dia", "Dias Trabalhados",
-      "Faltas", "Sem Registro", "Feriados Pagos", "Feriados Perdidos", "Valor Feriado",
-      "HE", "Diária", "Bruto", "VT", "VR", "Adiant.", "Líquido"];
-    const body1 = rows.map(r => [r.name, r.role || "", obraName(r.obra), r.presentes, r.meiodia,
-      r.presentes + r.meiodia * 0.5, r.faltas, r.semRegistro, r.feriadosPagos,
-      r.feriadosPerdidos, r.holidayPay, r.ot, r.dailyRate, r.gross, r.vt, r.vr, r.advances, r.net]);
-    const total1 = ["TOTAL", "", "",
-      ...["presentes","meiodia"].map(k=>rows.reduce((s,r)=>s+Number(r[k]||0),0)),
-      rows.reduce((s,r)=>s+Number(r.presentes||0)+Number(r.meiodia||0)*0.5,0),
-      rows.reduce((s,r)=>s+Number(r.faltas||0),0), rows.reduce((s,r)=>s+Number(r.semRegistro||0),0),
-      T.feriadosPagos, T.feriadosPerdidos, T.holidayPay, rows.reduce((s,r)=>s+Number(r.ot||0),0),
-      "", T.gross, T.vt, T.vr, T.advances, T.net];
-    const ws1 = XLSX.utils.aoa_to_sheet([
-      ["Folha de Pagamento", periodLabel], ["Data de pagamento", paymentDateLabel],
-      ["Regra aplicada", paymentObs], ["Critério de dias", "Presença = 1 dia; meio período = 0,5; falta e feriado = 0 dia trabalhado."],
-      [], header1, ...body1, total1,
-    ]);
-    ws1["!cols"] = [24,18,20,8,10,16,8,13,15,17,15,8,12,14,12,12,12,14].map(w=>({wch:w}));
-    if (body1.length) ws1["!autofilter"] = {ref:`A6:R${6+body1.length}`};
-    XLSX.utils.book_append_sheet(wb, ws1, "Folha");
-
-    const header2 = ["Obra", "Funcionários Alocados", "Presenças Integrais", "Meios Períodos",
-      "Dias Trabalhados Equivalentes", "Faltas", "Sem Registro", "Feriados Pagos",
-      "Feriados Perdidos", "HE", "Valor dos Dias", "Valor dos Feriados", "Bruto", "VT", "VR", "Custo Direto"];
-    const body2 = resumoPorObra.map(o => [o.obraName, o.funcionarios, o.presentes, o.meiodia,
-      o.diasTrabalhados, o.faltas, o.semRegistro, o.feriadosPagos, o.feriadosPerdidos,
-      o.ot, o.valorDias, o.valorFeriados, o.bruto, o.vt, o.vr, o.custoDireto]);
-    const total2 = ["TOTAL", resumoPorObra.reduce((s,o)=>s+o.funcionarios,0),
-      ...["presentes","meiodia","diasTrabalhados","faltas","semRegistro","feriadosPagos",
-          "feriadosPerdidos","ot","valorDias","valorFeriados","bruto","vt","vr","custoDireto"]
-        .map(k => resumoPorObra.reduce((s,o)=>s+Number(o[k]||0),0))];
-    const ws2 = XLSX.utils.aoa_to_sheet([
-      ["Resumo da Folha por Obra", periodLabel],
-      ["Período", `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length-1])}`],
-      ["Critério", "Dia trabalhado equivalente = presença integral + 0,5 por meio período. Faltas não contam."],
-      [], header2, ...body2, total2,
-    ]);
-    ws2["!cols"] = [26,18,18,16,24,9,13,15,17,8,15,17,14,12,12,15].map(w=>({wch:w}));
-    if (body2.length) ws2["!autofilter"] = {ref:`A5:P${5+body2.length}`};
-    XLSX.utils.book_append_sheet(wb, ws2, "Resumo por Obra");
-
-    const header3 = ["Obra", "Funcionário", "Cargo", "Presenças Integrais", "Meios Períodos",
-      "Dias Trabalhados Equivalentes", "Faltas", "Sem Registro", "Feriados Pagos",
-      "Feriados Perdidos", "HE", "Diária", "Valor dos Dias", "Valor dos Feriados",
-      "Bruto Alocado", "VT", "VR", "Custo Direto"];
-    const body3 = detalheObraFuncionario.map(l => [l.obraName, l.funcionario, l.cargo,
-      l.presentes, l.meiodia, l.diasTrabalhados, l.faltas, l.semRegistro,
-      l.feriadosPagos, l.feriadosPerdidos, l.ot, l.diaria, l.valorDias,
-      l.valorFeriados, l.bruto, l.vt, l.vr, l.custoDireto]);
-    const ws3 = XLSX.utils.aoa_to_sheet([
-      ["Folha por Obra e Funcionário", periodLabel],
-      ["Período", `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length-1])}`],
-      ["Observação", "Adiantamentos e líquido permanecem na aba Folha, pois o adiantamento não possui obra vinculada."],
-      ["Critério", "Meio período equivale a 0,5 dia trabalhado; faltas e feriados não são dias trabalhados."],
-      [], header3, ...body3,
-    ]);
-    ws3["!cols"] = [26,24,18,18,16,24,9,13,15,17,8,12,15,17,15,12,12,15].map(w=>({wch:w}));
-    if (body3.length) ws3["!autofilter"] = {ref:`A6:R${6+body3.length}`};
-    XLSX.utils.book_append_sheet(wb, ws3, "Funcionario por Obra");
-
-    const header4 = ["Data", "Dia da Semana", "Funcionário", "Cargo", "Obra", "Status",
-      "Dia Equivalente", "HE", "Diária", "Valor do Dia/Feriado", "VT", "VR", "Total Direto", "Observação"];
-    const body4 = pontoDiario.map(l => [l.data, l.diaSemana, l.funcionario, l.cargo, l.obraName,
-      l.status, l.equivalente, l.ot, l.diaria, l.valorDia, l.vt, l.vr, l.totalDia, l.observacao]);
-    const ws4 = XLSX.utils.aoa_to_sheet([
-      ["Espelho Diário por Obra e Funcionário", periodLabel],
-      ["Período", `${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length-1])}`],
-      [], header4, ...body4,
-    ]);
-    ws4["!cols"] = [12,15,24,18,26,17,15,8,12,20,12,12,15,30].map(w=>({wch:w}));
-    if (body4.length) ws4["!autofilter"] = {ref:`A4:N${4+body4.length}`};
-    XLSX.utils.book_append_sheet(wb, ws4, "Ponto Diario");
-
-    XLSX.writeFile(wb, `arcd-folha-${year}-${String(month+1).padStart(2,"0")}-Q${q}.xlsx`);
-    showToast("Excel gerado com 4 abas: folha, obras, funcionários e ponto diário.");
-  };
-
-  const executarRelatorio = tipo => {
-    if (tipo === "pdf") printPDF();
-    else exportXLSDetalhado();
-  };
-
-  const solicitarRelatorio = tipo => {
-    if (pendenciasRelatorio.length > 0) {
-      setRelatorioPendente(tipo);
-      return;
-    }
-    executarRelatorio(tipo);
-  };
-
-  const continuarComPendencias = () => {
-    const tipo = relatorioPendente;
-    setRelatorioPendente("");
-    executarRelatorio(tipo);
   };
 
   const buildText = () => [
@@ -6314,8 +5647,8 @@ function Folha({ data, showToast, onTab }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Btn v="ghost" onClick={() => solicitarRelatorio("pdf")}><Ic n="file" /> PDF / Imprimir</Btn>
-        <Btn v="success" onClick={() => solicitarRelatorio("excel")}><Ic n="download" /> Excel detalhado .xlsx</Btn>
+        <Btn v="ghost" onClick={printPDF}><Ic n="file" /> PDF / Imprimir</Btn>
+        <Btn v="success" onClick={exportXLS}><Ic n="download" /> Excel .xlsx</Btn>
         <Btn v="info" onClick={() => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`)}><Ic n="mail" /> E-mail</Btn>
         <Btn v="success" onClick={() => navigator.clipboard.writeText(buildText()).then(() => showToast("Copiado.")).catch(() => showToast("Erro ao copiar.", "error"))}><Ic n="copy" /> WhatsApp</Btn>
       </div>
@@ -6327,7 +5660,7 @@ function Folha({ data, showToast, onTab }) {
           <button onClick={() => setExpandedId(expandedId === r.id ? null : r.id)} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 14, width: "100%", cursor: "pointer", color: C.text, textAlign: "left", display: "flex", justifyContent: "space-between", gap: 8 }}>
             <div>
               <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 17 }}>{r.name}</p>
-              <p style={{ color: C.muted, fontSize: 12 }}>{obraName(r.obra)}  {(r.presentes+r.meiodia*0.5).toFixed(1).replace(".",",")} dia(s) trabalhado(s)  {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R  {r.feriadosPagos}FP {r.feriadosPerdidos}FD{r.ot > 0 ? `  ${r.ot}h` : ""}</p>
+              <p style={{ color: C.muted, fontSize: 12 }}>{obraName(r.obra)}  {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R  {r.feriadosPagos}FP {r.feriadosPerdidos}FD{r.ot > 0 ? `  ${r.ot}h` : ""}</p>
             </div>
             <div style={{ textAlign: "right" }}>
               <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 19, color: C.yellow }}>{fmt(r.net)}</p>
@@ -6359,26 +5692,6 @@ function Folha({ data, showToast, onTab }) {
                 </div>
               )}
 
-              {r.obrasPorDia.filter(o => filterObra === "all" || o.obraId === filterObra).length > 0 && (
-                <div style={{ marginBottom:12 }}>
-                  <p style={{ color:C.yellow, fontFamily:"'Inter Display','Inter',sans-serif",
-                              fontWeight:900, textTransform:"uppercase", marginBottom:6 }}>
-                    Dias trabalhados por obra
-                  </p>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:6}}>
-                    {r.obrasPorDia.filter(o => filterObra === "all" || o.obraId === filterObra).map(o => (
-                      <div key={o.obraId || "sem-obra"} style={{background:C.card,border:`1px solid ${C.border}`,padding:"8px 10px"}}>
-                        <p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{o.obraName}</p>
-                        <p style={{fontSize:15,fontWeight:900,color:C.green,marginTop:2}}>
-                          {o.diasTrabalhados.toFixed(1).replace(".",",")} dia(s)
-                        </p>
-                        <p style={{fontSize:9.5,color:C.muted}}>{o.presentes} integral(is) + {o.meiodia} meio(s) período(s) · {o.faltas} falta(s)</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {r.pixKey && <p style={{ color: C.subtle, fontSize: 12, marginBottom: 10 }}>PIX: {r.pixKey}</p>}
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(43px, 1fr))", gap: 4 }}>
@@ -6399,41 +5712,6 @@ function Folha({ data, showToast, onTab }) {
           )}
         </div>
       ))}
-
-      {relatorioPendente && (
-        <Modal title="Conferencia antes de gerar o relatorio" onClose={() => setRelatorioPendente("")} wide>
-          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-            <div style={{ background:"rgba(220,38,38,.08)", border:`1px solid ${C.red}`, padding:12, borderRadius:8 }}>
-              <p style={{ color:C.red, fontWeight:900, fontSize:14 }}>Existem dados pendentes nesta quinzena.</p>
-              <p style={{ color:C.text, fontSize:12, marginTop:4 }}>
-                {pendenciasRelatorio.length} funcionario(s) precisam de conferencia | {totalDiasSemRegistro} dia(s) sem registro | {totalSemPix} PIX ausente(s).
-              </p>
-              <p style={{ color:C.muted, fontSize:11, marginTop:4 }}>Sabados, domingos e feriados nao sao considerados como falta de registro.</p>
-            </div>
-
-            <div style={{ maxHeight:360, overflowY:"auto", display:"flex", flexDirection:"column", gap:7 }}>
-              {pendenciasRelatorio.map(p => (
-                <div key={p.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${C.red}`, padding:"9px 11px", borderRadius:6 }}>
-                  <p style={{ fontWeight:900, color:C.text }}>{p.nome}</p>
-                  {p.semRegistro.length > 0 && (
-                    <p style={{ fontSize:11, color:C.red, marginTop:3 }}>
-                      {p.nenhumRegistro ? "Nenhum ponto registrado" : `${p.semRegistro.length} dia(s) sem ponto`}: {p.semRegistro.slice(0,8).map(fmtDate).join(", ")}{p.semRegistro.length > 8 ? ` e mais ${p.semRegistro.length - 8}` : ""}
-                    </p>
-                  )}
-                  {p.campos.length > 0 && <p style={{ fontSize:11, color:C.yellowD, marginTop:3 }}>Dados faltando: {p.campos.join(", ")}.</p>}
-                </div>
-              ))}
-            </div>
-
-            <p style={{ color:C.muted, fontSize:11 }}>Voce pode corrigir agora ou continuar e gerar o arquivo com as pendencias existentes.</p>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:8 }}>
-              <Btn v="danger" onClick={() => { setRelatorioPendente(""); onTab?.("ponto_geral"); }}>Corrigir ponto</Btn>
-              <Btn v="ghost" onClick={() => { setRelatorioPendente(""); onTab?.("equipe"); }}>Preencher PIX / cadastro</Btn>
-              <Btn v="success" onClick={continuarComPendencias}>Continuar mesmo assim</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
@@ -6593,29 +5871,6 @@ const buildQuickAlerts = (data) => {
       title: `Ponto pendente em ${pendingPonto.length} obra(s)`,
       sub: pendingPonto.map(o=>`${o.obraName}: ${o.missingCount}`).join("  "),
     });
-  }
-
-  const solicitacoesPendentes=(data.solicitacoesCompra||[]).filter(s=>s.status==="enviada");
-  if(solicitacoesPendentes.length>0){
-    alerts.push({type:"compras",color:C.orange,icon:"!",
-      title:`${solicitacoesPendentes.length} solicitação(ões) de material aguardando Compras`,
-      sub:solicitacoesPendentes.slice(0,3).map(s=>`${(data.obras||[]).find(o=>o.id===s.obraId)?.name||"Obra"}: ${s.itens.length} item(ns)${s.prioridade==="urgente"?" · URGENTE":""}`).join("  "),
-      tab:"cmp"});
-  }
-
-  // Comercial: concentra as pendencias que exigem acao imediata.
-  const comercial=data.comercial||{};
-  const leadsAtivos=(comercial.leads||[]).filter(l=>!["perdido","arquivado","transferido"].includes(l.etapa)&&l.status!=="arquivado");
-  const semAtendimento=leadsAtivos.filter(l=>!l.responsavelId||!l.proximaAtividadeEm).length;
-  const tarefasVencidas=(comercial.atividades||[]).filter(a=>a.status!=="concluida"&&a.dataHora&&new Date(a.dataHora).getTime()<Date.now()).length;
-  const reunioesAtrasadas=(comercial.reunioes||[]).filter(r=>r.status==="agendada"&&r.dataHora&&new Date(r.dataHora).getTime()<Date.now()).length;
-  const contratosPendentes=(comercial.contratos||[]).filter(k=>["enviado","aguardando_assinatura"].includes(k.status)||(k.assinadoEm&&!k.entradaPaga)).length;
-  const pendenciasComerciais=semAtendimento+tarefasVencidas+reunioesAtrasadas+contratosPendentes;
-  if(pendenciasComerciais>0){
-    alerts.push({type:"comercial",color:C.green,icon:"!",
-      title:`${pendenciasComerciais} pendencia(s) no Comercial`,
-      sub:[semAtendimento&&`${semAtendimento} lead(s) sem atendimento`,tarefasVencidas&&`${tarefasVencidas} tarefa(s) vencida(s)`,reunioesAtrasadas&&`${reunioesAtrasadas} reuniao(oes) atrasada(s)`,contratosPendentes&&`${contratosPendentes} contrato(s) pendente(s)`].filter(Boolean).join("  "),
-      tab:"com_dash"});
   }
 
   // Contratos em alerta
@@ -9090,52 +8345,17 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
 const ROLES = [
   { v:"admin",      l:"Administrador",     desc:"Acesso total ao sistema",             color:"#D4AF37" },
   { v:"engenheiro", l:"Engenheiro de Campo",desc:"Obras, Ponto, Equipe, Terceiros",    color:"#1565C0" },
-  { v:"compras",    l:"Setor de Compras",   desc:"Solicitações, pedidos, fornecedores e estoque", color:"#D97706" },
   { v:"rh",         l:"RH / Gestão",       desc:"Equipe, Folha, Rescisão",             color:"#2E7D32" },
   { v:"financeiro", l:"Financeiro",         desc:"DRE, KPIs, Medições, Relatórios",    color:"#6A1B9A" },
-  { v:"comercial",  l:"Comercial",          desc:"Orçamentos e atividades comerciais", color:"#2E7D32" },
   { v:"visualizador",l:"Visualizador",      desc:"Somente Dashboard (somente leitura)", color:"#6B6459" },
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","obras","orc","plan","rdo","med","est","cmp","ponto","ponto_geral","equipe","terc","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","obsoletos","cad","config","com_dash","com_leads","com_funil","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
+  admin:       ["home","obras","orc","plan","rdo","med","est","cmp","ponto","equipe","terc","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","obsoletos","cad","config"],
   engenheiro:  ["home","obras","orc","plan","rdo","med","est","cmp","ponto","equipe","terc","caixa","obsoletos","cad","ia"],
-  compras:     ["home","cmp","est","cad","ia"],
-  rh:          ["home","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
-  financeiro:  ["home","ponto_geral","equipe","folha","resc","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
-  comercial:   ["home","com_dash","com_leads","com_funil","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","ia"],
+  rh:          ["home","equipe","folha","resc","cad","ia"],
+  financeiro:  ["home","orc","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   visualizador:["home"],
-};
-
-const ACCESS_SECTORS=[
-  {id:"engenharia",label:"Engenharia",color:"#1565C0",tabs:[
-    ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["rdo","Diário de obra"],["med","Medição técnica"],
-    ["ponto","Ponto"],["equipe","Equipe"],["terc","Terceiros"],["obsoletos","Obsoletos"],
-  ]},
-  {id:"compras",label:"Compras",color:"#D97706",tabs:[
-    ["cmp","Compras e solicitações"],["est","Estoque"],
-  ]},
-  {id:"financeiro",label:"Financeiro",color:"#6A1B9A",tabs:[
-    ["dre_emp","DRE Empresa"],["dre","DRE Obras"],["fin","KPIs financeiros"],["conc","Conciliação"],
-    ["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["ponto_geral","Gestão geral do ponto"],["folha","Folha"],["resc","Rescisão"],["relat","Relatórios"],
-  ]},
-  {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
-    ["com_dash","Dashboard comercial"],["com_leads","Leads"],["com_funil","Funil de vendas"],["com_agenda","Agenda"],
-    ["com_reunioes","Reuniões"],["com_tarefas","Tarefas e follow-ups"],["com_propostas","Propostas"],
-    ["com_negociacoes","Negociações"],["com_contratos","Contratos"],["com_clientes","Clientes"],["com_parceiros","Parceiros e indicações"],
-    ["com_metas","Metas e comissões"],["com_perdas","Motivos de perda"],["com_relatorios","Relatórios comerciais"],
-  ]},
-  {id:"geral",label:"Recursos gerais",color:"#6B6459",tabs:[
-    ["ia","Inteligência artificial"],["cad","Cadastros gerais"],
-  ]},
-];
-
-const allowedTabsForUser=user=>{
-  if(!user||user.role==="admin")return ROLE_TABS.admin;
-  const custom=Array.isArray(user.accessTabs)?user.accessTabs:null;
-  const base=custom??(ROLE_TABS[user.role]||["home"]);
-  const valid=new Set(ROLE_TABS.admin);
-  return [...new Set(["home",...base])].filter(tab=>valid.has(tab)&&tab!=="config");
 };
 
 const hashPin = async (pin) => {
@@ -9387,22 +8607,17 @@ function LoginScreen({ perfis, onLogin, onFirstSetup }) {
 //  Gestão de Usuários (dentro de Config) 
 
 function GestaoUsuarios({ data, update, showToast, currentUser }) {
-  const emptyU = { id:"", nome:"", role:"engenheiro", email:"", obraId:"", maxDesconto:10, active:true, accessTabs:[...ROLE_TABS.engenheiro] };
+  const emptyU = { id:"", nome:"", role:"engenheiro", email:"", obraId:"", active:true };
   const [modal,   setModal]   = useState(false);
   const [pinModal,setPinModal] = useState(null); // userId
   const [form,    setForm]    = useState(emptyU);
   const [newPin,  setNewPin]  = useState("");
   const [newPin2, setNewPin2] = useState("");
   const F = k => v => setForm(f=>({...f,[k]:v}));
-  const mudarPerfil=role=>setForm(f=>({...f,role,accessTabs:[...(ROLE_TABS[role]||["home"])]}));
-  const toggleTela=tab=>setForm(f=>{const atual=new Set(f.accessTabs||[]);atual.has(tab)?atual.delete(tab):atual.add(tab);return{...f,accessTabs:[...atual]};});
-  const toggleSetor=setor=>setForm(f=>{const atual=new Set(f.accessTabs||[]);const ids=setor.tabs.map(([id])=>id);const todos=ids.every(id=>atual.has(id));ids.forEach(id=>todos?atual.delete(id):atual.add(id));return{...f,accessTabs:[...atual]};});
 
   const saveUser = async () => {
     if (!form.nome.trim()) { showToast("Nome obrigatório.","error"); return; }
-    if(form.id===currentUser?.id&&form.role!=="admin"){showToast("O administrador logado não pode retirar o próprio acesso administrativo.","error");return;}
-    const accessTabs=form.role==="admin"?[...ROLE_TABS.admin]:[...new Set(["home",...(form.accessTabs||[])])].filter(tab=>ROLE_TABS.admin.includes(tab)&&tab!=="config");
-    const payload = { ...form,accessTabs,maxDesconto:Math.max(0,Math.min(100,Number(form.maxDesconto||0))), id: form.id||uid(), createdAt: form.createdAt||new Date().toISOString() };
+    const payload = { ...form, id: form.id||uid(), createdAt: form.createdAt||new Date().toISOString() };
     // PIN só é definido via modal separado
     if (!form.id) payload.pin = ""; // novo usuário sem PIN &rarr; admin define depois
     const usuarios = form.id
@@ -9449,8 +8664,6 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
       {(data.usuarios||[]).map(u=>{
         const role=ROLES.find(r=>r.v===u.role)||ROLES[0];
         const hasPIN=!!u.pin;
-        const acessos=allowedTabsForUser(u);
-        const setores=u.role==="admin"?["TODOS OS SETORES"]:ACCESS_SECTORS.filter(s=>s.tabs.some(([id])=>acessos.includes(id))).map(s=>s.label.toUpperCase());
         return(
           <div key={u.id} style={{
             background:C.bg,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${role.color}`,
@@ -9468,12 +8681,11 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
                 <p style={{fontSize:11,color:role.color,fontWeight:600,marginTop:2}}>{role.l}</p>
                 {u.email&&<p style={{fontSize:11,color:C.muted,marginTop:1}}>{u.email}</p>}
                 <p style={{fontSize:10,color:C.muted,marginTop:3}}>{role.desc}</p>
-                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>{setores.map(nome=><span key={nome} style={{fontSize:8.5,fontWeight:800,color:C.blue,background:`${C.blue}0C`,border:`1px solid ${C.blue}35`,padding:"2px 5px",borderRadius:4}}>{nome}</span>)}</div>
               </div>
               {currentUser?.role==="admin"&&(
                 <div style={{display:"flex",gap:4,flexShrink:0}}>
                   <Btn size="sm" v="ghost" onClick={()=>setPinModal(u.id)}>PIN</Btn>
-                  <Btn size="sm" v="ghost" onClick={()=>{setForm({...u,accessTabs:[...allowedTabsForUser(u)]});setModal(true);}}><Ic n="edit"/></Btn>
+                  <Btn size="sm" v="ghost" onClick={()=>{setForm({...u});setModal(true);}}><Ic n="edit"/></Btn>
                   <Btn size="sm" v={u.active===false?"success":"dark"} onClick={()=>toggleActive(u.id)}>
                     {u.active===false?"Ativar":"Inativar"}
                   </Btn>
@@ -9486,26 +8698,18 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
 
       {/* Modal: cadastro de usuário */}
       {modal&&(
-        <Modal title={form.id?"Editar usuário":"Novo usuário"} onClose={()=>setModal(false)} wide>
+        <Modal title={form.id?"Editar usuário":"Novo usuário"} onClose={()=>setModal(false)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <Inp label="Nome completo *" value={form.nome} onChange={F("nome")} placeholder="Nome do usuário"/>
-            <Sel label="Perfil-base *" value={form.role} onChange={mudarPerfil} options={ROLES.map(r=>({v:r.v,l:r.l}))}/>
+            <Sel label="Perfil de acesso *" value={form.role} onChange={F("role")} options={ROLES.map(r=>({v:r.v,l:r.l}))}/>
             <Inp label="E-mail" value={form.email} onChange={F("email")} placeholder="email@empresa.com"/>
-            <Inp label="Limite de desconto comercial (%)" type="number" value={form.maxDesconto??10} onChange={F("maxDesconto")} placeholder="10"/>
             <Sel label="Restringir a obra (opcional)" value={form.obraId} onChange={F("obraId")}
               options={[{v:"",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
             <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
               <p style={{fontSize:11,color:C.muted}}>
-                O perfil-base preenche uma sugestão. O acesso efetivo é definido pelas telas marcadas abaixo.
+                {ROLES.find(r=>r.v===form.role)?.desc||""}
               </p>
             </div>
-            {form.role==="admin"?<div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}`,borderRadius:8,padding:"10px 12px"}}><p style={{fontSize:11.5,color:C.yellowD,fontWeight:900}}>ADMINISTRADOR · ACESSO TOTAL</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>O administrador sempre acessa todos os setores, usuários e configurações.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:8}}>
-              <div><p style={{fontSize:11.5,fontWeight:900,color:C.text}}>ACESSOS DESTE USUÁRIO</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Marque o setor inteiro ou escolha telas individualmente. Dashboard é liberado automaticamente.</p></div>
-              {ACCESS_SECTORS.map(setor=>{const selecionadas=setor.tabs.filter(([id])=>(form.accessTabs||[]).includes(id)).length;const todas=selecionadas===setor.tabs.length;return <div key={setor.id} style={{border:`1px solid ${todas?setor.color:C.border}`,borderLeft:`4px solid ${setor.color}`,borderRadius:8,padding:"9px 10px",background:todas?`${setor.color}08`:C.surface}}>
-                <button onClick={()=>toggleSetor(setor)} style={{display:"flex",width:"100%",justifyContent:"space-between",alignItems:"center",gap:8,border:0,background:"transparent",cursor:"pointer",padding:0,textAlign:"left"}}><span style={{fontSize:11.5,fontWeight:900,color:setor.color}}>{setor.label.toUpperCase()}</span><span style={{fontSize:9,color:C.muted}}>{selecionadas}/{setor.tabs.length} · {todas?"DESMARCAR SETOR":"MARCAR SETOR"}</span></button>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:5,marginTop:7}}>{setor.tabs.map(([id,label])=>{const marcado=(form.accessTabs||[]).includes(id);return <label key={id} style={{display:"flex",alignItems:"center",gap:7,border:`1px solid ${marcado?setor.color:C.border}`,background:marcado?`${setor.color}0B`:C.bg,borderRadius:6,padding:"6px 8px",cursor:"pointer"}}><input type="checkbox" checked={marcado} onChange={()=>toggleTela(id)}/><span style={{fontSize:10.5,color:marcado?C.text:C.muted,fontWeight:marcado?700:500}}>{label}</span></label>;})}</div>
-              </div>;})}
-            </div>}
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
               <Btn onClick={saveUser} full><Ic n="check"/> Salvar</Btn>
@@ -9614,14 +8818,12 @@ const BDI_COMPONENTES_EDIF = {
 //   ~2.5 = paredes tem 2 faces e pe-direito (reboco, chapisco, pintura parede)
 // tol: tolerancia (fracao) antes de virar alerta.
 const FAMILIAS_DIM = [
-  // Regras especificas precisam vir antes das genericas: "contrapiso" contem
-  // "piso" e "pintura de forro" contem "forro".
-  { chave: "pintura_teto",termos: ["pintura de teto", "pintura forro", "massa corrida teto"], fator: 1.0, tol: 0.20, obs: "Pintura de teto segue a area construida." },
-  { chave: "contrapiso",  termos: ["contrapiso", "regularizacao de piso"], fator: 1.0, tol: 0.15, obs: "Contrapiso segue a area construida." },
-  { chave: "piso",        termos: ["piso", "porcelanato", "ceramica piso", "revestimento de piso"], fator: 1.0, tol: 0.15, obs: "Piso segue a area construida." },
   { chave: "forro",       termos: ["forro", "gesso"],                 fator: 1.0,  tol: 0.15, obs: "Forro segue de perto a area construida (menos vazios)." },
+  { chave: "piso",        termos: ["piso", "porcelanato", "ceramica piso", "revestimento de piso", "contrapiso"], fator: 1.0, tol: 0.15, obs: "Piso segue a area construida." },
   { chave: "laje",        termos: ["laje"],                           fator: 1.0,  tol: 0.20, obs: "Laje se aproxima da area construida por pavimento." },
   { chave: "cobertura",   termos: ["telha", "cobertura", "telhado"],  fator: 1.2,  tol: 0.25, obs: "Cobertura costuma ser um pouco maior que a area (beirais, caimento)." },
+  { chave: "contrapiso",  termos: ["contrapiso", "regularizacao de piso"], fator: 1.0, tol: 0.15, obs: "Contrapiso segue a area construida." },
+  { chave: "pintura_teto",termos: ["pintura de teto", "pintura forro", "massa corrida teto"], fator: 1.0, tol: 0.20, obs: "Pintura de teto segue a area construida." },
   { chave: "reboco",      termos: ["reboco", "emboco", "massa unica", "chapisco"], fator: 2.5, tol: 0.35, obs: "Paredes tem 2 faces e pe-direito: costuma ser ~2,5x a area." },
   { chave: "alvenaria",   termos: ["alvenaria", "vedacao", "tijolo", "bloco ceramico", "bloco de concreto"], fator: 2.2, tol: 0.40, obs: "Alvenaria acompanha o perimetro e o pe-direito." },
   { chave: "pintura_par", termos: ["pintura", "massa corrida", "textura"], fator: 2.5, tol: 0.40, obs: "Pintura de parede: 2 faces e pe-direito." },
@@ -9633,9 +8835,8 @@ const semAcentoDim = (s) => String(s || "").toLowerCase()
 // Classifica um item numa familia (a primeira que casar por termo).
 // So considera itens medidos em m2 (area).
 const familiaDoItem = (item) => {
-  const un = semAcentoDim(item.unidade).replace(/²/g, "2").replace(/[^a-z0-9]/g, "");
-  // Metro linear (m) nao e area e nao pode alimentar a conferencia em m2.
-  const ehArea = un === "m2";
+  const un = semAcentoDim(item.unidade).replace(/[^a-z0-9]/g, "");
+  const ehArea = un === "m2" || un === "m" || un.includes("m2");
   if (!ehArea) return null;
   const desc = semAcentoDim(item.descricao);
   // pintura de teto antes de pintura de parede (mais especifico primeiro)
@@ -9822,17 +9023,9 @@ const orcamentoDaObra = (data, obraId) =>
 
 
 // Monta as tarefas efetivas do Gantt: cada tarefa do plano, enriquecida com
-// nome e custo vindos da etapa do orcamento. A ordem visual e SEMPRE a mesma
-// do orcamento; datas diferentes nao podem reordenar o planejamento.
-const ordemEtapasOrcamento = (orc) => {
-  if (!orc) return [];
-  const arvore = construirArvore(orc.etapas || [], orc.itens || []);
-  return achatarArvore(arvore).filter(n => n.tipo === "etapa").map(n => n.id);
-};
-
+// nome e custo vindos da etapa do orcamento. Ordena por data de inicio.
 const montarTarefas = (plano, orc) => {
   if (!plano) return [];
-  const ordem = ordemEtapasOrcamento(orc);
   return (plano.tarefas || [])
     .map(t => {
       const etapa = (orc?.etapas || []).find(e => e.id === t.etapaId);
@@ -9847,12 +9040,7 @@ const montarTarefas = (plano, orc) => {
         orfa:  !!t.etapaId && !etapa,  // aponta para etapa que nao existe mais
       };
     })
-    .sort((a, b) => {
-      const ia = ordem.indexOf(a.etapaId), ib = ordem.indexOf(b.etapaId);
-      const oa = ia < 0 ? Number.MAX_SAFE_INTEGER : ia;
-      const ob = ib < 0 ? Number.MAX_SAFE_INTEGER : ib;
-      return oa - ob;
-    });
+    .sort((a, b) => (a.inicio || "9999").localeCompare(b.inicio || "9999"));
 };
 
 // Janela de tempo do plano: menor inicio e maior fim entre tarefas e marcos.
@@ -9924,16 +9112,7 @@ const diasUteis = (ini, fim, cal) => {
 // A partir de uma data, soma N dias UTEIS e devolve a data final.
 // Ex.: comeca sexta, +1 dia util com seg-sex -> segunda.
 const somaDiasUteis = (ini, nUteis, cal) => {
-  if (!ini || nUteis === 0) return ini;
-  if (nUteis < 0) {
-    let cur = ini, contados = 0, guard = 0;
-    while (contados < Math.abs(nUteis) && guard < 3660) {
-      cur = somaDias(cur, -1);
-      if (ehDiaUtil(cur, cal)) contados++;
-      guard++;
-    }
-    return cur;
-  }
+  if (!ini || nUteis <= 0) return ini;
   let cur = ini, contados = 0, guard = 0;
   // O proprio dia de inicio conta como 1 util se for util.
   if (ehDiaUtil(cur, cal)) contados = 1;
@@ -9944,21 +9123,6 @@ const somaDiasUteis = (ini, nUteis, cal) => {
   }
   return cur;
 };
-
-// Ajusta uma data para um dia trabalhado do calendario. E usado pela IA e
-// pelo arraste do Gantt para que barras nao comecem em domingo/feriado.
-const ajustarParaDiaUtil = (iso, cal, direcao = 1) => {
-  if (!iso) return "";
-  let cur = iso, guard = 0;
-  while (!ehDiaUtil(cur, cal) && guard < 3660) {
-    cur = somaDias(cur, direcao >= 0 ? 1 : -1);
-    guard++;
-  }
-  return cur;
-};
-
-const proximoDiaUtil = (iso, cal) =>
-  ajustarParaDiaUtil(somaDias(iso, 1), cal, 1);
 
 // ==============================================================
 //  IA - QUESTIONARIO DE PLANEJAMENTO
@@ -10000,107 +9164,45 @@ const faseDaEtapa = (nome) => {
   return null;
 };
 
-// Matriz tecnica de precedencias. Ela nao altera a ordem visual do orcamento;
-// apenas define quais servicos precisam estar liberados antes de outro iniciar.
-const REQUISITOS_FASE = {
-  fundacao:     ["preliminares"],
-  estrutura:    ["fundacao"],
-  alvenaria:    ["estrutura"],
-  cobertura:    ["estrutura"],
-  instalacoes:  ["alvenaria", "estrutura"],
-  revestimento: ["instalacoes", "alvenaria"],
-  esquadrias:   ["alvenaria"],
-  forro:        ["instalacoes"],
-  pintura:      ["revestimento", "forro"],
-  acabamento:   ["pintura", "revestimento"],
-  limpeza:      ["acabamento", "pintura"],
-};
-
-// Sugere antecessoras por boas praticas. Em modo sequencial, a antecessora e
-// simplesmente a atividade anterior. Com paralelismo, atividades da mesma
-// fase podem compartilhar os mesmos pre-requisitos e executar em conjunto.
-const sugerirDependenciasPlanejamento = (tarefas, orc, paralelo = true) => {
-  const executaveis = (tarefas || []).filter(t =>
-    !t.titulo && !(t.etapaId && etapaEhTitulo(orc, t.etapaId)));
-  const classificadas = executaveis.map(t => ({...t, fase:faseDaEtapa(t.nome)?.chave || "outros"}));
-  const resultado = {};
-  (tarefas || []).forEach(t => { resultado[t.id] = []; });
-
-  classificadas.forEach((t, i) => {
-    if (i === 0) return;
-    const anteriores = classificadas.slice(0, i);
-    if (!paralelo) {
-      resultado[t.id] = [anteriores[anteriores.length - 1].id];
-      return;
-    }
-    const requisitos = REQUISITOS_FASE[t.fase] || [];
-    const ids = requisitos.map(fase =>
-      [...anteriores].reverse().find(a => a.fase === fase)?.id).filter(Boolean);
-    // Etapa sem classificacao ou sem requisito encontrado permanece ligada a
-    // anterior imediata para nao criar uma atividade solta sem justificativa.
-    resultado[t.id] = [...new Set(ids.length ? ids : [anteriores[anteriores.length - 1].id])];
-  });
-  return resultado;
-};
-
-const idsSucessoras = (tarefas, tarefaId) =>
-  (tarefas || []).filter(t => (t.depende || []).includes(tarefaId)).map(t => t.id);
-
 
 // Monta o cronograma a partir das respostas. Deterministico:
-//  1) preserva a ordem do orcamento e classifica cada etapa apenas para estimar duracao;
+//  1) classifica cada etapa numa fase e ordena pela sequencia construtiva;
 //  2) distribui o prazo total proporcional ao peso de cada fase;
 //  3) calcula inicio/fim de cada tarefa no calendario de trabalho;
 //  4) se "paralelo=sim", sobrepoe parcialmente fases compativeis vizinhas.
 // Devolve { tarefas:[{etapaId, nome, inicio, fim, progresso}], resumo, avisos }.
 const montarCronogramaIA = (orc, respostas, calBase) => {
-  const todasEtapas = ordemEtapasOrcamento(orc)
-    .map(id => (orc?.etapas || []).find(e => e.id === id)).filter(Boolean);
-  if (!todasEtapas.length) return { tarefas: [], resumo: null, avisos: ["O orcamento nao tem etapas para planejar."] };
-  // Titulos puros nao consomem prazo proprio: suas datas sao o roll-up dos
-  // filhos. Distribuir dias para eles duplicava tempo e distorcia o limite.
-  const etapas = todasEtapas.filter(e => !etapaEhTitulo(orc, e.id));
+  const etapas = (orc?.etapas || []);
+  if (!etapas.length) return { tarefas: [], resumo: null, avisos: ["O orcamento nao tem etapas para planejar."] };
 
-  const inicioInformado = respostas.inicio || today();
+  const inicio = respostas.inicio || today();
   const prazoMeses = Math.max(1, Number(respostas.prazoMeses || 6));
   const diasSemanaN = Number(respostas.diasSemana || 6);
   const diasSemana = diasSemanaN === 5 ? [1,2,3,4,5] : [1,2,3,4,5,6];
   const cal = { ...calBase, diasSemana };
-  const inicio = ajustarParaDiaUtil(inicioInformado, cal, 1);
   const paralelo = respostas.paralelo === "sim";
   const ritmo = respostas.ritmo || "normal";
 
-  // Classifica somente para ponderar duracoes. A posicao de cada etapa continua
-  // exatamente igual a do orcamento, inclusive quando a boa pratica sugeriria
-  // outra sequencia: a IA pode alertar, mas nao reordenar.
+  // Fator de ritmo: folgado estica, apertado comprime as duracoes.
+  const fatorRitmo = ritmo === "folgado" ? 1.15 : ritmo === "apertado" ? 0.85 : 1.0;
+
+  // Classifica e ordena as etapas pela sequencia construtiva. Etapas sem
+  // fase reconhecida vao para o fim, mantendo a ordem original.
   const comFase = etapas.map((e, i) => {
     const fase = faseDaEtapa(e.nome);
     return { etapa: e, fase, ordem: fase ? fase.ordem : 99, peso: fase ? fase.peso : 1.0, idxOrig: i };
-  });
+  }).sort((a, b) => a.ordem - b.ordem || a.idxOrig - b.idxOrig);
 
-  // O prazo e uma restricao, nao um multiplicador. Obtemos a data limite em
-  // dias corridos e contamos exatamente os dias de trabalho dentro dela.
-  const prazoAlvoDias = Math.max(1, Math.round(prazoMeses * 30));
-  const fimAlvo = somaDias(inicioInformado, prazoAlvoDias - 1);
-  const prazoDiasUteis = Math.max(1, diasUteis(inicio, fimAlvo, cal));
+  // Prazo total em dias uteis dentro do calendario.
+  const prazoDiasUteis = Math.max(comFase.length, Math.round(prazoMeses * 22 * (diasSemanaN / 6)));
 
   // Distribui os dias uteis proporcional ao peso.
   const pesoTotal = comFase.reduce((s, c) => s + c.peso, 0);
   const avisos = [];
 
-  // O ritmo define reserva sem autorizar estouro: normal ocupa a janela;
-  // folgado guarda 10% para contingencia; apertado planeja 15% antes.
-  const fatorUso = ritmo === "folgado" ? 0.90 : ritmo === "apertado" ? 0.85 : 1;
-  const diasDistribuir = Math.max(comFase.length, Math.floor(prazoDiasUteis * fatorUso));
+  // Duracao de cada tarefa (minimo 2 dias uteis).
   comFase.forEach(c => {
-    const exato = (c.peso / pesoTotal) * diasDistribuir;
-    c.diasUteis = Math.max(1, Math.floor(exato));
-    c.resto = exato - Math.floor(exato);
-  });
-  // Corrige o arredondamento para a soma coincidir com a janela planejada.
-  let faltam = diasDistribuir - comFase.reduce((s, c) => s + c.diasUteis, 0);
-  [...comFase].sort((a,b) => b.resto - a.resto).forEach(c => {
-    if (faltam > 0) { c.diasUteis++; faltam--; }
+    c.diasUteis = Math.max(2, Math.round((c.peso / pesoTotal) * prazoDiasUteis * fatorRitmo));
   });
 
   // Encadeia as datas. Sem paralelismo: cada tarefa comeca quando a anterior
@@ -10113,10 +9215,7 @@ const montarCronogramaIA = (orc, respostas, calBase) => {
 
   comFase.forEach((c, i) => {
     let ini = cursor;
-    const faseAtual = c.fase?.chave || "outros";
-    const faseAnterior = tarefas[i-1]?._fase || "outros";
-    const exigeAnterior = (REQUISITOS_FASE[faseAtual] || []).includes(faseAnterior);
-    if (paralelo && i > 0 && Math.abs(c.ordem - ordemAnterior) <= 1 && c.ordem !== 99 && !exigeAnterior) {
+    if (paralelo && i > 0 && Math.abs(c.ordem - ordemAnterior) <= 1 && c.ordem !== 99) {
       // Sobrepoe 40%: comeca antes de a anterior terminar.
       const recuar = Math.round((tarefas[i-1]?._diasUteis || c.diasUteis) * 0.4);
       ini = somaDiasUteis(fimAnterior, -recuar, cal);
@@ -10130,58 +9229,36 @@ const montarCronogramaIA = (orc, respostas, calBase) => {
       _diasUteis: c.diasUteis, _fase: c.fase?.chave || "outros",
     });
     fimAnterior = fim;
-    cursor = proximoDiaUtil(fim, cal);
+    cursor = fim;
     ordemAnterior = c.ordem;
   });
 
   // Avisos de boas praticas.
   const semFase = comFase.filter(c => !c.fase);
   if (semFase.length) {
-    avisos.push(`${semFase.length} etapa(s) sem fase reconhecida mantiveram a posicao original - confira as duracoes: ${semFase.slice(0,3).map(c=>c.etapa.nome).join(", ")}${semFase.length>3?"...":""}.`);
+    avisos.push(`${semFase.length} etapa(s) sem fase reconhecida foram colocadas ao final - confira a ordem: ${semFase.slice(0,3).map(c=>c.etapa.nome).join(", ")}${semFase.length>3?"...":""}.`);
   }
   const temFundacao = comFase.some(c => c.fase?.chave === "fundacao");
   const temEstrutura = comFase.some(c => c.fase?.chave === "estrutura");
   if (temEstrutura && !temFundacao) avisos.push("Ha estrutura mas nenhuma etapa de fundacao foi identificada - verifique.");
   if (paralelo) avisos.push("Servicos compativeis foram sobrepostos para ganhar prazo - garanta equipe suficiente para as frentes simultaneas.");
-  if (inicio !== inicioInformado) avisos.push(`A data inicial caiu em dia nao trabalhado e foi ajustada para ${fmtDate(inicio)}.`);
-  if (prazoDiasUteis < comFase.length && !paralelo) avisos.push("O prazo possui menos dias uteis que etapas; revise o prazo ou permita frentes paralelas.");
-  if (cal.pularFeriados && (cal.feriados || []).length) avisos.push(`${(cal.feriados || []).filter(f => f.data >= inicio && f.data <= fimAlvo).length} feriado(s) da janela foram retirados dos dias de trabalho.`);
 
-  // Recoloca os titulos na ordem original, com inicio/fim derivados de todas
-  // as tarefas descendentes. Assim a ordem continua identica ao orcamento.
-  const porEtapa = new Map(tarefas.map(t => [t.etapaId, t]));
-  const tarefasOrdenadas = todasEtapas.map(e => {
-    const efetiva = porEtapa.get(e.id);
-    if (efetiva) return efetiva;
-    const descendentes = idsDaSubarvore(orc.etapas || [], e.id).filter(id => id !== e.id);
-    const filhas = tarefas.filter(t => descendentes.includes(t.etapaId));
-    const ini = filhas.reduce((m,t) => !m || t.inicio < m ? t.inicio : m, inicio);
-    const fim = filhas.reduce((m,t) => !m || t.fim > m ? t.fim : m, ini);
-    return { etapaId:e.id, nome:e.nome, inicio:ini, fim, progresso:0, _diasUteis:0, _fase:"titulo" };
-  });
-  const fimObra = tarefasOrdenadas.reduce((m,t) => !m || t.fim > m ? t.fim : m, inicio);
+  const fimObra = tarefas.length ? tarefas[tarefas.length - 1].fim : inicio;
   // Limpa campos internos.
-  const tarefasLimpa = tarefasOrdenadas.map(({ _diasUteis, _fase, ...t }) => t);
+  const tarefasLimpa = tarefas.map(({ _diasUteis, _fase, ...t }) => t);
 
   return {
     tarefas: tarefasLimpa,
     resumo: {
       inicio, fim: fimObra,
       diasCorridos: diasCorridos(inicio, fimObra),
-      nEtapas: tarefasOrdenadas.length,
+      nEtapas: tarefas.length,
       diasSemana: diasSemanaN,
-      dentroDoPrazo: fimObra <= fimAlvo,
-      prazoAlvoDias,
-      fimAlvo,
-      diasUteisProjeto: diasUteis(inicio, fimObra, cal),
-      diasUteisDisponiveis: prazoDiasUteis,
-      feriadosConsiderados: cal.pularFeriados
-        ? (cal.feriados || []).filter(f => f.data >= inicio && f.data <= fimAlvo).length
-        : 0,
+      dentroDoPrazo: diasCorridos(inicio, fimObra) <= prazoMeses * 30 * 1.05,
+      prazoAlvoDias: Math.round(prazoMeses * 30),
     },
     avisos,
     diasSemana,
-    calendario: { diasSemana, pularFeriados: !!cal.pularFeriados, feriados: cal.feriados || [] },
   };
 };
 
@@ -10538,133 +9615,21 @@ const calcOrcamento = (orc) => {
   return { custoDireto, valorBDI, total, porM2, arvore, qtdItens: reais.length };
 };
 
-//  CURVA ABC 
-//  Principio de Pareto aplicado a orcamento: poucos itens respondem pela maior
-//  parte do custo. Ordena os itens por custo decrescente, acumula o percentual
-//  e corta em faixas:
-//    A - ate 80% do valor acumulado  (poucos itens, quase todo o dinheiro)
-//    B - de 80% a 95%
-//    C - o restante (muitos itens, pouco valor)
-//  Itens repetidos (mesmo codigo em etapas diferentes) sao agrupados, senao a
-//  curva mente: o mesmo servico apareceria varias vezes com valor fatiado.
-const CLASSE_ABC = { A:{ cor:"#C62828", limite:80 }, B:{ cor:"#EF6C00", limite:95 }, C:{ cor:"#2E7D32", limite:100 } };
-const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
-
-const calcCurvaABCOrc = (orc, calc, { agrupar = true } = {}) => {
-  const bdiMult = 1 + Number(orc.bdi||0)/100;
-  const reais = achatarArvore(calc.arvore)
-    .filter(n => n.tipo !== "etapa" && !ehTitulo(n) && Number(n.quantidade||0) * Number(n.precoUnit||0) > 0);
-
-  let linhas;
-  if (agrupar) {
-    const mapa = new Map();
-    reais.forEach(n => {
-      // Sem codigo (produto avulso), a descricao e a identidade do item.
-      const chave = (n.codigo || `~${(n.descricao||"").trim().toLowerCase()}`) + "|" + (n.unidade||"");
-      const custo = Number(n.quantidade||0) * Number(n.precoUnit||0);
-      const ex = mapa.get(chave);
-      if (ex) {
-        ex.quantidade += Number(n.quantidade||0);
-        ex.custoDireto += custo;
-        ex.ocorrencias += 1;
-      } else {
-        mapa.set(chave, {
-          codigo: n.codigo || "", fonte: n.fonte || "", descricao: n.descricao || "",
-          unidade: n.unidade || "", quantidade: Number(n.quantidade||0),
-          precoUnit: Number(n.precoUnit||0), custoDireto: custo, ocorrencias: 1,
-        });
-      }
-    });
-    linhas = [...mapa.values()];
-  } else {
-    linhas = reais.map(n => ({
-      codigo: n.codigo || "", fonte: n.fonte || "", descricao: n.descricao || "",
-      unidade: n.unidade || "", quantidade: Number(n.quantidade||0),
-      precoUnit: Number(n.precoUnit||0),
-      custoDireto: Number(n.quantidade||0) * Number(n.precoUnit||0), ocorrencias: 1,
-    }));
-  }
-
-  const totalCD = linhas.reduce((s,l) => s + l.custoDireto, 0);
-  linhas.sort((a,b) => b.custoDireto - a.custoDireto);
-
-  let acum = 0;
-  const itens = linhas.map((l, i) => {
-    const pct = totalCD > 0 ? (l.custoDireto/totalCD)*100 : 0;
-    // A classe olha o acumulado ANTES deste item: quem cruza a fronteira dos 80%
-    // ainda e A. Se olhasse o acumulado depois, um orcamento onde o primeiro
-    // item ja passa de 80% ficaria com a classe A VAZIA - justo o item que mais
-    // pesa cairia em B, que e o oposto do que a curva serve para mostrar.
-    const classe = acum < CLASSE_ABC.A.limite ? "A" : acum < CLASSE_ABC.B.limite ? "B" : "C";
-    acum += pct;
-    return { ...l, ordem: i+1, total: l.custoDireto * bdiMult, pct, pctAcum: Math.min(acum, 100), classe };
-  });
-
-  const resumo = ["A","B","C"].map(c => {
-    const g = itens.filter(i => i.classe === c);
-    const cd = g.reduce((s,i) => s + i.custoDireto, 0);
-    return {
-      classe: c, cor: CLASSE_ABC[c].cor, qtd: g.length,
-      custoDireto: cd, total: cd * bdiMult,
-      pctValor: totalCD > 0 ? (cd/totalCD)*100 : 0,
-      pctItens: itens.length > 0 ? (g.length/itens.length)*100 : 0,
-    };
-  });
-
-  return { itens, resumo, totalCD, totalComBDI: totalCD * bdiMult };
-};
-
 function Orcamento({ data, update, showToast }) {
   const { cols, formGrid } = useBreakpoint();
-  const dataAtualRef = useRef(data);
   const [view,      setView]      = useState("lista");   // "lista" | "editor"
-  const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias
   const [selOrc,    setSelOrc]    = useState(null);      // id do orçamento aberto
   const [baseImport,setBaseImport]= useState([]);        // base SINAPI/ORSE em memória
   const [baseNome,  setBaseNome]  = useState("");
   const [baseInfo,  setBaseInfo]  = useState(null);      // metadados da base importada
   const [importando,setImportando]= useState(false);     // spinner durante o parse
-  const [basesRemotas, setBasesRemotas] = useState([]);
-  const [basesCarregando, setBasesCarregando] = useState(false);
-  const [sinapiUf, setSinapiUf] = useState("PE");
-  const [orseDataBase, setOrseDataBase] = useState(today().slice(0, 7));
-  const [baseParaVincular, setBaseParaVincular] = useState("");
-  const [uploadProgresso, setUploadProgresso] = useState(0);
-  const [resultadosRemotos, setResultadosRemotos] = useState([]);
-  const [buscaRemotaLoading, setBuscaRemotaLoading] = useState(false);
-  const [buscaRemotaAviso, setBuscaRemotaAviso] = useState("");
-  const [atualizandoPrecos, setAtualizandoPrecos] = useState(false);
-  const [codigoAtualizando, setCodigoAtualizando] = useState("");
-  const [componentesDetalhados,setComponentesDetalhados]=useState([]);
-  const [detalhesLoading,setDetalhesLoading]=useState(false);
-  const [detalhesAviso,setDetalhesAviso]=useState("");
-  const [abcTipo,setAbcTipo]=useState("insumos");
-  const [abcInsumoFiltro,setAbcInsumoFiltro]=useState("todas");
-  const [compForm,setCompForm]=useState({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});
-  const [clonandoComposicao,setClonandoComposicao]=useState("");
-  const [compBusca,setCompBusca]=useState("");
-  const [compBuscaDebounced,setCompBuscaDebounced]=useState("");
-  const [compResultados,setCompResultados]=useState([]);
-  const [compBuscaLoading,setCompBuscaLoading]=useState(false);
-  const [compBuscaAviso,setCompBuscaAviso]=useState("");
-  const [compTipoBusca,setCompTipoBusca]=useState("TODOS");
-  const [analiseReferencia,setAnaliseReferencia]=useState(null);
-  const [analiseComponentes,setAnaliseComponentes]=useState([]);
-  const [analiseReferenciaLoading,setAnaliseReferenciaLoading]=useState(false);
-  const [analiseReferenciaAviso,setAnaliseReferenciaAviso]=useState("");
   const [buscaModal,setBuscaModal]= useState(false);
   const [busca,     setBusca]     = useState("");
-  const [buscaLinha, setBuscaLinha] = useState({itemId:"", termo:""});
-  const [buscaLinhaDebounced, setBuscaLinhaDebounced] = useState("");
-  const [resultadosLinhaRemotos, setResultadosLinhaRemotos] = useState([]);
-  const [buscaLinhaLoading, setBuscaLinhaLoading] = useState(false);
-  const [buscaLinhaAviso, setBuscaLinhaAviso] = useState("");
   // O campo responde na hora; a filtragem dos 17 mil itens espera a digitação
   // parar. Sem isso, cada tecla dispara uma varredura completa e o input trava.
   const [buscaDebounced, setBuscaDebounced] = useState("");
   const [etapaAlvo, setEtapaAlvo] = useState("");
   const [novoModal, setNovoModal] = useState(false);
-  const [editMetaModal, setEditMetaModal] = useState(false);
   const [mapModal,  setMapModal]  = useState(null);      // {headers, rows} p/ mapear colunas
   const [colMap,    setColMap]    = useState({ codigo:"", descricao:"", unidade:"", preco:"" });
   // Conferencia dimensional (IA): painel aberto e resposta da IA.
@@ -10673,19 +9638,8 @@ function Orcamento({ data, update, showToast }) {
   const [confIALoad,  setConfIALoad] = useState(false);
   const [qtdModal,  setQtdModal]  = useState(null);      // item selecionado p/ informar qtd
   const [qtd,       setQtd]       = useState("");
-  const [editItem,  setEditItem]  = useState(null);
-  const [externoModal, setExternoModal] = useState(false);
-  const [externoForm, setExternoForm] = useState({codigo:"",fonte:"EXTERNO",descricao:"",unidade:"UN",quantidade:"",precoUnit:"",composicao:""});
   const [etapaModal,setEtapaModal]= useState(null);   // {modo:"novo"|"sub"|"editar", paiId, etapa}
   const [etapaNome, setEtapaNome] = useState("");
-  const [etapasFechadas, setEtapasFechadas] = useState({});
-  // Curva ABC: painel aberto, agrupamento por codigo e classe filtrada.
-  const [abcAberta,  setAbcAberta]  = useState(false);
-  const [abcAgrupar, setAbcAgrupar] = useState(true);
-  const [abcFiltro,  setAbcFiltro]  = useState("todas");   // "todas" | "A" | "B" | "C"
-  // Importacao do orcamento (codigo + qtd) cruzada com a base.
-  const [impModal, setImpModal] = useState(null);   // {linhas, stats, substituir, incluirPend}
-  const [impLoad,  setImpLoad]  = useState(false);
   const [bdiModal,  setBdiModal]  = useState(false);
   const [bdiAba,    setBdiAba]    = useState("faixa");   // "faixa" | "detalhado"
   const [bdiTipo,   setBdiTipo]   = useState("edificios");
@@ -10695,29 +9649,10 @@ function Orcamento({ data, update, showToast }) {
     const t = setTimeout(() => setBuscaDebounced(busca), 140);
     return () => clearTimeout(t);
   }, [busca]);
-  useEffect(() => {
-    const t = setTimeout(() => setBuscaLinhaDebounced(buscaLinha.termo), 180);
-    return () => clearTimeout(t);
-  }, [buscaLinha.termo]);
-  useEffect(() => {
-    const t=setTimeout(()=>setCompBuscaDebounced(compBusca),220);
-    return()=>clearTimeout(t);
-  },[compBusca]);
-  useEffect(() => { dataAtualRef.current = data; }, [data]);
-
-  const carregarBasesRemotas = useCallback(async () => {
-    setBasesCarregando(true);
-    const result = await listarBasesReferencia();
-    if (result.ok) setBasesRemotas(result.bases || []);
-    else if (result.status !== 401) showToast(result.error || "Não foi possível carregar as bases do Supabase.", "warn");
-    setBasesCarregando(false);
-  }, [showToast]);
-
-  useEffect(() => { carregarBasesRemotas(); }, [carregarBasesRemotas]);
 
   const emptyOrc = {
-    nome:"", descricao:"", obraId:"", cliente:"", local:"", areaM2:"",
-    fonte:"SINAPI", dataBase:"", uf:"PE", referencias:[], desonerado:true, bdi:"23.25",
+    nome:"", obraId:"", cliente:"", local:"", areaM2:"",
+    fonte:"SINAPI", dataBase:"", uf:"PE", desonerado:true, bdi:"23.25",
   };
   const [form, setForm] = useState(emptyOrc);
   const F = k => v => setForm(f=>({...f,[k]:v}));
@@ -10725,52 +9660,6 @@ function Orcamento({ data, update, showToast }) {
   const orcamentos = data.orcamentos || [];
   const orc = orcamentos.find(o => o.id === selOrc);
   const calc = useMemo(() => orc ? calcOrcamento(orc) : null, [orc]);
-  const composicoesEmpresa = useMemo(()=>{
-    const mapa=new Map();
-    [...(data.composicoesEmpresa||[]),...(orc?.composicoesProprias||[])].forEach(comp=>mapa.set(comp.id||`${comp.codigo}`,comp));
-    return[...mapa.values()];
-  },[data.composicoesEmpresa,orc?.composicoesProprias]);
-  const referenciaKey = (orc?.referencias || []).join("|");
-  const basesVinculadas = useMemo(() => {
-    const ids = new Set(orc?.referencias || []);
-    return basesRemotas.filter(base => ids.has(base.id));
-  }, [basesRemotas, referenciaKey]);
-  const basesDisponiveis = useMemo(() => {
-    const ids = new Set(orc?.referencias || []);
-    return basesRemotas.filter(base => !ids.has(base.id) && base.status === "ready");
-  }, [basesRemotas, referenciaKey]);
-
-  useEffect(() => {
-    if (!orc) return;
-    setSinapiUf(orc.uf || "PE");
-    const orse = basesRemotas.find(base => (orc.referencias || []).includes(base.id) && base.fonte === "ORSE");
-    if (orse?.dataBase) setOrseDataBase(orse.dataBase);
-  }, [selOrc, basesRemotas]);
-
-  useEffect(() => {
-    let ativo = true;
-    const term = buscaDebounced.trim();
-    if (!buscaModal || !orc || term.length < 2 || !(orc.referencias || []).length) {
-      setResultadosRemotos([]); setBuscaRemotaAviso(""); setBuscaRemotaLoading(false);
-      return () => { ativo = false; };
-    }
-    setBuscaRemotaLoading(true);
-    const timer = window.setTimeout(async () => {
-      const result = await pesquisarBasesReferencia(orc.referencias || [], term);
-      if (!ativo) return;
-      if (result.ok) { setResultadosRemotos(result.items || []); setBuscaRemotaAviso(result.warning || ""); }
-      else { setResultadosRemotos([]); setBuscaRemotaAviso(result.error || "Falha na pesquisa das bases cadastradas."); }
-      setBuscaRemotaLoading(false);
-    }, 280);
-    return () => { ativo = false; window.clearTimeout(timer); };
-  }, [buscaDebounced, buscaModal, referenciaKey, selOrc]);
-
-  // A curva so e recalculada quando o orcamento ou o agrupamento mudam -
-  // ordenar milhares de itens a cada render travaria a tela.
-  const abc = useMemo(
-    () => (orc && calc) ? calcCurvaABCOrc(orc, calc, { agrupar: abcAgrupar }) : null,
-    [orc, calc, abcAgrupar]
-  );
 
   // Area de referencia para a conferencia dimensional: a do orcamento; se ela
   // nao existir, cai na area construida da obra vinculada.
@@ -10807,7 +9696,6 @@ function Orcamento({ data, update, showToast }) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
-      if (!r.ok) throw new Error(`IA respondeu ${r.status}`);
       const j = await r.json();
       setConfIA(j.reply || j.text || j.message || "Sem resposta da IA.");
     } catch (e) {
@@ -10831,18 +9719,7 @@ function Orcamento({ data, update, showToast }) {
     if (typeof v === "number") return v;
     const s = String(v ?? "").trim();
     if (!s) return 0;
-    const limpo = s.replace(/[^\d,.-]/g, "");
-    const ultimaVirgula = limpo.lastIndexOf(",");
-    const ultimoPonto = limpo.lastIndexOf(".");
-    let normalizado = limpo;
-    if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
-      normalizado = ultimaVirgula > ultimoPonto
-        ? limpo.replace(/\./g, "").replace(",", ".")
-        : limpo.replace(/,/g, "");
-    } else if (ultimaVirgula >= 0) {
-      normalizado = limpo.replace(/\./g, "").replace(",", ".");
-    }
-    const n = Number(normalizado);
+    const n = Number(s.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, ""));
     return isNaN(n) ? 0 : n;
   };
 
@@ -10907,194 +9784,6 @@ function Orcamento({ data, update, showToast }) {
     return out;
   };
 
-  const extrairSinapiOficial = (wb, uf) => {
-    const nomeAba = alvo => wb.SheetNames.find(nome => semAcento(nome).replace(/\s/g, "") === alvo.toLowerCase());
-    const lerAba = (alvo, campoPreco) => {
-      const nome = nomeAba(alvo);
-      if (!nome) return { itens: [], dataBase: "" };
-      const sheet = wb.Sheets[nome];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:"", raw:true });
-      const headerRow = rows.findIndex(row => {
-        const text = row.map(v => String(v || "").toUpperCase().replace(/\n/g, " ")).join(" | ");
-        return /C[ÓO]DIGO/.test(text) && /DESCRI/.test(text) && /UNIDADE/.test(text);
-      });
-      if (headerRow < 0) return { itens: [], dataBase: "" };
-      let ufColumn = -1;
-      for (let r = headerRow - 1; r >= 0 && ufColumn < 0; r--) {
-        ufColumn = (rows[r] || []).findIndex(value => String(value || "").trim().toUpperCase() === uf);
-      }
-      if (ufColumn < 0) return { itens: [], dataBase: "" };
-      const header = (rows[headerRow] || []).map(value => semAcento(value).toUpperCase().replace(/\n/g, " "));
-      const codigoColumn = header.findIndex(value => value.includes("CODIGO"));
-      const descricaoColumn = header.findIndex(value => value.includes("DESCRI"));
-      const unidadeColumn = header.findIndex(value => value.includes("UNIDADE"));
-      if ([codigoColumn, descricaoColumn, unidadeColumn].some(index => index < 0)) return { itens: [], dataBase: "" };
-      const itens = [];
-      for (let r = headerRow + 1; r < rows.length; r++) {
-        const row = rows[r] || [];
-        let codigo = String(row[codigoColumn] ?? "").trim().replace(/\.0$/, "");
-        if (ehLixo(codigo)) {
-          const cell = sheet[XLSX.utils.encode_cell({ r, c:codigoColumn })];
-          const matchCodigo = String(cell?.f || "").match(/MATCH\s*\(\s*(\d+)/i);
-          if (matchCodigo) codigo = matchCodigo[1];
-        }
-        const descricao = String(row[descricaoColumn] ?? "").trim();
-        const preco = parseBR(row[ufColumn]);
-        if (ehLixo(codigo) || ehLixo(descricao) || preco <= 0) continue;
-        itens.push({ fonte:"SINAPI", codigo, descricao,
-          unidade:String(row[unidadeColumn] ?? "UN").trim() || "UN",
-          precoDes:campoPreco === "precoDes" ? preco : 0,
-          precoNao:campoPreco === "precoNao" ? preco : 0 });
-      }
-      let dataBase = "";
-      rows.slice(0, headerRow).flat().some(value => {
-        const match = String(value || "").trim().match(/^(0[1-9]|1[0-2])\/(\d{4})$/);
-        if (!match) return false;
-        dataBase = `${match[2]}-${match[1]}`;
-        return true;
-      });
-      return { itens, dataBase };
-    };
-    const lerInsumos = (alvo, campoPreco) => {
-      const nome = nomeAba(alvo);
-      if (!nome) return [];
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[nome], {header:1,defval:"",raw:true});
-      const headerRow = rows.findIndex(row => {
-        const text = row.map(value=>semAcento(value).toUpperCase()).join(" | ");
-        return text.includes("CODIGO DO") && text.includes("INSUMO") && text.includes("DESCRICAO DO INSUMO");
-      });
-      if (headerRow < 0) return [];
-      let ufColumn = -1;
-      for (let r=headerRow-1;r>=0 && ufColumn<0;r--) {
-        ufColumn=(rows[r]||[]).findIndex(value=>String(value||"").trim().toUpperCase()===uf);
-      }
-      if (ufColumn < 0) return [];
-      const header=(rows[headerRow]||[]).map(value=>semAcento(value).toUpperCase().replace(/\n/g," "));
-      const classColumn=header.findIndex(value=>value.includes("CLASSIFIC"));
-      const codeColumn=header.findIndex(value=>value.includes("CODIGO") && value.includes("INSUMO"));
-      const descColumn=header.findIndex(value=>value.includes("DESCRICAO") && value.includes("INSUMO"));
-      const unitColumn=header.findIndex(value=>value.includes("UNIDADE"));
-      if ([codeColumn,descColumn,unitColumn].some(index=>index<0)) return [];
-      return rows.slice(headerRow+1).map(row=>({
-        fonte:"SINAPI",codigo:String(row[codeColumn]??"").trim().replace(/\.0$/, ""),
-        descricao:String(row[descColumn]??"").trim(),unidade:String(row[unitColumn]??"UN").trim()||"UN",
-        classificacao:classColumn>=0?String(row[classColumn]??"").trim():"",
-        precoDes:campoPreco==="precoDes"?parseBR(row[ufColumn]):0,
-        precoNao:campoPreco==="precoNao"?parseBR(row[ufColumn]):0,
-      })).filter(item=>!ehLixo(item.codigo)&&!ehLixo(item.descricao)&&(item.precoDes>0||item.precoNao>0));
-    };
-    const lerAnalitico = () => {
-      const nome = wb.SheetNames.find(sheet=>semAcento(sheet).toLowerCase().trim()==="analitico");
-      if (!nome) return [];
-      const rows=XLSX.utils.sheet_to_json(wb.Sheets[nome],{header:1,defval:"",raw:true});
-      const headerRow=rows.findIndex(row=>{
-        const text=row.map(value=>semAcento(value).toUpperCase().replace(/\n/g," ")).join(" | ");
-        return text.includes("CODIGO DA COMPOSICAO") && text.includes("TIPO ITEM") && text.includes("COEFICIENTE");
-      });
-      if(headerRow<0) return [];
-      const header=(rows[headerRow]||[]).map(value=>semAcento(value).toUpperCase().replace(/\n/g," "));
-      const compositionColumn=header.findIndex(value=>value.includes("CODIGO DA COMPOSICAO"));
-      const typeColumn=header.findIndex(value=>value.includes("TIPO ITEM"));
-      const itemColumn=header.findIndex(value=>value.includes("CODIGO DO ITEM"));
-      const descColumn=header.findIndex(value=>value==="DESCRICAO"||value.startsWith("DESCRICAO "));
-      const unitColumn=header.findIndex(value=>value==="UNIDADE");
-      const coefficientColumn=header.findIndex(value=>value.includes("COEFICIENTE"));
-      const situationColumn=header.findIndex(value=>value.includes("SITUAC"));
-      return rows.slice(headerRow+1).map(row=>({
-        compositionCode:String(row[compositionColumn]??"").trim().replace(/\.0$/, ""),
-        itemType:semAcento(row[typeColumn]).toUpperCase()==="COMPOSICAO"?"COMPOSICAO":"INSUMO",
-        itemCode:String(row[itemColumn]??"").trim().replace(/\.0$/, ""),
-        descricao:String(row[descColumn]??"").trim(),unidade:String(row[unitColumn]??"UN").trim()||"UN",
-        coeficiente:parseBR(row[coefficientColumn]),situacao:situationColumn>=0?String(row[situationColumn]??"").trim():"",
-      })).filter(item=>item.compositionCode&&item.itemCode&&item.descricao&&item.coeficiente>0);
-    };
-    const nao = lerAba("CSD", "precoNao");
-    const des = lerAba("CCD", "precoDes");
-    const merged = new Map();
-    [...nao.itens, ...des.itens].forEach(item => {
-      const atual = merged.get(item.codigo) || { ...item, precoDes:0, precoNao:0 };
-      merged.set(item.codigo, { ...atual, descricao:item.descricao || atual.descricao,
-        unidade:item.unidade || atual.unidade, precoDes:item.precoDes || atual.precoDes,
-        precoNao:item.precoNao || atual.precoNao });
-    });
-    const insumosMerged=new Map();
-    [...lerInsumos("ISD","precoNao"),...lerInsumos("ICD","precoDes")].forEach(item=>{
-      const atual=insumosMerged.get(item.codigo)||{...item,precoDes:0,precoNao:0};
-      insumosMerged.set(item.codigo,{...atual,descricao:item.descricao||atual.descricao,unidade:item.unidade||atual.unidade,
-        classificacao:item.classificacao||atual.classificacao,precoDes:item.precoDes||atual.precoDes,precoNao:item.precoNao||atual.precoNao});
-    });
-    return { itens:[...merged.values()], insumos:[...insumosMerged.values()], componentes:lerAnalitico(), dataBase:des.dataBase || nao.dataBase,
-      abas:[nao.itens.length ? "CSD" : "", des.itens.length ? "CCD" : ""].filter(Boolean) };
-  };
-
-  const importarSinapiSupabase = async file => {
-    if (!file || !orc) return;
-    setImportando(true); setUploadProgresso(1);
-    let baseCriada = null;
-    try {
-      const wb = XLSX.read(await file.arrayBuffer(), { type:"array" });
-      const extraida = extrairSinapiOficial(wb, sinapiUf);
-      if (!extraida.itens.length || !extraida.dataBase) throw new Error("Não encontrei as abas oficiais CSD/CCD, a competência ou a coluna da UF selecionada.");
-      const inicio = await iniciarBaseReferencia({ fonte:"SINAPI", dataBase:extraida.dataBase, uf:sinapiUf,
-        desonerado:orc.desonerado !== false, arquivo:file.name });
-      if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível iniciar a base no Supabase.");
-      baseCriada = inicio.base;
-      const lote = 350;
-      const totalLinhas=extraida.itens.length+extraida.insumos.length+extraida.componentes.length;
-      let enviados=0;
-      for (let i = 0; i < extraida.itens.length; i += lote) {
-        const envio = await enviarLoteReferencia(baseCriada.id, extraida.itens.slice(i, i + lote));
-        if (!envio.ok) throw new Error(envio.error || `Falha no lote ${Math.floor(i / lote) + 1}.`);
-        enviados+=Math.min(lote,extraida.itens.length-i); setUploadProgresso(Math.min(96,Math.round((enviados/totalLinhas)*95)));
-      }
-      for (let i=0;i<extraida.insumos.length;i+=lote) {
-        const envio=await enviarLoteInsumosReferencia(baseCriada.id,extraida.insumos.slice(i,i+lote));
-        if(!envio.ok) throw new Error(envio.error||`Falha ao enviar insumos, lote ${Math.floor(i/lote)+1}.`);
-        enviados+=Math.min(lote,extraida.insumos.length-i); setUploadProgresso(Math.min(96,Math.round((enviados/totalLinhas)*95)));
-      }
-      for (let i=0;i<extraida.componentes.length;i+=lote) {
-        const envio=await enviarLoteComponentesReferencia(baseCriada.id,extraida.componentes.slice(i,i+lote));
-        if(!envio.ok) throw new Error(envio.error||`Falha ao enviar analítico, lote ${Math.floor(i/lote)+1}.`);
-        enviados+=Math.min(lote,extraida.componentes.length-i); setUploadProgresso(Math.min(96,Math.round((enviados/totalLinhas)*95)));
-      }
-      const fim = await finalizarBaseReferencia(baseCriada.id);
-      if (!fim.ok || !fim.base) throw new Error(fim.error || "Não foi possível finalizar a base.");
-      const refs = [...new Set([...(orc.referencias || []), fim.base.id])];
-      const temOrse = basesRemotas.some(base => refs.includes(base.id) && base.fonte === "ORSE");
-      salvarOrc({ referencias:refs, fonte:temOrse ? "MISTO" : "SINAPI", uf:sinapiUf, dataBase:extraida.dataBase });
-      setBaseImport(extraida.itens); setBaseNome(file.name);
-      setBaseInfo({ aba:extraida.abas.join(" + "), total:extraida.itens.length,
-        porFonte:{SINAPI:extraida.itens.length}, comDes:extraida.itens.filter(i=>i.precoDes>0).length,
-        comNao:extraida.itens.filter(i=>i.precoNao>0).length, dataBase:extraida.dataBase, localidade:sinapiUf });
-      setUploadProgresso(100); await carregarBasesRemotas();
-      showToast(`Base SINAPI ${extraida.dataBase} / ${sinapiUf} salva com ${extraida.itens.length.toLocaleString("pt-BR")} composições, ${extraida.insumos.length.toLocaleString("pt-BR")} insumos e analítico completo.`);
-    } catch (error) {
-      if (baseCriada?.id) await removerBaseReferencia(baseCriada.id).catch(() => null);
-      showToast(error?.message || "Falha ao enviar a base SINAPI.", "error");
-    } finally { setImportando(false); window.setTimeout(() => setUploadProgresso(0), 900); }
-  };
-
-  const cadastrarOrseSupabase = async file => {
-    if (!file || !orc) return;
-    setImportando(true);
-    try {
-      const nomeMatch = file.name.match(/(20\d{2})(0[1-9]|1[0-2])/);
-      const dataBase = nomeMatch ? `${nomeMatch[1]}-${nomeMatch[2]}` : orseDataBase;
-      if (!/^\d{4}-\d{2}$/.test(dataBase)) throw new Error("Informe a competência ORSE.");
-      const bytes = await file.arrayBuffer();
-      const digest = globalThis.crypto?.subtle ? await globalThis.crypto.subtle.digest("SHA-256", bytes) : null;
-      const hash = digest ? [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") : "";
-      const inicio = await iniciarBaseReferencia({ fonte:"ORSE", dataBase, arquivo:file.name, hash });
-      if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível cadastrar a referência ORSE.");
-      const refs = [...new Set([...(orc.referencias || []), inicio.base.id])];
-      const temSinapi = basesRemotas.some(base => refs.includes(base.id) && base.fonte === "SINAPI");
-      salvarOrc({ referencias:refs, fonte:temSinapi ? "MISTO" : "ORSE", dataBase:orc.dataBase || dataBase });
-      setOrseDataBase(dataBase); await carregarBasesRemotas();
-      showToast(`ORSE ${dataBase} vinculado. A pesquisa usará a base pública oficial da CEHOP.`);
-    } catch (error) { showToast(error?.message || "Falha ao cadastrar a referência ORSE.", "error"); }
-    finally { setImportando(false); }
-  };
-
   const importarXLSX = async (file) => {
     if (!file) return;
     setImportando(true);
@@ -11152,15 +9841,8 @@ function Orcamento({ data, update, showToast }) {
       setBaseNome(file.name);
       setBaseInfo({ aba, total: itens.length, porFonte, comDes, comNao, dataBase, localidade });
 
-      // Identifica automaticamente uma base mista e evita que exportações com
-      // itens ORSE sejam rotuladas globalmente como apenas SINAPI.
-      const temSinapi = Object.keys(porFonte).some(f => f.toUpperCase().startsWith("SINAPI"));
-      const temOrse = Object.keys(porFonte).some(f => f.toUpperCase() === "ORSE");
-      const fonteDetectada = temSinapi && temOrse ? "MISTO" : temOrse ? "ORSE" : temSinapi ? "SINAPI" : orc?.fonte;
-      if (orc) salvarOrc({
-        ...(!orc.dataBase && dataBase ? {dataBase} : {}),
-        ...(fonteDetectada ? {fonte:fonteDetectada} : {}),
-      });
+      // Preenche a data-base do orçamento se estiver vazia
+      if (orc && !orc.dataBase && dataBase) salvarOrc({ dataBase });
 
       showToast(`${itens.length.toLocaleString("pt-BR")} composições carregadas da aba "${aba}".`);
     } catch (e) {
@@ -11229,8 +9911,8 @@ function Orcamento({ data, update, showToast }) {
   //  Base de busca: importada + favoritos 
   const baseBusca = useMemo(() => {
     const favs = (data.baseFavoritos||[]).map(f => ({...f, _fav:true}));
-    const codesFav = new Set(favs.map(f=>`${f.fonte || "SINAPI"}:${f.codigo}`));
-    const imp = baseImport.filter(i => !codesFav.has(`${i.fonte || "SINAPI"}:${i.codigo}`));
+    const codesFav = new Set(favs.map(f=>f.codigo));
+    const imp = baseImport.filter(i => !codesFav.has(i.codigo));
     return [...favs, ...imp];
   }, [data.baseFavoritos, baseImport]);
 
@@ -11245,7 +9927,7 @@ function Orcamento({ data, update, showToast }) {
     [baseBusca]
   );
 
-  const resultadosLocais = useMemo(() => {
+  const resultados = useMemo(() => {
     const q = semAcento(buscaDebounced.trim());
     if (!q) return baseIndexada.filter(i => i._fav).slice(0, 50);
 
@@ -11280,90 +9962,6 @@ function Orcamento({ data, update, showToast }) {
     return comScore.slice(0, 60).map(x => x.i);
   }, [buscaDebounced, baseIndexada]);
 
-  const resultados = useMemo(() => {
-    const out = [], seen = new Set();
-    [...resultadosLocais, ...resultadosRemotos].forEach(item => {
-      const key = `${item.fonte || "SINAPI"}:${String(item.codigo || "").replace(/^0+(?=\d)/, "")}`;
-      if (!item.codigo || seen.has(key)) return;
-      seen.add(key); out.push(item);
-    });
-    return out.slice(0, 80);
-  }, [resultadosLocais, resultadosRemotos]);
-  const temBasePesquisa = baseBusca.length > 0 || basesVinculadas.length > 0;
-
-  // Pesquisa acionada dentro da propria coluna Descricao do orcamento.
-  const resultadosLinhaLocais = useMemo(() => {
-    const q = semAcento(buscaLinhaDebounced.trim());
-    if (!buscaLinha.itemId || q.length < 2) return [];
-    const termos = q.split(/\s+/).filter(Boolean);
-    return baseIndexada
-      .filter(item => termos.every(termo => item._q.includes(termo)))
-      .map(item => {
-        const pos = item._q.indexOf(q);
-        const codigoExato = semAcento(item.codigo) === q;
-        return {item, score:(codigoExato ? -10000 : 0) + (pos >= 0 ? pos - 3000 : 0) + Math.min(item.descricao.length / 20, 40) - (item._fav ? 500 : 0)};
-      })
-      .sort((a,b) => a.score - b.score)
-      .slice(0, 30)
-      .map(resultado => resultado.item);
-  }, [buscaLinha.itemId, buscaLinhaDebounced, baseIndexada]);
-
-  const resultadosLinha = useMemo(() => {
-    const lista = [], vistos = new Set();
-    [...resultadosLinhaLocais, ...resultadosLinhaRemotos].forEach(item => {
-      const codigo = String(item.codigo || "").trim().toUpperCase().replace(/^0+(?=\d)/, "");
-      const chave = `${item.fonte || "SINAPI"}:${codigo}`;
-      if (!item.codigo || vistos.has(chave)) return;
-      vistos.add(chave);
-      lista.push(item);
-    });
-    return lista.slice(0, 40);
-  }, [resultadosLinhaLocais, resultadosLinhaRemotos]);
-
-  useEffect(() => {
-    let ativo = true;
-    const termo = buscaLinhaDebounced.trim();
-    if (!buscaLinha.itemId || termo.length < 2 || !orc || !(orc.referencias || []).length) {
-      setResultadosLinhaRemotos([]);
-      setBuscaLinhaLoading(false);
-      setBuscaLinhaAviso("");
-      return () => { ativo = false; };
-    }
-    setBuscaLinhaLoading(true);
-    setBuscaLinhaAviso("");
-    const timer = window.setTimeout(async () => {
-      const resposta = await pesquisarBasesReferencia(orc.referencias, termo);
-      if (!ativo) return;
-      if (resposta.ok) {
-        setResultadosLinhaRemotos(resposta.items || []);
-        setBuscaLinhaAviso(resposta.warning || "");
-      } else {
-        setResultadosLinhaRemotos([]);
-        setBuscaLinhaAviso(resposta.error || "Falha ao pesquisar as bases vinculadas.");
-      }
-      setBuscaLinhaLoading(false);
-    }, 120);
-    return () => { ativo = false; window.clearTimeout(timer); };
-  }, [buscaLinha.itemId, buscaLinhaDebounced, referenciaKey, selOrc]);
-
-  useEffect(()=>{
-    let ativo=true;
-    const termo=compBuscaDebounced.trim();
-    if(!["proprias","insumos"].includes(orcAba)||!orc||termo.length<2||!(orc.referencias||[]).length){
-      setCompResultados([]);setCompBuscaLoading(false);setCompBuscaAviso("");
-      return()=>{ativo=false;};
-    }
-    setCompBuscaLoading(true);setCompBuscaAviso("");
-    const timer=window.setTimeout(async()=>{
-      const resposta=await pesquisarInsumosReferencia(orc.referencias,termo,compTipoBusca);
-      if(!ativo)return;
-      if(resposta.ok){setCompResultados(resposta.items||[]);setCompBuscaAviso(resposta.warning||"");}
-      else{setCompResultados([]);setCompBuscaAviso(resposta.error||"Falha ao pesquisar insumos e composicoes.");}
-      setCompBuscaLoading(false);
-    },120);
-    return()=>{ativo=false;window.clearTimeout(timer);};
-  },[compBuscaDebounced,compTipoBusca,orcAba,referenciaKey,selOrc]);
-
   //  CRUD orçamento 
   const criarOrc = () => {
     if (!form.nome.trim()) { showToast("Informe o nome do orçamento.","error"); return; }
@@ -11386,290 +9984,7 @@ function Orcamento({ data, update, showToast }) {
   };
 
   const salvarOrc = (patch) => {
-    const scrollY = window.scrollY;
     update({ ...data, orcamentos: orcamentos.map(o => o.id===selOrc ? {...o, ...patch} : o) });
-    window.requestAnimationFrame(()=>window.scrollTo({top:scrollY,behavior:"auto"}));
-  };
-
-  const salvarOrcAssincrono = patch => {
-    const atual = dataAtualRef.current;
-    const lista = atual.orcamentos || [];
-    const scrollY = window.scrollY;
-    update({...atual, orcamentos:lista.map(item => item.id===selOrc ? {...item,...patch} : item)});
-    window.requestAnimationFrame(()=>window.scrollTo({top:scrollY,behavior:"auto"}));
-  };
-
-  const recalcularFonteOrc = ids => {
-    const fontes = new Set(basesRemotas.filter(base => ids.includes(base.id)).map(base => base.fonte));
-    return fontes.has("SINAPI") && fontes.has("ORSE") ? "MISTO" : fontes.has("ORSE") ? "ORSE" : "SINAPI";
-  };
-  const vincularBaseExistente = () => {
-    if (!orc || !baseParaVincular) return;
-    const ids = [...new Set([...(orc.referencias || []), baseParaVincular])];
-    const base = basesRemotas.find(item => item.id === baseParaVincular);
-    salvarOrc({ referencias:ids, fonte:recalcularFonteOrc(ids),
-      ...(base?.fonte === "SINAPI" ? {uf:base.uf || orc.uf, dataBase:base.dataBase || orc.dataBase} : {}) });
-    setBaseParaVincular(""); showToast("Base vinculada ao orçamento.");
-  };
-  const desvincularBase = baseId => {
-    if (!orc) return;
-    const ids = (orc.referencias || []).filter(id => id !== baseId);
-    salvarOrc({ referencias:ids, fonte:recalcularFonteOrc(ids) });
-    showToast("Base desvinculada deste orçamento.");
-  };
-
-  const normalizarCodigoRef = valor => String(valor || "").trim().toUpperCase()
-    .replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i, "").replace(/\.0$/, "");
-
-  // A Curva ABC nao depende das tabelas analiticas adicionais do Supabase.
-  // Quando a base remota nao possui o detalhamento, cada composicao do proprio
-  // orcamento entra como uma linha consolidada. Assim o total e a classificacao
-  // ABC continuam utilizaveis, sem migracao de banco e sem apagar informacoes.
-  const completarDetalhesLocalmente = (remotos = []) => {
-    if (!orc) return remotos;
-    const resultado=[...remotos];
-    const cobertos=new Set(remotos.map(item=>`${String(item.fonte||"SINAPI").toUpperCase()}|${normalizarCodigoRef(item.compositionCode)}`));
-    const adicionados=new Set();
-    (orc.itens||[]).filter(item=>item.tipo!=="titulo"&&Number(item.quantidade)>0).forEach(item=>{
-      const fonte=String(item.fonte||orc.fonte||"SINAPI").toUpperCase();
-      const codigo=normalizarCodigoRef(item.codigo);
-      const chave=`${fonte}|${codigo}`;
-      if(!codigo||cobertos.has(chave)||adicionados.has(chave)||/^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(fonte))return;
-      adicionados.add(chave);
-      resultado.push({fonte,compositionCode:codigo,itemType:"INSUMO",itemCode:codigo,
-        descricao:item.descricao||`ITEM ${codigo}`,unidade:item.unidade||"UN",coeficiente:1,
-        precoUnit:Number(item.precoUnit||0),precoDes:Number(item.precoUnit||0),precoNao:Number(item.precoUnit||0),
-        classificacao:"ITEM CONSOLIDADO DO ORÇAMENTO",fallbackLocal:true});
-    });
-    return resultado;
-  };
-
-  const aplicarReferencia = (item, ref, orcAtual = orc) => ({
-    ...item,
-    codigo:ref.codigo || item.codigo,
-    fonte:ref.fonte || item.fonte || orcAtual.fonte,
-    descricao:ref.descricao || item.descricao,
-    unidade:ref.unidade || item.unidade || "UN",
-    precoUnit:precoDoItem(ref, orcAtual),
-    composicao:ref.composicao || item.composicao || "",
-    codigoNaoEncontrado:false,
-    baseData:ref.dataBase || item.baseData || orcAtual.dataBase || "",
-    baseUf:ref.uf || item.baseUf || "",
-    detailUrl:ref.detailUrl || item.detailUrl || "",
-  });
-
-  const carregarDetalhesComposicoes = async () => {
-    if(!orc)return;
-    const entries=(orc.itens||[]).filter(item=>item.tipo!=="titulo"&&normalizarCodigoRef(item.codigo)
-      && !/^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(String(item.fonte||"").toUpperCase()))
-      .map(item=>({codigo:normalizarCodigoRef(item.codigo),fonte:item.fonte||""}));
-    if(!entries.length){setComponentesDetalhados([]);setDetalhesAviso("Não há composições oficiais codificadas neste orçamento.");return;}
-    if(!(orc.referencias||[]).length){
-      setComponentesDetalhados(completarDetalhesLocalmente([]));
-      setDetalhesAviso("Curva calculada pelos itens do orçamento. Vincular uma base analítica é opcional e serve apenas para abrir cada composição em seus insumos.");
-      return;
-    }
-    setDetalhesLoading(true);setDetalhesAviso("");
-    try{
-      const componentes=[];
-      for(let i=0;i<entries.length;i+=100){
-        const resposta=await detalharComposicoesReferencia(orc.referencias,entries.slice(i,i+100));
-        if(!resposta.ok)throw new Error(resposta.error||"Falha ao detalhar composições.");
-        componentes.push(...(resposta.components||[]));
-        if(resposta.warning)setDetalhesAviso(resposta.warning);
-      }
-      const vistos=new Set();
-      const remotos=componentes.filter(item=>{
-        const chave=`${item.fonte}|${item.compositionCode}|${item.itemType}|${item.itemCode}`;
-        if(vistos.has(chave))return false;vistos.add(chave);return true;
-      });
-      const completos=completarDetalhesLocalmente(remotos);
-      setComponentesDetalhados(completos);
-      if(completos.some(item=>item.fallbackLocal))setDetalhesAviso(remotos.length
-        ? "Parte das composições não possui analítico; esses itens foram consolidados diretamente pelo orçamento."
-        : "A base não possui detalhamento analítico. A Curva ABC foi calculada pelos itens do orçamento, sem exigir alteração no Supabase.");
-    }catch(error){
-      setComponentesDetalhados(completarDetalhesLocalmente([]));
-      const mensagem=String(error?.message||"");
-      setDetalhesAviso(/schema|budget_reference|estrutura anal/i.test(mensagem)
-        ? "Supabase sem estrutura analítica. Execute MIGRACAO_REFERENCIAS_ANALITICAS.sql no SQL Editor e reenvie a planilha SINAPI para gravar insumos e composições."
-        : "A consulta analítica está temporariamente indisponível. A Curva ABC foi calculada pelos itens do orçamento.");
-    }
-    finally{setDetalhesLoading(false);}
-  };
-
-  const abcInsumos = useMemo(()=>{
-    if(!orc)return{itens:[],total:0,semDetalhe:[],semPreco:[]};
-    const relacoes=[...componentesDetalhados.map(item=>({...item,
-      fonte:String(item.fonte||"SINAPI").toUpperCase(),compositionCode:normalizarCodigoRef(item.compositionCode),
-      itemCode:normalizarCodigoRef(item.itemCode),precoUnit:Number(item.precoUnit||precoDoItem(item,orc)||0)}))];
-    composicoesEmpresa.forEach(comp=>(comp.itens||[]).forEach(item=>relacoes.push({
-      fonte:"PRÓPRIA",compositionCode:normalizarCodigoRef(comp.codigo),itemType:item.tipoItem||"INSUMO",
-      itemCode:normalizarCodigoRef(item.codigo),itemFonte:String(item.fonte||"SINAPI").toUpperCase(),
-      descricao:item.descricao,unidade:item.unidade,coeficiente:Number(item.coeficiente||0),precoUnit:Number(item.precoUnit||0),
-      classificacao:"COMPOSIÇÃO PRÓPRIA",
-    })));
-    const porComposicao=new Map();
-    relacoes.forEach(rel=>{
-      const chave=`${rel.fonte}|${rel.compositionCode}`;
-      if(!porComposicao.has(chave))porComposicao.set(chave,[]);
-      porComposicao.get(chave).push(rel);
-    });
-    const mapa=new Map(),semDetalhe=new Set(),semPreco=new Set();
-    const acumular=(fonte,codigo,fator,caminho=new Set(),profundidade=0)=>{
-      const chave=`${fonte}|${codigo}`;
-      if(caminho.has(chave)||profundidade>14)return;
-      const filhos=porComposicao.get(chave)||[];
-      if(!filhos.length){semDetalhe.add(chave);return;}
-      const novoCaminho=new Set(caminho);novoCaminho.add(chave);
-      filhos.forEach(rel=>{
-        const qtd=fator*Number(rel.coeficiente||0);
-        if(!(qtd>0))return;
-        const fonteItem=String(rel.itemFonte||rel.fonte||fonte).toUpperCase();
-        const chaveFilho=`${fonteItem}|${rel.itemCode}`;
-        if(rel.itemType==="COMPOSICAO"&&porComposicao.has(chaveFilho)){
-          acumular(fonteItem,rel.itemCode,qtd,novoCaminho,profundidade+1);return;
-        }
-        const key=`${fonteItem}|${rel.itemCode}|${rel.unidade||"UN"}`;
-        const atual=mapa.get(key)||{fonte:fonteItem,codigo:rel.itemCode,descricao:rel.descricao||"",
-          unidade:rel.unidade||"UN",classificacao:rel.classificacao||"",quantidade:0,precoUnit:Number(rel.precoUnit||0)};
-        atual.quantidade+=qtd;
-        if(!atual.precoUnit&&Number(rel.precoUnit)>0)atual.precoUnit=Number(rel.precoUnit);
-        mapa.set(key,atual);
-        if(!(atual.precoUnit>0))semPreco.add(`${fonteItem} ${rel.itemCode}`);
-      });
-    };
-    (orc.itens||[]).filter(item=>item.tipo!=="titulo"&&Number(item.quantidade)>0).forEach(item=>{
-      const fonte=/^PR[ÓO]PRIA$/.test(String(item.fonte||"").toUpperCase())?"PRÓPRIA":String(item.fonte||orc.fonte||"SINAPI").toUpperCase();
-      if(/^(EXTERNO|COTA[CÇ][AÃ]O)$/.test(fonte))return;
-      acumular(fonte,normalizarCodigoRef(item.codigo),Number(item.quantidade));
-    });
-    const linhas=[...mapa.values()].map(item=>({...item,custo:item.quantidade*item.precoUnit})).sort((a,b)=>b.custo-a.custo);
-    const total=linhas.reduce((s,item)=>s+item.custo,0);let acumulado=0;
-    const itens=linhas.map((item,index)=>{const pct=total>0?item.custo/total*100:0;const classe=acumulado<80?"A":acumulado<95?"B":"C";acumulado+=pct;
-      return{...item,ordem:index+1,pct,pctAcum:Math.min(100,acumulado),classe};});
-    return{itens,total,semDetalhe:[...semDetalhe],semPreco:[...semPreco]};
-  },[orc,componentesDetalhados,composicoesEmpresa]);
-
-  useEffect(()=>{
-    if(orcAba==="insumos"&&orc&&componentesDetalhados.length===0&&!detalhesLoading)carregarDetalhesComposicoes();
-  },[orcAba,selOrc,referenciaKey]);
-
-  const custoCompForm=useMemo(()=>(compForm.itens||[]).reduce((s,item)=>s+Number(item.coeficiente||0)*Number(item.precoUnit||0),0),[compForm.itens]);
-
-  const adicionarItemComposicao = referencia => {
-    const chave=`${referencia.fonte}|${referencia.codigo}|${referencia.tipoItem||"INSUMO"}`;
-    if((compForm.itens||[]).some(item=>`${item.fonte}|${item.codigo}|${item.tipoItem}`===chave)){showToast("Este item já está na composição.","warn");return;}
-    setCompForm(form=>({...form,itens:[...(form.itens||[]),{id:uid(),fonte:referencia.fonte||"SINAPI",
-      tipoItem:referencia.tipoItem||"INSUMO",codigo:referencia.codigo,descricao:referencia.descricao,
-      unidade:referencia.unidade||"UN",coeficiente:1,precoUnit:precoDoItem(referencia,orc),dataBase:referencia.dataBase||"",uf:referencia.uf||""}]}));
-    setCompBusca("");setCompResultados([]);
-  };
-
-  const analisarItemReferencia = async referencia => {
-    setAnaliseReferencia(referencia);
-    setAnaliseComponentes([]);
-    setAnaliseReferenciaAviso("");
-    if(referencia?.tipoItem!=="COMPOSICAO")return;
-    if(!(orc?.referencias||[]).length){
-      setAnaliseReferenciaAviso("Vincule uma base ao orçamento para abrir a composição.");return;
-    }
-    setAnaliseReferenciaLoading(true);
-    try{
-      const resposta=await detalharComposicoesReferencia(orc.referencias,[{codigo:referencia.codigo,fonte:referencia.fonte}]);
-      if(!resposta.ok)throw new Error(resposta.error||"Não foi possível analisar esta composição.");
-      const codigo=normalizarCodigoRef(referencia.codigo);
-      const fonte=String(referencia.fonte||"").toUpperCase();
-      const diretos=(resposta.components||[]).filter(item=>
-        normalizarCodigoRef(item.compositionCode)===codigo && String(item.fonte||"").toUpperCase()===fonte);
-      setAnaliseComponentes(diretos);
-      setAnaliseReferenciaAviso(resposta.warning||(!diretos.length
-        ? "A composição foi encontrada, mas esta base ainda não possui seu detalhamento analítico. Reenvie a planilha SINAPI após executar a migração."
-        : ""));
-    }catch(error){
-      setAnaliseReferenciaAviso(error?.message||"Não foi possível analisar esta composição.");
-    }finally{setAnaliseReferenciaLoading(false);}
-  };
-
-  const clonarComposicaoReferencia = async referencia => {
-    if(!referencia||referencia.tipoItem!=="COMPOSICAO"||!orc)return;
-    if(!(orc.referencias||[]).length){showToast("Vincule a base desta composição ao orçamento.","error");return;}
-    setClonandoComposicao(`${referencia.fonte}|${referencia.codigo}`);
-    try{
-      const resposta=await detalharComposicoesReferencia(orc.referencias,[{codigo:referencia.codigo,fonte:referencia.fonte}]);
-      if(!resposta.ok)throw new Error(resposta.error||"Não foi possível abrir a composição.");
-      const codigoOrigem=normalizarCodigoRef(referencia.codigo);const fonte=String(referencia.fonte||"SINAPI").toUpperCase();
-      const diretos=(resposta.components||[]).filter(item=>String(item.fonte||"").toUpperCase()===fonte&&normalizarCodigoRef(item.compositionCode)===codigoOrigem);
-      if(!diretos.length)throw new Error("A base não devolveu os insumos desta composição. Atualize a base analítica.");
-      const baseCodigo=`EMP-${fonte}-${codigoOrigem}`;let codigoNovo=baseCodigo,sufixo=2;
-      while(composicoesEmpresa.some(comp=>normalizarCodigoRef(comp.codigo)===normalizarCodigoRef(codigoNovo)))codigoNovo=`${baseCodigo}-${sufixo++}`;
-      setCompForm({id:"",codigo:codigoNovo,descricao:referencia.descricao||"",unidade:referencia.unidade||"UN",
-        origemFonte:fonte,origemCodigo:codigoOrigem,origemDataBase:referencia.dataBase||orc.dataBase||"",origemUf:referencia.uf||orc.uf||"",
-        itens:diretos.map(item=>({id:uid(),fonte:item.fonte||fonte,tipoItem:item.itemType||"INSUMO",codigo:item.itemCode,
-          descricao:item.descricao||"",unidade:item.unidade||"UN",coeficiente:Number(item.coeficiente||0),
-          precoUnit:Number(item.precoUnit||precoDoItem(item,orc)||0),dataBase:item.dataBase||referencia.dataBase||"",uf:item.uf||referencia.uf||""}))});
-      setCompBusca("");setCompResultados([]);showToast(`Composição ${fonte} ${codigoOrigem} copiada. Ajuste os dados e salve como composição da empresa.`);
-    }catch(error){showToast(error?.message||"Não foi possível copiar a composição.","error");}
-    finally{setClonandoComposicao("");}
-  };
-
-  const salvarComposicaoPropria = () => {
-    const codigo=normalizarCodigoRef(compForm.codigo);const descricao=String(compForm.descricao||"").trim();
-    if(!codigo||!descricao||!String(compForm.unidade||"").trim()){showToast("Informe código, descrição e unidade.","error");return;}
-    if(!(compForm.itens||[]).length||compForm.itens.some(item=>!(Number(item.coeficiente)>0))){showToast("Adicione insumos com coeficientes válidos.","error");return;}
-    const antiga=composicoesEmpresa.find(item=>item.id===compForm.id);
-    const comp={...compForm,id:compForm.id||uid(),codigo,descricao,unidade:compForm.unidade,itens:compForm.itens};
-    const comps=[...composicoesEmpresa.filter(item=>item.id!==comp.id),comp];
-    const favoritos=(data.baseFavoritos||[]).filter(item=>!(String(item.fonte||"").toUpperCase()==="PRÓPRIA"&&
-      (normalizarCodigoRef(item.codigo)===codigo||normalizarCodigoRef(item.codigo)===normalizarCodigoRef(antiga?.codigo))));
-    favoritos.push({fonte:"PRÓPRIA",codigo,descricao,unidade:comp.unidade,precoUnit:custoCompForm,
-      composicao:JSON.stringify(comp.itens),externa:true});
-    const orcamentosAtualizados=orcamentos.map(orçamento=>{
-      const itens=(orçamento.itens||[]).map(item=>String(item.fonte||"").toUpperCase()==="PRÓPRIA"&&antiga&&normalizarCodigoRef(item.codigo)===normalizarCodigoRef(antiga.codigo)
-        ?{...item,codigo,descricao,unidade:comp.unidade,precoUnit:custoCompForm,composicao:JSON.stringify(comp.itens)}:item);
-      const defs=orçamento.id===selOrc?[...(orçamento.composicoesProprias||[]).filter(item=>item.id!==comp.id),comp]:(orçamento.composicoesProprias||[]);
-      return{...orçamento,itens,composicoesProprias:defs};
-    });
-    update({...data,composicoesEmpresa:comps,baseFavoritos:favoritos,orcamentos:orcamentosAtualizados});
-    setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});showToast("Composição salva no cadastro da empresa e disponível em todos os orçamentos.");
-  };
-
-  const excluirComposicaoPropria = comp => {
-    if(!window.confirm(`Excluir a composição ${comp.codigo}?`))return;
-    const comps=(data.composicoesEmpresa||[]).filter(item=>item.id!==comp.id);
-    const favoritos=(data.baseFavoritos||[]).filter(item=>!(String(item.fonte||"").toUpperCase()==="PRÓPRIA"&&normalizarCodigoRef(item.codigo)===normalizarCodigoRef(comp.codigo)));
-    update({...data,composicoesEmpresa:comps,baseFavoritos:favoritos,orcamentos:orcamentos.map(item=>item.id===selOrc?{...item,composicoesProprias:(item.composicoesProprias||[]).filter(def=>def.id!==comp.id)}:item)});
-    if(compForm.id===comp.id)setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});
-  };
-
-  const exportarABCInsumos = () => {
-    if(!abcInsumos.itens.length){showToast("Carregue os insumos antes de exportar.","warn");return;}
-    const rows=abcInsumos.itens.map(item=>({Classe:item.classe,Fonte:item.fonte,Código:item.codigo,Descrição:item.descricao,
-      Unidade:item.unidade,Quantidade:item.quantidade,"Custo unitário":item.precoUnit,"Custo total":item.custo,
-      "% item":item.pct/100,"% acumulado":item.pctAcum/100}));
-    const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[7,10,12,55,9,14,15,16,11,13].map(w=>({wch:w}));
-    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"ABC Insumos");XLSX.writeFile(wb,`ABC_Insumos_${orc.nome}.xlsx`);
-  };
-
-  const abrirEdicaoOrc = () => {
-    setForm({
-      ...emptyOrc, ...orc,
-      areaM2:String(orc.areaM2||""), bdi:String(orc.bdi??""),
-    });
-    setEditMetaModal(true);
-  };
-
-  const salvarDadosOrc = () => {
-    if (!String(form.nome||"").trim()) { showToast("Informe o nome do orçamento.","error"); return; }
-    salvarOrc({
-      nome:String(form.nome).trim(), descricao:String(form.descricao||"").trim(),
-      obraId:form.obraId||"", cliente:String(form.cliente||"").trim(), local:String(form.local||"").trim(),
-      areaM2:parseBR(form.areaM2)||0, fonte:form.fonte||"SINAPI", uf:String(form.uf||"PE").trim().toUpperCase(),
-      dataBase:String(form.dataBase||"").trim(), desonerado:form.desonerado!==false,
-      bdi:parseBR(form.bdi)||0, status:form.status||orc.status||"rascunho",
-    });
-    setEditMetaModal(false);
-    showToast("Dados do orçamento atualizados.");
   };
 
   const delOrc = (id) => {
@@ -11700,144 +10015,31 @@ function Orcamento({ data, update, showToast }) {
       descricao: qtdModal.descricao,
       unidade,
       quantidade: q,
-      precoUnit: preco,
-      composicao: qtdModal.composicao || "",
-      baseData:qtdModal.dataBase || orc.dataBase || "",
-      baseUf:qtdModal.uf || (qtdModal.fonte === "SINAPI" ? orc.uf : ""),
-      detailUrl:qtdModal.detailUrl || "",
+      precoUnit: preco,   // &larr; snapshot: congela o preço na data-base
     };
 
     // Guarda na base de favoritos (já com o preço congelado)
     const favs = data.baseFavoritos || [];
-    const jaFav = favs.some(f => f.codigo === qtdModal.codigo && (f.fonte || "SINAPI") === (qtdModal.fonte || "SINAPI"));
+    const jaFav = favs.some(f => f.codigo === qtdModal.codigo);
     const novosFavs = jaFav ? favs : [...favs, {
       codigo:    qtdModal.codigo,
       fonte:     qtdModal.fonte || orc.fonte,
       descricao: qtdModal.descricao,
       unidade,
       precoUnit: preco,
-      baseData:qtdModal.dataBase || orc.dataBase || "",
-      baseUf:qtdModal.uf || (qtdModal.fonte === "SINAPI" ? orc.uf : ""),
-      detailUrl:qtdModal.detailUrl || "",
     }];
 
     update({
       ...data,
       baseFavoritos: novosFavs,
-      orcamentos: orcamentos.map(o => {
-        if(o.id!==selOrc)return o;
-        const propria=String(qtdModal.fonte||"").toUpperCase()==="PRÓPRIA"
-          ?(data.composicoesEmpresa||[]).find(comp=>normalizarCodigoRef(comp.codigo)===normalizarCodigoRef(qtdModal.codigo)):null;
-        const defs=propria&&!(o.composicoesProprias||[]).some(comp=>comp.id===propria.id)?[...(o.composicoesProprias||[]),propria]:(o.composicoesProprias||[]);
-        return{...o,itens:[...o.itens,novoItem],composicoesProprias:defs};
-      }),
+      orcamentos: orcamentos.map(o => o.id===selOrc ? {...o, itens:[...o.itens, novoItem]} : o),
     });
     setQtdModal(null); setQtd(""); setBusca("");
     showToast("Item adicionado ao orçamento.");
   };
 
-  const abrirExterno = (etapaId) => {
-    setEtapaAlvo(etapaId);
-    setExternoForm({codigo:"",fonte:"EXTERNO",descricao:"",unidade:"UN",quantidade:"",precoUnit:"",composicao:""});
-    setExternoModal(true);
-  };
-
-  const salvarExterno = () => {
-    if (!orc) return;
-    const descricao = String(externoForm.descricao||"").trim();
-    const quantidade = parseBR(externoForm.quantidade)||0;
-    const precoUnit = parseBR(externoForm.precoUnit)||0;
-    if (!descricao) { showToast("Informe a descrição.","error"); return; }
-    if (!(quantidade > 0)) { showToast("Informe uma quantidade válida.","error"); return; }
-    if (!(precoUnit > 0)) { showToast("Informe o custo unitário da cotação/composição.","error"); return; }
-    const codigo = String(externoForm.codigo||"").trim().toUpperCase();
-    const item = {
-      id:uid(), etapaId:etapaAlvo, tipo:"item", codigo,
-      fonte:String(externoForm.fonte||"EXTERNO").trim(), descricao,
-      unidade:String(externoForm.unidade||"UN").trim(), quantidade, precoUnit,
-      composicao:String(externoForm.composicao||"").trim(),
-      codigoNaoEncontrado:!codigo,
-    };
-    const favoritos = data.baseFavoritos || [];
-    const jaExiste = codigo && favoritos.some(f=>String(f.codigo||"").toUpperCase()===codigo);
-    const novosFavoritos = codigo && !jaExiste ? [...favoritos, {
-      codigo, fonte:item.fonte, descricao, unidade:item.unidade, precoUnit,
-      composicao:item.composicao, externa:true,
-    }] : favoritos;
-    update({...data, baseFavoritos:novosFavoritos,
-      orcamentos:orcamentos.map(o=>o.id===selOrc?{...o,itens:[...o.itens,item]}:o)});
-    setExternoModal(false);
-    showToast("Composição externa/cotação adicionada.");
-  };
-
   const updItemQtd = (itemId, novaQtd) => {
     salvarOrc({ itens: orc.itens.map(it => it.id===itemId ? {...it, quantidade:Number(novaQtd)||0} : it) });
-  };
-
-  const updItemCampo = async (itemId, campo, valor) => {
-    if (campo !== "codigo") {
-      salvarOrc({ itens:orc.itens.map(it => it.id===itemId ? {...it,[campo]:valor} : it) });
-      return;
-    }
-    const itemAtual = orc.itens.find(it => it.id === itemId);
-    if (!itemAtual) return;
-    const codigoDigitado = String(valor || "").trim().toUpperCase();
-    const chave = normalizarCodigoRef(codigoDigitado);
-    const fonteAtual = String(itemAtual.fonte || "").trim().toUpperCase();
-    let ref = chave ? (referenciaPorCodigo.get(`${fonteAtual}|${chave}`) || referenciaPorCodigo.get(chave)) : null;
-    setCodigoAtualizando(itemId);
-    try {
-      if (chave && (orc.referencias || []).length) {
-        const resposta = await resolverCodigosReferencia(orc.referencias, [{codigo:chave, fonte:fonteAtual}]);
-        if (resposta.ok && resposta.items?.length) ref = resposta.items[0];
-        else if (!resposta.ok && !ref) showToast(resposta.error || "Não foi possível consultar o código.", "warn");
-        if (!ref && fonteAtual && resposta.ok) {
-          const alternativa = await resolverCodigosReferencia(orc.referencias, [{codigo:chave, fonte:""}]);
-          if (alternativa.ok && alternativa.items?.length) ref = alternativa.items[0];
-        }
-      }
-      const orcVigente = (dataAtualRef.current.orcamentos || []).find(item => item.id === selOrc) || orc;
-      const itens = orcVigente.itens.map(it => {
-        if (it.id !== itemId) return it;
-        const alterado = {...it, codigo:codigoDigitado, codigoNaoEncontrado:!ref};
-        return ref && precoDoItem(ref, orcVigente) > 0 ? aplicarReferencia(alterado, ref, orcVigente) : alterado;
-      });
-      salvarOrcAssincrono({itens});
-      if (ref) showToast(`Código ${chave} atualizado pela base ${ref.fonte || "de referência"}.`);
-      else if (chave) showToast(`Código ${chave} não localizado nas bases vinculadas.`, "warn");
-    } finally {
-      setCodigoAtualizando("");
-    }
-  };
-
-  const selecionarReferenciaLinha = (itemId, referencia) => {
-    if (!referencia) return;
-    const atual = dataAtualRef.current;
-    const orcVigente = (atual.orcamentos || []).find(item => item.id === selOrc) || orc;
-    if (!orcVigente) return;
-    const itens = (orcVigente.itens || []).map(item =>
-      item.id === itemId ? aplicarReferencia(item, referencia, orcVigente) : item
-    );
-    salvarOrcAssincrono({itens});
-    setBuscaLinha({itemId:"", termo:""});
-    setResultadosLinhaRemotos([]);
-    setBuscaLinhaAviso("");
-    showToast(`${referencia.fonte || "Referencia"} ${referencia.codigo}: descricao e preco atualizados.`);
-  };
-
-  const salvarItemCompleto = () => {
-    if (!editItem || !orc) return;
-    if (!String(editItem.descricao||"").trim()) { showToast("Informe a descricao do item.","error"); return; }
-    const item = {
-      ...editItem,
-      codigo: String(editItem.codigo||"").trim(), fonte: String(editItem.fonte||orc.fonte||"").trim(),
-      descricao: String(editItem.descricao||"").trim(), unidade: String(editItem.unidade||"UN").trim(),
-      quantidade: Number(editItem.quantidade)||0, precoUnit: Number(editItem.precoUnit)||0,
-      composicao: String(editItem.composicao||"").trim(),
-    };
-    salvarOrc({ itens: orc.itens.map(it => it.id===item.id ? item : it) });
-    setEditItem(null);
-    showToast("Item atualizado.");
   };
 
   const delItem = (itemId) => {
@@ -11962,31 +10164,6 @@ function Orcamento({ data, update, showToast }) {
     showToast("Etapa removida.");
   };
 
-  // Na base ORSE alguns identificadores chegam como "codigo/ORSE". A fonte ja
-  // tem coluna propria na exportacao, entao o codigo deve sair sem esse sufixo.
-  const codigoParaExportar = (codigo) => String(codigo ?? "").trim()
-    .replace(/\s*\/\s*ORSE\s*$/i, "").trim();
-
-  const appendAbaComposicoes = (wb) => {
-    const linhas = (orc?.itens||[]).filter(it=>it.tipo!=="titulo" && it.composicao);
-    if (!linhas.length) return;
-    const wsComp = XLSX.utils.aoa_to_sheet([
-      ["FONTE","CÓDIGO","DESCRIÇÃO","COMPOSIÇÃO / MEMÓRIA DE PREÇOS"],
-      ...linhas.map(it=>[it.fonte||"",codigoParaExportar(it.codigo),it.descricao||"",it.composicao||""]),
-    ]);
-    wsComp["!cols"]=[{wch:11},{wch:14},{wch:58},{wch:70}];
-    XLSX.utils.book_append_sheet(wb,wsComp,"Composições");
-  };
-
-  const formatarColunasOrcamento = (ws, aoa, cabecalhoIdx) => {
-    for (let r=cabecalhoIdx+1;r<aoa.length;r++) {
-      [[6,"#,##0.00"],[7,"R$ #,##0.00"],[8,"0.00%"],[9,"R$ #,##0.00"],[10,"R$ #,##0.00"]].forEach(([c,z])=>{
-        const cel=ws[XLSX.utils.encode_cell({r,c})];
-        if (cel && typeof cel.v==="number") cel.z=z;
-      });
-    }
-  };
-
   //  Exportar XLSX - planilha orçamentária hierárquica 
   const exportXLSX = () => {
     if (!orc || !calc) return;
@@ -11999,28 +10176,26 @@ function Orcamento({ data, update, showToast }) {
     aoa.push(["PLANILHA ORÇAMENTÁRIA"]);
     aoa.push([]);
     aoa.push(["OBRA:",     orc.nome,                 "", "CLIENTE:",   orc.cliente || "-"]);
-    if (orc.descricao) aoa.push(["DESCRIÇÃO:", orc.descricao]);
     aoa.push(["LOCAL:",    orc.local || "-",         "", "ÁREA (m):", orc.areaM2 || "-"]);
     aoa.push(["BASE:",     `${orc.fonte} ${orc.uf}`, "", "DATA-BASE:", orc.dataBase || "-"]);
     aoa.push(["ENCARGOS:", orc.desonerado ? "Desonerado" : "Não desonerado", "", "BDI:", `${orc.bdi}%`]);
     aoa.push([]);
-    aoa.push(["NÍVEL CORRIGIDO","ITEM","FONTE","CÓDIGO","DESCRIÇÃO","UNIDADE","QUANTIDADE","CUSTO UNITÁRIO (SEM BDI)","BDI (%)","PREÇO UNITÁRIO (COM BDI)","PREÇO TOTAL (R$)"]);
+    aoa.push(["ITEM","CÓDIGO","FONTE","DESCRIÇÃO DOS SERVIÇOS","UNID.","QUANT.","P. UNIT. S/ BDI","P. UNIT. C/ BDI","TOTAL"]);
 
     // Percorre a árvore inteira, em qualquer profundidade
     achatarArvore(calc.arvore).forEach(n => {
       if (n.tipo === "etapa") {
         // Recuo visual por nível na coluna de descrição
         const recuo = "    ".repeat(n.nivel - 1);
-        aoa.push([n.nivel===1?"LOTE":`Nível ${n.nivel}`, n.codigo, "", "", recuo+n.nome, "", "", "", "", "", n.total||""]);
+        aoa.push([n.codigo, "", "", recuo + n.nome, "", "", "", "", n.total || ""]);
       } else if (n.tipo === "titulo") {
         // Título: só texto, sem código/unidade/valor
-        aoa.push(["Título", n.codigoItem, "", "", n.descricao||"", "", "", "", "", "", ""]);
+        aoa.push([n.codigoItem, "", "", n.descricao || "", "", "", "", "", ""]);
       } else {
         aoa.push([
-          "Serviço", n.codigoItem, n.fonte, codigoParaExportar(n.codigo), n.descricao, n.unidade,
+          n.codigoItem, n.codigo, n.fonte, n.descricao, n.unidade,
           Number(n.quantidade),
           Number(n.precoUnit),
-          Number(orc.bdi||0)/100,
           Number(n.precoUnit) * bdiMult,
           Number(n.quantidade) * Number(n.precoUnit) * bdiMult,
         ]);
@@ -12028,14 +10203,13 @@ function Orcamento({ data, update, showToast }) {
     });
 
     aoa.push([]);
-    aoa.push(["", "", "", "", "CUSTO DIRETO (SEM BDI)", "", "", "", "", "", calc.custoDireto]);
-    aoa.push(["", "", "", "", `BDI (${orc.bdi}%)`, "", "", "", "", "", calc.valorBDI]);
-    aoa.push(["", "", "", "", "TOTAL GERAL DO ORÇAMENTO", "", "", "", "", "", calc.total]);
-    if (orc.areaM2 > 0) aoa.push(["", "", "", "", "CUSTO POR m²", "", "", "", "", "", calc.porM2]);
+    aoa.push(["", "", "", "CUSTO DIRETO (SEM BDI)",   "", "", "", "", calc.custoDireto]);
+    aoa.push(["", "", "", `BDI (${orc.bdi}%)`,        "", "", "", "", calc.valorBDI]);
+    aoa.push(["", "", "", "TOTAL GERAL DO ORÇAMENTO", "", "", "", "", calc.total]);
+    if (orc.areaM2 > 0) aoa.push(["", "", "", "CUSTO POR m", "", "", "", "", calc.porM2]);
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    formatarColunasOrcamento(ws,aoa,aoa.findIndex(r=>r[0]==="NÍVEL CORRIGIDO"));
-    ws["!cols"] = [{wch:15},{wch:11},{wch:10},{wch:13},{wch:62},{wch:9},{wch:12},{wch:18},{wch:9},{wch:18},{wch:17}];
+    ws["!cols"] = [{wch:11},{wch:11},{wch:9},{wch:58},{wch:7},{wch:11},{wch:15},{wch:15},{wch:15}];
     XLSX.utils.book_append_sheet(wb, ws, "Orçamento");
 
     // Aba 2 - Curva ABC pelas etapas de 1º nível
@@ -12049,371 +10223,9 @@ function Orcamento({ data, update, showToast }) {
     const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
     ws2["!cols"] = [{wch:42},{wch:16},{wch:16},{wch:12}];
     XLSX.utils.book_append_sheet(wb, ws2, "Resumo por Etapa");
-    appendAbaComposicoes(wb);
 
     XLSX.writeFile(wb, `orcamento-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
     showToast("Planilha exportada.");
-  };
-
-  //  IMPORTAR ORCAMENTO (codigo + quantidade) 
-  //  A planilha do orcamento NAO traz preco nem descricao: traz o codigo e a
-  //  quantidade. Quem responde pelo resto e a base SINAPI/ORSE ja carregada no
-  //  app - o codigo e a chave. Isso evita o vicio de importar preco velho junto
-  //  com a planilha: o preco vem sempre da base na data-base escolhida.
-  //  Layout aceito (o mesmo que o "Excel padrao" exporta):
-  //    Codigo | Tipo | Item | Un. | Qtd. | ...
-  //  As colunas Item/Un. so sao usadas para etapas e para itens sem codigo.
-
-  // Indice codigo -> item da base, montado uma vez.
-  const basePorCodigo = useMemo(() => {
-    const m = new Map();
-    baseBusca.forEach(i => {
-      const c = String(i.codigo ?? "").trim().toUpperCase();
-      if (c && !m.has(c)) m.set(c, i);
-    });
-    return m;
-  }, [baseBusca]);
-
-  // Para atualizar um codigo ja digitado, a planilha de referencia carregada
-  // tem prioridade sobre favoritos antigos, garantindo preco da data-base atual.
-  const referenciaPorCodigo = useMemo(() => {
-    const m = new Map();
-    baseImport.forEach(i => {
-      const c = String(i.codigo??"").trim().toUpperCase().replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i,"").replace(/\.0$/,"");
-      const f = String(i.fonte||"").trim().toUpperCase();
-      if (c && f) m.set(`${f}|${c}`,i);
-      if (c && !m.has(c)) m.set(c,i);
-    });
-    (data.baseFavoritos||[]).forEach(i => {
-      const c = String(i.codigo??"").trim().toUpperCase().replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i,"").replace(/\.0$/,"");
-      const f = String(i.fonte||"").trim().toUpperCase();
-      if (c && f && !m.has(`${f}|${c}`)) m.set(`${f}|${c}`,i);
-      if (c && !m.has(c)) m.set(c,i);
-    });
-    return m;
-  },[baseImport,data.baseFavoritos]);
-
-  const atualizarPrecosPelaBase = () => {
-    if (!orc || baseImport.length === 0) {
-      showToast("Carregue uma planilha de referência antes de atualizar.", "error");
-      return;
-    }
-    const novaBasePorCodigo = new Map();
-    baseImport.forEach(ref => {
-      const codigo = String(ref.codigo||"").trim().toUpperCase();
-      if (codigo && !novaBasePorCodigo.has(codigo)) novaBasePorCodigo.set(codigo, ref);
-    });
-    let atualizados = 0, naoEncontrados = 0;
-    const itens = orc.itens.map(it => {
-      if (it.tipo === "titulo") return it;
-      const codigo = String(it.codigo||"").trim().toUpperCase();
-      const ref = codigo ? novaBasePorCodigo.get(codigo) : null;
-      if (!ref) {
-        naoEncontrados++;
-        return { ...it, codigoNaoEncontrado:true };
-      }
-      const preco = precoDoItem(ref, orc);
-      if (!(preco > 0)) {
-        naoEncontrados++;
-        return { ...it, codigoNaoEncontrado:true };
-      }
-      atualizados++;
-      return {
-        ...it,
-        fonte: ref.fonte || it.fonte,
-        precoUnit: preco,
-        codigoNaoEncontrado:false,
-      };
-    });
-    const favoritos = (data.baseFavoritos||[]).map(f => {
-      const ref = novaBasePorCodigo.get(String(f.codigo||"").trim().toUpperCase());
-      if (!ref) return f;
-      const preco = precoDoItem(ref, orc);
-      return preco > 0 ? {...f, fonte:ref.fonte||f.fonte, descricao:ref.descricao||f.descricao,
-        unidade:ref.unidade||f.unidade, precoUnit:preco} : f;
-    });
-    update({
-      ...data,
-      baseFavoritos: favoritos,
-      orcamentos: orcamentos.map(o => o.id===selOrc ? {
-        ...o, itens, dataBase: baseInfo?.dataBase || o.dataBase,
-      } : o),
-    });
-    showToast(`${atualizados} item(ns) atualizado(s) pela nova base${naoEncontrados ? `; ${naoEncontrados} sem correspondência` : ""}.`);
-  };
-
-  const atualizarPrecosVinculados = async () => {
-    if (!orc || !(orc.referencias || []).length) {
-      showToast("Vincule uma base SINAPI ou ORSE antes de atualizar os preços.", "error");
-      return;
-    }
-    const candidatos = orc.itens.filter(it => it.tipo !== "titulo" && normalizarCodigoRef(it.codigo)
-      && !/^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(String(it.fonte || "").trim().toUpperCase()));
-    if (!candidatos.length) {
-      showToast("O orçamento não possui itens codificados para atualizar.", "warn");
-      return;
-    }
-    const entradas = [];
-    const vistos = new Set();
-    candidatos.forEach(it => {
-      const entrada = {codigo:normalizarCodigoRef(it.codigo), fonte:String(it.fonte || "").trim().toUpperCase()};
-      const key = `${entrada.fonte}|${entrada.codigo}`;
-      if (!vistos.has(key)) { vistos.add(key); entradas.push(entrada); }
-    });
-
-    setAtualizandoPrecos(true);
-    try {
-      const encontrados = [];
-      for (let i = 0; i < entradas.length; i += 25) {
-        const resposta = await resolverCodigosReferencia(orc.referencias, entradas.slice(i, i + 25));
-        if (!resposta.ok) throw new Error(resposta.error || "Falha ao consultar as bases vinculadas.");
-        encontrados.push(...(resposta.items || []));
-      }
-      const mapa = new Map();
-      encontrados.forEach(ref => {
-        const codigo = normalizarCodigoRef(ref.codigo);
-        const fonte = String(ref.fonte || "").trim().toUpperCase();
-        if (codigo && fonte) mapa.set(`${fonte}|${codigo}`, ref);
-        if (codigo && !mapa.has(codigo)) mapa.set(codigo, ref);
-      });
-
-      let atualizados = 0, naoEncontrados = 0;
-      const orcVigente = (dataAtualRef.current.orcamentos || []).find(item => item.id === selOrc) || orc;
-      const itens = orcVigente.itens.map(it => {
-        if (it.tipo === "titulo" || /^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(String(it.fonte || "").trim().toUpperCase())) return it;
-        const codigo = normalizarCodigoRef(it.codigo);
-        if (!codigo) return it;
-        const fonte = String(it.fonte || "").trim().toUpperCase();
-        const ref = mapa.get(`${fonte}|${codigo}`) || mapa.get(codigo);
-        if (!ref || !(precoDoItem(ref, orcVigente) > 0)) {
-          naoEncontrados++;
-          return {...it, codigoNaoEncontrado:true};
-        }
-        atualizados++;
-        return aplicarReferencia(it, ref, orcVigente);
-      });
-      salvarOrcAssincrono({itens});
-      showToast(`${atualizados} item(ns) atualizado(s) pelas bases vinculadas${naoEncontrados ? `; ${naoEncontrados} sem correspondência` : ""}.`);
-    } catch (error) {
-      showToast(error?.message || "Não foi possível atualizar os preços.", "error");
-    } finally {
-      setAtualizandoPrecos(false);
-    }
-  };
-
-  const norm = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
-
-  const importarOrcamentoXLSX = async (file) => {
-    if (!file || !orc) return;
-    if (basePorCodigo.size === 0) {
-      showToast("Carregue primeiro a planilha de referência para localizar códigos e custos.", "error");
-      return;
-    }
-    setImpLoad(true);
-    try {
-      const buf  = await file.arrayBuffer();
-      const wb   = XLSX.read(buf, { type:"array" });
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"", raw:true });
-
-      // Acha o cabecalho: a linha que tem "codigo" E alguma coluna de quantidade.
-      let hIdx = -1, col = {};
-      for (let i = 0; i < Math.min(rows.length, 30); i++) {
-        const c = {};
-        (rows[i]||[]).forEach((cel, j) => {
-          const h = norm(cel);
-          if (!h) return;
-          if (c.codigo    === undefined && (h === "codigo" || h.startsWith("cod")))            c.codigo = j;
-          if (c.tipo      === undefined && h === "tipo")                                        c.tipo = j;
-          if (c.descricao === undefined && (h === "item" || h.startsWith("descri")))            c.descricao = j;
-          if (c.unidade   === undefined && (h === "un." || h === "un" || h.startsWith("unid"))) c.unidade = j;
-          if (c.qtd       === undefined && (h.startsWith("qtd") || h.startsWith("quant")))      c.qtd = j;
-          if (c.preco === undefined && (h.includes("preco unit") || h.includes("p. unit") || h === "preco" || h === "valor unitario")) c.preco = j;
-          if (c.total === undefined && (h.includes("custo total") || h.includes("valor total") || h === "total")) c.total = j;
-          if (c.composicao === undefined && (h.startsWith("compos") || h.includes("memoria de preco"))) c.composicao = j;
-          if (c.fonte === undefined && h === "fonte") c.fonte = j;
-        });
-        if (c.codigo !== undefined && c.qtd !== undefined) { hIdx = i; col = c; break; }
-      }
-      if (hIdx < 0) {
-        showToast("Não achei as colunas Código e Qtd. na planilha.", "error");
-        setImpLoad(false); return;
-      }
-
-      const linhas = [];
-      for (let i = hIdx + 1; i < rows.length; i++) {
-        const r    = rows[i] || [];
-        const cod  = String(r[col.codigo] ?? "").trim().toUpperCase();
-        const tipo = norm(col.tipo !== undefined ? r[col.tipo] : "");
-        const desc = String(col.descricao !== undefined ? r[col.descricao] : "").trim();
-        const qtd  = col.qtd !== undefined ? parseBR(r[col.qtd]) : 0;
-        if (!cod && !desc) continue;                       // linha vazia
-        if (norm(desc).startsWith("total")) continue;      // rodape de totais
-
-        // Estrutura: pelo Tipo quando existe; senao, linha com texto e sem
-        // codigo/qtd so pode ser titulo de etapa.
-        const ehNivel = tipo === "nivel" || (!tipo && !cod && qtd <= 0 && !!desc);
-        const ehSub   = tipo === "subnivel";
-        if (ehNivel || ehSub) {
-          linhas.push({ kind:"etapa", nivel: ehSub ? 2 : 1, nome: desc || "Etapa", _i:i+1 });
-          continue;
-        }
-        if (tipo === "titulo") { linhas.push({ kind:"titulo", descricao: desc, _i:i+1 }); continue; }
-
-        // Item: o codigo manda. Sem codigo, e produto avulso.
-        const b = cod ? basePorCodigo.get(cod) : null;
-        const preco = b ? precoDoItem(b, orc) : 0;
-        linhas.push({
-          kind: "item",
-          codigo: cod,
-          descricao: b ? b.descricao : (desc || "(código não localizado — sem descrição)"),
-          unidade:   b ? (b.unidade || "UN") : "UN",
-          fonte:     b ? (b.fonte || orc.fonte) : "NÃO LOCALIZADO",
-          quantidade: qtd,
-          precoUnit: preco,
-          composicao: "",
-          codigoNaoEncontrado: !cod || !b,
-          achou:  !!b,
-          semQtd: !(qtd > 0),
-          semPreco: !(preco > 0),
-          _i: i+1,
-        });
-      }
-
-      const itens = linhas.filter(l => l.kind === "item");
-      if (!itens.length) { showToast("Nenhum item com código encontrado na planilha.", "error"); setImpLoad(false); return; }
-
-      setImpModal({
-        linhas,
-        stats: {
-          etapas:   linhas.filter(l => l.kind === "etapa").length,
-          itens:    itens.length,
-          ok:       itens.filter(i => i.achou && !i.semPreco && !i.semQtd).length,
-          naoAchou: itens.filter(i => !i.achou).length,
-          semPreco: itens.filter(i => i.semPreco).length,
-          semQtd:   itens.filter(i => i.semQtd).length,
-          valor:    itens.reduce((s,i) => s + i.quantidade * i.precoUnit, 0),
-        },
-        substituir: false,
-        incluirPend: true,
-      });
-    } catch (e) {
-      showToast("Não consegui ler a planilha: " + e.message, "error");
-    }
-    setImpLoad(false);
-  };
-
-  // Aplica a importacao: cria as etapas na ordem e pendura os itens nelas.
-  const aplicarImportacao = () => {
-    if (!impModal || !orc) return;
-    const { linhas, substituir, incluirPend } = impModal;
-
-    const etapas = substituir ? [] : [...(orc.etapas||[])];
-    const itens  = substituir ? [] : [...(orc.itens ||[])];
-    let raizAtual = "", etapaAtual = "", pulados = 0;
-
-    linhas.forEach(l => {
-      if (l.kind === "etapa") {
-        const id = uid();
-        if (l.nivel === 2 && raizAtual) { etapas.push({ id, nome:l.nome, parentId: raizAtual }); etapaAtual = id; }
-        else { etapas.push({ id, nome:l.nome, parentId:"" }); raizAtual = id; etapaAtual = id; }
-        return;
-      }
-      // Item/titulo sem etapa declarada antes: cria uma para nao ficar orfao.
-      if (!etapaAtual) {
-        const id = uid();
-        etapas.push({ id, nome:"Itens importados", parentId:"" });
-        raizAtual = id; etapaAtual = id;
-      }
-      if (l.kind === "titulo") {
-        itens.push({ id:uid(), etapaId:etapaAtual, tipo:"titulo", codigo:"", fonte:orc.fonte,
-                     descricao:l.descricao, unidade:"un", quantidade:0, precoUnit:0 });
-        return;
-      }
-      const pendente = !l.achou || l.semPreco || l.semQtd;
-      if (pendente && !incluirPend) { pulados++; return; }
-      itens.push({
-        id: uid(), etapaId: etapaAtual, tipo:"item",
-        codigo: l.codigo, fonte: l.fonte, descricao: l.descricao,
-        unidade: l.unidade, quantidade: l.quantidade, precoUnit: l.precoUnit,
-        composicao: l.composicao || "",
-        codigoNaoEncontrado: !!l.codigoNaoEncontrado,
-      });
-    });
-
-    update({ ...data, orcamentos: orcamentos.map(o => o.id===selOrc ? {...o, etapas, itens} : o) });
-    setImpModal(null);
-    showToast(`Importado: ${itens.length} linha(s) no orçamento${pulados?` - ${pulados} pendente(s) ignorada(s)`:""}.`);
-  };
-
-  //  Exportar XLSX no layout "Exportado" 
-  //  Reproduz o formato da planilha que o orcamentista usa fora do app:
-  //  Codigo | Tipo | Item | Un. | Qtd. | Custo total | Status
-  //  - Tipo: Nivel (etapa raiz), Subnivel (etapa filha), Composicao (item com
-  //    codigo de tabela) ou Produto (item sem codigo, comprado direto).
-  //  - Custo total: CUSTO DIRETO, sem BDI - e o que essa planilha transporta.
-  //  - Status: herdado do status do orcamento, igual para todas as linhas.
-  const exportXLSXExportado = () => {
-    if (!orc || !calc) return;
-    const bdiMult = 1 + Number(orc.bdi||0)/100;
-    const aoa = [["Nível corrigido","Item","Fonte","Código","Descrição","Unidade","Quantidade","Custo unitário (sem BDI)","BDI (%)","Preço unitário (com BDI)","Preço total (R$)"]];
-
-    achatarArvore(calc.arvore).forEach(n => {
-      if (n.tipo === "etapa") {
-        aoa.push([n.nivel===1?"LOTE":`Nível ${n.nivel}`,n.codigo,"","",n.nome,"","","","","",n.total||0]);
-      } else if (ehTitulo(n)) {
-        aoa.push(["Título",n.codigoItem,"","",n.descricao||"","","","","","",""]);
-      } else {
-        const custo = Number(n.quantidade||0) * Number(n.precoUnit||0);
-        aoa.push([
-          "Serviço",
-          n.codigoItem,
-          n.fonte || orc.fonte || "",
-          codigoParaExportar(n.codigo),
-          n.descricao || "",
-          n.unidade || "",
-          Number(n.quantidade||0),
-          Number(n.precoUnit||0),
-          Number(orc.bdi||0)/100,
-          Number(n.precoUnit||0)*bdiMult,
-          custo*bdiMult,
-        ]);
-      }
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    formatarColunasOrcamento(ws,aoa,0);
-    ws["!cols"] = [{wch:15},{wch:11},{wch:10},{wch:13},{wch:62},{wch:9},{wch:12},{wch:18},{wch:9},{wch:18},{wch:17}];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Exportado");
-    appendAbaComposicoes(wb);
-    XLSX.writeFile(wb, `exportado-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
-    showToast("Planilha exportada no formato padrão.");
-  };
-
-  //  Exportar a curva ABC 
-  const exportXLSXCurvaABC = () => {
-    if (!abc) return;
-    const aoa = [
-      [`Curva ABC - ${orc.nome}`],
-      [`${orc.fonte} ${orc.uf}  ${orc.dataBase||"sem data-base"}  BDI ${orc.bdi}%  ${abcAgrupar?"itens agrupados por código":"itens sem agrupamento"}`],
-      [],
-      ["CLASSE","QTD. ITENS","% DOS ITENS","CUSTO DIRETO","% DO VALOR"],
-      ...abc.resumo.map(r => [r.classe, r.qtd, r.pctItens/100, r.custoDireto, r.pctValor/100]),
-      [],
-      ["#","CLASSE","CÓDIGO","FONTE","DESCRIÇÃO","UNID.","QUANT.","P. UNIT.","CUSTO DIRETO","% ITEM","% ACUM."],
-      ...abc.itens.map(i => [
-        i.ordem, i.classe, codigoParaExportar(i.codigo), i.fonte, i.descricao, i.unidade,
-        i.quantidade, i.precoUnit, i.custoDireto, i.pct/100, i.pctAcum/100,
-      ]),
-      [],
-      ["", "", "", "", "TOTAL (CUSTO DIRETO)", "", "", "", abc.totalCD, 1, ""],
-    ];
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [{wch:5},{wch:8},{wch:11},{wch:8},{wch:56},{wch:7},{wch:11},{wch:13},{wch:15},{wch:9},{wch:9}];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Curva ABC");
-    XLSX.writeFile(wb, `curva-abc-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
-    showToast("Curva ABC exportada.");
   };
 
   //  Exportar PDF 
@@ -12544,7 +10356,6 @@ tfoot tr.m2 td{background:#F5F3EE;font-size:10px}
   </div>
   <div class="tag">${escapeHtml(orc.nome)}</div>
 </div>
-${orc.descricao?`<p style="font-size:10px;color:#555;margin:-5px 0 12px">${escapeHtml(orc.descricao)}</p>`:""}
 <div class="meta">
   <div><p>Cliente</p><p>${escapeHtml(orc.cliente||"-")}</p></div>
   <div><p>Local</p><p>${escapeHtml(orc.local||"-")}</p></div>
@@ -12603,7 +10414,6 @@ ${blocoBDI}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
                 <div style={{flex:1,minWidth:0}}>
                   <p style={{fontSize:15,fontWeight:800,color:C.text}}>{o.nome}</p>
-                  {o.descricao && <p style={{fontSize:11,color:C.subtle,marginTop:2,lineHeight:1.4}}>{o.descricao}</p>}
                   <p style={{fontSize:11,color:C.muted,marginTop:2}}>
                     {o.cliente && `${o.cliente}  `}
                     {obraNome && `${obraNome}  `}
@@ -12631,7 +10441,6 @@ ${blocoBDI}
           <Modal title="Novo orçamento" onClose={()=>setNovoModal(false)}>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")} placeholder="Ex.: Residência Terras Alpha - CA1-13"/>
-              <Inp label="Descrição" value={form.descricao} onChange={F("descricao")} placeholder="Resumo, escopo ou observações do orçamento"/>
               <Sel label="Vincular a uma obra (opcional)" value={form.obraId} onChange={F("obraId")}
                 options={[{v:"",l:"- Nenhuma -"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
               <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
@@ -12682,13 +10491,7 @@ ${blocoBDI}
 
       {/* Resumo */}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:10,padding:"14px 16px",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
-          <div style={{minWidth:0,flex:1}}>
-            <p style={{fontSize:16,fontWeight:800,color:C.text}}>{orc.nome}</p>
-            {orc.descricao && <p style={{fontSize:11,color:C.subtle,marginTop:3,lineHeight:1.45}}>{orc.descricao}</p>}
-          </div>
-          <Btn size="sm" v="ghost" onClick={abrirEdicaoOrc}><Ic n="edit"/> Dados</Btn>
-        </div>
+        <p style={{fontSize:16,fontWeight:800,color:C.text}}>{orc.nome}</p>
         <p style={{fontSize:11,color:C.muted,marginTop:2}}>
           {orc.fonte} {orc.uf}  {orc.dataBase||"sem data-base"}  {orc.desonerado?"Desonerado":"Não desonerado"}  BDI {orc.bdi}%
         </p>
@@ -12750,19 +10553,6 @@ ${blocoBDI}
         })()}
       </div>
 
-      <div style={{display:"flex",gap:5,flexWrap:"wrap",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:5}}>
-        {[
-          ["orcamento","ORÇAMENTO"],
-          ["insumos","INSUMOS E COMPOSIÇÕES / CURVA ABC"],
-          ["proprias","COMPOSIÇÕES PRÓPRIAS"],
-        ].map(([valor,label])=><button key={valor} onClick={()=>setOrcAba(valor)} style={{
-          flex:"1 1 180px",border:`1px solid ${orcAba===valor?C.blue:C.border}`,borderRadius:6,padding:"8px 10px",
-          background:orcAba===valor?`${C.blue}12`:C.bg,color:orcAba===valor?C.blue:C.muted,
-          fontSize:10.5,fontWeight:800,cursor:"pointer",fontFamily:"'Inter Display','Inter',sans-serif",
-        }}>{label}</button>)}
-      </div>
-
-      {orcAba==="orcamento" && <>
       {/* CONFERENCIA DIMENSIONAL (IA) - forro x area construida etc */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
         <button onClick={()=>setConfAberta(v=>!v)} style={{
@@ -12861,53 +10651,7 @@ ${blocoBDI}
         )}
       </div>
 
-      {/* Referências persistentes do orçamento */}
-      <div style={{background:C.card,border:`1.5px solid ${C.blue}55`,borderLeft:`5px solid ${C.blue}`,borderRadius:10,padding:"13px 14px",display:"flex",flexDirection:"column",gap:11}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
-          <div style={{minWidth:0,flex:1}}>
-            <p style={{fontSize:14,fontWeight:800,color:C.text}}>Bases de referência no Supabase</p>
-            <p style={{fontSize:10.5,color:C.muted,marginTop:3,lineHeight:1.5}}>Vincule SINAPI e ORSE ao mesmo orçamento e atualize os preços pelos códigos já lançados.</p>
-          </div>
-          <Btn size="sm" v="success" disabled={atualizandoPrecos || basesVinculadas.length===0} onClick={atualizarPrecosVinculados}>
-            {atualizandoPrecos ? "Atualizando..." : "Atualizar preços dos itens"}
-          </Btn>
-        </div>
-        {basesCarregando ? <p style={{fontSize:11,color:C.muted}}>Carregando bases cadastradas...</p>
-        : basesVinculadas.length > 0 ? (
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {basesVinculadas.map(base => { const cor=base.fonte==="ORSE"?C.purple:C.blue; return (
-              <div key={base.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:`${cor}0B`,border:`1px solid ${cor}3D`,padding:"8px 10px",borderRadius:8}}>
-                <div style={{minWidth:0}}>
-                  <p style={{fontSize:11.5,fontWeight:800,color:cor}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}</p>
-                  <p title={base.arquivo} style={{fontSize:9.5,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{base.fonte==="ORSE"?"Pesquisa oficial CEHOP":`${base.total.toLocaleString("pt-BR")} composições no Supabase`}{base.arquivo?` · ${base.arquivo}`:""}</p>
-                </div>
-                <button onClick={()=>desvincularBase(base.id)} title="Desvincular" style={{border:`1px solid ${C.border}`,background:C.bg,color:C.muted,width:28,height:28,borderRadius:6,cursor:"pointer",fontWeight:900}}>×</button>
-              </div>); })}
-          </div>
-        ) : <div style={{background:C.surface,border:`1px dashed ${C.border}`,padding:10,borderRadius:8}}><p style={{fontSize:11,color:C.muted}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
-
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(235px,1fr))",gap:9}}>
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:10,borderRadius:8}}>
-            <p style={{fontSize:11,fontWeight:800,color:C.blue,marginBottom:7}}>SINAPI · planilha oficial</p>
-            <Sel label="Estado dos preços" value={sinapiUf} onChange={setSinapiUf} options={SINAPI_UFS.map(uf=>({v:uf,l:uf}))}/>
-            <label style={{display:"block",marginTop:8}}><input type="file" accept=".xlsx" disabled={importando} onChange={e=>{const file=e.target.files?.[0];e.target.value="";importarSinapiSupabase(file);}} style={{display:"none"}}/>
-              <span style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,background:C.blue,color:"#fff",padding:"8px 10px",borderRadius:7,cursor:importando?"wait":"pointer",fontSize:10.5,fontWeight:800,textTransform:"uppercase"}}><Ic n="download" s={13}/> Salvar SINAPI no Supabase</span>
-            </label>
-          </div>
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:10,borderRadius:8}}>
-            <p style={{fontSize:11,fontWeight:800,color:C.purple,marginBottom:7}}>ORSE · data-base oficial</p>
-            <Inp label="Competência" type="month" value={orseDataBase} onChange={setOrseDataBase}/>
-            <label style={{display:"block",marginTop:8}}><input type="file" accept=".ORSE,.orse" disabled={importando} onChange={e=>{const file=e.target.files?.[0];e.target.value="";cadastrarOrseSupabase(file);}} style={{display:"none"}}/>
-              <span style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,background:C.purple,color:"#fff",padding:"8px 10px",borderRadius:7,cursor:importando?"wait":"pointer",fontSize:10.5,fontWeight:800,textTransform:"uppercase"}}><Ic n="file" s={13}/> Vincular arquivo ORSE</span>
-            </label>
-          </div>
-        </div>
-        {uploadProgresso>0 && <div><div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:C.muted,marginBottom:3}}><span>Enviando composições em lotes</span><strong>{uploadProgresso}%</strong></div><div style={{height:7,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${uploadProgresso}%`,background:C.blue,transition:"width .2s"}}/></div></div>}
-        {basesDisponiveis.length>0 && <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Sel label="Vincular uma base já cadastrada" value={baseParaVincular} onChange={setBaseParaVincular} options={[{v:"",l:"Selecione"},...basesDisponiveis.map(base=>({v:base.id,l:`${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""} · ${base.total||"oficial"}`}))]}/><Btn size="sm" v="info" disabled={!baseParaVincular} onClick={vincularBaseExistente}>Vincular</Btn></div>}
-        <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente.</p>
-      </div>
-
-      {/* Importação local temporária */}
+      {/* Importar base */}
       <div style={{background:baseImport.length>0?`${C.green}06`:C.surface,border:`1.5px dashed ${baseImport.length>0?C.green:C.border}`,borderRadius:10,padding:"12px 14px"}}>
         {importando ? (
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"4px 0"}}>
@@ -12928,14 +10672,7 @@ ${blocoBDI}
                   {baseNome}  aba <strong>{baseInfo.aba}</strong>
                 </p>
               </div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
-                <Btn size="sm" v="success" onClick={atualizarPrecosPelaBase}>Atualizar preços</Btn>
-                <label style={{display:"inline-flex"}}>
-                  <input type="file" accept=".xlsx,.xls" onChange={e=>{importarXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/>
-                  <span style={{display:"inline-flex",alignItems:"center",padding:"6px 10px",border:`1.5px solid ${C.border}`,borderRadius:7,cursor:"pointer",fontSize:10,fontWeight:700,color:C.text}}>Trocar planilha</span>
-                </label>
-                <Btn size="sm" v="ghost" onClick={()=>{setBaseImport([]);setBaseNome("");setBaseInfo(null);}}>Limpar</Btn>
-              </div>
+              <Btn size="sm" v="ghost" onClick={()=>{setBaseImport([]);setBaseNome("");setBaseInfo(null);}}>Limpar</Btn>
             </div>
 
             {/* Stats da base */}
@@ -13018,7 +10755,6 @@ ${blocoBDI}
           const cor = CoresNivel[(no.nivel - 1) % CoresNivel.length];
           const podeSub = no.nivel < MAX_NIVEL;
           const recuo = (no.nivel - 1) * 10;
-          const recolhida = !!etapasFechadas[no.id];
 
           return (
             <div style={{ marginLeft: recuo }}>
@@ -13058,13 +10794,6 @@ ${blocoBDI}
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                    <button onClick={()=>setEtapasFechadas(f=>({...f,[no.id]:!f[no.id]}))}
-                      title={recolhida?"Expandir nível":"Recolher nível"}
-                      aria-expanded={!recolhida}
-                      style={{background:recolhida?`${cor}12`:"transparent",border:`1px solid ${C.border}`,color:cor,
-                               borderRadius:5,width:24,height:24,cursor:"pointer",fontSize:14,lineHeight:1,fontWeight:900}}>
-                      {recolhida?"▸":"▾"}
-                    </button>
                     {no.total > 0 && (
                       <p style={{ fontSize: 12, fontWeight: 800, color: cor, marginRight: 2 }}>{fmt(no.total)}</p>
                     )}
@@ -13072,10 +10801,6 @@ ${blocoBDI}
                       title="Adicionar item"
                       style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.text,
                                borderRadius:5, width:24, height:24, cursor:"pointer", fontSize:13, lineHeight:1 }}>+</button>
-                    <button onClick={() => abrirExterno(no.id)}
-                      title="Nova composição externa ou cotação"
-                      style={{background:"transparent",border:`1px solid ${C.border}`,color:C.green,
-                               borderRadius:5,width:24,height:24,cursor:"pointer",fontSize:11,lineHeight:1,fontWeight:800}}>R$</button>
                     <button onClick={() => addTitulo(no.id)}
                       title="Adicionar título (texto sem valor)"
                       style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.muted,
@@ -13097,14 +10822,14 @@ ${blocoBDI}
                 </div>
 
                 {/* Sub-etapas */}
-                {!recolhida && no.sub.length > 0 && (
+                {no.sub.length > 0 && (
                   <div style={{ padding: "6px 6px 0" }}>
                     {no.sub.map(sn => <Etapa key={sn.id} no={sn} />)}
                   </div>
                 )}
 
                 {/* Linhas desta etapa: títulos e itens */}
-                {!recolhida && no.itens.map((it, idx) => {
+                {no.itens.map((it, idx) => {
                   const primeira = idx === 0;
                   const ultima   = idx === no.itens.length - 1;
 
@@ -13157,110 +10882,41 @@ ${blocoBDI}
 
                   //  Linha de ITEM: composição com valor 
                   const tot = itemTotal(it, orc.bdi);
-                  const codigoPendente = !!it.codigoNaoEncontrado || !String(it.codigo||"").trim();
                   return (
                     <div key={it.id} style={{
-                      padding: "7px 10px", borderTop: `1px solid ${C.line}33`,
-                      display:"grid",gridTemplateColumns:"38px 68px 96px minmax(80px,1fr) 58px 82px 92px 18px 132px",
-                      gap:6,alignItems:"center",width:"100%",boxSizing:"border-box",overflow:"hidden",
-                      borderLeft: codigoPendente ? `3px solid ${C.orange}` : "3px solid transparent",
-                      background: codigoPendente ? `${C.orange}09` : "transparent",
+                      padding: "8px 12px", borderTop: `1px solid ${C.line}33`,
+                      display: "flex", gap: 8, alignItems: "flex-start",
                     }}>
-                      <p style={{fontSize:9,color:C.muted,fontWeight:700,minWidth:0,whiteSpace:"nowrap"}}>
+                      <p style={{ fontSize:9, color:C.muted, fontWeight:700, minWidth:38, paddingTop:2 }}>
                         {it.codigoItem}
                       </p>
-                      <div title="Fonte" style={{minWidth:0,overflow:"hidden"}}>
-                        <span style={{display:"block",fontSize:9.5,fontWeight:800,color:it.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>{it.fonte}</span>
-                      </div>
-                      <div style={{minWidth:0,overflow:"hidden"}}>
-                          <input key={`${it.id}-cod-${it.codigo}`} defaultValue={it.codigo||""}
-                            onBlur={e=>updItemCampo(it.id,"codigo",e.target.value)}
-                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                            placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}
-                            style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
-                      </div>
-                      <div style={{minWidth:0,overflow:"hidden"}}>
-                        <input key={`${it.id}-desc-${it.descricao}`} defaultValue={it.descricao||""}
-                          onChange={e=>setBuscaLinha({itemId:it.id,termo:e.target.value})}
-                          onBlur={e=>{
-                            updItemCampo(it.id,"descricao",e.target.value);
-                            setBuscaLinha(atual=>atual.itemId===it.id?{itemId:"",termo:""}:atual);
-                          }}
-                          onKeyDown={e=>{
-                            if(e.key==="Escape") { setBuscaLinha({itemId:"",termo:""}); e.currentTarget.blur(); }
-                            if(e.key==="Enter") {
-                              e.preventDefault();
-                              if(buscaLinha.itemId===it.id && resultadosLinha.length) selecionarReferenciaLinha(it.id,resultadosLinha[0]);
-                              else e.currentTarget.blur();
-                            }
-                          }}
-                          title="Digite para pesquisar por descrição nas bases vinculadas"
-                          style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11.5,outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
-                      </div>
-                      <div style={{minWidth:0,overflow:"hidden"}}>
-                          <input key={`${it.id}-un-${it.unidade}`} defaultValue={it.unidade||""}
-                            onBlur={e=>updItemCampo(it.id,"unidade",e.target.value)}
-                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                            title="Unidade do item"
-                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
-                      </div>
-                      <div style={{minWidth:0,overflow:"hidden"}}>
-                          <input key={`${it.id}-qtd-${it.quantidade}`} type="number" step="any" inputMode="decimal" defaultValue={it.quantidade}
-                            onBlur={e => updItemQtd(it.id, e.target.value)}
-                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                            title="Quantidade"
-                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
-                      </div>
-                      <div title="Custo unitário sem BDI" style={{minWidth:0,overflow:"hidden",textAlign:"right"}}>
-                        <span style={{fontSize:10.5,color:C.muted,whiteSpace:"nowrap"}}>{fmt(it.precoUnit)}</span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <p style={{ fontSize:11.5, color:C.text, lineHeight:1.4 }}>{it.descricao}</p>
+                        <p style={{ fontSize:9.5, color:C.muted, marginTop:2 }}>
+                          <span style={{ fontWeight:700, color: it.fonte==="ORSE" ? C.purple : C.blue }}>{it.fonte}</span>
+                          {" "}{it.codigo}  {fmt(it.precoUnit)}/{it.unidade} s/ BDI
+                        </p>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:5 }}>
+                          <input type="number" value={it.quantidade}
+                            onChange={e => updItemQtd(it.id, e.target.value)}
+                            style={{ width:78, background:C.bg, border:`1.5px solid ${C.border}`, color:C.text,
+                                     padding:"4px 7px", borderRadius:5, fontSize:12, outline:"none",
+                                     fontFamily:"'Inter',sans-serif" }}/>
+                          <span style={{ fontSize:11, color:C.muted }}>{it.unidade}</span>
+                        </div>
                       </div>
                       <Setas/>
-                      <div style={{minWidth:0,overflow:"hidden",textAlign:"right",whiteSpace:"nowrap"}}>
-                        <span title="Preço total com BDI" style={{fontSize:12,fontWeight:800,color:C.text}}>{fmt(tot)}</span>
-                        <button onClick={() => setEditItem({...it})}
-                          title={it.composicao?"Editar item e composição":"Editar item"}
-                          style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,padding:"0 3px",marginLeft:4}}>Editar</button>
+                      <div style={{ textAlign:"right", flexShrink:0 }}>
+                        <p style={{ fontSize:12.5, fontWeight:800, color:C.text }}>{fmt(tot)}</p>
                         <button onClick={() => delItem(it.id)}
-                          style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:13,padding:0}}>x</button>
+                          style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer",
+                                   fontSize:14, padding:"2px 0 0", marginTop:2 }}>x</button>
                       </div>
-                      {buscaLinha.itemId===it.id && buscaLinha.termo.trim().length>=2 && (
-                        <div style={{
-                          gridColumn:"4 / -1",minWidth:0,maxHeight:230,overflowY:"auto",
-                          background:C.bg,border:`1.5px solid ${C.blue}`,borderRadius:7,
-                          boxShadow:`0 8px 20px ${C.shadow}`,padding:5,zIndex:20,
-                        }}>
-                          <p style={{fontSize:9.5,color:C.muted,padding:"3px 6px 5px"}}>
-                            {buscaLinhaLoading ? "Pesquisando nas bases vinculadas..." : "Selecione uma composição para atualizar código, unidade e preço"}
-                          </p>
-                          {buscaLinhaAviso && <p style={{fontSize:9.5,color:C.orange,padding:"2px 6px 5px"}}>{buscaLinhaAviso}</p>}
-                          {resultadosLinha.slice(0,12).map((resultado,indice)=>(
-                            <button key={`${resultado.fonte}-${resultado.codigo}-${indice}`}
-                              onMouseDown={e=>e.preventDefault()}
-                              onClick={()=>selecionarReferenciaLinha(it.id,resultado)}
-                              style={{width:"100%",display:"grid",gridTemplateColumns:"74px minmax(0,1fr) 78px",gap:7,
-                                alignItems:"center",background:"transparent",border:0,borderTop:indice?`1px solid ${C.line}`:"none",
-                                padding:"6px",textAlign:"left",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
-                              <span style={{fontSize:9.5,fontWeight:800,color:resultado.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>
-                                {resultado.fonte||"SINAPI"} {resultado.codigo}
-                              </span>
-                              <span title={resultado.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                                {resultado.descricao}
-                              </span>
-                              <span style={{fontSize:10,fontWeight:800,color:C.yellowD,textAlign:"right",whiteSpace:"nowrap"}}>
-                                {fmt(precoDoItem(resultado,orc))}/{resultado.unidade||"UN"}
-                              </span>
-                            </button>
-                          ))}
-                          {!buscaLinhaLoading && resultadosLinha.length===0 && (
-                            <p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:10}}>Nenhuma composição encontrada.</p>
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
 
-                {!recolhida && no.itens.length === 0 && no.sub.length === 0 && (
+                {no.itens.length === 0 && no.sub.length === 0 && (
                   <p style={{ padding:"9px 12px", fontSize:10.5, color:C.muted }}>Vazia - use + para item, T para título ou  para subnível.</p>
                 )}
               </div>
@@ -13270,10 +10926,6 @@ ${blocoBDI}
 
         return (
           <>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:6,marginBottom:6}}>
-              <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas({})}>Expandir todos</Btn>
-              <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas(Object.fromEntries((orc.etapas||[]).map(e=>[e.id,true])))}>Recolher todos</Btn>
-            </div>
             {calc.arvore.map(no => <Etapa key={no.id} no={no} />)}
             <Btn v="ghost" full onClick={() => abrirNovaEtapa("")} style={{ marginTop: 2 }}>
               <Ic n="plus"/> Nova etapa de 1º nível
@@ -13302,313 +10954,13 @@ ${blocoBDI}
         )}
       </div>
 
-      {/*  CURVA ABC  */}
-      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <button onClick={()=>setAbcAberta(a=>!a)}
-                style={{width:"100%",background:C.surface,border:0,borderBottom:abcAberta?`1.5px solid ${C.border}`:"0",
-                        padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,textAlign:"left"}}>
-          <div>
-            <p style={{fontSize:10.5,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>Análise de Pareto</p>
-            <p style={{fontSize:15,fontWeight:800,color:C.text,marginTop:1}}>Curva ABC</p>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            {abc && abc.itens.length>0 && (
-              <p style={{fontSize:11,color:C.muted,textAlign:"right"}}>
-                <b style={{color:CLASSE_ABC.A.cor}}>{abc.resumo[0].qtd} itens</b> = {abc.resumo[0].pctValor.toFixed(1)}% do custo
-              </p>
-            )}
-            <span style={{fontSize:14,fontWeight:800,color:C.yellow}}>{abcAberta ? "-" : "+"}</span>
-          </div>
-        </button>
-
-        {abcAberta && (!abc || abc.itens.length===0) && (
-          <div style={{padding:"18px 15px",textAlign:"center"}}>
-            <p style={{fontSize:12.5,color:C.muted,lineHeight:1.6}}>
-              A curva ABC precisa de itens com quantidade e preço.<br/>Adicione composições ao orçamento para vê-la.
-            </p>
-          </div>
-        )}
-
-        {abcAberta && abc && abc.itens.length>0 && (() => {
-          const listaAbc = abcFiltro==="todas" ? abc.itens : abc.itens.filter(i=>i.classe===abcFiltro);
-          const grafico  = abc.itens.slice(0, 20).map(i => ({
-            nome: (i.descricao||"").slice(0,28) + ((i.descricao||"").length>28?"…":""),
-            custo: Number(i.custoDireto.toFixed(2)),
-            acum:  Number(i.pctAcum.toFixed(1)),
-            cor:   CLASSE_ABC[i.classe].cor,
-          }));
-          return (
-            <div style={{padding:"13px 15px",display:"flex",flexDirection:"column",gap:13}}>
-
-              {/* Resumo por classe */}
-              <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:8}}>
-                {abc.resumo.map(r => (
-                  <button key={r.classe} onClick={()=>setAbcFiltro(f=>f===r.classe?"todas":r.classe)}
-                          style={{textAlign:"left",cursor:"pointer",background:abcFiltro===r.classe?`${r.cor}12`:C.surface,
-                                  border:`1.5px solid ${abcFiltro===r.classe?r.cor:C.border}`,borderLeft:`4px solid ${r.cor}`,
-                                  borderRadius:8,padding:"9px 11px"}}>
-                    <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:6}}>
-                      <p style={{fontSize:12.5,fontWeight:800,color:r.cor}}>Classe {r.classe}</p>
-                      <p style={{fontSize:10.5,color:C.muted}}>{r.qtd} item(ns)  {r.pctItens.toFixed(0)}%</p>
-                    </div>
-                    <p style={{fontSize:16,fontWeight:800,color:C.text,marginTop:3}}>{r.pctValor.toFixed(1)}%</p>
-                    <p style={{fontSize:10.5,color:C.muted,marginTop:1}}>{fmt(r.custoDireto)} de custo direto</p>
-                  </button>
-                ))}
-              </div>
-
-              {/* Grafico: barras = custo, linha = % acumulado */}
-              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"11px 8px 4px"}}>
-                <p style={{fontSize:10.5,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.7,paddingLeft:6,marginBottom:6}}>
-                  20 itens de maior custo  linha = % acumulado
-                </p>
-                <div style={{height:250}}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={grafico} margin={{top:4,right:8,left:0,bottom:4}}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={C.line}/>
-                      <XAxis dataKey="nome" tick={false} axisLine={{stroke:C.border}} height={6}/>
-                      <YAxis yAxisId="l" tick={{fontSize:10,fill:C.muted}} axisLine={false} tickLine={false}
-                             tickFormatter={v=>`${Math.round(v/1000)}k`}/>
-                      <YAxis yAxisId="r" orientation="right" domain={[0,100]} tick={{fontSize:10,fill:C.muted}}
-                             axisLine={false} tickLine={false} tickFormatter={v=>`${v}%`}/>
-                      <Tooltip
-                        contentStyle={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,fontSize:12}}
-                        formatter={(v,n)=> n==="acum" ? [`${v}%`,"Acumulado"] : [fmt(v),"Custo direto"]}/>
-                      <Bar yAxisId="l" dataKey="custo" radius={[3,3,0,0]}>
-                        {grafico.map((g,i)=><Cell key={i} fill={g.cor}/>)}
-                      </Bar>
-                      <Line yAxisId="r" type="monotone" dataKey="acum" stroke={C.yellow} strokeWidth={2} dot={false}/>
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Controles */}
-              <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:8,justifyContent:"space-between"}}>
-                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-                  <div onClick={()=>setAbcAgrupar(v=>!v)}
-                       style={{width:18,height:18,borderRadius:4,flexShrink:0,cursor:"pointer",
-                               border:`2px solid ${abcAgrupar?C.green:C.muted}`,background:abcAgrupar?C.green:"transparent",
-                               display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {abcAgrupar && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
-                  </div>
-                  <p style={{fontSize:11.5,color:C.subtle}}>Agrupar o mesmo código somado entre etapas</p>
-                </label>
-                {abcFiltro!=="todas" && (
-                  <button onClick={()=>setAbcFiltro("todas")}
-                          style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"4px 10px",
-                                  borderRadius:4,fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                    Mostrando classe {abcFiltro}  limpar filtro
-                  </button>
-                )}
-              </div>
-
-              {/* Tabela */}
-              <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-                <div className="scroll-x" style={{maxHeight:360,overflowY:"auto"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11.5,minWidth:660}}>
-                    <thead style={{position:"sticky",top:0,zIndex:1}}>
-                      <tr style={{background:C.surface}}>
-                        {["#","Cl.","Código","Descrição","Un.","Qtd.","Custo direto","% item","% acum."].map((h,i)=>(
-                          <th key={h} style={{padding:"7px 8px",textAlign:i>=4?"right":"left",fontSize:10,fontWeight:800,
-                                              color:C.muted,textTransform:"uppercase",letterSpacing:.5,
-                                              borderBottom:`1.5px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {listaAbc.map(i => (
-                        <tr key={`${i.codigo}-${i.ordem}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                          <td style={{padding:"6px 8px",color:C.muted}}>{i.ordem}</td>
-                          <td style={{padding:"6px 8px"}}>
-                            <span style={{display:"inline-block",minWidth:17,textAlign:"center",padding:"1px 5px",borderRadius:4,
-                                          background:`${CLASSE_ABC[i.classe].cor}18`,color:CLASSE_ABC[i.classe].cor,
-                                          fontSize:10,fontWeight:800}}>{i.classe}</span>
-                          </td>
-                          <td style={{padding:"6px 8px",color:C.subtle,whiteSpace:"nowrap"}}>{i.codigo||"-"}</td>
-                          <td style={{padding:"6px 8px",color:C.text,minWidth:230}}>
-                            {i.descricao}
-                            {i.ocorrencias>1 && (
-                              <span style={{marginLeft:6,fontSize:9.5,fontWeight:700,color:C.muted}}>({i.ocorrencias}x)</span>
-                            )}
-                          </td>
-                          <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{i.unidade}</td>
-                          <td style={{padding:"6px 8px",textAlign:"right",color:C.subtle,whiteSpace:"nowrap"}}>
-                            {i.quantidade.toLocaleString("pt-BR",{maximumFractionDigits:2})}
-                          </td>
-                          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:C.text,whiteSpace:"nowrap"}}>{fmt(i.custoDireto)}</td>
-                          <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{i.pct.toFixed(2)}%</td>
-                          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[i.classe].cor}}>{i.pctAcum.toFixed(1)}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <p style={{fontSize:10.5,color:C.muted,lineHeight:1.6}}>
-                Classe A: itens até 80% do custo acumulado  B: até 95%  C: o restante.
-                Os valores são de <b>custo direto</b>, sem BDI. Negociar preço nos itens A
-                move o orçamento; nos itens C, quase não muda.
-              </p>
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* Importar planilha do orçamento (código + qtd) */}
-      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:10,padding:"13px 15px",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <p style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:3}}>Importar planilha do orçamento</p>
-        <p style={{fontSize:11,color:C.muted,marginBottom:9,lineHeight:1.55}}>
-          A planilha precisa das colunas <b>Código</b> e <b>Qtd.</b> - descrição, unidade e preço
-          vêm da base {orc.fonte} já carregada, na data-base deste orçamento.
-          {basePorCodigo.size === 0
-            ? <span style={{color:C.red,fontWeight:700}}> Importe a base SINAPI/ORSE antes.</span>
-            : <> Base ativa: <b>{basePorCodigo.size.toLocaleString("pt-BR")}</b> códigos.</>}
-        </p>
-        <div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
-          <label style={{display:"inline-block",opacity: basePorCodigo.size===0 || impLoad ? .5 : 1}}>
-            <input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0 || impLoad}
-                   onChange={e=>{ importarOrcamentoXLSX(e.target.files?.[0]); e.target.value=""; }}
-                   style={{display:"none"}}/>
-            <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",
-                          border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:8,
-                          cursor: basePorCodigo.size===0||impLoad ? "not-allowed" : "pointer",
-                          fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:12,
-                          textTransform:"uppercase",letterSpacing:.5}}>
-              {impLoad ? "Lendo..." : "Escolher planilha"}
-            </span>
-          </label>
-          <p style={{fontSize:10.5,color:C.muted}}>
-            Use o <b>Excel padrão</b> abaixo como modelo do layout.
-          </p>
-        </div>
-      </div>
-
-      {/* Modal: conferir a importação antes de aplicar */}
-      {impModal && (() => {
-        const s = impModal.stats;
-        const pend = impModal.linhas.filter(l => l.kind==="item" && (!l.achou || l.semPreco || l.semQtd));
-        const Nm = ({v,l,cor}) => (
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
-            <p style={{fontSize:16,fontWeight:800,color:cor||C.text}}>{v}</p>
-            <p style={{fontSize:10,color:C.muted,marginTop:1}}>{l}</p>
-          </div>
-        );
-        return (
-          <Modal title="Conferir importação" onClose={()=>setImpModal(null)} wide>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
-                <Nm v={s.itens}    l="itens na planilha"/>
-                <Nm v={s.ok}       l="prontos" cor={C.green}/>
-                <Nm v={s.naoAchou} l="código fora da base" cor={s.naoAchou?C.red:C.muted}/>
-                <Nm v={s.etapas}   l="etapas"/>
-              </div>
-
-              <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:"9px 12px",
-                           display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-                <p style={{fontSize:11,color:C.muted}}>Custo direto que será importado</p>
-                <p style={{fontSize:17,fontWeight:800,color:C.yellow}}>{fmt(s.valor)}</p>
-              </div>
-
-              {pend.length > 0 && (
-                <div style={{border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.red}`,borderRadius:8,overflow:"hidden"}}>
-                  <p style={{fontSize:11.5,fontWeight:700,color:C.text,padding:"8px 11px",background:C.surface}}>
-                    {pend.length} linha(s) precisam de atenção
-                  </p>
-                  <div style={{maxHeight:150,overflowY:"auto",padding:"6px 11px"}}>
-                    {pend.slice(0,40).map((p,i)=>(
-                      <p key={i} style={{fontSize:11,color:C.muted,lineHeight:1.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                        Linha {p._i}: <b style={{color:C.subtle}}>{p.codigo||"sem código"}</b>
-                        {" - "}
-                        {!p.achou   ? "não existe na base carregada"
-                         : p.semQtd ? "sem quantidade"
-                         : "a base não tem preço para este código"}
-                      </p>
-                    ))}
-                    {pend.length>40 && <p style={{fontSize:10.5,color:C.muted,marginTop:4}}>...e mais {pend.length-40}.</p>}
-                  </div>
-                </div>
-              )}
-
-              {[
-                { k:"incluirPend", cor:C.yellow, t:"Importar também as linhas com pendência",
-                  s:"Entram com preço zerado para você completar depois. Desmarcado, elas são descartadas." },
-                { k:"substituir", cor:C.red, t:"Substituir o conteúdo atual do orçamento",
-                  s:"Apaga etapas e itens já lançados neste orçamento. Desmarcado, a planilha é somada ao que existe." },
-              ].map(o => (
-                <label key={o.k} style={{display:"flex",alignItems:"flex-start",gap:9,cursor:"pointer",padding:"8px 11px",
-                        background: impModal[o.k] ? `${o.cor}10` : C.surface,
-                        border:`1.5px solid ${impModal[o.k] ? o.cor : C.border}`,borderRadius:8}}>
-                  <div onClick={()=>setImpModal(m=>({...m,[o.k]:!m[o.k]}))}
-                       style={{width:18,height:18,borderRadius:4,flexShrink:0,marginTop:1,
-                               border:`2px solid ${impModal[o.k]?o.cor:C.muted}`,background:impModal[o.k]?o.cor:"transparent",
-                               display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {impModal[o.k] && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
-                  </div>
-                  <div>
-                    <p style={{fontSize:12.5,fontWeight:700,color:impModal[o.k]?o.cor:C.text}}>{o.t}</p>
-                    <p style={{fontSize:10.5,color:C.muted,marginTop:2,lineHeight:1.5}}>{o.s}</p>
-                  </div>
-                </label>
-              ))}
-
-              <div style={{display:"flex",gap:8}}>
-                <Btn v="ghost" onClick={()=>setImpModal(null)} full>Cancelar</Btn>
-                <Btn onClick={aplicarImportacao} full><Ic n="check"/> Importar</Btn>
-              </div>
-            </div>
-          </Modal>
-        );
-      })()}
-
       {/* Exportar */}
       <div style={{display:"grid",gridTemplateColumns:cols("1fr 1fr","1fr 1fr","200px 200px"),gap:8}}>
         <Btn onClick={exportPDF}  v="danger"  full><Ic n="file"/> PDF</Btn>
-        <Btn onClick={exportXLSX} v="success" full><Ic n="download"/> Excel completo</Btn>
-        <Btn onClick={exportXLSXExportado} v="success" full><Ic n="download"/> Excel padrão</Btn>
-        <Btn onClick={exportXLSXCurvaABC} v="ghost" full><Ic n="download"/> Curva ABC</Btn>
+        <Btn onClick={exportXLSX} v="success" full><Ic n="download"/> Excel</Btn>
       </div>
 
       {/* Modal: BDI - Acórdão 2622/2013-TCU */}
-      {editMetaModal && (
-        <Modal title="Editar dados do orçamento" onClose={()=>setEditMetaModal(false)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")}/>
-            <label style={{display:"flex",flexDirection:"column",gap:5}}>
-              <span style={{fontSize:11,fontWeight:700,color:C.text}}>Descrição</span>
-              <textarea value={form.descricao||""} onChange={e=>F("descricao")(e.target.value)} rows={3}
-                placeholder="Escopo, objetivo ou observações do orçamento"
-                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"'Inter',sans-serif"}}/>
-            </label>
-            <Sel label="Obra vinculada" value={form.obraId} onChange={F("obraId")}
-              options={[{v:"",l:"- Nenhuma -"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
-              <Inp label="Cliente" value={form.cliente} onChange={F("cliente")}/>
-              <Inp label="Área construída (m²)" type="number" value={form.areaM2} onChange={F("areaM2")}/>
-              <Inp label="Local / Endereço" value={form.local} onChange={F("local")}/>
-              <Inp label="UF" value={form.uf} onChange={F("uf")}/>
-              <Sel label="Fonte" value={form.fonte} onChange={F("fonte")} options={[
-                {v:"SINAPI",l:"SINAPI"},{v:"ORSE",l:"ORSE"},{v:"MISTO",l:"Misto (SINAPI + ORSE)"},{v:"EXTERNO",l:"Externo / Cotações"},
-              ]}/>
-              <Inp label="Data-base" value={form.dataBase} onChange={F("dataBase")} placeholder="Ex.: mai/2026"/>
-              <Inp label="BDI (%)" type="number" value={form.bdi} onChange={F("bdi")}/>
-              <Sel label="Status" value={form.status||"rascunho"} onChange={F("status")} options={[
-                {v:"rascunho",l:"Rascunho"},{v:"revisao",l:"Em revisão"},{v:"aprovado",l:"Aprovado"},{v:"enviado",l:"Enviado"},
-              ]}/>
-            </div>
-            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"9px 12px",background:form.desonerado?`${C.green}08`:C.surface,borderRadius:8,border:`1.5px solid ${form.desonerado?C.green+"55":C.border}`}}>
-              <input type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}/>
-              <span style={{fontSize:12,fontWeight:700,color:C.text}}>Encargos desonerados</span>
-            </label>
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setEditMetaModal(false)} full>Cancelar</Btn>
-              <Btn onClick={salvarDadosOrc} full><Ic n="check"/> Salvar dados</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
       {bdiModal && bdiP && (() => {
         const r   = calcBDI(bdiP);
         const sit = situacaoBDI(r.bdi, bdiTipo);
@@ -13868,15 +11220,13 @@ ${blocoBDI}
         <Modal title="Adicionar item à etapa" onClose={()=>{setBuscaModal(false);setBusca("");}} wide>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <Inp label="Buscar por código ou descrição" value={busca} onChange={setBusca}
-              placeholder={temBasePesquisa ? "Ex.: 93358, alvenaria, contrapiso..." : "Vincule uma base ou use seus favoritos"}/>
+              placeholder={baseImport.length>0 ? "Ex.: 93358, alvenaria, contrapiso..." : "Importe uma base ou use seus favoritos"}/>
 
-            {!temBasePesquisa && (
+            {baseBusca.length===0 && (
               <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:8,padding:16,textAlign:"center"}}>
-                <p style={{fontSize:12,color:C.muted}}>Nenhuma base vinculada. Cadastre ou vincule uma base SINAPI/ORSE neste orçamento.</p>
+                <p style={{fontSize:12,color:C.muted}}>Nenhuma base carregada. Importe o XLSX do SINAPI/ORSE primeiro.</p>
               </div>
             )}
-            {buscaRemotaLoading && <p style={{fontSize:10.5,color:C.blue,fontWeight:700}}>Pesquisando nas bases vinculadas...</p>}
-            {buscaRemotaAviso && <div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:10.5,color:C.orange}}>{buscaRemotaAviso}</p></div>}
 
             {!busca && baseBusca.some(i=>i._fav) && (
               <p style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}> Seus favoritos</p>
@@ -13896,14 +11246,13 @@ ${blocoBDI}
                         {r._fav && " "}
                         <span style={{fontWeight:700,color:r.fonte==="ORSE"?C.purple:C.blue}}>{r.fonte||"SINAPI"}</span>
                         {" "}{r.codigo}  {r.unidade}
-                        {r.dataBase?` · ${r.dataBase}`:""}{r.uf?` · ${r.uf}`:""}
                       </p>
                     </div>
                     <p style={{fontSize:13,fontWeight:800,color:C.yellow,flexShrink:0}}>{fmt(precoDoItem(r, orc))}</p>
                   </div>
                 </button>
               ))}
-              {busca.trim().length>=2 && resultados.length===0 && !buscaRemotaLoading && (
+              {busca && resultados.length===0 && (
                 <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:16}}>Nenhum resultado para "{busca}".</p>
               )}
             </div>
@@ -13924,9 +11273,7 @@ ${blocoBDI}
                   <p style={{fontSize:11,color:C.muted,marginTop:4}}>
                     <span style={{fontWeight:700,color:qtdModal.fonte==="ORSE"?C.purple:C.blue}}>{qtdModal.fonte||"SINAPI"}</span>
                     {" "}{qtdModal.codigo}  {fmt(pu)}/{qtdModal.unidade} <span style={{color:C.muted}}>(sem BDI)</span>
-                    {qtdModal.dataBase?` · ${qtdModal.dataBase}`:""}{qtdModal.uf?` · ${qtdModal.uf}`:""}
                   </p>
-                  {qtdModal.detailUrl && <a href={qtdModal.detailUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:10,color:C.blue,marginTop:5,fontWeight:700}}>Ver composição oficial</a>}
                   {substituido && (
                     <p style={{fontSize:10,color:C.orange,marginTop:4,fontWeight:600}}>
                       ! Preço {orc.desonerado!==false ? "não desonerado" : "desonerado"} - a coluna escolhida no orçamento está vazia nesta base.
@@ -13957,263 +11304,6 @@ ${blocoBDI}
           </div>
         </Modal>
       )}
-
-      {editItem && (
-        <Modal title="Editar item do orçamento" onClose={()=>setEditItem(null)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
-              <Inp label="Código" value={editItem.codigo||""} onChange={v=>setEditItem(x=>({...x,codigo:v}))}/>
-              <Inp label="Fonte" value={editItem.fonte||""} onChange={v=>setEditItem(x=>({...x,fonte:v}))}/>
-              <Inp label="Descrição *" value={editItem.descricao||""} onChange={v=>setEditItem(x=>({...x,descricao:v}))}/>
-              <Inp label="Unidade" value={editItem.unidade||""} onChange={v=>setEditItem(x=>({...x,unidade:v}))}/>
-              <Inp label="Quantidade" type="number" value={editItem.quantidade} onChange={v=>setEditItem(x=>({...x,quantidade:v}))}/>
-              <Inp label="Preço unitário sem BDI" type="number" value={editItem.precoUnit} onChange={v=>setEditItem(x=>({...x,precoUnit:v}))}/>
-            </div>
-            <label style={{display:"flex",flexDirection:"column",gap:5}}>
-              <span style={{fontSize:11,fontWeight:700,color:C.text}}>Composição / memória de preços</span>
-              <textarea value={editItem.composicao||""} onChange={e=>setEditItem(x=>({...x,composicao:e.target.value}))}
-                placeholder="Material, mão de obra, equipamentos, coeficientes e valores..." rows={5}
-                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"'Inter',sans-serif"}}/>
-            </label>
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setEditItem(null)} full>Cancelar</Btn>
-              <Btn onClick={salvarItemCompleto} full><Ic n="check"/> Salvar alterações</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {externoModal && (
-        <Modal title="Nova composição externa / cotação" onClose={()=>setExternoModal(false)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
-              Use para serviços próprios, cotações de fornecedores ou composições que não existem na base SINAPI/ORSE.
-            </p>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
-              <Inp label="Código (opcional)" value={externoForm.codigo} onChange={v=>setExternoForm(f=>({...f,codigo:v}))}/>
-              <Inp label="Fonte" value={externoForm.fonte} onChange={v=>setExternoForm(f=>({...f,fonte:v}))} placeholder="EXTERNO ou COTAÇÃO"/>
-              <Inp label="Descrição *" value={externoForm.descricao} onChange={v=>setExternoForm(f=>({...f,descricao:v}))}/>
-              <Inp label="Unidade *" value={externoForm.unidade} onChange={v=>setExternoForm(f=>({...f,unidade:v}))}/>
-              <Inp label="Quantidade *" type="number" value={externoForm.quantidade} onChange={v=>setExternoForm(f=>({...f,quantidade:v}))}/>
-              <Inp label="Custo unitário sem BDI *" type="number" value={externoForm.precoUnit} onChange={v=>setExternoForm(f=>({...f,precoUnit:v}))}/>
-            </div>
-            <label style={{display:"flex",flexDirection:"column",gap:5}}>
-              <span style={{fontSize:11,fontWeight:700,color:C.text}}>Composição / detalhes da cotação</span>
-              <textarea value={externoForm.composicao} onChange={e=>setExternoForm(f=>({...f,composicao:e.target.value}))}
-                rows={5} placeholder="Materiais, mão de obra, fornecedor, validade, coeficientes..."
-                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"'Inter',sans-serif"}}/>
-            </label>
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setExternoModal(false)} full>Cancelar</Btn>
-              <Btn onClick={salvarExterno} full><Ic n="check"/> Adicionar ao orçamento</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-      </>}
-
-      {orcAba==="insumos" && (
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderLeft:`4px solid ${C.blue}`,borderRadius:8,padding:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:7}}>
-              <div><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>CONSULTA ANALÍTICA DAS BASES</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Pesquise e abra separadamente os insumos ou as composições SINAPI/ORSE vinculadas.</p></div>
-              <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"5px 8px",fontSize:8.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
-            </div>
-            <Inp value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo por código ou descrição...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição por código ou descrição...":"Pesquisar insumo ou composição por código ou descrição..."}/>
-            {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:5,maxHeight:250,overflowY:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
-              {compBuscaLoading&&<p style={{fontSize:10,color:C.blue,padding:8,fontWeight:800}}>PESQUISANDO...</p>}
-              {compBuscaAviso&&<p style={{fontSize:10,color:C.orange,padding:8}}>{compBuscaAviso}</p>}
-              {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"115px minmax(0,1fr) 95px auto",gap:7,padding:"7px 8px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center"}}>
-                <span><b style={{display:"block",fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><small style={{fontSize:7.5,color:item.tipoItem==="COMPOSICAO"?C.green:C.orange,fontWeight:900}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span>
-                <span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
-                <span style={{fontSize:10,color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
-                <button onClick={()=>analisarItemReferencia(item)} style={{border:`1px solid ${C.blue}`,background:`${C.blue}08`,color:C.blue,borderRadius:5,padding:"5px 8px",fontSize:9,fontWeight:800,cursor:"pointer"}}>ANALISAR</button>
-              </div>)}
-              {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:10}}>Nenhum resultado.</p>}
-            </div>}
-          </div>
-
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:5}}>
-            {[["insumos","CURVA ABC DE INSUMOS"],["composicoes","CURVA ABC DE COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>{setAbcTipo(valor);setAbcFiltro("todas");setAbcInsumoFiltro("todas");}} style={{border:`1px solid ${abcTipo===valor?C.blue:C.border}`,background:abcTipo===valor?C.blue:C.bg,color:abcTipo===valor?"#fff":C.muted,borderRadius:6,padding:"8px 10px",fontSize:10,fontWeight:900,cursor:"pointer"}}>{label}</button>)}
-          </div>
-
-          {abcTipo==="insumos"&&<>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            <div>
-              <p style={{fontSize:14,fontWeight:800,color:C.text}}>QUANTITATIVOS DE INSUMOS</p>
-              <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Expansão analítica das composições SINAPI, ORSE e próprias conforme as quantidades do orçamento.</p>
-            </div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              <Btn size="sm" v="info" onClick={carregarDetalhesComposicoes} disabled={detalhesLoading}>{detalhesLoading?"CARREGANDO...":"ATUALIZAR INSUMOS"}</Btn>
-              <Btn size="sm" v="success" onClick={exportarABCInsumos}>EXCEL</Btn>
-            </div>
-          </div>
-          {detalhesAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:10.5,color:C.orange}}>{detalhesAviso}</div>}
-          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
-            {[
-              [abcInsumos.itens.length,"INSUMOS CONSOLIDADOS",C.blue],
-              [fmt(abcInsumos.total),"CUSTO ANALÍTICO",C.yellow],
-              [abcInsumos.semPreco.length,"SEM PREÇO",abcInsumos.semPreco.length?C.red:C.green],
-              [abcInsumos.semDetalhe.length,"SEM DETALHAMENTO",abcInsumos.semDetalhe.length?C.orange:C.green],
-            ].map(([valor,label,cor])=><div key={label} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${cor}`,borderRadius:8,padding:"9px 11px"}}>
-              <p style={{fontSize:15,fontWeight:800,color:cor}}>{valor}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>{label}</p>
-            </div>)}
-          </div>
-          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-            {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcInsumoFiltro(classe)} style={{
-              border:`1px solid ${abcInsumoFiltro===classe?(classe==="todas"?C.blue:CLASSE_ABC[classe].cor):C.border}`,
-              background:abcInsumoFiltro===classe?`${classe==="todas"?C.blue:CLASSE_ABC[classe].cor}12`:C.bg,
-              color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:800,cursor:"pointer",
-            }}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</button>)}
-          </div>
-          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.bg}}>
-            <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:10.5}}>
-              <thead><tr style={{background:C.surface}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DO INSUMO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-              <tbody>{abcInsumos.itens.filter(item=>abcInsumoFiltro==="todas"||item.classe===abcInsumoFiltro).map(item=><tr key={`${item.fonte}-${item.codigo}-${item.unidade}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                <td style={{padding:"6px 8px",fontWeight:900,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td>
-                <td style={{padding:"6px 8px",fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td>
-                <td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
-                <td title={item.descricao} style={{padding:"6px 8px",color:C.text,maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
-                <td style={{padding:"6px 8px",color:C.muted}}>{item.unidade}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",color:C.text}}>{item.quantidade.toLocaleString("pt-BR",{maximumFractionDigits:6})}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",color:item.precoUnit?C.text:C.red}}>{fmt(item.precoUnit)}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:800,color:C.text}}>{fmt(item.custo)}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{item.pct.toFixed(2)}%</td>
-                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
-              </tr>)}</tbody>
-            </table>
-            {!abcInsumos.itens.length&&!detalhesLoading&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum quantitativo calculado. Confira se os itens possuem código, quantidade e custo unitário.</p>}
-          </div>
-          {(abcInsumos.semDetalhe.length>0||abcInsumos.semPreco.length>0)&&<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}>
-            {abcInsumos.semDetalhe.length>0&&<p style={{fontSize:10,color:C.orange,lineHeight:1.6}}><b>SEM DETALHAMENTO:</b> {abcInsumos.semDetalhe.slice(0,20).join(", ")}{abcInsumos.semDetalhe.length>20?"...":""}</p>}
-            {abcInsumos.semPreco.length>0&&<p style={{fontSize:10,color:C.red,lineHeight:1.6}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>}
-          </div>}
-          </>}
-
-          {abcTipo==="composicoes"&&<>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-              <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>CURVA ABC DE COMPOSIÇÕES</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Somente serviços e composições lançados no orçamento. Insumos analíticos não entram nesta curva.</p></div>
-              <Btn size="sm" v="success" onClick={exportXLSXCurvaABC}>EXCEL</Btn>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
-              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.blue}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:C.blue}}>{abc?.itens?.length||0}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>COMPOSIÇÕES CONSOLIDADAS</p></div>
-              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:C.yellowD}}>{fmt(abc?.totalCD||0)}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>CUSTO DIRETO DAS COMPOSIÇÕES</p></div>
-              {(abc?.resumo||[]).map(r=><div key={r.classe} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${r.cor}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:r.cor}}>{r.qtd}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>CLASSE {r.classe} · {r.pctValor.toFixed(1)}%</p></div>)}
-            </div>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-              {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcFiltro(classe)} style={{border:`1px solid ${abcFiltro===classe?(classe==="todas"?C.blue:CLASSE_ABC[classe].cor):C.border}`,background:abcFiltro===classe?`${classe==="todas"?C.blue:CLASSE_ABC[classe].cor}12`:C.bg,color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:800,cursor:"pointer"}}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</button>)}
-            </div>
-            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.bg}}>
-              <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:10.5}}>
-                <thead><tr style={{background:C.surface}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DA COMPOSIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-                <tbody>{(abc?.itens||[]).filter(item=>abcFiltro==="todas"||item.classe===abcFiltro).map(item=><tr key={`${item.codigo}-${item.ordem}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                  <td style={{padding:"6px 8px",fontWeight:900,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td><td style={{padding:"6px 8px",fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte||"-"}</td><td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
-                  <td title={item.descricao} style={{padding:"6px 8px",color:C.text,maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:"6px 8px",color:C.muted}}>{item.unidade}</td>
-                  <td style={{padding:"6px 8px",textAlign:"right"}}>{Number(item.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:6})}</td><td style={{padding:"6px 8px",textAlign:"right"}}>{fmt(item.precoUnit)}</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:800}}>{fmt(item.custoDireto)}</td><td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{item.pct.toFixed(2)}%</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
-                </tr>)}</tbody>
-              </table>
-              {!(abc?.itens||[]).length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhuma composição com quantidade e preço foi encontrada no orçamento.</p>}
-            </div>
-          </>}
-        </div>
-      )}
-
-      {orcAba==="proprias" && (
-        <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","300px minmax(0,1fr)"),gap:10,alignItems:"start"}}>
-          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,marginBottom:8}}>
-              <div><p style={{fontSize:13,fontWeight:800,color:C.text}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:9.5,color:C.muted}}>{composicoesEmpresa.length} cadastrada(s) na empresa</p></div>
-              <Btn size="sm" v="ghost" onClick={()=>setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]})}>NOVA</Btn>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:5}}>{composicoesEmpresa.map(comp=>{
-              const custo=(comp.itens||[]).reduce((s,item)=>s+Number(item.coeficiente||0)*Number(item.precoUnit||0),0);
-              return <div key={comp.id} style={{border:`1px solid ${compForm.id===comp.id?C.blue:C.border}`,borderRadius:7,padding:"8px 9px",background:compForm.id===comp.id?`${C.blue}08`:C.surface}}>
-                <p style={{fontSize:10,fontWeight:800,color:C.blue}}>{comp.codigo} · {comp.unidade}</p>
-                <p title={comp.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{comp.descricao}</p>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5}}><b style={{fontSize:11,color:C.yellowD}}>{fmt(custo)}</b><span><button onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{border:0,background:"transparent",color:C.blue,fontSize:9.5,cursor:"pointer"}}>EDITAR</button><button onClick={()=>excluirComposicaoPropria(comp)} style={{border:0,background:"transparent",color:C.red,fontSize:9.5,cursor:"pointer"}}>EXCLUIR</button></span></div>
-              </div>;
-            })}{!composicoesEmpresa.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:14}}>Nenhuma composição da empresa.</p>}</div>
-          </div>
-          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:12,display:"flex",flexDirection:"column",gap:10}}>
-            <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>{compForm.id?"EDITAR COMPOSIÇÃO":"NOVA COMPOSIÇÃO PRÓPRIA"}</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>O custo unitário é calculado pelos coeficientes e preços da base vinculada.</p></div>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
-              <Inp label="Código *" value={compForm.codigo} onChange={valor=>setCompForm(form=>({...form,codigo:valor}))} placeholder="Ex.: CP-001"/>
-              <Inp label="Unidade *" value={compForm.unidade} onChange={valor=>setCompForm(form=>({...form,unidade:valor}))} placeholder="M2"/>
-              <div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:700}}>CUSTO UNITÁRIO</p><p style={{fontSize:15,fontWeight:800,color:C.yellowD,marginTop:2}}>{fmt(custoCompForm)}</p></div>
-            </div>
-            <Inp label="Descrição *" value={compForm.descricao} onChange={valor=>setCompForm(form=>({...form,descricao:valor}))} placeholder="DESCRIÇÃO DA COMPOSIÇÃO"/>
-            {compForm.origemCodigo&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}35`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:800}}>COMPOSIÇÃO COPIADA DE</p><p style={{fontSize:10.5,color:C.blue,fontWeight:800,marginTop:2}}>{compForm.origemFonte} {compForm.origemCodigo}{compForm.origemDataBase?` · ${compForm.origemDataBase}`:""}{compForm.origemUf?` · ${compForm.origemUf}`:""}</p></div>}
-            <div style={{position:"relative"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:8,flexWrap:"wrap",marginBottom:5}}>
-                <p style={{fontSize:9.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Pesquisar nas bases vinculadas</p>
-                <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"4px 7px",fontSize:8.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
-              </div>
-              <Inp value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição...":"Pesquisar insumo ou composição..."}/>
-              {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:4,maxHeight:240,overflowY:"auto",border:`1px solid ${C.blue}`,borderRadius:7,padding:4}}>
-                {compBuscaLoading&&<p style={{fontSize:10,color:C.blue,padding:6}}>PESQUISANDO...</p>}
-                {compBuscaAviso&&<p style={{fontSize:10,color:C.orange,padding:6}}>{compBuscaAviso}</p>}
-                {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 82px auto",gap:7,padding:"6px 7px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center"}}>
-                  <span><b style={{display:"block",fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><small style={{fontSize:7.5,color:item.tipoItem==="COMPOSICAO"?C.green:C.orange,fontWeight:900}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span><span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><span style={{fontSize:10,color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
-                  <span style={{display:"flex",gap:4}}>
-                    <button onClick={()=>analisarItemReferencia(item)} style={{border:`1px solid ${C.blue}`,background:`${C.blue}08`,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>ANALISAR</button>
-                    <button onClick={()=>adicionarItemComposicao(item)} title={item.tipoItem==="COMPOSICAO"?"Usar como composição auxiliar":"Adicionar insumo"} style={{border:`1px solid ${C.border}`,background:C.bg,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>+</button>
-                    {item.tipoItem==="COMPOSICAO"&&<button disabled={!!clonandoComposicao} onClick={()=>clonarComposicaoReferencia(item)} style={{border:`1px solid ${C.green}`,background:`${C.green}10`,color:C.green,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{clonandoComposicao===`${item.fonte}|${item.codigo}`?"COPIANDO...":"CLONAR"}</button>}
-                  </span>
-                </div>)}
-                {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:9}}>Nenhum resultado.</p>}
-              </div>}
-            </div>
-            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:750,borderCollapse:"collapse",fontSize:10}}>
-              <thead><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:"6px",textAlign:h.includes("PREÇO")||h==="TOTAL"||h==="COEFICIENTE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
-              <tbody>{(compForm.itens||[]).map(item=><tr key={item.id} style={{borderBottom:`1px solid ${C.line}`}}>
-                <td style={{padding:6,color:C.muted}}>{item.tipoItem}</td><td style={{padding:6,fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td><td style={{padding:6}}>{item.codigo}</td>
-                <td title={item.descricao} style={{padding:6,maxWidth:300,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:6}}>{item.unidade}</td>
-                <td style={{padding:4}}><input type="number" step="any" value={item.coeficiente} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:85,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
-                <td style={{padding:4}}><input type="number" step="any" value={item.precoUnit} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:90,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
-                <td style={{padding:6,textAlign:"right",fontWeight:800}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td><td style={{padding:4}}><button onClick={()=>setCompForm(form=>({...form,itens:form.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
-              </tr>)}</tbody>
-            </table>{!(compForm.itens||[]).length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:13}}>Pesquise e adicione os insumos.</p>}</div>
-            <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]})}>LIMPAR</Btn><Btn onClick={salvarComposicaoPropria}><Ic n="check"/> SALVAR COMPOSIÇÃO</Btn></div>
-          </div>
-        </div>
-      )}
-
-      {analiseReferencia&&<Modal title={`${analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"} ${analiseReferencia.fonte} ${analiseReferencia.codigo}`} onClose={()=>{setAnaliseReferencia(null);setAnaliseComponentes([]);setAnaliseReferenciaAviso("");}} wide>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:10}}>
-            <p style={{fontSize:13,fontWeight:900,color:C.text}}>{analiseReferencia.descricao}</p>
-            <div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:7,fontSize:10.5,color:C.muted}}>
-              <span><b>Tipo:</b> {analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"}</span>
-              <span><b>Unidade:</b> {analiseReferencia.unidade||"UN"}</span>
-              <span><b>Preço:</b> {fmt(precoDoItem(analiseReferencia,orc))}</span>
-              <span><b>Data-base:</b> {analiseReferencia.dataBase||orc?.dataBase||"-"}</span>
-              {analiseReferencia.uf&&<span><b>UF:</b> {analiseReferencia.uf}</span>}
-              {analiseReferencia.classificacao&&<span><b>Classificação:</b> {analiseReferencia.classificacao}</span>}
-            </div>
-          </div>
-
-          {analiseReferenciaLoading&&<p style={{padding:18,textAlign:"center",fontSize:11,color:C.blue,fontWeight:800}}>CARREGANDO ANÁLISE...</p>}
-          {analiseReferenciaAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:10.5,color:C.orange}}>{analiseReferenciaAviso}</div>}
-
-          {analiseReferencia.tipoItem==="COMPOSICAO"&&!analiseReferenciaLoading&&analiseComponentes.length>0&&<>
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><p style={{fontSize:12,fontWeight:900,color:C.text}}>COMPOSIÇÃO ANALÍTICA DIRETA</p><b style={{fontSize:13,color:C.yellowD}}>{fmt(analiseComponentes.reduce((s,item)=>s+Number(item.coeficiente||0)*precoDoItem(item,orc),0))}</b></div>
-            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7,maxHeight:390,overflowY:"auto"}}><table style={{width:"100%",minWidth:760,borderCollapse:"collapse",fontSize:10}}>
-              <thead style={{position:"sticky",top:0,zIndex:1}}><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL"].map(h=><th key={h} style={{padding:"7px 6px",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:C.muted,fontSize:8.5,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
-              <tbody>{analiseComponentes.map((item,index)=><tr key={`${item.itemType}-${item.itemCode}-${index}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                <td style={{padding:6,color:item.itemType==="COMPOSICAO"?C.green:C.orange,fontWeight:800}}>{item.itemType}</td>
-                <td style={{padding:6,fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td><td style={{padding:6}}>{item.itemCode}</td>
-                <td title={item.descricao} style={{padding:6,maxWidth:310,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:6}}>{item.unidade}</td>
-                <td style={{padding:6,textAlign:"right"}}>{Number(item.coeficiente||0).toLocaleString("pt-BR",{maximumFractionDigits:8})}</td><td style={{padding:6,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}</td><td style={{padding:6,textAlign:"right",fontWeight:800}}>{fmt(Number(item.coeficiente||0)*precoDoItem(item,orc))}</td>
-              </tr>)}</tbody>
-            </table></div>
-          </>}
-
-          <div style={{display:"flex",justifyContent:"flex-end",gap:7,flexWrap:"wrap"}}>
-            {analiseReferencia.tipoItem==="COMPOSICAO"&&<Btn v="success" onClick={()=>{const item=analiseReferencia;setAnaliseReferencia(null);clonarComposicaoReferencia(item);}}>CLONAR PARA A EMPRESA</Btn>}
-            <Btn v="ghost" onClick={()=>{setAnaliseReferencia(null);setAnaliseComponentes([]);setAnaliseReferenciaAviso("");}}>FECHAR</Btn>
-          </div>
-        </div>
-      </Modal>}
     </div>
   );
 }
@@ -15576,75 +12666,8 @@ function ModalFornecedor({ form, setForm, onSave }) {
   );
 }
 
-function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]}){
-  const {formGrid}=useBreakpoint();
-  const [busca,setBusca]=useState("");const [resultados,setResultados]=useState([]);
-  const [loading,setLoading]=useState(false);const [aviso,setAviso]=useState("");
-  const base=basesReferencia.find(item=>item.id===form.referenciaId);
-  const F=k=>v=>setForm(f=>({...f,[k]:v}));
-  const setItem=(id,campo,valor)=>setForm(f=>({...f,itens:f.itens.map(item=>item.id===id?{...item,[campo]:valor}:item)}));
-
-  useEffect(()=>{
-    let ativo=true;const termo=busca.trim();
-    if(!form.referenciaId||termo.length<2){setResultados([]);setAviso("");setLoading(false);return()=>{ativo=false;};}
-    setLoading(true);const timer=window.setTimeout(async()=>{
-      const resposta=await pesquisarInsumosReferencia([form.referenciaId],termo);if(!ativo)return;
-      if(resposta.ok){setResultados((resposta.items||[]).filter(item=>item.tipoItem==="INSUMO"));setAviso(resposta.warning||"");}
-      else{setResultados([]);setAviso(resposta.error||"Não foi possível pesquisar a base.");}
-      setLoading(false);
-    },260);return()=>{ativo=false;window.clearTimeout(timer);};
-  },[busca,form.referenciaId]);
-
-  const precoRef=item=>{const p=base?.desonerado===false?Number(item.precoNao||0):Number(item.precoDes||0);return p||Number(item.precoDes||0)||Number(item.precoNao||0);};
-  const addReferencia=item=>{
-    setForm(f=>({...f,itens:[...f.itens,{id:uid(),referenciaId:f.referenciaId,fonteRef:maiusculoOrcamento(item.fonte||base?.fonte||"SINAPI"),
-      codigoRef:maiusculoOrcamento(item.codigo||""),descricaoRef:maiusculoOrcamento(item.descricao||""),unidadeRef:maiusculoOrcamento(item.unidade||"UN"),
-      quantidade:"",precoRef:precoRef(item),dataBaseRef:item.dataBase||base?.dataBase||"",ufRef:item.uf||base?.uf||"",observacao:""}]}));
-    setBusca("");setResultados([]);
-  };
-  const addProprio=()=>setForm(f=>({...f,itens:[...f.itens,{id:uid(),referenciaId:"",fonteRef:"PRÓPRIO",codigoRef:"",descricaoRef:"",unidadeRef:"UN",quantidade:"",precoRef:0,dataBaseRef:"",ufRef:"",observacao:""}]}));
-
-  return <Modal title="Solicitar materiais para Compras" onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:11}}>
-    <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:9}}>
-      <Sel label="Obra *" value={form.obraId} onChange={F("obraId")} options={obras.map(o=>({v:o.id,l:o.name}))}/>
-      <Inp label="Necessidade na obra" type="date" value={form.necessidade} onChange={F("necessidade")}/>
-      <Sel label="Prioridade" value={form.prioridade} onChange={F("prioridade")} options={[{v:"normal",l:"Normal"},{v:"urgente",l:"Urgente"}]}/>
-    </div>
-    <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}40`,borderRadius:8,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
-      <p style={{fontSize:11.5,fontWeight:900,color:C.blue}}>PESQUISAR INSUMO SINAPI / ORSE</p>
-      <Sel label="Base de referência" value={form.referenciaId||""} onChange={v=>{F("referenciaId")(v);setBusca("");setResultados([]);}}
-        options={[{v:"",l:basesReferencia.length?"Selecione a base":"Nenhuma base pronta no Supabase"},...basesReferencia.map(b=>({v:b.id,l:`${b.fonte} · ${b.dataBase}${b.uf?` · ${b.uf}`:""}${b.fonte==="SINAPI"?` · ${b.desonerado===false?"NÃO DESONERADA":"DESONERADA"}`:""}`}))]}/>
-      <Inp label="Código ou descrição" value={busca} onChange={setBusca} placeholder="Ex.: cimento, bloco, aço..."/>
-      {(loading||aviso||resultados.length>0||busca.trim().length>=2)&&<div style={{maxHeight:220,overflowY:"auto",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:4}}>
-        {loading&&<p style={{fontSize:10,color:C.blue,padding:7}}>PESQUISANDO...</p>}{aviso&&<p style={{fontSize:10,color:C.orange,padding:7}}>{aviso}</p>}
-        {resultados.map((item,index)=><button key={`${item.fonte}-${item.codigo}-${index}`} onClick={()=>addReferencia(item)} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 100px",gap:8,width:"100%",alignItems:"center",padding:"7px 8px",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",cursor:"pointer",textAlign:"left"}}><b style={{fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><span style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><b style={{fontSize:9.5,color:C.yellowD,textAlign:"right"}}>{fmt(precoRef(item))}/{item.unidade}</b></button>)}
-        {!loading&&!resultados.length&&!aviso&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado.</p>}
-      </div>}
-    </div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}><p style={{fontSize:11,fontWeight:900,color:C.text}}>MATERIAIS SOLICITADOS</p><Btn size="sm" v="ghost" onClick={addProprio}><Ic n="plus"/> CRIAR ITEM PRÓPRIO</Btn></div>
-    <div style={{display:"flex",flexDirection:"column",gap:7}}>{form.itens.map(item=><div key={item.id} style={{background:C.surface,border:`1px solid ${item.fonteRef==="PRÓPRIO"?C.orange:C.border}`,borderRadius:8,padding:"8px 9px"}}>
-      <div style={{display:"grid",gridTemplateColumns:"80px 110px minmax(180px,1fr) 70px 95px auto",gap:6,alignItems:"end",overflowX:"auto"}}>
-        <div><p style={{fontSize:8.5,color:C.muted,fontWeight:800,marginBottom:3}}>FONTE</p><b style={{fontSize:10,color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef}</b></div>
-        <Inp label="Código" value={item.codigoRef} onChange={v=>setItem(item.id,"codigoRef",v)} placeholder="Opcional"/>
-        <Inp label="Descrição *" value={item.descricaoRef} onChange={v=>setItem(item.id,"descricaoRef",v)}/>
-        <Inp label="Unidade *" value={item.unidadeRef} onChange={v=>setItem(item.id,"unidadeRef",v)}/>
-        <Inp label="Quantidade *" type="number" value={item.quantidade} onChange={v=>setItem(item.id,"quantidade",v)}/>
-        <button onClick={()=>setForm(f=>({...f,itens:f.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",padding:8}}>x</button>
-      </div>
-      {item.precoRef>0&&<p style={{fontSize:9.5,color:C.muted,marginTop:5}}>Referência {item.dataBaseRef}{item.ufRef?` · ${item.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(item.precoRef))}/{item.unidadeRef}</b></p>}
-    </div>)}{!form.itens.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:12}}>Pesquise um insumo ou crie um item próprio.</p>}</div>
-    <Inp label="Observação geral" value={form.observacao} onChange={F("observacao")} multiline placeholder="Local de entrega, especificação, justificativa da urgência..."/>
-    <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>CANCELAR</Btn><Btn onClick={()=>onSave(form)} full><Ic n="check"/> ENVIAR PARA COMPRAS</Btn></div>
-  </div></Modal>;
-}
-
-function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc, data, basesReferencia=[] }) {
+function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc, data }) {
   const { formGrid } = useBreakpoint();
-  const [buscaRef,setBuscaRef]=useState("");
-  const [resultadosRef,setResultadosRef]=useState([]);
-  const [buscandoRef,setBuscandoRef]=useState(false);
-  const [avisoRef,setAvisoRef]=useState("");
-  const baseSelecionada=basesReferencia.find(base=>base.id===form.referenciaId);
 
   // Sugestao de fornecedores: quem serve os materiais que ja estao no pedido.
   const sugFornecedores = useMemo(() => {
@@ -15656,43 +12679,10 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
   const setItem = (i, campo, v) =>
     setForm(f => ({ ...f, itens: f.itens.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
   const addItem = () => setForm(f => ({ ...f, itens:[...f.itens,
-    {id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}] }));
+    {id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0}] }));
   const delItem = (i) => setForm(f => ({ ...f, itens: f.itens.filter((_,k)=>k!==i) }));
 
-  useEffect(()=>{
-    let ativo=true;const termo=buscaRef.trim();
-    if(!form.referenciaId||termo.length<2){setResultadosRef([]);setAvisoRef("");setBuscandoRef(false);return()=>{ativo=false;};}
-    setBuscandoRef(true);
-    const timer=window.setTimeout(async()=>{
-      const resposta=await pesquisarInsumosReferencia([form.referenciaId],termo);
-      if(!ativo)return;
-      if(resposta.ok){
-        setResultadosRef((resposta.items||[]).filter(item=>item.tipoItem==="INSUMO"));
-        setAvisoRef(resposta.warning||"");
-      }else{setResultadosRef([]);setAvisoRef(resposta.error||"Não foi possível pesquisar esta base.");}
-      setBuscandoRef(false);
-    },260);
-    return()=>{ativo=false;window.clearTimeout(timer);};
-  },[buscaRef,form.referenciaId]);
-
-  const precoReferenciaResultado=item=>{
-    const preferido=baseSelecionada?.desonerado===false?Number(item.precoNao||0):Number(item.precoDes||0);
-    return preferido||Number(item.precoDes||0)||Number(item.precoNao||0);
-  };
-  const selecionarReferencia=item=>{
-    const fonte=maiusculoOrcamento(item.fonte||baseSelecionada?.fonte||"");
-    const codigo=maiusculoOrcamento(item.codigo||"").trim();
-    const existente=materiais.find(m=>maiusculoOrcamento(m.codigo).trim()===codigo&&maiusculoOrcamento(m.fonteRef||fonte)===fonte);
-    const linha={id:uid(),materialId:existente?.id||uid(),qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",
-      referenciaId:form.referenciaId,fonteRef:fonte,codigoRef:codigo,
-      descricaoRef:maiusculoOrcamento(item.descricao||""),unidadeRef:maiusculoOrcamento(item.unidade||"UN"),
-      precoRef:precoReferenciaResultado(item),dataBaseRef:item.dataBase||baseSelecionada?.dataBase||"",ufRef:item.uf||baseSelecionada?.uf||""};
-    setForm(f=>{const pos=(f.itens||[]).findIndex(x=>!x.materialId&&!x.codigoRef);if(pos<0)return{...f,itens:[...(f.itens||[]),linha]};return{...f,itens:f.itens.map((x,i)=>i===pos?{...linha,id:x.id||linha.id}:x)};});
-    setBuscaRef("");setResultadosRef([]);
-  };
-
   const total = (form.itens||[]).reduce((s,i) => s + Number(i.qtd||0) * Number(i.precoUnit||0), 0);
-  const totalReferencia = (form.itens||[]).reduce((s,i) => s + Number(i.qtd||0) * Number(i.precoRef||0), 0);
 
   return (
     <Modal title={form.id ? `Pedido ${form.numero}` : "Novo pedido"} onClose={()=>setForm(null)} wide>
@@ -15730,29 +12720,12 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
           </div>
         )}
 
-        <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}40`,borderRadius:8,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
-          <div><p style={{fontSize:11.5,fontWeight:900,color:C.blue}}>SELECIONAR INSUMO SINAPI / ORSE</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Escolha a competência usada na comparação e pesquise por código ou descrição. Você pode trocar a base e incluir itens de fontes diferentes no mesmo pedido.</p></div>
-          <Sel label="Base de referência para a pesquisa" value={form.referenciaId||""} onChange={v=>{F("referenciaId")(v);setBuscaRef("");setResultadosRef([]);}}
-            options={[{v:"",l:basesReferencia.length?"Selecione a fonte, competência e UF":"Nenhuma base pronta no Supabase"},...basesReferencia.map(base=>({v:base.id,l:`${base.fonte} · ${base.dataBase}${base.uf?` · ${base.uf}`:""}${base.fonte==="SINAPI"?` · ${base.desonerado===false?"NÃO DESONERADA":"DESONERADA"}`:""}`}))]}/>
-          <Inp label="Pesquisar insumo" value={buscaRef} onChange={setBuscaRef} placeholder="Ex.: cimento, areia, aço ou código..."/>
-          {(buscandoRef||avisoRef||resultadosRef.length>0||buscaRef.trim().length>=2)&&<div style={{maxHeight:235,overflowY:"auto",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:4}}>
-            {buscandoRef&&<p style={{fontSize:10,color:C.blue,padding:7}}>PESQUISANDO NA BASE...</p>}
-            {avisoRef&&<p style={{fontSize:10,color:C.orange,padding:7}}>{avisoRef}</p>}
-            {resultadosRef.map((item,index)=>{const preco=precoReferenciaResultado(item);return <button key={`${item.fonte}-${item.codigo}-${index}`} onClick={()=>selecionarReferencia(item)} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 105px",gap:8,alignItems:"center",width:"100%",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",padding:"7px 8px",cursor:"pointer",textAlign:"left"}}>
-              <b style={{fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b>
-              <span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
-              <span style={{fontSize:10,color:C.yellowD,textAlign:"right",fontWeight:800}}>{fmt(preco)}/{item.unidade}</span>
-            </button>;})}
-            {!buscandoRef&&!resultadosRef.length&&!avisoRef&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado nesta base.</p>}
-          </div>}
-        </div>
-
         {(form.itens||[]).map((it, i) => (
           <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,
                                borderRadius:8,padding:"9px 11px"}}>
             <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
-              <Sel label="Material" value={it.materialId} onChange={v=>setForm(f=>({...f,itens:f.itens.map((x,k)=>k===i?{...x,materialId:v,referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}:x)}))}
-                   options={[{v:"",l:"Selecione..."},...(it.codigoRef&&!materiais.some(m=>m.id===it.materialId)?[{v:it.materialId,l:`${it.descricaoRef} (${it.unidadeRef})`}]:[]), ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
+              <Sel label="Material" value={it.materialId} onChange={v=>setItem(i,"materialId",v)}
+                   options={[{v:"",l:"Selecione..."}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
               <Inp label="Quantidade" type="number" value={it.qtd} onChange={v=>setItem(i,"qtd",v)}
                    placeholder="0"/>
               <div>
@@ -15787,11 +12760,6 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                      ]}/>
               </div>
             </div>
-            {it.codigoRef&&<div style={{marginTop:7,background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
-              <p style={{fontSize:10,fontWeight:800,color:it.fonteRef==="ORSE"?C.purple:C.blue}}>{it.fonteRef} {it.codigoRef} · {it.descricaoRef} · {it.unidadeRef}</p>
-              <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Referência {it.dataBaseRef}{it.ufRef?` · ${it.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(it.precoRef||0))}</b></p>
-              {Number(it.precoUnit)>0&&Number(it.precoRef)>0&&(()=>{const dif=Number(it.precoUnit)-Number(it.precoRef);const pct=dif/Number(it.precoRef)*100;const cor=dif<=0?C.green:C.red;return <p style={{fontSize:10.5,color:cor,fontWeight:900,marginTop:3}}>{dif<=0?"ABAIXO DA REFERÊNCIA":"ACIMA DA REFERÊNCIA"}: {fmt(Math.abs(dif))} ({Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%)</p>;})()}
-            </div>}
             {!it.orcItemId && linhasOrc.length > 0 && Number(it.qtd) > 0 && (
               <p style={{fontSize:10,color:C.orange,marginTop:5}}>
                 Sem apropriação: esta compra não entra na comparação com o orçamento.
@@ -15812,10 +12780,10 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
         <Btn v="ghost" onClick={addItem} full><Ic n="plus"/> Adicionar item</Btn>
 
         <div style={{background:C.surface,border:`1.5px solid ${C.yellow}`,borderRadius:8,
-                     padding:"10px 12px",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:9}}>
-          <div><span style={{fontSize:10,color:C.muted,fontWeight:800}}>TOTAL DO PEDIDO</span><p style={{fontSize:16,fontWeight:800,color:C.yellow,fontFamily:"'Inter Display','Inter',sans-serif",marginTop:2}}>{fmt(total)}</p></div>
-          <div><span style={{fontSize:10,color:C.muted,fontWeight:800}}>TOTAL NA REFERÊNCIA</span><p style={{fontSize:16,fontWeight:800,color:C.text,fontFamily:"'Inter Display','Inter',sans-serif",marginTop:2}}>{totalReferencia>0?fmt(totalReferencia):"-"}</p></div>
-          {totalReferencia>0&&total>0&&(()=>{const dif=total-totalReferencia;const pct=dif/totalReferencia*100;const cor=dif<=0?C.green:C.red;return <div><span style={{fontSize:10,color:C.muted,fontWeight:800}}>COMPARAÇÃO</span><p style={{fontSize:12.5,fontWeight:900,color:cor,marginTop:3}}>{dif<=0?"ABAIXO":"ACIMA"} {fmt(Math.abs(dif))} · {Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%</p></div>;})()}
+                     padding:"10px 12px",display:"flex",justifyContent:"space-between"}}>
+          <span style={{fontSize:12,fontWeight:700,color:C.text}}>Total do pedido</span>
+          <span style={{fontSize:16,fontWeight:800,color:C.yellow,
+                        fontFamily:"'Inter Display','Inter',sans-serif"}}>{fmt(total)}</span>
         </div>
 
         <div style={{display:"flex",gap:8}}>
@@ -15977,9 +12945,9 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
   );
 }
 
-function Compras({ data, update, showToast, currentUser }) {
+function Compras({ data, update, showToast }) {
   const { cols } = useBreakpoint();
-  const [aba,     setAba]     = useState(currentUser?.role==="engenheiro"?"solicitacoes":"pedidos");
+  const [aba,     setAba]     = useState("pedidos");   // pedidos|cotacoes|forn|precos
   const [obraSel, setObraSel] = useState("");
   const [busca,   setBusca]   = useState("");
 
@@ -15987,29 +12955,11 @@ function Compras({ data, update, showToast, currentUser }) {
   const [recModal,  setRecModal]  = useState(null);   // recebimento
   const [cotModal,  setCotModal]  = useState(null);
   const [fornModal, setFornModal] = useState(null);
-  const [solModal,setSolModal]=useState(null);
-  const [basesReferenciaCompra,setBasesReferenciaCompra]=useState([]);
 
-  const obras       = (data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
+  const obras       = data.obras || [];
   const obraAtual   = obraSel || obras[0]?.id || "";
   const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const fornecedores= useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
-
-  useEffect(()=>{
-    let ativo=true;
-    listarBasesReferencia().then(resultado=>{if(!ativo)return;if(resultado.ok)setBasesReferenciaCompra((resultado.bases||[]).filter(base=>base.status==="ready"));});
-    return()=>{ativo=false;};
-  },[]);
-
-  const basesCompra=useMemo(()=>{
-    const orcamento=(data.orcamentos||[]).find(o=>o.obraId===obraAtual);
-    const vinculadas=new Set(orcamento?.referencias||[]);
-    return [...basesReferenciaCompra].sort((a,b)=>Number(vinculadas.has(b.id))-Number(vinculadas.has(a.id))||String(b.dataBase||"").localeCompare(String(a.dataBase||"")));
-  },[basesReferenciaCompra,data.orcamentos,obraAtual]);
-  const podeProcessar=["admin","compras","financeiro"].includes(currentUser?.role);
-  const solicitacoes=useMemo(()=>(data.solicitacoesCompra||[]).filter(s=>s.obraId===obraAtual)
-    .sort((a,b)=>(b.criadoEm||"").localeCompare(a.criadoEm||"")),[data.solicitacoesCompra,obraAtual]);
-  const solicitacoesPendentes=(data.solicitacoesCompra||[]).filter(s=>s.status==="enviada"&&obras.some(o=>o.id===s.obraId)).length;
 
   const kpi = useMemo(() => calcCompras(data, obraAtual), [data, obraAtual]);
   const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data, obraAtual]);
@@ -16069,60 +13019,14 @@ function Compras({ data, update, showToast, currentUser }) {
     showToast(f.id ? "Fornecedor atualizado." : "Fornecedor cadastrado.");
   };
 
-  const salvarSolicitacao=(f)=>{
-    if(!f.obraId){showToast("Selecione a obra.","error");return;}
-    const itens=(f.itens||[]).filter(i=>String(i.descricaoRef||"").trim()&&Number(i.quantidade)>0&&String(i.unidadeRef||"").trim())
-      .map(i=>({...i,codigoRef:maiusculoOrcamento(i.codigoRef||""),descricaoRef:maiusculoOrcamento(i.descricaoRef),
-        unidadeRef:maiusculoOrcamento(i.unidadeRef),quantidade:Number(i.quantidade),precoRef:Number(i.precoRef||0)}));
-    if(!itens.length){showToast("Adicione ao menos um material com descrição, unidade e quantidade.","error");return;}
-    const numero=`SC-${String((data.solicitacoesCompra||[]).length+1).padStart(4,"0")}`;
-    const nova={id:uid(),numero,obraId:f.obraId,solicitanteId:currentUser?.id||"",solicitanteNome:currentUser?.nome||"Engenharia",
-      criadoEm:new Date().toISOString(),necessidade:f.necessidade||"",prioridade:f.prioridade||"normal",status:"enviada",
-      observacao:f.observacao||"",analisadoEm:"",analisadoPor:"",pedidoId:"",itens};
-    update({...data,solicitacoesCompra:[...(data.solicitacoesCompra||[]),nova]});setSolModal(null);setAba("solicitacoes");
-    showToast(`Solicitação ${numero} enviada. O setor de Compras recebeu um alerta.`);
-  };
-
-  const atualizarStatusSolicitacao=(sol,status)=>{
-    update({...data,solicitacoesCompra:(data.solicitacoesCompra||[]).map(s=>s.id===sol.id?{...s,status,
-      analisadoEm:status==="em_analise"?new Date().toISOString():s.analisadoEm,
-      analisadoPor:status==="em_analise"?(currentUser?.nome||""):s.analisadoPor}:s)});
-  };
-
-  const gerarPedidoSolicitacao=(sol)=>{
-    if(!podeProcessar){showToast("Somente o setor de Compras pode transformar a solicitação em pedido.","error");return;}
-    const itens=sol.itens.map(item=>{
-      const existente=materiais.find(m=>(item.codigoRef&&maiusculoOrcamento(m.codigo)===maiusculoOrcamento(item.codigoRef)&&maiusculoOrcamento(m.fonteRef||item.fonteRef)===maiusculoOrcamento(item.fonteRef))||
-        (!item.codigoRef&&maiusculoOrcamento(m.descricao)===maiusculoOrcamento(item.descricaoRef)));
-      return{id:uid(),materialId:existente?.id||uid(),qtd:String(item.quantidade),precoUnit:"",qtdRecebida:0,orcItemId:"",
-        referenciaId:item.referenciaId||"",fonteRef:item.fonteRef||"PRÓPRIO",codigoRef:item.codigoRef||"",descricaoRef:item.descricaoRef||"",
-        unidadeRef:item.unidadeRef||"UN",precoRef:Number(item.precoRef||0),dataBaseRef:item.dataBaseRef||"",ufRef:item.ufRef||""};
-    });
-    atualizarStatusSolicitacao(sol,"em_analise");
-    setPedModal({id:"",numero:"",obraId:sol.obraId,fornecedorId:"",data:new Date().toISOString().slice(0,10),previsao:sol.necessidade||"",
-      status:"enviado",referenciaId:itens.find(i=>i.referenciaId)?.referenciaId||"",solicitacaoId:sol.id,itens,obs:`Solicitação ${sol.numero}${sol.observacao?` · ${sol.observacao}`:""}`});
-  };
-
   //  Pedido 
   const salvarPedido = (f) => {
     if (!f.fornecedorId) { showToast("Selecione o fornecedor.", "error"); return; }
-    const novosMateriais=[];
     const itens = (f.itens||[])
-      .filter(i => (i.materialId || i.codigoRef) && Number(i.qtd) > 0)
-      .map(i => {
-        let materialId=i.materialId||uid();
-        if((i.codigoRef||i.descricaoRef)&&!(data.materiais||[]).some(m=>m.id===materialId)&&!novosMateriais.some(m=>m.id===materialId)){
-          novosMateriais.push({id:materialId,codigo:maiusculoOrcamento(i.codigoRef||`INT-${String(materialId).slice(-6)}`),descricao:maiusculoOrcamento(i.descricaoRef),
-            unidade:maiusculoOrcamento(i.unidadeRef||"UN"),categoria:"outros",estoqueMin:0,
-            precoMedio:Number(i.precoRef||0),fonteRef:i.fonteRef||"",dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"",ativo:true});
-        }
-        return { id: i.id || uid(), materialId,
+      .filter(i => i.materialId && Number(i.qtd) > 0)
+      .map(i => ({ id: i.id || uid(), materialId: i.materialId,
                    qtd: Number(i.qtd), precoUnit: Number(i.precoUnit||0),
-                   qtdRecebida: Number(i.qtdRecebida||0),orcItemId:i.orcItemId||"",
-                   referenciaId:i.referenciaId||f.referenciaId||"",fonteRef:i.fonteRef||"",codigoRef:i.codigoRef||"",
-                   descricaoRef:i.descricaoRef||"",unidadeRef:i.unidadeRef||"",precoRef:Number(i.precoRef||0),
-                   dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"" };
-      });
+                   qtdRecebida: Number(i.qtdRecebida||0) }));
     if (!itens.length) { showToast("Adicione ao menos um item.", "error"); return; }
 
     const p = {
@@ -16133,16 +13037,12 @@ function Compras({ data, update, showToast, currentUser }) {
       data: f.data || new Date().toISOString().slice(0,10),
       previsao: f.previsao || "",
       status: f.status === "rascunho" ? "rascunho" : "enviado",
-      referenciaId:f.referenciaId || "",
-      solicitacaoId:f.solicitacaoId || "",
       itens,
       cotacaoId: f.cotacaoId || "",
       transacaoId: f.transacaoId || "",
       obs: f.obs || "",
     };
-    const solicitacoesAtualizadas=f.solicitacaoId?(data.solicitacoesCompra||[]).map(s=>s.id===f.solicitacaoId?{...s,status:"pedido_gerado",pedidoId:p.id,
-      analisadoEm:s.analisadoEm||new Date().toISOString(),analisadoPor:s.analisadoPor||currentUser?.nome||"Compras"}:s):(data.solicitacoesCompra||[]);
-    update({ ...data, materiais:[...(data.materiais||[]),...novosMateriais],solicitacoesCompra:solicitacoesAtualizadas, pedidos: f.id
+    update({ ...data, pedidos: f.id
       ? (data.pedidos||[]).map(x => x.id === f.id ? p : x)
       : [...(data.pedidos||[]), p] });
     setPedModal(null);
@@ -16293,7 +13193,6 @@ function Compras({ data, update, showToast, currentUser }) {
           no recebimento, dá entrada no estoque da obra.
         </p>
       </div>
-      {solicitacoesPendentes>0&&<button onClick={()=>setAba("solicitacoes")} style={{background:`${C.orange}10`,border:`1.5px solid ${C.orange}`,borderRadius:8,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><p style={{fontSize:11.5,fontWeight:900,color:C.orange}}>{solicitacoesPendentes} NOVA(S) SOLICITAÇÃO(ÕES) DE MATERIAL</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>A Engenharia/Obra aguarda análise do setor de Compras. Clique para abrir.</p></button>}
 
       <Sel label="Obra" value={obraAtual} onChange={setObraSel}
         options={obras.map(o => ({ v:o.id, l:o.name }))}/>
@@ -16324,8 +13223,8 @@ function Compras({ data, update, showToast, currentUser }) {
       )}
 
       {/* Abas */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4}}>
-        {[["solicitacoes",`Solicitações${solicitacoesPendentes?` (${solicitacoesPendentes})`:""}`],["pedidos","Pedidos"],["orcado","Orçado x"],["cotacoes","Cotações"],
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4}}>
+        {[["pedidos","Pedidos"],["orcado","Orçado x"],["cotacoes","Cotações"],
           ["forn","Fornec."],["precos","Preços"]].map(([v,l])=>(
           <button key={v} onClick={()=>setAba(v)} style={{
             padding:"7px 3px",
@@ -16338,32 +13237,12 @@ function Compras({ data, update, showToast, currentUser }) {
         ))}
       </div>
 
-      {aba==="solicitacoes"&&<>
-        <Btn onClick={()=>setSolModal({obraId:currentUser?.obraId||obraAtual,necessidade:"",prioridade:"normal",referenciaId:basesCompra[0]?.id||"",observacao:"",itens:[]})} full><Ic n="plus"/> SOLICITAR MATERIAIS PARA A OBRA</Btn>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px"}}><p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>A Engenharia pode selecionar insumos SINAPI/ORSE ou criar itens próprios. Solicitações enviadas acendem o alerta de Compras até serem colocadas em análise.</p></div>
-        {!solicitacoes.length?<p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>Nenhuma solicitação para esta obra.</p>:solicitacoes.map(sol=>{
-          const status={enviada:{l:"NOVA · AGUARDANDO COMPRAS",c:C.orange},em_analise:{l:"EM ANÁLISE",c:C.blue},pedido_gerado:{l:"PEDIDO GERADO",c:C.green},cancelada:{l:"CANCELADA",c:C.red}}[sol.status]||{l:sol.status,c:C.muted};
-          const pedido=(data.pedidos||[]).find(p=>p.id===sol.pedidoId);
-          return <div key={sol.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${status.c}`,borderRadius:8,padding:"10px 12px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{sol.numero}{sol.prioridade==="urgente"&&<span style={{color:C.red}}> · URGENTE</span>}</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Solicitado por {sol.solicitanteNome||"Engenharia"} · {sol.criadoEm?new Date(sol.criadoEm).toLocaleString("pt-BR"):""}{sol.necessidade?` · necessário em ${fmtDate(sol.necessidade)}`:""}</p></div><Badge color={status.c}>{status.l}</Badge></div>
-            <div style={{marginTop:8,borderTop:`1px solid ${C.line}`,paddingTop:6}}>{sol.itens.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"95px minmax(0,1fr) auto",gap:7,fontSize:10.5,marginTop:3}}><b style={{color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef} {item.codigoRef}</b><span style={{color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricaoRef}>{item.descricaoRef}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{item.quantidade.toLocaleString("pt-BR")} {item.unidadeRef}</b></div>)}</div>
-            {sol.observacao&&<p style={{fontSize:10,color:C.muted,marginTop:7}}>{sol.observacao}</p>}
-            {pedido&&<p style={{fontSize:10.5,color:C.green,fontWeight:800,marginTop:7}}>Vinculada ao pedido {pedido.numero}</p>}
-            <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
-              {podeProcessar&&sol.status==="enviada"&&<Btn size="sm" v="ghost" onClick={()=>atualizarStatusSolicitacao(sol,"em_analise")}>MARCAR EM ANÁLISE</Btn>}
-              {podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" onClick={()=>gerarPedidoSolicitacao(sol)}>GERAR PEDIDO</Btn>}
-              {sol.status!=="pedido_gerado"&&sol.status!=="cancelada"&&(podeProcessar||sol.solicitanteId===currentUser?.id)&&<Btn size="sm" v="danger" onClick={()=>{if(window.confirm(`Cancelar ${sol.numero}?`))atualizarStatusSolicitacao(sol,"cancelada");}}>CANCELAR</Btn>}
-            </div>
-          </div>;
-        })}
-      </>}
-
       {/*  PEDIDOS  */}
       {aba === "pedidos" && (<>
         <Inp value={busca} onChange={setBusca} placeholder="Buscar pedido ou fornecedor..."/>
         <Btn onClick={()=>setPedModal({id:"",numero:"",obraId:obraAtual,fornecedorId:"",
           data:new Date().toISOString().slice(0,10),previsao:"",status:"enviado",
-          referenciaId:basesCompra[0]?.id||"",itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}],obs:""})} full>
+          itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0}],obs:""})} full>
           <Ic n="plus"/> Novo pedido
         </Btn>
 
@@ -16415,7 +13294,6 @@ function Compras({ data, update, showToast, currentUser }) {
                           {!i.orcItemId && linhasOrc.length > 0 && (
                             <span style={{color:C.orange,fontSize:9}}>  sem apropriação</span>
                           )}
-                          {Number(i.precoRef)>0&&(Number(i.precoUnit)>0?(()=>{const dif=Number(i.precoUnit)-Number(i.precoRef);const pct=dif/Number(i.precoRef)*100;const cor=dif<=0?C.green:C.red;return <span style={{display:"block",fontSize:9,color:cor,fontWeight:800,marginTop:1}}>{i.fonteRef} {i.codigoRef} · compra {fmt(Number(i.precoUnit))} · ref. {fmt(Number(i.precoRef))} · {dif<=0?"abaixo":"acima"} {Math.abs(pct).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>;})():<span style={{display:"block",fontSize:9,color:C.muted,marginTop:1}}>{i.fonteRef} {i.codigoRef} · ref. {fmt(Number(i.precoRef))} · preço de compra não informado</span>)}
                         </span>
                         <span style={{whiteSpace:"nowrap",flexShrink:0,
                                       color: completo ? C.green : C.text, fontWeight:600}}>
@@ -16727,11 +13605,10 @@ function Compras({ data, update, showToast, currentUser }) {
       </>)}
 
       {/*  MODAIS  */}
-      {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)}/>}
       {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
                                      fornecedores={fornecedores} materiais={materiais}
-                                     linhasOrc={linhasOrc} data={data} basesReferencia={basesCompra}/>}
+                                     linhasOrc={linhasOrc} data={data}/>}
       {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
                                      fornecedores={fornecedores} materiais={materiais}/>}
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
@@ -17170,8 +14047,7 @@ function Planejamento({ data, update, showToast }) {
   const plano = useMemo(() =>
     (data.planos || []).find(p => p.obraId === obraId)
     || { id: "", obraId, inicio: "", tarefas: [], marcos: [],
-         diasSemana: [1,2,3,4,5,6], pularFeriados: true,
-         usarFeriadosCadastrados: false, feriados: [] },
+         diasSemana: [1,2,3,4,5,6], pularFeriados: true, feriados: [] },
     [data.planos, obraId]);
 
   // Calendario de trabalho do plano (dias da semana + feriados).
@@ -17200,7 +14076,6 @@ function Planejamento({ data, update, showToast }) {
   const [questModal,  setQuestModal]  = useState(false);  // questionario de planejamento
   const [questPreview, setQuestPreview] = useState(null); // cronograma proposto pela IA
   const [questIA,     setQuestIA]     = useState(null);   // parecer opcional da IA
-  const [vincPreview, setVincPreview] = useState(null);   // antecessoras/sucessoras propostas
   const [zoom, setZoom] = useState("semana");             // dia | semana | mes
   const [aba,  setAba]  = useState("gantt");              // gantt | mensal | curvaS | ff
 
@@ -17225,43 +14100,9 @@ function Planejamento({ data, update, showToast }) {
     return p;
   });
   const removerTarefa = (id) => salvarPlano(p => {
-    p.tarefas = (p.tarefas || []).filter(x => x.id !== id)
-      .map(x => ({...x, depende:(x.depende || []).filter(d => d !== id)}));
+    p.tarefas = (p.tarefas || []).filter(x => x.id !== id);
     return p;
   });
-
-  // Salva a tarefa e os dois lados do vinculo. Sucessora nao e um campo
-  // duplicado: ela e materializada como antecessora nas outras tarefas.
-  const salvarTarefaEVinculos = (t) => salvarPlano(p => {
-    const sucessoras = Array.isArray(t.sucessoras) ? t.sucessoras : [];
-    const { sucessoras:_, ...dados } = t;
-    p.tarefas = (p.tarefas || []).map(x => {
-      if (x.id === dados.id) return {...x,...dados,depende:[...new Set(dados.depende || [])]};
-      const deps = (x.depende || []).filter(d => d !== dados.id);
-      if (sucessoras.includes(x.id)) deps.push(dados.id);
-      return {...x,depende:[...new Set(deps)]};
-    });
-    return p;
-  });
-
-  // Edicao direta das colunas do Gantt. Alterar o inicio preserva a duracao;
-  // alterar os dias recalcula o fim no calendario de trabalho.
-  const atualizarTarefaNaLinha = (t, campo, valor) => {
-    if (t.titulo) return;
-    const duracaoAtual = Math.max(1, diasUteis(t.inicio, t.fim, cal));
-    if (campo === "inicio") {
-      const inicio = ajustarParaDiaUtil(valor, cal, 1);
-      if (!inicio) return;
-      upsertTarefa({id:t.id,inicio,fim:somaDiasUteis(inicio,duracaoAtual,cal)});
-    } else if (campo === "fim") {
-      const fim = ajustarParaDiaUtil(valor, cal, -1);
-      if (!fim || fim < t.inicio) { showToast?.("A data final nao pode ser anterior ao inicio.","error"); return; }
-      upsertTarefa({id:t.id,fim});
-    } else if (campo === "dias") {
-      const n = Math.max(1, Math.min(3660, Math.round(Number(valor)||1)));
-      upsertTarefa({id:t.id,fim:somaDiasUteis(t.inicio,n,cal)});
-    }
-  };
   const upsertMarco = (m) => salvarPlano(p => {
     const existe = (p.marcos || []).some(x => x.id === m.id);
     p.marcos = existe
@@ -17277,68 +14118,23 @@ function Planejamento({ data, update, showToast }) {
     p.diasSemana = novoCal.diasSemana;
     p.pularFeriados = novoCal.pularFeriados;
     p.feriados = novoCal.feriados;
-    if (novoCal.usarFeriadosCadastrados !== undefined) {
-      p.usarFeriadosCadastrados = !!novoCal.usarFeriadosCadastrados;
-    }
     return p;
   });
-
-  // Exportacao automatica do orcamento para o planejamento. Inclui etapas
-  // novas e grava as tarefas vinculadas na mesma ordem hierarquica do orcamento,
-  // preservando datas/progresso ja ajustados pelo operador ou pela IA.
-  useEffect(() => {
-    if (!orc || !obraId) return;
-    const ordem = ordemEtapasOrcamento(orc);
-    if (!ordem.length) return;
-    const atuais = plano.tarefas || [];
-    const vinculadas = atuais.filter(t => t.etapaId && ordem.includes(t.etapaId));
-    const avulsas = atuais.filter(t => !t.etapaId);
-    const orfas = atuais.filter(t => t.etapaId && !ordem.includes(t.etapaId));
-    const assinaturaAtual = vinculadas.map(t => t.etapaId).join("|");
-    const assinaturaOrc = ordem.join("|");
-    if (assinaturaAtual === assinaturaOrc && vinculadas.length === ordem.length && orfas.length === 0) return;
-
-    const porEtapa = new Map(vinculadas.map(t => [t.etapaId, t]));
-    let cursor = plano.inicio || today();
-    const sincronizadas = ordem.map(etapaId => {
-      const existente = porEtapa.get(etapaId);
-      if (existente) { cursor = existente.fim ? proximoDiaUtil(existente.fim, cal) : cursor; return existente; }
-      const etapa = (orc.etapas||[]).find(e => e.id === etapaId);
-      const inicio = cursor;
-      const fim = somaDiasUteis(inicio, 5, cal);
-      cursor = proximoDiaUtil(fim, cal);
-      return { id:uid(), etapaId, nome:etapa?.nome||"Etapa", inicio, fim, progresso:0 };
-    });
-    const planoNovo = { ...plano, id:plano.id||uid(), obraId, inicio:plano.inicio||today(), tarefas:[...sincronizadas,...avulsas] };
-    const existe = (data.planos||[]).some(p=>p.obraId===obraId);
-    const planos = existe ? (data.planos||[]).map(p=>p.obraId===obraId?planoNovo:p) : [...(data.planos||[]),planoNovo];
-    update({...data,planos});
-  }, [orc, obraId, plano, cal, data, update]);
-  // Pede a IA orientacao sobre datas e paralelismos, sem autorizar mudanca na ordem.
+  // Pede a IA a ordem tecnica (predecessores/sucessores) das tarefas.
   const [iaCarregando, setIaCarregando] = useState(false);
   const pedirOrientacaoIA = async () => {
     setIaCarregando(true);
     try {
-      const lista = tarefas.filter(t => !t.titulo).map(t => {
-        const ant = (t.depende || []).map(id=>tarefas.find(x=>x.id===id)?.nome).filter(Boolean);
-        return `${t.nome}: ${t.inicio} a ${t.fim} (${diasUteis(t.inicio,t.fim,cal)} dias de trabalho); `+
-          `antecessora(s): ${ant.join(", ") || "nenhuma"}`;
-      });
-      const diasTrabalho = (cal.diasSemana || []).map(d => ["dom","seg","ter","qua","qui","sex","sab"][d]).join(", ");
-      const feriadosJanela = (cal.feriados || []).filter(f => !janela.ini || (f.data >= janela.ini && f.data <= janela.fim));
-      const prompt = `Voce e engenheiro civil planejador. A ordem abaixo veio do orcamento e e IMUTAVEL. `
-        + `Nao reordene, renomeie, inclua ou exclua servicos. Analise apenas duracoes, datas, folgas, `
-        + `antecessoras, sucessoras, paralelismos possiveis e riscos segundo boas praticas de engenharia. `
-        + `Calendario obrigatorio: dias trabalhados ${diasTrabalho}; `
-        + `${cal.pularFeriados ? `${feriadosJanela.length} feriado(s) nao trabalhado(s)` : "feriados considerados dias normais"}. `
-        + `Nao sugira datas em dias nao trabalhados. Servicos na ordem oficial:\n`
-        + `${lista.map((n,i)=>`${i+1}. ${n}`).join("\n")}\n\n`
-        + `Responda em portugues e mantenha exatamente a numeracao recebida.`;
+      const lista = tarefas.filter(t => !t.titulo).map(t => t.nome);
+      const prompt = `Voce e engenheiro civil planejador. Dada a lista de servicos de uma obra, `
+        + `defina a ordem tecnica correta (predecessores e sucessores) segundo boa pratica `
+        + `de engenharia e sequencia construtiva. Servicos:\n${lista.map((n,i)=>`${i+1}. ${n}`).join("\n")}\n\n`
+        + `Responda em portugues, de forma objetiva: para cada servico, o que deve vir ANTES e DEPOIS, `
+        + `e alerte sobre paralelismos ou riscos de sequenciamento. Nao invente servicos que nao estao na lista.`;
       const r = await fetch("/api/ai-agent", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
-      if (!r.ok) throw new Error(`IA respondeu ${r.status}`);
       const j = await r.json();
       setIaModal({ texto: j.reply || j.text || j.message || "Sem resposta da IA." });
     } catch (e) {
@@ -17351,88 +14147,31 @@ function Planejamento({ data, update, showToast }) {
   // Gera o cronograma proposto a partir das respostas do questionario.
   // Analise LOCAL: monta as datas na hora, sem depender de rede.
   const gerarCronogramaDoQuestionario = (respostas) => {
-    const inicio = respostas.inicio || today();
-    const fim = somaDias(inicio, Math.max(1, Math.round(Number(respostas.prazoMeses || 1) * 30)) - 1);
-    const anoIni = Number(inicio.slice(0,4)), anoFim = Number(fim.slice(0,4));
-    const anos = Array.from({length: Math.max(1, anoFim - anoIni + 1)}, (_,i) => anoIni + i);
-    const usarFeriados = respostas.usarFeriados === "sim";
-    const calendarioPerguntado = {
-      ...cal,
-      pularFeriados: usarFeriados,
-      feriados: usarFeriados ? getPlanningHolidays(data, anos) : [],
-    };
-    const proposta = montarCronogramaIA(orc, respostas, calendarioPerguntado);
+    const proposta = montarCronogramaIA(orc, respostas, cal);
     setQuestPreview({ respostas, ...proposta });
     setQuestModal(false);
   };
 
-  // Aplica datas/duracoes e os vinculos tecnicos. IDs, ordem, nomes, custos e
-  // progresso continuam sendo os do orcamento/plano.
+  // Aplica o cronograma proposto ao plano: substitui as tarefas e ajusta o
+  // calendario (dias/semana) conforme escolhido. So mexe quando o operador
+  // confirma - ele viu a proposta antes.
   const aplicarCronogramaProposto = () => {
     if (!questPreview) return;
-    salvarPlano(p => {
-      const atuais = new Map((p.tarefas||[]).filter(t=>t.etapaId).map(t=>[t.etapaId,t]));
-      const avulsas = (p.tarefas||[]).filter(t=>!t.etapaId);
-      p.inicio = questPreview.resumo.inicio;
-      p.diasSemana = questPreview.diasSemana;
-      p.pularFeriados = questPreview.calendario?.pularFeriados !== false;
-      p.feriados = questPreview.calendario?.feriados || [];
-      p.usarFeriadosCadastrados = questPreview.respostas?.usarFeriados === "sim";
-      const tarefasBase = [
-        ...questPreview.tarefas.map(t => {
-          const existente = atuais.get(t.etapaId);
-          return existente ? {...existente,inicio:t.inicio,fim:t.fim}
-            : {id:uid(),etapaId:t.etapaId,nome:t.nome,inicio:t.inicio,fim:t.fim,progresso:0};
-        }),
-        ...avulsas,
-      ];
-      const deps = sugerirDependenciasPlanejamento(
-        tarefasBase, orc, questPreview.respostas?.paralelo === "sim");
-      p.tarefas = tarefasBase.map(t => ({...t,depende:deps[t.id] || []}));
-      return p;
+    update({
+      ...data,
+      planos: (data.planos || []).map(p => p.obraId === plano.obraId
+        ? { ...p,
+            inicio: questPreview.resumo.inicio,
+            diasSemana: questPreview.diasSemana,
+            tarefas: questPreview.tarefas.map(t => ({
+              id: uid(), etapaId: t.etapaId, nome: t.nome,
+              inicio: t.inicio, fim: t.fim, progresso: 0,
+            })),
+          }
+        : p),
     });
     setQuestPreview(null);
     showToast?.("Cronograma preenchido pela IA. Ajuste o que precisar no Gantt.");
-  };
-
-  // Analisa apenas os vinculos do cronograma atual e abre uma previa. Nenhuma
-  // dependencia e gravada sem confirmacao do operador.
-  const analisarVinculosIA = () => {
-    const dependencias = sugerirDependenciasPlanejamento(tarefas, orc, true);
-    const datas = {};
-    tarefas.forEach(t => {
-      if (t.titulo) { datas[t.id]={inicio:t.inicio,fim:t.fim,alterada:false}; return; }
-      const inicioAtual = t.inicio || plano.inicio || today();
-      const duracao = Math.max(1,diasUteis(inicioAtual,t.fim||inicioAtual,cal));
-      const finsAntecessoras = (dependencias[t.id] || [])
-        .map(id => datas[id]?.fim || tarefas.find(x=>x.id===id)?.fim).filter(Boolean);
-      const inicioMinimo = finsAntecessoras.length
-        ? proximoDiaUtil(finsAntecessoras.sort().slice(-1)[0],cal) : inicioAtual;
-      const inicio = inicioAtual >= inicioMinimo ? inicioAtual : inicioMinimo;
-      const fim = inicio === t.inicio && t.fim ? t.fim : somaDiasUteis(inicio,duracao,cal);
-      datas[t.id]={inicio,fim,alterada:inicio!==t.inicio||fim!==t.fim};
-    });
-    const linhas = tarefas.filter(t => !t.titulo).map(t => ({
-      id:t.id, nome:t.nome,
-      antecessoras:(dependencias[t.id] || []).map(id => tarefas.find(x=>x.id===id)?.nome).filter(Boolean),
-      sucessoras:tarefas.filter(x => (dependencias[x.id] || []).includes(t.id)).map(x=>x.nome),
-      ...datas[t.id],
-    }));
-    setVincPreview({dependencias,datas,linhas});
-  };
-
-  const aplicarVinculosIA = () => {
-    if (!vincPreview) return;
-    salvarPlano(p => {
-      p.tarefas = (p.tarefas || []).map(t => {
-        const d = vincPreview.datas?.[t.id];
-        return {...t,inicio:d?.inicio||t.inicio,fim:d?.fim||t.fim,
-          depende:[...new Set(vincPreview.dependencias[t.id] || [])]};
-      });
-      return p;
-    });
-    setVincPreview(null);
-    showToast?.("Antecessoras e sucessoras cadastradas. Os vinculos continuam editaveis.");
   };
 
   // Pede um parecer da IA sobre a proposta (opcional). Local sempre; IA extra.
@@ -17440,22 +14179,16 @@ function Planejamento({ data, update, showToast }) {
     if (!questPreview) return;
     try {
       const lista = questPreview.tarefas.map((t,i) => `${i+1}. ${t.nome} (${fmtDate(t.inicio)} a ${fmtDate(t.fim)})`).join("\n");
-      const prompt = `Voce e engenheiro civil planejador. A ordem dos servicos veio do orcamento e e IMUTAVEL. `
-        + `Analise criticamente este cronograma de obra `
+      const prompt = `Voce e engenheiro civil planejador. Analise criticamente este cronograma de obra `
         + `gerado automaticamente e aponte riscos de sequenciamento, folgas insuficientes ou servicos `
         + `que deveriam ser paralelos/sequenciais segundo boa pratica. Seja objetivo e em portugues.\n\n`
         + `Inicio: ${fmtDate(questPreview.resumo.inicio)} | Fim previsto: ${fmtDate(questPreview.resumo.fim)} `
-        + `(${questPreview.resumo.diasCorridos + 1} dias corridos). `
-        + `Prazo limite: ${fmtDate(questPreview.resumo.fimAlvo)}. `
-        + `Calendario: ${questPreview.diasSemana.length} dias por semana e `
-        + `${questPreview.calendario?.pularFeriados ? "feriados retirados" : "feriados trabalhados"}.\nCronograma:\n${lista}\n\n`
-        + `Nao reordene, renomeie nem invente servicos. Nao proponha inicio ou fim em dia nao trabalhado. `
-        + `Sugira somente ajustes de datas, duracoes, folgas e paralelismos dentro do prazo limite.`;
+        + `(${questPreview.resumo.diasCorridos} dias corridos).\nCronograma:\n${lista}\n\n`
+        + `Nao invente servicos que nao estao na lista.`;
       const r = await fetch("/api/ai-agent", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
-      if (!r.ok) throw new Error(`IA respondeu ${r.status}`);
       const j = await r.json();
       setQuestIA(j.reply || j.text || j.message || "Sem resposta da IA.");
     } catch (e) {
@@ -17472,7 +14205,7 @@ function Planejamento({ data, update, showToast }) {
     if (!etapa) return;
     // Encaixa logo apos a ultima tarefa, com 7 dias de duracao default.
     const ult = tarefas[tarefas.length - 1];
-    const ini = ult?.fim ? proximoDiaUtil(ult.fim, cal) : (plano.inicio || today());
+    const ini = ult?.fim || plano.inicio || today();
     // 5 dias uteis = uma semana de trabalho, ja respeitando o calendario.
     upsertTarefa({ etapaId, nome: etapa.nome, inicio: ini, fim: somaDiasUteis(ini, 5, cal), progresso: 0 });
     showToast?.(`"${etapa.nome}" adicionada ao cronograma`);
@@ -17486,11 +14219,6 @@ function Planejamento({ data, update, showToast }) {
   const pxPorDia  = zoom === "dia" ? 34 : zoom === "semana" ? 12 : 4;
   const larguraGrade = totalDias * pxPorDia;
   const ALTURA_LINHA = 38;
-  const ALTURA_REGUA = zoom === "dia" ? 50 : zoom === "semana" ? 40 : 30;
-  const COLUNAS_TAREFA = isDesktop
-    ? "220px 112px 112px 76px 140px 140px"
-    : "150px 105px 105px 70px 130px 130px";
-  const LARGURA_TAREFAS = isDesktop ? 800 : 690;
 
   // Converte data -> posicao X (px) e duracao -> largura.
   const xDeData = (iso) => diasCorridos(GANTT_INI, iso) * pxPorDia;
@@ -17547,12 +14275,7 @@ function Planejamento({ data, update, showToast }) {
     if (d && d.preview) {
       // So salva se mudou de fato.
       if (d.preview.inicio !== d.ini0 || d.preview.fim !== d.fim0) {
-        const duracao = Math.max(1, diasUteis(d.ini0, d.fim0, cal));
-        let inicioAjustado = ajustarParaDiaUtil(d.preview.inicio, cal, 1);
-        let fimAjustado = ajustarParaDiaUtil(d.preview.fim, cal, -1);
-        if (d.modo === "mover") fimAjustado = somaDiasUteis(inicioAjustado, duracao, cal);
-        if (fimAjustado < inicioAjustado) fimAjustado = inicioAjustado;
-        upsertTarefa({ id: d.id, inicio: inicioAjustado, fim: fimAjustado });
+        upsertTarefa({ id: d.id, inicio: d.preview.inicio, fim: d.preview.fim });
       }
     }
     dragRef.current = null;
@@ -17570,17 +14293,6 @@ function Planejamento({ data, update, showToast }) {
     }
     return marcas;
   }, [GANTT_INI, totalDias, pxPorDia]);
-
-  const feriadoPorData = useMemo(() =>
-    new Map((cal.feriados || []).map(f => [f.data, f])), [cal.feriados]);
-  const diasGrade = useMemo(() => Array.from({ length: totalDias }, (_, i) => {
-    const dataDia = somaDias(GANTT_INI, i);
-    const dow = new Date(dataDia + "T00:00:00").getDay();
-    const feriado = cal.pularFeriados ? feriadoPorData.get(dataDia) : null;
-    const fimSemana = dow === 0 || dow === 6;
-    const naoTrabalhado = !(cal.diasSemana || []).includes(dow) || !!feriado;
-    return { data: dataDia, x: i * pxPorDia, dow, feriado, fimSemana, naoTrabalhado };
-  }), [GANTT_INI, totalDias, pxPorDia, cal.diasSemana, cal.pularFeriados, feriadoPorData]);
 
   const corTarefa = (t) => {
     if (t.orfa) return C.red;
@@ -17671,15 +14383,12 @@ function Planejamento({ data, update, showToast }) {
           <p style={{ fontSize: 12, fontWeight: 900, color: C.text, textTransform: "uppercase", letterSpacing: .5 }}>
             Cronograma
           </p>
-          <div style={{ display: "flex", gap: 6, flexWrap:"wrap", justifyContent:"flex-end" }}>
+          <div style={{ display: "flex", gap: 6 }}>
             <Btn v="ghost" size="sm" onClick={() => { setQuestIA(null); setQuestModal(true); }}>
               <Ic n="brain" s={13}/> Planejar IA
             </Btn>
             <Btn v="ghost" size="sm" onClick={pedirOrientacaoIA} disabled={iaCarregando}>
-              {iaCarregando ? "..." : <><Ic n="brain" s={13}/> Revisar datas IA</>}
-            </Btn>
-            <Btn v="ghost" size="sm" onClick={analisarVinculosIA}>
-              <Ic n="brain" s={13}/> Vinculos IA
+              {iaCarregando ? "..." : <><Ic n="brain" s={13}/> Ordem IA</>}
             </Btn>
             <Btn v="ghost" size="sm" onClick={() => setMarcoModal({ modo: "novo", marco: { tipo: "compra", data: today() } })}>
               + Marco
@@ -17692,17 +14401,6 @@ function Planejamento({ data, update, showToast }) {
           </div>
         </div>
 
-        <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",padding:"6px 14px",
-                     borderBottom:`1px solid ${C.line}`,background:C.surface}}>
-          <span style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Legenda tecnica</span>
-          <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.red}22`,border:`1px solid ${C.red}55`,marginRight:4}}/>Nao trabalhado</span>
-          <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.blue}18`,border:`1px solid ${C.blue}55`,marginRight:4}}/>Fim de semana trabalhado</span>
-          <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.orange}45`,border:`1px solid ${C.orange}`,marginRight:4}}/>Feriado</span>
-          <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",height:10,borderLeft:`2px solid ${C.red}`,marginRight:5}}/>Hoje</span>
-          <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.orange}25`,border:`1px solid ${C.orange}`,marginRight:4}}/>Conflito de vinculo</span>
-          <span style={{fontSize:9.5,color:C.muted,marginLeft:"auto"}}>{(cal.diasSemana||[]).length} dias/semana - {(cal.feriados||[]).length} feriado(s) no calendario</span>
-        </div>
-
         {tarefas.length === 0 ? (
           <div style={{ padding: 24, textAlign: "center" }}>
             <p style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>
@@ -17713,116 +14411,40 @@ function Planejamento({ data, update, showToast }) {
         ) : (
           <div style={{ display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
 
-            {/* Colunas tecnicas fixas: edicao direta sem abrir popup */}
+            {/* Coluna fixa: nomes das tarefas */}
             <div style={{ flexShrink: 0, borderRight: `1px solid ${C.line}`,
-                          position: isDesktop ? "sticky" : "relative", left: 0, background: C.card, zIndex: 2,
-                          width:LARGURA_TAREFAS }}>
-              <div style={{ height: ALTURA_REGUA, borderBottom: `1px solid ${C.line}`,
-                            display:"grid", gridTemplateColumns:COLUNAS_TAREFA, alignItems:"center" }}>
-                {["Atividade / custo","Data inicio","Data fim","Dias trab.","Antecessora","Sucessora"].map((h,i)=>(
-                  <span key={h} style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase",
-                    padding:"0 7px",borderLeft:i?`1px solid ${C.line}`:"none",height:"100%",
-                    display:"flex",alignItems:"center"}}>{h}</span>
-                ))}
-              </div>
-              {tarefas.map(t => {
-                const ant = (t.depende || []).map(id=>tarefas.find(x=>x.id===id)?.nome).filter(Boolean);
-                const suc = idsSucessoras(tarefas,t.id).map(id=>tarefas.find(x=>x.id===id)?.nome).filter(Boolean);
-                const conflitoVinculo = (t.depende || []).some(id => {
-                  const a = tarefas.find(x=>x.id===id);
-                  return a?.fim && t.inicio && t.inicio <= a.fim;
-                });
-                const estiloInput = {width:"100%",height:26,border:0,background:"transparent",color:C.text,
-                  fontSize:10,padding:"0 5px",outline:"none",fontFamily:"inherit"};
-                return (
-                  <div key={t.id} style={{height:ALTURA_LINHA,display:"grid",gridTemplateColumns:COLUNAS_TAREFA,
-                                          borderBottom:`1px solid ${C.line}`,background:conflitoVinculo?`${C.orange}0B`:"transparent"}}>
-                    <div onClick={() => setTarefaModal({ modo:"editar", tarefa:t })}
-                         title={`Antecessora(s): ${ant.join(", ")||"nenhuma"}\nSucessora(s): ${suc.join(", ")||"nenhuma"}`}
-                         style={{padding:"0 7px",display:"flex",flexDirection:"column",justifyContent:"center",cursor:"pointer",minWidth:0}}>
-                      <p style={{fontSize:10.5,fontWeight:700,color:t.orfa?C.red:conflitoVinculo?C.orange:C.text,overflow:"hidden",
-                                 textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</p>
-                      <p style={{fontSize:8.5,color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                        {t.custo>0?fmt(t.custo):"avulsa"} · A:{ant.length} S:{suc.length}{conflitoVinculo?" · conflito de data":""}
-                      </p>
-                    </div>
-                    <div style={{borderLeft:`1px solid ${C.line}`,display:"flex",alignItems:"center"}}>
-                      <input key={`${t.id}-ini-${t.inicio}`} type="date" defaultValue={t.inicio||""} disabled={t.titulo}
-                        onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                        onBlur={e=>e.target.value&&e.target.value!==t.inicio&&atualizarTarefaNaLinha(t,"inicio",e.target.value)} style={estiloInput}/>
-                    </div>
-                    <div style={{borderLeft:`1px solid ${C.line}`,display:"flex",alignItems:"center"}}>
-                      <input key={`${t.id}-fim-${t.fim}`} type="date" defaultValue={t.fim||""} disabled={t.titulo}
-                        onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                        onBlur={e=>e.target.value&&e.target.value!==t.fim&&atualizarTarefaNaLinha(t,"fim",e.target.value)} style={estiloInput}/>
-                    </div>
-                    <div style={{borderLeft:`1px solid ${C.line}`,display:"flex",alignItems:"center"}}>
-                      <input key={`${t.id}-dias-${t.inicio}-${t.fim}`} type="number" min="1"
-                        defaultValue={Math.max(1,diasUteis(t.inicio,t.fim,cal))} disabled={t.titulo}
-                        onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                        onBlur={e=>Number(e.target.value)!==diasUteis(t.inicio,t.fim,cal)&&atualizarTarefaNaLinha(t,"dias",e.target.value)}
-                        style={{...estiloInput,textAlign:"center"}}/>
-                    </div>
-                    <div onClick={() => setTarefaModal({modo:"editar",tarefa:t})} title={ant.join("\n")||"Sem antecessora"}
-                         style={{borderLeft:`1px solid ${C.line}`,padding:"0 6px",display:"flex",alignItems:"center",
-                                 cursor:"pointer",minWidth:0}}>
-                      <span style={{fontSize:9.5,color:ant.length?C.blue:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                        {ant.join(", ")||"-"}
-                      </span>
-                    </div>
-                    <div onClick={() => setTarefaModal({modo:"editar",tarefa:t})} title={suc.join("\n")||"Sem sucessora"}
-                         style={{borderLeft:`1px solid ${C.line}`,padding:"0 6px",display:"flex",alignItems:"center",
-                                 cursor:"pointer",minWidth:0}}>
-                      <span style={{fontSize:9.5,color:suc.length?C.green:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                        {suc.join(", ")||"-"}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                          position: "sticky", left: 0, background: C.card, zIndex: 2 }}>
+              <div style={{ height: 30, borderBottom: `1px solid ${C.line}` }} />
+              {tarefas.map(t => (
+                <div key={t.id} onClick={() => setTarefaModal({ modo: "editar", tarefa: t })}
+                     style={{ height: ALTURA_LINHA, width: isDesktop ? 200 : 130,
+                              padding: "0 10px", display: "flex", flexDirection: "column",
+                              justifyContent: "center", cursor: "pointer",
+                              borderBottom: `1px solid ${C.line}` }}>
+                  <p className="brk" style={{ fontSize: 11.5, fontWeight: 700, color: t.orfa ? C.red : C.text,
+                             lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis",
+                             whiteSpace: "nowrap" }}>{t.nome}</p>
+                  <p style={{ fontSize: 9.5, color: C.muted }}>
+                    {t.custo > 0 ? fmt(t.custo) : "avulsa"}
+                  </p>
+                </div>
+              ))}
             </div>
 
             {/* Area do grafico */}
             <div style={{ position: "relative", minWidth: larguraGrade }}>
-              {/* Regua tecnica: mes, numero do dia, dia da semana e excecoes */}
-              <div style={{ height: ALTURA_REGUA, position: "relative", borderBottom: `1px solid ${C.line}` }}>
+              {/* Regua de meses */}
+              <div style={{ height: 30, position: "relative", borderBottom: `1px solid ${C.line}` }}>
                 {reguaMeses.map((m, i) => (
                   <div key={i} style={{ position: "absolute", left: m.x, top: 0, height: "100%",
                                         borderLeft: `1px solid ${C.line}`, paddingLeft: 4,
-                                        display: "flex", alignItems: "flex-start", paddingTop:2 }}>
+                                        display: "flex", alignItems: "center" }}>
                     <span style={{ fontSize: 9.5, fontWeight: 700, color: C.muted, whiteSpace: "nowrap" }}>{m.label}</span>
                   </div>
                 ))}
-                {diasGrade.map(d => {
-                  const nomes = ["DOM","SEG","TER","QUA","QUI","SEX","SAB"];
-                  const bg = d.feriado ? `${C.orange}30` : d.naoTrabalhado ? `${C.red}12` : d.fimSemana ? `${C.blue}12` : "transparent";
-                  const mostrar = zoom === "dia" || (zoom === "semana" && (d.dow === 1 || d.feriado));
-                  return <div key={d.data}
-                    title={`${fmtDateFull(d.data)}${d.feriado ? ` - ${d.feriado.nome}` : d.naoTrabalhado ? " - nao trabalhado" : " - dia de trabalho"}`}
-                    style={{position:"absolute",left:d.x,top:18,width:pxPorDia,height:ALTURA_REGUA-18,
-                      background:bg,borderRight:`1px solid ${C.line}`,overflow:"hidden",textAlign:"center"}}>
-                    {mostrar && <><span style={{display:"block",fontSize:zoom==="dia"?10:8,fontWeight:900,
-                      color:d.feriado?C.orange:d.naoTrabalhado?C.red:C.text,lineHeight:1.2}}>{d.data.slice(8,10)}</span>
-                    {zoom === "dia" && <span style={{display:"block",fontSize:7.5,fontWeight:700,color:C.muted}}>{nomes[d.dow]}</span>}</>}
-                  </div>;
-                })}
                 {/* Linha do hoje */}
-                {today() >= GANTT_INI && today() <= somaDias(GANTT_INI,totalDias-1) &&
-                  <div style={{ position: "absolute", left: xDeData(today()), top: 0, height: "100%",
-                                borderLeft: `2px solid ${C.red}`, opacity: .6 }} />}
-              </div>
-
-              {/* Fins de semana e feriados continuam visiveis em todas as linhas */}
-              <div style={{position:"absolute",left:0,top:ALTURA_REGUA,width:larguraGrade,
-                           height:tarefas.length*ALTURA_LINHA,pointerEvents:"none",zIndex:0}}>
-                {diasGrade.map(d => <div key={d.data} style={{
-                  position:"absolute",left:d.x,top:0,width:pxPorDia,height:"100%",
-                  background:d.feriado?`${C.orange}20`:d.naoTrabalhado?`${C.red}0B`:d.fimSemana?`${C.blue}09`:"transparent",
-                  borderRight:`1px solid ${C.line}88`
-                }}/>) }
-                {today() >= GANTT_INI && today() <= somaDias(GANTT_INI,totalDias-1) &&
-                  <div style={{position:"absolute",left:xDeData(today()),top:0,height:"100%",
-                               borderLeft:`2px solid ${C.red}`,opacity:.55,zIndex:1}}/>}
+                <div style={{ position: "absolute", left: xDeData(today()), top: 0, height: "100%",
+                              borderLeft: `2px solid ${C.red}`, opacity: .6 }} />
               </div>
 
               {/* Linhas de fundo + barras */}
@@ -17832,9 +14454,7 @@ function Planejamento({ data, update, showToast }) {
                 const ini = emDrag ? emDrag.inicio : t.inicio;
                 const fim = emDrag ? emDrag.fim : t.fim;
                 const x = xDeData(ini);
-                // Inicio e fim sao inclusivos; a barra precisa ocupar tambem a
-                // celula do ultimo dia para coincidir com a regua tecnica.
-                const w = Math.max(pxPorDia, (diasCorridos(ini, fim) + 1) * pxPorDia);
+                const w = Math.max(pxPorDia, diasCorridos(ini, fim) * pxPorDia);
                 return (
                   <div key={t.id} style={{ height: ALTURA_LINHA, position: "relative",
                                            borderBottom: `1px solid ${C.line}`,
@@ -17856,7 +14476,7 @@ function Planejamento({ data, update, showToast }) {
                         boxShadow: emDrag ? `0 4px 14px ${corTarefa(t)}66` : "none",
                         display: "flex", alignItems: "center", overflow: "hidden",
                         touchAction: "none", userSelect: "none",
-                        transition: emDrag ? "none" : "box-shadow .1s", zIndex: 1,
+                        transition: emDrag ? "none" : "box-shadow .1s",
                       }}>
                       {/* Preenchimento do progresso */}
                       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0,
@@ -17889,7 +14509,7 @@ function Planejamento({ data, update, showToast }) {
                   <div key={m.id} onClick={() => setMarcoModal({ modo: "editar", marco: m })}
                        title={m.nome}
                        style={{ position: "absolute", left: x - 7,
-                                top: ALTURA_REGUA, height: tarefas.length * ALTURA_LINHA,
+                                top: 30, height: tarefas.length * ALTURA_LINHA,
                                 cursor: "pointer", zIndex: 1 }}>
                     <div style={{ width: 14, height: 14, background: tp.c, transform: "rotate(45deg)",
                                   marginTop: 2, border: "2px solid #fff",
@@ -18056,9 +14676,7 @@ function Planejamento({ data, update, showToast }) {
       {(tarefaModal?.modo === "editar") && (
         <ModalTarefa
           tarefa={tarefaModal.tarefa}
-          cal={cal}
-          tarefas={tarefas}
-          onSalvar={(t) => { salvarTarefaEVinculos(t); setTarefaModal(null); }}
+          onSalvar={(t) => { upsertTarefa(t); setTarefaModal(null); }}
           onRemover={() => { removerTarefa(tarefaModal.tarefa.id); setTarefaModal(null); }}
           onClose={() => setTarefaModal(null)}
         />
@@ -18081,34 +14699,6 @@ function Planejamento({ data, update, showToast }) {
         />
       )}
 
-      {vincPreview && (
-        <Modal title="Vinculos propostos pela IA" onClose={()=>setVincPreview(null)} wide>
-          <p style={{fontSize:11.5,color:C.muted,lineHeight:1.5,marginBottom:10}}>
-            A ordem do orcamento nao sera alterada. A sucessora e calculada a partir das antecessoras para manter um unico vinculo consistente.
-          </p>
-          <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden",maxHeight:420,overflowY:"auto"}}>
-            {vincPreview.linhas.map((l,i)=><div key={l.id} style={{padding:"8px 10px",borderBottom:i<vincPreview.linhas.length-1?`1px solid ${C.line}`:"none"}}>
-              <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
-                <p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{i+1}. {l.nome}</p>
-                <span style={{fontSize:9.5,color:l.alterada?C.orange:C.muted,whiteSpace:"nowrap"}}>
-                  {fmtDate(l.inicio)} - {fmtDate(l.fim)}{l.alterada?" · data ajustada":""}
-                </span>
-              </div>
-              <p style={{fontSize:10,color:C.muted,marginTop:2}}>
-                Antecessora(s): <b style={{color:C.blue}}>{l.antecessoras.join(", ")||"nenhuma"}</b>
-              </p>
-              <p style={{fontSize:10,color:C.muted}}>
-                Sucessora(s): <b style={{color:C.green}}>{l.sucessoras.join(", ")||"nenhuma"}</b>
-              </p>
-            </div>)}
-          </div>
-          <div style={{display:"flex",gap:8,marginTop:12}}>
-            <Btn v="ghost" onClick={()=>setVincPreview(null)} full>Cancelar</Btn>
-            <Btn onClick={aplicarVinculosIA} full><Ic n="check"/> Aplicar vinculos</Btn>
-          </div>
-        </Modal>
-      )}
-
       {iaModal && (
         <Modal title="Orientacao tecnica (IA)" onClose={() => setIaModal(null)} wide>
           <div style={{ whiteSpace: "pre-wrap", fontSize: 12.5, lineHeight: 1.6, color: C.text }}>
@@ -18121,7 +14711,6 @@ function Planejamento({ data, update, showToast }) {
       {questModal && (
         <QuestionarioPlanejamento
           orc={orc}
-          plano={plano}
           onGerar={gerarCronogramaDoQuestionario}
           onClose={() => setQuestModal(false)}
         />
@@ -18135,16 +14724,10 @@ function Planejamento({ data, update, showToast }) {
               <MiniKpi label="Inicio" value={fmtDate(questPreview.resumo.inicio)} cor={C.blue} />
               <MiniKpi label="Fim previsto" value={fmtDate(questPreview.resumo.fim)} cor={C.yellow} />
               <MiniKpi label="Duracao"
-                       value={`${questPreview.resumo.diasCorridos + 1} corridos / ${questPreview.resumo.diasUteisProjeto} trabalho`}
+                       value={`${questPreview.resumo.diasCorridos} dias`}
                        cor={questPreview.resumo.dentroDoPrazo ? C.green : C.red}
                        sub={questPreview.resumo.dentroDoPrazo ? "dentro do prazo" : "acima do prazo desejado"} />
             </div>
-            <p style={{fontSize:10.5,color:C.muted}}>
-              Prazo limite: <b>{fmtDate(questPreview.resumo.fimAlvo)}</b> - calendario: {questPreview.diasSemana.length} dia(s)/semana,
-              {questPreview.calendario?.pularFeriados
-                ? ` com ${questPreview.resumo.feriadosConsiderados} feriado(s) dentro do prazo`
-                : " sem retirar feriados"}.
-            </p>
 
             {questPreview.avisos.length > 0 && (
               <div style={{ background: `${C.orange}0E`, border: `1px solid ${C.orange}55`,
@@ -18158,7 +14741,7 @@ function Planejamento({ data, update, showToast }) {
               </div>
             )}
 
-            {/* Lista das tarefas propostas, na ordem imutavel do orcamento */}
+            {/* Lista das tarefas propostas, na ordem construtiva */}
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 9, overflow: "hidden" }}>
               {questPreview.tarefas.map((t, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8,
@@ -18181,8 +14764,8 @@ function Planejamento({ data, update, showToast }) {
             )}
 
             <p style={{ fontSize: 10.5, color: C.muted, lineHeight: 1.5 }}>
-              A ordem e os dados permanecem iguais aos do orcamento. Ao aplicar, entram no Gantt as datas,
-              duracoes e dependencias tecnicas; tudo continua ajustavel pelo operador.
+              Esta e uma proposta automatica pela sequencia construtiva. Ao aplicar, as datas entram
+              no Gantt e voce ajusta o que quiser arrastando as barras.
             </p>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -18201,25 +14784,22 @@ function Planejamento({ data, update, showToast }) {
 
 // Questionario de planejamento: perguntas com boas praticas embutidas. Coleta
 // inicio, prazo, dias/semana, ritmo e paralelismo, e devolve as respostas.
-function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
+function QuestionarioPlanejamento({ orc, onGerar, onClose }) {
   const nEtapas = (orc?.etapas || []).length;
   const [resp, setResp] = useState({
-    inicio: plano?.inicio || today(), prazoMeses: "",
-    diasSemana: String((plano?.diasSemana||[]).length === 5 ? 5 : 6),
-    ritmo: "normal", paralelo: "sim",
-    usarFeriados: "",
+    inicio: today(), prazoMeses: "", diasSemana: "6", ritmo: "normal", paralelo: "sim",
   });
   const set = (k) => (v) => setResp(r => ({ ...r, [k]: v }));
 
-  const podeGerar = nEtapas > 0 && Number(resp.prazoMeses) > 0 && !!resp.usarFeriados;
+  const podeGerar = nEtapas > 0 && Number(resp.prazoMeses) > 0;
 
   return (
     <Modal title="Planejar obra com IA" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <p style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.55 }}>
-          Responda algumas perguntas. O planejamento preserva exatamente a ordem do orcamento
-          e distribui apenas datas e duracoes conforme o calendario de trabalho, as boas praticas
-          e o prazo limite informado.
+          Responda algumas perguntas e a IA monta o cronograma pela sequencia construtiva
+          (fundacao antes da estrutura, revestimento antes da pintura, e assim por diante),
+          encaixando tudo no prazo desejado.
         </p>
 
         {nEtapas === 0 ? (
@@ -18241,10 +14821,6 @@ function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
 
             <Sel label="Dias trabalhados na semana" value={resp.diasSemana} onChange={set("diasSemana")}
                  options={[{ v:"6", l:"Segunda a sabado" }, { v:"5", l:"Segunda a sexta" }]} />
-
-            <Sel label="Utilizar os feriados ja cadastrados no aplicativo? *"
-                 value={resp.usarFeriados} onChange={set("usarFeriados")}
-                 options={[{v:"",l:"Selecione..."},{v:"sim",l:"Sim, retirar dos dias de trabalho"},{v:"nao",l:"Nao, considerar dias normais"}]} />
 
             <Sel label="Ritmo da equipe" value={resp.ritmo} onChange={set("ritmo")}
                  options={[
@@ -18332,28 +14908,15 @@ function MiniKpi({ label, value, cor, sub }) {
 }
 
 // Editor de tarefa: datas, progresso, ou apagar.
-function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
+function ModalTarefa({ tarefa, onSalvar, onRemover, onClose }) {
   const [ini, setIni] = useState(tarefa.inicio || "");
   const [fim, setFim] = useState(tarefa.fim || "");
   const [prog, setProg] = useState(String(tarefa.progresso || 0));
-  const [preds, setPreds] = useState([...(tarefa.depende || [])]);
-  const [sucs, setSucs] = useState(idsSucessoras(tarefas, tarefa.id));
-  const indice = (tarefas || []).findIndex(t => t.id === tarefa.id);
-  const candidatasPred = (tarefas || []).filter((t,i) => i < indice && !t.titulo);
-  const candidatasSuc = (tarefas || []).filter((t,i) => i > indice && !t.titulo);
-  const alternar = (setter, id) => setter(lista =>
-    lista.includes(id) ? lista.filter(x=>x!==id) : [...lista,id]);
 
   const salvar = () => {
     // Nao salva datas invertidas.
-    if (ini && fim && fim < ini) return;
-    const inicioFinal = ini ? ajustarParaDiaUtil(ini, cal, 1) : ini;
-    const fimFinal = fim ? ajustarParaDiaUtil(fim, cal, -1) : fim;
-    if (inicioFinal && fimFinal && fimFinal < inicioFinal) return;
-    onSalvar({ id: tarefa.id, inicio: inicioFinal, fim: fimFinal,
-               progresso: Math.max(0, Math.min(100, Number(prog) || 0)),
-               depende:preds.filter(id=>candidatasPred.some(t=>t.id===id)),
-               sucessoras:sucs.filter(id=>candidatasSuc.some(t=>t.id===id)) });
+    if (ini && fim && diasCorridos(ini, fim) < 1) return;
+    onSalvar({ id: tarefa.id, inicio: ini, fim: fim, progresso: Math.max(0, Math.min(100, Number(prog) || 0)) });
   };
 
   return (
@@ -18376,33 +14939,10 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
         )}
         <Inp label="Inicio" type="date" value={ini} onChange={setIni} />
         <Inp label="Fim" type="date" value={fim} onChange={setFim} />
-        {ini && fim && fim < ini && (
-          <p style={{ fontSize: 11, color: C.red }}>O fim nao pode ser anterior ao inicio.</p>
-        )}
-        {((ini && !ehDiaUtil(ini,cal)) || (fim && !ehDiaUtil(fim,cal))) && (
-          <p style={{ fontSize: 11, color: C.orange }}>Ao salvar, as datas serao ajustadas para os dias trabalhados mais proximos.</p>
+        {ini && fim && diasCorridos(ini, fim) < 1 && (
+          <p style={{ fontSize: 11, color: C.red }}>O fim precisa ser depois do inicio.</p>
         )}
         <Inp label="Progresso (%)" type="number" value={prog} onChange={setProg} min="0" max="100" />
-        {!tarefa.titulo && (
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {[["Antecessoras",candidatasPred,preds,setPreds],["Sucessoras",candidatasSuc,sucs,setSucs]].map(([titulo,lista,selecionadas,setter])=>(
-              <div key={titulo} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:8,minWidth:0}}>
-                <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",marginBottom:6}}>{titulo}</p>
-                <div style={{maxHeight:135,overflowY:"auto",display:"flex",flexDirection:"column",gap:4}}>
-                  {lista.length===0 && <span style={{fontSize:10,color:C.muted}}>Nenhuma atividade disponível</span>}
-                  {lista.map(t=><label key={t.id} style={{display:"flex",gap:6,alignItems:"flex-start",fontSize:10.5,color:C.text,cursor:"pointer"}}>
-                    <input type="checkbox" checked={selecionadas.includes(t.id)} onChange={()=>alternar(setter,t.id)}
-                           style={{accentColor:C.yellow,marginTop:1}}/>
-                    <span style={{lineHeight:1.25}}>{t.nome}</span>
-                  </label>)}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <p style={{fontSize:9.5,color:C.muted,lineHeight:1.45}}>
-          Os vinculos manuais respeitam a ordem do orcamento: antecessoras anteriores e sucessoras posteriores, evitando ciclos.
-        </p>
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
           <Btn full onClick={salvar}>Salvar</Btn>
           <Btn v="danger" onClick={onRemover}><Ic n="trash" /></Btn>
@@ -19147,13 +15687,11 @@ function Cadastros({ data, update, showToast, onTab }) {
   const [fornModal, setFornModal] = useState(null);
   const [tercModal, setTercModal] = useState(null);
   const [compModal, setCompModal] = useState(null);
-  const [compEmpresaModal, setCompEmpresaModal] = useState(null);
   const [catModal,  setCatModal]  = useState(null);
 
   const unidades  = data.unidades || [];
   const materiais = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const fornec    = useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
-  const compsEmpresa = data.composicoesEmpresa || [];
 
   const filtra = (arr, campo) => {
     const t = busca.trim().toLowerCase();
@@ -19286,61 +15824,6 @@ function Cadastros({ data, update, showToast, onTab }) {
     showToast("Composição salva.");
   };
 
-  // Composições próprias usadas pelo orçamento. Podem nascer de uma cópia
-  // SINAPI/ORSE e ficam separadas das composições de baixa de estoque.
-  const salvarComposicaoEmpresa = (f) => {
-    const codigo = maiusculoOrcamento(f.codigo).trim();
-    const descricao = maiusculoOrcamento(f.descricao).trim();
-    const unidade = maiusculoOrcamento(f.unidade || "UN").trim();
-    if (!codigo || !descricao || !unidade) { showToast("Informe código, descrição e unidade.", "error"); return; }
-    if (compsEmpresa.some(c => maiusculoOrcamento(c.codigo).trim() === codigo && c.id !== f.id)) {
-      showToast(`O código ${codigo} já pertence a outra composição da empresa.`, "error"); return;
-    }
-    const itens = (f.itens || []).filter(i => i.codigo || i.descricao).map(i => ({
-      ...i, id:i.id || uid(), fonte:maiusculoOrcamento(i.fonte || "SINAPI"),
-      tipoItem:i.tipoItem === "COMPOSICAO" ? "COMPOSICAO" : "INSUMO",
-      codigo:maiusculoOrcamento(i.codigo).trim(), descricao:maiusculoOrcamento(i.descricao).trim(),
-      unidade:maiusculoOrcamento(i.unidade || "UN").trim(), coeficiente:Number(i.coeficiente || 0),
-      precoUnit:Number(i.precoUnit || 0), dataBase:i.dataBase || "", uf:i.uf || "",
-    }));
-    if (!itens.length || itens.some(i => !(i.coeficiente > 0))) {
-      showToast("Adicione ao menos um insumo e informe coeficientes maiores que zero.", "error"); return;
-    }
-    const antiga = compsEmpresa.find(c => c.id === f.id);
-    const p = {...f,id:f.id || uid(),codigo,descricao,unidade,
-      origemFonte:maiusculoOrcamento(f.origemFonte || "PRÓPRIA"),
-      origemCodigo:maiusculoOrcamento(f.origemCodigo || ""),itens};
-    const custo = itens.reduce((s,i) => s + i.coeficiente * i.precoUnit, 0);
-    const codigoAntigo = maiusculoOrcamento(antiga?.codigo || "").trim();
-    const favoritos = (data.baseFavoritos || []).filter(item => {
-      if (maiusculoOrcamento(item.fonte) !== "PRÓPRIA") return true;
-      const cod = maiusculoOrcamento(item.codigo).trim();
-      return cod !== codigo && (!codigoAntigo || cod !== codigoAntigo);
-    });
-    favoritos.push({fonte:"PRÓPRIA",codigo,descricao,unidade,precoUnit:custo,
-      composicao:JSON.stringify(itens),externa:true});
-    const orcamentos = (data.orcamentos || []).map(orcamento => {
-      const itensOrc = (orcamento.itens || []).map(item =>
-        antiga && maiusculoOrcamento(item.fonte) === "PRÓPRIA" && maiusculoOrcamento(item.codigo).trim() === codigoAntigo
-          ? {...item,codigo,descricao,unidade,precoUnit:custo,composicao:JSON.stringify(itens)} : item);
-      const defs = (orcamento.composicoesProprias || []).map(comp => comp.id === p.id ? p : comp);
-      return {...orcamento,itens:itensOrc,composicoesProprias:defs};
-    });
-    update({...data,composicoesEmpresa:f.id ? compsEmpresa.map(c => c.id === f.id ? p : c) : [...compsEmpresa,p],
-      baseFavoritos:favoritos,orcamentos});
-    setCompEmpresaModal(null);
-    showToast(f.id ? "Composição da empresa atualizada em todos os orçamentos." : "Composição adicionada ao cadastro da empresa.");
-  };
-
-  const excluirComposicaoEmpresa = (comp) => {
-    if (!window.confirm(`Retirar ${comp.codigo} do cadastro da empresa? Os orçamentos já emitidos serão preservados.`)) return;
-    const codigo = maiusculoOrcamento(comp.codigo).trim();
-    update({...data,composicoesEmpresa:compsEmpresa.filter(c => c.id !== comp.id),
-      baseFavoritos:(data.baseFavoritos || []).filter(item => !(maiusculoOrcamento(item.fonte) === "PRÓPRIA" && maiusculoOrcamento(item.codigo).trim() === codigo))});
-    setCompEmpresaModal(null);
-    showToast("Composição retirada do catálogo. Os orçamentos existentes foram mantidos.");
-  };
-
   const Voltar = () => (
     <button onClick={()=>{setSec("menu");setBusca("");}} style={{
       background:"transparent", border:0, color:C.muted, cursor:"pointer",
@@ -19416,8 +15899,8 @@ function Cadastros({ data, update, showToast, onTab }) {
                 qtd={(data.terceirizados||[]).length}
                 sub="empreiteiras e equipes contratadas"/>
           <Card id="composicoes" icone="" titulo="Composições"
-                qtd={(data.composicoes||[]).length + compsEmpresa.length}
-                sub="composições da empresa e de baixa automática do estoque"/>
+                qtd={(data.composicoes||[]).length}
+                sub="quanto cada serviço consome - baixa o estoque sozinho"/>
           <Card id="fases" icone="" titulo="Fases do quadro"
                 qtd={(data.fases||[]).length}
                 sub="as colunas do Kanban de obras"/>
@@ -19510,30 +15993,12 @@ function Cadastros({ data, update, showToast, onTab }) {
         <Voltar/>
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
           <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
-            As composições da empresa alimentam todos os orçamentos. Você pode copiar uma composição
-            SINAPI ou ORSE, alterar seus insumos e salvá-la com um código próprio, sem modificar a referência oficial.
+            Quanto cada serviço consome por unidade. Cadastre uma vez, e o estoque
+            baixa sozinho a cada serviço executado.
           </p>
         </div>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",marginTop:2}}>
-          <div><p style={{fontSize:12.5,fontWeight:900,color:C.blue}}>COMPOSIÇÕES DA EMPRESA PARA ORÇAMENTO</p><p style={{fontSize:10,color:C.muted}}>Catálogo comum a todas as obras e orçamentos.</p></div>
-          <Btn size="sm" v="ghost" onClick={()=>onTab("orc")}>PESQUISAR E CLONAR SINAPI/ORSE →</Btn>
-        </div>
-        {compsEmpresa.map(c => {
-          const custo=(c.itens||[]).reduce((s,i)=>s+Number(i.coeficiente||0)*Number(i.precoUnit||0),0);
-          const origem=c.origemCodigo?`ORIGEM ${c.origemFonte} ${c.origemCodigo}${c.origemDataBase?` · ${c.origemDataBase}`:""}${c.origemUf?` · ${c.origemUf}`:""}`:"CRIAÇÃO PRÓPRIA";
-          return <Linha key={c.id} titulo={`${c.codigo} · ${c.descricao}`}
-            sub={`${origem} · ${c.unidade} · ${(c.itens||[]).length} item(ns) · ${fmt(custo)}`}
-            onEdit={()=>setCompEmpresaModal({...c,itens:(c.itens||[]).map(i=>({...i,coeficiente:String(i.coeficiente),precoUnit:String(i.precoUnit)}))})}
-            onDel={()=>excluirComposicaoEmpresa(c)}/>;
-        })}
-        {!compsEmpresa.length&&<Vazio texto="Nenhuma composição da empresa. Use o orçamento para pesquisar e clonar uma composição SINAPI/ORSE."/>}
-
-        <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12,marginTop:4}}>
-          <p style={{fontSize:12.5,fontWeight:900,color:C.text}}>COMPOSIÇÕES DE ESTOQUE / BAIXA AUTOMÁTICA</p>
-          <p style={{fontSize:10,color:C.muted,marginTop:2}}>Quanto cada serviço executado consome dos materiais cadastrados no estoque.</p>
-        </div>
         <Btn onClick={()=>setCompModal({id:"",nome:"",unidade:"m2",itens:[{materialId:"",coef:""}]})} full>
-          <Ic n="plus"/> Nova composição de estoque
+          <Ic n="plus"/> Nova composição
         </Btn>
         {(data.composicoes||[]).map(c => (
           <Linha key={c.id} titulo={c.nome}
@@ -19626,33 +16091,6 @@ function Cadastros({ data, update, showToast, onTab }) {
       {matModal && <ModalMaterial form={matModal} setForm={setMatModal} onSave={salvarMaterial}
                                   unidades={unidades}/>}
       {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
-      {compEmpresaModal && <Modal title="Editar composição da empresa" onClose={()=>setCompEmpresaModal(null)} wide>
-        <div style={{display:"flex",flexDirection:"column",gap:11}}>
-          {compEmpresaModal.origemCodigo&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}35`,borderRadius:7,padding:"8px 10px"}}>
-            <p style={{fontSize:9,color:C.muted,fontWeight:800}}>ORIGEM PRESERVADA</p>
-            <p style={{fontSize:11,color:C.blue,fontWeight:800,marginTop:2}}>{compEmpresaModal.origemFonte} {compEmpresaModal.origemCodigo}{compEmpresaModal.origemDataBase?` · ${compEmpresaModal.origemDataBase}`:""}{compEmpresaModal.origemUf?` · ${compEmpresaModal.origemUf}`:""}</p>
-          </div>}
-          <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:9}}>
-            <Inp label="Código da empresa *" value={compEmpresaModal.codigo} onChange={v=>setCompEmpresaModal(f=>({...f,codigo:v}))}/>
-            <Inp label="Unidade *" value={compEmpresaModal.unidade} onChange={v=>setCompEmpresaModal(f=>({...f,unidade:v}))}/>
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:800}}>CUSTO UNITÁRIO</p><p style={{fontSize:15,color:C.yellowD,fontWeight:900,marginTop:2}}>{fmt((compEmpresaModal.itens||[]).reduce((s,i)=>s+Number(i.coeficiente||0)*Number(i.precoUnit||0),0))}</p></div>
-          </div>
-          <Inp label="Descrição *" value={compEmpresaModal.descricao} onChange={v=>setCompEmpresaModal(f=>({...f,descricao:v}))}/>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}><p style={{fontSize:11,fontWeight:900,color:C.text}}>INSUMOS E COMPOSIÇÕES AUXILIARES</p><Btn size="sm" v="ghost" onClick={()=>setCompEmpresaModal(f=>({...f,itens:[...(f.itens||[]),{id:uid(),fonte:"SINAPI",tipoItem:"INSUMO",codigo:"",descricao:"",unidade:"UN",coeficiente:"1",precoUnit:"0",dataBase:"",uf:""}]}))}><Ic n="plus"/> ITEM MANUAL</Btn></div>
-          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:980,borderCollapse:"collapse",fontSize:10}}>
-            <thead><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:6,textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
-            <tbody>{(compEmpresaModal.itens||[]).map(item=><tr key={item.id} style={{borderBottom:`1px solid ${C.line}`}}>
-              <td style={{padding:4}}><select value={item.tipoItem||"INSUMO"} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,tipoItem:e.target.value}:x)}))} style={{width:100,padding:5,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text}}><option value="INSUMO">INSUMO</option><option value="COMPOSICAO">COMPOSIÇÃO</option></select></td>
-              {[["fonte",80],["codigo",105],["descricao",300],["unidade",65]].map(([campo,largura])=><td key={campo} style={{padding:4}}><input value={item[campo]||""} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,[campo]:e.target.value}:x)}))} style={{width:largura,boxSizing:"border-box",padding:"5px 6px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text}}/></td>)}
-              <td style={{padding:4}}><input type="number" step="any" value={item.coeficiente} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:90,padding:"5px 6px",boxSizing:"border-box",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
-              <td style={{padding:4}}><input type="number" step="any" value={item.precoUnit} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:95,padding:"5px 6px",boxSizing:"border-box",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
-              <td style={{padding:6,textAlign:"right",fontWeight:800}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td>
-              <td style={{padding:4}}><button onClick={()=>setCompEmpresaModal(f=>({...f,itens:f.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
-            </tr>)}</tbody>
-          </table></div>
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setCompEmpresaModal(null)}>CANCELAR</Btn><Btn onClick={()=>salvarComposicaoEmpresa(compEmpresaModal)}><Ic n="check"/> SALVAR NO CADASTRO</Btn></div>
-        </div>
-      </Modal>}
       {compModal && <ModalComposicao form={compModal} setForm={setCompModal} onSave={salvarComposicao}
                                      materiais={materiais} unidades={unidades}/>}
 
@@ -21108,137 +17546,6 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 }
 
 // 
-const COM_ETAPAS=[
-  ["novo","Novo lead"],["primeiro_contato","Primeiro contato"],["qualificacao","Em qualificação"],["reuniao_agendada","Reunião agendada"],
-  ["reuniao_realizada","Reunião realizada"],["aguardando_info","Aguardando informações"],["escopo","Escopo em elaboração"],
-  ["proposta_elaboracao","Proposta em elaboração"],["proposta_enviada","Proposta enviada"],["negociacao","Em negociação"],
-  ["aguardando_decisao","Aguardando decisão"],["contrato_elaboracao","Contrato em elaboração"],["contrato_enviado","Contrato enviado"],
-  ["aguardando_assinatura","Aguardando assinatura"],["contrato_assinado","Contrato assinado"],["aguardando_entrada","Aguardando pagamento da entrada"],
-  ["contratado","Contratado"],["transferido","Transferido para engenharia"],["perdido","Perdido"],["arquivado","Arquivado"],
-];
-const COM_PERDAS=["Preço","Prazo","Falta de orçamento","Desistência","Contratação de concorrente","Falta de retorno","Serviço fora do escopo","Condições de pagamento","Outro"];
-const COM_TEMPERATURA={frio:C.blue,morno:C.orange,quente:C.red};
-const comEtapaLabel=id=>COM_ETAPAS.find(([v])=>v===id)?.[1]||id;
-const comDias=iso=>iso?Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/86400000)):0;
-const comDateTime=iso=>iso?new Date(iso).toLocaleString("pt-BR"):"-";
-const comAddMes=(iso,n)=>{const d=new Date(`${iso||today()}T12:00:00`);d.setMonth(d.getMonth()+n);return toLocalISODate(d);};
-
-function Comercial({data,update,showToast,currentUser,view,onTab}){
-  const {cols,formGrid}=useBreakpoint();const com=data.comercial||{};
-  const leads=com.leads||[],atividades=com.atividades||[],reunioes=com.reunioes||[],propostas=com.propostas||[],contratos=com.contratos||[];
-  const clientes=com.clientes||[],parceiros=com.parceiros||[],metas=com.metas||[],comissoes=com.comissoes||[],vendas=com.vendas||[];
-  const usuarios=(data.usuarios||[]).filter(u=>u.active!==false);const [busca,setBusca]=useState("");
-  const usuarioAtual=(data.usuarios||[]).find(u=>u.id===currentUser?.id)||currentUser||{};
-  const limiteDesconto=currentUser?.role==="admin"?100:Number(usuarioAtual.maxDesconto??10);
-  const [leadForm,setLeadForm]=useState(null);const [leadAba,setLeadAba]=useState("geral");const [docForm,setDocForm]=useState({nome:"",url:""});
-  const [atividadeForm,setAtividadeForm]=useState(null);const [reuniaoForm,setReuniaoForm]=useState(null);const [propostaForm,setPropostaForm]=useState(null);
-  const [negForm,setNegForm]=useState(null);const [contratoForm,setContratoForm]=useState(null);const [parceiroForm,setParceiroForm]=useState(null);
-  const [metaForm,setMetaForm]=useState(null);const [perdaForm,setPerdaForm]=useState(null);
-  const setCom=(patch)=>update({...data,comercial:{...com,...patch}});
-  const nomeUsuario=id=>usuarios.find(u=>u.id===id)?.nome||"-";const leadBy=id=>leads.find(l=>l.id===id);
-  const leadAtivos=leads.filter(l=>!["perdido","arquivado","transferido"].includes(l.etapa)&&l.status!=="arquivado");
-  const agora=Date.now();const mesAtual=today().slice(0,7);
-  const alertas=useMemo(()=>{
-    const out=[];leadAtivos.forEach(l=>{if(!l.responsavelId||!l.proximaAtividadeEm)out.push({tipo:"lead",cor:C.red,texto:`${l.nome}: sem responsável ou próxima atividade`,leadId:l.id});if(comDias(l.etapaDesde)>=5)out.push({tipo:"parado",cor:C.orange,texto:`${l.nome}: ${comDias(l.etapaDesde)} dias em ${comEtapaLabel(l.etapa)}`,leadId:l.id});});
-    atividades.filter(a=>a.status!=="concluida"&&a.dataHora&&new Date(a.dataHora).getTime()<agora).forEach(a=>out.push({tipo:"followup",cor:C.red,texto:`Follow-up vencido: ${a.titulo}`,leadId:a.leadId}));
-    reunioes.filter(r=>r.status==="agendada"&&r.dataHora).forEach(r=>{const falta=new Date(r.dataHora).getTime()-agora;if(falta<0)out.push({tipo:"reuniao",cor:C.red,texto:`Reunião atrasada: ${leadBy(r.leadId)?.nome||"Lead"}`,leadId:r.leadId});else if(falta<=86400000)out.push({tipo:"reuniao",cor:C.blue,texto:`Reunião nas próximas 24h: ${leadBy(r.leadId)?.nome||"Lead"} · ${comDateTime(r.dataHora)}`,leadId:r.leadId});});
-    propostas.filter(p=>["enviada","visualizada","negociacao"].includes(p.status)&&p.validade).forEach(p=>{const d=Math.ceil((new Date(`${p.validade}T23:59:00`).getTime()-agora)/86400000);if(d<=3)out.push({tipo:"proposta",cor:d<0?C.red:C.orange,texto:`Proposta ${p.numero} ${d<0?"vencida":`vence em ${d} dia(s)`}`,leadId:p.leadId});});
-    contratos.filter(k=>["enviado","aguardando_assinatura"].includes(k.status)).forEach(k=>out.push({tipo:"contrato",cor:C.orange,texto:`Contrato ${k.numero} sem assinatura`,leadId:k.leadId}));
-    contratos.filter(k=>k.assinadoEm&&!k.entradaPaga).forEach(k=>out.push({tipo:"entrada",cor:C.red,texto:`Entrada pendente: contrato ${k.numero}`,leadId:k.leadId}));return out;
-  },[com.leads,com.atividades,com.reunioes,com.propostas,com.contratos]);
-  const vendedores=useMemo(()=>usuarios.map(u=>{const ls=leads.filter(l=>l.responsavelId===u.id),vs=vendas.filter(v=>v.responsavelId===u.id);return{id:u.id,nome:u.nome,leads:ls.length,vendas:vs.length,receita:vs.reduce((s,v)=>s+v.valor,0),conversao:ls.length?vs.length/ls.length*100:0};}).filter(x=>x.leads||x.vendas),[usuarios,leads,vendas]);
-  const origens=useMemo(()=>{const m={};leads.forEach(l=>{const k=l.origem||"Não informada";m[k]??={origem:k,leads:0,vendas:0,receita:0};m[k].leads++;});vendas.forEach(v=>{const l=leadBy(v.leadId),k=l?.origem||"Não informada";m[k]??={origem:k,leads:0,vendas:0,receita:0};m[k].vendas++;m[k].receita+=v.valor;});return Object.values(m);},[leads,vendas]);
-
-  const leadVazio=()=>({id:"",nome:"",tipoPessoa:"PF",telefone:"",whatsapp:"",email:"",cidade:"",origem:"",responsavelId:currentUser?.id||"",servico:"",orcamentoEstimado:"",prazoDesejado:"",probabilidade:"20",fechamentoPrevisto:"",temperatura:"morno",observacoes:"",endereco:"",condominio:"",lote:"",areaTerreno:"",areaConstrucao:"",pavimentos:"",tipoServico:"",prazoPretendido:"",padrao:"alto",orcamentoDisponivel:"",projetosExistentes:"",etapa:"novo",proximaAtividade:"Primeiro contato",proximaAtividadeEm:"",qualificacao:"",documentos:[],historico:[]});
-  const salvarLead=()=>{const f=leadForm;if(!f?.nome.trim()){showToast("Informe o nome do lead.","error");return;}if(!f.responsavelId||!f.proximaAtividadeEm){showToast("Todo lead ativo precisa de responsável e próxima atividade.","error");return;}const duplicado=leads.find(l=>l.id!==f.id&&((f.email&&l.email?.toLowerCase()===f.email.toLowerCase())||(f.whatsapp&&l.whatsapp===f.whatsapp)));if(duplicado&&!window.confirm(`Possível duplicidade com ${duplicado.nome}. Continuar?`))return;
-    const antigo=leads.find(l=>l.id===f.id),id=f.id||uid(),now=new Date().toISOString();const hist=[...(f.historico||[])];if(!antigo)hist.push({id:uid(),data:now,tipo:"criacao",texto:`Lead criado por ${currentUser?.nome||"usuário"}`});if(antigo&&antigo.etapa!==f.etapa)hist.push({id:uid(),data:now,tipo:"etapa",texto:`Etapa alterada de ${comEtapaLabel(antigo.etapa)} para ${comEtapaLabel(f.etapa)}`});
-    const novo={...f,id,orcamentoEstimado:Number(f.orcamentoEstimado||0),probabilidade:Number(f.probabilidade||0),orcamentoDisponivel:Number(f.orcamentoDisponivel||0),areaTerreno:Number(f.areaTerreno||0),areaConstrucao:Number(f.areaConstrucao||0),pavimentos:Number(f.pavimentos||0),etapaDesde:antigo?.etapa===f.etapa?antigo.etapaDesde:now,createdAt:antigo?.createdAt||now,updatedAt:now,historico:hist,status:"ativo"};
-    let novasAt=atividades;if(!antigo)novasAt=[...atividades,{id:uid(),leadId:id,tipo:"primeiro_contato",titulo:f.proximaAtividade||"Primeiro contato",dataHora:f.proximaAtividadeEm,responsavelId:f.responsavelId,status:"pendente",observacoes:"Criada automaticamente",createdAt:now}];setCom({leads:antigo?leads.map(l=>l.id===id?novo:l):[...leads,novo],atividades:novasAt});setLeadForm(null);showToast(antigo?"Lead atualizado.":"Lead criado com tarefa de primeiro contato.");};
-  const moverLead=(lead,etapa)=>{if(etapa==="perdido"){setPerdaForm({leadId:lead.id,motivo:"",concorrente:"",valorConcorrente:"",observacoes:"",reativacaoEm:""});return;}const now=new Date().toISOString();setCom({leads:leads.map(l=>l.id===lead.id?{...l,etapa,status:etapa==="arquivado"?"arquivado":etapa==="novo"?"ativo":l.status,etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"etapa",texto:`Movido para ${comEtapaLabel(etapa)} por ${currentUser?.nome||"usuário"}`}]}:l)});};
-  const salvarPerda=()=>{if(!perdaForm.motivo){showToast("Informe o motivo da perda.","error");return;}const now=new Date().toISOString();setCom({leads:leads.map(l=>l.id===perdaForm.leadId?{...l,...perdaForm,valorConcorrente:Number(perdaForm.valorConcorrente||0),etapa:"perdido",status:"perdido",etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"perda",texto:`Lead perdido: ${perdaForm.motivo}`}]}:l)});setPerdaForm(null);showToast("Perda registrada com histórico.");};
-  const salvarAtividade=f=>{if(!f.leadId||!f.titulo||!f.dataHora){showToast("Informe lead, título e data.","error");return;}const a={...f,id:f.id||uid(),responsavelId:f.responsavelId||currentUser?.id||"",status:f.status||"pendente",createdAt:f.createdAt||new Date().toISOString()};const ats=f.id?atividades.map(x=>x.id===f.id?a:x):[...atividades,a];setCom({atividades:ats,leads:leads.map(l=>l.id===a.leadId?{...l,proximaAtividade:a.titulo,proximaAtividadeEm:a.dataHora}:l)});setAtividadeForm(null);};
-  const salvarReuniao=f=>{if(!f.leadId||!f.dataHora){showToast("Informe lead, data e horário.","error");return;}const r={...f,id:f.id||uid(),orcamentoDisponivel:Number(f.orcamentoDisponivel||0),status:f.status||"agendada"};setCom({reunioes:f.id?reunioes.map(x=>x.id===f.id?r:x):[...reunioes,r],leads:leads.map(l=>l.id===r.leadId?{...l,etapa:l.etapa==="novo"?"reuniao_agendada":l.etapa,proximaAtividade:"Reunião",proximaAtividadeEm:r.dataHora}:l)});setReuniaoForm(null);};
-
-  const propostaVazia=leadId=>{const l=leadBy(leadId);return{id:"",numero:`PROP-${String(propostas.length+1).padStart(4,"0")}`,versao:1,leadId:leadId||"",objeto:l?.servico||"",escopo:"",inclusos:"",exclusos:"",entregaveis:"",prazo:l?.prazoDesejado||"",valor:l?.orcamentoEstimado||"",formaPagamento:"",validade:"",responsabilidades:"",premissas:"",status:"rascunho",desconto:"",documentos:[],historico:[],negociacoes:[]};};
-  const salvarProposta=f=>{if(!f.leadId||!f.objeto||!(Number(f.valor)>0)){showToast("Informe lead, objeto e valor.","error");return;}if(Number(f.desconto||0)>limiteDesconto){showToast(`Seu limite de desconto é ${limiteDesconto}%. Solicite aprovação para continuar.`,"error");return;}const p={...f,id:f.id||uid(),versao:Number(f.versao||1),valor:Number(f.valor),desconto:Number(f.desconto||0),createdAt:f.createdAt||new Date().toISOString(),historico:[...(f.historico||[]),{id:uid(),data:new Date().toISOString(),tipo:f.id?"revisao":"criacao",texto:f.id?`Versão ${f.versao} revisada`:"Proposta criada"}]};setCom({propostas:f.id?propostas.map(x=>x.id===f.id?p:x):[...propostas,p],leads:leads.map(l=>l.id===p.leadId?{...l,etapa:p.status==="enviada"?"proposta_enviada":"proposta_elaboracao",etapaDesde:new Date().toISOString()}:l)});setPropostaForm(null);};
-  const statusProposta=(p,status)=>{const now=new Date().toISOString(),campo=status==="enviada"?"enviadoEm":status==="visualizada"?"visualizadoEm":status==="aceita"?"aceitoEm":status==="rejeitada"?"rejeitadoEm":"",l=leadBy(p.leadId),ja=contratos.find(k=>k.propostaId===p.id);const contratoAuto=status==="aceita"&&!ja?{id:uid(),numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",contratada:data.config.companyName||"ARCD OBRAS",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:0,parcelas:1,diaVencimento:5,prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[],elaboradoEm:now}:null;setCom({propostas:propostas.map(x=>x.id===p.id?{...x,status,...(campo?{[campo]:now}:{}),historico:[...(x.historico||[]),{id:uid(),data:now,tipo:"status",texto:`Status: ${status}`}]}:x),leads:leads.map(x=>x.id===p.leadId?{...x,etapa:status==="enviada"?"proposta_enviada":status==="aceita"?"contrato_elaboracao":status==="negociacao"?"negociacao":x.etapa,etapaDesde:now}:x),...(contratoAuto?{contratos:[...contratos,contratoAuto]}:{})});if(contratoAuto)showToast("Proposta aceita e contrato gerado automaticamente.");};
-  const pdfProposta=p=>{const l=leadBy(p.leadId),html=`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(p.numero)}</title><style>body{font-family:Arial;margin:38px;color:#151515}h1{font-size:22px}h2{font-size:14px;margin-top:22px;border-bottom:1px solid #ccc;padding-bottom:5px}.head{display:flex;justify-content:space-between}.value{font-size:22px;font-weight:bold}.box{background:#f5f5f5;padding:12px;margin:10px 0;white-space:pre-wrap}footer{margin-top:40px;font-size:10px;color:#666}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><div class="head"><div><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")}</h1><p>${escapeHtml(data.config.cnpj||"")}</p></div><div><b>${escapeHtml(p.numero)} · V${p.versao}</b><p>Validade: ${escapeHtml(fmtDate(p.validade))}</p></div></div><h2>CLIENTE</h2><p>${escapeHtml(l?.nome||"")} · ${escapeHtml(l?.email||"")} · ${escapeHtml(l?.whatsapp||"")}</p><h2>OBJETO</h2><div class="box">${escapeHtml(p.objeto)}</div><h2>ESCOPO</h2><div class="box">${escapeHtml(p.escopo)}</div><h2>INCLUSOS / NÃO INCLUSOS</h2><div class="box">${escapeHtml(p.inclusos)}\n\nNão inclusos:\n${escapeHtml(p.exclusos)}</div><h2>ENTREGÁVEIS E PRAZO</h2><div class="box">${escapeHtml(p.entregaveis)}\nPrazo: ${escapeHtml(p.prazo)}</div><h2>INVESTIMENTO</h2><p class="value">${fmt(p.valor)}</p><div class="box">${escapeHtml(p.formaPagamento)}</div><h2>RESPONSABILIDADES E PREMISSAS</h2><div class="box">${escapeHtml(p.responsabilidades)}\n\n${escapeHtml(p.premissas)}</div><footer>Gerado pelo ARCD OBRAS em ${new Date().toLocaleString("pt-BR")}</footer></body></html>`;const w=window.open("","_blank");w.document.write(html);w.document.close();};
-  const compartilharProposta=p=>{const l=leadBy(p.leadId),texto=`Olá ${l?.nome||""}, segue a proposta ${p.numero} (versão ${p.versao}) para ${p.objeto}, no valor de ${fmt(p.valor)}. Validade: ${fmtDate(p.validade)}.`;navigator.clipboard.writeText(texto).then(()=>showToast("Mensagem copiada para WhatsApp."));};
-  const salvarNegociacao=f=>{const p=propostas.find(x=>x.id===f.propostaId);if(!p)return;if(Number(f.desconto||0)>limiteDesconto&&!f.aprovadorId){showToast(`Desconto acima de ${limiteDesconto}% exige responsável pela aprovação.`,"error");return;}const n={...f,id:uid(),valorInicial:Number(f.valorInicial||p.valor),valorNegociado:Number(f.valorNegociado||0),desconto:Number(f.desconto||0),data:new Date().toISOString(),responsavelId:currentUser?.id||"",aprovado:Number(f.desconto||0)<=limiteDesconto||!!f.aprovadorId};setCom({propostas:propostas.map(x=>x.id===p.id?{...x,status:"negociacao",negociacoes:[...(x.negociacoes||[]),n],valor:n.valorNegociado||x.valor}:x),leads:leads.map(l=>l.id===p.leadId?{...l,etapa:"negociacao",etapaDesde:new Date().toISOString()}:l)});setNegForm(null);};
-  const criarContrato=p=>{const existente=contratos.find(k=>k.propostaId===p.id);if(existente){setContratoForm({...existente});return;}if(p.status!=="aceita"&&!window.confirm("A proposta ainda não está aceita. Criar contrato mesmo assim?"))return;const l=leadBy(p.leadId);setContratoForm({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:"",parcelas:"1",diaVencimento:"5",prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});};
-  const salvarContrato=f=>{if(!f.leadId||!f.contratante||!(Number(f.valor)>0)){showToast("Informe lead, contratante e valor.","error");return;}const k={...f,id:f.id||uid(),valor:Number(f.valor),entrada:Number(f.entrada||0),parcelas:Number(f.parcelas||1),diaVencimento:Number(f.diaVencimento||5),elaboradoEm:f.elaboradoEm||new Date().toISOString()};setCom({contratos:f.id?contratos.map(x=>x.id===f.id?k:x):[...contratos,k],leads:leads.map(l=>l.id===k.leadId?{...l,etapa:k.status==="enviado"?"contrato_enviado":"contrato_elaboracao",etapaDesde:new Date().toISOString()}:l)});setContratoForm(null);};
-  const finalizarContrato=k=>{const p=propostas.find(x=>x.id===k.propostaId),l=leadBy(k.leadId);const faltas=[];if(p?.status!=="aceita")faltas.push("proposta aceita");if(!k.assinadoEm&&k.status!=="assinado")faltas.push("contrato assinado");if(!k.documentosRecebidos)faltas.push("documentos recebidos");if(!k.entradaPaga)faltas.push("entrada confirmada");if(!k.escopoValidado)faltas.push("escopo validado");if(!k.responsavelTecnicoId)faltas.push("responsável técnico");if(faltas.length){showToast(`Falta: ${faltas.join(", ")}.`,"error");return;}
-    const clienteExist=clientes.find(c=>c.leadId===l.id),cliente=clienteExist||{id:uid(),leadId:l.id,nome:l.nome,tipoPessoa:l.tipoPessoa,documento:"",telefone:l.telefone,whatsapp:l.whatsapp,email:l.email,cidade:l.cidade,endereco:l.endereco,createdAt:new Date().toISOString()};const obraId=k.obraId||uid();const obraExist=(data.obras||[]).some(o=>o.id===obraId);const obra={id:obraId,name:l.nome||k.objeto,address:l.endereco||l.cidade,engineer:nomeUsuario(k.responsavelTecnicoId),startDate:k.inicio,status:"active",areaM2:Number(l.areaConstrucao||0),contractType:"fixed_labor",contractValue:k.valor,adminPercentage:0,billingType:"parcelado",parcelaMensal:k.parcelas?Math.max(0,(k.valor-k.entrada)/k.parcelas):0,contractStart:k.inicio,contractEnd:k.conclusao,totalParcelas:k.parcelas,billingFrequency:"mensal",diaVenc1:k.diaVencimento,diaVenc2:k.diaVencimento,entrada:k.entrada,entradaDate:today(),hasCaixa:true,faseId:""};const venda={id:uid(),leadId:l.id,contratoId:k.id,clienteId:cliente.id,obraId,valor:k.valor,fechadaEm:new Date().toISOString(),responsavelId:k.responsavelComercialId||l.responsavelId};const parceiro=parceiros.find(x=>x.id===l.parceiroId),pct=Number(parceiro?.comissaoPct||1),comissao={id:uid(),vendaId:venda.id,responsavelId:venda.responsavelId,parceiroId:parceiro?.id||"",base:k.valor,percentual:pct,valor:k.valor*pct/100,status:"prevista"};
-    const contas=[];if(k.entrada>0)contas.push({id:uid(),obraId,competencia:today().slice(0,7),dataVencimento:today(),numeroParcela:"Entrada",tipo:"entrada",percentualAcumulado:0,percentualPeriodo:0,valorMOFixo:k.entrada,valorAdminPct:0,valorPrevisto:k.entrada,valorRecebido:k.entrada,dataPagamento:today(),descricao:`Entrada contrato ${k.numero}`,recebido:true});const saldo=Math.max(0,k.valor-k.entrada),parcs=Math.max(1,k.parcelas),valorParc=saldo/parcs;for(let i=1;i<=parcs&&valorParc>0;i++){const venc=comAddMes(k.inicio||today(),i-1);contas.push({id:uid(),obraId,competencia:venc.slice(0,7),dataVencimento:venc,numeroParcela:String(i),tipo:"parcela",percentualAcumulado:0,percentualPeriodo:0,valorMOFixo:valorParc,valorAdminPct:0,valorPrevisto:valorParc,valorRecebido:0,dataPagamento:"",descricao:`Parcela ${i}/${parcs} · ${k.numero}`,recebido:false});}
-    const kickoff={id:uid(),leadId:l.id,dataHora:`${k.inicio||today()}T09:00`,tipo:"inicio_obra",local:l.endereco||"Obra",participantes:`Cliente, ${nomeUsuario(k.responsavelTecnicoId)}, ${nomeUsuario(venda.responsavelId)}`,responsavelComercialId:venda.responsavelId,responsavelTecnicoId:k.responsavelTecnicoId,pauta:"Reunião de início e transferência para Engenharia",resumo:"",necessidades:l.observacoes,objecoes:"",orcamentoDisponivel:k.valor,proximosPassos:"Validar mobilização e cronograma",proximoContato:k.inicio,status:"agendada",documentos:[]};
-    const posVenda={id:uid(),leadId:l.id,tipo:"pos_venda",titulo:"Contato de pós-venda e confirmação do início",dataHora:`${comAddMes(k.inicio||today(),1)}T09:00`,responsavelId:venda.responsavelId,status:"pendente",observacoes:`Criado automaticamente após a contratação ${k.numero}.`,createdAt:new Date().toISOString()};
-    update({...data,obras:obraExist?data.obras:data.obras.concat(obra),medicoes:[...(data.medicoes||[]),...contas],changeLog:[...(data.changeLog||[]),{id:uid(),date:today(),type:"venda_transferida",message:`Venda ${k.numero} transferida à Engenharia e Financeiro.`}],comercial:{...com,clientes:clienteExist?clientes:[...clientes,cliente],vendas:[...vendas,venda],comissoes:[...comissoes,comissao],atividades:[...atividades,posVenda],reunioes:[...reunioes,kickoff],contratos:contratos.map(x=>x.id===k.id?{...x,status:"contratado",obraId,clienteId:cliente.id}:x),leads:leads.map(x=>x.id===l.id?{...x,etapa:"transferido",status:"ganho",etapaDesde:new Date().toISOString(),historico:[...(x.historico||[]),{id:uid(),data:new Date().toISOString(),tipo:"fechamento",texto:`Venda fechada e transferida para obra ${obra.name}`}]}:x)}});showToast("Venda confirmada: cliente, obra, contas, comissão, kickoff e pós-venda criados.");};
-
-  const salvarParceiro=f=>{if(!f.nome)return;const p={...f,id:f.id||uid(),comissaoPct:Number(f.comissaoPct||0),ativo:true};setCom({parceiros:f.id?parceiros.map(x=>x.id===f.id?p:x):[...parceiros,p]});setParceiroForm(null);};
-  const salvarMeta=f=>{if(!f.periodo)return;const m={...f,id:f.id||uid(),receita:Number(f.receita||0),contratos:Number(f.contratos||0),ticketMedio:Number(f.ticketMedio||0),conversao:Number(f.conversao||0)};setCom({metas:f.id?metas.map(x=>x.id===f.id?m:x):[...metas,m]});setMetaForm(null);};
-  const exportarRelatorio=()=>{const rows=vendedores.map(v=>({Vendedor:v.nome,Leads:v.leads,Vendas:v.vendas,Receita:v.receita,"Conversão %":v.conversao}));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Comercial");XLSX.writeFile(wb,`ARCD_Comercial_${today()}.xlsx`);};
-
-  const Titulo=({titulo,sub,acao})=><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}><div><p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:1}}>Comercial</p><h3 style={{fontSize:"clamp(19px,5vw,26px)",color:C.text}}>{titulo}</h3>{sub&&<p style={{fontSize:10.5,color:C.muted,marginTop:2}}>{sub}</p>}</div>{acao}</div>;
-  const vazio=t=><p style={{fontSize:11,color:C.muted,textAlign:"center",padding:18}}>{t}</p>;
-  const kpi=(l,v,c,sub)=><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 11px"}}><p style={{fontSize:8.5,color:C.muted,fontWeight:800,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:17,fontWeight:900,color:c,marginTop:2}}>{v}</p>{sub&&<p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{sub}</p>}</div>;
-
-  let conteudo=null;
-  if(view==="com_dash"){
-    const novos=leads.filter(l=>l.createdAt?.slice(0,7)===mesAtual).length,semAt=leadAtivos.filter(l=>!l.proximaAtividadeEm).length,reu=reunioes.filter(r=>r.status==="agendada").length,prop=propostas.filter(p=>p.status==="enviada").length,cont=contratos.filter(k=>["enviado","aguardando_assinatura"].includes(k.status)).length,vendasMes=vendas.filter(v=>v.fechadaEm?.slice(0,7)===mesAtual),funil=leadAtivos.reduce((s,l)=>s+l.orcamentoEstimado,0),ponderada=leadAtivos.reduce((s,l)=>s+l.orcamentoEstimado*l.probabilidade/100,0),ticket=vendas.length?vendas.reduce((s,v)=>s+v.valor,0)/vendas.length:0,conv=leads.length?vendas.length/leads.length*100:0,meta=metas.filter(m=>m.periodo===mesAtual).reduce((s,m)=>s+m.receita,0);
-    const perdas={};leads.filter(l=>l.etapa==="perdido").forEach(l=>perdas[l.motivoPerda||"Não informado"]=(perdas[l.motivoPerda||"Não informado"]||0)+1);
-    conteudo=<><Titulo titulo="Dashboard comercial" sub="Visão completa do funil, atividades, metas e conversão"/><div style={{display:"grid",gridTemplateColumns:cols(2,4,5),gap:7}}>{[["Novos leads",novos,C.blue],["Sem atendimento",semAt,semAt?C.red:C.green],["Reuniões",reu,C.purple],["Propostas enviadas",prop,C.orange],["Contratos sem assinatura",cont,C.red],["Vendas fechadas",vendasMes.length,C.green],["Valor do funil",fmt(funil),C.text],["Receita ponderada",fmt(ponderada),C.yellowD],["Ticket médio",fmt(ticket),C.blue],["Conversão",`${conv.toFixed(1)}%`,C.green],["Meta mensal",fmt(meta),C.purple]].map(x=>kpi(...x))}</div>
-      {alertas.length>0&&<div style={{background:C.card,border:`1px solid ${C.red}44`,borderRadius:9,overflow:"hidden"}}><p style={{padding:"8px 10px",fontSize:11,fontWeight:900,color:C.red}}>{alertas.length} ALERTA(S) COMERCIAL(IS)</p>{alertas.slice(0,12).map((a,i)=><button key={i} onClick={()=>{const l=leadBy(a.leadId);if(l){setLeadForm({...l});setLeadAba("geral");}}} style={{display:"block",width:"100%",textAlign:"left",padding:"7px 10px",border:0,borderTop:`1px solid ${C.line}`,borderLeft:`4px solid ${a.cor}`,background:"transparent",fontSize:10.5,color:C.text,cursor:"pointer"}}>{a.texto}</button>)}</div>}
-      <div style={{display:"grid",gridTemplateColumns:cols(1,1,2),gap:9}}><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:10}}><p style={{fontSize:11,fontWeight:900,color:C.text}}>DESEMPENHO POR VENDEDOR</p>{vendedores.map(v=><div key={v.id} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.line}`,fontSize:10}}><span>{v.nome}</span><b>{v.vendas} venda(s)</b><b style={{color:C.green}}>{fmt(v.receita)}</b></div>)}{!vendedores.length&&vazio("Sem dados.")}</div><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:10}}><p style={{fontSize:11,fontWeight:900,color:C.text}}>ORIGENS E PERDAS</p>{origens.map(o=><div key={o.origem} style={{fontSize:10,padding:"4px 0"}}><b>{o.origem}</b> · {o.leads} lead(s) · {o.vendas} venda(s)</div>)}{Object.entries(perdas).map(([m,q])=><div key={m} style={{fontSize:10,color:C.red,padding:"3px 0"}}>{m}: {q}</div>)}</div></div></>;
-  } else if(view==="com_leads"){
-    const lista=leads.filter(l=>[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${leads.length} cadastrado(s)`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> NOVO LEAD</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:6}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:8,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{l.nome}</p><p style={{fontSize:10,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:9.5,color:C.blue,marginTop:3}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:12,color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:9,color:C.muted,marginTop:2}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
-  } else if(view==="com_funil"){
-    conteudo=<><Titulo titulo="Funil de vendas" sub="Arraste os cards; toda mudança fica registrada no histórico" acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> LEAD</Btn>}/><div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:8,alignItems:"flex-start"}}>{COM_ETAPAS.filter(([id])=>id!=="arquivado").map(([id,label])=>{const ls=leads.filter(l=>l.etapa===id);return <div key={id} onDragOver={e=>e.preventDefault()} onDrop={e=>{const l=leadBy(e.dataTransfer.getData("leadId"));if(l)moverLead(l,id);}} style={{width:245,minWidth:245,background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:7}}><div style={{display:"flex",justifyContent:"space-between",gap:5,padding:"3px 4px 7px"}}><b style={{fontSize:10,color:C.text}}>{label.toUpperCase()}</b><span style={{fontSize:9,color:C.muted}}>{ls.length}</span></div>{ls.map(l=><div key={l.id} draggable onDragStart={e=>e.dataTransfer.setData("leadId",l.id)} onDoubleClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:7,padding:"7px 8px",marginBottom:6,cursor:"grab"}}><p style={{fontSize:10.5,fontWeight:900,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.nome}</p><p style={{fontSize:9,color:C.muted,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.servico||"-"}</p><p style={{fontSize:10,color:C.yellowD,fontWeight:800,marginTop:4}}>{fmt(l.orcamentoEstimado)} · {l.probabilidade}%</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{nomeUsuario(l.responsavelId)} · {comDias(l.etapaDesde)}d</p><p style={{fontSize:8.5,color:l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:C.blue,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.proximaAtividade||"Sem próxima atividade"} · {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):"-"}</p></div>)}{!ls.length&&<div style={{padding:10,textAlign:"center",fontSize:9,color:C.muted}}>Solte aqui</div>}</div>;})}</div></>;
-  } else if(["com_agenda","com_reunioes","com_tarefas"].includes(view)){
-    const itens=[...reunioes.map(r=>({...r,_tipo:"reuniao",titulo:`Reunião · ${leadBy(r.leadId)?.nome||"Lead"}`})),...atividades.map(a=>({...a,_tipo:"atividade"}))].sort((a,b)=>(a.dataHora||"").localeCompare(b.dataHora||""));const filtrados=view==="com_reunioes"?itens.filter(x=>x._tipo==="reuniao"):view==="com_tarefas"?itens.filter(x=>x._tipo==="atividade"):itens;
-    conteudo=<><Titulo titulo={view==="com_agenda"?"Agenda comercial":view==="com_reunioes"?"Reuniões":"Tarefas e follow-ups"} sub="Compromissos, responsáveis, próximos passos e alertas" acao={<div style={{display:"flex",gap:6}}><Btn size="sm" onClick={()=>setAtividadeForm({id:"",leadId:"",tipo:"followup",titulo:"",dataHora:"",responsavelId:currentUser?.id||"",status:"pendente",observacoes:""})}>+ TAREFA</Btn><Btn size="sm" v="ghost" onClick={()=>setReuniaoForm({id:"",leadId:"",dataHora:"",tipo:"presencial",local:"",participantes:"",responsavelComercialId:currentUser?.id||"",responsavelTecnicoId:"",pauta:"",resumo:"",necessidades:"",objecoes:"",orcamentoDisponivel:"",proximosPassos:"",proximoContato:"",status:"agendada",documentos:[]})}>+ REUNIÃO</Btn></div>}/><div style={{display:"flex",flexDirection:"column",gap:6}}>{filtrados.map(x=>{const venc=x.dataHora&&new Date(x.dataHora).getTime()<agora&&!["concluida","realizada","cancelada"].includes(x.status);return <div key={`${x._tipo}-${x.id}`} style={{display:"grid",gridTemplateColumns:"145px minmax(0,1fr) auto",gap:8,alignItems:"center",background:C.card,border:`1px solid ${venc?C.red:C.border}`,borderRadius:8,padding:"8px 10px"}}><div><b style={{fontSize:10,color:venc?C.red:C.blue}}>{comDateTime(x.dataHora)}</b><p style={{fontSize:8.5,color:C.muted}}>{x._tipo.toUpperCase()}</p></div><div><p style={{fontSize:11,fontWeight:800,color:C.text}}>{x.titulo||`Reunião · ${leadBy(x.leadId)?.nome||"Lead"}`}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{leadBy(x.leadId)?.nome||"-"} · {x.local||x.observacoes||""}</p></div><div style={{display:"flex",gap:4}}>{x._tipo==="atividade"&&x.status!=="concluida"&&<Btn size="sm" v="success" onClick={()=>setCom({atividades:atividades.map(a=>a.id===x.id?{...a,status:"concluida"}:a)})}>OK</Btn>}<Btn size="sm" v="ghost" onClick={()=>x._tipo==="atividade"?setAtividadeForm({...x}):setReuniaoForm({...x})}><Ic n="edit"/></Btn></div></div>;})}{!filtrados.length&&vazio("Nenhum compromisso cadastrado.")}</div></>;
-  } else if(["com_propostas","com_negociacoes"].includes(view)){
-    const lista=view==="com_negociacoes"?propostas.filter(p=>(p.negociacoes||[]).length||p.status==="negociacao"):propostas;conteudo=<><Titulo titulo={view==="com_propostas"?"Propostas":"Negociações"} sub="Versões, envio, visualização, descontos, aceite e rejeição" acao={<Btn onClick={()=>setPropostaForm(propostaVazia(leadAtivos[0]?.id||""))}><Ic n="plus"/> PROPOSTA</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{lista.map(p=>{const l=leadBy(p.leadId);return <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{p.numero} · V{p.versao} · {l?.nome}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{p.objeto} · validade {fmtDate(p.validade)}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(p.valor)}</b><p style={{fontSize:9,color:C.blue}}>{p.status}</p></div></div>{(p.negociacoes||[]).slice(-1).map(n=><p key={n.id} style={{fontSize:9.5,color:C.orange,marginTop:5}}>Negociado: {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · desconto {n.desconto}%</p>)}<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setPropostaForm({...p,versao:p.versao+1})}><Ic n="edit"/></Btn><Btn size="sm" v="ghost" onClick={()=>pdfProposta(p)}>PDF</Btn><Btn size="sm" v="success" onClick={()=>compartilharProposta(p)}>WHATSAPP</Btn><a href={`mailto:${encodeURIComponent(l?.email||"")}?subject=${encodeURIComponent(`Proposta ${p.numero}`)}&body=${encodeURIComponent(`Olá ${l?.nome||""}, segue nossa proposta ${p.numero}, versão ${p.versao}, no valor de ${fmt(p.valor)}.`)}`} style={{textDecoration:"none"}}><Btn size="sm" v="ghost">E-MAIL</Btn></a>{p.status==="rascunho"&&<Btn size="sm" onClick={()=>statusProposta(p,"enviada")}>ENVIAR</Btn>}{p.status==="enviada"&&<Btn size="sm" v="ghost" onClick={()=>statusProposta(p,"visualizada")}>VISUALIZADA</Btn>}<Btn size="sm" v="ghost" onClick={()=>setNegForm({propostaId:p.id,valorInicial:p.valor,valorNegociado:p.valor,desconto:"",formaPagamento:p.formaPagamento,parcelas:"",alteracaoEscopo:"",objecoes:"",respostas:"",aprovadorId:""})}>NEGOCIAR</Btn>{!["aceita","rejeitada"].includes(p.status)&&<Btn size="sm" v="success" onClick={()=>statusProposta(p,"aceita")}>ACEITAR</Btn>}{p.status==="aceita"&&<Btn size="sm" onClick={()=>criarContrato(p)}>GERAR CONTRATO</Btn>}</div></div>;})}{!lista.length&&vazio("Nenhuma proposta.")}</div></>;
-  } else if(view==="com_contratos"){
-    conteudo=<><Titulo titulo="Contratos" sub="Elaboração, assinatura, entrada e transferência para Engenharia"/><div style={{display:"flex",flexDirection:"column",gap:7}}>{contratos.map(k=>{const l=leadBy(k.leadId),faltas=[!k.assinadoEm&&k.status!=="assinado"?"assinatura":"",!k.documentosRecebidos?"documentos":"",!k.entradaPaga?"entrada":"",!k.escopoValidado?"escopo":"",!k.responsavelTecnicoId?"responsável técnico":""].filter(Boolean);return <div key={k.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${k.status==="contratado"?C.green:faltas.length?C.orange:C.blue}`,borderRadius:8,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{k.numero} · {k.contratante}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{k.objeto} · proposta {propostas.find(p=>p.id===k.propostaId)?.numero||"-"}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(k.valor)}</b><p style={{fontSize:9,color:C.blue}}>{k.status}</p></div></div>{faltas.length>0&&k.status!=="contratado"&&<p style={{fontSize:9.5,color:C.orange,marginTop:5}}>Pendente: {faltas.join(", ")}</p>}<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setContratoForm({...k})}><Ic n="edit"/></Btn>{k.status==="elaboracao"&&<Btn size="sm" onClick={()=>setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"enviado",enviadoEm:new Date().toISOString()}:x)})}>ENVIAR</Btn>}{k.status==="enviado"&&<Btn size="sm" v="success" onClick={()=>setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"assinado",assinadoEm:new Date().toISOString()}:x),leads:leads.map(x=>x.id===k.leadId?{...x,etapa:"contrato_assinado"}:x)})}>REGISTRAR ASSINATURA</Btn>}{k.status!=="contratado"&&<Btn size="sm" v="success" onClick={()=>finalizarContrato(k)}>CONFIRMAR CONTRATAÇÃO</Btn>}{k.obraId&&<Btn size="sm" v="ghost" onClick={()=>onTab("obras")}>ABRIR OBRA</Btn>}</div></div>;})}{!contratos.length&&vazio("Nenhum contrato. Aceite uma proposta para gerar o contrato.")}</div></>;
-  } else if(view==="com_clientes"){
-    conteudo=<><Titulo titulo="Clientes" sub="Clientes convertidos a partir de vendas confirmadas"/><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{clientes.map(c=><div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 11px"}}><p style={{fontSize:12,fontWeight:900,color:C.text}}>{c.nome}</p><p style={{fontSize:10,color:C.muted,marginTop:3}}>{c.tipoPessoa} · {c.cidade||"-"}</p><p style={{fontSize:10,color:C.blue,marginTop:3}}>{c.whatsapp||c.telefone||"-"} · {c.email||"-"}</p><p style={{fontSize:9.5,color:C.green,marginTop:5}}>{vendas.filter(v=>v.clienteId===c.id).length} contrato(s) · {fmt(vendas.filter(v=>v.clienteId===c.id).reduce((s,v)=>s+v.valor,0))}</p></div>)}{!clientes.length&&vazio("Nenhum cliente convertido.")}</div></>;
-  } else if(view==="com_parceiros"){
-    conteudo=<><Titulo titulo="Parceiros e indicações" sub="Origem, percentual de comissão e resultados" acao={<Btn onClick={()=>setParceiroForm({id:"",nome:"",tipo:"indicador",telefone:"",email:"",comissaoPct:"",observacoes:""})}><Ic n="plus"/> PARCEIRO</Btn>}/>{parceiros.map(p=><div key={p.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px",marginBottom:6}}><div><p style={{fontSize:11.5,fontWeight:900}}>{p.nome}</p><p style={{fontSize:9.5,color:C.muted}}>{p.tipo} · {p.telefone||p.email||"-"}</p></div><b style={{color:C.green}}>{p.comissaoPct}%</b><Btn size="sm" v="ghost" onClick={()=>setParceiroForm({...p})}><Ic n="edit"/></Btn></div>)}{!parceiros.length&&vazio("Nenhum parceiro.")}</>;
-  } else if(view==="com_metas"){
-    conteudo=<><Titulo titulo="Metas e comissões" sub="Metas por vendedor/equipe e comissões das vendas" acao={<Btn onClick={()=>setMetaForm({id:"",responsavelId:"",equipe:"",periodo:mesAtual,receita:"",contratos:"",ticketMedio:"",conversao:""})}><Ic n="plus"/> META</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1fr 1fr"),gap:9}}><div><p style={{fontSize:11,fontWeight:900,marginBottom:6}}>METAS</p>{metas.map(m=>{const realizado=vendas.filter(v=>v.fechadaEm?.slice(0,7)===m.periodo&&(!m.responsavelId||v.responsavelId===m.responsavelId)).reduce((s,v)=>s+v.valor,0),pct=m.receita?Math.min(100,realizado/m.receita*100):0;return <div key={m.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",marginBottom:6}}><div style={{display:"flex",justifyContent:"space-between"}}><b style={{fontSize:10.5}}>{m.periodo} · {nomeUsuario(m.responsavelId)}</b><button onClick={()=>setMetaForm({...m})} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer"}}>editar</button></div><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Meta {fmt(m.receita)} · realizado {fmt(realizado)}</p><div style={{height:6,background:C.surface,borderRadius:9,marginTop:5}}><div style={{height:"100%",width:`${pct}%`,background:pct>=100?C.green:C.blue,borderRadius:9}}/></div></div>})}{!metas.length&&vazio("Nenhuma meta.")}</div><div><p style={{fontSize:11,fontWeight:900,marginBottom:6}}>COMISSÕES</p>{comissoes.map(c=><div key={c.id} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",marginBottom:6}}><div><b style={{fontSize:10.5}}>{nomeUsuario(c.responsavelId)}</b><p style={{fontSize:9,color:C.muted}}>Base {fmt(c.base)} · {c.percentual}% · {c.status}</p></div><b style={{color:C.green}}>{fmt(c.valor)}</b></div>)}{!comissoes.length&&vazio("Nenhuma comissão calculada.")}</div></div></>;
-  } else if(view==="com_perdas"){
-    const perdidos=leads.filter(l=>l.etapa==="perdido");conteudo=<><Titulo titulo="Motivos de perda" sub="Análise, concorrentes e reativação futura"/><div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>{COM_PERDAS.map(m=>kpi(m,perdidos.filter(l=>l.motivoPerda===m).length,perdidos.some(l=>l.motivoPerda===m)?C.red:C.muted))}</div>{perdidos.map(l=><div key={l.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",marginTop:6}}><div style={{display:"flex",justifyContent:"space-between"}}><div><b style={{fontSize:11}}>{l.nome} · {l.motivoPerda}</b><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Concorrente: {l.concorrente||"-"} · {fmt(l.valorConcorrente)} · reativação {fmtDate(l.reativacaoEm)}</p></div>{l.reativacaoEm&&l.reativacaoEm<=today()&&<Btn size="sm" v="success" onClick={()=>moverLead(l,"novo")}>REATIVAR</Btn>}</div></div>)}{!perdidos.length&&vazio("Nenhuma perda registrada.")}</>;
-  } else if(view==="com_relatorios"){
-    conteudo=<><Titulo titulo="Relatórios comerciais" sub="Desempenho por vendedor, origem, receita, conversão e funil" acao={<Btn onClick={exportarRelatorio}>EXPORTAR EXCEL</Btn>}/><div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface}}>{["VENDEDOR","LEADS","VENDAS","RECEITA","CONVERSÃO"].map(h=><th key={h} style={{padding:7,textAlign:h==="VENDEDOR"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{vendedores.map(v=><tr key={v.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:7}}>{v.nome}</td><td style={{padding:7,textAlign:"right"}}>{v.leads}</td><td style={{padding:7,textAlign:"right"}}>{v.vendas}</td><td style={{padding:7,textAlign:"right"}}>{fmt(v.receita)}</td><td style={{padding:7,textAlign:"right"}}>{v.conversao.toFixed(1)}%</td></tr>)}</tbody></table></div><div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface}}>{["ORIGEM","LEADS","VENDAS","RECEITA"].map(h=><th key={h} style={{padding:7,textAlign:h==="ORIGEM"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{origens.map(o=><tr key={o.origem} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:7}}>{o.origem}</td><td style={{padding:7,textAlign:"right"}}>{o.leads}</td><td style={{padding:7,textAlign:"right"}}>{o.vendas}</td><td style={{padding:7,textAlign:"right"}}>{fmt(o.receita)}</td></tr>)}</tbody></table></div></>;
-  }
-
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{conteudo}
-    {leadForm&&<Modal title={leadForm.id?`Lead · ${leadForm.nome}`:"Novo lead"} onClose={()=>setLeadForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"flex",gap:4,overflowX:"auto",paddingBottom:3}}>{[["geral","Visão geral"],["cadastro","Dados cadastrais"],["projeto","Projeto/serviço"],["qualificacao","Qualificação"],["atividades","Atividades"],["reunioes","Reuniões"],["propostas","Propostas"],["negociacoes","Negociações"],["contratos","Contratos"],["documentos","Documentos"],["financeiro","Financeiro"],["historico","Histórico"]].map(([id,l])=><button key={id} onClick={()=>setLeadAba(id)} style={{border:`1px solid ${leadAba===id?C.green:C.border}`,background:leadAba===id?`${C.green}10`:C.bg,color:leadAba===id?C.green:C.muted,borderRadius:6,padding:"5px 8px",fontSize:9.5,fontWeight:800,whiteSpace:"nowrap",cursor:"pointer"}}>{l}</button>)}</div>
-      {leadAba==="geral"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Nome *" value={leadForm.nome} onChange={v=>setLeadForm(f=>({...f,nome:v}))}/><Sel label="Etapa" value={leadForm.etapa} onChange={v=>setLeadForm(f=>({...f,etapa:v}))} options={COM_ETAPAS.map(([v,l])=>({v,l}))}/><Sel label="Responsável *" value={leadForm.responsavelId} onChange={v=>setLeadForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Serviço de interesse" value={leadForm.servico} onChange={v=>setLeadForm(f=>({...f,servico:v}))}/><Inp label="Orçamento estimado" type="number" value={leadForm.orcamentoEstimado} onChange={v=>setLeadForm(f=>({...f,orcamentoEstimado:v}))}/><Inp label="Fechamento previsto" type="date" value={leadForm.fechamentoPrevisto} onChange={v=>setLeadForm(f=>({...f,fechamentoPrevisto:v}))}/><Inp label="Probabilidade %" type="number" value={leadForm.probabilidade} onChange={v=>setLeadForm(f=>({...f,probabilidade:v,temperatura:Number(v)>=70?"quente":Number(v)>=35?"morno":"frio"}))}/><Sel label="Temperatura" value={leadForm.temperatura} onChange={v=>setLeadForm(f=>({...f,temperatura:v}))} options={[{v:"frio",l:"Frio"},{v:"morno",l:"Morno"},{v:"quente",l:"Quente"}]}/><Inp label="Prazo desejado" value={leadForm.prazoDesejado} onChange={v=>setLeadForm(f=>({...f,prazoDesejado:v}))}/><Inp label="Próxima atividade *" value={leadForm.proximaAtividade} onChange={v=>setLeadForm(f=>({...f,proximaAtividade:v}))}/><Inp label="Data da próxima atividade *" type="datetime-local" value={leadForm.proximaAtividadeEm} onChange={v=>setLeadForm(f=>({...f,proximaAtividadeEm:v}))}/><Sel label="Origem" value={leadForm.origem} onChange={v=>setLeadForm(f=>({...f,origem:v}))} options={[{v:"",l:"Selecione"},...['Indicação','Site','Instagram','WhatsApp','Parceiro','Tráfego pago','Prospecção','Outro'].map(v=>({v,l:v}))]}/><div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={leadForm.observacoes} onChange={v=>setLeadForm(f=>({...f,observacoes:v}))} multiline/></div></div>}
-      {leadAba==="cadastro"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Pessoa" value={leadForm.tipoPessoa} onChange={v=>setLeadForm(f=>({...f,tipoPessoa:v}))} options={[{v:"PF",l:"Pessoa física"},{v:"PJ",l:"Pessoa jurídica"}]}/><Inp label="Telefone" value={leadForm.telefone} onChange={v=>setLeadForm(f=>({...f,telefone:v}))}/><Inp label="WhatsApp" value={leadForm.whatsapp} onChange={v=>setLeadForm(f=>({...f,whatsapp:v}))}/><Inp label="E-mail" value={leadForm.email} onChange={v=>setLeadForm(f=>({...f,email:v}))}/><Inp label="Cidade" value={leadForm.cidade} onChange={v=>setLeadForm(f=>({...f,cidade:v}))}/><Inp label="Endereço" value={leadForm.endereco} onChange={v=>setLeadForm(f=>({...f,endereco:v}))}/><Inp label="Condomínio" value={leadForm.condominio} onChange={v=>setLeadForm(f=>({...f,condominio:v}))}/><Inp label="Lote" value={leadForm.lote} onChange={v=>setLeadForm(f=>({...f,lote:v}))}/><Sel label="Parceiro indicador" value={leadForm.parceiroId||""} onChange={v=>setLeadForm(f=>({...f,parceiroId:v}))} options={[{v:"",l:"Nenhum"},...parceiros.map(p=>({v:p.id,l:p.nome}))]}/></div>}
-      {leadAba==="projeto"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Área do terreno (m²)" type="number" value={leadForm.areaTerreno} onChange={v=>setLeadForm(f=>({...f,areaTerreno:v}))}/><Inp label="Área estimada da construção" type="number" value={leadForm.areaConstrucao} onChange={v=>setLeadForm(f=>({...f,areaConstrucao:v}))}/><Inp label="Pavimentos" type="number" value={leadForm.pavimentos} onChange={v=>setLeadForm(f=>({...f,pavimentos:v}))}/><Inp label="Tipo de serviço" value={leadForm.tipoServico} onChange={v=>setLeadForm(f=>({...f,tipoServico:v}))}/><Inp label="Prazo pretendido" value={leadForm.prazoPretendido} onChange={v=>setLeadForm(f=>({...f,prazoPretendido:v}))}/><Sel label="Padrão construtivo" value={leadForm.padrao} onChange={v=>setLeadForm(f=>({...f,padrao:v}))} options={[{v:"economico",l:"Econômico"},{v:"medio",l:"Médio"},{v:"alto",l:"Alto padrão"}]}/><Inp label="Orçamento disponível" type="number" value={leadForm.orcamentoDisponivel} onChange={v=>setLeadForm(f=>({...f,orcamentoDisponivel:v}))}/><div style={{gridColumn:"1/-1"}}><Inp label="Projetos/documentos existentes" value={leadForm.projetosExistentes} onChange={v=>setLeadForm(f=>({...f,projetosExistentes:v}))} multiline/></div></div>}
-      {leadAba==="qualificacao"&&<Inp label="Qualificação, necessidades, restrições e objeções" value={leadForm.qualificacao} onChange={v=>setLeadForm(f=>({...f,qualificacao:v}))} multiline/>}
-      {leadAba==="atividades"&&<div>{atividades.filter(a=>a.leadId===leadForm.id).map(a=><p key={a.id} style={{fontSize:10.5,padding:6,borderBottom:`1px solid ${C.line}`}}>{comDateTime(a.dataHora)} · {a.titulo} · {a.status}</p>)}<Btn size="sm" onClick={()=>setAtividadeForm({id:"",leadId:leadForm.id,tipo:"followup",titulo:"",dataHora:"",responsavelId:leadForm.responsavelId,status:"pendente",observacoes:""})}>+ ATIVIDADE</Btn></div>}
-      {leadAba==="reunioes"&&<div>{reunioes.filter(r=>r.leadId===leadForm.id).map(r=><p key={r.id} style={{fontSize:10.5,padding:6,borderBottom:`1px solid ${C.line}`}}>{comDateTime(r.dataHora)} · {r.tipo} · {r.status}</p>)}</div>}
-      {leadAba==="propostas"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).map(p=><p key={p.id} style={{fontSize:10.5,padding:6,borderBottom:`1px solid ${C.line}`}}>{p.numero} V{p.versao} · {fmt(p.valor)} · {p.status}</p>)}<Btn size="sm" onClick={()=>setPropostaForm(propostaVazia(leadForm.id))}>+ PROPOSTA</Btn></div>}
-      {leadAba==="negociacoes"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).flatMap(p=>(p.negociacoes||[]).map(n=><p key={n.id} style={{fontSize:10.5,padding:6,borderBottom:`1px solid ${C.line}`}}>{comDateTime(n.data)} · {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · {n.objecoes}</p>))}</div>}
-      {leadAba==="contratos"&&<div>{contratos.filter(k=>k.leadId===leadForm.id).map(k=><p key={k.id} style={{fontSize:10.5,padding:6,borderBottom:`1px solid ${C.line}`}}>{k.numero} · {fmt(k.valor)} · {k.status}</p>)}</div>}
-      {leadAba==="documentos"&&<div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:6,alignItems:"end"}}><Inp label="Nome do documento" value={docForm.nome} onChange={v=>setDocForm(f=>({...f,nome:v}))}/><Inp label="Link do arquivo" value={docForm.url} onChange={v=>setDocForm(f=>({...f,url:v}))}/><Btn size="sm" onClick={()=>{if(docForm.nome&&docForm.url){setLeadForm(f=>({...f,documentos:[...(f.documentos||[]),{id:uid(),...docForm,data:new Date().toISOString()}]}));setDocForm({nome:"",url:""});}}}>ADICIONAR</Btn></div>{(leadForm.documentos||[]).map(d=><p key={d.id} style={{fontSize:10.5,padding:6}}><a href={d.url} target="_blank" rel="noreferrer">{d.nome}</a></p>)}</div>}
-      {leadAba==="financeiro"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>{kpi("Propostas",fmt(propostas.filter(p=>p.leadId===leadForm.id).reduce((s,p)=>Math.max(s,p.valor),0)),C.blue)}{kpi("Contratos",fmt(contratos.filter(k=>k.leadId===leadForm.id).reduce((s,k)=>s+k.valor,0)),C.green)}{kpi("Recebido",fmt((data.medicoes||[]).filter(m=>contratos.some(k=>k.leadId===leadForm.id&&k.obraId===m.obraId)&&m.recebido).reduce((s,m)=>s+m.valorRecebido,0)),C.yellowD)}</div>}
-      {leadAba==="historico"&&<div>{(leadForm.historico||[]).slice().reverse().map(h=><div key={h.id} style={{borderLeft:`3px solid ${C.blue}`,padding:"5px 8px",marginBottom:5}}><p style={{fontSize:9,color:C.muted}}>{comDateTime(h.data)} · {h.tipo}</p><p style={{fontSize:10.5,color:C.text}}>{h.texto}</p></div>)}</div>}
-      <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setLeadForm(null)}>CANCELAR</Btn><Btn onClick={salvarLead}><Ic n="check"/> SALVAR LEAD</Btn></div></div></Modal>}
-
-    {atividadeForm&&<Modal title="Tarefa / follow-up" onClose={()=>setAtividadeForm(null)}><div style={{display:"flex",flexDirection:"column",gap:9}}><Sel label="Lead *" value={atividadeForm.leadId} onChange={v=>setAtividadeForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Título *" value={atividadeForm.titulo} onChange={v=>setAtividadeForm(f=>({...f,titulo:v}))}/><Inp label="Data e hora *" type="datetime-local" value={atividadeForm.dataHora} onChange={v=>setAtividadeForm(f=>({...f,dataHora:v}))}/><Sel label="Responsável" value={atividadeForm.responsavelId} onChange={v=>setAtividadeForm(f=>({...f,responsavelId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Inp label="Observações" value={atividadeForm.observacoes} onChange={v=>setAtividadeForm(f=>({...f,observacoes:v}))} multiline/><Btn onClick={()=>salvarAtividade(atividadeForm)}>SALVAR</Btn></div></Modal>}
-    {reuniaoForm&&<Modal title="Reunião comercial" onClose={()=>setReuniaoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}><Sel label="Lead *" value={reuniaoForm.leadId} onChange={v=>setReuniaoForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Data e hora *" type="datetime-local" value={reuniaoForm.dataHora} onChange={v=>setReuniaoForm(f=>({...f,dataHora:v}))}/><Sel label="Tipo" value={reuniaoForm.tipo} onChange={v=>setReuniaoForm(f=>({...f,tipo:v}))} options={[{v:"presencial",l:"Presencial"},{v:"online",l:"On-line"},{v:"visita",l:"Visita técnica"}]}/><Inp label="Local ou link" value={reuniaoForm.local} onChange={v=>setReuniaoForm(f=>({...f,local:v}))}/><Inp label="Participantes" value={reuniaoForm.participantes} onChange={v=>setReuniaoForm(f=>({...f,participantes:v}))}/><Sel label="Responsável técnico" value={reuniaoForm.responsavelTecnicoId} onChange={v=>setReuniaoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["pauta","Pauta"],["resumo","Resumo"],["necessidades","Necessidades"],["objecoes","Objeções"],["proximosPassos","Próximos passos"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={reuniaoForm[k]} onChange={v=>setReuniaoForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Orçamento disponível" type="number" value={reuniaoForm.orcamentoDisponivel} onChange={v=>setReuniaoForm(f=>({...f,orcamentoDisponivel:v}))}/><Inp label="Próximo contato" type="date" value={reuniaoForm.proximoContato} onChange={v=>setReuniaoForm(f=>({...f,proximoContato:v}))}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarReuniao(reuniaoForm)} full>SALVAR REUNIÃO</Btn></div></div></Modal>}
-    {propostaForm&&<Modal title="Proposta comercial" onClose={()=>setPropostaForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={propostaForm.numero} onChange={v=>setPropostaForm(f=>({...f,numero:v}))}/><Inp label="Versão" type="number" value={propostaForm.versao} onChange={v=>setPropostaForm(f=>({...f,versao:v}))}/><Sel label="Lead *" value={propostaForm.leadId} onChange={v=>setPropostaForm(f=>({...f,leadId:v}))} options={leads.map(l=>({v:l.id,l:l.nome}))}/><Inp label="Objeto *" value={propostaForm.objeto} onChange={v=>setPropostaForm(f=>({...f,objeto:v}))}/><Inp label="Valor *" type="number" value={propostaForm.valor} onChange={v=>setPropostaForm(f=>({...f,valor:v}))}/><Inp label="Validade" type="date" value={propostaForm.validade} onChange={v=>setPropostaForm(f=>({...f,validade:v}))}/>{[["escopo","Escopo"],["inclusos","Serviços inclusos"],["exclusos","Não inclusos"],["entregaveis","Entregáveis"],["formaPagamento","Forma de pagamento"],["responsabilidades","Responsabilidades"],["premissas","Premissas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={propostaForm[k]} onChange={v=>setPropostaForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Prazo" value={propostaForm.prazo} onChange={v=>setPropostaForm(f=>({...f,prazo:v}))}/><Inp label="Desconto %" type="number" value={propostaForm.desconto} onChange={v=>setPropostaForm(f=>({...f,desconto:v}))}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarProposta(propostaForm)} full>SALVAR PROPOSTA</Btn></div></div></Modal>}
-    {negForm&&<Modal title="Registrar negociação" onClose={()=>setNegForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Valor inicial" type="number" value={negForm.valorInicial} onChange={v=>setNegForm(f=>({...f,valorInicial:v}))}/><Inp label="Valor negociado" type="number" value={negForm.valorNegociado} onChange={v=>setNegForm(f=>({...f,valorNegociado:v}))}/><Inp label="Desconto %" type="number" value={negForm.desconto} onChange={v=>setNegForm(f=>({...f,desconto:v}))}/><Inp label="Forma de pagamento" value={negForm.formaPagamento} onChange={v=>setNegForm(f=>({...f,formaPagamento:v}))}/><Inp label="Parcelas" type="number" value={negForm.parcelas} onChange={v=>setNegForm(f=>({...f,parcelas:v}))}/><Sel label="Aprovador" value={negForm.aprovadorId} onChange={v=>setNegForm(f=>({...f,aprovadorId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["alteracaoEscopo","Alteração de escopo"],["objecoes","Objeções do cliente"],["respostas","Respostas dadas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={negForm[k]} onChange={v=>setNegForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarNegociacao(negForm)} full>SALVAR NEGOCIAÇÃO</Btn></div></div></Modal>}
-    {contratoForm&&<Modal title="Contrato comercial" onClose={()=>setContratoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={contratoForm.numero} onChange={v=>setContratoForm(f=>({...f,numero:v}))}/><Inp label="Contratante *" value={contratoForm.contratante} onChange={v=>setContratoForm(f=>({...f,contratante:v}))}/><Inp label="Valor *" type="number" value={contratoForm.valor} onChange={v=>setContratoForm(f=>({...f,valor:v}))}/><Inp label="Entrada" type="number" value={contratoForm.entrada} onChange={v=>setContratoForm(f=>({...f,entrada:v}))}/><Inp label="Parcelas" type="number" value={contratoForm.parcelas} onChange={v=>setContratoForm(f=>({...f,parcelas:v}))}/><Inp label="Dia de vencimento" type="number" value={contratoForm.diaVencimento} onChange={v=>setContratoForm(f=>({...f,diaVencimento:v}))}/><Inp label="Início" type="date" value={contratoForm.inicio} onChange={v=>setContratoForm(f=>({...f,inicio:v}))}/><Inp label="Conclusão" type="date" value={contratoForm.conclusao} onChange={v=>setContratoForm(f=>({...f,conclusao:v}))}/><Inp label="Prazo" value={contratoForm.prazo} onChange={v=>setContratoForm(f=>({...f,prazo:v}))}/><Sel label="Responsável comercial" value={contratoForm.responsavelComercialId} onChange={v=>setContratoForm(f=>({...f,responsavelComercialId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Sel label="Responsável técnico *" value={contratoForm.responsavelTecnicoId} onChange={v=>setContratoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Link para assinatura eletrônica" value={contratoForm.assinaturaUrl||""} onChange={v=>setContratoForm(f=>({...f,assinaturaUrl:v}))}/>{[["objeto","Objeto"],["escopo","Escopo"],["responsabilidades","Responsabilidades"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={contratoForm[k]} onChange={v=>setContratoForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1",display:"flex",gap:8,flexWrap:"wrap"}}>{[["documentosRecebidos","Documentos recebidos"],["entradaPaga","Entrada confirmada"],["escopoValidado","Escopo validado"]].map(([k,l])=><label key={k} style={{fontSize:10.5,color:C.text,display:"flex",gap:5,alignItems:"center"}}><input type="checkbox" checked={!!contratoForm[k]} onChange={e=>setContratoForm(f=>({...f,[k]:e.target.checked}))}/>{l}</label>)}</div><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarContrato(contratoForm)} full>SALVAR CONTRATO</Btn></div></div></Modal>}
-    {parceiroForm&&<Modal title="Parceiro / indicação" onClose={()=>setParceiroForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Nome *" value={parceiroForm.nome} onChange={v=>setParceiroForm(f=>({...f,nome:v}))}/><Sel label="Tipo" value={parceiroForm.tipo} onChange={v=>setParceiroForm(f=>({...f,tipo:v}))} options={[{v:"indicador",l:"Indicador"},{v:"arquiteto",l:"Arquiteto"},{v:"corretor",l:"Corretor"},{v:"outro",l:"Outro"}]}/><Inp label="Telefone" value={parceiroForm.telefone} onChange={v=>setParceiroForm(f=>({...f,telefone:v}))}/><Inp label="E-mail" value={parceiroForm.email} onChange={v=>setParceiroForm(f=>({...f,email:v}))}/><Inp label="Comissão %" type="number" value={parceiroForm.comissaoPct} onChange={v=>setParceiroForm(f=>({...f,comissaoPct:v}))}/><Inp label="Observações" value={parceiroForm.observacoes} onChange={v=>setParceiroForm(f=>({...f,observacoes:v}))} multiline/><Btn onClick={()=>salvarParceiro(parceiroForm)}>SALVAR</Btn></div></Modal>}
-    {metaForm&&<Modal title="Meta comercial" onClose={()=>setMetaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Período" type="month" value={metaForm.periodo} onChange={v=>setMetaForm(f=>({...f,periodo:v}))}/><Sel label="Vendedor" value={metaForm.responsavelId} onChange={v=>setMetaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Equipe"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Equipe" value={metaForm.equipe} onChange={v=>setMetaForm(f=>({...f,equipe:v}))}/><Inp label="Meta de receita" type="number" value={metaForm.receita} onChange={v=>setMetaForm(f=>({...f,receita:v}))}/><Inp label="Contratos" type="number" value={metaForm.contratos} onChange={v=>setMetaForm(f=>({...f,contratos:v}))}/><Inp label="Ticket médio" type="number" value={metaForm.ticketMedio} onChange={v=>setMetaForm(f=>({...f,ticketMedio:v}))}/><Inp label="Conversão %" type="number" value={metaForm.conversao} onChange={v=>setMetaForm(f=>({...f,conversao:v}))}/><Btn onClick={()=>salvarMeta(metaForm)}>SALVAR META</Btn></div></Modal>}
-    {perdaForm&&<Modal title="Registrar perda obrigatória" onClose={()=>setPerdaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Sel label="Motivo *" value={perdaForm.motivo} onChange={v=>setPerdaForm(f=>({...f,motivo:v}))} options={[{v:"",l:"Selecione"},...COM_PERDAS.map(v=>({v,l:v}))]}/><Inp label="Concorrente" value={perdaForm.concorrente} onChange={v=>setPerdaForm(f=>({...f,concorrente:v}))}/><Inp label="Valor do concorrente" type="number" value={perdaForm.valorConcorrente} onChange={v=>setPerdaForm(f=>({...f,valorConcorrente:v}))}/><Inp label="Possível reativação" type="date" value={perdaForm.reativacaoEm} onChange={v=>setPerdaForm(f=>({...f,reativacaoEm:v}))}/><Inp label="Observações" value={perdaForm.observacoes} onChange={v=>setPerdaForm(f=>({...f,observacoes:v}))} multiline/><Btn v="danger" onClick={salvarPerda}>CONFIRMAR PERDA</Btn></div></Modal>}
-  </div>;
-}
-
 // NAVEGAÇÃO - grupos e sub-tabs
 // 
 
@@ -21260,11 +17567,11 @@ const NAV_GROUPS = [
   },
   {
     id: "fin_grp", label: "Financeiro", icon: "dollar", color: C.purple,
-    tabs: ["dre_emp", "dre", "fin", "conc", "medicoes", "caixa", "ponto_geral", "folha", "resc", "relat"],
+    tabs: ["dre_emp", "dre", "fin", "conc", "medicoes", "caixa", "folha", "resc", "relat"],
   },
   {
     id: "com_grp", label: "Comercial", icon: "users", color: C.green,
-    tabs: ["com_dash","com_leads","com_funil","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
+    tabs: [],   // preenchido no Bloco 5 (modulo comercial)
   },
   {
     id: "ia_grp", label: "IA", icon: "brain", color: C.orange,
@@ -21284,25 +17591,10 @@ const TAB_META = {
   home:   { label: "Dashboard",  icon: "home",     group: "painel"   },
   obras:  { label: "Obras",      icon: "home",     group: "eng_grp"},
   orc:    { label: "Orçamento",  icon: "file",     group: "eng_grp"},
-  com_dash:{label:"Dashboard",icon:"chart",group:"com_grp"},
-  com_leads:{label:"Leads",icon:"users",group:"com_grp"},
-  com_funil:{label:"Funil",icon:"chart",group:"com_grp"},
-  com_agenda:{label:"Agenda",icon:"calendar",group:"com_grp"},
-  com_reunioes:{label:"Reuniões",icon:"users",group:"com_grp"},
-  com_tarefas:{label:"Tarefas",icon:"check",group:"com_grp"},
-  com_propostas:{label:"Propostas",icon:"file",group:"com_grp"},
-  com_negociacoes:{label:"Negociações",icon:"dollar",group:"com_grp"},
-  com_contratos:{label:"Contratos",icon:"file",group:"com_grp"},
-  com_clientes:{label:"Clientes",icon:"users",group:"com_grp"},
-  com_parceiros:{label:"Parceiros",icon:"users",group:"com_grp"},
-  com_metas:{label:"Metas e comissões",icon:"chart",group:"com_grp"},
-  com_perdas:{label:"Perdas",icon:"alert",group:"com_grp"},
-  com_relatorios:{label:"Relatórios",icon:"chart",group:"com_grp"},
   plan:   { label: "Planejamento", icon: "calendar", group: "eng_grp"},
   rdo:    { label: "Diario de obra", icon: "file",   group: "eng_grp"},
   med:    { label: "Medicao",        icon: "chart",  group: "eng_grp"},
   ponto:  { label: "Ponto",      icon: "clock",    group: "eng_grp"},
-  ponto_geral: { label: "Gestão do ponto", icon: "calendar", group: "fin_grp"},
   equipe: { label: "Equipe",     icon: "users",    group: "eng_grp"},
   terc:   { label: "Terceiros",  icon: "terc",     group: "eng_grp"},
   folha:  { label: "Folha",      icon: "dollar",   group: "fin_grp"  },
@@ -21430,9 +17722,8 @@ export default function App() {
   }, [data, loading, showToast, update]);
 
   //  Navegação por grupos (filtrada por role) 
-  const allowedTabs  = allowedTabsForUser(currentUser);
-  const allowedTabsKey=allowedTabs.join("|");
-  useEffect(()=>{if(currentUser&&!allowedTabs.includes(tab))setTab(allowedTabs[0]||"home");},[currentUser?.id,allowedTabsKey,tab]);
+  const userRole     = currentUser?.role || "admin";
+  const allowedTabs  = ROLE_TABS[userRole] || ROLE_TABS.admin;
 
   // Filtra grupos para mostrar apenas os que o usuário pode acessar
   const visibleGroups = NAV_GROUPS.map(g => ({
@@ -21487,23 +17778,12 @@ export default function App() {
       t => !(data.pagsTerceiros||[]).some(p=>p.tercId===t.id&&p.date>=ws&&p.date<=fri)
     );
   })() : false;
-  const compraPending=data?(data.solicitacoesCompra||[]).some(s=>s.status==="enviada"&&(!currentUser?.obraId||s.obraId===currentUser.obraId)):false;
-  const comercialPending=data?(()=>{
-    const com=data.comercial||{},now=Date.now();
-    const lead=(com.leads||[]).some(l=>!["perdido","arquivado","transferido"].includes(l.etapa)&&(!l.responsavelId||!l.proximaAtividadeEm));
-    const tarefa=(com.atividades||[]).some(a=>a.status!=="concluida"&&a.dataHora&&new Date(a.dataHora).getTime()<now);
-    const reuniao=(com.reunioes||[]).some(r=>r.status==="agendada"&&r.dataHora&&new Date(r.dataHora).getTime()<now);
-    const contrato=(com.contratos||[]).some(k=>["enviado","aguardando_assinatura"].includes(k.status)||(k.assinadoEm&&!k.entradaPaga));
-    return lead||tarefa||reuniao||contrato;
-  })():false;
 
   // Badges por grupo
   const groupBadge = {
     obras_grp: pontoPending ? "!" : null,
     rh_grp:    null,
     fin_grp:   null,
-    compras_grp: compraPending ? "!" : null,
-    com_grp: comercialPending ? "!" : null,
     ia_grp:    tercPending ? "!" : null,
     painel:    null,
     cfg_grp:   null,
@@ -21513,8 +17793,6 @@ export default function App() {
   const tabBadge = {
     ponto: pontoPending || null,
     terc:  tercPending || null,
-    cmp:   compraPending || null,
-    com_dash: comercialPending || null,
   };
 
   //  Conflito de gravação 
@@ -21602,13 +17880,10 @@ export default function App() {
     // O servidor devolve o usuário E os dados na mesma resposta - os dados
     // não existiam no navegador antes do PIN passar.
     const handleLogin = (usuario, dados) => {
-      const normalizados=normalizeData(dados || DEFAULT());
-      const cadastro=normalizados.usuarios.find(item=>item.id===usuario.id);
-      const usuarioCompleto={...usuario,...cadastro,pin:undefined};
-      setData(normalizados);
+      setData(normalizeData(dados || DEFAULT()));
       setUltimaSync(new Date());
-      setCurrentUser(usuarioCompleto);
-      const allowed = allowedTabsForUser(usuarioCompleto);
+      setCurrentUser(usuario);
+      const allowed = ROLE_TABS[usuario.role] || ROLE_TABS.admin;
       setTab(allowed[0] || "home");
     };
 
@@ -21861,7 +18136,6 @@ export default function App() {
 
         <main style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "20px 22px" : 14 }}>
           {tab === "home"   && <Dashboard   data={data} onTab={setTab} ultimaSync={ultimaSync} />}
-          {tab.startsWith("com_") && <Comercial data={data} update={update} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} />}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
                            onVoltar={() => setObraAberta("")}
@@ -21876,15 +18150,14 @@ export default function App() {
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
-          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} />}
-          {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
+          {tab === "folha"  && <Folha       data={data} showToast={showToast} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} />}
           {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast}/>}
           {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast}/>}
-          {tab === "cmp"      && <Compras      data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
+          {tab === "cmp"      && <Compras      data={data} update={update} showToast={showToast}/>}
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab}/>}
           {tab === "medicoes" && <MedicoesView data={data} update={update} showToast={showToast} />}
           {tab === "caixa"    && <CaixaObra    data={data} update={update} showToast={showToast} />}
