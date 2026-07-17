@@ -7052,6 +7052,23 @@ function Terceiros({ data, update, showToast }) {
     showToast(`Pagamento de ${fmt(m.total)} registrado para ${t.name}.`);
   };
 
+  // Medicao registrada e ainda nao paga e divida vencida com o terceiro. Ficava
+  // invisivel: os KPIs so olhavam pagamento semanal e contrato.
+  const medicoesAPagar = (data.medicoesTerc || []).filter(m => !m.pagamentoId && Number(m.total || 0) > 0);
+  const totalAPagarMed = medicoesAPagar.reduce((s, m) => s + Number(m.total || 0), 0);
+
+  // Avanco fisico de qualquer contrato, para o card do cadastro.
+  const avancoDoContrato = t => {
+    const etapas = t.etapas || [];
+    const base = etapas.reduce((s, e) => s + Number(e.valor || 0), 0);
+    if (!base) return null;
+    const acum = {};
+    medicoesDo(t.id).forEach(m => m.itens.forEach(i => { acum[i.etapaId] = Number(i.pctAcum || 0); }));
+    return etapas.reduce((s, e) => s + Number(e.valor || 0) * (acum[e.id] || 0) / 100, 0) / base * 100;
+  };
+
+  const abrirMedicoesDe = id => { setTercSel(id); setView("medicoes"); };
+
   const paidThisWeekAmount = activeTerc.reduce((s, t) => {
     const p = thisWeekPay(t.id);
     return s + (p ? Number(p.amount) : 0);
@@ -7085,6 +7102,21 @@ function Terceiros({ data, update, showToast }) {
             <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, color:c, fontSize:26, lineHeight:1.1, marginTop:4 }}>{v}</p>
           </div>
         ))}
+        {/* So aparece quando ha o que pagar - card fixo em zero vira ruido. */}
+        {medicoesAPagar.length > 0 && (
+          <button onClick={() => setView("medicoes")} style={{
+            gridColumn:"1 / -1", textAlign:"left", cursor:"pointer",
+            background:`${C.red}0E`, border:`1px solid ${C.red}55`, borderTop:`3px solid ${C.red}`,
+            padding:"12px 14px", borderRadius:16,
+          }}>
+            <p style={{ fontSize:10, fontWeight:900, color:C.red, textTransform:"uppercase", letterSpacing:.8 }}>
+              {medicoesAPagar.length} medição(ões) medida(s) e não paga(s)
+            </p>
+            <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, color:C.red, fontSize:26, lineHeight:1.1, marginTop:4 }}>
+              {fmt(totalAPagarMed)}
+            </p>
+          </button>
+        )}
       </div>
 
       {/* Sub-nav */}
@@ -7167,6 +7199,9 @@ function Terceiros({ data, update, showToast }) {
                             <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:3 }}>
                               {t.weeklyRate>0 && <Badge color={C.orange}>{fmt(t.weeklyRate)}/sem</Badge>}
                               {t.contractValue>0 && <Badge color={C.subtle}>Contrato: {fmt(t.contractValue)}</Badge>}
+                              {(t.etapas||[]).length>0 && (
+                                <Badge color={C.blue}>{(t.etapas||[]).length} etapas · {(avancoDoContrato(t)??0).toFixed(0)}% medido</Badge>
+                              )}
                             </div>
                           </div>
                           <div style={{ textAlign:"right", flexShrink:0 }}>
@@ -7213,6 +7248,9 @@ function Terceiros({ data, update, showToast }) {
                             <p style={{ fontSize:12, color:C.muted }}>Nenhum pagamento registrado.</p>
                           )}
                           <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                            <Btn size="sm" v="info" onClick={()=>abrirMedicoesDe(t.id)}>
+                              <Ic n="medicoes"/> {(t.etapas||[]).length ? "Medições" : "Dividir em etapas"}
+                            </Btn>
                             <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));}}>
                               <Ic n="dollar"/> Registrar pagamento
                             </Btn>
@@ -11430,6 +11468,12 @@ function Orcamento({ data, update, showToast }) {
   };
 
   const extrairSinapiOficial = (wb, uf) => {
+    // Os cabecalhos da planilha oficial quebram linha DENTRO da celula, e o
+    // Excel grava "\r\n" - nao so "\n". Trocar apenas \n deixava um \r no meio
+    // de "Codigo da<CR> Composicao" e a busca pelo cabecalho da aba Analitico
+    // nunca casava: o analitico inteiro era descartado em silencio. Aqui todo
+    // espaco em branco (\r, \n, tab, espaco duplo) vira um espaco simples.
+    const cab = v => semAcento(v).toUpperCase().replace(/\s+/g, " ").trim();
     const nomeAba = alvo => wb.SheetNames.find(nome => semAcento(nome).replace(/\s/g, "") === alvo.toLowerCase());
     const lerAba = (alvo, campoPreco) => {
       const nome = nomeAba(alvo);
@@ -11437,7 +11481,7 @@ function Orcamento({ data, update, showToast }) {
       const sheet = wb.Sheets[nome];
       const rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:"", raw:true });
       const headerRow = rows.findIndex(row => {
-        const text = row.map(v => String(v || "").toUpperCase().replace(/\n/g, " ")).join(" | ");
+        const text = row.map(v => String(v || "").toUpperCase().replace(/\s+/g, " ")).join(" | ");
         return /C[ÓO]DIGO/.test(text) && /DESCRI/.test(text) && /UNIDADE/.test(text);
       });
       if (headerRow < 0) return { itens: [], dataBase: "" };
@@ -11446,7 +11490,7 @@ function Orcamento({ data, update, showToast }) {
         ufColumn = (rows[r] || []).findIndex(value => String(value || "").trim().toUpperCase() === uf);
       }
       if (ufColumn < 0) return { itens: [], dataBase: "" };
-      const header = (rows[headerRow] || []).map(value => semAcento(value).toUpperCase().replace(/\n/g, " "));
+      const header = (rows[headerRow] || []).map(cab);
       const codigoColumn = header.findIndex(value => value.includes("CODIGO"));
       const descricaoColumn = header.findIndex(value => value.includes("DESCRI"));
       const unidadeColumn = header.findIndex(value => value.includes("UNIDADE"));
@@ -11482,8 +11526,8 @@ function Orcamento({ data, update, showToast }) {
       if (!nome) return [];
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[nome], {header:1,defval:"",raw:true});
       const headerRow = rows.findIndex(row => {
-        const text = row.map(value=>semAcento(value).toUpperCase()).join(" | ");
-        return text.includes("CODIGO DO") && text.includes("INSUMO") && text.includes("DESCRICAO DO INSUMO");
+        const text = row.map(cab).join(" | ");
+        return text.includes("CODIGO DO INSUMO") && text.includes("DESCRICAO DO INSUMO");
       });
       if (headerRow < 0) return [];
       let ufColumn = -1;
@@ -11491,7 +11535,7 @@ function Orcamento({ data, update, showToast }) {
         ufColumn=(rows[r]||[]).findIndex(value=>String(value||"").trim().toUpperCase()===uf);
       }
       if (ufColumn < 0) return [];
-      const header=(rows[headerRow]||[]).map(value=>semAcento(value).toUpperCase().replace(/\n/g," "));
+      const header=(rows[headerRow]||[]).map(cab);
       const classColumn=header.findIndex(value=>value.includes("CLASSIFIC"));
       const codeColumn=header.findIndex(value=>value.includes("CODIGO") && value.includes("INSUMO"));
       const descColumn=header.findIndex(value=>value.includes("DESCRICAO") && value.includes("INSUMO"));
@@ -11510,11 +11554,11 @@ function Orcamento({ data, update, showToast }) {
       if (!nome) return [];
       const rows=XLSX.utils.sheet_to_json(wb.Sheets[nome],{header:1,defval:"",raw:true});
       const headerRow=rows.findIndex(row=>{
-        const text=row.map(value=>semAcento(value).toUpperCase().replace(/\n/g," ")).join(" | ");
+        const text=row.map(cab).join(" | ");
         return text.includes("CODIGO DA COMPOSICAO") && text.includes("TIPO ITEM") && text.includes("COEFICIENTE");
       });
       if(headerRow<0) return [];
-      const header=(rows[headerRow]||[]).map(value=>semAcento(value).toUpperCase().replace(/\n/g," "));
+      const header=(rows[headerRow]||[]).map(cab);
       const compositionColumn=header.findIndex(value=>value.includes("CODIGO DA COMPOSICAO"));
       const typeColumn=header.findIndex(value=>value.includes("TIPO ITEM"));
       const itemColumn=header.findIndex(value=>value.includes("CODIGO DO ITEM"));
@@ -11524,7 +11568,7 @@ function Orcamento({ data, update, showToast }) {
       const situationColumn=header.findIndex(value=>value.includes("SITUAC"));
       return rows.slice(headerRow+1).map(row=>({
         compositionCode:String(row[compositionColumn]??"").trim().replace(/\.0$/, ""),
-        itemType:semAcento(row[typeColumn]).toUpperCase()==="COMPOSICAO"?"COMPOSICAO":"INSUMO",
+        itemType:cab(row[typeColumn])==="COMPOSICAO"?"COMPOSICAO":"INSUMO",
         itemCode:String(row[itemColumn]??"").trim().replace(/\.0$/, ""),
         descricao:String(row[descColumn]??"").trim(),unidade:String(row[unitColumn]??"UN").trim()||"UN",
         coeficiente:parseBR(row[coefficientColumn]),situacao:situationColumn>=0?String(row[situationColumn]??"").trim():"",
@@ -11589,7 +11633,18 @@ function Orcamento({ data, update, showToast }) {
         porFonte:{SINAPI:extraida.itens.length}, comDes:extraida.itens.filter(i=>i.precoDes>0).length,
         comNao:extraida.itens.filter(i=>i.precoNao>0).length, dataBase:extraida.dataBase, localidade:sinapiUf });
       setUploadProgresso(100); await carregarBasesRemotas();
-      showToast(`Base SINAPI ${extraida.dataBase} / ${sinapiUf} salva com ${extraida.itens.length.toLocaleString("pt-BR")} composições, ${extraida.insumos.length.toLocaleString("pt-BR")} insumos e analítico completo.`);
+      // Dizer "analítico completo" sem conferir foi o que escondeu a falha do
+      // parser: a base subia verde e as composições não abriam. Agora o numero
+      // aparece, e zero analitico e avisado como problema.
+      const n = valor => valor.toLocaleString("pt-BR");
+      if (extraida.componentes.length) {
+        showToast(`Base SINAPI ${extraida.dataBase} / ${sinapiUf}: ${n(extraida.itens.length)} composições, `
+          + `${n(extraida.insumos.length)} insumos e ${n(extraida.componentes.length)} linhas de analítico.`);
+      } else {
+        showToast(`Base SINAPI ${extraida.dataBase} / ${sinapiUf} salva com ${n(extraida.itens.length)} composições, `
+          + `mas SEM analítico: a aba "Analítico" não foi encontrada ou está vazia. `
+          + `As composições não vão abrir em insumos.`, "warn");
+      }
     } catch (error) {
       if (baseCriada?.id) await removerBaseReferencia(baseCriada.id).catch(() => null);
       showToast(error?.message || "Falha ao enviar a base SINAPI.", "error");
