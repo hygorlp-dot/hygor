@@ -1134,6 +1134,7 @@ const normalizeData = incoming => {
       previsao:     x.previsao     || "",     // previsão de entrega
       // rascunho &rarr; enviado &rarr; parcial &rarr; recebido | cancelado
       status:       x.status       || "rascunho",
+      referenciaId:x.referenciaId || "",
       itens: Array.isArray(x.itens) ? x.itens.map(i => ({
         id:          i.id         || uid(),
         materialId:  i.materialId || "",
@@ -1145,6 +1146,14 @@ const normalizeData = incoming => {
         // SERVIÇO (m de alvenaria) e a compra em MATERIAL (sacos de cimento).
         // As unidades não batem - o dinheiro, sim.
         orcItemId:   i.orcItemId  || "",
+        referenciaId:i.referenciaId || x.referenciaId || "",
+        fonteRef:    i.fonteRef    || "",
+        codigoRef:   i.codigoRef   || "",
+        descricaoRef:i.descricaoRef|| "",
+        unidadeRef:  i.unidadeRef  || "",
+        precoRef:    Number(i.precoRef || 0),
+        dataBaseRef: i.dataBaseRef || "",
+        ufRef:       i.ufRef       || "",
       })) : [],
       cotacaoId:   x.cotacaoId   || "",
       transacaoId: x.transacaoId || "",       // casado com o pagamento no extrato
@@ -1167,6 +1176,9 @@ const normalizeData = incoming => {
       categoria:  x.categoria || "outros",
       estoqueMin: Number(x.estoqueMin || 0),
       precoMedio: Number(x.precoMedio || 0), // referência p/ curva ABC
+      fonteRef:   x.fonteRef   || "",
+      dataBaseRef:x.dataBaseRef|| "",
+      ufRef:      x.ufRef      || "",
       ativo:      x.ativo !== false,
     })) : [],
 
@@ -15098,8 +15110,13 @@ function ModalFornecedor({ form, setForm, onSave }) {
   );
 }
 
-function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc, data }) {
+function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc, data, basesReferencia=[] }) {
   const { formGrid } = useBreakpoint();
+  const [buscaRef,setBuscaRef]=useState("");
+  const [resultadosRef,setResultadosRef]=useState([]);
+  const [buscandoRef,setBuscandoRef]=useState(false);
+  const [avisoRef,setAvisoRef]=useState("");
+  const baseSelecionada=basesReferencia.find(base=>base.id===form.referenciaId);
 
   // Sugestao de fornecedores: quem serve os materiais que ja estao no pedido.
   const sugFornecedores = useMemo(() => {
@@ -15111,10 +15128,43 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
   const setItem = (i, campo, v) =>
     setForm(f => ({ ...f, itens: f.itens.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
   const addItem = () => setForm(f => ({ ...f, itens:[...f.itens,
-    {id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0}] }));
+    {id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}] }));
   const delItem = (i) => setForm(f => ({ ...f, itens: f.itens.filter((_,k)=>k!==i) }));
 
+  useEffect(()=>{
+    let ativo=true;const termo=buscaRef.trim();
+    if(!form.referenciaId||termo.length<2){setResultadosRef([]);setAvisoRef("");setBuscandoRef(false);return()=>{ativo=false;};}
+    setBuscandoRef(true);
+    const timer=window.setTimeout(async()=>{
+      const resposta=await pesquisarInsumosReferencia([form.referenciaId],termo);
+      if(!ativo)return;
+      if(resposta.ok){
+        setResultadosRef((resposta.items||[]).filter(item=>item.tipoItem==="INSUMO"));
+        setAvisoRef(resposta.warning||"");
+      }else{setResultadosRef([]);setAvisoRef(resposta.error||"Não foi possível pesquisar esta base.");}
+      setBuscandoRef(false);
+    },260);
+    return()=>{ativo=false;window.clearTimeout(timer);};
+  },[buscaRef,form.referenciaId]);
+
+  const precoReferenciaResultado=item=>{
+    const preferido=baseSelecionada?.desonerado===false?Number(item.precoNao||0):Number(item.precoDes||0);
+    return preferido||Number(item.precoDes||0)||Number(item.precoNao||0);
+  };
+  const selecionarReferencia=item=>{
+    const fonte=maiusculoOrcamento(item.fonte||baseSelecionada?.fonte||"");
+    const codigo=maiusculoOrcamento(item.codigo||"").trim();
+    const existente=materiais.find(m=>maiusculoOrcamento(m.codigo).trim()===codigo&&maiusculoOrcamento(m.fonteRef||fonte)===fonte);
+    const linha={id:uid(),materialId:existente?.id||uid(),qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",
+      referenciaId:form.referenciaId,fonteRef:fonte,codigoRef:codigo,
+      descricaoRef:maiusculoOrcamento(item.descricao||""),unidadeRef:maiusculoOrcamento(item.unidade||"UN"),
+      precoRef:precoReferenciaResultado(item),dataBaseRef:item.dataBase||baseSelecionada?.dataBase||"",ufRef:item.uf||baseSelecionada?.uf||""};
+    setForm(f=>{const pos=(f.itens||[]).findIndex(x=>!x.materialId&&!x.codigoRef);if(pos<0)return{...f,itens:[...(f.itens||[]),linha]};return{...f,itens:f.itens.map((x,i)=>i===pos?{...linha,id:x.id||linha.id}:x)};});
+    setBuscaRef("");setResultadosRef([]);
+  };
+
   const total = (form.itens||[]).reduce((s,i) => s + Number(i.qtd||0) * Number(i.precoUnit||0), 0);
+  const totalReferencia = (form.itens||[]).reduce((s,i) => s + Number(i.qtd||0) * Number(i.precoRef||0), 0);
 
   return (
     <Modal title={form.id ? `Pedido ${form.numero}` : "Novo pedido"} onClose={()=>setForm(null)} wide>
@@ -15152,12 +15202,29 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
           </div>
         )}
 
+        <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}40`,borderRadius:8,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
+          <div><p style={{fontSize:11.5,fontWeight:900,color:C.blue}}>SELECIONAR INSUMO SINAPI / ORSE</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Escolha a competência usada na comparação e pesquise por código ou descrição. Você pode trocar a base e incluir itens de fontes diferentes no mesmo pedido.</p></div>
+          <Sel label="Base de referência para a pesquisa" value={form.referenciaId||""} onChange={v=>{F("referenciaId")(v);setBuscaRef("");setResultadosRef([]);}}
+            options={[{v:"",l:basesReferencia.length?"Selecione a fonte, competência e UF":"Nenhuma base pronta no Supabase"},...basesReferencia.map(base=>({v:base.id,l:`${base.fonte} · ${base.dataBase}${base.uf?` · ${base.uf}`:""}${base.fonte==="SINAPI"?` · ${base.desonerado===false?"NÃO DESONERADA":"DESONERADA"}`:""}`}))]}/>
+          <Inp label="Pesquisar insumo" value={buscaRef} onChange={setBuscaRef} placeholder="Ex.: cimento, areia, aço ou código..."/>
+          {(buscandoRef||avisoRef||resultadosRef.length>0||buscaRef.trim().length>=2)&&<div style={{maxHeight:235,overflowY:"auto",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:4}}>
+            {buscandoRef&&<p style={{fontSize:10,color:C.blue,padding:7}}>PESQUISANDO NA BASE...</p>}
+            {avisoRef&&<p style={{fontSize:10,color:C.orange,padding:7}}>{avisoRef}</p>}
+            {resultadosRef.map((item,index)=>{const preco=precoReferenciaResultado(item);return <button key={`${item.fonte}-${item.codigo}-${index}`} onClick={()=>selecionarReferencia(item)} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 105px",gap:8,alignItems:"center",width:"100%",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",padding:"7px 8px",cursor:"pointer",textAlign:"left"}}>
+              <b style={{fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b>
+              <span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
+              <span style={{fontSize:10,color:C.yellowD,textAlign:"right",fontWeight:800}}>{fmt(preco)}/{item.unidade}</span>
+            </button>;})}
+            {!buscandoRef&&!resultadosRef.length&&!avisoRef&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado nesta base.</p>}
+          </div>}
+        </div>
+
         {(form.itens||[]).map((it, i) => (
           <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,
                                borderRadius:8,padding:"9px 11px"}}>
             <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
-              <Sel label="Material" value={it.materialId} onChange={v=>setItem(i,"materialId",v)}
-                   options={[{v:"",l:"Selecione..."}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
+              <Sel label="Material" value={it.materialId} onChange={v=>setForm(f=>({...f,itens:f.itens.map((x,k)=>k===i?{...x,materialId:v,referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}:x)}))}
+                   options={[{v:"",l:"Selecione..."},...(it.codigoRef&&!materiais.some(m=>m.id===it.materialId)?[{v:it.materialId,l:`${it.descricaoRef} (${it.unidadeRef})`}]:[]), ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
               <Inp label="Quantidade" type="number" value={it.qtd} onChange={v=>setItem(i,"qtd",v)}
                    placeholder="0"/>
               <div>
@@ -15192,6 +15259,11 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                      ]}/>
               </div>
             </div>
+            {it.codigoRef&&<div style={{marginTop:7,background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
+              <p style={{fontSize:10,fontWeight:800,color:it.fonteRef==="ORSE"?C.purple:C.blue}}>{it.fonteRef} {it.codigoRef} · {it.descricaoRef} · {it.unidadeRef}</p>
+              <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Referência {it.dataBaseRef}{it.ufRef?` · ${it.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(it.precoRef||0))}</b></p>
+              {Number(it.precoUnit)>0&&Number(it.precoRef)>0&&(()=>{const dif=Number(it.precoUnit)-Number(it.precoRef);const pct=dif/Number(it.precoRef)*100;const cor=dif<=0?C.green:C.red;return <p style={{fontSize:10.5,color:cor,fontWeight:900,marginTop:3}}>{dif<=0?"ABAIXO DA REFERÊNCIA":"ACIMA DA REFERÊNCIA"}: {fmt(Math.abs(dif))} ({Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%)</p>;})()}
+            </div>}
             {!it.orcItemId && linhasOrc.length > 0 && Number(it.qtd) > 0 && (
               <p style={{fontSize:10,color:C.orange,marginTop:5}}>
                 Sem apropriação: esta compra não entra na comparação com o orçamento.
@@ -15212,10 +15284,10 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
         <Btn v="ghost" onClick={addItem} full><Ic n="plus"/> Adicionar item</Btn>
 
         <div style={{background:C.surface,border:`1.5px solid ${C.yellow}`,borderRadius:8,
-                     padding:"10px 12px",display:"flex",justifyContent:"space-between"}}>
-          <span style={{fontSize:12,fontWeight:700,color:C.text}}>Total do pedido</span>
-          <span style={{fontSize:16,fontWeight:800,color:C.yellow,
-                        fontFamily:"'Inter Display','Inter',sans-serif"}}>{fmt(total)}</span>
+                     padding:"10px 12px",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:9}}>
+          <div><span style={{fontSize:10,color:C.muted,fontWeight:800}}>TOTAL DO PEDIDO</span><p style={{fontSize:16,fontWeight:800,color:C.yellow,fontFamily:"'Inter Display','Inter',sans-serif",marginTop:2}}>{fmt(total)}</p></div>
+          <div><span style={{fontSize:10,color:C.muted,fontWeight:800}}>TOTAL NA REFERÊNCIA</span><p style={{fontSize:16,fontWeight:800,color:C.text,fontFamily:"'Inter Display','Inter',sans-serif",marginTop:2}}>{totalReferencia>0?fmt(totalReferencia):"-"}</p></div>
+          {totalReferencia>0&&total>0&&(()=>{const dif=total-totalReferencia;const pct=dif/totalReferencia*100;const cor=dif<=0?C.green:C.red;return <div><span style={{fontSize:10,color:C.muted,fontWeight:800}}>COMPARAÇÃO</span><p style={{fontSize:12.5,fontWeight:900,color:cor,marginTop:3}}>{dif<=0?"ABAIXO":"ACIMA"} {fmt(Math.abs(dif))} · {Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%</p></div>;})()}
         </div>
 
         <div style={{display:"flex",gap:8}}>
@@ -15387,11 +15459,24 @@ function Compras({ data, update, showToast }) {
   const [recModal,  setRecModal]  = useState(null);   // recebimento
   const [cotModal,  setCotModal]  = useState(null);
   const [fornModal, setFornModal] = useState(null);
+  const [basesReferenciaCompra,setBasesReferenciaCompra]=useState([]);
 
   const obras       = data.obras || [];
   const obraAtual   = obraSel || obras[0]?.id || "";
   const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const fornecedores= useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
+
+  useEffect(()=>{
+    let ativo=true;
+    listarBasesReferencia().then(resultado=>{if(!ativo)return;if(resultado.ok)setBasesReferenciaCompra((resultado.bases||[]).filter(base=>base.status==="ready"));});
+    return()=>{ativo=false;};
+  },[]);
+
+  const basesCompra=useMemo(()=>{
+    const orcamento=(data.orcamentos||[]).find(o=>o.obraId===obraAtual);
+    const vinculadas=new Set(orcamento?.referencias||[]);
+    return [...basesReferenciaCompra].sort((a,b)=>Number(vinculadas.has(b.id))-Number(vinculadas.has(a.id))||String(b.dataBase||"").localeCompare(String(a.dataBase||"")));
+  },[basesReferenciaCompra,data.orcamentos,obraAtual]);
 
   const kpi = useMemo(() => calcCompras(data, obraAtual), [data, obraAtual]);
   const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data, obraAtual]);
@@ -15454,11 +15539,23 @@ function Compras({ data, update, showToast }) {
   //  Pedido 
   const salvarPedido = (f) => {
     if (!f.fornecedorId) { showToast("Selecione o fornecedor.", "error"); return; }
+    const novosMateriais=[];
     const itens = (f.itens||[])
-      .filter(i => i.materialId && Number(i.qtd) > 0)
-      .map(i => ({ id: i.id || uid(), materialId: i.materialId,
+      .filter(i => (i.materialId || i.codigoRef) && Number(i.qtd) > 0)
+      .map(i => {
+        let materialId=i.materialId||uid();
+        if(i.codigoRef&&!(data.materiais||[]).some(m=>m.id===materialId)&&!novosMateriais.some(m=>m.id===materialId)){
+          novosMateriais.push({id:materialId,codigo:maiusculoOrcamento(i.codigoRef),descricao:maiusculoOrcamento(i.descricaoRef),
+            unidade:maiusculoOrcamento(i.unidadeRef||"UN"),categoria:"outros",estoqueMin:0,
+            precoMedio:Number(i.precoRef||0),fonteRef:i.fonteRef||"",dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"",ativo:true});
+        }
+        return { id: i.id || uid(), materialId,
                    qtd: Number(i.qtd), precoUnit: Number(i.precoUnit||0),
-                   qtdRecebida: Number(i.qtdRecebida||0) }));
+                   qtdRecebida: Number(i.qtdRecebida||0),orcItemId:i.orcItemId||"",
+                   referenciaId:i.referenciaId||f.referenciaId||"",fonteRef:i.fonteRef||"",codigoRef:i.codigoRef||"",
+                   descricaoRef:i.descricaoRef||"",unidadeRef:i.unidadeRef||"",precoRef:Number(i.precoRef||0),
+                   dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"" };
+      });
     if (!itens.length) { showToast("Adicione ao menos um item.", "error"); return; }
 
     const p = {
@@ -15469,12 +15566,13 @@ function Compras({ data, update, showToast }) {
       data: f.data || new Date().toISOString().slice(0,10),
       previsao: f.previsao || "",
       status: f.status === "rascunho" ? "rascunho" : "enviado",
+      referenciaId:f.referenciaId || "",
       itens,
       cotacaoId: f.cotacaoId || "",
       transacaoId: f.transacaoId || "",
       obs: f.obs || "",
     };
-    update({ ...data, pedidos: f.id
+    update({ ...data, materiais:[...(data.materiais||[]),...novosMateriais], pedidos: f.id
       ? (data.pedidos||[]).map(x => x.id === f.id ? p : x)
       : [...(data.pedidos||[]), p] });
     setPedModal(null);
@@ -15674,7 +15772,7 @@ function Compras({ data, update, showToast }) {
         <Inp value={busca} onChange={setBusca} placeholder="Buscar pedido ou fornecedor..."/>
         <Btn onClick={()=>setPedModal({id:"",numero:"",obraId:obraAtual,fornecedorId:"",
           data:new Date().toISOString().slice(0,10),previsao:"",status:"enviado",
-          itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0}],obs:""})} full>
+          referenciaId:basesCompra[0]?.id||"",itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}],obs:""})} full>
           <Ic n="plus"/> Novo pedido
         </Btn>
 
@@ -15726,6 +15824,7 @@ function Compras({ data, update, showToast }) {
                           {!i.orcItemId && linhasOrc.length > 0 && (
                             <span style={{color:C.orange,fontSize:9}}>  sem apropriação</span>
                           )}
+                          {Number(i.precoRef)>0&&(Number(i.precoUnit)>0?(()=>{const dif=Number(i.precoUnit)-Number(i.precoRef);const pct=dif/Number(i.precoRef)*100;const cor=dif<=0?C.green:C.red;return <span style={{display:"block",fontSize:9,color:cor,fontWeight:800,marginTop:1}}>{i.fonteRef} {i.codigoRef} · compra {fmt(Number(i.precoUnit))} · ref. {fmt(Number(i.precoRef))} · {dif<=0?"abaixo":"acima"} {Math.abs(pct).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>;})():<span style={{display:"block",fontSize:9,color:C.muted,marginTop:1}}>{i.fonteRef} {i.codigoRef} · ref. {fmt(Number(i.precoRef))} · preço de compra não informado</span>)}
                         </span>
                         <span style={{whiteSpace:"nowrap",flexShrink:0,
                                       color: completo ? C.green : C.text, fontWeight:600}}>
@@ -16040,7 +16139,7 @@ function Compras({ data, update, showToast }) {
       {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
                                      fornecedores={fornecedores} materiais={materiais}
-                                     linhasOrc={linhasOrc} data={data}/>}
+                                     linhasOrc={linhasOrc} data={data} basesReferencia={basesCompra}/>}
       {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
                                      fornecedores={fornecedores} materiais={materiais}/>}
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
