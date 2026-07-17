@@ -17346,6 +17346,12 @@ function Planejamento({ data, update, showToast }) {
   const [vincPreview, setVincPreview] = useState(null);   // antecessoras/sucessoras propostas
   const [zoom, setZoom] = useState("semana");             // dia | semana | mes
   const [aba,  setAba]  = useState("gantt");              // gantt | mensal | curvaS | ff
+  // Colunas visiveis da tabela de tarefas do Gantt. "atividade" e fixa. As
+  // demais o usuario liga/desliga - util no celular, onde a largura e curta.
+  const [colsCrono, setColsCrono] = useState({
+    inicio:true, fim:true, dias:true, custo:false, progresso:false, antecessora:true, sucessora:true,
+  });
+  const [colsCronoAberto, setColsCronoAberto] = useState(false);
 
   // ---- Persistencia: garante um plano na base e aplica mudancas ----
   const salvarPlano = (mut) => {
@@ -17403,6 +17409,9 @@ function Planejamento({ data, update, showToast }) {
     } else if (campo === "dias") {
       const n = Math.max(1, Math.min(3660, Math.round(Number(valor)||1)));
       upsertTarefa({id:t.id,fim:somaDiasUteis(t.inicio,n,cal)});
+    } else if (campo === "progresso") {
+      const p = Math.max(0, Math.min(100, Number(valor)||0));
+      upsertTarefa({id:t.id,progresso:p});
     }
   };
   const upsertMarco = (m) => salvarPlano(p => {
@@ -17630,10 +17639,21 @@ function Planejamento({ data, update, showToast }) {
   const larguraGrade = totalDias * pxPorDia;
   const ALTURA_LINHA = 38;
   const ALTURA_REGUA = zoom === "dia" ? 50 : zoom === "semana" ? 40 : 30;
-  const COLUNAS_TAREFA = isDesktop
-    ? "220px 112px 112px 76px 140px 140px"
-    : "150px 105px 105px 70px 130px 130px";
-  const LARGURA_TAREFAS = isDesktop ? 800 : 690;
+  // Definicao das colunas da tabela de tarefas. "atividade" sempre presente;
+  // as demais respeitam colsCrono. Larguras diferentes no desktop e no celular.
+  const COLS_CRONO_DEF = [
+    { id:"atividade",   label:"Atividade / custo", w:isDesktop?220:150, fixa:true },
+    { id:"inicio",      label:"Data inicio",       w:isDesktop?112:105 },
+    { id:"fim",         label:"Data fim",          w:isDesktop?112:105 },
+    { id:"dias",        label:"Dias trab.",        w:isDesktop?76:70 },
+    { id:"custo",       label:"Custo",             w:isDesktop?100:92 },
+    { id:"progresso",   label:"Progresso",         w:isDesktop?92:84 },
+    { id:"antecessora", label:"Antecessora",       w:isDesktop?140:130 },
+    { id:"sucessora",   label:"Sucessora",         w:isDesktop?140:130 },
+  ];
+  const colunasVisiveis = COLS_CRONO_DEF.filter(c => c.fixa || colsCrono[c.id]);
+  const COLUNAS_TAREFA = colunasVisiveis.map(c => `${c.w}px`).join(" ");
+  const LARGURA_TAREFAS = colunasVisiveis.reduce((s,c)=>s+c.w, 0);
 
   // Converte data -> posicao X (px) e duracao -> largura.
   const xDeData = (iso) => diasCorridos(GANTT_INI, iso) * pxPorDia;
@@ -17777,6 +17797,31 @@ function Planejamento({ data, update, showToast }) {
             border: `1.5px solid ${C.border}`, background: "transparent", color: C.muted,
             display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700,
           }}><Ic n="calendar" s={14}/> Dias</button>
+          <div style={{ position:"relative" }}>
+            <button onClick={() => setColsCronoAberto(a=>!a)} title="Colunas da tabela" style={{
+              padding: "8px 10px", borderRadius: 8, cursor: "pointer",
+              border: `1.5px solid ${C.border}`, background: "transparent", color: C.muted,
+              display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700,
+            }}>Colunas</button>
+            {colsCronoAberto && (
+              <div style={{position:"absolute",top:"100%",right:0,marginTop:4,zIndex:30,
+                           background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:9,
+                           boxShadow:`0 8px 24px ${C.shadow}`,padding:"10px 12px",minWidth:180}}>
+                <p style={{fontSize:10,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>Colunas do cronograma</p>
+                {[["inicio","Data inicio"],["fim","Data fim"],["dias","Dias trabalhados"],["custo","Custo"],["progresso","Progresso"],["antecessora","Antecessora"],["sucessora","Sucessora"]].map(([k,l])=>(
+                  <label key={k} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",cursor:"pointer",fontSize:12,color:C.text}}>
+                    <input type="checkbox" checked={!!colsCrono[k]}
+                      onChange={()=>setColsCrono(c=>({...c,[k]:!c[k]}))}
+                      style={{width:15,height:15,accentColor:C.yellowD,cursor:"pointer"}}/>
+                    {l}
+                  </label>
+                ))}
+                <p style={{fontSize:9.5,color:C.muted,marginTop:7,lineHeight:1.45,borderTop:`1px solid ${C.line}`,paddingTop:7}}>
+                  A coluna Atividade fica sempre visivel.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -17862,10 +17907,10 @@ function Planejamento({ data, update, showToast }) {
                           width:LARGURA_TAREFAS }}>
               <div style={{ height: ALTURA_REGUA, borderBottom: `1px solid ${C.line}`,
                             display:"grid", gridTemplateColumns:COLUNAS_TAREFA, alignItems:"center" }}>
-                {["Atividade / custo","Data inicio","Data fim","Dias trab.","Antecessora","Sucessora"].map((h,i)=>(
-                  <span key={h} style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase",
+                {colunasVisiveis.map((col,i)=>(
+                  <span key={col.id} style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase",
                     padding:"0 7px",borderLeft:i?`1px solid ${C.line}`:"none",height:"100%",
-                    display:"flex",alignItems:"center"}}>{h}</span>
+                    display:"flex",alignItems:"center"}}>{col.label}</span>
                 ))}
               </div>
               {tarefas.map(t => {
@@ -17877,10 +17922,11 @@ function Planejamento({ data, update, showToast }) {
                 });
                 const estiloInput = {width:"100%",height:26,border:0,background:"transparent",color:C.text,
                   fontSize:10,padding:"0 5px",outline:"none",fontFamily:"inherit"};
-                return (
-                  <div key={t.id} style={{height:ALTURA_LINHA,display:"grid",gridTemplateColumns:COLUNAS_TAREFA,
-                                          borderBottom:`1px solid ${C.line}`,background:conflitoVinculo?`${C.orange}0B`:"transparent"}}>
-                    <div onClick={() => setTarefaModal({ modo:"editar", tarefa:t })}
+                // Cada celula por id; renderiza so as colunas visiveis, na ordem.
+                const bordaEsq = i => i>0 ? `1px solid ${C.line}` : "none";
+                const celulas = {
+                  atividade: (
+                    <div key="atividade" onClick={() => setTarefaModal({ modo:"editar", tarefa:t })}
                          title={`Antecessora(s): ${ant.join(", ")||"nenhuma"}\nSucessora(s): ${suc.join(", ")||"nenhuma"}`}
                          style={{padding:"0 7px",display:"flex",flexDirection:"column",justifyContent:"center",cursor:"pointer",minWidth:0}}>
                       <p style={{fontSize:10.5,fontWeight:700,color:t.orfa?C.red:conflitoVinculo?C.orange:C.text,overflow:"hidden",
@@ -17889,37 +17935,72 @@ function Planejamento({ data, update, showToast }) {
                         {t.custo>0?fmt(t.custo):"avulsa"} · A:{ant.length} S:{suc.length}{conflitoVinculo?" · conflito de data":""}
                       </p>
                     </div>
-                    <div style={{borderLeft:`1px solid ${C.line}`,display:"flex",alignItems:"center"}}>
+                  ),
+                  inicio: (
+                    <div key="inicio" style={{display:"flex",alignItems:"center"}}>
                       <input key={`${t.id}-ini-${t.inicio}`} type="date" defaultValue={t.inicio||""} disabled={t.titulo}
                         onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
                         onBlur={e=>e.target.value&&e.target.value!==t.inicio&&atualizarTarefaNaLinha(t,"inicio",e.target.value)} style={estiloInput}/>
                     </div>
-                    <div style={{borderLeft:`1px solid ${C.line}`,display:"flex",alignItems:"center"}}>
+                  ),
+                  fim: (
+                    <div key="fim" style={{display:"flex",alignItems:"center"}}>
                       <input key={`${t.id}-fim-${t.fim}`} type="date" defaultValue={t.fim||""} disabled={t.titulo}
                         onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
                         onBlur={e=>e.target.value&&e.target.value!==t.fim&&atualizarTarefaNaLinha(t,"fim",e.target.value)} style={estiloInput}/>
                     </div>
-                    <div style={{borderLeft:`1px solid ${C.line}`,display:"flex",alignItems:"center"}}>
+                  ),
+                  dias: (
+                    <div key="dias" style={{display:"flex",alignItems:"center"}}>
                       <input key={`${t.id}-dias-${t.inicio}-${t.fim}`} type="number" min="1"
                         defaultValue={Math.max(1,diasUteis(t.inicio,t.fim,cal))} disabled={t.titulo}
                         onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
                         onBlur={e=>Number(e.target.value)!==diasUteis(t.inicio,t.fim,cal)&&atualizarTarefaNaLinha(t,"dias",e.target.value)}
                         style={{...estiloInput,textAlign:"center"}}/>
                     </div>
-                    <div onClick={() => setTarefaModal({modo:"editar",tarefa:t})} title={ant.join("\n")||"Sem antecessora"}
-                         style={{borderLeft:`1px solid ${C.line}`,padding:"0 6px",display:"flex",alignItems:"center",
-                                 cursor:"pointer",minWidth:0}}>
+                  ),
+                  custo: (
+                    <div key="custo" onClick={() => setTarefaModal({modo:"editar",tarefa:t})}
+                         style={{padding:"0 6px",display:"flex",alignItems:"center",justifyContent:"flex-end",cursor:"pointer",minWidth:0}}>
+                      <span style={{fontSize:9.5,color:t.custo>0?C.text:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                        {t.custo>0?fmt(t.custo):"-"}
+                      </span>
+                    </div>
+                  ),
+                  progresso: (
+                    <div key="progresso" style={{display:"flex",alignItems:"center"}}>
+                      <input key={`${t.id}-prog-${t.progresso}`} type="number" min="0" max="100"
+                        defaultValue={Number(t.progresso||0)} disabled={t.titulo}
+                        onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                        onBlur={e=>Number(e.target.value)!==Number(t.progresso||0)&&atualizarTarefaNaLinha(t,"progresso",e.target.value)}
+                        style={{...estiloInput,textAlign:"center"}}/>
+                    </div>
+                  ),
+                  antecessora: (
+                    <div key="antecessora" onClick={() => setTarefaModal({modo:"editar",tarefa:t})} title={ant.join("\n")||"Sem antecessora"}
+                         style={{padding:"0 6px",display:"flex",alignItems:"center",cursor:"pointer",minWidth:0}}>
                       <span style={{fontSize:9.5,color:ant.length?C.blue:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                         {ant.join(", ")||"-"}
                       </span>
                     </div>
-                    <div onClick={() => setTarefaModal({modo:"editar",tarefa:t})} title={suc.join("\n")||"Sem sucessora"}
-                         style={{borderLeft:`1px solid ${C.line}`,padding:"0 6px",display:"flex",alignItems:"center",
-                                 cursor:"pointer",minWidth:0}}>
+                  ),
+                  sucessora: (
+                    <div key="sucessora" onClick={() => setTarefaModal({modo:"editar",tarefa:t})} title={suc.join("\n")||"Sem sucessora"}
+                         style={{padding:"0 6px",display:"flex",alignItems:"center",cursor:"pointer",minWidth:0}}>
                       <span style={{fontSize:9.5,color:suc.length?C.green:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                         {suc.join(", ")||"-"}
                       </span>
                     </div>
+                  ),
+                };
+                return (
+                  <div key={t.id} style={{height:ALTURA_LINHA,display:"grid",gridTemplateColumns:COLUNAS_TAREFA,
+                                          borderBottom:`1px solid ${C.line}`,background:conflitoVinculo?`${C.orange}0B`:"transparent"}}>
+                    {colunasVisiveis.map((col,i)=>(
+                      <div key={col.id} style={{borderLeft:bordaEsq(i),minWidth:0,display:"flex"}}>
+                        {celulas[col.id]}
+                      </div>
+                    ))}
                   </div>
                 );
               })}
