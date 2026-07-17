@@ -1901,7 +1901,8 @@ function Dashboard({ data, onTab, ultimaSync }) {
   const month = now.getMonth();
   const day = now.getDate();
   const { q1, q2 } = getQ(year, month);
-  const qDays = day <= 15 ? q1 : q2;
+  const refAnterior = new Date(year, month-1, 1);
+  const qDays = day <= 5 ? getQ(refAnterior.getFullYear(),refAnterior.getMonth()).q2 : day <= 20 ? q1 : q2;
   const todayIso = today();
   const activeEmps = data.employees.filter(e => e.active !== false);
   const activeObras = data.obras.filter(o => o.status !== "done");
@@ -3757,15 +3758,10 @@ function Financeiro({ data, update, showToast }) {
     for (let i = 3; i >= 0; i--) {
       const d = new Date(year, month - i, 1);
       const y = d.getFullYear(), m = d.getMonth();
-      const ym = `${y}-${String(m+1).padStart(2,"0")}`;
       const { q1, q2 } = getQ(y, m);
-      [["1", q1, 15], ["2", q2, 31]].forEach(([qn, dias, limSup]) => {
-        const limInf = qn === "1" ? 1 : 16;
-        const naQuinzena = (iso) => {
-          if (!iso || !iso.startsWith(ym)) return false;
-          const dia = Number(iso.split("-")[2]);
-          return dia >= limInf && dia <= limSup;
-        };
+      [["1", q1], ["2", q2]].forEach(([qn, dias]) => {
+        const datasDoCiclo=new Set(dias);
+        const naQuinzena = iso => !!iso && datasDoCiclo.has(iso);
         const rec = (data.payments||[])
           .filter(p => (filterObra==="all"||p.obraId===filterObra) && naQuinzena(p.date))
           .reduce((s,p)=>s+Number(p.amount||0),0);
@@ -5106,8 +5102,11 @@ function PontoGeral({ data, update, showToast }) {
   const [filterObra,setFilterObra]=useState("all");
   const [busca,setBusca]=useState("");
   const {q1,q2}=getQ(year,month);
-  const days=q==="1"?q1:q2;
-  const feriados=prUniqueDates([...new Set(days.map(d=>Number(d.slice(0,4))))].flatMap(ano=>getPayrollHolidays(data,ano)));
+  const diasCiclo=q==="1"?q1:q2;
+  // A gestao mostra somente segunda a sexta. Feriados em dias uteis
+  // permanecem sempre visiveis e destacados, mesmo sem lancamento.
+  const days=diasCiclo.filter(prIsWeekdayIso);
+  const feriados=prUniqueDates([...new Set(diasCiclo.map(d=>Number(d.slice(0,4))))].flatMap(ano=>getPayrollHolidays(data,ano)));
   const obraName=id=>(data.obras||[]).find(o=>o.id===id)?.name||"-";
   const employees=(data.employees||[]).filter(e=>e.active!==false)
     .filter(e=>filterObra==="all"||e.obra===filterObra||days.some(d=>getAtt(data,e.id,d)?.obraId===filterObra))
@@ -5146,7 +5145,7 @@ function PontoGeral({ data, update, showToast }) {
     employees.forEach(emp=>{const mapa={...(attendance[emp.id]||{})};days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}mapa[date]={...(getAtt(data,emp.id,date)||{}),status:"P",obraId};});attendance[emp.id]=mapa;});update({...data,attendance});showToast(bloqueados?`Equipe preenchida; ${bloqueados} lançamento(s) bloqueado(s) foram preservados.`:"Equipe preenchida no período.");
   };
 
-  const periodo=`${fmtDateFull(days[0])} a ${fmtDateFull(days[days.length-1])}`;
+  const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
     <div style={{background:`linear-gradient(135deg,${C.ink},#24324a)`,color:"#fff",borderRadius:14,padding:"16px 18px",display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
       <div><p style={{fontSize:10,fontWeight:900,color:C.yellow,letterSpacing:1,textTransform:"uppercase"}}>Folha de pagamento</p><h2 style={{fontSize:"clamp(22px,4vw,32px)"}}>Gestão geral do ponto</h2><p style={{fontSize:11,opacity:.72,marginTop:3}}>Funcionários, obras e dias trabalhados na mesma tela · {periodo}</p></div>
@@ -5168,7 +5167,7 @@ function PontoGeral({ data, update, showToast }) {
           <th style={{position:"sticky",left:0,zIndex:7,minWidth:190,background:C.ink,color:"#fff",padding:8,textAlign:"left"}}>FUNCIONÁRIO</th>
           <th style={{position:"sticky",left:190,zIndex:7,minWidth:150,background:C.ink,color:"#fff",padding:8,textAlign:"left"}}>LOTAÇÃO</th>
           <th style={{minWidth:70,background:C.ink,color:"#fff",padding:8}}>DIAS</th>
-          {days.map(date=>{const feriado=feriados.includes(date),fim=prParseIso(date).getDay()===0;return <th key={date} title={feriado?"Feriado cadastrado":""} style={{minWidth:112,background:feriado?C.red:fim?C.muted:C.ink,color:"#fff",padding:6,borderLeft:"1px solid rgba(255,255,255,.1)"}}><div>{diaLabel(date)}</div><div style={{fontSize:8,opacity:.72}}>{feriado?"FERIADO":semana(date)}</div></th>;})}
+          {days.map(date=>{const feriado=feriados.includes(date);return <th key={date} title={feriado?"Feriado cadastrado":""} style={{minWidth:112,background:feriado?C.red:C.ink,color:"#fff",padding:6,borderLeft:"1px solid rgba(255,255,255,.1)",boxShadow:feriado?`inset 0 -4px 0 ${C.yellow}`:"none"}}><div>{diaLabel(date)}</div><div style={{fontSize:8,fontWeight:feriado?900:700,opacity:feriado?1:.72}}>{feriado?"FERIADO":semana(date)}</div></th>;})}
         </tr></thead>
         <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attStatus(data,emp.id,d);return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:`1px solid ${C.line}`}}>
           <td style={{position:"sticky",left:0,zIndex:2,background:C.card,padding:8,borderTop:`1px solid ${C.line}`,minWidth:190}}><b style={{fontSize:11,color:C.text}}>{emp.name}</b><div style={{fontSize:8.5,color:C.muted,marginTop:2}}>{emp.role||"Funcionário"}</div><div style={{display:"flex",gap:3,marginTop:5}}><button onClick={()=>preencherLinha(emp)} style={{border:`1px solid ${C.green}`,background:`${C.green}10`,color:C.green,borderRadius:4,fontSize:8,fontWeight:800,cursor:"pointer",padding:"3px 5px"}}>PREENCHER</button><button onClick={()=>limparLinha(emp)} style={{border:`1px solid ${C.red}`,background:"transparent",color:C.red,borderRadius:4,fontSize:8,fontWeight:800,cursor:"pointer",padding:"3px 5px"}}>LIMPAR</button></div></td>
@@ -5691,8 +5690,11 @@ function Folha({ data, showToast }) {
   const [expandedId, setExpandedId] = useState(null);
 
   const { q1, q2 } = getQ(year, month);
-  const days = q === "1" ? q1 : q2;
-  const paymentHolidays = prUniqueDates([...new Set(days.map(d=>Number(d.slice(0,4))))].flatMap(ano=>getPayrollHolidays(data,ano)));
+  // Folha e espelho diario seguem a mesma grade da gestao: segunda a sexta.
+  // Isso impede sabados e domingos de virarem "sem registro".
+  const diasCiclo = q === "1" ? q1 : q2;
+  const days = diasCiclo.filter(prIsWeekdayIso);
+  const paymentHolidays = prUniqueDates([...new Set(diasCiclo.map(d=>Number(d.slice(0,4))))].flatMap(ano=>getPayrollHolidays(data,ano)));
   const holidaysInPeriod = days.filter(d => paymentHolidays.includes(d) && prIsWeekdayIso(d));
   const paymentInfo = getPayrollPaymentCalendar(year, month, q, data);
   const paymentDateLabel = fmtDateFull(paymentInfo.paymentDate);
@@ -5812,8 +5814,8 @@ function Folha({ data, showToast }) {
       });
     });
 
-    const periIni = days.length > 0 ? days[0] : "";
-    const periFim = days.length > 0 ? days[days.length - 1] : "";
+    const periIni = diasCiclo.length > 0 ? diasCiclo[0] : "";
+    const periFim = diasCiclo.length > 0 ? diasCiclo[diasCiclo.length - 1] : "";
     const advTotal = data.advances
       .filter(a => a.empId === employee.id && periIni && periFim && a.date >= periIni && a.date <= periFim)
       .reduce((s, a) => s + Number(a.amount || 0), 0);
