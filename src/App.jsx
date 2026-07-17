@@ -1651,7 +1651,7 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
   );
 }
 
-function Inp({ label, value, onChange, type = "text", placeholder = "", max, min, disabled = false, multiline = false }) {
+function Inp({ label, value, onChange, type = "text", placeholder = "", max, min, disabled = false, multiline = false, inputRef = null }) {
   const Comp = multiline ? "textarea" : "input";
 
   return (
@@ -1662,6 +1662,7 @@ function Inp({ label, value, onChange, type = "text", placeholder = "", max, min
         fontFamily:"'Inter Display','Inter',sans-serif",
       }}>{label}</span>}
       <Comp
+        ref={inputRef}
         type={multiline ? undefined : type}
         value={value ?? ""}
         onChange={e => onChange(e.target.value)}
@@ -10625,6 +10626,11 @@ const calcCurvaABCOrc = (orc, calc, { agrupar = true } = {}) => {
   return { itens, resumo, totalCD, totalComBDI: totalCD * bdiMult };
 };
 
+// Formulario zerado de composicao propria. O codigo entra vazio de proposito:
+// quem preenche e o efeito de numeracao automatica, ja com a serie da empresa.
+const compFormVazio = (extra = {}) => ({ id:"", codigo:"", descricao:"", unidade:"UN",
+  origemFonte:"PRÓPRIA", origemCodigo:"", origemDataBase:"", origemUf:"", itens:[], ...extra });
+
 // ---------------------------------------------------------------------------
 //  Celula editavel da planilha do orcamento.
 //  O valor digitado vive em estado LOCAL enquanto o campo esta em foco; so ao
@@ -10698,9 +10704,11 @@ function Orcamento({ data, update, showToast }) {
   const [detalhesAviso,setDetalhesAviso]=useState("");
   const [abcTipo,setAbcTipo]=useState("insumos");
   const [abcInsumoFiltro,setAbcInsumoFiltro]=useState("todas");
-  const [compForm,setCompForm]=useState({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});
+  const [abcInsumoTipo,setAbcInsumoTipo]=useState("INSUMO");   // INSUMO | COMPOSICAO | TODOS
+  const [compForm,setCompForm]=useState(compFormVazio());
   const [clonandoComposicao,setClonandoComposicao]=useState("");
   const [compBusca,setCompBusca]=useState("");
+  const buscaCompRef=useRef(null);   // foco no campo ao clicar em "importar da base"
   const [compBuscaDebounced,setCompBuscaDebounced]=useState("");
   const [compResultados,setCompResultados]=useState([]);
   const [compBuscaLoading,setCompBuscaLoading]=useState(false);
@@ -10809,6 +10817,16 @@ function Orcamento({ data, update, showToast }) {
     [...(data.composicoesEmpresa||[]),...(orc?.composicoesProprias||[])].forEach(comp=>mapa.set(comp.id||`${comp.codigo}`,comp));
     return[...mapa.values()];
   },[data.composicoesEmpresa,orc?.composicoesProprias]);
+  // Codigo sequencial das composicoes proprias: CP-001, CP-002...
+  // Le o que ja existe e continua a serie; nunca reaproveita numero de
+  // composicao excluida, para nao confundir orcamentos antigos.
+  const proximoCodigoProprio = useCallback(() => {
+    const usados = composicoesEmpresa
+      .map(comp => /^CP-0*(\d+)$/.exec(String(comp.codigo||"").trim().toUpperCase()))
+      .filter(Boolean).map(achado => Number(achado[1]));
+    return `CP-${String((usados.length ? Math.max(...usados) : 0) + 1).padStart(3,"0")}`;
+  }, [composicoesEmpresa]);
+
   const referenciaKey = (orc?.referencias || []).join("|");
   const basesVinculadas = useMemo(() => {
     const ids = new Set(orc?.referencias || []);
@@ -11513,10 +11531,13 @@ function Orcamento({ data, update, showToast }) {
       const chave=`${fonte}|${codigo}`;
       if(!codigo||cobertos.has(chave)||adicionados.has(chave)||/^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(fonte))return;
       adicionados.add(chave);
-      resultado.push({fonte,compositionCode:codigo,itemType:"INSUMO",itemCode:codigo,
+      // Sem base analitica nao da para abrir a composicao nos insumos dela.
+      // Ela entra inteira, e marcada como COMPOSICAO - chamar isso de insumo
+      // era o que misturava as duas curvas.
+      resultado.push({fonte,compositionCode:codigo,itemType:"COMPOSICAO",itemCode:codigo,
         descricao:item.descricao||`ITEM ${codigo}`,unidade:item.unidade||"UN",coeficiente:1,
         precoUnit:Number(item.precoUnit||0),precoDes:Number(item.precoUnit||0),precoNao:Number(item.precoUnit||0),
-        classificacao:"ITEM CONSOLIDADO DO ORÇAMENTO",fallbackLocal:true});
+        classificacao:"COMPOSIÇÃO CONSOLIDADA DO ORÇAMENTO",fallbackLocal:true});
     });
     return resultado;
   };
@@ -11608,11 +11629,18 @@ function Orcamento({ data, update, showToast }) {
         if(!(qtd>0))return;
         const fonteItem=String(rel.itemFonte||rel.fonte||fonte).toUpperCase();
         const chaveFilho=`${fonteItem}|${rel.itemCode}`;
-        if(rel.itemType==="COMPOSICAO"&&porComposicao.has(chaveFilho)){
-          acumular(fonteItem,rel.itemCode,qtd,novoCaminho,profundidade+1);return;
-        }
-        const key=`${fonteItem}|${rel.itemCode}|${rel.unidade||"UN"}`;
-        const atual=mapa.get(key)||{fonte:fonteItem,codigo:rel.itemCode,descricao:rel.descricao||"",
+        const tipo=rel.itemType==="COMPOSICAO"?"COMPOSICAO":"INSUMO";
+        // So descemos numa sub-composicao quando ela existe na base analitica,
+        // nao aponta para si mesma (o caso da linha consolidada) e nao fecha
+        // um ciclo. Sem isso, a composicao consolidada sumia da curva.
+        const abrivel = tipo==="COMPOSICAO" && chaveFilho!==chave
+          && !novoCaminho.has(chaveFilho) && porComposicao.has(chaveFilho);
+        if(abrivel){ acumular(fonteItem,rel.itemCode,qtd,novoCaminho,profundidade+1); return; }
+        // Folha. Uma composicao que chega ate aqui e uma composicao que a base
+        // nao sabe abrir - ela continua sendo COMPOSICAO na curva, nunca insumo.
+        if(tipo==="COMPOSICAO")semDetalhe.add(chaveFilho);
+        const key=`${tipo}|${fonteItem}|${rel.itemCode}|${rel.unidade||"UN"}`;
+        const atual=mapa.get(key)||{tipo,fonte:fonteItem,codigo:rel.itemCode,descricao:rel.descricao||"",
           unidade:rel.unidade||"UN",classificacao:rel.classificacao||"",quantidade:0,precoUnit:Number(rel.precoUnit||0)};
         atual.quantidade+=qtd;
         if(!atual.precoUnit&&Number(rel.precoUnit)>0)atual.precoUnit=Number(rel.precoUnit);
@@ -11625,16 +11653,47 @@ function Orcamento({ data, update, showToast }) {
       if(/^(EXTERNO|COTA[CÇ][AÃ]O)$/.test(fonte))return;
       acumular(fonte,normalizarCodigoRef(item.codigo),Number(item.quantidade));
     });
-    const linhas=[...mapa.values()].map(item=>({...item,custo:item.quantidade*item.precoUnit})).sort((a,b)=>b.custo-a.custo);
-    const total=linhas.reduce((s,item)=>s+item.custo,0);let acumulado=0;
-    const itens=linhas.map((item,index)=>{const pct=total>0?item.custo/total*100:0;const classe=acumulado<80?"A":acumulado<95?"B":"C";acumulado+=pct;
-      return{...item,ordem:index+1,pct,pctAcum:Math.min(100,acumulado),classe};});
-    return{itens,total,semDetalhe:[...semDetalhe],semPreco:[...semPreco]};
+    const linhas=[...mapa.values()].map(item=>({...item,custo:item.quantidade*item.precoUnit}));
+    return{linhas,
+      total:linhas.reduce((s,item)=>s+item.custo,0),
+      totalInsumos:linhas.filter(l=>l.tipo==="INSUMO").reduce((s,item)=>s+item.custo,0),
+      qtdInsumos:linhas.filter(l=>l.tipo==="INSUMO").length,
+      qtdComposicoes:linhas.filter(l=>l.tipo==="COMPOSICAO").length,
+      semDetalhe:[...semDetalhe],semPreco:[...semPreco]};
   },[orc,componentesDetalhados,composicoesEmpresa]);
+
+  // A curva e recalculada dentro da familia escolhida. Misturar insumo com
+  // composicao nao detalhada inflaria o total e jogaria insumo legitimo para a
+  // classe C por comparacao com um servico inteiro - a curva perde o sentido.
+  const abcInsumosCurva = useMemo(()=>{
+    const linhas=[...abcInsumos.linhas]
+      .filter(l=>abcInsumoTipo==="TODOS"||l.tipo===abcInsumoTipo)
+      .sort((a,b)=>b.custo-a.custo);
+    const total=linhas.reduce((s,item)=>s+item.custo,0);let acumulado=0;
+    const itens=linhas.map((item,index)=>{
+      const pct=total>0?item.custo/total*100:0;
+      const classe=acumulado<80?"A":acumulado<95?"B":"C";
+      acumulado+=pct;
+      return{...item,ordem:index+1,pct,pctAcum:Math.min(100,acumulado),classe};
+    });
+    return{itens,total};
+  },[abcInsumos,abcInsumoTipo]);
 
   useEffect(()=>{
     if(orcAba==="insumos"&&orc&&componentesDetalhados.length===0&&!detalhesLoading)carregarDetalhesComposicoes();
   },[orcAba,selOrc,referenciaKey]);
+
+  // Codigo automatico: toda composicao nova ja nasce numerada. So no momento em
+  // que o formulario e zerado - nunca durante a digitacao, senao apagar o campo
+  // para escrever um codigo proprio viraria uma briga com o preenchimento.
+  const novaComposicao = useCallback((extra={}) =>
+    setCompForm(compFormVazio({codigo:proximoCodigoProprio(), ...extra})), [proximoCodigoProprio]);
+
+  useEffect(()=>{
+    if(orcAba!=="proprias")return;
+    setCompForm(form => (form.id || String(form.codigo||"").trim())
+      ? form : compFormVazio({codigo:proximoCodigoProprio()}));
+  },[orcAba,proximoCodigoProprio]);
 
   const custoCompForm=useMemo(()=>(compForm.itens||[]).reduce((s,item)=>s+Number(item.coeficiente||0)*Number(item.precoUnit||0),0),[compForm.itens]);
 
@@ -11672,6 +11731,71 @@ function Orcamento({ data, update, showToast }) {
     }finally{setAnaliseReferenciaLoading(false);}
   };
 
+  // Abre a composicao analitica de uma linha da planilha. A ordem de busca
+  // segue a confiabilidade da fonte: composicao propria da empresa primeiro
+  // (ela e a verdade para itens PRÓPRIA), depois a memoria gravada no proprio
+  // item (cotacao/externo) e por fim a base de referencia vinculada.
+  const analisarItemDoOrcamento = async item => {
+    if (!orc) return;
+    const fonte  = String(item.fonte || orc.fonte || "SINAPI").toUpperCase();
+    const codigo = normalizarCodigoRef(item.codigo);
+    const preco  = Number(item.precoUnit || 0);
+    const base = {
+      fonte, codigo: item.codigo || "", descricao: item.descricao || "",
+      unidade: item.unidade || "UN", tipoItem: "COMPOSICAO",
+      precoUnit: preco, precoDes: preco, precoNao: preco,
+      dataBase: item.baseData || orc.dataBase || "", uf: item.baseUf || orc.uf || "",
+      doOrcamento: true, quantidadeOrc: Number(item.quantidade || 0),
+    };
+
+    // 1) Composicao propria da empresa
+    const propria = codigo && composicoesEmpresa.find(comp => normalizarCodigoRef(comp.codigo) === codigo);
+    if (propria) {
+      setAnaliseReferenciaAviso("");
+      setAnaliseReferencia({ ...base, fonte: "PRÓPRIA", classificacao: "COMPOSIÇÃO DA EMPRESA",
+        unidade: propria.unidade || base.unidade, descricao: propria.descricao || base.descricao });
+      setAnaliseComponentes((propria.itens || []).map(sub => ({
+        fonte: sub.fonte || "PRÓPRIA", itemType: sub.tipoItem || "INSUMO", itemCode: sub.codigo,
+        descricao: sub.descricao, unidade: sub.unidade || "UN",
+        coeficiente: Number(sub.coeficiente || 0), precoUnit: Number(sub.precoUnit || 0),
+      })));
+      return;
+    }
+
+    // 2) Memoria gravada no item: JSON (clone de composicao) ou texto livre
+    const memoria = String(item.composicao || "").trim();
+    if (memoria.startsWith("[")) {
+      try {
+        const itens = JSON.parse(memoria);
+        if (Array.isArray(itens) && itens.length) {
+          setAnaliseReferenciaAviso("");
+          setAnaliseReferencia({ ...base, classificacao: "MEMÓRIA GRAVADA NO ITEM" });
+          setAnaliseComponentes(itens.map(sub => ({
+            fonte: sub.fonte || fonte, itemType: sub.tipoItem || "INSUMO", itemCode: sub.codigo,
+            descricao: sub.descricao, unidade: sub.unidade || "UN",
+            coeficiente: Number(sub.coeficiente || 0), precoUnit: Number(sub.precoUnit || 0),
+          })));
+          return;
+        }
+      } catch { /* nao era JSON: cai para o texto livre abaixo */ }
+    }
+    if (memoria && /^(EXTERNO|COTA[CÇ][AÃ]O)$/.test(fonte)) {
+      setAnaliseComponentes([]);
+      setAnaliseReferenciaAviso("");
+      setAnaliseReferencia({ ...base, memoriaTexto: memoria, classificacao: "COTAÇÃO / COMPOSIÇÃO EXTERNA" });
+      return;
+    }
+
+    // 3) Base de referencia
+    if (!codigo) {
+      setAnaliseComponentes([]);
+      setAnaliseReferencia({ ...base, memoriaTexto: memoria });
+      setAnaliseReferenciaAviso("Este item não tem código. Informe o código da base ou cadastre-o como composição própria para abrir a análise.");
+      return;
+    }
+    await analisarItemReferencia(base);
+  };
+
   const clonarComposicaoReferencia = async referencia => {
     if(!referencia||referencia.tipoItem!=="COMPOSICAO"||!orc)return;
     if(!(orc.referencias||[]).length){showToast("Vincule a base desta composição ao orçamento.","error");return;}
@@ -11682,14 +11806,15 @@ function Orcamento({ data, update, showToast }) {
       const codigoOrigem=normalizarCodigoRef(referencia.codigo);const fonte=String(referencia.fonte||"SINAPI").toUpperCase();
       const diretos=(resposta.components||[]).filter(item=>String(item.fonte||"").toUpperCase()===fonte&&normalizarCodigoRef(item.compositionCode)===codigoOrigem);
       if(!diretos.length)throw new Error("A base não devolveu os insumos desta composição. Atualize a base analítica.");
-      const baseCodigo=`EMP-${fonte}-${codigoOrigem}`;let codigoNovo=baseCodigo,sufixo=2;
-      while(composicoesEmpresa.some(comp=>normalizarCodigoRef(comp.codigo)===normalizarCodigoRef(codigoNovo)))codigoNovo=`${baseCodigo}-${sufixo++}`;
-      setCompForm({id:"",codigo:codigoNovo,descricao:referencia.descricao||"",unidade:referencia.unidade||"UN",
+      // O codigo da copia segue a serie da empresa; a origem SINAPI/ORSE fica
+      // registrada nos campos origem* e aparece no formulario.
+      setCompForm(compFormVazio({codigo:proximoCodigoProprio(),descricao:referencia.descricao||"",unidade:referencia.unidade||"UN",
         origemFonte:fonte,origemCodigo:codigoOrigem,origemDataBase:referencia.dataBase||orc.dataBase||"",origemUf:referencia.uf||orc.uf||"",
         itens:diretos.map(item=>({id:uid(),fonte:item.fonte||fonte,tipoItem:item.itemType||"INSUMO",codigo:item.itemCode,
           descricao:item.descricao||"",unidade:item.unidade||"UN",coeficiente:Number(item.coeficiente||0),
-          precoUnit:Number(item.precoUnit||precoDoItem(item,orc)||0),dataBase:item.dataBase||referencia.dataBase||"",uf:item.uf||referencia.uf||""}))});
-      setCompBusca("");setCompResultados([]);showToast(`Composição ${fonte} ${codigoOrigem} copiada. Ajuste os dados e salve como composição da empresa.`);
+          precoUnit:Number(item.precoUnit||precoDoItem(item,orc)||0),dataBase:item.dataBase||referencia.dataBase||"",uf:item.uf||referencia.uf||""}))}));
+      setOrcAba("proprias");setCompTipoBusca("COMPOSICAO");
+      setCompBusca("");setCompResultados([]);showToast(`Composição ${fonte} ${codigoOrigem} copiada com ${diretos.length} item(ns). Ajuste os coeficientes e salve.`);
     }catch(error){showToast(error?.message||"Não foi possível copiar a composição.","error");}
     finally{setClonandoComposicao("");}
   };
@@ -11712,7 +11837,7 @@ function Orcamento({ data, update, showToast }) {
       return{...orçamento,itens,composicoesProprias:defs};
     });
     update({...data,composicoesEmpresa:comps,baseFavoritos:favoritos,orcamentos:orcamentosAtualizados});
-    setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});showToast("Composição salva no cadastro da empresa e disponível em todos os orçamentos.");
+    novaComposicao();showToast("Composição salva no cadastro da empresa e disponível em todos os orçamentos.");
   };
 
   const excluirComposicaoPropria = comp => {
@@ -11720,16 +11845,17 @@ function Orcamento({ data, update, showToast }) {
     const comps=(data.composicoesEmpresa||[]).filter(item=>item.id!==comp.id);
     const favoritos=(data.baseFavoritos||[]).filter(item=>!(String(item.fonte||"").toUpperCase()==="PRÓPRIA"&&normalizarCodigoRef(item.codigo)===normalizarCodigoRef(comp.codigo)));
     update({...data,composicoesEmpresa:comps,baseFavoritos:favoritos,orcamentos:orcamentos.map(item=>item.id===selOrc?{...item,composicoesProprias:(item.composicoesProprias||[]).filter(def=>def.id!==comp.id)}:item)});
-    if(compForm.id===comp.id)setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});
+    if(compForm.id===comp.id)novaComposicao();
   };
 
   const exportarABCInsumos = () => {
-    if(!abcInsumos.itens.length){showToast("Carregue os insumos antes de exportar.","warn");return;}
-    const rows=abcInsumos.itens.map(item=>({Classe:item.classe,Fonte:item.fonte,Código:item.codigo,Descrição:item.descricao,
+    if(!abcInsumosCurva.itens.length){showToast("Carregue os insumos antes de exportar.","warn");return;}
+    const rows=abcInsumosCurva.itens.map(item=>({Classe:item.classe,Tipo:item.tipo==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO",Fonte:item.fonte,Código:item.codigo,Descrição:item.descricao,
       Unidade:item.unidade,Quantidade:item.quantidade,"Custo unitário":item.precoUnit,"Custo total":item.custo,
       "% item":item.pct/100,"% acumulado":item.pctAcum/100}));
-    const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[7,10,12,55,9,14,15,16,11,13].map(w=>({wch:w}));
-    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"ABC Insumos");XLSX.writeFile(wb,`ABC_Insumos_${orc.nome}.xlsx`);
+    const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[7,12,10,12,55,9,14,15,16,11,13].map(w=>({wch:w}));
+    const aba=abcInsumoTipo==="COMPOSICAO"?"ABC Composições":abcInsumoTipo==="TODOS"?"ABC Analítica":"ABC Insumos";
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,aba);XLSX.writeFile(wb,`${aba.replace(/ /g,"_")}_${orc.nome}.xlsx`);
   };
 
   const abrirEdicaoOrc = () => {
@@ -13307,7 +13433,7 @@ ${blocoBDI}
                   if (colsOrc.custoUnit) gc.push("84px");    // custo unitario
                   if (colsOrc.bdi)       gc.push("56px");    // BDI proprio
                   gc.push("18px");                           // setas
-                  if (colsOrc.total)     gc.push("120px");   // total + acoes
+                  if (colsOrc.total)     gc.push("165px");   // total + acoes (comp./editar/x)
 
                   return (
                     <div key={it.id}
@@ -13401,9 +13527,12 @@ ${blocoBDI}
                       {colsOrc.total && (
                       <div style={{minWidth:0,overflow:"hidden",textAlign:"right",whiteSpace:"nowrap"}}>
                         <span title={`Preço total com BDI (${bdiEfetivo}%)`} style={{fontSize:12,fontWeight:800,color:alterado?C.yellowD:C.text}}>{fmt(tot)}</span>
+                        <button onClick={() => analisarItemDoOrcamento(it)}
+                          title="Ver a composição analítica deste item"
+                          style={{background:"transparent",border:0,color:C.green,cursor:"pointer",fontSize:10,fontWeight:800,padding:"0 3px",marginLeft:4}}>Comp.</button>
                         <button onClick={() => setEditItem({...it})}
                           title={it.composicao?"Editar item e composição":"Editar item"}
-                          style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,padding:"0 3px",marginLeft:4}}>Editar</button>
+                          style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,padding:"0 3px"}}>Editar</button>
                         <button onClick={() => delItem(it.id)}
                           style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:13,padding:0}}>x</button>
                       </div>
@@ -14247,7 +14376,7 @@ ${blocoBDI}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             <div>
               <p style={{fontSize:14,fontWeight:800,color:C.text}}>QUANTITATIVOS DE INSUMOS</p>
-              <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Expansão analítica das composições SINAPI, ORSE e próprias conforme as quantidades do orçamento.</p>
+              <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Expansão analítica das composições SINAPI, ORSE e próprias conforme as quantidades do orçamento. O que a base não abre em insumos fica marcado como COMPOSIÇÃO e não entra na curva de insumos.</p>
             </div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               <Btn size="sm" v="info" onClick={carregarDetalhesComposicoes} disabled={detalhesLoading}>{detalhesLoading?"CARREGANDO...":"ATUALIZAR INSUMOS"}</Btn>
@@ -14257,13 +14386,25 @@ ${blocoBDI}
           {detalhesAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:10.5,color:C.orange}}>{detalhesAviso}</div>}
           <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
             {[
-              [abcInsumos.itens.length,"INSUMOS CONSOLIDADOS",C.blue],
-              [fmt(abcInsumos.total),"CUSTO ANALÍTICO",C.yellow],
+              [abcInsumos.qtdInsumos,"INSUMOS CONSOLIDADOS",C.blue],
+              [abcInsumos.qtdComposicoes,"COMPOSIÇÕES NÃO ABERTAS",abcInsumos.qtdComposicoes?C.orange:C.green],
+              [fmt(abcInsumosCurva.total),abcInsumoTipo==="INSUMO"?"CUSTO EM INSUMOS":abcInsumoTipo==="COMPOSICAO"?"CUSTO EM COMPOSIÇÕES":"CUSTO ANALÍTICO",C.yellow],
               [abcInsumos.semPreco.length,"SEM PREÇO",abcInsumos.semPreco.length?C.red:C.green],
-              [abcInsumos.semDetalhe.length,"SEM DETALHAMENTO",abcInsumos.semDetalhe.length?C.orange:C.green],
             ].map(([valor,label,cor])=><div key={label} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${cor}`,borderRadius:8,padding:"9px 11px"}}>
               <p style={{fontSize:15,fontWeight:800,color:cor}}>{valor}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>{label}</p>
             </div>)}
+          </div>
+          {/* Familia primeiro: a curva e recalculada dentro do que voce escolheu. */}
+          <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{fontSize:9,fontWeight:800,color:C.muted,letterSpacing:.5}}>MOSTRAR</span>
+            {[["INSUMO","SÓ INSUMOS"],["COMPOSICAO","SÓ COMPOSIÇÕES"],["TODOS","TUDO JUNTO"]].map(([valor,label])=>(
+              <button key={valor} onClick={()=>{setAbcInsumoTipo(valor);setAbcInsumoFiltro("todas");}} style={{
+                border:`1px solid ${abcInsumoTipo===valor?C.blue:C.border}`,
+                background:abcInsumoTipo===valor?C.blue:C.bg,
+                color:abcInsumoTipo===valor?"#fff":C.muted,
+                borderRadius:6,padding:"5px 10px",fontSize:9.5,fontWeight:800,cursor:"pointer",
+              }}>{label}</button>
+            ))}
           </div>
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcInsumoFiltro(classe)} style={{
@@ -14274,9 +14415,10 @@ ${blocoBDI}
           </div>
           <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.bg}}>
             <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:10.5}}>
-              <thead><tr style={{background:C.surface}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DO INSUMO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-              <tbody>{abcInsumos.itens.filter(item=>abcInsumoFiltro==="todas"||item.classe===abcInsumoFiltro).map(item=><tr key={`${item.fonte}-${item.codigo}-${item.unidade}`} style={{borderBottom:`1px solid ${C.line}`}}>
+              <thead><tr style={{background:C.surface}}>{["CL.","TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+              <tbody>{abcInsumosCurva.itens.filter(item=>abcInsumoFiltro==="todas"||item.classe===abcInsumoFiltro).map(item=><tr key={`${item.tipo}-${item.fonte}-${item.codigo}-${item.unidade}`} style={{borderBottom:`1px solid ${C.line}`}}>
                 <td style={{padding:"6px 8px",fontWeight:900,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td>
+                <td title={item.tipo==="COMPOSICAO"?"Composição que a base analítica não abriu em insumos":"Insumo"} style={{padding:"6px 8px",fontWeight:900,fontSize:8.5,color:item.tipo==="COMPOSICAO"?C.green:C.orange}}>{item.tipo==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</td>
                 <td style={{padding:"6px 8px",fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td>
                 <td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
                 <td title={item.descricao} style={{padding:"6px 8px",color:C.text,maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
@@ -14288,7 +14430,7 @@ ${blocoBDI}
                 <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
               </tr>)}</tbody>
             </table>
-            {!abcInsumos.itens.length&&!detalhesLoading&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum quantitativo calculado. Confira se os itens possuem código, quantidade e custo unitário.</p>}
+            {!abcInsumosCurva.itens.length&&!detalhesLoading&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>{abcInsumos.linhas.length?"Nenhuma linha nesta família. Troque o filtro acima.":"Nenhum quantitativo calculado. Confira se os itens possuem código, quantidade e custo unitário."}</p>}
           </div>
           {(abcInsumos.semDetalhe.length>0||abcInsumos.semPreco.length>0)&&<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}>
             {abcInsumos.semDetalhe.length>0&&<p style={{fontSize:10,color:C.orange,lineHeight:1.6}}><b>SEM DETALHAMENTO:</b> {abcInsumos.semDetalhe.slice(0,20).join(", ")}{abcInsumos.semDetalhe.length>20?"...":""}</p>}
@@ -14329,19 +14471,24 @@ ${blocoBDI}
           <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:10}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,marginBottom:8}}>
               <div><p style={{fontSize:13,fontWeight:800,color:C.text}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:9.5,color:C.muted}}>{composicoesEmpresa.length} cadastrada(s) na empresa</p></div>
-              <Btn size="sm" v="ghost" onClick={()=>setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]})}>NOVA</Btn>
+              <Btn size="sm" v="ghost" onClick={()=>novaComposicao()}>NOVA</Btn>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:5}}>{composicoesEmpresa.map(comp=>{
               const custo=(comp.itens||[]).reduce((s,item)=>s+Number(item.coeficiente||0)*Number(item.precoUnit||0),0);
               return <div key={comp.id} style={{border:`1px solid ${compForm.id===comp.id?C.blue:C.border}`,borderRadius:7,padding:"8px 9px",background:compForm.id===comp.id?`${C.blue}08`:C.surface}}>
                 <p style={{fontSize:10,fontWeight:800,color:C.blue}}>{comp.codigo} · {comp.unidade}</p>
                 <p title={comp.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{comp.descricao}</p>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5}}><b style={{fontSize:11,color:C.yellowD}}>{fmt(custo)}</b><span><button onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{border:0,background:"transparent",color:C.blue,fontSize:9.5,cursor:"pointer"}}>EDITAR</button><button onClick={()=>excluirComposicaoPropria(comp)} style={{border:0,background:"transparent",color:C.red,fontSize:9.5,cursor:"pointer"}}>EXCLUIR</button></span></div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5}}><b style={{fontSize:11,color:C.yellowD}}>{fmt(custo)}</b><span><button onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{border:0,background:"transparent",color:C.blue,fontSize:9.5,cursor:"pointer"}}>EDITAR</button><button title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} style={{border:0,background:"transparent",color:C.green,fontSize:9.5,cursor:"pointer"}}>DUPLICAR</button><button onClick={()=>excluirComposicaoPropria(comp)} style={{border:0,background:"transparent",color:C.red,fontSize:9.5,cursor:"pointer"}}>EXCLUIR</button></span></div>
               </div>;
             })}{!composicoesEmpresa.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:14}}>Nenhuma composição da empresa.</p>}</div>
           </div>
           <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:12,display:"flex",flexDirection:"column",gap:10}}>
-            <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>{compForm.id?"EDITAR COMPOSIÇÃO":"NOVA COMPOSIÇÃO PRÓPRIA"}</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>O custo unitário é calculado pelos coeficientes e preços da base vinculada.</p></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
+              <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>{compForm.id?"EDITAR COMPOSIÇÃO":"NOVA COMPOSIÇÃO PRÓPRIA"}</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Comece do zero ou traga uma composição pronta da base e ajuste coeficientes e preços. O custo unitário é calculado pelos coeficientes.</p></div>
+              <Btn size="sm" v="info" onClick={()=>{setCompTipoBusca("COMPOSICAO");buscaCompRef.current?.focus();}}>
+                <Ic n="copy"/> IMPORTAR DA BASE
+              </Btn>
+            </div>
             <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
               <Inp label="Código *" value={compForm.codigo} onChange={valor=>setCompForm(form=>({...form,codigo:valor}))} placeholder="Ex.: CP-001"/>
               <Inp label="Unidade *" value={compForm.unidade} onChange={valor=>setCompForm(form=>({...form,unidade:valor}))} placeholder="M2"/>
@@ -14354,7 +14501,7 @@ ${blocoBDI}
                 <p style={{fontSize:9.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Pesquisar nas bases vinculadas</p>
                 <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"4px 7px",fontSize:8.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
               </div>
-              <Inp value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição...":"Pesquisar insumo ou composição..."}/>
+              <Inp inputRef={buscaCompRef} value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo por código ou descrição...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição pronta para importar...":"Pesquisar insumo ou composição..."}/>
               {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:4,maxHeight:240,overflowY:"auto",border:`1px solid ${C.blue}`,borderRadius:7,padding:4}}>
                 {compBuscaLoading&&<p style={{fontSize:10,color:C.blue,padding:6}}>PESQUISANDO...</p>}
                 {compBuscaAviso&&<p style={{fontSize:10,color:C.orange,padding:6}}>{compBuscaAviso}</p>}
@@ -14379,7 +14526,7 @@ ${blocoBDI}
                 <td style={{padding:6,textAlign:"right",fontWeight:800}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td><td style={{padding:4}}><button onClick={()=>setCompForm(form=>({...form,itens:form.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
               </tr>)}</tbody>
             </table>{!(compForm.itens||[]).length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:13}}>Pesquise e adicione os insumos.</p>}</div>
-            <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setCompForm({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]})}>LIMPAR</Btn><Btn onClick={salvarComposicaoPropria}><Ic n="check"/> SALVAR COMPOSIÇÃO</Btn></div>
+            <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>novaComposicao()}>LIMPAR</Btn><Btn onClick={salvarComposicaoPropria}><Ic n="check"/> SALVAR COMPOSIÇÃO</Btn></div>
           </div>
         </div>
       )}
@@ -14392,6 +14539,8 @@ ${blocoBDI}
               <span><b>Tipo:</b> {analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"}</span>
               <span><b>Unidade:</b> {analiseReferencia.unidade||"UN"}</span>
               <span><b>Preço:</b> {fmt(precoDoItem(analiseReferencia,orc))}</span>
+              {analiseReferencia.doOrcamento&&<span><b>Quantidade no orçamento:</b> {Number(analiseReferencia.quantidadeOrc||0).toLocaleString("pt-BR",{maximumFractionDigits:4})} {analiseReferencia.unidade||"UN"}</span>}
+              {analiseReferencia.doOrcamento&&<span><b>Custo da linha:</b> {fmt(Number(analiseReferencia.quantidadeOrc||0)*precoDoItem(analiseReferencia,orc))}</span>}
               <span><b>Data-base:</b> {analiseReferencia.dataBase||orc?.dataBase||"-"}</span>
               {analiseReferencia.uf&&<span><b>UF:</b> {analiseReferencia.uf}</span>}
               {analiseReferencia.classificacao&&<span><b>Classificação:</b> {analiseReferencia.classificacao}</span>}
@@ -14400,6 +14549,11 @@ ${blocoBDI}
 
           {analiseReferenciaLoading&&<p style={{padding:18,textAlign:"center",fontSize:11,color:C.blue,fontWeight:800}}>CARREGANDO ANÁLISE...</p>}
           {analiseReferenciaAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:10.5,color:C.orange}}>{analiseReferenciaAviso}</div>}
+
+          {analiseReferencia.memoriaTexto&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px"}}>
+            <p style={{fontSize:11,fontWeight:900,color:C.text,marginBottom:5}}>MEMÓRIA DE PREÇOS DO ITEM</p>
+            <pre style={{fontSize:10.5,color:C.muted,lineHeight:1.6,whiteSpace:"pre-wrap",fontFamily:"'Inter',sans-serif",margin:0}}>{analiseReferencia.memoriaTexto}</pre>
+          </div>}
 
           {analiseReferencia.tipoItem==="COMPOSICAO"&&!analiseReferenciaLoading&&analiseComponentes.length>0&&<>
             <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><p style={{fontSize:12,fontWeight:900,color:C.text}}>COMPOSIÇÃO ANALÍTICA DIRETA</p><b style={{fontSize:13,color:C.yellowD}}>{fmt(analiseComponentes.reduce((s,item)=>s+Number(item.coeficiente||0)*precoDoItem(item,orc),0))}</b></div>
@@ -14415,7 +14569,13 @@ ${blocoBDI}
           </>}
 
           <div style={{display:"flex",justifyContent:"flex-end",gap:7,flexWrap:"wrap"}}>
-            {analiseReferencia.tipoItem==="COMPOSICAO"&&<Btn v="success" onClick={()=>{const item=analiseReferencia;setAnaliseReferencia(null);clonarComposicaoReferencia(item);}}>CLONAR PARA A EMPRESA</Btn>}
+            {/* Clonar so faz sentido para composicao que vive na base de referencia.
+                Composicao propria e cotacao ja sao da empresa - para essas o
+                caminho e editar/duplicar na aba Próprias. */}
+            {analiseReferencia.tipoItem==="COMPOSICAO"
+              && !/^(PR[ÓO]PRIA|EXTERNO|COTA[CÇ][AÃ]O)$/.test(String(analiseReferencia.fonte||"").toUpperCase())
+              && !analiseReferencia.memoriaTexto
+              && <Btn v="success" onClick={()=>{const item=analiseReferencia;setAnaliseReferencia(null);clonarComposicaoReferencia(item);}}>CLONAR PARA A EMPRESA</Btn>}
             <Btn v="ghost" onClick={()=>{setAnaliseReferencia(null);setAnaliseComponentes([]);setAnaliseReferenciaAviso("");}}>FECHAR</Btn>
           </div>
         </div>
@@ -19813,7 +19973,7 @@ function Cadastros({ data, update, showToast, onTab }) {
             onEdit={()=>setCompEmpresaModal({...c,itens:(c.itens||[]).map(i=>({...i,coeficiente:String(i.coeficiente),precoUnit:String(i.precoUnit)}))})}
             onDel={()=>excluirComposicaoEmpresa(c)}/>;
         })}
-        {!compsEmpresa.length&&<Vazio texto="Nenhuma composição da empresa. Use o orçamento para pesquisar e clonar uma composição SINAPI/ORSE."/>}
+        {!compsEmpresa.length&&<VazioObs texto="Nenhuma composição da empresa. Use o orçamento para pesquisar e clonar uma composição SINAPI/ORSE."/>}
 
         <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12,marginTop:4}}>
           <p style={{fontSize:12.5,fontWeight:900,color:C.text}}>COMPOSIÇÕES DE ESTOQUE / BAIXA AUTOMÁTICA</p>
