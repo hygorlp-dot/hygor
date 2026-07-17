@@ -10704,7 +10704,7 @@ function Orcamento({ data, update, showToast }) {
   const [detalhesAviso,setDetalhesAviso]=useState("");
   const [abcTipo,setAbcTipo]=useState("insumos");
   const [abcInsumoFiltro,setAbcInsumoFiltro]=useState("todas");
-  const [abcInsumoTipo,setAbcInsumoTipo]=useState("INSUMO");   // INSUMO | COMPOSICAO | TODOS
+  const [abcInsumoTipo,setAbcInsumoTipo]=useState("TODOS");   // INSUMO | COMPOSICAO | TODOS
   const [compForm,setCompForm]=useState(compFormVazio());
   const [clonandoComposicao,setClonandoComposicao]=useState("");
   const [compBusca,setCompBusca]=useState("");
@@ -11663,6 +11663,17 @@ function Orcamento({ data, update, showToast }) {
       qtdComposicoes:linhas.filter(l=>l.tipo==="COMPOSICAO").length,
       semDetalhe:[...semDetalhe],semPreco:[...semPreco]};
   },[orc,componentesDetalhados,composicoesEmpresa]);
+
+  // Quais fontes ficaram sem detalhamento analitico. Sem isso, a composicao
+  // consolidada some no meio da lista e a tela parece ter "perdido" uma base.
+  const naoAbertasPorFonte = useMemo(()=>{
+    const mapa=new Map();
+    abcInsumos.linhas.filter(linha=>linha.tipo==="COMPOSICAO").forEach(linha=>{
+      const atual=mapa.get(linha.fonte)||{fonte:linha.fonte,qtd:0,custo:0};
+      atual.qtd+=1;atual.custo+=linha.custo;mapa.set(linha.fonte,atual);
+    });
+    return [...mapa.values()].sort((a,b)=>b.custo-a.custo);
+  },[abcInsumos]);
 
   // A curva e recalculada dentro da familia escolhida. Misturar insumo com
   // composicao nao detalhada inflaria o total e jogaria insumo legitimo para a
@@ -14386,6 +14397,29 @@ ${blocoBDI}
             </div>
           </div>
           {detalhesAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:10.5,color:C.orange}}>{detalhesAviso}</div>}
+
+          {/* A base analitica costuma vir completa para uma fonte e nao para a
+              outra. Quando isso acontece, a composicao entra inteira na lista e
+              a curva de insumos parece so ter a fonte que abriu - dizer isso na
+              cara evita a leitura de que a base sumiu. */}
+          {naoAbertasPorFonte.length>0&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}44`,borderRadius:8,padding:"9px 11px"}}>
+            <p style={{fontSize:11,fontWeight:900,color:C.blue}}>COMPOSIÇÕES QUE A BASE NÃO ABRIU EM INSUMOS</p>
+            <p style={{fontSize:10,color:C.muted,lineHeight:1.55,marginTop:3}}>
+              Estas entram na lista inteiras, marcadas como COMPOSIÇÃO - os insumos delas não existem na base analítica vinculada.
+              Para abri-las, envie a planilha analítica da fonte correspondente em BASES DE REFERÊNCIA.
+            </p>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7}}>
+              {naoAbertasPorFonte.map(linha=>(
+                <button key={linha.fonte} onClick={()=>{setAbcInsumoTipo("COMPOSICAO");setAbcInsumoFiltro("todas");}}
+                  title="Ver só as composições não abertas"
+                  style={{border:`1px solid ${linha.fonte==="ORSE"?C.purple:C.blue}55`,background:C.bg,
+                          borderRadius:6,padding:"5px 9px",cursor:"pointer",textAlign:"left"}}>
+                  <b style={{fontSize:10,fontWeight:900,color:linha.fonte==="ORSE"?C.purple:C.blue}}>{linha.fonte}</b>
+                  <span style={{fontSize:9.5,color:C.muted,marginLeft:6}}>{linha.qtd} composição(ões) · {fmt(linha.custo)}</span>
+                </button>
+              ))}
+            </div>
+          </div>}
           <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
             {[
               [abcInsumos.qtdInsumos,"INSUMOS CONSOLIDADOS",C.blue],
