@@ -1319,6 +1319,14 @@ const normalizeData = incoming => {
         unidade:    maiusculoOrcamento(it.unidade || "UN"),
         quantidade: Number(it.quantidade || 0),
         precoUnit:  Number(it.precoUnit  || 0),
+        // BDI proprio do item: "" = usa o BDI global do orcamento. Preenchido
+        // so quando o usuario quer um BDI diferente nesta linha.
+        bdi:        (it.bdi === "" || it.bdi == null) ? "" : Number(it.bdi),
+        // precoRef guarda o preco que veio da base de referencia (SINAPI/ORSE
+        // ou composicao propria). Se o usuario editar o precoUnit e ele passar
+        // a divergir do precoRef, a linha destaca o preco - o orcamento saiu do
+        // valor oficial da composicao. 0 = sem referencia (item avulso/externo).
+        precoRef:   Number(it.precoRef || 0),
         composicao: it.composicao || "",
         codigoNaoEncontrado: !!it.codigoNaoEncontrado,
         baseData:   it.baseData   || o.dataBase || "",
@@ -5680,7 +5688,7 @@ function Ponto({ data, update, showToast }) {
 // Folha
 // 
 
-function Folha({ data, showToast }) {
+function Folha({ data, showToast, onTab }) {
   const now = new Date();
   const refInicial = now.getDate() <= 5 ? new Date(now.getFullYear(), now.getMonth()-1, 1) : now;
   const [year, setYear] = useState(refInicial.getFullYear());
@@ -5688,6 +5696,7 @@ function Folha({ data, showToast }) {
   const [q, setQ] = useState(now.getDate() >= 6 && now.getDate() <= 20 ? "1" : "2");
   const [filterObra, setFilterObra] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
+  const [relatorioPendente, setRelatorioPendente] = useState("");
 
   const { q1, q2 } = getQ(year, month);
   // Folha e espelho diario seguem a mesma grade da gestao: segunda a sexta.
@@ -5876,6 +5885,48 @@ function Folha({ data, showToast }) {
     .map(calcRow)
     .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Conferencia previa do relatorio. A validacao usa todos os funcionarios
+  // vinculados ao periodo/obra, inclusive quem ainda nao aparece na folha por
+  // nao possuir nenhum apontamento.
+  const funcionariosParaConferencia = (data.employees || [])
+    .filter(e => days.some(d => isEmployeeEmployedOnDate(e, d)))
+    .filter(e => e.active !== false || hasAttendanceInPeriod(e) || (e.endDate && e.endDate >= (days[0] || "")))
+    .filter(e => filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra || days.some(d => {
+      if (!isEmployeeEmployedOnDate(e, d)) return false;
+      const a = getAtt(data, e.id, d);
+      return (a?.obraId || getEmpObraIdOnDate(e, d)) === filterObra;
+    }))
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+  const hojeConferencia = today();
+  const pendenciasRelatorio = funcionariosParaConferencia.map(e => {
+    const datasEsperadas = days.filter(d => {
+      if (d > hojeConferencia || !isEmployeeEmployedOnDate(e, d) || holidaysInPeriod.includes(d)) return false;
+      if (filterObra === "all") return true;
+      const a = getAtt(data, e.id, d);
+      return (a?.obraId || getEmpObraIdOnDate(e, d)) === filterObra;
+    });
+    const semRegistro = datasEsperadas.filter(d => !["P", "M", "F"].includes(getAtt(data, e.id, d)?.status));
+    const temObraNoPeriodo = datasEsperadas.some(d => {
+      const a = getAtt(data, e.id, d);
+      return !!(a?.obraId || getEmpObraIdOnDate(e, d));
+    });
+    const campos = [];
+    if (!String(e.pixKey || "").trim()) campos.push("PIX");
+    if (!temObraNoPeriodo && !e.obra && !e.lastObra) campos.push("obra");
+    if (!(Number(e.dailyRate || 0) > 0)) campos.push("valor da diaria");
+    return {
+      id: e.id,
+      nome: e.name || "Funcionario sem nome",
+      semRegistro,
+      nenhumRegistro: datasEsperadas.length > 0 && semRegistro.length === datasEsperadas.length,
+      campos,
+    };
+  }).filter(p => p.semRegistro.length > 0 || p.campos.length > 0);
+
+  const totalDiasSemRegistro = pendenciasRelatorio.reduce((s, p) => s + p.semRegistro.length, 0);
+  const totalSemPix = pendenciasRelatorio.filter(p => p.campos.includes("PIX")).length;
 
   const T = {
     gross: rows.reduce((s, r) => s + r.gross, 0),
@@ -6200,6 +6251,25 @@ function Folha({ data, showToast }) {
     showToast("Excel gerado com 4 abas: folha, obras, funcionários e ponto diário.");
   };
 
+  const executarRelatorio = tipo => {
+    if (tipo === "pdf") printPDF();
+    else exportXLSDetalhado();
+  };
+
+  const solicitarRelatorio = tipo => {
+    if (pendenciasRelatorio.length > 0) {
+      setRelatorioPendente(tipo);
+      return;
+    }
+    executarRelatorio(tipo);
+  };
+
+  const continuarComPendencias = () => {
+    const tipo = relatorioPendente;
+    setRelatorioPendente("");
+    executarRelatorio(tipo);
+  };
+
   const buildText = () => [
     "FOLHA DE PAGAMENTO - ARCD OBRAS",
     data.config.companyName || "",
@@ -6252,8 +6322,8 @@ function Folha({ data, showToast }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Btn v="ghost" onClick={printPDF}><Ic n="file" /> PDF / Imprimir</Btn>
-        <Btn v="success" onClick={exportXLSDetalhado}><Ic n="download" /> Excel detalhado .xlsx</Btn>
+        <Btn v="ghost" onClick={() => solicitarRelatorio("pdf")}><Ic n="file" /> PDF / Imprimir</Btn>
+        <Btn v="success" onClick={() => solicitarRelatorio("excel")}><Ic n="download" /> Excel detalhado .xlsx</Btn>
         <Btn v="info" onClick={() => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`)}><Ic n="mail" /> E-mail</Btn>
         <Btn v="success" onClick={() => navigator.clipboard.writeText(buildText()).then(() => showToast("Copiado.")).catch(() => showToast("Erro ao copiar.", "error"))}><Ic n="copy" /> WhatsApp</Btn>
       </div>
@@ -6337,6 +6407,41 @@ function Folha({ data, showToast }) {
           )}
         </div>
       ))}
+
+      {relatorioPendente && (
+        <Modal title="Conferencia antes de gerar o relatorio" onClose={() => setRelatorioPendente("")} wide>
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ background:"rgba(220,38,38,.08)", border:`1px solid ${C.red}`, padding:12, borderRadius:8 }}>
+              <p style={{ color:C.red, fontWeight:900, fontSize:14 }}>Existem dados pendentes nesta quinzena.</p>
+              <p style={{ color:C.text, fontSize:12, marginTop:4 }}>
+                {pendenciasRelatorio.length} funcionario(s) precisam de conferencia | {totalDiasSemRegistro} dia(s) sem registro | {totalSemPix} PIX ausente(s).
+              </p>
+              <p style={{ color:C.muted, fontSize:11, marginTop:4 }}>Sabados, domingos e feriados nao sao considerados como falta de registro.</p>
+            </div>
+
+            <div style={{ maxHeight:360, overflowY:"auto", display:"flex", flexDirection:"column", gap:7 }}>
+              {pendenciasRelatorio.map(p => (
+                <div key={p.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${C.red}`, padding:"9px 11px", borderRadius:6 }}>
+                  <p style={{ fontWeight:900, color:C.text }}>{p.nome}</p>
+                  {p.semRegistro.length > 0 && (
+                    <p style={{ fontSize:11, color:C.red, marginTop:3 }}>
+                      {p.nenhumRegistro ? "Nenhum ponto registrado" : `${p.semRegistro.length} dia(s) sem ponto`}: {p.semRegistro.slice(0,8).map(fmtDate).join(", ")}{p.semRegistro.length > 8 ? ` e mais ${p.semRegistro.length - 8}` : ""}
+                    </p>
+                  )}
+                  {p.campos.length > 0 && <p style={{ fontSize:11, color:C.yellowD, marginTop:3 }}>Dados faltando: {p.campos.join(", ")}.</p>}
+                </div>
+              ))}
+            </div>
+
+            <p style={{ color:C.muted, fontSize:11 }}>Voce pode corrigir agora ou continuar e gerar o arquivo com as pendencias existentes.</p>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:8 }}>
+              <Btn v="danger" onClick={() => { setRelatorioPendente(""); onTab?.("ponto_geral"); }}>Corrigir ponto</Btn>
+              <Btn v="ghost" onClick={() => { setRelatorioPendente(""); onTab?.("equipe"); }}>Preencher PIX / cadastro</Btn>
+              <Btn v="success" onClick={continuarComPendencias}>Continuar mesmo assim</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -9674,9 +9779,12 @@ const useBreakpoint = () => {
 
 const MAX_NIVEL = 5;   // 1.1.1.1.1 - além disso a indentação fica ilegível no celular
 
-// Total de um item com BDI
+// Total de um item com BDI. Se o item tiver BDI proprio (it.bdi), ele prevalece
+// sobre o BDI global do orcamento - permite uma linha com BDI diferente.
+const bdiDoItem = (it, bdiGlobal) =>
+  (it && it.bdi != null && it.bdi !== "" && Number(it.bdi) >= 0) ? Number(it.bdi) : Number(bdiGlobal || 0);
 const itemTotal = (it, bdi) =>
-  Number(it.quantidade||0) * Number(it.precoUnit||0) * (1 + Number(bdi||0)/100);
+  Number(it.quantidade||0) * Number(it.precoUnit||0) * (1 + bdiDoItem(it, bdi)/100);
 
 //  Árvore de etapas 
 // A numeração (1, 1.1, 1.1.2) NÃO é armazenada: é derivada da posição na
@@ -10541,6 +10649,7 @@ function Orcamento({ data, update, showToast }) {
   const [componentesDetalhados,setComponentesDetalhados]=useState([]);
   const [detalhesLoading,setDetalhesLoading]=useState(false);
   const [detalhesAviso,setDetalhesAviso]=useState("");
+  const [abcTipo,setAbcTipo]=useState("insumos");
   const [abcInsumoFiltro,setAbcInsumoFiltro]=useState("todas");
   const [compForm,setCompForm]=useState({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});
   const [clonandoComposicao,setClonandoComposicao]=useState("");
@@ -10549,9 +10658,23 @@ function Orcamento({ data, update, showToast }) {
   const [compResultados,setCompResultados]=useState([]);
   const [compBuscaLoading,setCompBuscaLoading]=useState(false);
   const [compBuscaAviso,setCompBuscaAviso]=useState("");
+  const [compTipoBusca,setCompTipoBusca]=useState("TODOS");
+  const [analiseReferencia,setAnaliseReferencia]=useState(null);
+  const [analiseComponentes,setAnaliseComponentes]=useState([]);
+  const [analiseReferenciaLoading,setAnaliseReferenciaLoading]=useState(false);
+  const [analiseReferenciaAviso,setAnaliseReferenciaAviso]=useState("");
   const [buscaModal,setBuscaModal]= useState(false);
   const [busca,     setBusca]     = useState("");
   const [buscaLinha, setBuscaLinha] = useState({itemId:"", termo:""});
+  // Colunas visiveis da planilha do orcamento. O usuario liga/desliga cada uma.
+  // Fonte, descricao e quantidade sao fixas (sempre visiveis). As demais podem
+  // ser ocultadas para deixar a grade mais limpa no celular.
+  const COLS_ORC_DEF = { codigo:true, unidade:true, custoUnit:true, bdi:false, total:true };
+  const [colsOrc, setColsOrc] = useState(COLS_ORC_DEF);
+  const [colsOrcAberto, setColsOrcAberto] = useState(false);
+  // Item sendo arrastado para reordenar (drag-and-drop), e sobre qual linha esta.
+  const [arrastandoItem, setArrastandoItem] = useState(null);
+  const [sobreItem, setSobreItem] = useState(null);
   const [buscaLinhaDebounced, setBuscaLinhaDebounced] = useState("");
   const [resultadosLinhaRemotos, setResultadosLinhaRemotos] = useState([]);
   const [buscaLinhaLoading, setBuscaLinhaLoading] = useState(false);
@@ -11246,20 +11369,20 @@ function Orcamento({ data, update, showToast }) {
   useEffect(()=>{
     let ativo=true;
     const termo=compBuscaDebounced.trim();
-    if(orcAba!=="proprias"||!orc||termo.length<2||!(orc.referencias||[]).length){
+    if(!["proprias","insumos"].includes(orcAba)||!orc||termo.length<2||!(orc.referencias||[]).length){
       setCompResultados([]);setCompBuscaLoading(false);setCompBuscaAviso("");
       return()=>{ativo=false;};
     }
     setCompBuscaLoading(true);setCompBuscaAviso("");
     const timer=window.setTimeout(async()=>{
-      const resposta=await pesquisarInsumosReferencia(orc.referencias,termo);
+      const resposta=await pesquisarInsumosReferencia(orc.referencias,termo,compTipoBusca);
       if(!ativo)return;
       if(resposta.ok){setCompResultados(resposta.items||[]);setCompBuscaAviso(resposta.warning||"");}
-      else{setCompResultados([]);setCompBuscaAviso(resposta.error||"Falha ao pesquisar insumos.");}
+      else{setCompResultados([]);setCompBuscaAviso(resposta.error||"Falha ao pesquisar insumos e composicoes.");}
       setCompBuscaLoading(false);
     },120);
     return()=>{ativo=false;window.clearTimeout(timer);};
-  },[compBuscaDebounced,orcAba,referenciaKey,selOrc]);
+  },[compBuscaDebounced,compTipoBusca,orcAba,referenciaKey,selOrc]);
 
   //  CRUD orçamento 
   const criarOrc = () => {
@@ -11341,19 +11464,23 @@ function Orcamento({ data, update, showToast }) {
     return resultado;
   };
 
-  const aplicarReferencia = (item, ref, orcAtual = orc) => ({
-    ...item,
-    codigo:ref.codigo || item.codigo,
-    fonte:ref.fonte || item.fonte || orcAtual.fonte,
-    descricao:ref.descricao || item.descricao,
-    unidade:ref.unidade || item.unidade || "UN",
-    precoUnit:precoDoItem(ref, orcAtual),
-    composicao:ref.composicao || item.composicao || "",
-    codigoNaoEncontrado:false,
-    baseData:ref.dataBase || item.baseData || orcAtual.dataBase || "",
-    baseUf:ref.uf || item.baseUf || "",
-    detailUrl:ref.detailUrl || item.detailUrl || "",
-  });
+  const aplicarReferencia = (item, ref, orcAtual = orc) => {
+    const preco = precoDoItem(ref, orcAtual);
+    return {
+      ...item,
+      codigo:ref.codigo || item.codigo,
+      fonte:ref.fonte || item.fonte || orcAtual.fonte,
+      descricao:ref.descricao || item.descricao,
+      unidade:ref.unidade || item.unidade || "UN",
+      precoUnit:preco,
+      precoRef:preco,   // referencia oficial - base para detectar edicao manual
+      composicao:ref.composicao || item.composicao || "",
+      codigoNaoEncontrado:false,
+      baseData:ref.dataBase || item.baseData || orcAtual.dataBase || "",
+      baseUf:ref.uf || item.baseUf || "",
+      detailUrl:ref.detailUrl || item.detailUrl || "",
+    };
+  };
 
   const carregarDetalhesComposicoes = async () => {
     if(!orc)return;
@@ -11387,7 +11514,10 @@ function Orcamento({ data, update, showToast }) {
         : "A base não possui detalhamento analítico. A Curva ABC foi calculada pelos itens do orçamento, sem exigir alteração no Supabase.");
     }catch(error){
       setComponentesDetalhados(completarDetalhesLocalmente([]));
-      setDetalhesAviso("A consulta analítica não está disponível. A Curva ABC foi calculada pelos itens do orçamento, sem exigir atualização do Supabase.");
+      const mensagem=String(error?.message||"");
+      setDetalhesAviso(/schema|budget_reference|estrutura anal/i.test(mensagem)
+        ? "Supabase sem estrutura analítica. Execute MIGRACAO_REFERENCIAS_ANALITICAS.sql no SQL Editor e reenvie a planilha SINAPI para gravar insumos e composições."
+        : "A consulta analítica está temporariamente indisponível. A Curva ABC foi calculada pelos itens do orçamento.");
     }
     finally{setDetalhesLoading(false);}
   };
@@ -11458,6 +11588,31 @@ function Orcamento({ data, update, showToast }) {
       tipoItem:referencia.tipoItem||"INSUMO",codigo:referencia.codigo,descricao:referencia.descricao,
       unidade:referencia.unidade||"UN",coeficiente:1,precoUnit:precoDoItem(referencia,orc),dataBase:referencia.dataBase||"",uf:referencia.uf||""}]}));
     setCompBusca("");setCompResultados([]);
+  };
+
+  const analisarItemReferencia = async referencia => {
+    setAnaliseReferencia(referencia);
+    setAnaliseComponentes([]);
+    setAnaliseReferenciaAviso("");
+    if(referencia?.tipoItem!=="COMPOSICAO")return;
+    if(!(orc?.referencias||[]).length){
+      setAnaliseReferenciaAviso("Vincule uma base ao orçamento para abrir a composição.");return;
+    }
+    setAnaliseReferenciaLoading(true);
+    try{
+      const resposta=await detalharComposicoesReferencia(orc.referencias,[{codigo:referencia.codigo,fonte:referencia.fonte}]);
+      if(!resposta.ok)throw new Error(resposta.error||"Não foi possível analisar esta composição.");
+      const codigo=normalizarCodigoRef(referencia.codigo);
+      const fonte=String(referencia.fonte||"").toUpperCase();
+      const diretos=(resposta.components||[]).filter(item=>
+        normalizarCodigoRef(item.compositionCode)===codigo && String(item.fonte||"").toUpperCase()===fonte);
+      setAnaliseComponentes(diretos);
+      setAnaliseReferenciaAviso(resposta.warning||(!diretos.length
+        ? "A composição foi encontrada, mas esta base ainda não possui seu detalhamento analítico. Reenvie a planilha SINAPI após executar a migração."
+        : ""));
+    }catch(error){
+      setAnaliseReferenciaAviso(error?.message||"Não foi possível analisar esta composição.");
+    }finally{setAnaliseReferenciaLoading(false);}
   };
 
   const clonarComposicaoReferencia = async referencia => {
@@ -11570,6 +11725,7 @@ function Orcamento({ data, update, showToast }) {
       unidade,
       quantidade: q,
       precoUnit: preco,
+      precoRef: preco,   // veio da base - referencia oficial da composicao
       composicao: qtdModal.composicao || "",
       baseData:qtdModal.dataBase || orc.dataBase || "",
       baseUf:qtdModal.uf || (qtdModal.fonte === "SINAPI" ? orc.uf : ""),
@@ -11624,6 +11780,7 @@ function Orcamento({ data, update, showToast }) {
       id:uid(), etapaId:etapaAlvo, tipo:"item", codigo,
       fonte:String(externoForm.fonte||"EXTERNO").trim(), descricao,
       unidade:String(externoForm.unidade||"UN").trim(), quantidade, precoUnit,
+      precoRef:0,   // cotacao/externo nao tem base oficial - sem divergencia
       composicao:String(externoForm.composicao||"").trim(),
       codigoNaoEncontrado:!codigo,
     };
@@ -11783,6 +11940,46 @@ function Orcamento({ data, update, showToast }) {
 
     salvarOrc({ itens: todos });
   };
+
+  // Reordena por ARRASTAR: move o item de origem para a posicao do item destino,
+  // desde que ambos estejam na mesma etapa. Diferente de moverLinha (um passo),
+  // aqui o item pode saltar varias posicoes de uma vez.
+  const moverItemPara = (origemId, destinoId) => {
+    if (!origemId || origemId === destinoId) return;
+    const todos = [...(orc.itens || [])];
+    const origem  = todos.find(it => it.id === origemId);
+    const destino = todos.find(it => it.id === destinoId);
+    if (!origem || !destino) return;
+    if (origem.etapaId !== destino.etapaId) return;   // so reordena dentro da etapa
+
+    const idxOrigem  = todos.findIndex(it => it.id === origemId);
+    const [movido] = todos.splice(idxOrigem, 1);
+    const idxDestino = todos.findIndex(it => it.id === destinoId);
+    todos.splice(idxDestino, 0, movido);
+    salvarOrc({ itens: todos });
+  };
+
+  // Edita um valor numerico do item direto na planilha (custo unitario ou BDI
+  // proprio). Ao mexer no custo unitario, precoRef fica intacto - e a comparacao
+  // com precoRef que faz o preco aparecer destacado quando sai do valor da base.
+  const updItemNumero = (itemId, campo, valor) => {
+    const n = parseBR(valor);
+    salvarOrc({ itens: orc.itens.map(it =>
+      it.id === itemId ? { ...it, [campo]: Number.isFinite(n) ? n : 0 } : it) });
+  };
+
+  // Restaura o custo unitario do item para o preco de referencia da base.
+  const restaurarPrecoRef = (itemId) => {
+    const it = (orc.itens || []).find(x => x.id === itemId);
+    if (!it || !(Number(it.precoRef) > 0)) return;
+    salvarOrc({ itens: orc.itens.map(x =>
+      x.id === itemId ? { ...x, precoUnit: Number(it.precoRef) } : x) });
+    showToast("Preco restaurado para o valor da base.");
+  };
+
+  // True quando o usuario editou o custo unitario e ele diverge da base.
+  const precoAlterado = (it) =>
+    Number(it.precoRef) > 0 && Math.abs(Number(it.precoUnit) - Number(it.precoRef)) > 0.005;
 
   //  Etapas: criar / renomear / excluir 
   const abrirNovaEtapa = (paiId = "") => {
@@ -12622,7 +12819,7 @@ ${blocoBDI}
       <div style={{display:"flex",gap:5,flexWrap:"wrap",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:5}}>
         {[
           ["orcamento","ORÇAMENTO"],
-          ["insumos","INSUMOS E CURVA ABC"],
+          ["insumos","INSUMOS E COMPOSIÇÕES / CURVA ABC"],
           ["proprias","COMPOSIÇÕES PRÓPRIAS"],
         ].map(([valor,label])=><button key={valor} onClick={()=>setOrcAba(valor)} style={{
           flex:"1 1 180px",border:`1px solid ${orcAba===valor?C.blue:C.border}`,borderRadius:6,padding:"8px 10px",
@@ -13027,20 +13224,49 @@ ${blocoBDI}
                   //  Linha de ITEM: composição com valor 
                   const tot = itemTotal(it, orc.bdi);
                   const codigoPendente = !!it.codigoNaoEncontrado || !String(it.codigo||"").trim();
+                  const alterado = precoAlterado(it);
+                  const bdiEfetivo = bdiDoItem(it, orc.bdi);
+                  const arrastando = arrastandoItem === it.id;
+                  const alvoDrop   = sobreItem === it.id && arrastandoItem && arrastandoItem !== it.id;
+
+                  // Monta a grade conforme as colunas visiveis. A alca de arrastar,
+                  // fonte, descricao e quantidade sao fixas; as demais entram por colsOrc.
+                  const gc = ["16px"];                       // alca de arrastar
+                  gc.push("38px");                           // codigoItem (numeracao)
+                  gc.push("58px");                           // fonte
+                  if (colsOrc.codigo)    gc.push("92px");    // codigo editavel
+                  gc.push("minmax(80px,1fr)");               // descricao (busca)
+                  if (colsOrc.unidade)   gc.push("52px");    // unidade
+                  gc.push("56px");                           // quantidade
+                  if (colsOrc.custoUnit) gc.push("84px");    // custo unitario
+                  if (colsOrc.bdi)       gc.push("56px");    // BDI proprio
+                  gc.push("18px");                           // setas
+                  if (colsOrc.total)     gc.push("120px");   // total + acoes
+
                   return (
-                    <div key={it.id} style={{
+                    <div key={it.id}
+                      draggable
+                      onDragStart={e => { setArrastandoItem(it.id); e.dataTransfer.effectAllowed = "move"; }}
+                      onDragEnd={() => { setArrastandoItem(null); setSobreItem(null); }}
+                      onDragOver={e => { e.preventDefault(); if (sobreItem !== it.id) setSobreItem(it.id); }}
+                      onDrop={e => { e.preventDefault(); moverItemPara(arrastandoItem, it.id); setArrastandoItem(null); setSobreItem(null); }}
+                      style={{
                       padding: "7px 10px", borderTop: `1px solid ${C.line}33`,
-                      display:"grid",gridTemplateColumns:"38px 68px 96px minmax(80px,1fr) 58px 82px 92px 18px 132px",
+                      display:"grid",gridTemplateColumns:gc.join(" "),
                       gap:6,alignItems:"center",width:"100%",boxSizing:"border-box",overflow:"hidden",
-                      borderLeft: codigoPendente ? `3px solid ${C.orange}` : "3px solid transparent",
-                      background: codigoPendente ? `${C.orange}09` : "transparent",
+                      borderLeft: alvoDrop ? `3px solid ${C.blue}` : codigoPendente ? `3px solid ${C.orange}` : "3px solid transparent",
+                      background: arrastando ? `${C.blue}12` : codigoPendente ? `${C.orange}09` : "transparent",
+                      opacity: arrastando ? .5 : 1,
                     }}>
+                      {/* Alca de arrastar */}
+                      <span title="Arraste para reordenar" style={{cursor:"grab",color:C.muted,fontSize:12,lineHeight:1,userSelect:"none",textAlign:"center"}}>::</span>
                       <p style={{fontSize:9,color:C.muted,fontWeight:700,minWidth:0,whiteSpace:"nowrap"}}>
                         {it.codigoItem}
                       </p>
                       <div title="Fonte" style={{minWidth:0,overflow:"hidden"}}>
                         <span style={{display:"block",fontSize:9.5,fontWeight:800,color:it.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>{it.fonte}</span>
                       </div>
+                      {colsOrc.codigo && (
                       <div style={{minWidth:0,overflow:"hidden"}}>
                           <input key={`${it.id}-cod-${it.codigo}`} defaultValue={it.codigo||""}
                             onBlur={e=>updItemCampo(it.id,"codigo",e.target.value)}
@@ -13048,6 +13274,7 @@ ${blocoBDI}
                             placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}
                             style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
+                      )}
                       <div style={{minWidth:0,overflow:"hidden"}}>
                         <input key={`${it.id}-desc-${it.descricao}`} defaultValue={it.descricao||""}
                           onChange={e=>setBuscaLinha({itemId:it.id,termo:e.target.value})}
@@ -13066,6 +13293,7 @@ ${blocoBDI}
                           title="Digite para pesquisar por descrição nas bases vinculadas"
                           style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11.5,outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
+                      {colsOrc.unidade && (
                       <div style={{minWidth:0,overflow:"hidden"}}>
                           <input key={`${it.id}-un-${it.unidade}`} defaultValue={it.unidade||""}
                             onBlur={e=>updItemCampo(it.id,"unidade",e.target.value)}
@@ -13073,6 +13301,7 @@ ${blocoBDI}
                             title="Unidade do item"
                             style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
+                      )}
                       <div style={{minWidth:0,overflow:"hidden"}}>
                           <input key={`${it.id}-qtd-${it.quantidade}`} type="number" step="any" inputMode="decimal" defaultValue={it.quantidade}
                             onBlur={e => updItemQtd(it.id, e.target.value)}
@@ -13080,18 +13309,44 @@ ${blocoBDI}
                             title="Quantidade"
                             style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
-                      <div title="Custo unitário sem BDI" style={{minWidth:0,overflow:"hidden",textAlign:"right"}}>
-                        <span style={{fontSize:10.5,color:C.muted,whiteSpace:"nowrap"}}>{fmt(it.precoUnit)}</span>
+                      {colsOrc.custoUnit && (
+                      <div title={alterado?`Base: ${fmt(it.precoRef)} - editado`:"Custo unitário sem BDI"} style={{minWidth:0,overflow:"hidden",position:"relative"}}>
+                          <input key={`${it.id}-pu-${it.precoUnit}`} type="number" step="any" inputMode="decimal" defaultValue={it.precoUnit}
+                            onBlur={e => updItemNumero(it.id, "precoUnit", e.target.value)}
+                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                            title={alterado?`Preço editado. Base da composição: ${fmt(it.precoRef)}. Duplo clique para restaurar.`:"Custo unitário sem BDI"}
+                            onDoubleClick={()=>{ if(alterado) restaurarPrecoRef(it.id); }}
+                            style={{width:"100%",boxSizing:"border-box",textAlign:"right",
+                              background: alterado?`${C.yellow}14`:C.bg,
+                              border:`1.5px solid ${alterado?C.yellowD:C.border}`,
+                              color: alterado?C.yellowD:C.text, fontWeight: alterado?800:400,
+                              padding:"5px 7px",borderRadius:5,fontSize:10.5,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
                       </div>
+                      )}
+                      {colsOrc.bdi && (
+                      <div title="BDI desta linha (vazio = usa o BDI global)" style={{minWidth:0,overflow:"hidden"}}>
+                          <input key={`${it.id}-bdi-${it.bdi}`} type="number" step="any" inputMode="decimal"
+                            defaultValue={it.bdi===""||it.bdi==null?"":it.bdi}
+                            placeholder={String(orc.bdi)}
+                            onBlur={e => updItemNumero(it.id, "bdi", e.target.value===""?"":e.target.value)}
+                            onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
+                            style={{width:"100%",boxSizing:"border-box",textAlign:"right",
+                              background:C.bg,border:`1.5px solid ${C.border}`,
+                              color: (it.bdi!==""&&it.bdi!=null)?C.text:C.muted,
+                              padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
+                      </div>
+                      )}
                       <Setas/>
+                      {colsOrc.total && (
                       <div style={{minWidth:0,overflow:"hidden",textAlign:"right",whiteSpace:"nowrap"}}>
-                        <span title="Preço total com BDI" style={{fontSize:12,fontWeight:800,color:C.text}}>{fmt(tot)}</span>
+                        <span title={`Preço total com BDI (${bdiEfetivo}%)`} style={{fontSize:12,fontWeight:800,color:alterado?C.yellowD:C.text}}>{fmt(tot)}</span>
                         <button onClick={() => setEditItem({...it})}
                           title={it.composicao?"Editar item e composição":"Editar item"}
                           style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,padding:"0 3px",marginLeft:4}}>Editar</button>
                         <button onClick={() => delItem(it.id)}
                           style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:13,padding:0}}>x</button>
                       </div>
+                      )}
                       {buscaLinha.itemId===it.id && buscaLinha.termo.trim().length>=2 && (
                         <div style={{
                           gridColumn:"4 / -1",minWidth:0,maxHeight:230,overflowY:"auto",
@@ -13139,9 +13394,28 @@ ${blocoBDI}
 
         return (
           <>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:6,marginBottom:6}}>
+            <div style={{display:"flex",justifyContent:"flex-end",gap:6,marginBottom:6,position:"relative"}}>
+              <Btn v="ghost" size="sm" onClick={()=>setColsOrcAberto(a=>!a)}>Colunas</Btn>
               <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas({})}>Expandir todos</Btn>
               <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas(Object.fromEntries((orc.etapas||[]).map(e=>[e.id,true])))}>Recolher todos</Btn>
+              {colsOrcAberto && (
+                <div style={{position:"absolute",top:"100%",right:0,marginTop:4,zIndex:30,
+                             background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:9,
+                             boxShadow:`0 8px 24px ${C.shadow}`,padding:"10px 12px",minWidth:190}}>
+                  <p style={{fontSize:10,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>Colunas visíveis</p>
+                  {[["codigo","Código"],["unidade","Unidade"],["custoUnit","Custo unitário"],["bdi","BDI por item"],["total","Total"]].map(([k,l])=>(
+                    <label key={k} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",cursor:"pointer",fontSize:12,color:C.text}}>
+                      <input type="checkbox" checked={!!colsOrc[k]}
+                        onChange={()=>setColsOrc(c=>({...c,[k]:!c[k]}))}
+                        style={{width:15,height:15,accentColor:C.yellowD,cursor:"pointer"}}/>
+                      {l}
+                    </label>
+                  ))}
+                  <p style={{fontSize:9.5,color:C.muted,marginTop:7,lineHeight:1.45,borderTop:`1px solid ${C.line}`,paddingTop:7}}>
+                    Fonte, descrição e quantidade ficam sempre visíveis.
+                  </p>
+                </div>
+              )}
             </div>
             {calc.arvore.map(no => <Etapa key={no.id} no={no} />)}
             <Btn v="ghost" full onClick={() => abrirNovaEtapa("")} style={{ marginTop: 2 }}>
@@ -13883,6 +14157,30 @@ ${blocoBDI}
 
       {orcAba==="insumos" && (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderLeft:`4px solid ${C.blue}`,borderRadius:8,padding:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:7}}>
+              <div><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>CONSULTA ANALÍTICA DAS BASES</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Pesquise e abra separadamente os insumos ou as composições SINAPI/ORSE vinculadas.</p></div>
+              <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"5px 8px",fontSize:8.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
+            </div>
+            <Inp value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo por código ou descrição...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição por código ou descrição...":"Pesquisar insumo ou composição por código ou descrição..."}/>
+            {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:5,maxHeight:250,overflowY:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
+              {compBuscaLoading&&<p style={{fontSize:10,color:C.blue,padding:8,fontWeight:800}}>PESQUISANDO...</p>}
+              {compBuscaAviso&&<p style={{fontSize:10,color:C.orange,padding:8}}>{compBuscaAviso}</p>}
+              {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"115px minmax(0,1fr) 95px auto",gap:7,padding:"7px 8px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center"}}>
+                <span><b style={{display:"block",fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><small style={{fontSize:7.5,color:item.tipoItem==="COMPOSICAO"?C.green:C.orange,fontWeight:900}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span>
+                <span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
+                <span style={{fontSize:10,color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
+                <button onClick={()=>analisarItemReferencia(item)} style={{border:`1px solid ${C.blue}`,background:`${C.blue}08`,color:C.blue,borderRadius:5,padding:"5px 8px",fontSize:9,fontWeight:800,cursor:"pointer"}}>ANALISAR</button>
+              </div>)}
+              {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:10}}>Nenhum resultado.</p>}
+            </div>}
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:5}}>
+            {[["insumos","CURVA ABC DE INSUMOS"],["composicoes","CURVA ABC DE COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>{setAbcTipo(valor);setAbcFiltro("todas");setAbcInsumoFiltro("todas");}} style={{border:`1px solid ${abcTipo===valor?C.blue:C.border}`,background:abcTipo===valor?C.blue:C.bg,color:abcTipo===valor?"#fff":C.muted,borderRadius:6,padding:"8px 10px",fontSize:10,fontWeight:900,cursor:"pointer"}}>{label}</button>)}
+          </div>
+
+          {abcTipo==="insumos"&&<>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             <div>
               <p style={{fontSize:14,fontWeight:800,color:C.text}}>QUANTITATIVOS DE INSUMOS</p>
@@ -13933,6 +14231,33 @@ ${blocoBDI}
             {abcInsumos.semDetalhe.length>0&&<p style={{fontSize:10,color:C.orange,lineHeight:1.6}}><b>SEM DETALHAMENTO:</b> {abcInsumos.semDetalhe.slice(0,20).join(", ")}{abcInsumos.semDetalhe.length>20?"...":""}</p>}
             {abcInsumos.semPreco.length>0&&<p style={{fontSize:10,color:C.red,lineHeight:1.6}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>}
           </div>}
+          </>}
+
+          {abcTipo==="composicoes"&&<>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>CURVA ABC DE COMPOSIÇÕES</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Somente serviços e composições lançados no orçamento. Insumos analíticos não entram nesta curva.</p></div>
+              <Btn size="sm" v="success" onClick={exportXLSXCurvaABC}>EXCEL</Btn>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.blue}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:C.blue}}>{abc?.itens?.length||0}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>COMPOSIÇÕES CONSOLIDADAS</p></div>
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:C.yellowD}}>{fmt(abc?.totalCD||0)}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>CUSTO DIRETO DAS COMPOSIÇÕES</p></div>
+              {(abc?.resumo||[]).map(r=><div key={r.classe} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${r.cor}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:r.cor}}>{r.qtd}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>CLASSE {r.classe} · {r.pctValor.toFixed(1)}%</p></div>)}
+            </div>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+              {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcFiltro(classe)} style={{border:`1px solid ${abcFiltro===classe?(classe==="todas"?C.blue:CLASSE_ABC[classe].cor):C.border}`,background:abcFiltro===classe?`${classe==="todas"?C.blue:CLASSE_ABC[classe].cor}12`:C.bg,color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:800,cursor:"pointer"}}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</button>)}
+            </div>
+            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.bg}}>
+              <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:10.5}}>
+                <thead><tr style={{background:C.surface}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DA COMPOSIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                <tbody>{(abc?.itens||[]).filter(item=>abcFiltro==="todas"||item.classe===abcFiltro).map(item=><tr key={`${item.codigo}-${item.ordem}`} style={{borderBottom:`1px solid ${C.line}`}}>
+                  <td style={{padding:"6px 8px",fontWeight:900,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td><td style={{padding:"6px 8px",fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte||"-"}</td><td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
+                  <td title={item.descricao} style={{padding:"6px 8px",color:C.text,maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:"6px 8px",color:C.muted}}>{item.unidade}</td>
+                  <td style={{padding:"6px 8px",textAlign:"right"}}>{Number(item.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:6})}</td><td style={{padding:"6px 8px",textAlign:"right"}}>{fmt(item.precoUnit)}</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:800}}>{fmt(item.custoDireto)}</td><td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{item.pct.toFixed(2)}%</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
+                </tr>)}</tbody>
+              </table>
+              {!(abc?.itens||[]).length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhuma composição com quantidade e preço foi encontrada no orçamento.</p>}
+            </div>
+          </>}
         </div>
       )}
 
@@ -13962,13 +14287,18 @@ ${blocoBDI}
             <Inp label="Descrição *" value={compForm.descricao} onChange={valor=>setCompForm(form=>({...form,descricao:valor}))} placeholder="DESCRIÇÃO DA COMPOSIÇÃO"/>
             {compForm.origemCodigo&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}35`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:800}}>COMPOSIÇÃO COPIADA DE</p><p style={{fontSize:10.5,color:C.blue,fontWeight:800,marginTop:2}}>{compForm.origemFonte} {compForm.origemCodigo}{compForm.origemDataBase?` · ${compForm.origemDataBase}`:""}{compForm.origemUf?` · ${compForm.origemUf}`:""}</p></div>}
             <div style={{position:"relative"}}>
-              <Inp label="Pesquisar insumo ou composição nas bases vinculadas" value={compBusca} onChange={setCompBusca} placeholder="Ex.: cimento, servente, concreto..."/>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:8,flexWrap:"wrap",marginBottom:5}}>
+                <p style={{fontSize:9.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Pesquisar nas bases vinculadas</p>
+                <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"4px 7px",fontSize:8.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
+              </div>
+              <Inp value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição...":"Pesquisar insumo ou composição..."}/>
               {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:4,maxHeight:240,overflowY:"auto",border:`1px solid ${C.blue}`,borderRadius:7,padding:4}}>
                 {compBuscaLoading&&<p style={{fontSize:10,color:C.blue,padding:6}}>PESQUISANDO...</p>}
                 {compBuscaAviso&&<p style={{fontSize:10,color:C.orange,padding:6}}>{compBuscaAviso}</p>}
-                {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"85px minmax(0,1fr) 82px auto",gap:7,padding:"6px 7px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center"}}>
-                  <b style={{fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><span style={{fontSize:10,color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
+                {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 82px auto",gap:7,padding:"6px 7px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center"}}>
+                  <span><b style={{display:"block",fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><small style={{fontSize:7.5,color:item.tipoItem==="COMPOSICAO"?C.green:C.orange,fontWeight:900}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span><span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><span style={{fontSize:10,color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
                   <span style={{display:"flex",gap:4}}>
+                    <button onClick={()=>analisarItemReferencia(item)} style={{border:`1px solid ${C.blue}`,background:`${C.blue}08`,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>ANALISAR</button>
                     <button onClick={()=>adicionarItemComposicao(item)} title={item.tipoItem==="COMPOSICAO"?"Usar como composição auxiliar":"Adicionar insumo"} style={{border:`1px solid ${C.border}`,background:C.bg,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>+</button>
                     {item.tipoItem==="COMPOSICAO"&&<button disabled={!!clonandoComposicao} onClick={()=>clonarComposicaoReferencia(item)} style={{border:`1px solid ${C.green}`,background:`${C.green}10`,color:C.green,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{clonandoComposicao===`${item.fonte}|${item.codigo}`?"COPIANDO...":"CLONAR"}</button>}
                   </span>
@@ -13990,6 +14320,43 @@ ${blocoBDI}
           </div>
         </div>
       )}
+
+      {analiseReferencia&&<Modal title={`${analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"} ${analiseReferencia.fonte} ${analiseReferencia.codigo}`} onClose={()=>{setAnaliseReferencia(null);setAnaliseComponentes([]);setAnaliseReferenciaAviso("");}} wide>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:10}}>
+            <p style={{fontSize:13,fontWeight:900,color:C.text}}>{analiseReferencia.descricao}</p>
+            <div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:7,fontSize:10.5,color:C.muted}}>
+              <span><b>Tipo:</b> {analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"}</span>
+              <span><b>Unidade:</b> {analiseReferencia.unidade||"UN"}</span>
+              <span><b>Preço:</b> {fmt(precoDoItem(analiseReferencia,orc))}</span>
+              <span><b>Data-base:</b> {analiseReferencia.dataBase||orc?.dataBase||"-"}</span>
+              {analiseReferencia.uf&&<span><b>UF:</b> {analiseReferencia.uf}</span>}
+              {analiseReferencia.classificacao&&<span><b>Classificação:</b> {analiseReferencia.classificacao}</span>}
+            </div>
+          </div>
+
+          {analiseReferenciaLoading&&<p style={{padding:18,textAlign:"center",fontSize:11,color:C.blue,fontWeight:800}}>CARREGANDO ANÁLISE...</p>}
+          {analiseReferenciaAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:10.5,color:C.orange}}>{analiseReferenciaAviso}</div>}
+
+          {analiseReferencia.tipoItem==="COMPOSICAO"&&!analiseReferenciaLoading&&analiseComponentes.length>0&&<>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><p style={{fontSize:12,fontWeight:900,color:C.text}}>COMPOSIÇÃO ANALÍTICA DIRETA</p><b style={{fontSize:13,color:C.yellowD}}>{fmt(analiseComponentes.reduce((s,item)=>s+Number(item.coeficiente||0)*precoDoItem(item,orc),0))}</b></div>
+            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7,maxHeight:390,overflowY:"auto"}}><table style={{width:"100%",minWidth:760,borderCollapse:"collapse",fontSize:10}}>
+              <thead style={{position:"sticky",top:0,zIndex:1}}><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL"].map(h=><th key={h} style={{padding:"7px 6px",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:C.muted,fontSize:8.5,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+              <tbody>{analiseComponentes.map((item,index)=><tr key={`${item.itemType}-${item.itemCode}-${index}`} style={{borderBottom:`1px solid ${C.line}`}}>
+                <td style={{padding:6,color:item.itemType==="COMPOSICAO"?C.green:C.orange,fontWeight:800}}>{item.itemType}</td>
+                <td style={{padding:6,fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td><td style={{padding:6}}>{item.itemCode}</td>
+                <td title={item.descricao} style={{padding:6,maxWidth:310,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:6}}>{item.unidade}</td>
+                <td style={{padding:6,textAlign:"right"}}>{Number(item.coeficiente||0).toLocaleString("pt-BR",{maximumFractionDigits:8})}</td><td style={{padding:6,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}</td><td style={{padding:6,textAlign:"right",fontWeight:800}}>{fmt(Number(item.coeficiente||0)*precoDoItem(item,orc))}</td>
+              </tr>)}</tbody>
+            </table></div>
+          </>}
+
+          <div style={{display:"flex",justifyContent:"flex-end",gap:7,flexWrap:"wrap"}}>
+            {analiseReferencia.tipoItem==="COMPOSICAO"&&<Btn v="success" onClick={()=>{const item=analiseReferencia;setAnaliseReferencia(null);clonarComposicaoReferencia(item);}}>CLONAR PARA A EMPRESA</Btn>}
+            <Btn v="ghost" onClick={()=>{setAnaliseReferencia(null);setAnaliseComponentes([]);setAnaliseReferenciaAviso("");}}>FECHAR</Btn>
+          </div>
+        </div>
+      </Modal>}
     </div>
   );
 }
@@ -21653,7 +22020,7 @@ export default function App() {
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} />}
-          {tab === "folha"  && <Folha       data={data} showToast={showToast} />}
+          {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} />}
