@@ -10638,6 +10638,7 @@ function Orcamento({ data, update, showToast }) {
   const [componentesDetalhados,setComponentesDetalhados]=useState([]);
   const [detalhesLoading,setDetalhesLoading]=useState(false);
   const [detalhesAviso,setDetalhesAviso]=useState("");
+  const [abcTipo,setAbcTipo]=useState("insumos");
   const [abcInsumoFiltro,setAbcInsumoFiltro]=useState("todas");
   const [compForm,setCompForm]=useState({id:"",codigo:"",descricao:"",unidade:"UN",origemFonte:"PRÓPRIA",origemCodigo:"",origemDataBase:"",origemUf:"",itens:[]});
   const [clonandoComposicao,setClonandoComposicao]=useState("");
@@ -14031,6 +14032,12 @@ ${blocoBDI}
               {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:10}}>Nenhum resultado.</p>}
             </div>}
           </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:5}}>
+            {[["insumos","CURVA ABC DE INSUMOS"],["composicoes","CURVA ABC DE COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>{setAbcTipo(valor);setAbcFiltro("todas");setAbcInsumoFiltro("todas");}} style={{border:`1px solid ${abcTipo===valor?C.blue:C.border}`,background:abcTipo===valor?C.blue:C.bg,color:abcTipo===valor?"#fff":C.muted,borderRadius:6,padding:"8px 10px",fontSize:10,fontWeight:900,cursor:"pointer"}}>{label}</button>)}
+          </div>
+
+          {abcTipo==="insumos"&&<>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             <div>
               <p style={{fontSize:14,fontWeight:800,color:C.text}}>QUANTITATIVOS DE INSUMOS</p>
@@ -14081,6 +14088,33 @@ ${blocoBDI}
             {abcInsumos.semDetalhe.length>0&&<p style={{fontSize:10,color:C.orange,lineHeight:1.6}}><b>SEM DETALHAMENTO:</b> {abcInsumos.semDetalhe.slice(0,20).join(", ")}{abcInsumos.semDetalhe.length>20?"...":""}</p>}
             {abcInsumos.semPreco.length>0&&<p style={{fontSize:10,color:C.red,lineHeight:1.6}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>}
           </div>}
+          </>}
+
+          {abcTipo==="composicoes"&&<>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>CURVA ABC DE COMPOSIÇÕES</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Somente serviços e composições lançados no orçamento. Insumos analíticos não entram nesta curva.</p></div>
+              <Btn size="sm" v="success" onClick={exportXLSXCurvaABC}>EXCEL</Btn>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.blue}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:C.blue}}>{abc?.itens?.length||0}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>COMPOSIÇÕES CONSOLIDADAS</p></div>
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:C.yellowD}}>{fmt(abc?.totalCD||0)}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>CUSTO DIRETO DAS COMPOSIÇÕES</p></div>
+              {(abc?.resumo||[]).map(r=><div key={r.classe} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${r.cor}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:r.cor}}>{r.qtd}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>CLASSE {r.classe} · {r.pctValor.toFixed(1)}%</p></div>)}
+            </div>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+              {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcFiltro(classe)} style={{border:`1px solid ${abcFiltro===classe?(classe==="todas"?C.blue:CLASSE_ABC[classe].cor):C.border}`,background:abcFiltro===classe?`${classe==="todas"?C.blue:CLASSE_ABC[classe].cor}12`:C.bg,color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:800,cursor:"pointer"}}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</button>)}
+            </div>
+            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.bg}}>
+              <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:10.5}}>
+                <thead><tr style={{background:C.surface}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DA COMPOSIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                <tbody>{(abc?.itens||[]).filter(item=>abcFiltro==="todas"||item.classe===abcFiltro).map(item=><tr key={`${item.codigo}-${item.ordem}`} style={{borderBottom:`1px solid ${C.line}`}}>
+                  <td style={{padding:"6px 8px",fontWeight:900,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td><td style={{padding:"6px 8px",fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte||"-"}</td><td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
+                  <td title={item.descricao} style={{padding:"6px 8px",color:C.text,maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:"6px 8px",color:C.muted}}>{item.unidade}</td>
+                  <td style={{padding:"6px 8px",textAlign:"right"}}>{Number(item.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:6})}</td><td style={{padding:"6px 8px",textAlign:"right"}}>{fmt(item.precoUnit)}</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:800}}>{fmt(item.custoDireto)}</td><td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{item.pct.toFixed(2)}%</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
+                </tr>)}</tbody>
+              </table>
+              {!(abc?.itens||[]).length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhuma composição com quantidade e preço foi encontrada no orçamento.</p>}
+            </div>
+          </>}
         </div>
       )}
 
