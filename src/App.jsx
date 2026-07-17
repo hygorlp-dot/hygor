@@ -9003,14 +9003,14 @@ const ROLE_TABS = {
   engenheiro:  ["home","obras","orc","plan","rdo","med","est","cmp","ponto","equipe","terc","caixa","obsoletos","cad","ia"],
   compras:     ["home","cmp","est","cad","ia"],
   rh:          ["home","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
-  financeiro:  ["home","ponto_geral","equipe","folha","resc","orc","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
-  comercial:   ["home","com_dash","com_leads","com_funil","com_agenda","com_reunioes","com_tarefas","com_propostas","orc","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","ia"],
+  financeiro:  ["home","ponto_geral","equipe","folha","resc","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
+  comercial:   ["home","com_dash","com_leads","com_funil","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","ia"],
   visualizador:["home"],
 };
 
 const ACCESS_SECTORS=[
   {id:"engenharia",label:"Engenharia",color:"#1565C0",tabs:[
-    ["obras","Obras"],["plan","Planejamento"],["rdo","Diário de obra"],["med","Medição técnica"],
+    ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["rdo","Diário de obra"],["med","Medição técnica"],
     ["ponto","Ponto"],["equipe","Equipe"],["terc","Terceiros"],["obsoletos","Obsoletos"],
   ]},
   {id:"compras",label:"Compras",color:"#D97706",tabs:[
@@ -9022,7 +9022,7 @@ const ACCESS_SECTORS=[
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
     ["com_dash","Dashboard comercial"],["com_leads","Leads"],["com_funil","Funil de vendas"],["com_agenda","Agenda"],
-    ["com_reunioes","Reuniões"],["com_tarefas","Tarefas e follow-ups"],["com_propostas","Propostas"],["orc","Orçamentos técnicos"],
+    ["com_reunioes","Reuniões"],["com_tarefas","Tarefas e follow-ups"],["com_propostas","Propostas"],
     ["com_negociacoes","Negociações"],["com_contratos","Contratos"],["com_clientes","Clientes"],["com_parceiros","Parceiros e indicações"],
     ["com_metas","Metas e comissões"],["com_perdas","Motivos de perda"],["com_relatorios","Relatórios comerciais"],
   ]},
@@ -11316,6 +11316,29 @@ function Orcamento({ data, update, showToast }) {
   const normalizarCodigoRef = valor => String(valor || "").trim().toUpperCase()
     .replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i, "").replace(/\.0$/, "");
 
+  // A Curva ABC nao depende das tabelas analiticas adicionais do Supabase.
+  // Quando a base remota nao possui o detalhamento, cada composicao do proprio
+  // orcamento entra como uma linha consolidada. Assim o total e a classificacao
+  // ABC continuam utilizaveis, sem migracao de banco e sem apagar informacoes.
+  const completarDetalhesLocalmente = (remotos = []) => {
+    if (!orc) return remotos;
+    const resultado=[...remotos];
+    const cobertos=new Set(remotos.map(item=>`${String(item.fonte||"SINAPI").toUpperCase()}|${normalizarCodigoRef(item.compositionCode)}`));
+    const adicionados=new Set();
+    (orc.itens||[]).filter(item=>item.tipo!=="titulo"&&Number(item.quantidade)>0).forEach(item=>{
+      const fonte=String(item.fonte||orc.fonte||"SINAPI").toUpperCase();
+      const codigo=normalizarCodigoRef(item.codigo);
+      const chave=`${fonte}|${codigo}`;
+      if(!codigo||cobertos.has(chave)||adicionados.has(chave)||/^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(fonte))return;
+      adicionados.add(chave);
+      resultado.push({fonte,compositionCode:codigo,itemType:"INSUMO",itemCode:codigo,
+        descricao:item.descricao||`ITEM ${codigo}`,unidade:item.unidade||"UN",coeficiente:1,
+        precoUnit:Number(item.precoUnit||0),precoDes:Number(item.precoUnit||0),precoNao:Number(item.precoUnit||0),
+        classificacao:"ITEM CONSOLIDADO DO ORÇAMENTO",fallbackLocal:true});
+    });
+    return resultado;
+  };
+
   const aplicarReferencia = (item, ref, orcAtual = orc) => ({
     ...item,
     codigo:ref.codigo || item.codigo,
@@ -11331,11 +11354,16 @@ function Orcamento({ data, update, showToast }) {
   });
 
   const carregarDetalhesComposicoes = async () => {
-    if(!orc||!(orc.referencias||[]).length){setDetalhesAviso("Vincule uma base SINAPI ou ORSE ao orçamento.");return;}
+    if(!orc)return;
     const entries=(orc.itens||[]).filter(item=>item.tipo!=="titulo"&&normalizarCodigoRef(item.codigo)
       && !/^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(String(item.fonte||"").toUpperCase()))
       .map(item=>({codigo:normalizarCodigoRef(item.codigo),fonte:item.fonte||""}));
     if(!entries.length){setComponentesDetalhados([]);setDetalhesAviso("Não há composições oficiais codificadas neste orçamento.");return;}
+    if(!(orc.referencias||[]).length){
+      setComponentesDetalhados(completarDetalhesLocalmente([]));
+      setDetalhesAviso("Curva calculada pelos itens do orçamento. Vincular uma base analítica é opcional e serve apenas para abrir cada composição em seus insumos.");
+      return;
+    }
     setDetalhesLoading(true);setDetalhesAviso("");
     try{
       const componentes=[];
@@ -11346,12 +11374,19 @@ function Orcamento({ data, update, showToast }) {
         if(resposta.warning)setDetalhesAviso(resposta.warning);
       }
       const vistos=new Set();
-      setComponentesDetalhados(componentes.filter(item=>{
+      const remotos=componentes.filter(item=>{
         const chave=`${item.fonte}|${item.compositionCode}|${item.itemType}|${item.itemCode}`;
         if(vistos.has(chave))return false;vistos.add(chave);return true;
-      }));
-      if(!componentes.length)setDetalhesAviso("As bases vinculadas ainda não possuem relações analíticas. Reenvie a planilha SINAPI após executar o schema.sql atualizado.");
-    }catch(error){setDetalhesAviso(error?.message||"Não foi possível carregar os insumos.");}
+      });
+      const completos=completarDetalhesLocalmente(remotos);
+      setComponentesDetalhados(completos);
+      if(completos.some(item=>item.fallbackLocal))setDetalhesAviso(remotos.length
+        ? "Parte das composições não possui analítico; esses itens foram consolidados diretamente pelo orçamento."
+        : "A base não possui detalhamento analítico. A Curva ABC foi calculada pelos itens do orçamento, sem exigir alteração no Supabase.");
+    }catch(error){
+      setComponentesDetalhados(completarDetalhesLocalmente([]));
+      setDetalhesAviso("A consulta analítica não está disponível. A Curva ABC foi calculada pelos itens do orçamento, sem exigir atualização do Supabase.");
+    }
     finally{setDetalhesLoading(false);}
   };
 
@@ -13890,7 +13925,7 @@ ${blocoBDI}
                 <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
               </tr>)}</tbody>
             </table>
-            {!abcInsumos.itens.length&&!detalhesLoading&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum insumo calculado. Atualize os insumos ou reenvie a base analítica.</p>}
+            {!abcInsumos.itens.length&&!detalhesLoading&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum quantitativo calculado. Confira se os itens possuem código, quantidade e custo unitário.</p>}
           </div>
           {(abcInsumos.semDetalhe.length>0||abcInsumos.semPreco.length>0)&&<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}>
             {abcInsumos.semDetalhe.length>0&&<p style={{fontSize:10,color:C.orange,lineHeight:1.6}}><b>SEM DETALHAMENTO:</b> {abcInsumos.semDetalhe.slice(0,20).join(", ")}{abcInsumos.semDetalhe.length>20?"...":""}</p>}
@@ -20991,7 +21026,7 @@ const NAV_GROUPS = [
   },
   {
     id: "eng_grp", label: "Engenharia", icon: "home", color: C.blue,
-    tabs: ["obras", "plan", "rdo", "med", "ponto", "equipe", "terc"],
+    tabs: ["obras", "orc", "plan", "rdo", "med", "ponto", "equipe", "terc"],
   },
   {
     id: "compras_grp", label: "Compras", icon: "dollar", color: C.orange,
@@ -21003,7 +21038,7 @@ const NAV_GROUPS = [
   },
   {
     id: "com_grp", label: "Comercial", icon: "users", color: C.green,
-    tabs: ["com_dash","com_leads","com_funil","com_agenda","com_reunioes","com_tarefas","com_propostas","orc","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
+    tabs: ["com_dash","com_leads","com_funil","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
   },
   {
     id: "ia_grp", label: "IA", icon: "brain", color: C.orange,
@@ -21022,7 +21057,7 @@ const NAV_GROUPS = [
 const TAB_META = {
   home:   { label: "Dashboard",  icon: "home",     group: "painel"   },
   obras:  { label: "Obras",      icon: "home",     group: "eng_grp"},
-  orc:    { label: "Orçamento",  icon: "file",     group: "com_grp"},
+  orc:    { label: "Orçamento",  icon: "file",     group: "eng_grp"},
   com_dash:{label:"Dashboard",icon:"chart",group:"com_grp"},
   com_leads:{label:"Leads",icon:"users",group:"com_grp"},
   com_funil:{label:"Funil",icon:"chart",group:"com_grp"},
