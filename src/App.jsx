@@ -790,6 +790,16 @@ const SPECIALTIES = [
 ];
 const specInfo = v => SPECIALTIES.find(s => s.v === v) || { l: "Outros", emoji: "", color: "#8f8661" };
 
+// Ponto de partida para subdividir um contrato. E sugestao: a tela deixa
+// renomear, reordenar, apagar e acrescentar. A ordem e a de execucao.
+const ETAPAS_SUGERIDAS = {
+  eletricista: ["Rasgo de parede","Eletrodutos e caixas","Enfiação","Quadros e disjuntores","Tomadas e interruptores","Luminárias","Testes e energização"],
+  encanador:   ["Rasgo de parede","Tubulação de água fria","Tubulação de esgoto","Tubulação de águas pluviais","Louças e metais","Teste de estanqueidade"],
+  serralheiro: ["Medição em obra","Fabricação","Transporte e içamento","Instalação","Acabamento e pintura"],
+  armador:     ["Corte e dobra","Armação de fundação","Armação de pilares","Armação de vigas","Armação de lajes"],
+  outros:      ["Mobilização","Execução","Conclusão e limpeza"],
+};
+
 // Retorna a sexta-feira da semana atual, navegável por weekOffset
 const getFridayOfWeek = (weekOffset = 0) => {
   const d = new Date();
@@ -1037,8 +1047,37 @@ const normalizeData = incoming => {
       notes: t.notes || "",
       active: t.active !== false,
       startDate: t.startDate || "",
+      // Subdivisao do contrato. A soma dos valores das etapas deveria fechar
+      // com contractValue - a tela avisa quando nao fecha, mas nao impede:
+      // contrato em andamento costuma ser detalhado aos poucos.
+      etapas: Array.isArray(t.etapas) ? t.etapas.map((e, i) => ({
+        id:    e.id   || uid(),
+        nome:  e.nome || "Etapa",
+        valor: Number(e.valor || 0),
+        ordem: Number(e.ordem ?? i),
+      })).sort((a, b) => a.ordem - b.ordem) : [],
     })) : [],
     pagsTerceiros: Array.isArray(d.pagsTerceiros) ? d.pagsTerceiros : [],
+    // Medicao de contrato de terceiro. Cada medicao grava o percentual
+    // ACUMULADO por etapa e o percentual anterior: o valor da medicao e a
+    // diferenca entre os dois. Guardar o acumulado (e nao so o avanco) e o que
+    // permite corrigir uma medicao a maior sem reescrever o historico.
+    medicoesTerc: Array.isArray(d.medicoesTerc) ? d.medicoesTerc.map(m => ({
+      id:     m.id     || uid(),
+      tercId: m.tercId || "",
+      obraId: m.obraId || "",
+      data:   m.data   || today(),
+      numero: Number(m.numero || 0),
+      itens: Array.isArray(m.itens) ? m.itens.map(i => ({
+        etapaId:     i.etapaId || "",
+        pctAnterior: Number(i.pctAnterior || 0),
+        pctAcum:     Number(i.pctAcum || 0),
+        valor:       Number(i.valor || 0),
+      })) : [],
+      total:       Number(m.total || 0),
+      observacao:  m.observacao  || "",
+      pagamentoId: m.pagamentoId || "",
+    })) : [],
     rescisoes: Array.isArray(d.rescisoes) ? d.rescisoes : [],
     outrasDesp: Array.isArray(d.outrasDesp) ? d.outrasDesp.map(x => ({
       id: x.id || uid(),
@@ -6797,6 +6836,10 @@ function Terceiros({ data, update, showToast }) {
   const [filterObra,  setFilterObra]  = useState("all");
   const [filterSpec,  setFilterSpec]  = useState("all");
   const [expanded,    setExpanded]    = useState(null);
+  const [tercSel,     setTercSel]     = useState("");     // contrato aberto em Medições
+  const [etapaForm,   setEtapaForm]   = useState({ id:"", nome:"", valor:"" });
+  const [medModal,    setMedModal]    = useState(false);
+  const [medForm,     setMedForm]     = useState({ data: today(), observacao:"", pcts:{} });
 
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
@@ -6858,8 +6901,155 @@ function Terceiros({ data, update, showToast }) {
 
   const removePay = id => {
     if (!window.confirm("Remover pagamento?")) return;
-    update({ ...data, pagsTerceiros: (data.pagsTerceiros || []).filter(p => p.id !== id) });
+    // Se o pagamento veio de uma medicao, ela volta a constar como nao paga -
+    // senao a medicao ficaria apontando para um pagamento inexistente.
+    update({ ...data,
+      pagsTerceiros: (data.pagsTerceiros || []).filter(p => p.id !== id),
+      medicoesTerc: (data.medicoesTerc || []).map(m => m.pagamentoId === id ? { ...m, pagamentoId: "" } : m) });
     showToast("Pagamento removido.");
+  };
+
+  //  ETAPAS DO CONTRATO E MEDICOES 
+
+  // "1.500,00" | "1500.50" | 1500 -> number. Decide pelo separador que aparece
+  // por ultimo: quem vier depois e a virgula decimal, o outro e milhar.
+  const num = v => {
+    if (typeof v === "number") return v;
+    const t = String(v ?? "").trim().replace(/[^\d,.-]/g, "");
+    if (!t) return 0;
+    const vi = t.lastIndexOf(","), pi = t.lastIndexOf(".");
+    let n = t;
+    if (vi >= 0 && pi >= 0) n = vi > pi ? t.replace(/\./g, "").replace(",", ".") : t.replace(/,/g, "");
+    else if (vi >= 0) n = t.replace(",", ".");
+    return Number(n) || 0;
+  };
+  const pct = v => Math.max(0, Math.min(100, Number(String(v ?? "").replace(",", ".")) || 0));
+
+  const tercAtual = allTerc.find(t => t.id === tercSel) || null;
+  const etapasTerc = tercAtual?.etapas || [];
+
+  // Medicoes em ordem cronologica. O acumulado de uma etapa e o da ULTIMA
+  // medicao que a mediu - por isso a ordem importa mais que o numero.
+  const medicoesDo = id => (data.medicoesTerc || [])
+    .filter(m => m.tercId === id)
+    .sort((a, b) => (a.data + a.id).localeCompare(b.data + b.id));
+
+  const medicoesTercAtual = tercSel ? medicoesDo(tercSel) : [];
+
+  const acumuladoPorEtapa = useMemo(() => {
+    const mapa = {};
+    medicoesTercAtual.forEach(m => m.itens.forEach(i => { mapa[i.etapaId] = Number(i.pctAcum || 0); }));
+    return mapa;
+  }, [data.medicoesTerc, tercSel]);
+
+  const somaEtapas   = etapasTerc.reduce((s, e) => s + Number(e.valor || 0), 0);
+  const totalMedido  = medicoesTercAtual.reduce((s, m) => s + Number(m.total || 0), 0);
+  // Avanco fisico ponderado pelo valor de cada etapa - nao pela contagem.
+  const pctFisico    = somaEtapas > 0
+    ? etapasTerc.reduce((s, e) => s + Number(e.valor || 0) * (acumuladoPorEtapa[e.id] || 0) / 100, 0) / somaEtapas * 100
+    : 0;
+
+  const salvarEtapa = () => {
+    if (!tercAtual) return;
+    const nome = String(etapaForm.nome || "").trim();
+    if (!nome) { showToast("Informe o nome da etapa.", "error"); return; }
+    const valor = num(etapaForm.valor);
+    const etapas = etapaForm.id
+      ? etapasTerc.map(e => e.id === etapaForm.id ? { ...e, nome, valor } : e)
+      : [...etapasTerc, { id: uid(), nome, valor, ordem: etapasTerc.length }];
+    update({ ...data, terceirizados: allTerc.map(t => t.id === tercSel ? { ...t, etapas } : t) });
+    setEtapaForm({ id: "", nome: "", valor: "" });
+    showToast(etapaForm.id ? "Etapa atualizada." : "Etapa adicionada ao contrato.");
+  };
+
+  const removerEtapa = etapa => {
+    if (acumuladoPorEtapa[etapa.id] > 0) {
+      showToast("Esta etapa já foi medida. Zere a medição antes de removê-la.", "error"); return;
+    }
+    if (!window.confirm(`Remover a etapa "${etapa.nome}"?`)) return;
+    update({ ...data, terceirizados: allTerc.map(t => t.id === tercSel
+      ? { ...t, etapas: etapasTerc.filter(e => e.id !== etapa.id).map((e, i) => ({ ...e, ordem: i })) } : t) });
+    if (etapaForm.id === etapa.id) setEtapaForm({ id: "", nome: "", valor: "" });
+  };
+
+  const moverEtapa = (etapa, dir) => {
+    const lista = [...etapasTerc];
+    const i = lista.findIndex(e => e.id === etapa.id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= lista.length) return;
+    [lista[i], lista[j]] = [lista[j], lista[i]];
+    update({ ...data, terceirizados: allTerc.map(t => t.id === tercSel
+      ? { ...t, etapas: lista.map((e, k) => ({ ...e, ordem: k })) } : t) });
+  };
+
+  // Sugere as etapas da especialidade e reparte o contrato por igual. E so um
+  // ponto de partida: os valores sao editaveis um a um logo abaixo.
+  const sugerirEtapas = () => {
+    if (!tercAtual) return;
+    if (etapasTerc.length && !window.confirm("Isso substitui as etapas atuais deste contrato. Continuar?")) return;
+    if (medicoesTercAtual.length) { showToast("Este contrato já tem medições. Ajuste as etapas manualmente.", "error"); return; }
+    const nomes = ETAPAS_SUGERIDAS[tercAtual.specialty] || ETAPAS_SUGERIDAS.outros;
+    const fatia = Number(tercAtual.contractValue || 0) / nomes.length;
+    update({ ...data, terceirizados: allTerc.map(t => t.id === tercSel
+      ? { ...t, etapas: nomes.map((nome, i) => ({ id: uid(), nome, valor: Math.round(fatia * 100) / 100, ordem: i })) } : t) });
+    showToast(`${nomes.length} etapas sugeridas. Ajuste os valores de cada uma.`);
+  };
+
+  const abrirMedicao = () => {
+    if (!etapasTerc.length) { showToast("Subdivida o contrato em etapas antes de medir.", "error"); return; }
+    // O formulario ja abre com o acumulado atual: voce so mexe no que avancou.
+    setMedForm({ data: today(), observacao: "",
+      pcts: Object.fromEntries(etapasTerc.map(e => [e.id, String(acumuladoPorEtapa[e.id] || 0)])) });
+    setMedModal(true);
+  };
+
+  const itensDaMedicao = () => etapasTerc.map(e => {
+    const anterior = Number(acumuladoPorEtapa[e.id] || 0);
+    const acum = pct(medForm.pcts?.[e.id] ?? anterior);
+    return { etapaId: e.id, pctAnterior: anterior, pctAcum: acum,
+             valor: Number(e.valor || 0) * (acum - anterior) / 100 };
+  });
+
+  const salvarMedicao = () => {
+    if (!tercAtual) return;
+    const itens = itensDaMedicao().filter(i => Math.abs(i.pctAcum - i.pctAnterior) > 0.0001);
+    if (!itens.length) { showToast("Nenhuma etapa avançou desde a última medição.", "warn"); return; }
+    const total = itens.reduce((s, i) => s + i.valor, 0);
+    const medicao = {
+      id: uid(), tercId: tercSel, obraId: tercAtual.obraId || "",
+      data: medForm.data || today(), numero: medicoesTercAtual.length + 1,
+      itens, total, observacao: String(medForm.observacao || "").trim(), pagamentoId: "",
+    };
+    update({ ...data, medicoesTerc: [...(data.medicoesTerc || []), medicao] });
+    setMedModal(false);
+    showToast(`Medição ${medicao.numero} registrada: ${fmt(total)}.`);
+  };
+
+  // A ultima medicao pode ser desfeita sem ambiguidade. Uma do meio nao: os
+  // acumulados seguintes foram calculados em cima dela.
+  const removerMedicao = m => {
+    const ultima = medicoesDo(m.tercId).slice(-1)[0];
+    if (!ultima || ultima.id !== m.id) {
+      showToast("Só a última medição pode ser removida - as seguintes partem dela.", "error"); return;
+    }
+    if (m.pagamentoId) { showToast("Esta medição já virou pagamento. Remova o pagamento primeiro.", "error"); return; }
+    if (!window.confirm(`Remover a medição ${m.numero}?`)) return;
+    update({ ...data, medicoesTerc: (data.medicoesTerc || []).filter(x => x.id !== m.id) });
+    showToast("Medição removida.");
+  };
+
+  const pagarMedicao = m => {
+    const t = allTerc.find(x => x.id === m.tercId);
+    if (!t) return;
+    if (m.pagamentoId) { showToast("Esta medição já foi paga.", "warn"); return; }
+    if (!(m.total > 0)) { showToast("Medição sem valor a pagar.", "warn"); return; }
+    const pag = { id: uid(), tercId: m.tercId, tercName: t.name, specialty: t.specialty,
+      obraId: m.obraId, date: m.data, amount: m.total, medicaoId: m.id,
+      description: `Medição ${m.numero} - ${fmtDateFull(m.data)}` };
+    update({ ...data,
+      pagsTerceiros: [...(data.pagsTerceiros || []), pag],
+      medicoesTerc: (data.medicoesTerc || []).map(x => x.id === m.id ? { ...x, pagamentoId: pag.id } : x) });
+    showToast(`Pagamento de ${fmt(m.total)} registrado para ${t.name}.`);
   };
 
   const paidThisWeekAmount = activeTerc.reduce((s, t) => {
@@ -6898,13 +7088,13 @@ function Terceiros({ data, update, showToast }) {
       </div>
 
       {/* Sub-nav */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-        {[["cadastro"," Cadastro"],["pagamentos"," Pagamentos"]].map(([v,l]) => (
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+        {[["cadastro","Cadastro"],["medicoes","Medições"],["pagamentos","Pagamentos"]].map(([v,l]) => (
           <button key={v} onClick={() => setView(v)} style={{
             padding:"11px 0", border:`2px solid ${view===v ? C.orange : C.line}`,
             background: view===v ? `${C.orange}18` : "transparent",
             color: view===v ? C.orange : C.muted,
-            fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:14, letterSpacing:.5,
+            fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:13.5, letterSpacing:.5,
             cursor:"pointer", borderRadius:12,
           }}>{l}</button>
         ))}
@@ -7069,6 +7259,171 @@ function Terceiros({ data, update, showToast }) {
         )}
       </>)}
 
+      {/*  VIEW: MEDICOES  */}
+      {view === "medicoes" && (<>
+        <Sel label="Contrato" value={tercSel} onChange={setTercSel}
+          options={[{v:"",l:"Selecione o terceirizado..."},
+            ...allTerc.map(t => ({ v:t.id, l:`${t.name} · ${specInfo(t.specialty).l}${t.obraId?` · ${obraName(t.obraId)}`:""}` }))]}/>
+
+        {!tercSel && (
+          <div style={{ padding:26, textAlign:"center", background:C.card, border:`1px solid ${C.border}`, borderRadius:14 }}>
+            <p style={{ fontSize:12.5, color:C.muted, lineHeight:1.6 }}>
+              Escolha um contrato para subdividir em etapas e medir o avanço.<br/>
+              Ex.: eletricista &rarr; rasgo de parede, eletrodutos, enfiação...
+            </p>
+          </div>
+        )}
+
+        {tercAtual && (<>
+          {/* Resumo do contrato */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+            {[
+              ["Contrato", fmt(tercAtual.contractValue), C.green],
+              ["Medido", fmt(totalMedido), C.blue],
+              ["A medir", fmt(somaEtapas - totalMedido), (somaEtapas - totalMedido) >= 0 ? C.orange : C.red],
+              ["Avanço físico", `${pctFisico.toFixed(1)}%`, C.yellow],
+            ].map(([l,v,c]) => (
+              <div key={l} style={{ background:C.card, border:`1px solid ${C.border}`, borderTop:`3px solid ${c}`, padding:"10px 12px", borderRadius:14 }}>
+                <p style={{ fontSize:9.5, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>{l}</p>
+                <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:800, color:c, fontSize:21, lineHeight:1.1, marginTop:3 }}>{v}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ height:7, background:C.surface, borderRadius:99, overflow:"hidden" }}>
+            <div style={{ height:"100%", width:`${Math.min(pctFisico,100)}%`, background:C.yellow, borderRadius:99, transition:"width .25s" }}/>
+          </div>
+
+          {/* A soma das etapas precisa fechar com o contrato, senao a medicao
+              mede uma coisa e o contrato vale outra. */}
+          {etapasTerc.length > 0 && Math.abs(somaEtapas - Number(tercAtual.contractValue||0)) > 0.5 && (
+            <div style={{ background:`${C.orange}12`, border:`1px solid ${C.orange}55`, borderRadius:10, padding:"9px 12px" }}>
+              <p style={{ fontSize:11.5, color:C.orange, lineHeight:1.55 }}>
+                As etapas somam <b>{fmt(somaEtapas)}</b> e o contrato é de <b>{fmt(tercAtual.contractValue)}</b> -
+                diferença de {fmt(Math.abs(somaEtapas - Number(tercAtual.contractValue||0)))}.
+                Ajuste os valores das etapas ou o valor do contrato no cadastro.
+              </p>
+            </div>
+          )}
+
+          {/* Etapas do contrato */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+            <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:1 }}>
+              Etapas do contrato ({etapasTerc.length})
+            </p>
+            <div style={{ display:"flex", gap:6 }}>
+              <Btn size="sm" v="ghost" onClick={sugerirEtapas}>Sugerir etapas</Btn>
+              <Btn size="sm" onClick={abrirMedicao}><Ic n="plus"/> Nova medição</Btn>
+            </div>
+          </div>
+
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, overflow:"hidden" }}>
+            {etapasTerc.map((e, i) => {
+              const acum = acumuladoPorEtapa[e.id] || 0;
+              return (
+                <div key={e.id} style={{ padding:"10px 12px", borderTop:i?`1px solid ${C.line}`:0,
+                                         display:"flex", alignItems:"center", gap:9 }}>
+                  <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                    <button onClick={()=>moverEtapa(e,-1)} disabled={i===0} title="Subir"
+                      style={{ background:"transparent", border:0, cursor:i===0?"default":"pointer",
+                               color:i===0?C.line:C.muted, fontSize:10, lineHeight:1, padding:"1px 3px" }}>&#9650;</button>
+                    <button onClick={()=>moverEtapa(e,+1)} disabled={i===etapasTerc.length-1} title="Descer"
+                      style={{ background:"transparent", border:0, cursor:i===etapasTerc.length-1?"default":"pointer",
+                               color:i===etapasTerc.length-1?C.line:C.muted, fontSize:10, lineHeight:1, padding:"1px 3px" }}>&#9660;</button>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ fontSize:13, fontWeight:700, color:C.text }}>{i+1}. {e.nome}</p>
+                    <div style={{ height:4, background:C.surface, borderRadius:99, overflow:"hidden", marginTop:5 }}>
+                      <div style={{ height:"100%", width:`${acum}%`, background:acum>=100?C.green:C.blue, borderRadius:99 }}/>
+                    </div>
+                  </div>
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <p style={{ fontSize:13, fontWeight:800, color:C.text }}>{fmt(e.valor)}</p>
+                    <p style={{ fontSize:10, color:acum>=100?C.green:C.muted, fontWeight:700 }}>{acum.toFixed(1)}% medido</p>
+                  </div>
+                  <div style={{ display:"flex", gap:2, flexShrink:0 }}>
+                    <button onClick={()=>setEtapaForm({ id:e.id, nome:e.nome, valor:String(e.valor) })}
+                      style={{ background:"transparent", border:0, color:C.blue, cursor:"pointer", fontSize:10.5, fontWeight:700 }}>Editar</button>
+                    <button onClick={()=>removerEtapa(e)}
+                      style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", fontSize:13 }}>x</button>
+                  </div>
+                </div>
+              );
+            })}
+            {!etapasTerc.length && (
+              <p style={{ padding:20, textAlign:"center", fontSize:11.5, color:C.muted }}>
+                Contrato ainda inteiro. Use "Sugerir etapas" ou cadastre uma abaixo.
+              </p>
+            )}
+          </div>
+
+          {/* Cadastro de etapa */}
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:12,
+                        display:"grid", gridTemplateColumns:formGrid(2), gap:9, alignItems:"end" }}>
+            <Inp label={etapaForm.id?"Editar etapa":"Nova etapa"} value={etapaForm.nome}
+              onChange={v=>setEtapaForm(f=>({...f,nome:v}))} placeholder="Ex.: Rasgo de parede"/>
+            <Inp label="Valor da etapa" value={etapaForm.valor}
+              onChange={v=>setEtapaForm(f=>({...f,valor:v}))} placeholder="0,00"/>
+            <div style={{ display:"flex", gap:7, gridColumn:"1 / -1" }}>
+              {etapaForm.id && <Btn v="ghost" full onClick={()=>setEtapaForm({id:"",nome:"",valor:""})}>Cancelar</Btn>}
+              <Btn full onClick={salvarEtapa}><Ic n="check"/> {etapaForm.id?"Salvar etapa":"Adicionar etapa"}</Btn>
+            </div>
+          </div>
+
+          {/* Historico de medicoes */}
+          <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>
+            Medições ({medicoesTercAtual.length})
+          </p>
+          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+            {[...medicoesTercAtual].reverse().map(m => (
+              <div key={m.id} style={{ background:C.card, border:`1px solid ${C.border}`,
+                                       borderLeft:`4px solid ${m.pagamentoId?C.green:C.orange}`, borderRadius:12, padding:"10px 13px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", gap:9, flexWrap:"wrap" }}>
+                  <div>
+                    <p style={{ fontSize:13.5, fontWeight:900, color:C.text }}>
+                      Medição {m.numero} · {fmtDateFull(m.data)}
+                    </p>
+                    <p style={{ fontSize:10.5, color:C.muted, marginTop:2 }}>
+                      {m.itens.length} etapa(s) · {m.pagamentoId ? "paga" : "aguardando pagamento"}
+                    </p>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <p style={{ fontSize:17, fontWeight:800, color:m.total>=0?C.green:C.red,
+                                fontFamily:"'Inter Display','Inter',sans-serif" }}>{fmt(m.total)}</p>
+                  </div>
+                </div>
+                <div style={{ marginTop:7, display:"flex", flexDirection:"column", gap:3 }}>
+                  {m.itens.map(i => {
+                    const et = etapasTerc.find(e => e.id === i.etapaId);
+                    return (
+                      <div key={i.etapaId} style={{ display:"flex", justifyContent:"space-between", gap:8, fontSize:11 }}>
+                        <span style={{ color:C.subtle, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          {et?.nome || "Etapa removida"}
+                        </span>
+                        <span style={{ color:C.muted, flexShrink:0 }}>
+                          {i.pctAnterior.toFixed(0)}% &rarr; {i.pctAcum.toFixed(0)}% · <b style={{color:i.valor>=0?C.text:C.red}}>{fmt(i.valor)}</b>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {m.observacao && <p style={{ fontSize:11, color:C.muted, fontStyle:"italic", marginTop:6 }}>"{m.observacao}"</p>}
+                <div style={{ display:"flex", gap:7, marginTop:9, justifyContent:"flex-end" }}>
+                  {!m.pagamentoId && <Btn size="sm" v="success" onClick={()=>pagarMedicao(m)}>Registrar pagamento</Btn>}
+                  <Btn size="sm" v="ghost" onClick={()=>removerMedicao(m)}>Remover</Btn>
+                </div>
+              </div>
+            ))}
+            {!medicoesTercAtual.length && (
+              <p style={{ padding:18, textAlign:"center", fontSize:11.5, color:C.muted,
+                          background:C.card, border:`1px solid ${C.border}`, borderRadius:12 }}>
+                Nenhuma medição neste contrato.
+              </p>
+            )}
+          </div>
+        </>)}
+      </>)}
+
       {/*  VIEW: PAGAMENTOS  */}
       {view === "pagamentos" && (<>
         {/* Navegador de semana */}
@@ -7190,6 +7545,76 @@ function Terceiros({ data, update, showToast }) {
       )}
 
       {/* Modal: registrar pagamento */}
+      {medModal && tercAtual && (
+        <Modal title={`Medição ${medicoesTercAtual.length + 1} - ${tercAtual.name}`} onClose={()=>setMedModal(false)} wide>
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <p style={{ fontSize:11.5, color:C.muted, lineHeight:1.55 }}>
+              Informe o percentual <b>acumulado</b> de cada etapa - o total executado até hoje, não o avanço da semana.
+              O app calcula a diferença para a medição anterior e valoriza só o que avançou.
+            </p>
+            <Inp label="Data da medição" type="date" value={medForm.data} onChange={v=>setMedForm(f=>({...f,data:v}))}/>
+
+            <div style={{ border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
+              {etapasTerc.map((e, i) => {
+                const anterior = Number(acumuladoPorEtapa[e.id] || 0);
+                const atual    = pct(medForm.pcts?.[e.id] ?? anterior);
+                const delta    = atual - anterior;
+                const valor    = Number(e.valor || 0) * delta / 100;
+                return (
+                  <div key={e.id} style={{ padding:"9px 11px", borderTop:i?`1px solid ${C.line}`:0,
+                                           display:"grid", gridTemplateColumns:"minmax(0,1fr) 84px 96px", gap:8, alignItems:"center" }}>
+                    <div style={{ minWidth:0 }}>
+                      <p style={{ fontSize:12.5, fontWeight:700, color:C.text }}>{e.nome}</p>
+                      <p style={{ fontSize:10, color:C.muted, marginTop:2 }}>
+                        {fmt(e.valor)} · anterior {anterior.toFixed(1)}%
+                      </p>
+                    </div>
+                    <input type="number" step="any" inputMode="decimal" min={0} max={100}
+                      value={medForm.pcts?.[e.id] ?? ""}
+                      onChange={ev=>setMedForm(f=>({...f, pcts:{...f.pcts, [e.id]:ev.target.value}}))}
+                      style={{ width:"100%", boxSizing:"border-box", background:C.bg,
+                               border:`1.5px solid ${delta<0?C.red:delta>0?C.green:C.line}`,
+                               color:C.text, padding:"7px 8px", borderRadius:7, fontSize:13, textAlign:"right",
+                               outline:"none", fontFamily:"'Inter',sans-serif" }}/>
+                    <div style={{ textAlign:"right" }}>
+                      <p style={{ fontSize:12.5, fontWeight:800, color:delta<0?C.red:delta>0?C.green:C.muted }}>{fmt(valor)}</p>
+                      <p style={{ fontSize:9.5, color:C.muted }}>{delta>0?"+":""}{delta.toFixed(1)} p.p.</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Medir para tras e legitimo (corrigir medicao a maior), mas nunca
+                deve passar despercebido. */}
+            {itensDaMedicao().some(i => i.pctAcum < i.pctAnterior) && (
+              <div style={{ background:`${C.orange}12`, border:`1px solid ${C.orange}55`, borderRadius:10, padding:"8px 11px" }}>
+                <p style={{ fontSize:11, color:C.orange, lineHeight:1.5 }}>
+                  Há etapa com percentual menor que o da medição anterior. Isso gera valor negativo -
+                  um estorno de medição a maior. Se não é o caso, revise os percentuais.
+                </p>
+              </div>
+            )}
+
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8,
+                          background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:"11px 13px" }}>
+              <span style={{ fontSize:11, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>Total desta medição</span>
+              <b style={{ fontSize:21, color:C.green, fontFamily:"'Inter Display','Inter',sans-serif" }}>
+                {fmt(itensDaMedicao().reduce((s,i)=>s+i.valor,0))}
+              </b>
+            </div>
+
+            <Inp label="Observação" value={medForm.observacao} onChange={v=>setMedForm(f=>({...f,observacao:v}))}
+              placeholder="Ex.: pendente o quadro do 2º pavimento"/>
+
+            <div style={{ display:"flex", gap:8 }}>
+              <Btn v="ghost" full onClick={()=>setMedModal(false)}>Cancelar</Btn>
+              <Btn full onClick={salvarMedicao}><Ic n="check"/> Salvar medição</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {payModal && (
         <Modal title={`Pagamento - ${payModal.name}`} onClose={()=>{setPayModal(null);setPayAmount("");setPayDesc("");}}>
           <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${C.orange}`, padding:"10px 14px", borderRadius:12, marginBottom:12 }}>
