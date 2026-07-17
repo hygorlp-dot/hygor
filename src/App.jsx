@@ -11601,7 +11601,9 @@ function Orcamento({ data, update, showToast }) {
   };
 
   const abcInsumos = useMemo(()=>{
-    if(!orc)return{itens:[],total:0,semDetalhe:[],semPreco:[]};
+    // Mesmo formato do retorno normal: quem consome (abcInsumosCurva) espalha
+    // `linhas`, e um objeto com a forma errada aqui derruba a tela inteira.
+    if(!orc)return{linhas:[],total:0,totalInsumos:0,qtdInsumos:0,qtdComposicoes:0,semDetalhe:[],semPreco:[]};
     const relacoes=[...componentesDetalhados.map(item=>({...item,
       fonte:String(item.fonte||"SINAPI").toUpperCase(),compositionCode:normalizarCodigoRef(item.compositionCode),
       itemCode:normalizarCodigoRef(item.itemCode),precoUnit:Number(item.precoUnit||precoDoItem(item,orc)||0)}))];
