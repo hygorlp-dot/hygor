@@ -35,7 +35,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin,
 // - Pagamento dia 20 para 1ª quinzena e dia 05 do mês seguinte para 2ª quinzena
 // - Ajuste de pagamento por sábado/domingo/feriados
 // - Feriados nacionais + Pernambuco + Caruaru
-// - Regra: falta em dia útil imediatamente anterior/posterior perde feriado
+// - Regra: feriado pago; falta no dia útil anterior/posterior retira o pagamento, com ajuste manual
 // - Relatórios com gasto por obra, metragem quadrada e custo de mão de obra por m
 // - Interface reforçada para o Registro de Ponto, com ícones e navegação em destaque
 // - Agente de IA para apoiar ponto, folha, obras, custos e alertas
@@ -771,7 +771,16 @@ const getHolidayPayRule = (data, employee, holidayIso, holidays) => {
   const after = prNextWorkdayIso(holidayIso, holidays);
   const missedBefore = prIsMarkedAbsent(data, employee.id, before);
   const missedAfter = prIsMarkedAbsent(data, employee.id, after);
-  const losesHoliday = missedBefore || missedAfter;
+  const automaticLosesHoliday = missedBefore || missedAfter;
+
+  // A regra automática paga o feriado, exceto quando existe falta no dia útil
+  // imediatamente anterior ou posterior. A gestão pode substituir o resultado
+  // manualmente sem alterar os lançamentos de presença desses dias.
+  const holidayEntry = getAtt(data, employee.id, holidayIso) || {};
+  const manualOverride = holidayEntry.holidayPayOverride === "paid" || holidayEntry.holidayPayOverride === "lost"
+    ? holidayEntry.holidayPayOverride
+    : null;
+  const losesHoliday = manualOverride ? manualOverride === "lost" : automaticLosesHoliday;
 
   return {
     holidayIso,
@@ -779,6 +788,9 @@ const getHolidayPayRule = (data, employee, holidayIso, holidays) => {
     after,
     missedBefore,
     missedAfter,
+    automaticLosesHoliday,
+    manualOverride,
+    isManual: !!manualOverride,
     losesHoliday,
     amount: losesHoliday ? 0 : Number(employee.dailyRate || 0),
   };
@@ -2846,6 +2858,32 @@ function Toast({ toast }) {
 // HELPERS FINANCEIROS
 // 
 
+// Reconstrói a obra de lotação do funcionário em qualquer data usando o
+// histórico de transferências. Registros de ponto novos têm prioridade porque
+// podem representar empréstimo temporário sem alteração do cadastro principal.
+const getEmployeeObraIdOnDate = (data, employee, dateIso) => {
+  const transfers = (data.changeLog || [])
+    .filter(t => t.type === "transfer" && t.empId === employee.id && t.date)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  let obraId = employee.obra || employee.lastObra || "";
+
+  for (const t of transfers) {
+    if (t.date > dateIso) {
+      if (t.fromId) {
+        obraId = t.fromId;
+      } else {
+        const found = (data.obras || []).find(o => o.name === t.from);
+        if (found) obraId = found.id;
+      }
+    } else {
+      break;
+    }
+  }
+
+  return obraId;
+};
+
 //  Cache de cálculos pesados 
 // calcObraLaborCost é chamada dezenas de vezes por render com os mesmos
 // argumentos (DRE, Relatórios, Dashboard, Financeiro). O cache evita
@@ -2880,7 +2918,7 @@ const _calcObraLaborCostRaw = (data, obraId, days) => {
   // que era o comportamento anterior. Assim o histórico não muda de valor.
   const obraDoDia = (e, d) => {
     const reg = data.attendance?.[e.id]?.[d];
-    return reg?.obraId || e.obra || "";
+    return reg?.obraId || getEmployeeObraIdOnDate(data, e, d);
   };
 
   data.employees.forEach(e => {
@@ -6373,6 +6411,30 @@ function PontoGeral({ data, update, showToast }) {
     update({...data,attendance:{...(data.attendance||{}),[emp.id]:{...(data.attendance?.[emp.id]||{}),[date]:{...novo,obraId:novo.status?obraId:(novo.obraId||obraId)}}}});
   };
 
+  const salvarFeriado=(emp,date,override)=>{
+    const anterior=getAtt(data,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
+    const descricao=override==="paid"?"pago manualmente":override==="lost"?"não pago manualmente":"regra automática";
+    update({
+      ...data,
+      attendance:{
+        ...(data.attendance||{}),
+        [emp.id]:{
+          ...(data.attendance?.[emp.id]||{}),
+          [date]:{
+            ...anterior,
+            holidayPayOverride:override||null,
+            holidayPayOverrideAt:new Date().toISOString(),
+          },
+        },
+      },
+      changeLog:[...(data.changeLog||[]),{
+        id:uid(),date:today(),type:"holiday_pay_override",empId:emp.id,
+        message:`Feriado de ${fmtDateFull(date)} para ${emp.name}: ${descricao}.`,
+      }],
+    });
+    showToast(`Feriado definido como ${descricao}.`);
+  };
+
   const preencherLinha=emp=>{
     const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};
     days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;const ant=getAtt(data,emp.id,date)||{};mapa[date]={...ant,status:"P",obraId};});
@@ -6414,6 +6476,7 @@ function PontoGeral({ data, update, showToast }) {
 
     <div style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:10.5,color:C.muted,padding:"0 2px"}}>
       <span>Toque na célula para alternar <b style={{color:C.green}}>P</b> presente, <b style={{color:C.yellowD}}>½</b> meio dia, <b style={{color:C.red}}>F</b> falta, <b>·</b> sem registro.</span>
+      <span>Nos feriados: <b>AUTO</b> aplica a regra anterior/posterior; <b style={{color:C.green}}>FP</b> paga manualmente; <b style={{color:C.red}}>FD</b> não paga manualmente.</span>
       <span style={{color:C.subtle}}>Trabalhou em outra obra? Toque no nome da obra sob a célula.</span>
     </div>
 
@@ -6424,7 +6487,7 @@ function PontoGeral({ data, update, showToast }) {
           <th style={{minWidth:48,background:C.surface,color:C.text,padding:8,fontSize:9.5,fontWeight:800,borderBottom:`1px solid ${C.border}`}}>DIAS</th>
           {days.map(date=>{const feriado=feriados.includes(date);return <th key={date} title={feriado?"Feriado cadastrado":""} style={{minWidth:54,background:feriado?`${C.red}14`:C.surface,color:feriado?C.red:C.text,padding:"6px 4px",borderLeft:`1px solid ${C.line}`,borderBottom:`1px solid ${C.border}`}}><div style={{fontSize:10,fontWeight:800}}>{diaLabel(date)}</div><div style={{fontSize:7.5,fontWeight:feriado?900:600,opacity:feriado?1:.6}}>{feriado?"FER":semana(date)}</div></th>;})}
         </tr></thead>
-        <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attStatus(data,emp.id,d);return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:`1px solid ${C.line}`}}>
+        <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{if(feriados.includes(d))return s;const st=attStatus(data,emp.id,d);return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:`1px solid ${C.line}`}}>
           <td style={{position:"sticky",left:0,zIndex:2,background:C.card,padding:"7px 10px",borderTop:`1px solid ${C.line}`,minWidth:172}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6}}>
               <div style={{minWidth:0}}>
@@ -6440,11 +6503,24 @@ function PontoGeral({ data, update, showToast }) {
           <td style={{textAlign:"center",fontWeight:800,fontSize:13,color:C.blue,borderTop:`1px solid ${C.line}`,fontFamily:"'Inter Display','Inter',sans-serif"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
           {days.map(date=>{
             const att=getAtt(data,emp.id,date),st=att?.status,obraId=att?.obraId||emp.obra||"",fora=!isEmployeeEmployedOnDate(emp,date),feriado=feriados.includes(date);
+            const regraFeriado=feriado?getHolidayPayRule(data,emp,date,feriados):null;
+            const overrideFeriado=regraFeriado?.manualOverride||null;
+            const proxOverride=overrideFeriado===null?"paid":overrideFeriado==="paid"?"lost":null;
+            const corFeriado=regraFeriado?.losesHoliday?C.red:C.green;
             const foraDeLotacao=st&&obraId&&obraId!==emp.obra;   // trabalhou em obra diferente da lotação
             const cellKey=`${emp.id}::${date}`;
             const aberto=obraCell===cellKey;
-            return <td key={date} style={{padding:3,borderTop:`1px solid ${C.line}`,borderLeft:`1px solid ${C.line}`,background:feriado?`${C.red}06`:fora?C.surface:C.card,verticalAlign:"middle"}}>
-              {fora?<div style={{textAlign:"center",color:C.muted,fontSize:11}}>—</div>:<>
+            return <td key={date} style={{padding:3,borderTop:`1px solid ${C.line}`,borderLeft:`1px solid ${C.line}`,background:feriado?`${corFeriado}08`:fora?C.surface:C.card,verticalAlign:"middle"}}>
+              {fora?<div style={{textAlign:"center",color:C.muted,fontSize:11}}>—</div>:feriado?(
+                <button onClick={()=>salvarFeriado(emp,date,proxOverride)}
+                  title={overrideFeriado?`Definição manual: ${regraFeriado.losesHoliday?"não pagar":"pagar"}. Clique para alterar.`:`Regra automática: ${regraFeriado.losesHoliday?"não paga":"paga"}. Falta anterior: ${regraFeriado.missedBefore?"sim":"não"}; falta posterior: ${regraFeriado.missedAfter?"sim":"não"}.`}
+                  style={{width:"100%",minHeight:36,border:`1.5px solid ${corFeriado}`,borderRadius:5,
+                          background:overrideFeriado?corFeriado:`${corFeriado}12`,color:overrideFeriado?"#fff":corFeriado,
+                          fontWeight:800,cursor:"pointer",fontSize:10,fontFamily:"'Inter Display','Inter',sans-serif",lineHeight:1.05}}>
+                  <span style={{display:"block",fontSize:11}}>{regraFeriado.losesHoliday?"FD":"FP"}</span>
+                  <span style={{display:"block",fontSize:7,marginTop:2,opacity:.85}}>{overrideFeriado?"MANUAL":"AUTO"}</span>
+                </button>
+              ):<>
                 <button onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
                   title={st==="P"?"Presente":st==="M"?"Meio dia":st==="F"?"Falta":"Sem registro"}
                   style={{width:"100%",height:30,border:`1.5px solid ${st?corStatus(st):C.border}`,borderRadius:5,
@@ -6497,6 +6573,8 @@ function Ponto({ data, update, showToast }) {
   const selectedObra = filterObra !== "all" ? data.obras.find(o => o.id === filterObra) : null;
   const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
   const attendanceCompletion = getAttendanceCompletionMessage(obraAttendanceSummary);
+  const selectedHolidayList = getPayrollHolidays(data, Number(selDate.slice(0,4)));
+  const selectedIsHoliday = selectedHolidayList.includes(selDate) && prIsWeekdayIso(selDate);
 
   useEffect(() => {
     const notificationKey = `${selDate}__all_done`;
@@ -6520,6 +6598,30 @@ function Ponto({ data, update, showToast }) {
       changeLog: [...data.changeLog, { id: uid(), date: today(), type: "daily_check", message: "Verificação diária concluída: equipe sem alterações." }],
     });
     showToast("Equipe confirmada sem alterações.");
+  };
+
+  const setHolidayOverride = (employee, override) => {
+    const prev = getAtt(data, employee.id, selDate) || { status: null, ot: 0, note: "", obraId: "" };
+    const descricao = override === "paid" ? "pago manualmente" : override === "lost" ? "não pago manualmente" : "regra automática";
+    update({
+      ...data,
+      attendance: {
+        ...(data.attendance || {}),
+        [employee.id]: {
+          ...(data.attendance?.[employee.id] || {}),
+          [selDate]: {
+            ...prev,
+            holidayPayOverride: override || null,
+            holidayPayOverrideAt: new Date().toISOString(),
+          },
+        },
+      },
+      changeLog: [...(data.changeLog || []), {
+        id: uid(), date: today(), type: "holiday_pay_override", empId: employee.id,
+        message: `Feriado de ${fmtDateFull(selDate)} para ${employee.name}: ${descricao}.`,
+      }],
+    });
+    showToast(`Feriado definido como ${descricao}.`);
   };
 
   const setAtt = (empId, status) => {
@@ -6614,8 +6716,12 @@ function Ponto({ data, update, showToast }) {
     const st = attStatus(data, e.id, selDate);
     if (st) counts[st] = (counts[st] || 0) + 1;
   });
-  const semReg = Math.max(0, list.length - counts.P - counts.M - counts.F);
-  const registeredCount = counts.P + counts.M + counts.F;
+  const holidayRulesToday = selectedIsHoliday ? list.map(e => getHolidayPayRule(data, e, selDate, selectedHolidayList)) : [];
+  const holidayPaidToday = holidayRulesToday.filter(r => !r.losesHoliday).length;
+  const holidayLostToday = holidayRulesToday.filter(r => r.losesHoliday).length;
+  const holidayManualToday = holidayRulesToday.filter(r => r.isManual).length;
+  const semReg = selectedIsHoliday ? 0 : Math.max(0, list.length - counts.P - counts.M - counts.F);
+  const registeredCount = selectedIsHoliday ? list.length : counts.P + counts.M + counts.F;
   const completionPct = list.length ? Math.round((registeredCount / list.length) * 100) : 0;
 
   return (
@@ -6648,7 +6754,12 @@ function Ponto({ data, update, showToast }) {
 
       {/* Status das pendências: uma linha quando tudo pronto; quando falta,
           lista enxuta de obras clicáveis. Sem caixas empilhadas. */}
-      {attendanceCompletion.allDone ? (
+      {selectedIsHoliday ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, background: `${C.blue}10`, border: `1px solid ${C.blue}44`, borderRadius: 8, padding: "9px 11px" }}>
+          <Ic n="calendar" s={14} color={C.blue} />
+          <p style={{ color: C.blue, fontSize: 12, fontWeight: 700 }}>Feriado: pagamento automático, com possibilidade de ajuste manual por funcionário.</p>
+        </div>
+      ) : attendanceCompletion.allDone ? (
         <div style={{ display: "flex", alignItems: "center", gap: 7, background: `${C.green}12`, border: `1px solid ${C.green}44`, borderRadius: 8, padding: "9px 11px" }}>
           <Ic n="check" s={14} color={C.green} />
           <p style={{ color: C.green, fontSize: 12, fontWeight: 700 }}>Todos os pontos de {fmtDateFull(selDate)} estão lançados.</p>
@@ -6701,12 +6812,16 @@ function Ponto({ data, update, showToast }) {
 
       {/* Resumo do dia: contadores compactos numa faixa única. */}
       <div style={{ display: "flex", gap: 6 }}>
-        {[
+        {(selectedIsHoliday ? [
+          ["Feriados pagos", holidayPaidToday, C.green],
+          ["Feriados perdidos", holidayLostToday, C.red],
+          ["Ajustes manuais", holidayManualToday, C.blue],
+        ] : [
           ["Presentes", counts.P, C.green],
           ["Sem registro", semReg, C.muted],
           ["Meio dia", counts.M, C.yellowD],
           ["Faltas", counts.F, C.red],
-        ].map(([label, n, col]) => (
+        ]).map(([label, n, col]) => (
           <div key={label} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderTop: `2px solid ${col}`, borderRadius: 6, padding: "7px 4px", textAlign: "center" }}>
             <p style={{ fontFamily: "'Inter Display','Inter',sans-serif", fontWeight: 800, fontSize: 20, color: col }}>{n}</p>
             <p style={{ color: C.muted, fontSize: 9, marginTop: 1 }}>{label}</p>
@@ -6714,10 +6829,10 @@ function Ponto({ data, update, showToast }) {
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 8 }}>
+      {!selectedIsHoliday && <div style={{ display: "flex", gap: 8 }}>
         <Btn v="success" size="sm" onClick={() => markAll("P")} full><Ic n="check" /> Todos presentes</Btn>
         <Btn v="danger" size="sm" onClick={() => markAll("F")} full><Ic n="x" /> Todos com falta</Btn>
-      </div>
+      </div>}
 
       {list.length === 0 && <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 18, color: C.muted, textAlign: "center" }}>Nenhum trabalhador ativo nesta seleção.</div>}
 
@@ -6726,7 +6841,8 @@ function Ponto({ data, update, showToast }) {
         const status = att?.status;
         const ot = Number(att?.ot || 0);
         const note = att?.note || "";
-        const borderCol = status === "P" ? C.green : status === "M" ? C.yellowD : status === "F" ? C.red : C.border;
+        const holidayRule = selectedIsHoliday ? getHolidayPayRule(data, e, selDate, selectedHolidayList) : null;
+        const borderCol = selectedIsHoliday ? (holidayRule?.losesHoliday ? C.red : C.green) : status === "P" ? C.green : status === "M" ? C.yellowD : status === "F" ? C.red : C.border;
         const aberto = expandedCard === e.id;
 
         return (
@@ -6744,33 +6860,63 @@ function Ponto({ data, update, showToast }) {
             {note && <p style={{ color: C.subtle, fontSize: 11, marginBottom: 8, fontStyle: "italic" }}>"{note}"</p>}
 
             <>
-                {/* Ação principal: presença. Três botões grandes e claros. */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5 }}>
-                  {[
-                    ["P", "check", C.green, "Presente"],
-                    ["M", "money", C.yellowD, "Meio dia"],
-                    ["F", "x", C.red, "Falta"],
-                  ].map(([st, icon, col, label]) => (
-                    <button key={st} onClick={() => setAtt(e.id, st)} style={{
-                      border: `1.5px solid ${status === st ? col : C.border}`,
-                      background: status === st ? col : C.bg,
-                      color: status === st ? "#fff" : C.subtle,
-                      padding: "10px 4px",
-                      cursor: "pointer",
-                      fontFamily: "'Inter','Inter Display',sans-serif",
-                      fontWeight: 700,
-                      fontSize: 11.5,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: 4,
-                      borderRadius: 6,
-                      "--ic-color": status === st ? "#fff" : col,
-                    }}>
-                      <Ic n={icon} s={14} /> {label}
-                    </button>
-                  ))}
-                </div>
+                {/* Em feriados a presença não é lançada. O operador escolhe entre
+                    a regra automática ou uma decisão manual de pagar/não pagar. */}
+                {selectedIsHoliday ? (
+                  <>
+                    <p style={{fontSize:10.5,color:C.muted,marginBottom:7,lineHeight:1.45}}>
+                      Automático: paga por padrão; não paga se houver falta em <b>{fmtDateFull(holidayRule.before)}</b> ou <b>{fmtDateFull(holidayRule.after)}</b>.
+                    </p>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5 }}>
+                      {[
+                        [null, "calendar", C.blue, "Automático"],
+                        ["paid", "check", C.green, "Pagar"],
+                        ["lost", "x", C.red, "Não pagar"],
+                      ].map(([ov, icon, col, label]) => {
+                        const ativo = (holidayRule.manualOverride || null) === ov;
+                        return <button key={String(ov)} onClick={() => setHolidayOverride(e, ov)} style={{
+                          border: `1.5px solid ${ativo ? col : C.border}`,
+                          background: ativo ? col : C.bg,
+                          color: ativo ? "#fff" : C.subtle,
+                          padding: "10px 4px", cursor: "pointer", fontFamily: "'Inter','Inter Display',sans-serif",
+                          fontWeight: 700, fontSize: 11, display: "flex", flexDirection: "column",
+                          alignItems: "center", gap: 4, borderRadius: 6, "--ic-color": ativo ? "#fff" : col,
+                        }}><Ic n={icon} s={14} /> {label}</button>;
+                      })}
+                    </div>
+                    <p style={{fontSize:10,marginTop:6,color:holidayRule.losesHoliday?C.red:C.green,fontWeight:700}}>
+                      Resultado atual: {holidayRule.losesHoliday?"feriado não pago":"feriado pago"}{holidayRule.isManual?" · ajuste manual":" · regra automática"}.
+                    </p>
+                  </>
+                ) : (
+                  /* Ação principal: presença. Três botões grandes e claros. */
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5 }}>
+                    {[
+                      ["P", "check", C.green, "Presente"],
+                      ["M", "money", C.yellowD, "Meio dia"],
+                      ["F", "x", C.red, "Falta"],
+                    ].map(([st, icon, col, label]) => (
+                      <button key={st} onClick={() => setAtt(e.id, st)} style={{
+                        border: `1.5px solid ${status === st ? col : C.border}`,
+                        background: status === st ? col : C.bg,
+                        color: status === st ? "#fff" : C.subtle,
+                        padding: "10px 4px",
+                        cursor: "pointer",
+                        fontFamily: "'Inter','Inter Display',sans-serif",
+                        fontWeight: 700,
+                        fontSize: 11.5,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 4,
+                        borderRadius: 6,
+                        "--ic-color": status === st ? "#fff" : col,
+                      }}>
+                        <Ic n={icon} s={14} /> {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Ações secundárias recolhidas: raras no dia a dia, não competem
                     com a marcação de presença. */}
@@ -7113,10 +7259,10 @@ function Folha({ data, showToast, onTab }) {
     if (!isEmployeeEmployedOnDate(r, d)) return null;
     const feriado = holidaysInPeriod.includes(d);
     const regraFer = feriado ? (r.holidayRules || []).find(h => h.holidayIso === d) : null;
-    const a = feriado ? null : getAtt(data, r.id, d);
+    const a = getAtt(data, r.id, d);
     const obraId = a?.obraId || getEmpObraIdOnDate(r, d);
     if (filterObra !== "all" && obraId !== filterObra) return null;
-    const st = feriado ? (regraFer?.losesHoliday ? "Feriado perdido" : "Feriado pago")
+    const st = feriado ? `${regraFer?.losesHoliday ? "Feriado perdido" : "Feriado pago"}${regraFer?.isManual ? " (manual)" : " (automatico)"}`
       : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio periodo"
       : a?.status === "F" ? "Falta" : "Sem registro";
     const equivalente = a?.status === "P" ? 1 : a?.status === "M" ? 0.5 : 0;
@@ -9373,13 +9519,14 @@ const calcRelatorioMensal = (data, year, month) => {
     );
     const rescTotal = rescDetalhes.reduce((s,r) => s+Number(r.totalLiquido||0), 0);
 
-    // Adiantamentos pagos no mês para funcionários desta obra
-    const empIds = data.employees
-      .filter(e => e.obra===obra.id || e.lastObra===obra.id)
-      .map(e => e.id);
-    const adiantDetalhes = (data.advances||[]).filter(a =>
-      empIds.includes(a.empId) && a.date && a.date.startsWith(ym)
-    );
+    // Adiantamentos pagos no mês são apropriados conforme a obra do funcionário
+    // na data do adiantamento, inclusive quando houve transferência no período.
+    const employeeById = new Map((data.employees || []).map(e => [e.id, e]));
+    const adiantDetalhes = (data.advances||[]).filter(a => {
+      if (!a.date || !a.date.startsWith(ym)) return false;
+      const employee = employeeById.get(a.empId);
+      return employee && getEmployeeObraIdOnDate(data, employee, a.date) === obra.id;
+    });
     const adiantTotal = adiantDetalhes.reduce((s,a)=>s+Number(a.amount||0),0);
 
     // Receita recebida no mês - usa medições estruturadas (prioritário) + payments livres
@@ -9399,13 +9546,30 @@ const calcRelatorioMensal = (data, year, month) => {
     // Receita esperada pelo contrato
     const { revenue: revenueEsperada } = calcObraRevenue(obra, moData.laborCost);
 
-    // Presença
-    const empsDaObra = data.employees.filter(e=>e.obra===obra.id||e.lastObra===obra.id);
-    const presencaDias = empsDaObra.reduce((s,e)=>
-      s+days.filter(d=>attStatus(data,e.id,d)==="P").length, 0);
-    const faltas = empsDaObra.reduce((s,e)=>
-      s+days.filter(d=>attStatus(data,e.id,d)==="F").length, 0);
-    const activeEmps = data.employees.filter(e=>e.active!==false&&e.obra===obra.id).length;
+    // Presença por obra efetiva em cada dia. O ponto carimbado tem prioridade;
+    // para registros antigos, a lotação é reconstruída pelo histórico de transferências.
+    const presencaDias = (data.employees || []).reduce((s, e) =>
+      s + days.filter(d => {
+        if (!isEmployeeEmployedOnDate(e, d)) return false;
+        const a = getAtt(data, e.id, d);
+        const obraDoDia = a?.obraId || getEmployeeObraIdOnDate(data, e, d);
+        return obraDoDia === obra.id && a?.status === "P";
+      }).length, 0);
+    const faltas = (data.employees || []).reduce((s, e) =>
+      s + days.filter(d => {
+        if (!isEmployeeEmployedOnDate(e, d)) return false;
+        const a = getAtt(data, e.id, d);
+        const obraDoDia = a?.obraId || getEmployeeObraIdOnDate(data, e, d);
+        return obraDoDia === obra.id && a?.status === "F";
+      }).length, 0);
+    const employeeIdsInPeriod = new Set();
+    (data.employees || []).forEach(e => days.forEach(d => {
+      if (!isEmployeeEmployedOnDate(e, d)) return;
+      const a = getAtt(data, e.id, d);
+      const obraDoDia = a?.obraId || getEmployeeObraIdOnDate(data, e, d);
+      if (obraDoDia === obra.id) employeeIdsInPeriod.add(e.id);
+    }));
+    const activeEmps = employeeIdsInPeriod.size;
     const activeTercs = (data.terceirizados||[]).filter(t=>t.active!==false&&t.obraId===obra.id).length;
 
     // DRE
@@ -9437,10 +9601,21 @@ function Relatorios({ data }) {
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const payrollHolidays = getPayrollHolidays(data, year);
   const holidaysInMonth = days.filter(d => payrollHolidays.includes(d) && prIsWeekdayIso(d));
+  const periodStart = days[0] || "";
+  const periodEnd = days[days.length - 1] || "";
+  const transferenciasPeriodo = (data.changeLog || [])
+    .filter(t => t.type === "transfer" && t.date && t.date >= periodStart && t.date <= periodEnd)
+    .map(t => ({
+      ...t,
+      funcionario: t.empName || (data.employees || []).find(e => e.id === t.empId)?.name || "Funcionário",
+      origem: t.from || obraName(t.fromId),
+      destino: t.to || obraName(t.toId),
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   const obraCostRows = data.obras.map(o => {
-    const emps = data.employees.filter(e => e.obra === o.id || e.lastObra === o.id);
-    const activeEmps = emps.filter(e => e.active !== false && e.obra === o.id);
+    const employeeIdsInPeriod = new Set();
+    const activeEmps = (data.employees || []).filter(e => e.active !== false && e.obra === o.id);
 
     let presentes = 0;
     let meiodia = 0;
@@ -9450,22 +9625,18 @@ function Relatorios({ data }) {
     let benefitCost = 0;
     let holidayPay = 0;
 
-    emps.forEach(e => {
-      const belongsNow = e.obra === o.id;
-      const hasAnyAttendance = days.some(d => !!getAtt(data, e.id, d));
-
-      // Observação: a estrutura atual do ponto não grava a obra por dia.
-      // Portanto, para relatórios históricos, o custo é atribuído à obra atual do trabalhador.
-      // lastObra serve apenas para manter vínculo de histórico após demissão/arquivamento.
-      if (!belongsNow && !hasAnyAttendance) return;
-
+    (data.employees || []).forEach(e => {
       days.forEach(d => {
         if (!isEmployeeEmployedOnDate(e, d)) return;
-        if (holidaysInMonth.includes(d)) return;
 
         const a = getAtt(data, e.id, d);
-        const s = a?.status;
+        const obraDoDia = a?.obraId || getEmployeeObraIdOnDate(data, e, d);
+        if (obraDoDia !== o.id) return;
 
+        employeeIdsInPeriod.add(e.id);
+        if (holidaysInMonth.includes(d)) return;
+
+        const s = a?.status;
         if (s === "P") {
           presentes++;
           laborCost += Number(e.dailyRate || 0);
@@ -9476,14 +9647,17 @@ function Relatorios({ data }) {
           benefitCost += (Number(e.vtDaily || 0) + Number(e.vrDaily || 0)) * 0.5;
         } else if (s === "F") {
           faltas++;
-        } else if (belongsNow && e.active !== false) {
+        } else {
           semRegistro++;
         }
       });
 
       holidaysInMonth.forEach(h => {
         if (!isEmployeeEmployedOnDate(e, h)) return;
-        if (!belongsNow && e.active !== false) return;
+        const a = getAtt(data, e.id, h);
+        const obraDoDia = a?.obraId || getEmployeeObraIdOnDate(data, e, h);
+        if (obraDoDia !== o.id) return;
+        employeeIdsInPeriod.add(e.id);
         const rule = getHolidayPayRule(data, e, h, payrollHolidays);
         holidayPay += Number(rule.amount || 0);
       });
@@ -9499,7 +9673,8 @@ function Relatorios({ data }) {
       id: o.id,
       name: o.name,
       areaM2,
-      trabalhadores: activeEmps.length,
+      trabalhadores: employeeIdsInPeriod.size,
+      trabalhadoresAtuais: activeEmps.length,
       presentes,
       meiodia,
       faltas,
@@ -9552,26 +9727,34 @@ function Relatorios({ data }) {
     custoM2: r.laborCostPerM2,
   }));
 
-  const topCost = data.employees.map(e => {
-    if (filterObra !== "all" && e.obra !== filterObra && e.lastObra !== filterObra) return null;
-
-    let total = 0;
+  const topCost = (data.employees || []).flatMap(e => {
+    const porObra = new Map();
+    const add = (obraId, valor) => {
+      if (!obraId || !(valor > 0)) return;
+      porObra.set(obraId, (porObra.get(obraId) || 0) + valor);
+    };
 
     days.forEach(d => {
-      if (!isEmployeeEmployedOnDate(e, d)) return;
-      if (holidaysInMonth.includes(d)) return;
-      const st = attStatus(data, e.id, d);
-      if (st === "P") total += Number(e.dailyRate || 0);
-      if (st === "M") total += Number(e.dailyRate || 0) * 0.5;
+      if (!isEmployeeEmployedOnDate(e, d) || holidaysInMonth.includes(d)) return;
+      const a = getAtt(data, e.id, d);
+      const obraId = a?.obraId || getEmployeeObraIdOnDate(data, e, d);
+      if (filterObra !== "all" && obraId !== filterObra) return;
+      if (a?.status === "P") add(obraId, Number(e.dailyRate || 0));
+      if (a?.status === "M") add(obraId, Number(e.dailyRate || 0) * 0.5);
     });
 
     holidaysInMonth.forEach(h => {
       if (!isEmployeeEmployedOnDate(e, h)) return;
-      total += Number(getHolidayPayRule(data, e, h, payrollHolidays).amount || 0);
+      const a = getAtt(data, e.id, h);
+      const obraId = a?.obraId || getEmployeeObraIdOnDate(data, e, h);
+      if (filterObra !== "all" && obraId !== filterObra) return;
+      add(obraId, Number(getHolidayPayRule(data, e, h, payrollHolidays).amount || 0));
     });
 
-    return { name: e.name, obra: obraName(e.obra), total };
-  }).filter(i => i && i.total > 0).sort((a, b) => b.total - a.total).slice(0, 10);
+    return [...porObra.entries()].map(([obraId, total]) => ({
+      name: e.name, obraId, obra: obraName(obraId), total,
+    }));
+  }).filter(i => i.total > 0).sort((a, b) => b.total - a.total).slice(0, 10);
 
   const exportObraCosts = () => {
     const wb = XLSX.utils.book_new();
@@ -9582,7 +9765,7 @@ function Relatorios({ data }) {
       [
         "Obra",
         "Área (m)",
-        "Trabalhadores ativos",
+        "Trabalhadores no período",
         "Presenças",
         "Meio dia",
         "Faltas",
@@ -9628,6 +9811,16 @@ function Relatorios({ data }) {
 
     ws["!cols"] = [22, 10, 16, 10, 10, 10, 12, 14, 14, 12, 18, 18, 14].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, ws, "Gasto por Obra");
+
+    const wsTransfers = XLSX.utils.aoa_to_sheet([
+      [`Transferências de obra - ${fullMonth(month)} ${year}`],
+      [],
+      ["Data", "Funcionário", "Obra de origem", "Obra de destino"],
+      ...transferenciasPeriodo.map(t => [t.date, t.funcionario, t.origem, t.destino]),
+    ]);
+    wsTransfers["!cols"] = [12, 24, 24, 24].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, wsTransfers, "Transferências");
+
     XLSX.writeFile(wb, `arcd-gasto-obra-${year}-${String(month + 1).padStart(2, "0")}.xlsx`);
   };
 
@@ -9762,9 +9955,23 @@ function Relatorios({ data }) {
         <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Top custos do mês</h3>
         {topCost.length === 0 && <p style={{ color: C.muted, fontSize: 13 }}>Nenhum custo lançado no período.</p>}
         {topCost.map(i => (
-          <div key={`${i.name}-${i.obra}`} style={{ borderTop: `1px solid ${C.border}`, padding: "9px 0", display: "flex", justifyContent: "space-between" }}>
+          <div key={`${i.name}-${i.obraId}`} style={{ borderTop: `1px solid ${C.border}`, padding: "9px 0", display: "flex", justifyContent: "space-between" }}>
             <div><p style={{ fontWeight: 900 }}>{i.name}</p><p style={{ color: C.muted, fontSize: 12 }}>{i.obra}</p></div>
             <p style={{ color: C.yellow, fontWeight: 900 }}>{fmt(i.total)}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
+        <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Alterações de obra no mês</h3>
+        {transferenciasPeriodo.length === 0 && <p style={{ color: C.muted, fontSize: 13 }}>Nenhuma transferência registrada no período.</p>}
+        {transferenciasPeriodo.map(t => (
+          <div key={t.id || `${t.empId}-${t.date}-${t.destino}`} style={{ borderTop: `1px solid ${C.border}`, padding: "9px 0" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", gap:8 }}>
+              <p style={{ fontWeight:900 }}>{t.funcionario}</p>
+              <p style={{ color:C.muted, fontSize:11 }}>{fmtDateFull(t.date)}</p>
+            </div>
+            <p style={{ color:C.muted, fontSize:12, marginTop:2 }}>{t.origem} → <span style={{ color:C.yellow, fontWeight:800 }}>{t.destino}</span></p>
           </div>
         ))}
       </div>
@@ -9781,6 +9988,18 @@ function Relatorios({ data }) {
 function RelatorioMensal({ data, year, month }) {
   const rows   = useMemo(() => calcRelatorioMensal(data, year, month), [data, year, month]);
   const period = `${fullMonth(month)} ${year}`;
+  const monthDays = getDays(year, month);
+  const monthStart = monthDays[0] || "";
+  const monthEnd = monthDays[monthDays.length - 1] || "";
+  const transferenciasPeriodo = (data.changeLog || [])
+    .filter(t => t.type === "transfer" && t.date && t.date >= monthStart && t.date <= monthEnd)
+    .map(t => ({
+      ...t,
+      funcionario: t.empName || (data.employees || []).find(e => e.id === t.empId)?.name || "Funcionário",
+      origem: t.from || (data.obras || []).find(o => o.id === t.fromId)?.name || "-",
+      destino: t.to || (data.obras || []).find(o => o.id === t.toId)?.name || "-",
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   // Totais consolidados
   const tot = rows.reduce((acc, r) => ({
@@ -9908,6 +10127,13 @@ table.dre td{padding:5px 10px;border-bottom:1px solid #f0f0f0}
 <h2>Detalhamento por Obra</h2>
 ${obraBlocks}
 
+${transferenciasPeriodo.length ? `
+<h2>Alterações de obra no período</h2>
+<table class="dre">
+  <thead><tr><th>Data</th><th>Funcionário</th><th>Origem</th><th>Destino</th></tr></thead>
+  <tbody>${transferenciasPeriodo.map(t => `<tr><td>${fmtDateFull(t.date)}</td><td>${escapeHtml(t.funcionario)}</td><td>${escapeHtml(t.origem)}</td><td>${escapeHtml(t.destino)}</td></tr>`).join("")}</tbody>
+</table>` : ""}
+
 <h2>Consolidado Geral - ${escapeHtml(period)}</h2>
 <div class="consolidado">
 <table class="dre">
@@ -9995,6 +10221,15 @@ ${obraBlocks}
       ws5["!cols"]=[22,22,14,12,12,30,12].map(w=>({wch:w}));
       XLSX.utils.book_append_sheet(wb, ws5, "Rescisões");
     }
+
+    const ws6 = XLSX.utils.aoa_to_sheet([
+      [`Transferências de obra - ${period}`],
+      [],
+      ["Data", "Funcionário", "Obra de origem", "Obra de destino"],
+      ...transferenciasPeriodo.map(t => [t.date, t.funcionario, t.origem, t.destino]),
+    ]);
+    ws6["!cols"] = [12,24,24,24].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws6, "Transferências");
 
     XLSX.writeFile(wb, `arcd-relatorio-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
   };
