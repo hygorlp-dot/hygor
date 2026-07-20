@@ -13137,21 +13137,23 @@ const evolucaoPorRDO = (rdos, obraId) => {
 // Funde a evolucao dos RDOs nas tarefas do plano. A tarefa passa a mostrar
 // o progresso vindo do diario (quando ha), senao mantem o manual.
 // origem: "diario" quando o RDO mandou, "manual" quando nao.
-// Compara a linha de base com as datas REALMENTE executadas. Uma reprogramacao
-// do cronograma nao pode, sozinha, transformar uma tarefa em adiantada/atrasada.
-// Concluidas usam o fim real; iniciadas usam o inicio real; ainda nao iniciadas
-// ficam sem classificacao ate existir evidencia de execucao.
+// Compara a linha de base com as datas reais quando cadastradas. Para planos
+// antigos, que ainda nao possuem inicio/fim real, usa a programacao atual como
+// previsao de realizacao. O termino prevalece; se ele nao mudou, o inicio define
+// se houve antecipacao ou atraso na mobilizacao da atividade.
 const compararBaseline = (tarefas, plano) => {
   const base = {};
   (plano?.baseline || []).forEach(b => { base[b.tarefaId] = b; });
   if (!Object.keys(base).length) return { temBaseline: false, linhas: [], resumo: null };
   const linhas = (tarefas || []).filter(t => !t.titulo && base[t.id]).map(t => {
     const b = base[t.id];
-    const temInicioReal = Boolean(t.inicioReal);
-    const temFimReal = Boolean(t.fimReal);
-    const desvIni = b.inicio && temInicioReal ? diasCorridos(b.inicio, t.inicioReal) : null;
-    const desvFimReal = b.fim && temFimReal ? diasCorridos(b.fim, t.fimReal) : null;
-    const desvioPrazo = desvFimReal != null ? desvFimReal : desvIni;
+    const comparadoIni = t.inicioReal || t.inicio || "";
+    const comparadoFim = t.fimReal || t.fim || "";
+    const desvIni = b.inicio && comparadoIni ? diasCorridos(b.inicio, comparadoIni) : null;
+    const desvFimComparado = b.fim && comparadoFim ? diasCorridos(b.fim, comparadoFim) : null;
+    const desvioPrazo = desvFimComparado != null && desvFimComparado !== 0
+      ? desvFimComparado
+      : desvIni != null ? desvIni : desvFimComparado;
     const situacao = desvioPrazo == null ? "sem-realizado"
       : desvioPrazo > 0 ? "atrasada"
       : desvioPrazo < 0 ? "adiantada"
@@ -13163,6 +13165,9 @@ const compararBaseline = (tarefas, plano) => {
       baseIni: b.inicio, baseFim: b.fim, baseCusto: b.custo || 0,
       atualIni: t.inicio, atualFim: t.fim, atualCusto: custoAtual,
       realIni: t.inicioReal || "", realFim: t.fimReal || "",
+      comparadoIni, comparadoFim,
+      fonteIni: t.inicioReal ? "real" : t.inicio ? "atual" : "",
+      fonteFim: t.fimReal ? "real" : t.fim ? "atual" : "",
       progresso: t.progresso || 0,
       desvIni, desvFim: desvioPrazo, desvCusto, situacao,
     };
@@ -22650,8 +22655,8 @@ function Planejamento({ data, update, showToast }) {
                         <thead>
                           <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                             <th style={{ textAlign: "left", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Tarefa</th>
-                            <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Início base → real</th>
-                            <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Fim base → real</th>
+                            <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Início base → realizado/atual</th>
+                            <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Fim base → realizado/atual</th>
                             <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Desvio</th>
                             <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Custo</th>
                           </tr>
@@ -22668,10 +22673,12 @@ function Planejamento({ data, update, showToast }) {
                                   {critico.criticas.includes(l.id) && <span style={{ fontSize: 8.5, fontWeight: 900, color: C.red, marginLeft: 5 }}>CRÍTICA</span>}
                                 </td>
                                 <td style={{ padding: "7px 8px", textAlign: "center", color: C.muted, fontSize: 10.5 }}>
-                                  {fmtDate(l.baseIni)} → {l.realIni ? fmtDate(l.realIni) : "—"}
+                                  {fmtDate(l.baseIni)} → {l.comparadoIni ? fmtDate(l.comparadoIni) : "—"}
+                                  {l.fonteIni && <small style={{display:"block",fontSize:8,color:C.muted}}>{l.fonteIni}</small>}
                                 </td>
                                 <td style={{ padding: "7px 8px", textAlign: "center", color: C.muted, fontSize: 10.5 }}>
-                                  {fmtDate(l.baseFim)} → {l.realFim ? fmtDate(l.realFim) : "—"}
+                                  {fmtDate(l.baseFim)} → {l.comparadoFim ? fmtDate(l.comparadoFim) : "—"}
+                                  {l.fonteFim && <small style={{display:"block",fontSize:8,color:C.muted}}>{l.fonteFim}</small>}
                                 </td>
                                 <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 800, color: corDesv }}>
                                   {l.situacao === "sem-realizado" ? "sem realizado"
@@ -22689,8 +22696,8 @@ function Planejamento({ data, update, showToast }) {
                       </table>
                     </div>
                     <p style={{ fontSize: 10, color: C.muted, marginTop: 8, lineHeight: 1.4 }}>
-                      Tarefa concluída compara o fim real; tarefa iniciada compara o início real. <b style={{ color: C.red }}>+</b> atrasou, <b style={{ color: C.blue }}>−</b> adiantou.
-                      Sem data real, a tarefa permanece sem classificação.
+                      Datas reais prevalecem. Na ausência delas, a comparação usa a programação atual como previsão.
+                      O término define o desvio; quando o término não mudou, compara-se o início. <b style={{ color: C.red }}>+</b> atrasou, <b style={{ color: C.blue }}>−</b> adiantou.
                       O custo compara o custo real lançado (ou o previsto, se não houver real) com o custo da linha de base.
                     </p>
                   </div>
