@@ -6395,9 +6395,31 @@ function PontoGeral({ data, update, showToast }) {
   const days=diasCiclo.filter(prIsWeekdayIso);
   const feriados=prUniqueDates([...new Set(diasCiclo.map(d=>Number(d.slice(0,4))))].flatMap(ano=>getPayrollHolidays(data,ano)));
   const obraName=id=>(data.obras||[]).find(o=>o.id===id)?.name||"-";
-  const employees=(data.employees||[]).filter(e=>e.active!==false)
-    .filter(e=>filterObra==="all"||e.obra===filterObra||days.some(d=>getAtt(data,e.id,d)?.obraId===filterObra))
-    .filter(e=>[e.name,e.role,obraName(e.obra)].join(" ").toLowerCase().includes(busca.toLowerCase()))
+
+  // Funcionários desligados continuam na Gestão do Ponto enquanto houver
+  // vínculo com o ciclo selecionado. Isso permite fechar presença, faltas,
+  // feriados, adiantamentos e o valor que ainda será pago, sem reativá-los
+  // nas demais telas operacionais.
+  const periodoIni=diasCiclo[0]||"";
+  const periodoFim=diasCiclo[diasCiclo.length-1]||"";
+  const temVinculoNoCiclo=e=>days.some(d=>isEmployeeEmployedOnDate(e,d));
+  const temPontoNoCiclo=e=>days.some(d=>{
+    const a=getAtt(data,e.id,d);
+    return !!(a?.status||a?.ot||a?.note||a?.holidayPayOverride);
+  });
+  const temAdiantamentoNoCiclo=e=>(data.advances||[]).some(a=>
+    a.empId===e.id&&periodoIni&&periodoFim&&a.date>=periodoIni&&a.date<=periodoFim
+  );
+  const deveAparecerNaGestao=e=>
+    e.active!==false||temVinculoNoCiclo(e)||temPontoNoCiclo(e)||temAdiantamentoNoCiclo(e);
+
+  const employees=(data.employees||[])
+    .filter(deveAparecerNaGestao)
+    .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>{
+      const a=getAtt(data,e.id,d);
+      return (a?.obraId||getEmpObraIdOnDate(e,d))===filterObra;
+    }))
+    .filter(e=>[e.name,e.role,obraName(e.obra||e.lastObra),e.active===false?"desligado demitido receber":""].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name));
   const diaLabel=iso=>{const d=prParseIso(iso);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
   const semana=iso=>["DOM","SEG","TER","QUA","QUI","SEX","SÁB"][prParseIso(iso).getDay()];
@@ -6478,6 +6500,7 @@ function PontoGeral({ data, update, showToast }) {
       <span>Toque na célula para alternar <b style={{color:C.green}}>P</b> presente, <b style={{color:C.yellowD}}>½</b> meio dia, <b style={{color:C.red}}>F</b> falta, <b>·</b> sem registro.</span>
       <span>Nos feriados: <b>AUTO</b> aplica a regra anterior/posterior; <b style={{color:C.green}}>FP</b> paga manualmente; <b style={{color:C.red}}>FD</b> não paga manualmente.</span>
       <span style={{color:C.subtle}}>Trabalhou em outra obra? Toque no nome da obra sob a célula.</span>
+      <span style={{color:C.orange}}>Funcionários desligados aparecem no ciclo em que ainda possuem ponto, vínculo ou valores a receber.</span>
     </div>
 
     <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxHeight:"70vh"}}>
@@ -6491,8 +6514,11 @@ function PontoGeral({ data, update, showToast }) {
           <td style={{position:"sticky",left:0,zIndex:2,background:C.card,padding:"7px 10px",borderTop:`1px solid ${C.line}`,minWidth:172}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6}}>
               <div style={{minWidth:0}}>
-                <b style={{fontSize:11,color:C.text,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.name}</b>
-                <div style={{fontSize:8.5,color:C.muted,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.role||"Funcionário"} · {obraName(emp.obra)}</div>
+                <div style={{display:"flex",alignItems:"center",gap:5,minWidth:0}}>
+                  <b style={{fontSize:11,color:C.text,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.name}</b>
+                  {emp.active===false&&<span title={emp.endDate?`Desligado em ${fmtDateFull(emp.endDate)}; mantido neste ciclo para fechamento e pagamento.`:"Funcionário desligado mantido para fechamento e pagamento."} style={{fontSize:7.5,fontWeight:900,letterSpacing:.35,color:C.orange,border:`1px solid ${C.orange}66`,background:`${C.orange}10`,borderRadius:999,padding:"2px 4px",whiteSpace:"nowrap"}}>DESLIGADO</span>}
+                </div>
+                <div style={{fontSize:8.5,color:C.muted,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.role||"Funcionário"} · {obraName(emp.obra||emp.lastObra)}{emp.active===false&&emp.endDate?` · saída ${fmtDate(emp.endDate)}`:""}</div>
               </div>
               <div style={{display:"flex",gap:2,flexShrink:0}}>
                 <button title="Preencher a linha inteira como presente" onClick={()=>preencherLinha(emp)} style={{border:`1px solid ${C.green}`,background:`${C.green}10`,color:C.green,borderRadius:4,fontSize:9,cursor:"pointer",padding:"2px 5px",lineHeight:1}}>✓</button>
