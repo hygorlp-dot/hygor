@@ -6330,31 +6330,23 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
       return;
     }
 
-    const from = obraName(employee.obra);
     const to = obraName(newObra);
-    const employees = data.employees.map(emp => emp.id === employee.id ? {
-      ...emp,
-      obra: newObra,
-      lastObra: emp.obra,
-      active: true,
-      endDate: "",
-      terminationReason: "",
-    } : emp);
-
-    const changeLog = [...data.changeLog, {
-      id: uid(),
-      date: today(),
-      type: "transfer",
-      empId: employee.id,
-      empName: employee.name,
-      from,
-      to,
-      fromId: employee.obra,  // ← ID gravado para busca confiável
-      toId: newObra,          // ← ID gravado para busca confiável
-      message: `${employee.name} transferido de ${from} para ${to}`,
-    }];
-    update({ ...data, employees, changeLog, dailyCheckDate: today() });
-    showToast(`${employee.name} transferido para ${to}.`);
+    update(prev=>{
+      if(!prev)return prev;
+      const atual=(prev.employees||[]).find(emp=>emp.id===employee.id);
+      if(!atual)return prev;
+      const from=(prev.obras||[]).find(o=>o.id===atual.obra)?.name||"-";
+      const employees=(prev.employees||[]).map(emp=>emp.id===employee.id?{
+        ...emp,obra:newObra,lastObra:emp.obra,active:true,endDate:"",terminationReason:"",
+      }:emp);
+      const changeLog=[...(prev.changeLog||[]),{
+        id:uid(),date:today(),type:"transfer",empId:employee.id,empName:atual.name,
+        from,to,fromId:atual.obra,toId:newObra,
+        message:`${atual.name} transferido de ${from} para ${to}`,
+      }];
+      return {...prev,employees,changeLog,dailyCheckDate:today()};
+    });
+    showToast(`${employee.name} transferido; salvando no servidor.`);
     onClose();
   };
 
@@ -6363,19 +6355,21 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
       showToast("Informe a data de término.", "error");
       return;
     }
-
-    const from = obraName(employee.obra);
-    const employees = data.employees.map(emp => emp.id === employee.id ? {
-      ...emp,
-      active: false,
-      endDate,
-      terminationReason: reason || "Demitido",
-      lastObra: emp.obra,
-    } : emp);
-
-    const changeLog = [...data.changeLog, { id: uid(), date: endDate, type: "dismissal", empId: employee.id, empName: employee.name, from, message: `${employee.name} demitido/inativado em ${fmtDateFull(endDate)}` }];
-    update({ ...data, employees, changeLog, dailyCheckDate: today() });
-    showToast(`${employee.name} demitido/inativado.`);
+    update(prev=>{
+      if(!prev)return prev;
+      const atual=(prev.employees||[]).find(emp=>emp.id===employee.id);
+      if(!atual)return prev;
+      const from=(prev.obras||[]).find(o=>o.id===atual.obra)?.name||"-";
+      const employees=(prev.employees||[]).map(emp=>emp.id===employee.id?{
+        ...emp,active:false,endDate,terminationReason:reason||"Demitido",lastObra:emp.obra,
+      }:emp);
+      const changeLog=[...(prev.changeLog||[]),{
+        id:uid(),date:endDate,type:"dismissal",empId:employee.id,empName:atual.name,from,
+        message:`${atual.name} demitido/inativado em ${fmtDateFull(endDate)}`,
+      }];
+      return {...prev,employees,changeLog,dailyCheckDate:today()};
+    });
+    showToast(`${employee.name} demitido/inativado; salvando no servidor.`);
     onClose();
   };
 
@@ -6413,7 +6407,29 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
 // Ponto
 // 
 
-function PontoGeral({ data, update, showToast }) {
+function SaveStatusPill({ saveInfo, onRetry }) {
+  const status=saveInfo?.status||"idle";
+  const salvo=status==="saved";
+  const salvando=status==="saving"||status==="queued";
+  const falhou=status==="error";
+  const conflito=status==="conflict";
+  const cor=salvo?C.green:salvando?C.blue:(falhou||conflito)?C.red:C.muted;
+  const texto=salvo
+    ? `Salvo às ${saveInfo.lastSavedAt?.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})||"agora"}`
+    : status==="queued"?"Alterações na fila..."
+    : status==="saving"?"Salvando no servidor..."
+    : status==="conflict"?"Conflito de versão"
+    : status==="error"?"Não confirmado"
+    : "Sem alterações pendentes";
+  return <button type="button" onClick={falhou?onRetry:undefined} disabled={!falhou}
+    title={falhou?(saveInfo.error||"Clique para tentar novamente"):conflito?(saveInfo.error||"Resolva o conflito no aviso exibido"):texto}
+    style={{display:"inline-flex",alignItems:"center",gap:6,border:`1px solid ${cor}55`,background:`${cor}10`,color:cor,borderRadius:999,padding:"6px 9px",fontSize:9.5,fontWeight:800,cursor:falhou?"pointer":"default",whiteSpace:"nowrap"}}>
+    <span style={{width:7,height:7,borderRadius:"50%",background:cor,boxShadow:salvando?`0 0 0 3px ${cor}22`:"none"}}/>
+    {texto}{falhou?" · tentar novamente":conflito?" · resolver no aviso":""}
+  </button>;
+}
+
+function PontoGeral({ data, update, showToast, saveInfo, onRetrySave }) {
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
   const [year,setYear]=useState(refInicial.getFullYear());
@@ -6466,52 +6482,99 @@ function PontoGeral({ data, update, showToast }) {
   const proxStatus=st=>st==="P"?"M":st==="M"?"F":st==="F"?null:"P";
 
   const salvarCelula=(emp,date,patch)=>{
-    const anterior=getAtt(data,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
-    const novo={...anterior,...patch};
-    const obraId=novo.obraId||getEmployeeObraIdOnDate(data,emp,date)||"";
-    update({...data,attendance:{...(data.attendance||{}),[emp.id]:{...(data.attendance?.[emp.id]||{}),[date]:{...novo,obraId:novo.status?obraId:(novo.obraId||obraId)}}}});
+    update(prev=>{
+      if(!prev)return prev;
+      const anterior=getAtt(prev,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
+      const novo={...anterior,...patch};
+      const obraId=novo.obraId||getEmployeeObraIdOnDate(prev,emp,date)||"";
+      return {
+        ...prev,
+        attendance:{
+          ...(prev.attendance||{}),
+          [emp.id]:{
+            ...(prev.attendance?.[emp.id]||{}),
+            [date]:{...novo,obraId:novo.status?obraId:(novo.obraId||obraId)},
+          },
+        },
+      };
+    });
   };
 
   const salvarFeriado=(emp,date,override)=>{
-    const anterior=getAtt(data,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
     const descricao=override==="paid"?"pago manualmente":override==="lost"?"não pago manualmente":"regra automática";
-    update({
-      ...data,
-      attendance:{
-        ...(data.attendance||{}),
-        [emp.id]:{
-          ...(data.attendance?.[emp.id]||{}),
-          [date]:{
-            ...anterior,
-            holidayPayOverride:override||null,
-            holidayPayOverrideAt:new Date().toISOString(),
+    update(prev=>{
+      if(!prev)return prev;
+      const anterior=getAtt(prev,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
+      return {
+        ...prev,
+        attendance:{
+          ...(prev.attendance||{}),
+          [emp.id]:{
+            ...(prev.attendance?.[emp.id]||{}),
+            [date]:{
+              ...anterior,
+              holidayPayOverride:override||null,
+              holidayPayOverrideAt:new Date().toISOString(),
+            },
           },
         },
-      },
-      changeLog:[...(data.changeLog||[]),{
-        id:uid(),date:today(),type:"holiday_pay_override",empId:emp.id,
-        message:`Feriado de ${fmtDateFull(date)} para ${emp.name}: ${descricao}.`,
-      }],
+        changeLog:[...(prev.changeLog||[]),{
+          id:uid(),date:today(),type:"holiday_pay_override",empId:emp.id,
+          message:`Feriado de ${fmtDateFull(date)} para ${emp.name}: ${descricao}.`,
+        }],
+      };
     });
-    showToast(`Feriado definido como ${descricao}.`);
+    showToast(`Feriado atualizado; aguardando confirmação do servidor.`);
   };
 
   const preencherLinha=emp=>{
-    const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};
-    days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:getEmployeeObraIdOnDate(data,emp,date);if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;const ant=getAtt(data,emp.id,date)||{};mapa[date]={...ant,status:"P",obraId};});
-    attendance[emp.id]=mapa;update({...data,attendance});showToast("Período preenchido para o funcionário.");
+    update(prev=>{
+      if(!prev)return prev;
+      const attendance={...(prev.attendance||{})},mapa={...(attendance[emp.id]||{})};
+      days.forEach(date=>{
+        const d=prParseIso(date);
+        const obraId=filterObra!=="all"?filterObra:getEmployeeObraIdOnDate(prev,emp,date);
+        if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;
+        const ant=getAtt(prev,emp.id,date)||{};
+        mapa[date]={...ant,status:"P",obraId};
+      });
+      attendance[emp.id]=mapa;
+      return {...prev,attendance};
+    });
+    showToast("Período preenchido localmente; salvando no servidor.");
   };
 
   const limparLinha=emp=>{
     if(!window.confirm(`Limpar os lançamentos visíveis de ${emp.name}?`))return;
-    const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};
-    days.forEach(date=>{const ant=getAtt(data,emp.id,date);if(!ant)return;delete mapa[date];});attendance[emp.id]=mapa;update({...data,attendance});showToast("Lançamentos do período removidos.");
+    update(prev=>{
+      if(!prev)return prev;
+      const attendance={...(prev.attendance||{})},mapa={...(attendance[emp.id]||{})};
+      days.forEach(date=>{if(mapa[date])delete mapa[date];});
+      attendance[emp.id]=mapa;
+      return {...prev,attendance};
+    });
+    showToast("Lançamentos removidos localmente; salvando no servidor.");
   };
 
   const preencherVisiveis=()=>{
     if(!employees.length||!window.confirm(`Marcar presença nos dias de trabalho para ${employees.length} funcionário(s) visível(is)?`))return;
-    const attendance={...(data.attendance||{})};
-    employees.forEach(emp=>{const mapa={...(attendance[emp.id]||{})};days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:getEmployeeObraIdOnDate(data,emp,date);if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;mapa[date]={...(getAtt(data,emp.id,date)||{}),status:"P",obraId};});attendance[emp.id]=mapa;});update({...data,attendance});showToast("Equipe preenchida no período.");
+    const employeeIds=new Set(employees.map(e=>e.id));
+    update(prev=>{
+      if(!prev)return prev;
+      const attendance={...(prev.attendance||{})};
+      (prev.employees||[]).filter(emp=>employeeIds.has(emp.id)).forEach(emp=>{
+        const mapa={...(attendance[emp.id]||{})};
+        days.forEach(date=>{
+          const d=prParseIso(date);
+          const obraId=filterObra!=="all"?filterObra:getEmployeeObraIdOnDate(prev,emp,date);
+          if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;
+          mapa[date]={...(getAtt(prev,emp.id,date)||{}),status:"P",obraId};
+        });
+        attendance[emp.id]=mapa;
+      });
+      return {...prev,attendance};
+    });
+    showToast("Equipe preenchida localmente; salvando no servidor.");
   };
 
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
@@ -6524,7 +6587,10 @@ function PontoGeral({ data, update, showToast }) {
         <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(19px,3.5vw,24px)",color:C.text,letterSpacing:-.3}}>Ponto da quinzena</h2>
         <p style={{fontSize:11,color:C.muted,marginTop:2}}>{periodo} · {employees.length} funcionário(s)</p>
       </div>
-      <Btn onClick={preencherVisiveis} v="success" size="sm"><Ic n="check"/> Preencher visíveis</Btn>
+      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
+        <SaveStatusPill saveInfo={saveInfo} onRetry={onRetrySave}/>
+        <Btn onClick={preencherVisiveis} v="success" size="sm"><Ic n="check"/> Preencher visíveis</Btn>
+      </div>
     </div>
 
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
@@ -6626,7 +6692,7 @@ function PontoGeral({ data, update, showToast }) {
   </div>;
 }
 
-function Ponto({ data, update, showToast }) {
+function Ponto({ data, update, showToast, saveInfo, onRetrySave }) {
   const [selDate, setSelDate] = useState(today());
   const [filterObra, setFilterObra] = useState("all");
   const [noteModal, setNoteModal] = useState(null);
@@ -6661,108 +6727,106 @@ function Ponto({ data, update, showToast }) {
 
 
   const confirmTeamWithoutChanges = () => {
-    update({
-      ...data,
+    update(prev=>prev?{
+      ...prev,
       dailyCheckDate: today(),
-      changeLog: [...data.changeLog, { id: uid(), date: today(), type: "daily_check", message: "Verificação diária concluída: equipe sem alterações." }],
-    });
-    showToast("Equipe confirmada sem alterações.");
+      changeLog: [...(prev.changeLog||[]), { id: uid(), date: today(), type: "daily_check", message: "Verificação diária concluída: equipe sem alterações." }],
+    }:prev);
+    showToast("Confirmação aplicada; salvando no servidor.");
   };
 
   const setHolidayOverride = (employee, override) => {
-    const prev = getAtt(data, employee.id, selDate) || { status: null, ot: 0, note: "", obraId: "" };
     const descricao = override === "paid" ? "pago manualmente" : override === "lost" ? "não pago manualmente" : "regra automática";
-    update({
-      ...data,
-      attendance: {
-        ...(data.attendance || {}),
-        [employee.id]: {
-          ...(data.attendance?.[employee.id] || {}),
-          [selDate]: {
-            ...prev,
-            holidayPayOverride: override || null,
-            holidayPayOverrideAt: new Date().toISOString(),
+    update(prev=>{
+      if(!prev)return prev;
+      const anterior = getAtt(prev, employee.id, selDate) || { status: null, ot: 0, note: "", obraId: "" };
+      return {
+        ...prev,
+        attendance: {
+          ...(prev.attendance || {}),
+          [employee.id]: {
+            ...(prev.attendance?.[employee.id] || {}),
+            [selDate]: {
+              ...anterior,
+              holidayPayOverride: override || null,
+              holidayPayOverrideAt: new Date().toISOString(),
+            },
           },
         },
-      },
-      changeLog: [...(data.changeLog || []), {
-        id: uid(), date: today(), type: "holiday_pay_override", empId: employee.id,
-        message: `Feriado de ${fmtDateFull(selDate)} para ${employee.name}: ${descricao}.`,
-      }],
+        changeLog: [...(prev.changeLog || []), {
+          id: uid(), date: today(), type: "holiday_pay_override", empId: employee.id,
+          message: `Feriado de ${fmtDateFull(selDate)} para ${employee.name}: ${descricao}.`,
+        }],
+      };
     });
-    showToast(`Feriado definido como ${descricao}.`);
+    showToast("Feriado atualizado; salvando no servidor.");
   };
 
   const setAtt = (empId, status) => {
-    const emp = data.employees.find(e => e.id === empId);
-    const prev = getAtt(data, empId, selDate) || { status: null, ot: 0, note: "" };
-    const nextStatus = prev.status === status ? null : status;
-
-    // Grava EM QUAL OBRA o dia foi trabalhado.
-    //
-    // Antes, o custo da mão de obra era atribuído pela obra CADASTRADA no
-    // funcionário. Se o pedreiro está lotado na Terras Alpha mas passou a
-    // semana na Reserva, o custo inteiro dele ia para Terras Alpha - e você
-    // cobrava do cliente errado. Numa empresa de administração, onde a mão de
-    // obra é o maior custo e é repassada ao cliente, isso é dinheiro real
-    // saindo do lugar errado.
-    //
-    // Agora o dia carrega a obra. Se o ponto está filtrado por uma obra, é
-    // essa; senão, a obra de lotação do funcionário.
-    // Se o ponto está filtrado por uma obra específica, o dia é dela.
-    // Em "todas as obras", cai na lotação do funcionário - que continua sendo
-    // o caso comum: cada um no seu canteiro.
-    const obraDoDia = (filterObra && filterObra !== "all")
-      ? filterObra
-      : getEmployeeObraIdOnDate(data, emp, selDate);
-
-    update({
-      ...data,
-      attendance: {
-        ...data.attendance,
-        [empId]: {
-          ...(data.attendance[empId] || {}),
-          [selDate]: {
-            ...prev,
-            status: nextStatus,
-            // Só carimba a obra se o dia foi efetivamente marcado
-            obraId: nextStatus ? obraDoDia : (prev.obraId || ""),
+    update(prevData=>{
+      if(!prevData)return prevData;
+      const emp = (prevData.employees||[]).find(e => e.id === empId);
+      if(!emp)return prevData;
+      const anterior = getAtt(prevData, empId, selDate) || { status: null, ot: 0, note: "", obraId:"" };
+      const nextStatus = anterior.status === status ? null : status;
+      const obraDoDia = (filterObra && filterObra !== "all")
+        ? filterObra
+        : getEmployeeObraIdOnDate(prevData, emp, selDate);
+      return {
+        ...prevData,
+        attendance: {
+          ...(prevData.attendance||{}),
+          [empId]: {
+            ...(prevData.attendance?.[empId] || {}),
+            [selDate]: {
+              ...anterior,
+              status: nextStatus,
+              obraId: nextStatus ? obraDoDia : (anterior.obraId || ""),
+            },
           },
         },
-      },
+      };
     });
   };
 
   const saveNote = () => {
-    const prev = getAtt(data, noteModal, selDate) || { status: null, ot: 0, note: "" };
-    update({
-      ...data,
-      attendance: {
-        ...data.attendance,
-        [noteModal]: {
-          ...(data.attendance[noteModal] || {}),
-          [selDate]: { ...prev, note: noteText },
+    const empId=noteModal;
+    update(prevData=>{
+      if(!prevData||!empId)return prevData;
+      const anterior = getAtt(prevData, empId, selDate) || { status: null, ot: 0, note: "", obraId:"" };
+      return {
+        ...prevData,
+        attendance: {
+          ...(prevData.attendance||{}),
+          [empId]: {
+            ...(prevData.attendance?.[empId] || {}),
+            [selDate]: { ...anterior, note: noteText },
+          },
         },
-      },
+      };
     });
     setNoteModal(null);
-    showToast("Observação salva.");
+    showToast("Observação aplicada; salvando no servidor.");
   };
 
   const saveOT = () => {
-    const prev = getAtt(data, otModal, selDate) || { status: null, ot: 0, note: "" };
-    update({
-      ...data,
-      attendance: {
-        ...data.attendance,
-        [otModal]: {
-          ...(data.attendance[otModal] || {}),
-          [selDate]: { ...prev, ot: Number(otHours || 0) },
+    const empId=otModal;
+    update(prevData=>{
+      if(!prevData||!empId)return prevData;
+      const anterior = getAtt(prevData, empId, selDate) || { status: null, ot: 0, note: "", obraId:"" };
+      return {
+        ...prevData,
+        attendance: {
+          ...(prevData.attendance||{}),
+          [empId]: {
+            ...(prevData.attendance?.[empId] || {}),
+            [selDate]: { ...anterior, ot: Number(otHours || 0) },
+          },
         },
-      },
+      };
     });
     setOtModal(null);
-    showToast("Hora extra registrada.");
+    showToast("Hora extra aplicada; salvando no servidor.");
   };
 
   const markAll = status => {
@@ -6770,16 +6834,19 @@ function Ponto({ data, update, showToast }) {
       showToast("Selecione uma obra específica para marcar todos.", "error");
       return;
     }
-
-    const attendance = { ...data.attendance };
-    list.forEach(e => {
-      attendance[e.id] = {
-        ...(attendance[e.id] || {}),
-        [selDate]: { ...(getAtt(data, e.id, selDate) || {}), status, obraId: filterObra },
-      };
+    const ids=new Set(list.map(e=>e.id));
+    update(prevData=>{
+      if(!prevData)return prevData;
+      const attendance = { ...(prevData.attendance||{}) };
+      (prevData.employees||[]).filter(e=>ids.has(e.id)).forEach(e => {
+        attendance[e.id] = {
+          ...(attendance[e.id] || {}),
+          [selDate]: { ...(getAtt(prevData, e.id, selDate) || {}), status, obraId: filterObra },
+        };
+      });
+      return { ...prevData, attendance };
     });
-    update({ ...data, attendance });
-    showToast("Ponto marcado para todos.");
+    showToast("Ponto coletivo aplicado; salvando no servidor.");
   };
 
   const counts = { P: 0, M: 0, F: 0 };
@@ -6808,9 +6875,12 @@ function Ponto({ data, update, showToast }) {
           </h2>
           <p style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>{fmtDateFull(selDate)} · {registeredCount}/{list.length} lançados</p>
         </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <p style={{ fontFamily: "'Inter Display','Inter',sans-serif", fontWeight: 800, fontSize: 30, lineHeight: 1, color: completionPct === 100 ? C.green : C.yellowD }}>{completionPct}%</p>
-          <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: .6, color: C.muted }}>cadastrado</p>
+        <div style={{ textAlign: "right", flexShrink: 0, display:"flex", flexDirection:"column", alignItems:"flex-end", gap:5 }}>
+          <div>
+            <p style={{ fontFamily: "'Inter Display','Inter',sans-serif", fontWeight: 800, fontSize: 30, lineHeight: 1, color: completionPct === 100 ? C.green : C.yellowD }}>{completionPct}%</p>
+            <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: .6, color: C.muted }}>cadastrado</p>
+          </div>
+          <SaveStatusPill saveInfo={saveInfo} onRetry={onRetrySave}/>
         </div>
       </div>
       <div style={{ height: 5, background: C.surface, borderRadius: 99, overflow: "hidden" }}>
@@ -13048,9 +13118,10 @@ const evolucaoPorRDO = (rdos, obraId) => {
     (r.servicos || []).forEach(s => {
       const chave = s.tarefaId || s.etapaId;
       if (!chave) return;
-      if (!porTarefa[chave]) porTarefa[chave] = { progresso: 0, ultimaData: "", dias: new Set() };
+      if (!porTarefa[chave]) porTarefa[chave] = { progresso: 0, primeiraData: r.data, ultimaData: "", dias: new Set() };
       // O progresso acumulado mais recente manda (RDOs ja vem em ordem).
       porTarefa[chave].progresso = s.progressoAte;
+      if (!porTarefa[chave].primeiraData || r.data < porTarefa[chave].primeiraData) porTarefa[chave].primeiraData = r.data;
       porTarefa[chave].ultimaData = r.data;
       // Cada dia com este servico no RDO conta como um dia trabalhado nele.
       porTarefa[chave].dias.add(r.data);
@@ -13062,6 +13133,7 @@ const evolucaoPorRDO = (rdos, obraId) => {
   Object.keys(porTarefa).forEach(k => {
     out[k] = {
       progresso: porTarefa[k].progresso,
+      primeiraData: porTarefa[k].primeiraData || "",
       ultimaData: porTarefa[k].ultimaData,
       diasTrabalhados: porTarefa[k].dias.size,
     };
@@ -13072,33 +13144,109 @@ const evolucaoPorRDO = (rdos, obraId) => {
 // Funde a evolucao dos RDOs nas tarefas do plano. A tarefa passa a mostrar
 // o progresso vindo do diario (quando ha), senao mantem o manual.
 // origem: "diario" quando o RDO mandou, "manual" quando nao.
-// Compara o cronograma atual com a linha de base (baseline). Para cada tarefa,
-// mede o desvio de início e de fim em dias corridos (+ = atrasou, - = adiantou)
-// e o desvio de custo. Só considera tarefas que existiam na baseline. É a base
-// do "planejado × realizado": sem baseline, devolve vazio.
-const compararBaseline = (tarefas, plano) => {
+// Diferenca assinada entre datas ISO: positivo = a segunda ocorreu depois,
+// negativo = ocorreu antes. Diferente de diasCorridos(), nao elimina o sinal.
+const diferencaDiasISO = (previsto, realizado) => {
+  if (!previsto || !realizado) return 0;
+  const a = new Date(String(previsto).slice(0, 10) + "T00:00:00");
+  const b = new Date(String(realizado).slice(0, 10) + "T00:00:00");
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+  return Math.round((b - a) / 86400000);
+};
+
+// Compara o percentual que deveria estar executado hoje com o percentual
+// efetivamente medido. A analise independe de o operador ter aberto a aba e
+// atualiza quando mudam RDO, medicao tecnica, ajuste manual ou a data atual.
+const avaliarPlanejadoRealizado = (tarefa, cal, dataRef = today()) => {
+  const t = tarefa || {};
+  const realizado = Math.max(0, Math.min(100, Number(t.progresso || 0)));
+  if (!t.inicio || !t.fim) {
+    return { status:"sem_data", label:"Sem datas", cor:C.muted, previsto:0,
+      realizado, desvioPct:0, desvioDias:0, detalhe:"Informe inicio e fim planejados." };
+  }
+
+  const totalUteis = Math.max(1, diasUteis(t.inicio, t.fim, cal));
+  let previsto = 0;
+  if (dataRef < t.inicio) previsto = 0;
+  else if (dataRef >= t.fim) previsto = 100;
+  else previsto = Math.max(0, Math.min(100,
+    (diasUteis(t.inicio, dataRef, cal) / totalUteis) * 100));
+
+  const fimReal = t.fimReal || (realizado >= 100 ? String(t.ultimaMedicao || "").slice(0,10) : "");
+  const inicioReal = t.inicioReal || t.primeiraExecucao || "";
+  const toleranciaPct = 2; // evita classificar oscilacao de arredondamento como desvio
+  const desvioPct = realizado - previsto;
+
+  let status = "no_prazo";
+  let desvioDias = 0;
+
+  // Tarefa concluida: a data real de termino fornece a comparacao mais forte.
+  if (realizado >= 100 && fimReal) {
+    const dif = diferencaDiasISO(t.fim, fimReal);
+    if (dif > 0) { status = "atrasado"; desvioDias = dif; }
+    else if (dif < 0) { status = "adiantado"; desvioDias = dif; }
+  } else if (dataRef > t.fim && realizado < 100) {
+    status = "atrasado";
+    desvioDias = Math.max(1, diferencaDiasISO(t.fim, dataRef));
+  } else if (desvioPct < -toleranciaPct) {
+    status = "atrasado";
+    desvioDias = Math.max(1, Math.round(Math.abs(desvioPct) / 100 * totalUteis));
+  } else if (desvioPct > toleranciaPct) {
+    status = "adiantado";
+    desvioDias = -Math.max(1, Math.round(Math.abs(desvioPct) / 100 * totalUteis));
+  }
+
+  const cfg = {
+    atrasado:  { label:"Atrasada",  cor:C.red },
+    adiantado: { label:"Adiantada", cor:C.blue },
+    no_prazo:  { label:"No prazo",  cor:C.green },
+  }[status];
+
+  const detalhe = realizado >= 100 && fimReal
+    ? `Concluida em ${fmtDate(fimReal)}; termino planejado ${fmtDate(t.fim)}.`
+    : `Realizado ${realizado.toFixed(0)}% · deveria estar em ${previsto.toFixed(0)}%.`;
+
+  return {
+    status, label:cfg.label, cor:cfg.cor, previsto, realizado,
+    desvioPct, desvioDias, inicioReal, fimReal, detalhe,
+  };
+};
+
+// Compara a linha de base aprovada com o realizado. Para atividades em curso,
+// usa o percentual esperado na data de hoje; para concluidas, usa a data real.
+const compararBaseline = (tarefas, plano, cal, dataRef = today()) => {
   const base = {};
   (plano?.baseline || []).forEach(b => { base[b.tarefaId] = b; });
   if (!Object.keys(base).length) return { temBaseline: false, linhas: [], resumo: null };
   const linhas = (tarefas || []).filter(t => !t.titulo && base[t.id]).map(t => {
     const b = base[t.id];
-    const desvIni = b.inicio && t.inicio ? diasCorridos(b.inicio, t.inicio) : 0;
-    const desvFim = b.fim && t.fim ? diasCorridos(b.fim, t.fim) : 0;
+    const tarefaContraBase = { ...t, inicio:b.inicio || t.inicio, fim:b.fim || t.fim };
+    const situacao = avaliarPlanejadoRealizado(tarefaContraBase, cal, dataRef);
     const custoAtual = t.custoReal > 0 ? t.custoReal : (t.custo || 0);
     const desvCusto = custoAtual - (b.custo || 0);
+    const atualIni = t.inicioReal || t.primeiraExecucao || "";
+    const atualFim = t.fimReal || (t.progresso >= 100 ? String(t.ultimaMedicao || "").slice(0,10) : "");
+    const desvIni = atualIni ? diferencaDiasISO(b.inicio, atualIni) : 0;
     return {
-      id: t.id, nome: t.nome,
-      baseIni: b.inicio, baseFim: b.fim, baseCusto: b.custo || 0,
-      atualIni: t.inicio, atualFim: t.fim, atualCusto: custoAtual,
-      progresso: t.progresso || 0,
-      desvIni, desvFim, desvCusto,
+      id:t.id, nome:t.nome,
+      baseIni:b.inicio, baseFim:b.fim, baseCusto:b.custo || 0,
+      atualIni, atualFim, atualCusto:custoAtual,
+      progresso:t.progresso || 0,
+      previstoHoje:situacao.previsto,
+      status:situacao.status,
+      statusLabel:situacao.label,
+      statusCor:situacao.cor,
+      detalhe:situacao.detalhe,
+      desvIni,
+      desvFim:situacao.desvioDias,
+      desvCusto,
     };
   });
   const resumo = {
-    piorAtraso: linhas.reduce((m, l) => Math.max(m, l.desvFim), 0),
-    atrasadas: linhas.filter(l => l.desvFim > 0).length,
-    adiantadas: linhas.filter(l => l.desvFim < 0).length,
-    noPrazo: linhas.filter(l => l.desvFim === 0).length,
+    piorAtraso: linhas.filter(l=>l.status==="atrasado").reduce((m,l)=>Math.max(m,Math.max(0,l.desvFim)),0),
+    atrasadas: linhas.filter(l => l.status === "atrasado").length,
+    adiantadas: linhas.filter(l => l.status === "adiantado").length,
+    noPrazo: linhas.filter(l => l.status === "no_prazo").length,
     desvioCustoTotal: linhas.reduce((s, l) => s + l.desvCusto, 0),
     custoBase: linhas.reduce((s, l) => s + l.baseCusto, 0),
     custoAtual: linhas.reduce((s, l) => s + l.atualCusto, 0),
@@ -13140,35 +13288,47 @@ const fundirEvolucao = (tarefas, rdos, obraId, medicoesObra = []) => {
       && t.progressoManualOverride !== null
       && t.progressoManualOverride !== "";
 
-    // Um ajuste feito pelo lápis é uma decisão explícita do operador e deve
-    // aparecer imediatamente, mesmo que já exista RDO para o serviço.
+    let progresso = Math.max(0, Math.min(100, Number(t.progresso || 0)));
+    let origemProgresso = "manual";
+    let ultimaMedicao = "";
+    let numeroMedicao = "";
+
+    // Uma decisao explicita do operador prevalece sobre as demais fontes.
     if (temOverride) {
-      return {
-        ...t,
-        progresso: Math.max(0, Math.min(100, Number(t.progressoManualOverride) || 0)),
-        diasTrabalhados: infoRdo?.diasTrabalhados || 0,
-        ultimaMedicao: t.progressoManualAt || "",
-        origemProgresso: "ajuste_manual",
-      };
+      progresso = Math.max(0, Math.min(100, Number(t.progressoManualOverride) || 0));
+      origemProgresso = "ajuste_manual";
+      ultimaMedicao = t.progressoManualAt || "";
+    } else if (medida) {
+      // A medicao tecnica oficialmente confirmada prevalece sobre o RDO.
+      progresso = medida.progresso;
+      origemProgresso = "medicao";
+      ultimaMedicao = medida.data || "";
+      numeroMedicao = medida.numero || "";
+    } else if (infoRdo) {
+      progresso = infoRdo.progresso;
+      origemProgresso = "diario";
+      ultimaMedicao = infoRdo.ultimaData || "";
     }
 
-    // A medição oficial confirmada prevalece sobre o diário.
-    if (medida) {
-      return {
-        ...t,
-        progresso: medida.progresso,
-        diasTrabalhados: infoRdo?.diasTrabalhados || 0,
-        ultimaMedicao: medida.data,
-        numeroMedicao: medida.numero,
-        origemProgresso: "medicao",
-      };
-    }
+    const dataFonte = String(ultimaMedicao || "").slice(0, 10);
+    const inicioRealDerivado = t.inicioReal || infoRdo?.primeiraData || "";
+    const fimRealDerivado = t.fimReal || (progresso >= 100
+      ? (dataFonte || infoRdo?.ultimaData || "")
+      : "");
 
-    if (infoRdo) {
-      return { ...t, progresso: infoRdo.progresso, diasTrabalhados: infoRdo.diasTrabalhados,
-               ultimaMedicao: infoRdo.ultimaData, origemProgresso: "diario" };
-    }
-    return { ...t, diasTrabalhados: 0, origemProgresso: "manual" };
+    return {
+      ...t,
+      progresso,
+      diasTrabalhados: infoRdo?.diasTrabalhados || 0,
+      primeiraExecucao: infoRdo?.primeiraData || t.inicioReal || "",
+      ultimaMedicao,
+      numeroMedicao,
+      origemProgresso,
+      // Campos derivados apenas para exibicao e analise. Se o operador ja
+      // informou datas reais, elas continuam prevalecendo.
+      inicioReal: inicioRealDerivado,
+      fimReal: fimRealDerivado,
+    };
   });
 };
 
@@ -21309,8 +21469,13 @@ function Planejamento({ data, update, showToast }) {
     feriados:     plano.feriados     || [],
   }), [plano.diasSemana, plano.pularFeriados, plano.feriados]);
 
-  // Tarefas montadas + roll-up dos titulos (mae abrange filhas).
-  const tarefas = useMemo(() => aplicarRollup(montarTarefas(plano, orc), orc), [plano, orc]);
+  // Tarefas montadas + progresso realizado vindo das mesmas fontes usadas na
+  // Medicao de Evolucao. Isso impede o Planejamento de ficar preso a um valor
+  // antigo enquanto RDO, medicao oficial ou ajuste manual ja mudaram.
+  const tarefasBase = useMemo(() => montarTarefas(plano, orc), [plano, orc]);
+  const tarefas = useMemo(() => aplicarRollup(
+    fundirEvolucao(tarefasBase, data.rdos, obraId, data.medicoesObra), orc
+  ), [tarefasBase, data.rdos, data.medicoesObra, obraId, orc]);
   const resumo  = useMemo(() => resumoPlano(tarefas.filter(t=>!t.titulo), orc), [tarefas, orc]);
   const janela  = useMemo(() => janelaPlano(tarefas, plano.marcos), [tarefas, plano.marcos]);
   const progresso = useMemo(() => progressoPlano(tarefas.filter(t=>!t.titulo)), [tarefas]);
@@ -21322,7 +21487,27 @@ function Planejamento({ data, update, showToast }) {
   const ffMensalPrev = useMemo(() => fisicoFinanceiroMensal(tarefas, cal, { realizado:false }), [tarefas, cal]);
   const ffMensalReal = useMemo(() => fisicoFinanceiroMensal(tarefas, cal, { realizado:true }), [tarefas, cal]);
   const critico    = useMemo(() => caminhoCritico(tarefas, cal), [tarefas, cal]);
-  const compBase   = useMemo(() => compararBaseline(tarefas, plano), [tarefas, plano]);
+  // Atualiza automaticamente a referencia temporal, inclusive se a tela ficar
+  // aberta na virada do dia.
+  const [hojePlano, setHojePlano] = useState(today());
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const h = today();
+      setHojePlano(atual => atual === h ? atual : h);
+    }, 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const situacoesPrazo = useMemo(() => tarefas.filter(t=>!t.titulo).map(t => ({
+    id:t.id, nome:t.nome, ...avaliarPlanejadoRealizado(t, cal, hojePlano),
+  })), [tarefas, cal, hojePlano]);
+  const situacaoPorId = useMemo(() => Object.fromEntries(situacoesPrazo.map(s=>[s.id,s])), [situacoesPrazo]);
+  const resumoPrazo = useMemo(() => ({
+    atrasadas:situacoesPrazo.filter(s=>s.status==="atrasado").length,
+    adiantadas:situacoesPrazo.filter(s=>s.status==="adiantado").length,
+    noPrazo:situacoesPrazo.filter(s=>s.status==="no_prazo").length,
+    semData:situacoesPrazo.filter(s=>s.status==="sem_data").length,
+  }), [situacoesPrazo]);
+  const compBase   = useMemo(() => compararBaseline(tarefas, plano, cal, hojePlano), [tarefas, plano, cal, hojePlano]);
 
   // Salva a linha de base: fotografa o cronograma atual. Feito uma vez, quando
   // o plano é aprovado; refazer sobrescreve (com confirmação) e o histórico de
@@ -21361,11 +21546,12 @@ function Planejamento({ data, update, showToast }) {
   const [ffModo, setFfModo] = useState("previsto");       // previsto | realizado (tabela FF mensal)
   const [ffMesesOcultos, setFfMesesOcultos] = useState([]); // meses escondidos na tabela FF
   const [planColsOcultas, setPlanColsOcultas] = useState([]); // colunas ocultas no Gantt/tabela de tarefas
-  const [planMostrarReal, setPlanMostrarReal] = useState(true); // mostrar linha "realizado" sob cada tarefa
-  // Colunas visiveis da tabela de tarefas do Gantt. "atividade" e fixa. As
-  // demais o usuario liga/desliga - util no celular, onde a largura e curta.
+  const [planMostrarReal, setPlanMostrarReal] = useState(false); // por padrao, somente a atividade fica visivel
+  // Colunas visiveis da tabela de tarefas do Gantt. "atividade" e fixa. Por
+  // padrao, todas as colunas tecnicas ficam recolhidas; o operador abre apenas
+  // as que precisar pelo menu Colunas.
   const [colsCrono, setColsCrono] = useState({
-    inicio:true, fim:true, dias:true, custo:false, progresso:false, antecessora:true, sucessora:true,
+    inicio:false, fim:false, dias:false, custo:false, progresso:false, antecessora:false, sucessora:false,
   });
   const [colsCronoAberto, setColsCronoAberto] = useState(false);
 
@@ -21857,6 +22043,33 @@ function Planejamento({ data, update, showToast }) {
                  sub={resumo.coberto < 99 ? "faltam etapas" : "completo"} />
       </div>
 
+      {/* Revisao automatica planejado x realizado. Nao depende de baseline:
+          compara o avanco esperado ate hoje com o avanco medido. */}
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px" }}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:8}}>
+          <div>
+            <p style={{fontSize:11.5,fontWeight:900,color:C.text,textTransform:"uppercase",letterSpacing:.45}}>Planejado x realizado</p>
+            <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Atualizado automaticamente em {fmtDate(hojePlano)} com RDO, medicao oficial e ajustes manuais.</p>
+          </div>
+          <span style={{fontSize:9.5,color:C.muted}}>Tolerancia de 2 pontos percentuais</span>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
+          <MiniKpi label="Atrasadas" value={String(resumoPrazo.atrasadas)} cor={resumoPrazo.atrasadas?C.red:C.muted}/>
+          <MiniKpi label="Adiantadas" value={String(resumoPrazo.adiantadas)} cor={resumoPrazo.adiantadas?C.blue:C.muted}/>
+          <MiniKpi label="No prazo" value={String(resumoPrazo.noPrazo)} cor={C.green}/>
+          <MiniKpi label="Sem datas" value={String(resumoPrazo.semData)} cor={resumoPrazo.semData?C.orange:C.muted}/>
+        </div>
+        {situacoesPrazo.some(s=>s.status==="atrasado") && (
+          <div style={{marginTop:8,paddingTop:7,borderTop:`1px solid ${C.line}`}}>
+            <p style={{fontSize:9.5,fontWeight:800,color:C.red,marginBottom:4}}>ATIVIDADES QUE EXIGEM ATENCAO</p>
+            <p style={{fontSize:10,color:C.text,lineHeight:1.55}}>
+              {situacoesPrazo.filter(s=>s.status==="atrasado").slice(0,6)
+                .map(s=>`${s.nome} (${s.realizado.toFixed(0)}% real / ${s.previsto.toFixed(0)}% planejado)`).join(" · ")}
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Fisico-financeiro em destaque: previsao de custo final e eficiencia */}
       {ff.linhas.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: 8 }}>
@@ -21938,6 +22151,7 @@ function Planejamento({ data, update, showToast }) {
                 ))}
               </div>
               {tarefas.map(t => {
+                const situacao = situacaoPorId[t.id];
                 const ant = (t.depende || []).map(id=>tarefas.find(x=>x.id===id)?.nome).filter(Boolean);
                 const suc = idsSucessoras(tarefas,t.id).map(id=>tarefas.find(x=>x.id===id)?.nome).filter(Boolean);
                 const conflitoVinculo = (t.depende || []).some(id => {
@@ -21956,12 +22170,13 @@ function Planejamento({ data, update, showToast }) {
                       <p style={{fontSize:10.5,fontWeight:700,color:t.orfa?C.red:conflitoVinculo?C.orange:C.text,overflow:"hidden",
                                  textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</p>
                       <p style={{fontSize:8.5,color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                        {planMostrarReal && (t.inicioReal || t.fimReal || t.custoReal>0) ? (
+                        {!t.titulo && situacao ? (
                           <>
-                            <span style={{color:C.blue,fontWeight:700}}>Real: </span>
-                            {t.inicioReal||t.fimReal ? `${t.inicioReal?fmtDate(t.inicioReal):"?"}→${t.fimReal?fmtDate(t.fimReal):"?"}` : "sem datas"}
-                            {t.custoReal>0 ? ` · ${fmt(t.custoReal)}` : ""}
-                            {t.fim && t.fimReal && t.fimReal>t.fim ? " · atrasou" : ""}
+                            <span style={{color:situacao.cor,fontWeight:900}}>{situacao.label.toUpperCase()}</span>
+                            {situacao.status !== "sem_data" && <> · real {situacao.realizado.toFixed(0)}% / plan. {situacao.previsto.toFixed(0)}%</>}
+                            {planMostrarReal && (t.inicioReal || t.fimReal) && <>
+                              {" · "}{t.inicioReal?fmtDate(t.inicioReal):"?"}→{t.fimReal?fmtDate(t.fimReal):"em curso"}
+                            </>}
                           </>
                         ) : (
                           <>{t.custo>0?fmt(t.custo):"avulsa"} · A:{ant.length} S:{suc.length}{conflitoVinculo?" · conflito de data":""}</>
@@ -22469,7 +22684,6 @@ function Planejamento({ data, update, showToast }) {
                         </thead>
                         <tbody>
                           {compBase.linhas.map(l => {
-                            const corDesv = l.desvFim > 0 ? C.red : l.desvFim < 0 ? C.blue : C.green;
                             return (
                               <tr key={l.id} style={{ borderBottom: `1px solid ${C.line}` }}>
                                 <td className="brk" style={{ padding: "7px 8px", color: C.text, maxWidth: 150 }}>
@@ -22477,13 +22691,13 @@ function Planejamento({ data, update, showToast }) {
                                   {critico.criticas.includes(l.id) && <span style={{ fontSize: 8.5, fontWeight: 900, color: C.red, marginLeft: 5 }}>CRÍTICA</span>}
                                 </td>
                                 <td style={{ padding: "7px 8px", textAlign: "center", color: C.muted, fontSize: 10.5 }}>
-                                  {fmtDate(l.baseIni)} → {fmtDate(l.atualIni)}
+                                  {fmtDate(l.baseIni)} → {l.atualIni?fmtDate(l.atualIni):"nao iniciado"}
                                 </td>
                                 <td style={{ padding: "7px 8px", textAlign: "center", color: C.muted, fontSize: 10.5 }}>
-                                  {fmtDate(l.baseFim)} → {fmtDate(l.atualFim)}
+                                  {fmtDate(l.baseFim)} → {l.atualFim?fmtDate(l.atualFim):"em andamento"}
                                 </td>
-                                <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 800, color: corDesv }}>
-                                  {l.desvFim > 0 ? `+${l.desvFim}d` : l.desvFim < 0 ? `${l.desvFim}d` : "no prazo"}
+                                <td title={l.detalhe} style={{ padding: "7px 8px", textAlign: "right", fontWeight: 800, color: l.statusCor }}>
+                                  {l.statusLabel}{l.desvFim ? ` · ${l.desvFim>0?"+":""}${l.desvFim}d` : ""}
                                 </td>
                                 <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 700,
                                              color: l.desvCusto > 0 ? C.red : l.desvCusto < 0 ? C.green : C.muted }}>
@@ -27952,6 +28166,9 @@ export default function App() {
   const [toast,       setToast]       = useState(null);
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
   const [ultimaSync,  setUltimaSync]  = useState(null);
+  // Estado explícito de persistência. A interface deixa de confundir alteração
+  // aplicada localmente com alteração já confirmada no servidor.
+  const [saveInfo, setSaveInfo] = useState({ status:"idle", lastSavedAt:null, error:"" });
 
   // A lista de perfis vem SEM os dados. Os dados só chegam depois que o
   // servidor confere o PIN - é o que impede alguém de abrir a URL e ler tudo.
@@ -27959,10 +28176,17 @@ export default function App() {
   // Última versão que veio do servidor - o ponto de partida das minhas edições.
   // Serve de "base" para o merge de conflito saber o que EU mudei.
   const baseServidorRef = useRef(null);
-  // Espelho do estado atual, para a auditoria comparar antes/depois sem que o
-  // `update` precise depender de `data` (o que o recriaria a cada tecla).
+  // Espelho do estado atual. É atualizado ANTES do render para que dois cliques
+  // rápidos no ponto nunca partam da mesma versão antiga e apaguem um ao outro.
   const dataAtualRef = useRef(null);
   useEffect(() => { dataAtualRef.current = data; }, [data]);
+
+  // Fila compactada de salvamento: enquanto uma gravação está em trânsito,
+  // novas alterações substituem o próximo snapshot pendente. Assim não há
+  // requisições concorrentes, respostas fora de ordem nem perda de cliques.
+  const pendingSaveRef = useRef(null);
+  const saveLoopActiveRef = useRef(false);
+  const failedSaveRef = useRef(null);
 
   const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
@@ -27970,55 +28194,125 @@ export default function App() {
     showToast._t = window.setTimeout(() => setToast(null), 3200);
   }, []);
 
-  const update = useCallback(async (next) => {
+  const processSaveQueue = useCallback(async () => {
+    if (saveLoopActiveRef.current) return;
+    saveLoopActiveRef.current = true;
+
+    try {
+      while (pendingSaveRef.current) {
+        const payload = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        setSaveInfo(prev => ({ ...prev, status:"saving", error:"" }));
+
+        let r;
+        try {
+          r = await saveDataDetailed(payload);
+        } catch (err) {
+          console.error("saveDataDetailed", err);
+          failedSaveRef.current = dataAtualRef.current || payload;
+          setSaveInfo(prev => ({ ...prev, status:"error", error:"Falha de conexão. Alterações ainda não confirmadas." }));
+          showToast("Não foi possível confirmar o salvamento. Use ‘Tentar novamente’.", "error");
+          break;
+        }
+
+        if (r?.conflict) {
+          // Conserva o estado local MAIS RECENTE, inclusive alterações feitas
+          // enquanto a requisição anterior estava em andamento.
+          failedSaveRef.current = pendingSaveRef.current || dataAtualRef.current || payload;
+          pendingSaveRef.current = null;
+          setSaveInfo(prev => ({ ...prev, status:"conflict", error:"Outra pessoa salvou uma versão mais nova." }));
+          break;
+        }
+
+        if (!r?.ok) {
+          failedSaveRef.current = dataAtualRef.current || payload;
+          setSaveInfo(prev => ({ ...prev, status:"error", error:r?.reason || "O servidor recusou o salvamento." }));
+          showToast(r?.reason || "Não foi possível salvar. Tente novamente.", "error");
+          break;
+        }
+
+        const confirmadoEm = new Date();
+        baseServidorRef.current = payload;
+        failedSaveRef.current = null;
+        setUltimaSync(confirmadoEm);
+        setSaveInfo({
+          status: pendingSaveRef.current ? "queued" : "saved",
+          lastSavedAt: confirmadoEm,
+          error:"",
+        });
+      }
+    } finally {
+      saveLoopActiveRef.current = false;
+      // Uma alteração pode chegar exatamente entre a última condição do while
+      // e a liberação da trava. Reinicia a fila nesse caso.
+      if (pendingSaveRef.current && !failedSaveRef.current) {
+        window.setTimeout(() => { void processSaveQueue(); }, 0);
+      }
+    }
+  }, [showToast]);
+
+  const update = useCallback((nextOrUpdater) => {
+    const antes = dataAtualRef.current;
+    const next = typeof nextOrUpdater === "function"
+      ? nextOrUpdater(antes)
+      : nextOrUpdater;
+
+    if (!next || typeof next !== "object") return;
+
     // Auditoria automática: detecta o que mudou em relação ao estado atual e
-    // carimba com operador e hora. Compara ignorando o próprio changeLog (senão
-    // registrar geraria mudança que se auto-registra). Eventos ricos de RH/ponto
-    // que já vêm com mensagem própria no changeLog são preservados; aqui só
-    // acrescentamos o que mais mudou, com autor e horário.
+    // carimba com operador e hora. Funções de atualização recebem sempre o
+    // snapshot mais novo, eliminando sobrescritas causadas por props defasadas.
     let proximo = next;
     try {
-      const antes = dataAtualRef.current;
-      if (antes && next && next.changeLog === antes.changeLog) {
-        // changeLog não foi mexido manualmente nesta chamada: detecta e anexa.
+      if (antes && next.changeLog === antes.changeLog) {
         const mudancas = detectarMudancasAudit(antes, next);
         if (mudancas.length) {
           const agoraISO = new Date().toISOString();
           const operador = currentUser?.nome || "Sistema";
           const operadorId = currentUser?.id || "";
-          // Em saves em massa (import), resume em vez de listar tudo.
           const entradas = mudancas.length > 6
             ? [{ id: uid(), date: today(), at: agoraISO, operador, operadorId,
                  type:"bulk", message:`${operador} fez ${mudancas.length} alterações` }]
             : mudancas.map(m => ({ id: uid(), date: today(), at: agoraISO, operador, operadorId,
                  type:m.acao, message:`${operador} ${m.texto}` }));
-          const log = [...(next.changeLog || []), ...entradas].slice(-200); // guarda as últimas 200
-          proximo = { ...next, changeLog: log };
+          proximo = { ...next, changeLog:[...(next.changeLog || []), ...entradas].slice(-200) };
         }
       }
     } catch (e) { console.error("audit", e); }
 
     const normalized = normalizeData(proximo);
-    setData(normalized);   // otimista: a interface não trava esperando a rede
+    // Atualização síncrona do ref é essencial: um segundo clique feito antes do
+    // próximo render já enxerga o primeiro.
+    dataAtualRef.current = normalized;
+    setData(normalized);
 
-    try {
-      const r = await saveDataDetailed(normalized);
+    failedSaveRef.current = null;
+    pendingSaveRef.current = normalized;
+    setSaveInfo(prev => ({ ...prev, status:saveLoopActiveRef.current ? "queued" : "saving", error:"" }));
+    void processSaveQueue();
+  }, [currentUser, processSaveQueue]);
 
-      // Conflito dispara o evento 'arcd:data-conflict' dentro do api.js - o
-      // banner aparece sozinho e guarda o que você tentou salvar.
-      if (r.conflict) return;
+  const retrySave = useCallback(() => {
+    const payload = dataAtualRef.current || failedSaveRef.current;
+    if (!payload) return;
+    failedSaveRef.current = null;
+    pendingSaveRef.current = payload;
+    setSaveInfo(prev => ({ ...prev, status:"saving", error:"" }));
+    void processSaveQueue();
+  }, [processSaveQueue]);
 
-      if (!r.ok) {
-        showToast(r.reason || "Não foi possível salvar. Confira a conexão.", "error");
-      } else {
-        baseServidorRef.current = normalized;   // save confirmado vira a nova base
-        setUltimaSync(new Date());
-      }
-    } catch (err) {
-      console.error(err);
-      showToast("Erro ao salvar. Nada foi confirmado no servidor.", "error");
-    }
-  }, [showToast, currentUser]);
+  // Evita fechar/recarregar a aba enquanto há ponto ainda apenas no navegador.
+  useEffect(() => {
+    const guard = event => {
+      const pendente = saveLoopActiveRef.current || !!pendingSaveRef.current ||
+        saveInfo.status === "error" || saveInfo.status === "conflict";
+      if (!pendente) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [saveInfo.status]);
 
   // No boot buscamos APENAS a lista de perfis (nome + papel). Nenhum dado
   // financeiro, nenhum CPF, nenhum hash de PIN sai do servidor aqui.
@@ -28182,7 +28476,16 @@ export default function App() {
   // Agora seguramos o que você tentou salvar e oferecemos reaplicar sobre a
   // versão nova do servidor.
   useEffect(() => {
-    const aoConflitar = (e) => setConflito(e.detail || null);
+    const aoConflitar = (e) => {
+      const detalhe=e.detail||{};
+      setConflito({
+        ...detalhe,
+        // O api.js conhece o snapshot que foi recusado, mas o operador pode ter
+        // feito novos lançamentos enquanto a requisição estava em trânsito.
+        // O merge deve reaplicar o estado local mais recente, não uma cópia antiga.
+        rejectedPayload:dataAtualRef.current||detalhe.rejectedPayload,
+      });
+    };
     window.addEventListener("arcd:data-conflict", aoConflitar);
     return () => window.removeEventListener("arcd:data-conflict", aoConflitar);
   }, []);
@@ -28205,12 +28508,31 @@ export default function App() {
       const merged = mesclarDados(fresco.data, meu, base);
       const norm = normalizeData(merged);
       const ok = await saveData(norm);
-      if (ok) { baseServidorRef.current = norm; setData(norm); showToast("Suas alterações foram mescladas com as da outra pessoa."); }
-      else    { showToast("Ainda em conflito. Recarregue a página.", "error"); }
+      if (ok) {
+        baseServidorRef.current = norm;
+        dataAtualRef.current = norm;
+        pendingSaveRef.current = null;
+        failedSaveRef.current = null;
+        setData(norm);
+        const confirmadoEm=new Date();
+        setUltimaSync(confirmadoEm);
+        setSaveInfo({status:"saved",lastSavedAt:confirmadoEm,error:""});
+        showToast("Suas alterações foram mescladas com as da outra pessoa.");
+      } else {
+        failedSaveRef.current = dataAtualRef.current || norm;
+        setSaveInfo(prev=>({...prev,status:"conflict",error:"Ainda existe conflito de versão."}));
+        showToast("Ainda em conflito. Recarregue a página.", "error");
+      }
     } else {
       const norm = normalizeData(fresco.data);
       baseServidorRef.current = norm;
+      dataAtualRef.current = norm;
+      pendingSaveRef.current = null;
+      failedSaveRef.current = null;
       setData(norm);
+      const confirmadoEm=new Date();
+      setUltimaSync(confirmadoEm);
+      setSaveInfo({status:"saved",lastSavedAt:confirmadoEm,error:""});
     }
   };
 
@@ -28221,7 +28543,13 @@ export default function App() {
       adoptServerVersion(fresco.updatedAt, fresco.data);
       const norm = normalizeData(fresco.data);
       baseServidorRef.current = norm;
+      dataAtualRef.current = norm;
+      pendingSaveRef.current = null;
+      failedSaveRef.current = null;
       setData(norm);
+      const confirmadoEm=new Date();
+      setUltimaSync(confirmadoEm);
+      setSaveInfo({status:"saved",lastSavedAt:confirmadoEm,error:""});
       showToast("Tela atualizada com a versão do servidor.");
     }
   };
@@ -28272,8 +28600,13 @@ export default function App() {
       baseServidorRef.current = normalizados;   // ponto de partida para merge
       const cadastro=normalizados.usuarios.find(item=>item.id===usuario.id);
       const usuarioCompleto={...usuario,...cadastro,pin:undefined};
+      dataAtualRef.current = normalizados;
+      pendingSaveRef.current = null;
+      failedSaveRef.current = null;
       setData(normalizados);
-      setUltimaSync(new Date());
+      const carregadoEm=new Date();
+      setUltimaSync(carregadoEm);
+      setSaveInfo({status:"saved",lastSavedAt:carregadoEm,error:""});
       setCurrentUser(usuarioCompleto);
       const allowed = allowedTabsForUser(usuarioCompleto);
       setTab(allowed[0] || "home");
@@ -28553,8 +28886,8 @@ export default function App() {
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} />}
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} />}
-          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
-          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} />}
+          {tab === "ponto"  && <Ponto data={data} update={update} showToast={showToast} saveInfo={saveInfo} onRetrySave={retrySave} />}
+          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} saveInfo={saveInfo} onRetrySave={retrySave} />}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
