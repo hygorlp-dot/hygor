@@ -12849,15 +12849,67 @@ const compararBaseline = (tarefas, plano) => {
   return { temBaseline: true, linhas, resumo };
 };
 
-const fundirEvolucao = (tarefas, rdos, obraId) => {
+// Último percentual oficialmente confirmado em boletim para cada tarefa.
+// A medição confirmada precisa prevalecer sobre o RDO; caso contrário, ao
+// ajustar um boletim a tela voltaria imediatamente para o percentual do diário.
+const ultimaMedicaoPorTarefa = (medicoes, obraId) => {
+  const mapa = {};
+  (medicoes || [])
+    .filter(m => m.obraId === obraId)
+    .sort((a, b) => `${a.data || ""}|${a.createdAt || ""}|${a.id || ""}`
+      .localeCompare(`${b.data || ""}|${b.createdAt || ""}|${b.id || ""}`))
+    .forEach(m => {
+      (m.itens || []).forEach(i => {
+        if (!i.tarefaId) return;
+        mapa[i.tarefaId] = {
+          progresso: Math.max(0, Math.min(100, Number(i.pctConfirmado) || 0)),
+          data: m.data || "",
+          numero: m.numero || "",
+          medicaoId: m.id,
+        };
+      });
+    });
+  return mapa;
+};
+
+const fundirEvolucao = (tarefas, rdos, obraId, medicoesObra = []) => {
   const ev = evolucaoPorRDO(rdos, obraId);
+  const medidas = ultimaMedicaoPorTarefa(medicoesObra, obraId);
+
   return (tarefas || []).map(t => {
-    const chave = t.id;
-    const eEtapa = t.etapaId;
-    const info = ev[chave] || ev[eEtapa];
-    if (info) {
-      return { ...t, progresso: info.progresso, diasTrabalhados: info.diasTrabalhados,
-               ultimaMedicao: info.ultimaData, origemProgresso: "diario" };
+    const infoRdo = ev[t.id] || ev[t.etapaId];
+    const medida = medidas[t.id];
+    const temOverride = t.progressoManualOverride !== undefined
+      && t.progressoManualOverride !== null
+      && t.progressoManualOverride !== "";
+
+    // Um ajuste feito pelo lápis é uma decisão explícita do operador e deve
+    // aparecer imediatamente, mesmo que já exista RDO para o serviço.
+    if (temOverride) {
+      return {
+        ...t,
+        progresso: Math.max(0, Math.min(100, Number(t.progressoManualOverride) || 0)),
+        diasTrabalhados: infoRdo?.diasTrabalhados || 0,
+        ultimaMedicao: t.progressoManualAt || "",
+        origemProgresso: "ajuste_manual",
+      };
+    }
+
+    // A medição oficial confirmada prevalece sobre o diário.
+    if (medida) {
+      return {
+        ...t,
+        progresso: medida.progresso,
+        diasTrabalhados: infoRdo?.diasTrabalhados || 0,
+        ultimaMedicao: medida.data,
+        numeroMedicao: medida.numero,
+        origemProgresso: "medicao",
+      };
+    }
+
+    if (infoRdo) {
+      return { ...t, progresso: infoRdo.progresso, diasTrabalhados: infoRdo.diasTrabalhados,
+               ultimaMedicao: infoRdo.ultimaData, origemProgresso: "diario" };
     }
     return { ...t, diasTrabalhados: 0, origemProgresso: "manual" };
   });
@@ -23390,8 +23442,8 @@ function MedicaoEvolucao({ data, update, showToast }) {
 
   const tarefas = useMemo(() => {
     const base = aplicarRollup(montarTarefas(plano, orc), orc);
-    return fundirEvolucao(base, data.rdos, obraId).filter(t => !t.titulo);
-  }, [plano, orc, data.rdos, obraId]);
+    return fundirEvolucao(base, data.rdos, obraId, data.medicoesObra).filter(t => !t.titulo);
+  }, [plano, orc, data.rdos, data.medicoesObra, obraId]);
 
   const resumo = useMemo(() => resumoMedicao(tarefas), [tarefas]);
 
@@ -23428,7 +23480,7 @@ function MedicaoEvolucao({ data, update, showToast }) {
     const avancoFisico = custoTotal
       ? itens.reduce((s, i) => s + i.custo * i.pctConfirmado, 0) / custoTotal : 0;
     const medicao = {
-      id: uid(), obraId, data: today(),
+      id: uid(), obraId, data: today(), createdAt: new Date().toISOString(),
       numero: medicoesObra.length + 1,
       responsavel: confResp.trim(), observacao: confObs.trim(),
       itens, avancoFisico,
@@ -23440,7 +23492,11 @@ function MedicaoEvolucao({ data, update, showToast }) {
       if (p.obraId !== obraId) return p;
       return { ...p, tarefas: (p.tarefas || []).map(t => {
         const it = itens.find(x => x.tarefaId === t.id);
-        return it ? { ...t, progresso: it.pctConfirmado } : t;
+        if (!it) return t;
+        // Confirmar o boletim encerra eventual override manual anterior e
+        // transforma o percentual confirmado na referência oficial do plano.
+        const { progressoManualOverride, progressoManualAt, ...semOverride } = t;
+        return { ...semOverride, progresso: it.pctConfirmado };
       }) };
     });
     update({ ...data, medicoesObra: [...(data.medicoesObra || []), medicao], planos });
@@ -23454,19 +23510,48 @@ function MedicaoEvolucao({ data, update, showToast }) {
       showToast?.("Só a última medição pode ser removida.", "error"); return;
     }
     if (!window.confirm(`Remover a medição ${m.numero}?`)) return;
-    update({ ...data, medicoesObra: (data.medicoesObra || []).filter(x => x.id !== m.id) });
-    showToast?.("Medição removida.");
+
+    const medicoesRestantes = (data.medicoesObra || []).filter(x => x.id !== m.id);
+    const anteriores = ultimaMedicaoPorTarefa(medicoesRestantes, obraId);
+    const peloRdo = evolucaoPorRDO(data.rdos, obraId);
+
+    // Também restaura o progresso persistido no plano. Assim os demais painéis
+    // não ficam presos no percentual de um boletim que acabou de ser removido.
+    const planos = (data.planos || []).map(p => {
+      if (p.obraId !== obraId) return p;
+      return { ...p, tarefas: (p.tarefas || []).map(t => {
+        if (t.progressoManualOverride !== undefined && t.progressoManualOverride !== null) return t;
+        const anterior = anteriores[t.id];
+        const rdo = peloRdo[t.id] || peloRdo[t.etapaId];
+        const itemRemovido = (m.itens || []).find(i => i.tarefaId === t.id);
+        const progresso = anterior?.progresso
+          ?? rdo?.progresso
+          ?? itemRemovido?.pctDiario
+          ?? t.progresso
+          ?? 0;
+        return { ...t, progresso: Math.max(0, Math.min(100, Number(progresso) || 0)) };
+      }) };
+    });
+
+    update({ ...data, medicoesObra: medicoesRestantes, planos });
+    showToast?.("Medição removida e avanço recalculado.");
   };
 
-  // Ajuste manual: grava o progresso direto na tarefa do plano.
+  // Ajuste manual explícito: além do progresso, grava um override. Sem essa
+  // marca, o RDO sobrescrevia o valor no render seguinte e parecia que a
+  // medição não havia sido atualizada.
   const ajustarManual = (tarefaId, progresso) => {
+    const pct = Math.max(0, Math.min(100, Number(progresso) || 0));
+    const agora = new Date().toISOString();
     const planos = (data.planos || []).map(p => {
       if (p.obraId !== obraId) return p;
       return { ...p, tarefas: (p.tarefas || []).map(t =>
-        t.id === tarefaId ? { ...t, progresso: Math.max(0, Math.min(100, Number(progresso) || 0)) } : t) };
+        t.id === tarefaId
+          ? { ...t, progresso: pct, progressoManualOverride: pct, progressoManualAt: agora }
+          : t) };
     });
     update({ ...data, planos });
-    showToast?.("Progresso ajustado");
+    showToast?.(`Progresso atualizado para ${pct}%`);
   };
 
   if (!obras.length) {
@@ -23508,8 +23593,12 @@ function MedicaoEvolucao({ data, update, showToast }) {
                 <p className="brk" style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>{t.nome}</p>
                 <div style={{ display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 10, fontWeight: 700,
-                                 color: t.origemProgresso === "diario" ? C.green : C.muted }}>
-                    {t.origemProgresso === "diario" ? "via diario" : "manual"}
+                                 color: t.origemProgresso === "diario" ? C.green
+                                   : t.origemProgresso === "medicao" ? C.blue
+                                   : t.origemProgresso === "ajuste_manual" ? C.orange : C.muted }}>
+                    {t.origemProgresso === "diario" ? "via diario"
+                      : t.origemProgresso === "medicao" ? `medição ${t.numeroMedicao || "oficial"}`
+                      : t.origemProgresso === "ajuste_manual" ? "ajuste manual" : "manual"}
                   </span>
                   {t.diasTrabalhados > 0 && (
                     <span style={{ fontSize: 10, color: C.muted }}>{t.diasTrabalhados} dia(s) trabalhado(s)</span>
@@ -23545,8 +23634,9 @@ function MedicaoEvolucao({ data, update, showToast }) {
       </div>
 
       <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, padding: "0 4px" }}>
-        O progresso vindo do <b>diario de obra</b> tem prioridade. Onde nao ha RDO, voce ajusta
-        manualmente aqui. Ambos alimentam a curva S e o fisico-financeiro do planejamento.
+        A tela é recalculada imediatamente. A prioridade é: <b>ajuste manual explícito</b>,
+        depois <b>medição oficial</b>, depois <b>diário de obra</b> e, por último, o valor manual
+        do planejamento. Todos alimentam a curva S e o físico-financeiro.
       </p>
 
       {/* Boletim de medição: confirma o avanço contra o diário */}
