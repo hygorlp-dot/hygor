@@ -21384,8 +21384,11 @@ function Planejamento({ data, update, showToast }) {
   const [planMostrarReal, setPlanMostrarReal] = useState(true); // mostrar linha "realizado" sob cada tarefa
   // Colunas visiveis da tabela de tarefas do Gantt. "atividade" e fixa. As
   // demais o usuario liga/desliga - util no celular, onde a largura e curta.
+  // O cronograma inicia em modo compacto: somente Atividade / custo fica
+  // visivel. As demais colunas podem ser habilitadas pelo menu "Colunas".
   const [colsCrono, setColsCrono] = useState({
-    inicio:true, fim:true, dias:true, custo:false, progresso:false, antecessora:true, sucessora:true,
+    inicio:false, fim:false, dias:false, custo:false, progresso:false,
+    antecessora:false, sucessora:false,
   });
   const [colsCronoAberto, setColsCronoAberto] = useState(false);
 
@@ -21957,7 +21960,7 @@ function Planejamento({ data, update, showToast }) {
 
             {/* Colunas tecnicas fixas: edicao direta sem abrir popup */}
             <div style={{ flexShrink: 0, borderRight: `1px solid ${C.line}`,
-                          position: isDesktop ? "sticky" : "relative", left: 0, background: C.card, zIndex: 2,
+                          position: isDesktop ? "sticky" : "relative", left: 0, background: C.card, zIndex: 5,
                           width:LARGURA_TAREFAS }}>
               <div style={{ height: ALTURA_REGUA, borderBottom: `1px solid ${C.line}`,
                             display:"grid", gridTemplateColumns:COLUNAS_TAREFA, alignItems:"center" }}>
@@ -22069,8 +22072,11 @@ function Planejamento({ data, update, showToast }) {
               })}
             </div>
 
-            {/* Area do grafico */}
-            <div style={{ position: "relative", minWidth: larguraGrade }}>
+            {/* Area do grafico. O overflow fica recortado neste painel para
+                impedir que barras ou linhas de dependencia com coordenadas
+                negativas atravessem a tabela lateral. */}
+            <div style={{ position: "relative", minWidth: larguraGrade, overflow: "hidden",
+                          isolation: "isolate" }}>
               {/* Regua tecnica: mes, numero do dia, dia da semana e excecoes */}
               <div style={{ height: ALTURA_REGUA, position: "relative", borderBottom: `1px solid ${C.line}` }}>
                 {reguaMeses.map((m, i) => (
@@ -22212,7 +22218,7 @@ function Planejamento({ data, update, showToast }) {
                 return (
                   <svg style={{ position: "absolute", left: 0, top: 0, width: larguraGrade,
                                 height: ALTURA_REGUA + tarefas.length * ALTURA_LINHA,
-                                pointerEvents: "none", zIndex: 2, overflow: "visible" }}>
+                                pointerEvents: "none", zIndex: 2, overflow: "hidden" }}>
                     <defs>
                       <marker id="setaDep" markerWidth="7" markerHeight="7" refX="5.5" refY="3"
                               orient="auto" markerUnits="userSpaceOnUse">
