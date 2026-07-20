@@ -27629,6 +27629,12 @@ export default function App() {
   // `update` precise depender de `data` (o que o recriaria a cada tecla).
   const dataAtualRef = useRef(null);
   useEffect(() => { dataAtualRef.current = data; }, [data]);
+  // Estado mais recente aplicado, atualizado SINCRONAMENTE dentro do `update`.
+  // Serve para reconciliar salvamentos em sequencia rapida: se dois cadastros
+  // sao salvos antes do React re-renderizar, o segundo poderia partir de um
+  // `data` velho (do closure) e apagar o primeiro. Comparando com este ref
+  // reaplicamos so as secoes que o chamador realmente mudou.
+  const ultimoDataRef = useRef(null);
 
   const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
@@ -27637,17 +27643,40 @@ export default function App() {
   }, []);
 
   const update = useCallback(async (next) => {
+    // RECONCILIACAO CONTRA O ESTADO MAIS RECENTE
+    // Se um save anterior ainda nao propagou pelo React, o `next` que chega
+    // pode ter sido montado sobre um `data` velho (closure do componente), o
+    // que apagaria aquele save. Comparamos, por secao (top-level key), o `next`
+    // com o ultimo estado que produzimos: as secoes iguais ao render anterior
+    // herdam a versao mais recente; as que o chamador de fato mudou prevalecem.
+    let base = next;
+    try {
+      const recente = ultimoDataRef.current;
+      const anterior = dataAtualRef.current;
+      if (recente && anterior && recente !== anterior) {
+        // Houve save(s) que o closure do chamador ainda nao viu.
+        const reconciliado = { ...recente };
+        Object.keys(next).forEach(k => {
+          // O chamador mudou esta secao se ela difere do que ele tinha (anterior).
+          if (next[k] !== anterior[k]) reconciliado[k] = next[k];
+        });
+        // Secoes novas que so existem no next tambem entram.
+        Object.keys(next).forEach(k => { if (!(k in reconciliado)) reconciliado[k] = next[k]; });
+        base = reconciliado;
+      }
+    } catch (e) { console.error("reconc", e); base = next; }
+
     // Auditoria automática: detecta o que mudou em relação ao estado atual e
     // carimba com operador e hora. Compara ignorando o próprio changeLog (senão
     // registrar geraria mudança que se auto-registra). Eventos ricos de RH/ponto
     // que já vêm com mensagem própria no changeLog são preservados; aqui só
     // acrescentamos o que mais mudou, com autor e horário.
-    let proximo = next;
+    let proximo = base;
     try {
       const antes = dataAtualRef.current;
-      if (antes && next && next.changeLog === antes.changeLog) {
+      if (antes && base && base.changeLog === antes.changeLog) {
         // changeLog não foi mexido manualmente nesta chamada: detecta e anexa.
-        const mudancas = detectarMudancasAudit(antes, next);
+        const mudancas = detectarMudancasAudit(antes, base);
         if (mudancas.length) {
           const agoraISO = new Date().toISOString();
           const operador = currentUser?.nome || "Sistema";
@@ -27658,21 +27687,27 @@ export default function App() {
                  type:"bulk", message:`${operador} fez ${mudancas.length} alterações` }]
             : mudancas.map(m => ({ id: uid(), date: today(), at: agoraISO, operador, operadorId,
                  type:m.acao, message:`${operador} ${m.texto}` }));
-          const log = [...(next.changeLog || []), ...entradas].slice(-200); // guarda as últimas 200
-          proximo = { ...next, changeLog: log };
+          const log = [...(base.changeLog || []), ...entradas].slice(-200); // guarda as últimas 200
+          proximo = { ...base, changeLog: log };
         }
       }
     } catch (e) { console.error("audit", e); }
 
     const normalized = normalizeData(proximo);
+    ultimoDataRef.current = normalized;   // registra sincronamente o estado mais recente
+    dataAtualRef.current = normalized;    // e adianta o espelho (o effect confirmaria depois)
     setData(normalized);   // otimista: a interface não trava esperando a rede
 
     try {
       const r = await saveDataDetailed(normalized);
 
       // Conflito dispara o evento 'arcd:data-conflict' dentro do api.js - o
-      // banner aparece sozinho e guarda o que você tentou salvar.
-      if (r.conflict) return;
+      // banner aparece sozinho e guarda o que você tentou salvar. Avisamos
+      // tambem por toast para o save nunca "sumir" em silencio.
+      if (r.conflict) {
+        showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações estão sendo mescladas — confira o aviso.", "error");
+        return;
+      }
 
       if (!r.ok) {
         showToast(r.reason || "Não foi possível salvar. Confira a conexão.", "error");
@@ -27904,11 +27939,13 @@ export default function App() {
       const merged = mesclarDados(fresco.data, meu, base);
       const norm = normalizeData(merged);
       const ok = await saveData(norm);
-      if (ok) { baseServidorRef.current = norm; setData(norm); showToast("Suas alterações foram mescladas com as da outra pessoa."); }
+      if (ok) { baseServidorRef.current = norm; ultimoDataRef.current = norm; dataAtualRef.current = norm; setData(norm); showToast("Suas alterações foram mescladas com as da outra pessoa."); }
       else    { showToast("Ainda em conflito. Recarregue a página.", "error"); }
     } else {
       const norm = normalizeData(fresco.data);
       baseServidorRef.current = norm;
+      ultimoDataRef.current = norm;
+      dataAtualRef.current = norm;
       setData(norm);
     }
   };
@@ -27920,6 +27957,8 @@ export default function App() {
       adoptServerVersion(fresco.updatedAt, fresco.data);
       const norm = normalizeData(fresco.data);
       baseServidorRef.current = norm;
+      ultimoDataRef.current = norm;
+      dataAtualRef.current = norm;
       setData(norm);
       showToast("Tela atualizada com a versão do servidor.");
     }
@@ -27969,6 +28008,8 @@ export default function App() {
     const handleLogin = (usuario, dados) => {
       const normalizados=normalizeData(dados || DEFAULT());
       baseServidorRef.current = normalizados;   // ponto de partida para merge
+      ultimoDataRef.current = normalizados;
+      dataAtualRef.current = normalizados;
       const cadastro=normalizados.usuarios.find(item=>item.id===usuario.id);
       const usuarioCompleto={...usuario,...cadastro,pin:undefined};
       setData(normalizados);
