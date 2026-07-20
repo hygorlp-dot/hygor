@@ -31,9 +31,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin,
 // - Base compartilhada Supabase via supabase.js
 // - Cadastro de obras, equipe, ponto, folha, relatórios e configurações
 // - Transferência/demissão individual no ponto
-// - Bloqueio do ponto por obra/data após finalização
-// - Solicitação de permissão por e-mail para hygorlp@gmail.com
-// - Link de aprovação temporária por 30 minutos
+// - Ponto sempre aberto para edição, sem bloqueio ou solicitação de permissão
 // - Pagamento dia 20 para 1ª quinzena e dia 05 do mês seguinte para 2ª quinzena
 // - Ajuste de pagamento por sábado/domingo/feriados
 // - Feriados nacionais + Pernambuco + Caruaru
@@ -787,48 +785,13 @@ const getHolidayPayRule = (data, employee, holidayIso, holidays) => {
 };
 
 // 
-// Bloqueio de ponto por obra/data e permissões
+// Ponto sempre editável
 // 
 
-const attendanceLockKey = (obraId, date) => `${date}__${obraId}`;
-const getAttendanceLock = (data, obraId, date) => data?.attendanceLocks?.[attendanceLockKey(obraId, date)] || null;
-const isAttendanceLocked = (data, obraId, date) => !!getAttendanceLock(data, obraId, date)?.locked;
-
-const hasApprovedUnlock = (data, obraId, date) => {
-  const now = new Date();
-  return (data?.unlockRequests || []).some(r =>
-    r.obraId === obraId &&
-    r.date === date &&
-    r.status === "approved" &&
-    r.validUntil &&
-    new Date(r.validUntil) > now
-  );
-};
-
-const canEditAttendance = (data, obraId, date) => !isAttendanceLocked(data, obraId, date) || hasApprovedUnlock(data, obraId, date);
-
-const buildPermissionEmail = ({ to, obraName, date, employeeName, reason, approvalLink }) => {
-  const subject = `Permissão para alterar ponto - ${obraName} - ${fmtDateFull(date)}`;
-  const body = [
-    "Solicitação de permissão para alteração de ponto.",
-    "",
-    `Obra: ${obraName}`,
-    `Data do ponto: ${fmtDateFull(date)}`,
-    employeeName ? `Trabalhador: ${employeeName}` : "Trabalhador: todos / não especificado",
-    "",
-    "Motivo informado:",
-    reason || "Não informado.",
-    "",
-    "Para aprovar a alteração por 30 minutos, acesse o link abaixo:",
-    approvalLink,
-    "",
-    "Observação: a aprovação pelo link exige que o aprovador tenha acesso ao sistema.",
-    "",
-    "Solicitação gerada automaticamente pelo sistema ArcD Obras.",
-  ].join("\n");
-
-  return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-};
+// Mantidos como funções de compatibilidade para dados antigos. Nenhum registro
+// de ponto é bloqueado e nenhuma autorização é necessária para editar.
+const isAttendanceLocked = () => false;
+const canEditAttendance = () => true;
 
 // 
 // Controle de ponto cadastrado por obra
@@ -6374,70 +6337,6 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
   );
 }
 
-function UnlockRequestModal({ data, update, showToast, obraId, date, employee, onClose }) {
-  const [reason, setReason] = useState("");
-  const obra = data.obras.find(o => o.id === obraId);
-  const obraName = obra?.name || "-";
-  const approverEmail = data.config.approverEmail || "hygorlp@gmail.com";
-
-  const sendRequest = () => {
-    if (!reason.trim()) {
-      showToast("Informe o motivo da solicitação.", "error");
-      return;
-    }
-
-    const requestId = uid();
-    const approvalLink = `${window.location.origin}${window.location.pathname}?approve_unlock=${encodeURIComponent(requestId)}`;
-    const request = {
-      id: requestId,
-      obraId,
-      obraName,
-      date,
-      employeeId: employee?.id || "",
-      employeeName: employee?.name || "",
-      reason,
-      status: "pending",
-      requestedAt: new Date().toISOString(),
-      requestedTo: approverEmail,
-      approvalLink,
-    };
-
-    const unlockRequests = [...data.unlockRequests, request];
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "unlock_request", empId: employee?.id || "", empName: employee?.name || "", message: `Solicitação de alteração de ponto enviada para ${obraName} em ${fmtDateFull(date)}.` }];
-    update({ ...data, unlockRequests, changeLog });
-
-    window.location.href = buildPermissionEmail({
-      to: approverEmail,
-      obraName,
-      date,
-      employeeName: employee?.name || "",
-      reason,
-      approvalLink,
-    });
-
-    showToast("Solicitação registrada e e-mail preparado.");
-    onClose();
-  };
-
-  return (
-    <Modal title="Solicitar permissão" onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 12 }}>
-          <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 18 }}>{obraName}</p>
-          <p style={{ color: C.muted, fontSize: 12 }}>Data bloqueada: {fmtDateFull(date)}</p>
-          {employee?.name && <p style={{ color: C.muted, fontSize: 12 }}>Trabalhador: {employee.name}</p>}
-          <p style={{ color: C.subtle, fontSize: 12, marginTop: 6 }}>A solicitação será enviada para {approverEmail}.</p>
-        </div>
-        <Inp label="Motivo da alteração *" value={reason} onChange={setReason} multiline placeholder="Ex.: ponto lançado errado, funcionário em obra diferente, ajuste solicitado pelo responsável..." />
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
-          <Btn v="warning" onClick={sendRequest} full><Ic n="mail" /> Enviar solicitação</Btn>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
 // 
 // Ponto
 // 
@@ -6471,28 +6370,25 @@ function PontoGeral({ data, update, showToast }) {
     const anterior=getAtt(data,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
     const novo={...anterior,...patch};
     const obraId=novo.obraId||emp.obra||"";
-    if(obraId&&!canEditAttendance(data,obraId,date)){
-      showToast(`O ponto de ${obraName(obraId)} em ${fmtDateFull(date)} está bloqueado. Libere-o no Ponto diário.`,"error");return;
-    }
     update({...data,attendance:{...(data.attendance||{}),[emp.id]:{...(data.attendance?.[emp.id]||{}),[date]:{...novo,obraId:novo.status?obraId:(novo.obraId||obraId)}}}});
   };
 
   const preencherLinha=emp=>{
-    const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};let bloqueados=0;
-    days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}const ant=getAtt(data,emp.id,date)||{};mapa[date]={...ant,status:"P",obraId};});
-    attendance[emp.id]=mapa;update({...data,attendance});showToast(bloqueados?`Período preenchido; ${bloqueados} dia(s) bloqueado(s) foram mantidos.`:"Período preenchido para o funcionário.");
+    const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};
+    days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;const ant=getAtt(data,emp.id,date)||{};mapa[date]={...ant,status:"P",obraId};});
+    attendance[emp.id]=mapa;update({...data,attendance});showToast("Período preenchido para o funcionário.");
   };
 
   const limparLinha=emp=>{
     if(!window.confirm(`Limpar os lançamentos visíveis de ${emp.name}?`))return;
-    const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};let bloqueados=0;
-    days.forEach(date=>{const ant=getAtt(data,emp.id,date);if(!ant)return;const obraId=ant.obraId||emp.obra||"";if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}delete mapa[date];});attendance[emp.id]=mapa;update({...data,attendance});showToast(bloqueados?`${bloqueados} dia(s) bloqueado(s) foram preservados.`:"Lançamentos do período removidos.");
+    const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};
+    days.forEach(date=>{const ant=getAtt(data,emp.id,date);if(!ant)return;delete mapa[date];});attendance[emp.id]=mapa;update({...data,attendance});showToast("Lançamentos do período removidos.");
   };
 
   const preencherVisiveis=()=>{
     if(!employees.length||!window.confirm(`Marcar presença nos dias de trabalho para ${employees.length} funcionário(s) visível(is)?`))return;
-    const attendance={...(data.attendance||{})};let bloqueados=0;
-    employees.forEach(emp=>{const mapa={...(attendance[emp.id]||{})};days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}mapa[date]={...(getAtt(data,emp.id,date)||{}),status:"P",obraId};});attendance[emp.id]=mapa;});update({...data,attendance});showToast(bloqueados?`Equipe preenchida; ${bloqueados} lançamento(s) bloqueado(s) foram preservados.`:"Equipe preenchida no período.");
+    const attendance={...(data.attendance||{})};
+    employees.forEach(emp=>{const mapa={...(attendance[emp.id]||{})};days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;mapa[date]={...(getAtt(data,emp.id,date)||{}),status:"P",obraId};});attendance[emp.id]=mapa;});update({...data,attendance});showToast("Equipe preenchida no período.");
   };
 
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
@@ -6592,7 +6488,6 @@ function Ponto({ data, update, showToast }) {
   const [otModal, setOtModal] = useState(null);
   const [otHours, setOtHours] = useState("0");
   const [movementModal, setMovementModal] = useState(null);
-  const [unlockModal, setUnlockModal] = useState(null);
   const [lastAllDoneNotification, setLastAllDoneNotification] = useState("");
   const [expandedCard, setExpandedCard] = useState(null);   // card com "mais opções" aberto
 
@@ -6600,8 +6495,6 @@ function Ponto({ data, update, showToast }) {
   const dailyCheckPending = selDate === today() && activeEmployees.length > 0 && data.dailyCheckDate !== today();
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const selectedObra = filterObra !== "all" ? data.obras.find(o => o.id === filterObra) : null;
-  const selectedObraLocked = selectedObra ? isAttendanceLocked(data, selectedObra.id, selDate) : false;
-  const selectedObraCanEdit = selectedObra ? canEditAttendance(data, selectedObra.id, selDate) : true;
   const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
   const attendanceCompletion = getAttendanceCompletionMessage(obraAttendanceSummary);
 
@@ -6619,21 +6512,6 @@ function Ponto({ data, update, showToast }) {
     .filter(e => filterObra === "all" || e.obra === filterObra)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const requireDailyCheck = () => {
-    if (!dailyCheckPending) return false;
-    showToast("Antes de lançar o ponto, confirme se a equipe permanece sem alterações ou movimente o trabalhador individualmente.", "warn");
-    return true;
-  };
-
-  const requireUnlocked = employee => {
-    const obraId = employee?.obra || filterObra;
-    if (!obraId || obraId === "all") return false;
-    if (canEditAttendance(data, obraId, selDate)) return false;
-
-    setUnlockModal({ obraId, date: selDate, employee: employee || null });
-    showToast("Este ponto já foi finalizado. Solicite permissão para alterar.", "warn");
-    return true;
-  };
 
   const confirmTeamWithoutChanges = () => {
     update({
@@ -6644,45 +6522,8 @@ function Ponto({ data, update, showToast }) {
     showToast("Equipe confirmada sem alterações.");
   };
 
-  const finalizeObraAttendance = () => {
-    if (filterObra === "all") {
-      showToast("Selecione uma obra específica para finalizar o ponto.", "error");
-      return;
-    }
-
-    const obra = data.obras.find(o => o.id === filterObra);
-    if (!obra) return;
-
-    const obraSummary = getObraAttendanceSummary(data, selDate).find(o => o.obraId === filterObra);
-    const missingNames = obraSummary?.missingEmployees?.map(e => e.name).join(", ") || "";
-    const msg = obraSummary && obraSummary.missingCount > 0
-      ? `Existem ${obraSummary.missingCount} trabalhador(es) sem registro nesta obra:\n\n${missingNames}\n\nDeseja finalizar mesmo assim?`
-      : `Finalizar o ponto da obra "${obra.name}" em ${fmtDateFull(selDate)}?`;
-
-    if (!window.confirm(`${msg}\n\nDepois disso, alterações precisarão de permissão.`)) return;
-
-    const key = attendanceLockKey(filterObra, selDate);
-    const attendanceLocks = {
-      ...data.attendanceLocks,
-      [key]: {
-        id: key,
-        obraId: filterObra,
-        obraName: obra.name,
-        date: selDate,
-        locked: true,
-        lockedAt: new Date().toISOString(),
-      },
-    };
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "attendance_lock", message: `Ponto finalizado e bloqueado: ${obra.name} em ${fmtDateFull(selDate)}.` }];
-    update({ ...data, attendanceLocks, changeLog });
-    showToast("Ponto da obra finalizado e bloqueado.");
-  };
-
   const setAtt = (empId, status) => {
     const emp = data.employees.find(e => e.id === empId);
-    if (requireDailyCheck()) return;
-    if (requireUnlocked(emp)) return;
-
     const prev = getAtt(data, empId, selDate) || { status: null, ot: 0, note: "" };
     const nextStatus = prev.status === status ? null : status;
 
@@ -6720,10 +6561,6 @@ function Ponto({ data, update, showToast }) {
   };
 
   const saveNote = () => {
-    const emp = data.employees.find(e => e.id === noteModal);
-    if (requireDailyCheck()) return;
-    if (requireUnlocked(emp)) return;
-
     const prev = getAtt(data, noteModal, selDate) || { status: null, ot: 0, note: "" };
     update({
       ...data,
@@ -6740,10 +6577,6 @@ function Ponto({ data, update, showToast }) {
   };
 
   const saveOT = () => {
-    const emp = data.employees.find(e => e.id === otModal);
-    if (requireDailyCheck()) return;
-    if (requireUnlocked(emp)) return;
-
     const prev = getAtt(data, otModal, selDate) || { status: null, ot: 0, note: "" };
     update({
       ...data,
@@ -6760,14 +6593,8 @@ function Ponto({ data, update, showToast }) {
   };
 
   const markAll = status => {
-    if (requireDailyCheck()) return;
     if (filterObra === "all") {
       showToast("Selecione uma obra específica para marcar todos.", "error");
-      return;
-    }
-    if (selectedObra && !selectedObraCanEdit) {
-      setUnlockModal({ obraId: selectedObra.id, date: selDate, employee: null });
-      showToast("Este ponto já foi finalizado. Solicite permissão para alterar.", "warn");
       return;
     }
 
@@ -6846,34 +6673,29 @@ function Ponto({ data, update, showToast }) {
 
       {dailyCheckPending && (
         <div style={{ background: `${C.yellow}12`, border: `1px solid ${C.yellow}55`, borderRadius: 8, padding: "10px 12px" }}>
-          <p style={{ color: C.yellowD, fontWeight: 800, fontSize: 11.5, marginBottom: 4 }}>Verificação diária pendente</p>
-          <p style={{ color: C.muted, fontSize: 11, marginBottom: 9, lineHeight: 1.5 }}>Se alguém foi transferido ou demitido, use os botões no card do trabalhador. Senão, confirme abaixo.</p>
+          <p style={{ color: C.yellowD, fontWeight: 800, fontSize: 11.5, marginBottom: 4 }}>Verificação diária opcional</p>
+          <p style={{ color: C.muted, fontSize: 11, marginBottom: 9, lineHeight: 1.5 }}>Use esta confirmação apenas para registrar que a equipe foi conferida. Ela não impede o lançamento ou a correção do ponto.</p>
           <Btn v="ghost" size="sm" onClick={confirmTeamWithoutChanges} full>Confirmar equipe sem alterações</Btn>
         </div>
       )}
 
       {filterObra === "all" && (
         <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, padding: "0 2px" }}>
-          Em todas as obras, cada ponto vai para a obra de lotação do trabalhador. Se alguém foi emprestado a outro canteiro, filtre por aquela obra antes de marcar — o custo segue para lá. Selecione uma obra para marcar todos de uma vez e finalizar o ponto.
+          Em todas as obras, cada ponto vai para a obra de lotação do trabalhador. Se alguém foi emprestado a outro canteiro, filtre por aquela obra antes de marcar — o custo será apropriado à obra selecionada.
         </p>
       )}
 
       {selectedObra && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap",
-                      background: selectedObraLocked ? `${C.red}0e` : `${C.green}0c`,
-                      border: `1px solid ${selectedObraLocked ? C.red + "55" : C.green + "44"}`,
+                      background: `${C.green}0c`, border: `1px solid ${C.green}44`,
                       borderRadius: 8, padding: "9px 11px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-            <Ic n={selectedObraLocked ? "lock" : "check"} s={13} color={selectedObraLocked ? C.red : C.green} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: selectedObraLocked ? C.red : C.green }}>
-              {selectedObraLocked ? "Ponto finalizado e bloqueado" : "Ponto aberto para edição"}
+            <Ic n="edit" s={13} color={C.green} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.green }}>
+              Ponto sempre aberto para edição
             </span>
           </div>
-          {selectedObraLocked ? (
-            <Btn v="warning" size="sm" onClick={() => setUnlockModal({ obraId: selectedObra.id, date: selDate, employee: null })}><Ic n="mail" /> Solicitar permissão</Btn>
-          ) : (
-            <Btn v="danger" size="sm" onClick={finalizeObraAttendance}><Ic n="lock" /> Finalizar ponto</Btn>
-          )}
+          <span style={{ fontSize: 10.5, color: C.muted }}>Sem bloqueio e sem autorização prévia</span>
         </div>
       )}
 
@@ -6904,29 +6726,24 @@ function Ponto({ data, update, showToast }) {
         const status = att?.status;
         const ot = Number(att?.ot || 0);
         const note = att?.note || "";
-        const cardLocked = isAttendanceLocked(data, e.obra, selDate) && !canEditAttendance(data, e.obra, selDate);
-        const borderCol = cardLocked ? C.red : status === "P" ? C.green : status === "M" ? C.yellowD : status === "F" ? C.red : C.border;
+        const borderCol = status === "P" ? C.green : status === "M" ? C.yellowD : status === "F" ? C.red : C.border;
         const aberto = expandedCard === e.id;
 
         return (
-          <div key={e.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${borderCol}`, padding: "10px 12px", opacity: cardLocked ? 0.9 : 1, borderRadius: 8 }}>
+          <div key={e.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${borderCol}`, padding: "10px 12px", borderRadius: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 9 }}>
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontWeight: 800, fontSize: 13.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</p>
                 <p style={{ color: C.muted, fontSize: 10.5, marginTop: 1 }}>{obraName(e.obra)}{e.role ? ` · ${e.role}` : ""}</p>
               </div>
               <div style={{ display: "flex", gap: 4, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {cardLocked && <Badge color={C.red}><Ic n="lock" s={10} /> Bloqueado</Badge>}
                 {ot > 0 && <Badge color={C.purple}>{ot}h extra</Badge>}
               </div>
             </div>
 
             {note && <p style={{ color: C.subtle, fontSize: 11, marginBottom: 8, fontStyle: "italic" }}>"{note}"</p>}
 
-            {cardLocked ? (
-              <Btn v="warning" size="sm" full onClick={() => setUnlockModal({ obraId: e.obra, date: selDate, employee: e })}><Ic n="mail" /> Solicitar permissão</Btn>
-            ) : (
-              <>
+            <>
                 {/* Ação principal: presença. Três botões grandes e claros. */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5 }}>
                   {[
@@ -6965,8 +6782,8 @@ function Ponto({ data, update, showToast }) {
                 {aberto && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 6 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
-                      <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setOtModal(e.id); setOtHours(String(ot)); }}><Ic n="clock" /> Hora extra</Btn>
-                      <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setNoteModal(e.id); setNoteText(note); }}><Ic n="edit" /> Observação</Btn>
+                      <Btn v="ghost" size="sm" full onClick={() => { setOtModal(e.id); setOtHours(String(ot)); }}><Ic n="clock" /> Hora extra</Btn>
+                      <Btn v="ghost" size="sm" full onClick={() => { setNoteModal(e.id); setNoteText(note); }}><Ic n="edit" /> Observação</Btn>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                       <Btn v="warning" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}><Ic n="building" /> Transferir</Btn>
@@ -6974,14 +6791,12 @@ function Ponto({ data, update, showToast }) {
                     </div>
                   </div>
                 )}
-              </>
-            )}
+            </>
           </div>
         );
       })}
 
       {movementModal && <WorkerMovementModal data={data} update={update} showToast={showToast} employee={movementModal.emp} initialMode={movementModal.mode} onClose={() => setMovementModal(null)} />}
-      {unlockModal && <UnlockRequestModal data={data} update={update} showToast={showToast} obraId={unlockModal.obraId} date={unlockModal.date} employee={unlockModal.employee} onClose={() => setUnlockModal(null)} />}
 
       {noteModal && (
         <Modal title="Observação" onClose={() => setNoteModal(null)}>
@@ -10426,7 +10241,6 @@ const buildAgentContext = data => {
   const attendanceSummary = getObraAttendanceSummary(data, todayIso);
   const completion = getAttendanceCompletionMessage(attendanceSummary);
   const costs = getAgentMonthCostByObra(data, currentYear, currentMonth);
-  const pendingUnlocks = (data.unlockRequests || []).filter(r => r.status === "pending");
   const noArea = activeObras.filter(o => !Number(o.areaM2 || 0));
   const noTeam = activeObras.filter(o => !activeEmployees.some(e => e.obra === o.id));
   const incompleteEmployees = activeEmployees.filter(e =>
@@ -10457,7 +10271,6 @@ const buildAgentContext = data => {
     completedPointObras: completion.completedObras.map(o => o.obraName),
     allPointsDoneToday: completion.allDone,
     missingPointEmployees,
-    pendingUnlocks: pendingUnlocks.map(r => ({ obraName: r.obraName, date: r.date, employeeName: r.employeeName || "Todos / obra", reason: r.reason })),
     noAreaObras: noArea.map(o => o.name),
     noTeamObras: noTeam.map(o => o.name),
     incompleteEmployees: incompleteEmployees.slice(0, 30).map(e => ({
@@ -10550,18 +10363,17 @@ const agentFormatPayroll = ctx => {
     `Próximo pagamento calculado: ${agentDateLabel(ctx.paymentDate)}.`,
     obs,
     `Pontos de hoje: ${ctx.allPointsDoneToday ? "todos cadastrados" : `${ctx.pendingPointObras.length} obra(s) pendente(s)`}.`,
-    ctx.pendingUnlocks.length ? `Há ${ctx.pendingUnlocks.length} solicitação(ões) de permissão pendente(s).` : "Não há solicitação de permissão pendente.",
+    "Os pontos permanecem abertos para correção, sem necessidade de autorização.",
   ].join("\n");
 };
 
 const agentFormatPriorities = ctx => {
   const priorities = [];
 
-  if (ctx.pendingPointObras.length) priorities.push(`Finalizar ponto de ${ctx.pendingPointObras.length} obra(s) pendente(s).`);
-  if (ctx.pendingUnlocks.length) priorities.push(`Analisar ${ctx.pendingUnlocks.length} solicitação(ões) de alteração de ponto.`);
+  if (ctx.pendingPointObras.length) priorities.push(`Concluir os registros de ponto de ${ctx.pendingPointObras.length} obra(s) pendente(s).`);
   if (ctx.noAreaObras.length) priorities.push(`Cadastrar metragem de ${ctx.noAreaObras.length} obra(s) para custo por m.`);
   if (ctx.incompleteEmployees.length) priorities.push(`Corrigir cadastro de ${ctx.incompleteEmployees.length} funcionário(s) ativo(s).`);
-  if (!priorities.length) priorities.push("Não há alertas críticos. Mantenha a rotina de finalizar o ponto por obra ao fim do dia.");
+  if (!priorities.length) priorities.push("Não há alertas críticos. Mantenha os registros de ponto conferidos e atualizados.");
 
   return [
     "Prioridades sugeridas pelo agente:",
@@ -10684,7 +10496,7 @@ function AgenteIA({ data, showToast, onTab }) {
         {[
           [ctx.allPointsDoneToday ? "Ponto completo" : "Ponto pendente", ctx.allPointsDoneToday ? "Todas as obras" : `${ctx.pendingPointObras.length} obra(s)`, ctx.allPointsDoneToday ? C.green : C.red],
           ["Funcionários ativos", ctx.activeEmployees, C.yellow],
-          ["Solicitações", ctx.pendingUnlocks.length, ctx.pendingUnlocks.length ? C.red : C.green],
+          ["Sem registro hoje", ctx.missingPointEmployees.length, ctx.missingPointEmployees.length ? C.red : C.green],
           ["Obras sem m", ctx.noAreaObras.length, ctx.noAreaObras.length ? C.orange : C.green],
         ].map(([label, value, color]) => (
           <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: `3px solid ${color}`, padding: 12, borderRadius: 8 }}>
@@ -11256,7 +11068,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 }
 
 // 
-// Configurações / aprovações
+// Configurações
 // 
 
 function Config({ data, update, showToast, currentUser, onLogout }) {
@@ -11271,23 +11083,6 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
     showToast("Configurações salvas.");
   };
 
-  const approveRequest = id => {
-    const validUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-    const unlockRequests = (data.unlockRequests||[]).map(r => r.id === id ? { ...r, status: "approved", approvedAt: new Date().toISOString(), validUntil } : r);
-    const req = (data.unlockRequests||[]).find(r => r.id === id);
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "unlock_approved", message: `Permissão aprovada para ${req?.obraName || "obra"} em ${fmtDateFull(req?.date)} até ${new Date(validUntil).toLocaleTimeString("pt-BR")}.` }];
-    update({ ...data, unlockRequests, changeLog });
-    showToast("Permissão aprovada por 30 minutos.");
-  };
-
-  const rejectRequest = id => {
-    const unlockRequests = (data.unlockRequests||[]).map(r => r.id === id ? { ...r, status: "rejected", rejectedAt: new Date().toISOString() } : r);
-    update({ ...data, unlockRequests });
-    showToast("Solicitação recusada.");
-  };
-
-  const pending = (data.unlockRequests||[]).filter(r => r.status === "pending").slice().reverse();
-  const recent = data.unlockRequests.slice().reverse().slice(0, 12);
 
   const exportBackup = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -11306,7 +11101,7 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
         <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 30, letterSpacing: 2, color: C.yellow }}>Configurações</h2>
-        <p style={{ color: C.muted, fontSize: 13 }}>Dados da empresa, aprovações e calendário.</p>
+        <p style={{ color: C.muted, fontSize: 13 }}>Dados da empresa, tributação, calendário e segurança.</p>
       </div>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
@@ -11318,7 +11113,6 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
           <Inp label="Responsável RH" value={form.hrName} onChange={setField("hrName")} />
           <Inp label="E-mail RH" value={form.hrEmail} onChange={setField("hrEmail")} />
           <Inp label="WhatsApp RH (c/ DDI)" value={form.hrPhone} onChange={setField("hrPhone")} placeholder="5581999990000" />
-          <Inp label="E-mail aprovador" value={form.approverEmail} onChange={setField("approverEmail")} />
         </div>
         <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
       </div>
@@ -11348,32 +11142,6 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
         <div style={{marginTop:10}}><Btn onClick={saveConfig}><Ic n="check"/> Salvar alíquotas</Btn></div>
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Solicitações pendentes</h3>
-        {pending.length === 0 && <p style={{ color: C.muted, fontSize: 13 }}>Nenhuma solicitação pendente.</p>}
-        {pending.map(r => (
-          <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 12, marginBottom: 8 }}>
-            <p style={{ fontWeight: 900 }}>{r.obraName}  {fmtDateFull(r.date)}</p>
-            <p style={{ color: C.muted, fontSize: 12 }}>{r.employeeName || "Todos / obra"}</p>
-            <p style={{ color: C.subtle, fontSize: 12, marginTop: 5 }}>{r.reason}</p>
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <Btn v="success" size="sm" onClick={() => approveRequest(r.id)}><Ic n="unlock" /> Aprovar 30 min</Btn>
-              <Btn v="danger" size="sm" onClick={() => rejectRequest(r.id)}><Ic n="x" /> Recusar</Btn>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Histórico de permissões</h3>
-        {recent.length === 0 && <p style={{ color: C.muted, fontSize: 13 }}>Sem solicitações registradas.</p>}
-        {recent.map(r => (
-          <div key={r.id} style={{ borderBottom: `1px solid ${C.border}`, padding: "8px 0" }}>
-            <p style={{ color: r.status === "approved" ? C.green : r.status === "rejected" ? C.red : C.yellow, fontWeight: 900, fontSize: 13 }}>{String(r.status || "pending").toUpperCase()}  {r.obraName}  {fmtDateFull(r.date)}</p>
-            <p style={{ color: C.muted, fontSize: 12 }}>{r.employeeName || "Todos / obra"}  {r.reason}</p>
-          </div>
-        ))}
-      </div>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Feriados considerados</h3>
@@ -27565,8 +27333,6 @@ export default function App() {
   // A lista de perfis vem SEM os dados. Os dados só chegam depois que o
   // servidor confere o PIN - é o que impede alguém de abrir a URL e ler tudo.
   const [perfis, setPerfis] = useState([]);
-
-  const approvalHandledRef = useRef(false);
   // Última versão que veio do servidor - o ponto de partida das minhas edições.
   // Serve de "base" para o merge de conflito saber o que EU mudei.
   const baseServidorRef = useRef(null);
@@ -27652,39 +27418,6 @@ export default function App() {
     return () => { vivo = false; };
   }, [showToast]);
 
-  useEffect(() => {
-    if (!data || loading || approvalHandledRef.current) return;
-    const params = new URLSearchParams(window.location.search);
-    const requestId = params.get("approve_unlock");
-    if (!requestId) return;
-    approvalHandledRef.current = true;
-
-    const req = (data.unlockRequests||[]).find(r => r.id === requestId);
-    if (!req) {
-      showToast("Solicitação de permissão não encontrada.", "error");
-      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
-      return;
-    }
-
-    if (req.status === "approved" && req.validUntil && new Date(req.validUntil) > new Date()) {
-      showToast("Essa permissão já está aprovada e vigente.");
-      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
-      return;
-    }
-
-    const ok = window.confirm(`Aprovar alteração do ponto por 30 minutos?\n\nObra: ${req.obraName}\nData: ${fmtDateFull(req.date)}\nTrabalhador: ${req.employeeName || "Todos / obra"}`);
-    if (!ok) {
-      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
-      return;
-    }
-
-    const validUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-    const unlockRequests = (data.unlockRequests||[]).map(r => r.id === requestId ? { ...r, status: "approved", approvedAt: new Date().toISOString(), validUntil } : r);
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "unlock_approved_link", message: `Permissão aprovada via link para ${req.obraName} em ${fmtDateFull(req.date)}.` }];
-    update({ ...data, unlockRequests, changeLog });
-    showToast("Permissão aprovada por 30 minutos.");
-    window.history.replaceState({}, "", window.location.pathname + window.location.hash);
-  }, [data, loading, showToast, update]);
 
   //  Navegação por grupos (filtrada por role) 
   const allowedTabs  = allowedTabsForUser(currentUser);
