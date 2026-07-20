@@ -589,6 +589,30 @@ const isEmployeeEmployedOnDate = (employee, dateIso) => {
   return true;
 };
 
+// REGRA IMUTAVEL: um funcionario desligado continua pertencendo ao historico
+// dos periodos em que esteve contratado ou possui lancamentos de ponto.
+const employeeHasRecordInPeriod = (data, employee, days) =>
+  (days || []).some(date => {
+    const registro = getAtt(data, employee?.id, date);
+    return Boolean(
+      registro?.status ||
+      Number(registro?.ot || 0) > 0 ||
+      String(registro?.note || "").trim()
+    );
+  });
+
+const employeeRelevantInPeriod = (data, employee, days) => {
+  if (!employee) return false;
+  const esteveContratado = (days || []).some(date =>
+    isEmployeeEmployedOnDate(employee, date)
+  );
+  return esteveContratado || employeeHasRecordInPeriod(data, employee, days);
+};
+
+const employeeRelevantOnDate = (data, employee, date) =>
+  isEmployeeEmployedOnDate(employee, date) ||
+  Boolean(getAtt(data, employee?.id, date));
+
 const escapeHtml = value => String(value || "")
   .replace(/&/g, "&amp;")
   .replace(/</g, "&lt;")
@@ -6041,6 +6065,22 @@ function Equipe({ data, update, showToast }) {
   const [expandedId, setExpandedId] = useState(null);
   const [advForm, setAdvForm] = useState({ amount: "", description: "", date: today() });
 
+  useEffect(() => {
+    const empId = window.sessionStorage.getItem("arcd_editar_funcionario");
+    if (!empId) return;
+    const employee = (data.employees || []).find(e => e.id === empId);
+    window.sessionStorage.removeItem("arcd_editar_funcionario");
+    if (!employee) return;
+    setShowInactive(true);
+    setForm({
+      ...employee,
+      dailyRate: String(employee.dailyRate || ""),
+      vtDaily: String(employee.vtDaily || ""),
+      vrDaily: String(employee.vrDaily || ""),
+    });
+    setModal(true);
+  }, [data.employees]);
+
   const F = key => value => setForm(f => ({ ...f, [key]: value }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const empAdvances = id => (data.advances||[]).filter(a => a.empId === id);
@@ -6459,8 +6499,8 @@ function PontoGeral({ data, update, showToast }) {
   const days=diasCiclo.filter(prIsWeekdayIso);
   const feriados=prUniqueDates([...new Set(diasCiclo.map(d=>Number(d.slice(0,4))))].flatMap(ano=>getPayrollHolidays(data,ano)));
   const obraName=id=>(data.obras||[]).find(o=>o.id===id)?.name||"-";
-  const employees=(data.employees||[]).filter(e=>e.active!==false)
-    .filter(e=>filterObra==="all"||e.obra===filterObra||days.some(d=>getAtt(data,e.id,d)?.obraId===filterObra))
+  const employees=(data.employees||[]).filter(e=>employeeRelevantInPeriod(data,e,diasCiclo))
+    .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>getAtt(data,e.id,d)?.obraId===filterObra))
     .filter(e=>[e.name,e.role,obraName(e.obra)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name));
   const diaLabel=iso=>{const d=prParseIso(iso);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
@@ -6533,7 +6573,10 @@ function PontoGeral({ data, update, showToast }) {
           <td style={{position:"sticky",left:0,zIndex:2,background:C.card,padding:"7px 10px",borderTop:`1px solid ${C.line}`,minWidth:172}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6}}>
               <div style={{minWidth:0}}>
-                <b style={{fontSize:11,color:C.text,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.name}</b>
+                <div style={{display:"flex",alignItems:"center",gap:5,minWidth:0}}>
+                  <b style={{fontSize:11,color:C.text,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.name}</b>
+                  {emp.active===false&&<Badge color={C.muted}>Demitido</Badge>}
+                </div>
                 <div style={{fontSize:8.5,color:C.muted,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.role||"Funcionário"} · {obraName(emp.obra)}</div>
               </div>
               <div style={{display:"flex",gap:2,flexShrink:0}}>
@@ -6544,7 +6587,7 @@ function PontoGeral({ data, update, showToast }) {
           </td>
           <td style={{textAlign:"center",fontWeight:800,fontSize:13,color:C.blue,borderTop:`1px solid ${C.line}`,fontFamily:"'Inter Display','Inter',sans-serif"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
           {days.map(date=>{
-            const att=getAtt(data,emp.id,date),st=att?.status,obraId=att?.obraId||emp.obra||"",fora=!isEmployeeEmployedOnDate(emp,date),feriado=feriados.includes(date);
+            const att=getAtt(data,emp.id,date),st=att?.status,obraId=att?.obraId||emp.obra||"",fora=!employeeRelevantOnDate(data,emp,date),feriado=feriados.includes(date);
             const foraDeLotacao=st&&obraId&&obraId!==emp.obra;   // trabalhou em obra diferente da lotação
             const cellKey=`${emp.id}::${date}`;
             const aberto=obraCell===cellKey;
@@ -6597,7 +6640,9 @@ function Ponto({ data, update, showToast }) {
   const [lastAllDoneNotification, setLastAllDoneNotification] = useState("");
   const [expandedCard, setExpandedCard] = useState(null);   // card com "mais opções" aberto
 
-  const activeEmployees = data.employees.filter(e => e.active !== false);
+  const activeEmployees = data.employees.filter(e =>
+    e.active !== false && isEmployeeEmployedOnDate(e, today())
+  );
   const dailyCheckPending = selDate === today() && activeEmployees.length > 0 && data.dailyCheckDate !== today();
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const selectedObra = filterObra !== "all" ? data.obras.find(o => o.id === filterObra) : null;
@@ -6616,8 +6661,13 @@ function Ponto({ data, update, showToast }) {
   }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification, showToast]);
 
   const list = data.employees
-    .filter(e => e.active !== false)
-    .filter(e => filterObra === "all" || e.obra === filterObra)
+    .filter(e => employeeRelevantOnDate(data, e, selDate))
+    .filter(e => {
+      if (filterObra === "all") return true;
+      const registro = getAtt(data, e.id, selDate);
+      const obraDoDia = registro?.obraId || e.obra || e.lastObra || "";
+      return obraDoDia === filterObra;
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const requireDailyCheck = () => {
@@ -13087,33 +13137,42 @@ const evolucaoPorRDO = (rdos, obraId) => {
 // Funde a evolucao dos RDOs nas tarefas do plano. A tarefa passa a mostrar
 // o progresso vindo do diario (quando ha), senao mantem o manual.
 // origem: "diario" quando o RDO mandou, "manual" quando nao.
-// Compara o cronograma atual com a linha de base (baseline). Para cada tarefa,
-// mede o desvio de início e de fim em dias corridos (+ = atrasou, - = adiantou)
-// e o desvio de custo. Só considera tarefas que existiam na baseline. É a base
-// do "planejado × realizado": sem baseline, devolve vazio.
+// Compara a linha de base com as datas REALMENTE executadas. Uma reprogramacao
+// do cronograma nao pode, sozinha, transformar uma tarefa em adiantada/atrasada.
+// Concluidas usam o fim real; iniciadas usam o inicio real; ainda nao iniciadas
+// ficam sem classificacao ate existir evidencia de execucao.
 const compararBaseline = (tarefas, plano) => {
   const base = {};
   (plano?.baseline || []).forEach(b => { base[b.tarefaId] = b; });
   if (!Object.keys(base).length) return { temBaseline: false, linhas: [], resumo: null };
   const linhas = (tarefas || []).filter(t => !t.titulo && base[t.id]).map(t => {
     const b = base[t.id];
-    const desvIni = b.inicio && t.inicio ? diasCorridos(b.inicio, t.inicio) : 0;
-    const desvFim = b.fim && t.fim ? diasCorridos(b.fim, t.fim) : 0;
+    const temInicioReal = Boolean(t.inicioReal);
+    const temFimReal = Boolean(t.fimReal);
+    const desvIni = b.inicio && temInicioReal ? diasCorridos(b.inicio, t.inicioReal) : null;
+    const desvFimReal = b.fim && temFimReal ? diasCorridos(b.fim, t.fimReal) : null;
+    const desvioPrazo = desvFimReal != null ? desvFimReal : desvIni;
+    const situacao = desvioPrazo == null ? "sem-realizado"
+      : desvioPrazo > 0 ? "atrasada"
+      : desvioPrazo < 0 ? "adiantada"
+      : "no-prazo";
     const custoAtual = t.custoReal > 0 ? t.custoReal : (t.custo || 0);
     const desvCusto = custoAtual - (b.custo || 0);
     return {
       id: t.id, nome: t.nome,
       baseIni: b.inicio, baseFim: b.fim, baseCusto: b.custo || 0,
       atualIni: t.inicio, atualFim: t.fim, atualCusto: custoAtual,
+      realIni: t.inicioReal || "", realFim: t.fimReal || "",
       progresso: t.progresso || 0,
-      desvIni, desvFim, desvCusto,
+      desvIni, desvFim: desvioPrazo, desvCusto, situacao,
     };
   });
   const resumo = {
-    piorAtraso: linhas.reduce((m, l) => Math.max(m, l.desvFim), 0),
-    atrasadas: linhas.filter(l => l.desvFim > 0).length,
-    adiantadas: linhas.filter(l => l.desvFim < 0).length,
-    noPrazo: linhas.filter(l => l.desvFim === 0).length,
+    piorAtraso: linhas.reduce((m, l) => Math.max(m, Number(l.desvFim || 0)), 0),
+    atrasadas: linhas.filter(l => l.situacao === "atrasada").length,
+    adiantadas: linhas.filter(l => l.situacao === "adiantada").length,
+    noPrazo: linhas.filter(l => l.situacao === "no-prazo").length,
+    semRealizado: linhas.filter(l => l.situacao === "sem-realizado").length,
     desvioCustoTotal: linhas.reduce((s, l) => s + l.desvCusto, 0),
     custoBase: linhas.reduce((s, l) => s + l.baseCusto, 0),
     custoAtual: linhas.reduce((s, l) => s + l.atualCusto, 0),
@@ -17570,7 +17629,9 @@ const sugerirPagamentoMaoObra = (tr, data, days) => {
   const prim = (s) => semAcentoConc(s || "").split(" ")[0];
   const cands = [];
 
-  (data.employees || []).filter(e => e.active !== false).forEach(emp => {
+  // Nao filtrar pelo status atual: o valor esperado elimina automaticamente
+  // quem nao trabalhou no periodo historico consultado.
+  (data.employees || []).forEach(emp => {
     const esp = valorEsperadoPonto(data, emp, days);
     if (esp.total <= 0) return;   // nao trabalhou no periodo
 
@@ -22164,8 +22225,9 @@ function Planejamento({ data, update, showToast }) {
             {/* Area do grafico. O overflow fica recortado neste painel para
                 impedir que barras ou linhas de dependencia com coordenadas
                 negativas atravessem a tabela lateral. */}
-            <div style={{ position: "relative", minWidth: larguraGrade, overflow: "hidden",
-                          isolation: "isolate" }}>
+            <div style={{ position: "relative", minWidth: larguraGrade,
+                          height:ALTURA_REGUA+tarefas.length*ALTURA_LINHA,
+                          flexShrink:0, overflow: "hidden", isolation: "isolate" }}>
               {/* Regua tecnica: mes, numero do dia, dia da semana e excecoes */}
               <div style={{ height: ALTURA_REGUA, position: "relative", borderBottom: `1px solid ${C.line}` }}>
                 {reguaMeses.map((m, i) => (
@@ -22576,6 +22638,7 @@ function Planejamento({ data, update, showToast }) {
                       <MiniFF label="No prazo" v={String(compBase.resumo.noPrazo)} c={C.green} />
                       <MiniFF label="Atrasadas" v={String(compBase.resumo.atrasadas)} c={compBase.resumo.atrasadas ? C.red : C.muted} />
                       <MiniFF label="Adiantadas" v={String(compBase.resumo.adiantadas)} c={C.blue} />
+                      <MiniFF label="Sem realizado" v={String(compBase.resumo.semRealizado)} c={C.muted} />
                       <MiniFF label="Pior atraso" v={`${compBase.resumo.piorAtraso}d`} c={compBase.resumo.piorAtraso > 0 ? C.red : C.green} />
                       <MiniFF label="Desvio de custo"
                               v={`${compBase.resumo.desvioCustoTotal >= 0 ? "+" : ""}${fmt(compBase.resumo.desvioCustoTotal)}`}
@@ -22587,15 +22650,17 @@ function Planejamento({ data, update, showToast }) {
                         <thead>
                           <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                             <th style={{ textAlign: "left", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Tarefa</th>
-                            <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Início base → atual</th>
-                            <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Fim base → atual</th>
+                            <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Início base → real</th>
+                            <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Fim base → real</th>
                             <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Desvio</th>
                             <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Custo</th>
                           </tr>
                         </thead>
                         <tbody>
                           {compBase.linhas.map(l => {
-                            const corDesv = l.desvFim > 0 ? C.red : l.desvFim < 0 ? C.blue : C.green;
+                            const corDesv = l.situacao === "atrasada" ? C.red
+                              : l.situacao === "adiantada" ? C.blue
+                              : l.situacao === "sem-realizado" ? C.muted : C.green;
                             return (
                               <tr key={l.id} style={{ borderBottom: `1px solid ${C.line}` }}>
                                 <td className="brk" style={{ padding: "7px 8px", color: C.text, maxWidth: 150 }}>
@@ -22603,13 +22668,15 @@ function Planejamento({ data, update, showToast }) {
                                   {critico.criticas.includes(l.id) && <span style={{ fontSize: 8.5, fontWeight: 900, color: C.red, marginLeft: 5 }}>CRÍTICA</span>}
                                 </td>
                                 <td style={{ padding: "7px 8px", textAlign: "center", color: C.muted, fontSize: 10.5 }}>
-                                  {fmtDate(l.baseIni)} → {fmtDate(l.atualIni)}
+                                  {fmtDate(l.baseIni)} → {l.realIni ? fmtDate(l.realIni) : "—"}
                                 </td>
                                 <td style={{ padding: "7px 8px", textAlign: "center", color: C.muted, fontSize: 10.5 }}>
-                                  {fmtDate(l.baseFim)} → {fmtDate(l.atualFim)}
+                                  {fmtDate(l.baseFim)} → {l.realFim ? fmtDate(l.realFim) : "—"}
                                 </td>
                                 <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 800, color: corDesv }}>
-                                  {l.desvFim > 0 ? `+${l.desvFim}d` : l.desvFim < 0 ? `${l.desvFim}d` : "no prazo"}
+                                  {l.situacao === "sem-realizado" ? "sem realizado"
+                                    : l.desvFim > 0 ? `+${l.desvFim}d`
+                                    : l.desvFim < 0 ? `${l.desvFim}d` : "no prazo"}
                                 </td>
                                 <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 700,
                                              color: l.desvCusto > 0 ? C.red : l.desvCusto < 0 ? C.green : C.muted }}>
@@ -22622,7 +22689,8 @@ function Planejamento({ data, update, showToast }) {
                       </table>
                     </div>
                     <p style={{ fontSize: 10, color: C.muted, marginTop: 8, lineHeight: 1.4 }}>
-                      Desvio em dias corridos no término: <b style={{ color: C.red }}>+</b> atrasou, <b style={{ color: C.blue }}>−</b> adiantou.
+                      Tarefa concluída compara o fim real; tarefa iniciada compara o início real. <b style={{ color: C.red }}>+</b> atrasou, <b style={{ color: C.blue }}>−</b> adiantou.
+                      Sem data real, a tarefa permanece sem classificação.
                       O custo compara o custo real lançado (ou o previsto, se não houver real) com o custo da linha de base.
                     </p>
                   </div>
@@ -24218,7 +24286,13 @@ function Obsoletos({ data, update, showToast, onTab }) {
                       {e.terminationReason && <span style={{ fontSize: 10.5, color: C.red }}>{e.terminationReason}</span>}
                     </div>
                   </div>
-                  <Btn v="ghost" size="sm" onClick={() => reativarEmp(e.id)}>Readmitir</Btn>
+                  <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                    <Btn v="ghost" size="sm" onClick={()=>{
+                      window.sessionStorage.setItem("arcd_editar_funcionario",e.id);
+                      onTab?.("equipe");
+                    }}><Ic n="edit"/> Editar</Btn>
+                    <Btn v="ghost" size="sm" onClick={() => reativarEmp(e.id)}>Readmitir</Btn>
+                  </div>
                 </div>
               ))}
             </div>
@@ -28062,6 +28136,26 @@ export default function App() {
   const [toast,       setToast]       = useState(null);
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
   const [ultimaSync,  setUltimaSync]  = useState(null);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.title = data?.config?.companyName || data?.config?.productName || "ARCD Obras";
+    let favicon = document.querySelector('link[rel~="icon"]');
+    if (!favicon) {
+      favicon = document.createElement("link");
+      favicon.rel = "icon";
+      document.head.appendChild(favicon);
+    }
+    favicon.type = "image/png";
+    favicon.href = ARCD_LOGO;
+    let appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+    if (!appleIcon) {
+      appleIcon = document.createElement("link");
+      appleIcon.rel = "apple-touch-icon";
+      document.head.appendChild(appleIcon);
+    }
+    appleIcon.href = ARCD_LOGO;
+  }, [data?.config?.companyName, data?.config?.productName]);
 
   // A lista de perfis vem SEM os dados. Os dados só chegam depois que o
   // servidor confere o PIN - é o que impede alguém de abrir a URL e ler tudo.
