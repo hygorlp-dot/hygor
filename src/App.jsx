@@ -13051,10 +13051,20 @@ const evolucaoPorRDO = (rdos, obraId) => {
     (r.servicos || []).forEach(s => {
       const chave = s.tarefaId || s.etapaId;
       if (!chave) return;
-      if (!porTarefa[chave]) porTarefa[chave] = { progresso: 0, ultimaData: "", dias: new Set() };
-      // O progresso acumulado mais recente manda (RDOs ja vem em ordem).
-      porTarefa[chave].progresso = s.progressoAte;
-      porTarefa[chave].ultimaData = r.data;
+      if (!porTarefa[chave]) porTarefa[chave] = {
+        progresso: 0, ultimaData: "", atualizadoEm: "", dias: new Set(), rdoId: "",
+      };
+
+      // A medicao e uma informacao unica, editavel em qualquer tela. Para saber
+      // qual valor prevalece, guardamos o instante da ultima alteracao. Registros
+      // antigos, sem timestamp, usam o inicio da data do RDO como compatibilidade.
+      const atualizadoEm = s.atualizadoEm || `${r.data}T00:00:00.000Z`;
+      if (!porTarefa[chave].atualizadoEm || atualizadoEm >= porTarefa[chave].atualizadoEm) {
+        porTarefa[chave].progresso = Math.max(0, Math.min(100, Number(s.progressoAte) || 0));
+        porTarefa[chave].ultimaData = r.data;
+        porTarefa[chave].atualizadoEm = atualizadoEm;
+        porTarefa[chave].rdoId = r.id || "";
+      }
       // Cada dia com este servico no RDO conta como um dia trabalhado nele.
       porTarefa[chave].dias.add(r.data);
     });
@@ -13066,6 +13076,8 @@ const evolucaoPorRDO = (rdos, obraId) => {
     out[k] = {
       progresso: porTarefa[k].progresso,
       ultimaData: porTarefa[k].ultimaData,
+      atualizadoEm: porTarefa[k].atualizadoEm,
+      rdoId: porTarefa[k].rdoId,
       diasTrabalhados: porTarefa[k].dias.size,
     };
   });
@@ -13115,11 +13127,23 @@ const fundirEvolucao = (tarefas, rdos, obraId) => {
     const chave = t.id;
     const eEtapa = t.etapaId;
     const info = ev[chave] || ev[eEtapa];
-    if (info) {
+    const manualAtualizadoEm = t.progressoAtualizadoEm || "";
+    const diarioAtualizadoEm = info?.atualizadoEm || "";
+
+    // A ultima alteracao vence, independentemente da tela em que foi feita.
+    // Assim, um ajuste na Medicao ou no Planejamento pode corrigir um valor do
+    // Diario, e uma edicao posterior no Diario volta a atualizar todo o sistema.
+    const manualMaisRecente = !!manualAtualizadoEm
+      && (!diarioAtualizadoEm || manualAtualizadoEm >= diarioAtualizadoEm);
+
+    if (info && !manualMaisRecente) {
       return { ...t, progresso: info.progresso, diasTrabalhados: info.diasTrabalhados,
-               ultimaMedicao: info.ultimaData, origemProgresso: "diario" };
+               ultimaMedicao: info.ultimaData, progressoAtualizadoEm: info.atualizadoEm,
+               origemProgresso: "diario", rdoOrigemId: info.rdoId };
     }
-    return { ...t, diasTrabalhados: 0, origemProgresso: "manual" };
+    return { ...t, diasTrabalhados: info?.diasTrabalhados || 0,
+             ultimaMedicao: info?.ultimaData || t.ultimaMedicao || "",
+             origemProgresso: t.progressoOrigem || "manual" };
   });
 };
 
@@ -13134,6 +13158,59 @@ const resumoMedicao = (tarefasFundidas) => {
     ? t.reduce((s, x) => s + (x.custo || 0) * (x.progresso || 0), 0) / custoTotal
     : 0;
   return { total: t.length, peloDiario, diasTotais, avancoFisico };
+};
+
+// Atualiza o progresso como dado central do sistema. O plano recebe o valor
+// aprovado e, quando existir, o ultimo RDO que registrou o servico tambem e
+// corrigido. RDOs anteriores permanecem intactos como memoria da evolucao.
+const aplicarAjustesProgresso = (data, obraId, ajustes, origem = "manual") => {
+  const atualizadoEm = new Date().toISOString();
+  const tarefasPlano = (data.planos || []).find(p => p.obraId === obraId)?.tarefas || [];
+  const etapaPorTarefa = new Map(tarefasPlano.map(t => [t.id, t.etapaId || ""]));
+  const mapa = new Map((ajustes || []).map(a => [a.tarefaId, {
+    progresso: Math.max(0, Math.min(100, Number(a.progresso) || 0)),
+    etapaId: a.etapaId || etapaPorTarefa.get(a.tarefaId) || "",
+  }]));
+  const tarefaPorEtapa = new Map();
+  mapa.forEach((a, tarefaId) => { if (a.etapaId) tarefaPorEtapa.set(a.etapaId, tarefaId); });
+  if (!mapa.size) return data;
+
+  const planos = (data.planos || []).map(p => {
+    if (p.obraId !== obraId) return p;
+    return { ...p, tarefas: (p.tarefas || []).map(t => {
+      const a = mapa.get(t.id);
+      return a ? { ...t, progresso: a.progresso, progressoAtualizadoEm: atualizadoEm,
+                   progressoOrigem: origem } : t;
+    }) };
+  });
+
+  // Localiza somente o registro mais recente de cada servico no Diario.
+  const alvos = new Map();
+  (data.rdos || []).forEach(r => {
+    if (r.obraId !== obraId) return;
+    (r.servicos || []).forEach(s => {
+      const chave = mapa.has(s.tarefaId) ? s.tarefaId : tarefaPorEtapa.get(s.etapaId);
+      if (!chave) return;
+      const momento = s.atualizadoEm || `${r.data || ""}T00:00:00.000Z`;
+      const atual = alvos.get(chave);
+      if (!atual || momento >= atual.momento) alvos.set(chave, { rdoId: r.id, momento });
+    });
+  });
+
+  const rdos = (data.rdos || []).map(r => {
+    let alterou = false;
+    const servicos = (r.servicos || []).map(s => {
+      const chave = mapa.has(s.tarefaId) ? s.tarefaId : tarefaPorEtapa.get(s.etapaId) || "";
+      const alvo = chave ? alvos.get(chave) : null;
+      if (!alvo || alvo.rdoId !== r.id) return s;
+      alterou = true;
+      return { ...s, progressoAte: mapa.get(chave).progresso, atualizadoEm,
+               ajusteOrigem: origem };
+    });
+    return alterou ? { ...r, servicos, atualizadoEm } : r;
+  });
+
+  return { ...data, planos, rdos };
 };
 
 const construirArvore = (etapas, itens) => {
@@ -21247,8 +21324,13 @@ function Planejamento({ data, update, showToast }) {
     feriados:     plano.feriados     || [],
   }), [plano.diasSemana, plano.pularFeriados, plano.feriados]);
 
-  // Tarefas montadas + roll-up dos titulos (mae abrange filhas).
-  const tarefas = useMemo(() => aplicarRollup(montarTarefas(plano, orc), orc), [plano, orc]);
+  // Tarefas montadas + roll-up dos titulos (mae abrange filhas). A evolucao
+  // efetiva e a mesma em todas as telas: vale a alteracao mais recente entre
+  // Planejamento, Medicao e Diario de Obra.
+  const tarefas = useMemo(() => {
+    const base = aplicarRollup(montarTarefas(plano, orc), orc);
+    return aplicarRollup(fundirEvolucao(base, data.rdos, obraId), orc);
+  }, [plano, orc, data.rdos, obraId]);
   const resumo  = useMemo(() => resumoPlano(tarefas.filter(t=>!t.titulo), orc), [tarefas, orc]);
   const janela  = useMemo(() => janelaPlano(tarefas, plano.marcos), [tarefas, plano.marcos]);
   const progresso = useMemo(() => progressoPlano(tarefas.filter(t=>!t.titulo)), [tarefas]);
@@ -21335,17 +21417,26 @@ function Planejamento({ data, update, showToast }) {
 
   // Salva a tarefa e os dois lados do vinculo. Sucessora nao e um campo
   // duplicado: ela e materializada como antecessora nas outras tarefas.
-  const salvarTarefaEVinculos = (t) => salvarPlano(p => {
+  const salvarTarefaEVinculos = (t) => {
     const sucessoras = Array.isArray(t.sucessoras) ? t.sucessoras : [];
     const { sucessoras:_, ...dados } = t;
-    p.tarefas = (p.tarefas || []).map(x => {
-      if (x.id === dados.id) return {...x,...dados,depende:[...new Set(dados.depende || [])]};
-      const deps = (x.depende || []).filter(d => d !== dados.id);
-      if (sucessoras.includes(x.id)) deps.push(dados.id);
-      return {...x,depende:[...new Set(deps)]};
+    const tarefaEfetiva = tarefas.find(x => x.id === dados.id);
+    const mudouProgresso = dados.progresso !== undefined
+      && Number(dados.progresso || 0) !== Number(tarefaEfetiva?.progresso || 0);
+    const planos = (data.planos || []).map(p => {
+      if (p.obraId !== obraId) return p;
+      return { ...p, tarefas: (p.tarefas || []).map(x => {
+        if (x.id === dados.id) return {...x,...dados,depende:[...new Set(dados.depende || [])]};
+        const deps = (x.depende || []).filter(d => d !== dados.id);
+        if (sucessoras.includes(x.id)) deps.push(dados.id);
+        return {...x,depende:[...new Set(deps)]};
+      }) };
     });
-    return p;
-  });
+    const base = { ...data, planos };
+    update(mudouProgresso
+      ? aplicarAjustesProgresso(base, obraId, [{ tarefaId:dados.id, progresso:dados.progresso }], "planejamento")
+      : base);
+  };
 
   // Edicao direta das colunas do Gantt. Alterar o inicio preserva a duracao;
   // alterar os dias recalcula o fim no calendario de trabalho.
@@ -21365,7 +21456,8 @@ function Planejamento({ data, update, showToast }) {
       upsertTarefa({id:t.id,fim:somaDiasUteis(t.inicio,n,cal)});
     } else if (campo === "progresso") {
       const p = Math.max(0, Math.min(100, Number(valor)||0));
-      upsertTarefa({id:t.id,progresso:p});
+      update(aplicarAjustesProgresso(data, obraId,
+        [{ tarefaId:t.id, etapaId:t.etapaId, progresso:p }], "planejamento"));
     }
   };
   const upsertMarco = (m) => salvarPlano(p => {
@@ -23149,12 +23241,16 @@ function DiarioObra({ data, update, showToast }) {
     return r;
   });
 
-  // Servico executado: grava no RDO. O progresso alimenta a tarefa via medicao.
+  // Servico executado: grava no RDO. O timestamp torna esta medicao editavel
+  // em qualquer tela: a ultima alteracao realizada e a que prevalece.
   const upsertServico = (s) => salvarRDO(r => {
+    const atualizadoEm = new Date().toISOString();
+    const servico = { ...s, atualizadoEm };
     const existe = (r.servicos || []).some(x => x.tarefaId === s.tarefaId);
     r.servicos = existe
-      ? r.servicos.map(x => x.tarefaId === s.tarefaId ? { ...x, ...s } : x)
-      : [...(r.servicos || []), s];
+      ? r.servicos.map(x => x.tarefaId === s.tarefaId ? { ...x, ...servico } : x)
+      : [...(r.servicos || []), servico];
+    r.atualizadoEm = atualizadoEm;
     return r;
   });
   const removerServico = (tarefaId) => salvarRDO(r => {
@@ -23680,17 +23776,12 @@ function MedicaoEvolucao({ data, update, showToast }) {
       responsavel: confResp.trim(), observacao: confObs.trim(),
       itens, avancoFisico,
     };
-    // Confirmar também grava o progresso aprovado no plano — o boletim vira a
-    // verdade oficial, então o cronograma passa a refletir o que o fiscal
-    // aceitou, não só o que o diário somou.
-    const planos = (data.planos || []).map(p => {
-      if (p.obraId !== obraId) return p;
-      return { ...p, tarefas: (p.tarefas || []).map(t => {
-        const it = itens.find(x => x.tarefaId === t.id);
-        return it ? { ...t, progresso: it.pctConfirmado } : t;
-      }) };
-    });
-    update({ ...data, medicoesObra: [...(data.medicoesObra || []), medicao], planos });
+    // O boletim vira a verdade oficial e sincroniza o planejamento e o ultimo
+    // RDO de cada servico, sem alterar os diarios historicos anteriores.
+    const base = { ...data, medicoesObra: [...(data.medicoesObra || []), medicao] };
+    update(aplicarAjustesProgresso(base, obraId,
+      itens.map(i => ({ tarefaId:i.tarefaId, progresso:i.pctConfirmado })),
+      "medicao_oficial"));
     setConfModal(false);
     showToast?.(`Medição ${medicao.numero} confirmada: ${avancoFisico.toFixed(0)}% físico.`);
   };
@@ -23705,15 +23796,14 @@ function MedicaoEvolucao({ data, update, showToast }) {
     showToast?.("Medição removida.");
   };
 
-  // Ajuste manual: grava o progresso direto na tarefa do plano.
+  // Ajuste central: pode corrigir inclusive um valor vindo do Diario. O instante
+  // da alteracao fica salvo e passa a prevalecer em todas as telas.
   const ajustarManual = (tarefaId, progresso) => {
-    const planos = (data.planos || []).map(p => {
-      if (p.obraId !== obraId) return p;
-      return { ...p, tarefas: (p.tarefas || []).map(t =>
-        t.id === tarefaId ? { ...t, progresso: Math.max(0, Math.min(100, Number(progresso) || 0)) } : t) };
-    });
-    update({ ...data, planos });
-    showToast?.("Progresso ajustado");
+    const tarefa = tarefas.find(t => t.id === tarefaId);
+    update(aplicarAjustesProgresso(data, obraId, [{
+      tarefaId, etapaId: tarefa?.etapaId || "", progresso,
+    }], "medicao"));
+    showToast?.("Medição ajustada em todas as telas");
   };
 
   if (!obras.length) {
@@ -23756,7 +23846,10 @@ function MedicaoEvolucao({ data, update, showToast }) {
                 <div style={{ display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 10, fontWeight: 700,
                                  color: t.origemProgresso === "diario" ? C.green : C.muted }}>
-                    {t.origemProgresso === "diario" ? "via diario" : "manual"}
+                    {t.origemProgresso === "diario" ? "via diario"
+                      : t.origemProgresso === "medicao_oficial" ? "medicao oficial"
+                      : t.origemProgresso === "medicao" ? "ajustado na medicao"
+                      : "manual"}
                   </span>
                   {t.diasTrabalhados > 0 && (
                     <span style={{ fontSize: 10, color: C.muted }}>{t.diasTrabalhados} dia(s) trabalhado(s)</span>
@@ -23792,8 +23885,9 @@ function MedicaoEvolucao({ data, update, showToast }) {
       </div>
 
       <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, padding: "0 4px" }}>
-        O progresso vindo do <b>diario de obra</b> tem prioridade. Onde nao ha RDO, voce ajusta
-        manualmente aqui. Ambos alimentam a curva S e o fisico-financeiro do planejamento.
+        A medição é única em todo o sistema. Você pode ajustá-la aqui, no <b>Diário de Obra</b>
+        ou no Planejamento; a alteração mais recente passa a valer em todas as telas e alimenta
+        a curva S e o físico-financeiro.
       </p>
 
       {/* Boletim de medição: confirma o avanço contra o diário */}
