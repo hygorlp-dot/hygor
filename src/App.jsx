@@ -1694,7 +1694,10 @@ const normalizeData = incoming => {
       avancoFisico: Number(m.avancoFisico || 0),
     })) : [],
     terceirizados: Array.isArray(d.terceirizados) ? d.terceirizados.map(t => ({
+      // `id` identifica o CONTRATO. `prestadorId` identifica o cadastro único
+      // do terceirizado e pode se repetir em vários contratos/obras.
       id: t.id || uid(),
+      prestadorId: t.prestadorId || t.id || "",
       name: t.name || "",
       specialty: t.specialty || "outros",
       obraId: t.obraId || "",
@@ -1725,11 +1728,9 @@ const normalizeData = incoming => {
       ufEnd:      t.ufEnd      || "",
       // Pagamento
       tipoContrato: t.tipoContrato || "medicao",   // medicao | empreitada | semanal | diaria
-      // Quem banca o contrato. "obra": custo direto no DRE da obra (padrao, o
-      // caso comum). "empresa": bancado pela construtora - sai do custo da obra
-      // e entra como despesa administrativa no consolidado. O que decide e o
-      // contrato: um consultor da empresa que atende varias obras nao deveria
-      // pesar so na obra onde por acaso foi lancado.
+      // Campo legado: versões antigas definiam o pagador no contrato. Novos
+      // pagamentos perguntam a origem do recurso no momento do lançamento e
+      // congelam essa escolha no próprio pagamento.
       pagador: t.pagador === "empresa" ? "empresa" : "obra",
       banco:    t.banco    || "",
       agencia:  t.agencia  || "",
@@ -1758,8 +1759,8 @@ const normalizeData = incoming => {
       })).sort((a, b) => a.ordem - b.ordem) : [],
     })) : [],
     pagsTerceiros: Array.isArray(d.pagsTerceiros) ? d.pagsTerceiros.map(p => ({
-      // Pagamento antigo, sem `pagador`, e da obra - era o unico comportamento
-      // que existia, entao nao muda nenhum DRE ja fechado.
+      // Cada pagamento guarda sua própria origem. Registros antigos sem esse
+      // campo permanecem como pagos pela obra, preservando os DREs históricos.
       ...p, pagador: p.pagador === "empresa" ? "empresa" : "obra",
       // `amount` sempre foi o valor que onera a obra (o bruto). Pagamento antigo
       // nao tinha retencao: liquido = bruto.
@@ -3547,7 +3548,7 @@ const calcDREConsolidado = (data, year, month) => {
   const per0 = days[0] || "", perF = days[days.length-1] || "";
   const rows = data.obras.map(o => calcDREObra(data, o.id, year, month));
   const sum  = (key, sub) => rows.reduce((s,r) => s+(sub ? r[sub][key]||0 : r[key]||0), 0);
-  // Terceiros bancados pela empresa: não estão em nenhuma obra, entram aqui.
+  // Pagamentos de terceiros realizados pela empresa não oneram a obra vinculada; entram aqui como despesa administrativa consolidada.
   const tercEmpresa = calcTercEmpresaCost(data, per0, perF);
   const ym = `${year}-${String(month+1).padStart(2,"0")}`;
 
@@ -7775,8 +7776,8 @@ function Folha({ data, showToast, onTab }) {
 // 
 
 const calcObraTercCost = (data, obraId, periodStart, periodEnd) => {
-  // Custo direto da OBRA: só os pagamentos que o contrato define como pagos
-  // pela obra. Os pagos pela empresa saem daqui e viram despesa administrativa
+  // Custo direto da OBRA: só os pagamentos cuja origem foi escolhida como obra
+  // no momento do lançamento. Os pagos pela empresa saem daqui e viram despesa administrativa
   // no consolidado - senão a margem da obra ficaria pior do que a realidade
   // por um custo que não é dela.
   return (data.pagsTerceiros || [])
@@ -7784,7 +7785,7 @@ const calcObraTercCost = (data, obraId, periodStart, periodEnd) => {
     .reduce((s, p) => s + Number(p.amount || 0), 0);
 };
 
-// Terceiros bancados pela EMPRESA no período (todas as obras). Vai para o DRE
+// Pagamentos de terceiros realizados pela EMPRESA no período (todas as obras). Vai para o DRE
 // consolidado como despesa administrativa, fora do custo de qualquer obra.
 const calcTercEmpresaCost = (data, periodStart, periodEnd) => {
   return (data.pagsTerceiros || [])
@@ -8140,9 +8141,9 @@ function FluxoCaixa({ data }) {
 
 function Terceiros({ data, update, showToast }) {
   const { formGrid } = useBreakpoint();
-  const emptyT = { id:"", name:"", specialty:"eletricista", obraId:"", contractValue:"", weeklyRate:"", phone:"", pixKey:"", notes:"", startDate:today(),
+  const emptyT = { id:"", prestadorId:"", name:"", specialty:"eletricista", obraId:"", contractValue:"", weeklyRate:"", phone:"", pixKey:"", notes:"", startDate:today(),
     situacao:"andamento", endDate:"", tipoPessoa:"PJ", documento:"", razaoSocial:"", inscEstadual:"", inscMunicipal:"",
-    email:"", responsavel:"", cep:"", endereco:"", cidade:"", ufEnd:"", tipoContrato:"medicao", pagador:"obra",
+    email:"", responsavel:"", cep:"", endereco:"", cidade:"", ufEnd:"", tipoContrato:"medicao",
     banco:"", agencia:"", conta:"", retISS:"", retINSS:"", retISSQuem:"fonte", retINSSQuem:"fonte" };
   const [view,        setView]        = useState("kanban");
   const [weekOffset,  setWeekOffset]  = useState(0);
@@ -8151,6 +8152,8 @@ function Terceiros({ data, update, showToast }) {
   const [payModal,    setPayModal]    = useState(null);
   const [payAmount,   setPayAmount]   = useState("");
   const [payDesc,     setPayDesc]     = useState("");
+  const [paySource,   setPaySource]   = useState("");     // empresa | obra, escolhido em cada pagamento
+  const [medPayModal, setMedPayModal] = useState(null);   // medição aguardando confirmação de pagamento
   const [filterObra,  setFilterObra]  = useState("all");
   const [filterSpec,  setFilterSpec]  = useState("all");
   const [expanded,    setExpanded]    = useState(null);
@@ -8181,6 +8184,72 @@ function Terceiros({ data, update, showToast }) {
   const allTerc    = data.terceirizados || [];
   const activeTerc = allTerc.filter(t => t.active !== false);
 
+  // Um mesmo prestador pode possuir vários contratos. O cadastro fiscal,
+  // bancário e de contato é compartilhado pelo `prestadorId`; obra, escopo,
+  // valores, etapas, medições e pagamentos continuam isolados pelo `id`.
+  const prestadorKey = t => t?.prestadorId || t?.id || "";
+  const prestadoresUnicos = useMemo(() => {
+    const mapa = new Map();
+    allTerc.forEach(t => {
+      const chave = prestadorKey(t);
+      if (chave && !mapa.has(chave)) mapa.set(chave, t);
+    });
+    return [...mapa.values()].sort((a,b)=>String(a.name||"").localeCompare(String(b.name||"")));
+  }, [allTerc]);
+
+  const contratosDoPrestador = t => {
+    const chave = prestadorKey(t);
+    return chave ? allTerc.filter(x => prestadorKey(x) === chave) : [];
+  };
+
+  const cadastroCompartilhado = t => ({
+    prestadorId: prestadorKey(t),
+    name: t.name || "",
+    tipoPessoa: t.tipoPessoa || "PJ",
+    documento: t.documento || "",
+    razaoSocial: t.razaoSocial || "",
+    inscEstadual: t.inscEstadual || "",
+    inscMunicipal: t.inscMunicipal || "",
+    phone: t.phone || "",
+    pixKey: t.pixKey || "",
+    email: t.email || "",
+    responsavel: t.responsavel || "",
+    cep: t.cep || "",
+    endereco: t.endereco || "",
+    cidade: t.cidade || "",
+    ufEnd: t.ufEnd || "",
+    banco: t.banco || "",
+    agencia: t.agencia || "",
+    conta: t.conta || "",
+    documentos: (t.documentos || []).map(d => ({ ...d })),
+  });
+
+  const montarNovoContrato = t => ({
+    ...emptyT,
+    ...cadastroCompartilhado(t),
+    // A especialidade é apenas uma sugestão: pode variar por contrato.
+    specialty: t.specialty || emptyT.specialty,
+    obraId: "",
+    contractValue: "",
+    weeklyRate: "",
+    notes: "",
+    startDate: today(),
+    endDate: "",
+    situacao: "contratado",
+    tipoContrato: t.tipoContrato || "medicao",
+    retISS: t.retISS ? String(t.retISS) : "",
+    retINSS: t.retINSS ? String(t.retINSS) : "",
+    retISSQuem: t.retISSQuem || "fonte",
+    retINSSQuem: t.retINSSQuem || "fonte",
+    etapas: [],
+  });
+
+  const novoContratoDoPrestador = t => {
+    setForm(montarNovoContrato(t));
+    setDocForm({ tipo:"CND", numero:"", validade:"" });
+    setModal(true);
+  };
+
   const wasPaidThisWeek = id =>
     (data.pagsTerceiros || []).some(p => p.tercId === id && p.date >= weekStart && p.date <= weekEnd);
   const thisWeekPay = id =>
@@ -8200,27 +8269,63 @@ function Terceiros({ data, update, showToast }) {
 
   const saveTerc = () => {
     if (!form.name.trim()) { showToast("Nome obrigatório.", "error"); return; }
-    // Documento so trava se preenchido e invalido: cadastro parcial e comum,
-    // mas CNPJ/CPF digitado errado vira dor de cabeca na nota fiscal.
+    if (!form.obraId) {
+      showToast("Selecione a obra deste contrato.", "error"); return;
+    }
+    // Documento só trava se preenchido e inválido: cadastro parcial é comum,
+    // mas CNPJ/CPF digitado errado vira problema na nota fiscal.
     const docLimpo = soDigitos(form.documento);
     if (docLimpo && !validarDocumento(docLimpo, form.tipoPessoa)) {
       showToast(`${form.tipoPessoa === "PF" ? "CPF" : "CNPJ"} inválido - confira os dígitos.`, "error"); return;
     }
+
+    // Ao informar um documento já existente, o sistema NÃO bloqueia. Ele liga
+    // o novo contrato ao cadastro principal encontrado e mantém outro `id`
+    // para que obra, medições e pagamentos permaneçam independentes.
+    const existentePorDocumento = docLimpo ? allTerc.find(t =>
+      t.id !== form.id &&
+      (t.tipoPessoa || "PJ") === (form.tipoPessoa || "PJ") &&
+      soDigitos(t.documento) === docLimpo
+    ) : null;
+
+    const contratoId = form.id || uid();
+    const prestadorId = form.prestadorId || prestadorKey(existentePorDocumento) || uid();
     const payload = {
-      ...form, id: form.id || uid(),
+      ...form,
+      id: contratoId,
+      prestadorId,
       weeklyRate: Number(form.weeklyRate || 0),
       contractValue: Number(form.contractValue || 0),
-      retISS: Number(form.retISS || 0), retINSS: Number(form.retINSS || 0),
+      retISS: Number(form.retISS || 0),
+      retINSS: Number(form.retINSS || 0),
       documento: docLimpo,
       cep: soDigitos(form.cep),
-      // active espelha situacao para o resto do app continuar funcionando.
+      // active espelha situação para o resto do app continuar funcionando.
       active: form.situacao !== "concluido" && form.situacao !== "pausado",
-      documentos: form.documentos || [],
+      documentos: (form.documentos || []).map(d => ({ ...d })),
     };
-    const terceirizados = form.id ? allTerc.map(t => t.id === form.id ? payload : t) : [...allTerc, payload];
+
+    // Estes campos pertencem ao cadastro principal do prestador. Ao atualizá-
+    // los em um contrato, todos os demais contratos vinculados recebem a mesma
+    // informação. Os campos contratuais não são tocados.
+    const compartilhado = cadastroCompartilhado(payload);
+    const pertenceAoMesmoPrestador = t =>
+      prestadorKey(t) === prestadorId ||
+      (!!docLimpo && (t.tipoPessoa || "PJ") === (form.tipoPessoa || "PJ") && soDigitos(t.documento) === docLimpo);
+
+    let terceirizados = allTerc.map(t => {
+      if (t.id === form.id) return payload;
+      if (pertenceAoMesmoPrestador(t)) return { ...t, ...compartilhado, prestadorId };
+      return t;
+    });
+    if (!form.id) terceirizados = [...terceirizados, payload];
+
     update({ ...data, terceirizados });
     setModal(false);
-    showToast(form.id ? "Terceirizado atualizado." : "Terceirizado cadastrado.");
+    const obra = obraName(payload.obraId);
+    if (form.id) showToast("Cadastro e contrato atualizados.");
+    else if (existentePorDocumento || form.prestadorId) showToast(`Novo contrato de ${payload.name} criado para ${obra}.`);
+    else showToast(`Terceirizado cadastrado e contrato criado para ${obra}.`);
   };
 
   // Adiciona/remove documento diretamente no form aberto (antes de salvar).
@@ -8233,9 +8338,10 @@ function Terceiros({ data, update, showToast }) {
   const delDocNoForm = id => setForm(f => ({ ...f, documentos: (f.documentos || []).filter(d => d.id !== id) }));
 
   const removeTerc = id => {
-    if (!window.confirm("Remover terceirizado? O histórico de pagamentos será mantido.")) return;
+    const contrato = allTerc.find(t => t.id === id);
+    if (!window.confirm(`Remover este contrato${contrato?.obraId ? ` de ${obraName(contrato.obraId)}` : ""}? O cadastro do prestador e o histórico de pagamentos serão mantidos.`)) return;
     update({ ...data, terceirizados: allTerc.filter(t => t.id !== id) });
-    showToast("Terceirizado removido.");
+    showToast("Contrato removido.");
   };
 
   const toggleActive = id => {
@@ -8247,20 +8353,27 @@ function Terceiros({ data, update, showToast }) {
   const savePay = terc => {
     const amount = Number(payAmount || terc.weeklyRate || 0);
     if (!amount) { showToast("Informe o valor.", "error"); return; }
+    if (paySource !== "empresa" && paySource !== "obra") {
+      showToast("Informe se o pagamento foi realizado pela empresa ou pela obra.", "error"); return;
+    }
+    if (paySource === "obra" && !terc.obraId) {
+      showToast("Este contrato não possui obra vinculada.", "error"); return;
+    }
     const ret = calcRetencoes(amount, terc);
     const pagsTerceiros = [...(data.pagsTerceiros || []), {
       id: uid(), tercId: terc.id, tercName: terc.name, specialty: terc.specialty,
       obraId: terc.obraId, date: friday, amount, description: payDesc || `Pagamento semanal ${fmtDateFull(friday)}`,
-      // Congela quem banca no momento do pagamento: mudar o contrato depois nao
-      // deve reescrever DRE de meses ja fechados.
-      pagador: terc.pagador === "empresa" ? "empresa" : "obra",
+      // A origem é definida para este lançamento e permanece congelada para que
+      // alterações futuras no contrato não reescrevam DREs já fechados.
+      pagador: paySource,
       issRetido: ret.issRetido, inssRetido: ret.inssRetido, liquido: ret.liquido,
     }];
     update({ ...data, pagsTerceiros });
-    setPayModal(null); setPayAmount(""); setPayDesc("");
+    setPayModal(null); setPayAmount(""); setPayDesc(""); setPaySource("");
+    const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(terc.obraId)}`;
     showToast(ret.retido > 0
-      ? `${terc.name} - ${fmt(amount)} bruto, ${fmt(ret.liquido)} líquido.`
-      : `${terc.name} - pagamento registrado.`);
+      ? `${terc.name} - ${fmt(amount)} bruto, ${fmt(ret.liquido)} líquido, pago ${origem}.`
+      : `${terc.name} - pagamento registrado ${origem}.`);
   };
 
   const removePay = id => {
@@ -8294,12 +8407,12 @@ function Terceiros({ data, update, showToast }) {
   // Kanban POR OBRA. Cada obra com pelo menos um terceirizado vira um quadro
   // próprio; obra sem terceiro não aparece. Ordem: primeiro as obras com MAIS
   // terceiros; no empate, a que está MAIS NO INÍCIO da execução (menor avanço
-  // médio de contrato). Terceiros bancados pela empresa (sem obra) caem num
-  // bloco próprio ao final, para não sumirem.
+  // médio de contrato). A origem financeira é escolhida por pagamento e não
+  // interfere na organização contratual por obra.
   const kanbansPorObra = useMemo(() => {
     const grupos = {};
     allTerc.forEach(t => {
-      const chave = t.pagador === "empresa" && !t.obraId ? "__empresa__" : (t.obraId || "__sem_obra__");
+      const chave = t.obraId || "__sem_obra__";
       (grupos[chave] = grupos[chave] || []).push(t);
     });
     const avancoMedio = lista => lista.length
@@ -8307,10 +8420,8 @@ function Terceiros({ data, update, showToast }) {
     return Object.entries(grupos)
       .map(([obraId, lista]) => ({
         obraId,
-        nome: obraId === "__empresa__" ? "Terceiros da empresa"
-            : obraId === "__sem_obra__" ? "Sem obra vinculada"
-            : obraName(obraId),
-        especial: obraId === "__empresa__" || obraId === "__sem_obra__",
+        nome: obraId === "__sem_obra__" ? "Sem obra vinculada" : obraName(obraId),
+        especial: obraId === "__sem_obra__",
         lista,
         qtd: lista.length,
         avanco: avancoMedio(lista),
@@ -8515,23 +8626,42 @@ function Terceiros({ data, update, showToast }) {
     showToast("Medição removida.");
   };
 
-  const pagarMedicao = m => {
+  const abrirPagamentoMedicao = m => {
     const t = allTerc.find(x => x.id === m.tercId);
     if (!t) return;
     if (m.pagamentoId) { showToast("Esta medição já foi paga.", "warn"); return; }
     if (!(m.total > 0)) { showToast("Medição sem valor a pagar.", "warn"); return; }
+    setMedPayModal(m);
+    setPaySource("");
+  };
+
+  const confirmarPagamentoMedicao = () => {
+    const m = medPayModal;
+    if (!m) return;
+    const t = allTerc.find(x => x.id === m.tercId);
+    if (!t) return;
+    if (paySource !== "empresa" && paySource !== "obra") {
+      showToast("Informe se o pagamento foi realizado pela empresa ou pela obra.", "error"); return;
+    }
+    if (paySource === "obra" && !m.obraId) {
+      showToast("Esta medição não possui obra vinculada.", "error"); return;
+    }
+    if (m.pagamentoId) { showToast("Esta medição já foi paga.", "warn"); setMedPayModal(null); return; }
     const ret = calcRetencoes(m.total, t);
     const pag = { id: uid(), tercId: m.tercId, tercName: t.name, specialty: t.specialty,
       obraId: m.obraId, date: m.data, amount: m.total, medicaoId: m.id,
       description: `Medição ${m.numero} - ${fmtDateFull(m.data)}`,
-      pagador: t.pagador === "empresa" ? "empresa" : "obra",
+      pagador: paySource,
       issRetido: ret.issRetido, inssRetido: ret.inssRetido, liquido: ret.liquido };
     update({ ...data,
       pagsTerceiros: [...(data.pagsTerceiros || []), pag],
       medicoesTerc: (data.medicoesTerc || []).map(x => x.id === m.id ? { ...x, pagamentoId: pag.id } : x) });
+    const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(m.obraId)}`;
+    setMedPayModal(null);
+    setPaySource("");
     showToast(ret.retido > 0
-      ? `Medição paga: ${fmt(m.total)} bruto, ${fmt(ret.liquido)} líquido ao prestador.`
-      : `Pagamento de ${fmt(m.total)} registrado para ${t.name}.`);
+      ? `Medição paga ${origem}: ${fmt(m.total)} bruto, ${fmt(ret.liquido)} líquido ao prestador.`
+      : `Pagamento de ${fmt(m.total)} registrado ${origem} para ${t.name}.`);
   };
 
   // Medicao registrada e ainda nao paga e divida vencida com o terceiro. Ficava
@@ -8883,13 +9013,20 @@ function Terceiros({ data, update, showToast }) {
                           </div>
                           {t.phone && <p style={{ fontSize:12, color:C.subtle }}> {t.phone}</p>}
                           {t.pixKey && <p style={{ fontSize:12, color:C.subtle }}>PIX: {t.pixKey}</p>}
+                          {contratosDoPrestador(t).length > 1 && (
+                            <p style={{ fontSize:12, color:C.blue, fontWeight:700 }}>
+                              {contratosDoPrestador(t).length} contratos vinculados a este cadastro
+                            </p>
+                          )}
                           {t.notes && <p style={{ fontSize:12, color:C.muted, fontStyle:"italic" }}>"{t.notes}"</p>}
                           <p style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase" }}>Últimos pagamentos</p>
                           {(data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).slice(-5).reverse().map(p=>(
                             <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.line}`, paddingBottom:6 }}>
                               <div>
                                 <p style={{ fontSize:13, fontWeight:700 }}>{p.description}</p>
-                                <p style={{ fontSize:11, color:C.muted }}>{fmtDateFull(p.date)}</p>
+                                <p style={{ fontSize:11, color:C.muted }}>
+                                  {fmtDateFull(p.date)} · {p.pagador === "empresa" ? "pago pela empresa" : `pago pela obra ${obraName(p.obraId)}`}
+                                </p>
                               </div>
                               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                                 <p style={{ color:C.green, fontWeight:900 }}>{fmt(p.amount)}</p>
@@ -8904,11 +9041,14 @@ function Terceiros({ data, update, showToast }) {
                             <Btn size="sm" v="info" onClick={()=>abrirMedicoesDe(t.id)}>
                               <Ic n="medicoes"/> {(t.etapas||[]).length ? "Medições" : "Dividir em etapas"}
                             </Btn>
-                            <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));}}>
+                            <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));setPaySource("");}}>
                               <Ic n="dollar"/> Registrar pagamento
                             </Btn>
                             <Btn size="sm" v="ghost" onClick={()=>editarTerc(t)}>
                               <Ic n="edit"/> Editar
+                            </Btn>
+                            <Btn size="sm" v="info" onClick={()=>novoContratoDoPrestador(t)}>
+                              <Ic n="plus"/> Outra obra
                             </Btn>
                             <Btn size="sm" v={t.active===false?"success":"dark"} onClick={()=>toggleActive(t.id)}>
                               {t.active===false?"Reativar":"Inativar"}
@@ -8938,9 +9078,10 @@ function Terceiros({ data, update, showToast }) {
                 <div key={t.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${sp.color}`,padding:"12px 14px",borderRadius:8,marginBottom:4}}>
                   <div style={{display:"flex",justifyContent:"space-between"}}>
                     <p style={{fontWeight:700}}>{sp.emoji} {t.name}</p>
-                    <Btn size="sm" v="ghost" onClick={()=>editarTerc(t)}>
-                      <Ic n="edit"/>
-                    </Btn>
+                    <div style={{display:"flex",gap:5}}>
+                      <Btn size="sm" v="info" onClick={()=>novoContratoDoPrestador(t)}><Ic n="plus"/></Btn>
+                      <Btn size="sm" v="ghost" onClick={()=>editarTerc(t)}><Ic n="edit"/></Btn>
+                    </div>
                   </div>
                   <p style={{fontSize:11,color:C.muted,marginTop:3}}>Nenhuma obra vinculada - edite para vincular</p>
                 </div>
@@ -8977,11 +9118,12 @@ function Terceiros({ data, update, showToast }) {
                   <div style={{ minWidth:0 }}>
                     <p style={{ fontSize:16, fontWeight:900, color:C.text }}>{tercAtual.name}</p>
                     <p style={{ fontSize:11.5, color:info.color, fontWeight:700 }}>
-                      {info.l} · {tercAtual.pagador === "empresa" ? "pago pela empresa" : obraName(tercAtual.obraId)}
+                      {info.l} · {obraName(tercAtual.obraId)}
                     </p>
                   </div>
                   <div style={{ display:"flex", gap:6, alignItems:"flex-start" }}>
                     <span style={{ fontSize:10, fontWeight:900, color:col.cor, background:`${col.cor}18`, borderRadius:99, padding:"4px 10px", whiteSpace:"nowrap" }}>{col.l}</span>
+                    <Btn size="sm" v="info" onClick={()=>novoContratoDoPrestador(tercAtual)}>Outra obra</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>editarTerc(tercAtual)}>Editar</Btn>
                   </div>
                 </div>
@@ -9181,9 +9323,15 @@ function Terceiros({ data, update, showToast }) {
                   const iss     = pg ? Number(pg.issRetido || 0)  : ret.issRetido;
                   const inss    = pg ? Number(pg.inssRetido || 0) : ret.inssRetido;
                   const liquido = pg ? Number(pg.liquido ?? m.total) : ret.liquido;
-                  if (iss + inss <= 0) return null;
+                  if (iss + inss <= 0 && !pg) return null;
                   return (
                     <div style={{ marginTop:7, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"7px 10px" }}>
+                      {pg && <div style={{ display:"flex", justifyContent:"space-between", fontSize:10.5, color:C.muted, marginBottom:4 }}>
+                        <span>Origem do pagamento</span>
+                        <b style={{ color:pg.pagador === "empresa" ? C.blue : C.orange }}>
+                          {pg.pagador === "empresa" ? "Empresa" : `Obra ${obraName(pg.obraId)}`}
+                        </b>
+                      </div>}
                       <div style={{ display:"flex", justifyContent:"space-between", fontSize:10.5, color:C.muted }}>
                         <span>Bruto (custo da obra)</span><b style={{ color:C.text }}>{fmt(m.total)}</b>
                       </div>
@@ -9199,7 +9347,7 @@ function Terceiros({ data, update, showToast }) {
                   );
                 })()}
                 <div style={{ display:"flex", gap:7, marginTop:9, justifyContent:"flex-end" }}>
-                  {!m.pagamentoId && <Btn size="sm" v="success" onClick={()=>pagarMedicao(m)}>Registrar pagamento</Btn>}
+                  {!m.pagamentoId && <Btn size="sm" v="success" onClick={()=>abrirPagamentoMedicao(m)}>Registrar pagamento</Btn>}
                   <Btn size="sm" v="ghost" onClick={()=>removerMedicao(m)}>Remover</Btn>
                 </div>
               </div>
@@ -9310,7 +9458,7 @@ function Terceiros({ data, update, showToast }) {
                   <p style={{ fontSize:12, color:C.muted }}>{sp.l}  {obraName(t.obraId)}</p>
                   {paid && paidEntry && (
                     <p style={{ fontSize:12, color:C.green, marginTop:3 }}>
-                      {fmt(paidEntry.amount)}  {fmtDateFull(paidEntry.date)}
+                      {fmt(paidEntry.amount)} · {fmtDateFull(paidEntry.date)} · {paidEntry.pagador === "empresa" ? "empresa" : `obra ${obraName(paidEntry.obraId)}`}
                     </p>
                   )}
                   {!paid && t.weeklyRate>0 && (
@@ -9321,7 +9469,7 @@ function Terceiros({ data, update, showToast }) {
                 </div>
                 <div style={{ flexShrink:0 }}>
                   {!paid ? (
-                    <Btn v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));}}>
+                    <Btn v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));setPaySource("");}}>
                       <Ic n="dollar"/> Pagar
                     </Btn>
                   ) : (
@@ -9342,35 +9490,63 @@ function Terceiros({ data, update, showToast }) {
       {modal && (() => {
         const docLimpo = soDigitos(form.documento);
         const docOk = docLimpo.length === 0 ? null : validarDocumento(docLimpo, form.tipoPessoa);
+        const prestadorSelecionado = form.prestadorId
+          ? prestadoresUnicos.find(t => prestadorKey(t) === form.prestadorId)
+          : null;
+        const existentePorDocumento = !form.id && docLimpo
+          ? allTerc.find(t => (t.tipoPessoa || "PJ") === (form.tipoPessoa || "PJ") && soDigitos(t.documento) === docLimpo)
+          : null;
+        const cadastroVinculado = prestadorSelecionado || existentePorDocumento;
+        const contratosVinculados = cadastroVinculado ? contratosDoPrestador(cadastroVinculado) : [];
         const secTitulo = t => (
           <p style={{ gridColumn:"1/-1", fontSize:10, fontWeight:900, color:C.muted,
                       textTransform:"uppercase", letterSpacing:1, marginTop:6,
                       borderTop:`1px solid ${C.line}`, paddingTop:11 }}>{t}</p>
         );
         return (
-        <Modal title={form.id?"Editar terceirizado":"Novo terceirizado"} onClose={()=>setModal(false)} wide>
+        <Modal title={form.id?"Editar contrato de terceirizado":"Novo contrato de terceirizado"} onClose={()=>setModal(false)} wide>
           <div style={{ display:"grid", gridTemplateColumns:formGrid(2), gap:12 }}>
 
+            {!form.id && prestadoresUnicos.length > 0 && (
+              <div style={{ gridColumn:"1/-1", background:`${C.blue}0C`, border:`1px solid ${C.blue}44`, borderRadius:8, padding:"10px 12px" }}>
+                <Sel label="Usar terceirizado já cadastrado (opcional)" value={form.prestadorId || ""}
+                  onChange={id => {
+                    if (!id) { setForm({ ...emptyT }); return; }
+                    const base = prestadoresUnicos.find(t => prestadorKey(t) === id);
+                    if (base) setForm(montarNovoContrato(base));
+                  }}
+                  options={[{v:"",l:"Cadastrar um novo prestador"}, ...prestadoresUnicos.map(t=>({
+                    v:prestadorKey(t),
+                    l:`${t.name}${t.documento?` · ${maskDoc(t.documento,t.tipoPessoa)}`:""} · ${contratosDoPrestador(t).length} contrato(s)`,
+                  }))]}/>
+                <p style={{ fontSize:10.5, color:C.muted, marginTop:5, lineHeight:1.45 }}>
+                  Selecione um cadastro existente para criar outro contrato. Os dados fiscais, bancários e de contato serão reaproveitados; obra, valores, etapas, medições e pagamentos serão novos.
+                </p>
+              </div>
+            )}
+
+            {cadastroVinculado && !form.id && (
+              <div style={{ gridColumn:"1/-1", background:`${C.green}0D`, border:`1px solid ${C.green}44`, borderRadius:8, padding:"9px 11px" }}>
+                <p style={{ fontSize:11.5, fontWeight:800, color:C.green }}>
+                  Cadastro vinculado: {cadastroVinculado.name} · {contratosVinculados.length} contrato(s) existente(s)
+                </p>
+                <p style={{ fontSize:10, color:C.muted, marginTop:3 }}>
+                  {contratosVinculados.map(t=>obraName(t.obraId)).filter((v,i,a)=>v&&v!=="-"&&a.indexOf(v)===i).join(" · ") || "Sem obra vinculada"}
+                </p>
+              </div>
+            )}
+
             {/* IDENTIFICACAO */}
-            <div style={{ gridColumn:"1/-1" }}><Inp label="Nome / Apelido *" value={form.name} onChange={F("name")} placeholder="Como você chama este contrato"/></div>
+            <div style={{ gridColumn:"1/-1" }}><Inp label="Nome / Apelido *" value={form.name} onChange={F("name")} placeholder="Nome usado para identificar o prestador"/></div>
             <Sel label="Especialidade *" value={form.specialty} onChange={F("specialty")} options={SPECIALTIES.map(s=>({v:s.v,l:s.l}))}/>
             <Sel label="Obra *" value={form.obraId} onChange={F("obraId")} options={[{v:"",l:"Selecione"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
             <Sel label="Situação" value={form.situacao} onChange={F("situacao")} options={COLS_KANBAN.map(c=>({v:c.v,l:c.l}))}/>
             <Sel label="Tipo de contrato" value={form.tipoContrato} onChange={F("tipoContrato")}
               options={[{v:"medicao",l:"Por medição"},{v:"empreitada",l:"Empreitada (global)"},{v:"semanal",l:"Semanal"},{v:"diaria",l:"Diária"}]}/>
-            <div style={{ gridColumn:"1/-1" }}>
-              <p style={{ fontSize:11, fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.8, marginBottom:5 }}>Pago por</p>
-              <div style={{ display:"flex", gap:6 }}>
-                {[["obra","A obra","Custo direto no DRE da obra"],
-                  ["empresa","A empresa","Despesa administrativa (fora do custo da obra)"]].map(([v,l,dica]) => (
-                  <button key={v} onClick={()=>F("pagador")(v)} style={{
-                    flex:1, padding:"9px 8px", border:`2px solid ${form.pagador===v?C.orange:C.border}`,
-                    background:form.pagador===v?`${C.orange}15`:"transparent", cursor:"pointer", borderRadius:6, textAlign:"left" }}>
-                    <p style={{ fontSize:12.5, fontWeight:800, color:form.pagador===v?C.text:C.muted }}>{l}</p>
-                    <p style={{ fontSize:9.5, color:C.muted, marginTop:2, lineHeight:1.3 }}>{dica}</p>
-                  </button>
-                ))}
-              </div>
+            <div style={{ gridColumn:"1/-1", background:`${C.blue}0C`, border:`1px solid ${C.blue}44`, borderRadius:8, padding:"8px 11px" }}>
+              <p style={{ fontSize:10.5, color:C.muted, lineHeight:1.45 }}>
+                A origem do recurso não é definida no contrato. Em cada pagamento o sistema perguntará se o valor foi pago pela empresa ou pela obra.
+              </p>
             </div>
 
             {secTitulo("Dados fiscais")}
@@ -9480,9 +9656,14 @@ function Terceiros({ data, update, showToast }) {
 
             <div style={{ gridColumn:"1/-1" }}><Inp label="Observações" value={form.notes} onChange={F("notes")} multiline placeholder="Escopo, condições, o que combinaram..."/></div>
           </div>
-          <div style={{ display:"flex", gap:8, marginTop:16 }}>
+          <div style={{ marginTop:12, background:C.surface, border:`1px solid ${C.line}`, borderRadius:8, padding:"8px 10px" }}>
+            <p style={{ fontSize:10.5, color:C.muted, lineHeight:1.45 }}>
+              Cada contrato fica vinculado a uma única obra. O mesmo terceirizado pode ter vários contratos simultâneos, inclusive com valores, especialidades, etapas e medições diferentes.
+            </p>
+          </div>
+          <div style={{ display:"flex", gap:8, marginTop:10 }}>
             <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
-            <Btn onClick={saveTerc} full><Ic n="check"/> Salvar</Btn>
+            <Btn onClick={saveTerc} full><Ic n="check"/> {form.id?"Salvar alterações":"Criar contrato"}</Btn>
           </div>
         </Modal>
         );
@@ -9559,17 +9740,60 @@ function Terceiros({ data, update, showToast }) {
         </Modal>
       )}
 
+      {medPayModal && (() => {
+        const t = allTerc.find(x => x.id === medPayModal.tercId);
+        if (!t) return null;
+        const ret = calcRetencoes(medPayModal.total, t);
+        return (
+          <Modal title={`Pagar medição ${medPayModal.numero} - ${t.name}`} onClose={()=>{setMedPayModal(null);setPaySource("");}}>
+            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${C.green}`, padding:"10px 14px", borderRadius:8, marginBottom:12 }}>
+              <p style={{ fontSize:12, color:C.muted }}>{specInfo(t.specialty).emoji} {specInfo(t.specialty).l} · {obraName(medPayModal.obraId)}</p>
+              <p style={{ fontSize:18, color:C.green, fontWeight:900, marginTop:3 }}>{fmt(medPayModal.total)}</p>
+              {ret.retido > 0 && <p style={{ fontSize:10.5, color:C.muted, marginTop:2 }}>Líquido ao prestador: {fmt(ret.liquido)}</p>}
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+              <div>
+                <p style={{ fontSize:11, fontWeight:800, color:C.text, textTransform:"uppercase", letterSpacing:.7, marginBottom:6 }}>Quem realizou este pagamento? *</p>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
+                  {[["empresa","Empresa","Despesa administrativa"],["obra","Obra","Custo direto da obra"]].map(([v,l,dica])=>(
+                    <button key={v} onClick={()=>setPaySource(v)} style={{ padding:"10px 9px", border:`2px solid ${paySource===v?C.green:C.border}`, background:paySource===v?`${C.green}12`:C.surface, borderRadius:8, cursor:"pointer", textAlign:"left" }}>
+                      <p style={{ fontSize:13, fontWeight:900, color:paySource===v?C.text:C.muted }}>{l}</p>
+                      <p style={{ fontSize:9.5, color:C.muted, marginTop:2 }}>{v==="obra"?`${dica}: ${obraName(medPayModal.obraId)}`:dica}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <Btn v="ghost" onClick={()=>{setMedPayModal(null);setPaySource("");}} full>Cancelar</Btn>
+                <Btn v="success" onClick={confirmarPagamentoMedicao} full><Ic n="check"/> Confirmar pagamento</Btn>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
+
       {payModal && (
-        <Modal title={`Pagamento - ${payModal.name}`} onClose={()=>{setPayModal(null);setPayAmount("");setPayDesc("");}}>
+        <Modal title={`Pagamento - ${payModal.name}`} onClose={()=>{setPayModal(null);setPayAmount("");setPayDesc("");setPaySource("");}}>
           <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${C.orange}`, padding:"10px 14px", borderRadius:8, marginBottom:12 }}>
-            <p style={{ fontSize:12, color:C.muted }}>{specInfo(payModal.specialty).emoji} {specInfo(payModal.specialty).l}  {obraName(payModal.obraId)}</p>
+            <p style={{ fontSize:12, color:C.muted }}>{specInfo(payModal.specialty).emoji} {specInfo(payModal.specialty).l} · {obraName(payModal.obraId)}</p>
             <p style={{ fontSize:13, color:C.orange, fontWeight:700, marginTop:2 }}>Sexta-feira: {fmtDateFull(friday)}</p>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <div>
+              <p style={{ fontSize:11, fontWeight:800, color:C.text, textTransform:"uppercase", letterSpacing:.7, marginBottom:6 }}>Quem realizou este pagamento? *</p>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
+                {[["empresa","Empresa","Despesa administrativa"],["obra","Obra","Custo direto da obra"]].map(([v,l,dica])=>(
+                  <button key={v} onClick={()=>setPaySource(v)} style={{ padding:"10px 9px", border:`2px solid ${paySource===v?C.orange:C.border}`, background:paySource===v?`${C.orange}12`:C.surface, borderRadius:8, cursor:"pointer", textAlign:"left" }}>
+                    <p style={{ fontSize:13, fontWeight:900, color:paySource===v?C.text:C.muted }}>{l}</p>
+                    <p style={{ fontSize:9.5, color:C.muted, marginTop:2 }}>{v==="obra"?`${dica}: ${obraName(payModal.obraId)}`:dica}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
             <Inp label="Valor (R$) *" type="number" value={payAmount} onChange={setPayAmount} placeholder={`Sugerido: ${fmt(payModal.weeklyRate)}`}/>
             <Inp label="Descrição" value={payDesc} onChange={setPayDesc} placeholder={`Pagamento semanal ${fmtDateFull(friday)}`}/>
             <div style={{ display:"flex", gap:8 }}>
-              <Btn v="ghost" onClick={()=>setPayModal(null)} full>Cancelar</Btn>
+              <Btn v="ghost" onClick={()=>{setPayModal(null);setPaySource("");}} full>Cancelar</Btn>
               <Btn v="warning" onClick={()=>savePay(payModal)} full><Ic n="check"/> Confirmar pagamento</Btn>
             </div>
           </div>
