@@ -21391,6 +21391,15 @@ function Planejamento({ data, update, showToast }) {
     antecessora:false, sucessora:false,
   });
   const [colsCronoAberto, setColsCronoAberto] = useState(false);
+  const [exportA2Modal, setExportA2Modal] = useState(false);
+  const [exportA2Folhas, setExportA2Folhas] = useState(1);
+  const [exportA2Cols, setExportA2Cols] = useState({
+    atividade:true, inicio:true, fim:true, dias:true, custo:true,
+    progresso:true, antecessora:false, sucessora:false,
+  });
+  const ganttScrollRef = useRef(null);
+  const ganttTopScrollRef = useRef(null);
+  const sincronizandoScrollRef = useRef(false);
 
   // ---- Persistencia: garante um plano na base e aplica mudancas ----
   const salvarPlano = (mut) => {
@@ -21703,6 +21712,73 @@ function Planejamento({ data, update, showToast }) {
   const colunasVisiveis = COLS_CRONO_DEF.filter(c => c.fixa || colsCrono[c.id]);
   const COLUNAS_TAREFA = colunasVisiveis.map(c => `${c.w}px`).join(" ");
   const LARGURA_TAREFAS = colunasVisiveis.reduce((s,c)=>s+c.w, 0);
+  const LARGURA_TOTAL_GANTT = LARGURA_TAREFAS + larguraGrade;
+
+  const sincronizarRolagemGantt = (origem) => {
+    if (sincronizandoScrollRef.current) return;
+    const topo = ganttTopScrollRef.current;
+    const corpo = ganttScrollRef.current;
+    if (!topo || !corpo) return;
+    sincronizandoScrollRef.current = true;
+    if (origem === "topo") corpo.scrollLeft = topo.scrollLeft;
+    else topo.scrollLeft = corpo.scrollLeft;
+    requestAnimationFrame(() => { sincronizandoScrollRef.current = false; });
+  };
+
+  const exportarCronogramaA2 = () => {
+    const colsEscolhidas = COLS_CRONO_DEF.filter(c => c.id === "atividade" || exportA2Cols[c.id]);
+    if (!colsEscolhidas.length) { showToast?.("Selecione ao menos a coluna Atividade.", "warn"); return; }
+    const folhas = exportA2Folhas === 2 ? 2 : 1;
+    const esc = v => String(v ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const nomeObra = obrasComOrc.find(o => o.id === obraId)?.name || "Obra";
+    const larguraTabelaMm = Math.min(175, Math.max(62, colsEscolhidas.reduce((a,c)=>a + ({atividade:54,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22),0)));
+    const larguraGraficoMm = 574 - larguraTabelaMm;
+    const total = Math.max(1, totalDias);
+    const porFolha = Math.ceil(total / folhas);
+    const fmtDin = n => Number(n||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+    const nomesPorId = Object.fromEntries(tarefas.map(t=>[t.id,t.nome]));
+    const valorCelula = (t,id) => ({
+      atividade:t.nome,
+      inicio:fmtDate(t.inicio),
+      fim:fmtDate(t.fim),
+      dias:Math.max(1,diasUteis(t.inicio,t.fim,cal)),
+      custo:t.custo>0?fmtDin(t.custo):"-",
+      progresso:`${Number(t.progresso||0).toFixed(0)}%`,
+      antecessora:(t.depende||[]).map(x=>nomesPorId[x]).filter(Boolean).join(", ")||"-",
+      sucessora:idsSucessoras(tarefas,t.id).map(x=>nomesPorId[x]).filter(Boolean).join(", ")||"-",
+    }[id] ?? "");
+    const paginas = Array.from({length:folhas},(_,pag)=>{
+      const di = pag*porFolha;
+      const df = Math.min(total-1,(pag+1)*porFolha-1);
+      const iniPag = somaDias(GANTT_INI,di), fimPag=somaDias(GANTT_INI,df);
+      const span = Math.max(1,df-di+1);
+      const cab = colsEscolhidas.map(c=>`<th>${esc(c.label)}</th>`).join("");
+      const linhas = tarefas.map((t,idx)=>{
+        const cells=colsEscolhidas.map(c=>`<td class="c-${c.id}">${esc(valorCelula(t,c.id))}</td>`).join("");
+        const ti=Math.max(di,diasCorridos(GANTT_INI,t.inicio));
+        const tf=Math.min(df,diasCorridos(GANTT_INI,t.fim));
+        let barra="";
+        if(tf>=ti){
+          const left=((ti-di)/span*100), width=Math.max(.6,((tf-ti+1)/span*100));
+          const cor=t.titulo?"#514b45":critico.criticas.includes(t.id)?"#b41f24":t.progresso>=100?"#18713a":t.progresso>0?"#1455b8":"#d8ac2d";
+          barra=`<div class="bar" style="left:${left}%;width:${width}%;background:${cor}"><i style="width:${Math.max(0,Math.min(100,Number(t.progresso||0)))}%"></i></div>`;
+        }
+        return `<tr class="${t.titulo?'titulo':''}">${cells}<td class="g"><div class="gline">${barra}</div></td></tr>`;
+      }).join("");
+      const ticks=Array.from({length:9},(_,i)=>{
+        const off=Math.round((span-1)*i/8), d=somaDias(iniPag,off);
+        return `<span style="left:${i*12.5}%">${esc(fmtDate(d))}</span>`;
+      }).join("");
+      return `<section class="page"><header><div><b>CRONOGRAMA DA OBRA</b><small>${esc(nomeObra)}</small></div><div class="meta">A2 · Paisagem · Folha ${pag+1}/${folhas}<br>${esc(fmtDate(iniPag))} a ${esc(fmtDate(fimPag))}</div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:54,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div>${ticks}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>Gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${tarefas.length} atividade(s)</footer></section>`;
+    }).join("");
+    const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cronograma A2 - ${esc(nomeObra)}</title><style>
+      @page{size:A2 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#111;background:#fff}.page{width:100%;page-break-after:always}.page:last-child{page-break-after:auto}header{height:15mm;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #111;margin-bottom:2mm}header b{font-size:15pt;display:block}header small{font-size:9pt}.meta{text-align:right;font-size:8pt;line-height:1.35}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:6.5pt}th,td{border:.25mm solid #cfcac2;padding:1.1mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:6.8mm}th{background:#eeeae3;text-transform:uppercase;font-size:5.8pt;text-align:left}.c-dias,.c-progresso{text-align:center}.c-custo{text-align:right}.titulo td{font-weight:bold;background:#f1efeb}.timeline{padding:0;position:relative}.timeline>div{height:100%;position:relative}.timeline span{position:absolute;top:1mm;transform:translateX(-50%);font-size:5.3pt;white-space:nowrap}.g{padding:0;background:repeating-linear-gradient(90deg,transparent 0,transparent 12.45%,#eee 12.5%)}.gline{height:100%;position:relative}.bar{position:absolute;top:1.4mm;height:3.7mm;border-radius:1mm;overflow:hidden}.bar i{display:block;height:100%;background:rgba(255,255,255,.28)}footer{font-size:6pt;color:#666;text-align:right;margin-top:1.5mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body>${paginas}<script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`;
+    const w=window.open("","_blank","noopener,noreferrer");
+    if(!w){showToast?.("O navegador bloqueou a janela de exportacao. Permita pop-ups e tente novamente.","warn");return;}
+    w.document.open();w.document.write(html);w.document.close();
+    setExportA2Modal(false);
+  };
 
   // Converte data -> posicao X (px) e duracao -> largura.
   const xDeData = (iso) => diasCorridos(GANTT_INI, iso) * pxPorDia;
@@ -21924,6 +22000,9 @@ function Planejamento({ data, update, showToast }) {
             <Btn v="ghost" size="sm" onClick={analisarVinculosIA}>
               <Ic n="brain" s={13}/> Vinculos IA
             </Btn>
+            <Btn v="ghost" size="sm" onClick={() => setExportA2Modal(true)}>
+              <Ic n="download" s={13}/> Exportar A2
+            </Btn>
             <Btn v="ghost" size="sm" onClick={() => setMarcoModal({ modo: "novo", marco: { tipo: "compra", data: today() } })}>
               + Marco
             </Btn>
@@ -21956,7 +22035,17 @@ function Planejamento({ data, update, showToast }) {
             </p>
           </div>
         ) : (
-          <div style={{ display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <>
+            {/* Barra horizontal superior: fica sempre acessivel mesmo em cronogramas longos. */}
+            <div ref={ganttTopScrollRef} onScroll={()=>sincronizarRolagemGantt("topo")}
+                 style={{overflowX:"auto",overflowY:"hidden",height:17,borderBottom:`1px solid ${C.line}`,
+                         scrollbarGutter:"stable",background:C.surface}}>
+              <div style={{width:LARGURA_TOTAL_GANTT,height:1}} />
+            </div>
+            <div ref={ganttScrollRef} onScroll={()=>sincronizarRolagemGantt("corpo")}
+                 style={{ display: "flex", overflow: "auto", WebkitOverflowScrolling: "touch",
+                          maxHeight:"68vh", minHeight:Math.min(ALTURA_REGUA+tarefas.length*ALTURA_LINHA,260),
+                          scrollbarGutter:"stable both-edges", overscrollBehavior:"contain" }}>
 
             {/* Colunas tecnicas fixas: edicao direta sem abrir popup */}
             <div style={{ flexShrink: 0, borderRight: `1px solid ${C.line}`,
@@ -22270,6 +22359,7 @@ function Planejamento({ data, update, showToast }) {
               })}
             </div>
           </div>
+          </>
         )}
       </div>
 
@@ -22607,6 +22697,38 @@ function Planejamento({ data, update, showToast }) {
           onRemover={marcoModal.modo === "editar" ? () => { removerMarco(marcoModal.marco.id); setMarcoModal(null); } : null}
           onClose={() => setMarcoModal(null)}
         />
+      )}
+
+      {exportA2Modal && (
+        <Modal title="Exportar cronograma em A2" onClose={()=>setExportA2Modal(false)} wide>
+          <p style={{fontSize:12,color:C.muted,lineHeight:1.55,marginBottom:12}}>
+            Escolha quais colunas devem aparecer. A exportacao abre a impressao do navegador em <b>A2 paisagem</b>, ajustada para uma ou duas folhas. Selecione “Salvar como PDF” no destino da impressora.
+          </p>
+          <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:12}}>
+            <div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:11}}>
+              <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Colunas da exportacao</p>
+              {COLS_CRONO_DEF.map(c=><label key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",fontSize:12,color:C.text,cursor:c.fixa?"default":"pointer"}}>
+                <input type="checkbox" checked={c.fixa?true:!!exportA2Cols[c.id]} disabled={c.fixa}
+                  onChange={()=>!c.fixa&&setExportA2Cols(v=>({...v,[c.id]:!v[c.id]}))}
+                  style={{width:15,height:15,accentColor:C.yellowD}}/>{c.label}{c.fixa&&<span style={{fontSize:9,color:C.muted}}>(obrigatoria)</span>}
+              </label>)}
+            </div>
+            <div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:11}}>
+              <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Quantidade de folhas</p>
+              {[1,2].map(n=><label key={n} style={{display:"flex",gap:9,alignItems:"flex-start",padding:"7px 0",cursor:"pointer",fontSize:12,color:C.text}}>
+                <input type="radio" name="folhasA2" checked={exportA2Folhas===n} onChange={()=>setExportA2Folhas(n)} style={{marginTop:2,accentColor:C.yellowD}}/>
+                <span><b>{n} folha{n>1?"s":""} A2 em paisagem</b><small style={{display:"block",color:C.muted,marginTop:2,lineHeight:1.4}}>{n===1?"Todo o periodo comprimido em uma folha.":"O periodo e dividido ao meio, com melhor legibilidade."}</small></span>
+              </label>)}
+              <div style={{marginTop:12,padding:9,background:C.surface,borderRadius:6,fontSize:10.5,color:C.muted,lineHeight:1.45}}>
+                Periodo: <b style={{color:C.text}}>{fmtDate(GANTT_INI)} a {fmtDate(somaDias(GANTT_INI,totalDias-1))}</b><br/>Atividades: <b style={{color:C.text}}>{tarefas.length}</b>
+              </div>
+            </div>
+          </div>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:7,marginTop:14}}>
+            <Btn v="ghost" onClick={()=>setExportA2Modal(false)}>Cancelar</Btn>
+            <Btn onClick={exportarCronogramaA2}><Ic n="download"/> Gerar A2</Btn>
+          </div>
+        </Modal>
       )}
 
       {calModal && (
