@@ -2285,6 +2285,10 @@ const normalizeData = incoming => {
         // Custo real lancado (para o fisico-financeiro: previsto x realizado).
         // Se 0, usamos o custo da etapa ponderado pelo progresso como estimativa.
         custoReal: Number(t.custoReal || 0),
+        // Datas reais de execucao (opcional). Alimentam a linha "Realizado" sob
+        // cada tarefa, para comparar o executado com o planejado.
+        inicioReal: t.inicioReal || "",
+        fimReal:    t.fimReal    || "",
         depende:   Array.isArray(t.depende) ? t.depende : [],  // ids de tarefas predecessoras
       })) : [],
       marcos: Array.isArray(p.marcos) ? p.marcos.map(m => ({
@@ -12556,6 +12560,57 @@ const aplicarRollup = (tarefas, orc) => {
 //  Espalha o custo de cada tarefa pelos seus dias uteis e soma por
 //  mes-competencia. Tarefas-titulo sao ignoradas (senao dobra).
 // ==============================================================
+// ==============================================================
+//  FISICO-FINANCEIRO MENSAL (por etapa × mes)
+//  Distribui o custo de cada tarefa pelos meses em que ela ocorre
+//  (rateio por dias uteis), montando a matriz etapa × mes que o
+//  relatorio classico mostra: cada celula = valor + % da etapa
+//  naquele mes; com coluna Total por etapa e linha Total do periodo.
+// ==============================================================
+const fisicoFinanceiroMensal = (tarefas, cal, opts = {}) => {
+  const usarReal = !!opts.realizado;   // false = previsto (plano), true = realizado
+  const linhasBase = (tarefas || []).filter(t => {
+    if (t.titulo) return false;
+    const ini = usarReal && t.inicioReal ? t.inicioReal : t.inicio;
+    const fim = usarReal && t.fimReal ? t.fimReal : t.fim;
+    return ini && fim;
+  });
+  const mesesSet = new Set();
+
+  const linhas = linhasBase.map(t => {
+    const custoTarefa = usarReal
+      ? (t.custoReal > 0 ? t.custoReal : (t.custo || 0) * (t.progresso || 0) / 100)
+      : (t.custo || 0);
+    // No modo realizado, se houver datas reais, distribui pelo período executado;
+    // senão, cai no período planejado (melhor aproximação disponível).
+    const ini = usarReal && t.inicioReal ? t.inicioReal : t.inicio;
+    const fim = usarReal && t.fimReal ? t.fimReal : t.fim;
+    const uteis = diasUteis(ini, fim, cal) || 1;
+    const porDia = custoTarefa / uteis;
+    const porMes = {};
+    let cur = ini, guard = 0;
+    while (cur <= fim && guard < 3660) {
+      if (ehDiaUtil(cur, cal)) {
+        const mes = cur.slice(0, 7);
+        porMes[mes] = (porMes[mes] || 0) + porDia;
+        mesesSet.add(mes);
+      }
+      cur = somaDias(cur, 1);
+      guard++;
+    }
+    const total = Object.values(porMes).reduce((s, v) => s + v, 0);
+    return { id: t.id, nome: t.nome, nivel: t.nivel || 0, porMes, total };
+  }).filter(l => l.total > 0);
+
+  const meses = Array.from(mesesSet).sort();
+  const totalGeral = linhas.reduce((s, l) => s + l.total, 0);
+  // Total por mes (linha de rodape) e % de cada mes sobre o total do periodo.
+  const totalPorMes = {};
+  meses.forEach(m => { totalPorMes[m] = linhas.reduce((s, l) => s + (l.porMes[m] || 0), 0); });
+
+  return { linhas, meses, totalPorMes, totalGeral };
+};
+
 const distribuicaoMensal = (tarefas, cal) => {
   const porMes = {};
   (tarefas || []).forEach(t => {
@@ -20923,6 +20978,8 @@ function Planejamento({ data, update, showToast }) {
   const distMensal = useMemo(() => distribuicaoMensal(tarefas, cal), [tarefas, cal]);
   const dadosS     = useMemo(() => curvaS(tarefas, cal), [tarefas, cal]);
   const ff         = useMemo(() => fisicoFinanceiro(tarefas), [tarefas]);
+  const ffMensalPrev = useMemo(() => fisicoFinanceiroMensal(tarefas, cal, { realizado:false }), [tarefas, cal]);
+  const ffMensalReal = useMemo(() => fisicoFinanceiroMensal(tarefas, cal, { realizado:true }), [tarefas, cal]);
   const critico    = useMemo(() => caminhoCritico(tarefas, cal), [tarefas, cal]);
   const compBase   = useMemo(() => compararBaseline(tarefas, plano), [tarefas, plano]);
 
@@ -20960,6 +21017,10 @@ function Planejamento({ data, update, showToast }) {
   const [vincPreview, setVincPreview] = useState(null);   // antecessoras/sucessoras propostas
   const [zoom, setZoom] = useState("semana");             // dia | semana | mes
   const [aba,  setAba]  = useState("gantt");              // gantt | mensal | curvaS | ff
+  const [ffModo, setFfModo] = useState("previsto");       // previsto | realizado (tabela FF mensal)
+  const [ffMesesOcultos, setFfMesesOcultos] = useState([]); // meses escondidos na tabela FF
+  const [planColsOcultas, setPlanColsOcultas] = useState([]); // colunas ocultas no Gantt/tabela de tarefas
+  const [planMostrarReal, setPlanMostrarReal] = useState(true); // mostrar linha "realizado" sob cada tarefa
   // Colunas visiveis da tabela de tarefas do Gantt. "atividade" e fixa. As
   // demais o usuario liga/desliga - util no celular, onde a largura e curta.
   const [colsCrono, setColsCrono] = useState({
@@ -21433,6 +21494,12 @@ function Planejamento({ data, update, showToast }) {
                 <p style={{fontSize:9.5,color:C.muted,marginTop:7,lineHeight:1.45,borderTop:`1px solid ${C.line}`,paddingTop:7}}>
                   A coluna Atividade fica sempre visivel.
                 </p>
+                <label style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0 0",cursor:"pointer",fontSize:12,color:C.text,borderTop:`1px solid ${C.line}`,marginTop:7}}>
+                  <input type="checkbox" checked={planMostrarReal}
+                    onChange={()=>setPlanMostrarReal(v=>!v)}
+                    style={{width:15,height:15,accentColor:C.blue,cursor:"pointer"}}/>
+                  Mostrar linha "Realizado"
+                </label>
               </div>
             )}
           </div>
@@ -21548,7 +21615,16 @@ function Planejamento({ data, update, showToast }) {
                       <p style={{fontSize:10.5,fontWeight:700,color:t.orfa?C.red:conflitoVinculo?C.orange:C.text,overflow:"hidden",
                                  textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</p>
                       <p style={{fontSize:8.5,color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                        {t.custo>0?fmt(t.custo):"avulsa"} · A:{ant.length} S:{suc.length}{conflitoVinculo?" · conflito de data":""}
+                        {planMostrarReal && (t.inicioReal || t.fimReal || t.custoReal>0) ? (
+                          <>
+                            <span style={{color:C.blue,fontWeight:700}}>Real: </span>
+                            {t.inicioReal||t.fimReal ? `${t.inicioReal?fmtDate(t.inicioReal):"?"}→${t.fimReal?fmtDate(t.fimReal):"?"}` : "sem datas"}
+                            {t.custoReal>0 ? ` · ${fmt(t.custoReal)}` : ""}
+                            {t.fim && t.fimReal && t.fimReal>t.fim ? " · atrasou" : ""}
+                          </>
+                        ) : (
+                          <>{t.custo>0?fmt(t.custo):"avulsa"} · A:{ant.length} S:{suc.length}{conflitoVinculo?" · conflito de data":""}</>
+                        )}
                       </p>
                     </div>
                   ),
@@ -21718,6 +21794,18 @@ function Planejamento({ data, update, showToast }) {
                            style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 10,
                                     cursor: "ew-resize", touchAction: "none" }} />
                     </div>
+                    {/* Barra fina do REALIZADO (datas reais), sob a planejada.
+                        Azul = dentro/antes do fim planejado; vermelha = passou. */}
+                    {planMostrarReal && !t.titulo && t.inicioReal && t.fimReal && (() => {
+                      const xr = xDeData(t.inicioReal);
+                      const wr = Math.max(pxPorDia, (diasCorridos(t.inicioReal, t.fimReal) + 1) * pxPorDia);
+                      const atrasou = t.fim && t.fimReal > t.fim;
+                      return (
+                        <div title={`Realizado: ${fmtDate(t.inicioReal)} → ${fmtDate(t.fimReal)}${atrasou?" (após o previsto)":""}`}
+                             style={{ position:"absolute", left:xr, width:wr, bottom:3, height:5,
+                                      background: atrasou ? C.red : C.blue, borderRadius:99, zIndex:2 }} />
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -21862,48 +21950,135 @@ function Planejamento({ data, update, showToast }) {
                     <p style={{ fontSize: 11, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
                       Avanco fisico acumulado esperado ao longo do tempo (% do custo total).
                     </p>
-                    <CurvaSGrafico dados={dadosS} />
+                    <CurvaSGrafico dados={dadosS} real={ffMensalReal} />
+                    <p style={{ fontSize:10.5, color:C.muted, marginTop:10, lineHeight:1.5 }}>
+                      A linha amarela é o avanço financeiro <b>planejado</b> acumulado; a azul, o <b>realizado</b> (quando há custo lançado ou avanço físico). Quando a azul fica abaixo da amarela, a obra está mais lenta que o previsto. As barras claras mostram o peso de cada mês.
+                    </p>
                   </div>
                 )
             )}
 
             {/* --- FISICO-FINANCEIRO --- */}
-            {aba === "ff" && (
-              <div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                  <MiniFF label="Previsto" v={fmt(ff.total.previsto)} c={C.text} />
-                  <MiniFF label="Valor agregado" v={fmt(ff.total.valorAgregado)} c={C.blue} />
-                  <MiniFF label="Realizado" v={fmt(ff.total.realizado)} c={C.purple} />
-                  <MiniFF label="Previsao final" v={fmt(ff.total.previsaoFinal)}
-                          c={ff.total.previsaoFinal > ff.total.previsto ? C.red : C.green} />
-                </div>
-                {/* Tabela por tarefa */}
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
-                    <thead>
-                      <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                        <th style={{ textAlign: "left", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Tarefa</th>
-                        <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Fisico</th>
-                        <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Previsto</th>
-                        <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Realizado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ff.linhas.map(l => (
-                        <tr key={l.id} style={{ borderBottom: `1px solid ${C.line}` }}>
-                          <td className="brk" style={{ padding: "7px 8px", color: C.text, maxWidth: 140 }}>{l.nome}</td>
-                          <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 700,
-                                       color: l.pctFisico >= 100 ? C.green : C.blue }}>{l.pctFisico}%</td>
-                          <td style={{ padding: "7px 8px", textAlign: "right", color: C.muted }}>{fmt(l.previsto)}</td>
-                          <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 700,
-                                       color: l.realizado > l.valorAgregado ? C.red : C.text }}>{fmt(l.realizado)}</td>
-                        </tr>
+            {aba === "ff" && (() => {
+              const ffM = ffModo === "realizado" ? ffMensalReal : ffMensalPrev;
+              const mesesVisiveis = ffM.meses.filter(m => !ffMesesOcultos.includes(m));
+              const fmtMesCol = m => { const [y,mm] = m.split("-"); return `${monthName(Number(mm)-1)} ${y}`; };
+              return (
+                <div>
+                  {/* Cabecalho: modo previsto/realizado + seletor de colunas */}
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:12 }}>
+                    <div style={{ display:"flex", gap:4, background:C.surface, borderRadius:8, padding:3 }}>
+                      {[["previsto","Previsto"],["realizado","Realizado"]].map(([v,l]) => (
+                        <button key={v} onClick={()=>setFfModo(v)} style={{
+                          border:0, borderRadius:6, padding:"6px 14px", cursor:"pointer", fontSize:11.5, fontWeight:700,
+                          background: ffModo===v ? C.card : "transparent", color: ffModo===v ? C.text : C.muted,
+                          boxShadow: ffModo===v ? `0 1px 3px ${C.shadow}` : "none" }}>{l}</button>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                    {ffM.meses.length > 0 && (
+                      <details style={{ position:"relative" }}>
+                        <summary style={{ listStyle:"none", cursor:"pointer", fontSize:11, fontWeight:700, color:C.blue,
+                          border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 11px", userSelect:"none" }}>
+                          Colunas ({mesesVisiveis.length}/{ffM.meses.length})
+                        </summary>
+                        <div style={{ position:"absolute", right:0, top:"110%", zIndex:20, background:C.card,
+                          border:`1px solid ${C.border}`, borderRadius:8, boxShadow:`0 8px 24px ${C.shadow}`,
+                          padding:8, minWidth:170, maxHeight:260, overflowY:"auto" }}>
+                          {ffM.meses.map(m => {
+                            const oculta = ffMesesOcultos.includes(m);
+                            return (
+                              <label key={m} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 6px",
+                                cursor:"pointer", fontSize:11.5, color:C.text }}>
+                                <input type="checkbox" checked={!oculta}
+                                  onChange={()=>setFfMesesOcultos(prev => oculta ? prev.filter(x=>x!==m) : [...prev, m])} />
+                                {fmtMesCol(m)}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+
+                  <p style={{ fontSize: 11, color: C.muted, marginBottom: 10, lineHeight: 1.5 }}>
+                    {ffModo === "previsto"
+                      ? "Custo previsto de cada etapa distribuido pelos meses (rateio por dias uteis do planejamento). Cada celula: valor e % da etapa naquele mes."
+                      : "Custo realizado por etapa (lancado; na ausencia, estimado pelo avanco fisico), distribuido pelos meses."}
+                  </p>
+
+                  {ffM.linhas.length === 0 ? (
+                    <p style={{ fontSize: 12, color: C.muted }}>Defina datas e custos nas tarefas para ver o fisico-financeiro mensal.</p>
+                  ) : (
+                    <div style={{ overflowX: "auto", border:`1px solid ${C.border}`, borderRadius:8 }}>
+                      <table style={{ borderCollapse: "collapse", fontSize: 11, minWidth: 520, width:"100%" }}>
+                        <thead>
+                          <tr style={{ background:C.surface }}>
+                            <th style={{ textAlign:"left", padding:"8px 10px", position:"sticky", left:0, background:C.surface, zIndex:2, minWidth:170, color:C.muted, fontSize:9.5, fontWeight:800, textTransform:"uppercase", borderBottom:`1px solid ${C.border}` }}>Item</th>
+                            <th style={{ textAlign:"right", padding:"8px 10px", color:C.muted, fontSize:9.5, fontWeight:800, textTransform:"uppercase", borderBottom:`1px solid ${C.border}`, borderLeft:`1px solid ${C.line}`, minWidth:90 }}>Total</th>
+                            {mesesVisiveis.map(m => (
+                              <th key={m} style={{ textAlign:"right", padding:"8px 10px", color:C.muted, fontSize:9.5, fontWeight:800, textTransform:"uppercase", borderBottom:`1px solid ${C.border}`, borderLeft:`1px solid ${C.line}`, minWidth:92, whiteSpace:"nowrap" }}>{fmtMesCol(m)}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ffM.linhas.map((l, i) => (
+                            <tr key={l.id} style={{ borderBottom:`1px solid ${C.line}`, background: i%2 ? "transparent" : `${C.surface}55` }}>
+                              <td className="brk" style={{ padding:"7px 10px", position:"sticky", left:0, zIndex:1, background: i%2 ? C.card : C.surface, fontWeight:700, color:C.text, minWidth:170 }}>{l.nome}</td>
+                              <td style={{ padding:"7px 10px", textAlign:"right", borderLeft:`1px solid ${C.line}` }}>
+                                <div style={{ fontWeight:800, color:C.text }}>{fmtCompact(l.total)}</div>
+                                <div style={{ fontSize:9, color:C.muted }}>100%</div>
+                              </td>
+                              {mesesVisiveis.map(m => {
+                                const v = l.porMes[m] || 0;
+                                const pct = l.total ? (v/l.total*100) : 0;
+                                return (
+                                  <td key={m} style={{ padding:"7px 10px", textAlign:"right", borderLeft:`1px solid ${C.line}` }}>
+                                    {v > 0 ? (
+                                      <>
+                                        <div style={{ fontWeight:700, color:C.text }}>{fmtCompact(v)}</div>
+                                        <div style={{ fontSize:9, color: pct>=50?C.yellowD:C.muted }}>{pct.toFixed(1).replace(".",",")}%</div>
+                                      </>
+                                    ) : <span style={{ color:C.line }}>—</span>}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{ background:C.surface, borderTop:`2px solid ${C.border}` }}>
+                            <td style={{ padding:"9px 10px", position:"sticky", left:0, background:C.surface, zIndex:1, fontWeight:800, color:C.text }}>Total do periodo</td>
+                            <td style={{ padding:"9px 10px", textAlign:"right", borderLeft:`1px solid ${C.line}` }}>
+                              <div style={{ fontWeight:800, color:C.blue }}>{fmtCompact(ffM.totalGeral)}</div>
+                              <div style={{ fontSize:9, color:C.muted }}>100%</div>
+                            </td>
+                            {mesesVisiveis.map(m => {
+                              const v = ffM.totalPorMes[m] || 0;
+                              const pct = ffM.totalGeral ? (v/ffM.totalGeral*100) : 0;
+                              return (
+                                <td key={m} style={{ padding:"9px 10px", textAlign:"right", borderLeft:`1px solid ${C.line}` }}>
+                                  <div style={{ fontWeight:800, color:C.blue }}>{fmtCompact(v)}</div>
+                                  <div style={{ fontSize:9, color:C.muted }}>{pct.toFixed(2).replace(".",",")}%</div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Resumo de indicadores de desempenho (mantido do FF anterior) */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                    <MiniFF label="Previsto total" v={fmt(ff.total.previsto)} c={C.text} />
+                    <MiniFF label="Valor agregado" v={fmt(ff.total.valorAgregado)} c={C.blue} />
+                    <MiniFF label="Realizado" v={fmt(ff.total.realizado)} c={C.purple} />
+                    <MiniFF label="Previsao final" v={fmt(ff.total.previsaoFinal)}
+                            c={ff.total.previsaoFinal > ff.total.previsto ? C.red : C.green} />
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* --- PLANEJADO x REALIZADO (linha de base) --- */}
             {aba === "base" && (
@@ -22254,41 +22429,95 @@ function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
 }
 
 // Mini card de KPI para o topo do planejamento.
-// Grafico da curva S: SVG com linha acumulada + pontos por mes.
-function CurvaSGrafico({ dados }) {
-  const W = 320, H = 160, pad = 28;
+// Grafico da curva S: planejado x realizado acumulado, barras mensais discretas
+// ao fundo e ponto interativo. Mais informacao, menos poluicao visual.
+function CurvaSGrafico({ dados, real }) {
+  const [hover, setHover] = useState(null);
+  const W = 640, H = 260, padL = 40, padR = 16, padT = 16, padB = 40;
   const n = dados.length;
   if (!n) return null;
-  // X distribuido igualmente, Y = % acumulado (0..100 de baixo pra cima).
-  const px = (i) => pad + (n === 1 ? (W - 2*pad)/2 : (i / (n - 1)) * (W - 2*pad));
-  const py = (pct) => H - pad - (pct / 100) * (H - 2*pad);
-  const pontos = dados.map((d, i) => `${px(i)},${py(d.pctAcum)}`).join(" ");
+  const iw = W - padL - padR, ih = H - padT - padB;
+  const px = (i) => padL + (n === 1 ? iw/2 : (i/(n-1))*iw);
+  const py = (pct) => padT + ih - (pct/100)*ih;
+
+  // Realizado acumulado (%) alinhado aos mesmos meses do planejado.
+  const realPorMes = {};
+  if (real) real.meses.forEach(m => { realPorMes[m] = real.totalPorMes[m] || 0; });
+  const realTotal = real ? real.totalGeral : 0;
+  let accR = 0;
+  const serieReal = dados.map(d => {
+    accR += (realPorMes[d.mes] || 0);
+    return realTotal ? (accR/realTotal)*100 : 0;
+  });
+  const temReal = realTotal > 0;
+
+  const linhaPrev = dados.map((d,i)=>`${px(i)},${py(d.pctAcum)}`).join(" ");
+  const linhaReal = serieReal.map((v,i)=>`${px(i)},${py(v)}`).join(" ");
+  const maxMes = Math.max(...dados.map(d=>d.pctMes), 1);
+  const bw = Math.max(3, Math.min(22, iw/n*0.5));
+
   return (
-    <div style={{ overflowX: "auto" }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", minWidth: 300, height: "auto" }}>
-        {/* Grade horizontal 0/25/50/75/100 */}
+    <div style={{ overflowX:"auto", position:"relative" }}>
+      {/* legenda */}
+      <div style={{ display:"flex", gap:16, marginBottom:8, fontSize:11, flexWrap:"wrap" }}>
+        <span style={{ display:"flex", alignItems:"center", gap:5, color:C.muted }}>
+          <span style={{ width:14, height:3, background:C.yellow, borderRadius:2 }}/>Planejado
+        </span>
+        {temReal && <span style={{ display:"flex", alignItems:"center", gap:5, color:C.muted }}>
+          <span style={{ width:14, height:3, background:C.blue, borderRadius:2 }}/>Realizado
+        </span>}
+        <span style={{ display:"flex", alignItems:"center", gap:5, color:C.muted }}>
+          <span style={{ width:9, height:9, background:`${C.yellow}44`, borderRadius:2 }}/>% do mes
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", minWidth:420, height:"auto" }}
+           onMouseLeave={()=>setHover(null)}>
+        {/* grade + eixo Y */}
         {[0,25,50,75,100].map(g => (
           <g key={g}>
-            <line x1={pad} y1={py(g)} x2={W-pad} y2={py(g)} stroke={C.line} strokeWidth="1"/>
-            <text x={pad-4} y={py(g)+3} textAnchor="end" fontSize="8" fill={C.muted}>{g}%</text>
+            <line x1={padL} y1={py(g)} x2={W-padR} y2={py(g)} stroke={C.line} strokeWidth="1" strokeDasharray={g===0?"":"3 3"}/>
+            <text x={padL-6} y={py(g)+3} textAnchor="end" fontSize="9" fill={C.muted}>{g}%</text>
           </g>
         ))}
-        {/* Area sob a curva */}
-        <polygon points={`${pad},${py(0)} ${pontos} ${px(n-1)},${py(0)}`}
-                 fill={C.yellow} opacity="0.12"/>
-        {/* Linha da curva */}
-        <polyline points={pontos} fill="none" stroke={C.yellow} strokeWidth="2.5"
-                  strokeLinecap="round" strokeLinejoin="round"/>
-        {/* Pontos + rotulo do mes */}
-        {dados.map((d, i) => (
+        {/* barras mensais discretas (% do mes) */}
+        {dados.map((d,i) => {
+          const bh = (d.pctMes/maxMes) * (ih*0.5);
+          return <rect key={i} x={px(i)-bw/2} y={padT+ih-bh} width={bw} height={bh}
+                       fill={C.yellow} opacity="0.20" rx="2"/>;
+        })}
+        {/* area sob planejado */}
+        <polygon points={`${px(0)},${py(0)} ${linhaPrev} ${px(n-1)},${py(0)}`} fill={C.yellow} opacity="0.08"/>
+        {/* linha planejado */}
+        <polyline points={linhaPrev} fill="none" stroke={C.yellow} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        {/* linha realizado */}
+        {temReal && <polyline points={linhaReal} fill="none" stroke={C.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 0"/>}
+        {/* pontos + interacao */}
+        {dados.map((d,i) => (
           <g key={i}>
+            {temReal && <circle cx={px(i)} cy={py(serieReal[i])} r="3" fill={C.blue}/>}
             <circle cx={px(i)} cy={py(d.pctAcum)} r="3.5" fill={C.yellowD}/>
-            <text x={px(i)} y={H-pad+12} textAnchor="middle" fontSize="7.5" fill={C.muted}>
-              {fmtMesAno(d.mes + "-01")}
-            </text>
+            <rect x={px(i)-(iw/n)/2} y={padT} width={iw/n} height={ih} fill="transparent"
+                  onMouseEnter={()=>setHover(i)} style={{ cursor:"pointer" }}/>
+            {i % Math.ceil(n/8 || 1) === 0 && (
+              <text x={px(i)} y={H-padB+16} textAnchor="middle" fontSize="8.5" fill={C.muted}>{fmtMesAno(d.mes+"-01")}</text>
+            )}
           </g>
         ))}
+        {/* linha-guia do hover */}
+        {hover!==null && (
+          <line x1={px(hover)} y1={padT} x2={px(hover)} y2={padT+ih} stroke={C.muted} strokeWidth="1" strokeDasharray="3 3"/>
+        )}
       </svg>
+      {/* tooltip */}
+      {hover!==null && (
+        <div style={{ marginTop:8, padding:"8px 12px", background:C.surface, borderRadius:8,
+                      border:`1px solid ${C.border}`, fontSize:11.5, display:"flex", gap:16, flexWrap:"wrap" }}>
+          <b style={{ color:C.text }}>{fmtMesAno(dados[hover].mes+"-01")}</b>
+          <span style={{ color:C.muted }}>Planejado acum.: <b style={{ color:C.yellowD }}>{dados[hover].pctAcum.toFixed(1)}%</b></span>
+          {temReal && <span style={{ color:C.muted }}>Realizado acum.: <b style={{ color:C.blue }}>{serieReal[hover].toFixed(1)}%</b></span>}
+          <span style={{ color:C.muted }}>No mes: <b style={{ color:C.text }}>{fmt(dados[hover].valor)}</b></span>
+        </div>
+      )}
     </div>
   );
 }
@@ -22320,6 +22549,9 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
   const [ini, setIni] = useState(tarefa.inicio || "");
   const [fim, setFim] = useState(tarefa.fim || "");
   const [prog, setProg] = useState(String(tarefa.progresso || 0));
+  const [iniReal, setIniReal] = useState(tarefa.inicioReal || "");
+  const [fimReal, setFimReal] = useState(tarefa.fimReal || "");
+  const [custoReal, setCustoReal] = useState(String(tarefa.custoReal || ""));
   const [preds, setPreds] = useState([...(tarefa.depende || [])]);
   const [sucs, setSucs] = useState(idsSucessoras(tarefas, tarefa.id));
   const indice = (tarefas || []).findIndex(t => t.id === tarefa.id);
@@ -22336,6 +22568,8 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
     if (inicioFinal && fimFinal && fimFinal < inicioFinal) return;
     onSalvar({ id: tarefa.id, inicio: inicioFinal, fim: fimFinal,
                progresso: Math.max(0, Math.min(100, Number(prog) || 0)),
+               inicioReal: iniReal || "", fimReal: fimReal || "",
+               custoReal: Number(custoReal) || 0,
                depende:preds.filter(id=>candidatasPred.some(t=>t.id===id)),
                sucessoras:sucs.filter(id=>candidatasSuc.some(t=>t.id===id)) });
   };
@@ -22367,6 +22601,22 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
           <p style={{ fontSize: 11, color: C.orange }}>Ao salvar, as datas serao ajustadas para os dias trabalhados mais proximos.</p>
         )}
         <Inp label="Progresso (%)" type="number" value={prog} onChange={setProg} min="0" max="100" />
+        {!tarefa.titulo && (
+          <div style={{ background:`${C.blue}0A`, border:`1px solid ${C.blue}33`, borderRadius:8, padding:"10px 11px", display:"flex", flexDirection:"column", gap:8 }}>
+            <p style={{ fontSize:10.5, fontWeight:800, color:C.blue, textTransform:"uppercase", letterSpacing:.5 }}>Realizado (execução)</p>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              <Inp label="Início real" type="date" value={iniReal} onChange={setIniReal} />
+              <Inp label="Fim real" type="date" value={fimReal} onChange={setFimReal} />
+            </div>
+            <Inp label="Custo real lançado (R$)" type="number" value={custoReal} onChange={setCustoReal} placeholder={tarefa.custo>0?`previsto ${fmt(tarefa.custo)}`:"0"} />
+            {iniReal && fimReal && fim && fimReal>fim && (
+              <p style={{ fontSize:10.5, color:C.red }}>O fim real está após o planejado — esta tarefa atrasou.</p>
+            )}
+            <p style={{ fontSize:9.5, color:C.muted, lineHeight:1.4 }}>
+              Estes campos alimentam a linha "Realizado" no cronograma, a curva S e o físico-financeiro realizado. Deixe em branco se ainda não executou.
+            </p>
+          </div>
+        )}
         {!tarefa.titulo && (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
             {[["Antecessoras",candidatasPred,preds,setPreds],["Sucessoras",candidatasSuc,sucs,setSucs]].map(([titulo,lista,selecionadas,setter])=>(
