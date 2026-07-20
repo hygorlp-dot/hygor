@@ -569,6 +569,7 @@ const getAtt = (data, empId, date) => {
   if (!value) return null;
   if (typeof value === "string") return { status: value, ot: 0, note: "" };
   return {
+    ...value,
     status: value.status || null,
     ot: Number(value.ot || 0),
     note: value.note || "",
@@ -814,11 +815,12 @@ const getAttendanceStatusForDate = (data, empId, date) => getAtt(data, empId, da
 const isValidAttendanceStatus = status => status === "P" || status === "M" || status === "F";
 
 const getObraAttendanceSummary = (data, date) => {
-  const activeObras = (data?.obras || []).filter(o => o.status !== "done");
-  const activeEmployees = (data?.employees || []).filter(e => e.active !== false);
+  // Usa a mesma regra temporal da Gestão do Ponto: admissão, desligamento,
+  // transferências e obra gravada no próprio lançamento daquele dia.
+  const employeesOnDate = (data?.employees || []).filter(e => isEmployeeEmployedOnDate(e, date));
 
-  return activeObras.map(obra => {
-    const employees = activeEmployees.filter(e => e.obra === obra.id && isEmployeeEmployedOnDate(e, date));
+  return (data?.obras || []).map(obra => {
+    const employees = employeesOnDate.filter(e => getEmployeeObraIdOnDate(data, e, date) === obra.id);
     const registeredEmployees = employees.filter(e => isValidAttendanceStatus(getAttendanceStatusForDate(data, e.id, date)));
     const missingEmployees = employees.filter(e => !isValidAttendanceStatus(getAttendanceStatusForDate(data, e.id, date)));
 
@@ -2862,6 +2864,13 @@ function Toast({ toast }) {
 // histórico de transferências. Registros de ponto novos têm prioridade porque
 // podem representar empréstimo temporário sem alteração do cadastro principal.
 const getEmployeeObraIdOnDate = (data, employee, dateIso) => {
+  if (!employee) return "";
+
+  // Empréstimos e ajustes pontuais ficam gravados no próprio ponto e têm
+  // prioridade sobre a lotação cadastral e sobre o histórico de transferências.
+  const attendanceObra = getAtt(data, employee.id, dateIso)?.obraId || "";
+  if (attendanceObra) return attendanceObra;
+
   const transfers = (data.changeLog || [])
     .filter(t => t.type === "transfer" && t.empId === employee.id && t.date)
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -6417,7 +6426,7 @@ function PontoGeral({ data, update, showToast }) {
     .filter(deveAparecerNaGestao)
     .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>{
       const a=getAtt(data,e.id,d);
-      return (a?.obraId||getEmployeeObraIdOnDate(data,e,d))===filterObra;
+      return getEmployeeObraIdOnDate(data,e,d)===filterObra;
     }))
     .filter(e=>[e.name,e.role,obraName(e.obra||e.lastObra),e.active===false?"desligado demitido receber":""].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name));
@@ -6429,7 +6438,7 @@ function PontoGeral({ data, update, showToast }) {
   const salvarCelula=(emp,date,patch)=>{
     const anterior=getAtt(data,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
     const novo={...anterior,...patch};
-    const obraId=novo.obraId||emp.obra||"";
+    const obraId=novo.obraId||getEmployeeObraIdOnDate(data,emp,date)||"";
     update({...data,attendance:{...(data.attendance||{}),[emp.id]:{...(data.attendance?.[emp.id]||{}),[date]:{...novo,obraId:novo.status?obraId:(novo.obraId||obraId)}}}});
   };
 
@@ -6459,7 +6468,7 @@ function PontoGeral({ data, update, showToast }) {
 
   const preencherLinha=emp=>{
     const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};
-    days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;const ant=getAtt(data,emp.id,date)||{};mapa[date]={...ant,status:"P",obraId};});
+    days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:getEmployeeObraIdOnDate(data,emp,date);if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;const ant=getAtt(data,emp.id,date)||{};mapa[date]={...ant,status:"P",obraId};});
     attendance[emp.id]=mapa;update({...data,attendance});showToast("Período preenchido para o funcionário.");
   };
 
@@ -6472,7 +6481,7 @@ function PontoGeral({ data, update, showToast }) {
   const preencherVisiveis=()=>{
     if(!employees.length||!window.confirm(`Marcar presença nos dias de trabalho para ${employees.length} funcionário(s) visível(is)?`))return;
     const attendance={...(data.attendance||{})};
-    employees.forEach(emp=>{const mapa={...(attendance[emp.id]||{})};days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;mapa[date]={...(getAtt(data,emp.id,date)||{}),status:"P",obraId};});attendance[emp.id]=mapa;});update({...data,attendance});showToast("Equipe preenchida no período.");
+    employees.forEach(emp=>{const mapa={...(attendance[emp.id]||{})};days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:getEmployeeObraIdOnDate(data,emp,date);if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;mapa[date]={...(getAtt(data,emp.id,date)||{}),status:"P",obraId};});attendance[emp.id]=mapa;});update({...data,attendance});showToast("Equipe preenchida no período.");
   };
 
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
@@ -6593,8 +6602,8 @@ function Ponto({ data, update, showToast }) {
   const [lastAllDoneNotification, setLastAllDoneNotification] = useState("");
   const [expandedCard, setExpandedCard] = useState(null);   // card com "mais opções" aberto
 
-  const activeEmployees = data.employees.filter(e => e.active !== false);
-  const dailyCheckPending = selDate === today() && activeEmployees.length > 0 && data.dailyCheckDate !== today();
+  const employeesOnSelectedDate = (data.employees || []).filter(e => isEmployeeEmployedOnDate(e, selDate));
+  const dailyCheckPending = selDate === today() && employeesOnSelectedDate.length > 0 && data.dailyCheckDate !== today();
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const selectedObra = filterObra !== "all" ? data.obras.find(o => o.id === filterObra) : null;
   const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
@@ -6611,9 +6620,8 @@ function Ponto({ data, update, showToast }) {
     }
   }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification, showToast]);
 
-  const list = data.employees
-    .filter(e => e.active !== false)
-    .filter(e => filterObra === "all" || e.obra === filterObra)
+  const list = employeesOnSelectedDate
+    .filter(e => filterObra === "all" || getEmployeeObraIdOnDate(data, e, selDate) === filterObra)
     .sort((a, b) => a.name.localeCompare(b.name));
 
 
@@ -6669,7 +6677,9 @@ function Ponto({ data, update, showToast }) {
     // Se o ponto está filtrado por uma obra específica, o dia é dela.
     // Em "todas as obras", cai na lotação do funcionário - que continua sendo
     // o caso comum: cada um no seu canteiro.
-    const obraDoDia = (filterObra && filterObra !== "all") ? filterObra : (emp?.obra || "");
+    const obraDoDia = (filterObra && filterObra !== "all")
+      ? filterObra
+      : getEmployeeObraIdOnDate(data, emp, selDate);
 
     update({
       ...data,
@@ -6730,7 +6740,7 @@ function Ponto({ data, update, showToast }) {
     list.forEach(e => {
       attendance[e.id] = {
         ...(attendance[e.id] || {}),
-        [selDate]: { ...(getAtt(data, e.id, selDate) || {}), status },
+        [selDate]: { ...(getAtt(data, e.id, selDate) || {}), status, obraId: filterObra },
       };
     });
     update({ ...data, attendance });
@@ -6818,7 +6828,7 @@ function Ponto({ data, update, showToast }) {
 
       {filterObra === "all" && (
         <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, padding: "0 2px" }}>
-          Em todas as obras, cada ponto vai para a obra de lotação do trabalhador. Se alguém foi emprestado a outro canteiro, filtre por aquela obra antes de marcar — o custo será apropriado à obra selecionada.
+          Em todas as obras, a equipe e a obra do ponto são determinadas pela data selecionada, considerando transferências, desligamentos e a obra já gravada no lançamento. Para um empréstimo pontual, filtre a obra de destino antes de marcar.
         </p>
       )}
 
@@ -7021,29 +7031,9 @@ function Folha({ data, showToast, onTab }) {
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
 
-  //  Reconstrói a obra do operário em uma data específica via changeLog 
-  const getEmpObraIdOnDate = (employee, dateIso) => {
-    const transfers = (data.changeLog || [])
-      .filter(t => t.type === "transfer" && t.empId === employee.id && t.date)
-      .sort((a, b) => b.date.localeCompare(a.date)); // desc - mais recente primeiro
-
-    let obraId = employee.obra || employee.lastObra || "";
-
-    for (const t of transfers) {
-      if (t.date > dateIso) {
-        // Usa fromId (gravado nas novas entradas) ou fallback por nome (entradas antigas)
-        if (t.fromId) {
-          obraId = t.fromId;
-        } else {
-          const found = data.obras.find(o => o.name === t.from);
-          if (found) obraId = found.id;
-        }
-      } else {
-        break; // transferências anteriores à data não afetam
-      }
-    }
-    return obraId;
-  };
+  // Folha, ponto diário e gestão usam a mesma fonte de lotação por data.
+  const getEmpObraIdOnDate = (employee, dateIso) =>
+    getEmployeeObraIdOnDate(data, employee, dateIso);
 
   const calcRow = employee => {
     let gross = 0;
