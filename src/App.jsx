@@ -1760,9 +1760,24 @@ const normalizeData = incoming => {
         pctAcum:     Number(i.pctAcum || 0),
         valor:       Number(i.valor || 0),
       })) : [],
+      // `total` é o valor bruto tecnicamente medido. Retenções de qualidade
+      // não reduzem o avanço físico: apenas suspendem parte do pagamento até a
+      // correção de item incompleto, defeituoso ou ainda não aceito.
       total:       Number(m.total || 0),
       observacao:  m.observacao  || "",
       pagamentoId: m.pagamentoId || "",
+      retencoesQualidade: Array.isArray(m.retencoesQualidade) ? m.retencoesQualidade.map(r => ({
+        id: r.id || uid(),
+        etapaId: r.etapaId || "",
+        descricao: r.descricao || r.motivo || "",
+        valor: Number(r.valor || 0),
+        prazoCorrecao: r.prazoCorrecao || "",
+        status: r.status === "liberada" ? "liberada" : "pendente",
+        criadaEm: r.criadaEm || m.data || today(),
+        liberadaEm: r.liberadaEm || "",
+        observacaoLiberacao: r.observacaoLiberacao || "",
+        liberacaoPagamentoId: r.liberacaoPagamentoId || "",
+      })) : [],
     })) : [],
     rescisoes: Array.isArray(d.rescisoes) ? d.rescisoes : [],
     outrasDesp: Array.isArray(d.outrasDesp) ? d.outrasDesp.map(x => ({
@@ -2258,6 +2273,16 @@ const normalizeData = incoming => {
         inicio:    t.inicio    || "",   // YYYY-MM-DD
         fim:       t.fim       || "",   // YYYY-MM-DD
         progresso: Math.max(0, Math.min(100, Number(t.progresso || 0))),
+        // Override explícito criado na tela de Medição de Evolução. Precisa ser
+        // preservado na normalização; antes ele era descartado no mesmo save e
+        // o RDO voltava a prevalecer imediatamente após o clique em confirmar.
+        progressoManualOverride:
+          t.progressoManualOverride === undefined ||
+          t.progressoManualOverride === null ||
+          t.progressoManualOverride === ""
+            ? null
+            : Math.max(0, Math.min(100, Number(t.progressoManualOverride) || 0)),
+        progressoManualAt: t.progressoManualAt || "",
         cor:       t.cor       || "",
         // Custo real lancado (para o fisico-financeiro: previsto x realizado).
         // Se 0, usamos o custo da etapa ponderado pelo progresso como estimativa.
@@ -6395,6 +6420,7 @@ function PontoGeral({ data, update, showToast }) {
   const [month,setMonth]=useState(refInicial.getMonth());
   const [q,setQ]=useState(agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
   const [filterObra,setFilterObra]=useState("all");
+  const [filterFuncao,setFilterFuncao]=useState("all");
   const [busca,setBusca]=useState("");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const {q1,q2}=getQ(year,month);
@@ -6422,12 +6448,16 @@ function PontoGeral({ data, update, showToast }) {
   const deveAparecerNaGestao=e=>
     e.active!==false||temVinculoNoCiclo(e)||temPontoNoCiclo(e)||temAdiantamentoNoCiclo(e);
 
-  const employees=(data.employees||[])
-    .filter(deveAparecerNaGestao)
+  const funcaoEmp=e=>(String(e.role||"").trim()||"Sem função");
+  const employeesBase=(data.employees||[]).filter(deveAparecerNaGestao);
+  const funcoesDisponiveis=[...new Set(employeesBase.map(funcaoEmp))]
+    .sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const employees=employeesBase
     .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>{
       const a=getAtt(data,e.id,d);
       return getEmployeeObraIdOnDate(data,e,d)===filterObra;
     }))
+    .filter(e=>filterFuncao==="all"||funcaoEmp(e)===filterFuncao)
     .filter(e=>[e.name,e.role,obraName(e.obra||e.lastObra),e.active===false?"desligado demitido receber":""].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name));
   const diaLabel=iso=>{const d=prParseIso(iso);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
@@ -6502,21 +6532,25 @@ function PontoGeral({ data, update, showToast }) {
       <Sel label="Mês" value={String(month)} onChange={v=>setMonth(Number(v))} options={MONTHS.map((m,i)=>({v:String(i),l:m}))}/>
       <Inp label="Ano" type="number" value={year} onChange={v=>setYear(Number(v)||agora.getFullYear())}/>
       <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-      <Inp label="Buscar" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
+      <Sel label="Função" value={filterFuncao} onChange={setFilterFuncao} options={[{v:"all",l:"Todas as funções"},...funcoesDisponiveis.map(f=>({v:f,l:f}))]}/>
+      <Inp label="Buscar" value={busca} onChange={setBusca} placeholder="Nome, função ou obra..."/>
     </div>
 
     <div style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:10.5,color:C.muted,padding:"0 2px"}}>
       <span>Toque na célula para alternar <b style={{color:C.green}}>P</b> presente, <b style={{color:C.yellowD}}>½</b> meio dia, <b style={{color:C.red}}>F</b> falta, <b>·</b> sem registro.</span>
       <span>Nos feriados: <b>AUTO</b> aplica a regra anterior/posterior; <b style={{color:C.green}}>FP</b> paga manualmente; <b style={{color:C.red}}>FD</b> não paga manualmente.</span>
+      <span style={{color:C.subtle}}>Use o filtro de função para visualizar somente pedreiros, serventes, encarregados ou outra categoria cadastrada.</span>
+      <span style={{color:C.subtle}}>A coluna <b>Diária</b> mostra o valor-base cadastrado para cada funcionário.</span>
       <span style={{color:C.subtle}}>Trabalhou em outra obra? Toque no nome da obra sob a célula.</span>
       <span style={{color:C.orange}}>Funcionários desligados aparecem no ciclo em que ainda possuem ponto, vínculo ou valores a receber.</span>
     </div>
 
     <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxHeight:"70vh"}}>
-      <table style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(760,300+days.length*54),width:"100%",fontSize:10}}>
+      <table style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(830,370+days.length*54),width:"100%",fontSize:10}}>
         <thead style={{position:"sticky",top:0,zIndex:5}}><tr>
           <th style={{position:"sticky",left:0,zIndex:7,minWidth:172,background:C.surface,color:C.text,padding:"8px 10px",textAlign:"left",fontSize:9.5,fontWeight:800,letterSpacing:.4,borderBottom:`1px solid ${C.border}`}}>FUNCIONÁRIO</th>
-          <th style={{minWidth:48,background:C.surface,color:C.text,padding:8,fontSize:9.5,fontWeight:800,borderBottom:`1px solid ${C.border}`}}>DIAS</th>
+          <th style={{minWidth:72,background:C.surface,color:C.text,padding:8,fontSize:9.5,fontWeight:800,borderLeft:`1px solid ${C.line}`,borderBottom:`1px solid ${C.border}`}}>DIÁRIA</th>
+          <th style={{minWidth:48,background:C.surface,color:C.text,padding:8,fontSize:9.5,fontWeight:800,borderLeft:`1px solid ${C.line}`,borderBottom:`1px solid ${C.border}`}}>DIAS</th>
           {days.map(date=>{const feriado=feriados.includes(date);return <th key={date} title={feriado?"Feriado cadastrado":""} style={{minWidth:54,background:feriado?`${C.red}14`:C.surface,color:feriado?C.red:C.text,padding:"6px 4px",borderLeft:`1px solid ${C.line}`,borderBottom:`1px solid ${C.border}`}}><div style={{fontSize:10,fontWeight:800}}>{diaLabel(date)}</div><div style={{fontSize:7.5,fontWeight:feriado?900:600,opacity:feriado?1:.6}}>{feriado?"FER":semana(date)}</div></th>;})}
         </tr></thead>
         <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{if(feriados.includes(d))return s;const st=attStatus(data,emp.id,d);return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:`1px solid ${C.line}`}}>
@@ -6535,7 +6569,8 @@ function PontoGeral({ data, update, showToast }) {
               </div>
             </div>
           </td>
-          <td style={{textAlign:"center",fontWeight:800,fontSize:13,color:C.blue,borderTop:`1px solid ${C.line}`,fontFamily:"'Inter Display','Inter',sans-serif"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
+          <td title={Number(emp.dailyRate||0)>0?`Valor da diária de ${emp.name}`:"Diária não cadastrada"} style={{textAlign:"center",fontWeight:800,fontSize:10.5,color:Number(emp.dailyRate||0)>0?C.green:C.red,borderTop:`1px solid ${C.line}`,borderLeft:`1px solid ${C.line}`,whiteSpace:"nowrap",fontFamily:"'Inter Display','Inter',sans-serif"}}>{Number(emp.dailyRate||0)>0?fmt(Number(emp.dailyRate||0)):"Não cadastrada"}</td>
+          <td style={{textAlign:"center",fontWeight:800,fontSize:13,color:C.blue,borderTop:`1px solid ${C.line}`,borderLeft:`1px solid ${C.line}`,fontFamily:"'Inter Display','Inter',sans-serif"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
           {days.map(date=>{
             const att=getAtt(data,emp.id,date),st=att?.status,obraId=att?.obraId||emp.obra||"",fora=!isEmployeeEmployedOnDate(emp,date),feriado=feriados.includes(date);
             const regraFeriado=feriado?getHolidayPayRule(data,emp,date,feriados):null;
@@ -8082,7 +8117,9 @@ function Terceiros({ data, update, showToast }) {
   const [docForm,     setDocForm]     = useState({ tipo:"CND", numero:"", validade:"" });
   const [etapaForm,   setEtapaForm]   = useState({ id:"", nome:"", valor:"" });
   const [medModal,    setMedModal]    = useState(false);
-  const [medForm,     setMedForm]     = useState({ data: today(), observacao:"", pcts:{} });
+  const [medForm,     setMedForm]     = useState({ data: today(), observacao:"", pcts:{}, retencoes:[] });
+  const [libModal,    setLibModal]    = useState(null); // { medicao, retencao }
+  const [libForm,     setLibForm]     = useState({ data:today(), observacao:"" });
 
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
@@ -8186,12 +8223,24 @@ function Terceiros({ data, update, showToast }) {
   };
 
   const removePay = id => {
+    const medPrincipal = (data.medicoesTerc || []).find(m => m.pagamentoId === id);
+    if (medPrincipal && (medPrincipal.retencoesQualidade || []).some(r => r.liberacaoPagamentoId)) {
+      showToast("Remova primeiro os pagamentos de liberação das retenções desta medição.", "error");
+      return;
+    }
     if (!window.confirm("Remover pagamento?")) return;
-    // Se o pagamento veio de uma medicao, ela volta a constar como nao paga -
-    // senao a medicao ficaria apontando para um pagamento inexistente.
+    // O pagamento pode ser o principal da medição ou a liberação posterior de
+    // uma retenção de qualidade. Em ambos os casos desfazemos também o vínculo.
     update({ ...data,
       pagsTerceiros: (data.pagsTerceiros || []).filter(p => p.id !== id),
-      medicoesTerc: (data.medicoesTerc || []).map(m => m.pagamentoId === id ? { ...m, pagamentoId: "" } : m) });
+      medicoesTerc: (data.medicoesTerc || []).map(m => ({
+        ...m,
+        pagamentoId: m.pagamentoId === id ? "" : m.pagamentoId,
+        retencoesQualidade: (m.retencoesQualidade || []).map(r =>
+          r.liberacaoPagamentoId === id
+            ? { ...r, status:"pendente", liberadaEm:"", observacaoLiberacao:"", liberacaoPagamentoId:"" }
+            : r),
+      })) });
     showToast("Pagamento removido.");
   };
 
@@ -8348,6 +8397,15 @@ function Terceiros({ data, update, showToast }) {
     ? etapasTerc.reduce((s, e) => s + Number(e.valor || 0) * (acumuladoPorEtapa[e.id] || 0) / 100, 0) / somaEtapas * 100
     : 0;
 
+  // Retenção de qualidade é diferente de ISS/INSS: ela nasce de serviço
+  // incompleto ou com falha e fica vinculada à etapa e à medição que a originou.
+  const retencoesDaMedicao = m => Array.isArray(m?.retencoesQualidade) ? m.retencoesQualidade : [];
+  const totalRetidoOriginal = m => retencoesDaMedicao(m).reduce((s,r)=>s+Math.max(0,Number(r.valor||0)),0);
+  const totalRetidoPendente = m => retencoesDaMedicao(m)
+    .filter(r=>r.status!=="liberada")
+    .reduce((s,r)=>s+Math.max(0,Number(r.valor||0)),0);
+  const valorPagamentoInicial = m => Math.max(0, Number(m?.total||0) - totalRetidoOriginal(m));
+
   const salvarEtapa = () => {
     if (!tercAtual) return;
     const nome = String(etapaForm.nome || "").trim();
@@ -8397,7 +8455,7 @@ function Terceiros({ data, update, showToast }) {
   const abrirMedicao = () => {
     if (!etapasTerc.length) { showToast("Subdivida o contrato em etapas antes de medir.", "error"); return; }
     // O formulario ja abre com o acumulado atual: voce so mexe no que avancou.
-    setMedForm({ data: today(), observacao: "",
+    setMedForm({ data: today(), observacao: "", retencoes:[],
       pcts: Object.fromEntries(etapasTerc.map(e => [e.id, String(acumuladoPorEtapa[e.id] || 0)])) });
     setMedModal(true);
   };
@@ -8409,19 +8467,51 @@ function Terceiros({ data, update, showToast }) {
              valor: Number(e.valor || 0) * (acum - anterior) / 100 };
   });
 
+  const adicionarRetencaoForm = () => setMedForm(f => ({ ...f,
+    retencoes:[...(f.retencoes||[]), { id:uid(), etapaId:"", descricao:"", valor:"", prazoCorrecao:"" }]
+  }));
+  const alterarRetencaoForm = (id, patch) => setMedForm(f => ({ ...f,
+    retencoes:(f.retencoes||[]).map(r=>r.id===id?{...r,...patch}:r)
+  }));
+  const removerRetencaoForm = id => setMedForm(f => ({ ...f,
+    retencoes:(f.retencoes||[]).filter(r=>r.id!==id)
+  }));
+
   const salvarMedicao = () => {
     if (!tercAtual) return;
     const itens = itensDaMedicao().filter(i => Math.abs(i.pctAcum - i.pctAnterior) > 0.0001);
     if (!itens.length) { showToast("Nenhuma etapa avançou desde a última medição.", "warn"); return; }
     const total = itens.reduce((s, i) => s + i.valor, 0);
+    const retencoesQualidade = (medForm.retencoes || []).map(r => ({
+      id:r.id || uid(), etapaId:r.etapaId || "",
+      descricao:String(r.descricao || "").trim(), valor:Math.max(0,num(r.valor)),
+      prazoCorrecao:r.prazoCorrecao || "", status:"pendente",
+      criadaEm:medForm.data || today(), liberadaEm:"", observacaoLiberacao:"", liberacaoPagamentoId:"",
+    })).filter(r=>r.valor>0 || r.descricao);
+    if (retencoesQualidade.some(r=>!r.descricao)) {
+      showToast("Descreva o item ou falha que motivou cada retenção.", "error"); return;
+    }
+    if (retencoesQualidade.some(r=>!(r.valor>0))) {
+      showToast("Informe um valor maior que zero para cada retenção.", "error"); return;
+    }
+    const retido = retencoesQualidade.reduce((s,r)=>s+r.valor,0);
+    if (total <= 0 && retido > 0) {
+      showToast("Não é possível reter valor em uma medição sem saldo positivo.", "error"); return;
+    }
+    if (retido > total + 0.005) {
+      showToast("A retenção não pode ser maior que o valor bruto desta medição.", "error"); return;
+    }
     const medicao = {
       id: uid(), tercId: tercSel, obraId: tercAtual.obraId || "",
       data: medForm.data || today(), numero: medicoesTercAtual.length + 1,
-      itens, total, observacao: String(medForm.observacao || "").trim(), pagamentoId: "",
+      itens, total, retencoesQualidade,
+      observacao: String(medForm.observacao || "").trim(), pagamentoId: "",
     };
     update({ ...data, medicoesTerc: [...(data.medicoesTerc || []), medicao] });
     setMedModal(false);
-    showToast(`Medição ${medicao.numero} registrada: ${fmt(total)}.`);
+    showToast(retido>0
+      ? `Medição ${medicao.numero}: ${fmt(total)} bruto, ${fmt(retido)} retido e ${fmt(total-retido)} liberado.`
+      : `Medição ${medicao.numero} registrada: ${fmt(total)}.`);
   };
 
   // A ultima medicao pode ser desfeita sem ambiguidade. Uma do meio nao: os
@@ -8432,6 +8522,9 @@ function Terceiros({ data, update, showToast }) {
       showToast("Só a última medição pode ser removida - as seguintes partem dela.", "error"); return;
     }
     if (m.pagamentoId) { showToast("Esta medição já virou pagamento. Remova o pagamento primeiro.", "error"); return; }
+    if ((m.retencoesQualidade || []).some(r=>r.liberacaoPagamentoId)) {
+      showToast("Esta medição possui retenção já liberada. Remova o pagamento da liberação primeiro.", "error"); return;
+    }
     if (!window.confirm(`Remover a medição ${m.numero}?`)) return;
     update({ ...data, medicoesTerc: (data.medicoesTerc || []).filter(x => x.id !== m.id) });
     showToast("Medição removida.");
@@ -8440,26 +8533,76 @@ function Terceiros({ data, update, showToast }) {
   const pagarMedicao = m => {
     const t = allTerc.find(x => x.id === m.tercId);
     if (!t) return;
-    if (m.pagamentoId) { showToast("Esta medição já foi paga.", "warn"); return; }
-    if (!(m.total > 0)) { showToast("Medição sem valor a pagar.", "warn"); return; }
-    const ret = calcRetencoes(m.total, t);
+    if (m.pagamentoId) { showToast("Esta medição já teve o valor liberado pago.", "warn"); return; }
+    const valorLiberado = valorPagamentoInicial(m);
+    if (!(valorLiberado > 0)) {
+      showToast(totalRetidoOriginal(m)>0
+        ? "Todo o valor desta medição está retido. Libere uma retenção após a correção para pagar."
+        : "Medição sem valor a pagar.", "warn"); return;
+    }
+    const ret = calcRetencoes(valorLiberado, t);
     const pag = { id: uid(), tercId: m.tercId, tercName: t.name, specialty: t.specialty,
-      obraId: m.obraId, date: m.data, amount: m.total, medicaoId: m.id,
-      description: `Medição ${m.numero} - ${fmtDateFull(m.data)}`,
+      obraId: m.obraId, date: m.data, amount: valorLiberado, medicaoId: m.id,
+      description: `Medição ${m.numero} - valor liberado (${fmtDateFull(m.data)})`,
       pagador: t.pagador === "empresa" ? "empresa" : "obra",
-      issRetido: ret.issRetido, inssRetido: ret.inssRetido, liquido: ret.liquido };
+      issRetido: ret.issRetido, inssRetido: ret.inssRetido, liquido: ret.liquido,
+      tipoPagamento:"medicao_liberada" };
     update({ ...data,
       pagsTerceiros: [...(data.pagsTerceiros || []), pag],
       medicoesTerc: (data.medicoesTerc || []).map(x => x.id === m.id ? { ...x, pagamentoId: pag.id } : x) });
-    showToast(ret.retido > 0
-      ? `Medição paga: ${fmt(m.total)} bruto, ${fmt(ret.liquido)} líquido ao prestador.`
-      : `Pagamento de ${fmt(m.total)} registrado para ${t.name}.`);
+    showToast(totalRetidoOriginal(m)>0
+      ? `Pago ${fmt(valorLiberado)}; permanecem ${fmt(totalRetidoPendente(m))} retidos por pendências.`
+      : ret.retido > 0
+        ? `Medição paga: ${fmt(valorLiberado)} bruto, ${fmt(ret.liquido)} líquido ao prestador.`
+        : `Pagamento de ${fmt(valorLiberado)} registrado para ${t.name}.`);
+  };
+
+  const abrirLiberacaoRetencao = (m, r) => {
+    if (!m.pagamentoId && valorPagamentoInicial(m)>0) {
+      showToast("Registre primeiro o pagamento do valor já liberado da medição.", "warn"); return;
+    }
+    if (r.status === "liberada" || r.liberacaoPagamentoId) {
+      showToast("Esta retenção já foi liberada.", "warn"); return;
+    }
+    setLibForm({ data:today(), observacao:"" });
+    setLibModal({ medicao:m, retencao:r });
+  };
+
+  const confirmarLiberacaoRetencao = () => {
+    const m = libModal?.medicao, r = libModal?.retencao;
+    if (!m || !r) return;
+    const t = allTerc.find(x=>x.id===m.tercId);
+    if (!t) return;
+    const valor = Number(r.valor||0);
+    if (!(valor>0)) { showToast("Retenção sem valor para liberar.", "error"); return; }
+    const ret = calcRetencoes(valor, t);
+    const pag = { id:uid(), tercId:m.tercId, tercName:t.name, specialty:t.specialty,
+      obraId:m.obraId, date:libForm.data||today(), amount:valor, medicaoId:m.id, retencaoId:r.id,
+      description:`Liberação de retenção · Medição ${m.numero} · ${r.descricao}`,
+      pagador:t.pagador === "empresa" ? "empresa" : "obra",
+      issRetido:ret.issRetido, inssRetido:ret.inssRetido, liquido:ret.liquido,
+      tipoPagamento:"liberacao_retencao" };
+    update({ ...data,
+      pagsTerceiros:[...(data.pagsTerceiros||[]),pag],
+      medicoesTerc:(data.medicoesTerc||[]).map(x=>x.id===m.id?{
+        ...x,
+        retencoesQualidade:(x.retencoesQualidade||[]).map(q=>q.id===r.id?{
+          ...q,status:"liberada",liberadaEm:libForm.data||today(),
+          observacaoLiberacao:String(libForm.observacao||"").trim(),liberacaoPagamentoId:pag.id
+        }:q)
+      }:x)
+    });
+    setLibModal(null);
+    showToast(`Retenção de ${fmt(valor)} liberada e registrada para pagamento.`);
   };
 
   // Medicao registrada e ainda nao paga e divida vencida com o terceiro. Ficava
   // invisivel: os KPIs so olhavam pagamento semanal e contrato.
-  const medicoesAPagar = (data.medicoesTerc || []).filter(m => !m.pagamentoId && Number(m.total || 0) > 0);
-  const totalAPagarMed = medicoesAPagar.reduce((s, m) => s + Number(m.total || 0), 0);
+  const medicoesAPagar = (data.medicoesTerc || []).filter(m => !m.pagamentoId && valorPagamentoInicial(m) > 0);
+  const totalAPagarMed = medicoesAPagar.reduce((s, m) => s + valorPagamentoInicial(m), 0);
+  const retencoesPendentes = (data.medicoesTerc || []).flatMap(m =>
+    retencoesDaMedicao(m).filter(r=>r.status!=="liberada").map(r=>({ ...r, medicao:m })));
+  const totalRetencoesPendentes = retencoesPendentes.reduce((s,r)=>s+Number(r.valor||0),0);
 
   // Avanco fisico de qualquer contrato, para o card do cadastro.
   const avancoDoContrato = t => {
@@ -8514,10 +8657,24 @@ function Terceiros({ data, update, showToast }) {
             padding:"12px 14px", borderRadius:10,
           }}>
             <p style={{ fontSize:10, fontWeight:900, color:C.red, textTransform:"uppercase", letterSpacing:.8 }}>
-              {medicoesAPagar.length} medição(ões) medida(s) e não paga(s)
+              {medicoesAPagar.length} medição(ões) com valor liberado e não pago
             </p>
             <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, color:C.red, fontSize:26, lineHeight:1.1, marginTop:4 }}>
               {fmt(totalAPagarMed)}
+            </p>
+          </button>
+        )}
+        {retencoesPendentes.length > 0 && (
+          <button onClick={() => setView("medicoes")} style={{
+            gridColumn:"1 / -1", textAlign:"left", cursor:"pointer",
+            background:`${C.orange}0E`, border:`1px solid ${C.orange}55`, borderTop:`3px solid ${C.orange}`,
+            padding:"12px 14px", borderRadius:10,
+          }}>
+            <p style={{ fontSize:10, fontWeight:900, color:C.orange, textTransform:"uppercase", letterSpacing:.8 }}>
+              {retencoesPendentes.length} retenção(ões) aguardando correção
+            </p>
+            <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, color:C.orange, fontSize:26, lineHeight:1.1, marginTop:4 }}>
+              {fmt(totalRetencoesPendentes)}
             </p>
           </button>
         )}
@@ -9063,19 +9220,26 @@ function Terceiros({ data, update, showToast }) {
           <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
             {[...medicoesTercAtual].reverse().map(m => (
               <div key={m.id} style={{ background:C.card, border:`1px solid ${C.border}`,
-                                       borderLeft:`4px solid ${m.pagamentoId?C.green:C.orange}`, borderRadius:8, padding:"10px 13px" }}>
+                                       borderLeft:`4px solid ${(m.pagamentoId || (valorPagamentoInicial(m)<=0 && totalRetidoPendente(m)<=0))?C.green:C.orange}`, borderRadius:8, padding:"10px 13px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:9, flexWrap:"wrap" }}>
                   <div>
                     <p style={{ fontSize:13.5, fontWeight:900, color:C.text }}>
                       Medição {m.numero} · {fmtDateFull(m.data)}
                     </p>
                     <p style={{ fontSize:10.5, color:C.muted, marginTop:2 }}>
-                      {m.itens.length} etapa(s) · {m.pagamentoId ? "paga" : "aguardando pagamento"}
+                      {m.itens.length} etapa(s) · {m.pagamentoId
+                        ? (totalRetidoPendente(m)>0 ? "valor liberado pago · retenção pendente" : "paga")
+                        : valorPagamentoInicial(m)<=0
+                          ? (totalRetidoPendente(m)>0 ? "100% retida · aguardando correção" : "retenções liberadas e pagas")
+                          : "aguardando pagamento"}
                     </p>
                   </div>
                   <div style={{ textAlign:"right" }}>
                     <p style={{ fontSize:17, fontWeight:800, color:m.total>=0?C.green:C.red,
                                 fontFamily:"'Inter Display','Inter',sans-serif" }}>{fmt(m.total)}</p>
+                    {totalRetidoOriginal(m)>0 && <p style={{fontSize:9.5,color:C.muted}}>
+                      {fmt(valorPagamentoInicial(m))} liberado · {fmt(totalRetidoPendente(m))} retido
+                    </p>}
                   </div>
                 </div>
                 <div style={{ marginTop:7, display:"flex", flexDirection:"column", gap:3 }}>
@@ -9094,20 +9258,49 @@ function Terceiros({ data, update, showToast }) {
                   })}
                 </div>
                 {m.observacao && <p style={{ fontSize:11, color:C.muted, fontStyle:"italic", marginTop:6 }}>"{m.observacao}"</p>}
-                {/* Previa de retencao antes de pagar / decomposicao apos pago */}
+                {retencoesDaMedicao(m).length>0 && (
+                  <div style={{marginTop:8,background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:7,padding:"8px 10px"}}>
+                    <p style={{fontSize:9.5,fontWeight:900,color:C.orange,textTransform:"uppercase",letterSpacing:.7,marginBottom:5}}>
+                      Retenções por pendências de qualidade
+                    </p>
+                    {retencoesDaMedicao(m).map(r=>{
+                      const et=etapasTerc.find(e=>e.id===r.etapaId);
+                      const liberada=r.status==="liberada";
+                      return <div key={r.id} style={{padding:"6px 0",borderTop:`1px solid ${C.orange}22`}}>
+                        <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
+                          <div style={{minWidth:0}}>
+                            <p style={{fontSize:11,fontWeight:800,color:C.text}}>{et?.nome||"Item geral"}</p>
+                            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.4}}>{r.descricao}</p>
+                            {r.prazoCorrecao && <p style={{fontSize:9.5,color:C.muted}}>Correção prevista: {fmtDateFull(r.prazoCorrecao)}</p>}
+                            {liberada && <p style={{fontSize:9.5,color:C.green,fontWeight:800}}>
+                              Liberada em {fmtDateFull(r.liberadaEm)}{r.observacaoLiberacao?` · ${r.observacaoLiberacao}`:""}
+                            </p>}
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            <p style={{fontSize:12,fontWeight:900,color:liberada?C.green:C.orange}}>{fmt(r.valor)}</p>
+                            <p style={{fontSize:9,fontWeight:900,color:liberada?C.green:C.orange,textTransform:"uppercase"}}>{liberada?"liberada":"retida"}</p>
+                            {!liberada && <button onClick={()=>abrirLiberacaoRetencao(m,r)} style={{marginTop:4,background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,fontWeight:800}}>Liberar após ajuste</button>}
+                          </div>
+                        </div>
+                      </div>;
+                    })}
+                  </div>
+                )}
+                {/* Previa de retenção fiscal antes de pagar / decomposição apos pago */}
                 {(() => {
                   // Fonte da verdade: se ja pago, os valores gravados no
                   // pagamento; se nao, a previa pela config atual do contrato.
                   const pg = m.pagamentoId ? (data.pagsTerceiros || []).find(p => p.id === m.pagamentoId) : null;
-                  const ret = calcRetencoes(m.total, tercAtual);
+                  const baseLiberada = valorPagamentoInicial(m);
+                  const ret = calcRetencoes(baseLiberada, tercAtual);
                   const iss     = pg ? Number(pg.issRetido || 0)  : ret.issRetido;
                   const inss    = pg ? Number(pg.inssRetido || 0) : ret.inssRetido;
-                  const liquido = pg ? Number(pg.liquido ?? m.total) : ret.liquido;
+                  const liquido = pg ? Number(pg.liquido ?? baseLiberada) : ret.liquido;
                   if (iss + inss <= 0) return null;
                   return (
                     <div style={{ marginTop:7, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"7px 10px" }}>
                       <div style={{ display:"flex", justifyContent:"space-between", fontSize:10.5, color:C.muted }}>
-                        <span>Bruto (custo da obra)</span><b style={{ color:C.text }}>{fmt(m.total)}</b>
+                        <span>Valor liberado nesta medição</span><b style={{ color:C.text }}>{fmt(baseLiberada)}</b>
                       </div>
                       {iss > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:10.5, color:C.muted }}>
                         <span>(-) ISS retido ({tercAtual.retISS}%)</span><span>{fmt(iss)}</span></div>}
@@ -9121,7 +9314,9 @@ function Terceiros({ data, update, showToast }) {
                   );
                 })()}
                 <div style={{ display:"flex", gap:7, marginTop:9, justifyContent:"flex-end" }}>
-                  {!m.pagamentoId && <Btn size="sm" v="success" onClick={()=>pagarMedicao(m)}>Registrar pagamento</Btn>}
+                  {!m.pagamentoId && valorPagamentoInicial(m)>0 && <Btn size="sm" v="success" onClick={()=>pagarMedicao(m)}>
+                    Registrar pagamento de {fmt(valorPagamentoInicial(m))}
+                  </Btn>}
                   <Btn size="sm" v="ghost" onClick={()=>removerMedicao(m)}>Remover</Btn>
                 </div>
               </div>
@@ -9451,6 +9646,41 @@ function Terceiros({ data, update, showToast }) {
               })}
             </div>
 
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:11}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:(medForm.retencoes||[]).length?9:0}}>
+                <div>
+                  <p style={{fontSize:10,fontWeight:900,color:C.orange,textTransform:"uppercase",letterSpacing:.8}}>Retenção por item não concluído ou falho</p>
+                  <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>O avanço físico permanece medido; o valor fica suspenso até a correção e liberação.</p>
+                </div>
+                <Btn size="sm" v="ghost" onClick={adicionarRetencaoForm}><Ic n="plus"/> Adicionar</Btn>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {(medForm.retencoes||[]).map((r,idx)=><div key={r.id} style={{background:C.card,border:`1px solid ${C.orange}44`,borderRadius:8,padding:9}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:7,alignItems:"end"}}>
+                    <label style={{fontSize:9.5,fontWeight:800,color:C.muted}}>ETAPA
+                      <select value={r.etapaId} onChange={e=>alterarRetencaoForm(r.id,{etapaId:e.target.value})}
+                        style={{display:"block",width:"100%",boxSizing:"border-box",marginTop:4,background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"7px 8px",borderRadius:7,fontSize:11}}>
+                        <option value="">Item geral</option>
+                        {etapasTerc.map(e=><option key={e.id} value={e.id}>{e.nome}</option>)}
+                      </select>
+                    </label>
+                    <label style={{fontSize:9.5,fontWeight:800,color:C.muted}}>VALOR RETIDO
+                      <input type="number" step="any" min="0" value={r.valor} onChange={e=>alterarRetencaoForm(r.id,{valor:e.target.value})}
+                        style={{display:"block",width:"100%",boxSizing:"border-box",marginTop:4,background:C.bg,border:`1px solid ${C.orange}77`,color:C.text,padding:"7px 8px",borderRadius:7,fontSize:11}}/>
+                    </label>
+                    <label style={{fontSize:9.5,fontWeight:800,color:C.muted}}>PRAZO DE CORREÇÃO
+                      <input type="date" value={r.prazoCorrecao} onChange={e=>alterarRetencaoForm(r.id,{prazoCorrecao:e.target.value})}
+                        style={{display:"block",width:"100%",boxSizing:"border-box",marginTop:4,background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"7px 8px",borderRadius:7,fontSize:11}}/>
+                    </label>
+                    <button onClick={()=>removerRetencaoForm(r.id)} title="Remover retenção" style={{background:"transparent",border:0,color:C.red,cursor:"pointer",fontSize:18,padding:"6px"}}>×</button>
+                  </div>
+                  <textarea value={r.descricao} onChange={e=>alterarRetencaoForm(r.id,{descricao:e.target.value})}
+                    placeholder="Descreva o item incompleto, falha, acabamento a corrigir ou condição para liberar o valor..."
+                    style={{width:"100%",boxSizing:"border-box",marginTop:7,minHeight:55,resize:"vertical",background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"8px 9px",borderRadius:7,fontSize:11,fontFamily:"'Inter',sans-serif"}}/>
+                </div>)}
+              </div>
+            </div>
+
             {/* Medir para tras e legitimo (corrigir medicao a maior), mas nunca
                 deve passar despercebido. */}
             {itensDaMedicao().some(i => i.pctAcum < i.pctAnterior) && (
@@ -9462,13 +9692,18 @@ function Terceiros({ data, update, showToast }) {
               </div>
             )}
 
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8,
-                          background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"11px 13px" }}>
-              <span style={{ fontSize:11, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>Total desta medição</span>
-              <b style={{ fontSize:21, color:C.green, fontFamily:"'Inter Display','Inter',sans-serif" }}>
-                {fmt(itensDaMedicao().reduce((s,i)=>s+i.valor,0))}
-              </b>
-            </div>
+            {(() => {
+              const bruto=itensDaMedicao().reduce((s,i)=>s+i.valor,0);
+              const retido=(medForm.retencoes||[]).reduce((s,r)=>s+Math.max(0,num(r.valor)),0);
+              return <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 13px",display:"flex",flexDirection:"column",gap:5}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted}}><span>Valor bruto medido</span><b style={{color:C.text}}>{fmt(bruto)}</b></div>
+                {retido>0 && <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.orange}}><span>(-) Retenção por pendências</span><b>{fmt(retido)}</b></div>}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${C.line}`,paddingTop:6}}>
+                  <span style={{fontSize:11,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>Liberado para pagamento</span>
+                  <b style={{fontSize:21,color:bruto-retido>=0?C.green:C.red,fontFamily:"'Inter Display','Inter',sans-serif"}}>{fmt(bruto-retido)}</b>
+                </div>
+              </div>;
+            })()}
 
             <Inp label="Observação" value={medForm.observacao} onChange={v=>setMedForm(f=>({...f,observacao:v}))}
               placeholder="Ex.: pendente o quadro do 2º pavimento"/>
@@ -9476,6 +9711,28 @@ function Terceiros({ data, update, showToast }) {
             <div style={{ display:"flex", gap:8 }}>
               <Btn v="ghost" full onClick={()=>setMedModal(false)}>Cancelar</Btn>
               <Btn full onClick={salvarMedicao}><Ic n="check"/> Salvar medição</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {libModal && (
+        <Modal title={`Liberar retenção · Medição ${libModal.medicao.numero}`} onClose={()=>setLibModal(null)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:`${C.orange}0D`,border:`1px solid ${C.orange}55`,borderLeft:`4px solid ${C.orange}`,borderRadius:8,padding:"10px 12px"}}>
+              <p style={{fontSize:10,fontWeight:900,color:C.orange,textTransform:"uppercase"}}>Valor atualmente retido</p>
+              <p style={{fontSize:22,fontWeight:900,color:C.text,marginTop:2}}>{fmt(libModal.retencao.valor)}</p>
+              <p style={{fontSize:11,color:C.muted,marginTop:4,lineHeight:1.45}}>{libModal.retencao.descricao}</p>
+            </div>
+            <Inp label="Data da liberação" type="date" value={libForm.data} onChange={v=>setLibForm(f=>({...f,data:v}))}/>
+            <Inp label="Observação da verificação" value={libForm.observacao} onChange={v=>setLibForm(f=>({...f,observacao:v}))} multiline
+              placeholder="Ex.: acabamento corrigido e aprovado em vistoria; fotos anexadas ao diário da obra."/>
+            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>
+              Ao confirmar, o valor será registrado como um novo pagamento vinculado à retenção. O histórico original da medição será preservado.
+            </p>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" full onClick={()=>setLibModal(null)}>Cancelar</Btn>
+              <Btn v="success" full onClick={confirmarLiberacaoRetencao}><Ic n="check"/> Liberar e registrar pagamento</Btn>
             </div>
           </div>
         </Modal>
