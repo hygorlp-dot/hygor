@@ -9,6 +9,13 @@
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import {
+  normalizeText,
+  parsePriceBR,
+  decodeHtml,
+  textFromHtml,
+  decodeOrseResponse,
+} from "./utils.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -20,7 +27,7 @@ const db = createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const sha256 = value => crypto.createHash("sha256").update(String(value)).digest("hex");
+const sha256 = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
 
 const conferirPin = async (userId, pin) => {
   const { data, error } = await db
@@ -37,40 +44,6 @@ const conferirPin = async (userId, pin) => {
   const expected = Buffer.from(String(user.pin || ""));
   if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
   return user;
-};
-
-const normalizeText = value => String(value || "")
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLowerCase()
-  .replace(/\s+/g, " ")
-  .trim();
-
-const parsePriceBR = value => {
-  const cleaned = String(value || "").replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
-  const number = Number(cleaned);
-  return Number.isFinite(number) ? number : 0;
-};
-
-const decodeHtml = value => String(value || "")
-  .replace(/&nbsp;/gi, " ")
-  .replace(/&amp;/gi, "&")
-  .replace(/&quot;/gi, '"')
-  .replace(/&#39;|&apos;/gi, "'")
-  .replace(/&lt;/gi, "<")
-  .replace(/&gt;/gi, ">")
-  .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-  .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
-
-const textFromHtml = html => decodeHtml(String(html || "")
-  .replace(/<br\s*\/?>/gi, " ")
-  .replace(/<[^>]+>/g, " "))
-  .replace(/\s+/g, " ")
-  .trim();
-
-const decodeOrseResponse = async response => {
-  const bytes = await response.arrayBuffer();
-  return new TextDecoder("windows-1252").decode(bytes);
 };
 
 const parseOrseRows = (html, competence) => {
@@ -107,19 +80,46 @@ const parseOrseRows = (html, competence) => {
 };
 
 const parseOrseInputRows = (html, competence) => {
-  const out=[];const seen=new Set();const rowRegex=/<tr[^>]*>([\s\S]*?)<\/tr>/gi;let match;
-  while((match=rowRegex.exec(html))){
-    const row=match[1];if(!/CorpoTabela/i.test(row))continue;
-    const cells=[];const cellRegex=/<td[^>]*>([\s\S]*?)<\/td>/gi;let cell;
-    while((cell=cellRegex.exec(row)))cells.push(textFromHtml(cell[1]));
-    if(cells.length<4||!/^\d+\s*\/\s*(ORSE|SINAPI)$/i.test(cells[0]))continue;
-    const fonte=(cells[0].match(/\/(ORSE|SINAPI)/i)?.[1]||"ORSE").toUpperCase();
-    const codigo=cells[0].replace(/\s*\/\s*(ORSE|SINAPI)/i,"").replace(/^0+(?=\d)/,"");
-    const preco=parsePriceBR(cells[3]);const key=`${fonte}:${codigo}`;
-    if(!codigo||!cells[1]||!(preco>0)||seen.has(key))continue;
-    seen.add(key);out.push({fonte,codigo,descricao:cells[1],unidade:cells[2]||"UN",
-      precoDes:preco,precoNao:preco,dataBase:competence,uf:fonte==="ORSE"?"SE":"",tipoItem:"INSUMO"});
+  const out = [];
+  const seen = new Set();
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let match;
+  
+  while ((match = rowRegex.exec(html))) {
+    const row = match[1];
+    if (!/CorpoTabela/i.test(row)) continue;
+    
+    const cells = [];
+    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    let cell;
+    
+    while ((cell = cellRegex.exec(row))) {
+      cells.push(textFromHtml(cell[1]));
+    }
+    
+    if (cells.length < 4 || !/^\d+\s*\/\s*(ORSE|SINAPI)$/i.test(cells[0])) continue;
+    
+    const fonte = (cells[0].match(/\/(ORSE|SINAPI)/i)?.[1] || "ORSE").toUpperCase();
+    const codigo = cells[0].replace(/\s*\/\s*(ORSE|SINAPI)/i, "").replace(/^0+(?=\d)/, "");
+    const preco = parsePriceBR(cells[3]);
+    const key = `${fonte}:${codigo}`;
+    
+    if (!codigo || !cells[1] || !(preco > 0) || seen.has(key)) continue;
+    
+    seen.add(key);
+    out.push({
+      fonte,
+      codigo,
+      descricao: cells[1],
+      unidade: cells[2] || "UN",
+      precoDes: preco,
+      precoNao: preco,
+      dataBase: competence,
+      uf: fonte === "ORSE" ? "SE" : "",
+      tipoItem: "INSUMO",
+    });
   }
+  
   return out;
 };
 
@@ -237,20 +237,40 @@ const fetchOrseCompositionDetails = async (code, competence) => {
 };
 
 const expandOrseCompositionDetails = async (codes, competence) => {
-  const result=[], visited=new Set();
-  let frontier=[...new Set(codes)].slice(0,40);
-  for(let depth=0;depth<8&&frontier.length&&visited.size<160;depth++){
-    const pending=frontier.filter(code=>!visited.has(code)).slice(0,160-visited.size);
-    pending.forEach(code=>visited.add(code));
-    const next=[];
-    for(let i=0;i<pending.length;i+=8){
-      const settled=await Promise.allSettled(pending.slice(i,i+8).map(code=>fetchOrseCompositionDetails(code,competence)));
-      settled.filter(item=>item.status==="fulfilled").forEach(item=>(item.value||[]).forEach(row=>{
-        result.push(row);if(row.itemType==="COMPOSICAO"&&!visited.has(row.itemCode))next.push(row.itemCode);
-      }));
+  const result = [];
+  const visited = new Set();
+  let frontier = [...new Set(codes)].slice(0, 40);
+  
+  for (let depth = 0; depth < 8 && frontier.length && visited.size < 160; depth++) {
+    const pending = frontier
+      .filter(code => !visited.has(code))
+      .slice(0, 160 - visited.size);
+    
+    pending.forEach(code => visited.add(code));
+    
+    const next = [];
+    
+    for (let i = 0; i < pending.length; i += 8) {
+      const batch = pending.slice(i, i + 8);
+      const settled = await Promise.allSettled(
+        batch.map(code => fetchOrseCompositionDetails(code, competence))
+      );
+      
+      settled
+        .filter(item => item.status === "fulfilled")
+        .forEach(item => {
+          (item.value || []).forEach(row => {
+            result.push(row);
+            if (row.itemType === "COMPOSICAO" && !visited.has(row.itemCode)) {
+              next.push(row.itemCode);
+            }
+          });
+        });
     }
-    frontier=[...new Set(next)];
+    
+    frontier = [...new Set(next)];
   }
+  
   return result;
 };
 
@@ -278,16 +298,28 @@ const searchOfficialOrse = async (term, competence) => {
 };
 
 const searchOfficialOrseInputs = async (term, competence) => {
-  const [year,month]=competence.split("-").map(Number);
-  const body=new URLSearchParams({
-    sltFOnte:"ORSE",sltPeriodo:`${year}-${month}-1`,sltGrupoInsumo:"0",
-    rdbCriterio:"1",txtDescricao:term.trim().slice(0,120),Submit:"Consultar",
+  const [year, month] = competence.split("-").map(Number);
+  const body = new URLSearchParams({
+    sltFOnte: "ORSE",
+    sltPeriodo: `${year}-${month}-1`,
+    sltGrupoInsumo: "0",
+    rdbCriterio: "1",
+    txtDescricao: term.trim().slice(0, 120),
+    Submit: "Consultar",
   });
-  const response=await fetch(`${ORSE_URL}/insumosargumento.asp?tarefa=consultar`,{
-    method:"POST",headers:{"content-type":"application/x-www-form-urlencoded",accept:"text/html"},body:body.toString(),
+  
+  const response = await fetch(`${ORSE_URL}/insumosargumento.asp?tarefa=consultar`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      accept: "text/html",
+    },
+    body: body.toString(),
   });
-  if(!response.ok)throw new Error(`ORSE respondeu ${response.status}`);
-  return parseOrseInputRows(await decodeOrseResponse(response),competence);
+  
+  if (!response.ok) throw new Error(`ORSE respondeu ${response.status}`);
+  
+  return parseOrseInputRows(await decodeOrseResponse(response), competence);
 };
 
 const mapBase = item => ({
@@ -392,49 +424,81 @@ export default async function handler(req, res) {
     if (action === "input-chunk") {
       const baseId = String(req.body?.baseId || "");
       const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 500) : [];
-      if (!baseId || !items.length) return res.status(400).json({ error:"Lote de insumos vazio." });
-      const { data:base, error:baseError } = await db.from("budget_reference_bases")
-        .select("id,source").eq("id",baseId).eq("company_id",COMPANY).maybeSingle();
-      if (baseError || !base) return res.status(404).json({ error:"Base não encontrada." });
-      if (base.source !== "SINAPI") return res.status(400).json({ error:"Somente bases SINAPI recebem insumos enviados." });
+      if (!baseId || !items.length) return res.status(400).json({ error: "Lote de insumos vazio." });
+      
+      const { data: base, error: baseError } = await db
+        .from("budget_reference_bases")
+        .select("id, source")
+        .eq("id", baseId)
+        .eq("company_id", COMPANY)
+        .maybeSingle();
+      
+      if (baseError || !base) return res.status(404).json({ error: "Base não encontrada." });
+      if (base.source !== "SINAPI") return res.status(400).json({ error: "Somente bases SINAPI recebem insumos enviados." });
+      
       const rows = items.map(item => {
         const code = String(item.codigo || "").replace(/\.0$/, "").trim();
         const description = String(item.descricao || "").trim();
         return {
-          base_id:baseId, company_id:COMPANY, source:"SINAPI", code, description,
-          unit:String(item.unidade || "UN").trim().slice(0,30),
-          classification:String(item.classificacao || "").trim().slice(0,80),
-          price_des:Math.max(0,Number(item.precoDes || 0)),
-          price_not:Math.max(0,Number(item.precoNao || 0)),
-          search_text:normalizeText(`${code} ${description} ${item.classificacao || ""}`),
+          base_id: baseId,
+          company_id: COMPANY,
+          source: "SINAPI",
+          code,
+          description,
+          unit: String(item.unidade || "UN").trim().slice(0, 30),
+          classification: String(item.classificacao || "").trim().slice(0, 80),
+          price_des: Math.max(0, Number(item.precoDes || 0)),
+          price_not: Math.max(0, Number(item.precoNao || 0)),
+          search_text: normalizeText(`${code} ${description} ${item.classificacao || ""}`),
         };
       }).filter(item => item.code && item.description && (item.price_des > 0 || item.price_not > 0));
-      if (!rows.length) return res.status(400).json({ error:"Nenhum insumo válido no lote." });
-      const { error } = await db.from("budget_reference_inputs").upsert(rows,{onConflict:"base_id,source,code"});
+      
+      if (!rows.length) return res.status(400).json({ error: "Nenhum insumo válido no lote." });
+      
+      const { error } = await db
+        .from("budget_reference_inputs")
+        .upsert(rows, { onConflict: "base_id,source,code" });
+      
       if (error) throw error;
-      return res.status(200).json({ok:true,recebidos:rows.length});
+      return res.status(200).json({ ok: true, recebidos: rows.length });
     }
 
     if (action === "component-chunk") {
       const baseId = String(req.body?.baseId || "");
       const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 500) : [];
-      if (!baseId || !items.length) return res.status(400).json({ error:"Lote analítico vazio." });
-      const { data:base, error:baseError } = await db.from("budget_reference_bases")
-        .select("id,source").eq("id",baseId).eq("company_id",COMPANY).maybeSingle();
-      if (baseError || !base) return res.status(404).json({ error:"Base não encontrada." });
-      if (base.source !== "SINAPI") return res.status(400).json({ error:"Somente bases SINAPI recebem relações analíticas." });
+      if (!baseId || !items.length) return res.status(400).json({ error: "Lote analítico vazio." });
+      
+      const { data: base, error: baseError } = await db
+        .from("budget_reference_bases")
+        .select("id, source")
+        .eq("id", baseId)
+        .eq("company_id", COMPANY)
+        .maybeSingle();
+      
+      if (baseError || !base) return res.status(404).json({ error: "Base não encontrada." });
+      if (base.source !== "SINAPI") return res.status(400).json({ error: "Somente bases SINAPI recebem relações analíticas." });
+      
       const rows = items.map(item => ({
-        base_id:baseId, company_id:COMPANY, source:"SINAPI",
-        composition_code:String(item.compositionCode || "").replace(/\.0$/, "").trim(),
-        item_type:String(item.itemType || "").toUpperCase() === "COMPOSICAO" ? "COMPOSICAO" : "INSUMO",
-        item_code:String(item.itemCode || "").replace(/\.0$/, "").trim(),
-        description:String(item.descricao || "").trim(), unit:String(item.unidade || "UN").trim().slice(0,30),
-        coefficient:Math.max(0,Number(item.coeficiente || 0)), situation:String(item.situacao || "").trim().slice(0,80),
+        base_id: baseId,
+        company_id: COMPANY,
+        source: "SINAPI",
+        composition_code: String(item.compositionCode || "").replace(/\.0$/, "").trim(),
+        item_type: String(item.itemType || "").toUpperCase() === "COMPOSICAO" ? "COMPOSICAO" : "INSUMO",
+        item_code: String(item.itemCode || "").replace(/\.0$/, "").trim(),
+        description: String(item.descricao || "").trim(),
+        unit: String(item.unidade || "UN").trim().slice(0, 30),
+        coefficient: Math.max(0, Number(item.coeficiente || 0)),
+        situation: String(item.situacao || "").trim().slice(0, 80),
       })).filter(item => item.composition_code && item.item_code && item.description && item.coefficient > 0);
-      if (!rows.length) return res.status(400).json({ error:"Nenhuma relação analítica válida no lote." });
-      const { error } = await db.from("budget_reference_components").upsert(rows,{onConflict:"base_id,source,composition_code,item_type,item_code"});
+      
+      if (!rows.length) return res.status(400).json({ error: "Nenhuma relação analítica válida no lote." });
+      
+      const { error } = await db
+        .from("budget_reference_components")
+        .upsert(rows, { onConflict: "base_id,source,composition_code,item_type,item_code" });
+      
       if (error) throw error;
-      return res.status(200).json({ok:true,recebidos:rows.length});
+      return res.status(200).json({ ok: true, recebidos: rows.length });
     }
 
     if (action === "finish") {
@@ -506,130 +570,277 @@ export default async function handler(req, res) {
     }
 
     if (action === "search-inputs") {
-      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0,8);
-      const term = String(req.body?.query || "").trim().slice(0,120);
+      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, 8);
+      const term = String(req.body?.query || "").trim().slice(0, 120);
       const itemType = ["INSUMO", "COMPOSICAO"].includes(String(req.body?.itemType || "").toUpperCase())
         ? String(req.body.itemType).toUpperCase() : "TODOS";
       const buscarInsumos = itemType !== "COMPOSICAO";
       const buscarComposicoes = itemType !== "INSUMO";
-      if (!referenceIds.length || term.length < 2) return res.status(200).json({items:[]});
-      const { data:bases, error:basesError } = await db.from("budget_reference_bases").select("*")
-        .eq("company_id",COMPANY).in("id",referenceIds).eq("status","ready");
+      
+      if (!referenceIds.length || term.length < 2) {
+        return res.status(200).json({ items: [] });
+      }
+      
+      const { data: bases, error: basesError } = await db
+        .from("budget_reference_bases")
+        .select("*")
+        .eq("company_id", COMPANY)
+        .in("id", referenceIds)
+        .eq("status", "ready");
+      
       if (basesError) throw basesError;
-      const baseById = new Map((bases || []).map(base => [base.id,base]));
-      const sinapiIds = (bases || []).filter(base=>base.source==="SINAPI").map(base=>base.id);
-      const terms = normalizeText(term).split(/\s+/).filter(Boolean).slice(0,6);
+      
+      const baseById = new Map((bases || []).map(base => [base.id, base]));
+      const sinapiIds = (bases || [])
+        .filter(base => base.source === "SINAPI")
+        .map(base => base.id);
+      const terms = normalizeText(term).split(/\s+/).filter(Boolean).slice(0, 6);
+      
       let inputs = [], compositions = [];
+      
       if (sinapiIds.length && buscarInsumos) {
         let inputQuery = db.from("budget_reference_inputs")
-          .select("base_id,source,code,description,unit,classification,price_des,price_not")
-          .eq("company_id",COMPANY).in("base_id",sinapiIds);
-        terms.forEach(piece => { inputQuery = inputQuery.ilike("search_text",`%${piece}%`); });
-        const {data,error} = await inputQuery.limit(60);
+          .select("base_id, source, code, description, unit, classification, price_des, price_not")
+          .eq("company_id", COMPANY)
+          .in("base_id", sinapiIds);
+        
+        terms.forEach(piece => {
+          inputQuery = inputQuery.ilike("search_text", `%${piece}%`);
+        });
+        
+        const { data, error } = await inputQuery.limit(60);
         if (error) throw error;
+        
         inputs = (data || []).map(item => ({
-          fonte:item.source,codigo:item.code,descricao:item.description,unidade:item.unit,
-          classificacao:item.classification || "",precoDes:Number(item.price_des||0),precoNao:Number(item.price_not||0),
-          dataBase:baseById.get(item.base_id)?.competence || "",uf:baseById.get(item.base_id)?.uf || "",tipoItem:"INSUMO",
+          fonte: item.source,
+          codigo: item.code,
+          descricao: item.description,
+          unidade: item.unit,
+          classificacao: item.classification || "",
+          precoDes: Number(item.price_des || 0),
+          precoNao: Number(item.price_not || 0),
+          dataBase: baseById.get(item.base_id)?.competence || "",
+          uf: baseById.get(item.base_id)?.uf || "",
+          tipoItem: "INSUMO",
         }));
       }
+      
       if (sinapiIds.length && buscarComposicoes) {
         let compQuery = db.from("budget_reference_items")
-          .select("base_id,source,code,description,unit,price_des,price_not")
-          .eq("company_id",COMPANY).in("base_id",sinapiIds);
-        terms.forEach(piece => { compQuery = compQuery.ilike("search_text",`%${piece}%`); });
-        const {data:compData,error:compError} = await compQuery.limit(25);
+          .select("base_id, source, code, description, unit, price_des, price_not")
+          .eq("company_id", COMPANY)
+          .in("base_id", sinapiIds);
+        
+        terms.forEach(piece => {
+          compQuery = compQuery.ilike("search_text", `%${piece}%`);
+        });
+        
+        const { data: compData, error: compError } = await compQuery.limit(25);
         if (compError) throw compError;
+        
         compositions = (compData || []).map(item => ({
-          fonte:item.source,codigo:item.code,descricao:item.description,unidade:item.unit,
-          precoDes:Number(item.price_des||0),precoNao:Number(item.price_not||0),
-          dataBase:baseById.get(item.base_id)?.competence || "",uf:baseById.get(item.base_id)?.uf || "",tipoItem:"COMPOSICAO",
+          fonte: item.source,
+          codigo: item.code,
+          descricao: item.description,
+          unidade: item.unit,
+          precoDes: Number(item.price_des || 0),
+          precoNao: Number(item.price_not || 0),
+          dataBase: baseById.get(item.base_id)?.competence || "",
+          uf: baseById.get(item.base_id)?.uf || "",
+          tipoItem: "COMPOSICAO",
         }));
       }
+      
       let orse = [], warning = "";
-      const orseBases = (bases || []).filter(base=>base.source==="ORSE");
+      const orseBases = (bases || []).filter(base => base.source === "ORSE");
+      
       if (orseBases.length) {
         try {
-          const [inputGroups,compositionGroups] = await Promise.all([
-            buscarInsumos ? Promise.all(orseBases.map(base=>searchOfficialOrseInputs(term,base.competence))) : Promise.resolve([]),
-            buscarComposicoes ? Promise.all(orseBases.map(base=>searchOfficialOrse(term,base.competence))) : Promise.resolve([]),
+          const [inputGroups, compositionGroups] = await Promise.all([
+            buscarInsumos
+              ? Promise.all(orseBases.map(base => searchOfficialOrseInputs(term, base.competence)))
+              : Promise.resolve([]),
+            buscarComposicoes
+              ? Promise.all(orseBases.map(base => searchOfficialOrse(term, base.competence)))
+              : Promise.resolve([]),
           ]);
-          orse = [...inputGroups.flat().slice(0,60).map(item=>({...item,tipoItem:"INSUMO"})),
-            ...compositionGroups.flat().slice(0,60).map(item=>({...item,tipoItem:"COMPOSICAO"}))];
-        } catch (error) { warning = "A consulta de itens ORSE está temporariamente indisponível."; }
+          
+          orse = [
+            ...inputGroups.flat().slice(0, 60).map(item => ({ ...item, tipoItem: "INSUMO" })),
+            ...compositionGroups.flat().slice(0, 60).map(item => ({ ...item, tipoItem: "COMPOSICAO" })),
+          ];
+        } catch (error) {
+          warning = "A consulta de itens ORSE está temporariamente indisponível.";
+        }
       }
-      return res.status(200).json({items:[...inputs,...compositions,...orse].slice(0,100),warning});
+      
+      return res.status(200).json({
+        items: [...inputs, ...compositions, ...orse].slice(0, 100),
+        warning,
+      });
     }
 
     if (action === "composition-details") {
-      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0,8);
-      const entries = (Array.isArray(req.body?.entries)?req.body.entries:[]).slice(0,150).map(entry=>({
-        codigo:String(entry?.codigo||"").trim().replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i,"").replace(/\.0$/,"").replace(/^0+(?=\d)/,""),
-        fonte:String(entry?.fonte||"").trim().toUpperCase(),
-      })).filter(entry=>entry.codigo);
-      if (!referenceIds.length || !entries.length) return res.status(200).json({components:[]});
-      const {data:bases,error:basesError}=await db.from("budget_reference_bases").select("*")
-        .eq("company_id",COMPANY).in("id",referenceIds).eq("status","ready");
+      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, 8);
+      const entries = (Array.isArray(req.body?.entries) ? req.body.entries : [])
+        .slice(0, 150)
+        .map(entry => ({
+          codigo: String(entry?.codigo || "")
+            .trim()
+            .replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i, "")
+            .replace(/\.0$/, "")
+            .replace(/^0+(?=\d)/, ""),
+          fonte: String(entry?.fonte || "").trim().toUpperCase(),
+        }))
+        .filter(entry => entry.codigo);
+      
+      if (!referenceIds.length || !entries.length) {
+        return res.status(200).json({ components: [] });
+      }
+      
+      const { data: bases, error: basesError } = await db
+        .from("budget_reference_bases")
+        .select("*")
+        .eq("company_id", COMPANY)
+        .in("id", referenceIds)
+        .eq("status", "ready");
+      
       if (basesError) throw basesError;
-      const sinapiIds=(bases||[]).filter(base=>base.source==="SINAPI").map(base=>base.id);
-      const baseById=new Map((bases||[]).map(base=>[base.id,base]));
-      const initialSinapi=[...new Set(entries.filter(entry=>entry.fonte!=="ORSE").map(entry=>entry.codigo))];
-      const relations=[], visited=new Set();
-      let frontier=sinapiIds.length ? initialSinapi : [];
-      for(let depth=0;depth<12 && frontier.length;depth++){
-        const pending=frontier.filter(code=>!visited.has(code));
-        if(!pending.length) break;
-        pending.forEach(code=>visited.add(code));
-        const next=[];
-        for(let i=0;i<pending.length;i+=180){
-          const {data,error}=await db.from("budget_reference_components")
-            .select("base_id,source,composition_code,item_type,item_code,description,unit,coefficient,situation")
-            .eq("company_id",COMPANY).in("base_id",sinapiIds).in("composition_code",pending.slice(i,i+180)).limit(10000);
-          if(error) throw error;
-          (data||[]).forEach(row=>{
+      
+      const sinapiIds = (bases || [])
+        .filter(base => base.source === "SINAPI")
+        .map(base => base.id);
+      const baseById = new Map((bases || []).map(base => [base.id, base]));
+      const initialSinapi = [...new Set(entries
+        .filter(entry => entry.fonte !== "ORSE")
+        .map(entry => entry.codigo))];
+      
+      const relations = [];
+      const visited = new Set();
+      let frontier = sinapiIds.length ? initialSinapi : [];
+      
+      for (let depth = 0; depth < 12 && frontier.length; depth++) {
+        const pending = frontier.filter(code => !visited.has(code));
+        if (!pending.length) break;
+        
+        pending.forEach(code => visited.add(code));
+        const next = [];
+        
+        for (let i = 0; i < pending.length; i += 180) {
+          const { data, error } = await db
+            .from("budget_reference_components")
+            .select("base_id, source, composition_code, item_type, item_code, description, unit, coefficient, situation")
+            .eq("company_id", COMPANY)
+            .in("base_id", sinapiIds)
+            .in("composition_code", pending.slice(i, i + 180))
+            .limit(10000);
+          
+          if (error) throw error;
+          
+          (data || []).forEach(row => {
             relations.push(row);
-            if(row.item_type==="COMPOSICAO" && !visited.has(row.item_code)) next.push(row.item_code);
+            if (row.item_type === "COMPOSICAO" && !visited.has(row.item_code)) {
+              next.push(row.item_code);
+            }
           });
         }
-        frontier=[...new Set(next)];
+        
+        frontier = [...new Set(next)];
       }
-      const inputCodes=[...new Set(relations.filter(row=>row.item_type==="INSUMO").map(row=>row.item_code))];
-      const inputMap=new Map();
-      for(let i=0;i<inputCodes.length;i+=180){
-        const {data,error}=await db.from("budget_reference_inputs")
-          .select("base_id,code,price_des,price_not,classification")
-          .eq("company_id",COMPANY).in("base_id",sinapiIds).in("code",inputCodes.slice(i,i+180)).limit(10000);
-        if(error) throw error;
-        (data||[]).forEach(row=>inputMap.set(`${row.base_id}|${row.code}`,row));
+      
+      // Fetch input prices
+      const inputCodes = [...new Set(relations
+        .filter(row => row.item_type === "INSUMO")
+        .map(row => row.item_code))];
+      const inputMap = new Map();
+      
+      for (let i = 0; i < inputCodes.length; i += 180) {
+        const { data, error } = await db
+          .from("budget_reference_inputs")
+          .select("base_id, code, price_des, price_not, classification")
+          .eq("company_id", COMPANY)
+          .in("base_id", sinapiIds)
+          .in("code", inputCodes.slice(i, i + 180))
+          .limit(10000);
+        
+        if (error) throw error;
+        
+        (data || []).forEach(row =>
+          inputMap.set(`${row.base_id}|${row.code}`, row)
+        );
       }
-      const nestedCodes=[...new Set(relations.filter(row=>row.item_type==="COMPOSICAO").map(row=>row.item_code))];
-      const compositionPriceMap=new Map();
-      for(let i=0;i<nestedCodes.length;i+=180){
-        const {data,error}=await db.from("budget_reference_items")
-          .select("base_id,code,price_des,price_not")
-          .eq("company_id",COMPANY).in("base_id",sinapiIds).in("code",nestedCodes.slice(i,i+180)).limit(10000);
-        if(error) throw error;
-        (data||[]).forEach(row=>compositionPriceMap.set(`${row.base_id}|${row.code}`,row));
+      
+      // Fetch composition prices
+      const nestedCodes = [...new Set(relations
+        .filter(row => row.item_type === "COMPOSICAO")
+        .map(row => row.item_code))];
+      const compositionPriceMap = new Map();
+      
+      for (let i = 0; i < nestedCodes.length; i += 180) {
+        const { data, error } = await db
+          .from("budget_reference_items")
+          .select("base_id, code, price_des, price_not")
+          .eq("company_id", COMPANY)
+          .in("base_id", sinapiIds)
+          .in("code", nestedCodes.slice(i, i + 180))
+          .limit(10000);
+        
+        if (error) throw error;
+        
+        (data || []).forEach(row =>
+          compositionPriceMap.set(`${row.base_id}|${row.code}`, row)
+        );
       }
-      const sinapiComponents=relations.map(row=>{
-        const price=row.item_type==="COMPOSICAO"?compositionPriceMap.get(`${row.base_id}|${row.item_code}`):inputMap.get(`${row.base_id}|${row.item_code}`);
-        const base=baseById.get(row.base_id);
+      
+      const sinapiComponents = relations.map(row => {
+        const price = row.item_type === "COMPOSICAO"
+          ? compositionPriceMap.get(`${row.base_id}|${row.item_code}`)
+          : inputMap.get(`${row.base_id}|${row.item_code}`);
+        const base = baseById.get(row.base_id);
+        
         return {
-          fonte:"SINAPI",compositionCode:row.composition_code,itemType:row.item_type,itemCode:row.item_code,
-          descricao:row.description,unidade:row.unit,coeficiente:Number(row.coefficient||0),situacao:row.situation||"",
-          classificacao:price?.classification||"",precoDes:Number(price?.price_des||0),precoNao:Number(price?.price_not||0),
-          dataBase:base?.competence||"",uf:base?.uf||"",
+          fonte: "SINAPI",
+          compositionCode: row.composition_code,
+          itemType: row.item_type,
+          itemCode: row.item_code,
+          descricao: row.description,
+          unidade: row.unit,
+          coeficiente: Number(row.coefficient || 0),
+          situacao: row.situation || "",
+          classificacao: price?.classification || "",
+          precoDes: Number(price?.price_des || 0),
+          precoNao: Number(price?.price_not || 0),
+          dataBase: base?.competence || "",
+          uf: base?.uf || "",
         };
       });
-      const orseBases=(bases||[]).filter(base=>base.source==="ORSE");
-      const orseCodes=[...new Set(entries.filter(entry=>entry.fonte!=="SINAPI").map(entry=>entry.codigo))].slice(0,40);
-      let orseComponents=[], warning="";
-      if(orseBases.length && orseCodes.length){
-        const settled=await Promise.allSettled(orseBases.map(base=>expandOrseCompositionDetails(orseCodes,base.competence)));
-        orseComponents=settled.filter(result=>result.status==="fulfilled").flatMap(result=>result.value||[]);
-        if(settled.some(result=>result.status==="rejected")) warning="Algumas composições ORSE não puderam ser detalhadas agora.";
+      
+      const orseBases = (bases || []).filter(base => base.source === "ORSE");
+      const orseCodes = [...new Set(entries
+        .filter(entry => entry.fonte !== "SINAPI")
+        .map(entry => entry.codigo))]
+        .slice(0, 40);
+      
+      let orseComponents = [], warning = "";
+      
+      if (orseBases.length && orseCodes.length) {
+        const settled = await Promise.allSettled(
+          orseBases.map(base => expandOrseCompositionDetails(orseCodes, base.competence))
+        );
+        
+        orseComponents = settled
+          .filter(result => result.status === "fulfilled")
+          .flatMap(result => result.value || []);
+        
+        if (settled.some(result => result.status === "rejected")) {
+          warning = "Algumas composições ORSE não puderam ser detalhadas agora.";
+        }
       }
-      return res.status(200).json({components:[...sinapiComponents,...orseComponents],warning});
+      
+      return res.status(200).json({
+        components: [...sinapiComponents, ...orseComponents],
+        warning,
+      });
     }
 
     if (action === "search") {

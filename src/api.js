@@ -17,12 +17,18 @@ const ROTA = "/api/data";
 let sessao = { userId: null, pin: null };
 let ultimoUpdatedAt = null;
 
-export const abrirSessao = (userId, pin) => { sessao = { userId, pin }; };
+export const abrirSessao = (userId, pin) => { 
+  sessao = { userId, pin }; 
+};
+
 export const fecharSessao = () => {
   sessao = { userId: null, pin: null };
   ultimoUpdatedAt = null;
 };
-export const temSessao = () => !!(sessao.userId && sessao.pin);
+
+export const temSessao = () => {
+  return sessao.userId !== null && sessao.pin !== null;
+};
 
 const chamar = async (body) => {
   const r = await fetch(ROTA, {

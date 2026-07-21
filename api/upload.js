@@ -29,7 +29,7 @@ const db = createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const sha256 = (s) => crypto.createHash("sha256").update(String(s)).digest("hex");
+const sha256 = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
 
 // Confere o PIN contra o hash guardado no dataset (igual ao /api/data).
 const conferirPin = async (userId, pin) => {
@@ -39,13 +39,19 @@ const conferirPin = async (userId, pin) => {
     .eq("company_id", COMPANY)
     .eq("key", KEY)
     .maybeSingle();
+  
   if (error || !data) return null;
+  
   const payload = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
   const u = (payload?.usuarios || []).find(x => x.id === userId && x.active !== false);
+  
   if (!u) return null;
+  
   const a = Buffer.from(sha256(pin));
   const b = Buffer.from(String(u.pin || ""));
+  
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  
   return u;
 };
 
