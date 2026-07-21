@@ -2414,6 +2414,7 @@ const normalizeData = incoming => {
         url: f.url || "", legenda: f.legenda || "", path: f.path || "",
       })).filter(f => f.url) : [],
       responsavel: r.responsavel || "",
+      responsavelId:r.responsavelId || (d.usuarios||[]).find(u=>u.role==="engenheiro"&&u.nome===r.responsavel)?.id || "",
       criadoEm:    r.criadoEm    || "",
       atualizadoEm:r.atualizadoEm|| "",
       concluidoEm: r.concluidoEm || "",
@@ -24478,7 +24479,6 @@ function DiarioObra({ data, update, showToast }) {
   const [buscaRdo, setBuscaRdo] = useState("");
   const [filtroObraRdo, setFiltroObraRdo] = useState("all");
   const [filtroStatusRdo, setFiltroStatusRdo] = useState("all");
-  const [filtroCondicaoRdo, setFiltroCondicaoRdo] = useState("all");
   const [filtroClimaRdo, setFiltroClimaRdo] = useState("all");
   const [inicioRdo, setInicioRdo] = useState("");
   const [fimRdo, setFimRdo] = useState("");
@@ -24497,8 +24497,7 @@ function DiarioObra({ data, update, showToast }) {
   const rdo = rdoExistente || {
     id: "", obraId, data: dataRDO,
     codigo: Math.max(0,...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1,
-    status:"preparacao", praticabilidade:"praticavel", periodos:["manha","tarde"],
-    horarioInicio:"", horarioFim:"", descricao:"", pendencias:"", comentarios:"", anexos:[],
+    status:"preparacao", descricao:"", pendencias:"", comentarios:"", anexos:[],
     clima: { manha: "bom", tarde: "bom", noite: "bom" },
     servicos: [], efetivo: [], presencas: [], terceirizados: [], equipamentos: [],
     ocorrencias: "", fotos: [], responsavel: "",
@@ -24528,7 +24527,7 @@ function DiarioObra({ data, update, showToast }) {
   });
 
   const setOcorrencias = (txt) => salvarRDO(r => { r.ocorrencias = txt; return r; });
-  const setResponsavel = (txt) => salvarRDO(r => { r.responsavel = txt; return r; });
+  const setResponsavelId = id => {const eng=(data.usuarios||[]).find(u=>u.id===id);salvarRDO(r=>({...r,responsavelId:id,responsavel:eng?.nome||"",atualizadoEm:new Date().toISOString()}));};
   const setCampoRdo = (campo, valor) => salvarRDO(r => ({...r,[campo]:valor,atualizadoEm:new Date().toISOString()}));
 
   const abrirRdo = item => { setObraId(item.obraId); setDataRDO(item.data); setModoRdo("editor"); };
@@ -24549,15 +24548,18 @@ function DiarioObra({ data, update, showToast }) {
     const obra=(data.obras||[]).find(o=>o.id===item.obraId);
     const equipe=(item.presencas||[]).filter(p=>p.status!=="falta").map(p=>(data.employees||[]).find(e=>e.id===p.empId)?.name).filter(Boolean);
     const fotos=(item.fotos||[]).map(f=>`<figure><img src="${escapeHtml(f.url)}"><figcaption>${escapeHtml(f.legenda||"")}</figcaption></figure>`).join("");
-    const html=`<!doctype html><html><head><meta charset="utf-8"><title>RDO ${item.codigo}</title><style>body{font-family:Arial;margin:32px;color:#222}header{border-bottom:3px solid #d4a91e;padding-bottom:12px}h1{font-size:22px}h2{font-size:14px;margin-top:20px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px}.box{white-space:pre-wrap;background:#f6f6f6;padding:10px}figure{display:inline-block;width:30%;margin:1%;vertical-align:top}img{width:100%;height:150px;object-fit:cover}figcaption{font-size:10px}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><header><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")} · RDO ${item.codigo}</h1><b>${escapeHtml(obra?.name||"")}</b><p>${escapeHtml(obra?.address||"")}</p></header><div class="meta"><p><b>Data:</b> ${fmtDate(item.data)}</p><p><b>Status:</b> ${item.status==="concluido"?"Concluído":"Em preparação"}</p><p><b>Condição:</b> ${escapeHtml(item.praticabilidade)}</p><p><b>Horário:</b> ${escapeHtml(item.horarioInicio||"-")} às ${escapeHtml(item.horarioFim||"-")}</p><p><b>Responsável:</b> ${escapeHtml(item.responsavel||"-")}</p><p><b>Equipe:</b> ${equipe.length}</p></div><h2>Descrição e atividades</h2><div class="box">${escapeHtml(item.descricao||"")}</div><h2>Ocorrências</h2><div class="box">${escapeHtml(item.ocorrencias||"")}</div><h2>Pendências</h2><div class="box">${escapeHtml(item.pendencias||"")}</div>${fotos?`<h2>Registro fotográfico</h2>${fotos}`:""}</body></html>`;
+    const clima=Object.entries(item.clima||{}).map(([p,v])=>`${p}: ${CLIMA_OPC.find(x=>x.v===v)?.l||v}`).join(" · ");
+    const html=`<!doctype html><html><head><meta charset="utf-8"><title>RDO ${item.codigo}</title><style>body{font-family:Arial;margin:32px;color:#222}header{border-bottom:3px solid #d4a91e;padding-bottom:12px}h1{font-size:22px}h2{font-size:14px;margin-top:20px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:12px}.box{white-space:pre-wrap;background:#f6f6f6;padding:10px}figure{display:inline-block;width:30%;margin:1%;vertical-align:top}img{width:100%;height:150px;object-fit:cover}figcaption{font-size:10px}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><header><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")} · RDO ${item.codigo}</h1><b>${escapeHtml(obra?.name||"")}</b><p>${escapeHtml(obra?.address||"")}</p></header><div class="meta"><p><b>Data:</b> ${fmtDate(item.data)}</p><p><b>Status:</b> ${item.status==="concluido"?"Concluído":"Em preparação"}</p><p><b>Clima:</b> ${escapeHtml(clima)}</p><p><b>Responsável:</b> ${escapeHtml(item.responsavel||"-")}</p><p><b>Equipe:</b> ${equipe.length}</p></div><h2>Descrição e atividades</h2><div class="box">${escapeHtml(item.descricao||"")}</div><h2>Ocorrências</h2><div class="box">${escapeHtml(item.ocorrencias||"")}</div><h2>Pendências</h2><div class="box">${escapeHtml(item.pendencias||"")}</div>${fotos?`<h2>Registro fotográfico</h2>${fotos}`:""}</body></html>`;
     const w=window.open("","_blank"); if(w){w.opener=null;w.document.write(html);w.document.close();}else showToast?.("O navegador bloqueou a janela do relatório. Permita pop-ups para este site.","error");
   };
 
   const rdosFiltrados=useMemo(()=>[...(data.rdos||[])].filter(item=>{
     const obra=(data.obras||[]).find(o=>o.id===item.obraId); const q=buscaRdo.toLocaleLowerCase("pt-BR");
     const climas=Object.values(item.clima||{});
-    return (filtroObraRdo==="all"||item.obraId===filtroObraRdo)&&(filtroStatusRdo==="all"||item.status===filtroStatusRdo)&&(filtroCondicaoRdo==="all"||item.praticabilidade===filtroCondicaoRdo)&&(filtroClimaRdo==="all"||climas.includes(filtroClimaRdo))&&(!inicioRdo||item.data>=inicioRdo)&&(!fimRdo||item.data<=fimRdo)&&(!q||String(item.codigo||"").includes(q)||String(item.descricao||item.ocorrencias||item.pendencias||"").toLocaleLowerCase("pt-BR").includes(q)||String(obra?.name||"").toLocaleLowerCase("pt-BR").includes(q));
-  }).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo||0)-Number(a.codigo||0)),[data.rdos,data.obras,buscaRdo,filtroObraRdo,filtroStatusRdo,filtroCondicaoRdo,filtroClimaRdo,inicioRdo,fimRdo]);
+    return (filtroObraRdo==="all"||item.obraId===filtroObraRdo)&&(filtroStatusRdo==="all"||item.status===filtroStatusRdo)&&(filtroClimaRdo==="all"||climas.includes(filtroClimaRdo))&&(!inicioRdo||item.data>=inicioRdo)&&(!fimRdo||item.data<=fimRdo)&&(!q||String(item.codigo||"").includes(q)||String(item.descricao||item.ocorrencias||item.pendencias||"").toLocaleLowerCase("pt-BR").includes(q)||String(obra?.name||"").toLocaleLowerCase("pt-BR").includes(q));
+  }).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo||0)-Number(a.codigo||0)),[data.rdos,data.obras,buscaRdo,filtroObraRdo,filtroStatusRdo,filtroClimaRdo,inicioRdo,fimRdo]);
+
+  const engenheirosCampo=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro"&&(!u.obraId||u.obraId===obraId)).sort((a,b)=>(a.nome||"").localeCompare(b.nome||"","pt-BR"));
 
   // ---- Equipamentos na obra (do cadastro de Equipamentos) ----
   // Mostra os equipamentos disponíveis + os que já estão nesta obra. Marcar
@@ -24686,7 +24688,6 @@ function DiarioObra({ data, update, showToast }) {
         <Inp value={fimRdo} onChange={setFimRdo} type="date" label="Data final"/>
         <Sel value={filtroObraRdo} onChange={setFiltroObraRdo} label="Obra" options={[{v:"all",l:"Todas"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
         <Sel value={filtroStatusRdo} onChange={setFiltroStatusRdo} label="Status" options={[{v:"all",l:"Todos"},{v:"preparacao",l:"Em preparação"},{v:"concluido",l:"Concluído"}]}/>
-        <Sel value={filtroCondicaoRdo} onChange={setFiltroCondicaoRdo} label="Condição" options={[{v:"all",l:"Todas"},{v:"praticavel",l:"Praticável"},{v:"parcial",l:"Parcial"},{v:"impraticavel",l:"Impraticável"}]}/>
         <Sel value={filtroClimaRdo} onChange={setFiltroClimaRdo} label="Clima" options={[{v:"all",l:"Todos"},...CLIMA_OPC.map(o=>({v:o.v,l:o.l}))]}/>
         <Inp value={buscaRdo} onChange={setBuscaRdo} label="Pesquisar" placeholder="Código, obra ou descrição"/>
       </div>
@@ -24730,16 +24731,6 @@ function DiarioObra({ data, update, showToast }) {
         </div>
       </div>
 
-      <Bloco titulo="Dados da visita">
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:8}}>
-          <Inp label="Início" type="time" value={rdo.horarioInicio||""} onChange={v=>setCampoRdo("horarioInicio",v)}/>
-          <Inp label="Fim" type="time" value={rdo.horarioFim||""} onChange={v=>setCampoRdo("horarioFim",v)}/>
-          <Sel label="Condição de trabalho" value={rdo.praticabilidade||"praticavel"} onChange={v=>setCampoRdo("praticabilidade",v)} options={[{v:"praticavel",l:"Praticável"},{v:"parcial",l:"Parcialmente praticável"},{v:"impraticavel",l:"Impraticável"}]}/>
-          <Inp label="Responsável técnico" value={rdo.responsavel||""} onChange={setResponsavel} placeholder="Engenheiro / encarregado"/>
-        </div>
-        <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:9}}>{[["manha","Manhã"],["tarde","Tarde"],["noite","Noite"]].map(([id,l])=><label key={id} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:C.text}}><input type="checkbox" checked={(rdo.periodos||[]).includes(id)} onChange={e=>setCampoRdo("periodos",e.target.checked?[...(rdo.periodos||[]),id]:(rdo.periodos||[]).filter(x=>x!==id))}/>{l} trabalhada</label>)}</div>
-      </Bloco>
-
       <Bloco titulo="Descrição detalhada e atividades planejadas">
         <textarea value={rdo.descricao||""} onChange={e=>setCampoRdo("descricao",e.target.value)} placeholder="Objetivo da visita, serviços planejados, verificações, decisões e evolução observada..." rows={5} style={{width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card,color:C.text,fontSize:12.5,fontFamily:"inherit",resize:"vertical"}}/>
       </Bloco>
@@ -24755,6 +24746,10 @@ function DiarioObra({ data, update, showToast }) {
 
       {/* CLIMA */}
       <Bloco titulo="Clima do dia">
+        <div style={{marginBottom:9}}>
+          <Sel label="Responsável técnico · Engenheiro de Campo" value={rdo.responsavelId||""} onChange={setResponsavelId} options={[{v:"",l:engenheirosCampo.length?"Selecione o engenheiro":"Nenhum engenheiro de campo cadastrado"},...engenheirosCampo.map(u=>({v:u.id,l:u.nome}))]}/>
+          {!engenheirosCampo.length&&<p style={{fontSize:10,color:C.orange,marginTop:4}}>Cadastre ou altere um usuário para o perfil “Engenheiro de Campo” em Usuários.</p>}
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
           {[["manha", "Manha"], ["tarde", "Tarde"], ["noite", "Noite"]].map(([p, lbl]) => (
             <div key={p}>
@@ -24985,12 +24980,6 @@ function DiarioObra({ data, update, showToast }) {
                    disabled={subindo} style={{ display: "none" }} />
           </label>
         </div>
-      </Bloco>
-
-      {/* RESPONSAVEL */}
-      <Bloco titulo="Responsavel pelo registro">
-        <Inp value={rdo.responsavel} onChange={setResponsavel}
-             placeholder="Nome do engenheiro / encarregado" />
       </Bloco>
 
       {/* MODAL SERVICO */}
