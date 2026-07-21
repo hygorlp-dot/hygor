@@ -25262,9 +25262,9 @@ function Conferencia({ data, update, showToast, currentUser }) {
   const obraAtual=(data.obras||[]).find(o=>o.id===(conferencia?.obraId||obraFiltro));
   const orc=orcamentoDaObra(data,conferencia?.obraId||obraFiltro);
   const etapas=orc?.etapas||[];
-  const etapasNivel1=new Set(etapas.filter(e=>!e.parentId).map(e=>e.id));
-  const itensOrc=(orc?.itens||[]).filter(i=>i.tipo!=="titulo"&&etapasNivel1.has(i.etapaId));
+  const etapasNivel1=etapas.filter(e=>!e.parentId);
   const nomeEtapa=id=>etapas.find(e=>e.id===id)?.nome||"Sem etapa";
+  const etapaNivel1Id=id=>{let atual=etapas.find(e=>e.id===id);const visitados=new Set();while(atual?.parentId&&!visitados.has(atual.id)){visitados.add(atual.id);atual=etapas.find(e=>e.id===atual.parentId);}return atual?.id||"";};
   const impactoMeta=v=>CONFERENCIA_IMPACTOS.find(x=>x.v===v)||CONFERENCIA_IMPACTOS[1];
 
   const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
@@ -25305,19 +25305,18 @@ function Conferencia({ data, update, showToast, currentUser }) {
     setSelecionadaId(""); showToast?.("Conferência excluída.");
   };
 
-  const abrirPendencia=p=>setPendenciaForm(p?{...p,fotos:[...(p.fotos||[])]}:{
+  const abrirPendencia=p=>setPendenciaForm(p?{...p,etapaId:etapaNivel1Id(p.etapaId),fotos:[...(p.fotos||[])]}:{
     id:"",itemOrcamentoId:"",etapaId:"",descricao:"",categoria:"inconformidade",impacto:"medio",
     responsavelAjusteId:"",responsavelAjusteNome:"",ajusteNecessario:"",prazo:"",status:"aberta",fotos:[],criadoEm:"",resolvidoEm:"",
   });
   const salvarPendencia=form=>{
     if(!ehAdmin){showToast?.("Somente o administrador pode criar ou editar pendências.","error");return;}
-    if(!form.itemOrcamentoId){showToast?.("Vincule a pendência a um item do orçamento.","error");return;}
+    if(!form.etapaId){showToast?.("Vincule a pendência a uma etapa de nível 1 do orçamento.","error");return;}
     if(!form.descricao.trim()||!form.ajusteNecessario.trim()){showToast?.("Descreva o problema e o ajuste necessário.","error");return;}
     if(!form.responsavelAjusteId){showToast?.("Defina quem será responsável pelo ajuste.","error");return;}
-    const item=itensOrc.find(i=>i.id===form.itemOrcamentoId);
     const resp=responsaveis.find(r=>r.id===form.responsavelAjusteId);
     const agora=new Date().toISOString();
-    const pronta={...form,id:form.id||uid(),etapaId:item?.etapaId||form.etapaId||"",responsavelAjusteNome:resp?.nome||form.responsavelAjusteNome||"",criadoEm:form.criadoEm||agora,resolvidoEm:form.status==="resolvida"?(form.resolvidoEm||agora):""};
+    const pronta={...form,id:form.id||uid(),itemOrcamentoId:"",responsavelAjusteNome:resp?.nome||form.responsavelAjusteNome||"",criadoEm:form.criadoEm||agora,resolvidoEm:form.status==="resolvida"?(form.resolvidoEm||agora):""};
     atualizar(conferencia.id,c=>({...c,pendencias:form.id?(c.pendencias||[]).map(p=>p.id===form.id?pronta:p):[...(c.pendencias||[]),pronta]}));
     setPendenciaForm(null); showToast?.(form.id?"Pendência atualizada.":"Pendência registrada.");
   };
@@ -25378,14 +25377,14 @@ function Conferencia({ data, update, showToast, currentUser }) {
       <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:5}}>SITUAÇÃO DOS AJUSTES</p><div style={{height:38,border:`1px solid ${abertas?C.orange:C.green}`,borderRadius:6,display:"flex",alignItems:"center",padding:"0 10px",fontSize:12,fontWeight:800,color:abertas?C.orange:C.green}}>{abertas?`${abertas} pendência(s) aberta(s)`:"Tudo resolvido"}</div></div>
     </div>
     <Inp label="Observações gerais" multiline value={conferencia.observacoesGerais} onChange={v=>ehAdmin&&atualizar(conferencia.id,c=>({...c,observacoesGerais:v}))} disabled={!ehAdmin} placeholder="Avaliação geral da qualidade, critérios verificados e orientações..."/>
-    <Bloco titulo={`Pendências técnicas (${(conferencia.pendencias||[]).length})`} acao={ehAdmin?<Btn size="sm" onClick={()=>abrirPendencia(null)} disabled={!orc||!itensOrc.length}><Ic n="plus"/> Pendência</Btn>:null}>
+    <Bloco titulo={`Pendências técnicas (${(conferencia.pendencias||[]).length})`} acao={ehAdmin?<Btn size="sm" onClick={()=>abrirPendencia(null)} disabled={!orc||!etapasNivel1.length}><Ic n="plus"/> Pendência</Btn>:null}>
       {!orc&&<div style={{padding:12,borderRadius:7,background:`${C.orange}10`,color:C.orange,fontSize:12}}>Esta obra ainda não possui orçamento vinculado. Crie o orçamento para registrar achados rastreáveis.</div>}
-      {orc&&!itensOrc.length&&<div style={{padding:12,borderRadius:7,background:`${C.orange}10`,color:C.orange,fontSize:12}}>O orçamento não possui itens diretamente vinculados às etapas de nível 1.</div>}
+      {orc&&!etapasNivel1.length&&<div style={{padding:12,borderRadius:7,background:`${C.orange}10`,color:C.orange,fontSize:12}}>O orçamento não possui etapas de nível 1.</div>}
       {orc&&!(conferencia.pendencias||[]).length&&<p style={{fontSize:12,color:C.muted}}>Nenhuma patologia ou inconformidade registrada.</p>}
       <div style={{display:"flex",flexDirection:"column",gap:8}}>{(conferencia.pendencias||[]).map(p=>{
-        const item=itensOrc.find(i=>i.id===p.itemOrcamentoId); const imp=impactoMeta(p.impacto);
+        const imp=impactoMeta(p.impacto);
         return <div key={p.id} style={{border:`1px solid ${p.status==="resolvida"?C.border:imp.c}`,borderLeft:`4px solid ${imp.c}`,borderRadius:8,padding:11,background:p.status==="resolvida"?C.surface:C.card}}>
-          <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><Badge color={imp.c}>{imp.l}</Badge><Badge color={C.blue}>{CONFERENCIA_CATEGORIAS.find(x=>x.v===p.categoria)?.l}</Badge><span style={{fontSize:10,color:C.muted}}>{nomeEtapa(p.etapaId)}</span></div><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:7}}>{p.descricao}</p><p style={{fontSize:10.5,color:C.muted,marginTop:4}}>{item?.codigo?`${item.codigo} · `:""}{item?.descricao||"Item do orçamento não encontrado"}</p></div>{ehAdmin&&<div style={{display:"flex",gap:5,alignItems:"flex-start"}}><button onClick={()=>abrirPendencia(p)} title="Editar" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer"}}><Ic n="edit"/></button><button onClick={()=>removerPendencia(p.id)} title="Excluir" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",color:C.red}}><Ic n="trash"/></button></div>}</div>
+          <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><Badge color={imp.c}>{imp.l}</Badge><Badge color={C.blue}>{CONFERENCIA_CATEGORIAS.find(x=>x.v===p.categoria)?.l}</Badge><span style={{fontSize:10,color:C.muted}}>{nomeEtapa(p.etapaId)}</span></div><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:7}}>{p.descricao}</p><p style={{fontSize:10.5,color:C.muted,marginTop:4}}>Etapa principal do orçamento: <strong>{nomeEtapa(p.etapaId)}</strong></p></div>{ehAdmin&&<div style={{display:"flex",gap:5,alignItems:"flex-start"}}><button onClick={()=>abrirPendencia(p)} title="Editar" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer"}}><Ic n="edit"/></button><button onClick={()=>removerPendencia(p.id)} title="Excluir" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",color:C.red}}><Ic n="trash"/></button></div>}</div>
           <p style={{fontSize:11.5,color:C.text,marginTop:8}}><strong>Ajuste:</strong> {p.ajusteNecessario}</p><p style={{fontSize:10.5,color:C.muted,marginTop:5}}>Responsável: <strong>{p.responsavelAjusteNome||"—"}</strong>{p.prazo?` · Prazo: ${fmtDate(p.prazo)}`:""}</p>
           {(p.fotos||[]).length>0&&<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>{p.fotos.map((f,idx)=><div key={`${f.url}-${idx}`} style={{position:"relative"}}><img src={f.url} alt={f.legenda||"Evidência"} style={{width:58,height:58,objectFit:"cover",borderRadius:5,border:`1px solid ${f.tipo==="ajuste"?C.green:C.border}`}}/>{f.tipo==="ajuste"&&<span style={{position:"absolute",left:3,bottom:3,padding:"2px 4px",borderRadius:3,background:C.green,color:"white",fontSize:7,fontWeight:900}}>AJUSTE</span>}</div>)}</div>}
           {!ehAdmin&&currentUser?.id===conferencia.responsavelId&&<label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:9,border:`1px solid ${C.blue}`,borderRadius:6,padding:"6px 9px",color:C.blue,fontSize:10,fontWeight:800,cursor:subindoAjusteId===p.id?"wait":"pointer",opacity:subindoAjusteId===p.id?0.65:1}}><Ic n="camera"/>{subindoAjusteId===p.id?"Enviando...":"Adicionar foto do ajuste"}<input type="file" accept="image/*" capture="environment" disabled={subindoAjusteId===p.id} onChange={e=>{const file=e.target.files?.[0];enviarFotoAjuste(p,file);e.target.value="";}} style={{display:"none"}}/></label>}
@@ -25394,19 +25393,16 @@ function Conferencia({ data, update, showToast, currentUser }) {
       })}</div>
     </Bloco>
     {pendenciaForm&&(
-      <ModalPendenciaConferencia form={pendenciaForm} setForm={setPendenciaForm} itens={itensOrc} etapas={etapas} responsaveis={responsaveis} obra={obraAtual} conferencia={conferencia} onSalvar={salvarPendencia} onClose={()=>setPendenciaForm(null)} showToast={showToast}/>
+      <ModalPendenciaConferencia form={pendenciaForm} setForm={setPendenciaForm} etapasNivel1={etapasNivel1} responsaveis={responsaveis} obra={obraAtual} conferencia={conferencia} onSalvar={salvarPendencia} onClose={()=>setPendenciaForm(null)} showToast={showToast}/>
     )}
   </div>;
 }
 
-function ModalPendenciaConferencia({form,setForm,itens,etapas,responsaveis,obra,conferencia,onSalvar,onClose,showToast}){
+function ModalPendenciaConferencia({form,setForm,etapasNivel1,responsaveis,obra,conferencia,onSalvar,onClose,showToast}){
   const [subindo,setSubindo]=useState(false);
-  const item=itens.find(i=>i.id===form.itemOrcamentoId);
-  const etapaNome=etapas.find(e=>e.id===item?.etapaId)?.nome||"";
   const subirFoto=async e=>{const file=e.target.files?.[0];if(!file)return;setSubindo(true);try{const dataUrl=await comprimirImagem(file);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`conferencia-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio.");setForm(f=>({...f,fotos:[...(f.fotos||[]),{url:resp.url,legenda:"",path:resp.path||"",tipo:"registro",enviadoPorId:"",enviadoPor:"",criadoEm:new Date().toISOString()}]}));showToast?.("Evidência adicionada.");}catch(err){showToast?.(err.message||"Falha ao enviar foto.","error");}finally{setSubindo(false);e.target.value="";}};
   return <Modal title={form.id?"Editar pendência":"Nova pendência técnica"} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
-    <Sel label="Item do orçamento — nível 1 *" value={form.itemOrcamentoId} onChange={v=>setForm(f=>({...f,itemOrcamentoId:v,etapaId:itens.find(i=>i.id===v)?.etapaId||""}))} options={[{v:"",l:"Selecione o serviço conferido..."},...itens.map(i=>({v:i.id,l:`${i.codigo?i.codigo+" · ":""}${i.descricao}`}))]}/>
-    {item&&<div style={{padding:"7px 10px",borderRadius:6,background:`${C.blue}0C`,fontSize:10.5,color:C.blue}}>Etapa herdada: <strong>{etapaNome||"Sem etapa"}</strong></div>}
+    <Sel label="Etapa do orçamento — nível 1 *" value={form.etapaId} onChange={v=>setForm(f=>({...f,itemOrcamentoId:"",etapaId:v}))} options={[{v:"",l:"Selecione a etapa principal..."},...etapasNivel1.map((etapa,index)=>({v:etapa.id,l:`${index+1}. ${etapa.nome}`}))]}/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:8}}><Sel label="Categoria" value={form.categoria} onChange={v=>setForm(f=>({...f,categoria:v}))} options={CONFERENCIA_CATEGORIAS}/><Sel label="Impacto" value={form.impacto} onChange={v=>setForm(f=>({...f,impacto:v}))} options={CONFERENCIA_IMPACTOS}/><Sel label="Status" value={form.status} onChange={v=>setForm(f=>({...f,status:v}))} options={CONFERENCIA_STATUS}/></div>
     <Inp label="Patologia / inconformidade encontrada *" multiline value={form.descricao} onChange={v=>setForm(f=>({...f,descricao:v}))} placeholder="Descreva objetivamente o que foi verificado, localização e dimensão..."/>
     <Inp label="Ajuste necessário *" multiline value={form.ajusteNecessario} onChange={v=>setForm(f=>({...f,ajusteNecessario:v}))} placeholder="Defina a correção, critério de aceite e resultado esperado..."/>
