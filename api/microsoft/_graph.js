@@ -78,7 +78,7 @@ export const getOrCreateFolder = async (token, driveId, parentId, name) => {
 export const workspace = async (token, obraName) => {
   const root=await rootItem(token); const driveId=root.parentReference.driveId;
   const obra=await getOrCreateFolder(token,driveId,root.id,obraName);
-  const names=["01 - Contratos","02 - Projetos","03 - Documentos","04 - Diário de Obras","05 - Fotos","06 - Capa da Obra"];
+  const names=["01 - Contratos","02 - Projetos","03 - Documentos","04 - Diário de Obras","05 - Fotos","06 - Capa da Obra","07 - Conferências Técnicas"];
   const folders={}; for(const name of names){folders[name]=await getOrCreateFolder(token,driveId,obra.id,name);}
   return {driveId,folderId:obra.id,webUrl:obra.webUrl,folders:Object.fromEntries(Object.entries(folders).map(([k,v])=>[k,v.id]))};
 };

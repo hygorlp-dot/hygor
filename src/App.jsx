@@ -1401,6 +1401,7 @@ const DEFAULT = () => ({
   despesasEmpresa: [],   // despesas fixas e variáveis da empresa
   caixaObra: [],         // caixa de obra (aportes do cliente + gastos)
   orcamentos: [],        // orçamentos (itens com preço congelado na data-base)
+  conferencias: [],      // vistorias técnicas e pendências rastreadas por obra
   baseFavoritos: [],     // composições usadas com frequência (base curada)
   solicitacoesCompra: [],// requisições da engenharia/obra para o setor de compras
   comercial: {
@@ -2350,6 +2351,40 @@ const normalizeData = incoming => {
       })).filter(b => b.tarefaId) : [],
       baselineData: p.baselineData || "",
     })) : [],
+    // Conferencias tecnicas. Cada vistoria pertence a uma obra e suas
+    // pendencias apontam para itens reais do orcamento dessa obra.
+    conferencias: Array.isArray(d.conferencias) ? d.conferencias.map((c, conferenciaIndex) => ({
+      id: c.id || uid(),
+      obraId: c.obraId || "",
+      data: c.data || "",
+      codigo: Number(c.codigo || conferenciaIndex + 1),
+      responsavelId: c.responsavelId || "",
+      responsavel: c.responsavel || "",
+      status: c.status === "concluida" ? "concluida" : "em_andamento",
+      notaGeral: Math.max(0, Math.min(10, Number(c.notaGeral || 0))),
+      observacoesGerais: c.observacoesGerais || "",
+      pendencias: Array.isArray(c.pendencias) ? c.pendencias.map(p => ({
+        id: p.id || uid(),
+        itemOrcamentoId: p.itemOrcamentoId || "",
+        etapaId: p.etapaId || "",
+        descricao: p.descricao || "",
+        categoria: ["patologia","inconformidade","pendencia"].includes(p.categoria) ? p.categoria : "pendencia",
+        impacto: ["baixo","medio","alto","critico"].includes(p.impacto) ? p.impacto : "medio",
+        responsavelAjusteId: p.responsavelAjusteId || "",
+        responsavelAjusteNome: p.responsavelAjusteNome || "",
+        ajusteNecessario: p.ajusteNecessario || "",
+        prazo: p.prazo || "",
+        status: ["aberta","em_ajuste","resolvida"].includes(p.status) ? p.status : "aberta",
+        fotos: Array.isArray(p.fotos) ? p.fotos.map(f => ({
+          url: f.url || "", legenda: f.legenda || "", path: f.path || "",
+        })).filter(f => f.url) : [],
+        criadoEm: p.criadoEm || "",
+        resolvidoEm: p.resolvidoEm || "",
+      })) : [],
+      criadoEm: c.criadoEm || "",
+      atualizadoEm: c.atualizadoEm || "",
+      concluidoEm: c.concluidoEm || "",
+    })) : [],
     // Diario de obra (RDO). Um registro por dia/obra. As fotos guardam so a
     // URL (o arquivo vive no Storage). Os servicos executados apontam para
     // tarefas do planejamento e alimentam a medicao de evolucao.
@@ -2432,6 +2467,7 @@ const normalizeData = incoming => {
       accessTabs:Array.isArray(u.accessTabs)?[...new Set([
         ...u.accessTabs,
         ...((u.role==="rh")?["ponto","ponto_geral","folha"]:(u.role==="financeiro")?["ponto_geral","folha"]:[]),
+        ...((u.role==="engenheiro")?["conferencia"]:[]),
       ])]:null,
       email:    u.email    || "",
       maxDesconto:Number(u.maxDesconto ?? 10),
@@ -12059,8 +12095,8 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","obras","orc","plan","rdo","med","est","cmp","suprimentos","ponto","ponto_geral","equipe","terc","equip","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
-  engenheiro:  ["home","obras","orc","plan","rdo","med","est","cmp","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
+  admin:       ["home","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","ponto_geral","equipe","terc","equip","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
+  engenheiro:  ["home","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","cmp","suprimentos","est","cad","ia"],
   rh:          ["home","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
   financeiro:  ["home","ponto_geral","equipe","equip","folha","resc","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
@@ -12070,7 +12106,7 @@ const ROLE_TABS = {
 
 const ACCESS_SECTORS=[
   {id:"engenharia",label:"Engenharia",color:"#1565C0",tabs:[
-    ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["rdo","Diário de obra"],["med","Medição técnica"],
+    ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["rdo","Diário de obra"],["conferencia","Conferência"],["med","Medição técnica"],
     ["ponto","Ponto"],["equipe","Equipe"],["terc","Terceiros"],["equip","Equipamentos"],["licenca","Licenciamento"],["obsoletos","Obsoletos"],
   ]},
   {id:"compras",label:"Compras",color:"#D97706",tabs:[
@@ -24432,22 +24468,23 @@ function ModalMarco({ marco, onSalvar, onRemover, onClose }) {
 //  - Ocorrencias e fotos (Storage - guarda so a URL)
 // ==============================================================
 
-// Comprime a imagem no cliente ANTES de subir: redimensiona para no maximo
-// 1280px no maior lado e exporta JPEG ~0.7. Uma foto de obra sai de ~4MB
-// para ~200-400KB - o suficiente para o Storage sem pesar.
+// Comprime a imagem no cliente ANTES de subir: recorta o centro em 1:1,
+// limita o quadrado a 1280px e exporta JPEG ~0.7. Assim o arquivo salvo (e
+// nao apenas a miniatura) ja nasce padronizado para a grade e o relatorio.
 const comprimirImagem = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader();
   reader.onload = () => {
     const img = new Image();
     img.onload = () => {
       const MAX = 1280;
-      let { width, height } = img;
-      if (width > height && width > MAX) { height = height * MAX / width; width = MAX; }
-      else if (height > MAX) { width = width * MAX / height; height = MAX; }
+      const ladoOrigem = Math.min(img.width, img.height);
+      const origemX = (img.width - ladoOrigem) / 2;
+      const origemY = (img.height - ladoOrigem) / 2;
+      const ladoDestino = Math.min(ladoOrigem, MAX);
       const canvas = document.createElement("canvas");
-      canvas.width = width; canvas.height = height;
+      canvas.width = ladoDestino; canvas.height = ladoDestino;
       const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, width, height);
+      ctx.drawImage(img, origemX, origemY, ladoOrigem, ladoOrigem, 0, 0, ladoDestino, ladoDestino);
       resolve(canvas.toDataURL("image/jpeg", 0.7));
     };
     img.onerror = reject;
@@ -25001,6 +25038,159 @@ function DiarioObra({ data, update, showToast, currentUser }) {
       )}
     </div>
   );
+}
+
+// ==============================================================
+//  CONFERENCIA TECNICA
+//  Vistoria estruturada: cada achado nasce ligado ao orcamento, recebe
+//  responsavel, correcao, prazo, impacto, evidencias e ciclo de resolucao.
+// ==============================================================
+const CONFERENCIA_CATEGORIAS = [
+  {v:"patologia",l:"Patologia"},{v:"inconformidade",l:"Inconformidade"},{v:"pendencia",l:"Pendência"},
+];
+const CONFERENCIA_IMPACTOS = [
+  {v:"baixo",l:"Baixo",c:C.green},{v:"medio",l:"Médio",c:C.orange},
+  {v:"alto",l:"Alto",c:C.red},{v:"critico",l:"Crítico",c:"#8B1E1E"},
+];
+const CONFERENCIA_STATUS = [
+  {v:"aberta",l:"Aberta"},{v:"em_ajuste",l:"Em ajuste"},{v:"resolvida",l:"Resolvida"},
+];
+
+function Conferencia({ data, update, showToast, currentUser }) {
+  const { cols } = useBreakpoint();
+  const obras=(data.obras||[]).filter(o=>o.status!=="done");
+  const [obraFiltro,setObraFiltro]=useState(obras[0]?.id||"");
+  const [selecionadaId,setSelecionadaId]=useState("");
+  const [pendenciaForm,setPendenciaForm]=useState(null);
+  const conferencia=(data.conferencias||[]).find(c=>c.id===selecionadaId);
+  const obraAtual=(data.obras||[]).find(o=>o.id===(conferencia?.obraId||obraFiltro));
+  const orc=orcamentoDaObra(data,conferencia?.obraId||obraFiltro);
+  const itensOrc=(orc?.itens||[]).filter(i=>i.tipo!=="titulo");
+  const etapas=orc?.etapas||[];
+  const nomeEtapa=id=>etapas.find(e=>e.id===id)?.nome||"Sem etapa";
+  const impactoMeta=v=>CONFERENCIA_IMPACTOS.find(x=>x.v===v)||CONFERENCIA_IMPACTOS[1];
+
+  const responsaveis=useMemo(()=>{
+    const lista=[];
+    const add=(id,nome,tipo)=>id&&nome&&!lista.some(x=>x.id===id)&&lista.push({id,nome,tipo});
+    (data.usuarios||[]).filter(u=>u.active!==false).forEach(u=>add(u.id,u.nome,"Usuário"));
+    (data.employees||[]).filter(e=>e.active!==false).forEach(e=>add(e.id,e.name,e.role||"Equipe"));
+    (data.terceirizados||[]).filter(t=>t.active!==false&&t.situacao!=="concluido").forEach(t=>add(t.id,t.name,"Terceirizado"));
+    return lista;
+  },[data.usuarios,data.employees,data.terceirizados]);
+
+  const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
+  const responsavelAutomatico=currentUser?.role==="engenheiro"?currentUser:
+    engenheiros.find(u=>u.obraId===(conferencia?.obraId||obraFiltro))||(engenheiros.length===1?engenheiros[0]:null);
+
+  const atualizar=(id,mut)=>update({...data,conferencias:(data.conferencias||[]).map(c=>c.id===id
+    ? {...mut({...c}),atualizadoEm:new Date().toISOString()}:c)});
+
+  const novaConferencia=()=>{
+    const obraId=obraFiltro||obras[0]?.id;
+    if(!obraId){showToast?.("Cadastre uma obra antes de criar a conferência.","error");return;}
+    if(!responsavelAutomatico){showToast?.("Defina um engenheiro de campo responsável por esta obra.","error");return;}
+    const codigo=Math.max(0,...(data.conferencias||[]).filter(c=>c.obraId===obraId).map(c=>Number(c.codigo||0)))+1;
+    const agora=new Date().toISOString();
+    const nova={id:uid(),obraId,data:today(),codigo,responsavelId:responsavelAutomatico?.id||"",responsavel:responsavelAutomatico?.nome||"",status:"em_andamento",notaGeral:10,observacoesGerais:"",pendencias:[],criadoEm:agora,atualizadoEm:agora,concluidoEm:""};
+    update({...data,conferencias:[...(data.conferencias||[]),nova]});
+    setSelecionadaId(nova.id);
+  };
+
+  const excluirConferencia=()=>{
+    if(!conferencia||!window.confirm(`Excluir a conferência CONF-${String(conferencia.codigo).padStart(3,"0")}?`))return;
+    update({...data,conferencias:(data.conferencias||[]).filter(c=>c.id!==conferencia.id)});
+    setSelecionadaId(""); showToast?.("Conferência excluída.");
+  };
+
+  const abrirPendencia=p=>setPendenciaForm(p?{...p,fotos:[...(p.fotos||[])]}:{
+    id:"",itemOrcamentoId:"",etapaId:"",descricao:"",categoria:"inconformidade",impacto:"medio",
+    responsavelAjusteId:"",responsavelAjusteNome:"",ajusteNecessario:"",prazo:"",status:"aberta",fotos:[],criadoEm:"",resolvidoEm:"",
+  });
+  const salvarPendencia=form=>{
+    if(!form.itemOrcamentoId){showToast?.("Vincule a pendência a um item do orçamento.","error");return;}
+    if(!form.descricao.trim()||!form.ajusteNecessario.trim()){showToast?.("Descreva o problema e o ajuste necessário.","error");return;}
+    if(!form.responsavelAjusteId){showToast?.("Defina quem será responsável pelo ajuste.","error");return;}
+    const item=itensOrc.find(i=>i.id===form.itemOrcamentoId);
+    const resp=responsaveis.find(r=>r.id===form.responsavelAjusteId);
+    const agora=new Date().toISOString();
+    const pronta={...form,id:form.id||uid(),etapaId:item?.etapaId||form.etapaId||"",responsavelAjusteNome:resp?.nome||form.responsavelAjusteNome||"",criadoEm:form.criadoEm||agora,resolvidoEm:form.status==="resolvida"?(form.resolvidoEm||agora):""};
+    atualizar(conferencia.id,c=>({...c,pendencias:form.id?(c.pendencias||[]).map(p=>p.id===form.id?pronta:p):[...(c.pendencias||[]),pronta]}));
+    setPendenciaForm(null); showToast?.(form.id?"Pendência atualizada.":"Pendência registrada.");
+  };
+  const removerPendencia=id=>{
+    if(!window.confirm("Excluir esta pendência e suas referências?"))return;
+    atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).filter(p=>p.id!==id)}));
+  };
+  const mudarStatusPendencia=(p,status)=>atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,status,resolvidoEm:status==="resolvida"?new Date().toISOString():""}:x)}));
+
+  const lista=(data.conferencias||[]).filter(c=>!obraFiltro||c.obraId===obraFiltro).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
+
+  if(!conferencia) return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div><h1 style={{fontSize:22,color:C.text}}>Conferência técnica</h1><p style={{fontSize:12,color:C.muted,marginTop:4}}>Vistorias, inconformidades e ajustes rastreados até a resolução</p></div>
+    <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
+      <div style={{minWidth:240,flex:1}}><Sel label="Obra" value={obraFiltro} onChange={setObraFiltro} options={obras.map(o=>({v:o.id,l:o.name}))}/></div>
+      <Btn onClick={novaConferencia}><Ic n="plus"/> Nova vistoria</Btn>
+    </div>
+    {!lista.length?<div style={{padding:"34px 18px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="clipboard" s={26} color={C.muted}/><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:9}}>Nenhuma conferência nesta obra</p><p style={{fontSize:11,color:C.muted,marginTop:4}}>Crie a primeira vistoria técnica para começar a rastrear ajustes.</p></div>:
+    <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:10}}>{lista.map(c=>{
+      const abertas=(c.pendencias||[]).filter(p=>p.status!=="resolvida").length;
+      const criticas=(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&p.impacto==="critico").length;
+      return <button key={c.id} onClick={()=>setSelecionadaId(c.id)} style={{textAlign:"left",padding:14,borderRadius:10,cursor:"pointer",background:C.card,border:`1px solid ${criticas?C.red:C.border}`,boxShadow:`0 2px 8px ${C.shadow}`}}>
+        <div style={{display:"flex",justifyContent:"space-between",gap:8}}><strong style={{fontSize:13,color:C.text}}>CONF-{String(c.codigo).padStart(3,"0")}</strong><Badge color={c.status==="concluida"?C.green:C.orange}>{c.status==="concluida"?"Concluída":"Em andamento"}</Badge></div>
+        <p style={{fontSize:12,color:C.muted,marginTop:7}}>{fmtDate(c.data)} · {c.responsavel||"Sem responsável"}</p>
+        <div style={{display:"flex",gap:12,marginTop:12,fontSize:11,color:C.text}}><span><strong>{c.notaGeral}</strong>/10</span><span><strong>{(c.pendencias||[]).length}</strong> achados</span><span style={{color:abertas?C.red:C.green}}><strong>{abertas}</strong> abertos</span></div>
+      </button>;
+    })}</div>}
+  </div>;
+
+  const abertas=(conferencia.pendencias||[]).filter(p=>p.status!=="resolvida").length;
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+      <div><button onClick={()=>setSelecionadaId("")} style={{border:0,background:"transparent",padding:0,color:C.blue,cursor:"pointer",fontSize:11,fontWeight:800}}>← Todas as conferências</button><h2 style={{fontSize:20,marginTop:5}}>CONF-{String(conferencia.codigo).padStart(3,"0")} · {obraAtual?.name}</h2></div>
+      <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={excluirConferencia}><Ic n="trash"/> Excluir</Btn><Btn size="sm" onClick={()=>atualizar(conferencia.id,c=>({...c,status:c.status==="concluida"?"em_andamento":"concluida",concluidoEm:c.status==="concluida"?"":new Date().toISOString()}))}>{conferencia.status==="concluida"?"Reabrir vistoria":"Concluir vistoria"}</Btn></div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:9}}>
+      <Inp label="Data da vistoria" type="date" value={conferencia.data} onChange={v=>atualizar(conferencia.id,c=>({...c,data:v}))}/>
+      <Inp label="Responsável pela vistoria" value={conferencia.responsavel||responsavelAutomatico?.nome||""} onChange={()=>{}} disabled/>
+      <Inp label="Nota geral (0 a 10)" type="number" min="0" max="10" value={conferencia.notaGeral} onChange={v=>atualizar(conferencia.id,c=>({...c,notaGeral:Math.max(0,Math.min(10,Number(v||0)))}))}/>
+      <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:5}}>SITUAÇÃO DOS AJUSTES</p><div style={{height:38,border:`1px solid ${abertas?C.orange:C.green}`,borderRadius:6,display:"flex",alignItems:"center",padding:"0 10px",fontSize:12,fontWeight:800,color:abertas?C.orange:C.green}}>{abertas?`${abertas} pendência(s) aberta(s)`:"Tudo resolvido"}</div></div>
+    </div>
+    <Inp label="Observações gerais" multiline value={conferencia.observacoesGerais} onChange={v=>atualizar(conferencia.id,c=>({...c,observacoesGerais:v}))} placeholder="Avaliação geral da qualidade, critérios verificados e orientações..."/>
+    <Bloco titulo={`Pendências técnicas (${(conferencia.pendencias||[]).length})`} acao={<Btn size="sm" onClick={()=>abrirPendencia(null)} disabled={!orc}><Ic n="plus"/> Pendência</Btn>}>
+      {!orc&&<div style={{padding:12,borderRadius:7,background:`${C.orange}10`,color:C.orange,fontSize:12}}>Esta obra ainda não possui orçamento vinculado. Crie o orçamento para registrar achados rastreáveis.</div>}
+      {orc&&!(conferencia.pendencias||[]).length&&<p style={{fontSize:12,color:C.muted}}>Nenhuma patologia ou inconformidade registrada.</p>}
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>{(conferencia.pendencias||[]).map(p=>{
+        const item=itensOrc.find(i=>i.id===p.itemOrcamentoId); const imp=impactoMeta(p.impacto);
+        return <div key={p.id} style={{border:`1px solid ${p.status==="resolvida"?C.border:imp.c}`,borderLeft:`4px solid ${imp.c}`,borderRadius:8,padding:11,background:p.status==="resolvida"?C.surface:C.card}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><Badge color={imp.c}>{imp.l}</Badge><Badge color={C.blue}>{CONFERENCIA_CATEGORIAS.find(x=>x.v===p.categoria)?.l}</Badge><span style={{fontSize:10,color:C.muted}}>{nomeEtapa(p.etapaId)}</span></div><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:7}}>{p.descricao}</p><p style={{fontSize:10.5,color:C.muted,marginTop:4}}>{item?.codigo?`${item.codigo} · `:""}{item?.descricao||"Item do orçamento não encontrado"}</p></div><div style={{display:"flex",gap:5,alignItems:"flex-start"}}><button onClick={()=>abrirPendencia(p)} title="Editar" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer"}}><Ic n="edit"/></button><button onClick={()=>removerPendencia(p.id)} title="Excluir" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",color:C.red}}><Ic n="trash"/></button></div></div>
+          <p style={{fontSize:11.5,color:C.text,marginTop:8}}><strong>Ajuste:</strong> {p.ajusteNecessario}</p><p style={{fontSize:10.5,color:C.muted,marginTop:5}}>Responsável: <strong>{p.responsavelAjusteNome||"—"}</strong>{p.prazo?` · Prazo: ${fmtDate(p.prazo)}`:""}</p>
+          {(p.fotos||[]).length>0&&<div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>{p.fotos.map(f=><img key={f.url} src={f.url} alt={f.legenda||"Evidência"} style={{width:54,height:54,objectFit:"cover",borderRadius:5}}/>)}</div>}
+          <div style={{display:"flex",gap:5,marginTop:9,flexWrap:"wrap"}}>{CONFERENCIA_STATUS.map(s=><button key={s.v} onClick={()=>mudarStatusPendencia(p,s.v)} style={{border:`1px solid ${p.status===s.v?C.blue:C.border}`,background:p.status===s.v?`${C.blue}12`:C.surface,color:p.status===s.v?C.blue:C.muted,borderRadius:99,padding:"4px 9px",fontSize:10,fontWeight:800,cursor:"pointer"}}>{s.l}</button>)}</div>
+        </div>;
+      })}</div>
+    </Bloco>
+    {pendenciaForm&&(
+      <ModalPendenciaConferencia form={pendenciaForm} setForm={setPendenciaForm} itens={itensOrc} etapas={etapas} responsaveis={responsaveis} obra={obraAtual} conferencia={conferencia} onSalvar={salvarPendencia} onClose={()=>setPendenciaForm(null)} showToast={showToast}/>
+    )}
+  </div>;
+}
+
+function ModalPendenciaConferencia({form,setForm,itens,etapas,responsaveis,obra,conferencia,onSalvar,onClose,showToast}){
+  const [subindo,setSubindo]=useState(false);
+  const item=itens.find(i=>i.id===form.itemOrcamentoId);
+  const etapaNome=etapas.find(e=>e.id===item?.etapaId)?.nome||"";
+  const subirFoto=async e=>{const file=e.target.files?.[0];if(!file)return;setSubindo(true);try{const dataUrl=await comprimirImagem(file);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`conferencia-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio.");setForm(f=>({...f,fotos:[...(f.fotos||[]),{url:resp.url,legenda:"",path:resp.path||""}]}));showToast?.("Evidência adicionada.");}catch(err){showToast?.(err.message||"Falha ao enviar foto.","error");}finally{setSubindo(false);e.target.value="";}};
+  return <Modal title={form.id?"Editar pendência":"Nova pendência técnica"} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
+    <Sel label="Item do orçamento *" value={form.itemOrcamentoId} onChange={v=>setForm(f=>({...f,itemOrcamentoId:v,etapaId:itens.find(i=>i.id===v)?.etapaId||""}))} options={[{v:"",l:"Selecione o serviço conferido..."},...itens.map(i=>({v:i.id,l:`${i.codigo?i.codigo+" · ":""}${i.descricao}`}))]}/>
+    {item&&<div style={{padding:"7px 10px",borderRadius:6,background:`${C.blue}0C`,fontSize:10.5,color:C.blue}}>Etapa herdada: <strong>{etapaNome||"Sem etapa"}</strong></div>}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:8}}><Sel label="Categoria" value={form.categoria} onChange={v=>setForm(f=>({...f,categoria:v}))} options={CONFERENCIA_CATEGORIAS}/><Sel label="Impacto" value={form.impacto} onChange={v=>setForm(f=>({...f,impacto:v}))} options={CONFERENCIA_IMPACTOS}/><Sel label="Status" value={form.status} onChange={v=>setForm(f=>({...f,status:v}))} options={CONFERENCIA_STATUS}/></div>
+    <Inp label="Patologia / inconformidade encontrada *" multiline value={form.descricao} onChange={v=>setForm(f=>({...f,descricao:v}))} placeholder="Descreva objetivamente o que foi verificado, localização e dimensão..."/>
+    <Inp label="Ajuste necessário *" multiline value={form.ajusteNecessario} onChange={v=>setForm(f=>({...f,ajusteNecessario:v}))} placeholder="Defina a correção, critério de aceite e resultado esperado..."/>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:8}}><Sel label="Responsável pelo ajuste *" value={form.responsavelAjusteId} onChange={v=>setForm(f=>({...f,responsavelAjusteId:v,responsavelAjusteNome:responsaveis.find(r=>r.id===v)?.nome||""}))} options={[{v:"",l:"Selecione..."},...responsaveis.map(r=>({v:r.id,l:`${r.nome} · ${r.tipo}`}))]}/><Inp label="Prazo combinado" type="date" value={form.prazo} onChange={v=>setForm(f=>({...f,prazo:v}))}/></div>
+    <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:6}}>EVIDÊNCIAS FOTOGRÁFICAS</p><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{(form.fotos||[]).map((foto,idx)=><div key={foto.url} style={{position:"relative"}}><img src={foto.url} alt="Evidência" style={{width:76,height:76,objectFit:"cover",borderRadius:6}}/><button onClick={()=>setForm(f=>({...f,fotos:f.fotos.filter((_,i)=>i!==idx)}))} style={{position:"absolute",right:3,top:3,border:0,borderRadius:5,background:"rgba(0,0,0,.65)",color:"white",cursor:"pointer"}}>x</button></div>)}<label style={{width:76,height:76,border:`2px dashed ${C.border}`,borderRadius:6,display:"grid",placeItems:"center",cursor:subindo?"wait":"pointer",fontSize:10,color:C.muted,textAlign:"center"}}>{subindo?"Enviando...":"+ Foto"}<input type="file" accept="image/*" capture="environment" onChange={subirFoto} disabled={subindo} style={{display:"none"}}/></label></div></div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={()=>onSalvar(form)}><Ic n="check"/> Salvar pendência</Btn></div>
+  </div></Modal>;
 }
 
 // Bloco visual reutilizado no diario.
@@ -29364,7 +29554,7 @@ const NAV_GROUPS = [
   },
   {
     id: "eng_grp", label: "Engenharia", icon: "building", color: C.blue,
-    tabs: ["obras", "orc", "plan", "rdo", "med", "licenca", "ponto", "equipe", "terc", "equip"],
+    tabs: ["obras", "orc", "plan", "rdo", "conferencia", "med", "licenca", "ponto", "equipe", "terc", "equip"],
   },
   {
     id: "compras_grp", label: "Compras", icon: "cart", color: C.orange,
@@ -29410,6 +29600,7 @@ const TAB_META = {
   com_relatorios:{label:"Relatórios",icon:"trending",group:"com_grp"},
   plan:   { label: "Planejamento", icon: "calendar", group: "eng_grp"},
   rdo:    { label: "Diario de obra", icon: "clipboard", group: "eng_grp"},
+  conferencia: { label: "Conferência", icon: "check", group: "eng_grp"},
   med:    { label: "Medicao",        icon: "ruler",  group: "eng_grp"},
   ponto:  { label: "Ponto",      icon: "clock",    group: "eng_grp"},
   ponto_geral: { label: "Gestão do ponto", icon: "calendar", group: "fin_grp"},
@@ -30369,6 +30560,7 @@ export default function App() {
           {tab === "orc"    && <Orcamento   data={data} update={update} showToast={showToast} />}
           {tab === "plan"   && <Planejamento data={data} update={update} showToast={showToast} />}
           {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} currentUser={currentUser} />}
+          {tab === "conferencia" && <Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} />}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} />}
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}

@@ -1,7 +1,7 @@
 import { fileSignature, getOrCreateFolder, graph, refresh, safeName, seal, setCookie, verifyAppUser, workspace } from "./_graph.js";
 
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};
-const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos"};
+const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos"};
 
 export default async function handler(req,res){
   try{
@@ -23,8 +23,10 @@ export default async function handler(req,res){
     if(action==="upload"){
       let ws={driveId:body.driveId,folderId:body.folderId,folders:body.folders};
       if(!ws.driveId||!ws.folderId||!ws.folders)ws=await workspace(accessToken,body.obraName);
-      let parentId=ws.folders?.[categoryNames[body.category]||categoryNames.documentos]||ws.folderId;
-      if(body.category==="diario"&&body.date)parentId=(await getOrCreateFolder(accessToken,ws.driveId,parentId,body.date)).id;
+      const categoryName=categoryNames[body.category]||categoryNames.documentos;
+      let parentId=ws.folders?.[categoryName]||ws.folderId;
+      if(body.category==="conferencia"&&!ws.folders?.[categoryName])parentId=(await getOrCreateFolder(accessToken,ws.driveId,ws.folderId,categoryName)).id;
+      if(["diario","conferencia"].includes(body.category)&&body.date)parentId=(await getOrCreateFolder(accessToken,ws.driveId,parentId,body.date)).id;
       const match=String(body.dataUrl||"").match(/^data:([^;]+);base64,(.+)$/);
       if(!match) return res.status(400).json({error:"Arquivo inválido."});
       const buffer=Buffer.from(match[2],"base64"); if(buffer.length>6*1024*1024)return res.status(413).json({error:"Arquivo maior que 6 MB."});
