@@ -1521,6 +1521,10 @@ const AUDIT_SECOES = [
   { k:"pedidos",       nome:"pedido de compra", campo:"numero" },
   { k:"planos",        nome:"planejamento",   campo:"obraId" },
   { k:"rdos",          nome:"diário de obra", campo:"data" },
+  { k:"conferencias",  nome:"conferência técnica", campo:"codigo" },
+  { k:"movEstoque",    nome:"movimentação de estoque", campo:"descricao" },
+  { k:"outrasDesp",    nome:"despesa da obra", campo:"descricao" },
+  { k:"locacoesEquip", nome:"locação de equipamento", campo:"equipamentoId" },
   { k:"usuarios",      nome:"usuário",        campo:"nome" },
   { k:"unidades",      nome:"unidade",        campo:"sigla" },
   { k:"fases",         nome:"fase",           campo:"nome" },
@@ -1554,16 +1558,16 @@ const diffListaAudit = (antes, depois, nome, campo) => {
   D.forEach(item => {
     if (!mapaA.has(item.id)) {
       const r = rotulo(item);
-      eventos.push({ acao:"criou", texto:`criou ${nome}${r?` "${r}"`:""}` });
+      eventos.push({ acao:"criou", texto:`criou ${nome}${r?` "${r}"`:""}`, obraId:item.obraId||"" });
     } else if (JSON.stringify(mapaA.get(item.id)) !== JSON.stringify(item)) {
       const r = rotulo(item);
-      eventos.push({ acao:"editou", texto:`editou ${nome}${r?` "${r}"`:""}` });
+      eventos.push({ acao:"editou", texto:`editou ${nome}${r?` "${r}"`:""}`, obraId:item.obraId||"" });
     }
   });
   A.forEach(item => {
     if (!mapaD.has(item.id)) {
       const r = rotulo(item);
-      eventos.push({ acao:"removeu", texto:`removeu ${nome}${r?` "${r}"`:""}` });
+      eventos.push({ acao:"removeu", texto:`removeu ${nome}${r?` "${r}"`:""}`, obraId:item.obraId||"" });
     }
   });
   return eventos;
@@ -21911,9 +21915,10 @@ function Compras({ data, update, showToast, currentUser }) {
 // Junta o que hoje está espalhado por 8 abas: contrato, financeiro, equipe,
 // orçamento, compras, estoque, medições e o que aconteceu ultimamente.
 // 
-function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
+function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, currentUser }) {
   const { cols } = useBreakpoint();
   const obra = (data.obras||[]).find(o => o.id === obraId);
+  const [abaConteudo,setAbaConteudo]=useState("geral");
 
   const hoje = today();
 
@@ -22090,6 +22095,24 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
       .slice(0, 12);
   }, [data, obraId]);
 
+  const atualizacoesObra=useMemo(()=>{
+    const nomeObra=String(obra?.name||"").toLocaleLowerCase("pt-BR");
+    const audit=(data.changeLog||[]).filter(e=>e.obraId===obraId||(!e.obraId&&nomeObra&&String(e.message||"").toLocaleLowerCase("pt-BR").includes(nomeObra))).map(e=>({
+      id:e.id||uid(),at:e.at||`${e.date||today()}T00:00:00`,texto:e.message||"Atualização registrada",responsavel:e.operador||"Sistema",tipo:e.type||"editou",
+    }));
+    const operacionais=atividade.map((e,index)=>({id:`op-${index}-${e.data}`,at:`${e.data}T00:00:00`,texto:e.txt,responsavel:"Sistema",tipo:"operacao",valor:e.valor}));
+    return [...audit,...operacionais].sort((a,b)=>(b.at||"").localeCompare(a.at||"")).slice(0,40);
+  },[data.changeLog,atividade,obraId,obra?.name]);
+
+  const indicadoresGerais=useMemo(()=>{
+    const plano=(data.planos||[]).find(p=>p.obraId===obraId);
+    const tarefas=plano?aplicarRollup(montarTarefas(plano,resumo?.orc),resumo?.orc).filter(t=>!t.titulo):[];
+    const progresso=tarefas.length?Math.round(tarefas.reduce((s,t)=>s+Number(t.progresso||0),0)/tarefas.length):0;
+    const pendencias=(data.conferencias||[]).filter(c=>c.obraId===obraId).flatMap(c=>c.pendencias||[]).filter(p=>p.status!=="resolvida");
+    const atrasadas=tarefas.filter(t=>Number(t.progresso||0)<100&&t.fim&&t.fim<hoje).length;
+    return{progresso,pendencias:pendencias.length,criticas:pendencias.filter(p=>p.impacto==="critico").length,atrasadas};
+  },[data.planos,data.conferencias,obraId,resumo?.orc,hoje]);
+
   if (!obra || !resumo) {
     return (
       <div style={{padding:20,textAlign:"center"}}>
@@ -22130,7 +22153,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
     sessionStorage.setItem("arcd_obra_contexto",obraId);
     const chaves={rdo:"arcd_rdo_obra",conferencia:"arcd_conferencia_obra",plan:"arcd_plan_obra",orc:"arcd_orc_obra",med:"arcd_med_obra",cmp:"arcd_compras_obra",est:"arcd_estoque_obra",dre:"arcd_dre_obra",ponto:"arcd_ponto_obra",equipe:"arcd_equipe_obra",terc:"arcd_terceiros_obra",equip:"arcd_equipamentos_obra",licenca:"arcd_licenca_obra"};
     if(chaves[destino])sessionStorage.setItem(chaves[destino],obraId);
-    onTab?.(destino);
+    setAbaConteudo(destino);
   };
 
   // Uma secao do acordeao: cabecalho clicavel + corpo que abre/fecha.
@@ -22150,7 +22173,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
           <div className="acc-body">
             {children}
             {atalho && (
-              <button className="acc-link" onClick={() => onTab(atalho)}>
+              <button className="acc-link" onClick={() => abrirModuloDaObra(atalho)}>
                 Abrir {atalho === "dre" ? "financeiro" : atalho} completo →
               </button>
             )}
@@ -22169,6 +22192,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:0}}>
+      <div style={{position:"sticky",top:0,zIndex:30,background:C.bg,paddingTop:2,boxShadow:"0 10px 24px rgba(20,24,28,.04)"}}>
       <button onClick={onVoltar} style={{background:"transparent",border:0,color:C.muted,
         cursor:"pointer",fontSize:12,padding:0,textAlign:"left",marginBottom:11,
         fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700}}>← Todas as obras</button>
@@ -22242,10 +22266,10 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
           ["cmp","Compras","cmp"],["est","Estoque","est"],["dre","Financeiro","dre"],
           ["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"],
           ["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null]].map(([id,label,destino])=>{
-          const ativa = id==="geral";
+          const ativa = id===abaConteudo;
           return (
             <button key={id}
-              onClick={()=>{if(id==="arquivos"){setSecoesAbertas(p=>({...p,arquivos:true}));}else if(destino)abrirModuloDaObra(destino);}}
+              onClick={()=>{if(id==="arquivos"){setAbaConteudo("geral");setSecoesAbertas(p=>({...p,arquivos:true}));}else if(id==="geral")setAbaConteudo("geral");else if(destino)abrirModuloDaObra(destino);}}
               style={{border:0,background:"transparent",cursor:"pointer",
                 padding:"9px 13px",whiteSpace:"nowrap",
                 fontSize:12.5,fontWeight:ativa?800:500,
@@ -22257,6 +22281,15 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
           );
         })}
       </div>
+      </div>
+
+      {abaConteudo==="geral"?<>
+      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8,marginBottom:12}}>{[
+        ["Avanço físico",`${indicadoresGerais.progresso}%`,C.blue,"trending"],
+        ["Pendências abertas",indicadoresGerais.pendencias,indicadoresGerais.criticas?C.red:C.orange,"alert"],
+        ["Tarefas atrasadas",indicadoresGerais.atrasadas,indicadoresGerais.atrasadas?C.red:C.green,"calendar"],
+        ["A receber",fmt(resumo.aReceber),resumo.aReceber?C.orange:C.green,"dollar"],
+      ].map(([label,value,color,icon])=><div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 12px"}}><div style={{display:"flex",justifyContent:"space-between",gap:7}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{label}</p><Ic n={icon} s={13} color={color}/></div><p style={{fontSize:17,fontWeight:850,color,marginTop:6}}>{value}</p>{label==="Pendências abertas"&&indicadoresGerais.criticas>0&&<p style={{fontSize:8.5,color:C.red,marginTop:3}}>{indicadoresGerais.criticas} crítica(s)</p>}</div>)}</div>
 
       {/* Alertas ficam FORA do acordeao: precisam ser vistos sem abrir nada */}
       {resumo.abaixoMin > 0 && (
@@ -22412,7 +22445,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
              badge={(data.rdos||[]).filter(r=>r.obraId===obraId).length||null}>
         {(() => {const lista=(data.rdos||[]).filter(r=>r.obraId===obraId).sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,3);return <>
           {lista.length?lista.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.line}`}}><div><b style={{fontSize:11.5,color:C.text}}>RDO-{String(r.codigo||0).padStart(3,"0")} · {fmtDate(r.data)}</b><p style={{fontSize:9.5,color:r.status==="concluido"?C.green:C.orange}}>{r.status==="concluido"?"Concluído":"Em preparação"} · {(r.fotos||[]).length} foto(s)</p></div></div>):<p style={{fontSize:11.5,color:C.muted}}>Nenhum relatório registrado para esta obra.</p>}
-          <Btn full style={{marginTop:8}} onClick={()=>{sessionStorage.setItem("arcd_rdo_obra",obraId);onTab("rdo");}}><Ic n="clipboard"/> Abrir histórico e registrar RDO</Btn>
+          <Btn full style={{marginTop:8}} onClick={()=>abrirModuloDaObra("rdo")}><Ic n="clipboard"/> Abrir histórico e registrar RDO</Btn>
         </>;})()}
       </Secao>
 
@@ -22573,23 +22606,24 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
         <Par l="Em aberto" v={fmt(resumo.aReceber)} c={C.orange}/>
       </Secao>
 
-      <Secao id="atividade" icone="atividade" titulo="O que aconteceu" cor={C.muted}>
-        {atividade.length === 0
-          ? <p style={{fontSize:11.5,color:C.muted}}>Nenhuma movimentacao registrada ainda.</p>
-          : atividade.map((e,i) => (
-            <div key={i} style={{display:"flex",gap:9,paddingTop:8,marginTop:8,
-                                 borderTop: i ? `1px solid ${C.line}` : 0, alignItems:"baseline"}}>
-              <div style={{flex:1,minWidth:0}}>
-                <p className="brk" style={{fontSize:11.5,color:C.text}}>{e.txt}</p>
-                <p style={{fontSize:9.5,color:C.muted,marginTop:1}}>{fmtDate(e.data)}</p>
-              </div>
-              {e.valor > 0 && (
-                <span style={{fontSize:11.5,fontWeight:700,color:C.text,
-                              whiteSpace:"nowrap",flexShrink:0}}>{fmt(e.valor)}</span>
-              )}
-            </div>
-          ))}
+      <Secao id="atividade" icone="atividade" titulo="Atualizações da obra" cor={C.blue} badge={atualizacoesObra.length||null}>
+        {atualizacoesObra.length===0?<p style={{fontSize:11.5,color:C.muted}}>Nenhuma atualização registrada ainda.</p>:<div style={{display:"flex",flexDirection:"column"}}>{atualizacoesObra.map((e,i)=>{const d=new Date(e.at);const hora=d.getHours()===0&&d.getMinutes()===0?"":d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});const cor=e.tipo==="removeu"?C.red:e.tipo==="criou"?C.green:e.tipo==="operacao"?C.orange:C.blue;return <div key={e.id} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:9,padding:"10px 0",borderTop:i?`1px solid ${C.line}`:"none",alignItems:"start"}}><span style={{width:30,height:30,borderRadius:99,display:"grid",placeItems:"center",background:`${cor}12`,color:cor,fontSize:9,fontWeight:900}}>{String(e.responsavel||"S").split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:11.5,color:C.text,lineHeight:1.4}}>{e.texto}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Responsável: <strong style={{color:C.text}}>{e.responsavel}</strong></p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:9.5,fontWeight:750,color:C.text}}>{d.toLocaleDateString("pt-BR")}</p>{hora&&<p style={{fontSize:9,color:C.muted,marginTop:2}}>{hora}</p>}{e.valor>0&&<p style={{fontSize:9.5,fontWeight:800,color:C.green,marginTop:3}}>{fmt(e.valor)}</p>}</div></div>;})}</div>}
       </Secao>
+      </>:<div style={{paddingTop:4}}>
+        {abaConteudo==="orc"&&<Orcamento data={data} update={update} showToast={showToast}/>}
+        {abaConteudo==="plan"&&<Planejamento data={data} update={update} showToast={showToast}/>}
+        {abaConteudo==="rdo"&&<DiarioObra data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
+        {abaConteudo==="conferencia"&&<Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
+        {abaConteudo==="med"&&<MedicaoEvolucao data={data} update={update} showToast={showToast}/>}
+        {abaConteudo==="cmp"&&<Compras data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
+        {abaConteudo==="est"&&<Estoque data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
+        {abaConteudo==="dre"&&<DRE data={data} update={update} showToast={showToast}/>}
+        {abaConteudo==="ponto"&&<Ponto data={data} update={update} showToast={showToast}/>}
+        {abaConteudo==="equipe"&&<Equipe data={data} update={update} showToast={showToast}/>}
+        {abaConteudo==="terc"&&<Terceiros data={data} update={update} showToast={showToast}/>}
+        {abaConteudo==="equip"&&<Equipamentos data={data} update={update} showToast={showToast}/>}
+        {abaConteudo==="licenca"&&<Licenciamento data={data} update={update} showToast={showToast}/>}
+      </div>}
     </div>
   );
 }
@@ -30151,7 +30185,7 @@ export default function App() {
           const entradas = mudancas.length > 6
             ? [{ id: uid(), date: today(), at: agoraISO, operador, operadorId,
                  type:"bulk", message:`${operador} fez ${mudancas.length} alterações` }]
-            : mudancas.map(m => ({ id: uid(), date: today(), at: agoraISO, operador, operadorId,
+            : mudancas.map(m => ({ id: uid(), date: today(), at: agoraISO, operador, operadorId, obraId:m.obraId||"",
                  type:m.acao, message:`${operador} ${m.texto}` }));
           const log = [...(base.changeLog || []), ...entradas].slice(-200); // guarda as últimas 200
           proximo = { ...base, changeLog: log };
@@ -30807,6 +30841,7 @@ export default function App() {
           {tab.startsWith("com_") && <Comercial data={data} update={update} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} />}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
+                           currentUser={currentUser}
                            onVoltar={() => setObraAberta("")}
                            onTab={(t) => { setObraAberta(""); setTab(t); }} />
             : <Obras       data={data} update={update} showToast={showToast}
