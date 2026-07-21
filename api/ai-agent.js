@@ -24,16 +24,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { messages, contexto } = req.body || {};
+    const { messages, contexto, prompt, question, context } = req.body || {};
+    const mensagensRecebidas = Array.isArray(messages) && messages.length
+      ? messages
+      : (prompt || question)
+        ? [{ role: "user", content: String(prompt || question) }]
+        : [];
 
-    if (!Array.isArray(messages) || messages.length === 0) {
+    if (mensagensRecebidas.length === 0) {
       return res.status(400).json({ error: "Nenhuma mensagem recebida." });
     }
 
     // Teto simples de custo: histórico longo demais é cortado
-    const historico = messages.slice(-12).map(m => ({
+    const historico = mensagensRecebidas.slice(-12).map(m => ({
       role: m.role === "assistant" ? "assistant" : "user",
-      content: String(m.content ?? "").slice(0, 8000),
+      content: String(m.content ?? m.text ?? "").slice(0, 12000),
     }));
 
     const system = [
@@ -41,7 +46,7 @@ export default async function handler(req, res) {
       "Responde em português do Brasil, de forma direta e técnica.",
       "Use SOMENTE os dados fornecidos no contexto. Se um número não estiver lá, diga que não tem o dado —",
       "nunca invente valores financeiros, medições ou custos.",
-      contexto ? `\n\nDados atuais do sistema:\n${JSON.stringify(contexto).slice(0, 20000)}` : "",
+      (contexto || context) ? `\n\nDados atuais do sistema:\n${JSON.stringify(contexto || context).slice(0, 20000)}` : "",
     ].join(" ");
 
     const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -73,7 +78,7 @@ export default async function handler(req, res) {
       .join("\n")
       .trim();
 
-    return res.status(200).json({ reply: texto });
+    return res.status(200).json({ reply: texto, answer: texto });
   } catch (err) {
     console.error("Falha na rota /api/ai-agent:", err);
     return res.status(500).json({ error: "Erro interno." });

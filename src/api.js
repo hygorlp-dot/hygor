@@ -252,3 +252,23 @@ export const subirFoto = async ({ dataUrl, obraId, ext }) => {
   });
   return await r.json().catch(() => ({ error: "Falha no upload." }));
 };
+
+// ── OneDrive / Microsoft Graph ────────────────────────────────────
+export const conectarOneDrive = async () => {
+  if (!sessao.userId || !sessao.pin) return {ok:false,error:"Sessão encerrada."};
+  const r=await fetch("/api/microsoft/connect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({userId:sessao.userId,pin:sessao.pin})});
+  const j=await r.json().catch(()=>({})); if(r.ok&&j.url)window.location.href=j.url; return {ok:r.ok,...j};
+};
+const chamarOneDrive = async (action, payload = {}) => {
+  if (!sessao.userId || !sessao.pin) return { ok:false, error:"Sessão encerrada." };
+  const r = await fetch("/api/microsoft/onedrive", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action, userId:sessao.userId, pin:sessao.pin, ...payload }),
+  });
+  const json = await r.json().catch(() => ({}));
+  return { ok:r.ok, status:r.status, ...json };
+};
+export const statusOneDrive = () => chamarOneDrive("status");
+export const criarEstruturaOneDrive = obraName => chamarOneDrive("create-workspace", { obraName });
+export const criarPastaOneDrive = payload => chamarOneDrive("create-folder", payload);
+export const enviarArquivoOneDrive = payload => chamarOneDrive("upload", payload);

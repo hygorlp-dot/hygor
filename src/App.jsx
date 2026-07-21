@@ -21,6 +21,8 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin,
          saveData, saveDataDetailed, logout as encerrarSessao,
          registrarPresenca, encerrarPresenca, listarPresencas,
          loadDataWithMeta, adoptServerVersion, subirFoto,
+         conectarOneDrive, statusOneDrive, criarEstruturaOneDrive,
+         criarPastaOneDrive, enviarArquivoOneDrive,
          listarBasesReferencia, iniciarBaseReferencia, enviarLoteReferencia,
          enviarLoteInsumosReferencia, enviarLoteComponentesReferencia,
          finalizarBaseReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
@@ -1379,13 +1381,16 @@ const DEFAULT = () => ({
     aliquotaIR: 0,
     aliquotaCSLL: 0,
     approverEmail: "hygorlp@gmail.com",
+    // Pasta geral compartilhada pelo administrador. Os arquivos continuam no
+    // OneDrive; o banco guarda apenas este link e o link de cada obra.
+    oneDriveRootUrl: "https://1drv.ms/f/c/a55d2e2d0945f9e2/IgBoeuUoNoRhQ7ZCB6BqyWItATrPGETdoIzn_C95Np35poA?e=zfeVfe",
     paymentHolidays: [],
   },
   unidades: UNIDADES_PADRAO.map(u => ({ id: uid(), sigla: u.sigla, nome: u.nome })),
   fases: FASES_PADRAO.map((f, i) => ({ id: uid(), nome: f.nome, cor: f.cor, ordem: i })),
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
   ],
   employees: [],
   attendance: {},
@@ -1613,7 +1618,7 @@ const normalizeData = incoming => {
           pediuIndicacao:!!p.pediuIndicacao,
           createdAt:p.createdAt||new Date().toISOString(),
         })):[],
-        clientes:Array.isArray(c.clientes)?c.clientes.map(x=>({...x,id:x.id||uid(),leadId:x.leadId||"",nome:x.nome||"",tipoPessoa:x.tipoPessoa||"PF",documento:x.documento||"",telefone:x.telefone||"",whatsapp:x.whatsapp||"",email:x.email||"",cidade:x.cidade||"",endereco:x.endereco||"",createdAt:x.createdAt||new Date().toISOString()})):[],
+        clientes:Array.isArray(c.clientes)?c.clientes.map(x=>({...x,id:x.id||uid(),leadId:x.leadId||"",nome:x.nome||"",tipoPessoa:x.tipoPessoa||"PF",documento:x.documento||"",rg:x.rg||"",orgaoExpedidor:x.orgaoExpedidor||"",dataNascimento:x.dataNascimento||"",nacionalidade:x.nacionalidade||"Brasileira",estadoCivil:x.estadoCivil||"",regimeBens:x.regimeBens||"",profissao:x.profissao||"",conjugeNome:x.conjugeNome||"",conjugeCpf:x.conjugeCpf||"",telefone:x.telefone||"",whatsapp:x.whatsapp||"",email:x.email||"",cep:x.cep||"",endereco:x.endereco||"",numero:x.numero||"",complemento:x.complemento||"",bairro:x.bairro||"",cidade:x.cidade||"",uf:x.uf||"PE",razaoSocial:x.razaoSocial||"",nomeFantasia:x.nomeFantasia||"",inscricaoEstadual:x.inscricaoEstadual||"",inscricaoMunicipal:x.inscricaoMunicipal||"",representanteNome:x.representanteNome||"",representanteCpf:x.representanteCpf||"",representanteRg:x.representanteRg||"",representanteOrgaoExpedidor:x.representanteOrgaoExpedidor||"",representanteCargo:x.representanteCargo||"",representanteNacionalidade:x.representanteNacionalidade||"Brasileira",representanteEstadoCivil:x.representanteEstadoCivil||"",representanteProfissao:x.representanteProfissao||"",observacoes:x.observacoes||"",createdAt:x.createdAt||new Date().toISOString(),updatedAt:x.updatedAt||""})):[],
         parceiros:Array.isArray(c.parceiros)?c.parceiros.map(x=>({...x,id:x.id||uid(),nome:x.nome||"",tipo:x.tipo||"indicador",telefone:x.telefone||"",email:x.email||"",comissaoPct:Number(x.comissaoPct||0),ativo:x.ativo!==false,observacoes:x.observacoes||""})):[],
         metas:Array.isArray(c.metas)?c.metas.map(x=>({...x,id:x.id||uid(),responsavelId:x.responsavelId||"",equipe:x.equipe||"",periodo:x.periodo||"",receita:Number(x.receita||0),contratos:Number(x.contratos||0),ticketMedio:Number(x.ticketMedio||0),conversao:Number(x.conversao||0)})):[],
         comissoes:Array.isArray(c.comissoes)?c.comissoes.map(x=>({...x,id:x.id||uid(),vendaId:x.vendaId||"",responsavelId:x.responsavelId||"",parceiroId:x.parceiroId||"",base:Number(x.base||0),percentual:Number(x.percentual||0),valor:Number(x.valor||0),status:x.status||"prevista"})):[],
@@ -1623,6 +1628,7 @@ const normalizeData = incoming => {
     obras: Array.isArray(d.obras) ? d.obras.map(o => ({
       id: o.id || uid(),
       name: o.name || "Obra sem nome",
+      cliente: o.cliente || "",
       address: o.address || "",
       engineer: o.engineer || "",
       startDate: o.startDate || "",
@@ -1631,6 +1637,11 @@ const normalizeData = incoming => {
       // Imagem de capa da obra (URL do Storage). Da identidade visual ao
       // painel - a obra deixa de ser uma linha e vira um lugar.
       capaUrl:  o.capaUrl  || "",
+      oneDriveUrl: o.oneDriveUrl || "",
+      oneDriveDriveId: o.oneDriveDriveId || "",
+      oneDriveFolderId: o.oneDriveFolderId || "",
+      oneDriveFolders: o.oneDriveFolders && typeof o.oneDriveFolders === "object" ? o.oneDriveFolders : {},
+      documentosOneDrive: Array.isArray(o.documentosOneDrive) ? o.documentosOneDrive : [],
       contractType: o.contractType || "fixed_labor",
       contractValue: Number(o.contractValue || 0),
       adminPercentage: Number(o.adminPercentage || 0),
@@ -2449,6 +2460,7 @@ function Ic({ n, s = 16, color }) {
     receipt:  "M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1z M8 7h8 M8 11h8 M8 15h5", // recibo (pagamento/conciliação)
     // --- Documentos ---
     file:     "M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z M13 2v7h7",       // arquivo (documento genérico)
+    folder:   "M3 5h6l2 2h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",
     fileText: "M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z M13 2v7h7 M8 13h8 M8 17h8 M8 9h2", // documento com texto (orçamento/proposta/contrato)
     clipboard:"M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2 M9 13l2 2 4-4", // prancheta com check (diário de obra/tarefas)
     box:      "M21 8l-9-5-9 5 9 5 9-5z M3 8v8l9 5 9-5V8 M12 13v8", // caixa (estoque)
@@ -2514,6 +2526,7 @@ function IcoObra({ n, s = 17 }) {
     equipe:     "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
     orcamento:  "M18 20V10M12 20V4M6 20v-6",
     compras:    "M9 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM20 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6",
+    arquivos:   "M3 5h6l2 2h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",
     estoque:    "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96 12 12.01l8.73-5.05M12 22.08V12",
     medicoes:   "M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
     atividade:  "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2",
@@ -5462,10 +5475,12 @@ function Financeiro({ data, update, showToast }) {
 
 function Obras({ data, update, showToast, onAbrirObra }) {
   const { formGrid } = useBreakpoint();
-  const empty = { id: "", name: "", cliente: "", address: "", engineer: "", startDate: "", faseId: "", status: "active", areaM2: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
+  const empty = { id: "", name: "", cliente: "", address: "", engineer: "", startDate: "", faseId: "", status: "active", areaM2: "", oneDriveUrl: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
+  const [oneDriveStatus, setOneDriveStatus] = useState("checking");
+  useEffect(()=>{statusOneDrive().then(r=>setOneDriveStatus(r.ok?"connected":"disconnected"));},[]);
 
   //  Kanban 
   const [vista,      setVista]      = useState("lista");   // "lista" | "quadro"
@@ -5580,7 +5595,17 @@ function Obras({ data, update, showToast, onAbrirObra }) {
 
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
 
-  const save = () => {
+  const abrirOneDrive = (url) => {
+    try {
+      const destino = new URL(String(url || "").trim());
+      if (destino.protocol !== "https:") throw new Error("protocolo");
+      window.open(destino.toString(), "_blank", "noopener,noreferrer");
+    } catch (_) {
+      showToast("Link do OneDrive inválido. Use um endereço iniciado por https://", "error");
+    }
+  };
+
+  const save = async () => {
     if (!form.name.trim()) {
       showToast("Nome da obra obrigatório.", "error");
       return;
@@ -5593,10 +5618,21 @@ function Obras({ data, update, showToast, onAbrirObra }) {
       return;
     }
 
-    const payload = {
+    if (form.oneDriveUrl) {
+      try {
+        const link = new URL(form.oneDriveUrl.trim());
+        if (link.protocol !== "https:") throw new Error("protocolo");
+      } catch (_) {
+        showToast("Informe um link válido do OneDrive iniciado por https://", "error");
+        return;
+      }
+    }
+
+    let payload = {
       ...form,
       id: form.id || uid(),
       areaM2,
+      oneDriveUrl: String(form.oneDriveUrl || "").trim(),
       contractValue: Number(form.contractValue || 0),
       adminPercentage: Number(form.adminPercentage || 0),
       parcelaMensal:     Number(form.parcelaMensal     || 0),
@@ -5612,6 +5648,15 @@ function Obras({ data, update, showToast, onAbrirObra }) {
       // Obra nova sem fase escolhida entra na primeira coluna do quadro
       faseId:            form.faseId || fases[0]?.id || "",
     };
+
+    // No primeiro cadastro, cria a pasta da obra e a estrutura padrao. Se a
+    // conta ainda nao estiver conectada, preserva o cadastro e mostra o passo
+    // necessario, sem voltar a usar o Supabase Storage.
+    if (!payload.oneDriveFolderId && oneDriveStatus === "connected") {
+      const ws = await criarEstruturaOneDrive(payload.name);
+      if (ws.ok) payload = {...payload,oneDriveDriveId:ws.driveId,oneDriveFolderId:ws.folderId,oneDriveFolders:ws.folders||{},oneDriveUrl:ws.webUrl||payload.oneDriveUrl};
+      else showToast(`Obra salva, mas o OneDrive não criou a pasta: ${ws.error||"falha na conexão"}`, "error");
+    }
 
     const obras = form.id ? data.obras.map(o => (o.id === form.id ? payload : o)) : [...data.obras, payload];
     update({ ...data, obras });
@@ -5643,7 +5688,21 @@ function Obras({ data, update, showToast, onAbrirObra }) {
           <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 30, letterSpacing: 2, color: C.yellow }}>Obras</h2>
           <p style={{ color: C.muted, fontSize: 13 }}>{data.obras.length} cadastradas</p>
         </div>
-        <Btn onClick={() => { setForm(empty); setModal(true); }}><Ic n="plus" /> Nova</Btn>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <Btn v="ghost" onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)}>
+            <Ic n="folder" /> Pasta geral
+          </Btn>
+          {oneDriveStatus !== "connected" && <Btn v="ghost" onClick={conectarOneDrive}><Ic n="folder" /> Conectar OneDrive</Btn>}
+          <Btn onClick={() => { setForm(empty); setModal(true); }}><Ic n="plus" /> Nova</Btn>
+        </div>
+      </div>
+
+      <div style={{background:`${C.blue}0D`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+        <div>
+          <p style={{fontSize:12,fontWeight:800,color:C.text}}>Arquivos das obras no OneDrive</p>
+          <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Crie a subpasta na pasta geral e cole o link ao cadastrar ou editar a obra.</p>
+        </div>
+        <button onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)} style={{background:"transparent",border:0,color:C.blue,fontSize:11,fontWeight:800,cursor:"pointer",padding:0}}>Abrir pasta geral ↗</button>
       </div>
 
       {/* Alternador Lista / Quadro */}
@@ -5887,6 +5946,11 @@ function Obras({ data, update, showToast, onAbrirObra }) {
                 {o.address && <p style={{ color: C.subtle, fontSize: 12, marginTop: 4 }}>{o.address}</p>}
                 {o.engineer && <p style={{ color: C.subtle, fontSize: 12 }}>Responsável: {o.engineer}</p>}
                 {o.startDate && <p style={{ color: C.subtle, fontSize: 12 }}>Início: {fmtDateFull(o.startDate)}</p>}
+                {o.oneDriveUrl && (
+                  <button onClick={() => abrirOneDrive(o.oneDriveUrl)} style={{background:"transparent",border:0,color:C.blue,fontSize:11.5,fontWeight:800,cursor:"pointer",padding:"7px 0 0"}}>
+                    Abrir pasta no OneDrive ↗
+                  </button>
+                )}
               </div>
               <div style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
                 <Btn v="ghost" size="sm" onClick={() => { setForm({ ...o, areaM2: String(o.areaM2 || ""), diaVenc1: String(o.diaVenc1 || DIA_VENC_1_PADRAO), diaVenc2: String(o.diaVenc2 || DIA_VENC_2_PADRAO) }); setModal(true); }}><Ic n="edit" /></Btn>
@@ -5955,6 +6019,10 @@ function Obras({ data, update, showToast, onAbrirObra }) {
             <Inp label="Responsável" value={form.engineer} onChange={setField("engineer")} />
             <Inp label="Cliente" value={form.cliente} onChange={setField("cliente")} placeholder="Nome do contratante" />
             <Inp label="Data de início" type="date" value={form.startDate} onChange={setField("startDate")} />
+            <div style={{gridColumn:"1/-1"}}>
+              <Inp label="Pasta da obra no OneDrive" value={form.oneDriveUrl} onChange={setField("oneDriveUrl")} placeholder="Cole aqui o link da subpasta desta obra" />
+              <p style={{fontSize:10,color:C.muted,marginTop:4}}>O sistema salva apenas o link. Projetos, contratos e documentos permanecem no OneDrive.</p>
+            </div>
             <Sel label="Fase (quadro)" value={form.faseId || (fases[0]?.id||"")} onChange={setField("faseId")}
               options={fases.map(f=>({v:f.id,l:f.nome}))}/>
             <Sel label="Status" value={form.status} onChange={setField("status")} options={[
@@ -12613,6 +12681,96 @@ const conferenciaDimensional = (orc, areaConstruida) => {
   return { area, linhas, alertas, temArea: area > 0 };
 };
 
+// Auditoria tecnica reproduzivel do escopo. A IA recebe estes achados depois,
+// mas nao decide sozinha se algo esta faltando: primeiro aplicamos regras
+// objetivas e distinguimos erro provavel, confirmacao de escopo e cotacao.
+const auditarOrcamentoTecnico = (orc, areaConstruida) => {
+  const itens = (orc?.itens || []).filter(item => item.tipo !== "titulo");
+  // Etapas padrao vazias nao contam como servico existente. So a descricao do
+  // orcamento e as linhas efetivamente lancadas alimentam as verificacoes.
+  const texto = semAcentoDim([orc?.descricao, ...itens.map(item => item.descricao)].join(" | "));
+  const tem = (...termos) => termos.some(termo => texto.includes(semAcentoDim(termo)));
+  const achados = [];
+  const add = (nivel, titulo, detalhe, id = `${nivel}-${achados.length}`) =>
+    achados.push({ id, nivel, titulo, detalhe });
+
+  const semQuantidade = itens.filter(item => !(Number(item.quantidade) > 0));
+  const semPreco = itens.filter(item => !(Number(item.precoUnit) > 0));
+  if (semQuantidade.length) add("critico", `${semQuantidade.length} item(ns) sem quantidade`,
+    `Revisar: ${semQuantidade.slice(0,4).map(item=>item.descricao||item.codigo||"item sem descrição").join("; ")}.`);
+  if (semPreco.length) add("critico", `${semPreco.length} item(ns) sem preço`,
+    `O total está subestimado enquanto houver custo unitário zerado. Exemplos: ${semPreco.slice(0,4).map(item=>item.descricao||item.codigo||"item sem descrição").join("; ")}.`);
+  if (!(Number(areaConstruida) > 0)) add("atencao", "Área construída não informada",
+    "Sem a área de referência não é possível testar quantitativos por m² nem custo por m².");
+  if (!orc?.dataBase) add("atencao", "Data-base de preços não informada",
+    "Defina a competência das referências e a data das cotações para permitir atualização e rastreabilidade.");
+
+  const porCodigo = new Map();
+  itens.filter(item=>item.codigo).forEach(item=>{
+    const chave=`${String(item.fonte||"").toUpperCase()}|${String(item.codigo).trim().toUpperCase()}`;
+    porCodigo.set(chave,[...(porCodigo.get(chave)||[]),item]);
+  });
+  const repetidos=[...porCodigo.values()].filter(lista=>lista.length>1);
+  if(repetidos.length)add("atencao",`${repetidos.length} código(s) repetido(s)`,
+    "Pode ser distribuição legítima entre ambientes/etapas, mas confirme se as quantidades não foram duplicadas.");
+
+  const gruposCotacao = [
+    {nome:"Bancadas e pedras", termos:["bancada","granito","marmore","quartzo","silestone"]},
+    {nome:"Esquadrias e vidros", termos:["esquadria","janela","porta de aluminio","pele de vidro","box de vidro","vidro temperado"]},
+    {nome:"Marcenaria", termos:["marcenaria","armario planejado","movel planejado"]},
+    {nome:"Ar-condicionado", termos:["ar condicionado","split","vrf","climatizacao"]},
+    {nome:"Hidromassagem", termos:["hidromassagem","spa ","banheira"]},
+    {nome:"Sistemas especiais", termos:["elevador","energia solar","fotovolta","automacao","piscina"]},
+  ];
+  gruposCotacao.forEach(grupo=>{
+    const encontrados=itens.filter(item=>grupo.termos.some(t=>semAcentoDim(item.descricao).includes(semAcentoDim(t))));
+    const oficiais=encontrados.filter(item=>!/^(COTA[CÇ][AÃ]O|EXTERNO|PR[ÓO]PRIA)$/.test(String(item.fonte||"").trim().toUpperCase()));
+    if(oficiais.length)add("cotacao",`${grupo.nome}: validar por cotação`,
+      `${oficiais.length} item(ns) usam preço de base oficial. Para fornecimento sob medida, confirme escopo, marca, medidas, instalação, frete e validade com fornecedores.`);
+  });
+
+  if (tem("porcelanato","ceramica","revestimento de piso","piso vinilico","piso laminado") && !tem("rodape")) add("atencao","Rodapés não localizados",
+    "Confirmar rodapé, recortes, perdas, soleiras, perfis de transição e rejuntamento compatíveis com os pisos.");
+  if (tem("telha","telhado","cobertura") && !tem("calha","rufo","condutor pluvial")) add("atencao","Complementos da cobertura não localizados",
+    "Conferir rufos, calhas, condutores, arremates, fixações, impermeabilização e testes de estanqueidade.");
+  if (tem("alvenaria","bloco ceramico","tijolo") && !tem("verga","contraverga")) add("atencao","Vergas e contravergas não localizadas",
+    "Conferir reforços sobre e sob vãos, encunhamento, telas de ligação e tratamento de interfaces.");
+  if (tem("instalacao eletrica","eletroduto","cabo eletrico","tomada") && !tem("aterramento","quadro de distribuicao","disjuntor")) add("critico","Proteções elétricas não localizadas",
+    "Conferir quadros, disjuntores, DR, DPS, aterramento, equipotencialização, identificação e ensaios. SPDA depende do projeto e da análise de risco.");
+  if (tem("esgoto","agua fria","agua quente","hidraulica") && !tem("louca sanitaria","vaso sanitario","torneira","registro")) add("atencao","Louças, metais e acessórios não localizados",
+    "Confirmar se são fornecidos pela contratada ou pelo cliente e incluir instalação, acabamentos, sifões, válvulas e testes.");
+  if (tem("ar condicionado","split","vrf","climatizacao")) {
+    if (!tem("dreno de ar","tubulacao frigor","linha frigor","cobre para ar")) add("critico","Infraestrutura frigorígena/drenos não localizada",
+      "Conferir linhas de cobre com isolamento, drenos com caimento, passagens, suportes, vácuo, teste e comissionamento.");
+    if (!tem("circuito ar condicionado","ponto eletrico ar","alimentacao ar condicionado")) add("atencao","Alimentação elétrica do ar-condicionado não localizada",
+      "Prever circuitos dedicados, proteção, seccionamento e compatibilidade com as cargas dos equipamentos cotados.");
+  } else add("escopo","Ar-condicionado: confirmar escopo",
+    "Confirmar se haverá apenas infraestrutura ou também equipamentos, instalação, drenos, elétrica dedicada e comissionamento. Equipamentos normalmente exigem cotação.");
+  if (tem("hidromassagem","spa ","banheira")) {
+    if (!tem("ponto hidromassagem","circuito hidromassagem","alimentacao hidromassagem")) add("critico","Pontos dedicados da hidromassagem não localizados",
+      "Conferir água quente/fria, esgoto, acesso para manutenção, circuito com DR e aterramento, base, vedação e teste de funcionamento.");
+  } else add("escopo","Hidromassagem/SPA: confirmar escopo",
+    "Mesmo quando o equipamento é do cliente, podem faltar base, impermeabilização, pontos hidráulicos, esgoto, elétrica dedicada e acesso técnico.");
+  if (!tem("bancada","granito","marmore","quartzo")) add("escopo","Bancadas e pedras: confirmar escopo",
+    "Conferir bancadas, cubas, frontões, saias, soleiras, peitoris, nichos, furos, transporte e instalação. Preferir cotação por projeto/medição.");
+  if (!tem("esquadria","janela","porta de aluminio","vidro temperado")) add("escopo","Esquadrias e vidros: confirmar escopo",
+    "Conferir tipologia, perfis, ferragens, vidros, telas, acabamento, contramarcos, instalação e desempenho. Preferir cotação por mapa de vãos.");
+  if (!tem("limpeza final","as built","comissionamento","manual de uso")) add("escopo","Entrega e encerramento pouco detalhados",
+    "Confirmar limpeza final, testes/comissionamento, as built, manuais, garantias, desmobilização e entrega técnica.");
+
+  const ordem = { critico:0, atencao:1, cotacao:2, escopo:3 };
+  achados.sort((a,b)=>ordem[a.nivel]-ordem[b.nivel]);
+  return {
+    achados,
+    resumo: {
+      criticos: achados.filter(a=>a.nivel==="critico").length,
+      atencoes: achados.filter(a=>a.nivel==="atencao").length,
+      cotacoes: achados.filter(a=>a.nivel==="cotacao").length,
+      escopo: achados.filter(a=>a.nivel==="escopo").length,
+    },
+  };
+};
+
 const calcBDI = (p) => {
   const d = (x) => Number(x || 0) / 100;
   const ac = d(p.ac), seg = d(p.seguro), ris = d(p.risco), gar = d(p.garantia);
@@ -14070,23 +14228,40 @@ function Orcamento({ data, update, showToast }) {
     () => orc ? conferenciaDimensional(orc, areaRef) : null,
     [orc, areaRef]
   );
+  const auditoriaResultado = useMemo(
+    () => orc ? auditarOrcamentoTecnico(orc, areaRef) : null,
+    [orc, areaRef]
+  );
 
-  // Pede a IA um parecer sobre as divergencias. Local sempre; IA e opcional.
+  // Pede a IA uma segunda leitura dos achados locais e do escopo real.
+  // A resposta nao pode inventar quantitativos nem transformar ausencia de
+  // texto em certeza: itens especiais entram como perguntas de escopo.
   const analisarDimensionalIA = async () => {
-    if (!confResultado || confResultado.alertas.length === 0) return;
+    if (!orc || !(orc.itens||[]).some(item=>item.tipo!=="titulo")) return;
     setConfIALoad(true);
     setConfIA(null);
     try {
-      const linhas = confResultado.alertas.map(a =>
-        `- ${a.nome}: lancado ${a.qtd.toFixed(1)} m2, esperado ~${a.esperado.toFixed(1)} m2 `
-        + `(${a.difPct > 0 ? "+" : ""}${a.difPct.toFixed(0)}%)`).join("\n");
-      const prompt = `Voce e engenheiro civil orcamentista conferindo quantitativos. `
-        + `A obra tem ${areaRef.toFixed(0)} m2 de area construida. `
-        + `A conferencia dimensional apontou estas divergencias entre a quantidade lancada `
-        + `no orcamento e a esperada pela area:\n${linhas}\n\n`
-        + `Para cada divergencia, diga de forma objetiva e em portugues: a causa mais provavel `
-        + `(erro de digitacao, unidade trocada, duplicidade, ou se pode ser legitimo por `
-        + `particularidade do projeto), e o que conferir na planilha. Seja direto e tecnico.`;
+      const locais=(auditoriaResultado?.achados||[]).map(a=>`- [${a.nivel}] ${a.titulo}: ${a.detalhe}`).join("\n");
+      const dimensionais=(confResultado?.alertas||[]).map(a=>
+        `- ${a.nome}: ${a.qtd.toFixed(1)} m2 lançado; referência ~${a.esperado.toFixed(1)} m2; desvio ${a.difPct.toFixed(0)}%`).join("\n");
+      const itens=(orc.itens||[]).filter(item=>item.tipo!=="titulo").slice(0,140).map((item,i)=>
+        `${i+1}. [${item.fonte||"SEM FONTE"}] ${item.codigo||"S/C"} | ${item.descricao||"SEM DESCRIÇÃO"} | ${item.quantidade||0} ${item.unidade||""} | R$ ${Number(item.precoUnit||0).toFixed(2)}`).join("\n");
+      const prompt = `Atue como engenheiro civil orçamentista sênior auditando um orçamento executivo privado em Caruaru/PE. `
+        + `Faça uma revisão crítica realista, sem inventar projeto, quantidade, preço ou obrigação contratual. `
+        + `Ausência na planilha não prova que o serviço faça parte do contrato: classifique como FALHA PROVÁVEL, `
+        + `RISCO/INCONSISTÊNCIA, CONFIRMAR ESCOPO ou EXIGE COTAÇÃO. Priorize impacto em custo, prazo, desempenho, `
+        + `segurança e retrabalho. Verifique interfaces e complementos, não apenas nomes soltos.\n\n`
+        + `DADOS: orçamento "${orc.nome}"; área ${areaRef||"não informada"} m2; BDI ${Number(orc.bdi||0)}%; `
+        + `base ${orc.fonte||"não informada"} ${orc.dataBase||"sem competência"}; ${(orc.itens||[]).length} linhas.\n\n`
+        + `ACHADOS OBJETIVOS DO SISTEMA:\n${locais||"Nenhum."}\n\n`
+        + `DIVERGÊNCIAS DIMENSIONAIS:\n${dimensionais||"Nenhuma ou sem área para conferir."}\n\n`
+        + `ITENS DA PLANILHA:\n${itens}\n\n`
+        + `Entregue: (1) resumo executivo; (2) falhas prováveis com evidência na lista; (3) itens a confirmar, incluindo `
+        + `hidromassagem/SPA, ar-condicionado, bancadas/pedras, esquadrias/vidros, impermeabilizações, instalações e entrega; `
+        + `(4) itens que devem ser cotados no mercado, explicando escopo mínimo da cotação; (5) perguntas objetivas ao projetista/cliente. `
+        + `Para bancadas de granito/quartzo, esquadrias, vidros, marcenaria, climatização e equipamentos especiais, não trate `
+        + `preço SINAPI/ORSE como proposta comercial: recomende cotação quando aplicável. Cite o item que motivou cada alerta. `
+        + `Não cite norma específica sem ter certeza; indique validação pelo responsável técnico.`;
       const r = await fetch("/api/ai-agent", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
@@ -14095,7 +14270,7 @@ function Orcamento({ data, update, showToast }) {
       const j = await r.json();
       setConfIA(j.reply || j.text || j.message || "Sem resposta da IA.");
     } catch (e) {
-      setConfIA("Nao foi possivel falar com a IA agora. A conferencia local acima ja aponta o que revisar.");
+      setConfIA("Não foi possível falar com a IA agora. A auditoria local acima continua disponível e deve orientar a revisão.");
     } finally {
       setConfIALoad(false);
     }
@@ -16238,20 +16413,20 @@ ${blocoBDI}
           <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}>
             <Ic n="brain" s={17} color={C.purple}/>
             <div style={{minWidth:0}}>
-              <p style={{fontSize:13,fontWeight:800,color:C.text}}>Conferencia dimensional</p>
+              <p style={{fontSize:13,fontWeight:800,color:C.text}}>Auditoria técnica do orçamento</p>
               <p style={{fontSize:10.5,color:C.muted,marginTop:1}}>
-                Confere quantidades por area (forro, piso, paredes) contra a area construida
+                Escopo, preços, cotações, itens esquecidos, interfaces e quantitativos
               </p>
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-            {confResultado?.temArea && confResultado.alertas.length > 0 && (
+            {(auditoriaResultado?.achados.length||0) > 0 && (
               <span style={{fontSize:10,fontWeight:800,color:C.red,background:`${C.red}14`,
                             padding:"2px 8px",borderRadius:12}}>
-                {confResultado.alertas.length} alerta(s)
+                {auditoriaResultado.achados.length + (confResultado?.alertas.length||0)} ponto(s)
               </span>
             )}
-            {confResultado?.temArea && confResultado.alertas.length === 0 && confResultado.linhas.length > 0 && (
+            {auditoriaResultado?.achados.length === 0 && confResultado?.temArea && confResultado.alertas.length === 0 && confResultado.linhas.length > 0 && (
               <span style={{fontSize:10,fontWeight:800,color:C.green,background:`${C.green}14`,
                             padding:"2px 8px",borderRadius:12}}>ok</span>
             )}
@@ -16261,6 +16436,31 @@ ${blocoBDI}
 
         {confAberta && (
           <div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.line}`}}>
+            <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginTop:10}}>
+              {[
+                ["Falhas prováveis",auditoriaResultado?.resumo.criticos||0,C.red],
+                ["Atenções",auditoriaResultado?.resumo.atencoes||0,C.orange],
+                ["Cotações",auditoriaResultado?.resumo.cotacoes||0,C.blue],
+                ["Confirmar escopo",auditoriaResultado?.resumo.escopo||0,C.purple],
+              ].map(([label,value,color])=><div key={label} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${color}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{label}</p><p style={{fontSize:18,fontWeight:900,color}}>{value}</p></div>)}
+            </div>
+
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:9}}>
+              {(auditoriaResultado?.achados||[]).map(achado=>{
+                const cor=achado.nivel==="critico"?C.red:achado.nivel==="atencao"?C.orange:achado.nivel==="cotacao"?C.blue:C.purple;
+                const rotulo=achado.nivel==="critico"?"FALHA PROVÁVEL":achado.nivel==="atencao"?"ATENÇÃO":achado.nivel==="cotacao"?"COTAÇÃO":"CONFIRMAR ESCOPO";
+                return <div key={achado.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${cor}`,borderRadius:7,padding:"8px 10px"}}><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:8,fontWeight:900,color:cor,background:`${cor}12`,padding:"2px 5px",borderRadius:4}}>{rotulo}</span><p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{achado.titulo}</p></div><p style={{fontSize:9.5,color:C.muted,lineHeight:1.45,marginTop:3}}>{achado.detalhe}</p></div>;
+              })}
+            </div>
+
+            <div style={{marginTop:11}}>
+              <Btn v="ghost" size="sm" full onClick={analisarDimensionalIA} disabled={confIALoad||!(orc.itens||[]).some(item=>item.tipo!=="titulo")}>
+                {confIALoad ? "Auditando orçamento..." : (<><Ic n="brain" s={14}/> Pedir segunda análise da IA</>)}
+              </Btn>
+              {confIA && <div style={{marginTop:9,background:`${C.purple}08`,border:`1px solid ${C.purple}33`,borderRadius:6,padding:"10px 12px"}}><p style={{fontSize:11,color:C.subtle,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{confIA}</p></div>}
+            </div>
+
+            <p style={{fontSize:10,fontWeight:900,color:C.text,marginTop:13,marginBottom:6,textTransform:"uppercase"}}>Conferência dimensional</p>
             {!confResultado?.temArea ? (
               <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55,marginTop:10}}>
                 Para conferir, cadastre a <strong>area construida</strong> no orcamento (campo
@@ -16304,19 +16504,6 @@ ${blocoBDI}
                   })}
                 </div>
 
-                {confResultado.alertas.length > 0 && (
-                  <div style={{marginTop:11}}>
-                    <Btn v="ghost" size="sm" full onClick={analisarDimensionalIA} disabled={confIALoad}>
-                      {confIALoad ? "Analisando..." : (<><Ic n="brain" s={14}/> Pedir parecer da IA</>)}
-                    </Btn>
-                    {confIA && (
-                      <div style={{marginTop:9,background:`${C.purple}08`,border:`1px solid ${C.purple}33`,
-                                   borderRadius:6,padding:"10px 12px"}}>
-                        <p style={{fontSize:11,color:C.subtle,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{confIA}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
                 <p style={{fontSize:9.5,color:C.muted,marginTop:10,lineHeight:1.45}}>
                   A conferencia e um alerta, nao uma regra: projetos com pe-direito alto, muitos
                   vazios ou sacadas fogem dos fatores medios. Voce decide o que ajustar.
@@ -21556,7 +21743,10 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
   const [chegadaModal, setChegadaModal] = useState(null);
   // Capa da obra: input escondido + estado de envio.
   const inputCapaRef = useRef(null);
+  const inputDocumentoRef = useRef(null);
   const [enviandoCapa, setEnviandoCapa] = useState(false);
+  const [enviandoDocumento, setEnviandoDocumento] = useState(false);
+  const [novaPasta, setNovaPasta] = useState("");
 
   // Sobe a imagem de capa. Comprime antes (a foto do celular e enorme) e
   // guarda so a URL - o binario fica no Storage, nao no JSON do app.
@@ -21565,10 +21755,10 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
     setEnviandoCapa(true);
     try {
       const dataUrl = await comprimirImagem(file);
-      const r = await subirFoto({ dataUrl, obraId, ext: "jpg" });
+      const r = await enviarArquivoOneDrive({dataUrl,obraName:obra.name,driveId:obra.oneDriveDriveId,folderId:obra.oneDriveFolderId,folders:obra.oneDriveFolders,category:"capa",fileName:`capa-${Date.now()}.jpg`});
       if (r?.url) {
         update({ ...data, obras: (data.obras||[]).map(o =>
-          o.id === obraId ? { ...o, capaUrl: r.url } : o) });
+          o.id === obraId ? { ...o, capaUrl:r.url,oneDriveDriveId:r.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:r.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:r.workspace?.folders||o.oneDriveFolders } : o) });
         showToast?.("Imagem da obra atualizada.");
       } else {
         showToast?.(r?.error || "Nao foi possivel enviar a imagem.", "error");
@@ -21578,6 +21768,24 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
     } finally {
       setEnviandoCapa(false);
     }
+  };
+
+  const enviarDocumento = async file => {
+    if(!file)return; setEnviandoDocumento(true);
+    try{
+      const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});
+      const r=await enviarArquivoOneDrive({dataUrl,obraName:obra.name,driveId:obra.oneDriveDriveId,folderId:obra.oneDriveFolderId,folders:obra.oneDriveFolders,category:"documentos",fileName:file.name});
+      if(!r.ok)throw new Error(r.error||"Falha no envio.");
+      const doc={id:r.item.id,nome:r.item.name,url:r.item.webUrl,enviadoEm:new Date().toISOString()};
+      update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,oneDriveUrl:r.workspace?.webUrl||o.oneDriveUrl,oneDriveDriveId:r.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:r.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:r.workspace?.folders||o.oneDriveFolders,documentosOneDrive:[...(o.documentosOneDrive||[]),doc]}:o)});
+      showToast?.("Documento enviado ao OneDrive.");
+    }catch(e){showToast?.(e.message||"Falha ao enviar documento.","error");}finally{setEnviandoDocumento(false);}
+  };
+
+  const criarSubpasta = async () => {
+    if(!novaPasta.trim()||!obra.oneDriveDriveId||!obra.oneDriveFolderId)return;
+    const r=await criarPastaOneDrive({driveId:obra.oneDriveDriveId,parentId:obra.oneDriveFolderId,name:novaPasta});
+    if(r.ok){setNovaPasta("");showToast?.("Pasta criada no OneDrive.");}else showToast?.(r.error||"Falha ao criar pasta.","error");
   };
 
   // A equipe de campo confirma que o material chegou -> tudo do pedido vira
@@ -21654,6 +21862,16 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
   };
   const st = STATUS[obra.status] || STATUS.active;
   const margem = resumo.recebido - resumo.despesas;
+
+  const abrirOneDrive = (url) => {
+    try {
+      const destino = new URL(String(url || "").trim());
+      if (destino.protocol !== "https:") throw new Error("protocolo");
+      window.open(destino.toString(), "_blank", "noopener,noreferrer");
+    } catch (_) {
+      showToast?.("Link do OneDrive inválido. Edite a obra e confira o endereço.", "error");
+    }
+  };
 
   const Par = ({ l, v, c }) => (
     <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:4}}>
@@ -21901,6 +22119,38 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
             </div>
           );
         })()}
+      </Secao>
+
+      <Secao id="arquivos" icone="arquivos" titulo="Arquivos da obra" cor={C.blue}
+             badge={obra.oneDriveUrl ? "OneDrive" : null}>
+        {obra.oneDriveUrl ? (
+          <>
+            <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55,marginBottom:9}}>
+              Projetos, contratos e documentos desta obra ficam armazenados e editáveis no OneDrive.
+            </p>
+            <Btn v="ghost" full onClick={() => abrirOneDrive(obra.oneDriveUrl)}>
+              <Ic n="folder" /> Abrir pasta da obra ↗
+            </Btn>
+            <div style={{display:"flex",gap:6,marginTop:8}}>
+              <Inp value={novaPasta} onChange={setNovaPasta} placeholder="Nome da nova pasta" />
+              <Btn v="ghost" onClick={criarSubpasta}>Criar pasta</Btn>
+            </div>
+            <Btn full onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento} style={{marginTop:8}}>
+              <Ic n="file" /> {enviandoDocumento?"Enviando...":"Enviar documento"}
+            </Btn>
+            <input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/>
+            {(obra.documentosOneDrive||[]).map(doc=><a key={doc.id} href={doc.url} target="_blank" rel="noreferrer" style={{display:"block",fontSize:11,color:C.blue,marginTop:6}}>{doc.nome} ↗</a>)}
+          </>
+        ) : (
+          <>
+            <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55,marginBottom:9}}>
+              Esta obra ainda não tem uma subpasta vinculada. Abra a pasta geral, crie a pasta da obra e depois cole o link ao editar o cadastro.
+            </p>
+            <Btn v="ghost" full onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)}>
+              <Ic n="folder" /> Abrir pasta geral ↗
+            </Btn>
+          </>
+        )}
       </Secao>
 
       {/* Dados do cliente */}
@@ -24323,7 +24573,8 @@ function DiarioObra({ data, update, showToast }) {
     setSubindo(true);
     try {
       const dataUrl = await comprimirImagem(file);
-      const resp = await subirFoto({ dataUrl, obraId, ext: "jpg" });
+      const obraAtual=(data.obras||[]).find(o=>o.id===obraId);
+      const resp = await enviarArquivoOneDrive({dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"diario",date:dataRDO,fileName:`foto-${Date.now()}.jpg`});
       if (resp.url) {
         salvarRDO(r => { r.fotos = [...(r.fotos || []), { url: resp.url, legenda: "", path: resp.path || "" }]; return r; });
         showToast?.("Foto adicionada ao diario");
@@ -28420,7 +28671,7 @@ function Comercial({data,update,showToast,currentUser,view,onTab}){
   const [npsForm,setNpsForm]=useState(null);   // pesquisa de satisfacao na entrega
 const [docForm,setDocForm]=useState({nome:"",url:""});
   const [atividadeForm,setAtividadeForm]=useState(null);const [reuniaoForm,setReuniaoForm]=useState(null);const [propostaForm,setPropostaForm]=useState(null);
-  const [negForm,setNegForm]=useState(null);const [contratoForm,setContratoForm]=useState(null);const [parceiroForm,setParceiroForm]=useState(null);
+  const [negForm,setNegForm]=useState(null);const [contratoForm,setContratoForm]=useState(null);const [clienteForm,setClienteForm]=useState(null);const [parceiroForm,setParceiroForm]=useState(null);
   const [metaForm,setMetaForm]=useState(null);const [perdaForm,setPerdaForm]=useState(null);
   const setCom=(patch)=>update({...data,comercial:{...com,...patch}});
   const nomeUsuario=id=>usuarios.find(u=>u.id===id)?.nome||"-";const leadBy=id=>leads.find(l=>l.id===id);
@@ -28483,12 +28734,34 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const criarContrato=p=>{const existente=contratos.find(k=>k.propostaId===p.id);if(existente){setContratoForm({...existente});return;}if(p.status!=="aceita"&&!window.confirm("A proposta ainda não está aceita. Criar contrato mesmo assim?"))return;const l=leadBy(p.leadId);setContratoForm({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:"",parcelas:"1",diaVencimento:"5",prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});};
   const salvarContrato=f=>{if(!f.leadId||!f.contratante||!(Number(f.valor)>0)){showToast("Informe lead, contratante e valor.","error");return;}const k={...f,id:f.id||uid(),valor:Number(f.valor),entrada:Number(f.entrada||0),parcelas:Number(f.parcelas||1),diaVencimento:Number(f.diaVencimento||5),elaboradoEm:f.elaboradoEm||new Date().toISOString()};setCom({contratos:f.id?contratos.map(x=>x.id===f.id?k:x):[...contratos,k],leads:leads.map(l=>l.id===k.leadId?{...l,etapa:k.status==="enviado"?"contrato_enviado":"contrato_elaboracao",etapaDesde:new Date().toISOString()}:l)});setContratoForm(null);};
   const finalizarContrato=k=>{const p=propostas.find(x=>x.id===k.propostaId),l=leadBy(k.leadId);const faltas=[];if(p?.status!=="aceita")faltas.push("proposta aceita");if(!k.assinadoEm&&k.status!=="assinado")faltas.push("contrato assinado");if(!k.documentosRecebidos)faltas.push("documentos recebidos");if(!k.entradaPaga)faltas.push("entrada confirmada");if(!k.escopoValidado)faltas.push("escopo validado");if(!k.responsavelTecnicoId)faltas.push("responsável técnico");if(faltas.length){showToast(`Falta: ${faltas.join(", ")}.`,"error");return;}
-    const clienteExist=clientes.find(c=>c.leadId===l.id),cliente=clienteExist||{id:uid(),leadId:l.id,nome:l.nome,tipoPessoa:l.tipoPessoa,documento:"",telefone:l.telefone,whatsapp:l.whatsapp,email:l.email,cidade:l.cidade,endereco:l.endereco,createdAt:new Date().toISOString()};const obraId=k.obraId||uid();const obraExist=(data.obras||[]).some(o=>o.id===obraId);const obra={id:obraId,name:l.nome||k.objeto,address:l.endereco||l.cidade,engineer:nomeUsuario(k.responsavelTecnicoId),startDate:k.inicio,status:"active",areaM2:Number(l.areaConstrucao||0),contractType:"fixed_labor",contractValue:k.valor,adminPercentage:0,billingType:"parcelado",parcelaMensal:k.parcelas?Math.max(0,(k.valor-k.entrada)/k.parcelas):0,contractStart:k.inicio,contractEnd:k.conclusao,totalParcelas:k.parcelas,billingFrequency:"mensal",diaVenc1:k.diaVencimento,diaVenc2:k.diaVencimento,entrada:k.entrada,entradaDate:today(),hasCaixa:true,faseId:""};const venda={id:uid(),leadId:l.id,contratoId:k.id,clienteId:cliente.id,obraId,valor:k.valor,fechadaEm:new Date().toISOString(),responsavelId:k.responsavelComercialId||l.responsavelId};const parceiro=parceiros.find(x=>x.id===l.parceiroId),pct=Number(parceiro?.comissaoPct||1),comissao={id:uid(),vendaId:venda.id,responsavelId:venda.responsavelId,parceiroId:parceiro?.id||"",base:k.valor,percentual:pct,valor:k.valor*pct/100,status:"prevista"};
+    const clienteExist=clientes.find(c=>c.leadId===l.id),cliente=clienteExist||{...clienteVazio(),id:uid(),leadId:l.id,nome:l.nome,tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone,whatsapp:l.whatsapp,email:l.email,cidade:l.cidade,endereco:l.endereco,createdAt:new Date().toISOString()};const obraId=k.obraId||uid();const obraExist=(data.obras||[]).some(o=>o.id===obraId);const obra={id:obraId,name:l.nome||k.objeto,address:l.endereco||l.cidade,engineer:nomeUsuario(k.responsavelTecnicoId),startDate:k.inicio,status:"active",areaM2:Number(l.areaConstrucao||0),contractType:"fixed_labor",contractValue:k.valor,adminPercentage:0,billingType:"parcelado",parcelaMensal:k.parcelas?Math.max(0,(k.valor-k.entrada)/k.parcelas):0,contractStart:k.inicio,contractEnd:k.conclusao,totalParcelas:k.parcelas,billingFrequency:"mensal",diaVenc1:k.diaVencimento,diaVenc2:k.diaVencimento,entrada:k.entrada,entradaDate:today(),hasCaixa:true,faseId:""};const venda={id:uid(),leadId:l.id,contratoId:k.id,clienteId:cliente.id,obraId,valor:k.valor,fechadaEm:new Date().toISOString(),responsavelId:k.responsavelComercialId||l.responsavelId};const parceiro=parceiros.find(x=>x.id===l.parceiroId),pct=Number(parceiro?.comissaoPct||1),comissao={id:uid(),vendaId:venda.id,responsavelId:venda.responsavelId,parceiroId:parceiro?.id||"",base:k.valor,percentual:pct,valor:k.valor*pct/100,status:"prevista"};
     const contas=[];if(k.entrada>0)contas.push({id:uid(),obraId,competencia:today().slice(0,7),dataVencimento:today(),numeroParcela:"Entrada",tipo:"entrada",percentualAcumulado:0,percentualPeriodo:0,valorMOFixo:k.entrada,valorAdminPct:0,valorPrevisto:k.entrada,valorRecebido:k.entrada,dataPagamento:today(),descricao:`Entrada contrato ${k.numero}`,recebido:true});const saldo=Math.max(0,k.valor-k.entrada),parcs=Math.max(1,k.parcelas),valorParc=saldo/parcs;for(let i=1;i<=parcs&&valorParc>0;i++){const venc=comAddMes(k.inicio||today(),i-1);contas.push({id:uid(),obraId,competencia:venc.slice(0,7),dataVencimento:venc,numeroParcela:String(i),tipo:"parcela",percentualAcumulado:0,percentualPeriodo:0,valorMOFixo:valorParc,valorAdminPct:0,valorPrevisto:valorParc,valorRecebido:0,dataPagamento:"",descricao:`Parcela ${i}/${parcs} · ${k.numero}`,recebido:false});}
     const kickoff={id:uid(),leadId:l.id,dataHora:`${k.inicio||today()}T09:00`,tipo:"inicio_obra",local:l.endereco||"Obra",participantes:`Cliente, ${nomeUsuario(k.responsavelTecnicoId)}, ${nomeUsuario(venda.responsavelId)}`,responsavelComercialId:venda.responsavelId,responsavelTecnicoId:k.responsavelTecnicoId,pauta:"Reunião de início e transferência para Engenharia",resumo:"",necessidades:l.observacoes,objecoes:"",orcamentoDisponivel:k.valor,proximosPassos:"Validar mobilização e cronograma",proximoContato:k.inicio,status:"agendada",documentos:[]};
     const posVenda={id:uid(),leadId:l.id,tipo:"pos_venda",titulo:"Contato de pós-venda e confirmação do início",dataHora:`${comAddMes(k.inicio||today(),1)}T09:00`,responsavelId:venda.responsavelId,status:"pendente",observacoes:`Criado automaticamente após a contratação ${k.numero}.`,createdAt:new Date().toISOString()};
     update({...data,obras:obraExist?data.obras:data.obras.concat(obra),medicoes:[...(data.medicoes||[]),...contas],changeLog:[...(data.changeLog||[]),{id:uid(),date:today(),type:"venda_transferida",message:`Venda ${k.numero} transferida à Engenharia e Financeiro.`}],comercial:{...com,clientes:clienteExist?clientes:[...clientes,cliente],vendas:[...vendas,venda],comissoes:[...comissoes,comissao],atividades:[...atividades,posVenda],reunioes:[...reunioes,kickoff],contratos:contratos.map(x=>x.id===k.id?{...x,status:"contratado",obraId,clienteId:cliente.id}:x),leads:leads.map(x=>x.id===l.id?{...x,etapa:"transferido",status:"ganho",etapaDesde:new Date().toISOString(),historico:[...(x.historico||[]),{id:uid(),data:new Date().toISOString(),tipo:"fechamento",texto:`Venda fechada e transferida para obra ${obra.name}`}]}:x)}});showToast("Venda confirmada: cliente, obra, contas, comissão, kickoff e pós-venda criados.");};
 
+  const clienteVazio=()=>({id:"",leadId:"",nome:"",tipoPessoa:"PF",documento:"",rg:"",orgaoExpedidor:"",dataNascimento:"",nacionalidade:"Brasileira",estadoCivil:"",regimeBens:"",profissao:"",conjugeNome:"",conjugeCpf:"",telefone:"",whatsapp:"",email:"",cep:"",endereco:"",numero:"",complemento:"",bairro:"",cidade:"",uf:"PE",razaoSocial:"",nomeFantasia:"",inscricaoEstadual:"",inscricaoMunicipal:"",representanteNome:"",representanteCpf:"",representanteRg:"",representanteOrgaoExpedidor:"",representanteCargo:"",representanteNacionalidade:"Brasileira",representanteEstadoCivil:"",representanteProfissao:"",observacoes:""});
+  const pendenciasCliente=c=>{
+    const comuns=[["documento",c.tipoPessoa==="PJ"?"CNPJ":"CPF"],["telefone","telefone"],["email","e-mail"],["cep","CEP"],["endereco","logradouro"],["numero","número"],["bairro","bairro"],["cidade","cidade"],["uf","UF"]];
+    const especificos=c.tipoPessoa==="PJ"
+      ? [["razaoSocial","razão social"],["representanteNome","representante legal"],["representanteCpf","CPF do representante"],["representanteRg","RG do representante"],["representanteOrgaoExpedidor","órgão expedidor do representante"],["representanteCargo","cargo do representante"],["representanteNacionalidade","nacionalidade do representante"],["representanteEstadoCivil","estado civil do representante"],["representanteProfissao","profissão do representante"]]
+      : [["rg","RG"],["orgaoExpedidor","órgão expedidor"],["nacionalidade","nacionalidade"],["estadoCivil","estado civil"],["profissao","profissão"],...(["Casado(a)","União estável"].includes(c.estadoCivil)?[["regimeBens","regime de bens"],["conjugeNome","nome do cônjuge/companheiro"]]:[])];
+    return [...comuns,...especificos].filter(([campo])=>!String(c[campo]||"").trim()).map(([,nome])=>nome);
+  };
+  const salvarCliente=f=>{
+    if(!f?.nome?.trim()){showToast("Informe o nome do cliente.","error");return;}
+    const documento=soDigitos(f.documento);
+    if(!documento){showToast(`Informe o ${f.tipoPessoa==="PJ"?"CNPJ":"CPF"}.`,"error");return;}
+    if(!validarDocumento(documento,f.tipoPessoa)){showToast(`${f.tipoPessoa==="PJ"?"CNPJ":"CPF"} inválido. Confira os dígitos.`,"error");return;}
+    const representanteCpf=soDigitos(f.representanteCpf);
+    if(f.tipoPessoa==="PJ"&&representanteCpf&&!validarDocumento(representanteCpf,"PF")){showToast("CPF do representante legal inválido.","error");return;}
+    const conjugeCpf=soDigitos(f.conjugeCpf);
+    if(f.tipoPessoa==="PF"&&conjugeCpf&&!validarDocumento(conjugeCpf,"PF")){showToast("CPF do cônjuge inválido.","error");return;}
+    const cliente={...f,id:f.id||uid(),nome:f.nome.trim(),documento,representanteCpf,conjugeCpf,createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+    const lista=f.id?clientes.map(c=>c.id===f.id?cliente:c):[...clientes,cliente];
+    setCom({clientes:lista,contratos:contratos.map(k=>k.clienteId===cliente.id?{...k,contratante:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome}:k)});
+    setClienteForm(null);showToast(f.id?"Cliente atualizado.":"Cliente cadastrado.");
+  };
   const salvarParceiro=f=>{if(!f.nome)return;const p={...f,id:f.id||uid(),comissaoPct:Number(f.comissaoPct||0),ativo:true};setCom({parceiros:f.id?parceiros.map(x=>x.id===f.id?p:x):[...parceiros,p]});setParceiroForm(null);};
   const salvarMeta=f=>{if(!f.periodo)return;const m={...f,id:f.id||uid(),receita:Number(f.receita||0),contratos:Number(f.contratos||0),ticketMedio:Number(f.ticketMedio||0),conversao:Number(f.conversao||0)};setCom({metas:f.id?metas.map(x=>x.id===f.id?m:x):[...metas,m]});setMetaForm(null);};
   const exportarRelatorio=()=>{const rows=vendedores.map(v=>({Vendedor:v.nome,Leads:v.leads,Vendas:v.vendas,Receita:v.receita,"Conversão %":v.conversao}));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Comercial");XLSX.writeFile(wb,`ARCD_Comercial_${today()}.xlsx`);};
@@ -28772,7 +29045,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   } else if(view==="com_contratos"){
     conteudo=<><Titulo titulo="Contratos" sub="Elaboração, assinatura, entrada e transferência para Engenharia"/><div style={{display:"flex",flexDirection:"column",gap:7}}>{contratos.map(k=>{const l=leadBy(k.leadId),faltas=[!k.assinadoEm&&k.status!=="assinado"?"assinatura":"",!k.documentosRecebidos?"documentos":"",!k.entradaPaga?"entrada":"",!k.escopoValidado?"escopo":"",!k.responsavelTecnicoId?"responsável técnico":""].filter(Boolean);return <div key={k.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${k.status==="contratado"?C.green:faltas.length?C.orange:C.blue}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{k.numero} · {k.contratante}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{k.objeto} · proposta {propostas.find(p=>p.id===k.propostaId)?.numero||"-"}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(k.valor)}</b><p style={{fontSize:9,color:C.blue}}>{k.status}</p></div></div>{faltas.length>0&&k.status!=="contratado"&&<p style={{fontSize:9.5,color:C.orange,marginTop:5}}>Pendente: {faltas.join(", ")}</p>}<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setContratoForm({...k})}><Ic n="edit"/></Btn>{k.status==="elaboracao"&&<Btn size="sm" onClick={()=>setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"enviado",enviadoEm:new Date().toISOString()}:x)})}>ENVIAR</Btn>}{k.status==="enviado"&&<Btn size="sm" v="success" onClick={()=>setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"assinado",assinadoEm:new Date().toISOString()}:x),leads:leads.map(x=>x.id===k.leadId?{...x,etapa:"contrato_assinado"}:x)})}>REGISTRAR ASSINATURA</Btn>}{k.status!=="contratado"&&<Btn size="sm" v="success" onClick={()=>finalizarContrato(k)}>CONFIRMAR CONTRATAÇÃO</Btn>}{k.obraId&&<Btn size="sm" v="ghost" onClick={()=>onTab("obras")}>ABRIR OBRA</Btn>}</div></div>;})}{!contratos.length&&vazio("Nenhum contrato. Aceite uma proposta para gerar o contrato.")}</div></>;
   } else if(view==="com_clientes"){
-    conteudo=<><Titulo titulo="Clientes" sub="Clientes convertidos a partir de vendas confirmadas"/><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{clientes.map(c=><div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 11px"}}><p style={{fontSize:12,fontWeight:900,color:C.text}}>{c.nome}</p><p style={{fontSize:10,color:C.muted,marginTop:3}}>{c.tipoPessoa} · {c.cidade||"-"}</p><p style={{fontSize:10,color:C.blue,marginTop:3}}>{c.whatsapp||c.telefone||"-"} · {c.email||"-"}</p><p style={{fontSize:9.5,color:C.green,marginTop:5}}>{vendas.filter(v=>v.clienteId===c.id).length} contrato(s) · {fmt(vendas.filter(v=>v.clienteId===c.id).reduce((s,v)=>s+v.valor,0))}</p></div>)}{!clientes.length&&vazio("Nenhum cliente convertido.")}</div></>;
+    conteudo=<><Titulo titulo="Clientes" sub="Qualificação completa para propostas, contratos e documentos" acao={<Btn onClick={()=>setClienteForm(clienteVazio())}><Ic n="plus"/> CLIENTE</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{clientes.map(c=>{const pend=pendenciasCliente(c),pronto=!pend.length;return <div key={c.id} style={{background:C.card,border:`1px solid ${pronto?C.green:C.border}`,borderLeft:`4px solid ${pronto?C.green:C.orange}`,borderRadius:6,padding:"10px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}</p>{c.tipoPessoa==="PJ"&&c.nomeFantasia&&<p style={{fontSize:9.5,color:C.muted}}>{c.nomeFantasia}</p>}</div><Btn size="sm" v="ghost" onClick={()=>setClienteForm({...clienteVazio(),...c})}><Ic n="edit"/></Btn></div><p style={{fontSize:10,color:C.muted,marginTop:3}}>{c.tipoPessoa} · {c.documento?maskDoc(c.documento,c.tipoPessoa):"sem documento"} · {c.cidade||"-"}/{c.uf||"-"}</p><p style={{fontSize:10,color:C.blue,marginTop:3}}>{c.whatsapp||c.telefone||"-"} · {c.email||"-"}</p><p style={{fontSize:9.5,color:pronto?C.green:C.orange,marginTop:5,fontWeight:800}}>{pronto?"CADASTRO CONTRATUAL COMPLETO":`${pend.length} pendência(s): ${pend.slice(0,3).join(", ")}${pend.length>3?"...":""}`}</p><p style={{fontSize:9.5,color:C.green,marginTop:5}}>{vendas.filter(v=>v.clienteId===c.id).length} contrato(s) · {fmt(vendas.filter(v=>v.clienteId===c.id).reduce((s,v)=>s+v.valor,0))}</p></div>;})}{!clientes.length&&vazio("Nenhum cliente cadastrado.")}</div></>;
   } else if(view==="com_parceiros"){
     conteudo=<><Titulo titulo="Parceiros e indicações" sub="Origem, percentual de comissão e resultados" acao={<Btn onClick={()=>setParceiroForm({id:"",nome:"",tipo:"indicador",telefone:"",email:"",comissaoPct:"",observacoes:""})}><Ic n="plus"/> PARCEIRO</Btn>}/>{parceiros.map(p=><div key={p.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px",marginBottom:6}}><div><p style={{fontSize:11.5,fontWeight:900}}>{p.nome}</p><p style={{fontSize:9.5,color:C.muted}}>{p.tipo} · {p.telefone||p.email||"-"}</p></div><b style={{color:C.green}}>{p.comissaoPct}%</b><Btn size="sm" v="ghost" onClick={()=>setParceiroForm({...p})}><Ic n="edit"/></Btn></div>)}{!parceiros.length&&vazio("Nenhum parceiro.")}</>;
   } else if(view==="com_metas"){
@@ -28884,6 +29157,68 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     {propostaForm&&<Modal title="Proposta comercial" onClose={()=>setPropostaForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={propostaForm.numero} onChange={v=>setPropostaForm(f=>({...f,numero:v}))}/><Inp label="Versão" type="number" value={propostaForm.versao} onChange={v=>setPropostaForm(f=>({...f,versao:v}))}/><Sel label="Lead *" value={propostaForm.leadId} onChange={v=>setPropostaForm(f=>({...f,leadId:v}))} options={leads.map(l=>({v:l.id,l:l.nome}))}/><Inp label="Objeto *" value={propostaForm.objeto} onChange={v=>setPropostaForm(f=>({...f,objeto:v}))}/><Inp label="Valor *" type="number" value={propostaForm.valor} onChange={v=>setPropostaForm(f=>({...f,valor:v}))}/><Inp label="Validade" type="date" value={propostaForm.validade} onChange={v=>setPropostaForm(f=>({...f,validade:v}))}/>{[["escopo","Escopo"],["inclusos","Serviços inclusos"],["exclusos","Não inclusos"],["entregaveis","Entregáveis"],["formaPagamento","Forma de pagamento"],["responsabilidades","Responsabilidades"],["premissas","Premissas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={propostaForm[k]} onChange={v=>setPropostaForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Prazo" value={propostaForm.prazo} onChange={v=>setPropostaForm(f=>({...f,prazo:v}))}/><Inp label="Desconto %" type="number" value={propostaForm.desconto} onChange={v=>setPropostaForm(f=>({...f,desconto:v}))}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarProposta(propostaForm)} full>SALVAR PROPOSTA</Btn></div></div></Modal>}
     {negForm&&<Modal title="Registrar negociação" onClose={()=>setNegForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Valor inicial" type="number" value={negForm.valorInicial} onChange={v=>setNegForm(f=>({...f,valorInicial:v}))}/><Inp label="Valor negociado" type="number" value={negForm.valorNegociado} onChange={v=>setNegForm(f=>({...f,valorNegociado:v}))}/><Inp label="Desconto %" type="number" value={negForm.desconto} onChange={v=>setNegForm(f=>({...f,desconto:v}))}/><Inp label="Forma de pagamento" value={negForm.formaPagamento} onChange={v=>setNegForm(f=>({...f,formaPagamento:v}))}/><Inp label="Parcelas" type="number" value={negForm.parcelas} onChange={v=>setNegForm(f=>({...f,parcelas:v}))}/><Sel label="Aprovador" value={negForm.aprovadorId} onChange={v=>setNegForm(f=>({...f,aprovadorId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["alteracaoEscopo","Alteração de escopo"],["objecoes","Objeções do cliente"],["respostas","Respostas dadas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={negForm[k]} onChange={v=>setNegForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarNegociacao(negForm)} full>SALVAR NEGOCIAÇÃO</Btn></div></div></Modal>}
     {contratoForm&&<Modal title="Contrato comercial" onClose={()=>setContratoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={contratoForm.numero} onChange={v=>setContratoForm(f=>({...f,numero:v}))}/><Inp label="Contratante *" value={contratoForm.contratante} onChange={v=>setContratoForm(f=>({...f,contratante:v}))}/><Inp label="Valor *" type="number" value={contratoForm.valor} onChange={v=>setContratoForm(f=>({...f,valor:v}))}/><Inp label="Entrada" type="number" value={contratoForm.entrada} onChange={v=>setContratoForm(f=>({...f,entrada:v}))}/><Inp label="Parcelas" type="number" value={contratoForm.parcelas} onChange={v=>setContratoForm(f=>({...f,parcelas:v}))}/><Inp label="Dia de vencimento" type="number" value={contratoForm.diaVencimento} onChange={v=>setContratoForm(f=>({...f,diaVencimento:v}))}/><Inp label="Início" type="date" value={contratoForm.inicio} onChange={v=>setContratoForm(f=>({...f,inicio:v}))}/><Inp label="Conclusão" type="date" value={contratoForm.conclusao} onChange={v=>setContratoForm(f=>({...f,conclusao:v}))}/><Inp label="Prazo" value={contratoForm.prazo} onChange={v=>setContratoForm(f=>({...f,prazo:v}))}/><Sel label="Responsável comercial" value={contratoForm.responsavelComercialId} onChange={v=>setContratoForm(f=>({...f,responsavelComercialId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Sel label="Responsável técnico *" value={contratoForm.responsavelTecnicoId} onChange={v=>setContratoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Link para assinatura eletrônica" value={contratoForm.assinaturaUrl||""} onChange={v=>setContratoForm(f=>({...f,assinaturaUrl:v}))}/>{[["objeto","Objeto"],["escopo","Escopo"],["responsabilidades","Responsabilidades"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={contratoForm[k]} onChange={v=>setContratoForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1",display:"flex",gap:8,flexWrap:"wrap"}}>{[["documentosRecebidos","Documentos recebidos"],["entradaPaga","Entrada confirmada"],["escopoValidado","Escopo validado"]].map(([k,l])=><label key={k} style={{fontSize:10.5,color:C.text,display:"flex",gap:5,alignItems:"center"}}><input type="checkbox" checked={!!contratoForm[k]} onChange={e=>setContratoForm(f=>({...f,[k]:e.target.checked}))}/>{l}</label>)}</div><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarContrato(contratoForm)} full>SALVAR CONTRATO</Btn></div></div></Modal>}
+    {clienteForm&&<Modal title={clienteForm.id?"Editar qualificação do cliente":"Novo cliente"} onClose={()=>setClienteForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+        <Sel label="Tipo de pessoa *" value={clienteForm.tipoPessoa} onChange={v=>setClienteForm(f=>({...f,tipoPessoa:v,documento:""}))} options={[{v:"PF",l:"Pessoa física"},{v:"PJ",l:"Pessoa jurídica"}]}/>
+        <Inp label={clienteForm.tipoPessoa==="PJ"?"Nome para identificação *":"Nome completo *"} value={clienteForm.nome} onChange={v=>setClienteForm(f=>({...f,nome:v}))}/>
+        <Inp label={`${clienteForm.tipoPessoa==="PJ"?"CNPJ":"CPF"} *`} value={maskDoc(clienteForm.documento,clienteForm.tipoPessoa)} onChange={v=>setClienteForm(f=>({...f,documento:soDigitos(v)}))}/>
+      </div>
+
+      {clienteForm.tipoPessoa==="PF"?<>
+        <p style={{fontSize:10,fontWeight:900,color:C.yellowD,textTransform:"uppercase"}}>Qualificação pessoal</p>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+          <Inp label="RG / documento de identidade" value={clienteForm.rg} onChange={v=>setClienteForm(f=>({...f,rg:v}))}/>
+          <Inp label="Órgão expedidor / UF" value={clienteForm.orgaoExpedidor} onChange={v=>setClienteForm(f=>({...f,orgaoExpedidor:v}))} placeholder="Ex.: SDS/PE"/>
+          <Inp label="Data de nascimento" type="date" value={clienteForm.dataNascimento} onChange={v=>setClienteForm(f=>({...f,dataNascimento:v}))}/>
+          <Inp label="Nacionalidade" value={clienteForm.nacionalidade} onChange={v=>setClienteForm(f=>({...f,nacionalidade:v}))}/>
+          <Sel label="Estado civil" value={clienteForm.estadoCivil} onChange={v=>setClienteForm(f=>({...f,estadoCivil:v}))} options={[{v:"",l:"Selecione"},...['Solteiro(a)','Casado(a)','União estável','Divorciado(a)','Separado(a)','Viúvo(a)'].map(v=>({v,l:v}))]}/>
+          <Inp label="Regime de bens (se aplicável)" value={clienteForm.regimeBens} onChange={v=>setClienteForm(f=>({...f,regimeBens:v}))} placeholder="Ex.: comunhão parcial"/>
+          <Inp label="Profissão" value={clienteForm.profissao} onChange={v=>setClienteForm(f=>({...f,profissao:v}))}/>
+        </div>
+        {["Casado(a)","União estável"].includes(clienteForm.estadoCivil)&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Nome completo do cônjuge/companheiro" value={clienteForm.conjugeNome} onChange={v=>setClienteForm(f=>({...f,conjugeNome:v}))}/><Inp label="CPF do cônjuge/companheiro" value={maskDoc(clienteForm.conjugeCpf,"PF")} onChange={v=>setClienteForm(f=>({...f,conjugeCpf:soDigitos(v)}))}/></div>}
+      </>:<>
+        <p style={{fontSize:10,fontWeight:900,color:C.yellowD,textTransform:"uppercase"}}>Qualificação da empresa</p>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+          <Inp label="Razão social *" value={clienteForm.razaoSocial} onChange={v=>setClienteForm(f=>({...f,razaoSocial:v}))}/>
+          <Inp label="Nome fantasia" value={clienteForm.nomeFantasia} onChange={v=>setClienteForm(f=>({...f,nomeFantasia:v}))}/>
+          <Inp label="Inscrição estadual" value={clienteForm.inscricaoEstadual} onChange={v=>setClienteForm(f=>({...f,inscricaoEstadual:v}))} placeholder="Isento, se aplicável"/>
+          <Inp label="Inscrição municipal" value={clienteForm.inscricaoMunicipal} onChange={v=>setClienteForm(f=>({...f,inscricaoMunicipal:v}))}/>
+        </div>
+        <p style={{fontSize:10,fontWeight:900,color:C.yellowD,textTransform:"uppercase"}}>Representante legal</p>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+          <Inp label="Nome completo *" value={clienteForm.representanteNome} onChange={v=>setClienteForm(f=>({...f,representanteNome:v}))}/>
+          <Inp label="CPF *" value={maskDoc(clienteForm.representanteCpf,"PF")} onChange={v=>setClienteForm(f=>({...f,representanteCpf:soDigitos(v)}))}/>
+          <Inp label="RG" value={clienteForm.representanteRg} onChange={v=>setClienteForm(f=>({...f,representanteRg:v}))}/>
+          <Inp label="Órgão expedidor / UF" value={clienteForm.representanteOrgaoExpedidor} onChange={v=>setClienteForm(f=>({...f,representanteOrgaoExpedidor:v}))}/>
+          <Inp label="Cargo / poderes de representação *" value={clienteForm.representanteCargo} onChange={v=>setClienteForm(f=>({...f,representanteCargo:v}))} placeholder="Ex.: sócio-administrador"/>
+          <Inp label="Nacionalidade" value={clienteForm.representanteNacionalidade} onChange={v=>setClienteForm(f=>({...f,representanteNacionalidade:v}))}/>
+          <Sel label="Estado civil" value={clienteForm.representanteEstadoCivil} onChange={v=>setClienteForm(f=>({...f,representanteEstadoCivil:v}))} options={[{v:"",l:"Selecione"},...['Solteiro(a)','Casado(a)','União estável','Divorciado(a)','Separado(a)','Viúvo(a)'].map(v=>({v,l:v}))]}/>
+          <Inp label="Profissão" value={clienteForm.representanteProfissao} onChange={v=>setClienteForm(f=>({...f,representanteProfissao:v}))}/>
+        </div>
+      </>}
+
+      <p style={{fontSize:10,fontWeight:900,color:C.yellowD,textTransform:"uppercase"}}>Contato</p>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+        <Inp label="Telefone para contato *" value={clienteForm.telefone} onChange={v=>setClienteForm(f=>({...f,telefone:v}))}/>
+        <Inp label="WhatsApp" value={clienteForm.whatsapp} onChange={v=>setClienteForm(f=>({...f,whatsapp:v}))}/>
+        <Inp label="E-mail *" type="email" value={clienteForm.email} onChange={v=>setClienteForm(f=>({...f,email:v}))}/>
+      </div>
+
+      <p style={{fontSize:10,fontWeight:900,color:C.yellowD,textTransform:"uppercase"}}>{clienteForm.tipoPessoa==="PJ"?"Sede / domicílio contratual":"Endereço onde reside"}</p>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
+        <Inp label="CEP *" value={clienteForm.cep} onChange={v=>setClienteForm(f=>({...f,cep:v}))}/>
+        <Inp label="Logradouro *" value={clienteForm.endereco} onChange={v=>setClienteForm(f=>({...f,endereco:v}))} placeholder="Rua, avenida..."/>
+        <Inp label="Número *" value={clienteForm.numero} onChange={v=>setClienteForm(f=>({...f,numero:v}))}/>
+        <Inp label="Complemento" value={clienteForm.complemento} onChange={v=>setClienteForm(f=>({...f,complemento:v}))}/>
+        <Inp label="Bairro *" value={clienteForm.bairro} onChange={v=>setClienteForm(f=>({...f,bairro:v}))}/>
+        <Inp label="Cidade *" value={clienteForm.cidade} onChange={v=>setClienteForm(f=>({...f,cidade:v}))}/>
+        <Inp label="UF *" value={clienteForm.uf} onChange={v=>setClienteForm(f=>({...f,uf:v.toUpperCase().slice(0,2)}))}/>
+      </div>
+      <Inp label="Observações contratuais" value={clienteForm.observacoes} onChange={v=>setClienteForm(f=>({...f,observacoes:v}))} multiline placeholder="Procurador, segundo contratante, dados do cônjuge, condições especiais..."/>
+      {pendenciasCliente(clienteForm).length>0&&<div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"8px 10px"}}><p style={{fontSize:10,color:C.orange,fontWeight:800}}>Ainda faltam para a qualificação: {pendenciasCliente(clienteForm).join(", ")}.</p></div>}
+      <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setClienteForm(null)} full>Cancelar</Btn><Btn onClick={()=>salvarCliente(clienteForm)} full><Ic n="check"/> Salvar cliente</Btn></div>
+    </div></Modal>}
+
     {parceiroForm&&<Modal title="Parceiro / indicação" onClose={()=>setParceiroForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Nome *" value={parceiroForm.nome} onChange={v=>setParceiroForm(f=>({...f,nome:v}))}/><Sel label="Tipo" value={parceiroForm.tipo} onChange={v=>setParceiroForm(f=>({...f,tipo:v}))} options={[{v:"indicador",l:"Indicador"},{v:"arquiteto",l:"Arquiteto"},{v:"corretor",l:"Corretor"},{v:"outro",l:"Outro"}]}/><Inp label="Telefone" value={parceiroForm.telefone} onChange={v=>setParceiroForm(f=>({...f,telefone:v}))}/><Inp label="E-mail" value={parceiroForm.email} onChange={v=>setParceiroForm(f=>({...f,email:v}))}/><Inp label="Comissão %" type="number" value={parceiroForm.comissaoPct} onChange={v=>setParceiroForm(f=>({...f,comissaoPct:v}))}/><Inp label="Observações" value={parceiroForm.observacoes} onChange={v=>setParceiroForm(f=>({...f,observacoes:v}))} multiline/><Btn onClick={()=>salvarParceiro(parceiroForm)}>SALVAR</Btn></div></Modal>}
     {metaForm&&<Modal title="Meta comercial" onClose={()=>setMetaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Período" type="month" value={metaForm.periodo} onChange={v=>setMetaForm(f=>({...f,periodo:v}))}/><Sel label="Vendedor" value={metaForm.responsavelId} onChange={v=>setMetaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Equipe"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Equipe" value={metaForm.equipe} onChange={v=>setMetaForm(f=>({...f,equipe:v}))}/><Inp label="Meta de receita" type="number" value={metaForm.receita} onChange={v=>setMetaForm(f=>({...f,receita:v}))}/><Inp label="Contratos" type="number" value={metaForm.contratos} onChange={v=>setMetaForm(f=>({...f,contratos:v}))}/><Inp label="Ticket médio" type="number" value={metaForm.ticketMedio} onChange={v=>setMetaForm(f=>({...f,ticketMedio:v}))}/><Inp label="Conversão %" type="number" value={metaForm.conversao} onChange={v=>setMetaForm(f=>({...f,conversao:v}))}/><Btn onClick={()=>salvarMeta(metaForm)}>SALVAR META</Btn></div></Modal>}
     {perdaForm&&<Modal title="Registrar perda obrigatória" onClose={()=>setPerdaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Sel label="Motivo *" value={perdaForm.motivo} onChange={v=>setPerdaForm(f=>({...f,motivo:v}))} options={[{v:"",l:"Selecione"},...COM_PERDAS.map(v=>({v,l:v}))]}/><Inp label="Concorrente" value={perdaForm.concorrente} onChange={v=>setPerdaForm(f=>({...f,concorrente:v}))}/><Inp label="Valor do concorrente" type="number" value={perdaForm.valorConcorrente} onChange={v=>setPerdaForm(f=>({...f,valorConcorrente:v}))}/><Inp label="Possível reativação" type="date" value={perdaForm.reativacaoEm} onChange={v=>setPerdaForm(f=>({...f,reativacaoEm:v}))}/><Inp label="Observações" value={perdaForm.observacoes} onChange={v=>setPerdaForm(f=>({...f,observacoes:v}))} multiline/><Btn v="danger" onClick={salvarPerda}>CONFIRMAR PERDA</Btn></div></Modal>}
