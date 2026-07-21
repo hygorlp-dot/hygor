@@ -5733,6 +5733,11 @@ function Obras({ data, update, showToast, onAbrirObra }) {
   const [oneDriveStatus, setOneDriveStatus] = useState("checking");
   const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
   const clientes=data.comercial?.clientes||[];
+  useEffect(()=>{
+    const id=sessionStorage.getItem("arcd_editar_obra");if(!id)return;
+    sessionStorage.removeItem("arcd_editar_obra");const obra=(data.obras||[]).find(o=>o.id===id);if(!obra)return;
+    setForm({...obra,areaM2:String(obra.areaM2||""),diaVenc1:String(obra.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(obra.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);
+  },[data.obras]);
   const salvarClienteDaObra=()=>{
     const f=clienteModal;if(!f?.nome?.trim()||!f.documento||!f.telefone||!f.email||!f.endereco||!f.numero||!f.cidade||!f.uf){showToast("Preencha nome, documento, contato e endereço contratual.","error");return;}
     const cliente={...clienteContratualVazio(),...f,id:f.id||uid(),nome:f.nome.trim(),createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
@@ -22060,7 +22065,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
 // Junta o que hoje está espalhado por 8 abas: contrato, financeiro, equipe,
 // orçamento, compras, estoque, medições e o que aconteceu ultimamente.
 // 
-function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, currentUser }) {
+function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, showToast, currentUser }) {
   const { cols } = useBreakpoint();
   const obra = (data.obras||[]).find(o => o.id === obraId);
   const [abaConteudo,setAbaConteudo]=useState("geral");
@@ -22359,14 +22364,13 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, current
                      ? `linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,.72) 100%), url("${obra.capaUrl}") center/cover`
                      : `linear-gradient(135deg,${C.ink} 0%,${C.subtle} 55%,${C.yellowD} 100%)`}}>
 
-        {/* Botao de trocar a imagem */}
-        <button onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}
-          style={{position:"absolute",top:10,right:10,zIndex:2,
-            background: enviandoCapa ? C.muted : C.blue, color:"#fff",border:0,borderRadius:8,
-            padding:"7px 12px",fontSize:11,fontWeight:800,cursor:enviandoCapa?"default":"pointer",
+        {/* Ações principais da obra ficam sempre visíveis. */}
+        <div style={{position:"absolute",top:10,right:10,zIndex:2,display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}><button onClick={onEditarObra} style={{background:"rgba(255,255,255,.94)",color:C.blue,border:0,borderRadius:8,padding:"7px 11px",fontSize:10.5,fontWeight:850,cursor:"pointer",fontFamily:"'Inter',sans-serif"}}><Ic n="edit" s={12}/> Editar obra</button><button onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}
+          style={{background: enviandoCapa ? C.muted : C.blue, color:"#fff",border:0,borderRadius:8,
+            padding:"7px 11px",fontSize:10.5,fontWeight:850,cursor:enviandoCapa?"default":"pointer",
             fontFamily:"'Inter',sans-serif"}}>
           {enviandoCapa ? "Enviando..." : obra.capaUrl ? "Alterar imagem" : "Adicionar imagem"}
-        </button>
+        </button></div>
         <input ref={inputCapaRef} type="file" accept="image/*" style={{display:"none"}}
                onChange={e=>{ const f=e.target.files?.[0]; if(f) enviarCapa(f); e.target.value=""; }}/>
 
@@ -22537,6 +22541,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, current
           contrato em destaque e atalho para editar. */}
       <Secao id="detalhes" icone="orcamento" titulo="Detalhes gerais" cor={C.yellowD}
              badge={CONTRACT_LABELS[obra.contractType]||obra.contractType}>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:9}}><Btn size="sm" v="ghost" onClick={onEditarObra}><Ic n="edit"/> Editar dados da obra</Btn></div>
         <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:9}}>
           {[["Tipo de contrato", CONTRACT_LABELS[obra.contractType]||obra.contractType],
             ["Valor do contrato", obra.contractValue>0?fmt(obra.contractValue):"-"],
@@ -22608,14 +22613,12 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, current
       {/* Dados do cliente */}
       <Secao id="cliente" icone="equipe" titulo="Dados do cliente" cor={C.blue}>
         {!obra.cliente ? (
-          <p style={{fontSize:11.5,color:C.muted}}>
-            Cliente não informado. Edite a obra para cadastrar.
-          </p>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}><p style={{fontSize:11.5,color:C.muted}}>Cliente não informado.</p><Btn size="sm" v="info" onClick={onEditarObra}><Ic n="plus"/> Cadastrar cliente</Btn></div>
         ) : (() => {
           const com = data.comercial||{};
-          const cli = (com.clientes||[]).find(c=>c.obraId===obraId||c.nome===obra.cliente);
+          const cli = (com.clientes||[]).find(c=>c.id===obra.clienteId||c.obraId===obraId||c.nome===obra.cliente||c.razaoSocial===obra.cliente);
           return (
-            <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:9}}>
+            <><div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:9}}>
               {[["Nome", obra.cliente],
                 ["Telefone", cli?.telefone||cli?.whatsapp||"-"],
                 ["E-mail", cli?.email||"-"],
@@ -22625,7 +22628,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, current
                   <p style={{fontSize:12,color:C.text,marginTop:2,fontWeight:600}}>{v}</p>
                 </div>
               ))}
-            </div>
+            </div><div style={{display:"flex",justifyContent:"flex-end",marginTop:9}}><Btn size="sm" v="info" onClick={onEditarObra}><Ic n="edit"/> Editar obra ou cliente</Btn></div></>
           );
         })()}
       </Secao>
@@ -31043,6 +31046,7 @@ export default function App() {
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
                            currentUser={currentUser}
                            onVoltar={() => setObraAberta("")}
+                           onEditarObra={()=>{sessionStorage.setItem("arcd_editar_obra",obraAberta);setObraAberta("");}}
                            onTab={(t) => { setObraAberta(""); setTab(t); }} />
             : <Obras       data={data} update={update} showToast={showToast}
                            onAbrirObra={setObraAberta} />)}
