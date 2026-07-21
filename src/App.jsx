@@ -2409,6 +2409,8 @@ const normalizeData = incoming => {
         status: ["aberta","em_ajuste","resolvida"].includes(p.status) ? p.status : "aberta",
         fotos: Array.isArray(p.fotos) ? p.fotos.map(f => ({
           url: f.url || "", legenda: f.legenda || "", path: f.path || "",
+          tipo: f.tipo === "ajuste" ? "ajuste" : "registro",
+          enviadoPorId: f.enviadoPorId || "", enviadoPor: f.enviadoPor || "", criadoEm: f.criadoEm || "",
         })).filter(f => f.url) : [],
         criadoEm: p.criadoEm || "",
         resolvidoEm: p.resolvidoEm || "",
@@ -25192,24 +25194,20 @@ function Conferencia({ data, update, showToast, currentUser }) {
   const [obraFiltro,setObraFiltro]=useState(obras[0]?.id||"");
   const [selecionadaId,setSelecionadaId]=useState("");
   const [pendenciaForm,setPendenciaForm]=useState(null);
+  const [novaForm,setNovaForm]=useState(null);
+  const [subindoAjusteId,setSubindoAjusteId]=useState("");
   const conferencia=(data.conferencias||[]).find(c=>c.id===selecionadaId);
   const obraAtual=(data.obras||[]).find(o=>o.id===(conferencia?.obraId||obraFiltro));
   const orc=orcamentoDaObra(data,conferencia?.obraId||obraFiltro);
-  const itensOrc=(orc?.itens||[]).filter(i=>i.tipo!=="titulo");
   const etapas=orc?.etapas||[];
+  const etapasNivel1=new Set(etapas.filter(e=>!e.parentId).map(e=>e.id));
+  const itensOrc=(orc?.itens||[]).filter(i=>i.tipo!=="titulo"&&etapasNivel1.has(i.etapaId));
   const nomeEtapa=id=>etapas.find(e=>e.id===id)?.nome||"Sem etapa";
   const impactoMeta=v=>CONFERENCIA_IMPACTOS.find(x=>x.v===v)||CONFERENCIA_IMPACTOS[1];
 
-  const responsaveis=useMemo(()=>{
-    const lista=[];
-    const add=(id,nome,tipo)=>id&&nome&&!lista.some(x=>x.id===id)&&lista.push({id,nome,tipo});
-    (data.usuarios||[]).filter(u=>u.active!==false).forEach(u=>add(u.id,u.nome,"Usuário"));
-    (data.employees||[]).filter(e=>e.active!==false).forEach(e=>add(e.id,e.name,e.role||"Equipe"));
-    (data.terceirizados||[]).filter(t=>t.active!==false&&t.situacao!=="concluido").forEach(t=>add(t.id,t.name,"Terceirizado"));
-    return lista;
-  },[data.usuarios,data.employees,data.terceirizados]);
-
   const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
+  const responsaveis=engenheiros.map(u=>({id:u.id,nome:u.nome,tipo:"Engenheiro de campo"}));
+  const ehAdmin=currentUser?.role==="admin";
   const obraDaConferencia=(data.obras||[]).find(o=>o.id===(conferencia?.obraId||obraFiltro));
   const responsavelAutomatico=currentUser?.role==="engenheiro"?currentUser:
     engenheiros.find(u=>u.id===obraDaConferencia?.engineerId)
@@ -25220,14 +25218,22 @@ function Conferencia({ data, update, showToast, currentUser }) {
   const atualizar=(id,mut)=>update({...data,conferencias:(data.conferencias||[]).map(c=>c.id===id
     ? {...mut({...c}),atualizadoEm:new Date().toISOString()}:c)});
 
+  const abrirNovaConferencia=()=>{
+    if(!ehAdmin){showToast?.("Somente o administrador pode criar conferências.","error");return;}
+    const obraId=obraFiltro||obras[0]?.id||"";
+    const obra=(data.obras||[]).find(o=>o.id===obraId);
+    setNovaForm({obraId,data:today(),responsavelId:obra?.engineerId||""});
+  };
   const novaConferencia=()=>{
-    const obraId=obraFiltro||obras[0]?.id;
+    const obraId=novaForm?.obraId;
     if(!obraId){showToast?.("Cadastre uma obra antes de criar a conferência.","error");return;}
-    if(!responsavelAutomatico){showToast?.("Defina um engenheiro de campo responsável por esta obra.","error");return;}
+    const responsavel=engenheiros.find(u=>u.id===novaForm?.responsavelId);
+    if(!responsavel){showToast?.("Selecione o engenheiro de campo responsável.","error");return;}
     const codigo=Math.max(0,...(data.conferencias||[]).filter(c=>c.obraId===obraId).map(c=>Number(c.codigo||0)))+1;
     const agora=new Date().toISOString();
-    const nova={id:uid(),obraId,data:today(),codigo,responsavelId:responsavelAutomatico?.id||"",responsavel:responsavelAutomatico?.nome||"",status:"em_andamento",notaGeral:10,observacoesGerais:"",pendencias:[],criadoEm:agora,atualizadoEm:agora,concluidoEm:""};
+    const nova={id:uid(),obraId,data:novaForm?.data||today(),codigo,responsavelId:responsavel.id,responsavel:responsavel.nome,status:"em_andamento",notaGeral:10,observacoesGerais:"",pendencias:[],criadoEm:agora,atualizadoEm:agora,concluidoEm:""};
     update({...data,conferencias:[...(data.conferencias||[]),nova]});
+    setNovaForm(null);
     setSelecionadaId(nova.id);
   };
 
@@ -25242,6 +25248,7 @@ function Conferencia({ data, update, showToast, currentUser }) {
     responsavelAjusteId:"",responsavelAjusteNome:"",ajusteNecessario:"",prazo:"",status:"aberta",fotos:[],criadoEm:"",resolvidoEm:"",
   });
   const salvarPendencia=form=>{
+    if(!ehAdmin){showToast?.("Somente o administrador pode criar ou editar pendências.","error");return;}
     if(!form.itemOrcamentoId){showToast?.("Vincule a pendência a um item do orçamento.","error");return;}
     if(!form.descricao.trim()||!form.ajusteNecessario.trim()){showToast?.("Descreva o problema e o ajuste necessário.","error");return;}
     if(!form.responsavelAjusteId){showToast?.("Defina quem será responsável pelo ajuste.","error");return;}
@@ -25253,18 +25260,35 @@ function Conferencia({ data, update, showToast, currentUser }) {
     setPendenciaForm(null); showToast?.(form.id?"Pendência atualizada.":"Pendência registrada.");
   };
   const removerPendencia=id=>{
+    if(!ehAdmin)return;
     if(!window.confirm("Excluir esta pendência e suas referências?"))return;
     atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).filter(p=>p.id!==id)}));
   };
-  const mudarStatusPendencia=(p,status)=>atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,status,resolvidoEm:status==="resolvida"?new Date().toISOString():""}:x)}));
+  const mudarStatusPendencia=(p,status)=>{if(!ehAdmin)return;atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,status,resolvidoEm:status==="resolvida"?new Date().toISOString():""}:x)}));};
 
-  const lista=(data.conferencias||[]).filter(c=>!obraFiltro||c.obraId===obraFiltro).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
+  const enviarFotoAjuste=async(p,file)=>{
+    if(!file||currentUser?.role!=="engenheiro"||currentUser?.id!==conferencia?.responsavelId)return;
+    setSubindoAjusteId(p.id);
+    try{
+      const dataUrl=await comprimirImagem(file);
+      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`ajuste-${Date.now()}.jpg`});
+      if(!resp.url)throw new Error(resp.error||"Falha no envio.");
+      const foto={url:resp.url,legenda:"Foto do ajuste executado",path:resp.path||"",tipo:"ajuste",enviadoPorId:currentUser.id,enviadoPor:currentUser.nome||"",criadoEm:new Date().toISOString()};
+      atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,fotos:[...(x.fotos||[]),foto]}:x)}));
+      showToast?.("Foto do ajuste adicionada.");
+    }catch(err){showToast?.(err.message||"Falha ao enviar a foto do ajuste.","error");}
+    finally{setSubindoAjusteId("");}
+  };
+
+  const obrasVisiveis=ehAdmin?obras:obras.filter(o=>(data.conferencias||[]).some(c=>c.obraId===o.id&&c.responsavelId===currentUser?.id));
+  const filtroValido=obrasVisiveis.some(o=>o.id===obraFiltro)?obraFiltro:(obrasVisiveis[0]?.id||"");
+  const lista=(data.conferencias||[]).filter(c=>ehAdmin||c.responsavelId===currentUser?.id).filter(c=>!filtroValido||c.obraId===filtroValido).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
 
   if(!conferencia) return <div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div><h1 style={{fontSize:22,color:C.text}}>Conferência técnica</h1><p style={{fontSize:12,color:C.muted,marginTop:4}}>Vistorias, inconformidades e ajustes rastreados até a resolução</p></div>
     <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
-      <div style={{minWidth:240,flex:1}}><Sel label="Obra" value={obraFiltro} onChange={setObraFiltro} options={obras.map(o=>({v:o.id,l:o.name}))}/></div>
-      <Btn onClick={novaConferencia}><Ic n="plus"/> Nova vistoria</Btn>
+      <div style={{minWidth:240,flex:1}}><Sel label="Obra" value={filtroValido} onChange={setObraFiltro} options={obrasVisiveis.map(o=>({v:o.id,l:o.name}))}/></div>
+      {ehAdmin&&<Btn onClick={abrirNovaConferencia}><Ic n="plus"/> Nova vistoria</Btn>}
     </div>
     {!lista.length?<div style={{padding:"34px 18px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="clipboard" s={26} color={C.muted}/><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:9}}>Nenhuma conferência nesta obra</p><p style={{fontSize:11,color:C.muted,marginTop:4}}>Crie a primeira vistoria técnica para começar a rastrear ajustes.</p></div>:
     <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:10}}>{lista.map(c=>{
@@ -25276,31 +25300,34 @@ function Conferencia({ data, update, showToast, currentUser }) {
         <div style={{display:"flex",gap:12,marginTop:12,fontSize:11,color:C.text}}><span><strong>{c.notaGeral}</strong>/10</span><span><strong>{(c.pendencias||[]).length}</strong> achados</span><span style={{color:abertas?C.red:C.green}}><strong>{abertas}</strong> abertos</span></div>
       </button>;
     })}</div>}
+    {novaForm&&<Modal title="Nova conferência técnica" onClose={()=>setNovaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}><Sel label="Obra *" value={novaForm.obraId} onChange={v=>{const obra=(data.obras||[]).find(o=>o.id===v);setNovaForm(f=>({...f,obraId:v,responsavelId:obra?.engineerId||""}));}} options={obras.map(o=>({v:o.id,l:o.name}))}/><Sel label="Engenheiro de campo responsável *" value={novaForm.responsavelId} onChange={v=>setNovaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Selecione..."},...engenheiros.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Data da vistoria" type="date" value={novaForm.data} onChange={v=>setNovaForm(f=>({...f,data:v}))}/><div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setNovaForm(null)} full>Cancelar</Btn><Btn onClick={novaConferencia} full><Ic n="check"/> Criar conferência</Btn></div></div></Modal>}
   </div>;
 
   const abertas=(conferencia.pendencias||[]).filter(p=>p.status!=="resolvida").length;
   return <div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}>
       <div><button onClick={()=>setSelecionadaId("")} style={{border:0,background:"transparent",padding:0,color:C.blue,cursor:"pointer",fontSize:11,fontWeight:800}}>← Todas as conferências</button><h2 style={{fontSize:20,marginTop:5}}>CONF-{String(conferencia.codigo).padStart(3,"0")} · {obraAtual?.name}</h2></div>
-      <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={excluirConferencia}><Ic n="trash"/> Excluir</Btn><Btn size="sm" onClick={()=>atualizar(conferencia.id,c=>({...c,status:c.status==="concluida"?"em_andamento":"concluida",concluidoEm:c.status==="concluida"?"":new Date().toISOString()}))}>{conferencia.status==="concluida"?"Reabrir vistoria":"Concluir vistoria"}</Btn></div>
+      {ehAdmin&&<div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={excluirConferencia}><Ic n="trash"/> Excluir</Btn><Btn size="sm" onClick={()=>atualizar(conferencia.id,c=>({...c,status:c.status==="concluida"?"em_andamento":"concluida",concluidoEm:c.status==="concluida"?"":new Date().toISOString()}))}>{conferencia.status==="concluida"?"Reabrir vistoria":"Concluir vistoria"}</Btn></div>}
     </div>
     <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:9}}>
-      <Inp label="Data da vistoria" type="date" value={conferencia.data} onChange={v=>atualizar(conferencia.id,c=>({...c,data:v}))}/>
+      <Inp label="Data da vistoria" type="date" value={conferencia.data} onChange={v=>ehAdmin&&atualizar(conferencia.id,c=>({...c,data:v}))} disabled={!ehAdmin}/>
       <Inp label="Responsável pela vistoria" value={conferencia.responsavel||responsavelAutomatico?.nome||""} onChange={()=>{}} disabled/>
-      <Inp label="Nota geral (0 a 10)" type="number" min="0" max="10" value={conferencia.notaGeral} onChange={v=>atualizar(conferencia.id,c=>({...c,notaGeral:Math.max(0,Math.min(10,Number(v||0)))}))}/>
+      <Inp label="Nota geral (0 a 10)" type="number" min="0" max="10" value={conferencia.notaGeral} onChange={v=>ehAdmin&&atualizar(conferencia.id,c=>({...c,notaGeral:Math.max(0,Math.min(10,Number(v||0)))}))} disabled={!ehAdmin}/>
       <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:5}}>SITUAÇÃO DOS AJUSTES</p><div style={{height:38,border:`1px solid ${abertas?C.orange:C.green}`,borderRadius:6,display:"flex",alignItems:"center",padding:"0 10px",fontSize:12,fontWeight:800,color:abertas?C.orange:C.green}}>{abertas?`${abertas} pendência(s) aberta(s)`:"Tudo resolvido"}</div></div>
     </div>
-    <Inp label="Observações gerais" multiline value={conferencia.observacoesGerais} onChange={v=>atualizar(conferencia.id,c=>({...c,observacoesGerais:v}))} placeholder="Avaliação geral da qualidade, critérios verificados e orientações..."/>
-    <Bloco titulo={`Pendências técnicas (${(conferencia.pendencias||[]).length})`} acao={<Btn size="sm" onClick={()=>abrirPendencia(null)} disabled={!orc}><Ic n="plus"/> Pendência</Btn>}>
+    <Inp label="Observações gerais" multiline value={conferencia.observacoesGerais} onChange={v=>ehAdmin&&atualizar(conferencia.id,c=>({...c,observacoesGerais:v}))} disabled={!ehAdmin} placeholder="Avaliação geral da qualidade, critérios verificados e orientações..."/>
+    <Bloco titulo={`Pendências técnicas (${(conferencia.pendencias||[]).length})`} acao={ehAdmin?<Btn size="sm" onClick={()=>abrirPendencia(null)} disabled={!orc||!itensOrc.length}><Ic n="plus"/> Pendência</Btn>:null}>
       {!orc&&<div style={{padding:12,borderRadius:7,background:`${C.orange}10`,color:C.orange,fontSize:12}}>Esta obra ainda não possui orçamento vinculado. Crie o orçamento para registrar achados rastreáveis.</div>}
+      {orc&&!itensOrc.length&&<div style={{padding:12,borderRadius:7,background:`${C.orange}10`,color:C.orange,fontSize:12}}>O orçamento não possui itens diretamente vinculados às etapas de nível 1.</div>}
       {orc&&!(conferencia.pendencias||[]).length&&<p style={{fontSize:12,color:C.muted}}>Nenhuma patologia ou inconformidade registrada.</p>}
       <div style={{display:"flex",flexDirection:"column",gap:8}}>{(conferencia.pendencias||[]).map(p=>{
         const item=itensOrc.find(i=>i.id===p.itemOrcamentoId); const imp=impactoMeta(p.impacto);
         return <div key={p.id} style={{border:`1px solid ${p.status==="resolvida"?C.border:imp.c}`,borderLeft:`4px solid ${imp.c}`,borderRadius:8,padding:11,background:p.status==="resolvida"?C.surface:C.card}}>
-          <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><Badge color={imp.c}>{imp.l}</Badge><Badge color={C.blue}>{CONFERENCIA_CATEGORIAS.find(x=>x.v===p.categoria)?.l}</Badge><span style={{fontSize:10,color:C.muted}}>{nomeEtapa(p.etapaId)}</span></div><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:7}}>{p.descricao}</p><p style={{fontSize:10.5,color:C.muted,marginTop:4}}>{item?.codigo?`${item.codigo} · `:""}{item?.descricao||"Item do orçamento não encontrado"}</p></div><div style={{display:"flex",gap:5,alignItems:"flex-start"}}><button onClick={()=>abrirPendencia(p)} title="Editar" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer"}}><Ic n="edit"/></button><button onClick={()=>removerPendencia(p.id)} title="Excluir" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",color:C.red}}><Ic n="trash"/></button></div></div>
+          <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><Badge color={imp.c}>{imp.l}</Badge><Badge color={C.blue}>{CONFERENCIA_CATEGORIAS.find(x=>x.v===p.categoria)?.l}</Badge><span style={{fontSize:10,color:C.muted}}>{nomeEtapa(p.etapaId)}</span></div><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:7}}>{p.descricao}</p><p style={{fontSize:10.5,color:C.muted,marginTop:4}}>{item?.codigo?`${item.codigo} · `:""}{item?.descricao||"Item do orçamento não encontrado"}</p></div>{ehAdmin&&<div style={{display:"flex",gap:5,alignItems:"flex-start"}}><button onClick={()=>abrirPendencia(p)} title="Editar" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer"}}><Ic n="edit"/></button><button onClick={()=>removerPendencia(p.id)} title="Excluir" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",color:C.red}}><Ic n="trash"/></button></div>}</div>
           <p style={{fontSize:11.5,color:C.text,marginTop:8}}><strong>Ajuste:</strong> {p.ajusteNecessario}</p><p style={{fontSize:10.5,color:C.muted,marginTop:5}}>Responsável: <strong>{p.responsavelAjusteNome||"—"}</strong>{p.prazo?` · Prazo: ${fmtDate(p.prazo)}`:""}</p>
-          {(p.fotos||[]).length>0&&<div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>{p.fotos.map(f=><img key={f.url} src={f.url} alt={f.legenda||"Evidência"} style={{width:54,height:54,objectFit:"cover",borderRadius:5}}/>)}</div>}
-          <div style={{display:"flex",gap:5,marginTop:9,flexWrap:"wrap"}}>{CONFERENCIA_STATUS.map(s=><button key={s.v} onClick={()=>mudarStatusPendencia(p,s.v)} style={{border:`1px solid ${p.status===s.v?C.blue:C.border}`,background:p.status===s.v?`${C.blue}12`:C.surface,color:p.status===s.v?C.blue:C.muted,borderRadius:99,padding:"4px 9px",fontSize:10,fontWeight:800,cursor:"pointer"}}>{s.l}</button>)}</div>
+          {(p.fotos||[]).length>0&&<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>{p.fotos.map((f,idx)=><div key={`${f.url}-${idx}`} style={{position:"relative"}}><img src={f.url} alt={f.legenda||"Evidência"} style={{width:58,height:58,objectFit:"cover",borderRadius:5,border:`1px solid ${f.tipo==="ajuste"?C.green:C.border}`}}/>{f.tipo==="ajuste"&&<span style={{position:"absolute",left:3,bottom:3,padding:"2px 4px",borderRadius:3,background:C.green,color:"white",fontSize:7,fontWeight:900}}>AJUSTE</span>}</div>)}</div>}
+          {!ehAdmin&&currentUser?.id===conferencia.responsavelId&&<label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:9,border:`1px solid ${C.blue}`,borderRadius:6,padding:"6px 9px",color:C.blue,fontSize:10,fontWeight:800,cursor:subindoAjusteId===p.id?"wait":"pointer",opacity:subindoAjusteId===p.id?0.65:1}}><Ic n="camera"/>{subindoAjusteId===p.id?"Enviando...":"Adicionar foto do ajuste"}<input type="file" accept="image/*" capture="environment" disabled={subindoAjusteId===p.id} onChange={e=>{const file=e.target.files?.[0];enviarFotoAjuste(p,file);e.target.value="";}} style={{display:"none"}}/></label>}
+          {ehAdmin?<div style={{display:"flex",gap:5,marginTop:9,flexWrap:"wrap"}}>{CONFERENCIA_STATUS.map(s=><button key={s.v} onClick={()=>mudarStatusPendencia(p,s.v)} style={{border:`1px solid ${p.status===s.v?C.blue:C.border}`,background:p.status===s.v?`${C.blue}12`:C.surface,color:p.status===s.v?C.blue:C.muted,borderRadius:99,padding:"4px 9px",fontSize:10,fontWeight:800,cursor:"pointer"}}>{s.l}</button>)}</div>:<div style={{marginTop:9}}><Badge color={p.status==="resolvida"?C.green:p.status==="em_ajuste"?C.orange:C.red}>{CONFERENCIA_STATUS.find(s=>s.v===p.status)?.l||"Aberta"}</Badge></div>}
         </div>;
       })}</div>
     </Bloco>
@@ -25314,14 +25341,14 @@ function ModalPendenciaConferencia({form,setForm,itens,etapas,responsaveis,obra,
   const [subindo,setSubindo]=useState(false);
   const item=itens.find(i=>i.id===form.itemOrcamentoId);
   const etapaNome=etapas.find(e=>e.id===item?.etapaId)?.nome||"";
-  const subirFoto=async e=>{const file=e.target.files?.[0];if(!file)return;setSubindo(true);try{const dataUrl=await comprimirImagem(file);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`conferencia-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio.");setForm(f=>({...f,fotos:[...(f.fotos||[]),{url:resp.url,legenda:"",path:resp.path||""}]}));showToast?.("Evidência adicionada.");}catch(err){showToast?.(err.message||"Falha ao enviar foto.","error");}finally{setSubindo(false);e.target.value="";}};
+  const subirFoto=async e=>{const file=e.target.files?.[0];if(!file)return;setSubindo(true);try{const dataUrl=await comprimirImagem(file);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`conferencia-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio.");setForm(f=>({...f,fotos:[...(f.fotos||[]),{url:resp.url,legenda:"",path:resp.path||"",tipo:"registro",enviadoPorId:"",enviadoPor:"",criadoEm:new Date().toISOString()}]}));showToast?.("Evidência adicionada.");}catch(err){showToast?.(err.message||"Falha ao enviar foto.","error");}finally{setSubindo(false);e.target.value="";}};
   return <Modal title={form.id?"Editar pendência":"Nova pendência técnica"} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
-    <Sel label="Item do orçamento *" value={form.itemOrcamentoId} onChange={v=>setForm(f=>({...f,itemOrcamentoId:v,etapaId:itens.find(i=>i.id===v)?.etapaId||""}))} options={[{v:"",l:"Selecione o serviço conferido..."},...itens.map(i=>({v:i.id,l:`${i.codigo?i.codigo+" · ":""}${i.descricao}`}))]}/>
+    <Sel label="Item do orçamento — nível 1 *" value={form.itemOrcamentoId} onChange={v=>setForm(f=>({...f,itemOrcamentoId:v,etapaId:itens.find(i=>i.id===v)?.etapaId||""}))} options={[{v:"",l:"Selecione o serviço conferido..."},...itens.map(i=>({v:i.id,l:`${i.codigo?i.codigo+" · ":""}${i.descricao}`}))]}/>
     {item&&<div style={{padding:"7px 10px",borderRadius:6,background:`${C.blue}0C`,fontSize:10.5,color:C.blue}}>Etapa herdada: <strong>{etapaNome||"Sem etapa"}</strong></div>}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:8}}><Sel label="Categoria" value={form.categoria} onChange={v=>setForm(f=>({...f,categoria:v}))} options={CONFERENCIA_CATEGORIAS}/><Sel label="Impacto" value={form.impacto} onChange={v=>setForm(f=>({...f,impacto:v}))} options={CONFERENCIA_IMPACTOS}/><Sel label="Status" value={form.status} onChange={v=>setForm(f=>({...f,status:v}))} options={CONFERENCIA_STATUS}/></div>
     <Inp label="Patologia / inconformidade encontrada *" multiline value={form.descricao} onChange={v=>setForm(f=>({...f,descricao:v}))} placeholder="Descreva objetivamente o que foi verificado, localização e dimensão..."/>
     <Inp label="Ajuste necessário *" multiline value={form.ajusteNecessario} onChange={v=>setForm(f=>({...f,ajusteNecessario:v}))} placeholder="Defina a correção, critério de aceite e resultado esperado..."/>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:8}}><Sel label="Responsável pelo ajuste *" value={form.responsavelAjusteId} onChange={v=>setForm(f=>({...f,responsavelAjusteId:v,responsavelAjusteNome:responsaveis.find(r=>r.id===v)?.nome||""}))} options={[{v:"",l:"Selecione..."},...responsaveis.map(r=>({v:r.id,l:`${r.nome} · ${r.tipo}`}))]}/><Inp label="Prazo combinado" type="date" value={form.prazo} onChange={v=>setForm(f=>({...f,prazo:v}))}/></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:8}}><Sel label="Engenheiro responsável pelo ajuste *" value={form.responsavelAjusteId} onChange={v=>setForm(f=>({...f,responsavelAjusteId:v,responsavelAjusteNome:responsaveis.find(r=>r.id===v)?.nome||""}))} options={[{v:"",l:"Selecione..."},...responsaveis.map(r=>({v:r.id,l:`${r.nome} · ${r.tipo}`}))]}/><Inp label="Prazo combinado" type="date" value={form.prazo} onChange={v=>setForm(f=>({...f,prazo:v}))}/></div>
     <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:6}}>EVIDÊNCIAS FOTOGRÁFICAS</p><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{(form.fotos||[]).map((foto,idx)=><div key={foto.url} style={{position:"relative"}}><img src={foto.url} alt="Evidência" style={{width:76,height:76,objectFit:"cover",borderRadius:6}}/><button onClick={()=>setForm(f=>({...f,fotos:f.fotos.filter((_,i)=>i!==idx)}))} style={{position:"absolute",right:3,top:3,border:0,borderRadius:5,background:"rgba(0,0,0,.65)",color:"white",cursor:"pointer"}}>x</button></div>)}<label style={{width:76,height:76,border:`2px dashed ${C.border}`,borderRadius:6,display:"grid",placeItems:"center",cursor:subindo?"wait":"pointer",fontSize:10,color:C.muted,textAlign:"center"}}>{subindo?"Enviando...":"+ Foto"}<input type="file" accept="image/*" capture="environment" onChange={subirFoto} disabled={subindo} style={{display:"none"}}/></label></div></div>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={()=>onSalvar(form)}><Ic n="check"/> Salvar pendência</Btn></div>
   </div></Modal>;
