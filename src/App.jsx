@@ -6371,6 +6371,9 @@ function Obras({ data, update, showToast, onAbrirObra }) {
           </div>
         </Modal>
       )}
+      {clienteModal&&<ClienteContratualModal
+        form={clienteModal} setForm={setClienteModal} onClose={()=>setClienteModal(null)}
+        onSave={salvarClienteDaObra} formGrid={formGrid}/>}
     </div>
   );
 }
@@ -6565,21 +6568,27 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
     .filter(e => filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra)
     .filter(e => [e.name, e.role, e.cpf, e.phone].join(" ").toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
+  const ativos = data.employees.filter(e=>e.active!==false);
+  const semObra = ativos.filter(e=>!e.obra).length;
+  const obrasComEquipe = new Set(ativos.map(e=>e.obra).filter(Boolean)).size;
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth:1280, margin:"0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding:"4px 2px" }}>
         <div>
-          <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 30, letterSpacing: 2, color: C.yellow }}>Equipe</h2>
-          <p style={{ color: C.muted, fontSize: 13 }}>{data.employees.length} cadastrados  {data.employees.filter(e => e.active !== false).length} ativos</p>
+          <p style={{fontSize:10,fontWeight:800,color:"#0F766E",letterSpacing:1,textTransform:"uppercase"}}>Recursos Humanos</p>
+          <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 24, letterSpacing:-.5, color: C.text }}>Equipes</h2>
+          <p style={{ color: C.muted, fontSize: 11.5 }}>Pessoas, lotação e dados trabalhistas em uma visão única.</p>
         </div>
-        <Btn onClick={() => { setForm({ ...emptyEmp, obra: data.obras[0]?.id || "" }); setModal(true); }}><Ic n="plus" /> Novo</Btn>
+        <Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setModal(true); }}><Ic n="plus" /> Funcionário</Btn>
       </div>
 
-      <Inp value={search} onChange={setSearch} placeholder="Buscar por nome, função, CPF ou telefone..." />
-      <div className="fluid-grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:7}}>{[["Ativos",ativos.length,C.green],["Obras com equipe",obrasComEquipe,C.blue],["Sem lotação",semObra,semObra?C.orange:C.green]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 12px"}}><p style={{fontSize:9.5,color:C.muted,fontWeight:750,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:20,fontWeight:850,color:c,marginTop:2}}>{v}</p></div>)}</div>
+
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:9,display:"grid",gridTemplateColumns:formGrid(3),gap:7,alignItems:"end"}}>
+        <Inp value={search} onChange={setSearch} placeholder="Buscar nome, função, CPF ou telefone" />
         {obraIdFixo?<Inp value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />}
-        <Btn v={showInactive ? "warning" : "ghost"} onClick={() => setShowInactive(v => !v)}>{showInactive ? "Com inativos" : "Só ativos"}</Btn>
+        <Btn v={showInactive ? "warning" : "ghost"} onClick={() => setShowInactive(v => !v)}>{showInactive ? "Ocultar inativos" : "Ver inativos"}</Btn>
       </div>
 
       {list.length === 0 && <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 20, textAlign: "center", color: C.muted }}>Nenhum funcionário encontrado.</div>}
@@ -6589,15 +6598,14 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
         const totalAdv = advs.reduce((s, a) => s + Number(a.amount || 0), 0);
         const exp = expandedId === e.id;
         return (
-          <div key={e.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${e.active === false ? C.muted : C.yellow}` }}>
-            <div style={{ padding: 14 }}>
+          <div key={e.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius:11, overflow:"hidden", boxShadow:"0 1px 2px rgba(0,0,0,.025)" }}>
+            <div style={{ padding:"10px 12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <button onClick={() => setExpandedId(exp ? null : e.id)} style={{ flex: 1, background: "transparent", border: 0, color: C.text, textAlign: "left", cursor: "pointer" }}>
-                  <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 18 }}>{e.name}</p>
-                  <p style={{ color: C.muted, fontSize: 12 }}>{e.obra ? obraName(e.obra) : "Sem obra"}{e.role ? `  ${e.role}` : ""}</p>
-                  <div style={{ marginTop: 4 }}>
+                  <div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:32,height:32,borderRadius:9,background:e.active===false?`${C.muted}15`:`${C.blue}12`,color:e.active===false?C.muted:C.blue,display:"grid",placeItems:"center",fontSize:10,fontWeight:900,flexShrink:0}}>{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div><p style={{ fontWeight: 800, fontSize: 13.5 }}>{e.name}</p><p style={{ color: C.muted, fontSize: 10.5,marginTop:1 }}>{e.role||"Função não informada"} · {e.obra ? obraName(e.obra) : "Sem obra"}</p></div></div>
+                  <div style={{ marginTop: 6,marginLeft:41 }}>
                     {e.active === false && <Badge color={C.muted}>Inativo</Badge>}
-                    <Badge color={C.yellow}>{fmt(e.dailyRate)}/dia</Badge>
+                    <Badge color={C.green}>{fmt(e.dailyRate)}/dia</Badge>
                     {totalAdv > 0 && <Badge color={C.red}>Adiant. {fmt(totalAdv)}</Badge>}
                   </div>
                 </button>
@@ -6691,9 +6699,6 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
           </div>
         </Modal>
       )}
-      {clienteModal&&<ClienteContratualModal
-        form={clienteModal} setForm={setClienteModal} onClose={()=>setClienteModal(null)}
-        onSave={salvarClienteDaObra} formGrid={formGrid}/>}
     </div>
   );
 }
@@ -12334,7 +12339,7 @@ const ROLE_TABS = {
   engenheiro:  ["home","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","cmp","suprimentos","est","cad","ia"],
   rh:          ["home","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
-  financeiro:  ["home","ponto_geral","equipe","equip","folha","resc","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
+  financeiro:  ["home","equip","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   comercial:   ["home","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","ia"],
   visualizador:["home"],
 };
@@ -12342,14 +12347,17 @@ const ROLE_TABS = {
 const ACCESS_SECTORS=[
   {id:"engenharia",label:"Engenharia",color:"#1565C0",tabs:[
     ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["rdo","Diário de obra"],["conferencia","Conferência"],["med","Medição técnica"],
-    ["ponto","Ponto"],["equipe","Equipe"],["terc","Terceiros"],["equip","Equipamentos"],["licenca","Licenciamento"],["obsoletos","Obsoletos"],
+    ["terc","Terceiros"],["equip","Equipamentos"],["licenca","Licenciamento"],["obsoletos","Obsoletos"],
   ]},
   {id:"compras",label:"Compras",color:"#D97706",tabs:[
     ["cmp","Compras e solicitações"],["est","Estoque"],
   ]},
   {id:"financeiro",label:"Financeiro",color:"#6A1B9A",tabs:[
     ["dre_emp","DRE Empresa"],["dre","DRE Obras"],["fin","KPIs financeiros"],["conc","Conciliação"],
-    ["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["ponto_geral","Gestão geral do ponto"],["folha","Folha"],["resc","Rescisão"],["relat","Relatórios"],
+    ["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["relat","Relatórios"],
+  ]},
+  {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
+    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["folha","Folha de pagamento"],["resc","Rescisões"],
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
     ["com_dash","Dashboard comercial"],["com_indicacoes","Indicações"],["com_leads","Leads"],["com_funil","Funil de vendas"],["com_jornada","Jornada do cliente"],["com_agenda","Agenda"],
@@ -29924,7 +29932,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
 // 
 
 // Menu organizado pelos SETORES da empresa: Engenharia, Compras, Financeiro,
-// Comercial. RH entra sob Financeiro (folha/rescisao sao custo). Ajustes e
+// Comercial e RH têm grupos próprios. Ajustes e
 // Obsoletos ficam separados dos setores operacionais.
 const NAV_GROUPS = [
   {
@@ -29943,7 +29951,11 @@ const NAV_GROUPS = [
   },
   {
     id: "fin_grp", label: "Financeiro", icon: "dollar", color: C.purple,
-    tabs: ["dre_emp", "dre", "fin", "conc", "medicoes", "caixa", "ponto_geral", "folha", "resc", "relat"],
+    tabs: ["dre_emp", "dre", "fin", "conc", "medicoes", "caixa", "relat"],
+  },
+  {
+    id: "rh_grp", label: "Recursos Humanos", icon: "users", color: "#0F766E",
+    tabs: ["equipe", "ponto", "ponto_geral", "folha", "resc"],
   },
   {
     id: "com_grp", label: "Comercial", icon: "users", color: C.green,
@@ -29983,12 +29995,12 @@ const TAB_META = {
   rdo:    { label: "Diario de obra", icon: "clipboard", group: "eng_grp"},
   conferencia: { label: "Conferência", icon: "check", group: "eng_grp"},
   med:    { label: "Medicao",        icon: "ruler",  group: "eng_grp"},
-  ponto:  { label: "Ponto",      icon: "clock",    group: "eng_grp"},
-  ponto_geral: { label: "Gestão do ponto", icon: "calendar", group: "fin_grp"},
-  equipe: { label: "Equipe",     icon: "users",    group: "eng_grp"},
+  ponto:  { label: "Ponto por obra", icon: "clock", group: "rh_grp"},
+  ponto_geral: { label: "Gestão do ponto", icon: "calendar", group: "rh_grp"},
+  equipe: { label: "Equipes", icon: "users", group: "rh_grp"},
   terc:   { label: "Terceiros",  icon: "handshake",group: "eng_grp"},
-  folha:  { label: "Folha",      icon: "wallet",   group: "fin_grp"  },
-  resc:   { label: "Rescisão",   icon: "briefcase",group: "fin_grp"  },
+  folha:  { label: "Folha",      icon: "wallet",   group: "rh_grp"  },
+  resc:   { label: "Rescisão",   icon: "briefcase",group: "rh_grp"  },
   dre_emp:  { label: "DRE Empresa", icon: "chart",  group: "fin_grp" },
   dre:      { label: "DRE Obras",   icon: "building", group: "fin_grp" },
   fin:      { label: "KPIs",        icon: "trending", group: "fin_grp" },
