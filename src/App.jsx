@@ -24,7 +24,9 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin,
          enviarLoteInsumosReferencia, enviarLoteComponentesReferencia,
          finalizarBaseReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
          resolverCodigosReferencia, detalharComposicoesReferencia,
-         removerBaseReferencia } from "./api";
+         removerBaseReferencia,
+         arquivarQuinzena, restaurarQuinzena,
+         carregarQuinzenaArquivada } from "./api";
 
 // 
 // ARCD OBRAS - App.jsx auditado
@@ -1403,6 +1405,7 @@ const DEFAULT = () => ({
   pagsTerceiros: [],
   rescisoes: [],
   attendanceLocks: {},
+  quinzenasArquivadas: {},   // marcador local: quinzenas movidas para linhas proprias
   unlockRequests: [],
   dailyCheckDate: "",
   changeLog: [],
@@ -2410,6 +2413,7 @@ const normalizeData = incoming => {
       createdAt:u.createdAt|| "",
     })) : [],
     attendanceLocks: d.attendanceLocks || {},
+    quinzenasArquivadas: d.quinzenasArquivadas || {},
     unlockRequests: Array.isArray(d.unlockRequests) ? d.unlockRequests : [],
     dailyCheckDate: d.dailyCheckDate || "",
     changeLog: Array.isArray(d.changeLog) ? d.changeLog : [],
@@ -6086,8 +6090,8 @@ function Equipe({ data, update, showToast }) {
   const empAdvances = id => (data.advances||[]).filter(a => a.empId === id);
 
   const saveEmp = () => {
-    if (!form.name.trim() || !form.dailyRate || !form.startDate || !form.obra) {
-      showToast("Nome, admissão, diária e obra são obrigatórios.", "error");
+    if (!form.name.trim() || !form.dailyRate || !form.startDate) {
+      showToast("Nome, admissão e diária são obrigatórios.", "error");
       return;
     }
 
@@ -6156,6 +6160,48 @@ function Equipe({ data, update, showToast }) {
     showToast("Funcionário inativado com histórico preservado.");
   };
 
+  // Exclusao DEFINITIVA: apaga o cadastro e tudo que aponta para ele
+  // (ponto e adiantamentos). Para quem nunca deveria ter sido cadastrado ou
+  // nao recebe pelo sistema. Quem tem historico exige confirmacao dupla.
+  const deleteEmp = id => {
+    const emp = data.employees.find(e => e.id === id);
+    if (!emp) return;
+    const diasPonto = Object.keys(data.attendance?.[id] || {}).length;
+    const advs = (data.advances || []).filter(a => a.empId === id);
+    const aviso = [
+      `EXCLUIR DEFINITIVAMENTE ${emp.name}?`,
+      "",
+      "Isso apaga o cadastro e NAO pode ser desfeito.",
+      diasPonto ? `- ${diasPonto} lançamento(s) de ponto serão apagados` : "- Sem lançamentos de ponto",
+      advs.length ? `- ${advs.length} adiantamento(s) serão apagados` : "- Sem adiantamentos",
+      "",
+      "Se o funcionário trabalhou de verdade, prefira INATIVAR (preserva o histórico e os relatórios)."
+    ].join("\n");
+    if (!window.confirm(aviso)) return;
+    if ((diasPonto || advs.length) && !window.confirm(`${emp.name} possui histórico. Confirma apagar TUDO mesmo assim?`)) return;
+
+    const employees = data.employees.filter(e => e.id !== id);
+    const attendance = { ...(data.attendance || {}) };
+    delete attendance[id];
+    const advances = (data.advances || []).filter(a => a.empId !== id);
+    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "employee_deleted", empId: emp.id, empName: emp.name, message: `${emp.name} excluído definitivamente (${diasPonto} ponto(s) e ${advs.length} adiantamento(s) apagados)` }];
+    update({ ...data, employees, attendance, advances, changeLog });
+    setExpandedId(null);
+    showToast(`${emp.name} excluído definitivamente.`);
+  };
+
+  // Desvincula da obra sem mexer em mais nada: o funcionario fica "Sem obra"
+  // e some das listas por obra, mas continua no cadastro e no historico.
+  const desvincularObra = id => {
+    const emp = data.employees.find(e => e.id === id);
+    if (!emp || !emp.obra) return;
+    if (!window.confirm(`Desvincular ${emp.name} da obra ${obraName(emp.obra)}? O cadastro e o histórico são preservados.`)) return;
+    const employees = data.employees.map(e => e.id === id ? { ...e, obra: "", lastObra: e.obra } : e);
+    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "transfer", empId: emp.id, empName: emp.name, from: obraName(emp.obra), to: "Sem obra", fromId: emp.obra, toId: "", message: `${emp.name} desvinculado da obra ${obraName(emp.obra)}` }];
+    update({ ...data, employees, changeLog });
+    showToast(`${emp.name} desvinculado da obra.`);
+  };
+
   const saveAdv = () => {
     if (!advForm.amount || isNaN(Number(advForm.amount))) {
       showToast("Valor do adiantamento inválido.", "error");
@@ -6207,7 +6253,7 @@ function Equipe({ data, update, showToast }) {
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <button onClick={() => setExpandedId(exp ? null : e.id)} style={{ flex: 1, background: "transparent", border: 0, color: C.text, textAlign: "left", cursor: "pointer" }}>
                   <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 18 }}>{e.name}</p>
-                  <p style={{ color: C.muted, fontSize: 12 }}>{obraName(e.obra)}{e.role ? `  ${e.role}` : ""}</p>
+                  <p style={{ color: C.muted, fontSize: 12 }}>{e.obra ? obraName(e.obra) : "Sem obra"}{e.role ? `  ${e.role}` : ""}</p>
                   <div style={{ marginTop: 4 }}>
                     {e.active === false && <Badge color={C.muted}>Inativo</Badge>}
                     <Badge color={C.yellow}>{fmt(e.dailyRate)}/dia</Badge>
@@ -6229,6 +6275,11 @@ function Equipe({ data, update, showToast }) {
                   <p style={{ color: C.subtle, fontSize: 12 }}>PIX: {e.pixKey || "-"}</p>
                   <p style={{ color: C.subtle, fontSize: 12 }}>Admissão: {fmtDateFull(e.startDate)}</p>
                   {e.endDate && <p style={{ color: C.red, fontSize: 12 }}>Término: {fmtDateFull(e.endDate)}</p>}
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                  {e.obra && <Btn v="ghost" size="sm" onClick={() => desvincularObra(e.id)}><Ic n="x" /> Desvincular da obra</Btn>}
+                  <Btn v="danger" size="sm" onClick={() => deleteEmp(e.id)}><Ic n="trash" /> Excluir definitivamente</Btn>
                 </div>
 
                 <Divider />
@@ -6262,7 +6313,7 @@ function Equipe({ data, update, showToast }) {
             <Inp label="Função" value={form.role} onChange={F("role")} />
             <Inp label="Admissão *" type="date" value={form.startDate} onChange={F("startDate")} />
             <Inp label="Diária *" type="number" value={form.dailyRate} onChange={F("dailyRate")} />
-            <Sel label="Obra *" value={form.obra} onChange={F("obra")} options={[{ v: "", l: "Selecione" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+            <Sel label="Obra" value={form.obra} onChange={F("obra")} options={[{ v: "", l: "Sem obra (desvinculado)" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
             <Sel label="Status" value={String(form.active !== false)} onChange={v => F("active")(v === "true")} options={[{ v: "true", l: "Ativo" }, { v: "false", l: "Inativo / Demitido" }]} />
             <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
             <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
@@ -6483,7 +6534,7 @@ function UnlockRequestModal({ data, update, showToast, obraId, date, employee, o
 // Ponto
 // 
 
-function PontoGeral({ data, update, showToast }) {
+function PontoGeral({ data, update, showToast, currentUser }) {
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
   const [year,setYear]=useState(refInicial.getFullYear());
@@ -6494,6 +6545,67 @@ function PontoGeral({ data, update, showToast }) {
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const {q1,q2}=getQ(year,month);
   const diasCiclo=q==="1"?q1:q2;
+
+  // ── Quinzena arquivada ──────────────────────────────────────────
+  // Depois que o RH confere e paga, a quinzena e movida para uma linha
+  // propria no banco (o JSON principal encolhe e o save fica leve). A
+  // quinzena arquivada fica bloqueada aqui; consulta e feita sob demanda.
+  const quinzenaId=`${year}-${String(month+1).padStart(2,"0")}-Q${q}`;
+  const quinzenaLabel=`${q==="1"?"1ª":"2ª"} quinzena de ${MONTHS[month]}/${year}`;
+  const arqMeta=(data.quinzenasArquivadas||{})[quinzenaId];
+  const podeArquivar=currentUser?.role==="admin"||currentUser?.role==="rh";
+  const quinzenaEncerrada=diasCiclo[diasCiclo.length-1]<today();
+  const [arqBusy,setArqBusy]=useState(false);
+  const [arqView,setArqView]=useState(null);   // conteudo do arquivo aberto no modal
+
+  const bloqueadoPorArquivo=()=>{
+    if(!arqMeta)return false;
+    showToast("Esta quinzena está finalizada e arquivada. Só o administrador pode restaurá-la para edição.","error");
+    return true;
+  };
+
+  const finalizarQuinzena=async()=>{
+    let total=0;const empsEnvolvidos=new Set();
+    Object.entries(data.attendance||{}).forEach(([empId,mapa])=>{
+      diasCiclo.forEach(d=>{if(mapa?.[d]){total++;empsEnvolvidos.add(empId);}});
+    });
+    if(!total){showToast("Não há lançamentos nesta quinzena para arquivar.","error");return;}
+    const aviso=[
+      `FINALIZAR E ARQUIVAR a ${quinzenaLabel}?`,
+      "",
+      `- ${total} lançamento(s) de ${empsEnvolvidos.size} funcionário(s)`,
+      "- O ponto sai do sistema principal e vira um arquivo próprio",
+      "- A quinzena fica BLOQUEADA para edição (só o admin restaura)",
+      "",
+      "Faça isso somente APÓS conferir e pagar a folha desta quinzena."
+    ].join("\n");
+    if(!window.confirm(aviso))return;
+    setArqBusy(true);
+    const r=await arquivarQuinzena({quinzenaId,label:quinzenaLabel,dates:diasCiclo});
+    setArqBusy(false);
+    if(!r.ok){showToast(r.erro||"Falha ao arquivar.","error");return;}
+    update({__adotarServidor:true,data:r.data,updatedAt:r.updatedAt});
+    showToast(`Quinzena finalizada e arquivada (${r.meta?.totalLancamentos||total} lançamento(s)).`);
+  };
+
+  const verArquivo=async()=>{
+    setArqBusy(true);
+    const r=await carregarQuinzenaArquivada(quinzenaId);
+    setArqBusy(false);
+    if(!r.ok){showToast(r.erro||"Falha ao abrir o arquivo.","error");return;}
+    setArqView(r.arquivo);
+  };
+
+  const restaurarArquivo=async()=>{
+    if(!window.confirm(`Restaurar a ${quinzenaLabel}?\n\nOs lançamentos voltam ao ponto principal e a quinzena reabre para edição. Dias relançados depois do arquivamento são mantidos como estão.`))return;
+    setArqBusy(true);
+    const r=await restaurarQuinzena(quinzenaId);
+    setArqBusy(false);
+    if(!r.ok){showToast(r.erro||"Falha ao restaurar.","error");return;}
+    setArqView(null);
+    update({__adotarServidor:true,data:r.data,updatedAt:r.updatedAt});
+    showToast(`Quinzena restaurada: ${r.devolvidos} lançamento(s) devolvido(s)${r.mantidos?`, ${r.mantidos} mantido(s)`:""}.`);
+  };
   // A gestao mostra somente segunda a sexta. Feriados em dias uteis
   // permanecem sempre visiveis e destacados, mesmo sem lancamento.
   const days=diasCiclo.filter(prIsWeekdayIso);
@@ -6509,6 +6621,7 @@ function PontoGeral({ data, update, showToast }) {
   const proxStatus=st=>st==="P"?"M":st==="M"?"F":st==="F"?null:"P";
 
   const salvarCelula=(emp,date,patch)=>{
+    if(bloqueadoPorArquivo())return;
     const anterior=getAtt(data,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
     const novo={...anterior,...patch};
     const obraId=novo.obraId||emp.obra||"";
@@ -6519,18 +6632,21 @@ function PontoGeral({ data, update, showToast }) {
   };
 
   const preencherLinha=emp=>{
+    if(bloqueadoPorArquivo())return;
     const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};let bloqueados=0;
     days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}const ant=getAtt(data,emp.id,date)||{};mapa[date]={...ant,status:"P",obraId};});
     attendance[emp.id]=mapa;update({...data,attendance});showToast(bloqueados?`Período preenchido; ${bloqueados} dia(s) bloqueado(s) foram mantidos.`:"Período preenchido para o funcionário.");
   };
 
   const limparLinha=emp=>{
+    if(bloqueadoPorArquivo())return;
     if(!window.confirm(`Limpar os lançamentos visíveis de ${emp.name}?`))return;
     const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};let bloqueados=0;
     days.forEach(date=>{const ant=getAtt(data,emp.id,date);if(!ant)return;const obraId=ant.obraId||emp.obra||"";if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}delete mapa[date];});attendance[emp.id]=mapa;update({...data,attendance});showToast(bloqueados?`${bloqueados} dia(s) bloqueado(s) foram preservados.`:"Lançamentos do período removidos.");
   };
 
   const preencherVisiveis=()=>{
+    if(bloqueadoPorArquivo())return;
     if(!employees.length||!window.confirm(`Marcar presença nos dias de trabalho para ${employees.length} funcionário(s) visível(is)?`))return;
     const attendance={...(data.attendance||{})};let bloqueados=0;
     employees.forEach(emp=>{const mapa={...(attendance[emp.id]||{})};days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}mapa[date]={...(getAtt(data,emp.id,date)||{}),status:"P",obraId};});attendance[emp.id]=mapa;});update({...data,attendance});showToast(bloqueados?`Equipe preenchida; ${bloqueados} lançamento(s) bloqueado(s) foram preservados.`:"Equipe preenchida no período.");
@@ -6556,6 +6672,33 @@ function PontoGeral({ data, update, showToast }) {
       <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
       <Inp label="Buscar" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
     </div>
+
+    {arqMeta ? (
+      <div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <div>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:13,color:C.yellowD,display:"flex",alignItems:"center",gap:6}}><Ic n="lock"/> QUINZENA FINALIZADA E ARQUIVADA</p>
+          <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+            {arqMeta.totalLancamentos} lançamento(s) de {arqMeta.funcionarios} funcionário(s) · arquivada por {arqMeta.archivedBy?.nome||"-"} em {fmtDateFull(String(arqMeta.archivedAt||"").slice(0,10))}. Edição bloqueada.
+          </p>
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <Btn v="ghost" size="sm" onClick={verArquivo} disabled={arqBusy}><Ic n="calendar"/> Ver arquivo</Btn>
+          {currentUser?.role==="admin"&&<Btn v="warning" size="sm" onClick={restaurarArquivo} disabled={arqBusy}><Ic n="unlock"/> Restaurar</Btn>}
+        </div>
+      </div>
+    ) : podeArquivar ? (
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <p style={{fontSize:11,color:C.muted}}>
+          {quinzenaEncerrada
+            ? "Após conferir e pagar a folha, finalize a quinzena: o ponto vira um arquivo próprio, a edição é bloqueada e o sistema fica mais leve."
+            : "A quinzena ainda está em andamento. Finalize somente após o último dia do ciclo e o pagamento da folha."}
+        </p>
+        <Btn v="warning" size="sm" onClick={finalizarQuinzena} disabled={arqBusy||!quinzenaEncerrada}
+          title={quinzenaEncerrada?"":"Disponível após o fim da quinzena"}>
+          <Ic n="lock"/> {arqBusy?"Arquivando...":"Finalizar e arquivar quinzena"}
+        </Btn>
+      </div>
+    ) : null}
 
     <div style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:10.5,color:C.muted,padding:"0 2px"}}>
       <span>Toque na célula para alternar <b style={{color:C.green}}>P</b> presente, <b style={{color:C.yellowD}}>½</b> meio dia, <b style={{color:C.red}}>F</b> falta, <b>·</b> sem registro.</span>
@@ -6625,6 +6768,51 @@ function PontoGeral({ data, update, showToast }) {
       </table>
       {!employees.length&&<div style={{padding:24,textAlign:"center",color:C.muted}}>Nenhum funcionário encontrado para os filtros selecionados.</div>}
     </div>
+
+    {arqView&&(()=>{
+      // Resumo do arquivo: conta P/M/F por funcionario e valora com a diaria
+      // CONGELADA no snapshot (a da epoca do pagamento, nao a atual).
+      const linhas=(arqView.employeesSnapshot||[]).map(e=>{
+        const mapa=arqView.attendance?.[e.id]||{};
+        let p=0,m=0,f=0;
+        Object.values(mapa).forEach(r=>{if(r?.status==="P")p++;else if(r?.status==="M")m++;else if(r?.status==="F")f++;});
+        const dias=p+m*0.5;
+        return {...e,p,m,f,dias,custo:dias*Number(e.dailyRate||0)};
+      }).sort((a,b)=>a.name.localeCompare(b.name));
+      const totDias=linhas.reduce((s,l)=>s+l.dias,0);
+      const totCusto=linhas.reduce((s,l)=>s+l.custo,0);
+      return <Modal title={`Arquivo · ${arqView.meta?.label||quinzenaLabel}`} onClose={()=>setArqView(null)} wide>
+        <p style={{fontSize:11.5,color:C.muted,marginBottom:10}}>
+          Período {fmtDateFull(arqView.meta?.inicio)} a {fmtDateFull(arqView.meta?.fim)} · arquivado por {arqView.meta?.archivedBy?.nome||"-"}. Valores calculados com a diária da época (congelada no arquivo).
+        </p>
+        <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8}}>
+          <table style={{borderCollapse:"collapse",width:"100%",fontSize:11}}>
+            <thead><tr style={{background:C.surface}}>
+              {["Funcionário","P","½","F","Dias","Diária","Custo"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:h==="Funcionário"?"left":"center",fontSize:9.5,fontWeight:800,color:C.muted,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {linhas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}>
+                <td style={{padding:"7px 10px"}}><b>{l.name}</b><div style={{fontSize:9,color:C.muted}}>{l.role||"Funcionário"}</div></td>
+                <td style={{textAlign:"center",color:C.green,fontWeight:800}}>{l.p}</td>
+                <td style={{textAlign:"center",color:C.yellowD,fontWeight:800}}>{l.m}</td>
+                <td style={{textAlign:"center",color:C.red,fontWeight:800}}>{l.f}</td>
+                <td style={{textAlign:"center",fontWeight:800}}>{l.dias.toFixed(1).replace(".0","")}</td>
+                <td style={{textAlign:"center",color:C.muted}}>{fmt(l.dailyRate)}</td>
+                <td style={{textAlign:"center",fontWeight:900,color:C.yellowD}}>{fmt(l.custo)}</td>
+              </tr>)}
+            </tbody>
+            <tfoot><tr style={{background:C.surface,borderTop:`2px solid ${C.border}`}}>
+              <td style={{padding:"8px 10px",fontWeight:900}}>TOTAL · {linhas.length} funcionário(s)</td>
+              <td colSpan={3}></td>
+              <td style={{textAlign:"center",fontWeight:900}}>{totDias.toFixed(1).replace(".0","")}</td>
+              <td></td>
+              <td style={{textAlign:"center",fontWeight:900,color:C.yellowD}}>{fmt(totCusto)}</td>
+            </tr></tfoot>
+          </table>
+        </div>
+        <p style={{fontSize:10,color:C.subtle,marginTop:8}}>Custo em diárias, sem VT/VR e adiantamentos — a folha paga já foi conferida antes do arquivamento.</p>
+      </Modal>;
+    })()}
   </div>;
 }
 
@@ -8014,6 +8202,27 @@ const buildQuickAlerts = (data, currentUser) => {
     alerts.push({type:"compras",color:C.orange,icon:"!",
       title:`${solicitacoesPendentes.length} solicitação(ões) de material aguardando Compras`,
       sub:solicitacoesPendentes.slice(0,3).map(s=>`${(data.obras||[]).find(o=>o.id===s.obraId)?.name||"Obra"}: ${s.itens.length} item(ns)${s.prioridade==="urgente"?" · URGENTE":""}`).join("  "),
+      tab:"cmp"});
+  }
+
+  // Estoque abaixo do mínimo: vira reposição com um toque no Estoque.
+  const repor = materiaisAbaixoMinimo(data);
+  if (repor.length > 0) {
+    alerts.push({ type:"estoque_min", color:C.orange, icon:"!",
+      title:`${repor.length} material(is) abaixo do estoque mínimo`,
+      sub:repor.slice(0,3).map(l=>`${l.obraNome}: ${l.descricao} (repor ${l.deficit} ${l.unidade})`).join("  ·  "),
+      tab:"est"});
+  }
+
+  // Entregas atrasadas: pedido enviado, prazo vencido, material sem chegar.
+  const atrasadosDash = pedidosEmAtraso(data, today());
+  if (atrasadosDash.length > 0) {
+    alerts.push({ type:"entrega_atrasada", color:C.red, icon:"!",
+      title:`${atrasadosDash.length} pedido(s) com entrega atrasada`,
+      sub:atrasadosDash.slice(0,3).map(x=>{
+        const f=(data.fornecedores||[]).find(y=>y.id===x.pedido.fornecedorId);
+        return `${x.pedido.numero} · ${f?.nome||"fornecedor"} · ${x.diasAtraso} dia(s)`;
+      }).join("  ·  "),
       tab:"cmp"});
   }
 
@@ -13183,6 +13392,94 @@ const compararBaseline = (tarefas, plano) => {
     custoAtual: linhas.reduce((s, l) => s + l.atualCusto, 0),
   };
   return { temBaseline: true, linhas, resumo };
+};
+
+// ══════════════════════════════════════════════════════════════════
+//  PLANEJADO x REALIZADO AUTOMATICO (por progresso medido)
+//
+//  O comparativo por linha de base so enxerga DATAS digitadas - se ninguem
+//  replaneja, tudo parece "no prazo" mesmo com a medicao parada. Este motor
+//  nao depende de digitacao: cruza o progresso MEDIDO (medicao / diario /
+//  manual, ja fundido nas tarefas) com a reta do cronograma.
+//
+//  A conta: a tarefa deveria avancar linearmente entre inicio e fim. O
+//  progresso medido corresponde a um ponto dessa reta - a "data equivalente"
+//  (o dia em que o plano previa chegar ao que foi medido). O desvio em dias
+//  e a distancia de hoje ate esse ponto:
+//    + dias -> ATRASADA  (hoje ja passou do ponto onde a obra chegou)
+//    - dias -> ADIANTADA (a obra chegou onde o plano so previa mais adiante)
+// ══════════════════════════════════════════════════════════════════
+const difDiasAssinada = (a, b) => {
+  if (!a || !b) return 0;
+  return Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
+};
+
+const desvioTarefaAuto = (t, hoje) => {
+  if (!t.inicio || !t.fim) return { situacao: "sem-datas", desvio: null, pctPrevisto: null, pctMedido: Number(t.progresso || 0), dataEquivalente: "" };
+  const dur = diasCorridos(t.inicio, t.fim) + 1;   // duracao em dias corridos, inclusiva
+  const prog = Math.max(0, Math.min(100, Number(t.progresso || 0)));
+
+  // % que o plano previa ate hoje (reta inicio -> fim)
+  const pctPrevisto = hoje < t.inicio ? 0
+    : hoje > t.fim ? 100
+    : Math.min(100, ((diasCorridos(t.inicio, hoje) + 1) / dur) * 100);
+
+  // Concluida: o desvio e a diferenca entre o fim planejado e o fim efetivo.
+  // Sem data real, a ultima medicao serve de melhor evidencia; sem nada,
+  // assume conclusao dentro do prazo (hoje, se ainda antes do fim).
+  if (prog >= 100) {
+    const fimEfetivo = t.fimReal || t.ultimaMedicao || (hoje < t.fim ? hoje : t.fim);
+    const desvio = difDiasAssinada(t.fim, fimEfetivo);
+    return {
+      situacao: desvio > 0 ? "atrasada" : desvio < 0 ? "adiantada" : "no-prazo",
+      concluida: true, desvio, pctPrevisto, pctMedido: 100, dataEquivalente: t.fim,
+    };
+  }
+
+  // Nao iniciada: antes do inicio e futura; depois, cada dia sem medir e atraso.
+  if (prog <= 0) {
+    if (hoje < t.inicio) return { situacao: "futura", desvio: 0, pctPrevisto, pctMedido: 0, dataEquivalente: "" };
+    const desvio = difDiasAssinada(t.inicio, hoje);
+    return { situacao: desvio > 0 ? "atrasada" : "no-prazo", desvio, pctPrevisto, pctMedido: 0, dataEquivalente: t.inicio };
+  }
+
+  // Em andamento: acha o dia em que o plano previa chegar ao % medido.
+  const diasEquivalentes = Math.max(1, Math.round((prog / 100) * dur));
+  const dataEquivalente = somaDias(t.inicio, diasEquivalentes - 1);
+  const desvio = difDiasAssinada(dataEquivalente, hoje);
+  return {
+    situacao: desvio > 0 ? "atrasada" : desvio < 0 ? "adiantada" : "no-prazo",
+    concluida: false, desvio, pctPrevisto, pctMedido: prog, dataEquivalente,
+  };
+};
+
+const desvioAutomatico = (tarefas, hoje) => {
+  const linhas = (tarefas || []).map(t => ({
+    id: t.id, nome: t.nome, titulo: !!t.titulo, custo: Number(t.custo || 0),
+    inicio: t.inicio || "", fim: t.fim || "",
+    origemProgresso: t.origemProgresso || "manual",
+    ultimaMedicao: t.ultimaMedicao || "",
+    ...desvioTarefaAuto(t, hoje),
+  }));
+  const exec = linhas.filter(l => !l.titulo);
+  const medidas = exec.filter(l => l.situacao !== "sem-datas" && l.situacao !== "futura");
+  const custoMedidas = medidas.reduce((s, l) => s + l.custo, 0);
+  const resumo = {
+    atrasadas:  exec.filter(l => l.situacao === "atrasada").length,
+    adiantadas: exec.filter(l => l.situacao === "adiantada").length,
+    noPrazo:    exec.filter(l => l.situacao === "no-prazo").length,
+    concluidas: exec.filter(l => l.concluida).length,
+    futuras:    exec.filter(l => l.situacao === "futura").length,
+    semDatas:   exec.filter(l => l.situacao === "sem-datas").length,
+    piorAtraso: exec.reduce((m, l) => Math.max(m, Number(l.desvio || 0)), 0),
+    maiorAvanco: Math.abs(exec.reduce((m, l) => Math.min(m, Number(l.desvio || 0)), 0)),
+    // Desvio da obra: media dos desvios ponderada pelo custo de cada tarefa.
+    // Uma tarefa cara atrasada pesa mais que varias baratas adiantadas.
+    desvioObra: custoMedidas
+      ? Math.round(medidas.reduce((s, l) => s + l.custo * Number(l.desvio || 0), 0) / custoMedidas)
+      : Math.round(medidas.reduce((s, l) => s + Number(l.desvio || 0), 0) / Math.max(1, medidas.length)),
+  };
+  return { linhas, resumo };
 };
 
 const fundirEvolucao = (tarefas, rdos, obraId) => {
@@ -18604,6 +18901,41 @@ const linkWhatsApp = (telefone, texto) => {
   return `https://wa.me/${full}?text=${encodeURIComponent(texto)}`;
 };
 
+// ── Entregas atrasadas ─────────────────────────────────────────────
+// Pedido enviado/parcial com previsao vencida e material ainda pendente.
+// Devolve o que falta chegar de cada um, pronto para a cobranca.
+const pedidosEmAtraso = (data, hoje) => {
+  return (data.pedidos || [])
+    .filter(p => ["enviado", "parcial"].includes(p.status) && p.previsao && p.previsao < hoje)
+    .map(p => {
+      const itensPendentes = (p.itens || [])
+        .map(i => {
+          const mat = (data.materiais || []).find(m => m.id === i.materialId);
+          const falta = Number(i.qtd || 0) - Number(i.qtdRecebida || 0);
+          return { descricao: mat?.descricao || i.descricaoRef || "Material", unidade: mat?.unidade || i.unidadeRef || "", falta };
+        })
+        .filter(i => i.falta > 1e-6);
+      const diasAtraso = Math.round((new Date(hoje + "T00:00:00") - new Date(p.previsao + "T00:00:00")) / 86400000);
+      return { pedido: p, diasAtraso, itensPendentes };
+    })
+    .filter(x => x.itensPendentes.length > 0)
+    .sort((a, b) => b.diasAtraso - a.diasAtraso);
+};
+
+// Mensagem de cobranca de entrega - firme e educada, citando o combinado.
+const mensagemWhatsAppCobranca = ({ empresa, fornecedorNome, obraNome, numero, previsao, diasAtraso, itens }) => {
+  const saudacao = fornecedorNome ? `Ola, ${fornecedorNome.split(" ")[0]}! Tudo bem?` : "Ola! Tudo bem?";
+  const linhas = (itens || []).map(i => {
+    const un = i.unidade ? ` ${i.unidade}` : "";
+    return `- ${i.descricao}: falta ${i.falta}${un}`;
+  }).join("\n");
+  const obra = obraNome ? ` da obra ${obraNome}` : "";
+  const ass = empresa ? `\n\nObrigado!\n${empresa}` : "\n\nObrigado!";
+  return `${saudacao}\n\nEstou acompanhando o pedido ${numero}${obra}, que tinha entrega combinada para ${previsao} - ja se passaram ${diasAtraso} dia(s).`
+       + `\n\nAinda falta chegar:\n\n${linhas}`
+       + `\n\nPreciso desses materiais para nao parar a frente de servico. Consegue me confirmar hoje a nova data de entrega?${ass}`;
+};
+
 const analisePreco = (h) => {
   if (!h.length) return null;
   const precos = h.map(x => x.preco);
@@ -19148,6 +19480,34 @@ const calcSaldos = (movs) => {
 
 const saldoDe = (saldos, obraId, materialId) => saldos[`${obraId}|${materialId}`] || 0;
 
+// ── Reposicao por estoque minimo ───────────────────────────────────
+// Varre todas as obras ativas: material com minimo cadastrado e saldo abaixo
+// dele vira uma linha de reposicao, com o deficit ja calculado. So considera
+// obras onde o material JA circulou (teve movimento) - minimo global nao deve
+// cobrar estoque de obra que nunca usou o item.
+const materiaisAbaixoMinimo = (data) => {
+  const saldos = calcSaldos(data.movEstoque);
+  const minimos = (data.materiais || []).filter(m => m.ativo !== false && Number(m.estoqueMin || 0) > 0);
+  if (!minimos.length) return [];
+  const obrasAtivas = (data.obras || []).filter(o => o.status !== "done");
+  const movimentou = new Set((data.movEstoque || []).map(x => `${x.obraId}|${x.materialId}`));
+  const out = [];
+  obrasAtivas.forEach(o => {
+    minimos.forEach(m => {
+      if (!movimentou.has(`${o.id}|${m.id}`)) return;
+      const saldo = saldoDe(saldos, o.id, m.id);
+      const minimo = Number(m.estoqueMin || 0);
+      if (saldo >= minimo) return;
+      out.push({
+        obraId: o.id, obraNome: o.name,
+        materialId: m.id, descricao: m.descricao, unidade: m.unidade || "un",
+        saldo, minimo, deficit: Math.ceil((minimo - saldo) * 100) / 100,
+      });
+    });
+  });
+  return out.sort((a, b) => a.obraNome.localeCompare(b.obraNome) || a.descricao.localeCompare(b.descricao));
+};
+
 // "Executei 120 m de alvenaria" → quanto sai de cada insumo
 const baixarPorComposicao = (comp, qtdExecutada) =>
   (comp?.itens || [])
@@ -19183,6 +19543,40 @@ const calcCurvaABC = (movs, materiais) => {
 //  SUPRIMENTOS - Curva de necessidade de materiais + comparação de preços +
 //  alertas de pesquisa por curva ABC + sugestão de fornecedor.
 // ============================================================================
+// Modal compartilhado: dispara pedido de orcamento por WhatsApp, um link por
+// fornecedor, com a lista completa de itens. Fornecedores que ja venderam
+// algum item da lista aparecem primeiro.
+function ModalCotacaoWhatsApp({ titulo, itens, obraNome, prazo, fornecedores, pedidos, materiais, onClose }) {
+  const jaVendeu = new Set();
+  (pedidos || []).filter(p => p.status !== "cancelado").forEach(p => (p.itens || []).forEach(i => {
+    const mat = (materiais || []).find(m => m.id === i.materialId);
+    if (mat && itens.some(it => String(it.descricao || "").toUpperCase() === String(mat.descricao || "").toUpperCase())) jaVendeu.add(p.fornecedorId);
+  }));
+  const lista = [...(fornecedores || [])].filter(f => f.ativo !== false && f.telefone)
+    .sort((a, b) => Number(jaVendeu.has(b.id)) - Number(jaVendeu.has(a.id)) || a.nome.localeCompare(b.nome));
+  return <Modal title={titulo || "Cotação por WhatsApp"} onClose={onClose}>
+    <p style={{ fontSize: 11, color: C.muted, marginBottom: 8, lineHeight: 1.5 }}>
+      {itens.length} item(ns) na lista. Toque em cada fornecedor para abrir o WhatsApp com o pedido de orçamento completo. Quando as respostas chegarem, registre os preços em Cotações ou Suprimentos.
+    </p>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", marginBottom: 10, maxHeight: 120, overflow: "auto" }}>
+      {itens.map((i, ix) => <p key={ix} style={{ fontSize: 10.5, color: C.muted }}>• {i.descricao} — <b style={{ color: C.text }}>{i.qtd} {i.unidade}</b></p>)}
+    </div>
+    {!lista.length && <p style={{ fontSize: 12, color: C.muted, textAlign: "center", padding: 12 }}>Nenhum fornecedor com telefone cadastrado.</p>}
+    {lista.map(f => {
+      const texto = mensagemWhatsAppCompra({ empresa: "ARCD Construtech", fornecedorNome: f.nome, obraNome: obraNome || "", prazo: prazo || "", itens });
+      return <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.line}`, padding: "8px 0" }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: 12, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.nome}</p>
+          {jaVendeu.has(f.id) && <p style={{ fontSize: 9, color: C.green, fontWeight: 800 }}>já forneceu itens desta lista</p>}
+        </div>
+        <a href={linkWhatsApp(f.telefone, texto)} target="_blank" rel="noreferrer" style={{ textDecoration: "none", flexShrink: 0 }}>
+          <Btn size="sm" v="success">WhatsApp</Btn>
+        </a>
+      </div>;
+    })}
+  </Modal>;
+}
+
 function Suprimentos({ data, update, showToast, onTab }) {
   const { formGrid } = useBreakpoint();
   const [aba, setAba] = useState("curva");   // curva | precos | alertas
@@ -19232,6 +19626,13 @@ function Suprimentos({ data, update, showToast, onTab }) {
   const totalUrgente  = curva.linhas.filter(l=>l.statusCompra==="urgente").length;
   const economiaPotencial = curva.linhas.reduce((s,l)=> s + (l.economiaVsBase>0 ? l.economiaVsBase*l.quantidade : 0), 0);
 
+  // Cotacao em massa dos itens atrasados/urgentes da carteira.
+  const [cotWppS, setCotWppS] = useState(false);
+  const itensUrgentes = curva.linhas
+    .filter(l => l.statusCompra === "atrasado" || l.statusCompra === "urgente")
+    .slice(0, 20)
+    .map(l => ({ descricao: l.descricao, qtd: Number(l.quantidade.toFixed(2)), unidade: l.unidade || "" }));
+
   return (
     <div className="anim" style={{ display:"flex", flexDirection:"column", gap:12 }}>
       {/* Cabeçalho */}
@@ -19241,7 +19642,15 @@ function Suprimentos({ data, update, showToast, onTab }) {
           <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:800, fontSize:"clamp(19px,3.5vw,24px)", color:C.text, letterSpacing:-.3 }}>Suprimentos</h2>
           <p style={{ fontSize:11, color:C.muted, marginTop:2 }}>{curva.linhas.length} materiais na carteira de obras · {curva.alertasPesquisa.length} a pesquisar</p>
         </div>
+        {itensUrgentes.length>0&&(
+          <Btn size="sm" v="warning" onClick={()=>setCotWppS(true)}>
+            <Ic n="cart"/> Cotar urgentes ({itensUrgentes.length})
+          </Btn>
+        )}
       </div>
+      {cotWppS&&<ModalCotacaoWhatsApp titulo={`Cotação · ${itensUrgentes.length} item(ns) urgentes da carteira`}
+        itens={itensUrgentes} fornecedores={fornecedores} pedidos={data.pedidos} materiais={data.materiais}
+        onClose={()=>setCotWppS(false)}/>}
 
       {/* KPIs rápidos */}
       <div style={{ display:"grid", gridTemplateColumns:formGrid(2), gap:8 }}>
@@ -19993,6 +20402,12 @@ function Compras({ data, update, showToast, currentUser }) {
 
   const kpi = useMemo(() => calcCompras(data, obraAtual), [data, obraAtual]);
   const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data, obraAtual]);
+  // Entregas atrasadas (todas as obras visiveis) e mapa por pedido.
+  const atrasados = useMemo(() => pedidosEmAtraso(data, today())
+    .filter(x => obras.some(o => o.id === x.pedido.obraId)), [data, obras]);
+  const atrasoDe = useMemo(() => { const m = {}; atrasados.forEach(x => { m[x.pedido.id] = x; }); return m; }, [atrasados]);
+  // Cotacao em massa por WhatsApp: {itens:[{descricao,qtd,unidade}], titulo, materialIds}
+  const [cotWpp, setCotWpp] = useState(null);
 
   // Linhas do orçamento que o pedido pode apropriar
   const linhasOrc = useMemo(() => {
@@ -20331,6 +20746,12 @@ function Compras({ data, update, showToast, currentUser }) {
             {pedido&&<p style={{fontSize:10.5,color:C.green,fontWeight:800,marginTop:7}}>Vinculada ao pedido {pedido.numero}</p>}
             <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
               {podeProcessar&&sol.status==="enviada"&&<Btn size="sm" v="ghost" onClick={()=>atualizarStatusSolicitacao(sol,"em_analise")}>MARCAR EM ANÁLISE</Btn>}
+              {podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" v="info" onClick={()=>setCotWpp({
+                titulo:`Cotação · ${sol.numero}`,
+                itens:sol.itens.map(i=>({descricao:i.descricaoRef,qtd:i.quantidade,unidade:i.unidadeRef})),
+                obraNome:(data.obras||[]).find(o=>o.id===sol.obraId)?.name||"",
+                prazo:sol.necessidade?fmtDate(sol.necessidade):"",
+              })}>COTAR POR WHATSAPP</Btn>}
               {podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" onClick={()=>gerarPedidoSolicitacao(sol)}>GERAR PEDIDO</Btn>}
               {sol.status!=="pedido_gerado"&&sol.status!=="cancelada"&&(podeProcessar||sol.solicitanteId===currentUser?.id)&&<Btn size="sm" v="danger" onClick={()=>{if(window.confirm(`Cancelar ${sol.numero}?`))atualizarStatusSolicitacao(sol,"cancelada");}}>CANCELAR</Btn>}
             </div>
@@ -20340,6 +20761,15 @@ function Compras({ data, update, showToast, currentUser }) {
 
       {/*  PEDIDOS  */}
       {aba === "pedidos" && (<>
+        {atrasados.length>0&&(
+          <div style={{background:`${C.red}0C`,border:`1.5px solid ${C.red}`,borderRadius:6,padding:"9px 11px"}}>
+            <p style={{fontSize:11.5,fontWeight:900,color:C.red}}>{atrasados.length} PEDIDO(S) COM ENTREGA ATRASADA</p>
+            <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+              {atrasados.slice(0,3).map(x=>`${x.pedido.numero} · ${nomeForn(x.pedido.fornecedorId)} · +${x.diasAtraso}d`).join("   ")}
+              {"  ·  Use o botão Cobrar entrega no pedido."}
+            </p>
+          </div>
+        )}
         <Inp value={busca} onChange={setBusca} placeholder="Buscar pedido ou fornecedor..."/>
         <Btn onClick={()=>setPedModal({id:"",numero:"",obraId:obraAtual,fornecedorId:"",
           data:new Date().toISOString().slice(0,10),previsao:"",status:"enviado",
@@ -20372,6 +20802,7 @@ function Compras({ data, update, showToast, currentUser }) {
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
                     <Badge color={meta.c}>{meta.l}</Badge>
+                    {atrasoDe[p.id]&&<div style={{marginTop:3}}><Badge color={C.red}>ATRASADO +{atrasoDe[p.id].diasAtraso}d</Badge></div>}
                     <p style={{fontSize:14,fontWeight:800,color:C.text,marginTop:4,whiteSpace:"nowrap"}}>
                       {fmt(totalPedido(p))}
                     </p>
@@ -20421,6 +20852,19 @@ function Compras({ data, update, showToast, currentUser }) {
                   {st !== "cancelado" && st !== "recebido" && (
                     <Btn size="sm" v="danger" onClick={()=>cancelarPedido(p)}>x</Btn>
                   )}
+                  {atrasoDe[p.id]&&(()=>{
+                    const forn=(data.fornecedores||[]).find(f=>f.id===p.fornecedorId);
+                    if(!forn?.telefone)return null;
+                    const obra=(data.obras||[]).find(o=>o.id===p.obraId);
+                    const texto=mensagemWhatsAppCobranca({
+                      empresa:"ARCD Construtech",fornecedorNome:forn.nome,obraNome:obra?.name||"",
+                      numero:p.numero,previsao:fmtDate(p.previsao),
+                      diasAtraso:atrasoDe[p.id].diasAtraso,itens:atrasoDe[p.id].itensPendentes,
+                    });
+                    return <a href={linkWhatsApp(forn.telefone,texto)} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
+                      <Btn size="sm" v="danger">Cobrar entrega</Btn>
+                    </a>;
+                  })()}
                   {st !== "cancelado" && st !== "recebido" && (() => {
                     const forn = (data.fornecedores||[]).find(f => f.id === p.fornecedorId);
                     if (!forn?.telefone) return null;
@@ -20727,6 +21171,8 @@ function Compras({ data, update, showToast, currentUser }) {
       </>)}
 
       {/*  MODAIS  */}
+      {cotWpp&&<ModalCotacaoWhatsApp titulo={cotWpp.titulo} itens={cotWpp.itens} obraNome={cotWpp.obraNome} prazo={cotWpp.prazo}
+        fornecedores={fornecedores} pedidos={data.pedidos} materiais={data.materiais} onClose={()=>setCotWpp(null)}/>}
       {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)}/>}
       {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
@@ -21409,6 +21855,8 @@ function Planejamento({ data, update, showToast }) {
   const ffMensalReal = useMemo(() => fisicoFinanceiroMensal(tarefas, cal, { realizado:true }), [tarefas, cal]);
   const critico    = useMemo(() => caminhoCritico(tarefas, cal), [tarefas, cal]);
   const compBase   = useMemo(() => compararBaseline(tarefas, plano), [tarefas, plano]);
+  // Planejado x realizado automatico: progresso medido vs reta do cronograma.
+  const autoCmp    = useMemo(() => desvioAutomatico(tarefas, today()), [tarefas]);
 
   // Salva a linha de base: fotografa o cronograma atual. Feito uma vez, quando
   // o plano é aprovado; refazer sobrescreve (com confirmação) e o histórico de
@@ -22617,6 +23065,86 @@ function Planejamento({ data, update, showToast }) {
             {/* --- PLANEJADO x REALIZADO (linha de base) --- */}
             {aba === "base" && (
               <div>
+                {/* ── AUTOMÁTICO: medição x reta do cronograma ─────────────
+                    Não depende de digitar datas reais nem de linha de base:
+                    o desvio nasce do progresso medido (medição/diário). */}
+                <div style={{ marginBottom: 18 }}>
+                  <p style={{ fontSize: 12, fontWeight: 900, color: C.text, textTransform: "uppercase", letterSpacing: .5, marginBottom: 4 }}>
+                    Desvio automático · medição x cronograma
+                  </p>
+                  <p style={{ fontSize: 10.5, color: C.muted, marginBottom: 10, lineHeight: 1.5 }}>
+                    Para cada etapa, o sistema calcula em que dia o cronograma previa chegar ao avanço que a medição registrou.
+                    A distância desse dia até hoje é o desvio: <b style={{ color: C.red }}>+</b> dias atrasada, <b style={{ color: C.blue }}>−</b> dias adiantada.
+                  </p>
+
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                    <MiniFF label="Desvio da obra" v={`${autoCmp.resumo.desvioObra > 0 ? "+" : ""}${autoCmp.resumo.desvioObra}d`}
+                            c={autoCmp.resumo.desvioObra > 0 ? C.red : autoCmp.resumo.desvioObra < 0 ? C.blue : C.green} />
+                    <MiniFF label="Atrasadas" v={String(autoCmp.resumo.atrasadas)} c={autoCmp.resumo.atrasadas ? C.red : C.muted} />
+                    <MiniFF label="Adiantadas" v={String(autoCmp.resumo.adiantadas)} c={autoCmp.resumo.adiantadas ? C.blue : C.muted} />
+                    <MiniFF label="No prazo" v={String(autoCmp.resumo.noPrazo)} c={C.green} />
+                    <MiniFF label="Concluídas" v={String(autoCmp.resumo.concluidas)} c={C.green} />
+                    <MiniFF label="Futuras" v={String(autoCmp.resumo.futuras)} c={C.muted} />
+                    <MiniFF label="Pior atraso" v={`${autoCmp.resumo.piorAtraso}d`} c={autoCmp.resumo.piorAtraso > 0 ? C.red : C.green} />
+                  </div>
+
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                          <th style={{ textAlign: "left", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Etapa / tarefa</th>
+                          <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Período planejado</th>
+                          <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Medido x previsto hoje</th>
+                          <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize: 10 }}>Desvio</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {autoCmp.linhas.map(l => {
+                          const corDesv = l.situacao === "atrasada" ? C.red
+                            : l.situacao === "adiantada" ? C.blue
+                            : l.situacao === "futura" || l.situacao === "sem-datas" ? C.muted : C.green;
+                          const rotulo = l.situacao === "sem-datas" ? "sem datas"
+                            : l.situacao === "futura" ? "futura"
+                            : l.concluida && !l.desvio ? "concluída"
+                            : l.desvio > 0 ? `+${l.desvio}d`
+                            : l.desvio < 0 ? `${l.desvio}d`
+                            : "no prazo";
+                          return (
+                            <tr key={l.id} style={{ borderBottom: `1px solid ${C.line}`, background: l.titulo ? C.surface : "transparent" }}>
+                              <td className="brk" style={{ padding: "7px 8px", color: C.text, maxWidth: 160, fontWeight: l.titulo ? 900 : 500 }}>
+                                {l.nome}
+                                {l.concluida && <span style={{ fontSize: 8.5, fontWeight: 900, color: C.green, marginLeft: 5 }}>100%</span>}
+                                {critico.criticas.includes(l.id) && <span style={{ fontSize: 8.5, fontWeight: 900, color: C.red, marginLeft: 5 }}>CRÍTICA</span>}
+                              </td>
+                              <td style={{ padding: "7px 8px", textAlign: "center", color: C.muted, fontSize: 10.5 }}>
+                                {l.inicio ? `${fmtDate(l.inicio)} → ${fmtDate(l.fim)}` : "—"}
+                              </td>
+                              <td style={{ padding: "7px 8px", textAlign: "center", fontSize: 10.5 }}>
+                                {l.pctPrevisto == null ? <span style={{ color: C.muted }}>—</span> : (
+                                  <>
+                                    <b style={{ color: l.pctMedido + 0.5 < l.pctPrevisto ? C.red : C.text }}>{Math.round(l.pctMedido)}%</b>
+                                    <span style={{ color: C.muted }}> de {Math.round(l.pctPrevisto)}%</span>
+                                    {l.origemProgresso === "diario" && <small style={{ display: "block", fontSize: 8, color: C.muted }}>medição de {fmtDate(l.ultimaMedicao)}</small>}
+                                  </>
+                                )}
+                              </td>
+                              <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 800, color: corDesv }}>{rotulo}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p style={{ fontSize: 10, color: C.muted, marginTop: 8, lineHeight: 1.4 }}>
+                    Desvios em dias corridos. O desvio da obra é a média ponderada pelo custo de cada etapa — uma etapa cara atrasada pesa mais que várias baratas adiantadas.
+                    Etapa sem medição depois do início conta cada dia como atraso.
+                  </p>
+                </div>
+
+                <Divider />
+                <p style={{ fontSize: 12, fontWeight: 900, color: C.text, textTransform: "uppercase", letterSpacing: .5, margin: "12px 0 8px" }}>
+                  Contra a linha de base (replanejamento)
+                </p>
                 {!compBase.temBaseline ? (
                   <div style={{ textAlign: "center", padding: "18px 12px" }}>
                     <p style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>
@@ -25072,7 +25600,7 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
   );
 }
 
-function Estoque({ data, update, showToast }) {
+function Estoque({ data, update, showToast, currentUser }) {
   const { cols, formGrid } = useBreakpoint();
   const [aba,      setAba]      = useState("saldo");   // saldo|movs|materiais|comp|abc
   const [obraSel,  setObraSel]  = useState("");
@@ -25087,6 +25615,40 @@ function Estoque({ data, update, showToast }) {
   const saldos      = useMemo(() => calcSaldos(data.movEstoque), [data.movEstoque]);
   const obras       = data.obras || [];
   const obraAtual   = obraSel || obras[0]?.id || "";
+
+  // ── Reposicao automatica por estoque minimo ─────────────────────
+  // O minimo deixou de ser cosmetico: tudo que esta abaixo dele em qualquer
+  // obra vira solicitacao de compra pre-preenchida com um toque.
+  const abaixoMin = useMemo(() => materiaisAbaixoMinimo(data), [data]);
+  const gerarReposicao = () => {
+    if (!abaixoMin.length) return;
+    const porObra = {};
+    abaixoMin.forEach(l => { (porObra[l.obraId] = porObra[l.obraId] || []).push(l); });
+    const nObras = Object.keys(porObra).length;
+    if (!window.confirm(`Gerar ${nObras} solicitação(ões) de reposição?\n\n${abaixoMin.length} material(is) abaixo do mínimo em ${nObras} obra(s). As quantidades já vêm com o déficit calculado — o setor de Compras recebe o alerta na hora.`)) return;
+    const existentes = (data.solicitacoesCompra || []).length;
+    const agora = new Date().toISOString();
+    const novas = Object.entries(porObra).map(([obraId, linhas], ix) => ({
+      id: uid(),
+      numero: `SC-${String(existentes + ix + 1).padStart(4, "0")}`,
+      obraId,
+      solicitanteId: currentUser?.id || "",
+      solicitanteNome: currentUser?.nome || "Estoque",
+      criadoEm: agora, necessidade: "", prioridade: "normal", status: "enviada",
+      observacao: "Reposição automática: materiais abaixo do estoque mínimo.",
+      analisadoEm: "", analisadoPor: "", pedidoId: "",
+      itens: linhas.map(l => ({
+        id: uid(), referenciaId: "", fonteRef: "PRÓPRIO", codigoRef: "",
+        descricaoRef: maiusculoOrcamento(l.descricao), unidadeRef: maiusculoOrcamento(l.unidade),
+        quantidade: l.deficit, precoRef: 0, dataBaseRef: "", ufRef: "",
+        observacao: `Saldo ${l.saldo} / mínimo ${l.minimo}`,
+      })),
+    }));
+    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "reposicao_estoque",
+      message: `Reposição automática: ${novas.length} solicitação(ões) gerada(s) com ${abaixoMin.length} material(is) abaixo do mínimo` }];
+    update({ ...data, solicitacoesCompra: [...(data.solicitacoesCompra || []), ...novas], changeLog });
+    showToast(`${novas.length} solicitação(ões) de reposição enviada(s) ao setor de Compras.`);
+  };
 
   const matPorId = useCallback(
     (id) => materiais.find(m => m.id === id),
@@ -25287,6 +25849,32 @@ function Estoque({ data, update, showToast }) {
 
       <Sel label="Obra" value={obraAtual} onChange={setObraSel}
         options={obras.map(o => ({ v:o.id, l:o.name }))}/>
+
+      {/* Reposicao automatica: o minimo deixou de ser cosmetico */}
+      {abaixoMin.length>0&&(
+        <div style={{background:`${C.orange}0C`,border:`1.5px solid ${C.orange}`,borderRadius:6,padding:"10px 12px"}}>
+          <p style={{fontSize:11.5,fontWeight:900,color:C.orange}}>
+            {abaixoMin.length} MATERIAL(IS) ABAIXO DO ESTOQUE MÍNIMO
+          </p>
+          <div style={{marginTop:5,maxHeight:96,overflow:"auto"}}>
+            {abaixoMin.slice(0,8).map((l,ix)=>(
+              <p key={ix} style={{fontSize:10,color:C.muted,marginTop:2}}>
+                <b style={{color:C.text}}>{l.obraNome}</b> · {l.descricao} — saldo {l.saldo.toLocaleString("pt-BR")} de {l.minimo.toLocaleString("pt-BR")} {l.unidade}
+                <b style={{color:C.orange}}> · repor {l.deficit.toLocaleString("pt-BR")}</b>
+              </p>
+            ))}
+            {abaixoMin.length>8&&<p style={{fontSize:9.5,color:C.subtle,marginTop:3}}>e mais {abaixoMin.length-8} item(ns)...</p>}
+          </div>
+          <div style={{marginTop:8}}>
+            <Btn size="sm" v="warning" onClick={gerarReposicao} full>
+              <Ic n="cart"/> GERAR SOLICITAÇÃO DE REPOSIÇÃO
+            </Btn>
+          </div>
+          <p style={{fontSize:9.5,color:C.subtle,marginTop:5,lineHeight:1.4}}>
+            Uma solicitação por obra, com o déficit já calculado. O setor de Compras recebe o alerta imediatamente.
+          </p>
+        </div>
+      )}
 
       {/* KPIs */}
       <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:8}}>
@@ -28189,7 +28777,74 @@ export default function App() {
     showToast._t = window.setTimeout(() => setToast(null), 3200);
   }, []);
 
+  // FILA DE SALVAMENTO SERIALIZADA
+  // Antes, cada update() disparava um save de rede imediato. Toques rapidos no
+  // ponto criavam varios saves simultaneos com o MESMO expectedUpdatedAt - o
+  // servidor aceitava o primeiro e devolvia 409 para os demais: o app
+  // conflitava consigo mesmo e "nao salvava". Agora existe no maximo 1 save em
+  // voo; estados novos apenas substituem o proximo a enviar (coalescencia).
+  // Como o estado local ja acumula tudo, salvar so o mais recente nao perde nada.
+  const saveEmVooRef = useRef(false);
+  const savePendenteRef = useRef(null);
+  const saveTentativasRef = useRef(0);
+
+  const processarFilaSave = useCallback(async () => {
+    if (saveEmVooRef.current) return;
+    const alvo = savePendenteRef.current;
+    if (!alvo) return;
+    savePendenteRef.current = null;
+    saveEmVooRef.current = true;
+    try {
+      const r = await saveDataDetailed(alvo);
+      if (r.conflict) {
+        // Conflito real (outro usuario). O banner de mescla cuida do resto.
+        saveTentativasRef.current = 0;
+        showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações estão sendo mescladas — confira o aviso.", "error");
+      } else if (!r.ok) {
+        // Falha de rede/servidor: re-enfileira o estado (se nada mais novo
+        // chegou) e tenta de novo com espera crescente, ate 3 vezes.
+        if (!savePendenteRef.current) savePendenteRef.current = alvo;
+        saveTentativasRef.current += 1;
+        if (saveTentativasRef.current <= 3) {
+          const espera = 1500 * saveTentativasRef.current;
+          showToast(`Sem resposta do servidor. Tentando salvar de novo em ${Math.round(espera/1000)}s...`, "error");
+          window.setTimeout(() => { saveEmVooRef.current = false; processarFilaSave(); }, espera);
+          return; // nao libera o voo agora; o timeout libera
+        }
+        saveTentativasRef.current = 0;
+        showToast(r.reason || "Não foi possível salvar após 3 tentativas. Confira a conexão — suas alterações seguem na tela e serão reenviadas na próxima ação.", "error");
+      } else {
+        saveTentativasRef.current = 0;
+        baseServidorRef.current = alvo;
+        setUltimaSync(new Date());
+      }
+    } catch (err) {
+      console.error(err);
+      if (!savePendenteRef.current) savePendenteRef.current = alvo;
+      showToast("Erro ao salvar. Nada foi confirmado no servidor.", "error");
+    } finally {
+      saveEmVooRef.current = false;
+      if (savePendenteRef.current) processarFilaSave();
+    }
+  }, [showToast]);
+
   const update = useCallback(async (next) => {
+    // ADOTAR ESTADO DO SERVIDOR (sem re-salvar)
+    // Operacoes cirurgicas como arquivar/restaurar quinzena acontecem no
+    // servidor e ja voltam com o dataset novo + carimbo. Aqui apenas
+    // adotamos essa versao como base - re-salvar seria redundante e
+    // reabriria a janela de conflito.
+    if (next && next.__adotarServidor) {
+      const norm = normalizeData(next.data);
+      adoptServerVersion(next.updatedAt);
+      baseServidorRef.current = norm;
+      ultimoDataRef.current = norm;
+      dataAtualRef.current = norm;
+      setData(norm);
+      setUltimaSync(new Date());
+      return;
+    }
+
     // RECONCILIACAO CONTRA O ESTADO MAIS RECENTE
     // Se um save anterior ainda nao propagou pelo React, o `next` que chega
     // pode ter sido montado sobre um `data` velho (closure do componente), o
@@ -28245,28 +28900,12 @@ export default function App() {
     dataAtualRef.current = normalized;    // e adianta o espelho (o effect confirmaria depois)
     setData(normalized);   // otimista: a interface não trava esperando a rede
 
-    try {
-      const r = await saveDataDetailed(normalized);
-
-      // Conflito dispara o evento 'arcd:data-conflict' dentro do api.js - o
-      // banner aparece sozinho e guarda o que você tentou salvar. Avisamos
-      // tambem por toast para o save nunca "sumir" em silencio.
-      if (r.conflict) {
-        showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações estão sendo mescladas — confira o aviso.", "error");
-        return;
-      }
-
-      if (!r.ok) {
-        showToast(r.reason || "Não foi possível salvar. Confira a conexão.", "error");
-      } else {
-        baseServidorRef.current = normalized;   // save confirmado vira a nova base
-        setUltimaSync(new Date());
-      }
-    } catch (err) {
-      console.error(err);
-      showToast("Erro ao salvar. Nada foi confirmado no servidor.", "error");
-    }
-  }, [showToast, currentUser]);
+    // Enfileira: se ja ha um save em voo, este estado apenas substitui o
+    // proximo a enviar. Nunca ha dois saves simultaneos - fim dos 409 do
+    // proprio dispositivo contra si mesmo.
+    savePendenteRef.current = normalized;
+    processarFilaSave();
+  }, [showToast, currentUser, processarFilaSave]);
 
   // No boot buscamos APENAS a lista de perfis (nome + papel). Nenhum dado
   // financeiro, nenhum CPF, nenhum hash de PIN sai do servidor aqui.
@@ -28841,14 +29480,14 @@ export default function App() {
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
-          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} />}
+          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} />}
           {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast}/>}
-          {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast}/>}
+          {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
           {tab === "equip"    && <Equipamentos data={data} update={update} showToast={showToast}/>}
           {tab === "licenca"  && <Licenciamento data={data} update={update} showToast={showToast}/>}
           {tab === "cmp"      && <Compras      data={data} update={update} showToast={showToast} currentUser={currentUser}/>}

@@ -215,6 +215,197 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, updatedAt: gravado?.updated_at || agora });
     }
 
+    // ── 5. Quinzenas arquivadas ────────────────────────────────────
+    //
+    // O dataset principal e UM json so, e a Vercel corta o corpo da
+    // requisicao em ~4,5MB. Com 60 funcionarios lancando ponto todo dia,
+    // um dia o save simplesmente para de passar. A saida: quinzena
+    // finalizada e paga sai do json principal e vira uma LINHA PROPRIA
+    // (key `arced_ponto_v1__arq__2026-07-Q1`), consultada sob demanda.
+    //
+    // A cirurgia acontece AQUI, no servidor, sobre o estado atual do
+    // banco: mover os lancamentos e gravar as duas linhas na mesma
+    // requisicao elimina a janela em que um conflito perderia dados.
+    // O papel (rh/admin) e conferido aqui - a tela apenas esconde o botao.
+
+    const PAPEIS_ARQUIVO = ["admin", "rh"];
+    const chaveArquivo = (qid) => `${KEY}__arq__${qid}`;
+    const quinzenaValida = (qid) => /^\d{4}-\d{2}-Q[12]$/.test(String(qid || ""));
+
+    if (action === "archive-quinzena") {
+      if (!PAPEIS_ARQUIVO.includes(usuario.role)) {
+        return res.status(403).json({ error: "Apenas RH e administrador podem arquivar quinzenas." });
+      }
+      const { quinzenaId, label, dates } = req.body.archive || {};
+      if (!quinzenaValida(quinzenaId) || !Array.isArray(dates) || !dates.length) {
+        return res.status(400).json({ error: "Quinzena inválida." });
+      }
+      if ((atual?.quinzenasArquivadas || {})[quinzenaId]) {
+        return res.status(409).json({ error: "Esta quinzena já foi arquivada." });
+      }
+      const { data: jaExiste } = await db.from("company_app_data")
+        .select("key").eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
+      if (jaExiste) {
+        return res.status(409).json({ error: "Esta quinzena já foi arquivada." });
+      }
+
+      // Recorta do attendance principal apenas as datas da quinzena.
+      const setDatas = new Set(dates);
+      const fatia = {};
+      const restante = {};
+      let totalLanc = 0;
+      for (const [empId, mapa] of Object.entries(atual?.attendance || {})) {
+        const dentro = {};
+        const fora = {};
+        for (const [d, reg] of Object.entries(mapa || {})) {
+          if (setDatas.has(d)) { dentro[d] = reg; totalLanc += 1; }
+          else fora[d] = reg;
+        }
+        if (Object.keys(dentro).length) fatia[empId] = dentro;
+        if (Object.keys(fora).length) restante[empId] = fora;
+      }
+      if (!totalLanc) {
+        return res.status(400).json({ error: "Não há lançamentos nesta quinzena para arquivar." });
+      }
+
+      // Fotografia dos funcionarios envolvidos: diaria e beneficios DA EPOCA
+      // ficam congelados no arquivo, mesmo que o cadastro mude depois.
+      const idsEnvolvidos = new Set(Object.keys(fatia));
+      const employeesSnapshot = (atual?.employees || [])
+        .filter(e => idsEnvolvidos.has(e.id))
+        .map(e => ({
+          id: e.id, name: e.name, role: e.role || "", obra: e.obra || "",
+          dailyRate: Number(e.dailyRate || 0),
+          vtDaily: Number(e.vtDaily || 0), vrDaily: Number(e.vrDaily || 0),
+        }));
+
+      const agora = new Date().toISOString();
+      const meta = {
+        quinzenaId,
+        label: String(label || quinzenaId),
+        inicio: dates[0],
+        fim: dates[dates.length - 1],
+        totalLancamentos: totalLanc,
+        funcionarios: employeesSnapshot.length,
+        archivedAt: agora,
+        archivedBy: { id: usuario.id, nome: usuario.nome },
+      };
+
+      const { error: errArq } = await db.from("company_app_data")
+        .insert({
+          company_id: COMPANY,
+          key: chaveArquivo(quinzenaId),
+          value: { meta, attendance: fatia, employeesSnapshot },
+          updated_at: agora,
+        });
+      if (errArq) throw errArq;
+
+      const novoPrincipal = {
+        ...atual,
+        attendance: restante,
+        quinzenasArquivadas: { ...(atual?.quinzenasArquivadas || {}), [quinzenaId]: meta },
+        changeLog: [
+          ...(atual?.changeLog || []),
+          { id: `arq_${Date.now()}`, date: agora.slice(0, 10), at: agora, type: "quinzena_archived",
+            operador: usuario.nome, operadorId: usuario.id,
+            message: `${usuario.nome} finalizou e arquivou a quinzena ${meta.label} (${totalLanc} lançamento(s) de ${employeesSnapshot.length} funcionário(s))` },
+        ].slice(-200),
+      };
+
+      const { data: gravado, error: errMain } = await db.from("company_app_data")
+        .update({ value: novoPrincipal, updated_at: agora, updated_by: null })
+        .eq("company_id", COMPANY).eq("key", KEY)
+        .select("updated_at").maybeSingle();
+      if (errMain) throw errMain;
+
+      return res.status(200).json({ ok: true, data: novoPrincipal, updatedAt: gravado?.updated_at || agora, meta });
+    }
+
+    if (action === "list-quinzena-archives") {
+      if (!PAPEIS_ARQUIVO.includes(usuario.role)) {
+        return res.status(403).json({ error: "Sem permissão para ver os arquivos." });
+      }
+      const { data: linhas, error } = await db.from("company_app_data")
+        .select("key, updated_at, value->meta")
+        .eq("company_id", COMPANY)
+        .like("key", `${KEY}__arq__%`);
+      if (error) throw error;
+      const arquivos = (linhas || [])
+        .map(l => ({ key: l.key, updatedAt: l.updated_at, meta: l.meta || {} }))
+        .sort((a, b) => String(b.meta?.inicio || "").localeCompare(String(a.meta?.inicio || "")));
+      return res.status(200).json({ ok: true, arquivos });
+    }
+
+    if (action === "load-quinzena-archive") {
+      if (!PAPEIS_ARQUIVO.includes(usuario.role)) {
+        return res.status(403).json({ error: "Sem permissão para ler o arquivo." });
+      }
+      const { quinzenaId } = req.body || {};
+      if (!quinzenaValida(quinzenaId)) return res.status(400).json({ error: "Quinzena inválida." });
+      const { data: linha, error } = await db.from("company_app_data")
+        .select("value, updated_at")
+        .eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
+      if (error) throw error;
+      if (!linha) return res.status(404).json({ error: "Arquivo não encontrado." });
+      return res.status(200).json({ ok: true, arquivo: linha.value, updatedAt: linha.updated_at });
+    }
+
+    // Restaurar e ato de ADMIN: desfaz um arquivamento feito por engano.
+    // Os lancamentos voltam ao principal SEM sobrescrever o que ja existir la
+    // (se alguem relancou um dia, o relancado vence e o do arquivo e descartado).
+    if (action === "restore-quinzena") {
+      if (usuario.role !== "admin") {
+        return res.status(403).json({ error: "Apenas o administrador pode restaurar uma quinzena." });
+      }
+      const { quinzenaId } = req.body || {};
+      if (!quinzenaValida(quinzenaId)) return res.status(400).json({ error: "Quinzena inválida." });
+      const { data: linha, error: errLer } = await db.from("company_app_data")
+        .select("value")
+        .eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
+      if (errLer) throw errLer;
+      if (!linha) return res.status(404).json({ error: "Arquivo não encontrado." });
+
+      const arq = linha.value || {};
+      const attendance = { ...(atual?.attendance || {}) };
+      let devolvidos = 0, mantidos = 0;
+      for (const [empId, mapa] of Object.entries(arq.attendance || {})) {
+        const destino = { ...(attendance[empId] || {}) };
+        for (const [d, reg] of Object.entries(mapa || {})) {
+          if (destino[d]) { mantidos += 1; continue; }
+          destino[d] = reg; devolvidos += 1;
+        }
+        attendance[empId] = destino;
+      }
+
+      const agora = new Date().toISOString();
+      const marcadores = { ...(atual?.quinzenasArquivadas || {}) };
+      delete marcadores[quinzenaId];
+      const novoPrincipal = {
+        ...atual,
+        attendance,
+        quinzenasArquivadas: marcadores,
+        changeLog: [
+          ...(atual?.changeLog || []),
+          { id: `res_${Date.now()}`, date: agora.slice(0, 10), at: agora, type: "quinzena_restored",
+            operador: usuario.nome, operadorId: usuario.id,
+            message: `${usuario.nome} restaurou a quinzena ${arq.meta?.label || quinzenaId} (${devolvidos} lançamento(s) devolvido(s)${mantidos ? `, ${mantidos} mantido(s) como estavam` : ""})` },
+        ].slice(-200),
+      };
+
+      const { data: gravado, error: errMain } = await db.from("company_app_data")
+        .update({ value: novoPrincipal, updated_at: agora, updated_by: null })
+        .eq("company_id", COMPANY).eq("key", KEY)
+        .select("updated_at").maybeSingle();
+      if (errMain) throw errMain;
+
+      const { error: errDel } = await db.from("company_app_data")
+        .delete()
+        .eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId));
+      if (errDel) throw errDel;
+
+      return res.status(200).json({ ok: true, data: novoPrincipal, updatedAt: gravado?.updated_at || agora, devolvidos, mantidos });
+    }
+
     return res.status(400).json({ error: "Ação desconhecida." });
   } catch (err) {
     console.error("Falha em /api/data:", err);

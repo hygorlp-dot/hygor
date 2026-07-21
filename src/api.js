@@ -119,6 +119,40 @@ export const loadDataWithMeta = async () => {
 
 export const logout = fecharSessao;
 
+// ── Quinzenas arquivadas ──────────────────────────────────────────
+// Quinzena finalizada e paga sai do JSON principal e vira linha propria no
+// banco. As acoes que ALTERAM o principal (arquivar/restaurar) devolvem o
+// dataset novo + carimbo, que o app adota como base (sem re-salvar).
+export const arquivarQuinzena = async (archive) => {
+  if (!temSessao()) return { ok: false, erro: "Sessão encerrada." };
+  const r = await chamar({ action: "archive-quinzena", userId: sessao.userId, pin: sessao.pin, archive });
+  if (r.status !== 200) return { ok: false, erro: r.error || "Falha ao arquivar." };
+  ultimoUpdatedAt = r.updatedAt || null;
+  return { ok: true, data: r.data, updatedAt: r.updatedAt, meta: r.meta };
+};
+
+export const restaurarQuinzena = async (quinzenaId) => {
+  if (!temSessao()) return { ok: false, erro: "Sessão encerrada." };
+  const r = await chamar({ action: "restore-quinzena", userId: sessao.userId, pin: sessao.pin, quinzenaId });
+  if (r.status !== 200) return { ok: false, erro: r.error || "Falha ao restaurar." };
+  ultimoUpdatedAt = r.updatedAt || null;
+  return { ok: true, data: r.data, updatedAt: r.updatedAt, devolvidos: r.devolvidos, mantidos: r.mantidos };
+};
+
+export const listarQuinzenasArquivadas = async () => {
+  if (!temSessao()) return { ok: false, erro: "Sessão encerrada.", arquivos: [] };
+  const r = await chamar({ action: "list-quinzena-archives", userId: sessao.userId, pin: sessao.pin });
+  if (r.status !== 200) return { ok: false, erro: r.error || "Falha ao listar arquivos.", arquivos: [] };
+  return { ok: true, arquivos: r.arquivos || [] };
+};
+
+export const carregarQuinzenaArquivada = async (quinzenaId) => {
+  if (!temSessao()) return { ok: false, erro: "Sessão encerrada." };
+  const r = await chamar({ action: "load-quinzena-archive", userId: sessao.userId, pin: sessao.pin, quinzenaId });
+  if (r.status !== 200) return { ok: false, erro: r.error || "Falha ao carregar o arquivo." };
+  return { ok: true, arquivo: r.arquivo, updatedAt: r.updatedAt };
+};
+
 // ── Bases de referência do orçamento ─────────────────────────────
 // SINAPI é persistido em lotes; ORSE guarda a competência e pesquisa a
 // base pública oficial pelo servidor. O PIN nunca sai deste módulo.
