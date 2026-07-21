@@ -16,9 +16,13 @@ export default async function handler(req,res){
       res.setHeader("cache-control","private, max-age=300"); return res.send(Buffer.from(await r.arrayBuffer()));
     }
     const body=req.body||{};
-    if(action==="create-workspace")return res.json({ok:true,...await workspace(accessToken,body.obraName)});
+    if(action==="create-workspace"){
+      const ws=await workspace(accessToken,body.obraName);
+      return res.json({ok:true,...ws,...(appUser.role==="admin"?{}:{webUrl:undefined})});
+    }
     if(action==="create-folder"){
-      const folder=await getOrCreateFolder(accessToken,body.driveId,body.parentId,safeName(body.name)); return res.json({ok:true,folder});
+      const folder=await getOrCreateFolder(accessToken,body.driveId,body.parentId,safeName(body.name));
+      return res.json({ok:true,folder:appUser.role==="admin"?folder:{...folder,webUrl:undefined}});
     }
     if(action==="upload"){
       let ws={driveId:body.driveId,folderId:body.folderId,folders:body.folders};
@@ -34,7 +38,7 @@ export default async function handler(req,res){
       const item=await (await graph(accessToken,`/drives/${ws.driveId}/items/${parentId}:/${encodeURIComponent(fileName)}:/content`,{method:"PUT",headers:{"content-type":match[1]},body:buffer})).json();
       const sig=fileSignature(ws.driveId,item.id);
       const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(ws.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(sig)}`;
-      return res.json({ok:true,url,path:item.id,item,workspace:ws});
+      return res.json({ok:true,url,path:item.id,item:appUser.role==="admin"?item:{...item,webUrl:undefined},workspace:appUser.role==="admin"?ws:{...ws,webUrl:undefined}});
     }
     res.status(400).json({error:"Ação inválida."});
   }catch(e){res.status(e.status||500).json({error:String(e.message||e),needsConnection:e.status===401});}

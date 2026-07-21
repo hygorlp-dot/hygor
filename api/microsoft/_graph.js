@@ -40,7 +40,7 @@ const loadCentralSession = async () => {
 export const verifyAppUser = async (userId,pin) => {
   if(!db)return false; const {data}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",DATA_KEY).maybeSingle();
   const payload=typeof data?.value==="string"?JSON.parse(data.value):data?.value; const user=(payload?.usuarios||[]).find(u=>u.id===userId&&u.active!==false); if(!user)return false;
-  const a=Buffer.from(crypto.createHash("sha256").update(String(pin)).digest("hex")),b=Buffer.from(String(user.pin||"")); return a.length===b.length&&crypto.timingSafeEqual(a,b);
+  const a=Buffer.from(crypto.createHash("sha256").update(String(pin)).digest("hex")),b=Buffer.from(String(user.pin||"")); return a.length===b.length&&crypto.timingSafeEqual(a,b)?user:false;
 };
 export const fileSignature=(driveId,itemId)=>crypto.createHmac("sha256",String(CLIENT_SECRET)).update(`${driveId}:${itemId}`).digest("base64url");
 

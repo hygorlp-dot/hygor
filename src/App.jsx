@@ -5723,7 +5723,7 @@ function ClienteContratualModal({form,setForm,onClose,onSave,formGrid}){
   </div></Modal>;
 }
 
-function Obras({ data, update, showToast, onAbrirObra }) {
+function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
   const { formGrid, cols, isDesktop } = useBreakpoint();
   const empty = { id: "", name: "", clienteId:"", cliente: "", address: "", engineer: "", engineerId: "", startDate: "", faseId: "", status: "active", areaM2: "", oneDriveUrl: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
@@ -5731,6 +5731,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
   const [clienteModal,setClienteModal]=useState(null);
   const [search, setSearch] = useState("");
   const [oneDriveStatus, setOneDriveStatus] = useState("checking");
+  const ehAdmin=currentUser?.role==="admin";
   const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
   const clientes=data.comercial?.clientes||[];
   useEffect(()=>{
@@ -5746,7 +5747,10 @@ function Obras({ data, update, showToast, onAbrirObra }) {
     setForm(x=>({...x,clienteId:cliente.id,cliente:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome}));
     setClienteModal(null);showToast("Cliente cadastrado e vinculado à obra.");
   };
-  useEffect(()=>{statusOneDrive().then(r=>setOneDriveStatus(r.ok?"connected":"disconnected"));},[]);
+  useEffect(()=>{
+    if(!ehAdmin){setOneDriveStatus("restricted");return;}
+    statusOneDrive().then(r=>setOneDriveStatus(r.ok?"connected":"disconnected"));
+  },[ehAdmin]);
 
   //  Kanban 
   const [vista,      setVista]      = useState("lista");   // "lista" | "quadro"
@@ -5862,6 +5866,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
 
   const abrirOneDrive = (url) => {
+    if(!ehAdmin){showToast("Apenas administradores podem acessar os diretórios do OneDrive.","error");return;}
     try {
       const destino = new URL(String(url || "").trim());
       if (destino.protocol !== "https:") throw new Error("protocolo");
@@ -5884,7 +5889,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
       return;
     }
 
-    if (form.oneDriveUrl) {
+    if (ehAdmin && form.oneDriveUrl) {
       try {
         const link = new URL(form.oneDriveUrl.trim());
         if (link.protocol !== "https:") throw new Error("protocolo");
@@ -5925,7 +5930,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
     // OneDrive. Essa integração só pertence ao primeiro cadastro; antes, toda
     // edição sem folderId aguardava uma chamada externa e fazia o modal parecer
     // travado mesmo quando o usuário alterava apenas um campo simples.
-    if (!form.id && !payload.oneDriveFolderId && oneDriveStatus === "connected") {
+    if (ehAdmin && !form.id && !payload.oneDriveFolderId && oneDriveStatus === "connected") {
       const ws = await criarEstruturaOneDrive(payload.name);
       if (ws.ok) payload = {...payload,oneDriveDriveId:ws.driveId,oneDriveFolderId:ws.folderId,oneDriveFolders:ws.folders||{},oneDriveUrl:ws.webUrl||payload.oneDriveUrl};
       else showToast(`Obra salva, mas o OneDrive não criou a pasta: ${ws.error||"falha na conexão"}`, "error");
@@ -5963,21 +5968,21 @@ function Obras({ data, update, showToast, onAbrirObra }) {
           <p style={{ color: C.muted, fontSize: 13 }}>{data.obras.length} cadastradas</p>
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
-          <Btn v="ghost" onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)}>
+          {ehAdmin&&<Btn v="ghost" onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)}>
             <Ic n="folder" /> Pasta geral
-          </Btn>
-          {oneDriveStatus !== "connected" && <Btn v="ghost" onClick={conectarOneDrive}><Ic n="folder" /> Conectar OneDrive</Btn>}
+          </Btn>}
+          {ehAdmin&&oneDriveStatus !== "connected" && <Btn v="ghost" onClick={conectarOneDrive}><Ic n="folder" /> Conectar OneDrive</Btn>}
           <Btn onClick={() => { setForm(empty); setModal(true); }}><Ic n="plus" /> Nova</Btn>
         </div>
       </div>
 
-      <div style={{background:`${C.blue}0D`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+      {ehAdmin&&<div style={{background:`${C.blue}0D`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
         <div>
           <p style={{fontSize:12,fontWeight:800,color:C.text}}>Arquivos das obras no OneDrive</p>
           <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Crie a subpasta na pasta geral e cole o link ao cadastrar ou editar a obra.</p>
         </div>
         <button onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)} style={{background:"transparent",border:0,color:C.blue,fontSize:11,fontWeight:800,cursor:"pointer",padding:0}}>Abrir pasta geral ↗</button>
-      </div>
+      </div>}
 
       {/* Alternador Lista / Quadro */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -6239,7 +6244,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
             <div style={{padding:12,display:"flex",flexDirection:"column",gap:10,flex:1}}>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>{[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"-"],["Área",area>0?`${area.toLocaleString("pt-BR")} m²`:"-"],["Equipe",`${count}`]].map(([l,v])=><div key={l} style={{background:C.surface,borderRadius:7,padding:"7px 6px"}}><p style={{fontSize:8,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p><p style={{fontSize:11.5,fontWeight:850,color:C.text,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}</div>
               <div style={{minHeight:37}}>{o.address&&<p className="brk" style={{fontSize:10.5,color:C.subtle,lineHeight:1.35}}>{o.address}</p>}{o.engineer&&<p style={{fontSize:10,color:C.muted,marginTop:3}}>Responsável · <b style={{color:C.text}}>{o.engineer}</b></p>}{prazo&&<p style={{fontSize:9.5,fontWeight:800,color:prazo.cor,marginTop:3}}>{prazo.rotulo}</p>}</div>
-              <div style={{display:"grid",gridTemplateColumns:o.oneDriveUrl?"1fr 1fr":"1fr",gap:5,marginTop:"auto"}}><Btn size="sm" onClick={()=>onAbrirObra?.(o.id)}>Abrir painel →</Btn>{o.oneDriveUrl&&<Btn size="sm" v="ghost" onClick={()=>abrirOneDrive(o.oneDriveUrl)}><Ic n="folder"/> Arquivos</Btn>}</div>
+              <div style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr 1fr":"1fr",gap:5,marginTop:"auto"}}><Btn size="sm" onClick={()=>onAbrirObra?.(o.id)}>Abrir painel →</Btn>{ehAdmin&&o.oneDriveUrl&&<Btn size="sm" v="ghost" onClick={()=>abrirOneDrive(o.oneDriveUrl)}><Ic n="folder"/> Arquivos</Btn>}</div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${C.line}`,paddingTop:8}}><span style={{fontSize:9.5,color:C.muted}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span><div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",padding:4}}><Ic n="edit" s={14}/></button><button onClick={()=>remove(o.id)} title="Excluir obra" style={{border:0,background:"transparent",color:C.red,cursor:"pointer",padding:4}}><Ic n="trash" s={14}/></button></div></div>
             </div>
           </div>
@@ -6300,10 +6305,10 @@ function Obras({ data, update, showToast, onAbrirObra }) {
               options={[{v:"",l:engenheiros.length?"Selecione o engenheiro...":"Cadastre um engenheiro em Ajustes > Usuários"},...engenheiros.map(u=>({v:u.id,l:u.nome}))]}/>
             <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:6,alignItems:"end"}}><Sel label="Cliente contratante" value={form.clienteId||""} onChange={v=>{const c=clientes.find(x=>x.id===v);setForm(f=>({...f,clienteId:v,cliente:c?.nome||""}));}} options={[{v:"",l:"Selecione um cliente"},...clientes.map(c=>({v:c.id,l:c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}))]}/><Btn v="info" onClick={()=>setClienteModal(clienteContratualVazio())}><Ic n="plus"/> Cliente</Btn></div>
             <Inp label="Data de início" type="date" value={form.startDate} onChange={setField("startDate")} />
-            <div style={{gridColumn:"1/-1"}}>
+            {ehAdmin&&<div style={{gridColumn:"1/-1"}}>
               <Inp label="Pasta da obra no OneDrive" value={form.oneDriveUrl} onChange={setField("oneDriveUrl")} placeholder="Cole aqui o link da subpasta desta obra" />
               <p style={{fontSize:10,color:C.muted,marginTop:4}}>O sistema salva apenas o link. Projetos, contratos e documentos permanecem no OneDrive.</p>
-            </div>
+            </div>}
             <Sel label="Fase (quadro)" value={form.faseId || (fases[0]?.id||"")} onChange={setField("faseId")}
               options={fases.map(f=>({v:f.id,l:f.nome}))}/>
             <Sel label="Status" value={form.status} onChange={setField("status")} options={[
@@ -21251,6 +21256,14 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
       .sort((a,b) => (b.data||"").localeCompare(a.data||""));
   }, [data.pedidos, obraAtual, busca, nomeForn]);
 
+  const resumoOperacional = useMemo(() => {
+    const todos=(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&p.status!=="cancelado");
+    const porStatus={rascunho:0,enviado:0,parcial:0,recebido:0};
+    todos.forEach(p=>{const s=statusPedido(p);porStatus[s]=(porStatus[s]||0)+1;});
+    const ultima=[...todos].sort((a,b)=>(b.data||"").localeCompare(a.data||""))[0];
+    return {total:todos.length,porStatus,ultima,fornecedores:new Set(todos.map(p=>p.fornecedorId).filter(Boolean)).size};
+  },[data.pedidos,obraAtual]);
+
   const cotacoes = useMemo(
     () => (data.cotacoes||[]).filter(c => c.obraId === obraAtual)
             .sort((a,b) => (b.data||"").localeCompare(a.data||"")),
@@ -21488,19 +21501,12 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div>
-        <p style={{fontSize:11,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Suprimentos</p>
-        <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,
-                    fontSize:"clamp(19px,5vw,26px)",color:C.text}}>Compras</h3>
+      <div style={{background:`linear-gradient(135deg,${C.ink},#263343)`,borderRadius:14,padding:"17px 18px",color:"#fff",boxShadow:C.shCard,display:"flex",justifyContent:"space-between",gap:14,alignItems:"center",flexWrap:"wrap"}}>
+        <div><p style={{fontSize:9.5,fontWeight:900,color:C.yellow,textTransform:"uppercase",letterSpacing:1.2}}>Central de suprimentos</p><h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:850,fontSize:"clamp(22px,5vw,30px)",color:"#fff",marginTop:2}}>Compras</h3><p style={{fontSize:11,color:"rgba(255,255,255,.72)",marginTop:5,maxWidth:590,lineHeight:1.5}}>Da solicitação ao recebimento: acompanhe prazos, fornecedores e a entrada dos materiais no estoque da obra.</p></div>
+        <div style={{background:"rgba(255,255,255,.09)",border:"1px solid rgba(255,255,255,.14)",borderRadius:10,padding:"9px 12px",minWidth:175}}><p style={{fontSize:9,color:"rgba(255,255,255,.6)",fontWeight:800,textTransform:"uppercase"}}>Visão desta obra</p><p style={{fontSize:17,fontWeight:850,marginTop:2}}>{resumoOperacional.total} pedido(s)</p><p style={{fontSize:9.5,color:"rgba(255,255,255,.65)",marginTop:2}}>{resumoOperacional.fornecedores} fornecedor(es) envolvidos</p></div>
       </div>
 
-      <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"9px 11px"}}>
-        <p style={{fontSize:10.5,color:C.subtle,lineHeight:1.55}}>
-          <strong style={{color:C.blue}}>Pedido é compromisso, não despesa.</strong> O custo entra no DRE
-          quando o dinheiro sai - pela Conciliação. Aqui você registra o combinado e,
-          no recebimento, dá entrada no estoque da obra.
-        </p>
-      </div>
+      <div style={{background:`${C.blue}09`,border:`1px solid ${C.blue}2F`,borderRadius:10,padding:"10px 12px",display:"flex",gap:9,alignItems:"flex-start"}}><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${C.blue}14`,color:C.blue,fontWeight:900,flexShrink:0}}>i</span><p style={{fontSize:10.5,color:C.subtle,lineHeight:1.55}}><strong style={{color:C.blue}}>Como funciona:</strong> a solicitação informa a necessidade; o pedido registra o compromisso; o recebimento atualiza o estoque; e somente o pagamento conciliado vira despesa no DRE.</p></div>
       {solicitacoesPendentes>0&&<button onClick={()=>setAba("solicitacoes")} style={{background:`${C.orange}10`,border:`1.5px solid ${C.orange}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><p style={{fontSize:11.5,fontWeight:900,color:C.orange}}>{solicitacoesPendentes} NOVA(S) SOLICITAÇÃO(ÕES) DE MATERIAL</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>A Engenharia/Obra aguarda análise do setor de Compras. Clique para abrir.</p></button>}
 
       {obraIdFixo
@@ -21509,14 +21515,14 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
             options={obras.map(o => ({ v:o.id, l:o.name }))}/>}
 
       {/* Cadeia comprado → recebido → aplicado → pago */}
-      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:9}}>
         {[
           ["Comprado", fmt(kpi.comprado), C.text,   "pedidos ativos"],
           ["Recebido", fmt(kpi.recebido), C.blue,   "entrou no estoque"],
           ["Aplicado", fmt(kpi.aplicado), C.green,  "consumido na obra"],
           ["Pago",     fmt(kpi.pago),     C.yellow, "saiu do banco"],
         ].map(([l,v,c,sub])=>(
-          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
+          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:11,padding:"11px 12px",boxShadow:"0 3px 12px rgba(20,24,28,.04)"}}>
             <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,letterSpacing:.5}}>{l}</p>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(13px,3.6vw,16px)",
                        fontWeight:800,color:c,marginTop:2}}>{v}</p>
@@ -21534,18 +21540,22 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
       )}
 
       {/* Abas */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4}}>
-        {[["solicitacoes",`Solicitações${solicitacoesPendentes?` (${solicitacoesPendentes})`:""}`],["pedidos","Pedidos"],["orcado","Orçado x"],["cotacoes","Cotações"],
-          ["forn","Fornec."],["precos","Preços"]].map(([v,l])=>(
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:5,display:"flex",gap:4,overflowX:"auto",boxShadow:"0 3px 12px rgba(20,24,28,.035)"}}>
+        {[["solicitacoes",`Solicitações${solicitacoesPendentes?` (${solicitacoesPendentes})`:""}`],["pedidos","Pedidos"],["orcado","Orçado x comprado"],["cotacoes","Cotações"],
+          ["forn","Fornecedores"],["precos","Histórico de preços"]].map(([v,l])=>(
           <button key={v} onClick={()=>setAba(v)} style={{
-            padding:"7px 3px",
-            border:`2px solid ${aba===v?C.yellow:C.border}`,
-            background:aba===v?`${C.yellow}12`:"transparent",
+            padding:"9px 13px",whiteSpace:"nowrap",flex:"1 0 auto",
+            border:0,
+            background:aba===v?C.ink:"transparent",
             color:aba===v?C.text:C.muted,
             fontFamily:"'Inter Display','Inter',sans-serif",
-            fontWeight:700,fontSize:10.5,cursor:"pointer",borderRadius:7,
-          }}>{l}</button>
+            fontWeight:750,fontSize:10.5,cursor:"pointer",borderRadius:8,
+          }}>{<span style={{color:aba===v?"#fff":C.muted}}>{l}</span>}</button>
         ))}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:8}}>
+        {[["Em andamento",(resumoOperacional.porStatus.enviado||0)+(resumoOperacional.porStatus.parcial||0),C.blue],["Recebidos",resumoOperacional.porStatus.recebido||0,C.green],["Último movimento",resumoOperacional.ultima?`${resumoOperacional.ultima.numero} · ${fmtDate(resumoOperacional.ultima.data)}`:"Nenhum pedido",C.muted]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:"9px 11px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p><p style={{fontSize:11.5,fontWeight:800,color:c,marginTop:3}}>{v}</p></div>)}
       </div>
 
       {aba==="solicitacoes"&&<>
@@ -22064,6 +22074,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
 // 
 function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, showToast, currentUser }) {
   const { cols } = useBreakpoint();
+  const ehAdmin=currentUser?.role==="admin";
   const obra = (data.obras||[]).find(o => o.id === obraId);
   const [abaConteudo,setAbaConteudo]=useState("geral");
 
@@ -22288,6 +22299,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const margem = resumo.recebido - resumo.despesas;
 
   const abrirOneDrive = (url) => {
+    if(!ehAdmin){showToast?.("Apenas administradores podem abrir os diretórios do OneDrive.","error");return;}
     try {
       const destino = new URL(String(url || "").trim());
       if (destino.protocol !== "https:") throw new Error("protocolo");
@@ -22420,7 +22432,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           ["rdo","Diário de obra","rdo"],["conferencia","Conferência","conferencia"],["med","Medição técnica","med"],
           ["cmp","Compras","cmp"],["est","Estoque","est"],["dre","Financeiro","dre"],
           ["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"],
-          ["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null]].map(([id,label,destino])=>{
+          ["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null]].filter(([id])=>id!=="arquivos"||ehAdmin).map(([id,label,destino])=>{
           const ativa = id===abaConteudo;
           return (
             <button key={id}
@@ -22567,9 +22579,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         })()}
       </Secao>
 
-      <Secao id="arquivos" icone="arquivos" titulo="Arquivos da obra" cor={C.blue}
+      <Secao id="arquivos" icone="arquivos" titulo={ehAdmin?"Arquivos da obra":"Enviar e organizar arquivos"} cor={C.blue}
              badge={obra.oneDriveUrl ? "OneDrive" : null}>
-        {obra.oneDriveUrl ? (
+        {ehAdmin&&obra.oneDriveUrl ? (
           <>
             <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55,marginBottom:9}}>
               Projetos, contratos e documentos desta obra ficam armazenados e editáveis no OneDrive.
@@ -22587,7 +22599,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             <input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/>
             {(obra.documentosOneDrive||[]).map(doc=><a key={doc.id} href={doc.url} target="_blank" rel="noreferrer" style={{display:"block",fontSize:11,color:C.blue,marginTop:6}}>{doc.nome} ↗</a>)}
           </>
-        ) : (
+        ) : ehAdmin ? (
           <>
             <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55,marginBottom:9}}>
               Esta obra ainda não tem uma subpasta vinculada. Abra a pasta geral, crie a pasta da obra e depois cole o link ao editar o cadastro.
@@ -22596,7 +22608,12 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
               <Ic n="folder" /> Abrir pasta geral ↗
             </Btn>
           </>
-        )}
+        ) : <>
+          <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55,marginBottom:9}}>Você pode criar pastas e enviar documentos pelo ArcD. A abertura e a navegação direta no OneDrive são exclusivas da administração.</p>
+          <div style={{display:"flex",gap:6}}><Inp value={novaPasta} onChange={setNovaPasta} placeholder="Nome da nova pasta"/><Btn v="ghost" onClick={criarSubpasta}>Criar pasta</Btn></div>
+          <Btn full onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento} style={{marginTop:8}}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Enviar documento"}</Btn>
+          <input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/>
+        </>}
       </Secao>
 
       <Secao id="diarios" icone="atividade" titulo="Diário de Obra" cor={C.green}
@@ -31046,7 +31063,7 @@ export default function App() {
                            onEditarObra={()=>{sessionStorage.setItem("arcd_editar_obra",obraAberta);setObraAberta("");}}
                            onTab={(t) => { setObraAberta(""); setTab(t); }} />
             : <Obras       data={data} update={update} showToast={showToast}
-                           onAbrirObra={setObraAberta} />)}
+                           currentUser={currentUser} onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Orcamento   data={data} update={update} showToast={showToast} />}
           {tab === "plan"   && <Planejamento data={data} update={update} showToast={showToast} />}
           {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} currentUser={currentUser} />}
