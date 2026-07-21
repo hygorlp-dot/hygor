@@ -8226,6 +8226,27 @@ const buildQuickAlerts = (data, currentUser) => {
       tab:"cmp"});
   }
 
+  // SLA de Compras: solicitacao parada alem da tolerancia (2d urgente, 5d normal).
+  const slaEstourado=(data.solicitacoesCompra||[])
+    .map(s=>({sol:s,sla:slaSolicitacao(s,today())}))
+    .filter(x=>x.sla&&x.sla.status==="estourado")
+    .sort((a,b)=>b.sla.dias-a.sla.dias);
+  if(slaEstourado.length>0){
+    alerts.push({type:"sla_compras",color:C.red,icon:"!",
+      title:`${slaEstourado.length} solicitação(ões) fora do prazo de resposta de Compras`,
+      sub:slaEstourado.slice(0,3).map(x=>`${x.sol.numero} · ${(data.obras||[]).find(o=>o.id===x.sol.obraId)?.name||"Obra"} · parada há ${x.sla.dias} dia(s)`).join("  ·  "),
+      tab:"cmp"});
+  }
+
+  // Consolidacao: mesmo material pedido por obras diferentes na mesma janela.
+  const consol=oportunidadesConsolidacao(data,today());
+  if(consol.length>0){
+    alerts.push({type:"consolidar",color:C.blue,icon:"",
+      title:`${consol.length} material(is) pedido(s) por mais de uma obra`,
+      sub:consol.slice(0,3).map(c=>`${c.descricao}: ${c.total.toLocaleString("pt-BR")} ${c.unidade} em ${c.obras.length} obras`).join("  ·  "),
+      tab:"cmp"});
+  }
+
   // Comercial: concentra as pendencias que exigem acao imediata.
   const comercial=data.comercial||{};
   const leadsAtivos=(comercial.leads||[]).filter(l=>!["perdido","arquivado","transferido"].includes(l.etapa)&&l.status!=="arquivado");
@@ -18936,6 +18957,109 @@ const mensagemWhatsAppCobranca = ({ empresa, fornecedorNome, obraNome, numero, p
        + `\n\nPreciso desses materiais para nao parar a frente de servico. Consegue me confirmar hoje a nova data de entrega?${ass}`;
 };
 
+// ── Guarda de preco ────────────────────────────────────────────────
+// Chamada enquanto o comprador digita o preco unitario. Compara com o melhor
+// preco ja pago e com a referencia SINAPI/ORSE do item, e devolve um veredito.
+// O objetivo e pegar o vazamento NA HORA - a analise de Orcado x Comprado so
+// denuncia depois que o dinheiro ja saiu.
+const guardaPreco = (pedidos, materialId, precoDigitado, fornecedores, precoRef) => {
+  const preco = Number(precoDigitado || 0);
+  if (!(preco > 0) || !materialId) return null;
+
+  const h = historicoPreco(pedidos, materialId);
+  const melhor = h.length ? h.reduce((m, x) => !m || x.preco < m.preco ? x : m, null) : null;
+  const ref = Number(precoRef || 0);
+
+  const avisos = [];
+  if (melhor && melhor.preco > 0) {
+    const dif = preco - melhor.preco;
+    const pct = (dif / melhor.preco) * 100;
+    const forn = (fornecedores || []).find(f => f.id === melhor.fornecedorId);
+    if (pct > 5) {
+      avisos.push({
+        nivel: pct > 20 ? "alto" : "medio",
+        texto: `${pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% acima do melhor que você já pagou (${fmt(melhor.preco)}${forn ? ` · ${forn.nome}` : ""}${melhor.data ? ` · ${fmtDate(melhor.data)}` : ""})`,
+      });
+    } else if (pct < -5) {
+      avisos.push({ nivel: "bom", texto: `melhor preço já pago para este material (antes: ${fmt(melhor.preco)})` });
+    }
+  }
+  if (ref > 0) {
+    const pctRef = ((preco - ref) / ref) * 100;
+    if (pctRef > 10) avisos.push({ nivel: pctRef > 30 ? "alto" : "medio", texto: `${pctRef.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% acima da referência (${fmt(ref)})` });
+  }
+
+  const nivel = avisos.some(a => a.nivel === "alto") ? "alto"
+    : avisos.some(a => a.nivel === "medio") ? "medio"
+    : avisos.some(a => a.nivel === "bom") ? "bom" : null;
+
+  return { nivel, avisos, melhor, compras: h.length };
+};
+
+// ── SLA das solicitacoes ───────────────────────────────────────────
+// Solicitacao parada e obra parada. Urgente tem 2 dias uteis de tolerancia;
+// normal, 5. O relogio conta desde o envio ate a analise (nao ate o pedido):
+// o que se mede aqui e o tempo de RESPOSTA do setor de Compras.
+const SLA_DIAS = { urgente: 2, normal: 5 };
+
+const slaSolicitacao = (sol, hoje) => {
+  if (!["enviada", "em_analise"].includes(sol.status)) return null;
+  const criada = String(sol.criadoEm || "").slice(0, 10);
+  if (!criada) return null;
+  const dias = Math.max(0, Math.round((new Date(hoje + "T00:00:00") - new Date(criada + "T00:00:00")) / 86400000));
+  const limite = SLA_DIAS[sol.prioridade === "urgente" ? "urgente" : "normal"];
+  const restante = limite - dias;
+  return {
+    dias, limite, restante,
+    status: restante < 0 ? "estourado" : restante === 0 ? "no_limite" : "ok",
+  };
+};
+
+// ── Consolidacao multi-obra ────────────────────────────────────────
+// Com uma dezena de obras, o mesmo cimento e pedido por tres delas em semanas
+// proximas e comprado tres vezes, sem volume. Aqui procuramos o mesmo material
+// (pela descricao normalizada) em solicitacoes ABERTAS de obras DIFERENTES
+// dentro de uma janela de dias, e sugerimos a compra unica.
+const normDesc = (s) => String(s || "").toUpperCase().replace(/\s+/g, " ").trim();
+
+const oportunidadesConsolidacao = (data, hoje, janelaDias = 10) => {
+  const abertas = (data.solicitacoesCompra || [])
+    .filter(s => ["enviada", "em_analise"].includes(s.status) && s.criadoEm);
+  if (abertas.length < 2) return [];
+
+  const limite = new Date(hoje + "T00:00:00").getTime() - janelaDias * 86400000;
+  const porMaterial = new Map();
+
+  abertas.forEach(sol => {
+    const quando = new Date(String(sol.criadoEm).slice(0, 10) + "T00:00:00").getTime();
+    if (quando < limite) return;   // fora da janela: consolidar nao faz sentido
+    (sol.itens || []).forEach(item => {
+      const chave = `${normDesc(item.descricaoRef)}|${normDesc(item.unidadeRef)}`;
+      if (!chave.replace("|", "").trim()) return;
+      const reg = porMaterial.get(chave) || {
+        descricao: normDesc(item.descricaoRef), unidade: normDesc(item.unidadeRef),
+        total: 0, obras: new Map(),
+      };
+      reg.total += Number(item.quantidade || 0);
+      const obraNome = (data.obras || []).find(o => o.id === sol.obraId)?.name || "Obra";
+      const jaObra = reg.obras.get(sol.obraId) || { obraId: sol.obraId, obraNome, qtd: 0, solicitacoes: new Set() };
+      jaObra.qtd += Number(item.quantidade || 0);
+      jaObra.solicitacoes.add(sol.numero);
+      reg.obras.set(sol.obraId, jaObra);
+      porMaterial.set(chave, reg);
+    });
+  });
+
+  return [...porMaterial.values()]
+    .filter(r => r.obras.size >= 2)   // so vale consolidar entre obras distintas
+    .map(r => ({
+      descricao: r.descricao, unidade: r.unidade, total: r.total,
+      obras: [...r.obras.values()].map(o => ({ ...o, solicitacoes: [...o.solicitacoes] }))
+        .sort((a, b) => b.qtd - a.qtd),
+    }))
+    .sort((a, b) => b.obras.length - a.obras.length || b.total - a.total);
+};
+
 const analisePreco = (h) => {
   if (!h.length) return null;
   const precos = h.map(x => x.preco);
@@ -20186,6 +20310,22 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                 <Inp label="Preço unitário (R$)" type="number" value={it.precoUnit}
                      onChange={v=>setItem(i,"precoUnit",v)} placeholder="0,00"/>
                 {(() => {
+                  // Guarda de preço: avisa NA HORA da digitação, antes de o
+                  // dinheiro sair. Sem preço digitado, mostra a referência.
+                  const g = data ? guardaPreco(data.pedidos, it.materialId, it.precoUnit, fornecedores, it.precoRef) : null;
+                  if (g && g.nivel) {
+                    const cor = g.nivel==="alto" ? C.red : g.nivel==="medio" ? C.orange : C.green;
+                    return (
+                      <div style={{marginTop:3,background:`${cor}0F`,border:`1px solid ${cor}`,borderRadius:5,padding:"5px 7px"}}>
+                        {g.avisos.map((a,ai)=>(
+                          <p key={ai} style={{fontSize:9.5,color:cor,fontWeight:800,lineHeight:1.35}}>
+                            {a.nivel==="bom" ? "" : "! "}{a.texto}
+                          </p>
+                        ))}
+                        {g.compras>1&&<p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{g.compras} compra(s) deste material no histórico</p>}
+                      </div>
+                    );
+                  }
                   const mp = it.materialId && data ? melhorPrecoHist(data.pedidos, it.materialId, fornecedores) : null;
                   return mp ? (
                     <p style={{fontSize:9,color:C.green,marginTop:2}}>
@@ -20435,7 +20575,14 @@ function Compras({ data, update, showToast, currentUser }) {
   },[basesReferenciaCompra,data.orcamentos,obraAtual]);
   const podeProcessar=["admin","compras","financeiro"].includes(currentUser?.role);
   const solicitacoes=useMemo(()=>(data.solicitacoesCompra||[]).filter(s=>s.obraId===obraAtual)
-    .sort((a,b)=>(b.criadoEm||"").localeCompare(a.criadoEm||"")),[data.solicitacoesCompra,obraAtual]);
+    .sort((a,b)=>{
+      // SLA estourado sobe: solicitacao parada e obra parada.
+      const ea=slaSolicitacao(a,today())?.status==="estourado"?1:0;
+      const eb=slaSolicitacao(b,today())?.status==="estourado"?1:0;
+      return (eb-ea)||(b.criadoEm||"").localeCompare(a.criadoEm||"");
+    }),[data.solicitacoesCompra,obraAtual]);
+  // Consolidacao multi-obra: mesmo material pedido por obras diferentes.
+  const consolidar=useMemo(()=>oportunidadesConsolidacao(data,today()),[data]);
   const solicitacoesPendentes=(data.solicitacoesCompra||[]).filter(s=>s.status==="enviada"&&obras.some(o=>o.id===s.obraId)).length;
 
   const kpi = useMemo(() => calcCompras(data, obraAtual), [data, obraAtual]);
@@ -20774,11 +20921,55 @@ function Compras({ data, update, showToast, currentUser }) {
       {aba==="solicitacoes"&&<>
         <Btn onClick={()=>setSolModal({obraId:currentUser?.obraId||obraAtual,necessidade:"",prioridade:"normal",referenciaId:basesCompra[0]?.id||"",observacao:"",itens:[]})} full><Ic n="plus"/> SOLICITAR MATERIAIS PARA A OBRA</Btn>
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 10px"}}><p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>A Engenharia pode selecionar insumos SINAPI/ORSE ou criar itens próprios. Solicitações enviadas acendem o alerta de Compras até serem colocadas em análise.</p></div>
+
+        {/* Consolidação multi-obra: mesmo material, obras diferentes, mesma janela.
+            Comprar junto é o único jeito de ter volume com 11 obras rodando. */}
+        {consolidar.length>0&&(
+          <div style={{background:`${C.blue}0C`,border:`1.5px solid ${C.blue}`,borderRadius:6,padding:"10px 12px"}}>
+            <p style={{fontSize:11.5,fontWeight:900,color:C.blue}}>
+              {consolidar.length} MATERIAL(IS) PEDIDO(S) POR MAIS DE UMA OBRA
+            </p>
+            <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.45}}>
+              Solicitações abertas dos últimos 10 dias. Comprar junto dá volume para negociar; a entrega continua separada por obra.
+            </p>
+            <div style={{marginTop:7}}>
+              {consolidar.slice(0,5).map((c,ix)=>(
+                <div key={ix} style={{borderTop:`1px solid ${C.line}`,paddingTop:6,marginTop:6}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}>
+                    <p className="brk" style={{fontSize:11.5,fontWeight:800,color:C.text,minWidth:0}}>{c.descricao}</p>
+                    <p style={{fontSize:11.5,fontWeight:900,color:C.blue,whiteSpace:"nowrap",flexShrink:0}}>
+                      {c.total.toLocaleString("pt-BR")} {c.unidade}
+                    </p>
+                  </div>
+                  {c.obras.map(o=>(
+                    <p key={o.obraId} style={{fontSize:9.5,color:C.muted,marginTop:1}}>
+                      {o.obraNome}: {o.qtd.toLocaleString("pt-BR")} {c.unidade} <span style={{color:C.subtle}}>({o.solicitacoes.join(", ")})</span>
+                    </p>
+                  ))}
+                </div>
+              ))}
+              {consolidar.length>5&&<p style={{fontSize:9.5,color:C.subtle,marginTop:6}}>e mais {consolidar.length-5} material(is)...</p>}
+            </div>
+            <div style={{marginTop:9}}>
+              <Btn size="sm" v="info" full onClick={()=>setCotWpp({
+                titulo:`Cotação consolidada · ${consolidar.length} material(is)`,
+                itens:consolidar.map(c=>({descricao:c.descricao,qtd:Number(c.total.toFixed(2)),unidade:c.unidade})),
+                obraNome:"", prazo:"",
+              })}><Ic n="cart"/> COTAR VOLUME CONSOLIDADO</Btn>
+            </div>
+          </div>
+        )}
         {!solicitacoes.length?<p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>Nenhuma solicitação para esta obra.</p>:solicitacoes.map(sol=>{
           const status={enviada:{l:"NOVA · AGUARDANDO COMPRAS",c:C.orange},em_analise:{l:"EM ANÁLISE",c:C.blue},pedido_gerado:{l:"PEDIDO GERADO",c:C.green},cancelada:{l:"CANCELADA",c:C.red}}[sol.status]||{l:sol.status,c:C.muted};
           const pedido=(data.pedidos||[]).find(p=>p.id===sol.pedidoId);
-          return <div key={sol.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${status.c}`,borderRadius:6,padding:"10px 12px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{sol.numero}{sol.prioridade==="urgente"&&<span style={{color:C.red}}> · URGENTE</span>}</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Solicitado por {sol.solicitanteNome||"Engenharia"} · {sol.criadoEm?new Date(sol.criadoEm).toLocaleString("pt-BR"):""}{sol.necessidade?` · necessário em ${fmtDate(sol.necessidade)}`:""}</p></div><Badge color={status.c}>{status.l}</Badge></div>
+          const sla=slaSolicitacao(sol,today());
+          const corBorda=sla&&sla.status==="estourado"?C.red:status.c;
+          return <div key={sol.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${corBorda}`,borderRadius:6,padding:"10px 12px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{sol.numero}{sol.prioridade==="urgente"&&<span style={{color:C.red}}> · URGENTE</span>}</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Solicitado por {sol.solicitanteNome||"Engenharia"} · {sol.criadoEm?new Date(sol.criadoEm).toLocaleString("pt-BR"):""}{sol.necessidade?` · necessário em ${fmtDate(sol.necessidade)}`:""}</p></div><div style={{textAlign:"right",flexShrink:0}}><Badge color={status.c}>{status.l}</Badge>
+              {sla&&<div style={{marginTop:3}}><Badge color={sla.status==="estourado"?C.red:sla.status==="no_limite"?C.orange:C.muted}>
+                {sla.status==="estourado"?`SLA ESTOURADO · ${sla.dias}d (limite ${sla.limite}d)`:sla.status==="no_limite"?`ÚLTIMO DIA DO SLA`:`${sla.dias}d de ${sla.limite}d`}
+              </Badge></div>}
+            </div></div>
             <div style={{marginTop:8,borderTop:`1px solid ${C.line}`,paddingTop:6}}>{sol.itens.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"95px minmax(0,1fr) auto",gap:7,fontSize:10.5,marginTop:3}}><b style={{color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef} {item.codigoRef}</b><span style={{color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricaoRef}>{item.descricaoRef}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{item.quantidade.toLocaleString("pt-BR")} {item.unidadeRef}</b></div>)}</div>
             {sol.observacao&&<p style={{fontSize:10,color:C.muted,marginTop:7}}>{sol.observacao}</p>}
             {pedido&&<p style={{fontSize:10.5,color:C.green,fontWeight:800,marginTop:7}}>Vinculada ao pedido {pedido.numero}</p>}
