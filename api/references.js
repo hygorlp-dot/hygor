@@ -23,12 +23,42 @@ const COMPANY = process.env.COMPANY_ID || "arcd";
 const KEY = "arced_ponto_v1";
 const ORSE_URL = "https://orse.cehop.se.gov.br";
 
+// Constants: limites de segurança e performance
+const LIMITS = {
+  COMPOSITION_INITIAL: 40,
+  COMPOSITION_VISITED_MAX: 160,
+  COMPOSITION_DEPTH_MAX: 8,
+  REFERENCE_IDS_MAX: 8,
+  ENTRIES_MAX: 25,
+  BATCH_SIZE: 8,
+  PROMISE_TIMEOUT_MS: 10000,
+  INPUTS_DISPLAY_MAX: 60,
+  COMPOSITIONS_DISPLAY_MAX: 60,
+  TOTAL_RESULTS_MAX: 100,
+  TEXT_LENGTH_MAX: 120,
+  QUERY_TERMS_MAX: 6,
+  ITEM_RESULTS_MAX: 45,
+  FINAL_RESULTS_MAX: 80,
+  ITEM_BATCH_FINAL_MAX: 150,
+};
+
 const db = createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
 const sha256 = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
 
+/** Helper: executa Promise.allSettled com timeout */
+const promiseAllWithTimeout = (promises, timeoutMs = LIMITS.PROMISE_TIMEOUT_MS) => {
+  return Promise.race([
+    Promise.allSettled(promises),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout em requisição")), timeoutMs)
+    ),
+  ]);
+};
+
+/** Valida PIN do usuário com timing-safe comparison */
 const conferirPin = async (userId, pin) => {
   const { data, error } = await db
     .from("company_app_data")
@@ -37,13 +67,18 @@ const conferirPin = async (userId, pin) => {
     .eq("key", KEY)
     .maybeSingle();
   if (error || !data) return null;
-  const payload = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
-  const user = (payload?.usuarios || []).find(item => item.id === userId && item.active !== false);
-  if (!user) return null;
-  const actual = Buffer.from(sha256(pin));
-  const expected = Buffer.from(String(user.pin || ""));
-  if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
-  return user;
+  try {
+    const payload = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+    const user = (payload?.usuarios || []).find(item => item.id === userId && item.active !== false);
+    if (!user) return null;
+    const actual = Buffer.from(sha256(pin));
+    const expected = Buffer.from(String(user.pin || ""));
+    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
+    return user;
+  } catch (err) {
+    console.error("Erro em conferirPin:", err);
+    return null;
+  }
 };
 
 const parseOrseRows = (html, competence) => {
@@ -239,33 +274,38 @@ const fetchOrseCompositionDetails = async (code, competence) => {
 const expandOrseCompositionDetails = async (codes, competence) => {
   const result = [];
   const visited = new Set();
-  let frontier = [...new Set(codes)].slice(0, 40);
+  let frontier = [...new Set(codes)].slice(0, LIMITS.COMPOSITION_INITIAL);
   
-  for (let depth = 0; depth < 8 && frontier.length && visited.size < 160; depth++) {
+  for (let depth = 0; depth < LIMITS.COMPOSITION_DEPTH_MAX && frontier.length && visited.size < LIMITS.COMPOSITION_VISITED_MAX; depth++) {
     const pending = frontier
       .filter(code => !visited.has(code))
-      .slice(0, 160 - visited.size);
+      .slice(0, LIMITS.COMPOSITION_VISITED_MAX - visited.size);
     
     pending.forEach(code => visited.add(code));
     
     const next = [];
     
-    for (let i = 0; i < pending.length; i += 8) {
-      const batch = pending.slice(i, i + 8);
-      const settled = await Promise.allSettled(
-        batch.map(code => fetchOrseCompositionDetails(code, competence))
-      );
+    for (let i = 0; i < pending.length; i += LIMITS.BATCH_SIZE) {
+      const batch = pending.slice(i, i + LIMITS.BATCH_SIZE);
+      try {
+        const settled = await promiseAllWithTimeout(
+          batch.map(code => fetchOrseCompositionDetails(code, competence))
+        );
       
-      settled
-        .filter(item => item.status === "fulfilled")
-        .forEach(item => {
-          (item.value || []).forEach(row => {
-            result.push(row);
-            if (row.itemType === "COMPOSICAO" && !visited.has(row.itemCode)) {
-              next.push(row.itemCode);
-            }
+        settled
+          .filter(item => item.status === "fulfilled")
+          .forEach(item => {
+            (item.value || []).forEach(row => {
+              result.push(row);
+              if (row.itemType === "COMPOSICAO" && !visited.has(row.itemCode)) {
+                next.push(row.itemCode);
+              }
+            });
           });
-        });
+      } catch (err) {
+        console.error("Timeout em composições:", err);
+        // Continua com próximas batchs
+      }
     }
     
     frontier = [...new Set(next)];
@@ -322,6 +362,7 @@ const searchOfficialOrseInputs = async (term, competence) => {
   return parseOrseInputRows(await decodeOrseResponse(response), competence);
 };
 
+/** Mapeia base de dados para formato de saída */
 const mapBase = item => ({
   id: item.id,
   fonte: item.source,
@@ -338,6 +379,11 @@ const mapBase = item => ({
 
 export const config = { api: { bodyParser: { sizeLimit: "2mb" } } };
 
+/**
+ * Handler principal: list, search-inputs, search-compositions, composition-details
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
   if (!URL || !SERVICE) return res.status(503).json({ error: "Banco não configurado no servidor." });
@@ -521,8 +567,8 @@ export default async function handler(req, res) {
     }
 
     if (action === "resolve") {
-      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, 8);
-      const entries = (Array.isArray(req.body?.entries) ? req.body.entries : []).slice(0, 25).map(entry => ({
+      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, LIMITS.REFERENCE_IDS_MAX);
+      const entries = (Array.isArray(req.body?.entries) ? req.body.entries : []).slice(0, LIMITS.ENTRIES_MAX).map(entry => ({
         codigo: String(entry?.codigo || "").trim().replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i, "").replace(/\.0$/, "").replace(/^0+(?=\d)/, ""),
         fonte: String(entry?.fonte || "").trim().toUpperCase(),
       })).filter(entry => entry.codigo);
@@ -554,10 +600,15 @@ export default async function handler(req, res) {
       const orseCodes = [...new Set(entries.filter(entry => entry.fonte !== "SINAPI").map(entry => entry.codigo))];
       let orseItems = [], warning = "";
       if (orseBases.length && orseCodes.length) {
-        const settled = await Promise.allSettled(orseBases.flatMap(base =>
-          orseCodes.map(code => fetchOrseByCode(code, base.competence))));
-        orseItems = settled.filter(result => result.status === "fulfilled").flatMap(result => result.value || []);
-        if (settled.some(result => result.status === "rejected")) warning = "Alguns códigos ORSE não puderam ser consultados agora.";
+        try {
+          const settled = await promiseAllWithTimeout(orseBases.flatMap(base =>
+            orseCodes.map(code => fetchOrseByCode(code, base.competence))));
+          orseItems = settled.filter(result => result.status === "fulfilled").flatMap(result => result.value || []);
+          if (settled.some(result => result.status === "rejected")) warning = "Alguns códigos ORSE não puderam ser consultados agora.";
+        } catch (err) {
+          console.error("Timeout em busca ORSE:", err);
+          warning = "Timeout ao consultar ORSE.";
+        }
       }
 
       const seen = new Set();
@@ -570,8 +621,8 @@ export default async function handler(req, res) {
     }
 
     if (action === "search-inputs") {
-      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, 8);
-      const term = String(req.body?.query || "").trim().slice(0, 120);
+      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, LIMITS.REFERENCE_IDS_MAX);
+      const term = String(req.body?.query || "").trim().slice(0, LIMITS.TEXT_LENGTH_MAX);
       const itemType = ["INSUMO", "COMPOSICAO"].includes(String(req.body?.itemType || "").toUpperCase())
         ? String(req.body.itemType).toUpperCase() : "TODOS";
       const buscarInsumos = itemType !== "COMPOSICAO";
@@ -594,7 +645,7 @@ export default async function handler(req, res) {
       const sinapiIds = (bases || [])
         .filter(base => base.source === "SINAPI")
         .map(base => base.id);
-      const terms = normalizeText(term).split(/\s+/).filter(Boolean).slice(0, 6);
+      const terms = normalizeText(term).split(/\s+/).filter(Boolean).slice(0, LIMITS.QUERY_TERMS_MAX);
       
       let inputs = [], compositions = [];
       
@@ -666,8 +717,8 @@ export default async function handler(req, res) {
           ]);
           
           orse = [
-            ...inputGroups.flat().slice(0, 60).map(item => ({ ...item, tipoItem: "INSUMO" })),
-            ...compositionGroups.flat().slice(0, 60).map(item => ({ ...item, tipoItem: "COMPOSICAO" })),
+            ...inputGroups.flat().slice(0, LIMITS.INPUTS_DISPLAY_MAX).map(item => ({ ...item, tipoItem: "INSUMO" })),
+            ...compositionGroups.flat().slice(0, LIMITS.COMPOSITIONS_DISPLAY_MAX).map(item => ({ ...item, tipoItem: "COMPOSICAO" })),
           ];
         } catch (error) {
           warning = "A consulta de itens ORSE está temporariamente indisponível.";
@@ -675,15 +726,15 @@ export default async function handler(req, res) {
       }
       
       return res.status(200).json({
-        items: [...inputs, ...compositions, ...orse].slice(0, 100),
+        items: [...inputs, ...compositions, ...orse].slice(0, LIMITS.TOTAL_RESULTS_MAX),
         warning,
       });
     }
 
     if (action === "composition-details") {
-      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, 8);
+      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, LIMITS.REFERENCE_IDS_MAX);
       const entries = (Array.isArray(req.body?.entries) ? req.body.entries : [])
-        .slice(0, 150)
+        .slice(0, LIMITS.ITEM_BATCH_FINAL_MAX)
         .map(entry => ({
           codigo: String(entry?.codigo || "")
             .trim()
@@ -819,14 +870,15 @@ export default async function handler(req, res) {
       const orseCodes = [...new Set(entries
         .filter(entry => entry.fonte !== "SINAPI")
         .map(entry => entry.codigo))]
-        .slice(0, 40);
+        .slice(0, LIMITS.COMPOSITION_INITIAL);
       
       let orseComponents = [], warning = "";
       
       if (orseBases.length && orseCodes.length) {
-        const settled = await Promise.allSettled(
-          orseBases.map(base => expandOrseCompositionDetails(orseCodes, base.competence))
-        );
+        try {
+          const settled = await promiseAllWithTimeout(
+            orseBases.map(base => expandOrseCompositionDetails(orseCodes, base.competence))
+          );
         
         orseComponents = settled
           .filter(result => result.status === "fulfilled")
@@ -835,6 +887,10 @@ export default async function handler(req, res) {
         if (settled.some(result => result.status === "rejected")) {
           warning = "Algumas composições ORSE não puderam ser detalhadas agora.";
         }
+      } catch (err) {
+        console.error("Timeout em composições ORSE:", err);
+        warning = "Timeout ao detalhar composições ORSE.";
+      }
       }
       
       return res.status(200).json({
@@ -844,8 +900,8 @@ export default async function handler(req, res) {
     }
 
     if (action === "search") {
-      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, 8);
-      const term = String(req.body?.query || "").trim().slice(0, 120);
+      const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, LIMITS.REFERENCE_IDS_MAX);
+      const term = String(req.body?.query || "").trim().slice(0, LIMITS.TEXT_LENGTH_MAX);
       if (!referenceIds.length || !term) return res.status(200).json({ items: [] });
 
       const { data: bases, error: basesError } = await db
@@ -864,7 +920,7 @@ export default async function handler(req, res) {
           .select("base_id,source,code,description,unit,price_des,price_not,detail_url")
           .eq("company_id", COMPANY)
           .in("base_id", sinapiIds);
-        const terms = normalizeText(term).split(/\s+/).filter(Boolean).slice(0, 6);
+        const terms = normalizeText(term).split(/\s+/).filter(Boolean).slice(0, LIMITS.QUERY_TERMS_MAX);
         terms.forEach(piece => { query = query.ilike("search_text", `%${piece}%`); });
         const { data, error } = await query.limit(60);
         if (error) throw error;
@@ -894,14 +950,14 @@ export default async function handler(req, res) {
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
-          }).slice(0, 45);
+          }).slice(0, LIMITS.ITEM_RESULTS_MAX);
         } catch (error) {
           console.error("Falha na consulta oficial ORSE:", error);
           orseWarning = "A consulta oficial do ORSE está temporariamente indisponível.";
         }
       }
 
-      return res.status(200).json({ items: [...sinapiItems, ...orseItems].slice(0, 80), warning: orseWarning });
+      return res.status(200).json({ items: [...sinapiItems, ...orseItems].slice(0, LIMITS.FINAL_RESULTS_MAX), warning: orseWarning });
     }
 
     if (action === "delete") {
