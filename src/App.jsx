@@ -1426,6 +1426,7 @@ const proximoCodigoArcd = data => {
   const maior=codigos.reduce((max,item)=>Math.max(max,numeroCodigoArcd(item.codigo)),0);
   return formatarCodigoArcd(maior+1);
 };
+const obraContextoSalvo = () => typeof window!=="undefined" ? (window.sessionStorage.getItem("arcd_obra_contexto")||"") : "";
 
 // ---------------------------------------------------------------------------
 //  MERGE DE DADOS (resolução de conflito entre dois editores)
@@ -5650,7 +5651,7 @@ function Financeiro({ data, update, showToast }) {
 // 
 
 function Obras({ data, update, showToast, onAbrirObra }) {
-  const { formGrid, cols } = useBreakpoint();
+  const { formGrid, cols, isDesktop } = useBreakpoint();
   const empty = { id: "", name: "", cliente: "", address: "", engineer: "", engineerId: "", startDate: "", faseId: "", status: "active", areaM2: "", oneDriveUrl: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
@@ -6115,7 +6116,22 @@ function Obras({ data, update, showToast, onAbrirObra }) {
         <span style={{fontSize:10,color:C.muted,whiteSpace:"nowrap"}}>{list.length} resultado{list.length===1?"":"s"}</span>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:11}}>
+      {isDesktop&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",boxShadow:"0 8px 28px rgba(23,28,36,.06)"}}>
+        <div style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:10,padding:"10px 14px",background:"rgba(246,247,249,.86)",borderBottom:`1px solid ${C.border}`,fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.55}}><span>Código</span><span>Obra</span><span>Cliente</span><span>Status</span><span>Fase</span><span>Início</span><span>Responsável</span><span style={{textAlign:"right"}}>Ações</span></div>
+        {list.map((o,index)=>{const st=statusMap[o.status]||statusMap.active;const fase=fases.find(f=>f.id===o.faseId);const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===o.id);const codigo=String(index+1).padStart(4,"0");return <div key={o.id} className="lift-card" onClick={()=>onAbrirObra?.(o.id)} style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:10,alignItems:"center",padding:"12px 14px",borderBottom:index<list.length-1?`1px solid ${C.line}`:"none",cursor:"pointer",background:C.card}}>
+          <span style={{fontSize:10.5,fontWeight:850,color:C.blue}}>#{codigo}</span>
+          <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}><div style={{width:38,height:38,borderRadius:10,flexShrink:0,display:"grid",placeItems:"center",overflow:"hidden",background:o.capaUrl?`url("${o.capaUrl}") center/cover`:`linear-gradient(145deg,${C.ink},${C.blue})`,color:"white",fontWeight:900}}>{!o.capaUrl&&(o.name||"O").charAt(0)}</div><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:850,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.name}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.address||`${Number(o.areaM2||0).toLocaleString("pt-BR")} m²`}</p></div></div>
+          <span style={{fontSize:11,color:o.cliente?C.text:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não informado"}</span>
+          <span><Badge color={st.c}>{st.l}</Badge></span>
+          <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:fase?.cor||C.muted}}><i style={{width:7,height:7,borderRadius:99,background:fase?.cor||C.border}}/>{fase?.nome||"Sem fase"}</span>
+          <span style={{fontSize:10.5,color:C.muted}}>{fmtDate(o.contractStart||o.startDate)||"—"}</span>
+          <div style={{display:"flex",alignItems:"center",gap:7,minWidth:0}}><span style={{width:28,height:28,borderRadius:99,display:"grid",placeItems:"center",background:`${C.blue}14`,border:`1px solid ${C.blue}33`,color:C.blue,fontSize:9,fontWeight:900}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</span><span style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.engineer||"Não definido"}{equipe.length>0&&<small style={{display:"block",color:C.muted,fontSize:8.5}}>{equipe.length} na equipe</small>}</span></div>
+          <div onClick={e=>e.stopPropagation()} style={{display:"flex",justifyContent:"flex-end",gap:3}}><button onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" style={{width:30,height:30,border:`1px solid ${C.border}`,borderRadius:8,background:C.bg,color:C.blue,cursor:"pointer"}}><Ic n="edit" s={13}/></button><button onClick={()=>remove(o.id)} title="Excluir obra" style={{width:30,height:30,border:`1px solid ${C.border}`,borderRadius:8,background:C.bg,color:C.red,cursor:"pointer"}}><Ic n="trash" s={13}/></button></div>
+        </div>;})}
+        {!list.length&&<div style={{textAlign:"center",padding:34,color:C.muted,fontSize:12}}>Nenhuma obra encontrada.</div>}
+      </div>}
+
+      {!isDesktop&&<div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:11}}>
       {list.map(o => {
         const count = data.employees.filter(e => e.active !== false && e.obra === o.id).length;
         const st = statusMap[o.status] || statusMap.active;
@@ -6141,7 +6157,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
         );
       })}
       {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:32,border:`1px dashed ${C.border}`,borderRadius:10}}><Ic n="building" s={25} color={C.muted}/><p style={{fontSize:12,color:C.muted,marginTop:7}}>Nenhuma obra encontrada.</p></div>}
-      </div>
+      </div>}
       </>}
 
       {/* Modal: nova fase / editar fase */}
@@ -14205,7 +14221,7 @@ function Orcamento({ data, update, showToast }) {
   const scrollAlvoRef = useRef(null);   // posicao a preservar durante um salvamento
   const [view,      setView]      = useState("lista");   // "lista" | "editor"
   const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias
-  const [selOrc,    setSelOrc]    = useState(null);      // id do orçamento aberto
+  const [selOrc,    setSelOrc]    = useState(()=>(data.orcamentos||[]).find(o=>o.obraId===obraContextoSalvo())?.id||null);      // id do orçamento aberto
   const [baseImport,setBaseImport]= useState([]);        // base SINAPI/ORSE em memória
   const [baseNome,  setBaseNome]  = useState("");
   const [baseInfo,  setBaseInfo]  = useState(null);      // metadados da base importada
@@ -22090,6 +22106,14 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
     </div>
   );
 
+  const abrirModuloDaObra = destino => {
+    if(!destino)return;
+    sessionStorage.setItem("arcd_obra_contexto",obraId);
+    const chaves={rdo:"arcd_rdo_obra",conferencia:"arcd_conferencia_obra",plan:"arcd_plan_obra",orc:"arcd_orc_obra",med:"arcd_med_obra",cmp:"arcd_compras_obra",est:"arcd_estoque_obra",dre:"arcd_dre_obra",ponto:"arcd_ponto_obra",equipe:"arcd_equipe_obra",terc:"arcd_terceiros_obra",equip:"arcd_equipamentos_obra",licenca:"arcd_licenca_obra"};
+    if(chaves[destino])sessionStorage.setItem(chaves[destino],obraId);
+    onTab?.(destino);
+  };
+
   // Uma secao do acordeao: cabecalho clicavel + corpo que abre/fecha.
   // `cor` tinge o icone e o badge; `badge` aparece so quando ha algo a notar.
   const Secao = ({ id, icone, titulo, cor, badge, atalho, children }) => {
@@ -22194,13 +22218,15 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
           completo ja filtrado por esta obra. */}
       <div style={{display:"flex",gap:2,overflowX:"auto",borderBottom:`1px solid ${C.border}`,
                    marginBottom:12,paddingBottom:0}}>
-        {[["geral","Geral",null],["orc","Orçamento","orc"],["plan","Tarefas","plan"],
-          ["rdo","Obra","rdo"],["cmp","Compras","cmp"],["est","Estoque","est"],
-          ["dre","Financeiro","dre"]].map(([id,label,destino])=>{
+        {[["geral","Geral",null],["orc","Orçamento","orc"],["plan","Planejamento","plan"],
+          ["rdo","Diário de obra","rdo"],["conferencia","Conferência","conferencia"],["med","Medição técnica","med"],
+          ["cmp","Compras","cmp"],["est","Estoque","est"],["dre","Financeiro","dre"],
+          ["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"],
+          ["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null]].map(([id,label,destino])=>{
           const ativa = id==="geral";
           return (
             <button key={id}
-              onClick={()=>{ if(destino) onTab?.(destino); }}
+              onClick={()=>{if(id==="arquivos"){setSecoesAbertas(p=>({...p,arquivos:true}));}else if(destino)abrirModuloDaObra(destino);}}
               style={{border:0,background:"transparent",cursor:"pointer",
                 padding:"9px 13px",whiteSpace:"nowrap",
                 fontSize:12.5,fontWeight:ativa?800:500,
@@ -22561,7 +22587,7 @@ function Planejamento({ data, update, showToast }) {
   // Obra selecionada. Comeca na primeira obra ativa.
   const obrasComOrc = (data.obras || []).filter(o =>
     (data.orcamentos || []).some(x => x.obraId === o.id));
-  const [obraId, setObraId] = useState(obrasComOrc[0]?.id || "");
+  const [obraId, setObraId] = useState(()=>obrasComOrc.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obrasComOrc[0]?.id||""));
 
   const orc   = orcamentoDaObra(data, obraId);
 
@@ -24671,7 +24697,7 @@ function DiarioObra({ data, update, showToast, currentUser }) {
   const { cols } = useBreakpoint();
 
   const obras = (data.obras || []).filter(o => o.status !== "done");
-  const [obraId, setObraId] = useState(obras[0]?.id || "");
+  const [obraId, setObraId] = useState(()=>obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||""));
   const [dataRDO, setDataRDO] = useState(today());
   const [modoRdo, setModoRdo] = useState("lista");
   const [buscaRdo, setBuscaRdo] = useState("");
@@ -25227,7 +25253,7 @@ const CONFERENCIA_STATUS = [
 function Conferencia({ data, update, showToast, currentUser }) {
   const { cols } = useBreakpoint();
   const obras=(data.obras||[]).filter(o=>o.status!=="done");
-  const [obraFiltro,setObraFiltro]=useState(obras[0]?.id||"");
+  const [obraFiltro,setObraFiltro]=useState(()=>obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||""));
   const [selecionadaId,setSelecionadaId]=useState("");
   const [pendenciaForm,setPendenciaForm]=useState(null);
   const [novaForm,setNovaForm]=useState(null);
@@ -25511,7 +25537,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
 function MedicaoEvolucao({ data, update, showToast }) {
   const { cols } = useBreakpoint();
   const obras = (data.obras || []).filter(o => o.status !== "done");
-  const [obraId, setObraId] = useState(obras[0]?.id || "");
+  const [obraId, setObraId] = useState(()=>obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||""));
 
   const orc   = orcamentoDaObra(data, obraId);
   const plano = useMemo(() =>
@@ -29752,7 +29778,9 @@ const NAV_GROUPS = [
   },
   {
     id: "eng_grp", label: "Engenharia", icon: "building", color: C.blue,
-    tabs: ["obras", "orc", "plan", "rdo", "conferencia", "med", "licenca", "ponto", "equipe", "terc", "equip"],
+    // O fluxo da Engenharia parte da obra. Os módulos operacionais aparecem
+    // na barra superior da obra aberta, evitando uma lista lateral duplicada.
+    tabs: ["obras"],
   },
   {
     id: "compras_grp", label: "Compras", icon: "cart", color: C.orange,
