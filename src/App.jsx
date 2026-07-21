@@ -14402,6 +14402,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="" }) {
   const [etapasFechadas, setEtapasFechadas] = useState({});
   // Curva ABC: painel aberto, agrupamento por codigo e classe filtrada.
   const [abcAberta,  setAbcAberta]  = useState(false);
+  const [ferramentasOrcAberto,setFerramentasOrcAberto]=useState(false);
   const [abcAgrupar, setAbcAgrupar] = useState(true);
   const [abcFiltro,  setAbcFiltro]  = useState("todas");   // "todas" | "A" | "B" | "C"
   // Importacao do orcamento (codigo + qtd) cruzada com a base.
@@ -16730,6 +16731,8 @@ ${blocoBDI}
         }}>{label}</button>)}
       </div>
 
+      {orcAba==="orcamento"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setFerramentasOrcAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer",textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="settings" s={14} color={C.blue}/><div><p style={{fontSize:11.5,fontWeight:850,color:C.text}}>Ferramentas do orçamento</p><p style={{fontSize:9,color:C.muted,marginTop:1}}>Importar, analisar e exportar</p></div></div><Ic n={ferramentasOrcAberto?"chevron":"chevR"} s={14} color={C.muted}/></button>{ferramentasOrcAberto&&<div style={{borderTop:`1px solid ${C.line}`,padding:8,display:"grid",gridTemplateColumns:cols(2,3,6),gap:6}}><label style={{display:"flex"}}><input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/><span style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:5,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 8px",fontSize:9.5,fontWeight:800,color:basePorCodigo.size?C.blue:C.muted,cursor:basePorCodigo.size?"pointer":"not-allowed"}}><Ic n="download" s={12}/> Importar planilha</span></label><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div>}</div>}
+
       {orcAba==="orcamento" && <>
       {/* CONFERENCIA DIMENSIONAL (IA) - forro x area construida etc */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
@@ -17360,15 +17363,7 @@ ${blocoBDI}
 
       {/* Totais finais */}
       <div style={{background:C.text,color:"#fff",borderRadius:8,padding:"14px 16px"}}>
-        {[
-          ["Custo direto (sem BDI)", fmt(calc.custoDireto), false],
-          [`BDI (${orc.bdi}%)`,      fmt(calc.valorBDI),    false],
-        ].map(([l,v])=>(
-          <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
-            <p style={{fontSize:12,opacity:.75}}>{l}</p>
-            <p style={{fontSize:12,fontWeight:700}}>{v}</p>
-          </div>
-        ))}
+        <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><p style={{fontSize:12,opacity:.75}}>BDI ({orc.bdi}%)</p><p style={{fontSize:12,fontWeight:700}}>{fmt(calc.valorBDI)}</p></div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:9,marginTop:6,borderTop:`1px solid rgba(255,255,255,.2)`}}>
           <p style={{fontSize:13,fontWeight:700}}>TOTAL GERAL</p>
           <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:24,fontWeight:800,color:C.yellow}}>{fmt(calc.total)}</p>
@@ -17378,6 +17373,7 @@ ${blocoBDI}
         )}
       </div>
 
+      {false&&<>
       {/*  CURVA ABC  */}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
         <button onClick={()=>setAbcAberta(a=>!a)}
@@ -17645,6 +17641,7 @@ ${blocoBDI}
         <Btn onClick={exportXLSXExportado} v="success" full><Ic n="download"/> Excel padrão</Btn>
         <Btn onClick={exportXLSXCurvaABC} v="ghost" full><Ic n="download"/> Curva ABC</Btn>
       </div>
+      </>}
 
       {/* Modal: BDI - Acórdão 2622/2013-TCU */}
       {editMetaModal && (
