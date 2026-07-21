@@ -2531,6 +2531,7 @@ function Ic({ n, s = 16, color }) {
     user:     "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", // uma pessoa (cliente/lead)
     handshake:"M11 17l2 2a1 1 0 0 0 3-3 M14 14l2.5 2.5a1 1 0 0 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 0 1-1.41 0l-2.12-2.12a1 1 0 0 0-1.41 0L3 12 M18 3l3 3-3 3 M3 21l3-3", // parceria (parceiros)
     clock:    "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
+    refresh:  "M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
     // --- Gráficos e dados ---
     chart:    "M18 20V10 M12 20V4 M6 20v-6",           // barras (dashboard)
     funnel:   "M3 4h18l-7 8v7l-4 2v-9z",               // funil (funil de vendas)
@@ -3088,7 +3089,7 @@ const calcObraRevenue = (obra, laborCost) => {
 // DASHBOARD - redesenhado
 // 
 
-function Dashboard({ data, onTab, ultimaSync, currentUser }) {
+function DashboardLegacy({ data, onTab, ultimaSync, currentUser }) {
   const { cols } = useBreakpoint();
   const now = new Date();
   // Período analisado - interativo. Começa no mês corrente; o usuário navega.
@@ -3536,6 +3537,94 @@ function Dashboard({ data, onTab, ultimaSync, currentUser }) {
   );
 }
 
+// Dashboard executivo premium. A tela trabalha por exceção: primeiro mostra
+// saúde da empresa, depois o que exige decisão e só então os resumos de apoio.
+function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar }) {
+  const { cols, isDesktop } = useBreakpoint();
+  const agora=new Date();
+  const [periodo,setPeriodo]=useState({y:agora.getFullYear(),m:agora.getMonth()});
+  const year=periodo.y, month=periodo.m;
+  const ym=`${year}-${String(month+1).padStart(2,"0")}`;
+  const ehAtual=year===agora.getFullYear()&&month===agora.getMonth();
+  const irMes=delta=>setPeriodo(p=>{const d=new Date(p.y,p.m+delta,1);if(d>new Date(agora.getFullYear(),agora.getMonth(),1))return p;return{y:d.getFullYear(),m:d.getMonth()};});
+  const exec=useMemo(()=>calcResumoExecutivo(data,year,month),[data,year,month]);
+  const alertasBase=useMemo(()=>calcAlertas(data,year,month),[data,year,month]);
+  const obrasAtivas=(data.obras||[]).filter(o=>o.status!=="done");
+  const nome=(currentUser?.nome||"bem-vindo").trim().split(/\s+/)[0];
+  const saudacao=agora.getHours()<12?"Bom dia":agora.getHours()<18?"Boa tarde":"Boa noite";
+  const empresa=data.config?.companyName||"ARCD Obras";
+  const hoje=today();
+  const fimMes=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,"0")}`;
+  const abasPermitidas=allowedTabsForUser(currentUser);
+
+  const comercial=data.comercial||{};
+  const leadsAtivos=(comercial.leads||[]).filter(l=>l.status!=="perdido"&&!['perdido','arquivado','transferido'].includes(l.etapa));
+  const novosLeads=leadsAtivos.filter(l=>(l.createdAt||"").slice(0,7)===ym).length;
+  const propostasAbertas=(comercial.propostas||[]).filter(p=>!["aceita","aceito","rejeitada","rejeitado","cancelada"].includes(p.status)).length;
+  const contratosPendentes=(comercial.contratos||[]).filter(k=>["enviado","aguardando","aguardando_assinatura","pendente"].includes(k.status)).length;
+  const vendasMes=(comercial.vendas||[]).filter(v=>(v.fechadaEm||"").slice(0,7)===ym).reduce((s,v)=>s+Number(v.valor||0),0);
+  const medicoesPendentes=(data.medicoes||[]).filter(m=>!m.recebido&&m.dataVencimento&&m.dataVencimento<=fimMes).length;
+  const pontoPendente=(data.employees||[]).some(e=>e.active!==false)&&data.dailyCheckDate!==hoje;
+  const conferenciasCriticas=(data.conferencias||[]).flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&p.impacto==="critico").map(p=>({sev:3,texto:`${(data.obras||[]).find(o=>o.id===c.obraId)?.name||"Obra"}: ${p.descricao}`,tab:"conferencia"})));
+  const atividadesAtrasadas=(comercial.atividades||[]).filter(a=>a.status!=="concluida"&&a.dataHora&&a.dataHora<new Date().toISOString()).length;
+  const prioridades=[
+    ...conferenciasCriticas,
+    ...(pontoPendente?[{sev:2,texto:"Verificação e distribuição da equipe ainda não concluídas",tab:"ponto"}]:[]),
+    ...(medicoesPendentes?[{sev:2,texto:`${medicoesPendentes} medição(ões) aguardando recebimento`,tab:"medicoes"}]:[]),
+    ...(atividadesAtrasadas?[{sev:2,texto:`${atividadesAtrasadas} atividade(s) comercial(is) atrasada(s)`,tab:"com_tarefas"}]:[]),
+    ...alertasBase,
+  ].filter(a=>abasPermitidas.includes(a.tab)).filter((a,i,arr)=>arr.findIndex(x=>x.texto===a.texto)===i).sort((a,b)=>b.sev-a.sev);
+
+  const Card=({label,value,detail,icon,color=C.blue,tab})=>{const acessivel=tab&&abasPermitidas.includes(tab);return <button onClick={()=>acessivel&&onTab(tab)} className="lift-card" style={{
+    minWidth:0,textAlign:"left",cursor:tab?"pointer":"default",border:"1px solid rgba(27,31,36,.08)",
+    background:"rgba(255,255,255,.92)",borderRadius:16,padding:"16px 17px",boxShadow:"0 8px 28px rgba(20,24,28,.045)",
+  }}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><span style={{fontSize:10,fontWeight:750,letterSpacing:.65,textTransform:"uppercase",color:"#777D83"}}>{label}</span><span style={{width:30,height:30,borderRadius:9,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={14}/></span></div><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(21px,2vw,28px)",fontWeight:780,letterSpacing:-.8,color:"#17191C",marginTop:12,lineHeight:1}}>{value}</p><p style={{fontSize:10.5,color:"#8A8F94",marginTop:7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{detail}</p></button>;};
+  const Titulo=({children,acao})=><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:12}}><div><h3 style={{fontSize:15,fontWeight:760,letterSpacing:-.25,color:"#1C1E21"}}>{children}</h3></div>{acao}</div>;
+  const superficie={background:"rgba(255,255,255,.9)",border:"1px solid rgba(27,31,36,.08)",borderRadius:18,boxShadow:"0 12px 36px rgba(20,24,28,.045)"};
+
+  return <div className="anim" style={{position:"relative",display:"flex",flexDirection:"column",gap:18,paddingBottom:16}}>
+    {/* Marca d'água institucional: grande, porém abaixo de todo o conteúdo. */}
+    <img src={ARCD_LOGO} alt="" aria-hidden="true" style={{position:"fixed",right:isDesktop?"4%":"-12%",bottom:"3%",width:isDesktop?430:280,height:isDesktop?430:280,objectFit:"contain",opacity:.018,pointerEvents:"none",filter:"grayscale(1)",zIndex:0}}/>
+
+    <section style={{position:"relative",zIndex:1,padding:isDesktop?"8px 2px 4px":0,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18,flexWrap:"wrap"}}>
+      <div><p style={{fontSize:11,fontWeight:700,color:C.blue,letterSpacing:.8,textTransform:"uppercase",marginBottom:7}}>{empresa}</p><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(25px,4vw,38px)",letterSpacing:-1.2,lineHeight:1.05,fontWeight:760,color:"#16181A"}}>{saudacao}, {nome}.</h1><p style={{fontSize:12,color:"#858A90",marginTop:8,textTransform:"capitalize"}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})} · o que merece sua atenção hoje.</p></div>
+      <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+        <button onClick={onBuscar} style={{height:38,minWidth:isDesktop?210:38,border:"1px solid rgba(27,31,36,.1)",background:"rgba(255,255,255,.88)",borderRadius:11,padding:"0 11px",display:"flex",alignItems:"center",gap:8,color:"#737980",cursor:"pointer",boxShadow:"0 4px 18px rgba(20,24,28,.035)"}}><Ic n="funnel" s={13}/>{isDesktop&&<><span style={{fontSize:11.5,flex:1,textAlign:"left"}}>Buscar no ArcD</span><span style={{fontSize:9,border:"1px solid #DDD",padding:"2px 5px",borderRadius:5}}>⌘K</span></>}</button>
+        <button onClick={()=>document.getElementById("dashboard-prioridades")?.scrollIntoView({behavior:"smooth"})} title="Notificações" style={{width:38,height:38,border:"1px solid rgba(27,31,36,.1)",background:"rgba(255,255,255,.88)",borderRadius:11,display:"grid",placeItems:"center",cursor:"pointer",position:"relative",color:"#62686E"}}><Ic n="alert" s={15}/>{prioridades.length>0&&<span style={{position:"absolute",right:-3,top:-4,minWidth:16,height:16,borderRadius:99,background:C.red,color:"white",fontSize:8,fontWeight:800,display:"grid",placeItems:"center",padding:"0 3px"}}>{Math.min(99,prioridades.length)}</span>}</button>
+        <button onClick={onAtualizar} title="Atualizar dados" style={{height:38,border:0,background:"#181A1D",color:"white",borderRadius:11,padding:"0 13px",display:"flex",alignItems:"center",gap:7,fontSize:10.5,fontWeight:750,cursor:"pointer"}}><Ic n="refresh" s={13} color="white"/> Atualizar</button>
+      </div>
+      <div style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",paddingTop:4}}><div style={{display:"flex",alignItems:"center",gap:7,fontSize:10.5,color:"#878C91"}}><span style={{width:7,height:7,borderRadius:99,background:C.green,boxShadow:`0 0 0 4px ${C.green}12`}}/>Sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:""}</div><div style={{display:"flex",alignItems:"center",background:"rgba(255,255,255,.82)",border:"1px solid rgba(27,31,36,.08)",borderRadius:10,padding:2}}><button onClick={()=>irMes(-1)} style={{border:0,background:"transparent",padding:"5px 9px",cursor:"pointer",color:"#777"}}>←</button><span style={{fontSize:10.5,fontWeight:700,minWidth:108,textAlign:"center",textTransform:"capitalize"}}>{fullMonth(month)} {year}</span><button onClick={()=>irMes(1)} disabled={ehAtual} style={{border:0,background:"transparent",padding:"5px 9px",cursor:ehAtual?"default":"pointer",color:ehAtual?"#D2D4D6":"#777"}}>→</button></div></div>
+    </section>
+
+    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
+      <Card label="Obras ativas" value={exec.obrasAtivas} detail={exec.obrasCriticas?`${exec.obrasCriticas} em situação crítica`:"Operação acompanhada"} icon="building" color={exec.obrasCriticas?C.red:C.blue} tab="obras"/>
+      <Card label="Receitas do período" value={fmtCompact(exec.dre.recebido)} detail={`Faturado ${fmtCompact(exec.dre.faturamento)}`} icon="trending" color={C.green} tab="dre"/>
+      <Card label="Despesas do período" value={fmtCompact(exec.dre.totalCustos)} detail={`${exec.dre.faturamento?((exec.dre.totalCustos/exec.dre.faturamento)*100).toFixed(0):0}% da receita`} icon="receipt" color={C.red} tab="dre_emp"/>
+      <Card label="Saldo atual" value={fmtCompact(exec.dre.saldoCaixa)} detail="Recebimentos menos custos" icon="wallet" color={exec.dre.saldoCaixa>=0?C.green:C.red} tab="dre"/>
+      <Card label="Pendências críticas" value={prioridades.filter(a=>a.sev===3).length} detail={`${prioridades.length} alertas ativos`} icon="alert" color={prioridades.some(a=>a.sev===3)?C.red:C.orange}/>
+      <Card label="Compras pendentes" value={exec.comprasPendentes+exec.solicitacoesAbertas} detail={`${exec.solicitacoesAbertas} aguardando análise`} icon="cart" color={C.orange} tab="cmp"/>
+      <Card label="Leads em andamento" value={exec.leadsAtivos} detail={`${novosLeads} novo(s) no mês`} icon="funnel" color={C.blue} tab="com_funil"/>
+      <Card label="Resultado operacional" value={fmtCompact(exec.dre.lucroBruto)} detail={`Margem ${exec.dre.margemBruta.toFixed(1)}%`} icon="chart" color={exec.dre.lucroBruto>=0?C.green:C.red} tab="dre_emp"/>
+    </section>
+
+    <section id="dashboard-prioridades" style={{position:"relative",zIndex:1,...superficie,padding:isDesktop?18:14}}>
+      <Titulo acao={<span style={{fontSize:9.5,fontWeight:800,color:prioridades.length?C.red:C.green,background:`${prioridades.length?C.red:C.green}0D`,padding:"5px 9px",borderRadius:99}}>{prioridades.length?`${prioridades.length} para revisar`:"Tudo em ordem"}</span>}>Pendências que exigem atenção</Titulo>
+      {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:12,fontWeight:700,color:"#2D3135"}}>Nenhuma pendência prioritária</p><p style={{fontSize:10.5,color:"#8A8F94",marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:11.5,color:"#303438",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:17,color:"#B1B5B9"}}>›</span></button>;})}</div>}
+    </section>
+
+    <section style={{position:"relative",zIndex:1,...superficie,padding:isDesktop?18:14}}><Titulo acao={<button onClick={()=>onTab("obras")} style={{border:0,background:"transparent",color:C.blue,fontSize:10.5,fontWeight:700,cursor:"pointer"}}>Ver portfólio →</button>}>Resumo executivo das obras</Titulo>{!exec.obras.length?<p style={{fontSize:11,color:C.muted}}>Nenhuma obra cadastrada.</p>:<div style={{display:"flex",flexDirection:"column"}}>{[...exec.obras].sort((a,b)=>({critica:0,atencao:1,saudavel:2}[a.exec.k]-{critica:0,atencao:1,saudavel:2}[b.exec.k])).slice(0,5).map((o,i)=><button key={o.id} onClick={()=>onTab("obras")} style={{border:0,borderTop:i?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"12px 0",display:"grid",gridTemplateColumns:isDesktop?"minmax(180px,1.4fr) minmax(180px,1fr) 110px 110px":"1fr auto",gap:14,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:740,color:"#25282C",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.nome}</p><p style={{fontSize:9.5,color:"#92969A",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cidade||o.cliente||"Obra em acompanhamento"}</p></div><div style={{display:isDesktop?"block":"none"}}><div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:"#888",marginBottom:5}}><span>Avanço físico</span><b style={{color:C.blue}}>{o.pctFisico}%</b></div><div style={{height:5,borderRadius:99,background:"#ECEEEF",overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,o.pctFisico)}%`,background:C.blue,borderRadius:99}}/></div></div><div style={{display:isDesktop?"block":"none"}}><p style={{fontSize:9,color:"#999"}}>Previsto x realizado</p><p style={{fontSize:10.5,fontWeight:700,color:"#454A4F",marginTop:3}}>{o.pctFinanceiro}% financeiro</p></div><span style={{justifySelf:"end",fontSize:9,fontWeight:800,color:o.exec.cor,background:`${o.exec.cor}0E`,padding:"5px 9px",borderRadius:99,textTransform:"uppercase"}}>{o.exec.l}</span></button>)}</div>}</section>
+
+    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
+      <div style={{...superficie,padding:18}}><Titulo acao={<button onClick={()=>onTab("dre_emp")} style={{border:0,background:"transparent",color:C.blue,fontSize:10,cursor:"pointer"}}>Detalhes →</button>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,exec.dre.saldoCaixa>=0?C.green:C.red],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,exec.dre.lucroBruto>=0?C.green:C.red]].map(([l,v,c])=><div key={l}><p style={{fontSize:9.5,color:"#93979B",textTransform:"uppercase",letterSpacing:.45}}>{l}</p><p style={{fontSize:17,fontWeight:760,color:c,marginTop:5,letterSpacing:-.3}}>{fmtCompact(v)}</p></div>)}</div></div>
+      <div style={{...superficie,padding:18}}><Titulo acao={<button onClick={()=>onTab("com_dash")} style={{border:0,background:"transparent",color:C.blue,fontSize:10,cursor:"pointer"}}>Abrir comercial →</button>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmtCompact(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:9.5,color:"#93979B",textTransform:"uppercase",letterSpacing:.45}}>{l}</p><p style={{fontSize:17,fontWeight:760,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"#ECEEEF"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
+    </section>
+
+    <section style={{position:"relative",zIndex:1}}><Titulo>Ações rápidas</Titulo><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:8}}>{[
+      ["Nova compra","cart","cmp"],["Novo lead","user","com_leads"],["Lançar despesa","dollar","dre_emp"],["Abrir ponto","clock","ponto"],["Revisar medições","ruler","medicoes"],["Conferências","check","conferencia"],
+    ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} style={{minHeight:70,border:"1px solid rgba(27,31,36,.08)",background:"rgba(255,255,255,.82)",borderRadius:14,padding:11,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",color:"#3A3E42",fontSize:10.5,fontWeight:700,textAlign:"left"}}><span style={{width:28,height:28,borderRadius:9,background:"#F1F3F4",display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
+  </div>;
+}
+
 // 
 // MEDIÇÕES / FATURAMENTO - por obra
 // 
@@ -3744,6 +3833,7 @@ const statusObraExec = (o) => {
   // Regra por exceção: crítico se margem negativa OU desembolso muito à frente
   // da execução; atenção se margem baixa ou pequeno descolamento; senão saudável.
   const desalinho = o.pctFinanceiro - o.pctFisico;   // + = gastando/faturando à frente do que executa
+  if (o.prazo && o.prazo < today() && o.pctFisico < 100) return { k:"critica", l:"Atrasada", cor:C.red };
   if (o.margem < 0 || desalinho > 20) return { k:"critica",  l:"Crítica",  cor:C.red };
   if (o.margem < 10 || desalinho > 10) return { k:"atencao",  l:"Atenção",  cor:C.orange };
   return { k:"saudavel", l:"Saudável", cor:C.green };
@@ -3821,7 +3911,7 @@ const calcResumoExecutivo = (data, year, month) => {
     const pctFinanceiro = d.pctFaturado || 0;
     const linha = {
       id:o.id, nome:o.name, cliente:o.client||o.engineer||"", cidade:o.address||"",
-      status:o.status,
+      status:o.status, prazo:o.contractEnd||"",
       contrato:d.contratoTotal, faturadoAcum:d.faturadoAcum, recebidoAcum:d.recebidoAcum,
       backlog:d.backlog, custoMes:d.totalCustos, margem:d.margemBruta,
       pctFisico:Math.round(fisico), pctFinanceiro:Math.round(pctFinanceiro),
@@ -30587,7 +30677,8 @@ export default function App() {
         )}
 
         <main style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "20px 22px" : 14 }}>
-          {tab === "home"   && <Dashboard   data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser} />}
+          {tab === "home"   && <Dashboard data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
+                              onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} />}
           {tab.startsWith("com_") && <Comercial data={data} update={update} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} />}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
