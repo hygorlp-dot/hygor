@@ -3998,19 +3998,21 @@ const calcResumoExecutivo = (data, year, month) => {
   };
 };
 
-function DRE({ data, update, showToast }) {
+function DRE({ data, update, showToast, obraIdFixo="" }) {
   const { cols } = useBreakpoint();
   const now   = new Date();
   const [year,  setYear]   = useState(now.getFullYear());
   const [month, setMonth]  = useState(now.getMonth());
-  const [view,  setView]   = useState("consolidado"); // "consolidado" | "obra" | "historico"
-  const [selObra, setSelObra] = useState(data.obras[0]?.id||"");
+  const [view,  setView]   = useState(obraIdFixo?"obra":"consolidado"); // "consolidado" | "obra" | "historico"
+  const [selObra, setSelObra] = useState(obraIdFixo||data.obras[0]?.id||"");
   const [despModal, setDespModal] = useState(false);
   const [despForm,  setDespForm]  = useState({ obraId:"", competencia:"", categoria:"material", descricao:"", valor:"" });
   const DF = k => v => setDespForm(f=>({...f,[k]:v}));
 
   const dre   = useMemo(()=>calcDREConsolidado(data,year,month), [data,year,month]);
-  const dreObra = useMemo(()=>calcDREObra(data,selObra,year,month), [data,selObra,year,month]);
+  const obraFinanceiraId = obraIdFixo || selObra;
+  const dreObra = useMemo(()=>calcDREObra(data,obraFinanceiraId,year,month), [data,obraFinanceiraId,year,month]);
+  const dreResumo=obraIdFixo?dreObra:dre;
   const hist  = useMemo(()=>calcDREHistorico(data,year,month,6), [data,year,month]);
 
   const years = Array.from({length:4},(_,i)=>now.getFullYear()-2+i).map(y=>({v:String(y),l:String(y)}));
@@ -4291,7 +4293,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       </div>
 
       {/* View toggle */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+      {!obraIdFixo&&<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
         {[["consolidado"," Consolidado"],["obra"," Por Obra"],["historico"," Histórico"]].map(([v,l])=>(
           <button key={v} onClick={()=>setView(v)} style={{
             padding:"9px 4px",border:`2px solid ${view===v?C.green:C.line}`,
@@ -4300,15 +4302,15 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:13,cursor:"pointer",borderRadius:8,
           }}>{l}</button>
         ))}
-      </div>
+      </div>}
 
       {/* KPI cards sempre visíveis */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
         {[
-          ["Faturamento",  dre.faturamento,  C.green,  `${period}`],
-          ["Recebido",     dre.recebido,     C.blue,   `a receber: ${fmt(dre.aReceber)}`],
-          ["Total Custos", dre.totalCustos,  C.red,    `MO+Terc+Outros`],
-          ["Lucro Bruto",  dre.lucroBruto,   dre.lucroBruto>=0?C.green:C.red, `margem ${dre.margemBruta.toFixed(1)}%`],
+          ["Faturamento",  dreResumo.faturamento,  C.green,  `${period}`],
+          ["Recebido",     dreResumo.recebido,     C.blue,   `a receber: ${fmt(dreResumo.aReceber)}`],
+          ["Total Custos", dreResumo.totalCustos,  C.red,    `MO+Terc+Outros`],
+          ["Lucro Bruto",  dreResumo.lucroBruto,   dreResumo.lucroBruto>=0?C.green:C.red, `margem ${dreResumo.margemBruta.toFixed(1)}%`],
         ].map(([l,v,c,s])=>(
           <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,padding:"12px 14px",borderRadius:10}}>
             <p style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
@@ -4394,7 +4396,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       {/*  VIEW: POR OBRA  */}
       {view==="obra"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <Sel value={selObra} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:o.name}))}/>
+          {!obraIdFixo&&<Sel value={selObra} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:o.name}))}/>}
           {renderObraDRE(dreObra,false)}
         </div>
       )}
@@ -4442,7 +4444,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       )}
 
       {/* Botão: lançar outras despesas */}
-      <button onClick={()=>{setDespForm({obraId:selObra||data.obras[0]?.id||"",competencia:`${year}-${String(month+1).padStart(2,"0")}`,categoria:"material",descricao:"",valor:""});setDespModal(true);}} style={{
+      <button onClick={()=>{setDespForm({obraId:obraFinanceiraId||data.obras[0]?.id||"",competencia:`${year}-${String(month+1).padStart(2,"0")}`,categoria:"material",descricao:"",valor:""});setDespModal(true);}} style={{
         background:`${C.orange}10`,border:`1px dashed ${C.orange}66`,borderRadius:8,
         color:C.orange,padding:"10px 14px",cursor:"pointer",fontFamily:"'Inter Display','Inter',sans-serif",
         fontWeight:900,fontSize:13,letterSpacing:.5,textAlign:"left",display:"flex",alignItems:"center",gap:8,
@@ -4451,12 +4453,12 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       </button>
 
       {/* Outras despesas do mês */}
-      {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`).length>0&&(
+      {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`&&(!obraIdFixo||d.obraId===obraIdFixo)).length>0&&(
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
           <div style={{padding:"8px 14px",borderBottom:`1px solid ${C.line}`,background:`${C.orange}10`}}>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:14,color:C.orange,textTransform:"uppercase"}}>Outras despesas - {period}</p>
           </div>
-          {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`).map(d=>(
+          {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`&&(!obraIdFixo||d.obraId===obraIdFixo)).map(d=>(
             <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderBottom:`1px solid ${C.line}22`}}>
               <div>
                 <p style={{fontSize:13,fontWeight:700}}>{d.descricao||d.categoria}</p>
@@ -4481,7 +4483,10 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       {despModal&&(
         <Modal title="Lançar Outras Despesas" onClose={()=>setDespModal(false)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <Sel label="Obra *" value={despForm.obraId} onChange={DF("obraId")} options={[{v:"",l:"Selecione"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+            {obraIdFixo
+              ? <Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+              : <Sel label="Obra *" value={despForm.obraId} onChange={DF("obraId")} options={[{v:"",l:"Selecione"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+            }
             <div>
               <p style={{fontSize:11,fontWeight:700,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Competência (mês/ano) *</p>
               <input type="month" value={despForm.competencia} onChange={e=>DF("competencia")(e.target.value)} style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,color:C.text,padding:"11px 13px",borderRadius:10,fontSize:14,outline:"none"}}/>
@@ -6349,7 +6354,7 @@ function Obras({ data, update, showToast, onAbrirObra }) {
 // Equipe
 // 
 
-function Equipe({ data, update, showToast }) {
+function Equipe({ data, update, showToast, obraIdFixo="" }) {
   const { formGrid } = useBreakpoint();
   const emptyEmp = {
     id: "",
@@ -6375,7 +6380,7 @@ function Equipe({ data, update, showToast }) {
   const [advModal, setAdvModal] = useState(null);
   const [form, setForm] = useState(emptyEmp);
   const [search, setSearch] = useState("");
-  const [filterObra, setFilterObra] = useState("all");
+  const [filterObra, setFilterObra] = useState(obraIdFixo||"all");
   const [showInactive, setShowInactive] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [advForm, setAdvForm] = useState({ amount: "", description: "", date: today() });
@@ -6548,7 +6553,7 @@ function Equipe({ data, update, showToast }) {
 
       <Inp value={search} onChange={setSearch} placeholder="Buscar por nome, função, CPF ou telefone..." />
       <div className="fluid-grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-        <Sel value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+        {obraIdFixo?<Inp value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />}
         <Btn v={showInactive ? "warning" : "ghost"} onClick={() => setShowInactive(v => !v)}>{showInactive ? "Com inativos" : "Só ativos"}</Btn>
       </div>
 
@@ -7127,9 +7132,9 @@ function PontoGeral({ data, update, showToast, currentUser }) {
   </div>;
 }
 
-function Ponto({ data, update, showToast }) {
+function Ponto({ data, update, showToast, obraIdFixo="" }) {
   const [selDate, setSelDate] = useState(today());
-  const [filterObra, setFilterObra] = useState("all");
+  const [filterObra, setFilterObra] = useState(obraIdFixo||"all");
   const [noteModal, setNoteModal] = useState(null);
   const [noteText, setNoteText] = useState("");
   const [otModal, setOtModal] = useState(null);
@@ -7366,7 +7371,7 @@ function Ponto({ data, update, showToast }) {
       {/* Data e obra lado a lado: a primeira decisão de quem vai lançar. */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <Inp label="Data" type="date" value={selDate} onChange={setSelDate} max={today()} />
-        <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+        {obraIdFixo?<Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />}
       </div>
 
       {/* Status das pendências: uma linha quando tudo pronto; quando falta,
@@ -8730,7 +8735,7 @@ function FluxoCaixa({ data }) {
 // TERCEIROS - cadastro e pagamentos semanais
 // 
 
-function Terceiros({ data, update, showToast }) {
+function Terceiros({ data, update, showToast, obraIdFixo="" }) {
   const { formGrid } = useBreakpoint();
   const emptyT = { id:"", prestadorId:"", name:"", specialty:"eletricista", obraId:"", contractValue:"", weeklyRate:"", phone:"", pixKey:"", notes:"", startDate:today(),
     situacao:"andamento", endDate:"", tipoPessoa:"PJ", documento:"", razaoSocial:"", inscEstadual:"", inscMunicipal:"",
@@ -8745,7 +8750,7 @@ function Terceiros({ data, update, showToast }) {
   const [payDesc,     setPayDesc]     = useState("");
   const [paySource,   setPaySource]   = useState("");     // empresa | obra, escolhido em cada pagamento
   const [medPayModal, setMedPayModal] = useState(null);   // medição aguardando confirmação de pagamento
-  const [filterObra,  setFilterObra]  = useState("all");
+  const [filterObra,  setFilterObra]  = useState(obraIdFixo||"all");
   const [filterSpec,  setFilterSpec]  = useState("all");
   const [expanded,    setExpanded]    = useState(null);
   const [tercSel,     setTercSel]     = useState("");     // contrato aberto em Medições
@@ -9517,7 +9522,9 @@ function Terceiros({ data, update, showToast }) {
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
           <Sel value={filterSpec} onChange={setFilterSpec} options={[{v:"all",l:"Todas especialidades"},...SPECIALTIES.map(s=>({v:s.v,l:s.emoji+" "+s.l}))]}/>
-          <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+          {obraIdFixo
+            ? <Inp value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+            : <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
         </div>
 
         {filteredTerc.length === 0 && (
@@ -10074,7 +10081,9 @@ function Terceiros({ data, update, showToast }) {
           })
         }
 
-        <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+        {obraIdFixo
+          ? <Inp value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+          : <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
       </>)}
 
       {/* Modal: cadastro */}
@@ -14265,13 +14274,14 @@ const CelulaTexto = memo(function CelulaTexto({ value, onCommit, onDigitar, onEn
   );
 });
 
-function Orcamento({ data, update, showToast }) {
+function Orcamento({ data, update, showToast, obraIdFixo="" }) {
   const { cols, formGrid } = useBreakpoint();
   const dataAtualRef = useRef(data);
   const scrollAlvoRef = useRef(null);   // posicao a preservar durante um salvamento
-  const [view,      setView]      = useState("lista");   // "lista" | "editor"
+  const orcamentoFixoInicial=(data.orcamentos||[]).find(o=>o.obraId===obraIdFixo);
+  const [view,      setView]      = useState(orcamentoFixoInicial?"editor":"lista");   // "lista" | "editor"
   const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias
-  const [selOrc,    setSelOrc]    = useState(()=>(data.orcamentos||[]).find(o=>o.obraId===obraContextoSalvo())?.id||null);      // id do orçamento aberto
+  const [selOrc,    setSelOrc]    = useState(()=>orcamentoFixoInicial?.id||(data.orcamentos||[]).find(o=>o.obraId===obraContextoSalvo())?.id||null);      // id do orçamento aberto
   const [baseImport,setBaseImport]= useState([]);        // base SINAPI/ORSE em memória
   const [baseNome,  setBaseNome]  = useState("");
   const [baseInfo,  setBaseInfo]  = useState(null);      // metadados da base importada
@@ -14392,13 +14402,13 @@ function Orcamento({ data, update, showToast }) {
   useEffect(() => { carregarBasesRemotas(); }, [carregarBasesRemotas]);
 
   const emptyOrc = {
-    nome:"", descricao:"", obraId:"", cliente:"", local:"", areaM2:"",
+    nome:"", descricao:"", obraId:obraIdFixo, cliente:"", local:"", areaM2:"",
     fonte:"SINAPI", dataBase:"", uf:"PE", referencias:[], desonerado:true, bdi:"23.25",
   };
   const [form, setForm] = useState(emptyOrc);
   const F = k => v => setForm(f=>({...f,[k]:v}));
 
-  const orcamentos = data.orcamentos || [];
+  const orcamentos = obraIdFixo?(data.orcamentos||[]).filter(o=>o.obraId===obraIdFixo):(data.orcamentos||[]);
   const orc = orcamentos.find(o => o.id === selOrc);
   const calc = useMemo(() => orc ? calcOrcamento(orc) : null, [orc]);
   const composicoesEmpresa = useMemo(()=>{
@@ -16492,7 +16502,7 @@ ${blocoBDI}
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:C.text,lineHeight:1,marginTop:2}}>Orçamentos</p>
             <p style={{color:C.muted,fontSize:12,marginTop:4}}>Planilha orçamentária com BDI e exportação</p>
           </div>
-          <Btn onClick={()=>{setForm(emptyOrc);setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>
+          <Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>
         </div>
 
         {orcamentos.length===0 && (
@@ -16540,8 +16550,11 @@ ${blocoBDI}
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")} placeholder="Ex.: Residência Terras Alpha - CA1-13"/>
               <Inp label="Descrição" value={form.descricao} onChange={F("descricao")} placeholder="Resumo, escopo ou observações do orçamento"/>
-              <Sel label="Vincular a uma obra (opcional)" value={form.obraId} onChange={F("obraId")}
-                options={[{v:"",l:"- Nenhuma -"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+              {obraIdFixo
+                ? <Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+                : <Sel label="Vincular a uma obra (opcional)" value={form.obraId} onChange={F("obraId")}
+                    options={[{v:"",l:"- Nenhuma -"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+              }
               <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
                 <Inp label="Cliente" value={form.cliente} onChange={F("cliente")} placeholder="Nome do contratante"/>
                 <Inp label="Área construída (m)" type="number" value={form.areaM2} onChange={F("areaM2")} placeholder="Ex.: 388"/>
@@ -21054,10 +21067,10 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
   );
 }
 
-function Compras({ data, update, showToast, currentUser }) {
+function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const { cols } = useBreakpoint();
   const [aba,     setAba]     = useState(currentUser?.role==="engenheiro"?"solicitacoes":"pedidos");
-  const [obraSel, setObraSel] = useState("");
+  const [obraSel, setObraSel] = useState(obraIdFixo);
   const [busca,   setBusca]   = useState("");
 
   const [pedModal,  setPedModal]  = useState(null);
@@ -21068,7 +21081,7 @@ function Compras({ data, update, showToast, currentUser }) {
   const [basesReferenciaCompra,setBasesReferenciaCompra]=useState([]);
 
   const obras       = (data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
-  const obraAtual   = obraSel || obras[0]?.id || "";
+  const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
   const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const fornecedores= useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
 
@@ -21385,8 +21398,10 @@ function Compras({ data, update, showToast, currentUser }) {
       </div>
       {solicitacoesPendentes>0&&<button onClick={()=>setAba("solicitacoes")} style={{background:`${C.orange}10`,border:`1.5px solid ${C.orange}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><p style={{fontSize:11.5,fontWeight:900,color:C.orange}}>{solicitacoesPendentes} NOVA(S) SOLICITAÇÃO(ÕES) DE MATERIAL</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>A Engenharia/Obra aguarda análise do setor de Compras. Clique para abrir.</p></button>}
 
-      <Sel label="Obra" value={obraAtual} onChange={setObraSel}
-        options={obras.map(o => ({ v:o.id, l:o.name }))}/>
+      {obraIdFixo
+        ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+        : <Sel label="Obra" value={obraAtual} onChange={setObraSel}
+            options={obras.map(o => ({ v:o.id, l:o.name }))}/>}
 
       {/* Cadeia comprado → recebido → aplicado → pago */}
       <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
@@ -22060,9 +22075,18 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, current
   };
 
   const criarSubpasta = async () => {
-    if(!novaPasta.trim()||!obra.oneDriveDriveId||!obra.oneDriveFolderId)return;
-    const r=await criarPastaOneDrive({driveId:obra.oneDriveDriveId,parentId:obra.oneDriveFolderId,name:novaPasta});
-    if(r.ok){setNovaPasta("");showToast?.("Pasta criada no OneDrive.");}else showToast?.(r.error||"Falha ao criar pasta.","error");
+    if(!novaPasta.trim())return;
+    let driveId=obra.oneDriveDriveId,folderId=obra.oneDriveFolderId,workspace=null;
+    if(!driveId||!folderId){
+      workspace=await criarEstruturaOneDrive(obra.name);
+      if(!workspace.ok){showToast?.(workspace.error||"Falha ao preparar a pasta da obra.","error");return;}
+      driveId=workspace.driveId;folderId=workspace.folderId;
+    }
+    const r=await criarPastaOneDrive({driveId,parentId:folderId,name:novaPasta});
+    if(r.ok){
+      if(workspace)update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,oneDriveDriveId:driveId,oneDriveFolderId:folderId,oneDriveFolders:workspace.folders||{},oneDriveUrl:workspace.webUrl||o.oneDriveUrl}:o)});
+      setNovaPasta("");showToast?.("Pasta criada no OneDrive.");
+    }else showToast?.(r.error||"Falha ao criar pasta.","error");
   };
 
   // A equipe de campo confirma que o material chegou -> tudo do pedido vira
@@ -22298,7 +22322,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, current
             <button key={id}
               className="arcd-tab"
               data-active={ativa}
-              onClick={()=>{if(id==="arquivos"){setAbaConteudo("geral");setSecoesAbertas(p=>({...p,arquivos:true}));}else if(id==="geral")setAbaConteudo("geral");else if(destino)abrirModuloDaObra(destino);}}
+              onClick={()=>{if(id==="arquivos")setAbaConteudo("arquivos");else if(id==="geral")setAbaConteudo("geral");else if(destino)abrirModuloDaObra(destino);}}
               style={{border:0,background:"transparent",cursor:"pointer",
                 padding:"9px 13px",whiteSpace:"nowrap",
                 fontSize:12.5,fontWeight:ativa?800:500,
@@ -22639,19 +22663,20 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, current
         {atualizacoesObra.length===0?<p style={{fontSize:11.5,color:C.muted}}>Nenhuma atualização registrada ainda.</p>:<div style={{display:"flex",flexDirection:"column"}}>{atualizacoesObra.map((e,i)=>{const d=new Date(e.at);const hora=d.getHours()===0&&d.getMinutes()===0?"":d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});const cor=e.tipo==="removeu"?C.red:e.tipo==="criou"?C.green:e.tipo==="operacao"?C.orange:C.blue;return <div key={e.id} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:9,padding:"10px 0",borderTop:i?`1px solid ${C.line}`:"none",alignItems:"start"}}><span style={{width:30,height:30,borderRadius:99,display:"grid",placeItems:"center",background:`${cor}12`,color:cor,fontSize:9,fontWeight:900}}>{String(e.responsavel||"S").split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:11.5,color:C.text,lineHeight:1.4}}>{e.texto}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Responsável: <strong style={{color:C.text}}>{e.responsavel}</strong></p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:9.5,fontWeight:750,color:C.text}}>{d.toLocaleDateString("pt-BR")}</p>{hora&&<p style={{fontSize:9,color:C.muted,marginTop:2}}>{hora}</p>}{e.valor>0&&<p style={{fontSize:9.5,fontWeight:800,color:C.green,marginTop:3}}>{fmt(e.valor)}</p>}</div></div>;})}</div>}
       </Secao>
       </>:<div style={{paddingTop:4}}>
-        {abaConteudo==="orc"&&<Orcamento data={data} update={update} showToast={showToast}/>}
-        {abaConteudo==="plan"&&<Planejamento data={data} update={update} showToast={showToast}/>}
-        {abaConteudo==="rdo"&&<DiarioObra data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
-        {abaConteudo==="conferencia"&&<Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
-        {abaConteudo==="med"&&<MedicaoEvolucao data={data} update={update} showToast={showToast}/>}
-        {abaConteudo==="cmp"&&<Compras data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
-        {abaConteudo==="est"&&<Estoque data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
-        {abaConteudo==="dre"&&<DRE data={data} update={update} showToast={showToast}/>}
-        {abaConteudo==="ponto"&&<Ponto data={data} update={update} showToast={showToast}/>}
-        {abaConteudo==="equipe"&&<Equipe data={data} update={update} showToast={showToast}/>}
-        {abaConteudo==="terc"&&<Terceiros data={data} update={update} showToast={showToast}/>}
-        {abaConteudo==="equip"&&<Equipamentos data={data} update={update} showToast={showToast}/>}
-        {abaConteudo==="licenca"&&<Licenciamento data={data} update={update} showToast={showToast}/>}
+        {abaConteudo==="orc"&&<Orcamento data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="plan"&&<Planejamento data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="rdo"&&<DiarioObra data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
+        {abaConteudo==="conferencia"&&<Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
+        {abaConteudo==="med"&&<MedicaoEvolucao data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="cmp"&&<Compras data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
+        {abaConteudo==="est"&&<Estoque data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
+        {abaConteudo==="dre"&&<DRE data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="ponto"&&<Ponto data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="equipe"&&<Equipe data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="terc"&&<Terceiros data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="equip"&&<Equipamentos data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="licenca"&&<Licenciamento data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="arquivos"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,display:"flex",flexDirection:"column",gap:14}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><h2 style={{fontSize:20,fontWeight:800,color:C.text}}>Arquivos da obra</h2><p style={{fontSize:11,color:C.muted,marginTop:4}}>Crie diretórios e envie documentos diretamente para o OneDrive desta obra.</p></div><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{obra.oneDriveUrl&&<Btn v="ghost" onClick={()=>abrirOneDrive(obra.oneDriveUrl)}><Ic n="folder"/> Abrir no OneDrive</Btn>}<Btn onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Carregar arquivo"}</Btn><input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/></div></div><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Inp label="Novo diretório" value={novaPasta} onChange={setNovaPasta} placeholder="Ex.: Projetos estruturais"/><Btn v="info" onClick={criarSubpasta} disabled={!novaPasta.trim()}><Ic n="folder"/> Criar pasta</Btn></div><div style={{borderTop:`1px solid ${C.line}`,paddingTop:12}}><p style={{fontSize:10,fontWeight:850,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Arquivos enviados pelo ArcD</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:11,color:C.muted,padding:"14px 0"}}>Nenhum arquivo enviado por esta tela.</p>:<div style={{display:"flex",flexDirection:"column",gap:6}}>{(obra.documentosOneDrive||[]).map(doc=><a key={doc.id} href={doc.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:8,padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:8,color:C.blue,textDecoration:"none",fontSize:11.5}}><Ic n="file"/><span style={{flex:1}}>{doc.nome}</span><span>↗</span></a>)}</div>}</div></div>}
       </div>}
     </div>
   );
@@ -22663,13 +22688,13 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, current
 //  - Marcos: pontos no tempo (compra de porcelanato, vistoria...)
 //  - Ligado ao orcamento: cobertura, planejado x orcado
 // ==============================================================
-function Planejamento({ data, update, showToast }) {
+function Planejamento({ data, update, showToast, obraIdFixo="" }) {
   const { isDesktop, cols } = useBreakpoint();
 
   // Obra selecionada. Comeca na primeira obra ativa.
   const obrasComOrc = (data.obras || []).filter(o =>
     (data.orcamentos || []).some(x => x.obraId === o.id));
-  const [obraId, setObraId] = useState(()=>obrasComOrc.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obrasComOrc[0]?.id||""));
+  const [obraId, setObraId] = useState(()=>obraIdFixo||(obrasComOrc.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obrasComOrc[0]?.id||"")));
 
   const orc   = orcamentoDaObra(data, obraId);
 
@@ -23270,8 +23295,10 @@ function Planejamento({ data, update, showToast }) {
       {/* Cabecalho: seletor de obra + progresso geral */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
         <div style={{ flex: 1, minWidth: 180 }}>
-          <Sel label="Obra" value={obraId} onChange={setObraId}
-               options={obrasComOrc.map(o => ({ v: o.id, l: o.name }))} />
+          {obraIdFixo
+            ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+            : <Sel label="Obra" value={obraId} onChange={setObraId}
+                 options={obrasComOrc.map(o => ({ v: o.id, l: o.name }))} />}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {["dia", "semana", "mes"].map(z => (
@@ -24775,11 +24802,11 @@ const CLIMA_OPC = [
   { v: "impraticavel", l: "Impraticavel", c: C.red    },
 ];
 
-function DiarioObra({ data, update, showToast, currentUser }) {
+function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const { cols } = useBreakpoint();
 
   const obras = (data.obras || []).filter(o => o.status !== "done");
-  const [obraId, setObraId] = useState(()=>obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||""));
+  const [obraId, setObraId] = useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
   const [dataRDO, setDataRDO] = useState(today());
   const [modoRdo, setModoRdo] = useState("lista");
   const [buscaRdo, setBuscaRdo] = useState("");
@@ -25037,8 +25064,10 @@ function DiarioObra({ data, update, showToast, currentUser }) {
       {/* Seletor de obra + data */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div style={{ flex: 2, minWidth: 160 }}>
-          <Sel label="Obra" value={obraId} onChange={setObraId}
-               options={obras.map(o => ({ v: o.id, l: o.name }))} />
+          {obraIdFixo
+            ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+            : <Sel label="Obra" value={obraId} onChange={setObraId}
+                 options={obras.map(o => ({ v: o.id, l: o.name }))} />}
         </div>
         <div style={{ flex: 1, minWidth: 130 }}>
           <Inp label="Data" type="date" value={dataRDO} onChange={setDataRDO} />
@@ -25332,10 +25361,10 @@ const CONFERENCIA_STATUS = [
   {v:"aberta",l:"Aberta"},{v:"em_ajuste",l:"Em ajuste"},{v:"resolvida",l:"Resolvida"},
 ];
 
-function Conferencia({ data, update, showToast, currentUser }) {
+function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const { cols } = useBreakpoint();
   const obras=(data.obras||[]).filter(o=>o.status!=="done");
-  const [obraFiltro,setObraFiltro]=useState(()=>obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||""));
+  const [obraFiltro,setObraFiltro]=useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
   const [statusFiltro,setStatusFiltro]=useState("abertas");
   const [selecionadaId,setSelecionadaId]=useState("");
   const [pendenciaForm,setPendenciaForm]=useState(null);
@@ -25365,7 +25394,7 @@ function Conferencia({ data, update, showToast, currentUser }) {
 
   const abrirNovaConferencia=()=>{
     if(!ehAdmin){showToast?.("Somente o administrador pode criar conferências.","error");return;}
-    const obraId=obraFiltro||obras[0]?.id||"";
+    const obraId=obraIdFixo||obraFiltro||obras[0]?.id||"";
     const obra=(data.obras||[]).find(o=>o.id===obraId);
     setNovaForm({obraId,data:today(),responsavelId:obra?.engineerId||""});
   };
@@ -25622,10 +25651,10 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
 //  Mostra o avanco de cada tarefa: o que veio do diario (RDO) e o
 //  que e manual. Permite ajustar o progresso manualmente aqui.
 // ==============================================================
-function MedicaoEvolucao({ data, update, showToast }) {
+function MedicaoEvolucao({ data, update, showToast, obraIdFixo="" }) {
   const { cols } = useBreakpoint();
   const obras = (data.obras || []).filter(o => o.status !== "done");
-  const [obraId, setObraId] = useState(()=>obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||""));
+  const [obraId, setObraId] = useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
 
   const orc   = orcamentoDaObra(data, obraId);
   const plano = useMemo(() =>
@@ -25715,8 +25744,10 @@ function MedicaoEvolucao({ data, update, showToast }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <Sel label="Obra" value={obraId} onChange={setObraId}
-           options={obras.map(o => ({ v: o.id, l: o.name }))} />
+      {obraIdFixo
+        ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+        : <Sel label="Obra" value={obraId} onChange={setObraId}
+             options={obras.map(o => ({ v: o.id, l: o.name }))} />}
 
       {/* Resumo */}
       <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: 8 }}>
@@ -26771,10 +26802,10 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
   );
 }
 
-function Estoque({ data, update, showToast, currentUser }) {
+function Estoque({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const { cols, formGrid } = useBreakpoint();
   const [aba,      setAba]      = useState("saldo");   // saldo|movs|materiais|comp|abc
-  const [obraSel,  setObraSel]  = useState("");
+  const [obraSel,  setObraSel]  = useState(obraIdFixo);
   const [busca,    setBusca]    = useState("");
 
   const [matModal, setMatModal] = useState(null);
@@ -26785,7 +26816,7 @@ function Estoque({ data, update, showToast, currentUser }) {
   const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const saldos      = useMemo(() => calcSaldos(data.movEstoque), [data.movEstoque]);
   const obras       = data.obras || [];
-  const obraAtual   = obraSel || obras[0]?.id || "";
+  const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
 
   // ── Reposicao automatica por estoque minimo ─────────────────────
   // O minimo deixou de ser cosmetico: tudo que esta abaixo dele em qualquer
@@ -27034,8 +27065,10 @@ function Estoque({ data, update, showToast, currentUser }) {
         </p>
       </div>
 
-      <Sel label="Obra" value={obraAtual} onChange={setObraSel}
-        options={obras.map(o => ({ v:o.id, l:o.name }))}/>
+      {obraIdFixo
+        ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+        : <Sel label="Obra" value={obraAtual} onChange={setObraSel}
+            options={obras.map(o => ({ v:o.id, l:o.name }))}/>}
 
       {/* Reposicao automatica: o minimo deixou de ser cosmetico */}
       {abaixoMin.length>0&&(
@@ -27321,13 +27354,13 @@ function Estoque({ data, update, showToast, currentUser }) {
 //  Frota própria + de terceiros, locação por obra com desconto ao cliente,
 //  manutenção, transferência entre obras e relatório mensal de lucro.
 // ============================================================================
-function Licenciamento({ data, update, showToast }) {
+function Licenciamento({ data, update, showToast, obraIdFixo="" }) {
   const { cols, formGrid } = useBreakpoint();
-  const [obraSel, setObraSel] = useState("");
+  const [obraSel, setObraSel] = useState(obraIdFixo);
   const [itemModal, setItemModal] = useState(null);   // {docId, ...estado}
 
   const obrasAtivas = (data.obras||[]).filter(o => o.status !== "done");
-  const obraId = obraSel || obrasAtivas[0]?.id || (data.obras||[])[0]?.id || "";
+  const obraId = obraIdFixo || obraSel || obrasAtivas[0]?.id || (data.obras||[])[0]?.id || "";
   const obra = (data.obras||[]).find(o => o.id === obraId);
 
   // Acha (ou prepara) o checklist desta obra.
@@ -27370,8 +27403,10 @@ function Licenciamento({ data, update, showToast }) {
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-        <Sel label="Obra" value={obraId} onChange={setObraSel}
-             options={(data.obras||[]).map(o=>({v:o.id,l:o.name}))}/>
+        {obraIdFixo
+          ? <Inp label="Obra" value={obra?.name||"Obra atual"} onChange={()=>{}} disabled/>
+          : <Sel label="Obra" value={obraId} onChange={setObraSel}
+               options={(data.obras||[]).map(o=>({v:o.id,l:o.name}))}/>}
         <Sel label="Tipo de licença" value={check.tipo} onChange={v=>salvar({tipo:v})}
              options={LICENCAS.map(l=>({v:l.id,l:l.nome}))}/>
       </div>
@@ -27566,7 +27601,7 @@ function Licenciamento({ data, update, showToast }) {
   );
 }
 
-function Equipamentos({ data, update, showToast }) {
+function Equipamentos({ data, update, showToast, obraIdFixo="" }) {
   const { formGrid } = useBreakpoint();
   const now = new Date();
   const [aba, setAba] = useState("frota");   // frota | locacoes | manutencao | relatorio
@@ -27578,7 +27613,7 @@ function Equipamentos({ data, update, showToast }) {
   const [manutModal, setManutModal] = useState(null);
   const [transfModal,setTransfModal]= useState(null);
   const [busca, setBusca] = useState("");
-  const [filtroObraGestao, setFiltroObraGestao] = useState("all");   // filtro da grade de gestao
+  const [filtroObraGestao, setFiltroObraGestao] = useState(obraIdFixo||"all");   // filtro da grade de gestao
 
   const obraName = id => (data.obras||[]).find(o=>o.id===id)?.name || "—";
   const donoName = id => id ? ((data.proprietariosEquip||[]).find(p=>p.id===id)?.nome || "Terceiro") : "Empresa";
@@ -27796,8 +27831,9 @@ function Equipamentos({ data, update, showToast }) {
       {aba==="gestao" && (()=>{
         const [ano,mes] = ym.split("-").map(Number);
         const diasMes = getDays(ano, mes-1);
+        const filtroObraEfetivo = obraIdFixo || filtroObraGestao;
         const linhas = equipamentos.map(e => ({ eq:e, r:resumoLocacaoEquip(data, e.id, diasMes) }))
-          .filter(l => filtroObraGestao==="all" || l.r.obras.includes(filtroObraGestao));
+          .filter(l => filtroObraEfetivo==="all" || l.r.obras.includes(filtroObraEfetivo));
         const tot = linhas.reduce((a,l)=>({
           receita:a.receita+l.r.receita, custo:a.custo+l.r.custo,
           locado:a.locado+l.r.diasLocado, ocioso:a.ocioso+l.r.diasOciosos,
@@ -27815,8 +27851,11 @@ function Equipamentos({ data, update, showToast }) {
         return (<>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
             <Sel label="Mês" value={ym} onChange={setYm} options={mesesOpts}/>
-            <Sel label="Obra" value={filtroObraGestao} onChange={setFiltroObraGestao}
-                 options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+            {obraIdFixo
+              ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+              : <Sel label="Obra" value={filtroObraGestao} onChange={setFiltroObraGestao}
+                   options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+            }
             <Inp label="Buscar" value={busca} onChange={setBusca} placeholder="Nome, categoria, patrimônio..."/>
           </div>
 
