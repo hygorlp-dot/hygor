@@ -11,6 +11,8 @@
 // créditos. É exatamente isso que o SETUP.md antigo mandava fazer.
 // ═══════════════════════════════════════════════════════════════════
 
+export const config = { api: { bodyParser: { sizeLimit: "8mb" } } };
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Método não permitido." });
@@ -24,7 +26,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { messages, contexto, prompt, question, context } = req.body || {};
+    const { messages, contexto, prompt, question, context, imagens } = req.body || {};
     const mensagensRecebidas = Array.isArray(messages) && messages.length
       ? messages
       : (prompt || question)
@@ -40,6 +42,20 @@ export default async function handler(req, res) {
       role: m.role === "assistant" ? "assistant" : "user",
       content: String(m.content ?? m.text ?? "").slice(0, 12000),
     }));
+    const imagensValidas=(Array.isArray(imagens)?imagens:[]).slice(0,6).map(img=>{
+      const match=String(img?.dataUrl||"").match(/^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/);
+      return match?{mediaType:match[1],data:match[2],legenda:String(img?.legenda||"").slice(0,300)}:null;
+    }).filter(Boolean);
+    if(imagensValidas.length){
+      const ultima=historico.length-1;
+      historico[ultima]={role:"user",content:[
+        {type:"text",text:historico[ultima].content},
+        ...imagensValidas.flatMap((img,index)=>[
+          {type:"text",text:`Foto ${index+1}${img.legenda?` — legenda informada: ${img.legenda}`:""}`},
+          {type:"image",source:{type:"base64",media_type:img.mediaType,data:img.data}},
+        ]),
+      ]};
+    }
 
     const system = [
       "Você é o assistente da ARCD Construtech, empresa de gestão de obras em Caruaru/PE.",

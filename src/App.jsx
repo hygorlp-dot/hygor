@@ -2509,6 +2509,10 @@ const normalizeData = incoming => {
         horas: Number(eq.horas || 0),          // horas trabalhadas no dia (opcional)
       })) : [],
       ocorrencias: r.ocorrencias || "",
+      reflexaoIA: r.reflexaoIA && typeof r.reflexaoIA === "object" ? {
+        texto:r.reflexaoIA.texto||"",geradoEm:r.reflexaoIA.geradoEm||"",
+        geradoPor:r.reflexaoIA.geradoPor||"",fotosAnalisadas:Number(r.reflexaoIA.fotosAnalisadas||0),
+      } : (r.reflexaoIA ? {texto:String(r.reflexaoIA),geradoEm:"",geradoPor:"",fotosAnalisadas:0} : null),
       fotos: Array.isArray(r.fotos) ? r.fotos.map(f => ({
         url: f.url || "", legenda: f.legenda || "", path: f.path || "",
       })).filter(f => f.url) : [],
@@ -19403,6 +19407,30 @@ const historicoPreco = (pedidos, materialId) => {
   return h.sort((a, b) => (b.data||"").localeCompare(a.data||""));
 };
 
+// Mesmo histórico acima, mas para TODOS os materiais em uma única passada
+// por `pedidos` (Map materialId -> histórico ordenado). Telas que precisam
+// do histórico de vários/todos os materiais (modal de pedido linha a linha,
+// aba Histórico de preços) devem montar este Map UMA VEZ via useMemo e usar
+// `.get(materialId)`, em vez de chamar historicoPreco por material a cada
+// render - isso evita rescanear `pedidos` inteiro por material.
+const historicoPrecoTodos = (pedidos) => {
+  const porMaterial = new Map();
+  (pedidos || []).filter(p => p.status !== "cancelado").forEach(p =>
+    (p.itens||[]).forEach(i => {
+      if (!i.materialId || !(Number(i.qtdRecebida) > 0)) return;
+      const entrada = {
+        data: p.data, fornecedorId: p.fornecedorId,
+        preco: Number(i.precoUnit||0), qtd: Number(i.qtdRecebida||0),
+        pedidoId: p.id,
+      };
+      const lista = porMaterial.get(i.materialId);
+      if (lista) lista.push(entrada); else porMaterial.set(i.materialId, [entrada]);
+    })
+  );
+  porMaterial.forEach(lista => lista.sort((a, b) => (b.data||"").localeCompare(a.data||"")));
+  return porMaterial;
+};
+
 // ==============================================================
 //  COMPRAS AUTOMATIZADAS
 //  Dado um conjunto de materiais, sugere fornecedores que os servem
@@ -19446,9 +19474,10 @@ const fornecedoresParaMateriais = (data, materialIds) => {
 };
 
 // Melhor preco historico de um material (menor preco ja pago e de quem).
-const melhorPrecoHist = (pedidos, materialId, fornecedores) => {
-  const h = historicoPreco(pedidos, materialId);
-  if (!h.length) return null;
+// Recebe o historico JA calculado (ver historicoPreco/historicoPrecoTodos) -
+// quem chama e responsavel por nao rescanear pedidos a cada render.
+const melhorPrecoHist = (h, fornecedores) => {
+  if (!h || !h.length) return null;
   const menor = h.reduce((m, x) => !m || x.preco < m.preco ? x : m, null);
   const forn = (fornecedores || []).find(f => f.id === menor.fornecedorId);
   return { preco: menor.preco, fornecedor: forn?.nome || "", data: menor.data };
@@ -19521,12 +19550,13 @@ const mensagemWhatsAppCobranca = ({ empresa, fornecedorNome, obraNome, numero, p
 // preco ja pago e com a referencia SINAPI/ORSE do item, e devolve um veredito.
 // O objetivo e pegar o vazamento NA HORA - a analise de Orcado x Comprado so
 // denuncia depois que o dinheiro ja saiu.
-const guardaPreco = (pedidos, materialId, precoDigitado, fornecedores, precoRef) => {
+// Recebe o historico JA calculado (ver historicoPreco/historicoPrecoTodos) -
+// quem chama e responsavel por nao rescanear pedidos a cada render.
+const guardaPreco = (h, precoDigitado, fornecedores, precoRef) => {
   const preco = Number(precoDigitado || 0);
-  if (!(preco > 0) || !materialId) return null;
+  if (!(preco > 0)) return null;
 
-  const h = historicoPreco(pedidos, materialId);
-  const melhor = h.length ? h.reduce((m, x) => !m || x.preco < m.preco ? x : m, null) : null;
+  const melhor = h && h.length ? h.reduce((m, x) => !m || x.preco < m.preco ? x : m, null) : null;
   const ref = Number(precoRef || 0);
 
   const avisos = [];
@@ -19552,7 +19582,7 @@ const guardaPreco = (pedidos, materialId, precoDigitado, fornecedores, precoRef)
     : avisos.some(a => a.nivel === "medio") ? "medio"
     : avisos.some(a => a.nivel === "bom") ? "bom" : null;
 
-  return { nivel, avisos, melhor, compras: h.length };
+  return { nivel, avisos, melhor, compras: h ? h.length : 0 };
 };
 
 // ── SLA das solicitacoes ───────────────────────────────────────────
@@ -20762,6 +20792,15 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
     if (!ids.length || !data) return [];
     return fornecedoresParaMateriais(data, ids).slice(0, 3);
   }, [form.itens, data]);
+  // Historico de preco de TODOS os materiais, montado uma unica vez a partir
+  // de data.pedidos. Sem isso, guardaPreco/melhorPrecoHist rescaneavam
+  // data.pedidos inteiro POR LINHA do pedido A CADA TECLA digitada em
+  // qualquer campo de preco (o formulario controlado re-renderiza o modal
+  // inteiro a cada onChange).
+  const historicoPorMaterial = useMemo(
+    () => historicoPrecoTodos(data?.pedidos),
+    [data?.pedidos]
+  );
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const setItem = (i, campo, v) =>
     setForm(f => ({ ...f, itens: f.itens.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
@@ -20871,7 +20910,8 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                 {(() => {
                   // Guarda de preço: avisa NA HORA da digitação, antes de o
                   // dinheiro sair. Sem preço digitado, mostra a referência.
-                  const g = data ? guardaPreco(data.pedidos, it.materialId, it.precoUnit, fornecedores, it.precoRef) : null;
+                  const h = it.materialId ? (historicoPorMaterial.get(it.materialId) || []) : null;
+                  const g = data && it.materialId ? guardaPreco(h, it.precoUnit, fornecedores, it.precoRef) : null;
                   if (g && g.nivel) {
                     const cor = g.nivel==="alto" ? C.red : g.nivel==="medio" ? C.orange : C.green;
                     return (
@@ -20885,7 +20925,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                       </div>
                     );
                   }
-                  const mp = it.materialId && data ? melhorPrecoHist(data.pedidos, it.materialId, fornecedores) : null;
+                  const mp = it.materialId && data ? melhorPrecoHist(h, fornecedores) : null;
                   return mp ? (
                     <p style={{fontSize:9,color:C.green,marginTop:2}}>
                       melhor ja pago: {fmt(mp.preco)}{mp.fornecedor ? ` (${mp.fornecedor})` : ""}
@@ -21120,6 +21160,10 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
   const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const fornecedores= useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
+  // Historico de preco de TODOS os materiais numa unica passada por
+  // data.pedidos (usado na aba "Histórico de preços" - antes rescaneava
+  // data.pedidos inteiro por material, a cada render).
+  const historicoPorMaterial = useMemo(() => historicoPrecoTodos(data.pedidos), [data.pedidos]);
 
   useEffect(()=>{
     let ativo=true;
@@ -21141,14 +21185,14 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
       return (eb-ea)||(b.criadoEm||"").localeCompare(a.criadoEm||"");
     }),[data.solicitacoesCompra,obraAtual]);
   // Consolidacao multi-obra: mesmo material pedido por obras diferentes.
-  const consolidar=useMemo(()=>oportunidadesConsolidacao(data,today()),[data]);
+  const consolidar=useMemo(()=>oportunidadesConsolidacao(data,today()),[data.solicitacoesCompra,data.obras]);
   const solicitacoesPendentes=(data.solicitacoesCompra||[]).filter(s=>s.status==="enviada"&&obras.some(o=>o.id===s.obraId)).length;
 
-  const kpi = useMemo(() => calcCompras(data, obraAtual), [data, obraAtual]);
-  const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data, obraAtual]);
+  const kpi = useMemo(() => calcCompras(data, obraAtual), [data.pedidos, data.movEstoque, data.transacoes, obraAtual]);
+  const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data.orcamentos, data.pedidos, obraAtual]);
   // Entregas atrasadas (todas as obras visiveis) e mapa por pedido.
   const atrasados = useMemo(() => pedidosEmAtraso(data, today())
-    .filter(x => obras.some(o => o.id === x.pedido.obraId)), [data, obras]);
+    .filter(x => obras.some(o => o.id === x.pedido.obraId)), [data.pedidos, data.materiais, obras]);
   const atrasoDe = useMemo(() => { const m = {}; atrasados.forEach(x => { m[x.pedido.id] = x; }); return m; }, [atrasados]);
   // Cotacao em massa por WhatsApp: {itens:[{descricao,qtd,unidade}], titulo, materialIds}
   const [cotWpp, setCotWpp] = useState(null);
@@ -24884,6 +24928,7 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
 
   const [subindo, setSubindo] = useState(false);
   const [subindoAnexo, setSubindoAnexo] = useState(false);
+  const [refletindo, setRefletindo] = useState(false);
   const [servicoModal, setServicoModal] = useState(null);
   useEffect(()=>{const id=sessionStorage.getItem("arcd_rdo_obra");if(id&&(data.obras||[]).some(o=>o.id===id)){setObraId(id);setFiltroObraRdo(id);}sessionStorage.removeItem("arcd_rdo_obra");},[data.obras]);
 
@@ -24927,7 +24972,7 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
     const equipe=(item.presencas||[]).filter(p=>p.status!=="falta").map(p=>(data.employees||[]).find(e=>e.id===p.empId)?.name).filter(Boolean);
     const fotos=(item.fotos||[]).map(f=>`<figure><img src="${escapeHtml(f.url)}"><figcaption>${escapeHtml(f.legenda||"")}</figcaption></figure>`).join("");
     const clima=Object.entries(item.clima||{}).map(([p,v])=>`${p}: ${CLIMA_OPC.find(x=>x.v===v)?.l||v}`).join(" · ");
-    const html=`<!doctype html><html><head><meta charset="utf-8"><title>RDO ${item.codigo}</title><style>body{font-family:Arial;margin:32px;color:#222}header{border-bottom:3px solid #d4a91e;padding-bottom:12px}h1{font-size:22px}h2{font-size:14px;margin-top:20px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:12px}.box{white-space:pre-wrap;background:#f6f6f6;padding:10px}figure{display:inline-block;width:30%;margin:1%;vertical-align:top}img{width:100%;height:150px;object-fit:cover}figcaption{font-size:10px}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><header><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")} · RDO ${item.codigo}</h1><b>${escapeHtml(obra?.name||"")}</b><p>${escapeHtml(obra?.address||"")}</p></header><div class="meta"><p><b>Data:</b> ${fmtDate(item.data)}</p><p><b>Status:</b> ${item.status==="concluido"?"Concluído":"Em preparação"}</p><p><b>Clima:</b> ${escapeHtml(clima)}</p><p><b>Responsável:</b> ${escapeHtml(item.responsavel||"-")}</p><p><b>Equipe:</b> ${equipe.length}</p></div><h2>Descrição e atividades</h2><div class="box">${escapeHtml(item.descricao||"")}</div><h2>Ocorrências</h2><div class="box">${escapeHtml(item.ocorrencias||"")}</div><h2>Pendências</h2><div class="box">${escapeHtml(item.pendencias||"")}</div>${fotos?`<h2>Registro fotográfico</h2>${fotos}`:""}</body></html>`;
+    const html=`<!doctype html><html><head><meta charset="utf-8"><title>RDO ${item.codigo}</title><style>body{font-family:Arial;margin:32px;color:#222}header{border-bottom:3px solid #d4a91e;padding-bottom:12px}h1{font-size:22px}h2{font-size:14px;margin-top:20px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:12px}.box{white-space:pre-wrap;background:#f6f6f6;padding:10px}.ia{white-space:pre-wrap;background:#f3f7ff;border-left:4px solid #1565c0;padding:12px}figure{display:inline-block;width:30%;margin:1%;vertical-align:top}img{width:100%;height:150px;object-fit:cover}figcaption{font-size:10px}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><header><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")} · RDO ${item.codigo}</h1><b>${escapeHtml(obra?.name||"")}</b><p>${escapeHtml(obra?.address||"")}</p></header><div class="meta"><p><b>Data:</b> ${fmtDate(item.data)}</p><p><b>Status:</b> ${item.status==="concluido"?"Concluído":"Em preparação"}</p><p><b>Clima:</b> ${escapeHtml(clima)}</p><p><b>Responsável:</b> ${escapeHtml(item.responsavel||"-")}</p><p><b>Equipe:</b> ${equipe.length}</p></div><h2>Descrição e atividades</h2><div class="box">${escapeHtml(item.descricao||"")}</div><h2>Ocorrências</h2><div class="box">${escapeHtml(item.ocorrencias||"")}</div><h2>Pendências</h2><div class="box">${escapeHtml(item.pendencias||"")}</div>${fotos?`<h2>Registro fotográfico</h2>${fotos}`:""}${item.reflexaoIA?.texto?`<h2>Reflexão técnica por IA</h2><div class="ia">${escapeHtml(item.reflexaoIA.texto)}</div>`:""}</body></html>`;
     const w=window.open("","_blank"); if(w){w.opener=null;w.document.write(html);w.document.close();}else showToast?.("O navegador bloqueou a janela do relatório. Permita pop-ups para este site.","error");
   };
 
@@ -25044,6 +25089,25 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
     r.fotos = (r.fotos || []).map(f => f.url === url ? { ...f, legenda } : f);
     return r;
   });
+
+  const refletirRdo = async () => {
+    if(!(rdo.fotos||[]).length){showToast?.("Adicione ao menos uma foto para a IA analisar.","error");return;}
+    setRefletindo(true);
+    try{
+      const imagens=(await Promise.all((rdo.fotos||[]).slice(0,6).map(async foto=>{
+        try{const resp=await fetch(foto.url,{credentials:"include"});if(!resp.ok)return null;const blob=await resp.blob();return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({dataUrl:reader.result,legenda:foto.legenda||""});reader.onerror=reject;reader.readAsDataURL(blob);});}catch{return null;}
+      }))).filter(Boolean);
+      if(!imagens.length)throw new Error("Não foi possível carregar as imagens para análise.");
+      const obraAtual=(data.obras||[]).find(o=>o.id===obraId);
+      const contexto={obra:{nome:obraAtual?.name,endereco:obraAtual?.address,areaM2:obraAtual?.areaM2},rdo:{codigo:rdo.codigo,data:rdo.data,clima:rdo.clima,descricao:rdo.descricao,ocorrencias:rdo.ocorrencias,pendencias:rdo.pendencias,comentarios:rdo.comentarios,servicos:(rdo.servicos||[]).map(s=>({descricao:tarefas.find(t=>t.id===s.tarefaId)?.nome||s.descricao,progressoAte:s.progressoAte,observacao:s.obs})),presencas:{presentes,meios,faltas:(rdo.presencas||[]).filter(p=>p.status==="falta").length},terceirizados:(rdo.terceirizados||[]).length,equipamentos:(rdo.equipamentos||[]).map(e=>({nome:(data.equipamentos||[]).find(x=>x.id===e.equipId)?.nome||e.nome,horas:e.horas})),legendas:imagens.map(x=>x.legenda)}};
+      const prompt="Analise conjuntamente os dados e TODAS as imagens deste Diário de Obra. Produza um panorama técnico do dia com: 1) resumo executivo; 2) evidências visuais observáveis em cada foto, sem inventar; 3) coerência entre fotos e serviços declarados; 4) avanço aparente e frentes ativas; 5) qualidade, inconformidades e patologias visíveis; 6) segurança, organização, armazenamento e boas práticas; 7) riscos e possíveis itens faltantes; 8) prioridades para o próximo dia. Diferencie claramente fato observado, indício e dado não verificável. Não dê laudo definitivo apenas por imagem. Seja objetivo, mas completo.";
+      const resp=await fetch("/api/ai-agent",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({prompt,contexto,imagens})});
+      const json=await resp.json().catch(()=>({}));if(!resp.ok)throw new Error(json.error||"A IA não respondeu.");
+      const texto=json.reply||json.answer;if(!texto)throw new Error("A IA não retornou um diagnóstico.");
+      salvarRDO(item=>({...item,reflexaoIA:{texto,geradoEm:new Date().toISOString(),geradoPor:currentUser?.nome||"",fotosAnalisadas:imagens.length},atualizadoEm:new Date().toISOString()}));
+      showToast?.("Reflexão técnica gerada e salva no diário.");
+    }catch(err){showToast?.(err.message||"Falha ao analisar o diário.","error");}finally{setRefletindo(false);}
+  };
 
   const presentes = (rdo.presencas || []).filter(p => p.status === "presente").length;
   const meios = (rdo.presencas || []).filter(p => p.status === "meio").length;
@@ -25360,6 +25424,10 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
                    disabled={subindo} style={{ display: "none" }} />
           </label>
         </div>
+      </Bloco>
+
+      <Bloco titulo="Reflexão técnica por IA" acao={<Btn v="info" size="sm" onClick={refletirRdo} disabled={refletindo||!(rdo.fotos||[]).length}><Ic n="brain"/> {refletindo?"Analisando imagens...":rdo.reflexaoIA?.texto?"Refletir novamente":"Refletir"}</Btn>}>
+        {!rdo.reflexaoIA?.texto?<div style={{padding:"10px 12px",border:`1px dashed ${C.blue}55`,borderRadius:8,background:`${C.blue}08`}}><p style={{fontSize:11.5,color:C.subtle,lineHeight:1.55}}>A IA cruza as fotos com clima, serviços, efetivo, ocorrências, equipamentos e pendências para produzir o panorama técnico do dia. A análise é apoio à decisão e não substitui vistoria ou laudo profissional.</p></div>:<div style={{background:`${C.blue}07`,border:`1px solid ${C.blue}35`,borderRadius:9,padding:"12px 13px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:8,flexWrap:"wrap"}}><b style={{fontSize:11,color:C.blue}}>DIAGNÓSTICO E PANORAMA DO DIA</b><span style={{fontSize:9.5,color:C.muted}}>{rdo.reflexaoIA.fotosAnalisadas} foto(s) · {rdo.reflexaoIA.geradoEm?new Date(rdo.reflexaoIA.geradoEm).toLocaleString("pt-BR"):""}</span></div><div style={{whiteSpace:"pre-wrap",fontSize:11.5,lineHeight:1.65,color:C.text}}>{rdo.reflexaoIA.texto}</div></div>}
       </Bloco>
 
       {/* MODAL SERVICO */}
