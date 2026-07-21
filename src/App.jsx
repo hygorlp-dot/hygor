@@ -14336,6 +14336,8 @@ function Orcamento({ data, update, showToast, obraIdFixo="" }) {
   const [buscaRemotaLoading, setBuscaRemotaLoading] = useState(false);
   const [buscaRemotaAviso, setBuscaRemotaAviso] = useState("");
   const [atualizandoPrecos, setAtualizandoPrecos] = useState(false);
+  const [basesPainelAberto,setBasesPainelAberto]=useState(false);
+  const [basesSubAba,setBasesSubAba]=useState("oficiais");
   const [codigoAtualizando, setCodigoAtualizando] = useState("");
   const [componentesDetalhados,setComponentesDetalhados]=useState([]);
   const [detalhesLoading,setDetalhesLoading]=useState(false);
@@ -16834,8 +16836,19 @@ ${blocoBDI}
         )}
       </div>
 
+      {/* Centro técnico de bases: fica resumido para a planilha continuar sendo o foco. */}
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
+        <button onClick={()=>setBasesPainelAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"11px 13px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,cursor:"pointer",textAlign:"left"}}>
+          <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}><span style={{width:31,height:31,borderRadius:8,display:"grid",placeItems:"center",background:`${C.blue}10`,color:C.blue,flexShrink:0}}><Ic n="box" s={15}/></span><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:850,color:C.text}}>Bases e preços</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{basesVinculadas.length} vinculada(s) · {basesRemotas.length} disponível(is) · atualização automática por código</p></div></div>
+          <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>{basesVinculadas.length>0&&<span style={{fontSize:9,fontWeight:800,color:C.green,background:`${C.green}12`,padding:"3px 7px",borderRadius:99}}>OPERACIONAL</span>}<Ic n={basesPainelAberto?"chevron":"chevR"} s={15} color={C.muted}/></div>
+        </button>
+      </div>
+
+      {basesPainelAberto&&<>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:4}}>{[["oficiais","Bases oficiais e vínculos"],["local","Importação local temporária"]].map(([id,label])=><button key={id} onClick={()=>setBasesSubAba(id)} style={{border:`1px solid ${basesSubAba===id?C.blue:C.border}`,background:basesSubAba===id?`${C.blue}10`:C.card,color:basesSubAba===id?C.blue:C.muted,borderRadius:6,padding:"7px 9px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
+
       {/* Referências persistentes do orçamento */}
-      <div style={{background:C.card,border:`1.5px solid ${C.blue}55`,borderLeft:`5px solid ${C.blue}`,borderRadius:8,padding:"13px 14px",display:"flex",flexDirection:"column",gap:11}}>
+      {basesSubAba==="oficiais"&&<div style={{background:C.card,border:`1.5px solid ${C.blue}55`,borderLeft:`5px solid ${C.blue}`,borderRadius:8,padding:"13px 14px",display:"flex",flexDirection:"column",gap:11}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
           <div style={{minWidth:0,flex:1}}>
             <p style={{fontSize:14,fontWeight:800,color:C.text}}>Bases de referência no Supabase</p>
@@ -16878,10 +16891,10 @@ ${blocoBDI}
         {uploadProgresso>0 && <div><div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:C.muted,marginBottom:3}}><span>Enviando composições em lotes</span><strong>{uploadProgresso}%</strong></div><div style={{height:7,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${uploadProgresso}%`,background:C.blue,transition:"width .2s"}}/></div></div>}
         {basesDisponiveis.length>0 && <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Sel label="Vincular uma base já cadastrada" value={baseParaVincular} onChange={setBaseParaVincular} options={[{v:"",l:"Selecione"},...basesDisponiveis.map(base=>({v:base.id,l:`${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""} · ${base.total||"oficial"}`}))]}/><Btn size="sm" v="info" disabled={!baseParaVincular} onClick={vincularBaseExistente}>Vincular</Btn></div>}
         <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente.</p>
-      </div>
+      </div>}
 
       {/* Importação local temporária */}
-      <div style={{background:baseImport.length>0?`${C.green}06`:C.surface,border:`1.5px dashed ${baseImport.length>0?C.green:C.border}`,borderRadius:8,padding:"12px 14px"}}>
+      {basesSubAba==="local"&&<div style={{background:baseImport.length>0?`${C.green}06`:C.surface,border:`1.5px dashed ${baseImport.length>0?C.green:C.border}`,borderRadius:8,padding:"12px 14px"}}>
         {importando ? (
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"4px 0"}}>
             <div style={{width:18,height:18,border:`3px solid ${C.border}`,borderTopColor:C.yellow,borderRadius:"50%",animation:"spin 1s linear infinite",flexShrink:0}}/>
@@ -16979,7 +16992,8 @@ ${blocoBDI}
              {(data.baseFavoritos||[]).length} composição(ões) na sua base de favoritos (sempre disponível, sem reimportar)
           </p>
         )}
-      </div>
+      </div>}
+      </>}
 
       {/* Árvore de etapas + itens */}
       {(() => {
@@ -20335,7 +20349,8 @@ function Suprimentos({ data, update, showToast, onTab }) {
   const [filtroClasse, setFiltroClasse] = useState("todas");
   const [cotModal, setCotModal] = useState(null);   // {codigo, descricao, unidade}
 
-  const curva = useMemo(() => calcCurvaMateriais(data, today()), [data]);
+  const curva = useMemo(() => calcCurvaMateriais(data, today()),
+    [data.obras, data.planos, data.orcamentos, data.cotacoesMaterial]);
 
   const fornecedores = data.fornecedores || [];
   const fornName = id => fornecedores.find(f=>f.id===id)?.nome || "";
@@ -21240,6 +21255,14 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
     [data.cotacoes, obraAtual]
   );
 
+  // Maps id->registro, montados uma vez, para as linhas de Pedidos e
+  // Solicitações não fazerem .find() em data.fornecedores/obras/materiais/
+  // pedidos por linha renderizada (era O(n) por linha, agora O(1)).
+  const fornecedorPorId = useMemo(() => new Map((data.fornecedores||[]).map(f => [f.id, f])), [data.fornecedores]);
+  const obraPorId       = useMemo(() => new Map((data.obras||[]).map(o => [o.id, o])), [data.obras]);
+  const materialPorId   = useMemo(() => new Map((data.materiais||[]).map(m => [m.id, m])), [data.materiais]);
+  const pedidoPorId     = useMemo(() => new Map((data.pedidos||[]).map(p => [p.id, p])), [data.pedidos]);
+
   //  Fornecedor 
   const salvarForn = (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome do fornecedor.", "error"); return; }
@@ -21566,7 +21589,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
         )}
         {!solicitacoes.length?<p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>Nenhuma solicitação para esta obra.</p>:solicitacoes.map(sol=>{
           const status={enviada:{l:"NOVA · AGUARDANDO COMPRAS",c:C.orange},em_analise:{l:"EM ANÁLISE",c:C.blue},pedido_gerado:{l:"PEDIDO GERADO",c:C.green},cancelada:{l:"CANCELADA",c:C.red}}[sol.status]||{l:sol.status,c:C.muted};
-          const pedido=(data.pedidos||[]).find(p=>p.id===sol.pedidoId);
+          const pedido=pedidoPorId.get(sol.pedidoId);
           const sla=slaSolicitacao(sol,today());
           const corBorda=sla&&sla.status==="estourado"?C.red:status.c;
           return <div key={sol.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${corBorda}`,borderRadius:6,padding:"10px 12px"}}>
@@ -21687,9 +21710,9 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
                     <Btn size="sm" v="danger" onClick={()=>cancelarPedido(p)}>x</Btn>
                   )}
                   {atrasoDe[p.id]&&(()=>{
-                    const forn=(data.fornecedores||[]).find(f=>f.id===p.fornecedorId);
+                    const forn=fornecedorPorId.get(p.fornecedorId);
                     if(!forn?.telefone)return null;
-                    const obra=(data.obras||[]).find(o=>o.id===p.obraId);
+                    const obra=obraPorId.get(p.obraId);
                     const texto=mensagemWhatsAppCobranca({
                       empresa:"ARCD Construtech",fornecedorNome:forn.nome,obraNome:obra?.name||"",
                       numero:p.numero,previsao:fmtDate(p.previsao),
@@ -21700,11 +21723,11 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
                     </a>;
                   })()}
                   {st !== "cancelado" && st !== "recebido" && (() => {
-                    const forn = (data.fornecedores||[]).find(f => f.id === p.fornecedorId);
+                    const forn = fornecedorPorId.get(p.fornecedorId);
                     if (!forn?.telefone) return null;
-                    const obra = (data.obras||[]).find(o => o.id === p.obraId);
+                    const obra = obraPorId.get(p.obraId);
                     const itensMsg = (p.itens||[]).map(i => {
-                      const mat = (data.materiais||[]).find(m => m.id === i.materialId);
+                      const mat = materialPorId.get(i.materialId);
                       return { descricao: mat?.descricao || "Material", qtd: i.qtd, unidade: mat?.unidade || "" };
                     });
                     const texto = mensagemWhatsAppCompra({
@@ -21963,7 +21986,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
           </p>
         </div>
         {materiais.map(m => {
-          const h = historicoPreco(data.pedidos, m.id);
+          const h = historicoPorMaterial.get(m.id) || [];
           const a = analisePreco(h);
           if (!a) return null;
           const caro = a.variacao > 5;
@@ -26925,7 +26948,8 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="" }) {
   // ── Reposicao automatica por estoque minimo ─────────────────────
   // O minimo deixou de ser cosmetico: tudo que esta abaixo dele em qualquer
   // obra vira solicitacao de compra pre-preenchida com um toque.
-  const abaixoMin = useMemo(() => materiaisAbaixoMinimo(data), [data]);
+  const abaixoMin = useMemo(() => materiaisAbaixoMinimo(data),
+    [data.movEstoque, data.materiais, data.obras]);
   const gerarReposicao = () => {
     if (!abaixoMin.length) return;
     const porObra = {};
