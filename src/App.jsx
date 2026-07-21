@@ -18070,7 +18070,14 @@ ${blocoBDI}
               return <div key={comp.id} style={{border:`1px solid ${compForm.id===comp.id?C.blue:C.border}`,borderRadius:7,padding:"8px 9px",background:compForm.id===comp.id?`${C.blue}08`:C.surface}}>
                 <p style={{fontSize:10,fontWeight:800,color:C.blue}}>{comp.codigo} · {comp.unidade}</p>
                 <p title={comp.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{comp.descricao}</p>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5}}><b style={{fontSize:11,color:C.yellowD}}>{fmt(custo)}</b><span><button onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{border:0,background:"transparent",color:C.blue,fontSize:9.5,cursor:"pointer"}}>EDITAR</button><button title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} style={{border:0,background:"transparent",color:C.green,fontSize:9.5,cursor:"pointer"}}>DUPLICAR</button><button onClick={()=>excluirComposicaoPropria(comp)} style={{border:0,background:"transparent",color:C.red,fontSize:9.5,cursor:"pointer"}}>EXCLUIR</button></span></div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:8,flexWrap:"wrap"}}>
+                  <b style={{fontSize:11,color:C.yellowD}}>{fmt(custo)}</b>
+                  <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+                    <button onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.blue}55`,borderRadius:6,background:`${C.blue}09`,color:C.blue,fontSize:9,fontWeight:800,cursor:"pointer"}}><Ic n="edit" s={11}/> EDITAR</button>
+                    <button title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.green}55`,borderRadius:6,background:`${C.green}09`,color:C.green,fontSize:9,fontWeight:800,cursor:"pointer"}}><Ic n="copy" s={11}/> DUPLICAR</button>
+                    <button onClick={()=>excluirComposicaoPropria(comp)} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.red}44`,borderRadius:6,background:`${C.red}08`,color:C.red,fontSize:9,fontWeight:800,cursor:"pointer"}}><Ic n="trash" s={11}/> EXCLUIR</button>
+                  </div>
+                </div>
               </div>;
             })}{!composicoesEmpresa.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:14}}>Nenhuma composição da empresa.</p>}</div>
           </div>
