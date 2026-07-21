@@ -23024,9 +23024,9 @@ function Planejamento({ data, update, showToast }) {
 
               {/* Linhas de dependência (antecessora → sucessora).
                   Fim da antecessora até o início da sucessora, no padrão
-                  término-início. Curva bezier suave (evita sobreposição).
-                  Vermelho quando crítica (caminho crítico: folga zero entre as duas pontas),
-                  cinza no resto. Clique na linha para editar os vinculos. */}
+                  término-início. Padrão técnico: linha reta com cotovelo suave
+                  apenas quando muda de altura. Vermelho se crítica (caminho crítico: folga zero),
+                  cinza no resto. Clique na linha para editar os vínculos. */}
               {(() => {
                 const idxDe = {};
                 tarefas.forEach((t, i) => { idxDe[t.id] = i; });
@@ -23061,16 +23061,20 @@ function Planejamento({ data, update, showToast }) {
                               orient="auto" markerUnits="userSpaceOnUse">
                         <path d="M0,0 L6.5,3.2 L0,6.4 Z" fill={C.red} />
                       </marker>
-                      <filter id="shadowDep">
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
-                      </filter>
                     </defs>
                     {linhas.map(l => {
-                      // Curva bezier suave: sai à direita da antecessora,
-                      // curva gradual até a sucessora. Controle de pontos
-                      // espalhados para evitar sobreposição.
-                      const distH = Math.max(40, (l.x2 - l.x1) * 0.35);
-                      const d = `M ${l.x1} ${l.y1} C ${l.x1 + distH} ${l.y1}, ${l.x2 - distH} ${l.y2}, ${l.x2 - 2} ${l.y2}`;
+                      // Padrão técnico: linha reta até o meio, depois cotovelo suave
+                      // só se houver mudança de altura (y1 != y2).
+                      const meio = l.x2 > l.x1 + 12 ? (l.x1 + l.x2) / 2 : l.x1 + 8;
+                      let d;
+                      if (l.y1 === l.y2) {
+                        // Mesma altura: linha reta horizontal
+                        d = `M ${l.x1} ${l.y1} H ${l.x2 - 2}`;
+                      } else {
+                        // Alturas diferentes: cotovelo com curva suave no canto
+                        // (quadratic Bézier para transição mais suave que ângulo reto)
+                        d = `M ${l.x1} ${l.y1} H ${meio} Q ${meio} ${(l.y1 + l.y2) / 2} ${meio} ${l.y2} H ${l.x2 - 2}`;
+                      }
                       return (
                         <g key={l.key} opacity={l.critica ? 0.95 : 0.6} style={{ cursor: "pointer" }}>
                           {/* Camada invisível grossa para facilitar click */}
@@ -23083,8 +23087,6 @@ function Planejamento({ data, update, showToast }) {
                           <path d={d} fill="none"
                                 stroke={l.critica ? C.red : cInc}
                                 strokeWidth={l.critica ? 2 : 1.3}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
                                 strokeDasharray={l.critica ? "none" : "3 2"}
                                 markerEnd={l.critica ? "url(#setaDepC)" : "url(#setaDep)"}
                                 style={{ pointerEvents: "none" }} />
