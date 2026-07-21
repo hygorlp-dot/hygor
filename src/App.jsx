@@ -22779,10 +22779,12 @@ function Planejamento({ data, update, showToast }) {
           </div>
         ) : (
           <>
-            {/* Barra horizontal superior: fica sempre acessivel mesmo em cronogramas longos. */}
+            {/* Barra horizontal superior: fica sempre acessivel mesmo em cronogramas longos.
+                Sincronizada com a rolagem principal. */}
             <div ref={ganttTopScrollRef} onScroll={()=>sincronizarRolagemGantt("topo")}
-                 style={{overflowX:"auto",overflowY:"hidden",height:17,borderBottom:`1px solid ${C.line}`,
-                         scrollbarGutter:"stable",background:C.surface}}>
+                 style={{overflowX:"auto",overflowY:"hidden",height:20,borderBottom:`1px solid ${C.line}`,
+                         scrollbarGutter:"stable",background:`linear-gradient(180deg, ${C.surface}, ${C.card})`,
+                         boxShadow:`inset 0 -1px 0 ${C.line}88`}}>
               <div style={{width:LARGURA_TOTAL_GANTT,height:1}} />
             </div>
             <div ref={ganttScrollRef} onScroll={()=>sincronizarRolagemGantt("corpo")}
@@ -23022,9 +23024,9 @@ function Planejamento({ data, update, showToast }) {
 
               {/* Linhas de dependência (antecessora → sucessora).
                   Fim da antecessora até o início da sucessora, no padrão
-                  término-início. Curva ortogonal com seta. Vermelho quando o
-                  vínculo pertence ao caminho crítico (as duas pontas críticas
-                  e sem folga entre elas), cinza no resto. */}
+                  término-início. Curva bezier suave (evita sobreposição).
+                  Vermelho quando crítica (caminho crítico: folga zero entre as duas pontas),
+                  cinza no resto. Clique na linha para editar os vinculos. */}
               {(() => {
                 const idxDe = {};
                 tarefas.forEach((t, i) => { idxDe[t.id] = i; });
@@ -23036,14 +23038,12 @@ function Planejamento({ data, update, showToast }) {
                     const ant = tarefas.find(x => x.id === depId);
                     if (!ant || ant.titulo || idxDe[depId] == null) return;
                     // Fim visual da barra = início do último dia + 1 célula.
-                    // xDeData(fim) já é a posição do último dia; soma-se só uma
-                    // célula (não a duração inteira, que duplicaria a contagem).
                     const x1 = xDeData(ant.fim) + pxPorDia;
                     const y1 = yBarra(idxDe[depId]);
                     const x2 = xDeData(suc.inicio);
                     const y2 = yBarra(idxDe[suc.id]);
                     const critica = critico.criticas.includes(depId) && critico.criticas.includes(suc.id);
-                    linhas.push({ x1, y1, x2, y2, critica, key: `${depId}-${suc.id}` });
+                    linhas.push({ x1, y1, x2, y2, critica, antId: depId, sucId: suc.id, key: `${depId}-${suc.id}` });
                   });
                 });
                 if (!linhas.length) return null;
@@ -23051,7 +23051,7 @@ function Planejamento({ data, update, showToast }) {
                 return (
                   <svg style={{ position: "absolute", left: 0, top: 0, width: larguraGrade,
                                 height: ALTURA_REGUA + tarefas.length * ALTURA_LINHA,
-                                pointerEvents: "none", zIndex: 2, overflow: "hidden" }}>
+                                pointerEvents: "auto", zIndex: 2, overflow: "hidden" }}>
                     <defs>
                       <marker id="setaDep" markerWidth="7" markerHeight="7" refX="5.5" refY="3"
                               orient="auto" markerUnits="userSpaceOnUse">
@@ -23061,20 +23061,34 @@ function Planejamento({ data, update, showToast }) {
                               orient="auto" markerUnits="userSpaceOnUse">
                         <path d="M0,0 L6.5,3.2 L0,6.4 Z" fill={C.red} />
                       </marker>
+                      <filter id="shadowDep">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+                      </filter>
                     </defs>
                     {linhas.map(l => {
-                      // Cotovelo: sai à direita da antecessora, desce/sobe, entra
-                      // pela esquerda da sucessora. Um respiro de 8px evita que a
-                      // linha cole na barra.
-                      const meio = l.x2 > l.x1 + 12 ? (l.x1 + l.x2) / 2 : l.x1 + 8;
-                      const d = `M ${l.x1} ${l.y1} H ${meio} V ${l.y2} H ${l.x2 - 2}`;
+                      // Curva bezier suave: sai à direita da antecessora,
+                      // curva gradual até a sucessora. Controle de pontos
+                      // espalhados para evitar sobreposição.
+                      const distH = Math.max(40, (l.x2 - l.x1) * 0.35);
+                      const d = `M ${l.x1} ${l.y1} C ${l.x1 + distH} ${l.y1}, ${l.x2 - distH} ${l.y2}, ${l.x2 - 2} ${l.y2}`;
                       return (
-                        <path key={l.key} d={d} fill="none"
-                              stroke={l.critica ? C.red : cInc}
-                              strokeWidth={l.critica ? 2 : 1.3}
-                              strokeDasharray={l.critica ? "none" : "3 2"}
-                              markerEnd={l.critica ? "url(#setaDepC)" : "url(#setaDep)"}
-                              opacity={l.critica ? 0.95 : 0.6} />
+                        <g key={l.key} opacity={l.critica ? 0.95 : 0.6} style={{ cursor: "pointer" }}>
+                          {/* Camada invisível grossa para facilitar click */}
+                          <path d={d} fill="none" stroke="transparent" strokeWidth="16" style={{ pointerEvents: "stroke" }}
+                                onClick={() => {
+                                  const suc = tarefas.find(x => x.id === l.sucId);
+                                  if (suc) setTarefaModal({ modo: "editar", tarefa: suc });
+                                }} />
+                          {/* Linha visível */}
+                          <path d={d} fill="none"
+                                stroke={l.critica ? C.red : cInc}
+                                strokeWidth={l.critica ? 2 : 1.3}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeDasharray={l.critica ? "none" : "3 2"}
+                                markerEnd={l.critica ? "url(#setaDepC)" : "url(#setaDep)"}
+                                style={{ pointerEvents: "none" }} />
+                        </g>
                       );
                     })}
                   </svg>
