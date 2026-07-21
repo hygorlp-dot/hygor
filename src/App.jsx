@@ -27653,7 +27653,8 @@ td{padding:6px 10px;border-bottom:1px solid #eee;font-size:11px}
 const CATS_DESP = [
   { v:"aluguel",        l:"Aluguel / Sede",           grupo:"admin" },
   { v:"pessoal_admin",  l:"Pessoal Administrativo",   grupo:"admin" },
-  { v:"contabilidade",  l:"Contabilidade / Honorários",grupo:"admin" },
+  { v:"terceiros",      l:"Terceiros",                 grupo:"admin" },
+  { v:"contabilidade",  l:"Honorários Contábeis e Advocatícios",grupo:"admin" },
   { v:"energia",        l:"Energia / Água / Internet", grupo:"admin" },
   { v:"comunicacao",    l:"Telefone / Comunicação",    grupo:"admin" },
   { v:"material_adm",   l:"Material de Escritório",    grupo:"admin" },
