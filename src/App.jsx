@@ -19539,6 +19539,44 @@ const calcCurvaABC = (movs, materiais) => {
   });
 };
 
+// Curva ABC por COMPOSICAO (servico executado).
+//
+// A curva de insumos acima nunca mostra composicao: executar "120 m2 de
+// alvenaria" nao gera movimento de "alvenaria", gera consumo de cimento,
+// areia e bloco. O servico se dissolve nos insumos. Aqui ele e remontado:
+// todo consumo gerado por "Executar servico" carrega servicoId, entao basta
+// agrupar por ele para saber quanto cada SERVICO custou de material.
+// Consumo avulso (baixa manual, sem servico) ganha linha propria - se ficasse
+// de fora, a curva mentiria sobre o total gasto.
+const calcCurvaABCServicos = (movs, composicoes) => {
+  const val = {};
+  (movs || []).filter(x => x.tipo === "consumo").forEach(x => {
+    const k = x.servicoId || "__avulso__";
+    if (!val[k]) val[k] = { valor: 0, execucoes: new Set() };
+    val[k].valor += Number(x.qtd || 0) * Number(x.valorUnit || 0);
+    if (x.servicoId) val[k].execucoes.add(`${x.data}|${x.descricao}`);
+  });
+
+  const lista = Object.entries(val)
+    .map(([id, v]) => ({
+      id, valor: v.valor, execucoes: v.execucoes.size,
+      avulso: id === "__avulso__",
+      nome: id === "__avulso__"
+        ? "Consumo avulso (sem composicao)"
+        : (composicoes || []).find(c => c.id === id)?.nome || "Composicao removida",
+    }))
+    .filter(x => x.valor > 0)
+    .sort((a, b) => b.valor - a.valor);
+
+  const total = lista.reduce((s, x) => s + x.valor, 0);
+  let acum = 0;
+  return lista.map(x => {
+    acum += x.valor;
+    const pct = total ? (acum / total) * 100 : 0;
+    return { ...x, pctAcum: pct, classe: pct <= 80 ? "A" : pct <= 95 ? "B" : "C" };
+  });
+};
+
 // ============================================================================
 //  SUPRIMENTOS - Curva de necessidade de materiais + comparação de preços +
 //  alertas de pesquisa por curva ABC + sugestão de fornecedor.
@@ -25687,6 +25725,13 @@ function Estoque({ data, update, showToast, currentUser }) {
     [data.movEstoque, materiais, obraAtual]
   );
 
+  // Curva ABC por composição/serviço executado (consumo agrupado por servicoId).
+  const [abcModo, setAbcModo] = useState("insumo");   // insumo | composicao
+  const abcServicos = useMemo(
+    () => calcCurvaABCServicos((data.movEstoque||[]).filter(x => !obraAtual || x.obraId === obraAtual), data.composicoes),
+    [data.movEstoque, data.composicoes, obraAtual]
+  );
+
   const movs = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return (data.movEstoque||[])
@@ -25809,13 +25854,22 @@ function Estoque({ data, update, showToast, currentUser }) {
     }
 
     const quando = dataExec || new Date().toISOString().slice(0,10);
+    // Valoracao do consumo. Sem precoMedio cadastrado o movimento sairia
+    // valendo ZERO - e o servico sumiria da curva ABC como se nao tivesse
+    // custado nada. Por isso caimos no ultimo preco efetivamente pago.
+    const valorarMaterial = (materialId) => {
+      const pm = Number(matPorId(materialId)?.precoMedio || 0);
+      if (pm > 0) return pm;
+      const h = historicoPreco(data.pedidos, materialId);
+      return h.length ? Number(h[0].preco || 0) : 0;
+    };
     const novos = baixas.map(b => ({
       id: uid(),
       obraId,
       materialId: b.materialId,
       tipo: "consumo",
       qtd: b.qtd,
-      valorUnit: Number(matPorId(b.materialId)?.precoMedio || 0),
+      valorUnit: valorarMaterial(b.materialId),
       data: quando,
       descricao: `${qtdExec} ${comp.unidade} de ${comp.nome}`,
       transacaoId: "",
@@ -26052,20 +26106,43 @@ function Estoque({ data, update, showToast, currentUser }) {
       </>)}
 
       {/*  CURVA ABC  */}
-      {aba === "abc" && (
-        abc.length === 0
-          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>
-              Sem consumo registrado ainda.
+      {aba === "abc" && (()=>{
+        const lista = abcModo==="composicao" ? abcServicos : abc;
+        return (<>
+          {/* O consumo de estoque só registra INSUMO. O serviço é remontado
+              agrupando os consumos pelo servicoId que eles carregam. */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+            {[["insumo","Por insumo"],["composicao","Por composição"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setAbcModo(v)} style={{
+                padding:"8px 6px",borderRadius:6,cursor:"pointer",
+                border:`2px solid ${abcModo===v?C.yellow:C.border}`,
+                background:abcModo===v?`${C.yellow}12`:"transparent",
+                color:abcModo===v?C.text:C.muted,
+                fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:11.5,
+              }}>{l}</button>
+            ))}
+          </div>
+
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
+            <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
+              <strong style={{color:C.text}}>A</strong> = os poucos que valem 80% do gasto - controle rigoroso.
+              <strong style={{color:C.text}}> B</strong> = 15%. <strong style={{color:C.text}}>C</strong> = os muitos que
+              valem 5% - não vale a pena vigiar.
             </p>
-          : (<>
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-              <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
-                <strong style={{color:C.text}}>A</strong> = os poucos que valem 80% do gasto - controle rigoroso.
-                <strong style={{color:C.text}}> B</strong> = 15%. <strong style={{color:C.text}}>C</strong> = os muitos que
-                valem 5% - não vale a pena vigiar.
+            <p style={{fontSize:10,color:C.subtle,lineHeight:1.5,marginTop:6}}>
+              {abcModo==="composicao"
+                ? "Serviços executados, com o material que cada um consumiu. Executar um serviço baixa os insumos da composição - aqui eles voltam a ser somados sob o serviço que os consumiu."
+                : "Insumos consumidos na obra. Um serviço não aparece aqui: ele se dissolve nos insumos que baixou. Para vê-lo inteiro, use Por composição."}
+            </p>
+          </div>
+
+          {lista.length===0
+            ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>
+                {abcModo==="composicao"
+                  ? <>Nenhum serviço executado ainda.<br/>Use <strong>Executar serviço</strong> para baixar uma composição - ela passa a aparecer aqui.</>
+                  : "Sem consumo registrado ainda."}
               </p>
-            </div>
-            {abc.map(x => {
+            : lista.map(x => {
               const cor = x.classe === "A" ? C.red : x.classe === "B" ? C.orange : C.muted;
               return (
                 <div key={x.id} style={{background:C.card,border:`1px solid ${C.border}`,
@@ -26074,7 +26151,12 @@ function Estoque({ data, update, showToast, currentUser }) {
                     <span style={{width:22,height:22,borderRadius:5,background:`${cor}18`,color:cor,
                                   display:"flex",alignItems:"center",justifyContent:"center",
                                   fontWeight:900,fontSize:11,flexShrink:0}}>{x.classe}</span>
-                    <p className="brk" style={{fontSize:12,fontWeight:600,color:C.text,minWidth:0}}>{x.nome}</p>
+                    <div style={{minWidth:0}}>
+                      <p className="brk" style={{fontSize:12,fontWeight:600,color:x.avulso?C.muted:C.text}}>{x.nome}</p>
+                      {abcModo==="composicao"&&!x.avulso&&x.execucoes>0&&(
+                        <p style={{fontSize:9,color:C.muted,marginTop:1}}>{x.execucoes} execução(ões)</p>
+                      )}
+                    </div>
                     <div style={{textAlign:"right",flexShrink:0}}>
                       <p style={{fontSize:12.5,fontWeight:800,color:C.text,whiteSpace:"nowrap"}}>{fmt(x.valor)}</p>
                       <p style={{fontSize:9,color:C.muted}}>{x.pctAcum.toFixed(0)}% acum.</p>
@@ -26083,8 +26165,8 @@ function Estoque({ data, update, showToast, currentUser }) {
                 </div>
               );
             })}
-          </>)
-      )}
+        </>);
+      })()}
 
       {/*  MODAIS  */}
       {matModal   && <ModalMaterial    form={matModal}  setForm={setMatModal}  onSave={salvarMaterial}
