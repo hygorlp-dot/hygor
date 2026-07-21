@@ -2415,6 +2415,8 @@ const normalizeData = incoming => {
       })).filter(f => f.url) : [],
       responsavel: r.responsavel || "",
       responsavelId:r.responsavelId || (d.usuarios||[]).find(u=>u.role==="engenheiro"&&u.nome===r.responsavel)?.id || "",
+      registradoPorId:r.registradoPorId|| "",
+      registradoPor:r.registradoPor || "",
       criadoEm:    r.criadoEm    || "",
       atualizadoEm:r.atualizadoEm|| "",
       concluidoEm: r.concluidoEm || "",
@@ -24469,7 +24471,7 @@ const CLIMA_OPC = [
   { v: "impraticavel", l: "Impraticavel", c: C.red    },
 ];
 
-function DiarioObra({ data, update, showToast }) {
+function DiarioObra({ data, update, showToast, currentUser }) {
   const { cols } = useBreakpoint();
 
   const obras = (data.obras || []).filter(o => o.status !== "done");
@@ -24483,6 +24485,13 @@ function DiarioObra({ data, update, showToast }) {
   const [inicioRdo, setInicioRdo] = useState("");
   const [fimRdo, setFimRdo] = useState("");
   const [fotoPreviewRdo, setFotoPreviewRdo] = useState(null);
+
+  const engenheirosTodos=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
+  const engenheiroLogado=currentUser?.role==="engenheiro"?currentUser:null;
+  const engenheiroDaObra=engenheirosTodos.find(u=>u.obraId===obraId)
+    || engenheirosTodos.find(u=>!u.obraId&&(data.obras||[]).find(o=>o.id===obraId)?.engineer&&u.nome===(data.obras||[]).find(o=>o.id===obraId)?.engineer)
+    || (engenheirosTodos.length===1?engenheirosTodos[0]:null);
+  const responsavelAutomatico=engenheiroLogado||engenheiroDaObra||currentUser||null;
 
   const orc   = orcamentoDaObra(data, obraId);
   const plano = useMemo(() =>
@@ -24500,7 +24509,8 @@ function DiarioObra({ data, update, showToast }) {
     status:"preparacao", descricao:"", pendencias:"", comentarios:"", anexos:[],
     clima: { manha: "bom", tarde: "bom", noite: "bom" },
     servicos: [], efetivo: [], presencas: [], terceirizados: [], equipamentos: [],
-    ocorrencias: "", fotos: [], responsavel: "",
+    ocorrencias: "", fotos: [], responsavel:responsavelAutomatico?.nome||"",responsavelId:responsavelAutomatico?.id||"",
+    registradoPor:currentUser?.nome||"",registradoPorId:currentUser?.id||"",
   };
 
   const [subindo, setSubindo] = useState(false);
@@ -24513,7 +24523,7 @@ function DiarioObra({ data, update, showToast }) {
     const existe = (data.rdos || []).some(r => r.id === rdo.id && rdo.id);
     let rdos;
     if (existe) {
-      rdos = (data.rdos || []).map(r => r.id === rdo.id ? mut({ ...r }) : r);
+      rdos = (data.rdos || []).map(r => r.id === rdo.id ? mut({ ...r,responsavel:r.responsavel||responsavelAutomatico?.nome||"",responsavelId:r.responsavelId||responsavelAutomatico?.id||"",registradoPor:r.registradoPor||currentUser?.nome||"",registradoPorId:r.registradoPorId||currentUser?.id||"" }) : r);
     } else {
       const novo = mut({ ...rdo, id: uid(), criadoEm: new Date().toISOString(), atualizadoEm:new Date().toISOString() });
       rdos = [...(data.rdos || []), novo];
@@ -24527,11 +24537,10 @@ function DiarioObra({ data, update, showToast }) {
   });
 
   const setOcorrencias = (txt) => salvarRDO(r => { r.ocorrencias = txt; return r; });
-  const setResponsavelId = id => {const eng=(data.usuarios||[]).find(u=>u.id===id);salvarRDO(r=>({...r,responsavelId:id,responsavel:eng?.nome||"",atualizadoEm:new Date().toISOString()}));};
   const setCampoRdo = (campo, valor) => salvarRDO(r => ({...r,[campo]:valor,atualizadoEm:new Date().toISOString()}));
 
   const abrirRdo = item => { setObraId(item.obraId); setDataRDO(item.data); setModoRdo("editor"); };
-  const novoRdo = () => { setObraId(obras[0]?.id||""); setDataRDO(today()); setModoRdo("editor"); };
+  const novoRdo = () => { setObraId(filtroObraRdo!=="all"?filtroObraRdo:(obraId||obras[0]?.id||"")); setDataRDO(today()); setModoRdo("editor"); };
   const concluirRdo = () => salvarRDO(r=>({...r,status:"concluido",concluidoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()}));
   const excluirRdo = item => {
     if(!window.confirm(`Excluir definitivamente o RDO ${item.codigo||""} de ${fmtDate(item.data)}?`))return false;
@@ -24540,7 +24549,7 @@ function DiarioObra({ data, update, showToast }) {
   const duplicarRdo = item => {
     const codigo=Math.max(0,...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1;
     let novaData=today(); while((data.rdos||[]).some(x=>x.obraId===item.obraId&&x.data===novaData)){const d=new Date(`${novaData}T12:00:00`);d.setDate(d.getDate()+1);novaData=d.toISOString().slice(0,10);}
-    const copia={...item,id:uid(),codigo,status:"preparacao",data:novaData,fotos:[],anexos:[],criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:""};
+    const copia={...item,id:uid(),codigo,status:"preparacao",data:novaData,fotos:[],anexos:[],registradoPor:currentUser?.nome||"",registradoPorId:currentUser?.id||"",criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:""};
     update({...data,rdos:[...(data.rdos||[]),copia]}); setObraId(copia.obraId);setDataRDO(copia.data);setModoRdo("editor");showToast?.("Dados do último diário copiados para um novo rascunho.");
   };
 
@@ -24559,7 +24568,6 @@ function DiarioObra({ data, update, showToast }) {
     return (filtroObraRdo==="all"||item.obraId===filtroObraRdo)&&(filtroStatusRdo==="all"||item.status===filtroStatusRdo)&&(filtroClimaRdo==="all"||climas.includes(filtroClimaRdo))&&(!inicioRdo||item.data>=inicioRdo)&&(!fimRdo||item.data<=fimRdo)&&(!q||String(item.codigo||"").includes(q)||String(item.descricao||item.ocorrencias||item.pendencias||"").toLocaleLowerCase("pt-BR").includes(q)||String(obra?.name||"").toLocaleLowerCase("pt-BR").includes(q));
   }).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo||0)-Number(a.codigo||0)),[data.rdos,data.obras,buscaRdo,filtroObraRdo,filtroStatusRdo,filtroClimaRdo,inicioRdo,fimRdo]);
 
-  const engenheirosCampo=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro"&&(!u.obraId||u.obraId===obraId)).sort((a,b)=>(a.nome||"").localeCompare(b.nome||"","pt-BR"));
 
   // ---- Equipamentos na obra (do cadastro de Equipamentos) ----
   // Mostra os equipamentos disponíveis + os que já estão nesta obra. Marcar
@@ -24746,9 +24754,10 @@ function DiarioObra({ data, update, showToast }) {
 
       {/* CLIMA */}
       <Bloco titulo="Clima do dia">
-        <div style={{marginBottom:9}}>
-          <Sel label="Responsável técnico · Engenheiro de Campo" value={rdo.responsavelId||""} onChange={setResponsavelId} options={[{v:"",l:engenheirosCampo.length?"Selecione o engenheiro":"Nenhum engenheiro de campo cadastrado"},...engenheirosCampo.map(u=>({v:u.id,l:u.nome}))]}/>
-          {!engenheirosCampo.length&&<p style={{fontSize:10,color:C.orange,marginTop:4}}>Cadastre ou altere um usuário para o perfil “Engenheiro de Campo” em Usuários.</p>}
+        <div style={{marginBottom:9,padding:"8px 10px",borderRadius:6,background:C.surface,border:`1px solid ${C.border}`}}>
+          <p style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase"}}>Responsável pelo registro · automático</p>
+          <p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:2}}>{rdo.responsavel||responsavelAutomatico?.nome||"Nenhum usuário identificado"}</p>
+          {currentUser?.nome&&<p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Lançado por {rdo.registradoPor||currentUser.nome}</p>}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
           {[["manha", "Manha"], ["tarde", "Tarde"], ["noite", "Noite"]].map(([p, lbl]) => (
@@ -30296,7 +30305,7 @@ export default function App() {
                            onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Orcamento   data={data} update={update} showToast={showToast} />}
           {tab === "plan"   && <Planejamento data={data} update={update} showToast={showToast} />}
-          {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} />}
+          {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} />}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} />}
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
