@@ -2491,6 +2491,7 @@ function Ic({ n, s = 16, color }) {
     unlock:   "M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 9.9-1",
     download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3",
     copy:     "M9 9h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2z M5 15H4a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1",
+    search:   "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35",
     calendar: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M8 2v4 M3 10h18",
     alert:    "M12 2 1 21h22L12 2z M12 9v4 M12 17h.01",
     settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
@@ -5489,7 +5490,7 @@ function Financeiro({ data, update, showToast }) {
 // 
 
 function Obras({ data, update, showToast, onAbrirObra }) {
-  const { formGrid } = useBreakpoint();
+  const { formGrid, cols } = useBreakpoint();
   const empty = { id: "", name: "", cliente: "", address: "", engineer: "", startDate: "", faseId: "", status: "active", areaM2: "", oneDriveUrl: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
@@ -5689,7 +5690,8 @@ function Obras({ data, update, showToast, onAbrirObra }) {
     showToast("Obra removida.");
   };
 
-  const list = data.obras.filter(o => o.name.toLowerCase().includes(search.toLowerCase()));
+  const termoBusca=search.toLocaleLowerCase("pt-BR");
+  const list = data.obras.filter(o => [o.name,o.cliente,o.address,o.engineer].some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termoBusca)));
   const statusMap = {
     active: { l: "Ativa", c: C.green },
     paused: { l: "Pausada", c: C.yellow },
@@ -5940,48 +5942,39 @@ function Obras({ data, update, showToast, onAbrirObra }) {
 
       {/*  LISTA  */}
       {vista === "lista" && <>
-      <Inp value={search} onChange={setSearch} placeholder="Buscar obra..." />
+      <div style={{display:"flex",alignItems:"center",gap:9,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"8px 11px"}}>
+        <Ic n="search" s={16} color={C.muted}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por obra, cliente, endereço ou responsável..." style={{flex:1,minWidth:0,border:0,outline:0,background:"transparent",color:C.text,fontSize:12.5,fontFamily:"inherit",padding:"4px 0"}}/>
+        <span style={{fontSize:10,color:C.muted,whiteSpace:"nowrap"}}>{list.length} resultado{list.length===1?"":"s"}</span>
+      </div>
 
+      <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:11}}>
       {list.map(o => {
         const count = data.employees.filter(e => e.active !== false && e.obra === o.id).length;
         const st = statusMap[o.status] || statusMap.active;
         const area = Number(o.areaM2 || 0);
+        const fase = fases.find(f=>f.id===o.faseId);
+        const prazo = prazoObra(o);
         return (
-          <div key={o.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${st.c}`, padding: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-              <div>
-                <p onClick={() => onAbrirObra && onAbrirObra(o.id)}
-                   style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900,
-                            fontSize: 18, cursor: onAbrirObra ? "pointer" : "default" }}>{o.name}</p>
-                <Badge color={st.c}>{st.l}</Badge>
-                {o.contractValue > 0 && <Badge color={C.green}>{CONTRACT_LABELS[o.contractType]||"Contrato"}: {fmt(o.contractValue)}</Badge>}
-                {(o.contractType==="fixed_labor_admin"||o.contractType==="admin_only") && o.adminPercentage > 0 && <Badge color={C.purple}>{o.adminPercentage}% admin</Badge>}
-                <p style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>{count} trabalhador{count !== 1 ? "es" : ""} ativo{count !== 1 ? "s" : ""}</p>
-                {area > 0 && <p style={{ color: C.yellow, fontSize: 12, marginTop: 4 }}>Área: {area.toLocaleString("pt-BR")} m</p>}
-                {o.address && <p style={{ color: C.subtle, fontSize: 12, marginTop: 4 }}>{o.address}</p>}
-                {o.engineer && <p style={{ color: C.subtle, fontSize: 12 }}>Responsável: {o.engineer}</p>}
-                {o.startDate && <p style={{ color: C.subtle, fontSize: 12 }}>Início: {fmtDateFull(o.startDate)}</p>}
-                {o.oneDriveUrl && (
-                  <button onClick={() => abrirOneDrive(o.oneDriveUrl)} style={{background:"transparent",border:0,color:C.blue,fontSize:11.5,fontWeight:800,cursor:"pointer",padding:"7px 0 0"}}>
-                    Abrir pasta no OneDrive ↗
-                  </button>
-                )}
+          <div key={o.id} className="lift-card" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden",boxShadow:C.shCard,display:"flex",flexDirection:"column",minWidth:0}}>
+            <button onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",height:112,border:0,cursor:onAbrirObra?"pointer":"default",padding:0,textAlign:"left",background:o.capaUrl?`linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.72)),url("${o.capaUrl}") center/cover`:`linear-gradient(135deg,${C.ink},${C.subtle} 70%,${C.yellowD})`,color:"#fff"}}>
+              {!o.capaUrl&&<span style={{position:"absolute",right:16,top:5,fontFamily:"'Inter Display','Inter',sans-serif",fontSize:70,fontWeight:900,color:"rgba(255,255,255,.08)",lineHeight:1}}>{(o.name||"O").charAt(0)}</span>}
+              <div style={{position:"absolute",inset:0,padding:13,display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6}}><span style={{fontSize:9,fontWeight:900,letterSpacing:.7,textTransform:"uppercase",background:"rgba(255,255,255,.92)",color:st.c,borderRadius:99,padding:"4px 7px"}}>{st.l}</span>{fase&&<span style={{fontSize:9,fontWeight:800,color:"rgba(255,255,255,.85)"}}>{fase.nome}</span>}</div>
+                <div><h3 className="brk" style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:18,fontWeight:900,lineHeight:1.15,color:"#fff"}}>{o.name}</h3>{o.cliente&&<p style={{fontSize:10.5,color:"rgba(255,255,255,.82)",marginTop:3}}>{o.cliente}</p>}</div>
               </div>
-              <div style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
-                <Btn v="ghost" size="sm" onClick={() => { setForm({ ...o, areaM2: String(o.areaM2 || ""), diaVenc1: String(o.diaVenc1 || DIA_VENC_1_PADRAO), diaVenc2: String(o.diaVenc2 || DIA_VENC_2_PADRAO) }); setModal(true); }}><Ic n="edit" /></Btn>
-                <Btn v="danger" size="sm" onClick={() => remove(o.id)}><Ic n="trash" /></Btn>
-              </div>
+            </button>
+            <div style={{padding:12,display:"flex",flexDirection:"column",gap:10,flex:1}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>{[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"-"],["Área",area>0?`${area.toLocaleString("pt-BR")} m²`:"-"],["Equipe",`${count}`]].map(([l,v])=><div key={l} style={{background:C.surface,borderRadius:7,padding:"7px 6px"}}><p style={{fontSize:8,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p><p style={{fontSize:11.5,fontWeight:850,color:C.text,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}</div>
+              <div style={{minHeight:37}}>{o.address&&<p className="brk" style={{fontSize:10.5,color:C.subtle,lineHeight:1.35}}>{o.address}</p>}{o.engineer&&<p style={{fontSize:10,color:C.muted,marginTop:3}}>Responsável · <b style={{color:C.text}}>{o.engineer}</b></p>}{prazo&&<p style={{fontSize:9.5,fontWeight:800,color:prazo.cor,marginTop:3}}>{prazo.rotulo}</p>}</div>
+              <div style={{display:"grid",gridTemplateColumns:o.oneDriveUrl?"1fr 1fr":"1fr",gap:5,marginTop:"auto"}}><Btn size="sm" onClick={()=>onAbrirObra?.(o.id)}>Abrir painel →</Btn>{o.oneDriveUrl&&<Btn size="sm" v="ghost" onClick={()=>abrirOneDrive(o.oneDriveUrl)}><Ic n="folder"/> Arquivos</Btn>}</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${C.line}`,paddingTop:8}}><span style={{fontSize:9.5,color:C.muted}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span><div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",padding:4}}><Ic n="edit" s={14}/></button><button onClick={()=>remove(o.id)} title="Excluir obra" style={{border:0,background:"transparent",color:C.red,cursor:"pointer",padding:4}}><Ic n="trash" s={14}/></button></div></div>
             </div>
-
-            {onAbrirObra && (
-              <Btn v="ghost" size="sm" full onClick={() => onAbrirObra(o.id)}
-                   style={{ marginTop: 10 }}>
-                Abrir painel da obra →
-              </Btn>
-            )}
           </div>
         );
       })}
+      {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:32,border:`1px dashed ${C.border}`,borderRadius:10}}><Ic n="building" s={25} color={C.muted}/><p style={{fontSize:12,color:C.muted,marginTop:7}}>Nenhuma obra encontrada.</p></div>}
+      </div>
       </>}
 
       {/* Modal: nova fase / editar fase */}
