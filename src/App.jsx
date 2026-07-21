@@ -24482,6 +24482,7 @@ function DiarioObra({ data, update, showToast }) {
   const [filtroClimaRdo, setFiltroClimaRdo] = useState("all");
   const [inicioRdo, setInicioRdo] = useState("");
   const [fimRdo, setFimRdo] = useState("");
+  const [fotoPreviewRdo, setFotoPreviewRdo] = useState(null);
 
   const orc   = orcamentoDaObra(data, obraId);
   const plano = useMemo(() =>
@@ -24534,8 +24535,8 @@ function DiarioObra({ data, update, showToast }) {
   const novoRdo = () => { setObraId(obras[0]?.id||""); setDataRDO(today()); setModoRdo("editor"); };
   const concluirRdo = () => salvarRDO(r=>({...r,status:"concluido",concluidoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()}));
   const excluirRdo = item => {
-    if(!window.confirm(`Excluir definitivamente o RDO ${item.codigo||""} de ${fmtDate(item.data)}?`))return;
-    update({...data,rdos:(data.rdos||[]).filter(x=>x.id!==item.id)}); showToast?.("Diário removido.");
+    if(!window.confirm(`Excluir definitivamente o RDO ${item.codigo||""} de ${fmtDate(item.data)}?`))return false;
+    update({...data,rdos:(data.rdos||[]).filter(x=>x.id!==item.id)}); showToast?.("Diário removido."); return true;
   };
   const duplicarRdo = item => {
     const codigo=Math.max(0,...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1;
@@ -24549,7 +24550,7 @@ function DiarioObra({ data, update, showToast }) {
     const equipe=(item.presencas||[]).filter(p=>p.status!=="falta").map(p=>(data.employees||[]).find(e=>e.id===p.empId)?.name).filter(Boolean);
     const fotos=(item.fotos||[]).map(f=>`<figure><img src="${escapeHtml(f.url)}"><figcaption>${escapeHtml(f.legenda||"")}</figcaption></figure>`).join("");
     const html=`<!doctype html><html><head><meta charset="utf-8"><title>RDO ${item.codigo}</title><style>body{font-family:Arial;margin:32px;color:#222}header{border-bottom:3px solid #d4a91e;padding-bottom:12px}h1{font-size:22px}h2{font-size:14px;margin-top:20px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px}.box{white-space:pre-wrap;background:#f6f6f6;padding:10px}figure{display:inline-block;width:30%;margin:1%;vertical-align:top}img{width:100%;height:150px;object-fit:cover}figcaption{font-size:10px}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><header><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")} · RDO ${item.codigo}</h1><b>${escapeHtml(obra?.name||"")}</b><p>${escapeHtml(obra?.address||"")}</p></header><div class="meta"><p><b>Data:</b> ${fmtDate(item.data)}</p><p><b>Status:</b> ${item.status==="concluido"?"Concluído":"Em preparação"}</p><p><b>Condição:</b> ${escapeHtml(item.praticabilidade)}</p><p><b>Horário:</b> ${escapeHtml(item.horarioInicio||"-")} às ${escapeHtml(item.horarioFim||"-")}</p><p><b>Responsável:</b> ${escapeHtml(item.responsavel||"-")}</p><p><b>Equipe:</b> ${equipe.length}</p></div><h2>Descrição e atividades</h2><div class="box">${escapeHtml(item.descricao||"")}</div><h2>Ocorrências</h2><div class="box">${escapeHtml(item.ocorrencias||"")}</div><h2>Pendências</h2><div class="box">${escapeHtml(item.pendencias||"")}</div>${fotos?`<h2>Registro fotográfico</h2>${fotos}`:""}</body></html>`;
-    const w=window.open("","_blank","noopener,noreferrer"); if(w){w.document.write(html);w.document.close();}
+    const w=window.open("","_blank"); if(w){w.opener=null;w.document.write(html);w.document.close();}else showToast?.("O navegador bloqueou a janela do relatório. Permita pop-ups para este site.","error");
   };
 
   const rdosFiltrados=useMemo(()=>[...(data.rdos||[])].filter(item=>{
@@ -24689,20 +24690,17 @@ function DiarioObra({ data, update, showToast }) {
         <Sel value={filtroClimaRdo} onChange={setFiltroClimaRdo} label="Clima" options={[{v:"all",l:"Todos"},...CLIMA_OPC.map(o=>({v:o.v,l:o.l}))]}/>
         <Inp value={buscaRdo} onChange={setBuscaRdo} label="Pesquisar" placeholder="Código, obra ou descrição"/>
       </div>
-      <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card}}>
-        <div style={{minWidth:760}}>
-          <div style={{display:"grid",gridTemplateColumns:"105px 120px 75px minmax(170px,1fr) 75px 120px",gap:8,padding:"8px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,fontSize:9.5,fontWeight:900,color:C.muted,textTransform:"uppercase"}}><span>Data</span><span>Status</span><span>Código</span><span>Obra</span><span>Anexos</span><span>Ações</span></div>
-          {rdosFiltrados.map(item=>{const obra=(data.obras||[]).find(o=>o.id===item.obraId);return <div key={item.id} style={{display:"grid",gridTemplateColumns:"105px 120px 75px minmax(170px,1fr) 75px 120px",gap:8,padding:"10px",alignItems:"center",borderBottom:`1px solid ${C.line}`,fontSize:11.5}}>
-            <button onClick={()=>abrirRdo(item)} style={{border:0,background:"transparent",padding:0,textAlign:"left",cursor:"pointer",fontWeight:800,color:C.text}}>{fmtDate(item.data)}</button>
-            <Badge color={item.status==="concluido"?C.green:C.orange}>{item.status==="concluido"?"Concluído":"Em preparação"}</Badge>
-            <b style={{color:C.blue}}>RDO-{String(item.codigo||0).padStart(3,"0")}</b>
-            <div><b style={{color:C.text}}>{obra?.name||"Obra removida"}</b><p className="brk" style={{fontSize:9.5,color:C.muted,marginTop:2}}>{item.responsavel||item.descricao||"Sem responsável informado"}</p></div>
-            <span style={{color:C.blue,fontWeight:800}}>{(item.fotos||[]).length+(item.anexos||[]).length} arquivo(s)</span>
-            <div style={{display:"flex",gap:3}}><Btn size="sm" v="ghost" onClick={()=>abrirRdo(item)} title="Editar"><Ic n="edit"/></Btn><Btn size="sm" v="ghost" onClick={()=>imprimirRdo(item)} title="Imprimir / PDF"><Ic n="fileText"/></Btn><Btn size="sm" v="ghost" onClick={()=>duplicarRdo(item)} title="Duplicar"><Ic n="copy"/></Btn><Btn size="sm" v="danger" onClick={()=>excluirRdo(item)} title="Excluir"><Ic n="trash"/></Btn></div>
-          </div>})}
-          {!rdosFiltrados.length&&<p style={{padding:24,textAlign:"center",fontSize:12,color:C.muted}}>Nenhum diário encontrado com estes filtros.</p>}
-        </div>
+      <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:9}}>
+        {rdosFiltrados.map(item=>{const obra=(data.obras||[]).find(o=>o.id===item.obraId);return <div key={item.id} style={{border:`1px solid ${C.border}`,borderLeft:`4px solid ${item.status==="concluido"?C.green:C.orange}`,borderRadius:8,background:C.card,padding:11,minWidth:0}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:7}}><div><b style={{fontSize:12.5,color:C.text}}>RDO-{String(item.codigo||0).padStart(3,"0")} · {fmtDate(item.data)}</b><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>{obra?.name||"Obra removida"}</p></div><Badge color={item.status==="concluido"?C.green:C.orange}>{item.status==="concluido"?"Concluído":"Em preparação"}</Badge></div>
+          <p className="brk" style={{fontSize:10.5,color:C.subtle,marginTop:7,minHeight:28,lineHeight:1.4}}>{item.descricao||item.ocorrencias||item.responsavel||"Sem descrição informada."}</p>
+          {(item.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4,marginTop:8}}>{item.fotos.slice(0,4).map((foto,i)=><button key={foto.url} onClick={()=>setFotoPreviewRdo({foto,item,index:i})} title="Ver foto" style={{position:"relative",padding:0,border:`1px solid ${C.border}`,borderRadius:5,overflow:"hidden",height:58,cursor:"pointer",background:C.surface}}><img src={foto.url} alt={foto.legenda||`Foto ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>{i===3&&item.fotos.length>4&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.55)",color:"#fff",fontWeight:900}}>+{item.fotos.length-4}</span>}</button>)}</div>}
+          <p style={{fontSize:9.5,color:C.blue,fontWeight:700,marginTop:7}}>{(item.fotos||[]).length} foto(s) · {(item.anexos||[]).length} documento(s)</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginTop:9}}><Btn size="sm" v="ghost" onClick={()=>abrirRdo(item)}><Ic n="edit"/> Abrir / editar</Btn><Btn size="sm" v="ghost" onClick={()=>imprimirRdo(item)}><Ic n="fileText"/> PDF</Btn><Btn size="sm" v="ghost" onClick={()=>duplicarRdo(item)}><Ic n="copy"/> Duplicar</Btn><Btn size="sm" v="danger" onClick={()=>excluirRdo(item)}><Ic n="trash"/> Excluir</Btn></div>
+        </div>})}
+        {!rdosFiltrados.length&&<p style={{gridColumn:"1/-1",padding:24,textAlign:"center",fontSize:12,color:C.muted}}>Nenhum diário encontrado com estes filtros.</p>}
       </div>
+      {fotoPreviewRdo&&<Modal title={`RDO-${String(fotoPreviewRdo.item.codigo||0).padStart(3,"0")} · Foto ${fotoPreviewRdo.index+1}`} onClose={()=>setFotoPreviewRdo(null)} wide><img src={fotoPreviewRdo.foto.url} alt={fotoPreviewRdo.foto.legenda||"Foto do diário"} style={{display:"block",width:"100%",maxHeight:"70vh",objectFit:"contain",background:"#111",borderRadius:7}}/>{fotoPreviewRdo.foto.legenda&&<p style={{fontSize:12,color:C.text,marginTop:8}}>{fotoPreviewRdo.foto.legenda}</p>}<Btn full v="ghost" onClick={()=>setFotoPreviewRdo(null)} style={{marginTop:10}}>Fechar</Btn></Modal>}
     </div>;
   }
 
@@ -24712,6 +24710,7 @@ function DiarioObra({ data, update, showToast }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
         <button onClick={()=>setModoRdo("lista")} style={{border:0,background:"transparent",padding:0,color:C.blue,fontSize:11.5,fontWeight:800,cursor:"pointer"}}>← Histórico dos diários</button>
         <div style={{display:"flex",gap:5}}>
+          {rdo.id&&<Btn size="sm" v="danger" onClick={()=>{if(excluirRdo(rdo))setModoRdo("lista");}}><Ic n="trash"/> Excluir</Btn>}
           {rdo.id&&<Btn size="sm" v="ghost" onClick={()=>imprimirRdo(rdo)}><Ic n="fileText"/> PDF</Btn>}
           <Btn size="sm" v={rdo.status==="concluido"?"success":"primary"} onClick={concluirRdo}><Ic n="check"/> {rdo.status==="concluido"?"Concluído":"Concluir relatório"}</Btn>
         </div>
