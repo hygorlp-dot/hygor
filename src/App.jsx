@@ -29801,6 +29801,15 @@ export default function App() {
   // abre no que importa e deixa o resto recolhido, em vez de despejar 20 abas.
   const [gruposAbertos, setGruposAbertos] = useState(() =>
     activeGroup ? { [activeGroup.id]: true } : {});
+  const [sidebarCompacta, setSidebarCompacta] = useState(() => {
+    try { return window.localStorage.getItem("arcd-sidebar-compacta") === "1"; }
+    catch { return false; }
+  });
+
+  useEffect(() => {
+    try { window.localStorage.setItem("arcd-sidebar-compacta", sidebarCompacta ? "1" : "0"); }
+    catch { /* Navegação privada pode bloquear o armazenamento local. */ }
+  }, [sidebarCompacta]);
 
   // Navegar para uma aba mantém o grupo dela aberto (você acabou de ir pra lá).
   const abrirGrupoDaAba = useCallback((tabId) => {
@@ -29858,7 +29867,7 @@ export default function App() {
 
   // Layout responsivo
   const { isDesktop, pick } = useBreakpoint();
-  const SIDEBAR_W = 224;
+  const SIDEBAR_W = sidebarCompacta ? 68 : 224;
   // No desktop a navegação vira sidebar → não há barra inferior ocupando espaço
   const navHeight  = isDesktop ? 0 : (hasSubTabs ? 132 : 80);
   // Em monitor ultrawide (21:9, 34"), esticar o conteúdo até a borda deixa a
@@ -30075,21 +30084,42 @@ export default function App() {
             background:C.bg, borderRight:`1.5px solid ${C.border}`,
             display:"flex", flexDirection:"column",
             boxShadow:`1px 0 8px ${C.shadow}`,
+            transition:"width .18s ease",
           }}>
             {/* Marca */}
-            <div style={{ padding:"16px 16px 14px", borderBottom:`1px solid ${C.line}` }}>
-              <BrandMark/>
+            <div style={{
+              minHeight:64, padding:sidebarCompacta ? "12px 9px" : "13px 10px 12px 16px",
+              borderBottom:`1px solid ${C.line}`, display:"flex", alignItems:"center",
+              justifyContent:"space-between", gap:8,
+            }}>
+              {sidebarCompacta
+                ? <div style={{ width:30, height:30, borderRadius:8, display:"grid", placeItems:"center", background:C.yellow }}>
+                    <Ic n="building" s={17} color="#171717"/>
+                  </div>
+                : <BrandMark/>}
+              <button
+                onClick={()=>setSidebarCompacta(v=>!v)}
+                title={sidebarCompacta ? "Expandir menu" : "Minimizar menu"}
+                aria-label={sidebarCompacta ? "Expandir menu lateral" : "Minimizar menu lateral"}
+                style={{
+                  width:30, height:30, flexShrink:0, borderRadius:8, cursor:"pointer",
+                  border:`1px solid ${C.border}`, background:C.surface, color:C.muted,
+                  display:"grid", placeItems:"center", fontSize:20, lineHeight:1,
+                }}
+              >{sidebarCompacta ? "›" : "‹"}</button>
             </div>
 
             {/* Busca global: atalho visível para o Ctrl/Cmd+K. */}
             <div style={{ padding:"10px 10px 4px" }}>
               <button onClick={()=>setBuscaAberta(true)} style={{
-                display:"flex", alignItems:"center", gap:8, width:"100%",
+                display:"flex", alignItems:"center", justifyContent:sidebarCompacta ? "center" : "flex-start", gap:8, width:"100%",
                 background:C.surface, border:`1px solid ${C.border}`, borderRadius:8,
-                padding:"8px 10px", cursor:"pointer", color:C.muted }}>
+                padding:sidebarCompacta ? "8px" : "8px 10px", cursor:"pointer", color:C.muted }}
+                title={sidebarCompacta ? "Buscar (Ctrl + K)" : undefined}
+                aria-label="Buscar no sistema">
                 <Ic n="funnel" s={14} color={C.muted}/>
-                <span style={{ fontSize:12, flex:1, textAlign:"left" }}>Buscar...</span>
-                <span style={{ fontSize:9.5, fontWeight:700, border:`1px solid ${C.border}`, borderRadius:4, padding:"1px 5px" }}>⌘K</span>
+                {!sidebarCompacta && <span style={{ fontSize:12, flex:1, textAlign:"left" }}>Buscar...</span>}
+                {!sidebarCompacta && <span style={{ fontSize:9.5, fontWeight:700, border:`1px solid ${C.border}`, borderRadius:4, padding:"1px 5px" }}>⌘K</span>}
               </button>
             </div>
             {/* Navegação: grupos colapsáveis. Clique no cabeçalho abre/fecha;
@@ -30099,6 +30129,32 @@ export default function App() {
               {visibleGroups.map(group => {
                 const aberto = !!gruposAbertos[group.id];
                 const badge = groupBadge[group.id];
+                const contémAtiva = group.tabs.includes(tab);
+
+                if (sidebarCompacta) return (
+                  <button
+                    key={group.id}
+                    title={group.label}
+                    aria-label={`Abrir grupo ${group.label}`}
+                    aria-current={contémAtiva ? "page" : undefined}
+                    onClick={() => {
+                      setGruposAbertos(prev => ({ ...prev, [group.id]: true }));
+                      setSidebarCompacta(false);
+                    }}
+                    style={{
+                      width:"100%", height:42, marginBottom:4, borderRadius:9, cursor:"pointer",
+                      border:contémAtiva ? `1px solid ${group.color}55` : "1px solid transparent",
+                      background:contémAtiva ? `${group.color}18` : "transparent",
+                      color:contémAtiva ? group.color : C.muted,
+                      display:"grid", placeItems:"center", position:"relative",
+                    }}
+                  >
+                    <Ic n={group.icon} s={17}/>
+                    {badge && (
+                      <span style={{ position:"absolute", top:7, right:8, width:6, height:6, borderRadius:"50%", background:group.color }}/>
+                    )}
+                  </button>
+                );
 
                 // Cores do grupo viram variáveis CSS - é o que permite :hover.
                 const vars = {
@@ -30108,7 +30164,6 @@ export default function App() {
                   "--gc-rail": aberto ? `${group.color}44` : "transparent",
                 };
 
-                const contémAtiva = group.tabs.includes(tab);
                 return (
                   <div key={group.id} style={{ marginBottom:2, ...vars }}>
                     {/* Cabeçalho clicável. Um grupo fechado que contém a aba
@@ -30160,7 +30215,21 @@ export default function App() {
             </nav>
 
             {/* Usuário + sair */}
-            <div style={{ padding:"10px 12px", borderTop:`1px solid ${C.line}`, background:C.surface }}>
+            <div style={{ padding:sidebarCompacta ? "10px 8px" : "10px 12px", borderTop:`1px solid ${C.line}`, background:C.surface }}>
+              {sidebarCompacta ? (
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:7 }}>
+                  <div title={`${currentUser?.nome} · ${ROLES.find(r=>r.v===currentUser?.role)?.l || "Usuário"}`} style={{
+                    width:30, height:30, borderRadius:"50%", display:"grid", placeItems:"center",
+                    background:`${ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow}22`,
+                    color:ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow,
+                    fontSize:12, fontWeight:800,
+                  }}>{(currentUser?.nome || "U").trim().charAt(0).toUpperCase()}</div>
+                  <button onClick={sairDoSistema} title="Sair do sistema" aria-label="Sair do sistema" style={{
+                    width:30, height:28, background:"transparent", border:0, color:C.muted,
+                    fontSize:15, cursor:"pointer", lineHeight:1,
+                  }}>x</button>
+                </div>
+              ) : (
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
                   <div style={{
@@ -30187,6 +30256,7 @@ export default function App() {
                   }}>x</button>
                 </div>
               </div>
+              )}
             </div>
           </aside>
         )}
