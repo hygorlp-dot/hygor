@@ -1419,6 +1419,13 @@ const DEFAULT = () => ({
 });
 
 const maiusculoOrcamento = valor => String(valor ?? "").toLocaleUpperCase("pt-BR");
+const formatarCodigoArcd = numero => `ARCD${String(numero).padStart(3,"0")}`;
+const numeroCodigoArcd = codigo => Number(/^ARCD(\d+)$/i.exec(String(codigo||"").trim())?.[1] || 0);
+const proximoCodigoArcd = data => {
+  const codigos=[...(data?.materiais||[]),...(data?.composicoes||[]),...(data?.composicoesEmpresa||[])];
+  const maior=codigos.reduce((max,item)=>Math.max(max,numeroCodigoArcd(item.codigo)),0);
+  return formatarCodigoArcd(maior+1);
+};
 
 // ---------------------------------------------------------------------------
 //  MERGE DE DADOS (resolução de conflito entre dois editores)
@@ -1583,6 +1590,27 @@ const detectarMudancasAudit = (antes, depois) => {
 const normalizeData = incoming => {
   const base = DEFAULT();
   const d = incoming && typeof incoming === "object" ? incoming : {};
+  // Migração única e estável dos códigos internos. Códigos ARCD já gravados
+  // são preservados; composições antigas (CP-001, códigos livres etc.) recebem
+  // o próximo número disponível sem colidir com insumos já cadastrados.
+  const reservados=new Set((d.materiais||[]).map(x=>String(x.codigo||"").trim().toUpperCase()).filter(c=>/^ARCD\d+$/.test(c)));
+  [...(d.composicoesEmpresa||[]),...(d.composicoes||[])].forEach(x=>{const c=String(x.codigo||"").trim().toUpperCase();if(/^ARCD\d+$/.test(c))reservados.add(c);});
+  const atribuidos=new Set(); let sequenciaArcd=1;
+  const migrarCodigoArcd=codigo=>{
+    const atual=String(codigo||"").trim().toUpperCase();
+    if(/^ARCD\d+$/.test(atual)&&!atribuidos.has(atual)){atribuidos.add(atual);return atual;}
+    let novo; do{novo=formatarCodigoArcd(sequenciaArcd++);}while(reservados.has(novo)||atribuidos.has(novo));
+    reservados.add(novo);atribuidos.add(novo);return novo;
+  };
+  const codigosEmpresa=(d.composicoesEmpresa||[]).map(x=>migrarCodigoArcd(x.codigo));
+  const codigosEstoque=(d.composicoes||[]).map(x=>migrarCodigoArcd(x.codigo));
+  const mapaCodigoComposicao=new Map((d.composicoesEmpresa||[]).map((x,i)=>[maiusculoOrcamento(x.codigo).trim(),codigosEmpresa[i]]).filter(([antigo])=>antigo));
+  const codigoMigrado=(codigo,fonte="")=>["PRÓPRIA","PROPRIA"].includes(maiusculoOrcamento(fonte))?(mapaCodigoComposicao.get(maiusculoOrcamento(codigo).trim())||maiusculoOrcamento(codigo)):maiusculoOrcamento(codigo);
+  const composicaoSerializadaMigrada=valor=>{
+    if(!valor||typeof valor!=="string")return valor||"";
+    try{return JSON.stringify(JSON.parse(valor).map(item=>item?.tipoItem==="COMPOSICAO"?{...item,codigo:codigoMigrado(item.codigo,"PRÓPRIA")}:item));}
+    catch{return valor;}
+  };
 
   return {
     ...base,
@@ -2158,8 +2186,9 @@ const normalizeData = incoming => {
     // A base SINAPI que importamos é uma lista de PREÇOS - não traz os
     // coeficientes de composição. Então isto se cadastra uma vez, à mão,
     // e passa a baixar o estoque sozinho a cada serviço executado.
-    composicoes: Array.isArray(d.composicoes) ? d.composicoes.map(x => ({
+    composicoes: Array.isArray(d.composicoes) ? d.composicoes.map((x, composicaoIndex) => ({
       id:      x.id      || uid(),
+      codigo:  codigosEstoque[composicaoIndex],
       nome:    x.nome    || "",
       unidade: x.unidade || "m2",
       itens:   Array.isArray(x.itens) ? x.itens.map(i => ({
@@ -2167,13 +2196,13 @@ const normalizeData = incoming => {
         coef:       Number(i.coef || 0),      // consumo por 1 unidade do serviço
       })) : [],
     })) : [],
-    composicoesEmpresa: Array.isArray(d.composicoesEmpresa) ? d.composicoesEmpresa.map(comp => ({
-      id:comp.id||uid(),codigo:maiusculoOrcamento(comp.codigo||""),descricao:maiusculoOrcamento(comp.descricao||""),
+    composicoesEmpresa: Array.isArray(d.composicoesEmpresa) ? d.composicoesEmpresa.map((comp, composicaoIndex) => ({
+      id:comp.id||uid(),codigo:codigosEmpresa[composicaoIndex],descricao:maiusculoOrcamento(comp.descricao||""),
       unidade:maiusculoOrcamento(comp.unidade||"UN"),origemFonte:maiusculoOrcamento(comp.origemFonte||"PRÓPRIA"),
       origemCodigo:maiusculoOrcamento(comp.origemCodigo||""),origemDataBase:comp.origemDataBase||"",origemUf:comp.origemUf||"",
       itens:Array.isArray(comp.itens)?comp.itens.map(item=>({
         id:item.id||uid(),fonte:maiusculoOrcamento(item.fonte||"SINAPI"),tipoItem:item.tipoItem==="COMPOSICAO"?"COMPOSICAO":"INSUMO",
-        codigo:maiusculoOrcamento(item.codigo||""),descricao:maiusculoOrcamento(item.descricao||""),unidade:maiusculoOrcamento(item.unidade||"UN"),
+        codigo:item.tipoItem==="COMPOSICAO"?codigoMigrado(item.codigo,"PRÓPRIA"):maiusculoOrcamento(item.codigo||""),descricao:maiusculoOrcamento(item.descricao||""),unidade:maiusculoOrcamento(item.unidade||"UN"),
         coeficiente:Number(item.coeficiente||0),precoUnit:Number(item.precoUnit||0),dataBase:item.dataBase||"",uf:item.uf||"",
       })):[],
     })) : [],
@@ -2230,7 +2259,7 @@ const normalizeData = incoming => {
         // "item"   = composição com código, unidade, quantidade e preço
         // "titulo" = linha de texto puro (rótulo dentro da planilha, sem valor)
         tipo:       it.tipo === "titulo" ? "titulo" : "item",
-        codigo:     maiusculoOrcamento(it.codigo || ""),
+        codigo:     codigoMigrado(it.codigo || "", it.fonte),
         fonte:      maiusculoOrcamento(it.fonte || "SINAPI"),
         descricao:  maiusculoOrcamento(it.descricao || ""),
         unidade:    maiusculoOrcamento(it.unidade || "UN"),
@@ -2244,27 +2273,29 @@ const normalizeData = incoming => {
         // a divergir do precoRef, a linha destaca o preco - o orcamento saiu do
         // valor oficial da composicao. 0 = sem referencia (item avulso/externo).
         precoRef:   Number(it.precoRef || 0),
-        composicao: it.composicao || "",
+        composicao: composicaoSerializadaMigrada(it.composicao),
         codigoNaoEncontrado: !!it.codigoNaoEncontrado,
         baseData:   it.baseData   || o.dataBase || "",
         baseUf:     it.baseUf     || (it.fonte === "SINAPI" ? (o.uf || "PE") : ""),
         detailUrl:  it.detailUrl  || "",
       })) : [],
       composicoesProprias: Array.isArray(o.composicoesProprias) ? o.composicoesProprias.map(comp => ({
-        id: comp.id || uid(), codigo:maiusculoOrcamento(comp.codigo || ""),
+        id: comp.id || uid(), codigo:codigoMigrado(comp.codigo || "", "PRÓPRIA"),
         descricao:maiusculoOrcamento(comp.descricao || ""), unidade:maiusculoOrcamento(comp.unidade || "UN"),
         origemFonte:maiusculoOrcamento(comp.origemFonte||"PRÓPRIA"),origemCodigo:maiusculoOrcamento(comp.origemCodigo||""),
         origemDataBase:comp.origemDataBase||"",origemUf:comp.origemUf||"",
         itens:Array.isArray(comp.itens) ? comp.itens.map(item => ({
           id:item.id || uid(), fonte:maiusculoOrcamento(item.fonte || "SINAPI"),
           tipoItem:item.tipoItem === "COMPOSICAO" ? "COMPOSICAO" : "INSUMO",
-          codigo:maiusculoOrcamento(item.codigo || ""), descricao:maiusculoOrcamento(item.descricao || ""),
+          codigo:item.tipoItem==="COMPOSICAO"?codigoMigrado(item.codigo,"PRÓPRIA"):maiusculoOrcamento(item.codigo || ""), descricao:maiusculoOrcamento(item.descricao || ""),
           unidade:maiusculoOrcamento(item.unidade || "UN"), coeficiente:Number(item.coeficiente || 0),
           precoUnit:Number(item.precoUnit || 0), dataBase:item.dataBase || "", uf:item.uf || "",
         })) : [],
       })) : [],
     })) : [],
-    baseFavoritos: Array.isArray(d.baseFavoritos) ? d.baseFavoritos : [],
+    baseFavoritos: Array.isArray(d.baseFavoritos) ? d.baseFavoritos.map(item=>({
+      ...item,codigo:codigoMigrado(item.codigo,item.fonte),composicao:composicaoSerializadaMigrada(item.composicao),
+    })) : [],
     // Checklist de licenciamento na prefeitura, um por obra. itens guarda o
     // estado de cada documento; pre guarda os pre-requisitos marcados.
     licencas: Array.isArray(d.licencas) ? d.licencas.map(x => ({
@@ -14206,15 +14237,9 @@ function Orcamento({ data, update, showToast }) {
     [...(data.composicoesEmpresa||[]),...(orc?.composicoesProprias||[])].forEach(comp=>mapa.set(comp.id||`${comp.codigo}`,comp));
     return[...mapa.values()];
   },[data.composicoesEmpresa,orc?.composicoesProprias]);
-  // Codigo sequencial das composicoes proprias: CP-001, CP-002...
-  // Le o que ja existe e continua a serie; nunca reaproveita numero de
-  // composicao excluida, para nao confundir orcamentos antigos.
-  const proximoCodigoProprio = useCallback(() => {
-    const usados = composicoesEmpresa
-      .map(comp => /^CP-0*(\d+)$/.exec(String(comp.codigo||"").trim().toUpperCase()))
-      .filter(Boolean).map(achado => Number(achado[1]));
-    return `CP-${String((usados.length ? Math.max(...usados) : 0) + 1).padStart(3,"0")}`;
-  }, [composicoesEmpresa]);
+  // Insumos e composições compartilham a série interna ARCD001, ARCD002...
+  const proximoCodigoProprio = useCallback(() => proximoCodigoArcd(data),
+    [data.materiais,data.composicoes,data.composicoesEmpresa]);
 
   const referenciaKey = (orc?.referencias || []).join("|");
   const basesVinculadas = useMemo(() => {
@@ -17961,7 +17986,7 @@ ${blocoBDI}
               </Btn>
             </div>
             <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
-              <Inp label="Código *" value={compForm.codigo} onChange={valor=>setCompForm(form=>({...form,codigo:valor}))} placeholder="Ex.: CP-001"/>
+              <Inp label="Código automático" value={compForm.codigo} onChange={()=>{}} disabled/>
               <Inp label="Unidade *" value={compForm.unidade} onChange={valor=>setCompForm(form=>({...form,unidade:valor}))} placeholder="M2"/>
               <div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:700}}>CUSTO UNITÁRIO</p><p style={{fontSize:15,fontWeight:800,color:C.yellowD,marginTop:2}}>{fmt(custoCompForm)}</p></div>
             </div>
@@ -25798,7 +25823,7 @@ function Cadastros({ data, update, showToast, onTab }) {
   const salvarMaterial = (f) => {
     if (!f.descricao.trim()) { showToast("Descreva o material.", "error"); return; }
     const p = {
-      id: f.id || uid(), codigo: f.codigo.trim(), descricao: f.descricao.trim(),
+      id: f.id || uid(), codigo: f.id?f.codigo:proximoCodigoArcd(data), descricao: f.descricao.trim(),
       unidade: f.unidade || "un", categoria: f.categoria || "outros",
       estoqueMin: Number(f.estoqueMin||0), precoMedio: Number(f.precoMedio||0), ativo: true,
     };
@@ -25806,7 +25831,7 @@ function Cadastros({ data, update, showToast, onTab }) {
       ? (data.materiais||[]).map(m => m.id === f.id ? p : m)
       : [...(data.materiais||[]), p] });
     setMatModal(null);
-    showToast(f.id ? "Material atualizado." : "Material cadastrado.");
+    showToast(f.id ? "Insumo atualizado." : "Insumo cadastrado.");
   };
 
   //  Fornecedor 
@@ -25847,7 +25872,7 @@ function Cadastros({ data, update, showToast, onTab }) {
     const itens = (f.itens||[]).filter(i => i.materialId && Number(i.coef) > 0)
       .map(i => ({ materialId: i.materialId, coef: Number(i.coef) }));
     if (!itens.length) { showToast("Adicione ao menos um insumo.", "error"); return; }
-    const p = { id: f.id || uid(), nome: f.nome.trim(), unidade: f.unidade || "m2", itens };
+    const p = { id: f.id || uid(), codigo:f.id?(f.codigo||proximoCodigoArcd(data)):proximoCodigoArcd(data), nome: f.nome.trim(), unidade: f.unidade || "m2", itens };
     update({ ...data, composicoes: f.id
       ? (data.composicoes||[]).map(c => c.id === f.id ? p : c)
       : [...(data.composicoes||[]), p] });
@@ -25858,7 +25883,7 @@ function Cadastros({ data, update, showToast, onTab }) {
   // Composições próprias usadas pelo orçamento. Podem nascer de uma cópia
   // SINAPI/ORSE e ficam separadas das composições de baixa de estoque.
   const salvarComposicaoEmpresa = (f) => {
-    const codigo = maiusculoOrcamento(f.codigo).trim();
+    const codigo = maiusculoOrcamento(f.codigo||proximoCodigoArcd(data)).trim();
     const descricao = maiusculoOrcamento(f.descricao).trim();
     const unidade = maiusculoOrcamento(f.unidade || "UN").trim();
     if (!codigo || !descricao || !unidade) { showToast("Informe código, descrição e unidade.", "error"); return; }
@@ -25975,9 +26000,9 @@ function Cadastros({ data, update, showToast, onTab }) {
           <Card id="unidades" icone="" titulo="Unidades de medida"
                 qtd={unidades.length}
                 sub="sc, m, kg... a base de tudo que se mede"/>
-          <Card id="materiais" icone="" titulo="Materiais"
+          <Card id="materiais" icone="" titulo="Insumos"
                 qtd={materiais.length}
-                sub="cimento, tijolo, aço - o que entra no estoque"/>
+                sub="cimento, tijolo, aço e demais itens do orçamento"/>
           <Card id="fornecedores" icone="" titulo="Fornecedores"
                 qtd={fornec.length}
                 sub="quem te vende - usado em cotações e pedidos"/>
@@ -26030,14 +26055,14 @@ function Cadastros({ data, update, showToast, onTab }) {
         ))}
       </>)}
 
-      {/*  MATERIAIS  */}
+      {/*  INSUMOS  */}
       {sec === "materiais" && (<>
         <Voltar/>
-        <Btn onClick={()=>setMatModal({id:"",codigo:"",descricao:"",unidade:unidades[0]?.sigla||"un",
+        <Btn onClick={()=>setMatModal({id:"",codigo:proximoCodigoArcd(data),descricao:"",unidade:unidades[0]?.sigla||"un",
           categoria:"estrutural",estoqueMin:"",precoMedio:""})} full>
-          <Ic n="plus"/> Novo material
+          <Ic n="plus"/> Novo insumo
         </Btn>
-        <Inp value={busca} onChange={setBusca} placeholder="Buscar material..."/>
+        <Inp value={busca} onChange={setBusca} placeholder="Buscar insumo..."/>
         {filtra(materiais,"descricao").map(m => (
           <Linha key={m.id} titulo={m.descricao}
                  sub={`${m.codigo ? m.codigo+"  " : ""}${m.unidade}  mín. ${m.estoqueMin}${Number(m.precoMedio)>0 ? "  "+fmt(m.precoMedio) : ""}`}
@@ -26101,11 +26126,11 @@ function Cadastros({ data, update, showToast, onTab }) {
           <p style={{fontSize:12.5,fontWeight:900,color:C.text}}>COMPOSIÇÕES DE ESTOQUE / BAIXA AUTOMÁTICA</p>
           <p style={{fontSize:10,color:C.muted,marginTop:2}}>Quanto cada serviço executado consome dos materiais cadastrados no estoque.</p>
         </div>
-        <Btn onClick={()=>setCompModal({id:"",nome:"",unidade:"m2",itens:[{materialId:"",coef:""}]})} full>
+        <Btn onClick={()=>setCompModal({id:"",codigo:proximoCodigoArcd(data),nome:"",unidade:"m2",itens:[{materialId:"",coef:""}]})} full>
           <Ic n="plus"/> Nova composição de estoque
         </Btn>
         {(data.composicoes||[]).map(c => (
-          <Linha key={c.id} titulo={c.nome}
+          <Linha key={c.id} titulo={`${c.codigo} · ${c.nome}`}
                  sub={`por 1 ${c.unidade}  ${c.itens.length} insumo(s)`}
                  onEdit={()=>setCompModal({...c, itens: c.itens.map(i=>({...i,coef:String(i.coef)}))})}/>
         ))}
@@ -26202,7 +26227,7 @@ function Cadastros({ data, update, showToast, onTab }) {
             <p style={{fontSize:11,color:C.blue,fontWeight:800,marginTop:2}}>{compEmpresaModal.origemFonte} {compEmpresaModal.origemCodigo}{compEmpresaModal.origemDataBase?` · ${compEmpresaModal.origemDataBase}`:""}{compEmpresaModal.origemUf?` · ${compEmpresaModal.origemUf}`:""}</p>
           </div>}
           <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:9}}>
-            <Inp label="Código da empresa *" value={compEmpresaModal.codigo} onChange={v=>setCompEmpresaModal(f=>({...f,codigo:v}))}/>
+            <Inp label="Código automático" value={compEmpresaModal.codigo} onChange={()=>{}} disabled/>
             <Inp label="Unidade *" value={compEmpresaModal.unidade} onChange={v=>setCompEmpresaModal(f=>({...f,unidade:v}))}/>
             <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:800}}>CUSTO UNITÁRIO</p><p style={{fontSize:15,color:C.yellowD,fontWeight:900,marginTop:2}}>{fmt((compEmpresaModal.itens||[]).reduce((s,i)=>s+Number(i.coeficiente||0)*Number(i.precoUnit||0),0))}</p></div>
           </div>
@@ -26268,11 +26293,11 @@ function ModalMaterial({ form, setForm, onSave, unidades = [] }) {
   const { formGrid } = useBreakpoint();
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   return (
-    <Modal title={form.id ? "Editar material" : "Novo material"} onClose={()=>setForm(null)} wide>
+    <Modal title={form.id ? "Editar insumo" : "Novo insumo"} onClose={()=>setForm(null)} wide>
       <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+        <Inp label="Código automático" value={form.codigo} onChange={()=>{}} disabled/>
         <Inp label="Descrição *" value={form.descricao} onChange={F("descricao")}
              placeholder="Cimento CP-II 50kg"/>
-        <Inp label="Código (SINAPI/interno)" value={form.codigo} onChange={F("codigo")} placeholder="1379"/>
         <Sel label="Unidade *" value={form.unidade} onChange={F("unidade")}
              options={unidades.map(u => ({ v:u.sigla, l:`${u.sigla} - ${u.nome}` }))}/>
         <Sel label="Categoria" value={form.categoria} onChange={F("categoria")}
@@ -26331,6 +26356,7 @@ function ModalComposicao({ form, setForm, onSave, materiais, unidades = [] }) {
     <Modal title={form.id ? "Editar composição" : "Nova composição"} onClose={()=>setForm(null)} wide>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+          <Inp label="Código automático" value={form.codigo||""} onChange={()=>{}} disabled/>
           <Inp label="Serviço *" value={form.nome} onChange={F("nome")}
                placeholder="Alvenaria de vedação"/>
           <Sel label="Unidade *" value={form.unidade} onChange={F("unidade")}
@@ -26567,7 +26593,7 @@ function Estoque({ data, update, showToast, currentUser }) {
     if (!form.descricao.trim()) { showToast("Descreva o material.", "error"); return; }
     const p = {
       id: form.id || uid(),
-      codigo: form.codigo.trim(),
+      codigo: form.id?form.codigo:proximoCodigoArcd(data),
       descricao: form.descricao.trim(),
       unidade: form.unidade || "un",
       categoria: form.categoria || "outros",
@@ -26582,7 +26608,7 @@ function Estoque({ data, update, showToast, currentUser }) {
         : [...(data.materiais||[]), p],
     });
     setMatModal(null);
-    showToast(form.id ? "Material atualizado." : "Material cadastrado.");
+    showToast(form.id ? "Insumo atualizado." : "Insumo cadastrado.");
   };
 
   //  Movimento avulso 
@@ -26633,7 +26659,7 @@ function Estoque({ data, update, showToast, currentUser }) {
       .map(i => ({ materialId: i.materialId, coef: Number(i.coef) }));
     if (!itens.length) { showToast("Adicione ao menos um insumo com coeficiente.", "error"); return; }
 
-    const p = { id: form.id || uid(), nome: form.nome.trim(), unidade: form.unidade || "m2", itens };
+    const p = { id: form.id || uid(), codigo:form.id?(form.codigo||proximoCodigoArcd(data)):proximoCodigoArcd(data), nome: form.nome.trim(), unidade: form.unidade || "m2", itens };
     update({
       ...data,
       composicoes: form.id
@@ -26775,7 +26801,7 @@ function Estoque({ data, update, showToast, currentUser }) {
 
       {/* Abas */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4}}>
-        {[["saldo","Saldo"],["movs","Movimentos"],["materiais","Materiais"],
+        {[["saldo","Saldo"],["movs","Movimentos"],["materiais","Insumos"],
           ["comp","Composições"],["abc","Curva ABC"]].map(([v,l])=>(
           <button key={v} onClick={()=>setAba(v)} style={{
             padding:"7px 2px",
@@ -26788,7 +26814,7 @@ function Estoque({ data, update, showToast, currentUser }) {
         ))}
       </div>
 
-      <Inp value={busca} onChange={setBusca} placeholder="Buscar material..."/>
+      <Inp value={busca} onChange={setBusca} placeholder="Buscar insumo..."/>
 
       {/*  SALDO  */}
       {aba === "saldo" && (
@@ -26862,11 +26888,11 @@ function Estoque({ data, update, showToast, currentUser }) {
           })
       )}
 
-      {/*  MATERIAIS  */}
+      {/*  INSUMOS  */}
       {aba === "materiais" && (<>
-        <Btn v="ghost" onClick={()=>setMatModal({id:"",codigo:"",descricao:"",unidade:"un",
+        <Btn v="ghost" onClick={()=>setMatModal({id:"",codigo:proximoCodigoArcd(data),descricao:"",unidade:"un",
           categoria:"estrutural",estoqueMin:"",precoMedio:""})} full>
-          <Ic n="plus"/> Novo material
+          <Ic n="plus"/> Novo insumo
         </Btn>
         {materiais
           .filter(m => !busca.trim() || m.descricao.toLowerCase().includes(busca.toLowerCase()))
@@ -26894,14 +26920,14 @@ function Estoque({ data, update, showToast, currentUser }) {
             Por isso estes números vêm de você.
           </p>
         </div>
-        <Btn v="ghost" onClick={()=>setCompModal({id:"",nome:"",unidade:"m2",itens:[{materialId:"",coef:""}]})} full>
+        <Btn v="ghost" onClick={()=>setCompModal({id:"",codigo:proximoCodigoArcd(data),nome:"",unidade:"m2",itens:[{materialId:"",coef:""}]})} full>
           <Ic n="plus"/> Nova composição
         </Btn>
         {(data.composicoes||[]).map(c => (
           <div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
             <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
               <div style={{minWidth:0,flex:1}}>
-                <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{c.nome}</p>
+                <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{c.codigo} · {c.nome}</p>
                 <p style={{fontSize:10,color:C.muted,marginTop:1}}>por 1 {c.unidade}</p>
               </div>
               <div style={{display:"flex",gap:4,flexShrink:0}}>
