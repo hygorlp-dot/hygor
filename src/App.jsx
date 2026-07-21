@@ -19,6 +19,7 @@ import * as XLSX from "xlsx";
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
 import { listarPerfis, criarPrimeiroAdmin, entrarComPin,
          saveData, saveDataDetailed, logout as encerrarSessao,
+         registrarPresenca, encerrarPresenca, listarPresencas,
          loadDataWithMeta, adoptServerVersion, subirFoto,
          listarBasesReferencia, iniciarBaseReferencia, enviarLoteReferencia,
          enviarLoteInsumosReferencia, enviarLoteComponentesReferencia,
@@ -12277,6 +12278,9 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
   const [form,    setForm]    = useState(emptyU);
   const [newPin,  setNewPin]  = useState("");
   const [newPin2, setNewPin2] = useState("");
+  const [presencas,setPresencas] = useState([]);
+  const [presencaBusy,setPresencaBusy] = useState(false);
+  const [presencaErro,setPresencaErro] = useState("");
   const F = k => v => setForm(f=>({...f,[k]:v}));
   const mudarPerfil=role=>setForm(f=>({...f,role,accessTabs:[...(ROLE_TABS[role]||["home"])]}));
   const toggleTela=tab=>setForm(f=>{const atual=new Set(f.accessTabs||[]);atual.has(tab)?atual.delete(tab):atual.add(tab);return{...f,accessTabs:[...atual]};});
@@ -12314,6 +12318,42 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
     showToast("Status atualizado.");
   };
 
+  const carregarPresencas = useCallback(async () => {
+    if (currentUser?.role !== "admin") return;
+    setPresencaBusy(true);
+    const r = await listarPresencas();
+    if (r.ok) { setPresencas(r.presencas); setPresencaErro(""); }
+    else setPresencaErro(r.erro || "Não foi possível consultar quem está on-line.");
+    setPresencaBusy(false);
+  }, [currentUser?.role]);
+
+  useEffect(() => {
+    if (currentUser?.role !== "admin") return undefined;
+    carregarPresencas();
+    const timer = window.setInterval(carregarPresencas, 30000);
+    return () => window.clearInterval(timer);
+  }, [currentUser?.role, carregarPresencas]);
+
+  const presencasPorUsuario = useMemo(() => {
+    const mapa = new Map();
+    presencas.forEach(p => {
+      if (!mapa.has(p.userId)) mapa.set(p.userId, []);
+      mapa.get(p.userId).push(p);
+    });
+    mapa.forEach(lista => lista.sort((a,b)=>new Date(b.lastSeen)-new Date(a.lastSeen)));
+    return mapa;
+  }, [presencas]);
+
+  const fmtUltimaAtividade = iso => {
+    if (!iso) return "Nunca registrado";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "Horário indisponível";
+    const segundos = Math.max(0, Math.round((Date.now()-d.getTime())/1000));
+    if (segundos < 60) return "Agora";
+    if (segundos < 3600) return `Há ${Math.floor(segundos/60)} min`;
+    return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+  };
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -12321,8 +12361,10 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
           <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:15,fontWeight:700,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Usuários do Sistema</p>
           <p style={{fontSize:12,color:C.muted,marginTop:2}}>{(data.usuarios||[]).length} cadastrados</p>
         </div>
-        {currentUser?.role==="admin"&&<Btn size="sm" onClick={()=>{setForm(emptyU);setModal(true);}}><Ic n="plus"/> Novo</Btn>}
+        {currentUser?.role==="admin"&&<div style={{display:"flex",gap:6}}><Btn size="sm" v="ghost" onClick={carregarPresencas} disabled={presencaBusy}><Ic n="clock"/> {presencaBusy?"Atualizando...":"Atualizar on-line"}</Btn><Btn size="sm" onClick={()=>{setForm(emptyU);setModal(true);}}><Ic n="plus"/> Novo</Btn></div>}
       </div>
+
+      {currentUser?.role==="admin"&&presencaErro&&<p style={{fontSize:10.5,color:C.red,background:`${C.red}0B`,border:`1px solid ${C.red}33`,borderRadius:6,padding:"7px 9px"}}>{presencaErro}</p>}
 
       {(data.usuarios||[]).length===0&&(
         <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:20,textAlign:"center",color:C.muted}}>
@@ -12335,6 +12377,9 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
         const hasPIN=!!u.pin;
         const acessos=allowedTabsForUser(u);
         const setores=u.role==="admin"?["TODOS OS SETORES"]:ACCESS_SECTORS.filter(s=>s.tabs.some(([id])=>acessos.includes(id))).map(s=>s.label.toUpperCase());
+        const sessoes=presencasPorUsuario.get(u.id)||[];
+        const sessoesOnline=sessoes.filter(p=>p.online);
+        const ultima=sessoesOnline[0]||sessoes[0];
         return(
           <div key={u.id} style={{
             background:C.bg,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${role.color}`,
@@ -12347,11 +12392,13 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
                   <p style={{fontWeight:700,fontSize:14,color:C.text}}>{u.nome}</p>
                   {u.id===currentUser?.id&&<span style={{fontSize:10,background:C.yellow,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:700}}>VOCÊ</span>}
+                  {currentUser?.role==="admin"&&<span style={{fontSize:9.5,background:sessoesOnline.length?`${C.green}18`:C.surface,color:sessoesOnline.length?C.green:C.muted,border:`1px solid ${sessoesOnline.length?C.green:C.border}`,padding:"2px 6px",borderRadius:99,fontWeight:800,display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:sessoesOnline.length?C.green:C.muted}}/>{sessoesOnline.length?`ONLINE${sessoesOnline.length>1?` · ${sessoesOnline.length} SESSÕES`:""}`:"OFFLINE"}</span>}
                   {!hasPIN&&<span style={{fontSize:10,background:C.orange,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:700}}>SEM PIN</span>}
                 </div>
                 <p style={{fontSize:11,color:role.color,fontWeight:600,marginTop:2}}>{role.l}</p>
                 {u.email&&<p style={{fontSize:11,color:C.muted,marginTop:1}}>{u.email}</p>}
                 <p style={{fontSize:10,color:C.muted,marginTop:3}}>{role.desc}</p>
+                {currentUser?.role==="admin"&&<p style={{fontSize:9.5,color:sessoesOnline.length?C.green:C.muted,marginTop:4}}>{sessoesOnline.length?`${TAB_META[ultima?.tab]?.label||ultima?.tab||"No aplicativo"} · ${ultima?.device||"Dispositivo"}`:`Última atividade: ${fmtUltimaAtividade(ultima?.lastSeen)}`}</p>}
                 <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>{setores.map(nome=><span key={nome} style={{fontSize:8.5,fontWeight:800,color:C.blue,background:`${C.blue}0C`,border:`1px solid ${C.blue}35`,padding:"2px 5px",borderRadius:4}}>{nome}</span>)}</div>
               </div>
               {currentUser?.role==="admin"&&(
@@ -29022,6 +29069,29 @@ export default function App() {
   const [toast,       setToast]       = useState(null);
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
   const [ultimaSync,  setUltimaSync]  = useState(null);
+  const tabPresencaRef = useRef(tab);
+  useEffect(() => {
+    tabPresencaRef.current = tab;
+    if (currentUser?.id) registrarPresenca(tab);
+  }, [tab, currentUser?.id]);
+
+  // Mantém a sessão visível para o administrador sem tocar no JSON principal.
+  // O servidor considera on-line quem enviou heartbeat nos últimos 90 segundos.
+  useEffect(() => {
+    if (!currentUser?.id) return undefined;
+    const atualizar = () => { registrarPresenca(tabPresencaRef.current); };
+    const aoMudarVisibilidade = () => { if (!document.hidden) atualizar(); };
+    const aoFechar = () => { encerrarPresenca(true); };
+    atualizar();
+    const timer = window.setInterval(atualizar, 45000);
+    document.addEventListener("visibilitychange", aoMudarVisibilidade);
+    window.addEventListener("pagehide", aoFechar);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", aoMudarVisibilidade);
+      window.removeEventListener("pagehide", aoFechar);
+    };
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -29444,15 +29514,17 @@ export default function App() {
   // Sair e trocar usuário agora fazem a mesma coisa por baixo: limpam o PIN da
   // memória e voltam pro login. Não existe mais uma "sessão do Supabase" por
   // cima - o PIN É a sessão.
-  const sairDoSistema = () => {
+  const sairDoSistema = async () => {
     if (!window.confirm("Sair do sistema?")) return;
+    await encerrarPresenca();
     setCurrentUser(null);
     setData(null);        // os dados saem da memória junto
     encerrarSessao();
   };
 
   // Tablet compartilhado na obra: troca quem opera, sem a pergunta de confirmação.
-  const trocarDeUsuario = () => {
+  const trocarDeUsuario = async () => {
+    await encerrarPresenca();
     setCurrentUser(null);
     setData(null);
     encerrarSessao();
@@ -29788,7 +29860,7 @@ export default function App() {
           {tab === "caixa"    && <CaixaObra    data={data} update={update} showToast={showToast} />}
           {tab === "relat"    && <Relatorios   data={data} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
-          {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={()=>setCurrentUser(null)} />}
+          {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} />}
         </main>
 
         {/*  NAV INFERIOR - só celular/tablet (no desktop é sidebar)  */}

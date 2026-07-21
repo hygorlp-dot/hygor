@@ -14,15 +14,20 @@ const ROTA = "/api/data";
 // Guardado só em memória (não em localStorage): fechou a aba, tem que
 // digitar o PIN de novo. Se ficasse no disco, quem pegasse o celular
 // destravado entrava sem PIN.
-let sessao = { userId: null, pin: null };
+let sessao = { userId: null, pin: null, sessionId: null };
 let ultimoUpdatedAt = null;
 
-export const abrirSessao = (userId, pin) => { 
-  sessao = { userId, pin }; 
+const novaSessaoId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+};
+
+export const abrirSessao = (userId, pin) => {
+  sessao = { userId, pin, sessionId: novaSessaoId() };
 };
 
 export const fecharSessao = () => {
-  sessao = { userId: null, pin: null };
+  sessao = { userId: null, pin: null, sessionId: null };
   ultimoUpdatedAt = null;
 };
 
@@ -124,6 +129,51 @@ export const loadDataWithMeta = async () => {
 };
 
 export const logout = fecharSessao;
+
+// ── Presença on-line ───────────────────────────────────────────────
+// Cada aba usa um sessionId próprio e grava em uma linha separada do dataset.
+const chamarPresenca = async (action, extra = {}, keepalive = false) => {
+  if (!temSessao()) return { ok: false, erro: "Sessão encerrada." };
+  try {
+    const r = await fetch("/api/presence", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action,
+        userId: sessao.userId,
+        pin: sessao.pin,
+        sessionId: sessao.sessionId,
+        ...extra,
+      }),
+      keepalive,
+    });
+    const json = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, erro: json.error, ...json };
+  } catch {
+    return { ok: false, erro: "Não foi possível atualizar a presença." };
+  }
+};
+
+const descricaoDispositivo = () => {
+  if (typeof navigator === "undefined") return "Dispositivo";
+  const ua = navigator.userAgent || "";
+  const tipo = /tablet|ipad/i.test(ua) ? "Tablet" : /mobile|android|iphone/i.test(ua) ? "Celular" : "Computador";
+  const navegador = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Navegador";
+  return `${tipo} · ${navegador}`;
+};
+
+export const registrarPresenca = tab => chamarPresenca("heartbeat", {
+  tab: tab || "home",
+  device: descricaoDispositivo(),
+});
+
+export const encerrarPresenca = (keepalive = false) => chamarPresenca("offline", {}, keepalive);
+
+export const listarPresencas = async () => {
+  const r = await chamarPresenca("list");
+  if (!r.ok) return { ok: false, erro: r.erro, presencas: [] };
+  return { ok: true, presencas: r.presencas || [], serverTime: r.serverTime };
+};
 
 // ── Quinzenas arquivadas ──────────────────────────────────────────
 // Quinzena finalizada e paga sai do JSON principal e vira linha propria no
