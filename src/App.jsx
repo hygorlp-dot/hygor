@@ -1389,8 +1389,8 @@ const DEFAULT = () => ({
   unidades: UNIDADES_PADRAO.map(u => ({ id: uid(), sigla: u.sigla, nome: u.nome })),
   fases: FASES_PADRAO.map((f, i) => ({ id: uid(), nome: f.nome, cor: f.cor, ordem: i })),
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 1", address: "", engineer: "", engineerId: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 2", address: "", engineer: "", engineerId: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
   ],
   employees: [],
   attendance: {},
@@ -1659,7 +1659,8 @@ const normalizeData = incoming => {
       name: o.name || "Obra sem nome",
       cliente: o.cliente || "",
       address: o.address || "",
-      engineer: o.engineer || "",
+      engineer: (d.usuarios||[]).find(u=>u.id===o.engineerId&&u.role==="engenheiro"&&u.active!==false)?.nome || o.engineer || "",
+      engineerId: o.engineerId || (d.usuarios||[]).find(u=>u.role==="engenheiro"&&u.active!==false&&u.nome===o.engineer)?.id || "",
       startDate: o.startDate || "",
       status: o.status || "active",
       areaM2: Number(o.areaM2 || 0),
@@ -5558,11 +5559,12 @@ function Financeiro({ data, update, showToast }) {
 
 function Obras({ data, update, showToast, onAbrirObra }) {
   const { formGrid, cols } = useBreakpoint();
-  const empty = { id: "", name: "", cliente: "", address: "", engineer: "", startDate: "", faseId: "", status: "active", areaM2: "", oneDriveUrl: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
+  const empty = { id: "", name: "", cliente: "", address: "", engineer: "", engineerId: "", startDate: "", faseId: "", status: "active", areaM2: "", oneDriveUrl: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [search, setSearch] = useState("");
   const [oneDriveStatus, setOneDriveStatus] = useState("checking");
+  const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
   useEffect(()=>{statusOneDrive().then(r=>setOneDriveStatus(r.ok?"connected":"disconnected"));},[]);
 
   //  Kanban 
@@ -5714,6 +5716,8 @@ function Obras({ data, update, showToast, onAbrirObra }) {
     let payload = {
       ...form,
       id: form.id || uid(),
+      engineerId: engenheiros.some(u=>u.id===form.engineerId) ? form.engineerId : "",
+      engineer: engenheiros.find(u=>u.id===form.engineerId)?.nome || "",
       areaM2,
       oneDriveUrl: String(form.oneDriveUrl || "").trim(),
       contractValue: Number(form.contractValue || 0),
@@ -6091,7 +6095,8 @@ function Obras({ data, update, showToast, onAbrirObra }) {
             <Inp label="Nome *" value={form.name} onChange={setField("name")} />
             <Inp label="Metragem quadrada (m)" type="number" value={form.areaM2} onChange={setField("areaM2")} placeholder="Ex.: 250" />
             <Inp label="Endereço" value={form.address} onChange={setField("address")} />
-            <Inp label="Responsável" value={form.engineer} onChange={setField("engineer")} />
+            <Sel label="Engenheiro de campo responsável" value={form.engineerId||""} onChange={setField("engineerId")}
+              options={[{v:"",l:engenheiros.length?"Selecione o engenheiro...":"Cadastre um engenheiro em Ajustes > Usuários"},...engenheiros.map(u=>({v:u.id,l:u.nome}))]}/>
             <Inp label="Cliente" value={form.cliente} onChange={setField("cliente")} placeholder="Nome do contratante" />
             <Inp label="Data de início" type="date" value={form.startDate} onChange={setField("startDate")} />
             <div style={{gridColumn:"1/-1"}}>
@@ -12439,7 +12444,8 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
     const usuarios = form.id
       ? (data.usuarios||[]).map(u=>u.id===form.id?payload:u)
       : [...(data.usuarios||[]), payload];
-    update({...data, usuarios});
+    const obras=(data.obras||[]).map(o=>o.engineerId===payload.id?{...o,engineer:payload.role==="engenheiro"&&payload.active!==false?payload.nome:"",engineerId:payload.role==="engenheiro"&&payload.active!==false?payload.id:""}:o);
+    update({...data, usuarios, obras});
     setModal(false);
     showToast(form.id?"Usuário atualizado.":"Usuário cadastrado. Defina o PIN agora.");
     if (!form.id) setPinModal(payload.id);
@@ -24543,7 +24549,9 @@ function DiarioObra({ data, update, showToast, currentUser }) {
 
   const engenheirosTodos=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
   const engenheiroLogado=currentUser?.role==="engenheiro"?currentUser:null;
-  const engenheiroDaObra=engenheirosTodos.find(u=>u.obraId===obraId)
+  const obraSelecionada=(data.obras||[]).find(o=>o.id===obraId);
+  const engenheiroDaObra=engenheirosTodos.find(u=>u.id===obraSelecionada?.engineerId)
+    || engenheirosTodos.find(u=>u.obraId===obraId)
     || engenheirosTodos.find(u=>!u.obraId&&(data.obras||[]).find(o=>o.id===obraId)?.engineer&&u.nome===(data.obras||[]).find(o=>o.id===obraId)?.engineer)
     || (engenheirosTodos.length===1?engenheirosTodos[0]:null);
   const responsavelAutomatico=engenheiroLogado||engenheiroDaObra||currentUser||null;
@@ -25105,8 +25113,12 @@ function Conferencia({ data, update, showToast, currentUser }) {
   },[data.usuarios,data.employees,data.terceirizados]);
 
   const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
+  const obraDaConferencia=(data.obras||[]).find(o=>o.id===(conferencia?.obraId||obraFiltro));
   const responsavelAutomatico=currentUser?.role==="engenheiro"?currentUser:
-    engenheiros.find(u=>u.obraId===(conferencia?.obraId||obraFiltro))||(engenheiros.length===1?engenheiros[0]:null);
+    engenheiros.find(u=>u.id===obraDaConferencia?.engineerId)
+    || engenheiros.find(u=>u.obraId===(conferencia?.obraId||obraFiltro))
+    || engenheiros.find(u=>obraDaConferencia?.engineer&&u.nome===obraDaConferencia.engineer)
+    || (engenheiros.length===1?engenheiros[0]:null);
 
   const atualizar=(id,mut)=>update({...data,conferencias:(data.conferencias||[]).map(c=>c.id===id
     ? {...mut({...c}),atualizadoEm:new Date().toISOString()}:c)});
@@ -29076,7 +29088,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const criarContrato=p=>{const existente=contratos.find(k=>k.propostaId===p.id);if(existente){setContratoForm({...existente});return;}if(p.status!=="aceita"&&!window.confirm("A proposta ainda não está aceita. Criar contrato mesmo assim?"))return;const l=leadBy(p.leadId);setContratoForm({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:"",parcelas:"1",diaVencimento:"5",prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});};
   const salvarContrato=f=>{if(!f.leadId||!f.contratante||!(Number(f.valor)>0)){showToast("Informe lead, contratante e valor.","error");return;}const k={...f,id:f.id||uid(),valor:Number(f.valor),entrada:Number(f.entrada||0),parcelas:Number(f.parcelas||1),diaVencimento:Number(f.diaVencimento||5),elaboradoEm:f.elaboradoEm||new Date().toISOString()};setCom({contratos:f.id?contratos.map(x=>x.id===f.id?k:x):[...contratos,k],leads:leads.map(l=>l.id===k.leadId?{...l,etapa:k.status==="enviado"?"contrato_enviado":"contrato_elaboracao",etapaDesde:new Date().toISOString()}:l)});setContratoForm(null);};
   const finalizarContrato=k=>{const p=propostas.find(x=>x.id===k.propostaId),l=leadBy(k.leadId);const faltas=[];if(p?.status!=="aceita")faltas.push("proposta aceita");if(!k.assinadoEm&&k.status!=="assinado")faltas.push("contrato assinado");if(!k.documentosRecebidos)faltas.push("documentos recebidos");if(!k.entradaPaga)faltas.push("entrada confirmada");if(!k.escopoValidado)faltas.push("escopo validado");if(!k.responsavelTecnicoId)faltas.push("responsável técnico");if(faltas.length){showToast(`Falta: ${faltas.join(", ")}.`,"error");return;}
-    const clienteExist=clientes.find(c=>c.leadId===l.id),cliente=clienteExist||{...clienteVazio(),id:uid(),leadId:l.id,nome:l.nome,tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone,whatsapp:l.whatsapp,email:l.email,cidade:l.cidade,endereco:l.endereco,createdAt:new Date().toISOString()};const obraId=k.obraId||uid();const obraExist=(data.obras||[]).some(o=>o.id===obraId);const obra={id:obraId,name:l.nome||k.objeto,address:l.endereco||l.cidade,engineer:nomeUsuario(k.responsavelTecnicoId),startDate:k.inicio,status:"active",areaM2:Number(l.areaConstrucao||0),contractType:"fixed_labor",contractValue:k.valor,adminPercentage:0,billingType:"parcelado",parcelaMensal:k.parcelas?Math.max(0,(k.valor-k.entrada)/k.parcelas):0,contractStart:k.inicio,contractEnd:k.conclusao,totalParcelas:k.parcelas,billingFrequency:"mensal",diaVenc1:k.diaVencimento,diaVenc2:k.diaVencimento,entrada:k.entrada,entradaDate:today(),hasCaixa:true,faseId:""};const venda={id:uid(),leadId:l.id,contratoId:k.id,clienteId:cliente.id,obraId,valor:k.valor,fechadaEm:new Date().toISOString(),responsavelId:k.responsavelComercialId||l.responsavelId};const parceiro=parceiros.find(x=>x.id===l.parceiroId),pct=Number(parceiro?.comissaoPct||1),comissao={id:uid(),vendaId:venda.id,responsavelId:venda.responsavelId,parceiroId:parceiro?.id||"",base:k.valor,percentual:pct,valor:k.valor*pct/100,status:"prevista"};
+    const clienteExist=clientes.find(c=>c.leadId===l.id),cliente=clienteExist||{...clienteVazio(),id:uid(),leadId:l.id,nome:l.nome,tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone,whatsapp:l.whatsapp,email:l.email,cidade:l.cidade,endereco:l.endereco,createdAt:new Date().toISOString()};const obraId=k.obraId||uid();const obraExist=(data.obras||[]).some(o=>o.id===obraId);const obra={id:obraId,name:l.nome||k.objeto,address:l.endereco||l.cidade,engineerId:k.responsavelTecnicoId||"",engineer:nomeUsuario(k.responsavelTecnicoId),startDate:k.inicio,status:"active",areaM2:Number(l.areaConstrucao||0),contractType:"fixed_labor",contractValue:k.valor,adminPercentage:0,billingType:"parcelado",parcelaMensal:k.parcelas?Math.max(0,(k.valor-k.entrada)/k.parcelas):0,contractStart:k.inicio,contractEnd:k.conclusao,totalParcelas:k.parcelas,billingFrequency:"mensal",diaVenc1:k.diaVencimento,diaVenc2:k.diaVencimento,entrada:k.entrada,entradaDate:today(),hasCaixa:true,faseId:""};const venda={id:uid(),leadId:l.id,contratoId:k.id,clienteId:cliente.id,obraId,valor:k.valor,fechadaEm:new Date().toISOString(),responsavelId:k.responsavelComercialId||l.responsavelId};const parceiro=parceiros.find(x=>x.id===l.parceiroId),pct=Number(parceiro?.comissaoPct||1),comissao={id:uid(),vendaId:venda.id,responsavelId:venda.responsavelId,parceiroId:parceiro?.id||"",base:k.valor,percentual:pct,valor:k.valor*pct/100,status:"prevista"};
     const contas=[];if(k.entrada>0)contas.push({id:uid(),obraId,competencia:today().slice(0,7),dataVencimento:today(),numeroParcela:"Entrada",tipo:"entrada",percentualAcumulado:0,percentualPeriodo:0,valorMOFixo:k.entrada,valorAdminPct:0,valorPrevisto:k.entrada,valorRecebido:k.entrada,dataPagamento:today(),descricao:`Entrada contrato ${k.numero}`,recebido:true});const saldo=Math.max(0,k.valor-k.entrada),parcs=Math.max(1,k.parcelas),valorParc=saldo/parcs;for(let i=1;i<=parcs&&valorParc>0;i++){const venc=comAddMes(k.inicio||today(),i-1);contas.push({id:uid(),obraId,competencia:venc.slice(0,7),dataVencimento:venc,numeroParcela:String(i),tipo:"parcela",percentualAcumulado:0,percentualPeriodo:0,valorMOFixo:valorParc,valorAdminPct:0,valorPrevisto:valorParc,valorRecebido:0,dataPagamento:"",descricao:`Parcela ${i}/${parcs} · ${k.numero}`,recebido:false});}
     const kickoff={id:uid(),leadId:l.id,dataHora:`${k.inicio||today()}T09:00`,tipo:"inicio_obra",local:l.endereco||"Obra",participantes:`Cliente, ${nomeUsuario(k.responsavelTecnicoId)}, ${nomeUsuario(venda.responsavelId)}`,responsavelComercialId:venda.responsavelId,responsavelTecnicoId:k.responsavelTecnicoId,pauta:"Reunião de início e transferência para Engenharia",resumo:"",necessidades:l.observacoes,objecoes:"",orcamentoDisponivel:k.valor,proximosPassos:"Validar mobilização e cronograma",proximoContato:k.inicio,status:"agendada",documentos:[]};
     const posVenda={id:uid(),leadId:l.id,tipo:"pos_venda",titulo:"Contato de pós-venda e confirmação do início",dataHora:`${comAddMes(k.inicio||today(),1)}T09:00`,responsavelId:venda.responsavelId,status:"pendente",observacoes:`Criado automaticamente após a contratação ${k.numero}.`,createdAt:new Date().toISOString()};
