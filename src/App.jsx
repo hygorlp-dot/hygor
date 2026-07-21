@@ -189,6 +189,30 @@ button:disabled{opacity:.4;cursor:not-allowed!important}
 button{touch-action:manipulation;transition:background .12s ease,border-color .12s ease,color .12s ease}
 button:not(:disabled):hover{filter:brightness(.98)}
 button:not(:disabled):active{filter:brightness(.94)}
+button:focus-visible{outline:2px solid ${C.blue};outline-offset:2px}
+.arcd-btn{
+  min-height:38px;border-width:1px!important;border-radius:10px!important;
+  font-size:12px!important;font-weight:750!important;letter-spacing:.05px!important;
+  text-transform:none!important;line-height:1.1;white-space:nowrap;
+  box-shadow:0 2px 8px rgba(20,24,28,.055)!important;
+  transition:transform .14s ease,box-shadow .14s ease,background .14s ease,border-color .14s ease!important;
+}
+.arcd-btn[data-size="sm"]{min-height:32px;padding:6px 10px!important;font-size:10.5px!important;border-radius:8px!important}
+.arcd-btn[data-size="lg"]{min-height:44px;padding:11px 17px!important;font-size:12.5px!important;border-radius:12px!important}
+.arcd-btn svg{width:14px!important;height:14px!important;flex:0 0 14px}
+.arcd-btn[data-size="sm"] svg{width:12px!important;height:12px!important;flex-basis:12px}
+.arcd-btn[data-variant="ghost"],.arcd-btn[data-variant="dark"]{box-shadow:none!important}
+.arcd-btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(20,24,28,.09)!important}
+.arcd-btn:not(:disabled):active{transform:translateY(0)}
+.arcd-tab{min-height:38px;padding:8px 12px!important;border:0!important;border-bottom:2px solid transparent!important;background:transparent!important;border-radius:0!important;color:${C.muted};font-size:11.5px!important;font-weight:600!important;white-space:nowrap}
+.arcd-tab[data-active="true"]{color:${C.text}!important;border-bottom-color:${C.blue}!important;font-weight:800!important}
+.arcd-tab:hover{color:${C.blue};filter:none!important}
+.arcd-pill{min-height:28px;padding:4px 9px!important;border-radius:99px!important;font-size:9.5px!important;font-weight:800!important;letter-spacing:.1px}
+button[title="Editar"],button[title="Excluir"],button[title="Remover"],button[title="Editar obra"],button[title="Excluir obra"]{
+  width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;
+  padding:0!important;display:inline-grid!important;place-items:center!important;border-radius:8px!important;
+  border:1px solid ${C.border}!important;background:${C.card}!important;box-shadow:none!important;
+}
 input:focus,select:focus,textarea:focus{
   outline:none;
   border-color:${C.yellow}!important;
@@ -2691,7 +2715,7 @@ function BrandMark({ compact = false, dark = false }) {
 }
 
 
-function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, type = "button", style = {} }) {
+function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, type = "button", style = {}, className = "", title }) {
   const variants = {
     primary: { bg: C.yellow,   color: "#FFFFFF",  border: C.yellowD, shadow: `${C.yellow}30` },
     warning: { bg: C.yellow,   color: "#FFFFFF",  border: C.yellowD, shadow: `${C.yellow}30` },
@@ -2707,26 +2731,29 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
 
   return (
     <button
+      className={`arcd-btn ${className}`.trim()}
+      data-variant={v}
+      data-size={size}
       type={type}
+      title={title}
       onClick={onClick}
       disabled={disabled}
       style={{
         width: full ? "100%" : "auto",
-        border: `1.5px solid ${vv.border}`,
+        border: `1px solid ${vv.border}`,
         background: vv.bg,
         color: vv.color,
         padding: `${py}px ${px}px`,
         cursor: disabled ? "not-allowed" : "pointer",
         fontFamily: "'Inter Display','Inter',sans-serif",
         fontWeight: 700,
-        letterSpacing: 0.5,
-        textTransform: "uppercase",
+        letterSpacing: 0.05,
         display: "inline-flex",
         gap: 6,
         alignItems: "center",
         justifyContent: "center",
         fontSize: size === "sm" ? 11 : 12.5,
-        borderRadius: C.rMd,
+        borderRadius: 10,
         boxShadow: v === "ghost" || v === "dark" ? "none" : C.shCard,
         transition: "background .12s ease, border-color .12s ease",
         // O icone herda a cor do texto do botao (nao branco fixo): assim no
@@ -22269,6 +22296,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast, current
           const ativa = id===abaConteudo;
           return (
             <button key={id}
+              className="arcd-tab"
+              data-active={ativa}
               onClick={()=>{if(id==="arquivos"){setAbaConteudo("geral");setSecoesAbertas(p=>({...p,arquivos:true}));}else if(id==="geral")setAbaConteudo("geral");else if(destino)abrirModuloDaObra(destino);}}
               style={{border:0,background:"transparent",cursor:"pointer",
                 padding:"9px 13px",whiteSpace:"nowrap",
