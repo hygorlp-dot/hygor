@@ -2353,10 +2353,19 @@ const normalizeData = incoming => {
     // Diario de obra (RDO). Um registro por dia/obra. As fotos guardam so a
     // URL (o arquivo vive no Storage). Os servicos executados apontam para
     // tarefas do planejamento e alimentam a medicao de evolucao.
-    rdos: Array.isArray(d.rdos) ? d.rdos.map(r => ({
+    rdos: Array.isArray(d.rdos) ? d.rdos.map((r, rdoIndex) => ({
       id:     r.id     || uid(),
       obraId: r.obraId || "",
       data:   r.data   || "",   // YYYY-MM-DD
+      codigo: Number(r.codigo || rdoIndex + 1),
+      status: r.status || "preparacao", // preparacao | concluido
+      praticabilidade: r.praticabilidade || "praticavel",
+      periodos: Array.isArray(r.periodos) ? r.periodos : ["manha","tarde"],
+      horarioInicio: r.horarioInicio || "",
+      horarioFim: r.horarioFim || "",
+      descricao: r.descricao || "",
+      pendencias: r.pendencias || "",
+      comentarios: r.comentarios || "",
       clima:  {
         manha: r.clima?.manha || "bom",   // bom | nublado | chuva | impraticavel
         tarde: r.clima?.tarde || "bom",
@@ -2406,6 +2415,9 @@ const normalizeData = incoming => {
       })).filter(f => f.url) : [],
       responsavel: r.responsavel || "",
       criadoEm:    r.criadoEm    || "",
+      atualizadoEm:r.atualizadoEm|| "",
+      concluidoEm: r.concluidoEm || "",
+      anexos: Array.isArray(r.anexos) ? r.anexos : [],
     })) : [],
     usuarios: Array.isArray(d.usuarios) ? d.usuarios.map(u => ({
       id:       u.id       || uid(),
@@ -22153,6 +22165,14 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, update, showToast }) {
         )}
       </Secao>
 
+      <Secao id="diarios" icone="atividade" titulo="Diário de Obra" cor={C.green}
+             badge={(data.rdos||[]).filter(r=>r.obraId===obraId).length||null}>
+        {(() => {const lista=(data.rdos||[]).filter(r=>r.obraId===obraId).sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,3);return <>
+          {lista.length?lista.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.line}`}}><div><b style={{fontSize:11.5,color:C.text}}>RDO-{String(r.codigo||0).padStart(3,"0")} · {fmtDate(r.data)}</b><p style={{fontSize:9.5,color:r.status==="concluido"?C.green:C.orange}}>{r.status==="concluido"?"Concluído":"Em preparação"} · {(r.fotos||[]).length} foto(s)</p></div></div>):<p style={{fontSize:11.5,color:C.muted}}>Nenhum relatório registrado para esta obra.</p>}
+          <Btn full style={{marginTop:8}} onClick={()=>{sessionStorage.setItem("arcd_rdo_obra",obraId);onTab("rdo");}}><Ic n="clipboard"/> Abrir histórico e registrar RDO</Btn>
+        </>;})()}
+      </Secao>
+
       {/* Dados do cliente */}
       <Secao id="cliente" icone="equipe" titulo="Dados do cliente" cor={C.blue}>
         {!obra.cliente ? (
@@ -24454,6 +24474,14 @@ function DiarioObra({ data, update, showToast }) {
   const obras = (data.obras || []).filter(o => o.status !== "done");
   const [obraId, setObraId] = useState(obras[0]?.id || "");
   const [dataRDO, setDataRDO] = useState(today());
+  const [modoRdo, setModoRdo] = useState("lista");
+  const [buscaRdo, setBuscaRdo] = useState("");
+  const [filtroObraRdo, setFiltroObraRdo] = useState("all");
+  const [filtroStatusRdo, setFiltroStatusRdo] = useState("all");
+  const [filtroCondicaoRdo, setFiltroCondicaoRdo] = useState("all");
+  const [filtroClimaRdo, setFiltroClimaRdo] = useState("all");
+  const [inicioRdo, setInicioRdo] = useState("");
+  const [fimRdo, setFimRdo] = useState("");
 
   const orc   = orcamentoDaObra(data, obraId);
   const plano = useMemo(() =>
@@ -24467,13 +24495,18 @@ function DiarioObra({ data, update, showToast }) {
   const rdoExistente = (data.rdos || []).find(r => r.obraId === obraId && r.data === dataRDO);
   const rdo = rdoExistente || {
     id: "", obraId, data: dataRDO,
+    codigo: Math.max(0,...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1,
+    status:"preparacao", praticabilidade:"praticavel", periodos:["manha","tarde"],
+    horarioInicio:"", horarioFim:"", descricao:"", pendencias:"", comentarios:"", anexos:[],
     clima: { manha: "bom", tarde: "bom", noite: "bom" },
     servicos: [], efetivo: [], presencas: [], terceirizados: [], equipamentos: [],
     ocorrencias: "", fotos: [], responsavel: "",
   };
 
   const [subindo, setSubindo] = useState(false);
+  const [subindoAnexo, setSubindoAnexo] = useState(false);
   const [servicoModal, setServicoModal] = useState(null);
+  useEffect(()=>{const id=sessionStorage.getItem("arcd_rdo_obra");if(id&&(data.obras||[]).some(o=>o.id===id)){setObraId(id);setFiltroObraRdo(id);}sessionStorage.removeItem("arcd_rdo_obra");},[data.obras]);
 
   // ---- Persistencia do RDO ----
   const salvarRDO = (mut) => {
@@ -24482,7 +24515,7 @@ function DiarioObra({ data, update, showToast }) {
     if (existe) {
       rdos = (data.rdos || []).map(r => r.id === rdo.id ? mut({ ...r }) : r);
     } else {
-      const novo = mut({ ...rdo, id: uid(), criadoEm: new Date().toISOString() });
+      const novo = mut({ ...rdo, id: uid(), criadoEm: new Date().toISOString(), atualizadoEm:new Date().toISOString() });
       rdos = [...(data.rdos || []), novo];
     }
     update({ ...data, rdos });
@@ -24495,6 +24528,35 @@ function DiarioObra({ data, update, showToast }) {
 
   const setOcorrencias = (txt) => salvarRDO(r => { r.ocorrencias = txt; return r; });
   const setResponsavel = (txt) => salvarRDO(r => { r.responsavel = txt; return r; });
+  const setCampoRdo = (campo, valor) => salvarRDO(r => ({...r,[campo]:valor,atualizadoEm:new Date().toISOString()}));
+
+  const abrirRdo = item => { setObraId(item.obraId); setDataRDO(item.data); setModoRdo("editor"); };
+  const novoRdo = () => { setObraId(obras[0]?.id||""); setDataRDO(today()); setModoRdo("editor"); };
+  const concluirRdo = () => salvarRDO(r=>({...r,status:"concluido",concluidoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()}));
+  const excluirRdo = item => {
+    if(!window.confirm(`Excluir definitivamente o RDO ${item.codigo||""} de ${fmtDate(item.data)}?`))return;
+    update({...data,rdos:(data.rdos||[]).filter(x=>x.id!==item.id)}); showToast?.("Diário removido.");
+  };
+  const duplicarRdo = item => {
+    const codigo=Math.max(0,...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1;
+    let novaData=today(); while((data.rdos||[]).some(x=>x.obraId===item.obraId&&x.data===novaData)){const d=new Date(`${novaData}T12:00:00`);d.setDate(d.getDate()+1);novaData=d.toISOString().slice(0,10);}
+    const copia={...item,id:uid(),codigo,status:"preparacao",data:novaData,fotos:[],anexos:[],criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:""};
+    update({...data,rdos:[...(data.rdos||[]),copia]}); setObraId(copia.obraId);setDataRDO(copia.data);setModoRdo("editor");showToast?.("Dados do último diário copiados para um novo rascunho.");
+  };
+
+  const imprimirRdo = item => {
+    const obra=(data.obras||[]).find(o=>o.id===item.obraId);
+    const equipe=(item.presencas||[]).filter(p=>p.status!=="falta").map(p=>(data.employees||[]).find(e=>e.id===p.empId)?.name).filter(Boolean);
+    const fotos=(item.fotos||[]).map(f=>`<figure><img src="${escapeHtml(f.url)}"><figcaption>${escapeHtml(f.legenda||"")}</figcaption></figure>`).join("");
+    const html=`<!doctype html><html><head><meta charset="utf-8"><title>RDO ${item.codigo}</title><style>body{font-family:Arial;margin:32px;color:#222}header{border-bottom:3px solid #d4a91e;padding-bottom:12px}h1{font-size:22px}h2{font-size:14px;margin-top:20px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px}.box{white-space:pre-wrap;background:#f6f6f6;padding:10px}figure{display:inline-block;width:30%;margin:1%;vertical-align:top}img{width:100%;height:150px;object-fit:cover}figcaption{font-size:10px}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><header><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")} · RDO ${item.codigo}</h1><b>${escapeHtml(obra?.name||"")}</b><p>${escapeHtml(obra?.address||"")}</p></header><div class="meta"><p><b>Data:</b> ${fmtDate(item.data)}</p><p><b>Status:</b> ${item.status==="concluido"?"Concluído":"Em preparação"}</p><p><b>Condição:</b> ${escapeHtml(item.praticabilidade)}</p><p><b>Horário:</b> ${escapeHtml(item.horarioInicio||"-")} às ${escapeHtml(item.horarioFim||"-")}</p><p><b>Responsável:</b> ${escapeHtml(item.responsavel||"-")}</p><p><b>Equipe:</b> ${equipe.length}</p></div><h2>Descrição e atividades</h2><div class="box">${escapeHtml(item.descricao||"")}</div><h2>Ocorrências</h2><div class="box">${escapeHtml(item.ocorrencias||"")}</div><h2>Pendências</h2><div class="box">${escapeHtml(item.pendencias||"")}</div>${fotos?`<h2>Registro fotográfico</h2>${fotos}`:""}</body></html>`;
+    const w=window.open("","_blank","noopener,noreferrer"); if(w){w.document.write(html);w.document.close();}
+  };
+
+  const rdosFiltrados=useMemo(()=>[...(data.rdos||[])].filter(item=>{
+    const obra=(data.obras||[]).find(o=>o.id===item.obraId); const q=buscaRdo.toLocaleLowerCase("pt-BR");
+    const climas=Object.values(item.clima||{});
+    return (filtroObraRdo==="all"||item.obraId===filtroObraRdo)&&(filtroStatusRdo==="all"||item.status===filtroStatusRdo)&&(filtroCondicaoRdo==="all"||item.praticabilidade===filtroCondicaoRdo)&&(filtroClimaRdo==="all"||climas.includes(filtroClimaRdo))&&(!inicioRdo||item.data>=inicioRdo)&&(!fimRdo||item.data<=fimRdo)&&(!q||String(item.codigo||"").includes(q)||String(item.descricao||item.ocorrencias||item.pendencias||"").toLocaleLowerCase("pt-BR").includes(q)||String(obra?.name||"").toLocaleLowerCase("pt-BR").includes(q));
+  }).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo||0)-Number(a.codigo||0)),[data.rdos,data.obras,buscaRdo,filtroObraRdo,filtroStatusRdo,filtroCondicaoRdo,filtroClimaRdo,inicioRdo,fimRdo]);
 
   // ---- Equipamentos na obra (do cadastro de Equipamentos) ----
   // Mostra os equipamentos disponíveis + os que já estão nesta obra. Marcar
@@ -24590,6 +24652,10 @@ function DiarioObra({ data, update, showToast }) {
       e.target.value = "";
     }
   };
+  const escolherAnexoRdo = async e => {
+    const file=e.target.files?.[0]; if(!file)return; setSubindoAnexo(true);
+    try{const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});const obraAtual=(data.obras||[]).find(o=>o.id===obraId);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"diario",date:dataRDO,fileName:file.name});if(!resp.ok)throw new Error(resp.error||"Falha no envio.");salvarRDO(r=>({...r,anexos:[...(r.anexos||[]),{id:resp.item.id,nome:resp.item.name,url:resp.item.webUrl,tipo:file.type,tamanho:file.size}]}));showToast?.("Anexo enviado ao OneDrive.");}catch(err){showToast?.(err.message||"Falha ao enviar anexo.","error");}finally{setSubindoAnexo(false);e.target.value="";}
+  };
   const removerFoto = (url) => salvarRDO(r => {
     r.fotos = (r.fotos || []).filter(f => f.url !== url);
     return r;
@@ -24608,8 +24674,51 @@ function DiarioObra({ data, update, showToast }) {
     </div>;
   }
 
+  if (modoRdo === "lista") {
+    return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+        <div><h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:25,fontWeight:900,color:C.text}}>Diário de Obra</h2><p style={{fontSize:11.5,color:C.muted}}>{(data.rdos||[]).length} relatório(s) registrados</p></div>
+        <Btn onClick={novoRdo}><Ic n="plus"/> Novo relatório</Btn>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:7,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:10}}>
+        <Inp value={inicioRdo} onChange={setInicioRdo} type="date" label="Data inicial"/>
+        <Inp value={fimRdo} onChange={setFimRdo} type="date" label="Data final"/>
+        <Sel value={filtroObraRdo} onChange={setFiltroObraRdo} label="Obra" options={[{v:"all",l:"Todas"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+        <Sel value={filtroStatusRdo} onChange={setFiltroStatusRdo} label="Status" options={[{v:"all",l:"Todos"},{v:"preparacao",l:"Em preparação"},{v:"concluido",l:"Concluído"}]}/>
+        <Sel value={filtroCondicaoRdo} onChange={setFiltroCondicaoRdo} label="Condição" options={[{v:"all",l:"Todas"},{v:"praticavel",l:"Praticável"},{v:"parcial",l:"Parcial"},{v:"impraticavel",l:"Impraticável"}]}/>
+        <Sel value={filtroClimaRdo} onChange={setFiltroClimaRdo} label="Clima" options={[{v:"all",l:"Todos"},...CLIMA_OPC.map(o=>({v:o.v,l:o.l}))]}/>
+        <Inp value={buscaRdo} onChange={setBuscaRdo} label="Pesquisar" placeholder="Código, obra ou descrição"/>
+      </div>
+      <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card}}>
+        <div style={{minWidth:760}}>
+          <div style={{display:"grid",gridTemplateColumns:"105px 120px 75px minmax(170px,1fr) 75px 120px",gap:8,padding:"8px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,fontSize:9.5,fontWeight:900,color:C.muted,textTransform:"uppercase"}}><span>Data</span><span>Status</span><span>Código</span><span>Obra</span><span>Anexos</span><span>Ações</span></div>
+          {rdosFiltrados.map(item=>{const obra=(data.obras||[]).find(o=>o.id===item.obraId);return <div key={item.id} style={{display:"grid",gridTemplateColumns:"105px 120px 75px minmax(170px,1fr) 75px 120px",gap:8,padding:"10px",alignItems:"center",borderBottom:`1px solid ${C.line}`,fontSize:11.5}}>
+            <button onClick={()=>abrirRdo(item)} style={{border:0,background:"transparent",padding:0,textAlign:"left",cursor:"pointer",fontWeight:800,color:C.text}}>{fmtDate(item.data)}</button>
+            <Badge color={item.status==="concluido"?C.green:C.orange}>{item.status==="concluido"?"Concluído":"Em preparação"}</Badge>
+            <b style={{color:C.blue}}>RDO-{String(item.codigo||0).padStart(3,"0")}</b>
+            <div><b style={{color:C.text}}>{obra?.name||"Obra removida"}</b><p className="brk" style={{fontSize:9.5,color:C.muted,marginTop:2}}>{item.responsavel||item.descricao||"Sem responsável informado"}</p></div>
+            <span style={{color:C.blue,fontWeight:800}}>{(item.fotos||[]).length+(item.anexos||[]).length} arquivo(s)</span>
+            <div style={{display:"flex",gap:3}}><Btn size="sm" v="ghost" onClick={()=>abrirRdo(item)} title="Editar"><Ic n="edit"/></Btn><Btn size="sm" v="ghost" onClick={()=>imprimirRdo(item)} title="Imprimir / PDF"><Ic n="fileText"/></Btn><Btn size="sm" v="ghost" onClick={()=>duplicarRdo(item)} title="Duplicar"><Ic n="copy"/></Btn><Btn size="sm" v="danger" onClick={()=>excluirRdo(item)} title="Excluir"><Ic n="trash"/></Btn></div>
+          </div>})}
+          {!rdosFiltrados.length&&<p style={{padding:24,textAlign:"center",fontSize:12,color:C.muted}}>Nenhum diário encontrado com estes filtros.</p>}
+        </div>
+      </div>
+    </div>;
+  }
+
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+        <button onClick={()=>setModoRdo("lista")} style={{border:0,background:"transparent",padding:0,color:C.blue,fontSize:11.5,fontWeight:800,cursor:"pointer"}}>← Histórico dos diários</button>
+        <div style={{display:"flex",gap:5}}>
+          {rdo.id&&<Btn size="sm" v="ghost" onClick={()=>imprimirRdo(rdo)}><Ic n="fileText"/> PDF</Btn>}
+          <Btn size="sm" v={rdo.status==="concluido"?"success":"primary"} onClick={concluirRdo}><Ic n="check"/> {rdo.status==="concluido"?"Concluído":"Concluir relatório"}</Btn>
+        </div>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",padding:"8px 10px",borderRadius:7,background:rdo.status==="concluido"?`${C.green}10`:`${C.orange}10`,border:`1px solid ${rdo.status==="concluido"?C.green:C.orange}44`}}>
+        <b style={{fontSize:12,color:C.text}}>RDO-{String(rdo.codigo||0).padStart(3,"0")}</b><Badge color={rdo.status==="concluido"?C.green:C.orange}>{rdo.status==="concluido"?"Concluído":"Em preparação"}</Badge>
+      </div>
 
       {/* Seletor de obra + data */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -24621,6 +24730,20 @@ function DiarioObra({ data, update, showToast }) {
           <Inp label="Data" type="date" value={dataRDO} onChange={setDataRDO} />
         </div>
       </div>
+
+      <Bloco titulo="Dados da visita">
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:8}}>
+          <Inp label="Início" type="time" value={rdo.horarioInicio||""} onChange={v=>setCampoRdo("horarioInicio",v)}/>
+          <Inp label="Fim" type="time" value={rdo.horarioFim||""} onChange={v=>setCampoRdo("horarioFim",v)}/>
+          <Sel label="Condição de trabalho" value={rdo.praticabilidade||"praticavel"} onChange={v=>setCampoRdo("praticabilidade",v)} options={[{v:"praticavel",l:"Praticável"},{v:"parcial",l:"Parcialmente praticável"},{v:"impraticavel",l:"Impraticável"}]}/>
+          <Inp label="Responsável técnico" value={rdo.responsavel||""} onChange={setResponsavel} placeholder="Engenheiro / encarregado"/>
+        </div>
+        <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:9}}>{[["manha","Manhã"],["tarde","Tarde"],["noite","Noite"]].map(([id,l])=><label key={id} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:C.text}}><input type="checkbox" checked={(rdo.periodos||[]).includes(id)} onChange={e=>setCampoRdo("periodos",e.target.checked?[...(rdo.periodos||[]),id]:(rdo.periodos||[]).filter(x=>x!==id))}/>{l} trabalhada</label>)}</div>
+      </Bloco>
+
+      <Bloco titulo="Descrição detalhada e atividades planejadas">
+        <textarea value={rdo.descricao||""} onChange={e=>setCampoRdo("descricao",e.target.value)} placeholder="Objetivo da visita, serviços planejados, verificações, decisões e evolução observada..." rows={5} style={{width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card,color:C.text,fontSize:12.5,fontFamily:"inherit",resize:"vertical"}}/>
+      </Bloco>
 
       {!rdoExistente && (
         <div style={{ background: `${C.yellow}12`, border: `1px solid ${C.yellow}44`,
@@ -24819,6 +24942,19 @@ function DiarioObra({ data, update, showToast }) {
                   rows={3} style={{ width: "100%", padding: "9px 11px", borderRadius: 6,
                            border: `1px solid ${C.border}`, background: C.card, color: C.text,
                            fontSize: 12.5, fontFamily: "inherit", resize: "vertical" }} />
+      </Bloco>
+
+      <Bloco titulo="Pendências e providências">
+        <textarea value={rdo.pendencias||""} onChange={e=>setCampoRdo("pendencias",e.target.value)} placeholder="Pendência, responsável pela solução, prazo combinado e impacto..." rows={3} style={{width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card,color:C.text,fontSize:12.5,fontFamily:"inherit",resize:"vertical"}}/>
+      </Bloco>
+
+      <Bloco titulo="Comentários e notas complementares">
+        <textarea value={rdo.comentarios||""} onChange={e=>setCampoRdo("comentarios",e.target.value)} placeholder="Comentários do cliente, fiscalização, projetistas ou equipe..." rows={3} style={{width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card,color:C.text,fontSize:12.5,fontFamily:"inherit",resize:"vertical"}}/>
+      </Bloco>
+
+      <Bloco titulo={`Documentos e anexos${(rdo.anexos||[]).length?` (${rdo.anexos.length})`:""}`}>
+        {(rdo.anexos||[]).map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"7px 0",borderBottom:`1px solid ${C.line}`}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:11.5,color:C.blue,fontWeight:700}}>{a.nome} ↗</a><button onClick={()=>salvarRDO(r=>({...r,anexos:(r.anexos||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></div>)}
+        <label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:8,padding:"7px 10px",border:`1px dashed ${C.blue}`,borderRadius:6,color:C.blue,fontSize:11,fontWeight:800,cursor:subindoAnexo?"wait":"pointer"}}><Ic n="file"/>{subindoAnexo?"Enviando...":"Adicionar documento"}<input type="file" onChange={escolherAnexoRdo} disabled={subindoAnexo} style={{display:"none"}}/></label>
       </Bloco>
 
       {/* FOTOS */}
