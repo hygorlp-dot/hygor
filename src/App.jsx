@@ -3540,6 +3540,25 @@ function DashboardLegacy({ data, onTab, ultimaSync, currentUser }) {
   );
 }
 
+function DashboardEngenheiro({data,onTab,currentUser,ultimaSync}){
+  const {cols,isDesktop}=useBreakpoint();
+  const [obraFiltro,setObraFiltro]=useState("all");
+  const conferencias=(data.conferencias||[]).filter(c=>c.responsavelId===currentUser?.id);
+  const obrasIds=new Set(conferencias.map(c=>c.obraId));
+  const obras=(data.obras||[]).filter(o=>obrasIds.has(o.id));
+  const abertas=conferencias.flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida").map(p=>({p,c,obra:(data.obras||[]).find(o=>o.id===c.obraId)}))).filter(x=>obraFiltro==="all"||x.c.obraId===obraFiltro);
+  const criticas=abertas.filter(x=>x.p.impacto==="critico").length;
+  const comFoto=abertas.filter(x=>(x.p.fotos||[]).some(f=>f.tipo==="ajuste")).length;
+  const abrir=c=>{sessionStorage.setItem("arcd_obra_contexto",c.obraId);sessionStorage.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
+  const impacto={baixo:C.green,medio:C.orange,alto:"#E26A2C",critico:C.red};
+  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:16}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}><div><p style={{fontSize:10,fontWeight:850,color:C.blue,textTransform:"uppercase",letterSpacing:.8}}>Engenharia de campo</p><h1 style={{fontSize:"clamp(25px,4vw,36px)",letterSpacing:-1,fontWeight:780,color:C.text,marginTop:5}}>Suas conferências</h1><p style={{fontSize:11.5,color:C.muted,marginTop:5}}>Priorize os ajustes em aberto, registre a evidência e conclua somente após enviar a foto.</p></div><div style={{fontSize:10,color:C.muted}}>Sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:""}</div></div>
+    <div style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:9}}>{[["Pendências abertas",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Com foto do ajuste",comFoto,C.green,"camera"],["Aguardando foto",Math.max(0,abertas.length-comFoto),C.orange,"clock"]].map(([l,v,c,i])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:15,padding:15,boxShadow:"0 8px 26px rgba(20,24,28,.045)"}}><span style={{width:29,height:29,borderRadius:9,display:"grid",placeItems:"center",background:`${c}12`,color:c}}><Ic n={i} s={14}/></span><p style={{fontSize:25,fontWeight:800,color:C.text,marginTop:10}}>{v}</p><p style={{fontSize:9.5,fontWeight:800,color:C.muted,textTransform:"uppercase",marginTop:4}}>{l}</p></div>)}</div>
+    <div style={{display:"flex",gap:8,alignItems:"end",flexWrap:"wrap",background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:12}}><div style={{minWidth:240,flex:1}}><Sel label="Filtrar conferências por obra" value={obraFiltro} onChange={setObraFiltro} options={[{v:"all",l:"Todas as minhas obras"},...obras.map(o=>({v:o.id,l:o.name}))]}/></div><Btn v="ghost" onClick={()=>onTab("obras")}><Ic n="building"/> Abrir obras</Btn></div>
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden",boxShadow:"0 10px 30px rgba(20,24,28,.045)"}}><div style={{padding:"13px 15px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between"}}><b style={{fontSize:12.5,color:C.text}}>Inconformidades para ajustar</b><span style={{fontSize:9.5,color:C.muted}}>Somente em aberto</span></div>{!abertas.length?<div style={{padding:30,textAlign:"center"}}><Ic n="check" s={24} color={C.green}/><p style={{fontSize:12,fontWeight:750,color:C.text,marginTop:7}}>Nenhuma pendência aberta neste filtro</p></div>:abertas.map(({p,c,obra},index)=>{const foto=(p.fotos||[]).some(f=>f.tipo==="ajuste");return <button key={`${c.id}-${p.id}`} onClick={()=>abrir(c)} style={{width:"100%",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",padding:"13px 15px",display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,.7fr) minmax(260px,1.5fr) 130px 130px 26px":"1fr auto",gap:12,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div><p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>{obra?.name||"Obra"}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>CONF-{String(c.codigo||0).padStart(3,"0")}</p></div><div style={{minWidth:0}}><p style={{fontSize:11.5,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.descricao}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.ajusteNecessario}</p></div><span style={{display:isDesktop?"inline-flex":"none",justifySelf:"start"}}><Badge color={impacto[p.impacto]||C.orange}>{p.impacto}</Badge></span><span style={{fontSize:9.5,fontWeight:800,color:foto?C.green:C.orange,whiteSpace:"nowrap"}}>{foto?"Foto enviada":"Aguardando foto"}</span><span style={{fontSize:18,color:C.muted}}>›</span></button>;})}</div>
+  </div>;
+}
+
 // Dashboard executivo premium. A tela trabalha por exceção: primeiro mostra
 // saúde da empresa, depois o que exige decisão e só então os resumos de apoio.
 function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar }) {
@@ -25254,6 +25273,7 @@ function Conferencia({ data, update, showToast, currentUser }) {
   const { cols } = useBreakpoint();
   const obras=(data.obras||[]).filter(o=>o.status!=="done");
   const [obraFiltro,setObraFiltro]=useState(()=>obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||""));
+  const [statusFiltro,setStatusFiltro]=useState("abertas");
   const [selecionadaId,setSelecionadaId]=useState("");
   const [pendenciaForm,setPendenciaForm]=useState(null);
   const [novaForm,setNovaForm]=useState(null);
@@ -25325,7 +25345,15 @@ function Conferencia({ data, update, showToast, currentUser }) {
     if(!window.confirm("Excluir esta pendência e suas referências?"))return;
     atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).filter(p=>p.id!==id)}));
   };
-  const mudarStatusPendencia=(p,status)=>{if(!ehAdmin)return;atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,status,resolvidoEm:status==="resolvida"?new Date().toISOString():""}:x)}));};
+  const mudarStatusPendencia=(p,status)=>{
+    const engenheiroResponsavel=currentUser?.role==="engenheiro"&&currentUser?.id===conferencia?.responsavelId;
+    if(!ehAdmin){
+      if(!engenheiroResponsavel||status!=="resolvida")return;
+      if(!(p.fotos||[]).some(f=>f.tipo==="ajuste")){showToast?.("Envie a foto do ajuste antes de resolver a pendência.","error");return;}
+    }
+    atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,status,resolvidoEm:status==="resolvida"?new Date().toISOString():""}:x)}));
+    if(status==="resolvida")showToast?.("Pendência resolvida com evidência registrada.");
+  };
 
   const enviarFotoAjuste=async(p,file)=>{
     if(!file||currentUser?.role!=="engenheiro"||currentUser?.id!==conferencia?.responsavelId)return;
@@ -25343,12 +25371,13 @@ function Conferencia({ data, update, showToast, currentUser }) {
 
   const obrasVisiveis=ehAdmin?obras:obras.filter(o=>(data.conferencias||[]).some(c=>c.obraId===o.id&&c.responsavelId===currentUser?.id));
   const filtroValido=obrasVisiveis.some(o=>o.id===obraFiltro)?obraFiltro:(obrasVisiveis[0]?.id||"");
-  const lista=(data.conferencias||[]).filter(c=>ehAdmin||c.responsavelId===currentUser?.id).filter(c=>!filtroValido||c.obraId===filtroValido).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
+  const lista=(data.conferencias||[]).filter(c=>ehAdmin||c.responsavelId===currentUser?.id).filter(c=>!filtroValido||c.obraId===filtroValido).filter(c=>statusFiltro==="todas"||(c.pendencias||[]).some(p=>p.status!=="resolvida")).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
 
   if(!conferencia) return <div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div><h1 style={{fontSize:22,color:C.text}}>Conferência técnica</h1><p style={{fontSize:12,color:C.muted,marginTop:4}}>Vistorias, inconformidades e ajustes rastreados até a resolução</p></div>
     <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
       <div style={{minWidth:240,flex:1}}><Sel label="Obra" value={filtroValido} onChange={setObraFiltro} options={obrasVisiveis.map(o=>({v:o.id,l:o.name}))}/></div>
+      <div style={{minWidth:190}}><Sel label="Situação" value={statusFiltro} onChange={setStatusFiltro} options={[{v:"abertas",l:"Com pendências abertas"},{v:"todas",l:"Todas as conferências"}]}/></div>
       {ehAdmin&&<Btn onClick={abrirNovaConferencia}><Ic n="plus"/> Nova vistoria</Btn>}
     </div>
     {!lista.length?<div style={{padding:"34px 18px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="clipboard" s={26} color={C.muted}/><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:9}}>Nenhuma conferência nesta obra</p><p style={{fontSize:11,color:C.muted,marginTop:4}}>Crie a primeira vistoria técnica para começar a rastrear ajustes.</p></div>:
@@ -25388,7 +25417,7 @@ function Conferencia({ data, update, showToast, currentUser }) {
           <p style={{fontSize:11.5,color:C.text,marginTop:8}}><strong>Ajuste:</strong> {p.ajusteNecessario}</p><p style={{fontSize:10.5,color:C.muted,marginTop:5}}>Responsável: <strong>{p.responsavelAjusteNome||"—"}</strong>{p.prazo?` · Prazo: ${fmtDate(p.prazo)}`:""}</p>
           {(p.fotos||[]).length>0&&<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>{p.fotos.map((f,idx)=><div key={`${f.url}-${idx}`} style={{position:"relative"}}><img src={f.url} alt={f.legenda||"Evidência"} style={{width:58,height:58,objectFit:"cover",borderRadius:5,border:`1px solid ${f.tipo==="ajuste"?C.green:C.border}`}}/>{f.tipo==="ajuste"&&<span style={{position:"absolute",left:3,bottom:3,padding:"2px 4px",borderRadius:3,background:C.green,color:"white",fontSize:7,fontWeight:900}}>AJUSTE</span>}</div>)}</div>}
           {!ehAdmin&&currentUser?.id===conferencia.responsavelId&&<label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:9,border:`1px solid ${C.blue}`,borderRadius:6,padding:"6px 9px",color:C.blue,fontSize:10,fontWeight:800,cursor:subindoAjusteId===p.id?"wait":"pointer",opacity:subindoAjusteId===p.id?0.65:1}}><Ic n="camera"/>{subindoAjusteId===p.id?"Enviando...":"Adicionar foto do ajuste"}<input type="file" accept="image/*" capture="environment" disabled={subindoAjusteId===p.id} onChange={e=>{const file=e.target.files?.[0];enviarFotoAjuste(p,file);e.target.value="";}} style={{display:"none"}}/></label>}
-          {ehAdmin?<div style={{display:"flex",gap:5,marginTop:9,flexWrap:"wrap"}}>{CONFERENCIA_STATUS.map(s=><button key={s.v} onClick={()=>mudarStatusPendencia(p,s.v)} style={{border:`1px solid ${p.status===s.v?C.blue:C.border}`,background:p.status===s.v?`${C.blue}12`:C.surface,color:p.status===s.v?C.blue:C.muted,borderRadius:99,padding:"4px 9px",fontSize:10,fontWeight:800,cursor:"pointer"}}>{s.l}</button>)}</div>:<div style={{marginTop:9}}><Badge color={p.status==="resolvida"?C.green:p.status==="em_ajuste"?C.orange:C.red}>{CONFERENCIA_STATUS.find(s=>s.v===p.status)?.l||"Aberta"}</Badge></div>}
+          {ehAdmin?<div style={{display:"flex",gap:5,marginTop:9,flexWrap:"wrap"}}>{CONFERENCIA_STATUS.map(s=><button key={s.v} onClick={()=>mudarStatusPendencia(p,s.v)} style={{border:`1px solid ${p.status===s.v?C.blue:C.border}`,background:p.status===s.v?`${C.blue}12`:C.surface,color:p.status===s.v?C.blue:C.muted,borderRadius:99,padding:"4px 9px",fontSize:10,fontWeight:800,cursor:"pointer"}}>{s.l}</button>)}</div>:<div style={{display:"flex",alignItems:"center",gap:7,marginTop:9,flexWrap:"wrap"}}><Badge color={p.status==="resolvida"?C.green:p.status==="em_ajuste"?C.orange:C.red}>{CONFERENCIA_STATUS.find(s=>s.v===p.status)?.l||"Aberta"}</Badge>{p.status!=="resolvida"&&(p.fotos||[]).some(f=>f.tipo==="ajuste")&&<Btn size="sm" v="success" onClick={()=>mudarStatusPendencia(p,"resolvida")}><Ic n="check"/> Resolver pendência</Btn>}{p.status!=="resolvida"&&!(p.fotos||[]).some(f=>f.tipo==="ajuste")&&<span style={{fontSize:9.5,color:C.muted}}>Envie a foto para liberar a resolução</span>}</div>}
         </div>;
       })}</div>
     </Bloco>
@@ -30771,8 +30800,10 @@ export default function App() {
         )}
 
         <main style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "20px 22px" : 14 }}>
-          {tab === "home"   && <Dashboard data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
-                              onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} />}
+          {tab === "home"   && (currentUser?.role==="engenheiro"
+            ? <DashboardEngenheiro data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}/>
+            : <Dashboard data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
+                              onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} />)}
           {tab.startsWith("com_") && <Comercial data={data} update={update} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} />}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
