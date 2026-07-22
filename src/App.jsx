@@ -5983,6 +5983,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
   const [arrastando, setArrastando] = useState(null);      // id da obra em arraste
   const [sobreFase,  setSobreFase]  = useState(null);      // id da coluna sob o cursor
   const [menuCard,   setMenuCard]   = useState(null);      // id da obra c/ menu aberto
+  const [categoria,  setCategoria]  = useState("todas");
 
   const fases = useMemo(
     () => [...(data.fases || [])].sort((a, b) => a.ordem - b.ordem),
@@ -6175,51 +6176,105 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
     showToast("Obra removida.");
   };
 
-  const termoBusca=search.toLocaleLowerCase("pt-BR");
-  const list = data.obras.filter(o => [o.name,o.cliente,o.address,o.engineer].some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termoBusca)));
   const statusMap = {
     active: { l: "Ativa", c: C.green },
     paused: { l: "Pausada", c: C.yellow },
     done: { l: "Concluída", c: C.muted },
   };
+  const obrasComando = useMemo(() => (data.obras || []).map(o => {
+    const fase = fases.find(f => f.id === o.faseId);
+    const equipe = (data.employees || []).filter(e => e.active !== false && e.obra === o.id);
+    const nomeFase = String(fase?.nome || "").toLocaleLowerCase("pt-BR");
+    const emPlanejamento = o.status !== "done" && /estudo|or[cç]amento|projeto|licen|prefeitura|planejamento|anteprojeto/.test(nomeFase);
+    const emExecucao = o.status === "active" && !emPlanejamento;
+    let diasPrazo = null;
+    if (o.contractEnd) {
+      const fim = new Date(`${o.contractEnd}T12:00:00`);
+      const agora = new Date(`${today()}T12:00:00`);
+      if (!Number.isNaN(fim.getTime())) diasPrazo = Math.ceil((fim - agora) / 86400000);
+    }
+    const alertas = [];
+    if (o.status !== "done" && !o.engineerId && !o.engineer) alertas.push("Sem engenheiro responsável");
+    if (o.status !== "done" && !o.clienteId && !o.cliente) alertas.push("Cliente não vinculado");
+    if (o.status !== "done" && !o.address) alertas.push("Endereço incompleto");
+    if (o.status === "paused") alertas.push("Obra pausada");
+    if (o.status !== "done" && diasPrazo !== null && diasPrazo < 0) alertas.push(`Prazo vencido há ${Math.abs(diasPrazo)} dias`);
+    const dadosChave = [o.name, o.clienteId || o.cliente, o.address, o.engineerId || o.engineer, o.contractStart || o.startDate, o.contractEnd, Number(o.contractValue) > 0];
+    const completude = Math.round((dadosChave.filter(Boolean).length / dadosChave.length) * 100);
+    return { ...o, _fase:fase, _equipe:equipe, _diasPrazo:diasPrazo, _alertas:alertas, _planejamento:emPlanejamento, _execucao:emExecucao, _completude:completude };
+  }), [data.obras, data.employees, fases]);
+  const totalCarteira = obrasComando.filter(o => o.status !== "done").reduce((s,o) => s + Number(o.contractValue || 0), 0);
+  const contagensObras = {
+    todas: obrasComando.length,
+    atencao: obrasComando.filter(o => o._alertas.length).length,
+    planejamento: obrasComando.filter(o => o._planejamento).length,
+    execucao: obrasComando.filter(o => o._execucao).length,
+    prazo: obrasComando.filter(o => o.status !== "done" && o._diasPrazo !== null && o._diasPrazo <= 30).length,
+    concluidas: obrasComando.filter(o => o.status === "done").length,
+  };
+  const categoriasObras = [
+    ["todas","Todas"], ["atencao","Requer atenção"], ["planejamento","Planejamento"],
+    ["execucao","Em execução"], ["prazo","Prazo próximo"], ["concluidas","Concluídas"],
+  ];
+  const correspondeCategoria = o => categoria === "todas"
+    || (categoria === "atencao" && o._alertas.length > 0)
+    || (categoria === "planejamento" && o._planejamento)
+    || (categoria === "execucao" && o._execucao)
+    || (categoria === "prazo" && o.status !== "done" && o._diasPrazo !== null && o._diasPrazo <= 30)
+    || (categoria === "concluidas" && o.status === "done");
+  const termoBusca=search.toLocaleLowerCase("pt-BR");
+  const list = obrasComando.filter(o => correspondeCategoria(o) && [o.name,o.cliente,o.address,o.engineer,o._fase?.nome].some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termoBusca)));
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <div>
-          <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 30, letterSpacing: 2, color: C.yellow }}>Obras</h2>
-          <p style={{ color: C.muted, fontSize: 13 }}>{data.obras.length} cadastradas</p>
+      <section style={{
+        position:"relative",overflow:"hidden",borderRadius:18,padding:isDesktop?"24px 26px":"20px 16px",
+        color:"#fff",background:`radial-gradient(circle at 82% 12%,${C.yellow}30 0,transparent 26%),linear-gradient(128deg,#121212 0%,#1D1B16 58%,#2A2518 100%)`,
+        border:`1px solid ${C.yellow}66`,boxShadow:"0 18px 44px rgba(18,18,18,.18)",
+      }}>
+        <div aria-hidden="true" style={{position:"absolute",inset:0,opacity:.18,backgroundImage:`linear-gradient(${C.yellow}33 1px,transparent 1px),linear-gradient(90deg,${C.yellow}33 1px,transparent 1px)`,backgroundSize:"42px 42px",maskImage:"linear-gradient(90deg,transparent,#000 70%)"}}/>
+        <div aria-hidden="true" style={{position:"absolute",right:-74,top:-108,width:330,height:330,borderRadius:"50%",border:`1px solid ${C.yellow}55`,boxShadow:`inset 0 0 0 36px #D4AF3708,inset 0 0 0 76px #D4AF3708`}}/>
+        <div style={{position:"relative",zIndex:1}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <span style={{width:8,height:8,borderRadius:99,background:C.green,boxShadow:`0 0 0 4px ${C.green}2E,0 0 18px ${C.green}`}}/>
+                <span style={{fontSize:9.5,fontWeight:900,letterSpacing:1.8,textTransform:"uppercase",color:C.yellow}}>ARCD · Engenharia operacional</span>
+              </div>
+              <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:isDesktop?34:28,letterSpacing:-.8,color:"#fff",lineHeight:1}}>Central de obras</h2>
+              <p style={{fontSize:11.5,color:"rgba(255,255,255,.64)",marginTop:7,maxWidth:520}}>Decisões, riscos, responsáveis e prazos organizados em uma única visão de comando.</p>
+            </div>
+            <div style={{display:"flex",gap:7,flexWrap:"wrap",justifyContent:"flex-end"}}>
+              {ehAdmin&&<button onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)} style={{height:38,padding:"0 12px",borderRadius:9,border:"1px solid rgba(255,255,255,.22)",background:"rgba(255,255,255,.07)",color:"#fff",fontSize:10.5,fontWeight:850,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Ic n="folder" s={14}/> Arquivos gerais</button>}
+              {ehAdmin&&oneDriveStatus !== "connected" && <button onClick={conectarOneDrive} style={{height:38,padding:"0 12px",borderRadius:9,border:`1px solid ${C.yellow}`,background:"transparent",color:C.yellow,fontSize:10.5,fontWeight:850,cursor:"pointer"}}>Conectar OneDrive</button>}
+              <button onClick={() => { setForm(empty); setModal(true); }} style={{height:38,padding:"0 15px",borderRadius:9,border:`1px solid ${C.yellow}`,background:C.yellow,color:C.ink,fontSize:10.5,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",gap:6,boxShadow:`0 8px 24px ${C.yellow}2E`}}><Ic n="plus" s={14}/> Nova obra</button>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8,marginTop:22}}>
+            {[
+              ["Obras ativas",obrasComando.filter(o=>o.status==="active").length,"Em operação",C.green],
+              ["Requer atenção",contagensObras.atencao,"Dados e prazos",contagensObras.atencao?C.red:C.green],
+              ["Prazo ≤ 30 dias",contagensObras.prazo,"Janela crítica",contagensObras.prazo?C.yellow:"#fff"],
+              ["Carteira ativa",fmtCompact(totalCarteira),"Valor contratado",C.yellow],
+            ].map(([label,value,sub,cor])=><div key={label} style={{padding:"11px 12px",border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.055)",borderRadius:10,backdropFilter:"blur(8px)"}}>
+              <p style={{fontSize:8.5,fontWeight:850,letterSpacing:.75,textTransform:"uppercase",color:"rgba(255,255,255,.55)"}}>{label}</p>
+              <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:900,color:cor,marginTop:4,lineHeight:1}}>{value}</p>
+              <p style={{fontSize:8.5,color:"rgba(255,255,255,.42)",marginTop:5}}>{sub}</p>
+            </div>)}
+          </div>
         </div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
-          {ehAdmin&&<Btn v="ghost" onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)}>
-            <Ic n="folder" /> Pasta geral
-          </Btn>}
-          {ehAdmin&&oneDriveStatus !== "connected" && <Btn v="ghost" onClick={conectarOneDrive}><Ic n="folder" /> Conectar OneDrive</Btn>}
-          <Btn onClick={() => { setForm(empty); setModal(true); }}><Ic n="plus" /> Nova</Btn>
-        </div>
-      </div>
+      </section>
 
-      {ehAdmin&&<div style={{background:`${C.blue}0D`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
-        <div>
-          <p style={{fontSize:12,fontWeight:800,color:C.text}}>Arquivos das obras no OneDrive</p>
-          <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Crie a subpasta na pasta geral e cole o link ao cadastrar ou editar a obra.</p>
+      <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:10,boxShadow:"0 8px 28px rgba(18,18,18,.05)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:1,maxWidth:"100%"}}>
+            {categoriasObras.map(([v,l])=><button key={v} onClick={()=>setCategoria(v)} style={{height:32,padding:"0 10px",whiteSpace:"nowrap",borderRadius:8,border:`1px solid ${categoria===v?C.yellow:C.border}`,background:categoria===v?C.text:C.bg,color:categoria===v?"#fff":C.muted,fontSize:9.5,fontWeight:850,cursor:"pointer"}}>{l} <span style={{marginLeft:4,color:categoria===v?C.yellow:C.subtle}}>{contagensObras[v]}</span></button>)}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,background:C.surface,padding:3,borderRadius:9}}>
+            {[["lista","Painel"],["quadro","Fluxo"]].map(([v,l])=><button key={v} onClick={()=>setVista(v)} style={{height:27,padding:"0 11px",border:0,borderRadius:7,background:vista===v?C.card:"transparent",boxShadow:vista===v?"0 2px 8px rgba(18,18,18,.10)":"none",color:vista===v?C.text:C.muted,fontSize:9.5,fontWeight:850,cursor:"pointer"}}>{l}</button>)}
+          </div>
         </div>
-        <button onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)} style={{background:"transparent",border:0,color:C.blue,fontSize:11,fontWeight:800,cursor:"pointer",padding:0}}>Abrir pasta geral ↗</button>
-      </div>}
-
-      {/* Alternador Lista / Quadro */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-        {[["lista","Lista"],["quadro","Quadro"]].map(([v,l])=>(
-          <button key={v} onClick={()=>setVista(v)} style={{
-            padding:"8px 4px",
-            border:`2px solid ${vista===v?C.yellow:C.border}`,
-            background:vista===v?`${C.yellow}12`:"transparent",
-            color:vista===v?C.text:C.muted,
-            fontFamily:"'Inter Display','Inter',sans-serif",
-            fontWeight:700,fontSize:12,cursor:"pointer",borderRadius:6,
-          }}>{l}</button>
-        ))}
-      </div>
+      </section>
 
       {/*  QUADRO (KANBAN)  */}
       {vista === "quadro" && (<>
@@ -6433,7 +6488,63 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
         <span style={{fontSize:10,color:C.muted,whiteSpace:"nowrap"}}>{list.length} resultado{list.length===1?"":"s"}</span>
       </div>
 
-      {isDesktop&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",boxShadow:"0 8px 28px rgba(23,28,36,.06)"}}>
+      <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:12}}>
+        {list.map(o => {
+          const st = statusMap[o.status] || statusMap.active;
+          const codigo = String(Math.max(0,(data.obras||[]).findIndex(x=>x.id===o.id))+1).padStart(4,"0");
+          const prazo = prazoObra(o);
+          const risco = o._alertas.length > 0;
+          return <article key={o.id} className="lift-card" style={{background:C.card,border:`1px solid ${risco?`${C.red}66`:C.border}`,borderRadius:15,overflow:"hidden",boxShadow:"0 10px 30px rgba(18,18,18,.07)",display:"flex",flexDirection:"column",minWidth:0}}>
+            <button onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",height:132,border:0,padding:0,cursor:"pointer",textAlign:"left",overflow:"hidden",background:o.capaUrl?`linear-gradient(180deg,rgba(18,18,18,.08),rgba(18,18,18,.88)),url("${o.capaUrl}") center/cover`:`linear-gradient(135deg,#121212 0%,#242018 72%,#4B3D10 100%)`,color:"#fff"}}>
+              {!o.capaUrl&&<><span aria-hidden="true" style={{position:"absolute",right:-24,top:-46,width:180,height:180,borderRadius:"50%",border:`1px solid ${C.yellow}55`,boxShadow:`inset 0 0 0 25px #D4AF370A,inset 0 0 0 48px #D4AF370A`}}/><span aria-hidden="true" style={{position:"absolute",inset:0,opacity:.16,backgroundImage:`linear-gradient(${C.yellow}55 1px,transparent 1px),linear-gradient(90deg,${C.yellow}55 1px,transparent 1px)`,backgroundSize:"30px 30px"}}/></>}
+              <div style={{position:"absolute",inset:0,padding:13,display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:8.5,fontWeight:900,letterSpacing:1,color:C.yellow}}>ARCD · #{codigo}</span>
+                  <span style={{fontSize:8.5,fontWeight:900,textTransform:"uppercase",letterSpacing:.45,color:st.c,background:"rgba(255,255,255,.94)",borderRadius:99,padding:"4px 7px"}}>{st.l}</span>
+                </div>
+                <div style={{position:"relative"}}>
+                  <p style={{fontSize:8.5,fontWeight:850,textTransform:"uppercase",letterSpacing:.9,color:"rgba(255,255,255,.55)",marginBottom:3}}>{o._fase?.nome||"Fase não definida"}</p>
+                  <h3 className="brk" style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:900,lineHeight:1.08,color:"#fff",paddingRight:14}}>{o.name}</h3>
+                </div>
+              </div>
+            </button>
+            <div style={{padding:13,display:"flex",flexDirection:"column",gap:11,flex:1}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                <div style={{minWidth:0}}><p style={{fontSize:8.5,fontWeight:850,textTransform:"uppercase",letterSpacing:.6,color:C.muted}}>Cliente</p><p style={{fontSize:11.5,fontWeight:800,color:o.cliente?C.text:C.muted,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não vinculado"}</p></div>
+                <div title={o.engineer||"Sem responsável"} style={{width:34,height:34,flexShrink:0,borderRadius:99,display:"grid",placeItems:"center",background:o.engineer?C.text:C.surface,border:`1px solid ${o.engineer?C.text:C.border}`,color:o.engineer?C.yellow:C.muted,fontSize:9.5,fontWeight:900}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</div>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>
+                {[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"—"],["Área",Number(o.areaM2)>0?`${Number(o.areaM2).toLocaleString("pt-BR")} m²`:"—"],["Equipe",`${o._equipe.length}`]].map(([l,v])=><div key={l} style={{background:C.surface,border:`1px solid ${C.ivory}`,borderRadius:8,padding:"7px 7px 6px",minWidth:0}}><p style={{fontSize:7.5,fontWeight:900,textTransform:"uppercase",letterSpacing:.45,color:C.muted}}>{l}</p><p style={{fontSize:10.5,fontWeight:900,color:C.text,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}
+              </div>
+
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:8.5,fontWeight:800,color:C.muted,marginBottom:5}}><span>Qualidade do cadastro</span><span>{o._completude}%</span></div>
+                <div style={{height:4,borderRadius:99,background:C.ivory,overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${o._completude}%`,borderRadius:99,background:o._completude>=80?C.green:o._completude>=55?C.yellow:C.red}}/></div>
+              </div>
+
+              {risco?<div style={{background:`${C.red}09`,border:`1px solid ${C.red}2E`,borderRadius:9,padding:"8px 9px",display:"flex",gap:7,alignItems:"flex-start"}}><Ic n="alert" s={13} color={C.red}/><div style={{minWidth:0}}><p style={{fontSize:8,fontWeight:900,textTransform:"uppercase",letterSpacing:.5,color:C.red}}>Atenção operacional</p><p style={{fontSize:9.5,color:C.subtle,lineHeight:1.35,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o._alertas[0]}{o._alertas.length>1?` +${o._alertas.length-1}`:""}</p></div></div>:<div style={{background:`${C.green}09`,border:`1px solid ${C.green}24`,borderRadius:9,padding:"8px 9px",display:"flex",gap:7,alignItems:"center"}}><Ic n="check" s={13} color={C.green}/><span style={{fontSize:9.5,fontWeight:800,color:C.green}}>Cadastro operacional regular</span></div>}
+
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,minHeight:18}}>
+                <span style={{fontSize:9.5,fontWeight:750,color:prazo?.cor||C.muted}}>{prazo?.rotulo||"Prazo não definido"}</span>
+                <span style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>Eng. {o.engineer?.split(" ")[0]||"não definido"}</span>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr auto":"1fr",gap:6,marginTop:"auto"}}>
+                <button onClick={()=>onAbrirObra?.(o.id)} style={{height:35,borderRadius:8,border:`1px solid ${C.text}`,background:C.text,color:"#fff",fontSize:9.5,fontWeight:900,cursor:"pointer"}}>Abrir central da obra →</button>
+                {ehAdmin&&o.oneDriveUrl&&<button onClick={()=>abrirOneDrive(o.oneDriveUrl)} title="Abrir arquivos" style={{width:37,height:35,borderRadius:8,border:`1px solid ${C.border}`,background:C.bg,color:C.text,cursor:"pointer"}}><Ic n="folder" s={14}/></button>}
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:`1px solid ${C.line}`}}>
+                <span style={{fontSize:8.5,color:C.muted}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span>
+                <div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" style={{width:27,height:27,border:`1px solid ${C.border}`,borderRadius:7,background:C.bg,color:C.text,cursor:"pointer"}}><Ic n="edit" s={12}/></button><button onClick={()=>remove(o.id)} title="Excluir obra" style={{width:27,height:27,border:`1px solid ${C.red}33`,borderRadius:7,background:`${C.red}08`,color:C.red,cursor:"pointer"}}><Ic n="trash" s={12}/></button></div>
+              </div>
+            </div>
+          </article>;
+        })}
+        {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:42,background:C.card,border:`1px dashed ${C.border}`,borderRadius:14}}><div style={{width:46,height:46,borderRadius:99,display:"grid",placeItems:"center",margin:"0 auto",background:C.surface,color:C.muted}}><Ic n="building" s={22}/></div><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:10}}>Nenhuma obra nesta categoria</p><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Altere o filtro ou a busca para ampliar os resultados.</p></div>}
+      </div>
+
+      {false&&isDesktop&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",boxShadow:"0 8px 28px rgba(23,28,36,.06)"}}>
         <div style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:10,padding:"10px 14px",background:"rgba(246,247,249,.86)",borderBottom:`1px solid ${C.border}`,fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.55}}><span>Código</span><span>Obra</span><span>Cliente</span><span>Status</span><span>Fase</span><span>Início</span><span>Responsável</span><span style={{textAlign:"right"}}>Ações</span></div>
         {list.map((o,index)=>{const st=statusMap[o.status]||statusMap.active;const fase=fases.find(f=>f.id===o.faseId);const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===o.id);const codigo=String(index+1).padStart(4,"0");return <div key={o.id} className="lift-card" onClick={()=>onAbrirObra?.(o.id)} style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:10,alignItems:"center",padding:"12px 14px",borderBottom:index<list.length-1?`1px solid ${C.line}`:"none",cursor:"pointer",background:C.card}}>
           <span style={{fontSize:10.5,fontWeight:850,color:C.blue}}>#{codigo}</span>
@@ -6448,7 +6559,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
         {!list.length&&<div style={{textAlign:"center",padding:34,color:C.muted,fontSize:12}}>Nenhuma obra encontrada.</div>}
       </div>}
 
-      {!isDesktop&&<div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:11}}>
+      {false&&!isDesktop&&<div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:11}}>
       {list.map(o => {
         const count = data.employees.filter(e => e.active !== false && e.obra === o.id).length;
         const st = statusMap[o.status] || statusMap.active;
