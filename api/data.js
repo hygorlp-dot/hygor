@@ -172,13 +172,11 @@ const validarAlteracoesConferencias=(usuario,anterior=[],proximo=[],autoritativo
   const removidas=[...antes.keys()].filter(id=>!depois.has(id));
   if(removidas.length)return "Somente o administrador pode excluir uma vistoria.";
   for(const [,nova] of adicionadas){
-    if(usuario?.role!=="engenheiro")return "Somente o administrador ou o engenheiro de campo responsável pode criar uma vistoria.";
+    if(usuario?.role!=="engenheiro_auditor")return "Somente o administrador ou o engenheiro auditor pode criar uma vistoria.";
     const obra=(obras||[]).find(o=>String(o.id)===String(nova?.obraId));
     const estaNoEscopo=!usuario.obraId||String(usuario.obraId)===String(obra?.id);
-    const ehResponsavel=String(obra?.engineerId||"")===String(usuario.id)
-      ||(!obra?.engineerId&&obra?.engineer&&String(obra.engineer).trim()===String(usuario.nome||"").trim());
-    if(!obra||!estaNoEscopo||!ehResponsavel)return "O administrador precisa definir você como engenheiro responsável por esta obra antes de criar a vistoria.";
-    if(String(nova?.responsavelId)!==String(usuario.id)||String(nova?.responsavel||"").trim()!==String(usuario.nome||"").trim())return "A nova vistoria deve ser registrada automaticamente em nome do engenheiro conectado.";
+    if(!obra||!estaNoEscopo)return "Esta obra não está disponível no escopo do engenheiro auditor.";
+    if(String(nova?.responsavelId)!==String(usuario.id)||String(nova?.responsavel||"").trim()!==String(usuario.nome||"").trim())return "A nova vistoria deve ser registrada automaticamente em nome do engenheiro auditor conectado.";
     if((nova?.pendencias||[]).length)return "Crie a vistoria primeiro; as pendências devem ser registradas dentro dela.";
   }
 
@@ -187,11 +185,13 @@ const validarAlteracoesConferencias=(usuario,anterior=[],proximo=[],autoritativo
     if(!antiga)continue;
     if(igualPermissao(antiga,nova))continue;
     const vigente=atual.get(id)||antiga;
-    if(vigente?.responsavelId===usuario?.id){
+    if(usuario?.role==="engenheiro_auditor"&&vigente?.responsavelId===usuario?.id){
       const imutaveis=["id","obraId","codigo","responsavelId","responsavel","criadoEm"];
       if(imutaveis.some(k=>!igualPermissao(antiga?.[k],nova?.[k])))return "O responsável pela vistoria não pode alterar a autoria ou o vínculo da conferência.";
       continue;
     }
+
+    if(usuario?.role!=="engenheiro")return "Somente o engenheiro auditor responsável ou o administrador pode alterar esta vistoria.";
 
     const topoAntigo={...antiga},topoNovo={...nova};
     delete topoAntigo.pendencias;delete topoNovo.pendencias;

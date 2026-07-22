@@ -2726,7 +2726,7 @@ const normalizeData = incoming => {
       accessTabs:Array.isArray(u.accessTabs)?[...new Set([
         ...u.accessTabs,
         ...((u.role==="rh")?["ponto","ponto_geral","folha"]:(u.role==="financeiro")?["ponto_geral","folha"]:[]),
-        ...((u.role==="engenheiro")?["conferencia"]:[]),
+        ...((["engenheiro","engenheiro_auditor"].includes(u.role))?["conferencia"]:[]),
       ])]:null,
       email:    u.email    || "",
       maxDesconto:Number(u.maxDesconto ?? 10),
@@ -3825,7 +3825,7 @@ const construirFilaOperador=(data,currentUser)=>{
   const minhasObras=role==="admin"?obrasAtivas:obrasAtivas.filter(o=>
     !currentUser?.obraId||o.id===currentUser.obraId).filter(o=>role!=="engenheiro"||
     o.engineerId===userId||o.engineer===currentUser?.nome||currentUser?.obraId===o.id);
-  const escopoEngenharia=minhasObras.length?minhasObras:(role==="engenheiro"?obrasAtivas.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId):obrasAtivas);
+  const escopoEngenharia=minhasObras.length?minhasObras:(["engenheiro","engenheiro_auditor"].includes(role)?obrasAtivas.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId):obrasAtivas);
   const idsObras=new Set(escopoEngenharia.map(o=>o.id));
   const fila=[];
   const incluir=(id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color)=>{
@@ -3833,7 +3833,7 @@ const construirFilaOperador=(data,currentUser)=>{
     fila.push({id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color});
   };
 
-  if(role==="admin"||role==="engenheiro"||acessos.has("rdo")){
+  if(role==="admin"||["engenheiro","engenheiro_auditor"].includes(role)||acessos.has("rdo")){
     const semRdo=escopoEngenharia.filter(o=>!(data.rdos||[]).some(r=>r.obraId===o.id&&r.data===hoje&&r.status==="concluido"));
     incluir("rdo-hoje","Engenharia","Diário de obra do dia",`${semRdo.slice(0,3).map(o=>o.name).join(", ")}${semRdo.length>3?` e mais ${semRdo.length-3}`:""}`,semRdo.length,2,"rdo","clipboard",C.blue);
     const equipe=(data.employees||[]).filter(e=>e.active!==false&&(!idsObras.size||idsObras.has(e.obra)));
@@ -3841,7 +3841,7 @@ const construirFilaOperador=(data,currentUser)=>{
     incluir("ponto-hoje","Campo","Apontamentos de equipe incompletos",`${semPonto.length} de ${equipe.length} profissional(is) sem situação registrada hoje`,semPonto.length,semPonto.length===equipe.length?3:2,"ponto","clock",C.orange);
     const fichas=(data.qualidadeRegistros||[]).filter(q=>idsObras.has(q.obraId)&&q.status!=="aprovada"&&(role==="admin"||!q.responsavelId||q.responsavelId===userId));
     incluir("qualidade","Qualidade","FVS/FVM aguardando inspeção",`${fichas.filter(q=>q.status==="reprovada").length} ficha(s) reprovada(s) exigem correção`,fichas.length,fichas.some(q=>q.status==="reprovada")?3:1,"obras","check",C.purple);
-    const patologias=(data.conferencias||[]).flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&(role==="admin"||p.responsavelAjusteId===userId||c.responsavelId===userId)).map(p=>({...p,obraId:c.obraId})));
+    const patologias=(data.conferencias||[]).flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&(role==="admin"||(role==="engenheiro_auditor"&&c.responsavelId===userId)||(role==="engenheiro"&&p.responsavelAjusteId===userId))).map(p=>({...p,obraId:c.obraId})));
     incluir("patologias","Qualidade","Patologias e inconformidades abertas",`${patologias.filter(p=>p.impacto==="critico").length} crítica(s) · ${patologias.filter(p=>!(p.fotos||[]).some(f=>f.tipo==="ajuste")).length} aguardando foto`,patologias.length,patologias.some(p=>p.impacto==="critico")?3:2,"conferencia","alert",C.red);
   }
 
@@ -3907,25 +3907,26 @@ function FilaOperador({fila,onTab}){
 function DashboardEngenheiro({data,onTab,currentUser,ultimaSync}){
   const {cols,isDesktop}=useBreakpoint();
   const [obraFiltro,setObraFiltro]=useState("all");
-  const conferencias=(data.conferencias||[]).filter(c=>c.responsavelId===currentUser?.id||(c.pendencias||[]).some(p=>p.responsavelAjusteId===currentUser?.id));
+  const ehAuditor=currentUser?.role==="engenheiro_auditor";
+  const conferencias=(data.conferencias||[]).filter(c=>ehAuditor?c.responsavelId===currentUser?.id:(c.pendencias||[]).some(p=>p.responsavelAjusteId===currentUser?.id));
   // A lista de obras não pode nascer das conferências: uma obra nova ou sem
   // vistoria atribuída desaparecia do dashboard do engenheiro. A única trava
   // válida é a restrição explícita definida pelo administrador no usuário.
   const obras=(data.obras||[]).filter(o=>o.status!=="done"&&(!currentUser?.obraId||o.id===currentUser.obraId));
-  const abertas=conferencias.flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&(c.responsavelId===currentUser?.id||p.responsavelAjusteId===currentUser?.id)).map(p=>({p,c,obra:(data.obras||[]).find(o=>o.id===c.obraId)}))).filter(x=>obraFiltro==="all"||x.c.obraId===obraFiltro);
+  const abertas=conferencias.flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&(ehAuditor?c.responsavelId===currentUser?.id:p.responsavelAjusteId===currentUser?.id)).map(p=>({p,c,obra:(data.obras||[]).find(o=>o.id===c.obraId)}))).filter(x=>obraFiltro==="all"||x.c.obraId===obraFiltro);
   const criticas=abertas.filter(x=>x.p.impacto==="critico").length;
-  const aguardandoValidacao=abertas.filter(x=>x.c.responsavelId===currentUser?.id&&x.p.status==="aguardando_validacao").length;
-  const aguardandoCorrecao=abertas.filter(x=>x.p.responsavelAjusteId===currentUser?.id&&["aberta","em_ajuste"].includes(x.p.status)).length;
+  const aguardandoValidacao=ehAuditor?abertas.filter(x=>x.p.status==="aguardando_validacao").length:0;
+  const aguardandoCorrecao=!ehAuditor?abertas.filter(x=>["aberta","em_ajuste"].includes(x.p.status)).length:0;
   const fila=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
   const abrir=c=>{sessionStorage.setItem("arcd_obra_contexto",c.obraId);sessionStorage.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
   const impacto={baixo:C.green,medio:C.orange,alto:"#E26A2C",critico:C.red};
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:16}}>
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={fila} onAbrir={onTab}/>
     <FilaOperador fila={fila} onTab={onTab}/>
-    <div><p style={{fontSize:10,fontWeight:850,color:C.blue,textTransform:"uppercase",letterSpacing:.8}}>Engenharia de campo</p><h2 style={{fontSize:"clamp(21px,3vw,29px)",letterSpacing:-.8,fontWeight:780,color:C.text,marginTop:4}}>Conferências e evidências</h2><p style={{fontSize:11.5,color:C.muted,marginTop:5}}>Envie evidências apenas nas correções atribuídas a você e valide tecnicamente as vistorias sob sua responsabilidade.</p></div>
-    <div style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:9}}>{[["Pendências no seu fluxo",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Para sua validação",aguardandoValidacao,C.green,"check"],["Para você corrigir",aguardandoCorrecao,C.orange,"camera"]].map(([l,v,c,i])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:15,padding:15,boxShadow:"0 8px 26px rgba(20,24,28,.045)"}}><span style={{width:29,height:29,borderRadius:9,display:"grid",placeItems:"center",background:`${c}12`,color:c}}><Ic n={i} s={14}/></span><p style={{fontSize:25,fontWeight:800,color:C.text,marginTop:10}}>{v}</p><p style={{fontSize:9.5,fontWeight:800,color:C.muted,textTransform:"uppercase",marginTop:4}}>{l}</p></div>)}</div>
+    <div><p style={{fontSize:10,fontWeight:850,color:C.blue,textTransform:"uppercase",letterSpacing:.8}}>{ehAuditor?"Auditoria de engenharia":"Engenharia de campo"}</p><h2 style={{fontSize:"clamp(21px,3vw,29px)",letterSpacing:-.8,fontWeight:780,color:C.text,marginTop:4}}>{ehAuditor?"Vistorias e validações":"Correções e evidências"}</h2><p style={{fontSize:11.5,color:C.muted,marginTop:5}}>{ehAuditor?"Crie vistorias, registre os achados e valide as evidências enviadas pelos engenheiros de campo.":"Acesse apenas as pendências atribuídas a você e envie a foto da correção para validação do auditor."}</p></div>
+    <div style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:9}}>{(ehAuditor?[["Pendências auditadas",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Para sua validação",aguardandoValidacao,C.green,"check"],["Vistorias sob sua responsabilidade",conferencias.length,C.purple,"building"]]:[["Pendências para corrigir",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Aguardando sua correção",aguardandoCorrecao,C.orange,"camera"]]).map(([l,v,c,i])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:15,padding:15,boxShadow:"0 8px 26px rgba(20,24,28,.045)"}}><span style={{width:29,height:29,borderRadius:9,display:"grid",placeItems:"center",background:`${c}12`,color:c}}><Ic n={i} s={14}/></span><p style={{fontSize:25,fontWeight:800,color:C.text,marginTop:10}}>{v}</p><p style={{fontSize:9.5,fontWeight:800,color:C.muted,textTransform:"uppercase",marginTop:4}}>{l}</p></div>)}</div>
     <div style={{display:"flex",gap:8,alignItems:"end",flexWrap:"wrap",background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:12}}><div style={{minWidth:240,flex:1}}><Sel label="Filtrar conferências por obra" value={obraFiltro} onChange={setObraFiltro} options={[{v:"all",l:"Todas as obras disponíveis"},...obras.map(o=>({v:o.id,l:o.name}))]}/></div><Btn v="ghost" onClick={()=>onTab("obras")}><Ic n="building"/> Abrir todas as obras</Btn>{currentUser?.obraId&&<p style={{width:"100%",fontSize:9.5,color:C.orange}}>Seu cadastro está restrito a uma obra. O administrador pode liberar “Todas as obras” na Central do Administrador.</p>}</div>
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden",boxShadow:"0 10px 30px rgba(20,24,28,.045)"}}><div style={{padding:"13px 15px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between"}}><b style={{fontSize:12.5,color:C.text}}>Pendências sob sua responsabilidade</b><span style={{fontSize:9.5,color:C.muted}}>Correção e validação separadas</span></div>{!abertas.length?<div style={{padding:30,textAlign:"center"}}><Ic n="check" s={24} color={C.green}/><p style={{fontSize:12,fontWeight:750,color:C.text,marginTop:7}}>Nenhuma pendência aberta neste filtro</p></div>:abertas.map(({p,c,obra},index)=>{const acao=p.status==="aguardando_validacao"&&c.responsavelId===currentUser?.id?"Validar evidência":p.status==="aguardando_validacao"?"Aguardando vistoriador":p.responsavelAjusteId===currentUser?.id?"Enviar correção":"Acompanhar";const corAcao=acao==="Validar evidência"?C.green:acao==="Enviar correção"?C.orange:C.blue;return <button key={`${c.id}-${p.id}`} onClick={()=>abrir(c)} style={{width:"100%",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",padding:"13px 15px",display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,.7fr) minmax(260px,1.5fr) 130px 140px 26px":"1fr auto",gap:12,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div><p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>{obra?.name||"Obra"}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>CONF-{String(c.codigo||0).padStart(3,"0")}</p></div><div style={{minWidth:0}}><p style={{fontSize:11.5,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.descricao}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.ajusteNecessario}</p></div><span style={{display:isDesktop?"inline-flex":"none",justifySelf:"start"}}><Badge color={impacto[p.impacto]||C.orange}>{p.impacto}</Badge></span><span style={{fontSize:9.5,fontWeight:800,color:corAcao,whiteSpace:"nowrap"}}>{acao}</span><span style={{fontSize:18,color:C.muted}}>›</span></button>;})}</div>
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden",boxShadow:"0 10px 30px rgba(20,24,28,.045)"}}><div style={{padding:"13px 15px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between"}}><b style={{fontSize:12.5,color:C.text}}>Pendências sob sua responsabilidade</b><span style={{fontSize:9.5,color:C.muted}}>{ehAuditor?"Análise e validação técnica":"Somente envio da correção"}</span></div>{!abertas.length?<div style={{padding:30,textAlign:"center"}}><Ic n="check" s={24} color={C.green}/><p style={{fontSize:12,fontWeight:750,color:C.text,marginTop:7}}>Nenhuma pendência aberta neste filtro</p></div>:abertas.map(({p,c,obra},index)=>{const acao=ehAuditor?(p.status==="aguardando_validacao"?"Validar evidência":"Acompanhar vistoria"):(p.status==="aguardando_validacao"?"Aguardando auditor":"Enviar correção");const corAcao=acao==="Validar evidência"?C.green:acao==="Enviar correção"?C.orange:C.blue;return <button key={`${c.id}-${p.id}`} onClick={()=>abrir(c)} style={{width:"100%",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",padding:"13px 15px",display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,.7fr) minmax(260px,1.5fr) 130px 140px 26px":"1fr auto",gap:12,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div><p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>{obra?.name||"Obra"}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>CONF-{String(c.codigo||0).padStart(3,"0")}</p></div><div style={{minWidth:0}}><p style={{fontSize:11.5,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.descricao}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.ajusteNecessario}</p></div><span style={{display:isDesktop?"inline-flex":"none",justifySelf:"start"}}><Badge color={impacto[p.impacto]||C.orange}>{p.impacto}</Badge></span><span style={{fontSize:9.5,fontWeight:800,color:corAcao,whiteSpace:"nowrap"}}>{acao}</span><span style={{fontSize:18,color:C.muted}}>›</span></button>;})}</div>
   </div>;
 }
 
@@ -13040,6 +13041,7 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
 const ROLES = [
   { v:"admin",      l:"Administrador",     desc:"Acesso total ao sistema",             color:"#D4AF37" },
   { v:"engenheiro", l:"Engenheiro de Campo",desc:"Obras, Ponto, Equipe, Terceiros",    color:"#1565C0" },
+  { v:"engenheiro_auditor", l:"Engenheiro Auditor",desc:"Auditoria técnica, vistorias e conferências", color:"#0F766E" },
   { v:"compras",    l:"Setor de Compras",   desc:"Solicitações, pedidos, fornecedores e estoque", color:"#D97706" },
   { v:"rh",         l:"RH / Gestão",       desc:"Equipe, Folha, Rescisão",             color:"#2E7D32" },
   { v:"financeiro", l:"Financeiro",         desc:"DRE, KPIs, Medições, Relatórios",    color:"#6A1B9A" },
@@ -13050,6 +13052,7 @@ const ROLES = [
 const ROLE_TABS = {
   admin:       ["home","tv","admin_central","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","ponto_geral","equipe","terc","equip","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
   engenheiro:  ["home","tv","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
+  engenheiro_auditor:["home","tv","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","suprimentos","est","cad","ia"],
   rh:          ["home","tv","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
   financeiro:  ["home","tv","equip","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
@@ -22044,7 +22047,7 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
 
 function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR }) {
   const { cols, pick } = useBreakpoint();
-  const [aba,     setAba]     = useState(currentUser?.role==="engenheiro"?"solicitacoes":"pedidos");
+  const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":"pedidos");
   const [obraSel, setObraSel] = useState(obraIdFixo);
   const [busca,   setBusca]   = useState("");
 
@@ -25977,7 +25980,7 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const [fotoPreviewRdo, setFotoPreviewRdo] = useState(null);
 
   const engenheirosTodos=useMemo(()=>(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro"),[data.usuarios]);
-  const engenheiroLogado=currentUser?.role==="engenheiro"?currentUser:null;
+  const engenheiroLogado=["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?currentUser:null;
   const obraSelecionada=useMemo(()=>(data.obras||[]).find(o=>o.id===obraId),[data.obras,obraId]);
   const engenheiroDaObra=useMemo(()=>engenheirosTodos.find(u=>u.id===obraSelecionada?.engineerId)
     || engenheirosTodos.find(u=>u.obraId===obraId)
@@ -26043,7 +26046,7 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const abrirRdo = item => { setObraId(item.obraId); setDataRDO(item.data); setModoRdo("editor"); };
   const novoRdo = () => { setObraId(filtroObraRdo!=="all"?filtroObraRdo:(obraId||obras[0]?.id||"")); setDataRDO(today()); setModoRdo("editor"); };
   const concluirRdo = () => {
-    if(currentUser?.role!=="engenheiro"){showToast?.("Somente o engenheiro de campo pode revisar e concluir o diário.","error");return;}
+    if(!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)){showToast?.("Somente um engenheiro pode revisar e concluir o diário.","error");return;}
     if(!rdo.revisaoEngenheiro?.aprovado){showToast?.("Confirme a revisão técnica antes de concluir o diário.","error");return;}
     salvarRDO(r=>({...r,status:"concluido",concluidoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()}));
   };
@@ -26572,7 +26575,7 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
       </Bloco>
 
       <Bloco titulo="Revisão obrigatória do engenheiro">
-        <div style={{padding:"11px 12px",border:`1px solid ${rdo.revisaoEngenheiro?.aprovado?C.green:C.orange}55`,borderRadius:10,background:rdo.revisaoEngenheiro?.aprovado?`${C.green}09`:`${C.orange}09`}}><label style={{display:"flex",alignItems:"flex-start",gap:9,cursor:currentUser?.role==="engenheiro"?"pointer":"not-allowed"}}><input type="checkbox" checked={!!rdo.revisaoEngenheiro?.aprovado} disabled={currentUser?.role!=="engenheiro"} onChange={e=>salvarRDO(r=>({...r,revisaoEngenheiro:{...r.revisaoEngenheiro,aprovado:e.target.checked,engenheiroId:e.target.checked?currentUser.id:"",engenheiro:e.target.checked?currentUser.nome:"",revisadoEm:e.target.checked?new Date().toISOString():""},atualizadoEm:new Date().toISOString()}))} style={{width:18,height:18,accentColor:C.green,marginTop:1}}/><span><b style={{fontSize:11.5,color:C.text}}>Revisei os dados, as fotos, a transcrição e as sugestões da IA.</b><p style={{fontSize:10,color:C.muted,lineHeight:1.45,marginTop:3}}>O avanço físico e as pendências permanecem sob responsabilidade técnica do engenheiro. Sem esta confirmação o RDO não pode ser concluído.</p></span></label>{rdo.revisaoEngenheiro?.aprovado&&<p style={{fontSize:10,color:C.green,fontWeight:800,marginTop:8}}>Revisado por {rdo.revisaoEngenheiro.engenheiro} em {new Date(rdo.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR")}</p>}{currentUser?.role!=="engenheiro"&&<p style={{fontSize:10,color:C.orange,fontWeight:700,marginTop:8}}>Aguardando revisão do engenheiro de campo responsável.</p>}</div>
+        <div style={{padding:"11px 12px",border:`1px solid ${rdo.revisaoEngenheiro?.aprovado?C.green:C.orange}55`,borderRadius:10,background:rdo.revisaoEngenheiro?.aprovado?`${C.green}09`:`${C.orange}09`}}><label style={{display:"flex",alignItems:"flex-start",gap:9,cursor:["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"pointer":"not-allowed"}}><input type="checkbox" checked={!!rdo.revisaoEngenheiro?.aprovado} disabled={!['engenheiro','engenheiro_auditor'].includes(currentUser?.role)} onChange={e=>salvarRDO(r=>({...r,revisaoEngenheiro:{...r.revisaoEngenheiro,aprovado:e.target.checked,engenheiroId:e.target.checked?currentUser.id:"",engenheiro:e.target.checked?currentUser.nome:"",revisadoEm:e.target.checked?new Date().toISOString():""},atualizadoEm:new Date().toISOString()}))} style={{width:18,height:18,accentColor:C.green,marginTop:1}}/><span><b style={{fontSize:11.5,color:C.text}}>Revisei os dados, as fotos, a transcrição e as sugestões da IA.</b><p style={{fontSize:10,color:C.muted,lineHeight:1.45,marginTop:3}}>O avanço físico e as pendências permanecem sob responsabilidade técnica do engenheiro. Sem esta confirmação o RDO não pode ser concluído.</p></span></label>{rdo.revisaoEngenheiro?.aprovado&&<p style={{fontSize:10,color:C.green,fontWeight:800,marginTop:8}}>Revisado por {rdo.revisaoEngenheiro.engenheiro} em {new Date(rdo.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR")}</p>}{!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&<p style={{fontSize:10,color:C.orange,fontWeight:700,marginTop:8}}>Aguardando revisão do engenheiro responsável.</p>}</div>
       </Bloco>
 
       {/* MODAL SERVICO */}
@@ -26663,42 +26666,38 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const impactoMeta=v=>CONFERENCIA_IMPACTOS.find(x=>x.v===v)||CONFERENCIA_IMPACTOS[1];
 
   const engenheiros=useMemo(()=>(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro"),[data.usuarios]);
+  const auditores=useMemo(()=>(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro_auditor"),[data.usuarios]);
+  const vistoriadores=useMemo(()=>(data.usuarios||[]).filter(u=>u.active!==false&&["admin","engenheiro_auditor"].includes(u.role)),[data.usuarios]);
   const responsaveis=useMemo(()=>engenheiros.map(u=>({id:u.id,nome:u.nome,tipo:"Engenheiro de campo"})),[engenheiros]);
   const ehAdmin=currentUser?.role==="admin";
   const ehEngenheiro=currentUser?.role==="engenheiro"&&currentUser?.active!==false;
-  const ehResponsavelPelaObra=o=>ehEngenheiro&&(!currentUser?.obraId||currentUser.obraId===o?.id)&&(
-    o?.engineerId===currentUser?.id||(!o?.engineerId&&o?.engineer&&o.engineer===currentUser?.nome));
-  const obrasCriaveis=ehAdmin?obras:obras.filter(ehResponsavelPelaObra);
-  const podeCriarConferencia=ehAdmin||obrasCriaveis.length>0;
-  const ehVistoriador=!!currentUser?.id&&currentUser.id===conferencia?.responsavelId;
+  const ehAuditor=currentUser?.role==="engenheiro_auditor"&&currentUser?.active!==false;
+  const obrasNoEscopo=obras.filter(o=>!currentUser?.obraId||currentUser.obraId===o.id);
+  const obrasCriaveis=ehAdmin?obras:ehAuditor?obrasNoEscopo:[];
+  const podeCriarConferencia=(ehAdmin||ehAuditor)&&obrasCriaveis.length>0;
+  const ehVistoriador=ehAuditor&&!!currentUser?.id&&currentUser.id===conferencia?.responsavelId;
   const podeGerirVistoria=ehAdmin||ehVistoriador;
-  const ehResponsavelAjuste=p=>!!currentUser?.id&&currentUser.id===p?.responsavelAjusteId;
+  const ehResponsavelAjuste=p=>ehEngenheiro&&!!currentUser?.id&&currentUser.id===p?.responsavelAjusteId;
   const obraDaConferencia=obraAtual;
-  const responsavelAutomatico=useMemo(()=>currentUser?.role==="engenheiro"?currentUser:
-    engenheiros.find(u=>u.id===obraDaConferencia?.engineerId)
-    || engenheiros.find(u=>u.obraId===obraIdAtual)
-    || engenheiros.find(u=>obraDaConferencia?.engineer&&u.nome===obraDaConferencia.engineer)
-    || (engenheiros.length===1?engenheiros[0]:null),
-    [currentUser,engenheiros,obraDaConferencia,obraIdAtual]);
+  const responsavelAutomatico=useMemo(()=>vistoriadores.find(u=>u.id===conferencia?.responsavelId)||(ehAuditor?currentUser:null),[vistoriadores,conferencia?.responsavelId,ehAuditor,currentUser]);
 
   const atualizar=(id,mut)=>update({...data,conferencias:(data.conferencias||[]).map(c=>c.id===id
     ? {...mut({...c}),atualizadoEm:new Date().toISOString()}:c)});
 
   const abrirNovaConferencia=()=>{
-    if(!podeCriarConferencia){showToast?.("Peça ao administrador para definir você como engenheiro responsável pela obra.","error");return;}
+    if(!podeCriarConferencia){showToast?.(ehAdmin||ehAuditor?"Nenhuma obra ativa está disponível no seu escopo.":"Somente o administrador ou o engenheiro auditor pode criar uma vistoria.","error");return;}
     const candidatas=obrasCriaveis;
     const obraPreferida=candidatas.find(o=>o.id===(obraIdFixo||obraFiltro))||candidatas[0];
     const obraId=obraPreferida?.id||"";
-    const obra=(data.obras||[]).find(o=>o.id===obraId);
-    setNovaForm({obraId,data:today(),responsavelId:ehAdmin?(obra?.engineerId||""):(currentUser?.id||"")});
+    setNovaForm({obraId,data:today(),responsavelId:ehAdmin?(auditores[0]?.id||currentUser?.id||""):(currentUser?.id||"")});
   };
   const novaConferencia=()=>{
     const obraId=novaForm?.obraId;
     if(!obraId){showToast?.("Cadastre uma obra antes de criar a conferência.","error");return;}
-    const obra=obras.find(o=>o.id===obraId);
-    if(!ehAdmin&&!ehResponsavelPelaObra(obra)){showToast?.("Você não está definido como engenheiro responsável por esta obra.","error");return;}
-    const responsavel=engenheiros.find(u=>u.id===(ehAdmin?novaForm?.responsavelId:currentUser?.id));
-    if(!responsavel){showToast?.("Selecione o engenheiro de campo responsável.","error");return;}
+    if(!ehAdmin&&!ehAuditor){showToast?.("Somente o administrador ou o engenheiro auditor pode criar uma vistoria.","error");return;}
+    if(ehAuditor&&!obrasCriaveis.some(o=>o.id===obraId)){showToast?.("Esta obra não está disponível no seu escopo.","error");return;}
+    const responsavel=vistoriadores.find(u=>u.id===(ehAdmin?novaForm?.responsavelId:currentUser?.id));
+    if(!responsavel){showToast?.("Selecione o engenheiro auditor responsável ou o administrador.","error");return;}
     const codigo=Math.max(0,...(data.conferencias||[]).filter(c=>c.obraId===obraId).map(c=>Number(c.codigo||0)))+1;
     const agora=new Date().toISOString();
     const nova={id:uid(),obraId,data:novaForm?.data||today(),codigo,responsavelId:responsavel.id,responsavel:responsavel.nome,status:"em_andamento",notaGeral:10,observacoesGerais:"",pendencias:[],criadoEm:agora,atualizadoEm:agora,concluidoEm:""};
@@ -26737,12 +26736,12 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).filter(p=>p.id!==id)}));
   };
   const abrirValidacao=(p,resultado)=>{
-    if(!ehVistoriador)return;
+    if(!podeGerirVistoria)return;
     if(p.status!=="aguardando_validacao"||!(p.fotos||[]).some(f=>f.tipo==="ajuste")){showToast?.("A validação exige uma foto de correção enviada pelo responsável do ajuste.","error");return;}
     setValidacaoForm({pendenciaId:p.id,resultado,observacao:""});
   };
   const salvarValidacao=()=>{
-    if(!ehVistoriador||!validacaoForm)return;
+    if(!podeGerirVistoria||!validacaoForm)return;
     const resultado=validacaoForm.resultado;
     const observacao=String(validacaoForm.observacao||"").trim();
     if(resultado==="nao_conforme"&&!observacao){showToast?.("Informe o motivo da não conformidade e a orientação para a nova correção.","error");return;}
@@ -26771,8 +26770,8 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     finally{setSubindoAjusteId("");}
   };
 
-  const podeVerConferencia=c=>ehAdmin||c.responsavelId===currentUser?.id||(c.pendencias||[]).some(p=>p.responsavelAjusteId===currentUser?.id);
-  const obrasVisiveis=ehAdmin?obras:obras.filter(o=>ehResponsavelPelaObra(o)||(data.conferencias||[]).some(c=>c.obraId===o.id&&podeVerConferencia(c)));
+  const podeVerConferencia=c=>ehAdmin||(ehAuditor&&(!currentUser?.obraId||c.obraId===currentUser.obraId))||(ehEngenheiro&&(c.pendencias||[]).some(p=>p.responsavelAjusteId===currentUser?.id));
+  const obrasVisiveis=ehAdmin?obras:ehAuditor?obrasNoEscopo:obras.filter(o=>(data.conferencias||[]).some(c=>c.obraId===o.id&&podeVerConferencia(c)));
   const filtroValido=obrasVisiveis.some(o=>o.id===obraFiltro)?obraFiltro:(obrasVisiveis[0]?.id||"");
   const lista=(data.conferencias||[]).filter(podeVerConferencia).filter(c=>!filtroValido||c.obraId===filtroValido).filter(c=>statusFiltro==="todas"||c.status!=="concluida"||(c.pendencias||[]).some(p=>p.status!=="resolvida")).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
 
@@ -26781,9 +26780,9 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
       <div style={{minWidth:240,flex:1}}><Sel label="Obra" value={filtroValido} onChange={setObraFiltro} options={obrasVisiveis.map(o=>({v:o.id,l:o.name}))}/></div>
       <div style={{minWidth:190}}><Sel label="Situação" value={statusFiltro} onChange={setStatusFiltro} options={[{v:"abertas",l:"Em andamento / com pendências"},{v:"todas",l:"Todas as conferências"}]}/></div>
-      {(ehAdmin||ehEngenheiro)&&<Btn onClick={abrirNovaConferencia} disabled={!podeCriarConferencia} title={!podeCriarConferencia?"O administrador precisa vincular uma obra a este engenheiro.":"Criar nova vistoria"}><Ic n="plus"/> Nova vistoria</Btn>}
+      {(ehAdmin||ehAuditor)&&<Btn onClick={abrirNovaConferencia} disabled={!podeCriarConferencia} title={!podeCriarConferencia?"Nenhuma obra ativa está disponível no seu escopo.":"Criar nova vistoria"}><Ic n="plus"/> Nova vistoria</Btn>}
     </div>
-    {ehEngenheiro&&!podeCriarConferencia&&<div style={{padding:"9px 11px",border:`1px solid ${C.orange}55`,borderRadius:8,background:`${C.orange}09`,fontSize:10.5,color:C.orange}}>Seu perfil está ativo, mas nenhuma obra está vinculada a você como engenheiro responsável. O administrador deve fazer o vínculo em <b>Engenharia → Obras → Editar obra</b>.</div>}
+    {ehEngenheiro&&<div style={{padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`,fontSize:10.5,color:C.blue}}>Como engenheiro de campo, você visualiza somente as pendências atribuídas a você e envia a foto da correção. A criação e a validação da vistoria pertencem ao administrador e ao engenheiro auditor.</div>}
     {!lista.length?<div style={{padding:"34px 18px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="clipboard" s={26} color={C.muted}/><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:9}}>Nenhuma conferência nesta obra</p><p style={{fontSize:11,color:C.muted,marginTop:4}}>Crie a primeira vistoria técnica para começar a rastrear ajustes.</p></div>:
     <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:10}}>{lista.map(c=>{
       const abertas=(c.pendencias||[]).filter(p=>p.status!=="resolvida").length;
@@ -26794,7 +26793,7 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
         <div style={{display:"flex",gap:12,marginTop:12,fontSize:11,color:C.text}}><span><strong>{c.notaGeral}</strong>/10</span><span><strong>{(c.pendencias||[]).length}</strong> achados</span><span style={{color:abertas?C.red:C.green}}><strong>{abertas}</strong> abertos</span></div>
       </button>;
     })}</div>}
-    {novaForm&&<Modal title="Nova conferência técnica" onClose={()=>setNovaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}><Sel label="Obra *" value={novaForm.obraId} onChange={v=>{const obra=(data.obras||[]).find(o=>o.id===v);setNovaForm(f=>({...f,obraId:v,responsavelId:ehAdmin?(obra?.engineerId||""):(currentUser?.id||"")}));}} options={obrasCriaveis.map(o=>({v:o.id,l:o.name}))}/>{ehAdmin?<Sel label="Engenheiro de campo responsável *" value={novaForm.responsavelId} onChange={v=>setNovaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Selecione..."},...engenheiros.map(u=>({v:u.id,l:u.nome}))]}/>:<Inp label="Responsável pela vistoria" value={currentUser?.nome||""} onChange={()=>{}} disabled/>}<Inp label="Data da vistoria" type="date" value={novaForm.data} onChange={v=>setNovaForm(f=>({...f,data:v}))}/><div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setNovaForm(null)} full>Cancelar</Btn><Btn onClick={novaConferencia} full><Ic n="check"/> Criar conferência</Btn></div></div></Modal>}
+    {novaForm&&<Modal title="Nova conferência técnica" onClose={()=>setNovaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}><Sel label="Obra *" value={novaForm.obraId} onChange={v=>setNovaForm(f=>({...f,obraId:v,responsavelId:ehAdmin?(f.responsavelId||auditores[0]?.id||currentUser?.id||""):(currentUser?.id||"")}))} options={obrasCriaveis.map(o=>({v:o.id,l:o.name}))}/>{ehAdmin?<Sel label="Responsável pela vistoria *" value={novaForm.responsavelId} onChange={v=>setNovaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Selecione..."},...vistoriadores.map(u=>({v:u.id,l:`${u.nome} · ${u.role==="admin"?"Administrador":"Engenheiro auditor"}`}))]}/>:<Inp label="Responsável pela vistoria" value={currentUser?.nome||""} onChange={()=>{}} disabled/>}<Inp label="Data da vistoria" type="date" value={novaForm.data} onChange={v=>setNovaForm(f=>({...f,data:v}))}/><div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setNovaForm(null)} full>Cancelar</Btn><Btn onClick={novaConferencia} full><Ic n="check"/> Criar conferência</Btn></div></div></Modal>}
   </div>;
 
   const abertas=(conferencia.pendencias||[]).filter(p=>p.status!=="resolvida").length;
@@ -26810,7 +26809,7 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     </div>
     <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:9}}>
       <Inp label="Data da vistoria" type="date" value={conferencia.data} onChange={v=>podeGerirVistoria&&atualizar(conferencia.id,c=>({...c,data:v}))} disabled={!podeGerirVistoria}/>
-      <Inp label="Responsável pela vistoria" value={conferencia.responsavel||responsavelAutomatico?.nome||""} onChange={()=>{}} disabled/>
+      {ehAdmin?<Sel label="Responsável pela vistoria" value={conferencia.responsavelId||""} onChange={v=>{const u=vistoriadores.find(x=>x.id===v);if(u)atualizar(conferencia.id,c=>({...c,responsavelId:u.id,responsavel:u.nome}));}} options={[{v:"",l:"Selecione..."},...vistoriadores.map(u=>({v:u.id,l:`${u.nome} · ${u.role==="admin"?"Administrador":"Engenheiro auditor"}`}))]}/>:<Inp label="Responsável pela vistoria" value={conferencia.responsavel||responsavelAutomatico?.nome||""} onChange={()=>{}} disabled/>}
       <Inp label="Nota geral (0 a 10)" type="number" min="0" max="10" value={conferencia.notaGeral} onChange={v=>podeGerirVistoria&&atualizar(conferencia.id,c=>({...c,notaGeral:Math.max(0,Math.min(10,Number(v||0)))}))} disabled={!podeGerirVistoria}/>
       <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:5}}>SITUAÇÃO DOS AJUSTES</p><div style={{height:38,border:`1px solid ${abertas?C.orange:C.green}`,borderRadius:6,display:"flex",alignItems:"center",padding:"0 10px",fontSize:12,fontWeight:800,color:abertas?C.orange:C.green}}>{abertas?`${abertas} pendência(s) aberta(s)`:"Tudo resolvido"}</div></div>
     </div>
@@ -26826,7 +26825,7 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
           <p style={{fontSize:11.5,color:C.text,marginTop:8}}><strong>Ajuste:</strong> {p.ajusteNecessario}</p><p style={{fontSize:10.5,color:C.muted,marginTop:5}}>Responsável: <strong>{p.responsavelAjusteNome||"—"}</strong>{p.prazo?` · Prazo: ${fmtDate(p.prazo)}`:""}</p>
           {(p.fotos||[]).length>0&&<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>{p.fotos.map((f,idx)=><div key={f.id||`${f.url}-${idx}`} title={`${f.legenda||"Evidência"}${f.enviadoPor?` · ${f.enviadoPor}`:""}`} style={{position:"relative"}}><img src={f.url} alt={f.legenda||"Evidência"} style={{width:58,height:58,objectFit:"cover",borderRadius:5,border:`1px solid ${f.tipo==="ajuste"?C.green:C.border}`}}/>{f.tipo==="ajuste"&&<span style={{position:"absolute",left:3,bottom:3,padding:"2px 4px",borderRadius:3,background:C.green,color:"white",fontSize:7,fontWeight:900}}>CORREÇÃO</span>}</div>)}</div>}
           {ehResponsavelAjuste(p)&&p.status!=="resolvida"&&<label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:9,border:`1px solid ${C.blue}`,borderRadius:6,padding:"6px 9px",color:C.blue,fontSize:10,fontWeight:800,cursor:subindoAjusteId===p.id?"wait":"pointer",opacity:subindoAjusteId===p.id?0.65:1}}><Ic n="camera"/>{subindoAjusteId===p.id?"Enviando...":p.status==="aguardando_validacao"?"Enviar nova foto":"Enviar foto da correção"}<input type="file" accept="image/*" capture="environment" disabled={subindoAjusteId===p.id} onChange={e=>{const file=e.target.files?.[0];enviarFotoAjuste(p,file);e.target.value="";}} style={{display:"none"}}/></label>}
-          <div style={{display:"flex",alignItems:"center",gap:7,marginTop:9,flexWrap:"wrap"}}><Badge color={p.status==="resolvida"?C.green:p.status==="aguardando_validacao"?C.blue:p.status==="em_ajuste"?C.orange:C.red}>{CONFERENCIA_STATUS.find(s=>s.v===p.status)?.l||"Aberta"}</Badge>{ehVistoriador&&p.status==="aguardando_validacao"&&<><Btn size="sm" v="success" onClick={()=>abrirValidacao(p,"conforme")}><Ic n="check"/> Conforme</Btn><Btn size="sm" v="ghost" onClick={()=>abrirValidacao(p,"nao_conforme")}><Ic n="alert"/> Não conforme</Btn></>}{ehResponsavelAjuste(p)&&["aberta","em_ajuste"].includes(p.status)&&<span style={{fontSize:9.5,color:C.muted}}>Envie a foto da correção para o vistoriador analisar.</span>}{ehResponsavelAjuste(p)&&p.status==="aguardando_validacao"&&<span style={{fontSize:9.5,color:C.blue}}>Evidência recebida · aguardando {conferencia.responsavel}.</span>}</div>
+          <div style={{display:"flex",alignItems:"center",gap:7,marginTop:9,flexWrap:"wrap"}}><Badge color={p.status==="resolvida"?C.green:p.status==="aguardando_validacao"?C.blue:p.status==="em_ajuste"?C.orange:C.red}>{CONFERENCIA_STATUS.find(s=>s.v===p.status)?.l||"Aberta"}</Badge>{podeGerirVistoria&&p.status==="aguardando_validacao"&&<><Btn size="sm" v="success" onClick={()=>abrirValidacao(p,"conforme")}><Ic n="check"/> Conforme</Btn><Btn size="sm" v="ghost" onClick={()=>abrirValidacao(p,"nao_conforme")}><Ic n="alert"/> Não conforme</Btn></>}{ehResponsavelAjuste(p)&&["aberta","em_ajuste"].includes(p.status)&&<span style={{fontSize:9.5,color:C.muted}}>Envie a foto da correção para o vistoriador analisar.</span>}{ehResponsavelAjuste(p)&&p.status==="aguardando_validacao"&&<span style={{fontSize:9.5,color:C.blue}}>Evidência recebida · aguardando {conferencia.responsavel}.</span>}</div>
           {p.validadoEm&&<div style={{marginTop:8,padding:"7px 9px",borderRadius:6,background:p.validacaoStatus==="conforme"?`${C.green}0D`:`${C.orange}0D`,border:`1px solid ${p.validacaoStatus==="conforme"?C.green:C.orange}44`}}><p style={{fontSize:9.5,fontWeight:850,color:p.validacaoStatus==="conforme"?C.green:C.orange}}>{p.validacaoStatus==="conforme"?"CORREÇÃO CONFORME":"CORREÇÃO NÃO CONFORME"} · {p.validadoPor||conferencia.responsavel} · {new Date(p.validadoEm).toLocaleString("pt-BR")}</p>{p.validacaoObservacao&&<p style={{fontSize:10.5,color:C.text,marginTop:4}}>{p.validacaoObservacao}</p>}</div>}
         </div>;
       })}</div>
@@ -32260,7 +32259,7 @@ export default function App() {
         )}
 
         <main style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "20px 22px" : 14 }}>
-          {tab === "home"   && (currentUser?.role==="engenheiro"
+          {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
             ? <DashboardEngenheiro data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}/>
             : <Dashboard data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} />)}
