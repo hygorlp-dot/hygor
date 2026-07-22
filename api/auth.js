@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { decodeAppData } from "../server/data-codec.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -23,7 +24,7 @@ export const authenticateAppUser = async ({ userId, pin, accessToken } = {}) => 
     .maybeSingle();
   if (error || !data) return null;
 
-  const payload = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+  const payload = decodeAppData(data.value);
   if (accessToken) {
     const { data: auth, error: authError } = await db.auth.getUser(accessToken);
     if (!authError && auth?.user) {
