@@ -8,6 +8,25 @@ const COMPANY = process.env.COMPANY_ID || "arcd";
 const CONFIG_KEY = "arced_ai_config_gemini_v1";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
+const MODULE_POLICIES = {
+  geral: "Atue como copiloto operacional. Relacione a resposta ao setor e à obra, deixe explícitas as pendências e termine com a próxima ação recomendada.",
+  compras: "Atue como analista de suprimentos. Em documentos, confira fornecedor, itens, valores, pedido, recebimento, forma de pagamento e obra. O nome original do arquivo é uma evidência importante para identificar a obra. Nunca confirme compra nem lançamento sem revisão humana.",
+  financeiro: "Atue como analista financeiro de obras. Em documentos, confira competência, vencimento, fornecedor, valores, retenções, rateio e obra. O nome original do arquivo é uma evidência importante para identificar a obra. Sinalize divergências e não dê como certa uma classificação fiscal ou contábil sem revisão humana.",
+  diario: "Atue como engenheiro de campo revisando um RDO. Separe fatos visíveis, informações declaradas e inferências. Relacione fotos, serviços, equipes, clima, planejamento, riscos e pendências, sempre exigindo validação do engenheiro.",
+  orcamento: "Atue como engenheiro orçamentista sênior e colaborativo. Revise escopo, quantitativos, composições, interfaces, cotações, BDI e itens ausentes. Produza achados curtos, verificáveis e acionáveis; não invente preço, projeto, obrigação contratual ou norma. Quando faltar evidência, formule uma pergunta de escopo.",
+  planejamento: "Atue como planejador de obras. Verifique sequência executiva, dependências, restrições, caminho crítico, recursos, suprimentos, marcos, folgas e coerência com orçamento e avanço real. Diferencie sugestão de alteração confirmada.",
+  administracao: "Atue como auditor administrativo. Resuma alterações, autoria, riscos, exclusões, padrões anormais e ações que exigem decisão do administrador, preservando rastreabilidade.",
+  conferencia: "Atue como engenheiro de qualidade. Relacione inconformidades ao serviço, evidência, impacto, responsável, prazo e critério de aceite. Não declare conformidade sem evidência suficiente.",
+  qualidade: "Atue como especialista em FVS/FVM. Trabalhe com critérios auditáveis, evidências, responsável, resultado, rastreabilidade e tratamento de não conformidade.",
+  comercial: "Atue como analista comercial de construção. Considere cliente, necessidade, escopo, proposta, riscos, próximos passos e histórico, sem prometer prazo ou preço não confirmado.",
+  rh: "Atue como analista de operações e pessoas. Considere lotação, ponto, capacidade, pendências e responsabilidades, sem inferir dados pessoais não fornecidos.",
+};
+const normalizeModule = value => {
+  const key=String(value||"geral").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z]/g,"");
+  const aliases={compras:"compras",financeiro:"financeiro",diario:"diario",diariodeobra:"diario",rdo:"diario",orcamento:"orcamento",planejamento:"planejamento",administracao:"administracao",admin:"administracao",conferencia:"conferencia",qualidade:"qualidade",comercial:"comercial",rh:"rh",recursoshumanos:"rh"};
+  return aliases[key]||"geral";
+};
+
 const database = () => createClient(URL, SERVICE, {
   auth: { persistSession:false, autoRefreshToken:false },
 });
@@ -115,7 +134,8 @@ export default async function handler(req,res){
   if(!apiKey)return res.status(503).json({error:"O Modo IA ainda não foi configurado pelo administrador.",code:"AI_NOT_CONFIGURED"});
 
   try{
-    const {messages,contexto,prompt,question,context,imagens,documentos}=req.body||{};
+    const {messages,contexto,prompt,question,context,imagens,documentos,modulo}=req.body||{};
+    const moduloAtivo=normalizeModule(modulo||contexto?.modulo||context?.modulo);
     const recebidas=Array.isArray(messages)&&messages.length?messages:(prompt||question)?[{role:"user",content:String(prompt||question)}]:[];
     if(!recebidas.length)return res.status(400).json({error:"Nenhuma mensagem recebida."});
     const historico=recebidas.slice(-12).map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:String(m.content??m.text??"").slice(0,12000)}]}));
@@ -124,12 +144,20 @@ export default async function handler(req,res){
     if(imagensValidas.length||documentosValidos.length){
       let ultima=[...historico].map((item,index)=>({item,index})).reverse().find(({item})=>item.role==="user")?.index;
       if(ultima===undefined){historico.push({role:"user",parts:[{text:"Analise os anexos enviados."}]});ultima=historico.length-1;}
-      historico[ultima].parts.push(...imagensValidas.flatMap((img,index)=>[{text:`Foto ${index+1}${img.legenda?` — legenda informada: ${img.legenda}`:""}`},{inlineData:{mimeType:img.mediaType,data:img.data}}]),...documentosValidos.flatMap((doc,index)=>[{text:`Documento PDF ${index+1} — ${doc.nome}`},{inlineData:{mimeType:doc.mediaType,data:doc.data}}]));
+      historico[ultima].parts.push(...imagensValidas.flatMap((img,index)=>[{text:`Foto ${index+1}${img.legenda?` — nome/legenda original (também pode identificar a obra): ${img.legenda}`:""}`},{inlineData:{mimeType:img.mediaType,data:img.data}}]),...documentosValidos.flatMap((doc,index)=>[{text:`Documento PDF ${index+1}. Nome original do arquivo, que deve ser tratado como evidência para identificar a obra: ${doc.nome}`},{inlineData:{mimeType:doc.mediaType,data:doc.data}}]));
     }
-    const system=["Você é o assistente da ARCD Construtech, empresa de gestão de obras em Caruaru/PE.","Responda em português do Brasil, de forma direta e técnica.","Use SOMENTE os dados fornecidos no contexto. Se um número não estiver lá, diga que não tem o dado —","nunca invente valores financeiros, medições ou custos.",(contexto||context)?`\n\nDados atuais do sistema:\n${JSON.stringify(contexto||context).slice(0,20000)}`:""].join(" ");
+    const system=[
+      "Você é o assistente corporativo da ARCD Construtech, empresa de gestão de obras em Caruaru/PE.",
+      `Módulo ativo: ${moduloAtivo}. ${MODULE_POLICIES[moduloAtivo]}`,
+      "Responda em português do Brasil como um especialista humano e colaborativo: explique brevemente o motivo, indique a incerteza e proponha a próxima ação.",
+      "Use SOMENTE os dados fornecidos no contexto e nos anexos. Se um número não estiver disponível, diga que não tem o dado; nunca invente valores financeiros, medições, custos, pessoas, obras ou códigos.",
+      "Quando precisar identificar uma obra, escolha somente um ID presente na lista recebida. Compare primeiro o nome original do arquivo e depois o conteúdo do documento. Se houver ambiguidade, devolva o campo vazio e explique a dúvida.",
+      (contexto||context)?`\n\nDados atuais do sistema:\n${JSON.stringify(contexto||context).slice(0,24000)}`:"",
+    ].join(" ");
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),55000);
     let response;
-    try{response=await geminiRequest(apiKey,aiConfig.model,{systemInstruction:{parts:[{text:system}]},contents:historico,generationConfig:{maxOutputTokens:1800,temperature:0.25}},controller.signal);}
+    const temperatura=["compras","financeiro","orcamento","planejamento"].includes(moduloAtivo)?0.12:0.22;
+    try{response=await geminiRequest(apiKey,aiConfig.model,{systemInstruction:{parts:[{text:system}]},contents:historico,generationConfig:{maxOutputTokens:2200,temperature:temperatura}},controller.signal);}
     finally{clearTimeout(timeout);}
     if(!response.ok){
       const body=await response.json().catch(()=>({})),providerError=providerErrorFrom(body),providerMessage=providerMessageFrom(body);
@@ -145,7 +173,7 @@ export default async function handler(req,res){
       const motivo=body.promptFeedback?.blockReason||body.candidates?.[0]?.finishReason||"sem conteúdo";
       return res.status(422).json({error:`O Gemini não gerou uma resposta (${motivo}). Revise os anexos e tente novamente.`,code:"AI_EMPTY_RESPONSE"});
     }
-    return res.status(200).json({reply:texto,answer:texto});
+    return res.status(200).json({reply:texto,answer:texto,modulo:moduloAtivo});
   }catch(error){
     console.error("Falha na rota /api/ai-agent:",error);
     if(error?.name==="AbortError")return res.status(504).json({error:"A análise demorou além do limite. Reduza os anexos e tente novamente."});
