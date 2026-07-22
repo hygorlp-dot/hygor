@@ -22,7 +22,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          registrarPresenca, encerrarPresenca, listarPresencas,
          loadDataWithMeta, adoptServerVersion, subirFoto,
          conectarOneDrive, statusOneDrive, criarEstruturaOneDrive,
-         criarPastaOneDrive, enviarArquivoOneDrive,
+         criarPastaOneDrive, enviarArquivoOneDrive, obterLinkArquivoOneDrive,
          listarBasesReferencia, iniciarBaseReferencia, enviarLoteReferencia,
          enviarLoteInsumosReferencia, enviarLoteComponentesReferencia,
          finalizarBaseReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
@@ -23198,11 +23198,26 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});
       const r=await enviarArquivoOneDrive({dataUrl,obraName:obra.name,driveId:obra.oneDriveDriveId,folderId:obra.oneDriveFolderId,folders:obra.oneDriveFolders,category:"documentos",fileName:file.name});
       if(!r.ok)throw new Error(r.error||"Falha no envio.");
-      const doc={id:r.item.id,nome:r.item.name,url:r.item.webUrl,enviadoEm:new Date().toISOString()};
+      const doc={id:r.item.id,nome:r.item.name,url:r.url,path:r.path||r.item.id,enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};
       update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,oneDriveUrl:r.workspace?.webUrl||o.oneDriveUrl,oneDriveDriveId:r.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:r.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:r.workspace?.folders||o.oneDriveFolders,documentosOneDrive:[...(o.documentosOneDrive||[]),doc]}:o)});
       showToast?.("Documento enviado ao OneDrive.");
     }catch(e){showToast?.(e.message||"Falha ao enviar documento.","error");}finally{setEnviandoDocumento(false);}
   };
+
+  const urlArquivoInterna=url=>String(url||"").startsWith("/api/microsoft/onedrive?action=file");
+  const abrirDocumentoSeguro=async(e,doc)=>{
+    if(urlArquivoInterna(doc.url))return;
+    e.preventDefault();
+    const janela=window.open("about:blank","_blank");if(janela)janela.opener=null;
+    try{
+      const itemId=doc.id||doc.path;
+      if(!obra.oneDriveDriveId||!itemId)throw new Error("Este documento antigo não possui identificação suficiente para a visualização protegida.");
+      const resposta=await obterLinkArquivoOneDrive({driveId:obra.oneDriveDriveId,itemId});
+      if(!resposta.ok||!resposta.url)throw new Error(resposta.error||"Não foi possível preparar o arquivo.");
+      if(janela)janela.location.href=resposta.url;else window.location.assign(resposta.url);
+    }catch(err){janela?.close();showToast?.(err.message||"Não foi possível abrir o documento.","error");}
+  };
+  const linkDocumentoObra=(doc,compacto=false)=><a key={doc.id||doc.url} href={urlArquivoInterna(doc.url)?doc.url:"#visualizar-arquivo"} target="_blank" rel="noopener noreferrer" onClick={e=>abrirDocumentoSeguro(e,doc)} title={`Visualizar ${doc.nome||"documento"}`} style={{display:"flex",alignItems:"center",gap:8,padding:compacto?"6px 0":"9px 10px",border:compacto?0:`1px solid ${C.border}`,borderTop:compacto?`1px solid ${C.line}`:undefined,borderRadius:compacto?0:8,color:C.blue,textDecoration:"none",fontSize:compacto?10.5:11.5}}><Ic n="file"/><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.nome||"Documento"}</span><span style={{fontSize:10,fontWeight:800}}>Visualizar ↗</span></a>;
 
   const criarSubpasta = async () => {
     if(!novaPasta.trim())return;
@@ -23465,7 +23480,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {id:"suprimentos",label:"Suprimentos",itens:[["cmp","Compras","cmp"],["est","Estoque","est"]]},
         {id:"financeiro",label:"Financeiro",itens:[["dre","DRE da obra","dre"]]},
         {id:"rh",label:"RH",itens:[["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"]]},
-        {id:"recursos",label:"Recursos",itens:[["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],...(ehAdmin?[["arquivos","Arquivos",null],["portal","Portal do cliente",null]]:[])]},
+        {id:"recursos",label:"Recursos",itens:[["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null],...(ehAdmin?[["portal","Portal do cliente",null]]:[])]},
       ];const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:12,borderBottom:`1px solid ${C.border}`}}>
         <div style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 0"}}>{grupos.map(g=>{const ativo=g.id===grupoMenuObra;return <button key={g.id} onClick={()=>{setGrupoMenuObra(g.id);if(g.id==="geral")setAbaConteudo("geral");}} style={{flex:"1 1 112px",minWidth:0,border:`1px solid ${ativo?C.blue:C.border}`,background:ativo?`${C.blue}0D`:"transparent",color:ativo?C.blue:C.muted,borderRadius:7,padding:"8px 9px",fontSize:11.5,fontWeight:ativo?850:650,cursor:"pointer",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{g.label}</button>})}</div>
         {grupo.id!=="geral"&&<div style={{display:"flex",flexWrap:"wrap",gap:3,padding:"0 0 7px"}}>{grupo.itens.map(([id,label,destino])=>{const ativo=id===abaConteudo;return <button key={id} onClick={()=>{if(["arquivos","portal","qualidade"].includes(id))setAbaConteudo(id);else if(destino)abrirModuloDaObra(destino);}} style={{flex:"1 1 128px",border:0,borderBottom:`2px solid ${ativo?C.blue:"transparent"}`,background:"transparent",color:ativo?C.text:C.muted,padding:"7px 9px",fontSize:11,fontWeight:ativo?850:550,cursor:"pointer",whiteSpace:"nowrap"}}>{label}</button>})}</div>}
@@ -23636,7 +23651,6 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
               <Ic n="file" /> {enviandoDocumento?"Enviando...":"Enviar documento"}
             </Btn>
             <input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/>
-            {(obra.documentosOneDrive||[]).map(doc=><a key={doc.id} href={doc.url} target="_blank" rel="noreferrer" style={{display:"block",fontSize:11,color:C.blue,marginTop:6}}>{doc.nome} ↗</a>)}
           </>
         ) : ehAdmin ? (
           <>
@@ -23653,6 +23667,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           <Btn full onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento} style={{marginTop:8}}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Enviar documento"}</Btn>
           <input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/>
         </>}
+        <div style={{marginTop:10,paddingTop:8,borderTop:`1px solid ${C.line}`}}><p style={{fontSize:9,fontWeight:850,color:C.muted,textTransform:"uppercase",marginBottom:4}}>Documentos disponíveis</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:10.5,color:C.muted}}>Nenhum documento enviado pelo ArcD.</p>:(obra.documentosOneDrive||[]).map(doc=>linkDocumentoObra(doc,true))}</div>
       </Secao>
 
       <Secao id="diarios" icone="atividade" titulo="Diário de Obra" cor={C.green}
@@ -23846,7 +23861,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           {visualizandoComoCliente&&portal.ativo&&<div style={{background:"#eef1f5",border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",boxShadow:`0 14px 38px ${C.shadow}`}}><div style={{display:"flex",alignItems:"center",gap:7,padding:"9px 12px",background:"#e4e8ee",borderBottom:`1px solid ${C.border}`}}><span style={{width:9,height:9,borderRadius:99,background:"#ff5f57"}}/><span style={{width:9,height:9,borderRadius:99,background:"#febc2e"}}/><span style={{width:9,height:9,borderRadius:99,background:"#28c840"}}/><div style={{flex:1,background:"#fff",borderRadius:6,padding:"5px 9px",fontSize:9.5,color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{linkPortal}</div><Btn size="sm" v="ghost" onClick={()=>window.open(linkPortal,"_blank","noopener,noreferrer")}>Abrir em nova aba ↗</Btn></div><div style={{padding:"8px 12px",background:`${C.blue}09`,borderBottom:`1px solid ${C.blue}25`,fontSize:10,color:C.blue,fontWeight:750}}>PRÉ-VISUALIZAÇÃO EXATA · abaixo está a mesma página acessada pelo cliente</div><iframe title={`Portal do cliente · ${obra.name}`} src={linkPortal} sandbox="allow-scripts allow-same-origin allow-popups" style={{display:"block",width:"100%",height:"min(760px,75vh)",border:0,background:"#fff"}}/></div>}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16}}><h3 style={{fontSize:14,color:C.text}}>Documentos liberados ao cliente</h3><p style={{fontSize:10.5,color:C.muted,margin:"3px 0 10px"}}>O documento só aparece no portal quando marcado individualmente.</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:11,color:C.muted}}>Nenhum documento enviado.</p>:(obra.documentosOneDrive||[]).map(doc=><label key={doc.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderTop:`1px solid ${C.line}`,fontSize:11.5,color:C.text}}><input type="checkbox" checked={doc.publicarCliente===true} onChange={e=>update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,documentosOneDrive:(o.documentosOneDrive||[]).map(d=>d.id===doc.id?{...d,publicarCliente:e.target.checked}:d)}:o)})}/><Ic n="file"/><span style={{flex:1}}>{doc.nome}</span><span style={{color:doc.publicarCliente?C.green:C.muted}}>{doc.publicarCliente?"Publicado":"Interno"}</span></label>)}</div>
         </div>}
-        {abaConteudo==="arquivos"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,display:"flex",flexDirection:"column",gap:14}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><h2 style={{fontSize:20,fontWeight:800,color:C.text}}>Arquivos da obra</h2><p style={{fontSize:11,color:C.muted,marginTop:4}}>Crie diretórios e envie documentos diretamente para o OneDrive desta obra.</p></div><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{obra.oneDriveUrl&&<Btn v="ghost" onClick={()=>abrirOneDrive(obra.oneDriveUrl)}><Ic n="folder"/> Abrir no OneDrive</Btn>}<Btn onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Carregar arquivo"}</Btn><input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/></div></div><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Inp label="Novo diretório" value={novaPasta} onChange={setNovaPasta} placeholder="Ex.: Projetos estruturais"/><Btn v="info" onClick={criarSubpasta} disabled={!novaPasta.trim()}><Ic n="folder"/> Criar pasta</Btn></div><div style={{borderTop:`1px solid ${C.line}`,paddingTop:12}}><p style={{fontSize:10,fontWeight:850,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Arquivos enviados pelo ArcD</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:11,color:C.muted,padding:"14px 0"}}>Nenhum arquivo enviado por esta tela.</p>:<div style={{display:"flex",flexDirection:"column",gap:6}}>{(obra.documentosOneDrive||[]).map(doc=><a key={doc.id} href={doc.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:8,padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:8,color:C.blue,textDecoration:"none",fontSize:11.5}}><Ic n="file"/><span style={{flex:1}}>{doc.nome}</span><span>↗</span></a>)}</div>}</div></div>}
+        {abaConteudo==="arquivos"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,display:"flex",flexDirection:"column",gap:14}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><h2 style={{fontSize:20,fontWeight:800,color:C.text}}>Arquivos da obra</h2><p style={{fontSize:11,color:C.muted,marginTop:4}}>{ehAdmin?"Gerencie documentos e, quando necessário, acesse a estrutura administrativa no OneDrive.":"Crie diretórios, envie documentos e visualize os arquivos liberados sem acessar as pastas do OneDrive."}</p></div><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{ehAdmin&&obra.oneDriveUrl&&<Btn v="ghost" onClick={()=>abrirOneDrive(obra.oneDriveUrl)}><Ic n="folder"/> Abrir pasta no OneDrive</Btn>}<Btn onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Carregar arquivo"}</Btn><input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/></div></div><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Inp label="Novo diretório" value={novaPasta} onChange={setNovaPasta} placeholder="Ex.: Projetos estruturais"/><Btn v="info" onClick={criarSubpasta} disabled={!novaPasta.trim()}><Ic n="folder"/> Criar pasta</Btn></div><div style={{borderTop:`1px solid ${C.line}`,paddingTop:12}}><p style={{fontSize:10,fontWeight:850,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Arquivos disponíveis para visualização</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:11,color:C.muted,padding:"14px 0"}}>Nenhum arquivo enviado por esta tela.</p>:<div style={{display:"flex",flexDirection:"column",gap:6}}>{(obra.documentosOneDrive||[]).map(doc=>linkDocumentoObra(doc))}</div>}</div></div>}
       </div>}
     </div>
   );

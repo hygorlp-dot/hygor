@@ -17,6 +17,12 @@ export default async function handler(req,res){
       res.setHeader("cache-control","private, max-age=300"); return res.send(Buffer.from(await r.arrayBuffer()));
     }
     const body=req.body||{};
+    if(action==="file-link"){
+      if(!body.driveId||!body.itemId)return res.status(400).json({error:"Arquivo sem identificação no OneDrive."});
+      const sig=fileSignature(body.driveId,body.itemId);
+      const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(body.driveId)}&itemId=${encodeURIComponent(body.itemId)}&sig=${encodeURIComponent(sig)}`;
+      return res.json({ok:true,url});
+    }
     if(action==="create-workspace"){
       const ws=await workspace(accessToken,body.obraName);
       return res.json({ok:true,...ws,...(appUser.role==="admin"?{}:{webUrl:undefined})});
