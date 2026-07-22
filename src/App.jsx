@@ -1703,6 +1703,16 @@ const normalizeData = incoming => {
       oneDriveFolderId: o.oneDriveFolderId || "",
       oneDriveFolders: o.oneDriveFolders && typeof o.oneDriveFolders === "object" ? o.oneDriveFolders : {},
       documentosOneDrive: Array.isArray(o.documentosOneDrive) ? o.documentosOneDrive : [],
+      portalCliente: {
+        ativo: !!o.portalCliente?.ativo,
+        token: o.portalCliente?.token || "",
+        publicarFotos: o.portalCliente?.publicarFotos !== false,
+        publicarCronograma: o.portalCliente?.publicarCronograma !== false,
+        publicarFinanceiro: !!o.portalCliente?.publicarFinanceiro,
+        publicarDocumentos: o.portalCliente?.publicarDocumentos !== false,
+        mensagem: o.portalCliente?.mensagem || "",
+        atualizadoEm: o.portalCliente?.atualizadoEm || "",
+      },
       contractType: o.contractType || "fixed_labor",
       contractValue: Number(o.contractValue || 0),
       adminPercentage: Number(o.adminPercentage || 0),
@@ -22277,6 +22287,17 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const [enviandoCapa, setEnviandoCapa] = useState(false);
   const [enviandoDocumento, setEnviandoDocumento] = useState(false);
   const [novaPasta, setNovaPasta] = useState("");
+  const portal = obra?.portalCliente || {};
+  const atualizarPortal = (campos) => {
+    const token = portal.token || (globalThis.crypto?.randomUUID?.() || uid()+uid());
+    update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,portalCliente:{...portal,token,...campos,atualizadoEm:new Date().toISOString()}}:o)});
+  };
+  const linkPortal = portal.token ? `${window.location.origin}${window.location.pathname}?portal=${encodeURIComponent(obraId)}&token=${encodeURIComponent(portal.token)}` : "";
+  const copiarLinkPortal = async () => {
+    if(!portal.ativo){showToast?.("Ative o portal antes de copiar o link.","error");return;}
+    try{await navigator.clipboard.writeText(linkPortal);showToast?.("Link seguro do cliente copiado.");}
+    catch{window.prompt("Copie o link do portal:",linkPortal);}
+  };
 
   // Sobe a imagem de capa. Comprime antes (a foto do celular e enorme) e
   // guarda so a URL - o binario fica no Storage, nao no JSON do app.
@@ -22572,13 +22593,13 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           ["rdo","Diário de obra","rdo"],["qualidade","Qualidade · FVS/FVM",null],["conferencia","Conferência","conferencia"],["med","Medição técnica","med"],
           ["cmp","Compras","cmp"],["est","Estoque","est"],["dre","Financeiro","dre"],
           ["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"],
-          ["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null]].filter(([id])=>id!=="arquivos"||ehAdmin).map(([id,label,destino])=>{
+          ["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["portal","Portal do cliente",null],["arquivos","Arquivos",null]].filter(([id])=>!["arquivos","portal"].includes(id)||ehAdmin).map(([id,label,destino])=>{
           const ativa = id===abaConteudo;
           return (
             <button key={id}
               className="arcd-tab"
               data-active={ativa}
-              onClick={()=>{if(id==="arquivos"||id==="geral"||id==="qualidade")setAbaConteudo(id);else if(destino)abrirModuloDaObra(destino);}}
+              onClick={()=>{if(["arquivos","portal","geral","qualidade"].includes(id))setAbaConteudo(id);else if(destino)abrirModuloDaObra(destino);}}
               style={{border:0,background:"transparent",cursor:"pointer",
                 padding:"9px 13px",whiteSpace:"nowrap",
                 fontSize:12.5,fontWeight:ativa?800:500,
@@ -22955,6 +22976,15 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="terc"&&<Terceiros data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="equip"&&<Equipamentos data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="licenca"&&<Licenciamento data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:12}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${portal.ativo?C.green:C.muted}`,borderRadius:12,padding:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}><div><p style={{fontSize:10,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:.7}}>Experiência do cliente</p><h2 style={{fontSize:22,color:C.text,marginTop:3}}>Portal transparente da obra</h2><p style={{fontSize:11,color:C.muted,marginTop:4,maxWidth:650,lineHeight:1.55}}>Link exclusivo e somente leitura. Custos internos, compras, equipe, folha e dados administrativos nunca são enviados ao portal.</p></div><Btn v={portal.ativo?"danger":"success"} onClick={()=>atualizarPortal({ativo:!portal.ativo})}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
+            <div style={{marginTop:14}}><Inp label="Mensagem de abertura" value={portal.mensagem||""} onChange={v=>atualizarPortal({mensagem:v})} placeholder="Ex.: Sua obra avança com qualidade e segurança."/></div>
+            <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:8,marginTop:12}}>{[["publicarFotos","Fotos aprovadas",portal.publicarFotos!==false],["publicarCronograma","Cronograma resumido",portal.publicarCronograma!==false],["publicarFinanceiro","Medições e pagamentos",!!portal.publicarFinanceiro],["publicarDocumentos","Documentos liberados",portal.publicarDocumentos!==false]].map(([k,l,checked])=><label key={k} style={{display:"flex",gap:8,alignItems:"center",padding:"10px 11px",border:`1px solid ${checked?C.blue:C.border}`,borderRadius:8,background:checked?`${C.blue}08`:C.surface,cursor:"pointer",fontSize:11,fontWeight:750,color:C.text}}><input type="checkbox" checked={checked} onChange={e=>atualizarPortal({[k]:e.target.checked})}/>{l}</label>)}</div>
+            <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap"}}><Btn onClick={copiarLinkPortal} disabled={!portal.ativo}><Ic n="link"/> Copiar link do cliente</Btn>{portal.ativo&&<Btn v="ghost" onClick={()=>window.open(linkPortal,"_blank","noopener,noreferrer")}><Ic n="eye"/> Visualizar portal</Btn>}<Btn v="ghost" onClick={()=>atualizarPortal({token:globalThis.crypto?.randomUUID?.()||uid()+uid()})}><Ic n="refresh"/> Revogar link anterior</Btn></div>
+          </div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16}}><h3 style={{fontSize:14,color:C.text}}>Documentos liberados ao cliente</h3><p style={{fontSize:10.5,color:C.muted,margin:"3px 0 10px"}}>O documento só aparece no portal quando marcado individualmente.</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:11,color:C.muted}}>Nenhum documento enviado.</p>:(obra.documentosOneDrive||[]).map(doc=><label key={doc.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderTop:`1px solid ${C.line}`,fontSize:11.5,color:C.text}}><input type="checkbox" checked={doc.publicarCliente===true} onChange={e=>update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,documentosOneDrive:(o.documentosOneDrive||[]).map(d=>d.id===doc.id?{...d,publicarCliente:e.target.checked}:d)}:o)})}/><Ic n="file"/><span style={{flex:1}}>{doc.nome}</span><span style={{color:doc.publicarCliente?C.green:C.muted}}>{doc.publicarCliente?"Publicado":"Interno"}</span></label>)}</div>
+        </div>}
         {abaConteudo==="arquivos"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,display:"flex",flexDirection:"column",gap:14}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><h2 style={{fontSize:20,fontWeight:800,color:C.text}}>Arquivos da obra</h2><p style={{fontSize:11,color:C.muted,marginTop:4}}>Crie diretórios e envie documentos diretamente para o OneDrive desta obra.</p></div><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{obra.oneDriveUrl&&<Btn v="ghost" onClick={()=>abrirOneDrive(obra.oneDriveUrl)}><Ic n="folder"/> Abrir no OneDrive</Btn>}<Btn onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Carregar arquivo"}</Btn><input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/></div></div><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Inp label="Novo diretório" value={novaPasta} onChange={setNovaPasta} placeholder="Ex.: Projetos estruturais"/><Btn v="info" onClick={criarSubpasta} disabled={!novaPasta.trim()}><Ic n="folder"/> Criar pasta</Btn></div><div style={{borderTop:`1px solid ${C.line}`,paddingTop:12}}><p style={{fontSize:10,fontWeight:850,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Arquivos enviados pelo ArcD</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:11,color:C.muted,padding:"14px 0"}}>Nenhum arquivo enviado por esta tela.</p>:<div style={{display:"flex",flexDirection:"column",gap:6}}>{(obra.documentosOneDrive||[]).map(doc=><a key={doc.id} href={doc.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:8,padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:8,color:C.blue,textDecoration:"none",fontSize:11.5}}><Ic n="file"/><span style={{flex:1}}>{doc.nome}</span><span>↗</span></a>)}</div>}</div></div>}
       </div>}
     </div>
@@ -30395,7 +30425,28 @@ function BuscaGlobal({ indice, allowedTabs, onIr, onFechar }) {
   );
 }
 
+function PortalClientePublico({ obraId, token }) {
+  const [estado,setEstado]=useState({loading:true,portal:null,error:""});
+  useEffect(()=>{let ativo=true;(async()=>{try{const resp=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"client-portal",obraId,token})});const json=await resp.json();if(!resp.ok)throw new Error(json.error||"Portal indisponível.");if(ativo)setEstado({loading:false,portal:json.portal,error:""});}catch(e){if(ativo)setEstado({loading:false,portal:null,error:e.message});}})();return()=>{ativo=false};},[obraId,token]);
+  if(estado.loading)return <><style>{G}</style><div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:C.bg,color:C.muted}}>Carregando portal da obra...</div></>;
+  if(estado.error)return <><style>{G}</style><div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:C.bg,padding:24}}><div style={{maxWidth:460,textAlign:"center",background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:26}}><BrandMark/><h1 style={{fontSize:20,color:C.text,marginTop:18}}>Este link não está disponível</h1><p style={{fontSize:12,color:C.muted,marginTop:8,lineHeight:1.6}}>{estado.error}<br/>Solicite um novo acesso à construtora.</p></div></div></>;
+  const p=estado.portal,o=p.obra,concluidas=(p.cronograma||[]).filter(t=>t.progresso>=100).length;
+  return <><style>{G}</style><div style={{minHeight:"100vh",background:C.bg,color:C.text}}><header style={{background:"#101828",color:"white",padding:"16px clamp(16px,5vw,56px)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}><BrandMark/><span style={{fontSize:10,opacity:.72}}>ACOMPANHAMENTO SEGURO · SOMENTE LEITURA</span></header><main style={{maxWidth:1120,margin:"0 auto",padding:"24px clamp(14px,4vw,34px) 50px"}}>
+    <section style={{minHeight:230,borderRadius:20,overflow:"hidden",padding:"clamp(22px,5vw,48px)",display:"flex",alignItems:"flex-end",background:o.capaUrl?`linear-gradient(90deg,rgba(8,15,28,.92),rgba(8,15,28,.35)),url(${o.capaUrl}) center/cover`:`linear-gradient(135deg,#101828,#194b72)`,color:"white",boxShadow:`0 18px 45px ${C.shadow}`}}><div><p style={{fontSize:10,fontWeight:900,letterSpacing:1,textTransform:"uppercase",color:"#f3c531"}}>Sua obra</p><h1 style={{fontSize:"clamp(30px,6vw,52px)",lineHeight:1,marginTop:7}}>{o.nome}</h1><p style={{fontSize:12,opacity:.82,marginTop:10}}>{[o.endereco,o.engenheiro&&`Responsável técnico: ${o.engenheiro}`].filter(Boolean).join(" · ")}</p></div></section>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10,marginTop:14}}>{[["Avanço físico",`${p.progresso}%`,C.blue],["Etapas concluídas",`${concluidas}/${p.cronograma.length}`,C.green],["Últimos diários",p.diarios.length,C.orange],["Fotos publicadas",p.fotos.length,C.purple]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:13,padding:16}}><p style={{fontSize:9,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:24,fontWeight:900,color:c,marginTop:5}}>{v}</p></div>)}</div>
+    <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginTop:14}}><h2 style={{fontSize:17}}>Panorama da obra</h2><p style={{fontSize:12,color:C.muted,lineHeight:1.65,marginTop:7}}>{p.mensagem}</p><div style={{height:8,borderRadius:99,background:C.line,overflow:"hidden",marginTop:14}}><div style={{height:"100%",width:`${p.progresso}%`,background:`linear-gradient(90deg,${C.blue},${C.green})`}}/></div><div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:C.muted,marginTop:5}}><span>Início {fmtDateFull(o.inicio)}</span><span>Previsão {fmtDateFull(o.terminoPrevisto)}</span></div></section>
+    {!!p.fotos.length&&<section style={{marginTop:22}}><h2 style={{fontSize:18,marginBottom:10}}>Registro fotográfico</h2><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:9}}>{p.fotos.map((f,i)=><figure key={`${f.url}-${i}`} style={{margin:0,background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}><img src={f.url} alt={f.legenda||"Evolução da obra"} style={{width:"100%",aspectRatio:"1",objectFit:"cover",display:"block"}}/><figcaption style={{padding:9,fontSize:10,color:C.muted}}>{f.legenda||`RDO-${String(f.rdoCodigo||0).padStart(3,"0")}`} · {fmtDateFull(f.data)}</figcaption></figure>)}</div></section>}
+    {!!p.cronograma.length&&<section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginTop:22}}><h2 style={{fontSize:17}}>Cronograma resumido</h2>{p.cronograma.map(t=><div key={t.id} style={{padding:"10px 0",borderTop:`1px solid ${C.line}`}}><div style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:11.5}}><b>{t.nome}</b><span style={{fontWeight:850,color:t.progresso>=100?C.green:C.blue}}>{t.progresso}%</span></div><div style={{height:5,borderRadius:99,background:C.line,marginTop:6}}><div style={{height:"100%",width:`${t.progresso}%`,borderRadius:99,background:t.progresso>=100?C.green:C.blue}}/></div></div>)}</section>}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:14,marginTop:22}}>{!!p.documentos.length&&<section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}><h2 style={{fontSize:17}}>Documentos liberados</h2>{p.documentos.map(d=><a key={d.id} href={d.url} target="_blank" rel="noreferrer" style={{display:"flex",gap:8,padding:"10px 0",borderTop:`1px solid ${C.line}`,color:C.blue,fontSize:11.5,textDecoration:"none"}}><Ic n="file"/> {d.nome} ↗</a>)}</section>}{!!p.medicoes.length&&<section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}><h2 style={{fontSize:17}}>Medições e pagamentos</h2>{p.medicoes.map(m=><div key={m.id} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"10px 0",borderTop:`1px solid ${C.line}`,fontSize:11.5}}><span>{m.descricao}<small style={{display:"block",color:C.muted}}>{m.recebido?"Recebido":"Em aberto"}</small></span><b style={{color:m.recebido?C.green:C.orange}}>{fmt(m.recebido?m.valorRecebido:m.valorPrevisto)}</b></div>)}</section>}</div>
+    {!!p.atualizacoes.length&&<section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginTop:22}}><h2 style={{fontSize:17}}>Atualizações recentes</h2>{p.atualizacoes.slice(0,8).map(a=><div key={a.id} style={{padding:"10px 0",borderTop:`1px solid ${C.line}`}}><p style={{fontSize:11.5}}>{a.mensagem}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{a.responsavel} · {a.at?new Date(a.at).toLocaleString("pt-BR"):""}</p></div>)}</section>}
+  </main></div></>;
+}
+
 export default function App() {
+  const portalRequest = useMemo(()=>{
+    const q=new URLSearchParams(window.location.search);
+    return {obraId:q.get("portal")||"",token:q.get("token")||""};
+  },[]);
   const [data,        setData]        = useState(null);
   const [tab,         setTab]         = useState("home");
   // Busca global (Ctrl/Cmd+K): índice de tudo que se pode encontrar por nome.
@@ -30614,6 +30665,7 @@ export default function App() {
   // financeiro, nenhum CPF, nenhum hash de PIN sai do servidor aqui.
   // Os dados só chegam depois que o PIN é conferido - lá no servidor.
   useEffect(() => {
+    if (portalRequest.obraId && portalRequest.token) { setLoading(false); return undefined; }
     let vivo = true;
     (async () => {
       try {
@@ -30629,7 +30681,7 @@ export default function App() {
       }
     })();
     return () => { vivo = false; };
-  }, [showToast]);
+  }, [showToast, portalRequest.obraId, portalRequest.token]);
 
   useEffect(() => {
     if (!data || loading || approvalHandledRef.current) return;
@@ -30886,6 +30938,10 @@ export default function App() {
   // login, o app ficaria carregando para sempre - os dados nunca chegariam,
   // porque ninguém teria digitado o PIN. Primeiro loading, depois setup,
   // depois login. Só então os dados existem.
+  if (portalRequest.obraId && portalRequest.token) {
+    return <PortalClientePublico obraId={portalRequest.obraId} token={portalRequest.token}/>;
+  }
+
   if (loading) {
     return (
       <>

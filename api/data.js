@@ -133,6 +133,47 @@ export default async function handler(req, res) {
   const { action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload } = req.body || {};
 
   try {
+    if (action === "client-portal") {
+      const { payload: p } = await lerLinha();
+      const obraId = String(req.body?.obraId || "");
+      const token = String(req.body?.token || "");
+      const obra = (p?.obras || []).find(o => String(o.id) === obraId);
+      const portal = obra?.portalCliente || {};
+      const tokenValido = token && portal.token && token.length === String(portal.token).length &&
+        crypto.timingSafeEqual(Buffer.from(token), Buffer.from(String(portal.token)));
+      if (!obra || !portal.ativo || !tokenValido) {
+        return res.status(404).json({ error: "Portal indisponível ou link inválido." });
+      }
+
+      const rdos = (p?.rdos || []).filter(r => r.obraId === obraId && r.status === "concluido")
+        .sort((a,b) => String(b.data||"").localeCompare(String(a.data||""))).slice(0, 12);
+      const fotos = portal.publicarFotos === false ? [] : rdos.flatMap(r => (r.fotos || [])
+        .filter(f => f.publicarCliente !== false).map(f => ({ url:f.url || "", legenda:f.legenda || "", data:r.data, rdoCodigo:r.codigo })))
+        .filter(f => f.url).slice(0, 24);
+      const plano = (p?.planos || []).find(x => x.obraId === obraId);
+      const tarefas = (plano?.tarefas || []).filter(t => !t.titulo).map(t => ({
+        id:t.id, nome:t.nome || t.descricao || "Etapa", inicio:t.inicio || "", fim:t.fim || "",
+        progresso:Math.max(0,Math.min(100,Number(t.progresso || 0))),
+      }));
+      const progresso = tarefas.length ? Math.round(tarefas.reduce((s,t)=>s+t.progresso,0)/tarefas.length) : 0;
+      const medicoes = portal.publicarFinanceiro ? (p?.medicoes || []).filter(m => m.obraId === obraId).map(m => ({
+        id:m.id, descricao:m.descricao || m.competencia || "Medição", competencia:m.competencia || "",
+        valorPrevisto:Number(m.valorPrevisto || 0), valorRecebido:Number(m.valorRecebido || 0), recebido:!!m.recebido,
+      })) : [];
+      const documentos = portal.publicarDocumentos === false ? [] : (obra.documentosOneDrive || [])
+        .filter(d => d.publicarCliente === true).map(d => ({ id:d.id, nome:d.nome || "Documento", url:d.url || "" }));
+      const atualizacoes = (p?.changeLog || []).filter(e => e.obraId === obraId)
+        .slice(-20).reverse().map(e => ({ id:e.id, at:e.at || e.date || "", mensagem:e.message || "Atualização da obra", responsavel:e.operador || "Equipe ArcD" }));
+      return res.status(200).json({ portal:{
+        obra:{ id:obra.id, nome:obra.name, status:obra.status, capaUrl:obra.capaUrl || "", cliente:obra.cliente || "", engenheiro:obra.engineer || "", endereco:obra.address || "", inicio:obra.contractStart || obra.startDate || "", terminoPrevisto:obra.contractEnd || "" },
+        mensagem:portal.mensagem || "Acompanhe aqui a evolução da sua obra.", progresso,
+        cronograma:portal.publicarCronograma === false ? [] : tarefas.slice(0,30),
+        diarios:rdos.map(r => ({ id:r.id, codigo:r.codigo, data:r.data, descricao:r.descricao || "", clima:r.clima || {}, fotos:(r.fotos||[]).filter(f=>f.publicarCliente!==false).length })),
+        fotos, medicoes, documentos, atualizacoes,
+        atualizadoEm:portal.atualizadoEm || "",
+      }});
+    }
+
     if (action === "auth-login") {
       const email=String(req.body?.email||"").trim().toLowerCase();
       const password=String(req.body?.password||"");
