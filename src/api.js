@@ -59,6 +59,37 @@ const chamar = async (body) => {
   return { status: r.status, ...json };
 };
 
+// Rotas serverless que também precisam reconhecer o operador. Centralizar
+// aqui evita que cada tela esqueça o PIN/token e garante renovação da sessão
+// de e-mail antes de repetir a requisição.
+const chamarRotaAutenticada = async (rota, payload = {}) => {
+  if (!temSessao()) return { ok:false, status:401, error:"Sessão encerrada." };
+  const executar = () => fetch(rota, {
+    method:"POST",
+    headers:{ "content-type":"application/json" },
+    body:JSON.stringify({ ...credenciais(), ...payload }),
+  });
+  let response = await executar();
+  if (response.status === 401 && sessao.refreshToken) {
+    const refreshResponse = await fetch(ROTA, {
+      method:"POST", headers:{ "content-type":"application/json" },
+      body:JSON.stringify({ action:"auth-refresh", refreshToken:sessao.refreshToken }),
+    });
+    const refreshed = await refreshResponse.json().catch(() => ({}));
+    if (refreshResponse.ok && refreshed.accessToken) {
+      sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
+      try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
+      response=await executar();
+    }
+  }
+  const json=await response.json().catch(()=>({}));
+  return { ok:response.ok, status:response.status, ...json };
+};
+
+export const chamarIA = payload => chamarRotaAutenticada("/api/ai-agent", payload);
+export const verificarStatusIA = () => chamarRotaAutenticada("/api/ai-agent", { action:"status" });
+export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
+
 // ── Tela de login: quem existe? ────────────────────────────────────
 // Devolve só nome e papel. O hash do PIN nunca sai do servidor.
 export const listarPerfis = async () => {

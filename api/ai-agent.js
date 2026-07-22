@@ -1,4 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════
+
+import { authenticateAppUser } from "./auth.js";
 // /api/ai-agent — rota serverless do Vercel
 //
 // O App.jsx já chama esta rota (linha ~6741) em vez de falar direto com
@@ -18,10 +20,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Método não permitido." });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;   // sem REACT_APP_ — server-side
+  const user = await authenticateAppUser(req.body || {});
+  if (!user) return res.status(401).json({ error: "Sessão inválida." });
+
+  const apiKey = String(process.env.ANTHROPIC_API_KEY || "").trim(); // sem REACT_APP_ — server-side
+  if (req.body?.action === "status") {
+    return res.status(200).json({ ok: true, configured: !!apiKey, provider: "anthropic" });
+  }
   if (!apiKey) {
     return res.status(503).json({
-      error: "ANTHROPIC_API_KEY não configurada no Vercel.",
+      error: "O Modo IA ainda não foi configurado no ambiente de produção.",
+      code: "AI_NOT_CONFIGURED",
     });
   }
 
