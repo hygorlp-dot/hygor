@@ -124,6 +124,69 @@ const mesclarTresVias = (base, recebido, atual) => {
   return recebido;
 };
 
+// A Conferência tem segregação de função: o vistoriador registra e julga;
+// quem recebeu o ajuste apenas anexa a própria evidência. A validação precisa
+// acontecer no servidor, pois esconder botões no React não impede uma chamada
+// manual à API.
+const compactarPermissao = value => {
+  if(Array.isArray(value))return value.map(compactarPermissao);
+  if(!objeto(value))return value;
+  const out={};
+  Object.entries(value).forEach(([key,item])=>{
+    if(item===undefined||item===""||(Array.isArray(item)&&item.length===0))return;
+    out[key]=compactarPermissao(item);
+  });
+  return out;
+};
+const igualPermissao=(a,b)=>JSON.stringify(compactarPermissao(a))===JSON.stringify(compactarPermissao(b));
+const validarAlteracoesConferencias=(usuario,anterior=[],proximo=[],autoritativo=[])=>{
+  if(usuario?.role==="admin")return "";
+  if(!Array.isArray(anterior)||!Array.isArray(proximo))return "Formato de conferências inválido.";
+  const antes=new Map(anterior.map(c=>[String(c.id),c]));
+  const depois=new Map(proximo.map(c=>[String(c.id),c]));
+  const atual=new Map((autoritativo||[]).map(c=>[String(c.id),c]));
+  if([...depois.keys()].some(id=>!antes.has(id))||[...antes.keys()].some(id=>!depois.has(id)))return "Somente o administrador pode criar ou excluir uma vistoria.";
+
+  for(const [id,nova] of depois){
+    const antiga=antes.get(id);
+    if(igualPermissao(antiga,nova))continue;
+    const vigente=atual.get(id)||antiga;
+    if(vigente?.responsavelId===usuario?.id){
+      const imutaveis=["id","obraId","codigo","responsavelId","responsavel","criadoEm"];
+      if(imutaveis.some(k=>!igualPermissao(antiga?.[k],nova?.[k])))return "O responsável pela vistoria não pode alterar a autoria ou o vínculo da conferência.";
+      continue;
+    }
+
+    const topoAntigo={...antiga},topoNovo={...nova};
+    delete topoAntigo.pendencias;delete topoNovo.pendencias;
+    delete topoAntigo.atualizadoEm;delete topoNovo.atualizadoEm;
+    if(!igualPermissao(topoAntigo,topoNovo))return "O responsável pelo ajuste possui acesso somente para enviar a foto da correção.";
+    const pendAntes=new Map((antiga?.pendencias||[]).map(p=>[String(p.id),p]));
+    const pendDepois=new Map((nova?.pendencias||[]).map(p=>[String(p.id),p]));
+    if([...pendDepois.keys()].some(pid=>!pendAntes.has(pid))||[...pendAntes.keys()].some(pid=>!pendDepois.has(pid)))return "O responsável pelo ajuste não pode criar ou excluir pendências.";
+    for(const [pid,pendNova] of pendDepois){
+      const pendAntiga=pendAntes.get(pid);
+      if(igualPermissao(pendAntiga,pendNova))continue;
+      const pendVigente=(vigente?.pendencias||[]).find(p=>String(p.id)===pid)||pendAntiga;
+      if(pendVigente?.responsavelAjusteId!==usuario?.id)return "Você não pode alterar uma pendência atribuída a outro responsável.";
+      if(pendAntiga?.status==="resolvida")return "Uma pendência conforme não aceita nova evidência sem reabertura pelo vistoriador.";
+      const camposPermitidos=new Set(["status","fotos","validacaoStatus","validacaoObservacao","validadoPorId","validadoPor","validadoEm","resolvidoEm"]);
+      const campos=new Set([...Object.keys(pendAntiga||{}),...Object.keys(pendNova||{})]);
+      if([...campos].some(k=>!camposPermitidos.has(k)&&!igualPermissao(pendAntiga?.[k],pendNova?.[k])))return "O responsável pelo ajuste não pode editar os dados da pendência.";
+      const fotosAntes=pendAntiga?.fotos||[],fotosDepois=pendNova?.fotos||[];
+      if(fotosDepois.length<=fotosAntes.length)return "Envie uma nova foto para registrar a correção.";
+      for(let i=0;i<fotosAntes.length;i++){
+        const a={...fotosAntes[i]},b={...fotosDepois[i]};delete a.id;delete b.id;
+        if(!igualPermissao(a,b))return "As evidências anteriores não podem ser alteradas ou removidas.";
+      }
+      const adicionadas=fotosDepois.slice(fotosAntes.length);
+      if(adicionadas.some(f=>f.tipo!=="ajuste"||f.enviadoPorId!==usuario.id||!/^https:\/\//i.test(String(f.url||""))))return "A nova evidência deve ser a foto de correção enviada pelo próprio responsável.";
+      if(pendNova.status!=="aguardando_validacao"||pendNova.validacaoStatus||pendNova.validadoEm||pendNova.resolvidoEm)return "Depois da foto, a pendência deve aguardar a validação do vistoriador.";
+    }
+  }
+  return "";
+};
+
 export default async function handler(req, res) {
   if (!URL || !SERVICE) {
     return res.status(503).json({ error: "Banco não configurado no servidor." });
@@ -316,6 +379,11 @@ export default async function handler(req, res) {
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
       if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
+      if(chaves.includes("conferencias")){
+        const baseConferencias=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"conferencias")?baseSections.conferencias:atual?.conferencias;
+        const erroPermissao=validarAlteracoesConferencias(usuario,baseConferencias||[],sections.conferencias||[],atual?.conferencias||[]);
+        if(erroPermissao)return res.status(403).json({error:erroPermissao});
+      }
 
       const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
       const aplicar = (estado, concorrente) => {
@@ -354,6 +422,10 @@ export default async function handler(req, res) {
     // ── 4b. Salvar blob completo (compatibilidade / primeiro acesso) ─
     if (action === "save") {
       if (!payload) return res.status(400).json({ error: "Nada para salvar." });
+      if(!igual(payload.conferencias,atual?.conferencias)){
+        const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],payload.conferencias||[],atual?.conferencias||[]);
+        if(erroPermissao)return res.status(403).json({error:erroPermissao});
+      }
 
       // Se outro salvou depois da sua leitura, recusa — e devolve a versão
       // do servidor + o que você tentou salvar, para o app reaplicar.

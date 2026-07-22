@@ -29,7 +29,7 @@ mexer, abra o app **como está hoje** e exporte:
 │
 ├── api/                    ⚠️ NA RAIZ, nunca dentro de src/
 │   ├── data.js             ← NOVO — guarda a chave do banco
-│   └── ai-agent.js         ← ponte autenticada para a OpenAI
+│   └── ai-agent.js         ← ponte autenticada para o Google Gemini
 │
 ├── public/
 │   ├── index.html          ← substituir (carrega a fonte Inter)
@@ -83,8 +83,8 @@ o PIN. Se alguém roubar a anon key do bundle, não lê uma linha.
 | `SUPABASE_URL` | `https://qylubfxunnpbbjnmgsdg.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → chave **service_role** |
 | `COMPANY_ID` | `arcd` |
-| `OPENAI_API_KEY` | opcional; contingência para a integração OpenAI configurável pelo administrador |
-| `OPENAI_MODEL` | opcional; modelo central usado pelas IAs (padrão `gpt-5.6`) |
+| `GEMINI_API_KEY` | opcional; contingência para a integração Gemini configurável pelo administrador |
+| `GEMINI_MODEL` | opcional; modelo central usado pelas IAs (padrão `gemini-3.6-flash`) |
 
 **A regra do prefixo:** tudo que começa com `REACT_APP_` é embutido no bundle
 JavaScript e fica visível para qualquer visitante. A `service_role` ignora

@@ -88,8 +88,8 @@ const chamarRotaAutenticada = async (rota, payload = {}) => {
 
 export const chamarIA = payload => chamarRotaAutenticada("/api/ai-agent", payload);
 export const verificarStatusIA = () => chamarRotaAutenticada("/api/ai-agent", { action:"status" });
-export const configurarOpenAI = apiKey => chamarRotaAutenticada("/api/ai-agent", { action:"configure", apiKey });
-export const removerConfiguracaoOpenAI = () => chamarRotaAutenticada("/api/ai-agent", { action:"remove" });
+export const configurarGemini = apiKey => chamarRotaAutenticada("/api/ai-agent", { action:"configure", apiKey });
+export const removerConfiguracaoIA = () => chamarRotaAutenticada("/api/ai-agent", { action:"remove" });
 export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
 
 // ── Tela de login: quem existe? ────────────────────────────────────
