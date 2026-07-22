@@ -395,6 +395,11 @@ export default async function handler(req, res) {
     const user = await conferirPin(userId, pin, accessToken);
     if (!user) return res.status(401).json({ error: "PIN inválido." });
 
+    const acoesAdministrativas = new Set(["begin", "chunk", "input-chunk", "component-chunk", "finish", "delete"]);
+    if (acoesAdministrativas.has(action) && user.role !== "admin") {
+      return res.status(403).json({ error: "Somente o administrador pode cadastrar ou excluir bases de referência." });
+    }
+
     if (action === "list") {
       const { data, error } = await db
         .from("budget_reference_bases")
@@ -413,6 +418,29 @@ export default async function handler(req, res) {
       if (!/^\d{4}-\d{2}$/.test(competence)) return res.status(400).json({ error: "Data-base inválida." });
       const uf = source === "SINAPI" ? String(meta.uf || "").toUpperCase() : null;
       if (source === "SINAPI" && !/^[A-Z]{2}$/.test(uf)) return res.status(400).json({ error: "UF inválida." });
+
+      let consultaExistente = db
+        .from("budget_reference_bases")
+        .select("*")
+        .eq("company_id", COMPANY)
+        .eq("source", source)
+        .eq("competence", competence);
+      consultaExistente = source === "SINAPI"
+        ? consultaExistente.eq("uf", uf).eq("desonerado", meta.desonerado !== false)
+        : consultaExistente.is("uf", null);
+      const { data: existente, error: erroExistente } = await consultaExistente
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (erroExistente) throw erroExistente;
+      if (existente) {
+        const regime = source === "SINAPI" ? ` · ${uf} · ${meta.desonerado === false ? "não desonerada" : "desonerada"}` : "";
+        return res.status(409).json({
+          error: `${source} ${competence}${regime} já está cadastrada. Exclua a repetição na gestão de bases antes de reenviar.`,
+          duplicate: true,
+          base: mapBase(existente),
+        });
+      }
 
       const row = {
         company_id: COMPANY,

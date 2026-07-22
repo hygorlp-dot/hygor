@@ -15259,6 +15259,26 @@ const calcOrcamento = (orc) => {
 //  curva mente: o mesmo servico apareceria varias vezes com valor fatiado.
 const CLASSE_ABC = { A:{ cor:"#C62828", limite:80 }, B:{ cor:"#EF6C00", limite:95 }, C:{ cor:"#2E7D32", limite:100 } };
 const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
+const chaveBaseReferencia = base => [
+  String(base?.fonte || "").toUpperCase(),
+  String(base?.dataBase || ""),
+  String(base?.uf || "").toUpperCase(),
+  base?.fonte === "SINAPI" ? (base?.desonerado === false ? "NAO_DESONERADA" : "DESONERADA") : "OFICIAL",
+].join("|");
+const consolidarBasesReferencia = (bases=[]) => {
+  const grupos = new Map();
+  bases.forEach(base => {
+    const chave = chaveBaseReferencia(base);
+    grupos.set(chave, [...(grupos.get(chave) || []), base]);
+  });
+  return [...grupos.values()].map(grupo => {
+    const ordenado = [...grupo].sort((a,b) =>
+      Number(b.status === "ready") - Number(a.status === "ready") ||
+      Number(b.total || 0) - Number(a.total || 0) ||
+      String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
+    return {...ordenado[0], idsEquivalentes:ordenado.map(base=>base.id), duplicadas:Math.max(0,ordenado.length-1)};
+  }).sort((a,b)=>String(b.dataBase||"").localeCompare(String(a.dataBase||""))||String(a.fonte||"").localeCompare(String(b.fonte||"")));
+};
 
 const calcCurvaABCOrc = (orc, calc, { agrupar = true } = {}) => {
   const bdiMult = 1 + Number(orc.bdi||0)/100;
@@ -15377,6 +15397,7 @@ const CelulaTexto = memo(function CelulaTexto({ value, onCommit, onDigitar, onEn
 
 function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null }) {
   const { cols, formGrid } = useBreakpoint();
+  const ehAdmin = currentUser?.role === "admin";
   const dataAtualRef = useRef(data);
   const scrollAlvoRef = useRef(null);   // posicao a preservar durante um salvamento
   const orcamentoFixoInicial=(data.orcamentos||[]).find(o=>o.obraId===obraIdFixo);
@@ -15530,14 +15551,16 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
     [data.materiais,data.composicoes,data.composicoesEmpresa]);
 
   const referenciaKey = (orc?.referencias || []).join("|");
+  const basesConsolidadas = useMemo(() => consolidarBasesReferencia(basesRemotas), [basesRemotas]);
   const basesVinculadas = useMemo(() => {
     const ids = new Set(orc?.referencias || []);
-    return basesRemotas.filter(base => ids.has(base.id));
-  }, [basesRemotas, referenciaKey]);
+    return basesConsolidadas.filter(base => base.idsEquivalentes.some(id => ids.has(id)));
+  }, [basesConsolidadas, referenciaKey]);
   const basesDisponiveis = useMemo(() => {
     const ids = new Set(orc?.referencias || []);
-    return basesRemotas.filter(base => !ids.has(base.id) && base.status === "ready");
-  }, [basesRemotas, referenciaKey]);
+    return basesConsolidadas.filter(base => !base.idsEquivalentes.some(id => ids.has(id)) && base.status === "ready");
+  }, [basesConsolidadas, referenciaKey]);
+  const totalBasesDuplicadas = basesRemotas.length - basesConsolidadas.length;
 
   useEffect(() => {
     if (!orc) return;
@@ -15866,6 +15889,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
 
   const importarSinapiSupabase = async file => {
     if (!file || !orc) return;
+    if (!ehAdmin) { showToast("Somente o administrador pode cadastrar bases de referência.", "error"); return; }
     setImportando(true); setUploadProgresso(1);
     let baseCriada = null;
     try {
@@ -15924,6 +15948,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
 
   const cadastrarOrseSupabase = async file => {
     if (!file || !orc) return;
+    if (!ehAdmin) { showToast("Somente o administrador pode cadastrar bases de referência.", "error"); return; }
     setImportando(true);
     try {
       const nomeMatch = file.name.match(/(20\d{2})(0[1-9]|1[0-2])/);
@@ -15945,6 +15970,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
 
   const importarXLSX = async (file) => {
     if (!file) return;
+    if (!ehAdmin) { showToast("Somente o administrador pode importar bases temporárias.", "error"); return; }
     setImportando(true);
     try {
       const buf = await file.arrayBuffer();
@@ -16262,8 +16288,8 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
     update({...atual, orcamentos:lista.map(item => item.id===selOrc ? {...item,...patch} : item)});
   };
 
-  const recalcularFonteOrc = ids => {
-    const fontes = new Set(basesRemotas.filter(base => ids.includes(base.id)).map(base => base.fonte));
+  const recalcularFonteOrc = (ids, bases=basesRemotas) => {
+    const fontes = new Set(bases.filter(base => ids.includes(base.id)).map(base => base.fonte));
     return fontes.has("SINAPI") && fontes.has("ORSE") ? "MISTO" : fontes.has("ORSE") ? "ORSE" : "SINAPI";
   };
   const vincularBaseExistente = () => {
@@ -16274,11 +16300,37 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
       ...(base?.fonte === "SINAPI" ? {uf:base.uf || orc.uf, dataBase:base.dataBase || orc.dataBase} : {}) });
     setBaseParaVincular(""); showToast("Base vinculada ao orçamento.");
   };
-  const desvincularBase = baseId => {
+  const desvincularBase = base => {
     if (!orc) return;
-    const ids = (orc.referencias || []).filter(id => id !== baseId);
+    if (!ehAdmin) { showToast("Somente o administrador pode alterar os vínculos das bases.", "error"); return; }
+    const equivalentes = new Set(base?.idsEquivalentes || [base?.id]);
+    const ids = (orc.referencias || []).filter(id => !equivalentes.has(id));
     salvarOrc({ referencias:ids, fonte:recalcularFonteOrc(ids) });
     showToast("Base desvinculada deste orçamento.");
+  };
+  const excluirBasePersistida = async base => {
+    if (!ehAdmin) { showToast("Somente o administrador pode excluir bases de referência.", "error"); return; }
+    const orcamentosVinculados = (dataAtualRef.current.orcamentos || []).filter(item => (item.referencias || []).includes(base.id)).length;
+    const equivalentes = basesRemotas.filter(item => item.id !== base.id && chaveBaseReferencia(item) === chaveBaseReferencia(base) && item.status === "ready")
+      .sort((a,b)=>Number(b.total||0)-Number(a.total||0)||String(b.criadoEm||"").localeCompare(String(a.criadoEm||"")));
+    const substituta = equivalentes[0] || null;
+    const avisoVinculo = orcamentosVinculados
+      ? substituta ? ` Ela será substituída pela cópia equivalente em ${orcamentosVinculados} orçamento(s).` : ` Ela será desvinculada de ${orcamentosVinculados} orçamento(s).`
+      : "";
+    if (!window.confirm(`Excluir definitivamente a base ${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""}?${avisoVinculo}`)) return;
+    const resultado = await removerBaseReferencia(base.id);
+    if (!resultado.ok) { showToast(resultado.error || "Não foi possível excluir a base.", "error"); return; }
+    const restantes = basesRemotas.filter(item => item.id !== base.id);
+    const atual = dataAtualRef.current;
+    const orcamentos = (atual.orcamentos || []).map(item => {
+      if (!(item.referencias || []).includes(base.id)) return item;
+      let referencias = (item.referencias || []).filter(id => id !== base.id);
+      if (substituta && !referencias.includes(substituta.id)) referencias = [...referencias, substituta.id];
+      return {...item, referencias, fonte:recalcularFonteOrc(referencias, restantes)};
+    });
+    setBasesRemotas(restantes);
+    update({...atual, orcamentos});
+    showToast(substituta ? "Base repetida excluída e vínculos preservados." : "Base excluída do Supabase.");
   };
 
   const normalizarCodigoRef = valor => String(valor || "").trim().toUpperCase()
@@ -17951,13 +18003,13 @@ ${blocoBDI}
       {/* Centro técnico de bases: fica resumido para a planilha continuar sendo o foco. */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
         <button onClick={()=>setBasesPainelAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"11px 13px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,cursor:"pointer",textAlign:"left"}}>
-          <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}><span style={{width:31,height:31,borderRadius:8,display:"grid",placeItems:"center",background:`${C.blue}10`,color:C.blue,flexShrink:0}}><Ic n="box" s={15}/></span><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:850,color:C.text}}>Bases e preços</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{basesVinculadas.length} vinculada(s) · {basesRemotas.length} disponível(is) · atualização automática por código</p></div></div>
-          <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>{basesVinculadas.length>0&&<span style={{fontSize:9,fontWeight:800,color:C.green,background:`${C.green}12`,padding:"3px 7px",borderRadius:99}}>OPERACIONAL</span>}<Ic n={basesPainelAberto?"chevron":"chevR"} s={15} color={C.muted}/></div>
+          <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}><span style={{width:31,height:31,borderRadius:8,display:"grid",placeItems:"center",background:`${C.blue}10`,color:C.blue,flexShrink:0}}><Ic n="box" s={15}/></span><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:850,color:C.text}}>Bases e preços</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{basesVinculadas.length} vinculada(s) · {basesConsolidadas.length} base(s) única(s) · atualização automática por código</p></div></div>
+          <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>{totalBasesDuplicadas>0&&<span style={{fontSize:9,fontWeight:800,color:C.orange,background:`${C.orange}12`,padding:"3px 7px",borderRadius:99}}>{totalBasesDuplicadas} REPETIDA(S)</span>}{basesVinculadas.length>0&&<span style={{fontSize:9,fontWeight:800,color:C.green,background:`${C.green}12`,padding:"3px 7px",borderRadius:99}}>OPERACIONAL</span>}<Ic n={basesPainelAberto?"chevron":"chevR"} s={15} color={C.muted}/></div>
         </button>
       </div>
 
       {basesPainelAberto&&<>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:4}}>{[["oficiais","Bases oficiais e vínculos"],["local","Importação local temporária"]].map(([id,label])=><button key={id} onClick={()=>setBasesSubAba(id)} style={{border:`1px solid ${basesSubAba===id?C.blue:C.border}`,background:basesSubAba===id?`${C.blue}10`:C.card,color:basesSubAba===id?C.blue:C.muted,borderRadius:6,padding:"7px 9px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
+      <div style={{display:"grid",gridTemplateColumns:`repeat(${ehAdmin?2:1},1fr)`,gap:5,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:4}}>{[["oficiais","Bases oficiais e vínculos"],...(ehAdmin?[["local","Importação local temporária"]]:[])].map(([id,label])=><button key={id} onClick={()=>setBasesSubAba(id)} style={{border:`1px solid ${basesSubAba===id?C.blue:C.border}`,background:basesSubAba===id?`${C.blue}10`:C.card,color:basesSubAba===id?C.blue:C.muted,borderRadius:6,padding:"7px 9px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
 
       {/* Referências persistentes do orçamento */}
       {basesSubAba==="oficiais"&&<div style={{background:C.card,border:`1.5px solid ${C.blue}55`,borderLeft:`5px solid ${C.blue}`,borderRadius:8,padding:"13px 14px",display:"flex",flexDirection:"column",gap:11}}>
@@ -17979,12 +18031,12 @@ ${blocoBDI}
                   <p style={{fontSize:11.5,fontWeight:800,color:cor}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}</p>
                   <p title={base.arquivo} style={{fontSize:9.5,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{base.fonte==="ORSE"?"Pesquisa oficial CEHOP":`${base.total.toLocaleString("pt-BR")} composições no Supabase`}{base.arquivo?` · ${base.arquivo}`:""}</p>
                 </div>
-                <button onClick={()=>desvincularBase(base.id)} title="Desvincular" style={{border:`1px solid ${C.border}`,background:C.bg,color:C.muted,width:28,height:28,borderRadius:6,cursor:"pointer",fontWeight:900}}>×</button>
+                {ehAdmin&&<button onClick={()=>desvincularBase(base)} title="Desvincular" style={{border:`1px solid ${C.border}`,background:C.bg,color:C.muted,width:28,height:28,borderRadius:6,cursor:"pointer",fontWeight:900}}>×</button>}
               </div>); })}
           </div>
         ) : <div style={{background:C.surface,border:`1px dashed ${C.border}`,padding:10,borderRadius:6}}><p style={{fontSize:11,color:C.muted}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
 
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(235px,1fr))",gap:9}}>
+        {ehAdmin ? <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(235px,1fr))",gap:9}}>
           <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:10,borderRadius:6}}>
             <p style={{fontSize:11,fontWeight:800,color:C.blue,marginBottom:7}}>SINAPI · planilha oficial</p>
             <Sel label="Estado dos preços" value={sinapiUf} onChange={setSinapiUf} options={SINAPI_UFS.map(uf=>({v:uf,l:uf}))}/>
@@ -17999,14 +18051,15 @@ ${blocoBDI}
               <span style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,background:C.purple,color:"#fff",padding:"8px 10px",borderRadius:7,cursor:importando?"wait":"pointer",fontSize:10.5,fontWeight:800,textTransform:"uppercase"}}><Ic n="file" s={13}/> Vincular arquivo ORSE</span>
             </label>
           </div>
-        </div>
+        </div> : <div style={{padding:"9px 11px",border:`1px solid ${C.blue}33`,borderRadius:7,background:`${C.blue}08`,fontSize:9.8,color:C.muted}}><b style={{color:C.blue}}>Uso liberado.</b> Você pode pesquisar e utilizar as bases já vinculadas. O cadastro, a importação, a desvinculação e a exclusão são exclusivos do administrador.</div>}
         {uploadProgresso>0 && <div><div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:C.muted,marginBottom:3}}><span>Enviando composições em lotes</span><strong>{uploadProgresso}%</strong></div><div style={{height:7,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${uploadProgresso}%`,background:C.blue,transition:"width .2s"}}/></div></div>}
         {basesDisponiveis.length>0 && <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Sel label="Vincular uma base já cadastrada" value={baseParaVincular} onChange={setBaseParaVincular} options={[{v:"",l:"Selecione"},...basesDisponiveis.map(base=>({v:base.id,l:`${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""} · ${base.total||"oficial"}`}))]}/><Btn size="sm" v="info" disabled={!baseParaVincular} onClick={vincularBaseExistente}>Vincular</Btn></div>}
+        {ehAdmin&&basesRemotas.length>0&&<details style={{border:`1px solid ${totalBasesDuplicadas?C.orange:C.border}`,borderRadius:7,background:C.surface,padding:"8px 10px"}}><summary style={{cursor:"pointer",fontSize:10,fontWeight:850,color:totalBasesDuplicadas?C.orange:C.text}}>Gerenciar bases cadastradas · {basesRemotas.length} registro(s){totalBasesDuplicadas?` · ${totalBasesDuplicadas} repetição(ões)`:""}</summary><div style={{display:"flex",flexDirection:"column",gap:5,marginTop:8}}>{basesRemotas.map(base=>{const repetida=basesRemotas.filter(item=>chaveBaseReferencia(item)===chaveBaseReferencia(base)).length>1;return <div key={base.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"7px 8px",border:`1px solid ${repetida?C.orange:C.border}`,borderRadius:6,background:C.card}}><div style={{minWidth:0}}><p style={{fontSize:10.5,fontWeight:850,color:base.fonte==="ORSE"?C.purple:C.blue}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}{base.fonte==="SINAPI"?` · ${base.desonerado===false?"NÃO DESONERADA":"DESONERADA"}`:""} {repetida&&<Badge color={C.orange}>REPETIDA</Badge>}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{base.status==="ready"?`${Number(base.total||0).toLocaleString("pt-BR")} itens`:"Processamento incompleto"} · cadastrada em {base.criadoEm?new Date(base.criadoEm).toLocaleString("pt-BR"):"data não informada"}</p></div><Btn size="sm" v="danger" onClick={()=>excluirBasePersistida(base)}><Ic n="trash"/> Excluir</Btn></div>;})}</div></details>}
         <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente.</p>
       </div>}
 
       {/* Importação local temporária */}
-      {basesSubAba==="local"&&<div style={{background:baseImport.length>0?`${C.green}06`:C.surface,border:`1.5px dashed ${baseImport.length>0?C.green:C.border}`,borderRadius:8,padding:"12px 14px"}}>
+      {basesSubAba==="local"&&ehAdmin&&<div style={{background:baseImport.length>0?`${C.green}06`:C.surface,border:`1.5px dashed ${baseImport.length>0?C.green:C.border}`,borderRadius:8,padding:"12px 14px"}}>
         {importando ? (
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"4px 0"}}>
             <div style={{width:18,height:18,border:`3px solid ${C.border}`,borderTopColor:C.yellow,borderRadius:"50%",animation:"spin 1s linear infinite",flexShrink:0}}/>
@@ -22425,14 +22478,14 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
 
   useEffect(()=>{
     let ativo=true;
-    listarBasesReferencia().then(resultado=>{if(!ativo)return;if(resultado.ok)setBasesReferenciaCompra((resultado.bases||[]).filter(base=>base.status==="ready"));});
+    listarBasesReferencia().then(resultado=>{if(!ativo)return;if(resultado.ok)setBasesReferenciaCompra(consolidarBasesReferencia((resultado.bases||[]).filter(base=>base.status==="ready")));});
     return()=>{ativo=false;};
   },[]);
 
   const basesCompra=useMemo(()=>{
     const orcamento=(data.orcamentos||[]).find(o=>o.obraId===obraAtual);
     const vinculadas=new Set(orcamento?.referencias||[]);
-    return [...basesReferenciaCompra].sort((a,b)=>Number(vinculadas.has(b.id))-Number(vinculadas.has(a.id))||String(b.dataBase||"").localeCompare(String(a.dataBase||"")));
+    return [...basesReferenciaCompra].sort((a,b)=>Number((b.idsEquivalentes||[b.id]).some(id=>vinculadas.has(id)))-Number((a.idsEquivalentes||[a.id]).some(id=>vinculadas.has(id)))||String(b.dataBase||"").localeCompare(String(a.dataBase||"")));
   },[basesReferenciaCompra,data.orcamentos,obraAtual]);
   const podeProcessar=["admin","compras","financeiro"].includes(currentUser?.role);
   const solicitacoes=useMemo(()=>(data.solicitacoesCompra||[]).filter(s=>s.obraId===obraAtual)
