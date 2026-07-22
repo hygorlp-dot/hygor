@@ -22383,14 +22383,32 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     return [...audit,...operacionais].sort((a,b)=>(b.at||"").localeCompare(a.at||"")).slice(0,40);
   },[data.changeLog,atividade,obraId,obra?.name]);
 
-  const indicadoresGerais=useMemo(()=>{
+  const previsaoObra=useMemo(()=>{
     const plano=(data.planos||[]).find(p=>p.obraId===obraId);
-    const tarefas=plano?aplicarRollup(montarTarefas(plano,resumo?.orc),resumo?.orc).filter(t=>!t.titulo):[];
-    const progresso=tarefas.length?Math.round(tarefas.reduce((s,t)=>s+Number(t.progresso||0),0)/tarefas.length):0;
+    const base=plano?aplicarRollup(montarTarefas(plano,resumo?.orc),resumo?.orc):[];
+    const tarefas=plano?aplicarRollup(fundirEvolucao(base,data.rdos,obraId),resumo?.orc):[];
+    const executivas=tarefas.filter(t=>!t.titulo);
+    const medicao=resumoMedicao(tarefas);
+    const prazo=desvioAutomatico(executivas,hoje);
+    const janela=janelaPlano(executivas,plano?.marcos||[]);
+    const custos=calcControleCustosOrcamento(data,resumo?.orc);
+    const comprometido=Number(custos.total.comprometido||0)+Number(custos.semApropriacao.comprometido||0);
+    const recebido=Number(custos.total.recebido||0)+Number(custos.semApropriacao.recebido||0);
+    const aplicado=Number(custos.total.aplicado||0)+Number(custos.semApropriacao.aplicado||0);
+    const orcado=Number(custos.total.orcado||resumo?.orcTotal||0);
+    const projecao=Math.max(orcado,comprometido);
+    const fimProjetado=janela.fim&&prazo.resumo.desvioObra>0?somaDias(janela.fim,prazo.resumo.desvioObra):janela.fim;
+    const tarefasCriticas=prazo.linhas.filter(l=>!l.titulo&&l.situacao==="atrasada").sort((a,b)=>Number(b.desvio||0)-Number(a.desvio||0)).slice(0,5);
+    const medidoFinanceiro=(resumo?.medicoes||[]).reduce((s,m)=>s+Number(m.valorPrevisto||0),0);
+    const percentualMedido=Number(obra?.contractValue||0)>0?medidoFinanceiro/Number(obra.contractValue)*100:0;
+    return{temPlano:!!plano&&executivas.length>0,tarefas:executivas,progresso:Math.round(medicao.avancoFisico||0),prazo:prazo.resumo,
+      inicio:janela.ini,fimPlanejado:janela.fim,fimProjetado,tarefasCriticas,custos:{orcado,comprometido,recebido,aplicado,projecao,saldo:orcado-comprometido},percentualMedido};
+  },[data.planos,data.rdos,data.solicitacoesCompra,data.pedidos,data.movEstoque,data.transacoes,resumo?.orc,resumo?.orcTotal,resumo?.medicoes,obraId,obra?.contractValue,hoje]);
+
+  const indicadoresGerais=useMemo(()=>{
     const pendencias=(data.conferencias||[]).filter(c=>c.obraId===obraId).flatMap(c=>c.pendencias||[]).filter(p=>p.status!=="resolvida");
-    const atrasadas=tarefas.filter(t=>Number(t.progresso||0)<100&&t.fim&&t.fim<hoje).length;
-    return{progresso,pendencias:pendencias.length,criticas:pendencias.filter(p=>p.impacto==="critico").length,atrasadas};
-  },[data.planos,data.conferencias,obraId,resumo?.orc,hoje]);
+    return{progresso:previsaoObra.progresso,pendencias:pendencias.length,criticas:pendencias.filter(p=>p.impacto==="critico").length,atrasadas:previsaoObra.prazo.atrasadas||0};
+  },[data.conferencias,obraId,previsaoObra]);
 
   if (!obra || !resumo) {
     return (
@@ -22571,6 +22589,24 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         ["Tarefas atrasadas",indicadoresGerais.atrasadas,indicadoresGerais.atrasadas?C.red:C.green,"calendar"],
         ["A receber",fmt(resumo.aReceber),resumo.aReceber?C.orange:C.green,"dollar"],
       ].map(([label,value,color,icon])=><div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 12px"}}><div style={{display:"flex",justifyContent:"space-between",gap:7}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{label}</p><Ic n={icon} s={13} color={color}/></div><p style={{fontSize:17,fontWeight:850,color,marginTop:6}}>{value}</p>{label==="Pendências abertas"&&indicadoresGerais.criticas>0&&<p style={{fontSize:8.5,color:C.red,marginTop:3}}>{indicadoresGerais.criticas} crítica(s)</p>}</div>)}</div>
+
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${previsaoObra.prazo.atrasadas||previsaoObra.custos.saldo<0?C.red:C.blue}`,borderRadius:10,padding:"12px 14px",marginBottom:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>Previsão executiva da obra</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Cronograma, avanço físico, medições e compromissos financeiros consolidados</p></div><Btn size="sm" v="ghost" onClick={()=>abrirModuloDaObra("plan")}>Abrir planejamento</Btn></div>
+        {!previsaoObra.temPlano?<div style={{marginTop:10,background:`${C.orange}0B`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"9px 11px"}}><p style={{fontSize:10.5,fontWeight:800,color:C.orange}}>A obra ainda não possui cronograma executável.</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Crie ou sincronize o planejamento com o orçamento para habilitar previsão de prazo e avanço ponderado.</p></div>:<>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7,marginTop:10}}>{[
+            ["Avanço físico",`${previsaoObra.progresso}%`,C.blue],
+            ["Desvio de prazo",`${previsaoObra.prazo.desvioObra>0?"+":""}${previsaoObra.prazo.desvioObra||0} dia(s)`,previsaoObra.prazo.desvioObra>0?C.red:C.green],
+            ["Conclusão prevista",previsaoObra.fimProjetado?fmtDate(previsaoObra.fimProjetado):"Sem data",previsaoObra.prazo.desvioObra>0?C.orange:C.green],
+            ["Medição financeira",`${Math.min(999,previsaoObra.percentualMedido).toFixed(1)}%`,C.purple],
+          ].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 9px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:14,fontWeight:900,color:c,marginTop:3}}>{v}</p></div>)}</div>
+          {previsaoObra.tarefasCriticas.length>0&&<div style={{marginTop:9,borderTop:`1px solid ${C.line}`,paddingTop:8}}><p style={{fontSize:9,fontWeight:900,color:C.red,textTransform:"uppercase"}}>Maiores atrasos medidos</p>{previsaoObra.tarefasCriticas.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:5}}><span style={{fontSize:10.5,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</span><b style={{fontSize:10,color:C.red,whiteSpace:"nowrap"}}>+{t.desvio} dias · {Number(t.pctMedido||0).toFixed(0)}%</b></div>)}</div>}
+        </>}
+        <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7,marginTop:10,borderTop:`1px solid ${C.line}`,paddingTop:9}}>{[
+          ["Orçado",previsaoObra.custos.orcado,C.blue],["Comprometido",previsaoObra.custos.comprometido,C.orange],
+          ["Recebido na obra",previsaoObra.custos.recebido,C.purple],["Projeção de custo",previsaoObra.custos.projecao,previsaoObra.custos.projecao>previsaoObra.custos.orcado?C.red:C.green],
+        ].map(([l,v,c])=><div key={l}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:12.5,fontWeight:850,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
+        {previsaoObra.custos.saldo<0&&<p style={{fontSize:10,color:C.red,fontWeight:800,marginTop:8}}>Risco de estouro: compromissos superam o orçamento em {fmt(Math.abs(previsaoObra.custos.saldo))}.</p>}
+      </div>
 
       {/* Alertas ficam FORA do acordeao: precisam ser vistos sem abrir nada */}
       {resumo.abaixoMin > 0 && (
