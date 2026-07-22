@@ -1498,6 +1498,7 @@ const DEFAULT = () => ({
   despesasEmpresa: [],   // despesas fixas e variáveis da empresa
   caixaObra: [],         // caixa de obra (aportes do cliente + gastos)
   notasFiscais: [],      // recepção fiscal; arquivos ficam no OneDrive
+  documentosMovimentacoes: [], // anexos auditáveis das linhas do administrativo financeiro
   orcamentos: [],        // orçamentos (itens com preço congelado na data-base)
   conferencias: [],      // vistorias técnicas e pendências rastreadas por obra
   qualidadeRegistros: [],// FVS/FVM e não conformidades auditáveis
@@ -2241,6 +2242,11 @@ const normalizeData = incoming => {
         precoUnit:    Number(p.precoUnit || 0),
         prazoDias:    Number(p.prazoDias || 0),
         obs:          p.obs || "",
+        documentos: Array.isArray(p.documentos) ? p.documentos.map(a=>({
+          id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Documento da cotação",
+          url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0),
+          enviadoEm:a.enviadoEm||"",enviadoPorId:a.enviadoPorId||"",enviadoPor:a.enviadoPor||"",
+        })).filter(a=>a.url) : [],
       })) : [],
       escolhida:  x.escolhida  || "",         // id da proposta vencedora
       pedidoId:   x.pedidoId   || "",         // pedido gerado a partir dela
@@ -2308,6 +2314,15 @@ const normalizeData = incoming => {
       aprovadoPorId:n.aprovadoPorId||"",aprovadoPor:n.aprovadoPor||"",aprovadoEm:n.aprovadoEm||"",transacaoId:n.transacaoId||"",
       criadoEm:n.criadoEm||"",atualizadoEm:n.atualizadoEm||"",
     })):[],
+
+    documentosMovimentacoes:Array.isArray(d.documentosMovimentacoes)?d.documentosMovimentacoes.map(reg=>({
+      id:reg.id||uid(),movimentoId:reg.movimentoId||"",obraId:reg.obraId||"",tipo:reg.tipo||"",
+      documentos:Array.isArray(reg.documentos)?reg.documentos.map(a=>({
+        id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Documento",
+        url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0),
+        enviadoEm:a.enviadoEm||"",enviadoPorId:a.enviadoPorId||"",enviadoPor:a.enviadoPor||"",
+      })).filter(a=>a.url):[],
+    })).filter(reg=>reg.movimentoId):[],
 
     unidades: Array.isArray(d.unidades) && d.unidades.length
       ? d.unidades.map(u => ({
@@ -5714,10 +5729,31 @@ function CentralFiscal({data,update,showToast,currentUser}){
   return <div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:9.5,fontWeight:900,color:C.purple,textTransform:"uppercase",letterSpacing:1}}>Recepção e auditoria fiscal</p><h3 style={{fontSize:22,color:C.text}}>Central de notas fiscais</h3><p style={{fontSize:10.5,color:C.muted}}>Documento → pedido/recebimento → rateio/retenções → aprovação → conciliação → contador</p></div><Btn onClick={()=>setForm(vazia())}><Ic n="plus"/> Receber nota</Btn></div><div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>{[["Recebidas",notas.length,C.blue],["Com divergência",notas.filter(n=>n.divergencias?.length).length,C.red],["Aprovadas",notas.filter(n=>n.status==="aprovada").length,C.green],["A pagar",fmt(valorPendente),C.orange]].map(([l,v,c])=><div key={l} style={{padding:"9px 10px",border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,background:C.card}}><p style={{fontSize:8.5,color:C.muted,fontWeight:800,textTransform:"uppercase"}}>{l}</p><b style={{fontSize:15,color:c}}>{v}</b></div>)}</div><div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`4px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:12}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {n.documentos.length} arquivo(s) no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:9.5,color:C.red,marginTop:4}}>⚠ {d}</p>)}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn>{n.status==="recebida"&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Aprovar pagamento</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:9.5,color:C.blue,padding:"6px"}}>{a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={F("pedidoId")} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:10.5,fontWeight:800}}>{subindo?"Enviando e lendo documento...":"Importar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:10,color:C.blue}}>{a.nome} salvo no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:10.5}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn><Btn onClick={salvar} full>Salvar e conferir</Btn></div></div></Modal>}</div>;
 }
 
-function FinanceiroAdministrativo({data,C=C_ARCD_SETOR}){
+function LinksDocumentosAuditaveis({documentos=[],onSelecionar,subindo=false,C=C_ARCD_SETOR}){
+  return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4,minWidth:118}}>
+    {documentos.map(doc=><a key={doc.id||doc.url} href={doc.url} target="_blank" rel="noreferrer" title={doc.nome||doc.legenda} style={{maxWidth:180,color:C.blue,fontSize:8.8,fontWeight:800,textDecoration:"underline",textUnderlineOffset:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{doc.legenda||doc.nome||"Visualizar documento"} ↗</a>)}
+    <label style={{color:C.blue,fontSize:8.8,fontWeight:900,textDecoration:"underline",textUnderlineOffset:2,cursor:subindo?"wait":"pointer",whiteSpace:"nowrap"}}>
+      {subindo?"Enviando...":documentos.length?"+ Anexar outro":"+ Anexar documento"}
+      <input type="file" accept=".pdf,.xml,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*" disabled={subindo} onChange={onSelecionar} style={{display:"none"}}/>
+    </label>
+  </div>;
+}
+
+function ModalLegendaDocumento({anexo,setAnexo,onClose,onSalvar,salvando=false,titulo="Anexar documento",C=C_ARCD_SETOR}){
+  if(!anexo)return null;
+  return <Modal title={titulo} onClose={onClose}><div style={{display:"flex",flexDirection:"column",gap:11}}>
+    <div style={{padding:"9px 11px",border:`1px solid ${C.border}`,borderRadius:8,background:C.surface}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Arquivo selecionado</p><p style={{fontSize:10.5,fontWeight:800,color:C.text,marginTop:3,overflowWrap:"anywhere"}}>{anexo.file?.name}</p></div>
+    <Inp label="Legenda do documento *" value={anexo.legenda||""} onChange={v=>setAnexo(a=>({...a,legenda:v}))} placeholder="Ex.: Cotação atualizada, comprovante de pagamento..."/>
+    <p style={{fontSize:9,color:C.muted,lineHeight:1.45}}>A legenda será exibida como link. Você poderá anexar outros documentos ao mesmo registro.</p>
+    <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose} disabled={salvando} full>Cancelar</Btn><Btn onClick={onSalvar} disabled={salvando||!String(anexo.legenda||"").trim()} full><Ic n="upload"/> {salvando?"Salvando no Drive...":"Anexar documento"}</Btn></div>
+  </div></Modal>;
+}
+
+function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SETOR}){
   const {cols,formGrid}=useBreakpoint();const agora=new Date();
   const [ano,setAno]=useState(agora.getFullYear());const [mes,setMes]=useState(agora.getMonth());const [obraId,setObraId]=useState("all");
   const [aba,setAba]=useState("resumo");const [docPeriodo,setDocPeriodo]=useState("periodo");const [buscaDoc,setBuscaDoc]=useState("");const [buscaMov,setBuscaMov]=useState("");
+  const [anexoMov,setAnexoMov]=useState(null);const [subindoAnexoMov,setSubindoAnexoMov]=useState(false);
   const ym=`${ano}-${String(mes+1).padStart(2,"0")}`;const obrasSelecionadas=(data.obras||[]).filter(o=>obraId==="all"||o.id===obraId);
   const dre=useMemo(()=>obraId==="all"?calcDREConsolidado(data,ano,mes):calcDREObra(data,obraId,ano,mes),[data,obraId,ano,mes]);
   const despesasAdministrativas=obraId==="all"?(data.despesasEmpresa||[]).filter(item=>item.competencia===ym).reduce((s,item)=>s+Number(item.valor||0),0):0;
@@ -5742,13 +5778,30 @@ function FinanceiroAdministrativo({data,C=C_ARCD_SETOR}){
     return[...fiscais,...obras,...empresa,...banco].sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
   },[data.notasFiscais,data.outrasDesp,data.despesasEmpresa,data.transacoes,obraId,ym]);
   const movimentosVisiveis=useMemo(()=>{const termo=normalizarIdentificacaoObra(buscaMov);const base=aba==="receitas"?receitasMov:despesasMov;return base.filter(item=>!termo||normalizarIdentificacaoObra([item.tipo,item.descricao,item.status,(data.obras||[]).find(o=>o.id===item.obraId)?.name].join(" ")).includes(termo));},[aba,receitasMov,despesasMov,buscaMov,data.obras]);
+  const documentosDoMovimento=useCallback(item=>{
+    const registro=(data.documentosMovimentacoes||[]).find(reg=>reg.movimentoId===item.id);
+    const anexos=[...(registro?.documentos||[])];
+    if(item.url&&!anexos.some(a=>a.url===item.url))anexos.unshift({id:`legado-${item.id}`,nome:"Documento existente",legenda:"Visualizar documento",url:item.url,path:"",tipo:""});
+    return anexos;
+  },[data.documentosMovimentacoes]);
+  const selecionarDocumentoMovimento=(item,e)=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O documento deve ter no máximo 5,5 MB.","error");return;}setAnexoMov({item,file,legenda:String(file.name||"").replace(/\.[^.]+$/,"")});};
+  const salvarDocumentoMovimento=async()=>{if(!anexoMov?.file||!String(anexoMov.legenda||"").trim())return;setSubindoAnexoMov(true);try{
+    const item=anexoMov.item;const obra=(data.obras||[]).find(o=>o.id===item.obraId);const dataUrl=await arquivoComoDataUrl(anexoMov.file);
+    const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Administrativo",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:`Movimentações/${ym}`,date:item.data||today(),fileName:anexoMov.file.name});
+    if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o documento no OneDrive.");
+    const documento={id:resp.item?.id||uid(),nome:resp.item?.name||anexoMov.file.name,legenda:String(anexoMov.legenda).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:anexoMov.file.type||"",tamanho:anexoMov.file.size||0,enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};
+    const existentes=data.documentosMovimentacoes||[];const registro=existentes.find(reg=>reg.movimentoId===item.id);const documentosMovimentacoes=registro?existentes.map(reg=>reg.movimentoId===item.id?{...reg,obraId:item.obraId||reg.obraId,tipo:item.tipo||reg.tipo,documentos:[...(reg.documentos||[]),documento]}:reg):[...existentes,{id:uid(),movimentoId:item.id,obraId:item.obraId||"",tipo:item.tipo||"",documentos:[documento]}];
+    const obras=(data.obras||[]).map(o=>o.id===item.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);
+    update({...data,obras,documentosMovimentacoes});setAnexoMov(null);showToast("Documento anexado à movimentação.");
+  }catch(err){showToast(err.message||"Não foi possível anexar o documento.","error");}finally{setSubindoAnexoMov(false);}};
   const documentos=useMemo(()=>{
     const noPeriodo=dataItem=>docPeriodo==="todos"||String(dataItem||"").startsWith(ym);
     const fiscais=notas.flatMap(n=>(n.documentos||[]).length?(n.documentos||[]).map(doc=>({id:`nf-${n.id}-${doc.id}`,tipo:"Nota fiscal",referencia:`${n.tipo?.toUpperCase()||"NF"} ${n.numero}`,nome:doc.nome||`Nota ${n.numero}`,url:doc.url,obraId:n.obraId,data:n.emissao,fornecedor:n.fornecedorNome,status:n.status,valor:n.valorLiquido||n.valorBruto})): [{id:`nf-${n.id}`,tipo:"Nota fiscal",referencia:`${n.tipo?.toUpperCase()||"NF"} ${n.numero}`,nome:"Sem anexo",url:"",obraId:n.obraId,data:n.emissao,fornecedor:n.fornecedorNome,status:n.status,valor:n.valorLiquido||n.valorBruto}]);
     const compras=(data.pedidos||[]).filter(p=>(obraId==="all"||p.obraId===obraId)&&noPeriodo(p.data)&&p.documentos?.length).flatMap(p=>p.documentos.map(doc=>({id:`pc-${p.id}-${doc.id}`,tipo:"Compra",referencia:p.numero,nome:doc.nome||"Documento da compra",url:doc.url,obraId:p.obraId,data:p.data,fornecedor:(data.fornecedores||[]).find(f=>f.id===p.fornecedorId)?.nome||"",status:p.status,valor:totalPedido(p)})));
+    const movimentos=[...receitasMov,...despesasMov].flatMap(item=>documentosDoMovimento(item).filter(doc=>!String(doc.id||"").startsWith("legado-")).map(doc=>({id:`mov-${item.id}-${doc.id}`,tipo:item.tipo||"Movimentação",referencia:item.descricao||"Movimentação financeira",nome:doc.legenda||doc.nome,url:doc.url,obraId:item.obraId,data:item.data,fornecedor:"",status:item.status,valor:item.valor})));
     const pastas=obrasSelecionadas.filter(o=>o.oneDriveUrl).map(o=>({id:`obra-${o.id}`,tipo:"Pasta da obra",referencia:o.name,nome:"Diretório administrativo no OneDrive",url:o.oneDriveUrl,obraId:o.id,data:"",fornecedor:"",status:"disponivel",valor:0}));
-    const termo=normalizarIdentificacaoObra(buscaDoc);return[...fiscais,...compras,...pastas].filter(item=>!termo||normalizarIdentificacaoObra([item.tipo,item.referencia,item.nome,item.fornecedor,(data.obras||[]).find(o=>o.id===item.obraId)?.name].join(" ")).includes(termo)).sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
-  },[data,notas,obraId,docPeriodo,ym,buscaDoc,obrasSelecionadas]);
+    const termo=normalizarIdentificacaoObra(buscaDoc);return[...fiscais,...compras,...movimentos,...pastas].filter(item=>!termo||normalizarIdentificacaoObra([item.tipo,item.referencia,item.nome,item.fornecedor,(data.obras||[]).find(o=>o.id===item.obraId)?.name].join(" ")).includes(termo)).sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+  },[data,notas,obraId,docPeriodo,ym,buscaDoc,obrasSelecionadas,receitasMov,despesasMov,documentosDoMovimento]);
   const obraNome=id=>(data.obras||[]).find(o=>o.id===id)?.name||"Administrativo";
   const statusCor=status=>["paga","aprovada","recebido","recebida","conciliada"].includes(status)?C.green:["cancelada","ignorada"].includes(status)?C.muted:status==="vencida"?C.red:status==="a conciliar"?C.purple:C.orange;
   const maiorGrafico=Math.max(faturamento,custos,recebido,Math.abs(resultado),1);
@@ -5766,7 +5819,7 @@ function FinanceiroAdministrativo({data,C=C_ARCD_SETOR}){
     {["receitas","despesas"].includes(aba)&&<>
       <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:7}}>{(aba==="receitas"?[["Faturado",faturamento,C.green],["Recebido",recebido,C.blue],["A receber",aReceber,C.orange]]:[["Custos e despesas",custos,C.red],["Notas em aberto",valorNotasAbertas,C.purple],["Documentos fiscais",notas.length,C.blue]]).map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,padding:"10px 11px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:17,fontWeight:900,color:c,marginTop:3}}>{typeof v==="number"&&l!=="Documentos fiscais"?fmt(v):v}</p></div>)}</div>
       <Inp label={`Pesquisar em ${aba}`} value={buscaMov} onChange={setBuscaMov} placeholder="Descrição, obra, origem ou situação..."/>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:820,borderCollapse:"collapse",fontSize:9.5}}><thead><tr style={{background:C.surface}}>{["Data","Origem","Descrição","Obra","Situação","Valor","Documento"].map(h=><th key={h} style={{padding:"7px 9px",textAlign:h==="Valor"?"right":"left",color:C.muted,fontSize:8.5,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{movimentosVisiveis.map(item=>{const cor=statusCor(item.status);return <tr key={item.id} style={{borderBottom:`1px solid ${C.line}`}}><td style={{padding:"8px 9px",whiteSpace:"nowrap"}}>{item.data?fmtDate(item.data):"-"}</td><td style={{padding:"8px 9px",fontWeight:850,color:aba==="receitas"?C.green:C.red}}>{item.tipo}</td><td style={{padding:"8px 9px",maxWidth:290,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricao}>{item.descricao}</td><td style={{padding:"8px 9px",fontWeight:750}}>{obraNome(item.obraId)}</td><td style={{padding:"8px 9px"}}><span style={{display:"inline-flex",padding:"3px 6px",borderRadius:5,background:`${cor}12`,color:cor,fontSize:8,fontWeight:850,textTransform:"uppercase"}}>{item.status}</span></td><td style={{padding:"8px 9px",textAlign:"right",fontWeight:900,color:aba==="receitas"?C.green:C.red,whiteSpace:"nowrap"}}>{fmt(item.valor)}</td><td style={{padding:"8px 9px"}}>{item.url?<a href={item.url} target="_blank" rel="noreferrer" style={{color:C.blue,fontWeight:850,textDecoration:"none"}}>Visualizar ↗</a>:<span style={{color:C.muted}}>—</span>}</td></tr>})}</tbody></table>{!movimentosVisiveis.length&&<p style={{padding:24,textAlign:"center",fontSize:10,color:C.muted}}>Nenhuma movimentação encontrada neste período.</p>}</div>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:920,borderCollapse:"collapse",fontSize:9.5}}><thead><tr style={{background:C.surface}}>{["Data","Origem","Descrição","Obra","Situação","Valor","Documentos"].map(h=><th key={h} style={{padding:"7px 9px",textAlign:h==="Valor"?"right":"left",color:C.muted,fontSize:8.5,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{movimentosVisiveis.map(item=>{const cor=statusCor(item.status);const anexos=documentosDoMovimento(item);return <tr key={item.id} style={{borderBottom:`1px solid ${C.line}`}}><td style={{padding:"8px 9px",whiteSpace:"nowrap"}}>{item.data?fmtDate(item.data):"-"}</td><td style={{padding:"8px 9px",fontWeight:850,color:aba==="receitas"?C.green:C.red}}>{item.tipo}</td><td style={{padding:"8px 9px",maxWidth:290,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricao}>{item.descricao}</td><td style={{padding:"8px 9px",fontWeight:750}}>{obraNome(item.obraId)}</td><td style={{padding:"8px 9px"}}><span style={{display:"inline-flex",padding:"3px 6px",borderRadius:5,background:`${cor}12`,color:cor,fontSize:8,fontWeight:850,textTransform:"uppercase"}}>{item.status}</span></td><td style={{padding:"8px 9px",textAlign:"right",fontWeight:900,color:aba==="receitas"?C.green:C.red,whiteSpace:"nowrap"}}>{fmt(item.valor)}</td><td style={{padding:"8px 9px"}}><LinksDocumentosAuditaveis documentos={anexos} subindo={subindoAnexoMov&&anexoMov?.item?.id===item.id} onSelecionar={e=>selecionarDocumentoMovimento(item,e)} C={C}/></td></tr>})}</tbody></table>{!movimentosVisiveis.length&&<p style={{padding:24,textAlign:"center",fontSize:10,color:C.muted}}>Nenhuma movimentação encontrada neste período.</p>}</div>
       <p style={{fontSize:8.5,color:C.muted}}>As origens permanecem identificadas para evitar confundir faturamento, caixa, documento fiscal e transação bancária.</p>
     </>}
     {aba==="resultados"&&<>
@@ -5774,6 +5827,7 @@ function FinanceiroAdministrativo({data,C=C_ARCD_SETOR}){
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:9.5}}><thead><tr style={{background:C.surface}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"7px 9px",textAlign:h==="Obra"?"left":"right",color:C.muted,fontSize:8.5,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:`1px solid ${C.line}`,cursor:"pointer"}}><td style={{padding:"8px 9px",fontWeight:850}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"8px 9px",textAlign:"right",fontWeight:i===3?850:600,color:i===3?(v>=0?C.green:C.red):C.text}}>{fmt(v)}</td>)}<td style={{padding:"8px 9px",textAlign:"right",fontWeight:850,color:res>=0?C.green:C.red}}>{l.faturamento?`${(res/l.faturamento*100).toFixed(1)}%`:"-"}</td></tr>})}</tbody></table></div>
     </>}
     {aba==="documentos"&&<><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Inp label="Pesquisar nota, fornecedor, obra ou arquivo" value={buscaDoc} onChange={setBuscaDoc} placeholder="Ex.: B2-04, energia, fornecedor..."/><button onClick={()=>setDocPeriodo(v=>v==="periodo"?"todos":"periodo")} style={{height:36,border:`1px solid ${C.border}`,background:C.card,color:C.text,borderRadius:7,padding:"0 10px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{docPeriodo==="periodo"?`${fullMonth(mes)} ${ano}`:"Todo o histórico"}</button></div><div style={{display:"flex",flexDirection:"column",gap:6}}>{documentos.map(item=>{const cor=statusCor(item.status);return <div key={item.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${item.url?C.blue:C.orange}`,borderRadius:8,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:8,fontWeight:900,color:C.blue,textTransform:"uppercase"}}>{item.tipo}</span><span style={{fontSize:8,fontWeight:850,color:cor,background:`${cor}12`,borderRadius:4,padding:"2px 5px"}}>{item.status||"cadastrado"}</span></div><p style={{fontSize:11,fontWeight:850,color:C.text,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.referencia} · {item.nome}</p><p style={{fontSize:8.8,color:C.muted,marginTop:2}}>{obraNome(item.obraId)}{item.fornecedor?` · ${item.fornecedor}`:""}{item.data?` · ${fmtDate(item.data)}`:""}{item.valor?` · ${fmt(item.valor)}`:""}</p></div>{item.url?<a href={item.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:5,border:`1px solid ${C.blue}`,background:`${C.blue}0D`,color:C.blue,borderRadius:7,padding:"6px 9px",fontSize:9,fontWeight:850,textDecoration:"none"}}><Ic n="file" s={12}/> Visualizar</a>:<span style={{fontSize:8.8,color:C.orange,fontWeight:800}}>SEM ANEXO</span>}</div>})}{!documentos.length&&<div style={{padding:28,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:9,color:C.muted,fontSize:10}}>Nenhuma nota ou documento encontrado com os filtros escolhidos.</div>}</div></>}
+    <ModalLegendaDocumento anexo={anexoMov} setAnexo={setAnexoMov} onClose={()=>!subindoAnexoMov&&setAnexoMov(null)} onSalvar={salvarDocumentoMovimento} salvando={subindoAnexoMov} titulo="Anexar documento à movimentação" C={C}/>
   </div>;
 }
 
@@ -5922,7 +5976,7 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
 
   const abasFinanceiras=[["visao","Visão financeira"],...(currentUser?.role==="admin"?[["administrativo","Administrativo"]]:[]),["fiscal","Notas e auditoria fiscal"],["ia","Modo IA"]];
   const NavegacaoFinanceira=()=> <div style={{display:"grid",gridTemplateColumns:`repeat(${abasFinanceiras.length},minmax(0,1fr))`,gap:5,padding:5,border:`1px solid ${C.border}`,borderRadius:10,background:C.surface,overflowX:"auto"}}>{abasFinanceiras.map(([v,l])=><button key={v} onClick={()=>setAreaFinanceira(v)} style={{padding:"8px",border:`1px solid ${areaFinanceira===v?(v==="ia"?C.purple:C.green):"transparent"}`,borderRadius:7,background:areaFinanceira===v?C.card:"transparent",color:areaFinanceira===v?(v==="ia"?C.purple:C.green):C.muted,fontSize:10.5,fontWeight:850,cursor:"pointer",whiteSpace:"nowrap"}}>{v==="ia"&&<><Ic n="brain" s={12}/> </>}{v==="administrativo"&&<><Ic n="building" s={12}/> </>}{l}</button>)}</div>;
-  if(areaFinanceira==="administrativo"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FinanceiroAdministrativo data={data} C={C}/></div>;
+  if(areaFinanceira==="administrativo"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
   if(areaFinanceira==="fiscal")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralFiscal data={data} update={update} showToast={showToast} currentUser={currentUser}/></div>;
   if(areaFinanceira==="ia")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><ModoIADocumento modulo="financeiro" data={data} update={update} showToast={showToast} currentUser={currentUser} onClose={()=>setAreaFinanceira("fiscal")}/></div>;
 
@@ -21782,7 +21836,7 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
   const setP = (i, campo, v) =>
     setForm(f => ({ ...f, propostas: f.propostas.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
   const addP = () => setForm(f => ({ ...f, propostas:[...f.propostas,
-    {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:""}] }));
+    {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]}] }));
   const delP = (i) => setForm(f => ({ ...f, propostas: f.propostas.filter((_,k)=>k!==i) }));
 
   const validas = (form.propostas||[]).filter(p => Number(p.precoUnit) > 0);
@@ -21947,6 +22001,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   const [fornecedorHistoricoId,setFornecedorHistoricoId]=useState("");
   const [materialHistoricoId,setMaterialHistoricoId]=useState("");
   const [fornecedorPrecoId,setFornecedorPrecoId]=useState("");
+  const [anexoCotacao,setAnexoCotacao]=useState(null);
+  const [subindoAnexoCotacao,setSubindoAnexoCotacao]=useState(false);
 
   const obras       = (data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
@@ -22315,7 +22371,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     const props = (f.propostas||[])
       .filter(p => p.fornecedorId && Number(p.precoUnit) > 0)
       .map(p => ({ id: p.id || uid(), fornecedorId: p.fornecedorId,
-                   precoUnit: Number(p.precoUnit), prazoDias: Number(p.prazoDias||0), obs: p.obs||"" }));
+                   precoUnit: Number(p.precoUnit), prazoDias: Number(p.prazoDias||0), obs: p.obs||"",
+                   documentos:Array.isArray(p.documentos)?p.documentos:[] }));
     if (props.length < 2) { showToast("Uma cotação precisa de ao menos 2 propostas.", "error"); return; }
 
     const c = {
@@ -22331,6 +22388,17 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     setCotModal(null);
     showToast("Cotação registrada.");
   };
+
+  const selecionarDocumentoCotacao=(cotacao,proposta,e)=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O documento deve ter no máximo 5,5 MB.","error");return;}setAnexoCotacao({cotacao,proposta,file,legenda:String(file.name||"").replace(/\.[^.]+$/,"")});};
+  const salvarDocumentoCotacao=async()=>{if(!anexoCotacao?.file||!String(anexoCotacao.legenda||"").trim())return;setSubindoAnexoCotacao(true);try{
+    const {cotacao,proposta,file}=anexoCotacao;const obra=(data.obras||[]).find(o=>o.id===cotacao.obraId);const fornecedor=fornecedores.find(f=>f.id===proposta.fornecedorId);const dataUrl=await arquivoComoDataUrl(file);
+    const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Administrativo",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"compras",subfolder:`Cotações/${cotacao.data||today()}/${fornecedor?.nome||"Fornecedor"}`,date:cotacao.data||today(),fileName:file.name});
+    if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar a cotação no OneDrive.");
+    const documento={id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(anexoCotacao.legenda).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type||"",tamanho:file.size||0,enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};
+    const cotacoesAtualizadas=(data.cotacoes||[]).map(c=>c.id===cotacao.id?{...c,propostas:(c.propostas||[]).map(p=>p.id===proposta.id?{...p,documentos:[...(p.documentos||[]),documento]}:p)}:c);
+    const obrasAtualizadas=(data.obras||[]).map(o=>o.id===cotacao.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);
+    update({...data,obras:obrasAtualizadas,cotacoes:cotacoesAtualizadas});setAnexoCotacao(null);showToast("Documento anexado à proposta da cotação.");
+  }catch(err){showToast(err.message||"Não foi possível anexar o documento da cotação.","error");}finally{setSubindoAnexoCotacao(false);}};
 
   // Cotação decidida vira pedido, sem redigitar nada
   const gerarPedidoDaCotacao = (cot, propostaId, justificativa="") => {
@@ -22751,8 +22819,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         </div>
         <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,materialId:"",qtd:"",
           orcItemId:"",data:new Date().toISOString().slice(0,10),
-          propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:""},
-                     {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:""}]})} full>
+          propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]},
+                     {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]}]})} full>
           <Ic n="plus"/> Nova cotação
         </Btn>
 
@@ -22807,6 +22875,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
                             )}
                           </div>
                         </div>
+                        <div style={{marginTop:7,paddingTop:6,borderTop:`1px solid ${C.line}`}}><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/></div>
                         {c.status === "aberta" && (
                           <Btn size="sm" v={eh ? "primary" : "ghost"}
                             onClick={()=>setCotDecisao({cotacaoId:c.id,propostaId:p.id,justificativa:""})}
@@ -22913,6 +22982,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
                                      linhasOrc={linhasOrc} data={data} basesReferencia={basesCompra}/>}
       {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
                                      fornecedores={fornecedores} materiais={materiais} linhasOrc={linhasOrc}/>}
+      <ModalLegendaDocumento anexo={anexoCotacao} setAnexo={setAnexoCotacao} onClose={()=>!subindoAnexoCotacao&&setAnexoCotacao(null)} onSalvar={salvarDocumentoCotacao} salvando={subindoAnexoCotacao} titulo="Anexar documento da cotação" C={C}/>
       {cotDecisao&&(()=>{const cot=(data.cotacoes||[]).find(c=>c.id===cotDecisao.cotacaoId);const prop=cot?.propostas?.find(p=>p.id===cotDecisao.propostaId);if(!cot||!prop)return null;const menor=Math.min(...cot.propostas.map(p=>Number(p.precoUnit||0)).filter(v=>v>0));const fora=Number(prop.precoUnit)>menor+0.000001;return <Modal title="Decisão da cotação" onClose={()=>setCotDecisao(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}><div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:12,fontWeight:850,color:C.text}}>{nomeMat(cot.materialId)}</p><p style={{fontSize:10,color:C.muted,marginTop:3}}>{nomeForn(prop.fornecedorId)} · {fmt(prop.precoUnit*cot.qtd)} · prazo {prop.prazoDias||0} dia(s)</p></div>{fora&&<div style={{background:`${C.orange}0C`,border:`1px solid ${C.orange}`,borderRadius:6,padding:"8px 10px"}}><p style={{fontSize:10.5,color:C.orange,fontWeight:850}}>Esta não é a proposta de menor preço.</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Registre o motivo: prazo, qualidade, disponibilidade, condição de pagamento ou especificação.</p></div>}<Inp label={fora?"Justificativa obrigatória *":"Observação da decisão"} value={cotDecisao.justificativa} onChange={v=>setCotDecisao(d=>({...d,justificativa:v}))} multiline placeholder="Critério usado para escolher o fornecedor..."/><div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setCotDecisao(null)}>Cancelar</Btn><Btn full onClick={()=>gerarPedidoDaCotacao(cot,prop.id,cotDecisao.justificativa)} disabled={fora&&!cotDecisao.justificativa.trim()}>Aprovar e gerar pedido</Btn></div></div></Modal>;})()}
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
                                       onReceber={receber} nomeMat={nomeMat} unidMat={unidMat}
