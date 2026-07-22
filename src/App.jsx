@@ -2608,6 +2608,8 @@ const normalizeData = incoming => {
           id: f.id || uid(), url: f.url || "", legenda: f.legenda || "", path: f.path || "",
           tipo: f.tipo === "ajuste" ? "ajuste" : "registro",
           enviadoPorId: f.enviadoPorId || "", enviadoPor: f.enviadoPor || "", criadoEm: f.criadoEm || "",
+          anotada: !!f.anotada, originalFotoId: f.originalFotoId || "",
+          anotadoPorId: f.anotadoPorId || "", anotadoPor: f.anotadoPor || "", anotadoEm: f.anotadoEm || "",
         })).filter(f => f.url) : [],
         validacaoStatus: ["conforme","nao_conforme"].includes(p.validacaoStatus) ? p.validacaoStatus : "",
         validacaoObservacao: p.validacaoObservacao || "",
@@ -26709,6 +26711,63 @@ function RankingQualidade({data,conferencias,obraIdFixo="",onSelecionarObra}){
   </section>;
 }
 
+const imagemTecnicaComoDataUrl=async url=>{
+  if(String(url||"").startsWith("data:image/"))return url;
+  const resposta=await fetch(url,{credentials:"include"});
+  if(!resposta.ok)throw new Error("Não foi possível carregar a imagem para anotação.");
+  const blob=await resposta.blob();
+  return await new Promise((resolve,reject)=>{const leitor=new FileReader();leitor.onload=()=>resolve(leitor.result);leitor.onerror=reject;leitor.readAsDataURL(blob);});
+};
+
+// Editor vetorial leve sobre canvas. As marcacoes so sao incorporadas ao JPEG
+// ao salvar; a foto de origem continua registrada como evidencia separada.
+function EditorFotoTecnica({src,legendaInicial="",podeAnotar=true,titulo="Evidência técnica",acaoSalvar="Salvar cópia anotada",onClose,onSave}){
+  const canvasRef=useRef(null),imagemRef=useRef(null),rascunhoRef=useRef(null);
+  const [dimensao,setDimensao]=useState({w:1280,h:1280});
+  const [ferramenta,setFerramenta]=useState("seta");
+  const [cor,setCor]=useState("#E53935");
+  const [espessura,setEspessura]=useState(6);
+  const [acoes,setAcoes]=useState([]);
+  const [rascunho,setRascunho]=useState(null);
+  const [zoom,setZoom]=useState(1);
+  const [legenda,setLegenda]=useState(legendaInicial||"");
+  const [erro,setErro]=useState("");
+  const [salvando,setSalvando]=useState(false);
+  const definirRascunho=v=>{rascunhoRef.current=v;setRascunho(v);};
+
+  useEffect(()=>{setErro("");const img=new Image();img.onload=()=>{const escala=Math.min(1,1600/Math.max(img.naturalWidth||1,img.naturalHeight||1));imagemRef.current=img;setDimensao({w:Math.max(1,Math.round(img.naturalWidth*escala)),h:Math.max(1,Math.round(img.naturalHeight*escala))});};img.onerror=()=>setErro("A imagem não pôde ser aberta.");img.src=src;},[src]);
+
+  const desenharAcao=useCallback((ctx,a)=>{
+    if(!a)return;ctx.save();ctx.strokeStyle=a.cor;ctx.fillStyle=a.cor;ctx.lineWidth=a.espessura;ctx.lineCap="round";ctx.lineJoin="round";
+    if(a.tipo==="lapis"&&a.pontos?.length){ctx.beginPath();ctx.moveTo(a.pontos[0].x,a.pontos[0].y);a.pontos.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();}
+    if(a.tipo==="seta"&&a.inicio&&a.fim){const ang=Math.atan2(a.fim.y-a.inicio.y,a.fim.x-a.inicio.x),cabeca=Math.max(14,a.espessura*3);ctx.beginPath();ctx.moveTo(a.inicio.x,a.inicio.y);ctx.lineTo(a.fim.x,a.fim.y);ctx.stroke();ctx.beginPath();ctx.moveTo(a.fim.x,a.fim.y);ctx.lineTo(a.fim.x-cabeca*Math.cos(ang-Math.PI/6),a.fim.y-cabeca*Math.sin(ang-Math.PI/6));ctx.lineTo(a.fim.x-cabeca*Math.cos(ang+Math.PI/6),a.fim.y-cabeca*Math.sin(ang+Math.PI/6));ctx.closePath();ctx.fill();}
+    if(a.tipo==="circulo"&&a.inicio&&a.fim){ctx.beginPath();ctx.ellipse((a.inicio.x+a.fim.x)/2,(a.inicio.y+a.fim.y)/2,Math.max(1,Math.abs(a.fim.x-a.inicio.x)/2),Math.max(1,Math.abs(a.fim.y-a.inicio.y)/2),0,0,Math.PI*2);ctx.stroke();}
+    if(a.tipo==="texto"&&a.texto){const tamanho=Math.max(24,a.espessura*5);ctx.font=`800 ${tamanho}px Inter, sans-serif`;ctx.lineWidth=Math.max(3,a.espessura/2);ctx.strokeStyle=a.cor==="#FFFFFF"?"#121212":"#FFFFFF";ctx.strokeText(a.texto,a.inicio.x,a.inicio.y);ctx.fillStyle=a.cor;ctx.fillText(a.texto,a.inicio.x,a.inicio.y);}
+    ctx.restore();
+  },[]);
+
+  const redesenhar=useCallback(()=>{const canvas=canvasRef.current,img=imagemRef.current;if(!canvas||!img)return;canvas.width=dimensao.w;canvas.height=dimensao.h;const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);acoes.forEach(a=>desenharAcao(ctx,a));desenharAcao(ctx,rascunho);},[acoes,rascunho,dimensao,desenharAcao]);
+  useEffect(redesenhar,[redesenhar]);
+  const ponto=e=>{const r=canvasRef.current.getBoundingClientRect();return{x:(e.clientX-r.left)*dimensao.w/r.width,y:(e.clientY-r.top)*dimensao.h/r.height};};
+  const iniciar=e=>{if(!podeAnotar||erro)return;const p=ponto(e);if(ferramenta==="texto"){const texto=window.prompt("Texto da anotação:");if(texto?.trim())setAcoes(a=>[...a,{tipo:"texto",inicio:p,texto:texto.trim().slice(0,80),cor,espessura}]);return;}e.currentTarget.setPointerCapture?.(e.pointerId);definirRascunho(ferramenta==="lapis"?{tipo:"lapis",pontos:[p],cor,espessura}:{tipo:ferramenta,inicio:p,fim:p,cor,espessura});};
+  const mover=e=>{const atual=rascunhoRef.current;if(!atual)return;const p=ponto(e);definirRascunho(atual.tipo==="lapis"?{...atual,pontos:[...atual.pontos,p]}:{...atual,fim:p});};
+  const finalizar=()=>{const atual=rascunhoRef.current;if(!atual)return;setAcoes(a=>[...a,atual]);definirRascunho(null);};
+  const salvar=async()=>{if(!canvasRef.current||erro)return;setSalvando(true);try{const dataUrl=canvasRef.current.toDataURL("image/jpeg",.86);await onSave?.({dataUrl,legenda:legenda.trim()||legendaInicial||"Evidência técnica anotada",temAnotacoes:acoes.length>0});}catch(e){setErro(e.message||"Não foi possível salvar a anotação.");}finally{setSalvando(false);}};
+  const larguraBase=Math.min(dimensao.w,900);
+
+  return <div style={{position:"fixed",inset:0,zIndex:10020,background:"rgba(10,12,14,.84)",backdropFilter:"blur(7px)",display:"grid",placeItems:"center",padding:12}} onMouseDown={e=>{if(e.target===e.currentTarget)onClose?.();}}>
+    <div style={{width:"min(1180px,98vw)",height:"min(900px,96vh)",background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,boxShadow:"0 30px 90px rgba(0,0,0,.34)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      <header style={{padding:"9px 11px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,background:C.surface}}><div><p style={{fontSize:11.5,fontWeight:850,color:C.text}}>{titulo}</p><p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{podeAnotar?"Amplie, marque o ponto exato e salve uma cópia auditável.":"Visualização ampliada da evidência."}</p></div><button onClick={onClose} title="Fechar" style={{width:28,height:28,border:`1px solid ${C.border}`,borderRadius:7,background:C.bg,cursor:"pointer"}}><Ic n="x" s={13}/></button></header>
+      <div style={{padding:"7px 10px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:7,flexWrap:"wrap",background:C.bg}}>
+        {podeAnotar?<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{[["lapis","Desenho"],["seta","Seta"],["circulo","Círculo"],["texto","Texto"]].map(([v,l])=><button key={v} onClick={()=>setFerramenta(v)} style={{padding:"5px 8px",border:`1px solid ${ferramenta===v?C.blue:C.border}`,borderRadius:6,background:ferramenta===v?`${C.blue}10`:C.surface,color:ferramenta===v?C.blue:C.muted,fontSize:9,fontWeight:800,cursor:"pointer"}}>{l}</button>)}<span style={{width:1,background:C.line,margin:"1px 3px"}}/>{["#E53935",C.yellow,"#1261A0","#FFFFFF","#121212"].map(c=><button key={c} onClick={()=>setCor(c)} aria-label={`Cor ${c}`} style={{width:25,height:25,borderRadius:99,border:`2px solid ${cor===c?C.blue:C.border}`,background:c,cursor:"pointer"}}/>)}<select value={espessura} onChange={e=>setEspessura(Number(e.target.value))} aria-label="Espessura" style={{border:`1px solid ${C.border}`,borderRadius:6,background:C.surface,fontSize:9,padding:"3px 5px"}}><option value="3">Fino</option><option value="6">Médio</option><option value="10">Grosso</option></select><button onClick={()=>setAcoes(a=>a.slice(0,-1))} disabled={!acoes.length} style={{padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.surface,color:C.text,fontSize:9,fontWeight:800,cursor:acoes.length?"pointer":"default",opacity:acoes.length?1:.45}}>Desfazer</button><button onClick={()=>setAcoes([])} disabled={!acoes.length} style={{padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.surface,color:C.red,fontSize:9,fontWeight:800,cursor:acoes.length?"pointer":"default",opacity:acoes.length?1:.45}}>Limpar</button></div>:<span/>}
+        <div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:8.5,color:C.muted}}>Zoom</span>{[[.75,"−"],[1,"Ajustar"],[1.5,"+"],[2,"2×"]].map(([v,l])=><button key={v} onClick={()=>setZoom(v)} style={{padding:"4px 7px",border:`1px solid ${zoom===v?C.blue:C.border}`,borderRadius:6,background:zoom===v?`${C.blue}10`:C.surface,color:zoom===v?C.blue:C.muted,fontSize:9,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>
+      </div>
+      <div style={{flex:1,overflow:"auto",background:"#22272B",display:"flex",alignItems:"flex-start",justifyContent:zoom<=1?"center":"flex-start",padding:10}}>{erro?<div style={{margin:"auto",color:"white",fontSize:11}}>{erro}</div>:<canvas ref={canvasRef} onPointerDown={iniciar} onPointerMove={mover} onPointerUp={finalizar} onPointerCancel={finalizar} style={{display:"block",width:zoom===1?"min(100%, 900px)":`${Math.round(larguraBase*zoom)}px`,maxWidth:zoom===1?"100%":"none",height:"auto",touchAction:podeAnotar?"none":"pan-x pan-y",cursor:podeAnotar?(ferramenta==="texto"?"text":"crosshair"):"zoom-in",boxShadow:"0 8px 30px rgba(0,0,0,.28)"}}/>}</div>
+      <footer style={{padding:"8px 10px",borderTop:`1px solid ${C.line}`,display:"flex",gap:8,alignItems:"flex-end",background:C.surface,flexWrap:"wrap"}}><div style={{flex:1,minWidth:220}}><Inp label="Legenda da evidência" value={legenda} onChange={setLegenda} disabled={!podeAnotar} placeholder="Ex.: fissura destacada junto ao vão da janela"/></div><Btn v="ghost" onClick={onClose}>Fechar</Btn>{podeAnotar&&<Btn onClick={salvar} disabled={salvando||!!erro}><Ic n="edit"/>{salvando?"Salvando...":acaoSalvar}</Btn>}</footer>
+    </div>
+  </div>;
+}
+
 const criteriosQualidade=(tipo,nome="")=>{
   const n=String(nome).toUpperCase();
   if(tipo==="fvm")return [
@@ -26746,6 +26805,7 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const [validacaoForm,setValidacaoForm]=useState(null);
   const [novaForm,setNovaForm]=useState(null);
   const [subindoAjusteId,setSubindoAjusteId]=useState("");
+  const [fotoTecnica,setFotoTecnica]=useState(null);
   const conferencia=useMemo(()=>(data.conferencias||[]).find(c=>c.id===selecionadaId),[data.conferencias,selecionadaId]);
   const obraIdAtual=conferencia?.obraId||obraFiltro;
   const obraAtual=useMemo(()=>(data.obras||[]).find(o=>o.id===obraIdAtual),[data.obras,obraIdAtual]);
@@ -26851,17 +26911,41 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     showToast?.(resultado==="conforme"?"Correção aprovada e pendência encerrada.":"Correção não conforme. A pendência voltou ao responsável pelo ajuste.",resultado==="conforme"?undefined:"error");
   };
 
-  const enviarFotoAjuste=async(p,file)=>{
+  const prepararFotoAjuste=async(p,file)=>{
     if(!file||!ehResponsavelAjuste(p)||p.status==="resolvida")return;
     setSubindoAjusteId(p.id);
+    try{const dataUrl=await comprimirImagem(file);setFotoTecnica({pendencia:p,src:dataUrl,originalDataUrl:dataUrl,novaCorrecao:true,podeAnotar:true,legenda:"Foto da correção executada"});}
+    catch{showToast?.("Não foi possível preparar a foto.","error");}
+    finally{setSubindoAjusteId("");}
+  };
+  const enviarFotoAjuste=async(p,{dataUrl,originalDataUrl,temAnotacoes,legenda})=>{
+    if(!dataUrl||!ehResponsavelAjuste(p)||p.status==="resolvida")return;
+    setSubindoAjusteId(p.id);
     try{
-      const dataUrl=await comprimirImagem(file);
-      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`ajuste-${Date.now()}.jpg`});
+      const agora=Date.now(),criadoEm=new Date().toISOString(),novas=[];
+      let originalId="";
+      if(temAnotacoes){const original=await enviarArquivoOneDrive({dataUrl:originalDataUrl||dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`ajuste-original-${agora}.jpg`});if(!original.url)throw new Error(original.error||"Falha no envio da foto original.");originalId=original.item?.id||uid();novas.push({id:originalId,url:original.url,legenda:"Foto original da correção",path:original.path||"",tipo:"ajuste",enviadoPorId:currentUser.id,enviadoPor:currentUser.nome||"",criadoEm,anotada:false});}
+      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`ajuste-${temAnotacoes?"anotado-":""}${agora}.jpg`});
       if(!resp.url)throw new Error(resp.error||"Falha no envio.");
-      const foto={id:uid(),url:resp.url,legenda:"Foto da correção executada",path:resp.path||"",tipo:"ajuste",enviadoPorId:currentUser.id,enviadoPor:currentUser.nome||"",criadoEm:new Date().toISOString()};
-      atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,status:"aguardando_validacao",validacaoStatus:"",validacaoObservacao:"",validadoPorId:"",validadoPor:"",validadoEm:"",resolvidoEm:"",fotos:[...(x.fotos||[]),foto]}:x)}));
+      novas.push({id:resp.item?.id||uid(),url:resp.url,legenda:legenda||"Foto da correção executada",path:resp.path||"",tipo:"ajuste",enviadoPorId:currentUser.id,enviadoPor:currentUser.nome||"",criadoEm,anotada:!!temAnotacoes,originalFotoId:originalId,anotadoPorId:temAnotacoes?currentUser.id:"",anotadoPor:temAnotacoes?(currentUser.nome||""):"",anotadoEm:temAnotacoes?criadoEm:""});
+      atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,status:"aguardando_validacao",validacaoStatus:"",validacaoObservacao:"",validadoPorId:"",validadoPor:"",validadoEm:"",resolvidoEm:"",fotos:[...(x.fotos||[]),...novas]}:x)}));
+      setFotoTecnica(null);
       showToast?.("Foto enviada. A correção aguarda validação do responsável pela vistoria.");
     }catch(err){showToast?.(err.message||"Falha ao enviar a foto do ajuste.","error");}
+    finally{setSubindoAjusteId("");}
+  };
+
+  const abrirFotoTecnica=async(p,foto)=>{
+    const podeAnotar=podeGerirVistoria||(ehResponsavelAjuste(p)&&foto.tipo==="ajuste"&&p.status!=="resolvida");
+    setFotoTecnica({carregando:true,pendencia:p,foto,podeAnotar});
+    try{const src=await imagemTecnicaComoDataUrl(foto.url);setFotoTecnica({pendencia:p,foto,src,podeAnotar,legenda:foto.legenda||"Evidência técnica"});}
+    catch(err){setFotoTecnica({pendencia:p,foto,src:foto.url,podeAnotar:false,legenda:foto.legenda||"Evidência técnica"});showToast?.(`${err.message||"Falha ao carregar a foto"} A visualização continua disponível, mas a anotação foi bloqueada.`,"error");}
+  };
+  const salvarCopiaAnotada=async({dataUrl,legenda,temAnotacoes})=>{
+    const origem=fotoTecnica?.foto,p=fotoTecnica?.pendencia;if(!origem||!p||!temAnotacoes){if(!temAnotacoes)showToast?.("Faça ao menos uma marcação antes de salvar a cópia.","error");return;}
+    setSubindoAjusteId(p.id);
+    try{const criadoEm=new Date().toISOString();const resp=await enviarArquivoOneDrive({dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`${origem.tipo==="ajuste"?"ajuste":"vistoria"}-anotado-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio da anotação.");const nova={id:resp.item?.id||uid(),url:resp.url,legenda:legenda||`${origem.legenda||"Evidência"} · anotada`,path:resp.path||"",tipo:origem.tipo,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm,anotada:true,originalFotoId:origem.id||"",anotadoPorId:currentUser?.id||"",anotadoPor:currentUser?.nome||"",anotadoEm:criadoEm};atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,fotos:[...(x.fotos||[]),nova]}:x)}));setFotoTecnica(null);showToast?.("Cópia anotada salva junto à pendência.");}
+    catch(err){showToast?.(err.message||"Não foi possível salvar a anotação.","error");}
     finally{setSubindoAjusteId("");}
   };
 
@@ -26920,8 +27004,8 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
         return <div key={p.id} style={{border:`1px solid ${p.status==="resolvida"?C.border:imp.c}`,borderLeft:`4px solid ${imp.c}`,borderRadius:8,padding:11,background:p.status==="resolvida"?C.surface:C.card}}>
           <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><Badge color={imp.c}>{imp.l}</Badge><Badge color={C.blue}>{CONFERENCIA_CATEGORIAS.find(x=>x.v===p.categoria)?.l}</Badge><span style={{fontSize:10,color:C.muted}}>{nomeEtapa(p.etapaId)}</span></div><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:7}}>{p.descricao}</p><p style={{fontSize:10.5,color:C.muted,marginTop:4}}>Etapa principal do orçamento: <strong>{nomeEtapa(p.etapaId)}</strong></p></div>{podeGerirVistoria&&<div style={{display:"flex",gap:5,alignItems:"flex-start"}}><button onClick={()=>abrirPendencia(p)} title="Editar" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer"}}><Ic n="edit"/></button><button onClick={()=>removerPendencia(p.id)} title="Excluir" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",color:C.red}}><Ic n="trash"/></button></div>}</div>
           <p style={{fontSize:11.5,color:C.text,marginTop:8}}><strong>Ajuste:</strong> {p.ajusteNecessario}</p><p style={{fontSize:10.5,color:C.muted,marginTop:5}}>Responsável: <strong>{p.responsavelAjusteNome||"—"}</strong>{p.prazo?` · Prazo: ${fmtDate(p.prazo)}`:""}</p>
-          {(p.fotos||[]).length>0&&<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>{p.fotos.map((f,idx)=><div key={f.id||`${f.url}-${idx}`} title={`${f.legenda||"Evidência"}${f.enviadoPor?` · ${f.enviadoPor}`:""}`} style={{position:"relative"}}><img src={f.url} alt={f.legenda||"Evidência"} style={{width:58,height:58,objectFit:"cover",borderRadius:5,border:`1px solid ${f.tipo==="ajuste"?C.green:C.border}`}}/>{f.tipo==="ajuste"&&<span style={{position:"absolute",left:3,bottom:3,padding:"2px 4px",borderRadius:3,background:C.green,color:"white",fontSize:7,fontWeight:900}}>CORREÇÃO</span>}</div>)}</div>}
-          {ehResponsavelAjuste(p)&&p.status!=="resolvida"&&<label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:9,border:`1px solid ${C.blue}`,borderRadius:6,padding:"6px 9px",color:C.blue,fontSize:10,fontWeight:800,cursor:subindoAjusteId===p.id?"wait":"pointer",opacity:subindoAjusteId===p.id?0.65:1}}><Ic n="camera"/>{subindoAjusteId===p.id?"Enviando...":p.status==="aguardando_validacao"?"Enviar nova foto":"Enviar foto da correção"}<input type="file" accept="image/*" capture="environment" disabled={subindoAjusteId===p.id} onChange={e=>{const file=e.target.files?.[0];enviarFotoAjuste(p,file);e.target.value="";}} style={{display:"none"}}/></label>}
+          {(p.fotos||[]).length>0&&<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>{p.fotos.map((f,idx)=><button key={f.id||`${f.url}-${idx}`} onClick={()=>abrirFotoTecnica(p,f)} title={`Ampliar ${f.legenda||"evidência"}${f.enviadoPor?` · ${f.enviadoPor}`:""}`} style={{position:"relative",border:0,background:"transparent",padding:0,cursor:"zoom-in"}}><img src={f.url} alt={f.legenda||"Evidência"} style={{width:58,height:58,objectFit:"cover",borderRadius:5,border:`1px solid ${f.tipo==="ajuste"?C.green:C.border}`}}/>{f.tipo==="ajuste"&&<span style={{position:"absolute",left:3,bottom:3,padding:"2px 4px",borderRadius:3,background:C.green,color:"white",fontSize:7,fontWeight:900}}>CORREÇÃO</span>}{f.anotada&&<span style={{position:"absolute",right:3,top:3,padding:"2px 4px",borderRadius:3,background:C.blue,color:"white",fontSize:7,fontWeight:900}}>ANOTADA</span>}</button>)}</div>}
+          {ehResponsavelAjuste(p)&&p.status!=="resolvida"&&<label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:9,border:`1px solid ${C.blue}`,borderRadius:6,padding:"6px 9px",color:C.blue,fontSize:10,fontWeight:800,cursor:subindoAjusteId===p.id?"wait":"pointer",opacity:subindoAjusteId===p.id?0.65:1}}><Ic n="camera"/>{subindoAjusteId===p.id?"Preparando...":p.status==="aguardando_validacao"?"Enviar nova foto":"Fotografar e anotar correção"}<input type="file" accept="image/*" capture="environment" disabled={subindoAjusteId===p.id} onChange={e=>{const file=e.target.files?.[0];prepararFotoAjuste(p,file);e.target.value="";}} style={{display:"none"}}/></label>}
           <div style={{display:"flex",alignItems:"center",gap:7,marginTop:9,flexWrap:"wrap"}}><Badge color={p.status==="resolvida"?C.green:p.status==="aguardando_validacao"?C.blue:p.status==="em_ajuste"?C.orange:C.red}>{CONFERENCIA_STATUS.find(s=>s.v===p.status)?.l||"Aberta"}</Badge>{podeGerirVistoria&&p.status==="aguardando_validacao"&&<><Btn size="sm" v="success" onClick={()=>abrirValidacao(p,"conforme")}><Ic n="check"/> Conforme</Btn><Btn size="sm" v="ghost" onClick={()=>abrirValidacao(p,"nao_conforme")}><Ic n="alert"/> Não conforme</Btn></>}{ehResponsavelAjuste(p)&&["aberta","em_ajuste"].includes(p.status)&&<span style={{fontSize:9.5,color:C.muted}}>Envie a foto da correção para o vistoriador analisar.</span>}{ehResponsavelAjuste(p)&&p.status==="aguardando_validacao"&&<span style={{fontSize:9.5,color:C.blue}}>Evidência recebida · aguardando {conferencia.responsavel}.</span>}</div>
           {p.validadoEm&&<div style={{marginTop:8,padding:"7px 9px",borderRadius:6,background:p.validacaoStatus==="conforme"?`${C.green}0D`:`${C.orange}0D`,border:`1px solid ${p.validacaoStatus==="conforme"?C.green:C.orange}44`}}><p style={{fontSize:9.5,fontWeight:850,color:p.validacaoStatus==="conforme"?C.green:C.orange}}>{p.validacaoStatus==="conforme"?"CORREÇÃO CONFORME":"CORREÇÃO NÃO CONFORME"} · {p.validadoPor||conferencia.responsavel} · {new Date(p.validadoEm).toLocaleString("pt-BR")}</p>{p.validacaoObservacao&&<p style={{fontSize:10.5,color:C.text,marginTop:4}}>{p.validacaoObservacao}</p>}</div>}
         </div>;
@@ -26930,21 +27014,37 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     {pendenciaForm&&(
       <ModalPendenciaConferencia form={pendenciaForm} setForm={setPendenciaForm} etapasNivel1={etapasNivel1} responsaveis={responsaveis} obra={obraAtual} conferencia={conferencia} currentUser={currentUser} onSalvar={salvarPendencia} onClose={()=>setPendenciaForm(null)} showToast={showToast}/>
     )}
+    {fotoTecnica?.carregando&&<div style={{position:"fixed",inset:0,zIndex:10020,background:"rgba(10,12,14,.82)",display:"grid",placeItems:"center",color:"white"}}><div style={{textAlign:"center"}}><div style={{width:28,height:28,border:"3px solid rgba(255,255,255,.25)",borderTopColor:C.yellow,borderRadius:99,animation:"spin 1s linear infinite",margin:"0 auto 9px"}}/><p style={{fontSize:11,fontWeight:800}}>Abrindo evidência técnica...</p></div></div>}
+    {fotoTecnica?.src&&<EditorFotoTecnica
+      src={fotoTecnica.src} legendaInicial={fotoTecnica.legenda} podeAnotar={fotoTecnica.podeAnotar}
+      titulo={fotoTecnica.novaCorrecao?"Foto da correção · revisar e anotar":"Evidência da pendência técnica"}
+      acaoSalvar={fotoTecnica.novaCorrecao?"Enviar evidência":"Salvar cópia anotada"}
+      onClose={()=>setFotoTecnica(null)}
+      onSave={payload=>fotoTecnica.novaCorrecao?enviarFotoAjuste(fotoTecnica.pendencia,{...payload,originalDataUrl:fotoTecnica.originalDataUrl}):salvarCopiaAnotada(payload)}
+    />}
     {validacaoForm&&<Modal title={validacaoForm.resultado==="conforme"?"Aprovar correção":"Reprovar correção"} onClose={()=>setValidacaoForm(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}><div style={{padding:10,borderRadius:7,background:validacaoForm.resultado==="conforme"?`${C.green}0D`:`${C.orange}0D`,color:validacaoForm.resultado==="conforme"?C.green:C.orange,fontSize:11.5,fontWeight:800}}>{validacaoForm.resultado==="conforme"?"A pendência será encerrada como conforme.":"A pendência voltará ao responsável para uma nova correção e nova foto."}</div><Inp label={validacaoForm.resultado==="conforme"?"Parecer técnico (opcional)":"Motivo e orientação para nova correção *"} multiline value={validacaoForm.observacao} onChange={v=>setValidacaoForm(f=>({...f,observacao:v}))}/><div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setValidacaoForm(null)}>Cancelar</Btn><Btn v={validacaoForm.resultado==="conforme"?"success":"warning"} full onClick={salvarValidacao}>{validacaoForm.resultado==="conforme"?"Confirmar conformidade":"Registrar não conformidade"}</Btn></div></div></Modal>}
   </div>;
 }
 
 function ModalPendenciaConferencia({form,setForm,etapasNivel1,responsaveis,obra,conferencia,currentUser,onSalvar,onClose,showToast}){
   const [subindo,setSubindo]=useState(false);
+  const [fotoEditor,setFotoEditor]=useState(null);
   const subirFoto=async e=>{const file=e.target.files?.[0];if(!file)return;setSubindo(true);try{const dataUrl=await comprimirImagem(file);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`conferencia-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio.");setForm(f=>({...f,fotos:[...(f.fotos||[]),{id:uid(),url:resp.url,legenda:"Registro da vistoria",path:resp.path||"",tipo:"registro",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm:new Date().toISOString()}]}));showToast?.("Evidência adicionada.");}catch(err){showToast?.(err.message||"Falha ao enviar foto.","error");}finally{setSubindo(false);e.target.value="";}};
+  const abrirEditor=async foto=>{setFotoEditor({carregando:true,foto});try{const src=await imagemTecnicaComoDataUrl(foto.url);setFotoEditor({foto,src});}catch(err){setFotoEditor(null);showToast?.(err.message||"Não foi possível abrir a imagem.","error");}};
+  const salvarAnotada=async({dataUrl,legenda,temAnotacoes})=>{if(!fotoEditor?.foto||!temAnotacoes){showToast?.("Faça ao menos uma marcação antes de salvar.","error");return;}setSubindo(true);try{const origem=fotoEditor.foto,criadoEm=new Date().toISOString();const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`vistoria-anotada-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio.");const nova={id:resp.item?.id||uid(),url:resp.url,legenda:legenda||`${origem.legenda||"Evidência"} · anotada`,path:resp.path||"",tipo:"registro",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm,anotada:true,originalFotoId:origem.id||"",anotadoPorId:currentUser?.id||"",anotadoPor:currentUser?.nome||"",anotadoEm:criadoEm};setForm(f=>({...f,fotos:[...(f.fotos||[]),nova]}));setFotoEditor(null);showToast?.("Cópia anotada adicionada à pendência.");}catch(err){showToast?.(err.message||"Falha ao salvar a anotação.","error");}finally{setSubindo(false);}};
   return <Modal title={form.id?"Editar pendência":"Nova pendência técnica"} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
     <Sel label="Etapa do orçamento — nível 1 *" value={form.etapaId} onChange={v=>setForm(f=>({...f,itemOrcamentoId:"",etapaId:v}))} options={[{v:"",l:"Selecione a etapa principal..."},...etapasNivel1.map((etapa,index)=>({v:etapa.id,l:`${index+1}. ${etapa.nome}`}))]}/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:8}}><Sel label="Categoria" value={form.categoria} onChange={v=>setForm(f=>({...f,categoria:v}))} options={CONFERENCIA_CATEGORIAS}/><Sel label="Impacto" value={form.impacto} onChange={v=>setForm(f=>({...f,impacto:v}))} options={CONFERENCIA_IMPACTOS}/></div>
     <Inp label="Patologia / inconformidade encontrada *" multiline value={form.descricao} onChange={v=>setForm(f=>({...f,descricao:v}))} placeholder="Descreva objetivamente o que foi verificado, localização e dimensão..."/>
     <Inp label="Ajuste necessário *" multiline value={form.ajusteNecessario} onChange={v=>setForm(f=>({...f,ajusteNecessario:v}))} placeholder="Defina a correção, critério de aceite e resultado esperado..."/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:8}}><Sel label="Engenheiro responsável pelo ajuste *" value={form.responsavelAjusteId} onChange={v=>setForm(f=>({...f,responsavelAjusteId:v,responsavelAjusteNome:responsaveis.find(r=>r.id===v)?.nome||""}))} options={[{v:"",l:"Selecione..."},...responsaveis.map(r=>({v:r.id,l:`${r.nome} · ${r.tipo}`}))]}/><Inp label="Prazo combinado" type="date" value={form.prazo} onChange={v=>setForm(f=>({...f,prazo:v}))}/></div>
-    <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:6}}>EVIDÊNCIAS FOTOGRÁFICAS</p><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{(form.fotos||[]).map((foto,idx)=><div key={foto.url} style={{position:"relative"}}><img src={foto.url} alt="Evidência" style={{width:76,height:76,objectFit:"cover",borderRadius:6}}/><button onClick={()=>setForm(f=>({...f,fotos:f.fotos.filter((_,i)=>i!==idx)}))} style={{position:"absolute",right:3,top:3,border:0,borderRadius:5,background:"rgba(0,0,0,.65)",color:"white",cursor:"pointer"}}>x</button></div>)}<label style={{width:76,height:76,border:`2px dashed ${C.border}`,borderRadius:6,display:"grid",placeItems:"center",cursor:subindo?"wait":"pointer",fontSize:10,color:C.muted,textAlign:"center"}}>{subindo?"Enviando...":"+ Foto"}<input type="file" accept="image/*" capture="environment" onChange={subirFoto} disabled={subindo} style={{display:"none"}}/></label></div></div>
+    <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:6}}>EVIDÊNCIAS FOTOGRÁFICAS</p><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{(form.fotos||[]).map((foto,idx)=><div key={foto.id||foto.url} style={{position:"relative"}}><button onClick={()=>abrirEditor(foto)} title="Ampliar e anotar" style={{border:0,background:"transparent",padding:0,cursor:"zoom-in"}}><img src={foto.url} alt="Evidência" style={{width:76,height:76,objectFit:"cover",borderRadius:6,border:`1px solid ${foto.anotada?C.blue:C.border}`}}/>{foto.anotada&&<span style={{position:"absolute",left:3,bottom:3,padding:"2px 4px",borderRadius:3,background:C.blue,color:"white",fontSize:7,fontWeight:900}}>ANOTADA</span>}</button><button onClick={()=>setForm(f=>({...f,fotos:f.fotos.filter((_,i)=>i!==idx)}))} title="Remover" style={{position:"absolute",right:3,top:3,border:0,borderRadius:5,background:"rgba(0,0,0,.72)",color:"white",cursor:"pointer",width:20,height:20}}>x</button></div>)}<label style={{width:76,height:76,border:`2px dashed ${C.border}`,borderRadius:6,display:"grid",placeItems:"center",cursor:subindo?"wait":"pointer",fontSize:10,color:C.muted,textAlign:"center"}}>{subindo?"Enviando...":"+ Foto"}<input type="file" accept="image/*" capture="environment" onChange={subirFoto} disabled={subindo} style={{display:"none"}}/></label></div><p style={{fontSize:8.5,color:C.muted,marginTop:5}}>Clique na foto para ampliar, desenhar, inserir setas, círculos ou texto.</p></div>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={()=>onSalvar(form)}><Ic n="check"/> Salvar pendência</Btn></div>
+    {fotoEditor?.carregando&&<div style={{position:"fixed",inset:0,zIndex:10020,background:"rgba(10,12,14,.82)",display:"grid",placeItems:"center",color:"white",fontSize:11,fontWeight:800}}>Abrindo evidência...</div>}
+    {fotoEditor?.src&&<EditorFotoTecnica
+      src={fotoEditor.src} legendaInicial={fotoEditor.foto?.legenda||"Registro da vistoria"}
+      titulo="Anotar evidência da vistoria" onClose={()=>setFotoEditor(null)} onSave={salvarAnotada}
+    />}
   </div></Modal>;
 }
 
