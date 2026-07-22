@@ -3013,6 +3013,63 @@ function Badge({ children, color = C.yellow }) {
   );
 }
 
+const compactNumber = value => {
+  const n = Number(value || 0);
+  return new Intl.NumberFormat("pt-BR", {
+    notation: Math.abs(n) >= 1000 ? "compact" : "standard",
+    maximumFractionDigits: 1,
+  }).format(n);
+};
+
+function ArcdChartTooltip({ active, payload, label, formatter }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      minWidth:160, padding:"10px 12px", background:"rgba(18,18,18,.94)",
+      color:"#fff", border:`1px solid ${C.yellow}66`, borderRadius:10,
+      boxShadow:"0 14px 38px rgba(18,18,18,.2)", backdropFilter:"blur(12px)",
+    }}>
+      <p style={{fontSize:9,fontWeight:800,letterSpacing:.9,textTransform:"uppercase",color:C.cinza,marginBottom:7}}>{label}</p>
+      {payload.filter(p=>p.value!==undefined).map((p,i)=><div key={`${p.dataKey}-${i}`} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,marginTop:i?5:0}}>
+        <span style={{display:"flex",alignItems:"center",gap:6,fontSize:10.5,color:"#E9E7E1"}}><i style={{width:7,height:7,borderRadius:2,background:p.color||p.fill,display:"block"}}/>{p.name}</span>
+        <b style={{fontSize:11.5,color:"#fff"}}>{formatter?formatter(p.value,p.name):compactNumber(p.value)}</b>
+      </div>)}
+    </div>
+  );
+}
+
+function ChartLegend({ items=[] }) {
+  return <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>{items.map(i=><span key={i.label} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:9.5,color:C.muted,fontWeight:650}}><i style={{width:14,height:3,borderRadius:99,background:i.color,display:"block"}}/>{i.label}</span>)}</div>;
+}
+
+function ChartPanel({ eyebrow="Análise visual", title, subtitle, legend=[], action, children, height=240 }) {
+  return <section className="arcd-chart-panel" style={{
+    position:"relative",overflow:"hidden",background:C.card,border:`1px solid ${C.line}`,
+    borderRadius:14,boxShadow:"0 10px 30px rgba(18,18,18,.045)",
+  }}>
+    <div style={{position:"absolute",inset:0,pointerEvents:"none",opacity:.4,backgroundImage:`linear-gradient(${C.line}55 1px,transparent 1px),linear-gradient(90deg,${C.line}55 1px,transparent 1px)`,backgroundSize:"28px 28px",maskImage:"linear-gradient(to bottom,transparent,black 45%,black)"}}/>
+    <header style={{position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,padding:"14px 16px 11px",borderBottom:`1px solid ${C.line}`,background:"rgba(255,255,255,.86)",backdropFilter:"blur(8px)"}}>
+      <div style={{minWidth:0}}><p style={{fontSize:8.5,fontWeight:850,letterSpacing:1.1,textTransform:"uppercase",color:C.yellowD}}>{eyebrow}</p><h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:14.5,fontWeight:780,color:C.text,letterSpacing:-.2,marginTop:2}}>{title}</h3>{subtitle&&<p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{subtitle}</p>}</div>
+      {action&&<div className="no-print" style={{flexShrink:0}}>{action}</div>}
+    </header>
+    {!!legend.length&&<div style={{position:"relative",padding:"9px 16px 0"}}><ChartLegend items={legend}/></div>}
+    <div style={{position:"relative",height,padding:"8px 8px 10px 2px"}}>{children}</div>
+  </section>;
+}
+
+function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", active=false, onClick }) {
+  const Comp=onClick?"button":"div";
+  return <Comp type={onClick?"button":undefined} onClick={onClick} className={onClick?"lift-card":""} style={{
+    appearance:"none",textAlign:"left",width:"100%",background:active?`${color}0D`:C.card,
+    border:`1px solid ${active?color:C.line}`,borderRadius:12,padding:"12px 13px",cursor:onClick?"pointer":"default",
+    boxShadow:active?`0 0 0 2px ${color}12`:C.shHair,position:"relative",overflow:"hidden",
+  }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:8.5,fontWeight:850,letterSpacing:.8,textTransform:"uppercase",color:C.muted}}>{label}</p><span style={{width:27,height:27,borderRadius:8,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={13} color={color}/></span></div><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(18px,2.5vw,24px)",fontWeight:790,letterSpacing:-.7,color:C.text,lineHeight:1,marginTop:10}}>{value}</p>{detail&&<p style={{fontSize:9,color:C.muted,marginTop:6}}>{detail}</p>}</Comp>;
+}
+
+function ReportHero({ title, subtitle, period, children }) {
+  return <div style={{position:"relative",overflow:"hidden",background:C.text,color:"#fff",borderRadius:15,padding:"17px 18px",boxShadow:"0 16px 38px rgba(18,18,18,.12)"}}><div style={{position:"absolute",right:-45,top:-80,width:230,height:230,border:`1px solid ${C.yellow}35`,transform:"rotate(35deg)"}}/><div style={{position:"absolute",right:42,top:-95,width:230,height:230,border:`1px solid rgba(255,255,255,.08)`,transform:"rotate(35deg)"}}/><div style={{position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18,flexWrap:"wrap"}}><div><BrandMark compact dark/><p style={{fontSize:8.5,color:C.yellow,letterSpacing:1.3,textTransform:"uppercase",fontWeight:800,marginTop:15}}>Inteligência gerencial</p><h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(23px,4vw,34px)",fontWeight:760,letterSpacing:-1,lineHeight:1.05,marginTop:3}}>{title}</h2><p style={{fontSize:10.5,color:"rgba(255,255,255,.62)",marginTop:6}}>{subtitle}</p></div><div style={{textAlign:"right"}}>{period&&<span style={{display:"inline-flex",padding:"6px 9px",border:`1px solid ${C.yellow}55`,borderRadius:99,color:C.yellow,fontSize:9.5,fontWeight:800,letterSpacing:.4}}>{period}</span>}{children}</div></div></div>;
+}
+
 function Divider() {
   return <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.line}, transparent)`, margin: "12px 0" }} />;
 }
@@ -3451,29 +3508,23 @@ function DashboardLegacy({ data, onTab, ultimaSync, currentUser }) {
       </div>
 
       {/* Gráfico 7 dias */}
-      <div className="lift-card" style={{background:`linear-gradient(180deg,${C.card2},${C.card})`,border:`1px solid ${C.border}`,padding:14,borderRadius:12}}>
-        <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",color:C.yellow,textTransform:"uppercase",letterSpacing:1,marginBottom:8,fontSize:16}}>
-          Presença - últimos 7 dias
-        </h3>
-        <div style={{height:200}}>
+      <ChartPanel eyebrow="Operação em campo" title="Presença nos últimos sete dias" subtitle="Comportamento diário da força de trabalho." height={220} legend={[{label:"Presente",color:C.yellow},{label:"Meio período",color:C.cinza},{label:"Falta",color:C.red}]}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={last7} barSize={18}>
-              <CartesianGrid stroke={C.border} vertical={false}/>
-              <XAxis dataKey="d" stroke={C.muted} fontSize={11}/>
-              <YAxis stroke={C.muted} fontSize={11} allowDecimals={false}/>
-              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text,borderRadius:8}}/>
-              <Bar dataKey="P" name="Presente" stackId="a" fill={C.green} radius={[6,6,0,0]}/>
-              <Bar dataKey="M" name="Meio dia" stackId="a" fill={C.yellow}/>
+              <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
+              <XAxis dataKey="d" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
+              <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} allowDecimals={false}/>
+              <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip/>}/>
+              <Bar dataKey="P" name="Presente" stackId="a" fill={C.yellow}/>
+              <Bar dataKey="M" name="Meio período" stackId="a" fill={C.cinza}/>
               <Bar dataKey="F" name="Falta"    stackId="a" fill={C.red} radius={[6,6,0,0]}/>
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      </div>
+      </ChartPanel>
 
       {/* Distribuição do dia */}
       {pieData.length > 0 && (
-        <div className="lift-card" style={{background:`linear-gradient(180deg,${C.card2},${C.card})`,border:`1px solid ${C.border}`,padding:14,borderRadius:12}}>
-          <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",color:C.yellow,textTransform:"uppercase",letterSpacing:1,marginBottom:8,fontSize:16}}>Distribuição de hoje</h3>
+        <ChartPanel eyebrow="Status atual" title="Distribuição de hoje" subtitle="Composição da equipe no dia." height={210}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",alignItems:"center",gap:12}}>
             <div style={{height:180}}>
               <ResponsiveContainer width="100%" height="100%">
@@ -3481,7 +3532,7 @@ function DashboardLegacy({ data, onTab, ultimaSync, currentUser }) {
                   <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={40} outerRadius={68} paddingAngle={3}>
                     {pieData.map((e,i)=><Cell key={e.name} fill={e.color||CHART_COLORS[i]}/>)}
                   </Pie>
-                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text}}/>
+                  <Tooltip content={<ArcdChartTooltip/>}/>
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -3497,7 +3548,7 @@ function DashboardLegacy({ data, onTab, ultimaSync, currentUser }) {
               ))}
             </div>
           </div>
-        </div>
+        </ChartPanel>
       )}
 
       {/* Alertas ativos */}
@@ -4402,27 +4453,22 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           </div>
 
           {/* Gráfico: Faturamento vs Lucro 6 meses */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}>
-            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:8}}>Evolução - Faturamento x Lucro</p>
-            <div style={{height:200}}>
+          <ChartPanel eyebrow="Desempenho financeiro" title="Evolução de faturamento e resultado" subtitle="Comparativo móvel dos últimos seis meses." height={220} legend={[{label:"Faturamento",color:C.yellow},{label:"Recebido",color:C.cinza},{label:"Lucro bruto",color:C.text}]}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={hist} barSize={18}>
-                  <CartesianGrid stroke={C.border} vertical={false}/>
-                  <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
-                  <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
-                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text,borderRadius:8}} formatter={v=>fmt(v)}/>
-                  <Bar dataKey="faturamento" name="Faturamento" fill={C.green} radius={[4,4,0,0]}/>
-                  <Bar dataKey="recebido"    name="Recebido"    fill={C.blue}  radius={[4,4,0,0]}/>
-                  <Bar dataKey="lucroBruto"  name="Lucro Bruto" fill={C.yellow} radius={[4,4,0,0]}/>
+                <BarChart data={hist} barSize={15} barGap={3}>
+                  <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
+                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
+                  <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
+                  <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
+                  <Bar dataKey="faturamento" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]}/>
+                  <Bar dataKey="recebido" name="Recebido" fill={C.cinza} radius={[5,5,1,1]}/>
+                  <Bar dataKey="lucroBruto" name="Lucro bruto" fill={C.text} radius={[5,5,1,1]}/>
                 </BarChart>
               </ResponsiveContainer>
-            </div>
-          </div>
+          </ChartPanel>
 
           {/* Distribuição de custos */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}>
-            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:8}}>Distribuição de Custos</p>
-            <div style={{height:180}}>
+          <ChartPanel eyebrow="Composição" title="Distribuição de custos" subtitle="Participação de cada grupo no custo total do período." height={205}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={[
@@ -4434,11 +4480,10 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
                   ].filter(d=>d.value>0)} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={2}>
                     {[C.orange,C.muted,C.purple,C.red,C.yellow].map((c,i)=><Cell key={i} fill={c}/>)}
                   </Pie>
-                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text}} formatter={v=>fmt(v)}/>
+                  <Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
                 </PieChart>
               </ResponsiveContainer>
-            </div>
-          </div>
+          </ChartPanel>
 
           {/* Por obra compact */}
           <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Resumo por obra</p>
@@ -4478,21 +4523,18 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             ))}
           </div>
           {/* Gráfico margem */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}>
-            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:8}}>Evolução da Margem</p>
-            <div style={{height:180}}>
+          <ChartPanel eyebrow="Rentabilidade" title="Evolução da margem" subtitle="Margem bruta contratual comparada à margem efetiva de caixa." height={210} legend={[{label:"Margem bruta",color:C.yellow},{label:"Margem de caixa",color:C.text}]}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={hist}>
-                  <CartesianGrid stroke={C.border} vertical={false}/>
-                  <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
-                  <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v.toFixed(0)+"%"}/>
-                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text}} formatter={v=>v.toFixed(1)+"%"}/>
-                  <Line type="monotone" dataKey="margemBruta" name="Margem Bruta" stroke={C.green} strokeWidth={2.5} dot={{r:4,fill:C.green}}/>
-                  <Line type="monotone" dataKey="margemCaixa" name="Margem Caixa" stroke={C.blue}  strokeWidth={2} dot={{r:3,fill:C.blue}} strokeDasharray="4 2"/>
+                  <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
+                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
+                  <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>v.toFixed(0)+"%"}/>
+                  <Tooltip content={<ArcdChartTooltip formatter={v=>v.toFixed(1)+"%"}/>}/>
+                  <Line type="monotone" dataKey="margemBruta" name="Margem bruta" stroke={C.yellow} strokeWidth={2.5} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:2}} activeDot={{r:5}}/>
+                  <Line type="monotone" dataKey="margemCaixa" name="Margem de caixa" stroke={C.text} strokeWidth={2} dot={{r:3,fill:C.text,stroke:C.card,strokeWidth:2}} strokeDasharray="5 4"/>
                 </LineChart>
               </ResponsiveContainer>
-            </div>
-          </div>
+          </ChartPanel>
         </div>
       )}
 
@@ -5571,41 +5613,35 @@ function Financeiro({ data, update, showToast, currentUser }) {
 
       {/* Gráfico receita vs custo */}
       {chartData.length>0 && (
-        <div style={{background:C.card,border:`1px solid ${C.border}`,padding:14,borderRadius:12}}>
-          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:10}}>Receita vs Custo MO por obra</p>
-          <div style={{height:220}}>
+        <ChartPanel eyebrow="Comparativo por obra" title="Receita, custo e margem" subtitle="Leitura simultânea da eficiência financeira de cada contrato." height={245} legend={[{label:"Receita",color:C.yellow},{label:"Custo de mão de obra",color:C.cinza},{label:"Margem",color:C.text}]}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} barSize={14}>
-                <CartesianGrid stroke={C.border} vertical={false}/>
-                <XAxis dataKey="name" stroke={C.muted} fontSize={10}/>
-                <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
-                <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text,borderRadius:8}} formatter={v=>fmt(v)}/>
-                <Bar dataKey="Receita" fill={C.green} radius={[6,6,0,0]}/>
-                <Bar dataKey="CustoMO" fill={C.orange} radius={[6,6,0,0]}/>
-                <Bar dataKey="Margem"  fill={C.blue}   radius={[6,6,0,0]}/>
+                <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
+                <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
+                <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
+                <Bar dataKey="Receita" fill={C.yellow} radius={[5,5,1,1]}/>
+                <Bar dataKey="CustoMO" name="Custo de mão de obra" fill={C.cinza} radius={[5,5,1,1]}/>
+                <Bar dataKey="Margem" fill={C.text} radius={[5,5,1,1]}/>
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        </div>
+        </ChartPanel>
       )}
 
       {/* Gráfico mensal recebimentos vs custo */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,padding:14,borderRadius:12}}>
-        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:15,color:C.yellow,textTransform:"uppercase",marginBottom:10}}>Recebimentos x Custos - por quinzena</p>
-        <div style={{height:200}}>
+      <ChartPanel eyebrow="Cadência financeira" title="Recebimentos e custos por quinzena" subtitle="Série temporal para antecipar pressão sobre o caixa." height={225} legend={[{label:"Recebido",color:C.yellow},{label:"Mão de obra",color:C.text},{label:"Terceiros",color:C.cinza}]}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={quinzenalChart}>
-              <CartesianGrid stroke={C.border} vertical={false}/>
-              <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
-              <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
-              <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text,borderRadius:8}} formatter={v=>fmt(v)}/>
-              <Line type="monotone" dataKey="Recebido"   stroke={C.green}  strokeWidth={2} dot={{r:3,fill:C.green}}/>
-              <Line type="monotone" dataKey="CustoMO"    stroke={C.orange} strokeWidth={2} dot={{r:3,fill:C.orange}}/>
-              <Line type="monotone" dataKey="Terceiros"  stroke={C.purple} strokeWidth={2} dot={{r:3,fill:C.purple}} strokeDasharray="4 2"/>
+              <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
+              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
+              <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
+              <Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
+              <Line type="monotone" dataKey="Recebido" stroke={C.yellow} strokeWidth={2.5} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:2}} activeDot={{r:5}}/>
+              <Line type="monotone" dataKey="CustoMO" name="Mão de obra" stroke={C.text} strokeWidth={2} dot={{r:3,fill:C.text,stroke:C.card,strokeWidth:2}}/>
+              <Line type="monotone" dataKey="Terceiros" stroke={C.cinza} strokeWidth={2} dot={{r:3,fill:C.cinza,stroke:C.card,strokeWidth:2}} strokeDasharray="5 4"/>
             </LineChart>
           </ResponsiveContainer>
-        </div>
-      </div>
+      </ChartPanel>
 
       {/* Fluxo de caixa */}
       <FluxoCaixa data={data}/>
@@ -10721,6 +10757,7 @@ function Relatorios({ data }) {
   const totalCostPerM2 = totals.areaM2 > 0 ? totals.totalCost / totals.areaM2 : 0;
 
   const byObra = filteredRows.map(r => ({
+    id: r.id,
     name: r.name,
     trabalhadores: r.trabalhadores,
     presentes: r.presentes,
@@ -10809,31 +10846,19 @@ function Relatorios({ data }) {
     XLSX.writeFile(wb, `arcd-gasto-obra-${year}-${String(month + 1).padStart(2, "0")}.xlsx`);
   };
 
+  const [chartMode, setChartMode] = useState("custos");
+  const [highlightObra, setHighlightObra] = useState("");
+
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div>
-        <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 30, letterSpacing: 2, color: C.yellow }}>Relatórios</h2>
-        <p style={{ color: C.muted, fontSize: 13 }}>Indicadores mensais de presença, gasto por obra e custo de mão de obra por m.</p>
+      <ReportHero title="Relatórios e inteligência" subtitle="Custos, produtividade e presença em uma leitura técnica unificada." period={`${fullMonth(month)} · ${year}`}/>
 
-        {/* Toggle de view */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginTop:4 }}>
-          {[["custos"," Indicadores"],["relatorio"," Relatório Mensal"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setView(v)} style={{
-              padding:"10px 0", border:`2px solid ${view===v?C.yellow:C.line}`,
-              background:view===v?`${C.yellow}18`:"transparent",
-              color:view===v?C.yellow:C.muted,
-              fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:14,letterSpacing:.5,
-              cursor:"pointer",borderRadius:8,
-            }}>{l}</button>
-          ))}
+      <div className="no-print" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8,padding:8,background:C.surface,border:`1px solid ${C.line}`,borderRadius:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,padding:4,background:C.card,borderRadius:9,border:`1px solid ${C.line}`}}>
+          {[["custos","Painel analítico"],["relatorio","Relatório executivo"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{padding:"8px 9px",border:`1px solid ${view===v?C.text:"transparent"}`,background:view===v?C.text:"transparent",color:view===v?"#fff":C.muted,borderRadius:7,fontSize:10.5,fontWeight:780,cursor:"pointer"}}>{l}</button>)}
         </div>
-
-        {/* Seletor de período (compartilhado) */}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
         <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+        <Sel value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
       </div>
 
       {/*  RELATÓRIO MENSAL COMPLETO  */}
@@ -10841,75 +10866,39 @@ function Relatorios({ data }) {
 
       {/*  INDICADORES (view padrão)  */}
       {view === "custos" && <>
-      <Sel
-        label="Filtrar gasto por obra"
-        value={filterObra}
-        onChange={setFilterObra}
-        options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]}
-      />
+      <div className="no-print" style={{display:"flex",alignItems:"end",gap:8,flexWrap:"wrap"}}><div style={{flex:"1 1 250px"}}><Sel label="Escopo da análise" value={filterObra} onChange={v=>{setFilterObra(v);setHighlightObra(v==="all"?"":v);}} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]}/></div><Btn onClick={exportObraCosts} v="ghost"><Ic n="download" s={14}/> Exportar base</Btn></div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-        {[
-          ["Mão de obra", fmt(totals.laborCost), C.yellow],
-          ["Custo / m", totals.areaM2 > 0 ? fmt(totalLaborCostPerM2) : "Sem área", totals.areaM2 > 0 ? C.green : C.muted],
-          ["Total com VT/VR", fmt(totals.totalCost), C.blue],
-          ["Área considerada", `${totals.areaM2.toLocaleString("pt-BR")} m`, C.subtle],
-        ].map(([label, value, color]) => (
-          <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: `3px solid ${color}`, padding: 12 }}>
-            <p style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", fontWeight: 800, letterSpacing: .6 }}>{label}</p>
-            <p style={{ color, fontFamily:"'Inter Display','Inter',sans-serif", fontSize: 22, fontWeight: 900 }}>{value}</p>
-          </div>
-        ))}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
+        <ReportMetric label="Mão de obra" value={fmt(totals.laborCost)} detail={`${totals.trabalhadores} profissionais ativos`} color={C.yellow} icon="users"/>
+        <ReportMetric label="Custo por m²" value={totals.areaM2>0?fmt(totalLaborCostPerM2):"Sem área"} detail={`${totals.areaM2.toLocaleString("pt-BR")} m² analisados`} color={totals.areaM2>0?C.green:C.muted} icon="ruler"/>
+        <ReportMetric label="Custo total" value={fmt(totals.totalCost)} detail={`${fmt(totals.benefitCost)} em VT/VR`} color={C.blue} icon="wallet"/>
+        <ReportMetric label="Registros críticos" value={totals.faltas+totals.semRegistro} detail={`${totals.faltas} faltas · ${totals.semRegistro} sem registro`} color={(totals.faltas+totals.semRegistro)>0?C.red:C.green} icon="alert"/>
       </div>
 
-      <Btn onClick={exportObraCosts} v="success" full>
-        <Ic n="download" s={15} />
-        Exportar gasto por obra
-      </Btn>
+      <ChartPanel eyebrow="Comparativo por obra" title={chartMode==="custos"?"Estrutura de custos":"Presença e disciplina operacional"} subtitle="Selecione uma barra para destacar a obra no detalhamento." height={270} legend={chartMode==="custos"?[{label:"Mão de obra",color:C.yellow},{label:"Total com benefícios",color:C.text}]:[{label:"Presenças",color:C.yellow},{label:"Faltas",color:C.red}]} action={<div style={{display:"flex",gap:3,padding:3,background:C.surface,borderRadius:8}}>{[["custos","Custos"],["ponto","Ponto"]].map(([v,l])=><button key={v} onClick={()=>setChartMode(v)} style={{padding:"6px 9px",border:0,borderRadius:6,background:chartMode===v?C.text:"transparent",color:chartMode===v?"#fff":C.muted,fontSize:9.5,fontWeight:750,cursor:"pointer"}}>{l}</button>)}</div>}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={byObra} barGap={4} barCategoryGap="28%" onClick={s=>s?.activePayload?.[0]?.payload?.id&&setHighlightObra(s.activePayload[0].payload.id)}>
+            <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
+            <XAxis dataKey="name" stroke={C.cinza} tick={{fill:C.muted,fontSize:9}} axisLine={false} tickLine={false}/>
+            <YAxis stroke={C.cinza} tick={{fill:C.muted,fontSize:9}} axisLine={false} tickLine={false} allowDecimals={chartMode==="custos"} tickFormatter={compactNumber}/>
+            <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={chartMode==="custos"?v=>fmt(v):v=>v}/>} />
+            {chartMode==="custos"?<><Bar dataKey="custo" name="Mão de obra" radius={[5,5,1,1]}>{byObra.map(r=><Cell key={r.id} fill={C.yellow} fillOpacity={!highlightObra||highlightObra===r.id?1:.22}/>)}</Bar><Bar dataKey="custoTotal" name="Total com benefícios" radius={[5,5,1,1]}>{byObra.map(r=><Cell key={r.id} fill={C.text} fillOpacity={!highlightObra||highlightObra===r.id?1:.22}/>)}</Bar></>:<><Bar dataKey="presentes" name="Presenças" radius={[5,5,1,1]}>{byObra.map(r=><Cell key={r.id} fill={C.yellow} fillOpacity={!highlightObra||highlightObra===r.id?1:.22}/>)}</Bar><Bar dataKey="faltas" name="Faltas" radius={[5,5,1,1]}>{byObra.map(r=><Cell key={r.id} fill={C.red} fillOpacity={!highlightObra||highlightObra===r.id?1:.22}/>)}</Bar></>}
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartPanel>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Gasto de mão de obra por obra</h3>
-        <div style={{ height: 260 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={byObra}>
-              <CartesianGrid stroke={C.border} vertical={false} />
-              <XAxis dataKey="name" stroke={C.muted} fontSize={10} />
-              <YAxis stroke={C.muted} fontSize={10} />
-              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, color: C.text }} formatter={v => fmt(v)} />
-              <Bar dataKey="custo" name="Mão de obra" fill={C.yellow} />
-              <Bar dataKey="custoTotal" name="Total c/ VT-VR" fill={C.blue} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Presenças e faltas por obra</h3>
-        <div style={{ height: 250 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={byObra}>
-              <CartesianGrid stroke={C.border} vertical={false} />
-              <XAxis dataKey="name" stroke={C.muted} fontSize={10} />
-              <YAxis stroke={C.muted} fontSize={10} allowDecimals={false} />
-              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, color: C.text }} />
-              <Bar dataKey="presentes" fill={C.green} />
-              <Bar dataKey="faltas" fill={C.red} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {filteredRows.map(r => (
-          <div key={r.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:9,fontWeight:850,letterSpacing:1,textTransform:"uppercase",color:C.muted}}>Leitura técnica por obra</p>{highlightObra&&<button onClick={()=>setHighlightObra("")} style={{border:0,background:"transparent",color:C.yellowD,fontSize:9.5,fontWeight:750,cursor:"pointer"}}>Limpar destaque</button>}</div>
+        {[...filteredRows].sort((a,b)=>(b.id===highlightObra)-(a.id===highlightObra)).map(r => (
+          <div key={r.id} onClick={()=>setHighlightObra(r.id)} className="lift-card" style={{ background:C.card,border:`1px solid ${highlightObra===r.id?C.yellow:C.line}`,borderLeft:`3px solid ${highlightObra===r.id?C.yellow:C.cinza}`,borderRadius:12,padding:13,cursor:"pointer",opacity:highlightObra&&highlightObra!==r.id?0.72:1,boxShadow:highlightObra===r.id?`0 8px 24px ${C.yellow}12`:C.shHair }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
               <div>
-                <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 17 }}>{r.name}</p>
-                <p style={{ color: C.muted, fontSize: 12 }}>
-                  Área: {r.areaM2 > 0 ? `${r.areaM2.toLocaleString("pt-BR")} m` : "não cadastrada"}  {r.trabalhadores} trabalhador(es)
+                <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:780,fontSize:15 }}>{r.name}</p>
+                <p style={{ color: C.muted, fontSize:10.5,marginTop:2 }}>
+                  Área: {r.areaM2 > 0 ? `${r.areaM2.toLocaleString("pt-BR")} m²` : "não cadastrada"} · {r.trabalhadores} trabalhador(es)
                 </p>
-                <p style={{ color: C.subtle, fontSize: 12 }}>
-                  {r.presentes}P {r.meiodia}M {r.faltas}F {r.semRegistro}S/R
+                <p style={{ color: C.subtle, fontSize:10,marginTop:2 }}>
+                  {r.presentes} presentes · {r.meiodia} meios períodos · {r.faltas} faltas · {r.semRegistro} sem registro
                 </p>
               </div>
               <div style={{ textAlign: "right" }}>
@@ -10926,9 +10915,9 @@ function Relatorios({ data }) {
                 ["VT/VR", fmt(r.benefitCost), C.blue],
                 ["Total", fmt(r.totalCost), C.yellow],
               ].map(([label, value, color]) => (
-                <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 8 }}>
-                  <p style={{ fontSize: 10, color: C.muted, textTransform: "uppercase" }}>{label}</p>
-                  <p style={{ color, fontWeight: 900 }}>{value}</p>
+                <div key={label} style={{ background:C.surface,border:`1px solid ${C.line}`,borderRadius:8,padding:"7px 9px" }}>
+                  <p style={{ fontSize:8,color:C.muted,textTransform:"uppercase",fontWeight:750,letterSpacing:.5 }}>{label}</p>
+                  <p style={{ color:C.text,fontWeight:780,fontSize:12,marginTop:2 }}>{value}</p>
                 </div>
               ))}
             </div>
@@ -11023,21 +11012,21 @@ function RelatorioMensal({ data, year, month }) {
 <title>Relatório Mensal - ${escapeHtml(period)}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;color:#111;background:#fff;padding:28px;font-size:11px}
-.print-btn{position:fixed;top:10px;right:10px;background:#080808;color:#f6d833;border:none;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;z-index:99}
-.page-header{display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:3px solid #080808;margin-bottom:20px}
-.logo-box{background:#080808;color:#f6d833;padding:10px 16px;font-family:Georgia,serif;font-size:24px;font-weight:900;letter-spacing:2px;flex-shrink:0}
+body{font-family:Arial,sans-serif;color:#121212;background:#fff;padding:28px;font-size:11px}
+.print-btn{position:fixed;top:10px;right:10px;background:#121212;color:#D4AF37;border:1px solid #D4AF37;padding:10px 18px;font-size:12px;font-weight:700;cursor:pointer;z-index:99;border-radius:4px}
+.page-header{display:flex;align-items:center;gap:16px;padding:16px;background:#121212;color:#fff;border-bottom:4px solid #D4AF37;margin-bottom:20px}
+.logo-box{border:1px solid #D4AF37;color:#D4AF37;padding:9px 14px;font-size:22px;font-weight:900;letter-spacing:3px;flex-shrink:0}
 .company h1{font-size:17px;font-weight:900;letter-spacing:.5px}
-.company p{font-size:10px;color:#666;margin-top:2px}
-.period{font-size:20px;font-weight:900;text-align:right;flex:1;color:#080808}
+.company p{font-size:9px;color:#BFBFBF;margin-top:3px;text-transform:uppercase;letter-spacing:.8px}
+.period{font-size:18px;font-weight:900;text-align:right;flex:1;color:#D4AF37}
 .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0;page-break-inside:avoid}
-.sum-card{border:1px solid #ddd;padding:10px 12px;border-top:3px solid #ccc}
-.sum-card.green{border-top-color:#16a34a}.sum-card.red{border-top-color:#dc2626}.sum-card.blue{border-top-color:#2563eb}.sum-card.purple{border-top-color:#9333ea}
+.sum-card{border:1px solid #dedbd4;padding:10px 12px;border-left:3px solid #D4AF37;background:#F5F3EE}
+.sum-card.green,.sum-card.blue,.sum-card.purple{border-left-color:#D4AF37}.sum-card.red{border-left-color:#B71C1C}
 .sum-card .sc-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#777}
 .sum-card .sc-val{font-size:16px;font-weight:900;margin-top:4px}
-h2{font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;margin:22px 0 10px;border-bottom:1.5px solid #080808;padding-bottom:5px}
-.obra-block{margin-bottom:24px;page-break-inside:avoid;border:1px solid #e5e7eb;border-radius:2px;overflow:hidden}
-.obra-header{background:#f9f9f9;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #e5e7eb}
+h2{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin:22px 0 10px;border-bottom:2px solid #D4AF37;padding-bottom:6px}
+.obra-block{margin-bottom:24px;page-break-inside:avoid;border:1px solid #dedbd4;border-radius:4px;overflow:hidden}
+.obra-header{background:#F5F3EE;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #dedbd4}
 .obra-nome{font-size:14px;font-weight:900;letter-spacing:.3px}
 .obra-sub{font-size:10px;color:#777;margin-top:3px}
 .margem-badge{text-align:right;min-width:100px}
@@ -11046,21 +11035,21 @@ h2{font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;m
 .mb-val{font-size:16px;font-weight:900;margin-top:1px}
 .mb-pct{font-size:10px;color:#999;margin-top:1px}
 table.dre{width:100%;border-collapse:collapse;font-size:11px}
-table.dre th{background:#080808;color:#fff;padding:6px 10px;text-align:left;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+table.dre th{background:#121212;color:#fff;padding:6px 10px;text-align:left;font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.7px}
 table.dre th.val,table.dre td.val{text-align:right;min-width:110px}
 table.dre td{padding:5px 10px;border-bottom:1px solid #f0f0f0}
-.section-header td{background:#f3f4f6;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:#555;padding:4px 10px}
+.section-header td{background:#F5F3EE;font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:#555;padding:5px 10px;border-left:2px solid #D4AF37}
 .entry.desp td{color:#333}.entry.muted td{color:#999;font-style:italic}
 .subtotal td{font-weight:900;background:#fef2f2;color:#dc2626;font-size:12px;border-top:2px solid #fca5a5}
 .subtotal.desp td{background:#fef2f2}
-.result td{font-weight:900;font-size:13px;border-top:2px solid #080808}
+.result td{font-weight:900;font-size:13px;border-top:2px solid #121212}
 .result.pos td{color:#16a34a}.result.neg td{color:#dc2626}
-.result-esp td{color:#9333ea;font-weight:700;font-size:11px;border-bottom:2px solid #080808}
+.result-esp td{color:#121212;font-weight:700;font-size:11px;border-bottom:2px solid #121212}
 .detail-title{font-size:10px;font-weight:700;color:#555;margin:8px 14px 3px;text-transform:uppercase;letter-spacing:.5px}
 .detail-list{font-size:10px;color:#666;margin:0 14px 10px;padding-left:14px}
 .detail-list li{margin-bottom:2px}
-.consolidado table.dre{border:2px solid #080808}
-.consolidado th{background:#080808}
+.consolidado table.dre{border:2px solid #121212}
+.consolidado th{background:#121212}
 .footer{margin-top:30px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #eee;padding-top:8px}
 @media print{.print-btn{display:none!important} body{padding:18px}}
 </style></head>
@@ -11181,27 +11170,13 @@ ${obraBlocks}
   return (
     <div style={{display:"flex",flexDirection:"column",gap:14}} className="anim">
 
-      {/* Cabeçalho */}
-      <div style={{
-        background:`linear-gradient(135deg,${C.yellow} 0%,${C.yellowD} 55%,#4a3c0a 100%)`,
-        color:C.ink, padding:"16px 20px", borderRadius:12,
-        border:`1px solid ${C.yellow}`, boxShadow:`0 20px 50px ${C.yellow}18`,
-      }}>
-        <p style={{fontSize:11,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",opacity:.7}}>Relatório Gerencial</p>
-        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(18px,8vw,32px)",letterSpacing:2,lineHeight:1,margin:"4px 0 8px"}}>{fullMonth(month)} {year}</h2>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginTop:10}}>
-          {[
-            ["Receita recebida", fmt(tot.received),  C.green],
-            ["Margem global",    fmt(tot.margem),    tot.margem>=0?"#14532d":"#7f1d1d"],
-            ["Total despesas",   fmt(tot.totalDespesas), C.red],
-            ["Receita esperada", fmt(tot.revenueEsp), "#1e3a5f"],
-          ].map(([l,v,c])=>(
-            <div key={l} style={{background:"rgba(0,0,0,.18)",padding:"8px 12px",borderRadius:8}}>
-              <p style={{fontSize:9,fontWeight:900,textTransform:"uppercase",opacity:.7}}>{l}</p>
-              <p style={{fontWeight:900,fontSize:16,marginTop:2}}>{v}</p>
-            </div>
-          ))}
-        </div>
+      <ReportHero title="Relatório executivo" subtitle="Visão consolidada de receita, custo e resultado por obra." period={`${fullMonth(month)} · ${year}`}/>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
+        <ReportMetric label="Receita recebida" value={fmt(tot.received)} detail="Caixa realizado no período" color={C.yellow} icon="wallet"/>
+        <ReportMetric label="Margem global" value={fmt(tot.margem)} detail={tot.received?`${((tot.margem/tot.received)*100).toFixed(1)}% da receita`:"Sem receita no período"} color={tot.margem>=0?C.green:C.red} icon="trending"/>
+        <ReportMetric label="Total de despesas" value={fmt(tot.totalDespesas)} detail="Custos diretos e benefícios" color={C.red} icon="receipt"/>
+        <ReportMetric label="Receita esperada" value={fmt(tot.revenueEsp)} detail="Posição contratual estimada" color={C.text} icon="target"/>
       </div>
 
       {/* Ações */}
@@ -29514,22 +29489,19 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       </div>
 
       {/* Gráfico histórico */}
-      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,padding:14,boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <p style={{fontWeight:700,fontSize:13,color:C.text,marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>Evolução - 6 meses</p>
-        <div style={{height:180}}>
+      <ChartPanel eyebrow="Resultado empresarial" title="Evolução dos últimos seis meses" subtitle="Faturamento, lucro bruto e lucro líquido no mesmo comparativo." height={220} legend={[{label:"Faturamento",color:C.yellow},{label:"Lucro bruto",color:C.cinza},{label:"Lucro líquido",color:C.text}]}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={historico} barSize={16}>
-              <CartesianGrid stroke={C.line} vertical={false}/>
-              <XAxis dataKey="mes" stroke={C.muted} fontSize={10}/>
-              <YAxis stroke={C.muted} fontSize={10} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
-              <Tooltip contentStyle={{background:C.bg,border:`1px solid ${C.border}`,color:C.text,borderRadius:6,fontSize:11}} formatter={v=>fmt(v)}/>
-              <Bar dataKey="faturamentoObras" name="Faturamento" fill={C.yellow} radius={[3,3,0,0]}/>
-              <Bar dataKey="lucroBruto"       name="Lucro Bruto" fill={C.green}  radius={[3,3,0,0]}/>
-              <Bar dataKey="lucroLiquido"     name="Lucro Líq."  fill={C.blue}   radius={[3,3,0,0]}/>
+              <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
+              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
+              <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
+              <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
+              <Bar dataKey="faturamentoObras" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]}/>
+              <Bar dataKey="lucroBruto" name="Lucro bruto" fill={C.cinza} radius={[5,5,1,1]}/>
+              <Bar dataKey="lucroLiquido" name="Lucro líquido" fill={C.text} radius={[5,5,1,1]}/>
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      </div>
+      </ChartPanel>
 
       {/* Receitas e despesas POR OBRA - analise gerencial */}
       {dre.porObra.length > 0 && (
