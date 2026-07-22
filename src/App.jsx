@@ -31303,6 +31303,15 @@ export default function App() {
   const [toast,       setToast]       = useState(null);
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
   const [ultimaSync,  setUltimaSync]  = useState(null);
+  // A lista de obras e o painel detalhado ocupam alturas diferentes. Sem este
+  // reset o navegador preserva o scroll da lista e a obra pode abrir já no
+  // meio do conteúdo. O layout effect executa antes da pintura, sem salto.
+  useLayoutEffect(() => {
+    if (!obraAberta) return;
+    window.scrollTo({top:0,left:0,behavior:"auto"});
+    document.documentElement.scrollTop=0;
+    document.body.scrollTop=0;
+  },[obraAberta]);
   const tabPresencaRef = useRef(tab);
   useEffect(() => {
     tabPresencaRef.current = tab;
