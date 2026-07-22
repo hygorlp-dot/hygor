@@ -1426,6 +1426,7 @@ const DEFAULT = () => ({
   caixaObra: [],         // caixa de obra (aportes do cliente + gastos)
   orcamentos: [],        // orçamentos (itens com preço congelado na data-base)
   conferencias: [],      // vistorias técnicas e pendências rastreadas por obra
+  qualidadeRegistros: [],// FVS/FVM e não conformidades auditáveis
   baseFavoritos: [],     // composições usadas com frequência (base curada)
   solicitacoesCompra: [],// requisições da engenharia/obra para o setor de compras
   comercial: {
@@ -2457,6 +2458,15 @@ const normalizeData = incoming => {
       atualizadoEm: c.atualizadoEm || "",
       concluidoEm: c.concluidoEm || "",
     })) : [],
+    qualidadeRegistros:Array.isArray(d.qualidadeRegistros)?d.qualidadeRegistros.map((q,index)=>({
+      id:q.id||uid(),obraId:q.obraId||"",tipo:q.tipo==="fvm"?"fvm":"fvs",codigo:q.codigo||`QLD-${String(index+1).padStart(4,"0")}`,
+      etapaId:q.etapaId||"",itemOrcamentoId:q.itemOrcamentoId||"",materialId:q.materialId||"",titulo:q.titulo||"",local:q.local||"",lote:q.lote||"",fornecedor:q.fornecedor||"",notaFiscal:q.notaFiscal||"",normaProjeto:q.normaProjeto||"",
+      responsavelId:q.responsavelId||"",responsavel:q.responsavel||"",inspetorId:q.inspetorId||"",inspetor:q.inspetor||"",status:["planejada","em_inspecao","aprovada","reprovada","liberada_concessao"].includes(q.status)?q.status:"planejada",
+      itens:Array.isArray(q.itens)?q.itens.map(i=>({id:i.id||uid(),criterio:i.criterio||"",metodo:i.metodo||"Visual",tolerancia:i.tolerancia||"Conforme projeto/especificação",status:["pendente","conforme","nao_conforme","nao_aplicavel"].includes(i.status)?i.status:"pendente",observacao:i.observacao||"",responsavelId:i.responsavelId||"",responsavel:i.responsavel||"",verificadoEm:i.verificadoEm||""})):[],
+      evidencias:Array.isArray(q.evidencias)?q.evidencias.map(e=>({url:e.url||"",nome:e.nome||"",legenda:e.legenda||"",criadoEm:e.criadoEm||"",responsavel:e.responsavel||""})).filter(e=>e.url):[],
+      naoConformidade:q.naoConformidade?{descricao:q.naoConformidade.descricao||"",disposicao:q.naoConformidade.disposicao||"",acao:q.naoConformidade.acao||"",responsavelId:q.naoConformidade.responsavelId||"",responsavel:q.naoConformidade.responsavel||"",prazo:q.naoConformidade.prazo||"",status:q.naoConformidade.status||"aberta",verificacaoEficacia:q.naoConformidade.verificacaoEficacia||"",encerradoEm:q.naoConformidade.encerradoEm||""}:null,
+      criadoEm:q.criadoEm||"",atualizadoEm:q.atualizadoEm||"",concluidoEm:q.concluidoEm||"",
+    })):[],
     // Diario de obra (RDO). Um registro por dia/obra. As fotos guardam so a
     // URL (o arquivo vive no Storage). Os servicos executados apontam para
     // tarefas do planejamento e alimentam a medicao de evolucao.
@@ -22559,7 +22569,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       <div style={{display:"flex",gap:2,overflowX:"auto",borderBottom:`1px solid ${C.border}`,
                    marginBottom:12,paddingBottom:0}}>
         {[["geral","Geral",null],["orc","Orçamento","orc"],["plan","Planejamento","plan"],
-          ["rdo","Diário de obra","rdo"],["conferencia","Conferência","conferencia"],["med","Medição técnica","med"],
+          ["rdo","Diário de obra","rdo"],["qualidade","Qualidade · FVS/FVM",null],["conferencia","Conferência","conferencia"],["med","Medição técnica","med"],
           ["cmp","Compras","cmp"],["est","Estoque","est"],["dre","Financeiro","dre"],
           ["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"],
           ["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null]].filter(([id])=>id!=="arquivos"||ehAdmin).map(([id,label,destino])=>{
@@ -22568,7 +22578,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             <button key={id}
               className="arcd-tab"
               data-active={ativa}
-              onClick={()=>{if(id==="arquivos")setAbaConteudo("arquivos");else if(id==="geral")setAbaConteudo("geral");else if(destino)abrirModuloDaObra(destino);}}
+              onClick={()=>{if(id==="arquivos"||id==="geral"||id==="qualidade")setAbaConteudo(id);else if(destino)abrirModuloDaObra(destino);}}
               style={{border:0,background:"transparent",cursor:"pointer",
                 padding:"9px 13px",whiteSpace:"nowrap",
                 fontSize:12.5,fontWeight:ativa?800:500,
@@ -22934,6 +22944,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="orc"&&<Orcamento data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="plan"&&<Planejamento data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="rdo"&&<DiarioObra data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
+        {abaConteudo==="qualidade"&&<Qualidade data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="conferencia"&&<Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="med"&&<MedicaoEvolucao data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="cmp"&&<Compras data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
@@ -25652,6 +25663,33 @@ const CONFERENCIA_IMPACTOS = [
 const CONFERENCIA_STATUS = [
   {v:"aberta",l:"Aberta"},{v:"em_ajuste",l:"Em ajuste"},{v:"resolvida",l:"Resolvida"},
 ];
+
+const criteriosQualidade=(tipo,nome="")=>{
+  const n=String(nome).toUpperCase();
+  if(tipo==="fvm")return [
+    ["Identificação, fabricante, lote e validade","Conferência documental"],["Quantidade e unidade recebidas","Contagem/medição"],["Integridade, embalagem e ausência de avarias","Inspeção visual"],["Dimensões e características especificadas","Medição/amostragem"],["Certificado, laudo, PSQ/SBAC ou relatório de ensaio aplicável","Análise documental"],["Condições de transporte e armazenamento","Inspeção visual"],["Rastreabilidade com pedido, nota fiscal e local de uso","Conferência documental"],
+  ];
+  const base=[["Projeto e revisão liberados para execução","Conferência documental"],["Materiais liberados por FVM e disponíveis","Rastreabilidade"],["Equipe orientada e procedimento executivo disponível","Entrevista/registro"],["Locação, alinhamento, nível, prumo e dimensões","Medição"],["Interfaces com serviços anteriores e posteriores","Inspeção visual"],["Acabamento, limpeza e proteção do serviço","Inspeção visual"],["Registros de ensaios e controle tecnológico aplicáveis","Análise documental"]];
+  if(/FUNDA|ESTRUT|CONCRE|ARMA/.test(n))base.push(["Armadura, cobrimento, formas, embutidos e concreto conforme projeto","Inspeção antes/durante concretagem"],["Rastreabilidade do concreto, corpos de prova e cura","Registro/ensaio"]);
+  if(/IMPERM/.test(n))base.push(["Preparação da base, caimentos, ralos, rodapés e arremates","Medição/visual"],["Teste de estanqueidade registrado antes da proteção","Ensaio"]);
+  if(/ALVEN|VEDA/.test(n))base.push(["Amarração, juntas, vergas, contravergas e encunhamento","Medição/visual"]);
+  if(/EL[EÉ]TR|HIDR|SANIT|G[AÁ]S|CLIM/.test(n))base.push(["Traçado, diâmetros/seções, suportes, identificação e interferências","Medição/visual"],["Ensaios funcionais, pressão, estanqueidade ou continuidade aplicáveis","Ensaio"]);
+  if(/REVEST|PISO|PINT|FORRO/.test(n))base.push(["Base preparada, planeza, espessura, paginação, juntas e tonalidade","Medição/visual"]);
+  if(/ESQUAD|VIDRO/.test(n))base.push(["Vãos, fixações, vedação, ferragens e funcionamento","Medição/teste funcional"]);
+  return base;
+};
+
+function Qualidade({data,update,showToast,currentUser,obraIdFixo=""}){
+  const obra=(data.obras||[]).find(o=>o.id===obraIdFixo);const orc=orcamentoDaObra(data,obraIdFixo);
+  const regs=(data.qualidadeRegistros||[]).filter(q=>q.obraId===obraIdFixo);const [aberto,setAberto]=useState("");const [gerando,setGerando]=useState(false);
+  const usuarios=(data.usuarios||[]).filter(u=>u.active!==false);const porId=id=>usuarios.find(u=>u.id===id);
+  const salvar=lista=>update({...data,qualidadeRegistros:lista});
+  const alterar=(id,mut)=>salvar((data.qualidadeRegistros||[]).map(q=>q.id===id?{...mut(q),atualizadoEm:new Date().toISOString()}:q));
+  const gerarPlano=()=>{if(!orc){showToast("Vincule um orçamento à obra antes de gerar o plano da qualidade.","error");return;}setGerando(true);const existentes=new Set(regs.map(q=>`${q.tipo}|${q.etapaId||q.materialId}`));const etapas=(orc.etapas||[]).filter(e=>!e.parentId);const responsavel=porId(obra?.engineerId)||currentUser;const novos=[];const montar=(tipo,chave,titulo,extra={})=>({id:uid(),obraId:obraIdFixo,tipo,codigo:`${tipo.toUpperCase()}-${String(regs.length+novos.length+1).padStart(4,"0")}`,titulo,...extra,responsavelId:responsavel?.id||"",responsavel:responsavel?.nome||"",inspetorId:"",inspetor:"",status:"planejada",local:"",lote:"",fornecedor:"",notaFiscal:"",normaProjeto:"Validar projeto, memorial, procedimento e normas aplicáveis",itens:criteriosQualidade(tipo,titulo).map(([criterio,metodo])=>({id:uid(),criterio,metodo,tolerancia:"Conforme projeto, memorial, procedimento e norma aplicável",status:"pendente",observacao:"",responsavelId:"",responsavel:"",verificadoEm:""})),evidencias:[],naoConformidade:null,criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:""});etapas.forEach(e=>{if(!existentes.has(`fvs|${e.id}`))novos.push(montar("fvs",e.id,e.nome,{etapaId:e.id}));});const materiaisIds=new Set((data.pedidos||[]).filter(p=>p.obraId===obraIdFixo&&p.status!=="cancelado").flatMap(p=>(p.itens||[]).map(i=>i.materialId).filter(Boolean)));materiaisIds.forEach(id=>{const m=(data.materiais||[]).find(x=>x.id===id);if(m&&!existentes.has(`fvm|${id}`))novos.push(montar("fvm",id,m.descricao,{materialId:id}));});salvar([...(data.qualidadeRegistros||[]),...novos]);setGerando(false);showToast(`${novos.length} ficha(s) criada(s).`);};
+  const marcar=(q,item,status)=>alterar(q.id,x=>{const u=currentUser;const itens=x.itens.map(i=>i.id===item.id?{...i,status,responsavelId:u?.id||"",responsavel:u?.nome||"",verificadoEm:new Date().toISOString()}:i);const temNC=itens.some(i=>i.status==="nao_conforme");return{...x,itens,status:temNC?"reprovada":x.status,naoConformidade:temNC?(x.naoConformidade||{descricao:"Item(ns) não conforme(s) identificado(s) na inspeção.",disposicao:"Segregar, conter ou suspender a liberação até decisão.",acao:"",responsavelId:x.responsavelId,responsavel:x.responsavel,prazo:"",status:"aberta",verificacaoEficacia:"",encerradoEm:""}):x.naoConformidade};});
+  const concluir=q=>{const pend=q.itens.some(i=>i.status==="pendente");const nc=q.itens.some(i=>i.status==="nao_conforme")&&q.naoConformidade?.status!=="encerrada";if(pend||nc){showToast(pend?"Conclua todos os critérios antes de liberar.":"Encerre a não conformidade e verifique a eficácia.","error");return;}alterar(q.id,x=>({...x,status:"aprovada",inspetorId:currentUser?.id||"",inspetor:currentUser?.nome||"",concluidoEm:new Date().toISOString()}));};
+  return <div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div><h2 style={{fontSize:18}}>Qualidade · FVS e FVM</h2><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Plano de inspeção, liberação e não conformidades por etapa da obra.</p></div><Btn onClick={gerarPlano} disabled={gerando}><Ic n="plus"/> Gerar/atualizar plano</Btn></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>{[["FVS",regs.filter(q=>q.tipo==="fvs").length,C.blue],["FVM",regs.filter(q=>q.tipo==="fvm").length,C.purple],["Liberadas",regs.filter(q=>q.status==="aprovada").length,C.green],["Não conformes",regs.filter(q=>q.status==="reprovada").length,C.red]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:7,padding:8}}><p style={{fontSize:8,color:C.muted,fontWeight:800}}>{l}</p><b style={{fontSize:17,color:c}}>{v}</b></div>)}</div>{regs.map(q=>{const open=aberto===q.id;const feitos=q.itens.filter(i=>i.status!=="pendente").length;return <div key={q.id} style={{background:C.card,border:`1px solid ${q.status==="reprovada"?C.red:C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setAberto(open?"":q.id)} style={{width:"100%",border:0,background:"transparent",padding:"10px 12px",display:"flex",justifyContent:"space-between",gap:8,textAlign:"left",cursor:"pointer"}}><div><b style={{fontSize:11,color:q.tipo==="fvs"?C.blue:C.purple}}>{q.codigo} · {q.tipo.toUpperCase()}</b><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:2}}>{q.titulo}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Responsável: {q.responsavel||"Não definido"} · {feitos}/{q.itens.length} critérios</p></div><Badge color={q.status==="aprovada"?C.green:q.status==="reprovada"?C.red:C.orange}>{q.status}</Badge></button>{open&&<div style={{borderTop:`1px solid ${C.line}`,padding:10}}><Sel label="Responsável pela execução/correção" value={q.responsavelId} onChange={v=>{const u=porId(v);alterar(q.id,x=>({...x,responsavelId:v,responsavel:u?.nome||""}));}} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={q.normaProjeto} onChange={v=>alterar(q.id,x=>({...x,normaProjeto:v}))}/><div style={{marginTop:8}}>{q.itens.map(i=><div key={i.id} style={{padding:"8px 0",borderTop:`1px solid ${C.line}`}}><p style={{fontSize:11,fontWeight:750,color:C.text}}>{i.criterio}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>{i.metodo} · {i.tolerancia}</p><div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([s,l,c])=><button key={s} onClick={()=>marcar(q,i,s)} style={{border:`1px solid ${i.status===s?c:C.border}`,background:i.status===s?`${c}12`:C.bg,color:c,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>{i.verificadoEm&&<p style={{fontSize:8.5,color:C.muted,marginTop:3}}>{i.responsavel} · {new Date(i.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{q.naoConformidade&&<div style={{background:`${C.red}08`,border:`1px solid ${C.red}55`,borderRadius:7,padding:9,marginTop:8}}><p style={{fontSize:10,fontWeight:900,color:C.red}}>NÃO CONFORMIDADE</p><Inp label="Ação corretiva" value={q.naoConformidade.acao} onChange={v=>alterar(q.id,x=>({...x,naoConformidade:{...x.naoConformidade,acao:v}}))} multiline/><Inp label="Prazo" type="date" value={q.naoConformidade.prazo} onChange={v=>alterar(q.id,x=>({...x,naoConformidade:{...x.naoConformidade,prazo:v}}))}/><Inp label="Verificação de eficácia" value={q.naoConformidade.verificacaoEficacia} onChange={v=>alterar(q.id,x=>({...x,naoConformidade:{...x.naoConformidade,verificacaoEficacia:v}}))} multiline/><Btn size="sm" v="success" onClick={()=>{if(!q.naoConformidade.acao||!q.naoConformidade.verificacaoEficacia){showToast("Registre a ação e a verificação de eficácia.","error");return;}alterar(q.id,x=>({...x,itens:x.itens.map(i=>i.status==="nao_conforme"?{...i,status:"conforme",verificadoEm:new Date().toISOString(),responsavel:currentUser?.nome||""}:i),naoConformidade:{...x.naoConformidade,status:"encerrada",encerradoEm:new Date().toISOString()},status:"em_inspecao"}));}}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:9}} onClick={()=>concluir(q)} disabled={q.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<p style={{textAlign:"center",padding:20,color:C.muted,fontSize:11}}>Gere o plano para criar uma FVS para cada etapa de 1º nível e FVM para os materiais comprados.</p>}</div>;
+}
 
 function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const { cols } = useBreakpoint();
