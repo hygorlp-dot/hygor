@@ -130,7 +130,7 @@ export default async function handler(req, res) {
   }
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
-  const { action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload } = req.body || {};
+  const { action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
 
   try {
     if (action === "client-portal") {
@@ -306,7 +306,52 @@ export default async function handler(req, res) {
       });
     }
 
-    // ── 4. Salvar (com trava otimista) ─────────────────────────────
+    // ── 4. Salvar somente os módulos alterados ─────────────────────
+    // O estado histórico continua compatível com o blob existente, porém o
+    // navegador não precisa mais reenviar (e duplicar como base) toda a empresa
+    // a cada clique. Cada chave de primeiro nível funciona como uma unidade de
+    // alteração: Obras, RH, Compras, Financeiro etc. Em concorrência, somente
+    // as seções realmente tocadas entram no merge de três vias.
+    if (action === "save-sections") {
+      if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
+      const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
+      if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
+
+      const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
+      const aplicar = (estado, concorrente) => {
+        const proximo={...(estado||{})};
+        chaves.forEach(k => {
+          proximo[k]=concorrente&&baseSections&&Object.prototype.hasOwnProperty.call(baseSections,k)
+            ? mesclarTresVias(baseSections[k],sections[k],estado?.[k])
+            : sections[k];
+        });
+        return proximo;
+      };
+      let valor=aplicar(atual,houveConcorrencia);
+      let agora=new Date().toISOString();
+      let {data:gravado,error}=await db.from("company_app_data")
+        .update({value:valor,updated_at:agora,updated_by:usuario.id||null})
+        .eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",updatedAt)
+        .select("updated_at").maybeSingle();
+      if(error)throw error;
+
+      let combinado=houveConcorrencia;
+      if(!gravado){
+        const recente=await lerLinha();
+        valor=aplicar(recente.payload,true);
+        agora=new Date().toISOString();
+        const retry=await db.from("company_app_data")
+          .update({value:valor,updated_at:agora,updated_by:usuario.id||null})
+          .eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",recente.updatedAt)
+          .select("updated_at").maybeSingle();
+        if(retry.error)throw retry.error;
+        if(!retry.data)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
+        gravado=retry.data;combinado=true;
+      }
+      return res.status(200).json({ok:true,merged:combinado,data:combinado?valor:undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
+    }
+
+    // ── 4b. Salvar blob completo (compatibilidade / primeiro acesso) ─
     if (action === "save") {
       if (!payload) return res.status(400).json({ error: "Nada para salvar." });
 

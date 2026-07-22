@@ -147,6 +147,10 @@ const G = `
   --gold:${C.yellow};--text:${C.text};--muted:${C.muted};
   --green:${C.green};--red:${C.red};--blue:${C.blue};
   --grafite:#121212;--areia:#F5F3EE;--cinza:#BFBFBF;
+  --type-display:'Inter Display','Inter',system-ui,sans-serif;
+  --type-body:'Inter',system-ui,sans-serif;
+  --fs-caption:10px;--fs-label:11px;--fs-body:12.5px;--fs-title:20px;
+  --radius-control:8px;--radius-card:14px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{min-height:100%}
@@ -180,6 +184,17 @@ body{
   font-size:13px;
   line-height:1.45;
 }
+/* Escala comum para todas as telas. Os módulos antigos possuem muitos
+   tamanhos inline; estes tetos impedem títulos gigantes e preservam a
+   hierarquia sem apagar KPIs e números de operação. */
+main h1{font-family:var(--type-display)!important;font-size:clamp(25px,3.4vw,40px)!important;line-height:1.04!important;letter-spacing:-1px!important}
+main h2{font-family:var(--type-display)!important;font-size:clamp(19px,2.4vw,28px)!important;line-height:1.12!important;letter-spacing:-.55px!important}
+main h3{font-family:var(--type-display)!important;line-height:1.2!important}
+main table{font-size:11px}
+main th{font-size:9px;font-weight:850;letter-spacing:.55px;text-transform:uppercase;color:${C.muted}}
+main input:not([type="checkbox"]):not([type="radio"]),main select,main textarea{font-size:13px!important;line-height:1.35}
+main textarea{min-height:92px}
+main label>span:first-child{font-size:10px!important;font-weight:750!important;letter-spacing:.65px!important}
 /* Sem textura decorativa: ferramenta técnica tem fundo limpo. */
 body>*{position:relative;z-index:1}
 input,select,textarea,button{
@@ -239,10 +254,14 @@ input:focus,select:focus,textarea:focus{
 @keyframes fadeInUp {from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none}}
 @keyframes spin     {to{transform:rotate(360deg)}}
 @keyframes slideIn  {from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:none}}
+@keyframes arcdTvScan{0%{top:8%;opacity:0}12%{opacity:.55}88%{opacity:.25}100%{top:94%;opacity:0}}
 .anim   {animation:fadeIn    .2s ease}
 .animUp {animation:fadeInUp  .3s ease}
 .animSl {animation:slideIn   .16s ease}
+.arcd-tv-scan{animation:arcdTvScan 8s linear infinite;pointer-events:none}
+.arcd-tv:fullscreen{width:100vw;height:100vh;border-radius:0!important}
 .no-scroll{overflow:hidden}
+@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
 /* 
    NAVEGAÇÃO LATERAL
@@ -12622,13 +12641,13 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","admin_central","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","ponto_geral","equipe","terc","equip","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
-  engenheiro:  ["home","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
-  compras:     ["home","cmp","suprimentos","est","cad","ia"],
-  rh:          ["home","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
-  financeiro:  ["home","equip","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
-  comercial:   ["home","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","ia"],
-  visualizador:["home"],
+  admin:       ["home","tv","admin_central","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","ponto_geral","equipe","terc","equip","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
+  engenheiro:  ["home","tv","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
+  compras:     ["home","tv","cmp","suprimentos","est","cad","ia"],
+  rh:          ["home","tv","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
+  financeiro:  ["home","tv","equip","plan","cmp","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
+  comercial:   ["home","tv","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","ia"],
+  visualizador:["home","tv"],
 };
 
 const ACCESS_SECTORS=[
@@ -12662,7 +12681,10 @@ const allowedTabsForUser=user=>{
   const custom=Array.isArray(user.accessTabs)?user.accessTabs:null;
   const base=custom??(ROLE_TABS[user.role]||["home"]);
   const valid=new Set(ROLE_TABS.admin);
-  return [...new Set(["home",...base])].filter(tab=>valid.has(tab)&&tab!=="config");
+  // Dashboard e Modo TV são visões institucionais somente leitura; continuam
+  // disponíveis mesmo em cadastros antigos cuja lista personalizada de abas
+  // foi criada antes da existência do painel corporativo.
+  return [...new Set(["home","tv",...base])].filter(tab=>valid.has(tab)&&tab!=="config");
 };
 
 const hashPin = async (pin) => {
@@ -30626,6 +30648,82 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   </div>;
 }
 
+// Painel corporativo para monitor/TV. É deliberadamente somente leitura:
+// sintetiza progresso, qualidade, campo e suprimentos sem permitir que um
+// clique acidental em uma tela compartilhada altere a operação.
+function PainelTV({data,ultimaSync,onAtualizar}){
+  const raizRef=useRef(null);
+  const {isDesktop}=useBreakpoint();
+  const [pagina,setPagina]=useState(0);
+  const [agora,setAgora]=useState(()=>new Date());
+  const [telaCheia,setTelaCheia]=useState(false);
+  const obras=useMemo(()=>(data.obras||[]).filter(o=>o.status!=="done"),[data.obras]);
+  const linhas=useMemo(()=>obras.map(obra=>{
+    const plano=(data.planos||[]).find(p=>p.obraId===obra.id);
+    const tarefas=plano?.tarefas||[];
+    const progresso=tarefas.length?Math.round(tarefas.reduce((s,t)=>s+Number(t.progresso||0),0)/tarefas.length):0;
+    const atrasadas=tarefas.filter(t=>t.fim&&t.fim<today()&&Number(t.progresso||0)<100);
+    const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===obra.id);
+    const diarioHoje=(data.rdos||[]).find(r=>r.obraId===obra.id&&r.data===today()&&r.status==="concluido");
+    const pendencias=(data.conferencias||[]).filter(c=>c.obraId===obra.id)
+      .flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"));
+    const qualidade=(data.qualidadeRegistros||[]).filter(q=>q.obraId===obra.id&&!["aprovada","liberada_concessao"].includes(q.status));
+    const compras=(data.solicitacoesCompra||[]).filter(s=>s.obraId===obra.id&&!["atendida","cancelada","concluida"].includes(s.status));
+    const necessidades=[];
+    if(!obra.engineerId&&!obra.engineer)necessidades.push("Definir engenheiro responsável");
+    if(equipe.length&&!diarioHoje)necessidades.push("RDO de hoje pendente");
+    if(atrasadas.length)necessidades.push(`${atrasadas.length} atividade(s) atrasada(s)`);
+    if(pendencias.length)necessidades.push(`${pendencias.length} inconformidade(s) aberta(s)`);
+    if(qualidade.length)necessidades.push(`${qualidade.length} FVS/FVM em inspeção`);
+    if(compras.length)necessidades.push(`${compras.length} solicitação(ões) de compra`);
+    const criticas=pendencias.filter(p=>p.impacto==="critico").length;
+    const prazo=obra.contractEnd?Math.ceil((new Date(`${obra.contractEnd}T12:00:00`)-new Date(`${today()}T12:00:00`))/86400000):null;
+    const severidade=criticas||prazo!==null&&prazo<0?3:atrasadas.length||pendencias.length||!diarioHoje&&equipe.length?2:necessidades.length?1:0;
+    return {obra,progresso,equipe:equipe.length,diarioHoje:!!diarioHoje,atrasadas:atrasadas.length,pendencias:pendencias.length,criticas,qualidade:qualidade.length,compras:compras.length,necessidades,prazo,severidade};
+  }).sort((a,b)=>b.severidade-a.severidade||b.pendencias-a.pendencias||a.obra.name.localeCompare(b.obra.name)),[obras,data.planos,data.employees,data.rdos,data.conferencias,data.qualidadeRegistros,data.solicitacoesCompra]);
+  const porPagina=4,totalPaginas=Math.max(1,Math.ceil(linhas.length/porPagina));
+  const visiveis=linhas.slice(pagina*porPagina,pagina*porPagina+porPagina);
+  const progressoGeral=linhas.length?Math.round(linhas.reduce((s,o)=>s+o.progresso,0)/linhas.length):0;
+  const necessidadesTotal=linhas.reduce((s,o)=>s+o.necessidades.length,0);
+  const pendenciasTotal=linhas.reduce((s,o)=>s+o.pendencias,0);
+  const imagem=data.config?.companyImageUrl||data.config?.logoUrl||ARCD_LOGO;
+
+  useEffect(()=>{const t=window.setInterval(()=>{setAgora(new Date());setPagina(p=>(p+1)%totalPaginas);},12000);return()=>window.clearInterval(t);},[totalPaginas]);
+  useEffect(()=>setPagina(p=>Math.min(p,totalPaginas-1)),[totalPaginas]);
+  useEffect(()=>{if(!onAtualizar)return undefined;const t=window.setInterval(()=>onAtualizar(),90000);return()=>window.clearInterval(t);},[onAtualizar]);
+  useEffect(()=>{const fn=()=>setTelaCheia(document.fullscreenElement===raizRef.current);document.addEventListener("fullscreenchange",fn);return()=>document.removeEventListener("fullscreenchange",fn);},[]);
+  const alternarTelaCheia=async()=>{if(document.fullscreenElement)await document.exitFullscreen?.();else await raizRef.current?.requestFullscreen?.();};
+
+  return <div ref={raizRef} className="anim arcd-tv" style={{minHeight:telaCheia?"100vh":"calc(100vh - 126px)",background:"radial-gradient(circle at 78% 8%,rgba(212,175,55,.15),transparent 26%),linear-gradient(142deg,#080808,#171611 62%,#0B0B0A)",color:C.surface,borderRadius:telaCheia?0:20,overflow:"hidden",padding:"clamp(16px,2.2vw,30px)",position:"relative",display:"flex",flexDirection:"column",gap:"clamp(12px,1.6vw,20px)",boxShadow:"0 24px 80px rgba(18,18,18,.25)"}}>
+    <img src={imagem} alt="" aria-hidden="true" style={{position:"absolute",right:"3%",top:"5%",width:"min(30vw,420px)",height:"min(30vw,420px)",objectFit:"contain",opacity:.035,filter:"grayscale(1) invert(1)",pointerEvents:"none"}}/>
+    <div aria-hidden="true" className="arcd-tv-scan" style={{position:"absolute",left:0,right:0,height:1,background:`linear-gradient(90deg,transparent,${C.yellow}88,transparent)`,boxShadow:`0 0 18px ${C.yellow}`}}/>
+    <header style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18}}>
+      <div><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:C.green,boxShadow:`0 0 18px ${C.green}`}}/><span style={{fontSize:"clamp(9px,.8vw,12px)",fontWeight:900,letterSpacing:2,textTransform:"uppercase",color:C.yellow}}>ARCD · Centro de operações</span></div><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(24px,3vw,46px)",fontWeight:760,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>Panorama executivo das obras</h1><p style={{fontSize:"clamp(10px,.9vw,13px)",color:"rgba(245,243,238,.5)",marginTop:7}}>Visão contínua de avanço, campo, qualidade, suprimentos e prazos</p></div>
+      <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{textAlign:"right"}}><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(20px,2.2vw,34px)",fontWeight:760,color:C.yellow,lineHeight:1}}>{agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p><p style={{fontSize:9.5,color:"rgba(245,243,238,.45)",marginTop:5}}>{agora.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</p></div><button onClick={alternarTelaCheia} title="Alternar tela cheia" style={{width:40,height:40,borderRadius:11,border:`1px solid ${C.yellow}44`,background:"rgba(212,175,55,.08)",color:C.yellow,cursor:"pointer"}}><Ic n={telaCheia?"x":"eye"} s={15}/></button></div>
+    </header>
+
+    <div style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(4,minmax(0,1fr))":"repeat(2,minmax(0,1fr))",gap:"clamp(7px,1vw,13px)"}}>{[
+      ["Obras em operação",linhas.length,"carteira ativa",C.yellow],
+      ["Avanço médio",`${progressoGeral}%`,"planejamento físico",C.green],
+      ["Pendências técnicas",pendenciasTotal,"conferências",pendenciasTotal?C.red:C.green],
+      ["Necessidades",necessidadesTotal,"ações mapeadas",necessidadesTotal?C.yellow:C.green],
+    ].map(([l,v,s,c])=><div key={l} style={{background:"rgba(245,243,238,.045)",border:"1px solid rgba(245,243,238,.1)",borderRadius:13,padding:"clamp(10px,1.2vw,16px)"}}><p style={{fontSize:"clamp(8px,.7vw,10px)",fontWeight:850,textTransform:"uppercase",letterSpacing:1,color:"rgba(245,243,238,.45)"}}>{l}</p><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(22px,2.2vw,36px)",fontWeight:780,color:c,lineHeight:1,marginTop:7}}>{v}</p><p style={{fontSize:"clamp(8px,.65vw,10px)",color:"rgba(245,243,238,.35)",marginTop:6}}>{s}</p></div>)}</div>
+
+    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(2,minmax(0,1fr))":"minmax(0,1fr)",gap:"clamp(9px,1.2vw,15px)",flex:1,minHeight:0}}>
+      {visiveis.map(item=>{const cor=item.severidade===3?C.red:item.severidade===2?C.yellow:item.severidade===1?C.cinza:C.green;return <article key={item.obra.id} style={{position:"relative",overflow:"hidden",border:`1px solid ${cor}55`,borderRadius:15,background:"linear-gradient(145deg,rgba(245,243,238,.065),rgba(245,243,238,.025))",padding:"clamp(12px,1.3vw,18px)",display:"flex",flexDirection:"column",minHeight:0}}>
+        <span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:cor,boxShadow:`0 0 16px ${cor}`}}/>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}><div style={{minWidth:0}}><p style={{fontSize:"clamp(8px,.7vw,10px)",fontWeight:900,letterSpacing:1,textTransform:"uppercase",color:cor}}>{item.severidade>=3?"Atenção crítica":item.severidade===2?"Ação necessária":item.severidade===1?"Monitoramento":"Operação regular"}</p><h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(17px,1.5vw,25px)",fontWeight:760,color:"#fff",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.obra.name}</h2><p style={{fontSize:"clamp(8px,.75vw,11px)",color:"rgba(245,243,238,.44)",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>Eng. {item.obra.engineer||"não definido"} · {item.equipe} pessoa(s) em campo</p></div><div style={{textAlign:"right",flexShrink:0}}><strong style={{fontSize:"clamp(20px,2vw,31px)",fontWeight:780,color:C.yellow}}>{item.progresso}%</strong><p style={{fontSize:8,color:"rgba(245,243,238,.35)",textTransform:"uppercase"}}>avanço</p></div></div>
+        <div style={{height:5,borderRadius:99,background:"rgba(245,243,238,.09)",overflow:"hidden",marginTop:11}}><i style={{display:"block",height:"100%",width:`${item.progresso}%`,background:`linear-gradient(90deg,${C.yellowD},${C.yellow})`,boxShadow:`0 0 12px ${C.yellow}`}}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:6,marginTop:10}}>{[["RDO",item.diarioHoje?"OK":"Pendente",item.diarioHoje?C.green:C.yellow],["Atrasos",item.atrasadas,item.atrasadas?C.red:C.green],["Qualidade",item.qualidade,item.qualidade?C.yellow:C.green],["Compras",item.compras,item.compras?C.yellow:C.green]].map(([l,v,c])=><div key={l} style={{padding:"7px 8px",borderRadius:8,background:"rgba(245,243,238,.04)",border:"1px solid rgba(245,243,238,.07)",minWidth:0}}><p style={{fontSize:7.5,color:"rgba(245,243,238,.35)",textTransform:"uppercase",fontWeight:850}}>{l}</p><p style={{fontSize:"clamp(9px,.8vw,12px)",fontWeight:850,color:c,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}</div>
+        <div style={{marginTop:"auto",paddingTop:10,display:"flex",gap:6,alignItems:"center",minWidth:0}}><span style={{width:6,height:6,borderRadius:99,background:cor,flexShrink:0}}/><p style={{fontSize:"clamp(8px,.75vw,11px)",color:item.necessidades.length?"rgba(245,243,238,.68)":C.green,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.necessidades[0]||"Sem necessidade operacional crítica"}{item.necessidades.length>1?` · +${item.necessidades.length-1}`:""}</p>{item.prazo!==null&&<span style={{marginLeft:"auto",fontSize:8.5,color:item.prazo<0?C.red:"rgba(245,243,238,.4)",whiteSpace:"nowrap"}}>{item.prazo<0?`${Math.abs(item.prazo)}d vencido`:`${item.prazo}d restantes`}</span>}</div>
+      </article>;})}
+      {!visiveis.length&&<div style={{gridColumn:"1/-1",display:"grid",placeItems:"center",border:"1px dashed rgba(245,243,238,.15)",borderRadius:15,color:"rgba(245,243,238,.45)"}}>Nenhuma obra ativa para exibir.</div>}
+    </section>
+
+    <footer style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.35)",fontSize:9}}><span>Atualização automática · última sincronização {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:5}}>{Array.from({length:totalPaginas},(_,i)=><button key={i} onClick={()=>setPagina(i)} aria-label={`Página ${i+1}`} style={{width:i===pagina?18:6,height:6,border:0,borderRadius:99,background:i===pagina?C.yellow:"rgba(245,243,238,.18)",cursor:"pointer",transition:"width .2s"}}/>)}<span style={{marginLeft:7}}>{pagina+1}/{totalPaginas}</span></div></footer>
+  </div>;
+}
+
 // NAVEGAÇÃO - grupos e sub-tabs
 // 
 
@@ -30639,7 +30737,7 @@ const NAV_GROUPS = [
   },
   {
     id: "painel", label: "Painel", icon: "home", color: C.yellow,
-    tabs: ["home"],
+    tabs: ["home", "tv"],
   },
   {
     id: "eng_grp", label: "Engenharia", icon: "building", color: C.blue,
@@ -30676,6 +30774,7 @@ const NAV_GROUPS = [
 const TAB_META = {
   admin_central:{ label:"Central do administrador", icon:"shield", group:"admin_grp" },
   home:   { label: "Dashboard",  icon: "home",     group: "painel"   },
+  tv:     { label: "Modo TV",    icon: "eye",      group: "painel"   },
   obras:  { label: "Obras",      icon: "building", group: "eng_grp"},
   orc:    { label: "Orçamento",  icon: "fileText", group: "eng_grp"},
   com_dash:{label:"Dashboard",icon:"chart",group:"com_grp"},
@@ -31309,6 +31408,19 @@ export default function App() {
     }
   };
 
+  // O painel de TV permanece aberto por horas. Ele atualiza a fotografia da
+  // empresa sem toast e sem disparar um novo save, mantendo a tela pública
+  // silenciosa enquanto recebe as alterações feitas pelos operadores.
+  const atualizarPainelTV = useCallback(async () => {
+    if (saveEmVooRef.current || savePendenteRef.current) return;
+    const fresco=await loadDataWithMeta();
+    if(!fresco?.data)return;
+    adoptServerVersion(fresco.updatedAt);
+    const norm=normalizeData(fresco.data);
+    baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;
+    setData(norm);setUltimaSync(new Date());
+  }, []);
+
   // Sair e trocar usuário agora fazem a mesma coisa por baixo: limpam o PIN da
   // memória e voltam pro login. Não existe mais uma "sessão do Supabase" por
   // cima - o PIN É a sessão.
@@ -31694,6 +31806,7 @@ export default function App() {
             ? <DashboardEngenheiro data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}/>
             : <Dashboard data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} />)}
+          {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV}/>}
           {tab === "admin_central" && <CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
           {tab.startsWith("com_") && <Comercial data={data} update={update} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} />}
           {tab === "obras"  && (obraAberta

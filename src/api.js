@@ -117,12 +117,25 @@ export const loadData = async () => {
 export const saveDataDetailed = async (payload,basePayload=null) => {
   if (!temSessao()) return { ok: false, conflict: false, reason: "Sessão encerrada." };
 
-  const r = await chamar({
-    action: "save",
-    ...credenciais(),
-    payload,
-    basePayload,
-    expectedUpdatedAt: ultimoUpdatedAt,
+  // Depois da primeira carga existe uma base confirmada. Nesse caso enviamos
+  // apenas as coleções de primeiro nível que realmente mudaram. Isso reduz o
+  // corpo da requisição, evita reenviar fotos/metadados de módulos intocados e
+  // permite ao servidor combinar usuários trabalhando em setores diferentes.
+  const chaves = basePayload
+    ? [...new Set([...Object.keys(basePayload||{}),...Object.keys(payload||{})])]
+        .filter(k => JSON.stringify(basePayload?.[k]) !== JSON.stringify(payload?.[k]))
+    : [];
+  const porSecoes = !!basePayload && chaves.length > 0;
+  if (basePayload && !chaves.length) return { ok:true, conflict:false, unchanged:true, updatedAt:ultimoUpdatedAt };
+  const sections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,payload[k]])) : undefined;
+  const baseSections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,basePayload[k]])) : undefined;
+
+  const r = await chamar(porSecoes ? {
+    action:"save-sections",...credenciais(),sections,baseSections,
+    expectedUpdatedAt:ultimoUpdatedAt,
+  } : {
+    action:"save",...credenciais(),payload,basePayload,
+    expectedUpdatedAt:ultimoUpdatedAt,
   });
 
   if (r.status === 409 && r.conflict) {
@@ -142,7 +155,7 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
   if (r.status !== 200) return { ok: false, conflict: false, reason: r.error || "Falha ao salvar." };
 
   ultimoUpdatedAt = r.updatedAt || null;
-  return { ok: true, conflict: false, merged:!!r.merged, data:r.data, updatedAt: ultimoUpdatedAt };
+  return { ok: true, conflict: false, merged:!!r.merged, data:r.data, savedSections:r.savedSections||chaves, updatedAt: ultimoUpdatedAt };
 };
 
 export const provisionarContaEmail=async(targetUserId,password)=>{
