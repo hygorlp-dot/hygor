@@ -1977,7 +1977,8 @@ const normalizeData = incoming => {
       itens:Array.isArray(x.itens)?x.itens.map(i=>({id:i.id||uid(),referenciaId:i.referenciaId||"",
         fonteRef:i.fonteRef||"PRÓPRIO",codigoRef:i.codigoRef||"",descricaoRef:i.descricaoRef||"",
         unidadeRef:i.unidadeRef||"UN",quantidade:Number(i.quantidade||0),precoRef:Number(i.precoRef||0),
-        dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"",observacao:i.observacao||""})):[],
+        dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"",orcItemId:i.orcItemId||"",
+        observacao:i.observacao||""})):[],
     })) : [],
 
     // EQUIPAMENTOS LOCADOS PARA AS OBRAS
@@ -2210,6 +2211,7 @@ const normalizeData = incoming => {
       // Rastreabilidade
       transacaoId: x.transacaoId || "",       // veio da Conciliação?
       servicoId:   x.servicoId   || "",       // baixado por qual serviço?
+      orcItemId:   x.orcItemId   || "",       // linha orçamentária que originou o movimento
       etapa:       x.etapa       || "",
     })) : [],
 
@@ -14450,6 +14452,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="" }) {
   // Curva ABC: painel aberto, agrupamento por codigo e classe filtrada.
   const [abcAberta,  setAbcAberta]  = useState(false);
   const [ferramentasOrcAberto,setFerramentasOrcAberto]=useState(false);
+  const [controleCustosAberto,setControleCustosAberto]=useState(true);
   const [abcAgrupar, setAbcAgrupar] = useState(true);
   const [abcFiltro,  setAbcFiltro]  = useState("todas");   // "todas" | "A" | "B" | "C"
   // Importacao do orcamento (codigo + qtd) cruzada com a base.
@@ -14506,6 +14509,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="" }) {
   const orcamentos = obraIdFixo?(data.orcamentos||[]).filter(o=>o.obraId===obraIdFixo):(data.orcamentos||[]);
   const orc = orcamentos.find(o => o.id === selOrc);
   const calc = useMemo(() => orc ? calcOrcamento(orc) : null, [orc]);
+  const controleCustos=useMemo(()=>calcControleCustosOrcamento(data,orc),[data.solicitacoesCompra,data.pedidos,data.movEstoque,data.transacoes,orc]);
   const composicoesEmpresa = useMemo(()=>{
     const mapa=new Map();
     [...(data.composicoesEmpresa||[]),...(orc?.composicoesProprias||[])].forEach(comp=>mapa.set(comp.id||`${comp.codigo}`,comp));
@@ -16779,6 +16783,16 @@ ${blocoBDI}
       </div>
 
       {orcAba==="orcamento"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setFerramentasOrcAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer",textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="settings" s={14} color={C.blue}/><div><p style={{fontSize:11.5,fontWeight:850,color:C.text}}>Ferramentas do orçamento</p><p style={{fontSize:9,color:C.muted,marginTop:1}}>Importar, analisar e exportar</p></div></div><Ic n={ferramentasOrcAberto?"chevron":"chevR"} s={14} color={C.muted}/></button>{ferramentasOrcAberto&&<div style={{borderTop:`1px solid ${C.line}`,padding:8,display:"grid",gridTemplateColumns:cols(2,3,6),gap:6}}><label style={{display:"flex"}}><input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/><span style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:5,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 8px",fontSize:9.5,fontWeight:800,color:basePorCodigo.size?C.blue:C.muted,cursor:basePorCodigo.size?"pointer":"not-allowed"}}><Ic n="download" s={12}/> Importar planilha</span></label><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div>}</div>}
+
+      {orcAba==="orcamento"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+        <button onClick={()=>setControleCustosAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"11px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer",textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="chart" s={15} color={C.green}/><div><p style={{fontSize:12,fontWeight:850,color:C.text}}>Controle integrado de custos</p><p style={{fontSize:9.5,color:C.muted,marginTop:1}}>Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível</p></div></div><Ic n={controleCustosAberto?"chevron":"chevR"} s={14} color={C.muted}/></button>
+        {controleCustosAberto&&<div style={{borderTop:`1px solid ${C.line}`,padding:10}}>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginBottom:9}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:15,fontWeight:900,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
+          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface,color:C.muted,textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"7px 8px",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:"8px",fontWeight:800,color:C.text}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",whiteSpace:"nowrap",fontWeight:i===6?850:600,color:i===6&&v<0?C.red:C.text}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
+          {Object.values(controleCustos.semApropriacao).some(v=>v>0)&&<p style={{fontSize:9.5,color:C.orange,marginTop:7,lineHeight:1.45}}>Atenção: existem valores sem linha orçamentária vinculada — solicitado {fmt(controleCustos.semApropriacao.solicitado)}, comprometido {fmt(controleCustos.semApropriacao.comprometido)}, recebido {fmt(controleCustos.semApropriacao.recebido)} e aplicado {fmt(controleCustos.semApropriacao.aplicado)}. Eles não foram distribuídos artificialmente entre as etapas.</p>}
+          <p style={{fontSize:9,color:C.muted,marginTop:6}}>Projeção atual = maior valor entre orçamento e compromissos assumidos. “Pago” exige pedido vinculado a uma transação conciliada.</p>
+        </div>}
+      </div>}
 
       {orcAba==="orcamento" && <>
       {/* CONFERENCIA DIMENSIONAL (IA) - forro x area construida etc */}
@@ -19773,6 +19787,36 @@ const calcOrcadoComprado = (data, obraId) => {
   return { orc, linhas, semApropriacao };
 };
 
+// Visão executiva do orçamento por etapa de primeiro nível. Cada valor só é
+// apropriado quando a origem aponta para uma linha real do orçamento; valores
+// sem vínculo ficam separados para não produzirmos uma precisão fictícia.
+const calcControleCustosOrcamento = (data, orc) => {
+  if(!orc)return{etapas:[],total:{},semApropriacao:{solicitado:0,comprometido:0,recebido:0,aplicado:0}};
+  const etapas=orc.etapas||[];const etapaPorId=new Map(etapas.map(e=>[e.id,e]));
+  const itemPorId=new Map((orc.itens||[]).filter(i=>i.tipo!=="titulo").map(i=>[i.id,i]));
+  const raizDaEtapa=id=>{let e=etapaPorId.get(id),n=0;while(e?.parentId&&n++<30)e=etapaPorId.get(e.parentId)||e;return e;};
+  const raizDoItem=id=>{const item=itemPorId.get(id);return item?raizDaEtapa(item.etapaId):null;};
+  const mapa=new Map();
+  const linha=e=>{const id=e?.id||"sem_etapa";if(!mapa.has(id))mapa.set(id,{id,nome:e?.nome||"Sem etapa",ordem:Number(e?.ordem||0),orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0});return mapa.get(id);};
+  itemPorId.forEach(item=>{linha(raizDaEtapa(item.etapaId)).orcado+=Number(item.quantidade||0)*Number(item.precoUnit||0);});
+  const sem={solicitado:0,comprometido:0,recebido:0,aplicado:0};
+  (data.solicitacoesCompra||[]).filter(s=>s.obraId===orc.obraId&&!['cancelada','rejeitada'].includes(s.status)).forEach(s=>(s.itens||[]).forEach(i=>{
+    const valor=Number(i.quantidade||0)*Number(i.precoRef||0),raiz=raizDoItem(i.orcItemId);
+    if(raiz)linha(raiz).solicitado+=valor;else sem.solicitado+=valor;
+  }));
+  const transacaoPorId=new Map((data.transacoes||[]).map(t=>[t.id,t]));
+  (data.pedidos||[]).filter(p=>p.obraId===orc.obraId&&p.status!=="cancelado").forEach(p=>{
+    const pago=!!p.transacaoId&&transacaoPorId.get(p.transacaoId)?.status==="conciliado";
+    (p.itens||[]).forEach(i=>{const raiz=raizDoItem(i.orcItemId),total=Number(i.qtd||0)*Number(i.precoUnit||0),recebido=Number(i.qtdRecebida||0)*Number(i.precoUnit||0);
+      if(raiz){const l=linha(raiz);l.comprometido+=total;l.recebido+=recebido;if(pago)l.pago+=total;}else{sem.comprometido+=total;sem.recebido+=recebido;}
+    });
+  });
+  (data.movEstoque||[]).filter(m=>m.obraId===orc.obraId&&m.tipo==="consumo").forEach(m=>{const valor=Number(m.qtd||0)*Number(m.valorUnit||0),raiz=raizDoItem(m.orcItemId);if(raiz)linha(raiz).aplicado+=valor;else sem.aplicado+=valor;});
+  const lista=[...mapa.values()].map(l=>({...l,saldo:l.orcado-l.comprometido,projecao:Math.max(l.orcado,l.comprometido),percentual:l.orcado?l.comprometido/l.orcado*100:0})).sort((a,b)=>a.ordem-b.ordem||a.nome.localeCompare(b.nome));
+  const total=lista.reduce((a,l)=>{Object.keys(a).forEach(k=>a[k]+=Number(l[k]||0));return a;},{orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0,saldo:0,projecao:0});
+  return{etapas:lista,total,semApropriacao:sem};
+};
+
 // Painel da obra: comprado → recebido → aplicado → pago.
 // "Previsto" (do orçamento) fica de fora de propósito: o orçamento é feito de
 // SERVIÇOS SINAPI, não de materiais. Cruzar os dois exige a composição de cada
@@ -20780,11 +20824,18 @@ function ModalFornecedor({ form, setForm, onSave }) {
   );
 }
 
-function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]}){
+function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[],orcamentos=[]}){
   const {formGrid}=useBreakpoint();
   const [busca,setBusca]=useState("");const [resultados,setResultados]=useState([]);
   const [loading,setLoading]=useState(false);const [aviso,setAviso]=useState("");
   const base=basesReferencia.find(item=>item.id===form.referenciaId);
+  const orcObra=orcamentos.find(item=>item.obraId===form.obraId);
+  const etapasPorId=new Map((orcObra?.etapas||[]).map(etapa=>[etapa.id,etapa]));
+  const linhasOrc=(orcObra?.itens||[]).filter(item=>item.tipo!=="titulo").map(item=>{
+    let etapa=etapasPorId.get(item.etapaId);let guarda=0;
+    while(etapa?.parentId&&guarda++<20)etapa=etapasPorId.get(etapa.parentId)||etapa;
+    return{v:item.id,l:`${etapa?.nome||"Sem etapa"} · ${item.codigo||"S/C"} · ${item.descricao||"Item"}`};
+  });
   const F=k=>v=>setForm(f=>({...f,[k]:v}));
   const setItem=(id,campo,valor)=>setForm(f=>({...f,itens:f.itens.map(item=>item.id===id?{...item,[campo]:valor}:item)}));
 
@@ -20803,10 +20854,10 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   const addReferencia=item=>{
     setForm(f=>({...f,itens:[...f.itens,{id:uid(),referenciaId:f.referenciaId,fonteRef:maiusculoOrcamento(item.fonte||base?.fonte||"SINAPI"),
       codigoRef:maiusculoOrcamento(item.codigo||""),descricaoRef:maiusculoOrcamento(item.descricao||""),unidadeRef:maiusculoOrcamento(item.unidade||"UN"),
-      quantidade:"",precoRef:precoRef(item),dataBaseRef:item.dataBase||base?.dataBase||"",ufRef:item.uf||base?.uf||"",observacao:""}]}));
+      quantidade:"",precoRef:precoRef(item),dataBaseRef:item.dataBase||base?.dataBase||"",ufRef:item.uf||base?.uf||"",orcItemId:"",observacao:""}]}));
     setBusca("");setResultados([]);
   };
-  const addProprio=()=>setForm(f=>({...f,itens:[...f.itens,{id:uid(),referenciaId:"",fonteRef:"PRÓPRIO",codigoRef:"",descricaoRef:"",unidadeRef:"UN",quantidade:"",precoRef:0,dataBaseRef:"",ufRef:"",observacao:""}]}));
+  const addProprio=()=>setForm(f=>({...f,itens:[...f.itens,{id:uid(),referenciaId:"",fonteRef:"PRÓPRIO",codigoRef:"",descricaoRef:"",unidadeRef:"UN",quantidade:"",precoRef:0,dataBaseRef:"",ufRef:"",orcItemId:"",observacao:""}]}));
 
   return <Modal title="Solicitar materiais para Compras" onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:11}}>
     <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:9}}>
@@ -20835,6 +20886,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
         <Inp label="Quantidade *" type="number" value={item.quantidade} onChange={v=>setItem(item.id,"quantidade",v)}/>
         <button onClick={()=>setForm(f=>({...f,itens:f.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",padding:8}}>x</button>
       </div>
+      <div style={{marginTop:7}}><Sel label="Apropriar ao item do orçamento" value={item.orcItemId||""} onChange={v=>setItem(item.id,"orcItemId",v)} options={[{v:"",l:orcObra?"Selecione a linha orçamentária":"A obra ainda não possui orçamento"},...linhasOrc]}/></div>
       {item.precoRef>0&&<p style={{fontSize:9.5,color:C.muted,marginTop:5}}>Referência {item.dataBaseRef}{item.ufRef?` · ${item.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(item.precoRef))}/{item.unidadeRef}</b></p>}
     </div>)}{!form.itens.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:12}}>Pesquise um insumo ou crie um item próprio.</p>}</div>
     <Inp label="Observação geral" value={form.observacao} onChange={F("observacao")} multiline placeholder="Local de entrega, especificação, justificativa da urgência..."/>
@@ -21357,7 +21409,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
     const itens=sol.itens.map(item=>{
       const existente=materiais.find(m=>(item.codigoRef&&maiusculoOrcamento(m.codigo)===maiusculoOrcamento(item.codigoRef)&&maiusculoOrcamento(m.fonteRef||item.fonteRef)===maiusculoOrcamento(item.fonteRef))||
         (!item.codigoRef&&maiusculoOrcamento(m.descricao)===maiusculoOrcamento(item.descricaoRef)));
-      return{id:uid(),materialId:existente?.id||uid(),qtd:String(item.quantidade),precoUnit:"",qtdRecebida:0,orcItemId:"",
+      return{id:uid(),materialId:existente?.id||uid(),qtd:String(item.quantidade),precoUnit:"",qtdRecebida:0,orcItemId:item.orcItemId||"",
         referenciaId:item.referenciaId||"",fonteRef:item.fonteRef||"PRÓPRIO",codigoRef:item.codigoRef||"",descricaoRef:item.descricaoRef||"",
         unidadeRef:item.unidadeRef||"UN",precoRef:Number(item.precoRef||0),dataBaseRef:item.dataBaseRef||"",ufRef:item.ufRef||""};
     });
@@ -21445,7 +21497,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
       valorUnit: Number(l.precoUnit || 0),
       data: quando,
       descricao: `Pedido ${pedido.numero}  ${nomeForn(pedido.fornecedorId)}`,
-      transacaoId: "", servicoId: "", etapa: "",
+      transacaoId: "", servicoId: "", orcItemId:l.orcItemId||"", etapa: "",
     }));
 
     // Atualiza o preço médio do material com o que foi efetivamente pago
@@ -22084,7 +22136,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
       {/*  MODAIS  */}
       {cotWpp&&<ModalCotacaoWhatsApp titulo={cotWpp.titulo} itens={cotWpp.itens} obraNome={cotWpp.obraNome} prazo={cotWpp.prazo}
         fornecedores={fornecedores} pedidos={data.pedidos} materiais={data.materiais} onClose={()=>setCotWpp(null)}/>}
-      {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)}/>}
+      {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)} orcamentos={data.orcamentos||[]}/>}
       {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
                                      fornecedores={fornecedores} materiais={materiais}
