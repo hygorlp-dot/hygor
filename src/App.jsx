@@ -2113,6 +2113,7 @@ const normalizeData = incoming => {
     fornecedores: Array.isArray(d.fornecedores) ? d.fornecedores.map(x => ({
       id:        x.id       || uid(),
       nome:      x.nome     || "",
+      nomeFantasia: x.nomeFantasia || "",
       cnpj:      x.cnpj     || "",
       contato:   x.contato  || "",
       telefone:  x.telefone || "",
@@ -2122,10 +2123,13 @@ const normalizeData = incoming => {
       categorias: Array.isArray(x.categorias) ? x.categorias : [],
       // Endereco: util para frete, retirada e para achar o mais proximo da obra.
       razaoSocial: x.razaoSocial || "",
+      situacaoCadastral: x.situacaoCadastral || "",
+      dataAbertura: x.dataAbertura || "",
       atividadeCnae: x.atividadeCnae || "",   // atividade principal na Receita
       cep:       x.cep      || "",
       endereco:  x.endereco || "",
       numero:    x.numero   || "",
+      complemento:x.complemento || "",
       bairro:    x.bairro   || "",
       cidade:    x.cidade   || "",
       uf:        x.uf       || "",
@@ -2945,7 +2949,7 @@ function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disabled = f
             borderRadius: 6, fontFamily: "'Inter','Inter Display',sans-serif",
           }}
         />
-        <button type="button" onClick={consultar} disabled={carregando || disabled}
+        <button type="button" onMouseDown={e=>e.preventDefault()} onClick={consultar} disabled={carregando || disabled}
           style={{
             flexShrink: 0, border: `1.5px solid ${C.blue}`, background: `${C.blue}10`,
             color: C.blue, borderRadius: 6, padding: "0 14px", cursor: carregando ? "default" : "pointer",
@@ -20812,11 +20816,13 @@ function ModalFornecedor({ form, setForm, onSave }) {
             ...f,
             nome:       f.nome       || d.nome,
             razaoSocial:f.razaoSocial|| d.razaoSocial,
+            nomeFantasia:f.nomeFantasia||d.nomeFantasia,
             telefone:   f.telefone   || d.telefone,
             email:      f.email      || d.email,
             cep:        f.cep        || d.cep,
             endereco:   f.endereco   || d.logradouro,
             numero:     f.numero     || d.numero,
+            complemento:f.complemento|| d.complemento,
             bairro:     f.bairro     || d.bairro,
             cidade:     f.cidade     || d.cidade,
             uf:         f.uf         || d.uf,
@@ -20824,9 +20830,13 @@ function ModalFornecedor({ form, setForm, onSave }) {
             categorias: [...new Set([...jaTinha, ...sugeridos])],
             // Guarda a atividade para o usuario conferir de onde veio a sugestao.
             atividadeCnae: d.atividade || f.atividadeCnae || "",
+            situacaoCadastral: d.situacao || f.situacaoCadastral || "",
+            dataAbertura: d.abertura || f.dataAbertura || "",
             ramosSugeridos: sugeridos,
           };
         })}/>
+        <Inp label="Razão social" value={form.razaoSocial} onChange={F("razaoSocial")} placeholder="Preenchida pelo CNPJ"/>
+        <Inp label="Nome fantasia" value={form.nomeFantasia} onChange={F("nomeFantasia")} placeholder="Preenchido pelo CNPJ"/>
         <Inp label="Contato" value={form.contato} onChange={F("contato")} placeholder="Nome do vendedor"/>
         <Inp label="Telefone" value={form.telefone} onChange={F("telefone")} placeholder="(81) 9...."/>
         <div style={{gridColumn:"1/-1"}}>
@@ -20897,10 +20907,14 @@ function ModalFornecedor({ form, setForm, onSave }) {
             <div style={{gridColumn:"1/-1"}}>
               <Inp label="Logradouro" value={form.endereco} onChange={F("endereco")} placeholder="Rua, avenida..."/>
             </div>
+            <Inp label="Complemento" value={form.complemento} onChange={F("complemento")} placeholder="Sala, loja, galpão..."/>
             <Inp label="Bairro" value={form.bairro} onChange={F("bairro")}/>
             <Inp label="Cidade" value={form.cidade} onChange={F("cidade")}/>
             <Inp label="UF" value={form.uf} onChange={F("uf")} placeholder="PE"/>
           </div>
+          {(form.situacaoCadastral||form.dataAbertura)&&<p style={{fontSize:9.5,color:C.muted,marginTop:8}}>
+            Receita Federal: {form.situacaoCadastral||"situação não informada"}{form.dataAbertura?` · aberta em ${fmtDate(form.dataAbertura)}`:""}
+          </p>}
         </div>
 
         <div style={{gridColumn:"1/-1"}}>
@@ -21480,8 +21494,9 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
   //  Fornecedor 
   const salvarForn = (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome do fornecedor.", "error"); return; }
-    const p = { id: f.id || uid(), nome: f.nome.trim(), cnpj: f.cnpj, contato: f.contato,
-                telefone: f.telefone, email: f.email, categorias: [], obs: f.obs, ativo: true };
+    const p = { ...f, id: f.id || uid(), nome: f.nome.trim(),
+      categorias: Array.isArray(f.categorias) ? f.categorias : [], ativo: true };
+    delete p.ramosSugeridos;
     update({ ...data, fornecedores: f.id
       ? (data.fornecedores||[]).map(x => x.id === f.id ? p : x)
       : [...(data.fornecedores||[]), p] });
@@ -22163,7 +22178,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
 
       {/*  FORNECEDORES  */}
       {aba === "forn" && (<>
-        <Btn onClick={()=>setFornModal({id:"",nome:"",cnpj:"",contato:"",telefone:"",email:"",categorias:[],cep:"",endereco:"",numero:"",bairro:"",cidade:"",uf:"",obs:""})} full>
+        <Btn onClick={()=>setFornModal({id:"",nome:"",nomeFantasia:"",razaoSocial:"",cnpj:"",contato:"",telefone:"",email:"",categorias:[],atividadeCnae:"",situacaoCadastral:"",dataAbertura:"",cep:"",endereco:"",numero:"",complemento:"",bairro:"",cidade:"",uf:"",obs:""})} full>
           <Ic n="plus"/> Novo fornecedor
         </Btn>
         {fornecedores.length === 0
@@ -26644,8 +26659,9 @@ function Cadastros({ data, update, showToast, onTab }) {
   //  Fornecedor 
   const salvarForn = (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome.", "error"); return; }
-    const p = { id: f.id || uid(), nome: f.nome.trim(), cnpj: f.cnpj, contato: f.contato,
-                telefone: f.telefone, email: f.email, categorias: [], obs: f.obs, ativo: true };
+    const p = { ...f, id: f.id || uid(), nome: f.nome.trim(),
+      categorias: Array.isArray(f.categorias) ? f.categorias : [], ativo: true };
+    delete p.ramosSugeridos;
     update({ ...data, fornecedores: f.id
       ? (data.fornecedores||[]).map(x => x.id === f.id ? p : x)
       : [...(data.fornecedores||[]), p] });
@@ -26880,7 +26896,7 @@ function Cadastros({ data, update, showToast, onTab }) {
       {/*  FORNECEDORES  */}
       {sec === "fornecedores" && (<>
         <Voltar/>
-        <Btn onClick={()=>setFornModal({id:"",nome:"",cnpj:"",contato:"",telefone:"",email:"",categorias:[],cep:"",endereco:"",numero:"",bairro:"",cidade:"",uf:"",obs:""})} full>
+        <Btn onClick={()=>setFornModal({id:"",nome:"",nomeFantasia:"",razaoSocial:"",cnpj:"",contato:"",telefone:"",email:"",categorias:[],atividadeCnae:"",situacaoCadastral:"",dataAbertura:"",cep:"",endereco:"",numero:"",complemento:"",bairro:"",cidade:"",uf:"",obs:""})} full>
           <Ic n="plus"/> Novo fornecedor
         </Btn>
         <Inp value={busca} onChange={setBusca} placeholder="Buscar fornecedor..."/>
