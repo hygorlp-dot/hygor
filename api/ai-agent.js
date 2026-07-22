@@ -40,7 +40,12 @@ const loadConfig = async () => {
 const saveConfig = async ({apiKey,user,validationStatus="ready",validationMessage=""}) => {
   const agora=new Date().toISOString();
   const value={provider:"gemini",model:DEFAULT_MODEL,...encrypt(apiKey),updatedAt:agora,updatedBy:user?.nome||user?.id||"Administrador",validationStatus,validationMessage};
-  const {error}=await database().from("company_app_data").upsert({company_id:COMPANY,key:CONFIG_KEY,value,updated_at:agora,updated_by:user?.id||null},{onConflict:"company_id,key"});
+  // `usuarios[].id` é um identificador curto criado pelo ArcD, enquanto a
+  // coluna histórica updated_by pode ser UUID em instalações antigas. O nome
+  // do administrador já fica no valor criptografado; só enviamos à coluna o
+  // authUserId quando ele realmente possui o formato aceito pelo banco.
+  const authUserId=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(user?.authUserId||""))?user.authUserId:null;
+  const {error}=await database().from("company_app_data").upsert({company_id:COMPANY,key:CONFIG_KEY,value,updated_at:agora,updated_by:authUserId},{onConflict:"company_id,key"});
   if(error)throw error;
   return {model:DEFAULT_MODEL,updatedAt:agora,updatedBy:value.updatedBy,validationStatus,validationMessage};
 };
@@ -86,14 +91,18 @@ export default async function handler(req,res){
     if(isInvalidKey(validation.status,providerMessage))return res.status(400).json({error:"O Google recusou a chave. Confira se você copiou o valor completo da chave da API Gemini.",errorCode:providerError.status||"API_KEY_INVALID"});
     if(validation.status===429){
       const warning="Chave Gemini salva, mas a cota gratuita ou o limite temporário da API foi atingido.";
-      const saved=await saveConfig({apiKey:newApiKey,user,validationStatus:"rate_limit",validationMessage:warning});
+      let saved;
+      try{saved=await saveConfig({apiKey:newApiKey,user,validationStatus:"rate_limit",validationMessage:warning});}
+      catch(error){console.error("Gemini validado, mas não foi possível salvar a configuração:",error);return res.status(500).json({error:"A chave foi reconhecida pelo Google, mas não foi possível salvá-la no banco do ArcD."});}
       return res.status(200).json({ok:true,configured:true,operational:false,provider:"gemini",source:"admin",warning,errorCode:providerError.status||"RESOURCE_EXHAUSTED",...saved});
     }
     if(!validation.ok){
       const detalhe=providerMessage.slice(0,300);
       return res.status(400).json({error:detalhe?`O Gemini recusou o teste: ${detalhe}`:"Não foi possível validar a chave com o Gemini agora.",errorCode:providerError.status||"validation_failed"});
     }
-    const saved=await saveConfig({apiKey:newApiKey,user});
+    let saved;
+    try{saved=await saveConfig({apiKey:newApiKey,user});}
+    catch(error){console.error("Gemini validado, mas não foi possível salvar a configuração:",error);return res.status(500).json({error:"A chave foi validada pelo Google, mas não foi possível salvá-la no banco do ArcD."});}
     return res.status(200).json({ok:true,configured:true,operational:true,provider:"gemini",source:"admin",...saved});
   }
   if(req.body?.action==="remove"){
