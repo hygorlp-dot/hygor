@@ -3677,6 +3677,92 @@ function DashboardLegacy({ data, onTab, ultimaSync, currentUser }) {
   );
 }
 
+const construirFilaOperador=(data,currentUser)=>{
+  const role=currentUser?.role||"visualizador",userId=currentUser?.id||"",hoje=today();
+  const acessos=new Set(allowedTabsForUser(currentUser));
+  const obrasAtivas=(data.obras||[]).filter(o=>o.status!=="done");
+  const minhasObras=role==="admin"?obrasAtivas:obrasAtivas.filter(o=>
+    !currentUser?.obraId||o.id===currentUser.obraId).filter(o=>role!=="engenheiro"||
+    o.engineerId===userId||o.engineer===currentUser?.nome||currentUser?.obraId===o.id);
+  const escopoEngenharia=minhasObras.length?minhasObras:(role==="engenheiro"?obrasAtivas.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId):obrasAtivas);
+  const idsObras=new Set(escopoEngenharia.map(o=>o.id));
+  const fila=[];
+  const incluir=(id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color)=>{
+    if(!quantidade||!acessos.has(tab))return;
+    fila.push({id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color});
+  };
+
+  if(role==="admin"||role==="engenheiro"||acessos.has("rdo")){
+    const semRdo=escopoEngenharia.filter(o=>!(data.rdos||[]).some(r=>r.obraId===o.id&&r.data===hoje&&r.status==="concluido"));
+    incluir("rdo-hoje","Engenharia","Diário de obra do dia",`${semRdo.slice(0,3).map(o=>o.name).join(", ")}${semRdo.length>3?` e mais ${semRdo.length-3}`:""}`,semRdo.length,2,"rdo","clipboard",C.blue);
+    const equipe=(data.employees||[]).filter(e=>e.active!==false&&(!idsObras.size||idsObras.has(e.obra)));
+    const semPonto=equipe.filter(e=>!["P","M","F"].includes(attStatus(data,e.id,hoje)));
+    incluir("ponto-hoje","Campo","Apontamentos de equipe incompletos",`${semPonto.length} de ${equipe.length} profissional(is) sem situação registrada hoje`,semPonto.length,semPonto.length===equipe.length?3:2,"ponto","clock",C.orange);
+    const fichas=(data.qualidadeRegistros||[]).filter(q=>idsObras.has(q.obraId)&&q.status!=="aprovada"&&(role==="admin"||!q.responsavelId||q.responsavelId===userId));
+    incluir("qualidade","Qualidade","FVS/FVM aguardando inspeção",`${fichas.filter(q=>q.status==="reprovada").length} ficha(s) reprovada(s) exigem correção`,fichas.length,fichas.some(q=>q.status==="reprovada")?3:1,"obras","check",C.purple);
+    const patologias=(data.conferencias||[]).flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&(role==="admin"||p.responsavelAjusteId===userId||c.responsavelId===userId)).map(p=>({...p,obraId:c.obraId})));
+    incluir("patologias","Qualidade","Patologias e inconformidades abertas",`${patologias.filter(p=>p.impacto==="critico").length} crítica(s) · ${patologias.filter(p=>!(p.fotos||[]).some(f=>f.tipo==="ajuste")).length} aguardando foto`,patologias.length,patologias.some(p=>p.impacto==="critico")?3:2,"conferencia","alert",C.red);
+  }
+
+  if(role==="admin"||role==="compras"||acessos.has("cmp")){
+    const solicitacoes=(data.solicitacoesCompra||[]).filter(s=>["enviada","em_analise"].includes(s.status));
+    incluir("solicitacoes","Compras","Solicitações aguardando processamento",`${solicitacoes.filter(s=>s.prioridade==="urgente").length} urgente(s) para cotar ou transformar em pedido`,solicitacoes.length,solicitacoes.some(s=>s.prioridade==="urgente")?3:2,"cmp","cart",C.orange);
+    const pedidos=(data.pedidos||[]).filter(p=>!["recebido","cancelado"].includes(p.status));
+    incluir("pedidos","Compras","Pedidos ainda não concluídos",`${pedidos.filter(p=>p.status==="parcial").length} com recebimento parcial`,pedidos.length,pedidos.some(p=>p.status==="parcial")?2:1,"cmp","box",C.yellowD);
+  }
+
+  if(role==="admin"||role==="financeiro"||acessos.has("conc")){
+    const conciliacoes=(data.transacoes||[]).filter(t=>t.status==="pendente");
+    incluir("conciliacao","Financeiro","Movimentos sem conciliação",`${conciliacoes.length} lançamento(s) ainda sem obra/categoria confirmada`,conciliacoes.length,conciliacoes.length>10?3:2,"conc","receipt",C.purple);
+    const notas=(data.notasFiscais||[]).filter(n=>n.status==="recebida");
+    incluir("fiscal","Financeiro","Notas aguardando conferência",`${notas.filter(n=>n.divergencias?.length).length} documento(s) com divergência de pedido ou recebimento`,notas.length,notas.some(n=>n.divergencias?.length)?3:2,"fin","fileText",C.red);
+    const med=(data.medicoes||[]).filter(m=>!m.recebido&&(!m.dataVencimento||m.dataVencimento<=hoje));
+    incluir("medicoes","Financeiro","Medições a receber",`${med.filter(m=>m.dataVencimento&&m.dataVencimento<hoje).length} vencida(s)`,med.length,med.some(m=>m.dataVencimento&&m.dataVencimento<hoje)?3:1,"medicoes","ruler",C.green);
+  }
+
+  if(role==="admin"||role==="rh"||acessos.has("ponto_geral")){
+    const ativos=(data.employees||[]).filter(e=>e.active!==false);
+    const semPonto=ativos.filter(e=>!["P","M","F"].includes(attStatus(data,e.id,hoje)));
+    incluir("rh-ponto","RH","Fechamento diário do ponto",`${semPonto.length} de ${ativos.length} cadastro(s) sem apontamento`,semPonto.length,semPonto.length===ativos.length?3:2,"ponto_geral","users",C.green);
+    const incompletos=ativos.filter(e=>!e.pixKey||!e.dailyRate||!e.obra);
+    incluir("rh-cadastro","RH","Cadastros de equipe incompletos",`${incompletos.filter(e=>!e.pixKey).length} sem PIX · ${incompletos.filter(e=>!e.obra).length} sem lotação`,incompletos.length,1,"equipe","user",C.blue);
+  }
+
+  if(role==="admin"||role==="comercial"||acessos.has("com_tarefas")){
+    const atividades=(data.comercial?.atividades||[]).filter(a=>a.status!=="concluida"&&(role==="admin"||!a.responsavelId||a.responsavelId===userId));
+    const atrasadas=atividades.filter(a=>a.dataHora&&a.dataHora<new Date().toISOString());
+    incluir("comercial-atividades","Comercial","Follow-ups e atividades pendentes",`${atrasadas.length} atividade(s) fora do prazo`,atividades.length,atrasadas.length?3:1,"com_tarefas","funnel",C.green);
+    const leads=(data.comercial?.leads||[]).filter(l=>!["perdido","arquivado","transferido"].includes(l.etapa)&&(role==="admin"||!l.responsavelId||l.responsavelId===userId)&&!l.proximaAtividadeEm);
+    incluir("comercial-leads","Comercial","Leads sem próximo passo",`${leads.length} oportunidade(s) precisam de data e ação definida`,leads.length,2,"com_leads","target",C.orange);
+  }
+  return fila.sort((a,b)=>b.severidade-a.severidade||b.quantidade-a.quantidade);
+};
+
+function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado}){
+  const {isDesktop}=useBreakpoint();
+  const agora=new Date(),nome=(currentUser?.nome||"operador").trim().split(/\s+/)[0];
+  const papel=ROLES.find(r=>r.v===currentUser?.role)?.l||"Operador";
+  const criticas=fila.filter(x=>x.severidade===3).length;
+  const imagem=data.config?.companyImageUrl||data.config?.logoUrl||ARCD_LOGO;
+  return <section style={{position:"relative",overflow:"hidden",minHeight:isDesktop?238:280,borderRadius:22,padding:isDesktop?"25px 28px":"20px",color:"#F7FAFC",background:"radial-gradient(circle at 77% 22%,rgba(38,181,214,.2),transparent 27%),radial-gradient(circle at 15% 110%,rgba(212,175,55,.19),transparent 37%),linear-gradient(135deg,#071019 0%,#0A1C27 54%,#071018 100%)",boxShadow:"0 24px 70px rgba(5,18,29,.24)"}}>
+    <img src={imagem} alt="" aria-hidden="true" style={{position:"absolute",right:isDesktop?"2%":"-25%",top:"50%",transform:"translateY(-50%)",width:isDesktop?430:330,height:isDesktop?430:330,objectFit:"contain",opacity:.075,filter:"grayscale(1) invert(1)",mixBlendMode:"screen",pointerEvents:"none"}}/>
+    <div style={{position:"absolute",inset:0,opacity:.18,backgroundImage:"linear-gradient(rgba(89,205,233,.22) 1px,transparent 1px),linear-gradient(90deg,rgba(89,205,233,.22) 1px,transparent 1px)",backgroundSize:"38px 38px",maskImage:"linear-gradient(90deg,black,transparent 78%)"}}/>
+    <div style={{position:"absolute",right:isDesktop?44:-48,top:isDesktop?34:82,width:176,height:176,borderRadius:"50%",border:"1px solid rgba(87,205,230,.26)",boxShadow:"0 0 0 18px rgba(87,205,230,.025),0 0 0 44px rgba(87,205,230,.018)"}}><div style={{position:"absolute",inset:20,borderRadius:"50%",border:"1px dashed rgba(212,175,55,.38)"}}/></div>
+    <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",minHeight:isDesktop?188:238,justifyContent:"space-between",gap:20}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:7,height:7,borderRadius:99,background:"#59D7B1",boxShadow:"0 0 14px #59D7B1"}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:"#79D9EB"}}>ARCD Operational Intelligence · online</span></div><p style={{fontSize:10,color:"rgba(255,255,255,.5)",marginTop:7}}>{papel} · sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"}</p></div><div style={{display:"flex",gap:6}}>{onBuscar&&<button onClick={onBuscar} title="Buscar" style={{width:35,height:35,border:"1px solid rgba(121,217,235,.25)",borderRadius:10,background:"rgba(6,19,29,.52)",color:"#79D9EB",cursor:"pointer"}}><Ic n="funnel" s={13}/></button>}{onAtualizar&&<button onClick={onAtualizar} title="Atualizar" style={{width:35,height:35,border:"1px solid rgba(121,217,235,.25)",borderRadius:10,background:"rgba(6,19,29,.52)",color:"#79D9EB",cursor:"pointer"}}><Ic n="refresh" s={13}/></button>}</div></div>
+      <div style={{maxWidth:650}}><p style={{fontSize:10,textTransform:"uppercase",letterSpacing:1.2,color:C.yellow,fontWeight:800}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</p><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(28px,5vw,48px)",lineHeight:.98,letterSpacing:-1.7,marginTop:7,fontWeight:720}}>Olá, {nome}.<br/><span style={{color:"#8BDCEC"}}>A operação está mapeada.</span></h1></div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}><div style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap"}}><button onClick={()=>fila[0]&&onAbrir(fila[0].tab)} disabled={!fila.length} style={{border:"1px solid rgba(121,217,235,.34)",background:"rgba(33,153,182,.13)",color:"#D9F8FF",borderRadius:10,padding:"9px 12px",fontSize:10.5,fontWeight:800,cursor:fila.length?"pointer":"default"}}>{fila.length?`Abrir prioridade principal →`:"Nenhuma ação urgente"}</button><span style={{fontSize:10,color:"rgba(255,255,255,.58)"}}><b style={{color:criticas?"#FF8C8C":"#59D7B1"}}>{criticas}</b> crítica(s) · <b style={{color:"#79D9EB"}}>{fila.length}</b> missão(ões) ativa(s)</span></div>{periodo&&<div style={{display:"flex",alignItems:"center",border:"1px solid rgba(121,217,235,.22)",background:"rgba(4,15,24,.45)",borderRadius:9,padding:2}}><button onClick={onAnterior} style={{border:0,background:"transparent",color:"#79D9EB",padding:"5px 8px",cursor:"pointer"}}>←</button><span style={{minWidth:100,textAlign:"center",fontSize:9.5,fontWeight:750,textTransform:"capitalize",color:"rgba(255,255,255,.72)"}}>{periodo}</span><button onClick={onProximo} disabled={proximoDesabilitado} style={{border:0,background:"transparent",color:proximoDesabilitado?"rgba(255,255,255,.18)":"#79D9EB",padding:"5px 8px",cursor:proximoDesabilitado?"default":"pointer"}}>→</button></div>}</div>
+    </div>
+  </section>;
+}
+
+function FilaOperador({fila,onTab}){
+  const [filtro,setFiltro]=useState("todas");
+  const setores=[...new Set(fila.map(x=>x.setor))];
+  const lista=filtro==="todas"?fila:fila.filter(x=>x.setor===filtro);
+  return <section id="dashboard-missoes" style={{background:"linear-gradient(145deg,rgba(8,22,32,.98),rgba(12,31,43,.96))",border:"1px solid rgba(77,180,204,.2)",borderRadius:18,overflow:"hidden",boxShadow:"0 18px 45px rgba(6,19,29,.11)"}}><div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",borderBottom:"1px solid rgba(113,208,229,.12)"}}><div><p style={{fontSize:8.5,color:"#67CDE2",fontWeight:850,letterSpacing:1.3,textTransform:"uppercase"}}>Fila inteligente por responsabilidade</p><h3 style={{fontSize:15,color:"white",marginTop:3}}>Missões do operador</h3></div><div style={{display:"flex",gap:4,overflowX:"auto",maxWidth:"100%"}}>{["todas",...setores].map(s=><button key={s} onClick={()=>setFiltro(s)} style={{border:`1px solid ${filtro===s?"#67CDE2":"rgba(255,255,255,.1)"}`,background:filtro===s?"rgba(103,205,226,.13)":"transparent",color:filtro===s?"#BDEFFA":"rgba(255,255,255,.52)",borderRadius:99,padding:"5px 9px",fontSize:9,fontWeight:750,cursor:"pointer",whiteSpace:"nowrap"}}>{s==="todas"?"Todas":s}</button>)}</div></div>{!lista.length?<div style={{padding:25,textAlign:"center",color:"#59D7B1",fontSize:11}}><Ic n="check" color="#59D7B1"/> Nenhuma pendência no seu escopo.</div>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))"}}>{lista.map(m=>{const cor=m.severidade===3?"#FF7777":m.color||"#67CDE2";return <button key={m.id} onClick={()=>onTab(m.tab)} style={{display:"grid",gridTemplateColumns:"38px minmax(0,1fr) auto",alignItems:"center",gap:10,textAlign:"left",border:0,borderRight:"1px solid rgba(255,255,255,.06)",borderBottom:"1px solid rgba(255,255,255,.06)",background:"transparent",padding:"13px 15px",cursor:"pointer",color:"white"}}><span style={{width:36,height:36,borderRadius:11,display:"grid",placeItems:"center",background:`${cor}17`,border:`1px solid ${cor}35`,color:cor}}><Ic n={m.icon} s={15} color={cor}/></span><span style={{minWidth:0}}><b style={{display:"block",fontSize:11.5,fontWeight:760,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.titulo}</b><small style={{display:"block",fontSize:9.5,color:"rgba(255,255,255,.48)",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.detalhe}</small></span><span style={{minWidth:27,height:27,borderRadius:9,display:"grid",placeItems:"center",fontSize:10,fontWeight:900,color:cor,background:`${cor}12`}}>{m.quantidade}</span></button>;})}</div>}</section>;
+}
+
 function DashboardEngenheiro({data,onTab,currentUser,ultimaSync}){
   const {cols,isDesktop}=useBreakpoint();
   const [obraFiltro,setObraFiltro]=useState("all");
@@ -3688,10 +3774,13 @@ function DashboardEngenheiro({data,onTab,currentUser,ultimaSync}){
   const abertas=conferencias.flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida").map(p=>({p,c,obra:(data.obras||[]).find(o=>o.id===c.obraId)}))).filter(x=>obraFiltro==="all"||x.c.obraId===obraFiltro);
   const criticas=abertas.filter(x=>x.p.impacto==="critico").length;
   const comFoto=abertas.filter(x=>(x.p.fotos||[]).some(f=>f.tipo==="ajuste")).length;
+  const fila=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
   const abrir=c=>{sessionStorage.setItem("arcd_obra_contexto",c.obraId);sessionStorage.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
   const impacto={baixo:C.green,medio:C.orange,alto:"#E26A2C",critico:C.red};
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:16}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}><div><p style={{fontSize:10,fontWeight:850,color:C.blue,textTransform:"uppercase",letterSpacing:.8}}>Engenharia de campo</p><h1 style={{fontSize:"clamp(25px,4vw,36px)",letterSpacing:-1,fontWeight:780,color:C.text,marginTop:5}}>Suas conferências</h1><p style={{fontSize:11.5,color:C.muted,marginTop:5}}>Priorize os ajustes em aberto, registre a evidência e conclua somente após enviar a foto.</p></div><div style={{fontSize:10,color:C.muted}}>Sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:""}</div></div>
+    <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={fila} onAbrir={onTab}/>
+    <FilaOperador fila={fila} onTab={onTab}/>
+    <div><p style={{fontSize:10,fontWeight:850,color:C.blue,textTransform:"uppercase",letterSpacing:.8}}>Engenharia de campo</p><h2 style={{fontSize:"clamp(21px,3vw,29px)",letterSpacing:-.8,fontWeight:780,color:C.text,marginTop:4}}>Conferências e evidências</h2><p style={{fontSize:11.5,color:C.muted,marginTop:5}}>Priorize os ajustes em aberto, registre a evidência e conclua somente após enviar a foto.</p></div>
     <div style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:9}}>{[["Pendências abertas",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Com foto do ajuste",comFoto,C.green,"camera"],["Aguardando foto",Math.max(0,abertas.length-comFoto),C.orange,"clock"]].map(([l,v,c,i])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:15,padding:15,boxShadow:"0 8px 26px rgba(20,24,28,.045)"}}><span style={{width:29,height:29,borderRadius:9,display:"grid",placeItems:"center",background:`${c}12`,color:c}}><Ic n={i} s={14}/></span><p style={{fontSize:25,fontWeight:800,color:C.text,marginTop:10}}>{v}</p><p style={{fontSize:9.5,fontWeight:800,color:C.muted,textTransform:"uppercase",marginTop:4}}>{l}</p></div>)}</div>
     <div style={{display:"flex",gap:8,alignItems:"end",flexWrap:"wrap",background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:12}}><div style={{minWidth:240,flex:1}}><Sel label="Filtrar conferências por obra" value={obraFiltro} onChange={setObraFiltro} options={[{v:"all",l:"Todas as obras disponíveis"},...obras.map(o=>({v:o.id,l:o.name}))]}/></div><Btn v="ghost" onClick={()=>onTab("obras")}><Ic n="building"/> Abrir todas as obras</Btn>{currentUser?.obraId&&<p style={{width:"100%",fontSize:9.5,color:C.orange}}>Seu cadastro está restrito a uma obra. O administrador pode liberar “Todas as obras” na Central do Administrador.</p>}</div>
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,overflow:"hidden",boxShadow:"0 10px 30px rgba(20,24,28,.045)"}}><div style={{padding:"13px 15px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between"}}><b style={{fontSize:12.5,color:C.text}}>Inconformidades para ajustar</b><span style={{fontSize:9.5,color:C.muted}}>Somente em aberto</span></div>{!abertas.length?<div style={{padding:30,textAlign:"center"}}><Ic n="check" s={24} color={C.green}/><p style={{fontSize:12,fontWeight:750,color:C.text,marginTop:7}}>Nenhuma pendência aberta neste filtro</p></div>:abertas.map(({p,c,obra},index)=>{const foto=(p.fotos||[]).some(f=>f.tipo==="ajuste");return <button key={`${c.id}-${p.id}`} onClick={()=>abrir(c)} style={{width:"100%",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",padding:"13px 15px",display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,.7fr) minmax(260px,1.5fr) 130px 130px 26px":"1fr auto",gap:12,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div><p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>{obra?.name||"Obra"}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>CONF-{String(c.codigo||0).padStart(3,"0")}</p></div><div style={{minWidth:0}}><p style={{fontSize:11.5,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.descricao}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.ajusteNecessario}</p></div><span style={{display:isDesktop?"inline-flex":"none",justifySelf:"start"}}><Badge color={impacto[p.impacto]||C.orange}>{p.impacto}</Badge></span><span style={{fontSize:9.5,fontWeight:800,color:foto?C.green:C.orange,whiteSpace:"nowrap"}}>{foto?"Foto enviada":"Aguardando foto"}</span><span style={{fontSize:18,color:C.muted}}>›</span></button>;})}</div>
@@ -3717,6 +3806,7 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
   const hoje=today();
   const fimMes=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,"0")}`;
   const abasPermitidas=allowedTabsForUser(currentUser);
+  const filaOperador=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
 
   const comercial=data.comercial||{};
   const leadsAtivos=(comercial.leads||[]).filter(l=>l.status!=="perdido"&&!['perdido','arquivado','transferido'].includes(l.etapa));
@@ -3736,7 +3826,7 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
     ...alertasBase,
   ].filter(a=>abasPermitidas.includes(a.tab)).filter((a,i,arr)=>arr.findIndex(x=>x.texto===a.texto)===i).sort((a,b)=>b.sev-a.sev);
 
-  const Card=({label,value,detail,icon,color=C.blue,tab})=>{const acessivel=tab&&abasPermitidas.includes(tab);return <button onClick={()=>acessivel&&onTab(tab)} className="lift-card" style={{
+  const Card=({label,value,detail,icon,color=C.blue,tab})=>{const acessivel=tab&&abasPermitidas.includes(tab);if(tab&&!acessivel)return null;return <button onClick={()=>acessivel&&onTab(tab)} className="lift-card" style={{
     minWidth:0,textAlign:"left",cursor:tab?"pointer":"default",border:"1px solid rgba(27,31,36,.08)",
     background:"rgba(255,255,255,.92)",borderRadius:16,padding:"16px 17px",boxShadow:"0 8px 28px rgba(20,24,28,.045)",
   }}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><span style={{fontSize:10,fontWeight:750,letterSpacing:.65,textTransform:"uppercase",color:"#777D83"}}>{label}</span><span style={{width:30,height:30,borderRadius:9,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={14}/></span></div><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(21px,2vw,28px)",fontWeight:780,letterSpacing:-.8,color:"#17191C",marginTop:12,lineHeight:1}}>{value}</p><p style={{fontSize:10.5,color:"#8A8F94",marginTop:7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{detail}</p></button>;};
@@ -3747,7 +3837,10 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
     {/* Marca d'água institucional: grande, porém abaixo de todo o conteúdo. */}
     <img src={ARCD_LOGO} alt="" aria-hidden="true" style={{position:"fixed",right:isDesktop?"4%":"-12%",bottom:"3%",width:isDesktop?430:280,height:isDesktop?430:280,objectFit:"contain",opacity:.018,pointerEvents:"none",filter:"grayscale(1)",zIndex:0}}/>
 
-    <section style={{position:"relative",zIndex:1,padding:isDesktop?"8px 2px 4px":0,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18,flexWrap:"wrap"}}>
+    <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual}/>
+    <FilaOperador fila={filaOperador} onTab={onTab}/>
+
+    <section style={{position:"relative",zIndex:1,padding:isDesktop?"8px 2px 4px":0,display:"none",justifyContent:"space-between",alignItems:"flex-start",gap:18,flexWrap:"wrap"}}>
       <div><p style={{fontSize:11,fontWeight:700,color:C.blue,letterSpacing:.8,textTransform:"uppercase",marginBottom:7}}>{empresa}</p><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(25px,4vw,38px)",letterSpacing:-1.2,lineHeight:1.05,fontWeight:760,color:"#16181A"}}>{saudacao}, {nome}.</h1><p style={{fontSize:12,color:"#858A90",marginTop:8,textTransform:"capitalize"}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})} · o que merece sua atenção hoje.</p></div>
       <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
         <button onClick={onBuscar} style={{height:38,minWidth:isDesktop?210:38,border:"1px solid rgba(27,31,36,.1)",background:"rgba(255,255,255,.88)",borderRadius:11,padding:"0 11px",display:"flex",alignItems:"center",gap:8,color:"#737980",cursor:"pointer",boxShadow:"0 4px 18px rgba(20,24,28,.035)"}}><Ic n="funnel" s={13}/>{isDesktop&&<><span style={{fontSize:11.5,flex:1,textAlign:"left"}}>Buscar no ArcD</span><span style={{fontSize:9,border:"1px solid #DDD",padding:"2px 5px",borderRadius:5}}>⌘K</span></>}</button>
