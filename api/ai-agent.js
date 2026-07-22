@@ -1,16 +1,12 @@
-// ═══════════════════════════════════════════════════════════════════
-
 import { authenticateAppUser } from "./auth.js";
+import { loadOpenAIConfig } from "./ai-config-store.js";
+
+// ═══════════════════════════════════════════════════════════════════
 // /api/ai-agent — rota serverless do Vercel
 //
-// O App.jsx já chama esta rota (linha ~6741) em vez de falar direto com
-// a Anthropic. Só que ela não existia no projeto — por isso o Agente IA
-// sempre caía no fallback de análise local.
-//
-// O ponto central: a ANTHROPIC_API_KEY fica AQUI, no servidor. Ela NÃO
-// leva o prefixo REACT_APP_ — se levasse, o Vercel a embutiria no bundle
-// JavaScript e qualquer pessoa leria a chave no DevTools e gastaria seus
-// créditos. É exatamente isso que o SETUP.md antigo mandava fazer.
+// Todas as telas usam esta única ponte autenticada. A chave OpenAI é lida do
+// cofre configurado pelo administrador (ou do ambiente como contingência) e
+// nunca é devolvida ao navegador.
 // ═══════════════════════════════════════════════════════════════════
 
 export const config = { api: { bodyParser: { sizeLimit: "8mb" } } };
@@ -23,9 +19,10 @@ export default async function handler(req, res) {
   const user = await authenticateAppUser(req.body || {});
   if (!user) return res.status(401).json({ error: "Sessão inválida." });
 
-  const apiKey = String(process.env.ANTHROPIC_API_KEY || "").trim(); // sem REACT_APP_ — server-side
+  const aiConfig=await loadOpenAIConfig();
+  const apiKey=aiConfig.apiKey;
   if (req.body?.action === "status") {
-    return res.status(200).json({ ok: true, configured: !!apiKey, provider: "anthropic" });
+    return res.status(200).json({ok:true,configured:!!apiKey,provider:"openai",model:aiConfig.model,source:aiConfig.source});
   }
   if (!apiKey) {
     return res.status(503).json({
@@ -53,26 +50,12 @@ export default async function handler(req, res) {
     }));
     const imagensValidas=(Array.isArray(imagens)?imagens:[]).slice(0,6).map(img=>{
       const match=String(img?.dataUrl||"").match(/^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/);
-      return match?{mediaType:match[1],data:match[2],legenda:String(img?.legenda||"").slice(0,300)}:null;
+      return match?{dataUrl:String(img.dataUrl),legenda:String(img?.legenda||"").slice(0,300)}:null;
     }).filter(Boolean);
     const documentosValidos=(Array.isArray(documentos)?documentos:[]).slice(0,3).map(doc=>{
       const match=String(doc?.dataUrl||"").match(/^data:(application\/pdf);base64,([A-Za-z0-9+/=]+)$/);
-      return match?{mediaType:match[1],data:match[2],nome:String(doc?.nome||"documento.pdf").slice(0,180)}:null;
+      return match?{dataUrl:String(doc.dataUrl),nome:String(doc?.nome||"documento.pdf").slice(0,180)}:null;
     }).filter(Boolean);
-    if(imagensValidas.length||documentosValidos.length){
-      const ultima=historico.length-1;
-      historico[ultima]={role:"user",content:[
-        {type:"text",text:historico[ultima].content},
-        ...imagensValidas.flatMap((img,index)=>[
-          {type:"text",text:`Foto ${index+1}${img.legenda?` — legenda informada: ${img.legenda}`:""}`},
-          {type:"image",source:{type:"base64",media_type:img.mediaType,data:img.data}},
-        ]),
-        ...documentosValidos.flatMap((doc,index)=>[
-          {type:"text",text:`Documento PDF ${index+1} — ${doc.nome}`},
-          {type:"document",source:{type:"base64",media_type:doc.mediaType,data:doc.data},title:doc.nome},
-        ]),
-      ]};
-    }
 
     const system = [
       "Você é o assistente da ARCD Construtech, empresa de gestão de obras em Caruaru/PE.",
@@ -82,32 +65,47 @@ export default async function handler(req, res) {
       (contexto || context) ? `\n\nDados atuais do sistema:\n${JSON.stringify(contexto || context).slice(0, 20000)}` : "",
     ].join(" ");
 
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const conversa=historico.map(m=>`${m.role==="assistant"?"Assistente":"Operador"}: ${m.content}`).join("\n\n");
+    const content=[
+      {type:"input_text",text:conversa},
+      ...imagensValidas.flatMap((img,index)=>[
+        {type:"input_text",text:`Foto ${index+1}${img.legenda?` — legenda informada: ${img.legenda}`:""}`},
+        {type:"input_image",image_url:img.dataUrl,detail:"auto"},
+      ]),
+      ...documentosValidos.flatMap((doc,index)=>[
+        {type:"input_text",text:`Documento PDF ${index+1} — ${doc.nome}`},
+        {type:"input_file",filename:doc.nome,file_data:doc.dataUrl,detail:"high"},
+      ]),
+    ];
+
+    const r = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        Authorization:`Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1500,
-        system,
-        messages: historico,
+        model:aiConfig.model,
+        instructions:system,
+        input:[{role:"user",content}],
+        max_output_tokens:1500,
+        store:false,
       }),
     });
 
     if (!r.ok) {
-      const detalhe = await r.text();
-      console.error("Anthropic respondeu erro:", r.status, detalhe);
-      // Não vaza o corpo do erro para o cliente — pode conter dados da conta
+      const detalhe=await r.text();
+      console.error("OpenAI respondeu erro:",r.status,detalhe.slice(0,800));
+      if(r.status===401)return res.status(502).json({error:"A autenticação OpenAI precisa ser atualizada pelo administrador.",code:"AI_AUTH_INVALID"});
+      if(r.status===429)return res.status(429).json({error:"O limite ou saldo da OpenAI foi atingido. Tente novamente mais tarde.",code:"AI_RATE_LIMIT"});
       return res.status(502).json({ error: "O serviço de IA não respondeu." });
     }
 
     const data = await r.json();
-    const texto = (data.content || [])
-      .filter(b => b.type === "text")
-      .map(b => b.text)
+    const texto = String(data.output_text||"").trim() || (data.output||[])
+      .flatMap(item=>item.content||[])
+      .filter(item=>item.type==="output_text")
+      .map(item=>item.text||"")
       .join("\n")
       .trim();
 

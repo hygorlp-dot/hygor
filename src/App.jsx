@@ -29,7 +29,8 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          resolverCodigosReferencia, detalharComposicoesReferencia,
          removerBaseReferencia,
          arquivarQuinzena, restaurarQuinzena,
-         carregarQuinzenaArquivada, chamarIA, verificarStatusIA, consultarCNPJReceita } from "./api";
+         carregarQuinzenaArquivada, chamarIA, verificarStatusIA, configurarOpenAI,
+         removerConfiguracaoOpenAI, consultarCNPJReceita } from "./api";
 
 // 
 // ARCD OBRAS - App.jsx auditado
@@ -12473,8 +12474,31 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
   const { formGrid } = useBreakpoint();
   const [form, setForm] = useState(data.config);
   const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
+  const [openAIKey,setOpenAIKey]=useState("");
+  const [aiStatus,setAIStatus]=useState({carregando:true,configured:false,provider:"openai",model:""});
+  const [salvandoIA,setSalvandoIA]=useState(false);
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
   const holidays = getPayrollHolidays(data, holidayYear);
+
+  const carregarStatusIA=useCallback(async()=>{
+    const status=await verificarStatusIA();
+    setAIStatus({carregando:false,configured:!!status.configured,provider:status.provider||"openai",model:status.model||"",source:status.source||"none",updatedAt:status.updatedAt||"",updatedBy:status.updatedBy||"",error:status.ok?"":status.error||"Falha ao verificar."});
+  },[]);
+  useEffect(()=>{carregarStatusIA();},[carregarStatusIA]);
+  const salvarIntegracaoIA=async()=>{
+    if(!openAIKey.trim()){showToast("Cole uma chave de projeto da OpenAI.","error");return;}
+    setSalvandoIA(true);
+    const result=await configurarOpenAI(openAIKey.trim());
+    setSalvandoIA(false);
+    if(!result.ok){showToast(result.error||"Não foi possível validar a chave.","error");return;}
+    setOpenAIKey("");await carregarStatusIA();showToast("OpenAI conectada para todas as IAs do ArcD.");
+  };
+  const desconectarIntegracaoIA=async()=>{
+    if(!window.confirm("Desconectar a OpenAI configurada no ArcD?"))return;
+    setSalvandoIA(true);const result=await removerConfiguracaoOpenAI();setSalvandoIA(false);
+    if(!result.ok){showToast(result.error||"Não foi possível desconectar.","error");return;}
+    await carregarStatusIA();showToast(result.configured?"Configuração do administrador removida; a chave do ambiente continua ativa.":"OpenAI desconectada.");
+  };
 
   const saveConfig = () => {
     update({ ...data, config: { ...data.config, ...form } });
@@ -12531,6 +12555,14 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
           <Inp label="E-mail aprovador" value={form.approverEmail} onChange={setField("approverEmail")} />
         </div>
         <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
+      </div>
+
+      <div style={{background:C.card,border:`1px solid ${aiStatus.configured?C.green:C.border}`,borderLeft:`4px solid ${aiStatus.configured?C.green:C.yellow}`,borderRadius:10,padding:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:9,fontWeight:900,color:C.yellow,letterSpacing:1,textTransform:"uppercase"}}>Inteligência artificial corporativa</p><h3 style={{fontSize:17,marginTop:3}}>OpenAI · integração única</h3><p style={{fontSize:10.5,color:C.muted,marginTop:4,maxWidth:720}}>Esta autenticação atende Compras, Financeiro, Diário de Obra, Orçamento, Planejamento, auditoria administrativa e o agente geral. A chave fica criptografada no servidor e não aparece novamente.</p></div><Badge color={aiStatus.carregando?C.orange:aiStatus.configured?C.green:C.red}>{aiStatus.carregando?"VERIFICANDO":aiStatus.configured?"OPENAI CONECTADA":"NÃO CONFIGURADA"}</Badge></div>
+        {aiStatus.configured&&<div style={{marginTop:10,padding:"8px 10px",borderRadius:8,background:`${C.green}0A`,border:`1px solid ${C.green}33`,fontSize:10,color:C.subtle}}>Modelo: <strong>{aiStatus.model||"OpenAI"}</strong> · origem: {aiStatus.source==="admin"?"configurada pelo administrador":"ambiente seguro da Vercel"}{aiStatus.updatedBy?` · por ${aiStatus.updatedBy}`:""}</div>}
+        {aiStatus.error&&<p style={{fontSize:10,color:C.red,marginTop:8}}>{aiStatus.error}</p>}
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9,marginTop:12,alignItems:"end"}}><Inp label={aiStatus.configured?"Substituir chave de projeto":"Chave de projeto OpenAI"} type="password" value={openAIKey} onChange={setOpenAIKey} placeholder="Cole a chave somente aqui"/><div style={{display:"flex",gap:7,flexWrap:"wrap"}}><Btn onClick={salvarIntegracaoIA} disabled={salvandoIA||!openAIKey.trim()}><Ic n="check"/> {salvandoIA?"Validando...":aiStatus.configured?"Validar e substituir":"Validar e conectar"}</Btn>{aiStatus.source==="admin"&&<Btn v="danger" onClick={desconectarIntegracaoIA} disabled={salvandoIA}>Desconectar</Btn>}</div></div>
+        <p style={{fontSize:9.5,color:C.muted,marginTop:9}}>Use uma chave criada no <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{color:C.blue,fontWeight:800}}>painel da API da OpenAI ↗</a>. A senha do ChatGPT e a assinatura do ChatGPT não funcionam como credencial de API.</p>
       </div>
 
       {/* DRE - Alíquotas e tributação */}
