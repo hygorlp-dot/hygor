@@ -2127,6 +2127,7 @@ const normalizeData = incoming => {
       materialId: x.materialId || "",
       qtd:        Number(x.qtd || 0),
       data:       x.data       || "",
+      orcItemId:  x.orcItemId  || "",
       status:     x.status     || "aberta",   // aberta | decidida | cancelada
       propostas: Array.isArray(x.propostas) ? x.propostas.map(p => ({
         id:           p.id           || uid(),
@@ -2137,6 +2138,11 @@ const normalizeData = incoming => {
       })) : [],
       escolhida:  x.escolhida  || "",         // id da proposta vencedora
       pedidoId:   x.pedidoId   || "",         // pedido gerado a partir dela
+      decididoPorId:x.decididoPorId||"",
+      decididoPorNome:x.decididoPorNome||"",
+      decididoEm:x.decididoEm||"",
+      justificativaEscolha:x.justificativaEscolha||"",
+      economia:Number(x.economia||0),
     })) : [],
 
     pedidos: Array.isArray(d.pedidos) ? d.pedidos.map(x => ({
@@ -21109,7 +21115,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
   );
 }
 
-function ModalCotacao({ form, setForm, onSave, fornecedores, materiais }) {
+function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOrc=[] }) {
   const { formGrid } = useBreakpoint();
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const setP = (i, campo, v) =>
@@ -21129,6 +21135,7 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais }) {
           <Sel label="Material *" value={form.materialId} onChange={F("materialId")}
                options={[{v:"",l:"Selecione..."}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
           <Inp label="Quantidade *" type="number" value={form.qtd} onChange={F("qtd")} placeholder="0"/>
+          <div style={{gridColumn:"1/-1"}}><Sel label="Apropriar ao item do orçamento" value={form.orcItemId||""} onChange={F("orcItemId")} options={[{v:"",l:linhasOrc.length?"Selecione a linha":"Nenhuma linha orçamentária disponível"},...linhasOrc.map(l=>({v:l.id,l:`${l.etapa} · ${l.descricao}`}))]}/></div>
         </div>
 
         <p style={{fontSize:11,color:C.muted}}>Propostas recebidas (mínimo 2):</p>
@@ -21268,6 +21275,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const [pedModal,  setPedModal]  = useState(null);
   const [recModal,  setRecModal]  = useState(null);   // recebimento
   const [cotModal,  setCotModal]  = useState(null);
+  const [cotDecisao,setCotDecisao]=useState(null);
   const [fornModal, setFornModal] = useState(null);
   const [solModal,setSolModal]=useState(null);
   const [basesReferenciaCompra,setBasesReferenciaCompra]=useState([]);
@@ -21557,6 +21565,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
     const c = {
       id: f.id || uid(), obraId: f.obraId || obraAtual,
       materialId: f.materialId, qtd: Number(f.qtd),
+      orcItemId:f.orcItemId||"",
       data: f.data || new Date().toISOString().slice(0,10),
       status: "aberta", propostas: props, escolhida: "", pedidoId: "",
     };
@@ -21568,9 +21577,12 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
   };
 
   // Cotação decidida vira pedido, sem redigitar nada
-  const gerarPedidoDaCotacao = (cot, propostaId) => {
+  const gerarPedidoDaCotacao = (cot, propostaId, justificativa="") => {
     const prop = cot.propostas.find(p => p.id === propostaId);
     if (!prop) return;
+    const menor=Math.min(...cot.propostas.map(p=>Number(p.precoUnit||0)).filter(v=>v>0));
+    const melhor=Number(prop.precoUnit||0)<=menor+0.000001;
+    if(!melhor&&!String(justificativa||"").trim()){showToast("Justifique a escolha de uma proposta que não é a mais barata.","error");return;}
 
     const numero = `PC-${String((data.pedidos||[]).length + 1).padStart(4,"0")}`;
     const pedido = {
@@ -21579,7 +21591,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
       data: new Date().toISOString().slice(0,10),
       previsao: "", status: "enviado",
       itens: [{ id: uid(), materialId: cot.materialId, qtd: cot.qtd,
-                precoUnit: prop.precoUnit, qtdRecebida: 0 }],
+                precoUnit: prop.precoUnit, qtdRecebida: 0, orcItemId:cot.orcItemId||"" }],
       cotacaoId: cot.id, transacaoId: "", obs: "",
     };
 
@@ -21587,8 +21599,12 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
       ...data,
       pedidos: [...(data.pedidos||[]), pedido],
       cotacoes: (data.cotacoes||[]).map(c => c.id === cot.id
-        ? { ...c, status:"decidida", escolhida: propostaId, pedidoId: pedido.id } : c),
+        ? { ...c, status:"decidida", escolhida: propostaId, pedidoId: pedido.id,
+          decididoPorId:currentUser?.id||"",decididoPorNome:currentUser?.nome||"",
+          decididoEm:new Date().toISOString(),justificativaEscolha:String(justificativa||"").trim(),
+          economia:Math.max(0,(Math.max(...cot.propostas.map(p=>Number(p.precoUnit||0)))-Number(prop.precoUnit||0))*Number(cot.qtd||0)) } : c),
     });
+    setCotDecisao(null);
     showToast(`Pedido ${numero} gerado a partir da cotação.`);
     setAba("pedidos");
   };
@@ -21970,7 +21986,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
           </p>
         </div>
         <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,materialId:"",qtd:"",
-          data:new Date().toISOString().slice(0,10),
+          orcItemId:"",data:new Date().toISOString().slice(0,10),
           propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:""},
                      {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:""}]})} full>
           <Ic n="plus"/> Nova cotação
@@ -22029,7 +22045,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
                         </div>
                         {c.status === "aberta" && (
                           <Btn size="sm" v={eh ? "primary" : "ghost"}
-                            onClick={()=>gerarPedidoDaCotacao(c, p.id)}
+                            onClick={()=>setCotDecisao({cotacaoId:c.id,propostaId:p.id,justificativa:""})}
                             full style={{marginTop:7}}>
                             Escolher e gerar pedido
                           </Btn>
@@ -22038,6 +22054,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
                     );
                   })}
                 </div>
+                {c.status==="decidida"&&<div style={{marginTop:8,padding:"7px 9px",background:`${C.green}08`,border:`1px solid ${C.green}30`,borderRadius:6}}><p style={{fontSize:9.5,color:C.green,fontWeight:800}}>DECIDIDO POR {c.decididoPorNome||"OPERADOR"} · {c.decididoEm?new Date(c.decididoEm).toLocaleString("pt-BR"):"data não registrada"}</p>{c.justificativaEscolha&&<p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Justificativa: {c.justificativaEscolha}</p>}<p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Economia frente à maior proposta: <b style={{color:C.green}}>{fmt(c.economia||0)}</b></p></div>}
               </div>
             );
           })}
@@ -22142,7 +22159,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
                                      fornecedores={fornecedores} materiais={materiais}
                                      linhasOrc={linhasOrc} data={data} basesReferencia={basesCompra}/>}
       {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
-                                     fornecedores={fornecedores} materiais={materiais}/>}
+                                     fornecedores={fornecedores} materiais={materiais} linhasOrc={linhasOrc}/>}
+      {cotDecisao&&(()=>{const cot=(data.cotacoes||[]).find(c=>c.id===cotDecisao.cotacaoId);const prop=cot?.propostas?.find(p=>p.id===cotDecisao.propostaId);if(!cot||!prop)return null;const menor=Math.min(...cot.propostas.map(p=>Number(p.precoUnit||0)).filter(v=>v>0));const fora=Number(prop.precoUnit)>menor+0.000001;return <Modal title="Decisão da cotação" onClose={()=>setCotDecisao(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}><div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:12,fontWeight:850,color:C.text}}>{nomeMat(cot.materialId)}</p><p style={{fontSize:10,color:C.muted,marginTop:3}}>{nomeForn(prop.fornecedorId)} · {fmt(prop.precoUnit*cot.qtd)} · prazo {prop.prazoDias||0} dia(s)</p></div>{fora&&<div style={{background:`${C.orange}0C`,border:`1px solid ${C.orange}`,borderRadius:6,padding:"8px 10px"}}><p style={{fontSize:10.5,color:C.orange,fontWeight:850}}>Esta não é a proposta de menor preço.</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Registre o motivo: prazo, qualidade, disponibilidade, condição de pagamento ou especificação.</p></div>}<Inp label={fora?"Justificativa obrigatória *":"Observação da decisão"} value={cotDecisao.justificativa} onChange={v=>setCotDecisao(d=>({...d,justificativa:v}))} multiline placeholder="Critério usado para escolher o fornecedor..."/><div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setCotDecisao(null)}>Cancelar</Btn><Btn full onClick={()=>gerarPedidoDaCotacao(cot,prop.id,cotDecisao.justificativa)} disabled={fora&&!cotDecisao.justificativa.trim()}>Aprovar e gerar pedido</Btn></div></div></Modal>;})()}
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
                                       onReceber={receber} nomeMat={nomeMat} unidMat={unidMat}
                                       nomeForn={nomeForn}/>}
