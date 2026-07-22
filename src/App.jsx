@@ -26612,6 +26612,103 @@ const CONFERENCIA_STATUS = [
   {v:"aguardando_validacao",l:"Aguardando validação"},{v:"resolvida",l:"Conforme"},
 ];
 
+// Ranking de qualidade calculado em tempo real. Nao persiste uma nota no blob:
+// ela sempre nasce novamente das vistorias, prazos e validacoes existentes, o
+// que evita indicadores desatualizados depois que uma correcao e aprovada.
+const QUALIDADE_PESO_IMPACTO={baixo:1,medio:3,alto:6,critico:10};
+const qualidadeDataValida=v=>{const d=v?new Date(v):null;return d&&!Number.isNaN(d.getTime())?d:null;};
+const qualidadeDias=(inicio,fim=new Date())=>{const a=qualidadeDataValida(inicio),b=qualidadeDataValida(fim);return a&&b?Math.max(0,Math.floor((b-a)/86400000)):0;};
+const qualidadeAssinatura=p=>{
+  const ignorar=new Set(["para","com","sem","uma","de","da","do","das","dos","que","foi","esta","este","obra","local"]);
+  const termos=String(p.descricao||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(x=>x.length>2&&!ignorar.has(x)).slice(0,5);
+  return `${p.etapaId||"sem-etapa"}|${p.categoria||"pendencia"}|${termos.join("-")||"sem-descricao"}`;
+};
+
+function calcularRankingQualidade(data,conferencias,periodoDias=90){
+  const agora=new Date(),hoje=new Date(agora);hoje.setHours(23,59,59,999);
+  const limite=periodoDias?new Date(hoje.getTime()-periodoDias*86400000):null;
+  const confs=(conferencias||[]).filter(c=>{const d=qualidadeDataValida(c.data||c.criadoEm);return !limite||!d||d>=limite;});
+  const ocorrencias=[];
+  confs.forEach(c=>(c.pendencias||[]).forEach(p=>{
+    const inicio=p.criadoEm||c.data||c.criadoEm;
+    const fim=p.resolvidoEm||agora;
+    const aberta=p.status!=="resolvida";
+    const prazo=qualidadeDataValida(p.prazo);
+    const prazoLimite=prazo?new Date(prazo):null;if(prazoLimite)prazoLimite.setHours(23,59,59,999);
+    const encerramento=qualidadeDataValida(p.resolvidoEm);
+    const validacoes=p.validacoes||[];
+    ocorrencias.push({
+      ...p,conferenciaId:c.id,obraId:c.obraId,vistoriaData:c.data||c.criadoEm,
+      engenheiroId:p.responsavelAjusteId||"nao-definido",
+      engenheiroNome:p.responsavelAjusteNome||"Responsável não definido",
+      aberta,atrasada:!!prazoLimite&&(aberta?prazoLimite<agora:!!encerramento&&encerramento>prazoLimite),
+      critica:p.impacto==="critico",diasAberta:qualidadeDias(inicio,fim),
+      peso:(QUALIDADE_PESO_IMPACTO[p.impacto]||3)*(p.categoria==="patologia"?1.2:p.categoria==="inconformidade"?1.1:1),
+      rejeitada:validacoes.some(v=>v.resultado==="nao_conforme"),
+      aprovadaPrimeira:validacoes.some(v=>v.resultado==="conforme")&&!validacoes.some(v=>v.resultado==="nao_conforme"),
+      assinatura:qualidadeAssinatura(p),
+    });
+  }));
+  const repeticoes=new Map();
+  ocorrencias.forEach(o=>{const k=`${o.obraId}|${o.assinatura}`;repeticoes.set(k,(repeticoes.get(k)||0)+1);});
+  ocorrencias.forEach(o=>{o.reincidente=(repeticoes.get(`${o.obraId}|${o.assinatura}`)||0)>1;});
+
+  const consolidar=(id,nome,itens,extra={})=>{
+    const total=itens.length,abertas=itens.filter(x=>x.aberta),resolvidas=itens.filter(x=>!x.aberta);
+    const atrasadas=itens.filter(x=>x.atrasada),criticas=abertas.filter(x=>x.critica),reincidentes=itens.filter(x=>x.reincidente);
+    const comPrazoResolvidas=resolvidas.filter(x=>x.prazo);
+    const pontuais=comPrazoResolvidas.filter(x=>!x.atrasada).length;
+    const validadas=itens.filter(x=>(x.validacoes||[]).length);
+    const primeira=validadas.filter(x=>x.aprovadaPrimeira).length;
+    const mediaIdade=abertas.length?abertas.reduce((s,x)=>s+x.diasAberta,0)/abertas.length:0;
+    const mediaResolucao=resolvidas.length?resolvidas.reduce((s,x)=>s+x.diasAberta,0)/resolvidas.length:0;
+    const proporcao=n=>total?n/total:0;
+    // Maior indice = maior necessidade de intervencao. Volume tem apenas 10%
+    // para manter a comparacao justa entre obras e equipes de portes distintos.
+    const atencao=Math.round(100*(
+      .25*proporcao(criticas.length)+.20*proporcao(atrasadas.length)+.15*proporcao(abertas.length)+
+      .15*proporcao(reincidentes.length)+.15*Math.min(mediaIdade/45,1)+.10*Math.min(total/10,1)
+    ));
+    const resolucao=total?resolvidas.length/total:1;
+    const pontualidade=comPrazoResolvidas.length?pontuais/comPrazoResolvidas.length:(resolvidas.length?1:total?0:1);
+    const primeiraTentativa=validadas.length?primeira/validadas.length:(resolvidas.length?1:total?0:1);
+    const velocidade=resolvidas.length?Math.max(0,1-mediaResolucao/45):(total?0:1);
+    const eficiencia=Math.round(100*(.35*resolucao+.25*pontualidade+.25*primeiraTentativa+.15*velocidade));
+    return {id,nome,...extra,total,abertas:abertas.length,resolvidas:resolvidas.length,atrasadas:atrasadas.length,
+      criticas:criticas.length,reincidentes:reincidentes.length,mediaIdade:Math.round(mediaIdade),mediaResolucao:Math.round(mediaResolucao),
+      pontosSeveridade:Math.round(itens.reduce((s,x)=>s+x.peso,0)*10)/10,atencao,qualidade:100-atencao,eficiencia};
+  };
+
+  const obrasIds=new Set(confs.map(c=>c.obraId));
+  const obras=(data.obras||[]).filter(o=>obrasIds.has(o.id)).map(o=>consolidar(o.id,o.name||"Obra",ocorrencias.filter(x=>x.obraId===o.id),{codigo:o.code||o.codigo||""}));
+  const engenheirosAtivos=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
+  const engenheirosIds=new Set([...engenheirosAtivos.map(u=>u.id),...ocorrencias.map(x=>x.engenheiroId)]);
+  const engenheiros=[...engenheirosIds].map(id=>{const u=engenheirosAtivos.find(x=>x.id===id),itens=ocorrencias.filter(x=>x.engenheiroId===id);return consolidar(id,u?.nome||itens[0]?.engenheiroNome||"Responsável não definido",itens);});
+  const ordenar=(a,b)=>b.atencao-a.atencao||b.atrasadas-a.atrasadas||b.pontosSeveridade-a.pontosSeveridade||a.nome.localeCompare(b.nome);
+  return {obras:obras.sort(ordenar),engenheiros:engenheiros.sort(ordenar),resumo:{vistorias:confs.length,achados:ocorrencias.length,abertos:ocorrencias.filter(x=>x.aberta).length,criticos:ocorrencias.filter(x=>x.aberta&&x.critica).length,atrasados:ocorrencias.filter(x=>x.atrasada).length,reincidentes:ocorrencias.filter(x=>x.reincidente).length}};
+}
+
+function RankingQualidade({data,conferencias,obraIdFixo="",onSelecionarObra}){
+  const [visao,setVisao]=useState("obras");
+  const [periodo,setPeriodo]=useState("90");
+  const ranking=useMemo(()=>calcularRankingQualidade(data,(conferencias||[]).filter(c=>!obraIdFixo||c.obraId===obraIdFixo),Number(periodo)||0),[data.obras,data.usuarios,conferencias,obraIdFixo,periodo]);
+  const linhas=ranking[visao];
+  const corRisco=v=>v>=60?C.red:v>=35?C.orange:C.green;
+  return <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden",boxShadow:C.shHair}}>
+    <div style={{padding:"10px 12px",display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap",borderBottom:`1px solid ${C.line}`,background:C.surface}}>
+      <div><p style={{fontSize:11.5,fontWeight:850,color:C.text}}>Ranking automático da qualidade</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Prioriza quem exige atenção primeiro, sem misturar risco atual com eficiência de correção.</p></div>
+      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+        <div style={{display:"flex",border:`1px solid ${C.border}`,borderRadius:7,overflow:"hidden"}}>{[["obras","Por obra"],["engenheiros","Por engenheiro"]].map(([v,l])=><button key={v} onClick={()=>setVisao(v)} style={{border:0,borderRight:v==="obras"?`1px solid ${C.border}`:0,background:visao===v?C.blue:"transparent",color:visao===v?"white":C.muted,padding:"5px 8px",fontSize:9,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>
+        <select value={periodo} onChange={e=>setPeriodo(e.target.value)} aria-label="Período do ranking" style={{border:`1px solid ${C.border}`,background:C.bg,borderRadius:7,padding:"4px 7px",fontSize:9.5,color:C.text}}><option value="30">30 dias</option><option value="90">90 dias</option><option value="365">12 meses</option><option value="0">Todo o histórico</option></select>
+      </div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:1,background:C.line,borderBottom:`1px solid ${C.line}`}}>{[["Vistorias",ranking.resumo.vistorias,C.blue],["Achados",ranking.resumo.achados,C.text],["Em aberto",ranking.resumo.abertos,C.orange],["Críticos",ranking.resumo.criticos,C.red],["Atrasados",ranking.resumo.atrasados,C.red],["Reincidentes",ranking.resumo.reincidentes,C.purple]].map(([l,v,c])=><div key={l} style={{padding:"7px 9px",background:C.bg}}><p style={{fontSize:7.5,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}>{l}</p><p style={{fontSize:15,fontWeight:850,color:c,marginTop:2}}>{v}</p></div>)}</div>
+    <div className="scroll-x"><table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}><thead><tr>{["#",visao==="obras"?"Obra":"Engenheiro de campo","Qualidade","Atenção","Achados","Abertos","Atrasados","Críticos","Reincid.","Eficiência"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h==="#"||h=== (visao==="obras"?"Obra":"Engenheiro de campo")?"left":"right",borderBottom:`1px solid ${C.line}`}}>{h}</th>)}</tr></thead><tbody>{linhas.map((r,i)=><tr key={r.id} onClick={()=>visao==="obras"&&onSelecionarObra?.(r.id)} style={{cursor:visao==="obras"?"pointer":"default",background:i===0&&r.atencao?`${corRisco(r.atencao)}06`:C.bg}}><td style={{padding:"7px 8px",fontWeight:850,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{i+1}</td><td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>{r.nome}</p>{r.codigo&&<p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{r.codigo}</p>}</td><td style={{padding:"7px 8px",textAlign:"right",fontWeight:850,color:corRisco(r.atencao),borderBottom:`1px solid ${C.line}`}}>{r.qualidade}/100</td><td style={{padding:"7px 8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}><Badge color={corRisco(r.atencao)}>{r.atencao}</Badge></td>{[r.total,r.abertas,r.atrasadas,r.criticas,r.reincidentes].map((v,j)=><td key={j} style={{padding:"7px 8px",textAlign:"right",fontWeight:v?750:500,color:v&&(j===2||j===3)?C.red:C.text,borderBottom:`1px solid ${C.line}`}}>{v}</td>)}<td style={{padding:"7px 8px",textAlign:"right",fontWeight:800,color:r.eficiencia>=80?C.green:r.eficiencia>=60?C.orange:C.red,borderBottom:`1px solid ${C.line}`}}>{r.eficiencia}%</td></tr>)}</tbody></table></div>
+    {!linhas.length&&<div style={{padding:18,textAlign:"center",fontSize:10.5,color:C.muted}}>Ainda não há vistorias no período selecionado.</div>}
+    <details style={{padding:"8px 11px",fontSize:9.5,color:C.muted}}><summary style={{cursor:"pointer",fontWeight:800,color:C.blue}}>Como o ranking é calculado</summary><div style={{marginTop:7,lineHeight:1.55}}>O <strong>índice de atenção</strong> (maior é pior) pondera críticos 25%, atrasos 20%, abertos 15%, reincidência 15%, idade 15% e volume 10%. A nota de qualidade é 100 menos esse índice. A <strong>eficiência</strong> considera resolução 35%, prazo 25%, aprovação na primeira tentativa 25% e velocidade 15%. Reincidência significa o mesmo tipo de achado, na mesma etapa e com descrição equivalente, repetido em mais de uma vistoria.</div></details>
+  </section>;
+}
+
 const criteriosQualidade=(tipo,nome="")=>{
   const n=String(nome).toUpperCase();
   if(tipo==="fvm")return [
@@ -26771,7 +26868,8 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const podeVerConferencia=c=>ehAdmin||(ehAuditor&&(!currentUser?.obraId||c.obraId===currentUser.obraId))||(ehEngenheiro&&(c.pendencias||[]).some(p=>p.responsavelAjusteId===currentUser?.id));
   const obrasVisiveis=ehAdmin?obras:ehAuditor?obrasNoEscopo:obras.filter(o=>(data.conferencias||[]).some(c=>c.obraId===o.id&&podeVerConferencia(c)));
   const filtroValido=obrasVisiveis.some(o=>o.id===obraFiltro)?obraFiltro:(obrasVisiveis[0]?.id||"");
-  const lista=(data.conferencias||[]).filter(podeVerConferencia).filter(c=>!filtroValido||c.obraId===filtroValido).filter(c=>statusFiltro==="todas"||c.status!=="concluida"||(c.pendencias||[]).some(p=>p.status!=="resolvida")).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
+  const conferenciasVisiveis=(data.conferencias||[]).filter(podeVerConferencia);
+  const lista=conferenciasVisiveis.filter(c=>!filtroValido||c.obraId===filtroValido).filter(c=>statusFiltro==="todas"||c.status!=="concluida"||(c.pendencias||[]).some(p=>p.status!=="resolvida")).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
 
   if(!conferencia) return <div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div><h1 style={{fontSize:22,color:C.text}}>Conferência técnica</h1><p style={{fontSize:12,color:C.muted,marginTop:4}}>Vistorias, inconformidades e ajustes rastreados até a resolução</p></div>
@@ -26781,6 +26879,7 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
       {(ehAdmin||ehAuditor)&&<Btn onClick={abrirNovaConferencia} disabled={!podeCriarConferencia} title={!podeCriarConferencia?"Nenhuma obra ativa está disponível no seu escopo.":"Criar nova vistoria"}><Ic n="plus"/> Nova vistoria</Btn>}
     </div>
     {ehEngenheiro&&<div style={{padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`,fontSize:10.5,color:C.blue}}>Como engenheiro de campo, você visualiza somente as pendências atribuídas a você e envia a foto da correção. A criação e a validação da vistoria pertencem ao administrador e ao engenheiro auditor.</div>}
+    {(ehAdmin||ehAuditor)&&<RankingQualidade data={data} conferencias={conferenciasVisiveis} obraIdFixo={obraIdFixo} onSelecionarObra={id=>setObraFiltro(id)}/>}
     {!lista.length?<div style={{padding:"34px 18px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="clipboard" s={26} color={C.muted}/><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:9}}>Nenhuma conferência nesta obra</p><p style={{fontSize:11,color:C.muted,marginTop:4}}>Crie a primeira vistoria técnica para começar a rastrear ajustes.</p></div>:
     <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:10}}>{lista.map(c=>{
       const abertas=(c.pendencias||[]).filter(p=>p.status!=="resolvida").length;
