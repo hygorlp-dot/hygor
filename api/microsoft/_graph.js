@@ -78,10 +78,30 @@ export const getOrCreateFolder = async (token, driveId, parentId, name) => {
   if(found)return found;
   return (await graph(token,`/drives/${driveId}/items/${parentId}/children`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:wanted,folder:{},"@microsoft.graph.conflictBehavior":"rename"})})).json();
 };
-export const workspace = async (token, obraName) => {
-  const root=await rootItem(token); const driveId=root.parentReference.driveId;
-  const obra=await getOrCreateFolder(token,driveId,root.id,obraName);
-  const names=["01 - Contratos","02 - Projetos","03 - Documentos","04 - Diário de Obras","05 - Fotos","06 - Capa da Obra","07 - Conferências Técnicas","08 - Financeiro e Fiscal","09 - Compras e Suprimentos"];
-  const folders={}; for(const name of names){folders[name]=await getOrCreateFolder(token,driveId,obra.id,name);}
-  return {driveId,folderId:obra.id,webUrl:obra.webUrl,folders:Object.fromEntries(Object.entries(folders).map(([k,v])=>[k,v.id]))};
+const ensureFolders = async (token,driveId,parentId,names) => {
+  const list=await (await graph(token,`/drives/${driveId}/items/${parentId}/children?$select=id,name,webUrl,folder`)).json();
+  const existing=(list.value||[]).filter(x=>x.folder);
+  const folders={};
+  for(const rawName of names){
+    const name=safeName(rawName);
+    const found=existing.find(x=>x.name.toLocaleLowerCase("pt-BR")===name.toLocaleLowerCase("pt-BR"));
+    folders[rawName]=found||(await graph(token,`/drives/${driveId}/items/${parentId}/children`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,folder:{},"@microsoft.graph.conflictBehavior":"rename"})}).then(r=>r.json()));
+  }
+  return {folders,children:list.value||[]};
+};
+export const workspace = async (token, obraName, knownRoot = null, knownWorkspace = null) => {
+  const root=knownRoot||await rootItem(token); const driveId=root.parentReference.driveId;
+  let obra=null;
+  if(knownWorkspace?.folderId&&knownWorkspace?.driveId===driveId){
+    try{obra=await (await graph(token,`/drives/${driveId}/items/${encodeURIComponent(knownWorkspace.folderId)}?$select=id,name,webUrl,folder`)).json();}
+    catch{obra=null;}
+  }
+  if(!obra?.folder)obra=await getOrCreateFolder(token,driveId,root.id,obraName);
+  const names=["01 - Contratos","02 - Projetos","03 - Documentos","04 - Diário de Obras","05 - Fotos","06 - Capa da Obra","07 - Conferências Técnicas","08 - Financeiro e Fiscal","09 - Compras e Suprimentos","11 - Outros"];
+  const {folders}=await ensureFolders(token,driveId,obra.id,names);
+  const licenciamento=await getOrCreateFolder(token,driveId,folders["03 - Documentos"].id,"Licenciamento");
+  return {
+    driveId,folderId:obra.id,webUrl:obra.webUrl,
+    folders:{...Object.fromEntries(Object.entries(folders).map(([k,v])=>[k,v.id])),"03 - Documentos/Licenciamento":licenciamento.id}
+  };
 };

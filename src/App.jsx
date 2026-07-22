@@ -22,7 +22,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          registrarPresenca, encerrarPresenca, listarPresencas,
          loadDataWithMeta, adoptServerVersion, subirFoto,
          conectarOneDrive, statusOneDrive, criarEstruturaOneDrive,
-         criarPastaOneDrive, enviarArquivoOneDrive, obterLinkArquivoOneDrive,
+         sincronizarEstruturasOneDrive, criarPastaOneDrive, enviarArquivoOneDrive, obterLinkArquivoOneDrive,
          listarBasesReferencia, iniciarBaseReferencia, enviarLoteReferencia,
          enviarLoteInsumosReferencia, enviarLoteComponentesReferencia,
          finalizarBaseReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
@@ -1783,6 +1783,8 @@ const normalizeData = incoming => {
       oneDriveDriveId: o.oneDriveDriveId || "",
       oneDriveFolderId: o.oneDriveFolderId || "",
       oneDriveFolders: o.oneDriveFolders && typeof o.oneDriveFolders === "object" ? o.oneDriveFolders : {},
+      oneDriveStructureVersion: Number(o.oneDriveStructureVersion || 0),
+      oneDriveStructureSyncedAt: o.oneDriveStructureSyncedAt || "",
       documentosOneDrive: Array.isArray(o.documentosOneDrive) ? o.documentosOneDrive : [],
       portalCliente: {
         ativo: !!o.portalCliente?.ativo,
@@ -6306,6 +6308,8 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
   const [clienteModal,setClienteModal]=useState(null);
   const [search, setSearch] = useState("");
   const [oneDriveStatus, setOneDriveStatus] = useState("checking");
+  const [sincronizandoPastas,setSincronizandoPastas]=useState(false);
+  const syncPastasIniciado=useRef(false);
   const ehAdmin=currentUser?.role==="admin";
   const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
   const clientes=data.comercial?.clientes||[];
@@ -6327,6 +6331,38 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
     if(!ehAdmin){setOneDriveStatus("restricted");return;}
     statusOneDrive().then(r=>setOneDriveStatus(r.ok?"connected":"disconnected"));
   },[ehAdmin]);
+  const sincronizarPastas=useCallback(async(forcar=false)=>{
+    if(!ehAdmin||oneDriveStatus!=="connected"||sincronizandoPastas)return;
+    const candidatas=(data.obras||[]).filter(o=>o.name&&(forcar||Number(o.oneDriveStructureVersion||0)<2));
+    if(!candidatas.length){if(forcar)showToast("Todas as obras já estão com a estrutura documental preparada.");return;}
+    setSincronizandoPastas(true);
+    try{
+      const resp=await sincronizarEstruturasOneDrive(candidatas.map(o=>({id:o.id,name:o.name,driveId:o.oneDriveDriveId||"",folderId:o.oneDriveFolderId||""})));
+      const resultados=Array.isArray(resp.resultados)?resp.resultados:[];
+      if(!resultados.length)throw new Error(resp.error||"O OneDrive não retornou a estrutura das obras.");
+      const porId=new Map(resultados.map(r=>[r.id,r]));
+      const agora=new Date().toISOString();
+      const obras=(data.obras||[]).map(o=>{
+        const r=porId.get(o.id);if(!r?.ok||!r.workspace)return o;
+        const completa=Number(r.migracao?.conflitos||0)===0;
+        return {...o,oneDriveDriveId:r.workspace.driveId||o.oneDriveDriveId,oneDriveFolderId:r.workspace.folderId||o.oneDriveFolderId,oneDriveFolders:r.workspace.folders||o.oneDriveFolders,oneDriveUrl:r.workspace.webUrl||o.oneDriveUrl,oneDriveStructureVersion:completa?2:1,oneDriveStructureSyncedAt:agora};
+      });
+      update({...data,obras});
+      const preparadas=resultados.filter(r=>r.ok).length;
+      const movidos=resultados.reduce((s,r)=>s+Number(r.migracao?.movidos||0),0);
+      const conflitos=resultados.reduce((s,r)=>s+Number(r.migracao?.conflitos||0),0);
+      const falhas=resultados.length-preparadas;
+      if(falhas||conflitos)showToast(`${preparadas} obra(s) preparada(s). ${movidos} item(ns) de licenciamento migrado(s). ${falhas+conflitos} pendência(s) exigem nova tentativa.`,"error");
+      else showToast(`${preparadas} obra(s) preparada(s) no OneDrive${movidos?` e ${movidos} item(ns) de licenciamento migrado(s)`:""}.`);
+    }catch(e){showToast(e.message||"Não foi possível preparar as pastas das obras.","error");}
+    finally{setSincronizandoPastas(false);}
+  },[data,ehAdmin,oneDriveStatus,showToast,sincronizandoPastas,update]);
+  useEffect(()=>{
+    if(!ehAdmin||oneDriveStatus!=="connected"||syncPastasIniciado.current)return;
+    if(!(data.obras||[]).some(o=>Number(o.oneDriveStructureVersion||0)<2))return;
+    syncPastasIniciado.current=true;
+    void sincronizarPastas(false);
+  },[data.obras,ehAdmin,oneDriveStatus,sincronizarPastas]);
 
   //  Kanban 
   const [vista,      setVista]      = useState("lista");   // "lista" | "quadro"
@@ -6512,7 +6548,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
     // travado mesmo quando o usuário alterava apenas um campo simples.
     if (ehAdmin && !form.id && !payload.oneDriveFolderId && oneDriveStatus === "connected") {
       const ws = await criarEstruturaOneDrive(payload.name);
-      if (ws.ok) payload = {...payload,oneDriveDriveId:ws.driveId,oneDriveFolderId:ws.folderId,oneDriveFolders:ws.folders||{},oneDriveUrl:ws.webUrl||payload.oneDriveUrl};
+      if (ws.ok) payload = {...payload,oneDriveDriveId:ws.driveId,oneDriveFolderId:ws.folderId,oneDriveFolders:ws.folders||{},oneDriveUrl:ws.webUrl||payload.oneDriveUrl,oneDriveStructureVersion:2,oneDriveStructureSyncedAt:new Date().toISOString()};
       else showToast(`Obra salva, mas o OneDrive não criou a pasta: ${ws.error||"falha na conexão"}`, "error");
     }
 
@@ -6602,6 +6638,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
             </div>
             <div style={{display:"flex",gap:7,flexWrap:"wrap",justifyContent:"flex-end"}}>
               {ehAdmin&&<button onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)} style={{height:38,padding:"0 12px",borderRadius:9,border:"1px solid rgba(255,255,255,.22)",background:"rgba(255,255,255,.07)",color:"#fff",fontSize:10.5,fontWeight:850,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Ic n="folder" s={14}/> Arquivos gerais</button>}
+              {ehAdmin&&oneDriveStatus==="connected"&&<button disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)} style={{height:38,padding:"0 12px",borderRadius:9,border:"1px solid rgba(255,255,255,.22)",background:"rgba(255,255,255,.07)",color:"#fff",fontSize:10.5,fontWeight:850,cursor:sincronizandoPastas?"wait":"pointer",display:"flex",alignItems:"center",gap:6,opacity:sincronizandoPastas?0.65:1}}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</button>}
               {ehAdmin&&oneDriveStatus !== "connected" && <button onClick={conectarOneDrive} style={{height:38,padding:"0 12px",borderRadius:9,border:`1px solid ${C.yellow}`,background:"transparent",color:C.yellow,fontSize:10.5,fontWeight:850,cursor:"pointer"}}>Conectar OneDrive</button>}
               <button onClick={() => { setForm(empty); setModal(true); }} style={{height:38,padding:"0 15px",borderRadius:9,border:`1px solid ${C.yellow}`,background:C.yellow,color:C.ink,fontSize:10.5,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",gap:6,boxShadow:`0 8px 24px ${C.yellow}2E`}}><Ic n="plus" s={14}/> Nova obra</button>
             </div>
