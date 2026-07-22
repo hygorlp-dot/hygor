@@ -2086,6 +2086,7 @@ const normalizeData = incoming => {
         fonteRef:i.fonteRef||"PRÓPRIO",codigoRef:i.codigoRef||"",descricaoRef:i.descricaoRef||"",
         unidadeRef:i.unidadeRef||"UN",quantidade:Number(i.quantidade||0),precoRef:Number(i.precoRef||0),
         dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"",orcItemId:i.orcItemId||"",
+        orcNivel1Id:i.orcNivel1Id||"",
         observacao:i.observacao||""})):[],
       // Fornecedores contatados por WhatsApp para esta solicitacao - registrado
       // ao clicar em "COTAR POR WHATSAPP" (ver ModalCotacaoWhatsApp/onContato).
@@ -2246,6 +2247,7 @@ const normalizeData = incoming => {
       qtd:        Number(x.qtd || 0),
       data:       x.data       || "",
       orcItemId:  x.orcItemId  || "",
+      orcNivel1Id:x.orcNivel1Id||"",
       status:     x.status     || "aberta",   // aberta | decidida | cancelada
       propostas: Array.isArray(x.propostas) ? x.propostas.map(p => ({
         id:           p.id           || uid(),
@@ -2295,6 +2297,7 @@ const normalizeData = incoming => {
         // SERVIÇO (m de alvenaria) e a compra em MATERIAL (sacos de cimento).
         // As unidades não batem - o dinheiro, sim.
         orcItemId:   i.orcItemId  || "",
+        orcNivel1Id: i.orcNivel1Id || "",
         referenciaId:i.referenciaId || x.referenciaId || "",
         fonteRef:    i.fonteRef    || "",
         codigoRef:   i.codigoRef   || "",
@@ -2306,7 +2309,14 @@ const normalizeData = incoming => {
       })) : [],
       cotacaoId:   x.cotacaoId   || "",
       transacaoId: x.transacaoId || "",       // casado com o pagamento no extrato
-      origemPagamento: x.origemPagamento === "cliente_direto" ? "cliente_direto" : "caixa",
+      origemPagamento: x.origemPagamento === "cliente_direto" ? "cliente_direto" : x.origemPagamento === "empresa" ? "empresa" : "caixa_obra",
+      pagamentos:Array.isArray(x.pagamentos)?x.pagamentos.map(pg=>({
+        id:pg.id||uid(),data:pg.data||x.data||today(),valor:Number(pg.valor||0),
+        origem:pg.origem==="cliente_direto"?"cliente_direto":pg.origem==="empresa"?"empresa":"caixa_obra",
+        conciliado:!!pg.conciliado,transacaoId:pg.transacaoId||"",referencia:pg.referencia||"",observacao:pg.observacao||"",
+        registradoPorId:pg.registradoPorId||"",registradoPor:pg.registradoPor||"",registradoEm:pg.registradoEm||"",
+      })).filter(pg=>pg.valor>0):[],
+      liberadoEntregaEm:x.liberadoEntregaEm||"",liberadoEntregaPor:x.liberadoEntregaPor||"",
       documentos:Array.isArray(x.documentos)?x.documentos.map(a=>({id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Documento da compra",url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0),enviadoEm:a.enviadoEm||"",enviadoPorId:a.enviadoPorId||"",enviadoPor:a.enviadoPor||""})).filter(a=>a.url):[],
       analiseIA:x.analiseIA||null,
       criadoPorId:x.criadoPorId||"",criadoPor:x.criadoPor||"",criadoEm:x.criadoEm||"",
@@ -5735,7 +5745,7 @@ function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraI
   const {formGrid}=useBreakpoint();
   const obras=(data.obras||[]).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
   const destinos=useMemo(()=>destinosDocumentoIA(data,modulo).filter(d=>!currentUser?.obraId||!d.obraId||d.obraId===currentUser.obraId),[data,modulo,currentUser?.obraId]);
-  const formInicial=()=>({obraId:obraIdInicial||currentUser?.obraId||"",tipoDocumento:"outro",numero:"",emissao:today(),vencimento:"",fornecedorNome:"",documentoFornecedor:"",descricao:"",categoria:"",valorBruto:"",valorLiquido:"",subfolder:`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}`,origemPagamento:"caixa",legendaDocumento:"",destinoId:""});
+  const formInicial=()=>({obraId:obraIdInicial||currentUser?.obraId||"",tipoDocumento:"outro",numero:"",emissao:today(),vencimento:"",fornecedorNome:"",documentoFornecedor:"",descricao:"",categoria:"",valorBruto:"",valorLiquido:"",subfolder:`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}`,origemPagamento:"empresa",legendaDocumento:"",destinoId:""});
   const [arquivo,setArquivo]=useState(null);const [dataUrl,setDataUrl]=useState("");const [analisando,setAnalisando]=useState(false);const [salvando,setSalvando]=useState(false);const [sugestao,setSugestao]=useState(null);const [obraMatch,setObraMatch]=useState(null);
   const [lote,setLote]=useState([]);const [ativoId,setAtivoId]=useState("");
   const [statusIA,setStatusIA]=useState("verificando");
@@ -5797,7 +5807,7 @@ function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraI
         const documentosMovimentacoes=[...(data.documentosMovimentacoes||[]),{id:uid(),movimentoId:`nf-${notaId}`,obraId:form.obraId,tipo:"Nota fiscal",documentos:[doc]}];
         update({...data,obras:obrasAtualizadas,notasFiscais:[...(data.notasFiscais||[]),nota],documentosMovimentacoes});
       }else{
-        const norm=v=>String(v||"").replace(/\D/g,"");let fornecedor=(data.fornecedores||[]).find(f=>(norm(form.documentoFornecedor)&&norm(f.cnpj)===norm(form.documentoFornecedor))||String(f.nome||"").toLowerCase()===String(form.fornecedorNome||"").toLowerCase());const fornecedores=[...(data.fornecedores||[])];if(!fornecedor){fornecedor={id:uid(),nome:form.fornecedorNome||"Fornecedor a confirmar",cnpj:form.documentoFornecedor||"",categorias:[],ativo:true};fornecedores.push(fornecedor);}const material={id:uid(),codigo:`IA-${String((data.materiais||[]).length+1).padStart(4,"0")}`,descricao:maiusculoOrcamento(form.descricao||form.categoria||"ITEM LIDO POR IA"),unidade:"UN",categoria:"outros",estoqueMin:0,precoMedio:Number(form.valorBruto),fonteRef:"IA",ativo:true};const pedido={id:uid(),numero:`PC-IA-${String((data.pedidos||[]).length+1).padStart(4,"0")}`,obraId:form.obraId,fornecedorId:fornecedor.id,data:form.emissao||today(),previsao:form.vencimento||"",status:"rascunho",referenciaId:"",solicitacaoId:"",itens:[{id:uid(),materialId:material.id,qtd:1,precoUnit:Number(form.valorBruto),qtdRecebida:0,orcItemId:"",referenciaId:"",fonteRef:"IA",codigoRef:material.codigo,descricaoRef:material.descricao,unidadeRef:"UN",precoRef:Number(form.valorBruto),dataBaseRef:"",ufRef:""}],cotacaoId:"",transacaoId:"",origemPagamento:form.origemPagamento,documentos:[doc],analiseIA,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",criadoEm:agora,obs:`Documento ${form.numero||arquivo.name} · ${form.categoria||"classificação a revisar"}`};update({...data,obras:obrasAtualizadas,fornecedores,materiais:[...(data.materiais||[]),material],pedidos:[...(data.pedidos||[]),pedido]});
+        const norm=v=>String(v||"").replace(/\D/g,"");let fornecedor=(data.fornecedores||[]).find(f=>(norm(form.documentoFornecedor)&&norm(f.cnpj)===norm(form.documentoFornecedor))||String(f.nome||"").toLowerCase()===String(form.fornecedorNome||"").toLowerCase());const fornecedores=[...(data.fornecedores||[])];if(!fornecedor){fornecedor={id:uid(),nome:form.fornecedorNome||"Fornecedor a confirmar",cnpj:form.documentoFornecedor||"",categorias:[],ativo:true};fornecedores.push(fornecedor);}const material={id:uid(),codigo:`IA-${String((data.materiais||[]).length+1).padStart(4,"0")}`,descricao:maiusculoOrcamento(form.descricao||form.categoria||"ITEM LIDO POR IA"),unidade:"UN",categoria:"outros",estoqueMin:0,precoMedio:Number(form.valorBruto),fonteRef:"IA",ativo:true};const pedido={id:uid(),numero:`PC-IA-${String((data.pedidos||[]).length+1).padStart(4,"0")}`,obraId:form.obraId,fornecedorId:fornecedor.id,data:form.emissao||today(),previsao:form.vencimento||"",status:"rascunho",referenciaId:"",solicitacaoId:"",itens:[{id:uid(),materialId:material.id,qtd:1,precoUnit:Number(form.valorBruto),qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"IA",codigoRef:material.codigo,descricaoRef:material.descricao,unidadeRef:"UN",precoRef:Number(form.valorBruto),dataBaseRef:"",ufRef:""}],cotacaoId:"",transacaoId:"",origemPagamento:form.origemPagamento,pagamentos:[],documentos:[doc],analiseIA,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",criadoEm:agora,obs:`Documento ${form.numero||arquivo.name} · ${form.categoria||"classificação a revisar"}`};update({...data,obras:obrasAtualizadas,fornecedores,materiais:[...(data.materiais||[]),material],pedidos:[...(data.pedidos||[]),pedido]});
       }
       showToast(modulo==="financeiro"?"Documento salvo, vinculado à nova nota e enviado para conferência fiscal.":"Documento salvo e vinculado ao novo pedido em rascunho.");concluirDocumentoAtivo();
     }catch(err){showToast(err.message||"Não foi possível concluir o lançamento.","error");}finally{setSalvando(false);}
@@ -20336,6 +20346,35 @@ const statusPedido = (p) => {
 const totalPedido    = (p) => (p.itens||[]).reduce((s,i) => s + Number(i.qtd||0) * Number(i.precoUnit||0), 0);
 const recebidoPedido = (p) => (p.itens||[]).reduce((s,i) => s + Number(i.qtdRecebida||0) * Number(i.precoUnit||0), 0);
 const pendentePedido = (p) => totalPedido(p) - recebidoPedido(p);
+// O pagamento agora pertence ao pedido e pode ser parcelado por origens
+// diferentes. `transacaoId` continua valendo como quitação para preservar os
+// pedidos antigos já conciliados antes desta evolução.
+const totalPagoPedido = (p) => {
+  const pagamentos=(p.pagamentos||[]).reduce((s,pg)=>s+Number(pg.valor||0),0);
+  return pagamentos>0?pagamentos:(p.transacaoId?totalPedido(p):0);
+};
+const saldoPagamentoPedido = (p) => Math.max(0,totalPedido(p)-totalPagoPedido(p));
+const statusPagamentoPedido = (p) => {
+  if(p.status==="cancelado")return "cancelado";
+  const total=totalPedido(p),pago=totalPagoPedido(p);
+  if(total<=0)return "sem_valor";
+  if(pago>=total-.01)return "pago";
+  return pago>0?"parcial":"pendente";
+};
+const pedidoLiberadoParaReceber = p => statusPagamentoPedido(p)==="pago";
+const origemPagamentoLabel = origem => ({empresa:"Empresa",caixa_obra:"Caixa da obra",cliente_direto:"Cliente direto"}[origem]||"Empresa");
+
+// Retorna somente as etapas-raiz do orçamento. Compras não deve exigir que o
+// operador escolha uma composição detalhada: o vínculo financeiro é sempre
+// feito no primeiro nível e continua auditável mesmo quando a planilha muda.
+const niveisUmOrcamento = (orc) => {
+  if(!orc)return[];
+  const etapas=orc.etapas||[],porId=new Map(etapas.map(e=>[e.id,e]));
+  const raiz=id=>{let e=porId.get(id),n=0;while(e?.parentId&&n++<30)e=porId.get(e.parentId)||e;return e;};
+  const valores=new Map();
+  (orc.itens||[]).filter(i=>i.tipo!=="titulo").forEach(i=>{const r=raiz(i.etapaId);if(r)valores.set(r.id,(valores.get(r.id)||0)+Number(i.quantidade||0)*Number(i.precoUnit||0));});
+  return etapas.filter(e=>!e.parentId).map(e=>({id:e.id,descricao:e.nome||"Etapa sem nome",orcado:valores.get(e.id)||0,ordem:Number(e.ordem||0)})).sort((a,b)=>a.ordem-b.ordem||a.descricao.localeCompare(b.descricao));
+};
 
 // Histórico: só o que REALMENTE chegou. Pedido não recebido não é preço pago.
 const historicoPreco = (pedidos, materialId) => {
@@ -20620,14 +20659,19 @@ const analisePreco = (h) => {
 const calcOrcadoComprado = (data, obraId) => {
   const orc = (data.orcamentos||[]).find(o => o.obraId === obraId);
   if (!orc) return { orc: null, linhas: [], semApropriacao: 0 };
+  const etapas=orc.etapas||[],etapaPorId=new Map(etapas.map(e=>[e.id,e]));
+  const itemPorId=new Map((orc.itens||[]).filter(i=>i.tipo!=="titulo").map(i=>[i.id,i]));
+  const raizDaEtapa=id=>{let e=etapaPorId.get(id),n=0;while(e?.parentId&&n++<30)e=etapaPorId.get(e.parentId)||e;return e;};
+  const raizVinculo=i=>etapaPorId.get(i.orcNivel1Id)?.parentId?raizDaEtapa(i.orcNivel1Id):(etapaPorId.get(i.orcNivel1Id)||raizDaEtapa(itemPorId.get(i.orcItemId)?.etapaId));
 
-  // Quanto já foi comprado para cada linha
+  // Quanto já foi comprometido em cada etapa de primeiro nível.
   const comprado = {};
   (data.pedidos||[])
     .filter(p => p.obraId === obraId && p.status !== "cancelado")
     .forEach(p => (p.itens||[]).forEach(i => {
       const v = Number(i.qtd||0) * Number(i.precoUnit||0);
-      if (i.orcItemId) comprado[i.orcItemId] = (comprado[i.orcItemId] || 0) + v;
+      const raiz=raizVinculo(i);
+      if (raiz) comprado[raiz.id] = (comprado[raiz.id] || 0) + v;
     }));
 
   // Compras sem apropriação: dinheiro gasto que não bate com nenhuma linha.
@@ -20635,17 +20679,15 @@ const calcOrcadoComprado = (data, obraId) => {
   const semApropriacao = (data.pedidos||[])
     .filter(p => p.obraId === obraId && p.status !== "cancelado")
     .reduce((s,p) => s + (p.itens||[])
-      .filter(i => !i.orcItemId)
+      .filter(i => !raizVinculo(i))
       .reduce((a,i) => a + Number(i.qtd||0) * Number(i.precoUnit||0), 0), 0);
 
-  const linhas = (orc.itens||[])
-    .filter(it => it.tipo !== "titulo")
-    .map(it => {
-      const orcado = Number(it.quantidade||0) * Number(it.precoUnit||0);
-      const comp   = comprado[it.id] || 0;
-      const etapa  = (orc.etapas||[]).find(e => e.id === it.etapaId);
+  const linhas = niveisUmOrcamento(orc)
+    .map(nivel => {
+      const orcado = nivel.orcado;
+      const comp   = comprado[nivel.id] || 0;
       return {
-        it, etapa: etapa?.nome || "-",
+        it:{id:nivel.id,descricao:nivel.descricao,codigo:""}, etapa:"1º nível do orçamento",
         orcado, comprado: comp,
         saldo: orcado - comp,
         pct: orcado ? (comp / orcado) * 100 : (comp > 0 ? 999 : 0),
@@ -20667,22 +20709,23 @@ const calcControleCustosOrcamento = (data, orc) => {
   const itemPorId=new Map((orc.itens||[]).filter(i=>i.tipo!=="titulo").map(i=>[i.id,i]));
   const raizDaEtapa=id=>{let e=etapaPorId.get(id),n=0;while(e?.parentId&&n++<30)e=etapaPorId.get(e.parentId)||e;return e;};
   const raizDoItem=id=>{const item=itemPorId.get(id);return item?raizDaEtapa(item.etapaId):null;};
+  const raizVinculo=i=>etapaPorId.get(i?.orcNivel1Id)?raizDaEtapa(i.orcNivel1Id):raizDoItem(i?.orcItemId);
   const mapa=new Map();
   const linha=e=>{const id=e?.id||"sem_etapa";if(!mapa.has(id))mapa.set(id,{id,nome:e?.nome||"Sem etapa",ordem:Number(e?.ordem||0),orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0});return mapa.get(id);};
   itemPorId.forEach(item=>{linha(raizDaEtapa(item.etapaId)).orcado+=Number(item.quantidade||0)*Number(item.precoUnit||0);});
   const sem={solicitado:0,comprometido:0,recebido:0,aplicado:0};
   (data.solicitacoesCompra||[]).filter(s=>s.obraId===orc.obraId&&!['cancelada','rejeitada'].includes(s.status)).forEach(s=>(s.itens||[]).forEach(i=>{
-    const valor=Number(i.quantidade||0)*Number(i.precoRef||0),raiz=raizDoItem(i.orcItemId);
+    const valor=Number(i.quantidade||0)*Number(i.precoRef||0),raiz=raizVinculo(i);
     if(raiz)linha(raiz).solicitado+=valor;else sem.solicitado+=valor;
   }));
   const transacaoPorId=new Map((data.transacoes||[]).map(t=>[t.id,t]));
   (data.pedidos||[]).filter(p=>p.obraId===orc.obraId&&p.status!=="cancelado").forEach(p=>{
-    const pago=!!p.transacaoId&&transacaoPorId.get(p.transacaoId)?.status==="conciliado";
-    (p.itens||[]).forEach(i=>{const raiz=raizDoItem(i.orcItemId),total=Number(i.qtd||0)*Number(i.precoUnit||0),recebido=Number(i.qtdRecebida||0)*Number(i.precoUnit||0);
+    const pago=statusPagamentoPedido(p)==="pago"||(!!p.transacaoId&&transacaoPorId.get(p.transacaoId)?.status==="conciliado");
+    (p.itens||[]).forEach(i=>{const raiz=raizVinculo(i),total=Number(i.qtd||0)*Number(i.precoUnit||0),recebido=Number(i.qtdRecebida||0)*Number(i.precoUnit||0);
       if(raiz){const l=linha(raiz);l.comprometido+=total;l.recebido+=recebido;if(pago)l.pago+=total;}else{sem.comprometido+=total;sem.recebido+=recebido;}
     });
   });
-  (data.movEstoque||[]).filter(m=>m.obraId===orc.obraId&&m.tipo==="consumo").forEach(m=>{const valor=Number(m.qtd||0)*Number(m.valorUnit||0),raiz=raizDoItem(m.orcItemId);if(raiz)linha(raiz).aplicado+=valor;else sem.aplicado+=valor;});
+  (data.movEstoque||[]).filter(m=>m.obraId===orc.obraId&&m.tipo==="consumo").forEach(m=>{const valor=Number(m.qtd||0)*Number(m.valorUnit||0),raiz=raizVinculo(m);if(raiz)linha(raiz).aplicado+=valor;else sem.aplicado+=valor;});
   const lista=[...mapa.values()].map(l=>({...l,saldo:l.orcado-l.comprometido,projecao:Math.max(l.orcado,l.comprometido),percentual:l.orcado?l.comprometido/l.orcado*100:0})).sort((a,b)=>a.ordem-b.ordem||a.nome.localeCompare(b.nome));
   const total=lista.reduce((a,l)=>{Object.keys(a).forEach(k=>a[k]+=Number(l[k]||0));return a;},{orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0,saldo:0,projecao:0});
   return{etapas:lista,total,semApropriacao:sem};
@@ -21079,23 +21122,21 @@ const calcCompras = (data, obraId) => {
   const peds = (data.pedidos||[]).filter(p => p.obraId === obraId && p.status !== "cancelado");
   const comprado = peds.reduce((s,p) => s + totalPedido(p), 0);
   const recebido = peds.reduce((s,p) => s + recebidoPedido(p), 0);
-  const clienteDireto = peds
-    .filter(p => p.origemPagamento === "cliente_direto")
-    .reduce((s,p) => s + totalPedido(p), 0);
+  const pagamentos=peds.flatMap(p=>(p.pagamentos||[]));
+  const clienteDireto = pagamentos.filter(pg=>pg.origem==="cliente_direto").reduce((s,pg)=>s+Number(pg.valor||0),0);
+  const caixaObra = pagamentos.filter(pg=>pg.origem==="caixa_obra").reduce((s,pg)=>s+Number(pg.valor||0),0);
+  const empresa = pagamentos.filter(pg=>pg.origem==="empresa").reduce((s,pg)=>s+Number(pg.valor||0),0);
 
   const aplicado = (data.movEstoque||[])
     .filter(m => m.obraId === obraId && m.tipo === "consumo")
     .reduce((s,m) => s + Number(m.qtd||0) * Number(m.valorUnit||0), 0);
 
-  // Pago = o que saiu do banco como material para esta obra (via Conciliação)
-  const pago = (data.transacoes||[])
-    .filter(t => t.status === "conciliado" && Number(t.valor) < 0)
-    .reduce((s,t) => s + (t.rateios||[])
-      .filter(r => r.destino === "obra" && r.obraId === obraId && r.categoria === "material")
-      .reduce((a,r) => a + Number(r.valor||0), 0), 0);
+  const pago=peds.reduce((s,p)=>s+Math.min(totalPedido(p),totalPagoPedido(p)),0);
+  const naoConciliado=pagamentos.filter(pg=>!pg.conciliado).reduce((s,pg)=>s+Number(pg.valor||0),0);
 
   return {
-    comprado, recebido, aplicado, pago, clienteDireto,
+    comprado, recebido, aplicado, pago, clienteDireto, caixaObra, empresa, naoConciliado,
+    aPagar:Math.max(0,comprado-pago),
     aReceber: comprado - recebido,
     emEstoque: recebido - aplicado,
   };
@@ -21719,12 +21760,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   const [loading,setLoading]=useState(false);const [aviso,setAviso]=useState("");
   const base=basesReferencia.find(item=>item.id===form.referenciaId);
   const orcObra=orcamentos.find(item=>item.obraId===form.obraId);
-  const etapasPorId=new Map((orcObra?.etapas||[]).map(etapa=>[etapa.id,etapa]));
-  const linhasOrc=(orcObra?.itens||[]).filter(item=>item.tipo!=="titulo").map(item=>{
-    let etapa=etapasPorId.get(item.etapaId);let guarda=0;
-    while(etapa?.parentId&&guarda++<20)etapa=etapasPorId.get(etapa.parentId)||etapa;
-    return{v:item.id,l:`${etapa?.nome||"Sem etapa"} · ${item.codigo||"S/C"} · ${item.descricao||"Item"}`};
-  });
+  const linhasOrc=niveisUmOrcamento(orcObra).map(n=>({v:n.id,l:`${n.descricao} · ${fmt(n.orcado)}`}));
   const F=k=>v=>setForm(f=>({...f,[k]:v}));
   const setItem=(id,campo,valor)=>setForm(f=>({...f,itens:f.itens.map(item=>item.id===id?{...item,[campo]:valor}:item)}));
 
@@ -21743,10 +21779,10 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   const addReferencia=item=>{
     setForm(f=>({...f,itens:[...f.itens,{id:uid(),referenciaId:f.referenciaId,fonteRef:maiusculoOrcamento(item.fonte||base?.fonte||"SINAPI"),
       codigoRef:maiusculoOrcamento(item.codigo||""),descricaoRef:maiusculoOrcamento(item.descricao||""),unidadeRef:maiusculoOrcamento(item.unidade||"UN"),
-      quantidade:"",precoRef:precoRef(item),dataBaseRef:item.dataBase||base?.dataBase||"",ufRef:item.uf||base?.uf||"",orcItemId:"",observacao:""}]}));
+      quantidade:"",precoRef:precoRef(item),dataBaseRef:item.dataBase||base?.dataBase||"",ufRef:item.uf||base?.uf||"",orcItemId:"",orcNivel1Id:"",observacao:""}]}));
     setBusca("");setResultados([]);
   };
-  const addProprio=()=>setForm(f=>({...f,itens:[...f.itens,{id:uid(),referenciaId:"",fonteRef:"PRÓPRIO",codigoRef:"",descricaoRef:"",unidadeRef:"UN",quantidade:"",precoRef:0,dataBaseRef:"",ufRef:"",orcItemId:"",observacao:""}]}));
+  const addProprio=()=>setForm(f=>({...f,itens:[...f.itens,{id:uid(),referenciaId:"",fonteRef:"PRÓPRIO",codigoRef:"",descricaoRef:"",unidadeRef:"UN",quantidade:"",precoRef:0,dataBaseRef:"",ufRef:"",orcItemId:"",orcNivel1Id:"",observacao:""}]}));
 
   return <Modal title="Solicitar materiais para Compras" onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:11}}>
     <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:9}}>
@@ -21775,7 +21811,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
         <Inp label="Quantidade *" type="number" value={item.quantidade} onChange={v=>setItem(item.id,"quantidade",v)}/>
         <button onClick={()=>setForm(f=>({...f,itens:f.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",padding:8}}>x</button>
       </div>
-      <div style={{marginTop:7}}><Sel label="Apropriar ao item do orçamento" value={item.orcItemId||""} onChange={v=>setItem(item.id,"orcItemId",v)} options={[{v:"",l:orcObra?"Selecione a linha orçamentária":"A obra ainda não possui orçamento"},...linhasOrc]}/></div>
+      <div style={{marginTop:7}}><Sel label="Etapa de 1º nível do orçamento" value={item.orcNivel1Id||""} onChange={v=>setItem(item.id,"orcNivel1Id",v)} options={[{v:"",l:orcObra?"Selecione a etapa principal":"A obra ainda não possui orçamento"},...linhasOrc]}/></div>
       {item.precoRef>0&&<p style={{fontSize:9.5,color:C.muted,marginTop:5}}>Referência {item.dataBaseRef}{item.ufRef?` · ${item.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(item.precoRef))}/{item.unidadeRef}</b></p>}
     </div>)}{!form.itens.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:12}}>Pesquise um insumo ou crie um item próprio.</p>}</div>
     <Inp label="Observação geral" value={form.observacao} onChange={F("observacao")} multiline placeholder="Local de entrega, especificação, justificativa da urgência..."/>
@@ -21810,7 +21846,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
   const setItem = (i, campo, v) =>
     setForm(f => ({ ...f, itens: f.itens.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
   const addItem = () => setForm(f => ({ ...f, itens:[...f.itens,
-    {id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}] }));
+    {id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}] }));
   const delItem = (i) => setForm(f => ({ ...f, itens: f.itens.filter((_,k)=>k!==i) }));
 
   useEffect(()=>{
@@ -21837,7 +21873,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
     const fonte=maiusculoOrcamento(item.fonte||baseSelecionada?.fonte||"");
     const codigo=maiusculoOrcamento(item.codigo||"").trim();
     const existente=materiais.find(m=>maiusculoOrcamento(m.codigo).trim()===codigo&&maiusculoOrcamento(m.fonteRef||fonte)===fonte);
-    const linha={id:uid(),materialId:existente?.id||uid(),qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",
+    const linha={id:uid(),materialId:existente?.id||uid(),qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",orcNivel1Id:"",
       referenciaId:form.referenciaId,fonteRef:fonte,codigoRef:codigo,
       descricaoRef:maiusculoOrcamento(item.descricao||""),unidadeRef:maiusculoOrcamento(item.unidade||"UN"),
       precoRef:precoReferenciaResultado(item),dataBaseRef:item.dataBase||baseSelecionada?.dataBase||"",ufRef:item.uf||baseSelecionada?.uf||""};
@@ -21858,15 +21894,15 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
           <Inp label="Previsão de entrega" type="date" value={form.previsao} onChange={F("previsao")}/>
           <Sel label="Situação" value={form.status} onChange={F("status")}
                options={[{v:"enviado",l:"Enviado ao fornecedor"},{v:"rascunho",l:"Rascunho"}]}/>
-          <Sel label="Quem fará o pagamento *" value={form.origemPagamento||"caixa"} onChange={F("origemPagamento")}
-               options={[{v:"caixa",l:"Caixa da empresa / obra"},{v:"cliente_direto",l:"Cliente paga diretamente"}]}/>
+          <Sel label="Origem prevista do pagamento *" value={form.origemPagamento||"empresa"} onChange={F("origemPagamento")}
+               options={[{v:"empresa",l:"Conta da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente paga diretamente"}]}/>
         </div>
 
         <div style={{background:form.origemPagamento==="cliente_direto"?`${C.blue}0C`:`${C.green}0C`,border:`1px solid ${form.origemPagamento==="cliente_direto"?C.blue:C.green}55`,borderRadius:7,padding:"8px 10px"}}>
           <p style={{fontSize:10.5,color:form.origemPagamento==="cliente_direto"?C.blue:C.green,fontWeight:800}}>
             {form.origemPagamento==="cliente_direto"
               ? "PAGAMENTO DIRETO DO CLIENTE — a compra será controlada e recebida normalmente, mas não será considerada saída do caixa da empresa."
-              : "PAGAMENTO PELO CAIXA — a saída será reconhecida quando o pagamento for conciliado no financeiro."}
+              : form.origemPagamento==="caixa_obra"?"CAIXA DA OBRA — a entrega só será liberada após o financeiro registrar o pagamento e o comprovante.":"CONTA DA EMPRESA — a entrega só será liberada após o financeiro registrar o pagamento; a conciliação bancária fica rastreada."}
           </p>
         </div>
 
@@ -21956,14 +21992,14 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
 
               {/* Apropriação ao orçamento */}
               <div style={{gridColumn:"1/-1"}}>
-                <Sel label="Apropriar a qual item do orçamento"
-                     value={it.orcItemId || ""}
-                     onChange={v=>setItem(i,"orcItemId",v)}
+                <Sel label="Etapa de 1º nível do orçamento"
+                     value={it.orcNivel1Id || ""}
+                     onChange={v=>setItem(i,"orcNivel1Id",v)}
                      options={[
                        {v:"", l: linhasOrc.length ? "- sem apropriação -" : "Nenhum orçamento nesta obra"},
                        ...linhasOrc.map(l => ({
                          v: l.id,
-                         l: `${l.etapa}  ${l.descricao} (${fmt(l.orcado)})`,
+                         l: `${l.descricao} (${fmt(l.orcado)})`,
                        })),
                      ]}/>
               </div>
@@ -21973,7 +22009,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
               <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Referência {it.dataBaseRef}{it.ufRef?` · ${it.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(it.precoRef||0))}</b></p>
               {Number(it.precoUnit)>0&&Number(it.precoRef)>0&&(()=>{const dif=Number(it.precoUnit)-Number(it.precoRef);const pct=dif/Number(it.precoRef)*100;const cor=dif<=0?C.green:C.red;return <p style={{fontSize:10.5,color:cor,fontWeight:900,marginTop:3}}>{dif<=0?"ABAIXO DA REFERÊNCIA":"ACIMA DA REFERÊNCIA"}: {fmt(Math.abs(dif))} ({Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%)</p>;})()}
             </div>}
-            {!it.orcItemId && linhasOrc.length > 0 && Number(it.qtd) > 0 && (
+            {!it.orcNivel1Id && !it.orcItemId && linhasOrc.length > 0 && Number(it.qtd) > 0 && (
               <p style={{fontSize:10,color:C.orange,marginTop:5}}>
                 Sem apropriação: esta compra não entra na comparação com o orçamento.
               </p>
@@ -22028,7 +22064,7 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
           <Sel label="Material *" value={form.materialId} onChange={F("materialId")}
                options={[{v:"",l:"Selecione..."}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
           <Inp label="Quantidade *" type="number" value={form.qtd} onChange={F("qtd")} placeholder="0"/>
-          <div style={{gridColumn:"1/-1"}}><Sel label="Apropriar ao item do orçamento" value={form.orcItemId||""} onChange={F("orcItemId")} options={[{v:"",l:linhasOrc.length?"Selecione a linha":"Nenhuma linha orçamentária disponível"},...linhasOrc.map(l=>({v:l.id,l:`${l.etapa} · ${l.descricao}`}))]}/></div>
+          <div style={{gridColumn:"1/-1"}}><Sel label="Etapa de 1º nível do orçamento" value={form.orcNivel1Id||""} onChange={F("orcNivel1Id")} options={[{v:"",l:linhasOrc.length?"Selecione a etapa principal":"Nenhuma etapa disponível"},...linhasOrc.map(l=>({v:l.id,l:`${l.descricao} · ${fmt(l.orcado)}`}))]}/></div>
         </div>
 
         <p style={{fontSize:11,color:C.muted}}>Propostas recebidas (mínimo 2):</p>
@@ -22143,8 +22179,8 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
           <p style={{fontSize:16,fontWeight:800,color:C.green,marginTop:2,
                      fontFamily:"'Inter Display','Inter',sans-serif"}}>{fmt(valorTotal)}</p>
           <p style={{fontSize:10,color:C.muted,marginTop:4,lineHeight:1.45}}>
-            Isso <strong>não</strong> lança no DRE - o custo entra quando o pagamento
-            aparecer no extrato, pela Conciliação.
+            Pagamento já verificado. Esta ação confirma somente a chegada física e
+            atualiza o estoque; não duplica o lançamento financeiro.
           </p>
         </div>
 
@@ -22161,7 +22197,7 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
 
 function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR }) {
   const { cols, pick } = useBreakpoint();
-  const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":"pedidos");
+  const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":"financeiro");
   const [obraSel, setObraSel] = useState(obraIdFixo);
   const [busca,   setBusca]   = useState("");
 
@@ -22181,6 +22217,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   const [fornecedorPrecoId,setFornecedorPrecoId]=useState("");
   const [anexoCotacao,setAnexoCotacao]=useState(null);
   const [subindoAnexoCotacao,setSubindoAnexoCotacao]=useState(false);
+  const [pagModal,setPagModal]=useState(null);
+  const [filtroFinanceiro,setFiltroFinanceiro]=useState("pendentes");
 
   const obras       = (data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
@@ -22223,19 +22261,11 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   // Cotacao em massa por WhatsApp: {itens:[{descricao,qtd,unidade}], titulo, materialIds}
   const [cotWpp, setCotWpp] = useState(null);
 
-  // Linhas do orçamento que o pedido pode apropriar
+  // Apenas etapas de primeiro nível: a equipe compra por pacote de trabalho,
+  // sem navegar por centenas de composições da planilha.
   const linhasOrc = useMemo(() => {
     const o = (data.orcamentos||[]).find(x => x.obraId === obraAtual);
-    if (!o) return [];
-    return (o.itens||[])
-      .filter(it => it.tipo !== "titulo")
-      .map(it => ({
-        id: it.id,
-        descricao: it.descricao || it.codigo || "-",
-        etapa: (o.etapas||[]).find(e => e.id === it.etapaId)?.nome || "-",
-        orcado: Number(it.quantidade||0) * Number(it.precoUnit||0),
-      }))
-      .filter(l => l.orcado > 0);
+    return niveisUmOrcamento(o);
   }, [data.orcamentos, obraAtual]);
 
   const nomeForn = useCallback(
@@ -22266,6 +22296,24 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     todos.forEach(p=>{const s=statusPedido(p);porStatus[s]=(porStatus[s]||0)+1;});
     const ultima=[...todos].sort((a,b)=>(b.data||"").localeCompare(a.data||""))[0];
     return {total:todos.length,porStatus,ultima,fornecedores:new Set(todos.map(p=>p.fornecedorId).filter(Boolean)).size};
+  },[data.pedidos,obraAtual]);
+  const pedidosFinanceiros=useMemo(()=>{
+    const lista=(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&!['cancelado','rascunho'].includes(p.status));
+    return lista.filter(p=>filtroFinanceiro==="todos"||
+      (filtroFinanceiro==="pendentes"&&statusPagamentoPedido(p)!=="pago")||
+      (filtroFinanceiro==="liberados"&&statusPagamentoPedido(p)==="pago"&&statusPedido(p)!=="recebido")||
+      (filtroFinanceiro==="nao_conciliados"&&(p.pagamentos||[]).some(pg=>!pg.conciliado)))
+      .sort((a,b)=>Number(statusPagamentoPedido(a)==="pago")-Number(statusPagamentoPedido(b)==="pago")||(a.previsao||"9999").localeCompare(b.previsao||"9999"));
+  },[data.pedidos,obraAtual,filtroFinanceiro]);
+  const resumoFinanceiro=useMemo(()=>{
+    const lista=(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&!['cancelado','rascunho'].includes(p.status));
+    const pagamentos=lista.flatMap(p=>p.pagamentos||[]);
+    return{pendentes:lista.filter(p=>statusPagamentoPedido(p)!=="pago").length,aPagar:lista.reduce((s,p)=>s+saldoPagamentoPedido(p),0),
+      liberados:lista.filter(p=>statusPagamentoPedido(p)==="pago"&&statusPedido(p)!=="recebido").length,
+      naoConciliado:pagamentos.filter(pg=>!pg.conciliado).reduce((s,pg)=>s+Number(pg.valor||0),0),
+      empresa:pagamentos.filter(pg=>pg.origem==="empresa").reduce((s,pg)=>s+Number(pg.valor||0),0),
+      caixaObra:pagamentos.filter(pg=>pg.origem==="caixa_obra").reduce((s,pg)=>s+Number(pg.valor||0),0),
+      cliente:pagamentos.filter(pg=>pg.origem==="cliente_direto").reduce((s,pg)=>s+Number(pg.valor||0),0)};
   },[data.pedidos,obraAtual]);
 
   const cotacoes = useMemo(
@@ -22402,13 +22450,13 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     const itens=sol.itens.map(item=>{
       const existente=materiais.find(m=>(item.codigoRef&&maiusculoOrcamento(m.codigo)===maiusculoOrcamento(item.codigoRef)&&maiusculoOrcamento(m.fonteRef||item.fonteRef)===maiusculoOrcamento(item.fonteRef))||
         (!item.codigoRef&&maiusculoOrcamento(m.descricao)===maiusculoOrcamento(item.descricaoRef)));
-      return{id:uid(),materialId:existente?.id||uid(),qtd:String(item.quantidade),precoUnit:"",qtdRecebida:0,orcItemId:item.orcItemId||"",
+      return{id:uid(),materialId:existente?.id||uid(),qtd:String(item.quantidade),precoUnit:"",qtdRecebida:0,orcItemId:item.orcItemId||"",orcNivel1Id:item.orcNivel1Id||"",
         referenciaId:item.referenciaId||"",fonteRef:item.fonteRef||"PRÓPRIO",codigoRef:item.codigoRef||"",descricaoRef:item.descricaoRef||"",
         unidadeRef:item.unidadeRef||"UN",precoRef:Number(item.precoRef||0),dataBaseRef:item.dataBaseRef||"",ufRef:item.ufRef||""};
     });
     atualizarStatusSolicitacao(sol,"em_analise");
     setPedModal({id:"",numero:"",obraId:sol.obraId,fornecedorId:"",data:new Date().toISOString().slice(0,10),previsao:sol.necessidade||"",
-      status:"enviado",origemPagamento:"caixa",referenciaId:itens.find(i=>i.referenciaId)?.referenciaId||"",solicitacaoId:sol.id,itens,obs:`Solicitação ${sol.numero}${sol.observacao?` · ${sol.observacao}`:""}`});
+      status:"enviado",origemPagamento:"empresa",referenciaId:itens.find(i=>i.referenciaId)?.referenciaId||"",solicitacaoId:sol.id,itens,obs:`Solicitação ${sol.numero}${sol.observacao?` · ${sol.observacao}`:""}`});
   };
 
   //  Pedido 
@@ -22426,7 +22474,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         }
         return { id: i.id || uid(), materialId,
                    qtd: Number(i.qtd), precoUnit: Number(i.precoUnit||0),
-                   qtdRecebida: Number(i.qtdRecebida||0),orcItemId:i.orcItemId||"",
+                   qtdRecebida: Number(i.qtdRecebida||0),orcItemId:i.orcItemId||"",orcNivel1Id:i.orcNivel1Id||"",
                    recebimentos:Array.isArray(i.recebimentos)?i.recebimentos:[],
                    referenciaId:i.referenciaId||f.referenciaId||"",fonteRef:i.fonteRef||"",codigoRef:i.codigoRef||"",
                    descricaoRef:i.descricaoRef||"",unidadeRef:i.unidadeRef||"",precoRef:Number(i.precoRef||0),
@@ -22447,7 +22495,11 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       itens,
       cotacaoId: f.cotacaoId || "",
       transacaoId: f.transacaoId || "",
-      origemPagamento: f.origemPagamento === "cliente_direto" ? "cliente_direto" : "caixa",
+      origemPagamento: ["cliente_direto","caixa_obra","empresa"].includes(f.origemPagamento)?f.origemPagamento:"empresa",
+      pagamentos:Array.isArray(f.pagamentos)?f.pagamentos:[],
+      liberadoEntregaEm:f.liberadoEntregaEm||"",liberadoEntregaPor:f.liberadoEntregaPor||"",
+      documentos:Array.isArray(f.documentos)?f.documentos:[],analiseIA:f.analiseIA||null,
+      criadoPorId:f.criadoPorId||currentUser?.id||"",criadoPor:f.criadoPor||currentUser?.nome||"",criadoEm:f.criadoEm||new Date().toISOString(),
       obs: f.obs || "",
     };
     const solicitacoesAtualizadas=f.solicitacaoId?(data.solicitacoesCompra||[]).map(s=>s.id===f.solicitacaoId?{...s,status:"pedido_gerado",pedidoId:p.id,
@@ -22459,8 +22511,33 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     showToast(f.id ? "Pedido atualizado." : `Pedido ${p.numero} criado.`);
   };
 
+  const abrirPagamento=p=>setPagModal({pedido:p,valor:String(saldoPagamentoPedido(p).toFixed(2)),data:today(),origem:p.origemPagamento||"empresa",transacaoId:"",referencia:"",observacao:"",conciliado:false});
+  const registrarPagamento=()=>{
+    const f=pagModal,pedido=f?.pedido,valor=Number(String(f?.valor||"").replace(",","."));
+    if(!pedido||!(valor>0)){showToast("Informe o valor pago.","error");return;}
+    const saldo=saldoPagamentoPedido(pedido);
+    if(valor>saldo+.01){showToast(`O pagamento supera o saldo de ${fmt(saldo)}.`,"error");return;}
+    if(!["admin","financeiro"].includes(currentUser?.role)){showToast("Somente Administração ou Financeiro registra pagamentos.","error");return;}
+    const transacao=(data.transacoes||[]).find(t=>t.id===f.transacaoId);
+    const pagamento={id:uid(),data:f.data||today(),valor,origem:f.origem,conciliado:!!f.conciliado||!!transacao,
+      transacaoId:f.transacaoId||"",referencia:f.referencia||transacao?.descricao||"",observacao:f.observacao||"",
+      registradoPorId:currentUser?.id||"",registradoPor:currentUser?.nome||"",registradoEm:new Date().toISOString()};
+    const pagamentos=[...(pedido.pagamentos||[]),pagamento];
+    const quitado=pagamentos.reduce((s,pg)=>s+Number(pg.valor||0),0)>=totalPedido(pedido)-.01;
+    const atualizado={...pedido,pagamentos,origemPagamento:f.origem,
+      liberadoEntregaEm:quitado?new Date().toISOString():pedido.liberadoEntregaEm||"",
+      liberadoEntregaPor:quitado?(currentUser?.nome||"Financeiro"):pedido.liberadoEntregaPor||""};
+    update({...data,pedidos:(data.pedidos||[]).map(p=>p.id===pedido.id?atualizado:p)});
+    setPagModal(null);showToast(quitado?`Pedido ${pedido.numero} quitado e liberado para recebimento.`:`Pagamento parcial registrado. Saldo: ${fmt(saldo-valor)}.`);
+  };
+
   //  RECEBIMENTO - o elo com o Estoque 
   const receber = (pedido, recebidos) => {
+    if(!pedidoLiberadoParaReceber(pedido)){
+      setRecModal(null);setAba("financeiro");
+      showToast(`O pedido ${pedido.numero} ainda possui ${fmt(saldoPagamentoPedido(pedido))} a pagar. A chegada só é liberada após a quitação.`,"error");
+      return;
+    }
     // recebidos: { [itemId]: qtd que chegou AGORA }
     const linhas = pedido.itens.map(i => ({
       ...i,
@@ -22492,7 +22569,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       valorUnit: Number(l.precoUnit || 0),
       data: quando,
       descricao: `Pedido ${pedido.numero}  ${nomeForn(pedido.fornecedorId)}`,
-      transacaoId: "", servicoId: "", orcItemId:l.orcItemId||"", etapa: "",
+      transacaoId: "", servicoId: "", orcItemId:l.orcItemId||"",orcNivel1Id:l.orcNivel1Id||"", etapa: "",
     }));
 
     // Atualiza o preço médio do material com o que foi efetivamente pago
@@ -22556,7 +22633,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     const c = {
       id: f.id || uid(), obraId: f.obraId || obraAtual,
       materialId: f.materialId, qtd: Number(f.qtd),
-      orcItemId:f.orcItemId||"",
+      orcItemId:f.orcItemId||"",orcNivel1Id:f.orcNivel1Id||"",
       data: f.data || new Date().toISOString().slice(0,10),
       status: "aberta", propostas: props, escolhida: "", pedidoId: "",
     };
@@ -22592,9 +22669,9 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       fornecedorId: prop.fornecedorId,
       data: new Date().toISOString().slice(0,10),
       previsao: "", status: "enviado",
-      origemPagamento: "caixa",
+      origemPagamento: "empresa",pagamentos:[],
       itens: [{ id: uid(), materialId: cot.materialId, qtd: cot.qtd,
-                precoUnit: prop.precoUnit, qtdRecebida: 0, orcItemId:cot.orcItemId||"" }],
+                precoUnit: prop.precoUnit, qtdRecebida: 0, orcItemId:cot.orcItemId||"",orcNivel1Id:cot.orcNivel1Id||"" }],
       cotacaoId: cot.id, transacaoId: "", obs: "",
     };
 
@@ -22615,11 +22692,11 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{background:`linear-gradient(135deg,${C.ink},#263343)`,borderRadius:14,padding:"17px 18px",color:"#fff",boxShadow:C.shCard,display:"flex",justifyContent:"space-between",gap:14,alignItems:"center",flexWrap:"wrap"}}>
-        <div><p style={{fontSize:9.5,fontWeight:900,color:C.yellow,textTransform:"uppercase",letterSpacing:1.2}}>Central de suprimentos</p><h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:850,fontSize:"clamp(22px,5vw,30px)",color:"#fff",marginTop:2}}>Compras</h3><p style={{fontSize:11,color:"rgba(255,255,255,.72)",marginTop:5,maxWidth:590,lineHeight:1.5}}>Da solicitação ao recebimento: acompanhe prazos, fornecedores e a entrada dos materiais no estoque da obra.</p></div>
+        <div><p style={{fontSize:9.5,fontWeight:900,color:C.yellow,textTransform:"uppercase",letterSpacing:1.2}}>Central de suprimentos</p><h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:850,fontSize:"clamp(22px,5vw,30px)",color:"#fff",marginTop:2}}>Compras</h3><p style={{fontSize:11,color:"rgba(255,255,255,.72)",marginTop:5,maxWidth:590,lineHeight:1.5}}>Solicitação → cotação → pedido → pagamento → liberação → recebimento na obra.</p></div>
         <div style={{display:"flex",gap:7,alignItems:"stretch",flexWrap:"wrap"}}><button onClick={()=>setModoIA(true)} style={{border:"1px solid rgba(212,175,55,.7)",background:"rgba(212,175,55,.13)",color:C.yellow,borderRadius:10,padding:"9px 12px",fontSize:10,fontWeight:900,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}><Ic n="brain" s={14}/> Modo IA</button><div style={{background:"rgba(255,255,255,.09)",border:"1px solid rgba(255,255,255,.14)",borderRadius:10,padding:"9px 12px",minWidth:175}}><p style={{fontSize:9,color:"rgba(255,255,255,.6)",fontWeight:800,textTransform:"uppercase"}}>Visão desta obra</p><p style={{fontSize:17,fontWeight:850,marginTop:2}}>{resumoOperacional.total} pedido(s)</p><p style={{fontSize:9.5,color:"rgba(255,255,255,.65)",marginTop:2}}>{resumoOperacional.fornecedores} fornecedor(es) envolvidos</p></div></div>
       </div>
 
-      <div style={{background:`${C.blue}09`,border:`1px solid ${C.blue}2F`,borderRadius:10,padding:"10px 12px",display:"flex",gap:9,alignItems:"flex-start"}}><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${C.blue}14`,color:C.blue,fontWeight:900,flexShrink:0}}>i</span><p style={{fontSize:10.5,color:C.subtle,lineHeight:1.55}}><strong style={{color:C.blue}}>Como funciona:</strong> a solicitação informa a necessidade; o pedido registra o compromisso; o recebimento atualiza o estoque. Compras pagas pelo caixa viram despesa somente após a conciliação; pagamentos diretos do cliente ficam identificados sem gerar saída do caixa.</p></div>
+      <div style={{background:`${C.blue}09`,border:`1px solid ${C.blue}2F`,borderRadius:10,padding:"10px 12px",display:"flex",gap:9,alignItems:"flex-start"}}><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${C.blue}14`,color:C.blue,fontWeight:900,flexShrink:0}}>i</span><p style={{fontSize:10.5,color:C.subtle,lineHeight:1.55}}><strong style={{color:C.blue}}>Regra operacional:</strong> pedido é compromisso, não material disponível. O estoque só recebe depois que o Financeiro registra a quitação. A origem real fica separada entre conta da empresa, caixa da obra e pagamento direto do cliente.</p></div>
       {solicitacoesPendentes>0&&<button onClick={()=>setAba("solicitacoes")} style={{background:`${C.orange}10`,border:`1.5px solid ${C.orange}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><p style={{fontSize:11.5,fontWeight:900,color:C.orange}}>{solicitacoesPendentes} NOVA(S) SOLICITAÇÃO(ÕES) DE MATERIAL</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>A Engenharia/Obra aguarda análise do setor de Compras. Clique para abrir.</p></button>}
 
       {obraIdFixo
@@ -22633,7 +22710,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
           ["Comprado", fmt(kpi.comprado), C.text,   "pedidos ativos"],
           ["Recebido", fmt(kpi.recebido), C.blue,   "entrou no estoque"],
           ["Aplicado", fmt(kpi.aplicado), C.green,  "consumido na obra"],
-          ["Pago",     fmt(kpi.pago),     C.yellow, "saiu do banco"],
+          ["Pago",     fmt(kpi.pago),     C.yellow, "pagamento registrado"],
           ["Cliente",  fmt(kpi.clienteDireto), C.purple, "pagamento direto"],
         ].map(([l,v,c,sub])=>(
           <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:11,padding:"11px 12px",boxShadow:"0 3px 12px rgba(20,24,28,.04)"}}>
@@ -22655,7 +22732,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
 
       {/* Abas */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:5,display:"flex",gap:4,overflowX:"auto",boxShadow:"0 3px 12px rgba(20,24,28,.035)"}}>
-        {[["solicitacoes",`Solicitações${solicitacoesPendentes?` (${solicitacoesPendentes})`:""}`],["pedidos","Pedidos"],["orcado","Orçado x comprado"],["cotacoes","Cotações"],
+        {[["financeiro",`Financeiro${resumoFinanceiro.pendentes?` (${resumoFinanceiro.pendentes})`:""}`],["solicitacoes",`Solicitações${solicitacoesPendentes?` (${solicitacoesPendentes})`:""}`],["cotacoes","Cotações"],["pedidos","Pedidos"],["orcado","Orçado x comprado"],
           ["forn","Fornecedores"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]].map(([v,l])=>(
           <button key={v} onClick={()=>setAba(v)} style={{
             padding:"9px 13px",whiteSpace:"nowrap",flex:"1 0 auto",
@@ -22671,6 +22748,31 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:8}}>
         {[["Em andamento",(resumoOperacional.porStatus.enviado||0)+(resumoOperacional.porStatus.parcial||0),C.blue],["Recebidos",resumoOperacional.porStatus.recebido||0,C.green],["Último movimento",resumoOperacional.ultima?`${resumoOperacional.ultima.numero} · ${fmtDate(resumoOperacional.ultima.data)}`:"Nenhum pedido",C.muted]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:"9px 11px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p><p style={{fontSize:11.5,fontWeight:800,color:c,marginTop:3}}>{v}</p></div>)}
       </div>
+
+      {aba==="financeiro"&&<>
+        <div style={{display:"grid",gridTemplateColumns:cols(2,2,4),gap:8}}>
+          {[["A pagar",fmt(resumoFinanceiro.aPagar),C.red],["Pedidos pendentes",resumoFinanceiro.pendentes,C.orange],["Liberados para entrega",resumoFinanceiro.liberados,C.green],["Pago não conciliado",fmt(resumoFinanceiro.naoConciliado),C.purple]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:10,padding:"10px 11px"}}><p style={{fontSize:8.5,color:C.muted,fontWeight:800,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:14,fontWeight:850,color:c,marginTop:3}}>{v}</p></div>)}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:6}}>{[["Conta da empresa",resumoFinanceiro.empresa,C.blue],["Caixa da obra",resumoFinanceiro.caixaObra,C.yellowD],["Cliente direto",resumoFinanceiro.cliente,C.purple]].map(([l,v,c])=><div key={l} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"8px 10px",border:`1px solid ${C.line}`,borderRadius:8,background:C.surface}}><span style={{fontSize:9.5,color:C.muted,fontWeight:750}}>{l}</span><b style={{fontSize:10.5,color:c}}>{fmt(v)}</b></div>)}</div>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
+          <p style={{fontSize:9,fontWeight:850,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Fluxo obrigatório dos materiais</p>
+          <div style={{display:"grid",gridTemplateColumns:cols(3,6,6),gap:5}}>{[
+            ["1. Solicitação",solicitacoes.filter(s=>!["cancelada","pedido_gerado"].includes(s.status)).length,C.orange],
+            ["2. Cotação",cotacoes.filter(c=>c.status==="aberta").length,C.blue],
+            ["3. Pedido",(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&!['cancelado','rascunho'].includes(p.status)).length,C.text],
+            ["4. Financeiro",resumoFinanceiro.pendentes,C.red],
+            ["5. Liberado",resumoFinanceiro.liberados,C.green],
+            ["6. Recebido",resumoOperacional.porStatus.recebido||0,C.purple]
+          ].map(([l,v,c])=><div key={l} style={{padding:"8px 7px",border:`1px solid ${C.line}`,borderRadius:8,background:C.card,textAlign:"center"}}><p style={{fontSize:8,color:C.muted,fontWeight:800}}>{l}</p><p style={{fontSize:13,fontWeight:900,color:c,marginTop:2}}>{v}</p></div>)}</div>
+        </div>
+        <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:2}}>{[["pendentes","Pendentes"],["liberados","Liberados"],["nao_conciliados","Sem conciliação"],["todos","Todos"]].map(([v,l])=><button key={v} onClick={()=>setFiltroFinanceiro(v)} style={{border:`1px solid ${filtroFinanceiro===v?C.yellow:C.border}`,background:filtroFinanceiro===v?`${C.yellow}14`:C.card,borderRadius:8,padding:"7px 10px",fontSize:9.5,fontWeight:800,color:filtroFinanceiro===v?C.yellowD:C.muted,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>)}</div>
+        {pedidosFinanceiros.length===0?<div style={{padding:28,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:7}}>Nenhuma pendência neste filtro</p></div>:pedidosFinanceiros.map(p=>{const st=statusPagamentoPedido(p),saldo=saldoPagamentoPedido(p),recebido=statusPedido(p)==="recebido",cor=st==="pago"?C.green:st==="parcial"?C.orange:C.red;return <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${cor}`,borderRadius:10,padding:"11px 12px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div style={{minWidth:0}}><p style={{fontSize:12,fontWeight:850,color:C.text}}>{p.numero} · {nomeForn(p.fornecedorId)}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{(p.itens||[]).map(i=>`${nomeMat(i.materialId)} (${Number(i.qtd||0).toLocaleString("pt-BR")} ${unidMat(i.materialId)})`).join(" · ")}</p><p style={{fontSize:9,color:C.muted,marginTop:4}}>Pedido {fmtDate(p.data)}{p.previsao?` · entrega prevista ${fmtDate(p.previsao)}`:""}</p></div><div style={{textAlign:"right"}}><Badge color={cor}>{st==="pago"?"QUITADO / LIBERADO":st==="parcial"?"PAGAMENTO PARCIAL":"AGUARDANDO PAGAMENTO"}</Badge><p style={{fontSize:14,fontWeight:900,color:C.text,marginTop:4}}>{fmt(totalPedido(p))}</p>{saldo>0&&<p style={{fontSize:10,fontWeight:800,color:C.red}}>saldo {fmt(saldo)}</p>}</div></div>
+          {(p.pagamentos||[]).length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>{p.pagamentos.map(pg=><span key={pg.id} style={{fontSize:8.5,fontWeight:750,color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0C`:`${C.orange}0C`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"a conciliar"}</span>)}</div>}
+          {recebido&&st!=="pago"&&<p style={{fontSize:9.5,fontWeight:800,color:C.red,marginTop:8}}>Registro legado: material recebido sem quitação vinculada. Regularize o financeiro para encerrar a inconsistência.</p>}
+          <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>{saldo>0&&["admin","financeiro"].includes(currentUser?.role)&&<Btn size="sm" onClick={()=>abrirPagamento(p)}>Registrar pagamento</Btn>}{st==="pago"&&!recebido&&<Btn size="sm" v="success" onClick={()=>setRecModal(p)}><Ic n="check"/> Receber na obra</Btn>}<Btn size="sm" v="ghost" onClick={()=>{setBusca(p.numero);setAba("pedidos");}}>Abrir pedido</Btn></div>
+        </div>})}
+      </>}
 
       {aba==="solicitacoes"&&<>
         <Btn onClick={()=>setSolModal({obraId:currentUser?.obraId||obraAtual,necessidade:"",prioridade:"normal",referenciaId:basesCompra[0]?.id||"",observacao:"",itens:[]})} full><Ic n="plus"/> SOLICITAR MATERIAIS PARA A OBRA</Btn>
@@ -22760,7 +22862,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         <Inp value={busca} onChange={setBusca} placeholder="Buscar pedido ou fornecedor..."/>
         <Btn onClick={()=>setPedModal({id:"",numero:"",obraId:obraAtual,fornecedorId:"",
           data:new Date().toISOString().slice(0,10),previsao:"",status:"enviado",
-          origemPagamento:"caixa",referenciaId:basesCompra[0]?.id||"",itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}],obs:""})} full>
+          origemPagamento:"empresa",pagamentos:[],referenciaId:basesCompra[0]?.id||"",itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}],obs:""})} full>
           <Ic n="plus"/> Novo pedido
         </Btn>
 
@@ -22789,7 +22891,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
                     <Badge color={meta.c}>{meta.l}</Badge>
-                    <div style={{marginTop:3}}><Badge color={p.origemPagamento==="cliente_direto"?C.purple:C.green}>{p.origemPagamento==="cliente_direto"?"CLIENTE PAGA DIRETO":"PAGO PELO CAIXA"}</Badge></div>
+                    <div style={{marginTop:3}}><Badge color={statusPagamentoPedido(p)==="pago"?C.green:C.orange}>{statusPagamentoPedido(p)==="pago"?`PAGO · ${origemPagamentoLabel(p.origemPagamento)}`:`PREVISTO · ${origemPagamentoLabel(p.origemPagamento)}`}</Badge></div>
                     {atrasoDe[p.id]&&<div style={{marginTop:3}}><Badge color={C.red}>ATRASADO +{atrasoDe[p.id].diasAtraso}d</Badge></div>}
                     <p style={{fontSize:14,fontWeight:800,color:C.text,marginTop:4,whiteSpace:"nowrap"}}>
                       {fmt(totalPedido(p))}
@@ -22811,7 +22913,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
                                               fontSize:10.5,marginTop:2,alignItems:"baseline"}}>
                         <span className="brk" style={{color:C.muted,minWidth:0}}>
                           {nomeMat(i.materialId)}
-                          {!i.orcItemId && linhasOrc.length > 0 && (
+                          {!i.orcNivel1Id&&!i.orcItemId && linhasOrc.length > 0 && (
                             <span style={{color:C.orange,fontSize:9}}>  sem apropriação</span>
                           )}
                           {Number(i.precoRef)>0&&(Number(i.precoUnit)>0?(()=>{const dif=Number(i.precoUnit)-Number(i.precoRef);const pct=dif/Number(i.precoRef)*100;const cor=dif<=0?C.green:C.red;return <span style={{display:"block",fontSize:9,color:cor,fontWeight:800,marginTop:1}}>{i.fonteRef} {i.codigoRef} · compra {fmt(Number(i.precoUnit))} · ref. {fmt(Number(i.precoRef))} · {dif<=0?"abaixo":"acima"} {Math.abs(pct).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>;})():<span style={{display:"block",fontSize:9,color:C.muted,marginTop:1}}>{i.fonteRef} {i.codigoRef} · ref. {fmt(Number(i.precoRef))} · preço de compra não informado</span>)}
@@ -22828,11 +22930,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
 	                {p.analiseIA&&<div style={{marginTop:7,padding:"7px 9px",background:`${C.purple}08`,border:`1px solid ${C.purple}2F`,borderRadius:7,display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:9.5,color:C.purple,fontWeight:800}}><Ic n="brain" s={11}/> Sugestão da IA revisada por {p.analiseIA.revisadoPor||"operador"} · confiança {Number(p.analiseIA.confianca||0)}%</span><span>{(p.documentos||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:9.5,color:C.blue,marginLeft:8}}>{a.nome} ↗</a>)}</span></div>}
 
 	                <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>
-                  {(st === "enviado" || st === "parcial") && (
-                    <Btn size="sm" onClick={()=>setRecModal(p)} full>
-                      <Ic n="check"/> Receber material
-                    </Btn>
-                  )}
+                  {(st === "enviado" || st === "parcial") && (pedidoLiberadoParaReceber(p)?<Btn size="sm" onClick={()=>setRecModal(p)} full><Ic n="check"/> Receber material</Btn>:<Btn size="sm" v="danger" onClick={()=>{setAba("financeiro");setFiltroFinanceiro("pendentes");}} full>Pagamento pendente · {fmt(saldoPagamentoPedido(p))}</Btn>)}
                   {st !== "cancelado" && st !== "recebido" && (
                     <Btn size="sm" v="ghost" onClick={()=>setPedModal({
                       ...p, itens: p.itens.map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))
@@ -22996,7 +23094,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
           </p>
         </div>
         <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,materialId:"",qtd:"",
-          orcItemId:"",data:new Date().toISOString().slice(0,10),
+          orcItemId:"",orcNivel1Id:"",data:new Date().toISOString().slice(0,10),
           propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]},
                      {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]}]})} full>
           <Ic n="plus"/> Nova cotação
@@ -23165,6 +23263,16 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
                                       onReceber={receber} nomeMat={nomeMat} unidMat={unidMat}
                                       nomeForn={nomeForn}/>}
+      {pagModal&&<Modal title={`Pagamento · ${pagModal.pedido.numero}`} onClose={()=>setPagModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}><div><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Total do pedido</p><p style={{fontSize:13,fontWeight:850,color:C.text}}>{fmt(totalPedido(pagModal.pedido))}</p></div><div><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Saldo antes deste pagamento</p><p style={{fontSize:13,fontWeight:850,color:C.red}}>{fmt(saldoPagamentoPedido(pagModal.pedido))}</p></div></div>
+        <Sel label="Origem real do pagamento *" value={pagModal.origem} onChange={v=>setPagModal(f=>({...f,origem:v}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Valor pago *" type="number" value={pagModal.valor} onChange={v=>setPagModal(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagModal.data} onChange={v=>setPagModal(f=>({...f,data:v}))}/></div>
+        <Sel label="Vincular à transação bancária (opcional)" value={pagModal.transacaoId} onChange={v=>setPagModal(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Sem transação vinculada"},...(data.transacoes||[]).filter(t=>Number(t.valor)<0).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,80).map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>
+        <Inp label="Comprovante / referência" value={pagModal.referencia} onChange={v=>setPagModal(f=>({...f,referencia:v}))} placeholder="PIX, boleto, recibo ou identificação do cliente"/>
+        <label style={{display:"flex",gap:8,alignItems:"center",fontSize:10,color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.conciliado} onChange={e=>setPagModal(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento/comprovante já conferido e conciliado</span></label>
+        <Inp label="Observação" value={pagModal.observacao} onChange={v=>setPagModal(f=>({...f,observacao:v}))} multiline/>
+        <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setPagModal(null)}>Cancelar</Btn><Btn full onClick={registrarPagamento}><Ic n="check"/> Registrar pagamento</Btn></div>
+      </div></Modal>}
     </div>
   );
 }
@@ -23409,6 +23517,11 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   // completo. Aceita tudo de uma vez; ajustes finos ficam para a aba Compras.
   const confirmarChegada = (pedido) => {
     if (!update) return;
+    if(!pedidoLiberadoParaReceber(pedido)){
+      setChegadaModal(null);
+      showToast?.(`Recebimento bloqueado: o pedido ${pedido.numero} ainda possui ${fmt(saldoPagamentoPedido(pedido))} a pagar. Regularize em Compras > Financeiro.`,"error");
+      return;
+    }
     const quando = today();
     const entradas = (pedido.itens || [])
       .map(i => ({ ...i, falta: Number(i.qtd || 0) - Number(i.qtdRecebida || 0) }))
@@ -23418,7 +23531,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         tipo: "entrada", qtd: i.falta, valorUnit: Number(i.precoUnit || 0),
         data: quando,
         descricao: `Chegada confirmada - pedido ${pedido.numero}`,
-        transacaoId: "", servicoId: "", etapa: "",
+        transacaoId: "", servicoId: "",orcItemId:i.orcItemId||"",orcNivel1Id:i.orcNivel1Id||"", etapa: "",
       }));
     const pedidoAtualizado = {
       ...pedido,
