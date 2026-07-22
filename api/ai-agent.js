@@ -26,7 +26,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { messages, contexto, prompt, question, context, imagens } = req.body || {};
+    const { messages, contexto, prompt, question, context, imagens, documentos } = req.body || {};
     const mensagensRecebidas = Array.isArray(messages) && messages.length
       ? messages
       : (prompt || question)
@@ -46,13 +46,21 @@ export default async function handler(req, res) {
       const match=String(img?.dataUrl||"").match(/^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/);
       return match?{mediaType:match[1],data:match[2],legenda:String(img?.legenda||"").slice(0,300)}:null;
     }).filter(Boolean);
-    if(imagensValidas.length){
+    const documentosValidos=(Array.isArray(documentos)?documentos:[]).slice(0,3).map(doc=>{
+      const match=String(doc?.dataUrl||"").match(/^data:(application\/pdf);base64,([A-Za-z0-9+/=]+)$/);
+      return match?{mediaType:match[1],data:match[2],nome:String(doc?.nome||"documento.pdf").slice(0,180)}:null;
+    }).filter(Boolean);
+    if(imagensValidas.length||documentosValidos.length){
       const ultima=historico.length-1;
       historico[ultima]={role:"user",content:[
         {type:"text",text:historico[ultima].content},
         ...imagensValidas.flatMap((img,index)=>[
           {type:"text",text:`Foto ${index+1}${img.legenda?` — legenda informada: ${img.legenda}`:""}`},
           {type:"image",source:{type:"base64",media_type:img.mediaType,data:img.data}},
+        ]),
+        ...documentosValidos.flatMap((doc,index)=>[
+          {type:"text",text:`Documento PDF ${index+1} — ${doc.nome}`},
+          {type:"document",source:{type:"base64",media_type:doc.mediaType,data:doc.data},title:doc.nome},
         ]),
       ]};
     }
