@@ -9,6 +9,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { decodeAppData } from "./data-codec.js";
 import {
   normalizeText,
   parsePriceBR,
@@ -68,7 +69,7 @@ const conferirPin = async (userId, pin, accessToken) => {
     .maybeSingle();
   if (error || !data) return null;
   try {
-    const payload = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+    const payload = decodeAppData(data.value);
     if(accessToken){const {data:auth,error:authError}=await db.auth.getUser(accessToken);if(!authError&&auth?.user){const email=String(auth.user.email||"").toLowerCase();const linked=(payload?.usuarios||[]).find(u=>u.active!==false&&(u.authUserId===auth.user.id||String(u.email||"").toLowerCase()===email));if(linked)return linked;}}
     const user = (payload?.usuarios || []).find(item => item.id === userId && item.active !== false);
     if (!user) return null;

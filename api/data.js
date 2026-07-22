@@ -20,11 +20,13 @@
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData } from "./data-codec.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const KEY     = "arced_ponto_v1";
+const PROFILE_KEY = "arced_auth_profiles_v1";
 
 const db = createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -72,8 +74,31 @@ const lerLinha = async () => {
     .maybeSingle();
   if (error) throw error;
   if (!data) return { payload: null, updatedAt: null };
-  const payload = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+  const payload = decodeAppData(data.value);
+  // Migração transparente: preserva o mesmo updated_at para não criar um
+  // falso conflito nos navegadores que já estavam editando. Se outra gravação
+  // vencer durante a migração, a condição impede qualquer sobrescrita.
+  if(!isEncodedAppData(data.value)){
+    const encoded=encodeAppData(payload);
+    if(isEncodedAppData(encoded)){
+      const migrated=await db.from("company_app_data").update({value:encoded})
+        .eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",data.updated_at);
+      if(migrated.error)console.error("Não foi possível compactar o dataset:",migrated.error.message);
+    }
+  }
   return { payload, updatedAt: data.updated_at || null };
+};
+
+const salvarIndicePerfis = async payload => {
+  const agora=new Date().toISOString(),value=compactProfiles(payload);
+  const {error}=await db.from("company_app_data").upsert({company_id:COMPANY,key:PROFILE_KEY,value,updated_at:agora,updated_by:null},{onConflict:"company_id,key"});
+  if(error)console.error("Não foi possível atualizar o índice de login:",error.message);
+};
+
+const lerIndicePerfis = async () => {
+  const {data,error}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",PROFILE_KEY).maybeSingle();
+  if(error)throw error;
+  return data?.value||null;
 };
 
 // Confere o PIN contra o hash guardado no próprio dataset
@@ -259,8 +284,9 @@ export default async function handler(req, res) {
     // Não exige PIN — é o que a tela precisa ANTES de alguém digitar.
     // Devolve só nome e papel. O hash do PIN nunca sai daqui.
     if (action === "profiles") {
-      const { payload: p } = await lerLinha();
-      const usuarios = (p?.usuarios || [])
+      let indice=await lerIndicePerfis();
+      if(!indice){const {payload:p}=await lerLinha();indice=compactProfiles(p);await salvarIndicePerfis(p);}
+      const usuarios = (indice?.usuarios || [])
         .filter(u => u.active !== false)
         .map(u => ({ id: u.id, nome: u.nome, role: u.role }));
       return res.status(200).json({ usuarios, precisaSetup: usuarios.length === 0 });
@@ -300,12 +326,13 @@ export default async function handler(req, res) {
 
       if (!existente) {
         await db.from("company_app_data")
-          .insert({ company_id: COMPANY, key: KEY, value: base, updated_at: agora });
+          .insert({ company_id: COMPANY, key: KEY, value: encodeAppData(base), updated_at: agora });
       } else {
         await db.from("company_app_data")
-          .update({ value: base, updated_at: agora })
+          .update({ value: encodeAppData(base), updated_at: agora })
           .eq("company_id", COMPANY).eq("key", KEY);
       }
+      await salvarIndicePerfis(base);
 
       const novo = await lerLinha();
       return res.status(200).json({ data: novo.payload, updatedAt: novo.updatedAt });
@@ -363,8 +390,9 @@ export default async function handler(req, res) {
       }
       const novo={...atual,usuarios:(atual.usuarios||[]).map(u=>u.id===alvo.id?{...u,authUserId:authId,email}:u)};
       const agora=new Date().toISOString();
-      const {data:gravado,error}=await db.from("company_app_data").update({value:novo,updated_at:agora}).eq("company_id",COMPANY).eq("key",KEY).select("updated_at").maybeSingle();
+      const {data:gravado,error}=await db.from("company_app_data").update({value:encodeAppData(novo),updated_at:agora}).eq("company_id",COMPANY).eq("key",KEY).select("updated_at").maybeSingle();
       if(error)throw error;
+      await salvarIndicePerfis(novo);
       return res.status(200).json({ok:true,data:novo,updatedAt:gravado?.updated_at||agora});
     }
 
@@ -406,7 +434,7 @@ export default async function handler(req, res) {
       let valor=aplicar(atual,houveConcorrencia);
       let agora=new Date().toISOString();
       let {data:gravado,error}=await db.from("company_app_data")
-        .update({value:valor,updated_at:agora,updated_by:usuario.id||null})
+        .update({value:encodeAppData(valor),updated_at:agora,updated_by:null})
         .eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",updatedAt)
         .select("updated_at").maybeSingle();
       if(error)throw error;
@@ -417,13 +445,14 @@ export default async function handler(req, res) {
         valor=aplicar(recente.payload,true);
         agora=new Date().toISOString();
         const retry=await db.from("company_app_data")
-          .update({value:valor,updated_at:agora,updated_by:usuario.id||null})
+          .update({value:encodeAppData(valor),updated_at:agora,updated_by:null})
           .eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",recente.updatedAt)
           .select("updated_at").maybeSingle();
         if(retry.error)throw retry.error;
         if(!retry.data)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado=retry.data;combinado=true;
       }
+      if(chaves.includes("usuarios"))await salvarIndicePerfis(valor);
       return res.status(200).json({ok:true,merged:combinado,data:combinado?valor:undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
     }
 
@@ -456,7 +485,7 @@ export default async function handler(req, res) {
       // comparação — sem discrepância de formato.
       let { data: gravado, error } = await db
         .from("company_app_data")
-        .update({ value: valor, updated_at: agora, updated_by: null })
+        .update({ value: encodeAppData(valor), updated_at: agora, updated_by: null })
         .eq("company_id", COMPANY)
         .eq("key", KEY)
         .eq("updated_at",updatedAt)
@@ -470,11 +499,12 @@ export default async function handler(req, res) {
         if(!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou ao mesmo tempo."});
         const recente=await lerLinha();valor=mesclarTresVias(basePayload,payload,recente.payload);
         const novoAgora=new Date().toISOString();
-        const retry=await db.from("company_app_data").update({value:valor,updated_at:novoAgora,updated_by:null}).eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",recente.updatedAt).select("updated_at").maybeSingle();
+        const retry=await db.from("company_app_data").update({value:encodeAppData(valor),updated_at:novoAgora,updated_by:null}).eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",recente.updatedAt).select("updated_at").maybeSingle();
         if(retry.error)throw retry.error;
         if(!retry.data)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado=retry.data;
       }
+      if(!igual(valor?.usuarios,atual?.usuarios))await salvarIndicePerfis(valor);
       return res.status(200).json({ ok: true, merged:!!houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora), data:(houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora))?valor:undefined, updatedAt: gravado?.updated_at || agora });
     }
 
@@ -576,7 +606,7 @@ export default async function handler(req, res) {
       };
 
       const { data: gravado, error: errMain } = await db.from("company_app_data")
-        .update({ value: novoPrincipal, updated_at: agora, updated_by: null })
+        .update({ value: encodeAppData(novoPrincipal), updated_at: agora, updated_by: null })
         .eq("company_id", COMPANY).eq("key", KEY)
         .select("updated_at").maybeSingle();
       if (errMain) throw errMain;
@@ -656,7 +686,7 @@ export default async function handler(req, res) {
       };
 
       const { data: gravado, error: errMain } = await db.from("company_app_data")
-        .update({ value: novoPrincipal, updated_at: agora, updated_by: null })
+        .update({ value: encodeAppData(novoPrincipal), updated_at: agora, updated_by: null })
         .eq("company_id", COMPANY).eq("key", KEY)
         .select("updated_at").maybeSingle();
       if (errMain) throw errMain;
