@@ -22259,6 +22259,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const ehAdmin=currentUser?.role==="admin";
   const obra = (data.obras||[]).find(o => o.id === obraId);
   const [abaConteudo,setAbaConteudo]=useState("geral");
+  const [grupoMenuObra,setGrupoMenuObra]=useState("geral");
 
   const hoje = today();
 
@@ -22635,32 +22636,20 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         </div>
       </div>
 
-      {/* ABAS DA OBRA: Geral fica aqui dentro; as outras abrem o modulo
-          completo ja filtrado por esta obra. */}
-      <div style={{display:"flex",gap:2,overflowX:"auto",borderBottom:`1px solid ${C.border}`,
-                   marginBottom:12,paddingBottom:0}}>
-        {[["geral","Geral",null],["orc","Orçamento","orc"],["plan","Planejamento","plan"],
-          ["rdo","Diário de obra","rdo"],["qualidade","Qualidade · FVS/FVM",null],["conferencia","Conferência","conferencia"],["med","Medição técnica","med"],
-          ["cmp","Compras","cmp"],["est","Estoque","est"],["dre","Financeiro","dre"],
-          ["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"],
-          ["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["portal","Portal do cliente",null],["arquivos","Arquivos",null]].filter(([id])=>!["arquivos","portal"].includes(id)||ehAdmin).map(([id,label,destino])=>{
-          const ativa = id===abaConteudo;
-          return (
-            <button key={id}
-              className="arcd-tab"
-              data-active={ativa}
-              onClick={()=>{if(["arquivos","portal","geral","qualidade"].includes(id))setAbaConteudo(id);else if(destino)abrirModuloDaObra(destino);}}
-              style={{border:0,background:"transparent",cursor:"pointer",
-                padding:"9px 13px",whiteSpace:"nowrap",
-                fontSize:12.5,fontWeight:ativa?800:500,
-                color:ativa?C.text:C.muted,
-                borderBottom:`2.5px solid ${ativa?C.blue:"transparent"}`,
-                marginBottom:-1,fontFamily:"'Inter',sans-serif"}}>
-              {label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Navegação compacta em dois níveis. O primeiro nível acompanha a
+          largura da tela; o segundo mostra apenas os módulos do grupo ativo. */}
+      {(()=>{const grupos=[
+        {id:"geral",label:"Geral",itens:[["geral","Visão geral",null]]},
+        {id:"obra",label:"Obra",itens:[["orc","Orçamento","orc"],["plan","Planejamento","plan"],["rdo","Diário de obra","rdo"],["med","Medição","med"]]},
+        {id:"qualidade",label:"Gestão da qualidade",itens:[["qualidade","FVS / FVM",null],["conferencia","Conferência","conferencia"]]},
+        {id:"suprimentos",label:"Suprimentos",itens:[["cmp","Compras","cmp"],["est","Estoque","est"]]},
+        {id:"financeiro",label:"Financeiro",itens:[["dre","DRE da obra","dre"]]},
+        {id:"rh",label:"RH",itens:[["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"]]},
+        {id:"recursos",label:"Recursos",itens:[["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],...(ehAdmin?[["arquivos","Arquivos",null],["portal","Portal do cliente",null]]:[])]},
+      ];const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:12,borderBottom:`1px solid ${C.border}`}}>
+        <div style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 0"}}>{grupos.map(g=>{const ativo=g.id===grupoMenuObra;return <button key={g.id} onClick={()=>{setGrupoMenuObra(g.id);if(g.id==="geral")setAbaConteudo("geral");}} style={{flex:"1 1 112px",minWidth:0,border:`1px solid ${ativo?C.blue:C.border}`,background:ativo?`${C.blue}0D`:"transparent",color:ativo?C.blue:C.muted,borderRadius:7,padding:"8px 9px",fontSize:11.5,fontWeight:ativo?850:650,cursor:"pointer",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{g.label}</button>})}</div>
+        {grupo.id!=="geral"&&<div style={{display:"flex",flexWrap:"wrap",gap:3,padding:"0 0 7px"}}>{grupo.itens.map(([id,label,destino])=>{const ativo=id===abaConteudo;return <button key={id} onClick={()=>{if(["arquivos","portal","qualidade"].includes(id))setAbaConteudo(id);else if(destino)abrirModuloDaObra(destino);}} style={{flex:"1 1 128px",border:0,borderBottom:`2px solid ${ativo?C.blue:"transparent"}`,background:"transparent",color:ativo?C.text:C.muted,padding:"7px 9px",fontSize:11,fontWeight:ativo?850:550,cursor:"pointer",whiteSpace:"nowrap"}}>{label}</button>})}</div>}
+      </div>;})()}
       </div>
 
       {abaConteudo==="geral"?<>
