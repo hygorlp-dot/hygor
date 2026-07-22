@@ -2189,6 +2189,7 @@ const normalizeData = incoming => {
       })) : [],
       cotacaoId:   x.cotacaoId   || "",
       transacaoId: x.transacaoId || "",       // casado com o pagamento no extrato
+      origemPagamento: x.origemPagamento === "cliente_direto" ? "cliente_direto" : "caixa",
       obs:         x.obs || "",
     })) : [],
 
@@ -20286,6 +20287,9 @@ const calcCompras = (data, obraId) => {
   const peds = (data.pedidos||[]).filter(p => p.obraId === obraId && p.status !== "cancelado");
   const comprado = peds.reduce((s,p) => s + totalPedido(p), 0);
   const recebido = peds.reduce((s,p) => s + recebidoPedido(p), 0);
+  const clienteDireto = peds
+    .filter(p => p.origemPagamento === "cliente_direto")
+    .reduce((s,p) => s + totalPedido(p), 0);
 
   const aplicado = (data.movEstoque||[])
     .filter(m => m.obraId === obraId && m.tipo === "consumo")
@@ -20299,7 +20303,7 @@ const calcCompras = (data, obraId) => {
       .reduce((a,r) => a + Number(r.valor||0), 0), 0);
 
   return {
-    comprado, recebido, aplicado, pago,
+    comprado, recebido, aplicado, pago, clienteDireto,
     aReceber: comprado - recebido,
     emEstoque: recebido - aplicado,
   };
@@ -21047,6 +21051,16 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
           <Inp label="Previsão de entrega" type="date" value={form.previsao} onChange={F("previsao")}/>
           <Sel label="Situação" value={form.status} onChange={F("status")}
                options={[{v:"enviado",l:"Enviado ao fornecedor"},{v:"rascunho",l:"Rascunho"}]}/>
+          <Sel label="Quem fará o pagamento *" value={form.origemPagamento||"caixa"} onChange={F("origemPagamento")}
+               options={[{v:"caixa",l:"Caixa da empresa / obra"},{v:"cliente_direto",l:"Cliente paga diretamente"}]}/>
+        </div>
+
+        <div style={{background:form.origemPagamento==="cliente_direto"?`${C.blue}0C`:`${C.green}0C`,border:`1px solid ${form.origemPagamento==="cliente_direto"?C.blue:C.green}55`,borderRadius:7,padding:"8px 10px"}}>
+          <p style={{fontSize:10.5,color:form.origemPagamento==="cliente_direto"?C.blue:C.green,fontWeight:800}}>
+            {form.origemPagamento==="cliente_direto"
+              ? "PAGAMENTO DIRETO DO CLIENTE — a compra será controlada e recebida normalmente, mas não será considerada saída do caixa da empresa."
+              : "PAGAMENTO PELO CAIXA — a saída será reconhecida quando o pagamento for conciliado no financeiro."}
+          </p>
         </div>
 
         {/* Sugestao de fornecedores para os materiais deste pedido */}
@@ -21495,7 +21509,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
     });
     atualizarStatusSolicitacao(sol,"em_analise");
     setPedModal({id:"",numero:"",obraId:sol.obraId,fornecedorId:"",data:new Date().toISOString().slice(0,10),previsao:sol.necessidade||"",
-      status:"enviado",referenciaId:itens.find(i=>i.referenciaId)?.referenciaId||"",solicitacaoId:sol.id,itens,obs:`Solicitação ${sol.numero}${sol.observacao?` · ${sol.observacao}`:""}`});
+      status:"enviado",origemPagamento:"caixa",referenciaId:itens.find(i=>i.referenciaId)?.referenciaId||"",solicitacaoId:sol.id,itens,obs:`Solicitação ${sol.numero}${sol.observacao?` · ${sol.observacao}`:""}`});
   };
 
   //  Pedido 
@@ -21533,6 +21547,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
       itens,
       cotacaoId: f.cotacaoId || "",
       transacaoId: f.transacaoId || "",
+      origemPagamento: f.origemPagamento === "cliente_direto" ? "cliente_direto" : "caixa",
       obs: f.obs || "",
     };
     const solicitacoesAtualizadas=f.solicitacaoId?(data.solicitacoesCompra||[]).map(s=>s.id===f.solicitacaoId?{...s,status:"pedido_gerado",pedidoId:p.id,
@@ -21662,6 +21677,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
       fornecedorId: prop.fornecedorId,
       data: new Date().toISOString().slice(0,10),
       previsao: "", status: "enviado",
+      origemPagamento: "caixa",
       itens: [{ id: uid(), materialId: cot.materialId, qtd: cot.qtd,
                 precoUnit: prop.precoUnit, qtdRecebida: 0, orcItemId:cot.orcItemId||"" }],
       cotacaoId: cot.id, transacaoId: "", obs: "",
@@ -21688,7 +21704,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
         <div style={{background:"rgba(255,255,255,.09)",border:"1px solid rgba(255,255,255,.14)",borderRadius:10,padding:"9px 12px",minWidth:175}}><p style={{fontSize:9,color:"rgba(255,255,255,.6)",fontWeight:800,textTransform:"uppercase"}}>Visão desta obra</p><p style={{fontSize:17,fontWeight:850,marginTop:2}}>{resumoOperacional.total} pedido(s)</p><p style={{fontSize:9.5,color:"rgba(255,255,255,.65)",marginTop:2}}>{resumoOperacional.fornecedores} fornecedor(es) envolvidos</p></div>
       </div>
 
-      <div style={{background:`${C.blue}09`,border:`1px solid ${C.blue}2F`,borderRadius:10,padding:"10px 12px",display:"flex",gap:9,alignItems:"flex-start"}}><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${C.blue}14`,color:C.blue,fontWeight:900,flexShrink:0}}>i</span><p style={{fontSize:10.5,color:C.subtle,lineHeight:1.55}}><strong style={{color:C.blue}}>Como funciona:</strong> a solicitação informa a necessidade; o pedido registra o compromisso; o recebimento atualiza o estoque; e somente o pagamento conciliado vira despesa no DRE.</p></div>
+      <div style={{background:`${C.blue}09`,border:`1px solid ${C.blue}2F`,borderRadius:10,padding:"10px 12px",display:"flex",gap:9,alignItems:"flex-start"}}><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${C.blue}14`,color:C.blue,fontWeight:900,flexShrink:0}}>i</span><p style={{fontSize:10.5,color:C.subtle,lineHeight:1.55}}><strong style={{color:C.blue}}>Como funciona:</strong> a solicitação informa a necessidade; o pedido registra o compromisso; o recebimento atualiza o estoque. Compras pagas pelo caixa viram despesa somente após a conciliação; pagamentos diretos do cliente ficam identificados sem gerar saída do caixa.</p></div>
       {solicitacoesPendentes>0&&<button onClick={()=>setAba("solicitacoes")} style={{background:`${C.orange}10`,border:`1.5px solid ${C.orange}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><p style={{fontSize:11.5,fontWeight:900,color:C.orange}}>{solicitacoesPendentes} NOVA(S) SOLICITAÇÃO(ÕES) DE MATERIAL</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>A Engenharia/Obra aguarda análise do setor de Compras. Clique para abrir.</p></button>}
 
       {obraIdFixo
@@ -21697,12 +21713,13 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
             options={obras.map(o => ({ v:o.id, l:o.name }))}/>}
 
       {/* Cadeia comprado → recebido → aplicado → pago */}
-      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:9}}>
+      <div style={{display:"grid",gridTemplateColumns:cols(2,3,5),gap:9}}>
         {[
           ["Comprado", fmt(kpi.comprado), C.text,   "pedidos ativos"],
           ["Recebido", fmt(kpi.recebido), C.blue,   "entrou no estoque"],
           ["Aplicado", fmt(kpi.aplicado), C.green,  "consumido na obra"],
           ["Pago",     fmt(kpi.pago),     C.yellow, "saiu do banco"],
+          ["Cliente",  fmt(kpi.clienteDireto), C.purple, "pagamento direto"],
         ].map(([l,v,c,sub])=>(
           <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:11,padding:"11px 12px",boxShadow:"0 3px 12px rgba(20,24,28,.04)"}}>
             <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,letterSpacing:.5}}>{l}</p>
@@ -21824,7 +21841,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
         <Inp value={busca} onChange={setBusca} placeholder="Buscar pedido ou fornecedor..."/>
         <Btn onClick={()=>setPedModal({id:"",numero:"",obraId:obraAtual,fornecedorId:"",
           data:new Date().toISOString().slice(0,10),previsao:"",status:"enviado",
-          referenciaId:basesCompra[0]?.id||"",itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}],obs:""})} full>
+          origemPagamento:"caixa",referenciaId:basesCompra[0]?.id||"",itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}],obs:""})} full>
           <Ic n="plus"/> Novo pedido
         </Btn>
 
@@ -21853,6 +21870,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="" }) {
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
                     <Badge color={meta.c}>{meta.l}</Badge>
+                    <div style={{marginTop:3}}><Badge color={p.origemPagamento==="cliente_direto"?C.purple:C.green}>{p.origemPagamento==="cliente_direto"?"CLIENTE PAGA DIRETO":"PAGO PELO CAIXA"}</Badge></div>
                     {atrasoDe[p.id]&&<div style={{marginTop:3}}><Badge color={C.red}>ATRASADO +{atrasoDe[p.id].diasAtraso}d</Badge></div>}
                     <p style={{fontSize:14,fontWeight:800,color:C.text,marginTop:4,whiteSpace:"nowrap"}}>
                       {fmt(totalPedido(p))}
