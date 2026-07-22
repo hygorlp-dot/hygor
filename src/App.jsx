@@ -2314,6 +2314,7 @@ const normalizeData = incoming => {
         id:pg.id||uid(),data:pg.data||x.data||today(),valor:Number(pg.valor||0),
         origem:pg.origem==="cliente_direto"?"cliente_direto":pg.origem==="empresa"?"empresa":"caixa_obra",
         conciliado:!!pg.conciliado,transacaoId:pg.transacaoId||"",referencia:pg.referencia||"",observacao:pg.observacao||"",
+        comprovantes:Array.isArray(pg.comprovantes)?pg.comprovantes.map(a=>({id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Comprovante de pagamento",url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0),enviadoEm:a.enviadoEm||"",enviadoPorId:a.enviadoPorId||"",enviadoPor:a.enviadoPor||""})).filter(a=>a.url):[],
         registradoPorId:pg.registradoPorId||"",registradoPor:pg.registradoPor||"",registradoEm:pg.registradoEm||"",
       })).filter(pg=>pg.valor>0):[],
       liberadoEntregaEm:x.liberadoEntregaEm||"",liberadoEntregaPor:x.liberadoEntregaPor||"",
@@ -2419,6 +2420,9 @@ const normalizeData = incoming => {
       descricao:   x.descricao   || "",
       valor:       Number(x.valor || 0),
       comprovante: x.comprovante || "",
+      pedidoId:    x.pedidoId    || "",
+      pagamentoId: x.pagamentoId || "",
+      documentos:  Array.isArray(x.documentos)?x.documentos.map(a=>({id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Comprovante",url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0)})).filter(a=>a.url):[],
     })) : [],
     orcamentos: Array.isArray(d.orcamentos) ? d.orcamentos.map(o => ({
       id:          o.id          || uid(),
@@ -20363,6 +20367,17 @@ const statusPagamentoPedido = (p) => {
 };
 const pedidoLiberadoParaReceber = p => statusPagamentoPedido(p)==="pago";
 const origemPagamentoLabel = origem => ({empresa:"Empresa",caixa_obra:"Caixa da obra",cliente_direto:"Cliente direto"}[origem]||"Empresa");
+const situacaoCaixaObra = (data,obraId) => {
+  const movimentos=(data.caixaObra||[]).filter(m=>m.obraId===obraId);
+  const aportes=movimentos.filter(m=>m.tipo==="aporte").reduce((s,m)=>s+Number(m.valor||0),0);
+  const despesas=movimentos.filter(m=>m.tipo==="despesa").reduce((s,m)=>s+Number(m.valor||0),0);
+  const saldo=aportes-despesas;
+  // Reserva mínima gerencial: 10% dos aportes, nunca inferior a R$ 500.
+  // Não bloqueia o uso do caixa positivo, mas avisa que um novo aporte deve
+  // ser providenciado antes das próximas compras.
+  const limiteBaixo=Math.max(500,aportes*.10);
+  return{saldo,aportes,despesas,limiteBaixo,baixo:saldo<=limiteBaixo};
+};
 
 // Retorna somente as etapas-raiz do orçamento. Compras não deve exigir que o
 // operador escolha uma composição detalhada: o vínculo financeiro é sempre
@@ -22218,6 +22233,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   const [anexoCotacao,setAnexoCotacao]=useState(null);
   const [subindoAnexoCotacao,setSubindoAnexoCotacao]=useState(false);
   const [pagModal,setPagModal]=useState(null);
+  const [subindoComprovantePagamento,setSubindoComprovantePagamento]=useState(false);
   const [filtroFinanceiro,setFiltroFinanceiro]=useState("pendentes");
 
   const obras       = (data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
@@ -22315,6 +22331,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       caixaObra:pagamentos.filter(pg=>pg.origem==="caixa_obra").reduce((s,pg)=>s+Number(pg.valor||0),0),
       cliente:pagamentos.filter(pg=>pg.origem==="cliente_direto").reduce((s,pg)=>s+Number(pg.valor||0),0)};
   },[data.pedidos,obraAtual]);
+  const caixaPagamento=useMemo(()=>situacaoCaixaObra(data,obraAtual),[data.caixaObra,obraAtual]);
+  const obraTemCaixa=!!(data.obras||[]).find(o=>o.id===obraAtual)?.hasCaixa;
 
   const cotacoes = useMemo(
     () => (data.cotacoes||[]).filter(c => c.obraId === obraAtual)
@@ -22511,24 +22529,45 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     showToast(f.id ? "Pedido atualizado." : `Pedido ${p.numero} criado.`);
   };
 
-  const abrirPagamento=p=>setPagModal({pedido:p,valor:String(saldoPagamentoPedido(p).toFixed(2)),data:today(),origem:p.origemPagamento||"empresa",transacaoId:"",referencia:"",observacao:"",conciliado:false});
-  const registrarPagamento=()=>{
+  const abrirPagamento=p=>setPagModal({pedido:p,valor:String(saldoPagamentoPedido(p).toFixed(2)),data:today(),origem:p.origemPagamento||"empresa",transacaoId:"",referencia:"",observacao:"",conciliado:false,comprovanteFile:null,comprovanteLegenda:""});
+  const registrarPagamento=async()=>{
     const f=pagModal,pedido=f?.pedido,valor=Number(String(f?.valor||"").replace(",","."));
     if(!pedido||!(valor>0)){showToast("Informe o valor pago.","error");return;}
     const saldo=saldoPagamentoPedido(pedido);
     if(valor>saldo+.01){showToast(`O pagamento supera o saldo de ${fmt(saldo)}.`,"error");return;}
     if(!["admin","financeiro"].includes(currentUser?.role)){showToast("Somente Administração ou Financeiro registra pagamentos.","error");return;}
+    const obra=(data.obras||[]).find(o=>o.id===pedido.obraId);
+    const caixa=situacaoCaixaObra(data,pedido.obraId);
+    if(f.origem==="caixa_obra"&&!obra?.hasCaixa){showToast("O caixa desta obra não está ativado. Ative-o no cadastro da obra ou selecione outra origem.","error");return;}
+    if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001){showToast(`Pagamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e ficaria negativo em ${fmt(valor-caixa.saldo)}. Registre um aporte antes de pagar.`,"error");return;}
+    setSubindoComprovantePagamento(true);
+    try{
+    const pagamentoId=uid();let comprovantes=[];let obrasAtualizadas=data.obras||[];
+    if(f.comprovanteFile){
+      const file=f.comprovanteFile,dataUrl=await arquivoComoDataUrl(file);
+      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:`Pagamentos de compras/${pedido.numero||"Pedido"}/${String(f.data||today()).slice(0,7)}`,date:f.data||today(),fileName:file.name});
+      if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o comprovante no OneDrive.");
+      comprovantes=[{id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(f.comprovanteLegenda||file.name).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type||"",tamanho:Number(file.size||0),enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""}];
+      obrasAtualizadas=(data.obras||[]).map(o=>o.id===pedido.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);
+    }
     const transacao=(data.transacoes||[]).find(t=>t.id===f.transacaoId);
-    const pagamento={id:uid(),data:f.data||today(),valor,origem:f.origem,conciliado:!!f.conciliado||!!transacao,
+    const pagamento={id:pagamentoId,data:f.data||today(),valor,origem:f.origem,conciliado:!!f.conciliado||!!transacao,
       transacaoId:f.transacaoId||"",referencia:f.referencia||transacao?.descricao||"",observacao:f.observacao||"",
+      comprovantes,
       registradoPorId:currentUser?.id||"",registradoPor:currentUser?.nome||"",registradoEm:new Date().toISOString()};
     const pagamentos=[...(pedido.pagamentos||[]),pagamento];
     const quitado=pagamentos.reduce((s,pg)=>s+Number(pg.valor||0),0)>=totalPedido(pedido)-.01;
     const atualizado={...pedido,pagamentos,origemPagamento:f.origem,
       liberadoEntregaEm:quitado?new Date().toISOString():pedido.liberadoEntregaEm||"",
       liberadoEntregaPor:quitado?(currentUser?.nome||"Financeiro"):pedido.liberadoEntregaPor||""};
-    update({...data,pedidos:(data.pedidos||[]).map(p=>p.id===pedido.id?atualizado:p)});
-    setPagModal(null);showToast(quitado?`Pedido ${pedido.numero} quitado e liberado para recebimento.`:`Pagamento parcial registrado. Saldo: ${fmt(saldo-valor)}.`);
+    const caixaObra=f.origem==="caixa_obra"?[...(data.caixaObra||[]),{id:uid(),obraId:pedido.obraId,data:f.data||today(),tipo:"despesa",categoria:"material",descricao:`Pagamento do pedido ${pedido.numero} · ${nomeForn(pedido.fornecedorId)}`,valor,comprovante:comprovantes[0]?.legenda||f.referencia||"",pedidoId:pedido.id,pagamentoId,documentos:comprovantes}]:data.caixaObra;
+    update({...data,obras:obrasAtualizadas,caixaObra,pedidos:(data.pedidos||[]).map(p=>p.id===pedido.id?atualizado:p)});
+    const saldoProjetado=caixa.saldo-valor;
+    setPagModal(null);
+    if(f.origem==="caixa_obra"&&saldoProjetado<=caixa.limiteBaixo)showToast(`Pagamento registrado, mas o caixa ficou baixo: ${fmt(saldoProjetado)}. Recomenda-se novo aporte (reserva mínima ${fmt(caixa.limiteBaixo)}).`,"warn");
+    else showToast(quitado?`Pedido ${pedido.numero} quitado e liberado para recebimento.`:`Pagamento parcial registrado. Saldo: ${fmt(saldo-valor)}.`);
+    }catch(err){showToast(err.message||"Não foi possível registrar o pagamento.","error");}
+    finally{setSubindoComprovantePagamento(false);}
   };
 
   //  RECEBIMENTO - o elo com o Estoque 
@@ -22754,6 +22793,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
           {[["A pagar",fmt(resumoFinanceiro.aPagar),C.red],["Pedidos pendentes",resumoFinanceiro.pendentes,C.orange],["Liberados para entrega",resumoFinanceiro.liberados,C.green],["Pago não conciliado",fmt(resumoFinanceiro.naoConciliado),C.purple]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:10,padding:"10px 11px"}}><p style={{fontSize:8.5,color:C.muted,fontWeight:800,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:14,fontWeight:850,color:c,marginTop:3}}>{v}</p></div>)}
         </div>
         <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:6}}>{[["Conta da empresa",resumoFinanceiro.empresa,C.blue],["Caixa da obra",resumoFinanceiro.caixaObra,C.yellowD],["Cliente direto",resumoFinanceiro.cliente,C.purple]].map(([l,v,c])=><div key={l} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"8px 10px",border:`1px solid ${C.line}`,borderRadius:8,background:C.surface}}><span style={{fontSize:9.5,color:C.muted,fontWeight:750}}>{l}</span><b style={{fontSize:10.5,color:c}}>{fmt(v)}</b></div>)}</div>
+        {obraTemCaixa&&<div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap",padding:"10px 11px",border:`1px solid ${caixaPagamento.baixo?C.orange:C.green}`,borderLeft:`4px solid ${caixaPagamento.baixo?C.orange:C.green}`,borderRadius:9,background:caixaPagamento.baixo?`${C.orange}0A`:`${C.green}08`}}><div><p style={{fontSize:9,fontWeight:850,color:caixaPagamento.baixo?C.orange:C.green,textTransform:"uppercase"}}>{caixaPagamento.baixo?"Alerta · caixa da obra baixo":"Caixa da obra disponível"}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Aportes {fmt(caixaPagamento.aportes)} · despesas {fmt(caixaPagamento.despesas)} · reserva recomendada {fmt(caixaPagamento.limiteBaixo)}</p></div><b style={{fontSize:16,color:caixaPagamento.saldo>=0?C.green:C.red}}>{fmt(caixaPagamento.saldo)}</b></div>}
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
           <p style={{fontSize:9,fontWeight:850,color:C.muted,textTransform:"uppercase",marginBottom:8}}>Fluxo obrigatório dos materiais</p>
           <div style={{display:"grid",gridTemplateColumns:cols(3,6,6),gap:5}}>{[
@@ -22768,7 +22808,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:2}}>{[["pendentes","Pendentes"],["liberados","Liberados"],["nao_conciliados","Sem conciliação"],["todos","Todos"]].map(([v,l])=><button key={v} onClick={()=>setFiltroFinanceiro(v)} style={{border:`1px solid ${filtroFinanceiro===v?C.yellow:C.border}`,background:filtroFinanceiro===v?`${C.yellow}14`:C.card,borderRadius:8,padding:"7px 10px",fontSize:9.5,fontWeight:800,color:filtroFinanceiro===v?C.yellowD:C.muted,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>)}</div>
         {pedidosFinanceiros.length===0?<div style={{padding:28,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:7}}>Nenhuma pendência neste filtro</p></div>:pedidosFinanceiros.map(p=>{const st=statusPagamentoPedido(p),saldo=saldoPagamentoPedido(p),recebido=statusPedido(p)==="recebido",cor=st==="pago"?C.green:st==="parcial"?C.orange:C.red;return <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${cor}`,borderRadius:10,padding:"11px 12px"}}>
           <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div style={{minWidth:0}}><p style={{fontSize:12,fontWeight:850,color:C.text}}>{p.numero} · {nomeForn(p.fornecedorId)}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{(p.itens||[]).map(i=>`${nomeMat(i.materialId)} (${Number(i.qtd||0).toLocaleString("pt-BR")} ${unidMat(i.materialId)})`).join(" · ")}</p><p style={{fontSize:9,color:C.muted,marginTop:4}}>Pedido {fmtDate(p.data)}{p.previsao?` · entrega prevista ${fmtDate(p.previsao)}`:""}</p></div><div style={{textAlign:"right"}}><Badge color={cor}>{st==="pago"?"QUITADO / LIBERADO":st==="parcial"?"PAGAMENTO PARCIAL":"AGUARDANDO PAGAMENTO"}</Badge><p style={{fontSize:14,fontWeight:900,color:C.text,marginTop:4}}>{fmt(totalPedido(p))}</p>{saldo>0&&<p style={{fontSize:10,fontWeight:800,color:C.red}}>saldo {fmt(saldo)}</p>}</div></div>
-          {(p.pagamentos||[]).length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>{p.pagamentos.map(pg=><span key={pg.id} style={{fontSize:8.5,fontWeight:750,color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0C`:`${C.orange}0C`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"a conciliar"}</span>)}</div>}
+          {(p.pagamentos||[]).length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>{p.pagamentos.map(pg=><div key={pg.id} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:8.5,fontWeight:750,color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0C`:`${C.orange}0C`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}><span>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"a conciliar"}</span>{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,textDecoration:"underline",fontWeight:850}} title={a.legenda||a.nome}>comprovante ↗</a>)}</div>)}</div>}
           {recebido&&st!=="pago"&&<p style={{fontSize:9.5,fontWeight:800,color:C.red,marginTop:8}}>Registro legado: material recebido sem quitação vinculada. Regularize o financeiro para encerrar a inconsistência.</p>}
           <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>{saldo>0&&["admin","financeiro"].includes(currentUser?.role)&&<Btn size="sm" onClick={()=>abrirPagamento(p)}>Registrar pagamento</Btn>}{st==="pago"&&!recebido&&<Btn size="sm" v="success" onClick={()=>setRecModal(p)}><Ic n="check"/> Receber na obra</Btn>}<Btn size="sm" v="ghost" onClick={()=>{setBusca(p.numero);setAba("pedidos");}}>Abrir pedido</Btn></div>
         </div>})}
@@ -23265,13 +23305,16 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
                                       nomeForn={nomeForn}/>}
       {pagModal&&<Modal title={`Pagamento · ${pagModal.pedido.numero}`} onClose={()=>setPagModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}><div><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Total do pedido</p><p style={{fontSize:13,fontWeight:850,color:C.text}}>{fmt(totalPedido(pagModal.pedido))}</p></div><div><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Saldo antes deste pagamento</p><p style={{fontSize:13,fontWeight:850,color:C.red}}>{fmt(saldoPagamentoPedido(pagModal.pedido))}</p></div></div>
-        <Sel label="Origem real do pagamento *" value={pagModal.origem} onChange={v=>setPagModal(f=>({...f,origem:v}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>
+        <Sel label="Origem real do pagamento *" value={pagModal.origem} onChange={v=>setPagModal(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:""}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>
+        {pagModal.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagModal.pedido.obraId),valor=Number(String(pagModal.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo;return <div style={{background:negativo?`${C.red}0C`:baixo?`${C.orange}0C`:`${C.green}0C`,border:`1px solid ${negativo?C.red:baixo?C.orange:C.green}`,borderRadius:9,padding:"9px 10px"}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>{[["Saldo disponível",cx.saldo,cx.saldo>0?C.green:C.red],["Após pagamento",projetado,negativo?C.red:baixo?C.orange:C.green],["Reserva mínima",cx.limiteBaixo,C.muted]].map(([l,v,c])=><div key={l}><p style={{fontSize:8,color:C.muted,textTransform:"uppercase",fontWeight:800}}>{l}</p><p style={{fontSize:11.5,fontWeight:850,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>{!((data.obras||[]).find(o=>o.id===pagModal.pedido.obraId)?.hasCaixa)&&<p style={{fontSize:9.5,color:C.red,fontWeight:800,marginTop:7}}>Caixa não ativado no cadastro desta obra.</p>}{negativo&&<p style={{fontSize:9.5,color:C.red,fontWeight:800,marginTop:7}}>Pagamento bloqueado: registre um aporte antes de continuar.</p>}{baixo&&<p style={{fontSize:9.5,color:C.orange,fontWeight:800,marginTop:7}}>Alerta de caixa baixo: o pagamento é possível, mas deixará a reserva abaixo do nível recomendado.</p>}</div>;})()}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Valor pago *" type="number" value={pagModal.valor} onChange={v=>setPagModal(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagModal.data} onChange={v=>setPagModal(f=>({...f,data:v}))}/></div>
-        <Sel label="Vincular à transação bancária (opcional)" value={pagModal.transacaoId} onChange={v=>setPagModal(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Sem transação vinculada"},...(data.transacoes||[]).filter(t=>Number(t.valor)<0).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,80).map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>
+        {pagModal.origem==="empresa"&&<Sel label="Vincular à transação bancária (opcional)" value={pagModal.transacaoId} onChange={v=>setPagModal(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Sem transação vinculada"},...(data.transacoes||[]).filter(t=>Number(t.valor)<0).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,80).map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>}
         <Inp label="Comprovante / referência" value={pagModal.referencia} onChange={v=>setPagModal(f=>({...f,referencia:v}))} placeholder="PIX, boleto, recibo ou identificação do cliente"/>
+        <label style={{padding:"11px 12px",border:`1.5px dashed ${pagModal.comprovanteFile?C.green:C.blue}66`,borderRadius:9,textAlign:"center",cursor:"pointer",background:pagModal.comprovanteFile?`${C.green}08`:C.surface}}><p style={{fontSize:10.5,fontWeight:850,color:pagModal.comprovanteFile?C.green:C.blue}}>{pagModal.comprovanteFile?pagModal.comprovanteFile.name:"Anexar comprovante de pagamento"}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>PDF, JPG, PNG ou WEBP · salvo no OneDrive da obra</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagModal(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"")}));}}/></label>
+        {pagModal.comprovanteFile&&<Inp label="Legenda do comprovante" value={pagModal.comprovanteLegenda} onChange={v=>setPagModal(f=>({...f,comprovanteLegenda:v}))} placeholder="Ex.: PIX pago ao fornecedor"/>}
         <label style={{display:"flex",gap:8,alignItems:"center",fontSize:10,color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.conciliado} onChange={e=>setPagModal(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento/comprovante já conferido e conciliado</span></label>
         <Inp label="Observação" value={pagModal.observacao} onChange={v=>setPagModal(f=>({...f,observacao:v}))} multiline/>
-        <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setPagModal(null)}>Cancelar</Btn><Btn full onClick={registrarPagamento}><Ic n="check"/> Registrar pagamento</Btn></div>
+        <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setPagModal(null)} disabled={subindoComprovantePagamento}>Cancelar</Btn><Btn full onClick={registrarPagamento} disabled={subindoComprovantePagamento}><Ic n="check"/> {subindoComprovantePagamento?"Salvando comprovante...":"Registrar pagamento"}</Btn></div>
       </div></Modal>}
     </div>
   );
@@ -30106,13 +30149,18 @@ function CaixaObra({ data, update, showToast }) {
   const saveMov = () => {
     if (!selObra) { showToast("Selecione uma obra.","error"); return; }
     if (!form.valor || isNaN(Number(form.valor))) { showToast("Informe um valor válido.","error"); return; }
+    if(form.tipo==="despesa"&&Number(form.valor)>caixa.saldo+.001){showToast(`Lançamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e não pode ficar negativo. Registre um aporte primeiro.`,"error");return;}
     const payload = { id:uid(), obraId:selObra, ...form, valor:Number(form.valor||0) };
     update({...data, caixaObra:[...(data.caixaObra||[]), payload]});
     setModal(false);
-    showToast(form.tipo==="aporte"?"Aporte registrado.":"Despesa registrada.");
+    const novoSaldo=caixa.saldo+(form.tipo==="aporte"?Number(form.valor):-Number(form.valor));
+    const limite=Math.max(500,(caixa.totalAportes+(form.tipo==="aporte"?Number(form.valor):0))*.10);
+    showToast(form.tipo==="despesa"&&novoSaldo<=limite?`Despesa registrada, mas o caixa ficou baixo: ${fmt(novoSaldo)}. Providencie novo aporte.`:form.tipo==="aporte"?"Aporte registrado.":"Despesa registrada.",form.tipo==="despesa"&&novoSaldo<=limite?"warn":undefined);
   };
 
   const delMov = id => {
+    const movimento=(data.caixaObra||[]).find(m=>m.id===id);
+    if(movimento?.pagamentoId){showToast("Este gasto foi gerado por um pagamento de Compras e não pode ser removido isoladamente.","error");return;}
     if(!window.confirm("Remover este lançamento?")) return;
     update({...data, caixaObra:(data.caixaObra||[]).filter(m=>m.id!==id)});
     showToast("Lançamento removido.");
@@ -30257,6 +30305,7 @@ td{padding:6px 10px;border-bottom:1px solid #eee;font-size:11px}
                     <p style={{fontSize:13,fontWeight:700,color:C.text}}>{m.descricao||(m.tipo==="aporte"?"Aporte do cliente":cat?.l||"Gasto")}</p>
                   </div>
                   <p style={{fontSize:11,color:C.muted,marginTop:1}}>{fmtDateFull(m.data)}{m.tipo==="despesa"&&cat?`  ${cat.l}`:""}{m.comprovante?`  ${m.comprovante}`:""}</p>
+                  {(m.documentos||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:9.5,color:C.blue,marginTop:3,textDecoration:"underline"}}>{a.legenda||a.nome||"Comprovante"} ↗</a>)}
                 </div>
                 <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
                   <div style={{textAlign:"right"}}>
