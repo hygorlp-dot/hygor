@@ -1,7 +1,26 @@
-import { fileSignature, getOrCreateFolder, graph, refresh, safeName, seal, setCookie, verifyAppUser, workspace } from "./_graph.js";
+import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, seal, setCookie, verifyAppUser, workspace } from "./_graph.js";
 
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};
-const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",financeiro:"08 - Financeiro e Fiscal",compras:"09 - Compras e Suprimentos",licenciamento:"10 - Licenciamento",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos"};
+const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",financeiro:"08 - Financeiro e Fiscal",compras:"09 - Compras e Suprimentos",licenciamento:"03 - Documentos",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos",outros:"11 - Outros"};
+
+const listarFilhos=async(token,driveId,parentId)=>(await (await graph(token,`/drives/${driveId}/items/${parentId}/children?$select=id,name,webUrl,folder,file,parentReference`)).json()).value||[];
+const migrarLicenciamentoLegado=async(token,ws)=>{
+  const filhosObra=await listarFilhos(token,ws.driveId,ws.folderId);
+  const legado=filhosObra.find(x=>x.folder&&x.name.toLocaleLowerCase("pt-BR")==="10 - licenciamento");
+  const destinoId=ws.folders?.["03 - Documentos/Licenciamento"];
+  if(!legado||!destinoId)return {movidos:0,conflitos:0};
+  const [origem,destino]=await Promise.all([listarFilhos(token,ws.driveId,legado.id),listarFilhos(token,ws.driveId,destinoId)]);
+  const nomesDestino=new Set(destino.map(x=>x.name.toLocaleLowerCase("pt-BR")));
+  let movidos=0,conflitos=0;
+  for(const item of origem){
+    if(nomesDestino.has(item.name.toLocaleLowerCase("pt-BR"))){conflitos++;continue;}
+    try{
+      await graph(token,`/drives/${ws.driveId}/items/${item.id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({parentReference:{id:destinoId}})});
+      nomesDestino.add(item.name.toLocaleLowerCase("pt-BR"));movidos++;
+    }catch{conflitos++;}
+  }
+  return {movidos,conflitos};
+};
 
 export default async function handler(req,res){
   try{
@@ -23,6 +42,24 @@ export default async function handler(req,res){
       const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(body.driveId)}&itemId=${encodeURIComponent(body.itemId)}&sig=${encodeURIComponent(sig)}`;
       return res.json({ok:true,url});
     }
+    if(action==="sync-workspaces"){
+      if(appUser.role!=="admin")return res.status(403).json({error:"Apenas administradores podem preparar a estrutura das obras."});
+      const obras=(Array.isArray(body.obras)?body.obras:[]).filter(o=>o&&String(o.name||"").trim()).slice(0,100);
+      if(!obras.length)return res.json({ok:true,resultados:[]});
+      const root=await rootItem(accessToken);
+      const resultados=[];
+      for(let i=0;i<obras.length;i+=4){
+        const lote=await Promise.all(obras.slice(i,i+4).map(async obra=>{
+          try{
+            const ws=await workspace(accessToken,String(obra.name).trim(),root,{driveId:String(obra.driveId||""),folderId:String(obra.folderId||"")});
+            const migracao=await migrarLicenciamentoLegado(accessToken,ws);
+            return {id:String(obra.id||""),name:String(obra.name),ok:true,workspace:ws,migracao};
+          }catch(e){return {id:String(obra.id||""),name:String(obra.name),ok:false,error:String(e.message||e)};}
+        }));
+        resultados.push(...lote);
+      }
+      return res.json({ok:resultados.every(x=>x.ok),resultados});
+    }
     if(action==="create-workspace"){
       const ws=await workspace(accessToken,body.obraName);
       return res.json({ok:true,...ws,...(appUser.role==="admin"?{}:{webUrl:undefined})});
@@ -42,7 +79,8 @@ export default async function handler(req,res){
         ws={...ws,folders:{...(ws.folders||{}),[categoryName]:parentId}};
       }
       if(["diario","conferencia"].includes(body.category)&&body.date)parentId=(await getOrCreateFolder(accessToken,ws.driveId,parentId,body.date)).id;
-      const subpastas=String(body.subfolder||"").split("/").map(x=>x.trim()).filter(Boolean).slice(0,3).map(safeName);
+      const caminho=body.category==="licenciamento"?`Licenciamento/${body.subfolder||""}`:String(body.subfolder||"");
+      const subpastas=caminho.split("/").map(x=>x.trim()).filter(Boolean).slice(0,3).map(safeName);
       for(const subpasta of subpastas)parentId=(await getOrCreateFolder(accessToken,ws.driveId,parentId,subpasta)).id;
       const match=String(body.dataUrl||"").match(/^data:([^;]+);base64,(.+)$/);
       if(!match) return res.status(400).json({error:"Arquivo inválido."});
