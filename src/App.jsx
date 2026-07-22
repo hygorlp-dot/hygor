@@ -4774,8 +4774,9 @@ function MedicoesView({ data, update, showToast }) {
   // Ao confirmar uma medicao vencida, perguntamos a DATA DE PAGAMENTO em vez
   // de assumir hoje - o pagamento quinzenal costuma cair em data especifica.
   const [pagarModal, setPagarModal] = useState(null);   // {m, data}
-  // Fila de conciliacao das parcelas vencidas geradas agora:
-  // {fila:[ids], idx, modo:"vencimento"|"outra"|"aberto", dataOutra}
+  // Fila de conciliacao das parcelas vencidas geradas agora. As respostas
+  // ficam locais ate a ultima parcela e sao salvas juntas; assim um update da
+  // primeira resposta nao desmonta o assistente antes de perguntar as demais.
   const [conciliar,  setConciliar]  = useState(null);
 
   const emptyM = {
@@ -4989,12 +4990,14 @@ function MedicoesView({ data, update, showToast }) {
     // marco normalmente ja recebeu as primeiras.
     const hoje = today();
     const vencidas = novas
-      .filter(n => n.dataVencimento && n.dataVencimento < hoje && Number(n.valorPrevisto||0) > 0)
+      .filter(n => n.dataVencimento && n.dataVencimento <= hoje && Number(n.valorPrevisto||0) > 0)
       .sort((a,b) => a.dataVencimento.localeCompare(b.dataVencimento));
     if (vencidas.length) {
       setConciliar({
         fila: vencidas.map(v => v.id),
         idx: 0,
+        medicoesBase: medicoesList,
+        decisoes: {},
         // decisao pendente da parcela atual: "" (nao escolhido) | "vencimento" | "outra" | "aberto"
         modo: "vencimento",
         dataOutra: today(),
@@ -5003,28 +5006,26 @@ function MedicoesView({ data, update, showToast }) {
   };
 
   //  Conciliacao das parcelas vencidas recem-geradas 
-  // Aplica a decisao da parcela atual e avanca a fila. Se acabar, fecha.
-  const conciliarAplicar = (base) => {
+  const aplicarDecisoesParcelas = (lista, decisoes) => (lista||[]).map(m => {
+    const decisao=decisoes?.[m.id];
+    if (!decisao || decisao.modo==="aberto") return m;
+    const dataPg=decisao.modo==="vencimento"?m.dataVencimento:(decisao.dataOutra||m.dataVencimento);
+    return {...m,recebido:true,valorRecebido:Number(m.valorPrevisto||0),dataPagamento:dataPg};
+  });
+
+  // Guarda a resposta atual e avanca. O banco de dados recebe uma unica
+  // atualizacao ao final, depois que TODAS as vencidas foram perguntadas.
+  const conciliarAplicar = () => {
     if (!conciliar) return;
     const id  = conciliar.fila[conciliar.idx];
-    const med = (data.medicoes||[]).find(x => x.id === id);
-    let lista = data.medicoes || [];
-
-    if (med && conciliar.modo !== "aberto") {
-      const dataPg = conciliar.modo === "vencimento"
-        ? med.dataVencimento
-        : (conciliar.dataOutra || med.dataVencimento);
-      const upd = { ...med, recebido:true, valorRecebido: Number(med.valorPrevisto||0), dataPagamento: dataPg };
-      lista = lista.map(x => x.id === id ? upd : x);
-      update({ ...(base||data), medicoes: lista });
-    }
-
+    const decisoes={...(conciliar.decisoes||{}),[id]:{modo:conciliar.modo,dataOutra:conciliar.dataOutra}};
     const prox = conciliar.idx + 1;
     if (prox >= conciliar.fila.length) {
+      update({...data,medicoes:aplicarDecisoesParcelas(conciliar.medicoesBase||data.medicoes,decisoes)});
       setConciliar(null);
-      showToast("Parcelas vencidas conciliadas.");
+      showToast(`${conciliar.fila.length} parcela(s) vencida(s) revisada(s).`);
     } else {
-      setConciliar(c => ({ ...c, idx: prox, modo:"vencimento", dataOutra: today() }));
+      setConciliar(c => ({ ...c, decisoes, idx: prox, modo:"vencimento", dataOutra: today() }));
     }
   };
 
@@ -5032,12 +5033,19 @@ function MedicoesView({ data, update, showToast }) {
   const conciliarTodasNoVencimento = () => {
     if (!conciliar) return;
     const restantes = conciliar.fila.slice(conciliar.idx);
-    const lista = (data.medicoes||[]).map(m => restantes.includes(m.id)
-      ? { ...m, recebido:true, valorRecebido: Number(m.valorPrevisto||0), dataPagamento: m.dataVencimento }
-      : m);
-    update({ ...data, medicoes: lista });
+    const decisoes={...(conciliar.decisoes||{})};
+    restantes.forEach(id=>{decisoes[id]={modo:"vencimento",dataOutra:""};});
+    update({ ...data, medicoes: aplicarDecisoesParcelas(conciliar.medicoesBase||data.medicoes,decisoes) });
     setConciliar(null);
     showToast(`${restantes.length} parcela(s) marcadas como pagas no vencimento.`);
+  };
+
+  const conciliarDecidirDepois = () => {
+    if (!conciliar) return;
+    if (Object.keys(conciliar.decisoes||{}).length) {
+      update({...data,medicoes:aplicarDecisoesParcelas(conciliar.medicoesBase||data.medicoes,conciliar.decisoes)});
+    }
+    setConciliar(null);
   };
 
   const toggleRecebido = (m) => {
@@ -5418,7 +5426,7 @@ function MedicoesView({ data, update, showToast }) {
 
       {/* Modal: conciliar parcelas que nasceram vencidas */}
       {conciliar && (() => {
-        const m = (data.medicoes||[]).find(x => x.id === conciliar.fila[conciliar.idx]);
+        const m = (conciliar.medicoesBase||data.medicoes||[]).find(x => x.id === conciliar.fila[conciliar.idx]);
         if (!m) return null;
         const diasAtraso = Math.max(0, Math.round(
           (new Date(today()) - new Date(m.dataVencimento)) / 86400000));
@@ -5438,7 +5446,7 @@ function MedicoesView({ data, update, showToast }) {
           </label>
         );
         return (
-          <Modal title={`Parcela vencida ${conciliar.idx+1} de ${conciliar.fila.length}`} onClose={()=>setConciliar(null)}>
+          <Modal title={`Parcela vencida ${conciliar.idx+1} de ${conciliar.fila.length}`} onClose={conciliarDecidirDepois}>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.red||"#C62828"}`,borderRadius:6,padding:"11px 13px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8}}>
@@ -5452,7 +5460,7 @@ function MedicoesView({ data, update, showToast }) {
               </div>
 
               <p style={{fontSize:12.5,fontWeight:700,color:C.text}}>
-                O pagamento foi realizado no dia do contrato?
+                Esta parcela já foi paga?
               </p>
 
               <Opcao v="vencimento" cor={C.green}
@@ -5470,7 +5478,7 @@ function MedicoesView({ data, update, showToast }) {
                      sub="A parcela continua em aberto e aparece como vencida no painel."/>
 
               <div style={{display:"flex",gap:8}}>
-                <Btn v="ghost" onClick={()=>setConciliar(null)} full>Decidir depois</Btn>
+                <Btn v="ghost" onClick={conciliarDecidirDepois} full>Decidir depois</Btn>
                 <Btn onClick={()=>conciliarAplicar()} full><Ic n="check"/> Confirmar</Btn>
               </div>
               {conciliar.fila.length - conciliar.idx > 1 && (
