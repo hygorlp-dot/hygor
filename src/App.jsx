@@ -12526,8 +12526,6 @@ function LoginScreen({ perfis, onLogin, onFirstSetup }) {
   const usuarios = perfis || [];
   const isFirst  = usuarios.length === 0;
 
-  useEffect(()=>{let ativo=true;restaurarSessaoEmail().then(r=>{if(ativo&&r.ok)onLogin(r.usuario,r.data);});return()=>{ativo=false;};},[onLogin]);
-
   const handleBackspace = () => setPin(p => p.slice(0, -1));
 
   // O PIN é conferido NO SERVIDOR. Antes ele batia contra o hash que já estava
@@ -30719,6 +30717,23 @@ export default function App() {
     let vivo = true;
     (async () => {
       try {
+        // Primeiro tenta restaurar a sessão por e-mail enquanto a tela neutra
+        // de carregamento ainda está ativa. Antes essa tentativa vivia dentro
+        // do LoginScreen: o login chegava a aparecer e só depois era trocado
+        // pelo dashboard, causando o salto visual a cada F5.
+        const restaurada=await restaurarSessaoEmail();
+        if(!vivo)return;
+        if(restaurada.ok){
+          const normalizados=normalizeData(restaurada.data||DEFAULT());
+          baseServidorRef.current=normalizados;
+          ultimoDataRef.current=normalizados;
+          dataAtualRef.current=normalizados;
+          const cadastro=normalizados.usuarios.find(u=>u.id===restaurada.usuario?.id);
+          const usuarioCompleto={...restaurada.usuario,...cadastro,pin:undefined};
+          setData(normalizados);setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
+          setTab(allowedTabsForUser(usuarioCompleto)[0]||"home");
+          return;
+        }
         const r = await listarPerfis();
         if (!vivo) return;
         setPerfis(r.usuarios || []);
