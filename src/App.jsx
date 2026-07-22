@@ -23680,12 +23680,17 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const linkDocumentoObra=(doc,compacto=false)=><a key={doc.id||doc.url} href={urlArquivoInterna(doc.url)?doc.url:"#visualizar-arquivo"} target="_blank" rel="noopener noreferrer" onClick={e=>abrirDocumentoSeguro(e,doc)} title={`Visualizar ${doc.nome||"documento"}`} style={{display:"flex",alignItems:"center",gap:8,padding:compacto?"6px 0":"9px 10px",border:compacto?0:`1px solid ${C.border}`,borderTop:compacto?`1px solid ${C.line}`:undefined,borderRadius:compacto?0:8,color:C.blue,textDecoration:"none",fontSize:compacto?10.5:11.5}}><Ic n="file"/><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.nome||"Documento"}</span><span style={{fontSize:10,fontWeight:800}}>Visualizar ↗</span></a>;
 
   const criarSubpasta = async () => {
-    if(!novaPasta.trim())return;
+    const nomePasta=novaPasta.trim();
+    if(!nomePasta)return;
+    if(/["*:<>?/\\|]/.test(nomePasta)){
+      showToast?.('O nome da pasta não pode conter: " * : < > ? / \\ |',"error");
+      return;
+    }
     setCriandoPasta(true);
     try{
       const workspace=await garantirWorkspaceObra();
       const parentId=pastaAtual?.id||workspace.folderId;
-      const r=await criarPastaOneDrive({driveId:workspace.driveId,parentId,name:novaPasta.trim()});
+      const r=await criarPastaOneDrive({driveId:workspace.driveId,parentId,name:nomePasta});
       if(!r.ok)throw new Error(r.error||"Falha ao criar pasta.");
       setNovaPasta("");
       await carregarDiretorio({driveId:workspace.driveId,parentId,nome:pastaAtual?.nome||"Arquivos da obra",caminho:caminhoPastas.length?caminhoPastas:[{id:workspace.folderId,nome:"Arquivos da obra",driveId:workspace.driveId}]});
@@ -23828,7 +23833,10 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     </div>
   );
 
-  const ExploradorArquivos=()=>{
+  // Esta e uma funcao de renderizacao, nao um componente React aninhado.
+  // Renderiza-la como <ExploradorArquivos/> criava um novo tipo de componente
+  // a cada tecla, remontava o input e fazia o campo perder o foco.
+  const renderExploradorArquivos=()=>{
     const pastas=itensPasta.filter(item=>item.type==="folder");
     const arquivos=itensPasta.filter(item=>item.type==="file").map(item=>({...item,nome:item.name}));
     const arquivosFallback=!carregandoPasta&&!itensPasta.length&&caminhoPastas.length<=1?(obra.documentosOneDrive||[]):[];
@@ -24355,7 +24363,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             <div style={{flex:"1 1 320px",minWidth:0}}><h2 style={{fontSize:20,fontWeight:800,color:C.text}}>Arquivos da obra</h2><p style={{fontSize:11,color:C.muted,marginTop:4,lineHeight:1.5}}>{ehAdmin?"Navegue pelas pastas no ArcD e, quando necessário, acesse a estrutura administrativa no OneDrive.":"Navegue, crie subpastas e envie arquivos pelo ArcD. O acesso direto ao OneDrive permanece protegido."}</p></div>
             <div style={{display:"flex",gap:7,flexWrap:"wrap",maxWidth:"100%"}}>{ehAdmin&&obra.oneDriveUrl&&<Btn v="ghost" onClick={()=>abrirOneDrive(obra.oneDriveUrl)}><Ic n="folder"/> Abrir no OneDrive</Btn>}<Btn onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Carregar arquivo"}</Btn><input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/></div>
           </div>
-          <ExploradorArquivos/>
+          {renderExploradorArquivos()}
         </div>}
       </div>}
     </div>
