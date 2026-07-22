@@ -1292,11 +1292,60 @@ const LIC_SIMPLIFICADA_DOCS = [
     obs:"Assinados pelo proprietário e pelos responsáveis técnicos." },
 ];
 
+// Fluxo fornecido pela Associacao Terras Alpha Caruaru. Ele cobre a analise
+// interna do condominio e a liberacao posterior ao alvara da Prefeitura, para
+// que o operador nao confunda "projeto aprovado" com "obra liberada".
+const LIC_TERRAS_ALPHA_PRE = [
+  { id:"normas_condominio", texto:"Projeto conferido conforme o Regulamento do Condomínio Terras Alpha Caruaru e o plano diretor do Município" },
+  { id:"titularidade", texto:"Proprietário do projeto confere com o titular do lote/quadra e com os documentos de propriedade" },
+  { id:"adimplencia", texto:"Associado adimplente com as despesas da Associação" },
+  { id:"fiduciaria", texto:"Situação fiduciária do lote verificada; certidão atualizada disponível quando houver alienação ou gravame" },
+];
+
+const LIC_TERRAS_ALPHA_DOCS = [
+  { id:"projeto_arquitetonico", nome:"Projeto arquitetônico no padrão da Prefeitura", quando:"sempre", grupo:"Projeto arquitetônico", obs:"Incluir plantas de todos os pavimentos, implantação, localização e cobertura." },
+  { id:"elevacoes", nome:"Elevações de todas as fachadas", quando:"sempre", grupo:"Projeto arquitetônico" },
+  { id:"cortes", nome:"Mínimo de dois cortes", quando:"sempre", grupo:"Projeto arquitetônico" },
+  { id:"levantamento_planialtimetrico", nome:"Levantamento planialtimétrico - 1 via", quando:"sempre", grupo:"Projetos e levantamentos" },
+  { id:"projeto_hidrossanitario", nome:"Projeto hidrossanitário de águas pluviais, esgoto e vazão da piscina", quando:"condicional", cond:"Obrigatório quando houver piscina", grupo:"Projetos e levantamentos" },
+  { id:"estudo_solo", nome:"Estudo do solo (sondagem) ou Termo de Responsabilidade da Sondagem", quando:"sempre", grupo:"Projetos e levantamentos", obs:"O termo deve ter firma reconhecida. Quando escolhido, deve ser solicitado por e-mail à Associação." },
+  { id:"contrato_compra", nome:"Contrato de compra do imóvel - cópia integral", quando:"sempre", grupo:"Propriedade", obs:"Deve constar o nome do proprietário do projeto e a identificação do lote/quadra." },
+  { id:"certidao_propriedade", nome:"Certidão de propriedade atualizada", quando:"sempre", grupo:"Propriedade", obs:"Em nome do proprietário que consta no projeto; entregar antes da liberação da obra." },
+  { id:"termo_inscricao", nome:"Termo de inscrição no Loteamento Terras Alpha Caruaru", quando:"sempre", grupo:"Propriedade", obs:"Confirmar com o Setor Administrativo da Associação se o proprietário já possui o termo." },
+  { id:"art_rrt_projeto", nome:"ART ou RRT do responsável técnico pelo projeto", quando:"sempre", grupo:"Responsabilidade técnica" },
+  { id:"art_rrt_execucao", nome:"ART ou RRT do responsável técnico pela execução da obra", quando:"sempre", grupo:"Responsabilidade técnica" },
+  { id:"croqui_canteiro", nome:"Croqui do canteiro, acesso e ligações provisórias", quando:"sempre", grupo:"Execução", obs:"Indicar local de acesso, sanitário e ligações de água e energia." },
+  { id:"dwg_projeto", nome:"Arquivo digital do projeto arquitetônico em DWG", quando:"sempre", grupo:"Entrega digital", obs:"Enviar por e-mail ao setor responsável pela análise." },
+  { id:"memorial_areas", nome:"Memorial de cálculo de áreas conforme modelo padrão", quando:"sempre", grupo:"Entrega digital" },
+];
+
+const LIC_TERRAS_ALPHA_VERIFICACAO = [
+  { id:"condominio_aprovado", nome:"Projeto aprovado pelo Condomínio" },
+  { id:"prefeitura_aprovada", nome:"Projeto aprovado e licença de construção emitida pela Prefeitura" },
+  { id:"licenca_entregue", nome:"Cópia da licença de construção entregue à Associação" },
+  { id:"vias_carimbadas", nome:"Vias impressas aprovadas devolvidas à Associação para carimbo e assinatura" },
+  { id:"via_arquivada", nome:"Uma via do projeto ficou arquivada na Associação" },
+  { id:"adimplencia_confirmada", nome:"Adimplência e situação fiduciária confirmadas na liberação" },
+  { id:"liberacao_emitida", nome:"Termo/autorização de liberação da obra emitido pela Associação" },
+];
+
+const CONDOMINIOS_PADRAO = [{
+  id:"cond-terras-alpha-caruaru", nome:"Terras Alpha Caruaru", cidade:"Caruaru", uf:"PE",
+  cep:"55038-215", endereco:"Rua Quitéria Luiza da Silva Nova, 35 - Universitário, Empresarial Ethos, sala 810",
+  contato:"Departamento Técnico", telefone:"", email:"", checklistTipo:"terras_alpha_caruaru", ativo:true,
+  atendimento:"Segunda a sexta, das 08:00 às 12:00. Análises iniciadas na segunda e na quarta-feira após a entrega.",
+  observacoes:"A entrega do projeto é presencial. A aprovação do condomínio antecede o protocolo na Prefeitura.",
+}];
+
 const LICENCAS = [
   { id:"simplificada", orgao:"URB Caruaru", nome:"Licença de Construção Simplificada",
     prazo:"10 dias úteis",
     finalidade:"Atesta que o projeto atende a legislação vigente e que existe responsável técnico pela execução.",
     pre:LIC_SIMPLIFICADA_PRE, docs:LIC_SIMPLIFICADA_DOCS },
+  { id:"terras_alpha_caruaru", orgao:"Associação Terras Alpha Caruaru", nome:"Aprovação e liberação de obra",
+    prazo:"Conforme calendário de análise da Associação",
+    finalidade:"Organiza a aprovação condominial, o protocolo municipal e a liberação definitiva para iniciar a obra.",
+    pre:LIC_TERRAS_ALPHA_PRE, docs:LIC_TERRAS_ALPHA_DOCS },
 ];
 const licencaPorId = id => LICENCAS.find(l => l.id === id) || LICENCAS[0];
 
@@ -1435,9 +1484,11 @@ const DEFAULT = () => ({
   unidades: UNIDADES_PADRAO.map(u => ({ id: uid(), sigla: u.sigla, nome: u.nome })),
   fases: FASES_PADRAO.map((f, i) => ({ id: uid(), nome: f.nome, cor: f.cor, ordem: i })),
   obras: [
-    { id: uid(), name: "Obra 1", address: "", engineer: "", engineerId: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
-    { id: uid(), name: "Obra 2", address: "", engineer: "", engineerId: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 1", address: "", condominioId:"", condominioNome:"", quadra:"", lote:"", engineer: "", engineerId: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
+    { id: uid(), name: "Obra 2", address: "", condominioId:"", condominioNome:"", quadra:"", lote:"", engineer: "", engineerId: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
   ],
+  condominios: CONDOMINIOS_PADRAO.map(x=>({...x})),
+  licencas: [],
   employees: [],
   attendance: {},
   advances: [],
@@ -1714,6 +1765,10 @@ const normalizeData = incoming => {
       clienteId: o.clienteId || (d.comercial?.clientes||[]).find(c=>c.nome===o.cliente||c.razaoSocial===o.cliente)?.id || "",
       cliente: o.cliente || "",
       address: o.address || "",
+      condominioId: o.condominioId || "",
+      condominioNome: o.condominioNome || "",
+      quadra: o.quadra || "",
+      lote: o.lote || "",
       engineer: (d.usuarios||[]).find(u=>u.id===o.engineerId&&u.role==="engenheiro"&&u.active!==false)?.nome || o.engineer || "",
       engineerId: o.engineerId || (d.usuarios||[]).find(u=>u.role==="engenheiro"&&u.active!==false&&u.nome===o.engineer)?.id || "",
       startDate: o.startDate || "",
@@ -1755,6 +1810,12 @@ const normalizeData = incoming => {
       hasCaixa:   !!o.hasCaixa,
       faseId:     o.faseId || "",   // coluna do Kanban ("" = ainda não posicionada)
     })) : base.obras,
+    condominios: Array.isArray(d.condominios) ? d.condominios.map(x=>({
+      id:x.id||uid(), nome:x.nome||"Condomínio sem nome", cidade:x.cidade||"", uf:x.uf||"PE",
+      cep:x.cep||"", endereco:x.endereco||"", contato:x.contato||"", telefone:x.telefone||"", email:x.email||"",
+      checklistTipo:x.checklistTipo||"generico", atendimento:x.atendimento||"", observacoes:x.observacoes||"",
+      ativo:x.ativo!==false, createdAt:x.createdAt||new Date().toISOString(), updatedAt:x.updatedAt||"",
+    })) : CONDOMINIOS_PADRAO.map(x=>({...x,createdAt:new Date().toISOString(),updatedAt:""})),
     fases: Array.isArray(d.fases) && d.fases.length ? d.fases.map((f, i) => ({
       id:    f.id   || uid(),
       nome:  f.nome || "Fase",
@@ -2421,9 +2482,16 @@ const normalizeData = incoming => {
       dataEmissao:   x.dataEmissao   || "",
       validade:  x.validade  || "",
       observacoes: x.observacoes || "",
+      modoAprovacao: x.modoAprovacao || "nova",
+      numeroAprovacao: x.numeroAprovacao || "",
+      dataAprovacao: x.dataAprovacao || "",
+      verificacao: (x.verificacao && typeof x.verificacao === "object") ? x.verificacao : {},
       pre:   (x.pre && typeof x.pre === "object") ? x.pre : {},
-      itens: (x.itens && typeof x.itens === "object") ? x.itens : {},
+      itens: (x.itens && typeof x.itens === "object") ? Object.fromEntries(Object.entries(x.itens).map(([k,v])=>[k,{
+        ...(v||{}), documentos:Array.isArray(v?.documentos)?v.documentos:[],
+      }])) : {},
       createdAt: x.createdAt || new Date().toISOString(),
+      updatedAt: x.updatedAt || "",
     })) : [],
     // COTAÇÕES DE MATERIAIS - histórico de pesquisa de preço por item (código).
     // Cada cotação registra o preço de um fornecedor numa data, para comparar
@@ -6113,7 +6181,7 @@ function ClienteContratualModal({form,setForm,onClose,onSave,formGrid}){
 
 function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
   const { formGrid, cols, isDesktop } = useBreakpoint();
-  const empty = { id: "", name: "", clienteId:"", cliente: "", address: "", engineer: "", engineerId: "", startDate: "", faseId: "", status: "active", areaM2: "", oneDriveUrl: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
+  const empty = { id: "", name: "", clienteId:"", cliente: "", address: "", condominioId:"", condominioNome:"", quadra:"", lote:"", engineer: "", engineerId: "", startDate: "", faseId: "", status: "active", areaM2: "", oneDriveUrl: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [clienteModal,setClienteModal]=useState(null);
@@ -6122,6 +6190,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
   const ehAdmin=currentUser?.role==="admin";
   const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
   const clientes=data.comercial?.clientes||[];
+  const condominios=(data.condominios||[]).filter(x=>x.ativo!==false);
   useEffect(()=>{
     const id=sessionStorage.getItem("arcd_editar_obra");if(!id)return;
     sessionStorage.removeItem("arcd_editar_obra");const obra=(data.obras||[]).find(o=>o.id===id);if(!obra)return;
@@ -6292,6 +6361,9 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
       ...form,
       id: form.id || uid(),
       cliente: clientes.find(c=>c.id===form.clienteId)?.nome || form.cliente || "",
+      condominioNome: condominios.find(c=>c.id===form.condominioId)?.nome || "",
+      quadra: String(form.quadra||"").trim(),
+      lote: String(form.lote||"").trim(),
       engineerId: engenheiros.some(u=>u.id===form.engineerId) ? form.engineerId : "",
       engineer: engenheiros.find(u=>u.id===form.engineerId)?.nome || "",
       areaM2,
@@ -6800,6 +6872,9 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
             <Inp label="Nome *" value={form.name} onChange={setField("name")} />
             <Inp label="Metragem quadrada (m)" type="number" value={form.areaM2} onChange={setField("areaM2")} placeholder="Ex.: 250" />
             <Inp label="Endereço" value={form.address} onChange={setField("address")} />
+            <Sel label="Condomínio / loteamento" value={form.condominioId||""} onChange={setField("condominioId")}
+              options={[{v:"",l:"Fora de condomínio / não informado"},...condominios.map(c=>({v:c.id,l:`${c.nome}${c.cidade?` · ${c.cidade}/${c.uf}`:""}`}))]}/>
+            {form.condominioId&&<><Inp label="Quadra" value={form.quadra||""} onChange={setField("quadra")} placeholder="Ex.: Q-12"/><Inp label="Lote" value={form.lote||""} onChange={setField("lote")} placeholder="Ex.: 08"/></>}
             <Sel label="Engenheiro de campo responsável" value={form.engineerId||""} onChange={setField("engineerId")}
               options={[{v:"",l:engenheiros.length?"Selecione o engenheiro...":"Cadastre um engenheiro em Ajustes > Usuários"},...engenheiros.map(u=>({v:u.id,l:u.nome}))]}/>
             <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:6,alignItems:"end"}}><Sel label="Cliente contratante" value={form.clienteId||""} onChange={v=>{const c=clientes.find(x=>x.id===v);setForm(f=>({...f,clienteId:v,cliente:c?.nome||""}));}} options={[{v:"",l:"Selecione um cliente"},...clientes.map(c=>({v:c.id,l:c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}))]}/><Btn v="info" onClick={()=>setClienteModal(clienteContratualVazio())}><Ic n="plus"/> Cliente</Btn></div>
@@ -23386,6 +23461,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             ["Área construída", Number(obra.areaM2)>0?`${obra.areaM2} m2`:"-"],
             ["Início", obra.contractStart?fmtDate(obra.contractStart):(obra.startDate?fmtDate(obra.startDate):"-")],
             ["Término previsto", obra.contractEnd?fmtDate(obra.contractEnd):"-"],
+            ["Condomínio", obra.condominioNome?`${obra.condominioNome}${obra.quadra||obra.lote?` · Qd. ${obra.quadra||"-"} · Lt. ${obra.lote||"-"}`:""}`:"Fora de condomínio / não informado"],
             ["Endereço", obra.address||"-"]].map(([l,v])=>(
             <div key={l}>
               <p style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p>
@@ -26458,6 +26534,11 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const engenheiros=useMemo(()=>(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro"),[data.usuarios]);
   const responsaveis=useMemo(()=>engenheiros.map(u=>({id:u.id,nome:u.nome,tipo:"Engenheiro de campo"})),[engenheiros]);
   const ehAdmin=currentUser?.role==="admin";
+  const ehEngenheiro=currentUser?.role==="engenheiro"&&currentUser?.active!==false;
+  const ehResponsavelPelaObra=o=>ehEngenheiro&&(!currentUser?.obraId||currentUser.obraId===o?.id)&&(
+    o?.engineerId===currentUser?.id||(!o?.engineerId&&o?.engineer&&o.engineer===currentUser?.nome));
+  const obrasCriaveis=ehAdmin?obras:obras.filter(ehResponsavelPelaObra);
+  const podeCriarConferencia=ehAdmin||obrasCriaveis.length>0;
   const ehVistoriador=!!currentUser?.id&&currentUser.id===conferencia?.responsavelId;
   const podeGerirVistoria=ehAdmin||ehVistoriador;
   const ehResponsavelAjuste=p=>!!currentUser?.id&&currentUser.id===p?.responsavelAjusteId;
@@ -26473,15 +26554,19 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     ? {...mut({...c}),atualizadoEm:new Date().toISOString()}:c)});
 
   const abrirNovaConferencia=()=>{
-    if(!ehAdmin){showToast?.("Somente o administrador pode criar conferências.","error");return;}
-    const obraId=obraIdFixo||obraFiltro||obras[0]?.id||"";
+    if(!podeCriarConferencia){showToast?.("Peça ao administrador para definir você como engenheiro responsável pela obra.","error");return;}
+    const candidatas=obrasCriaveis;
+    const obraPreferida=candidatas.find(o=>o.id===(obraIdFixo||obraFiltro))||candidatas[0];
+    const obraId=obraPreferida?.id||"";
     const obra=(data.obras||[]).find(o=>o.id===obraId);
-    setNovaForm({obraId,data:today(),responsavelId:obra?.engineerId||""});
+    setNovaForm({obraId,data:today(),responsavelId:ehAdmin?(obra?.engineerId||""):(currentUser?.id||"")});
   };
   const novaConferencia=()=>{
     const obraId=novaForm?.obraId;
     if(!obraId){showToast?.("Cadastre uma obra antes de criar a conferência.","error");return;}
-    const responsavel=engenheiros.find(u=>u.id===novaForm?.responsavelId);
+    const obra=obras.find(o=>o.id===obraId);
+    if(!ehAdmin&&!ehResponsavelPelaObra(obra)){showToast?.("Você não está definido como engenheiro responsável por esta obra.","error");return;}
+    const responsavel=engenheiros.find(u=>u.id===(ehAdmin?novaForm?.responsavelId:currentUser?.id));
     if(!responsavel){showToast?.("Selecione o engenheiro de campo responsável.","error");return;}
     const codigo=Math.max(0,...(data.conferencias||[]).filter(c=>c.obraId===obraId).map(c=>Number(c.codigo||0)))+1;
     const agora=new Date().toISOString();
@@ -26556,17 +26641,18 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   };
 
   const podeVerConferencia=c=>ehAdmin||c.responsavelId===currentUser?.id||(c.pendencias||[]).some(p=>p.responsavelAjusteId===currentUser?.id);
-  const obrasVisiveis=ehAdmin?obras:obras.filter(o=>(data.conferencias||[]).some(c=>c.obraId===o.id&&podeVerConferencia(c)));
+  const obrasVisiveis=ehAdmin?obras:obras.filter(o=>ehResponsavelPelaObra(o)||(data.conferencias||[]).some(c=>c.obraId===o.id&&podeVerConferencia(c)));
   const filtroValido=obrasVisiveis.some(o=>o.id===obraFiltro)?obraFiltro:(obrasVisiveis[0]?.id||"");
-  const lista=(data.conferencias||[]).filter(podeVerConferencia).filter(c=>!filtroValido||c.obraId===filtroValido).filter(c=>statusFiltro==="todas"||(c.pendencias||[]).some(p=>p.status!=="resolvida")).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
+  const lista=(data.conferencias||[]).filter(podeVerConferencia).filter(c=>!filtroValido||c.obraId===filtroValido).filter(c=>statusFiltro==="todas"||c.status!=="concluida"||(c.pendencias||[]).some(p=>p.status!=="resolvida")).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
 
   if(!conferencia) return <div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div><h1 style={{fontSize:22,color:C.text}}>Conferência técnica</h1><p style={{fontSize:12,color:C.muted,marginTop:4}}>Vistorias, inconformidades e ajustes rastreados até a resolução</p></div>
     <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
       <div style={{minWidth:240,flex:1}}><Sel label="Obra" value={filtroValido} onChange={setObraFiltro} options={obrasVisiveis.map(o=>({v:o.id,l:o.name}))}/></div>
-      <div style={{minWidth:190}}><Sel label="Situação" value={statusFiltro} onChange={setStatusFiltro} options={[{v:"abertas",l:"Com pendências abertas"},{v:"todas",l:"Todas as conferências"}]}/></div>
-      {ehAdmin&&<Btn onClick={abrirNovaConferencia}><Ic n="plus"/> Nova vistoria</Btn>}
+      <div style={{minWidth:190}}><Sel label="Situação" value={statusFiltro} onChange={setStatusFiltro} options={[{v:"abertas",l:"Em andamento / com pendências"},{v:"todas",l:"Todas as conferências"}]}/></div>
+      {(ehAdmin||ehEngenheiro)&&<Btn onClick={abrirNovaConferencia} disabled={!podeCriarConferencia} title={!podeCriarConferencia?"O administrador precisa vincular uma obra a este engenheiro.":"Criar nova vistoria"}><Ic n="plus"/> Nova vistoria</Btn>}
     </div>
+    {ehEngenheiro&&!podeCriarConferencia&&<div style={{padding:"9px 11px",border:`1px solid ${C.orange}55`,borderRadius:8,background:`${C.orange}09`,fontSize:10.5,color:C.orange}}>Seu perfil está ativo, mas nenhuma obra está vinculada a você como engenheiro responsável. O administrador deve fazer o vínculo em <b>Engenharia → Obras → Editar obra</b>.</div>}
     {!lista.length?<div style={{padding:"34px 18px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="clipboard" s={26} color={C.muted}/><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:9}}>Nenhuma conferência nesta obra</p><p style={{fontSize:11,color:C.muted,marginTop:4}}>Crie a primeira vistoria técnica para começar a rastrear ajustes.</p></div>:
     <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:10}}>{lista.map(c=>{
       const abertas=(c.pendencias||[]).filter(p=>p.status!=="resolvida").length;
@@ -26577,7 +26663,7 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
         <div style={{display:"flex",gap:12,marginTop:12,fontSize:11,color:C.text}}><span><strong>{c.notaGeral}</strong>/10</span><span><strong>{(c.pendencias||[]).length}</strong> achados</span><span style={{color:abertas?C.red:C.green}}><strong>{abertas}</strong> abertos</span></div>
       </button>;
     })}</div>}
-    {novaForm&&<Modal title="Nova conferência técnica" onClose={()=>setNovaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}><Sel label="Obra *" value={novaForm.obraId} onChange={v=>{const obra=(data.obras||[]).find(o=>o.id===v);setNovaForm(f=>({...f,obraId:v,responsavelId:obra?.engineerId||""}));}} options={obras.map(o=>({v:o.id,l:o.name}))}/><Sel label="Engenheiro de campo responsável *" value={novaForm.responsavelId} onChange={v=>setNovaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Selecione..."},...engenheiros.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Data da vistoria" type="date" value={novaForm.data} onChange={v=>setNovaForm(f=>({...f,data:v}))}/><div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setNovaForm(null)} full>Cancelar</Btn><Btn onClick={novaConferencia} full><Ic n="check"/> Criar conferência</Btn></div></div></Modal>}
+    {novaForm&&<Modal title="Nova conferência técnica" onClose={()=>setNovaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}><Sel label="Obra *" value={novaForm.obraId} onChange={v=>{const obra=(data.obras||[]).find(o=>o.id===v);setNovaForm(f=>({...f,obraId:v,responsavelId:ehAdmin?(obra?.engineerId||""):(currentUser?.id||"")}));}} options={obrasCriaveis.map(o=>({v:o.id,l:o.name}))}/>{ehAdmin?<Sel label="Engenheiro de campo responsável *" value={novaForm.responsavelId} onChange={v=>setNovaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Selecione..."},...engenheiros.map(u=>({v:u.id,l:u.nome}))]}/>:<Inp label="Responsável pela vistoria" value={currentUser?.nome||""} onChange={()=>{}} disabled/>}<Inp label="Data da vistoria" type="date" value={novaForm.data} onChange={v=>setNovaForm(f=>({...f,data:v}))}/><div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setNovaForm(null)} full>Cancelar</Btn><Btn onClick={novaConferencia} full><Ic n="check"/> Criar conferência</Btn></div></div></Modal>}
   </div>;
 
   const abertas=(conferencia.pendencias||[]).filter(p=>p.status!=="resolvida").length;
@@ -28459,250 +28545,108 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="" }) {
 //  manutenção, transferência entre obras e relatório mensal de lucro.
 // ============================================================================
 function Licenciamento({ data, update, showToast, obraIdFixo="" }) {
-  const { cols, formGrid } = useBreakpoint();
-  const [obraSel, setObraSel] = useState(obraIdFixo);
-  const [itemModal, setItemModal] = useState(null);   // {docId, ...estado}
+  const { formGrid } = useBreakpoint();
+  const [obraSel,setObraSel]=useState(obraIdFixo);
+  const [itemModal,setItemModal]=useState(null);
+  const [anexandoId,setAnexandoId]=useState("");
+  const [gestaoCondo,setGestaoCondo]=useState(false);
+  const condoVazio={id:"",nome:"",cidade:"",uf:"PE",cep:"",endereco:"",contato:"",telefone:"",email:"",checklistTipo:"generico",atendimento:"",observacoes:"",ativo:true};
+  const [condForm,setCondForm]=useState(condoVazio);
+  const condominios=(data.condominios||[]).filter(x=>x.ativo!==false);
+  const obrasAtivas=(data.obras||[]).filter(o=>o.status!=="done");
+  const obraId=obraIdFixo||obraSel||obrasAtivas[0]?.id||(data.obras||[])[0]?.id||"";
+  const obra=(data.obras||[]).find(o=>o.id===obraId);
+  const condominio=condominios.find(x=>x.id===obra?.condominioId);
+  const tipoSugerido=condominio?.checklistTipo==="terras_alpha_caruaru"?"terras_alpha_caruaru":"simplificada";
+  const check=(data.licencas||[]).find(l=>l.obraId===obraId)||{id:"",obraId,tipo:tipoSugerido,pre:{},itens:{},verificacao:{},modoAprovacao:"nova",protocolo:"",dataProtocolo:"",dataEmissao:"",validade:"",numeroAprovacao:"",dataAprovacao:"",observacoes:""};
+  const lic=licencaPorId(check.tipo);
+  const prog=progressoChecklist(check,lic.docs);
+  const pre=preRequisitosOk(check,lic.pre);
+  const grupos=[...new Set(lic.docs.map(d=>d.grupo||"Outros"))];
+  const verificacoes=check.tipo==="terras_alpha_caruaru"?LIC_TERRAS_ALPHA_VERIFICACAO:[];
+  const verificadas=verificacoes.filter(v=>check.verificacao?.[v.id]?.ok).length;
 
-  const obrasAtivas = (data.obras||[]).filter(o => o.status !== "done");
-  const obraId = obraIdFixo || obraSel || obrasAtivas[0]?.id || (data.obras||[])[0]?.id || "";
-  const obra = (data.obras||[]).find(o => o.id === obraId);
+  const listaLicencas=(mudanca)=>{
+    const atual=(data.licencas||[]).find(l=>l.obraId===obraId);
+    const novo={...check,...mudanca,id:atual?.id||uid(),obraId,updatedAt:new Date().toISOString(),createdAt:atual?.createdAt||check.createdAt||new Date().toISOString()};
+    return atual?(data.licencas||[]).map(l=>l.obraId===obraId?novo:l):[...(data.licencas||[]),novo];
+  };
+  const salvar=(mudanca,extras={})=>update({...data,...extras,licencas:listaLicencas(mudanca)});
+  const setItem=(docId,campos,extras={})=>salvar({itens:{...check.itens,[docId]:{...(check.itens?.[docId]||{}),...campos}}},extras);
+  const ciclarStatus=docId=>{const ordem=["pendente","em_andamento","entregue","aprovado"];const atual=check.itens?.[docId]?.status||"pendente";const prox=atual==="na"?"pendente":ordem[(ordem.indexOf(atual)+1)%ordem.length];setItem(docId,{status:prox,data:["entregue","aprovado"].includes(prox)?today():""});};
 
-  // Acha (ou prepara) o checklist desta obra.
-  const check = (data.licencas||[]).find(l => l.obraId === obraId)
-             || { id:"", obraId, tipo:"simplificada", pre:{}, itens:{},
-                  protocolo:"", dataProtocolo:"", dataEmissao:"", validade:"", observacoes:"" };
-  const lic = licencaPorId(check.tipo);
-  const prog = progressoChecklist(check, lic.docs);
-  const pre = preRequisitosOk(check, lic.pre);
-
-  // Grava alteracoes no checklist da obra (cria se ainda nao existe).
-  const salvar = (mudanca) => {
-    const atual = (data.licencas||[]).find(l => l.obraId === obraId);
-    const novo = { ...check, ...mudanca, id: atual?.id || uid(), obraId };
-    const lista = atual
-      ? (data.licencas||[]).map(l => l.obraId === obraId ? novo : l)
-      : [...(data.licencas||[]), novo];
-    update({ ...data, licencas: lista });
+  const vincularCondominio=id=>{
+    const condo=condominios.find(x=>x.id===id);
+    const tipo=condo?.checklistTipo==="terras_alpha_caruaru"?"terras_alpha_caruaru":"simplificada";
+    const obras=(data.obras||[]).map(o=>o.id===obraId?{...o,condominioId:id,condominioNome:condo?.nome||""}:o);
+    salvar({tipo},{obras});
+    showToast?.(condo?`${condo.nome} vinculado à obra.`:"Obra marcada como fora de condomínio.");
   };
 
-  const setItem = (docId, campos) =>
-    salvar({ itens: { ...check.itens, [docId]: { ...(check.itens?.[docId]||{}), ...campos } } });
-
-  const ciclarStatus = (docId) => {
-    const ordem = ["pendente","em_andamento","entregue","aprovado"];
-    const atual = check.itens?.[docId]?.status || "pendente";
-    const prox = atual === "na" ? "pendente" : ordem[(ordem.indexOf(atual)+1) % ordem.length];
-    setItem(docId, { status: prox, data: prox==="entregue"||prox==="aprovado" ? today() : "" });
+  const salvarCondominio=()=>{
+    if(!condForm.nome.trim()){showToast?.("Informe o nome do condomínio.","error");return;}
+    const reg={...condForm,id:condForm.id||uid(),nome:condForm.nome.trim(),updatedAt:new Date().toISOString(),createdAt:condForm.createdAt||new Date().toISOString()};
+    const lista=condForm.id?(data.condominios||[]).map(x=>x.id===condForm.id?reg:x):[...(data.condominios||[]),reg];
+    update({...data,condominios:lista});setCondForm(condoVazio);showToast?.("Condomínio salvo.");
   };
 
-  if (!obra) return (
-    <div style={{padding:24,textAlign:"center",color:C.muted,fontSize:12.5}}>
-      Cadastre uma obra para montar o checklist de licenciamento.
-    </div>
-  );
+  const anexarDocumento=async(doc,file,grupo)=>{
+    if(!file||!obra)return;
+    if(file.size>6*1024*1024){showToast?.("O arquivo deve ter no máximo 6 MB.","error");return;}
+    setAnexandoId(doc.id);
+    try{
+      const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});
+      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra.name,driveId:obra.oneDriveDriveId,folderId:obra.oneDriveFolderId,folders:obra.oneDriveFolders,category:"licenciamento",subfolder:`${lic.orgao}/${grupo}`,fileName:file.name});
+      if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha no envio ao OneDrive.");
+      const anexo={id:resp.item?.id||uid(),nome:resp.item?.name||file.name,url:resp.url||resp.item?.webUrl||"",path:resp.path||"",tipo:file.type,tamanho:file.size,enviadoEm:new Date().toISOString()};
+      const documentos=[...(check.itens?.[doc.id]?.documentos||[]),anexo];
+      const obras=(data.obras||[]).map(o=>o.id===obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);
+      setItem(doc.id,{documentos,status:check.itens?.[doc.id]?.status==="pendente"?"em_andamento":(check.itens?.[doc.id]?.status||"em_andamento")},{obras});
+      showToast?.("Documento anexado à etapa e salvo no OneDrive.");
+    }catch(e){showToast?.(e.message||"Não foi possível anexar o documento.","error");}finally{setAnexandoId("");}
+  };
 
-  // Agrupa os documentos por bloco, para a lista nao virar um paredao.
-  const grupos = [...new Set(lic.docs.map(d => d.grupo || "Outros"))];
+  const removerAnexo=(docId,anexoId)=>{if(!window.confirm("Remover este link do dossiê? O arquivo continuará preservado no OneDrive."))return;const documentos=(check.itens?.[docId]?.documentos||[]).filter(a=>a.id!==anexoId);setItem(docId,{documentos});setItemModal(m=>m&&m.docId===docId?{...m,documentos}:m);};
 
-  return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-        {obraIdFixo
-          ? <Inp label="Obra" value={obra?.name||"Obra atual"} onChange={()=>{}} disabled/>
-          : <Sel label="Obra" value={obraId} onChange={setObraSel}
-               options={(data.obras||[]).map(o=>({v:o.id,l:o.name}))}/>}
-        <Sel label="Tipo de licença" value={check.tipo} onChange={v=>salvar({tipo:v})}
-             options={LICENCAS.map(l=>({v:l.id,l:l.nome}))}/>
-      </div>
+  const gerarDossie=()=>{
+    const link=a=>{try{return new URL(a.url,window.location.origin).href;}catch{return a.url||"";}};
+    const blocos=grupos.map(g=>`<section><h2>${escapeHtml(g)}</h2>${lic.docs.filter(d=>(d.grupo||"Outros")===g).map(d=>{const est=check.itens?.[d.id]||{},si=licStatusInfo(est.status||"pendente"),docs=est.documentos||[];return `<article><div><b>${escapeHtml(d.nome)}</b><small>${escapeHtml(si.l)}${est.data?` · ${escapeHtml(fmtDate(est.data))}`:""}${est.obs?` · ${escapeHtml(est.obs)}`:""}</small></div><div class="links">${docs.length?docs.map((a,i)=>`<a href="${escapeHtml(link(a))}" target="_blank">${i+1}. ${escapeHtml(a.nome||"Documento")}</a>`).join(""):"<span>Sem anexo</span>"}</div></article>`;}).join("")}</section>`).join("");
+    const verificacaoHtml=verificacoes.length?`<section><h2>Verificação e liberação</h2>${verificacoes.map(v=>`<article><div><b>${check.verificacao?.[v.id]?.ok?"✓":"○"} ${escapeHtml(v.nome)}</b><small>${check.verificacao?.[v.id]?.data?escapeHtml(fmtDate(check.verificacao[v.id].data)):""}</small></div></article>`).join("")}</section>`:"";
+    const html=`<!doctype html><html><head><meta charset="utf-8"><title>Dossiê de licenciamento · ${escapeHtml(obra.name)}</title><style>:root{--ouro:#d4af37;--grafite:#121212;--areia:#f5f3ee;--cinza:#bfbfbf}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:var(--grafite);margin:0;background:#fff}header{padding:30px 36px;background:var(--grafite);color:#fff;border-bottom:6px solid var(--ouro)}header p{margin:5px 0;color:#ddd}main{padding:26px 36px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:22px}.summary div{border:1px solid #ddd;padding:10px}.summary small,article small{display:block;color:#666;margin-top:4px}h1{margin:0;font-size:24px}h2{font-size:14px;text-transform:uppercase;letter-spacing:.8px;border-bottom:2px solid var(--ouro);padding-bottom:6px;margin-top:22px}article{display:grid;grid-template-columns:minmax(0,1fr) 38%;gap:18px;padding:10px 6px;border-bottom:1px solid #e6e2d9;font-size:11px}.links{display:flex;flex-direction:column;gap:3px}.links a{color:#0d47a1;text-decoration:none}.links span{color:#999}.print{position:fixed;right:16px;top:16px;border:0;background:var(--ouro);color:#111;padding:10px 14px;font-weight:bold;cursor:pointer}@media print{.print{display:none}article{break-inside:avoid}}@media(max-width:700px){.summary{grid-template-columns:1fr 1fr}article{grid-template-columns:1fr}}</style></head><body><button class="print" onclick="print()">Imprimir / salvar PDF</button><header><h1>Dossiê de licenciamento</h1><p>${escapeHtml(data.config?.companyName||"ARCD")} · ${escapeHtml(obra.name)}</p><p>${escapeHtml(condominio?.nome||"Sem condomínio informado")}${obra.quadra||obra.lote?` · Quadra ${escapeHtml(obra.quadra||"-")} · Lote ${escapeHtml(obra.lote||"-")}`:""}</p></header><main><div class="summary"><div><b>${prog.pct.toFixed(0)}%</b><small>documentação</small></div><div><b>${prog.concluidos}/${prog.aplicaveis}</b><small>itens concluídos</small></div><div><b>${verificadas}/${verificacoes.length||"-"}</b><small>verificações</small></div><div><b>${escapeHtml(check.protocolo||"-")}</b><small>protocolo</small></div></div><p style="font-size:11px;color:#666">Gerado em ${escapeHtml(new Date().toLocaleString("pt-BR"))}. Os links abaixo dão acesso às evidências arquivadas no OneDrive conforme as permissões do usuário.</p>${blocos}${verificacaoHtml}</main></body></html>`;
+    const w=window.open("","_blank");if(!w){showToast?.("Permita pop-ups para gerar o dossiê.","error");return;}w.opener=null;w.document.write(html);w.document.close();
+  };
 
-      {/* Cabecalho da licenca */}
-      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px"}}>
-        <p style={{fontSize:9.5,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:.8}}>
-          {lic.orgao}
-        </p>
-        <p style={{fontSize:14,fontWeight:800,color:C.text,marginTop:2,
-                   fontFamily:"'Inter Display','Inter',sans-serif"}}>{lic.nome}</p>
-        <p style={{fontSize:11,color:C.muted,marginTop:4,lineHeight:1.5}}>{lic.finalidade}</p>
-        <p style={{fontSize:10.5,color:C.subtle,marginTop:4}}>Prazo de emissão: <b>{lic.prazo}</b></p>
-      </div>
+  if(!obra)return <div style={{padding:24,textAlign:"center",color:C.muted,fontSize:12.5}}>Cadastre uma obra para montar o checklist de licenciamento.</div>;
 
-      {/* Andamento */}
-      <div style={{background:C.card,border:`1.5px solid ${prog.pronto?C.green:C.border}`,
-                   borderRadius:10,padding:"12px 14px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
-          <p style={{fontSize:12,fontWeight:800,color:C.text}}>
-            {prog.concluidos} de {prog.aplicaveis} documentos
-          </p>
-          <b style={{fontSize:16,color:prog.pronto?C.green:C.yellowD}}>{prog.pct.toFixed(0)}%</b>
-        </div>
-        <div style={{height:8,background:C.line,borderRadius:99,overflow:"hidden"}}>
-          <div style={{height:"100%",width:`${prog.pct}%`,borderRadius:99,
-                       background:prog.pronto?C.green:C.yellowD}}/>
-        </div>
-        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:8}}>
-          {[["Pendentes",prog.pendentes,C.muted],["Aprovados",prog.aprovados,C.green],
-            ["Não necessário",prog.naoAplica,C.border]].map(([l,v,cor])=>(
-            <span key={l} style={{fontSize:10,color:C.muted}}>
-              {l} <b style={{color:cor==="#C8C2B6"?C.muted:cor,fontSize:11.5}}>{v}</b>
-            </span>
-          ))}
-        </div>
-        {prog.pronto && (
-          <p style={{fontSize:11,color:C.green,fontWeight:700,marginTop:8}}>
-            Documentação completa - pode protocolar na {lic.orgao}.
-          </p>
-        )}
-      </div>
+  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:9.5,fontWeight:900,color:C.yellowD,textTransform:"uppercase",letterSpacing:1}}>Governança documental</p><h2 style={{fontSize:21,color:C.text}}>Licenciamento da obra</h2><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Condomínio → documentação → aprovação → Prefeitura → liberação</p></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn v="ghost" onClick={()=>setGestaoCondo(true)}><Ic n="building"/> Condomínios</Btn><Btn onClick={gerarDossie}><Ic n="fileText"/> Gerar dossiê</Btn></div></div>
 
-      {/* Pre-requisitos: se um falhar, essa licenca nao serve */}
-      <div style={{background:pre.ok?`${C.green}09`:`${C.orange}0B`,
-                   border:`1px solid ${pre.ok?C.green+"55":C.orange+"66"}`,borderRadius:10,padding:"12px 14px"}}>
-        <p style={{fontSize:11.5,fontWeight:800,color:pre.ok?C.green:C.orange,marginBottom:3}}>
-          Pré-requisitos {pre.marcados}/{pre.total}
-        </p>
-        <p style={{fontSize:10,color:C.muted,marginBottom:9,lineHeight:1.45}}>
-          Todos precisam ser atendidos. Se algum não for, a obra não se enquadra nesta licença.
-        </p>
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {lic.pre.map(p=>{
-            const marcado = !!check.pre?.[p.id];
-            return (
-              <label key={p.id} style={{display:"flex",alignItems:"flex-start",gap:9,cursor:"pointer"}}>
-                <input type="checkbox" checked={marcado}
-                  onChange={()=>salvar({pre:{...check.pre,[p.id]:!marcado}})}
-                  style={{width:16,height:16,accentColor:C.green,cursor:"pointer",marginTop:1,flexShrink:0}}/>
-                <span style={{fontSize:11,color:marcado?C.text:C.muted,lineHeight:1.45}}>{p.texto}</span>
-              </label>
-            );
-          })}
-        </div>
-      </div>
+    <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>{obraIdFixo?<Inp label="Obra" value={obra.name} onChange={()=>{}} disabled/>:<Sel label="Obra" value={obraId} onChange={setObraSel} options={(data.obras||[]).map(o=>({v:o.id,l:o.name}))}/>}<Sel label="Condomínio da obra" value={obra.condominioId||""} onChange={vincularCondominio} options={[{v:"",l:"Fora de condomínio / ainda não informado"},...condominios.map(c=>({v:c.id,l:`${c.nome}${c.cidade?` · ${c.cidade}/${c.uf}`:""}`}))]}/></div>
 
-      {/* Documentos por grupo */}
-      {grupos.map(g=>(
-        <div key={g}>
-          <p style={{fontSize:9.5,fontWeight:900,color:C.muted,textTransform:"uppercase",
-                     letterSpacing:.8,marginBottom:6,padding:"0 2px"}}>{g}</p>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
-            {lic.docs.filter(d=>(d.grupo||"Outros")===g).map((d,i)=>{
-              const est = check.itens?.[d.id] || {};
-              const si = licStatusInfo(est.status||"pendente");
-              const na = est.status === "na";
-              return (
-                <div key={d.id} style={{padding:"11px 13px",borderTop:i?`1px solid ${C.line}`:"none",
-                     opacity:na?.55:1}}>
-                  <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                    {/* Toque no selo cicla o status */}
-                    <button onClick={()=>ciclarStatus(d.id)} title="Tocar para avançar o status"
-                      style={{flexShrink:0,border:`1.5px solid ${si.cor}`,background:`${si.cor}18`,
-                        color:si.cor,borderRadius:99,padding:"3px 9px",fontSize:9,fontWeight:800,
-                        cursor:"pointer",whiteSpace:"nowrap",fontFamily:"'Inter',sans-serif"}}>
-                      {si.l}
-                    </button>
-                    <div style={{minWidth:0,flex:1}}>
-                      <p style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.35,
-                                 textDecoration:na?"line-through":"none"}}>
-                        {d.nome}
-                        {d.anexo && (
-                          <span style={{fontSize:9,fontWeight:800,color:C.blue,background:`${C.blue}14`,
-                                padding:"1px 6px",borderRadius:99,marginLeft:6,whiteSpace:"nowrap"}}>{d.anexo}</span>
-                        )}
-                      </p>
-                      {d.quando==="condicional" && (
-                        <p style={{fontSize:9.5,color:C.orange,marginTop:2}}>{d.cond}</p>
-                      )}
-                      {d.obs && (
-                        <p style={{fontSize:9.5,color:C.muted,marginTop:3,lineHeight:1.45}}>{d.obs}</p>
-                      )}
-                      {est.data && (
-                        <p style={{fontSize:9.5,color:si.cor,marginTop:3,fontWeight:700}}>
-                          {si.l} em {fmtDate(est.data)}
-                        </p>
-                      )}
-                      {/* Responsavel direto na linha: quem nao tem dono nao anda */}
-                      {!na && (
-                        <div style={{display:"flex",alignItems:"center",gap:5,marginTop:5}}>
-                          <Ic n="users" s={11} color={est.responsavelId?C.blue:C.orange}/>
-                          <select value={est.responsavelId||""}
-                            onChange={e=>setItem(d.id,{responsavelId:e.target.value})}
-                            style={{border:0,background:"transparent",cursor:"pointer",
-                              fontSize:9.5,fontWeight:700,outline:"none",padding:0,
-                              color:est.responsavelId?C.blue:C.orange,
-                              fontFamily:"'Inter',sans-serif"}}>
-                            <option value="">Sem responsável</option>
-                            {(data.usuarios||[]).filter(u=>u.ativo!==false).map(u=>(
-                              <option key={u.id} value={u.id}>{u.nome}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                      {est.obs && (
-                        <p style={{fontSize:9.5,color:C.subtle,marginTop:3,fontStyle:"italic"}}>{est.obs}</p>
-                      )}
-                    </div>
-                    <button onClick={()=>setItemModal({docId:d.id,nome:d.nome,...est})}
-                      style={{flexShrink:0,background:"transparent",border:0,color:C.muted,
-                        cursor:"pointer",padding:3}}><Ic n="edit" s={14}/></button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+    {!condominio&&<div style={{padding:"10px 12px",border:`1px solid ${C.orange}66`,borderRadius:9,background:`${C.orange}0B`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}><p style={{fontSize:10.5,color:C.orange}}><b>Condomínio não definido.</b> Selecione acima ou cadastre um novo para carregar as exigências corretas.</p><Btn size="sm" v="ghost" onClick={()=>setGestaoCondo(true)}>Cadastrar</Btn></div>}
 
-      {/* Protocolo e emissao */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px"}}>
-        <p style={{fontSize:11.5,fontWeight:800,color:C.text,marginBottom:9}}>Protocolo e emissão</p>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
-          <Inp label="Nº do protocolo" value={check.protocolo} onChange={v=>salvar({protocolo:v})}/>
-          <Inp label="Data do protocolo" type="date" value={check.dataProtocolo} onChange={v=>salvar({dataProtocolo:v})}/>
-          <Inp label="Data de emissão" type="date" value={check.dataEmissao} onChange={v=>salvar({dataEmissao:v})}/>
-          <Inp label="Validade" type="date" value={check.validade} onChange={v=>salvar({validade:v})}/>
-          <div style={{gridColumn:"1/-1"}}>
-            <Inp label="Observações" value={check.observacoes} onChange={v=>salvar({observacoes:v})} multiline
-                 placeholder="Exigências da prefeitura, pendências, contatos..."/>
-          </div>
-        </div>
-        {check.dataProtocolo && !check.dataEmissao && (() => {
-          const dias = diasCorridos(check.dataProtocolo, today());
-          return (
-            <p style={{fontSize:10.5,marginTop:8,fontWeight:700,color:dias>10?C.orange:C.blue}}>
-              Protocolado há {dias} dia(s). Prazo previsto: {lic.prazo}.
-              {dias>10?" Já passou do prazo - vale cobrar.":""}
-            </p>
-          );
-        })()}
-      </div>
+    {condominio&&<div style={{padding:"11px 13px",border:`1px solid ${C.blue}44`,borderRadius:10,background:`${C.blue}08`,display:"grid",gridTemplateColumns:formGrid(2),gap:8}}><div><b style={{fontSize:12,color:C.blue}}>{condominio.nome}</b><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{condominio.endereco||`${condominio.cidade}/${condominio.uf}`}</p></div><div><p style={{fontSize:9.5,color:C.subtle,lineHeight:1.5}}>{condominio.atendimento||"Atendimento não informado."}</p>{condominio.email&&<a href={`mailto:${condominio.email}`} style={{fontSize:9.5,color:C.blue}}>{condominio.email}</a>}</div></div>}
 
-      {/* Detalhe de um documento */}
-      {itemModal && (
-        <Modal title={itemModal.nome} onClose={()=>setItemModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:11}}>
-            <Sel label="Situação" value={itemModal.status||"pendente"}
-                 onChange={v=>setItemModal(f=>({...f,status:v}))}
-                 options={LIC_STATUS.map(s=>({v:s.v,l:s.l}))}/>
-            <Inp label="Data" type="date" value={itemModal.data||""}
-                 onChange={v=>setItemModal(f=>({...f,data:v}))}/>
-            <Sel label="Responsável" value={itemModal.responsavelId||""}
-                 onChange={v=>setItemModal(f=>({...f,responsavelId:v}))}
-                 options={[{v:"",l:"Sem responsável definido"},
-                   ...(data.usuarios||[]).filter(u=>u.ativo!==false).map(u=>({v:u.id,l:u.nome}))]}/>
-            <Inp label="Observações" value={itemModal.obs||""}
-                 onChange={v=>setItemModal(f=>({...f,obs:v}))} multiline
-                 placeholder="Onde está, o que falta, número do documento..."/>
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setItemModal(null)} full>Cancelar</Btn>
-              <Btn onClick={()=>{
-                const {docId,nome,...est}=itemModal;
-                setItem(docId,est); setItemModal(null); showToast?.("Documento atualizado.");
-              }} full><Ic n="check"/> Salvar</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
+    <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}><Sel label="Procedimento aplicável" value={check.tipo} onChange={v=>salvar({tipo:v})} options={LICENCAS.map(l=>({v:l.id,l:l.nome}))}/><div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:5,textTransform:"uppercase"}}>Situação inicial</p><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",border:`1px solid ${C.border}`,borderRadius:7,overflow:"hidden"}}>{[["nova","Novo processo"],["ja_aprovada","Obra já aprovada"]].map(([v,l])=><button key={v} onClick={()=>salvar({modoAprovacao:v})} style={{border:0,padding:"9px 7px",cursor:"pointer",fontSize:10,fontWeight:800,background:check.modoAprovacao===v?C.yellow:C.card,color:check.modoAprovacao===v?"#111":C.muted}}>{l}</button>)}</div></div></div>
+
+    <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px"}}><p style={{fontSize:9.5,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:.8}}>{lic.orgao}</p><p style={{fontSize:14,fontWeight:850,color:C.text,marginTop:2}}>{lic.nome}</p><p style={{fontSize:10.5,color:C.muted,marginTop:4,lineHeight:1.5}}>{lic.finalidade}</p><p style={{fontSize:10,color:C.subtle,marginTop:4}}>Prazo: <b>{lic.prazo}</b></p></div>
+
+    <div style={{background:C.card,border:`1.5px solid ${prog.pronto?C.green:C.border}`,borderRadius:10,padding:"12px 14px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}><p style={{fontSize:12,fontWeight:800,color:C.text}}>{prog.concluidos} de {prog.aplicaveis} documentos</p><b style={{fontSize:16,color:prog.pronto?C.green:C.yellowD}}>{prog.pct.toFixed(0)}%</b></div><div style={{height:8,background:C.line,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${prog.pct}%`,background:prog.pronto?C.green:C.yellowD}}/></div><div style={{display:"flex",gap:12,marginTop:8,fontSize:10,color:C.muted}}><span>Pendentes <b>{prog.pendentes}</b></span><span>Aprovados <b style={{color:C.green}}>{prog.aprovados}</b></span><span>Anexos <b style={{color:C.blue}}>{Object.values(check.itens||{}).reduce((s,x)=>s+(x.documentos?.length||0),0)}</b></span></div></div>
+
+    <div style={{background:pre.ok?`${C.green}09`:`${C.orange}0B`,border:`1px solid ${pre.ok?C.green+"55":C.orange+"66"}`,borderRadius:10,padding:"12px 14px"}}><p style={{fontSize:11.5,fontWeight:800,color:pre.ok?C.green:C.orange,marginBottom:7}}>Condições de entrada {pre.marcados}/{pre.total}</p><div style={{display:"flex",flexDirection:"column",gap:6}}>{lic.pre.map(p=>{const marcado=!!check.pre?.[p.id];return <label key={p.id} style={{display:"flex",alignItems:"flex-start",gap:9,cursor:"pointer"}}><input type="checkbox" checked={marcado} onChange={()=>salvar({pre:{...check.pre,[p.id]:!marcado}})} style={{width:16,height:16,accentColor:C.green,marginTop:1}}/><span style={{fontSize:10.5,color:marcado?C.text:C.muted,lineHeight:1.45}}>{p.texto}</span></label>;})}</div></div>
+
+    {grupos.map(g=><div key={g}><p style={{fontSize:9.5,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:6,padding:"0 2px"}}>{g}</p><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>{lic.docs.filter(d=>(d.grupo||"Outros")===g).map((d,i)=>{const est=check.itens?.[d.id]||{},si=licStatusInfo(est.status||"pendente"),na=est.status==="na",docs=est.documentos||[];return <div key={d.id} style={{padding:"10px 12px",borderTop:i?`1px solid ${C.line}`:"none",opacity:na?.55:1}}><div style={{display:"grid",gridTemplateColumns:"auto minmax(0,1fr) auto",gap:10,alignItems:"start"}}><button onClick={()=>ciclarStatus(d.id)} title="Avançar situação" style={{border:`1.5px solid ${si.cor}`,background:`${si.cor}18`,color:si.cor,borderRadius:99,padding:"3px 8px",fontSize:8.5,fontWeight:850,cursor:"pointer",whiteSpace:"nowrap"}}>{si.l}</button><div style={{minWidth:0}}><p style={{fontSize:11.5,fontWeight:750,color:C.text,lineHeight:1.35,textDecoration:na?"line-through":"none"}}>{d.nome}</p>{d.cond&&<p style={{fontSize:9,color:C.orange,marginTop:2}}>{d.cond}</p>}{d.obs&&<p style={{fontSize:9,color:C.muted,marginTop:2,lineHeight:1.4}}>{d.obs}</p>}<div style={{display:"flex",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>{!na&&<select value={est.responsavelId||""} onChange={e=>setItem(d.id,{responsavelId:e.target.value})} style={{border:0,background:"transparent",fontSize:9,color:est.responsavelId?C.blue:C.orange,fontWeight:750,outline:"none"}}><option value="">Sem responsável</option>{(data.usuarios||[]).filter(u=>u.active!==false&&u.ativo!==false).map(u=><option key={u.id} value={u.id}>{u.nome}</option>)}</select>}{docs.slice(0,2).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:9,color:C.blue,textDecoration:"none"}}><Ic n="file" s={10}/> {a.nome}</a>)}{docs.length>2&&<button onClick={()=>setItemModal({docId:d.id,nome:d.nome,...est})} style={{border:0,background:"transparent",color:C.blue,fontSize:9,cursor:"pointer"}}>+{docs.length-2} arquivo(s)</button>}</div></div><div style={{display:"flex",gap:4,alignItems:"center"}}><label title="Anexar documento desta etapa" style={{display:"inline-flex",alignItems:"center",gap:4,border:`1px solid ${docs.length?C.blue:C.border}`,borderRadius:6,padding:"5px 7px",fontSize:8.5,fontWeight:800,color:docs.length?C.blue:C.subtle,cursor:anexandoId===d.id?"wait":"pointer",whiteSpace:"nowrap"}}><Ic n="link" s={11}/>{anexandoId===d.id?"Enviando":docs.length?`${docs.length} anexo(s)`:"Anexar"}<input type="file" disabled={anexandoId===d.id} onChange={e=>{anexarDocumento(d,e.target.files?.[0],g);e.target.value="";}} style={{display:"none"}}/></label><button onClick={()=>setItemModal({docId:d.id,nome:d.nome,...est})} style={{border:0,background:"transparent",color:C.muted,cursor:"pointer",padding:4}}><Ic n="edit" s={14}/></button></div></div></div>;})}</div></div>)}
+
+    {verificacoes.length>0&&<div style={{background:C.card,border:`1px solid ${verificadas===verificacoes.length?C.green:C.border}`,borderRadius:10,padding:"12px 14px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:8}}><div><p style={{fontSize:11.5,fontWeight:850}}>Aprovação e liberação para início da obra</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>A aprovação do projeto não substitui a autorização final da Associação.</p></div><Badge color={verificadas===verificacoes.length?C.green:C.orange}>{verificadas}/{verificacoes.length}</Badge></div><div style={{display:"flex",flexDirection:"column",gap:6}}>{verificacoes.map(v=>{const est=check.verificacao?.[v.id]||{};return <label key={v.id} style={{display:"flex",alignItems:"flex-start",gap:8,cursor:"pointer"}}><input type="checkbox" checked={!!est.ok} onChange={e=>salvar({verificacao:{...check.verificacao,[v.id]:{...est,ok:e.target.checked,data:e.target.checked?today():""}}})} style={{width:16,height:16,accentColor:C.green}}/><span style={{fontSize:10.5,color:est.ok?C.text:C.muted,flex:1}}>{v.nome}</span>{est.data&&<span style={{fontSize:9,color:C.green}}>{fmtDate(est.data)}</span>}</label>;})}</div>{check.modoAprovacao==="ja_aprovada"&&<div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8,marginTop:10}}><Inp label="Nº da aprovação / licença" value={check.numeroAprovacao||""} onChange={v=>salvar({numeroAprovacao:v})}/><Inp label="Data da aprovação" type="date" value={check.dataAprovacao||""} onChange={v=>salvar({dataAprovacao:v})}/></div>}</div>}
+
+    {check.tipo==="terras_alpha_caruaru"&&<div style={{padding:"11px 13px",border:`1px solid ${C.yellow}55`,borderRadius:9,background:`${C.yellow}0A`}}><b style={{fontSize:10.5,color:C.yellowD}}>Orientação operacional Terras Alpha</b><p style={{fontSize:9.5,color:C.subtle,lineHeight:1.55,marginTop:4}}>A entrega é presencial no endereço cadastrado, de segunda a sexta, das 08h às 12h. Após a aprovação do condomínio, protocole o processo na Prefeitura. Quando a licença municipal sair, devolva a licença e as vias aprovadas à Associação para carimbo, arquivamento e emissão da liberação da obra.</p></div>}
+
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px"}}><p style={{fontSize:11.5,fontWeight:800,color:C.text,marginBottom:9}}>Protocolo e emissão</p><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}><Inp label="Nº do protocolo" value={check.protocolo} onChange={v=>salvar({protocolo:v})}/><Inp label="Data do protocolo" type="date" value={check.dataProtocolo} onChange={v=>salvar({dataProtocolo:v})}/><Inp label="Data de emissão" type="date" value={check.dataEmissao} onChange={v=>salvar({dataEmissao:v})}/><Inp label="Validade" type="date" value={check.validade} onChange={v=>salvar({validade:v})}/><div style={{gridColumn:"1/-1"}}><Inp label="Observações e exigências" value={check.observacoes} onChange={v=>salvar({observacoes:v})} multiline placeholder="Pendências, contatos, exigências e próximos passos..."/></div></div></div>
+
+    {itemModal&&<Modal title={itemModal.nome} onClose={()=>setItemModal(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}><Sel label="Situação" value={itemModal.status||"pendente"} onChange={v=>setItemModal(f=>({...f,status:v}))} options={LIC_STATUS.map(s=>({v:s.v,l:s.l}))}/><Inp label="Data" type="date" value={itemModal.data||""} onChange={v=>setItemModal(f=>({...f,data:v}))}/><Sel label="Responsável" value={itemModal.responsavelId||""} onChange={v=>setItemModal(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Sem responsável definido"},...(data.usuarios||[]).filter(u=>u.active!==false&&u.ativo!==false).map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Observações" value={itemModal.obs||""} onChange={v=>setItemModal(f=>({...f,obs:v}))} multiline placeholder="Onde está, o que falta, número do documento..."/><div><p style={{fontSize:9.5,fontWeight:850,color:C.muted,textTransform:"uppercase",marginBottom:6}}>Documentos desta etapa</p>{(itemModal.documentos||[]).map(a=><div key={a.id} style={{display:"flex",alignItems:"center",gap:7,padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:7,marginBottom:5}}><Ic n="file"/><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:10,color:C.blue,flex:1}}>{a.nome}</a><button onClick={()=>removerAnexo(itemModal.docId,a.id)} title="Remover do dossiê" style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}><Ic n="trash" s={13}/></button></div>)}{!(itemModal.documentos||[]).length&&<p style={{fontSize:10,color:C.muted}}>Nenhum arquivo anexado.</p>}</div><div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setItemModal(null)} full>Cancelar</Btn><Btn onClick={()=>{const {docId,nome,...est}=itemModal;setItem(docId,est);setItemModal(null);showToast?.("Etapa atualizada.");}} full><Ic n="check"/> Salvar</Btn></div></div></Modal>}
+
+    {gestaoCondo&&<Modal title="Cadastro de condomínios" onClose={()=>{setGestaoCondo(false);setCondForm(condoVazio);}} wide><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:12}}><div style={{display:"flex",flexDirection:"column",gap:6}}><p style={{fontSize:10,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Cadastrados</p>{(data.condominios||[]).map(c=><button key={c.id} onClick={()=>setCondForm({...condoVazio,...c})} style={{textAlign:"left",padding:"9px 10px",border:`1px solid ${condForm.id===c.id?C.blue:C.border}`,borderRadius:8,background:condForm.id===c.id?`${C.blue}08`:C.card,cursor:"pointer"}}><b style={{fontSize:11,color:C.text}}>{c.nome}</b><p style={{fontSize:9,color:C.muted,marginTop:2}}>{c.cidade}/{c.uf} · {c.checklistTipo==="terras_alpha_caruaru"?"Checklist Terras Alpha":"Checklist municipal"}</p></button>)}</div><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Nome *" value={condForm.nome} onChange={v=>setCondForm(f=>({...f,nome:v}))}/><div style={{display:"grid",gridTemplateColumns:"1fr 80px",gap:7}}><Inp label="Cidade" value={condForm.cidade} onChange={v=>setCondForm(f=>({...f,cidade:v}))}/><Inp label="UF" value={condForm.uf} onChange={v=>setCondForm(f=>({...f,uf:v}))}/></div><Inp label="CEP" value={condForm.cep} onChange={v=>setCondForm(f=>({...f,cep:v}))}/><Inp label="Endereço de entrega" value={condForm.endereco} onChange={v=>setCondForm(f=>({...f,endereco:v}))}/><Inp label="Setor / contato" value={condForm.contato} onChange={v=>setCondForm(f=>({...f,contato:v}))}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><Inp label="Telefone" value={condForm.telefone} onChange={v=>setCondForm(f=>({...f,telefone:v}))}/><Inp label="E-mail" value={condForm.email} onChange={v=>setCondForm(f=>({...f,email:v}))}/></div><Sel label="Modelo de exigências" value={condForm.checklistTipo} onChange={v=>setCondForm(f=>({...f,checklistTipo:v}))} options={[{v:"generico",l:"Licenciamento municipal padrão"},{v:"terras_alpha_caruaru",l:"Terras Alpha Caruaru"}]}/><Inp label="Horários e protocolo" value={condForm.atendimento} onChange={v=>setCondForm(f=>({...f,atendimento:v}))} multiline/><Inp label="Observações" value={condForm.observacoes} onChange={v=>setCondForm(f=>({...f,observacoes:v}))} multiline/><div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setCondForm(condoVazio)} full>Novo / limpar</Btn><Btn onClick={salvarCondominio} full>Salvar condomínio</Btn></div></div></div></Modal>}
+  </div>;
 }
 
 function Equipamentos({ data, update, showToast, obraIdFixo="" }) {
