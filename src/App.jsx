@@ -6036,6 +6036,67 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
   </div>;
 }
 
+const limitarNotaFinanceira=v=>Math.max(0,Math.min(100,Number(v)||0));
+function calcularRankingFinanceiro(data,year,month,obraId=""){
+  const ym=`${year}-${String(month+1).padStart(2,"0")}`;
+  const fim=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,"0")}`;
+  const obras=(data.obras||[]).filter(o=>!obraId||o.id===obraId);
+  const linhas=obras.map(obra=>{
+    const dre=calcDREObra(data,obra.id,year,month);
+    const notas=(data.notasFiscais||[]).filter(n=>n.obraId===obra.id&&n.status!=="cancelada"&&String(n.emissao||n.criadoEm||fim).slice(0,10)<=fim);
+    const notasVencidas=notas.filter(n=>saldoPagamentoNota(n)>.01&&n.vencimento&&n.vencimento<=fim).length;
+    const pedidos=(data.pedidos||[]).filter(p=>p.obraId===obra.id&&!["cancelado","rascunho"].includes(p.status)&&String(p.data||fim).slice(0,10)<=fim);
+    const pedidosComNota=new Set(notas.map(n=>n.pedidoId).filter(Boolean));
+    const pedidosSemNota=pedidos.filter(p=>!pedidosComNota.has(p.id)).length;
+    const pagamentos=[...pedidos.flatMap(p=>p.pagamentos||[]),...notas.flatMap(n=>n.pagamentos||[])];
+    const idsPagamentos=new Set();
+    const pagamentosUnicos=pagamentos.filter(pg=>{if(idsPagamentos.has(pg.id))return false;idsPagamentos.add(pg.id);return true;});
+    const naoConciliados=pagamentosUnicos.filter(pg=>!pg.conciliado&&String(pg.data||fim).slice(0,10)<=fim).length;
+    const recebiveisVencidos=(data.medicoes||[]).filter(m=>m.obraId===obra.id&&!m.recebido&&m.dataVencimento&&m.dataVencimento<=fim).length;
+    const temMovimento=dre.faturamento>0||dre.recebido>0||dre.totalCustos>0||dre.faturadoAcum>0||notas.length>0||pedidos.length>0;
+    if(!temMovimento)return null;
+    const margemPct=dre.faturamento>0?dre.margemBruta:(dre.totalCustos>0?-100:0);
+    const indiceMargem=dre.faturamento>0?limitarNotaFinanceira((margemPct+10)/35*100):(dre.totalCustos>0?0:50);
+    const recebimentoPct=dre.faturamento>0?(dre.recebido/dre.faturamento)*100:(dre.faturadoAcum>0?(dre.recebidoAcum/dre.faturadoAcum)*100:50);
+    const indiceRecebimento=limitarNotaFinanceira(recebimentoPct);
+    const margemCaixa=dre.recebido>0?dre.margemCaixa:(dre.totalCustos>0?-100:0);
+    const indiceCaixa=dre.recebido>0?limitarNotaFinanceira((margemCaixa+30)/50*100):(dre.totalCustos>0?0:50);
+    const indiceConformidade=limitarNotaFinanceira(100-Math.min(45,notasVencidas*18)-Math.min(30,pedidosSemNota*10)-Math.min(25,naoConciliados*8));
+    const nota=Math.round(indiceMargem*.35+indiceRecebimento*.25+indiceCaixa*.20+indiceConformidade*.20);
+    const faixa=nota>=90?{conceito:"A+",situacao:"Excelente"}:nota>=80?{conceito:"A",situacao:"Saudável"}:nota>=70?{conceito:"B",situacao:"Estável"}:nota>=55?{conceito:"C",situacao:"Atenção"}:{conceito:"D",situacao:"Crítica"};
+    const alertas=[];
+    if(dre.lucroBruto<0)alertas.push("resultado negativo");
+    if(recebimentoPct<80&&dre.faturamento>0)alertas.push("recebimento abaixo de 80%");
+    if(dre.saldoCaixa<0)alertas.push("caixa do período negativo");
+    if(notasVencidas)alertas.push(`${notasVencidas} nota(s) vencida(s)`);
+    if(pedidosSemNota)alertas.push(`${pedidosSemNota} pedido(s) sem NF`);
+    if(naoConciliados)alertas.push(`${naoConciliados} pagamento(s) a conciliar`);
+    if(recebiveisVencidos)alertas.push(`${recebiveisVencidos} recebível(is) vencido(s)`);
+    return{id:obra.id,nome:obra.name||"Obra",codigo:obra.code||obra.codigo||"",nota,...faixa,alertas,
+      faturamento:dre.faturamento,recebido:dre.recebido,custos:dre.totalCustos,resultado:dre.lucroBruto,margemPct,recebimentoPct,
+      saldoCaixa:dre.saldoCaixa,notasVencidas,pedidosSemNota,naoConciliados,recebiveisVencidos,
+      indices:{margem:Math.round(indiceMargem),recebimento:Math.round(indiceRecebimento),caixa:Math.round(indiceCaixa),conformidade:Math.round(indiceConformidade)}};
+  }).filter(Boolean).sort((a,b)=>b.nota-a.nota||b.resultado-a.resultado||a.nome.localeCompare(b.nome));
+  return linhas.map((linha,indice)=>({...linha,posicao:indice+1}));
+}
+
+function RankingFinanceiro({data,year,month,obraId="",onSelecionarObra,C=C_ARCD_SETOR}){
+  const [filtro,setFiltro]=useState("todos");
+  const rankingCompleto=useMemo(()=>calcularRankingFinanceiro(data,year,month),[data,year,month]);
+  const ranking=obraId?rankingCompleto.filter(r=>r.id===obraId):rankingCompleto;
+  const linhas=ranking.filter(r=>filtro==="todos"||(filtro==="saudaveis"&&r.nota>=70)||(filtro==="atencao"&&r.nota>=55&&r.nota<70)||(filtro==="criticas"&&r.nota<55));
+  const media=ranking.length?Math.round(ranking.reduce((s,r)=>s+r.nota,0)/ranking.length):0;
+  const corNota=nota=>nota>=80?C.green:nota>=70?C.blue:nota>=55?C.orange:C.red;
+  return <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:11,overflow:"hidden",boxShadow:C.shHair}}>
+    <div style={{padding:"11px 13px",display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap",background:`linear-gradient(135deg,${C.surface},${C.card})`,borderBottom:`1px solid ${C.line}`}}><div><p style={{fontSize:9,fontWeight:900,color:C.yellowD,textTransform:"uppercase",letterSpacing:.9}}>Inteligência financeira</p><h3 style={{fontSize:15,fontWeight:850,color:C.text,marginTop:2}}>Ranking financeiro por obra</h3><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Eficiência, caixa e conformidade no período selecionado.</p></div><div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{[["todos","Todas"],["saudaveis","Saudáveis"],["atencao","Atenção"],["criticas","Críticas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{border:`1px solid ${filtro===v?C.yellow:C.border}`,background:filtro===v?`${C.yellow}16`:C.card,color:filtro===v?C.yellowD:C.muted,borderRadius:7,padding:"5px 8px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:1,background:C.line,borderBottom:`1px solid ${C.line}`}}>{[["Obras avaliadas",ranking.length,C.text],["Nota média",`${media}/100`,corNota(media)],["Resultado negativo",ranking.filter(r=>r.resultado<0).length,C.red],["Com alertas",ranking.filter(r=>r.alertas.length).length,C.orange]].map(([l,v,c])=><div key={l} style={{padding:"8px 10px",background:C.bg}}><p style={{fontSize:7.8,fontWeight:850,color:C.muted,textTransform:"uppercase",letterSpacing:.4}}>{l}</p><p style={{fontSize:15,fontWeight:900,color:c,marginTop:2}}>{v}</p></div>)}</div>
+    {ranking.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:6,padding:"8px",borderBottom:`1px solid ${C.line}`}}>{ranking.slice(0,3).map((r,i)=><button key={r.id} onClick={()=>onSelecionarObra?.(r.id)} style={{border:`1px solid ${i===0?C.yellow:C.border}`,borderRadius:9,background:i===0?`${C.yellow}0B`:C.bg,padding:"9px 10px",textAlign:"left",cursor:onSelecionarObra?"pointer":"default"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><span style={{fontSize:8.5,fontWeight:900,color:i===0?C.yellowD:C.muted}}>{i===0?"LÍDER":`${r.posicao}º LUGAR`}</span><Badge color={corNota(r.nota)}>{r.faixa.conceito}</Badge></div><p style={{fontSize:11,fontWeight:850,color:C.text,marginTop:5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.nome}</p><p style={{fontSize:20,fontWeight:900,color:corNota(r.nota),marginTop:2}}>{r.nota}<small style={{fontSize:9,color:C.muted}}>/100</small></p></button>)}</div>}
+    <div className="scroll-x"><table style={{width:"100%",minWidth:1020,borderCollapse:"collapse"}}><thead><tr>{["#","Obra","Nota","Resultado","Margem","Recebido / faturado","Saldo de caixa","NF vencida","Sem NF","A conciliar"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["#","Obra"].includes(h)?"left":"right",borderBottom:`1px solid ${C.line}`,fontSize:8,color:C.muted,textTransform:"uppercase"}}>{h}</th>)}</tr></thead><tbody>{linhas.map(r=><tr key={r.id} onClick={()=>onSelecionarObra?.(r.id)} style={{cursor:onSelecionarObra?"pointer":"default",background:r.posicao===1?`${C.yellow}07`:C.bg}}><td style={{padding:"8px",fontWeight:900,color:r.posicao<=3?C.yellowD:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.posicao}</td><td style={{padding:"8px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:10.5,fontWeight:850,color:C.text}}>{r.nome}</p><p style={{fontSize:8.3,color:r.alertas.length?C.orange:C.green,marginTop:2,maxWidth:300,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.alertas.length?r.alertas.join(" · "):"sem alertas relevantes"}</p></td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}><Badge color={corNota(r.nota)}>{r.faixa.conceito}</Badge><b style={{fontSize:12,color:corNota(r.nota)}}>{r.nota}</b></span></td><td style={{padding:"8px",textAlign:"right",fontWeight:850,color:r.resultado>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(r.resultado)}</td><td style={{padding:"8px",textAlign:"right",fontWeight:800,color:r.margemPct>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{r.margemPct.toFixed(1)}%</td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{r.recebimentoPct.toFixed(1)}%</td><td style={{padding:"8px",textAlign:"right",fontWeight:800,color:r.saldoCaixa>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(r.saldoCaixa)}</td>{[r.notasVencidas,r.pedidosSemNota,r.naoConciliados].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",fontWeight:v?850:500,color:v?(i===0?C.red:C.orange):C.muted,borderBottom:`1px solid ${C.line}`}}>{v}</td>)}</tr>)}</tbody></table></div>
+    {!linhas.length&&<div style={{padding:22,textAlign:"center",fontSize:10,color:C.muted}}>Nenhuma obra com movimentação financeira neste filtro.</div>}
+    <details style={{padding:"8px 11px",fontSize:9.3,color:C.muted}}><summary style={{cursor:"pointer",fontWeight:850,color:C.blue}}>Como a nota é calculada</summary><div style={{marginTop:7,lineHeight:1.55}}><strong>Margem real — 35%:</strong> resultado depois dos custos da obra. <strong>Recebimento — 25%:</strong> quanto do faturamento virou caixa. <strong>Saúde do caixa — 20%:</strong> recebido menos custos no período. <strong>Conformidade — 20%:</strong> parte de 100 e perde pontos por notas vencidas, pedidos sem NF e pagamentos não conciliados. Obras sem qualquer movimentação no período não entram no ranking. Clique em uma linha para filtrar os demais KPIs pela obra.</div></details>
+  </section>;
+}
+
 function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
   const [areaFinanceira,setAreaFinanceira]=useState(()=>currentUser?.role==="financeiro"?"pagamentos":"visao");
   const [abrirCadastroFiscal,setAbrirCadastroFiscal]=useState(false);
@@ -6228,6 +6289,8 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
           </div>
         ))}
       </div>
+
+      <RankingFinanceiro data={data} year={year} month={month} obraId={filterObra==="all"?"":filterObra} onSelecionarObra={setFilterObra} C={C}/>
 
       {/* Gráfico receita vs custo */}
       {chartData.length>0 && (
