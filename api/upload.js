@@ -32,7 +32,7 @@ const db = createClient(URL, SERVICE, {
 const sha256 = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
 
 // Confere o PIN contra o hash guardado no dataset (igual ao /api/data).
-const conferirPin = async (userId, pin) => {
+const conferirPin = async (userId, pin, accessToken) => {
   const { data, error } = await db
     .from("company_app_data")
     .select("value")
@@ -43,6 +43,7 @@ const conferirPin = async (userId, pin) => {
   if (error || !data) return null;
   
   const payload = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+  if(accessToken){const {data:auth,error:authError}=await db.auth.getUser(accessToken);if(!authError&&auth?.user){const email=String(auth.user.email||"").toLowerCase();const linked=(payload?.usuarios||[]).find(u=>u.active!==false&&(u.authUserId===auth.user.id||String(u.email||"").toLowerCase()===email));if(linked)return linked;}}
   const u = (payload?.usuarios || []).find(x => x.id === userId && x.active !== false);
   
   if (!u) return null;
@@ -62,10 +63,10 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Metodo nao permitido." });
   if (!URL || !SERVICE) return res.status(500).json({ error: "Storage nao configurado." });
 
-  const { userId, pin, dataUrl, obraId, ext } = req.body || {};
+  const { userId, pin, accessToken, dataUrl, obraId, ext } = req.body || {};
 
   // 1. Autentica.
-  const user = await conferirPin(userId, pin);
+  const user = await conferirPin(userId, pin, accessToken);
   if (!user) return res.status(401).json({ error: "PIN invalido." });
 
   // 2. Valida a imagem (data URL base64).

@@ -14,7 +14,8 @@ const ROTA = "/api/data";
 // Guardado só em memória (não em localStorage): fechou a aba, tem que
 // digitar o PIN de novo. Se ficasse no disco, quem pegasse o celular
 // destravado entrava sem PIN.
-let sessao = { userId: null, pin: null, sessionId: null };
+let sessao = { userId: null, pin: null, accessToken: null, refreshToken: null, sessionId: null };
+try { sessao={...sessao,...JSON.parse(sessionStorage.getItem("arcd_auth_session")||"{}")}; } catch (_) {}
 let ultimoUpdatedAt = null;
 
 const novaSessaoId = () => {
@@ -23,24 +24,37 @@ const novaSessaoId = () => {
 };
 
 export const abrirSessao = (userId, pin) => {
-  sessao = { userId, pin, sessionId: novaSessaoId() };
+  sessao = { userId, pin, accessToken:null,refreshToken:null,sessionId: novaSessaoId() };
 };
 
+const abrirSessaoEmail=(userId,accessToken,refreshToken)=>{
+  sessao={userId,pin:null,accessToken,refreshToken,sessionId:novaSessaoId()};
+  try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
+};
+
+const credenciais=()=>({userId:sessao.userId,pin:sessao.pin,accessToken:sessao.accessToken});
+
 export const fecharSessao = () => {
-  sessao = { userId: null, pin: null, sessionId: null };
+  sessao = { userId: null, pin: null, accessToken:null,refreshToken:null,sessionId:null };
+  try{sessionStorage.removeItem("arcd_auth_session");}catch(_){}
   ultimoUpdatedAt = null;
 };
 
 export const temSessao = () => {
-  return sessao.userId !== null && sessao.pin !== null;
+  return !!sessao.userId && (!!sessao.pin || !!sessao.accessToken);
 };
 
 const chamar = async (body) => {
-  const r = await fetch(ROTA, {
+  let r = await fetch(ROTA, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+  if(r.status===401&&sessao.refreshToken&&!String(body.action||"").startsWith("auth-")){
+    const rr=await fetch(ROTA,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"auth-refresh",refreshToken:sessao.refreshToken})});
+    const refreshed=await rr.json().catch(()=>({}));
+    if(rr.ok&&refreshed.accessToken){sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}r=await fetch(ROTA,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...body,accessToken:sessao.accessToken})});}
+  }
   const json = await r.json().catch(() => ({}));
   return { status: r.status, ...json };
 };
@@ -74,24 +88,40 @@ export const entrarComPin = async (userId, pin) => {
   return { ok: true, data: r.data, usuario: r.usuario };
 };
 
+export const entrarComEmail = async (email,password) => {
+  const r=await chamar({action:"auth-login",email,password});
+  if(r.status!==200)return{ok:false,erro:r.error||"E-mail ou senha inválidos."};
+  abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken);
+  ultimoUpdatedAt=r.updatedAt||null;
+  return{ok:true,data:r.data,usuario:r.usuario};
+};
+
+export const restaurarSessaoEmail=async()=>{
+  if(!sessao.accessToken)return{ok:false};
+  const r=await chamar({action:"load",...credenciais()});
+  if(r.status!==200)return{ok:false};
+  ultimoUpdatedAt=r.updatedAt||null;
+  return{ok:true,data:r.data,usuario:r.usuario};
+};
+
 // ── Recarregar ─────────────────────────────────────────────────────
 export const loadData = async () => {
   if (!temSessao()) return null;
-  const r = await chamar({ action: "load", userId: sessao.userId, pin: sessao.pin });
+  const r = await chamar({ action: "load", ...credenciais() });
   if (r.status !== 200) return null;
   ultimoUpdatedAt = r.updatedAt || null;
   return r.data;
 };
 
 // ── Salvar ─────────────────────────────────────────────────────────
-export const saveDataDetailed = async (payload) => {
+export const saveDataDetailed = async (payload,basePayload=null) => {
   if (!temSessao()) return { ok: false, conflict: false, reason: "Sessão encerrada." };
 
   const r = await chamar({
     action: "save",
-    userId: sessao.userId,
-    pin: sessao.pin,
+    ...credenciais(),
     payload,
+    basePayload,
     expectedUpdatedAt: ultimoUpdatedAt,
   });
 
@@ -112,7 +142,14 @@ export const saveDataDetailed = async (payload) => {
   if (r.status !== 200) return { ok: false, conflict: false, reason: r.error || "Falha ao salvar." };
 
   ultimoUpdatedAt = r.updatedAt || null;
-  return { ok: true, conflict: false, updatedAt: ultimoUpdatedAt };
+  return { ok: true, conflict: false, merged:!!r.merged, data:r.data, updatedAt: ultimoUpdatedAt };
+};
+
+export const provisionarContaEmail=async(targetUserId,password)=>{
+  const r=await chamar({action:"auth-provision",...credenciais(),targetUserId,password});
+  if(r.status!==200)return{ok:false,erro:r.error||"Falha ao ativar a conta."};
+  ultimoUpdatedAt=r.updatedAt||ultimoUpdatedAt;
+  return{ok:true,data:r.data,updatedAt:r.updatedAt};
 };
 
 export const saveData = async (payload) => {
@@ -140,8 +177,7 @@ const chamarPresenca = async (action, extra = {}, keepalive = false) => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         action,
-        userId: sessao.userId,
-        pin: sessao.pin,
+        ...credenciais(),
         sessionId: sessao.sessionId,
         ...extra,
       }),
@@ -181,7 +217,7 @@ export const listarPresencas = async () => {
 // dataset novo + carimbo, que o app adota como base (sem re-salvar).
 export const arquivarQuinzena = async (archive) => {
   if (!temSessao()) return { ok: false, erro: "Sessão encerrada." };
-  const r = await chamar({ action: "archive-quinzena", userId: sessao.userId, pin: sessao.pin, archive });
+  const r = await chamar({ action: "archive-quinzena", ...credenciais(), archive });
   if (r.status !== 200) return { ok: false, erro: r.error || "Falha ao arquivar." };
   ultimoUpdatedAt = r.updatedAt || null;
   return { ok: true, data: r.data, updatedAt: r.updatedAt, meta: r.meta };
@@ -189,7 +225,7 @@ export const arquivarQuinzena = async (archive) => {
 
 export const restaurarQuinzena = async (quinzenaId) => {
   if (!temSessao()) return { ok: false, erro: "Sessão encerrada." };
-  const r = await chamar({ action: "restore-quinzena", userId: sessao.userId, pin: sessao.pin, quinzenaId });
+  const r = await chamar({ action: "restore-quinzena", ...credenciais(), quinzenaId });
   if (r.status !== 200) return { ok: false, erro: r.error || "Falha ao restaurar." };
   ultimoUpdatedAt = r.updatedAt || null;
   return { ok: true, data: r.data, updatedAt: r.updatedAt, devolvidos: r.devolvidos, mantidos: r.mantidos };
@@ -197,14 +233,14 @@ export const restaurarQuinzena = async (quinzenaId) => {
 
 export const listarQuinzenasArquivadas = async () => {
   if (!temSessao()) return { ok: false, erro: "Sessão encerrada.", arquivos: [] };
-  const r = await chamar({ action: "list-quinzena-archives", userId: sessao.userId, pin: sessao.pin });
+  const r = await chamar({ action: "list-quinzena-archives", ...credenciais() });
   if (r.status !== 200) return { ok: false, erro: r.error || "Falha ao listar arquivos.", arquivos: [] };
   return { ok: true, arquivos: r.arquivos || [] };
 };
 
 export const carregarQuinzenaArquivada = async (quinzenaId) => {
   if (!temSessao()) return { ok: false, erro: "Sessão encerrada." };
-  const r = await chamar({ action: "load-quinzena-archive", userId: sessao.userId, pin: sessao.pin, quinzenaId });
+  const r = await chamar({ action: "load-quinzena-archive", ...credenciais(), quinzenaId });
   if (r.status !== 200) return { ok: false, erro: r.error || "Falha ao carregar o arquivo." };
   return { ok: true, arquivo: r.arquivo, updatedAt: r.updatedAt };
 };
@@ -213,11 +249,11 @@ export const carregarQuinzenaArquivada = async (quinzenaId) => {
 // SINAPI é persistido em lotes; ORSE guarda a competência e pesquisa a
 // base pública oficial pelo servidor. O PIN nunca sai deste módulo.
 const chamarReferencias = async (action, payload = {}) => {
-  if (!sessao.userId || !sessao.pin) return { ok: false, error: "Sessão encerrada." };
+  if (!temSessao()) return { ok: false, error: "Sessão encerrada." };
   const r = await fetch("/api/references", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action, userId: sessao.userId, pin: sessao.pin, ...payload }),
+    body: JSON.stringify({ action, ...credenciais(), ...payload }),
   });
   const json = await r.json().catch(() => ({}));
   if (!r.ok && !json.error) {
@@ -244,26 +280,26 @@ export const removerBaseReferencia = async baseId => chamarReferencias("delete",
 // ── Sobe foto do diário de obra ───────────────────────────────────
 // A foto já vem comprimida do cliente. Reutiliza o PIN da sessão em memória.
 export const subirFoto = async ({ dataUrl, obraId, ext }) => {
-  if (!sessao.userId || !sessao.pin) return { error: "Sem sessão." };
+  if (!temSessao()) return { error: "Sem sessão." };
   const r = await fetch("/api/upload", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ userId: sessao.userId, pin: sessao.pin, dataUrl, obraId, ext }),
+    body: JSON.stringify({ ...credenciais(), dataUrl, obraId, ext }),
   });
   return await r.json().catch(() => ({ error: "Falha no upload." }));
 };
 
 // ── OneDrive / Microsoft Graph ────────────────────────────────────
 export const conectarOneDrive = async () => {
-  if (!sessao.userId || !sessao.pin) return {ok:false,error:"Sessão encerrada."};
-  const r=await fetch("/api/microsoft/connect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({userId:sessao.userId,pin:sessao.pin})});
+  if (!temSessao()) return {ok:false,error:"Sessão encerrada."};
+  const r=await fetch("/api/microsoft/connect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(credenciais())});
   const j=await r.json().catch(()=>({})); if(r.ok&&j.url)window.location.href=j.url; return {ok:r.ok,...j};
 };
 const chamarOneDrive = async (action, payload = {}) => {
-  if (!sessao.userId || !sessao.pin) return { ok:false, error:"Sessão encerrada." };
+  if (!temSessao()) return { ok:false, error:"Sessão encerrada." };
   const r = await fetch("/api/microsoft/onedrive", {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action, userId:sessao.userId, pin:sessao.pin, ...payload }),
+    body: JSON.stringify({ action, ...credenciais(), ...payload }),
   });
   const json = await r.json().catch(() => ({}));
   return { ok:r.ok, status:r.status, ...json };

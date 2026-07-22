@@ -37,9 +37,11 @@ export const saveCentralSession = async session => {
 const loadCentralSession = async () => {
   if(!db)return null; const {data}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",AUTH_KEY).maybeSingle(); return unseal(data?.value?.sealed);
 };
-export const verifyAppUser = async (userId,pin) => {
+export const verifyAppUser = async (userId,pin,accessToken) => {
   if(!db)return false; const {data}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",DATA_KEY).maybeSingle();
-  const payload=typeof data?.value==="string"?JSON.parse(data.value):data?.value; const user=(payload?.usuarios||[]).find(u=>u.id===userId&&u.active!==false); if(!user)return false;
+  const payload=typeof data?.value==="string"?JSON.parse(data.value):data?.value;
+  if(accessToken){const {data:auth,error}=await db.auth.getUser(accessToken);if(!error&&auth?.user){const email=String(auth.user.email||"").toLowerCase();const linked=(payload?.usuarios||[]).find(u=>u.active!==false&&(u.authUserId===auth.user.id||String(u.email||"").toLowerCase()===email));if(linked)return linked;}}
+  const user=(payload?.usuarios||[]).find(u=>u.id===userId&&u.active!==false); if(!user)return false;
   const a=Buffer.from(crypto.createHash("sha256").update(String(pin)).digest("hex")),b=Buffer.from(String(user.pin||"")); return a.length===b.length&&crypto.timingSafeEqual(a,b)?user:false;
 };
 export const fileSignature=(driveId,itemId)=>crypto.createHmac("sha256",String(CLIENT_SECRET)).update(`${driveId}:${itemId}`).digest("base64url");

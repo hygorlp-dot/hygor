@@ -18,7 +18,7 @@ const db = createClient(URL, SERVICE, {
 
 const sha256 = value => crypto.createHash("sha256").update(String(value)).digest("hex");
 
-const autenticar = async (userId, pin) => {
+const autenticar = async (userId, pin, accessToken) => {
   const { data, error } = await db.from("company_app_data")
     .select("value")
     .eq("company_id", COMPANY)
@@ -26,6 +26,7 @@ const autenticar = async (userId, pin) => {
     .maybeSingle();
   if (error || !data) return null;
   const payload = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+  if(accessToken){const {data:auth,error:authError}=await db.auth.getUser(accessToken);if(!authError&&auth?.user){const email=String(auth.user.email||"").toLowerCase();const linked=(payload?.usuarios||[]).find(u=>u.active!==false&&(u.authUserId===auth.user.id||String(u.email||"").toLowerCase()===email));if(linked)return linked;}}
   const user = (payload?.usuarios || []).find(u => u.id === userId && u.active !== false);
   if (!user) return null;
   const recebido = Buffer.from(sha256(pin));
@@ -40,8 +41,8 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Metodo nao permitido." });
   if (!URL || !SERVICE) return res.status(503).json({ error: "Banco nao configurado." });
 
-  const { action, userId, pin, sessionId, tab, device } = req.body || {};
-  const user = await autenticar(userId, pin);
+  const { action, userId, pin, accessToken, sessionId, tab, device } = req.body || {};
+  const user = await autenticar(userId, pin, accessToken);
   if (!user) return res.status(401).json({ error: "Sessao invalida." });
 
   try {

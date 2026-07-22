@@ -6,7 +6,8 @@ const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fot
 export default async function handler(req,res){
   try{
     const action=req.query.action||req.body?.action||"status";
-    if(action!=="file"&&!await verifyAppUser(req.body?.userId,req.body?.pin))return res.status(401).json({error:"Sessão do aplicativo inválida."});
+    const appUser=action==="file"?null:await verifyAppUser(req.body?.userId,req.body?.pin,req.body?.accessToken);
+    if(action!=="file"&&!appUser)return res.status(401).json({error:"Sessão do aplicativo inválida."});
     if(action==="file"&&req.query.sig!==fileSignature(req.query.driveId,req.query.itemId))return res.status(403).end();
     const {accessToken,session}=await refresh(req); setCookie(res,"arcd_ms",seal(session));
     if(action==="status")return res.json({ok:true,connected:true});

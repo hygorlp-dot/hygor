@@ -17,7 +17,7 @@ import {
 import * as XLSX from "xlsx";
 // O navegador não conversa mais com o banco. Fala com /api/data, que roda no
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
-import { listarPerfis, criarPrimeiroAdmin, entrarComPin,
+import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail,
          saveData, saveDataDetailed, logout as encerrarSessao,
          registrarPresenca, encerrarPresenca, listarPresencas,
          loadDataWithMeta, adoptServerVersion, subirFoto,
@@ -12483,6 +12483,9 @@ function PrimeiroAcesso({ onPronto, showToast }) {
 }
 
 function LoginScreen({ perfis, onLogin, onFirstSetup }) {
+  const [metodo,setMetodo]=useState("email");
+  const [email,setEmail]=useState("");
+  const [senha,setSenha]=useState("");
   const [step,    setStep]    = useState("select");   // "select" | "pin"
   const [selUser, setSelUser] = useState(null);
   const [pin,     setPin]     = useState("");
@@ -12492,6 +12495,8 @@ function LoginScreen({ perfis, onLogin, onFirstSetup }) {
   // A lista vem do servidor com nome e papel apenas - sem hash de PIN.
   const usuarios = perfis || [];
   const isFirst  = usuarios.length === 0;
+
+  useEffect(()=>{let ativo=true;restaurarSessaoEmail().then(r=>{if(ativo&&r.ok)onLogin(r.usuario,r.data);});return()=>{ativo=false;};},[onLogin]);
 
   const handleBackspace = () => setPin(p => p.slice(0, -1));
 
@@ -12521,6 +12526,14 @@ function LoginScreen({ perfis, onLogin, onFirstSetup }) {
 
   const handleLogin = () => tentarEntrar(pin);
 
+  const tentarEmail=async()=>{
+    if(!email.trim()||!senha){setErro("Informe e-mail e senha.");return;}
+    setLoading(true);setErro("");
+    const r=await entrarComEmail(email.trim(),senha);
+    if(!r.ok){setErro(r.erro||"E-mail ou senha inválidos.");setLoading(false);return;}
+    onLogin(r.usuario,r.data);setLoading(false);
+  };
+
   const handleDigit = (d) => {
     const novo = pin.length < 6 ? pin + d : pin;
     setPin(novo);
@@ -12547,12 +12560,23 @@ function LoginScreen({ perfis, onLogin, onFirstSetup }) {
         {/* Linha ouro */}
         <div style={{height:2,background:`linear-gradient(90deg,transparent,${C.yellow},transparent)`,marginBottom:28}}/>
 
+        {!isFirst&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,background:C.surface,padding:4,borderRadius:9,marginBottom:12}}>{[["email","E-mail e senha"],["pin","PIN (transição)"]].map(([v,l])=><button key={v} onClick={()=>{setMetodo(v);setStep("select");setErro("");}} style={{border:0,borderRadius:7,padding:"8px 6px",background:metodo===v?C.ink:"transparent",color:metodo===v?"#fff":C.muted,fontSize:10.5,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>}
+
         {isFirst ? (
           // Primeiro acesso - criar admin
           <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:8,padding:24}}>
             <p style={{fontSize:13,fontWeight:700,color:C.yellow,textAlign:"center",marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>Primeiro acesso</p>
             <p style={{fontSize:12,color:C.muted,textAlign:"center",marginBottom:20}}>Configure a conta de Administrador</p>
             <Btn onClick={onFirstSetup} v="primary" full size="lg">Configurar conta admin</Btn>
+          </div>
+        ) : metodo==="email" ? (
+          <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:8,padding:20,display:"flex",flexDirection:"column",gap:11}}>
+            <div><p style={{fontSize:15,fontWeight:800,color:C.text}}>Entrar no ArcD</p><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Use a conta ativada pelo administrador.</p></div>
+            <label style={{fontSize:10,fontWeight:750,color:C.muted}}>E-MAIL<input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}} style={{display:"block",width:"100%",marginTop:5,padding:"10px 11px",border:`1px solid ${C.border}`,borderRadius:7,fontSize:13,background:C.card,color:C.text}}/></label>
+            <label style={{fontSize:10,fontWeight:750,color:C.muted}}>SENHA<input type="password" autoComplete="current-password" value={senha} onChange={e=>setSenha(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}} style={{display:"block",width:"100%",marginTop:5,padding:"10px 11px",border:`1px solid ${C.border}`,borderRadius:7,fontSize:13,background:C.card,color:C.text}}/></label>
+            {erro&&<p style={{fontSize:11,color:C.red,fontWeight:650}}>{erro}</p>}
+            <Btn onClick={tentarEmail} full disabled={loading}>{loading?"Entrando...":"Entrar"}</Btn>
+            <p style={{fontSize:9.5,color:C.muted,lineHeight:1.45}}>Ainda não possui senha? Peça ao administrador para ativar seu acesso em Ajustes → Usuários.</p>
           </div>
         ) : step === "select" ? (
           // Seleção de usuário
@@ -12647,6 +12671,10 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
   const [form,    setForm]    = useState(emptyU);
   const [newPin,  setNewPin]  = useState("");
   const [newPin2, setNewPin2] = useState("");
+  const [contaModal,setContaModal]=useState(null);
+  const [senhaTemp,setSenhaTemp]=useState("");
+  const [senhaTemp2,setSenhaTemp2]=useState("");
+  const [ativandoConta,setAtivandoConta]=useState(false);
   const [presencas,setPresencas] = useState([]);
   const [presencaBusy,setPresencaBusy] = useState(false);
   const [presencaErro,setPresencaErro] = useState("");
@@ -12680,6 +12708,17 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
     update({...data, usuarios});
     setPinModal(null); setNewPin(""); setNewPin2("");
     showToast("PIN definido com sucesso.");
+  };
+
+  const ativarContaEmail=async()=>{
+    if(senhaTemp.length<8){showToast("A senha temporária deve ter ao menos 8 caracteres.","error");return;}
+    if(senhaTemp!==senhaTemp2){showToast("As senhas não coincidem.","error");return;}
+    setAtivandoConta(true);
+    const r=await provisionarContaEmail(contaModal,senhaTemp);
+    setAtivandoConta(false);
+    if(!r.ok){showToast(r.erro||"Não foi possível ativar a conta.","error");return;}
+    update({__adotarServidor:true,data:r.data,updatedAt:r.updatedAt});
+    setContaModal(null);setSenhaTemp("");setSenhaTemp2("");showToast("Conta de e-mail ativada. Entregue a senha temporária ao operador.");
   };
 
   const toggleActive = (id) => {
@@ -12773,6 +12812,7 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
               </div>
               {currentUser?.role==="admin"&&(
                 <div style={{display:"flex",gap:4,flexShrink:0}}>
+                  <Btn size="sm" v={u.authUserId?"success":"ghost"} onClick={()=>{if(!u.email){showToast("Cadastre o e-mail do operador antes de ativar a conta.","error");return;}setContaModal(u.id);setSenhaTemp("");setSenhaTemp2("");}}>{u.authUserId?"Senha":"Ativar login"}</Btn>
                   <Btn size="sm" v="ghost" onClick={()=>setPinModal(u.id)}>PIN</Btn>
                   <Btn size="sm" v="ghost" onClick={()=>{setForm({...u,accessTabs:[...allowedTabsForUser(u)]});setModal(true);}}><Ic n="edit"/></Btn>
                   <Btn size="sm" v={u.active===false?"success":"dark"} onClick={()=>toggleActive(u.id)}>
@@ -12832,6 +12872,8 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
           </div>
         </Modal>
       )}
+
+      {contaModal&&<Modal title={(data.usuarios||[]).find(u=>u.id===contaModal)?.authUserId?"Redefinir senha do operador":"Ativar acesso por e-mail"} onClose={()=>setContaModal(null)}><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:12,fontWeight:750,color:C.text}}>{(data.usuarios||[]).find(u=>u.id===contaModal)?.nome}</p><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>{(data.usuarios||[]).find(u=>u.id===contaModal)?.email}</p></div><Inp label="Senha temporária *" type="password" value={senhaTemp} onChange={setSenhaTemp} placeholder="Mínimo 8 caracteres"/><Inp label="Confirmar senha *" type="password" value={senhaTemp2} onChange={setSenhaTemp2} placeholder="Repita a senha"/><p style={{fontSize:10,color:C.muted,lineHeight:1.45}}>O operador usará seu e-mail e esta senha na nova tela de login. O PIN continuará disponível somente durante a transição.</p><div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setContaModal(null)}>Cancelar</Btn><Btn full onClick={ativarContaEmail} disabled={ativandoConta}>{ativandoConta?"Ativando...":"Ativar conta"}</Btn></div></div></Modal>}
     </div>
   );
 }
@@ -30310,7 +30352,7 @@ export default function App() {
     savePendenteRef.current = null;
     saveEmVooRef.current = true;
     try {
-      const r = await saveDataDetailed(alvo);
+      const r = await saveDataDetailed(alvo,baseServidorRef.current);
       if (r.conflict) {
         // Conflito real (outro usuario). O banner de mescla cuida do resto.
         saveTentativasRef.current = 0;
@@ -30330,7 +30372,9 @@ export default function App() {
         showToast(r.reason || "Não foi possível salvar após 3 tentativas. Confira a conexão — suas alterações seguem na tela e serão reenviadas na próxima ação.", "error");
       } else {
         saveTentativasRef.current = 0;
-        baseServidorRef.current = alvo;
+        const confirmado=normalizeData(r.merged&&r.data?r.data:alvo);
+        baseServidorRef.current = confirmado;
+        if(r.merged){ultimoDataRef.current=confirmado;dataAtualRef.current=confirmado;setData(confirmado);showToast("Alterações simultâneas foram combinadas automaticamente.");}
         setUltimaSync(new Date());
       }
     } catch (err) {

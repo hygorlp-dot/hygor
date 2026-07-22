@@ -88,15 +88,68 @@ const conferirPin = (payload, userId, pin) => {
   return u;
 };
 
+const conferirToken = async (payload, accessToken) => {
+  if (!accessToken) return null;
+  const { data, error } = await db.auth.getUser(accessToken);
+  if (error || !data?.user) return null;
+  const email = String(data.user.email || "").trim().toLowerCase();
+  return (payload?.usuarios || []).find(u => u.active !== false &&
+    (u.authUserId === data.user.id || String(u.email || "").trim().toLowerCase() === email)) || null;
+};
+
+const igual = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+const objeto = value => value && typeof value === "object" && !Array.isArray(value);
+const mesclarTresVias = (base, recebido, atual) => {
+  if (igual(recebido, base)) return atual;
+  if (igual(atual, base)) return recebido;
+  if (Array.isArray(recebido) && Array.isArray(atual) && Array.isArray(base)) {
+    const identificavel = [...base,...recebido,...atual].every(x => objeto(x) && x.id != null);
+    if (!identificavel) return recebido;
+    const bm=new Map(base.map(x=>[String(x.id),x])), rm=new Map(recebido.map(x=>[String(x.id),x])), am=new Map(atual.map(x=>[String(x.id),x]));
+    const ordem=[...atual.map(x=>String(x.id)),...recebido.map(x=>String(x.id))].filter((id,i,a)=>a.indexOf(id)===i);
+    return ordem.flatMap(id => {
+      const b=bm.get(id), r=rm.get(id), a=am.get(id);
+      if (b && !r) return igual(a,b)?[]:(a?[a]:[]);
+      if (!r) return a?[a]:[];
+      if (!a) return [r];
+      return [mesclarTresVias(b,r,a)];
+    });
+  }
+  if (objeto(recebido) && objeto(atual)) {
+    const out={};
+    const keys=new Set([...Object.keys(base||{}),...Object.keys(atual),...Object.keys(recebido)]);
+    keys.forEach(k=>{out[k]=mesclarTresVias(base?.[k],recebido[k],atual[k]);});
+    return out;
+  }
+  return recebido;
+};
+
 export default async function handler(req, res) {
   if (!URL || !SERVICE) {
     return res.status(503).json({ error: "Banco não configurado no servidor." });
   }
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
-  const { action, userId, pin, payload, expectedUpdatedAt } = req.body || {};
+  const { action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload } = req.body || {};
 
   try {
+    if (action === "auth-login") {
+      const email=String(req.body?.email||"").trim().toLowerCase();
+      const password=String(req.body?.password||"");
+      const {data:auth,error}=await db.auth.signInWithPassword({email,password});
+      if(error||!auth?.session)return res.status(401).json({error:"E-mail ou senha inválidos."});
+      const {payload:p,updatedAt}=await lerLinha();
+      const usuario=await conferirToken(p,auth.session.access_token);
+      if(!usuario)return res.status(403).json({error:"Conta sem vínculo com um operador ativo do ArcD."});
+      return res.status(200).json({data:p,updatedAt,usuario:{id:usuario.id,nome:usuario.nome,role:usuario.role,email:usuario.email||email},accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
+    }
+
+    if (action === "auth-refresh") {
+      const {data:auth,error}=await db.auth.refreshSession({refresh_token:String(req.body?.refreshToken||"")});
+      if(error||!auth?.session)return res.status(401).json({error:"Sessão expirada."});
+      return res.status(200).json({accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
+    }
+
     // ── 1. Lista de perfis (tela de login) ─────────────────────────
     // Não exige PIN — é o que a tela precisa ANTES de alguém digitar.
     // Devolve só nome e papel. O hash do PIN nunca sai daqui.
@@ -153,17 +206,39 @@ export default async function handler(req, res) {
       return res.status(200).json({ data: novo.payload, updatedAt: novo.updatedAt });
     }
 
-    // ── Daqui pra baixo, PIN obrigatório ───────────────────────────
+    // ── Daqui pra baixo, sessão individual ou PIN de transição ─────
     if (bloqueado(ip)) {
       return res.status(429).json({ error: "Muitas tentativas. Aguarde 5 minutos." });
     }
 
     const { payload: atual, updatedAt } = await lerLinha();
-    const usuario = conferirPin(atual, userId, pin);
+    const usuario = await conferirToken(atual,accessToken) || conferirPin(atual, userId, pin);
 
     if (!usuario) {
       registrarFalha(ip);
-      return res.status(401).json({ error: "PIN incorreto." });
+      return res.status(401).json({ error: "Sessão inválida ou PIN incorreto." });
+    }
+
+    if (action === "auth-provision") {
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores podem ativar contas."});
+      const alvo=(atual.usuarios||[]).find(u=>u.id===req.body?.targetUserId);
+      const email=String(alvo?.email||"").trim().toLowerCase(), password=String(req.body?.password||"");
+      if(!alvo||!email)return res.status(400).json({error:"Cadastre um e-mail válido para o operador."});
+      if(password.length<8)return res.status(400).json({error:"A senha temporária deve ter ao menos 8 caracteres."});
+      let authId=alvo.authUserId||"";
+      if(authId){
+        const {error}=await db.auth.admin.updateUserById(authId,{email,password,email_confirm:true,user_metadata:{arcdUserId:alvo.id,nome:alvo.nome}});
+        if(error)return res.status(400).json({error:error.message});
+      }else{
+        const {data:criado,error}=await db.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{arcdUserId:alvo.id,nome:alvo.nome}});
+        if(error)return res.status(400).json({error:error.message});
+        authId=criado.user.id;
+      }
+      const novo={...atual,usuarios:(atual.usuarios||[]).map(u=>u.id===alvo.id?{...u,authUserId:authId,email}:u)};
+      const agora=new Date().toISOString();
+      const {data:gravado,error}=await db.from("company_app_data").update({value:novo,updated_at:agora}).eq("company_id",COMPANY).eq("key",KEY).select("updated_at").maybeSingle();
+      if(error)throw error;
+      return res.status(200).json({ok:true,data:novo,updatedAt:gravado?.updated_at||agora});
     }
 
     // ── 3. Carregar ────────────────────────────────────────────────
@@ -189,30 +264,37 @@ export default async function handler(req, res) {
       // timestamptz, devolve "2026-07-14T09:46:11.545+00:00". É o MESMO
       // instante, mas são strings diferentes — e comparar com !== dava
       // conflito eterno. O ponto simplesmente não salvava.
-      if (expectedUpdatedAt && updatedAt && !mesmoInstante(expectedUpdatedAt, updatedAt)) {
-        return res.status(409).json({
-          conflict: true,
-          reason: "Outro usuário salvou enquanto você trabalhava.",
-          currentData: atual,
-          currentUpdatedAt: updatedAt,
-        });
-      }
+      const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
+      let valor=houveConcorrencia&&basePayload?mesclarTresVias(basePayload,payload,atual):payload;
+      if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:atual,currentUpdatedAt:updatedAt});
 
       const agora = new Date().toISOString();
 
       // .select() devolve a linha COMO O BANCO A GUARDOU. Assim o carimbo que
       // mandamos de volta ao navegador é exatamente o que estará lá na próxima
       // comparação — sem discrepância de formato.
-      const { data: gravado, error } = await db
+      let { data: gravado, error } = await db
         .from("company_app_data")
-        .update({ value: payload, updated_at: agora, updated_by: null })
+        .update({ value: valor, updated_at: agora, updated_by: null })
         .eq("company_id", COMPANY)
         .eq("key", KEY)
+        .eq("updated_at",updatedAt)
         .select("updated_at")
         .maybeSingle();
 
       if (error) throw error;
-      return res.status(200).json({ ok: true, updatedAt: gravado?.updated_at || agora });
+      // Outra gravação pode entrar entre a leitura e o UPDATE. A condição no
+      // updated_at impede sobrescrita; nesse caso relê e reaplica a mesma mescla.
+      if(!gravado){
+        if(!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou ao mesmo tempo."});
+        const recente=await lerLinha();valor=mesclarTresVias(basePayload,payload,recente.payload);
+        const novoAgora=new Date().toISOString();
+        const retry=await db.from("company_app_data").update({value:valor,updated_at:novoAgora,updated_by:null}).eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",recente.updatedAt).select("updated_at").maybeSingle();
+        if(retry.error)throw retry.error;
+        if(!retry.data)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
+        gravado=retry.data;
+      }
+      return res.status(200).json({ ok: true, merged:!!houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora), data:(houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora))?valor:undefined, updatedAt: gravado?.updated_at || agora });
     }
 
     // ── 5. Quinzenas arquivadas ────────────────────────────────────

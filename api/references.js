@@ -59,7 +59,7 @@ const promiseAllWithTimeout = (promises, timeoutMs = LIMITS.PROMISE_TIMEOUT_MS) 
 };
 
 /** Valida PIN do usuário com timing-safe comparison */
-const conferirPin = async (userId, pin) => {
+const conferirPin = async (userId, pin, accessToken) => {
   const { data, error } = await db
     .from("company_app_data")
     .select("value")
@@ -69,6 +69,7 @@ const conferirPin = async (userId, pin) => {
   if (error || !data) return null;
   try {
     const payload = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+    if(accessToken){const {data:auth,error:authError}=await db.auth.getUser(accessToken);if(!authError&&auth?.user){const email=String(auth.user.email||"").toLowerCase();const linked=(payload?.usuarios||[]).find(u=>u.active!==false&&(u.authUserId===auth.user.id||String(u.email||"").toLowerCase()===email));if(linked)return linked;}}
     const user = (payload?.usuarios || []).find(item => item.id === userId && item.active !== false);
     if (!user) return null;
     const actual = Buffer.from(sha256(pin));
@@ -388,9 +389,9 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
   if (!URL || !SERVICE) return res.status(503).json({ error: "Banco não configurado no servidor." });
 
-  const { action, userId, pin } = req.body || {};
+  const { action, userId, pin, accessToken } = req.body || {};
   try {
-    const user = await conferirPin(userId, pin);
+    const user = await conferirPin(userId, pin, accessToken);
     if (!user) return res.status(401).json({ error: "PIN inválido." });
 
     if (action === "list") {
