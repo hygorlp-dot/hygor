@@ -150,8 +150,8 @@ const G = `
   --grafite:#121212;--areia:#F5F3EE;--cinza:#BFBFBF;
   --type-display:'Inter Display','Inter',system-ui,sans-serif;
   --type-body:'Inter',system-ui,sans-serif;
-  --fs-caption:10px;--fs-label:11px;--fs-body:12.5px;--fs-title:20px;
-  --radius-control:8px;--radius-card:14px;
+  --fs-caption:9px;--fs-label:9.5px;--fs-body:12px;--fs-title:18px;
+  --radius-control:7px;--radius-card:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{min-height:100%}
@@ -171,9 +171,9 @@ html,body{max-width:100%;overflow-x:hidden}
 
 /* Escala tipográfica fluida: cresce com a tela, sem saltos e sem estourar.
    clamp(mínimo, ideal, máximo) - o meio usa vw, então acompanha a largura. */
-.t-hero{font-size:clamp(19px,4.5vw,30px);line-height:1.05;letter-spacing:.2px}
-.t-kpi {font-size:clamp(22px,5.5vw,34px);line-height:1;letter-spacing:-.5px}
-.t-lead{font-size:clamp(11px,2.6vw,12.5px)}
+.t-hero{font-size:clamp(18px,3.2vw,25px);line-height:1.08;letter-spacing:-.2px}
+.t-kpi {font-size:clamp(19px,4vw,28px);line-height:1;letter-spacing:-.45px}
+.t-lead{font-size:clamp(10px,2vw,12px)}
 
 /* Tabelas largas (orçamento, DRE) rolam sozinhas em vez de rasgar a página */
 .scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
@@ -182,20 +182,21 @@ body{
   color:${C.text};
   font-family:'Inter','Inter Display',system-ui,sans-serif;
   -webkit-tap-highlight-color:transparent;
-  font-size:13px;
-  line-height:1.45;
+  font-size:12px;
+  line-height:1.42;
 }
 /* Escala comum para todas as telas. Os módulos antigos possuem muitos
    tamanhos inline; estes tetos impedem títulos gigantes e preservam a
    hierarquia sem apagar KPIs e números de operação. */
-main h1{font-family:var(--type-display)!important;font-size:clamp(25px,3.4vw,40px)!important;line-height:1.04!important;letter-spacing:-1px!important}
-main h2{font-family:var(--type-display)!important;font-size:clamp(19px,2.4vw,28px)!important;line-height:1.12!important;letter-spacing:-.55px!important}
-main h3{font-family:var(--type-display)!important;line-height:1.2!important}
+main h1{font-family:var(--type-display)!important;font-size:clamp(21px,2.5vw,28px)!important;line-height:1.08!important;letter-spacing:-.65px!important}
+main h2{font-family:var(--type-display)!important;font-size:clamp(17px,2vw,22px)!important;line-height:1.14!important;letter-spacing:-.4px!important}
+main h3{font-family:var(--type-display)!important;font-size:clamp(14px,1.6vw,18px)!important;line-height:1.2!important;letter-spacing:-.2px!important}
 main table{font-size:11px}
-main th{font-size:9px;font-weight:850;letter-spacing:.55px;text-transform:uppercase;color:${C.muted}}
-main input:not([type="checkbox"]):not([type="radio"]),main select,main textarea{font-size:13px!important;line-height:1.35}
-main textarea{min-height:92px}
-main label>span:first-child{font-size:10px!important;font-weight:750!important;letter-spacing:.65px!important}
+main th{font-size:8.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${C.muted}}
+main input:not([type="checkbox"]):not([type="radio"]),main select,main textarea{font-size:12px!important;line-height:1.35}
+main textarea{min-height:76px}
+main label>span:first-child{font-size:9px!important;font-weight:750!important;letter-spacing:.6px!important}
+main button{font-size:11px!important}
 /* Sem textura decorativa: ferramenta técnica tem fundo limpo. */
 body>*{position:relative;z-index:1}
 input,select,textarea,button{
@@ -207,26 +208,26 @@ button:not(:disabled):hover{filter:brightness(.98)}
 button:not(:disabled):active{filter:brightness(.94)}
 button:focus-visible{outline:2px solid ${C.blue};outline-offset:2px}
 .arcd-btn{
-  min-height:38px;border-width:1px!important;border-radius:10px!important;
-  font-size:12px!important;font-weight:750!important;letter-spacing:.05px!important;
+  min-height:32px;border-width:1px!important;border-radius:7px!important;
+  font-size:10.5px!important;font-weight:700!important;letter-spacing:.02px!important;
   text-transform:none!important;line-height:1.1;white-space:nowrap;
-  box-shadow:0 2px 8px rgba(20,24,28,.055)!important;
+  box-shadow:0 1px 3px rgba(20,24,28,.05)!important;
   transition:transform .14s ease,box-shadow .14s ease,background .14s ease,border-color .14s ease!important;
 }
-.arcd-btn[data-size="sm"]{min-height:32px;padding:6px 10px!important;font-size:10.5px!important;border-radius:8px!important}
-.arcd-btn[data-size="lg"]{min-height:44px;padding:11px 17px!important;font-size:12.5px!important;border-radius:12px!important}
-.arcd-btn svg{width:14px!important;height:14px!important;flex:0 0 14px}
-.arcd-btn[data-size="sm"] svg{width:12px!important;height:12px!important;flex-basis:12px}
+.arcd-btn[data-size="sm"]{min-height:27px;padding:4px 8px!important;font-size:9.5px!important;border-radius:6px!important}
+.arcd-btn[data-size="lg"]{min-height:38px;padding:9px 14px!important;font-size:11px!important;border-radius:8px!important}
+.arcd-btn svg{width:13px!important;height:13px!important;flex:0 0 13px}
+.arcd-btn[data-size="sm"] svg{width:11px!important;height:11px!important;flex-basis:11px}
 .arcd-btn[data-variant="ghost"],.arcd-btn[data-variant="dark"]{box-shadow:none!important}
-.arcd-btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(20,24,28,.09)!important}
+.arcd-btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 3px 9px rgba(20,24,28,.08)!important}
 .arcd-btn:not(:disabled):active{transform:translateY(0)}
-.arcd-tab{min-height:38px;padding:8px 12px!important;border:0!important;border-bottom:2px solid transparent!important;background:transparent!important;border-radius:0!important;color:${C.muted};font-size:11.5px!important;font-weight:600!important;white-space:nowrap}
+.arcd-tab{min-height:32px;padding:6px 10px!important;border:0!important;border-bottom:2px solid transparent!important;background:transparent!important;border-radius:0!important;color:${C.muted};font-size:10px!important;font-weight:600!important;white-space:nowrap}
 .arcd-tab[data-active="true"]{color:${C.text}!important;border-bottom-color:${C.blue}!important;font-weight:800!important}
 .arcd-tab:hover{color:${C.blue};filter:none!important}
-.arcd-pill{min-height:28px;padding:4px 9px!important;border-radius:99px!important;font-size:9.5px!important;font-weight:800!important;letter-spacing:.1px}
-button[title="Editar"],button[title="Excluir"],button[title="Remover"],button[title="Editar obra"],button[title="Excluir obra"]{
-  width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;
-  padding:0!important;display:inline-grid!important;place-items:center!important;border-radius:8px!important;
+.arcd-pill{min-height:23px;padding:3px 7px!important;border-radius:99px!important;font-size:8.5px!important;font-weight:800!important;letter-spacing:.08px}
+button:not(.arcd-btn)[title="Editar"],button:not(.arcd-btn)[title="Excluir"],button:not(.arcd-btn)[title="Remover"],button:not(.arcd-btn)[title="Editar obra"],button:not(.arcd-btn)[title="Excluir obra"]{
+  width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;
+  padding:0!important;display:inline-grid!important;place-items:center!important;border-radius:6px!important;
   border:1px solid ${C.border}!important;background:${C.card}!important;box-shadow:none!important;
 }
 input:focus,select:focus,textarea:focus{
@@ -236,7 +237,7 @@ input:focus,select:focus,textarea:focus{
 }
 /* Cards e elevação */
 .lift-card{transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
-.lift-card:hover{transform:translateY(-2px);border-color:${C.yellow}88;box-shadow:0 8px 24px ${C.shadow}}
+.lift-card:hover{transform:translateY(-1px);border-color:${C.yellow}88;box-shadow:0 5px 16px ${C.shadow}}
 /* Elevação padrão para cards em fundo branco */
 .card-base{
   background:${C.card};
@@ -2922,8 +2923,8 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
     dark:    { bg: C.surface,  color: C.text,     border: "#C0BAB0", shadow: "transparent"   },
   };
   const vv = variants[v] || variants.primary;
-  const py = size === "sm" ? 7 : size === "lg" ? 14 : 10;
-  const px = size === "sm" ? 10 : 14;
+  const py = size === "sm" ? 4 : size === "lg" ? 9 : 7;
+  const px = size === "sm" ? 8 : size === "lg" ? 14 : 11;
 
   return (
     <button
@@ -2948,9 +2949,9 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
         gap: 6,
         alignItems: "center",
         justifyContent: "center",
-        fontSize: size === "sm" ? 11 : 12.5,
-        borderRadius: 10,
-        boxShadow: v === "ghost" || v === "dark" ? "none" : C.shCard,
+        fontSize: size === "sm" ? 9.5 : size === "lg" ? 11 : 10.5,
+        borderRadius: 7,
+        boxShadow: v === "ghost" || v === "dark" ? "none" : C.shHair,
         transition: "background .12s ease, border-color .12s ease",
         // O icone herda a cor do texto do botao (nao branco fixo): assim no
         // botao escuro ou fantasma ele acompanha e nunca some no fundo.
@@ -2969,8 +2970,8 @@ function Inp({ label, value, onChange, type = "text", placeholder = "", max, min
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {label && <span style={{
-        color: C.text, fontSize: 11, fontWeight: 600,
-        textTransform: "uppercase", letterSpacing: 0.8,
+        color: C.text, fontSize: 9.5, fontWeight: 700,
+        textTransform: "uppercase", letterSpacing: 0.6,
         fontFamily:"'Inter Display','Inter',sans-serif",
       }}>{label}</span>}
       <Comp
@@ -2982,16 +2983,16 @@ function Inp({ label, value, onChange, type = "text", placeholder = "", max, min
         max={max}
         min={min}
         disabled={disabled}
-        rows={multiline ? 4 : undefined}
+        rows={multiline ? 3 : undefined}
         style={{
           width: "100%",
           background: disabled ? C.surface : C.bg,
           border: `1.5px solid ${C.line}`,
           color: C.text,
-          padding: "10px 12px",
+          padding: "8px 10px",
           outline: "none",
-          fontSize: 14,
-          borderRadius: 6,
+          fontSize: 12,
+          borderRadius: 7,
           resize: "vertical",
           fontFamily:"'Inter','Inter Display',sans-serif",
         }}
@@ -3032,15 +3033,15 @@ function CampoCEP({ label = "CEP", value, onChange, onEncontrado }) {
 
   return (
     <label style={{ display:"flex", flexDirection:"column", gap:4 }}>
-      {label && <span style={{ color:C.text, fontSize:11, fontWeight:600, textTransform:"uppercase",
-        letterSpacing:.8, fontFamily:"'Inter Display','Inter',sans-serif" }}>{label}</span>}
+      {label && <span style={{ color:C.text, fontSize:9.5, fontWeight:700, textTransform:"uppercase",
+        letterSpacing:.6, fontFamily:"'Inter Display','Inter',sans-serif" }}>{label}</span>}
       <input value={value == null ? "" : value}
         onChange={e => { onChange(e.target.value); setErro(""); }}
         onBlur={consultar}
         onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
         placeholder="00000-000"
         style={{ width:"100%", boxSizing:"border-box", background:C.bg, border:`1.5px solid ${C.border}`,
-          color:C.text, padding:"9px 11px", borderRadius:8, fontSize:13, outline:"none",
+          color:C.text, padding:"8px 10px", borderRadius:7, fontSize:12, outline:"none",
           fontFamily:"'Inter',sans-serif" }}/>
       {carregando && <span style={{ fontSize:10.5, color:C.muted }}>Buscando endereço...</span>}
       {erro && <span style={{ fontSize:10.5, color:C.orange }}>{erro}</span>}
@@ -3073,8 +3074,8 @@ function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disabled = f
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {label && <span style={{
-        color: C.text, fontSize: 11, fontWeight: 600, textTransform: "uppercase",
-        letterSpacing: 0.8, fontFamily: "'Inter Display','Inter',sans-serif",
+        color: C.text, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase",
+        letterSpacing: 0.6, fontFamily: "'Inter Display','Inter',sans-serif",
       }}>{label}</span>}
       <div style={{ display: "flex", gap: 6 }}>
         <input
@@ -3086,15 +3087,15 @@ function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disabled = f
           style={{
             flex: 1, background: disabled ? C.surface : C.bg,
             border: `1.5px solid ${ok ? C.green : erro ? C.orange : C.line}`,
-            color: C.text, padding: "10px 12px", outline: "none", fontSize: 14,
-            borderRadius: 6, fontFamily: "'Inter','Inter Display',sans-serif",
+            color: C.text, padding: "8px 10px", outline: "none", fontSize: 12,
+            borderRadius: 7, fontFamily: "'Inter','Inter Display',sans-serif",
           }}
         />
         <button type="button" onMouseDown={e=>e.preventDefault()} onClick={consultar} disabled={carregando || disabled}
           style={{
             flexShrink: 0, border: `1.5px solid ${C.blue}`, background: `${C.blue}10`,
-            color: C.blue, borderRadius: 6, padding: "0 14px", cursor: carregando ? "default" : "pointer",
-            fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
+            color: C.blue, borderRadius: 7, padding: "0 10px", cursor: carregando ? "default" : "pointer",
+            fontSize: 10, fontWeight: 700, whiteSpace: "nowrap",
           }}>
           {carregando ? "Buscando..." : "Buscar"}
         </button>
@@ -3109,8 +3110,8 @@ function Sel({ label, value, onChange, options = [], disabled = false }) {
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {label && <span style={{
-        color: C.text, fontSize: 11, fontWeight: 600,
-        textTransform: "uppercase", letterSpacing: 0.8,
+        color: C.text, fontSize: 9.5, fontWeight: 700,
+        textTransform: "uppercase", letterSpacing: 0.6,
         fontFamily:"'Inter Display','Inter',sans-serif",
       }}>{label}</span>}
       <select
@@ -3122,10 +3123,10 @@ function Sel({ label, value, onChange, options = [], disabled = false }) {
           background: disabled ? C.surface : C.bg,
           border: `1.5px solid ${C.line}`,
           color: C.text,
-          padding: "10px 12px",
+          padding: "8px 10px",
           outline: "none",
-          fontSize: 14,
-          borderRadius: 6,
+          fontSize: 12,
+          borderRadius: 7,
           fontFamily:"'Inter','Inter Display',sans-serif",
         }}
       >
@@ -3141,16 +3142,16 @@ function Badge({ children, color = C.yellow }) {
       display: "inline-flex",
       alignItems: "center",
       gap: 4,
-      padding: "4px 8px",
+      padding: "3px 6px",
       border: `1px solid ${color}66`,
       background: `${color}18`,
       color,
-      fontSize: 10,
-      fontWeight: 900,
-      letterSpacing: 0.5,
+      fontSize: 8.5,
+      fontWeight: 800,
+      letterSpacing: 0.35,
       textTransform: "uppercase",
-      marginTop: 4,
-      marginRight: 4,
+      marginTop: 2,
+      marginRight: 3,
       borderRadius: 999,
     }}>
       {children}
@@ -3243,27 +3244,27 @@ function Modal({ title, children, onClose, wide = false }) {
         maxHeight:"92vh", overflowY:"auto",
         background:C.bg,
         border:`1px solid ${C.border}`,
-        borderRadius:8,
-        boxShadow:`0 24px 80px rgba(18,18,18,.18)`,
+        borderRadius:10,
+        boxShadow:`0 20px 60px rgba(18,18,18,.16)`,
       }}>
         <div style={{
           display:"flex", justifyContent:"space-between", alignItems:"center",
-          padding:"14px 18px",
-          borderBottom:`2px solid ${C.yellow}`,
+          padding:"11px 14px",
+          borderBottom:`1px solid ${C.yellow}`,
           background:C.surface,
-          borderRadius:"12px 12px 0 0",
+          borderRadius:"10px 10px 0 0",
         }}>
           <h3 style={{
             fontFamily:"'Inter Display','Inter',sans-serif",
-            color:C.text, fontSize:15, fontWeight:700,
-            textTransform:"uppercase", letterSpacing:1,
+            color:C.text, fontSize:12.5, fontWeight:750,
+            textTransform:"uppercase", letterSpacing:.7,
           }}>{title}</h3>
           <button onClick={onClose} style={{
             background:"transparent", border:0, color:C.muted,
-            fontSize:22, cursor:"pointer", lineHeight:1, padding:"0 4px",
+            width:28,height:28,borderRadius:6,fontSize:18,cursor:"pointer",lineHeight:1,padding:0,
           }}>x</button>
         </div>
-        <div style={{padding:18}}>{children}</div>
+        <div style={{padding:14}}>{children}</div>
       </div>
     </div>
   );
@@ -3280,9 +3281,9 @@ function Toast({ toast }) {
       background:C.bg,
       border:`1px solid ${color}`,
       borderLeft:`4px solid ${color}`,
-      color:C.text, padding:"11px 16px",
+      color:C.text, padding:"9px 13px",
       boxShadow:`0 8px 32px rgba(18,18,18,.15)`,
-      fontSize:13, fontWeight:600, borderRadius:6,
+      fontSize:11.5, fontWeight:600, borderRadius:7,
       fontFamily:"'Inter','Inter Display',sans-serif",
     }}>
       {toast.msg}
@@ -19766,8 +19767,8 @@ function Conciliacao({ data, update, showToast }) {
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
       <div>
-        <p style={{fontSize:11,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Financeiro</p>
-        <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:20,color:C.text}}>
+        <p style={{fontSize:9,fontWeight:850,color:C.blue,textTransform:"uppercase",letterSpacing:.9}}>Financeiro</p>
+        <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:750,fontSize:17,color:C.text}}>
           Conciliação Bancária
         </h3>
       </div>
@@ -19788,31 +19789,28 @@ function Conciliacao({ data, update, showToast }) {
       </div>
 
       {/* Importar */}
-      <div style={{background:C.surface,border:`1.5px dashed ${C.border}`,borderRadius:8,padding:"12px 14px"}}>
+      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 12px"}}>
         {importando ? (
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:18,height:18,border:`3px solid ${C.border}`,borderTopColor:C.yellow,
                          borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
-            <p style={{fontSize:13,fontWeight:700,color:C.text}}>Lendo o extrato...</p>
+            <p style={{fontSize:11,fontWeight:700,color:C.text}}>Lendo o extrato...</p>
           </div>
-        ) : (<>
-          <p style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:3}}> Importar extrato</p>
-          <p style={{fontSize:11,color:C.muted,marginBottom:9,lineHeight:1.5}}>
-            Prefira o <strong>OFX</strong> do seu banco: ele traz o identificador único de cada
-            transação, então reimportar o mesmo período nunca duplica lançamento.
-            CSV e XLSX também funcionam.
-          </p>
-          <label style={{display:"inline-block"}}>
+        ) : (<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+          <div style={{minWidth:220,flex:1}}><p style={{fontSize:11,fontWeight:750,color:C.text}}>Importar extrato bancário</p>
+          <p style={{fontSize:9.5,color:C.muted,marginTop:2,lineHeight:1.4}}>
+            OFX evita duplicidades pelo identificador bancário. CSV e XLSX também são aceitos.
+          </p></div>
+          <label style={{display:"inline-block",flexShrink:0}}>
             <input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls"
               onChange={e=>importar(e.target.files?.[0])} style={{display:"none"}}/>
             <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",
-                          border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:6,cursor:"pointer",
-                          fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:12,
-                          textTransform:"uppercase",letterSpacing:.5}}>
-               Escolher extrato
+                          border:`1px solid ${C.yellowD}`,padding:"7px 10px",borderRadius:7,cursor:"pointer",
+                          fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:10}}>
+              <Ic n="download" s={12}/> Selecionar arquivo
             </span>
           </label>
-        </>)}
+        </div>)}
       </div>
 
       {/* Abas */}
@@ -19820,12 +19818,12 @@ function Conciliacao({ data, update, showToast }) {
         {[["pendentes",`Pendentes (${calc.pendentes})`],["conciliadas","Conciliadas"],
           ["ignoradas","Ignoradas"],["extratos","Extratos"]].map(([v,l])=>(
           <button key={v} onClick={()=>setAba(v)} style={{
-            padding:"7px 3px",
-            border:`2px solid ${aba===v?C.yellow:C.border}`,
+            minHeight:30,padding:"5px 6px",
+            border:`1px solid ${aba===v?C.yellow:C.border}`,
             background:aba===v?`${C.yellow}12`:"transparent",
             color:aba===v?C.text:C.muted,
             fontFamily:"'Inter Display','Inter',sans-serif",
-            fontWeight:700,fontSize:10.5,cursor:"pointer",borderRadius:7,
+            fontWeight:700,fontSize:9.5,cursor:"pointer",borderRadius:7,
           }}>{l}</button>
         ))}
       </div>
@@ -19862,14 +19860,14 @@ function Conciliacao({ data, update, showToast }) {
               <div key={tr.id} style={{
                 background:C.card, border:`1px solid ${C.border}`,
                 borderLeft:`3px solid ${entrada ? C.green : C.red}`,
-                borderRadius:6, padding:"10px 12px",
+                borderRadius:8, padding:"9px 10px",
               }}>
                 <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
                   <div style={{flex:1,minWidth:0}}>
-                    <p style={{fontSize:12.5,color:C.text,fontWeight:600,lineHeight:1.35}}>{tr.descricao}</p>
-                    <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>{fmtDate(tr.data)}</p>
+                    <p style={{fontSize:11.5,color:C.text,fontWeight:650,lineHeight:1.35}}>{tr.descricao}</p>
+                    <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{fmtDate(tr.data)}</p>
                   </div>
-                  <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:15,fontWeight:800,
+                  <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:13,fontWeight:800,
                              color:entrada?C.green:C.red,flexShrink:0}}>
                     {entrada ? "+" : ""} {fmt(Math.abs(tr.valor))}
                   </p>
@@ -19912,9 +19910,9 @@ function Conciliacao({ data, update, showToast }) {
                   </p>
                 )}
 
-                <div style={{display:"flex",gap:6,marginTop:8}}>
+                <div style={{display:"flex",gap:5,marginTop:7,justifyContent:"flex-end",flexWrap:"wrap"}}>
                   {tr.status === "pendente" && <>
-                    <Btn size="sm" onClick={()=>abrirApropriacao(tr)} full>
+                    <Btn size="sm" onClick={()=>abrirApropriacao(tr)}>
                       <Ic n="check"/> Apropriar
                     </Btn>
                     <Btn size="sm" v="ghost" onClick={()=>ignorar(tr)}>Ignorar</Btn>
@@ -30240,13 +30238,13 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       )}
 
       {/* Gestão de despesas operacionais */}
-      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <div style={{background:C.surface,padding:"10px 14px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <p style={{fontWeight:700,fontSize:13,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Despesas Operacionais - {period}</p>
-          <div style={{display:"flex",gap:6}}>
-            <Btn size="sm" v="ghost" onClick={replicarRecorrentes}> Replicar recorrentes</Btn>
+      <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}>
+        <div style={{background:C.surface,padding:"9px 11px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <div><p style={{fontWeight:750,fontSize:11,color:C.text}}>Despesas operacionais</p><p style={{fontSize:8.5,color:C.muted,marginTop:1,textTransform:"uppercase",letterSpacing:.55}}>{period}</p></div>
+          <div style={{display:"flex",gap:5}}>
+            <Btn size="sm" v="ghost" onClick={replicarRecorrentes}><Ic n="copy"/> Replicar</Btn>
             <Btn size="sm" onClick={()=>{setDespForm({competencia:ym,categoria:"aluguel",descricao:"",valor:"",recorrente:false});setEditDesp(null);setDespModal(true);}}>
-              <Ic n="plus"/> Nova
+              <Ic n="plus"/> Nova despesa
             </Btn>
           </div>
         </div>
@@ -30259,25 +30257,25 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         )}
 
         {dre.despEmp.map(d=>(
-          <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 14px",borderBottom:`1px solid ${C.line}33`}}>
-            <div>
+          <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 11px",borderBottom:`1px solid ${C.line}`,gap:10}}>
+            <div style={{minWidth:0}}>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <p style={{fontSize:13,fontWeight:600,color:C.text}}>{d.descricao||CATS_DESP.find(c=>c.v===d.categoria)?.l||d.categoria}</p>
-                {d.recorrente&&<span style={{fontSize:9,fontWeight:700,background:`${C.blue}15`,color:C.blue,padding:"1px 6px",borderRadius:4}}>RECORRENTE</span>}
+                <p style={{fontSize:11.5,fontWeight:650,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.descricao||CATS_DESP.find(c=>c.v===d.categoria)?.l||d.categoria}</p>
+                {d.recorrente&&<span style={{fontSize:7.5,fontWeight:750,background:`${C.blue}12`,color:C.blue,padding:"2px 5px",borderRadius:4}}>RECORRENTE</span>}
               </div>
-              <p style={{fontSize:11,color:C.muted,marginTop:1}}>{CATS_DESP.find(c=>c.v===d.categoria)?.l||d.categoria}</p>
+              <p style={{fontSize:9.5,color:C.muted,marginTop:1}}>{CATS_DESP.find(c=>c.v===d.categoria)?.l||d.categoria}</p>
             </div>
-            <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-              <p style={{fontSize:14,fontWeight:800,color:C.red}}>({fmt(d.valor)})</p>
-              <Btn size="sm" v="ghost" onClick={()=>{setDespForm({competencia:d.competencia,categoria:d.categoria,descricao:d.descricao,valor:String(d.valor),recorrente:d.recorrente});setEditDesp(d.id);setDespModal(true);}}><Ic n="edit"/></Btn>
-              <Btn size="sm" v="danger" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
+            <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
+              <p style={{fontSize:12.5,fontWeight:800,color:C.red,marginRight:3}}>({fmt(d.valor)})</p>
+              <Btn size="sm" v="ghost" title="Editar" onClick={()=>{setDespForm({competencia:d.competencia,categoria:d.categoria,descricao:d.descricao,valor:String(d.valor),recorrente:d.recorrente});setEditDesp(d.id);setDespModal(true);}}><Ic n="edit"/></Btn>
+              <Btn size="sm" v="danger" title="Excluir" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
             </div>
           </div>
         ))}
 
-        <div style={{padding:"8px 14px",background:C.surface,display:"flex",justifyContent:"space-between"}}>
-          <p style={{fontSize:12,fontWeight:700,color:C.text}}>Total despesas operacionais</p>
-          <p style={{fontSize:14,fontWeight:800,color:C.red}}>({fmt(dre.totalDespOp)})</p>
+        <div style={{padding:"8px 11px",background:C.surface,display:"flex",justifyContent:"space-between"}}>
+          <p style={{fontSize:10.5,fontWeight:700,color:C.text}}>Total despesas operacionais</p>
+          <p style={{fontSize:12.5,fontWeight:800,color:C.red}}>({fmt(dre.totalDespOp)})</p>
         </div>
       </div>
 
