@@ -34,6 +34,29 @@ const abrirSessaoEmail=(userId,accessToken,refreshToken)=>{
 
 const credenciais=()=>({userId:sessao.userId,pin:sessao.pin,accessToken:sessao.accessToken});
 
+// O conteúdo do JWT é usado somente para saber se vale a pena renová-lo antes
+// de baixar o dataset. A autorização real continua sendo feita pelo Supabase
+// no servidor; isto evita iniciar uma carga grande com um token já vencido.
+const tokenExpiraEmBreve = (token, margemSegundos=30) => {
+  try {
+    const parte=String(token||"").split(".")[1];
+    if(!parte)return true;
+    const base64=parte.replace(/-/g,"+").replace(/_/g,"/").padEnd(Math.ceil(parte.length/4)*4,"=");
+    const exp=Number(JSON.parse(atob(base64))?.exp||0);
+    return !exp || exp*1000 <= Date.now()+margemSegundos*1000;
+  } catch (_) { return true; }
+};
+
+const renovarSessaoEmail = async () => {
+  if(!sessao.refreshToken)return false;
+  const response=await fetch(ROTA,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"auth-refresh",refreshToken:sessao.refreshToken})});
+  const refreshed=await response.json().catch(()=>({}));
+  if(!response.ok||!refreshed.accessToken)return false;
+  sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
+  try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
+  return true;
+};
+
 export const fecharSessao = () => {
   sessao = { userId: null, pin: null, accessToken:null,refreshToken:null,sessionId:null };
   try{sessionStorage.removeItem("arcd_auth_session");}catch(_){}
@@ -51,9 +74,7 @@ const chamar = async (body) => {
     body: JSON.stringify(body),
   });
   if(r.status===401&&sessao.refreshToken&&!String(body.action||"").startsWith("auth-")){
-    const rr=await fetch(ROTA,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"auth-refresh",refreshToken:sessao.refreshToken})});
-    const refreshed=await rr.json().catch(()=>({}));
-    if(rr.ok&&refreshed.accessToken){sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}r=await fetch(ROTA,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...body,accessToken:sessao.accessToken})});}
+    if(await renovarSessaoEmail())r=await fetch(ROTA,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...body,accessToken:sessao.accessToken})});
   }
   const json = await r.json().catch(() => ({}));
   return { status: r.status, ...json };
@@ -131,6 +152,7 @@ export const entrarComEmail = async (email,password) => {
 
 export const restaurarSessaoEmail=async()=>{
   if(!sessao.accessToken)return{ok:false};
+  if(tokenExpiraEmBreve(sessao.accessToken)&&!await renovarSessaoEmail())return{ok:false};
   const r=await chamar({action:"load",...credenciais()});
   if(r.status!==200)return{ok:false};
   ultimoUpdatedAt=r.updatedAt||null;
