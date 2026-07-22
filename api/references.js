@@ -9,7 +9,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { decodeAppData } from "./data-codec.js";
+import { decodeAppData } from "../server/data-codec.js";
 import {
   normalizeText,
   parsePriceBR,
