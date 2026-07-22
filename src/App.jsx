@@ -1986,6 +1986,14 @@ const normalizeData = incoming => {
       total:       Number(m.total || 0),
       observacao:  m.observacao  || "",
       pagamentoId: m.pagamentoId || "",
+      responsavelEvidenciaId: m.responsavelEvidenciaId || "",
+      responsavelEvidencia: m.responsavelEvidencia || "",
+      responsavelEvidenciaRole: m.responsavelEvidenciaRole || "",
+      fotos: Array.isArray(m.fotos) ? m.fotos.map(f => ({
+        id:f.id||uid(), url:f.url||"", path:f.path||f.id||"", nome:f.nome||"Evidência fotográfica",
+        legenda:f.legenda||"", enviadoPorId:f.enviadoPorId||"", enviadoPor:f.enviadoPor||"",
+        enviadoPorRole:f.enviadoPorRole||"", enviadoEm:f.enviadoEm||"",
+      })) : [],
     })) : [],
     rescisoes: Array.isArray(d.rescisoes) ? d.rescisoes : [],
     outrasDesp: Array.isArray(d.outrasDesp) ? d.outrasDesp.map(x => ({
@@ -9543,7 +9551,7 @@ function FluxoCaixa({ data }) {
 // TERCEIROS - cadastro e pagamentos semanais
 // 
 
-function Terceiros({ data, update, showToast, obraIdFixo="" }) {
+function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null }) {
   const { formGrid } = useBreakpoint();
   const emptyT = { id:"", prestadorId:"", name:"", specialty:"eletricista", obraId:"", contractValue:"", weeklyRate:"", phone:"", pixKey:"", notes:"", startDate:today(),
     situacao:"andamento", endDate:"", tipoPessoa:"PJ", documento:"", razaoSocial:"", inscEstadual:"", inscMunicipal:"",
@@ -9567,7 +9575,11 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
   const [docForm,     setDocForm]     = useState({ tipo:"CND", numero:"", validade:"" });
   const [etapaForm,   setEtapaForm]   = useState({ id:"", nome:"", valor:"" });
   const [medModal,    setMedModal]    = useState(false);
-  const [medForm,     setMedForm]     = useState({ data: today(), observacao:"", pcts:{} });
+  const [medForm,     setMedForm]     = useState({ data: today(), observacao:"", pcts:{}, fotos:[] });
+  const [subindoFotosMed,setSubindoFotosMed]=useState(false);
+  const [riscoSemFotoAceito,setRiscoSemFotoAceito]=useState(false);
+  const inputFotosMedRef=useRef(null);
+  const podeRegistrarEvidencia=["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&currentUser?.active!==false;
 
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
@@ -9988,11 +10000,37 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
   };
 
   const abrirMedicao = () => {
+    if(!podeRegistrarEvidencia){showToast("A medição e suas fotografias devem ser registradas por um engenheiro de campo ou engenheiro auditor.","error");return;}
     if (!etapasTerc.length) { showToast("Subdivida o contrato em etapas antes de medir.", "error"); return; }
     // O formulario ja abre com o acumulado atual: voce so mexe no que avancou.
     setMedForm({ data: today(), observacao: "",
-      pcts: Object.fromEntries(etapasTerc.map(e => [e.id, String(acumuladoPorEtapa[e.id] || 0)])) });
+      pcts: Object.fromEntries(etapasTerc.map(e => [e.id, String(acumuladoPorEtapa[e.id] || 0)])), fotos:[] });
     setMedModal(true);
+  };
+
+  const anexarFotosMedicao=async arquivos=>{
+    const files=[...(arquivos||[])].filter(f=>String(f.type||"").startsWith("image/"));
+    if(!files.length)return;
+    if(!podeRegistrarEvidencia){showToast("Somente engenheiros de campo ou auditores podem anexar a evidência da medição.","error");return;}
+    if(!tercAtual?.obraId){showToast("O contrato precisa estar vinculado a uma obra para salvar as fotografias.","error");return;}
+    const obraMed=data.obras.find(o=>o.id===tercAtual.obraId);
+    if(!obraMed){showToast("Obra da medição não encontrada.","error");return;}
+    setSubindoFotosMed(true);
+    try{
+      let driveId=obraMed.oneDriveDriveId,folderId=obraMed.oneDriveFolderId,folders=obraMed.oneDriveFolders;
+      const novas=[];
+      for(const [indice,file] of files.entries()){
+        const dataUrl=await comprimirImagem(file);
+        const r=await enviarArquivoOneDrive({dataUrl,obraName:obraMed.name,driveId,folderId,folders,category:"fotos",subfolder:`Medições de Terceirizados/${tercAtual.name}`,fileName:`medicao-${medicoesTercAtual.length+1}-${Date.now()}-${indice+1}.jpg`});
+        if(!r.ok)throw new Error(r.error||`Falha ao enviar ${file.name}.`);
+        driveId=r.workspace?.driveId||driveId;folderId=r.workspace?.folderId||folderId;folders=r.workspace?.folders||folders;
+        novas.push({id:r.item?.id||uid(),url:r.url,path:r.path||r.item?.id||"",nome:file.name||`Foto ${indice+1}`,legenda:"",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"Engenheiro",enviadoPorRole:currentUser?.role||"",enviadoEm:new Date().toISOString()});
+      }
+      if(driveId&&folderId&&(!obraMed.oneDriveDriveId||!obraMed.oneDriveFolderId))update({...data,obras:(data.obras||[]).map(o=>o.id===obraMed.id?{...o,oneDriveDriveId:driveId,oneDriveFolderId:folderId,oneDriveFolders:folders||o.oneDriveFolders}:o)});
+      setMedForm(f=>({...f,fotos:[...(f.fotos||[]),...novas]}));
+      showToast(`${novas.length} fotografia(s) anexada(s) à medição.`);
+    }catch(error){showToast(error.message||"Não foi possível salvar as fotografias.","error");}
+    finally{setSubindoFotosMed(false);}
   };
 
   const itensDaMedicao = () => etapasTerc.map(e => {
@@ -10004,6 +10042,8 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
 
   const salvarMedicao = () => {
     if (!tercAtual) return;
+    if(!podeRegistrarEvidencia){showToast("Somente um engenheiro de campo ou auditor pode registrar esta medição.","error");return;}
+    if(!(medForm.fotos||[]).length){showToast("Anexe ao menos uma fotografia da execução antes de salvar a medição.","error");return;}
     const itens = itensDaMedicao().filter(i => Math.abs(i.pctAcum - i.pctAnterior) > 0.0001);
     if (!itens.length) { showToast("Nenhuma etapa avançou desde a última medição.", "warn"); return; }
     const total = itens.reduce((s, i) => s + i.valor, 0);
@@ -10011,6 +10051,8 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
       id: uid(), tercId: tercSel, obraId: tercAtual.obraId || "",
       data: medForm.data || today(), numero: medicoesTercAtual.length + 1,
       itens, total, observacao: String(medForm.observacao || "").trim(), pagamentoId: "",
+      fotos:(medForm.fotos||[]).map(f=>({...f})),responsavelEvidenciaId:currentUser?.id||"",
+      responsavelEvidencia:currentUser?.nome||"",responsavelEvidenciaRole:currentUser?.role||"",
     };
     update({ ...data, medicoesTerc: [...(data.medicoesTerc || []), medicao] });
     setMedModal(false);
@@ -10037,6 +10079,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
     if (!(m.total > 0)) { showToast("Medição sem valor a pagar.", "warn"); return; }
     setMedPayModal(m);
     setPaySource("");
+    setRiscoSemFotoAceito(false);
   };
 
   const confirmarPagamentoMedicao = () => {
@@ -10051,18 +10094,24 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
       showToast("Esta medição não possui obra vinculada.", "error"); return;
     }
     if (m.pagamentoId) { showToast("Esta medição já foi paga.", "warn"); setMedPayModal(null); return; }
+    const semEvidencia=!(m.fotos||[]).length;
+    if(semEvidencia&&!riscoSemFotoAceito){showToast("Pagamento de risco: confirme que o financeiro está ciente da ausência de fotografia.","error");return;}
     const ret = calcRetencoes(m.total, t);
     const pag = { id: uid(), tercId: m.tercId, tercName: t.name, specialty: t.specialty,
       obraId: m.obraId, date: m.data, amount: m.total, medicaoId: m.id,
       description: `Medição ${m.numero} - ${fmtDateFull(m.data)}`,
       pagador: paySource,
-      issRetido: ret.issRetido, inssRetido: ret.inssRetido, liquido: ret.liquido };
+      issRetido: ret.issRetido, inssRetido: ret.inssRetido, liquido: ret.liquido,
+      semEvidenciaFotografica:semEvidencia,
+      riscoSemFotoAceitoEm:semEvidencia?new Date().toISOString():"",
+      riscoSemFotoAceitoPor:semEvidencia?(currentUser?.nome||"Operador financeiro"):"" };
     update({ ...data,
       pagsTerceiros: [...(data.pagsTerceiros || []), pag],
       medicoesTerc: (data.medicoesTerc || []).map(x => x.id === m.id ? { ...x, pagamentoId: pag.id } : x) });
     const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(m.obraId)}`;
     setMedPayModal(null);
     setPaySource("");
+    setRiscoSemFotoAceito(false);
     showToast(ret.retido > 0
       ? `Medição paga ${origem}: ${fmt(m.total)} bruto, ${fmt(ret.liquido)} líquido ao prestador.`
       : `Pagamento de ${fmt(m.total)} registrado ${origem} para ${t.name}.`);
@@ -10072,6 +10121,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
   // invisivel: os KPIs so olhavam pagamento semanal e contrato.
   const medicoesAPagar = (data.medicoesTerc || []).filter(m => !m.pagamentoId && Number(m.total || 0) > 0);
   const totalAPagarMed = medicoesAPagar.reduce((s, m) => s + Number(m.total || 0), 0);
+  const pagamentosSemEvidencia=(data.pagsTerceiros||[]).filter(p=>p.medicaoId&&p.semEvidenciaFotografica&&(filterObra==="all"||p.obraId===filterObra));
 
   // Avanco fisico de qualquer contrato, para o card do cadastro.
   const avancoDoContrato = t => {
@@ -10625,9 +10675,10 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
             </p>
             <div style={{ display:"flex", gap:6 }}>
               <Btn size="sm" v="ghost" onClick={sugerirEtapas}>Sugerir etapas</Btn>
-              <Btn size="sm" onClick={abrirMedicao}><Ic n="plus"/> Nova medição</Btn>
+              <Btn size="sm" onClick={abrirMedicao} disabled={!podeRegistrarEvidencia}><Ic n="plus"/> Nova medição</Btn>
             </div>
           </div>
+          {!podeRegistrarEvidencia&&<div style={{background:`${C.orange}0D`,border:`1px solid ${C.orange}55`,borderRadius:8,padding:"8px 11px"}}><p style={{fontSize:10.5,color:C.orange,fontWeight:800}}>A medição e suas fotografias devem ser registradas por um engenheiro de campo ou engenheiro auditor.</p></div>}
 
           <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
             {etapasTerc.map((e, i) => {
@@ -10720,6 +10771,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
                   })}
                 </div>
                 {m.observacao && <p style={{ fontSize:11, color:C.muted, fontStyle:"italic", marginTop:6 }}>"{m.observacao}"</p>}
+                {(m.fotos||[]).length?<div style={{marginTop:8}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:6}}><p style={{fontSize:9.5,fontWeight:900,color:C.green,textTransform:"uppercase"}}>Evidência fotográfica · {(m.fotos||[]).length}</p><p style={{fontSize:9.5,color:C.muted}}>Por {m.responsavelEvidencia||m.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(76px,1fr))",gap:6}}>{(m.fotos||[]).map(f=><a key={f.id||f.url} href={f.url} target="_blank" rel="noopener noreferrer" title="Ampliar fotografia" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`,background:C.surface}}><img src={f.url} alt={f.legenda||"Evidência da medição"} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a>)}</div></div>:<div style={{marginTop:8,background:`${C.red}0B`,border:`1px solid ${C.red}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:10,fontWeight:850,color:C.red}}>Medição sem evidência fotográfica</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Registro antigo: o financeiro será alertado antes do pagamento.</p></div>}
                 {/* Previa de retencao antes de pagar / decomposicao apos pago */}
                 {(() => {
                   // Fonte da verdade: se ja pago, os valores gravados no
@@ -10770,6 +10822,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
 
       {/*  VIEW: PAGAMENTOS  */}
       {view === "pagamentos" && (<>
+        {pagamentosSemEvidencia.length>0&&<div style={{background:`${C.red}0D`,border:`1px solid ${C.red}66`,borderLeft:`4px solid ${C.red}`,borderRadius:9,padding:"10px 12px"}}><p style={{fontSize:10.5,fontWeight:900,color:C.red,textTransform:"uppercase"}}>Auditoria financeira · {pagamentosSemEvidencia.length} pagamento(s) sem foto</p><p style={{fontSize:10,color:C.muted,lineHeight:1.45,marginTop:3}}>Foram pagos após reconhecimento explícito do risco. Revise as medições e solicite a comprovação da execução ao engenheiro responsável.</p></div>}
         {/* Impostos retidos a recolher - mês da sexta atual. So aparece se ha
             retencao no periodo; e um lembrete de obrigacao, nao um card fixo. */}
         {(() => {
@@ -10860,6 +10913,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
                     <span style={{ fontSize:16 }}>{sp.emoji}</span>
                     <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:17 }}>{t.name}</p>
                     {paid && <Badge color={C.green}>ok Pago</Badge>}
+                    {paidEntry?.semEvidenciaFotografica&&<Badge color={C.red}>Sem foto</Badge>}
                   </div>
                   <p style={{ fontSize:12, color:C.muted }}>{sp.l}  {obraName(t.obraId)}</p>
                   {paid && paidEntry && (
@@ -11140,9 +11194,14 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
             <Inp label="Observação" value={medForm.observacao} onChange={v=>setMedForm(f=>({...f,observacao:v}))}
               placeholder="Ex.: pendente o quadro do 2º pavimento"/>
 
+            <div style={{background:C.surface,border:`1px solid ${(medForm.fotos||[]).length?C.green:C.orange}66`,borderRadius:9,padding:"11px 12px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:9,flexWrap:"wrap"}}><div><p style={{fontSize:10.5,fontWeight:900,color:C.text,textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div><Btn size="sm" v={(medForm.fotos||[]).length?"ghost":"warning"} onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed}><Ic n="camera"/> {subindoFotosMed?"Enviando...":"Adicionar fotos"}</Btn><input ref={inputFotosMedRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/></div>
+              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:8.5,color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:8}}>Nenhuma fotografia anexada. A medição ainda não pode ser salva.</p>}
+            </div>
+
             <div style={{ display:"flex", gap:8 }}>
               <Btn v="ghost" full onClick={()=>setMedModal(false)}>Cancelar</Btn>
-              <Btn full onClick={salvarMedicao}><Ic n="check"/> Salvar medição</Btn>
+              <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||!(medForm.fotos||[]).length}><Ic n="check"/> Salvar medição</Btn>
             </div>
           </div>
         </Modal>
@@ -11153,12 +11212,13 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
         if (!t) return null;
         const ret = calcRetencoes(medPayModal.total, t);
         return (
-          <Modal title={`Pagar medição ${medPayModal.numero} - ${t.name}`} onClose={()=>{setMedPayModal(null);setPaySource("");}}>
+          <Modal title={`Pagar medição ${medPayModal.numero} - ${t.name}`} onClose={()=>{setMedPayModal(null);setPaySource("");setRiscoSemFotoAceito(false);}}>
             <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${C.green}`, padding:"10px 14px", borderRadius:8, marginBottom:12 }}>
               <p style={{ fontSize:12, color:C.muted }}>{specInfo(t.specialty).emoji} {specInfo(t.specialty).l} · {obraName(medPayModal.obraId)}</p>
               <p style={{ fontSize:18, color:C.green, fontWeight:900, marginTop:3 }}>{fmt(medPayModal.total)}</p>
               {ret.retido > 0 && <p style={{ fontSize:10.5, color:C.muted, marginTop:2 }}>Líquido ao prestador: {fmt(ret.liquido)}</p>}
             </div>
+            {!(medPayModal.fotos||[]).length?<label style={{display:"flex",alignItems:"flex-start",gap:9,background:`${C.red}0D`,border:`1px solid ${C.red}77`,borderRadius:8,padding:"10px 11px",marginBottom:12,cursor:"pointer"}}><input type="checkbox" checked={riscoSemFotoAceito} onChange={e=>setRiscoSemFotoAceito(e.target.checked)} style={{marginTop:2,accentColor:C.red}}/><span><b style={{fontSize:11,color:C.red}}>Risco financeiro: medição sem fotografia da execução</b><p style={{fontSize:9.8,color:C.muted,lineHeight:1.45,marginTop:3}}>Sem evidência do engenheiro, o pagamento pode antecipar serviço não executado, incompleto ou fora da especificação. Marque somente se decidiu prosseguir mesmo assim; a exceção ficará registrada.</p></span></label>:<div style={{display:"flex",alignItems:"center",gap:7,background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"8px 10px",marginBottom:12}}><Ic n="check" color={C.green}/><p style={{fontSize:10.5,color:C.green,fontWeight:800}}>{(medPayModal.fotos||[]).length} fotografia(s) validada(s) · {medPayModal.responsavelEvidencia||medPayModal.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div>}
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               <div>
                 <p style={{ fontSize:11, fontWeight:800, color:C.text, textTransform:"uppercase", letterSpacing:.7, marginBottom:6 }}>Quem realizou este pagamento? *</p>
@@ -11172,8 +11232,8 @@ function Terceiros({ data, update, showToast, obraIdFixo="" }) {
                 </div>
               </div>
               <div style={{ display:"flex", gap:8 }}>
-                <Btn v="ghost" onClick={()=>{setMedPayModal(null);setPaySource("");}} full>Cancelar</Btn>
-                <Btn v="success" onClick={confirmarPagamentoMedicao} full><Ic n="check"/> Confirmar pagamento</Btn>
+                <Btn v="ghost" onClick={()=>{setMedPayModal(null);setPaySource("");setRiscoSemFotoAceito(false);}} full>Cancelar</Btn>
+                <Btn v="success" onClick={confirmarPagamentoMedicao} disabled={!(medPayModal.fotos||[]).length&&!riscoSemFotoAceito} full><Ic n="check"/> Confirmar pagamento</Btn>
               </div>
             </div>
           </Modal>
@@ -23982,7 +24042,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="dre"&&<DRE data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="ponto"&&<Ponto data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="equipe"&&<Equipe data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
-        {abaConteudo==="terc"&&<Terceiros data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="terc"&&<Terceiros data={data} update={update} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
         {abaConteudo==="equip"&&<Equipamentos data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="licenca"&&<Licenciamento data={data} update={update} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:12}}>
@@ -32633,7 +32693,7 @@ export default function App() {
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} />}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} />}
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
-          {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} />}
+          {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
