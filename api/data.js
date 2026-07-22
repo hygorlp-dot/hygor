@@ -230,9 +230,24 @@ export default async function handler(req, res) {
         const {error}=await db.auth.admin.updateUserById(authId,{email,password,email_confirm:true,user_metadata:{arcdUserId:alvo.id,nome:alvo.nome}});
         if(error)return res.status(400).json({error:error.message});
       }else{
-        const {data:criado,error}=await db.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{arcdUserId:alvo.id,nome:alvo.nome}});
-        if(error)return res.status(400).json({error:error.message});
-        authId=criado.user.id;
+        // A conta pode ter sido criada antes da implantação do vínculo
+        // authUserId (ou diretamente no painel do Supabase). Nesse caso não
+        // tentamos cadastrar o mesmo e-mail novamente: localizamos a conta,
+        // redefinimos a senha e passamos a vinculá-la ao operador do ArcD.
+        const {data:listagem,error:erroLista}=await db.auth.admin.listUsers({page:1,perPage:1000});
+        if(erroLista)return res.status(400).json({error:erroLista.message});
+        const existente=(listagem?.users||[]).find(u=>String(u.email||"").trim().toLowerCase()===email);
+        if(existente){
+          const vinculo=(atual.usuarios||[]).find(u=>u.id!==alvo.id&&u.authUserId===existente.id);
+          if(vinculo)return res.status(409).json({error:`Este e-mail já está vinculado ao operador ${vinculo.nome}.`});
+          authId=existente.id;
+          const {error}=await db.auth.admin.updateUserById(authId,{email,password,email_confirm:true,user_metadata:{...(existente.user_metadata||{}),arcdUserId:alvo.id,nome:alvo.nome}});
+          if(error)return res.status(400).json({error:error.message});
+        }else{
+          const {data:criado,error}=await db.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{arcdUserId:alvo.id,nome:alvo.nome}});
+          if(error)return res.status(400).json({error:error.message});
+          authId=criado.user.id;
+        }
       }
       const novo={...atual,usuarios:(atual.usuarios||[]).map(u=>u.id===alvo.id?{...u,authUserId:authId,email}:u)};
       const agora=new Date().toISOString();
