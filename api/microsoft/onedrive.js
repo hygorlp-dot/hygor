@@ -1,7 +1,7 @@
 import { fileSignature, getOrCreateFolder, graph, refresh, safeName, seal, setCookie, verifyAppUser, workspace } from "./_graph.js";
 
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};
-const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",financeiro:"08 - Financeiro e Fiscal",compras:"09 - Compras e Suprimentos",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos"};
+const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",financeiro:"08 - Financeiro e Fiscal",compras:"09 - Compras e Suprimentos",licenciamento:"10 - Licenciamento",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos"};
 
 export default async function handler(req,res){
   try{

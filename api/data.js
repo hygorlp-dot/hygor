@@ -162,16 +162,29 @@ const compactarPermissao = value => {
   return out;
 };
 const igualPermissao=(a,b)=>JSON.stringify(compactarPermissao(a))===JSON.stringify(compactarPermissao(b));
-const validarAlteracoesConferencias=(usuario,anterior=[],proximo=[],autoritativo=[])=>{
+const validarAlteracoesConferencias=(usuario,anterior=[],proximo=[],autoritativo=[],obras=[])=>{
   if(usuario?.role==="admin")return "";
   if(!Array.isArray(anterior)||!Array.isArray(proximo))return "Formato de conferências inválido.";
   const antes=new Map(anterior.map(c=>[String(c.id),c]));
   const depois=new Map(proximo.map(c=>[String(c.id),c]));
   const atual=new Map((autoritativo||[]).map(c=>[String(c.id),c]));
-  if([...depois.keys()].some(id=>!antes.has(id))||[...antes.keys()].some(id=>!depois.has(id)))return "Somente o administrador pode criar ou excluir uma vistoria.";
+  const adicionadas=[...depois.entries()].filter(([id])=>!antes.has(id));
+  const removidas=[...antes.keys()].filter(id=>!depois.has(id));
+  if(removidas.length)return "Somente o administrador pode excluir uma vistoria.";
+  for(const [,nova] of adicionadas){
+    if(usuario?.role!=="engenheiro")return "Somente o administrador ou o engenheiro de campo responsável pode criar uma vistoria.";
+    const obra=(obras||[]).find(o=>String(o.id)===String(nova?.obraId));
+    const estaNoEscopo=!usuario.obraId||String(usuario.obraId)===String(obra?.id);
+    const ehResponsavel=String(obra?.engineerId||"")===String(usuario.id)
+      ||(!obra?.engineerId&&obra?.engineer&&String(obra.engineer).trim()===String(usuario.nome||"").trim());
+    if(!obra||!estaNoEscopo||!ehResponsavel)return "O administrador precisa definir você como engenheiro responsável por esta obra antes de criar a vistoria.";
+    if(String(nova?.responsavelId)!==String(usuario.id)||String(nova?.responsavel||"").trim()!==String(usuario.nome||"").trim())return "A nova vistoria deve ser registrada automaticamente em nome do engenheiro conectado.";
+    if((nova?.pendencias||[]).length)return "Crie a vistoria primeiro; as pendências devem ser registradas dentro dela.";
+  }
 
   for(const [id,nova] of depois){
     const antiga=antes.get(id);
+    if(!antiga)continue;
     if(igualPermissao(antiga,nova))continue;
     const vigente=atual.get(id)||antiga;
     if(vigente?.responsavelId===usuario?.id){
@@ -417,7 +430,7 @@ export default async function handler(req, res) {
       if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
       if(chaves.includes("conferencias")){
         const baseConferencias=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"conferencias")?baseSections.conferencias:atual?.conferencias;
-        const erroPermissao=validarAlteracoesConferencias(usuario,baseConferencias||[],sections.conferencias||[],atual?.conferencias||[]);
+        const erroPermissao=validarAlteracoesConferencias(usuario,baseConferencias||[],sections.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
         if(erroPermissao)return res.status(403).json({error:erroPermissao});
       }
 
@@ -460,7 +473,7 @@ export default async function handler(req, res) {
     if (action === "save") {
       if (!payload) return res.status(400).json({ error: "Nada para salvar." });
       if(!igual(payload.conferencias,atual?.conferencias)){
-        const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],payload.conferencias||[],atual?.conferencias||[]);
+        const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],payload.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
         if(erroPermissao)return res.status(403).json({error:erroPermissao});
       }
 
