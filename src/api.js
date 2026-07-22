@@ -376,5 +376,6 @@ export const statusOneDrive = () => chamarOneDrive("status");
 export const criarEstruturaOneDrive = obraName => chamarOneDrive("create-workspace", { obraName });
 export const sincronizarEstruturasOneDrive = obras => chamarOneDrive("sync-workspaces", { obras });
 export const criarPastaOneDrive = payload => chamarOneDrive("create-folder", payload);
+export const listarPastaOneDrive = payload => chamarOneDrive("list-folder", payload);
 export const enviarArquivoOneDrive = payload => chamarOneDrive("upload", payload);
 export const obterLinkArquivoOneDrive = payload => chamarOneDrive("file-link", payload);

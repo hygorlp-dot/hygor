@@ -68,12 +68,23 @@ export default async function handler(req,res){
       const folder=await getOrCreateFolder(accessToken,body.driveId,body.parentId,safeName(body.name));
       return res.json({ok:true,folder:appUser.role==="admin"?folder:{...folder,webUrl:undefined}});
     }
+    if(action==="list-folder"){
+      if(!body.driveId||!body.parentId)return res.status(400).json({error:"Pasta sem identificação no OneDrive."});
+      const path=`/drives/${encodeURIComponent(body.driveId)}/items/${encodeURIComponent(body.parentId)}/children?$top=200&$select=id,name,folder,file,size,lastModifiedDateTime`;
+      const lista=await (await graph(accessToken,path)).json();
+      const items=(lista.value||[]).map(item=>{
+        const tipo=item.folder?"folder":"file";
+        const url=tipo==="file"?`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(body.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(fileSignature(body.driveId,item.id))}`:"";
+        return {id:item.id,name:item.name,type:tipo,url,size:Number(item.size||0),childCount:Number(item.folder?.childCount||0),lastModifiedDateTime:item.lastModifiedDateTime||""};
+      }).sort((a,b)=>a.type===b.type?a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"}):a.type==="folder"?-1:1);
+      return res.json({ok:true,items});
+    }
     if(action==="upload"){
       let ws={driveId:body.driveId,folderId:body.folderId,folders:body.folders};
       if(!ws.driveId||!ws.folderId||!ws.folders)ws=await workspace(accessToken,body.obraName);
       const categoryName=categoryNames[body.category]||categoryNames.documentos;
-      let parentId=ws.folders?.[categoryName]||ws.folderId;
-      if(!ws.folders?.[categoryName]){
+      let parentId=body.targetFolderId||ws.folders?.[categoryName]||ws.folderId;
+      if(!body.targetFolderId&&!ws.folders?.[categoryName]){
         const categoryFolder=await getOrCreateFolder(accessToken,ws.driveId,ws.folderId,categoryName);
         parentId=categoryFolder.id;
         ws={...ws,folders:{...(ws.folders||{}),[categoryName]:parentId}};
