@@ -12535,16 +12535,12 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 // Configurações / aprovações
 // 
 
-function Config({ data, update, showToast, currentUser, onLogout }) {
+function IntegracaoGemini({ showToast, standalone=false }) {
   const { formGrid } = useBreakpoint();
-  const [form, setForm] = useState(data.config);
-  const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
   const [geminiKey,setGeminiKey]=useState("");
   const [aiStatus,setAIStatus]=useState({carregando:true,configured:false,provider:"gemini",model:""});
   const [salvandoIA,setSalvandoIA]=useState(false);
-  const setField = key => value => setForm(f => ({ ...f, [key]: value }));
-  const holidays = getPayrollHolidays(data, holidayYear);
-
+  const [resultadoConfiguracao,setResultadoConfiguracao]=useState({tipo:"",mensagem:""});
   const carregarStatusIA=useCallback(async()=>{
     const status=await verificarStatusIA();
     setAIStatus({carregando:false,configured:!!status.configured,provider:status.provider||"gemini",model:status.model||"",source:status.source||"none",updatedAt:status.updatedAt||"",updatedBy:status.updatedBy||"",validationStatus:status.validationStatus||"unknown",validationMessage:status.validationMessage||"",error:status.ok?"":status.error||"Falha ao verificar."});
@@ -12552,11 +12548,16 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
   useEffect(()=>{carregarStatusIA();},[carregarStatusIA]);
   const salvarIntegracaoIA=async()=>{
     if(!geminiKey.trim()){showToast("Cole uma chave da API Gemini.","error");return;}
-    setSalvandoIA(true);
-    const result=await configurarGemini(geminiKey.trim());
-    setSalvandoIA(false);
-    if(!result.ok){showToast(result.error||"Não foi possível validar a chave.","error");return;}
-    setGeminiKey("");await carregarStatusIA();showToast(result.warning||"Gemini conectado a todas as IAs do ArcD.",result.warning?"error":undefined);
+    setSalvandoIA(true);setResultadoConfiguracao({tipo:"",mensagem:""});
+    try{
+      const result=await configurarGemini(geminiKey.trim());
+      if(!result.ok){const mensagem=result.error||"Não foi possível validar a chave.";setResultadoConfiguracao({tipo:"erro",mensagem});showToast(mensagem,"error");return;}
+      const mensagem=result.warning||"Gemini conectado a todas as IAs do ArcD.";
+      setGeminiKey("");setResultadoConfiguracao({tipo:result.warning?"aviso":"sucesso",mensagem});await carregarStatusIA();showToast(mensagem,result.warning?"error":undefined);
+    }catch{
+      const mensagem="Não foi possível alcançar o servidor de configuração. Tente novamente.";
+      setResultadoConfiguracao({tipo:"erro",mensagem});showToast(mensagem,"error");
+    }finally{setSalvandoIA(false);}
   };
   const desconectarIntegracaoIA=async()=>{
     if(!window.confirm("Desconectar o Gemini configurado no ArcD?"))return;
@@ -12564,6 +12565,30 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
     if(!result.ok){showToast(result.error||"Não foi possível desconectar.","error");return;}
     await carregarStatusIA();showToast(result.configured?"Configuração do administrador removida; a chave do ambiente continua ativa.":"Gemini desconectado.");
   };
+  return <div className={standalone?"anim":""} style={{background:C.card,border:`1px solid ${aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:aiStatus.configured?C.orange:C.border}`,borderLeft:`4px solid ${aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:C.yellow}`,borderRadius:10,padding:14}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:9,fontWeight:900,color:C.yellow,letterSpacing:1,textTransform:"uppercase"}}>Inteligência artificial corporativa</p><h3 style={{fontSize:17,marginTop:3}}>Google Gemini · integração única</h3><p style={{fontSize:10.5,color:C.muted,marginTop:4,maxWidth:720}}>Esta autenticação atende Compras, Financeiro, Diário de Obra, Orçamento, Planejamento, auditoria administrativa e o agente geral. A chave fica criptografada no servidor e não aparece novamente.</p></div><Badge color={aiStatus.carregando?C.orange:aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:aiStatus.configured?C.orange:C.red}>{aiStatus.carregando?"VERIFICANDO":!aiStatus.configured?"NÃO CONFIGURADA":aiStatus.validationStatus==="rate_limit"?"CHAVE SALVA · COTA ATINGIDA":"GEMINI CONECTADO"}</Badge></div>
+    {aiStatus.configured&&<div style={{marginTop:10,padding:"8px 10px",borderRadius:8,background:`${C.green}0A`,border:`1px solid ${C.green}33`,fontSize:10,color:C.subtle}}>Modelo: <strong>{aiStatus.model||"Gemini"}</strong> · origem: {aiStatus.source==="admin"?"configurada pelo administrador":"ambiente seguro da Vercel"}{aiStatus.updatedBy?` · por ${aiStatus.updatedBy}`:""}</div>}
+    {aiStatus.error&&<p style={{fontSize:10,color:C.red,marginTop:8}}>{aiStatus.error}</p>}
+    {resultadoConfiguracao.mensagem&&<div role="status" style={{marginTop:9,padding:"9px 10px",borderRadius:8,background:resultadoConfiguracao.tipo==="sucesso"?`${C.green}0D`:`${resultadoConfiguracao.tipo==="aviso"?C.orange:C.red}0D`,border:`1px solid ${resultadoConfiguracao.tipo==="sucesso"?C.green:resultadoConfiguracao.tipo==="aviso"?C.orange:C.red}55`,fontSize:10.5,fontWeight:700,color:resultadoConfiguracao.tipo==="sucesso"?C.green:resultadoConfiguracao.tipo==="aviso"?C.orange:C.red}}>{resultadoConfiguracao.mensagem}</div>}
+    {aiStatus.validationMessage&&<div style={{marginTop:9,padding:"9px 10px",borderRadius:8,background:`${C.orange}0D`,border:`1px solid ${C.orange}44`,fontSize:10.5,color:C.text}}>{aiStatus.validationMessage} <a href="https://aistudio.google.com/app/usage" target="_blank" rel="noreferrer" style={{color:C.blue,fontWeight:850}}>Ver uso e limites ↗</a></div>}
+    <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9,marginTop:12,alignItems:"end"}}><Inp label={aiStatus.configured?"Substituir chave de API":"Chave da API Gemini"} type="password" value={geminiKey} onChange={setGeminiKey} placeholder="Cole a chave somente aqui"/><div style={{display:"flex",gap:7,flexWrap:"wrap"}}><Btn onClick={salvarIntegracaoIA} disabled={salvandoIA||!geminiKey.trim()}><Ic n="check"/> {salvandoIA?"Validando...":aiStatus.configured?"Validar e substituir":"Validar e conectar"}</Btn>{aiStatus.source==="admin"&&<Btn v="danger" onClick={desconectarIntegracaoIA} disabled={salvandoIA}>Desconectar</Btn>}</div></div>
+    <p style={{fontSize:9.5,color:C.muted,marginTop:9}}>Crie e copie a chave em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:C.blue,fontWeight:800}}>Google AI Studio · Chaves de API ↗</a>. O nível gratuito tem limites de uso e o Google informa que entradas e respostas podem ser usadas para melhorar seus produtos; avalie isso antes de enviar documentos sigilosos ou dados pessoais.</p>
+  </div>;
+}
+
+function ConfiguracaoIA({ showToast }) {
+  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div><p style={{fontSize:9,fontWeight:900,color:C.orange,letterSpacing:1,textTransform:"uppercase"}}>Administração da IA</p><h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:26,color:C.text,marginTop:3}}>Configurar Gemini</h2><p style={{fontSize:11.5,color:C.muted,marginTop:4}}>Uma única chave para todos os módulos inteligentes do ArcD.</p></div>
+    <IntegracaoGemini showToast={showToast} standalone/>
+  </div>;
+}
+
+function Config({ data, update, showToast, currentUser, onLogout }) {
+  const { formGrid } = useBreakpoint();
+  const [form, setForm] = useState(data.config);
+  const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
+  const setField = key => value => setForm(f => ({ ...f, [key]: value }));
+  const holidays = getPayrollHolidays(data, holidayYear);
 
   const saveConfig = () => {
     update({ ...data, config: { ...data.config, ...form } });
@@ -12623,14 +12648,7 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
         <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
       </div>
 
-      <div style={{background:C.card,border:`1px solid ${aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:aiStatus.configured?C.orange:C.border}`,borderLeft:`4px solid ${aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:C.yellow}`,borderRadius:10,padding:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:9,fontWeight:900,color:C.yellow,letterSpacing:1,textTransform:"uppercase"}}>Inteligência artificial corporativa</p><h3 style={{fontSize:17,marginTop:3}}>Google Gemini · integração única</h3><p style={{fontSize:10.5,color:C.muted,marginTop:4,maxWidth:720}}>Esta autenticação atende Compras, Financeiro, Diário de Obra, Orçamento, Planejamento, auditoria administrativa e o agente geral. A chave fica criptografada no servidor e não aparece novamente.</p></div><Badge color={aiStatus.carregando?C.orange:aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:aiStatus.configured?C.orange:C.red}>{aiStatus.carregando?"VERIFICANDO":!aiStatus.configured?"NÃO CONFIGURADA":aiStatus.validationStatus==="rate_limit"?"CHAVE SALVA · COTA ATINGIDA":"GEMINI CONECTADO"}</Badge></div>
-        {aiStatus.configured&&<div style={{marginTop:10,padding:"8px 10px",borderRadius:8,background:`${C.green}0A`,border:`1px solid ${C.green}33`,fontSize:10,color:C.subtle}}>Modelo: <strong>{aiStatus.model||"Gemini"}</strong> · origem: {aiStatus.source==="admin"?"configurada pelo administrador":"ambiente seguro da Vercel"}{aiStatus.updatedBy?` · por ${aiStatus.updatedBy}`:""}</div>}
-        {aiStatus.error&&<p style={{fontSize:10,color:C.red,marginTop:8}}>{aiStatus.error}</p>}
-        {aiStatus.validationMessage&&<div style={{marginTop:9,padding:"9px 10px",borderRadius:8,background:`${C.orange}0D`,border:`1px solid ${C.orange}44`,fontSize:10.5,color:C.text}}>{aiStatus.validationMessage} <a href="https://aistudio.google.com/app/usage" target="_blank" rel="noreferrer" style={{color:C.blue,fontWeight:850}}>Ver uso e limites ↗</a></div>}
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9,marginTop:12,alignItems:"end"}}><Inp label={aiStatus.configured?"Substituir chave de API":"Chave da API Gemini"} type="password" value={geminiKey} onChange={setGeminiKey} placeholder="Cole a chave somente aqui"/><div style={{display:"flex",gap:7,flexWrap:"wrap"}}><Btn onClick={salvarIntegracaoIA} disabled={salvandoIA||!geminiKey.trim()}><Ic n="check"/> {salvandoIA?"Validando...":aiStatus.configured?"Validar e substituir":"Validar e conectar"}</Btn>{aiStatus.source==="admin"&&<Btn v="danger" onClick={desconectarIntegracaoIA} disabled={salvandoIA}>Desconectar</Btn>}</div></div>
-        <p style={{fontSize:9.5,color:C.muted,marginTop:9}}>Crie e copie a chave em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:C.blue,fontWeight:800}}>Google AI Studio · Chaves de API ↗</a>. O nível gratuito tem limites de uso e o Google informa que entradas e respostas podem ser usadas para melhorar seus produtos; avalie isso antes de enviar documentos sigilosos ou dados pessoais.</p>
-      </div>
+      <IntegracaoGemini showToast={showToast}/>
 
       {/* DRE - Alíquotas e tributação */}
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:14 }}>
@@ -12732,7 +12750,7 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","tv","admin_central","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","ponto_geral","equipe","terc","equip","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
+  admin:       ["home","tv","admin_central","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","ponto_geral","equipe","terc","equip","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
   engenheiro:  ["home","tv","obras","orc","plan","rdo","conferencia","med","est","cmp","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","suprimentos","est","cad","ia"],
   rh:          ["home","tv","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
@@ -30999,7 +31017,7 @@ const NAV_GROUPS = [
   },
   {
     id: "ia_grp", label: "IA", icon: "ia", color: C.orange,
-    tabs: ["ia"],
+    tabs: ["ia", "ia_config"],
   },
   {
     id: "cfg_grp", label: "Ajustes", icon: "settings", color: C.muted,
@@ -31053,6 +31071,7 @@ const TAB_META = {
   caixa:    { label: "Caixa Obra", icon: "wallet",   group: "fin_grp" },
   relat:    { label: "Relatórios", icon: "trending", group: "fin_grp" },
   ia:     { label: "IA",         icon: "ia",       group: "ia_grp"  },
+  ia_config: { label: "Configurar Gemini", icon: "settings", group: "ia_grp" },
   config: { label: "Ajustes",    icon: "settings", group: "cfg_grp" },
   obsoletos: { label: "Telas antigas", icon: "trash",  group: "cfg_grp" },
 };
@@ -32079,6 +32098,7 @@ export default function App() {
           {tab === "caixa"    && <CaixaObra    data={data} update={update} showToast={showToast} />}
           {tab === "relat"    && <Relatorios   data={data} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
+          {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}
           {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} />}
         </main>
 

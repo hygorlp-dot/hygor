@@ -88,13 +88,11 @@ const conferirPin = (payload, userId, pin) => {
   return u;
 };
 
-const conferirToken = async (payload, accessToken) => {
-  if (!accessToken) return null;
-  const { data, error } = await db.auth.getUser(accessToken);
-  if (error || !data?.user) return null;
-  const email = String(data.user.email || "").trim().toLowerCase();
+const encontrarUsuarioAuth = (payload, authUser) => {
+  if (!authUser) return null;
+  const email = String(authUser.email || "").trim().toLowerCase();
   return (payload?.usuarios || []).find(u => u.active !== false &&
-    (u.authUserId === data.user.id || String(u.email || "").trim().toLowerCase() === email)) || null;
+    (u.authUserId === authUser.id || String(u.email || "").trim().toLowerCase() === email)) || null;
 };
 
 const igual = (a,b) => JSON.stringify(a) === JSON.stringify(b);
@@ -243,7 +241,10 @@ export default async function handler(req, res) {
       const {data:auth,error}=await db.auth.signInWithPassword({email,password});
       if(error||!auth?.session)return res.status(401).json({error:"E-mail ou senha inválidos."});
       const {payload:p,updatedAt}=await lerLinha();
-      const usuario=await conferirToken(p,auth.session.access_token);
+      // signInWithPassword já devolve um usuário autenticado pelo Supabase.
+      // Consultá-lo novamente com getUser adicionava uma viagem de rede inteira
+      // ao login sem aumentar a segurança desta mesma requisição.
+      const usuario=encontrarUsuarioAuth(p,auth.user||auth.session.user);
       if(!usuario)return res.status(403).json({error:"Conta sem vínculo com um operador ativo do ArcD."});
       return res.status(200).json({data:p,updatedAt,usuario:{id:usuario.id,nome:usuario.nome,role:usuario.role,email:usuario.email||email},accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
     }
@@ -315,8 +316,15 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: "Muitas tentativas. Aguarde 5 minutos." });
     }
 
-    const { payload: atual, updatedAt } = await lerLinha();
-    const usuario = await conferirToken(atual,accessToken) || conferirPin(atual, userId, pin);
+    // A leitura do dataset e a validação do token não dependem uma da outra.
+    // Em sessões por e-mail, fazê-las em paralelo reduz o tempo até o dashboard
+    // ao maior dos dois tempos, em vez de somar as duas esperas de rede.
+    const [linha,tokenAuth] = await Promise.all([
+      lerLinha(),
+      accessToken ? db.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
+    ]);
+    const { payload: atual, updatedAt } = linha;
+    const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || conferirPin(atual, userId, pin);
 
     if (!usuario) {
       registrarFalha(ip);
