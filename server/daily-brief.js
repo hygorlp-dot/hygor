@@ -30,17 +30,30 @@ const comTimeout = async (url, options = {}, ms = 8000) => {
   }
 };
 
+// Escala padrão da OMS para índice UV.
+const uvLabel = uv => {
+  if (uv >= 11) return "extremo";
+  if (uv >= 8) return "muito alto";
+  if (uv >= 6) return "alto";
+  if (uv >= 3) return "moderado";
+  return "baixo";
+};
+
 const buscarClima = async () => {
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=America%2FRecife`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,uv_index&timezone=America%2FRecife`;
     const r = await comTimeout(url);
     if (!r.ok) return null;
     const j = await r.json();
     const code = j.current?.weather_code;
     if (typeof j.current?.temperature_2m !== "number") return null;
+    const uv = j.current?.uv_index;
     return {
       temperatura: Math.round(j.current.temperature_2m),
       umidade: Math.round(j.current.relative_humidity_2m ?? 0),
+      vento: Math.round(j.current.wind_speed_10m ?? 0),
+      uv: Number.isFinite(uv) ? Math.round(uv * 10) / 10 : null,
+      uvLabel: Number.isFinite(uv) ? uvLabel(uv) : null,
       condicao: WEATHER_LABELS[code] || "—",
       icone: weatherIcon(code),
     };
