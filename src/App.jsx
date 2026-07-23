@@ -30,7 +30,7 @@ import { listarPerfis, entrarComPin, entrarComEmail, restaurarSessaoEmail, provi
          removerBaseReferencia,
          arquivarQuinzena, restaurarQuinzena,
          carregarQuinzenaArquivada, chamarIA, verificarStatusIA, configurarGemini,
-         removerConfiguracaoIA, consultarCNPJReceita } from "./api";
+         removerConfiguracaoIA, consultarCNPJReceita, buscarResumoDiario } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -2882,6 +2882,11 @@ function Ic({ n, s = 16, color }) {
     chevL:    "M15 18l-6-6 6-6",
     chevR:    "M9 18l6-6-6-6",
     chevron:  "M6 9l6 6 6-6",
+    // --- Clima (resumo diário) ---
+    sun:      "M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z M12 1L12 3 M12 21L12 23 M4.22 4.22L5.64 5.64 M18.36 18.36L19.78 19.78 M1 12L3 12 M21 12L23 12 M4.22 19.78L5.64 18.36 M18.36 5.64L19.78 4.22",
+    cloud:    "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z",
+    cloudRain:"M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25 M16 13L16 21 M8 13L8 21 M12 15L12 23",
+    zap:      "M13 2L3 14L12 14L11 22L21 10L12 10L13 2Z",
   };
   // Aliases: nomes antigos que apontam para glifos do catálogo, para não quebrar
   // usos espalhados. money/pay = cifrão; brain = ia; terc = users; week = agenda;
@@ -3983,7 +3988,7 @@ function KpiCard({label,value,detail,icon,color=C.blue,onClick}){
   </Comp>;
 }
 
-function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado}){
+function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima}){
   const {isDesktop}=useBreakpoint();
   const agora=new Date(),nome=(currentUser?.nome||"operador").trim().split(/\s+/)[0];
   const saudacao=agora.getHours()<12?"Bom dia":agora.getHours()<18?"Boa tarde":"Boa noite";
@@ -3997,7 +4002,7 @@ function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualiza
   return <section className="dashboard-tech-hero" style={{position:"relative",overflow:"hidden",minHeight:isDesktop?178:232,borderRadius:C.rLg,padding:isDesktop?"20px 22px":"18px",color:C.text,background:C.card,border:`1px solid ${C.border}`,boxShadow:"none"}}>
     <span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",top:0,left:0,right:0,height:2,background:C.yellow}}/>
     <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",minHeight:isDesktop?136:196,justifyContent:"space-between",gap:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:7,height:7,borderRadius:99,background:C.green}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:C.yellowD}}>ARCD Operational Intelligence · online</span></div><p style={{fontSize:10,color:C.muted,marginTop:7}}>{papel} · sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"}</p></div><div style={{display:"flex",gap:6}}>{onBuscar&&<button onClick={onBuscar} title="Buscar" style={{width:35,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,color:C.subtle,cursor:"pointer"}}><Ic n="funnel" s={13}/></button>}{onAtualizar&&<button onClick={onAtualizar} title="Atualizar" style={{width:35,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,color:C.subtle,cursor:"pointer"}}><Ic n="refresh" s={13}/></button>}</div></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:7,height:7,borderRadius:99,background:C.green}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:C.yellowD}}>ARCD Operational Intelligence · online</span></div><p style={{fontSize:10,color:C.muted,marginTop:7}}>{papel} · sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"}</p></div><div style={{display:"flex",alignItems:"center",gap:6}}>{clima&&<span title={`${clima.condicao} · umidade ${clima.umidade}%`} className="dashboard-weather-chip" style={{display:"flex",alignItems:"center",gap:6,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,padding:"0 11px",color:C.subtle}}><Ic n={clima.icone} s={14} color={C.yellowD}/><b style={{fontSize:12.5,fontWeight:800}}>{clima.temperatura}°C</b><span style={{fontSize:9,color:C.muted,display:isDesktop?"inline":"none"}}>Caruaru</span></span>}{onBuscar&&<button onClick={onBuscar} title="Buscar" style={{width:35,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,color:C.subtle,cursor:"pointer"}}><Ic n="funnel" s={13}/></button>}{onAtualizar&&<button onClick={onAtualizar} title="Atualizar" style={{width:35,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,color:C.subtle,cursor:"pointer"}}><Ic n="refresh" s={13}/></button>}</div></div>
       <div className="dashboard-greeting" style={{maxWidth:850}}><p style={{fontSize:9,textTransform:"uppercase",letterSpacing:1.2,color:C.yellowD,fontWeight:800}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</p><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(24px,3vw,32px)",lineHeight:1.08,letterSpacing:-1.1,marginTop:5,fontWeight:650,color:C.text}}>{saudacao}, {nome}. <span style={{color:C.yellowD}}>{mensagem}</span></h1></div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}><div style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap"}}><button onClick={()=>fila[0]&&onAbrir(fila[0].tab)} disabled={!fila.length} style={{border:`1px solid ${C.yellow}`,background:`${C.yellow}14`,color:C.subtle,borderRadius:9,padding:"9px 12px",fontSize:10.5,fontWeight:800,cursor:fila.length?"pointer":"default"}}>{fila.length?`Abrir prioridade principal →`:"Nenhuma ação urgente"}</button><span style={{fontSize:10,color:C.muted}}><b style={{color:criticas?C.red:C.green}}>{criticas}</b> crítica(s) · <b style={{color:C.yellowD}}>{fila.length}</b> missão(ões) ativa(s)</span></div>{periodo&&<div style={{display:"flex",alignItems:"center",border:`1px solid ${C.border}`,background:C.card2,borderRadius:9,padding:2}}><button onClick={onAnterior} style={{border:0,background:"transparent",color:C.subtle,padding:"5px 8px",cursor:"pointer"}}>←</button><span style={{minWidth:100,textAlign:"center",fontSize:9.5,fontWeight:750,textTransform:"capitalize",color:C.muted}}>{periodo}</span><button onClick={onProximo} disabled={proximoDesabilitado} style={{border:0,background:"transparent",color:proximoDesabilitado?C.cinza:C.subtle,padding:"5px 8px",cursor:proximoDesabilitado?"default":"pointer"}}>→</button></div>}</div>
     </div>
@@ -4016,6 +4021,35 @@ function FilaOperador({fila,onTab}){
     {!lista.length
       ? <div style={{padding:25,textAlign:"center",color:C.green,fontSize:11}}><Ic n="check" color={C.green}/> Nenhuma pendência no seu escopo.</div>
       : <div className="dashboard-mission-rows" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))"}}>{lista.map((m,i)=>{const cor=m.severidade===3?C.red:m.color||C.yellow;return <button key={m.id} onClick={()=>onTab(m.tab)} style={{"--row-i":i,display:"grid",gridTemplateColumns:"38px minmax(0,1fr) auto",alignItems:"center",gap:10,textAlign:"left",border:0,borderRight:`1px solid ${C.line}`,borderBottom:`1px solid ${C.line}`,background:"transparent",padding:"13px 15px",cursor:"pointer",color:C.text}}><span style={{width:36,height:36,borderRadius:9,display:"grid",placeItems:"center",background:`${cor}12`,border:`1px solid ${cor}35`,color:cor}}><Ic n={m.icon} s={15} color={cor}/></span><span style={{minWidth:0}}><b style={{display:"block",fontSize:11.5,fontWeight:760,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.titulo}</b><small style={{display:"block",fontSize:9.5,color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.detalhe}</small></span><span style={{minWidth:27,height:27,borderRadius:9,display:"grid",placeItems:"center",fontSize:10,fontWeight:900,color:cor,background:`${cor}12`}}>{m.quantidade}</span></button>;})}</div>}
+  </section>;
+}
+
+// Notícias do setor de construção civil: contexto de mercado direto na
+// primeira tela, sem exigir que o operador vá buscar em outro lugar.
+function NoticiasSetor({carregando,noticias}){
+  if(!carregando&&!noticias.length)return null;
+  return <section className="dashboard-news" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
+    <div style={{padding:"14px 16px",borderBottom:`1px solid ${C.line}`,display:"flex",alignItems:"center",gap:8}}>
+      <Ic n="fileText" s={14} color={C.yellowD}/>
+      <h3 style={{fontSize:13,fontWeight:760,color:C.text}}>Notícias do setor</h3>
+      <span style={{fontSize:9,color:C.muted}}>Construção civil e engenharia</span>
+    </div>
+    {carregando
+      ? <div style={{padding:"4px 0"}}>{[0,1,2].map(i=>(
+          <div key={i} className="dashboard-news-skeleton" style={{padding:"12px 16px",borderTop:i?`1px solid ${C.line}`:"none"}}>
+            <div style={{height:11,width:`${70-i*12}%`,borderRadius:4,background:C.card2}}/>
+          </div>
+        ))}</div>
+      : <div>{noticias.map((n,i)=>(
+          <a key={n.link||i} href={n.link} target="_blank" rel="noopener noreferrer"
+             className="dashboard-news-row" style={{"--row-i":i,display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderTop:i?`1px solid ${C.line}`:"none",textDecoration:"none",color:C.text}}>
+            <span style={{minWidth:0,flex:1}}>
+              <span style={{display:"block",fontSize:12,fontWeight:600,lineHeight:1.4}}>{n.titulo}</span>
+              {n.fonte&&<small style={{display:"block",fontSize:9.5,color:C.muted,marginTop:3}}>{n.fonte}</small>}
+            </span>
+            <span style={{fontSize:16,color:C.muted,flexShrink:0}}>›</span>
+          </a>
+        ))}</div>}
   </section>;
 }
 
@@ -4066,6 +4100,19 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
   const abasPermitidas=allowedTabsForUser(currentUser);
   const filaOperador=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
 
+  // Resumo diário (clima + notícias do setor): carrega uma vez por sessão de
+  // dashboard, cacheado 15min no servidor — não precisa refazer a cada render.
+  const [resumoDiario,setResumoDiario]=useState({carregando:true,clima:null,noticias:[]});
+  useEffect(()=>{
+    let ativo=true;
+    buscarResumoDiario().then(r=>{
+      if(!ativo)return;
+      if(r.ok)setResumoDiario({carregando:false,clima:r.clima||null,noticias:r.noticias||[]});
+      else setResumoDiario({carregando:false,clima:null,noticias:[]});
+    });
+    return ()=>{ativo=false};
+  },[]);
+
   const comercial=data.comercial||{};
   const leadsAtivos=(comercial.leads||[]).filter(l=>l.status!=="perdido"&&!['perdido','arquivado','transferido'].includes(l.etapa));
   const novosLeads=leadsAtivos.filter(l=>(l.createdAt||"").slice(0,7)===ym).length;
@@ -4094,8 +4141,9 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
     {/* Marca d'água institucional: grande, porém abaixo de todo o conteúdo. */}
     <img src={ARCD_LOGO} alt="" aria-hidden="true" style={{position:"fixed",right:isDesktop?"4%":"-12%",bottom:"3%",width:isDesktop?430:280,height:isDesktop?430:280,objectFit:"contain",opacity:.018,pointerEvents:"none",filter:"grayscale(1)",zIndex:0}}/>
 
-    <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual}/>
+    <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima}/>
     <FilaOperador fila={filaOperador} onTab={onTab}/>
+    <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
 
     <section style={{position:"relative",zIndex:1,padding:isDesktop?"8px 2px 4px":0,display:"none",justifyContent:"space-between",alignItems:"flex-start",gap:18,flexWrap:"wrap"}}>
       <div><p style={{fontSize:11,fontWeight:700,color:C.blue,letterSpacing:.8,textTransform:"uppercase",marginBottom:7}}>{empresa}</p><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(25px,4vw,38px)",letterSpacing:-1.2,lineHeight:1.05,fontWeight:760,color:"#16181A"}}>{saudacao}, {nome}.</h1><p style={{fontSize:12,color:"#858A90",marginTop:8,textTransform:"capitalize"}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})} · o que merece sua atenção hoje.</p></div>
