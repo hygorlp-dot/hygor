@@ -112,7 +112,7 @@ export const verificarStatusIA = () => chamarRotaAutenticada("/api/ai-agent", { 
 export const configurarGemini = apiKey => chamarRotaAutenticada("/api/ai-agent", { action:"configure", apiKey });
 export const removerConfiguracaoIA = () => chamarRotaAutenticada("/api/ai-agent", { action:"remove" });
 export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
-export const buscarResumoDiario = () => chamarRotaAutenticada("/api/daily-brief", {});
+export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
 
 // ── Tela de login: quem existe? ────────────────────────────────────
 // Devolve só nome e papel. O hash do PIN nunca sai do servidor.

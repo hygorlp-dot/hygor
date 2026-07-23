@@ -3999,11 +3999,19 @@ function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualiza
     : fila.length
       ? `Seu dia está organizado em ${fila.length} ${fila.length===1?"ação":"ações"} objetivas.`
       : "A operação está em ordem. Bom trabalho hoje.";
+  // Leitura do clima para decisão de campo: cada condição vira uma orientação
+  // curta e objetiva sobre atividade externa/concretagem, não só o número.
+  const climaObra=clima&&{
+    sun:      {txt:`Tempo firme em Caruaru, ${clima.temperatura}°C — bom para concretagem e serviço externo.`,cor:C.yellowD},
+    cloud:    {txt:`Nublado em Caruaru, ${clima.temperatura}°C — sem restrição, de olho no céu.`,cor:C.subtle},
+    cloudRain:{txt:`Chuva em Caruaru, ${clima.temperatura}°C — reavalie atividades externas e concretagem.`,cor:C.orange},
+    zap:      {txt:`Trovoada em Caruaru, ${clima.temperatura}°C — suspenda serviço externo e em altura.`,cor:C.red},
+  }[clima.icone];
   return <section className="dashboard-tech-hero" style={{position:"relative",overflow:"hidden",minHeight:isDesktop?178:232,borderRadius:C.rLg,padding:isDesktop?"20px 22px":"18px",color:C.text,background:C.card,border:`1px solid ${C.border}`,boxShadow:"none"}}>
     <span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",top:0,left:0,right:0,height:2,background:C.yellow}}/>
     <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",minHeight:isDesktop?136:196,justifyContent:"space-between",gap:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:7,height:7,borderRadius:99,background:C.green}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:C.yellowD}}>ARCD Operational Intelligence · online</span></div><p style={{fontSize:10,color:C.muted,marginTop:7}}>{papel} · sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"}</p></div><div style={{display:"flex",alignItems:"center",gap:6}}>{clima&&<span title={`${clima.condicao} · umidade ${clima.umidade}%`} className="dashboard-weather-chip" style={{display:"flex",alignItems:"center",gap:6,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,padding:"0 11px",color:C.subtle}}><Ic n={clima.icone} s={14} color={C.yellowD}/><b style={{fontSize:12.5,fontWeight:800}}>{clima.temperatura}°C</b><span style={{fontSize:9,color:C.muted,display:isDesktop?"inline":"none"}}>Caruaru</span></span>}{onBuscar&&<button onClick={onBuscar} title="Buscar" style={{width:35,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,color:C.subtle,cursor:"pointer"}}><Ic n="funnel" s={13}/></button>}{onAtualizar&&<button onClick={onAtualizar} title="Atualizar" style={{width:35,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,color:C.subtle,cursor:"pointer"}}><Ic n="refresh" s={13}/></button>}</div></div>
-      <div className="dashboard-greeting" style={{maxWidth:850}}><p style={{fontSize:9,textTransform:"uppercase",letterSpacing:1.2,color:C.yellowD,fontWeight:800}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</p><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(24px,3vw,32px)",lineHeight:1.08,letterSpacing:-1.1,marginTop:5,fontWeight:650,color:C.text}}>{saudacao}, {nome}. <span style={{color:C.yellowD}}>{mensagem}</span></h1></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:7,height:7,borderRadius:99,background:C.green}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:C.yellowD}}>ARCD Operational Intelligence · online</span></div><p style={{fontSize:10,color:C.muted,marginTop:7}}>{papel} · sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"}</p></div><div style={{display:"flex",alignItems:"center",gap:6}}>{onBuscar&&<button onClick={onBuscar} title="Buscar" style={{width:35,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,color:C.subtle,cursor:"pointer"}}><Ic n="funnel" s={13}/></button>}{onAtualizar&&<button onClick={onAtualizar} title="Atualizar" style={{width:35,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,color:C.subtle,cursor:"pointer"}}><Ic n="refresh" s={13}/></button>}</div></div>
+      <div className="dashboard-greeting" style={{maxWidth:850}}><p style={{fontSize:9,textTransform:"uppercase",letterSpacing:1.2,color:C.yellowD,fontWeight:800}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</p><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(24px,3vw,32px)",lineHeight:1.08,letterSpacing:-1.1,marginTop:5,fontWeight:650,color:C.text}}>{saudacao}, {nome}. {climaObra&&<><span aria-hidden="true" className={`dashboard-weather-motif dashboard-weather-motif-${clima.icone}`} style={{display:"inline-flex",verticalAlign:"-5px",margin:"0 1px"}}><Ic n={clima.icone} s={20} color={climaObra.cor}/></span> <span style={{color:climaObra.cor}}>{climaObra.txt}</span>{" "}</>}<span style={{color:C.yellowD}}>{mensagem}</span></h1></div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}><div style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap"}}><button onClick={()=>fila[0]&&onAbrir(fila[0].tab)} disabled={!fila.length} style={{border:`1px solid ${C.yellow}`,background:`${C.yellow}14`,color:C.subtle,borderRadius:9,padding:"9px 12px",fontSize:10.5,fontWeight:800,cursor:fila.length?"pointer":"default"}}>{fila.length?`Abrir prioridade principal →`:"Nenhuma ação urgente"}</button><span style={{fontSize:10,color:C.muted}}><b style={{color:criticas?C.red:C.green}}>{criticas}</b> crítica(s) · <b style={{color:C.yellowD}}>{fila.length}</b> missão(ões) ativa(s)</span></div>{periodo&&<div style={{display:"flex",alignItems:"center",border:`1px solid ${C.border}`,background:C.card2,borderRadius:9,padding:2}}><button onClick={onAnterior} style={{border:0,background:"transparent",color:C.subtle,padding:"5px 8px",cursor:"pointer"}}>←</button><span style={{minWidth:100,textAlign:"center",fontSize:9.5,fontWeight:750,textTransform:"capitalize",color:C.muted}}>{periodo}</span><button onClick={onProximo} disabled={proximoDesabilitado} style={{border:0,background:"transparent",color:proximoDesabilitado?C.cinza:C.subtle,padding:"5px 8px",cursor:proximoDesabilitado?"default":"pointer"}}>→</button></div>}</div>
     </div>
   </section>;
@@ -4024,15 +4032,16 @@ function FilaOperador({fila,onTab}){
   </section>;
 }
 
-// Notícias do setor de construção civil: contexto de mercado direto na
-// primeira tela, sem exigir que o operador vá buscar em outro lugar.
-function NoticiasSetor({carregando,noticias}){
+// Lista de notícias genérica (setor nacional ou regional CBIC/Sinduscon-PE):
+// contexto de mercado direto na primeira tela, sem exigir que o operador vá
+// buscar em outro lugar.
+function NoticiasSetor({carregando,noticias,titulo="Notícias do setor",subtitulo="Construção civil e engenharia"}){
   if(!carregando&&!noticias.length)return null;
   return <section className="dashboard-news" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
     <div style={{padding:"14px 16px",borderBottom:`1px solid ${C.line}`,display:"flex",alignItems:"center",gap:8}}>
       <Ic n="fileText" s={14} color={C.yellowD}/>
-      <h3 style={{fontSize:13,fontWeight:760,color:C.text}}>Notícias do setor</h3>
-      <span style={{fontSize:9,color:C.muted}}>Construção civil e engenharia</span>
+      <h3 style={{fontSize:13,fontWeight:760,color:C.text}}>{titulo}</h3>
+      <span style={{fontSize:9,color:C.muted}}>{subtitulo}</span>
     </div>
     {carregando
       ? <div style={{padding:"4px 0"}}>{[0,1,2].map(i=>(
@@ -4050,6 +4059,42 @@ function NoticiasSetor({carregando,noticias}){
             <span style={{fontSize:16,color:C.muted,flexShrink:0}}>›</span>
           </a>
         ))}</div>}
+  </section>;
+}
+
+// Índice CUB-PE (categoria R8N, padrão médio). Não existe fonte gratuita
+// para a categoria "casa alto padrão" pedida — a tabela oficial do
+// Sinduscon-PE fica atrás de login de associado. Mostramos a única série
+// aberta disponível, com o rótulo e a fonte sempre visíveis para não passar
+// o dado como se fosse a categoria de alto padrão.
+function CubChart({cub}){
+  if(!cub)return null;
+  const variacao=v=>{
+    if(!v)return null;
+    const n=Number(String(v).replace("%","").replace(",","."));
+    return {texto:v,positivo:n>=0};
+  };
+  const varMes=variacao(cub.atual?.variacaoMes);
+  const varAno=variacao(cub.atual?.variacaoAno);
+  return <section style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",gap:6}}>
+    <ChartPanel eyebrow="Índice de custo" title="CUB-PE · R8N (padrão médio)" height={210}
+      subtitle="Não há série aberta para a categoria de casa alto padrão — este é o único índice do Sinduscon-PE com histórico público."
+      action={<div style={{display:"flex",gap:14,alignItems:"baseline"}}>
+        <span><b style={{fontSize:17,fontWeight:800,color:C.text}}>R$ {cub.atual?.valor?.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:9,color:C.muted}}>/m²</small></span>
+        {varMes&&<span style={{fontSize:10.5,fontWeight:800,color:varMes.positivo?C.orange:C.green}}>{varMes.texto} no mês</span>}
+        {varAno&&<span style={{fontSize:10.5,color:C.muted}}>{varAno.texto} no ano</span>}
+      </div>}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={cub.serie}>
+          <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
+          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} interval={2}/>
+          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>`R$${(v/1000).toFixed(1)}k`} domain={["dataMin-40","dataMax+40"]}/>
+          <Tooltip content={<ArcdChartTooltip formatter={v=>`R$ ${v.toLocaleString("pt-BR",{minimumFractionDigits:2})}/m²`}/>}/>
+          <Line type="monotone" dataKey="valor" name="CUB-PE R8N" stroke={C.yellow} strokeWidth={2.5} dot={false} activeDot={{r:5}}/>
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartPanel>
+    <p style={{fontSize:8.5,color:C.muted,padding:"0 4px"}}>Fonte não-oficial (agregador terceiro sobre dados do Sinduscon-PE) — apenas para acompanhamento de tendência.</p>
   </section>;
 }
 
@@ -4102,13 +4147,13 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
 
   // Resumo diário (clima + notícias do setor): carrega uma vez por sessão de
   // dashboard, cacheado 15min no servidor — não precisa refazer a cada render.
-  const [resumoDiario,setResumoDiario]=useState({carregando:true,clima:null,noticias:[]});
+  const [resumoDiario,setResumoDiario]=useState({carregando:true,clima:null,noticias:[],noticiasCbicPe:[],cub:null});
   useEffect(()=>{
     let ativo=true;
     buscarResumoDiario().then(r=>{
       if(!ativo)return;
-      if(r.ok)setResumoDiario({carregando:false,clima:r.clima||null,noticias:r.noticias||[]});
-      else setResumoDiario({carregando:false,clima:null,noticias:[]});
+      if(r.ok)setResumoDiario({carregando:false,clima:r.clima||null,noticias:r.noticias||[],noticiasCbicPe:r.noticiasCbicPe||[],cub:r.cub||null});
+      else setResumoDiario({carregando:false,clima:null,noticias:[],noticiasCbicPe:[],cub:null});
     });
     return ()=>{ativo=false};
   },[]);
@@ -4143,7 +4188,11 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
 
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima}/>
     <FilaOperador fila={filaOperador} onTab={onTab}/>
-    <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
+    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
+      <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
+      <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticiasCbicPe} titulo="CBIC Pernambuco" subtitulo="Sinduscon-PE e câmara regional"/>
+    </section>
+    <CubChart cub={resumoDiario.cub}/>
 
     <section style={{position:"relative",zIndex:1,padding:isDesktop?"8px 2px 4px":0,display:"none",justifyContent:"space-between",alignItems:"flex-start",gap:18,flexWrap:"wrap"}}>
       <div><p style={{fontSize:11,fontWeight:700,color:C.blue,letterSpacing:.8,textTransform:"uppercase",marginBottom:7}}>{empresa}</p><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(25px,4vw,38px)",letterSpacing:-1.2,lineHeight:1.05,fontWeight:760,color:"#16181A"}}>{saudacao}, {nome}.</h1><p style={{fontSize:12,color:"#858A90",marginTop:8,textTransform:"capitalize"}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})} · o que merece sua atenção hoje.</p></div>

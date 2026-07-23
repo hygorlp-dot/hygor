@@ -766,10 +766,46 @@
   border-color: #aeb2b5;
 }
 
-/* Resumo diário: clima e notícias chegam depois do primeiro paint (fetch
-   assíncrono), então ganham sua própria entrada em vez de aparecer sem aviso. */
-.dashboard-weather-chip {
+/* Resumo diário: clima chega depois do primeiro paint (fetch assíncrono),
+   então ganha sua própria entrada — e o ícone segue animado de forma
+   coerente com a condição real do tempo em Caruaru, não é decoração solta. */
+.dashboard-weather-motif {
   animation: dashboard-chip-pop .3s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+.dashboard-weather-motif-sun {
+  animation: dashboard-chip-pop .3s cubic-bezier(.34, 1.56, .64, 1) both,
+             dashboard-weather-sun 2.6s ease-in-out .3s infinite;
+}
+.dashboard-weather-motif-cloud {
+  animation: dashboard-chip-pop .3s cubic-bezier(.34, 1.56, .64, 1) both,
+             dashboard-weather-cloud 3.2s ease-in-out .3s infinite;
+}
+.dashboard-weather-motif-cloudRain {
+  animation: dashboard-chip-pop .3s cubic-bezier(.34, 1.56, .64, 1) both,
+             dashboard-weather-rain 1.1s ease-in-out .3s infinite;
+}
+.dashboard-weather-motif-zap {
+  animation: dashboard-chip-pop .3s cubic-bezier(.34, 1.56, .64, 1) both,
+             dashboard-weather-zap 3s ease-in-out .3s infinite;
+}
+
+@keyframes dashboard-weather-sun {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.14) rotate(8deg); }
+}
+@keyframes dashboard-weather-cloud {
+  0%, 100% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); }
+}
+@keyframes dashboard-weather-rain {
+  0%, 100% { transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(3px); opacity: .68; }
+}
+@keyframes dashboard-weather-zap {
+  0%, 6%, 100% { opacity: 1; }
+  3% { opacity: .25; }
+  9% { opacity: .6; }
+  12% { opacity: 1; }
 }
 
 .dashboard-news-row {
@@ -821,7 +857,11 @@
   .login-error-shake,
   .login-pin-dot[data-filled="true"],
   .login-user-list > button,
-  .dashboard-weather-chip,
+  .dashboard-weather-motif,
+  .dashboard-weather-motif-sun,
+  .dashboard-weather-motif-cloud,
+  .dashboard-weather-motif-cloudRain,
+  .dashboard-weather-motif-zap,
   .dashboard-news-row,
   .dashboard-news-skeleton > div {
     animation: none !important;
@@ -1779,12 +1819,40 @@
 .dre-ai-work-grid article>small{display:block;min-height:34px;margin-top:4px;color:#70787d;font-size:9px;line-height:1.4}
 .dre-ai-work-grid footer{display:flex;justify-content:space-between;gap:7px;margin-top:8px;padding-top:7px;border-top:1px solid #e2e5e6;color:#858c91;font-size:8px}
 .dre-ai-disclaimer{padding:0 15px 13px;color:#899095;font-size:8.5px}
+.dre-ai-full-report{margin:0 15px 14px;border:1px solid #d7dbdd;border-radius:8px;background:#f8f9f9;overflow:hidden}
+.dre-ai-full-report>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border-bottom:1px solid #d7dbdd;background:#eceeef}
+.dre-ai-full-report>header p,.dre-ai-report-label{color:#8a6b13;font-size:8px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.dre-ai-full-report>header h3{margin-top:2px;color:#292f33;font-size:13px}
+.dre-ai-full-report>header button{display:inline-flex;align-items:center;gap:5px;min-height:31px;padding:0 9px;border:1px solid #c6cccf;border-radius:5px;background:#fff;color:#4f575c;font-size:9px;font-weight:750;cursor:pointer}
+.dre-ai-diagnosis-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:11px 12px}
+.dre-ai-diagnosis-grid article{padding:9px;border:1px solid #dce0e2;border-radius:6px;background:#fff}
+.dre-ai-diagnosis-grid span{color:#6f777c;font-size:8px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.dre-ai-diagnosis-grid p{margin-top:4px;color:#3d4448;font-size:9.5px;line-height:1.5}
+.dre-ai-indicators{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:0 12px 12px;border:1px solid #dce0e2;background:#dce0e2}
+.dre-ai-indicators>div{min-width:0;padding:8px;background:#fff}
+.dre-ai-indicators span{display:block;color:#7b8388;font-size:7.5px;text-transform:uppercase}
+.dre-ai-indicators strong{display:block;margin-top:3px;color:#282e32;font-size:12px}
+.dre-ai-indicators small{display:block;margin-top:3px;color:#858c91;font-size:8px;line-height:1.35}
+.dre-ai-report-columns{display:grid;grid-template-columns:1.25fr .75fr;gap:12px;padding:0 12px 12px}
+.dre-ai-report-label{margin:3px 0 7px}
+.dre-ai-action-plan{border:1px solid #dce0e2;border-radius:6px;background:#fff;overflow:hidden}
+.dre-ai-action-plan article{display:grid;grid-template-columns:58px 1fr;gap:8px;padding:8px;border-bottom:1px solid #e4e7e8}
+.dre-ai-action-plan article:last-child{border-bottom:0}
+.dre-ai-action-plan article>span{color:#8a6b13;font-size:8px;font-weight:800}
+.dre-ai-action-plan strong{display:block;color:#343a3e;font-size:9.5px;line-height:1.4}
+.dre-ai-action-plan small{display:block;margin-top:2px;color:#838a8f;font-size:8px;line-height:1.35}
+.dre-ai-report-columns ul{margin:0 0 11px;padding:8px 10px 8px 24px;border:1px solid #dce0e2;border-radius:6px;background:#fff}
+.dre-ai-report-columns li{margin:3px 0;color:#555d62;font-size:9px;line-height:1.4}
+.dre-ai-conclusion{margin:0 12px 12px;padding:10px;border-left:3px solid #b38c1b;background:#fff}
+.dre-ai-conclusion span{color:#8a6b13;font-size:8px;font-weight:850;text-transform:uppercase}
+.dre-ai-conclusion p{margin-top:4px;color:#363d41;font-size:10px;line-height:1.5}
 @media(max-width:950px){
   .dre-company-toolbar{align-items:stretch;flex-direction:column}
   .dre-company-period{grid-template-columns:1fr 1fr}
   .dre-ai-command{grid-template-columns:130px 1fr}
   .dre-ai-command>button{grid-column:1/-1}
   .dre-ai-work-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dre-ai-indicators{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:620px){
   .dre-company-header{flex-direction:column}
@@ -1799,6 +1867,8 @@
   .dre-ai-priority-list article>strong{grid-column:2}
   .dre-ai-work-grid{display:flex;overflow-x:auto;scroll-snap-type:x proximity}
   .dre-ai-work-grid article{flex:0 0 270px;scroll-snap-align:start}
+  .dre-ai-diagnosis-grid,.dre-ai-report-columns{grid-template-columns:1fr}
+  .dre-ai-full-report{margin-inline:10px}
 }
 @media(max-width:410px){
   .dre-company-kpis{grid-template-columns:1fr!important}

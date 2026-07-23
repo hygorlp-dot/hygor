@@ -1,5 +1,3 @@
-import { authenticateAppUser } from "./auth.js";
-
 // Caruaru, PE
 const LAT = -8.2839, LON = -35.9761;
 
@@ -65,26 +63,76 @@ const extrairManchetes = (xml, limite = 5) => {
   return itens;
 };
 
-const buscarNoticias = async () => {
+const buscarNoticiasRSS = async (query, limite = 5) => {
   try {
-    const query = encodeURIComponent("construção civil OR obras OR engenharia civil");
-    const url = `https://news.google.com/rss/search?q=${query}&hl=pt-BR&gl=BR&ceid=BR:pt-BR`;
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=pt-BR&gl=BR&ceid=BR:pt-BR`;
     const r = await comTimeout(url, { headers: { "user-agent": "Mozilla/5.0" } });
     if (!r.ok) return [];
     const xml = await r.text();
-    return extrairManchetes(xml, 5);
+    return extrairManchetes(xml, limite);
   } catch (error) {
     console.error("Falha ao buscar notícias:", error?.name || error);
     return [];
   }
 };
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
-  const user = await authenticateAppUser(req.body || {});
-  if (!user) return res.status(401).json({ error: "Sessão inválida." });
+const buscarNoticias = () => buscarNoticiasRSS("construção civil OR obras OR engenharia civil", 5);
+const buscarNoticiasCbicPe = () => buscarNoticiasRSS('"CBIC" OR "Sinduscon-PE" Pernambuco construção', 5);
 
-  const [clima, noticias] = await Promise.all([buscarClima(), buscarNoticias()]);
-  res.setHeader("Cache-Control", "private, max-age=900");
-  return res.status(200).json({ ok: true, clima, noticias, cidade: "Caruaru, PE" });
-}
+// Não existe API pública para o CUB. A tabela oficial do Sinduscon-PE fica
+// atrás de login de associado; a única fonte aberta com histórico mensal é
+// este agregador terceiro, que só publica a categoria R8N (padrão médio) —
+// não há fonte gratuita confiável para "casa alto padrão". Isso é deixado
+// explícito no rótulo devolvido ao front, para não passar dado errado como
+// se fosse a categoria pedida.
+const CUB_URL = "https://myside.com.br/guia-imoveis/cub-pe";
+const CUB_MESES = 24;
+
+const numeroBR = texto => Number(String(texto || "").trim().replace(/\./g, "").replace(",", "."));
+
+const buscarCubPE = async () => {
+  try {
+    const r = await comTimeout(CUB_URL, { headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 10000);
+    if (!r.ok) return null;
+    const html = await r.text();
+    const corpo = (html.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1];
+    if (!corpo) return null;
+
+    const linhas = corpo.split("<tr").slice(1);
+    const serie = [];
+    for (const linha of linhas) {
+      const celulas = [...linha.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1].replace(/&nbsp;/g, " ").trim());
+      if (celulas.length < 5 || !celulas[0]) continue;
+      const valor = numeroBR(celulas[1]);
+      if (!Number.isFinite(valor) || valor <= 0) continue;
+      serie.push({
+        mes: celulas[0],
+        valor,
+        variacaoMes: celulas[2] || null,
+        variacaoAno: celulas[3] || null,
+        variacao12m: celulas[4] || null,
+      });
+    }
+    if (!serie.length) return null;
+
+    // A tabela do site vem do mês mais recente para o mais antigo.
+    const recentes = serie.slice(0, CUB_MESES).reverse();
+    return {
+      categoria: "R8N",
+      label: "CUB-PE R8N · padrão médio (fonte não-oficial, não há série aberta para casa alto padrão)",
+      fonte: CUB_URL,
+      atual: serie[0],
+      serie: recentes,
+    };
+  } catch (error) {
+    console.error("Falha ao buscar CUB-PE:", error?.name || error);
+    return null;
+  }
+};
+
+export const buildDailyBrief = async () => {
+  const [clima, noticias, noticiasCbicPe, cub] = await Promise.all([
+    buscarClima(), buscarNoticias(), buscarNoticiasCbicPe(), buscarCubPE(),
+  ]);
+  return { ok: true, clima, noticias, noticiasCbicPe, cub, cidade: "Caruaru, PE" };
+};

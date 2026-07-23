@@ -1,6 +1,7 @@
 import { authenticateAppUser } from "./auth.js";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { buildDailyBrief } from "../server/daily-brief.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -90,6 +91,12 @@ export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"Método não permitido."});
   const user=await authenticateAppUser(req.body||{});
   if(!user)return res.status(401).json({error:"Sessão inválida."});
+
+  if(req.body?.action==="daily-brief"){
+    const brief=await buildDailyBrief();
+    res.setHeader("Cache-Control","private, max-age=900");
+    return res.status(200).json(brief);
+  }
 
   const aiConfig=await loadConfig();
   if(req.body?.action==="status")return res.status(200).json({ok:true,...safeStatus(aiConfig)});
