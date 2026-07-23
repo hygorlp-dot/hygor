@@ -4069,32 +4069,31 @@ function NoticiasSetor({carregando,noticias,titulo="Notícias do setor",subtitul
 // o dado como se fosse a categoria de alto padrão.
 function CubChart({cub}){
   if(!cub)return null;
-  const variacao=v=>{
-    if(!v)return null;
-    const n=Number(String(v).replace("%","").replace(",","."));
-    return {texto:v,positivo:n>=0};
-  };
-  const varMes=variacao(cub.atual?.variacaoMes);
-  const varAno=variacao(cub.atual?.variacaoAno);
+  const temR1a=cub.serie.some(s=>Number.isFinite(s.r1a));
+  // Variação mês a mês calculada a partir da própria série (o PDF oficial
+  // não traz % pronto como o agregador do R8N traz).
+  const pontosR1a=cub.serie.filter(s=>Number.isFinite(s.r1a));
+  const ultimo=pontosR1a[pontosR1a.length-1], penultimo=pontosR1a[pontosR1a.length-2];
+  const varMesPct=ultimo&&penultimo?((ultimo.r1a-penultimo.r1a)/penultimo.r1a*100):null;
   return <section style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",gap:6}}>
-    <ChartPanel eyebrow="Índice de custo" title="CUB-PE · R8N (padrão médio)" height={210}
-      subtitle="Não há série aberta para a categoria de casa alto padrão — este é o único índice do Sinduscon-PE com histórico público."
+    <ChartPanel eyebrow="Índice de custo" title={temR1a?"CUB-PE · R1-A (padrão alto)":"CUB-PE · R8N (padrão médio)"} height={210}
+      subtitle={temR1a?"Residência unifamiliar padrão alto — dado oficial do Sinduscon-PE. Linha pontilhada: R8N (padrão médio), para referência.":"Não foi possível ler o padrão alto agora; mostrando o padrão médio (R8N)."}
       action={<div style={{display:"flex",gap:14,alignItems:"baseline"}}>
-        <span><b style={{fontSize:17,fontWeight:800,color:C.text}}>R$ {cub.atual?.valor?.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:9,color:C.muted}}>/m²</small></span>
-        {varMes&&<span style={{fontSize:10.5,fontWeight:800,color:varMes.positivo?C.orange:C.green}}>{varMes.texto} no mês</span>}
-        {varAno&&<span style={{fontSize:10.5,color:C.muted}}>{varAno.texto} no ano</span>}
+        <span><b style={{fontSize:17,fontWeight:800,color:C.text}}>R$ {(cub.atual?.r1a??cub.atual?.r8n)?.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:9,color:C.muted}}>/m²</small></span>
+        {Number.isFinite(varMesPct)&&<span style={{fontSize:10.5,fontWeight:800,color:varMesPct>=0?C.orange:C.green}}>{varMesPct>=0?"+":""}{varMesPct.toFixed(2)}% no mês</span>}
       </div>}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={cub.serie}>
           <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} interval={2}/>
-          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>`R$${(v/1000).toFixed(1)}k`} domain={["dataMin-40","dataMax+40"]}/>
+          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} interval={1}/>
+          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>`R$${(v/1000).toFixed(1)}k`} domain={["dataMin-60","dataMax+60"]}/>
           <Tooltip content={<ArcdChartTooltip formatter={v=>`R$ ${v.toLocaleString("pt-BR",{minimumFractionDigits:2})}/m²`}/>}/>
-          <Line type="monotone" dataKey="valor" name="CUB-PE R8N" stroke={C.yellow} strokeWidth={2.5} dot={false} activeDot={{r:5}}/>
+          {temR1a&&<Line type="monotone" dataKey="r1a" name="R1-A · padrão alto" stroke={C.yellow} strokeWidth={2.5} dot={false} activeDot={{r:5}} connectNulls/>}
+          <Line type="monotone" dataKey="r8n" name="R8N · padrão médio" stroke={C.subtle} strokeWidth={temR1a?1.5:2.5} strokeDasharray={temR1a?"4 4":undefined} dot={false} activeDot={{r:4}} connectNulls/>
         </LineChart>
       </ResponsiveContainer>
     </ChartPanel>
-    <p style={{fontSize:8.5,color:C.muted,padding:"0 4px"}}>Fonte não-oficial (agregador terceiro sobre dados do Sinduscon-PE) — apenas para acompanhamento de tendência.</p>
+    <p style={{fontSize:8.5,color:C.muted,padding:"0 4px"}}>{temR1a?"R1-A: fonte oficial (relatório mensal de composição do Sinduscon-PE). R8N: agregador não-oficial.":"Fonte não-oficial (agregador terceiro sobre dados do Sinduscon-PE)."} Apenas para acompanhamento de tendência.</p>
   </section>;
 }
 
