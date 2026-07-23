@@ -2,6 +2,7 @@ node_modules/
 build/
 .tools/
 .mcp.json
+.agents/
 
 # PoC isolado de WhatsApp (whatsapp-test/) - credenciais de sessao e config local
 whatsapp-test/node_modules/
