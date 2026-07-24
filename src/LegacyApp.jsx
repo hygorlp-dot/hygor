@@ -5992,7 +5992,7 @@ function MedicoesView({ data, update, showToast }) {
             if (!contemAdmin || !m.competencia) return null;
             const [y,mo] = m.competencia.split("-").map(Number);
             const dre = calcDREObra(data, selObra, y, mo-1, "mes");
-            const materialCost = calcObraMaterialCost(data, selObra, m.competencia);
+            const materialCost = calcObraMaterialCost(data, selObra, m.competencia) + calcObraComprasCost(data, selObra, dre.per0, dre.perF);
             const ap = Number(obra?.adminPercentage||0)/100;
             const base = ehAdminOnly ? dre.totalCustos : (materialCost + dre.tercCost);
             return { valor: base*ap, base, materialCost, tercCost: dre.tercCost, totalCustos: dre.totalCustos };
@@ -6812,7 +6812,9 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
       const tercCost = calcObraTercCost(data, o.id, periodStart, periodEnd);
       const totalLaborAll = laborCost + tercCost;
       const ym = `${year}-${String(month+1).padStart(2,"0")}`;
-      const materialCost = calcObraMaterialCost(data, o.id, ym);
+      const materialOutrasDesp = calcObraMaterialCost(data, o.id, ym);
+      const comprasCost = calcObraComprasCost(data, o.id, periodStart, periodEnd);
+      const materialCost = materialOutrasDesp + comprasCost;
       const dreObraMes = calcDREObra(data, o.id, year, month, "mes");
       const {
         revenue, margin: marginMO, marginPct: marginPctMO, commitment,
@@ -6832,19 +6834,21 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
       const activeEmps = data.employees.filter(e=>e.active!==false&&e.obra===o.id).length;
       const activeTercCount = (data.terceirizados||[]).filter(t=>t.active!==false&&t.obraId===o.id).length;
       return {
-        ...o, laborCost, benefitCost, totalCost, tercCost, totalLaborAll, materialCost,
+        ...o, laborCost, benefitCost, totalCost, tercCost, totalLaborAll,
+        materialCost, materialOutrasDesp, comprasCost,
         totalCostAdmin, adminBaseMisto,
         revenue, margin: marginReal, marginPct: marginRealPct, marginMO, marginPctMO,
         commitment, received, receivedTotal, activeEmps, activeTercCount,
       };
     }), [data.obras, data.attendance, data.employees, data.pagsTerceiros, data.payments,
-         data.terceirizados, data.outrasDesp, data.medicoes, data.rescisoes, data.equipamentos, data.locacoesEquip,
+         data.terceirizados, data.outrasDesp, data.pedidos, data.medicoes, data.rescisoes, data.equipamentos, data.locacoesEquip,
          filterObra, days, year, month, periodStart, periodEnd]);
 
   const T = useMemo(() => ({
     revenue:  obraRows.reduce((s,r)=>s+r.revenue,      0),
     labor:    obraRows.reduce((s,r)=>s+r.laborCost,     0),
     terc:     obraRows.reduce((s,r)=>s+r.tercCost,      0),
+    material: obraRows.reduce((s,r)=>s+r.materialCost,  0),
     margin:   obraRows.reduce((s,r)=>s+r.margin,        0),
     received: obraRows.reduce((s,r)=>s+r.received,      0),
   }), [obraRows]);
@@ -6973,6 +6977,7 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
           ["Recebido",         fmt(T.received),               C.blue,   "check"],
           ["Custo MO própria", fmt(T.labor),                  C.orange, "users"],
           ["Custo terceiros",  fmt(T.terc),                   C.purple, "terc"],
+          ["Custo materiais/compras", fmt(T.material),        C.yellowD,"cart"],
           ["Total trabalho",   fmt(T.labor+T.terc),           C.red,    "users"],
           ["Margem real",      `${fmt(T.margin)} (${totalMarginPct.toFixed(0)}%)`, T.margin>=0?C.green:C.red, "chart"],
         ].map(([l,v,c,ic])=>(
@@ -7121,6 +7126,9 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
                     ["Custo terceiros",fmt(r.tercCost),C.purple],
                     ["Total trabalho",fmt(r.totalLaborAll),C.red],
                     ["Benefícios",fmt(r.benefitCost),C.muted],
+                    ["Custo compras (pedidos)",fmt(r.comprasCost),C.yellowD],
+                    ["Custo materiais (lançamentos)",fmt(r.materialOutrasDesp),C.yellowD],
+                    ["Total materiais/compras",fmt(r.materialCost),C.yellowD],
                     ["Total recebido",fmt(r.receivedTotal),C.blue],
                     ["Margem s/ terc",fmt(r.marginMO),r.marginMO>=0?C.yellow:C.red],
                     ["Receita",fmt(r.revenue),C.green],
@@ -10017,6 +10025,14 @@ function calcObraMaterialCost(data, obraId, ym) {
     .reduce((s, d) => s + Number(d.valor || 0), 0);
 }
 
+// Compras (pedidos) da obra no período - materiais e insumos comprados pelo
+// fluxo de Compras, à parte dos lançamentos manuais de outrasDesp.
+function calcObraComprasCost(data, obraId, periodStart, periodEnd) {
+  return (data.pedidos || [])
+    .filter(p => p.obraId === obraId && p.status !== "cancelado" && p.data >= periodStart && p.data <= periodEnd)
+    .reduce((s, p) => s + totalPedido(p), 0);
+}
+
 // Pagamentos de terceiros realizados pela EMPRESA no período (todas as obras). Vai para o DRE
 // consolidado como despesa administrativa, fora do custo de qualquer obra.
 function calcTercEmpresaCost(data, periodStart, periodEnd) {
@@ -12193,7 +12209,7 @@ const calcRelatorioMensal = (data, year, month) => {
 
     // Receita esperada pelo contrato (admin_only cobra sobre todos os custos;
     // fixed_labor_admin cobra só sobre materiais + terceirizados do mês)
-    const materialCost = calcObraMaterialCost(data, obra.id, ym);
+    const materialCost = calcObraMaterialCost(data, obra.id, ym) + calcObraComprasCost(data, obra.id, per0, perF);
     const dreObraMes = calcDREObra(data, obra.id, year, month, "mes");
     const { revenue: revenueEsperada } = calcObraRevenue(obra, moData.laborCost, {
       benefitCost: moData.benefitCost, materialCost, tercCost,
@@ -12228,7 +12244,163 @@ const calcRelatorioMensal = (data, year, month) => {
 // Relatórios
 // 
 
-function Relatorios({ data }) {
+// Relatório financeiro consolidado do caixa de obra: uma linha por obra com
+// caixa ativado, saldo/aportes/gastos e um PDF por obra (mesmo template já
+// usado dentro da tela Caixa de Obra).
+function RelatorioCaixaObra({ data, showToast }) {
+  const obrasComCaixa = useMemo(() => (data.obras||[]).filter(o=>o.hasCaixa), [data.obras]);
+  const linhas = useMemo(() => obrasComCaixa.map(o => ({ obra:o, ...calcCaixaObra(data,o.id) })),
+    [obrasComCaixa, data.caixaObra]);
+  const totalAportes  = linhas.reduce((s,l)=>s+l.totalAportes,0);
+  const totalDespesas = linhas.reduce((s,l)=>s+l.totalDespesas,0);
+  const totalSaldo    = linhas.reduce((s,l)=>s+l.saldo,0);
+
+  if (!obrasComCaixa.length) {
+    return (
+      <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,color:C.muted,fontSize:11}}>
+        Nenhuma obra com caixa ativado. Ative em <strong>Obras</strong> · "Esta obra possui caixa de obra".
+      </div>
+    );
+  }
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
+        <ReportMetric label="Total de aportes" value={fmt(totalAportes)} color={C.green} icon="download"/>
+        <ReportMetric label="Total de gastos" value={fmt(totalDespesas)} color={C.red} icon="cart"/>
+        <ReportMetric label="Saldo consolidado" value={fmt(totalSaldo)} color={totalSaldo>=0?C.green:C.red} icon="wallet"/>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:7}}>
+        {linhas.map(l => (
+          <div key={l.obra.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <div>
+              <p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{l.obra.name}</p>
+              <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{l.movimentos.length} lançamento(s) · aportes {fmt(l.totalAportes)} · gastos {fmt(l.totalDespesas)}</p>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <b style={{fontSize:15,color:l.saldo>=0?C.green:C.red}}>{fmt(l.saldo)}</b>
+              <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioCaixaObraPDF(data,l.obra,l,showToast)}><Ic n="download" s={12}/> PDF</Btn>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function gerarRelatorioComprasPDF(data, { inicio, fim, obraId, origem, linhas, totais }, showToast) {
+  const obraNomeSel = obraId === "all" ? "Todas as obras" : (data.obras||[]).find(o=>o.id===obraId)?.name || "-";
+  const origemSel = origem === "todas" ? "Todos" : origemPagamentoLabel(origem);
+  const html = montarRelatorioPadraoHtml({
+    data,
+    titulo: "Relatório de compras",
+    subtitulo: `${fmtDateFull(inicio)} a ${fmtDateFull(fim)}`,
+    meta: [
+      { label: "Obra", value: obraNomeSel },
+      { label: "Quem pagou", value: origemSel },
+    ],
+    kpis: [
+      { label: "Total comprado", value: fmt(totais.comprado) },
+      { label: "Total pago", value: fmt(totais.pago) },
+      { label: "Saldo a pagar", value: fmt(totais.pendente) },
+      { label: "Itens no período", value: String(linhas.length) },
+    ],
+    tabelas: [{
+      headers: ["Data","Pedido","Obra","Fornecedor","Item",{label:"Qtd",num:true},{label:"Preço unit.",num:true},{label:"Subtotal",num:true},"Quem pagou","Status"],
+      rows: linhas.map(l => [
+        escapeHtml(fmtDateFull(l.data)), escapeHtml(l.numero), escapeHtml(l.obra), escapeHtml(l.fornecedor),
+        escapeHtml(l.item), escapeHtml(`${l.qtd} ${l.unidade}`), escapeHtml(fmt(l.precoUnit)), escapeHtml(fmt(l.subtotal)),
+        escapeHtml(l.origemPagamento), escapeHtml(l.statusLabel),
+      ]),
+      totalRow: ["","","","","","","TOTAL", fmt(totais.comprado), "", ""],
+      vazio: "Nenhuma compra encontrada neste filtro.",
+    }],
+  });
+  abrirRelatorioPadrao(html, showToast);
+}
+
+function RelatorioCompras({ data, showToast }) {
+  const [inicio, setInicio] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-01`);
+  const [fim, setFim] = useState(() => today());
+  const [obraId, setObraId] = useState("all");
+  const [origem, setOrigem] = useState("todas");
+
+  const obraPorIdC = useMemo(() => new Map((data.obras||[]).map(o=>[o.id,o])), [data.obras]);
+  const fornecedorPorId = useMemo(() => new Map((data.fornecedores||[]).map(f=>[f.id,f])), [data.fornecedores]);
+  const materialPorId = useMemo(() => new Map((data.materiais||[]).map(m=>[m.id,m])), [data.materiais]);
+
+  const linhas = useMemo(() => {
+    const out = [];
+    (data.pedidos||[]).forEach(p => {
+      if (p.status === "cancelado") return;
+      if (!p.data || p.data < inicio || p.data > fim) return;
+      if (obraId!=="all" && p.obraId!==obraId) return;
+      const origemPag = p.origemPagamento || "empresa";
+      if (origem!=="todas" && origemPag!==origem) return;
+      const statusPag = statusPagamentoPedido(p);
+      const statusLabel = statusPag==="pago"?"Pago":statusPag==="parcial"?"Parcial":statusPag==="cancelado"?"Cancelado":"Pendente";
+      (p.itens||[]).forEach(item => {
+        const nomeItem = materialPorId.get(item.materialId)?.descricao || item.descricaoRef || "Item";
+        const subtotal = Number(item.qtd||0) * Number(item.precoUnit||0);
+        out.push({
+          pedidoId: p.id, numero: p.numero||"-", data: p.data,
+          obra: obraPorIdC.get(p.obraId)?.name || "-",
+          fornecedor: fornecedorPorId.get(p.fornecedorId)?.nome || "-",
+          item: nomeItem, unidade: item.unidadeRef||"-",
+          qtd: Number(item.qtd||0), precoUnit: Number(item.precoUnit||0), subtotal,
+          origemPagamento: origemPagamentoLabel(origemPag),
+          statusLabel,
+        });
+      });
+    });
+    return out.sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+  }, [data.pedidos, obraPorIdC, fornecedorPorId, materialPorId, inicio, fim, obraId, origem]);
+
+  const totais = useMemo(() => {
+    const comprado = linhas.reduce((s,l)=>s+l.subtotal,0);
+    const pago = linhas.filter(l=>l.statusLabel==="Pago").reduce((s,l)=>s+l.subtotal,0);
+    return { comprado, pago, pendente: comprado - pago };
+  }, [linhas]);
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div className="no-print" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
+        <Inp label="De" type="date" value={inicio} onChange={setInicio}/>
+        <Inp label="Até" type="date" value={fim} onChange={setFim}/>
+        <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+        <Sel label="Quem pagou" value={origem} onChange={setOrigem} options={[{v:"todas",l:"Todos"},{v:"empresa",l:origemPagamentoLabel("empresa")},{v:"caixa_obra",l:origemPagamentoLabel("caixa_obra")},{v:"cliente_direto",l:origemPagamentoLabel("cliente_direto")}]}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
+        <ReportMetric label="Total comprado" value={fmt(totais.comprado)} color={C.blue} icon="cart"/>
+        <ReportMetric label="Total pago" value={fmt(totais.pago)} color={C.green} icon="check"/>
+        <ReportMetric label="Saldo a pagar" value={fmt(totais.pendente)} color={totais.pendente>0?C.orange:C.green} icon="wallet"/>
+      </div>
+      <div className="no-print" style={{display:"flex",justifyContent:"flex-end"}}>
+        <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioComprasPDF(data,{inicio,fim,obraId,origem,linhas,totais},showToast)}><Ic n="download" s={12}/> Exportar PDF</Btn>
+      </div>
+      <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
+        <table style={{width:"100%",minWidth:900,borderCollapse:"collapse",background:C.card}}>
+          <thead><tr>{["Data","Pedido","Obra","Fornecedor","Item","Qtd","Preço unit.","Subtotal","Quem pagou","Status"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["Qtd","Preço unit.","Subtotal"].includes(h)?"right":"left",fontSize:8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+          <tbody>{linhas.map((l,i)=><tr key={`${l.pedidoId}-${i}`} style={{borderTop:`1px solid ${C.line}`}}>
+            <td style={{padding:"7px 8px",fontSize:9.5,color:C.muted,whiteSpace:"nowrap"}}>{fmtDate(l.data)}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:800,color:C.blue}}>{l.numero}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5}}>{l.obra}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5}}>{l.fornecedor}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,maxWidth:220,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.item}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right",whiteSpace:"nowrap"}}>{l.qtd} {l.unidade}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right"}}>{fmt(l.precoUnit)}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:800,textAlign:"right"}}>{fmt(l.subtotal)}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5}}>{l.origemPagamento}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5}}><Badge color={l.statusLabel==="Pago"?C.green:l.statusLabel==="Parcial"?C.orange:l.statusLabel==="Cancelado"?C.red:C.muted}>{l.statusLabel}</Badge></td>
+          </tr>)}</tbody>
+        </table>
+        {!linhas.length&&<div style={{padding:24,textAlign:"center",color:C.muted,fontSize:11}}>Nenhuma compra encontrada neste filtro.</div>}
+      </div>
+    </div>
+  );
+}
+
+function Relatorios({ data, showToast }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
   const [filterObra, setFilterObra] = useState("all");
@@ -12462,8 +12634,8 @@ function Relatorios({ data }) {
       />
 
       <div className="no-print" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8,padding:8,background:C.surface,border:`1px solid ${C.line}`,borderRadius:12}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,padding:4,background:C.card,borderRadius:9,border:`1px solid ${C.line}`}}>
-          {[["custos","Painel analítico"],["relatorio","Relatório executivo"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{padding:"8px 9px",border:`1px solid ${view===v?C.text:"transparent"}`,background:view===v?C.text:"transparent",color:view===v?"#fff":C.muted,borderRadius:7,fontSize:10.5,fontWeight:780,cursor:"pointer"}}>{l}</button>)}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:4,padding:4,background:C.card,borderRadius:9,border:`1px solid ${C.line}`}}>
+          {[["custos","Painel analítico"],["relatorio","Relatório executivo"],["caixa","Caixa de obra"],["compras","Relatório de compras"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{padding:"8px 9px",border:`1px solid ${view===v?C.text:"transparent"}`,background:view===v?C.text:"transparent",color:view===v?"#fff":C.muted,borderRadius:7,fontSize:10.5,fontWeight:780,cursor:"pointer"}}>{l}</button>)}
         </div>
         <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
         <Sel value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
@@ -12471,6 +12643,12 @@ function Relatorios({ data }) {
 
       {/*  RELATÓRIO MENSAL COMPLETO  */}
       {view === "relatorio" && <RelatorioMensal data={data} year={year} month={month}/>}
+
+      {/*  CAIXA DE OBRA  */}
+      {view === "caixa" && <RelatorioCaixaObra data={data} showToast={showToast}/>}
+
+      {/*  RELATÓRIO DE COMPRAS  */}
+      {view === "compras" && <RelatorioCompras data={data} showToast={showToast}/>}
 
       {/*  INDICADORES (view padrão)  */}
       {view === "custos" && <>
@@ -22493,15 +22671,38 @@ function ModalFornecedor({ form, setForm, onSave }) {
   );
 }
 
-function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[],orcamentos=[]}){
+function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[],orcamentos=[],data,update,showToast}){
   const {formGrid}=useBreakpoint();
   const [busca,setBusca]=useState("");const [resultados,setResultados]=useState([]);
   const [loading,setLoading]=useState(false);const [aviso,setAviso]=useState("");
+  const [novoInsumo,setNovoInsumo]=useState(null);
   const base=basesReferencia.find(item=>item.id===form.referenciaId);
   const orcObra=orcamentos.find(item=>item.obraId===form.obraId);
   const linhasOrc=niveisUmOrcamento(orcObra).map(n=>({v:n.id,l:`${n.descricao} · ${fmt(n.orcado)}`}));
   const F=k=>v=>setForm(f=>({...f,[k]:v}));
   const setItem=(id,campo,valor)=>setForm(f=>({...f,itens:f.itens.map(item=>item.id===id?{...item,[campo]:valor}:item)}));
+  // Duplica um item já lançado - forma rápida de apropriar o mesmo insumo
+  // (ex.: cimento) em outra etapa do orçamento, só trocando quantidade/etapa.
+  const duplicarItem=id=>setForm(f=>{
+    const original=f.itens.find(item=>item.id===id);
+    if(!original)return f;
+    const copia={...original,id:uid(),quantidade:"",orcNivel1Id:""};
+    const indice=f.itens.findIndex(item=>item.id===id);
+    const itens=[...f.itens];itens.splice(indice+1,0,copia);
+    return {...f,itens};
+  });
+  const abrirNovoInsumo=()=>setNovoInsumo({descricao:busca&&!resultados.length?busca:"",unidade:"un",categoria:"outros",precoMedio:""});
+  const salvarNovoInsumo=()=>{
+    if(!novoInsumo.descricao.trim()){showToast?.("Informe a descrição do insumo.","error");return;}
+    const material={id:uid(),codigo:proximoCodigoArcd(data),descricao:maiusculoOrcamento(novoInsumo.descricao.trim()),
+      unidade:novoInsumo.unidade||"un",categoria:novoInsumo.categoria||"outros",estoqueMin:0,
+      precoMedio:Number(novoInsumo.precoMedio||0),ativo:true};
+    update({...data,materiais:[...(data.materiais||[]),material]});
+    setForm(f=>({...f,itens:[...f.itens,{id:uid(),materialId:material.id,referenciaId:"",fonteRef:"PRÓPRIO",
+      codigoRef:material.codigo,descricaoRef:material.descricao,unidadeRef:material.unidade,
+      quantidade:"",precoRef:material.precoMedio,dataBaseRef:"",ufRef:"",orcItemId:"",orcNivel1Id:"",observacao:""}]}));
+    setNovoInsumo(null);
+  };
 
   useEffect(()=>{
     let ativo=true;const termo=busca.trim();
@@ -22540,19 +22741,31 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
         {!loading&&!resultados.length&&!aviso&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado.</p>}
       </div>}
     </div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}><p style={{fontSize:11,fontWeight:900,color:C.text}}>MATERIAIS SOLICITADOS</p><Btn size="sm" v="ghost" onClick={addProprio}><Ic n="plus"/> CRIAR ITEM PRÓPRIO</Btn></div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}><p style={{fontSize:11,fontWeight:900,color:C.text}}>MATERIAIS SOLICITADOS</p><div style={{display:"flex",gap:6}}><Btn size="sm" v="ghost" onClick={addProprio}><Ic n="plus"/> CRIAR ITEM PRÓPRIO</Btn>{data&&update&&<Btn size="sm" v="warning" onClick={abrirNovoInsumo}><Ic n="plus"/> CADASTRAR NOVO INSUMO</Btn>}</div></div>
+    {novoInsumo&&<div style={{background:`${C.orange}0A`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
+      <p style={{fontSize:10.5,fontWeight:900,color:C.orange}}>NOVO INSUMO NO CATÁLOGO</p>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+        <Inp label="Descrição *" value={novoInsumo.descricao} onChange={v=>setNovoInsumo(f=>({...f,descricao:v}))} placeholder="Ex.: Cimento CP-II 50kg"/>
+        <Sel label="Unidade *" value={novoInsumo.unidade} onChange={v=>setNovoInsumo(f=>({...f,unidade:v}))} options={UNIDADES_PADRAO.map(u=>({v:u.sigla,l:`${u.sigla} - ${u.nome}`}))}/>
+        <Sel label="Categoria" value={novoInsumo.categoria} onChange={v=>setNovoInsumo(f=>({...f,categoria:v}))} options={CATS_MATERIAL}/>
+      </div>
+      <Inp label="Preço médio (R$)" type="number" value={novoInsumo.precoMedio} onChange={v=>setNovoInsumo(f=>({...f,precoMedio:v}))} placeholder="0,00"/>
+      <div style={{display:"flex",gap:8}}><Btn size="sm" v="ghost" onClick={()=>setNovoInsumo(null)} full>Cancelar</Btn><Btn size="sm" onClick={salvarNovoInsumo} full><Ic n="check"/> Salvar insumo e adicionar</Btn></div>
+    </div>}
     <div style={{display:"flex",flexDirection:"column",gap:7}}>{form.itens.map(item=><div key={item.id} style={{background:C.surface,border:`1px solid ${item.fonteRef==="PRÓPRIO"?C.orange:C.border}`,borderRadius:6,padding:"8px 9px"}}>
-      <div style={{display:"grid",gridTemplateColumns:"80px 110px minmax(180px,1fr) 70px 95px auto",gap:6,alignItems:"end",overflowX:"auto"}}>
+      <div style={{display:"grid",gridTemplateColumns:"80px 110px minmax(180px,1fr) 70px 95px auto auto",gap:6,alignItems:"end",overflowX:"auto"}}>
         <div><p style={{fontSize:8.5,color:C.muted,fontWeight:800,marginBottom:3}}>FONTE</p><b style={{fontSize:10,color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef}</b></div>
         <Inp label="Código" value={item.codigoRef} onChange={v=>setItem(item.id,"codigoRef",v)} placeholder="Opcional"/>
         <Inp label="Descrição *" value={item.descricaoRef} onChange={v=>setItem(item.id,"descricaoRef",v)}/>
         <Inp label="Unidade *" value={item.unidadeRef} onChange={v=>setItem(item.id,"unidadeRef",v)}/>
         <Inp label="Quantidade *" type="number" value={item.quantidade} onChange={v=>setItem(item.id,"quantidade",v)}/>
+        <Btn v="ghost" size="sm" iconOnly title="Duplicar para lançar em outra etapa" ariaLabel="Duplicar item" onClick={()=>duplicarItem(item.id)}><Ic n="copy" s={12}/></Btn>
         <button onClick={()=>setForm(f=>({...f,itens:f.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",padding:8}}>x</button>
       </div>
       <div style={{marginTop:7}}><Sel label="Etapa de 1º nível do orçamento" value={item.orcNivel1Id||""} onChange={v=>setItem(item.id,"orcNivel1Id",v)} options={[{v:"",l:orcObra?"Selecione a etapa principal":"A obra ainda não possui orçamento"},...linhasOrc]}/></div>
       {item.precoRef>0&&<p style={{fontSize:9.5,color:C.muted,marginTop:5}}>Referência {item.dataBaseRef}{item.ufRef?` · ${item.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(item.precoRef))}/{item.unidadeRef}</b></p>}
     </div>)}{!form.itens.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:12}}>Pesquise um insumo ou crie um item próprio.</p>}</div>
+    <p style={{fontSize:9,color:C.muted}}>Precisa do mesmo insumo em mais de uma etapa (ex.: cimento em fundação e estrutura)? Use "Duplicar" e ajuste a quantidade e a etapa de cada cópia.</p>
     <Inp label="Observação geral" value={form.observacao} onChange={F("observacao")} multiline placeholder="Local de entrega, especificação, justificativa da urgência..."/>
     <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>CANCELAR</Btn><Btn onClick={()=>onSave(form)} full><Ic n="check"/> {form.id?"SALVAR ALTERAÇÕES":"ENVIAR PARA COMPRAS"}</Btn></div>
   </div></Modal>;
@@ -22587,6 +22800,14 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
   const addItem = () => setForm(f => ({ ...f, itens:[...f.itens,
     {id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",precoRef:0,dataBaseRef:"",ufRef:""}] }));
   const delItem = (i) => setForm(f => ({ ...f, itens: f.itens.filter((_,k)=>k!==i) }));
+  // Duplica um item já lançado - forma rápida de apropriar o mesmo insumo
+  // (ex.: cimento) em outra etapa do orçamento, só trocando quantidade/etapa.
+  const duplicarItem = (i) => setForm(f => {
+    const copia = { ...f.itens[i], id: uid(), qtd: "", qtdRecebida: 0, orcNivel1Id: "", orcItemId: "" };
+    const itens = [...f.itens];
+    itens.splice(i + 1, 0, copia);
+    return { ...f, itens };
+  });
 
   useEffect(()=>{
     let ativo=true;const termo=buscaRef.trim();
@@ -22758,10 +22979,14 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                 ok {it.qtdRecebida} já recebido - não dá para reduzir abaixo disso
               </p>
             )}
-            {form.itens.length > 1 && Number(it.qtdRecebida) === 0 && (
-              <button onClick={()=>delItem(i)} style={{background:"transparent",border:0,color:C.muted,
-                fontSize:10,cursor:"pointer",marginTop:6,textDecoration:"underline"}}>remover item</button>
-            )}
+            <div style={{display:"flex",gap:12,marginTop:6}}>
+              <button onClick={()=>duplicarItem(i)} style={{background:"transparent",border:0,color:C.blue,
+                fontSize:10,cursor:"pointer",textDecoration:"underline"}}>duplicar (outra etapa)</button>
+              {form.itens.length > 1 && Number(it.qtdRecebida) === 0 && (
+                <button onClick={()=>delItem(i)} style={{background:"transparent",border:0,color:C.muted,
+                  fontSize:10,cursor:"pointer",textDecoration:"underline"}}>remover item</button>
+              )}
+            </div>
           </div>
         ))}
 
@@ -23087,6 +23312,15 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     .filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado")
     .sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))||String(b.criadoEm||"").localeCompare(String(a.criadoEm||""))),
     [data.pedidos,obraIdsMapa]);
+
+  const pedidosPorPagador=useMemo(()=>{
+    const grupos={empresa:[],caixa_obra:[],cliente_direto:[]};
+    pedidosMapa.forEach(p=>{
+      const origem=["empresa","caixa_obra","cliente_direto"].includes(p.origemPagamento)?p.origemPagamento:"empresa";
+      grupos[origem].push(p);
+    });
+    return grupos;
+  },[pedidosMapa]);
 
   const cotacoes = useMemo(
     () => (data.cotacoes||[]).filter(c => obraIdsMapa.includes(c.obraId))
@@ -23816,6 +24050,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   const comprasAbas=[
     ["kanban","Kanban de compras"],
     ["mapa","Mapa gerencial"],
+    ["por_pagador","Por quem pagou"],
     ["financeiro",`Financeiro${resumoFinanceiro.pendentes?` · ${resumoFinanceiro.pendentes}`:""}`],
     ["solicitacoes",`Solicitações${solicitacoesPendentes?` · ${solicitacoesPendentes}`:""}`],
     ["cotacoes","Cotações"],["pedidos","Pedidos"],["historico_compras","Histórico de compras"],["orcado","Orçado x comprado"],
@@ -24037,6 +24272,31 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Origem real dos pagamentos</p><div style={{display:"grid",gap:7,marginTop:9}}>{[["Empresa",mapaCompras.origens.empresa,C.blue],["Caixa das obras",mapaCompras.origens.caixa_obra,C.yellowD],["Cliente direto",mapaCompras.origens.cliente_direto,C.purple]].map(([l,v,c])=><div key={l} style={{display:"grid",gridTemplateColumns:"110px 1fr auto",gap:8,alignItems:"center"}}><span style={{fontSize:9,color:C.muted}}>{l}</span><div style={{height:6,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${mapaCompras.totalPago?Math.min(100,v/mapaCompras.totalPago*100):0}%`,background:c}}/></div><b style={{fontSize:9.5,color:c}}>{fmt(v)}</b></div>)}</div></div>
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.yellowD,textTransform:"uppercase"}}>Veredicto gerencial</p><h4 style={{fontSize:14,marginTop:3}}>{mapaCompras.completude>=80&&mapaCompras.alertas.length<=2?"Controle suficiente, com boa rastreabilidade":mapaCompras.completude>=55?"Controle operacional útil, ainda não completo":"Controle insuficiente para uma carteira de obras"}</h4><p style={{fontSize:9.5,color:C.muted,lineHeight:1.55,marginTop:6}}>Para o segmento de construção, o mapa precisa ligar necessidade da frente de serviço, orçamento SINAPI/ORSE, concorrência, frete, prazo prometido, qualidade recebida, pagamento, estoque e consumo. O sistema já cobre esse ciclo; os maiores ganhos agora vêm de preencher previsão, registrar ao menos três propostas e encerrar recebimentos com evidência.</p></div>
         </section>
+      </div>}
+
+      {aba==="por_pagador"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {[["empresa","Empresa",C.blue],["caixa_obra","Caixa da obra",C.yellowD],["cliente_direto","Cliente direto",C.purple]].map(([id,label,cor])=>{
+          const lista=pedidosPorPagador[id]||[];
+          const total=lista.reduce((s,p)=>s+totalPedido(p),0);
+          return <section key={id} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${cor}`,borderRadius:10,overflow:"hidden"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}>
+              <div><p style={{fontSize:8.5,fontWeight:850,color:cor,textTransform:"uppercase"}}>{label}</p><h4 style={{fontSize:14,marginTop:2}}>{lista.length} pedido(s)</h4></div>
+              <b style={{fontSize:15,color:cor}}>{fmt(total)}</b>
+            </div>
+            {!lista.length?<p style={{padding:18,textAlign:"center",fontSize:10,color:C.muted}}>Nenhum pedido pago por {label.toLowerCase()}.</p>:
+            <div style={{maxHeight:300,overflowY:"auto"}}>
+              {lista.map((p,index)=>{
+                const st=statusPedido(p),meta=STATUS_PEDIDO[st]||{l:st,c:C.muted};
+                return <div key={p.id} style={{display:"grid",gridTemplateColumns:isDesktop?"110px minmax(190px,1fr) minmax(130px,.7fr) 110px":"1fr auto",gap:10,alignItems:"center",padding:"10px 12px",borderTop:index?`1px solid ${C.line}`:"none"}}>
+                  <div><b style={{display:"block",fontSize:10.5,color:C.blue}}>{p.numero||"Sem número"}</b><span style={{fontSize:8.5,color:C.muted}}>{fmtDate(p.data)}</span></div>
+                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:10.5,color:C.text}}>{nomeForn(p.fornecedorId)}</b><span className="brk" style={{fontSize:8.5,color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</span></div>
+                  {isDesktop&&<div><Badge color={meta.c}>{meta.l}</Badge><span style={{display:"block",fontSize:8.5,color:C.muted,marginTop:3}}>{statusPagamentoPedido(p)==="pago"?"Pagamento concluído":`${fmt(saldoPagamentoPedido(p))} a pagar`}</span></div>}
+                  <b style={{fontSize:11.5,textAlign:"right",whiteSpace:"nowrap"}}>{fmt(totalPedido(p))}</b>
+                </div>;
+              })}
+            </div>}
+          </section>;
+        })}
       </div>}
 
       {aba==="financeiro"&&<>
@@ -24594,7 +24854,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       {cotWpp&&<ModalCotacaoWhatsApp titulo={cotWpp.titulo} itens={cotWpp.itens} obraNome={cotWpp.obraNome} prazo={cotWpp.prazo}
         fornecedores={fornecedores} pedidos={data.pedidos} materiais={data.materiais} data={data} onClose={()=>setCotWpp(null)}
         onContato={(fornecedorId,fornecedorNome)=>registrarContatoSolicitacao(cotWpp.solicitacaoId,fornecedorId,fornecedorNome)}/>}
-      {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)} orcamentos={data.orcamentos||[]}/>}
+      {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)} orcamentos={data.orcamentos||[]} data={data} update={update} showToast={showToast}/>}
       {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
                                      fornecedores={fornecedores} materiais={materiais}
@@ -31735,6 +31995,116 @@ const calcCaixaObra = (data, obraId) => {
   return { movimentos: comSaldo.reverse(), saldo, totalAportes, totalDespesas };
 };
 
+// Layout único de relatório em PDF/impressão para o app inteiro - mesmo
+// cabeçalho, grade de KPIs, tabelas e assinaturas do relatório de Folha de
+// Pagamento (a referência de layout limpo). Todo relatório novo deve montar
+// seu HTML a partir daqui em vez de inventar CSS próprio; os textos das
+// células já devem chegar formatados/escapados pelo chamador (mesma
+// convenção usada nos templates existentes).
+function montarRelatorioPadraoHtml({
+  data, titulo, subtitulo = "", meta = [], kpis = [], tabelas = [], legenda = "",
+  assinaturas = [], paisagem = true,
+}) {
+  const metaHtml = meta.filter(Boolean).map(m => `<p><strong>${escapeHtml(m.label)}:</strong> ${escapeHtml(m.value)}</p>`).join("");
+  const kpisHtml = kpis.length ? `<div class="kpis">${kpis.map(k => `<div class="kpi"><span>${escapeHtml(k.label)}</span><b>${escapeHtml(k.value)}</b></div>`).join("")}</div>` : "";
+  const linhaCelulas = (headers, row) => row.map((cell, ci) => `<td${headers[ci]?.num ? ' class="num"' : ""}>${cell}</td>`).join("");
+  const tabelasHtml = tabelas.map((t, i) => `
+    <div class="${i === 0 ? "" : "section"}">
+      ${t.titulo ? `<h3>${escapeHtml(t.titulo)}</h3>` : ""}
+      ${t.descricao ? `<p style="font-size:11px;color:#555">${escapeHtml(t.descricao)}</p>` : ""}
+      <table>
+        <thead><tr>${t.headers.map(h => `<th${h.num ? ' class="num"' : ""}>${escapeHtml(typeof h === "string" ? h : h.label)}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${t.rows.length ? t.rows.map(row => `<tr>${linhaCelulas(t.headers, row)}</tr>`).join("") : `<tr><td colspan="${t.headers.length}" class="vazio">${escapeHtml(t.vazio || "Nenhum registro encontrado.")}</td></tr>`}
+        </tbody>
+        ${t.totalRow ? `<tfoot><tr class="total">${linhaCelulas(t.headers, t.totalRow)}</tr></tfoot>` : ""}
+      </table>
+    </div>
+  `).join("");
+  const assinaturasHtml = assinaturas.length ? `<div class="signatures">${assinaturas.map(a => `<div class="signature">${escapeHtml(a)}</div>`).join("")}</div>` : "";
+
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(titulo)}</title>
+<style>
+@page{size:A4 ${paisagem ? "landscape" : "portrait"};margin:10mm}
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;margin:0;color:#111;font-size:10px}
+h1,h2,h3{margin:0 0 8px 0}
+p{margin:4px 0}
+.cabecalho{border-bottom:3px solid #d4af37;padding-bottom:10px;margin-bottom:10px}
+.meta{display:flex;gap:18px;flex-wrap:wrap;color:#333}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:7px;margin:10px 0}
+.kpi{border:1px solid #bbb;border-top:3px solid #d4af37;padding:7px;background:#fafafa}
+.kpi span{display:block;font-size:8px;text-transform:uppercase;color:#666;font-weight:bold}
+.kpi b{display:block;font-size:14px;margin-top:2px}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-size:8px;table-layout:auto}
+thead{display:table-header-group}
+tfoot{display:table-footer-group}
+tr{break-inside:avoid;page-break-inside:avoid}
+th,td{border:1px solid #aaa;padding:4px;text-align:left;vertical-align:middle}
+th{background:#e8e8e8;font-size:7.5px;text-transform:uppercase;white-space:nowrap}
+td.num,th.num{text-align:right;white-space:nowrap}
+.total{font-weight:bold;background:#fff8d6}
+.vazio{text-align:center;padding:16px;color:#666;font-style:italic}
+.section{margin-top:18px;padding-top:10px;border-top:3px solid #d4af37;break-before:page;page-break-before:always}
+.legenda{font-size:8px;color:#555;margin-top:5px}
+.signatures{margin-top:32px;display:flex;justify-content:space-between;gap:40px;break-inside:avoid}
+.signature{flex:1;border-top:1px solid #111;padding-top:8px;text-align:center}
+@media screen{body{padding:24px;max-width:1400px;margin:auto}}
+</style></head><body>
+<div class="cabecalho">
+  <h1>${escapeHtml(data.config?.companyName || "ArcD Obras")}</h1>
+  ${data.config?.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
+  <h2>${escapeHtml(titulo)}${subtitulo ? ` - ${escapeHtml(subtitulo)}` : ""}</h2>
+  <div class="meta">${metaHtml}</div>
+</div>
+${kpisHtml}
+${legenda ? `<p class="legenda">${escapeHtml(legenda)}</p>` : ""}
+${tabelasHtml}
+${assinaturasHtml}
+<p style="margin-top:${assinaturas.length ? 30 : 16}px;color:#999;font-size:9px">Gerado por ${escapeHtml(data.config?.companyName || "ARCD")} em ${new Date().toLocaleString("pt-BR")}</p>
+</body></html>`;
+}
+
+// Abre o HTML do relatório numa aba nova e já dispara a impressão - mesmo
+// comportamento (e mesmo aviso de pop-up bloqueado) usado pela Folha.
+function abrirRelatorioPadrao(html, showToast) {
+  const w = window.open("", "_blank");
+  if (!w) { showToast?.("Não foi possível abrir a impressão. Permita pop-ups para este aplicativo e tente novamente.", "error"); return; }
+  w.document.open(); w.document.write(html); w.document.close(); w.focus();
+  window.setTimeout(() => w.print(), 300);
+}
+
+// Extrato/relatório financeiro do caixa de uma obra, em PDF. Compartilhado
+// entre a tela de Caixa de Obra e o hub de Relatórios, para não duplicar o
+// mesmo template em dois lugares.
+function gerarRelatorioCaixaObraPDF(data, obra, caixa, showToast) {
+  if (!obra) return;
+  const c = caixa;
+  const movs = [...c.movimentos].reverse(); // ordem cronológica
+  const html = montarRelatorioPadraoHtml({
+    data,
+    titulo: "Extrato do Caixa de Obra",
+    subtitulo: obra.name,
+    kpis: [
+      { label: "Total aportes", value: fmt(c.totalAportes) },
+      { label: "Total gastos", value: fmt(c.totalDespesas) },
+      { label: "Saldo em caixa", value: fmt(c.saldo) },
+    ],
+    tabelas: [{
+      headers: ["Data", "Tipo", "Descrição", { label: "Valor", num: true }, { label: "Saldo", num: true }],
+      rows: movs.map(m => [
+        escapeHtml(fmtDateFull(m.data)),
+        escapeHtml(m.tipo === "aporte" ? "Aporte" : (CAIXA_CATS.find(cat => cat.v === m.categoria)?.l || "Gasto")),
+        escapeHtml(m.descricao || "-"),
+        `${m.tipo === "aporte" ? "+" : "-"} ${escapeHtml(fmt(Number(m.valor)))}`,
+        escapeHtml(fmt(m.saldoAcumulado)),
+      ]),
+      vazio: "Nenhum lançamento neste caixa.",
+    }],
+  });
+  abrirRelatorioPadrao(html, showToast);
+}
+
 function CaixaObra({ data, update, showToast }) {
   const { cols } = useBreakpoint();
   const obrasComCaixa = useMemo(() => data.obras.filter(o => o.hasCaixa), [data.obras]);
@@ -31779,58 +32149,7 @@ function CaixaObra({ data, update, showToast }) {
   };
 
   // Relatório PDF
-  const gerarPDF = () => {
-    if (!obra) return;
-    const c = caixa;
-    const movs = [...c.movimentos].reverse(); // ordem cronológica
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Caixa - ${escapeHtml(obra.name)}</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;color:#121212;background:#fff;padding:30px;font-size:11px}
-.btn-print{position:fixed;top:10px;right:10px;background:#D4AF37;color:#fff;border:none;padding:10px 18px;font-weight:700;cursor:pointer}
-.ph{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:3px solid #121212;margin-bottom:18px}
-.logo{background:#121212;color:#D4AF37;padding:10px 16px;font-family:Georgia;font-size:22px;font-weight:900;letter-spacing:2px}
-.company h1{font-size:16px;font-weight:900}.company p{font-size:10px;color:#666;margin-top:2px}
-.obra-tag{font-size:16px;font-weight:900;text-align:right;flex:1}
-.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
-.kpi{border:1px solid #ddd;padding:12px;text-align:center}
-.kpi.green{border-top:3px solid #2E7D32}.kpi.red{border-top:3px solid #C62828}.kpi.gold{border-top:3px solid #D4AF37}
-.kpi-l{font-size:9px;font-weight:700;text-transform:uppercase;color:#777}.kpi-v{font-size:18px;font-weight:900;margin-top:4px}
-table{width:100%;border-collapse:collapse;margin-top:10px}
-th{background:#121212;color:#fff;padding:7px 10px;text-align:left;font-size:10px;text-transform:uppercase}
-th.r,td.r{text-align:right}
-td{padding:6px 10px;border-bottom:1px solid #eee;font-size:11px}
-.aporte{color:#2E7D32;font-weight:700}.despesa{color:#C62828;font-weight:700}
-.footer{margin-top:24px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #eee;padding-top:8px}
-@media print{.btn-print{display:none}}
-</style></head><body>
-<button class="btn-print" onclick="window.print()"> Imprimir / PDF</button>
-<div class="ph">
-  <div class="logo">ARCD</div>
-  <div class="company"><h1>${escapeHtml(data.config.companyName||"ARCD Construtech")}</h1>${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}<p>Extrato do Caixa de Obra</p></div>
-  <div class="obra-tag">${escapeHtml(obra.name)}</div>
-</div>
-<div class="kpis">
-  <div class="kpi green"><p class="kpi-l">Total Aportes</p><p class="kpi-v" style="color:#2E7D32">R$ ${c.totalAportes.toFixed(2).replace(".",",")}</p></div>
-  <div class="kpi red"><p class="kpi-l">Total Gastos</p><p class="kpi-v" style="color:#C62828">R$ ${c.totalDespesas.toFixed(2).replace(".",",")}</p></div>
-  <div class="kpi gold"><p class="kpi-l">Saldo em Caixa</p><p class="kpi-v" style="color:${c.saldo>=0?"#2E7D32":"#C62828"}">R$ ${c.saldo.toFixed(2).replace(".",",")}</p></div>
-</div>
-<table>
-  <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th class="r">Valor</th><th class="r">Saldo</th></tr></thead>
-  <tbody>
-  ${movs.map(m=>`<tr>
-    <td>${fmtDateFull(m.data)}</td>
-    <td class="${m.tipo}">${m.tipo==="aporte"?"^ APORTE":"v "+(CAIXA_CATS.find(c=>c.v===m.categoria)?.l||"Gasto")}</td>
-    <td>${escapeHtml(m.descricao||"-")}</td>
-    <td class="r ${m.tipo}">${m.tipo==="aporte"?"+":"-"} R$ ${Number(m.valor).toFixed(2).replace(".",",")}</td>
-    <td class="r">R$ ${m.saldoAcumulado.toFixed(2).replace(".",",")}</td>
-  </tr>`).join("")}
-  </tbody>
-</table>
-<div class="footer">Gerado por ARCD Ponto PRO  ${new Date().toLocaleString("pt-BR")}  ${movs.length} lançamento(s)</div>
-</body></html>`;
-    const w=window.open("","_blank"); w.document.write(html); w.document.close();
-  };
+  const gerarPDF = () => gerarRelatorioCaixaObraPDF(data, obra, caixa, showToast);
 
   if (obrasComCaixa.length === 0) {
     return (
@@ -33692,58 +34011,8 @@ function PainelTV({data,ultimaSync,onAtualizar}){
 // Atualização por atualização periódica (sem tempo real): a lista é
 // recarregada a cada poucos segundos enquanto a aba de conversa está aberta.
 function Comunicacao({ data, currentUser, showToast }) {
-  const [aba, setAba] = useState("conversa");
+  const [aba, setAba] = useState("notificacoes");
   const ehAdmin = currentUser?.role === "admin";
-
-  //  Conversa (chat)
-  const [mensagens, setMensagens] = useState([]);
-  const [mutados, setMutados] = useState([]);
-  const [texto, setTexto] = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const [carregandoChat, setCarregandoChat] = useState(true);
-  const scrollRef = useRef(null);
-
-  const carregarChat = useCallback(async () => {
-    const r = await listarMensagensChat();
-    if (r.ok) { setMensagens(r.mensagens || []); setMutados(r.mutados || []); }
-    setCarregandoChat(false);
-  }, []);
-
-  useEffect(() => {
-    carregarChat();
-    const id = setInterval(carregarChat, 8000);
-    return () => clearInterval(id);
-  }, [carregarChat]);
-
-  useEffect(() => {
-    if (aba === "conversa" && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [mensagens, aba]);
-
-  const euEstouMutado = mutados.some(m => m.userId === currentUser?.id);
-
-  const enviar = async () => {
-    const t = texto.trim();
-    if (!t) return;
-    setEnviando(true);
-    const r = await enviarMensagemChat(t);
-    setEnviando(false);
-    if (!r.ok) { showToast(r.error || "Não foi possível enviar a mensagem.", "error"); return; }
-    setTexto("");
-    carregarChat();
-  };
-
-  const apagar = async (id) => {
-    if (!window.confirm("Apagar esta mensagem para todos?")) return;
-    const r = await apagarMensagemChat(id);
-    if (!r.ok) { showToast(r.error || "Não foi possível apagar.", "error"); return; }
-    carregarChat();
-  };
-
-  const alternarMudo = async (userId, mutadoAgora) => {
-    const r = mutadoAgora ? await dessilenciarUsuarioChat(userId) : await silenciarUsuarioChat(userId);
-    if (!r.ok) { showToast(r.error || "Não foi possível atualizar.", "error"); return; }
-    carregarChat();
-  };
 
   //  Notificações: checklist de prioridades por engenheiro de campo
   const engenheiros = useMemo(() => (data.usuarios || []).filter(u => u.active !== false && u.role === "engenheiro"), [data.usuarios]);
@@ -33805,10 +34074,10 @@ function Comunicacao({ data, currentUser, showToast }) {
       <PageHero
         eyebrow="Comunicação interna"
         title="Comunicação"
-        description="Conversa da equipe, prioridades do dia e ranking de engenharia de campo."
+        description="Prioridades do dia e ranking de engenharia de campo. O chat da equipe agora é o balão flutuante no canto da tela."
       />
       <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-        {[["conversa", "Conversa"], ["notificacoes", "Notificações"], ["ranking", "Ranking"]].map(([v, l]) => (
+        {[["notificacoes", "Notificações"], ["ranking", "Ranking"]].map(([v, l]) => (
           <button key={v} onClick={() => setAba(v)} style={{
             border: 0, background: "transparent", cursor: "pointer", padding: "8px 12px",
             fontSize: 12, fontWeight: aba === v ? 800 : 500, color: aba === v ? C.text : C.muted,
@@ -33816,63 +34085,6 @@ function Comunicacao({ data, currentUser, showToast }) {
           }}>{l}</button>
         ))}
       </div>
-
-      {aba === "conversa" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {euEstouMutado && <div style={{ padding: "8px 11px", border: `1px solid ${C.red}44`, background: `${C.red}0A`, borderRadius: 8, fontSize: 10.5, color: C.red }}>Você foi silenciado pelo administrador e não pode enviar mensagens.</div>}
-          <div ref={scrollRef} style={{ height: 440, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
-            {carregandoChat ? <p style={{ fontSize: 11, color: C.muted, textAlign: "center" }}>Carregando...</p>
-              : !mensagens.length ? <p style={{ fontSize: 11, color: C.muted, textAlign: "center" }}>Nenhuma mensagem ainda. Comece a conversa.</p>
-              : mensagens.map(m => {
-                const minha = m.userId === currentUser?.id;
-                const apagada = !!m.deletedAt;
-                return (
-                  <div key={m.id} style={{ alignSelf: minha ? "flex-end" : "flex-start", maxWidth: "78%" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, justifyContent: minha ? "flex-end" : "flex-start" }}>
-                      <span style={{ fontSize: 9, fontWeight: 800, color: C.muted }}>{m.userName}</span>
-                      <span style={{ fontSize: 8.5, color: C.muted }}>{new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{
-                        padding: "8px 11px", borderRadius: 10, background: apagada ? C.surface : (minha ? C.yellow : C.card),
-                        border: `1px solid ${apagada ? C.border : (minha ? C.yellowD : C.border)}`,
-                        color: apagada ? C.muted : (minha ? C.ink : C.text), fontStyle: apagada ? "italic" : "normal", fontSize: 11.5, lineHeight: 1.4,
-                      }}>
-                        {apagada ? "Mensagem apagada pelo administrador" : m.text}
-                      </div>
-                      {ehAdmin && !apagada && <Btn v="ghost" size="sm" iconOnly title="Apagar mensagem" ariaLabel="Apagar mensagem" onClick={() => apagar(m.id)}><Ic n="trash" s={11} /></Btn>}
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input value={texto} onChange={e => setTexto(e.target.value)} disabled={euEstouMutado || enviando}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
-              placeholder={euEstouMutado ? "Você está silenciado" : "Escreva uma mensagem..."}
-              style={{ flex: 1, height: 40, border: `1px solid ${C.border}`, borderRadius: 8, background: C.bg, color: C.text, padding: "0 12px", fontSize: 12, outline: "none" }} />
-            <Btn onClick={enviar} disabled={euEstouMutado || enviando || !texto.trim()}><Ic n="check" /> Enviar</Btn>
-          </div>
-          <p style={{ fontSize: 9, color: C.muted }}>Envio de imagens, áudios e vídeos integrados ao OneDrive ainda não está disponível nesta versão.</p>
-
-          {ehAdmin && (
-            <div style={{ marginTop: 6, padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
-              <p style={{ fontSize: 10, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: .6, marginBottom: 8 }}>Gestão do grupo</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {(data.usuarios || []).filter(u => u.active !== false && u.id !== currentUser?.id).map(u => {
-                  const mutado = mutados.some(m => m.userId === u.id);
-                  return (
-                    <div key={u.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 0", borderTop: `1px solid ${C.line}` }}>
-                      <span style={{ fontSize: 11 }}>{u.nome}</span>
-                      <Btn size="sm" v={mutado ? "danger" : "ghost"} onClick={() => alternarMudo(u.id, mutado)}>{mutado ? "Dessilenciar" : "Silenciar"}</Btn>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {aba === "notificacoes" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -33944,6 +34156,243 @@ function Comunicacao({ data, currentUser, showToast }) {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+// Bipe curto via Web Audio API - sem depender de um arquivo de áudio para
+// empacotar. Silencioso em navegadores que bloqueiam áudio sem interação
+// prévia do usuário (ignora o erro; a mensagem já chegou visualmente).
+function tocarSomNotificacao() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.09);
+    gain.gain.setValueAtTime(0.16, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.3);
+    osc.onended = () => ctx.close();
+  } catch { /* ambiente sem suporte a áudio - a notificação visual já basta */ }
+}
+
+// Chat flutuante da empresa: bolha fixa no canto inferior direito, minimizável,
+// com visual próximo do WhatsApp (fundo bege, balões verdes/brancos, cabeçalho
+// escuro). Fica montado em qualquer tela do app - não depende da aba "chat"
+// estar aberta. Atualização por atualização periódica (sem tempo real).
+const WA = {
+  header: "#075E54",
+  headerDark: "#054c40",
+  bubbleMine: "#DCF8C6",
+  bubbleTheirs: "#FFFFFF",
+  bg: "#ECE5DD",
+  green: "#25D366",
+  red: "#E53935",
+};
+
+function IconeChat({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2C6.48 2 2 6.02 2 11c0 2.4 1.05 4.58 2.77 6.2L4 22l5.1-1.53C10.03 20.8 11 21 12 21c5.52 0 10-4.02 10-9s-4.48-10-10-10z" fill="#fff"/>
+    </svg>
+  );
+}
+
+function ChatFlutuante({ currentUser, usuarios, showToast }) {
+  const [aberto, setAberto] = useState(false);
+  const [gestaoAberta, setGestaoAberta] = useState(false);
+  const [mensagens, setMensagens] = useState([]);
+  const [mutados, setMutados] = useState([]);
+  const [texto, setTexto] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [naoLidas, setNaoLidas] = useState(0);
+  const scrollRef = useRef(null);
+  const ultimoIdRef = useRef(null);
+  const primeiraCargaRef = useRef(true);
+  const abertoRef = useRef(false);
+  useEffect(() => { abertoRef.current = aberto; }, [aberto]);
+
+  const ehAdmin = currentUser?.role === "admin";
+
+  const carregarChat = useCallback(async () => {
+    const r = await listarMensagensChat();
+    if (!r.ok) return;
+    const lista = r.mensagens || [];
+    setMensagens(lista);
+    setMutados(r.mutados || []);
+
+    const ultima = lista[lista.length - 1];
+    if (ultima && ultima.id !== ultimoIdRef.current) {
+      const novas = ultimoIdRef.current
+        ? lista.slice(lista.findIndex(m => m.id === ultimoIdRef.current) + 1)
+        : [];
+      const novasDeOutros = novas.filter(m => m.userId !== currentUser?.id && !m.deletedAt);
+      if (novasDeOutros.length && !primeiraCargaRef.current) {
+        tocarSomNotificacao();
+        if (!abertoRef.current) setNaoLidas(n => n + novasDeOutros.length);
+      }
+      ultimoIdRef.current = ultima.id;
+    }
+    primeiraCargaRef.current = false;
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    carregarChat();
+    const id = setInterval(carregarChat, 8000);
+    return () => clearInterval(id);
+  }, [carregarChat, currentUser]);
+
+  useEffect(() => {
+    if (aberto && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [mensagens, aberto]);
+
+  const abrirPainel = () => { setAberto(true); setNaoLidas(0); };
+
+  const euEstouMutado = mutados.some(m => m.userId === currentUser?.id);
+
+  const enviar = async () => {
+    const t = texto.trim();
+    if (!t) return;
+    setEnviando(true);
+    const r = await enviarMensagemChat(t);
+    setEnviando(false);
+    if (!r.ok) { showToast?.(r.error || "Não foi possível enviar a mensagem.", "error"); return; }
+    setTexto("");
+    carregarChat();
+  };
+
+  const apagar = async (id) => {
+    if (!window.confirm("Apagar esta mensagem para todos?")) return;
+    const r = await apagarMensagemChat(id);
+    if (!r.ok) { showToast?.(r.error || "Não foi possível apagar.", "error"); return; }
+    carregarChat();
+  };
+
+  const alternarMudo = async (userId, mutadoAgora) => {
+    const r = mutadoAgora ? await dessilenciarUsuarioChat(userId) : await silenciarUsuarioChat(userId);
+    if (!r.ok) { showToast?.(r.error || "Não foi possível atualizar.", "error"); return; }
+    carregarChat();
+  };
+
+  if (!currentUser) return null;
+
+  return (
+    <div className="no-print" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 1300, display: "flex", flexDirection: "column", alignItems: "flex-end", fontFamily: "'Inter','Inter Display',sans-serif" }}>
+      {aberto && (
+        <div style={{
+          width: "min(360px, calc(100vw - 32px))", height: "min(520px, calc(100vh - 120px))",
+          background: WA.bg, borderRadius: 12, overflow: "hidden", marginBottom: 12,
+          boxShadow: "0 12px 40px rgba(0,0,0,.28)", display: "flex", flexDirection: "column",
+          border: "1px solid rgba(0,0,0,.08)",
+        }}>
+          {/* Cabeçalho estilo WhatsApp */}
+          <div style={{ background: WA.header, color: "#fff", padding: "11px 12px", display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,.18)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <IconeChat size={18} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Comunicação da equipe</p>
+              <p style={{ fontSize: 10, opacity: .8 }}>{(usuarios || []).filter(u => u.active !== false).length} participante(s)</p>
+            </div>
+            {ehAdmin && (
+              <button onClick={() => setGestaoAberta(v => !v)} title="Gerenciar grupo" aria-label="Gerenciar grupo"
+                style={{ background: "transparent", border: 0, color: "#fff", opacity: .85, cursor: "pointer", padding: 6 }}>
+                <Ic n="settings" s={16} />
+              </button>
+            )}
+            <button onClick={() => setAberto(false)} title="Minimizar" aria-label="Minimizar"
+              style={{ background: "transparent", border: 0, color: "#fff", cursor: "pointer", padding: 6 }}>
+              <Ic n="chevron" s={16} />
+            </button>
+          </div>
+
+          {gestaoAberta ? (
+            <div style={{ flex: 1, overflowY: "auto", background: "#fff", padding: 12 }}>
+              <button onClick={() => setGestaoAberta(false)} style={{ background: "transparent", border: 0, color: WA.header, fontSize: 11, fontWeight: 700, cursor: "pointer", marginBottom: 10 }}>← Voltar para a conversa</button>
+              <p style={{ fontSize: 10, fontWeight: 800, color: "#666", textTransform: "uppercase", letterSpacing: .6, marginBottom: 8 }}>Silenciar participantes</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {(usuarios || []).filter(u => u.active !== false && u.id !== currentUser?.id).map(u => {
+                  const mutado = mutados.some(m => m.userId === u.id);
+                  return (
+                    <div key={u.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "7px 0", borderTop: "1px solid #eee" }}>
+                      <span style={{ fontSize: 11.5, color: "#222" }}>{u.nome}</span>
+                      <Btn size="sm" v={mutado ? "danger" : "ghost"} onClick={() => alternarMudo(u.id, mutado)}>{mutado ? "Dessilenciar" : "Silenciar"}</Btn>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "10px 10px" }}>
+                {!mensagens.length && <p style={{ fontSize: 11, color: "#8a8a8a", textAlign: "center", marginTop: 20 }}>Nenhuma mensagem ainda. Comece a conversa.</p>}
+                {mensagens.map(m => {
+                  const minha = m.userId === currentUser?.id;
+                  const apagada = !!m.deletedAt;
+                  return (
+                    <div key={m.id} style={{ alignSelf: minha ? "flex-end" : "flex-start", maxWidth: "82%", display: "flex", alignItems: "flex-end", gap: 4 }}>
+                      <div style={{
+                        padding: "6px 9px", borderRadius: 8, background: apagada ? "#f2f2f2" : (minha ? WA.bubbleMine : WA.bubbleTheirs),
+                        boxShadow: "0 1px 1px rgba(0,0,0,.12)",
+                      }}>
+                        {!minha && !apagada && <p style={{ fontSize: 9.5, fontWeight: 800, color: "#1565C0", marginBottom: 1 }}>{m.userName}</p>}
+                        <p style={{ fontSize: 12, color: apagada ? "#999" : "#111", fontStyle: apagada ? "italic" : "normal", lineHeight: 1.35, wordBreak: "break-word" }}>
+                          {apagada ? "Mensagem apagada pelo administrador" : m.text}
+                        </p>
+                        <p style={{ fontSize: 8.5, color: "#8a8a8a", textAlign: "right", marginTop: 2 }}>
+                          {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      {ehAdmin && !apagada && (
+                        <button onClick={() => apagar(m.id)} title="Apagar mensagem" aria-label="Apagar mensagem"
+                          style={{ background: "transparent", border: 0, color: "#b0453d", cursor: "pointer", padding: 3, flexShrink: 0 }}>
+                          <Ic n="trash" s={10} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ padding: 8, background: "#F0F0F0", display: "flex", gap: 7, flexShrink: 0 }}>
+                <input value={texto} onChange={e => setTexto(e.target.value)} disabled={euEstouMutado || enviando}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
+                  placeholder={euEstouMutado ? "Você foi silenciado" : "Mensagem"}
+                  style={{ flex: 1, height: 36, border: "1px solid #ddd", borderRadius: 20, background: "#fff", color: "#111", padding: "0 13px", fontSize: 12.5, outline: "none" }} />
+                <button onClick={enviar} disabled={euEstouMutado || enviando || !texto.trim()} title="Enviar" aria-label="Enviar"
+                  style={{
+                    width: 36, height: 36, borderRadius: "50%", border: 0, flexShrink: 0,
+                    background: (euEstouMutado || !texto.trim()) ? "#b8e3c9" : WA.green, color: "#fff",
+                    display: "grid", placeItems: "center", cursor: (euEstouMutado || !texto.trim()) ? "default" : "pointer",
+                  }}>
+                  <Ic n="chevR" s={15} />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Bolha flutuante */}
+      <button onClick={() => (aberto ? setAberto(false) : abrirPainel())} title="Comunicação da equipe" aria-label="Abrir chat da equipe"
+        style={{
+          width: 56, height: 56, borderRadius: "50%", border: 0, background: WA.green, cursor: "pointer",
+          display: "grid", placeItems: "center", boxShadow: "0 6px 18px rgba(0,0,0,.28)", position: "relative",
+        }}>
+        <IconeChat size={26} />
+        {naoLidas > 0 && (
+          <span style={{
+            position: "absolute", top: -3, right: -3, minWidth: 20, height: 20, borderRadius: 99,
+            background: WA.red, color: "#fff", fontSize: 10.5, fontWeight: 800, display: "grid", placeItems: "center",
+            padding: "0 4px", border: "2px solid #fff",
+          }}>{naoLidas > 99 ? "99+" : naoLidas}</span>
+        )}
+      </button>
     </div>
   );
 }
@@ -35085,7 +35534,7 @@ export default function App() {
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab}/>}
           {tab === "medicoes" && <MedicoesView data={data} update={update} showToast={showToast} />}
           {tab === "caixa"    && <CaixaObra    data={data} update={update} showToast={showToast} />}
-          {tab === "relat"    && <Relatorios   data={data} />}
+          {tab === "relat"    && <Relatorios   data={data} showToast={showToast} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
           {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}
           {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} />}
@@ -35197,6 +35646,9 @@ export default function App() {
       <Toast toast={toast}/>
       {buscaAberta && currentUser && (
         <BuscaGlobal indice={indiceBusca} allowedTabs={allowedTabs} onIr={irPara} onFechar={()=>setBuscaAberta(false)}/>
+      )}
+      {currentUser && tab!=="tv" && (
+        <ChatFlutuante currentUser={currentUser} usuarios={data?.usuarios||[]} showToast={showToast}/>
       )}
     </>
   );
