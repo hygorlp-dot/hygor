@@ -8229,6 +8229,22 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
       changeLog.push({ id: uid(), date: payload.endDate || today(), type: "dismissal", empId: payload.id, empName: payload.name, from: obraName(before.obra), message: `${payload.name} inativado/demitido em ${fmtDateFull(payload.endDate)}` });
     }
 
+    if (before && before.role !== payload.role) {
+      changeLog.push({
+        id: uid(), date: today(), type: "promotion", empId: payload.id, empName: payload.name,
+        from: before.role || "Sem função registrada", to: payload.role || "Sem função registrada",
+        message: `${payload.name} mudou de função: ${before.role || "sem função"} → ${payload.role || "sem função"}`,
+      });
+    }
+
+    if (before && Number(before.dailyRate || 0) !== payload.dailyRate) {
+      changeLog.push({
+        id: uid(), date: today(), type: "salary_change", empId: payload.id, empName: payload.name,
+        from: fmt(Number(before.dailyRate || 0)), to: fmt(payload.dailyRate),
+        message: `${payload.name} teve a diária alterada: ${fmt(Number(before.dailyRate||0))} → ${fmt(payload.dailyRate)}`,
+      });
+    }
+
     const employees = form.id ? data.employees.map(e => (e.id === form.id ? payload : e)) : [...data.employees, payload];
     update({ ...data, employees, changeLog });
     setModal(false);
@@ -8358,6 +8374,7 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
                   </div>
                 </button>
                 <div style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
+                  <Btn v="ghost" size="sm" title="Ver ficha do funcionário" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file" /></Btn>
                   <Btn v="ghost" size="sm" onClick={() => { setForm({ ...e, dailyRate: String(e.dailyRate || ""), vtDaily: String(e.vtDaily || ""), vrDaily: String(e.vrDaily || "") }); setModal(true); }}><Ic n="edit" /></Btn>
                   {e.active !== false && <Btn v="danger" size="sm" onClick={() => archiveEmp(e.id)}><Ic n="x" /></Btn>}
                 </div>
@@ -8451,9 +8468,147 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
   );
 }
 
-// 
+//
+// FICHA DO FUNCIONÁRIO - resumo de frequência, ranking e histórico
+//
+
+// Frequência mês a mês (últimos N meses em que o funcionário esteve
+// vinculado), reaproveitando a mesma leitura dia a dia da Folha
+// (getAtt/isEmployeeEmployedOnDate), mas agregando por competência em vez de
+// calcular valores de pagamento.
+function calcFrequenciaMensalFuncionario(data, employee, meses = 12) {
+  const hoje = new Date();
+  const resultado = [];
+  for (let i = meses - 1; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const year = d.getFullYear(), month = d.getMonth();
+    const dias = getDays(year, month).filter(prIsWeekdayIso);
+    let presentes = 0, meiodia = 0, faltas = 0, semRegistro = 0, diasNoVinculo = 0;
+    dias.forEach(dia => {
+      if (!isEmployeeEmployedOnDate(employee, dia)) return;
+      diasNoVinculo++;
+      const st = attStatus(data, employee.id, dia);
+      if (st === "P") presentes++;
+      else if (st === "M") meiodia++;
+      else if (st === "F") faltas++;
+      else semRegistro++;
+    });
+    if (diasNoVinculo === 0) continue;
+    resultado.push({
+      label: `${monthName(month)}/${String(year).slice(2)}`,
+      presentes, meiodia, faltas, semRegistro, diasNoVinculo,
+      pctPresenca: ((presentes + meiodia * 0.5) / diasNoVinculo) * 100,
+    });
+  }
+  return resultado;
+}
+
+// Ranking de frequência entre todos os funcionários com vínculo na janela
+// analisada (mesma leitura, mas comparando todo mundo para posicionar o
+// funcionário da ficha).
+function calcRankingFrequencia(data, meses = 3) {
+  const hoje = new Date();
+  const janela = [];
+  for (let i = meses - 1; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    janela.push(...getDays(d.getFullYear(), d.getMonth()).filter(prIsWeekdayIso));
+  }
+  return (data.employees || []).map(emp => {
+    let presentes = 0, meiodia = 0, faltas = 0, diasNoVinculo = 0;
+    janela.forEach(dia => {
+      if (!isEmployeeEmployedOnDate(emp, dia)) return;
+      diasNoVinculo++;
+      const st = attStatus(data, emp.id, dia);
+      if (st === "P") presentes++;
+      else if (st === "M") meiodia++;
+      else if (st === "F") faltas++;
+    });
+    return { emp, presentes, meiodia, faltas, diasNoVinculo, pct: diasNoVinculo ? ((presentes + meiodia * 0.5) / diasNoVinculo) * 100 : null };
+  })
+    .filter(l => l.diasNoVinculo > 0)
+    .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1))
+    .map((l, i) => ({ ...l, posicao: i + 1 }));
+}
+
+const FICHA_TIPO_LABEL = {
+  created: "Cadastro", transfer: "Transferência de obra", dismissal: "Desligamento",
+  promotion: "Mudança de função", salary_change: "Alteração de diária", editou: "Edição de cadastro",
+};
+
+function gerarFichaFuncionarioPDF(data, employee, showToast) {
+  const frequencia = calcFrequenciaMensalFuncionario(data, employee, 12);
+  const ranking = calcRankingFrequencia(data, 3);
+  const posicaoRanking = ranking.find(l => l.emp.id === employee.id);
+  const historico = (data.changeLog || [])
+    .filter(e => e.empId === employee.id)
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+
+  const totalPresencas = frequencia.reduce((s, f) => s + f.presentes + f.meiodia * 0.5, 0);
+  const totalDias = frequencia.reduce((s, f) => s + f.diasNoVinculo, 0);
+  const totalFaltas = frequencia.reduce((s, f) => s + f.faltas, 0);
+  const pctGeral = totalDias ? (totalPresencas / totalDias) * 100 : 0;
+
+  const tempoCasa = (() => {
+    if (!employee.startDate) return "-";
+    const ini = new Date(employee.startDate + "T12:00:00");
+    const fim = employee.endDate ? new Date(employee.endDate + "T12:00:00") : new Date();
+    const meses = Math.max(0, Math.round((fim - ini) / (1000 * 60 * 60 * 24 * 30.44)));
+    const anos = Math.floor(meses / 12), restM = meses % 12;
+    return anos > 0 ? `${anos} ano(s) e ${restM} mês(es)` : `${restM} mês(es)`;
+  })();
+
+  const obraAtual = (data.obras || []).find(o => o.id === employee.obra)?.name || "-";
+
+  const html = montarRelatorioPadraoHtml({
+    data,
+    titulo: "Ficha do funcionário",
+    subtitulo: employee.name,
+    paisagem: false,
+    meta: [
+      { label: "Função", value: employee.role || "-" },
+      { label: "CPF", value: employee.cpf || "-" },
+      { label: "Obra atual", value: employee.active === false ? "Desligado" : obraAtual },
+      { label: "Admissão", value: employee.startDate ? fmtDateFull(employee.startDate) : "-" },
+      ...(employee.active === false ? [
+        { label: "Desligamento", value: employee.endDate ? fmtDateFull(employee.endDate) : "-" },
+        { label: "Motivo", value: employee.terminationReason || "-" },
+      ] : []),
+      { label: "Tempo de casa", value: tempoCasa },
+    ],
+    kpis: [
+      { label: "Presença (12 meses)", value: `${pctGeral.toFixed(1)}%` },
+      { label: "Faltas (12 meses)", value: String(totalFaltas) },
+      { label: "Ranking de frequência", value: posicaoRanking ? `${posicaoRanking.posicao}º de ${ranking.length}` : "Sem dados" },
+      { label: "Diária atual", value: fmt(Number(employee.dailyRate || 0)) },
+    ],
+    tabelas: [
+      {
+        titulo: "Frequência mensal (últimos 12 meses)",
+        headers: ["Mês", { label: "Presenças", num: true }, { label: "Meios período", num: true }, { label: "Faltas", num: true }, { label: "Sem registro", num: true }, { label: "% presença", num: true }],
+        rows: frequencia.map(f => [
+          escapeHtml(f.label), escapeHtml(String(f.presentes)), escapeHtml(String(f.meiodia)),
+          escapeHtml(String(f.faltas)), escapeHtml(String(f.semRegistro)), escapeHtml(`${f.pctPresenca.toFixed(1)}%`),
+        ]),
+        vazio: "Sem lançamentos de ponto no período.",
+      },
+      {
+        titulo: "Histórico de alterações",
+        headers: ["Data", "Tipo", "Descrição", "Operador"],
+        rows: historico.map(h => [
+          escapeHtml(fmtDateFull(h.date)), escapeHtml(FICHA_TIPO_LABEL[h.type] || h.type),
+          escapeHtml(h.message || "-"), escapeHtml(h.operador || "Sistema"),
+        ]),
+        vazio: "Nenhuma alteração registrada para este funcionário.",
+      },
+    ],
+    legenda: "Ranking de frequência compara a % de presença (presença + meio período × 0,5, sobre dias úteis de vínculo) dos últimos 3 meses entre todos os funcionários com registro no período. Mudanças de função e diária só aparecem no histórico a partir de quando passaram a ser registradas pelo sistema.",
+  });
+  abrirRelatorioPadrao(html, showToast);
+}
+
+//
 // Modal de movimentação individual
-// 
+//
 
 function WorkerMovementModal({ data, update, showToast, employee, initialMode = "transfer", onClose }) {
   const { formGrid } = useBreakpoint();
@@ -8631,7 +8786,7 @@ function UnlockRequestModal({ data, update, showToast, obraId, date, employee, o
 // Ponto
 // 
 
-function PontoGeral({ data, update, showToast, currentUser }) {
+function PontoGeral({ data, update, showToast, currentUser, onTab }) {
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
   const [year,setYear]=useState(refInicial.getFullYear());
@@ -8805,12 +8960,13 @@ function PontoGeral({ data, update, showToast, currentUser }) {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
               <div style={{minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:5,minWidth:0}}>
-                  <b style={{fontSize:11,color:C.text,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.name}</b>
+                  <button type="button" onClick={()=>{window.sessionStorage.setItem("arcd_editar_funcionario",emp.id);onTab?.("equipe");}} title="Editar cadastro do funcionário" style={{fontSize:11,fontWeight:800,color:C.text,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"pointer",border:0,background:"transparent",padding:0,textAlign:"left",textDecoration:"underline",textDecorationColor:"transparent",textUnderlineOffset:2}} onMouseEnter={e=>e.currentTarget.style.textDecorationColor=C.blue} onMouseLeave={e=>e.currentTarget.style.textDecorationColor="transparent"}>{emp.name}</button>
                   {emp.active===false&&<Badge color={C.muted}>Demitido</Badge>}
                 </div>
                 <div style={{fontSize:8.5,color:C.muted,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.role||"Funcionário"} · {obraName(emp.obra)}</div>
               </div>
               <div className="ponto-row-actions" style={{display:"flex",gap:4,flexShrink:0}}>
+                <Btn v="ghost" size="sm" title="Ver ficha do funcionário" onClick={()=>gerarFichaFuncionarioPDF(data,emp,showToast)}><Ic n="file" s={11}/> Ficha</Btn>
                 <Btn v="ghost" size="sm" title="Limpar todos os lançamentos desta linha" onClick={()=>limparLinha(emp)}><Ic n="x" s={11}/> Limpar</Btn>
               </div>
             </div>
@@ -35742,7 +35898,7 @@ export default function App() {
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
-          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} />}
+          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} />}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
