@@ -280,6 +280,21 @@ export const listarPresencas = async () => {
   return { ok: true, presencas: r.presencas || [], serverTime: r.serverTime };
 };
 
+// ── Chat interno da empresa e ranking (ajustes manuais) ─────────────
+// Dividem o endpoint /api/presence (dispatch por "action") em vez de cada um
+// ganhar seu próprio arquivo - o Hobby plan do Vercel tem um teto de 12
+// Serverless Functions por deployment.
+export const enviarMensagemChat = texto => chamarRotaAutenticada("/api/presence", { action: "chat-send", text: texto });
+export const listarMensagensChat = () => chamarRotaAutenticada("/api/presence", { action: "chat-list" });
+export const apagarMensagemChat = messageId => chamarRotaAutenticada("/api/presence", { action: "chat-delete", messageId });
+export const silenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/presence", { action: "chat-mute", targetUserId });
+export const dessilenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/presence", { action: "chat-unmute", targetUserId });
+
+export const listarAjustesRanking = () => chamarRotaAutenticada("/api/presence", { action: "ranking-list" });
+export const adicionarAjusteRanking = (targetUserId, pontos, motivo) =>
+  chamarRotaAutenticada("/api/presence", { action: "ranking-add", targetUserId, pontos, motivo });
+export const removerAjusteRanking = adjustmentId => chamarRotaAutenticada("/api/presence", { action: "ranking-remove", adjustmentId });
+
 // ── Quinzenas arquivadas ──────────────────────────────────────────
 // Quinzena finalizada e paga sai do JSON principal e vira linha propria no
 // banco. As acoes que ALTERAM o principal (arquivar/restaurar) devolvem o

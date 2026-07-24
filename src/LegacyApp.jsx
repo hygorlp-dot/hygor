@@ -25,7 +25,9 @@ import { listarPerfis, entrarComPin, entrarComEmail, restaurarSessaoEmail, provi
          removerBaseReferencia,
          arquivarQuinzena, restaurarQuinzena,
          carregarQuinzenaArquivada, chamarIA, verificarStatusIA, configurarGemini,
-         removerConfiguracaoIA, consultarCNPJReceita, buscarResumoDiario } from "./api";
+         removerConfiguracaoIA, consultarCNPJReceita, buscarResumoDiario,
+         enviarMensagemChat, listarMensagensChat, apagarMensagemChat, silenciarUsuarioChat, dessilenciarUsuarioChat,
+         listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -3426,10 +3428,6 @@ function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", acti
   }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:8.5,fontWeight:850,letterSpacing:.8,textTransform:"uppercase",color:C.muted}}>{label}</p><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={12} color={color}/></span></div><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(17px,2vw,21px)",fontWeight:790,letterSpacing:-.55,color:C.text,lineHeight:1,marginTop:7}}>{value}</p>{detail&&<p style={{fontSize:8.5,color:C.muted,marginTop:4}}>{detail}</p>}</Comp>;
 }
 
-function ReportHero({ title, subtitle, period, children }) {
-  return <div className="report-hero-standard" style={{position:"relative",overflow:"hidden",background:C.card,color:C.text,border:`1px solid ${C.border}`,borderRadius:9,padding:"13px 15px",boxShadow:"none"}}><span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",inset:"0 0 auto",height:2,background:C.yellow}}/><div style={{position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}><div><p style={TYPO.eyebrow}>Inteligência gerencial</p><h2 style={{...TYPO.h2,fontSize:"clamp(19px,3vw,25px)",marginTop:2}}>{title}</h2><p style={{...TYPO.small,marginTop:4}}>{subtitle}</p></div><div style={{textAlign:"right"}}>{period&&<span style={{display:"inline-flex",padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.surface,color:C.yellowD,fontSize:9,fontWeight:800,letterSpacing:.3}}>{period}</span>}{children}</div></div></div>;
-}
-
 function Divider() {
   return <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.line}, transparent)`, margin: "12px 0" }} />;
 }
@@ -5180,12 +5178,11 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
   return (
     <div className="anim dre-page" style={{display:"flex",flexDirection:"column",gap:14}}>
 
-      {/* Header */}
-      <div className="dre-page-header" style={{background:`linear-gradient(135deg,${C.green}22 0%,${C.card} 65%)`,border:`1px solid ${C.green}44`,borderLeft:`5px solid ${C.green}`,padding:"16px 18px",borderRadius:12}}>
-        <p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Demonstrativo Gerencial</p>
-        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(19px,5vw,34px)",letterSpacing:2,color:C.text,lineHeight:1}}>DRE por Obra</h2>
-        <p style={{color:C.muted,fontSize:13,marginTop:4}}>Faturamento, custos, resultado, caixa e posição dos contratos.</p>
-      </div>
+      <PageHero
+        eyebrow="Demonstrativo gerencial"
+        title="DRE por Obra"
+        description="Faturamento, custos, resultado, caixa e posição dos contratos."
+      />
 
       <section className="dre-toolbar" aria-label="Filtros e visualização do DRE">
         <div className="dre-toolbar-heading">
@@ -6694,7 +6691,12 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
   const statusCor=status=>["paga","aprovada","recebido","recebida","conciliada"].includes(status)?C.green:["cancelada","ignorada"].includes(status)?C.muted:status==="vencida"?C.red:status==="a conciliar"?C.purple:C.orange;
   const maiorGrafico=Math.max(faturamento,custos,recebido,Math.abs(resultado),1);
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:11}}>
-    <div className="standard-module-header" style={{position:"relative",background:C.card,color:C.text,border:`1px solid ${C.border}`,borderRadius:10,padding:"15px 17px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap",overflow:"hidden"}}><span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",inset:"0 0 auto",height:2,background:C.yellow}}/><div><p style={{fontSize:9,fontWeight:900,color:C.yellowD,textTransform:"uppercase",letterSpacing:1.2}}>Controle corporativo</p><h2 style={{fontSize:"clamp(20px,4vw,30px)",fontWeight:700,marginTop:2,color:C.text}}>Administrativo financeiro</h2><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Visão consolidada ou por obra, com movimentações, resultado e documentos auditáveis.</p></div><div className="standard-module-tabs" style={{display:"flex",gap:3,overflowX:"auto",maxWidth:"100%",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7}}>{[["resumo","Resumo"],["receitas","Receitas"],["despesas","Despesas"],["resultados","Resultados"],["documentos","Documentos"]].map(([v,l])=><button key={v} onClick={()=>setAba(v)} style={{border:`1px solid ${aba===v?C.yellow:C.border}`,background:aba===v?C.card:"transparent",color:aba===v?C.text:C.muted,borderRadius:5,padding:"7px 10px",fontSize:9.5,fontWeight:850,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>)}</div></div>
+    <PageHero
+      eyebrow="Controle corporativo"
+      title="Administrativo financeiro"
+      description="Visão consolidada ou por obra, com movimentações, resultado e documentos auditáveis."
+      actions={<div className="standard-module-tabs" style={{display:"flex",gap:3,overflowX:"auto",maxWidth:"100%",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7}}>{[["resumo","Resumo"],["receitas","Receitas"],["despesas","Despesas"],["resultados","Resultados"],["documentos","Documentos"]].map(([v,l])=><button key={v} onClick={()=>setAba(v)} style={{border:`1px solid ${aba===v?C.yellow:C.border}`,background:aba===v?C.card:"transparent",color:aba===v?C.text:C.muted,borderRadius:5,padding:"7px 10px",fontSize:9.5,fontWeight:850,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>)}</div>}
+    />
     <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:7}}><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Mês" value={String(mes)} onChange={v=>setMes(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/><Sel label="Ano" value={String(ano)} onChange={v=>setAno(Number(v))} options={Array.from({length:5},(_,i)=>agora.getFullYear()-2+i).map(v=>({v:String(v),l:String(v)}))}/></div>
     {aba==="resumo"&&<>
       <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:7}}>{[["Faturamento",faturamento,C.green,"emitido"],["Recebido",recebido,C.blue,"entrada de caixa"],["A receber",aReceber,C.orange,`${receitasAbertas.length} título(s)`],["Custos e despesas",custos,C.red,despesasAdministrativas?`${fmt(despesasAdministrativas)} administrativo`:"regime gerencial"],["Notas em aberto",valorNotasAbertas,C.purple,`${notasAbertas.length} documento(s)`],["Resultado",resultado,resultado>=0?C.green:C.red,faturamento?`${((resultado/faturamento)*100).toFixed(1)}% de margem`:"sem faturamento"]].map(([l,v,c,s])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,padding:"10px 11px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:18,fontWeight:900,color:c,marginTop:3}}>{fmt(v)}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{s}</p></div>)}</div>
@@ -6951,16 +6953,11 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
   return (
     <div className="anim financial-overview" style={{display:"flex",flexDirection:"column",gap:10}}>
       <NavegacaoFinanceira/>
-      {/* Header */}
-      <div className="financial-overview-header" style={{
-        background:C.card,
-        border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.green}`,
-        padding:"11px 14px",borderRadius:8,
-      }}>
-        <p style={{fontSize:8.5,fontWeight:850,color:C.green,textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>Gestão financeira</p>
-        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:"clamp(18px,2vw,22px)",letterSpacing:-.4,color:C.text,lineHeight:1.1}}>Financeiro por obra</h2>
-        <p style={{color:C.muted,fontSize:10.5,marginTop:3}}>Margem, contrato, mão de obra e recebimentos no mesmo recorte.</p>
-      </div>
+      <PageHero
+        eyebrow="Gestão financeira"
+        title="Financeiro por obra"
+        description="Margem, contrato, mão de obra e recebimentos no mesmo recorte."
+      />
 
       {/* Filtros */}
       <div className="financial-overview-filters" style={{display:"grid",gridTemplateColumns:"120px 160px minmax(220px,1fr)",gap:6}}>
@@ -9013,25 +9010,12 @@ function Ponto({ data, update, showToast, obraIdFixo="" }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* Cabeçalho técnico enxuto: identifica a tela, a data e o progresso numa
-          linha só. Sem marca d'água nem gradiente - isto é uma ferramenta de
-          lançamento diário, não uma capa. */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <p style={TYPO.eyebrow}>Registro de ponto</p>
-          <h2 style={{ ...TYPO.h2, fontSize: "clamp(20px,4vw,26px)" }}>
-            {selectedObra?.name || "Todas as obras"}
-          </h2>
-          <p style={{ ...TYPO.bodyMuted, marginTop: 2 }}>{fmtDateFull(selDate)} · {registeredCount}/{list.length} lançados</p>
-        </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <p style={{ fontFamily: "'Inter Display','Inter',sans-serif", fontWeight: 800, fontSize: 30, lineHeight: 1, color: completionPct === 100 ? C.green : C.yellowD }}>{completionPct}%</p>
-          <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: .6, color: C.muted }}>cadastrado</p>
-        </div>
-      </div>
-      <div style={{ height: 5, background: C.surface, borderRadius: 99, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${completionPct}%`, background: completionPct === 100 ? C.green : C.yellow, borderRadius: 99, transition: "width .25s ease" }} />
-      </div>
+      <PageHero
+        eyebrow="Registro de ponto"
+        title={selectedObra?.name || "Todas as obras"}
+        description={`${fmtDateFull(selDate)} · ${registeredCount}/${list.length} lançados`}
+        stats={[{label:"Cadastrado",value:`${completionPct}%`,color:completionPct===100?C.green:C.yellowD}]}
+      />
 
       {/* Data e obra lado a lado: a primeira decisão de quem vai lançar. */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -9843,10 +9827,11 @@ function Folha({ data, showToast, onTab }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div>
-        <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 30, letterSpacing: 2, color: C.yellow }}>Folha de Pagamento</h2>
-        <p style={{ color: C.muted, fontSize: 13 }}>Cálculo automático quinzenal com feriados e datas de pagamento.</p>
-      </div>
+      <PageHero
+        eyebrow="Recursos humanos"
+        title="Folha de Pagamento"
+        description="Cálculo automático quinzenal com feriados e datas de pagamento."
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <Sel value={String(year)} onChange={v => setYear(Number(v))} options={years} />
@@ -11027,16 +11012,11 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
   return (
     <div className="anim" style={{ display:"flex", flexDirection:"column", gap:14 }}>
 
-      {/* Header */}
-      <div className="arcd-app-shell" style={{
-        background:`linear-gradient(135deg,${C.orange}22 0%,${C.card} 60%)`,
-        border:`1px solid ${C.orange}44`, borderLeft:`5px solid ${C.orange}`,
-        padding:"16px 18px", borderRadius:12,
-      }}>
-        <p style={{ fontSize:11, fontWeight:900, color:C.orange, textTransform:"uppercase", letterSpacing:1.2, marginBottom:4 }}>Subcontratados</p>
-        <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:"clamp(19px,8vw,34px)", letterSpacing:2, color:C.text, lineHeight:1 }}>Terceirizados</h2>
-        <p style={{ color:C.muted, fontSize:13, marginTop:4 }}>Contratos, especialidades e pagamentos toda sexta-feira.</p>
-      </div>
+      <PageHero
+        eyebrow="Subcontratados"
+        title="Terceirizados"
+        description="Contratos, especialidades e pagamentos toda sexta-feira."
+      />
 
       {/* KPI bar */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
@@ -12474,7 +12454,12 @@ function Relatorios({ data }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <ReportHero title="Relatórios e inteligência" subtitle="Custos, produtividade e presença em uma leitura técnica unificada." period={`${fullMonth(month)} · ${year}`}/>
+      <PageHero
+        eyebrow="Inteligência gerencial"
+        title="Relatórios e inteligência"
+        description="Custos, produtividade e presença em uma leitura técnica unificada."
+        actions={<span style={{display:"inline-flex",padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.surface,color:C.yellowD,fontSize:9,fontWeight:800,letterSpacing:.3}}>{fullMonth(month)} · {year}</span>}
+      />
 
       <div className="no-print" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8,padding:8,background:C.surface,border:`1px solid ${C.line}`,borderRadius:12}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,padding:4,background:C.card,borderRadius:9,border:`1px solid ${C.line}`}}>
@@ -12794,7 +12779,12 @@ ${obraBlocks}
   return (
     <div style={{display:"flex",flexDirection:"column",gap:14}} className="anim">
 
-      <ReportHero title="Relatório executivo" subtitle="Visão consolidada de receita, custo e resultado por obra." period={`${fullMonth(month)} · ${year}`}/>
+      <PageHero
+        eyebrow="Inteligência gerencial"
+        title="Relatório executivo"
+        description="Visão consolidada de receita, custo e resultado por obra."
+        actions={<span style={{display:"inline-flex",padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.surface,color:C.yellowD,fontSize:9,fontWeight:800,letterSpacing:.3}}>{fullMonth(month)} · {year}</span>}
+      />
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
         <ReportMetric label="Receita recebida" value={fmt(tot.received)} detail="Caixa realizado no período" color={C.yellow} icon="wallet"/>
@@ -13242,26 +13232,11 @@ function AgenteIA({ data, showToast, onTab }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div
-        style={{
-          background: `linear-gradient(135deg, ${C.yellow}, ${C.yellowD})`,
-          color: C.bg,
-          border: `1px solid ${C.yellow}`,
-          padding: 16,
-          borderRadius: 10,
-          boxShadow: `0 16px 36px ${C.yellow}22`,
-        }}
-      >
-        <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1.2, textTransform: "uppercase", opacity: 0.78 }}>
-          Assistente operacional
-        </p>
-        <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 36, letterSpacing: 2, lineHeight: 1 }}>
-          Agente IA ArcD
-        </h2>
-        <p style={{ fontSize: 13, fontWeight: 700, maxWidth: 720 }}>
-          Analisa ponto, folha, obras, pendências, custo por obra e custo de mão de obra por m.
-        </p>
-      </div>
+      <PageHero
+        eyebrow="Assistente operacional"
+        title="Agente IA ArcD"
+        description="Analisa ponto, folha, obras, pendências, custo por obra e custo de mão de obra por m²."
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
         {[
@@ -13646,12 +13621,11 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
 
-      {/* Header */}
-      <div style={{background:`linear-gradient(135deg,${C.red}22 0%,${C.card} 65%)`,border:`1px solid ${C.red}44`,borderLeft:`5px solid ${C.red}`,padding:"16px 18px",borderRadius:12}}>
-        <p style={{fontSize:11,fontWeight:900,color:C.red,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Documentos</p>
-        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(19px,5vw,34px)",letterSpacing:2,color:C.text,lineHeight:1}}>Cálculo de Rescisão</h2>
-        <p style={{color:C.muted,fontSize:13,marginTop:4}}>Gere o cálculo e o PDF para assinatura do trabalhador.</p>
-      </div>
+      <PageHero
+        eyebrow="Documentos"
+        title="Cálculo de Rescisão"
+        description="Gere o cálculo e o PDF para assinatura do trabalhador."
+      />
 
       {/* Selecionar funcionário */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,padding:14,borderRadius:10,display:"flex",flexDirection:"column",gap:10}}>
@@ -13885,7 +13859,11 @@ function IntegracaoGemini({ showToast, standalone=false }) {
 
 function ConfiguracaoIA({ showToast }) {
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div><p style={{fontSize:9,fontWeight:900,color:C.orange,letterSpacing:1,textTransform:"uppercase"}}>Administração da IA</p><h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:26,color:C.text,marginTop:3}}>Configurar Gemini</h2><p style={{fontSize:11.5,color:C.muted,marginTop:4}}>Uma única chave para todos os módulos inteligentes do ArcD.</p></div>
+    <PageHero
+      eyebrow="Administração da IA"
+      title="Configurar Gemini"
+      description="Uma única chave para todos os módulos inteligentes do ArcD."
+    />
     <IntegracaoGemini showToast={showToast} standalone/>
   </div>;
 }
@@ -13935,10 +13913,11 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div>
-        <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 30, letterSpacing: 2, color: C.yellow }}>Configurações</h2>
-        <p style={{ color: C.muted, fontSize: 13 }}>Dados da empresa, aprovações e calendário.</p>
-      </div>
+      <PageHero
+        eyebrow="Sistema"
+        title="Configurações"
+        description="Dados da empresa, aprovações e calendário."
+      />
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Empresa</h3>
@@ -14058,7 +14037,7 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","tv","admin_central","obras","orc","plan","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
+  admin:       ["home","tv","chat","admin_central","obras","orc","plan","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
   engenheiro:  ["home","tv","obras","orc","plan","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   engenheiro_auditor:["home","tv","obras","orc","plan","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","fornecedores","suprimentos","est","cad","ia"],
@@ -14103,7 +14082,7 @@ const allowedTabsForUser=user=>{
   // disponíveis mesmo em cadastros antigos cuja lista personalizada de abas
   // foi criada antes da existência do painel corporativo.
   const herdadas=user.role==="financeiro"?["equip_fin"]:[];
-  return [...new Set(["home","tv",...base,...herdadas])].filter(tab=>valid.has(tab)&&tab!=="config");
+  return [...new Set(["home","tv","chat",...base,...herdadas])].filter(tab=>valid.has(tab)&&tab!=="config");
 };
 
 const hashPin = async (pin) => {
@@ -14577,7 +14556,12 @@ function CentralAdministrador({data,update,showToast,currentUser}){
   const exportar=()=>{const linhas=[["Data/hora","Usuário","Perfil","Obra","Tipo","Alteração"],...filtrados.map(e=>[e._at,e._operador,usuariosPorId.get(e._operadorId)?.role||"",e._obra,e.type||"",e.message||""])];const csv=linhas.map(l=>l.map(v=>`"${String(v||"").replaceAll('"','""')}"`).join(";")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download=`auditoria-arcd-${today()}.csv`;a.click();URL.revokeObjectURL(a.href);};
   if(currentUser?.role!=="admin")return <div style={{padding:30,textAlign:"center",color:C.red}}>Acesso exclusivo da administração.</div>;
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{background:"linear-gradient(135deg,#101828,#1d3557)",borderRadius:14,padding:"18px 20px",color:"#fff",display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}><div><p style={{fontSize:9,fontWeight:900,color:C.yellow,letterSpacing:1.1}}>GOVERNANÇA · SEGURANÇA · OPERAÇÃO</p><h1 style={{fontSize:28,marginTop:3}}>Central do Administrador</h1><p style={{fontSize:11,opacity:.72,marginTop:5}}>Auditoria de alterações, inteligência gerencial e controle integral dos operadores.</p></div><Badge color={C.green}>ACESSO TOTAL</Badge></div>
+    <PageHero
+      eyebrow="Governança · segurança · operação"
+      title="Central do Administrador"
+      description="Auditoria de alterações, inteligência gerencial e controle integral dos operadores."
+      actions={<Badge color={C.green}>ACESSO TOTAL</Badge>}
+    />
     <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>{[["Alterações hoje",metricas.hoje,C.blue],["Últimos 7 dias",metricas.semana,C.purple],["Usuários ativos",metricas.usuarios,C.green],["Exclusões/cancelamentos",metricas.exclusoes,metricas.exclusoes?C.red:C.muted]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,padding:11}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:21,fontWeight:900,color:c,marginTop:4}}>{v}</p></div>)}</div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><Btn v={secao==="auditoria"?"primary":"ghost"} onClick={()=>setSecao("auditoria")}><Ic n="clipboard"/> Auditoria e resumo por IA</Btn><Btn v={secao==="usuarios"?"primary":"ghost"} onClick={()=>setSecao("usuarios")}><Ic n="users"/> Usuários e permissões</Btn></div>
     {secao==="usuarios"?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}><div style={{background:`${C.yellow}0B`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"9px 11px",marginBottom:12,fontSize:10.5,color:C.muted}}>Nesta tela o administrador pode criar operadores, editar perfil e e-mail, restringir por obra, escolher telas individualmente, definir limite comercial, ativar/inativar, trocar PIN, ativar login por e-mail e redefinir senha.</div><GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser}/></div>:<>
@@ -20871,12 +20855,19 @@ function Conciliacao({ data, update, showToast, currentUser }) {
 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:8}}>
-      <section className="standard-module-header reconciliation-header" style={{position:"relative",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px",color:C.text,boxShadow:"none",overflow:"hidden"}}>
-        <span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",inset:"0 0 auto",height:2,background:C.yellow}}/>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:8,fontWeight:900,color:C.yellowD,letterSpacing:1,textTransform:"uppercase"}}>Financeiro · controle bancário</p><h3 style={{fontSize:16,fontWeight:700,marginTop:2,color:C.text}}>Conciliação Bancária</h3><p style={{fontSize:8.8,color:C.muted,marginTop:2}}>Classifique, audite e reverta movimentos sem perder o histórico.</p></div>{importando?<span style={{fontSize:9,fontWeight:800,color:C.yellowD}}>Lendo extrato...</span>:<label style={{cursor:"pointer"}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><span style={{display:"inline-flex",alignItems:"center",gap:5,background:C.yellow,color:C.text,padding:"7px 10px",borderRadius:6,fontSize:9,fontWeight:850}}><Ic n="download" s={12}/> Importar extrato</span></label>}</div>
-        <div className="reconciliation-stats" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:1,marginTop:10,background:C.border,border:`1px solid ${C.border}`,borderRadius:7,overflow:"hidden"}}>{[["Pendentes",calc.pendentes,C.orange],["Conciliadas",calc.conciliadas,C.green],["Ignoradas",calc.ignoradas,C.muted],["A classificar",fmt(calc.valorPendente),C.yellowD],["Progresso",`${calc.pct.toFixed(0)}%`,C.green]].map(([l,v,c])=><div key={l} style={{padding:"7px 8px",background:C.surface}}><p style={{fontSize:7.2,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{l}</p><b style={{display:"block",fontSize:12.5,color:c,marginTop:1}}>{v}</b></div>)}</div>
-        <div style={{height:3,background:C.border,borderRadius:99,overflow:"hidden",marginTop:8}}><div style={{height:"100%",width:`${calc.pct}%`,background:C.yellow,transition:"width .3s"}}/></div>
-      </section>
+      <PageHero
+        eyebrow="Financeiro · controle bancário"
+        title="Conciliação Bancária"
+        description="Classifique, audite e reverta movimentos sem perder o histórico."
+        stats={[
+          {label:"Pendentes",value:calc.pendentes,color:C.orange},
+          {label:"Conciliadas",value:calc.conciliadas,color:C.green},
+          {label:"Ignoradas",value:calc.ignoradas,color:C.muted},
+          {label:"A classificar",value:fmt(calc.valorPendente),color:C.yellowD},
+          {label:"Progresso",value:`${calc.pct.toFixed(0)}%`,color:C.green},
+        ]}
+        actions={importando?<span style={{fontSize:9,fontWeight:800,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:700}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>}
+      />
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:4,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:4}}>{[["pendentes",`Pendentes · ${calc.pendentes}`],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["historico","Histórico"]].map(([v,l])=><button key={v} onClick={()=>setAba(v)} style={{border:`1px solid ${aba===v?C.yellow:C.border}`,background:aba===v?`${C.yellow}13`:C.card,color:aba===v?C.text:C.muted,borderRadius:6,padding:"6px 7px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>
 
@@ -21702,8 +21693,11 @@ const calcCurvaMateriais = (data, hojeIso) => {
   return { linhas, totalValor, alertasPesquisa };
 };
 
-const calcCompras = (data, obraId) => {
-  const peds = (data.pedidos||[]).filter(p => p.obraId === obraId && p.status !== "cancelado");
+// obraIds aceita um único id (string) ou uma lista de ids (visão "todas as
+// obras"): normalizamos para array e filtramos por inclusão nos dois casos.
+const calcCompras = (data, obraIds) => {
+  const ids = Array.isArray(obraIds) ? obraIds : [obraIds];
+  const peds = (data.pedidos||[]).filter(p => ids.includes(p.obraId) && p.status !== "cancelado");
   const comprado = peds.reduce((s,p) => s + totalPedido(p), 0);
   const recebido = peds.reduce((s,p) => s + recebidoPedido(p), 0);
   const pagamentos=peds.flatMap(p=>(p.pagamentos||[]));
@@ -21712,7 +21706,7 @@ const calcCompras = (data, obraId) => {
   const empresa = pagamentos.filter(pg=>pg.origem==="empresa").reduce((s,pg)=>s+Number(pg.valor||0),0);
 
   const aplicado = (data.movEstoque||[])
-    .filter(m => m.obraId === obraId && m.tipo === "consumo")
+    .filter(m => ids.includes(m.obraId) && m.tipo === "consumo")
     .reduce((s,m) => s + Number(m.qtd||0) * Number(m.valorUnit||0), 0);
 
   const pago=peds.reduce((s,p)=>s+Math.min(totalPedido(p),totalPagoPedido(p)),0);
@@ -21998,19 +21992,12 @@ function Suprimentos({ data, update, showToast, onTab }) {
 
   return (
     <div className="anim" style={{ display:"flex", flexDirection:"column", gap:12 }}>
-      {/* Cabeçalho */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", gap:12, flexWrap:"wrap" }}>
-        <div>
-          <p style={{ fontSize:10, fontWeight:800, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>Compras</p>
-          <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:800, fontSize:"clamp(19px,3.5vw,24px)", color:C.text, letterSpacing:-.3 }}>Suprimentos</h2>
-          <p style={{ fontSize:11, color:C.muted, marginTop:2 }}>{curva.linhas.length} materiais na carteira de obras · {curva.alertasPesquisa.length} a pesquisar</p>
-        </div>
-        {itensUrgentes.length>0&&(
-          <Btn size="sm" v="warning" onClick={()=>setCotWppS(true)}>
-            <Ic n="cart"/> Cotar urgentes ({itensUrgentes.length})
-          </Btn>
-        )}
-      </div>
+      <PageHero
+        eyebrow="Compras"
+        title="Suprimentos"
+        description={`${curva.linhas.length} materiais na carteira de obras · ${curva.alertasPesquisa.length} a pesquisar`}
+        actions={itensUrgentes.length>0&&<Btn size="sm" v="warning" onClick={()=>setCotWppS(true)}><Ic n="cart"/> Cotar urgentes ({itensUrgentes.length})</Btn>}
+      />
       {cotWppS&&<ModalCotacaoWhatsApp titulo={`Cotação · ${itensUrgentes.length} item(ns) urgentes da carteira`}
         itens={itensUrgentes} fornecedores={fornecedores} pedidos={data.pedidos} materiais={data.materiais} data={data}
         onClose={()=>setCotWppS(false)}/>}
@@ -22328,10 +22315,12 @@ function RankingFornecedores({data,update,showToast}){
   const corNota=valor=>valor===null?C.muted:valor>=85?C.green:valor>=65?C.blue:valor>=45?C.orange:C.red;
 
   return <div className="supplier-page">
-    <header className="supplier-header">
-      <div><p className="supplier-eyebrow">INTELIGÊNCIA DE SUPRIMENTOS</p><h1>Fornecedores</h1><p>Ranking automático por preço, frete, prazo e qualidade com base no histórico real.</p></div>
-      <Btn onClick={()=>setFornModal(novoFornecedor())}><Ic n="plus"/> Novo fornecedor</Btn>
-    </header>
+    <PageHero
+      eyebrow="Inteligência de suprimentos"
+      title="Fornecedores"
+      description="Ranking automático por preço, frete, prazo e qualidade com base no histórico real."
+      actions={<Btn onClick={()=>setFornModal(novoFornecedor())}><Ic n="plus"/> Novo fornecedor</Btn>}
+    />
     <section className="supplier-toolbar" aria-label="Filtros do ranking">
       <div className="supplier-search"><Ic n="search"/><input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar nome, CNPJ ou ramo..." aria-label="Buscar fornecedor"/></div>
       <select value={obraId} onChange={e=>setObraId(e.target.value)} aria-label="Filtrar por obra"><option value="">Todas as obras</option>{(data.obras||[]).map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select>
@@ -22986,6 +22975,13 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
 
   const obras       = (data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
+  // Escopo de "todas as obras" (empresa) x obra única - fonte única para o
+  // KPI, as listas e o kanban, para não mostrar números de recortes diferentes
+  // na mesma tela.
+  const obraIdsMapa=useMemo(()=>
+    escopoMapa==="empresa"&&!obraIdFixo?obras.map(o=>o.id):[obraAtual],
+    [escopoMapa,obraIdFixo,obras,obraAtual]);
+  const todasObras = escopoMapa==="empresa"&&!obraIdFixo;
   const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const fornecedores= useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
   // Historico de preco de TODOS os materiais numa unica passada por
@@ -23005,20 +23001,20 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     return [...basesReferenciaCompra].sort((a,b)=>Number((b.idsEquivalentes||[b.id]).some(id=>vinculadas.has(id)))-Number((a.idsEquivalentes||[a.id]).some(id=>vinculadas.has(id)))||String(b.dataBase||"").localeCompare(String(a.dataBase||"")));
   },[basesReferenciaCompra,data.orcamentos,obraAtual]);
   const podeProcessar=canManagePurchases(currentUser?.role);
-  const solicitacoes=useMemo(()=>(data.solicitacoesCompra||[]).filter(s=>s.obraId===obraAtual)
+  const solicitacoes=useMemo(()=>(data.solicitacoesCompra||[]).filter(s=>obraIdsMapa.includes(s.obraId))
     .sort((a,b)=>{
       // SLA estourado sobe: solicitacao parada e obra parada.
       const ea=slaSolicitacao(a,today())?.status==="estourado"?1:0;
       const eb=slaSolicitacao(b,today())?.status==="estourado"?1:0;
       return (eb-ea)||(b.criadoEm||"").localeCompare(a.criadoEm||"");
-    }),[data.solicitacoesCompra,obraAtual]);
+    }),[data.solicitacoesCompra,obraIdsMapa]);
   // Consolidacao multi-obra: mesmo material pedido por obras diferentes.
   const consolidar=useMemo(()=>oportunidadesConsolidacao(data,today()),[data.solicitacoesCompra,data.obras]);
   // O contador precisa usar a mesma obra da lista. Antes ele somava todas as
   // obras visíveis e podia anunciar "2 para analisar" sobre uma lista vazia.
   const solicitacoesPendentes=solicitacoes.filter(s=>s.status==="enviada").length;
 
-  const kpi = useMemo(() => calcCompras(data, obraAtual), [data.pedidos, data.movEstoque, data.transacoes, obraAtual]);
+  const kpi = useMemo(() => calcCompras(data, obraIdsMapa), [data.pedidos, data.movEstoque, data.transacoes, obraIdsMapa]);
   const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data.orcamentos, data.pedidos, obraAtual]);
   // Entregas atrasadas (todas as obras visiveis) e mapa por pedido.
   const atrasados = useMemo(() => pedidosEmAtraso(data, today())
@@ -23050,29 +23046,29 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   const pedidos = useMemo(() => {
     const t = busca.trim().toLowerCase();
     return (data.pedidos||[])
-      .filter(p => p.obraId === obraAtual)
+      .filter(p => obraIdsMapa.includes(p.obraId))
       .filter(p => !t || (p.numero||"").toLowerCase().includes(t) ||
                           nomeForn(p.fornecedorId).toLowerCase().includes(t))
       .sort((a,b) => (b.data||"").localeCompare(a.data||""));
-  }, [data.pedidos, obraAtual, busca, nomeForn]);
+  }, [data.pedidos, obraIdsMapa, busca, nomeForn]);
 
   const resumoOperacional = useMemo(() => {
-    const todos=(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&p.status!=="cancelado");
+    const todos=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado");
     const porStatus={rascunho:0,enviado:0,parcial:0,recebido:0};
     todos.forEach(p=>{const s=statusPedido(p);porStatus[s]=(porStatus[s]||0)+1;});
     const ultima=[...todos].sort((a,b)=>(b.data||"").localeCompare(a.data||""))[0];
     return {total:todos.length,porStatus,ultima,fornecedores:new Set(todos.map(p=>p.fornecedorId).filter(Boolean)).size};
-  },[data.pedidos,obraAtual]);
+  },[data.pedidos,obraIdsMapa]);
   const pedidosFinanceiros=useMemo(()=>{
-    const lista=(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&!['cancelado','rascunho'].includes(p.status));
+    const lista=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&!['cancelado','rascunho'].includes(p.status));
     return lista.filter(p=>filtroFinanceiro==="todos"||
       (filtroFinanceiro==="pendentes"&&statusPagamentoPedido(p)!=="pago")||
       (filtroFinanceiro==="liberados"&&statusPagamentoPedido(p)==="pago"&&statusPedido(p)!=="recebido")||
       (filtroFinanceiro==="nao_conciliados"&&(p.pagamentos||[]).some(pg=>!pg.conciliado)))
       .sort((a,b)=>Number(statusPagamentoPedido(a)==="pago")-Number(statusPagamentoPedido(b)==="pago")||(a.previsao||"9999").localeCompare(b.previsao||"9999"));
-  },[data.pedidos,obraAtual,filtroFinanceiro]);
+  },[data.pedidos,obraIdsMapa,filtroFinanceiro]);
   const resumoFinanceiro=useMemo(()=>{
-    const lista=(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&!['cancelado','rascunho'].includes(p.status));
+    const lista=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&!['cancelado','rascunho'].includes(p.status));
     const pagamentos=lista.flatMap(p=>p.pagamentos||[]);
     return{pendentes:lista.filter(p=>statusPagamentoPedido(p)!=="pago").length,aPagar:lista.reduce((s,p)=>s+saldoPagamentoPedido(p),0),
       liberados:lista.filter(p=>statusPagamentoPedido(p)==="pago"&&statusPedido(p)!=="recebido").length,
@@ -23080,12 +23076,9 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       empresa:pagamentos.filter(pg=>pg.origem==="empresa").reduce((s,pg)=>s+Number(pg.valor||0),0),
       caixaObra:pagamentos.filter(pg=>pg.origem==="caixa_obra").reduce((s,pg)=>s+Number(pg.valor||0),0),
       cliente:pagamentos.filter(pg=>pg.origem==="cliente_direto").reduce((s,pg)=>s+Number(pg.valor||0),0)};
-  },[data.pedidos,obraAtual]);
+  },[data.pedidos,obraIdsMapa]);
   const caixaPagamento=useMemo(()=>situacaoCaixaObra(data,obraAtual),[data.caixaObra,obraAtual]);
   const obraTemCaixa=!!(data.obras||[]).find(o=>o.id===obraAtual)?.hasCaixa;
-  const obraIdsMapa=useMemo(()=>
-    escopoMapa==="empresa"&&!obraIdFixo?obras.map(o=>o.id):[obraAtual],
-    [escopoMapa,obraIdFixo,obras,obraAtual]);
   const mapaCompras=useMemo(()=>mapaGerencialCompras(data,obraIdsMapa,today()),[
     data.pedidos,data.solicitacoesCompra,data.cotacoes,data.fornecedores,obraAtual,
     obraIdsMapa
@@ -23096,9 +23089,9 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     [data.pedidos,obraIdsMapa]);
 
   const cotacoes = useMemo(
-    () => (data.cotacoes||[]).filter(c => c.obraId === obraAtual)
+    () => (data.cotacoes||[]).filter(c => obraIdsMapa.includes(c.obraId))
             .sort((a,b) => (b.data||"").localeCompare(a.data||"")),
-    [data.cotacoes, obraAtual]
+    [data.cotacoes, obraIdsMapa]
   );
 
   // Maps id->registro, montados uma vez, para as linhas de Pedidos e
@@ -23854,15 +23847,20 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
 
   return (
     <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
-      <div className="compras-page-head" style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
-        <div><p style={{fontSize:9,fontWeight:800,color:C.yellowD,textTransform:"uppercase",letterSpacing:1}}>Suprimentos da obra</p><h2 style={{fontSize:isDesktop?24:20,fontWeight:750,letterSpacing:"-.02em",marginTop:2}}>Compras</h2><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Da requisição ao recebimento, sem perder a responsabilidade de cada etapa.</p></div>
-        <Btn size="sm" v="ghost" onClick={abrirModoAnalise} title="Enviar PDF ou imagem para análise"><Ic n="brain"/> Analisar documento</Btn>
-      </div>
+      <PageHero
+        eyebrow="Suprimentos da obra"
+        title="Compras"
+        description="Da requisição ao recebimento, sem perder a responsabilidade de cada etapa."
+        actions={<Btn size="sm" v="ghost" onClick={abrirModoAnalise} title="Enviar PDF ou imagem para análise"><Ic n="brain"/> Analisar documento</Btn>}
+      />
 
       <div className="compras-project-picker">{obraIdFixo
         ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-        : <Sel label="Obra" value={obraAtual} onChange={setObraSel}
-            options={obras.map(o => ({ v:o.id, l:o.name }))}/>}</div>
+        : <Sel label="Obra" value={todasObras?"all":obraAtual} onChange={v=>{
+            if (v==="all") { setEscopoMapa("empresa"); return; }
+            setEscopoMapa("obra"); setObraSel(v);
+          }}
+            options={[{v:"all",l:"Todas as obras"},...obras.map(o => ({ v:o.id, l:o.name }))]}/>}</div>
 
       <section className="compras-next-action" style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1fr) auto":"1fr",gap:12,alignItems:"center",padding:isDesktop?"14px 16px":"12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>
         <div style={{minWidth:0}}><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.7}}>Sua próxima ação</p><h3 style={{fontSize:15,fontWeight:750,marginTop:3}}>{tarefaPrioritaria.titulo}</h3><p style={{fontSize:10,color:C.muted,marginTop:3,lineHeight:1.45}}>{tarefaPrioritaria.descricao}</p></div>
@@ -24340,7 +24338,12 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
 
       {/*  ORÇADO x COMPRADO  */}
       {aba === "orcado" && (
-        !orcVs.orc ? (
+        todasObras ? (
+          <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>
+            Orçado × comprado compara com o orçamento de uma obra específica.<br/>
+            Selecione uma obra no filtro acima para ver esta comparação.
+          </p>
+        ) : !orcVs.orc ? (
           <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>
             Esta obra ainda não tem orçamento vinculado.<br/>
             Crie um em <strong>Orçamento</strong> e amarre-o à obra.
@@ -28025,10 +28028,12 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
 
   if (modoRdo === "lista") {
     return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-        <div><h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:25,fontWeight:900,color:C.text}}>Diário de Obra</h2><p style={{fontSize:11.5,color:C.muted}}>{(data.rdos||[]).length} relatório(s) registrados</p></div>
-        <Btn onClick={novoRdo}><Ic n="plus"/> Novo relatório</Btn>
-      </div>
+      <PageHero
+        eyebrow="Engenharia de campo"
+        title="Diário de Obra"
+        description={`${(data.rdos||[]).length} relatório(s) registrados`}
+        actions={<Btn onClick={novoRdo}><Ic n="plus"/> Novo relatório</Btn>}
+      />
       <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:7,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:10}}>
         <Inp value={inicioRdo} onChange={setInicioRdo} type="date" label="Data inicial"/>
         <Inp value={fimRdo} onChange={setFimRdo} type="date" label="Data final"/>
@@ -28564,7 +28569,7 @@ function Qualidade({data,update,showToast,currentUser,obraIdFixo=""}){
   const gerarPlano=()=>{if(!orc){showToast("Vincule um orçamento à obra antes de gerar o plano da qualidade.","error");return;}setGerando(true);const existentes=new Set(regs.map(q=>`${q.tipo}|${q.etapaId||q.materialId}`));const etapas=(orc.etapas||[]).filter(e=>!e.parentId);const responsavel=porId(obra?.engineerId)||currentUser;const novos=[];const montar=(tipo,chave,titulo,extra={})=>({id:uid(),obraId:obraIdFixo,tipo,codigo:`${tipo.toUpperCase()}-${String(regs.length+novos.length+1).padStart(4,"0")}`,titulo,...extra,responsavelId:responsavel?.id||"",responsavel:responsavel?.nome||"",inspetorId:"",inspetor:"",status:"planejada",local:"",lote:"",fornecedor:"",notaFiscal:"",normaProjeto:"Validar projeto, memorial, procedimento e normas aplicáveis",itens:criteriosQualidade(tipo,titulo).map(([criterio,metodo])=>({id:uid(),criterio,metodo,tolerancia:"Conforme projeto, memorial, procedimento e norma aplicável",status:"pendente",observacao:"",responsavelId:"",responsavel:"",verificadoEm:""})),evidencias:[],naoConformidade:null,criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:""});etapas.forEach(e=>{if(!existentes.has(`fvs|${e.id}`))novos.push(montar("fvs",e.id,e.nome,{etapaId:e.id}));});const materiaisIds=new Set((data.pedidos||[]).filter(p=>p.obraId===obraIdFixo&&p.status!=="cancelado").flatMap(p=>(p.itens||[]).map(i=>i.materialId).filter(Boolean)));materiaisIds.forEach(id=>{const m=(data.materiais||[]).find(x=>x.id===id);if(m&&!existentes.has(`fvm|${id}`))novos.push(montar("fvm",id,m.descricao,{materialId:id}));});salvar([...(data.qualidadeRegistros||[]),...novos]);setGerando(false);showToast(`${novos.length} ficha(s) criada(s).`);};
   const marcar=(q,item,status)=>alterar(q.id,x=>{const u=currentUser;const itens=x.itens.map(i=>i.id===item.id?{...i,status,responsavelId:u?.id||"",responsavel:u?.nome||"",verificadoEm:new Date().toISOString()}:i);const temNC=itens.some(i=>i.status==="nao_conforme");return{...x,itens,status:temNC?"reprovada":x.status,naoConformidade:temNC?(x.naoConformidade||{descricao:"Item(ns) não conforme(s) identificado(s) na inspeção.",disposicao:"Segregar, conter ou suspender a liberação até decisão.",acao:"",responsavelId:x.responsavelId,responsavel:x.responsavel,prazo:"",status:"aberta",verificacaoEficacia:"",encerradoEm:""}):x.naoConformidade};});
   const concluir=q=>{const pend=q.itens.some(i=>i.status==="pendente");const nc=q.itens.some(i=>i.status==="nao_conforme")&&q.naoConformidade?.status!=="encerrada";if(pend||nc){showToast(pend?"Conclua todos os critérios antes de liberar.":"Encerre a não conformidade e verifique a eficácia.","error");return;}alterar(q.id,x=>({...x,status:"aprovada",inspetorId:currentUser?.id||"",inspetor:currentUser?.nome||"",concluidoEm:new Date().toISOString()}));};
-  return <div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div><h2 style={{fontSize:18}}>Qualidade · FVS e FVM</h2><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Plano de inspeção, liberação e não conformidades por etapa da obra.</p></div><Btn onClick={gerarPlano} disabled={gerando}><Ic n="plus"/> Gerar/atualizar plano</Btn></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>{[["FVS",regs.filter(q=>q.tipo==="fvs").length,C.blue],["FVM",regs.filter(q=>q.tipo==="fvm").length,C.purple],["Liberadas",regs.filter(q=>q.status==="aprovada").length,C.green],["Não conformes",regs.filter(q=>q.status==="reprovada").length,C.red]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:7,padding:8}}><p style={{fontSize:8,color:C.muted,fontWeight:800}}>{l}</p><b style={{fontSize:17,color:c}}>{v}</b></div>)}</div>{regs.map(q=>{const open=aberto===q.id;const feitos=q.itens.filter(i=>i.status!=="pendente").length;return <div key={q.id} style={{background:C.card,border:`1px solid ${q.status==="reprovada"?C.red:C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setAberto(open?"":q.id)} style={{width:"100%",border:0,background:"transparent",padding:"10px 12px",display:"flex",justifyContent:"space-between",gap:8,textAlign:"left",cursor:"pointer"}}><div><b style={{fontSize:11,color:q.tipo==="fvs"?C.blue:C.purple}}>{q.codigo} · {q.tipo.toUpperCase()}</b><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:2}}>{q.titulo}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Responsável: {q.responsavel||"Não definido"} · {feitos}/{q.itens.length} critérios</p></div><Badge color={q.status==="aprovada"?C.green:q.status==="reprovada"?C.red:C.orange}>{q.status}</Badge></button>{open&&<div style={{borderTop:`1px solid ${C.line}`,padding:10}}><Sel label="Responsável pela execução/correção" value={q.responsavelId} onChange={v=>{const u=porId(v);alterar(q.id,x=>({...x,responsavelId:v,responsavel:u?.nome||""}));}} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={q.normaProjeto} onChange={v=>alterar(q.id,x=>({...x,normaProjeto:v}))}/><div style={{marginTop:8}}>{q.itens.map(i=><div key={i.id} style={{padding:"8px 0",borderTop:`1px solid ${C.line}`}}><p style={{fontSize:11,fontWeight:750,color:C.text}}>{i.criterio}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>{i.metodo} · {i.tolerancia}</p><div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([s,l,c])=><button key={s} onClick={()=>marcar(q,i,s)} style={{border:`1px solid ${i.status===s?c:C.border}`,background:i.status===s?`${c}12`:C.bg,color:c,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>{i.verificadoEm&&<p style={{fontSize:8.5,color:C.muted,marginTop:3}}>{i.responsavel} · {new Date(i.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{q.naoConformidade&&<div style={{background:`${C.red}08`,border:`1px solid ${C.red}55`,borderRadius:7,padding:9,marginTop:8}}><p style={{fontSize:10,fontWeight:900,color:C.red}}>NÃO CONFORMIDADE</p><Inp label="Ação corretiva" value={q.naoConformidade.acao} onChange={v=>alterar(q.id,x=>({...x,naoConformidade:{...x.naoConformidade,acao:v}}))} multiline/><Inp label="Prazo" type="date" value={q.naoConformidade.prazo} onChange={v=>alterar(q.id,x=>({...x,naoConformidade:{...x.naoConformidade,prazo:v}}))}/><Inp label="Verificação de eficácia" value={q.naoConformidade.verificacaoEficacia} onChange={v=>alterar(q.id,x=>({...x,naoConformidade:{...x.naoConformidade,verificacaoEficacia:v}}))} multiline/><Btn size="sm" v="success" onClick={()=>{if(!q.naoConformidade.acao||!q.naoConformidade.verificacaoEficacia){showToast("Registre a ação e a verificação de eficácia.","error");return;}alterar(q.id,x=>({...x,itens:x.itens.map(i=>i.status==="nao_conforme"?{...i,status:"conforme",verificadoEm:new Date().toISOString(),responsavel:currentUser?.nome||""}:i),naoConformidade:{...x.naoConformidade,status:"encerrada",encerradoEm:new Date().toISOString()},status:"em_inspecao"}));}}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:9}} onClick={()=>concluir(q)} disabled={q.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<p style={{textAlign:"center",padding:20,color:C.muted,fontSize:11}}>Gere o plano para criar uma FVS para cada etapa de 1º nível e FVM para os materiais comprados.</p>}</div>;
+  return <div style={{display:"flex",flexDirection:"column",gap:10}}><PageHero eyebrow="Engenharia de campo" title="Qualidade · FVS e FVM" description="Plano de inspeção, liberação e não conformidades por etapa da obra." actions={<Btn onClick={gerarPlano} disabled={gerando}><Ic n="plus"/> Gerar/atualizar plano</Btn>}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>{[["FVS",regs.filter(q=>q.tipo==="fvs").length,C.blue],["FVM",regs.filter(q=>q.tipo==="fvm").length,C.purple],["Liberadas",regs.filter(q=>q.status==="aprovada").length,C.green],["Não conformes",regs.filter(q=>q.status==="reprovada").length,C.red]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:7,padding:8}}><p style={{fontSize:8,color:C.muted,fontWeight:800}}>{l}</p><b style={{fontSize:17,color:c}}>{v}</b></div>)}</div>{regs.map(q=>{const open=aberto===q.id;const feitos=q.itens.filter(i=>i.status!=="pendente").length;return <div key={q.id} style={{background:C.card,border:`1px solid ${q.status==="reprovada"?C.red:C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setAberto(open?"":q.id)} style={{width:"100%",border:0,background:"transparent",padding:"10px 12px",display:"flex",justifyContent:"space-between",gap:8,textAlign:"left",cursor:"pointer"}}><div><b style={{fontSize:11,color:q.tipo==="fvs"?C.blue:C.purple}}>{q.codigo} · {q.tipo.toUpperCase()}</b><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:2}}>{q.titulo}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Responsável: {q.responsavel||"Não definido"} · {feitos}/{q.itens.length} critérios</p></div><Badge color={q.status==="aprovada"?C.green:q.status==="reprovada"?C.red:C.orange}>{q.status}</Badge></button>{open&&<div style={{borderTop:`1px solid ${C.line}`,padding:10}}><Sel label="Responsável pela execução/correção" value={q.responsavelId} onChange={v=>{const u=porId(v);alterar(q.id,x=>({...x,responsavelId:v,responsavel:u?.nome||""}));}} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={q.normaProjeto} onChange={v=>alterar(q.id,x=>({...x,normaProjeto:v}))}/><div style={{marginTop:8}}>{q.itens.map(i=><div key={i.id} style={{padding:"8px 0",borderTop:`1px solid ${C.line}`}}><p style={{fontSize:11,fontWeight:750,color:C.text}}>{i.criterio}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>{i.metodo} · {i.tolerancia}</p><div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([s,l,c])=><button key={s} onClick={()=>marcar(q,i,s)} style={{border:`1px solid ${i.status===s?c:C.border}`,background:i.status===s?`${c}12`:C.bg,color:c,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>{i.verificadoEm&&<p style={{fontSize:8.5,color:C.muted,marginTop:3}}>{i.responsavel} · {new Date(i.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{q.naoConformidade&&<div style={{background:`${C.red}08`,border:`1px solid ${C.red}55`,borderRadius:7,padding:9,marginTop:8}}><p style={{fontSize:10,fontWeight:900,color:C.red}}>NÃO CONFORMIDADE</p><Inp label="Ação corretiva" value={q.naoConformidade.acao} onChange={v=>alterar(q.id,x=>({...x,naoConformidade:{...x.naoConformidade,acao:v}}))} multiline/><Inp label="Prazo" type="date" value={q.naoConformidade.prazo} onChange={v=>alterar(q.id,x=>({...x,naoConformidade:{...x.naoConformidade,prazo:v}}))}/><Inp label="Verificação de eficácia" value={q.naoConformidade.verificacaoEficacia} onChange={v=>alterar(q.id,x=>({...x,naoConformidade:{...x.naoConformidade,verificacaoEficacia:v}}))} multiline/><Btn size="sm" v="success" onClick={()=>{if(!q.naoConformidade.acao||!q.naoConformidade.verificacaoEficacia){showToast("Registre a ação e a verificação de eficácia.","error");return;}alterar(q.id,x=>({...x,itens:x.itens.map(i=>i.status==="nao_conforme"?{...i,status:"conforme",verificadoEm:new Date().toISOString(),responsavel:currentUser?.nome||""}:i),naoConformidade:{...x.naoConformidade,status:"encerrada",encerradoEm:new Date().toISOString()},status:"em_inspecao"}));}}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:9}} onClick={()=>concluir(q)} disabled={q.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<p style={{textAlign:"center",padding:20,color:C.muted,fontSize:11}}>Gere o plano para criar uma FVS para cada etapa de 1º nível e FVM para os materiais comprados.</p>}</div>;
 }
 
 function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
@@ -28776,11 +28781,15 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const lista=conferenciasVisiveis.filter(c=>!filtroValido||c.obraId===filtroValido).filter(c=>statusFiltro==="todas"||c.status!=="concluida"||(c.pendencias||[]).some(p=>p.status!=="resolvida")).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
 
   if(!conferencia) return <div style={{display:"flex",flexDirection:"column",gap:14}}>
-    <div><h1 style={{fontSize:22,color:C.text}}>Conferência técnica</h1><p style={{fontSize:12,color:C.muted,marginTop:4}}>Vistorias, inconformidades e ajustes rastreados até a resolução</p></div>
+    <PageHero
+      eyebrow="Engenharia de campo"
+      title="Conferência técnica"
+      description="Vistorias, inconformidades e ajustes rastreados até a resolução."
+      actions={(ehAdmin||ehAuditor)&&<Btn onClick={abrirNovaConferencia} disabled={!podeCriarConferencia} title={!podeCriarConferencia?"Nenhuma obra ativa está disponível no seu escopo.":"Criar nova vistoria"}><Ic n="plus"/> Nova vistoria</Btn>}
+    />
     <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
       <div style={{minWidth:240,flex:1}}><Sel label="Obra" value={filtroValido} onChange={setObraFiltro} options={obrasVisiveis.map(o=>({v:o.id,l:o.name}))}/></div>
       <div style={{minWidth:190}}><Sel label="Situação" value={statusFiltro} onChange={setStatusFiltro} options={[{v:"abertas",l:"Em andamento / com pendências"},{v:"todas",l:"Todas as conferências"}]}/></div>
-      {(ehAdmin||ehAuditor)&&<Btn onClick={abrirNovaConferencia} disabled={!podeCriarConferencia} title={!podeCriarConferencia?"Nenhuma obra ativa está disponível no seu escopo.":"Criar nova vistoria"}><Ic n="plus"/> Nova vistoria</Btn>}
     </div>
     {ehEngenheiro&&<div style={{padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`,fontSize:10.5,color:C.blue}}>Como engenheiro de campo, você visualiza somente as pendências atribuídas a você e envia a foto da correção. A criação e a validação da vistoria pertencem ao administrador e ao engenheiro auditor.</div>}
     {(ehAdmin||ehAuditor)&&<RankingQualidade data={data} conferencias={conferenciasVisiveis} obraIdFixo={obraIdFixo} onSelecionarObra={id=>setObraFiltro(id)}/>}
@@ -30791,7 +30800,12 @@ function Licenciamento({ data, update, showToast, obraIdFixo="" }) {
   if(!obra)return <div style={{padding:24,textAlign:"center",color:C.muted,fontSize:12.5}}>Cadastre uma obra para montar o checklist de licenciamento.</div>;
 
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:9.5,fontWeight:900,color:C.yellowD,textTransform:"uppercase",letterSpacing:1}}>Governança documental</p><h2 style={{fontSize:21,color:C.text}}>Licenciamento da obra</h2><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Condomínio → documentação → aprovação → Prefeitura → liberação</p></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn v="ghost" onClick={()=>setGestaoCondo(true)}><Ic n="building"/> Condomínios</Btn><Btn onClick={gerarDossie}><Ic n="fileText"/> Gerar dossiê</Btn></div></div>
+    <PageHero
+      eyebrow="Governança documental"
+      title="Licenciamento da obra"
+      description="Condomínio → documentação → aprovação → Prefeitura → liberação"
+      actions={<><Btn v="ghost" onClick={()=>setGestaoCondo(true)}><Ic n="building"/> Condomínios</Btn><Btn onClick={gerarDossie}><Ic n="fileText"/> Gerar dossiê</Btn></>}
+    />
 
     <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>{obraIdFixo?<Inp label="Obra" value={obra.name} onChange={()=>{}} disabled/>:<Sel label="Obra" value={obraId} onChange={setObraSel} options={(data.obras||[]).map(o=>({v:o.id,l:o.name}))}/>}<Sel label="Condomínio da obra" value={obra.condominioId||""} onChange={vincularCondominio} options={[{v:"",l:"Fora de condomínio / ainda não informado"},...condominios.map(c=>({v:c.id,l:`${c.nome}${c.cidade?` · ${c.cidade}/${c.uf}`:""}`}))]}/></div>
 
@@ -32362,19 +32376,16 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   return (
     <div className="anim dre-company" data-view={abaDRE} style={{display:"flex",flexDirection:"column",gap:12}}>
 
-      {/* Header */}
-      <div className="dre-company-header">
-        <div>
-          <p className="dre-company-eyebrow">Controladoria · Resultado da empresa</p>
-          <h1>DRE Gerencial</h1>
-          <p>Resultado, caixa, custos e decisões por obra em uma única leitura.</p>
-        </div>
-        <div className="dre-company-header-actions">
-          <button type="button" onClick={copiarParecer}><Ic n="copy" s={13}/> Copiar parecer</button>
-          {analiseIA&&<button type="button" onClick={imprimirRelatorioIA}><Ic n="file" s={13}/> PDF da análise</button>}
-          <button type="button" onClick={gerarPDF}><Ic n="file" s={13}/> Exportar PDF</button>
-        </div>
-      </div>
+      <PageHero
+        eyebrow="Controladoria · Resultado da empresa"
+        title="DRE Gerencial"
+        description="Resultado, caixa, custos e decisões por obra em uma única leitura."
+        actions={<>
+          <Btn v="ghost" size="sm" onClick={copiarParecer}><Ic n="copy" s={13}/> Copiar parecer</Btn>
+          {analiseIA&&<Btn v="ghost" size="sm" onClick={imprimirRelatorioIA}><Ic n="file" s={13}/> PDF da análise</Btn>}
+          <Btn size="sm" onClick={gerarPDF}><Ic n="file" s={13}/> Exportar PDF</Btn>
+        </>}
+      />
 
       <div className="dre-company-toolbar">
         <nav aria-label="Áreas do DRE Empresa">
@@ -33674,8 +33685,271 @@ function PainelTV({data,ultimaSync,onAtualizar}){
   </div>;
 }
 
+// Comunicação interna: conversa da equipe (chat), checklist de prioridades
+// diárias dos engenheiros de campo e ranking. Mensagens e ajustes de ranking
+// vivem em linhas próprias no banco (api/chat.js, api/ranking.js) - não
+// entram no documento único de "data", que não pode crescer a cada mensagem.
+// Atualização por atualização periódica (sem tempo real): a lista é
+// recarregada a cada poucos segundos enquanto a aba de conversa está aberta.
+function Comunicacao({ data, currentUser, showToast }) {
+  const [aba, setAba] = useState("conversa");
+  const ehAdmin = currentUser?.role === "admin";
+
+  //  Conversa (chat)
+  const [mensagens, setMensagens] = useState([]);
+  const [mutados, setMutados] = useState([]);
+  const [texto, setTexto] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [carregandoChat, setCarregandoChat] = useState(true);
+  const scrollRef = useRef(null);
+
+  const carregarChat = useCallback(async () => {
+    const r = await listarMensagensChat();
+    if (r.ok) { setMensagens(r.mensagens || []); setMutados(r.mutados || []); }
+    setCarregandoChat(false);
+  }, []);
+
+  useEffect(() => {
+    carregarChat();
+    const id = setInterval(carregarChat, 8000);
+    return () => clearInterval(id);
+  }, [carregarChat]);
+
+  useEffect(() => {
+    if (aba === "conversa" && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [mensagens, aba]);
+
+  const euEstouMutado = mutados.some(m => m.userId === currentUser?.id);
+
+  const enviar = async () => {
+    const t = texto.trim();
+    if (!t) return;
+    setEnviando(true);
+    const r = await enviarMensagemChat(t);
+    setEnviando(false);
+    if (!r.ok) { showToast(r.error || "Não foi possível enviar a mensagem.", "error"); return; }
+    setTexto("");
+    carregarChat();
+  };
+
+  const apagar = async (id) => {
+    if (!window.confirm("Apagar esta mensagem para todos?")) return;
+    const r = await apagarMensagemChat(id);
+    if (!r.ok) { showToast(r.error || "Não foi possível apagar.", "error"); return; }
+    carregarChat();
+  };
+
+  const alternarMudo = async (userId, mutadoAgora) => {
+    const r = mutadoAgora ? await dessilenciarUsuarioChat(userId) : await silenciarUsuarioChat(userId);
+    if (!r.ok) { showToast(r.error || "Não foi possível atualizar.", "error"); return; }
+    carregarChat();
+  };
+
+  //  Notificações: checklist de prioridades por engenheiro de campo
+  const engenheiros = useMemo(() => (data.usuarios || []).filter(u => u.active !== false && u.role === "engenheiro"), [data.usuarios]);
+  const hoje = today();
+  const resumoAtendimento = useMemo(() => getObraAttendanceSummary(data, hoje), [data, hoje]);
+
+  const checklistPorUsuario = useMemo(() => engenheiros.map(u => {
+    const obrasDele = (data.obras || []).filter(o => o.engineerId === u.id && o.status !== "done");
+    const pontoOk = obrasDele.every(o => {
+      const s = resumoAtendimento.find(x => x.obraId === o.id);
+      return !s || !s.hasTeam || s.completed;
+    });
+    const diarioOk = obrasDele.every(o => (data.rdos || []).some(r => r.obraId === o.id && r.data === hoje));
+    const pendenciasAbertas = (data.conferencias || []).flatMap(c => (c.pendencias || [])
+      .filter(p => p.status !== "resolvida" && p.responsavelAjusteId === u.id));
+    return { usuario: u, obrasDele, pontoOk, diarioOk, conferenciasOk: pendenciasAbertas.length === 0, pendenciasAbertas: pendenciasAbertas.length };
+  }), [engenheiros, data.obras, data.rdos, data.conferencias, resumoAtendimento, hoje]);
+
+  //  Ranking
+  const [ajustes, setAjustes] = useState([]);
+  const [ajusteModal, setAjusteModal] = useState(null);
+  const [pontosForm, setPontosForm] = useState("");
+  const [motivoForm, setMotivoForm] = useState("");
+
+  const carregarRanking = useCallback(async () => {
+    const r = await listarAjustesRanking();
+    if (r.ok) setAjustes(r.ajustes || []);
+  }, []);
+
+  useEffect(() => { if (aba === "ranking" || aba === "notificacoes") carregarRanking(); }, [aba, carregarRanking]);
+
+  const ranking = useMemo(() => checklistPorUsuario.map(c => {
+    const meusAjustes = ajustes.filter(a => a.userId === c.usuario.id);
+    const pontosManual = meusAjustes.reduce((s, a) => s + Number(a.pontos || 0), 0);
+    const pontosAutomaticos = (c.pontoOk ? 10 : 0) + (c.diarioOk ? 10 : 0) + (c.conferenciasOk ? 10 : 0);
+    return { ...c, pontosManual, pontosAutomaticos, total: pontosAutomaticos + pontosManual, ajustes: meusAjustes };
+  }).sort((a, b) => b.total - a.total), [checklistPorUsuario, ajustes]);
+
+  const salvarAjuste = async () => {
+    const pts = Number(pontosForm);
+    if (!pts) { showToast("Informe os pontos.", "error"); return; }
+    if (!motivoForm.trim()) { showToast("Justifique o ajuste.", "error"); return; }
+    const r = await adicionarAjusteRanking(ajusteModal.usuario.id, pts, motivoForm.trim());
+    if (!r.ok) { showToast(r.error || "Não foi possível salvar.", "error"); return; }
+    setAjusteModal(null); setPontosForm(""); setMotivoForm("");
+    carregarRanking();
+    showToast("Ajuste registrado.");
+  };
+
+  const removerAjuste = async (id) => {
+    if (!window.confirm("Remover este ajuste?")) return;
+    const r = await removerAjusteRanking(id);
+    if (!r.ok) { showToast(r.error || "Não foi possível remover.", "error"); return; }
+    carregarRanking();
+  };
+
+  return (
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <PageHero
+        eyebrow="Comunicação interna"
+        title="Comunicação"
+        description="Conversa da equipe, prioridades do dia e ranking de engenharia de campo."
+      />
+      <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
+        {[["conversa", "Conversa"], ["notificacoes", "Notificações"], ["ranking", "Ranking"]].map(([v, l]) => (
+          <button key={v} onClick={() => setAba(v)} style={{
+            border: 0, background: "transparent", cursor: "pointer", padding: "8px 12px",
+            fontSize: 12, fontWeight: aba === v ? 800 : 500, color: aba === v ? C.text : C.muted,
+            borderBottom: `2px solid ${aba === v ? C.yellow : "transparent"}`, marginBottom: -1,
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {aba === "conversa" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {euEstouMutado && <div style={{ padding: "8px 11px", border: `1px solid ${C.red}44`, background: `${C.red}0A`, borderRadius: 8, fontSize: 10.5, color: C.red }}>Você foi silenciado pelo administrador e não pode enviar mensagens.</div>}
+          <div ref={scrollRef} style={{ height: 440, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
+            {carregandoChat ? <p style={{ fontSize: 11, color: C.muted, textAlign: "center" }}>Carregando...</p>
+              : !mensagens.length ? <p style={{ fontSize: 11, color: C.muted, textAlign: "center" }}>Nenhuma mensagem ainda. Comece a conversa.</p>
+              : mensagens.map(m => {
+                const minha = m.userId === currentUser?.id;
+                const apagada = !!m.deletedAt;
+                return (
+                  <div key={m.id} style={{ alignSelf: minha ? "flex-end" : "flex-start", maxWidth: "78%" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, justifyContent: minha ? "flex-end" : "flex-start" }}>
+                      <span style={{ fontSize: 9, fontWeight: 800, color: C.muted }}>{m.userName}</span>
+                      <span style={{ fontSize: 8.5, color: C.muted }}>{new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{
+                        padding: "8px 11px", borderRadius: 10, background: apagada ? C.surface : (minha ? C.yellow : C.card),
+                        border: `1px solid ${apagada ? C.border : (minha ? C.yellowD : C.border)}`,
+                        color: apagada ? C.muted : (minha ? C.ink : C.text), fontStyle: apagada ? "italic" : "normal", fontSize: 11.5, lineHeight: 1.4,
+                      }}>
+                        {apagada ? "Mensagem apagada pelo administrador" : m.text}
+                      </div>
+                      {ehAdmin && !apagada && <Btn v="ghost" size="sm" iconOnly title="Apagar mensagem" ariaLabel="Apagar mensagem" onClick={() => apagar(m.id)}><Ic n="trash" s={11} /></Btn>}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={texto} onChange={e => setTexto(e.target.value)} disabled={euEstouMutado || enviando}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
+              placeholder={euEstouMutado ? "Você está silenciado" : "Escreva uma mensagem..."}
+              style={{ flex: 1, height: 40, border: `1px solid ${C.border}`, borderRadius: 8, background: C.bg, color: C.text, padding: "0 12px", fontSize: 12, outline: "none" }} />
+            <Btn onClick={enviar} disabled={euEstouMutado || enviando || !texto.trim()}><Ic n="check" /> Enviar</Btn>
+          </div>
+          <p style={{ fontSize: 9, color: C.muted }}>Envio de imagens, áudios e vídeos integrados ao OneDrive ainda não está disponível nesta versão.</p>
+
+          {ehAdmin && (
+            <div style={{ marginTop: 6, padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
+              <p style={{ fontSize: 10, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: .6, marginBottom: 8 }}>Gestão do grupo</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {(data.usuarios || []).filter(u => u.active !== false && u.id !== currentUser?.id).map(u => {
+                  const mutado = mutados.some(m => m.userId === u.id);
+                  return (
+                    <div key={u.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 0", borderTop: `1px solid ${C.line}` }}>
+                      <span style={{ fontSize: 11 }}>{u.nome}</span>
+                      <Btn size="sm" v={mutado ? "danger" : "ghost"} onClick={() => alternarMudo(u.id, mutado)}>{mutado ? "Dessilenciar" : "Silenciar"}</Btn>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {aba === "notificacoes" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <p style={{ fontSize: 10.5, color: C.muted }}>Prioridades do dia por engenheiro de campo: ponto, diário de obra e conferências.</p>
+          {!checklistPorUsuario.length && <p style={{ padding: 20, textAlign: "center", color: C.muted, fontSize: 11 }}>Nenhum engenheiro de campo cadastrado.</p>}
+          {checklistPorUsuario.map(c => (
+            <div key={c.usuario.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 9, padding: "11px 13px" }}>
+              <p style={{ fontSize: 11.5, fontWeight: 800, color: C.text }}>{c.usuario.nome}</p>
+              <div style={{ display: "flex", gap: 14, marginTop: 6, flexWrap: "wrap" }}>
+                {[["Ponto", c.pontoOk], ["Diário de obra", c.diarioOk], ["Conferências", c.conferenciasOk]].map(([l, ok]) => (
+                  <span key={l} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, color: ok ? C.green : C.red, fontWeight: 700 }}>
+                    <Ic n={ok ? "check" : "alert"} s={12} color={ok ? C.green : C.red} />{l}
+                  </span>
+                ))}
+              </div>
+              {!c.conferenciasOk && <p style={{ fontSize: 9.5, color: C.red, marginTop: 4 }}>{c.pendenciasAbertas} pendência(s) de conferência em aberto.</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {aba === "ranking" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <p style={{ fontSize: 10.5, color: C.muted }}>10 pontos por item do checklist de hoje (ponto, diário, conferências) + ajustes manuais do administrador.</p>
+          {ranking.map((r, idx) => (
+            <div key={r.usuario.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: C.card, border: `1px solid ${idx === 0 ? C.yellow : C.border}`, borderRadius: 9, padding: "10px 13px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                <span style={{ fontSize: 14, fontWeight: 900, color: idx < 3 ? C.yellowD : C.muted, width: 20 }}>{idx + 1}º</span>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 11.5, fontWeight: 800, color: C.text }}>{r.usuario.nome}</p>
+                  <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>{r.pontosAutomaticos} pts checklist{r.pontosManual ? ` · ${r.pontosManual > 0 ? "+" : ""}${r.pontosManual} ajuste` : ""}</p>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <b style={{ fontSize: 16, color: C.text }}>{r.total}</b>
+                {ehAdmin && <Btn size="sm" v="ghost" onClick={() => setAjusteModal({ usuario: r.usuario })}><Ic n="edit" s={11} /> Ajustar</Btn>}
+              </div>
+            </div>
+          ))}
+          {ehAdmin && !!ajustes.length && (
+            <div style={{ marginTop: 8 }}>
+              <p style={{ fontSize: 10, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: .6, marginBottom: 6 }}>Histórico de ajustes</p>
+              {ajustes.map(a => {
+                const u = (data.usuarios || []).find(x => x.id === a.userId);
+                return (
+                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", padding: "7px 0", borderTop: `1px solid ${C.line}` }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: 10.5 }}><b>{u?.nome || "Usuário"}</b> {a.pontos > 0 ? "+" : ""}{a.pontos} pts · {a.motivo}</p>
+                      <p style={{ fontSize: 8.5, color: C.muted, marginTop: 2 }}>{a.criadoPor} · {fmtDateFull(String(a.criadoEm || "").slice(0, 10))}</p>
+                    </div>
+                    <Btn size="sm" v="ghost" iconOnly title="Remover ajuste" ariaLabel="Remover ajuste" onClick={() => removerAjuste(a.id)}><Ic n="trash" s={11} /></Btn>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {ajusteModal && (
+        <Modal title={`Ajustar ranking · ${ajusteModal.usuario.nome}`} onClose={() => setAjusteModal(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <Inp label="Pontos (use negativo para descontar) *" type="number" value={pontosForm} onChange={setPontosForm} placeholder="Ex.: 10 ou -5" />
+            <Inp label="Justificativa *" value={motivoForm} onChange={setMotivoForm} multiline placeholder="Ex.: Entregou o diário atrasado três vezes na semana." />
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn v="ghost" onClick={() => setAjusteModal(null)} full>Cancelar</Btn>
+              <Btn onClick={salvarAjuste} full>Salvar ajuste</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // NAVEGAÇÃO - grupos e sub-tabs
-// 
+//
 
 // Menu organizado pelos SETORES da empresa: Engenharia, Compras, Financeiro,
 // Comercial e RH têm grupos próprios. Ajustes e
@@ -33687,7 +33961,7 @@ const NAV_GROUPS = [
   },
   {
     id: "painel", label: "Painel", icon: "home", color: C.yellow,
-    tabs: ["home", "tv"],
+    tabs: ["home", "tv", "chat"],
   },
   {
     id: "eng_grp", label: "Engenharia", icon: "building", color: C.blue,
@@ -33725,6 +33999,7 @@ const TAB_META = {
   admin_central:{ label:"Central do administrador", icon:"shield", group:"admin_grp" },
   home:   { label: "Dashboard",  icon: "home",     group: "painel"   },
   tv:     { label: "Modo TV",    icon: "eye",      group: "painel"   },
+  chat:   { label: "Comunicação",icon: "mail",     group: "painel"   },
   obras:  { label: "Obras",      icon: "building", group: "eng_grp"},
   orc:    { label: "Orçamento",  icon: "fileText", group: "eng_grp"},
   com_dash:{label:"Dashboard",icon:"chart",group:"com_grp"},
@@ -34251,7 +34526,16 @@ export default function App() {
   const toggleGrupo = useCallback((gid) => {
     setGruposAbertos(prev => ({ ...prev, [gid]: !prev[gid] }));
   }, []);
-  const hasSubTabs   = activeGroup?.tabs.length > 1;
+  // Obras ativas para o submenu de Engenharia - acesso direto à obra sem
+  // passar pela lista em "Obras". Respeita a mesma restrição de obra única
+  // que o usuário já tem no resto do sistema.
+  const obrasMenuEngenharia = useMemo(() => (data?.obras||[])
+    .filter(o => o.status==="active" && (!currentUser?.obraId || o.id===currentUser.obraId))
+    .sort((a,b)=>a.name.localeCompare(b.name)),
+    [data?.obras, currentUser?.obraId]);
+
+  const hasSubTabs   = activeGroup?.tabs.length > 1 ||
+    (activeGroup?.id==="eng_grp" && obrasMenuEngenharia.length>0);
 
   // Layout responsivo
   const { isDesktop, pick } = useBreakpoint();
@@ -34591,6 +34875,22 @@ export default function App() {
                             </button>
                           );
                         })}
+                        {group.id==="eng_grp" && obrasMenuEngenharia.length>0 && (<>
+                          <p style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.6,margin:"8px 10px 3px"}}>Obras ativas</p>
+                          {obrasMenuEngenharia.map(obra => (
+                            <button
+                              key={obra.id}
+                              className="nav-item"
+                              data-active={tab==="obras"&&obraAberta===obra.id}
+                              onClick={() => irPara("obras", obra.id)}
+                              aria-current={(tab==="obras"&&obraAberta===obra.id) ? "page" : undefined}
+                              title={obra.name}
+                            >
+                              <Ic n="building" s={13}/>
+                              <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{obra.name}</span>
+                            </button>
+                          ))}
+                        </>)}
                       </div>
                     )}
                   </div>
@@ -34748,6 +35048,7 @@ export default function App() {
             : <Dashboard data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} />)}
           {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV}/>}
+          {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
           {tab === "admin_central" && <CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
           {tab.startsWith("com_") && <Comercial data={data} update={update} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} />}
           {tab === "obras"  && (obraAberta
@@ -34826,6 +35127,26 @@ export default function App() {
                       <Ic n={meta.icon} s={12}/>
                       {meta.label}
                       {isActive && <span style={{ width:5, height:5, background:activeGroup.color, borderRadius:"50%", flexShrink:0 }}/>}
+                    </button>
+                  );
+                })}
+                {activeGroup?.id==="eng_grp" && obrasMenuEngenharia.map(obra => {
+                  const isActive = tab==="obras" && obraAberta===obra.id;
+                  return (
+                    <button key={obra.id} onClick={() => irPara("obras", obra.id)} style={{
+                      flexShrink:0,
+                      background: isActive ? `${activeGroup.color}22` : "transparent",
+                      color: isActive ? activeGroup.color : C.muted,
+                      border: `1.5px solid ${isActive ? activeGroup.color : C.line}`,
+                      borderRadius:999, padding:"5px 14px",
+                      fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:13,
+                      letterSpacing:.5, cursor:"pointer", whiteSpace:"nowrap",
+                      display:"flex", alignItems:"center", gap:5,
+                      transition:"all .15s ease",
+                      "--ic-color": isActive ? activeGroup.color : C.muted,
+                    }}>
+                      <Ic n="building" s={12}/>
+                      {obra.name}
                     </button>
                   );
                 })}
