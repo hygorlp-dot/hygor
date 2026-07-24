@@ -280,6 +280,19 @@ export const listarPresencas = async () => {
   return { ok: true, presencas: r.presencas || [], serverTime: r.serverTime };
 };
 
+// ── Chat interno da empresa ─────────────────────────────────────────
+export const enviarMensagemChat = texto => chamarRotaAutenticada("/api/chat", { action: "send", text: texto });
+export const listarMensagensChat = () => chamarRotaAutenticada("/api/chat", { action: "list" });
+export const apagarMensagemChat = messageId => chamarRotaAutenticada("/api/chat", { action: "delete", messageId });
+export const silenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/chat", { action: "mute", targetUserId });
+export const dessilenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/chat", { action: "unmute", targetUserId });
+
+// ── Ranking de engenheiros de campo (ajustes manuais) ───────────────
+export const listarAjustesRanking = () => chamarRotaAutenticada("/api/ranking", { action: "list" });
+export const adicionarAjusteRanking = (targetUserId, pontos, motivo) =>
+  chamarRotaAutenticada("/api/ranking", { action: "add", targetUserId, pontos, motivo });
+export const removerAjusteRanking = adjustmentId => chamarRotaAutenticada("/api/ranking", { action: "remove", adjustmentId });
+
 // ── Quinzenas arquivadas ──────────────────────────────────────────
 // Quinzena finalizada e paga sai do JSON principal e vira linha propria no
 // banco. As acoes que ALTERAM o principal (arquivar/restaurar) devolvem o
