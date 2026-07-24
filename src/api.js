@@ -280,18 +280,20 @@ export const listarPresencas = async () => {
   return { ok: true, presencas: r.presencas || [], serverTime: r.serverTime };
 };
 
-// ── Chat interno da empresa ─────────────────────────────────────────
-export const enviarMensagemChat = texto => chamarRotaAutenticada("/api/chat", { action: "send", text: texto });
-export const listarMensagensChat = () => chamarRotaAutenticada("/api/chat", { action: "list" });
-export const apagarMensagemChat = messageId => chamarRotaAutenticada("/api/chat", { action: "delete", messageId });
-export const silenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/chat", { action: "mute", targetUserId });
-export const dessilenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/chat", { action: "unmute", targetUserId });
+// ── Chat interno da empresa e ranking (ajustes manuais) ─────────────
+// Dividem o endpoint /api/presence (dispatch por "action") em vez de cada um
+// ganhar seu próprio arquivo - o Hobby plan do Vercel tem um teto de 12
+// Serverless Functions por deployment.
+export const enviarMensagemChat = texto => chamarRotaAutenticada("/api/presence", { action: "chat-send", text: texto });
+export const listarMensagensChat = () => chamarRotaAutenticada("/api/presence", { action: "chat-list" });
+export const apagarMensagemChat = messageId => chamarRotaAutenticada("/api/presence", { action: "chat-delete", messageId });
+export const silenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/presence", { action: "chat-mute", targetUserId });
+export const dessilenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/presence", { action: "chat-unmute", targetUserId });
 
-// ── Ranking de engenheiros de campo (ajustes manuais) ───────────────
-export const listarAjustesRanking = () => chamarRotaAutenticada("/api/ranking", { action: "list" });
+export const listarAjustesRanking = () => chamarRotaAutenticada("/api/presence", { action: "ranking-list" });
 export const adicionarAjusteRanking = (targetUserId, pontos, motivo) =>
-  chamarRotaAutenticada("/api/ranking", { action: "add", targetUserId, pontos, motivo });
-export const removerAjusteRanking = adjustmentId => chamarRotaAutenticada("/api/ranking", { action: "remove", adjustmentId });
+  chamarRotaAutenticada("/api/presence", { action: "ranking-add", targetUserId, pontos, motivo });
+export const removerAjusteRanking = adjustmentId => chamarRotaAutenticada("/api/presence", { action: "ranking-remove", adjustmentId });
 
 // ── Quinzenas arquivadas ──────────────────────────────────────────
 // Quinzena finalizada e paga sai do JSON principal e vira linha propria no
