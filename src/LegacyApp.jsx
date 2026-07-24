@@ -527,17 +527,16 @@ input:focus,select:focus,textarea:focus{
 div::-webkit-scrollbar{height:0;width:0}
 /* Ponto da quinzena: controles e legenda (sem estas regras os filtros e a
    legenda caiam um sob o outro, sem espaçamento nem quebra responsiva). */
-.ponto-geral-controls{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:0 -1px}
-.ponto-geral-filters{display:flex;gap:8px;flex-wrap:wrap;flex:1;min-width:0}
-.ponto-geral-filters>label{flex:1;min-width:140px}
-.ponto-geral-bulk{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.ponto-geral-bulk>span{font-size:10.5px;color:${C.muted};font-weight:600}
-.ponto-geral-legend{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:10px;color:${C.muted};padding:2px}
+.ponto-geral-controls{background:${C.card};border:1px solid ${C.border};border-radius:${C.rLg}px;padding:12px 14px}
+.ponto-geral-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px;align-items:end}
+.ponto-geral-count{font-size:10px;color:${C.muted};font-weight:600;margin-top:10px;padding-top:10px;border-top:1px solid ${C.line}}
+.ponto-geral-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:10px;color:${C.muted};padding:9px 2px}
 .ponto-legend-title{font-weight:800;color:${C.text}}
-.ponto-legend-help{margin-left:auto}
+.ponto-legend-chip{display:inline-flex;align-items:center;gap:5px}
+.ponto-legend-chip>i{width:8px;height:8px;border-radius:99px;display:block;flex-shrink:0}
+.ponto-legend-help{margin-left:auto;font-style:italic}
 @media(max-width:767px){
-  .ponto-geral-controls{flex-direction:column;align-items:stretch}
-  .ponto-geral-bulk{justify-content:space-between}
+  .ponto-geral-filters{grid-template-columns:1fr 1fr}
   .ponto-legend-help{margin-left:0;width:100%}
 }
 `;
@@ -1330,8 +1329,8 @@ const CORES_FASE = [
 
 const CONTRACT_TYPES = [
   { v: "fixed_labor",       l: "Somente MO - entrada + parcelas fixas"                },
-  { v: "admin_only",        l: "Somente Administração - % sobre custo MO"             },
-  { v: "fixed_labor_admin", l: "Misto - MO fixo + % Administração"                    },
+  { v: "admin_only",        l: "Somente Administração - % sobre todos os custos"      },
+  { v: "fixed_labor_admin", l: "Misto - MO fixo + % sobre materiais e terceirizados"  },
 ];
 
 // ==============================================================
@@ -2093,6 +2092,9 @@ const normalizeData = incoming => {
       categoria: x.categoria || "outros",
       descricao: x.descricao || "",
       valor: Number(x.valor || 0),
+      // Só material pode ficar fora da taxa de administração; ausência do
+      // campo (dado antigo) equivale a true - sempre contou até aqui.
+      contaAdmin: x.contaAdmin !== false,
     })) : [],
     despesasEmpresa: Array.isArray(d.despesasEmpresa) ? d.despesasEmpresa.map(x => ({
       id:          x.id          || uid(),
@@ -3581,18 +3583,34 @@ const _calcObraLaborCostRaw = (data, obraId, days) => {
   return { laborCost, benefitCost, totalCost: laborCost + benefitCost };
 };
 
-const calcObraRevenue = (obra, laborCost) => {
+// extraCosts é opcional (default = tudo zero) para não quebrar quem ainda
+// chama calcObraRevenue só com laborCost - só passa a mudar o resultado de
+// admin_only/fixed_labor_admin quem efetivamente informar os custos extras.
+// Regra de negócio (fechamento por administração):
+//   - "admin_only" (obra fechada só por administração): a receita prevista é
+//     o percentual de admin sobre TODOS os custos gastos no período (MO,
+//     benefícios, materiais, terceirizados, equipamentos, rescisões).
+//   - "fixed_labor_admin" (misto: mão de obra fixa + administração): a MO já
+//     está coberta pelo valor fixo do contrato, então o percentual de admin
+//     incide só sobre MATERIAIS e TERCEIRIZADOS gastos no período.
+const calcObraRevenue = (obra, laborCost, extraCosts = {}) => {
   const ct = obra.contractType || "fixed_labor";
   const cv = Number(obra.contractValue||0);
   const ap = Number(obra.adminPercentage||0)/100;
+  const {
+    benefitCost = 0, materialCost = 0, tercCost = 0,
+    outrasTotal = 0, equipCost = 0, rescTotal = 0,
+  } = extraCosts;
+  const totalCost = laborCost + benefitCost + tercCost + outrasTotal + equipCost + rescTotal;
+  const adminBaseMisto = materialCost + tercCost;
   let revenue = 0;
-  if (ct === "fixed_labor")       revenue = cv;
-  else if (ct === "fixed_labor_admin") revenue = cv + laborCost * ap;
-  else if (ct === "admin_only")   revenue = laborCost * ap;
+  if (ct === "fixed_labor")            revenue = cv;
+  else if (ct === "fixed_labor_admin") revenue = cv + adminBaseMisto * ap;
+  else if (ct === "admin_only")        revenue = totalCost * ap;
   const margin = revenue - laborCost;
   const marginPct = revenue > 0 ? (margin/revenue)*100 : 0;
   const commitment = cv > 0 ? (laborCost/cv)*100 : null;
-  return { revenue, margin, marginPct, commitment };
+  return { revenue, margin, marginPct, commitment, totalCost, adminBaseMisto };
 };
 
 // 
@@ -4701,7 +4719,17 @@ function FinanceiroObraPainel({data,update,showToast,obraId}){
     </section><section className="obra-fin-next"><div><h3>Próximas receitas</h3>{filtrar(movimentos.filter(m=>m.tipo==="receita"&&m.status!=="realizado")).slice(0,5).map(m=><p key={m.id}><span>{m.descricao}<small>{m.data?fmtDate(m.data):"Sem vencimento"}</small></span><b>{fmt(m.valor)}</b></p>)||null}{!movimentos.some(m=>m.tipo==="receita"&&m.status!=="realizado")&&<em>Nenhuma receita futura cadastrada.</em>}</div><div><h3>Próximas despesas</h3>{movimentos.filter(m=>m.tipo==="despesa"&&m.status!=="realizado").slice(0,5).map(m=><p key={m.id}><span>{m.descricao}<small>{m.data?fmtDate(m.data):"Sem vencimento"}</small></span><b>{fmt(m.valor)}</b></p>)}{!movimentos.some(m=>m.tipo==="despesa"&&m.status!=="realizado")&&<em>Nenhuma despesa futura cadastrada.</em>}</div></section></>}
     {["receitas","despesas","movimentos"].includes(aba)&&<Tabela lista={listaAba}/>}
     {aba==="orcado"&&<section className="obra-fin-budget"><div className="obra-fin-budget-kpis"><Metric label="Custo orçado" value={orcado} detail="Orçamento aprovado"/><Metric label="Custo realizado" value={realizadoCustos} detail={`${orcado?(realizadoCustos/orcado*100).toFixed(1):"0,0"}% consumido`} tone={realizadoCustos>orcado?"danger":"negative"}/><Metric label="Saldo do orçamento" value={orcado-realizadoCustos} detail="Disponível para executar" tone={orcado-realizadoCustos>=0?"positive":"danger"}/></div><div className="obra-fin-budget-progress"><div><span>Execução financeira</span><b>{orcado?Math.round(realizadoCustos/orcado*100):0}%</b></div><i><b style={{width:`${Math.min(100,orcado?realizadoCustos/orcado*100:0)}%`}}/></i></div><div className="obra-fin-categories"><h3>Custos realizados por categoria</h3>{categorias.map(([l,v])=><div key={l}><span>{l}</span><i><b style={{width:`${realizadoCustos?v/realizadoCustos*100:0}%`}}/></i><strong>{fmt(v)}</strong></div>)}{!categorias.length&&<em>Sem custos realizados nesta competência.</em>}</div></section>}
-    {despModal&&<Modal title="Nova despesa da obra" onClose={()=>setDespModal(false)}><div style={{display:"grid",gap:10}}><Inp label="Obra" value={obra?.name||""} onChange={()=>{}} disabled/><Inp label="Descrição *" value={despForm.descricao} onChange={v=>setDespForm(f=>({...f,descricao:v}))}/><Sel label="Categoria" value={despForm.categoria} onChange={v=>setDespForm(f=>({...f,categoria:v}))} options={categoriasDesp(data)}/><Inp label="Competência" type="month" value={despForm.competencia} onChange={v=>setDespForm(f=>({...f,competencia:v}))}/><Inp label="Valor *" type="number" value={despForm.valor} onChange={v=>setDespForm(f=>({...f,valor:v}))}/><div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setDespModal(false)}>Cancelar</Btn><Btn full onClick={salvarDespesa}>Salvar despesa</Btn></div></div></Modal>}
+    {despModal&&<Modal title="Nova despesa da obra" onClose={()=>setDespModal(false)}><div style={{display:"grid",gap:10}}><Inp label="Obra" value={obra?.name||""} onChange={()=>{}} disabled/><Inp label="Descrição *" value={despForm.descricao} onChange={v=>setDespForm(f=>({...f,descricao:v}))}/><Sel label="Categoria" value={despForm.categoria} onChange={v=>setDespForm(f=>({...f,categoria:v}))} options={categoriasDesp(data)}/><Inp label="Competência" type="month" value={despForm.competencia} onChange={v=>setDespForm(f=>({...f,competencia:v}))}/><Inp label="Valor *" type="number" value={despForm.valor} onChange={v=>setDespForm(f=>({...f,valor:v}))}/>
+      {despForm.categoria==="material" && ["admin_only","fixed_labor_admin"].includes(obra?.contractType) && (
+        <div>
+          <p style={{fontSize:11,fontWeight:700,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Este material entra na taxa de administração?</p>
+          <div style={{display:"flex",gap:8}}>
+            <Btn size="sm" v={despForm.contaAdmin!==false?"success":"ghost"} onClick={()=>setDespForm(f=>({...f,contaAdmin:true}))} full>Sim, entra</Btn>
+            <Btn size="sm" v={despForm.contaAdmin===false?"danger":"ghost"} onClick={()=>setDespForm(f=>({...f,contaAdmin:false}))} full>Não entra</Btn>
+          </div>
+        </div>
+      )}
+      <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setDespModal(false)}>Cancelar</Btn><Btn full onClick={salvarDespesa}>Salvar despesa</Btn></div></div></Modal>}
   </div>;
 }
 
@@ -5450,6 +5478,18 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             <Sel label="Categoria *" value={despForm.categoria} onChange={DF("categoria")} options={categoriasDesp(data)}/>
             <Inp label="Descrição" value={despForm.descricao} onChange={DF("descricao")} placeholder="Ex.: Concreto fck 25 - 20m, Andaime locado..."/>
             <Inp label="Valor (R$) *" type="number" value={despForm.valor} onChange={DF("valor")} placeholder="0,00"/>
+            {despForm.categoria==="material" && ["admin_only","fixed_labor_admin"].includes(
+              (data.obras.find(o=>o.id===(obraIdFixo||despForm.obraId))||{}).contractType
+            ) && (
+              <div>
+                <p style={{fontSize:11,fontWeight:700,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Este material entra na taxa de administração?</p>
+                <div style={{display:"flex",gap:6}}>
+                  <Btn size="sm" v={despForm.contaAdmin!==false?"success":"ghost"} onClick={()=>DF("contaAdmin")(true)} full>Sim, entra</Btn>
+                  <Btn size="sm" v={despForm.contaAdmin===false?"danger":"ghost"} onClick={()=>DF("contaAdmin")(false)} full>Não entra</Btn>
+                </div>
+                <p style={{fontSize:9.5,color:C.muted,marginTop:5,lineHeight:1.4}}>Material comprado direto pelo cliente ou já embutido no contrato, por exemplo, não deve entrar na base do percentual de administração.</p>
+              </div>
+            )}
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setDespModal(false)} full>Cancelar</Btn>
               <Btn v="warning" onClick={saveDesp} full><Ic n="check"/> Lançar</Btn>
@@ -5945,16 +5985,21 @@ function MedicoesView({ data, update, showToast }) {
           const statusColor = {pago:C.green,vencido:C.red,alerta:C.orange,normal:C.border,sem_data:C.border}[statusVenc];
           const statusLabel = {pago:"ok RECEBIDO",vencido:`VENCIDO (${Math.abs(diffDias)}d)`,alerta:`VENCE ${diffDias===0?"HOJE":`EM ${diffDias}d`}`,normal:`Vence ${fmtDateFull(m.dataVencimento)}`,sem_data:"Pendente"}[statusVenc];
 
-          // Calcular Admin % real para o período
-          const calcAdminPct = () => {
-            if (!m.competencia) return 0;
+          // Previsão do percentual de administração para a competência da
+          // medição. Regra: obra "admin_only" cobra o percentual sobre TODOS
+          // os custos gastos no período; obra "mista" (MO fixa + admin) cobra
+          // só sobre materiais e terceirizados - a MO já está no valor fixo.
+          const ehAdminOnly = obra?.contractType==="admin_only";
+          const contemAdmin = ehAdminOnly||obra?.contractType==="fixed_labor_admin";
+          const previsaoAdmin = (() => {
+            if (!contemAdmin || !m.competencia) return null;
             const [y,mo] = m.competencia.split("-").map(Number);
-            const mdays = getDays(y,mo-1);
-            const {laborCost} = calcObraLaborCost(data,selObra,mdays);
-            return laborCost * Number(obra?.adminPercentage||0)/100;
-          };
-
-          const contemAdmin = obra?.contractType==="admin_only"||obra?.contractType==="fixed_labor_admin";
+            const dre = calcDREObra(data, selObra, y, mo-1, "mes");
+            const materialCost = calcObraMaterialCost(data, selObra, m.competencia);
+            const ap = Number(obra?.adminPercentage||0)/100;
+            const base = ehAdminOnly ? dre.totalCustos : (materialCost + dre.tercCost);
+            return { valor: base*ap, base, materialCost, tercCost: dre.tercCost, totalCustos: dre.totalCustos };
+          })();
 
           return (
             <div key={m.id} style={{
@@ -5995,21 +6040,30 @@ function MedicoesView({ data, update, showToast }) {
                     <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Data pgto</p><p style={{fontSize:12,color:C.muted}}>{fmtDateFull(m.dataPagamento)}</p></div></>}
                   </div>
 
-                  {/* Botão calcular Admin % (se não calculado) */}
-                  {contemAdmin && m.valorAdminPct===0 && m.competencia && !m.recebido && (
-                    <button onClick={()=>{
-                      const adminVal = calcAdminPct();
-                      if (adminVal===0) { showToast("Lance o ponto do período para calcular.","error"); return; }
-                      const novoTotal = Number(m.valorMOFixo||0) + adminVal;
-                      const updated = {...m, valorAdminPct:adminVal, valorPrevisto:novoTotal};
-                      update({...data,medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
-                      showToast(`Admin ${fmt(adminVal)} calculado com base na MO do período.`);
-                    }} style={{
-                      marginTop:8,background:"transparent",border:`1px solid ${C.purple}`,
-                      color:C.purple,padding:"3px 10px",borderRadius:4,fontSize:11,cursor:"pointer",fontWeight:700,
-                    }}>
-                       Calcular Admin {obra?.adminPercentage||0}% sobre MO real
-                    </button>
+                  {/* Previsão + fechamento do valor de administração (se ainda não calculado) */}
+                  {contemAdmin && m.valorAdminPct===0 && m.competencia && !m.recebido && previsaoAdmin && (
+                    <div style={{marginTop:8,padding:"8px 10px",border:`1px solid ${C.purple}44`,borderRadius:6,background:`${C.purple}08`}}>
+                      <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,marginBottom:4}}>
+                        Previsão de fechamento · {ehAdminOnly?"admin. sobre todos os custos":"admin. sobre materiais e terceirizados"}
+                      </p>
+                      <p style={{fontSize:10.5,color:C.subtle,lineHeight:1.5}}>
+                        {ehAdminOnly
+                          ? `Custos do período: ${fmt(previsaoAdmin.totalCustos)} (MO, benefícios, materiais, terceirizados, equipamentos e rescisões).`
+                          : `Materiais gastos: ${fmt(previsaoAdmin.materialCost)} · Terceirizados: ${fmt(previsaoAdmin.tercCost)}.`}
+                      </p>
+                      <p style={{fontSize:13,fontWeight:800,color:C.purple,marginTop:4}}>
+                        {obra?.adminPercentage||0}% de {fmt(previsaoAdmin.base)} = {fmt(previsaoAdmin.valor)}
+                      </p>
+                      <Btn size="sm" v="ghost" style={{marginTop:6}} onClick={()=>{
+                        if (previsaoAdmin.valor<=0) { showToast("Ainda não há custos lançados neste período para calcular.","error"); return; }
+                        const novoTotal = Number(m.valorMOFixo||0) + previsaoAdmin.valor;
+                        const updated = {...m, valorAdminPct:previsaoAdmin.valor, valorPrevisto:novoTotal};
+                        update({...data,medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
+                        showToast(`Fechado: administração de ${fmt(previsaoAdmin.valor)} aplicada à medição.`);
+                      }}>
+                        Fechar valor desta competência
+                      </Btn>
+                    </div>
                   )}
                 </div>
 
@@ -6755,7 +6809,16 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
       const {laborCost, benefitCost, totalCost} = calcObraLaborCost(data, o.id, days);
       const tercCost = calcObraTercCost(data, o.id, periodStart, periodEnd);
       const totalLaborAll = laborCost + tercCost;
-      const {revenue, margin: marginMO, marginPct: marginPctMO, commitment} = calcObraRevenue(o, laborCost);
+      const ym = `${year}-${String(month+1).padStart(2,"0")}`;
+      const materialCost = calcObraMaterialCost(data, o.id, ym);
+      const dreObraMes = calcDREObra(data, o.id, year, month, "mes");
+      const {
+        revenue, margin: marginMO, marginPct: marginPctMO, commitment,
+        totalCost: totalCostAdmin, adminBaseMisto,
+      } = calcObraRevenue(o, laborCost, {
+        benefitCost, materialCost, tercCost,
+        outrasTotal: dreObraMes.outrasTotal, equipCost: dreObraMes.equipCost, rescTotal: dreObraMes.rescTotal,
+      });
       const marginReal = revenue - totalLaborAll;
       const marginRealPct = revenue > 0 ? (marginReal/revenue)*100 : 0;
       const received = (data.payments||[])
@@ -6767,12 +6830,14 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
       const activeEmps = data.employees.filter(e=>e.active!==false&&e.obra===o.id).length;
       const activeTercCount = (data.terceirizados||[]).filter(t=>t.active!==false&&t.obraId===o.id).length;
       return {
-        ...o, laborCost, benefitCost, totalCost, tercCost, totalLaborAll,
+        ...o, laborCost, benefitCost, totalCost, tercCost, totalLaborAll, materialCost,
+        totalCostAdmin, adminBaseMisto,
         revenue, margin: marginReal, marginPct: marginRealPct, marginMO, marginPctMO,
         commitment, received, receivedTotal, activeEmps, activeTercCount,
       };
     }), [data.obras, data.attendance, data.employees, data.pagsTerceiros, data.payments,
-         data.terceirizados, filterObra, days, year, month, periodStart, periodEnd]);
+         data.terceirizados, data.outrasDesp, data.medicoes, data.rescisoes, data.equipamentos, data.locacoesEquip,
+         filterObra, days, year, month, periodStart, periodEnd]);
 
   const T = useMemo(() => ({
     revenue:  obraRows.reduce((s,r)=>s+r.revenue,      0),
@@ -7071,8 +7136,8 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
                     </div>
                   ))}
                 </div>
-                {r.contractType==="fixed_labor_admin"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = Contrato ({fmt(r.contractValue)}) + {r.adminPercentage}% sobre MO ({fmt(r.laborCost)})</p>}
-                {r.contractType==="admin_only"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = {r.adminPercentage}% sobre MO total ({fmt(r.laborCost)})</p>}
+                {r.contractType==="fixed_labor_admin"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = Contrato ({fmt(r.contractValue)}) + {r.adminPercentage}% sobre materiais e terceirizados ({fmt(r.adminBaseMisto)})</p>}
+                {r.contractType==="admin_only"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = {r.adminPercentage}% sobre todos os custos gastos ({fmt(r.totalCostAdmin)})</p>}
                 {r.contractType==="fixed_labor"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = valor fixo do contrato ({fmt(r.contractValue)})</p>}
               </div>
             )}
@@ -7878,7 +7943,14 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
             <Sel label="Modalidade do contrato *" value={form.contractType} onChange={setField("contractType")} options={CONTRACT_TYPES}/>
             <Inp label="Valor total do contrato (R$)" type="number" value={form.contractValue} onChange={setField("contractValue")} placeholder="0,00"/>
             {(form.contractType === "fixed_labor_admin" || form.contractType === "admin_only") && (
-              <Inp label="% Administração sobre custo MO" type="number" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12"/>
+              <div style={{gridColumn: form.contractType==="admin_only"?"1/-1":"auto"}}>
+                <Inp label="% Administração" type="number" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12"/>
+                <p style={{fontSize:9.5,color:C.muted,marginTop:4}}>
+                  {form.contractType==="admin_only"
+                    ? "Incide sobre todos os custos gastos na obra (mão de obra, benefícios, materiais, terceirizados, equipamentos e rescisões)."
+                    : "Incide só sobre materiais e terceirizados gastos - a mão de obra já está coberta pela parcela fixa abaixo."}
+                </p>
+              </div>
             )}
             {(form.contractType === "fixed_labor" || form.contractType === "fixed_labor_admin") && (
               <Inp label="Valor parcela MO fixo (R$)" type="number" value={form.parcelaMensal} onChange={setField("parcelaMensal")} placeholder="Ex.: 15.000"/>
@@ -8550,25 +8622,13 @@ function PontoGeral({ data, update, showToast, currentUser }) {
     update({...data,attendance:{...(data.attendance||{}),[emp.id]:{...(data.attendance?.[emp.id]||{}),[date]:{...novo,obraId:novo.status?obraId:(novo.obraId||obraId)}}}});
   };
 
-  const preencherLinha=emp=>{
-    if(bloqueadoPorArquivo())return;
-    const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};let bloqueados=0;
-    days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}const ant=getAtt(data,emp.id,date)||{};mapa[date]={...ant,status:"P",obraId};});
-    attendance[emp.id]=mapa;update({...data,attendance});showToast(bloqueados?`Período preenchido; ${bloqueados} dia(s) bloqueado(s) foram mantidos.`:"Período preenchido para o funcionário.");
-  };
-
+  // Sem preenchimento automático de presença: cada dia é marcado manualmente,
+  // clicando na própria célula - evita presença lançada sem verificação real.
   const limparLinha=emp=>{
     if(bloqueadoPorArquivo())return;
     if(!window.confirm(`Limpar os lançamentos visíveis de ${emp.name}?`))return;
     const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};let bloqueados=0;
     days.forEach(date=>{const ant=getAtt(data,emp.id,date);if(!ant)return;const obraId=ant.obraId||emp.obra||"";if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}delete mapa[date];});attendance[emp.id]=mapa;update({...data,attendance});showToast(bloqueados?`${bloqueados} dia(s) bloqueado(s) foram preservados.`:"Lançamentos do período removidos.");
-  };
-
-  const preencherVisiveis=()=>{
-    if(bloqueadoPorArquivo())return;
-    if(!employees.length||!window.confirm(`Marcar presença nos dias de trabalho para ${employees.length} funcionário(s) visível(is)?`))return;
-    const attendance={...(data.attendance||{})};let bloqueados=0;
-    employees.forEach(emp=>{const mapa={...(attendance[emp.id]||{})};days.forEach(date=>{const d=prParseIso(date),obraId=filterObra!=="all"?filterObra:(getAtt(data,emp.id,date)?.obraId||emp.obra||"");if(d.getDay()===0||feriados.includes(date)||!isEmployeeEmployedOnDate(emp,date))return;if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}mapa[date]={...(getAtt(data,emp.id,date)||{}),status:"P",obraId};});attendance[emp.id]=mapa;});update({...data,attendance});showToast(bloqueados?`Equipe preenchida; ${bloqueados} lançamento(s) bloqueado(s) foram preservados.`:"Equipe preenchida no período.");
   };
 
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
@@ -8588,10 +8648,7 @@ function PontoGeral({ data, update, showToast, currentUser }) {
         <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
         <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
       </div>
-      <div className="ponto-geral-bulk">
-        <span>Aplicar presença aos {employees.length} resultados</span>
-        <Btn onClick={preencherVisiveis} v="success"><Ic n="check"/> Preencher visíveis</Btn>
-      </div>
+      <p className="ponto-geral-count">{employees.length} funcionário(s) neste filtro · marcação dia a dia, clicando na célula</p>
     </div>
 
     {arqMeta ? (
@@ -8622,12 +8679,12 @@ function PontoGeral({ data, update, showToast, currentUser }) {
     ) : null}
 
     <div className="ponto-geral-legend">
-      <span className="ponto-legend-title">Clique para alternar</span>
-      <span><b style={{color:C.green}}>P</b> Presente</span>
-      <span><b style={{color:C.yellowD}}>½</b> Meio dia</span>
-      <span><b style={{color:C.red}}>F</b> Falta</span>
-      <span><b>·</b> Sem registro</span>
-      <span className="ponto-legend-help">Para mudar a obra, clique no texto abaixo do status.</span>
+      <span className="ponto-legend-title">Clique na célula para alternar</span>
+      <span className="ponto-legend-chip"><i style={{background:C.green}}/>Presente</span>
+      <span className="ponto-legend-chip"><i style={{background:C.yellowD}}/>Meio dia</span>
+      <span className="ponto-legend-chip"><i style={{background:C.red}}/>Falta</span>
+      <span className="ponto-legend-chip"><i style={{background:C.cinza}}/>Sem registro</span>
+      <span className="ponto-legend-help">Para mudar a obra do dia, clique no texto abaixo do status.</span>
     </div>
 
     <div className="ponto-geral-table-wrap" style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxHeight:"70vh"}}>
@@ -8648,7 +8705,6 @@ function PontoGeral({ data, update, showToast, currentUser }) {
                 <div style={{fontSize:8.5,color:C.muted,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.role||"Funcionário"} · {obraName(emp.obra)}</div>
               </div>
               <div className="ponto-row-actions" style={{display:"flex",gap:4,flexShrink:0}}>
-                <Btn v="ghost" size="sm" title="Preencher todos os dias desta linha como presente" onClick={()=>preencherLinha(emp)}><Ic n="check" s={11}/> Preencher</Btn>
                 <Btn v="ghost" size="sm" title="Limpar todos os lançamentos desta linha" onClick={()=>limparLinha(emp)}><Ic n="x" s={11}/> Limpar</Btn>
               </div>
             </div>
@@ -9963,6 +10019,19 @@ function calcObraTercCost(data, obraId, periodStart, periodEnd) {
     .reduce((s, p) => s + Number(p.amount || 0), 0);
 }
 
+// Custo de MATERIAIS de uma obra numa competência (mês): soma só as despesas
+// avulsas (outrasDesp) lançadas com categoria "material" - é a base usada
+// para cobrar o percentual de administração em contratos mistos (MO fixa +
+// administração), que não deve incidir sobre mão de obra nem sobre outras
+// categorias de despesa (equipamento, taxa, overhead etc.). Um material pode
+// ser marcado com contaAdmin:false (ex.: comprado direto pelo cliente) para
+// ficar fora dessa base, mesmo sendo categoria "material".
+function calcObraMaterialCost(data, obraId, ym) {
+  return (data.outrasDesp || [])
+    .filter(d => d.obraId === obraId && d.categoria === "material" && d.competencia === ym && d.contaAdmin !== false)
+    .reduce((s, d) => s + Number(d.valor || 0), 0);
+}
+
 // Pagamentos de terceiros realizados pela EMPRESA no período (todas as obras). Vai para o DRE
 // consolidado como despesa administrativa, fora do custo de qualquer obra.
 function calcTercEmpresaCost(data, periodStart, periodEnd) {
@@ -10258,6 +10327,12 @@ function FluxoCaixa({ data }) {
         const activeEmps = data.employees.filter(e=>e.active!==false);
         const laborEst = activeEmps.reduce((s,e)=>s+Number(e.dailyRate||0)*workDays*0.82,0);
         const tercEst = (data.terceirizados||[]).filter(t=>t.active!==false).reduce((s,t)=>s+Number(t.weeklyRate||0)*4.3,0);
+        // Projeção de meses futuros: só estima com base na MO (sem materiais e
+        // terceirizados futuros, que não têm como ser projetados aqui). Para
+        // obras admin_only/fixed_labor_admin isso subestima a receita prevista
+        // - é uma aproximação grosseira só para o gráfico de fluxo de caixa;
+        // o valor real e auditável fica no fechamento por competência em
+        // Medições (MedicoesView).
         const revenueEst = data.obras.filter(o=>o.status!=="done").reduce((s,o)=>{const{laborCost}=calcObraLaborCost(data,o.id,mdays);return s+calcObraRevenue(o,laborCost).revenue;},0);
         result.push({ mes: monthName(m)+"/"+String(y).slice(2), received: revenueEst, laborCost: laborEst, tercCost: tercEst, totalOut: laborEst+tercEst, balance: revenueEst-(laborEst+tercEst), isProjection: true, isCurrent: false });
       }
@@ -12136,8 +12211,14 @@ const calcRelatorioMensal = (data, year, month) => {
       ...(data.payments||[]).filter(p=>p.obraId===obra.id&&p.date?.startsWith(ym)),
     ];
 
-    // Receita esperada pelo contrato
-    const { revenue: revenueEsperada } = calcObraRevenue(obra, moData.laborCost);
+    // Receita esperada pelo contrato (admin_only cobra sobre todos os custos;
+    // fixed_labor_admin cobra só sobre materiais + terceirizados do mês)
+    const materialCost = calcObraMaterialCost(data, obra.id, ym);
+    const dreObraMes = calcDREObra(data, obra.id, year, month, "mes");
+    const { revenue: revenueEsperada } = calcObraRevenue(obra, moData.laborCost, {
+      benefitCost: moData.benefitCost, materialCost, tercCost,
+      outrasTotal: dreObraMes.outrasTotal, equipCost: dreObraMes.equipCost, rescTotal,
+    });
 
     // Presença
     const empsDaObra = data.employees.filter(e=>e.obra===obra.id||e.lastObra===obra.id);
