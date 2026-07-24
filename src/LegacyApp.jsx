@@ -123,6 +123,11 @@ const TYPO = {
   bodyMuted:{ fontSize:11.5, fontWeight:400, lineHeight:1.5, color:C.muted },
   small:   { fontSize:9.5, fontWeight:600, color:C.muted },
   label:   { fontFamily:FONT_DISPLAY, fontSize:9.5, fontWeight:700, letterSpacing:.1, color:C.text },
+  // Tamanho/peso reais vêm do override global (.tab-row button) em index.css,
+  // que também cobre sidebar, nav mobile e os demais menus de abas do app -
+  // isto aqui é só o fallback caso a classe não esteja disponível.
+  tab:       { fontFamily:"'IBM Plex Sans','Helvetica Neue',Arial,sans-serif", fontSize:10, fontWeight:600, letterSpacing:.08 },
+  tabDetail: { fontSize:9, fontWeight:500 },
 };
 // Botao-texto (link inline tipo "Ver tudo ->"): mesmo padrao em todas as
 // telas em vez de cada card reinventar tamanho/peso da fonte.
@@ -3419,6 +3424,52 @@ function PageHero({eyebrow,title,description,alert,stats,actions}){
   </section>;
 }
 
+// Barra de abas internas (troca de visão dentro de uma mesma tela) - um único
+// padrão de tipografia/tamanho/espaçamento para os ~16 lugares do app que
+// antes reinventavam essa mesma peça com fontSize/fontWeight próprios.
+// tabs aceita duas formas por item:
+//   - array [value, label] ou [value, label, extra], onde extra é uma string
+//     (subtítulo, ex.: DRE) ou um número (badge de contagem, ex.: Compras);
+//   - objeto {v, l, icon, detail, count} quando também precisa de ícone.
+// equal=true usa colunas de largura igual (poucas abas, rótulos parecidos);
+// o padrão (false) é uma fileira que rola na horizontal sem quebrar linha -
+// evita o efeito "serrilhado" de abas com rótulos de tamanhos muito diferentes.
+function TabRow({ tabs, active, onChange, equal = false }) {
+  const itens = tabs.map(t => Array.isArray(t)
+    ? { v:t[0], l:t[1], detail: typeof t[2]==="string" ? t[2] : null, count: typeof t[2]==="number" ? t[2] : null }
+    : t);
+  return (
+    <div className="tab-row" style={{
+      display: equal ? "grid" : "flex",
+      gridTemplateColumns: equal ? `repeat(${itens.length},1fr)` : undefined,
+      gap:4, overflowX: equal ? "visible" : "auto", padding:4,
+      background:C.surface, border:`1px solid ${C.line}`, borderRadius:10,
+    }}>
+      {itens.map(({v,l,icon,detail,count}) => {
+        const isActive = active === v;
+        return (
+          <button key={v} type="button" aria-pressed={isActive} onClick={() => onChange(v)} style={{
+            flex: equal ? "1 1 0" : "0 0 auto",
+            whiteSpace: equal ? "normal" : "nowrap",
+            cursor:"pointer", textAlign:"left",
+            padding: detail ? "7px 12px" : "9px 13px",
+            borderRadius:7, border:`1px solid ${isActive?C.text:"transparent"}`,
+            background: isActive?C.text:"transparent", color: isActive?"#fff":C.muted,
+            display:"flex", flexDirection:"column", gap:1,
+          }}>
+            <span style={{...TYPO.tab, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", color:"inherit"}}>
+              {icon && <Ic n={icon} s={13}/>}
+              {l}
+              {count>0 && <b style={{fontSize:9,fontWeight:800,padding:"1px 6px",borderRadius:99,background:isActive?"rgba(255,255,255,.22)":`${C.yellow}22`,color:isActive?"#fff":C.yellowD}}>{count}</b>}
+            </span>
+            {detail && <small style={{...TYPO.tabDetail, color:isActive?"rgba(255,255,255,.75)":C.muted}}>{detail}</small>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", active=false, onClick }) {
   const Comp=onClick?"button":"div";
   return <Comp type={onClick?"button":undefined} onClick={onClick} className={onClick?"lift-card":""} style={{
@@ -4730,7 +4781,7 @@ function FinanceiroObraPainel({data,update,showToast,obraId}){
 
   return <div className="obra-financeiro">
     <header className="obra-fin-header"><div><p>CONTROLE FINANCEIRO DA OBRA</p><h2>{obra?.name||"Obra"}</h2><span>Recebimentos, compromissos e pagamentos em uma única visão.</span></div><Btn onClick={()=>{setDespForm({obraId,competencia:periodo,categoria:"material",descricao:"",valor:""});setDespModal(true);}}><Ic n="plus"/> Nova despesa</Btn></header>
-    <nav className="obra-fin-tabs">{[["resumo","Resumo"],["receitas","Receitas"],["despesas","Despesas"],["movimentos","Movimentações"],["orcado","Orçado × realizado"]].map(([id,l])=><button key={id} className={aba===id?"active":""} onClick={()=>setAba(id)}>{l}</button>)}</nav>
+    <TabRow tabs={[["resumo","Resumo"],["receitas","Receitas"],["despesas","Despesas"],["movimentos","Movimentações"],["orcado","Orçado × realizado"]]} active={aba} onChange={setAba}/>
     <div className="obra-fin-controls"><label><span>Competência</span><input type="month" value={periodo} onChange={e=>setPeriodo(e.target.value)}/></label>{aba!=="resumo"&&aba!=="orcado"&&<label className="obra-fin-search"><span>Pesquisar</span><input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Descrição, fornecedor ou categoria"/></label>}</div>
     {aba==="resumo"&&<><section className="obra-fin-summary">
       <div className="obra-fin-column"><h3>Receitas</h3><Metric label="Em aberto" value={receitaAberta} detail={`${movPeriodo.filter(m=>m.tipo==="receita"&&m.status!=="realizado").length} lançamento(s)`}/><Metric label="Vencidas" value={receitasVencidas} detail="Exigem cobrança" tone={receitasVencidas?"danger":"neutral"}/><Metric label="Recebidas" value={receitaReal} detail="Entradas confirmadas" tone="positive"/></div>
@@ -5243,18 +5294,11 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             :`mesmos dias da Folha de Pagamento: ${fmtDate(dreObra.per0||dre.per0)} a ${fmtDate(dreObra.perF||dre.perF)}.`}</p>
         </div>
 
-        {!obraIdFixo&&<nav className="dre-view-tabs" aria-label="Visualização do demonstrativo">
-          {[
-            ["consolidado","Consolidado","Visão geral de todas as obras"],
-            ["obra","Por obra","Detalhamento individual"],
-            ["historico","Evolução mensal","Comparativo dos últimos meses"],
-          ].map(([v,l,s])=>(
-            <button key={v} type="button" aria-pressed={view===v} onClick={()=>mudarVisaoDRE(v)}>
-              <span>{l}</span>
-              <small>{s}</small>
-            </button>
-          ))}
-        </nav>}
+        {!obraIdFixo&&<TabRow equal tabs={[
+          ["consolidado","Consolidado","Visão geral de todas as obras"],
+          ["obra","Por obra","Detalhamento individual"],
+          ["historico","Evolução mensal","Comparativo dos últimos meses"],
+        ]} active={view} onChange={mudarVisaoDRE}/>}
       </section>
 
       {/* KPI cards sempre visíveis */}
@@ -6735,7 +6779,7 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
       eyebrow="Controle corporativo"
       title="Administrativo financeiro"
       description="Visão consolidada ou por obra, com movimentações, resultado e documentos auditáveis."
-      actions={<div className="standard-module-tabs" style={{display:"flex",gap:3,overflowX:"auto",maxWidth:"100%",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7}}>{[["resumo","Resumo"],["receitas","Receitas"],["despesas","Despesas"],["resultados","Resultados"],["documentos","Documentos"]].map(([v,l])=><button key={v} onClick={()=>setAba(v)} style={{border:`1px solid ${aba===v?C.yellow:C.border}`,background:aba===v?C.card:"transparent",color:aba===v?C.text:C.muted,borderRadius:5,padding:"7px 10px",fontSize:9.5,fontWeight:850,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>)}</div>}
+      actions={<TabRow tabs={[["resumo","Resumo"],["receitas","Receitas"],["despesas","Despesas"],["resultados","Resultados"],["documentos","Documentos"]]} active={aba} onChange={setAba}/>}
     />
     <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:7}}><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Mês" value={String(mes)} onChange={v=>setMes(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/><Sel label="Ano" value={String(ano)} onChange={v=>setAno(Number(v))} options={Array.from({length:5},(_,i)=>agora.getFullYear()-2+i).map(v=>({v:String(v),l:String(v)}))}/></div>
     {aba==="resumo"&&<>
@@ -6990,7 +7034,7 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
 
   const podeAcessarAdministrativoFinanceiro=["admin","financeiro"].includes(currentUser?.role);
   const abasFinanceiras=[["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),["ia","Modo IA"]];
-  const NavegacaoFinanceira=()=> <div className="financial-area-nav" style={{display:"grid",gridTemplateColumns:`repeat(${abasFinanceiras.length},minmax(0,1fr))`,gap:3,padding:3,border:`1px solid ${C.border}`,borderRadius:8,background:C.surface,overflowX:"auto"}}>{abasFinanceiras.map(([v,l])=><button key={v} onClick={()=>setAreaFinanceira(v)} style={{padding:"6px 8px",border:`1px solid ${areaFinanceira===v?(v==="ia"?C.purple:C.green):"transparent"}`,borderRadius:5,background:areaFinanceira===v?C.card:"transparent",color:areaFinanceira===v?(v==="ia"?C.purple:C.green):C.muted,fontSize:9.5,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{v==="ia"&&<><Ic n="brain" s={11}/> </>}{v==="pagamentos"&&<><Ic n="receipt" s={11}/> </>}{v==="administrativo"&&<><Ic n="building" s={11}/> </>}{v==="fiscal"&&<><Ic n="file" s={11}/> </>}{l}</button>)}</div>;
+  const NavegacaoFinanceira=()=> <div className="financial-area-nav" style={{display:"grid",gridTemplateColumns:`repeat(${abasFinanceiras.length},minmax(0,1fr))`,gap:3,padding:3,border:`1px solid ${C.border}`,borderRadius:8,background:C.surface,overflowX:"auto"}}>{abasFinanceiras.map(([v,l])=><button key={v} onClick={()=>setAreaFinanceira(v)} style={{...TYPO.tab,padding:"6px 8px",border:`1px solid ${areaFinanceira===v?(v==="ia"?C.purple:C.green):"transparent"}`,borderRadius:5,background:areaFinanceira===v?C.card:"transparent",color:areaFinanceira===v?(v==="ia"?C.purple:C.green):C.muted,cursor:"pointer",whiteSpace:"nowrap"}}>{v==="ia"&&<><Ic n="brain" s={11}/> </>}{v==="pagamentos"&&<><Ic n="receipt" s={11}/> </>}{v==="administrativo"&&<><Ic n="building" s={11}/> </>}{v==="fiscal"&&<><Ic n="file" s={11}/> </>}{l}</button>)}</div>;
   if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralPagamentosFinanceiro data={data} update={update} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} C={C}/></div>;
   if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
   if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralFiscal data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal}/></div>;
@@ -11134,17 +11178,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
       </div>
 
       {/* Sub-nav */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6 }}>
-        {[["kanban","Quadro"],["cadastro","Cadastro"],["medicoes","Medições"],["pagamentos","Pagamentos"]].map(([v,l]) => (
-          <button key={v} onClick={() => setView(v)} style={{
-            padding:"11px 0", border:`2px solid ${view===v ? C.orange : C.line}`,
-            background: view===v ? `${C.orange}18` : "transparent",
-            color: view===v ? C.orange : C.muted,
-            fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:12.5, letterSpacing:.3,
-            cursor:"pointer", borderRadius:8,
-          }}>{l}</button>
-        ))}
-      </div>
+      <TabRow equal tabs={[["kanban","Quadro"],["cadastro","Cadastro"],["medicoes","Medições"],["pagamentos","Pagamentos"]]} active={view} onChange={setView}/>
 
       {/*  VIEW: KANBAN  */}
       {view === "kanban" && (<>
@@ -12859,12 +12893,12 @@ function Relatorios({ data, showToast }) {
         actions={<span style={{display:"inline-flex",padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.surface,color:C.yellowD,fontSize:9,fontWeight:800,letterSpacing:.3}}>{fullMonth(month)} · {year}</span>}
       />
 
-      <div className="no-print" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8,padding:8,background:C.surface,border:`1px solid ${C.line}`,borderRadius:12}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:4,padding:4,background:C.card,borderRadius:9,border:`1px solid ${C.line}`}}>
-          {[["custos","Painel analítico"],["relatorio","Relatório executivo"],["caixa","Caixa de obra"],["compras","Relatório de compras"],["administracao","Recebimento por administração"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{padding:"8px 9px",border:`1px solid ${view===v?C.text:"transparent"}`,background:view===v?C.text:"transparent",color:view===v?"#fff":C.muted,borderRadius:7,fontSize:10.5,fontWeight:780,cursor:"pointer"}}>{l}</button>)}
+      <div className="no-print" style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
+        <TabRow tabs={[["custos","Painel analítico"],["relatorio","Relatório executivo"],["caixa","Caixa de obra"],["compras","Relatório de compras"],["administracao","Recebimento por administração"]]} active={view} onChange={setView}/>
+        <div style={{display:"flex",gap:8,marginLeft:"auto"}}>
+          <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+          <Sel value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
         </div>
-        <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
-        <Sel value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
       </div>
 
       {/*  RELATÓRIO MENSAL COMPLETO  */}
@@ -21276,7 +21310,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
         actions={importando?<span style={{fontSize:9,fontWeight:800,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:700}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>}
       />
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:4,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:4}}>{[["pendentes",`Pendentes · ${calc.pendentes}`],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["historico","Histórico"]].map(([v,l])=><button key={v} onClick={()=>setAba(v)} style={{border:`1px solid ${aba===v?C.yellow:C.border}`,background:aba===v?`${C.yellow}13`:C.card,color:aba===v?C.text:C.muted,borderRadius:6,padding:"6px 7px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>
+      <TabRow equal tabs={[["pendentes",`Pendentes · ${calc.pendentes}`],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["historico","Histórico"]]} active={aba} onChange={setAba}/>
 
       {!["extratos"].includes(aba)&&<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 7px"}}><div style={{position:"relative",minWidth:190,flex:1}}><Ic n="search" s={12} color={C.muted} style={{position:"absolute",left:8,top:8}}/><input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar data ou descrição..."} style={{width:"100%",height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 9px 0 27px",fontSize:9.5,outline:"none"}}/></div>{aba!=="historico"&&<select value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 8px",fontSize:9}}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}{["pendentes","ignoradas"].includes(aba)&&<button onClick={alternarTodas} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.muted,padding:"0 8px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{todosSelecionados?"Desmarcar":"Selecionar todas"}</button>}{aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}{aba==="pendentes"&&calc.pendentes>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar((data.transacoes||[]).filter(t=>t.status==="pendente"),"Ignorar todas as pendentes")}>Ignorar todas · {calc.pendentes}</Btn>}{aba==="ignoradas"&&selecionadas.length>0&&<Btn size="sm" v="info" onClick={()=>reabrir(selecionadas)}>Reabrir selecionadas · {selecionadas.length}</Btn>}</div>}
 
@@ -22418,14 +22452,7 @@ function Suprimentos({ data, update, showToast, onTab }) {
       </div>
 
       {/* Abas */}
-      <div style={{ display:"flex", gap:4, borderBottom:`1px solid ${C.border}`, flexWrap:"wrap" }}>
-        {[["curva","Curva de necessidade"],["precos","Comparação de preços"],["alertas","Pesquisa de preço"]].map(([id,l])=>(
-          <button key={id} onClick={()=>setAba(id)} style={{
-            border:0, background:"transparent", cursor:"pointer", padding:"8px 12px",
-            fontSize:12, fontWeight:aba===id?800:500, color:aba===id?C.text:C.muted,
-            borderBottom:`2px solid ${aba===id?C.yellow:"transparent"}`, marginBottom:-1 }}>{l}</button>
-        ))}
-      </div>
+      <TabRow tabs={[["curva","Curva de necessidade"],["precos","Comparação de preços"],["alertas","Pesquisa de preço"]]} active={aba} onChange={setAba}/>
 
       {/* filtros comuns */}
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
@@ -24335,7 +24362,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       <div className="compras-journey" style={{display:"grid",gridTemplateColumns:`repeat(${etapasCompras.length},minmax(0,1fr))`,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden",background:C.card}}>
         {etapasCompras.map(([id,label,quantidade],index)=>{const ativa=aba===id;return <button type="button" data-active={ativa} data-has-items={quantidade>0} key={id} onClick={()=>irParaArea(id)} aria-current={ativa?"step":undefined} style={{position:"relative",minWidth:0,border:0,borderLeft:index?`1px solid ${C.line}`:"none",background:ativa?`${C.yellow}12`:C.card,padding:isDesktop?"10px 12px":"9px 4px",cursor:"pointer",textAlign:"center",color:ativa?C.text:C.muted}}>
           <span className="compras-step-number" style={{display:"block",fontSize:8,fontWeight:750,color:ativa?C.yellowD:C.muted,fontVariantNumeric:"tabular-nums"}}>{index+1}</span>
-          <b style={{display:"block",fontSize:isDesktop?10.5:9.5,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{label}</b>
+          <b style={{...TYPO.tab,display:"block",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{label}</b>
           <span className="compras-step-count" style={{display:"block",fontSize:9,fontWeight:800,marginTop:2,fontVariantNumeric:"tabular-nums",color:quantidade?C.orange:C.muted}}>{quantidade||"—"}</span>
           {ativa&&<i style={{position:"absolute",left:8,right:8,bottom:0,height:2,background:C.yellow}}/>}
         </button>})}
@@ -24343,7 +24370,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
 
       <div id="compras-area-atual" className="compras-section-head" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,borderBottom:`1px solid ${C.line}`,paddingBottom:8}}>
         <div><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Área atual</p><b style={{fontSize:13}}>{comprasAbas.find(([id])=>id===aba)?.[1]}</b></div>
-        <div className="compras-more" style={{position:"relative"}}><button type="button" onClick={()=>setMenuComprasAberto(v=>!v)} aria-expanded={menuComprasAberto} style={{border:`1px solid ${C.border}`,background:C.card,borderRadius:6,padding:"7px 10px",fontSize:9.5,fontWeight:750,color:C.muted,cursor:"pointer"}}>Mais áreas <span>⌄</span></button>{menuComprasAberto&&<div className="compras-more-menu" style={{position:"absolute",right:0,top:"calc(100% + 5px)",zIndex:20,minWidth:220,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:4,boxShadow:"0 8px 24px rgba(18,18,18,.12)"}}>{abasSecundarias.map(([id,label])=><button type="button" key={id} onClick={()=>irParaArea(id)} style={{display:"block",width:"100%",border:0,borderRadius:5,background:aba===id?C.surface:"transparent",padding:"8px 9px",textAlign:"left",fontSize:10,fontWeight:aba===id?750:550,color:C.text,cursor:"pointer"}}>{label}</button>)}</div>}</div>
+        <div className="compras-more" style={{position:"relative"}}><button type="button" onClick={()=>setMenuComprasAberto(v=>!v)} aria-expanded={menuComprasAberto} style={{...TYPO.tab,border:`1px solid ${C.border}`,background:C.card,borderRadius:6,padding:"7px 10px",color:C.muted,cursor:"pointer"}}>Mais áreas <span>⌄</span></button>{menuComprasAberto&&<div className="compras-more-menu" style={{position:"absolute",right:0,top:"calc(100% + 5px)",zIndex:20,minWidth:220,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:4,boxShadow:"0 8px 24px rgba(18,18,18,.12)"}}>{abasSecundarias.map(([id,label])=><button type="button" key={id} onClick={()=>irParaArea(id)} style={{...TYPO.tab,display:"block",width:"100%",border:0,borderRadius:5,background:aba===id?C.surface:"transparent",padding:"8px 9px",textAlign:"left",fontWeight:aba===id?700:600,color:C.text,cursor:"pointer"}}>{label}</button>)}</div>}</div>
       </div>
 
       {aba==="kanban"&&<div className="purchase-kanban-view">
@@ -24535,7 +24562,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         </section>
         <div className="compras-funding" style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:6}}>{[["Conta da empresa",resumoFinanceiro.empresa,C.blue],["Caixa da obra",resumoFinanceiro.caixaObra,C.yellowD],["Cliente direto",resumoFinanceiro.cliente,C.purple]].map(([l,v,c])=><div key={l} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"8px 10px",border:`1px solid ${C.line}`,borderRadius:8,background:C.surface}}><span style={{fontSize:9.5,color:C.muted,fontWeight:750}}>{l}</span><b style={{fontSize:10.5,color:c}}>{fmt(v)}</b></div>)}</div>
         {obraTemCaixa&&<div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap",padding:"10px 11px",border:`1px solid ${caixaPagamento.baixo?C.orange:C.green}`,borderLeft:`4px solid ${caixaPagamento.baixo?C.orange:C.green}`,borderRadius:9,background:caixaPagamento.baixo?`${C.orange}0A`:`${C.green}08`}}><div><p style={{fontSize:9,fontWeight:850,color:caixaPagamento.baixo?C.orange:C.green,textTransform:"uppercase"}}>{caixaPagamento.baixo?"Alerta · caixa da obra baixo":"Caixa da obra disponível"}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Aportes {fmt(caixaPagamento.aportes)} · despesas {fmt(caixaPagamento.despesas)} · reserva recomendada {fmt(caixaPagamento.limiteBaixo)}</p></div><b style={{fontSize:16,color:caixaPagamento.saldo>=0?C.green:C.red}}>{fmt(caixaPagamento.saldo)}</b></div>}
-        <div className="compras-filter-tabs" style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:2}}>{[["pendentes","Pendentes"],["liberados","Liberados"],["nao_conciliados","Sem conciliação"],["todos","Todos"]].map(([v,l])=><button data-active={filtroFinanceiro===v} key={v} onClick={()=>setFiltroFinanceiro(v)} style={{border:`1px solid ${filtroFinanceiro===v?C.yellow:C.border}`,background:filtroFinanceiro===v?`${C.yellow}14`:C.card,borderRadius:8,padding:"7px 10px",fontSize:9.5,fontWeight:800,color:filtroFinanceiro===v?C.yellowD:C.muted,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>)}</div>
+        <TabRow tabs={[["pendentes","Pendentes"],["liberados","Liberados"],["nao_conciliados","Sem conciliação"],["todos","Todos"]]} active={filtroFinanceiro} onChange={setFiltroFinanceiro}/>
         {pedidosFinanceiros.length===0?<div className="compras-empty" style={{padding:28,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:7}}>Nenhuma pendência neste filtro</p></div>:pedidosFinanceiros.map(p=>{const st=statusPagamentoPedido(p),saldo=saldoPagamentoPedido(p),recebido=statusPedido(p)==="recebido",cor=st==="pago"?C.green:st==="parcial"?C.orange:C.red;return <div className="compras-payment-card" data-status={st} key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${cor}`,borderRadius:10,padding:"11px 12px"}}>
           <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div style={{minWidth:0}}><p style={{fontSize:12,fontWeight:850,color:C.text}}>{p.numero} · {nomeForn(p.fornecedorId)}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{(p.itens||[]).map(i=>`${nomeMat(i.materialId)} (${Number(i.qtd||0).toLocaleString("pt-BR")} ${unidMat(i.materialId)})`).join(" · ")}</p><p style={{fontSize:9,color:C.muted,marginTop:4}}>Pedido {fmtDate(p.data)}{p.previsao?` · entrega prevista ${fmtDate(p.previsao)}`:""}</p></div><div style={{textAlign:"right"}}><Badge color={cor}>{st==="pago"?"QUITADO / LIBERADO":st==="parcial"?"PAGAMENTO PARCIAL":"AGUARDANDO PAGAMENTO"}</Badge><p style={{fontSize:14,fontWeight:900,color:C.text,marginTop:4}}>{fmt(totalPedido(p))}</p>{saldo>0&&<p style={{fontSize:10,fontWeight:800,color:C.red}}>saldo {fmt(saldo)}</p>}</div></div>
           {(p.pagamentos||[]).length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>{p.pagamentos.map(pg=><div key={pg.id} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:8.5,fontWeight:750,color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0C`:`${C.orange}0C`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 5px 3px 7px"}}><span>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"a conciliar"}</span>{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,textDecoration:"underline",fontWeight:850}} title={a.legenda||a.nome}>comprovante ↗</a>)}{canManagePurchases(currentUser?.role)&&<button type="button" onClick={()=>excluirPagamento(p,pg)} title="Excluir pagamento" aria-label={`Excluir pagamento de ${fmt(pg.valor)}`} style={{display:"inline-grid",placeItems:"center",width:20,height:20,border:0,borderRadius:99,background:`${C.red}12`,color:C.red,cursor:"pointer"}}><Ic n="trash" s={10}/></button>}</div>)}</div>}
@@ -25712,9 +25739,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {id:"financeiro",label:"Financeiro",itens:[["dre","DRE da obra","dre"]]},
         {id:"rh",label:"RH",itens:[["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"]]},
         {id:"recursos",label:"Recursos",itens:[["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null],...(ehAdmin?[["portal","Portal do cliente",null]]:[])]},
-      ];const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:12,borderBottom:`1px solid ${C.border}`}}>
-        <div style={{display:"flex",flexWrap:"wrap",gap:4,padding:"6px 0"}}>{grupos.map(g=>{const ativo=g.id===grupoMenuObra;return <button key={g.id} onClick={()=>{setGrupoMenuObra(g.id);if(g.id==="geral")setAbaConteudo("geral");}} style={{flex:"1 1 112px",minWidth:0,border:`1px solid ${ativo?C.blue:C.border}`,background:ativo?`${C.blue}0D`:"transparent",color:ativo?C.blue:C.muted,borderRadius:7,padding:"8px 9px",fontSize:11.5,fontWeight:ativo?850:650,cursor:"pointer",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{g.label}</button>})}</div>
-        {grupo.id!=="geral"&&<div style={{display:"flex",flexWrap:"wrap",gap:3,padding:"0 0 7px"}}>{grupo.itens.map(([id,label,destino])=>{const ativo=id===abaConteudo;return <button key={id} title={label} onClick={()=>{if(["arquivos","portal","qualidade"].includes(id))setAbaConteudo(id);else if(destino)abrirModuloDaObra(destino);}} style={{flex:"1 1 128px",minWidth:0,border:0,borderBottom:`2px solid ${ativo?C.blue:"transparent"}`,background:"transparent",color:ativo?C.text:C.muted,padding:"7px 9px",fontSize:11,fontWeight:ativo?850:550,cursor:"pointer",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{label}</button>})}</div>}
+      ];const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:12,display:"flex",flexDirection:"column",gap:6}}>
+        <TabRow equal tabs={grupos.map(g=>[g.id,g.label])} active={grupoMenuObra} onChange={id=>{setGrupoMenuObra(id);if(id==="geral")setAbaConteudo("geral");}}/>
+        {grupo.id!=="geral"&&<TabRow equal tabs={grupo.itens.map(([id,label])=>[id,label])} active={abaConteudo} onChange={id=>{const item=grupo.itens.find(([iid])=>iid===id);if(["arquivos","portal","qualidade"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}/>}
       </div>;})()}
       </div>
 
@@ -27191,15 +27218,8 @@ function Planejamento({ data, update, showToast, obraIdFixo="" }) {
       {tarefas.filter(t=>!t.titulo).length > 0 && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
           {/* Abas */}
-          <div style={{ display: "flex", borderBottom: `1px solid ${C.line}`, overflowX: "auto" }}>
-            {[["mensal","Financeiro mensal"],["curvaS","Curva S"],["ff","Fisico-financeiro"],["base","Planejado × Realizado"]].map(([id,lbl]) => (
-              <button key={id} onClick={() => setAba(id)} style={{
-                padding: "11px 14px", background: "transparent", border: 0, cursor: "pointer",
-                borderBottom: `2px solid ${aba === id ? C.yellow : "transparent"}`,
-                color: aba === id ? C.text : C.muted, fontSize: 12, fontWeight: aba === id ? 800 : 600,
-                whiteSpace: "nowrap", fontFamily: "'Inter Display','Inter',sans-serif",
-              }}>{lbl}</button>
-            ))}
+          <div style={{ padding: "8px 8px 0" }}>
+            <TabRow tabs={[["mensal","Financeiro mensal"],["curvaS","Curva S"],["ff","Fisico-financeiro"],["base","Planejado × Realizado"]]} active={aba} onChange={setAba}/>
           </div>
 
           <div style={{ padding: "14px" }}>
@@ -30979,19 +30999,7 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="" }) {
       </div>
 
       {/* Abas */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4}}>
-        {[["saldo","Saldo"],["movs","Movimentos"],["materiais","Insumos"],
-          ["comp","Composições"],["abc","Curva ABC"]].map(([v,l])=>(
-          <button key={v} onClick={()=>setAba(v)} style={{
-            padding:"7px 2px",
-            border:`2px solid ${aba===v?C.yellow:C.border}`,
-            background:aba===v?`${C.yellow}12`:"transparent",
-            color:aba===v?C.text:C.muted,
-            fontFamily:"'Inter Display','Inter',sans-serif",
-            fontWeight:700,fontSize:10,cursor:"pointer",borderRadius:7,
-          }}>{l}</button>
-        ))}
-      </div>
+      <TabRow equal tabs={[["saldo","Saldo"],["movs","Movimentos"],["materiais","Insumos"],["comp","Composições"],["abc","Curva ABC"]]} active={aba} onChange={setAba}/>
 
       <Inp value={busca} onChange={setBusca} placeholder="Buscar insumo..."/>
 
@@ -31555,14 +31563,7 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
       />
 
       {/* Abas internas */}
-      <div style={{display:"flex",gap:4,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
-        {[["frota","Frota"],["gestao","Gestão de locação"],["locacoes","Locações"],["manutencao","Manutenção"],["relatorio","Relatório mensal"]].map(([id,l])=>(
-          <button key={id} onClick={()=>setAba(id)} style={{
-            border:0,background:"transparent",cursor:"pointer",padding:"8px 12px",
-            fontSize:12,fontWeight:aba===id?800:500,color:aba===id?C.text:C.muted,
-            borderBottom:`2px solid ${aba===id?C.yellow:"transparent"}`,marginBottom:-1}}>{l}</button>
-        ))}
-      </div>
+      <TabRow tabs={[["frota","Frota"],["gestao","Gestão de locação"],["locacoes","Locações"],["manutencao","Manutenção"],["relatorio","Relatório mensal"]]} active={aba} onChange={setAba}/>
 
       {/* ---------- FROTA ---------- */}
       {aba==="frota" && <>
@@ -32941,14 +32942,12 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       />
 
       <div className="dre-company-toolbar">
-        <nav aria-label="Áreas do DRE Empresa">
-          {[
-            ["inteligencia","Visão gerencial","brain"],
-            ["demonstrativo","Demonstrativo","receipt"],
-            ["obras","Análise por obra","building"],
-            ["despesas","Despesas operacionais","wallet"],
-          ].map(([v,l,i])=><button type="button" key={v} aria-pressed={abaDRE===v} onClick={()=>setAbaDRE(v)}><Ic n={i} s={13}/><span>{l}</span></button>)}
-        </nav>
+        <TabRow tabs={[
+          { v:"inteligencia", l:"Visão gerencial", icon:"brain" },
+          { v:"demonstrativo", l:"Demonstrativo", icon:"receipt" },
+          { v:"obras", l:"Análise por obra", icon:"building" },
+          { v:"despesas", l:"Despesas operacionais", icon:"wallet" },
+        ]} active={abaDRE} onChange={setAbaDRE}/>
         <div className="dre-company-period">
           <Sel label="Ano" value={String(year)} onChange={v=>setYear(Number(v))} options={years}/>
           <Sel label="Mês" value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/>
@@ -34310,15 +34309,7 @@ function Comunicacao({ data, currentUser, showToast }) {
         title="Comunicação"
         description="Prioridades do dia e ranking de engenharia de campo. O chat da equipe agora é o balão flutuante no canto da tela."
       />
-      <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-        {[["notificacoes", "Notificações"], ["ranking", "Ranking"]].map(([v, l]) => (
-          <button key={v} onClick={() => setAba(v)} style={{
-            border: 0, background: "transparent", cursor: "pointer", padding: "8px 12px",
-            fontSize: 12, fontWeight: aba === v ? 800 : 500, color: aba === v ? C.text : C.muted,
-            borderBottom: `2px solid ${aba === v ? C.yellow : "transparent"}`, marginBottom: -1,
-          }}>{l}</button>
-        ))}
-      </div>
+      <TabRow equal tabs={[["notificacoes", "Notificações"], ["ranking", "Ranking"]]} active={aba} onChange={setAba}/>
 
       {aba === "notificacoes" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

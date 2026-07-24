@@ -1264,7 +1264,6 @@
 .obra-financeiro{display:flex;flex-direction:column;gap:13px;color:#292e32}
 .obra-fin-header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding:2px 1px 5px}
 .obra-fin-header p{font-size:9px;font-weight:850;letter-spacing:.12em;color:#8a6b17}.obra-fin-header h2{font-size:25px;letter-spacing:-.035em;margin:3px 0}.obra-fin-header span{font-size:10.5px;color:#737a80}
-.obra-fin-tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid #d3d6d8}.obra-fin-tabs button{border:0;border-bottom:2px solid transparent!important;background:transparent!important;padding:9px 11px;color:#6b7278;font-size:10px;font-weight:650;white-space:nowrap;cursor:pointer}.obra-fin-tabs button.active{border-bottom-color:#a78320!important;color:#393e42;font-weight:800}
 .obra-fin-controls{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap}.obra-fin-controls label{display:flex;flex-direction:column;gap:4px}.obra-fin-controls label>span{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#737a80}.obra-fin-controls input{height:38px;min-width:180px;padding:0 10px;border:1px solid #ccd0d2;border-radius:5px;background:#f8f9f9;color:#34393d;font:500 11px "IBM Plex Sans",sans-serif}.obra-fin-search{flex:1}.obra-fin-search input{width:100%}
 .obra-fin-summary{display:grid;grid-template-columns:minmax(180px,.72fr) minmax(180px,.72fr) minmax(300px,1.35fr);gap:10px}.obra-fin-column{display:grid;grid-template-columns:1fr;gap:7px}.obra-fin-column h3{font-size:11px;padding:0 2px;color:#555c61}
 .obra-fin-metric{padding:12px 13px;border:1px solid #d5d8da;border-radius:7px;background:#f7f8f8}.obra-fin-metric>span{display:block;font-size:9px;color:#737a80}.obra-fin-metric strong{display:block;font-size:17px;margin-top:5px;color:#3c4246}.obra-fin-metric small{display:block;font-size:8.5px;color:#8a9095;margin-top:3px}.obra-fin-metric.positive strong{color:#296f3b}.obra-fin-metric.negative strong{color:#944843}.obra-fin-metric.danger{border-color:#d9b7b4;background:#f7eeee}.obra-fin-metric.danger strong{color:#a43c35}
@@ -1617,35 +1616,6 @@
 .dre-period-note svg{flex:none;color:#8f711d;margin-top:1px}
 .dre-period-note p{font-size:10px;line-height:1.5}
 .dre-period-note b{color:#383e42}
-.dre-view-tabs{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:4px;
-  padding:4px;
-  border-radius:8px;
-  background:#e8ebec;
-}
-.dre-view-tabs button{
-  min-width:0;
-  padding:9px 12px;
-  border:1px solid transparent;
-  border-radius:6px;
-  background:transparent;
-  color:#646c72;
-  cursor:pointer;
-  text-align:left;
-  transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease;
-}
-.dre-view-tabs button:hover{background:rgba(255,255,255,.62);color:#252b2f}
-.dre-view-tabs button:active{transform:translateY(1px)}
-.dre-view-tabs button[aria-pressed="true"]{
-  border-color:#cfd4d6;
-  background:#fff;
-  color:#176b35;
-  box-shadow:0 1px 4px rgba(29,35,38,.07);
-}
-.dre-view-tabs button span{display:block;font-size:12px;font-weight:800}
-.dre-view-tabs button small{display:block;margin-top:2px;color:#7a8287;font-size:9px;line-height:1.3}
 .dre-work-selector{
   width:min(100%,460px);
   padding:12px;
@@ -1695,8 +1665,6 @@
 @media(max-width:760px){
   .dre-period-controls{grid-template-columns:1fr 1fr}
   .dre-period-controls>label:last-child{grid-column:1/-1}
-  .dre-view-tabs{display:flex;overflow-x:auto;scroll-snap-type:x proximity}
-  .dre-view-tabs button{flex:0 0 176px;scroll-snap-align:start}
   .dre-detail-filters{grid-template-columns:1fr 1fr}
   .dre-detail-row{grid-template-columns:1fr auto;gap:5px 12px;padding:11px}
   .dre-detail-head{display:none}
@@ -1751,16 +1719,6 @@
 .dre-company-toolbar{
   display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
   padding:6px;border:1px solid var(--ledger-line);border-radius:9px;background:var(--ledger-concrete);
-}
-.dre-company-toolbar nav{display:flex;gap:3px;min-width:0;overflow-x:auto}
-.dre-company-toolbar nav button{
-  display:inline-flex;align-items:center;gap:6px;min-height:39px;padding:0 11px;
-  border:1px solid transparent;border-radius:6px;background:transparent;color:#626a70;
-  font-size:10px;font-weight:750;white-space:nowrap;cursor:pointer;
-}
-.dre-company-toolbar nav button:hover{background:rgba(255,255,255,.58);color:#2f3539}
-.dre-company-toolbar nav button[aria-pressed="true"]{
-  border-color:#cbd0d2;background:#fff;color:#176b35;
 }
 .dre-company-period{display:grid;grid-template-columns:92px 135px;gap:5px;flex:none}
 .dre-company-period label{gap:2px!important}
@@ -1869,8 +1827,6 @@
 @media(max-width:620px){
   .dre-company-header{flex-direction:column}
   .dre-company-header-actions{width:100%;justify-content:flex-start}
-  .dre-company-toolbar nav button span{display:none}
-  .dre-company-toolbar nav button{flex:1;justify-content:center}
   .dre-company-kpis{grid-template-columns:1fr 1fr!important}
   .dre-ai-command{grid-template-columns:1fr}
   .dre-ai-score{padding:0 0 10px;border-right:0;border-bottom:1px solid #d7dbdd}
@@ -2256,11 +2212,8 @@
 .arcd-topbar,
 .arcd-mobile-nav button,
 .arcd-tab,
-.standard-module-tabs button,
-.financial-area-nav button,
-.obra-fin-tabs button,
-.dre-view-tabs button,
-.dre-company-toolbar nav button {
+.tab-row button,
+.financial-area-nav button {
   font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif !important;
   font-synthesis: none;
 }
@@ -2282,11 +2235,8 @@
 }
 
 .arcd-tab,
-.standard-module-tabs button,
-.financial-area-nav button,
-.obra-fin-tabs button,
-.dre-view-tabs button,
-.dre-company-toolbar nav button {
+.tab-row button,
+.financial-area-nav button {
   font-size: 10px !important;
   font-weight: 600 !important;
   line-height: 1.2 !important;
@@ -2456,23 +2406,21 @@
   box-shadow: none !important;
 }
 
-.standard-module-tabs {
+.tab-row {
   scrollbar-width: none;
   overscroll-behavior-x: contain;
 }
 
-.standard-module-tabs::-webkit-scrollbar {
+.tab-row::-webkit-scrollbar {
   display: none;
 }
 
-.standard-module-tabs button {
+.tab-row button {
   transition: background .15s ease, border-color .15s ease, color .15s ease;
 }
 
-.standard-module-tabs button:hover {
-  background: #fff !important;
-  border-color: #b9bdc0 !important;
-  color: #2e3438 !important;
+.tab-row button:hover:not([aria-pressed="true"]) {
+  background: rgba(0,0,0,.04) !important;
 }
 
 @media(max-width:700px){
@@ -2484,13 +2432,12 @@
     width: 100%;
   }
 
-  .standard-module-tabs {
+  .tab-row {
     width: 100%;
   }
 
-  .standard-module-tabs button {
-    flex: 0 0 auto;
-    min-height: 40px;
+  .tab-row button {
+    min-height: 40px !important;
   }
 
   .reconciliation-header label,
