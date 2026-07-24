@@ -112,7 +112,7 @@ const C = {
 // Escala tipografica unica do app. Toda tela nova (ou revisada) deve montar
 // seus titulos/textos a partir daqui em vez de inventar fontSize/fontWeight
 // soltos - e o que unifica visualmente heroes, cards e paineis diferentes.
-const FONT_DISPLAY = "'Inter Display','Inter',sans-serif";
+const FONT_DISPLAY = "'IBM Plex Sans','Helvetica Neue',Arial,sans-serif";
 const TYPO = {
   h1:      { fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:"clamp(24px,4vw,34px)", letterSpacing:-.8, lineHeight:1.1, color:C.text },
   h2:      { fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:"clamp(20px,3vw,26px)", letterSpacing:-.7, lineHeight:1.12, color:C.text },
@@ -3136,7 +3136,7 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
         color: vv.color,
         padding: `${py}px ${px}px`,
         cursor: disabled ? "not-allowed" : "pointer",
-        fontFamily: "'Inter Display','Inter',sans-serif",
+        fontFamily: FONT_DISPLAY,
         fontWeight: 700,
         letterSpacing: 0.05,
         display: "inline-flex",
@@ -3476,7 +3476,7 @@ function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", acti
     appearance:"none",textAlign:"left",width:"100%",background:active?`${color}0D`:C.card,
     border:`1px solid ${active?color:C.line}`,borderRadius:9,padding:"10px 11px",cursor:onClick?"pointer":"default",
     boxShadow:active?`0 0 0 2px ${color}12`:C.shHair,position:"relative",overflow:"hidden",
-  }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:8.5,fontWeight:850,letterSpacing:.8,textTransform:"uppercase",color:C.muted}}>{label}</p><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={12} color={color}/></span></div><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(17px,2vw,21px)",fontWeight:790,letterSpacing:-.55,color:C.text,lineHeight:1,marginTop:7}}>{value}</p>{detail&&<p style={{fontSize:8.5,color:C.muted,marginTop:4}}>{detail}</p>}</Comp>;
+  }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:8.5,fontWeight:850,letterSpacing:.8,textTransform:"uppercase",color:C.muted}}>{label}</p><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={12} color={color}/></span></div><p style={{fontFamily:FONT_DISPLAY,fontSize:"clamp(17px,2vw,21px)",fontWeight:790,letterSpacing:-.55,color:C.text,lineHeight:1,marginTop:7}}>{value}</p>{detail&&<p style={{fontSize:8.5,color:C.muted,marginTop:4}}>{detail}</p>}</Comp>;
 }
 
 function Divider() {
@@ -12769,7 +12769,8 @@ function RelatorioAdministracao({ data, year, month, showToast }) {
         incluiMaoDeObra, incluiMateriais, incluiTerceirizados,
       };
     });
-  }, [obrasAdmin, data, year, month]);
+  }, [obrasAdmin, year, month, data.attendance, data.employees, data.pagsTerceiros, data.payments,
+      data.terceirizados, data.outrasDesp, data.pedidos, data.medicoes, data.rescisoes, data.equipamentos, data.locacoesEquip]);
 
   const totais = useMemo(() => ({
     previsto: linhas.reduce((s,l)=>s+l.valorAdmin,0),
@@ -13058,7 +13059,7 @@ function Relatorios({ data, showToast }) {
       </div>
 
       {/*  RELATÓRIO MENSAL COMPLETO  */}
-      {view === "relatorio" && <RelatorioMensal data={data} year={year} month={month}/>}
+      {view === "relatorio" && <RelatorioMensal data={data} year={year} month={month} showToast={showToast}/>}
 
       {/*  CAIXA DE OBRA  */}
       {view === "caixa" && <RelatorioCaixaObra data={data} showToast={showToast}/>}
@@ -13095,10 +13096,10 @@ function Relatorios({ data, showToast }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:9,fontWeight:850,letterSpacing:1,textTransform:"uppercase",color:C.muted}}>Leitura técnica por obra</p>{highlightObra&&<button onClick={()=>setHighlightObra("")} style={{border:0,background:"transparent",color:C.yellowD,fontSize:9.5,fontWeight:750,cursor:"pointer"}}>Limpar destaque</button>}</div>
         {[...filteredRows].sort((a,b)=>(b.id===highlightObra)-(a.id===highlightObra)).map(r => (
-          <div key={r.id} onClick={()=>setHighlightObra(r.id)} className="lift-card" style={{ background:C.card,border:`1px solid ${highlightObra===r.id?C.yellow:C.line}`,borderLeft:`3px solid ${highlightObra===r.id?C.yellow:C.cinza}`,borderRadius:12,padding:13,cursor:"pointer",opacity:highlightObra&&highlightObra!==r.id?0.72:1,boxShadow:highlightObra===r.id?`0 8px 24px ${C.yellow}12`:C.shHair }}>
+          <div key={r.id} onClick={()=>setHighlightObra(r.id)} className="lift-card" style={{ background:C.card,border:`1px solid ${highlightObra===r.id?C.yellow:C.line}`,borderRadius:12,padding:13,cursor:"pointer",opacity:highlightObra&&highlightObra!==r.id?0.72:1,boxShadow:highlightObra===r.id?`0 8px 24px ${C.yellow}12`:C.shHair }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
               <div>
-                <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:780,fontSize:15 }}>{r.name}</p>
+                <p style={{ fontFamily:FONT_DISPLAY, fontWeight:780,fontSize:15 }}>{r.name}</p>
                 <p style={{ color: C.muted, fontSize:10.5,marginTop:2 }}>
                   Área: {r.areaM2 > 0 ? `${r.areaM2.toLocaleString("pt-BR")} m²` : "não cadastrada"} · {r.trabalhadores} trabalhador(es)
                 </p>
@@ -13131,7 +13132,7 @@ function Relatorios({ data, showToast }) {
       </div>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Top custos do mês</h3>
+        <h3 style={{ fontFamily:FONT_DISPLAY, color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Top custos do mês</h3>
         {topCost.length === 0 && <p style={{ color: C.muted, fontSize: 13 }}>Nenhum custo lançado no período.</p>}
         {topCost.map(i => (
           <div key={`${i.name}-${i.obra}`} style={{ borderTop: `1px solid ${C.border}`, padding: "9px 0", display: "flex", justifyContent: "space-between" }}>
@@ -13150,8 +13151,11 @@ function Relatorios({ data, showToast }) {
 // RELATÓRIO MENSAL COMPLETO POR OBRA
 // 
 
-function RelatorioMensal({ data, year, month }) {
-  const rows   = useMemo(() => calcRelatorioMensal(data, year, month), [data, year, month]);
+function RelatorioMensal({ data, year, month, showToast }) {
+  const rows   = useMemo(() => calcRelatorioMensal(data, year, month), [year, month,
+    data.obras, data.attendance, data.employees, data.pagsTerceiros, data.payments,
+    data.terceirizados, data.outrasDesp, data.pedidos, data.medicoes, data.rescisoes,
+    data.equipamentos, data.locacoesEquip, data.advances]);
   const period = `${fullMonth(month)} ${year}`;
 
   // Totais consolidados
@@ -13167,143 +13171,60 @@ function RelatorioMensal({ data, year, month }) {
     margem:         acc.margem         + r.margem,
   }), { received:0, revenueEsp:0, laborCost:0, benefitCost:0, tercCost:0, rescTotal:0, adiantTotal:0, totalDespesas:0, margem:0 });
 
-  const fmt2 = n => Number(n||0).toFixed(2).replace(".",",");
-
-  //  PDF 
+  //  PDF
   const gerarPDF = () => {
-    const dreRow = (label, value, cls="") =>
-      `<tr class="${cls}"><td>${label}</td><td class="val">${value>=0?"":"(-)"} R$ ${fmt2(Math.abs(value))}</td></tr>`;
+    const tabelaObra = r => ({
+      titulo: r.obra.name,
+      descricao: [
+        `${CONTRACT_LABELS[r.obra.contractType]||"Contrato"} · ${r.activeEmps} func. ativos · ${r.activeTercs} terceiros · ${r.presencaDias} presenças`,
+        r.tercDetalhes.length ? `Terceirizados pagos: ${r.tercDetalhes.map(p=>`${p.tercName||"-"} (${fmt(p.amount)}, ${fmtDateFull(p.date)})`).join("; ")}` : "",
+        r.rescDetalhes.length ? `Rescisões: ${r.rescDetalhes.map(rd=>`${rd.empName||"-"} (${fmt(rd.totalLiquido)}, ${fmtDateFull(rd.demissao)})`).join("; ")}` : "",
+      ].filter(Boolean).join(" — "),
+      headers: ["Descrição", { label:"Valor", num:true }],
+      rows: [
+        ["(+) Receita recebida", escapeHtml(fmt(r.received))],
+        ["(+) Receita esperada (contrato)", escapeHtml(fmt(r.revenueEsperada))],
+        ["(-) Mão de obra própria", escapeHtml(fmt(r.moData.laborCost))],
+        ["(-) Benefícios (VT/VR)", escapeHtml(fmt(r.moData.benefitCost))],
+        ["(-) Terceirizados", escapeHtml(fmt(r.tercCost))],
+        ...(r.rescTotal>0 ? [["(-) Rescisões", escapeHtml(fmt(r.rescTotal))]] : []),
+        ...(r.adiantTotal>0 ? [["(-) Adiantamentos", escapeHtml(fmt(r.adiantTotal))]] : []),
+        ["Total de despesas", escapeHtml(fmt(r.totalDespesas))],
+        ["Margem esperada", escapeHtml(fmt(r.margemEsperada))],
+      ],
+      totalRow: [`Margem (${r.margemPct.toFixed(1)}%)`, escapeHtml(fmt(r.margem))],
+    });
 
-    const obraBlocks = rows.map(r => `
-      <div class="obra-block">
-        <div class="obra-header">
-          <div>
-            <p class="obra-nome">${escapeHtml(r.obra.name)}</p>
-            <p class="obra-sub">${CONTRACT_LABELS[r.obra.contractType]||"Contrato"}  ${r.activeEmps} func. ativos  ${r.activeTercs} terceiros  ${r.presencaDias} presenças</p>
-          </div>
-          <div class="margem-badge ${r.margem>=0?"pos":"neg"}">
-            <p class="mb-label">Margem</p>
-            <p class="mb-val">R$ ${fmt2(r.margem)}</p>
-            <p class="mb-pct">${r.margemPct.toFixed(1)}%</p>
-          </div>
-        </div>
-        <table class="dre">
-          <thead><tr><th>Descrição</th><th class="val">Valor</th></tr></thead>
-          <tbody>
-            <tr class="section-header"><td colspan="2">RECEITAS</td></tr>
-            ${dreRow("(+) Receita recebida", r.received, "entry")}
-            ${dreRow("(+) Receita esperada (contrato)", r.revenueEsperada, "entry muted")}
-            <tr class="section-header"><td colspan="2">DESPESAS</td></tr>
-            ${dreRow("(-) Mão de obra própria", r.moData.laborCost, "entry desp")}
-            ${dreRow("(-) Benefícios (VT/VR)", r.moData.benefitCost, "entry desp")}
-            ${dreRow("(-) Terceirizados", r.tercCost, "entry desp")}
-            ${r.rescTotal>0 ? dreRow("(-) Rescisões", r.rescTotal, "entry desp") : ""}
-            ${r.adiantTotal>0 ? dreRow("(-) Adiantamentos", r.adiantTotal, "entry desp") : ""}
-            <tr class="subtotal desp"><td>Total de Despesas</td><td class="val">R$ ${fmt2(r.totalDespesas)}</td></tr>
-            <tr class="section-header"><td colspan="2">RESULTADO</td></tr>
-            <tr class="result ${r.margem>=0?"pos":"neg"}"><td>Margem (Receb.  Desp.)</td><td class="val">R$ ${fmt2(r.margem)}</td></tr>
-            <tr class="result-esp"><td>Margem Esperada</td><td class="val">R$ ${fmt2(r.margemEsperada)}</td></tr>
-          </tbody>
-        </table>
-        ${r.tercDetalhes.length>0 ? `
-          <p class="detail-title">Terceirizados pagos no mês:</p>
-          <ul class="detail-list">${r.tercDetalhes.map(p=>`<li>${escapeHtml(p.tercName||"-")} - R$ ${fmt2(p.amount)} (${fmtDateFull(p.date)})</li>`).join("")}</ul>` : ""}
-        ${r.rescDetalhes.length>0 ? `
-          <p class="detail-title">Rescisões no mês:</p>
-          <ul class="detail-list">${r.rescDetalhes.map(r=>`<li>${escapeHtml(r.empName||"-")} - R$ ${fmt2(r.totalLiquido)} (${fmtDateFull(r.demissao)})</li>`).join("")}</ul>` : ""}
-      </div>`).join("");
-
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Relatório Mensal - ${escapeHtml(period)}</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;color:#121212;background:#fff;padding:28px;font-size:11px}
-.print-btn{position:fixed;top:10px;right:10px;background:#121212;color:#D4AF37;border:1px solid #D4AF37;padding:10px 18px;font-size:12px;font-weight:700;cursor:pointer;z-index:99;border-radius:4px}
-.page-header{display:flex;align-items:center;gap:16px;padding:16px;background:#121212;color:#fff;border-bottom:4px solid #D4AF37;margin-bottom:20px}
-.logo-box{border:1px solid #D4AF37;color:#D4AF37;padding:9px 14px;font-size:22px;font-weight:900;letter-spacing:3px;flex-shrink:0}
-.company h1{font-size:17px;font-weight:900;letter-spacing:.5px}
-.company p{font-size:9px;color:#BFBFBF;margin-top:3px;text-transform:uppercase;letter-spacing:.8px}
-.period{font-size:18px;font-weight:900;text-align:right;flex:1;color:#D4AF37}
-.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0;page-break-inside:avoid}
-.sum-card{border:1px solid #dedbd4;padding:10px 12px;border-left:3px solid #D4AF37;background:#F5F3EE}
-.sum-card.green,.sum-card.blue,.sum-card.purple{border-left-color:#D4AF37}.sum-card.red{border-left-color:#B71C1C}
-.sum-card .sc-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#777}
-.sum-card .sc-val{font-size:16px;font-weight:900;margin-top:4px}
-h2{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin:22px 0 10px;border-bottom:2px solid #D4AF37;padding-bottom:6px}
-.obra-block{margin-bottom:24px;page-break-inside:avoid;border:1px solid #dedbd4;border-radius:4px;overflow:hidden}
-.obra-header{background:#F5F3EE;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #dedbd4}
-.obra-nome{font-size:14px;font-weight:900;letter-spacing:.3px}
-.obra-sub{font-size:10px;color:#777;margin-top:3px}
-.margem-badge{text-align:right;min-width:100px}
-.margem-badge.pos .mb-val{color:#16a34a}.margem-badge.neg .mb-val{color:#dc2626}
-.mb-label{font-size:9px;color:#999;text-transform:uppercase;font-weight:700}
-.mb-val{font-size:16px;font-weight:900;margin-top:1px}
-.mb-pct{font-size:10px;color:#999;margin-top:1px}
-table.dre{width:100%;border-collapse:collapse;font-size:11px}
-table.dre th{background:#121212;color:#fff;padding:6px 10px;text-align:left;font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.7px}
-table.dre th.val,table.dre td.val{text-align:right;min-width:110px}
-table.dre td{padding:5px 10px;border-bottom:1px solid #f0f0f0}
-.section-header td{background:#F5F3EE;font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:#555;padding:5px 10px;border-left:2px solid #D4AF37}
-.entry.desp td{color:#333}.entry.muted td{color:#999;font-style:italic}
-.subtotal td{font-weight:900;background:#fef2f2;color:#dc2626;font-size:12px;border-top:2px solid #fca5a5}
-.subtotal.desp td{background:#fef2f2}
-.result td{font-weight:900;font-size:13px;border-top:2px solid #121212}
-.result.pos td{color:#16a34a}.result.neg td{color:#dc2626}
-.result-esp td{color:#121212;font-weight:700;font-size:11px;border-bottom:2px solid #121212}
-.detail-title{font-size:10px;font-weight:700;color:#555;margin:8px 14px 3px;text-transform:uppercase;letter-spacing:.5px}
-.detail-list{font-size:10px;color:#666;margin:0 14px 10px;padding-left:14px}
-.detail-list li{margin-bottom:2px}
-.consolidado table.dre{border:2px solid #121212}
-.consolidado th{background:#121212}
-.footer{margin-top:30px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #eee;padding-top:8px}
-@media print{.print-btn{display:none!important} body{padding:18px}}
-</style></head>
-<body>
-<button class="print-btn" onclick="window.print()"> Imprimir / PDF</button>
-<div class="page-header">
-  <div class="logo-box">ArcD</div>
-  <div class="company">
-    <h1>${escapeHtml(data.config.companyName||"ArcD Construtora")}</h1>
-    ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
-    <p>Relatório Gerencial Mensal</p>
-  </div>
-  <div class="period">${escapeHtml(period)}</div>
-</div>
-
-<div class="summary">
-  <div class="sum-card green"><p class="sc-label">Receita recebida</p><p class="sc-val">R$ ${fmt2(tot.received)}</p></div>
-  <div class="sum-card blue"><p class="sc-label">Custo MO própria</p><p class="sc-val">R$ ${fmt2(tot.laborCost+tot.benefitCost)}</p></div>
-  <div class="sum-card purple"><p class="sc-label">Terceiros + Rescisões</p><p class="sc-val">R$ ${fmt2(tot.tercCost+tot.rescTotal)}</p></div>
-  <div class="sum-card ${tot.margem>=0?"green":"red"}"><p class="sc-label">Margem global</p><p class="sc-val">R$ ${fmt2(tot.margem)}</p></div>
-</div>
-
-<h2>Detalhamento por Obra</h2>
-${obraBlocks}
-
-<h2>Consolidado Geral - ${escapeHtml(period)}</h2>
-<div class="consolidado">
-<table class="dre">
-  <thead><tr><th>Descrição</th><th class="val">Valor</th></tr></thead>
-  <tbody>
-    <tr class="section-header"><td colspan="2">RECEITAS</td></tr>
-    ${dreRow("(+) Receita recebida total", tot.received, "entry")}
-    ${dreRow("(+) Receita esperada total", tot.revenueEsp, "entry muted")}
-    <tr class="section-header"><td colspan="2">DESPESAS</td></tr>
-    ${dreRow("(-) Mão de obra própria", tot.laborCost, "entry desp")}
-    ${dreRow("(-) Benefícios (VT/VR)", tot.benefitCost, "entry desp")}
-    ${dreRow("(-) Terceirizados", tot.tercCost, "entry desp")}
-    ${tot.rescTotal>0?dreRow("(-) Rescisões", tot.rescTotal, "entry desp"):""}
-    ${tot.adiantTotal>0?dreRow("(-) Adiantamentos", tot.adiantTotal, "entry desp"):""}
-    <tr class="subtotal desp"><td>Total de Despesas</td><td class="val">R$ ${fmt2(tot.totalDespesas)}</td></tr>
-    <tr class="section-header"><td colspan="2">RESULTADO FINAL</td></tr>
-    <tr class="result ${tot.margem>=0?"pos":"neg"}"><td><strong>Margem Global (Receb.  Desp.)</strong></td><td class="val"><strong>R$ ${fmt2(tot.margem)}</strong></td></tr>
-  </tbody>
-</table>
-</div>
-
-<div class="footer">Gerado por ArcD Ponto PRO  ${new Date().toLocaleString("pt-BR")}  ${escapeHtml(data.config.hrName||"")}</div>
-</body></html>`;
-    const w = window.open("","_blank"); w.document.write(html); w.document.close();
+    const html = montarRelatorioPadraoHtml({
+      data,
+      titulo: "Relatório mensal",
+      subtitulo: period,
+      kpis: [
+        { label: "Receita recebida", value: fmt(tot.received) },
+        { label: "Custo MO própria", value: fmt(tot.laborCost+tot.benefitCost) },
+        { label: "Terceiros + rescisões", value: fmt(tot.tercCost+tot.rescTotal) },
+        { label: "Margem global", value: fmt(tot.margem) },
+      ],
+      tabelas: [
+        ...rows.map(tabelaObra),
+        {
+          titulo: "Consolidado geral",
+          headers: ["Descrição", { label:"Valor", num:true }],
+          rows: [
+            ["(+) Receita recebida total", escapeHtml(fmt(tot.received))],
+            ["(+) Receita esperada total", escapeHtml(fmt(tot.revenueEsp))],
+            ["(-) Mão de obra própria", escapeHtml(fmt(tot.laborCost))],
+            ["(-) Benefícios (VT/VR)", escapeHtml(fmt(tot.benefitCost))],
+            ["(-) Terceirizados", escapeHtml(fmt(tot.tercCost))],
+            ...(tot.rescTotal>0 ? [["(-) Rescisões", escapeHtml(fmt(tot.rescTotal))]] : []),
+            ...(tot.adiantTotal>0 ? [["(-) Adiantamentos", escapeHtml(fmt(tot.adiantTotal))]] : []),
+            ["Total de despesas", escapeHtml(fmt(tot.totalDespesas))],
+          ],
+          totalRow: ["Margem global", escapeHtml(fmt(tot.margem))],
+        },
+      ],
+    });
+    abrirRelatorioPadrao(html, showToast);
   };
 
   //  Excel 
@@ -13391,7 +13312,7 @@ ${obraBlocks}
       </div>
 
       {/* Ações */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8}}>
         <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> Relatório PDF</Btn>
         <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Excel Completo</Btn>
       </div>
@@ -13402,12 +13323,12 @@ ${obraBlocks}
         return (
           <div key={r.obra.id} style={{
             background:C.card, border:`1px solid ${C.border}`,
-            borderLeft:`5px solid ${margemColor}`, borderRadius:10, overflow:"hidden",
+            borderTop:`2px solid ${margemColor}`, borderRadius:10, overflow:"hidden",
           }}>
             {/* Header da obra */}
             <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
               <div>
-                <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:18,letterSpacing:.3}}>{r.obra.name}</p>
+                <p style={{fontFamily:FONT_DISPLAY,fontWeight:900,fontSize:18,letterSpacing:.3}}>{r.obra.name}</p>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>
                   <Badge color={C.yellow}>{CONTRACT_LABELS[r.obra.contractType]||"Contrato"}</Badge>
                   <Badge color={C.blue}>{r.activeEmps} func.</Badge>
@@ -13416,7 +13337,7 @@ ${obraBlocks}
                 </div>
               </div>
               <div style={{textAlign:"right",flexShrink:0}}>
-                <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:22,color:margemColor,letterSpacing:.5,lineHeight:1}}>{fmt(r.margem)}</p>
+                <p style={{fontFamily:FONT_DISPLAY,fontWeight:800,fontSize:22,color:margemColor,letterSpacing:.5,lineHeight:1}}>{fmt(r.margem)}</p>
                 <p style={{fontSize:10,color:C.muted,marginTop:2}}>margem {r.margemPct.toFixed(0)}%</p>
               </div>
             </div>
@@ -13492,7 +13413,7 @@ ${obraBlocks}
 
       {/* Totais finais */}
       <div style={{background:C.card,border:`2px solid ${C.yellow}`,borderRadius:10,padding:"14px 16px"}}>
-        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:16,color:C.yellow,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>Consolidado Geral - {fullMonth(month)} {year}</p>
+        <p style={{fontFamily:FONT_DISPLAY,fontWeight:900,fontSize:16,color:C.yellow,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>Consolidado Geral - {fullMonth(month)} {year}</p>
         {[
           ["Receita recebida",  tot.received,          C.green],
           ["Receita esperada",  tot.revenueEsp,        C.subtle],
