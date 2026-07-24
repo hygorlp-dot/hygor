@@ -3585,12 +3585,21 @@ const _calcObraLaborCostRaw = (data, obraId, days) => {
 // chama calcObraRevenue só com laborCost - só passa a mudar o resultado de
 // admin_only/fixed_labor_admin quem efetivamente informar os custos extras.
 // Regra de negócio (fechamento por administração):
-//   - "admin_only" (obra fechada só por administração): a receita prevista é
-//     o percentual de admin sobre TODOS os custos gastos no período (MO,
-//     benefícios, materiais, terceirizados, equipamentos, rescisões).
+//   - "admin_only" (obra fechada só por administração): por padrão, a receita
+//     prevista é o percentual de admin sobre TODOS os custos gastos no
+//     período (MO, benefícios, materiais - inclui compras via pedidos -,
+//     terceirizados, equipamentos, rescisões).
 //   - "fixed_labor_admin" (misto: mão de obra fixa + administração): a MO já
-//     está coberta pelo valor fixo do contrato, então o percentual de admin
-//     incide só sobre MATERIAIS e TERCEIRIZADOS gastos no período.
+//     está coberta pelo valor fixo do contrato, então por padrão o percentual
+//     de admin incide só sobre MATERIAIS e TERCEIRIZADOS gastos no período.
+// Cada obra pode sobrescrever essa base padrão via adminBaseMateriais /
+// adminBaseMaoDeObra / adminBaseTerceirizados (booleans em obra), ligando ou
+// desligando cada categoria - ex.: um contrato admin_only que não deve cobrar
+// administração sobre mão de obra própria.
+// IMPORTANTE: quem chama esta função com outrasTotal deve excluir daí a
+// parcela de materiais já contabilizada em materialCost (calcObraMaterialCost
+// soma só a categoria "material" de outrasDesp), senão o valor é somado em
+// dobro na base de admin_only.
 const calcObraRevenue = (obra, laborCost, extraCosts = {}) => {
   const ct = obra.contractType || "fixed_labor";
   const cv = Number(obra.contractValue||0);
@@ -3599,16 +3608,24 @@ const calcObraRevenue = (obra, laborCost, extraCosts = {}) => {
     benefitCost = 0, materialCost = 0, tercCost = 0,
     outrasTotal = 0, equipCost = 0, rescTotal = 0,
   } = extraCosts;
-  const totalCost = laborCost + benefitCost + tercCost + outrasTotal + equipCost + rescTotal;
-  const adminBaseMisto = materialCost + tercCost;
+  const outrosCustos = outrasTotal + equipCost + rescTotal;
+  const totalCost = laborCost + benefitCost + tercCost + materialCost + outrosCustos;
+  const incluiMaoDeObra     = obra.adminBaseMaoDeObra     !== undefined ? !!obra.adminBaseMaoDeObra     : ct === "admin_only";
+  const incluiMateriais     = obra.adminBaseMateriais     !== undefined ? !!obra.adminBaseMateriais     : true;
+  const incluiTerceirizados = obra.adminBaseTerceirizados !== undefined ? !!obra.adminBaseTerceirizados : true;
+  const adminBase =
+    (incluiMaoDeObra ? laborCost + benefitCost : 0) +
+    (incluiMateriais ? materialCost : 0) +
+    (incluiTerceirizados ? tercCost : 0) +
+    (ct === "admin_only" ? outrosCustos : 0);
   let revenue = 0;
   if (ct === "fixed_labor")            revenue = cv;
-  else if (ct === "fixed_labor_admin") revenue = cv + adminBaseMisto * ap;
-  else if (ct === "admin_only")        revenue = totalCost * ap;
+  else if (ct === "fixed_labor_admin") revenue = cv + adminBase * ap;
+  else if (ct === "admin_only")        revenue = adminBase * ap;
   const margin = revenue - laborCost;
   const marginPct = revenue > 0 ? (margin/revenue)*100 : 0;
   const commitment = cv > 0 ? (laborCost/cv)*100 : null;
-  return { revenue, margin, marginPct, commitment, totalCost, adminBaseMisto };
+  return { revenue, margin, marginPct, commitment, totalCost, adminBase, adminBaseMisto: adminBase };
 };
 
 // 
@@ -4524,6 +4541,8 @@ const {
   calcObraLaborCost,
   calcObraTercCost,
   calcTercEmpresaCost,
+  calcObraTercEmpresaCost,
+  calcObraComprasCost,
   calcEquipCustoObra,
   calcEquipFaturamentoEmpresa,
 });
@@ -4985,10 +5004,17 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
           <DRERow label={`(-) MO própria · ${d.days?.length||0} dias no período`} value={d.moData.laborCost} color={C.orange} indent={1}/>
           <DRERow label="(-) Benefícios VT/VR" value={d.moData.benefitCost} color={C.muted}   indent={1}/>
           <DRERow label="(-) Terceirizados (obra)" value={d.tercCost}          color={C.purple}  indent={1}/>
+          {d.comprasCost>0&&<DRERow label="(-) Compras de materiais (pedidos)" value={d.comprasCost} color={C.yellowD} indent={1}/>}
           {d.rescTotal>0&&<DRERow label="(-) Rescisões" value={d.rescTotal} color={C.red} indent={1}/>}
           {d.equipCost>0&&<DRERow label="(-) Locação de equipamentos" value={d.equipCost} color={C.blue} indent={1}/>}
           {d.outrasTotal>0&&<DRERow label="(-) Outras despesas" value={d.outrasTotal} color={C.orange} indent={1}/>}
           <DRERow label="Total custos" value={d.totalCustos} color={C.red} bold/>
+          {d.tercEmpresaObra>0&&(
+            <div style={{padding:"5px 12px 5px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",opacity:.75}}>
+              <p style={{fontSize:10.5,color:C.muted,fontStyle:"italic"}}>Terceirizados pagos pela empresa (referência, não afeta a margem desta obra)</p>
+              <p style={{fontSize:11,color:C.muted,fontWeight:700}}>{fmt(d.tercEmpresaObra)}</p>
+            </div>
+          )}
 
           <DRESeparator/>
           <DRERow label="Lucro Bruto" value={d.lucroBruto} color={lucroCor} bold pct={d.margemBruta}/>
@@ -5049,6 +5075,8 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
       <tr class="entry sub"><td>&nbsp;&nbsp;(-) Benefícios (VT/VR)</td><td class="val">R$ ${fmt2(obj.benefitCost||obj.moData?.benefitCost||0)}</td></tr>
       <tr class="entry"><td>(-) Terceirizados${obj.tercEmpresa!==undefined?" (obras)":""}</td><td class="val neg">R$ ${fmt2(obj.tercCost||0)}</td></tr>
       ${(obj.tercEmpresa||0)>0?`<tr class="entry"><td>(-) Terceirizados (empresa)</td><td class="val neg">R$ ${fmt2(obj.tercEmpresa)}</td></tr>`:""}
+      ${(obj.comprasCost||0)>0?`<tr class="entry"><td>(-) Compras de materiais (pedidos)</td><td class="val neg">R$ ${fmt2(obj.comprasCost)}</td></tr>`:""}
+      ${(obj.tercEmpresaObra||0)>0?`<tr class="entry sub"><td>&nbsp;&nbsp;Terceirizados (empresa, referência)</td><td class="val">R$ ${fmt2(obj.tercEmpresaObra)}</td></tr>`:""}
       ${(obj.rescTotal||0)>0?`<tr class="entry"><td>(-) Rescisões</td><td class="val neg">R$ ${fmt2(obj.rescTotal)}</td></tr>`:""}
       ${(obj.equipCost||0)>0?`<tr class="entry"><td>(-) Locação de equipamentos</td><td class="val neg">R$ ${fmt2(obj.equipCost)}</td></tr>`:""}
       ${(obj.outrasTotal||0)>0?`<tr class="entry"><td>(-) Outras despesas</td><td class="val neg">R$ ${fmt2(obj.outrasTotal)}</td></tr>`:""}
@@ -5138,6 +5166,8 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       ["(-) Benefícios",      obj.benefitCost||obj.moData?.benefitCost||0],
       ["(-) Terceirizados",   obj.tercCost||0],
       ...((obj.tercEmpresa||0)>0 ? [["(-) Terceirizados (empresa)", obj.tercEmpresa]] : []),
+      ...((obj.comprasCost||0)>0 ? [["(-) Compras de materiais (pedidos)", obj.comprasCost]] : []),
+      ...((obj.tercEmpresaObra||0)>0 ? [["Terceirizados (empresa, referência)", obj.tercEmpresaObra]] : []),
       ["(-) Rescisões",       obj.rescTotal||0],
       ["(-) Outras despesas", obj.outrasTotal||0],
       ["Total Custos",        obj.totalCustos||0],
@@ -5256,6 +5286,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             <DRERow label="(-) Benefícios VT/VR" value={dre.benefitCost}  color={C.muted}  indent={1}/>
             <DRERow label="(-) Terceirizados (obras)" value={dre.tercCost}     color={C.purple} indent={1}/>
             {dre.tercEmpresa>0&&<DRERow label="(-) Terceirizados (empresa)" value={dre.tercEmpresa} color={C.purple} indent={1}/>}
+            {dre.comprasCost>0&&<DRERow label="(-) Compras de materiais (pedidos)" value={dre.comprasCost} color={C.yellowD} indent={1}/>}
             {dre.rescTotal>0&&<DRERow label="(-) Rescisões" value={dre.rescTotal} color={C.red} indent={1}/>}
             {dre.outrasTotal>0&&<DRERow label="(-) Outras despesas" value={dre.outrasTotal} color={C.orange} indent={1}/>}
             <DRERow label="Total custos" value={dre.totalCustos} color={C.red} bold/>
@@ -5992,10 +6023,16 @@ function MedicoesView({ data, update, showToast }) {
             if (!contemAdmin || !m.competencia) return null;
             const [y,mo] = m.competencia.split("-").map(Number);
             const dre = calcDREObra(data, selObra, y, mo-1, "mes");
-            const materialCost = calcObraMaterialCost(data, selObra, m.competencia) + calcObraComprasCost(data, selObra, dre.per0, dre.perF);
+            const materialOutrasDespMes = calcObraMaterialCost(data, selObra, m.competencia);
+            const materialCost = materialOutrasDespMes + calcObraComprasCost(data, selObra, dre.per0, dre.perF);
+            const tercCost = dre.tercCost + calcObraTercEmpresaCost(data, selObra, dre.per0, dre.perF);
             const ap = Number(obra?.adminPercentage||0)/100;
-            const base = ehAdminOnly ? dre.totalCustos : (materialCost + dre.tercCost);
-            return { valor: base*ap, base, materialCost, tercCost: dre.tercCost, totalCustos: dre.totalCustos };
+            const { adminBase } = calcObraRevenue(obra, dre.moData.laborCost, {
+              benefitCost: dre.moData.benefitCost, materialCost, tercCost,
+              outrasTotal: dre.outrasTotal - materialOutrasDespMes,
+              equipCost: dre.equipCost, rescTotal: dre.rescTotal,
+            });
+            return { valor: adminBase*ap, base: adminBase, materialCost, tercCost, totalCustos: dre.totalCustos };
           })();
 
           return (
@@ -6810,6 +6847,7 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
     .map(o => {
       const {laborCost, benefitCost, totalCost} = calcObraLaborCost(data, o.id, days);
       const tercCost = calcObraTercCost(data, o.id, periodStart, periodEnd);
+      const tercEmpresaObra = calcObraTercEmpresaCost(data, o.id, periodStart, periodEnd);
       const totalLaborAll = laborCost + tercCost;
       const ym = `${year}-${String(month+1).padStart(2,"0")}`;
       const materialOutrasDesp = calcObraMaterialCost(data, o.id, ym);
@@ -6820,8 +6858,9 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
         revenue, margin: marginMO, marginPct: marginPctMO, commitment,
         totalCost: totalCostAdmin, adminBaseMisto,
       } = calcObraRevenue(o, laborCost, {
-        benefitCost, materialCost, tercCost,
-        outrasTotal: dreObraMes.outrasTotal, equipCost: dreObraMes.equipCost, rescTotal: dreObraMes.rescTotal,
+        benefitCost, materialCost, tercCost: tercCost + tercEmpresaObra,
+        outrasTotal: dreObraMes.outrasTotal - materialOutrasDesp,
+        equipCost: dreObraMes.equipCost, rescTotal: dreObraMes.rescTotal,
       });
       const marginReal = revenue - totalLaborAll;
       const marginRealPct = revenue > 0 ? (marginReal/revenue)*100 : 0;
@@ -6834,7 +6873,7 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
       const activeEmps = data.employees.filter(e=>e.active!==false&&e.obra===o.id).length;
       const activeTercCount = (data.terceirizados||[]).filter(t=>t.active!==false&&t.obraId===o.id).length;
       return {
-        ...o, laborCost, benefitCost, totalCost, tercCost, totalLaborAll,
+        ...o, laborCost, benefitCost, totalCost, tercCost, tercEmpresaObra, totalLaborAll,
         materialCost, materialOutrasDesp, comprasCost,
         totalCostAdmin, adminBaseMisto,
         revenue, margin: marginReal, marginPct: marginRealPct, marginMO, marginPctMO,
@@ -7952,9 +7991,24 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
                 <Inp label="% Administração" type="number" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12"/>
                 <p style={{fontSize:9.5,color:C.muted,marginTop:4}}>
                   {form.contractType==="admin_only"
-                    ? "Incide sobre todos os custos gastos na obra (mão de obra, benefícios, materiais, terceirizados, equipamentos e rescisões)."
-                    : "Incide só sobre materiais e terceirizados gastos - a mão de obra já está coberta pela parcela fixa abaixo."}
+                    ? "Por padrão incide sobre todos os custos gastos na obra (mão de obra, benefícios, materiais, terceirizados, equipamentos e rescisões)."
+                    : "Por padrão incide só sobre materiais e terceirizados gastos - a mão de obra já está coberta pela parcela fixa abaixo."}
+                  {" "}Ajuste abaixo o que entra nessa base.
                 </p>
+                <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8,marginTop:8}}>
+                  {[
+                    ["adminBaseMateriais","Materiais",form.adminBaseMateriais!==false],
+                    ["adminBaseMaoDeObra","Mão de obra",form.adminBaseMaoDeObra===true||(form.adminBaseMaoDeObra===undefined&&form.contractType==="admin_only")],
+                    ["adminBaseTerceirizados","Terceirizados",form.adminBaseTerceirizados!==false],
+                  ].map(([campo,label,checked])=>(
+                    <label key={campo} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"8px 10px",background:checked?`${C.yellow}10`:C.surface,borderRadius:6,border:`1.5px solid ${checked?C.yellow+"55":C.border}`}}>
+                      <div onClick={()=>setField(campo)(!checked)} style={{width:18,height:18,border:`2px solid ${checked?C.yellowD:C.muted}`,background:checked?C.yellowD:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+                        {checked&&<span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
+                      </div>
+                      <p style={{fontSize:11.5,fontWeight:700,color:checked?C.yellowD:C.text}}>{label}</p>
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
             {(form.contractType === "fixed_labor" || form.contractType === "fixed_labor_admin") && (
@@ -10038,6 +10092,18 @@ function calcObraComprasCost(data, obraId, periodStart, periodEnd) {
 function calcTercEmpresaCost(data, periodStart, periodEnd) {
   return (data.pagsTerceiros || [])
     .filter(p => p.pagador === "empresa" && p.date >= periodStart && p.date <= periodEnd)
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+}
+
+// Igual a calcTercEmpresaCost, mas filtrado por obra: terceirizados que a
+// EMPRESA pagou (não saiu do caixa/orçamento da obra) mas que foram
+// contratados PARA essa obra específica. Não entra no custo/margem da obra
+// no DRE (a empresa absorve esse valor como overhead - ver calcObraTercCost),
+// mas é um custo real do canteiro e por isso conta na base do percentual de
+// administração cobrado do cliente.
+function calcObraTercEmpresaCost(data, obraId, periodStart, periodEnd) {
+  return (data.pagsTerceiros || [])
+    .filter(p => p.obraId === obraId && p.pagador === "empresa" && p.date >= periodStart && p.date <= periodEnd)
     .reduce((s, p) => s + Number(p.amount || 0), 0);
 }
 
@@ -12209,11 +12275,15 @@ const calcRelatorioMensal = (data, year, month) => {
 
     // Receita esperada pelo contrato (admin_only cobra sobre todos os custos;
     // fixed_labor_admin cobra só sobre materiais + terceirizados do mês)
-    const materialCost = calcObraMaterialCost(data, obra.id, ym) + calcObraComprasCost(data, obra.id, per0, perF);
+    const materialOutrasDespMes = calcObraMaterialCost(data, obra.id, ym);
+    const comprasCostMes = calcObraComprasCost(data, obra.id, per0, perF);
+    const materialCost = materialOutrasDespMes + comprasCostMes;
+    const tercEmpresaObra = calcObraTercEmpresaCost(data, obra.id, per0, perF);
     const dreObraMes = calcDREObra(data, obra.id, year, month, "mes");
     const { revenue: revenueEsperada } = calcObraRevenue(obra, moData.laborCost, {
-      benefitCost: moData.benefitCost, materialCost, tercCost,
-      outrasTotal: dreObraMes.outrasTotal, equipCost: dreObraMes.equipCost, rescTotal,
+      benefitCost: moData.benefitCost, materialCost, tercCost: tercCost + tercEmpresaObra,
+      outrasTotal: dreObraMes.outrasTotal - materialOutrasDespMes,
+      equipCost: dreObraMes.equipCost, rescTotal,
     });
 
     // Presença
@@ -12395,6 +12465,133 @@ function RelatorioCompras({ data, showToast }) {
           </tr>)}</tbody>
         </table>
         {!linhas.length&&<div style={{padding:24,textAlign:"center",color:C.muted,fontSize:11}}>Nenhuma compra encontrada neste filtro.</div>}
+      </div>
+    </div>
+  );
+}
+
+function gerarRelatorioAdministracaoPDF(data, { period, filtros, linhas, totais }, showToast) {
+  const filtrosLabel = [
+    filtros.materiais ? "Materiais" : null,
+    filtros.maoDeObra ? "Mão de obra" : null,
+    filtros.terceirizados ? "Terceirizados" : null,
+  ].filter(Boolean).join(", ") || "Nenhuma categoria selecionada";
+  const html = montarRelatorioPadraoHtml({
+    data,
+    titulo: "Previsão de recebimento por administração",
+    subtitulo: period,
+    meta: [{ label: "Categorias na base", value: filtrosLabel }],
+    kpis: [
+      { label: "Previsto no período", value: fmt(totais.previsto) },
+      { label: "Já fechado nas medições", value: fmt(totais.fechado) },
+      { label: "Pendente de fechamento", value: fmt(totais.pendente) },
+      { label: "Obras por administração", value: String(linhas.length) },
+    ],
+    tabelas: [{
+      headers: ["Obra","Modalidade",{label:"% Admin.",num:true},{label:"Base calculada",num:true},{label:"Previsto",num:true},{label:"Já fechado",num:true},{label:"Pendente",num:true}],
+      rows: linhas.map(l => [
+        escapeHtml(l.obra.name), escapeHtml(CONTRACT_LABELS[l.obra.contractType]||l.obra.contractType),
+        escapeHtml(`${l.ap}%`), escapeHtml(fmt(l.adminBase)), escapeHtml(fmt(l.valorAdmin)),
+        escapeHtml(fmt(l.jaFechado)), escapeHtml(fmt(l.pendente)),
+      ]),
+      totalRow: ["","","","", fmt(totais.previsto), fmt(totais.fechado), fmt(totais.pendente)],
+      vazio: "Nenhuma obra por administração encontrada.",
+    }],
+    legenda: `Base calculada = ${filtrosLabel.toLowerCase()} gastos na obra no período. Previsto = % de administração sobre a base. Compras via pedidos e terceirizados pagos pela empresa para a obra já estão incluídos.`,
+  });
+  abrirRelatorioPadrao(html, showToast);
+}
+
+function RelatorioAdministracao({ data, year, month, showToast }) {
+  const [incluiMateriais, setIncluiMateriais] = useState(true);
+  const [incluiMaoDeObra, setIncluiMaoDeObra] = useState(true);
+  const [incluiTerceirizados, setIncluiTerceirizados] = useState(true);
+
+  const obrasAdmin = useMemo(() => (data.obras||[])
+    .filter(o => o.contractType==="admin_only" || o.contractType==="fixed_labor_admin"),
+    [data.obras]);
+
+  const linhas = useMemo(() => {
+    const days = getDays(year, month);
+    const per0 = days[0]||"", perF = days[days.length-1]||"";
+    const ym = `${year}-${String(month+1).padStart(2,"0")}`;
+    return obrasAdmin.map(obra => {
+      const moData = calcObraLaborCost(data, obra.id, days);
+      const tercCost = calcObraTercCost(data, obra.id, per0, perF) + calcObraTercEmpresaCost(data, obra.id, per0, perF);
+      const materialOutrasDesp = calcObraMaterialCost(data, obra.id, ym);
+      const materialCost = materialOutrasDesp + calcObraComprasCost(data, obra.id, per0, perF);
+      const dreObraMes = calcDREObra(data, obra.id, year, month, "mes");
+      const obraSimulada = {
+        ...obra,
+        adminBaseMateriais: incluiMateriais,
+        adminBaseMaoDeObra: incluiMaoDeObra,
+        adminBaseTerceirizados: incluiTerceirizados,
+      };
+      const { adminBase } = calcObraRevenue(obraSimulada, moData.laborCost, {
+        benefitCost: moData.benefitCost, materialCost, tercCost,
+        outrasTotal: dreObraMes.outrasTotal - materialOutrasDesp,
+        equipCost: dreObraMes.equipCost, rescTotal: dreObraMes.rescTotal,
+      });
+      const ap = Number(obra.adminPercentage||0);
+      const valorAdmin = adminBase * (ap/100);
+      const jaFechado = (data.medicoes||[])
+        .filter(m => m.obraId===obra.id && m.competencia===ym)
+        .reduce((s,m) => s+Number(m.valorAdminPct||0), 0);
+      return { obra, ap, adminBase, valorAdmin, jaFechado, pendente: Math.max(0, valorAdmin-jaFechado) };
+    });
+  }, [obrasAdmin, data, year, month, incluiMateriais, incluiMaoDeObra, incluiTerceirizados]);
+
+  const totais = useMemo(() => ({
+    previsto: linhas.reduce((s,l)=>s+l.valorAdmin,0),
+    fechado:  linhas.reduce((s,l)=>s+l.jaFechado,0),
+    pendente: linhas.reduce((s,l)=>s+l.pendente,0),
+  }), [linhas]);
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div className="no-print" style={{display:"flex",flexDirection:"column",gap:6}}>
+        <p style={{fontSize:10,fontWeight:700,color:C.muted}}>O que entra na base do percentual de administração neste relatório:</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
+          {[
+            ["Materiais",incluiMateriais,setIncluiMateriais],
+            ["Mão de obra",incluiMaoDeObra,setIncluiMaoDeObra],
+            ["Terceirizados",incluiTerceirizados,setIncluiTerceirizados],
+          ].map(([label,checked,setter])=>(
+            <label key={label} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"8px 10px",background:checked?`${C.yellow}10`:C.surface,borderRadius:6,border:`1.5px solid ${checked?C.yellow+"55":C.border}`}}>
+              <div onClick={()=>setter(!checked)} style={{width:18,height:18,border:`2px solid ${checked?C.yellowD:C.muted}`,background:checked?C.yellowD:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+                {checked&&<span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
+              </div>
+              <p style={{fontSize:11.5,fontWeight:700,color:checked?C.yellowD:C.text}}>{label}</p>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
+        <ReportMetric label="Previsto no período" value={fmt(totais.previsto)} color={C.purple} icon="dollar"/>
+        <ReportMetric label="Já fechado nas medições" value={fmt(totais.fechado)} color={C.green} icon="check"/>
+        <ReportMetric label="Pendente de fechamento" value={fmt(totais.pendente)} color={totais.pendente>0?C.orange:C.green} icon="wallet"/>
+      </div>
+      <div className="no-print" style={{display:"flex",justifyContent:"flex-end"}}>
+        <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioAdministracaoPDF(data,{
+          period:`${fullMonth(month)} · ${year}`,
+          filtros:{materiais:incluiMateriais,maoDeObra:incluiMaoDeObra,terceirizados:incluiTerceirizados},
+          linhas, totais,
+        },showToast)}><Ic n="download" s={12}/> Exportar PDF</Btn>
+      </div>
+      <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
+        <table style={{width:"100%",minWidth:800,borderCollapse:"collapse",background:C.card}}>
+          <thead><tr>{["Obra","Modalidade","% Admin.","Base calculada","Previsto","Já fechado","Pendente"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["% Admin.","Base calculada","Previsto","Já fechado","Pendente"].includes(h)?"right":"left",fontSize:8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+          <tbody>{linhas.map(l=><tr key={l.obra.id} style={{borderTop:`1px solid ${C.line}`}}>
+            <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:800}}>{l.obra.name}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,color:C.muted}}>{CONTRACT_LABELS[l.obra.contractType]||l.obra.contractType}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right"}}>{l.ap}%</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right"}}>{fmt(l.adminBase)}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:800,textAlign:"right",color:C.purple}}>{fmt(l.valorAdmin)}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right",color:C.green}}>{fmt(l.jaFechado)}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right",fontWeight:800,color:l.pendente>0?C.orange:C.green}}>{fmt(l.pendente)}</td>
+          </tr>)}</tbody>
+        </table>
+        {!linhas.length&&<div style={{padding:24,textAlign:"center",color:C.muted,fontSize:11}}>Nenhuma obra por administração (admin_only ou mista) encontrada.</div>}
       </div>
     </div>
   );
@@ -12634,8 +12831,8 @@ function Relatorios({ data, showToast }) {
       />
 
       <div className="no-print" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8,padding:8,background:C.surface,border:`1px solid ${C.line}`,borderRadius:12}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:4,padding:4,background:C.card,borderRadius:9,border:`1px solid ${C.line}`}}>
-          {[["custos","Painel analítico"],["relatorio","Relatório executivo"],["caixa","Caixa de obra"],["compras","Relatório de compras"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{padding:"8px 9px",border:`1px solid ${view===v?C.text:"transparent"}`,background:view===v?C.text:"transparent",color:view===v?"#fff":C.muted,borderRadius:7,fontSize:10.5,fontWeight:780,cursor:"pointer"}}>{l}</button>)}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:4,padding:4,background:C.card,borderRadius:9,border:`1px solid ${C.line}`}}>
+          {[["custos","Painel analítico"],["relatorio","Relatório executivo"],["caixa","Caixa de obra"],["compras","Relatório de compras"],["administracao","Recebimento por administração"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{padding:"8px 9px",border:`1px solid ${view===v?C.text:"transparent"}`,background:view===v?C.text:"transparent",color:view===v?"#fff":C.muted,borderRadius:7,fontSize:10.5,fontWeight:780,cursor:"pointer"}}>{l}</button>)}
         </div>
         <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
         <Sel value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
@@ -12649,6 +12846,9 @@ function Relatorios({ data, showToast }) {
 
       {/*  RELATÓRIO DE COMPRAS  */}
       {view === "compras" && <RelatorioCompras data={data} showToast={showToast}/>}
+
+      {/*  RECEBIMENTO POR ADMINISTRAÇÃO  */}
+      {view === "administracao" && <RelatorioAdministracao data={data} year={year} month={month} showToast={showToast}/>}
 
       {/*  INDICADORES (view padrão)  */}
       {view === "custos" && <>
@@ -32030,7 +32230,9 @@ function montarRelatorioPadraoHtml({
 body{font-family:Arial,sans-serif;margin:0;color:#111;font-size:10px}
 h1,h2,h3{margin:0 0 8px 0}
 p{margin:4px 0}
-.cabecalho{border-bottom:3px solid #d4af37;padding-bottom:10px;margin-bottom:10px}
+.cabecalho{border-bottom:3px solid #d4af37;padding-bottom:10px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
+.cabecalho img.logo{height:46px;max-width:140px;object-fit:contain;flex-shrink:0}
+.cabecalho .titulos{flex:1;min-width:0}
 .meta{display:flex;gap:18px;flex-wrap:wrap;color:#333}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:7px;margin:10px 0}
 .kpi{border:1px solid #bbb;border-top:3px solid #d4af37;padding:7px;background:#fafafa}
@@ -32052,10 +32254,13 @@ td.num,th.num{text-align:right;white-space:nowrap}
 @media screen{body{padding:24px;max-width:1400px;margin:auto}}
 </style></head><body>
 <div class="cabecalho">
-  <h1>${escapeHtml(data.config?.companyName || "ArcD Obras")}</h1>
-  ${data.config?.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
-  <h2>${escapeHtml(titulo)}${subtitulo ? ` - ${escapeHtml(subtitulo)}` : ""}</h2>
-  <div class="meta">${metaHtml}</div>
+  <img class="logo" src="${data.config?.companyImageUrl || data.config?.logoUrl || ARCD_LOGO}" alt="Logo"/>
+  <div class="titulos">
+    <h1>${escapeHtml(data.config?.companyName || "ArcD Obras")}</h1>
+    ${data.config?.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
+    <h2>${escapeHtml(titulo)}${subtitulo ? ` - ${escapeHtml(subtitulo)}` : ""}</h2>
+    <div class="meta">${metaHtml}</div>
+  </div>
 </div>
 ${kpisHtml}
 ${legenda ? `<p class="legenda">${escapeHtml(legenda)}</p>` : ""}

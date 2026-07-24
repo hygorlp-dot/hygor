@@ -7,7 +7,7 @@ const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const CONFIG_KEY = "arced_ai_config_gemini_v1";
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 const MODULE_POLICIES = {
   geral: "Atue como copiloto operacional. Relacione a resposta ao setor e à obra, deixe explícitas as pendências e termine com a próxima ação recomendada.",

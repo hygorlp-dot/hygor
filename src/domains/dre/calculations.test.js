@@ -8,6 +8,8 @@ const regras = createDreCalculations({
   calcObraLaborCost: () => ({ laborCost: 600, benefitCost: 100 }),
   calcObraTercCost: () => 200,
   calcTercEmpresaCost: () => 0,
+  calcObraTercEmpresaCost: () => 0,
+  calcObraComprasCost: () => 0,
   calcEquipCustoObra: () => 100,
   calcEquipFaturamentoEmpresa: () => ({ receita: 0, lucro: 0 }),
 });
@@ -69,6 +71,8 @@ describe("domínio do DRE", () => {
       },
       calcObraTercCost: () => 0,
       calcTercEmpresaCost: () => 0,
+      calcObraTercEmpresaCost: () => 0,
+      calcObraComprasCost: () => 0,
       calcEquipCustoObra: () => 0,
       calcEquipFaturamentoEmpresa: () => ({ receita: 0, lucro: 0 }),
     });
