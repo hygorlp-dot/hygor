@@ -1,7 +1,23 @@
 import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, seal, setCookie, verifyAppUser, workspace } from "./_graph.js";
+import { findScopedWork, knownWorkspace, scopedWorks } from "../../server/onedrive-scope.js";
 
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};
 const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",financeiro:"08 - Financeiro e Fiscal",compras:"09 - Compras e Suprimentos",licenciamento:"03 - Documentos",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos",outros:"11 - Outros"};
+const assertInsideWorkspace=async(token,context,driveId,itemId)=>{
+  const roots=scopedWorks(context).map(knownWorkspace)
+    .filter(ws=>ws.driveId&&ws.driveId===String(driveId)&&ws.folderId)
+    .map(ws=>ws.folderId);
+  if(!roots.length||!itemId)
+    throw Object.assign(new Error("A pasta não pertence a uma obra disponível para este usuário."),{status:403});
+  let current=String(itemId);
+  for(let depth=0;depth<16;depth++){
+    if(roots.includes(current))return true;
+    const item=await (await graph(token,`/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(current)}?$select=id,parentReference`)).json();
+    current=String(item?.parentReference?.id||"");
+    if(!current)break;
+  }
+  throw Object.assign(new Error("O item solicitado está fora da pasta protegida da obra."),{status:403});
+};
 
 const listarFilhos=async(token,driveId,parentId)=>(await (await graph(token,`/drives/${driveId}/items/${parentId}/children?$select=id,name,webUrl,folder,file,parentReference`)).json()).value||[];
 const migrarLicenciamentoLegado=async(token,ws)=>{
@@ -25,8 +41,9 @@ const migrarLicenciamentoLegado=async(token,ws)=>{
 export default async function handler(req,res){
   try{
     const action=req.query.action||req.body?.action||"status";
-    const appUser=action==="file"?null:await verifyAppUser(req.body?.userId,req.body?.pin,req.body?.accessToken);
-    if(action!=="file"&&!appUser)return res.status(401).json({error:"Sessão do aplicativo inválida."});
+    const appContext=action==="file"?null:await verifyAppUser(req.body?.userId,req.body?.pin,req.body?.accessToken);
+    const appUser=appContext?.user;
+    if(action!=="file"&&!appContext)return res.status(401).json({error:"Sessão do aplicativo inválida."});
     if(action==="file"&&req.query.sig!==fileSignature(req.query.driveId,req.query.itemId))return res.status(403).end();
     const {accessToken,session}=await refresh(req); setCookie(res,"arcd_ms",seal(session));
     if(action==="status")return res.json({ok:true,connected:true});
@@ -36,8 +53,10 @@ export default async function handler(req,res){
       res.setHeader("cache-control","private, max-age=300"); return res.send(Buffer.from(await r.arrayBuffer()));
     }
     const body=req.body||{};
+    const obraEscopo=findScopedWork(appContext,body);
     if(action==="file-link"){
       if(!body.driveId||!body.itemId)return res.status(400).json({error:"Arquivo sem identificação no OneDrive."});
+      await assertInsideWorkspace(accessToken,appContext,body.driveId,body.itemId);
       const sig=fileSignature(body.driveId,body.itemId);
       const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(body.driveId)}&itemId=${encodeURIComponent(body.itemId)}&sig=${encodeURIComponent(sig)}`;
       return res.json({ok:true,url});
@@ -61,15 +80,18 @@ export default async function handler(req,res){
       return res.json({ok:resultados.every(x=>x.ok),resultados});
     }
     if(action==="create-workspace"){
-      const ws=await workspace(accessToken,body.obraName);
+      if(!obraEscopo)return res.status(403).json({error:"A obra não está disponível para este usuário."});
+      const ws=await workspace(accessToken,obraEscopo.name,null,knownWorkspace(obraEscopo));
       return res.json({ok:true,...ws,...(appUser.role==="admin"?{}:{webUrl:undefined})});
     }
     if(action==="create-folder"){
+      await assertInsideWorkspace(accessToken,appContext,body.driveId,body.parentId);
       const folder=await getOrCreateFolder(accessToken,body.driveId,body.parentId,safeName(body.name));
       return res.json({ok:true,folder:appUser.role==="admin"?folder:{...folder,webUrl:undefined}});
     }
     if(action==="list-folder"){
       if(!body.driveId||!body.parentId)return res.status(400).json({error:"Pasta sem identificação no OneDrive."});
+      await assertInsideWorkspace(accessToken,appContext,body.driveId,body.parentId);
       const path=`/drives/${encodeURIComponent(body.driveId)}/items/${encodeURIComponent(body.parentId)}/children?$top=200&$select=id,name,folder,file,size,lastModifiedDateTime`;
       const lista=await (await graph(accessToken,path)).json();
       const items=(lista.value||[]).map(item=>{
@@ -80,8 +102,10 @@ export default async function handler(req,res){
       return res.json({ok:true,items});
     }
     if(action==="upload"){
-      let ws={driveId:body.driveId,folderId:body.folderId,folders:body.folders};
-      if(!ws.driveId||!ws.folderId||!ws.folders)ws=await workspace(accessToken,body.obraName);
+      if(!obraEscopo)return res.status(403).json({error:"A obra não está disponível para este usuário."});
+      let ws=knownWorkspace(obraEscopo);
+      if(!ws.driveId||!ws.folderId)ws=await workspace(accessToken,obraEscopo.name,null,ws);
+      if(body.targetFolderId)await assertInsideWorkspace(accessToken,appContext,ws.driveId,body.targetFolderId);
       const categoryName=categoryNames[body.category]||categoryNames.documentos;
       let parentId=body.targetFolderId||ws.folders?.[categoryName]||ws.folderId;
       if(!body.targetFolderId&&!ws.folders?.[categoryName]){

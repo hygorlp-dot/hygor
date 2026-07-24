@@ -1,6 +1,7 @@
 // Import direto da lib, pulando o index.js do pdf-parse v1: seu modo debug
 // (`!module.parent`) dispara sob ESM e tenta ler um PDF de teste inexistente.
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import { CUB_PE_PROJECTS, parseCubPeComposition } from "./cub-pe.js";
 
 // Caruaru, PE
 const LAT = -8.2839, LON = -35.9761;
@@ -96,39 +97,6 @@ const buscarNoticiasRSS = async (query, limite = 5) => {
 const buscarNoticias = () => buscarNoticiasRSS("construção civil OR obras OR engenharia civil", 5);
 const buscarNoticiasCbicPe = () => buscarNoticiasRSS('"CBIC" OR "Sinduscon-PE" Pernambuco construção', 5);
 
-// R8N (padrão médio): não existe API pública, e a tabela oficial do
-// Sinduscon-PE fica atrás de login de associado. Este agregador terceiro é a
-// única fonte aberta com histórico mensal longo — serve de referência.
-const CUB_URL = "https://myside.com.br/guia-imoveis/cub-pe";
-const CUB_MESES = 24;
-
-const numeroBR = texto => Number(String(texto || "").trim().replace(/\./g, "").replace(",", "."));
-
-const buscarCubR8N = async () => {
-  try {
-    const r = await comTimeout(CUB_URL, { headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 10000);
-    if (!r.ok) return [];
-    const html = await r.text();
-    const corpo = (html.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1];
-    if (!corpo) return [];
-
-    const linhas = corpo.split("<tr").slice(1);
-    const serie = [];
-    for (const linha of linhas) {
-      const celulas = [...linha.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1].replace(/&nbsp;/g, " ").trim());
-      if (celulas.length < 5 || !celulas[0]) continue;
-      const valor = numeroBR(celulas[1]);
-      if (!Number.isFinite(valor) || valor <= 0) continue;
-      serie.push({ mes: celulas[0], valor });
-    }
-    // A tabela do site vem do mês mais recente para o mais antigo.
-    return serie.slice(0, CUB_MESES).reverse();
-  } catch (error) {
-    console.error("Falha ao buscar CUB-PE R8N:", error?.name || error);
-    return [];
-  }
-};
-
 // R1-A (residência unifamiliar padrão alto): dado OFICIAL do Sinduscon-PE.
 // A tabela consolidada exige login, mas o relatório mensal "Composição
 // CUB/m²" (um PDF por mês, com todas as categorias — R1-A entre elas) é
@@ -136,7 +104,7 @@ const buscarCubR8N = async () => {
 // não exige login: POST /cub/conteudo {ano} devolve o HTML com o id de cada
 // mês, e /cub/download/{id}/composicaoCubSemDeson devolve o PDF daquele mês.
 const CUB_SINDUSCON_BASE = "https://sindusconpe.com.br/cub";
-const R1A_MESES = 12;
+const CUB_MESES = 12;
 const MESES_ABREV = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
@@ -169,53 +137,42 @@ const buscarIdsPorAno = async ano => {
 // O texto extraído do PDF junta as colunas sem separador (ex.:
 // "3.195,792.572,732.652,05"); como todo valor em reais termina em vírgula +
 // 2 dígitos, dá para recuperar os limites de cada número sem ambiguidade.
-const buscarValorAltoPadrao = async id => {
+const buscarValoresProjetos = async id => {
   try {
     const r = await comTimeout(`${CUB_SINDUSCON_BASE}/download/${id}/composicaoCubSemDeson`, { headers: { "user-agent": "Mozilla/5.0" } }, 12000);
     if (!r.ok) return null;
     const bytes = new Uint8Array(await r.arrayBuffer());
     const { text } = await pdfParse(bytes);
-    const secao = text.match(/Projetos-Padrão Residenciais - Alto\s*Item([^\n]*)[\s\S]*?Total([^\n]*)/);
-    if (!secao) return null;
-    const labels = [...secao[1].matchAll(/[A-Z]+\d*-[A-Z]/g)].map(m => m[0]);
-    const valores = [...secao[2].matchAll(/\d{1,3}(?:\.\d{3})*,\d{2}/g)].map(m => numeroBR(m[0]));
-    const idx = labels.indexOf("R1-A");
-    return idx >= 0 && Number.isFinite(valores[idx]) ? valores[idx] : null;
+    const valores = parseCubPeComposition(text);
+    return Object.keys(valores).length ? valores : null;
   } catch (error) {
     console.error("Falha ao ler composição CUB-PE:", error?.name || error);
     return null;
   }
 };
 
-const buscarCubR1A = async () => {
+const buscarCubOficial = async () => {
   const anoAtual = new Date().getFullYear();
   const [mesesAnoAtual, mesesAnoAnterior] = await Promise.all([
     buscarIdsPorAno(anoAtual), buscarIdsPorAno(anoAtual - 1),
   ]);
-  const meses = [...mesesAnoAnterior, ...mesesAnoAtual].slice(-R1A_MESES);
+  const meses = [...mesesAnoAnterior, ...mesesAnoAtual].slice(-CUB_MESES);
   if (!meses.length) return [];
-  const valores = await Promise.all(meses.map(m => buscarValorAltoPadrao(m.id)));
-  return meses.map((m, i) => ({ mes: m.mes, valor: valores[i] })).filter(x => Number.isFinite(x.valor));
+  const valores = await Promise.all(meses.map(m => buscarValoresProjetos(m.id)));
+  return meses.map((m, i) => ({ mes: m.mes, valores: valores[i] })).filter(x => x.valores);
 };
 
 const buscarCubPE = async () => {
-  const [r8n, r1a] = await Promise.all([buscarCubR8N(), buscarCubR1A()]);
-  if (!r8n.length && !r1a.length) return null;
-
-  const mapaR8N = new Map(r8n.map(x => [x.mes, x.valor]));
-  const serie = r1a.length
-    ? r1a.map(x => ({ mes: x.mes, r1a: x.valor, r8n: mapaR8N.get(x.mes) ?? null }))
-    : r8n.map(x => ({ mes: x.mes, r1a: null, r8n: x.valor }));
-
-  const ultimoR1a = [...r1a].reverse().find(x => Number.isFinite(x.valor));
-  const ultimoR8n = r8n[r8n.length - 1];
+  const serie = await buscarCubOficial();
+  if (!serie.length) return null;
+  const ultimo = serie[serie.length - 1];
   return {
-    label: r1a.length
-      ? "CUB-PE R1-A · residência unifamiliar padrão alto (Sinduscon-PE, oficial)"
-      : "CUB-PE R8N · padrão médio (não foi possível ler o padrão alto agora)",
-    fonteOficial: `${CUB_SINDUSCON_BASE}`,
-    fonteR8N: CUB_URL,
-    atual: { r1a: ultimoR1a?.valor ?? null, r8n: ultimoR8n?.valor ?? null, mes: ultimoR1a?.mes || ultimoR8n?.mes },
+    label: "CUB-PE · projetos-padrão do Sinduscon-PE",
+    fonteOficial: CUB_SINDUSCON_BASE,
+    regime: "sem_desoneracao",
+    regimeLabel: "Mão de obra com encargos sociais (sem desoneração)",
+    projetos: CUB_PE_PROJECTS,
+    atual: { mes: ultimo.mes, valores: ultimo.valores },
     serie,
   };
 };

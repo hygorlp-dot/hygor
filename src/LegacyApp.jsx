@@ -1,20 +1,15 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Children, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ComposedChart,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
+  Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, LineChart, Pie,
+  PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import * as XLSX from "xlsx";
+// Planilhas são um recurso pesado e opcional. O pacote só entra na memória
+// quando o usuário realmente importa ou exporta um arquivo.
+let XLSX = null;
+const carregarXLSX = async () => {
+  if (!XLSX) XLSX = await import("./lib/spreadsheet");
+  return XLSX;
+};
 // O navegador não conversa mais com o banco. Fala com /api/data, que roda no
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
 import { listarPerfis, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail,
@@ -40,9 +35,22 @@ import { Alert, AlertDescription } from "./components/ui/alert";
 import { Eye, EyeOff, ChevronLeft, Delete } from "lucide-react";
 import { cn } from "./lib/utils";
 import { useCountUp } from "./lib/useCountUp";
+import {
+  PACOTES_TARIFA, melhorTarifa, textoComposicao, tarifasDaLocacao,
+  tarifasCustoDaLocacao, cobrancaLocacao, disponibilidadeNoDia,
+  picoUsoNoPeriodo, diasLocacaoNoPeriodo, calcEquipMes,
+} from "./domains/equipamentos/calculations";
+import {
+  STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
+  totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
+  pedidoLiberadoParaReceber, origemPagamentoLabel, situacaoCaixaObra,
+  historicoPreco, historicoPrecoTodos, analisePreco, mapaGerencialCompras,
+} from "./domains/compras/calculations";
+import { canManagePurchases } from "./domains/compras/permissions";
+import { createDreCalculations } from "./domains/dre/calculations";
 
 // 
-// ARCD OBRAS - App.jsx auditado
+// ARCD OBRAS - aplicação legada em migração incremental por domínio
 // - Base compartilhada Supabase via supabase.js
 // - Cadastro de obras, equipe, ponto, folha, relatórios e configurações
 // - Transferência/demissão individual no ponto
@@ -98,6 +106,25 @@ const C = {
   shHair:   "none",
   shCard:   "none",
 };
+
+// Escala tipografica unica do app. Toda tela nova (ou revisada) deve montar
+// seus titulos/textos a partir daqui em vez de inventar fontSize/fontWeight
+// soltos - e o que unifica visualmente heroes, cards e paineis diferentes.
+const FONT_DISPLAY = "'Inter Display','Inter',sans-serif";
+const TYPO = {
+  h1:      { fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:"clamp(24px,4vw,34px)", letterSpacing:-.8, lineHeight:1.1, color:C.text },
+  h2:      { fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:"clamp(20px,3vw,26px)", letterSpacing:-.7, lineHeight:1.12, color:C.text },
+  h3:      { fontFamily:FONT_DISPLAY, fontWeight:750, fontSize:14.5, letterSpacing:-.2, lineHeight:1.2, color:C.text },
+  h4:      { fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:12.5, letterSpacing:0, lineHeight:1.25, color:C.text },
+  eyebrow: { fontSize:9, fontWeight:850, letterSpacing:1.4, textTransform:"uppercase", color:C.yellowD },
+  body:    { fontSize:11.5, fontWeight:400, lineHeight:1.5, color:C.text },
+  bodyMuted:{ fontSize:11.5, fontWeight:400, lineHeight:1.5, color:C.muted },
+  small:   { fontSize:9.5, fontWeight:600, color:C.muted },
+  label:   { fontFamily:FONT_DISPLAY, fontSize:9.5, fontWeight:700, letterSpacing:.1, color:C.text },
+};
+// Botao-texto (link inline tipo "Ver tudo ->"): mesmo padrao em todas as
+// telas em vez de cada card reinventar tamanho/peso da fonte.
+const LINK_BTN_STYLE = { border:0, background:"transparent", color:C.blue, fontSize:10.5, fontWeight:700, cursor:"pointer", padding:0 };
 
 const CHART_COLORS = [C.yellow, C.green, C.blue, C.orange, C.purple, C.red, "#06b6d4", "#ec4899"];
 
@@ -161,6 +188,9 @@ const G = `
   --type-body:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;
   --type-data:'IBM Plex Mono',ui-monospace,monospace;
   --fs-caption:9px;--fs-label:9.5px;--fs-body:12px;--fs-title:18px;
+  --fs-page-title:clamp(21px,2.2vw,25px);
+  --fs-section-title:clamp(17px,1.7vw,19px);
+  --fs-card-title:14px;
   --radius-control:2px;--radius-card:4px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -231,9 +261,9 @@ body{
 /* Escala comum para todas as telas. Os módulos antigos possuem muitos
    tamanhos inline; estes tetos impedem títulos gigantes e preservam a
    hierarquia sem apagar KPIs e números de operação. */
-main h1{font-family:var(--type-display)!important;font-size:clamp(21px,2.5vw,28px)!important;line-height:1.08!important;letter-spacing:-.65px!important}
-main h2{font-family:var(--type-display)!important;font-size:clamp(17px,2vw,22px)!important;line-height:1.14!important;letter-spacing:-.4px!important}
-main h3{font-family:var(--type-display)!important;font-size:clamp(14px,1.6vw,18px)!important;line-height:1.2!important;letter-spacing:-.2px!important}
+main h1{font-family:var(--type-display)!important;font-size:var(--fs-page-title)!important;font-weight:600!important;line-height:1.12!important;letter-spacing:-.55px!important}
+main h2{font-family:var(--type-display)!important;font-size:var(--fs-section-title)!important;font-weight:600!important;line-height:1.18!important;letter-spacing:-.32px!important}
+main h3{font-family:var(--type-display)!important;font-size:var(--fs-card-title)!important;font-weight:600!important;line-height:1.24!important;letter-spacing:-.12px!important}
 main table{font-size:11px}
 main th{font-size:8.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${C.muted}}
 main input:not([type="checkbox"]):not([type="radio"]),main select,main textarea{font-size:12px!important;line-height:1.35}
@@ -251,25 +281,31 @@ button:not(:disabled):hover{filter:brightness(.98)}
 button:not(:disabled):active{filter:brightness(.94)}
 button:focus-visible{outline:2px solid ${C.yellow};outline-offset:2px}
 .arcd-btn{
-  min-height:36px;border-width:1px!important;border-radius:2px!important;
-  font-size:11px!important;font-weight:600!important;letter-spacing:.16px!important;
+  min-height:36px;border-width:1px!important;border-radius:6px!important;
+  font-size:11px!important;font-weight:650!important;letter-spacing:.08px!important;
   text-transform:none!important;line-height:1.1;white-space:nowrap;
   box-shadow:none!important;
-  transition:background .15s ease,border-color .15s ease,color .15s ease!important;
+  transition:background .15s ease,border-color .15s ease,color .15s ease,transform .1s ease!important;
 }
-.arcd-btn[data-size="sm"]{min-height:32px;padding:4px 8px!important;font-size:10px!important;border-radius:2px!important}
-.arcd-btn[data-size="lg"]{min-height:44px;padding:9px 16px!important;font-size:12px!important;border-radius:2px!important}
+.arcd-btn[data-size="sm"]{min-height:30px;padding:4px 9px!important;font-size:10px!important;border-radius:6px!important}
+.arcd-btn[data-size="lg"]{min-height:42px;padding:9px 16px!important;font-size:12px!important;border-radius:7px!important}
 .arcd-btn svg{width:13px!important;height:13px!important;flex:0 0 13px}
 .arcd-btn[data-size="sm"] svg{width:11px!important;height:11px!important;flex-basis:11px}
-.arcd-btn[data-variant="ghost"],.arcd-btn[data-variant="dark"]{box-shadow:none!important}
-.arcd-btn:not(:disabled):hover{box-shadow:none!important}
+.arcd-btn[data-icon-only="true"]{width:36px;padding:0!important}
+.arcd-btn[data-size="sm"][data-icon-only="true"]{width:30px}
+.arcd-btn[data-size="lg"][data-icon-only="true"]{width:42px}
+.arcd-btn:not(:disabled):hover{background:var(--btn-hover)!important;border-color:var(--btn-hover-border)!important;box-shadow:none!important;filter:none}
+.arcd-btn:not(:disabled):active{transform:translateY(1px);filter:none}
+.arcd-btn[aria-busy="true"]{cursor:progress}
+.arcd-btn[aria-busy="true"] svg{animation:spin .8s linear infinite}
+@media(max-width:767px){.arcd-btn:not([data-size="sm"]){min-height:42px}}
 .arcd-tab{min-height:32px;padding:6px 10px!important;border:0!important;border-bottom:2px solid transparent!important;background:transparent!important;border-radius:0!important;color:${C.muted};font-size:10px!important;font-weight:600!important;white-space:nowrap}
 .arcd-tab[data-active="true"]{color:${C.text}!important;border-bottom-color:${C.yellow}!important;font-weight:600!important}
 .arcd-tab:hover{color:${C.text};filter:none!important}
 .arcd-pill{min-height:23px;padding:3px 7px!important;border-radius:99px!important;font-size:8.5px!important;font-weight:800!important;letter-spacing:.08px}
 button:not(.arcd-btn)[title="Editar"],button:not(.arcd-btn)[title="Excluir"],button:not(.arcd-btn)[title="Remover"],button:not(.arcd-btn)[title="Editar obra"],button:not(.arcd-btn)[title="Excluir obra"]{
   width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;
-  padding:0!important;display:inline-grid!important;place-items:center!important;border-radius:2px!important;
+  padding:0!important;display:inline-grid!important;place-items:center!important;border-radius:6px!important;
   border:1px solid ${C.border}!important;background:${C.card}!important;box-shadow:none!important;
 }
 input:focus,select:focus,textarea:focus{
@@ -489,6 +525,21 @@ input:focus,select:focus,textarea:focus{
 }
 /* Hide sub-nav scrollbar */
 div::-webkit-scrollbar{height:0;width:0}
+/* Ponto da quinzena: controles e legenda (sem estas regras os filtros e a
+   legenda caiam um sob o outro, sem espaçamento nem quebra responsiva). */
+.ponto-geral-controls{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:0 -1px}
+.ponto-geral-filters{display:flex;gap:8px;flex-wrap:wrap;flex:1;min-width:0}
+.ponto-geral-filters>label{flex:1;min-width:140px}
+.ponto-geral-bulk{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ponto-geral-bulk>span{font-size:10.5px;color:${C.muted};font-weight:600}
+.ponto-geral-legend{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:10px;color:${C.muted};padding:2px}
+.ponto-legend-title{font-weight:800;color:${C.text}}
+.ponto-legend-help{margin-left:auto}
+@media(max-width:767px){
+  .ponto-geral-controls{flex-direction:column;align-items:stretch}
+  .ponto-geral-bulk{justify-content:space-between}
+  .ponto-legend-help{margin-left:0;width:100%}
+}
 `;
 
 
@@ -2199,6 +2250,16 @@ const normalizeData = incoming => {
       obraAtualId: e.obraAtualId || "",         // onde está agora (se locado)
       aquisicao: e.aquisicao || "",             // data de aquisição (próprios)
       valorAquisicao: Number(e.valorAquisicao || 0),
+      // Vínculo com o insumo oficial do SINAPI usado como referência de compra.
+      sinapiReferenciaId: e.sinapiReferenciaId || "",
+      sinapiFonte: e.sinapiFonte || "",
+      sinapiCodigo: e.sinapiCodigo || "",
+      sinapiDescricao: e.sinapiDescricao || "",
+      sinapiUnidade: e.sinapiUnidade || "",
+      sinapiPreco: Number(e.sinapiPreco || 0),
+      sinapiDataBase: e.sinapiDataBase || "",
+      sinapiUf: e.sinapiUf || "",
+      sinapiDesonerado: e.sinapiDesonerado !== false,
       obs:       e.obs       || "",
       ativo:     e.ativo !== false,
     })) : [],
@@ -2370,6 +2431,11 @@ const normalizeData = incoming => {
       liberadoEntregaEm:x.liberadoEntregaEm||"",liberadoEntregaPor:x.liberadoEntregaPor||"",
       documentos:Array.isArray(x.documentos)?x.documentos.map(a=>({id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Documento da compra",url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0),enviadoEm:a.enviadoEm||"",enviadoPorId:a.enviadoPorId||"",enviadoPor:a.enviadoPor||""})).filter(a=>a.url):[],
       analiseIA:x.analiseIA||null,
+      ajustes:Array.isArray(x.ajustes)?x.ajustes.map(a=>({
+        id:a.id||uid(),motivo:a.motivo||"",usuarioId:a.usuarioId||"",usuario:a.usuario||"",
+        criadoEm:a.criadoEm||"",totalAnterior:Number(a.totalAnterior||0),totalNovo:Number(a.totalNovo||0),
+        resumo:a.resumo||"",
+      })):[],
       criadoPorId:x.criadoPorId||"",criadoPor:x.criadoPor||"",criadoEm:x.criadoEm||"",
       obs:         x.obs || "",
     })) : [],
@@ -2956,7 +3022,7 @@ function ChevronBaixo({ s = 14 }) {
 
 function BrandMark({ compact = false, dark = false }) {
   return (
-    <div style={{ display:"inline-flex", alignItems:"center", gap: compact?8:12, minWidth:0 }}>
+    <div className="arcd-brand-mark" style={{ display:"inline-flex", alignItems:"center", gap: compact?8:12, minWidth:0 }}>
       {/* Logo monograma ARCD real */}
       <img
         src={ARCD_LOGO}
@@ -2969,7 +3035,7 @@ function BrandMark({ compact = false, dark = false }) {
           filter: dark ? "brightness(0) invert(1)" : "none",
         }}
       />
-      <div style={{ minWidth:0 }}>
+      <div className="arcd-brand-word" style={{ minWidth:0 }}>
         <p style={{
           fontFamily:"'Inter Display','Inter',sans-serif",
           color: dark ? C.bg : C.text,
@@ -3000,15 +3066,42 @@ function BrandMark({ compact = false, dark = false }) {
 }
 
 
-function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, type = "button", style = {}, className = "", title }) {
+const SIGLAS_UI = new Set([
+  "ARCD", "BDI", "CEP", "CFO", "CNPJ", "CPF", "CUB", "DRE", "EBITDA",
+  "FVM", "FVS", "IA", "INSS", "ISS", "MO", "NFS-E", "ORSE", "PDF",
+  "PIN", "RDO", "RG", "SINAPI", "SLA", "UF", "URL", "VR", "VT",
+]);
+
+function textoUi(valor) {
+  if (typeof valor !== "string") return valor;
+  const letras = valor.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/g);
+  if (!letras?.length || !letras.every(letra => letra === letra.toUpperCase())) return valor;
+
+  let primeiraPalavra = true;
+  return valor.toLowerCase().replace(/[A-Za-zÀ-ÖØ-öø-ÿ]+(?:-[A-Za-zÀ-ÖØ-öø-ÿ]+)*/g, palavra => {
+    const sigla = palavra.toUpperCase();
+    if (SIGLAS_UI.has(sigla)) return sigla;
+    if (primeiraPalavra) {
+      primeiraPalavra = false;
+      return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+    }
+    return palavra;
+  });
+}
+
+function conteudoUi(children) {
+  return Children.map(children, child => typeof child === "string" ? textoUi(child) : child);
+}
+
+function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, loading = false, iconOnly = false, type = "button", style = {}, className = "", title, ariaLabel, ...props }) {
   const variants = {
-    primary: { bg: C.yellow,   color: "#FFFFFF",  border: C.yellowD, shadow: `${C.yellow}30` },
-    warning: { bg: C.yellow,   color: "#FFFFFF",  border: C.yellowD, shadow: `${C.yellow}30` },
-    danger:  { bg: C.red,      color: "#FFFFFF",  border: C.red,     shadow: `${C.red}20`    },
-    success: { bg: C.green,    color: "#FFFFFF",  border: C.green,   shadow: `${C.green}18`  },
-    info:    { bg: C.blue,     color: "#FFFFFF",  border: C.blue,    shadow: `${C.blue}18`   },
-    ghost:   { bg: "transparent",color:C.text,    border: C.line,    shadow: "transparent"   },
-    dark:    { bg: C.surface,  color: C.text,     border: "#C0BAB0", shadow: "transparent"   },
+    primary: { bg: C.yellow, color:C.ink, border:C.yellowD, hover:"#C8A329", hoverBorder:"#9F7D08" },
+    warning: { bg:"#F3E7BA", color:"#6D5600", border:"#D8BD55", hover:"#ECDD9F", hoverBorder:"#B8930F" },
+    danger:  { bg:"#FFF7F7", color:C.red, border:"#E0B1B1", hover:"#FBEAEA", hoverBorder:C.red },
+    success: { bg:C.green, color:"#FFFFFF", border:C.green, hover:"#185A29", hoverBorder:"#154F24" },
+    info:    { bg:C.blue, color:"#FFFFFF", border:C.blue, hover:"#0B3D88", hoverBorder:"#093572" },
+    ghost:   { bg:C.card, color:C.text, border:C.border, hover:C.surface, hoverBorder:"#AEB3B7" },
+    dark:    { bg:"#2D3236", color:"#FFFFFF", border:"#2D3236", hover:"#202427", hoverBorder:"#202427" },
   };
   const vv = variants[v] || variants.primary;
   const py = size === "sm" ? 4 : size === "lg" ? 9 : 7;
@@ -3019,10 +3112,14 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
       className={`arcd-btn ${className}`.trim()}
       data-variant={v}
       data-size={size}
+      data-icon-only={iconOnly}
+      {...props}
       type={type}
       title={title}
+      aria-label={ariaLabel||title}
+      aria-busy={loading||undefined}
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled||loading}
       style={{
         width: full ? "100%" : "auto",
         border: `1px solid ${vv.border}`,
@@ -3039,15 +3136,17 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
         justifyContent: "center",
         fontSize: size === "sm" ? 9.5 : size === "lg" ? 11 : 10.5,
         borderRadius: 7,
-        boxShadow: v === "ghost" || v === "dark" ? "none" : C.shHair,
+        boxShadow: "none",
         transition: "background .12s ease, border-color .12s ease",
+        "--btn-hover": vv.hover,
+        "--btn-hover-border": vv.hoverBorder,
         // O icone herda a cor do texto do botao (nao branco fixo): assim no
         // botao escuro ou fantasma ele acompanha e nunca some no fundo.
         "--ic-color": (style && style.color) || vv.color,
         ...style,
       }}
     >
-      {children}
+      {loading?<><Ic n="refresh"/><span>{typeof loading==="string"?textoUi(loading):"Processando..."}</span></>:conteudoUi(children)}
     </button>
   );
 }
@@ -3059,9 +3158,9 @@ function Inp({ label, value, onChange, type = "text", placeholder = "", max, min
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {label && <span style={{
         color: C.text, fontSize: 9.5, fontWeight: 700,
-        textTransform: "uppercase", letterSpacing: 0.6,
+        letterSpacing: 0.1,
         fontFamily:"'Inter Display','Inter',sans-serif",
-      }}>{label}</span>}
+      }}>{textoUi(label)}</span>}
       <Comp
         ref={inputRef}
         type={multiline ? undefined : type}
@@ -3121,8 +3220,8 @@ function CampoCEP({ label = "CEP", value, onChange, onEncontrado }) {
 
   return (
     <label style={{ display:"flex", flexDirection:"column", gap:4 }}>
-      {label && <span style={{ color:C.text, fontSize:9.5, fontWeight:700, textTransform:"uppercase",
-        letterSpacing:.6, fontFamily:"'Inter Display','Inter',sans-serif" }}>{label}</span>}
+      {label && <span style={{ color:C.text, fontSize:9.5, fontWeight:700,
+        letterSpacing:.1, fontFamily:"'Inter Display','Inter',sans-serif" }}>{textoUi(label)}</span>}
       <input value={value == null ? "" : value}
         onChange={e => { onChange(e.target.value); setErro(""); }}
         onBlur={consultar}
@@ -3162,9 +3261,9 @@ function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disabled = f
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {label && <span style={{
-        color: C.text, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase",
-        letterSpacing: 0.6, fontFamily: "'Inter Display','Inter',sans-serif",
-      }}>{label}</span>}
+        color: C.text, fontSize: 9.5, fontWeight: 700,
+        letterSpacing: 0.1, fontFamily: "'Inter Display','Inter',sans-serif",
+      }}>{textoUi(label)}</span>}
       <div style={{ display: "flex", gap: 6 }}>
         <input
           value={value == null ? "" : value}
@@ -3199,9 +3298,9 @@ function Sel({ label, value, onChange, options = [], disabled = false }) {
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {label && <span style={{
         color: C.text, fontSize: 9.5, fontWeight: 700,
-        textTransform: "uppercase", letterSpacing: 0.6,
+        letterSpacing: 0.1,
         fontFamily:"'Inter Display','Inter',sans-serif",
-      }}>{label}</span>}
+      }}>{textoUi(label)}</span>}
       <select
         value={value ?? ""}
         onChange={e => onChange(e.target.value)}
@@ -3237,12 +3336,11 @@ function Badge({ children, color = C.yellow }) {
       fontSize: 8.5,
       fontWeight: 800,
       letterSpacing: 0.35,
-      textTransform: "uppercase",
       marginTop: 2,
       marginRight: 3,
       borderRadius: 999,
     }}>
-      {children}
+      {conteudoUi(children)}
     </span>
   );
 }
@@ -3291,24 +3389,50 @@ function ChartPanel({ eyebrow="Análise visual", title, subtitle, legend=[], act
   </section>;
 }
 
+// Cabeçalho padrão de tela: substitui os heroes "artesanais" de cada módulo
+// (gradiente escuro, cor e padding diferentes por tela) por um único
+// componente flat, no mesmo sistema Carbon do dashboard. Sem alterar o
+// conteúdo de cada tela — só o invólucro visual.
+function PageHero({eyebrow,title,description,alert,stats,actions}){
+  return <section className="page-hero" style={{position:"relative",overflow:"hidden",borderRadius:C.rLg,padding:"15px 17px",background:C.card,border:`1px solid ${C.border}`,boxShadow:"none"}}>
+    <span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",top:0,left:0,right:0,height:2,background:C.yellow}}/>
+    <div style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
+      <div style={{minWidth:0}}>
+        {eyebrow&&<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><span style={{width:7,height:7,borderRadius:99,background:C.green}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:C.yellowD}}>{eyebrow}</span></div>}
+        <h2 style={TYPO.h2}>{title}</h2>
+        {description&&<p style={{...TYPO.bodyMuted,marginTop:7,maxWidth:560}}>{description}</p>}
+        {alert&&<div style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:10,padding:"6px 10px",borderRadius:99,fontSize:10.5,fontWeight:800,background:`${alert.tone==="success"?C.green:C.red}12`,color:alert.tone==="success"?C.green:C.red}}><Ic n={alert.tone==="success"?"check":"alert"} s={13}/>{alert.text}</div>}
+      </div>
+      {actions&&<div className="page-hero-actions" style={{display:"flex",gap:7,flexWrap:"wrap",justifyContent:"flex-end"}}>{actions}</div>}
+    </div>
+    {!!stats?.length&&<div style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:6,marginTop:13}}>
+      {stats.map(s=><div key={s.label} style={{padding:"9px 10px",border:`1px solid ${C.border}`,background:C.card2,borderRadius:7}}>
+        <p style={{fontSize:8.5,fontWeight:850,letterSpacing:.75,textTransform:"uppercase",color:C.muted}}>{s.label}</p>
+        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:18,fontWeight:800,color:s.color||C.text,marginTop:3,lineHeight:1}}>{s.value}</p>
+        {s.detail&&<p style={{fontSize:8.5,color:C.muted,marginTop:5}}>{s.detail}</p>}
+      </div>)}
+    </div>}
+  </section>;
+}
+
 function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", active=false, onClick }) {
   const Comp=onClick?"button":"div";
   return <Comp type={onClick?"button":undefined} onClick={onClick} className={onClick?"lift-card":""} style={{
     appearance:"none",textAlign:"left",width:"100%",background:active?`${color}0D`:C.card,
-    border:`1px solid ${active?color:C.line}`,borderRadius:12,padding:"12px 13px",cursor:onClick?"pointer":"default",
+    border:`1px solid ${active?color:C.line}`,borderRadius:9,padding:"10px 11px",cursor:onClick?"pointer":"default",
     boxShadow:active?`0 0 0 2px ${color}12`:C.shHair,position:"relative",overflow:"hidden",
-  }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:8.5,fontWeight:850,letterSpacing:.8,textTransform:"uppercase",color:C.muted}}>{label}</p><span style={{width:27,height:27,borderRadius:8,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={13} color={color}/></span></div><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(18px,2.5vw,24px)",fontWeight:790,letterSpacing:-.7,color:C.text,lineHeight:1,marginTop:10}}>{value}</p>{detail&&<p style={{fontSize:9,color:C.muted,marginTop:6}}>{detail}</p>}</Comp>;
+  }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:8.5,fontWeight:850,letterSpacing:.8,textTransform:"uppercase",color:C.muted}}>{label}</p><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={12} color={color}/></span></div><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(17px,2vw,21px)",fontWeight:790,letterSpacing:-.55,color:C.text,lineHeight:1,marginTop:7}}>{value}</p>{detail&&<p style={{fontSize:8.5,color:C.muted,marginTop:4}}>{detail}</p>}</Comp>;
 }
 
 function ReportHero({ title, subtitle, period, children }) {
-  return <div style={{position:"relative",overflow:"hidden",background:C.text,color:"#fff",borderRadius:15,padding:"17px 18px",boxShadow:"0 16px 38px rgba(18,18,18,.12)"}}><div style={{position:"absolute",right:-45,top:-80,width:230,height:230,border:`1px solid ${C.yellow}35`,transform:"rotate(35deg)"}}/><div style={{position:"absolute",right:42,top:-95,width:230,height:230,border:`1px solid rgba(255,255,255,.08)`,transform:"rotate(35deg)"}}/><div style={{position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18,flexWrap:"wrap"}}><div><BrandMark compact dark/><p style={{fontSize:8.5,color:C.yellow,letterSpacing:1.3,textTransform:"uppercase",fontWeight:800,marginTop:15}}>Inteligência gerencial</p><h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(23px,4vw,34px)",fontWeight:760,letterSpacing:-1,lineHeight:1.05,marginTop:3}}>{title}</h2><p style={{fontSize:10.5,color:"rgba(255,255,255,.62)",marginTop:6}}>{subtitle}</p></div><div style={{textAlign:"right"}}>{period&&<span style={{display:"inline-flex",padding:"6px 9px",border:`1px solid ${C.yellow}55`,borderRadius:99,color:C.yellow,fontSize:9.5,fontWeight:800,letterSpacing:.4}}>{period}</span>}{children}</div></div></div>;
+  return <div className="report-hero-standard" style={{position:"relative",overflow:"hidden",background:C.card,color:C.text,border:`1px solid ${C.border}`,borderRadius:9,padding:"13px 15px",boxShadow:"none"}}><span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",inset:"0 0 auto",height:2,background:C.yellow}}/><div style={{position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}><div><p style={TYPO.eyebrow}>Inteligência gerencial</p><h2 style={{...TYPO.h2,fontSize:"clamp(19px,3vw,25px)",marginTop:2}}>{title}</h2><p style={{...TYPO.small,marginTop:4}}>{subtitle}</p></div><div style={{textAlign:"right"}}>{period&&<span style={{display:"inline-flex",padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.surface,color:C.yellowD,fontSize:9,fontWeight:800,letterSpacing:.3}}>{period}</span>}{children}</div></div></div>;
 }
 
 function Divider() {
   return <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.line}, transparent)`, margin: "12px 0" }} />;
 }
 
-function Modal({ title, children, onClose, wide = false }) {
+function Modal({ title, children, onClose, wide = false, panelClass = "" }) {
   const { isDesktop } = useBreakpoint();
 
   useEffect(() => {
@@ -3318,7 +3442,7 @@ function Modal({ title, children, onClose, wide = false }) {
 
   return (
     <div
-      className="no-print"
+      className="no-print arcd-modal-overlay"
       style={{
         position:"fixed", inset:0, zIndex:999,
         background:"rgba(18,18,18,.45)",
@@ -3327,7 +3451,7 @@ function Modal({ title, children, onClose, wide = false }) {
       }}
       onMouseDown={e => { if(e.target===e.currentTarget) onClose?.(); }}
     >
-      <div className="animUp" style={{
+      <div className={`animUp arcd-modal-panel ${panelClass}`.trim()} style={{
         width:"100%", maxWidth: wide ? (isDesktop?860:720) : (isDesktop?520:460),
         maxHeight:"92vh", overflowY:"auto",
         background:C.bg,
@@ -3335,24 +3459,19 @@ function Modal({ title, children, onClose, wide = false }) {
         borderRadius:10,
         boxShadow:`0 20px 60px rgba(18,18,18,.16)`,
       }}>
-        <div style={{
+        <div className="arcd-modal-header" style={{
           display:"flex", justifyContent:"space-between", alignItems:"center",
           padding:"11px 14px",
           borderBottom:`1px solid ${C.yellow}`,
           background:C.surface,
           borderRadius:"10px 10px 0 0",
         }}>
-          <h3 style={{
-            fontFamily:"'Inter Display','Inter',sans-serif",
-            color:C.text, fontSize:12.5, fontWeight:750,
-            textTransform:"uppercase", letterSpacing:.7,
-          }}>{title}</h3>
-          <button onClick={onClose} style={{
-            background:"transparent", border:0, color:C.muted,
-            width:28,height:28,borderRadius:6,fontSize:18,cursor:"pointer",lineHeight:1,padding:0,
-          }}>x</button>
+          <h3 style={TYPO.h3}>{textoUi(title)}</h3>
+          <Btn v="ghost" size="sm" iconOnly onClick={onClose} title="Fechar" ariaLabel="Fechar">
+            <Ic n="x" s={13}/>
+          </Btn>
         </div>
-        <div style={{padding:14}}>{children}</div>
+        <div className="arcd-modal-body" style={{padding:14}}>{children}</div>
       </div>
     </div>
   );
@@ -3405,7 +3524,22 @@ const calcObraLaborCost = (data, obraId, days) => {
   const hit = _laborCache.get(key);
   if (hit) return hit;
 
-  const result = _calcObraLaborCostRaw(data, obraId, days);
+  const corrente = _calcObraLaborCostRaw(data, obraId, days);
+  const datas = new Set(days || []);
+  let laborArchived = 0, benefitArchived = 0;
+  Object.values(data?.archivedLaborCosts || {}).forEach(arquivo => {
+    Object.entries(arquivo?.byDate || {}).forEach(([date, obras]) => {
+      if (!datas.has(date)) return;
+      const custo = obras?.[obraId];
+      laborArchived += Number(custo?.laborCost || 0);
+      benefitArchived += Number(custo?.benefitCost || 0);
+    });
+  });
+  const result = {
+    laborCost: corrente.laborCost + laborArchived,
+    benefitCost: corrente.benefitCost + benefitArchived,
+    totalCost: corrente.totalCost + laborArchived + benefitArchived,
+  };
   _laborCache.set(key, result);
   return result;
 };
@@ -3977,14 +4111,14 @@ function KpiCard({label,value,detail,icon,color=C.blue,onClick}){
   return <Comp onClick={onClick} className="dashboard-kpi" style={{
     width:"100%",height:"100%",minWidth:0,textAlign:"left",cursor:onClick?"pointer":"default",
     border:`1px solid ${C.border}`,background:C.card,borderRadius:C.rLg,
-    padding:15,position:"relative",overflow:"hidden",
+    padding:12,position:"relative",overflow:"hidden",
   }}>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
       <span style={{fontSize:10,fontWeight:750,letterSpacing:.65,textTransform:"uppercase",color:C.muted}}>{label}</span>
-      <span style={{width:29,height:29,borderRadius:9,display:"grid",placeItems:"center",background:`${color}12`,color}}><Ic n={icon} s={14}/></span>
+      <span style={{width:25,height:25,borderRadius:7,display:"grid",placeItems:"center",background:`${color}12`,color}}><Ic n={icon} s={13}/></span>
     </div>
-    <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(21px,2vw,26px)",fontWeight:780,letterSpacing:-.8,color:C.text,marginTop:10,lineHeight:1}}>{displayValue}</p>
-    {detail&&<p style={{fontSize:10.5,color:C.muted,marginTop:7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{detail}</p>}
+    <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(19px,2vw,23px)",fontWeight:780,letterSpacing:-.7,color:C.text,marginTop:7,lineHeight:1}}>{displayValue}</p>
+    {detail&&<p style={{fontSize:9.5,color:C.muted,marginTop:5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{detail}</p>}
   </Comp>;
 }
 
@@ -4064,14 +4198,14 @@ function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualiza
     <HeroWeatherScene icone={clima?.icone}/>
     <span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",top:0,left:0,right:0,height:2,background:C.yellow}}/>
     <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",minHeight:isDesktop?136:196,justifyContent:"space-between",gap:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:7,height:7,borderRadius:99,background:C.green}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:C.yellowD}}>ARCD Operational Intelligence · online</span></div><p style={{fontSize:10,color:C.muted,marginTop:7}}>{papel} · sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"}</p></div><div style={{display:"flex",alignItems:"center",gap:6}}>{onBuscar&&<button onClick={onBuscar} title="Buscar" style={{width:35,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,color:C.subtle,cursor:"pointer"}}><Ic n="funnel" s={13}/></button>}{onAtualizar&&<button onClick={onAtualizar} title="Atualizar" style={{width:35,height:35,border:`1px solid ${C.border}`,borderRadius:9,background:C.card2,color:C.subtle,cursor:"pointer"}}><Ic n="refresh" s={13}/></button>}</div></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:7,height:7,borderRadius:99,background:C.green}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:C.yellowD}}>ARCD Operational Intelligence · online</span></div><p style={{fontSize:10,color:C.muted,marginTop:7}}>{papel} · sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"}</p></div><div style={{display:"flex",alignItems:"center",gap:6}}>{onBuscar&&<Btn v="ghost" iconOnly onClick={onBuscar} title="Buscar" ariaLabel="Buscar"><Ic n="funnel" s={13}/></Btn>}{onAtualizar&&<Btn v="ghost" iconOnly onClick={onAtualizar} title="Atualizar" ariaLabel="Atualizar"><Ic n="refresh" s={13}/></Btn>}</div></div>
       <div className="dashboard-greeting" style={{maxWidth:640}}>
         <p style={{fontSize:9,textTransform:"uppercase",letterSpacing:1.2,color:C.yellowD,fontWeight:800}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</p>
-        <h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(24px,3vw,32px)",lineHeight:1.08,letterSpacing:-1.1,marginTop:5,fontWeight:650,color:C.text}}>{saudacao}, {nome}.</h1>
+        <h1 style={{...TYPO.h1,fontSize:"clamp(24px,3vw,32px)",marginTop:5}}>{saudacao}, {nome}.</h1>
         {climaObra&&<p style={{fontSize:13.5,lineHeight:1.5,marginTop:9,color:C.subtle}}><span aria-hidden="true" className={`dashboard-weather-motif dashboard-weather-motif-${clima.icone}`} style={{display:"inline-flex",verticalAlign:"-5px",marginRight:3}}><Ic n={clima.icone} s={18} color={climaObra.cor}/></span>{climaTxt}</p>}
         <p style={{fontSize:13,fontWeight:750,marginTop:7,color:C.yellowD}}>{mensagem}</p>
       </div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}><div style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap"}}><button onClick={()=>fila[0]&&onAbrir(fila[0].tab)} disabled={!fila.length} style={{border:`1px solid ${C.yellow}`,background:`${C.yellow}14`,color:C.subtle,borderRadius:9,padding:"9px 12px",fontSize:10.5,fontWeight:800,cursor:fila.length?"pointer":"default"}}>{fila.length?`Abrir prioridade principal →`:"Nenhuma ação urgente"}</button><span style={{fontSize:10,color:C.muted}}><b style={{color:criticas?C.red:C.green}}>{criticas}</b> crítica(s) · <b style={{color:C.yellowD}}>{fila.length}</b> missão(ões) ativa(s)</span></div>{periodo&&<div style={{display:"flex",alignItems:"center",border:`1px solid ${C.border}`,background:C.card2,borderRadius:9,padding:2}}><button onClick={onAnterior} style={{border:0,background:"transparent",color:C.subtle,padding:"5px 8px",cursor:"pointer"}}>←</button><span style={{minWidth:100,textAlign:"center",fontSize:9.5,fontWeight:750,textTransform:"capitalize",color:C.muted}}>{periodo}</span><button onClick={onProximo} disabled={proximoDesabilitado} style={{border:0,background:"transparent",color:proximoDesabilitado?C.cinza:C.subtle,padding:"5px 8px",cursor:proximoDesabilitado?"default":"pointer"}}>→</button></div>}</div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}><div style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap"}}><Btn v="primary" onClick={()=>fila[0]&&onAbrir(fila[0].tab)} disabled={!fila.length}>{fila.length?`Abrir prioridade principal →`:"Nenhuma ação urgente"}</Btn><span style={{fontSize:10,color:C.muted}}><b style={{color:criticas?C.red:C.green}}>{criticas}</b> crítica(s) · <b style={{color:C.yellowD}}>{fila.length}</b> missão(ões) ativa(s)</span></div>{periodo&&<div style={{display:"flex",alignItems:"center",border:`1px solid ${C.border}`,background:C.card2,borderRadius:9,padding:2}}><button onClick={onAnterior} style={{border:0,background:"transparent",color:C.subtle,padding:"5px 8px",cursor:"pointer"}}>←</button><span style={{minWidth:100,textAlign:"center",fontSize:9.5,fontWeight:750,textTransform:"capitalize",color:C.muted}}>{periodo}</span><button onClick={onProximo} disabled={proximoDesabilitado} style={{border:0,background:"transparent",color:proximoDesabilitado?C.cinza:C.subtle,padding:"5px 8px",cursor:proximoDesabilitado?"default":"pointer"}}>→</button></div>}</div>
     </div>
   </section>;
 }
@@ -4082,7 +4216,7 @@ function FilaOperador({fila,onTab}){
   const lista=filtro==="todas"?fila:fila.filter(x=>x.setor===filtro);
   return <section id="dashboard-missoes" className="dashboard-mission-queue" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
     <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",borderBottom:`1px solid ${C.line}`}}>
-      <div><p style={{fontSize:8.5,color:C.yellowD,fontWeight:850,letterSpacing:1.3,textTransform:"uppercase"}}>Prioridades por responsabilidade</p><h3 style={{fontSize:15,color:C.text,marginTop:3}}>Central de ações</h3></div>
+      <div><p style={TYPO.eyebrow}>Prioridades por responsabilidade</p><h3 style={{...TYPO.h3,marginTop:3}}>Central de ações</h3></div>
       <div style={{display:"flex",gap:4,overflowX:"auto",maxWidth:"100%"}}>{["todas",...setores].map(s=><button key={s} onClick={()=>setFiltro(s)} data-active={filtro===s} style={{border:`1px solid ${filtro===s?C.yellow:C.border}`,background:filtro===s?`${C.yellow}1F`:"transparent",color:filtro===s?C.yellowD:C.muted,borderRadius:99,padding:"5px 9px",fontSize:9,fontWeight:750,cursor:"pointer",whiteSpace:"nowrap"}}>{s==="todas"?"Todas":s}</button>)}</div>
     </div>
     {!lista.length
@@ -4099,8 +4233,8 @@ function NoticiasSetor({carregando,noticias,titulo="Notícias do setor",subtitul
   return <section className="dashboard-news" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
     <div style={{padding:"14px 16px",borderBottom:`1px solid ${C.line}`,display:"flex",alignItems:"center",gap:8}}>
       <Ic n="fileText" s={14} color={C.yellowD}/>
-      <h3 style={{fontSize:13,fontWeight:760,color:C.text}}>{titulo}</h3>
-      <span style={{fontSize:9,color:C.muted}}>{subtitulo}</span>
+      <h3 style={TYPO.h4}>{titulo}</h3>
+      <span style={TYPO.small}>{subtitulo}</span>
     </div>
     {carregando
       ? <div style={{padding:"4px 0"}}>{[0,1,2].map(i=>(
@@ -4121,38 +4255,53 @@ function NoticiasSetor({carregando,noticias,titulo="Notícias do setor",subtitul
   </section>;
 }
 
-// Índice CUB-PE (categoria R8N, padrão médio). Não existe fonte gratuita
-// para a categoria "casa alto padrão" pedida — a tabela oficial do
-// Sinduscon-PE fica atrás de login de associado. Mostramos a única série
-// aberta disponível, com o rótulo e a fonte sempre visíveis para não passar
-// o dado como se fosse a categoria de alto padrão.
 function CubChart({cub}){
+  const [projetoId,setProjetoId]=useState(()=>{
+    try{return localStorage.getItem("arcd_cub_projeto")||"R1-A";}catch{return "R1-A";}
+  });
   if(!cub)return null;
-  const temR1a=cub.serie.some(s=>Number.isFinite(s.r1a));
-  // Variação mês a mês calculada a partir da própria série (o PDF oficial
-  // não traz % pronto como o agregador do R8N traz).
-  const pontosR1a=cub.serie.filter(s=>Number.isFinite(s.r1a));
-  const ultimo=pontosR1a[pontosR1a.length-1], penultimo=pontosR1a[pontosR1a.length-2];
-  const varMesPct=ultimo&&penultimo?((ultimo.r1a-penultimo.r1a)/penultimo.r1a*100):null;
-  return <section style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",gap:6}}>
-    <ChartPanel eyebrow="Índice de custo" title={temR1a?"CUB-PE · R1-A (padrão alto)":"CUB-PE · R8N (padrão médio)"} height={210}
-      subtitle={temR1a?"Residência unifamiliar padrão alto — dado oficial do Sinduscon-PE. Linha pontilhada: R8N (padrão médio), para referência.":"Não foi possível ler o padrão alto agora; mostrando o padrão médio (R8N)."}
-      action={<div style={{display:"flex",gap:14,alignItems:"baseline"}}>
-        <span><b style={{fontSize:17,fontWeight:800,color:C.text}}>R$ {(cub.atual?.r1a??cub.atual?.r8n)?.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:9,color:C.muted}}>/m²</small></span>
+  const projetos=(cub.projetos||[
+    {id:"R1-A",label:"R-1",description:"Residência unifamiliar",group:"Residencial · padrão alto"},
+    {id:"R8-N",label:"R-8",description:"Residencial · 8 pavimentos",group:"Residencial · padrão normal"},
+  ]).filter(p=>cub.serie.some(s=>Number.isFinite(s.valores?.[p.id]??(p.id==="R1-A"?s.r1a:p.id==="R8-N"?s.r8n:null))));
+  const projeto=projetos.find(p=>p.id===projetoId)||projetos[0];
+  if(!projeto)return null;
+  const selecionar=id=>{
+    setProjetoId(id);
+    try{localStorage.setItem("arcd_cub_projeto",id);}catch{}
+  };
+  const serie=cub.serie.map(s=>({
+    mes:s.mes,
+    valor:s.valores?.[projeto.id]??(projeto.id==="R1-A"?s.r1a:projeto.id==="R8-N"?s.r8n:null),
+  })).filter(s=>Number.isFinite(s.valor));
+  const ultimo=serie[serie.length-1], penultimo=serie[serie.length-2];
+  const varMesPct=ultimo&&penultimo?((ultimo.valor-penultimo.valor)/penultimo.valor*100):null;
+  const grupos=[...new Set(projetos.map(p=>p.group))];
+  return <section className="cub-chart" style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",gap:6}}>
+    <ChartPanel eyebrow="Índice de custo · Pernambuco" title={`CUB-PE · ${projeto.label} (${projeto.group.split("·").pop().trim()})`} height={210}
+      subtitle={`${projeto.description} · ${cub.regimeLabel||"valor oficial do Sinduscon-PE"}. Competência: ${ultimo?.mes||cub.atual?.mes||"—"}.`}
+      action={<div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap"}}>
+        <label style={{display:"flex",flexDirection:"column",gap:3,textAlign:"left"}}>
+          <span style={{fontSize:8,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>Tipo de projeto</span>
+          <select aria-label="Tipo de projeto CUB" value={projeto.id} onChange={e=>selecionar(e.target.value)}
+            style={{minWidth:205,height:34,padding:"0 28px 0 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,cursor:"pointer"}}>
+            {grupos.map(grupo=><optgroup key={grupo} label={grupo}>{projetos.filter(p=>p.group===grupo).map(p=><option key={p.id} value={p.id}>{p.label} · {p.description}</option>)}</optgroup>)}
+          </select>
+        </label>
+        <span><b style={{fontSize:17,fontWeight:800,color:C.text}}>R$ {ultimo?.valor?.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:9,color:C.muted}}>/m²</small></span>
         {Number.isFinite(varMesPct)&&<span style={{fontSize:10.5,fontWeight:800,color:varMesPct>=0?C.orange:C.green}}>{varMesPct>=0?"+":""}{varMesPct.toFixed(2)}% no mês</span>}
       </div>}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={cub.serie}>
+        <LineChart data={serie}>
           <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
           <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} interval={1}/>
           <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>`R$${(v/1000).toFixed(1)}k`} domain={["dataMin-60","dataMax+60"]}/>
           <Tooltip content={<ArcdChartTooltip formatter={v=>`R$ ${v.toLocaleString("pt-BR",{minimumFractionDigits:2})}/m²`}/>}/>
-          {temR1a&&<Line type="monotone" dataKey="r1a" name="R1-A · padrão alto" stroke={C.yellow} strokeWidth={2.5} dot={false} activeDot={{r:5}} connectNulls/>}
-          <Line type="monotone" dataKey="r8n" name="R8N · padrão médio" stroke={C.subtle} strokeWidth={temR1a?1.5:2.5} strokeDasharray={temR1a?"4 4":undefined} dot={false} activeDot={{r:4}} connectNulls/>
+          <Line type="monotone" dataKey="valor" name={`${projeto.label} · ${projeto.group}`} stroke={C.yellow} strokeWidth={2.5} dot={false} activeDot={{r:5}} connectNulls/>
         </LineChart>
       </ResponsiveContainer>
     </ChartPanel>
-    <p style={{fontSize:8.5,color:C.muted,padding:"0 4px"}}>{temR1a?"R1-A: fonte oficial (relatório mensal de composição do Sinduscon-PE). R8N: agregador não-oficial.":"Fonte não-oficial (agregador terceiro sobre dados do Sinduscon-PE)."} Apenas para acompanhamento de tendência.</p>
+    <p style={{fontSize:8.5,color:C.muted,padding:"0 4px"}}>Fonte oficial: relatório mensal de composição CUB/m² do Sinduscon-PE, com mão de obra e encargos sociais sem desoneração. Referência técnica; não substitui o orçamento da obra.</p>
   </section>;
 }
 
@@ -4175,7 +4324,7 @@ function DashboardEngenheiro({data,onTab,currentUser,ultimaSync}){
   return <div className="anim dashboard-tech-motion" style={{display:"flex",flexDirection:"column",gap:16}}>
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={fila} onAbrir={onTab}/>
     <FilaOperador fila={fila} onTab={onTab}/>
-    <div><p style={{fontSize:10,fontWeight:850,color:C.blue,textTransform:"uppercase",letterSpacing:.8}}>{ehAuditor?"Auditoria de engenharia":"Engenharia de campo"}</p><h2 style={{fontSize:"clamp(21px,3vw,29px)",letterSpacing:-.8,fontWeight:780,color:C.text,marginTop:4}}>{ehAuditor?"Vistorias e validações":"Correções e evidências"}</h2><p style={{fontSize:11.5,color:C.muted,marginTop:5}}>{ehAuditor?"Crie vistorias, registre os achados e valide as evidências enviadas pelos engenheiros de campo.":"Acesse apenas as pendências atribuídas a você e envie a foto da correção para validação do auditor."}</p></div>
+    <div><p style={{...TYPO.eyebrow,color:C.blue}}>{ehAuditor?"Auditoria de engenharia":"Engenharia de campo"}</p><h2 style={{...TYPO.h2,marginTop:4}}>{ehAuditor?"Vistorias e validações":"Correções e evidências"}</h2><p style={{...TYPO.bodyMuted,marginTop:5}}>{ehAuditor?"Crie vistorias, registre os achados e valide as evidências enviadas pelos engenheiros de campo.":"Acesse apenas as pendências atribuídas a você e envie a foto da correção para validação do auditor."}</p></div>
     <div className="dashboard-kpi-grid" style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:9}}>{(ehAuditor?[["Pendências auditadas",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Para sua validação",aguardandoValidacao,C.green,"check"],["Vistorias sob sua responsabilidade",conferencias.length,C.purple,"building"]]:[["Pendências para corrigir",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Aguardando sua correção",aguardandoCorrecao,C.orange,"camera"]]).map(([l,v,c,i],idx)=><span key={l} style={{"--row-i":idx}}><KpiCard label={l} value={v} icon={i} color={c}/></span>)}</div>
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none",display:"flex",gap:8,alignItems:"end",flexWrap:"wrap",padding:12}}><div style={{minWidth:240,flex:1}}><Sel label="Filtrar conferências por obra" value={obraFiltro} onChange={setObraFiltro} options={[{v:"all",l:"Todas as obras disponíveis"},...obras.map(o=>({v:o.id,l:o.name}))]}/></div><Btn v="ghost" onClick={()=>onTab("obras")}><Ic n="building"/> Abrir todas as obras</Btn>{currentUser?.obraId&&<p style={{width:"100%",fontSize:9.5,color:C.orange}}>Seu cadastro está restrito a uma obra. O administrador pode liberar “Todas as obras” na Central do Administrador.</p>}</div>
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}><div style={{padding:"13px 15px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between"}}><b style={{fontSize:12.5,color:C.text}}>Pendências sob sua responsabilidade</b><span style={{fontSize:9.5,color:C.muted}}>{ehAuditor?"Análise e validação técnica":"Somente envio da correção"}</span></div>{!abertas.length?<div style={{padding:30,textAlign:"center"}}><Ic n="check" s={24} color={C.green}/><p style={{fontSize:12,fontWeight:750,color:C.text,marginTop:7}}>Nenhuma pendência aberta neste filtro</p></div>:abertas.map(({p,c,obra},index)=>{const acao=ehAuditor?(p.status==="aguardando_validacao"?"Validar evidência":"Acompanhar vistoria"):(p.status==="aguardando_validacao"?"Aguardando auditor":"Enviar correção");const corAcao=acao==="Validar evidência"?C.green:acao==="Enviar correção"?C.orange:C.blue;return <button key={`${c.id}-${p.id}`} onClick={()=>abrir(c)} style={{width:"100%",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",padding:"13px 15px",display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,.7fr) minmax(260px,1.5fr) 130px 140px 26px":"1fr auto",gap:12,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div><p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>{obra?.name||"Obra"}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>CONF-{String(c.codigo||0).padStart(3,"0")}</p></div><div style={{minWidth:0}}><p style={{fontSize:11.5,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.descricao}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.ajusteNecessario}</p></div><span style={{display:isDesktop?"inline-flex":"none",justifySelf:"start"}}><Badge color={impacto[p.impacto]||C.orange}>{p.impacto}</Badge></span><span style={{fontSize:9.5,fontWeight:800,color:corAcao,whiteSpace:"nowrap"}}>{acao}</span><span style={{fontSize:18,color:C.muted}}>›</span></button>;})}</div>
@@ -4195,9 +4344,6 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
   const exec=useMemo(()=>calcResumoExecutivo(data,year,month),[data,year,month]);
   const alertasBase=useMemo(()=>calcAlertas(data,year,month),[data,year,month]);
   const obrasAtivas=(data.obras||[]).filter(o=>o.status!=="done");
-  const nome=(currentUser?.nome||"bem-vindo").trim().split(/\s+/)[0];
-  const saudacao=agora.getHours()<12?"Bom dia":agora.getHours()<18?"Boa tarde":"Boa noite";
-  const empresa=data.config?.companyName||"ARCD Obras";
   const hoje=today();
   const fimMes=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,"0")}`;
   const abasPermitidas=allowedTabsForUser(currentUser);
@@ -4237,7 +4383,7 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
   // Card local só decide se o KPI é clicável (acesso por aba); a aparência
   // vem do KpiCard compartilhado com o dashboard do engenheiro.
   const Card=({label,value,detail,icon,color=C.blue,tab})=>{const acessivel=tab&&abasPermitidas.includes(tab);if(tab&&!acessivel)return null;return <KpiCard label={label} value={value} detail={detail} icon={icon} color={color} onClick={acessivel?()=>onTab(tab):undefined}/>;};
-  const Titulo=({children,acao})=><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:12}}><div><h3 style={{fontSize:15,fontWeight:760,letterSpacing:-.25,color:C.text}}>{children}</h3></div>{acao}</div>;
+  const Titulo=({children,acao})=><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:12}}><div><h3 style={TYPO.h3}>{children}</h3></div>{acao}</div>;
   const superficie={background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none"};
 
   return <div className="anim dashboard-tech-motion dashboard-command-center" style={{position:"relative",display:"flex",flexDirection:"column",gap:14,paddingBottom:16}}>
@@ -4251,16 +4397,6 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticiasCbicPe} titulo="CBIC Pernambuco" subtitulo="Sinduscon-PE e câmara regional"/>
     </section>
     <CubChart cub={resumoDiario.cub}/>
-
-    <section style={{position:"relative",zIndex:1,padding:isDesktop?"8px 2px 4px":0,display:"none",justifyContent:"space-between",alignItems:"flex-start",gap:18,flexWrap:"wrap"}}>
-      <div><p style={{fontSize:11,fontWeight:700,color:C.blue,letterSpacing:.8,textTransform:"uppercase",marginBottom:7}}>{empresa}</p><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(25px,4vw,38px)",letterSpacing:-1.2,lineHeight:1.05,fontWeight:760,color:"#16181A"}}>{saudacao}, {nome}.</h1><p style={{fontSize:12,color:"#858A90",marginTop:8,textTransform:"capitalize"}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})} · o que merece sua atenção hoje.</p></div>
-      <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
-        <button onClick={onBuscar} style={{height:38,minWidth:isDesktop?210:38,border:"1px solid rgba(27,31,36,.1)",background:"rgba(255,255,255,.88)",borderRadius:11,padding:"0 11px",display:"flex",alignItems:"center",gap:8,color:"#737980",cursor:"pointer",boxShadow:"0 4px 18px rgba(20,24,28,.035)"}}><Ic n="funnel" s={13}/>{isDesktop&&<><span style={{fontSize:11.5,flex:1,textAlign:"left"}}>Buscar no ArcD</span><span style={{fontSize:9,border:"1px solid #DDD",padding:"2px 5px",borderRadius:5}}>⌘K</span></>}</button>
-        <button onClick={()=>document.getElementById("dashboard-prioridades")?.scrollIntoView({behavior:"smooth"})} title="Notificações" style={{width:38,height:38,border:"1px solid rgba(27,31,36,.1)",background:"rgba(255,255,255,.88)",borderRadius:11,display:"grid",placeItems:"center",cursor:"pointer",position:"relative",color:"#62686E"}}><Ic n="alert" s={15}/>{prioridades.length>0&&<span style={{position:"absolute",right:-3,top:-4,minWidth:16,height:16,borderRadius:99,background:C.red,color:"white",fontSize:8,fontWeight:800,display:"grid",placeItems:"center",padding:"0 3px"}}>{Math.min(99,prioridades.length)}</span>}</button>
-        <button onClick={onAtualizar} title="Atualizar dados" style={{height:38,border:0,background:"#181A1D",color:"white",borderRadius:11,padding:"0 13px",display:"flex",alignItems:"center",gap:7,fontSize:10.5,fontWeight:750,cursor:"pointer"}}><Ic n="refresh" s={13} color="white"/> Atualizar</button>
-      </div>
-      <div style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",paddingTop:4}}><div style={{display:"flex",alignItems:"center",gap:7,fontSize:10.5,color:"#878C91"}}><span style={{width:7,height:7,borderRadius:99,background:C.green,boxShadow:`0 0 0 4px ${C.green}12`}}/>Sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:""}</div><div style={{display:"flex",alignItems:"center",background:"rgba(255,255,255,.82)",border:"1px solid rgba(27,31,36,.08)",borderRadius:10,padding:2}}><button onClick={()=>irMes(-1)} style={{border:0,background:"transparent",padding:"5px 9px",cursor:"pointer",color:"#777"}}>←</button><span style={{fontSize:10.5,fontWeight:700,minWidth:108,textAlign:"center",textTransform:"capitalize"}}>{fullMonth(month)} {year}</span><button onClick={()=>irMes(1)} disabled={ehAtual} style={{border:0,background:"transparent",padding:"5px 9px",cursor:ehAtual?"default":"pointer",color:ehAtual?"#D2D4D6":"#777"}}>→</button></div></div>
-    </section>
 
     <section className="dashboard-executive-grid" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
       {[
@@ -4280,16 +4416,16 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
       {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:12,fontWeight:700,color:"#2D3135"}}>Nenhuma pendência prioritária</p><p style={{fontSize:10.5,color:"#8A8F94",marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:11.5,color:"#303438",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:17,color:"#B1B5B9"}}>›</span></button>;})}</div>}
     </section>
 
-    <section style={{position:"relative",zIndex:1,...superficie,padding:isDesktop?18:14}}><Titulo acao={<button onClick={()=>onTab("obras")} style={{border:0,background:"transparent",color:C.blue,fontSize:10.5,fontWeight:700,cursor:"pointer"}}>Ver portfólio →</button>}>Resumo executivo das obras</Titulo>{!exec.obras.length?<p style={{fontSize:11,color:C.muted}}>Nenhuma obra cadastrada.</p>:<div style={{display:"flex",flexDirection:"column"}}>{[...exec.obras].sort((a,b)=>({critica:0,atencao:1,saudavel:2}[a.exec.k]-{critica:0,atencao:1,saudavel:2}[b.exec.k])).slice(0,5).map((o,i)=><button key={o.id} onClick={()=>onTab("obras")} style={{border:0,borderTop:i?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"12px 0",display:"grid",gridTemplateColumns:isDesktop?"minmax(180px,1.4fr) minmax(180px,1fr) 110px 110px":"1fr auto",gap:14,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:740,color:"#25282C",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.nome}</p><p style={{fontSize:9.5,color:"#92969A",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cidade||o.cliente||"Obra em acompanhamento"}</p></div><div style={{display:isDesktop?"block":"none"}}><div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:"#888",marginBottom:5}}><span>Avanço físico</span><b style={{color:C.blue}}>{o.pctFisico}%</b></div><div style={{height:5,borderRadius:99,background:"#ECEEEF",overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,o.pctFisico)}%`,background:C.blue,borderRadius:99}}/></div></div><div style={{display:isDesktop?"block":"none"}}><p style={{fontSize:9,color:"#999"}}>Previsto x realizado</p><p style={{fontSize:10.5,fontWeight:700,color:"#454A4F",marginTop:3}}>{o.pctFinanceiro}% financeiro</p></div><span style={{justifySelf:"end",fontSize:9,fontWeight:800,color:o.exec.cor,background:`${o.exec.cor}0E`,padding:"5px 9px",borderRadius:99,textTransform:"uppercase"}}>{o.exec.l}</span></button>)}</div>}</section>
+    <section style={{position:"relative",zIndex:1,...superficie,padding:isDesktop?18:14}}><Titulo acao={<button onClick={()=>onTab("obras")} style={LINK_BTN_STYLE}>Ver portfólio →</button>}>Resumo executivo das obras</Titulo>{!exec.obras.length?<p style={{fontSize:11,color:C.muted}}>Nenhuma obra cadastrada.</p>:<div style={{display:"flex",flexDirection:"column"}}>{[...exec.obras].sort((a,b)=>({critica:0,atencao:1,saudavel:2}[a.exec.k]-{critica:0,atencao:1,saudavel:2}[b.exec.k])).slice(0,5).map((o,i)=><button key={o.id} onClick={()=>onTab("obras")} style={{border:0,borderTop:i?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"12px 0",display:"grid",gridTemplateColumns:isDesktop?"minmax(180px,1.4fr) minmax(180px,1fr) 110px 110px":"1fr auto",gap:14,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:740,color:"#25282C",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.nome}</p><p style={{fontSize:9.5,color:"#92969A",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cidade||o.cliente||"Obra em acompanhamento"}</p></div><div style={{display:isDesktop?"block":"none"}}><div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:"#888",marginBottom:5}}><span>Avanço físico</span><b style={{color:C.blue}}>{o.pctFisico}%</b></div><div style={{height:5,borderRadius:99,background:"#ECEEEF",overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,o.pctFisico)}%`,background:C.blue,borderRadius:99}}/></div></div><div style={{display:isDesktop?"block":"none"}}><p style={{fontSize:9,color:"#999"}}>Previsto x realizado</p><p style={{fontSize:10.5,fontWeight:700,color:"#454A4F",marginTop:3}}>{o.pctFinanceiro}% financeiro</p></div><span style={{justifySelf:"end",fontSize:9,fontWeight:800,color:o.exec.cor,background:`${o.exec.cor}0E`,padding:"5px 9px",borderRadius:99,textTransform:"uppercase"}}>{o.exec.l}</span></button>)}</div>}</section>
 
     <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
-      <div style={{...superficie,padding:18}}><Titulo acao={<button onClick={()=>onTab("dre_emp")} style={{border:0,background:"transparent",color:C.blue,fontSize:10,cursor:"pointer"}}>Detalhes →</button>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,exec.dre.saldoCaixa>=0?C.green:C.red],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,exec.dre.lucroBruto>=0?C.green:C.red]].map(([l,v,c])=><div key={l}><p style={{fontSize:9.5,color:"#93979B",textTransform:"uppercase",letterSpacing:.45}}>{l}</p><p style={{fontSize:17,fontWeight:760,color:c,marginTop:5,letterSpacing:-.3}}>{fmtCompact(v)}</p></div>)}</div></div>
-      <div style={{...superficie,padding:18}}><Titulo acao={<button onClick={()=>onTab("com_dash")} style={{border:0,background:"transparent",color:C.blue,fontSize:10,cursor:"pointer"}}>Abrir comercial →</button>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmtCompact(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:9.5,color:"#93979B",textTransform:"uppercase",letterSpacing:.45}}>{l}</p><p style={{fontSize:17,fontWeight:760,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"#ECEEEF"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
+      <div style={{...superficie,padding:18}}><Titulo acao={<button onClick={()=>onTab("dre_emp")} style={LINK_BTN_STYLE}>Detalhes →</button>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,exec.dre.saldoCaixa>=0?C.green:C.red],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,exec.dre.lucroBruto>=0?C.green:C.red]].map(([l,v,c])=><div key={l}><p style={{fontSize:9.5,color:"#93979B",textTransform:"uppercase",letterSpacing:.45}}>{l}</p><p style={{fontSize:17,fontWeight:760,color:c,marginTop:5,letterSpacing:-.3}}>{fmtCompact(v)}</p></div>)}</div></div>
+      <div style={{...superficie,padding:18}}><Titulo acao={<button onClick={()=>onTab("com_dash")} style={LINK_BTN_STYLE}>Abrir comercial →</button>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmtCompact(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:9.5,color:"#93979B",textTransform:"uppercase",letterSpacing:.45}}>{l}</p><p style={{fontSize:17,fontWeight:760,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"#ECEEEF"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
     </section>
 
     <section style={{position:"relative",zIndex:1}}><Titulo>Ações rápidas</Titulo><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:8}}>{[
       ["Nova compra","cart","cmp"],["Novo lead","user","com_leads"],["Lançar despesa","dollar","dre_emp"],["Abrir ponto","clock","ponto"],["Revisar medições","ruler","medicoes"],["Conferências","check","conferencia"],
-    ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} className="dashboard-quick-action" style={{minHeight:70,border:`1px solid ${C.border}`,background:C.card,borderRadius:C.rLg,padding:11,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",color:C.subtle,fontSize:10.5,fontWeight:700,textAlign:"left"}}><span style={{width:28,height:28,borderRadius:9,background:C.card2,display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
+    ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} className="dashboard-quick-action" style={{minHeight:70,border:`1px solid ${C.border}`,background:C.card,borderRadius:C.rLg,padding:11,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",textAlign:"left",...TYPO.label}}><span style={{width:28,height:28,borderRadius:9,background:C.card2,display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
   </div>;
 }
 
@@ -4360,156 +4496,21 @@ const calcEquipFaturamentoEmpresa = (data, ym) => {
   };
 };
 
-const diasPeriodoDRE = (year, month, periodo="mes") => {
-  if(periodo==="q1") return getQ(year,month).q1;
-  if(periodo==="q2") return getQ(year,month).q2;
-  return getDays(year,month);
-};
-
-const calcDREObra = (data, obraId, year, month, periodo="mes") => {
-  const ym      = `${year}-${String(month+1).padStart(2,"0")}`;
-  const days    = diasPeriodoDRE(year, month, periodo);
-  const per0  = days[0] || "";
-  const perF  = days[days.length - 1] || "";
-  const noPeriodo = value => !!value && value >= per0 && value <= perF;
-  const obra    = data.obras.find(o => o.id === obraId);
-
-  //  FATURAMENTO (emissão de medições) 
-  // Medição sem data específica é reconhecida no dia 20 da competência,
-  // que é a data de fechamento da 1ª quinzena. Isso impede que a mesma receita
-  // apareça nas duas quinzenas.
-  const dataCompetenciaMedicao = m => m.dataEmissao || m.dataVencimento || `${m.competencia||ym}-20`;
-  const medDoMes   = (data.medicoes||[]).filter(m => m.obraId===obraId && (
-    periodo==="mes" ? m.competencia===ym : noPeriodo(dataCompetenciaMedicao(m))
-  ));
-  const faturamento = medDoMes.reduce((s,m) => s+m.valorPrevisto, 0);
-
-  //  RECEBIMENTO (caixa) 
-  // Caixa segue a data real do pagamento, não a competência da medição.
-  const recMed = (data.medicoes||[]).filter(m=>m.obraId===obraId&&m.recebido&&noPeriodo(m.dataPagamento||dataCompetenciaMedicao(m)))
-    .reduce((s,m)=>s+Number(m.valorRecebido||0),0);
-  const recLivre = (data.payments||[]).filter(p=>p.obraId===obraId&&noPeriodo(p.date)).reduce((s,p)=>s+Number(p.amount||0),0);
-  const recebido = recMed + recLivre;
-  const recebidoDasMedicoes = medDoMes.filter(m=>m.recebido).reduce((s,m)=>s+Number(m.valorRecebido||0),0);
-  const aReceber = Math.max(0,faturamento - recebidoDasMedicoes);
-
-  //  CUSTOS DIRETOS 
-  const moData      = calcObraLaborCost(data, obraId, days);
-  const tercCost    = calcObraTercCost(data, obraId, per0, perF);
-  const rescTotal   = (data.rescisoes||[]).filter(r =>
-    r.obraName===(obra?.name||"") && noPeriodo(r.demissao)
-  ).reduce((s,r)=>s+Number(r.totalLiquido||0), 0);
-  const outrasNoPeriodo = d => d.obraId===obraId && (periodo==="mes"
-    ? d.competencia===ym
-    : noPeriodo(d.data||`${d.competencia||ym}-20`));
-  const outrasTotal = (data.outrasDesp||[]).filter(outrasNoPeriodo)
-    .reduce((s,d)=>s+Number(d.valor||0), 0);
-  const outrasDesp  = (data.outrasDesp||[]).filter(outrasNoPeriodo);
-
-  // Custo de locação de equipamentos alocados a esta obra no mês.
-  const equipCost   = calcEquipCustoObra(data, obraId, ym, per0, perF);
-
-  const totalCustos = moData.laborCost + moData.benefitCost + tercCost + rescTotal + outrasTotal + equipCost;
-
-  //  RESULTADO 
-  const lucroBruto   = faturamento - totalCustos;
-  const margemBruta  = faturamento > 0 ? (lucroBruto/faturamento)*100 : 0;
-  const saldoCaixa   = recebido - totalCustos;
-  const margemCaixa  = recebido > 0 ? (saldoCaixa/recebido)*100 : 0;
-
-  //  POSIÇÃO ACUMULADA DO CONTRATO 
-  const contratoTotal   = Number(obra?.contractValue||0);
-  const faturadoAcum    = (data.medicoes||[]).filter(m=>m.obraId===obraId).reduce((s,m)=>s+m.valorPrevisto,0);
-  const recebidoAcum    = (data.medicoes||[]).filter(m=>m.obraId===obraId&&m.recebido).reduce((s,m)=>s+m.valorRecebido,0)
-    + (data.payments||[]).filter(p=>p.obraId===obraId).reduce((s,p)=>s+Number(p.amount||0),0);
-  const aReceberAcum    = Math.max(0, faturadoAcum - recebidoAcum);
-  const backlog         = Math.max(0, contratoTotal - faturadoAcum);
-  const pctFaturado     = contratoTotal>0 ? (faturadoAcum/contratoTotal)*100 : 0;
-  const pctRecebido     = contratoTotal>0 ? (recebidoAcum/contratoTotal)*100 : 0;
-  const pctAvanco       = (() => {
-    const meds = (data.medicoes||[]).filter(m=>m.obraId===obraId&&m.tipo==="percentual");
-    return meds.length ? Math.max(...meds.map(m=>m.percentualAcumulado)) : 0;
-  })();
-
-  return {
-    obra, ym, periodo, days, per0, perF,
-    // Faturamento
-    faturamento, recebido, aReceber, medDoMes,
-    // Custos
-    moData, tercCost, rescTotal, outrasTotal, outrasDesp, equipCost, totalCustos,
-    // Resultado
-    lucroBruto, margemBruta, saldoCaixa, margemCaixa,
-    // Posição
-    contratoTotal, faturadoAcum, recebidoAcum, aReceberAcum, backlog, pctFaturado, pctRecebido, pctAvanco,
-  };
-};
-
-// Calcula DRE consolidado (todas as obras)
-const calcDREConsolidado = (data, year, month, periodo="mes") => {
-  const days = diasPeriodoDRE(year, month, periodo);
-  const per0 = days[0] || "", perF = days[days.length-1] || "";
-  const rows = data.obras.map(o => calcDREObra(data, o.id, year, month, periodo));
-  const sum  = (key, sub) => rows.reduce((s,r) => s+(sub ? r[sub][key]||0 : r[key]||0), 0);
-  // Pagamentos de terceiros realizados pela empresa não oneram a obra vinculada; entram aqui como despesa administrativa consolidada.
-  const tercEmpresa = calcTercEmpresaCost(data, per0, perF);
-  const ym = `${year}-${String(month+1).padStart(2,"0")}`;
-
-  // LOCAÇÃO DE EQUIPAMENTOS - a empresa presta o serviço de locação.
-  // Contabilidade do consolidado (evita dupla contagem):
-  //  - O custo que cada OBRA registra pela locação (equipCost) é, do ponto de
-  //    vista do GRUPO, uma transferência interna: a obra paga, a empresa recebe.
-  //    No consolidado essas duas pernas se anulam.
-  //  - O que sobra de verdade para o grupo é o LUCRO da atividade de locação:
-  //    receita cobrada − repasse aos donos terceiros − manutenção da empresa.
-  //    Para equipamento próprio, é a receita menos manutenção; para o de
-  //    terceiro, é só o spread. Reconhecemos isso como faturamento líquido.
-  const equipEmpresa   = calcEquipFaturamentoEmpresa(data, ym);
-  const equipCostObras = sum("equipCost");   // custo interno somado nas obras
-  const equipLucro     = equipEmpresa.lucro; // resultado real da locação
-
-  // Custos consolidados: soma os custos das obras, MENOS o custo interno de
-  // locação (que se anula com a receita interna), mais os terceiros da empresa.
-  const totalCustos = sum("totalCustos") - equipCostObras + tercEmpresa;
-  // Faturamento: o das obras, mais o LUCRO líquido da atividade de locação
-  // (a receita bruta de locação contra as obras é interna e não infla o grupo).
-  const faturamento = sum("faturamento") + equipLucro;
-  const recebido    = sum("recebido");
-  const lucroBruto  = faturamento - totalCustos;
-  const saldoCaixa  = recebido - totalCustos;
-  return {
-    obras: rows, periodo, days, per0, perF,
-    faturamento,
-    recebido,
-    aReceber:     sum("aReceber"),
-    laborCost:    sum("laborCost","moData"),
-    benefitCost:  sum("benefitCost","moData"),
-    tercCost:     sum("tercCost"),
-    tercEmpresa,
-    rescTotal:    sum("rescTotal"),
-    outrasTotal:  sum("outrasTotal"),
-    equipCostObras,                          // custo de locação nas obras (interno)
-    equipReceita: equipEmpresa.receita,      // receita bruta de locação
-    equipLucro,                              // resultado líquido da locação (entra no faturamento)
-    totalCustos,
-    lucroBruto,
-    saldoCaixa,
-    faturadoAcum: sum("faturadoAcum"),
-    recebidoAcum: sum("recebidoAcum"),
-    backlog:      sum("backlog"),
-    margemBruta:  faturamento>0 ? (lucroBruto/faturamento)*100 : 0,
-    margemCaixa:  recebido>0    ? (saldoCaixa/recebido)*100    : 0,
-  };
-};
-
-// Série histórica para gráficos (últimos N meses)
-const calcDREHistorico = (data, year, month, nMeses=6) => {
-  return Array.from({length:nMeses},(_,i)=>{
-    const d = new Date(year, month-nMeses+1+i, 1);
-    const y = d.getFullYear(), m = d.getMonth();
-    const c = calcDREConsolidado(data, y, m);
-    return { mes:`${monthName(m)}/${String(y).slice(2)}`, ...c, y, m };
-  });
-};
+const {
+  diasPeriodoDRE,
+  calcDREObra,
+  calcDREConsolidado,
+  calcDREHistorico,
+} = createDreCalculations({
+  getDays,
+  getQ,
+  monthName,
+  calcObraLaborCost,
+  calcObraTercCost,
+  calcTercEmpresaCost,
+  calcEquipCustoObra,
+  calcEquipFaturamentoEmpresa,
+});
 
 // RESUMO EXECUTIVO - agrega, só com dados reais do app, o retrato da empresa
 // para o painel do dashboard. Cada obra ganha um status calculado (saudável /
@@ -4720,17 +4721,67 @@ function DRELegado({ data, update, showToast, obraIdFixo="" }) {
   const [despForm,  setDespForm]  = useState({ obraId:"", competencia:"", categoria:"material", descricao:"", valor:"" });
   const [detalheKpi, setDetalheKpi] = useState("");
   const [filtroDetalhe, setFiltroDetalhe] = useState({ busca:"", categoria:"todos", obra:"todas", ordem:"data_desc" });
+  const [avaliacaoCFOObra,setAvaliacaoCFOObra]=useState(null);
+  const [avaliandoCFOObra,setAvaliandoCFOObra]=useState(false);
   const DF = k => v => setDespForm(f=>({...f,[k]:v}));
 
   const dre   = useMemo(()=>calcDREConsolidado(data,year,month,periodoDRE), [data,year,month,periodoDRE]);
   const obraFinanceiraId = obraIdFixo || selObra;
   const dreObra = useMemo(()=>calcDREObra(data,obraFinanceiraId,year,month,periodoDRE), [data,obraFinanceiraId,year,month,periodoDRE]);
-  const dreResumo=obraIdFixo?dreObra:dre;
+  // A visão selecionada é a única fonte dos cards, do período e do extrato.
+  // Antes, apenas o demonstrativo inferior mudava para a obra; os KPIs
+  // permaneciam presos ao consolidado.
+  const dreResumo=(obraIdFixo||view==="obra")?dreObra:dre;
   const hist  = useMemo(()=>calcDREHistorico(data,year,month,6), [data,year,month]);
+  const histObra=useMemo(()=>Array.from({length:6},(_,i)=>{
+    const d=new Date(year,month-5+i,1);
+    const linha=calcDREObra(data,obraFinanceiraId,d.getFullYear(),d.getMonth(),"mes");
+    return {mes:`${monthName(d.getMonth())}/${String(d.getFullYear()).slice(2)}`,faturamento:linha.faturamento,
+      recebido:linha.recebido,custos:linha.totalCustos,maoDeObra:linha.moData.laborCost+linha.moData.benefitCost,
+      lucro:linha.lucroBruto,margem:linha.margemBruta};
+  }),[data,obraFinanceiraId,year,month]);
+  const equipeObra=useMemo(()=>{
+    const ids=new Set();
+    (data.employees||[]).forEach(emp=>(dreObra.days||[]).forEach(dia=>{
+      const reg=data.attendance?.[emp.id]?.[dia];
+      const obraDia=reg?.obraId||emp.obra||"";
+      if(obraDia===obraFinanceiraId&&["P","M"].includes(attStatus(data,emp.id,dia)))ids.add(emp.id);
+    }));
+    const homemDias=(data.employees||[]).reduce((s,emp)=>s+(dreObra.days||[]).reduce((sd,dia)=>{
+      const reg=data.attendance?.[emp.id]?.[dia],obraDia=reg?.obraId||emp.obra||"";
+      if(obraDia!==obraFinanceiraId)return sd;
+      const st=attStatus(data,emp.id,dia);return sd+(st==="P"?1:st==="M"?0.5:0);
+    },0),0);
+    return {pessoas:ids.size,homemDias};
+  },[data,dreObra.days,obraFinanceiraId]);
 
   const years = Array.from({length:4},(_,i)=>now.getFullYear()-2+i).map(y=>({v:String(y),l:String(y)}));
   const period = `${periodoDRE==="q1"?"1ª quinzena (06–20) · ":periodoDRE==="q2"?"2ª quinzena (21–05) · ":""}${fullMonth(month)} ${year}`;
   const fmt2 = n=>Number(n||0).toFixed(2).replace(".",",");
+
+  useEffect(()=>{setAvaliacaoCFOObra(null);},[obraFinanceiraId,year,month,periodoDRE]);
+
+  const analisarObraComoCFO=async()=>{
+    setAvaliandoCFOObra(true);
+    try{
+      const obra=dreObra.obra||{};
+      const contexto={modulo:"dre",escopo:"obra",periodo,obra:{id:obra.id,nome:obra.name,status:obra.status,
+        contrato:Number(obra.contractValue||0),faturamento:dreObra.faturamento,recebido:dreObra.recebido,
+        aReceber:dreObra.aReceber,custos:dreObra.totalCustos,lucro:dreObra.lucroBruto,margem:dreObra.margemBruta,
+        saldoCaixa:dreObra.saldoCaixa,maoDeObra:dreObra.moData.laborCost,beneficios:dreObra.moData.benefitCost,
+        terceiros:dreObra.tercCost,outrasDespesas:dreObra.outrasTotal,equipamentos:dreObra.equipCost,
+        equipe:equipeObra,backlog:dreObra.backlog,pctFaturado:dreObra.pctFaturado,pctRecebido:dreObra.pctRecebido},
+        historicoMensal:histObra};
+      const prompt=`Você é o CFO da empresa e deve emitir uma Avaliação do CFO sobre uma única obra. Retorne SOMENTE JSON válido:
+{"veredicto":"saudavel|atencao|critico","avaliacao":"4 a 6 frases com o diagnóstico executivo","maoDeObra":{"veredicto":"adequada|revisar|inconclusivo","analise":"avalie custo, pessoas e homem-dias sem inventar produtividade física","evidencias":["números recebidos"],"decisao":"ação objetiva"},"historico":{"leitura":"evolução mês a mês","melhorMes":"mês e motivo numérico","piorMes":"mês e motivo numérico","tendencia":"melhora|estavel|piora|inconclusiva"},"decisoes":[{"prioridade":1,"acao":"decisão","impactoEsperado":"efeito financeiro sem inventar valor","prazo":"Hoje|7 dias|30 dias","indicador":"métrica"}],"riscos":["com evidência"],"dadosFaltantes":["o que impede conclusão"],"conclusao":"veredicto final direto"}.
+Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas apenas pelo número do efetivo; use custo de MO, homem-dias, faturamento, margem e histórico. Se não houver produção física ou planejamento, declare que a produtividade é inconclusiva e recomende qual dado acompanhar.`;
+      const resposta=await chamarIA({modulo:"dre",prompt,contexto});
+      if(!resposta.ok)throw new Error(resposta.error||"O Gemini não respondeu.");
+      setAvaliacaoCFOObra({...jsonDaRespostaIA(resposta.reply||resposta.answer),geradoEm:new Date().toISOString()});
+      showToast("Avaliação do CFO gerada para a obra.");
+    }catch(error){showToast(error.message||"Não foi possível gerar a avaliação do CFO.","error");}
+    finally{setAvaliandoCFOObra(false);}
+  };
 
   const movimentosDRE = useMemo(() => {
     const linhas = [];
@@ -5048,7 +5099,8 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
   };
 
   //  Excel do DRE
-  const exportXLS = () => {
+  const exportXLS = async () => {
+    await carregarXLSX();
     const wb = XLSX.utils.book_new();
     const dreRows = (obj) => [
       ["RECEITAS"],
@@ -5087,7 +5139,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
     wsH["!cols"]=[14,14,12,12,14,10].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb,wsH,"Histórico");
 
-    XLSX.writeFile(wb,`arcd-dre-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
+    await XLSX.writeFile(wb,`arcd-dre-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
     showToast("Excel DRE gerado!");
   };
 
@@ -5236,6 +5288,29 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           {!obraIdFixo&&<div className="dre-work-selector">
             <Sel label="Obra em análise" value={selObra} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:o.name}))}/>
           </div>}
+          <section className="dre-ai-full-report" style={{marginTop:0}}>
+            <header>
+              <div><p>Gemini · direção financeira</p><h3>Avaliação do CFO</h3></div>
+              <button type="button" onClick={analisarObraComoCFO} disabled={avaliandoCFOObra}><Ic n="brain" s={12}/> {avaliandoCFOObra?"Analisando...":avaliacaoCFOObra?"Atualizar avaliação":"Analisar esta obra"}</button>
+            </header>
+            <div className="dre-ai-indicators">
+              <div><span>Pessoas no período</span><strong>{equipeObra.pessoas}</strong><small>com presença registrada na obra</small></div>
+              <div><span>Homem-dias</span><strong>{equipeObra.homemDias.toFixed(1)}</strong><small>presenças integrais e meios dias</small></div>
+              <div><span>Custo de mão de obra</span><strong>{fmt(dreObra.moData.laborCost+dreObra.moData.benefitCost)}</strong><small>folha e benefícios no período</small></div>
+              <div><span>Histórico analisado</span><strong>6 meses</strong><small>faturamento, caixa, custo e margem</small></div>
+            </div>
+            {!avaliacaoCFOObra?<p style={{fontSize:10,color:C.muted,lineHeight:1.55,marginTop:10}}>O CFO cruza resultado, caixa, custo da equipe, homem-dias e evolução mensal. Quando faltarem avanço físico ou produção executada, ele indicará que não há base para afirmar excesso de pessoal.</p>:<>
+              <div className="dre-ai-conclusion" style={{marginTop:10}}><span>Veredicto · {avaliacaoCFOObra.veredicto||"inconclusivo"}</span><p>{avaliacaoCFOObra.avaliacao}</p></div>
+              <div className="dre-ai-diagnosis-grid">
+                <article><span>Mão de obra · {avaliacaoCFOObra.maoDeObra?.veredicto||"inconclusivo"}</span><p>{avaliacaoCFOObra.maoDeObra?.analise}</p><small>{avaliacaoCFOObra.maoDeObra?.decisao}</small></article>
+                <article><span>Evolução mês a mês · {avaliacaoCFOObra.historico?.tendencia||"inconclusiva"}</span><p>{avaliacaoCFOObra.historico?.leitura}</p><small>Melhor: {avaliacaoCFOObra.historico?.melhorMes||"—"} · Pior: {avaliacaoCFOObra.historico?.piorMes||"—"}</small></article>
+              </div>
+              <p className="dre-ai-report-label">Decisões recomendadas</p>
+              <div className="dre-ai-action-plan">{(avaliacaoCFOObra.decisoes||[]).map((x,i)=><article key={`${x.prioridade}-${i}`}><span>{x.prazo}</span><div><strong>{x.prioridade}. {x.acao}</strong><small>{x.impactoEsperado} · Indicador: {x.indicador}</small></div></article>)}</div>
+              {avaliacaoCFOObra.conclusao&&<div className="dre-ai-conclusion"><span>Conclusão do CFO</span><p>{avaliacaoCFOObra.conclusao}</p></div>}
+              {(avaliacaoCFOObra.dadosFaltantes||[]).length>0&&<><p className="dre-ai-report-label">Dados necessários para uma decisão mais precisa</p><ul>{avaliacaoCFOObra.dadosFaltantes.map((x,i)=><li key={i}>{x}</li>)}</ul></>}
+            </>}
+          </section>
           {renderObraDRE(dreObra,false)}
         </div>
       )}
@@ -6353,7 +6428,20 @@ function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,on
   const salvar=()=>{if(!form.obraId||!form.numero||Number(form.valorBruto)<=0){showToast("Informe obra, número e valor da nota.","error");return;}const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const totalPed=ped?totalPedido(ped):0;const divergencias=[];if(ped&&Math.abs(totalPed-Number(form.valorBruto))>.02)divergencias.push(`Valor da nota ${fmt(Number(form.valorBruto))} difere do pedido ${fmt(totalPed)}.`);if(ped&&ped.status!=="recebido")divergencias.push("Pedido ainda não foi totalmente recebido.");const ret=totalRet(form);const n={...form,id:form.id||uid(),valorBruto:Number(form.valorBruto),valorLiquido:Number(form.valorLiquido||Number(form.valorBruto)-ret),divergencias,rateios:form.rateios?.length?form.rateios:[{id:uid(),obraId:form.obraId,etapaId:"",percentual:100,valor:Number(form.valorBruto)}],criadoEm:form.criadoEm||new Date().toISOString(),atualizadoEm:new Date().toISOString()};update({...data,notasFiscais:form.id?notas.map(x=>x.id===form.id?n:x):[...notas,n]});setForm(null);showToast(divergencias.length?"Nota salva com divergências para análise.":"Nota conferida e salva.");};
   const aprovar=n=>{if(n.divergencias?.length&&!window.confirm("A nota possui divergências. Aprovar mesmo assim?"))return;update({...data,notasFiscais:notas.map(x=>x.id===n.id?{...x,status:"aprovada",aprovadoPorId:currentUser?.id||"",aprovadoPor:currentUser?.nome||"",aprovadoEm:new Date().toISOString()}:x)});showToast("Nota aprovada para pagamento.");};
   const lista=notas.filter(n=>filtro==="todas"||n.status===filtro);const valorPendente=notas.filter(n=>!["paga","cancelada"].includes(n.status)).reduce((s,n)=>s+saldoPagamentoNota(n),0);
-  return <div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:9.5,fontWeight:900,color:C.purple,textTransform:"uppercase",letterSpacing:1}}>Recepção e auditoria fiscal</p><h3 style={{fontSize:22,color:C.text}}>Central de notas fiscais</h3><p style={{fontSize:10.5,color:C.muted}}>Documento → pedido/recebimento → rateio/retenções → aprovação → conciliação → contador</p></div><Btn onClick={()=>setForm(vazia())}><Ic n="plus"/> Receber nota</Btn></div><div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>{[["Recebidas",notas.length,C.blue],["Com divergência",notas.filter(n=>n.divergencias?.length).length,C.red],["Aprovadas",notas.filter(n=>n.status==="aprovada").length,C.green],["A pagar",fmt(valorPendente),C.orange]].map(([l,v,c])=><div key={l} style={{padding:"9px 10px",border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,background:C.card}}><p style={{fontSize:8.5,color:C.muted,fontWeight:800,textTransform:"uppercase"}}>{l}</p><b style={{fontSize:15,color:c}}>{v}</b></div>)}</div><div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`4px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:12}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {n.documentos.length} arquivo(s) no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:9.5,color:C.red,marginTop:4}}>⚠ {d}</p>)}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn>{n.status==="recebida"&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Aprovar pagamento</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:9.5,color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={F("pedidoId")} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:10.5,fontWeight:800}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:10,color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:10.5}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn><Btn onClick={salvar} full>Salvar e conferir</Btn></div></div></Modal>}<ModalLegendaDocumento anexo={anexoFiscal} setAnexo={setAnexoFiscal} onClose={()=>!subindo&&setAnexoFiscal(null)} onSalvar={salvarAnexoFiscal} salvando={subindo} titulo="Legenda do documento fiscal" C={C}/></div>;
+  return <div style={{display:"flex",flexDirection:"column",gap:10}}>
+    <PageHero
+      eyebrow="Recepção e auditoria fiscal"
+      title="Central de notas fiscais"
+      description="Documento → pedido/recebimento → rateio/retenções → aprovação → conciliação → contador"
+      stats={[
+        {label:"Recebidas",value:notas.length,color:C.blue},
+        {label:"Com divergência",value:notas.filter(n=>n.divergencias?.length).length,color:C.red},
+        {label:"Aprovadas",value:notas.filter(n=>n.status==="aprovada").length,color:C.green},
+        {label:"A pagar",value:fmt(valorPendente),color:C.orange},
+      ]}
+      actions={<Btn onClick={()=>setForm(vazia())}><Ic n="plus"/> Receber nota</Btn>}
+    />
+    <div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`4px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:12}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {n.documentos.length} arquivo(s) no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:9.5,color:C.red,marginTop:4}}>⚠ {d}</p>)}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn>{n.status==="recebida"&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Aprovar pagamento</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:9.5,color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={F("pedidoId")} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:10.5,fontWeight:800}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:10,color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:10.5}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn><Btn onClick={salvar} full>Salvar e conferir</Btn></div></div></Modal>}<ModalLegendaDocumento anexo={anexoFiscal} setAnexo={setAnexoFiscal} onClose={()=>!subindo&&setAnexoFiscal(null)} onSalvar={salvarAnexoFiscal} salvando={subindo} titulo="Legenda do documento fiscal" C={C}/></div>;
 }
 
 function LinksDocumentosAuditaveis({documentos=[],onSelecionar,subindo=false,C=C_ARCD_SETOR}){
@@ -6471,7 +6559,15 @@ function CentralPagamentosFinanceiro({data,update,showToast,currentUser,onNovaNo
   };
   if(!podeOperar)return <div style={{padding:30,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:12,color:C.red}}>Central operacional exclusiva do Financeiro e da Administração.</div>;
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:9}}>
-    <div style={{background:`linear-gradient(118deg,${C.text},#253142)`,color:"#fff",borderRadius:12,padding:"13px 15px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",boxShadow:C.shHair}}><div style={{minWidth:0}}><p style={{fontSize:8.5,fontWeight:900,color:C.yellow,textTransform:"uppercase",letterSpacing:1.1}}>Tesouraria · contas a pagar</p><h2 style={{fontSize:"clamp(18px,3vw,22px)",fontWeight:850,marginTop:2}}>Central de pagamentos</h2><p style={{fontSize:9.5,color:"rgba(255,255,255,.68)",marginTop:3}}>Do pedido à conciliação, com documento e aprovação rastreáveis.</p></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn size="sm" v="dark" onClick={onAbrirFiscal}><Ic n="file"/> Notas fiscais</Btn><Btn size="sm" onClick={onNovaNota}><Ic n="plus"/> Receber NF</Btn></div></div>
+    <PageHero
+      eyebrow="Tesouraria · contas a pagar"
+      title="Central de pagamentos"
+      description="Do pedido à conciliação, com documento e aprovação rastreáveis."
+      actions={<>
+        <Btn size="sm" v="ghost" onClick={onAbrirFiscal}><Ic n="file"/> Notas fiscais</Btn>
+        <Btn size="sm" onClick={onNovaNota}><Ic n="plus"/> Receber NF</Btn>
+      </>}
+    />
 
     <section aria-label="Resumo financeiro" style={{display:"grid",gridTemplateColumns:cols(2,2,4),gap:7}}>{resumoFinanceiro.map(kpi=><div key={kpi.label} style={{position:"relative",overflow:"hidden",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 11px",boxShadow:C.shHair}}><i style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:kpi.cor}}/><p style={{fontSize:7.8,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}>{kpi.label}</p><p style={{fontSize:16,fontWeight:900,color:kpi.cor,marginTop:3,lineHeight:1}}>{fmt(kpi.valor)}</p><p style={{fontSize:8.2,color:C.muted,marginTop:4}}>{kpi.apoio}</p></div>)}</section>
 
@@ -6544,7 +6640,7 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
   const statusCor=status=>["paga","aprovada","recebido","recebida","conciliada"].includes(status)?C.green:["cancelada","ignorada"].includes(status)?C.muted:status==="vencida"?C.red:status==="a conciliar"?C.purple:C.orange;
   const maiorGrafico=Math.max(faturamento,custos,recebido,Math.abs(resultado),1);
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:11}}>
-    <div style={{background:`linear-gradient(135deg,${C.text},#27364b)`,color:"#fff",borderRadius:12,padding:"15px 17px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}><div><p style={{fontSize:9,fontWeight:900,color:C.yellow,textTransform:"uppercase",letterSpacing:1.2}}>Controle corporativo</p><h2 style={{fontSize:"clamp(20px,4vw,30px)",fontWeight:850,marginTop:2}}>Administrativo financeiro</h2><p style={{fontSize:10.5,color:"rgba(255,255,255,.65)",marginTop:3}}>Visão consolidada ou por obra, com movimentações, resultado e documentos auditáveis.</p></div><div style={{display:"flex",gap:5,overflowX:"auto",maxWidth:"100%"}}>{[["resumo","Resumo"],["receitas","Receitas"],["despesas","Despesas"],["resultados","Resultados"],["documentos","Documentos"]].map(([v,l])=><button key={v} onClick={()=>setAba(v)} style={{border:`1px solid ${aba===v?C.yellow:"rgba(255,255,255,.2)"}`,background:aba===v?`${C.yellow}22`:"rgba(255,255,255,.05)",color:aba===v?C.yellow:"#fff",borderRadius:7,padding:"7px 10px",fontSize:9.5,fontWeight:850,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>)}</div></div>
+    <div className="standard-module-header" style={{position:"relative",background:C.card,color:C.text,border:`1px solid ${C.border}`,borderRadius:10,padding:"15px 17px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap",overflow:"hidden"}}><span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",inset:"0 0 auto",height:2,background:C.yellow}}/><div><p style={{fontSize:9,fontWeight:900,color:C.yellowD,textTransform:"uppercase",letterSpacing:1.2}}>Controle corporativo</p><h2 style={{fontSize:"clamp(20px,4vw,30px)",fontWeight:700,marginTop:2,color:C.text}}>Administrativo financeiro</h2><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Visão consolidada ou por obra, com movimentações, resultado e documentos auditáveis.</p></div><div className="standard-module-tabs" style={{display:"flex",gap:3,overflowX:"auto",maxWidth:"100%",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7}}>{[["resumo","Resumo"],["receitas","Receitas"],["despesas","Despesas"],["resultados","Resultados"],["documentos","Documentos"]].map(([v,l])=><button key={v} onClick={()=>setAba(v)} style={{border:`1px solid ${aba===v?C.yellow:C.border}`,background:aba===v?C.card:"transparent",color:aba===v?C.text:C.muted,borderRadius:5,padding:"7px 10px",fontSize:9.5,fontWeight:850,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>)}</div></div>
     <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:7}}><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Mês" value={String(mes)} onChange={v=>setMes(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/><Sel label="Ano" value={String(ano)} onChange={v=>setAno(Number(v))} options={Array.from({length:5},(_,i)=>agora.getFullYear()-2+i).map(v=>({v:String(v),l:String(v)}))}/></div>
     {aba==="resumo"&&<>
       <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:7}}>{[["Faturamento",faturamento,C.green,"emitido"],["Recebido",recebido,C.blue,"entrada de caixa"],["A receber",aReceber,C.orange,`${receitasAbertas.length} título(s)`],["Custos e despesas",custos,C.red,despesasAdministrativas?`${fmt(despesasAdministrativas)} administrativo`:"regime gerencial"],["Notas em aberto",valorNotasAbertas,C.purple,`${notasAbertas.length} documento(s)`],["Resultado",resultado,resultado>=0?C.green:C.red,faturamento?`${((resultado/faturamento)*100).toFixed(1)}% de margem`:"sem faturamento"]].map(([l,v,c,s])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,padding:"10px 11px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:18,fontWeight:900,color:c,marginTop:3}}>{fmt(v)}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{s}</p></div>)}</div>
@@ -6749,7 +6845,8 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
     showToast("Removido.");
   };
 
-  const exportXLS = () => {
+  const exportXLS = async () => {
+    await carregarXLSX();
     const wb=XLSX.utils.book_new();
     // Aba KPIs
     const h1=["Obra","Tipo Contrato","Valor Contrato","Custo MO","Custo MO+Ben","Receita Esperada","Margem","Margem %","Recebido (mês)","Comprometimento %"];
@@ -6763,7 +6860,7 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
     const ws2=XLSX.utils.aoa_to_sheet([["Recebimentos registrados"],[],h2,...b2]);
     ws2["!cols"]=[12,22,12,30].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb,ws2,"Recebimentos");
-    XLSX.writeFile(wb,`arcd-financeiro-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
+    await XLSX.writeFile(wb,`arcd-financeiro-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
     showToast("Excel exportado.");
   };
 
@@ -6780,35 +6877,35 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
 
   const podeAcessarAdministrativoFinanceiro=["admin","financeiro"].includes(currentUser?.role);
   const abasFinanceiras=[["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),["ia","Modo IA"]];
-  const NavegacaoFinanceira=()=> <div style={{display:"grid",gridTemplateColumns:`repeat(${abasFinanceiras.length},minmax(0,1fr))`,gap:5,padding:5,border:`1px solid ${C.border}`,borderRadius:10,background:C.surface,overflowX:"auto"}}>{abasFinanceiras.map(([v,l])=><button key={v} onClick={()=>setAreaFinanceira(v)} style={{padding:"8px",border:`1px solid ${areaFinanceira===v?(v==="ia"?C.purple:C.green):"transparent"}`,borderRadius:7,background:areaFinanceira===v?C.card:"transparent",color:areaFinanceira===v?(v==="ia"?C.purple:C.green):C.muted,fontSize:10.5,fontWeight:850,cursor:"pointer",whiteSpace:"nowrap"}}>{v==="ia"&&<><Ic n="brain" s={12}/> </>}{v==="pagamentos"&&<><Ic n="receipt" s={12}/> </>}{v==="administrativo"&&<><Ic n="building" s={12}/> </>}{v==="fiscal"&&<><Ic n="file" s={12}/> </>}{l}</button>)}</div>;
+  const NavegacaoFinanceira=()=> <div className="financial-area-nav" style={{display:"grid",gridTemplateColumns:`repeat(${abasFinanceiras.length},minmax(0,1fr))`,gap:3,padding:3,border:`1px solid ${C.border}`,borderRadius:8,background:C.surface,overflowX:"auto"}}>{abasFinanceiras.map(([v,l])=><button key={v} onClick={()=>setAreaFinanceira(v)} style={{padding:"6px 8px",border:`1px solid ${areaFinanceira===v?(v==="ia"?C.purple:C.green):"transparent"}`,borderRadius:5,background:areaFinanceira===v?C.card:"transparent",color:areaFinanceira===v?(v==="ia"?C.purple:C.green):C.muted,fontSize:9.5,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{v==="ia"&&<><Ic n="brain" s={11}/> </>}{v==="pagamentos"&&<><Ic n="receipt" s={11}/> </>}{v==="administrativo"&&<><Ic n="building" s={11}/> </>}{v==="fiscal"&&<><Ic n="file" s={11}/> </>}{l}</button>)}</div>;
   if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralPagamentosFinanceiro data={data} update={update} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} C={C}/></div>;
   if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
   if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralFiscal data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal}/></div>;
   if(areaFinanceira==="ia")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><ModoIADocumento modulo="financeiro" data={data} update={update} showToast={showToast} currentUser={currentUser} onClose={()=>setAreaFinanceira("fiscal")}/></div>;
 
   return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div className="anim financial-overview" style={{display:"flex",flexDirection:"column",gap:10}}>
       <NavegacaoFinanceira/>
       {/* Header */}
-      <div className="arcd-app-shell" style={{
-        background:`linear-gradient(135deg,${C.green}22 0%,${C.card} 60%)`,
-        border:`1px solid ${C.green}44`,borderLeft:`5px solid ${C.green}`,
-        padding:"16px 18px",borderRadius:12,
+      <div className="financial-overview-header" style={{
+        background:C.card,
+        border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.green}`,
+        padding:"11px 14px",borderRadius:8,
       }}>
-        <p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Gestão financeira</p>
-        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(19px,5vw,34px)",letterSpacing:2,color:C.text,lineHeight:1}}>Financeiro por Obra</h2>
-        <p style={{color:C.muted,fontSize:13,marginTop:4}}>KPIs de margem, contrato, custo MO e recebimentos.</p>
+        <p style={{fontSize:8.5,fontWeight:850,color:C.green,textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>Gestão financeira</p>
+        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:"clamp(18px,2vw,22px)",letterSpacing:-.4,color:C.text,lineHeight:1.1}}>Financeiro por obra</h2>
+        <p style={{color:C.muted,fontSize:10.5,marginTop:3}}>Margem, contrato, mão de obra e recebimentos no mesmo recorte.</p>
       </div>
 
       {/* Filtros */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      <div className="financial-overview-filters" style={{display:"grid",gridTemplateColumns:"120px 160px minmax(220px,1fr)",gap:6}}>
         <Sel value={String(year)} onChange={v=>setYear(Number(v))} options={years}/>
         <Sel value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/>
+        <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
       </div>
-      <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
 
       {/* KPI totais */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+      <div className="financial-overview-kpis" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>
         {[
           ["Receita esperada", fmt(T.revenue),                C.green,  "dollar"],
           ["Recebido",         fmt(T.received),               C.blue,   "check"],
@@ -6817,9 +6914,9 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
           ["Total trabalho",   fmt(T.labor+T.terc),           C.red,    "users"],
           ["Margem real",      `${fmt(T.margin)} (${totalMarginPct.toFixed(0)}%)`, T.margin>=0?C.green:C.red, "chart"],
         ].map(([l,v,c,ic])=>(
-          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,padding:"12px 14px",borderRadius:10}}>
-            <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
-            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,color:c,fontSize:22,lineHeight:1.1,marginTop:4,letterSpacing:.5}}>{v}</p>
+          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`2px solid ${c}`,padding:"9px 11px",borderRadius:7,minWidth:0}}>
+            <p style={{fontSize:8,fontWeight:850,color:C.muted,textTransform:"uppercase",letterSpacing:.65}}>{l}</p>
+            <p title={v} style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:780,color:c,fontSize:"clamp(16px,2vw,20px)",lineHeight:1.1,marginTop:3,letterSpacing:-.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p>
           </div>
         ))}
       </div>
@@ -7300,6 +7397,10 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
   };
 
   const remove = id => {
+    if (!ehAdmin) {
+      showToast("Somente o administrador pode excluir uma obra.", "error");
+      return;
+    }
     if (data.employees.some(e => e.obra === id || e.lastObra === id)) {
       showToast("Não é possível apagar obra com histórico de funcionários.", "error");
       return;
@@ -7363,50 +7464,26 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
 
   return (
     <div className="anim works-hub" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <section className="works-hero" style={{
-        position:"relative",overflow:"hidden",borderRadius:18,padding:isDesktop?"24px 26px":"20px 16px",
-        color:"#fff",background:`radial-gradient(circle at 82% 12%,${C.yellow}30 0,transparent 26%),linear-gradient(128deg,#121212 0%,#1D1B16 58%,#2A2518 100%)`,
-        border:`1px solid ${C.yellow}66`,boxShadow:"0 18px 44px rgba(18,18,18,.18)",
-      }}>
-        <div aria-hidden="true" style={{position:"absolute",inset:0,opacity:.18,backgroundImage:`linear-gradient(${C.yellow}33 1px,transparent 1px),linear-gradient(90deg,${C.yellow}33 1px,transparent 1px)`,backgroundSize:"42px 42px",maskImage:"linear-gradient(90deg,transparent,#000 70%)"}}/>
-        <div aria-hidden="true" style={{position:"absolute",right:-74,top:-108,width:330,height:330,borderRadius:"50%",border:`1px solid ${C.yellow}55`,boxShadow:`inset 0 0 0 36px #D4AF3708,inset 0 0 0 76px #D4AF3708`}}/>
-        <div style={{position:"relative",zIndex:1}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
-            <div>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                <span style={{width:8,height:8,borderRadius:99,background:C.green,boxShadow:`0 0 0 4px ${C.green}2E,0 0 18px ${C.green}`}}/>
-                <span style={{fontSize:9.5,fontWeight:900,letterSpacing:1.8,textTransform:"uppercase",color:C.yellow}}>ARCD · Engenharia operacional</span>
-              </div>
-              <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:isDesktop?34:28,letterSpacing:-.8,color:"#fff",lineHeight:1}}>Central de obras</h2>
-              <p className="works-hero-description" style={{fontSize:11.5,color:"rgba(255,255,255,.64)",marginTop:7,maxWidth:520}}>Encontre a obra certa, entenda o que exige atenção e siga para a próxima ação.</p>
-              <div className={`works-pulse ${contagensObras.atencao ? "has-alert" : ""}`}>
-                <Ic n={contagensObras.atencao ? "alert" : "check"} s={13}/>
-                <span>{resumoOperacional}</span>
-              </div>
-            </div>
-            <div className="works-hero-actions" style={{display:"flex",gap:7,flexWrap:"wrap",justifyContent:"flex-end"}}>
-              {ehAdmin&&<button onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)} style={{height:38,padding:"0 12px",borderRadius:9,border:"1px solid rgba(255,255,255,.22)",background:"rgba(255,255,255,.07)",color:"#fff",fontSize:10.5,fontWeight:850,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Ic n="folder" s={14}/> Arquivos gerais</button>}
-              {ehAdmin&&oneDriveStatus==="connected"&&<button disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)} style={{height:38,padding:"0 12px",borderRadius:9,border:"1px solid rgba(255,255,255,.22)",background:"rgba(255,255,255,.07)",color:"#fff",fontSize:10.5,fontWeight:850,cursor:sincronizandoPastas?"wait":"pointer",display:"flex",alignItems:"center",gap:6,opacity:sincronizandoPastas?0.65:1}}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</button>}
-              {ehAdmin&&oneDriveStatus !== "connected" && <button onClick={conectarOneDrive} style={{height:38,padding:"0 12px",borderRadius:9,border:`1px solid ${C.yellow}`,background:"transparent",color:C.yellow,fontSize:10.5,fontWeight:850,cursor:"pointer"}}>Conectar OneDrive</button>}
-              <button onClick={() => { setForm(empty); setModal(true); }} style={{height:38,padding:"0 15px",borderRadius:9,border:`1px solid ${C.yellow}`,background:C.yellow,color:C.ink,fontSize:10.5,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",gap:6,boxShadow:`0 8px 24px ${C.yellow}2E`}}><Ic n="plus" s={14}/> Nova obra</button>
-            </div>
-          </div>
-          <div className="works-summary-grid" style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8,marginTop:22}}>
-            {[
-              ["Obras ativas",obrasComando.filter(o=>o.status==="active").length,"Em operação",C.green],
-              ["Requer atenção",contagensObras.atencao,"Dados e prazos",contagensObras.atencao?C.red:C.green],
-              ["Prazo ≤ 30 dias",contagensObras.prazo,"Janela crítica",contagensObras.prazo?C.yellow:"#fff"],
-              ["Carteira ativa",fmtCompact(totalCarteira),"Valor contratado",C.yellow],
-            ].map(([label,value,sub,cor])=><div className="works-summary-card" key={label} style={{padding:"11px 12px",border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.055)",borderRadius:10,backdropFilter:"blur(8px)"}}>
-              <p style={{fontSize:8.5,fontWeight:850,letterSpacing:.75,textTransform:"uppercase",color:"rgba(255,255,255,.55)"}}>{label}</p>
-              <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:900,color:cor,marginTop:4,lineHeight:1}}>{value}</p>
-              <p style={{fontSize:8.5,color:"rgba(255,255,255,.42)",marginTop:5}}>{sub}</p>
-            </div>)}
-          </div>
-        </div>
-      </section>
+      <PageHero
+        eyebrow="ARCD · Engenharia operacional"
+        title="Central de obras"
+        description="Encontre a obra certa, entenda o que exige atenção e siga para a próxima ação."
+        alert={{tone:contagensObras.atencao?"warning":"success",text:resumoOperacional}}
+        stats={[
+          {label:"Obras ativas",value:obrasComando.filter(o=>o.status==="active").length,detail:"Em operação",color:C.green},
+          {label:"Requer atenção",value:contagensObras.atencao,detail:"Dados e prazos",color:contagensObras.atencao?C.red:C.green},
+          {label:"Prazo ≤ 30 dias",value:contagensObras.prazo,detail:"Janela crítica",color:contagensObras.prazo?C.orange:C.text},
+          {label:"Carteira ativa",value:fmtCompact(totalCarteira),detail:"Valor contratado",color:C.yellowD},
+        ]}
+        actions={<>
+          {ehAdmin&&<Btn v="ghost" onClick={()=>abrirOneDrive(data.config?.oneDriveRootUrl)}><Ic n="folder" s={14}/> Arquivos gerais</Btn>}
+          {ehAdmin&&oneDriveStatus==="connected"&&<Btn v="ghost" disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</Btn>}
+          {ehAdmin&&oneDriveStatus!=="connected"&&<Btn v="ghost" onClick={conectarOneDrive}>Conectar OneDrive</Btn>}
+          <Btn onClick={()=>{setForm(empty);setModal(true);}}><Ic n="plus" s={14}/> Nova obra</Btn>
+        </>}
+      />
 
-      <section className="works-filter-bar" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:10,boxShadow:"0 8px 28px rgba(18,18,18,.05)"}}>
+      <section className="works-filter-bar" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,padding:10,boxShadow:"none"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}>
           <div className="works-category-tabs" style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:1,maxWidth:"100%"}}>
             {categoriasObras.map(([v,l])=><button data-active={categoria===v} key={v} onClick={()=>setCategoria(v)} style={{height:32,padding:"0 10px",whiteSpace:"nowrap",borderRadius:8,border:`1px solid ${categoria===v?C.yellow:C.border}`,background:categoria===v?C.text:C.bg,color:categoria===v?"#fff":C.muted,fontSize:9.5,fontWeight:850,cursor:"pointer"}}>{l} <span style={{marginLeft:4,color:categoria===v?C.yellow:C.subtle}}>{contagensObras[v]}</span></button>)}
@@ -7473,16 +7550,18 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                     }}>{fase.nome}</p>
                     <div style={{display:"flex",gap:1,flexShrink:0}}>
-                      <button onClick={()=>moverFase(fase.id,-1)} disabled={fi===0} title="Mover coluna p/ esquerda"
-                        style={{background:"transparent",border:0,cursor:fi===0?"default":"pointer",
-                                color:fi===0?C.line:C.muted,fontSize:10,padding:"0 2px"}}></button>
-                      <button onClick={()=>moverFase(fase.id,+1)} disabled={fi===fases.length-1} title="Mover coluna p/ direita"
-                        style={{background:"transparent",border:0,cursor:fi===fases.length-1?"default":"pointer",
-                                color:fi===fases.length-1?C.line:C.muted,fontSize:10,padding:"0 2px"}}></button>
-                      <button onClick={()=>abrirEditarFase(fase)} title="Renomear / cor"
-                        style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:11,padding:"0 2px"}}></button>
-                      <button onClick={()=>excluirFase(fase)} title="Excluir fase"
-                        style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:14,padding:"0 2px",lineHeight:1}}>x</button>
+                      <Btn v="ghost" size="sm" iconOnly onClick={()=>moverFase(fase.id,-1)} disabled={fi===0} title="Mover coluna p/ esquerda" ariaLabel="Mover coluna para a esquerda">
+                        <Ic n="chevL" s={11}/>
+                      </Btn>
+                      <Btn v="ghost" size="sm" iconOnly onClick={()=>moverFase(fase.id,+1)} disabled={fi===fases.length-1} title="Mover coluna p/ direita" ariaLabel="Mover coluna para a direita">
+                        <Ic n="chevR" s={11}/>
+                      </Btn>
+                      <Btn v="ghost" size="sm" iconOnly onClick={()=>abrirEditarFase(fase)} title="Renomear / cor" ariaLabel="Renomear fase">
+                        <Ic n="edit" s={11}/>
+                      </Btn>
+                      <Btn v="ghost" size="sm" iconOnly onClick={()=>excluirFase(fase)} title="Excluir fase" ariaLabel="Excluir fase">
+                        <Ic n="x" s={11}/>
+                      </Btn>
                     </div>
                   </div>
                   <p style={{fontSize:10,color:C.muted,marginTop:3}}>
@@ -7513,9 +7592,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
                             fontFamily:"'Inter Display','Inter',sans-serif",
                             fontSize:12.5, fontWeight:700, color:C.text, lineHeight:1.3,
                           }}>{o.name}</p>
-                          <button onClick={()=>setMenuCard(menu ? null : o.id)}
-                            style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",
-                                    fontSize:13,lineHeight:1,padding:"0 2px",flexShrink:0}}></button>
+                          <Btn v="ghost" size="sm" iconOnly onClick={()=>setMenuCard(menu ? null : o.id)} title="Mais opções" ariaLabel="Mais opções" style={{flexShrink:0}}>⋮</Btn>
                         </div>
 
                         {o.cliente && (
@@ -7645,7 +7722,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
                 </div>
                 <div style={{position:"relative"}}>
                   <p style={{fontSize:8.5,fontWeight:850,textTransform:"uppercase",letterSpacing:.9,color:"rgba(255,255,255,.55)",marginBottom:3}}>{o._fase?.nome||"Fase não definida"}</p>
-                  <h3 className="brk" style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:900,lineHeight:1.08,color:"#fff",paddingRight:14}}>{o.name}</h3>
+                  <h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:18,fontWeight:900,lineHeight:1.08,color:"#fff",paddingRight:14}}>{o.name}</h3>
                 </div>
               </div>
             </button>
@@ -7672,12 +7749,12 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
               </div>
 
               <div style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr auto":"1fr",gap:6,marginTop:"auto"}}>
-                <button className="works-card-primary" onClick={()=>onAbrirObra?.(o.id)} style={{height:35,borderRadius:8,border:`1px solid ${C.text}`,background:C.text,color:"#fff",fontSize:9.5,fontWeight:900,cursor:"pointer"}}>Abrir obra <span>→</span></button>
-                {ehAdmin&&o.oneDriveUrl&&<button onClick={()=>abrirOneDrive(o.oneDriveUrl)} title="Abrir arquivos" style={{width:37,height:35,borderRadius:8,border:`1px solid ${C.border}`,background:C.bg,color:C.text,cursor:"pointer"}}><Ic n="folder" s={14}/></button>}
+                <Btn v="dark" full onClick={()=>onAbrirObra?.(o.id)}>Abrir obra <span>→</span></Btn>
+                {ehAdmin&&o.oneDriveUrl&&<Btn v="ghost" iconOnly onClick={()=>abrirOneDrive(o.oneDriveUrl)} title="Abrir arquivos" ariaLabel="Abrir arquivos"><Ic n="folder" s={14}/></Btn>}
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:`1px solid ${C.line}`}}>
                 <span style={{fontSize:8.5,color:C.muted}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span>
-                <div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" style={{width:27,height:27,border:`1px solid ${C.border}`,borderRadius:7,background:C.bg,color:C.text,cursor:"pointer"}}><Ic n="edit" s={12}/></button><button onClick={()=>remove(o.id)} title="Excluir obra" style={{width:27,height:27,border:`1px solid ${C.red}33`,borderRadius:7,background:`${C.red}08`,color:C.red,cursor:"pointer"}}><Ic n="trash" s={12}/></button></div>
+                <div style={{display:"flex",gap:3}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={12}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={12}/></Btn>}</div>
               </div>
             </div>
           </article>;
@@ -7695,7 +7772,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
           <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:fase?.cor||C.muted}}><i style={{width:7,height:7,borderRadius:99,background:fase?.cor||C.border}}/>{fase?.nome||"Sem fase"}</span>
           <span style={{fontSize:10.5,color:C.muted}}>{fmtDate(o.contractStart||o.startDate)||"—"}</span>
           <div style={{display:"flex",alignItems:"center",gap:7,minWidth:0}}><span style={{width:28,height:28,borderRadius:99,display:"grid",placeItems:"center",background:`${C.blue}14`,border:`1px solid ${C.blue}33`,color:C.blue,fontSize:9,fontWeight:900}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</span><span style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.engineer||"Não definido"}{equipe.length>0&&<small style={{display:"block",color:C.muted,fontSize:8.5}}>{equipe.length} na equipe</small>}</span></div>
-          <div onClick={e=>e.stopPropagation()} style={{display:"flex",justifyContent:"flex-end",gap:3}}><button onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" style={{width:30,height:30,border:`1px solid ${C.border}`,borderRadius:8,background:C.bg,color:C.blue,cursor:"pointer"}}><Ic n="edit" s={13}/></button><button onClick={()=>remove(o.id)} title="Excluir obra" style={{width:30,height:30,border:`1px solid ${C.border}`,borderRadius:8,background:C.bg,color:C.red,cursor:"pointer"}}><Ic n="trash" s={13}/></button></div>
+          <div onClick={e=>e.stopPropagation()} style={{display:"flex",justifyContent:"flex-end",gap:3}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={13}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={13}/></Btn>}</div>
         </div>;})}
         {!list.length&&<div style={{textAlign:"center",padding:34,color:C.muted,fontSize:12}}>Nenhuma obra encontrada.</div>}
       </div>}
@@ -7713,14 +7790,14 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
               {!o.capaUrl&&<span style={{position:"absolute",right:16,top:5,fontFamily:"'Inter Display','Inter',sans-serif",fontSize:70,fontWeight:900,color:"rgba(255,255,255,.08)",lineHeight:1}}>{(o.name||"O").charAt(0)}</span>}
               <div style={{position:"absolute",inset:0,padding:13,display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6}}><span style={{fontSize:9,fontWeight:900,letterSpacing:.7,textTransform:"uppercase",background:"rgba(255,255,255,.92)",color:st.c,borderRadius:99,padding:"4px 7px"}}>{st.l}</span>{fase&&<span style={{fontSize:9,fontWeight:800,color:"rgba(255,255,255,.85)"}}>{fase.nome}</span>}</div>
-                <div><h3 className="brk" style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:18,fontWeight:900,lineHeight:1.15,color:"#fff"}}>{o.name}</h3>{o.cliente&&<p style={{fontSize:10.5,color:"rgba(255,255,255,.82)",marginTop:3}}>{o.cliente}</p>}</div>
+                <div><h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:18,fontWeight:900,lineHeight:1.15,color:"#fff"}}>{o.name}</h3>{o.cliente&&<p style={{fontSize:10.5,color:"rgba(255,255,255,.82)",marginTop:3}}>{o.cliente}</p>}</div>
               </div>
             </button>
             <div style={{padding:12,display:"flex",flexDirection:"column",gap:10,flex:1}}>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>{[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"-"],["Área",area>0?`${area.toLocaleString("pt-BR")} m²`:"-"],["Equipe",`${count}`]].map(([l,v])=><div key={l} style={{background:C.surface,borderRadius:7,padding:"7px 6px"}}><p style={{fontSize:8,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p><p style={{fontSize:11.5,fontWeight:850,color:C.text,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}</div>
               <div style={{minHeight:37}}>{o.address&&<p className="brk" style={{fontSize:10.5,color:C.subtle,lineHeight:1.35}}>{o.address}</p>}{o.engineer&&<p style={{fontSize:10,color:C.muted,marginTop:3}}>Responsável · <b style={{color:C.text}}>{o.engineer}</b></p>}{prazo&&<p style={{fontSize:9.5,fontWeight:800,color:prazo.cor,marginTop:3}}>{prazo.rotulo}</p>}</div>
               <div style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr 1fr":"1fr",gap:5,marginTop:"auto"}}><Btn size="sm" onClick={()=>onAbrirObra?.(o.id)}>Abrir painel →</Btn>{ehAdmin&&o.oneDriveUrl&&<Btn size="sm" v="ghost" onClick={()=>abrirOneDrive(o.oneDriveUrl)}><Ic n="folder"/> Arquivos</Btn>}</div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${C.line}`,paddingTop:8}}><span style={{fontSize:9.5,color:C.muted}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span><div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",padding:4}}><Ic n="edit" s={14}/></button><button onClick={()=>remove(o.id)} title="Excluir obra" style={{border:0,background:"transparent",color:C.red,cursor:"pointer",padding:4}}><Ic n="trash" s={14}/></button></div></div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${C.line}`,paddingTop:8}}><span style={{fontSize:9.5,color:C.muted}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span><div style={{display:"flex",gap:3}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={14}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={14}/></Btn>}</div></div>
             </div>
           </div>
         );
@@ -7840,9 +7917,9 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
             {form.contractValue && form.totalParcelas && Number(form.totalParcelas)>0 && form.contractType !== "admin_only" && !form.parcelaMensal && (
               <div style={{gridColumn:"1/-1",background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"8px 12px"}}>
                 <p style={{fontSize:11,color:C.muted}}>Parcela MO sugerida: <strong style={{color:C.yellow}}>{(((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong></p>
-                <button type="button" onClick={()=>setField("parcelaMensal")(String(Math.round((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))))} style={{marginTop:4,background:C.yellow,border:"none",color:"#fff",padding:"3px 10px",borderRadius:4,fontSize:11,cursor:"pointer",fontWeight:700}}>
+                <Btn v="primary" size="sm" style={{marginTop:6}} onClick={()=>setField("parcelaMensal")(String(Math.round((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))))}>
                   Usar este valor →
-                </button>
+                </Btn>
               </div>
             )}
             {/* Caixa de obra */}
@@ -8066,16 +8143,17 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth:1280, margin:"0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding:"4px 2px" }}>
-        <div>
-          <p style={{fontSize:10,fontWeight:800,color:"#0F766E",letterSpacing:1,textTransform:"uppercase"}}>Recursos Humanos</p>
-          <h2 style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 24, letterSpacing:-.5, color: C.text }}>Equipes</h2>
-          <p style={{ color: C.muted, fontSize: 11.5 }}>Pessoas, lotação e dados trabalhistas em uma visão única.</p>
-        </div>
-        <Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setModal(true); }}><Ic n="plus" /> Funcionário</Btn>
-      </div>
-
-      <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:7}}>{[["Ativos",ativos.length,C.green],["Obras com equipe",obrasComEquipe,C.blue],["Sem lotação",semObra,semObra?C.orange:C.green]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 12px"}}><p style={{fontSize:9.5,color:C.muted,fontWeight:750,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:20,fontWeight:850,color:c,marginTop:2}}>{v}</p></div>)}</div>
+      <PageHero
+        eyebrow="Recursos Humanos"
+        title="Equipes"
+        description="Pessoas, lotação e dados trabalhistas em uma visão única."
+        stats={[
+          {label:"Ativos",value:ativos.length,color:C.green},
+          {label:"Obras com equipe",value:obrasComEquipe,color:C.blue},
+          {label:"Sem lotação",value:semObra,color:semObra?C.orange:C.green},
+        ]}
+        actions={<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setModal(true); }}><Ic n="plus" /> Funcionário</Btn>}
+      />
 
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:9,display:"grid",gridTemplateColumns:formGrid(3),gap:7,alignItems:"end"}}>
         <Inp value={search} onChange={setSearch} placeholder="Buscar nome, função, CPF ou telefone" />
@@ -8496,13 +8574,11 @@ function PontoGeral({ data, update, showToast, currentUser }) {
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   const rotuloCurto=st=>st==="P"?"P":st==="M"?"½":st==="F"?"F":"·";
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div className="ponto-geral-header" style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",gap:12,flexWrap:"wrap"}}>
-      <div>
-        <p style={{fontSize:10,fontWeight:800,color:C.muted,letterSpacing:.8,textTransform:"uppercase"}}>Gestão do ponto</p>
-        <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(19px,3.5vw,24px)",color:C.text,letterSpacing:-.3}}>Ponto da quinzena</h2>
-        <p style={{fontSize:11,color:C.muted,marginTop:2}}>{periodo} · {employees.length} funcionário(s)</p>
-      </div>
-    </div>
+    <PageHero
+      eyebrow="Gestão do ponto"
+      title="Ponto da quinzena"
+      description={`${periodo} · ${employees.length} funcionário(s)`}
+    />
 
     <div className="ponto-geral-controls">
       <div className="ponto-geral-filters">
@@ -8572,8 +8648,8 @@ function PontoGeral({ data, update, showToast, currentUser }) {
                 <div style={{fontSize:8.5,color:C.muted,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.role||"Funcionário"} · {obraName(emp.obra)}</div>
               </div>
               <div className="ponto-row-actions" style={{display:"flex",gap:4,flexShrink:0}}>
-                <button title="Preencher todos os dias desta linha como presente" onClick={()=>preencherLinha(emp)}><span>✓</span> Preencher</button>
-                <button title="Limpar todos os lançamentos desta linha" onClick={()=>limparLinha(emp)}><span>×</span> Limpar</button>
+                <Btn v="ghost" size="sm" title="Preencher todos os dias desta linha como presente" onClick={()=>preencherLinha(emp)}><Ic n="check" s={11}/> Preencher</Btn>
+                <Btn v="ghost" size="sm" title="Limpar todos os lançamentos desta linha" onClick={()=>limparLinha(emp)}><Ic n="x" s={11}/> Limpar</Btn>
               </div>
             </div>
           </td>
@@ -8886,11 +8962,11 @@ function Ponto({ data, update, showToast, obraIdFixo="" }) {
           lançamento diário, não uma capa. */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: .8, color: C.muted }}>Registro de ponto</p>
-          <h2 style={{ fontFamily: "'Inter Display','Inter',sans-serif", fontWeight: 800, fontSize: "clamp(20px,4vw,26px)", color: C.text, letterSpacing: -.3 }}>
+          <p style={TYPO.eyebrow}>Registro de ponto</p>
+          <h2 style={{ ...TYPO.h2, fontSize: "clamp(20px,4vw,26px)" }}>
             {selectedObra?.name || "Todas as obras"}
           </h2>
-          <p style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>{fmtDateFull(selDate)} · {registeredCount}/{list.length} lançados</p>
+          <p style={{ ...TYPO.bodyMuted, marginTop: 2 }}>{fmtDateFull(selDate)} · {registeredCount}/{list.length} lançados</p>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           <p style={{ fontFamily: "'Inter Display','Inter',sans-serif", fontWeight: 800, fontSize: 30, lineHeight: 1, color: completionPct === 100 ? C.green : C.yellowD }}>{completionPct}%</p>
@@ -9588,7 +9664,8 @@ function Folha({ data, showToast, onTab }) {
   // Exportacao tecnica: folha financeira + consolidacao por obra +
   // funcionario/obra + espelho diario. Mantemos os valores numericos para que
   // o operador possa somar, filtrar e montar tabelas dinamicas no Excel.
-  const exportXLSDetalhado = () => {
+  const exportXLSDetalhado = async () => {
+    await carregarXLSX();
     const wb = XLSX.utils.book_new();
 
     const header1 = ["Funcionário", "Cargo", "Obra Atual", "Pres.", "Meio Dia", "Dias Trabalhados",
@@ -9665,7 +9742,7 @@ function Folha({ data, showToast, onTab }) {
     if (body4.length) ws4["!autofilter"] = {ref:`A4:N${4+body4.length}`};
     XLSX.utils.book_append_sheet(wb, ws4, "Ponto Diario");
 
-    XLSX.writeFile(wb, `arcd-folha-${year}-${String(month+1).padStart(2,"0")}-Q${q}.xlsx`);
+    await XLSX.writeFile(wb, `arcd-folha-${year}-${String(month+1).padStart(2,"0")}-Q${q}.xlsx`);
     showToast("Excel gerado com 4 abas: folha, obras, funcionários e ponto diário.");
   };
 
@@ -9876,7 +9953,7 @@ function Folha({ data, showToast, onTab }) {
 // HELPER - custo de terceiros por obra/período
 // 
 
-const calcObraTercCost = (data, obraId, periodStart, periodEnd) => {
+function calcObraTercCost(data, obraId, periodStart, periodEnd) {
   // Custo direto da OBRA: só os pagamentos cuja origem foi escolhida como obra
   // no momento do lançamento. Os pagos pela empresa saem daqui e viram despesa administrativa
   // no consolidado - senão a margem da obra ficaria pior do que a realidade
@@ -9884,15 +9961,15 @@ const calcObraTercCost = (data, obraId, periodStart, periodEnd) => {
   return (data.pagsTerceiros || [])
     .filter(p => p.obraId === obraId && p.pagador !== "empresa" && p.date >= periodStart && p.date <= periodEnd)
     .reduce((s, p) => s + Number(p.amount || 0), 0);
-};
+}
 
 // Pagamentos de terceiros realizados pela EMPRESA no período (todas as obras). Vai para o DRE
 // consolidado como despesa administrativa, fora do custo de qualquer obra.
-const calcTercEmpresaCost = (data, periodStart, periodEnd) => {
+function calcTercEmpresaCost(data, periodStart, periodEnd) {
   return (data.pagsTerceiros || [])
     .filter(p => p.pagador === "empresa" && p.date >= periodStart && p.date <= periodEnd)
     .reduce((s, p) => s + Number(p.amount || 0), 0);
-};
+}
 
 // 
 // ALERTAS WHATSAPP - gerador de mensagens
@@ -10876,7 +10953,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     <div className="anim" style={{ display:"flex", flexDirection:"column", gap:14 }}>
 
       {/* Header */}
-      <div style={{
+      <div className="arcd-app-shell" style={{
         background:`linear-gradient(135deg,${C.orange}22 0%,${C.card} 60%)`,
         border:`1px solid ${C.orange}44`, borderLeft:`5px solid ${C.orange}`,
         padding:"16px 18px", borderRadius:12,
@@ -12252,7 +12329,8 @@ function Relatorios({ data }) {
   }).filter(i => i && i.total > 0).sort((a, b) => b.total - a.total).slice(0, 10),
     [data.employees, data.attendance, filterObra, days, holidaysInMonth, payrollHolidays, obraPorIdRel]);
 
-  const exportObraCosts = () => {
+  const exportObraCosts = async () => {
+    await carregarXLSX();
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([
       ["Relatório de gasto por obra", `${fullMonth(month)} ${year}`],
@@ -12307,7 +12385,7 @@ function Relatorios({ data }) {
 
     ws["!cols"] = [22, 10, 16, 10, 10, 10, 12, 14, 14, 12, 18, 18, 14].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, ws, "Gasto por Obra");
-    XLSX.writeFile(wb, `arcd-gasto-obra-${year}-${String(month + 1).padStart(2, "0")}.xlsx`);
+    await XLSX.writeFile(wb, `arcd-gasto-obra-${year}-${String(month + 1).padStart(2, "0")}.xlsx`);
   };
 
   const [chartMode, setChartMode] = useState("custos");
@@ -12566,7 +12644,8 @@ ${obraBlocks}
   };
 
   //  Excel 
-  const exportXLS = () => {
+  const exportXLS = async () => {
+    await carregarXLSX();
     const wb = XLSX.utils.book_new();
 
     // Aba 1 - Resumo consolidado
@@ -12627,7 +12706,7 @@ ${obraBlocks}
       XLSX.utils.book_append_sheet(wb, ws5, "Rescisões");
     }
 
-    XLSX.writeFile(wb, `arcd-relatorio-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
+    await XLSX.writeFile(wb, `arcd-relatorio-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
   };
 
   //  UI 
@@ -16433,11 +16512,12 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
 
   const importarSinapiSupabase = async file => {
     if (!file || !orc) return;
+    await carregarXLSX();
     if (!ehAdmin) { showToast("Somente o administrador pode cadastrar bases de referência.", "error"); return; }
     setImportando(true); setUploadProgresso(1);
     let baseCriada = null;
     try {
-      const wb = XLSX.read(await file.arrayBuffer(), { type:"array" });
+      const wb = await XLSX.read(await file.arrayBuffer(), { type:"array" });
       const extraida = extrairSinapiOficial(wb, sinapiUf);
       if (!extraida.itens.length || !extraida.dataBase) throw new Error("Não encontrei as abas oficiais CSD/CCD, a competência ou a coluna da UF selecionada.");
       const inicio = await iniciarBaseReferencia({ fonte:"SINAPI", dataBase:extraida.dataBase, uf:sinapiUf,
@@ -16513,12 +16593,13 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
   };
 
   const importarXLSX = async (file) => {
+    await carregarXLSX();
     if (!file) return;
     if (!ehAdmin) { showToast("Somente o administrador pode importar bases temporárias.", "error"); return; }
     setImportando(true);
     try {
       const buf = await file.arrayBuffer();
-      const wb  = XLSX.read(buf, { type: "array" });
+      const wb  = await XLSX.read(buf, { type: "array" });
 
       // Testa TODAS as abas e fica com a que rende mais itens
       let melhor = null;
@@ -17247,14 +17328,15 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
     if(compForm.id===comp.id)novaComposicao();
   };
 
-  const exportarABCInsumos = () => {
+  const exportarABCInsumos = async () => {
+    await carregarXLSX();
     if(!abcInsumosCurva.itens.length){showToast("Carregue os insumos antes de exportar.","warn");return;}
     const rows=abcInsumosCurva.itens.map(item=>({Classe:item.classe,Tipo:item.tipo==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO",Fonte:item.fonte,Código:item.codigo,Descrição:item.descricao,
       Unidade:item.unidade,Quantidade:item.quantidade,"Custo unitário":item.precoUnit,"Custo total":item.custo,
       "% item":item.pct/100,"% acumulado":item.pctAcum/100}));
     const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[7,12,10,12,55,9,14,15,16,11,13].map(w=>({wch:w}));
     const aba=abcInsumoTipo==="COMPOSICAO"?"ABC Composições":abcInsumoTipo==="TODOS"?"ABC Analítica":"ABC Insumos";
-    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,aba);XLSX.writeFile(wb,`${aba.replace(/ /g,"_")}_${orc.nome}.xlsx`);
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,aba);await XLSX.writeFile(wb,`${aba.replace(/ /g,"_")}_${orc.nome}.xlsx`);
   };
 
   const abrirEdicaoOrc = () => {
@@ -17636,7 +17718,8 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
   };
 
   //  Exportar XLSX - planilha orçamentária hierárquica 
-  const exportXLSX = () => {
+  const exportXLSX = async () => {
+    await carregarXLSX();
     if (!orc || !calc) return;
     const wb  = XLSX.utils.book_new();
     const aoa = [];
@@ -17699,7 +17782,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
     XLSX.utils.book_append_sheet(wb, ws2, "Resumo por Etapa");
     appendAbaComposicoes(wb);
 
-    XLSX.writeFile(wb, `orcamento-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
+    await XLSX.writeFile(wb, `orcamento-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
     showToast("Planilha exportada.");
   };
 
@@ -17852,6 +17935,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
   const norm = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
 
   const importarOrcamentoXLSX = async (file) => {
+    await carregarXLSX();
     if (!file || !orc) return;
     if (basePorCodigo.size === 0) {
       showToast("Carregue primeiro a planilha de referência para localizar códigos e custos.", "error");
@@ -17860,7 +17944,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
     setImpLoad(true);
     try {
       const buf  = await file.arrayBuffer();
-      const wb   = XLSX.read(buf, { type:"array" });
+      const wb   = await XLSX.read(buf, { type:"array" });
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"", raw:true });
 
       // Acha o cabecalho: a linha que tem "codigo" E alguma coluna de quantidade.
@@ -18000,7 +18084,8 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
   //    codigo de tabela) ou Produto (item sem codigo, comprado direto).
   //  - Custo total: CUSTO DIRETO, sem BDI - e o que essa planilha transporta.
   //  - Status: herdado do status do orcamento, igual para todas as linhas.
-  const exportXLSXExportado = () => {
+  const exportXLSXExportado = async () => {
+    await carregarXLSX();
     if (!orc || !calc) return;
     const bdiMult = 1 + Number(orc.bdi||0)/100;
     const aoa = [["Nível corrigido","Item","Fonte","Código","Descrição","Unidade","Quantidade","Custo unitário (sem BDI)","BDI (%)","Preço unitário (com BDI)","Preço total (R$)"]];
@@ -18034,12 +18119,13 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Exportado");
     appendAbaComposicoes(wb);
-    XLSX.writeFile(wb, `exportado-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
+    await XLSX.writeFile(wb, `exportado-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
     showToast("Planilha exportada no formato padrão.");
   };
 
   //  Exportar a curva ABC 
-  const exportXLSXCurvaABC = () => {
+  const exportXLSXCurvaABC = async () => {
+    await carregarXLSX();
     if (!abc) return;
     const aoa = [
       [`Curva ABC - ${orc.nome}`],
@@ -18060,7 +18146,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
     ws["!cols"] = [{wch:5},{wch:8},{wch:11},{wch:8},{wch:56},{wch:7},{wch:11},{wch:13},{wch:15},{wch:9},{wch:9}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Curva ABC");
-    XLSX.writeFile(wb, `curva-abc-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
+    await XLSX.writeFile(wb, `curva-abc-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
     showToast("Curva ABC exportada.");
   };
 
@@ -20100,7 +20186,7 @@ const parseBRConc = (v) => {
   return neg && n > 0 ? -n : n;
 };
 
-// "20240315120000[-3:BRT]" | "20240315"  →  "2024-03-15"
+// Formato SINAPI com data, fuso BRT ou somente a data → ISO "2024-03-15"
 const ofxData = (s) => {
   const m = String(s||"").match(/^(\d{4})(\d{2})(\d{2})/);
   return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
@@ -20348,6 +20434,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
 
   //  Importar extrato 
   const importar = async (file) => {
+    await carregarXLSX();
     if (!file) return;
     setImportando(true);
     try {
@@ -20361,7 +20448,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
       } else {
         // CSV / XLSX: detecta as colunas de data, descrição e valor
         const buf = await file.arrayBuffer();
-        const wb  = XLSX.read(buf, { type:"array", cellDates:false });
+        const wb  = await XLSX.read(buf, { type:"array", cellDates:false });
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"", raw:false });
 
         let hIdx = -1, cData = -1, cDesc = -1, cVal = -1, cCred = -1, cDeb = -1;
@@ -20703,10 +20790,11 @@ function Conciliacao({ data, update, showToast, currentUser }) {
 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:8}}>
-      <section style={{background:`linear-gradient(135deg,${C.text},${C.navy||C.text})`,borderRadius:11,padding:"11px 13px",color:"#fff",boxShadow:C.shHair}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:8,fontWeight:900,color:C.yellow,letterSpacing:1,textTransform:"uppercase"}}>Financeiro · controle bancário</p><h3 style={{fontSize:16,fontWeight:800,marginTop:2}}>Conciliação Bancária</h3><p style={{fontSize:8.8,color:"#ffffffB8",marginTop:2}}>Classifique, audite e reverta movimentos sem perder o histórico.</p></div>{importando?<span style={{fontSize:9,fontWeight:800,color:C.yellow}}>Lendo extrato...</span>:<label style={{cursor:"pointer"}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><span style={{display:"inline-flex",alignItems:"center",gap:5,background:C.yellow,color:C.text,padding:"7px 10px",borderRadius:7,fontSize:9,fontWeight:850}}><Ic n="download" s={12}/> Importar extrato</span></label>}</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:1,marginTop:10,background:"#FFFFFF20",border:"1px solid #FFFFFF20",borderRadius:8,overflow:"hidden"}}>{[["Pendentes",calc.pendentes,C.orange],["Conciliadas",calc.conciliadas,C.green],["Ignoradas",calc.ignoradas,C.cinza],["A classificar",fmt(calc.valorPendente),C.yellow],["Progresso",`${calc.pct.toFixed(0)}%`,C.green]].map(([l,v,c])=><div key={l} style={{padding:"6px 8px",background:"#FFFFFF0A"}}><p style={{fontSize:7.2,fontWeight:800,color:"#FFFFFF99",textTransform:"uppercase"}}>{l}</p><b style={{display:"block",fontSize:12.5,color:c,marginTop:1}}>{v}</b></div>)}</div>
-        <div style={{height:3,background:"#FFFFFF20",borderRadius:99,overflow:"hidden",marginTop:8}}><div style={{height:"100%",width:`${calc.pct}%`,background:C.yellow,transition:"width .3s"}}/></div>
+      <section className="standard-module-header reconciliation-header" style={{position:"relative",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px",color:C.text,boxShadow:"none",overflow:"hidden"}}>
+        <span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",inset:"0 0 auto",height:2,background:C.yellow}}/>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:8,fontWeight:900,color:C.yellowD,letterSpacing:1,textTransform:"uppercase"}}>Financeiro · controle bancário</p><h3 style={{fontSize:16,fontWeight:700,marginTop:2,color:C.text}}>Conciliação Bancária</h3><p style={{fontSize:8.8,color:C.muted,marginTop:2}}>Classifique, audite e reverta movimentos sem perder o histórico.</p></div>{importando?<span style={{fontSize:9,fontWeight:800,color:C.yellowD}}>Lendo extrato...</span>:<label style={{cursor:"pointer"}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><span style={{display:"inline-flex",alignItems:"center",gap:5,background:C.yellow,color:C.text,padding:"7px 10px",borderRadius:6,fontSize:9,fontWeight:850}}><Ic n="download" s={12}/> Importar extrato</span></label>}</div>
+        <div className="reconciliation-stats" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:1,marginTop:10,background:C.border,border:`1px solid ${C.border}`,borderRadius:7,overflow:"hidden"}}>{[["Pendentes",calc.pendentes,C.orange],["Conciliadas",calc.conciliadas,C.green],["Ignoradas",calc.ignoradas,C.muted],["A classificar",fmt(calc.valorPendente),C.yellowD],["Progresso",`${calc.pct.toFixed(0)}%`,C.green]].map(([l,v,c])=><div key={l} style={{padding:"7px 8px",background:C.surface}}><p style={{fontSize:7.2,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{l}</p><b style={{display:"block",fontSize:12.5,color:c,marginTop:1}}>{v}</b></div>)}</div>
+        <div style={{height:3,background:C.border,borderRadius:99,overflow:"hidden",marginTop:8}}><div style={{height:"100%",width:`${calc.pct}%`,background:C.yellow,transition:"width .3s"}}/></div>
       </section>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:4,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:4}}>{[["pendentes",`Pendentes · ${calc.pendentes}`],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["historico","Histórico"]].map(([v,l])=><button key={v} onClick={()=>setAba(v)} style={{border:`1px solid ${aba===v?C.yellow:C.border}`,background:aba===v?`${C.yellow}13`:C.card,color:aba===v?C.text:C.muted,borderRadius:6,padding:"6px 7px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>
@@ -20991,42 +21079,6 @@ function Conciliacao({ data, update, showToast, currentUser }) {
 //   - Histórico    → quanto você pagou nesse item, e com quem
 // 
 
-const STATUS_PEDIDO = {
-  rascunho:  { l:"Rascunho",  c:"#6B6459" },
-  enviado:   { l:"Enviado",   c:"#0D47A1" },
-  parcial:   { l:"Parcial",   c:"#BF360C" },
-  recebido:  { l:"Recebido",  c:"#1E6B31" },
-  cancelado: { l:"Cancelado", c:"#B71C1C" },
-};
-
-// Status é DERIVADO do que foi recebido, não digitado. Assim ele nunca mente.
-const statusPedido = (p) => {
-  if (p.status === "cancelado" || p.status === "rascunho") return p.status;
-  const total = (p.itens||[]).reduce((s,i) => s + Number(i.qtd||0), 0);
-  const receb = (p.itens||[]).reduce((s,i) => s + Number(i.qtdRecebida||0), 0);
-  if (receb <= 0)             return "enviado";
-  if (receb >= total - 1e-6)  return "recebido";
-  return "parcial";
-};
-
-const totalPedido    = (p) => (p.itens||[]).reduce((s,i) => s + Number(i.qtd||0) * Number(i.precoUnit||0), 0);
-const recebidoPedido = (p) => (p.itens||[]).reduce((s,i) => s + Number(i.qtdRecebida||0) * Number(i.precoUnit||0), 0);
-const pendentePedido = (p) => totalPedido(p) - recebidoPedido(p);
-// O pagamento agora pertence ao pedido e pode ser parcelado por origens
-// diferentes. `transacaoId` continua valendo como quitação para preservar os
-// pedidos antigos já conciliados antes desta evolução.
-const totalPagoPedido = (p) => {
-  const pagamentos=(p.pagamentos||[]).reduce((s,pg)=>s+Number(pg.valor||0),0);
-  return pagamentos>0?pagamentos:(p.transacaoId?totalPedido(p):0);
-};
-const saldoPagamentoPedido = (p) => Math.max(0,totalPedido(p)-totalPagoPedido(p));
-const statusPagamentoPedido = (p) => {
-  if(p.status==="cancelado")return "cancelado";
-  const total=totalPedido(p),pago=totalPagoPedido(p);
-  if(total<=0)return "sem_valor";
-  if(pago>=total-.01)return "pago";
-  return pago>0?"parcial":"pendente";
-};
 const totalPagoNota = n => (n.pagamentos||[]).reduce((s,pg)=>s+Number(pg.valor||0),0);
 const saldoPagamentoNota = n => Math.max(0,Number(n.valorLiquido||n.valorBruto||0)-totalPagoNota(n));
 const statusPagamentoNota = n => {
@@ -21037,20 +21089,6 @@ const statusPagamentoNota = n => {
   if(n.status==="aprovada")return "autorizada";
   return "conferencia";
 };
-const pedidoLiberadoParaReceber = p => statusPagamentoPedido(p)==="pago";
-const origemPagamentoLabel = origem => ({empresa:"Empresa",caixa_obra:"Caixa da obra",cliente_direto:"Cliente direto"}[origem]||"Empresa");
-const situacaoCaixaObra = (data,obraId) => {
-  const movimentos=(data.caixaObra||[]).filter(m=>m.obraId===obraId);
-  const aportes=movimentos.filter(m=>m.tipo==="aporte").reduce((s,m)=>s+Number(m.valor||0),0);
-  const despesas=movimentos.filter(m=>m.tipo==="despesa").reduce((s,m)=>s+Number(m.valor||0),0);
-  const saldo=aportes-despesas;
-  // Reserva mínima gerencial: 10% dos aportes, nunca inferior a R$ 500.
-  // Não bloqueia o uso do caixa positivo, mas avisa que um novo aporte deve
-  // ser providenciado antes das próximas compras.
-  const limiteBaixo=Math.max(500,aportes*.10);
-  return{saldo,aportes,despesas,limiteBaixo,baixo:saldo<=limiteBaixo};
-};
-
 // Retorna somente as etapas-raiz do orçamento. Compras não deve exigir que o
 // operador escolha uma composição detalhada: o vínculo financeiro é sempre
 // feito no primeiro nível e continua auditável mesmo quando a planilha muda.
@@ -21061,47 +21099,6 @@ const niveisUmOrcamento = (orc) => {
   const valores=new Map();
   (orc.itens||[]).filter(i=>i.tipo!=="titulo").forEach(i=>{const r=raiz(i.etapaId);if(r)valores.set(r.id,(valores.get(r.id)||0)+Number(i.quantidade||0)*Number(i.precoUnit||0));});
   return etapas.filter(e=>!e.parentId).map(e=>({id:e.id,descricao:e.nome||"Etapa sem nome",orcado:valores.get(e.id)||0,ordem:Number(e.ordem||0)})).sort((a,b)=>a.ordem-b.ordem||a.descricao.localeCompare(b.descricao));
-};
-
-// Histórico: só o que REALMENTE chegou. Pedido não recebido não é preço pago.
-const historicoPreco = (pedidos, materialId) => {
-  const h = [];
-  (pedidos || []).filter(p => p.status !== "cancelado").forEach(p =>
-    (p.itens||[])
-      .filter(i => i.materialId === materialId && Number(i.qtdRecebida) > 0)
-      .forEach(i => {
-        const eventos=Array.isArray(i.recebimentos)?i.recebimentos.filter(r=>Number(r.qtd)>0):[];
-        const qtdEventos=eventos.reduce((s,r)=>s+Number(r.qtd||0),0);
-        eventos.forEach(r=>h.push({data:r.data||p.data,fornecedorId:p.fornecedorId,preco:Number(r.precoUnit||i.precoUnit||0),qtd:Number(r.qtd||0),pedidoId:p.id,pedidoNumero:p.numero||"",obraId:p.obraId||""}));
-        const legado=Math.max(0,Number(i.qtdRecebida||0)-qtdEventos);
-        if(legado>1e-6)h.push({data:p.data,fornecedorId:p.fornecedorId,preco:Number(i.precoUnit||0),qtd:legado,pedidoId:p.id,pedidoNumero:p.numero||"",obraId:p.obraId||""});
-      })
-  );
-  return h.sort((a, b) => (b.data||"").localeCompare(a.data||""));
-};
-
-// Mesmo histórico acima, mas para TODOS os materiais em uma única passada
-// por `pedidos` (Map materialId -> histórico ordenado). Telas que precisam
-// do histórico de vários/todos os materiais (modal de pedido linha a linha,
-// aba Histórico de preços) devem montar este Map UMA VEZ via useMemo e usar
-// `.get(materialId)`, em vez de chamar historicoPreco por material a cada
-// render - isso evita rescanear `pedidos` inteiro por material.
-const historicoPrecoTodos = (pedidos) => {
-  const porMaterial = new Map();
-  (pedidos || []).filter(p => p.status !== "cancelado").forEach(p =>
-    (p.itens||[]).forEach(i => {
-      if (!i.materialId || !(Number(i.qtdRecebida) > 0)) return;
-      const eventos=Array.isArray(i.recebimentos)?i.recebimentos.filter(r=>Number(r.qtd)>0):[];
-      const qtdEventos=eventos.reduce((s,r)=>s+Number(r.qtd||0),0);
-      const entradas=eventos.map(r=>({data:r.data||p.data,fornecedorId:p.fornecedorId,preco:Number(r.precoUnit||i.precoUnit||0),qtd:Number(r.qtd||0),pedidoId:p.id,pedidoNumero:p.numero||"",obraId:p.obraId||""}));
-      const legado=Math.max(0,Number(i.qtdRecebida||0)-qtdEventos);
-      if(legado>1e-6)entradas.push({data:p.data,fornecedorId:p.fornecedorId,preco:Number(i.precoUnit||0),qtd:legado,pedidoId:p.id,pedidoNumero:p.numero||"",obraId:p.obraId||""});
-      const lista = porMaterial.get(i.materialId);
-      if (lista) lista.push(...entradas); else porMaterial.set(i.materialId, entradas);
-    })
-  );
-  porMaterial.forEach(lista => lista.sort((a, b) => (b.data||"").localeCompare(a.data||"")));
-  return porMaterial;
 };
 
 // ==============================================================
@@ -21323,21 +21320,6 @@ const oportunidadesConsolidacao = (data, hoje, janelaDias = 10) => {
     .sort((a, b) => b.obras.length - a.obras.length || b.total - a.total);
 };
 
-const analisePreco = (h) => {
-  if (!h.length) return null;
-  const precos = h.map(x => x.preco);
-  const qtdTot = h.reduce((s,x) => s + x.qtd, 0);
-  // Média PONDERADA pela quantidade. A média simples mente: se você comprou
-  // 10 sacos caros e 500 baratos, ela trata os dois como se pesassem igual.
-  const medio = qtdTot ? h.reduce((s,x) => s + x.preco * x.qtd, 0) / qtdTot : 0;
-  const menor = Math.min(...precos);
-  const ultimo = h[0].preco;
-  return {
-    ultimo, menor, maior: Math.max(...precos), medio, compras: h.length,
-    variacao: menor ? ((ultimo - menor) / menor) * 100 : 0,
-  };
-};
-
 // Orçado x Comprado, por linha do orçamento.
 //
 // O "orçado" é o CUSTO da linha (quantidade x preço unitário SINAPI), sem BDI -
@@ -21432,172 +21414,6 @@ const calcControleCustosOrcamento = (data, orc) => {
 // Um equipamento próprio tem custoDiaria 0, então todo o valor cobrado (menos
 // manutenção) é lucro. Um de terceiro rende só a diferença (spread) + o que a
 // empresa não gasta de manutenção.
-
-// Dias de sobreposição entre um período [pi,pf] e uma locação [li, lf|hoje].
-// ==============================================================
-//  TARIFAS DE LOCACAO - dia, semana, quinzena, mes
-//  O mesmo equipamento tem precos diferentes por modalidade, e eles
-//  nao sao proporcionais (a semana costuma sair menos que 7 diarias).
-//  Regra do Hygor: quando as modalidades conflitam, cobra-se SEMPRE o
-//  MENOR valor. Entao, para N dias, montamos a combinacao mais barata
-//  possivel de pacotes - inclusive deixando um pacote "sobrar" quando
-//  ele ainda assim sai mais barato (29 dias pelo mensal, por exemplo).
-// ==============================================================
-const PACOTES_TARIFA = [
-  { id:"mes",      label:"mês",      dias:30 },
-  { id:"quinzena", label:"quinzena", dias:15 },
-  { id:"semana",   label:"semana",   dias:7  },
-  { id:"dia",      label:"dia",      dias:1  },
-];
-
-// Menor custo para cobrir `dias`, e a composicao escolhida.
-// Programacao dinamica: f[i] = menor custo para cobrir i dias.
-const melhorTarifa = (tarifas, dias) => {
-  const n = Math.max(0, Math.floor(Number(dias) || 0));
-  const disp = PACOTES_TARIFA
-    .filter(p => Number(tarifas?.[p.id] || 0) > 0)
-    .map(p => ({ ...p, valor: Number(tarifas[p.id]) }));
-  if (n === 0 || disp.length === 0) {
-    return { total: 0, composicao: [], semTarifa: disp.length === 0 };
-  }
-  const f = new Array(n + 1).fill(Infinity);
-  const escolha = new Array(n + 1).fill(null);
-  f[0] = 0;
-  for (let i = 1; i <= n; i++) {
-    for (const p of disp) {
-      const resto = Math.max(0, i - p.dias);
-      const cand = p.valor + f[resto];
-      if (cand < f[i]) { f[i] = cand; escolha[i] = p; }
-    }
-  }
-  const cont = {};
-  let i = n;
-  while (i > 0 && escolha[i]) {
-    const p = escolha[i];
-    cont[p.id] = (cont[p.id] || 0) + 1;
-    i = Math.max(0, i - p.dias);
-  }
-  const composicao = PACOTES_TARIFA.filter(p => cont[p.id]).map(p => ({
-    tipo: p.id, label: p.label, qtd: cont[p.id],
-    valorUnit: Number(tarifas[p.id]), subtotal: cont[p.id] * Number(tarifas[p.id]),
-  }));
-  return { total: f[n], composicao, semTarifa: false };
-};
-
-// Texto curto da composicao: "1 mês + 1 quinzena".
-const textoComposicao = (comp) =>
-  (comp || []).map(c => `${c.qtd} ${c.label}${c.qtd > 1 ? (c.label === "mês" ? "es" : "s") : ""}`).join(" + ") || "-";
-
-// Tarifas efetivas de um contrato: o contrato pode sobrescrever a tabela do
-// equipamento (negociacao especifica). Se nao sobrescreve, usa a do cadastro.
-const tarifasDaLocacao = (loc, equip) => {
-  const doContrato = loc?.tarifas || {};
-  const temPropria = PACOTES_TARIFA.some(p => Number(doContrato[p.id] || 0) > 0);
-  if (temPropria) return doContrato;
-  // Retrocompatibilidade: contrato antigo so tinha valorDiaria.
-  if (Number(loc?.valorDiaria || 0) > 0 && !equip?.tarifas) return { dia: Number(loc.valorDiaria) };
-  return equip?.tarifas || (Number(loc?.valorDiaria || 0) > 0 ? { dia: Number(loc.valorDiaria) } : {});
-};
-
-const tarifasCustoDaLocacao = (loc, equip) => {
-  const doContrato = loc?.tarifasCusto || {};
-  const temPropria = PACOTES_TARIFA.some(p => Number(doContrato[p.id] || 0) > 0);
-  if (temPropria) return doContrato;
-  if (Number(loc?.custoDiaria || 0) > 0 && !equip?.tarifasCusto) return { dia: Number(loc.custoDiaria) };
-  return equip?.tarifasCusto || (Number(loc?.custoDiaria || 0) > 0 ? { dia: Number(loc.custoDiaria) } : {});
-};
-
-// Valor cobrado por um contrato num periodo de N dias, ja com desconto.
-// A tarifa do periodo e multiplicada pela QUANTIDADE de unidades: 22 andaimes
-// por um mes custam 22 x a tarifa mensal do andaime.
-const cobrancaLocacao = (loc, equip, dias) => {
-  const un = Math.max(1, Number(loc?.quantidade || 1));
-  const unit = melhorTarifa(tarifasDaLocacao(loc, equip), dias);
-  const brutoTotal = unit.total * un;
-  const pct = Number(loc?.descontoPct || 0);
-  const fixo = Number(loc?.descontoValor || 0);
-  const aposPct = brutoTotal * (1 - pct / 100);
-  const liquido = Math.max(0, aposPct - fixo);
-  return {
-    quantidade: un,
-    brutoUnitario: unit.total,          // o que custa UMA unidade no periodo
-    bruto: brutoTotal, composicao: unit.composicao, semTarifa: unit.semTarifa,
-    descontoPct: pct, descontoValor: fixo,
-    desconto: brutoTotal - liquido, liquido,
-  };
-};
-
-// ==============================================================
-//  DISPONIBILIDADE DA FROTA (o "Total / Em uso / Sem uso" da planilha)
-//  Para itens de lote, o que importa nao e "esta locado?" e sim
-//  QUANTAS unidades estao na rua num dia. Se a soma passar do que a
-//  empresa tem, houve alocacao a mais - e isso precisa aparecer.
-// ==============================================================
-
-// Quantas unidades de um equipamento estao alocadas numa data.
-const unidadesEmUsoNoDia = (data, equipId, iso) =>
-  (data.locacoesEquip || [])
-    .filter(l => l.equipamentoId === equipId && l.inicio && l.inicio <= iso && (!l.fim || l.fim >= iso))
-    .reduce((s, l) => s + Math.max(1, Number(l.quantidade || 1)), 0);
-
-// Situacao do equipamento numa data: total, em uso, livre e se estourou.
-const disponibilidadeNoDia = (data, equip, iso) => {
-  const total = Math.max(1, Number(equip?.quantidadeTotal || 1));
-  const emUso = unidadesEmUsoNoDia(data, equip.id, iso);
-  return { total, emUso, livre: total - emUso, excedido: emUso > total };
-};
-
-// Pico de uso no periodo: o maior numero de unidades simultaneas. E o que
-// diz se a frota deu conta - a media esconde o estouro de um dia.
-const picoUsoNoPeriodo = (data, equip, days) => {
-  const total = Math.max(1, Number(equip?.quantidadeTotal || 1));
-  let pico = 0, diasExcedidos = 0;
-  (days || []).forEach(iso => {
-    const emUso = unidadesEmUsoNoDia(data, equip.id, iso);
-    if (emUso > pico) pico = emUso;
-    if (emUso > total) diasExcedidos++;
-  });
-  return { total, pico, livreNoPico: total - pico, excedido: pico > total, diasExcedidos };
-};
-
-const diasLocacaoNoPeriodo = (loc, pi, pf) => {
-  const ini = loc.inicio ? new Date(loc.inicio+"T00:00:00") : null;
-  if (!ini) return 0;
-  const fim = loc.fim ? new Date(loc.fim+"T00:00:00") : new Date(pf+"T00:00:00");
-  const a = new Date(Math.max(ini.getTime(), new Date(pi+"T00:00:00").getTime()));
-  const b = new Date(Math.min(fim.getTime(), new Date(pf+"T00:00:00").getTime()));
-  if (b < a) return 0;
-  return Math.floor((b - a)/86400000) + 1;   // inclusivo
-};
-
-// Resumo financeiro de UM equipamento num período (competência YYYY-MM).
-const calcEquipMes = (data, equipId, ym) => {
-  const [y,m] = ym.split("-").map(Number);
-  const pi = `${ym}-01`;
-  const pf = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2,"0")}`;
-
-  const equip = (data.equipamentos||[]).find(e => e.id===equipId);
-  const locs = (data.locacoesEquip||[]).filter(l => l.equipamentoId===equipId);
-  let receita = 0, custoDono = 0, diasTotais = 0, descontos = 0;
-  locs.forEach(l => {
-    const dias = diasLocacaoNoPeriodo(l, pi, pf);
-    if (!dias) return;
-    diasTotais += dias;
-    // A cobranca sai da COMBINACAO MAIS BARATA entre dia/semana/quinzena/mes,
-    // nao de dias x diaria. Idem para o que se paga ao dono terceiro.
-    const cob = cobrancaLocacao(l, equip, dias);
-    receita   += cob.liquido;
-    descontos += cob.desconto;
-    custoDono += melhorTarifa(tarifasCustoDaLocacao(l, equip), dias).total;
-  });
-
-  const manut = (data.manutencoesEquip||[])
-    .filter(mt => mt.equipamentoId===equipId && (mt.data||"").slice(0,7)===ym && mt.pagoPor!=="proprietario")
-    .reduce((s,mt)=>s+Number(mt.custo||0),0);
-
-  const custo = custoDono + manut;
-  return { receita, descontos, custoDono, manut, custo, lucro: receita - custo, diasTotais, locacoes: locs.length };
-};
 
 // Consolida todos os equipamentos num período, separando próprios de terceiros.
 // ==============================================================
@@ -22630,14 +22446,14 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
 
   const precoRef=item=>{const p=base?.desonerado===false?Number(item.precoNao||0):Number(item.precoDes||0);return p||Number(item.precoDes||0)||Number(item.precoNao||0);};
   const addReferencia=item=>{
-    setForm(f=>({...f,itens:[...f.itens,{id:uid(),referenciaId:f.referenciaId,fonteRef:maiusculoOrcamento(item.fonte||base?.fonte||"SINAPI"),
+    setForm(f=>({...f,itens:[...f.itens,{id:uid(),materialId:"",referenciaId:f.referenciaId,fonteRef:maiusculoOrcamento(item.fonte||base?.fonte||"SINAPI"),
       codigoRef:maiusculoOrcamento(item.codigo||""),descricaoRef:maiusculoOrcamento(item.descricao||""),unidadeRef:maiusculoOrcamento(item.unidade||"UN"),
       quantidade:"",precoRef:precoRef(item),dataBaseRef:item.dataBase||base?.dataBase||"",ufRef:item.uf||base?.uf||"",orcItemId:"",orcNivel1Id:"",observacao:""}]}));
     setBusca("");setResultados([]);
   };
-  const addProprio=()=>setForm(f=>({...f,itens:[...f.itens,{id:uid(),referenciaId:"",fonteRef:"PRÓPRIO",codigoRef:"",descricaoRef:"",unidadeRef:"UN",quantidade:"",precoRef:0,dataBaseRef:"",ufRef:"",orcItemId:"",orcNivel1Id:"",observacao:""}]}));
+  const addProprio=()=>setForm(f=>({...f,itens:[...f.itens,{id:uid(),materialId:"",referenciaId:"",fonteRef:"PRÓPRIO",codigoRef:"",descricaoRef:"",unidadeRef:"UN",quantidade:"",precoRef:0,dataBaseRef:"",ufRef:"",orcItemId:"",orcNivel1Id:"",observacao:""}]}));
 
-  return <Modal title="Solicitar materiais para Compras" onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:11}}>
+  return <Modal title={form.id?`Editar solicitação ${form.numero||""}`:"Solicitar materiais para Compras"} onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:11}}>
     <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:9}}>
       <Sel label="Obra *" value={form.obraId} onChange={F("obraId")} options={obras.map(o=>({v:o.id,l:o.name}))}/>
       <Inp label="Necessidade na obra" type="date" value={form.necessidade} onChange={F("necessidade")}/>
@@ -22668,7 +22484,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
       {item.precoRef>0&&<p style={{fontSize:9.5,color:C.muted,marginTop:5}}>Referência {item.dataBaseRef}{item.ufRef?` · ${item.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(item.precoRef))}/{item.unidadeRef}</b></p>}
     </div>)}{!form.itens.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:12}}>Pesquise um insumo ou crie um item próprio.</p>}</div>
     <Inp label="Observação geral" value={form.observacao} onChange={F("observacao")} multiline placeholder="Local de entrega, especificação, justificativa da urgência..."/>
-    <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>CANCELAR</Btn><Btn onClick={()=>onSave(form)} full><Ic n="check"/> ENVIAR PARA COMPRAS</Btn></div>
+    <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>CANCELAR</Btn><Btn onClick={()=>onSave(form)} full><Ic n="check"/> {form.id?"SALVAR ALTERAÇÕES":"ENVIAR PARA COMPRAS"}</Btn></div>
   </div></Modal>;
 }
 
@@ -22888,6 +22704,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
           {totalReferencia>0&&total>0&&(()=>{const dif=total-totalReferencia;const pct=dif/totalReferencia*100;const cor=dif<=0?C.green:C.red;return <div><span style={{fontSize:10,color:C.muted,fontWeight:800}}>COMPARAÇÃO</span><p style={{fontSize:12.5,fontWeight:900,color:cor,marginTop:3}}>{dif<=0?"ABAIXO":"ACIMA"} {fmt(Math.abs(dif))} · {Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%</p></div>;})()}
         </div>
 
+        {form.id&&<Inp label="Motivo do ajuste *" value={form.motivoAjuste||""} onChange={F("motivoAjuste")} multiline placeholder="Explique o que foi corrigido e por quê. Esta justificativa ficará no histórico do pedido."/>}
         <div style={{display:"flex",gap:8}}>
           <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
           <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
@@ -23050,7 +22867,7 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
 
 function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR }) {
   const { cols, pick, isDesktop } = useBreakpoint();
-  const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":"financeiro");
+  const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"mapa");
   const [obraSel, setObraSel] = useState(obraIdFixo);
   const [busca,   setBusca]   = useState("");
 
@@ -23068,12 +22885,23 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   const [fornecedorHistoricoId,setFornecedorHistoricoId]=useState("");
   const [materialHistoricoId,setMaterialHistoricoId]=useState("");
   const [fornecedorPrecoId,setFornecedorPrecoId]=useState("");
+  const [buscaHistoricoCompra,setBuscaHistoricoCompra]=useState("");
+  const [statusHistoricoCompra,setStatusHistoricoCompra]=useState("todos");
+  const [fornecedorHistoricoCompra,setFornecedorHistoricoCompra]=useState("");
   const [anexoCotacao,setAnexoCotacao]=useState(null);
   const [subindoAnexoCotacao,setSubindoAnexoCotacao]=useState(false);
   const [pagModal,setPagModal]=useState(null);
+  const [excluirCompraModal,setExcluirCompraModal]=useState(null);
   const [subindoComprovantePagamento,setSubindoComprovantePagamento]=useState(false);
   const [filtroFinanceiro,setFiltroFinanceiro]=useState("pendentes");
+  const [buscaCotacao,setBuscaCotacao]=useState("");
+  const [statusCotacao,setStatusCotacao]=useState("todas");
+  const [inicioCotacao,setInicioCotacao]=useState("");
+  const [fimCotacao,setFimCotacao]=useState("");
+  const [cotacaoExpandida,setCotacaoExpandida]=useState("");
   const [menuComprasAberto,setMenuComprasAberto]=useState(false);
+  const [escopoMapa,setEscopoMapa]=useState(obraIdFixo?"obra":"empresa");
+  const [filtroKanban,setFiltroKanban]=useState("ativos");
 
   const obras       = (data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
@@ -23095,7 +22923,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     const vinculadas=new Set(orcamento?.referencias||[]);
     return [...basesReferenciaCompra].sort((a,b)=>Number((b.idsEquivalentes||[b.id]).some(id=>vinculadas.has(id)))-Number((a.idsEquivalentes||[a.id]).some(id=>vinculadas.has(id)))||String(b.dataBase||"").localeCompare(String(a.dataBase||"")));
   },[basesReferenciaCompra,data.orcamentos,obraAtual]);
-  const podeProcessar=["admin","compras","financeiro"].includes(currentUser?.role);
+  const podeProcessar=canManagePurchases(currentUser?.role);
   const solicitacoes=useMemo(()=>(data.solicitacoesCompra||[]).filter(s=>s.obraId===obraAtual)
     .sort((a,b)=>{
       // SLA estourado sobe: solicitacao parada e obra parada.
@@ -23174,6 +23002,17 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   },[data.pedidos,obraAtual]);
   const caixaPagamento=useMemo(()=>situacaoCaixaObra(data,obraAtual),[data.caixaObra,obraAtual]);
   const obraTemCaixa=!!(data.obras||[]).find(o=>o.id===obraAtual)?.hasCaixa;
+  const obraIdsMapa=useMemo(()=>
+    escopoMapa==="empresa"&&!obraIdFixo?obras.map(o=>o.id):[obraAtual],
+    [escopoMapa,obraIdFixo,obras,obraAtual]);
+  const mapaCompras=useMemo(()=>mapaGerencialCompras(data,obraIdsMapa,today()),[
+    data.pedidos,data.solicitacoesCompra,data.cotacoes,data.fornecedores,obraAtual,
+    obraIdsMapa
+  ]);
+  const pedidosMapa=useMemo(()=>(data.pedidos||[])
+    .filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado")
+    .sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))||String(b.criadoEm||"").localeCompare(String(a.criadoEm||""))),
+    [data.pedidos,obraIdsMapa]);
 
   const cotacoes = useMemo(
     () => (data.cotacoes||[]).filter(c => c.obraId === obraAtual)
@@ -23187,7 +23026,63 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   const fornecedorPorId = useMemo(() => new Map((data.fornecedores||[]).map(f => [f.id, f])), [data.fornecedores]);
   const obraPorId       = useMemo(() => new Map((data.obras||[]).map(o => [o.id, o])), [data.obras]);
   const materialPorId   = useMemo(() => new Map((data.materiais||[]).map(m => [m.id, m])), [data.materiais]);
+  const solicitacaoPorId= useMemo(() => new Map((data.solicitacoesCompra||[]).map(s => [s.id, s])), [data.solicitacoesCompra]);
+  const cotacoesFiltradas=useMemo(()=>{
+    const termo=buscaCotacao.trim().toLocaleLowerCase("pt-BR");
+    return cotacoes.filter(c=>{
+      if(statusCotacao!=="todas"&&c.status!==statusCotacao)return false;
+      if(inicioCotacao&&String(c.data||"")<inicioCotacao)return false;
+      if(fimCotacao&&String(c.data||"")>fimCotacao)return false;
+      if(!termo)return true;
+      const material=materialPorId.get(c.materialId);
+      const fornecedoresCotacao=(c.propostas||[]).map(p=>fornecedorPorId.get(p.fornecedorId)?.nome||"").join(" ");
+      const solicitacao=solicitacaoPorId.get(c.solicitacaoId);
+      return [c.numero,c.id,material?.codigo,material?.descricao,fornecedoresCotacao,solicitacao?.numero]
+        .some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termo));
+    });
+  },[cotacoes,buscaCotacao,statusCotacao,inicioCotacao,fimCotacao,materialPorId,fornecedorPorId,solicitacaoPorId]);
   const pedidoPorId     = useMemo(() => new Map((data.pedidos||[]).map(p => [p.id, p])), [data.pedidos]);
+  const kanbanCompras=useMemo(()=>{
+    const hoje=new Date(`${today()}T12:00:00`).getTime();
+    const risco=(dataPrazo,concluido=false)=>{
+      if(concluido)return{nivel:"concluido",cor:C.green,rotulo:"Concluído"};
+      if(!dataPrazo)return{nivel:"sem_prazo",cor:C.muted,rotulo:"Sem prazo"};
+      const dias=Math.ceil((new Date(`${String(dataPrazo).slice(0,10)}T12:00:00`).getTime()-hoje)/86400000);
+      if(dias<0)return{nivel:"atrasado",cor:C.red,rotulo:`${Math.abs(dias)}d atrasado`};
+      if(dias<=3)return{nivel:"atencao",cor:C.yellowD,rotulo:dias===0?"Vence hoje":`${dias}d restantes`};
+      return{nivel:"no_prazo",cor:C.green,rotulo:`${dias}d restantes`};
+    };
+    const cotacaoAtivaPorSolicitacao=new Set((data.cotacoes||[]).filter(c=>c.status!=="cancelada").map(c=>c.solicitacaoId).filter(Boolean));
+    const pedidosAtivos=(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&p.status!=="cancelado");
+    const colunas=[
+      {id:"demanda",titulo:"Demandas",sub:"Aguardam análise",cor:C.blue,cards:[]},
+      {id:"cotacao",titulo:"Cotações",sub:"Comparação de propostas",cor:C.purple,cards:[]},
+      {id:"pedido",titulo:"Pedidos a pagar",sub:"Compromisso financeiro",cor:C.orange,cards:[]},
+      {id:"entrega",titulo:"Em entrega",sub:"Material a caminho",cor:C.yellowD,cards:[]},
+      {id:"concluido",titulo:"Concluídos",sub:"Recebimento confirmado",cor:C.green,cards:[]},
+    ];
+    const porId=new Map(colunas.map(c=>[c.id,c]));
+    (data.solicitacoesCompra||[]).filter(s=>s.obraId===obraAtual&&!["cancelada","pedido_gerado"].includes(s.status)&&!cotacaoAtivaPorSolicitacao.has(s.id)).forEach(s=>{
+      const prazo=s.necessidade||s.dataNecessidade||s.prazo||"";
+      porId.get("demanda").cards.push({id:s.id,tipo:"solicitacao",codigo:s.numero||"Solicitação",titulo:(s.itens||[])[0]?.descricaoRef||s.observacao||"Materiais da obra",detalhe:`${(s.itens||[]).length} item(ns) · ${s.prioridade||"normal"}`,prazo,risco:risco(prazo),registro:s});
+    });
+    (data.cotacoes||[]).filter(c=>c.obraId===obraAtual&&c.status==="aberta"&&!c.pedidoId).forEach(c=>{
+      const sol=solicitacaoPorId.get(c.solicitacaoId);const prazo=sol?.necessidade||sol?.dataNecessidade||"";
+      porId.get("cotacao").cards.push({id:c.id,tipo:"cotacao",codigo:c.numero||"Cotação",titulo:materialPorId.get(c.materialId)?.descricao||"Material",detalhe:`${(c.propostas||[]).length} proposta(s) · ${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`,prazo,risco:risco(prazo),registro:c});
+    });
+    pedidosAtivos.forEach(p=>{
+      const status=statusPedido(p),pago=statusPagamentoPedido(p)==="pago",concluido=status==="recebido";
+      const coluna=concluido?"concluido":pago?"entrega":"pedido";
+      const prazo=p.previsao||p.dataEntrega||"";
+      const itens=(p.itens||[]);const primeiro=itens[0];
+      porId.get(coluna).cards.push({id:p.id,tipo:"pedido",codigo:p.numero||"Pedido",titulo:primeiro?(materialPorId.get(primeiro.materialId)?.descricao||primeiro.descricaoRef||"Material"):"Pedido de compra",detalhe:`${fornecedorPorId.get(p.fornecedorId)?.nome||"Fornecedor não definido"}${itens.length>1?` · +${itens.length-1} item(ns)`:""}`,valor:totalPedido(p),prazo,risco:risco(prazo,concluido),registro:p});
+    });
+    colunas.forEach(col=>col.cards.sort((a,b)=>{
+      const ordem={atrasado:0,atencao:1,sem_prazo:2,no_prazo:3,concluido:4};
+      return ordem[a.risco.nivel]-ordem[b.risco.nivel]||String(a.prazo||"9999").localeCompare(String(b.prazo||"9999"));
+    }));
+    return colunas;
+  },[data.solicitacoesCompra,data.cotacoes,data.pedidos,obraAtual,solicitacaoPorId,materialPorId,fornecedorPorId,unidMat,C]);
 
   const inicioPeriodoHistorico=useMemo(()=>{
     if(periodoHistorico==="todos")return "";
@@ -23204,6 +23099,18 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     .filter(p=>!inicioPeriodoHistorico||String(p.data||"")>=inicioPeriodoHistorico)
     .sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))),
     [data.pedidos,obraVisivelHistorico,inicioPeriodoHistorico]);
+  const comprasHistoricoFiltradas=useMemo(()=>{
+    const termo=buscaHistoricoCompra.trim().toLowerCase();
+    return pedidosHistorico.filter(p=>{
+      const status=statusPedido(p);
+      if(statusHistoricoCompra!=="todos"&&status!==statusHistoricoCompra)return false;
+      if(fornecedorHistoricoCompra&&p.fornecedorId!==fornecedorHistoricoCompra)return false;
+      if(!termo)return true;
+      const texto=[p.numero,fornecedorPorId.get(p.fornecedorId)?.nome,obraPorId.get(p.obraId)?.name,
+        ...(p.itens||[]).map(i=>materialPorId.get(i.materialId)?.descricao||i.descricaoRef)].filter(Boolean).join(" ").toLowerCase();
+      return texto.includes(termo);
+    });
+  },[pedidosHistorico,buscaHistoricoCompra,statusHistoricoCompra,fornecedorHistoricoCompra,fornecedorPorId,obraPorId,materialPorId]);
   const resumoFornecedoresHistorico=useMemo(()=>{
     const mapa=new Map();
     pedidosHistorico.forEach(p=>{
@@ -23268,18 +23175,72 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     showToast(f.id ? "Fornecedor atualizado." : "Fornecedor cadastrado.");
   };
 
+  const normalizarChaveMaterial=valor=>maiusculoOrcamento(valor||"").trim().replace(/\s+/g," ");
+  const localizarMaterialSolicitado=(item,lista)=>{
+    const porId=item.materialId&&lista.find(m=>m.id===item.materialId);
+    if(porId)return porId;
+    const codigo=normalizarChaveMaterial(item.codigoRef);
+    const fonte=normalizarChaveMaterial(item.fonteRef||"PRÓPRIO");
+    if(codigo){
+      const porCodigo=lista.find(m=>normalizarChaveMaterial(m.codigo)===codigo&&
+        normalizarChaveMaterial(m.fonteRef||fonte)===fonte);
+      if(porCodigo)return porCodigo;
+    }
+    const descricao=normalizarChaveMaterial(item.descricaoRef);
+    const unidade=normalizarChaveMaterial(item.unidadeRef||"UN");
+    return lista.find(m=>normalizarChaveMaterial(m.descricao)===descricao&&
+      normalizarChaveMaterial(m.unidade||"UN")===unidade);
+  };
+
   const salvarSolicitacao=(f)=>{
     if(!f.obraId){showToast("Selecione a obra.","error");return;}
-    const itens=(f.itens||[]).filter(i=>String(i.descricaoRef||"").trim()&&Number(i.quantidade)>0&&String(i.unidadeRef||"").trim())
+    const itensInformados=(f.itens||[]).filter(i=>String(i.descricaoRef||"").trim()&&Number(i.quantidade)>0&&String(i.unidadeRef||"").trim())
       .map(i=>({...i,codigoRef:maiusculoOrcamento(i.codigoRef||""),descricaoRef:maiusculoOrcamento(i.descricaoRef),
         unidadeRef:maiusculoOrcamento(i.unidadeRef),quantidade:Number(i.quantidade),precoRef:Number(i.precoRef||0)}));
-    if(!itens.length){showToast("Adicione ao menos um material com descrição, unidade e quantidade.","error");return;}
-    const numero=`SC-${String((data.solicitacoesCompra||[]).length+1).padStart(4,"0")}`;
-    const nova={id:uid(),numero,obraId:f.obraId,solicitanteId:currentUser?.id||"",solicitanteNome:currentUser?.nome||"Engenharia",
-      criadoEm:new Date().toISOString(),necessidade:f.necessidade||"",prioridade:f.prioridade||"normal",status:"enviada",
-      observacao:f.observacao||"",analisadoEm:"",analisadoPor:"",pedidoId:"",itens};
-    update({...data,solicitacoesCompra:[...(data.solicitacoesCompra||[]),nova]});setSolModal(null);setAba("solicitacoes");
-    showToast(`Solicitação ${numero} enviada. O setor de Compras recebeu um alerta.`);
+    if(!itensInformados.length){showToast("Adicione ao menos um material com descrição, unidade e quantidade.","error");return;}
+
+    const solicitacaoId=f.id||uid();
+    const materiaisAtualizados=[...(data.materiais||[])];
+    const itens=itensInformados.map(item=>{
+      let material=localizarMaterialSolicitado(item,materiaisAtualizados);
+      const pertenceSolicitacao=material?.solicitacaoOrigemId===solicitacaoId;
+      if(!material){
+        const materialId=item.materialId||uid();
+        const codigo=item.codigoRef||`SOL-${String(materialId).replace(/[^a-z0-9]/gi,"").slice(-6).toUpperCase()}`;
+        material={id:materialId,codigo,descricao:item.descricaoRef,unidade:item.unidadeRef||"UN",
+          categoria:"outros",estoqueMin:0,precoMedio:Number(item.precoRef||0),fonteRef:item.fonteRef||"PRÓPRIO",
+          referenciaId:item.referenciaId||"",dataBaseRef:item.dataBaseRef||"",ufRef:item.ufRef||"",
+          ativo:true,criadoVia:"solicitacao_compra",solicitacaoOrigemId:solicitacaoId};
+        materiaisAtualizados.push(material);
+      }else if(pertenceSolicitacao){
+        material={...material,codigo:item.codigoRef||material.codigo,descricao:item.descricaoRef,
+          unidade:item.unidadeRef||material.unidade,precoMedio:Number(item.precoRef||material.precoMedio||0),
+          fonteRef:item.fonteRef||material.fonteRef,referenciaId:item.referenciaId||"",
+          dataBaseRef:item.dataBaseRef||"",ufRef:item.ufRef||""};
+        const pos=materiaisAtualizados.findIndex(m=>m.id===material.id);
+        materiaisAtualizados[pos]=material;
+      }
+      return {...item,materialId:material.id,codigoRef:item.codigoRef||material.codigo,
+        descricaoRef:item.descricaoRef||material.descricao,unidadeRef:item.unidadeRef||material.unidade};
+    });
+
+    const agora=new Date().toISOString();
+    const numero=f.numero||`SC-${String((data.solicitacoesCompra||[]).length+1).padStart(4,"0")}`;
+    const anterior=f.id?(data.solicitacoesCompra||[]).find(s=>s.id===f.id):null;
+    const registro={...(anterior||{}),id:solicitacaoId,numero,obraId:f.obraId,
+      solicitanteId:anterior?.solicitanteId||currentUser?.id||"",
+      solicitanteNome:anterior?.solicitanteNome||currentUser?.nome||"Engenharia",
+      criadoEm:anterior?.criadoEm||agora,atualizadoEm:f.id?agora:"",
+      atualizadoPor:f.id?(currentUser?.nome||""):"",
+      necessidade:f.necessidade||"",prioridade:f.prioridade||"normal",status:anterior?.status||"enviada",
+      observacao:f.observacao||"",analisadoEm:anterior?.analisadoEm||"",
+      analisadoPor:anterior?.analisadoPor||"",pedidoId:anterior?.pedidoId||"",itens};
+    const solicitacoesCompra=f.id
+      ? (data.solicitacoesCompra||[]).map(s=>s.id===f.id?registro:s)
+      : [...(data.solicitacoesCompra||[]),registro];
+    update({...data,materiais:materiaisAtualizados,solicitacoesCompra});
+    setSolModal(null);setAba("solicitacoes");
+    showToast(f.id?`Solicitação ${numero} atualizada sem perder os vínculos dos insumos.`:`Solicitação ${numero} enviada com ${itens.length} insumo(s) já cadastrado(s).`);
   };
 
   const atualizarStatusSolicitacao=(sol,status)=>{
@@ -23309,13 +23270,23 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     const itens=sol.itens.map(item=>{
       const existente=materiais.find(m=>(item.codigoRef&&maiusculoOrcamento(m.codigo)===maiusculoOrcamento(item.codigoRef)&&maiusculoOrcamento(m.fonteRef||item.fonteRef)===maiusculoOrcamento(item.fonteRef))||
         (!item.codigoRef&&maiusculoOrcamento(m.descricao)===maiusculoOrcamento(item.descricaoRef)));
-      return{id:uid(),materialId:existente?.id||uid(),qtd:String(item.quantidade),precoUnit:"",qtdRecebida:0,orcItemId:item.orcItemId||"",orcNivel1Id:item.orcNivel1Id||"",
+      return{id:uid(),materialId:item.materialId||existente?.id||uid(),qtd:String(item.quantidade),precoUnit:"",qtdRecebida:0,orcItemId:item.orcItemId||"",orcNivel1Id:item.orcNivel1Id||"",
         referenciaId:item.referenciaId||"",fonteRef:item.fonteRef||"PRÓPRIO",codigoRef:item.codigoRef||"",descricaoRef:item.descricaoRef||"",
         unidadeRef:item.unidadeRef||"UN",precoRef:Number(item.precoRef||0),dataBaseRef:item.dataBaseRef||"",ufRef:item.ufRef||""};
     });
     atualizarStatusSolicitacao(sol,"em_analise");
     setPedModal({id:"",numero:"",obraId:sol.obraId,fornecedorId:"",data:new Date().toISOString().slice(0,10),previsao:sol.necessidade||"",
       status:"enviado",origemPagamento:"empresa",referenciaId:itens.find(i=>i.referenciaId)?.referenciaId||"",solicitacaoId:sol.id,itens,obs:`Solicitação ${sol.numero}${sol.observacao?` · ${sol.observacao}`:""}`});
+  };
+
+  const abrirCotacaoDaSolicitacao=(sol,item)=>{
+    if(!podeProcessar){showToast("Somente Compras pode iniciar a cotação.","error");return;}
+    const material=item.materialId&&materiais.find(m=>m.id===item.materialId);
+    if(!material){showToast("O insumo ainda não está vinculado. Edite e salve a solicitação para regularizar.","error");return;}
+    setCotModal({id:"",solicitacaoId:sol.id,obraId:sol.obraId,materialId:material.id,qtd:String(item.quantidade),
+      orcItemId:item.orcItemId||"",orcNivel1Id:item.orcNivel1Id||"",data:today(),
+      propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]},
+        {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]}]});
   };
 
   //  Pedido 
@@ -23340,6 +23311,18 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
                    dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"" };
       });
     if (!itens.length) { showToast("Adicione ao menos um item.", "error"); return; }
+    if(f.id&&itens.some(i=>Number(i.qtd)<Number(i.qtdRecebida||0))){
+      showToast("A quantidade comprada não pode ficar abaixo do que já foi recebido.","error");return;
+    }
+    const pedidoAnterior=f.id?(data.pedidos||[]).find(p=>p.id===f.id):null;
+    const totalNovo=itens.reduce((s,i)=>s+Number(i.qtd||0)*Number(i.precoUnit||0),0);
+    const totalPago=(pedidoAnterior?.pagamentos||[]).reduce((s,pg)=>s+Number(pg.valor||0),0);
+    if(f.id&&totalNovo+0.01<totalPago){
+      showToast(`O novo total não pode ser menor que o valor já pago (${fmt(totalPago)}).`,"error");return;
+    }
+    if(f.id&&!String(f.motivoAjuste||"").trim()){
+      showToast("Informe o motivo do ajuste para preservar a rastreabilidade.","error");return;
+    }
 
     const p = {
       id: f.id || uid(),
@@ -23348,7 +23331,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       fornecedorId: f.fornecedorId,
       data: f.data || new Date().toISOString().slice(0,10),
       previsao: f.previsao || "",
-      status: f.status === "rascunho" ? "rascunho" : "enviado",
+      status: f.id ? (f.status||"enviado") : (f.status === "rascunho" ? "rascunho" : "enviado"),
       referenciaId:f.referenciaId || "",
       solicitacaoId:f.solicitacaoId || "",
       itens,
@@ -23358,6 +23341,10 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       pagamentos:Array.isArray(f.pagamentos)?f.pagamentos:[],
       liberadoEntregaEm:f.liberadoEntregaEm||"",liberadoEntregaPor:f.liberadoEntregaPor||"",
       documentos:Array.isArray(f.documentos)?f.documentos:[],analiseIA:f.analiseIA||null,
+      ajustes:f.id?[...(f.ajustes||[]),{id:uid(),motivo:String(f.motivoAjuste||"").trim(),
+        usuarioId:currentUser?.id||"",usuario:currentUser?.nome||"Operador",criadoEm:new Date().toISOString(),
+        totalAnterior:pedidoAnterior?totalPedido(pedidoAnterior):0,totalNovo,
+        resumo:`Pedido ${f.numero||""}: dados, itens ou valores revisados.`}]:(f.ajustes||[]),
       criadoPorId:f.criadoPorId||currentUser?.id||"",criadoPor:f.criadoPor||currentUser?.nome||"",criadoEm:f.criadoEm||new Date().toISOString(),
       obs: f.obs || "",
     };
@@ -23376,7 +23363,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     if(!pedido||!(valor>0)){showToast("Informe o valor pago.","error");return;}
     const saldo=saldoPagamentoPedido(pedido);
     if(valor>saldo+.01){showToast(`O pagamento supera o saldo de ${fmt(saldo)}.`,"error");return;}
-    if(!["admin","compras","financeiro"].includes(currentUser?.role)){showToast("Seu perfil não possui permissão para registrar pagamentos de compras.","error");return;}
+    if(!canManagePurchases(currentUser?.role)){showToast("Seu perfil não possui permissão para registrar pagamentos de compras.","error");return;}
     const obra=(data.obras||[]).find(o=>o.id===pedido.obraId);
     const caixa=situacaoCaixaObra(data,pedido.obraId);
     if(f.origem==="caixa_obra"&&!obra?.hasCaixa){showToast("O caixa desta obra não está ativado. Ative-o no cadastro da obra ou selecione outra origem.","error");return;}
@@ -23411,6 +23398,58 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     finally{setSubindoComprovantePagamento(false);}
   };
 
+  const reclassificarOrigemPagamento=(pedido,pagamentoId,novaOrigem)=>{
+    const pagamento=(pedido.pagamentos||[]).find(pg=>pg.id===pagamentoId);
+    if(!pagamento||pagamento.origem===novaOrigem)return;
+    const rotulos={empresa:"Conta da empresa",caixa_obra:"Caixa da obra",cliente_direto:"Cliente direto"};
+    if(!window.confirm(`Mover o pagamento de ${fmt(pagamento.valor)} de "${rotulos[pagamento.origem]||pagamento.origem}" para "${rotulos[novaOrigem]}"?`))return;
+    const obra=(data.obras||[]).find(o=>o.id===pedido.obraId);
+    if(novaOrigem==="caixa_obra"){
+      if(!obra?.hasCaixa){showToast("O caixa desta obra não está ativado. Ative-o antes de mover o pagamento.","error");return;}
+      const caixa=situacaoCaixaObra(data,pedido.obraId);
+      if(Number(pagamento.valor||0)>caixa.saldo+.001){
+        showToast(`O caixa possui ${fmt(caixa.saldo)} e não comporta este pagamento de ${fmt(pagamento.valor)}.`,"error");return;
+      }
+    }
+    let caixaObra=(data.caixaObra||[]).filter(l=>!(l.pedidoId===pedido.id&&l.pagamentoId===pagamentoId));
+    if(novaOrigem==="caixa_obra")caixaObra=[...caixaObra,{id:uid(),obraId:pedido.obraId,data:pagamento.data||today(),tipo:"despesa",categoria:"material",
+      descricao:`Pagamento do pedido ${pedido.numero} · ${nomeForn(pedido.fornecedorId)}`,valor:Number(pagamento.valor||0),
+      comprovante:pagamento.comprovantes?.[0]?.legenda||pagamento.referencia||"",pedidoId:pedido.id,pagamentoId,
+      documentos:pagamento.comprovantes||[],reclassificadoEm:new Date().toISOString()}];
+    const pagamentos=(pedido.pagamentos||[]).map(pg=>pg.id===pagamentoId?{...pg,origem:novaOrigem,
+      conciliado:novaOrigem==="empresa"?!!pg.transacaoId:false,
+      origemAnterior:pg.origem,reclassificadoEm:new Date().toISOString(),reclassificadoPor:currentUser?.nome||"Operador"}:pg);
+    const ajuste={id:uid(),motivo:`Origem do pagamento de ${fmt(pagamento.valor)} alterada de ${rotulos[pagamento.origem]||pagamento.origem} para ${rotulos[novaOrigem]}.`,
+      usuarioId:currentUser?.id||"",usuario:currentUser?.nome||"Operador",criadoEm:new Date().toISOString(),
+      totalAnterior:totalPedido(pedido),totalNovo:totalPedido(pedido),resumo:"Reclassificação da origem do pagamento por arrastar."};
+    update({...data,caixaObra,pedidos:(data.pedidos||[]).map(p=>p.id===pedido.id?{...p,pagamentos,origemPagamento:novaOrigem,ajustes:[...(p.ajustes||[]),ajuste]}:p)});
+    showToast(`Pagamento movido para ${rotulos[novaOrigem]}.`);
+  };
+
+  const excluirPagamento=(pedido,pagamento)=>{
+    if(!canManagePurchases(currentUser?.role)){
+      showToast("Somente Administração, Compras ou Financeiro podem excluir pagamentos.","error");return;
+    }
+    if(!window.confirm(`Excluir o pagamento de ${fmt(pagamento.valor)} do pedido ${pedido.numero}?\n\nO saldo do pedido e o caixa da obra serão recalculados.`))return;
+    const pagamentos=(pedido.pagamentos||[]).filter(pg=>pg.id!==pagamento.id);
+    const quitado=pagamentos.reduce((s,pg)=>s+Number(pg.valor||0),0)>=totalPedido(pedido)-.01;
+    const agora=new Date().toISOString();
+    const ajuste={id:uid(),motivo:`Pagamento de ${fmt(pagamento.valor)} excluído.`,
+      usuarioId:currentUser?.id||"",usuario:currentUser?.nome||"Operador",criadoEm:agora,
+      totalAnterior:totalPedido(pedido),totalNovo:totalPedido(pedido),resumo:"Exclusão de pagamento no Financeiro de Compras."};
+    const pedidos=(data.pedidos||[]).map(p=>p.id===pedido.id?{...p,pagamentos,
+      liberadoEntregaEm:quitado?p.liberadoEntregaEm||agora:"",
+      liberadoEntregaPor:quitado?p.liberadoEntregaPor||currentUser?.nome||"Financeiro":"",
+      ajustes:[...(p.ajustes||[]),ajuste]}:p);
+    const caixaObra=(data.caixaObra||[]).filter(l=>!(l.pedidoId===pedido.id&&l.pagamentoId===pagamento.id));
+    const log={id:uid(),date:today(),at:agora,type:"purchase_payment_deleted",obraId:pedido.obraId,
+      pedidoId:pedido.id,pedidoNumero:pedido.numero,pagamentoId:pagamento.id,valor:Number(pagamento.valor||0),
+      operador:currentUser?.nome||"Operador",operadorId:currentUser?.id||"",
+      message:`Pagamento de ${fmt(pagamento.valor)} excluído do pedido ${pedido.numero}.`};
+    update({...data,pedidos,caixaObra,changeLog:[...(data.changeLog||[]),log].slice(-500)});
+    showToast(`Pagamento excluído. Novo saldo do pedido: ${fmt(totalPedido(pedido)-pagamentos.reduce((s,pg)=>s+Number(pg.valor||0),0))}.`);
+  };
+
   //  RECEBIMENTO - o elo com o Estoque 
   const receber = (pedido, recebidos) => {
     if(!pedidoLiberadoParaReceber(pedido)){
@@ -23441,7 +23480,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     // Cada item recebido vira ENTRADA no estoque da obra. É aqui que Compras
     // encosta no Estoque - e é a única coisa física que um pedido gera.
     const entradas = linhas.filter(l => l.chegou > 0).map(l => ({
-      id: uid(),
+      id: uid(), pedidoId: pedido.id,
       obraId: pedido.obraId,
       materialId: l.materialId,
       tipo: "entrada",
@@ -23499,6 +23538,75 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     showToast("Pedido cancelado.");
   };
 
+  const podeExcluirCompra=canManagePurchases(currentUser?.role);
+  const movimentoDoPedido=(mov,pedido)=>
+    mov?.pedidoId===pedido.id||
+    (!mov?.pedidoId&&mov?.obraId===pedido.obraId&&mov?.tipo==="entrada"&&
+      String(mov?.descricao||"").startsWith(`Pedido ${pedido.numero}`));
+
+  const abrirExclusaoCompra=p=>{
+    if(!podeExcluirCompra){
+      showToast("Somente Administração, Compras ou Financeiro podem excluir uma compra.","error");return;
+    }
+    setExcluirCompraModal({
+      pedido:p,motivo:"",confirmacao:"",
+      movimentos:(data.movEstoque||[]).filter(m=>movimentoDoPedido(m,p)),
+      caixas:(data.caixaObra||[]).filter(m=>m.pedidoId===p.id&&!m.notaFiscalId),
+      notas:(data.notasFiscais||[]).filter(n=>n.pedidoId===p.id),
+    });
+  };
+
+  const excluirCompraDefinitivamente=()=>{
+    const f=excluirCompraModal,p=f?.pedido;
+    if(!p||!podeExcluirCompra){
+      showToast("Seu perfil não pode excluir esta compra.","error");return;
+    }
+    if(!String(f.motivo||"").trim()){
+      showToast("Informe o motivo da exclusão.","error");return;
+    }
+    if(String(f.confirmacao||"").trim().toUpperCase()!==String(p.numero||"").trim().toUpperCase()){
+      showToast(`Digite ${p.numero} para confirmar a exclusão.`,"error");return;
+    }
+    const agora=new Date().toISOString();
+    const impacto={
+      pagamentos:(p.pagamentos||[]).length,valorPago:totalPagoPedido(p),
+      recebimentos:(p.itens||[]).reduce((s,i)=>s+(i.recebimentos||[]).length,0),
+      movimentosEstoque:f.movimentos.length,movimentosCaixa:f.caixas.length,
+      notasFiscais:f.notas.length,
+    };
+    // Notas fiscais e movimentos originados nelas são documentos contábeis:
+    // permanecem no Financeiro, mas perdem o vínculo com o pedido excluído.
+    const notasFiscais=(data.notasFiscais||[]).map(n=>n.pedidoId===p.id?{
+      ...n,pedidoId:"",
+      divergencias:[...new Set([...(n.divergencias||[]),`O pedido ${p.numero} vinculado a esta nota foi excluído pelo setor de Compras.`])],
+      atualizadoEm:agora,
+    }:n);
+    const caixaObra=(data.caixaObra||[]).flatMap(m=>{
+      if(m.pedidoId!==p.id)return[m];
+      return m.notaFiscalId?[{...m,pedidoId:""}]:[];
+    });
+    const solicitacoesCompra=(data.solicitacoesCompra||[]).map(s=>s.pedidoId===p.id?{
+      ...s,status:"enviada",pedidoId:"",analisadoEm:"",analisadoPor:"",
+    }:s);
+    const cotacoes=(data.cotacoes||[]).map(c=>c.pedidoId===p.id?{
+      ...c,status:"aberta",pedidoId:"",escolhida:"",
+      decididoPorId:"",decididoPorNome:"",decididoEm:"",justificativaEscolha:"",
+    }:c);
+    const exclusao={id:uid(),date:today(),at:agora,type:"purchase_deleted",
+      obraId:p.obraId,pedidoId:p.id,pedidoNumero:p.numero,
+      operador:currentUser?.nome||"Compras",operadorId:currentUser?.id||"",
+      motivo:String(f.motivo).trim(),impacto,
+      message:`${currentUser?.nome||"Compras"} excluiu a compra ${p.numero}: ${String(f.motivo).trim()}`};
+    update({
+      ...data,pedidos:(data.pedidos||[]).filter(x=>x.id!==p.id),
+      movEstoque:(data.movEstoque||[]).filter(m=>!movimentoDoPedido(m,p)),
+      caixaObra,notasFiscais,solicitacoesCompra,cotacoes,
+      changeLog:[...(data.changeLog||[]),exclusao].slice(-500),
+    });
+    setExcluirCompraModal(null);
+    showToast(`Compra ${p.numero} excluída. Estoque, caixa e vínculos foram atualizados.`);
+  };
+
   //  Cotação 
   const salvarCotacao = (f) => {
     if (!f.materialId)      { showToast("Selecione o material.", "error"); return; }
@@ -23516,12 +23624,38 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       orcItemId:f.orcItemId||"",orcNivel1Id:f.orcNivel1Id||"",
       data: f.data || new Date().toISOString().slice(0,10),
       status: "aberta", propostas: props, escolhida: "", pedidoId: "",
+      solicitacaoId:f.solicitacaoId||"",
     };
-    update({ ...data, cotacoes: f.id
+    const solicitacoesCompra=f.solicitacaoId?(data.solicitacoesCompra||[]).map(s=>s.id===f.solicitacaoId?{
+      ...s,status:s.status==="enviada"?"em_analise":s.status,
+      analisadoEm:s.analisadoEm||new Date().toISOString(),analisadoPor:s.analisadoPor||currentUser?.nome||"Compras",
+      cotacaoIds:[...new Set([...(s.cotacaoIds||[]),c.id])],
+    }:s):(data.solicitacoesCompra||[]);
+    update({ ...data, solicitacoesCompra, cotacoes: f.id
       ? (data.cotacoes||[]).map(x => x.id === f.id ? c : x)
       : [...(data.cotacoes||[]), c] });
     setCotModal(null);
     showToast("Cotação registrada.");
+  };
+
+  const excluirCotacao=cotacao=>{
+    if(!podeProcessar){
+      showToast("Somente Administração ou Compras podem excluir cotações.","error");return;
+    }
+    const pedidoVinculado=(data.pedidos||[]).find(p=>p.id===cotacao.pedidoId||p.cotacaoId===cotacao.id);
+    const aviso=pedidoVinculado?`\n\nO pedido ${pedidoVinculado.numero} será mantido, apenas sem o vínculo com esta cotação.`:"";
+    if(!window.confirm(`Excluir a cotação de ${nomeMat(cotacao.materialId)}?${aviso}`))return;
+    const agora=new Date().toISOString();
+    const solicitacoesCompra=(data.solicitacoesCompra||[]).map(s=>({
+      ...s,cotacaoIds:(s.cotacaoIds||[]).filter(id=>id!==cotacao.id)
+    }));
+    const pedidos=(data.pedidos||[]).map(p=>p.cotacaoId===cotacao.id?{...p,cotacaoId:""}:p);
+    const log={id:uid(),date:today(),at:agora,type:"purchase_quote_deleted",obraId:cotacao.obraId,
+      cotacaoId:cotacao.id,pedidoId:pedidoVinculado?.id||"",operador:currentUser?.nome||"Compras",
+      operadorId:currentUser?.id||"",message:`Cotação de ${nomeMat(cotacao.materialId)} excluída.`};
+    update({...data,cotacoes:(data.cotacoes||[]).filter(c=>c.id!==cotacao.id),
+      solicitacoesCompra,pedidos,changeLog:[...(data.changeLog||[]),log].slice(-500)});
+    showToast("Cotação excluída. Os demais registros foram preservados.");
   };
 
   const selecionarDocumentoCotacao=(cotacao,proposta,e)=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O documento deve ter no máximo 5,5 MB.","error");return;}setAnexoCotacao({cotacao,proposta,file,legenda:String(file.name||"").replace(/\.[^.]+$/,"")});};
@@ -23536,7 +23670,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   }catch(err){showToast(err.message||"Não foi possível anexar o documento da cotação.","error");}finally{setSubindoAnexoCotacao(false);}};
 
   // Cotação decidida vira pedido, sem redigitar nada
-  const gerarPedidoDaCotacao = (cot, propostaId, justificativa="") => {
+  const gerarPedidoDaCotacao = (cot, propostaId, justificativa="", navegar=true) => {
     const prop = cot.propostas.find(p => p.id === propostaId);
     if (!prop) return;
     const menor=Math.min(...cot.propostas.map(p=>Number(p.precoUnit||0)).filter(v=>v>0));
@@ -23566,13 +23700,51 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     });
     setCotDecisao(null);
     showToast(`Pedido ${numero} gerado a partir da cotação.`);
-    setAba("pedidos");
+    if(navegar)setAba("pedidos");
+  };
+
+  const moverCardKanban=(chave,destino)=>{
+    const [tipo,id]=String(chave||"").split(":");
+    const origem=kanbanCompras.find(col=>col.cards.some(card=>card.tipo===tipo&&card.id===id));
+    const card=origem?.cards.find(item=>item.tipo===tipo&&item.id===id);
+    if(!card||origem.id===destino)return;
+    const ordem=["demanda","cotacao","pedido","entrega","concluido"];
+    const atual=ordem.indexOf(origem.id),proxima=ordem.indexOf(destino);
+    if(proxima!==atual+1){
+      showToast(proxima<atual?"O retorno de etapa exige cancelar ou ajustar o registro original.":"Avance uma etapa por vez para preservar a rastreabilidade.","warn");return;
+    }
+    if(card.tipo==="solicitacao"&&destino==="cotacao"){
+      const item=(card.registro.itens||[])[0];
+      if(!item){showToast("A solicitação não possui item para cotar.","error");return;}
+      abrirCotacaoDaSolicitacao(card.registro,item);
+      showToast("Cotação preparada. Inclua as propostas para concluir a movimentação.");return;
+    }
+    if(card.tipo==="cotacao"&&destino==="pedido"){
+      const propostas=(card.registro.propostas||[]).filter(p=>p.fornecedorId&&Number(p.precoUnit)>0);
+      if(propostas.length<2){
+        setCotModal({...card.registro,propostas:(card.registro.propostas||[]).map(p=>({...p}))});
+        showToast("Complete ao menos duas propostas antes de gerar o pedido.","warn");return;
+      }
+      const melhor=[...propostas].sort((a,b)=>Number(a.precoUnit)-Number(b.precoUnit)||Number(a.prazoDias||999)-Number(b.prazoDias||999))[0];
+      gerarPedidoDaCotacao(card.registro,melhor.id,"",false);return;
+    }
+    if(card.tipo==="pedido"&&destino==="entrega"){
+      if(statusPagamentoPedido(card.registro)!=="pago"){abrirPagamento(card.registro);showToast("Confirme o pagamento para liberar o pedido para entrega.");return;}
+      showToast("Pedido já liberado para entrega.");return;
+    }
+    if(card.tipo==="pedido"&&destino==="concluido"){
+      if(!pedidoLiberadoParaReceber(card.registro)){abrirPagamento(card.registro);showToast("Registre o pagamento antes do recebimento.","warn");return;}
+      setRecModal(card.registro);showToast("Confirme as quantidades recebidas para concluir o cartão.");return;
+    }
+    showToast("Esta movimentação deve ser concluída no registro de origem.","warn");
   };
 
   const comprasAbas=[
+    ["kanban","Kanban de compras"],
+    ["mapa","Mapa gerencial"],
     ["financeiro",`Financeiro${resumoFinanceiro.pendentes?` · ${resumoFinanceiro.pendentes}`:""}`],
     ["solicitacoes",`Solicitações${solicitacoesPendentes?` · ${solicitacoesPendentes}`:""}`],
-    ["cotacoes","Cotações"],["pedidos","Pedidos"],["orcado","Orçado x comprado"],
+    ["cotacoes","Cotações"],["pedidos","Pedidos"],["historico_compras","Histórico de compras"],["orcado","Orçado x comprado"],
     ["forn","Fornecedores"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
   ];
   const irParaArea=(id)=>{
@@ -23585,10 +23757,12 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   };
   const abrirNovaSolicitacao=()=>setSolModal({obraId:currentUser?.obraId||obraAtual,necessidade:"",prioridade:"normal",referenciaId:basesCompra[0]?.id||"",observacao:"",itens:[]});
   const etapasCompras=[
+    ["mapa","Painel",mapaCompras.alertas.length],
     ["solicitacoes","Solicitar",solicitacoes.filter(s=>!["cancelada","pedido_gerado"].includes(s.status)).length],
     ["cotacoes","Cotar",cotacoes.filter(c=>c.status==="aberta").length],
     ["pedidos","Comprar",(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&!["cancelado","rascunho","recebido"].includes(statusPedido(p))).length],
     ["financeiro","Pagar",resumoFinanceiro.pendentes],
+    ["historico_compras","Histórico",pedidosHistorico.length],
   ];
   const abasSecundarias=comprasAbas.filter(([id])=>!etapasCompras.some(([etapaId])=>etapaId===id));
   const tarefaPrioritaria=["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
@@ -23629,6 +23803,163 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         <div className="compras-more" style={{position:"relative"}}><button type="button" onClick={()=>setMenuComprasAberto(v=>!v)} aria-expanded={menuComprasAberto} style={{border:`1px solid ${C.border}`,background:C.card,borderRadius:6,padding:"7px 10px",fontSize:9.5,fontWeight:750,color:C.muted,cursor:"pointer"}}>Mais áreas <span>⌄</span></button>{menuComprasAberto&&<div className="compras-more-menu" style={{position:"absolute",right:0,top:"calc(100% + 5px)",zIndex:20,minWidth:220,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:4,boxShadow:"0 8px 24px rgba(18,18,18,.12)"}}>{abasSecundarias.map(([id,label])=><button type="button" key={id} onClick={()=>irParaArea(id)} style={{display:"block",width:"100%",border:0,borderRadius:5,background:aba===id?C.surface:"transparent",padding:"8px 9px",textAlign:"left",fontSize:10,fontWeight:aba===id?750:550,color:C.text,cursor:"pointer"}}>{label}</button>)}</div>}</div>
       </div>
 
+      {aba==="kanban"&&<div className="purchase-kanban-view">
+        <section className="purchase-kanban-head">
+          <div><p>Controle visual de abastecimento</p><h3>Kanban de compras</h3><span>Os cartões avançam conforme solicitação, cotação, pagamento e recebimento são registrados.</span></div>
+          <div className="purchase-kanban-filters">
+            {[["ativos","Fluxo ativo"],["criticos","Atrasados e atenção"],["todos","Todos"]].map(([id,label])=><button key={id} type="button" data-active={filtroKanban===id} onClick={()=>setFiltroKanban(id)}>{label}</button>)}
+          </div>
+        </section>
+        <div className="purchase-andon-legend" aria-label="Legenda de prazos">
+          <span><i style={{background:C.green}}/>No prazo</span><span><i style={{background:C.yellowD}}/>Até 3 dias</span><span><i style={{background:C.red}}/>Atrasado</span><span><i style={{background:C.muted}}/>Sem prazo</span>
+        </div>
+        <div className="purchase-kanban-board">
+          {kanbanCompras.map(coluna=>{
+            const cards=coluna.cards.filter(card=>{
+              if(filtroKanban==="criticos")return["atrasado","atencao"].includes(card.risco.nivel);
+              if(filtroKanban==="ativos")return coluna.id!=="concluido";
+              return true;
+            });
+            const valor=cards.reduce((s,c)=>s+Number(c.valor||0),0);
+            return <section className="purchase-kanban-column" key={coluna.id} style={{"--column-color":coluna.cor}}
+              onDragOver={e=>{e.preventDefault();e.currentTarget.dataset.dragover="true";}}
+              onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))delete e.currentTarget.dataset.dragover;}}
+              onDrop={e=>{e.preventDefault();delete e.currentTarget.dataset.dragover;moverCardKanban(e.dataTransfer.getData("text/arcd-kanban"),coluna.id);}}>
+              <header><div><span>{coluna.titulo}</span><small>{coluna.sub}</small></div><b>{cards.length}</b></header>
+              {!!valor&&<div className="purchase-kanban-column-total">{fmtCompact(valor)}</div>}
+              <div className="purchase-kanban-cards">
+                {cards.map(card=><button type="button" draggable className="purchase-kanban-card" key={`${card.tipo}-${card.id}`} style={{"--risk-color":card.risco.cor}}
+                  onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/arcd-kanban",`${card.tipo}:${card.id}`);e.currentTarget.dataset.dragging="true";}}
+                  onDragEnd={e=>{delete e.currentTarget.dataset.dragging;}}
+                  onClick={()=>{
+                  if(card.tipo==="solicitacao")setSolModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
+                  else if(card.tipo==="cotacao")setCotModal({...card.registro,propostas:(card.registro.propostas||[]).map(p=>({...p}))});
+                  else setPedModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
+                }}>
+                  <div className="purchase-kanban-card-top"><span>{card.codigo}</span><b style={{color:card.risco.cor}}>{card.risco.rotulo}</b></div>
+                  <h4>{card.titulo}</h4><p>{card.detalhe}</p>
+                  <footer><span>{card.prazo?`Prazo ${fmtDate(card.prazo)}`:"Defina o prazo"}</span>{card.valor>0&&<strong>{fmtCompact(card.valor)}</strong>}</footer>
+                </button>)}
+                {!cards.length&&<div className="purchase-kanban-empty">Nenhum cartão nesta etapa</div>}
+              </div>
+            </section>;
+          })}
+        </div>
+        <p className="purchase-kanban-help"><b>Regra Andon:</b> vermelho exige ação imediata; amarelo deve ser tratado antes de entrar em atraso. Clique em um cartão para atualizar o registro de origem.</p>
+      </div>}
+
+      {aba==="mapa"&&<div className="compras-management-map" style={{display:"flex",flexDirection:"column",gap:10}}>
+        <section style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap",padding:"14px 16px",background:C.card,border:`1px solid ${C.border}`,borderRadius:10}}>
+          <div><p style={{fontSize:8.5,fontWeight:850,color:C.yellowD,letterSpacing:.8,textTransform:"uppercase"}}>Comando de suprimentos</p><h3 style={{fontSize:18,fontWeight:780,marginTop:3}}>Mapa gerencial de Compras</h3><p style={{fontSize:10,color:C.muted,marginTop:3,maxWidth:680,lineHeight:1.5}}>Visão do compromisso até a entrega: demanda, concorrência, fornecedor, pagamento, estoque e risco de abastecimento.</p></div>
+          {!obraIdFixo&&<div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["empresa","Empresa"],["obra","Obra selecionada"]].map(([v,l])=><button key={v} onClick={()=>setEscopoMapa(v)} style={{border:0,borderRadius:6,padding:"7px 10px",background:escopoMapa===v?C.card:"transparent",color:escopoMapa===v?C.text:C.muted,fontSize:9.5,fontWeight:800,cursor:"pointer",boxShadow:escopoMapa===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}</div>}
+        </section>
+
+        <section style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:7}}>
+          {[
+            ["Comprometido",fmt(mapaCompras.totalComprometido),"Pedidos emitidos",C.text],
+            ["Pago",fmt(mapaCompras.totalPago),`${mapaCompras.totalComprometido?Math.round(mapaCompras.totalPago/mapaCompras.totalComprometido*100):0}% do compromisso`,C.blue],
+            ["Recebido físico",fmt(mapaCompras.totalRecebido),`${mapaCompras.totalComprometido?Math.round(mapaCompras.totalRecebido/mapaCompras.totalComprometido*100):0}% entregue`,C.green],
+            ["A pagar",fmt(mapaCompras.totalPendente),`${mapaCompras.fila.pagamentos} pedido(s)`,mapaCompras.totalPendente?C.red:C.green],
+            ["Economia registrada",fmt(mapaCompras.economia),"Decisões de cotação",C.green],
+            ["Qualidade dos dados",`${Math.round(mapaCompras.completude)}%`,"Base para decisões",mapaCompras.completude>=75?C.green:mapaCompras.completude>=50?C.orange:C.red],
+          ].map(([l,v,d,c])=><div key={l} style={{padding:"12px",background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,minWidth:0}}><p style={{fontSize:8.2,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}>{l}</p><b style={{display:"block",fontSize:17,color:c,marginTop:4,fontVariantNumeric:"tabular-nums",overflowWrap:"anywhere"}}>{v}</b><span style={{display:"block",fontSize:8.8,color:C.muted,marginTop:3}}>{d}</span></div>)}
+        </section>
+
+        <section className="purchase-dashboard-kanban">
+          <div className="purchase-kanban-head">
+            <div><p>Controle visual Andon</p><h3>Fluxo de compras e prazos</h3><span>Prioridades organizadas da necessidade ao recebimento, sem ocultar os indicadores gerenciais.</span></div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}><div className="purchase-kanban-filters">
+              {[["ativos","Fluxo ativo"],["criticos","Críticos"],["todos","Todos"]].map(([id,label])=><button key={id} type="button" data-active={filtroKanban===id} onClick={()=>setFiltroKanban(id)}>{label}</button>)}
+            </div><Btn size="sm" v="ghost" onClick={()=>irParaArea("kanban")}>Ampliar Kanban →</Btn></div>
+          </div>
+          <div className="purchase-andon-legend"><span><i style={{background:C.green}}/>No prazo</span><span><i style={{background:C.yellowD}}/>Até 3 dias</span><span><i style={{background:C.red}}/>Atrasado</span><span><i style={{background:C.muted}}/>Sem prazo</span></div>
+          <div className="purchase-dashboard-deadlines">
+            {[
+              ["Atrasados",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="atrasado").length,C.red],
+              ["Atenção em 3 dias",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="atencao").length,C.yellowD],
+              ["No prazo",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="no_prazo").length,C.green],
+              ["Sem data definida",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="sem_prazo").length,C.muted],
+            ].map(([label,valor,cor])=><div key={label}><b style={{color:cor}}>{valor}</b><span>{label}</span></div>)}
+          </div>
+          <div className="purchase-kanban-board purchase-kanban-board-compact">
+            {kanbanCompras.map(coluna=>{
+              const cards=coluna.cards.filter(card=>filtroKanban==="criticos"?["atrasado","atencao"].includes(card.risco.nivel):filtroKanban==="ativos"?coluna.id!=="concluido":true);
+              return <section className="purchase-kanban-column" key={coluna.id} style={{"--column-color":coluna.cor}}
+                onDragOver={e=>{e.preventDefault();e.currentTarget.dataset.dragover="true";}}
+                onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))delete e.currentTarget.dataset.dragover;}}
+                onDrop={e=>{e.preventDefault();delete e.currentTarget.dataset.dragover;moverCardKanban(e.dataTransfer.getData("text/arcd-kanban"),coluna.id);}}>
+                <header><div><span>{coluna.titulo}</span><small>{coluna.sub}</small></div><b>{cards.length}</b></header>
+                <div className="purchase-kanban-cards">{cards.slice(0,5).map(card=><button type="button" draggable className="purchase-kanban-card" key={`${card.tipo}-${card.id}`} style={{"--risk-color":card.risco.cor}}
+                  onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/arcd-kanban",`${card.tipo}:${card.id}`);e.currentTarget.dataset.dragging="true";}}
+                  onDragEnd={e=>{delete e.currentTarget.dataset.dragging;}}
+                  onClick={()=>{
+                  if(card.tipo==="solicitacao")setSolModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
+                  else if(card.tipo==="cotacao")setCotModal({...card.registro,propostas:(card.registro.propostas||[]).map(p=>({...p}))});
+                  else setPedModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
+                }}><div className="purchase-kanban-card-top"><span>{card.codigo}</span><b style={{color:card.risco.cor}}>{card.risco.rotulo}</b></div><h4>{card.titulo}</h4><p>{card.detalhe}</p><footer><span>{card.prazo?fmtDate(card.prazo):"Defina o prazo"}</span>{card.valor>0&&<strong>{fmtCompact(card.valor)}</strong>}</footer></button>)}
+                  {!cards.length&&<div className="purchase-kanban-empty">Nenhum cartão</div>}{cards.length>5&&<button className="purchase-kanban-more" onClick={()=>irParaArea("kanban")}>+ {cards.length-5} cartão(ões)</button>}
+                </div>
+              </section>;
+            })}
+          </div>
+        </section>
+
+        <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}>
+            <div><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Controle dos pedidos</p><h4 style={{fontSize:14,marginTop:2}}>{pedidosMapa.length} pedido(s) no escopo gerencial</h4></div>
+            <span style={{fontSize:9,color:C.muted}}>A exclusão exige motivo e confirmação pelo número do pedido.</span>
+          </div>
+          {!pedidosMapa.length?<p style={{padding:20,textAlign:"center",fontSize:10,color:C.muted}}>Nenhum pedido de compra neste escopo.</p>:
+          <div style={{maxHeight:360,overflowY:"auto"}}>
+            {pedidosMapa.map((p,index)=>{
+              const st=statusPedido(p),meta=STATUS_PEDIDO[st]||{l:st,c:C.muted};
+              return <div key={p.id} style={{display:"grid",gridTemplateColumns:isDesktop?"110px minmax(190px,1fr) minmax(130px,.7fr) 110px auto":"1fr auto",gap:10,alignItems:"center",padding:"10px 12px",borderTop:index?`1px solid ${C.line}`:"none"}}>
+                <div><b style={{display:"block",fontSize:10.5,color:C.blue}}>{p.numero||"Sem número"}</b><span style={{fontSize:8.5,color:C.muted}}>{fmtDate(p.data)}</span></div>
+                <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:10.5,color:C.text}}>{nomeForn(p.fornecedorId)}</b><span className="brk" style={{fontSize:8.5,color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</span></div>
+                {isDesktop&&<div><Badge color={meta.c}>{meta.l}</Badge><span style={{display:"block",fontSize:8.5,color:C.muted,marginTop:3}}>{statusPagamentoPedido(p)==="pago"?"Pagamento concluído":`${fmt(saldoPagamentoPedido(p))} a pagar`}</span></div>}
+                <b style={{fontSize:11.5,textAlign:"right",whiteSpace:"nowrap"}}>{fmt(totalPedido(p))}</b>
+                {podeExcluirCompra?<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir</Btn>:<span style={{fontSize:8.5,color:C.muted}}>Somente Compras, Financeiro ou Administração</span>}
+              </div>;
+            })}
+          </div>}
+        </section>
+
+        <section style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1.35fr) minmax(280px,.65fr)":"1fr",gap:9}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+            <div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Fluxo sob responsabilidade</p><h4 style={{fontSize:14,marginTop:2}}>Onde o dinheiro e o material estão</h4></div>
+            <div style={{display:"grid",gridTemplateColumns:isDesktop?"repeat(5,1fr)":"1fr 1fr"}}>
+              {[
+                ["solicitacoes","Solicitações",mapaCompras.fila.solicitacoes,"Aguardam análise"],
+                ["cotacoes","Cotações",mapaCompras.fila.cotacoes,"Em concorrência"],
+                ["pedidos","Pedidos",mapaCompras.fila.pedidos,"Em fornecimento"],
+                ["financeiro","Pagamentos",mapaCompras.fila.pagamentos,"Com saldo"],
+                ["pedidos","Recebimentos",mapaCompras.fila.recebimentos,"Pagos, não entregues"],
+              ].map(([dest,l,v,d],i)=><button key={l} onClick={()=>irParaArea(dest)} style={{border:0,borderLeft:isDesktop&&i?`1px solid ${C.line}`:"none",borderTop:!isDesktop&&i>1?`1px solid ${C.line}`:"none",background:"transparent",padding:"15px 12px",textAlign:"left",cursor:"pointer"}}><span style={{fontSize:8.5,color:C.muted,fontWeight:750}}>{l}</span><b style={{display:"block",fontSize:22,color:v?C.orange:C.green,marginTop:3}}>{v}</b><small style={{fontSize:8.5,color:C.muted}}>{d}</small></button>)}
+            </div>
+          </div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}>
+            <p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Maturidade do controle</p>
+            <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:12,alignItems:"center",marginTop:10}}><div style={{width:68,height:68,borderRadius:"50%",display:"grid",placeItems:"center",background:`conic-gradient(${mapaCompras.completude>=75?C.green:C.yellow} ${mapaCompras.completude}%,${C.surface} 0)`,position:"relative"}}><span style={{width:52,height:52,borderRadius:"50%",background:C.card,display:"grid",placeItems:"center",fontSize:14,fontWeight:900}}>{Math.round(mapaCompras.completude)}%</span></div><p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>{mapaCompras.completude>=80?"Dados suficientes para decisões gerenciais consistentes.":mapaCompras.completude>=55?"A base já orienta decisões, mas ainda existem pontos cegos.":"A base é insuficiente para prever prazo, custo e risco com segurança."}</p></div>
+            <div style={{marginTop:11,display:"grid",gap:5}}>{[
+              ["Cobertura por cotação",`${mapaCompras.coberturaCotacao.toFixed(0)}%`],
+              ["Propostas por cotação",mapaCompras.concorrencia.toFixed(1)],
+              ["Entregas no prazo",mapaCompras.pontualidade===null?"Sem base":`${mapaCompras.pontualidade.toFixed(0)}%`],
+              ["Concentração top 3",`${mapaCompras.concentracaoTop3.toFixed(0)}%`],
+            ].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",gap:8,paddingTop:5,borderTop:`1px solid ${C.line}`}}><span style={{fontSize:9,color:C.muted}}>{l}</span><b style={{fontSize:9.5}}>{v}</b></div>)}</div>
+          </div>
+        </section>
+
+        <section style={{display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:9}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:8.5,fontWeight:850,color:C.red,textTransform:"uppercase"}}>Exceções para decidir agora</p><h4 style={{fontSize:14,marginTop:2}}>{mapaCompras.alertas.length?`${mapaCompras.alertas.length} risco(s) ativo(s)`:"Operação sem exceções críticas"}</h4></div><div>{mapaCompras.alertas.length?mapaCompras.alertas.slice(0,8).map((a,i)=>{const cor=a.nivel==="critico"?C.red:a.nivel==="alto"?C.orange:C.yellowD;return <button key={`${a.titulo}-${i}`} onClick={()=>irParaArea(a.destino)} style={{display:"grid",gridTemplateColumns:"8px 1fr auto",gap:10,alignItems:"center",width:"100%",border:0,borderTop:i?`1px solid ${C.line}`:"none",background:"transparent",padding:"10px 12px",textAlign:"left",cursor:"pointer"}}><i style={{width:8,height:8,borderRadius:99,background:cor}}/><span><b style={{display:"block",fontSize:10.5,color:C.text}}>{a.titulo}</b><small style={{fontSize:8.8,color:C.muted}}>{a.detalhe}</small></span><span style={{color:C.muted}}>›</span></button>}):<p style={{padding:20,textAlign:"center",fontSize:10,color:C.green}}>Nenhuma exceção automática encontrada.</p>}</div></div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:8.5,fontWeight:850,color:C.blue,textTransform:"uppercase"}}>Dependência e poder de negociação</p><h4 style={{fontSize:14,marginTop:2}}>Maiores fornecedores por volume</h4></div><div>{mapaCompras.fornecedores.slice(0,6).map((f,i)=><div key={f.id} style={{padding:"9px 12px",borderTop:i?`1px solid ${C.line}`:"none"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontSize:10,fontWeight:750,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{i+1}. {f.nome}</span><b style={{fontSize:10}}>{fmt(f.valor)} · {f.participacao.toFixed(0)}%</b></div><div style={{height:4,background:C.surface,borderRadius:99,marginTop:5,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,f.participacao)}%`,background:i===0?C.yellowD:C.blue}}/></div></div>)}{!mapaCompras.fornecedores.length&&<p style={{padding:20,textAlign:"center",fontSize:10,color:C.muted}}>Ainda não há pedidos suficientes.</p>}</div><button onClick={()=>irParaArea("forn")} style={{width:"100%",border:0,borderTop:`1px solid ${C.line}`,background:C.surface,padding:"9px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>Abrir fornecedores →</button></div>
+        </section>
+
+        <section style={{display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:9}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Origem real dos pagamentos</p><div style={{display:"grid",gap:7,marginTop:9}}>{[["Empresa",mapaCompras.origens.empresa,C.blue],["Caixa das obras",mapaCompras.origens.caixa_obra,C.yellowD],["Cliente direto",mapaCompras.origens.cliente_direto,C.purple]].map(([l,v,c])=><div key={l} style={{display:"grid",gridTemplateColumns:"110px 1fr auto",gap:8,alignItems:"center"}}><span style={{fontSize:9,color:C.muted}}>{l}</span><div style={{height:6,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${mapaCompras.totalPago?Math.min(100,v/mapaCompras.totalPago*100):0}%`,background:c}}/></div><b style={{fontSize:9.5,color:c}}>{fmt(v)}</b></div>)}</div></div>
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.yellowD,textTransform:"uppercase"}}>Veredicto gerencial</p><h4 style={{fontSize:14,marginTop:3}}>{mapaCompras.completude>=80&&mapaCompras.alertas.length<=2?"Controle suficiente, com boa rastreabilidade":mapaCompras.completude>=55?"Controle operacional útil, ainda não completo":"Controle insuficiente para uma carteira de obras"}</h4><p style={{fontSize:9.5,color:C.muted,lineHeight:1.55,marginTop:6}}>Para o segmento de construção, o mapa precisa ligar necessidade da frente de serviço, orçamento SINAPI/ORSE, concorrência, frete, prazo prometido, qualidade recebida, pagamento, estoque e consumo. O sistema já cobre esse ciclo; os maiores ganhos agora vêm de preencher previsão, registrar ao menos três propostas e encerrar recebimentos com evidência.</p></div>
+        </section>
+      </div>}
+
       {aba==="financeiro"&&<>
         <section className="compras-finance-summary" style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(180px,.8fr) repeat(3,minmax(120px,1fr))":"1fr 1fr",background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
           <div style={{gridColumn:isDesktop?"auto":"1/-1",padding:"12px 14px",background:resumoFinanceiro.aPagar?`${C.red}08`:C.surface,borderRight:isDesktop?`1px solid ${C.line}`:"none",borderBottom:!isDesktop?`1px solid ${C.line}`:"none"}}><p style={{fontSize:8.5,color:C.muted,fontWeight:750,textTransform:"uppercase"}}>Total a pagar</p><p style={{fontSize:20,fontWeight:800,color:resumoFinanceiro.aPagar?C.red:C.text,marginTop:2,fontVariantNumeric:"tabular-nums"}}>{fmt(resumoFinanceiro.aPagar)}</p></div>
@@ -23639,9 +23970,9 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         <div className="compras-filter-tabs" style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:2}}>{[["pendentes","Pendentes"],["liberados","Liberados"],["nao_conciliados","Sem conciliação"],["todos","Todos"]].map(([v,l])=><button data-active={filtroFinanceiro===v} key={v} onClick={()=>setFiltroFinanceiro(v)} style={{border:`1px solid ${filtroFinanceiro===v?C.yellow:C.border}`,background:filtroFinanceiro===v?`${C.yellow}14`:C.card,borderRadius:8,padding:"7px 10px",fontSize:9.5,fontWeight:800,color:filtroFinanceiro===v?C.yellowD:C.muted,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>)}</div>
         {pedidosFinanceiros.length===0?<div className="compras-empty" style={{padding:28,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:7}}>Nenhuma pendência neste filtro</p></div>:pedidosFinanceiros.map(p=>{const st=statusPagamentoPedido(p),saldo=saldoPagamentoPedido(p),recebido=statusPedido(p)==="recebido",cor=st==="pago"?C.green:st==="parcial"?C.orange:C.red;return <div className="compras-payment-card" data-status={st} key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${cor}`,borderRadius:10,padding:"11px 12px"}}>
           <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div style={{minWidth:0}}><p style={{fontSize:12,fontWeight:850,color:C.text}}>{p.numero} · {nomeForn(p.fornecedorId)}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{(p.itens||[]).map(i=>`${nomeMat(i.materialId)} (${Number(i.qtd||0).toLocaleString("pt-BR")} ${unidMat(i.materialId)})`).join(" · ")}</p><p style={{fontSize:9,color:C.muted,marginTop:4}}>Pedido {fmtDate(p.data)}{p.previsao?` · entrega prevista ${fmtDate(p.previsao)}`:""}</p></div><div style={{textAlign:"right"}}><Badge color={cor}>{st==="pago"?"QUITADO / LIBERADO":st==="parcial"?"PAGAMENTO PARCIAL":"AGUARDANDO PAGAMENTO"}</Badge><p style={{fontSize:14,fontWeight:900,color:C.text,marginTop:4}}>{fmt(totalPedido(p))}</p>{saldo>0&&<p style={{fontSize:10,fontWeight:800,color:C.red}}>saldo {fmt(saldo)}</p>}</div></div>
-          {(p.pagamentos||[]).length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>{p.pagamentos.map(pg=><div key={pg.id} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:8.5,fontWeight:750,color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0C`:`${C.orange}0C`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}><span>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"a conciliar"}</span>{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,textDecoration:"underline",fontWeight:850}} title={a.legenda||a.nome}>comprovante ↗</a>)}</div>)}</div>}
+          {(p.pagamentos||[]).length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>{p.pagamentos.map(pg=><div key={pg.id} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:8.5,fontWeight:750,color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0C`:`${C.orange}0C`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 5px 3px 7px"}}><span>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"a conciliar"}</span>{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,textDecoration:"underline",fontWeight:850}} title={a.legenda||a.nome}>comprovante ↗</a>)}{canManagePurchases(currentUser?.role)&&<button type="button" onClick={()=>excluirPagamento(p,pg)} title="Excluir pagamento" aria-label={`Excluir pagamento de ${fmt(pg.valor)}`} style={{display:"inline-grid",placeItems:"center",width:20,height:20,border:0,borderRadius:99,background:`${C.red}12`,color:C.red,cursor:"pointer"}}><Ic n="trash" s={10}/></button>}</div>)}</div>}
           {recebido&&st!=="pago"&&<p style={{fontSize:9.5,fontWeight:800,color:C.red,marginTop:8}}>Registro legado: material recebido sem quitação vinculada. Regularize o financeiro para encerrar a inconsistência.</p>}
-          <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>{saldo>0&&["admin","compras","financeiro"].includes(currentUser?.role)&&<Btn size="sm" onClick={()=>abrirPagamento(p)}>Registrar pagamento</Btn>}{st==="pago"&&!recebido&&<Btn size="sm" v="success" onClick={()=>setRecModal(p)}><Ic n="check"/> Receber na obra</Btn>}<Btn size="sm" v="ghost" onClick={()=>{setBusca(p.numero);setAba("pedidos");}}>Abrir pedido</Btn></div>
+          <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>{saldo>0&&canManagePurchases(currentUser?.role)&&<Btn size="sm" onClick={()=>abrirPagamento(p)}>Registrar pagamento</Btn>}{st==="pago"&&!recebido&&<Btn size="sm" v="success" onClick={()=>setRecModal(p)}><Ic n="check"/> Receber na obra</Btn>}<Btn size="sm" v="ghost" onClick={()=>{setBusca(p.numero);setAba("pedidos");}}>Abrir pedido</Btn>{podeExcluirCompra&&<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir compra</Btn>}</div>
         </div>})}
       </>}
 
@@ -23697,13 +24028,14 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
                 {sla.status==="estourado"?`SLA ESTOURADO · ${sla.dias}d (limite ${sla.limite}d)`:sla.status==="no_limite"?`ÚLTIMO DIA DO SLA`:`${sla.dias}d de ${sla.limite}d`}
               </Badge></div>}
             </div></div>
-            <div style={{marginTop:8,borderTop:`1px solid ${C.line}`,paddingTop:6}}>{sol.itens.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"95px minmax(0,1fr) auto",gap:7,fontSize:10.5,marginTop:3}}><b style={{color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef} {item.codigoRef}</b><span style={{color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricaoRef}>{item.descricaoRef}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{item.quantidade.toLocaleString("pt-BR")} {item.unidadeRef}</b></div>)}</div>
+            <div style={{marginTop:8,borderTop:`1px solid ${C.line}`,paddingTop:6}}>{sol.itens.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:isDesktop?"95px minmax(0,1fr) auto auto":"78px minmax(0,1fr) auto",gap:7,fontSize:10.5,marginTop:4,alignItems:"center"}}><b style={{color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef} {item.codigoRef}</b><span style={{color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricaoRef}>{item.descricaoRef}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{Number(item.quantidade||0).toLocaleString("pt-BR")} {item.unidadeRef}</b>{podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" v="ghost" onClick={()=>abrirCotacaoDaSolicitacao(sol,item)}>COTAR</Btn>}</div>)}</div>
             {sol.observacao&&<p style={{fontSize:10,color:C.muted,marginTop:7}}>{sol.observacao}</p>}
             {sol.contatos?.length>0&&<p style={{fontSize:10,color:C.green,fontWeight:700,marginTop:7}}>
               Enviado para {sol.contatos.length} fornecedor(es): {sol.contatos.map(c=>c.fornecedorNome).filter(Boolean).join(", ")}
             </p>}
             {pedido&&<p style={{fontSize:10.5,color:C.green,fontWeight:800,marginTop:7}}>Vinculada ao pedido {pedido.numero}</p>}
             <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+              {["enviada","em_analise"].includes(sol.status)&&(podeProcessar||sol.solicitanteId===currentUser?.id)&&<Btn size="sm" v="ghost" onClick={()=>setSolModal({...sol,itens:(sol.itens||[]).map(i=>({...i,quantidade:String(i.quantidade||"")}))})}>EDITAR SOLICITAÇÃO</Btn>}
               {podeProcessar&&sol.status==="enviada"&&<Btn size="sm" v="ghost" onClick={()=>atualizarStatusSolicitacao(sol,"em_analise")}>MARCAR EM ANÁLISE</Btn>}
               {podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" v="info" onClick={()=>setCotWpp({
                 titulo:`Cotação · ${sol.numero}`,
@@ -23718,6 +24050,79 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
           </div>;
         })}
       </>}
+
+      {/* HISTÓRICO DE COMPRAS — consulta e correção com trilha de auditoria */}
+      {aba === "historico_compras" && (<>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.yellowD}`,borderRadius:7,padding:"10px 12px"}}>
+          <p style={{fontSize:11.5,fontWeight:850,color:C.text}}>Tudo o que foi comprado, em uma única linha do tempo</p>
+          <p style={{fontSize:9.5,color:C.muted,marginTop:3,lineHeight:1.5}}>Consulte itens, fornecedor, pagamento e recebimento. Ajustes exigem justificativa e ficam registrados no próprio pedido.</p>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:pick("1fr","minmax(220px,1.4fr) 1fr","minmax(260px,1.5fr) 190px 190px 190px"),gap:8,alignItems:"end"}}>
+          <Inp label="Buscar" value={buscaHistoricoCompra} onChange={setBuscaHistoricoCompra} placeholder="Pedido, material, fornecedor ou obra..."/>
+          <Sel label="Situação" value={statusHistoricoCompra} onChange={setStatusHistoricoCompra} options={[
+            {v:"todos",l:"Todas as situações"},{v:"enviado",l:"Aguardando entrega"},{v:"parcial",l:"Recebido parcialmente"},
+            {v:"recebido",l:"Recebido"},{v:"cancelado",l:"Cancelado"},{v:"rascunho",l:"Rascunho"},
+          ]}/>
+          <Sel label="Fornecedor" value={fornecedorHistoricoCompra} onChange={setFornecedorHistoricoCompra} options={[{v:"",l:"Todos os fornecedores"},...fornecedores.map(f=>({v:f.id,l:f.nome}))]}/>
+          <Sel label="Período" value={periodoHistorico} onChange={setPeriodoHistorico} options={[["6","Últimos 6 meses"],["12","Últimos 12 meses"],["24","Últimos 24 meses"],["todos","Todo o histórico"]].map(([v,l])=>({v,l}))}/>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <p style={{fontSize:10,color:C.muted}}><b style={{color:C.text}}>{comprasHistoricoFiltradas.length}</b> compra(s) · total <b style={{color:C.text}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+totalPedido(p),0))}</b> · empresa <b style={{color:C.blue}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+(p.pagamentos||[]).filter(pg=>pg.origem==="empresa").reduce((a,pg)=>a+Number(pg.valor||0),0),0))}</b> · caixa das obras <b style={{color:C.yellowD}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+(p.pagamentos||[]).filter(pg=>pg.origem==="caixa_obra").reduce((a,pg)=>a+Number(pg.valor||0),0),0))}</b> · cliente direto <b style={{color:C.purple}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+(p.pagamentos||[]).filter(pg=>pg.origem==="cliente_direto").reduce((a,pg)=>a+Number(pg.valor||0),0),0))}</b></p>
+          {!obraIdFixo&&<div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7}}>{[["obra","Obra atual"],["todas","Todas visíveis"]].map(([v,l])=><button key={v} onClick={()=>setEscopoHistorico(v)} style={{border:0,borderRadius:5,padding:"6px 9px",background:escopoHistorico===v?C.text:"transparent",color:escopoHistorico===v?"#fff":C.muted,fontSize:9,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>}
+        </div>
+        {!comprasHistoricoFiltradas.length?<div style={{padding:26,textAlign:"center",background:C.card,border:`1px dashed ${C.border}`,borderRadius:8}}><p style={{fontSize:12,fontWeight:800,color:C.text}}>Nenhuma compra encontrada</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Altere os filtros ou amplie o período.</p></div>:
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {comprasHistoricoFiltradas.map(p=>{
+              const st=statusPedido(p),meta=STATUS_PEDIDO[st]||{l:st,c:C.muted};
+              const pagoEmpresa=(p.pagamentos||[]).filter(pg=>pg.origem==="empresa").reduce((s,pg)=>s+Number(pg.valor||0),0);
+              const pagoCaixa=(p.pagamentos||[]).filter(pg=>pg.origem==="caixa_obra").reduce((s,pg)=>s+Number(pg.valor||0),0);
+              const pagoCliente=(p.pagamentos||[]).filter(pg=>pg.origem==="cliente_direto").reduce((s,pg)=>s+Number(pg.valor||0),0);
+              const recebido=(p.itens||[]).reduce((s,i)=>s+Number(i.qtdRecebida||0)*Number(i.precoUnit||0),0);
+              const ultimoAjuste=(p.ajustes||[]).slice(-1)[0];
+              return <article key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${meta.c}`,borderRadius:7,padding:"11px 12px"}}>
+                <div style={{display:"grid",gridTemplateColumns:pick("1fr auto","1fr auto","100px minmax(170px,1.2fr) 115px auto"),gap:9,alignItems:"center"}}>
+                  <div><p style={{fontSize:11,fontWeight:850,color:C.blue}}>{p.numero}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{fmtDate(p.data)}</p></div>
+                  {pick(null,<div><p style={{fontSize:10,fontWeight:750,color:C.text}}>{nomeForn(p.fornecedorId)}</p><p style={{fontSize:8.5,color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"}</p></div>,<div><p className="brk" style={{fontSize:10.5,fontWeight:800,color:C.text}}>{nomeForn(p.fornecedorId)}</p><p className="brk" style={{fontSize:8.5,color:C.muted,marginTop:2}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</p></div>)}
+                  {pick(null,null,<div><p style={{fontSize:8,color:C.muted,textTransform:"uppercase"}}>Recebido na obra</p><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>{fmt(recebido)}</p></div>)}
+                  <div style={{textAlign:"right"}}><p style={{fontSize:12.5,fontWeight:850,color:C.text}}>{fmt(totalPedido(p))}</p><Badge color={meta.c}>{meta.l}</Badge></div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:6,marginTop:8}}>
+                  {[
+                    ["empresa","Pago pela empresa",pagoEmpresa,C.blue],
+                    ["caixa_obra","Pago pelo caixa da obra",pagoCaixa,C.yellowD],
+                    ["cliente_direto","Pago diretamente pelo cliente",pagoCliente,C.purple],
+                  ].map(([origem,label,totalOrigem,cor])=><div key={origem}
+                    onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=cor;}}
+                    onDragLeave={e=>{e.currentTarget.style.borderColor=`${cor}45`;}}
+                    onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor=`${cor}45`;const pagamentoId=e.dataTransfer.getData("text/arcd-pagamento");if(pagamentoId)reclassificarOrigemPagamento(p,pagamentoId,origem);}}
+                    style={{minHeight:76,padding:"7px 8px",border:`1px dashed ${cor}45`,background:`${cor}07`,borderRadius:5,transition:"border-color .15s,background .15s"}}>
+                    <span style={{fontSize:8,color:C.muted,textTransform:"uppercase"}}>{label}</span>
+                    <b style={{display:"block",fontSize:12,color:cor,marginTop:2}}>{fmt(totalOrigem)}</b>
+                    <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>
+                      {(p.pagamentos||[]).filter(pg=>pg.origem===origem).map(pg=><button type="button" draggable key={pg.id}
+                        onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/arcd-pagamento",pg.id);}}
+                        title="Arraste para outra coluna para corrigir a origem"
+                        style={{border:`1px solid ${cor}55`,background:C.card,color:cor,borderRadius:4,padding:"3px 6px",fontSize:8.5,fontWeight:800,cursor:"grab"}}>
+                        ⋮⋮ {fmt(pg.valor)} · {fmtDate(pg.data)}
+                      </button>)}
+                      {!(p.pagamentos||[]).some(pg=>pg.origem===origem)&&<small style={{fontSize:8,color:C.muted}}>Arraste um pagamento para cá</small>}
+                    </div>
+                  </div>)}
+                </div>
+                <div style={{marginTop:8,paddingTop:7,borderTop:`1px solid ${C.line}`,display:"flex",flexDirection:"column",gap:4}}>
+                  {(p.itens||[]).map(i=><div key={i.id} style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:9.5}}><span className="brk" style={{color:C.muted}}>{nomeMat(i.materialId)} · {Number(i.qtd)} {unidMat(i.materialId)} × {fmt(Number(i.precoUnit||0))}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{fmt(Number(i.qtd||0)*Number(i.precoUnit||0))}</b></div>)}
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginTop:8}}>
+                  <p style={{fontSize:8.5,color:C.muted}}>{ultimoAjuste?`Último ajuste: ${ultimoAjuste.usuario||"Operador"} · ${new Date(ultimoAjuste.criadoEm).toLocaleString("pt-BR")} · ${ultimoAjuste.motivo}`:"Sem ajustes registrados"}</p>
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    {st!=="cancelado"&&<Btn size="sm" v="ghost" onClick={()=>setPedModal({...p,motivoAjuste:"",itens:p.itens.map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))})}><Ic n="edit"/> Ajustar compra</Btn>}
+                    {podeExcluirCompra&&<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir</Btn>}
+                  </div>
+                </div>
+              </article>;
+            })}
+          </div>}
+      </>)}
 
       {/*  PEDIDOS  */}
       {aba === "pedidos" && (<>
@@ -23809,6 +24214,9 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
                   )}
                   {st !== "cancelado" && st !== "recebido" && (
                     <Btn size="sm" v="danger" onClick={()=>cancelarPedido(p)}><Ic n="trash"/> Cancelar pedido</Btn>
+                  )}
+                  {podeExcluirCompra&&(
+                    <Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir definitivamente</Btn>
                   )}
                   {atrasoDe[p.id]&&(()=>{
                     const forn=fornecedorPorId.get(p.fornecedorId);
@@ -23957,87 +24365,67 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
 
       {/*  COTAÇÕES  */}
       {aba === "cotacoes" && (<>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
-            Você trabalha por administração: gasta o dinheiro do cliente e cobra sobre o custo.
-            <strong style={{color:C.text}}> Provar que comprou bem é parte da entrega.</strong> Aqui
-            ficam as propostas lado a lado, com a economia de cada escolha.
-          </p>
+        <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+          <div><h3 style={{fontSize:16,fontWeight:800,color:C.text}}>Mapa de cotações</h3><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Compare propostas, prazo e economia antes de gerar a ordem de compra.</p></div>
+          <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,materialId:"",qtd:"",orcItemId:"",orcNivel1Id:"",data:today(),
+            propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]},{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]}]})}>
+            <Ic n="plus"/> Adicionar cotação
+          </Btn>
         </div>
-        <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,materialId:"",qtd:"",
-          orcItemId:"",orcNivel1Id:"",data:new Date().toISOString().slice(0,10),
-          propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]},
-                     {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]}]})} full>
-          <Ic n="plus"/> Nova cotação
-        </Btn>
 
-        {cotacoes.length === 0
-          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>Nenhuma cotação.</p>
-          : cotacoes.map(c => {
-            const ord = [...c.propostas].sort((a,b) => a.precoUnit - b.precoUnit);
-            const melhor = ord[0];
-            return (
-              <div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,
-                                      borderRadius:6,padding:"10px 12px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
-                  <div style={{minWidth:0}}>
-                    <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>
-                      {nomeMat(c.materialId)}
-                    </p>
-                    <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
-                      {c.qtd} {unidMat(c.materialId)}  {fmtDate(c.data)}
-                    </p>
-                  </div>
-                  {c.status === "decidida" && <Badge color={C.green}>Decidida</Badge>}
-                </div>
+        <div style={{display:"grid",gridTemplateColumns:pick("1fr","minmax(230px,1fr) 150px 150px","minmax(280px,1fr) 160px 160px auto"),gap:7,alignItems:"end"}}>
+          <Inp label="Buscar" value={buscaCotacao} onChange={setBuscaCotacao} placeholder="Código, insumo, solicitação ou fornecedor..."/>
+          <Inp label="Data inicial" type="date" value={inicioCotacao} onChange={setInicioCotacao}/>
+          <Inp label="Data final" type="date" value={fimCotacao} onChange={setFimCotacao}/>
+          {isDesktop&&<Btn size="sm" v="ghost" onClick={()=>{setBuscaCotacao("");setInicioCotacao("");setFimCotacao("");setStatusCotacao("todas");}}>Limpar filtros</Btn>}
+        </div>
 
-                <div style={{marginTop:9,display:"flex",flexDirection:"column",gap:5}}>
-                  {ord.map(p => {
-                    const eh = p.id === melhor.id;
-                    const venceu = c.escolhida === p.id;
-                    const dif = (p.precoUnit - melhor.precoUnit) * c.qtd;
-                    return (
-                      <div key={p.id} style={{
-                        background: venceu ? `${C.green}0E` : eh ? `${C.yellow}0A` : C.surface,
-                        border:`1px solid ${venceu ? C.green : eh ? C.yellow : C.border}`,
-                        borderRadius:7, padding:"8px 10px",
-                      }}>
-                        <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
-                          <div style={{minWidth:0}}>
-                            <p className="brk" style={{fontSize:11.5,fontWeight:700,color:C.text}}>
-                              {eh && " "}{nomeForn(p.fornecedorId)}
-                              {venceu && " ok"}
-                            </p>
-                            <p style={{fontSize:10,color:C.muted,marginTop:1}}>
-                              {fmt(p.precoUnit)}/{unidMat(c.materialId)}
-                              {p.prazoDias > 0 && `  ${p.prazoDias} dias`}
-                            </p>
-                          </div>
-                          <div style={{textAlign:"right",flexShrink:0}}>
-                            <p style={{fontSize:12.5,fontWeight:800,color:C.text,whiteSpace:"nowrap"}}>
-                              {fmt(p.precoUnit * c.qtd)}
-                            </p>
-                            {dif > 0.01 && (
-                              <p style={{fontSize:9.5,color:C.red,marginTop:1}}>+{fmt(dif)}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div style={{marginTop:7,paddingTop:6,borderTop:`1px solid ${C.line}`}}><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/></div>
-                        {c.status === "aberta" && (
-                          <Btn size="sm" v={eh ? "primary" : "ghost"}
-                            onClick={()=>setCotDecisao({cotacaoId:c.id,propostaId:p.id,justificativa:""})}
-                            full style={{marginTop:7}}>
-                            Escolher e gerar pedido
-                          </Btn>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {c.status==="decidida"&&<div style={{marginTop:8,padding:"7px 9px",background:`${C.green}08`,border:`1px solid ${C.green}30`,borderRadius:6}}><p style={{fontSize:9.5,color:C.green,fontWeight:800}}>DECIDIDO POR {c.decididoPorNome||"OPERADOR"} · {c.decididoEm?new Date(c.decididoEm).toLocaleString("pt-BR"):"data não registrada"}</p>{c.justificativaEscolha&&<p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Justificativa: {c.justificativaEscolha}</p>}<p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Economia frente à maior proposta: <b style={{color:C.green}}>{fmt(c.economia||0)}</b></p></div>}
-              </div>
-            );
+        <div style={{display:"grid",gridTemplateColumns:`repeat(3,minmax(0,1fr))`,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+          {[["aberta","Abertas",cotacoes.filter(c=>c.status==="aberta").length,C.orange],["decidida","Compra gerada",cotacoes.filter(c=>c.status==="decidida").length,C.green],["todas","Todas",cotacoes.length,C.blue]].map(([v,l,n,c],i)=>{
+            const ativo=statusCotacao===v;return <button key={v} type="button" onClick={()=>setStatusCotacao(v)} style={{position:"relative",border:0,borderLeft:i?`1px solid ${C.line}`:"none",background:ativo?`${c}0B`:"transparent",padding:"10px 12px",textAlign:"left",cursor:"pointer"}}>
+              <span style={{fontSize:9.5,fontWeight:750,color:ativo?c:C.muted}}>{l}</span><b style={{float:"right",fontSize:10,color:ativo?c:C.muted}}>{n}</b>{ativo&&<i style={{position:"absolute",left:0,right:0,bottom:0,height:2,background:c}}/>}
+            </button>;
           })}
+        </div>
+
+        {!cotacoesFiltradas.length
+          ? <div style={{padding:30,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:9,background:C.card}}><p style={{fontSize:12,fontWeight:800,color:C.text}}>Nenhuma cotação encontrada</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Ajuste os filtros ou adicione uma nova cotação.</p></div>
+          : <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
+            {isDesktop&&<div style={{display:"grid",gridTemplateColumns:"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px",gap:10,padding:"8px 11px",background:C.surface,borderBottom:`1px solid ${C.border}`,fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}><span>Código</span><span>Insumo</span><span>Fornecedores</span><span>Necessidade</span><span>Status</span><span>Prioridade</span><span>Ações</span></div>}
+            {cotacoesFiltradas.map((c,index)=>{
+              const ord=[...(c.propostas||[])].sort((a,b)=>Number(a.precoUnit||0)-Number(b.precoUnit||0));
+              const melhor=ord[0],sol=solicitacaoPorId.get(c.solicitacaoId),expandida=cotacaoExpandida===c.id;
+              const codigo=c.numero||`CT-${String(cotacoes.indexOf(c)+1).padStart(4,"0")}`;
+              const prioridade=sol?.prioridade||"normal";
+              return <div key={c.id} style={{borderTop:index?`1px solid ${C.line}`:"none"}}>
+                <div role="button" tabIndex={0} onClick={()=>setCotacaoExpandida(expandida?"":c.id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setCotacaoExpandida(expandida?"":c.id);}}} style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left",cursor:"pointer"}}>
+                  {isDesktop&&<b style={{fontSize:9.5,color:C.blue}}>{codigo}</b>}
+                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:11,color:C.text}}>{nomeMat(c.materialId)}</b><span style={{fontSize:8.8,color:C.muted}}>{Number(c.qtd||0).toLocaleString("pt-BR")} {unidMat(c.materialId)}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
+                  {isDesktop&&<span style={{fontSize:10,color:C.text}}>{ord.length}</span>}
+                  {isDesktop&&<span style={{fontSize:9.5,color:C.muted}}>{fmtDate(sol?.necessidade||c.data)}</span>}
+                  {isDesktop&&<Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge>}
+                  {isDesktop&&<span style={{fontSize:9.5,fontWeight:800,color:prioridade==="urgente"?C.red:C.orange}}>{prioridade==="urgente"?"Alta":"Média"}</span>}
+                  <div style={{display:"flex",gap:4,justifyContent:"flex-end",alignItems:"center"}}>{podeProcessar&&<Btn size="sm" v="danger" title="Excluir cotação" onClick={e=>{e.stopPropagation();excluirCotacao(c);}}><Ic n="trash" s={11}/>{isDesktop&&" Excluir"}</Btn>}<span aria-label={expandida?"Recolher":"Comparar propostas"} style={{display:"inline-block",color:C.muted,transform:expandida?"rotate(180deg)":"none",transition:"transform .15s"}}>⌄</span></div>
+                </div>
+                {!isDesktop&&<div style={{display:"flex",gap:5,padding:"0 12px 10px",flexWrap:"wrap"}}><Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge><Badge color={prioridade==="urgente"?C.red:C.orange}>{prioridade==="urgente"?"Alta":"Média"}</Badge><span style={{fontSize:9,color:C.muted,alignSelf:"center"}}>{ord.length} fornecedor(es) · {fmtDate(sol?.necessidade||c.data)}</span></div>}
+                {expandida&&<div style={{padding:"0 11px 12px",background:C.surface,borderTop:`1px solid ${C.line}`}}>
+                  <div style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,1fr) 120px 100px 120px auto":"1fr",gap:6,padding:"8px 7px 5px",fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{isDesktop&&<><span>Fornecedor</span><span>Preço unitário</span><span>Prazo</span><span>Total</span><span>Ação</span></>}</div>
+                  {ord.map(p=>{const eh=p.id===melhor?.id,venceu=c.escolhida===p.id,dif=(Number(p.precoUnit||0)-Number(melhor?.precoUnit||0))*Number(c.qtd||0);return <div key={p.id} style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,1fr) 120px 100px 120px auto":"1fr auto",gap:8,alignItems:"center",padding:"9px 8px",marginTop:5,background:C.card,border:`1px solid ${venceu?C.green:eh?`${C.green}66`:C.border}`,borderRadius:7}}>
+                    <div><b className="brk" style={{display:"block",fontSize:10.5,color:C.text}}>{nomeForn(p.fornecedorId)} {venceu&&"✓"}</b>{eh&&<span style={{fontSize:8.5,fontWeight:800,color:C.green}}>MENOR PREÇO</span>}</div>
+                    {isDesktop&&<b style={{fontSize:10.5}}>{fmt(p.precoUnit)}/{unidMat(c.materialId)}</b>}
+                    {isDesktop&&<span style={{fontSize:9.5,color:C.muted}}>{p.prazoDias||0} dia(s)</span>}
+                    <div style={{textAlign:isDesktop?"left":"right"}}><b style={{fontSize:11,color:C.text}}>{fmt(Number(p.precoUnit||0)*Number(c.qtd||0))}</b>{dif>.01&&<small style={{display:"block",fontSize:8,color:C.red}}>+{fmt(dif)}</small>}</div>
+                    {isDesktop&&<div>{c.status==="aberta"&&<Btn size="sm" v={eh?"success":"ghost"} onClick={e=>{e.stopPropagation();setCotDecisao({cotacaoId:c.id,propostaId:p.id,justificativa:""});}}>Escolher</Btn>}</div>}
+                    <div style={{gridColumn:isDesktop?"1/-1":"1/-1",paddingTop:5,borderTop:`1px solid ${C.line}`}}><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/>{!isDesktop&&c.status==="aberta"&&<Btn size="sm" v={eh?"success":"ghost"} full onClick={()=>setCotDecisao({cotacaoId:c.id,propostaId:p.id,justificativa:""})}>Escolher e gerar pedido</Btn>}</div>
+                  </div>;})}
+                  <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:8}}>
+                    <span style={{fontSize:9,color:C.muted}}>{c.status==="decidida"?`Economia registrada: ${fmt(c.economia||0)}`:"Selecione a proposta considerando preço, prazo e documentação."}</span>
+                    {podeProcessar&&<Btn size="sm" v="danger" onClick={()=>excluirCotacao(c)}><Ic n="trash"/> Excluir cotação</Btn>}
+                  </div>
+                </div>}
+              </div>;
+            })}
+          </div>}
       </>)}
 
       {/*  FORNECEDORES  */}
@@ -24146,6 +24534,25 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         <label style={{display:"flex",gap:8,alignItems:"center",fontSize:10,color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.conciliado} onChange={e=>setPagModal(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento/comprovante já conferido e conciliado</span></label>
         <Inp label="Observação" value={pagModal.observacao} onChange={v=>setPagModal(f=>({...f,observacao:v}))} multiline/>
         <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setPagModal(null)} disabled={subindoComprovantePagamento}>Cancelar</Btn><Btn full onClick={registrarPagamento} disabled={subindoComprovantePagamento}><Ic n="check"/> {subindoComprovantePagamento?"Salvando comprovante...":"Registrar pagamento"}</Btn></div>
+      </div></Modal>}
+      {excluirCompraModal&&<Modal title={`Excluir compra · ${excluirCompraModal.pedido.numero}`} onClose={()=>setExcluirCompraModal(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}>
+        <div style={{padding:"11px 12px",border:`1px solid ${C.red}`,borderRadius:8,background:`${C.red}09`}}>
+          <p style={{fontSize:12,fontWeight:850,color:C.red}}>Esta exclusão remove a compra dos controles operacionais.</p>
+          <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5,marginTop:4}}>Entradas no estoque e pagamentos criados diretamente pelo pedido serão retirados. Notas fiscais permanecem no Financeiro, são desvinculadas e recebem um alerta. A ação ficará registrada na auditoria.</p>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:6}}>
+          {[
+            ["Total da compra",fmt(totalPedido(excluirCompraModal.pedido))],
+            ["Valor pago",fmt(totalPagoPedido(excluirCompraModal.pedido))],
+            ["Entradas no estoque",excluirCompraModal.movimentos.length],
+            ["Saídas no caixa",excluirCompraModal.caixas.length],
+            ["Notas desvinculadas",excluirCompraModal.notas.length],
+            ["Recebimentos",(excluirCompraModal.pedido.itens||[]).reduce((s,i)=>s+(i.recebimentos||[]).length,0)],
+          ].map(([label,valor])=><div key={label} style={{padding:"8px 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.surface}}><p style={{fontSize:8,color:C.muted,textTransform:"uppercase",fontWeight:800}}>{label}</p><b style={{display:"block",fontSize:11.5,color:C.text,marginTop:3}}>{valor}</b></div>)}
+        </div>
+        <Inp label="Motivo da exclusão *" value={excluirCompraModal.motivo} onChange={v=>setExcluirCompraModal(f=>({...f,motivo:v}))} multiline placeholder="Ex.: compra duplicada, obra incorreta ou pedido criado por engano"/>
+        <Inp label={`Digite ${excluirCompraModal.pedido.numero} para confirmar *`} value={excluirCompraModal.confirmacao} onChange={v=>setExcluirCompraModal(f=>({...f,confirmacao:v}))}/>
+        <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setExcluirCompraModal(null)}>Manter compra</Btn><Btn v="danger" full onClick={excluirCompraDefinitivamente}><Ic n="trash"/> Excluir compra</Btn></div>
       </div></Modal>}
     </div>
   );
@@ -27203,31 +27610,43 @@ function ModalMarco({ marco, onSalvar, onRemover, onClose }) {
 //  - Ocorrencias e fotos (Storage - guarda so a URL)
 // ==============================================================
 
-// Comprime a imagem no cliente ANTES de subir: recorta o centro em 1:1,
-// limita o quadrado a 1280px e exporta JPEG ~0.7. Assim o arquivo salvo (e
-// nao apenas a miniatura) ja nasce padronizado para a grade e o relatorio.
-const comprimirImagem = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => {
-    const img = new Image();
-    img.onload = () => {
-      const MAX = 1280;
-      const ladoOrigem = Math.min(img.width, img.height);
-      const origemX = (img.width - ladoOrigem) / 2;
-      const origemY = (img.height - ladoOrigem) / 2;
-      const ladoDestino = Math.min(ladoOrigem, MAX);
-      const canvas = document.createElement("canvas");
-      canvas.width = ladoDestino; canvas.height = ladoDestino;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, origemX, origemY, ladoOrigem, ladoOrigem, 0, 0, ladoDestino, ladoDestino);
-      resolve(canvas.toDataURL("image/jpeg", 0.7));
-    };
-    img.onerror = reject;
-    img.src = reader.result;
-  };
-  reader.onerror = reject;
-  reader.readAsDataURL(file);
-});
+// Normaliza fotos de câmera antes do envio. Mantém o enquadramento completo
+// (importante para a evidência), respeita a orientação EXIF quando o navegador
+// oferece createImageBitmap e limita o payload para funcionar em redes móveis.
+const comprimirImagem = async file => {
+  if(!file)throw new Error("Nenhuma foto foi selecionada.");
+  if(file.size>24*1024*1024)throw new Error("A foto é maior que 24 MB. Reduza a resolução e tente novamente.");
+  const tipo=String(file.type||"").toLowerCase();
+  if(tipo&&!tipo.startsWith("image/"))throw new Error("Selecione um arquivo de imagem.");
+  let imagem=null,objectUrl="";
+  try{
+    if(typeof createImageBitmap==="function"){
+      try{imagem=await createImageBitmap(file,{imageOrientation:"from-image"});}catch{/* fallback para Image */}
+    }
+    if(!imagem){
+      objectUrl=URL.createObjectURL(file);
+      imagem=await new Promise((resolve,reject)=>{
+        const img=new Image();
+        img.onload=()=>resolve(img);
+        img.onerror=()=>reject(new Error("Formato de foto não suportado. Use a câmera ou selecione JPG/PNG."));
+        img.src=objectUrl;
+      });
+    }
+    const largura=Number(imagem.width||imagem.naturalWidth||0),altura=Number(imagem.height||imagem.naturalHeight||0);
+    if(!largura||!altura)throw new Error("Não foi possível ler as dimensões da foto.");
+    const MAX=1600,escala=Math.min(1,MAX/Math.max(largura,altura));
+    const canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(largura*escala));
+    canvas.height=Math.max(1,Math.round(altura*escala));
+    const ctx=canvas.getContext("2d");
+    if(!ctx)throw new Error("O navegador não conseguiu preparar a foto.");
+    ctx.drawImage(imagem,0,0,canvas.width,canvas.height);
+    return canvas.toDataURL("image/jpeg",0.78);
+  }finally{
+    if(objectUrl)URL.revokeObjectURL(objectUrl);
+    if(imagem&&typeof imagem.close==="function")imagem.close();
+  }
+};
 
 const CLIMA_OPC = [
   { v: "bom",          l: "Bom",          c: C.green  },
@@ -28068,7 +28487,7 @@ function Qualidade({data,update,showToast,currentUser,obraIdFixo=""}){
 }
 
 function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
-  const { cols } = useBreakpoint();
+  const { cols, isDesktop } = useBreakpoint();
   const obras=useMemo(()=>(data.obras||[]).filter(o=>o.status!=="done"),[data.obras]);
   const [obraFiltro,setObraFiltro]=useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
   const [statusFiltro,setStatusFiltro]=useState("abertas");
@@ -28102,8 +28521,21 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const obrasNoEscopo=obras.filter(o=>!currentUser?.obraId||currentUser.obraId===o.id);
   const obrasCriaveis=ehAdmin?obras:ehAuditor?obrasNoEscopo:[];
   const podeCriarConferencia=(ehAdmin||ehAuditor)&&obrasCriaveis.length>0;
-  const ehVistoriador=ehAuditor&&!!currentUser?.id&&currentUser.id===conferencia?.responsavelId;
-  const podeGerirVistoria=ehAdmin||ehVistoriador;
+  const nomeNormalizado=valor=>String(valor||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
+  // Conferências antigas podem guardar um responsávelId anterior à recriação
+  // do usuário. Bloquear toda a prancheta por igualdade estrita deixava o
+  // auditor autenticado em modo somente leitura no celular. Auditores ativos
+  // podem operar as vistorias do próprio escopo; a autoria continua registrada.
+  // Se a conferência chegou à lista visível do auditor, ela é operável. O
+  // filtro da listagem já protege o escopo; repetir a trava aqui criava telas
+  // visíveis porém inutilizáveis quando a lotação do usuário era atualizada.
+  const auditorNoEscopo=ehAuditor;
+  const ehVistoriador=auditorNoEscopo&&(
+    !conferencia?.responsavelId||
+    currentUser?.id===conferencia.responsavelId||
+    nomeNormalizado(currentUser?.nome)===nomeNormalizado(conferencia?.responsavel)
+  );
+  const podeGerirVistoria=ehAdmin||auditorNoEscopo;
   const ehResponsavelAjuste=p=>ehEngenheiro&&!!currentUser?.id&&currentUser.id===p?.responsavelAjusteId;
   const obraDaConferencia=obraAtual;
   const responsavelAutomatico=useMemo(()=>vistoriadores.find(u=>u.id===conferencia?.responsavelId)||(ehAuditor?currentUser:null),[vistoriadores,conferencia?.responsavelId,ehAuditor,currentUser]);
@@ -28148,7 +28580,6 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   };
   const salvarPendencia=form=>{
     if(!podeGerirVistoria){showToast?.("Somente o responsável pela vistoria pode criar ou editar pendências.","error");return;}
-    if(!form.etapaId){showToast?.("Vincule a pendência a uma etapa de nível 1 do orçamento.","error");return;}
     if(!form.descricao.trim()||!form.ajusteNecessario.trim()){showToast?.("Descreva o problema e o ajuste necessário.","error");return;}
     if(!form.responsavelAjusteId){showToast?.("Defina quem será responsável pelo ajuste.","error");return;}
     const resp=responsaveis.find(r=>r.id===form.responsavelAjusteId);
@@ -28196,8 +28627,8 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     try{
       const agora=Date.now(),criadoEm=new Date().toISOString(),novas=[];
       let originalId="";
-      if(temAnotacoes){const original=await enviarArquivoOneDrive({dataUrl:originalDataUrl||dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`ajuste-original-${agora}.jpg`});if(!original.url)throw new Error(original.error||"Falha no envio da foto original.");originalId=original.item?.id||uid();novas.push({id:originalId,url:original.url,legenda:"Foto original da correção",path:original.path||"",tipo:"ajuste",enviadoPorId:currentUser.id,enviadoPor:currentUser.nome||"",criadoEm,anotada:false});}
-      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`ajuste-${temAnotacoes?"anotado-":""}${agora}.jpg`});
+      if(temAnotacoes){const original=await enviarArquivoOneDrive({dataUrl:originalDataUrl||dataUrl,obraId:obraAtual?.id,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`ajuste-original-${agora}.jpg`});if(!original.url)throw new Error(original.error||"Falha no envio da foto original.");originalId=original.item?.id||uid();novas.push({id:originalId,url:original.url,legenda:"Foto original da correção",path:original.path||"",tipo:"ajuste",enviadoPorId:currentUser.id,enviadoPor:currentUser.nome||"",criadoEm,anotada:false});}
+      const resp=await enviarArquivoOneDrive({dataUrl,obraId:obraAtual?.id,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`ajuste-${temAnotacoes?"anotado-":""}${agora}.jpg`});
       if(!resp.url)throw new Error(resp.error||"Falha no envio.");
       novas.push({id:resp.item?.id||uid(),url:resp.url,legenda:legenda||"Foto da correção executada",path:resp.path||"",tipo:"ajuste",enviadoPorId:currentUser.id,enviadoPor:currentUser.nome||"",criadoEm,anotada:!!temAnotacoes,originalFotoId:originalId,anotadoPorId:temAnotacoes?currentUser.id:"",anotadoPor:temAnotacoes?(currentUser.nome||""):"",anotadoEm:temAnotacoes?criadoEm:""});
       atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,status:"aguardando_validacao",validacaoStatus:"",validacaoObservacao:"",validadoPorId:"",validadoPor:"",validadoEm:"",resolvidoEm:"",fotos:[...(x.fotos||[]),...novas]}:x)}));
@@ -28216,7 +28647,7 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const salvarCopiaAnotada=async({dataUrl,legenda,temAnotacoes})=>{
     const origem=fotoTecnica?.foto,p=fotoTecnica?.pendencia;if(!origem||!p||!temAnotacoes){if(!temAnotacoes)showToast?.("Faça ao menos uma marcação antes de salvar a cópia.","error");return;}
     setSubindoAjusteId(p.id);
-    try{const criadoEm=new Date().toISOString();const resp=await enviarArquivoOneDrive({dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`${origem.tipo==="ajuste"?"ajuste":"vistoria"}-anotado-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio da anotação.");const nova={id:resp.item?.id||uid(),url:resp.url,legenda:legenda||`${origem.legenda||"Evidência"} · anotada`,path:resp.path||"",tipo:origem.tipo,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm,anotada:true,originalFotoId:origem.id||"",anotadoPorId:currentUser?.id||"",anotadoPor:currentUser?.nome||"",anotadoEm:criadoEm};atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,fotos:[...(x.fotos||[]),nova]}:x)}));setFotoTecnica(null);showToast?.("Cópia anotada salva junto à pendência.");}
+    try{const criadoEm=new Date().toISOString();const resp=await enviarArquivoOneDrive({dataUrl,obraId:obraAtual?.id,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`${origem.tipo==="ajuste"?"ajuste":"vistoria"}-anotado-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio da anotação.");const nova={id:resp.item?.id||uid(),url:resp.url,legenda:legenda||`${origem.legenda||"Evidência"} · anotada`,path:resp.path||"",tipo:origem.tipo,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm,anotada:true,originalFotoId:origem.id||"",anotadoPorId:currentUser?.id||"",anotadoPor:currentUser?.nome||"",anotadoEm:criadoEm};atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,fotos:[...(x.fotos||[]),nova]}:x)}));setFotoTecnica(null);showToast?.("Cópia anotada salva junto à pendência.");}
     catch(err){showToast?.(err.message||"Não foi possível salvar a anotação.","error");}
     finally{setSubindoAjusteId("");}
   };
@@ -28243,7 +28674,7 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
       return `<article class="pending ${p.status==="resolvida"?"resolved":""}">
         <div class="pending-head"><div><span class="number">${String(index+1).padStart(2,"0")}</span><span class="tag" style="--tag:${escapeHtml(impacto.c)}">${escapeHtml(impacto.l)}</span><span class="tag category">${escapeHtml(categoriaLabel(p.categoria))}</span></div><span class="status">${escapeHtml(statusLabel(p.status))}</span></div>
         <h2>${escapeHtml(p.descricao||"Pendência sem descrição")}</h2>
-        <p class="stage">Etapa do orçamento · <b>${escapeHtml(nomeEtapa(p.etapaId))}</b></p>
+        ${p.etapaId?`<p class="stage">Etapa do orçamento · <b>${escapeHtml(nomeEtapa(p.etapaId))}</b></p>`:""}
         <div class="details"><div><small>AJUSTE NECESSÁRIO</small><p>${escapeHtml(p.ajusteNecessario||"-")}</p></div><div><small>RESPONSÁVEL PELO AJUSTE</small><p>${escapeHtml(p.responsavelAjusteNome||"Não definido")}</p></div><div><small>PRAZO</small><p class="${vencida?"overdue":""}">${p.prazo?escapeHtml(fmtDate(p.prazo)):"Não definido"}${vencida?" · VENCIDA":""}</p></div><div><small>REGISTRADA EM</small><p>${escapeHtml(dataHora(p.criadoEm))}</p></div></div>
         ${p.validadoEm?`<div class="validation ${p.validacaoStatus==="conforme"?"ok":"nok"}"><b>${p.validacaoStatus==="conforme"?"CORREÇÃO CONFORME":"CORREÇÃO NÃO CONFORME"}</b> · ${escapeHtml(p.validadoPor||conferencia.responsavel||"-")} · ${escapeHtml(dataHora(p.validadoEm))}${p.validacaoObservacao?`<p>${escapeHtml(p.validacaoObservacao)}</p>`:""}</div>`:""}
         ${validacoes?`<div class="history"><small>HISTÓRICO DE VALIDAÇÕES</small><ul>${validacoes}</ul></div>`:""}
@@ -28291,26 +28722,36 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     if(conferencia.status!=="concluida"&&abertas){showToast?.("Valide todas as correções antes de concluir a vistoria.","error");return;}
     atualizar(conferencia.id,c=>({...c,status:c.status==="concluida"?"em_andamento":"concluida",concluidoEm:c.status==="concluida"?"":new Date().toISOString()}));
   };
-  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+  const totalPendencias=(conferencia.pendencias||[]).length;
+  const resolvidas=totalPendencias-abertas;
+  const progresso=totalPendencias?Math.round(resolvidas/totalPendencias*100):100;
+  const vencidas=(conferencia.pendencias||[]).filter(p=>p.status!=="resolvida"&&p.prazo&&p.prazo<today()).length;
+  const criticas=(conferencia.pendencias||[]).filter(p=>p.status!=="resolvida"&&p.impacto==="critico").length;
+  return <div className="conference-field-view" style={{display:"flex",flexDirection:"column",gap:12,paddingBottom:!isDesktop&&podeGerirVistoria?78:0}}>
+    <div className="conference-field-header" style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}>
       <div><button onClick={()=>setSelecionadaId("")} style={{border:0,background:"transparent",padding:0,color:C.blue,cursor:"pointer",fontSize:11,fontWeight:800}}>← Todas as conferências</button><h2 style={{fontSize:20,marginTop:5}}>CONF-{String(conferencia.codigo).padStart(3,"0")} · {obraAtual?.name}</h2></div>
-      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={exportarRelatorioPendencias}><Ic n="fileText"/> Relatório PDF</Btn>{podeGerirVistoria&&<>{ehAdmin&&<Btn size="sm" v="ghost" onClick={excluirConferencia}><Ic n="trash"/> Excluir</Btn>}<Btn size="sm" onClick={alternarConclusao}>{conferencia.status==="concluida"?"Reabrir vistoria":"Concluir vistoria"}</Btn></>}</div>
+      <div className="conference-desktop-actions" style={{display:"flex",gap:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={exportarRelatorioPendencias}><Ic n="fileText"/> Relatório PDF</Btn>{podeGerirVistoria&&<>{ehAdmin&&<Btn size="sm" v="ghost" onClick={excluirConferencia}><Ic n="trash"/> Excluir</Btn>}<Btn size="sm" onClick={alternarConclusao}>{conferencia.status==="concluida"?"Reabrir vistoria":"Concluir vistoria"}</Btn></>}</div>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:9}}>
+    <section className="conference-mobile-progress" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 12px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}><div><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Andamento da vistoria</p><b style={{fontSize:13,color:abertas?C.orange:C.green}}>{abertas?`${abertas} ajuste(s) em aberto`:"Pronta para concluir"}</b></div><strong style={{fontSize:18,color:progresso===100?C.green:C.text}}>{progresso}%</strong></div>
+      <div style={{height:6,borderRadius:99,background:C.surface,overflow:"hidden",marginTop:8}}><div style={{height:"100%",width:`${progresso}%`,background:progresso===100?C.green:C.yellow,borderRadius:99}}/></div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5,marginTop:9}}>{[["Achados",totalPendencias,C.text],["Abertos",abertas,C.orange],["Críticos",criticas,C.red],["Vencidos",vencidas,C.red]].map(([l,v,c])=><div key={l}><b style={{display:"block",fontSize:13,color:c}}>{v}</b><span style={{fontSize:8,color:C.muted}}>{l}</span></div>)}</div>
+    </section>
+    <div className="conference-meta-grid" style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:9}}>
       <Inp label="Data da vistoria" type="date" value={conferencia.data} onChange={v=>podeGerirVistoria&&atualizar(conferencia.id,c=>({...c,data:v}))} disabled={!podeGerirVistoria}/>
       {ehAdmin?<Sel label="Responsável pela vistoria" value={conferencia.responsavelId||""} onChange={v=>{const u=vistoriadores.find(x=>x.id===v);if(u)atualizar(conferencia.id,c=>({...c,responsavelId:u.id,responsavel:u.nome}));}} options={[{v:"",l:"Selecione..."},...vistoriadores.map(u=>({v:u.id,l:`${u.nome} · ${u.role==="admin"?"Administrador":"Engenheiro auditor"}`}))]}/>:<Inp label="Responsável pela vistoria" value={conferencia.responsavel||responsavelAutomatico?.nome||""} onChange={()=>{}} disabled/>}
       <Inp label="Nota geral (0 a 10)" type="number" min="0" max="10" value={conferencia.notaGeral} onChange={v=>podeGerirVistoria&&atualizar(conferencia.id,c=>({...c,notaGeral:Math.max(0,Math.min(10,Number(v||0)))}))} disabled={!podeGerirVistoria}/>
       <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:5}}>SITUAÇÃO DOS AJUSTES</p><div style={{height:38,border:`1px solid ${abertas?C.orange:C.green}`,borderRadius:6,display:"flex",alignItems:"center",padding:"0 10px",fontSize:12,fontWeight:800,color:abertas?C.orange:C.green}}>{abertas?`${abertas} pendência(s) aberta(s)`:"Tudo resolvido"}</div></div>
     </div>
-    <Inp label="Observações gerais" multiline value={conferencia.observacoesGerais} onChange={v=>podeGerirVistoria&&atualizar(conferencia.id,c=>({...c,observacoesGerais:v}))} disabled={!podeGerirVistoria} placeholder="Avaliação geral da qualidade, critérios verificados e orientações..."/>
-    <Bloco titulo={`Pendências técnicas (${(conferencia.pendencias||[]).length})`} acao={podeGerirVistoria?<Btn size="sm" onClick={()=>abrirPendencia(null)} disabled={!orc||!etapasNivel1.length}><Ic n="plus"/> Pendência</Btn>:null}>
-      {!orc&&<div style={{padding:12,borderRadius:7,background:`${C.orange}10`,color:C.orange,fontSize:12}}>Esta obra ainda não possui orçamento vinculado. Crie o orçamento para registrar achados rastreáveis.</div>}
-      {orc&&!etapasNivel1.length&&<div style={{padding:12,borderRadius:7,background:`${C.orange}10`,color:C.orange,fontSize:12}}>O orçamento não possui etapas de nível 1.</div>}
-      {orc&&!(conferencia.pendencias||[]).length&&<p style={{fontSize:12,color:C.muted}}>Nenhuma patologia ou inconformidade registrada.</p>}
+    <div className="conference-notes"><Inp label="Observações gerais" multiline value={conferencia.observacoesGerais} onChange={v=>podeGerirVistoria&&atualizar(conferencia.id,c=>({...c,observacoesGerais:v}))} disabled={!podeGerirVistoria} placeholder="Avaliação geral da qualidade, critérios verificados e orientações..."/></div>
+    <div className="conference-findings"><Bloco titulo={`Pendências técnicas (${(conferencia.pendencias||[]).length})`} acao={podeGerirVistoria?<span><Btn size="sm" onClick={()=>abrirPendencia(null)}><Ic n="plus"/> Pendência</Btn></span>:null}>
+      {!orc&&<div style={{padding:12,borderRadius:7,background:C.surface,color:C.muted,fontSize:12}}>Orçamento não vinculado. Você pode registrar o achado normalmente e relacionar uma etapa depois, se necessário.</div>}
+      {orc&&!etapasNivel1.length&&<div style={{padding:12,borderRadius:7,background:C.surface,color:C.muted,fontSize:12}}>Este orçamento não possui etapas principais. O vínculo da pendência continuará opcional.</div>}
+      {!(conferencia.pendencias||[]).length&&<p style={{fontSize:12,color:C.muted}}>Nenhuma patologia ou inconformidade registrada.</p>}
       <div style={{display:"flex",flexDirection:"column",gap:8}}>{(conferencia.pendencias||[]).map(p=>{
         const imp=impactoMeta(p.impacto);
-        return <div key={p.id} style={{border:`1px solid ${p.status==="resolvida"?C.border:imp.c}`,borderLeft:`4px solid ${imp.c}`,borderRadius:8,padding:11,background:p.status==="resolvida"?C.surface:C.card}}>
-          <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><Badge color={imp.c}>{imp.l}</Badge><Badge color={C.blue}>{CONFERENCIA_CATEGORIAS.find(x=>x.v===p.categoria)?.l}</Badge><span style={{fontSize:10,color:C.muted}}>{nomeEtapa(p.etapaId)}</span></div><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:7}}>{p.descricao}</p><p style={{fontSize:10.5,color:C.muted,marginTop:4}}>Etapa principal do orçamento: <strong>{nomeEtapa(p.etapaId)}</strong></p></div>{podeGerirVistoria&&<div style={{display:"flex",gap:5,alignItems:"flex-start"}}><button onClick={()=>abrirPendencia(p)} title="Editar" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer"}}><Ic n="edit"/></button><button onClick={()=>removerPendencia(p.id)} title="Excluir" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",color:C.red}}><Ic n="trash"/></button></div>}</div>
+        return <div className="conference-finding-card" key={p.id} style={{border:`1px solid ${p.status==="resolvida"?C.border:imp.c}`,borderLeft:`4px solid ${imp.c}`,borderRadius:8,padding:11,background:p.status==="resolvida"?C.surface:C.card}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><Badge color={imp.c}>{imp.l}</Badge><Badge color={C.blue}>{CONFERENCIA_CATEGORIAS.find(x=>x.v===p.categoria)?.l}</Badge>{p.etapaId&&<span style={{fontSize:10,color:C.muted}}>{nomeEtapa(p.etapaId)}</span>}</div><p style={{fontSize:13,fontWeight:800,color:C.text,marginTop:7}}>{p.descricao}</p>{p.etapaId&&<p style={{fontSize:10.5,color:C.muted,marginTop:4}}>Etapa principal do orçamento: <strong>{nomeEtapa(p.etapaId)}</strong></p>}</div>{podeGerirVistoria&&<div style={{display:"flex",gap:5,alignItems:"flex-start"}}><button onClick={()=>abrirPendencia(p)} title="Editar" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer"}}><Ic n="edit"/></button><button onClick={()=>removerPendencia(p.id)} title="Excluir" style={{border:`1px solid ${C.border}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",color:C.red}}><Ic n="trash"/></button></div>}</div>
           <p style={{fontSize:11.5,color:C.text,marginTop:8}}><strong>Ajuste:</strong> {p.ajusteNecessario}</p><p style={{fontSize:10.5,color:C.muted,marginTop:5}}>Responsável: <strong>{p.responsavelAjusteNome||"—"}</strong>{p.prazo?` · Prazo: ${fmtDate(p.prazo)}`:""}</p>
           {(p.fotos||[]).length>0&&<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>{p.fotos.map((f,idx)=><button key={f.id||`${f.url}-${idx}`} onClick={()=>abrirFotoTecnica(p,f)} title={`Ampliar ${f.legenda||"evidência"}${f.enviadoPor?` · ${f.enviadoPor}`:""}`} style={{position:"relative",border:0,background:"transparent",padding:0,cursor:"zoom-in"}}><img src={f.url} alt={f.legenda||"Evidência"} style={{width:58,height:58,objectFit:"cover",borderRadius:5,border:`1px solid ${f.tipo==="ajuste"?C.green:C.border}`}}/>{f.tipo==="ajuste"&&<span style={{position:"absolute",left:3,bottom:3,padding:"2px 4px",borderRadius:3,background:C.green,color:"white",fontSize:7,fontWeight:900}}>CORREÇÃO</span>}{f.anotada&&<span style={{position:"absolute",right:3,top:3,padding:"2px 4px",borderRadius:3,background:C.blue,color:"white",fontSize:7,fontWeight:900}}>ANOTADA</span>}</button>)}</div>}
           {ehResponsavelAjuste(p)&&p.status!=="resolvida"&&<label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:9,border:`1px solid ${C.blue}`,borderRadius:6,padding:"6px 9px",color:C.blue,fontSize:10,fontWeight:800,cursor:subindoAjusteId===p.id?"wait":"pointer",opacity:subindoAjusteId===p.id?0.65:1}}><Ic n="camera"/>{subindoAjusteId===p.id?"Preparando...":p.status==="aguardando_validacao"?"Enviar nova foto":"Fotografar e anotar correção"}<input type="file" accept="image/*" capture="environment" disabled={subindoAjusteId===p.id} onChange={e=>{const file=e.target.files?.[0];prepararFotoAjuste(p,file);e.target.value="";}} style={{display:"none"}}/></label>}
@@ -28318,7 +28759,8 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
           {p.validadoEm&&<div style={{marginTop:8,padding:"7px 9px",borderRadius:6,background:p.validacaoStatus==="conforme"?`${C.green}0D`:`${C.orange}0D`,border:`1px solid ${p.validacaoStatus==="conforme"?C.green:C.orange}44`}}><p style={{fontSize:9.5,fontWeight:850,color:p.validacaoStatus==="conforme"?C.green:C.orange}}>{p.validacaoStatus==="conforme"?"CORREÇÃO CONFORME":"CORREÇÃO NÃO CONFORME"} · {p.validadoPor||conferencia.responsavel} · {new Date(p.validadoEm).toLocaleString("pt-BR")}</p>{p.validacaoObservacao&&<p style={{fontSize:10.5,color:C.text,marginTop:4}}>{p.validacaoObservacao}</p>}</div>}
         </div>;
       })}</div>
-    </Bloco>
+    </Bloco></div>
+    {!isDesktop&&podeGerirVistoria&&<div className="conference-mobile-actions"><button onClick={exportarRelatorioPendencias} aria-label="Gerar relatório"><Ic n="fileText" s={17}/></button><button className="conference-mobile-primary" onClick={()=>abrirPendencia(null)}><Ic n="camera" s={17}/> Registrar achado</button><button onClick={alternarConclusao} aria-label={conferencia.status==="concluida"?"Reabrir vistoria":"Concluir vistoria"}><Ic n={conferencia.status==="concluida"?"refresh":"check"} s={17}/></button></div>}
     {pendenciaForm&&(
       <ModalPendenciaConferencia form={pendenciaForm} setForm={setPendenciaForm} etapasNivel1={etapasNivel1} responsaveis={responsaveis} obra={obraAtual} conferencia={conferencia} currentUser={currentUser} onSalvar={salvarPendencia} onClose={()=>setPendenciaForm(null)} showToast={showToast}/>
     )}
@@ -28337,17 +28779,35 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
 function ModalPendenciaConferencia({form,setForm,etapasNivel1,responsaveis,obra,conferencia,currentUser,onSalvar,onClose,showToast}){
   const [subindo,setSubindo]=useState(false);
   const [fotoEditor,setFotoEditor]=useState(null);
-  const subirFoto=async e=>{const file=e.target.files?.[0];if(!file)return;setSubindo(true);try{const dataUrl=await comprimirImagem(file);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`conferencia-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio.");setForm(f=>({...f,fotos:[...(f.fotos||[]),{id:uid(),url:resp.url,legenda:"Registro da vistoria",path:resp.path||"",tipo:"registro",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm:new Date().toISOString()}]}));showToast?.("Evidência adicionada.");}catch(err){showToast?.(err.message||"Falha ao enviar foto.","error");}finally{setSubindo(false);e.target.value="";}};
+  const subirFoto=async e=>{
+    const input=e.currentTarget,files=Array.from(input.files||[]);
+    if(!files.length)return;
+    setSubindo(true);
+    try{
+      const novas=[];
+      for(const [index,file] of files.entries()){
+        if(!String(file.type||"").startsWith("image/"))throw new Error(`${file.name||"Arquivo"} não é uma imagem válida.`);
+        const dataUrl=await comprimirImagem(file);
+        const resp=await enviarArquivoOneDrive({dataUrl,obraId:obra?.id,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`conferencia-${Date.now()}-${index+1}.jpg`});
+        const url=resp.url||resp.item?.webUrl||"";
+        if(!url)throw new Error(resp.error||`Falha ao enviar ${file.name||"a foto"}.`);
+        novas.push({id:resp.item?.id||uid(),url,legenda:String(file.name||"Registro da vistoria").replace(/\.[^.]+$/,""),path:resp.path||"",tipo:"registro",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm:new Date().toISOString()});
+      }
+      setForm(f=>({...f,fotos:[...(f.fotos||[]),...novas]}));
+      showToast?.(`${novas.length} evidência(s) adicionada(s).`);
+    }catch(err){showToast?.(err.message||"Falha ao enviar foto.","error");}
+    finally{setSubindo(false);input.value="";}
+  };
   const abrirEditor=async foto=>{setFotoEditor({carregando:true,foto});try{const src=await imagemTecnicaComoDataUrl(foto.url);setFotoEditor({foto,src});}catch(err){setFotoEditor(null);showToast?.(err.message||"Não foi possível abrir a imagem.","error");}};
-  const salvarAnotada=async({dataUrl,legenda,temAnotacoes})=>{if(!fotoEditor?.foto||!temAnotacoes){showToast?.("Faça ao menos uma marcação antes de salvar.","error");return;}setSubindo(true);try{const origem=fotoEditor.foto,criadoEm=new Date().toISOString();const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`vistoria-anotada-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio.");const nova={id:resp.item?.id||uid(),url:resp.url,legenda:legenda||`${origem.legenda||"Evidência"} · anotada`,path:resp.path||"",tipo:"registro",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm,anotada:true,originalFotoId:origem.id||"",anotadoPorId:currentUser?.id||"",anotadoPor:currentUser?.nome||"",anotadoEm:criadoEm};setForm(f=>({...f,fotos:[...(f.fotos||[]),nova]}));setFotoEditor(null);showToast?.("Cópia anotada adicionada à pendência.");}catch(err){showToast?.(err.message||"Falha ao salvar a anotação.","error");}finally{setSubindo(false);}};
-  return <Modal title={form.id?"Editar pendência":"Nova pendência técnica"} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
-    <Sel label="Etapa do orçamento — nível 1 *" value={form.etapaId} onChange={v=>setForm(f=>({...f,itemOrcamentoId:"",etapaId:v}))} options={[{v:"",l:"Selecione a etapa principal..."},...etapasNivel1.map((etapa,index)=>({v:etapa.id,l:`${index+1}. ${etapa.nome}`}))]}/>
+  const salvarAnotada=async({dataUrl,legenda,temAnotacoes})=>{if(!fotoEditor?.foto||!temAnotacoes){showToast?.("Faça ao menos uma marcação antes de salvar.","error");return;}setSubindo(true);try{const origem=fotoEditor.foto,criadoEm=new Date().toISOString();const resp=await enviarArquivoOneDrive({dataUrl,obraId:obra?.id,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`vistoria-anotada-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio.");const nova={id:resp.item?.id||uid(),url:resp.url,legenda:legenda||`${origem.legenda||"Evidência"} · anotada`,path:resp.path||"",tipo:"registro",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm,anotada:true,originalFotoId:origem.id||"",anotadoPorId:currentUser?.id||"",anotadoPor:currentUser?.nome||"",anotadoEm:criadoEm};setForm(f=>({...f,fotos:[...(f.fotos||[]),nova]}));setFotoEditor(null);showToast?.("Cópia anotada adicionada à pendência.");}catch(err){showToast?.(err.message||"Falha ao salvar a anotação.","error");}finally{setSubindo(false);}};
+  return <Modal title={form.id?"Editar pendência":"Novo achado da vistoria"} onClose={onClose} wide panelClass="conference-finding-modal"><div className="conference-finding-form" style={{display:"flex",flexDirection:"column",gap:10}}>
+    <Sel label="Etapa do orçamento (opcional)" value={form.etapaId} onChange={v=>setForm(f=>({...f,itemOrcamentoId:"",etapaId:v}))} options={[{v:"",l:"Sem vínculo com uma etapa"},...etapasNivel1.map((etapa,index)=>({v:etapa.id,l:`${index+1}. ${etapa.nome}`}))]}/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:8}}><Sel label="Categoria" value={form.categoria} onChange={v=>setForm(f=>({...f,categoria:v}))} options={CONFERENCIA_CATEGORIAS}/><Sel label="Impacto" value={form.impacto} onChange={v=>setForm(f=>({...f,impacto:v}))} options={CONFERENCIA_IMPACTOS}/></div>
     <Inp label="Patologia / inconformidade encontrada *" multiline value={form.descricao} onChange={v=>setForm(f=>({...f,descricao:v}))} placeholder="Descreva objetivamente o que foi verificado, localização e dimensão..."/>
     <Inp label="Ajuste necessário *" multiline value={form.ajusteNecessario} onChange={v=>setForm(f=>({...f,ajusteNecessario:v}))} placeholder="Defina a correção, critério de aceite e resultado esperado..."/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:8}}><Sel label="Engenheiro responsável pelo ajuste *" value={form.responsavelAjusteId} onChange={v=>setForm(f=>({...f,responsavelAjusteId:v,responsavelAjusteNome:responsaveis.find(r=>r.id===v)?.nome||""}))} options={[{v:"",l:"Selecione..."},...responsaveis.map(r=>({v:r.id,l:`${r.nome} · ${r.tipo}`}))]}/><Inp label="Prazo combinado" type="date" value={form.prazo} onChange={v=>setForm(f=>({...f,prazo:v}))}/></div>
-    <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:6}}>EVIDÊNCIAS FOTOGRÁFICAS</p><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{(form.fotos||[]).map((foto,idx)=><div key={foto.id||foto.url} style={{position:"relative"}}><button onClick={()=>abrirEditor(foto)} title="Ampliar e anotar" style={{border:0,background:"transparent",padding:0,cursor:"zoom-in"}}><img src={foto.url} alt="Evidência" style={{width:76,height:76,objectFit:"cover",borderRadius:6,border:`1px solid ${foto.anotada?C.blue:C.border}`}}/>{foto.anotada&&<span style={{position:"absolute",left:3,bottom:3,padding:"2px 4px",borderRadius:3,background:C.blue,color:"white",fontSize:7,fontWeight:900}}>ANOTADA</span>}</button><button onClick={()=>setForm(f=>({...f,fotos:f.fotos.filter((_,i)=>i!==idx)}))} title="Remover" style={{position:"absolute",right:3,top:3,border:0,borderRadius:5,background:"rgba(0,0,0,.72)",color:"white",cursor:"pointer",width:20,height:20}}>x</button></div>)}<label style={{width:76,height:76,border:`2px dashed ${C.border}`,borderRadius:6,display:"grid",placeItems:"center",cursor:subindo?"wait":"pointer",fontSize:10,color:C.muted,textAlign:"center"}}>{subindo?"Enviando...":"+ Foto"}<input type="file" accept="image/*" capture="environment" onChange={subirFoto} disabled={subindo} style={{display:"none"}}/></label></div><p style={{fontSize:8.5,color:C.muted,marginTop:5}}>Clique na foto para ampliar, desenhar, inserir setas, círculos ou texto.</p></div>
-    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={()=>onSalvar(form)}><Ic n="check"/> Salvar pendência</Btn></div>
+    <div className="conference-photo-field"><p style={{fontSize:9.5,fontWeight:800,color:C.muted,marginBottom:6}}>EVIDÊNCIAS FOTOGRÁFICAS</p><div className="conference-photo-list">{(form.fotos||[]).map((foto,idx)=><div key={foto.id||foto.url} style={{position:"relative"}}><button onClick={()=>abrirEditor(foto)} title="Ampliar e anotar" style={{border:0,background:"transparent",padding:0,cursor:"zoom-in"}}><img src={foto.url} alt="Evidência" style={{width:76,height:76,objectFit:"cover",borderRadius:6,border:`1px solid ${foto.anotada?C.blue:C.border}`}}/>{foto.anotada&&<span style={{position:"absolute",left:3,bottom:3,padding:"2px 4px",borderRadius:3,background:C.blue,color:"white",fontSize:7,fontWeight:900}}>ANOTADA</span>}</button><button onClick={()=>setForm(f=>({...f,fotos:f.fotos.filter((_,i)=>i!==idx)}))} title="Remover" style={{position:"absolute",right:3,top:3,border:0,borderRadius:5,background:"rgba(0,0,0,.72)",color:"white",cursor:"pointer",width:20,height:20}}>x</button></div>)}<div className="conference-photo-actions"><label className="conference-camera-button">{subindo?"Enviando...":<><Ic n="camera" s={20}/><span>Abrir câmera</span></>}<input className="conference-file-input" type="file" accept="image/*" capture="environment" onClick={e=>{e.currentTarget.value="";}} onChange={subirFoto} disabled={subindo}/></label><label className="conference-camera-button conference-gallery-button"><Ic n="file" s={20}/><span>Escolher fotos</span><input className="conference-file-input" type="file" accept="image/*" multiple onClick={e=>{e.currentTarget.value="";}} onChange={subirFoto} disabled={subindo}/></label></div></div><p style={{fontSize:8.5,color:C.muted,marginTop:6}}>Use a câmera ou escolha uma ou mais imagens do aparelho. Toque na miniatura para ampliar e marcar.</p></div>
+    <div className="conference-form-actions" style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={()=>onSalvar(form)}><Ic n="check"/> Salvar achado</Btn></div>
     {fotoEditor?.carregando&&<div style={{position:"fixed",inset:0,zIndex:10020,background:"rgba(10,12,14,.82)",display:"grid",placeItems:"center",color:"white",fontSize:11,fontWeight:800}}>Abrindo evidência...</div>}
     {fotoEditor?.src&&<EditorFotoTecnica
       src={fotoEditor.src} legendaInicial={fotoEditor.foto?.legenda||"Registro da vistoria"}
@@ -29875,11 +30335,7 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="" }) {
 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div>
-        <p style={{fontSize:11,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Suprimentos</p>
-        <h3 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,
-                    fontSize:"clamp(19px,5vw,26px)",color:C.text}}>Estoque</h3>
-      </div>
+      <PageHero eyebrow="Suprimentos" title="Estoque" description="Controle físico dos materiais por obra, com alerta de reposição abaixo do mínimo."/>
 
       {/* Aviso de regime - o motivo de o estoque não mexer no DRE */}
       <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"9px 11px"}}>
@@ -30297,6 +30753,12 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
   const [transfModal,setTransfModal]= useState(null);
   const [busca, setBusca] = useState("");
   const [filtroObraGestao, setFiltroObraGestao] = useState(obraIdFixo||"all");   // filtro da grade de gestao
+  const [basesSinapiEquip,setBasesSinapiEquip]=useState([]);
+  const [baseSinapiEquipId,setBaseSinapiEquipId]=useState("");
+  const [buscaSinapiEquip,setBuscaSinapiEquip]=useState("");
+  const [resultadosSinapiEquip,setResultadosSinapiEquip]=useState([]);
+  const [carregandoSinapiEquip,setCarregandoSinapiEquip]=useState(false);
+  const [avisoSinapiEquip,setAvisoSinapiEquip]=useState("");
 
   const obraName = id => (data.obras||[]).find(o=>o.id===id)?.name || "—";
   const donoName = id => id ? ((data.proprietariosEquip||[]).find(p=>p.id===id)?.nome || "Terceiro") : "Empresa";
@@ -30313,6 +30775,83 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
     locado:    {l:"Locado",    c:C.blue},
     manutencao:{l:"Manutenção",c:C.orange},
     inativo:   {l:"Inativo",   c:C.muted},
+  };
+
+  useEffect(()=>{
+    if(!equipModal) return;
+    let ativo=true;
+    listarBasesReferencia().then(resultado=>{
+      if(!ativo) return;
+      if(!resultado.ok){
+        setAvisoSinapiEquip(resultado.error||"Não foi possível carregar as bases SINAPI.");
+        return;
+      }
+      const bases=consolidarBasesReferencia((resultado.bases||[])
+        .filter(base=>base.status==="ready"&&String(base.fonte||"").toUpperCase()==="SINAPI"));
+      setBasesSinapiEquip(bases);
+      setBaseSinapiEquipId(atual=>equipModal.sinapiReferenciaId||atual||bases[0]?.id||"");
+    });
+    return()=>{ativo=false;};
+  },[!!equipModal]);
+
+  useEffect(()=>{
+    if(!equipModal) return;
+    let ativo=true;
+    const termo=buscaSinapiEquip.trim();
+    if(!baseSinapiEquipId||termo.length<2){
+      setResultadosSinapiEquip([]);setCarregandoSinapiEquip(false);
+      return()=>{ativo=false;};
+    }
+    setCarregandoSinapiEquip(true);setAvisoSinapiEquip("");
+    const timer=window.setTimeout(async()=>{
+      const resposta=await pesquisarInsumosReferencia([baseSinapiEquipId],termo,"INSUMO");
+      if(!ativo) return;
+      if(resposta.ok){
+        const palavrasEquip=/EQUIP|MAQUIN|BETONEIRA|ANDAIME|MARTELETE|SERRA|FURADEIRA|COMPACTADOR|GERADOR|GUINCHO|ESCAVADEIRA|RETROESCAVADEIRA|CAMINH[AÃ]O|TRATOR|PLATAFORMA|BOMBA|VIBRADOR|MISTURADOR|ROMPEDOR|ESMERILHADEIRA/i;
+        const itens=(resposta.items||[]).filter(item=>{
+          const texto=[item.grupo,item.tipo,item.categoria,item.descricao].filter(Boolean).join(" ");
+          return item.tipoItem==="INSUMO"&&palavrasEquip.test(texto);
+        });
+        setResultadosSinapiEquip(itens);
+        setAvisoSinapiEquip(resposta.warning||(!itens.length?"Nenhum equipamento encontrado. Tente o nome técnico, como betoneira, compactador ou gerador.":""));
+      }else{
+        setResultadosSinapiEquip([]);
+        setAvisoSinapiEquip(resposta.error||"Não foi possível consultar o SINAPI.");
+      }
+      setCarregandoSinapiEquip(false);
+    },260);
+    return()=>{ativo=false;window.clearTimeout(timer);};
+  },[buscaSinapiEquip,baseSinapiEquipId,!!equipModal]);
+
+  const gerarPatrimonioSinapi=(codigo)=>{
+    const raiz=`EQP-${String(codigo||"SINAPI").replace(/[^a-zA-Z0-9]/g,"").toUpperCase()}`;
+    const usados=new Set((data.equipamentos||[]).filter(e=>e.id!==equipModal?.id).map(e=>String(e.patrimonio||"").toUpperCase()));
+    if(!usados.has(raiz)) return raiz;
+    let numero=2;
+    while(usados.has(`${raiz}-${String(numero).padStart(2,"0")}`)) numero++;
+    return `${raiz}-${String(numero).padStart(2,"0")}`;
+  };
+
+  const selecionarEquipamentoSinapi=(item)=>{
+    const base=basesSinapiEquip.find(b=>b.id===baseSinapiEquipId);
+    const preco=(base?.desonerado===false?Number(item.precoNao||0):Number(item.precoDes||0))
+      ||Number(item.precoDes||0)||Number(item.precoNao||0);
+    setEquipModal(f=>({
+      ...f,
+      nome:f.nome||maiusculoOrcamento(item.descricao||""),
+      categoria:f.categoria||"Equipamento SINAPI",
+      patrimonio:f.patrimonio||gerarPatrimonioSinapi(item.codigo),
+      sinapiReferenciaId:baseSinapiEquipId,
+      sinapiFonte:maiusculoOrcamento(item.fonte||base?.fonte||"SINAPI"),
+      sinapiCodigo:maiusculoOrcamento(item.codigo||""),
+      sinapiDescricao:maiusculoOrcamento(item.descricao||""),
+      sinapiUnidade:maiusculoOrcamento(item.unidade||"UN"),
+      sinapiPreco:preco,
+      sinapiDataBase:item.dataBase||base?.dataBase||"",
+      sinapiUf:item.uf||base?.uf||"",
+      sinapiDesonerado:base?.desonerado!==false,
+    }));
+    setBuscaSinapiEquip("");setResultadosSinapiEquip([]);
   };
 
   // ---- Ações de gravação ----
@@ -30332,7 +30871,8 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
       quantidadeTotal: Math.max(1, Number(f.quantidadeTotal || 1)),
       // Mantem os campos antigos coerentes com a tarifa diaria (retrocompat).
       valorDiaria:tarifas.dia, custoDiaria:tarifasCusto.dia,
-      valorAquisicao:Number(f.valorAquisicao||0) };
+      valorAquisicao:Number(f.valorAquisicao||0),
+      sinapiPreco:Number(f.sinapiPreco||0) };
     const lista = f.id
       ? (data.equipamentos||[]).map(x=>x.id===f.id?{...x,...eq}:x)
       : [...(data.equipamentos||[]), {...eq, id:uid(), ativo:true, createdAt:new Date().toISOString()}];
@@ -30405,7 +30945,7 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
   };
 
   // ---- Formulários vazios ----
-  const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:"", aquisicao:"", valorAquisicao:"", obs:"" };
+  const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, obs:"" };
   const donoVazio  = { nome:"", documento:"", telefone:"", email:"", chavePix:"", obs:"" };
   const locVazio   = { equipamentoId:"", obraId:"", inicio:today(), fim:"", valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
   const manutVazio = { equipamentoId:"", data:today(), tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
@@ -30420,18 +30960,15 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
 
   return (
     <div className={`anim equipment-center ${contexto==="financeiro"?"is-financial":""}`} style={{display:"flex",flexDirection:"column",gap:12}}>
-      {/* Cabeçalho */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",gap:12,flexWrap:"wrap"}}>
-        <div>
-          <p style={{fontSize:10,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{contexto==="financeiro"?"Financeiro · ativos e locações":"Engenharia"}</p>
-          <h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(19px,3.5vw,24px)",color:C.text,letterSpacing:-.3}}>{contexto==="financeiro"?"Central de locação de equipamentos":"Equipamentos"}</h2>
-          <p style={{fontSize:11,color:C.muted,marginTop:2}}>{equipamentos.length} equipamento(s) · {rel.locados} locado(s) · {rel.emManutencao} em manutenção{contexto==="financeiro"?" · custos integrados ao DRE":""}</p>
-        </div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+      <PageHero
+        eyebrow={contexto==="financeiro"?"Financeiro · ativos e locações":"Engenharia"}
+        title={contexto==="financeiro"?"Central de locação de equipamentos":"Equipamentos"}
+        description={`${equipamentos.length} equipamento(s) · ${rel.locados} locado(s) · ${rel.emManutencao} em manutenção${contexto==="financeiro"?" · custos integrados ao DRE":""}`}
+        actions={<>
           <Btn size="sm" v="ghost" onClick={()=>setDonoModal(donoVazio)}><Ic n="user"/> Proprietário</Btn>
           <Btn size="sm" onClick={()=>setEquipModal(equipVazio)}><Ic n="plus"/> Equipamento</Btn>
-        </div>
-      </div>
+        </>}
+      />
 
       {/* Abas internas */}
       <div style={{display:"flex",gap:4,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
@@ -30464,8 +31001,13 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
                   </div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:7}}>
                     <span style={{fontSize:8.5,fontWeight:700,color:proprio?C.green:C.purple,background:`${proprio?C.green:C.purple}12`,padding:"2px 6px",borderRadius:5}}>{proprio?"PRÓPRIO":`DE ${donoName(e.proprietarioId).toUpperCase()}`}</span>
+                    {e.sinapiCodigo&&<span style={{fontSize:8.5,fontWeight:750,color:C.blue,background:`${C.blue}0C`,border:`1px solid ${C.blue}28`,padding:"2px 6px",borderRadius:5}}>SINAPI {e.sinapiCodigo}</span>}
                     {e.status==="locado" && e.obraAtualId && <span style={{fontSize:8.5,color:C.muted,padding:"2px 0"}}>em {obraName(e.obraAtualId)}</span>}
                   </div>
+                  {e.sinapiCodigo&&Number(e.valorAquisicao||0)>0&&Number(e.sinapiPreco||0)>0&&(()=>{
+                    const variacao=(Number(e.valorAquisicao)-Number(e.sinapiPreco))/Number(e.sinapiPreco)*100;
+                    return <p style={{fontSize:9,color:C.muted,marginBottom:7}}>Compra <b style={{color:variacao>0?C.red:C.green}}>{Math.abs(variacao).toFixed(1)}% {variacao>0?"acima":"abaixo"}</b> da referência SINAPI.</p>;
+                  })()}
                   {(() => {
                     const dp = disponibilidadeNoDia(data, e, today());
                     const tf = e.tarifas || {};
@@ -30773,8 +31315,46 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
 
       {/* ===== MODAIS ===== */}
       {equipModal && (
-        <Modal title={equipModal.id?"Editar equipamento":"Novo equipamento"} onClose={()=>setEquipModal(null)} wide>
+        <Modal title={equipModal.id?"Editar equipamento":"Novo equipamento"} onClose={()=>{setEquipModal(null);setBuscaSinapiEquip("");setResultadosSinapiEquip([]);setAvisoSinapiEquip("");}} wide>
           <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+            <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.yellowD}`,borderRadius:6,padding:"12px 13px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap",marginBottom:9}}>
+                <div>
+                  <p style={{fontSize:11.5,fontWeight:900,color:C.text}}>Referência de compra SINAPI</p>
+                  <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Consulte somente equipamentos, vincule o código oficial e compare o preço de aquisição.</p>
+                </div>
+                {equipModal.sinapiCodigo&&<Badge color={C.blue}>SINAPI {equipModal.sinapiCodigo}</Badge>}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+                <Sel label="Base SINAPI" value={baseSinapiEquipId} onChange={v=>{setBaseSinapiEquipId(v);setBuscaSinapiEquip("");setResultadosSinapiEquip([]);}}
+                  options={[{v:"",l:basesSinapiEquip.length?"Selecione a base":"Nenhuma base SINAPI pronta"},...basesSinapiEquip.map(b=>({v:b.id,l:`${b.dataBase||"Sem data"}${b.uf?` · ${b.uf}`:""} · ${b.desonerado===false?"não desonerada":"desonerada"}`}))]}/>
+                <Inp label="Pesquisar equipamento" value={buscaSinapiEquip} onChange={setBuscaSinapiEquip} placeholder="Código, betoneira, compactador, gerador..."/>
+              </div>
+              {(carregandoSinapiEquip||avisoSinapiEquip||resultadosSinapiEquip.length>0)&&<div style={{marginTop:7,maxHeight:210,overflowY:"auto",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}>
+                {carregandoSinapiEquip&&<p style={{fontSize:10,color:C.blue,padding:9}}>Consultando equipamentos no SINAPI...</p>}
+                {avisoSinapiEquip&&<p style={{fontSize:10,color:C.orange,padding:9,lineHeight:1.45}}>{avisoSinapiEquip}</p>}
+                {resultadosSinapiEquip.map((item,index)=>{
+                  const base=basesSinapiEquip.find(b=>b.id===baseSinapiEquipId);
+                  const preco=(base?.desonerado===false?Number(item.precoNao||0):Number(item.precoDes||0))||Number(item.precoDes||0)||Number(item.precoNao||0);
+                  return <button type="button" key={`${item.codigo}-${index}`} onClick={()=>selecionarEquipamentoSinapi(item)} style={{display:"grid",gridTemplateColumns:"90px minmax(0,1fr) 110px",gap:8,width:"100%",alignItems:"center",padding:"8px 9px",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",cursor:"pointer",textAlign:"left"}}>
+                    <b style={{fontSize:9.5,color:C.blue}}>{item.codigo}</b>
+                    <span style={{fontSize:10.5,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.descricao}</span>
+                    <b style={{fontSize:9.5,color:C.yellowD,textAlign:"right"}}>{fmt(preco)}/{item.unidade||"UN"}</b>
+                  </button>;
+                })}
+              </div>}
+              {equipModal.sinapiCodigo&&<div style={{marginTop:9,display:"grid",gridTemplateColumns:formGrid(3),gap:7}}>
+                <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Referência SINAPI</p><b style={{fontSize:12,color:C.text}}>{fmt(Number(equipModal.sinapiPreco||0))}</b><p style={{fontSize:8.5,color:C.muted}}>{equipModal.sinapiUnidade||"UN"} · {equipModal.sinapiDataBase||"sem data"}{equipModal.sinapiUf?` · ${equipModal.sinapiUf}`:""}</p></div>
+                <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Valor de compra</p><b style={{fontSize:12,color:C.text}}>{Number(equipModal.valorAquisicao||0)>0?fmt(Number(equipModal.valorAquisicao)):"A informar"}</b><p style={{fontSize:8.5,color:C.muted}}>valor efetivamente negociado</p></div>
+                {(()=>{
+                  const ref=Number(equipModal.sinapiPreco||0),compra=Number(equipModal.valorAquisicao||0);
+                  const diferenca=compra-ref,pct=ref>0&&compra>0?diferenca/ref*100:0;
+                  const cor=diferenca>0?C.red:C.green;
+                  return <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Comparação</p>{ref>0&&compra>0?<><b style={{fontSize:12,color:cor}}>{diferenca>0?"+":""}{fmt(diferenca)} · {pct>0?"+":""}{pct.toFixed(1)}%</b><p style={{fontSize:8.5,color:C.muted}}>{diferenca>0?"acima da referência":"abaixo da referência"}</p></>:<><b style={{fontSize:11,color:C.muted}}>Aguardando valor</b><p style={{fontSize:8.5,color:C.muted}}>preencha a aquisição</p></>}</div>;
+                })()}
+                <p style={{gridColumn:"1/-1",fontSize:8.5,color:C.muted,lineHeight:1.4}}>Referência gerencial. Confirme unidade, especificação, data-base, frete e condições comerciais antes de decidir a compra.</p>
+              </div>}
+            </div>
             <Inp label="Nome *" value={equipModal.nome} onChange={v=>setEquipModal(f=>({...f,nome:v}))} placeholder="Ex.: Betoneira 400L"/>
             <Inp label="Categoria" value={equipModal.categoria} onChange={v=>setEquipModal(f=>({...f,categoria:v}))} placeholder="Concretagem, Elevação..."/>
             <Inp label="Patrimônio / série" value={equipModal.patrimonio} onChange={v=>setEquipModal(f=>({...f,patrimonio:v}))}/>
@@ -31427,6 +32007,9 @@ function DREEmpresa({ data, update, showToast }) {
   const now = new Date();
   const [year,  setYear]   = useState(now.getFullYear());
   const [month, setMonth]  = useState(now.getMonth());
+  const [abaDRE, setAbaDRE] = useState("inteligencia");
+  const [analiseIA, setAnaliseIA] = useState(null);
+  const [analisandoIA, setAnalisandoIA] = useState(false);
   const [despModal, setDespModal] = useState(false);
   const [editDesp,  setEditDesp]  = useState(null);
   const [despForm,  setDespForm]  = useState({ competencia:"", categoria:"aluguel", descricao:"", valor:"", recorrente:false });
@@ -31444,6 +32027,110 @@ function DREEmpresa({ data, update, showToast }) {
     const dr=calcDREEmpresa(data,d.getFullYear(),d.getMonth());
     return { mes:`${monthName(d.getMonth())}/${String(d.getFullYear()).slice(2)}`, ...dr };
   }), [data,year,month]);
+
+  const diagnosticoGerencial = useMemo(() => {
+    const alertas = [];
+    const acoesObra = dre.porObra.map(o => {
+      const custoMO=o.laborCost+o.benefitCost;
+      const semReceita=o.receita<=0&&o.despesa>0;
+      const margem=o.margemPct;
+      let nivel="saudavel", titulo="Margem preservada", acao="Manter acompanhamento semanal de custos e faturamento.";
+      if(semReceita){nivel="critico";titulo="Custo sem faturamento no período";acao="Confirmar competência da medição e programar faturamento do serviço executado.";}
+      else if(o.resultado<0){nivel="critico";titulo="Obra operando com resultado negativo";acao="Revisar imediatamente medição, efetivo alocado, terceiros e despesas não previstas.";}
+      else if(margem!=null&&margem<15){nivel="atencao";titulo="Margem abaixo da faixa de segurança";acao="Negociar medição adicional e limitar custos até recuperar margem acima de 15%.";}
+      else if(o.terc>o.despesa*.45&&o.despesa>0){nivel="atencao";titulo="Terceirização concentra os custos";acao="Conferir medições dos terceiros e comparar execução contratada versus entregue.";}
+      else if(custoMO>o.despesa*.7&&o.despesa>0){nivel="atencao";titulo="Mão de obra concentra os custos";acao="Revisar produtividade, lotação diária e aderência do efetivo ao cronograma.";}
+      return {...o,nivel,titulo,acao,custoMO};
+    }).sort((a,b)=>({critico:0,atencao:1,saudavel:2}[a.nivel]-{critico:0,atencao:1,saudavel:2}[b.nivel]||a.resultado-b.resultado));
+    const conversao=dre.faturamentoObras>0?dre.recebidoObras/dre.faturamentoObras*100:0;
+    const pesoCSP=dre.receitaLiquida>0?dre.totalCSP/dre.receitaLiquida*100:0;
+    const pesoOp=dre.receitaLiquida>0?dre.totalDespOp/dre.receitaLiquida*100:0;
+    if(conversao<70&&dre.faturamentoObras>0)alertas.push({nivel:"critico",titulo:"Caixa abaixo do faturamento",texto:`Apenas ${conversao.toFixed(0)}% do faturado entrou em caixa.`,acao:"Priorizar cobrança das medições vencidas e confirmar datas de recebimento."});
+    if(dre.margemEbitda<10)alertas.push({nivel:dre.ebitda<0?"critico":"atencao",titulo:"Resultado operacional pressionado",texto:`Margem EBITDA de ${dre.margemEbitda.toFixed(1)}%.`,acao:"Atacar primeiro custos das obras negativas e despesas administrativas recorrentes."});
+    if(pesoCSP>75)alertas.push({nivel:"atencao",titulo:"Custos diretos elevados",texto:`O CSP consome ${pesoCSP.toFixed(0)}% da receita líquida.`,acao:"Revisar produtividade de mão de obra, terceiros e despesas diretas por obra."});
+    if(pesoOp>15)alertas.push({nivel:"atencao",titulo:"Estrutura administrativa pesada",texto:`Despesas operacionais representam ${pesoOp.toFixed(0)}% da receita líquida.`,acao:"Revisar contratos recorrentes e separar despesas que pertencem às obras."});
+    const criticos=acoesObra.filter(o=>o.nivel==="critico").length;
+    const atencao=acoesObra.filter(o=>o.nivel==="atencao").length;
+    const score=Math.max(0,Math.min(100,100-criticos*18-atencao*8-(dre.ebitda<0?20:0)-(conversao<70?12:0)));
+    return {alertas,acoesObra,conversao,pesoCSP,pesoOp,score,criticos,atencao};
+  },[dre]);
+
+  useEffect(()=>{ setAnaliseIA(null); },[year,month]);
+
+  const executarAnaliseIA = async () => {
+    setAnalisandoIA(true);
+    try{
+      const contexto={
+        modulo:"dre",periodo:ym,
+        empresa:{
+          faturamento:dre.faturamentoObras,recebido:dre.recebidoObras,receitaLiquida:dre.receitaLiquida,
+          deducoes:{iss:dre.deducaoISS,pis:dre.deducaoPIS,cofins:dre.deducaoCOFINS,total:dre.totalDeducoes},
+          custosDiretos:{maoDeObra:dre.laborTotal,beneficios:dre.benefTotal,terceiros:dre.tercTotal,rescisoes:dre.rescTotal,outras:dre.outrasDiretas,total:dre.totalCSP},
+          lucroBruto:dre.lucroBruto,margemBruta:dre.margemBruta,
+          despesasOperacionais:{administrativas:dre.totalDespAdmin,fiscais:dre.totalDespFiscal,outras:dre.totalDespOutros,total:dre.totalDespOp,porCategoria:dre.despPorCat},
+          ebitda:dre.ebitda,margemEbitda:dre.margemEbitda,lucroLiquido:dre.lucroLiquido,margemLiquida:dre.margemLiquida,
+        },
+        obras:(data.obras||[]).map(obra=>{
+          const o=dre.porObra.find(x=>x.id===obra.id);
+          const dias=getDays(year,month),ids=new Set();let homemDias=0;
+          (data.employees||[]).forEach(emp=>dias.forEach(dia=>{const reg=data.attendance?.[emp.id]?.[dia],obraDia=reg?.obraId||emp.obra||"";if(obraDia!==obra.id)return;const st=attStatus(data,emp.id,dia);if(st==="P"||st==="M"){ids.add(emp.id);homemDias+=st==="P"?1:.5;}}));
+          return {id:obra.id,nome:obra.name,status:obra.status,valorContrato:Number(obra.contractValue||0),receita:o?.receita||0,despesa:o?.despesa||0,resultado:o?.resultado||0,margem:o?.margemPct??null,maoDeObra:o?.laborCost||0,beneficios:o?.benefitCost||0,terceiros:o?.terc||0,outras:o?.outras||0,pessoasNoPeriodo:ids.size,homemDias};
+        }),
+        tendencia:historico.map(h=>({mes:h.mes,faturamento:h.faturamentoObras,recebido:h.recebidoObras,custosDiretos:h.totalCSP,despesasOperacionais:h.totalDespOp,ebitda:h.ebitda,lucroLiquido:h.lucroLiquido})),
+      };
+      const prompt=`Você é o CFO da construtora. Produza uma Avaliação do CFO completa sobre o DRE fornecido e retorne SOMENTE JSON válido:
+{"veredicto":"saudavel|atencao|critico","resumoExecutivo":"4 a 6 frases objetivas com decisão central","diagnosticoEmpresa":{"resultado":"faturamento, lucro bruto, EBITDA e lucro líquido","caixa":"faturamento versus recebimento e risco","custos":"composição e concentração","maoDeObra":"custo, pessoas e homem-dias","tendencia":"comparação dos seis meses"},"indicadores":[{"nome":"indicador","valor":"valor fornecido ou percentual calculável","leitura":"interpretação curta"}],"prioridades":[{"nivel":"critico|atencao|oportunidade","titulo":"curto","evidencia":"com números fornecidos","causaProvavel":"hipótese identificada","acao":"decisão objetiva","impactoEsperado":"efeito, sem inventar valor","prazo":"Hoje|7 dias|30 dias","indicador":"como medir"}],"obras":[{"obraId":"ID existente","veredicto":"saudavel|atencao|critico","diagnostico":"resultado e margem","caixa":"situação observável","custos":"principal concentração","maoDeObra":"se está adequada, precisa revisão ou é inconclusiva","historico":"leitura mês a mês","riscos":["curto"],"acoes":["específica"],"impacto":"alto|medio|baixo"}],"plano30Dias":[{"ordem":1,"prazo":"Hoje|7 dias|15 dias|30 dias","acao":"verificável","responsavelSugerido":"função","indicador":"como medir conclusão"}],"oportunidades":["sustentada pelos dados"],"inconsistenciasDados":["ausência ou limitação"],"conclusao":"veredicto final em 2 a 4 frases"}.
+Regras: não invente números, datas, clientes ou causas. Diferencie competência, faturamento e caixa. Analise todas as obras e a evolução mensal. Não afirme excesso de pessoas apenas pelo efetivo: cruze custo, homem-dias e resultado; sem produção física, declare produtividade inconclusiva. Faça no máximo 7 prioridades e 10 ações.`;
+      const resposta=await chamarIA({modulo:"dre",prompt,contexto});
+      if(!resposta.ok)throw new Error(resposta.error||"A IA não respondeu.");
+      const estruturada=jsonDaRespostaIA(resposta.reply||resposta.answer);
+      setAnaliseIA({...estruturada,geradoEm:new Date().toISOString()});
+      showToast("Avaliação do CFO gerada pelo Gemini.");
+    }catch(error){showToast(error.message||"Não foi possível gerar o parecer.","error");}
+    finally{setAnalisandoIA(false);}
+  };
+
+  const copiarParecer = async () => {
+    const linhas=[
+      `AVALIAÇÃO DO CFO · ${period}`,
+      analiseIA?.resumoExecutivo||analiseIA?.resumo||`Saúde financeira ${diagnosticoGerencial.score}/100.`,
+      analiseIA?.diagnosticoEmpresa?.resultado&&`\nRESULTADO\n${analiseIA.diagnosticoEmpresa.resultado}`,
+      analiseIA?.diagnosticoEmpresa?.caixa&&`\nCAIXA\n${analiseIA.diagnosticoEmpresa.caixa}`,
+      analiseIA?.diagnosticoEmpresa?.custos&&`\nCUSTOS\n${analiseIA.diagnosticoEmpresa.custos}`,
+      ...((analiseIA?.prioridades||diagnosticoGerencial.alertas).map(x=>`• ${x.titulo}: ${x.evidencia||x.texto||""} Ação: ${x.acao}`)),
+      ...((analiseIA?.obras||diagnosticoGerencial.acoesObra.filter(o=>o.nivel!=="saudavel")).map(x=>`• ${x.nome||data.obras.find(o=>o.id===x.obraId)?.name||"Obra"}: ${x.diagnostico||x.titulo}. ${x.acao}`)),
+      ...(analiseIA?.plano30Dias||[]).map(x=>`${x.ordem}. [${x.prazo}] ${x.acao} · ${x.responsavelSugerido} · Indicador: ${x.indicador}`),
+      analiseIA?.conclusao&&`\nCONCLUSÃO\n${analiseIA.conclusao}`,
+    ].filter(Boolean).join("\n");
+    try{await navigator.clipboard.writeText(linhas);showToast("Parecer copiado.");}
+    catch{showToast("Não foi possível copiar o parecer.","error");}
+  };
+
+  const imprimirRelatorioIA = () => {
+    if(!analiseIA){showToast("Gere a Avaliação do CFO com o Gemini primeiro.","warn");return;}
+    const lista=(itens=[])=>`<ul>${itens.map(x=>`<li>${escapeHtml(typeof x==="string"?x:x.acao||x.titulo||"")}</li>`).join("")}</ul>`;
+    const obras=(analiseIA.obras||[]).map(o=>`<section class="obra">
+      <h3>${escapeHtml(data.obras.find(x=>x.id===o.obraId)?.name||"Obra")}</h3>
+      <p>${escapeHtml(o.diagnostico||"")}</p>
+      <p><b>Caixa:</b> ${escapeHtml(o.caixa||"Não conclusivo")}</p>
+      <p><b>Custos:</b> ${escapeHtml(o.custos||"Não conclusivo")}</p>
+      ${lista(o.riscos)}${lista(o.acoes)}
+    </section>`).join("");
+    const html=`<!doctype html><html><head><meta charset="utf-8"><title>Relatório gerencial DRE · ${escapeHtml(period)}</title><style>
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#252a2e;margin:0;padding:28px;font-size:11px}.toolbar{position:fixed;right:14px;top:12px}.toolbar button{padding:9px 14px;border:0;background:#d4af37;font-weight:700}.head{border-bottom:3px solid #b38c1b;padding-bottom:14px;margin-bottom:18px}.head small{color:#8a6b13;font-weight:700}.head h1{font-size:23px;margin:4px 0}.head p{color:#6f777c}.summary{font-size:13px;line-height:1.55;background:#f3f4f4;padding:13px;border-left:3px solid #b38c1b}.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:15px 0}.box,.obra{border:1px solid #d8dcde;padding:11px;break-inside:avoid}.box h2,.obra h3{font-size:12px;margin:0 0 6px}.box p,.obra p{line-height:1.45;margin:4px 0}h2.sec{font-size:14px;margin:20px 0 8px;border-bottom:1px solid #ccd1d3;padding-bottom:5px}ul{padding-left:17px;margin:6px 0;line-height:1.45}.plan{width:100%;border-collapse:collapse}.plan th,.plan td{border-bottom:1px solid #ddd;padding:7px;text-align:left}.plan th{background:#eceeef;font-size:9px}.foot{margin-top:20px;color:#888;font-size:8px;border-top:1px solid #ddd;padding-top:8px}@media print{.toolbar{display:none}@page{size:A4;margin:10mm}body{padding:0}}</style></head><body>
+<div class="toolbar"><button onclick="window.print()">Imprimir / salvar PDF</button></div>
+<header class="head"><small>ARCD · DIREÇÃO FINANCEIRA</small><h1>Avaliação do CFO</h1><p>${escapeHtml(period)} · Gemini · Veredicto: ${escapeHtml(analiseIA.veredicto||"inconclusivo")} · ${escapeHtml(new Date(analiseIA.geradoEm).toLocaleString("pt-BR"))}</p></header>
+<p class="summary">${escapeHtml(analiseIA.resumoExecutivo||analiseIA.resumo||"")}</p>
+<div class="grid">${Object.entries(analiseIA.diagnosticoEmpresa||{}).map(([k,v])=>`<div class="box"><h2>${escapeHtml(k.toUpperCase())}</h2><p>${escapeHtml(v)}</p></div>`).join("")}</div>
+<h2 class="sec">Prioridades</h2>${(analiseIA.prioridades||[]).map((x,i)=>`<div class="box"><h2>${i+1}. ${escapeHtml(x.titulo||"")}</h2><p>${escapeHtml(x.evidencia||"")}</p><p><b>Ação:</b> ${escapeHtml(x.acao||"")} · ${escapeHtml(x.prazo||"")}</p></div>`).join("")}
+<h2 class="sec">Análise por obra</h2><div class="grid">${obras}</div>
+<h2 class="sec">Plano de 30 dias</h2><table class="plan"><thead><tr><th>PRAZO</th><th>AÇÃO</th><th>RESPONSÁVEL</th><th>INDICADOR</th></tr></thead><tbody>${(analiseIA.plano30Dias||[]).map(x=>`<tr><td>${escapeHtml(x.prazo||"")}</td><td>${escapeHtml(x.acao||"")}</td><td>${escapeHtml(x.responsavelSugerido||"")}</td><td>${escapeHtml(x.indicador||"")}</td></tr>`).join("")}</tbody></table>
+<h2 class="sec">Oportunidades</h2>${lista(analiseIA.oportunidades)}
+<h2 class="sec">Limitações e dados a conferir</h2>${lista(analiseIA.inconsistenciasDados)}
+<h2 class="sec">Veredicto do CFO</h2><p>${escapeHtml(analiseIA.conclusao||"")}</p>
+<p class="foot">Relatório gerencial baseado nos dados disponíveis no ARCD. Não substitui validação contábil, fiscal ou documental.</p></body></html>`;
+    const w=window.open("","_blank");w.document.write(html);w.document.close();
+  };
 
   // Despesas recorrentes - auto-copiar para o mês atual
   const replicarRecorrentes = () => {
@@ -31592,46 +32279,137 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   );
 
   return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div className="anim dre-company" data-view={abaDRE} style={{display:"flex",flexDirection:"column",gap:12}}>
 
       {/* Header */}
-      <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.yellow}`,padding:"14px 18px",borderRadius:8,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+      <div className="dre-company-header">
         <div>
-          <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:1.2,marginBottom:3}}>Resultado da Empresa</p>
-          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:C.text,lineHeight:1}}>DRE Gerencial</p>
-          <p style={{color:C.muted,fontSize:12,marginTop:4}}>Demonstrativo de Resultado  Boas práticas contábeis</p>
+          <p className="dre-company-eyebrow">Controladoria · Resultado da empresa</p>
+          <h1>DRE Gerencial</h1>
+          <p>Resultado, caixa, custos e decisões por obra em uma única leitura.</p>
         </div>
-        <div style={{textAlign:"right",flexShrink:0}}>
-          <p style={{fontSize:10,color:C.muted,textTransform:"uppercase"}}>Lucro Líquido</p>
-          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:24,fontWeight:800,color:dre.lucroLiquido>=0?C.green:C.red,lineHeight:1,marginTop:2}}>{dre.lucroLiquido<0?`(${fmt(Math.abs(dre.lucroLiquido))})`:fmt(dre.lucroLiquido)}</p>
-          <p style={{fontSize:10,color:dre.lucroLiquido>=0?C.green:C.red}}>{dre.margemLiquida.toFixed(1)}% margem</p>
+        <div className="dre-company-header-actions">
+          <button type="button" onClick={copiarParecer}><Ic n="copy" s={13}/> Copiar parecer</button>
+          {analiseIA&&<button type="button" onClick={imprimirRelatorioIA}><Ic n="file" s={13}/> PDF da análise</button>}
+          <button type="button" onClick={gerarPDF}><Ic n="file" s={13}/> Exportar PDF</button>
         </div>
       </div>
 
-      {/* Período */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <Sel value={String(year)} onChange={v=>setYear(Number(v))} options={years}/>
-        <Sel value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/>
+      <div className="dre-company-toolbar">
+        <nav aria-label="Áreas do DRE Empresa">
+          {[
+            ["inteligencia","Visão gerencial","brain"],
+            ["demonstrativo","Demonstrativo","receipt"],
+            ["obras","Análise por obra","building"],
+            ["despesas","Despesas operacionais","wallet"],
+          ].map(([v,l,i])=><button type="button" key={v} aria-pressed={abaDRE===v} onClick={()=>setAbaDRE(v)}><Ic n={i} s={13}/><span>{l}</span></button>)}
+        </nav>
+        <div className="dre-company-period">
+          <Sel label="Ano" value={String(year)} onChange={v=>setYear(Number(v))} options={years}/>
+          <Sel label="Mês" value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/>
+        </div>
       </div>
 
       {/* KPI bar */}
-      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
+      <div className="dre-company-kpis" style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
         {[
-          ["Faturamento Bruto",  dre.faturamentoObras,  C.yellow, ""],
-          ["Receita Líquida",    dre.receitaLiquida,    C.blue,   `após ${((dre.totalDeducoes/Math.max(dre.faturamentoObras,1))*100).toFixed(1)}% deduções`],
-          ["Lucro Bruto",        dre.lucroBruto,        dre.lucroBruto>=0?C.green:C.red, `margem ${dre.margemBruta.toFixed(1)}%`],
-          ["EBITDA",             dre.ebitda,            dre.ebitda>=0?C.green:C.red,     `margem ${dre.margemEbitda.toFixed(1)}%`],
-        ].map(([l,v,c,s])=>(
-          <div key={l} style={{background:C.bg,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${c}`,padding:"10px 12px",borderRadius:6,boxShadow:`0 1px 4px ${C.shadow}`}}>
-            <p style={{fontSize:9,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
-            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",color:c,fontSize:18,lineHeight:1.1,marginTop:3,fontWeight:800}}>{v<0?`(${fmt(Math.abs(v))})`:fmt(v)}</p>
-            {s&&<p style={{fontSize:9,color:C.muted,marginTop:2}}>{s}</p>}
+          ["Faturamento",dre.faturamentoObras,`Recebido ${fmt(dre.recebidoObras)}`],
+          ["Receita líquida",dre.receitaLiquida,`${((dre.totalDeducoes/Math.max(dre.faturamentoObras,1))*100).toFixed(1)}% em deduções`],
+          ["EBITDA",dre.ebitda,`Margem ${dre.margemEbitda.toFixed(1)}%`],
+          ["Lucro líquido",dre.lucroLiquido,`Margem ${dre.margemLiquida.toFixed(1)}%`],
+        ].map(([l,v,s])=>(
+          <div key={l} data-negative={v<0}>
+            <p>{l}</p>
+            <strong>{v<0?`(${fmt(Math.abs(v))})`:fmt(v)}</strong>
+            <span>{s}</span>
           </div>
         ))}
       </div>
 
+      <section className="dre-company-panel dre-company-intelligence">
+        <div className="dre-ai-command">
+          <div className="dre-ai-score">
+            <span>Saúde financeira</span>
+            <strong>{diagnosticoGerencial.score}</strong>
+            <small>de 100 · {diagnosticoGerencial.criticos} crítica(s), {diagnosticoGerencial.atencao} atenção</small>
+          </div>
+          <div className="dre-ai-summary">
+            <p>Leitura automática · {period}</p>
+            <h2>{analiseIA?.resumoExecutivo||analiseIA?.resumo||(
+              dre.ebitda<0?"A empresa está consumindo caixa na operação."
+              :diagnosticoGerencial.criticos?"Há obras que exigem correção financeira imediata."
+              :dre.margemEbitda<10?"A operação é positiva, mas a margem está pressionada."
+              :"A operação está positiva; preserve margem e acelere recebimentos."
+            )}</h2>
+            <span>Conversão em caixa {diagnosticoGerencial.conversao.toFixed(0)}% · CSP {diagnosticoGerencial.pesoCSP.toFixed(0)}% da receita líquida · estrutura {diagnosticoGerencial.pesoOp.toFixed(0)}%</span>
+          </div>
+          <button type="button" onClick={executarAnaliseIA} disabled={analisandoIA}>
+            <Ic n="brain" s={15}/>{analisandoIA?"CFO analisando...":analiseIA?"Atualizar Avaliação do CFO":"Gerar Avaliação do CFO"}
+          </button>
+        </div>
+
+        <div className="dre-ai-priorities">
+          <div className="dre-ai-section-head"><div><p>Ordem de ação</p><h3>O que fazer agora</h3></div><span>{(analiseIA?.prioridades||diagnosticoGerencial.alertas).length} recomendação(ões)</span></div>
+          <div className="dre-ai-priority-list">
+            {(analiseIA?.prioridades||diagnosticoGerencial.alertas).length
+              ? (analiseIA?.prioridades||diagnosticoGerencial.alertas).map((x,i)=><article key={`${x.titulo}-${i}`} data-level={x.nivel}>
+                  <span>{String(i+1).padStart(2,"0")}</span>
+                  <div><p>{x.titulo}</p><small>{x.evidencia||x.texto}</small></div>
+                  <strong>{x.acao}</strong>
+                </article>)
+              : <div className="dre-ai-empty"><Ic n="check" s={17}/><p>Nenhum risco estrutural detectado neste período. Mantenha cobrança e custos sob acompanhamento.</p></div>}
+          </div>
+        </div>
+
+        <div className="dre-ai-section-head"><div><p>Decisão por contrato</p><h3>Orientações por obra</h3></div><span>Ordenadas por impacto</span></div>
+        <div className="dre-ai-work-grid">
+          {(analiseIA?.obras?.length ? analiseIA.obras.map(x=>({
+            ...x,name:data.obras.find(o=>o.id===x.obraId)?.name||"Obra",nivel:x.impacto==="alto"?"critico":x.impacto==="medio"?"atencao":"saudavel",
+            titulo:x.diagnostico,acao:(x.acoes||[])[0]||x.acao||"Revisar no fechamento gerencial.",
+            resultado:dre.porObra.find(o=>o.id===x.obraId)?.resultado||0,margemPct:dre.porObra.find(o=>o.id===x.obraId)?.margemPct,
+          })) : diagnosticoGerencial.acoesObra).map(o=><article key={o.id||o.obraId} data-level={o.nivel}>
+            <header><div><span>{o.nivel}</span><h4>{o.name}</h4></div><strong>{fmt(o.resultado)}</strong></header>
+            <p>{o.titulo||o.diagnostico}</p>
+            <small>{o.acao}</small>
+            <footer><span>Margem {o.margemPct==null?"sem receita":`${o.margemPct.toFixed(1)}%`}</span><span>Verificar no fechamento</span></footer>
+          </article>)}
+        </div>
+        {analiseIA&&<section className="dre-ai-full-report">
+          <header>
+            <div><p>Gemini · direção financeira</p><h3>Avaliação do CFO</h3></div>
+            <button type="button" onClick={imprimirRelatorioIA}><Ic n="file" s={12}/> Imprimir / PDF</button>
+          </header>
+          <div className="dre-ai-diagnosis-grid">
+            {Object.entries(analiseIA.diagnosticoEmpresa||{}).map(([chave,texto])=><article key={chave}>
+              <span>{chave}</span><p>{texto}</p>
+            </article>)}
+          </div>
+          {(analiseIA.indicadores||[]).length>0&&<div className="dre-ai-indicators">
+            {analiseIA.indicadores.map((x,i)=><div key={`${x.nome}-${i}`}><span>{x.nome}</span><strong>{x.valor}</strong><small>{x.leitura}</small></div>)}
+          </div>}
+          <div className="dre-ai-report-columns">
+            <div>
+              <p className="dre-ai-report-label">Plano de 30 dias</p>
+              <div className="dre-ai-action-plan">
+                {(analiseIA.plano30Dias||[]).map((x,i)=><article key={`${x.ordem}-${i}`}>
+                  <span>{x.prazo}</span><div><strong>{x.acao}</strong><small>{x.responsavelSugerido} · Indicador: {x.indicador}</small></div>
+                </article>)}
+              </div>
+            </div>
+            <div>
+              <p className="dre-ai-report-label">Oportunidades</p>
+              <ul>{(analiseIA.oportunidades||[]).map((x,i)=><li key={i}>{x}</li>)}</ul>
+              <p className="dre-ai-report-label">Dados a conferir</p>
+              <ul>{(analiseIA.inconsistenciasDados||analiseIA.perguntas||[]).map((x,i)=><li key={i}>{x}</li>)}</ul>
+            </div>
+          </div>
+          {analiseIA.conclusao&&<div className="dre-ai-conclusion"><span>Veredicto do CFO · {analiseIA.veredicto||"inconclusivo"}</span><p>{analiseIA.conclusao}</p></div>}
+        </section>}
+        {analiseIA?.geradoEm&&<p className="dre-ai-disclaimer">Relatório gerado pelo Gemini em {new Date(analiseIA.geradoEm).toLocaleString("pt-BR")}. Confirme competência, contrato e documentos antes de decidir.</p>}
+      </section>
+
       {/* DRE estruturado */}
-      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+      <div className="dre-company-panel dre-company-statement" style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
         <div style={{background:C.surface,padding:"10px 14px",borderBottom:`1px solid ${C.border}`}}>
           <p style={{fontWeight:800,fontSize:14,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>DRE - {period}</p>
         </div>
@@ -31687,7 +32465,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       </div>
 
       {/* Gráfico histórico */}
-      <ChartPanel eyebrow="Resultado empresarial" title="Evolução dos últimos seis meses" subtitle="Faturamento, lucro bruto e lucro líquido no mesmo comparativo." height={220} legend={[{label:"Faturamento",color:C.yellow},{label:"Lucro bruto",color:C.cinza},{label:"Lucro líquido",color:C.text}]}>
+      <div className="dre-company-panel dre-company-trend"><ChartPanel eyebrow="Resultado empresarial" title="Evolução dos últimos seis meses" subtitle="Faturamento, lucro bruto e lucro líquido no mesmo comparativo." height={220} legend={[{label:"Faturamento",color:C.yellow},{label:"Lucro bruto",color:C.cinza},{label:"Lucro líquido",color:C.text}]}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={historico} barSize={16}>
               <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
@@ -31699,11 +32477,11 @@ td.val{text-align:right;font-weight:700;min-width:110px}
               <Bar dataKey="lucroLiquido" name="Lucro líquido" fill={C.text} radius={[5,5,1,1]}/>
             </BarChart>
           </ResponsiveContainer>
-      </ChartPanel>
+      </ChartPanel></div>
 
       {/* Receitas e despesas POR OBRA - analise gerencial */}
       {dre.porObra.length > 0 && (
-        <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <div className="dre-company-panel dre-company-works" style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
           <div style={{background:C.surface,padding:"10px 14px",borderBottom:`1px solid ${C.border}`}}>
             <p style={{fontWeight:700,fontSize:13,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Receitas e despesas por obra - {period}</p>
             <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Quem contribui e quem drena o resultado no mes. Ordenado pelo resultado.</p>
@@ -31751,7 +32529,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       )}
 
       {/* Gestão de despesas operacionais */}
-      <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}>
+      <div className="dre-company-panel dre-company-expenses" style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}>
         <div style={{background:C.surface,padding:"9px 11px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
           <div><p style={{fontWeight:750,fontSize:11,color:C.text}}>Despesas operacionais</p><p style={{fontSize:8.5,color:C.muted,marginTop:1,textTransform:"uppercase",letterSpacing:.55}}>{period}</p></div>
           <div style={{display:"flex",gap:5}}>
@@ -31793,7 +32571,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       </div>
 
       {/* Exportar PDF */}
-      <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> Gerar DRE PDF - {period}</Btn>
+      <div className="dre-company-panel dre-company-pdf"><Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> Gerar DRE PDF - {period}</Btn></div>
 
       {/* Modal despesa */}
       {despModal&&(
@@ -32026,6 +32804,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const [atividadeForm,setAtividadeForm]=useState(null);const [reuniaoForm,setReuniaoForm]=useState(null);const [propostaForm,setPropostaForm]=useState(null);
   const [negForm,setNegForm]=useState(null);const [contratoForm,setContratoForm]=useState(null);const [clienteForm,setClienteForm]=useState(null);const [parceiroForm,setParceiroForm]=useState(null);
   const [metaForm,setMetaForm]=useState(null);const [perdaForm,setPerdaForm]=useState(null);
+  const [subindoDocumentoComercial,setSubindoDocumentoComercial]=useState(false);
   const setCom=(patch)=>update({...data,comercial:{...com,...patch}});
   // Maps id->registro, montados uma vez por render em vez de .find() por
   // chamada - nomeUsuario/leadBy sao usados dezenas de vezes por tela
@@ -32085,17 +32864,49 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const moverLead=(lead,etapa)=>{if(etapa==="perdido"){setPerdaForm({leadId:lead.id,motivo:"",concorrente:"",valorConcorrente:"",observacoes:"",reativacaoEm:""});return;}const now=new Date().toISOString();setCom({leads:leads.map(l=>l.id===lead.id?{...l,etapa,status:etapa==="arquivado"?"arquivado":etapa==="novo"?"ativo":l.status,etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"etapa",texto:`Movido para ${comEtapaLabel(etapa)} por ${currentUser?.nome||"usuário"}`}]}:l)});};
   const salvarPerda=()=>{if(!perdaForm.motivo){showToast("Informe o motivo da perda.","error");return;}const now=new Date().toISOString();setCom({leads:leads.map(l=>l.id===perdaForm.leadId?{...l,...perdaForm,valorConcorrente:Number(perdaForm.valorConcorrente||0),etapa:"perdido",status:"perdido",etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"perda",texto:`Lead perdido: ${perdaForm.motivo}`}]}:l)});setPerdaForm(null);showToast("Perda registrada com histórico.");};
   const salvarAtividade=f=>{if(!f.leadId||!f.titulo||!f.dataHora){showToast("Informe lead, título e data.","error");return;}const a={...f,id:f.id||uid(),responsavelId:f.responsavelId||currentUser?.id||"",status:f.status||"pendente",createdAt:f.createdAt||new Date().toISOString()};const ats=f.id?atividades.map(x=>x.id===f.id?a:x):[...atividades,a];setCom({atividades:ats,leads:leads.map(l=>l.id===a.leadId?{...l,proximaAtividade:a.titulo,proximaAtividadeEm:a.dataHora}:l)});setAtividadeForm(null);};
-  const salvarReuniao=f=>{if(!f.leadId||!f.dataHora){showToast("Informe lead, data e horário.","error");return;}const r={...f,id:f.id||uid(),orcamentoDisponivel:Number(f.orcamentoDisponivel||0),status:f.status||"agendada"};setCom({reunioes:f.id?reunioes.map(x=>x.id===f.id?r:x):[...reunioes,r],leads:leads.map(l=>l.id===r.leadId?{...l,etapa:l.etapa==="novo"?"reuniao_agendada":l.etapa,proximaAtividade:"Reunião",proximaAtividadeEm:r.dataHora}:l)});setReuniaoForm(null);};
+  const salvarReuniao=f=>{
+    if(!f.leadId||!f.dataHora){showToast("Informe lead, data e horário.","error");return;}
+    const anterior=f.id?reunioes.find(x=>x.id===f.id):null;
+    const executada=f.status==="realizada";
+    if(executada&&!String(f.resumo||"").trim()){
+      showToast("Para confirmar a execução, registre o resumo da reunião.","error");return;
+    }
+    const now=new Date().toISOString();
+    const primeiraConfirmacao=executada&&anterior?.status!=="realizada";
+    const r={...f,id:f.id||uid(),orcamentoDisponivel:Number(f.orcamentoDisponivel||0),
+      status:f.status||"agendada",createdAt:f.createdAt||anterior?.createdAt||now,
+      updatedAt:now,realizadaEm:executada?(f.realizadaEm||now):"",
+      realizadaPorId:executada?(f.realizadaPorId||currentUser?.id||""):"",
+      realizadaPor:executada?(f.realizadaPor||currentUser?.nome||"Comercial"):""};
+    const proximoHorario=r.proximoContato?`${r.proximoContato}T09:00`:"";
+    const leadsAtualizados=leads.map(l=>{
+      if(l.id!==r.leadId)return l;
+      const historico=[...(l.historico||[])];
+      if(primeiraConfirmacao)historico.push({id:uid(),data:r.realizadaEm,tipo:"reuniao",
+        reuniaoId:r.id,texto:`Reunião executada por ${r.realizadaPor}. ${r.resumo}${r.proximosPassos?` Próximos passos: ${r.proximosPassos}`:""}${r.objecoes?` Objeções: ${r.objecoes}`:""}`});
+      return {...l,
+        etapa:executada?"reuniao_realizada":l.etapa==="novo"?"reuniao_agendada":l.etapa,
+        etapaDesde:executada&&l.etapa!=="reuniao_realizada"?now:l.etapaDesde,
+        proximaAtividade:executada?(r.proximosPassos||"Follow-up após reunião"):"Reunião",
+        proximaAtividadeEm:executada?(proximoHorario||l.proximaAtividadeEm):r.dataHora,
+        historico,updatedAt:now};
+    });
+    setCom({reunioes:f.id?reunioes.map(x=>x.id===f.id?r:x):[...reunioes,r],leads:leadsAtualizados});
+    setLeadForm(aberta=>aberta?.id===r.leadId?(leadsAtualizados.find(l=>l.id===r.leadId)||aberta):aberta);
+    setReuniaoForm(null);
+    showToast(executada?"Reunião confirmada e registrada no histórico do lead.":anterior?"Reunião atualizada.":"Reunião agendada.");
+  };
 
   const propostaVazia=leadId=>{const l=leadBy(leadId);return{id:"",numero:`PROP-${String(propostas.length+1).padStart(4,"0")}`,versao:1,leadId:leadId||"",objeto:l?.servico||"",escopo:"",inclusos:"",exclusos:"",entregaveis:"",prazo:l?.prazoDesejado||"",valor:l?.orcamentoEstimado||"",formaPagamento:"",validade:"",responsabilidades:"",premissas:"",status:"rascunho",desconto:"",documentos:[],historico:[],negociacoes:[]};};
-  const salvarProposta=f=>{if(!f.leadId||!f.objeto||!(Number(f.valor)>0)){showToast("Informe lead, objeto e valor.","error");return;}if(Number(f.desconto||0)>limiteDesconto){showToast(`Seu limite de desconto é ${limiteDesconto}%. Solicite aprovação para continuar.`,"error");return;}const p={...f,id:f.id||uid(),versao:Number(f.versao||1),valor:Number(f.valor),desconto:Number(f.desconto||0),createdAt:f.createdAt||new Date().toISOString(),historico:[...(f.historico||[]),{id:uid(),data:new Date().toISOString(),tipo:f.id?"revisao":"criacao",texto:f.id?`Versão ${f.versao} revisada`:"Proposta criada"}]};setCom({propostas:f.id?propostas.map(x=>x.id===f.id?p:x):[...propostas,p],leads:leads.map(l=>l.id===p.leadId?{...l,etapa:p.status==="enviada"?"proposta_enviada":"proposta_elaboracao",etapaDesde:new Date().toISOString()}:l)});setPropostaForm(null);};
-  const statusProposta=(p,status)=>{const now=new Date().toISOString(),campo=status==="enviada"?"enviadoEm":status==="visualizada"?"visualizadoEm":status==="aceita"?"aceitoEm":status==="rejeitada"?"rejeitadoEm":"",l=leadBy(p.leadId),ja=contratos.find(k=>k.propostaId===p.id);const contratoAuto=status==="aceita"&&!ja?{id:uid(),numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",contratada:data.config.companyName||"ARCD OBRAS",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:0,parcelas:1,diaVencimento:5,prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[],elaboradoEm:now}:null;setCom({propostas:propostas.map(x=>x.id===p.id?{...x,status,...(campo?{[campo]:now}:{}),historico:[...(x.historico||[]),{id:uid(),data:now,tipo:"status",texto:`Status: ${status}`}]}:x),leads:leads.map(x=>x.id===p.leadId?{...x,etapa:status==="enviada"?"proposta_enviada":status==="aceita"?"contrato_elaboracao":status==="negociacao"?"negociacao":x.etapa,etapaDesde:now}:x),...(contratoAuto?{contratos:[...contratos,contratoAuto]}:{})});if(contratoAuto)showToast("Proposta aceita e contrato gerado automaticamente.");};
+  const contratoVazio=()=>({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:"",propostaId:"",clienteId:"",contratante:"",objeto:"",escopo:"",valor:"",entrada:"",parcelas:"1",diaVencimento:"5",prazo:"",inicio:"",conclusao:"",responsabilidades:"",responsavelComercialId:currentUser?.id||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});
+  const salvarProposta=f=>{if(!String(f.numero||"").trim()){showToast("Informe o número da proposta.","error");return;}if(f.status!=="rascunho"&&(!f.leadId||!f.objeto||!(Number(f.valor)>0))){showToast("Para avançar a proposta, informe lead, objeto e valor.","error");return;}if(Number(f.desconto||0)>limiteDesconto){showToast(`Seu limite de desconto é ${limiteDesconto}%. Solicite aprovação para continuar.`,"error");return;}const p={...f,id:f.id||uid(),status:f.status||"rascunho",versao:Number(f.versao||1),valor:Number(f.valor||0),desconto:Number(f.desconto||0),createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),historico:[...(f.historico||[]),{id:uid(),data:new Date().toISOString(),tipo:f.id?"revisao":"criacao",texto:f.id?`Versão ${f.versao} salva`:"Proposta salva como rascunho"}]};setCom({propostas:f.id?propostas.map(x=>x.id===f.id?p:x):[...propostas,p],leads:leads.map(l=>l.id===p.leadId?{...l,etapa:p.status==="enviada"?"proposta_enviada":"proposta_elaboracao",etapaDesde:new Date().toISOString()}:l)});setPropostaForm(null);showToast("Proposta salva.");};
+  const statusProposta=(p,status)=>{if(["enviada","aceita"].includes(status)&&(!p.leadId||!p.objeto||!(Number(p.valor)>0))){showToast("Complete lead, objeto e valor antes de avançar a proposta.","error");return;}const now=new Date().toISOString(),campo=status==="enviada"?"enviadoEm":status==="visualizada"?"visualizadoEm":status==="aceita"?"aceitoEm":status==="rejeitada"?"rejeitadoEm":"",l=leadBy(p.leadId),ja=contratos.find(k=>k.propostaId===p.id);const contratoAuto=status==="aceita"&&!ja?{id:uid(),numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",contratada:data.config.companyName||"ARCD OBRAS",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:0,parcelas:1,diaVencimento:5,prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[],elaboradoEm:now}:null;setCom({propostas:propostas.map(x=>x.id===p.id?{...x,status,...(campo?{[campo]:now}:{}),historico:[...(x.historico||[]),{id:uid(),data:now,tipo:"status",texto:`Status: ${status}`}]}:x),leads:leads.map(x=>x.id===p.leadId?{...x,etapa:status==="enviada"?"proposta_enviada":status==="aceita"?"contrato_elaboracao":status==="negociacao"?"negociacao":x.etapa,etapaDesde:now}:x),...(contratoAuto?{contratos:[...contratos,contratoAuto]}:{})});if(contratoAuto)showToast("Proposta aceita e contrato gerado automaticamente.");};
   const pdfProposta=p=>{const l=leadBy(p.leadId),html=`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(p.numero)}</title><style>body{font-family:Arial;margin:38px;color:#151515}h1{font-size:22px}h2{font-size:14px;margin-top:22px;border-bottom:1px solid #ccc;padding-bottom:5px}.head{display:flex;justify-content:space-between}.value{font-size:22px;font-weight:bold}.box{background:#f5f5f5;padding:12px;margin:10px 0;white-space:pre-wrap}footer{margin-top:40px;font-size:10px;color:#666}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><div class="head"><div><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")}</h1><p>${escapeHtml(data.config.cnpj||"")}</p></div><div><b>${escapeHtml(p.numero)} · V${p.versao}</b><p>Validade: ${escapeHtml(fmtDate(p.validade))}</p></div></div><h2>CLIENTE</h2><p>${escapeHtml(l?.nome||"")} · ${escapeHtml(l?.email||"")} · ${escapeHtml(l?.whatsapp||"")}</p><h2>OBJETO</h2><div class="box">${escapeHtml(p.objeto)}</div><h2>ESCOPO</h2><div class="box">${escapeHtml(p.escopo)}</div><h2>INCLUSOS / NÃO INCLUSOS</h2><div class="box">${escapeHtml(p.inclusos)}\n\nNão inclusos:\n${escapeHtml(p.exclusos)}</div><h2>ENTREGÁVEIS E PRAZO</h2><div class="box">${escapeHtml(p.entregaveis)}\nPrazo: ${escapeHtml(p.prazo)}</div><h2>INVESTIMENTO</h2><p class="value">${fmt(p.valor)}</p><div class="box">${escapeHtml(p.formaPagamento)}</div><h2>RESPONSABILIDADES E PREMISSAS</h2><div class="box">${escapeHtml(p.responsabilidades)}\n\n${escapeHtml(p.premissas)}</div><footer>Gerado pelo ARCD OBRAS em ${new Date().toLocaleString("pt-BR")}</footer></body></html>`;const w=window.open("","_blank");w.document.write(html);w.document.close();};
   const compartilharProposta=p=>{const l=leadBy(p.leadId),texto=`Olá ${l?.nome||""}, segue a proposta ${p.numero} (versão ${p.versao}) para ${p.objeto}, no valor de ${fmt(p.valor)}. Validade: ${fmtDate(p.validade)}.`;navigator.clipboard.writeText(texto).then(()=>showToast("Mensagem copiada para WhatsApp."));};
   const salvarNegociacao=f=>{const p=propostas.find(x=>x.id===f.propostaId);if(!p)return;if(Number(f.desconto||0)>limiteDesconto&&!f.aprovadorId){showToast(`Desconto acima de ${limiteDesconto}% exige responsável pela aprovação.`,"error");return;}const n={...f,id:uid(),valorInicial:Number(f.valorInicial||p.valor),valorNegociado:Number(f.valorNegociado||0),desconto:Number(f.desconto||0),data:new Date().toISOString(),responsavelId:currentUser?.id||"",aprovado:Number(f.desconto||0)<=limiteDesconto||!!f.aprovadorId};setCom({propostas:propostas.map(x=>x.id===p.id?{...x,status:"negociacao",negociacoes:[...(x.negociacoes||[]),n],valor:n.valorNegociado||x.valor}:x),leads:leads.map(l=>l.id===p.leadId?{...l,etapa:"negociacao",etapaDesde:new Date().toISOString()}:l)});setNegForm(null);};
   const criarContrato=p=>{const existente=contratos.find(k=>k.propostaId===p.id);if(existente){setContratoForm({...existente});return;}if(p.status!=="aceita"&&!window.confirm("A proposta ainda não está aceita. Criar contrato mesmo assim?"))return;const l=leadBy(p.leadId);setContratoForm({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:"",parcelas:"1",diaVencimento:"5",prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});};
-  const salvarContrato=f=>{if(!f.leadId||!f.contratante||!(Number(f.valor)>0)){showToast("Informe lead, contratante e valor.","error");return;}const k={...f,id:f.id||uid(),valor:Number(f.valor),entrada:Number(f.entrada||0),parcelas:Number(f.parcelas||1),diaVencimento:Number(f.diaVencimento||5),elaboradoEm:f.elaboradoEm||new Date().toISOString()};setCom({contratos:f.id?contratos.map(x=>x.id===f.id?k:x):[...contratos,k],leads:leads.map(l=>l.id===k.leadId?{...l,etapa:k.status==="enviado"?"contrato_enviado":"contrato_elaboracao",etapaDesde:new Date().toISOString()}:l)});setContratoForm(null);};
-  const finalizarContrato=k=>{const p=propostas.find(x=>x.id===k.propostaId),l=leadBy(k.leadId);const faltas=[];if(p?.status!=="aceita")faltas.push("proposta aceita");if(!k.assinadoEm&&k.status!=="assinado")faltas.push("contrato assinado");if(!k.documentosRecebidos)faltas.push("documentos recebidos");if(!k.entradaPaga)faltas.push("entrada confirmada");if(!k.escopoValidado)faltas.push("escopo validado");if(!k.responsavelTecnicoId)faltas.push("responsável técnico");if(faltas.length){showToast(`Falta: ${faltas.join(", ")}.`,"error");return;}
+  const salvarContrato=f=>{if(!String(f.numero||"").trim()){showToast("Informe o número do contrato.","error");return;}const k={...f,id:f.id||uid(),status:f.status||"elaboracao",valor:Number(f.valor||0),entrada:Number(f.entrada||0),parcelas:Number(f.parcelas||1),diaVencimento:Number(f.diaVencimento||5),elaboradoEm:f.elaboradoEm||new Date().toISOString(),atualizadoEm:new Date().toISOString()};setCom({contratos:f.id?contratos.map(x=>x.id===f.id?k:x):[...contratos,k],leads:leads.map(l=>l.id===k.leadId?{...l,etapa:k.status==="enviado"?"contrato_enviado":"contrato_elaboracao",etapaDesde:new Date().toISOString()}:l)});setContratoForm(null);showToast("Contrato salvo como rascunho.");};
+  const finalizarContrato=k=>{const p=propostas.find(x=>x.id===k.propostaId),l=leadBy(k.leadId);const faltas=[];if(!l)faltas.push("lead vinculado");if(k.propostaId&&p?.status!=="aceita")faltas.push("proposta aceita");if(!k.contratante)faltas.push("contratante");if(!(Number(k.valor)>0))faltas.push("valor do contrato");if(!k.assinadoEm&&k.status!=="assinado")faltas.push("contrato assinado");if(!k.documentosRecebidos)faltas.push("documentos recebidos");if(!k.entradaPaga)faltas.push("entrada confirmada");if(!k.escopoValidado)faltas.push("escopo validado");if(!k.responsavelTecnicoId)faltas.push("responsável técnico");if(faltas.length){showToast(`Falta: ${faltas.join(", ")}.`,"error");return;}
     const clienteExist=clientes.find(c=>c.leadId===l.id),cliente=clienteExist||{...clienteVazio(),id:uid(),leadId:l.id,nome:l.nome,tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone,whatsapp:l.whatsapp,email:l.email,cidade:l.cidade,endereco:l.endereco,createdAt:new Date().toISOString()};const obraId=k.obraId||uid();const obraExist=(data.obras||[]).some(o=>o.id===obraId);const obra={id:obraId,name:l.nome||k.objeto,clienteId:cliente.id,cliente:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome,address:l.endereco||l.cidade,engineerId:k.responsavelTecnicoId||"",engineer:nomeUsuario(k.responsavelTecnicoId),startDate:k.inicio,status:"active",areaM2:Number(l.areaConstrucao||0),contractType:"fixed_labor",contractValue:k.valor,adminPercentage:0,billingType:"parcelado",parcelaMensal:k.parcelas?Math.max(0,(k.valor-k.entrada)/k.parcelas):0,contractStart:k.inicio,contractEnd:k.conclusao,totalParcelas:k.parcelas,billingFrequency:"mensal",diaVenc1:k.diaVencimento,diaVenc2:k.diaVencimento,entrada:k.entrada,entradaDate:today(),hasCaixa:true,faseId:""};const venda={id:uid(),leadId:l.id,contratoId:k.id,clienteId:cliente.id,obraId,valor:k.valor,fechadaEm:new Date().toISOString(),responsavelId:k.responsavelComercialId||l.responsavelId};const parceiro=parceiros.find(x=>x.id===l.parceiroId),pct=Number(parceiro?.comissaoPct||1),comissao={id:uid(),vendaId:venda.id,responsavelId:venda.responsavelId,parceiroId:parceiro?.id||"",base:k.valor,percentual:pct,valor:k.valor*pct/100,status:"prevista"};
     const contas=[];if(k.entrada>0)contas.push({id:uid(),obraId,competencia:today().slice(0,7),dataVencimento:today(),numeroParcela:"Entrada",tipo:"entrada",percentualAcumulado:0,percentualPeriodo:0,valorMOFixo:k.entrada,valorAdminPct:0,valorPrevisto:k.entrada,valorRecebido:k.entrada,dataPagamento:today(),descricao:`Entrada contrato ${k.numero}`,recebido:true});const saldo=Math.max(0,k.valor-k.entrada),parcs=Math.max(1,k.parcelas),valorParc=saldo/parcs;for(let i=1;i<=parcs&&valorParc>0;i++){const venc=comAddMes(k.inicio||today(),i-1);contas.push({id:uid(),obraId,competencia:venc.slice(0,7),dataVencimento:venc,numeroParcela:String(i),tipo:"parcela",percentualAcumulado:0,percentualPeriodo:0,valorMOFixo:valorParc,valorAdminPct:0,valorPrevisto:valorParc,valorRecebido:0,dataPagamento:"",descricao:`Parcela ${i}/${parcs} · ${k.numero}`,recebido:false});}
     const kickoff={id:uid(),leadId:l.id,dataHora:`${k.inicio||today()}T09:00`,tipo:"inicio_obra",local:l.endereco||"Obra",participantes:`Cliente, ${nomeUsuario(k.responsavelTecnicoId)}, ${nomeUsuario(venda.responsavelId)}`,responsavelComercialId:venda.responsavelId,responsavelTecnicoId:k.responsavelTecnicoId,pauta:"Reunião de início e transferência para Engenharia",resumo:"",necessidades:l.observacoes,objecoes:"",orcamentoDisponivel:k.valor,proximosPassos:"Validar mobilização e cronograma",proximoContato:k.inicio,status:"agendada",documentos:[]};
@@ -32126,7 +32937,43 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   };
   const salvarParceiro=f=>{if(!f.nome)return;const p={...f,id:f.id||uid(),comissaoPct:Number(f.comissaoPct||0),ativo:true};setCom({parceiros:f.id?parceiros.map(x=>x.id===f.id?p:x):[...parceiros,p]});setParceiroForm(null);};
   const salvarMeta=f=>{if(!f.periodo)return;const m={...f,id:f.id||uid(),receita:Number(f.receita||0),contratos:Number(f.contratos||0),ticketMedio:Number(f.ticketMedio||0),conversao:Number(f.conversao||0)};setCom({metas:f.id?metas.map(x=>x.id===f.id?m:x):[...metas,m]});setMetaForm(null);};
-  const exportarRelatorio=()=>{const rows=vendedores.map(v=>({Vendedor:v.nome,Leads:v.leads,Vendas:v.vendas,Receita:v.receita,"Conversão %":v.conversao}));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Comercial");XLSX.writeFile(wb,`ARCD_Comercial_${today()}.xlsx`);};
+  const exportarRelatorio=async()=>{await carregarXLSX();const rows=vendedores.map(v=>({Vendedor:v.nome,Leads:v.leads,Vendas:v.vendas,Receita:v.receita,"Conversão %":v.conversao}));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Comercial");await XLSX.writeFile(wb,`ARCD_Comercial_${today()}.xlsx`);};
+
+  const anexarDocumentoComercial=async(tipo,registro,setRegistro,file)=>{
+    if(!file)return;
+    if(file.size>5.5*1024*1024){showToast("O documento deve ter no máximo 5,5 MB.","error");return;}
+    setSubindoDocumentoComercial(true);
+    try{
+      const dataUrl=await arquivoComoDataUrl(file);
+      const pasta=tipo==="proposta"?"Propostas comerciais":"Contratos comerciais";
+      const referencia=String(registro.numero||"Rascunhos").replace(/[\\/:*?"<>|]/g,"-");
+      const resp=await enviarArquivoOneDrive({dataUrl,obraName:"Comercial",category:"comercial",
+        subfolder:`${pasta}/${referencia}`,date:today(),fileName:file.name});
+      if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o documento no OneDrive.");
+      const documento={id:resp.item?.id||uid(),nome:resp.item?.name||file.name,
+        legenda:String(file.name||"Documento").replace(/\.[^.]+$/,""),url:resp.item?.webUrl||resp.url,
+        path:resp.path||"",tipo:file.type||"",tamanho:Number(file.size||0),
+        enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};
+      setRegistro(atual=>({...atual,documentos:[...(atual.documentos||[]),documento]}));
+      showToast("Documento anexado e salvo no OneDrive.");
+    }catch(err){showToast(err.message||"Não foi possível anexar o documento.","error");}
+    finally{setSubindoDocumentoComercial(false);}
+  };
+
+  const DocumentosComerciais=({tipo,registro,setRegistro})=><div style={{gridColumn:"1/-1",padding:"10px",border:`1px solid ${C.border}`,borderRadius:8,background:C.surface}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+      <div><p style={{fontSize:10,fontWeight:800,color:C.text}}>Documentos anexados</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>PDF, Word, Excel ou imagem · máximo de 5,5 MB por arquivo</p></div>
+      <label style={{display:"inline-flex",alignItems:"center",gap:5,padding:"7px 10px",border:`1px solid ${C.blue}`,borderRadius:6,background:C.card,color:C.blue,fontSize:9.5,fontWeight:750,cursor:subindoDocumentoComercial?"wait":"pointer"}}>
+        <Ic n={subindoDocumentoComercial?"refresh":"plus"} s={11}/>{subindoDocumentoComercial?"Enviando...":"Anexar arquivo"}
+        <input type="file" disabled={subindoDocumentoComercial} accept=".pdf,.doc,.docx,.xls,.xlsx,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";anexarDocumentoComercial(tipo,registro,setRegistro,file);}}/>
+      </label>
+    </div>
+    {!!(registro.documentos||[]).length&&<div style={{display:"flex",flexDirection:"column",gap:5,marginTop:8}}>{registro.documentos.map(doc=><div key={doc.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:6,alignItems:"center",padding:"7px 8px",border:`1px solid ${C.line}`,borderRadius:6,background:C.card}}>
+      <a href={doc.url} target="_blank" rel="noreferrer" style={{overflow:"hidden",color:C.blue,fontSize:9.5,fontWeight:700,textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.legenda||doc.nome} ↗</a>
+      <span style={{fontSize:8,color:C.muted}}>{doc.tamanho?`${(doc.tamanho/1024/1024).toFixed(1)} MB`:""}</span>
+      <button type="button" title="Remover do cadastro" onClick={()=>setRegistro(f=>({...f,documentos:(f.documentos||[]).filter(d=>d.id!==doc.id)}))} style={{width:25,height:25,border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.red,cursor:"pointer"}}>×</button>
+    </div>)}</div>}
+  </div>;
 
   const Titulo=({titulo,sub,acao})=><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}><div><p style={{fontSize:9.5,fontWeight:800,color:C.green,textTransform:"uppercase",letterSpacing:.8}}>Comercial</p><h3 style={{fontSize:"clamp(15px,3.5vw,19px)",color:C.text,fontWeight:800,letterSpacing:-.2}}>{titulo}</h3>{sub&&<p style={{fontSize:10.5,color:C.muted,marginTop:2}}>{sub}</p>}</div>{acao}</div>;
   const vazio=t=><p style={{fontSize:11,color:C.muted,textAlign:"center",padding:18}}>{t}</p>;
@@ -32303,11 +33150,73 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   }
 
   if(view==="com_dash"){
-    const novos=leads.filter(l=>l.createdAt?.slice(0,7)===mesAtual).length,semAt=leadAtivos.filter(l=>!l.proximaAtividadeEm).length,reu=reunioes.filter(r=>r.status==="agendada").length,prop=propostas.filter(p=>p.status==="enviada").length,cont=contratos.filter(k=>["enviado","aguardando_assinatura"].includes(k.status)).length,vendasMes=vendas.filter(v=>v.fechadaEm?.slice(0,7)===mesAtual),funil=leadAtivos.reduce((s,l)=>s+l.orcamentoEstimado,0),ponderada=leadAtivos.reduce((s,l)=>s+l.orcamentoEstimado*l.probabilidade/100,0),ticket=vendas.length?vendas.reduce((s,v)=>s+v.valor,0)/vendas.length:0,conv=leads.length?vendas.length/leads.length*100:0,meta=metas.filter(m=>m.periodo===mesAtual).reduce((s,m)=>s+m.receita,0);
+    const novos=leads.filter(l=>l.createdAt?.slice(0,7)===mesAtual).length,semAt=leadAtivos.filter(l=>!l.proximaAtividadeEm).length,reu=reunioes.filter(r=>r.status==="agendada").length,prop=propostas.filter(p=>p.status==="enviada").length,cont=contratos.filter(k=>["enviado","aguardando_assinatura"].includes(k.status)).length,vendasMes=vendas.filter(v=>v.fechadaEm?.slice(0,7)===mesAtual),funil=leadAtivos.reduce((s,l)=>s+Number(l.orcamentoEstimado||0),0),ponderada=leadAtivos.reduce((s,l)=>s+Number(l.orcamentoEstimado||0)*Number(l.probabilidade||0)/100,0),receitaMes=vendasMes.reduce((s,v)=>s+Number(v.valor||0),0),ticket=vendasMes.length?receitaMes/vendasMes.length:0,conv=leads.length?vendas.length/leads.length*100:0,meta=metas.filter(m=>m.periodo===mesAtual).reduce((s,m)=>s+Number(m.receita||0),0),progressoMeta=meta?Math.min(100,receitaMes/meta*100):0;
     const perdas={};leads.filter(l=>l.etapa==="perdido").forEach(l=>perdas[l.motivoPerda||"Não informado"]=(perdas[l.motivoPerda||"Não informado"]||0)+1);
-    conteudo=<><Titulo titulo="Dashboard comercial" sub="Visão completa do funil, atividades, metas e conversão"/><div style={{display:"grid",gridTemplateColumns:cols(2,4,5),gap:7}}>{[["Novos leads",novos,C.blue],["Sem atendimento",semAt,semAt?C.red:C.green],["Reuniões",reu,C.purple],["Propostas enviadas",prop,C.orange],["Contratos sem assinatura",cont,C.red],["Vendas fechadas",vendasMes.length,C.green],["Valor do funil",fmt(funil),C.text],["Receita ponderada",fmt(ponderada),C.yellowD],["Ticket médio",fmt(ticket),C.blue],["Conversão",`${conv.toFixed(1)}%`,C.green],["Meta mensal",fmt(meta),C.purple]].map(x=>kpi(...x))}</div>
-      {alertas.length>0&&<div style={{background:C.card,border:`1px solid ${C.red}44`,borderRadius:6,overflow:"hidden"}}><p style={{padding:"8px 10px",fontSize:11,fontWeight:900,color:C.red}}>{alertas.length} ALERTA(S) COMERCIAL(IS)</p>{alertas.slice(0,12).map((a,i)=><button key={i} onClick={()=>{const l=leadBy(a.leadId);if(l){setLeadForm({...l});setLeadAba("geral");}}} style={{display:"block",width:"100%",textAlign:"left",padding:"7px 10px",border:0,borderTop:`1px solid ${C.line}`,borderLeft:`4px solid ${a.cor}`,background:"transparent",fontSize:10.5,color:C.text,cursor:"pointer"}}>{a.texto}</button>)}</div>}
-      <div style={{display:"grid",gridTemplateColumns:cols(1,1,2),gap:9}}><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:10}}><p style={{fontSize:11,fontWeight:900,color:C.text}}>DESEMPENHO POR VENDEDOR</p>{vendedores.map(v=><div key={v.id} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.line}`,fontSize:10}}><span>{v.nome}</span><b>{v.vendas} venda(s)</b><b style={{color:C.green}}>{fmt(v.receita)}</b></div>)}{!vendedores.length&&vazio("Sem dados.")}</div><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:10}}><p style={{fontSize:11,fontWeight:900,color:C.text}}>ORIGENS E PERDAS</p>{origens.map(o=><div key={o.origem} style={{fontSize:10,padding:"4px 0"}}><b>{o.origem}</b> · {o.leads} lead(s) · {o.vendas} venda(s)</div>)}{Object.entries(perdas).map(([m,q])=><div key={m} style={{fontSize:10,color:C.red,padding:"3px 0"}}>{m}: {q}</div>)}</div></div></>;
+    const fases=COM_JORNADA.map(f=>{const lista=leadAtivos.filter(l=>comFaseDaEtapa(l.etapa)===f.id);return{...f,qtd:lista.length,valor:lista.reduce((s,l)=>s+Number(l.orcamentoEstimado||0),0)};});
+    const topVendedores=[...vendedores].sort((a,b)=>b.receita-a.receita||b.vendas-a.vendas);
+    const topOrigens=[...origens].sort((a,b)=>b.receita-a.receita||b.leads-a.leads);
+    conteudo=<div className="commercial-dashboard">
+      <Titulo titulo="Comando comercial" sub={`${leadAtivos.length} oportunidade(s) ativa(s) · acompanhamento do mês atual`}
+        acao={<div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn v="ghost" onClick={()=>onTab("com_agenda")}><Ic n="calendar"/> Agenda</Btn><Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> Novo lead</Btn></div>}/>
+
+      <section className="commercial-command-card">
+        <div>
+          <p className="commercial-eyebrow">Resultado do mês</p>
+          <h2>{receitaMes>0?`${fmtCompact(receitaMes)} em vendas`:"Hora de transformar o funil em contratos"}</h2>
+          <p>{alertas.length?`${alertas.length} ponto(s) precisam de ação para manter as oportunidades avançando.`:"A operação comercial está acompanhada e sem alertas críticos."}</p>
+        </div>
+        <div className="commercial-goal">
+          <div><span>Meta mensal</span><b>{meta?fmtCompact(meta):"Não definida"}</b></div>
+          <div className="commercial-goal-track"><i style={{width:`${progressoMeta}%`}}/></div>
+          <small>{meta?`${progressoMeta.toFixed(0)}% realizado · ${fmtCompact(Math.max(0,meta-receitaMes))} restante`:"Cadastre uma meta para acompanhar o ritmo de vendas."}</small>
+        </div>
+      </section>
+
+      <div className="commercial-kpis">
+        <KpiCard label="Funil ativo" value={fmtCompact(funil)} sub={`${leadAtivos.length} oportunidade(s)`} color={C.blue} icon="trending" tab="com_funil"/>
+        <KpiCard label="Receita provável" value={fmtCompact(ponderada)} sub="Valor ponderado pela probabilidade" color={C.yellowD} icon="chart" tab="com_funil"/>
+        <KpiCard label="Vendas no mês" value={vendasMes.length} sub={`${fmtCompact(receitaMes)} contratado(s)`} color={C.green} icon="check" tab="com_contratos"/>
+        <KpiCard label="Conversão geral" value={`${conv.toFixed(1)}%`} sub={ticket?`Ticket do mês ${fmtCompact(ticket)}`:"Sem venda no mês"} color={conv>=20?C.green:C.orange} icon="target" tab="com_relatorios"/>
+      </div>
+
+      <section className="commercial-panel">
+        <div className="commercial-panel-head"><div><p className="commercial-eyebrow">Pipeline</p><h3>Distribuição das oportunidades</h3></div><Btn size="sm" v="ghost" onClick={()=>onTab("com_funil")}>Abrir funil →</Btn></div>
+        <div className="commercial-pipeline">{fases.map(f=><button key={f.id} onClick={()=>onTab("com_funil")} style={{"--stage-color":f.cor}}>
+          <span>{f.label}</span><strong>{f.qtd}</strong><small>{fmtCompact(f.valor)}</small><i><em style={{width:`${leadAtivos.length?Math.max(5,f.qtd/leadAtivos.length*100):0}%`}}/></i>
+        </button>)}</div>
+      </section>
+
+      <div className="commercial-dashboard-columns">
+        <section className="commercial-panel">
+          <div className="commercial-panel-head"><div><p className="commercial-eyebrow">Prioridades</p><h3>Próximas ações</h3></div><span className="commercial-count-alert">{alertas.length}</span></div>
+          {!alertas.length?vazio("Nenhuma ação crítica agora."):<div className="commercial-action-list">{alertas.slice(0,6).map((a,i)=><button key={i} onClick={()=>{const l=leadBy(a.leadId);if(l){setLeadForm({...l});setLeadAba("geral");}}}>
+            <i style={{background:a.cor}}/><span><b>{a.texto}</b><small>Abrir lead e registrar andamento</small></span><Ic n="chevronRight" s={12}/>
+          </button>)}</div>}
+        </section>
+
+        <section className="commercial-panel">
+          <div className="commercial-panel-head"><div><p className="commercial-eyebrow">Equipe</p><h3>Desempenho por vendedor</h3></div><Btn size="sm" v="ghost" onClick={()=>onTab("com_relatorios")}>Relatório →</Btn></div>
+          {!topVendedores.length?vazio("Sem dados de vendedores."):<div className="commercial-ranking">{topVendedores.slice(0,6).map((v,i)=><div key={v.id}><span className="commercial-rank">{i+1}</span><span><b>{v.nome}</b><small>{v.leads} lead(s) · {v.conversao.toFixed(0)}% de conversão</small></span><strong>{fmtCompact(v.receita)}</strong></div>)}</div>}
+        </section>
+      </div>
+
+      <div className="commercial-dashboard-columns">
+        <section className="commercial-panel">
+          <div className="commercial-panel-head"><div><p className="commercial-eyebrow">Aquisição</p><h3>Origens que geram negócio</h3></div><Btn size="sm" v="ghost" onClick={()=>onTab("com_indicacoes")}>Indicações →</Btn></div>
+          {!topOrigens.length?vazio("Nenhuma origem registrada."):<div className="commercial-ranking">{topOrigens.slice(0,5).map((o,i)=><div key={o.origem}><span className="commercial-rank">{i+1}</span><span><b>{o.origem}</b><small>{o.leads} lead(s) · {o.vendas} venda(s)</small></span><strong>{fmtCompact(o.receita)}</strong></div>)}</div>}
+        </section>
+        <section className="commercial-panel">
+          <div className="commercial-panel-head"><div><p className="commercial-eyebrow">Saúde do processo</p><h3>Pendências da operação</h3></div></div>
+          <div className="commercial-health-grid">
+            <button onClick={()=>onTab("com_leads")}><b style={{color:semAt?C.red:C.green}}>{semAt}</b><span>Sem atendimento</span></button>
+            <button onClick={()=>onTab("com_reunioes")}><b style={{color:C.purple}}>{reu}</b><span>Reuniões agendadas</span></button>
+            <button onClick={()=>onTab("com_propostas")}><b style={{color:C.orange}}>{prop}</b><span>Propostas enviadas</span></button>
+            <button onClick={()=>onTab("com_contratos")}><b style={{color:cont?C.red:C.green}}>{cont}</b><span>Sem assinatura</span></button>
+          </div>
+          {!!Object.keys(perdas).length&&<p className="commercial-loss-note">Principal perda: <b>{Object.entries(perdas).sort((a,b)=>b[1]-a[1])[0]?.[0]}</b></p>}
+        </section>
+      </div>
+    </div>;
   } else if(view==="com_leads"){
     const lista=leads.filter(l=>[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${leads.length} cadastrado(s)`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> NOVO LEAD</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:6}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{l.nome}</p><p style={{fontSize:10,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:9.5,color:C.blue,marginTop:3}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:12,color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:9,color:C.muted,marginTop:2}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
   } else if(view==="com_funil"){
@@ -32401,11 +33310,11 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     </>;
   } else if(["com_agenda","com_reunioes","com_tarefas"].includes(view)){
     const itens=[...reunioes.map(r=>({...r,_tipo:"reuniao",titulo:`Reunião · ${leadBy(r.leadId)?.nome||"Lead"}`})),...atividades.map(a=>({...a,_tipo:"atividade"}))].sort((a,b)=>(a.dataHora||"").localeCompare(b.dataHora||""));const filtrados=view==="com_reunioes"?itens.filter(x=>x._tipo==="reuniao"):view==="com_tarefas"?itens.filter(x=>x._tipo==="atividade"):itens;
-    conteudo=<><Titulo titulo={view==="com_agenda"?"Agenda comercial":view==="com_reunioes"?"Reuniões":"Tarefas e follow-ups"} sub="Compromissos, responsáveis, próximos passos e alertas" acao={<div style={{display:"flex",gap:6}}><Btn size="sm" onClick={()=>setAtividadeForm({id:"",leadId:"",tipo:"followup",titulo:"",dataHora:"",responsavelId:currentUser?.id||"",status:"pendente",observacoes:""})}>+ TAREFA</Btn><Btn size="sm" v="ghost" onClick={()=>setReuniaoForm({id:"",leadId:"",dataHora:"",tipo:"presencial",local:"",participantes:"",responsavelComercialId:currentUser?.id||"",responsavelTecnicoId:"",pauta:"",resumo:"",necessidades:"",objecoes:"",orcamentoDisponivel:"",proximosPassos:"",proximoContato:"",status:"agendada",documentos:[]})}>+ REUNIÃO</Btn></div>}/><div style={{display:"flex",flexDirection:"column",gap:6}}>{filtrados.map(x=>{const venc=x.dataHora&&new Date(x.dataHora).getTime()<agora&&!["concluida","realizada","cancelada"].includes(x.status);return <div key={`${x._tipo}-${x.id}`} style={{display:"grid",gridTemplateColumns:"145px minmax(0,1fr) auto",gap:8,alignItems:"center",background:C.card,border:`1px solid ${venc?C.red:C.border}`,borderRadius:6,padding:"8px 10px"}}><div><b style={{fontSize:10,color:venc?C.red:C.blue}}>{comDateTime(x.dataHora)}</b><p style={{fontSize:8.5,color:C.muted}}>{x._tipo.toUpperCase()}</p></div><div><p style={{fontSize:11,fontWeight:800,color:C.text}}>{x.titulo||`Reunião · ${leadBy(x.leadId)?.nome||"Lead"}`}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{leadBy(x.leadId)?.nome||"-"} · {x.local||x.observacoes||""}</p></div><div style={{display:"flex",gap:4}}>{x._tipo==="atividade"&&x.status!=="concluida"&&<Btn size="sm" v="success" onClick={()=>setCom({atividades:atividades.map(a=>a.id===x.id?{...a,status:"concluida"}:a)})}>OK</Btn>}<Btn size="sm" v="ghost" onClick={()=>x._tipo==="atividade"?setAtividadeForm({...x}):setReuniaoForm({...x})}><Ic n="edit"/></Btn></div></div>;})}{!filtrados.length&&vazio("Nenhum compromisso cadastrado.")}</div></>;
+    conteudo=<><Titulo titulo={view==="com_agenda"?"Agenda comercial":view==="com_reunioes"?"Reuniões":"Tarefas e follow-ups"} sub="Compromissos, responsáveis, próximos passos e histórico por lead" acao={<div style={{display:"flex",gap:6}}><Btn size="sm" onClick={()=>setAtividadeForm({id:"",leadId:"",tipo:"followup",titulo:"",dataHora:"",responsavelId:currentUser?.id||"",status:"pendente",observacoes:""})}>+ TAREFA</Btn><Btn size="sm" v="ghost" onClick={()=>setReuniaoForm({id:"",leadId:"",dataHora:"",tipo:"presencial",local:"",participantes:"",responsavelComercialId:currentUser?.id||"",responsavelTecnicoId:"",pauta:"",resumo:"",necessidades:"",objecoes:"",orcamentoDisponivel:"",proximosPassos:"",proximoContato:"",status:"agendada",documentos:[]})}>+ REUNIÃO</Btn></div>}/><div style={{display:"flex",flexDirection:"column",gap:6}}>{filtrados.map(x=>{const venc=x.dataHora&&new Date(x.dataHora).getTime()<agora&&!["concluida","realizada","cancelada"].includes(x.status);return <div key={`${x._tipo}-${x.id}`} style={{display:"grid",gridTemplateColumns:"145px minmax(0,1fr) auto",gap:8,alignItems:"center",background:C.card,border:`1px solid ${venc?C.red:C.border}`,borderLeft:`4px solid ${x.status==="realizada"?C.green:venc?C.red:C.blue}`,borderRadius:6,padding:"8px 10px"}}><div><b style={{fontSize:10,color:x.status==="realizada"?C.green:venc?C.red:C.blue}}>{comDateTime(x.dataHora)}</b><p style={{fontSize:8.5,color:C.muted}}>{x._tipo.toUpperCase()} · {x.status}</p></div><div><p style={{fontSize:11,fontWeight:800,color:C.text}}>{x.titulo||`Reunião · ${leadBy(x.leadId)?.nome||"Lead"}`}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{leadBy(x.leadId)?.nome||"-"} · {x.local||x.observacoes||""}</p>{x._tipo==="reuniao"&&x.status==="realizada"&&x.resumo&&<p style={{fontSize:9.5,color:C.green,marginTop:3}}>Executada · {x.resumo}</p>}</div><div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>{x._tipo==="atividade"&&x.status!=="concluida"&&<Btn size="sm" v="success" onClick={()=>setCom({atividades:atividades.map(a=>a.id===x.id?{...a,status:"concluida"}:a)})}>OK</Btn>}{x._tipo==="reuniao"&&x.status!=="realizada"&&x.status!=="cancelada"&&<Btn size="sm" v="success" onClick={()=>setReuniaoForm({...x,status:"realizada"})}><Ic n="check"/> Confirmar execução</Btn>}<Btn size="sm" v="ghost" onClick={()=>x._tipo==="atividade"?setAtividadeForm({...x}):setReuniaoForm({...x})}>{x._tipo==="reuniao"?"Abrir":"Editar"}</Btn></div></div>;})}{!filtrados.length&&vazio("Nenhum compromisso cadastrado.")}</div></>;
   } else if(["com_propostas","com_negociacoes"].includes(view)){
     const lista=view==="com_negociacoes"?propostas.filter(p=>(p.negociacoes||[]).length||p.status==="negociacao"):propostas;conteudo=<><Titulo titulo={view==="com_propostas"?"Propostas":"Negociações"} sub="Versões, envio, visualização, descontos, aceite e rejeição" acao={<Btn onClick={()=>setPropostaForm(propostaVazia(leadAtivos[0]?.id||""))}><Ic n="plus"/> PROPOSTA</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{lista.map(p=>{const l=leadBy(p.leadId);return <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{p.numero} · V{p.versao} · {l?.nome}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{p.objeto} · validade {fmtDate(p.validade)}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(p.valor)}</b><p style={{fontSize:9,color:C.blue}}>{p.status}</p></div></div>{(p.negociacoes||[]).slice(-1).map(n=><p key={n.id} style={{fontSize:9.5,color:C.orange,marginTop:5}}>Negociado: {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · desconto {n.desconto}%</p>)}<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setPropostaForm({...p,versao:p.versao+1})}><Ic n="edit"/></Btn><Btn size="sm" v="ghost" onClick={()=>pdfProposta(p)}>PDF</Btn><Btn size="sm" v="success" onClick={()=>compartilharProposta(p)}>WHATSAPP</Btn><a href={`mailto:${encodeURIComponent(l?.email||"")}?subject=${encodeURIComponent(`Proposta ${p.numero}`)}&body=${encodeURIComponent(`Olá ${l?.nome||""}, segue nossa proposta ${p.numero}, versão ${p.versao}, no valor de ${fmt(p.valor)}.`)}`} style={{textDecoration:"none"}}><Btn size="sm" v="ghost">E-MAIL</Btn></a>{p.status==="rascunho"&&<Btn size="sm" onClick={()=>statusProposta(p,"enviada")}>ENVIAR</Btn>}{p.status==="enviada"&&<Btn size="sm" v="ghost" onClick={()=>statusProposta(p,"visualizada")}>VISUALIZADA</Btn>}<Btn size="sm" v="ghost" onClick={()=>setNegForm({propostaId:p.id,valorInicial:p.valor,valorNegociado:p.valor,desconto:"",formaPagamento:p.formaPagamento,parcelas:"",alteracaoEscopo:"",objecoes:"",respostas:"",aprovadorId:""})}>NEGOCIAR</Btn>{!["aceita","rejeitada"].includes(p.status)&&<Btn size="sm" v="success" onClick={()=>statusProposta(p,"aceita")}>ACEITAR</Btn>}{p.status==="aceita"&&<Btn size="sm" onClick={()=>criarContrato(p)}>GERAR CONTRATO</Btn>}</div></div>;})}{!lista.length&&vazio("Nenhuma proposta.")}</div></>;
   } else if(view==="com_contratos"){
-    conteudo=<><Titulo titulo="Contratos" sub="Elaboração, assinatura, entrada e transferência para Engenharia"/><div style={{display:"flex",flexDirection:"column",gap:7}}>{contratos.map(k=>{const l=leadBy(k.leadId),faltas=[!k.assinadoEm&&k.status!=="assinado"?"assinatura":"",!k.documentosRecebidos?"documentos":"",!k.entradaPaga?"entrada":"",!k.escopoValidado?"escopo":"",!k.responsavelTecnicoId?"responsável técnico":""].filter(Boolean);return <div key={k.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${k.status==="contratado"?C.green:faltas.length?C.orange:C.blue}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{k.numero} · {k.contratante}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{k.objeto} · proposta {propostas.find(p=>p.id===k.propostaId)?.numero||"-"}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(k.valor)}</b><p style={{fontSize:9,color:C.blue}}>{k.status}</p></div></div>{faltas.length>0&&k.status!=="contratado"&&<p style={{fontSize:9.5,color:C.orange,marginTop:5}}>Pendente: {faltas.join(", ")}</p>}<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setContratoForm({...k})}><Ic n="edit"/></Btn>{k.status==="elaboracao"&&<Btn size="sm" onClick={()=>setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"enviado",enviadoEm:new Date().toISOString()}:x)})}>ENVIAR</Btn>}{k.status==="enviado"&&<Btn size="sm" v="success" onClick={()=>setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"assinado",assinadoEm:new Date().toISOString()}:x),leads:leads.map(x=>x.id===k.leadId?{...x,etapa:"contrato_assinado"}:x)})}>REGISTRAR ASSINATURA</Btn>}{k.status!=="contratado"&&<Btn size="sm" v="success" onClick={()=>finalizarContrato(k)}>CONFIRMAR CONTRATAÇÃO</Btn>}{k.obraId&&<Btn size="sm" v="ghost" onClick={()=>onTab("obras")}>ABRIR OBRA</Btn>}</div></div>;})}{!contratos.length&&vazio("Nenhum contrato. Aceite uma proposta para gerar o contrato.")}</div></>;
+    conteudo=<><Titulo titulo="Contratos" sub="Elaboração, assinatura, entrada e transferência para Engenharia" acao={<Btn onClick={()=>setContratoForm(contratoVazio())}><Ic n="plus"/> Novo contrato</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{contratos.map(k=>{const l=leadBy(k.leadId),faltas=[!k.assinadoEm&&k.status!=="assinado"?"assinatura":"",!k.documentosRecebidos?"documentos":"",!k.entradaPaga?"entrada":"",!k.escopoValidado?"escopo":"",!k.responsavelTecnicoId?"responsável técnico":""].filter(Boolean);return <div key={k.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${k.status==="contratado"?C.green:faltas.length?C.orange:C.blue}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{k.numero} · {k.contratante||"Rascunho sem contratante"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{k.objeto||"Objeto ainda não informado"} · proposta {propostas.find(p=>p.id===k.propostaId)?.numero||"-"}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(k.valor)}</b><p style={{fontSize:9,color:C.blue}}>{k.status}</p></div></div>{faltas.length>0&&k.status!=="contratado"&&<p style={{fontSize:9.5,color:C.orange,marginTop:5}}>Pendente: {faltas.join(", ")}</p>}<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setContratoForm({...k})}><Ic n="edit"/> Editar</Btn>{k.status==="elaboracao"&&<Btn size="sm" onClick={()=>{if(!k.leadId||!k.contratante||!(Number(k.valor)>0)){showToast("Complete lead, contratante e valor antes de enviar.","error");return;}setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"enviado",enviadoEm:new Date().toISOString()}:x)});}}>ENVIAR</Btn>}{k.status==="enviado"&&<Btn size="sm" v="success" onClick={()=>setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"assinado",assinadoEm:new Date().toISOString()}:x),leads:leads.map(x=>x.id===k.leadId?{...x,etapa:"contrato_assinado"}:x)})}>REGISTRAR ASSINATURA</Btn>}{k.status!=="contratado"&&<Btn size="sm" v="success" onClick={()=>finalizarContrato(k)}>CONFIRMAR CONTRATAÇÃO</Btn>}{k.obraId&&<Btn size="sm" v="ghost" onClick={()=>onTab("obras")}>ABRIR OBRA</Btn>}</div></div>;})}{!contratos.length&&vazio("Nenhum contrato salvo.")}</div></>;
   } else if(view==="com_clientes"){
     conteudo=<><Titulo titulo="Clientes" sub="Qualificação completa para propostas, contratos e documentos" acao={<Btn onClick={()=>setClienteForm(clienteVazio())}><Ic n="plus"/> CLIENTE</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{clientes.map(c=>{const pend=pendenciasCliente(c),pronto=!pend.length;return <div key={c.id} style={{background:C.card,border:`1px solid ${pronto?C.green:C.border}`,borderLeft:`4px solid ${pronto?C.green:C.orange}`,borderRadius:6,padding:"10px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}</p>{c.tipoPessoa==="PJ"&&c.nomeFantasia&&<p style={{fontSize:9.5,color:C.muted}}>{c.nomeFantasia}</p>}</div><Btn size="sm" v="ghost" onClick={()=>setClienteForm({...clienteVazio(),...c})}><Ic n="edit"/></Btn></div><p style={{fontSize:10,color:C.muted,marginTop:3}}>{c.tipoPessoa} · {c.documento?maskDoc(c.documento,c.tipoPessoa):"sem documento"} · {c.cidade||"-"}/{c.uf||"-"}</p><p style={{fontSize:10,color:C.blue,marginTop:3}}>{c.whatsapp||c.telefone||"-"} · {c.email||"-"}</p><p style={{fontSize:9.5,color:pronto?C.green:C.orange,marginTop:5,fontWeight:800}}>{pronto?"CADASTRO CONTRATUAL COMPLETO":`${pend.length} pendência(s): ${pend.slice(0,3).join(", ")}${pend.length>3?"...":""}`}</p><p style={{fontSize:9.5,color:C.green,marginTop:5}}>{(vendasPorCliente.get(c.id)||[]).length} contrato(s) · {fmt((vendasPorCliente.get(c.id)||[]).reduce((s,v)=>s+v.valor,0))}</p></div>;})}{!clientes.length&&vazio("Nenhum cliente cadastrado.")}</div></>;
   } else if(view==="com_parceiros"){
@@ -32505,7 +33414,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       {leadAba==="projeto"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Área do terreno (m²)" type="number" value={leadForm.areaTerreno} onChange={v=>setLeadForm(f=>({...f,areaTerreno:v}))}/><Inp label="Área estimada da construção" type="number" value={leadForm.areaConstrucao} onChange={v=>setLeadForm(f=>({...f,areaConstrucao:v}))}/><Inp label="Pavimentos" type="number" value={leadForm.pavimentos} onChange={v=>setLeadForm(f=>({...f,pavimentos:v}))}/><Inp label="Tipo de serviço" value={leadForm.tipoServico} onChange={v=>setLeadForm(f=>({...f,tipoServico:v}))}/><Inp label="Prazo pretendido" value={leadForm.prazoPretendido} onChange={v=>setLeadForm(f=>({...f,prazoPretendido:v}))}/><Sel label="Padrão construtivo" value={leadForm.padrao} onChange={v=>setLeadForm(f=>({...f,padrao:v}))} options={[{v:"economico",l:"Econômico"},{v:"medio",l:"Médio"},{v:"alto",l:"Alto padrão"}]}/><Inp label="Orçamento disponível" type="number" value={leadForm.orcamentoDisponivel} onChange={v=>setLeadForm(f=>({...f,orcamentoDisponivel:v}))}/><div style={{gridColumn:"1/-1"}}><Inp label="Projetos/documentos existentes" value={leadForm.projetosExistentes} onChange={v=>setLeadForm(f=>({...f,projetosExistentes:v}))} multiline/></div></div>}
       {leadAba==="qualificacao"&&<Inp label="Qualificação, necessidades, restrições e objeções" value={leadForm.qualificacao} onChange={v=>setLeadForm(f=>({...f,qualificacao:v}))} multiline/>}
       {leadAba==="atividades"&&<div>{atividades.filter(a=>a.leadId===leadForm.id).map(a=><p key={a.id} style={{fontSize:10.5,padding:6,borderBottom:`1px solid ${C.line}`}}>{comDateTime(a.dataHora)} · {a.titulo} · {a.status}</p>)}<Btn size="sm" onClick={()=>setAtividadeForm({id:"",leadId:leadForm.id,tipo:"followup",titulo:"",dataHora:"",responsavelId:leadForm.responsavelId,status:"pendente",observacoes:""})}>+ ATIVIDADE</Btn></div>}
-      {leadAba==="reunioes"&&<div>{reunioes.filter(r=>r.leadId===leadForm.id).map(r=><p key={r.id} style={{fontSize:10.5,padding:6,borderBottom:`1px solid ${C.line}`}}>{comDateTime(r.dataHora)} · {r.tipo} · {r.status}</p>)}</div>}
+      {leadAba==="reunioes"&&<div style={{display:"flex",flexDirection:"column",gap:6}}>{reunioes.filter(r=>r.leadId===leadForm.id).sort((a,b)=>(b.dataHora||"").localeCompare(a.dataHora||"")).map(r=><div key={r.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,padding:"8px 9px",border:`1px solid ${C.border}`,borderLeft:`4px solid ${r.status==="realizada"?C.green:C.blue}`,borderRadius:7}}><div><b style={{fontSize:10.5,color:C.text}}>{comDateTime(r.dataHora)} · {r.tipo}</b><p style={{fontSize:9.5,color:r.status==="realizada"?C.green:C.muted,marginTop:2}}>{r.status==="realizada"?"Executada":"Agendada"}{r.resumo?` · ${r.resumo}`:""}</p>{r.proximosPassos&&<p style={{fontSize:9,color:C.muted,marginTop:2}}>Próximo passo: {r.proximosPassos}</p>}</div><div style={{display:"flex",gap:4,alignItems:"center"}}>{r.status!=="realizada"&&r.status!=="cancelada"&&<Btn size="sm" v="success" onClick={()=>setReuniaoForm({...r,status:"realizada"})}>Confirmar</Btn>}<Btn size="sm" v="ghost" onClick={()=>setReuniaoForm({...r})}>Abrir</Btn></div></div>)}{!reunioes.some(r=>r.leadId===leadForm.id)&&vazio("Nenhuma reunião para este lead.")}<Btn size="sm" onClick={()=>setReuniaoForm({id:"",leadId:leadForm.id,dataHora:"",tipo:"presencial",local:"",participantes:"",responsavelComercialId:leadForm.responsavelId||currentUser?.id||"",responsavelTecnicoId:"",pauta:"",resumo:"",necessidades:"",objecoes:"",orcamentoDisponivel:leadForm.orcamentoDisponivel||"",proximosPassos:"",proximoContato:"",status:"agendada",documentos:[]})}>+ NOVA REUNIÃO</Btn></div>}
       {leadAba==="propostas"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).map(p=><p key={p.id} style={{fontSize:10.5,padding:6,borderBottom:`1px solid ${C.line}`}}>{p.numero} V{p.versao} · {fmt(p.valor)} · {p.status}</p>)}<Btn size="sm" onClick={()=>setPropostaForm(propostaVazia(leadForm.id))}>+ PROPOSTA</Btn></div>}
       {leadAba==="negociacoes"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).flatMap(p=>(p.negociacoes||[]).map(n=><p key={n.id} style={{fontSize:10.5,padding:6,borderBottom:`1px solid ${C.line}`}}>{comDateTime(n.data)} · {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · {n.objecoes}</p>))}</div>}
       {leadAba==="contratos"&&<div>{contratos.filter(k=>k.leadId===leadForm.id).map(k=><p key={k.id} style={{fontSize:10.5,padding:6,borderBottom:`1px solid ${C.line}`}}>{k.numero} · {fmt(k.valor)} · {k.status}</p>)}</div>}
@@ -32515,10 +33424,10 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setLeadForm(null)}>CANCELAR</Btn><Btn onClick={salvarLead}><Ic n="check"/> SALVAR LEAD</Btn></div></div></Modal>}
 
     {atividadeForm&&<Modal title="Tarefa / follow-up" onClose={()=>setAtividadeForm(null)}><div style={{display:"flex",flexDirection:"column",gap:9}}><Sel label="Lead *" value={atividadeForm.leadId} onChange={v=>setAtividadeForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Título *" value={atividadeForm.titulo} onChange={v=>setAtividadeForm(f=>({...f,titulo:v}))}/><Inp label="Data e hora *" type="datetime-local" value={atividadeForm.dataHora} onChange={v=>setAtividadeForm(f=>({...f,dataHora:v}))}/><Sel label="Responsável" value={atividadeForm.responsavelId} onChange={v=>setAtividadeForm(f=>({...f,responsavelId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Inp label="Observações" value={atividadeForm.observacoes} onChange={v=>setAtividadeForm(f=>({...f,observacoes:v}))} multiline/><Btn onClick={()=>salvarAtividade(atividadeForm)}>SALVAR</Btn></div></Modal>}
-    {reuniaoForm&&<Modal title="Reunião comercial" onClose={()=>setReuniaoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}><Sel label="Lead *" value={reuniaoForm.leadId} onChange={v=>setReuniaoForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Data e hora *" type="datetime-local" value={reuniaoForm.dataHora} onChange={v=>setReuniaoForm(f=>({...f,dataHora:v}))}/><Sel label="Tipo" value={reuniaoForm.tipo} onChange={v=>setReuniaoForm(f=>({...f,tipo:v}))} options={[{v:"presencial",l:"Presencial"},{v:"online",l:"On-line"},{v:"visita",l:"Visita técnica"}]}/><Inp label="Local ou link" value={reuniaoForm.local} onChange={v=>setReuniaoForm(f=>({...f,local:v}))}/><Inp label="Participantes" value={reuniaoForm.participantes} onChange={v=>setReuniaoForm(f=>({...f,participantes:v}))}/><Sel label="Responsável técnico" value={reuniaoForm.responsavelTecnicoId} onChange={v=>setReuniaoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["pauta","Pauta"],["resumo","Resumo"],["necessidades","Necessidades"],["objecoes","Objeções"],["proximosPassos","Próximos passos"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={reuniaoForm[k]} onChange={v=>setReuniaoForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Orçamento disponível" type="number" value={reuniaoForm.orcamentoDisponivel} onChange={v=>setReuniaoForm(f=>({...f,orcamentoDisponivel:v}))}/><Inp label="Próximo contato" type="date" value={reuniaoForm.proximoContato} onChange={v=>setReuniaoForm(f=>({...f,proximoContato:v}))}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarReuniao(reuniaoForm)} full>SALVAR REUNIÃO</Btn></div></div></Modal>}
-    {propostaForm&&<Modal title="Proposta comercial" onClose={()=>setPropostaForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={propostaForm.numero} onChange={v=>setPropostaForm(f=>({...f,numero:v}))}/><Inp label="Versão" type="number" value={propostaForm.versao} onChange={v=>setPropostaForm(f=>({...f,versao:v}))}/><Sel label="Lead *" value={propostaForm.leadId} onChange={v=>setPropostaForm(f=>({...f,leadId:v}))} options={leads.map(l=>({v:l.id,l:l.nome}))}/><Inp label="Objeto *" value={propostaForm.objeto} onChange={v=>setPropostaForm(f=>({...f,objeto:v}))}/><Inp label="Valor *" type="number" value={propostaForm.valor} onChange={v=>setPropostaForm(f=>({...f,valor:v}))}/><Inp label="Validade" type="date" value={propostaForm.validade} onChange={v=>setPropostaForm(f=>({...f,validade:v}))}/>{[["escopo","Escopo"],["inclusos","Serviços inclusos"],["exclusos","Não inclusos"],["entregaveis","Entregáveis"],["formaPagamento","Forma de pagamento"],["responsabilidades","Responsabilidades"],["premissas","Premissas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={propostaForm[k]} onChange={v=>setPropostaForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Prazo" value={propostaForm.prazo} onChange={v=>setPropostaForm(f=>({...f,prazo:v}))}/><Inp label="Desconto %" type="number" value={propostaForm.desconto} onChange={v=>setPropostaForm(f=>({...f,desconto:v}))}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarProposta(propostaForm)} full>SALVAR PROPOSTA</Btn></div></div></Modal>}
+    {reuniaoForm&&<Modal title={reuniaoForm.id?`Reunião · ${leadBy(reuniaoForm.leadId)?.nome||"Lead"}`:"Nova reunião comercial"} onClose={()=>setReuniaoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>{reuniaoForm.status==="realizada"&&<div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.green}`,borderRadius:7,background:`${C.green}0B`}}><b style={{fontSize:10.5,color:C.green}}>CONFIRMAR REUNIÃO EXECUTADA</b><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Preencha o resumo e os próximos passos. Ao salvar, o registro entrará automaticamente no histórico do lead.</p></div>}<Sel label="Lead *" value={reuniaoForm.leadId} onChange={v=>setReuniaoForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Data e hora *" type="datetime-local" value={reuniaoForm.dataHora} onChange={v=>setReuniaoForm(f=>({...f,dataHora:v}))}/><Sel label="Situação" value={reuniaoForm.status||"agendada"} onChange={v=>setReuniaoForm(f=>({...f,status:v}))} options={[{v:"agendada",l:"Agendada"},{v:"realizada",l:"Executada"},{v:"cancelada",l:"Cancelada"}]}/><Sel label="Tipo" value={reuniaoForm.tipo} onChange={v=>setReuniaoForm(f=>({...f,tipo:v}))} options={[{v:"presencial",l:"Presencial"},{v:"online",l:"On-line"},{v:"visita",l:"Visita técnica"}]}/><Inp label="Local ou link" value={reuniaoForm.local} onChange={v=>setReuniaoForm(f=>({...f,local:v}))}/><Inp label="Participantes" value={reuniaoForm.participantes} onChange={v=>setReuniaoForm(f=>({...f,participantes:v}))}/><Sel label="Responsável técnico" value={reuniaoForm.responsavelTecnicoId} onChange={v=>setReuniaoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["pauta","Pauta"],["resumo",reuniaoForm.status==="realizada"?"Resumo da reunião *":"Resumo"],["necessidades","Necessidades"],["objecoes","Objeções"],["proximosPassos","Próximos passos"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={reuniaoForm[k]} onChange={v=>setReuniaoForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Orçamento disponível" type="number" value={reuniaoForm.orcamentoDisponivel} onChange={v=>setReuniaoForm(f=>({...f,orcamentoDisponivel:v}))}/><Inp label="Próximo contato" type="date" value={reuniaoForm.proximoContato} onChange={v=>setReuniaoForm(f=>({...f,proximoContato:v}))}/><div style={{gridColumn:"1/-1",display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setReuniaoForm(null)} full>Cancelar</Btn><Btn v={reuniaoForm.status==="realizada"?"success":"primary"} onClick={()=>salvarReuniao(reuniaoForm)} full>{reuniaoForm.status==="realizada"?"CONFIRMAR EXECUÇÃO E SALVAR NO LEAD":"SALVAR REUNIÃO"}</Btn></div></div></Modal>}
+    {propostaForm&&<Modal title="Proposta comercial" onClose={()=>setPropostaForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={propostaForm.numero} onChange={v=>setPropostaForm(f=>({...f,numero:v}))}/><Inp label="Versão" type="number" value={propostaForm.versao} onChange={v=>setPropostaForm(f=>({...f,versao:v}))}/><Sel label="Lead" value={propostaForm.leadId} onChange={v=>setPropostaForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Vincular depois"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Objeto" value={propostaForm.objeto} onChange={v=>setPropostaForm(f=>({...f,objeto:v}))}/><Inp label="Valor" type="number" value={propostaForm.valor} onChange={v=>setPropostaForm(f=>({...f,valor:v}))}/><Inp label="Validade" type="date" value={propostaForm.validade} onChange={v=>setPropostaForm(f=>({...f,validade:v}))}/>{[["escopo","Escopo"],["inclusos","Serviços inclusos"],["exclusos","Não inclusos"],["entregaveis","Entregáveis"],["formaPagamento","Forma de pagamento"],["responsabilidades","Responsabilidades"],["premissas","Premissas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={propostaForm[k]} onChange={v=>setPropostaForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Prazo" value={propostaForm.prazo} onChange={v=>setPropostaForm(f=>({...f,prazo:v}))}/><Inp label="Desconto %" type="number" value={propostaForm.desconto} onChange={v=>setPropostaForm(f=>({...f,desconto:v}))}/><DocumentosComerciais tipo="proposta" registro={propostaForm} setRegistro={setPropostaForm}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarProposta(propostaForm)} full disabled={subindoDocumentoComercial}><Ic n="check"/> Salvar rascunho</Btn></div></div></Modal>}
     {negForm&&<Modal title="Registrar negociação" onClose={()=>setNegForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Valor inicial" type="number" value={negForm.valorInicial} onChange={v=>setNegForm(f=>({...f,valorInicial:v}))}/><Inp label="Valor negociado" type="number" value={negForm.valorNegociado} onChange={v=>setNegForm(f=>({...f,valorNegociado:v}))}/><Inp label="Desconto %" type="number" value={negForm.desconto} onChange={v=>setNegForm(f=>({...f,desconto:v}))}/><Inp label="Forma de pagamento" value={negForm.formaPagamento} onChange={v=>setNegForm(f=>({...f,formaPagamento:v}))}/><Inp label="Parcelas" type="number" value={negForm.parcelas} onChange={v=>setNegForm(f=>({...f,parcelas:v}))}/><Sel label="Aprovador" value={negForm.aprovadorId} onChange={v=>setNegForm(f=>({...f,aprovadorId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["alteracaoEscopo","Alteração de escopo"],["objecoes","Objeções do cliente"],["respostas","Respostas dadas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={negForm[k]} onChange={v=>setNegForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarNegociacao(negForm)} full>SALVAR NEGOCIAÇÃO</Btn></div></div></Modal>}
-    {contratoForm&&<Modal title="Contrato comercial" onClose={()=>setContratoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={contratoForm.numero} onChange={v=>setContratoForm(f=>({...f,numero:v}))}/><Inp label="Contratante *" value={contratoForm.contratante} onChange={v=>setContratoForm(f=>({...f,contratante:v}))}/><Inp label="Valor *" type="number" value={contratoForm.valor} onChange={v=>setContratoForm(f=>({...f,valor:v}))}/><Inp label="Entrada" type="number" value={contratoForm.entrada} onChange={v=>setContratoForm(f=>({...f,entrada:v}))}/><Inp label="Parcelas" type="number" value={contratoForm.parcelas} onChange={v=>setContratoForm(f=>({...f,parcelas:v}))}/><Inp label="Dia de vencimento" type="number" value={contratoForm.diaVencimento} onChange={v=>setContratoForm(f=>({...f,diaVencimento:v}))}/><Inp label="Início" type="date" value={contratoForm.inicio} onChange={v=>setContratoForm(f=>({...f,inicio:v}))}/><Inp label="Conclusão" type="date" value={contratoForm.conclusao} onChange={v=>setContratoForm(f=>({...f,conclusao:v}))}/><Inp label="Prazo" value={contratoForm.prazo} onChange={v=>setContratoForm(f=>({...f,prazo:v}))}/><Sel label="Responsável comercial" value={contratoForm.responsavelComercialId} onChange={v=>setContratoForm(f=>({...f,responsavelComercialId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Sel label="Responsável técnico *" value={contratoForm.responsavelTecnicoId} onChange={v=>setContratoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Link para assinatura eletrônica" value={contratoForm.assinaturaUrl||""} onChange={v=>setContratoForm(f=>({...f,assinaturaUrl:v}))}/>{[["objeto","Objeto"],["escopo","Escopo"],["responsabilidades","Responsabilidades"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={contratoForm[k]} onChange={v=>setContratoForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1",display:"flex",gap:8,flexWrap:"wrap"}}>{[["documentosRecebidos","Documentos recebidos"],["entradaPaga","Entrada confirmada"],["escopoValidado","Escopo validado"]].map(([k,l])=><label key={k} style={{fontSize:10.5,color:C.text,display:"flex",gap:5,alignItems:"center"}}><input type="checkbox" checked={!!contratoForm[k]} onChange={e=>setContratoForm(f=>({...f,[k]:e.target.checked}))}/>{l}</label>)}</div><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarContrato(contratoForm)} full>SALVAR CONTRATO</Btn></div></div></Modal>}
+    {contratoForm&&<Modal title="Contrato comercial" onClose={()=>setContratoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={contratoForm.numero} onChange={v=>setContratoForm(f=>({...f,numero:v}))}/><Sel label="Lead" value={contratoForm.leadId||""} onChange={v=>{const lead=leadBy(v);setContratoForm(f=>({...f,leadId:v,contratante:f.contratante||lead?.nome||""}));}} options={[{v:"",l:"Vincular depois"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Contratante" value={contratoForm.contratante} onChange={v=>setContratoForm(f=>({...f,contratante:v}))}/><Inp label="Valor" type="number" value={contratoForm.valor} onChange={v=>setContratoForm(f=>({...f,valor:v}))}/><Inp label="Entrada" type="number" value={contratoForm.entrada} onChange={v=>setContratoForm(f=>({...f,entrada:v}))}/><Inp label="Parcelas" type="number" value={contratoForm.parcelas} onChange={v=>setContratoForm(f=>({...f,parcelas:v}))}/><Inp label="Dia de vencimento" type="number" value={contratoForm.diaVencimento} onChange={v=>setContratoForm(f=>({...f,diaVencimento:v}))}/><Inp label="Início" type="date" value={contratoForm.inicio} onChange={v=>setContratoForm(f=>({...f,inicio:v}))}/><Inp label="Conclusão" type="date" value={contratoForm.conclusao} onChange={v=>setContratoForm(f=>({...f,conclusao:v}))}/><Inp label="Prazo" value={contratoForm.prazo} onChange={v=>setContratoForm(f=>({...f,prazo:v}))}/><Sel label="Responsável comercial" value={contratoForm.responsavelComercialId} onChange={v=>setContratoForm(f=>({...f,responsavelComercialId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Sel label="Responsável técnico" value={contratoForm.responsavelTecnicoId} onChange={v=>setContratoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Definir depois"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Link para assinatura eletrônica" value={contratoForm.assinaturaUrl||""} onChange={v=>setContratoForm(f=>({...f,assinaturaUrl:v}))}/>{[["objeto","Objeto"],["escopo","Escopo"],["responsabilidades","Responsabilidades"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={contratoForm[k]} onChange={v=>setContratoForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1",display:"flex",gap:8,flexWrap:"wrap"}}>{[["documentosRecebidos","Documentos recebidos"],["entradaPaga","Entrada confirmada"],["escopoValidado","Escopo validado"]].map(([k,l])=><label key={k} style={{fontSize:10.5,color:C.text,display:"flex",gap:5,alignItems:"center"}}><input type="checkbox" checked={!!contratoForm[k]} onChange={e=>setContratoForm(f=>({...f,[k]:e.target.checked}))}/>{l}</label>)}</div><DocumentosComerciais tipo="contrato" registro={contratoForm} setRegistro={setContratoForm}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarContrato(contratoForm)} full disabled={subindoDocumentoComercial}><Ic n="check"/> Salvar rascunho</Btn></div></div></Modal>}
     {clienteForm&&<Modal title={clienteForm.id?"Editar qualificação do cliente":"Novo cliente"} onClose={()=>setClienteForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
         <Sel label="Tipo de pessoa *" value={clienteForm.tipoPessoa} onChange={v=>setClienteForm(f=>({...f,tipoPessoa:v,documento:""}))} options={[{v:"PF",l:"Pessoa física"},{v:"PJ",l:"Pessoa jurídica"}]}/>
@@ -32630,55 +33539,57 @@ function PainelTV({data,ultimaSync,onAtualizar}){
       .filter((foto,indice,lista)=>lista.findIndex(x=>x.url===foto.url)===indice);
     return {obra,progresso,planejado,temPlanejamento:planejado!==null,desvioFisico:planejado===null?null:progresso-planejado,equipe:equipe.length,diarioHoje:!!diarioHoje,atrasadas:atrasadas.length,pendencias:pendencias.length,criticas,qualidade:qualidade.length,compras:compras.length,necessidades,prazo,severidade,imagens};
   }).sort((a,b)=>b.severidade-a.severidade||b.pendencias-a.pendencias||a.obra.name.localeCompare(b.obra.name)),[obras,data.planos,data.employees,data.rdos,data.conferencias,data.qualidadeRegistros,data.solicitacoesCompra]);
-  const porPagina=4,totalPaginas=Math.max(1,Math.ceil(linhas.length/porPagina));
+  const porPagina=isDesktop?4:2,totalPaginas=Math.max(1,Math.ceil(linhas.length/porPagina));
   const visiveis=linhas.slice(pagina*porPagina,pagina*porPagina+porPagina);
   const linhasPlanejadas=linhas.filter(o=>o.temPlanejamento);
   const progressoGeral=linhasPlanejadas.length?Math.round(linhasPlanejadas.reduce((s,o)=>s+o.progresso,0)/linhasPlanejadas.length):0;
   const planejadoGeral=linhasPlanejadas.length?Math.round(linhasPlanejadas.reduce((s,o)=>s+o.planejado,0)/linhasPlanejadas.length):0;
   const necessidadesTotal=linhas.reduce((s,o)=>s+o.necessidades.length,0);
   const pendenciasTotal=linhas.reduce((s,o)=>s+o.pendencias,0);
+  const obrasAtencao=linhas.filter(o=>o.severidade>=2).length;
   const imagem=data.config?.companyImageUrl||data.config?.logoUrl||ARCD_LOGO;
 
-  useEffect(()=>{const t=window.setInterval(()=>{setAgora(new Date());setPagina(p=>(p+1)%totalPaginas);},12000);return()=>window.clearInterval(t);},[totalPaginas]);
+  useEffect(()=>{const t=window.setInterval(()=>setAgora(new Date()),1000);return()=>window.clearInterval(t);},[]);
+  useEffect(()=>{const t=window.setInterval(()=>setPagina(p=>(p+1)%totalPaginas),12000);return()=>window.clearInterval(t);},[totalPaginas]);
   useEffect(()=>{const t=window.setInterval(()=>setCicloImagem(c=>c+1),7800);return()=>window.clearInterval(t);},[]);
   useEffect(()=>setPagina(p=>Math.min(p,totalPaginas-1)),[totalPaginas]);
   useEffect(()=>{if(!onAtualizar)return undefined;const t=window.setInterval(()=>onAtualizar(),90000);return()=>window.clearInterval(t);},[onAtualizar]);
   useEffect(()=>{const fn=()=>setTelaCheia(document.fullscreenElement===raizRef.current);document.addEventListener("fullscreenchange",fn);return()=>document.removeEventListener("fullscreenchange",fn);},[]);
   const alternarTelaCheia=async()=>{if(document.fullscreenElement)await document.exitFullscreen?.();else await raizRef.current?.requestFullscreen?.();};
 
-  return <div ref={raizRef} className="anim arcd-tv" style={{minHeight:telaCheia?"100vh":"calc(100vh - 126px)",background:"radial-gradient(circle at 78% 8%,rgba(212,175,55,.15),transparent 26%),linear-gradient(142deg,#080808,#171611 62%,#0B0B0A)",color:C.surface,borderRadius:telaCheia?0:20,overflow:"hidden",padding:"clamp(16px,2.2vw,30px)",position:"relative",display:"flex",flexDirection:"column",gap:"clamp(12px,1.6vw,20px)",boxShadow:"0 24px 80px rgba(18,18,18,.25)"}}>
+  return <div ref={raizRef} className="anim arcd-tv" style={{minHeight:telaCheia?"100vh":"calc(100vh - 126px)",background:"radial-gradient(circle at 78% 8%,rgba(212,175,55,.13),transparent 26%),linear-gradient(142deg,#111412,#1b1c18 62%,#111210)",color:C.surface,borderRadius:telaCheia?0:16,overflow:"hidden",padding:"clamp(16px,2vw,28px)",position:"relative",display:"flex",flexDirection:"column",gap:"clamp(10px,1.3vw,17px)",boxShadow:"0 18px 60px rgba(18,18,18,.2)"}}>
     <img src={imagem} alt="" aria-hidden="true" style={{position:"absolute",right:"3%",top:"5%",width:"min(30vw,420px)",height:"min(30vw,420px)",objectFit:"contain",opacity:.035,filter:"grayscale(1) invert(1)",pointerEvents:"none"}}/>
     <div aria-hidden="true" className="arcd-tv-scan" style={{position:"absolute",left:0,right:0,height:1,background:`linear-gradient(90deg,transparent,${C.yellow}88,transparent)`,boxShadow:`0 0 18px ${C.yellow}`}}/>
-    <header style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18}}>
+    <header className="arcd-tv-header" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18}}>
       <div><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:C.green,boxShadow:`0 0 18px ${C.green}`}}/><span style={{fontSize:"clamp(9px,.8vw,12px)",fontWeight:900,letterSpacing:2,textTransform:"uppercase",color:C.yellow}}>ARCD · Centro de operações</span></div><h1 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(24px,3vw,46px)",fontWeight:760,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>Panorama executivo das obras</h1><p style={{fontSize:"clamp(10px,.9vw,13px)",color:"rgba(245,243,238,.5)",marginTop:7}}>Visão contínua de avanço, campo, qualidade, suprimentos e prazos</p></div>
       <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{textAlign:"right"}}><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(20px,2.2vw,34px)",fontWeight:760,color:C.yellow,lineHeight:1}}>{agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p><p style={{fontSize:9.5,color:"rgba(245,243,238,.45)",marginTop:5}}>{agora.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</p></div><button onClick={alternarTelaCheia} title="Alternar tela cheia" style={{width:40,height:40,borderRadius:11,border:`1px solid ${C.yellow}44`,background:"rgba(212,175,55,.08)",color:C.yellow,cursor:"pointer"}}><Ic n={telaCheia?"x":"eye"} s={15}/></button></div>
     </header>
 
-    <div style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(4,minmax(0,1fr))":"repeat(2,minmax(0,1fr))",gap:"clamp(7px,1vw,13px)"}}>{[
+    <div className="arcd-tv-summary" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(4,minmax(0,1fr))":"repeat(2,minmax(0,1fr))",gap:"clamp(7px,1vw,11px)"}}>{[
       ["Obras em operação",linhas.length,"carteira ativa",C.yellow],
       ["Planejado × executado",linhasPlanejadas.length?`${planejadoGeral}% · ${progressoGeral}%`:"—",linhasPlanejadas.length?`${progressoGeral-planejadoGeral>=0?"+":""}${progressoGeral-planejadoGeral} p.p.`:"sem cronograma",linhasPlanejadas.length&&progressoGeral>=planejadoGeral?C.green:C.yellow],
       ["Pendências técnicas",pendenciasTotal,"conferências",pendenciasTotal?C.red:C.green],
-      ["Necessidades",necessidadesTotal,"ações mapeadas",necessidadesTotal?C.yellow:C.green],
-    ].map(([l,v,s,c])=><div key={l} style={{background:"rgba(245,243,238,.045)",border:"1px solid rgba(245,243,238,.1)",borderRadius:13,padding:"clamp(10px,1.2vw,16px)"}}><p style={{fontSize:"clamp(8px,.7vw,10px)",fontWeight:850,textTransform:"uppercase",letterSpacing:1,color:"rgba(245,243,238,.45)"}}>{l}</p><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(22px,2.2vw,36px)",fontWeight:780,color:c,lineHeight:1,marginTop:7}}>{v}</p><p style={{fontSize:"clamp(8px,.65vw,10px)",color:"rgba(245,243,238,.35)",marginTop:6}}>{s}</p></div>)}</div>
+      ["Obras em atenção",obrasAtencao,necessidadesTotal?`${necessidadesTotal} ações mapeadas`:"operação regular",obrasAtencao?C.yellow:C.green],
+    ].map(([l,v,s,c])=><div key={l} style={{background:"rgba(245,243,238,.055)",border:"1px solid rgba(245,243,238,.12)",borderRadius:10,padding:"clamp(9px,1vw,13px)"}}><p style={{fontSize:"clamp(9px,.68vw,11px)",fontWeight:700,textTransform:"uppercase",letterSpacing:.7,color:"rgba(245,243,238,.58)"}}>{l}</p><p style={{fontFamily:"'IBM Plex Sans','Helvetica Neue',Arial,sans-serif",fontSize:"clamp(21px,2vw,32px)",fontWeight:600,color:c,lineHeight:1,marginTop:5}}>{v}</p><p style={{fontSize:"clamp(9px,.64vw,10px)",color:"rgba(245,243,238,.46)",marginTop:4}}>{s}</p></div>)}</div>
 
-    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(2,minmax(0,1fr))":"minmax(0,1fr)",gap:"clamp(9px,1.2vw,15px)",flex:1,minHeight:0}}>
-      {visiveis.map((item,cardIndex)=>{const cor=item.severidade===3?C.red:item.severidade===2?C.yellow:item.severidade===1?C.cinza:C.green;const indiceImagem=item.imagens.length?(cicloImagem+cardIndex)%item.imagens.length:0;const foto=item.imagens[indiceImagem];return <article key={item.obra.id} style={{position:"relative",overflow:"hidden",border:`1px solid ${cor}66`,borderRadius:15,background:"linear-gradient(145deg,#151713,#080909)",display:"flex",flexDirection:"column",minHeight:0,boxShadow:"inset 0 0 45px rgba(0,0,0,.24)"}}>
+    <section className="arcd-tv-grid" aria-live="polite" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(2,minmax(0,1fr))":"minmax(0,1fr)",gap:"clamp(8px,1vw,13px)",flex:1,minHeight:0}}>
+      {visiveis.map((item,cardIndex)=>{const cor=item.severidade===3?C.red:item.severidade===2?C.yellow:item.severidade===1?C.cinza:C.green;const indiceImagem=item.imagens.length?(cicloImagem+cardIndex)%item.imagens.length:0;const foto=item.imagens[indiceImagem];return <article className="arcd-tv-work" key={item.obra.id} style={{position:"relative",overflow:"hidden",border:`1px solid ${cor}66`,borderRadius:12,background:"linear-gradient(145deg,#171a17,#0e100f)",display:"flex",flexDirection:"column",minHeight:0,boxShadow:"inset 0 0 38px rgba(0,0,0,.2)"}}>
         {foto&&<img key={`${item.obra.id}-${foto.url}-${cicloImagem}`} className="arcd-tv-photo" src={foto.url} alt="" aria-hidden="true" loading="eager" onError={e=>{e.currentTarget.style.display="none";}} style={{position:"absolute",inset:"-2%",width:"104%",height:"104%",objectFit:"cover",objectPosition:"center",filter:"saturate(.9) contrast(1.06) brightness(.94)",pointerEvents:"none"}}/>}
         <div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,background:"linear-gradient(90deg,rgba(6,8,9,.7) 0%,rgba(6,8,9,.4) 48%,rgba(6,8,9,.12) 100%),linear-gradient(0deg,rgba(5,6,7,.6) 0%,rgba(5,6,7,.02) 76%)"}}/>
         <div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.1,backgroundImage:`linear-gradient(${C.yellow}55 1px,transparent 1px),linear-gradient(90deg,${C.yellow}55 1px,transparent 1px)`,backgroundSize:"34px 34px",maskImage:"linear-gradient(90deg,transparent 20%,#000 100%)"}}/>
         {!foto&&<div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.2,backgroundImage:`linear-gradient(${C.yellow}40 1px,transparent 1px),linear-gradient(90deg,${C.yellow}40 1px,transparent 1px)`,backgroundSize:"30px 30px"}}/>}
         <span style={{position:"absolute",zIndex:3,left:0,top:0,bottom:0,width:3,background:cor,boxShadow:`0 0 18px ${cor}`}}/>
-        <div style={{position:"relative",zIndex:2,padding:"clamp(12px,1.3vw,18px)",display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
+        <div className="arcd-tv-work-content" style={{position:"relative",zIndex:2,padding:"clamp(11px,1.15vw,16px)",display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
           <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}><div style={{minWidth:0}}><p style={{fontSize:"clamp(8px,.7vw,10px)",fontWeight:900,letterSpacing:1,textTransform:"uppercase",color:cor,textShadow:"0 1px 10px rgba(0,0,0,.8)"}}>{item.severidade>=3?"Atenção crítica":item.severidade===2?"Ação necessária":item.severidade===1?"Monitoramento":"Operação regular"}</p><h2 style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(17px,1.5vw,25px)",fontWeight:760,color:"#fff",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 2px 14px #000"}}>{item.obra.name}</h2><p style={{fontSize:"clamp(8px,.75vw,11px)",color:"rgba(255,255,255,.72)",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>Eng. {item.obra.engineer||"não definido"} · {item.equipe} pessoa(s) em campo</p>{foto&&<p style={{fontSize:7.5,color:"rgba(255,255,255,.42)",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{foto.tipo==="rdo"?`RDO-${String(foto.codigo||0).padStart(3,"0")} · ${fmtDate(foto.data)} · ${foto.legenda}`:"Imagem cadastrada da obra"} · {indiceImagem+1}/{item.imagens.length}</p>}</div><div style={{textAlign:"right",flexShrink:0,padding:"5px 8px",borderRadius:9,background:"rgba(4,5,6,.52)",border:"1px solid rgba(255,255,255,.09)",backdropFilter:"blur(8px)"}}><strong style={{fontSize:"clamp(20px,2vw,31px)",fontWeight:780,color:C.yellow,textShadow:`0 0 16px ${C.yellow}55`}}>{item.progresso}%</strong><p style={{fontSize:8,color:"rgba(255,255,255,.48)",textTransform:"uppercase"}}>avanço</p></div></div>
           <div style={{marginTop:10,padding:"7px 9px",borderRadius:9,background:"rgba(5,8,10,.58)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",boxShadow:"0 7px 22px rgba(0,0,0,.2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:5}}><p style={{fontSize:7.5,fontWeight:900,letterSpacing:1,color:"rgba(255,255,255,.54)",textTransform:"uppercase"}}>Curva física · hoje</p><span style={{fontSize:8,fontWeight:900,color:item.temPlanejamento&&item.desvioFisico>=0?C.green:C.yellow}}>{item.temPlanejamento?`${item.desvioFisico>=0?"+":""}${item.desvioFisico} p.p.`:"sem cronograma"}</span></div>{[["Planejado",item.planejado,C.cinza],["Executado",item.progresso,item.temPlanejamento&&item.progresso>=item.planejado?C.green:C.yellow]].map(([label,valor,cor])=>{const disponivel=valor!==null;return <div key={label} style={{display:"grid",gridTemplateColumns:"54px minmax(0,1fr) 30px",gap:6,alignItems:"center",marginTop:4}}><span style={{fontSize:7.5,color:"rgba(255,255,255,.58)"}}>{label}</span><div style={{height:4,borderRadius:99,background:"rgba(255,255,255,.14)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${disponivel?Math.max(0,Math.min(100,valor)):0}%`,background:cor,boxShadow:disponivel?`0 0 10px ${cor}`:"none"}}/></div><b style={{fontSize:8.5,color:cor,textAlign:"right"}}>{disponivel?`${valor}%`:"—"}</b></div>})}</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:6,marginTop:10}}>{[["RDO",item.diarioHoje?"OK":"Pendente",item.diarioHoje?C.green:C.yellow],["Atrasos",item.atrasadas,item.atrasadas?C.red:C.green],["Qualidade",item.qualidade,item.qualidade?C.yellow:C.green],["Compras",item.compras,item.compras?C.yellow:C.green]].map(([l,v,c])=><div key={l} style={{padding:"7px 8px",borderRadius:8,background:"rgba(6,8,9,.62)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",minWidth:0,boxShadow:"0 5px 16px rgba(0,0,0,.12)"}}><p style={{fontSize:7.5,color:"rgba(255,255,255,.48)",textTransform:"uppercase",fontWeight:850}}>{l}</p><p style={{fontSize:"clamp(9px,.8vw,12px)",fontWeight:850,color:c,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 7px #000"}}>{v}</p></div>)}</div>
+          <div className="arcd-tv-work-stats" style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:5,marginTop:9}}>{[["RDO",item.diarioHoje?"OK":"Pendente",item.diarioHoje?C.green:C.yellow],["Atrasos",item.atrasadas,item.atrasadas?C.red:C.green],["Qualidade",item.qualidade,item.qualidade?C.yellow:C.green],["Compras",item.compras,item.compras?C.yellow:C.green]].map(([l,v,c])=><div key={l} style={{padding:"6px 7px",borderRadius:7,background:"rgba(6,8,9,.62)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",minWidth:0}}><p style={{fontSize:9,color:"rgba(255,255,255,.55)",textTransform:"uppercase",fontWeight:700}}>{l}</p><p style={{fontSize:"clamp(10px,.82vw,13px)",fontWeight:700,color:c,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 7px #000"}}>{v}</p></div>)}</div>
           <div style={{marginTop:"auto",paddingTop:10,display:"flex",gap:6,alignItems:"center",minWidth:0}}><span style={{width:6,height:6,borderRadius:99,background:cor,boxShadow:`0 0 10px ${cor}`,flexShrink:0}}/><p style={{fontSize:"clamp(8px,.75vw,11px)",color:item.necessidades.length?"rgba(255,255,255,.82)":C.green,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>{item.necessidades[0]||"Sem necessidade operacional crítica"}{item.necessidades.length>1?` · +${item.necessidades.length-1}`:""}</p>{item.prazo!==null&&<span style={{marginLeft:"auto",padding:"3px 6px",borderRadius:6,background:"rgba(4,5,6,.55)",fontSize:8.5,color:item.prazo<0?C.red:"rgba(255,255,255,.62)",whiteSpace:"nowrap"}}>{item.prazo<0?`${Math.abs(item.prazo)}d vencido`:`${item.prazo}d restantes`}</span>}</div>
         </div>
       </article>;})}
       {!visiveis.length&&<div style={{gridColumn:"1/-1",display:"grid",placeItems:"center",border:"1px dashed rgba(245,243,238,.15)",borderRadius:15,color:"rgba(245,243,238,.45)"}}>Nenhuma obra ativa para exibir.</div>}
     </section>
 
-    <footer style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.35)",fontSize:9}}><span>Atualização automática · última sincronização {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:5}}>{Array.from({length:totalPaginas},(_,i)=><button key={i} onClick={()=>setPagina(i)} aria-label={`Página ${i+1}`} style={{width:i===pagina?18:6,height:6,border:0,borderRadius:99,background:i===pagina?C.yellow:"rgba(245,243,238,.18)",cursor:"pointer",transition:"width .2s"}}/>)}<span style={{marginLeft:7}}>{pagina+1}/{totalPaginas}</span></div></footer>
+    <footer className="arcd-tv-footer" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.46)",fontSize:9.5}}><span>Sincronização automática · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:6}}><button onClick={()=>setPagina(p=>(p-1+totalPaginas)%totalPaginas)} aria-label="Página anterior" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>‹</button>{Array.from({length:totalPaginas},(_,i)=><button key={i} onClick={()=>setPagina(i)} aria-label={`Página ${i+1}`} style={{width:i===pagina?18:6,height:6,border:0,borderRadius:99,background:i===pagina?C.yellow:"rgba(245,243,238,.22)",cursor:"pointer",transition:"width .2s"}}/>)}<span style={{margin:"0 2px"}}>{pagina+1}/{totalPaginas}</span><button onClick={()=>setPagina(p=>(p+1)%totalPaginas)} aria-label="Próxima página" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>›</button></div></footer>
   </div>;
 }
 
@@ -32712,7 +33623,7 @@ const NAV_GROUPS = [
     tabs: ["dre_emp", "dre", "fin", "conc", "equip_fin", "medicoes", "caixa", "relat"],
   },
   {
-    id: "rh_grp", label: "Recursos Humanos", icon: "users", color: "#0F766E",
+    id: "rh_grp", label: "Recursos humanos", icon: "users", color: "#0F766E",
     tabs: ["equipe", "ponto", "ponto_geral", "folha", "resc"],
   },
   {
@@ -32761,8 +33672,8 @@ const TAB_META = {
   terc:   { label: "Terceiros",  icon: "handshake",group: "eng_grp"},
   folha:  { label: "Folha",      icon: "wallet",   group: "rh_grp"  },
   resc:   { label: "Rescisão",   icon: "briefcase",group: "rh_grp"  },
-  dre_emp:  { label: "DRE Empresa", icon: "chart",  group: "fin_grp" },
-  dre:      { label: "DRE Obras",   icon: "building", group: "fin_grp" },
+  dre_emp:  { label: "DRE empresa", icon: "chart",  group: "fin_grp" },
+  dre:      { label: "DRE obras",   icon: "building", group: "fin_grp" },
   fin:      { label: "Gestão financeira", icon: "trending", group: "fin_grp" },
   conc:     { label: "Conciliação", icon: "receipt", group: "fin_grp" },
   est:      { label: "Estoque",     icon: "box",    group: "compras_grp" },
@@ -32774,7 +33685,7 @@ const TAB_META = {
   suprimentos: { label: "Suprimentos", icon: "trending", group: "compras_grp" },
   cad:      { label: "Cadastros",   icon: "settings", group: "cfg_grp" },
   medicoes: { label: "Medições",   icon: "ruler",   group: "fin_grp" },
-  caixa:    { label: "Caixa Obra", icon: "wallet",   group: "fin_grp" },
+  caixa:    { label: "Caixa da obra", icon: "wallet", group: "fin_grp" },
   relat:    { label: "Relatórios", icon: "trending", group: "fin_grp" },
   ia:     { label: "IA",         icon: "ia",       group: "ia_grp"  },
   ia_config: { label: "Configurar Gemini", icon: "settings", group: "ia_grp" },
@@ -33462,7 +34373,7 @@ export default function App() {
   return (
     <>
       <style>{G}</style>
-      <div style={{
+      <div className="arcd-app-shell" data-tab={tab} style={{
         minHeight:"100vh", background:"transparent", color:C.text,
         paddingBottom: isDesktop ? 8 : `calc(${navHeight + 8}px + env(safe-area-inset-bottom))`,
         paddingLeft: isDesktop ? SIDEBAR_W : 0,   // abre espaço p/ a sidebar

@@ -1,4 +1,12 @@
-# ArcD Ponto PRO — como subir sem perder dados
+# ARCD Construtech — operação e implantação
+
+## Documentação operacional
+
+- [Manual completo do sistema](docs/MANUAL_COMPLETO_ARCD.md)
+- [Auditoria funcional, técnica e de produto](docs/AUDITORIA_SISTEMA_ARCD.md)
+- [Arquitetura do sistema](docs/ARQUITETURA_ARCD.md)
+- [ADR-001 — Monólito modular](docs/ADR-001-MONOLITO-MODULAR.md)
+- [Prompt de revisão independente para Claude Code](docs/PROMPT_REVISAO_CLAUDE_CODE.md)
 
 > **Seus dados atuais estão seguros.** As chaves de armazenamento
 > (`company_id = "arcd"`, `key = "arced_ponto_v1"`) são as mesmas do código
@@ -139,10 +147,11 @@ e seu resultado ficaria inflado.
 
 ## Dívida técnica conhecida
 
-1. **Blob único** — toda gravação reescreve o dataset inteiro. É a causa dos
-   conflitos quando duas pessoas salvam ao mesmo tempo (o app avisa e deixa
-   reaplicar, mas não faz merge). Passando de 2–3 pessoas, o certo é quebrar
-   em tabelas por módulo.
+1. **Blob único** — o cliente envia somente as seções alteradas e o servidor
+   aplica merge de três vias, mas o resultado ainda é persistido em uma única
+   linha. Isso reduz conflitos, sem dar as garantias de tabelas transacionais
+   por domínio. Antes de ampliar o número de operadores, o correto é migrar os
+   módulos críticos para tabelas próprias.
 2. **Sem camada offline** — obra sem sinal não registra ponto.
 3. **`react-scripts` 5.0.1** — o Create React App não é mais mantido. Migrar
    para Vite é meio dia e resolve build lento e alertas em cascata.
