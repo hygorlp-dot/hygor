@@ -3625,7 +3625,10 @@ const calcObraRevenue = (obra, laborCost, extraCosts = {}) => {
   const margin = revenue - laborCost;
   const marginPct = revenue > 0 ? (margin/revenue)*100 : 0;
   const commitment = cv > 0 ? (laborCost/cv)*100 : null;
-  return { revenue, margin, marginPct, commitment, totalCost, adminBase, adminBaseMisto: adminBase };
+  return {
+    revenue, margin, marginPct, commitment, totalCost, adminBase, adminBaseMisto: adminBase,
+    incluiMaoDeObra, incluiMateriais, incluiTerceirizados, outrosCustos,
+  };
 };
 
 // 
@@ -12470,17 +12473,11 @@ function RelatorioCompras({ data, showToast }) {
   );
 }
 
-function gerarRelatorioAdministracaoPDF(data, { period, filtros, linhas, totais }, showToast) {
-  const filtrosLabel = [
-    filtros.materiais ? "Materiais" : null,
-    filtros.maoDeObra ? "Mão de obra" : null,
-    filtros.terceirizados ? "Terceirizados" : null,
-  ].filter(Boolean).join(", ") || "Nenhuma categoria selecionada";
+function gerarRelatorioAdministracaoPDF(data, { period, linhas, totais }, showToast) {
   const html = montarRelatorioPadraoHtml({
     data,
     titulo: "Previsão de recebimento por administração",
     subtitulo: period,
-    meta: [{ label: "Categorias na base", value: filtrosLabel }],
     kpis: [
       { label: "Previsto no período", value: fmt(totais.previsto) },
       { label: "Já fechado nas medições", value: fmt(totais.fechado) },
@@ -12488,25 +12485,67 @@ function gerarRelatorioAdministracaoPDF(data, { period, filtros, linhas, totais 
       { label: "Obras por administração", value: String(linhas.length) },
     ],
     tabelas: [{
-      headers: ["Obra","Modalidade",{label:"% Admin.",num:true},{label:"Base calculada",num:true},{label:"Previsto",num:true},{label:"Já fechado",num:true},{label:"Pendente",num:true}],
+      headers: ["Obra","Modalidade",{label:"% Admin.",num:true},{label:"Mão de obra",num:true},{label:"Materiais",num:true},{label:"Terceirizados",num:true},{label:"Base calculada",num:true},{label:"Previsto",num:true},{label:"Já fechado",num:true},{label:"Pendente",num:true}],
       rows: linhas.map(l => [
         escapeHtml(l.obra.name), escapeHtml(CONTRACT_LABELS[l.obra.contractType]||l.obra.contractType),
-        escapeHtml(`${l.ap}%`), escapeHtml(fmt(l.adminBase)), escapeHtml(fmt(l.valorAdmin)),
+        escapeHtml(`${l.ap}%`),
+        escapeHtml(`${fmt(l.laborBase)}${l.incluiMaoDeObra?"":" (não entra)"}`),
+        escapeHtml(`${fmt(l.materialCost)}${l.incluiMateriais?"":" (não entra)"}`),
+        escapeHtml(`${fmt(l.tercCost)}${l.incluiTerceirizados?"":" (não entra)"}`),
+        escapeHtml(fmt(l.adminBase)), escapeHtml(fmt(l.valorAdmin)),
         escapeHtml(fmt(l.jaFechado)), escapeHtml(fmt(l.pendente)),
       ]),
-      totalRow: ["","","","", fmt(totais.previsto), fmt(totais.fechado), fmt(totais.pendente)],
+      totalRow: ["","","","","","", "", fmt(totais.previsto), fmt(totais.fechado), fmt(totais.pendente)],
       vazio: "Nenhuma obra por administração encontrada.",
     }],
-    legenda: `Base calculada = ${filtrosLabel.toLowerCase()} gastos na obra no período. Previsto = % de administração sobre a base. Compras via pedidos e terceirizados pagos pela empresa para a obra já estão incluídos.`,
+    legenda: "Base calculada = soma apenas das categorias configuradas no cadastro de cada obra (materiais, mão de obra e/ou terceirizados). Compras via pedidos e terceirizados pagos pela empresa para a obra já estão incluídos nos valores de materiais e terceirizados.",
+  });
+  abrirRelatorioPadrao(html, showToast);
+}
+
+// Documento voltado ao cliente, para justificar a cobrança da administração
+// de uma obra específica no período - só entram as categorias efetivamente
+// configuradas para esta obra (cadastro de Obras).
+function gerarRelatorioCobrancaAdministracaoPDF(data, { l, period }, showToast) {
+  const obra = l.obra;
+  const composicao = [
+    { label: "Mão de obra e benefícios", valor: l.laborBase, incluido: l.incluiMaoDeObra },
+    { label: "Materiais (lançamentos e compras)", valor: l.materialCost, incluido: l.incluiMateriais },
+    { label: "Terceirizados", valor: l.tercCost, incluido: l.incluiTerceirizados },
+  ];
+  if (obra.contractType === "admin_only" && l.outrosCustos > 0) {
+    composicao.push({ label: "Equipamentos, rescisões e outras despesas", valor: l.outrosCustos, incluido: true });
+  }
+  const html = montarRelatorioPadraoHtml({
+    data,
+    titulo: "Relatório de cobrança - administração de obra",
+    subtitulo: `${obra.name} · ${period}`,
+    paisagem: false,
+    meta: [
+      { label: "Cliente", value: obra.cliente || "Não informado" },
+      { label: "Obra", value: obra.name },
+      { label: "Endereço", value: obra.address || "-" },
+      { label: "Modalidade", value: CONTRACT_LABELS[obra.contractType] || obra.contractType },
+    ],
+    kpis: [
+      { label: "Base de cálculo", value: fmt(l.adminBase) },
+      { label: "% de administração", value: `${l.ap}%` },
+      { label: "Valor da administração", value: fmt(l.valorAdmin) },
+      { label: "Já fechado nas medições", value: fmt(l.jaFechado) },
+    ],
+    tabelas: [{
+      titulo: "Composição dos custos do período",
+      headers: ["Categoria",{label:"Valor gasto",num:true},"Entra na base de administração?"],
+      rows: composicao.map(c => [escapeHtml(c.label), escapeHtml(fmt(c.valor)), c.incluido?"Sim":"Não"]),
+      totalRow: ["Base de administração ($ × %)", fmt(l.adminBase), `${l.ap}% = ${fmt(l.valorAdmin)}`],
+    }],
+    legenda: `Valor calculado como ${l.ap}% sobre a base de administração definida no contrato desta obra. Categorias marcadas "Não" não entram no cálculo, conforme configurado no cadastro da obra.`,
+    assinaturas: ["Responsável pela construtora", `Representante · ${obra.cliente || "cliente"}`],
   });
   abrirRelatorioPadrao(html, showToast);
 }
 
 function RelatorioAdministracao({ data, year, month, showToast }) {
-  const [incluiMateriais, setIncluiMateriais] = useState(true);
-  const [incluiMaoDeObra, setIncluiMaoDeObra] = useState(true);
-  const [incluiTerceirizados, setIncluiTerceirizados] = useState(true);
-
   const obrasAdmin = useMemo(() => (data.obras||[])
     .filter(o => o.contractType==="admin_only" || o.contractType==="fixed_labor_admin"),
     [data.obras]);
@@ -12521,13 +12560,10 @@ function RelatorioAdministracao({ data, year, month, showToast }) {
       const materialOutrasDesp = calcObraMaterialCost(data, obra.id, ym);
       const materialCost = materialOutrasDesp + calcObraComprasCost(data, obra.id, per0, perF);
       const dreObraMes = calcDREObra(data, obra.id, year, month, "mes");
-      const obraSimulada = {
-        ...obra,
-        adminBaseMateriais: incluiMateriais,
-        adminBaseMaoDeObra: incluiMaoDeObra,
-        adminBaseTerceirizados: incluiTerceirizados,
-      };
-      const { adminBase } = calcObraRevenue(obraSimulada, moData.laborCost, {
+      const laborBase = moData.laborCost + moData.benefitCost;
+      // Usa exclusivamente a configuração salva no cadastro da obra (nenhum
+      // filtro deste relatório sobrescreve o que foi definido lá).
+      const { adminBase, incluiMaoDeObra, incluiMateriais, incluiTerceirizados, outrosCustos } = calcObraRevenue(obra, moData.laborCost, {
         benefitCost: moData.benefitCost, materialCost, tercCost,
         outrasTotal: dreObraMes.outrasTotal - materialOutrasDesp,
         equipCost: dreObraMes.equipCost, rescTotal: dreObraMes.rescTotal,
@@ -12537,9 +12573,13 @@ function RelatorioAdministracao({ data, year, month, showToast }) {
       const jaFechado = (data.medicoes||[])
         .filter(m => m.obraId===obra.id && m.competencia===ym)
         .reduce((s,m) => s+Number(m.valorAdminPct||0), 0);
-      return { obra, ap, adminBase, valorAdmin, jaFechado, pendente: Math.max(0, valorAdmin-jaFechado) };
+      return {
+        obra, ap, adminBase, valorAdmin, jaFechado, pendente: Math.max(0, valorAdmin-jaFechado),
+        laborBase, materialCost, tercCost, outrosCustos,
+        incluiMaoDeObra, incluiMateriais, incluiTerceirizados,
+      };
     });
-  }, [obrasAdmin, data, year, month, incluiMateriais, incluiMaoDeObra, incluiTerceirizados]);
+  }, [obrasAdmin, data, year, month]);
 
   const totais = useMemo(() => ({
     previsto: linhas.reduce((s,l)=>s+l.valorAdmin,0),
@@ -12547,48 +12587,37 @@ function RelatorioAdministracao({ data, year, month, showToast }) {
     pendente: linhas.reduce((s,l)=>s+l.pendente,0),
   }), [linhas]);
 
+  const period = `${fullMonth(month)} · ${year}`;
+  const celulaCategoria = (valor, incluido) => (
+    <span style={{color:incluido?C.text:C.muted,textDecoration:incluido?"none":"line-through"}}>{fmt(valor)}</span>
+  );
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      <div className="no-print" style={{display:"flex",flexDirection:"column",gap:6}}>
-        <p style={{fontSize:10,fontWeight:700,color:C.muted}}>O que entra na base do percentual de administração neste relatório:</p>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
-          {[
-            ["Materiais",incluiMateriais,setIncluiMateriais],
-            ["Mão de obra",incluiMaoDeObra,setIncluiMaoDeObra],
-            ["Terceirizados",incluiTerceirizados,setIncluiTerceirizados],
-          ].map(([label,checked,setter])=>(
-            <label key={label} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"8px 10px",background:checked?`${C.yellow}10`:C.surface,borderRadius:6,border:`1.5px solid ${checked?C.yellow+"55":C.border}`}}>
-              <div onClick={()=>setter(!checked)} style={{width:18,height:18,border:`2px solid ${checked?C.yellowD:C.muted}`,background:checked?C.yellowD:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-                {checked&&<span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
-              </div>
-              <p style={{fontSize:11.5,fontWeight:700,color:checked?C.yellowD:C.text}}>{label}</p>
-            </label>
-          ))}
-        </div>
-      </div>
+      <p style={{fontSize:10,color:C.muted}}>A base de cálculo usa exatamente o que está configurado no cadastro de cada obra (Obras → Contrato financeiro). Valores riscados não entram na base dessa obra.</p>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
         <ReportMetric label="Previsto no período" value={fmt(totais.previsto)} color={C.purple} icon="dollar"/>
         <ReportMetric label="Já fechado nas medições" value={fmt(totais.fechado)} color={C.green} icon="check"/>
         <ReportMetric label="Pendente de fechamento" value={fmt(totais.pendente)} color={totais.pendente>0?C.orange:C.green} icon="wallet"/>
       </div>
       <div className="no-print" style={{display:"flex",justifyContent:"flex-end"}}>
-        <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioAdministracaoPDF(data,{
-          period:`${fullMonth(month)} · ${year}`,
-          filtros:{materiais:incluiMateriais,maoDeObra:incluiMaoDeObra,terceirizados:incluiTerceirizados},
-          linhas, totais,
-        },showToast)}><Ic n="download" s={12}/> Exportar PDF</Btn>
+        <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioAdministracaoPDF(data,{ period, linhas, totais },showToast)}><Ic n="download" s={12}/> Exportar PDF</Btn>
       </div>
       <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
-        <table style={{width:"100%",minWidth:800,borderCollapse:"collapse",background:C.card}}>
-          <thead><tr>{["Obra","Modalidade","% Admin.","Base calculada","Previsto","Já fechado","Pendente"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["% Admin.","Base calculada","Previsto","Já fechado","Pendente"].includes(h)?"right":"left",fontSize:8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+        <table style={{width:"100%",minWidth:1050,borderCollapse:"collapse",background:C.card}}>
+          <thead><tr>{["Obra","Modalidade","% Admin.","Mão de obra","Materiais","Terceirizados","Base calculada","Previsto","Já fechado","Pendente","Ações"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["Obra","Modalidade","Ações"].includes(h)?"left":"right",fontSize:8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
           <tbody>{linhas.map(l=><tr key={l.obra.id} style={{borderTop:`1px solid ${C.line}`}}>
             <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:800}}>{l.obra.name}</td>
             <td style={{padding:"7px 8px",fontSize:9.5,color:C.muted}}>{CONTRACT_LABELS[l.obra.contractType]||l.obra.contractType}</td>
             <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right"}}>{l.ap}%</td>
-            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right"}}>{fmt(l.adminBase)}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right"}}>{celulaCategoria(l.laborBase,l.incluiMaoDeObra)}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right"}}>{celulaCategoria(l.materialCost,l.incluiMateriais)}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right"}}>{celulaCategoria(l.tercCost,l.incluiTerceirizados)}</td>
+            <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right",fontWeight:700}}>{fmt(l.adminBase)}</td>
             <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:800,textAlign:"right",color:C.purple}}>{fmt(l.valorAdmin)}</td>
             <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right",color:C.green}}>{fmt(l.jaFechado)}</td>
             <td style={{padding:"7px 8px",fontSize:9.5,textAlign:"right",fontWeight:800,color:l.pendente>0?C.orange:C.green}}>{fmt(l.pendente)}</td>
+            <td style={{padding:"7px 8px"}}><Btn size="sm" v="ghost" onClick={()=>gerarRelatorioCobrancaAdministracaoPDF(data,{l,period},showToast)}><Ic n="download" s={11}/> Cobrança</Btn></td>
           </tr>)}</tbody>
         </table>
         {!linhas.length&&<div style={{padding:24,textAlign:"center",color:C.muted,fontSize:11}}>Nenhuma obra por administração (admin_only ou mista) encontrada.</div>}
