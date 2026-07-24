@@ -7,6 +7,8 @@ export const createDreCalculations = ({
   calcObraLaborCost,
   calcObraTercCost,
   calcTercEmpresaCost,
+  calcObraTercEmpresaCost,
+  calcObraComprasCost,
   calcEquipCustoObra,
   calcEquipFaturamentoEmpresa,
 }) => {
@@ -57,9 +59,17 @@ export const createDreCalculations = ({
     const outrasDesp = (data.outrasDesp || []).filter(outrasNoPeriodo);
     const outrasTotal = outrasDesp.reduce((s, d) => s + Number(d.valor || 0), 0);
     const equipCost = calcEquipCustoObra(data, obraId, ym, per0, perF);
+    // Compras (pedidos) são um custo real da obra, à parte de outrasDesp -
+    // sem risco de duplicação, pois nunca fazem parte desse lançamento manual.
+    const comprasCost = calcObraComprasCost(data, obraId, per0, perF);
+    // Terceirizados pagos pela EMPRESA para esta obra: por decisão de negócio
+    // não entram no custo/margem da própria obra (a empresa absorve como
+    // overhead - ver calcObraTercCost), mas ficam disponíveis para exibição e
+    // para a base do percentual de administração cobrado do cliente.
+    const tercEmpresaObra = calcObraTercEmpresaCost(data, obraId, per0, perF);
     const totalCustos =
       moData.laborCost + moData.benefitCost + tercCost + rescTotal +
-      outrasTotal + equipCost;
+      outrasTotal + equipCost + comprasCost;
     const lucroBruto = faturamento - totalCustos;
     const margemBruta = faturamento > 0 ? (lucroBruto / faturamento) * 100 : 0;
     const saldoCaixa = recebido - totalCustos;
@@ -84,8 +94,8 @@ export const createDreCalculations = ({
       : 0;
     return {
       obra, ym, periodo, days, per0, perF, faturamento, recebido, aReceber,
-      medDoMes, moData, tercCost, rescTotal, outrasTotal, outrasDesp, equipCost,
-      totalCustos, lucroBruto, margemBruta, saldoCaixa, margemCaixa,
+      medDoMes, moData, tercCost, tercEmpresaObra, rescTotal, outrasTotal, outrasDesp, equipCost,
+      comprasCost, totalCustos, lucroBruto, margemBruta, saldoCaixa, margemCaixa,
       contratoTotal, faturadoAcum, recebidoAcum, aReceberAcum, backlog,
       pctFaturado, pctRecebido, pctAvanco,
     };
@@ -113,8 +123,9 @@ export const createDreCalculations = ({
       aReceber: sum("aReceber"),
       laborCost: sum("laborCost", "moData"),
       benefitCost: sum("benefitCost", "moData"),
-      tercCost: sum("tercCost"), tercEmpresa,
+      tercCost: sum("tercCost"), tercEmpresa, tercEmpresaObras: sum("tercEmpresaObra"),
       rescTotal: sum("rescTotal"), outrasTotal: sum("outrasTotal"),
+      comprasCost: sum("comprasCost"),
       equipCostObras, equipReceita: equipEmpresa.receita, equipLucro,
       totalCustos, lucroBruto, saldoCaixa,
       faturadoAcum: sum("faturadoAcum"),
