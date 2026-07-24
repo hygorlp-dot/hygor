@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import ErrorBoundary from "./ErrorBoundary";
+import "./index.css";
 
 // Sem AuthGate e sem Auth: não existe mais login de e-mail/senha do Supabase.
 // O PIN do próprio app é a credencial, e ele é conferido no servidor, dentro

@@ -4,7 +4,7 @@ const somenteDigitos = value => String(value || "").replace(/\D/g, "");
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
-  const user = await authenticateAppUser(req.body || {});
+  const user = await authenticateAppUser(req.body || {}, {scope:"cnpj"});
   if (!user) return res.status(401).json({ error: "Sessão inválida." });
 
   const cnpj = somenteDigitos(req.body?.cnpj);

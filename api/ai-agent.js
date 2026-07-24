@@ -1,6 +1,7 @@
 import { authenticateAppUser } from "./auth.js";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { buildDailyBrief } from "../server/daily-brief.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -12,6 +13,7 @@ const MODULE_POLICIES = {
   geral: "Atue como copiloto operacional. Relacione a resposta ao setor e à obra, deixe explícitas as pendências e termine com a próxima ação recomendada.",
   compras: "Atue como analista de suprimentos. Em documentos, confira fornecedor, itens, valores, pedido, recebimento, forma de pagamento e obra. O nome original do arquivo é uma evidência importante para identificar a obra. Nunca confirme compra nem lançamento sem revisão humana.",
   financeiro: "Atue como analista financeiro de obras. Em documentos, confira competência, vencimento, fornecedor, valores, retenções, rateio e obra. O nome original do arquivo é uma evidência importante para identificar a obra. Sinalize divergências e não dê como certa uma classificação fiscal ou contábil sem revisão humana.",
+  dre: "Atue como CFO experiente de uma construtora. Analise DRE da empresa e de cada obra, distinguindo competência, faturamento, caixa, custos diretos, despesas operacionais, mão de obra, produtividade e margem. Compare a evolução mensal, questione dimensionamento de equipe somente com evidências, dê um veredicto executivo e priorize decisões verificáveis com impacto, prazo e indicador. Não trate ausência de faturamento como prejuízo contratual definitivo sem verificar competência e estágio da obra.",
   diario: "Atue como engenheiro de campo revisando um RDO. Separe fatos visíveis, informações declaradas e inferências. Relacione fotos, serviços, equipes, clima, planejamento, riscos e pendências, sempre exigindo validação do engenheiro.",
   orcamento: "Atue como engenheiro orçamentista sênior e colaborativo. Revise escopo, quantitativos, composições, interfaces, cotações, BDI e itens ausentes. Produza achados curtos, verificáveis e acionáveis; não invente preço, projeto, obrigação contratual ou norma. Quando faltar evidência, formule uma pergunta de escopo.",
   planejamento: "Atue como planejador de obras. Verifique sequência executiva, dependências, restrições, caminho crítico, recursos, suprimentos, marcos, folgas e coerência com orçamento e avanço real. Diferencie sugestão de alteração confirmada.",
@@ -23,7 +25,7 @@ const MODULE_POLICIES = {
 };
 const normalizeModule = value => {
   const key=String(value||"geral").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z]/g,"");
-  const aliases={compras:"compras",financeiro:"financeiro",diario:"diario",diariodeobra:"diario",rdo:"diario",orcamento:"orcamento",planejamento:"planejamento",administracao:"administracao",admin:"administracao",conferencia:"conferencia",qualidade:"qualidade",comercial:"comercial",rh:"rh",recursoshumanos:"rh"};
+  const aliases={compras:"compras",financeiro:"financeiro",dre:"dre",dreempresa:"dre",controladoria:"dre",diario:"diario",diariodeobra:"diario",rdo:"diario",orcamento:"orcamento",planejamento:"planejamento",administracao:"administracao",admin:"administracao",conferencia:"conferencia",qualidade:"qualidade",comercial:"comercial",rh:"rh",recursoshumanos:"rh"};
   return aliases[key]||"geral";
 };
 
@@ -88,8 +90,14 @@ export const config = { api: { bodyParser: { sizeLimit: "8mb" } } };
 
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"Método não permitido."});
-  const user=await authenticateAppUser(req.body||{});
+  const user=await authenticateAppUser(req.body||{},{scope:"ai-agent"});
   if(!user)return res.status(401).json({error:"Sessão inválida."});
+
+  if(req.body?.action==="daily-brief"){
+    const brief=await buildDailyBrief();
+    res.setHeader("Cache-Control","private, max-age=900");
+    return res.status(200).json(brief);
+  }
 
   const aiConfig=await loadConfig();
   if(req.body?.action==="status")return res.status(200).json({ok:true,...safeStatus(aiConfig)});
@@ -156,8 +164,9 @@ export default async function handler(req,res){
     ].join(" ");
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),55000);
     let response;
-    const temperatura=["compras","financeiro","orcamento","planejamento"].includes(moduloAtivo)?0.12:0.22;
-    try{response=await geminiRequest(apiKey,aiConfig.model,{systemInstruction:{parts:[{text:system}]},contents:historico,generationConfig:{maxOutputTokens:2200,temperature:temperatura}},controller.signal);}
+    const temperatura=["compras","financeiro","dre","orcamento","planejamento"].includes(moduloAtivo)?0.12:0.22;
+    const maxOutputTokens=moduloAtivo==="dre"?5200:2200;
+    try{response=await geminiRequest(apiKey,aiConfig.model,{systemInstruction:{parts:[{text:system}]},contents:historico,generationConfig:{maxOutputTokens,temperature:temperatura}},controller.signal);}
     finally{clearTimeout(timeout);}
     if(!response.ok){
       const body=await response.json().catch(()=>({})),providerError=providerErrorFrom(body),providerMessage=providerMessageFrom(body);

@@ -21,6 +21,8 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData } from "../server/data-codec.js";
+import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
+import { validatePurchaseChanges } from "../server/permission-policies.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
@@ -33,6 +35,29 @@ const db = createClient(URL, SERVICE, {
 });
 
 const sha256 = (s) => crypto.createHash("sha256").update(String(s)).digest("hex");
+
+// O ponto arquivado sai do dataset principal, mas seu custo não pode sair do
+// DRE. O resumo abaixo é pequeno, não contém dados pessoais e conserva a
+// competência e a obra de cada lançamento.
+const anexarCustosArquivados = async payload => {
+  const marcadores = payload?.quinzenasArquivadas || {};
+  const ids = Object.keys(marcadores);
+  if (!ids.length) return { ...payload, archivedLaborCosts: {} };
+  // Nunca confia no cache que voltou do navegador: cada leitura recompõe os
+  // custos diretamente dos arquivos imutáveis mantidos no servidor.
+  const existentes = {};
+  const keys = ids.map(qid => `${KEY}__arq__${qid}`);
+  const { data: linhas, error } = await db.from("company_app_data")
+    .select("key,value").eq("company_id", COMPANY).in("key", keys);
+  if (error) throw error;
+  for (const linha of linhas || []) {
+    const qid = String(linha.key || "").slice(`${KEY}__arq__`.length);
+    // Recalcula sempre a partir da fonte arquivada. Um resumo persistido por
+    // versões antigas nunca é tratado como verdade financeira.
+    existentes[qid] = normalizeArchivedCosts(summarizeArchivedCosts(linha.value));
+  }
+  return { ...payload, archivedLaborCosts: existentes };
+};
 
 // Dois carimbos de tempo apontam para o mesmo instante?
 // Compara o VALOR, não o texto: "…Z" (JS) e "…+00:00" (Postgres) são o mesmo
@@ -162,6 +187,13 @@ const compactarPermissao = value => {
   return out;
 };
 const igualPermissao=(a,b)=>JSON.stringify(compactarPermissao(a))===JSON.stringify(compactarPermissao(b));
+const validarExclusaoObras=(usuario,anterior=[],proximo=[])=>{
+  if(usuario?.role==="admin")return "";
+  if(!Array.isArray(anterior)||!Array.isArray(proximo))return "Formato de obras inválido.";
+  const idsDepois=new Set(proximo.map(obra=>String(obra?.id||"")).filter(Boolean));
+  const removida=anterior.some(obra=>obra?.id&&!idsDepois.has(String(obra.id)));
+  return removida?"Somente o administrador pode excluir uma obra.":"";
+};
 const validarAlteracoesConferencias=(usuario,anterior=[],proximo=[],autoritativo=[],obras=[])=>{
   if(usuario?.role==="admin")return "";
   if(!Array.isArray(anterior)||!Array.isArray(proximo))return "Formato de conferências inválido.";
@@ -284,7 +316,8 @@ export default async function handler(req, res) {
       // ao login sem aumentar a segurança desta mesma requisição.
       const usuario=encontrarUsuarioAuth(p,auth.user||auth.session.user);
       if(!usuario)return res.status(403).json({error:"Conta sem vínculo com um operador ativo do ArcD."});
-      return res.status(200).json({data:p,updatedAt,usuario:{id:usuario.id,nome:usuario.nome,role:usuario.role,email:usuario.email||email},accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
+      const completo=await anexarCustosArquivados(p);
+      return res.status(200).json({data:completo,updatedAt,usuario:{id:usuario.id,nome:usuario.nome,role:usuario.role,email:usuario.email||email},accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
     }
 
     if (action === "auth-refresh") {
@@ -411,8 +444,9 @@ export default async function handler(req, res) {
 
     // ── 3. Carregar ────────────────────────────────────────────────
     if (action === "load") {
+      const completo = await anexarCustosArquivados(atual);
       return res.status(200).json({
-        data: atual,
+        data: completo,
         updatedAt,
         usuario: { id: usuario.id, nome: usuario.nome, role: usuario.role, email: usuario.email || "" },
       });
@@ -432,6 +466,16 @@ export default async function handler(req, res) {
         const baseConferencias=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"conferencias")?baseSections.conferencias:atual?.conferencias;
         const erroPermissao=validarAlteracoesConferencias(usuario,baseConferencias||[],sections.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
         if(erroPermissao)return res.status(403).json({error:erroPermissao});
+      }
+      if(chaves.includes("pedidos")){
+        const basePedidos=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"pedidos")?baseSections.pedidos:atual?.pedidos;
+        const erroCompras=validatePurchaseChanges(usuario,basePedidos||[],sections.pedidos||[]);
+        if(erroCompras)return res.status(403).json({error:erroCompras});
+      }
+      if(chaves.includes("obras")){
+        const baseObras=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"obras")?baseSections.obras:atual?.obras;
+        const erroObras=validarExclusaoObras(usuario,baseObras||[],sections.obras||[]);
+        if(erroObras)return res.status(403).json({error:erroObras});
       }
 
       const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
@@ -475,6 +519,14 @@ export default async function handler(req, res) {
       if(!igual(payload.conferencias,atual?.conferencias)){
         const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],payload.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
         if(erroPermissao)return res.status(403).json({error:erroPermissao});
+      }
+      if(!igual(payload.pedidos,atual?.pedidos)){
+        const erroCompras=validatePurchaseChanges(usuario,basePayload?.pedidos||atual?.pedidos||[],payload.pedidos||[]);
+        if(erroCompras)return res.status(403).json({error:erroCompras});
+      }
+      if(!igual(payload.obras,atual?.obras)){
+        const erroObras=validarExclusaoObras(usuario,basePayload?.obras||atual?.obras||[],payload.obras||[]);
+        if(erroObras)return res.status(403).json({error:erroObras});
       }
 
       // Se outro salvou depois da sua leitura, recusa — e devolve a versão
@@ -583,6 +635,7 @@ export default async function handler(req, res) {
           id: e.id, name: e.name, role: e.role || "", obra: e.obra || "",
           dailyRate: Number(e.dailyRate || 0),
           vtDaily: Number(e.vtDaily || 0), vrDaily: Number(e.vrDaily || 0),
+          startDate: e.startDate || "", endDate: e.endDate || "",
         }));
 
       const agora = new Date().toISOString();
@@ -596,12 +649,18 @@ export default async function handler(req, res) {
         archivedAt: agora,
         archivedBy: { id: usuario.id, nome: usuario.nome },
       };
+      // Autoritativo: o cliente informa apenas qual quinzena será arquivada.
+      // Valores são calculados exclusivamente pelo servidor com a fotografia
+      // de ponto, lotação, diária e benefícios que acabou de ler do banco.
+      const resumoFinanceiro = normalizeArchivedCosts(
+        summarizeArchivedCosts({ attendance: fatia, employeesSnapshot })
+      );
 
       const { error: errArq } = await db.from("company_app_data")
         .insert({
           company_id: COMPANY,
           key: chaveArquivo(quinzenaId),
-          value: { meta, attendance: fatia, employeesSnapshot },
+          value: { meta, attendance: fatia, employeesSnapshot, financialSnapshot: resumoFinanceiro },
           updated_at: agora,
         });
       if (errArq) throw errArq;
@@ -609,6 +668,10 @@ export default async function handler(req, res) {
       const novoPrincipal = {
         ...atual,
         attendance: restante,
+        archivedLaborCosts: {
+          ...(atual?.archivedLaborCosts || {}),
+          [quinzenaId]: resumoFinanceiro,
+        },
         quinzenasArquivadas: { ...(atual?.quinzenasArquivadas || {}), [quinzenaId]: meta },
         changeLog: [
           ...(atual?.changeLog || []),
@@ -686,9 +749,12 @@ export default async function handler(req, res) {
       const agora = new Date().toISOString();
       const marcadores = { ...(atual?.quinzenasArquivadas || {}) };
       delete marcadores[quinzenaId];
+      const custosArquivados = { ...(atual?.archivedLaborCosts || {}) };
+      delete custosArquivados[quinzenaId];
       const novoPrincipal = {
         ...atual,
         attendance,
+        archivedLaborCosts: custosArquivados,
         quinzenasArquivadas: marcadores,
         changeLog: [
           ...(atual?.changeLog || []),

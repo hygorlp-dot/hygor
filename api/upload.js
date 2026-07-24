@@ -18,44 +18,16 @@
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { decodeAppData } from "../server/data-codec.js";
+import { authenticateAppUser } from "./auth.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const COMPANY = process.env.COMPANY_ID || "arcd";
-const KEY     = "arced_ponto_v1";
 const BUCKET  = process.env.SUPABASE_BUCKET || "diario-obra";
 
 const db = createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
-
-const sha256 = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
-
-// Confere o PIN contra o hash guardado no dataset (igual ao /api/data).
-const conferirPin = async (userId, pin, accessToken) => {
-  const { data, error } = await db
-    .from("company_app_data")
-    .select("value")
-    .eq("company_id", COMPANY)
-    .eq("key", KEY)
-    .maybeSingle();
-  
-  if (error || !data) return null;
-  
-  const payload = decodeAppData(data.value);
-  if(accessToken){const {data:auth,error:authError}=await db.auth.getUser(accessToken);if(!authError&&auth?.user){const email=String(auth.user.email||"").toLowerCase();const linked=(payload?.usuarios||[]).find(u=>u.active!==false&&(u.authUserId===auth.user.id||String(u.email||"").toLowerCase()===email));if(linked)return linked;}}
-  const u = (payload?.usuarios || []).find(x => x.id === userId && x.active !== false);
-  
-  if (!u) return null;
-  
-  const a = Buffer.from(sha256(pin));
-  const b = Buffer.from(String(u.pin || ""));
-  
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  
-  return u;
-};
 
 // Aceita corpo maior (fotos ja comprimidas no cliente, ~200-800KB em base64).
 export const config = { api: { bodyParser: { sizeLimit: "6mb" } } };
@@ -67,7 +39,7 @@ export default async function handler(req, res) {
   const { userId, pin, accessToken, dataUrl, obraId, ext } = req.body || {};
 
   // 1. Autentica.
-  const user = await conferirPin(userId, pin, accessToken);
+  const user = await authenticateAppUser({userId,pin,accessToken},{scope:"upload"});
   if (!user) return res.status(401).json({ error: "PIN invalido." });
 
   // 2. Valida a imagem (data URL base64).

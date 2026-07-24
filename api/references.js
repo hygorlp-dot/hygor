@@ -8,8 +8,7 @@
 // ===================================================================
 
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
-import { decodeAppData } from "../server/data-codec.js";
+import { authenticateAppUser } from "./auth.js";
 import {
   normalizeText,
   parsePriceBR,
@@ -21,7 +20,6 @@ import {
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const COMPANY = process.env.COMPANY_ID || "arcd";
-const KEY = "arced_ponto_v1";
 const ORSE_URL = "https://orse.cehop.se.gov.br";
 
 // Constants: limites de segurança e performance
@@ -47,7 +45,6 @@ const db = createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const sha256 = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
 
 /** Helper: executa Promise.allSettled com timeout */
 const promiseAllWithTimeout = (promises, timeoutMs = LIMITS.PROMISE_TIMEOUT_MS) => {
@@ -59,29 +56,8 @@ const promiseAllWithTimeout = (promises, timeoutMs = LIMITS.PROMISE_TIMEOUT_MS) 
   ]);
 };
 
-/** Valida PIN do usuário com timing-safe comparison */
-const conferirPin = async (userId, pin, accessToken) => {
-  const { data, error } = await db
-    .from("company_app_data")
-    .select("value")
-    .eq("company_id", COMPANY)
-    .eq("key", KEY)
-    .maybeSingle();
-  if (error || !data) return null;
-  try {
-    const payload = decodeAppData(data.value);
-    if(accessToken){const {data:auth,error:authError}=await db.auth.getUser(accessToken);if(!authError&&auth?.user){const email=String(auth.user.email||"").toLowerCase();const linked=(payload?.usuarios||[]).find(u=>u.active!==false&&(u.authUserId===auth.user.id||String(u.email||"").toLowerCase()===email));if(linked)return linked;}}
-    const user = (payload?.usuarios || []).find(item => item.id === userId && item.active !== false);
-    if (!user) return null;
-    const actual = Buffer.from(sha256(pin));
-    const expected = Buffer.from(String(user.pin || ""));
-    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
-    return user;
-  } catch (err) {
-    console.error("Erro em conferirPin:", err);
-    return null;
-  }
-};
+const conferirPin = (userId,pin,accessToken) =>
+  authenticateAppUser({userId,pin,accessToken},{scope:"references"});
 
 const parseOrseRows = (html, competence) => {
   const out = [];

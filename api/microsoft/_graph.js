@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import { decodeAppData } from "../../server/data-codec.js";
+import { authenticateAppContext } from "../auth.js";
 
 const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
 const CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
@@ -10,7 +10,7 @@ const AUTHORITY = "https://login.microsoftonline.com/common/oauth2/v2.0";
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const db = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   ? createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}}) : null;
-const COMPANY=process.env.COMPANY_ID||"arcd", DATA_KEY="arced_ponto_v1", AUTH_KEY="onedrive_auth_v1";
+const COMPANY=process.env.COMPANY_ID||"arcd", AUTH_KEY="onedrive_auth_v1";
 export const SCOPES = "openid profile offline_access User.Read Files.ReadWrite";
 
 const key = () => crypto.createHash("sha256").update(String(CLIENT_SECRET || "")).digest();
@@ -39,11 +39,8 @@ const loadCentralSession = async () => {
   if(!db)return null; const {data}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",AUTH_KEY).maybeSingle(); return unseal(data?.value?.sealed);
 };
 export const verifyAppUser = async (userId,pin,accessToken) => {
-  if(!db)return false; const {data}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",DATA_KEY).maybeSingle();
-  const payload=decodeAppData(data?.value);
-  if(accessToken){const {data:auth,error}=await db.auth.getUser(accessToken);if(!error&&auth?.user){const email=String(auth.user.email||"").toLowerCase();const linked=(payload?.usuarios||[]).find(u=>u.active!==false&&(u.authUserId===auth.user.id||String(u.email||"").toLowerCase()===email));if(linked)return linked;}}
-  const user=(payload?.usuarios||[]).find(u=>u.id===userId&&u.active!==false); if(!user)return false;
-  const a=Buffer.from(crypto.createHash("sha256").update(String(pin)).digest("hex")),b=Buffer.from(String(user.pin||"")); return a.length===b.length&&crypto.timingSafeEqual(a,b)?user:false;
+  if(!db)return null;
+  return authenticateAppContext({userId,pin,accessToken},{scope:"onedrive"});
 };
 export const fileSignature=(driveId,itemId)=>crypto.createHmac("sha256",String(CLIENT_SECRET)).update(`${driveId}:${itemId}`).digest("base64url");
 
