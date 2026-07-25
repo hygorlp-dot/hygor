@@ -166,6 +166,10 @@ export const buscarPixRegistrado = (indices, chave) => {
   const c = normalizarPix(chave);
   if (!c) return null;
   if (indices.porPixRegistrado.has(c)) return indices.porPixRegistrado.get(c);
+  // Aceita a chave aparecendo dentro de um texto maior (descrição do banco).
+  for (const [k, v] of indices.porPixRegistrado) {
+    if (k.length >= 6 && c.includes(k)) return v;
+  }
   return null;
 };
 

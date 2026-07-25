@@ -285,7 +285,9 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
   // terceiro, fornecedor ou proprietário de equipamento) - busca automática
   // pedida explicitamente: mesmo sem nota/pedido em aberto, a contraparte já
   // é conhecida, e isso é informação relevante para classificar a transação.
-  const pixRegistrado = buscarPixRegistrado(indices, transacao.chavePix || transacao.pixKey || transacao.chave || transacao.contraparteDocumento);
+  const pixRegistrado = buscarPixRegistrado(indices,
+    transacao.chavePix || transacao.pixKey || transacao.chave
+    || transacao.contraparteDocumento || transacao.descricao);
   if (pixRegistrado && !candidatas.some(c => c.tipo === "pixRegistrado")) {
     const rotulos = { empresa: "conta da própria empresa", funcionario: "funcionário", terceiro: "terceirizado", fornecedor: "fornecedor", proprietarioEquip: "proprietário de equipamento" };
     const ehEmpresa = pixRegistrado.tipo === "empresa";
