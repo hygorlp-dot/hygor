@@ -123,7 +123,26 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
 
     let saldoCentavos = 0, documento = "", contraparte = "", dataPrevista = "", pixKey = "", titulo = "", podeVincular = false, podeRegistrarPagamento = false, entidadeId = item.id, pagamentoId = null;
 
-    if (tipo === "nota") {
+    if (tipo === "pagamentoNota") {
+      // Pagamento JÁ registrado (ex.: pela Central de Pagamentos), só falta
+      // ligar a transação bancária a ele - modo A, não cria nada novo.
+      if (isEntrada) return;
+      saldoCentavos = Math.abs(valorCentavos);
+      documento = item.nota?.documentoFornecedor;
+      contraparte = item.nota?.fornecedorNome;
+      titulo = `Pagamento já registrado · Nota ${item.nota?.numero || ""}`.trim();
+      podeVincular = true;
+      entidadeId = item.nota?.id;
+      pagamentoId = item.id;
+    } else if (tipo === "pagamentoPedido") {
+      if (isEntrada) return;
+      saldoCentavos = valorCentavos ? Math.abs(valorCentavos) : 0;
+      documento = item.pedido?.numero;
+      titulo = `Pagamento já registrado · Pedido ${item.pedido?.numero || ""}`.trim();
+      podeVincular = true;
+      entidadeId = item.pedido?.id;
+      pagamentoId = item.id;
+    } else if (tipo === "nota") {
       if (isEntrada) return; // nota fiscal só se paga com saída
       const totalPago = (item.pagamentos || []).reduce((s, p) => s + Number(p.valor || 0), 0);
       saldoCentavos = paraCentavos(Number(item.valorLiquido || item.valorBruto || 0) - totalPago);
@@ -132,7 +151,6 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       dataPrevista = item.vencimento;
       titulo = `Nota Fiscal ${item.numero || ""}`.trim();
       podeRegistrarPagamento = saldoCentavos > 0;
-      podeVincular = true;
     } else if (tipo === "pedido") {
       if (isEntrada) return;
       const totalPago = (item.pagamentos || []).reduce((s, p) => s + Number(p.valor || 0), 0);
@@ -141,7 +159,6 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       dataPrevista = item.previsao;
       titulo = `Pedido ${item.numero || ""}`.trim();
       podeRegistrarPagamento = saldoCentavos > 0;
-      podeVincular = true;
     } else if (tipo === "medicaoTerc") {
       if (isEntrada) return;
       saldoCentavos = paraCentavos(item.total);

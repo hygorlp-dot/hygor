@@ -44,6 +44,22 @@ describe("A. vincular pagamento já existente - nunca cria lançamento novo", ()
   });
 });
 
+describe("A2. vincular quando o pagamento já foi registrado noutro módulo (Central de Pagamentos) sem transação", () => {
+  test("liga a transação ao pagamento pré-existente da nota, sem criar novo pagamento", () => {
+    const data = dataBase();
+    data.notasFiscais[0].pagamentos = [{ id: "pgPre", valor: 500, conciliado: false, transacaoId: "" }];
+    const { data: next, resumo } = vincularPagamentoExistente(data, {
+      transacaoId: "t1", tipo: "pagamentoNota", entidadeId: "n1", pagamentoId: "pgPre", operador,
+    });
+    expect(resumo.ok).toBe(true);
+    const nota = next.notasFiscais.find(n => n.id === "n1");
+    expect(nota.pagamentos).toHaveLength(1); // nenhum pagamento novo criado
+    expect(nota.pagamentos[0].conciliado).toBe(true);
+    expect(nota.pagamentos[0].transacaoId).toBe("t1");
+    expect(next.transacoes.find(t => t.id === "t1").status).toBe("conciliado");
+  });
+});
+
 describe("B. registrar pagamento de obrigação existente e conciliar", () => {
   test("cria o pagamento na nota e sincroniza proporcionalmente no pedido vinculado, sem duplicar lançamento genérico", () => {
     const data = dataBase();

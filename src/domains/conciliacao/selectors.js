@@ -36,9 +36,18 @@ export const criarIndicesFinanceiros = (data) => {
   };
 
   (data.notasFiscais || []).forEach(n => {
+    if (n.status === "cancelada") return;
+    // Pagamento JÁ registrado (ex.: pela Central de Pagamentos) mas ainda sem
+    // transação vinculada - candidata de VÍNCULO (modo A), não de novo pagamento.
+    (n.pagamentos || []).forEach(pg => {
+      if (pg.conciliado || pg.transacaoId) return;
+      indexar({ id: pg.id, nota: n }, {
+        tipo: "pagamentoNota", valor: pg.valor, documento: n.documentoFornecedor || n.numero,
+        contraparte: n.fornecedorNome, obraId: n.obraId,
+      });
+    });
     const saldo = Number(n.valorLiquido || n.valorBruto || 0) -
       (n.pagamentos || []).reduce((s, p) => s + Number(p.valor || 0), 0);
-    if (n.status === "cancelada") return;
     indexar(n, {
       tipo: "nota", valor: saldo, documento: n.documentoFornecedor || n.numero,
       contraparte: n.fornecedorNome, obraId: n.obraId,
@@ -47,6 +56,10 @@ export const criarIndicesFinanceiros = (data) => {
 
   (data.pedidos || []).forEach(p => {
     if (p.status === "cancelado") return;
+    (p.pagamentos || []).forEach(pg => {
+      if (pg.conciliado || pg.transacaoId) return;
+      indexar({ id: pg.id, pedido: p }, { tipo: "pagamentoPedido", valor: pg.valor, documento: p.numero, obraId: p.obraId });
+    });
     const totalPago = (p.pagamentos || []).reduce((s, pg) => s + Number(pg.valor || 0), 0);
     const saldo = Number(p.totalPedido || 0) - totalPago;
     indexar(p, { tipo: "pedido", valor: saldo, documento: p.numero, obraId: p.obraId });

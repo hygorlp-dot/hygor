@@ -60,6 +60,7 @@ import {
   marcarTransferenciaInterna, marcarEstorno, gerarIdConc,
   podeVerConciliacao, podeOperarConciliacao, podeDesfazerConciliacao,
   podeReabrirFechamento, podeArquivarExtrato, podeFecharPeriodo, podeCriarRegra,
+  hashArquivo,
 } from "./domains/conciliacao/index.js";
 
 // 
@@ -21143,8 +21144,34 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const [selecionadas,setSelecionadas]=useState([]);
   const [limiteVisivel,setLimiteVisivel]=useState(30);
   const [ignorarModal,setIgnorarModal]=useState(null);
+  // Motor de candidatos (Fila inteligente)
+  const [candidatoModal,setCandidatoModal]=useState(null);   // { trId, idx }
+  const [pagamentoForm,setPagamentoForm]=useState({valor:"",data:""});
+  const [transferModal,setTransferModal]=useState(null);     // { trId }
+  const [estornoModal,setEstornoModal]=useState(null);       // { trId }
+  const [mostrarArquivados,setMostrarArquivados]=useState(false);
+  // Cadastro de contas bancárias
+  const [contaBancariaModal,setContaBancariaModal]=useState(null); // {} novo | conta existente
+  const [contaBancariaImport,setContaBancariaImport]=useState("");
+  // Regras de auto-classificação
+  const [regraModal,setRegraModal]=useState(null);
+  // Fechamento bancário
+  const [fecharModal,setFecharModal]=useState(null);
+
+  const podeOperarConc=podeOperarConciliacao(currentUser?.role);
+  const podeElevado=podeDesfazerConciliacao(currentUser?.role);
 
   const calc = useMemo(() => calcConciliacao(data), [data.transacoes]);
+
+  // Índices do motor de candidatos - montados uma vez por mudança relevante
+  // dos dados, nunca recalculados a cada linha da tabela.
+  const indicesFinanceiros = useMemo(() => criarIndicesFinanceiros(data), [
+    data.notasFiscais, data.pedidos, data.medicoes, data.medicoesTerc,
+    data.terceirizados, data.employees, data.caixaObra, data.transacoes,
+  ]);
+  const rejeitadasSet = useMemo(() => new Set(
+    (data.rejeicoesConc||[]).map(r=>`${r.transacaoId}:${r.candidatoTipo}:${r.candidatoId}`)
+  ), [data.rejeicoesConc]);
 
   const transacoes = useMemo(() => {
     const t = [...(data.transacoes || [])];
@@ -21155,6 +21182,18 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   }, [data.transacoes, aba, buscaConc, tipoMovimento]);
   const transacoesVisiveis=transacoes.slice(0,limiteVisivel);
   const todosSelecionados=transacoes.length>0&&transacoes.every(t=>selecionadas.includes(t.id));
+
+  // Candidatas pré-computadas só para a fatia visível da fila pendente -
+  // nunca roda o motor inteiro dentro do map() de cada linha.
+  const candidatosPorTransacao = useMemo(() => {
+    const mapa = new Map();
+    if (aba !== "pendentes") return mapa;
+    transacoes.slice(0, limiteVisivel).forEach(tr => {
+      const brutas = gerarCandidatosConciliacao(tr, data, indicesFinanceiros);
+      mapa.set(tr.id, brutas.filter(c => !rejeitadasSet.has(`${tr.id}:${c.tipo}:${c.entidadeId}`)));
+    });
+    return mapa;
+  }, [aba, transacoes, limiteVisivel, indicesFinanceiros, rejeitadasSet]);
   const historicoConc=useMemo(()=>{
     const registrados=[...(data.historicoConc||[])];
     const comRegistro=new Set(registrados.map(item=>item.transacaoId).filter(Boolean));
@@ -21165,19 +21204,169 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   useEffect(()=>{setSelecionadas([]);setLimiteVisivel(30);},[aba,buscaConc,tipoMovimento]);
   const eventoHistorico=(acao,tr,statusAnterior,statusNovo,detalhes="",extra={})=>({id:uid(),transacaoId:tr?.id||"",extratoId:tr?.extratoId||extra.extratoId||"",acao,statusAnterior,statusNovo,descricao:tr?.descricao||extra.descricao||"",valor:Number(tr?.valor||extra.valor||0),detalhes,operadorId:currentUser?.id||"",operador:currentUser?.nome||currentUser?.email||"Operador",criadoEm:new Date().toISOString(),loteId:extra.loteId||""});
 
-  //  Importar extrato 
+  //  Motor de candidatos - Fila inteligente
+  const rotuloFaixa={[FAIXA_CONFIANCA.FORTE]:"Candidata forte",[FAIXA_CONFIANCA.CONFIRMAR]:"Confirmar",[FAIXA_CONFIANCA.LISTA]:"Possível",[FAIXA_CONFIANCA.FRACA]:"Fraca"};
+  const corFaixa=f=>f===FAIXA_CONFIANCA.FORTE?C.green:f===FAIXA_CONFIANCA.CONFIRMAR?C.blue:f===FAIXA_CONFIANCA.LISTA?C.orange:C.muted;
+
+  const abrirCandidato = (tr) => {
+    const cs = candidatosPorTransacao.get(tr.id) || [];
+    const c = cs[0];
+    setPagamentoForm({ valor: c ? String(Math.min(Math.abs(tr.valor), deCentavos(c.saldoCentavos||0)||Math.abs(tr.valor)).toFixed(2)) : String(Math.abs(tr.valor).toFixed(2)), data: tr.data });
+    setCandidatoModal({ trId: tr.id, idx: 0 });
+  };
+  const fecharCandidato = () => { setCandidatoModal(null); setPagamentoForm({valor:"",data:""}); };
+  const trocarCandidato = (delta) => setCandidatoModal(m => {
+    if (!m) return m;
+    const cs = candidatosPorTransacao.get(m.trId) || [];
+    if (!cs.length) return m;
+    const idx = (m.idx + delta + cs.length) % cs.length;
+    const c = cs[idx], tr = (data.transacoes||[]).find(t=>t.id===m.trId);
+    setPagamentoForm({ valor: tr ? String(Math.min(Math.abs(tr.valor), deCentavos(c.saldoCentavos||0)||Math.abs(tr.valor)).toFixed(2)) : "", data: tr?.data||"" });
+    return { ...m, idx };
+  });
+
+  const executarVincular = (tr, c) => {
+    const { data: next, resumo } = vincularPagamentoExistente(data, {
+      transacaoId: tr.id, tipo: c.tipo, entidadeId: c.entidadeId, pagamentoId: c.pagamentoId, operador: currentUser,
+    });
+    if (!resumo.ok) { showToast(resumo.motivo||"Não foi possível vincular.", "error"); return; }
+    update(next);
+    fecharCandidato();
+    showToast("Vínculo confirmado e transação conciliada.");
+  };
+  const executarRegistrarPagamento = (tr, c) => {
+    const valor = Number(String(pagamentoForm.valor||"").replace(",", "."));
+    if (!(valor > 0)) { showToast("Informe o valor pago.", "error"); return; }
+    const { data: next, resumo } = registrarPagamentoEConciliar(data, {
+      transacaoId: tr.id, tipo: c.tipo, entidadeId: c.entidadeId,
+      valor, dataPagamento: pagamentoForm.data || tr.data, operador: currentUser,
+    });
+    if (!resumo.ok) { showToast(resumo.motivo||"Não foi possível registrar o pagamento.", "error"); return; }
+    update(next);
+    fecharCandidato();
+    showToast(valor < Math.abs(Number(c.saldoCentavos||0))/100 - 0.01 ? "Pagamento parcial registrado e conciliado." : "Pagamento registrado e conciliado.");
+  };
+  const rejeitarCandidato = (tr, c) => {
+    update({...data, rejeicoesConc:[...(data.rejeicoesConc||[]), {
+      id: uid(), transacaoId: tr.id, candidatoTipo: c.tipo, candidatoId: c.entidadeId,
+      motivo: "Não corresponde", operadorId: currentUser?.id||"", operador: currentUser?.nome||currentUser?.email||"Operador",
+      criadoEm: new Date().toISOString(),
+    }]});
+    showToast("Candidata descartada para esta transação.");
+  };
+
+  // Transferência interna: escolhe a outra ponta entre as transações pendentes
+  // de sinal oposto - não decide sozinho, só reduz a lista a candidatas plausíveis.
+  const candidatasTransferencia = (tr) => (data.transacoes||[])
+    .filter(t => t.id!==tr.id && t.status==="pendente" && Math.sign(Number(t.valor))!==Math.sign(Number(tr.valor)) && igualCentavos(Math.abs(t.valor),Math.abs(tr.valor),50))
+    .sort((a,b)=>diasEntre(a.data,tr.data)-diasEntre(b.data,tr.data));
+  const confirmarTransferencia = (tr, destino) => {
+    const { data: next, resumo } = marcarTransferenciaInterna(data, {
+      transacaoOrigemId: Number(tr.valor)<0?tr.id:destino.id, transacaoDestinoId: Number(tr.valor)<0?destino.id:tr.id, operador: currentUser,
+    });
+    if (!resumo.ok) { showToast(resumo.motivo||"Não foi possível vincular a transferência.", "error"); return; }
+    update(next); setTransferModal(null);
+    showToast("Transferência interna registrada - sem efeito no DRE.");
+  };
+
+  // Estorno: procura o movimento original de sinal oposto entre os já conciliados
+  const candidatasEstorno = (tr) => (data.transacoes||[])
+    .filter(t => t.id!==tr.id && Math.sign(Number(t.valor))!==Math.sign(Number(tr.valor)) && igualCentavos(Math.abs(t.valor),Math.abs(tr.valor),50))
+    .sort((a,b)=>diasEntre(a.data,tr.data)-diasEntre(b.data,tr.data));
+  const confirmarEstorno = (tr, origem) => {
+    const { data: next, resumo } = marcarEstorno(data, { transacaoId: tr.id, transacaoOrigemId: origem?.id||"", operador: currentUser });
+    if (!resumo.ok) { showToast(resumo.motivo||"Não foi possível marcar o estorno.", "error"); return; }
+    update(next); setEstornoModal(null);
+    showToast("Estorno vinculado ao movimento original.");
+  };
+
+  //  Cadastro de contas bancárias
+  const salvarContaBancaria = (form) => {
+    if (!String(form.nome||"").trim()) { showToast("Informe um nome para a conta.", "error"); return; }
+    const existe = form.id && (data.contasBancarias||[]).some(c=>c.id===form.id);
+    const contasBancarias = existe
+      ? (data.contasBancarias||[]).map(c=>c.id===form.id?{...c,...form,atualizadoEm:new Date().toISOString()}:c)
+      : [...(data.contasBancarias||[]), {...form, id:uid(), criadoEm:new Date().toISOString()}];
+    update({...data, contasBancarias});
+    setContaBancariaModal(null);
+    showToast(existe ? "Conta bancária atualizada." : "Conta bancária cadastrada.");
+  };
+  const alternarAtivaContaBancaria = (c) => update({...data, contasBancarias:(data.contasBancarias||[]).map(x=>x.id===c.id?{...x,ativa:!x.ativa,atualizadoEm:new Date().toISOString()}:x)});
+
+  //  Regras de auto-classificação
+  const salvarRegra = (form) => {
+    if (!String(form.padrao||"").trim()) { showToast("Informe o trecho da descrição.", "error"); return; }
+    const existe = form.id && (data.regrasConc||[]).some(r=>r.id===form.id);
+    const regrasConc = existe
+      ? (data.regrasConc||[]).map(r=>r.id===form.id?{...r,...form,atualizadoEm:new Date().toISOString()}:r)
+      : [...(data.regrasConc||[]), {...form, id:uid(), criadoPorId:currentUser?.id||"", criadoPor:currentUser?.nome||currentUser?.email||"", criadoEm:new Date().toISOString()}];
+    update({...data, regrasConc});
+    setRegraModal(null);
+    showToast(existe ? "Regra atualizada." : "Regra criada - continua pedindo confirmação a cada transação.");
+  };
+  const alternarAtivaRegra = (r) => update({...data, regrasConc:(data.regrasConc||[]).map(x=>x.id===r.id?{...x,ativa:!x.ativa,atualizadoEm:new Date().toISOString()}:x)});
+  const excluirRegra = (r) => { if(!window.confirm(`Excluir a regra "${r.nome||r.padrao}"?`))return; update({...data, regrasConc:(data.regrasConc||[]).filter(x=>x.id!==r.id)}); showToast("Regra excluída."); };
+
+  //  Fechamento bancário
+  const abrirFechamento = (contaId) => {
+    const hoje = today();
+    const ultimo = (data.fechamentosBancarios||[]).filter(f=>f.contaBancariaId===contaId && f.status==="fechado").sort((a,b)=>String(b.dataFim||"").localeCompare(String(a.dataFim||"")))[0];
+    const conta = (data.contasBancarias||[]).find(c=>c.id===contaId);
+    const dataInicio = ultimo ? ultimo.dataFim : (conta?.criadoEm||"").slice(0,10)||hoje;
+    setFecharModal({ contaBancariaId: contaId, dataInicio, dataFim: hoje, saldoBanco: "" });
+  };
+  const resumoFechamento = (f) => {
+    if (!f) return null;
+    const trans = (data.transacoes||[]).filter(t => t.contaBancariaId===f.contaBancariaId && t.data>=f.dataInicio && t.data<=f.dataFim);
+    const ultimo = (data.fechamentosBancarios||[]).filter(x=>x.contaBancariaId===f.contaBancariaId && x.status==="fechado").sort((a,b)=>String(b.dataFim||"").localeCompare(String(a.dataFim||"")))[0];
+    const conta = (data.contasBancarias||[]).find(c=>c.id===f.contaBancariaId);
+    const saldoInicialCentavos = paraCentavos(ultimo ? deCentavos(ultimo.saldoCalculadoCentavos) : (conta?.saldoInicial||0));
+    const creditosCentavos = trans.filter(t=>t.valor>0).reduce((s,t)=>s+paraCentavos(t.valor),0);
+    const debitosCentavos = trans.filter(t=>t.valor<0).reduce((s,t)=>s+paraCentavos(Math.abs(t.valor)),0);
+    const saldoCalculadoCentavos = saldoInicialCentavos + creditosCentavos - debitosCentavos;
+    const saldoBancoCentavos = f.saldoBanco ? paraCentavos(Number(String(f.saldoBanco).replace(",","."))) : null;
+    const pendentes = trans.filter(t=>t.status==="pendente");
+    return { trans, saldoInicialCentavos, creditosCentavos, debitosCentavos, saldoCalculadoCentavos, saldoBancoCentavos, pendentes };
+  };
+  const confirmarFechamento = () => {
+    if (!fecharModal) return;
+    if (!podeFecharPeriodo(currentUser?.role)) { showToast("Sem permissão para fechar o período.", "error"); return; }
+    const r = resumoFechamento(fecharModal);
+    const diferencaCentavos = r.saldoBancoCentavos!=null ? r.saldoBancoCentavos - r.saldoCalculadoCentavos : 0;
+    if (r.pendentes.length && !window.confirm(`Ainda há ${r.pendentes.length} transação(ões) pendente(s) no período. Fechar mesmo assim?`)) return;
+    const fechamento = {
+      id: uid(), contaBancariaId: fecharModal.contaBancariaId, dataInicio: fecharModal.dataInicio, dataFim: fecharModal.dataFim,
+      saldoInicialCentavos: r.saldoInicialCentavos, creditosCentavos: r.creditosCentavos, debitosCentavos: r.debitosCentavos,
+      saldoCalculadoCentavos: r.saldoCalculadoCentavos, saldoBancoCentavos: r.saldoBancoCentavos, diferencaCentavos,
+      pendencias: r.pendentes.map(t=>t.id), status: "fechado",
+      fechadoPorId: currentUser?.id||"", fechadoPor: currentUser?.nome||currentUser?.email||"", fechadoEm: new Date().toISOString(),
+    };
+    update({...data, fechamentosBancarios:[...(data.fechamentosBancarios||[]), fechamento]});
+    setFecharModal(null);
+    showToast("Período fechado.");
+  };
+  const reabrirFechamento = (f) => {
+    if (!podeReabrirFechamento(currentUser?.role)) { showToast("Somente administrador pode reabrir um fechamento.", "error"); return; }
+    const motivo = window.prompt("Motivo da reabertura:");
+    if (!motivo) return;
+    update({...data, fechamentosBancarios:(data.fechamentosBancarios||[]).map(x=>x.id===f.id?{...x,status:"reaberto",reabertoPorId:currentUser?.id||"",reabertoPor:currentUser?.nome||currentUser?.email||"",reabertoEm:new Date().toISOString(),motivoReabertura:motivo}:x)});
+    showToast("Fechamento reaberto.");
+  };
+
+  //  Importar extrato
   const importar = async (file) => {
     await carregarXLSX();
     if (!file) return;
     setImportando(true);
     try {
       const nome = file.name.toLowerCase();
-      let banco = "", conta = "", brutas = [];
+      let banco = "", conta = "", brutas = [], hash = "";
 
       if (nome.endsWith(".ofx") || nome.endsWith(".qfx")) {
         const txt = await file.text();
         const r = parseOFX(txt);
         banco = r.banco; conta = r.conta; brutas = r.trans;
+        hash = hashArquivo(txt);
       } else {
         // CSV / XLSX: detecta as colunas de data, descrição e valor
         const buf = await file.arrayBuffer();
@@ -21222,6 +21411,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
           return { data: dt, descricao: ds, valor: v, fitid: "" };
         }).filter(t => t.data && t.descricao && t.valor !== 0 && !isNaN(t.valor));
         banco = file.name;
+        hash = hashArquivo(`${file.name}|${file.size}|${file.lastModified}`);
       }
 
       if (!brutas.length) { showToast("Nenhuma transação encontrada no arquivo.", "error"); setImportando(false); return; }
@@ -21235,7 +21425,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
         if (jaTem.has(chave)) { dups.push(t); return; }
         jaTem.add(chave);   // evita duplicata dentro do próprio arquivo
         novas.push({
-          id: uid(), extratoId: "", data: t.data, descricao: t.descricao,
+          id: uid(), extratoId: "", contaBancariaId: contaBancariaImport, data: t.data, descricao: t.descricao,
           valor: t.valor, chave, status: "pendente", rateios: [], gerados: [], obs: "",
         });
       });
@@ -21247,9 +21437,10 @@ function Conciliacao({ data, update, showToast, currentUser }) {
 
       const datas = novas.map(t=>t.data).sort();
       const extrato = {
-        id: uid(), banco, conta, arquivo: file.name,
+        id: uid(), contaBancariaId: contaBancariaImport, banco, conta, arquivo: file.name, hashArquivo: hash,
         dataInicio: datas[0], dataFim: datas[datas.length-1],
-        importadoEm: new Date().toISOString(), qtd: novas.length,
+        importadoEm: new Date().toISOString(), importadoPorId: currentUser?.id||"", importadoPor: currentUser?.nome||currentUser?.email||"",
+        qtd: novas.length, qtdDuplicadas: dups.length, status: "ativo",
       };
       novas.forEach(t => { t.extratoId = extrato.id; });
 
@@ -21498,22 +21689,29 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     setSelecionadas([]);setAba("pendentes");showToast(`${itens.length} transação(ões) reaberta(s).`);
   };
 
-  const delExtrato = (ext) => {
+  // Um extrato com transação já conciliada não pode ser apagado de verdade -
+  // vira arquivo (sai das listas ativas, nada é perdido). Só some de fato
+  // quando não tem NENHUMA transação conciliada (comportamento antigo).
+  const arquivarOuExcluirExtrato = (ext) => {
     const n = (data.transacoes||[]).filter(t => t.extratoId===ext.id);
     const conc = n.filter(t => t.status==="conciliado").length;
-    if (!window.confirm(
-      `Excluir o extrato "${ext.arquivo}"?\n\nRemove ${n.length} transação(ões)` +
-      (conc ? `, sendo ${conc} já conciliada(s) - os lançamentos no DRE também saem.` : ".")
-    )) return;
-    const ger = new Set(n.flatMap(t => t.gerados || []));
+    if (conc > 0) {
+      if (!podeArquivarExtrato(currentUser?.role)) { showToast("Somente administrador pode arquivar um extrato com transações conciliadas.", "error"); return; }
+      if (!window.confirm(`Arquivar o extrato "${ext.arquivo}"?\n\nEle sai das listagens ativas, mas nada é apagado (${conc} transação(ões) conciliada(s) preservada(s)).`)) return;
+      update({
+        ...data,
+        extratos: (data.extratos||[]).map(e => e.id===ext.id ? {...e, status:"arquivado", arquivadoEm:new Date().toISOString()} : e),
+        historicoConc:[...(data.historicoConc||[]),eventoHistorico("extrato_arquivado",null,"","arquivado",`Extrato arquivado com ${conc} transação(ões) conciliada(s) preservada(s).`,{extratoId:ext.id,descricao:ext.arquivo})],
+      });
+      showToast("Extrato arquivado.");
+      return;
+    }
+    if (!window.confirm(`Excluir o extrato "${ext.arquivo}"?\n\nRemove ${n.length} transação(ões) pendente(s)/ignorada(s) (nenhuma conciliada).`)) return;
     update({
       ...data,
       extratos:   (data.extratos||[]).filter(e => e.id !== ext.id),
       transacoes: (data.transacoes||[]).filter(t => t.extratoId !== ext.id),
-      outrasDesp:      (data.outrasDesp||[]).filter(x => !ger.has(x.id)),
-      despesasEmpresa: (data.despesasEmpresa||[]).filter(x => !ger.has(x.id)),
-      payments:        (data.payments||[]).filter(x => !ger.has(x.id)),
-      historicoConc:[...(data.historicoConc||[]),eventoHistorico("extrato_excluido",null,"","excluido",`${n.length} transação(ões) removida(s), incluindo ${conc} conciliada(s).`,{extratoId:ext.id,descricao:ext.arquivo,valor:n.reduce((s,t)=>s+Math.abs(Number(t.valor||0)),0)})],
+      historicoConc:[...(data.historicoConc||[]),eventoHistorico("extrato_excluido",null,"","excluido",`${n.length} transação(ões) removida(s), nenhuma conciliada.`,{extratoId:ext.id,descricao:ext.arquivo,valor:n.reduce((s,t)=>s+Math.abs(Number(t.valor||0)),0)})],
     });
     showToast("Extrato removido.");
   };
@@ -21540,15 +21738,203 @@ function Conciliacao({ data, update, showToast, currentUser }) {
         actions={importando?<span style={{fontSize:9,fontWeight:800,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:700}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>}
       />
 
-      <TabRow equal tabs={[["pendentes",`Pendentes · ${calc.pendentes}`],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["historico","Histórico"]]} active={aba} onChange={setAba}/>
+      <TabRow equal tabs={[["pendentes",`Fila inteligente · ${calc.pendentes}`],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras",`Regras · ${(data.regrasConc||[]).length}`],["fechamentos",`Fechamentos · ${(data.fechamentosBancarios||[]).length}`],["historico","Histórico"]]} active={aba} onChange={setAba}/>
 
-      {!["extratos"].includes(aba)&&<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 7px"}}><div style={{position:"relative",minWidth:190,flex:1}}><Ic n="search" s={12} color={C.muted} style={{position:"absolute",left:8,top:8}}/><input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar data ou descrição..."} style={{width:"100%",height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 9px 0 27px",fontSize:9.5,outline:"none"}}/></div>{aba!=="historico"&&<select value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 8px",fontSize:9}}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}{["pendentes","ignoradas"].includes(aba)&&<button onClick={alternarTodas} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.muted,padding:"0 8px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{todosSelecionados?"Desmarcar":"Selecionar todas"}</button>}{aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}{aba==="pendentes"&&calc.pendentes>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar((data.transacoes||[]).filter(t=>t.status==="pendente"),"Ignorar todas as pendentes")}>Ignorar todas · {calc.pendentes}</Btn>}{aba==="ignoradas"&&selecionadas.length>0&&<Btn size="sm" v="info" onClick={()=>reabrir(selecionadas)}>Reabrir selecionadas · {selecionadas.length}</Btn>}</div>}
+      {!["extratos","regras","fechamentos"].includes(aba)&&<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 7px"}}><div style={{position:"relative",minWidth:190,flex:1}}><Ic n="search" s={12} color={C.muted} style={{position:"absolute",left:8,top:8}}/><input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar data ou descrição..."} style={{width:"100%",height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 9px 0 27px",fontSize:9.5,outline:"none"}}/></div>{aba!=="historico"&&<select value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 8px",fontSize:9}}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}{["pendentes","ignoradas"].includes(aba)&&<button onClick={alternarTodas} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.muted,padding:"0 8px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{todosSelecionados?"Desmarcar":"Selecionar todas"}</button>}{aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}{aba==="pendentes"&&calc.pendentes>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar((data.transacoes||[]).filter(t=>t.status==="pendente"),"Ignorar todas as pendentes")}>Ignorar todas · {calc.pendentes}</Btn>}{aba==="ignoradas"&&selecionadas.length>0&&<Btn size="sm" v="info" onClick={()=>reabrir(selecionadas)}>Reabrir selecionadas · {selecionadas.length}</Btn>}</div>}
 
-      {aba==="extratos"&&((data.extratos||[]).length===0?<div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>Nenhum extrato importado.</div>:<div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",background:C.card}}><thead><tr>{["Arquivo / banco","Conta","Período","Transações","Importado em",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Transações"?"right":"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{(data.extratos||[]).slice().sort((a,b)=>String(b.importadoEm||"").localeCompare(String(a.importadoEm||""))).map(e=><tr key={e.id}><td style={{padding:"7px 8px",fontSize:9.5,fontWeight:800,borderBottom:`1px solid ${C.line}`}}>{e.banco||e.arquivo}<small style={{display:"block",fontSize:7.8,color:C.muted,marginTop:1}}>{e.arquivo}</small></td><td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.conta||"-"}</td><td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.dataInicio?`${fmtDate(e.dataInicio)} a ${fmtDate(e.dataFim)}`:"-"}</td><td style={{padding:"7px 8px",fontSize:10,fontWeight:800,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.qtd}</td><td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.importadoEm?new Date(e.importadoEm).toLocaleString("pt-BR"):"-"}</td><td style={{padding:"5px 7px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}><Btn size="sm" v="danger" onClick={()=>delExtrato(e)}><Ic n="trash"/></Btn></td></tr>)}</tbody></table></div>)}
+      {aba==="extratos"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {/* Cadastro compacto de contas bancárias */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+              <p style={{fontSize:10.5,fontWeight:800,color:C.text}}>Contas bancárias cadastradas</p>
+              {podeOperarConc&&<Btn size="sm" onClick={()=>setContaBancariaModal({nome:"",banco:"",agencia:"",conta:"",tipo:"corrente",titular:"",documentoTitular:"",ativa:true,saldoInicial:0})}><Ic n="plus"/> Nova conta</Btn>}
+            </div>
+            {(data.contasBancarias||[]).length===0
+              ? <p style={{fontSize:9.5,color:C.muted}}>Nenhuma conta cadastrada ainda. Cadastre para poder identificar transferências entre contas e fechar o período.</p>
+              : <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  {(data.contasBancarias||[]).map(c=>(
+                    <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
+                      <div>
+                        <p style={{fontSize:10,fontWeight:750,color:C.text}}>{c.nome} {!c.ativa&&<Badge color={C.muted}>Inativa</Badge>}</p>
+                        <p style={{fontSize:8.8,color:C.muted,marginTop:1}}>{c.banco||"-"} · Ag {c.agencia||"-"} · Conta {c.conta||"-"} · {c.titular||"sem titular"}</p>
+                      </div>
+                      <div style={{display:"flex",gap:6}}>
+                        <Btn size="sm" v="ghost" onClick={()=>setContaBancariaModal(c)}>Editar</Btn>
+                        <Btn size="sm" v="ghost" onClick={()=>alternarAtivaContaBancaria(c)}>{c.ativa?"Desativar":"Ativar"}</Btn>
+                      </div>
+                    </div>
+                  ))}
+                </div>}
+          </div>
+
+          {/* Importar novo extrato para uma conta específica */}
+          {(data.contasBancarias||[]).length>0&&(
+            <div style={{display:"flex",alignItems:"center",gap:8,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px"}}>
+              <span style={{fontSize:9.5,color:C.muted,fontWeight:700}}>Importar para a conta:</span>
+              <select value={contaBancariaImport} onChange={e=>setContaBancariaImport(e.target.value)} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 8px",fontSize:9}}>
+                <option value="">Sem conta definida</option>
+                {(data.contasBancarias||[]).filter(c=>c.ativa).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
+          )}
+
+          <label style={{display:"flex",alignItems:"center",gap:6,fontSize:9,color:C.muted,cursor:"pointer"}}>
+            <input type="checkbox" checked={mostrarArquivados} onChange={e=>setMostrarArquivados(e.target.checked)}/> Mostrar extratos arquivados
+          </label>
+
+          {(data.extratos||[]).filter(e=>mostrarArquivados||e.status!=="arquivado").length===0
+            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>Nenhum extrato importado.</div>
+            : <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+                <table style={{width:"100%",minWidth:760,borderCollapse:"collapse",background:C.card}}>
+                  <thead><tr>{["Arquivo / banco","Conta","Período","Transações","Importado em","Status",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Transações"?"right":"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {(data.extratos||[]).filter(e=>mostrarArquivados||e.status!=="arquivado").slice().sort((a,b)=>String(b.importadoEm||"").localeCompare(String(a.importadoEm||""))).map(e=>{
+                      const conc=(data.transacoes||[]).filter(t=>t.extratoId===e.id&&t.status==="conciliado").length;
+                      return <tr key={e.id}>
+                        <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:800,borderBottom:`1px solid ${C.line}`}}>{e.banco||e.arquivo}<small style={{display:"block",fontSize:7.8,color:C.muted,marginTop:1}}>{e.arquivo}</small></td>
+                        <td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{(data.contasBancarias||[]).find(c=>c.id===e.contaBancariaId)?.nome||e.conta||"-"}</td>
+                        <td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.dataInicio?`${fmtDate(e.dataInicio)} a ${fmtDate(e.dataFim)}`:"-"}</td>
+                        <td style={{padding:"7px 8px",fontSize:10,fontWeight:800,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.qtd}{conc>0&&<small style={{display:"block",fontSize:7.8,color:C.green,fontWeight:700}}>{conc} conciliada(s)</small>}</td>
+                        <td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.importadoEm?new Date(e.importadoEm).toLocaleString("pt-BR"):"-"}</td>
+                        <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={e.status==="arquivado"?C.muted:C.green}>{e.status==="arquivado"?"Arquivado":"Ativo"}</Badge></td>
+                        <td style={{padding:"5px 7px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.status!=="arquivado"&&<Btn size="sm" v={conc>0?"ghost":"danger"} onClick={()=>arquivarOuExcluirExtrato(e)}>{conc>0?"Arquivar":<Ic n="trash"/>}</Btn>}</td>
+                      </tr>;
+                    })}
+                  </tbody>
+                </table>
+              </div>}
+        </div>
+      )}
 
       {aba==="historico"&&(historicoConc.length===0?<div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>O histórico começará a registrar as próximas operações.</div>:<div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><table style={{width:"100%",minWidth:920,borderCollapse:"collapse",background:C.card}}><thead><tr>{["Data e hora","Ação","Transação / extrato","Valor","Mudança","Operador","Detalhes"].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Valor"?"right":"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{historicoConc.slice(0,limiteVisivel).map(item=><tr key={item.id}><td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{new Date(item.criadoEm).toLocaleString("pt-BR")}</td><td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={corAcao(item.acao)}>{rotuloAcao[item.acao]||item.acao}</Badge></td><td title={item.descricao} style={{padding:"7px 8px",fontSize:9.2,fontWeight:750,maxWidth:270,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",borderBottom:`1px solid ${C.line}`}}>{item.descricao||"-"}</td><td style={{padding:"7px 8px",fontSize:9.2,fontWeight:800,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{item.valor?fmt(Math.abs(item.valor)):"-"}</td><td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{item.statusAnterior||"-"} → {item.statusNovo||"-"}</td><td style={{padding:"7px 8px",fontSize:8.8,fontWeight:750,borderBottom:`1px solid ${C.line}`}}>{item.operador||"Sistema"}</td><td title={item.detalhes} style={{padding:"7px 8px",fontSize:8.5,color:C.muted,maxWidth:290,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",borderBottom:`1px solid ${C.line}`}}>{item.detalhes||"-"}</td></tr>)}</tbody></table>{historicoConc.length>limiteVisivel&&<button onClick={()=>setLimiteVisivel(v=>v+50)} style={{width:"100%",border:0,borderTop:`1px solid ${C.line}`,padding:7,background:C.surface,color:C.blue,fontSize:9,fontWeight:800,cursor:"pointer"}}>Carregar mais registros</button>}</div>)}
 
-      {["pendentes","conciliadas","ignoradas"].includes(aba)&&(transacoes.length===0?<div style={{padding:25,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8}}><Ic n={aba==="pendentes"?"check":"receipt"} s={20} color={aba==="pendentes"?C.green:C.muted}/><p style={{fontSize:10.5,fontWeight:800,color:C.text,marginTop:5}}>{aba==="pendentes"?"Fila totalmente classificada":"Nenhuma transação neste filtro"}</p></div>:<div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><table style={{width:"100%",minWidth:900,borderCollapse:"collapse",background:C.card}}><thead><tr><th style={{width:32,padding:6,borderBottom:`1px solid ${C.border}`}}>{["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={todosSelecionados} onChange={alternarTodas}/>}</th>{["Data","Movimento","Classificação","Valor","Ações"].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Valor"||h==="Ações"?"right":"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{transacoesVisiveis.map(tr=>{const entrada=Number(tr.valor)>0,sug=tr.status==="pendente"?sugerirRateio(tr,data.regrasConc):null;return <tr key={tr.id} style={{background:selecionadas.includes(tr.id)?`${C.yellow}08`:"transparent"}}><td style={{padding:6,borderBottom:`1px solid ${C.line}`,borderLeft:`3px solid ${entrada?C.green:C.red}`}}>{["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td><td style={{padding:"7px 8px",fontSize:8.8,color:C.muted,whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{fmtDate(tr.data)}</td><td title={tr.descricao} style={{padding:"7px 8px",maxWidth:410,borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:9.7,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tr.descricao}</p><p style={{fontSize:7.9,color:entrada?C.green:C.red,marginTop:2,fontWeight:800}}>{entrada?"ENTRADA":"SAÍDA"}{tr.extratoId?` · ${data.extratos?.find(e=>e.id===tr.extratoId)?.arquivo||"EXTRATO"}`:""}</p></td><td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{tr.status==="conciliado"?(tr.rateios||[]).length?<details><summary style={{cursor:"pointer",fontWeight:800,color:C.green}}>{tr.rateios.length} rateio(s)</summary>{tr.rateios.map((r,i)=><p key={i} style={{marginTop:3}}>{r.destino==="obra"?nomeObra(r.obraId):"Empresa"} · {r.categoria} · {fmt(r.valor)}</p>)}</details>:"Conciliada":tr.status==="ignorado"?<span title={tr.ignoradoMotivo} style={{color:C.orange}}>{tr.ignoradoMotivo||"Sem motivo registrado"}</span>:sug?<span style={{color:C.blue}}>Sugestão: {sug.destino==="obra"?nomeObra(sug.obraId):"Empresa"} · {sug.categoria}</span>:"A classificar"}</td><td style={{padding:"7px 8px",fontSize:10.5,fontWeight:900,color:entrada?C.green:C.red,textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{entrada?"+ ":""}{fmt(Math.abs(tr.valor))}</td><td style={{padding:"5px 7px",textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{tr.status==="pendente"&&<><Btn size="sm" onClick={()=>abrirApropriacao(tr)}><Ic n="check"/> Apropriar</Btn> <Btn size="sm" v="ghost" onClick={()=>abrirIgnorar([tr],"Ignorar transação")}>Ignorar</Btn></>}{tr.status==="conciliado"&&<Btn size="sm" v="ghost" onClick={()=>desfazer(tr)}>Desfazer</Btn>}{tr.status==="ignorado"&&<><Btn size="sm" onClick={()=>abrirApropriacao(tr)}>Reclassificar</Btn> <Btn size="sm" v="ghost" onClick={()=>reabrir([tr])}>Reabrir</Btn></>}</td></tr>;})}</tbody></table>{transacoes.length>limiteVisivel&&<button onClick={()=>setLimiteVisivel(v=>v+50)} style={{width:"100%",border:0,borderTop:`1px solid ${C.line}`,padding:7,background:C.surface,color:C.blue,fontSize:9,fontWeight:800,cursor:"pointer"}}>Mostrar mais · {transacoes.length-limiteVisivel} restante(s)</button>}</div>)}
+      {aba==="regras"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <p style={{fontSize:10,color:C.muted,lineHeight:1.5,maxWidth:560}}>
+              Regras viram só uma <strong>sugestão</strong> na fila - nunca conciliam sozinhas.
+              Cada regra guarda quantas vezes foi aplicada, confirmada e rejeitada.
+            </p>
+            {podeCriarRegra(currentUser?.role)&&<Btn size="sm" onClick={()=>setRegraModal({nome:"",ativa:true,prioridade:0,padrao:"",destino:"obra",obraId:"",categoria:"outros",exigirConfirmacao:true})}><Ic n="plus"/> Nova regra</Btn>}
+          </div>
+          {(data.regrasConc||[]).length===0
+            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>Nenhuma regra criada ainda.</div>
+            : <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+                <table style={{width:"100%",minWidth:760,borderCollapse:"collapse",background:C.card}}>
+                  <thead><tr>{["Regra","Destino","Ativa","Aplicações","Confirmações","Rejeições",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {(data.regrasConc||[]).map(r=>
+                      <tr key={r.id}>
+                        <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:750,borderBottom:`1px solid ${C.line}`}}>{r.nome||"Sem nome"}<small style={{display:"block",fontSize:8,color:C.muted,marginTop:1}}>contém "{r.padrao}"</small></td>
+                        <td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.destino==="obra"?nomeObra(r.obraId):"Empresa"} · {r.categoria}</td>
+                        <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={r.ativa?C.green:C.muted}>{r.ativa?"Ativa":"Inativa"}</Badge></td>
+                        <td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.aplicacoes||0}</td>
+                        <td style={{padding:"7px 8px",fontSize:9,color:C.green,borderBottom:`1px solid ${C.line}`}}>{r.confirmacoes||0}</td>
+                        <td style={{padding:"7px 8px",fontSize:9,color:C.orange,borderBottom:`1px solid ${C.line}`}}>{r.rejeicoes||0}</td>
+                        <td style={{padding:"5px 7px",textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>
+                          <Btn size="sm" v="ghost" onClick={()=>setRegraModal(r)}>Editar</Btn>{" "}
+                          <Btn size="sm" v="ghost" onClick={()=>alternarAtivaRegra(r)}>{r.ativa?"Desativar":"Ativar"}</Btn>{" "}
+                          {podeElevado&&<Btn size="sm" v="danger" onClick={()=>excluirRegra(r)}><Ic n="trash"/></Btn>}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>}
+        </div>
+      )}
+
+      {aba==="fechamentos"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {(data.contasBancarias||[]).length===0
+            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>Cadastre uma conta bancária na aba Extratos para poder fechar um período.</div>
+            : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                {(data.contasBancarias||[]).map(c=>
+                  <Btn key={c.id} size="sm" v="ghost" onClick={()=>abrirFechamento(c.id)}>Fechar período · {c.nome}</Btn>
+                )}
+              </div>}
+          {(data.fechamentosBancarios||[]).length===0
+            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>Nenhum fechamento registrado ainda.</div>
+            : <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+                <table style={{width:"100%",minWidth:820,borderCollapse:"collapse",background:C.card}}>
+                  <thead><tr>{["Conta","Período","Saldo calculado","Saldo do banco","Diferença","Status",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {(data.fechamentosBancarios||[]).slice().sort((a,b)=>String(b.dataFim||"").localeCompare(String(a.dataFim||""))).map(f=>
+                      <tr key={f.id}>
+                        <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:750,borderBottom:`1px solid ${C.line}`}}>{(data.contasBancarias||[]).find(c=>c.id===f.contaBancariaId)?.nome||"-"}</td>
+                        <td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{fmtDate(f.dataInicio)} a {fmtDate(f.dataFim)}</td>
+                        <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:700,borderBottom:`1px solid ${C.line}`}}>{fmt(deCentavos(f.saldoCalculadoCentavos))}</td>
+                        <td style={{padding:"7px 8px",fontSize:9.5,borderBottom:`1px solid ${C.line}`}}>{f.saldoBancoCentavos!=null?fmt(deCentavos(f.saldoBancoCentavos)):"-"}</td>
+                        <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:700,color:Math.abs(f.diferencaCentavos||0)<=1?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(deCentavos(f.diferencaCentavos||0))}</td>
+                        <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={f.status==="fechado"?C.green:C.orange}>{f.status==="fechado"?"Fechado":"Reaberto"}</Badge></td>
+                        <td style={{padding:"5px 7px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{f.status==="fechado"&&podeElevado&&<Btn size="sm" v="ghost" onClick={()=>reabrirFechamento(f)}>Reabrir</Btn>}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>}
+        </div>
+      )}
+
+      {["pendentes","conciliadas","ignoradas"].includes(aba)&&(transacoes.length===0
+        ? <div style={{padding:25,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8}}><Ic n={aba==="pendentes"?"check":"receipt"} s={20} color={aba==="pendentes"?C.green:C.muted}/><p style={{fontSize:10.5,fontWeight:800,color:C.text,marginTop:5}}>{aba==="pendentes"?"Fila totalmente classificada":"Nenhuma transação neste filtro"}</p></div>
+        : <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+            <table style={{width:"100%",minWidth:aba==="pendentes"?1020:900,borderCollapse:"collapse",background:C.card}}>
+              <thead><tr>
+                <th style={{width:32,padding:6,borderBottom:`1px solid ${C.border}`}}>{["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={todosSelecionados} onChange={alternarTodas}/>}</th>
+                {["Data","Movimento",...(aba==="pendentes"?["Melhor candidato"]:["Classificação"]),"Valor","Ações"].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Valor"||h==="Ações"?"right":"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+              </tr></thead>
+              <tbody>{transacoesVisiveis.map(tr=>{
+                const entrada=Number(tr.valor)>0,sug=tr.status==="pendente"?sugerirRateio(tr,data.regrasConc):null;
+                const candidatas=aba==="pendentes"?(candidatosPorTransacao.get(tr.id)||[]):[];
+                const melhor=candidatas[0];
+                return <tr key={tr.id} style={{background:selecionadas.includes(tr.id)?`${C.yellow}08`:"transparent"}}>
+                  <td style={{padding:6,borderBottom:`1px solid ${C.line}`,borderLeft:`3px solid ${entrada?C.green:C.red}`}}>{["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
+                  <td style={{padding:"7px 8px",fontSize:8.8,color:C.muted,whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{fmtDate(tr.data)}</td>
+                  <td title={tr.descricao} style={{padding:"7px 8px",maxWidth:aba==="pendentes"?260:410,borderBottom:`1px solid ${C.line}`}}>
+                    <p style={{fontSize:9.7,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tr.descricao}</p>
+                    <p style={{fontSize:7.9,color:entrada?C.green:C.red,marginTop:2,fontWeight:800}}>{entrada?"ENTRADA":"SAÍDA"}{tr.extratoId?` · ${data.extratos?.find(e=>e.id===tr.extratoId)?.arquivo||"EXTRATO"}`:""}</p>
+                  </td>
+                  {aba==="pendentes"
+                    ? <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}>
+                        {melhor
+                          ? <div>
+                              <p style={{fontSize:9,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{melhor.titulo}</p>
+                              <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}>
+                                <Badge color={corFaixa(melhor.confianca)}>{melhor.score} pts</Badge>
+                                {melhor.alertas.length>0&&<span title={melhor.alertas.join("; ")} style={{fontSize:9,color:C.orange,fontWeight:800}}>! {melhor.alertas.length}</span>}
+                                {candidatas.length>1&&<span style={{fontSize:8,color:C.muted}}>+{candidatas.length-1}</span>}
+                              </div>
+                            </div>
+                          : sug
+                            ? <span style={{fontSize:9,color:C.blue}}>Sugestão de regra: {sug.destino==="obra"?nomeObra(sug.obraId):"Empresa"} · {sug.categoria}</span>
+                            : <span style={{fontSize:9,color:C.muted}}>Sem candidata - use rateio manual</span>}
+                      </td>
+                    : <td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,borderBottom:`1px solid ${C.line}`}}>
+                        {tr.status==="conciliado"
+                          ? ((tr.rateios||[]).length
+                              ? <details><summary style={{cursor:"pointer",fontWeight:800,color:C.green}}>{tr.rateios.length} rateio(s)</summary>{tr.rateios.map((r,i)=><p key={i} style={{marginTop:3}}>{r.destino==="obra"?nomeObra(r.obraId):"Empresa"} · {r.categoria} · {fmt(r.valor)}</p>)}</details>
+                              : (tr.vinculo?`Vinculada · ${tr.vinculo.tipo}`:"Conciliada"))
+                          : <span title={tr.ignoradoMotivo} style={{color:C.orange}}>{tr.ignoradoMotivo||"Sem motivo registrado"}</span>}
+                      </td>}
+                  <td style={{padding:"7px 8px",fontSize:10.5,fontWeight:900,color:entrada?C.green:C.red,textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{entrada?"+ ":""}{fmt(Math.abs(tr.valor))}</td>
+                  <td style={{padding:"5px 7px",textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>
+                    {tr.status==="pendente"&&<>
+                      {melhor&&<Btn size="sm" onClick={()=>abrirCandidato(tr)}><Ic n="check"/> Revisar sugestão</Btn>}{" "}
+                      <Btn size="sm" v="ghost" onClick={()=>abrirApropriacao(tr)}>Rateio manual</Btn>{" "}
+                      <Btn size="sm" v="ghost" onClick={()=>setTransferModal({trId:tr.id})}>Transferência</Btn>{" "}
+                      <Btn size="sm" v="ghost" onClick={()=>setEstornoModal({trId:tr.id})}>Estorno</Btn>{" "}
+                      <Btn size="sm" v="ghost" onClick={()=>abrirIgnorar([tr],"Ignorar transação")}>Ignorar</Btn>
+                    </>}
+                    {tr.status==="conciliado"&&<Btn size="sm" v="ghost" onClick={()=>desfazer(tr)}>Desfazer</Btn>}
+                    {tr.status==="ignorado"&&<><Btn size="sm" onClick={()=>abrirApropriacao(tr)}>Reclassificar</Btn> <Btn size="sm" v="ghost" onClick={()=>reabrir([tr])}>Reabrir</Btn></>}
+                  </td>
+                </tr>;
+              })}</tbody>
+            </table>
+            {transacoes.length>limiteVisivel&&<button onClick={()=>setLimiteVisivel(v=>v+50)} style={{width:"100%",border:0,borderTop:`1px solid ${C.line}`,padding:7,background:C.surface,color:C.blue,fontSize:9,fontWeight:800,cursor:"pointer"}}>Mostrar mais · {transacoes.length-limiteVisivel} restante(s)</button>}
+          </div>)}
 
       {ignorarModal&&<Modal title={ignorarModal.titulo} onClose={()=>setIgnorarModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{padding:"9px 10px",border:`1px solid ${C.orange}55`,background:`${C.orange}0B`,borderRadius:8}}><b style={{fontSize:11,color:C.orange}}>{ignorarModal.ids.length} transação(ões) · {fmt(ignorarModal.valor)}</b><p style={{fontSize:9,color:C.muted,marginTop:3}}>Elas sairão da fila pendente, permanecerão auditáveis e poderão ser reabertas.</p></div><Inp label="Motivo obrigatório *" value={ignorarModal.motivo} onChange={v=>setIgnorarModal(f=>({...f,motivo:v}))} multiline placeholder="Ex.: transferência entre contas, estorno, movimento sem efeito no DRE..."/><div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setIgnorarModal(null)} full>Cancelar</Btn><Btn v="danger" onClick={confirmarIgnorar} full>Confirmar e ignorar</Btn></div></div></Modal>}
 
@@ -21804,11 +22190,216 @@ function Conciliacao({ data, update, showToast, currentUser }) {
           </div>
         </Modal>
       )}
+
+      {/*  Modal: revisar sugestão do motor de candidatos  */}
+      {candidatoModal && (() => {
+        const tr = (data.transacoes||[]).find(t=>t.id===candidatoModal.trId);
+        if (!tr) return null;
+        const cs = candidatosPorTransacao.get(tr.id) || [];
+        const c = cs[candidatoModal.idx];
+        return (
+          <Modal title="Revisar sugestão de conciliação" onClose={fecharCandidato} wide>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+                <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
+                  <p style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Movimento bancário</p>
+                  <p style={{fontSize:12,fontWeight:700,color:C.text,marginTop:4}}>{tr.descricao}</p>
+                  <p style={{fontSize:10,color:C.muted,marginTop:2}}>{fmtDate(tr.data)}</p>
+                  <p style={{fontSize:15,fontWeight:800,marginTop:4,color:Number(tr.valor)>0?C.green:C.red}}>{Number(tr.valor)>0?"+":""}{fmt(Math.abs(tr.valor))}</p>
+                </div>
+                <div style={{background:c?`${corFaixa(c.confianca)}0C`:C.surface,border:`1.5px solid ${c?corFaixa(c.confianca):C.border}`,borderRadius:6,padding:"10px 12px"}}>
+                  <p style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Candidata sugerida</p>
+                  {c ? <>
+                    <p style={{fontSize:12,fontWeight:700,color:C.text,marginTop:4}}>{c.titulo}</p>
+                    {c.contraparte && <p style={{fontSize:10,color:C.muted,marginTop:2}}>{c.contraparte}</p>}
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+                      <Badge color={corFaixa(c.confianca)}>{c.score} pts · {rotuloFaixa[c.confianca]}</Badge>
+                      {cs.length>1 && <span style={{fontSize:9,color:C.muted}}>{candidatoModal.idx+1} de {cs.length}</span>}
+                    </div>
+                  </> : <p style={{fontSize:10.5,color:C.muted,marginTop:6}}>Nenhuma candidata encontrada para esta transação.</p>}
+                </div>
+              </div>
+
+              {c && c.motivos.length>0 && (
+                <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"9px 11px"}}>
+                  <p style={{fontSize:9.5,fontWeight:800,color:C.blue,marginBottom:3}}>Por que esta candidata</p>
+                  {c.motivos.map((m,i)=><p key={i} style={{fontSize:10,color:C.muted,marginTop:2}}>· {m}</p>)}
+                </div>
+              )}
+              {c && c.alertas.length>0 && (
+                <div style={{background:`${C.orange}0C`,border:`1px solid ${C.orange}55`,borderRadius:6,padding:"9px 11px"}}>
+                  <p style={{fontSize:9.5,fontWeight:800,color:C.orange,marginBottom:3}}>Alertas</p>
+                  {c.alertas.map((m,i)=><p key={i} style={{fontSize:10,color:C.orange,marginTop:2}}>! {m}</p>)}
+                </div>
+              )}
+              {c && c.bloqueios.length>0 && (
+                <div style={{background:`${C.red}0C`,border:`1px solid ${C.red}55`,borderRadius:6,padding:"9px 11px"}}>
+                  <p style={{fontSize:9.5,fontWeight:800,color:C.red,marginBottom:3}}>Bloqueado</p>
+                  {c.bloqueios.map((m,i)=><p key={i} style={{fontSize:10,color:C.red,marginTop:2}}>· {m}</p>)}
+                </div>
+              )}
+
+              {c && c.podeRegistrarPagamento && (
+                <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+                  <Inp label="Valor a registrar (R$)" type="number" value={pagamentoForm.valor} onChange={v=>setPagamentoForm(f=>({...f,valor:v}))}/>
+                  <Inp label="Data do pagamento" type="date" value={pagamentoForm.data} onChange={v=>setPagamentoForm(f=>({...f,data:v}))}/>
+                </div>
+              )}
+
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {c && c.podeVincular && c.bloqueios.length===0 && <Btn onClick={()=>executarVincular(tr,c)}><Ic n="check"/> Confirmar vínculo</Btn>}
+                {c && c.podeRegistrarPagamento && c.bloqueios.length===0 && <Btn onClick={()=>executarRegistrarPagamento(tr,c)}><Ic n="check"/> Registrar pagamento e conciliar</Btn>}
+                {cs.length>1 && <Btn v="ghost" onClick={()=>trocarCandidato(1)}>Outro candidato</Btn>}
+                {c && <Btn v="ghost" onClick={()=>rejeitarCandidato(tr,c)}>Não corresponde</Btn>}
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",paddingTop:8,borderTop:`1px solid ${C.line}`}}>
+                <Btn v="ghost" onClick={()=>{fecharCandidato();abrirApropriacao(tr);}}>Rateio manual / criar lançamento</Btn>
+                <Btn v="ghost" onClick={()=>{fecharCandidato();setTransferModal({trId:tr.id});}}>Transferência interna</Btn>
+                <Btn v="ghost" onClick={()=>{fecharCandidato();setEstornoModal({trId:tr.id});}}>Estorno</Btn>
+                <Btn v="ghost" onClick={fecharCandidato}>Manter pendente</Btn>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/*  Modal: transferência interna  */}
+      {transferModal && (() => {
+        const tr = (data.transacoes||[]).find(t=>t.id===transferModal.trId);
+        if (!tr) return null;
+        const opcoes = candidatasTransferencia(tr);
+        return (
+          <Modal title="Marcar como transferência interna" onClose={()=>setTransferModal(null)}>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>
+                Escolha a outra ponta do movimento (mesma conta ou outra conta cadastrada, sinal oposto, valor e data próximos).
+                Nenhuma receita ou despesa é gerada - o DRE não é afetado.
+              </p>
+              {opcoes.length===0
+                ? <p style={{fontSize:10,color:C.orange}}>Nenhuma transação pendente com sinal oposto e valor parecido foi encontrada.</p>
+                : <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {opcoes.map(o=>
+                      <button key={o.id} onClick={()=>confirmarTransferencia(tr,o)} style={{textAlign:"left",cursor:"pointer",background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
+                        <p style={{fontSize:11,fontWeight:700,color:C.text}}>{o.descricao}</p>
+                        <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{fmtDate(o.data)} · {fmt(Math.abs(o.valor))}</p>
+                      </button>
+                    )}
+                  </div>}
+              <Btn v="ghost" onClick={()=>setTransferModal(null)} full>Cancelar</Btn>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/*  Modal: estorno  */}
+      {estornoModal && (() => {
+        const tr = (data.transacoes||[]).find(t=>t.id===estornoModal.trId);
+        if (!tr) return null;
+        const opcoes = candidatasEstorno(tr);
+        return (
+          <Modal title="Vincular a um estorno" onClose={()=>setEstornoModal(null)}>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>
+                Escolha o movimento original que está sendo estornado. O movimento original nunca é apagado.
+              </p>
+              {opcoes.length===0
+                ? <p style={{fontSize:10,color:C.orange}}>Nenhum movimento de sinal oposto e valor parecido foi encontrado - você pode marcar sem origem localizada.</p>
+                : <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {opcoes.map(o=>
+                      <button key={o.id} onClick={()=>confirmarEstorno(tr,o)} style={{textAlign:"left",cursor:"pointer",background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
+                        <p style={{fontSize:11,fontWeight:700,color:C.text}}>{o.descricao}</p>
+                        <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{fmtDate(o.data)} · {fmt(Math.abs(o.valor))}</p>
+                      </button>
+                    )}
+                  </div>}
+              <div style={{display:"flex",gap:8}}>
+                <Btn v="ghost" onClick={()=>setEstornoModal(null)} full>Cancelar</Btn>
+                <Btn v="ghost" onClick={()=>confirmarEstorno(tr,null)} full>Sem origem localizada</Btn>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/*  Modal: conta bancária  */}
+      {contaBancariaModal && (
+        <Modal title={contaBancariaModal.id?"Editar conta bancária":"Nova conta bancária"} onClose={()=>setContaBancariaModal(null)}>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <Inp label="Nome / apelido *" value={contaBancariaModal.nome} onChange={v=>setContaBancariaModal(f=>({...f,nome:v}))}/>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+              <Inp label="Banco" value={contaBancariaModal.banco} onChange={v=>setContaBancariaModal(f=>({...f,banco:v}))}/>
+              <Sel label="Tipo" value={contaBancariaModal.tipo} onChange={v=>setContaBancariaModal(f=>({...f,tipo:v}))} options={[{v:"corrente",l:"Conta corrente"},{v:"poupanca",l:"Poupança"},{v:"caixa",l:"Caixa interno"}]}/>
+              <Inp label="Agência" value={contaBancariaModal.agencia} onChange={v=>setContaBancariaModal(f=>({...f,agencia:v}))}/>
+              <Inp label="Conta" value={contaBancariaModal.conta} onChange={v=>setContaBancariaModal(f=>({...f,conta:v}))}/>
+              <Inp label="Titular" value={contaBancariaModal.titular} onChange={v=>setContaBancariaModal(f=>({...f,titular:v}))}/>
+              <Inp label="Documento do titular" value={contaBancariaModal.documentoTitular} onChange={v=>setContaBancariaModal(f=>({...f,documentoTitular:v}))}/>
+              <Inp label="Saldo inicial (R$)" type="number" value={contaBancariaModal.saldoInicial} onChange={v=>setContaBancariaModal(f=>({...f,saldoInicial:v}))}/>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setContaBancariaModal(null)} full>Cancelar</Btn>
+              <Btn onClick={()=>salvarContaBancaria(contaBancariaModal)} full>Salvar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/*  Modal: regra de auto-classificação  */}
+      {regraModal && (
+        <Modal title={regraModal.id?"Editar regra":"Nova regra"} onClose={()=>setRegraModal(null)}>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <Inp label="Nome da regra" value={regraModal.nome} onChange={v=>setRegraModal(f=>({...f,nome:v}))}/>
+            <Inp label="Quando a descrição contiver *" value={regraModal.padrao} onChange={v=>setRegraModal(f=>({...f,padrao:v}))} placeholder="Ex.: CELPE, ALUGUEL, PIX JOSE DAVID"/>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+              <Sel label="Vai para" value={regraModal.destino} onChange={v=>setRegraModal(f=>({...f,destino:v,obraId:""}))} options={[{v:"obra",l:"Uma obra"},{v:"empresa",l:"A empresa"}]}/>
+              {regraModal.destino==="obra"
+                ? <Sel label="Obra" value={regraModal.obraId} onChange={v=>setRegraModal(f=>({...f,obraId:v}))} options={[{v:"",l:"Selecione..."},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+                : <Sel label="Categoria" value={regraModal.categoria} onChange={v=>setRegraModal(f=>({...f,categoria:v}))} options={CATS_DESP.map(c=>({v:c.v,l:c.l}))}/>}
+            </div>
+            <p style={{fontSize:10,color:C.muted,lineHeight:1.45}}>
+              Vira só uma sugestão na Fila inteligente - nunca conciliada sozinha. Uma regra nunca deve fixar a obra
+              a partir só do fornecedor quando ele atende mais de uma obra.
+            </p>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setRegraModal(null)} full>Cancelar</Btn>
+              <Btn onClick={()=>salvarRegra(regraModal)} full>Salvar regra</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/*  Modal: fechamento bancário  */}
+      {fecharModal && (() => {
+        const r = resumoFechamento(fecharModal);
+        const diferencaCentavos = r.saldoBancoCentavos!=null ? r.saldoBancoCentavos - r.saldoCalculadoCentavos : 0;
+        return (
+          <Modal title="Fechar período bancário" onClose={()=>setFecharModal(null)}>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+                <Inp label="Início do período" type="date" value={fecharModal.dataInicio} onChange={v=>setFecharModal(f=>({...f,dataInicio:v}))}/>
+                <Inp label="Fim do período" type="date" value={fecharModal.dataFim} onChange={v=>setFecharModal(f=>({...f,dataFim:v}))}/>
+                <Inp label="Saldo final no extrato (R$, opcional)" type="number" value={fecharModal.saldoBanco} onChange={v=>setFecharModal(f=>({...f,saldoBanco:v}))}/>
+              </div>
+              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.muted}}><span>Saldo inicial</span><span>{fmt(deCentavos(r.saldoInicialCentavos))}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.green,marginTop:2}}><span>+ Créditos</span><span>{fmt(deCentavos(r.creditosCentavos))}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.red,marginTop:2}}><span>- Débitos</span><span>{fmt(deCentavos(r.debitosCentavos))}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:800,marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`}}><span>Saldo calculado</span><span>{fmt(deCentavos(r.saldoCalculadoCentavos))}</span></div>
+                {r.saldoBancoCentavos!=null && <div style={{display:"flex",justifyContent:"space-between",fontSize:11,fontWeight:700,marginTop:4,color:Math.abs(diferencaCentavos)<=1?C.green:C.red}}><span>Diferença vs. banco</span><span>{fmt(deCentavos(diferencaCentavos))}</span></div>}
+              </div>
+              {r.pendentes.length>0 && <p style={{fontSize:10,color:C.orange,fontWeight:700}}>! {r.pendentes.length} transação(ões) ainda pendente(s) neste período.</p>}
+              <div style={{display:"flex",gap:8}}>
+                <Btn v="ghost" onClick={()=>setFecharModal(null)} full>Cancelar</Btn>
+                <Btn onClick={confirmarFechamento} full>Fechar período</Btn>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
 
-// 
+//
 // COMPRAS
 //
 // Um pedido é COMPROMISSO, não despesa - ninguém pagou nada ainda.

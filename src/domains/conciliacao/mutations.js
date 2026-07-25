@@ -34,7 +34,7 @@ const transacaoPorId = (data, transacaoId) => (data.transacoes || []).find(t => 
 // Só liga a transação ao registro que já existe. NUNCA cria outrasDesp,
 // despesasEmpresa ou payments novos, e NUNCA duplica o resultado no DRE -
 // o fato financeiro já existia antes da conciliação.
-export const vincularPagamentoExistente = (data, { transacaoId, tipo, entidadeId, operador, observacao = "" }) => {
+export const vincularPagamentoExistente = (data, { transacaoId, tipo, entidadeId, pagamentoId, operador, observacao = "" }) => {
   const tr = transacaoPorId(data, transacaoId);
   if (!tr) return { data, resumo: { ok: false, motivo: "Transação não encontrada" } };
   if (tr.status === "conciliado") return { data, resumo: { ok: false, motivo: "Transação já conciliada" } };
@@ -42,9 +42,21 @@ export const vincularPagamentoExistente = (data, { transacaoId, tipo, entidadeId
   const vinculo = { tipo, id: entidadeId };
   const transacoes = marcarTransacao(data.transacoes, transacaoId, { status: "conciliado", vinculo, obs: observacao });
 
-  let caixaObra = data.caixaObra;
+  let caixaObra = data.caixaObra, notasFiscais = data.notasFiscais, pedidos = data.pedidos, pagsTerceiros = data.pagsTerceiros;
   if (tipo === "caixaObra") {
     caixaObra = (data.caixaObra || []).map(c => (c.id === entidadeId ? { ...c, conciliado: true, transacaoId } : c));
+  } else if (tipo === "pagamentoNota" && pagamentoId) {
+    // O pagamento já existia (ex.: criado pela Central de Pagamentos sem
+    // transação vinculada ainda) - só marca ele como conciliado, não cria nada.
+    notasFiscais = (data.notasFiscais || []).map(n => n.id === entidadeId
+      ? { ...n, pagamentos: (n.pagamentos || []).map(pg => pg.id === pagamentoId ? { ...pg, conciliado: true, transacaoId } : pg) }
+      : n);
+  } else if (tipo === "pagamentoPedido" && pagamentoId) {
+    pedidos = (data.pedidos || []).map(p => p.id === entidadeId
+      ? { ...p, pagamentos: (p.pagamentos || []).map(pg => pg.id === pagamentoId ? { ...pg, conciliado: true, transacaoId } : pg) }
+      : p);
+  } else if (tipo === "pagsTerceiros" && pagamentoId) {
+    pagsTerceiros = (data.pagsTerceiros || []).map(pg => pg.id === pagamentoId ? { ...pg, conciliado: true, transacaoId } : pg);
   }
 
   const historicoConc = registrarHistorico(data.historicoConc, {
@@ -55,7 +67,7 @@ export const vincularPagamentoExistente = (data, { transacaoId, tipo, entidadeId
   });
 
   return {
-    data: { ...data, transacoes, caixaObra, historicoConc },
+    data: { ...data, transacoes, caixaObra, notasFiscais, pedidos, pagsTerceiros, historicoConc },
     resumo: { ok: true, criados: [], vinculo },
   };
 };

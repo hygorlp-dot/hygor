@@ -54,6 +54,27 @@ describe("motor de candidatos - nunca decide sozinho, só pontua", () => {
   });
 });
 
+describe("motor de candidatos - pagamento já registrado (modo A - vincular)", () => {
+  test("um pagamento de nota já criado mas sem transação vira candidata de vínculo, não de novo pagamento", () => {
+    const data = {
+      notasFiscais: [{
+        id: "n1", numero: "100", valorLiquido: 500, fornecedorNome: "Fornecedor X",
+        pagamentos: [{ id: "pg1", valor: 500, conciliado: false, transacaoId: "" }],
+      }],
+      pedidos: [], medicoes: [], medicoesTerc: [], terceirizados: [], employees: [], caixaObra: [],
+      transacoes: [],
+    };
+    const indices = criarIndicesFinanceiros(data);
+    const transacao = { id: "t1", valor: -500, data: "2026-01-10", contraparteNome: "Fornecedor X" };
+    const candidatas = gerarCandidatosConciliacao(transacao, data, indices);
+    const candidata = candidatas.find(c => c.tipo === "pagamentoNota");
+    expect(candidata).toBeDefined();
+    expect(candidata.pagamentoId).toBe("pg1");
+    expect(candidata.podeVincular).toBe(true);
+    expect(candidata.podeRegistrarPagamento).toBe(false);
+  });
+});
+
 describe("faixas de confiança", () => {
   test("score alto sem alerta é 'forte'; com alerta cai para confirmação manual", () => {
     expect(faixaDoScore(97, false)).toBe(FAIXA_CONFIANCA.FORTE);
