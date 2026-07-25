@@ -50,6 +50,17 @@ import {
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
 import { createDreCalculations } from "./domains/dre/calculations";
+import {
+  aplicarRecebimentoMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
+  paraCentavos, deCentavos, igualCentavos,
+  criarIndicesFinanceiros, transacoesConsumidas,
+  gerarCandidatosConciliacao, faixaDoScore, FAIXA_CONFIANCA,
+  vincularPagamentoExistente, registrarPagamentoEConciliar, criarLancamentoPelaTransacao,
+  conciliarMuitosParaMuitos, desfazerConciliacao as desfazerConciliacaoDominio,
+  marcarTransferenciaInterna, marcarEstorno, gerarIdConc,
+  podeVerConciliacao, podeOperarConciliacao, podeDesfazerConciliacao,
+  podeReabrirFechamento, podeArquivarExtrato, podeFecharPeriodo, podeCriarRegra,
+} from "./domains/conciliacao/index.js";
 
 // 
 // ARCD OBRAS - aplicação legada em migração incremental por domínio
@@ -1964,6 +1975,14 @@ const normalizeData = incoming => {
       dataPagamento:       m.dataPagamento || "",
       descricao:           m.descricao     || "",
       recebido:            !!m.recebido,
+      // Histórico de recebimentos (permite receber em partes sem perder o
+      // registro de cada entrada). `valorRecebido`/`recebido`/`dataPagamento`
+      // continuam sendo mantidos como espelho do total, para não quebrar
+      // quem ainda lê só os campos antigos.
+      recebimentos: Array.isArray(m.recebimentos) ? m.recebimentos.map(r => ({
+        id: r.id || uid(), valor: Number(r.valor || 0), data: r.data || "",
+        origem: r.origem || "", transacaoId: r.transacaoId || "",
+      })) : [],
     })) : [],
     // Medições de obra confirmadas (boletins de medição física). Cada uma é uma
     // fotografia APROVADA do avanço de cada serviço numa data, conferida contra
@@ -2062,6 +2081,11 @@ const normalizeData = incoming => {
       issRetido:  Number(p.issRetido  || 0),
       inssRetido: Number(p.inssRetido || 0),
       liquido:    p.liquido != null ? Number(p.liquido) : Number(p.amount || 0),
+      // Vínculo com a conciliação bancária que originou/confirmou este
+      // pagamento (quando existir). Ausência = pagamento lançado manualmente.
+      conciliado:   !!p.conciliado,
+      transacaoId:  p.transacaoId || "",
+      medicaoTercId: p.medicaoTercId || "",
     })) : [],
     // Medicao de contrato de terceiro. Cada medicao grava o percentual
     // ACUMULADO por etapa e o percentual anterior: o valor da medicao e a
@@ -2111,30 +2135,66 @@ const normalizeData = incoming => {
       valor:       Number(x.valor || 0),
       recorrente:  !!x.recorrente,
     })) : [],
-    //  CONCILIAÇÃO BANCÁRIA 
+    //  CONCILIAÇÃO BANCÁRIA
+    // Contas bancárias cadastradas. Sem isso não dá para saber se um débito
+    // numa conta e um crédito noutra são a mesma transferência interna.
+    contasBancarias: Array.isArray(d.contasBancarias) ? d.contasBancarias.map(c => ({
+      id: c.id || uid(), nome: c.nome || "", banco: c.banco || "",
+      agencia: c.agencia || "", conta: c.conta || "", tipo: c.tipo || "corrente",
+      titular: c.titular || "", documentoTitular: c.documentoTitular || "",
+      ativa: c.ativa !== false, saldoInicial: Number(c.saldoInicial || 0),
+      criadoEm: c.criadoEm || new Date().toISOString(), atualizadoEm: c.atualizadoEm || "",
+    })) : [],
+
     extratos: Array.isArray(d.extratos) ? d.extratos.map(x => ({
       id:          x.id     || uid(),
+      contaBancariaId: x.contaBancariaId || "",
       banco:       x.banco  || "",
       conta:       x.conta  || "",
       arquivo:     x.arquivo || "",
+      hashArquivo: x.hashArquivo || "",
       dataInicio:  x.dataInicio || "",
       dataFim:     x.dataFim    || "",
+      saldoInicial: x.saldoInicial != null ? Number(x.saldoInicial) : null,
+      saldoFinal:   x.saldoFinal   != null ? Number(x.saldoFinal)   : null,
       importadoEm: x.importadoEm || new Date().toISOString(),
+      importadoPorId: x.importadoPorId || "", importadoPor: x.importadoPor || "",
       qtd:         Number(x.qtd || 0),
+      qtdDuplicadas: Number(x.qtdDuplicadas || 0),
+      qtdErros:      Number(x.qtdErros || 0),
+      // "ativo" | "arquivado" - substitui a exclusão destrutiva: um extrato
+      // com transações já conciliadas não pode ser apagado, só arquivado.
+      status:      x.status || "ativo",
+      arquivadoEm: x.arquivadoEm || "",
     })) : [],
 
     transacoes: Array.isArray(d.transacoes) ? d.transacoes.map(x => ({
       id:        x.id        || uid(),
       extratoId: x.extratoId || "",
+      contaBancariaId: x.contaBancariaId || "",
       data:      x.data      || "",
+      dataEfetivacao: x.dataEfetivacao || "",
       descricao: x.descricao || "",
+      descricaoNormalizada: x.descricaoNormalizada || "",
       valor:     Number(x.valor || 0),          // negativo = saída
       // Chave de deduplicação. FITID é o ID único que o banco emite no OFX;
       // sem ele (CSV), caímos num hash de data+valor+descrição.
       chave:     x.chave     || "",
+      fitid:     x.fitid     || "",
+      externalId: x.externalId || "", endToEndId: x.endToEndId || "", txid: x.txid || "",
+      documento: x.documento || "", tipoOperacao: x.tipoOperacao || "",
+      contraparteNome: x.contraparteNome || "", contraparteDocumento: x.contraparteDocumento || "",
+      contraparteBanco: x.contraparteBanco || "", contraparteAgencia: x.contraparteAgencia || "",
+      contraparteConta: x.contraparteConta || "",
+      statusBancario: x.statusBancario || "",
       status:    x.status    || "pendente",     // pendente | conciliado | ignorado
+      valorConciliado: Number(x.valorConciliado || 0),
+      valorPendente:   x.valorPendente != null ? Number(x.valorPendente) : Number(x.valor || 0),
+      risco:     x.risco || "", alertas: Array.isArray(x.alertas) ? x.alertas : [],
       // Rateio: um pagamento pode se dividir entre várias obras e a empresa.
-      // A soma dos rateios TEM que fechar com o valor da transação.
+      // A soma dos rateios TEM que fechar com o valor da transação. Mantido
+      // como formato legado - a fonte primária de conciliação N:N agora é
+      // `conciliacoes`, mas rateios antigos continuam sendo lidos.
       rateios:   Array.isArray(x.rateios) ? x.rateios.map(r => ({
         destino:   r.destino   || "obra",       // "obra" | "empresa"
         obraId:    r.obraId    || "",
@@ -2143,7 +2203,7 @@ const normalizeData = incoming => {
       })) : [],
       // Ids dos lançamentos gerados - permite desfazer sem deixar lixo no DRE
       gerados:   Array.isArray(x.gerados) ? x.gerados : [],
-      // Vínculo com uma medição quitada por esta entrada (evita contar 2x)
+      // Vínculo com o registro que esta transação quitou/confirmou.
       vinculo:   x.vinculo && x.vinculo.tipo ? { tipo:x.vinculo.tipo, id:x.vinculo.id } : null,
       obs:       x.obs || "",
       ignoradoMotivo:x.ignoradoMotivo||"",
@@ -2159,13 +2219,81 @@ const normalizeData = incoming => {
       operador:x.operador||"Sistema",criadoEm:x.criadoEm||new Date().toISOString(),loteId:x.loteId||"",
     })) : [],
 
+    // Conciliações N:N (vários movimentos quitando vários lançamentos, com
+    // ajustes de juros/multa/desconto/tarifa). `transacoes[].vinculo` com
+    // tipo "conciliacao_multipla" aponta para o id aqui.
+    conciliacoes: Array.isArray(d.conciliacoes) ? d.conciliacoes.map(c => ({
+      id: c.id || uid(),
+      movimentos: Array.isArray(c.movimentos) ? c.movimentos : [],
+      itens: Array.isArray(c.itens) ? c.itens : [],
+      ajustes: Array.isArray(c.ajustes) ? c.ajustes : [],
+      valorMovimentosCentavos: Number(c.valorMovimentosCentavos || 0),
+      valorItensCentavos: Number(c.valorItensCentavos || 0),
+      diferencaCentavos: Number(c.diferencaCentavos || 0),
+      status: c.status || "confirmada", modo: c.modo || "muitos_para_muitos",
+      score: c.score || null, motivos: Array.isArray(c.motivos) ? c.motivos : [],
+      alertas: Array.isArray(c.alertas) ? c.alertas : [],
+      automatica: !!c.automatica,
+      confirmadoPorId: c.confirmadoPorId || "", confirmadoPor: c.confirmadoPor || "",
+      confirmadoEm: c.confirmadoEm || "",
+      desfeitaPorId: c.desfeitaPorId || "", desfeitaPor: c.desfeitaPor || "",
+      desfeitaEm: c.desfeitaEm || "", motivoDesfazer: c.motivoDesfazer || "",
+    })) : [],
+
     // Regras de auto-classificação aprendidas do uso
     regrasConc: Array.isArray(d.regrasConc) ? d.regrasConc.map(x => ({
       id:        x.id        || uid(),
-      padrao:    x.padrao    || "",             // trecho da descrição
+      nome:      x.nome      || "",
+      ativa:     x.ativa !== false,
+      prioridade: Number(x.prioridade || 0),
+      padrao:    x.padrao    || "",             // trecho da descrição (compat legado)
+      condicoes: Array.isArray(x.condicoes) ? x.condicoes : [],
+      acao:      x.acao || "",
       destino:   x.destino   || "obra",
       obraId:    x.obraId    || "",
       categoria: x.categoria || "outros",
+      contaBancariaId: x.contaBancariaId || "",
+      limiteValorCentavos: x.limiteValorCentavos != null ? Number(x.limiteValorCentavos) : null,
+      exigirConfirmacao: x.exigirConfirmacao !== false,
+      aplicacoes: Number(x.aplicacoes || 0), confirmacoes: Number(x.confirmacoes || 0),
+      rejeicoes: Number(x.rejeicoes || 0), taxaAcerto: Number(x.taxaAcerto || 0),
+      criadoPorId: x.criadoPorId || "", criadoPor: x.criadoPor || "",
+      criadoEm: x.criadoEm || new Date().toISOString(), atualizadoEm: x.atualizadoEm || "",
+    })) : [],
+
+    // Só guarda decisões NEGATIVAS (sugestão rejeitada) - decisões positivas
+    // já ficam registradas no próprio vínculo/historicoConc, recalculável.
+    rejeicoesConc: Array.isArray(d.rejeicoesConc) ? d.rejeicoesConc.map(r => ({
+      id: r.id || uid(), transacaoId: r.transacaoId || "",
+      candidatoTipo: r.candidatoTipo || "", candidatoId: r.candidatoId || "",
+      motivo: r.motivo || "", operadorId: r.operadorId || "", operador: r.operador || "",
+      criadoEm: r.criadoEm || new Date().toISOString(),
+    })) : [],
+
+    fechamentosBancarios: Array.isArray(d.fechamentosBancarios) ? d.fechamentosBancarios.map(f => ({
+      id: f.id || uid(), contaBancariaId: f.contaBancariaId || "",
+      dataInicio: f.dataInicio || "", dataFim: f.dataFim || "",
+      saldoInicialCentavos: Number(f.saldoInicialCentavos || 0),
+      creditosCentavos: Number(f.creditosCentavos || 0), debitosCentavos: Number(f.debitosCentavos || 0),
+      saldoCalculadoCentavos: Number(f.saldoCalculadoCentavos || 0),
+      saldoBancoCentavos: f.saldoBancoCentavos != null ? Number(f.saldoBancoCentavos) : null,
+      diferencaCentavos: Number(f.diferencaCentavos || 0),
+      pendencias: Array.isArray(f.pendencias) ? f.pendencias : [],
+      status: f.status || "aberto",
+      fechadoPorId: f.fechadoPorId || "", fechadoPor: f.fechadoPor || "", fechadoEm: f.fechadoEm || "",
+      reabertoPorId: f.reabertoPorId || "", reabertoPor: f.reabertoPor || "", reabertoEm: f.reabertoEm || "",
+      motivoReabertura: f.motivoReabertura || "",
+    })) : [],
+
+    // Rastreabilidade de pagamento de folha via banco (não gera custo - o
+    // DRE já deriva o custo de mão de obra do ponto). Permite registrar
+    // quando o PIX caiu num titular diferente do próprio funcionário.
+    pagamentosFolha: Array.isArray(d.pagamentosFolha) ? d.pagamentosFolha.map(p => ({
+      id: p.id || uid(), employeeId: p.employeeId || "", data: p.data || "",
+      valor: Number(p.valor || 0), transacaoId: p.transacaoId || "",
+      pixHolder: p.pixHolder || "", alertaTitularDivergente: !!p.alertaTitularDivergente,
+      registradoPorId: p.registradoPorId || "", registradoPor: p.registradoPor || "",
+      registradoEm: p.registradoEm || new Date().toISOString(),
     })) : [],
 
     //  ESTOQUE 
@@ -2554,6 +2682,8 @@ const normalizeData = incoming => {
       comprovante: x.comprovante || "",
       pedidoId:    x.pedidoId    || "",
       pagamentoId: x.pagamentoId || "",
+      conciliado:  !!x.conciliado,
+      transacaoId: x.transacaoId || "",
       documentos:  Array.isArray(x.documentos)?x.documentos.map(a=>({id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Comprovante",url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0)})).filter(a=>a.url):[],
     })) : [],
     orcamentos: Array.isArray(d.orcamentos) ? d.orcamentos.map(o => ({
@@ -5830,7 +5960,9 @@ function MedicoesView({ data, update, showToast }) {
     const decisao=decisoes?.[m.id];
     if (!decisao || decisao.modo==="aberto") return m;
     const dataPg=decisao.modo==="vencimento"?m.dataVencimento:(decisao.dataOutra||m.dataVencimento);
-    return {...m,recebido:true,valorRecebido:Number(m.valorPrevisto||0),dataPagamento:dataPg};
+    const saldo = Number(m.valorPrevisto||0) - totalRecebidoMedicao(m);
+    if (saldo <= 0.01) return m;
+    return aplicarRecebimentoMedicao(m, { valor: saldo, data: dataPg, origem: "revisao_vencidas" });
   });
 
   // Guarda a resposta atual e avanca. O banco de dados recebe uma unica
@@ -5869,7 +6001,12 @@ function MedicoesView({ data, update, showToast }) {
   };
 
   const toggleRecebido = (m) => {
-    const updated = { ...m, recebido: !m.recebido, valorRecebido: !m.recebido ? m.valorPrevisto : 0, dataPagamento: !m.recebido ? today() : "" };
+    // Ação binária (sem campo de valor) - ao marcar, lança o SALDO restante
+    // como um recebimento (não reseta o que já tinha entrado via banco); ao
+    // desmarcar, limpa todo o histórico de recebimentos desta medição.
+    const updated = !m.recebido
+      ? aplicarRecebimentoMedicao(m, { valor: Number(m.valorPrevisto||0) - totalRecebidoMedicao(m), data: today(), origem: "manual" })
+      : { ...m, recebimentos: [], recebido: false, valorRecebido: 0, dataPagamento: "" };
     update({...data, medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
     showToast(!m.recebido ? "ok Marcado como recebido." : "Desmarcado.");
   };
@@ -6362,9 +6499,13 @@ function MedicoesView({ data, update, showToast }) {
               <Btn v="ghost" onClick={()=>setPagarModal(null)} full>Cancelar</Btn>
               <Btn v="success" onClick={()=>{
                 const m = pagarModal.m;
-                const updated = { ...m, recebido:true, valorRecebido:m.valorPrevisto, dataPagamento: pagarModal.data || today() };
+                const dataPg = pagarModal.data || today();
+                const saldo = Number(m.valorPrevisto||0) - totalRecebidoMedicao(m);
+                const updated = saldo > 0.01
+                  ? aplicarRecebimentoMedicao(m, { valor: saldo, data: dataPg, origem: "manual" })
+                  : m;
                 update({ ...data, medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x) });
-                showToast(`${m.obraName} - ${fmt(m.valorPrevisto)} recebido em ${fmtDate(pagarModal.data||today())}.`);
+                showToast(`${m.obraName} - ${fmt(m.valorPrevisto)} recebido em ${fmtDate(dataPg)}.`);
                 setPagarModal(null);
               }} full><Ic n="check"/> Confirmar</Btn>
             </div>
@@ -6686,8 +6827,17 @@ function CentralPagamentosFinanceiro({data,update,showToast,currentUser,onNovaNo
       }
       const descricaoCaixa=item.tipo==="nota"?`Pagamento ${item.numero} · ${item.fornecedor}`:`Pagamento do pedido ${item.numero} · ${item.fornecedor}`;
       const caixaObra=f.origem==="caixa_obra"?[...(data.caixaObra||[]),{id:uid(),obraId:item.obraId,data:f.data||today(),tipo:"despesa",categoria:item.tipo==="nota"?(item.registro.categoria||"outros"):"material",descricao:descricaoCaixa,valor,comprovante:comprovantes[0]?.legenda||f.referencia||"",pedidoId:item.tipo==="pedido"?item.registro.id:item.registro.pedidoId||"",notaFiscalId:item.tipo==="nota"?item.registro.id:"",pagamentoId,documentos:comprovantes}]:data.caixaObra;
-      const transacoes=(data.transacoes||[]).map(t=>t.id===f.transacaoId?{...t,status:"conciliado",vinculo:{tipo:item.tipo==="nota"?"nota_fiscal":"pedido",id:item.registro.id},rateios:t.rateios?.length?t.rateios:[{destino:"obra",obraId:item.obraId,categoria:item.tipo==="nota"?(item.registro.categoria||"outros"):"material",valor:Math.abs(Number(t.valor||valor))}]}:t);
-      update({...data,obras:obrasAtualizadas,pedidos:pedidosAtualizados,notasFiscais:notasAtualizadas,caixaObra,transacoes});
+      // A ligação transação↔pagamento passa pela mesma mutação de domínio que
+      // a tela de Conciliação usa - garante um único caminho para marcar
+      // `transacoes` como conciliado (evita a transação já vinculada virar
+      // conciliada duas vezes, com históricos divergentes).
+      let transacoes=data.transacoes,historicoConc=data.historicoConc;
+      if(f.transacaoId){
+        const baseTransacoes=(data.transacoes||[]).map(t=>t.id===f.transacaoId&&!t.rateios?.length?{...t,rateios:[{destino:"obra",obraId:item.obraId,categoria:item.tipo==="nota"?(item.registro.categoria||"outros"):"material",valor:Math.abs(Number(t.valor||valor))}]}:t);
+        const vinc=vincularPagamentoExistente({...data,transacoes:baseTransacoes},{transacaoId:f.transacaoId,tipo:item.tipo==="nota"?"nota_fiscal":"pedido",entidadeId:item.registro.id,operador:currentUser,observacao:f.referencia||""});
+        if(vinc.resumo.ok){transacoes=vinc.data.transacoes;historicoConc=vinc.data.historicoConc;}
+      }
+      update({...data,obras:obrasAtualizadas,pedidos:pedidosAtualizados,notasFiscais:notasAtualizadas,caixaObra,transacoes,historicoConc});
       const saldoCaixa=caixa.saldo-valor;setPagamento(null);
       if(f.origem==="caixa_obra"&&saldoCaixa<=caixa.limiteBaixo)showToast(`Pagamento registrado. Atenção: o caixa ficou baixo em ${fmt(saldoCaixa)}.`,"warn");else showToast(item.saldo-valor<=.01?`${item.numero} quitada e encaminhada para conciliação.`:`Pagamento parcial registrado. Saldo restante: ${fmt(item.saldo-valor)}.`);
     }catch(err){showToast(err.message||"Não foi possível registrar o pagamento.","error");}finally{setSalvando(false);}
@@ -21254,14 +21404,13 @@ function Conciliacao({ data, update, showToast, currentUser }) {
       });
     }
 
-    // Quitação da medição
+    // Quitação da medição - recebimento PARCIAL ou TOTAL. O valor do
+    // movimento bancário pode ser menor que o previsto da medição; nesse
+    // caso ela fica "parcial" em vez de virar "recebida" à força.
     const medicoes = medAlvo
-      ? (data.medicoes||[]).map(m => m.id === medAlvo.m.id ? {
-          ...m,
-          recebido: true,
-          valorRecebido: Math.abs(Number(tr.valor)),
-          dataPagamento: tr.data,
-        } : m)
+      ? (data.medicoes||[]).map(m => m.id === medAlvo.m.id
+          ? aplicarRecebimentoMedicao(m, { valor: Math.abs(Number(tr.valor)), data: tr.data, origem: "conciliacao_bancaria", transacaoId: tr.id })
+          : m)
       : (data.medicoes||[]);
 
     update({
@@ -21301,11 +21450,15 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const desfazer = (tr) => {
     const ger = new Set(tr.gerados || []);
 
-    // Se esta transação quitou uma medição, a medição volta a ficar em aberto.
-    // Sem isso, desfazer deixaria a parcela marcada como recebida para sempre.
+    // Se esta transação quitou (parcial ou totalmente) uma medição, remove
+    // SÓ o recebimento que ELA gerou - preserva qualquer outro recebimento
+    // anterior/posterior daquela medição em vez de zerar tudo.
     const medicoes = tr.vinculo?.tipo === "medicao"
-      ? (data.medicoes||[]).map(m => m.id === tr.vinculo.id
-          ? { ...m, recebido:false, valorRecebido:0, dataPagamento:"" } : m)
+      ? (data.medicoes||[]).map(m => {
+          if (m.id !== tr.vinculo.id) return m;
+          const recebimentoId = (m.recebimentos||[]).find(r => r.transacaoId === tr.id)?.id;
+          return recebimentoId ? removerRecebimentoMedicao(m, recebimentoId) : m;
+        })
       : (data.medicoes||[]);
 
     update({
