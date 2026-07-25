@@ -2143,6 +2143,9 @@ const normalizeData = incoming => {
       id: c.id || uid(), nome: c.nome || "", banco: c.banco || "",
       agencia: c.agencia || "", conta: c.conta || "", tipo: c.tipo || "corrente",
       titular: c.titular || "", documentoTitular: c.documentoTitular || "",
+      // Chave PIX da própria conta - usada pela Conciliação para reconhecer
+      // automaticamente um crédito/débito vindo de outra conta da empresa.
+      pixKey: c.pixKey || "",
       ativa: c.ativa !== false, saldoInicial: Number(c.saldoInicial || 0),
       criadoEm: c.criadoEm || new Date().toISOString(), atualizadoEm: c.atualizadoEm || "",
     })) : [],
@@ -21748,7 +21751,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
               <p style={{fontSize:10.5,fontWeight:800,color:C.text}}>Contas bancárias cadastradas</p>
-              {podeOperarConc&&<Btn size="sm" onClick={()=>setContaBancariaModal({nome:"",banco:"",agencia:"",conta:"",tipo:"corrente",titular:"",documentoTitular:"",ativa:true,saldoInicial:0})}><Ic n="plus"/> Nova conta</Btn>}
+              {podeOperarConc&&<Btn size="sm" onClick={()=>setContaBancariaModal({nome:"",banco:"",agencia:"",conta:"",tipo:"corrente",titular:"",documentoTitular:"",pixKey:"",ativa:true,saldoInicial:0})}><Ic n="plus"/> Nova conta</Btn>}
             </div>
             {(data.contasBancarias||[]).length===0
               ? <p style={{fontSize:9.5,color:C.muted}}>Nenhuma conta cadastrada ainda. Cadastre para poder identificar transferências entre contas e fechar o período.</p>
@@ -22333,8 +22336,13 @@ function Conciliacao({ data, update, showToast, currentUser }) {
               <Inp label="Conta" value={contaBancariaModal.conta} onChange={v=>setContaBancariaModal(f=>({...f,conta:v}))}/>
               <Inp label="Titular" value={contaBancariaModal.titular} onChange={v=>setContaBancariaModal(f=>({...f,titular:v}))}/>
               <Inp label="Documento do titular" value={contaBancariaModal.documentoTitular} onChange={v=>setContaBancariaModal(f=>({...f,documentoTitular:v}))}/>
+              <Inp label="Chave PIX desta conta" value={contaBancariaModal.pixKey} onChange={v=>setContaBancariaModal(f=>({...f,pixKey:v}))}/>
               <Inp label="Saldo inicial (R$)" type="number" value={contaBancariaModal.saldoInicial} onChange={v=>setContaBancariaModal(f=>({...f,saldoInicial:v}))}/>
             </div>
+            <p style={{fontSize:9.5,color:C.muted,lineHeight:1.4}}>
+              Cadastrar a chave PIX permite que a Conciliação reconheça automaticamente uma
+              transferência entre contas da própria empresa, em vez de sugerir como receita/despesa nova.
+            </p>
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setContaBancariaModal(null)} full>Cancelar</Btn>
               <Btn onClick={()=>salvarContaBancaria(contaBancariaModal)} full>Salvar</Btn>
