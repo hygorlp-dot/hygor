@@ -49,6 +49,8 @@ describe("razão financeiro único — fixture julho/2026", () => {
     expect(dre.costCents).toBe(toCents(47500));
     expect(dre.resultCents).toBe(toCents(52500));
     expect(dre.margin).toBe(52.5);
+    expect(dre.costByCategory.mao_obra).toBe(12000);
+    expect(dre.costBySource.nota_fiscal).toBe(24000);
   });
 
   test("fecha caixa sem duplicar transação bancária nem campo espelho", () => {

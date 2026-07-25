@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-25T23:41:17.731Z",
+  "generatedAt": "2026-07-25T23:59:18.283Z",
   "totals": {
-    "bytes": 3878836,
-    "gzipBytes": 1080045
+    "bytes": 3881547,
+    "gzipBytes": 1080918
   },
   "assets": [
     {
-      "name": "LegacyApp-N1YD1d0y.js",
-      "bytes": 2051206,
-      "gzipBytes": 572851
+      "name": "LegacyApp-Br56XhPB.js",
+      "bytes": 2053917,
+      "gzipBytes": 573724
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -36,7 +36,7 @@
       "gzipBytes": 21193
     },
     {
-      "name": "index-DHBbLyNj.js",
+      "name": "index-mniXPuGi.js",
       "bytes": 4890,
       "gzipBytes": 2294
     },

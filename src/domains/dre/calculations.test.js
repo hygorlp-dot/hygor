@@ -81,4 +81,64 @@ describe("domínio do DRE", () => {
     expect(dre.moData.benefitCost).toBe(120);
     expect(dre.totalCustos).toBe(920);
   });
+
+  test("a visão financeira usa as mesmas equações do DRE e separa caixa", () => {
+    const dados = {
+      ...data,
+      payments:[{
+        id:"entrada-avulsa",obraId:"obra-1",date:"2026-07-12",amount:250,
+        description:"Aporte ainda não alocado",
+      }],
+    };
+    const visao = regras.calcVisaoFinanceira(dados, 2026, 6, "obra-1");
+    expect(visao.summary.revenue).toBe(5000);
+    expect(visao.summary.costs).toBe(900);
+    expect(visao.summary.result).toBe(4100);
+    expect(visao.summary.cashIn).toBe(3250);
+    expect(visao.summary.unallocatedReceipts).toBe(250);
+    expect(visao.rows[0].revenue).toBe(visao.selected.faturamento);
+    expect(visao.rows[0].costs).toBe(visao.selected.totalCustos);
+    expect(visao.receipts.find(item => item.sourceId === "entrada-avulsa")?.removable).toBe(true);
+  });
+
+  test("locação externa separa receita e custo no consolidado", () => {
+    const comLocacao = createDreCalculations({
+      getDays: () => dias,
+      getQ: () => ({ q1: dias, q2: dias }),
+      monthName: () => "Jul",
+      calcObraLaborCost: () => ({ laborCost:600, benefitCost:100 }),
+      calcObraTercCost: () => 0,
+      calcTercEmpresaCost: () => 0,
+      calcObraTercEmpresaCost: () => 0,
+      calcObraComprasCost: () => 0,
+      calcEquipCustoObra: () => 100,
+      calcEquipFaturamentoEmpresa: () => ({
+        receita:1000, custoDono:400, manut:200, lucro:400,
+      }),
+    });
+    const dre = comLocacao.calcDREConsolidado(data, 2026, 6);
+    expect(dre.faturamento).toBe(6000);
+    expect(dre.totalCustos).toBe(1500);
+    expect(dre.lucroBruto).toBe(4500);
+    expect(dre.reconciliation.diferencaCents).toBe(0);
+  });
+
+  test("consolidado inclui caixa e obrigações sem obra vinculada", () => {
+    const dados = {
+      ...data,
+      despesasEmpresa:[{
+        id:"desp-corp",competencia:"2026-07",data:"2026-07-08",
+        valor:50,pago:true,categoria:"administrativo",
+      }],
+      titulosFolha:[{
+        id:"folha-corp",competencia:"2026-07",vencimento:"2026-07-20",
+        employeeId:"e1",liquido:300,rateiosPorObra:[],
+      }],
+    };
+    const dre = regras.calcDREConsolidado(dados, 2026, 6);
+    expect(dre.saidasCaixa).toBe(50);
+    expect(dre.contasPagar).toBe(300);
+    expect(dre.totalCustos).toBe(950);
+    expect(dre.lucroBruto).toBe(4050);
+  });
 });

@@ -25,6 +25,7 @@
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
+    "lint": "node scripts/check-financial-boundaries.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "quality:bundle": "node scripts/bundle-metrics.mjs"

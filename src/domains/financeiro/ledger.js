@@ -267,7 +267,11 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
         ...base, id: `pedido:${id}:payment:${paymentId}:cash`, effect: "cash_out",
         amountCents: positiveCents(payment.valor, payment.amount), date: payment.data,
         sourceSubId: paymentId, transactionId: payment.transacaoId || "",
-        unallocated: true, metadata: { obligationMissing: true },
+        unallocated: true,
+        metadata: {
+          obligationMissing:true, conciliado:!!payment.conciliado,
+          origem:payment.origem || order.origemPagamento || "",
+        },
       });
       issue("PAYMENT_UNALLOCATED", "pedido", order, "Pagamento de pedido sem documento de competência vinculado.", { severity: "info" });
     });
@@ -325,6 +329,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
         settlesSourceId: linkedThirdMeasurement
           ? sourceId(linkedThirdMeasurement, linkedThirdMeasurementId)
           : id,
+        metadata:{ conciliado:!!payment.conciliado, origem:payment.origem || "" },
       };
       add({ ...base, id: `nota_fiscal:${id}:payment:${paymentId}:cash`, effect: "cash_out" });
       add({ ...base, id: `nota_fiscal:${id}:payment:${paymentId}:settle`, effect: "payable_decrease" });
@@ -356,6 +361,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
         ...base, amountCents: positiveCents(payment.amount, payment.valor, payment.liquido),
         date: payment.data || payment.date, sourceType: "pagamento_terceiro", sourceSubId: paymentId,
         transactionId: payment.transacaoId || "", settlesSourceType: "medicao_terceiro", settlesSourceId: id,
+        metadata:{ conciliado:!!payment.conciliado, origem:payment.origem || "" },
       };
       add({ ...paymentBase, id: `medicao_terceiro:${id}:payment:${paymentId}:cash`, effect: "cash_out" });
       add({ ...paymentBase, id: `medicao_terceiro:${id}:payment:${paymentId}:settle`, effect: "payable_decrease" });
@@ -370,7 +376,11 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
       date: payment.date || payment.data, obraId: payment.obraId || "", category: "terceirizado",
       description: payment.descricao || "Pagamento de terceiro sem medição",
       sourceType: "pagamento_terceiro_legado", sourceId: id, transactionId: payment.transacaoId || "",
-      legacy: true, unallocated: true, metadata: { legacyPaymentBasedCost: true },
+      legacy: true, unallocated: true,
+      metadata: {
+        legacyPaymentBasedCost:true, conciliado:!!payment.conciliado,
+        origem:payment.origem || payment.pagador || "",
+      },
     };
     add({ ...base, id: `pagamento_terceiro_legado:${id}:cost`, effect: "cost" });
     add({ ...base, id: `pagamento_terceiro_legado:${id}:cash`, effect: "cash_out" });
@@ -548,6 +558,20 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
 const sumEffects = (events, positive, negative) =>
   events.reduce((sum, event) => sum + (positive.includes(event.effect) ? event.amountCents : negative.includes(event.effect) ? -event.amountCents : 0), 0);
 
+const groupEffects = (events, positive, negative, field) => {
+  const grouped = {};
+  events.forEach(event => {
+    const key = event[field] || "outros";
+    const signal = positive.includes(event.effect) ? 1 : negative.includes(event.effect) ? -1 : 0;
+    if (signal) grouped[key] = (grouped[key] || 0) + (signal * event.amountCents);
+  });
+  return grouped;
+};
+
+const monetaryGroups = centsByKey => Object.fromEntries(
+  Object.entries(centsByKey).map(([key, cents]) => [key, fromCents(cents)]),
+);
+
 export const selectDRE = (ledger, filters = {}) => {
   const rangeMode = !filters.competence
     && (String(filters.startDate || "").length === 10 || String(filters.endDate || "").length === 10)
@@ -557,9 +581,18 @@ export const selectDRE = (ledger, filters = {}) => {
   const revenueCents = sumEffects(events, ["revenue"], ["revenue_reversal"]);
   const costCents = sumEffects(events, ["cost"], ["cost_reversal"]);
   const resultCents = revenueCents - costCents;
+  const revenueByCategoryCents = groupEffects(events, ["revenue"], ["revenue_reversal"], "category");
+  const costByCategoryCents = groupEffects(events, ["cost"], ["cost_reversal"], "category");
+  const revenueBySourceCents = groupEffects(events, ["revenue"], ["revenue_reversal"], "sourceType");
+  const costBySourceCents = groupEffects(events, ["cost"], ["cost_reversal"], "sourceType");
   return {
     revenueCents, costCents, resultCents,
     revenue: fromCents(revenueCents), costs: fromCents(costCents), result: fromCents(resultCents),
+    revenueByCategoryCents, costByCategoryCents, revenueBySourceCents, costBySourceCents,
+    revenueByCategory: monetaryGroups(revenueByCategoryCents),
+    costByCategory: monetaryGroups(costByCategoryCents),
+    revenueBySource: monetaryGroups(revenueBySourceCents),
+    costBySource: monetaryGroups(costBySourceCents),
     margin: revenueCents ? resultCents / revenueCents * 100 : 0, events,
   };
 };
@@ -608,6 +641,7 @@ export const selectFinancialMovements = (ledger, filters = {}) =>
       natureza: event.effect, status: event.status, sourceId: event.sourceId,
       sourceSubId: event.sourceSubId, transactionId: event.transactionId,
       descricao: event.description, unallocated: event.unallocated,
+      metadata:event.metadata,
     }));
 
 export const validateFinancialReconciliation = (ledger, filters = {}, consolidation = null) => {

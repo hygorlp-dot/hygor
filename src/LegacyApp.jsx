@@ -99,12 +99,13 @@ import {
   historicoPreco, historicoPrecoTodos, analisePreco, mapaGerencialCompras,
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
-import { createDreCalculations } from "./domains/dre/calculations";
+import { calculateContractProjection, createDreCalculations } from "./domains/dre/calculations";
 import {
   buildFinancialLedger,
   selectDRE as selectLedgerDRE,
   selectCashFlow as selectLedgerCashFlow,
   selectAccountsReceivable as selectLedgerAccountsReceivable,
+  selectAccountsPayable as selectLedgerAccountsPayable,
   selectFinancialMovements,
 } from "./domains/financeiro/ledger";
 import {
@@ -3998,36 +3999,7 @@ const _calcObraLaborCostRaw = (data, obraId, days) => {
 // parcela de materiais já contabilizada em materialCost (calcObraMaterialCost
 // soma só a categoria "material" de outrasDesp), senão o valor é somado em
 // dobro na base de admin_only.
-const calcObraRevenue = (obra, laborCost, extraCosts = {}) => {
-  const ct = obra.contractType || "fixed_labor";
-  const cv = Number(obra.contractValue||0);
-  const ap = Number(obra.adminPercentage||0)/100;
-  const {
-    benefitCost = 0, materialCost = 0, tercCost = 0,
-    outrasTotal = 0, equipCost = 0, rescTotal = 0,
-  } = extraCosts;
-  const outrosCustos = outrasTotal + equipCost + rescTotal;
-  const totalCost = laborCost + benefitCost + tercCost + materialCost + outrosCustos;
-  const incluiMaoDeObra     = obra.adminBaseMaoDeObra     !== undefined ? !!obra.adminBaseMaoDeObra     : ct === "admin_only";
-  const incluiMateriais     = obra.adminBaseMateriais     !== undefined ? !!obra.adminBaseMateriais     : true;
-  const incluiTerceirizados = obra.adminBaseTerceirizados !== undefined ? !!obra.adminBaseTerceirizados : true;
-  const adminBase =
-    (incluiMaoDeObra ? laborCost + benefitCost : 0) +
-    (incluiMateriais ? materialCost : 0) +
-    (incluiTerceirizados ? tercCost : 0) +
-    (ct === "admin_only" ? outrosCustos : 0);
-  let revenue = 0;
-  if (ct === "fixed_labor")            revenue = cv;
-  else if (ct === "fixed_labor_admin") revenue = cv + adminBase * ap;
-  else if (ct === "admin_only")        revenue = adminBase * ap;
-  const margin = revenue - laborCost;
-  const marginPct = revenue > 0 ? (margin/revenue)*100 : 0;
-  const commitment = cv > 0 ? (laborCost/cv)*100 : null;
-  return {
-    revenue, margin, marginPct, commitment, totalCost, adminBase, adminBaseMisto: adminBase,
-    incluiMaoDeObra, incluiMateriais, incluiTerceirizados, outrosCustos,
-  };
-};
+const calcObraRevenue = calculateContractProjection;
 
 // 
 // DASHBOARD - redesenhado
@@ -4935,6 +4907,8 @@ const {
   calcDREObra,
   calcDREConsolidado,
   calcDREHistorico,
+  calcVisaoFinanceira,
+  calcProjecaoContratoObra,
 } = createDreCalculations({
   getDays,
   getQ,
@@ -6375,17 +6349,12 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
           const previsaoAdmin = (() => {
             if (!contemAdmin || !m.competencia) return null;
             const [y,mo] = m.competencia.split("-").map(Number);
-            const dre = calcDREObra(data, selObra, y, mo-1, "mes");
-            const materialOutrasDespMes = calcObraMaterialCost(data, selObra, m.competencia);
-            const materialCost = materialOutrasDespMes + calcObraComprasCost(data, selObra, dre.per0, dre.perF);
-            const tercCost = dre.tercCost + calcObraTercEmpresaCost(data, selObra, dre.per0, dre.perF);
-            const ap = Number(obra?.adminPercentage||0)/100;
-            const { adminBase } = calcObraRevenue(obra, dre.moData.laborCost, {
-              benefitCost: dre.moData.benefitCost, materialCost, tercCost,
-              outrasTotal: dre.outrasTotal - materialOutrasDespMes,
-              equipCost: dre.equipCost, rescTotal: dre.rescTotal,
-            });
-            return { valor: adminBase*ap, base: adminBase, materialCost, tercCost, totalCustos: dre.totalCustos };
+            const projection = calcProjecaoContratoObra(data, selObra, y, mo-1);
+            return {
+              valor:projection.valorAdmin, base:projection.adminBase,
+              materialCost:projection.materialCost, tercCost:projection.tercCost,
+              totalCustos:projection.dre.totalCustos,
+            };
           })();
 
           return (
@@ -6864,6 +6833,10 @@ const novaNotaFiscal=()=>({id:"",tipo:"nfe",numero:"",serie:"",chave:"",emissao:
 
 function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,onCadastroAberto}){
   const {cols,formGrid}=useBreakpoint();const notas=data.notasFiscais||[];const [form,setForm]=useState(null);const [subindo,setSubindo]=useState(false);const [filtro,setFiltro]=useState("todas");const [anexoFiscal,setAnexoFiscal]=useState(null);
+  const contasPagarFiscal=useMemo(
+    ()=>selectLedgerAccountsPayable(buildFinancialLedger(data),{asOfDate:today()}),
+    [data],
+  );
   const vazia=novaNotaFiscal;
   useEffect(()=>{if(!abrirCadastro)return;setForm(novaNotaFiscal());onCadastroAberto?.();},[abrirCadastro,onCadastroAberto]);
   const F=k=>v=>setForm(f=>({...f,[k]:v}));const totalRet=f=>Object.values(f.retencoes||{}).reduce((s,v)=>s+Number(v||0),0);const pedido=form?(data.pedidos||[]).find(p=>p.id===form.pedidoId):null;
@@ -6888,7 +6861,7 @@ function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,on
     showToast(divergencias.length?"Nota salva com divergências na conferência de três vias.":"Pedido, recebimento físico e nota conferidos.");
   };
   const aprovar=n=>{if(n.divergencias?.length&&!window.confirm("A nota possui divergências. Aprovar mesmo assim?"))return;update({...data,notasFiscais:notas.map(x=>x.id===n.id?{...x,status:"aprovada",aprovadoPorId:currentUser?.id||"",aprovadoPor:currentUser?.nome||"",aprovadoEm:new Date().toISOString()}:x)});showToast("Nota aprovada para pagamento.");};
-  const lista=notas.filter(n=>filtro==="todas"||n.status===filtro);const valorPendente=notas.filter(n=>!["paga","cancelada"].includes(n.status)).reduce((s,n)=>s+saldoPagamentoNota(n),0);
+  const lista=notas.filter(n=>filtro==="todas"||n.status===filtro);const valorPendente=contasPagarFiscal.balanceCents/100;
   return <div style={{display:"flex",flexDirection:"column",gap:10}}>
     <PageHero
       eyebrow="Recepção e auditoria fiscal"
@@ -6934,6 +6907,15 @@ function CentralPagamentosFinanceiro({data,update,showToast,currentUser,onNovaNo
   const [salvando,setSalvando]=useState(false);
   const podeOperar=["admin","financeiro"].includes(currentUser?.role);
   const obras=data.obras||[],pedidos=data.pedidos||[],notas=data.notasFiscais||[];
+  const ledgerPagamentos=useMemo(()=>buildFinancialLedger(data),[data]);
+  const contasPagar=useMemo(()=>selectLedgerAccountsPayable(ledgerPagamentos,{
+    ...(obraId==="all"?{}:{obraId}),asOfDate:today(),
+  }),[ledgerPagamentos,obraId]);
+  const saidasPendentesConciliacao=useMemo(()=>selectFinancialMovements(
+    ledgerPagamentos,obraId==="all"?{}:{obraId},
+  ).filter(movement=>movement.natureza==="cash_out"
+    && ["pedido","pagamento_nota","pagamento_terceiro","pagamento_terceiro_legado"].includes(movement.origem)
+    && !movement.transactionId&&!movement.metadata?.conciliado),[ledgerPagamentos,obraId]);
   const obraNome=id=>obras.find(o=>o.id===id)?.name||"Administrativo";
   const fornecedorPedido=useCallback(p=>(data.fornecedores||[]).find(f=>f.id===p.fornecedorId)?.nome||"Fornecedor não informado",[data.fornecedores]);
   const notasAtivas=useMemo(()=>notas.filter(n=>n.status!=="cancelada"),[notas]);
@@ -6958,17 +6940,22 @@ function CentralPagamentosFinanceiro({data,update,showToast,currentUser,onNovaNo
     return !termo||normalizarIdentificacaoObra([item.numero,item.fornecedor,obraNome(item.obraId)].join(" ")).includes(termo);
   });
   const abertas=obrigacoesEscopo.filter(i=>i.estado!=="paga"),autorizadas=abertas.filter(i=>["autorizada","vencida","parcial"].includes(i.estado));
-  const totalAberto=abertas.reduce((s,i)=>s+i.saldo,0),totalAutorizado=autorizadas.reduce((s,i)=>s+i.saldo,0);
-  const totalVencido=abertas.filter(i=>i.estado==="vencida").reduce((s,i)=>s+i.saldo,0);
+  const notasAutorizadas=new Set(notasAtivas.filter(n=>["aprovada","paga"].includes(n.status)).map(n=>String(n.id)));
+  const totalAberto=contasPagar.balanceCents/100;
+  const totalAutorizado=contasPagar.items
+    .filter(item=>item.sourceType==="nota_fiscal"&&notasAutorizadas.has(String(item.sourceId)))
+    .reduce((sum,item)=>sum+item.balanceCents/100,0);
+  const totalVencido=contasPagar.items.filter(item=>item.status==="vencido")
+    .reduce((sum,item)=>sum+item.balanceCents/100,0);
   const semNota=abertas.filter(i=>i.estado==="sem_nota").length,emConferencia=abertas.filter(i=>i.estado==="conferencia").length;
-  const semConciliar=obrigacoesEscopo.flatMap(i=>i.pagamentos).filter(pg=>!pg.conciliado).reduce((s,pg)=>s+Number(pg.valor||0),0);
+  const semConciliar=saidasPendentesConciliacao.reduce((sum,movement)=>sum+movement.valor,0);
   const totalPedidosEscopo=pedidos.filter(p=>(obraId==="all"||p.obraId===obraId)&&!["cancelado","rascunho"].includes(p.status)).length;
   const totalPagas=obrigacoesEscopo.filter(i=>i.estado==="paga").length;
   const totalAConciliar=obrigacoesEscopo.filter(i=>i.pagamentos.some(pg=>!pg.conciliado)).length;
   const resumoFinanceiro=[
-    {label:"Total em aberto",valor:totalAberto,cor:C.red,apoio:`${abertas.length} obrigação(ões)`},
+    {label:"Contas a pagar",valor:totalAberto,cor:C.red,apoio:`${contasPagar.items.filter(item=>item.balanceCents>1).length} título(s) no razão`},
     {label:"Autorizado a pagar",valor:totalAutorizado,cor:C.green,apoio:`${autorizadas.length} liberada(s)`},
-    {label:"Vencido",valor:totalVencido,cor:C.red,apoio:`${abertas.filter(i=>i.estado==="vencida").length} vencida(s)`},
+    {label:"Vencido",valor:totalVencido,cor:C.red,apoio:`${contasPagar.items.filter(item=>item.status==="vencido").length} vencida(s)`},
     {label:"A conciliar",valor:semConciliar,cor:C.orange,apoio:`${totalAConciliar} pagamento(s)`},
   ];
   const etapasFluxo=[
@@ -7322,69 +7309,17 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
   const [payForm, setPayForm] = useState({ obraId:"", date:today(), amount:"", description:"" });
   const PF = k => v => setPayForm(f=>({...f,[k]:v}));
 
-  const days = getDays(year, month);
   const years = Array.from({length:4},(_,i)=>now.getFullYear()-1+i).map(y=>({v:String(y),l:String(y)}));
-
-  // Calcula KPIs por obra - inclui terceirizados
-  const periodStart = days[0] || "";
-  const periodEnd   = days[days.length-1] || "";
-
-  const obraRows = useMemo(() => data.obras
-    .filter(o => filterObra==="all" || o.id===filterObra)
-    .map(o => {
-      const {laborCost, benefitCost, totalCost} = calcObraLaborCost(data, o.id, days);
-      const tercCost = calcObraTercCost(data, o.id, periodStart, periodEnd);
-      const tercEmpresaObra = calcObraTercEmpresaCost(data, o.id, periodStart, periodEnd);
-      const totalLaborAll = laborCost + tercCost;
-      const ym = `${year}-${String(month+1).padStart(2,"0")}`;
-      const materialOutrasDesp = calcObraMaterialCost(data, o.id, ym);
-      const comprasCost = calcObraComprasCost(data, o.id, periodStart, periodEnd);
-      const materialCost = materialOutrasDesp + comprasCost;
-      const dreObraMes = calcDREObra(data, o.id, year, month, "mes");
-      const {
-        revenue, margin: marginMO, marginPct: marginPctMO, commitment,
-        totalCost: totalCostAdmin, adminBaseMisto,
-      } = calcObraRevenue(o, laborCost, {
-        benefitCost, materialCost, tercCost: tercCost + tercEmpresaObra,
-        outrasTotal: dreObraMes.outrasTotal - materialOutrasDesp,
-        equipCost: dreObraMes.equipCost, rescTotal: dreObraMes.rescTotal,
-      });
-      const marginReal = revenue - totalLaborAll;
-      const marginRealPct = revenue > 0 ? (marginReal/revenue)*100 : 0;
-      const received = (data.payments||[])
-        .filter(p => p.obraId===o.id && p.date && p.date.slice(0,7)===`${year}-${String(month+1).padStart(2,"0")}`)
-        .reduce((s,p)=>s+Number(p.amount||0), 0);
-      const receivedTotal = (data.payments||[])
-        .filter(p => p.obraId===o.id)
-        .reduce((s,p)=>s+Number(p.amount||0), 0);
-      const activeEmps = data.employees.filter(e=>e.active!==false&&e.obra===o.id).length;
-      const activeTercCount = (data.terceirizados||[]).filter(t=>t.active!==false&&t.obraId===o.id).length;
-      return {
-        ...o, laborCost, benefitCost, totalCost, tercCost, tercEmpresaObra, totalLaborAll,
-        materialCost, materialOutrasDesp, comprasCost,
-        totalCostAdmin, adminBaseMisto,
-        revenue, margin: marginReal, marginPct: marginRealPct, marginMO, marginPctMO,
-        commitment, received, receivedTotal, activeEmps, activeTercCount,
-      };
-    }), [data.obras, data.attendance, data.employees, data.pagsTerceiros, data.payments,
-         data.terceirizados, data.outrasDesp, data.pedidos, data.medicoes, data.rescisoes, data.equipamentos, data.locacoesEquip,
-         filterObra, days, year, month, periodStart, periodEnd]);
-
-  const T = useMemo(() => ({
-    revenue:  obraRows.reduce((s,r)=>s+r.revenue,      0),
-    labor:    obraRows.reduce((s,r)=>s+r.laborCost,     0),
-    terc:     obraRows.reduce((s,r)=>s+r.tercCost,      0),
-    material: obraRows.reduce((s,r)=>s+r.materialCost,  0),
-    margin:   obraRows.reduce((s,r)=>s+r.margin,        0),
-    received: obraRows.reduce((s,r)=>s+r.received,      0),
-  }), [obraRows]);
-  const totalMarginPct = T.revenue>0 ? (T.margin/T.revenue)*100 : 0;
-
-  // Receitas do período filtrado
-  const allPayments = useMemo(() => (data.payments||[])
-    .filter(p => (filterObra==="all"||p.obraId===filterObra))
-    .sort((a,b)=>b.date.localeCompare(a.date)),
-    [data.payments, filterObra]);
+  // Esta tela não soma fatos operacionais. Todos os seus valores monetários
+  // chegam do mesmo adaptador que alimenta o DRE, caixa e posições financeiras.
+  const financialView = useMemo(
+    () => calcVisaoFinanceira(data, year, month, filterObra),
+    [data, year, month, filterObra],
+  );
+  const obraRows = financialView.rows;
+  const T = financialView.summary;
+  const totalMarginPct = T.marginPct;
+  const allPayments = financialView.receipts;
 
   // Gráfico: receita vs custo MO por obra
   const chartData = obraRows.map(r=>({
@@ -7398,32 +7333,7 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
   // Como o pagamento e quinzenal, o grafico segue a mesma cadencia - cada ponto
   // e a 1a ou 2a quinzena de um mes. Recebido e Terceiros entram pela data real
   // do lancamento; o custo de MO e rateado por dias trabalhados na quinzena.
-  const quinzenalChart = useMemo(() => {
-    const pontos = [];
-    for (let i = 3; i >= 0; i--) {
-      const d = new Date(year, month - i, 1);
-      const y = d.getFullYear(), m = d.getMonth();
-      const { q1, q2 } = getQ(y, m);
-      [["1", q1], ["2", q2]].forEach(([qn, dias]) => {
-        const datasDoCiclo=new Set(dias);
-        const naQuinzena = iso => !!iso && datasDoCiclo.has(iso);
-        const rec = (data.payments||[])
-          .filter(p => (filterObra==="all"||p.obraId===filterObra) && naQuinzena(p.date))
-          .reduce((s,p)=>s+Number(p.amount||0),0);
-        const terc = (data.pagsTerceiros||[])
-          .filter(p => (filterObra==="all"||p.obraId===filterObra) && naQuinzena(p.date))
-          .reduce((s,p)=>s+Number(p.amount||0),0);
-        const cost = data.obras
-          .filter(o => filterObra==="all"||o.id===filterObra)
-          .reduce((s,o)=>s+calcObraLaborCost(data,o.id,dias).laborCost,0);
-        pontos.push({
-          mes: `${qn}a ${monthName(m)}/${String(y).slice(2)}`,
-          Recebido: Math.round(rec), CustoMO: Math.round(cost), Terceiros: Math.round(terc),
-        });
-      });
-    }
-    return pontos;
-  }, [data, year, month, filterObra]);
+  const quinzenalChart = financialView.fortnightly;
 
   const savePayment = () => {
     if(!payForm.obraId||!payForm.amount||isNaN(Number(payForm.amount))){
@@ -7452,9 +7362,9 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
     await carregarXLSX();
     const wb=XLSX.utils.book_new();
     // Aba KPIs
-    const h1=["Obra","Tipo Contrato","Valor Contrato","Custo MO","Custo MO+Ben","Receita Esperada","Margem","Margem %","Recebido (mês)","Comprometimento %"];
-    const b1=obraRows.map(r=>[r.name,CONTRACT_LABELS[r.contractType]||r.contractType,r.contractValue,r.laborCost,r.totalCost,r.revenue,r.margin,r.marginPct.toFixed(1)+"%",r.received,r.commitment!=null?r.commitment.toFixed(1)+"%":"-"]);
-    const ws1=XLSX.utils.aoa_to_sheet([[`KPIs Financeiros - ${fullMonth(month)} ${year}`],[],h1,...b1,["TOTAL","","",T.labor,"",T.revenue,T.margin,(totalMarginPct).toFixed(1)+"%",T.received,""]]);
+    const h1=["Obra","Tipo Contrato","Valor Contrato","Custo MO","Custo incorrido","Receita reconhecida","Resultado","Margem %","Entrada de caixa","Comprometimento %"];
+    const b1=obraRows.map(r=>[r.name,CONTRACT_LABELS[r.contractType]||r.contractType,r.contractValue,r.laborCost+r.benefitCost,r.costs,r.revenue,r.margin,r.marginPct.toFixed(1)+"%",r.received,r.commitment!=null?r.commitment.toFixed(1)+"%":"-"]);
+    const ws1=XLSX.utils.aoa_to_sheet([[`KPIs Financeiros - ${fullMonth(month)} ${year}`],[],h1,...b1,["TOTAL","","",T.labor,T.costs,T.revenue,T.result,(totalMarginPct).toFixed(1)+"%",T.cashIn,""]]);
     ws1["!cols"]=[22,16,14,12,14,16,12,10,14,14].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb,ws1,"KPIs por Obra");
     // Aba recebimentos
@@ -7507,19 +7417,31 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
       {/* KPI totais */}
       <div className="financial-overview-kpis" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>
         {[
-          ["Receita esperada", fmt(T.revenue),                C.green,  "dollar"],
-          ["Recebido",         fmt(T.received),               C.blue,   "check"],
-          ["Custo MO própria", fmt(T.labor),                  C.orange, "users"],
-          ["Custo terceiros",  fmt(T.terc),                   C.purple, "terc"],
-          ["Custo materiais/compras", fmt(T.material),        C.yellowD,"cart"],
-          ["Total trabalho",   fmt(T.labor+T.terc),           C.red,    "users"],
-          ["Margem real",      `${fmt(T.margin)} (${totalMarginPct.toFixed(0)}%)`, T.margin>=0?C.green:C.red, "chart"],
+          ["Receita reconhecida", fmt(T.revenue),             C.green,  "dollar"],
+          ["Entradas de caixa", fmt(T.cashIn),                C.blue,   "check"],
+          ["Saídas de caixa", fmt(T.cashOut),                 C.red,    "arrow"],
+          ["Custos incorridos", fmt(T.costs),                 C.orange, "receipt"],
+          ["Contas a receber", fmt(T.receivable),             C.purple, "chart"],
+          ["Contas a pagar", fmt(T.payable),                  C.yellowD,"cart"],
+          ["Resultado por competência", `${fmt(T.result)} (${totalMarginPct.toFixed(0)}%)`, T.result>=0?C.green:C.red, "chart"],
         ].map(([l,v,c,ic])=>(
           <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`2px solid ${c}`,padding:"9px 11px",borderRadius:7,minWidth:0}}>
             <p style={{fontSize:8,fontWeight:850,color:C.muted,textTransform:"uppercase",letterSpacing:.65}}>{l}</p>
             <p title={v} style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:780,color:c,fontSize:"clamp(16px,2vw,20px)",lineHeight:1.1,marginTop:3,letterSpacing:-.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p>
           </div>
         ))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(155px,1fr))",gap:6}}>
+        {[
+          ["Custos comprometidos",fmt(T.committed),C.orange],
+          ["Recebimentos não alocados",fmt(T.unallocatedReceipts),T.unallocatedReceipts?C.orange:C.muted],
+          ["Pagamentos não alocados",fmt(T.unallocatedPayments),T.unallocatedPayments?C.red:C.muted],
+          ["Estornos e cancelamentos",fmt(T.reversals),T.reversals?C.red:C.muted],
+        ].map(([label,value,color],index)=><div key={label} style={{padding:"8px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,minWidth:0}}>
+          <p style={{fontSize:7.8,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>{label}</p>
+          <b style={{display:"block",fontSize:13,color,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{value}</b>
+          {index===3&&<small style={{fontSize:7.5,color:C.muted}}>{T.reversalCount} estorno(s) · {T.cancelledCount} cancelamento(s)</small>}
+        </div>)}
       </div>
 
       <RankingFinanceiro data={data} year={year} month={month} obraId={filterObra==="all"?"":filterObra} onSelecionarObra={setFilterObra} C={C}/>
@@ -7660,14 +7582,15 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
                     ["Custo terceiros",fmt(r.tercCost),C.purple],
                     ["Total trabalho",fmt(r.totalLaborAll),C.red],
                     ["Benefícios",fmt(r.benefitCost),C.muted],
-                    ["Custo compras (pedidos)",fmt(r.comprasCost),C.yellowD],
-                    ["Custo materiais (lançamentos)",fmt(r.materialOutrasDesp),C.yellowD],
-                    ["Total materiais/compras",fmt(r.materialCost),C.yellowD],
+                    ["Custos incorridos",fmt(r.costs),C.red],
+                    ["Compras reconhecidas (NF)",fmt(r.comprasCost),C.yellowD],
+                    ["Equipamentos",fmt(r.equipCost),C.yellowD],
                     ["Total recebido",fmt(r.receivedTotal),C.blue],
-                    ["Margem s/ terc",fmt(r.marginMO),r.marginMO>=0?C.yellow:C.red],
-                    ["Receita",fmt(r.revenue),C.green],
-                    ["Margem real",fmt(r.margin),r.margin>=0?C.green:C.red],
-                    ["Saldo contrato",fmt(r.contractValue-r.laborCost),r.contractValue-r.laborCost>=0?C.green:C.red],
+                    ["Contas a receber",fmt(r.receivable),C.purple],
+                    ["Contas a pagar",fmt(r.payable),C.yellowD],
+                    ["Receita reconhecida",fmt(r.revenue),C.green],
+                    ["Resultado competência",fmt(r.margin),r.margin>=0?C.green:C.red],
+                    ["Custos comprometidos",fmt(r.committed),C.orange],
                   ].map(([l,v,c])=>(
                     <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,padding:"8px 10px",borderRadius:8}}>
                       <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,marginBottom:3}}>{l}</p>
@@ -7675,9 +7598,7 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
                     </div>
                   ))}
                 </div>
-                {r.contractType==="fixed_labor_admin"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = Contrato ({fmt(r.contractValue)}) + {r.adminPercentage}% sobre materiais e terceirizados ({fmt(r.adminBaseMisto)})</p>}
-                {r.contractType==="admin_only"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = {r.adminPercentage}% sobre todos os custos gastos ({fmt(r.totalCostAdmin)})</p>}
-                {r.contractType==="fixed_labor"&&<p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita = valor fixo do contrato ({fmt(r.contractValue)})</p>}
+                <p style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Receita e custos seguem competência; recebimentos e pagamentos seguem a data efetiva de caixa.</p>
               </div>
             )}
           </div>
@@ -7700,7 +7621,9 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:20,color:C.green,letterSpacing:.5}}>{fmt(p.amount)}</p>
-            <Btn v="danger" size="sm" onClick={()=>removePayment(p.id)}><Ic n="trash"/></Btn>
+            {p.removable
+              ? <Btn v="danger" size="sm" onClick={()=>removePayment(p.sourceId)}><Ic n="trash"/></Btn>
+              : <Badge color={C.muted}>Vinculado</Badge>}
           </div>
         </div>
       ))}
@@ -12925,15 +12848,7 @@ const calcRelatorioMensal = (data, year, month) => {
 
     // Receita esperada pelo contrato (admin_only cobra sobre todos os custos;
     // fixed_labor_admin cobra só sobre materiais + terceirizados do mês)
-    const materialOutrasDespMes = calcObraMaterialCost(data, obra.id, ym);
-    const comprasCostMes = calcObraComprasCost(data, obra.id, per0, perF);
-    const materialCost = materialOutrasDespMes + comprasCostMes;
-    const tercEmpresaObra = calcObraTercEmpresaCost(data, obra.id, per0, perF);
-    const { revenue: revenueEsperada } = calcObraRevenue(obra, moData.laborCost, {
-      benefitCost: moData.benefitCost, materialCost, tercCost: tercCost + tercEmpresaObra,
-      outrasTotal: dreObraMes.outrasTotal - materialOutrasDespMes,
-      equipCost: dreObraMes.equipCost, rescTotal,
-    });
+    const { revenue: revenueEsperada } = calcProjecaoContratoObra(data, obra.id, year, month);
 
     // Presença
     const empsDaObra = data.employees.filter(e=>e.obra===obra.id||e.lastObra===obra.id);
@@ -13197,36 +13112,24 @@ function RelatorioAdministracao({ data, year, month, showToast }) {
     [data.obras]);
 
   const linhas = useMemo(() => {
-    const days = getDays(year, month);
-    const per0 = days[0]||"", perF = days[days.length-1]||"";
-    const ym = `${year}-${String(month+1).padStart(2,"0")}`;
     return obrasAdmin.map(obra => {
-      const moData = calcObraLaborCost(data, obra.id, days);
-      const tercCost = calcObraTercCost(data, obra.id, per0, perF) + calcObraTercEmpresaCost(data, obra.id, per0, perF);
-      const materialOutrasDesp = calcObraMaterialCost(data, obra.id, ym);
-      const materialCost = materialOutrasDesp + calcObraComprasCost(data, obra.id, per0, perF);
-      const dreObraMes = calcDREObra(data, obra.id, year, month, "mes");
-      const laborBase = moData.laborCost + moData.benefitCost;
+      const projection = calcProjecaoContratoObra(data, obra.id, year, month);
+      const laborBase = projection.laborCost + projection.benefitCost;
       // Usa exclusivamente a configuração salva no cadastro da obra (nenhum
       // filtro deste relatório sobrescreve o que foi definido lá).
-      const { adminBase, incluiMaoDeObra, incluiMateriais, incluiTerceirizados, outrosCustos } = calcObraRevenue(obra, moData.laborCost, {
-        benefitCost: moData.benefitCost, materialCost, tercCost,
-        outrasTotal: dreObraMes.outrasTotal - materialOutrasDesp,
-        equipCost: dreObraMes.equipCost, rescTotal: dreObraMes.rescTotal,
-      });
+      const {
+        adminBase, incluiMaoDeObra, incluiMateriais, incluiTerceirizados,
+        outrosCustos, materialCost, tercCost, jaFechado,
+      } = projection;
       const ap = Number(obra.adminPercentage||0);
       const valorAdmin = adminBase * (ap/100);
-      const jaFechado = (data.medicoes||[])
-        .filter(m => m.obraId===obra.id && m.competencia===ym)
-        .reduce((s,m) => s+Number(m.valorAdminPct||0), 0);
       return {
         obra, ap, adminBase, valorAdmin, jaFechado, pendente: Math.max(0, valorAdmin-jaFechado),
         laborBase, materialCost, tercCost, outrosCustos,
         incluiMaoDeObra, incluiMateriais, incluiTerceirizados,
       };
     });
-  }, [obrasAdmin, year, month, data.attendance, data.employees, data.pagsTerceiros, data.payments,
-      data.terceirizados, data.outrasDesp, data.pedidos, data.medicoes, data.rescisoes, data.equipamentos, data.locacoesEquip]);
+  }, [obrasAdmin, year, month, data]);
 
   const totais = useMemo(() => ({
     previsto: linhas.reduce((s,l)=>s+l.valorAdmin,0),
