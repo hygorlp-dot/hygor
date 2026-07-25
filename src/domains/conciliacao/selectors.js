@@ -35,6 +35,23 @@ export const criarIndicesFinanceiros = (data) => {
     if (obraId) push(porObra, obraId, entrada);
   };
 
+  // Registro de "quem é dona desta chave PIX" - usado para identificar,
+  // ao chegar uma transação, se a chave já está cadastrada como uma conta da
+  // própria EMPRESA (então é provável transferência interna, não receita/despesa
+  // nova) ou como FUNCIONÁRIO/TERCEIRO/FORNECEDOR/PROPRIETÁRIO de equipamento
+  // (então a transação tem uma contraparte já conhecida, mesmo sem nota/pedido).
+  const porPixRegistrado = new Map();
+  const registrarPix = (pixKey, registro) => {
+    const chave = String(pixKey || "").trim();
+    if (!chave) return;
+    porPixRegistrado.set(chave, registro);
+  };
+  (data.contasBancarias || []).forEach(c => c.pixKey && registrarPix(c.pixKey, { tipo: "empresa", nome: c.nome, id: c.id }));
+  (data.employees || []).filter(e => e.active !== false).forEach(e => e.pixKey && registrarPix(e.pixKey, { tipo: "funcionario", nome: e.name || e.nome, id: e.id }));
+  (data.terceirizados || []).forEach(t => t.pixKey && registrarPix(t.pixKey, { tipo: "terceiro", nome: t.name, id: t.id }));
+  (data.fornecedores || []).forEach(f => f.chavePix && registrarPix(f.chavePix, { tipo: "fornecedor", nome: f.nome, id: f.id }));
+  (data.proprietariosEquip || []).forEach(p => p.chavePix && registrarPix(p.chavePix, { tipo: "proprietarioEquip", nome: p.nome, id: p.id }));
+
   (data.notasFiscais || []).forEach(n => {
     if (n.status === "cancelada") return;
     // Pagamento JÁ registrado (ex.: pela Central de Pagamentos) mas ainda sem
@@ -88,10 +105,30 @@ export const criarIndicesFinanceiros = (data) => {
 
   (data.caixaObra || []).forEach(c => {
     if (c.conciliado) return;
-    indexar(c, { tipo: "caixaObra", valor: c.valor, obraId: c.obraId });
+    // `tipo` fica no metadado do índice para o motor só oferecer "aporte"
+    // (dinheiro entrando) como candidata de ENTRADA e "despesa" como SAÍDA -
+    // sem isso um crédito bancário podia sugerir um lançamento de despesa.
+    indexar({ ...c, _direcao: c.tipo === "aporte" ? "entrada" : "saida" }, { tipo: "caixaObra", valor: c.valor, obraId: c.obraId });
   });
 
-  return { porValorCentavos, porDocumento, porContraparte, porPixChave, porObra };
+  return { porValorCentavos, porDocumento, porContraparte, porPixChave, porObra, porPixRegistrado };
+};
+
+// Dado um valor de "chave" bancária (PIX/documento/texto da descrição),
+// procura se já está cadastrado na base como conta da empresa, funcionário,
+// terceiro, fornecedor ou proprietário de equipamento. Não decide nada -
+// só devolve QUEM é o dono conhecido daquela chave, para o motor usar como
+// motivo/alerta (ex.: reforçar transferência interna, ou explicar uma
+// contraparte que não tem nota/pedido em aberto).
+export const buscarPixRegistrado = (indices, chave) => {
+  const c = String(chave || "").trim();
+  if (!c) return null;
+  if (indices.porPixRegistrado.has(c)) return indices.porPixRegistrado.get(c);
+  // Aceita a chave aparecendo dentro de um texto maior (descrição do banco).
+  for (const [k, v] of indices.porPixRegistrado) {
+    if (k.length >= 6 && c.includes(k)) return v;
+  }
+  return null;
 };
 
 // Transações já vinculadas a algum item de origem - usado para não sugerir
