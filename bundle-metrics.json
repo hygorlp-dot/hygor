@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-25T23:37:43.483Z",
+  "generatedAt": "2026-07-25T23:41:17.731Z",
   "totals": {
-    "bytes": 3886932,
-    "gzipBytes": 1082753
+    "bytes": 3878836,
+    "gzipBytes": 1080045
   },
   "assets": [
     {
-      "name": "LegacyApp-BAKfKsUh.js",
-      "bytes": 2056237,
-      "gzipBytes": 574776
+      "name": "LegacyApp-N1YD1d0y.js",
+      "bytes": 2051206,
+      "gzipBytes": 572851
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -21,9 +21,9 @@
       "gzipBytes": 106620
     },
     {
-      "name": "vendor-puUdhUWd.js",
-      "bytes": 265395,
-      "gzipBytes": 87145
+      "name": "vendor-DLS2yCis.js",
+      "bytes": 265387,
+      "gzipBytes": 87142
     },
     {
       "name": "sinapi-parser.worker-BcaEAY6v.js",
@@ -31,14 +31,14 @@
       "gzipBytes": 32255
     },
     {
-      "name": "index-DoTpSKtr.css",
-      "bytes": 106914,
-      "gzipBytes": 21972
+      "name": "index-BrhHZb9I.css",
+      "bytes": 103857,
+      "gzipBytes": 21193
     },
     {
-      "name": "index-DoSGtJhZ.js",
+      "name": "index-DHBbLyNj.js",
       "bytes": 4890,
-      "gzipBytes": 2295
+      "gzipBytes": 2294
     },
     {
       "name": "spreadsheet-dgzD4Y_t.js",

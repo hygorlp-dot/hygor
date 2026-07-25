@@ -83,7 +83,7 @@ import { Label } from "./components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Alert, AlertDescription } from "./components/ui/alert";
-import StructuralHouse from "./components/login/StructuralHouse";
+import LoginProjectParallax from "./components/login/LoginProjectParallax";
 import { Eye, EyeOff, ChevronLeft, Delete } from "lucide-react";
 import { cn } from "./lib/utils";
 import { useCountUp } from "./lib/useCountUp";
@@ -15106,8 +15106,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="" }) {
 
   return (
     <div className="login-tech-shell">
-      <div className="login-project-visual" aria-hidden="true" />
-      <StructuralHouse/>
+      <LoginProjectParallax/>
 
       <section className="login-project-story" aria-label="Plataforma ARCD">
         <div className="login-eyebrow">
