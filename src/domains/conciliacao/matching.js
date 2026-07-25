@@ -6,7 +6,7 @@
 // sempre passa por confirmação do usuário (ou por regra explícita
 // aprovada), conforme as faixas de confiança abaixo.
 import { paraCentavos, semAcento, diasEntre } from "./calculations.js";
-import { transacoesConsumidas } from "./selectors.js";
+import { transacoesConsumidas, buscarPixRegistrado } from "./selectors.js";
 
 const soNumeros = s => String(s || "").replace(/\D/g, "");
 
@@ -166,13 +166,16 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       titulo = `Medição de terceiro nº${item.numero || ""}`.trim();
       podeRegistrarPagamento = true;
     } else if (tipo === "medicao") {
-      if (!isEntrada) return; // recebimento de medição é sempre entrada
+      if (!isEntrada) return; // recebimento de medição/parcela de contrato é sempre entrada
       const totalRec = Array.isArray(item.recebimentos) && item.recebimentos.length
         ? item.recebimentos.reduce((s, r) => s + Number(r.valor || 0), 0)
         : Number(item.valorRecebido || 0);
       saldoCentavos = paraCentavos(Number(item.valorPrevisto || 0) - totalRec);
       dataPrevista = item.dataVencimento;
-      titulo = `Medição ${item.competencia || ""}`.trim();
+      // "medicao" no banco de dados cobre tanto parcela fixa de contrato
+      // (mensal_fixo/livre) quanto medição técnica por % de avanço - o
+      // rótulo distingue as duas para não confundir o usuário na fila.
+      titulo = (item.tipo === "percentual" ? "Medição" : "Parcela do contrato") + (item.competencia ? ` ${item.competencia}` : "");
       podeRegistrarPagamento = true;
     } else if (tipo === "funcionario") {
       if (isEntrada) return;
@@ -189,9 +192,13 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       titulo = `Terceiro ${contraparte || ""}`.trim();
       podeRegistrarPagamento = true;
     } else if (tipo === "caixaObra") {
+      // Aporte (cliente deposita no caixa da obra) só serve de candidata para
+      // ENTRADA; despesa do caixa só serve para SAÍDA - sem isso um crédito
+      // bancário podia sugerir vínculo com uma despesa já paga em dinheiro.
+      if ((item._direcao === "entrada") !== isEntrada) return;
       saldoCentavos = paraCentavos(Math.abs(item.valor));
       dataPrevista = item.data;
-      titulo = `Lançamento de caixa da obra`;
+      titulo = item._direcao === "entrada" ? "Aporte no caixa da obra" : "Despesa do caixa da obra";
       podeVincular = true;
     } else {
       return;
@@ -237,6 +244,29 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
     last.score = score; last.confianca = confianca;
     last.motivos = motivos; last.alertas = alertas; last.bloqueios = bloqueios;
   });
+
+  // Chave PIX já cadastrada na base (conta da própria empresa, funcionário,
+  // terceiro, fornecedor ou proprietário de equipamento) - busca automática
+  // pedida explicitamente: mesmo sem nota/pedido em aberto, a contraparte já
+  // é conhecida, e isso é informação relevante para classificar a transação.
+  const pixRegistrado = buscarPixRegistrado(indices, transacao.chave || transacao.contraparteDocumento || transacao.descricao);
+  if (pixRegistrado && !candidatas.some(c => c.tipo === "pixRegistrado")) {
+    const rotulos = { empresa: "conta da própria empresa", funcionario: "funcionário", terceiro: "terceirizado", fornecedor: "fornecedor", proprietarioEquip: "proprietário de equipamento" };
+    const ehEmpresa = pixRegistrado.tipo === "empresa";
+    const c = candidata({
+      tipo: "pixRegistrado", entidadeId: pixRegistrado.id, obraId: null,
+      titulo: `PIX cadastrado: ${pixRegistrado.nome || rotulos[pixRegistrado.tipo]}`,
+      contraparte: pixRegistrado.nome, valorOriginalCentavos: valorCentavos, saldoCentavos: valorCentavos,
+      podeVincular: false, podeRegistrarPagamento: false,
+      metadados: { pixTipo: pixRegistrado.tipo },
+    });
+    c.score = ehEmpresa ? 40 : 25;
+    c.confianca = faixaDoScore(c.score, false);
+    c.motivos = [ehEmpresa
+      ? "Esta chave PIX já está cadastrada como uma conta da própria empresa - provável transferência interna, não receita/despesa nova"
+      : `Esta chave PIX já está cadastrada na base como ${rotulos[pixRegistrado.tipo]}: ${pixRegistrado.nome}`];
+    candidatas.push(c);
+  }
 
   return candidatas.sort((a, b) => b.score - a.score);
 };
