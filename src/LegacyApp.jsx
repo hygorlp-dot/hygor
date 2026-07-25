@@ -83,6 +83,7 @@ import { Label } from "./components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Alert, AlertDescription } from "./components/ui/alert";
+import StructuralHouse from "./components/login/StructuralHouse";
 import { Eye, EyeOff, ChevronLeft, Delete } from "lucide-react";
 import { cn } from "./lib/utils";
 import { useCountUp } from "./lib/useCountUp";
@@ -15106,17 +15107,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="" }) {
   return (
     <div className="login-tech-shell">
       <div className="login-project-visual" aria-hidden="true" />
-      <div className="login-tech-map" aria-hidden="true">
-        <svg viewBox="0 0 1000 620" preserveAspectRatio="none">
-          <path d="M80 455 L220 342 L370 390 L515 248 L690 292 L852 142"/>
-          <path d="M220 342 L305 210 L515 248 L610 105"/>
-          <path d="M370 390 L470 510 L690 292 L905 410"/>
-          {[["80","455"],["220","342"],["370","390"],["515","248"],["690","292"],["852","142"],["305","210"],["610","105"],["470","510"],["905","410"]].map(([cx,cy],i)=><circle key={i} cx={cx} cy={cy} r={i===3?5:3}/>)}
-        </svg>
-        <span className="login-tech-signal login-tech-signal-a"/>
-        <span className="login-tech-signal login-tech-signal-b"/>
-        <span className="login-tech-signal login-tech-signal-c"/>
-      </div>
+      <StructuralHouse/>
 
       <section className="login-project-story" aria-label="Plataforma ARCD">
         <div className="login-eyebrow">
