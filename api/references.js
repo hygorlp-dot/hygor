@@ -16,6 +16,7 @@ import {
   textFromHtml,
   decodeOrseResponse,
 } from "./utils.js";
+import { normalizeReferenceCode, referenceCodeVariants } from "../server/reference-code.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -411,6 +412,21 @@ export default async function handler(req, res) {
       if (erroExistente) throw erroExistente;
       if (existente) {
         const regime = source === "SINAPI" ? ` · ${uf} · ${meta.desonerado === false ? "não desonerada" : "desonerada"}` : "";
+        // Uma base antiga pode ter sido criada antes de existirem insumos e
+        // relações analíticas. Reaproveitar seu ID é essencial: orçamentos
+        // já vinculados continuam apontando para a mesma referência. Os lotes
+        // são upsertados e a finalização só aceita a base completa.
+        if (source === "SINAPI" && meta.reimportar === true) {
+          const { data, error } = await db
+            .from("budget_reference_bases")
+            .update({ file_name: String(meta.arquivo || "").slice(0, 240), file_hash: String(meta.hash || "").slice(0, 128) })
+            .eq("id", existente.id)
+            .eq("company_id", COMPANY)
+            .select("*")
+            .single();
+          if (error) throw error;
+          return res.status(200).json({ base: mapBase(data), reimported: true });
+        }
         return res.status(409).json({
           error: `${source} ${competence}${regime} já está cadastrada. Exclua a repetição na gestão de bases antes de reenviar.`,
           duplicate: true,
@@ -450,7 +466,7 @@ export default async function handler(req, res) {
       if (base.source !== "SINAPI") return res.status(400).json({ error: "Somente bases SINAPI recebem lotes." });
 
       const rows = items.map(item => {
-        const code = String(item.codigo || "").replace(/\.0$/, "").trim();
+        const code = normalizeReferenceCode(item.codigo);
         const description = String(item.descricao || "").trim();
         return {
           base_id: baseId,
@@ -489,7 +505,7 @@ export default async function handler(req, res) {
       if (base.source !== "SINAPI") return res.status(400).json({ error: "Somente bases SINAPI recebem insumos enviados." });
       
       const rows = items.map(item => {
-        const code = String(item.codigo || "").replace(/\.0$/, "").trim();
+        const code = normalizeReferenceCode(item.codigo);
         const description = String(item.descricao || "").trim();
         return {
           base_id: baseId,
@@ -534,9 +550,9 @@ export default async function handler(req, res) {
         base_id: baseId,
         company_id: COMPANY,
         source: "SINAPI",
-        composition_code: String(item.compositionCode || "").replace(/\.0$/, "").trim(),
+        composition_code: normalizeReferenceCode(item.compositionCode),
         item_type: String(item.itemType || "").toUpperCase() === "COMPOSICAO" ? "COMPOSICAO" : "INSUMO",
-        item_code: String(item.itemCode || "").replace(/\.0$/, "").trim(),
+        item_code: normalizeReferenceCode(item.itemCode),
         description: String(item.descricao || "").trim(),
         unit: String(item.unidade || "UN").trim().slice(0, 30),
         coefficient: Math.max(0, Number(item.coeficiente || 0)),
@@ -561,6 +577,16 @@ export default async function handler(req, res) {
         .eq("base_id", baseId)
         .eq("company_id", COMPANY);
       if (countError) throw countError;
+      const [{ count: inputCount, error: inputCountError }, { count: componentCount, error: componentCountError }] = await Promise.all([
+        db.from("budget_reference_inputs").select("id", { count: "exact", head: true }).eq("base_id", baseId).eq("company_id", COMPANY),
+        db.from("budget_reference_components").select("id", { count: "exact", head: true }).eq("base_id", baseId).eq("company_id", COMPANY),
+      ]);
+      if (inputCountError || componentCountError) throw inputCountError || componentCountError;
+      if (!(count > 0) || !(inputCount > 0) || !(componentCount > 0)) {
+        return res.status(422).json({
+          error: "A base SINAPI só pode ser concluída com composições, insumos e relações analíticas. Envie o XLSX oficial completo (CCD/CSD, ICD/ISD e Analítico).",
+        });
+      }
       const { data, error } = await db
         .from("budget_reference_bases")
         .update({ status: "ready", item_count: count || 0 })
@@ -575,7 +601,7 @@ export default async function handler(req, res) {
     if (action === "resolve") {
       const referenceIds = [...new Set((req.body?.referenceIds || []).map(String))].slice(0, LIMITS.REFERENCE_IDS_MAX);
       const entries = (Array.isArray(req.body?.entries) ? req.body.entries : []).slice(0, LIMITS.ENTRIES_MAX).map(entry => ({
-        codigo: String(entry?.codigo || "").trim().replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i, "").replace(/\.0$/, "").replace(/^0+(?=\d)/, ""),
+        codigo: normalizeReferenceCode(entry?.codigo),
         fonte: String(entry?.fonte || "").trim().toUpperCase(),
       })).filter(entry => entry.codigo);
       if (!referenceIds.length || !entries.length) return res.status(200).json({ items: [] });
@@ -742,11 +768,7 @@ export default async function handler(req, res) {
       const entries = (Array.isArray(req.body?.entries) ? req.body.entries : [])
         .slice(0, LIMITS.ITEM_BATCH_FINAL_MAX)
         .map(entry => ({
-          codigo: String(entry?.codigo || "")
-            .trim()
-            .replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i, "")
-            .replace(/\.0$/, "")
-            .replace(/^0+(?=\d)/, ""),
+          codigo: normalizeReferenceCode(entry?.codigo),
           fonte: String(entry?.fonte || "").trim().toUpperCase(),
         }))
         .filter(entry => entry.codigo);
@@ -777,27 +799,33 @@ export default async function handler(req, res) {
       let frontier = sinapiIds.length ? initialSinapi : [];
       
       for (let depth = 0; depth < 12 && frontier.length; depth++) {
-        const pending = frontier.filter(code => !visited.has(code));
+        const pending = frontier.map(normalizeReferenceCode).filter(code => code && !visited.has(code));
         if (!pending.length) break;
         
         pending.forEach(code => visited.add(code));
         const next = [];
         
-        for (let i = 0; i < pending.length; i += 180) {
+        for (let i = 0; i < pending.length; i += 20) {
+          const queryCodes = [...new Set(pending.slice(i, i + 20).flatMap(referenceCodeVariants))];
           const { data, error } = await db
             .from("budget_reference_components")
             .select("base_id, source, composition_code, item_type, item_code, description, unit, coefficient, situation")
             .eq("company_id", COMPANY)
             .in("base_id", sinapiIds)
-            .in("composition_code", pending.slice(i, i + 180))
+            .in("composition_code", queryCodes)
             .limit(10000);
           
           if (error) throw error;
           
           (data || []).forEach(row => {
-            relations.push(row);
-            if (row.item_type === "COMPOSICAO" && !visited.has(row.item_code)) {
-              next.push(row.item_code);
+            const normalizedRow = {
+              ...row,
+              composition_code: normalizeReferenceCode(row.composition_code),
+              item_code: normalizeReferenceCode(row.item_code),
+            };
+            relations.push(normalizedRow);
+            if (normalizedRow.item_type === "COMPOSICAO" && !visited.has(normalizedRow.item_code)) {
+              next.push(normalizedRow.item_code);
             }
           });
         }
@@ -811,19 +839,21 @@ export default async function handler(req, res) {
         .map(row => row.item_code))];
       const inputMap = new Map();
       
-      for (let i = 0; i < inputCodes.length; i += 180) {
+      for (let i = 0; i < inputCodes.length; i += 20) {
+        const requestedCodes = inputCodes.slice(i, i + 20);
+        const queryCodes = [...new Set(requestedCodes.flatMap(referenceCodeVariants))];
         const { data, error } = await db
           .from("budget_reference_inputs")
           .select("base_id, code, price_des, price_not, classification")
           .eq("company_id", COMPANY)
           .in("base_id", sinapiIds)
-          .in("code", inputCodes.slice(i, i + 180))
+          .in("code", queryCodes)
           .limit(10000);
         
         if (error) throw error;
         
         (data || []).forEach(row =>
-          inputMap.set(`${row.base_id}|${row.code}`, row)
+          inputMap.set(`${row.base_id}|${normalizeReferenceCode(row.code)}`, row)
         );
       }
       
@@ -833,19 +863,21 @@ export default async function handler(req, res) {
         .map(row => row.item_code))];
       const compositionPriceMap = new Map();
       
-      for (let i = 0; i < nestedCodes.length; i += 180) {
+      for (let i = 0; i < nestedCodes.length; i += 20) {
+        const requestedCodes = nestedCodes.slice(i, i + 20);
+        const queryCodes = [...new Set(requestedCodes.flatMap(referenceCodeVariants))];
         const { data, error } = await db
           .from("budget_reference_items")
           .select("base_id, code, price_des, price_not")
           .eq("company_id", COMPANY)
           .in("base_id", sinapiIds)
-          .in("code", nestedCodes.slice(i, i + 180))
+          .in("code", queryCodes)
           .limit(10000);
         
         if (error) throw error;
         
         (data || []).forEach(row =>
-          compositionPriceMap.set(`${row.base_id}|${row.code}`, row)
+          compositionPriceMap.set(`${row.base_id}|${normalizeReferenceCode(row.code)}`, row)
         );
       }
       
@@ -902,6 +934,11 @@ export default async function handler(req, res) {
       return res.status(200).json({
         components: [...sinapiComponents, ...orseComponents],
         warning,
+        diagnostics: {
+          requested: entries.length,
+          sinapiRelations: sinapiComponents.length,
+          linkedBases: bases?.length || 0,
+        },
       });
     }
 

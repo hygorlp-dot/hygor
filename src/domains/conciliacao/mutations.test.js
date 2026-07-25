@@ -20,6 +20,7 @@ const dataBase = () => ({
   medicoes: [{ id: "m1", valorPrevisto: 1000, recebimentos: [] }],
   outrasDesp: [], despesasEmpresa: [], payments: [], caixaObra: [], historicoConc: [],
   pagsTerceiros: [], medicoesTerc: [], pagamentosFolha: [],
+  comercial: { contratos: [{ id: "ct1", numero: "CONT-1", contratante: "Cliente", entrada: 800, entradaPaga: false }] },
 });
 
 describe("A. vincular pagamento já existente - nunca cria lançamento novo", () => {
@@ -96,6 +97,22 @@ describe("B. registrar pagamento de obrigação existente e conciliar", () => {
     expect(next.despesasEmpresa).toHaveLength(0);
     expect(next.pagamentosFolha).toHaveLength(1);
   });
+
+  test("valida entrada de contrato de forma parcial e sem criar receita duplicada", () => {
+    const data = dataBase();
+    data.transacoes.push({ id: "t4", extratoId: "e1", data: "2026-01-13", valor: 300, status: "pendente", gerados: [] });
+    const { data: parcial } = registrarPagamentoEConciliar(data, {
+      transacaoId: "t3", tipo: "entradaContrato", entidadeId: "ct1", valor: 500, dataPagamento: "2026-01-12", operador,
+    });
+    const contratoParcial = parcial.comercial.contratos[0];
+    expect(contratoParcial.entradaPaga).toBe(false);
+    expect(contratoParcial.recebimentosEntrada).toHaveLength(1);
+    expect(parcial.payments).toHaveLength(0);
+    const { data: quitado } = registrarPagamentoEConciliar(parcial, {
+      transacaoId: "t4", tipo: "entradaContrato", entidadeId: "ct1", valor: 300, dataPagamento: "2026-01-13", operador,
+    });
+    expect(quitado.comercial.contratos[0].entradaPaga).toBe(true);
+  });
 });
 
 describe("C. criar lançamento novo - exige verificação de duplicidade prévia", () => {
@@ -115,6 +132,30 @@ describe("C. criar lançamento novo - exige verificação de duplicidade prévia
     expect(next.outrasDesp).toHaveLength(1);
     expect(next.transacoes.find(t => t.id === "t1").status).toBe("conciliado");
   });
+
+  test("registra aporte no caixa sem classificá-lo como receita ou despesa", () => {
+    const data = dataBase();
+    const { data: next, resumo } = criarLancamentoPelaTransacao(data, {
+      transacaoId: "t3", tipoLancamento: "entrada_caixa_obra", obraId: "o1", categoria: "aporte_cliente", operador, duplicidadeRevisada: true,
+    });
+    expect(resumo.ok).toBe(true);
+    expect(next.caixaObra[0]).toMatchObject({ tipo: "aporte", efeitoDRE: "sem_efeito", conciliado: true, transacaoId: "t3" });
+    expect(next.payments).toHaveLength(0);
+    expect(next.outrasDesp).toHaveLength(0);
+  });
+
+  test("registra recebimento manual de obra por administração como receita vinculada ao extrato", () => {
+    const data = dataBase();
+    const { data: next, resumo } = criarLancamentoPelaTransacao(data, {
+      transacaoId: "t3", tipoLancamento: "recebimento_administracao", obraId: "o-admin", descricao: "Taxa de administração", operador, duplicidadeRevisada: true,
+    });
+    expect(resumo.ok).toBe(true);
+    expect(next.payments[0]).toMatchObject({
+      obraId:"o-admin",amount:500,transacaoId:"t3",
+      tipo:"recebimento_avulso",origem:"conciliacao_bancaria",conciliado:true,
+    });
+    expect(next.transacoes.find(t => t.id === "t3").status).toBe("conciliado");
+  });
 });
 
 describe("transferência interna e estorno não tocam receita/despesa", () => {
@@ -125,6 +166,20 @@ describe("transferência interna e estorno não tocam receita/despesa", () => {
     expect(next.transacoes.find(t => t.id === "t3").status).toBe("conciliado");
     expect(next.outrasDesp).toHaveLength(0);
     expect(next.despesasEmpresa).toHaveLength(0);
+  });
+
+  test("desfazer uma transferência reabre as duas pontas", () => {
+    const data = dataBase();
+    const { data: transferida } = marcarTransferenciaInterna(data, { transacaoOrigemId: "t1", transacaoDestinoId: "t3", operador });
+    const { data: revertida } = desfazerConciliacao(transferida, "t1", operador, "correção");
+    expect(revertida.transacoes.find(t => t.id === "t1").status).toBe("pendente");
+    expect(revertida.transacoes.find(t => t.id === "t3").status).toBe("pendente");
+  });
+
+  test("bloqueia transferência com valores diferentes", () => {
+    const data = dataBase();
+    const { resumo } = marcarTransferenciaInterna(data, { transacaoOrigemId: "t2", transacaoDestinoId: "t3", operador });
+    expect(resumo.ok).toBe(false);
   });
 
   test("marcarEstorno nunca apaga o movimento original", () => {
@@ -178,8 +233,10 @@ describe("desfazer - nunca apaga registro pré-existente, só reverte o que a co
     });
     const { data: revertido } = desfazerConciliacao(pago, "t1", operador, "estorno de teste");
     expect(revertido.transacoes.find(t => t.id === "t1").status).toBe("pendente");
-    expect(revertido.notasFiscais.find(n => n.id === "n1").pagamentos).toHaveLength(0);
-    expect(revertido.pedidos.find(p => p.id === "p1").pagamentos).toHaveLength(0);
+    expect(revertido.notasFiscais.find(n => n.id === "n1").pagamentos).toHaveLength(1);
+    expect(revertido.notasFiscais.find(n => n.id === "n1").pagamentos[0].status).toBe("estornado");
+    expect(revertido.pedidos.find(p => p.id === "p1").pagamentos).toHaveLength(1);
+    expect(revertido.pedidos.find(p => p.id === "p1").pagamentos[0].status).toBe("estornado");
     expect(revertido.notasFiscais.find(n => n.id === "n1")).toBeDefined(); // a nota em si nunca é apagada
   });
 });

@@ -10,14 +10,17 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.26.0",
     "pdf-parse": "^1.1.1",
+    "postgres": "^3.4.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^2.12.7",
     "tailwind-merge": "^3.6.0"
   },
   "scripts": {
+    "prebuild": "node scripts/apply-financial-shadow.mjs",
     "start": "vite",
     "dev": "vite",
     "build": "vite build",

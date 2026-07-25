@@ -5,6 +5,7 @@
 // notasFiscais/pedidos/terceirizados/employees/medicoes a cada transação
 // (o que seria O(n×m) e pesado com listas grandes).
 import { paraCentavos, semAcento } from "./calculations.js";
+import { saldoTituloFolha, situacaoTituloFolha } from "./payroll.js";
 
 const push = (mapa, chave, item) => {
   if (!chave) return;
@@ -14,6 +15,7 @@ const push = (mapa, chave, item) => {
 };
 
 const soNumeros = s => String(s || "").replace(/\D/g, "");
+const normalizarPix = s => String(s || "").trim().toLocaleLowerCase("pt-BR").replace(/\s+/g, "");
 
 // Constrói todos os índices de uma vez, a partir do blob `data` inteiro.
 // Chame uma vez por render da fila (ex.: dentro de um useMemo com
@@ -31,7 +33,7 @@ export const criarIndicesFinanceiros = (data) => {
     push(porValorCentavos, paraCentavos(valor), entrada);
     if (documento) push(porDocumento, soNumeros(documento), entrada);
     if (contraparte) push(porContraparte, semAcento(contraparte), entrada);
-    if (pixKey) push(porPixChave, String(pixKey).trim(), entrada);
+    if (pixKey) push(porPixChave, normalizarPix(pixKey), entrada);
     if (obraId) push(porObra, obraId, entrada);
   };
 
@@ -42,9 +44,16 @@ export const criarIndicesFinanceiros = (data) => {
   // (então a transação tem uma contraparte já conhecida, mesmo sem nota/pedido).
   const porPixRegistrado = new Map();
   const registrarPix = (pixKey, registro) => {
-    const chave = String(pixKey || "").trim();
+    const chave = normalizarPix(pixKey);
     if (!chave) return;
-    porPixRegistrado.set(chave, registro);
+    const anterior = porPixRegistrado.get(chave);
+    // Uma chave ou documento duplicado nunca vira identificação conclusiva.
+    // Guardamos todos os donos para o motor explicar o bloqueio ao operador.
+    if (!anterior) porPixRegistrado.set(chave, { ...registro, duplicado: false });
+    else {
+      const donos = [...(anterior.donos || [anterior]), registro];
+      porPixRegistrado.set(chave, { ...anterior, duplicado: true, donos });
+    }
   };
   (data.contasBancarias || []).forEach(c => c.pixKey && registrarPix(c.pixKey, { tipo: "empresa", nome: c.nome, id: c.id }));
   (data.employees || []).filter(e => e.active !== false).forEach(e => e.pixKey && registrarPix(e.pixKey, { tipo: "funcionario", nome: e.name || e.nome, id: e.id }));
@@ -99,8 +108,41 @@ export const criarIndicesFinanceiros = (data) => {
     indexar(m, { tipo: "medicao", valor: saldo, obraId: m.obraId });
   });
 
+  // Antes de uma venda ser transferida para Engenharia, a entrada existe no
+  // contrato comercial, mas ainda não há uma medição/obra para indexar. Ela
+  // também precisa poder ser validada diretamente pelo extrato bancário.
+  (data.comercial?.contratos || []).forEach(contrato => {
+    const previsto = Number(contrato.entrada || 0);
+    const recebido = Array.isArray(contrato.recebimentosEntrada)
+      ? contrato.recebimentosEntrada.reduce((s, item) => s + Number(item.valor || 0), 0)
+      : (contrato.entradaPaga ? previsto : 0);
+    const saldo = previsto - recebido;
+    if (saldo <= 0.01) return;
+    indexar(contrato, {
+      tipo: "entradaContrato", valor: saldo, documento: contrato.numero,
+      contraparte: contrato.contratante, obraId: contrato.obraId,
+    });
+  });
+
   (data.employees || []).filter(e => e.active !== false).forEach(e => {
     indexar(e, { tipo: "funcionario", valor: 0, contraparte: e.name || e.nome, pixKey: e.pixKey, obraId: e.obra });
+  });
+
+  // Folha fechada é a candidata prioritária para um PIX de funcionário. O
+  // funcionário solto continua indexado como sugestão provisória, mas nunca
+  // liquida custo: somente um título existente pode ser efetivado.
+  (data.titulosFolha || []).forEach(title => {
+    if (situacaoTituloFolha(title) === "pago" || title.status === "cancelado") return;
+    const employee = (data.employees || []).find(e => e.id === title.employeeId) || {};
+    const saldo = saldoTituloFolha(title);
+    if (saldo <= 0.01) return;
+    indexar(title, {
+      tipo: "tituloFolha", valor: saldo,
+      documento: employee.cpf || employee.documento || title.documentoFuncionario,
+      contraparte: employee.name || employee.nome || title.funcionarioNome,
+      pixKey: employee.pixKey || title.chavePix,
+      obraId: title.rateiosPorObra?.length === 1 ? title.rateiosPorObra[0].obraId : "",
+    });
   });
 
   (data.caixaObra || []).forEach(c => {
@@ -121,13 +163,9 @@ export const criarIndicesFinanceiros = (data) => {
 // motivo/alerta (ex.: reforçar transferência interna, ou explicar uma
 // contraparte que não tem nota/pedido em aberto).
 export const buscarPixRegistrado = (indices, chave) => {
-  const c = String(chave || "").trim();
+  const c = normalizarPix(chave);
   if (!c) return null;
   if (indices.porPixRegistrado.has(c)) return indices.porPixRegistrado.get(c);
-  // Aceita a chave aparecendo dentro de um texto maior (descrição do banco).
-  for (const [k, v] of indices.porPixRegistrado) {
-    if (k.length >= 6 && c.includes(k)) return v;
-  }
   return null;
 };
 

@@ -1,5 +1,13 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "framework": "vite"
+  "framework": "vite",
+  "functions": {
+    "api/data.js": {
+      "includeFiles": "migrations/*.up.sql"
+    }
+  },
+  "crons": [
+    { "path": "/api/data?action=backup-create", "schedule": "0 3 * * *" }
+  ]
 }

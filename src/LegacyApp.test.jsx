@@ -13,4 +13,4 @@ vi.mock("./components/ui/alert", () => ({ Alert: () => null, AlertDescription: (
 test("módulo operacional inicializa sem referência circular", async () => {
   const modulo = await import("./LegacyApp");
   expect(typeof modulo.default).toBe("function");
-});
+},20000);

@@ -1,0 +1,116 @@
+import {
+  buildFinancialLedger, selectDRE, selectCashFlow, selectAccountsReceivable,
+  selectAccountsPayable, selectCommitments, validateFinancialReconciliation,
+  recebimentosDaMedicao, toCents,
+} from "./ledger";
+
+const julyFixture = () => ({
+  obras:[{id:"obra-1",name:"B2-04",cliente:"Cliente"}],
+  medicoes:[{
+    id:"med-1",obraId:"obra-1",competencia:"2026-07",valorPrevisto:100000,
+    recebido:false,valorRecebido:55000,dataVencimento:"2026-07-31",
+    recebimentos:[
+      {id:"rec-1",valor:40000,data:"2026-07-10"},
+      {id:"rec-2",valor:15000,data:"2026-08-05"},
+    ],
+  }],
+  payments:[{id:"av-1",obraId:"obra-1",date:"2026-07-15",amount:5000,description:"Recebimento direto"}],
+  pedidos:[
+    {id:"ped-1",obraId:"obra-1",numero:"1",status:"aprovado",data:"2026-07-01",valorTotal:30000},
+    {id:"ped-cancelado",obraId:"obra-1",status:"cancelado",data:"2026-07-01",valorTotal:7000},
+  ],
+  notasFiscais:[{
+    id:"nf-1",pedidoId:"ped-1",obraId:"obra-1",numero:"10",status:"aprovada",
+    emissao:"2026-07-05",valorBruto:24000,
+    pagamentos:[
+      {id:"pgnf-1",valor:10000,data:"2026-07-20",transacaoId:"tx-1"},
+      {id:"pgnf-2",valor:6000,data:"2026-08-10"},
+    ],
+  }],
+  outrasDesp:[{id:"od-1",obraId:"obra-1",competencia:"2026-07",valor:2000,descricao:"Despesa sem pagamento"}],
+  medicoesTerc:[{id:"mt-1",obraId:"obra-1",status:"aprovada",data:"2026-07-08",total:8000}],
+  pagsTerceiros:[{id:"pgt-1",medicaoTercId:"mt-1",obraId:"obra-1",date:"2026-07-25",amount:3000}],
+  transacoes:[{id:"tx-1",data:"2026-07-20",valor:-10000,status:"conciliado",vinculo:{tipo:"nota",id:"nf-1"}}],
+  despesasEmpresa:[],rescisoes:[],
+});
+
+const supplementalLabor = [
+  {id:"labor:obra-1:2026-07",effect:"cost",amountCents:toCents(12000),date:"2026-07-31",competence:"2026-07",obraId:"obra-1",category:"mao_obra",description:"Mão de obra",sourceType:"ponto",sourceId:"obra-1:2026-07"},
+  {id:"benefit:obra-1:2026-07",effect:"cost",amountCents:toCents(1500),date:"2026-07-31",competence:"2026-07",obraId:"obra-1",category:"beneficios",description:"Benefícios",sourceType:"ponto",sourceId:"obra-1:2026-07"},
+];
+
+describe("razão financeiro único — fixture julho/2026", () => {
+  const ledger = buildFinancialLedger(julyFixture(), { supplementalEvents: supplementalLabor });
+  const period = { obraId:"obra-1", competence:"2026-07", startDate:"2026-07-01", endDate:"2026-07-31", asOfDate:"2026-07-31" };
+
+  test("fecha DRE por competência", () => {
+    const dre = selectDRE(ledger, period);
+    expect(dre.revenueCents).toBe(toCents(100000));
+    expect(dre.costCents).toBe(toCents(47500));
+    expect(dre.resultCents).toBe(toCents(52500));
+    expect(dre.margin).toBe(52.5);
+  });
+
+  test("fecha caixa sem duplicar transação bancária nem campo espelho", () => {
+    const cash = selectCashFlow(ledger, period);
+    expect(cash.cashInCents).toBe(toCents(45000));
+    expect(cash.cashOutCents).toBe(toCents(13000));
+    expect(cash.balanceCents).toBe(toCents(32000));
+  });
+
+  test("fecha posições e compromisso", () => {
+    expect(selectAccountsReceivable(ledger, period).balanceCents).toBe(toCents(60000));
+    expect(selectAccountsPayable(ledger, period).balanceCents).toBe(toCents(19000));
+    expect(selectCommitments(ledger, period).balanceCents).toBe(toCents(6000));
+    expect(ledger.events.filter(event => event.unallocated && event.effect === "cash_in").reduce((sum,event)=>sum+event.amountCents,0)).toBe(toCents(5000));
+  });
+
+  test("payments é somente entrada avulsa, nunca custo ou saída", () => {
+    const events = ledger.events.filter(event => event.sourceType === "recebimento_avulso");
+    expect(events.map(event => event.effect)).toEqual(["cash_in"]);
+  });
+
+  test("pedido não entra no DRE e NF não duplica custo no pagamento", () => {
+    const dre = selectDRE(ledger, period);
+    expect(dre.events.some(event => event.sourceType === "pedido")).toBe(false);
+    expect(dre.events.filter(event => event.sourceType === "nota_fiscal").reduce((sum,event)=>sum+event.amountCents,0)).toBe(toCents(24000));
+  });
+
+  test("conferência automática fecha cards e detalhes", () => {
+    const conference = validateFinancialReconciliation(ledger, period);
+    expect(conference.ok).toBe(true);
+    expect(conference.checks.every(check => check.ok)).toBe(true);
+  });
+});
+
+describe("compatibilidade e pendências financeiras", () => {
+  test("recebimento parcial vale mesmo com booleano falso", () => {
+    const data={obras:[{id:"o"}],medicoes:[{id:"m",obraId:"o",competencia:"2026-07",valorPrevisto:1000,recebido:false,recebimentos:[{id:"r",valor:400,data:"2026-07-10"}]}]};
+    const ledger=buildFinancialLedger(data);
+    expect(selectCashFlow(ledger,{obraId:"o",startDate:"2026-07-01",endDate:"2026-07-31"}).cashInCents).toBe(toCents(400));
+    const receivable=selectAccountsReceivable(ledger,{obraId:"o",asOfDate:"2026-07-31"});
+    expect(receivable.balanceCents).toBe(toCents(600));
+    expect(receivable.items[0].status).toBe("parcial");
+  });
+
+  test("campo espelho gera um único recebimento legado", () => {
+    const measurement={id:"m",valorPrevisto:1000,valorRecebido:400,dataPagamento:"2026-07-10",recebimentos:[]};
+    expect(recebimentosDaMedicao(measurement)).toHaveLength(1);
+    const mirrored={...measurement,recebimentos:[{id:"r",valor:400,data:"2026-07-10"}]};
+    expect(recebimentosDaMedicao(mirrored)).toHaveLength(1);
+  });
+
+  test("pagamento maior que obrigação é rastreado e impede conferência OK", () => {
+    const data={notasFiscais:[{id:"nf",obraId:"o",status:"aprovada",emissao:"2026-07-01",valorBruto:100,pagamentos:[{id:"p",valor:120,data:"2026-07-02"}]}]};
+    const ledger=buildFinancialLedger(data);
+    expect(selectAccountsPayable(ledger,{obraId:"o",asOfDate:"2026-07-31"}).overpaidCents).toBe(toCents(20));
+    expect(ledger.issues.find(issue=>issue.code==="PAYABLE_OVERPAID")?.differenceCents).toBe(toCents(20));
+    expect(validateFinancialReconciliation(ledger,{obraId:"o",asOfDate:"2026-07-31"}).ok).toBe(false);
+  });
+
+  test("rateio divergente registra diferença exata", () => {
+    const ledger=buildFinancialLedger({notasFiscais:[{id:"nf",status:"aprovada",emissao:"2026-07-01",valorBruto:10000,rateios:[{id:"r",obraId:"o",valor:9500}]}]});
+    expect(ledger.issues.find(issue=>issue.code==="NF_ALLOCATION_MISMATCH")?.differenceCents).toBe(toCents(-500));
+    expect(validateFinancialReconciliation(ledger,{obraId:"o"}).ok).toBe(false);
+  });
+});

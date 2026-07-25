@@ -134,6 +134,21 @@ describe("entradas - parcela do contrato vs. medição técnica", () => {
   });
 });
 
+describe("entradas - contrato comercial antes da criação da obra", () => {
+  test("oferece a entrada de contrato como candidata e preserva o saldo parcial", () => {
+    const data = {
+      notasFiscais: [], pedidos: [], medicoes: [], medicoesTerc: [], terceirizados: [], employees: [], caixaObra: [], transacoes: [],
+      comercial: { contratos: [{ id: "ct1", numero: "CONT-1", contratante: "Cliente Teste", entrada: 1000, recebimentosEntrada: [{ id: "r1", valor: 400 }] }] },
+    };
+    const indices = criarIndicesFinanceiros(data);
+    const candidatas = gerarCandidatosConciliacao({ id: "t1", valor: 600, data: "2026-01-10", contraparteNome: "Cliente Teste" }, data, indices);
+    const contrato = candidatas.find(c => c.tipo === "entradaContrato");
+    expect(contrato).toBeDefined();
+    expect(contrato.titulo).toMatch(/Entrada do contrato CONT-1/);
+    expect(contrato.podeRegistrarPagamento).toBe(true);
+  });
+});
+
 describe("busca automática de PIX cadastrado (empresa/funcionário/terceiro/fornecedor)", () => {
   const baseData = {
     notasFiscais: [], pedidos: [], medicoes: [], medicoesTerc: [], terceirizados: [], caixaObra: [],

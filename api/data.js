@@ -20,21 +20,111 @@
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import fs from "node:fs";
+import path from "node:path";
+import postgres from "postgres";
 import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
+import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
+import { projectDataForUser, publicUser } from "../server/data-projection.js";
+import { authorizeSectionChanges, validateNoPhysicalDeletes } from "../server/section-authorizations.js";
+import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
+import { getOrCreateFolder, graph, refresh, rootItem } from "./microsoft/_graph.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const KEY     = "arced_ponto_v1";
 const PROFILE_KEY = "arced_auth_profiles_v1";
+// Ativação somente após executar a migração canônica e concluir a comparação
+// em sombra. Evita quebrar instalações legadas durante a transição.
+const FINANCIAL_ENGINE_ENFORCE = process.env.FINANCIAL_ENGINE_ENFORCE === "true";
+const FINANCIAL_LEGACY_SECTIONS = new Set([
+  "payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","transacoes",
+  "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
+  "titulosFolha","reconciliationLinks","rescisoes","comercial",
+  "attendance","employees","archivedLaborCosts","config","obras",
+  "equipamentos","locacoesEquip","manutencoesEquip",
+]);
+const FINANCIAL_COMMANDS = new Set(["CREATE_FINANCIAL_TITLE","REGISTER_SETTLEMENT","REVERSE_SETTLEMENT","CLOSE_ACCOUNTING_PERIOD"]);
+const FINANCIAL_COMMAND_ROLES = {
+  CREATE_FINANCIAL_TITLE:["admin","financeiro"], REGISTER_SETTLEMENT:["admin","financeiro"],
+  REVERSE_SETTLEMENT:["admin","financeiro"], CLOSE_ACCOUNTING_PERIOD:["admin"],
+};
+const BACKUP_FOLDER="00 - Backups ARCD";
+const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
 
 const db = createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+const listarLinhasBackup=async()=>{
+  const rows=[];let from=0;
+  while(true){const {data,error}=await db.from("company_app_data").select("key,value,updated_at").eq("company_id",COMPANY).range(from,from+999);if(error)throw error;rows.push(...(data||[]));if((data||[]).length<1000)break;from+=1000;}
+  return rows.filter(row=>row.key!=="onedrive_auth_v1");
+};
+const pastaBackup=async token=>{const root=await rootItem(token),driveId=root.parentReference.driveId;return{driveId,folder:await getOrCreateFolder(token,driveId,root.id,BACKUP_FOLDER)};};
+const enviarBufferBackup=async(token,driveId,parentId,name,buffer,contentType)=>{
+  const session=await (await graph(token,`/drives/${driveId}/items/${parentId}:/${encodeURIComponent(name)}:/createUploadSession`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({item:{"@microsoft.graph.conflictBehavior":"fail",name}})})).json();
+  const chunkSize=5*320*1024;
+  for(let start=0;start<buffer.length;start+=chunkSize){const end=Math.min(buffer.length,start+chunkSize)-1;const r=await fetch(session.uploadUrl,{method:"PUT",headers:{"Content-Length":String(end-start+1),"Content-Range":`bytes ${start}-${end}/${buffer.length}`,"Content-Type":contentType},body:buffer.subarray(start,end+1)});if(!r.ok&&r.status!==202)throw new Error(`Falha ao enviar backup ao OneDrive (${r.status}).`);}
+};
+const criarBackupOneDrive=async(req,actor)=>{
+  const key=backupKeyFromEnv(process.env.BACKUP_ENCRYPTION_KEY),{accessToken}=await refresh(req),{driveId,folder}=await pastaBackup(accessToken),now=new Date().toISOString(),name=`arcd-${now.replace(/[:.]/g,"-")}.arcdbackup`;
+  const bundle=createBackupBundle({companyId:COMPANY,rows:await listarLinhasBackup(),now,key});const manifest={...bundle.manifest,actor,encryptedFile:name,bytes:bundle.body.length,excludedKeys:["onedrive_auth_v1"]};
+  await enviarBufferBackup(accessToken,driveId,folder.id,name,bundle.body,"application/octet-stream");
+  await enviarBufferBackup(accessToken,driveId,folder.id,`${name}.manifest.json`,Buffer.from(JSON.stringify(manifest,null,2)),"application/json");
+  return{ok:true,name,recordCount:manifest.recordCount,sha256:manifest.sha256,bytes:manifest.bytes,createdAt:now};
+};
+const verificarBackupOneDrive=async req=>{
+  const key=backupKeyFromEnv(process.env.BACKUP_ENCRYPTION_KEY),{accessToken}=await refresh(req),{driveId,folder}=await pastaBackup(accessToken);
+  const children=(await (await graph(accessToken,`/drives/${driveId}/items/${folder.id}/children?$select=id,name,lastModifiedDateTime,size,file`)).json()).value||[];
+  const manifestItem=children.filter(item=>item.file&&item.name.endsWith(".arcdbackup.manifest.json")).sort((a,b)=>String(b.lastModifiedDateTime).localeCompare(String(a.lastModifiedDateTime)))[0];if(!manifestItem)throw Object.assign(new Error("Nenhum backup encontrado no OneDrive."),{status:404});
+  const read=async item=>Buffer.from(await (await graph(accessToken,`/drives/${driveId}/items/${item.id}/content`,{redirect:"follow"})).arrayBuffer());const manifest=JSON.parse((await read(manifestItem)).toString("utf8")),backup=children.find(item=>item.name===manifest.encryptedFile);if(!backup)throw new Error("Arquivo criptografado correspondente não encontrado.");
+  return{...verifyBackupBundle({body:await read(backup),key,manifest}),name:backup.name,bytes:Number(backup.size||manifest.bytes||0)};
+};
+
 const sha256 = (s) => crypto.createHash("sha256").update(String(s)).digest("hex");
+
+const listarTabelaFinanceira = async (table, columns) => {
+  const rows=[];
+  for(let from=0;;from+=1000){
+    const {data,error}=await db.from(table).select(columns).eq("company_id",COMPANY).range(from,from+999);
+    if(error)throw error;
+    rows.push(...(data||[]));
+    if((data||[]).length<1000)break;
+  }
+  return rows;
+};
+
+const relatorioSombraFinanceira = async atual => {
+  const snapshot=buildLegacyFinancialFacts(atual);
+  const legado=summarizeLegacyFinancialFacts(snapshot);
+  const [titles,settlements,events,links,qualityCases,runs]=await Promise.all([
+    listarTabelaFinanceira("financial_titles","id,obra_id,direction,status,metadata"),
+    listarTabelaFinanceira("settlements","id,title_id,amount,status,metadata"),
+    listarTabelaFinanceira("financial_events","id,event_type,source_id,payload"),
+    listarTabelaFinanceira("reconciliation_links","id,status"),
+    listarTabelaFinanceira("data_quality_cases","id,status,category,details"),
+    listarTabelaFinanceira("financial_shadow_runs","id,created_at,result"),
+  ]);
+  const canonico=summarizeCanonicalFinancialRows({titles,settlements,events});
+  const divergencias=compareFinancialScopes(legado,canonico);
+  const divergenciasDRE=compareDreProjectionRows(snapshot.dreSnapshots,events);
+  const lastRun=[...runs].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0]||null;
+  return {
+    ok:true,modo:"sombra",engineEnforced:FINANCIAL_ENGINE_ENFORCE,
+    legado,canonico,divergencias,divergenciasDRE,
+    prontoParaAtivar:divergencias.length===0&&divergenciasDRE.length===0&&snapshot.facts.length>0,
+    contagens:{fatosLegados:snapshot.facts.length,transacoesLegadas:snapshot.bankTransactions.length,
+      titulos:titles.length,liquidacoes:settlements.filter(row=>row.status==="active").length,
+      vinculosConciliacao:links.filter(row=>row.status==="active").length,
+      projecoesDRE:snapshot.dreSnapshots.length,divergenciasDRE:divergenciasDRE.length,
+      divergenciasAbertas:qualityCases.filter(row=>row.status==="open"&&row.category==="financial_shadow_divergence").length},
+    ultimaCarga:lastRun,
+  };
+};
 
 // O ponto arquivado sai do dataset principal, mas seu custo não pode sair do
 // DRE. O resumo abaixo é pequeno, não contém dados pessoais e conserva a
@@ -124,6 +214,41 @@ const lerIndicePerfis = async () => {
   const {data,error}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",PROFILE_KEY).maybeSingle();
   if(error)throw error;
   return data?.value||null;
+};
+
+// DATA-001: a RPC atualiza o blob e insere o evento append-only na mesma
+// transação PostgreSQL. `before`/`after` recebem somente as seções alteradas,
+// evitando duplicar um blob inteiro no histórico a cada pequena edição.
+const salvarComAuditoria = async ({ expectedUpdatedAt, value, actor, action, before, after }) => {
+  const correlationId=crypto.randomUUID();
+  const {data,error}=await db.rpc("company_save_with_audit",{
+    p_company_id:COMPANY,p_key:KEY,p_expected_updated_at:expectedUpdatedAt,p_value:encodeAppData(value),
+    p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
+    p_correlation_id:correlationId,p_action:action,p_before:before||{},p_after:after||{},
+  });
+  if(error)throw error;
+  const result=Array.isArray(data)?data[0]:data;
+  return { applied:!!result?.applied, updatedAt:result?.updated_at||null, correlationId };
+};
+
+const salvarFinanceiroComAuditoria = async ({ expectedUpdatedAt, value, actor, action, before, after }) => {
+  if(!process.env.POSTGRES_URL_NON_POOLING)throw new Error("A conexão transacional do motor financeiro não está configurada.");
+  const correlationId=crypto.randomUUID();
+  const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
+  try{
+    const snapshot=buildLegacyFinancialFacts(value);
+    const [result]=await sql`
+      select * from financial_save_with_sync(
+        ${COMPANY},${KEY},${expectedUpdatedAt},${sql.json(encodeAppData(value))},
+        ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
+        ${correlationId},${action},${sql.json(before||{})},${sql.json(after||{})},${sql.json(snapshot)}
+      )
+    `;
+    return {
+      applied:!!result?.applied,updatedAt:result?.updated_at||null,
+      correlationId,syncResult:result?.sync_result||{},
+    };
+  }finally{await sql.end({timeout:2});}
 };
 
 // Confere o PIN contra o hash guardado no próprio dataset
@@ -261,9 +386,11 @@ export default async function handler(req, res) {
   }
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
-  const { action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
+  const { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
 
   try {
+    if(action==="backup-create"&&cronAutorizado(req))return res.status(200).json(await criarBackupOneDrive(req,"system:vercel-cron"));
+    if(action==="backup-verify"&&cronAutorizado(req))return res.status(200).json(await verificarBackupOneDrive(req));
     if (action === "client-portal") {
       const { payload: p } = await lerLinha();
       const obraId = String(req.body?.obraId || "");
@@ -317,7 +444,7 @@ export default async function handler(req, res) {
       const usuario=encontrarUsuarioAuth(p,auth.user||auth.session.user);
       if(!usuario)return res.status(403).json({error:"Conta sem vínculo com um operador ativo do ArcD."});
       const completo=await anexarCustosArquivados(p);
-      return res.status(200).json({data:completo,updatedAt,usuario:{id:usuario.id,nome:usuario.nome,role:usuario.role,email:usuario.email||email},accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
+      return res.status(200).json({data:projectDataForUser(completo,usuario),updatedAt,usuario:publicUser(usuario),accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
     }
 
     if (action === "auth-refresh") {
@@ -442,13 +569,147 @@ export default async function handler(req, res) {
       return res.status(200).json({ok:true,data:novo,updatedAt:gravado?.updated_at||agora});
     }
 
+    // Motor Financeiro Canônico: o navegador envia somente o comando. A RPC
+    // faz bloqueios, idempotência, saldo, evento, auditoria e outbox na mesma
+    // transação PostgreSQL. Mantido nesta rota para caber no plano Hobby da
+    // Vercel sem criar uma 13ª função serverless.
+    if (action === "financial-command") {
+      const command=req.body?.command||{};
+      if(!FINANCIAL_COMMANDS.has(command.type))return res.status(400).json({error:"Comando financeiro inválido."});
+      if(!FINANCIAL_COMMAND_ROLES[command.type].includes(usuario.role))return res.status(403).json({error:"Seu perfil não pode executar este comando financeiro."});
+      if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave de idempotência inválida."});
+      const {data:resultado,error}=await db.rpc("financial_execute_command",{p_company_id:COMPANY,p_actor_id:usuario.id,p_command:command});
+      if(error){console.error("Falha no motor financeiro:",error.message);return res.status(409).json({error:"O comando não foi efetivado. Nenhum lançamento parcial foi salvo."});}
+      return res.status(200).json(resultado);
+    }
+
+    // FIN-002: fotografia em sombra do legado versus motor canônico. Não
+    // grava nem altera o legado; serve como portão objetivo antes de FIN-003.
+    if(action==="financial-shadow-report"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores homologam o motor financeiro."});
+      try{return res.status(200).json(await relatorioSombraFinanceira(atual));}
+      catch(error){
+        if(/financial_shadow_runs|does not exist|schema cache/i.test(String(error?.message||""))){
+          return res.status(409).json({error:"A migration FIN-002 ainda não foi aplicada. Execute migrations/001_sync_legacy_financial.up.sql."});
+        }
+        throw error;
+      }
+    }
+
+    if(action==="financial-shadow-migrate"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores preparam o motor financeiro."});
+      if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({error:"A conexão direta do Supabase não está configurada na produção."});
+      const migrationPaths=[
+        path.join(process.cwd(),"migrations","001_sync_legacy_financial.up.sql"),
+        path.join(process.cwd(),"migrations","002_financial_transactional_projection.up.sql"),
+        path.join(process.cwd(),"migrations","003_accounting_period_enforcement.up.sql"),
+      ];
+      if(migrationPaths.some(file=>!fs.existsSync(file)))return res.status(500).json({error:"As migrations financeiras versionadas não foram incluídas no deploy."});
+      const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
+      try{
+        for(const migrationPath of migrationPaths)await sql.unsafe(fs.readFileSync(migrationPath,"utf8"));
+        const [check]=await sql`
+          select
+            to_regclass('public.financial_shadow_runs') is not null as table_ok,
+            exists(
+              select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+              where n.nspname='public' and p.proname='financial_sync_legacy_facts'
+            ) as function_ok,
+            exists(
+              select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+              where n.nspname='public' and p.proname='financial_save_with_sync'
+            ) as projection_ok
+        `;
+        if(!check?.table_ok||!check?.function_ok||!check?.projection_ok)throw new Error("A validação pós-migração não encontrou os objetos esperados.");
+        return res.status(200).json({ok:true,migration:"001-003_financial_engine",...check});
+      }catch(error){
+        console.error("Falha na migration FIN-002:",error.message);
+        return res.status(409).json({error:"A migration FIN-002 foi revertida pela transação. Consulte os logs do servidor antes de repetir."});
+      }finally{await sql.end({timeout:2});}
+    }
+
+    if(action==="financial-shadow-sync"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores executam a carga financeira em sombra."});
+      const snapshot=buildLegacyFinancialFacts(atual);
+      if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({error:"A conexão direta do Supabase não está configurada."});
+      const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
+      let sync;
+      try{
+        const [row]=await sql`select financial_sync_legacy_facts(${COMPANY},${usuario.id},${sql.json(snapshot)}) as result`;
+        sync=row.result;
+      }catch(error){
+        console.error("Falha na carga financeira em sombra:",error.message);
+        return res.status(409).json({error:/financial_sync_legacy_facts|does not exist/i.test(error.message)
+          ?"A migration FIN-002 ainda não foi aplicada. Prepare o banco antes da carga."
+          :"A carga foi recusada pelo banco e nenhuma ativação foi realizada."});
+      }finally{await sql.end({timeout:2});}
+      const report=await relatorioSombraFinanceira(atual);
+      await db.from("data_quality_cases").update({status:"resolved",resolved_at:new Date().toISOString()})
+        .eq("company_id",COMPANY).eq("category","financial_shadow_divergence").eq("status","open");
+      if(report.divergencias.length){
+        const cases=report.divergencias.map(item=>({
+          company_id:COMPANY,category:"financial_shadow_divergence",
+          severity:Math.abs(item.difference)>=100?"high":"medium",entity_type:item.scope==="empresa"?"company":"obra",
+          entity_id:item.scope,details:item,status:"open",
+        }));
+        const {error:caseError}=await db.from("data_quality_cases").insert(cases);
+        if(caseError)console.error("Falha ao registrar divergências da sombra:",caseError.message);
+      }
+      return res.status(200).json({...report,sync});
+    }
+
+    if(action==="financial-dre-report"||action==="financial-company-dre-report"){
+      const year=Number(req.body?.year),month=Number(req.body?.month);
+      const period=["mes","q1","q2"].includes(req.body?.period)?req.body.period:"mes";
+      const requestedWork=String(req.body?.obraId||"");
+      const companyStatement=action==="financial-company-dre-report";
+      if(!Number.isInteger(year)||year<2000||year>2100||!Number.isInteger(month)||month<0||month>11){
+        return res.status(400).json({error:"Período do DRE inválido."});
+      }
+      if(companyStatement&&usuario.obraId){
+        return res.status(403).json({error:"O DRE da empresa não está disponível para um perfil restrito a uma obra."});
+      }
+      if(!companyStatement&&usuario.obraId&&requestedWork!==String(usuario.obraId)){
+        return res.status(403).json({error:"O DRE solicitado está fora do escopo da obra do usuário."});
+      }
+      const scope=companyStatement?"company_dre":(requestedWork||"empresa");
+      const currentId=`${year}-${String(month+1).padStart(2,"0")}:${period}:${scope}`;
+      const historyIds=Array.from({length:6},(_,index)=>{
+        const date=new Date(year,month-5+index,1);
+        return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}:mes:${scope}`;
+      });
+      const ids=[...new Set([currentId,...historyIds])];
+      const {data:events,error}=await db.from("financial_events")
+        .select("source_id,payload,effective_date")
+        .eq("company_id",COMPANY).eq("event_type","dre_snapshot")
+        .eq("source_type","dre_projection").in("source_id",ids);
+      if(error)throw error;
+      const activeEvents=(events||[]).filter(event=>event.payload?.active!==false);
+      const byId=new Map(activeEvents.map(event=>[event.source_id,event.payload]));
+      return res.status(200).json({
+        ok:true,engineEnforced:FINANCIAL_ENGINE_ENFORCE,source:"canonical_ledger",
+        current:byId.get(currentId)||null,
+        history:historyIds.map(sourceId=>byId.get(sourceId)||null),
+      });
+    }
+
+    if(action==="backup-status")return res.status(200).json({ok:true,configured:!!process.env.BACKUP_ENCRYPTION_KEY,destination:"OneDrive",folder:BACKUP_FOLDER});
+    if(action==="backup-create"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores operam backups."});
+      return res.status(201).json(await criarBackupOneDrive(req,usuario.id));
+    }
+    if(action==="backup-verify"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores verificam backups."});
+      return res.status(200).json(await verificarBackupOneDrive(req));
+    }
+
     // ── 3. Carregar ────────────────────────────────────────────────
     if (action === "load") {
       const completo = await anexarCustosArquivados(atual);
       return res.status(200).json({
-        data: completo,
+        data: projectDataForUser(completo, usuario),
         updatedAt,
-        usuario: { id: usuario.id, nome: usuario.nome, role: usuario.role, email: usuario.email || "" },
+        usuario: publicUser(usuario),
       });
     }
 
@@ -461,7 +722,12 @@ export default async function handler(req, res) {
     if (action === "save-sections") {
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
+      const exigeMotorFinanceiro=FINANCIAL_ENGINE_ENFORCE&&chaves.some(key=>FINANCIAL_LEGACY_SECTIONS.has(key));
       if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
+      const erroAutorizacao=authorizeSectionChanges(usuario,Object.fromEntries(chaves.map(key=>[key,sections[key]])));
+      if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
+      const erroExclusao=validateNoPhysicalDeletes(Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),sections);
+      if(erroExclusao)return res.status(409).json({error:erroExclusao});
       if(chaves.includes("conferencias")){
         const baseConferencias=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"conferencias")?baseSections.conferencias:atual?.conferencias;
         const erroPermissao=validarAlteracoesConferencias(usuario,baseConferencias||[],sections.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
@@ -490,24 +756,20 @@ export default async function handler(req, res) {
       };
       let valor=aplicar(atual,houveConcorrencia);
       let agora=new Date().toISOString();
-      let {data:gravado,error}=await db.from("company_app_data")
-        .update({value:encodeAppData(valor),updated_at:agora,updated_by:null})
-        .eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",updatedAt)
-        .select("updated_at").maybeSingle();
-      if(error)throw error;
+      const salvarVersao=exigeMotorFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
+      let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_sections":"save_sections",
+        before:Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
+      let gravado=gravacao.applied?{updated_at:gravacao.updatedAt}:null;
 
       let combinado=houveConcorrencia;
       if(!gravado){
         const recente=await lerLinha();
         valor=aplicar(recente.payload,true);
         agora=new Date().toISOString();
-        const retry=await db.from("company_app_data")
-          .update({value:encodeAppData(valor),updated_at:agora,updated_by:null})
-          .eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",recente.updatedAt)
-          .select("updated_at").maybeSingle();
-        if(retry.error)throw retry.error;
-        if(!retry.data)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
-        gravado=retry.data;combinado=true;
+        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_sections":"save_sections",
+          before:Object.fromEntries(chaves.map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
+        if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
+        gravado={updated_at:retry.updatedAt};combinado=true;
       }
       if(chaves.includes("usuarios"))await salvarIndicePerfis(valor);
       return res.status(200).json({ok:true,merged:combinado,data:combinado?valor:undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
@@ -516,6 +778,13 @@ export default async function handler(req, res) {
     // ── 4b. Salvar blob completo (compatibilidade / primeiro acesso) ─
     if (action === "save") {
       if (!payload) return res.status(400).json({ error: "Nada para salvar." });
+      const secoesAlteradas=Object.fromEntries([...new Set([...Object.keys(payload||{}),...Object.keys(atual||{})])]
+        .filter(key=>!igual(payload?.[key],atual?.[key])).map(key=>[key,payload?.[key]]));
+      const exigeMotorFinanceiro=FINANCIAL_ENGINE_ENFORCE&&Object.keys(secoesAlteradas).some(key=>FINANCIAL_LEGACY_SECTIONS.has(key));
+      const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas);
+      if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
+      const erroExclusao=validateNoPhysicalDeletes(atual,payload);
+      if(erroExclusao)return res.status(409).json({error:erroExclusao});
       if(!igual(payload.conferencias,atual?.conferencias)){
         const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],payload.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
         if(erroPermissao)return res.status(403).json({error:erroPermissao});
@@ -544,30 +813,25 @@ export default async function handler(req, res) {
       if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:atual,currentUpdatedAt:updatedAt});
 
       const agora = new Date().toISOString();
+      const beforeAudit=Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,atual?.[key]]));
+      const afterAudit=Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]));
 
       // .select() devolve a linha COMO O BANCO A GUARDOU. Assim o carimbo que
       // mandamos de volta ao navegador é exatamente o que estará lá na próxima
       // comparação — sem discrepância de formato.
-      let { data: gravado, error } = await db
-        .from("company_app_data")
-        .update({ value: encodeAppData(valor), updated_at: agora, updated_by: null })
-        .eq("company_id", COMPANY)
-        .eq("key", KEY)
-        .eq("updated_at",updatedAt)
-        .select("updated_at")
-        .maybeSingle();
-
-      if (error) throw error;
+      const salvarVersao=exigeMotorFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
+      const primeira=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_blob":"save_blob",before:beforeAudit,after:afterAudit});
+      let gravado=primeira.applied?{updated_at:primeira.updatedAt}:null;
       // Outra gravação pode entrar entre a leitura e o UPDATE. A condição no
       // updated_at impede sobrescrita; nesse caso relê e reaplica a mesma mescla.
       if(!gravado){
         if(!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou ao mesmo tempo."});
         const recente=await lerLinha();valor=mesclarTresVias(basePayload,payload,recente.payload);
         const novoAgora=new Date().toISOString();
-        const retry=await db.from("company_app_data").update({value:encodeAppData(valor),updated_at:novoAgora,updated_by:null}).eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",recente.updatedAt).select("updated_at").maybeSingle();
-        if(retry.error)throw retry.error;
-        if(!retry.data)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
-        gravado=retry.data;
+        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_blob":"save_blob",
+          before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
+        if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
+        gravado={updated_at:retry.updatedAt};
       }
       if(!igual(valor?.usuarios,atual?.usuarios))await salvarIndicePerfis(valor);
       return res.status(200).json({ ok: true, merged:!!houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora), data:(houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora))?valor:undefined, updatedAt: gravado?.updated_at || agora });

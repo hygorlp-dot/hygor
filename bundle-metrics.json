@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-07-25T23:20:50.158Z",
+  "totals": {
+    "bytes": 3801281,
+    "gzipBytes": 1053592
+  },
+  "assets": [
+    {
+      "name": "LegacyApp-CCn2nrbi.js",
+      "bytes": 2050882,
+      "gzipBytes": 572642
+    },
+    {
+      "name": "spreadsheet-tools-HHn5daWb.js",
+      "bytes": 929956,
+      "gzipBytes": 255657
+    },
+    {
+      "name": "charts-BEYsqZ9H.js",
+      "bytes": 412766,
+      "gzipBytes": 106622
+    },
+    {
+      "name": "vendor-7DE9ghbZ.js",
+      "bytes": 188535,
+      "gzipBytes": 61035
+    },
+    {
+      "name": "sinapi-parser.worker-BcaEAY6v.js",
+      "bytes": 106993,
+      "gzipBytes": 32255
+    },
+    {
+      "name": "index-o8bFnohu.css",
+      "bytes": 103663,
+      "gzipBytes": 21137
+    },
+    {
+      "name": "index-BPiPiVCu.js",
+      "bytes": 4890,
+      "gzipBytes": 2292
+    },
+    {
+      "name": "spreadsheet-Bnbsp6H6.js",
+      "bytes": 2512,
+      "gzipBytes": 1331
+    },
+    {
+      "name": "rolldown-runtime-aKtaBQYM.js",
+      "bytes": 1084,
+      "gzipBytes": 621
+    }
+  ]
+}

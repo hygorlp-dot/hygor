@@ -68,13 +68,29 @@ export const temSessao = () => {
 };
 
 const chamar = async (body) => {
-  let r = await fetch(ROTA, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const requisitar = async payload => {
+    const controller=new AbortController();
+    const timer=window.setTimeout(()=>controller.abort(),45000);
+    try {
+      return await fetch(ROTA, {
+        method: "POST", signal:controller.signal,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } finally { window.clearTimeout(timer); }
+  };
+  let r;
+  try { r=await requisitar(body); }
+  catch(error) {
+    return { status:0, error:error?.name==="AbortError"
+      ? "O servidor demorou mais de 45 segundos para responder. Verifique a conexão e tente novamente."
+      : "Não foi possível conectar ao servidor." };
+  }
   if(r.status===401&&sessao.refreshToken&&!String(body.action||"").startsWith("auth-")){
-    if(await renovarSessaoEmail())r=await fetch(ROTA,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...body,accessToken:sessao.accessToken})});
+    if(await renovarSessaoEmail()) {
+      try { r=await requisitar({...body,accessToken:sessao.accessToken}); }
+      catch(error) { return {status:0,error:error?.name==="AbortError"?"O servidor demorou mais de 45 segundos para responder. Tente novamente.":"Não foi possível conectar ao servidor."}; }
+    }
   }
   const json = await r.json().catch(() => ({}));
   return { status: r.status, ...json };
@@ -113,12 +129,21 @@ export const configurarGemini = apiKey => chamarRotaAutenticada("/api/ai-agent",
 export const removerConfiguracaoIA = () => chamarRotaAutenticada("/api/ai-agent", { action:"remove" });
 export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
+export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });
+export const consultarSombraFinanceira = () => chamar({ action:"financial-shadow-report", ...credenciais() });
+export const prepararSombraFinanceira = () => chamar({ action:"financial-shadow-migrate", ...credenciais() });
+export const sincronizarSombraFinanceira = () => chamar({ action:"financial-shadow-sync", ...credenciais() });
+export const consultarDreCanonico = ({year,month,period="mes",obraId=""}) =>
+  chamar({ action:"financial-dre-report", ...credenciais(), year, month, period, obraId });
+export const consultarDreEmpresaCanonico = ({year,month}) =>
+  chamar({ action:"financial-company-dre-report", ...credenciais(), year, month, period:"mes" });
+export const executarBackup = action => chamar({ action:`backup-${action}`, ...credenciais() });
 
 // ── Tela de login: quem existe? ────────────────────────────────────
 // Devolve só nome e papel. O hash do PIN nunca sai do servidor.
 export const listarPerfis = async () => {
   const r = await chamar({ action: "profiles" });
-  if (r.status !== 200) return { usuarios: [], precisaSetup: false, erro: r.error };
+  if (r.status !== 200) return { usuarios: [], precisaSetup: false, erro: r.error || "Não foi possível carregar o acesso ao banco." };
   return { usuarios: r.usuarios || [], precisaSetup: !!r.precisaSetup };
 };
 
@@ -334,11 +359,16 @@ export const carregarQuinzenaArquivada = async (quinzenaId) => {
 // base pública oficial pelo servidor. O PIN nunca sai deste módulo.
 const chamarReferencias = async (action, payload = {}) => {
   if (!temSessao()) return { ok: false, error: "Sessão encerrada." };
-  const r = await fetch("/api/references", {
-    method: "POST",
+  const controller=new AbortController();
+  const timer=window.setTimeout(()=>controller.abort(),60000);
+  let r;
+  try { r=await fetch("/api/references", {
+    method: "POST", signal:controller.signal,
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action, ...credenciais(), ...payload }),
-  });
+  }); } catch(error) {
+    return {ok:false,status:0,error:error?.name==="AbortError"?"A importação não recebeu resposta em 60 segundos. Verifique a conexão e tente novamente.":"Não foi possível falar com o servidor de referências."};
+  } finally { window.clearTimeout(timer); }
   const json = await r.json().catch(() => ({}));
   if (!r.ok && !json.error) {
     json.error = r.status === 404

@@ -19,7 +19,7 @@ export const recebidoPedido = pedido => (pedido.itens||[])
   .reduce((s,i)=>s+Number(i.qtdRecebida||0)*Number(i.precoUnit||0),0);
 export const pendentePedido = pedido => totalPedido(pedido)-recebidoPedido(pedido);
 export const totalPagoPedido = pedido => {
-  const pagamentos=(pedido.pagamentos||[]).reduce((s,p)=>s+Number(p.valor||0),0);
+  const pagamentos=(pedido.pagamentos||[]).filter(p=>p.status!=="estornado").reduce((s,p)=>s+Number(p.valor||0),0);
   return pagamentos>0?pagamentos:(pedido.transacaoId?totalPedido(pedido):0);
 };
 export const saldoPagamentoPedido = pedido => Math.max(0,totalPedido(pedido)-totalPagoPedido(pedido));

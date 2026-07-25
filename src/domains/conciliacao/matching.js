@@ -7,6 +7,7 @@
 // aprovada), conforme as faixas de confiança abaixo.
 import { paraCentavos, semAcento, diasEntre } from "./calculations.js";
 import { transacoesConsumidas, buscarPixRegistrado } from "./selectors.js";
+import { resumoTituloFolha, saldoTituloFolha } from "./payroll.js";
 
 const soNumeros = s => String(s || "").replace(/\D/g, "");
 
@@ -88,10 +89,13 @@ const pontuarData = (dataTransacao, dataPrevista) => {
   return { pts: 0, motivo: null };
 };
 
+const normalizarChavePix = value => String(value || "").trim().toLocaleLowerCase("pt-BR").replace(/\s+/g, "");
 const pontuarPix = (transacao, pixKeyCandidato) => {
   if (!pixKeyCandidato) return { pts: 0, motivo: null };
-  const chave = String(transacao.chave || transacao.contraparteDocumento || transacao.descricao || "");
-  if (chave.includes(String(pixKeyCandidato))) return { pts: 15, motivo: "Chave PIX corresponde" };
+  // Só considera chave quando ela veio estruturada do extrato. Trechos da
+  // descrição são evidência fraca e jamais uma confirmação conclusiva.
+  const chave = normalizarChavePix(transacao.chavePix || transacao.pixKey || "");
+  if (chave && chave === normalizarChavePix(pixKeyCandidato)) return { pts: 25, motivo: "Chave PIX estruturada corresponde" };
   return { pts: 0, motivo: null };
 };
 
@@ -114,12 +118,16 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
   coletar(paraCentavos(Math.abs(Number(transacao.valor))), indices.porValorCentavos);
   if (transacao.contraparteDocumento) coletar(soNumeros(transacao.contraparteDocumento), indices.porDocumento);
   if (transacao.contraparteNome) coletar(semAcento(transacao.contraparteNome), indices.porContraparte);
-  if (transacao.chave) coletar(String(transacao.chave).trim(), indices.porPixChave);
+  // `chave` é o campo estruturado legado do importador; não é a descrição.
+  if (transacao.chavePix || transacao.pixKey || transacao.chave) coletar(normalizarChavePix(transacao.chavePix || transacao.pixKey || transacao.chave), indices.porPixChave);
 
   const candidatas = [];
 
   relevantes.forEach(({ tipo, item, obraId }) => {
-    if (usados.has(`${tipo}:${item.id}`)) return; // já consumido por outra transação
+    // Medições e entradas de contrato admitem recebimentos parciais. Elas
+    // continuam elegíveis enquanto o índice apontar saldo em aberto; os demais
+    // fatos são de vínculo único e não podem ser reutilizados.
+    if (usados.has(`${tipo}:${item.id}`) && !["medicao", "entradaContrato"].includes(tipo)) return;
 
     let saldoCentavos = 0, documento = "", contraparte = "", dataPrevista = "", pixKey = "", titulo = "", podeVincular = false, podeRegistrarPagamento = false, entidadeId = item.id, pagamentoId = null;
 
@@ -177,6 +185,31 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       // rótulo distingue as duas para não confundir o usuário na fila.
       titulo = (item.tipo === "percentual" ? "Medição" : "Parcela do contrato") + (item.competencia ? ` ${item.competencia}` : "");
       podeRegistrarPagamento = true;
+    } else if (tipo === "entradaContrato") {
+      if (!isEntrada) return;
+      const totalRecebido = Array.isArray(item.recebimentosEntrada)
+        ? item.recebimentosEntrada.reduce((s, recebimento) => s + Number(recebimento.valor || 0), 0)
+        : (item.entradaPaga ? Number(item.entrada || 0) : 0);
+      saldoCentavos = paraCentavos(Number(item.entrada || 0) - totalRecebido);
+      documento = item.numero;
+      contraparte = item.contratante;
+      dataPrevista = item.inicio;
+      titulo = `Entrada do contrato ${item.numero || ""}`.trim();
+      podeRegistrarPagamento = saldoCentavos > 0;
+    } else if (tipo === "tituloFolha") {
+      if (isEntrada) return;
+      const employee = (data.employees || []).find(e => e.id === item.employeeId) || {};
+      const resumoFolha = resumoTituloFolha(item, employee);
+      saldoCentavos = paraCentavos(saldoTituloFolha(item));
+      documento = employee.cpf || employee.documento || item.documentoFuncionario;
+      contraparte = resumoFolha.funcionario;
+      pixKey = employee.pixKey || item.chavePix;
+      dataPrevista = item.vencimento || item.periodoFim;
+      titulo = `Folha · ${resumoFolha.funcionario} · ${resumoFolha.periodo}`;
+      podeRegistrarPagamento = saldoCentavos > 0;
+      // A tela usa estes dados para exibir o cálculo/rateio antes de qualquer
+      // confirmação. Não cria despesa no DRE: só liquida o título.
+      entidadeId = item.id;
     } else if (tipo === "funcionario") {
       if (isEntrada) return;
       contraparte = item.name || item.nome;
@@ -233,12 +266,15 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
     score = Math.max(0, Math.min(100, Math.round(score)));
     const confianca = faixaDoScore(score, alertas.length > 0);
 
+    const metadados = tipo === "tituloFolha"
+      ? { itemId: item.id, payroll: resumoTituloFolha(item, (data.employees || []).find(e => e.id === item.employeeId) || {}) }
+      : { itemId: item.id };
     candidatas.push(candidata({
       tipo, entidadeId, pagamentoId, obraId, titulo, contraparte, documento,
       dataPrevista, valorOriginalCentavos: saldoCentavos, saldoCentavos,
       podeVincular: podeVincular && bloqueios.length === 0,
       podeRegistrarPagamento: podeRegistrarPagamento && bloqueios.length === 0,
-      metadados: { itemId: item.id },
+      metadados,
     }));
     const last = candidatas[candidatas.length - 1];
     last.score = score; last.confianca = confianca;
@@ -249,7 +285,7 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
   // terceiro, fornecedor ou proprietário de equipamento) - busca automática
   // pedida explicitamente: mesmo sem nota/pedido em aberto, a contraparte já
   // é conhecida, e isso é informação relevante para classificar a transação.
-  const pixRegistrado = buscarPixRegistrado(indices, transacao.chave || transacao.contraparteDocumento || transacao.descricao);
+  const pixRegistrado = buscarPixRegistrado(indices, transacao.chavePix || transacao.pixKey || transacao.chave || transacao.contraparteDocumento);
   if (pixRegistrado && !candidatas.some(c => c.tipo === "pixRegistrado")) {
     const rotulos = { empresa: "conta da própria empresa", funcionario: "funcionário", terceiro: "terceirizado", fornecedor: "fornecedor", proprietarioEquip: "proprietário de equipamento" };
     const ehEmpresa = pixRegistrado.tipo === "empresa";
@@ -261,12 +297,26 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       metadados: { pixTipo: pixRegistrado.tipo },
     });
     c.score = ehEmpresa ? 40 : 25;
-    c.confianca = faixaDoScore(c.score, false);
+    c.confianca = faixaDoScore(c.score, !!pixRegistrado.duplicado);
+    if (pixRegistrado.duplicado) c.alertas = ["A chave PIX está vinculada a mais de uma contraparte cadastrada; escolha manualmente."];
     c.motivos = [ehEmpresa
       ? "Esta chave PIX já está cadastrada como uma conta da própria empresa - provável transferência interna, não receita/despesa nova"
       : `Esta chave PIX já está cadastrada na base como ${rotulos[pixRegistrado.tipo]}: ${pixRegistrado.nome}`];
     candidatas.push(c);
   }
 
-  return candidatas.sort((a, b) => b.score - a.score);
+  const ordenadas = candidatas.sort((a, b) => b.score - a.score);
+  // Pré-seleção é só conveniência visual: exige pontuação forte, nenhum
+  // bloqueio e distância suficiente para a segunda alternativa. A execução
+  // continua sempre dependente da confirmação humana.
+  const margem = Number(config.margemEntreCandidatos ?? 15);
+  ordenadas.forEach((candidate, index) => {
+    const second = ordenadas[index + 1];
+    candidate.preSelecionavel = !candidate.bloqueios.length && candidate.score >= Number(config.pontuacaoMinima ?? 80) &&
+      (!second || candidate.score - second.score >= margem);
+    if (candidate.preSelecionavel === false && second && candidate.score - second.score < margem) {
+      candidate.alertas.push("Há outra candidata com pontuação próxima; escolha manualmente.");
+    }
+  });
+  return ordenadas;
 };

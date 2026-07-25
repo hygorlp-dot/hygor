@@ -128,7 +128,7 @@ export const igualCentavos = (a, b, toleranciaCentavos = 1) =>
 // escritos como espelho do total, para não quebrar quem ainda os lê.
 export const totalRecebidoMedicao = medicao =>
   Array.isArray(medicao.recebimentos) && medicao.recebimentos.length
-    ? medicao.recebimentos.reduce((s, r) => s + Number(r.valor || 0), 0)
+    ? medicao.recebimentos.filter(r=>r.status!=="estornado").reduce((s, r) => s + Number(r.valor || 0), 0)
     : Number(medicao.valorRecebido || 0);
 
 export const statusRecebimentoMedicao = medicao => {
@@ -163,14 +163,18 @@ export const aplicarRecebimentoMedicao = (medicao, { id, valor, data, origem = "
 // reverter só a parcela ligada a uma conciliação específica, não o total.
 export const removerRecebimentoMedicao = (medicao, recebimentoId) => {
   const recebimentos = (Array.isArray(medicao.recebimentos) ? medicao.recebimentos : [])
-    .filter(r => r.id !== recebimentoId);
-  const total = recebimentos.reduce((s, r) => s + Number(r.valor || 0), 0);
+    .map(r => r.id !== recebimentoId ? r : {
+      ...r, status:"estornado", motivoEstorno:"Conciliação bancária desfeita",
+      estornadoEm:new Date().toISOString(),
+    });
+  const ativos=recebimentos.filter(r=>r.status!=="estornado");
+  const total = ativos.reduce((s, r) => s + Number(r.valor || 0), 0);
   const previsto = Number(medicao.valorPrevisto || 0);
   return {
     ...medicao,
     recebimentos,
     valorRecebido: total,
-    dataPagamento: recebimentos.length ? recebimentos[recebimentos.length - 1].data || "" : "",
+    dataPagamento: ativos.length ? ativos[ativos.length - 1].data || "" : "",
     recebido: previsto > 0 ? total >= previsto - 0.01 : total > 0,
   };
 };

@@ -16,10 +16,11 @@
 
 ---
 
-## Antes de tudo: um backup em 2 minutos
+## Antes de tudo: backup operacional
 
-Não existe backup automático (o README antigo mentia sobre isso). Antes de
-mexer, abra o app **como está hoje** e exporte:
+O backup criptografado diário é enviado à pasta `00 - Backups ARCD` do
+OneDrive corporativo. Consulte [o procedimento de validação](docs/BACKUP_ONEDRIVE.md).
+Antes de qualquer intervenção excepcional, exporte também:
 
 - Folha → Excel
 - Medições → Excel

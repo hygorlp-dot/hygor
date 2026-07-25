@@ -43,13 +43,20 @@ const rowsFromWorksheet = worksheet => {
   return rows;
 };
 
-const read = async buffer => {
+const read = async (buffer, { sheets, onSheet } = {}) => {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   const result = {SheetNames: [], Sheets: {}};
   workbook.eachSheet(worksheet => {
+    // Bases oficiais trazem abas auxiliares muito grandes. O importador
+    // SINAPI precisa apenas de cinco delas; não materializar as outras evita
+    // dezenas de milhares de células inúteis na memória do Worker.
+    const normalized=String(worksheet.name||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
+    const selected=!Array.isArray(sheets)||sheets.some(name=>normalized===String(name).toUpperCase()||normalized.includes(String(name).toUpperCase()));
+    if(!selected)return;
     result.SheetNames.push(worksheet.name);
     result.Sheets[worksheet.name] = sheetFromRows(rowsFromWorksheet(worksheet));
+    onSheet?.(worksheet.name);
   });
   return result;
 };

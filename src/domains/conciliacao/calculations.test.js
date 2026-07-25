@@ -80,8 +80,9 @@ describe("domínio de conciliação - recebimento parcial de medição (correç�
     const revertida = removerRecebimentoMedicao(m, "r2");
     expect(revertida.recebido).toBe(false);
     expect(revertida.valorRecebido).toBe(400);
-    expect(revertida.recebimentos).toHaveLength(1);
+    expect(revertida.recebimentos).toHaveLength(2);
     expect(revertida.recebimentos[0].id).toBe("r1");
+    expect(revertida.recebimentos[1].status).toBe("estornado");
   });
 
   test("medição sem valorPrevisto (0) some como recebida assim que entra qualquer valor", () => {

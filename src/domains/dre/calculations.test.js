@@ -33,16 +33,16 @@ describe("domínio do DRE", () => {
   test("fecha faturamento, custos, lucro e caixa da obra", () => {
     const dre = regras.calcDREObra(data, "obra-1", 2026, 6);
     expect(dre.faturamento).toBe(5000);
-    expect(dre.totalCustos).toBe(1100);
-    expect(dre.lucroBruto).toBe(3900);
-    expect(dre.saldoCaixa).toBe(1900);
+    expect(dre.totalCustos).toBe(900);
+    expect(dre.lucroBruto).toBe(4100);
+    expect(dre.saldoCaixa).toBe(3000);
   });
 
   test("consolidado preserva a soma das obras", () => {
     const dre = regras.calcDREConsolidado(data, 2026, 6);
     expect(dre.faturamento).toBe(5000);
-    expect(dre.totalCustos).toBe(1000);
-    expect(dre.lucroBruto).toBe(4000);
+    expect(dre.totalCustos).toBe(900);
+    expect(dre.lucroBruto).toBe(4100);
   });
 
   test("mantém os custos de mão de obra de uma quinzena arquivada", () => {

@@ -8,6 +8,7 @@
 // passar por aqui - é isso que garante que DRE, saldo e histórico nunca
 // duplicam o mesmo fato financeiro (requisito crítico da entrega).
 import { aplicarRecebimentoMedicao, removerRecebimentoMedicao } from "./calculations.js";
+import { saldoTituloFolha, situacaoTituloFolha, validarLiquidacaoFolha } from "./payroll.js";
 
 export const gerarIdConc = (prefixo = "c") =>
   `${prefixo}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -133,6 +134,29 @@ export const registrarPagamentoEConciliar = (data, params) => {
       : m);
     next = { ...next, medicoes };
     criados.push({ tipo: "recebimentoMedicao", id: recebimentoId, entidadeId });
+  } else if (tipo === "entradaContrato") {
+    if (Number(tr.valor) <= 0) return { data, resumo: { ok: false, motivo: "Entrada de contrato só pode ser conciliada com crédito bancário" } };
+    const contrato = (data.comercial?.contratos || []).find(item => item.id === entidadeId);
+    if (!contrato) return { data, resumo: { ok: false, motivo: "Contrato não encontrado" } };
+    const previsto = Number(contrato.entrada || 0);
+    if (!(previsto > 0)) return { data, resumo: { ok: false, motivo: "O contrato não possui valor de entrada configurado" } };
+    const recebimentosAtuais = Array.isArray(contrato.recebimentosEntrada) ? contrato.recebimentosEntrada : [];
+    const totalRecebido = recebimentosAtuais.reduce((s, item) => s + Number(item.valor || 0), 0);
+    const valorRecebido = Math.abs(Number(valor ?? tr.valor));
+    if (valorRecebido > previsto - totalRecebido + 0.01) return { data, resumo: { ok: false, motivo: "O valor é maior que o saldo da entrada do contrato" } };
+    const recebimento = {
+      id: gerarIdConc("reccontrato"), valor: valorRecebido, data: dataPagamento || tr.data,
+      origem: "banco", transacaoId, conciliado: true, observacao,
+      registradoPorId: operador?.id || "", registradoPor, registradoEm: new Date().toISOString(),
+    };
+    const recebidoApos = totalRecebido + valorRecebido;
+    const contratos = (next.comercial?.contratos || []).map(item => item.id === entidadeId ? {
+      ...item, recebimentosEntrada: [...recebimentosAtuais, recebimento],
+      entradaPaga: recebidoApos >= previsto - 0.01,
+      entradaPagaEm: recebidoApos >= previsto - 0.01 ? (dataPagamento || tr.data) : item.entradaPagaEm || "",
+    } : item);
+    next = { ...next, comercial: { ...(next.comercial || {}), contratos } };
+    criados.push({ tipo: "recebimentoEntradaContrato", id: recebimento.id, entidadeId });
   } else if (tipo === "medicaoTerc") {
     const pagamentoId = gerarIdConc("pgterc");
     const medicaoTerc = (data.medicoesTerc || []).find(m => m.id === entidadeId);
@@ -174,12 +198,42 @@ export const registrarPagamentoEConciliar = (data, params) => {
     };
     next = { ...next, pagamentosFolha: [...(next.pagamentosFolha || []), novoPagamentoFolha] };
     criados.push({ tipo: "pagamentoFolha", id: pagamentoId, entidadeId });
+  } else if (tipo === "tituloFolha") {
+    const title = (data.titulosFolha || []).find(item => item.id === entidadeId);
+    if (!title) return { data, resumo: { ok: false, motivo: "Título de folha não encontrado" } };
+    const valorLiquidado = Math.abs(Number(valor ?? tr.valor));
+    const erro = validarLiquidacaoFolha(title, valorLiquidado);
+    if (erro) return { data, resumo: { ok: false, motivo: erro } };
+    const liquidacao = {
+      id: gerarIdConc("liqfolha"), payrollTitleId: title.id, transacaoId,
+      valor: valorLiquidado, data: dataPagamento || tr.data,
+      operadorId: operador?.id || "", operador: registradoPor, criadoEm: new Date().toISOString(),
+    };
+    const titulosFolha = (next.titulosFolha || []).map(item => {
+      if (item.id !== entidadeId) return item;
+      const liquidacoes = [...(item.liquidacoes || []), liquidacao];
+      const valorPago = liquidacoes.reduce((sum, current) => sum + Number(current.valor || 0), 0);
+      const atualizado = { ...item, liquidacoes, valorPago, saldo: Math.max(0, Number(item.liquido || 0) - valorPago) };
+      return { ...atualizado, status: situacaoTituloFolha(atualizado), fechadoEm: situacaoTituloFolha(atualizado) === "pago" ? new Date().toISOString() : item.fechadoEm || "" };
+    });
+    const reconciliacaoLink = {
+      id: gerarIdConc("link"), transacaoId, entidadeTipo: "tituloFolha", entidadeId,
+      valorVinculado: valorLiquidado, operacao: "liquidar_e_vincular",
+      score: Number(params.score || 0), confianca: params.confianca || "",
+      motivos: Array.isArray(params.motivos) ? params.motivos : [], status: "confirmado",
+      confirmadoPorId: operador?.id || "", confirmadoPor: registradoPor, confirmadoEm: new Date().toISOString(),
+    };
+    next = { ...next, titulosFolha, reconciliationLinks: [...(next.reconciliationLinks || []), reconciliacaoLink] };
+    criados.push({ tipo: "liquidacaoFolha", id: liquidacao.id, entidadeId, reconciliationLinkId: reconciliacaoLink.id });
   } else {
     return { data, resumo: { ok: false, motivo: `Tipo de origem não suportado: ${tipo}` } };
   }
 
   const vinculo = { tipo, id: entidadeId };
-  const transacoes = marcarTransacao(next.transacoes, transacaoId, { status: "conciliado", vinculo, gerados: criados, obs: observacao });
+  const transacoes = marcarTransacao(next.transacoes, transacaoId, {
+    status: "conciliado", vinculo, gerados: criados, obs: observacao,
+    valorVinculado: Math.abs(Number(valor ?? tr.valor)), saldoNaoVinculado: 0,
+  });
   const historicoConc = registrarHistorico(next.historicoConc, {
     transacaoId, extratoId: tr.extratoId, acao: "pagamento_registrado",
     statusAnterior: tr.status, statusNovo: "conciliado",
@@ -210,15 +264,37 @@ export const criarLancamentoPelaTransacao = (data, params) => {
   const criados = [];
 
   if (tipoLancamento === "despesa_obra") {
-    const item = { id, obraId, competencia: (tr.data || "").slice(0, 7), categoria: categoria || "outros", descricao: descricao || tr.descricao, valor, contaAdmin: false, transacaoId };
+    const item = { id, obraId, competencia: (tr.data || "").slice(0, 7), data:tr.data, dataPagamento:tr.data, pago:true, categoria: categoria || "outros", descricao: descricao || tr.descricao, valor, contaAdmin: false, transacaoId };
     next = { ...next, outrasDesp: [...(next.outrasDesp || []), item] };
     criados.push({ tipo: "outrasDesp", id, entidadeId: id });
   } else if (tipoLancamento === "despesa_administrativa" || tipoLancamento === "tarifa_bancaria" || tipoLancamento === "tributo") {
-    const item = { id, competencia: (tr.data || "").slice(0, 7), categoria: categoria || tipoLancamento, descricao: descricao || tr.descricao, valor, recorrente: false, transacaoId };
+    const item = { id, competencia: (tr.data || "").slice(0, 7), data:tr.data, dataPagamento:tr.data, pago:true, categoria: categoria || tipoLancamento, descricao: descricao || tr.descricao, valor, recorrente: false, transacaoId };
     next = { ...next, despesasEmpresa: [...(next.despesasEmpresa || []), item] };
     criados.push({ tipo: "despesasEmpresa", id, entidadeId: id });
-  } else if (tipoLancamento === "recebimento_avulso" || tipoLancamento === "adiantamento") {
-    const item = { id, obraId, data: tr.data, tipo: "aporte", categoria: categoria || tipoLancamento, descricao: descricao || tr.descricao, valor, transacaoId };
+  } else if (tipoLancamento === "recebimento_administracao") {
+    if (Number(tr.valor) <= 0) return { data, resumo: { ok: false, motivo: "Recebimento de obra exige uma entrada bancária" } };
+    if (!obraId) return { data, resumo: { ok: false, motivo: "Selecione a obra por administração" } };
+    // Receita efetivamente recebida em uma obra administrada que não possui
+    // parcela/medição pré-cadastrada. É o caminho manual explícito para não
+    // forçar o operador a selecionar uma medição de outra obra.
+    const item = {
+      id, obraId, date: tr.data, amount: valor, description: descricao || tr.descricao,
+      tipo: "recebimento_avulso", origem: "conciliacao_bancaria", transacaoId, conciliado: true,
+      registradoPorId: operador?.id || "", registradoPor, registradoEm: new Date().toISOString(),
+    };
+    next = { ...next, payments: [...(next.payments || []), item] };
+    criados.push({ tipo: "payments", id, entidadeId: id });
+  } else if (["recebimento_avulso", "adiantamento", "entrada_caixa_obra", "aporte_socio", "emprestimo", "outra_entrada"].includes(tipoLancamento)) {
+    if (Number(tr.valor) <= 0) return { data, resumo: { ok: false, motivo: "Este lançamento exige uma entrada bancária" } };
+    if (tipoLancamento === "entrada_caixa_obra" && !obraId) return { data, resumo: { ok: false, motivo: "Selecione a obra para registrar a entrada no caixa" } };
+    // Aporte, empréstimo e recursos mantidos no caixa são movimentos de caixa,
+    // não receita. O efeito econômico fica explícito para o DRE não somar uma
+    // segunda vez uma entrada que será reconhecida pelo contrato/medição.
+    const item = {
+      id, obraId, data: tr.data, tipo: "aporte", categoria: categoria || tipoLancamento,
+      naturezaEntrada: tipoLancamento, efeitoDRE: "sem_efeito", descricao: descricao || tr.descricao,
+      valor, transacaoId, registradoPorId: operador?.id || "", registradoPor, registradoEm: new Date().toISOString(),
+    };
     next = { ...next, caixaObra: [...(next.caixaObra || []), { ...item, conciliado: true }] };
     criados.push({ tipo: "caixaObra", id, entidadeId: id });
   } else {
@@ -246,11 +322,17 @@ export const marcarTransferenciaInterna = (data, { transacaoOrigemId, transacaoD
   const origem = transacaoPorId(data, transacaoOrigemId);
   const destino = transacaoPorId(data, transacaoDestinoId);
   if (!origem || !destino) return { data, resumo: { ok: false, motivo: "Transação não encontrada" } };
+  if (origem.id === destino.id) return { data, resumo: { ok: false, motivo: "A transferência exige duas transações distintas" } };
+  if (origem.status === "conciliado" || destino.status === "conciliado") return { data, resumo: { ok: false, motivo: "Uma das transações já está conciliada" } };
+  if (Math.sign(Number(origem.valor)) === Math.sign(Number(destino.valor))) return { data, resumo: { ok: false, motivo: "Transferência interna exige uma saída e uma entrada" } };
+  if (Math.abs(Math.abs(Number(origem.valor)) - Math.abs(Number(destino.valor))) > 0.01) return { data, resumo: { ok: false, motivo: "Os valores da transferência não conferem" } };
 
   const parId = gerarIdConc("transf");
   const vinculo = { tipo: "transferencia_interna", id: parId };
-  let transacoes = marcarTransacao(data.transacoes, transacaoOrigemId, { status: "conciliado", vinculo });
-  transacoes = marcarTransacao(transacoes, transacaoDestinoId, { status: "conciliado", vinculo });
+  const geradoOrigem = { tipo: "transferenciaInterna", id: parId, outraTransacaoId: transacaoDestinoId };
+  const geradoDestino = { tipo: "transferenciaInterna", id: parId, outraTransacaoId: transacaoOrigemId };
+  let transacoes = marcarTransacao(data.transacoes, transacaoOrigemId, { status: "conciliado", vinculo, gerados: [geradoOrigem] });
+  transacoes = marcarTransacao(transacoes, transacaoDestinoId, { status: "conciliado", vinculo, gerados: [geradoDestino] });
 
   const registradoPor = nomeOperador(operador);
   let historicoConc = registrarHistorico(data.historicoConc, {
@@ -276,6 +358,10 @@ export const marcarTransferenciaInterna = (data, { transacaoOrigemId, transacaoD
 export const marcarEstorno = (data, { transacaoId, transacaoOrigemId, operador }) => {
   const tr = transacaoPorId(data, transacaoId);
   if (!tr) return { data, resumo: { ok: false, motivo: "Transação não encontrada" } };
+  if (tr.status === "conciliado") return { data, resumo: { ok: false, motivo: "Transação já está conciliada" } };
+  const origem = transacaoOrigemId ? transacaoPorId(data, transacaoOrigemId) : null;
+  if (transacaoOrigemId && !origem) return { data, resumo: { ok: false, motivo: "Movimento original não encontrado" } };
+  if (origem && Math.sign(Number(origem.valor)) === Math.sign(Number(tr.valor))) return { data, resumo: { ok: false, motivo: "Estorno deve ter sinal oposto ao movimento original" } };
 
   const vinculo = { tipo: "estorno", id: transacaoOrigemId };
   const transacoes = marcarTransacao(data.transacoes, transacaoId, { status: "conciliado", vinculo });
@@ -350,33 +436,79 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
 
   const gerados = tr.gerados || [];
   let next = { ...data };
+  const estornar = item => ({
+    ...item,status:"estornado",motivoEstorno:motivo||"Conciliação bancária desfeita",
+    estornadoEm:new Date().toISOString(),estornadoPorId:operador?.id||"",estornadoPor:nomeOperador(operador),
+  });
 
   gerados.forEach(g => {
     if (g.tipo === "pagamentoNota") {
       next = { ...next, notasFiscais: (next.notasFiscais || []).map(n => n.id === g.entidadeId
-        ? { ...n, pagamentos: (n.pagamentos || []).filter(p => p.id !== g.id) } : n) };
-      next = { ...next, pedidos: (next.pedidos || []).map(p => ({ ...p, pagamentos: (p.pagamentos || []).filter(pg => pg.id !== g.id) })) };
+        ? { ...n, pagamentos: (n.pagamentos || []).map(p => p.id === g.id ? estornar(p) : p) } : n) };
+      next = { ...next, pedidos: (next.pedidos || []).map(p => ({ ...p, pagamentos: (p.pagamentos || []).map(pg => pg.id === g.id ? estornar(pg) : pg) })) };
     } else if (g.tipo === "pagamentoPedido") {
       next = { ...next, pedidos: (next.pedidos || []).map(p => p.id === g.entidadeId
-        ? { ...p, pagamentos: (p.pagamentos || []).filter(pg => pg.id !== g.id) } : p) };
+        ? { ...p, pagamentos: (p.pagamentos || []).map(pg => pg.id === g.id ? estornar(pg) : pg) } : p) };
     } else if (g.tipo === "recebimentoMedicao") {
       next = { ...next, medicoes: (next.medicoes || []).map(m => m.id === g.entidadeId
         ? removerRecebimentoMedicao(m, g.id) : m) };
+    } else if (g.tipo === "recebimentoEntradaContrato") {
+      next = {
+        ...next,
+        comercial: {
+          ...(next.comercial || {}),
+          contratos: (next.comercial?.contratos || []).map(contrato => {
+            if (contrato.id !== g.entidadeId) return contrato;
+            const recebimentosEntrada = (contrato.recebimentosEntrada || []).map(item => item.id === g.id ? estornar(item) : item);
+            const total = recebimentosEntrada.filter(item=>item.status!=="estornado").reduce((s, item) => s + Number(item.valor || 0), 0);
+            return { ...contrato, recebimentosEntrada, entradaPaga: total >= Number(contrato.entrada || 0) - 0.01, entradaPagaEm: "" };
+          }),
+        },
+      };
     } else if (g.tipo === "pagsTerceiros") {
       const pg = (next.pagsTerceiros || []).find(p => p.id === g.id);
-      next = { ...next, pagsTerceiros: (next.pagsTerceiros || []).filter(p => p.id !== g.id) };
+      next = { ...next, pagsTerceiros: (next.pagsTerceiros || []).map(p => p.id === g.id ? estornar(p) : p) };
       if (pg?.medicaoTercId) {
         next = { ...next, medicoesTerc: (next.medicoesTerc || []).map(m => m.id === pg.medicaoTercId ? { ...m, pagamentoId: null } : m) };
       }
     } else if (g.tipo === "pagamentoFolha") {
-      next = { ...next, pagamentosFolha: (next.pagamentosFolha || []).filter(p => p.id !== g.id) };
-    } else if (["outrasDesp", "despesasEmpresa", "caixaObra"].includes(g.tipo)) {
-      next = { ...next, [g.tipo]: (next[g.tipo] || []).filter(item => item.id !== g.id) };
+      next = { ...next, pagamentosFolha: (next.pagamentosFolha || []).map(p => p.id === g.id ? estornar(p) : p) };
+    } else if (g.tipo === "liquidacaoFolha") {
+      next = {
+        ...next,
+        titulosFolha: (next.titulosFolha || []).map(title => {
+          if (title.id !== g.entidadeId) return title;
+          const liquidacoes = (title.liquidacoes || []).map(item => item.id === g.id ? estornar(item) : item);
+          const valorPago = liquidacoes.filter(item=>item.status!=="estornado").reduce((sum, item) => sum + Number(item.valor || 0), 0);
+          const atualizado = { ...title, liquidacoes, valorPago, saldo: Math.max(0, Number(title.liquido || 0) - valorPago) };
+          return { ...atualizado, status: situacaoTituloFolha(atualizado), fechadoEm: "" };
+        }),
+        reconciliationLinks: (next.reconciliationLinks || []).map(link => link.id === g.reconciliationLinkId
+          ? { ...link, status: "desfeito", desfeitoEm: new Date().toISOString(), desfeitoPorId: operador?.id || "" }
+          : link),
+      };
+    } else if (["outrasDesp", "despesasEmpresa", "caixaObra", "payments"].includes(g.tipo)) {
+      next = { ...next, [g.tipo]: (next[g.tipo] || []).map(item => item.id === g.id ? estornar(item) : item) };
     }
   });
 
   if (tr.vinculo?.tipo === "caixaObra") {
     next = { ...next, caixaObra: (next.caixaObra || []).map(c => c.id === tr.vinculo.id ? { ...c, conciliado: false, transacaoId: null } : c) };
+  }
+  if (tr.vinculo?.tipo === "transferencia_interna") {
+    const parId = tr.vinculo.id;
+    const outra = (next.transacoes || []).find(item => item.id !== transacaoId && item.vinculo?.tipo === "transferencia_interna" && item.vinculo.id === parId);
+    if (outra) {
+      next = {
+        ...next,
+        transacoes: marcarTransacao(next.transacoes, outra.id, { status: "pendente", vinculo: null, gerados: [] }),
+        historicoConc: registrarHistorico(next.historicoConc, {
+          transacaoId: outra.id, extratoId: outra.extratoId, acao: "transferencia_desfeita",
+          statusAnterior: "conciliado", statusNovo: "pendente", descricao: motivo || "Transferência interna desfeita",
+          valor: outra.valor, operadorId: operador?.id, operador: nomeOperador(operador),
+        }),
+      };
+    }
   }
   if (tr.vinculo?.tipo === "conciliacao_multipla") {
     next = { ...next, conciliacoes: (next.conciliacoes || []).map(c => c.id === tr.vinculo.id
