@@ -1,0 +1,2 @@
+import { applyProgressToCommitment } from "./calculations.js";
+export const completeWeeklyCommitment=(commitment,progress,{actor={},now="",reason=""}={})=>{const next=applyProgressToCommitment(commitment,progress);if(!next.eligibleForCompletion&&!String(reason).trim())return {ok:false,error:"Produção insuficiente exige motivo de não cumprimento."};return {ok:true,commitment:{...next,status:next.eligibleForCompletion?"concluido":"nao_concluido",motivoNaoCumprimento:next.eligibleForCompletion?"":String(reason),updatedAt:now,updatedById:actor.id||""}};};

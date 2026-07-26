@@ -1,0 +1,1 @@
+import { expect,it } from "vitest";import { completeWeeklyCommitment } from "./mutations.js";it("não conclui plano semanal sem produção",()=>expect(completeWeeklyCommitment({id:"c",quantidadePrometida:10},[]).ok).toBe(false));
