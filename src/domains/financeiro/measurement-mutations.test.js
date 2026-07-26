@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFinancialLedger, selectAccountsReceivable, selectDRE } from "./ledger";
-import { cancelClientMeasurement, saveClientMeasurement } from "./measurement-mutations";
+import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeasurements } from "./measurement-mutations";
 
 describe("mutações auditáveis de medições financeiras", () => {
   const actor={id:"u-1",nome:"Controladora"};
@@ -26,5 +26,19 @@ describe("mutações auditáveis de medições financeiras", () => {
     const canceled=cancelClientMeasurement({data,measurementId:"m-1",reason:"Duplicidade",actor,now:"2026-07-02T10:00:00.000Z"});
     expect(canceled.medicoes[0]).toMatchObject({status:"cancelada",motivoCancelamento:"Duplicidade",canceladoPorId:"u-1"});
     expect(selectDRE(buildFinancialLedger(canceled),{obraId:"obra-1",competence:"2026-07"}).revenueCents).toBe(0);
+  });
+
+  it("regenera parcelas por cancelamento lógico, com autoria e sem duplicar receita", () => {
+    const existing={id:"old-1",obraId:"obra-1",competencia:"2026-07",dataVencimento:"2026-07-10",numeroParcela:1,tipo:"mensal_fixo",valorPrevisto:1000,status:"emitida",origem:"geracao_contrato"};
+    const data=saveGeneratedClientMeasurements({data:{medicoes:[existing]},obraId:"obra-1",overwrite:true,actor,now:"2026-07-01T10:00:00.000Z",measurements:[{id:"new-1",competencia:"2026-07",dataVencimento:"2026-07-10",numeroParcela:1,tipo:"mensal_fixo",valorPrevisto:1200}]});
+    expect(data.medicoes).toHaveLength(2);
+    expect(data.medicoes.find(item=>item.id==="old-1")).toMatchObject({status:"cancelada",canceladoPorId:"u-1"});
+    expect(data.medicoes.find(item=>item.id==="new-1")).toMatchObject({status:"emitida",origem:"geracao_contrato",createdById:"u-1"});
+    expect(selectDRE(buildFinancialLedger(data),{obraId:"obra-1",competence:"2026-07"}).revenueCents).toBe(120000);
+  });
+
+  it("bloqueia regeneração quando uma parcela a substituir já foi recebida", () => {
+    const existing={id:"old-1",obraId:"obra-1",competencia:"2026-07",dataVencimento:"2026-07-10",numeroParcela:1,tipo:"mensal_fixo",valorPrevisto:1000,status:"emitida",recebimentos:[{id:"r-1",valor:1000,data:"2026-07-10"}]};
+    expect(()=>saveGeneratedClientMeasurements({data:{medicoes:[existing]},obraId:"obra-1",overwrite:true,actor,measurements:[{id:"new-1",competencia:"2026-07",dataVencimento:"2026-07-10",numeroParcela:1,valorPrevisto:1000}]})).toThrow("já possuem recebimento");
   });
 });

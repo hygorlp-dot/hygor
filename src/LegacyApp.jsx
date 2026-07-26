@@ -109,7 +109,7 @@ import {
   selectAccountsPayable as selectLedgerAccountsPayable,
   selectFinancialMovements,
 } from "./domains/financeiro/ledger";
-import { cancelClientMeasurement, saveClientMeasurement } from "./domains/financeiro/measurement-mutations";
+import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeasurements } from "./domains/financeiro/measurement-mutations";
 import {
   analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
@@ -6084,14 +6084,17 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
 
     if (novas.length === 0) { showToast("Todas as parcelas já estão lançadas.","warn"); return; }
 
-    let medicoesList = gerarOpts.sobreescrever
-      ? (data.medicoes||[]).filter(x=>x.obraId!==selObra)
-      : (data.medicoes||[]);
-    medicoesList = [...medicoesList, ...novas]
-      .sort((a,b)=>(a.dataVencimento||a.competencia).localeCompare(b.dataVencimento||b.competencia));
-    update({...data, medicoes: medicoesList});
-    setGerarModal(false);
-    showToast(`${novas.length} parcelas geradas!${tipo==="admin_only"||tipo==="fixed_labor_admin"?" Calcule o valor Admin % mês a mês conforme executado.":""}`);
+    let medicoesList;
+    try {
+      const result=saveGeneratedClientMeasurements({data,obraId:selObra,measurements:novas,overwrite:gerarOpts.sobreescrever,actor:currentUser});
+      medicoesList=result.medicoes;
+      update(result);
+      setGerarModal(false);
+      showToast(`${novas.length} parcelas geradas!${tipo==="admin_only"||tipo==="fixed_labor_admin"?" Calcule o valor Admin % mês a mês conforme executado.":""}`);
+    } catch (error) {
+      showToast(error.message||"Não foi possível gerar as parcelas.","error");
+      return;
+    }
 
     // Parcelas que ja nasceram vencidas (contrato retroativo): em vez de
     // deixa-las todas em aberto, perguntamos uma a uma se o pagamento saiu

@@ -67,3 +67,34 @@ export const cancelClientMeasurement = ({ data, measurementId, reason, actor, no
     updatedAt:now,updatedById:actor.id,updatedBy:userName(actor),version:Number(item.version || 0)+1,
   })};
 };
+
+export const saveGeneratedClientMeasurements = ({ data, obraId, measurements, overwrite = false, actor, now = new Date().toISOString() }) => {
+  if (!actor?.id) throw new Error("Sessão do usuário indisponível para gerar parcelas.");
+  if (!obraId) throw new Error("Selecione a obra para gerar as parcelas.");
+  const novas=Array.isArray(measurements) ? measurements : [];
+  if (!novas.length) throw new Error("Não há parcelas novas para gerar.");
+  novas.forEach(item=>{
+    if (!item?.id || !/^\d{4}-\d{2}$/.test(String(item.competencia || ""))) throw new Error("Uma parcela gerada não possui identificação ou competência válida.");
+    if (!Number.isFinite(Number(item.valorPrevisto)) || Number(item.valorPrevisto) < 0) throw new Error("Uma parcela gerada possui valor inválido.");
+  });
+  const medicoes=Array.isArray(data?.medicoes) ? data.medicoes : [];
+  const chavesNovas=new Set(novas.map(item=>`${item.numeroParcela || ""}|${item.dataVencimento || ""}`));
+  const substituiveis=overwrite ? medicoes.filter(item=>item.obraId===obraId&&!inactive(item)&&(
+    item.origem==="geracao_contrato" || chavesNovas.has(`${item.numeroParcela || ""}|${item.dataVencimento || ""}`)
+  )) : [];
+  if (substituiveis.some(item=>activeReceipts(item).length || (!Array.isArray(item.recebimentos) && Number(item.valorRecebido || 0) > 0))) {
+    throw new Error("Não é possível regenerar parcelas que já possuem recebimento. Estorne ou ajuste a parcela antes.");
+  }
+  const nome=userName(actor);
+  const canceladas=new Set(substituiveis.map(item=>item.id));
+  const anteriores=medicoes.map(item=>!canceladas.has(item.id)?item:{
+    ...item,status:"cancelada",motivoCancelamento:"Parcelas regeneradas a partir da configuração contratual",canceladoEm:now,
+    canceladoPorId:actor.id,canceladoPor:nome,updatedAt:now,updatedById:actor.id,updatedBy:nome,version:Number(item.version || 0)+1,
+  });
+  const geradas=novas.map(item=>({
+    ...item,obraId,status:"emitida",origem:"geracao_contrato",recebimentos:Array.isArray(item.recebimentos)?item.recebimentos:[],
+    valorRecebido:Number(item.valorRecebido || 0),dataPagamento:item.dataPagamento || "",recebido:!!item.recebido,
+    createdAt:now,createdById:actor.id,createdBy:nome,updatedAt:now,updatedById:actor.id,updatedBy:nome,version:1,
+  }));
+  return {...data,medicoes:[...anteriores,...geradas].sort((a,b)=>String(a.dataVencimento||a.competencia).localeCompare(String(b.dataVencimento||b.competencia)))};
+};
