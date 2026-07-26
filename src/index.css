@@ -93,6 +93,8 @@
   user-select: none;
   filter: saturate(.82) contrast(.96);
   will-change: transform;
+  transform-origin: center center;
+  transform-style: preserve-3d;
 }
 
 .login-project-visual::after {
