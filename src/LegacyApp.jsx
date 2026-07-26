@@ -112,6 +112,7 @@ import {
 import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeasurements } from "./domains/financeiro/measurement-mutations";
 import { cancelThirdPartyMeasurement, createThirdPartyMeasurement, createThirdPartyPayment, payThirdPartyMeasurement, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
+import { applyOperationalCommand, OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import {
   analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
@@ -29627,7 +29628,7 @@ const CLIMA_OPC = [
   { v: "impraticavel", l: "Impraticavel", c: C.red    },
 ];
 
-function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
+function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
   const { cols } = useBreakpoint();
 
   const obras = useMemo(() => (data.obras || []).filter(o => o.status !== "done"), [data.obras]);
@@ -29687,6 +29688,19 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="" }) {
 
   // ---- Persistencia do RDO ----
   const salvarRDO = (mut) => {
+    if(dispatchCommand){
+      const idempotencyKey=`rdo-${uid()}-${Date.now()}`;
+      const result=dispatchCommand(atual=>{
+        const existente=(atual.rdos||[]).find(item=>item.obraId===obraId&&item.data===dataRDO);
+        const base=existente
+          ? {...existente,responsavel:existente.responsavel||responsavelAutomatico?.nome||"",responsavelId:existente.responsavelId||responsavelAutomatico?.id||"",registradoPor:existente.registradoPor||currentUser?.nome||"",registradoPorId:existente.registradoPorId||currentUser?.id||""}
+          : {...rdo,id:uid(),criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()};
+        const report=mut(base);
+        return {type:OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,idempotencyKey,expectedVersion:Number(existente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{report}};
+      });
+      if(!result?.ok)showToast?.(result?.reason||"Não foi possível registrar o diário.","error");
+      return;
+    }
     const existe = (data.rdos || []).some(r => r.id === rdo.id && rdo.id);
     let rdos;
     if (existe) {
@@ -30935,7 +30949,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
 //  Mostra o avanco de cada tarefa: o que veio do diario (RDO) e o
 //  que e manual. Permite ajustar o progresso manualmente aqui.
 // ==============================================================
-function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=null }) {
+function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
   const { cols } = useBreakpoint();
   const obras = (data.obras || []).filter(o => o.status !== "done");
   const [obraId, setObraId] = useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
@@ -31013,7 +31027,15 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
     const motivo=window.prompt(`Motivo do cancelamento da medição ${m.numero}:`);
     if(!String(motivo||"").trim())return;
     const agora=new Date().toISOString();
-    update({ ...data, medicoesObra: (data.medicoesObra || []).map(x => x.id!==m.id?x:{
+    if(dispatchCommand){
+      const result=dispatchCommand(atual=>{
+        const vigente=(atual.medicoesObra||[]).find(item=>item.id===m.id);
+        return {type:OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED,idempotencyKey:`medicao-cancelamento-${m.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{measurementId:m.id,reason:String(motivo).trim()}};
+      });
+      if(!result?.ok){showToast?.(result?.reason||"Não foi possível cancelar a medição.","error");return;}
+    }else update({ ...data, medicoesObra: (data.medicoesObra || []).map(x => x.id!==m.id?x:{
       ...x,status:"cancelada",motivoCancelamento:String(motivo).trim(),canceladaEm:agora,
       canceladaPorId:currentUser?.id||"",canceladaPor:currentUser?.nome||"",
     }) });
@@ -36402,6 +36424,10 @@ export default function App() {
   },[showToast]);
 
   const update = useCallback(async (next) => {
+    // Aceita atualização funcional. O resolvedor recebe sempre o espelho mais
+    // recente, mesmo que o React ainda não tenha renderizado o clique anterior.
+    // Isso elimina a dependência de closures antigos nos fluxos migrados.
+    if(typeof next==="function")next=next(dataAtualRef.current||DEFAULT());
     // ADOTAR ESTADO DO SERVIDOR (sem re-salvar)
     // Operacoes cirurgicas como arquivar/restaurar quinzena acontecem no
     // servidor e ja voltam com o dataset novo + carimbo. Aqui apenas
@@ -36478,6 +36504,19 @@ export default function App() {
     // proprio dispositivo contra si mesmo.
     saveQueueRef.current.enqueue(normalized);
   }, [showToast, currentUser, processarFilaSave]);
+
+  // Ponte de migração para comandos por agregado. O comando é criado dentro
+  // da atualização funcional, portanto `expectedVersion` é verificado contra
+  // a entidade realmente vigente — não contra um render antigo do componente.
+  const dispatchOperationalCommand=useCallback(commandOrFactory=>{
+    let result={ok:false,reason:"Comando não executado."};
+    update(atual=>{
+      const command=typeof commandOrFactory==="function"?commandOrFactory(atual):commandOrFactory;
+      result=applyOperationalCommand(atual,command);
+      return result.ok?result.data:atual;
+    });
+    return result;
+  },[update]);
 
   // No boot buscamos APENAS a lista de perfis (nome + papel). Nenhum dado
   // financeiro, nenhum CPF, nenhum hash de PIN sai do servidor aqui.
@@ -37172,9 +37211,9 @@ export default function App() {
           {tab === "orc"    && <Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "plan"   && <Planejamento data={data} update={update} showToast={showToast} />}
           {tab === "plan_suprimentos" && <MarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} />}
-          {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} currentUser={currentUser} />}
+          {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conferencia" && <Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} />}
-          {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
+          {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} />}
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} currentUser={currentUser} />}

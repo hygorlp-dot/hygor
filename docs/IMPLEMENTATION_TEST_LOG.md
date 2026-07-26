@@ -94,7 +94,24 @@ de comandos por entidade e versão esperada no servidor continua nesta etapa.
 
 ### Riscos remanescentes e próximo subportão
 
+- `src/domains/sync/operational-commands.js` introduz comandos puros,
+  idempotência persistida no dataset e `expectedVersion` por entidade para
+  medição técnica, RDO e recebimento de pedido.
+- O RDO e o cancelamento de medição técnica já foram ligados ao executor por
+  comando; atualizações funcionais agora usam o estado mais recente do app,
+  eliminando closures antigas nesses fluxos.
 - Chamadas legadas ainda transmitem snapshots por seção; falta migrar os
-  agregados críticos para comandos com versão esperada validada no servidor.
+  agregados críticos restantes e validar a mesma versão esperada no servidor.
 - A etapa 2 só poderá ser marcada como aprovada depois dessa migração e de
   testes de conflito por mesma entidade.
+
+### Subportão 2B — Comandos operacionais locais
+
+**Status:** APROVADO
+
+- `src/domains/sync/operational-commands.test.js` cobre preservação de
+  coleções distintas, ordem e conflito na mesma entidade, idempotência de
+  medição e não duplicidade de estoque em recebimento.
+- Execução direcionada após a integração: 3 arquivos, 11 testes aprovados,
+  0 reprovados; suíte completa: 31 arquivos, 184 testes aprovados, 0
+  reprovados; lint, build e `git diff --check` aprovados.

@@ -1,0 +1,36 @@
+import { describe, expect, it } from "vitest";
+import { applyOperationalCommand, OPERATIONAL_COMMAND } from "./operational-commands";
+
+const now="2026-07-25T12:00:00.000Z";
+const command=(type,idempotencyKey,payload,expectedVersion)=>({type,idempotencyKey,payload,expectedVersion,now,actorId:"u-1",actorName:"Ana"});
+
+describe("comandos operacionais versionados",()=>{
+  it("preserva duas criações rápidas em coleções diferentes",()=>{
+    const initial={medicoesObra:[],rdos:[]};
+    const one=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,"measurement-0001",{measurement:{id:"m-1",obraId:"o-1"}}));
+    const two=applyOperationalCommand(one.data,command(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,"field-report-0001",{report:{id:"r-1",obraId:"o-1",data:"2026-07-25"}},0));
+    expect(two.data.medicoesObra).toHaveLength(1);expect(two.data.rdos).toHaveLength(1);
+  });
+
+  it("aplica a mesma entidade em ordem e recusa versão antiga",()=>{
+    const initial={rdos:[{id:"r-1",version:1,descricao:"antes"}]};
+    const first=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,"field-report-0002",{report:{id:"r-1",descricao:"depois"}},1));
+    const stale=applyOperationalCommand(first.data,command(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,"field-report-0003",{report:{id:"r-1",descricao:"perdido"}},1));
+    expect(first.data.rdos[0]).toMatchObject({descricao:"depois",version:2});expect(stale).toMatchObject({ok:false});expect(stale.reason).toMatch(/alterado/);
+  });
+
+  it("trata uma repetição idempotente sem duplicar a medição",()=>{
+    const initial={medicoesObra:[]};
+    const first=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,"measurement-0002",{measurement:{id:"m-1"}}));
+    const repeated=applyOperationalCommand(first.data,command(OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,"measurement-0002",{measurement:{id:"m-1"}}));
+    expect(repeated.ok).toBe(true);expect(repeated.idempotent).toBe(true);expect(repeated.data.medicoesObra).toHaveLength(1);
+  });
+
+  it("não duplica entrada física ao repetir um recebimento de pedido",()=>{
+    const initial={pedidos:[{id:"p-1",version:3,itens:[]}],movEstoque:[],materiais:[]};
+    const payload={pedidoId:"p-1",pedido:{itens:[{id:"i-1",qtdRecebida:2}]},stockEntries:[{id:"stock-1",pedidoId:"p-1"}],materials:[]};
+    const first=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,"purchase-receipt-0001",payload,3));
+    const repeated=applyOperationalCommand(first.data,command(OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,"purchase-receipt-0001",payload,3));
+    expect(first.data.movEstoque).toHaveLength(1);expect(first.data.pedidos[0].version).toBe(4);expect(repeated.data.movEstoque).toHaveLength(1);
+  });
+});
