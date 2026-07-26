@@ -140,7 +140,7 @@ import {
   hashArquivo,
   mascararDocumento, mascararChavePix,
 } from "./domains/conciliacao/index.js";
-import { findRegisteredEmployeePix, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
+import { createExactPixLaborCandidate, findRegisteredEmployeePix, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
 import {
   createApprovalEngine, validarPolitica, encontrarPoliticaAplicavel,
   podeAdministrarPoliticas, podeGerenciarDelegacoes,
@@ -21488,6 +21488,22 @@ const sugerirPagamentoMaoObra = (tr, data, days) => {
   return cands.sort((a, b) => b.score - a.score).slice(0, 3);
 };
 
+const periodoPontoDaTransacao = (iso) => {
+  const referencia=iso || today();
+  const y = Number(referencia.slice(0, 4)), m = Number(referencia.slice(5, 7)) - 1;
+  const dia = Number(referencia.slice(8, 10));
+  const { q1, q2 } = getQ(y, m);
+  // Pagamentos no início do mês normalmente referem-se à segunda quinzena
+  // anterior; nos demais casos, à quinzena corrente.
+  const days=dia <= 7
+    ? getQ(m === 0 ? y - 1 : y, m === 0 ? 11 : m - 1).q2
+    : dia <= 20 ? q1 : q2;
+  return {
+    days,
+    periodoPonto:days.length ? `${fmtDate(days[0])} a ${fmtDate(days[days.length-1])}` : "",
+  };
+};
+
 // Painel de números da conciliação
 const calcConciliacao = (data) => {
   const trans = data.transacoes || [];
@@ -21570,11 +21586,18 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     const mapa = new Map();
     if (aba !== "pendentes") return mapa;
     transacoes.slice(0, limiteVisivel).forEach(tr => {
-      const brutas = gerarCandidatosConciliacao(tr, data, indicesFinanceiros);
+      const periodo=periodoPontoDaTransacao(tr.data);
+      const candidataMaoObra=sugerirPagamentoMaoObra(tr,data,periodo.days)
+        .map(item=>createExactPixLaborCandidate(tr,{...item,periodoPonto:periodo.periodoPonto,periodoConfirmavel:Boolean(tr.data&&periodo.days.length)}))
+        .find(Boolean);
+      const brutas=[
+        ...(candidataMaoObra?[candidataMaoObra]:[]),
+        ...gerarCandidatosConciliacao(tr, data, indicesFinanceiros),
+      ].sort((a,b)=>Number(b.score||0)-Number(a.score||0));
       mapa.set(tr.id, brutas.filter(c => !rejeitadasSet.has(`${tr.id}:${c.tipo}:${c.entidadeId}`)));
     });
     return mapa;
-  }, [aba, transacoes, limiteVisivel, indicesFinanceiros, rejeitadasSet]);
+  }, [aba, transacoes, limiteVisivel, data, indicesFinanceiros, rejeitadasSet]);
   const historicoConc=useMemo(()=>{
     const registrados=[...(data.historicoConc||[])];
     const comRegistro=new Set(registrados.map(item=>item.transacaoId).filter(Boolean));
@@ -21918,21 +21941,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   // O periodo de referencia e a quinzena da data da transacao.
   const sugMaoObra = useMemo(() => {
     if (!apropModal || Number(apropModal.valor || 0) >= 0) return [];
-    const iso = apropModal.data || today();
-    const y = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7)) - 1;
-    const dia = Number(iso.slice(8, 10));
-    const { q1, q2 } = getQ(y, m);
-    // Pagamento costuma sair APOS o periodo trabalhado: se e comeco do mes,
-    // o mais provavel e a 2a quinzena do mes anterior; senao, a quinzena atual.
-    let days;
-    if (dia <= 7) {
-      const mAnt = m === 0 ? 11 : m - 1;
-      const yAnt = m === 0 ? y - 1 : y;
-      days = getQ(yAnt, mAnt).q2;
-    } else {
-      days = dia <= 20 ? q1 : q2;
-    }
-    const periodoPonto=days.length?`${fmtDate(days[0])} a ${fmtDate(days[days.length-1])}`:"";
+    const {days,periodoPonto}=periodoPontoDaTransacao(apropModal.data);
     return sugerirPagamentoMaoObra(apropModal, data, days).map(item=>({
       ...item,
       periodoPonto,
@@ -22269,7 +22278,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                   <td style={{padding:"7px 8px",fontSize:10.5,fontWeight:900,color:entrada?C.green:C.red,textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{entrada?"+ ":""}{fmt(Math.abs(tr.valor))}</td>
                   <td style={{padding:"5px 7px",textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>
                     {tr.status==="pendente"&&<>
-                      {melhor&&<Btn size="sm" onClick={()=>abrirCandidato(tr)}><Ic n="check"/> Revisar sugestão</Btn>}{" "}
+                      {melhor&&<Btn size="sm" onClick={()=>melhor.tipo==="maoObraPonto"?abrirApropriacao(tr):abrirCandidato(tr)}><Ic n="check"/> {melhor.tipo==="maoObraPonto"?"Confirmar PIX":"Revisar sugestão"}</Btn>}{" "}
                       {entrada&&<Btn size="sm" v="success" onClick={()=>abrirValidarEntrada(tr)}><Ic n="check"/> Validar entrada</Btn>}{" "}
                       <Btn size="sm" v="ghost" onClick={()=>abrirApropriacao(tr)}>Rateio manual</Btn>{" "}
                       <Btn size="sm" v="ghost" onClick={()=>setTransferModal({trId:tr.id})}>Transferência</Btn>{" "}
@@ -22603,6 +22612,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
               )}
 
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {c?.tipo==="maoObraPonto" && <Btn onClick={()=>{fecharCandidato();abrirApropriacao(tr);}}><Ic n="check"/> Abrir cartão PIX</Btn>}
                 {c && c.podeVincular && c.bloqueios.length===0 && <Btn onClick={()=>executarVincular(tr,c)}><Ic n="check"/> Confirmar vínculo</Btn>}
                 {c && c.podeRegistrarPagamento && c.bloqueios.length===0 && <Btn onClick={()=>executarRegistrarPagamento(tr,c)}><Ic n="check"/> Registrar pagamento e conciliar</Btn>}
                 {cs.length>1 && <Btn v="ghost" onClick={()=>trocarCandidato(1)}>Outro candidato</Btn>}
