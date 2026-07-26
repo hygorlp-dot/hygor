@@ -7,6 +7,8 @@ export const operationalCommandObraId=(data={},command={})=>{
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED)return String(payload?.report?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED)return String((data?.rdos||[]).find(item=>item.id===payload?.reportId)?.obraId||"");
+  if(command?.type===OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED)return String(payload?.record?.obraId||"");
+  if(command?.type===OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED)return String((data?.progressRecords||[]).find(item=>item.id===payload?.recordId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED)return String((data?.pedidos||[]).find(item=>item.id===payload?.pedidoId)?.obraId||"");
   return "";
 };

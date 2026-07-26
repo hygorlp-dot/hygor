@@ -34,6 +34,19 @@ describe("comandos operacionais versionados",()=>{
     expect(stale).toMatchObject({ok:false});
   });
 
+  it("registra avanço físico de forma idempotente e permite apenas estorno motivado",()=>{
+    const initial={progressRecords:[]};
+    const payload={record:{id:"p-1",obraId:"o-1",activityId:"a-1",data:"2026-07-25",quantity:5}};
+    const created=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-record-0001",payload,0));
+    expect(created.ok).toBe(true);expect(created.data.progressRecords[0]).toMatchObject({status:"confirmado",version:1});
+    const repeated=applyOperationalCommand(created.data,command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-record-0001",payload,0));
+    expect(repeated.idempotent).toBe(true);
+    const missingReason=applyOperationalCommand(created.data,command(OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED,"progress-record-cancel-0001",{recordId:"p-1"},1));
+    expect(missingReason.ok).toBe(false);
+    const cancelled=applyOperationalCommand(created.data,command(OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED,"progress-record-cancel-0002",{recordId:"p-1",reason:"Registro duplicado"},1));
+    expect(cancelled.data.progressRecords[0]).toMatchObject({status:"cancelado",version:2,motivoCancelamento:"Registro duplicado"});
+  });
+
   it("não duplica entrada física ao repetir um recebimento de pedido",()=>{
     const initial={pedidos:[{id:"p-1",obraId:"o-1",version:3,itens:[{id:"i-1",materialId:"mat-1",qtd:2,qtdRecebida:0,precoUnit:10}]}],movEstoque:[],materiais:[]};
     const payload={pedidoId:"p-1",receivedQuantities:{"i-1":2},stockEntries:[{id:"stock-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:2}]};

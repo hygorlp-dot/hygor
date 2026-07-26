@@ -9,12 +9,15 @@ import {
   validateTechnicalMeasurement,
 } from "../medicoes/index.js";
 import { inactive } from "../financeiro/workflows.js";
+import { cancelProgressRecord, createProgressRecord } from "../producao/mutations.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
   FIELD_REPORT_CHANGED:"RDO_CAMPO_ALTERADO",
   FIELD_REPORT_CANCELLED:"RDO_CANCELADO",
   PURCHASE_RECEIPT_RECORDED:"PEDIDO_RECEBIMENTO_REGISTRADO",
+  PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
+  PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
 });
 
 const receipts=data=>Array.isArray(data?.operationalCommandReceipts)?data.operationalCommandReceipts:[];
@@ -108,6 +111,30 @@ export const applyOperationalCommand=(data,command)=>{
     if(current.status==="cancelado")return fail("O diário de obra já está cancelado.");
     const cancelled={...current,status:"cancelado",motivoCancelamento:String(command.payload?.reason||"").trim(),canceladoEm:now,canceladoPorId:command.actorId||"",canceladoPor:command.actorName||"",updatedAt:now,atualizadoEm:now,version:versionOf(current)+1};
     const next={...data,rdos:(data.rdos||[]).map(item=>item.id===id?cancelled:item)};
+    return {ok:true,data:appendReceipt(next,command,id,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED){
+    const record=command.payload?.record;
+    if(!record?.id)return fail("Avanço físico sem identificação.");
+    const current=(data?.progressRecords||[]).find(item=>item.id===record.id);
+    if(current)return fail("Avanço físico já existe. Para corrigir, estorne e registre um novo avanço.");
+    if(command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("O avanço físico ainda não existe na versão esperada.");
+    const created=createProgressRecord(record,{actor:{id:command.actorId,nome:command.actorName},now});
+    if(!created.ok)return fail(created.error);
+    const next={...data,progressRecords:[...(data?.progressRecords||[]),created.record]};
+    return {ok:true,data:appendReceipt(next,command,created.record.id,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED){
+    const id=String(command.payload?.recordId||"");
+    const current=(data?.progressRecords||[]).find(item=>item.id===id);
+    if(!current)return fail("Avanço físico não encontrado.");
+    const versionError=requiresVersion(current,command.expectedVersion,"O avanço físico");
+    if(versionError)return fail(versionError);
+    const cancelled=cancelProgressRecord(current,{reason:command.payload?.reason,actor:{id:command.actorId,nome:command.actorName},now});
+    if(!cancelled.ok)return fail(cancelled.error);
+    const next={...data,progressRecords:(data?.progressRecords||[]).map(item=>item.id===id?cancelled.record:item)};
     return {ok:true,data:appendReceipt(next,command,id,now)};
   }
 
