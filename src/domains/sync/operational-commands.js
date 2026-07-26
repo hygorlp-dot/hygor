@@ -10,6 +10,7 @@ import {
 } from "../medicoes/index.js";
 import { inactive } from "../financeiro/workflows.js";
 import { cancelProgressRecord, createProgressRecord } from "../producao/mutations.js";
+import { canReleaseForMeasurement } from "../qualidade/calculations.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -40,6 +41,17 @@ const appendTechnicalMeasurementAudit=(data,event)=>({
   ...data,
   technicalMeasurementAuditEvents:[...(data?.technicalMeasurementAuditEvents||[]),event].slice(-2000),
 });
+const validateMeasurementQuality=(data={},measurement={})=>{
+  if(String(measurement.status||"")!=="aprovada")return "";
+  for(const item of measurement.itens||[]){
+    const release=canReleaseForMeasurement({
+      inspections:data.inspections||[],nonconformities:data.nonconformities||[],
+      obraId:measurement.obraId,serviceId:item.tarefaId,
+    });
+    if(!release.ok)return `A tarefa ${item.tarefaId} não pode ser medida: ${release.reason}`;
+  }
+  return "";
+};
 
 export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
@@ -54,6 +66,8 @@ export const applyOperationalCommand=(data,command)=>{
     const created={...normalizeTechnicalMeasurement({...measurement,numero:nextNumber},{now,nextNumber}),version:1};
     const validation=validateTechnicalMeasurement(created,{requireApprovedItems:true});
     if(!validation.ok)return fail(validation.errors.join(" "));
+    const qualityError=validateMeasurementQuality(data,created);
+    if(qualityError)return fail(qualityError);
     let next={...data,medicoesObra:[...(data?.medicoesObra||[]),created]};
     next=rebuildTechnicalMeasurementProjection(next,created.obraId,now);
     next=appendTechnicalMeasurementAudit(next,technicalMeasurementAuditEvent({

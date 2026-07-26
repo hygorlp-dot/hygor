@@ -91,4 +91,10 @@ describe("comandos operacionais versionados",()=>{
     expect(result).toMatchObject({ok:false});
     expect(result.reason).toMatch(/faturamento/);
   });
+
+  it("bloqueia a medição técnica aprovada com inspeção não conforme",()=>{
+    const initial={medicoesObra:[],inspections:[{id:"i-1",obraId:"o-1",serviceId:"t-1",resultado:"nao_conforme"}]};
+    const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,"measurement-quality-0001",{measurement:{id:"m-1",obraId:"o-1",data:"2026-07-25",itens:[{tarefaId:"t-1",pctConfirmado:10}]}}));
+    expect(result.ok).toBe(false);expect(result.reason).toMatch(/não pode ser medida/);
+  });
 });
