@@ -15,4 +15,11 @@ describe("parallax da maquete no login",()=>{
     expect(source).toContain('useReducedMotion()');
     expect(source).toContain('window.matchMedia("(pointer: coarse)").matches');
   });
+
+  it("acompanha apenas o cursor dentro da cena com câmera estável",()=>{
+    expect(source).toContain('visual.addEventListener("pointermove",move');
+    expect(source).toContain('visual.addEventListener("pointerleave",reset)');
+    expect(source).not.toContain("houseTargetRotateZ");
+    expect(source).not.toContain("previousPointer");
+  });
 });

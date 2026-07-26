@@ -81,6 +81,8 @@
   z-index: -1;
   overflow: hidden;
   background: #10161c;
+  perspective: 1300px;
+  perspective-origin: 38% 52%;
 }
 
 .login-project-image {
@@ -97,9 +99,8 @@
   transform-style: preserve-3d;
 }
 
-/* A foto é usada como uma pequena maquete: a paisagem permanece ao fundo e
-   a casa/estrutura à esquerda recebe uma camada própria, suavemente mascarada
-   para não produzir um recorte artificial sobre o horizonte. */
+/* Profundidade discreta: a foto continua íntegra e a casa apenas ganha uma
+   faixa de primeiro plano com borda difusa, sem aparência de cartão recortado. */
 .login-project-landscape {
   filter: saturate(.66) brightness(.78) contrast(.92);
 }
@@ -110,12 +111,12 @@
   z-index: 1;
   overflow: hidden;
   pointer-events: none;
-  mask-image: linear-gradient(90deg, #000 0 47%, rgba(0,0,0,.94) 55%, transparent 69%);
-  -webkit-mask-image: linear-gradient(90deg, #000 0 47%, rgba(0,0,0,.94) 55%, transparent 69%);
+  mask-image: radial-gradient(ellipse 72% 110% at 23% 55%, #000 0 39%, rgba(0,0,0,.9) 55%, transparent 76%);
+  -webkit-mask-image: radial-gradient(ellipse 72% 110% at 23% 55%, #000 0 39%, rgba(0,0,0,.9) 55%, transparent 76%);
 }
 
 .login-project-house {
-  filter: saturate(.96) brightness(1.08) contrast(1.02) drop-shadow(10px 12px 18px rgba(0,0,0,.18));
+  filter: saturate(.88) brightness(1.025) contrast(.98);
   transform-origin: 32% 57%;
 }
 
