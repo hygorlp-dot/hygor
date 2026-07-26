@@ -1,4 +1,5 @@
 import {
+  active,
   buildFinancialLedger,
   selectAccountsPayable,
   selectAccountsReceivable,
@@ -9,8 +10,7 @@ import {
   validateFinancialReconciliation,
 } from "./ledger.js";
 
-const inactive = item => item?.deletedAt || ["cancelado","cancelada","rejeitada","estornado","estornada"]
-  .includes(String(item?.status || "").toLowerCase());
+export const inactive = item => !active(item);
 const orderTotalCents = order => (order?.itens || []).reduce((sum,item) =>
   sum + toCents(Number(item.qtd || 0) * Number(item.precoUnit || 0)),0);
 const receivedTotalCents = order => (order?.itens || []).reduce((sum,item) =>

@@ -31,7 +31,7 @@ export const faixaDoScore = (score, temAlerta) => {
 
 // Monta uma candidata no formato padronizado (§6.6). `origem` é o registro
 // bruto vindo do índice (nota, pedido, medição, terceiro, funcionário...).
-const candidata = (base) => ({
+export const candidata = (base) => ({
   tipo: base.tipo,
   entidadeId: base.entidadeId || null,
   pagamentoId: base.pagamentoId || null,

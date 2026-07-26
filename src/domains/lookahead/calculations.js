@@ -2,7 +2,7 @@ import { CONSTRAINT_STATUS, LOOKAHEAD_PACKAGE_STATUS } from "./constants.js";
 
 const dateOnly=value=>String(value||"").slice(0,10);
 const compareDate=(left,right)=>dateOnly(left).localeCompare(dateOnly(right));
-export const isBlockingConstraintOpen=(constraint={},asOf="")=>{
+export const isBlockingConstraintOpen=(constraint={})=>{
   if(!constraint.bloqueante)return false;
   const status=constraint.status;
   if([CONSTRAINT_STATUS.RELEASED,CONSTRAINT_STATUS.CANCELLED].includes(status))return false;
@@ -18,7 +18,7 @@ export const deriveConstraintStatus=(constraint={},asOf="")=>{
 export const derivePackageReadiness=(workPackage={},constraints=[],asOf="")=>{
   if(workPackage.status===LOOKAHEAD_PACKAGE_STATUS.CANCELLED)return {ready:false,status:LOOKAHEAD_PACKAGE_STATUS.CANCELLED,blockingConstraintIds:[]};
   const linked=constraints.filter(item=>(workPackage.restricaoIds||[]).includes(item.id));
-  const blocking=linked.filter(item=>isBlockingConstraintOpen({...item,status:deriveConstraintStatus(item,asOf)},asOf));
+  const blocking=linked.filter(item=>isBlockingConstraintOpen({...item,status:deriveConstraintStatus(item,asOf)}));
   if(blocking.length)return {ready:false,status:LOOKAHEAD_PACKAGE_STATUS.RESTRICTED,blockingConstraintIds:blocking.map(item=>item.id)};
   const status=[LOOKAHEAD_PACKAGE_STATUS.COMMITTED,LOOKAHEAD_PACKAGE_STATUS.IN_PROGRESS,LOOKAHEAD_PACKAGE_STATUS.DONE,LOOKAHEAD_PACKAGE_STATUS.NOT_DONE].includes(workPackage.status)
     ?workPackage.status:LOOKAHEAD_PACKAGE_STATUS.READY;

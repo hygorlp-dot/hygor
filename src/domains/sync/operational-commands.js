@@ -8,6 +8,7 @@ import {
   technicalMeasurementAuditEvent,
   validateTechnicalMeasurement,
 } from "../medicoes/index.js";
+import { inactive } from "../financeiro/workflows.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -68,7 +69,7 @@ export const applyOperationalCommand=(data,command)=>{
     if(["cancelada","cancelado"].includes(current.status))return fail("A medição técnica já está cancelada.");
     const reason=String(command.payload?.reason||"").trim();
     if(!reason)return fail("Informe o motivo do cancelamento da medição técnica.");
-    if((data?.medicoes||[]).some(item=>item.medicaoTecnicaId===id&&!['cancelada','cancelado','estornada','estornado'].includes(String(item.status||"").toLowerCase()))){
+    if((data?.medicoes||[]).some(item=>item.medicaoTecnicaId===id&&!inactive(item))){
       return fail("Cancele primeiro o faturamento vinculado à medição técnica.");
     }
     const cancelled={...current,status:"cancelada",motivoCancelamento:reason,canceladaEm:now,canceladaPorId:command.actorId||"",canceladaPor:command.actorName||"",updatedAt:now,version:versionOf(current)+1};

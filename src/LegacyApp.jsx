@@ -143,7 +143,7 @@ import {
 import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
 import {
   createApprovalEngine, validarPolitica, encontrarPoliticaAplicavel,
-  podeAdministrarPoliticas, podeGerenciarDelegacoes,
+  podeAdministrarPoliticas, podeGerenciarDelegacoes, OPERADORES,
 } from "./domains/aprovacoes/index.js";
 
 // Resolvedores concretos do motor de aprovação para o app ARCD: como este
@@ -152,22 +152,24 @@ import {
 // isso é o comportamento CORRETO (aciona a contingência configurada na etapa,
 // nunca inventa um aprovador). Não presume nenhum cargo fixo além do que já
 // existe em `usuarios[].role` (admin/financeiro/compras/engenheiro/rh/...).
+// Genéricos por natureza (não dependem de nada específico de Compras) -
+// reutilizados por qualquer entidadeTipo, ver MOTORES_APROVACAO_POR_ENTIDADE.
 const usuarioAtivo = (u) => ({ id: u.id, nome: u.nome });
-const resolvedoresAprovacaoCompras = {
+const resolvedoresAprovacaoGenericos = {
   usuario: (ref, _ctx, data) => {
     const u = (data.usuarios || []).find(x => x.id === ref && x.active !== false);
     return u ? [usuarioAtivo(u)] : [];
   },
   cargo: (ref, _ctx, data) => (data.usuarios || []).filter(u => u.role === ref && u.active !== false).map(usuarioAtivo),
-  perfil: (ref, ctx, data) => resolvedoresAprovacaoCompras.cargo(ref, ctx, data),
-  grupo: (ref, ctx, data) => resolvedoresAprovacaoCompras.cargo(ref, ctx, data),
+  perfil: (ref, ctx, data) => resolvedoresAprovacaoGenericos.cargo(ref, ctx, data),
+  grupo: (ref, ctx, data) => resolvedoresAprovacaoGenericos.cargo(ref, ctx, data),
   responsavelObra: (_ref, ctx, data) => {
     const obra = (data.obras || []).find(o => o.id === ctx?.obraId);
     if (!obra?.engineerId) return [];
     const u = (data.usuarios || []).find(x => x.id === obra.engineerId && x.active !== false);
     return u ? [usuarioAtivo(u)] : [];
   },
-  gerenteObra: (ref, ctx, data) => resolvedoresAprovacaoCompras.responsavelObra(ref, ctx, data),
+  gerenteObra: (ref, ctx, data) => resolvedoresAprovacaoGenericos.responsavelObra(ref, ctx, data),
   responsavelCentroCusto: () => [],
   responsavelDepartamento: () => [],
   superiorHierarquico: () => [],
@@ -178,7 +180,7 @@ const resolvedoresAprovacaoCompras = {
   administrador: (_ref, _ctx, data) => (data.usuarios || []).filter(u => u.role === "admin" && u.active !== false).map(usuarioAtivo),
   campoSolicitacao: (_ref, ctx) => ctx?.aprovadorEspecificoId ? [{ id: ctx.aprovadorEspecificoId, nome: ctx.aprovadorEspecificoNome || ctx.aprovadorEspecificoId }] : [],
 };
-const motorAprovacaoCompras = createApprovalEngine(resolvedoresAprovacaoCompras);
+const motorAprovacaoGenerico = createApprovalEngine(resolvedoresAprovacaoGenericos);
 
 // 
 // ARCD OBRAS - aplicação legada em migração incremental por domínio
@@ -2238,6 +2240,7 @@ const normalizeData = incoming => {
       conciliado:   !!p.conciliado,
       transacaoId:  p.transacaoId || "",
       medicaoTercId: p.medicaoTercId || "",
+      aprovacaoInstanciaId: p.aprovacaoInstanciaId || "",
     })) : [],
     // Medicao de contrato de terceiro. Cada medicao grava o percentual
     // ACUMULADO por etapa e o percentual anterior: o valor da medicao e a
@@ -11357,10 +11360,21 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     }
     const ret = calcRetencoes(amount, terc);
     try {
-      update(createThirdPartyPayment({data,actor:currentUser,id:uid(),payment:{
+      const paymentId = uid();
+      // Pagamento manual (sem medição vinculada) - o motor sabe disso via
+      // `possuiMedicao` e pode exigir uma etapa a mais para esse caso, sem
+      // travar o lançamento: a aprovação corre em paralelo, auditável, e o
+      // pagamento fica visível como pendente até alguém decidir.
+      const { data: comAprovacao, resumo } = motorAprovacaoGenerico.iniciarInstancia(data, {
+        entidadeTipo:"pagamentoTerceiro", entidadeId:paymentId,
+        contexto:{ valorTotal:amount, obraId:terc.obraId||"", possuiMedicao:"nao", solicitanteId:currentUser?.id||"" },
+        operador:currentUser, comportamentoSemPolitica:data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar",
+      });
+      update(createThirdPartyPayment({data:comAprovacao,actor:currentUser,id:paymentId,payment:{
         tercId:terc.id,tercName:terc.name,specialty:terc.specialty,obraId:terc.obraId,date:friday,amount,
         description:payDesc || `Pagamento semanal ${fmtDateFull(friday)}`,pagador:paySource,
         issRetido:ret.issRetido,inssRetido:ret.inssRetido,liquido:ret.liquido,
+        aprovacaoInstanciaId:resumo.instanciaId,
       }}));
       setPayModal(null); setPayAmount(""); setPayDesc(""); setPaySource("");
       const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(terc.obraId)}`;
@@ -11689,11 +11703,18 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     if(semEvidencia&&!riscoSemFotoAceito){showToast("Pagamento de risco: confirme que o financeiro está ciente da ausência de fotografia.","error");return;}
     try {
       const ret = calcRetencoes(m.total, t);
-      update(payThirdPartyMeasurement({data,measurementId:m.id,actor:currentUser,id:uid(),payment:{
+      const paymentId = uid();
+      const { data: comAprovacao, resumo } = motorAprovacaoGenerico.iniciarInstancia(data, {
+        entidadeTipo:"pagamentoTerceiro", entidadeId:paymentId,
+        contexto:{ valorTotal:m.total, obraId:m.obraId||"", possuiMedicao:"sim", solicitanteId:currentUser?.id||"" },
+        operador:currentUser, comportamentoSemPolitica:data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar",
+      });
+      update(payThirdPartyMeasurement({data:comAprovacao,measurementId:m.id,actor:currentUser,id:paymentId,payment:{
         tercName:t.name,specialty:t.specialty,date:m.data,description:`Medição ${m.numero} - ${fmtDateFull(m.data)}`,
         pagador:paySource,issRetido:ret.issRetido,inssRetido:ret.inssRetido,liquido:ret.liquido,
         semEvidenciaFotografica:semEvidencia,riscoSemFotoAceitoEm:semEvidencia?new Date().toISOString():"",
         riscoSemFotoAceitoPor:semEvidencia?(currentUser?.nome||"Operador financeiro"):"",
+        aprovacaoInstanciaId:resumo.instanciaId,
       }}));
       const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(m.obraId)}`;
       setMedPayModal(null); setPaySource(""); setRiscoSemFotoAceito(false);
@@ -12056,20 +12077,23 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
                           )}
                           {t.notes && <p style={{ fontSize:12, color:C.muted, fontStyle:"italic" }}>"{t.notes}"</p>}
                           <p style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase" }}>Últimos pagamentos</p>
-                          {(data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).slice(-5).reverse().map(p=>(
-                            <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.line}`, paddingBottom:6 }}>
+                          {(data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).slice(-5).reverse().map(p=>{
+                            const instanciaPag=p.aprovacaoInstanciaId?(data.instanciasAprovacao||[]).find(i=>i.id===p.aprovacaoInstanciaId):null;
+                            const statusAprovacao=instanciaPag&&instanciaPag.status!=="aprovada"?instanciaPag.status:null;
+                            return <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.line}`, paddingBottom:6 }}>
                               <div>
                                 <p style={{ fontSize:13, fontWeight:700 }}>{p.description}</p>
                                 <p style={{ fontSize:11, color:C.muted }}>
                                   {fmtDateFull(p.date)} · {p.pagador === "empresa" ? "pago pela empresa" : `pago pela obra ${obraName(p.obraId)}`}
                                 </p>
+                                {statusAprovacao && <Badge color={statusAprovacao==="reprovada"?C.red:C.yellow}>{statusAprovacao==="em_andamento"?"AGUARDANDO APROVAÇÃO":statusAprovacao==="reprovada"?"REPROVADO":statusAprovacao.toUpperCase()}</Badge>}
                               </div>
                               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                                 <p style={{ color:C.green, fontWeight:900 }}>{fmt(p.amount)}</p>
                                 <Btn v="danger" size="sm" onClick={()=>removePay(p.id)}><Ic n="trash"/></Btn>
                               </div>
-                            </div>
-                          ))}
+                            </div>;
+                          })}
                           {!(data.pagsTerceiros||[]).some(p=>p.tercId===t.id) && (
                             <p style={{ fontSize:12, color:C.muted }}>Nenhum pagamento registrado.</p>
                           )}
@@ -14985,7 +15009,7 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","tv","chat","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_pipeline","com_relationships","com_deals","com_management"],
+  admin:       ["home","tv","chat","aprov_pend","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_pipeline","com_relationships","com_deals","com_management"],
   engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
@@ -15027,7 +15051,7 @@ const allowedTabsForUser=user=>{
   // disponíveis mesmo em cadastros antigos cuja lista personalizada de abas
   // foi criada antes da existência do painel corporativo.
   const herdadas=user.role==="financeiro"?["equip_fin"]:[];
-  return [...new Set(["home","tv","chat",...base,...herdadas])].filter(tab=>valid.has(tab)&&tab!=="config");
+  return [...new Set(["home","tv","chat","aprov_pend",...base,...herdadas])].filter(tab=>valid.has(tab)&&tab!=="config");
 };
 
 const hashPin = async (pin) => {
@@ -15478,6 +15502,417 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
   );
 }
 
+//
+// GESTÃO DE APROVAÇÕES - tela administrativa sobre o motor genérico de
+// domains/aprovacoes/ (engine.js + policies.js). O motor já suporta qualquer
+// setor; hoje só existem resolvedores de aprovador genéricos
+// (resolvedoresAprovacaoGenericos, acima) - por isso a lista de tipos de
+// processo e de aprovador abaixo fica restrita ao que realmente resolve
+// alguém. Adicionar um novo setor é trabalho de desenvolvimento (escrever o
+// resolvedor), não de configuração - por design, o motor nunca inventa um
+// aprovador para um cargo/departamento que a base não tem.
+const SETORES_APROVACAO = [
+  { v: "solicitacaoCompra", l: "Compras · Solicitação de compra" },
+  { v: "pagamentoTerceiro", l: "Terceiros · Pagamento" },
+];
+const MOTORES_APROVACAO_POR_ENTIDADE = { solicitacaoCompra: () => motorAprovacaoGenerico, pagamentoTerceiro: () => motorAprovacaoGenerico };
+const TIPOS_APROVADOR_APROVACAO = [
+  { v: "usuario", l: "Usuário específico", refs: "usuario" },
+  { v: "cargo", l: "Perfil de acesso (cargo)", refs: "role" },
+  { v: "responsavelObra", l: "Engenheiro responsável pela obra", refs: null },
+  { v: "compradorResponsavel", l: "Setor de Compras", refs: null },
+  { v: "financeiro", l: "Setor Financeiro", refs: null },
+  { v: "administrador", l: "Administrador", refs: null },
+  { v: "campoSolicitacao", l: "Aprovador indicado na solicitação", refs: null },
+];
+const CAMPOS_CONTEXTO_APROVACAO = [
+  { v: "valorTotal", l: "Valor total (R$)" },
+  { v: "obraId", l: "Obra" },
+  { v: "categoria", l: "Categoria do item" },
+  { v: "urgencia", l: "Prioridade da solicitação" },
+  { v: "solicitanteId", l: "Solicitante" },
+  { v: "possuiMedicao", l: "Pagamento vinculado a uma medição do terceiro?" },
+];
+const ROTULOS_OPERADOR_APROVACAO = {
+  igual:"é igual a", diferente:"é diferente de", maior:"maior que", maior_igual:"maior ou igual a",
+  menor:"menor que", menor_igual:"menor ou igual a", entre:"entre (mín, máx)",
+  contem:"contém o texto", pertence_lista:"está na lista", nao_pertence_lista:"não está na lista",
+};
+const ROTULOS_MODO_QUORUM = { qualquer:"Qualquer um decide", todos:"Todos precisam aprovar", minimo:"Quantidade mínima" };
+const ROTULOS_SEM_APROVADOR = { enviar_administrador:"Enviar para o administrador", pular_etapa:"Pular etapa (segue sem aprovação)", auto_aprovar_etapa:"Aprovar automaticamente", bloquear:"Bloquear até intervenção manual" };
+const ROTULOS_ACAO_VENCIMENTO = { escalonar:"Escalonar para substituto/administrador", aprovar_automatico:"Aprovar automaticamente", bloquear:"Bloquear até intervenção manual", retornar_solicitante:"Devolver ao solicitante" };
+const ROTULOS_AUTOAPROVACAO = { proibida:"Nunca permitir", sempre:"Sempre permitir", abaixo_valor:"Permitir abaixo de um valor", perfis_especificos:"Permitir para perfis específicos", sem_outro_elegivel:"Permitir só quando não houver outro aprovador" };
+
+const novaCondicaoAprovacao = () => ({ id: uid(), campo: "valorTotal", operador: "maior", valor: "" });
+const novaEtapaAprovacao = ordem => ({
+  id: uid(), ordem, nome: "", tipoAprovador: "administrador", referenciasAprovadores: [],
+  modoQuorum: "qualquer", quantidadeMinima: 1, prazoValor: 0, prazoUnidade: "dias_uteis",
+  acaoNoVencimento: "escalonar", substitutos: [], grupoSubstituto: "",
+  semAprovadorAcao: "enviar_administrador", consolidarAprovadorRepetido: "manter", condicoes: [],
+});
+const novaPoliticaAprovacao = () => ({
+  id: "", nome: "", descricao: "", ativa: true, prioridade: 10, entidadeTipo: "solicitacaoCompra",
+  vigenciaInicio: "", vigenciaFim: "", condicoes: [], etapas: [novaEtapaAprovacao(0)],
+  autoaprovacao: { modo: "proibida", valorLimite: 0, perfis: [] },
+});
+
+// Modelos iniciais por porte de empresa (§ "Assistente de configuração por
+// porte" do pedido original). Só preenchem o formulário - nada é salvo até o
+// admin revisar e confirmar, e tudo continua editável depois.
+const etapaModelo = (ordem, nome, tipoAprovador) => ({ ...novaEtapaAprovacao(ordem), nome, tipoAprovador });
+const MODELOS_PORTE_APROVACAO = {
+  enxuto: () => ({
+    ...novaPoliticaAprovacao(), nome: "Alçada do administrador acima de R$ 5.000",
+    descricao: "Times pequenos: abaixo do limite, segue direto (comportamento padrão da tela de Aprovações). Acima, só o administrador decide.",
+    condicoes: [{ ...novaCondicaoAprovacao(), campo: "valorTotal", operador: "maior", valor: "5000" }],
+    etapas: [etapaModelo(0, "Aprovação do administrador", "administrador")],
+    autoaprovacao: { modo: "sem_outro_elegivel", valorLimite: 0, perfis: [] },
+  }),
+  intermediario: () => ({
+    ...novaPoliticaAprovacao(), nome: "Responsável da obra + financeiro",
+    descricao: "Passa primeiro pelo responsável da obra e depois pelo financeiro, em sequência.",
+    etapas: [etapaModelo(0, "Responsável da obra", "responsavelObra"), etapaModelo(1, "Financeiro", "financeiro")],
+  }),
+  segregado: () => ({
+    ...novaPoliticaAprovacao(), nome: "Responsável da obra → financeiro → administrador",
+    descricao: "Segregação de funções completa: três etapas em sequência, sem acúmulo implícito.",
+    etapas: [etapaModelo(0, "Responsável da obra", "responsavelObra"), etapaModelo(1, "Financeiro", "financeiro"), etapaModelo(2, "Administrador", "administrador")],
+  }),
+};
+
+// Condição de contexto (valor livre, exceto quando o campo tem opções
+// conhecidas na base - aí usa Sel para não deixar o admin digitar um id que
+// não existe).
+function EditorCondicaoAprovacao({ condicao, data, onChange, onRemove }) {
+  const valorInput = condicao.campo === "obraId"
+    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"",l:"Selecione a obra"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+    : condicao.campo === "urgencia"
+    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"normal",l:"Normal"},{v:"urgente",l:"Urgente"}]}/>
+    : condicao.campo === "solicitanteId"
+    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"",l:"Selecione o usuário"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
+    : condicao.campo === "possuiMedicao"
+    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"sim",l:"Sim, há medição"},{v:"nao",l:"Não, pagamento manual/sem medição"}]}/>
+    : <Inp label="Valor" value={condicao.valor??""} onChange={v=>onChange({...condicao,valor:v})} placeholder={["entre","pertence_lista","nao_pertence_lista"].includes(condicao.operador)?"Separe por vírgula":""}/>;
+  return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:6,alignItems:"end",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:8}}>
+    <Sel label="Campo" value={condicao.campo} onChange={v=>onChange({...condicao,campo:v,valor:""})} options={CAMPOS_CONTEXTO_APROVACAO}/>
+    <Sel label="Condição" value={condicao.operador} onChange={v=>onChange({...condicao,operador:v})} options={OPERADORES.map(op=>({v:op,l:ROTULOS_OPERADOR_APROVACAO[op]||op}))}/>
+    {valorInput}
+    <Btn size="sm" v="ghost" onClick={onRemove}><Ic n="trash"/></Btn>
+  </div>;
+}
+
+function EditorEtapaAprovacao({ etapa, data, onChange, onRemove }) {
+  const { cols } = useBreakpoint();
+  const tipoDef = TIPOS_APROVADOR_APROVACAO.find(t => t.v === etapa.tipoAprovador);
+  const refOptions = tipoDef?.refs === "usuario"
+    ? (data.usuarios||[]).filter(u=>u.active!==false).map(u=>({id:u.id,l:u.nome}))
+    : tipoDef?.refs === "role" ? ROLES.map(r=>({id:r.v,l:r.l})) : [];
+  const toggleRef = id => onChange({...etapa, referenciasAprovadores: etapa.referenciasAprovadores.includes(id)
+    ? etapa.referenciasAprovadores.filter(x=>x!==id) : [...etapa.referenciasAprovadores, id]});
+  return <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:11,display:"flex",flexDirection:"column",gap:8}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 90px auto",gap:6,alignItems:"end"}}>
+      <Inp label="Nome da etapa" value={etapa.nome} onChange={v=>onChange({...etapa,nome:v})} placeholder="Ex.: Aprovação do engenheiro"/>
+      <Inp label="Ordem" type="number" value={etapa.ordem} onChange={v=>onChange({...etapa,ordem:Number(v||0)})}/>
+      <Btn size="sm" v="ghost" onClick={onRemove}><Ic n="trash"/> Remover etapa</Btn>
+    </div>
+    <p style={{fontSize:9,color:C.muted}}>Etapas com a mesma ordem rodam em paralelo; ordens diferentes rodam em sequência.</p>
+    <Sel label="Quem aprova" value={etapa.tipoAprovador} onChange={v=>onChange({...etapa,tipoAprovador:v,referenciasAprovadores:[]})} options={TIPOS_APROVADOR_APROVACAO}/>
+    {tipoDef?.refs && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:5}}>
+      {refOptions.map(o=><label key={o.id} style={{display:"flex",alignItems:"center",gap:6,border:`1px solid ${etapa.referenciasAprovadores.includes(o.id)?C.blue:C.border}`,background:etapa.referenciasAprovadores.includes(o.id)?`${C.blue}0B`:C.bg,borderRadius:6,padding:"5px 7px",cursor:"pointer"}}>
+        <input type="checkbox" checked={etapa.referenciasAprovadores.includes(o.id)} onChange={()=>toggleRef(o.id)}/>
+        <span style={{fontSize:10,color:C.text}}>{o.l}</span>
+      </label>)}
+      {!refOptions.length && <p style={{fontSize:9.5,color:C.muted}}>Nenhuma opção cadastrada.</p>}
+    </div>}
+    <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6}}>
+      <Sel label="Quórum" value={etapa.modoQuorum} onChange={v=>onChange({...etapa,modoQuorum:v})} options={Object.entries(ROTULOS_MODO_QUORUM).map(([v,l])=>({v,l}))}/>
+      {etapa.modoQuorum==="minimo" && <Inp label="Quantidade mínima" type="number" value={etapa.quantidadeMinima} onChange={v=>onChange({...etapa,quantidadeMinima:Math.max(1,Number(v||1))})}/>}
+      <Inp label="Prazo" type="number" value={etapa.prazoValor} onChange={v=>onChange({...etapa,prazoValor:Math.max(0,Number(v||0))})}/>
+      <Sel label="Unidade do prazo" value={etapa.prazoUnidade} onChange={v=>onChange({...etapa,prazoUnidade:v})} options={[{v:"dias_uteis",l:"Dias úteis"},{v:"horas",l:"Horas"}]}/>
+      <Sel label="Sem aprovador elegível" value={etapa.semAprovadorAcao} onChange={v=>onChange({...etapa,semAprovadorAcao:v})} options={Object.entries(ROTULOS_SEM_APROVADOR).map(([v,l])=>({v,l}))}/>
+      <Sel label="Ao vencer o prazo" value={etapa.acaoNoVencimento} onChange={v=>onChange({...etapa,acaoNoVencimento:v})} options={Object.entries(ROTULOS_ACAO_VENCIMENTO).map(([v,l])=>({v,l}))}/>
+      <Sel label="Aprovador repetido na próxima etapa" value={etapa.consolidarAprovadorRepetido} onChange={v=>onChange({...etapa,consolidarAprovadorRepetido:v})} options={[{v:"manter",l:"Manter separado"},{v:"consolidar",l:"Uma decisão conclui as duas"},{v:"ignorar",l:"Pular a próxima automaticamente"}]}/>
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:5}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:9.5,fontWeight:700,color:C.muted}}>CONDIÇÕES DA ETAPA (opcional - sem condição, a etapa sempre roda)</span><Btn size="sm" v="ghost" onClick={()=>onChange({...etapa,condicoes:[...etapa.condicoes,novaCondicaoAprovacao()]})}><Ic n="plus"/> Condição</Btn></div>
+      {etapa.condicoes.map(c=><EditorCondicaoAprovacao key={c.id} condicao={c} data={data} onChange={nc=>onChange({...etapa,condicoes:etapa.condicoes.map(x=>x.id===nc.id?nc:x)})} onRemove={()=>onChange({...etapa,condicoes:etapa.condicoes.filter(x=>x.id!==c.id)})}/>)}
+    </div>
+  </div>;
+}
+
+function GestaoAprovacoes({ data, update, showToast, currentUser }) {
+  const { cols } = useBreakpoint();
+  const [modal, setModal] = useState(null);
+  const [simulando, setSimulando] = useState(null);
+  const [contextoSim, setContextoSim] = useState({ valorTotal:"", obraId:"", categoria:"", urgencia:"normal", solicitanteId:"" });
+  const [resultadoSim, setResultadoSim] = useState(null);
+  const politicas = data.politicasAprovacao || [];
+
+  const podeAdministrar = podeAdministrarPoliticas(currentUser?.role);
+
+  const abrirNova = () => setModal(novaPoliticaAprovacao());
+  const abrirEditar = p => setModal(JSON.parse(JSON.stringify(p)));
+
+  const validacaoAtual = modal ? validarPolitica(modal, { politicasExistentes: politicas }) : null;
+
+  const salvar = () => {
+    if (!validacaoAtual.valida) { showToast(validacaoAtual.erros[0], "error"); return; }
+    const agora = new Date().toISOString();
+    const existente = modal.id && politicas.some(p => p.id === modal.id);
+    const payload = {
+      ...modal, id: modal.id || uid(),
+      versao: existente ? Number(modal.versao||1) + 1 : 1,
+      criadoPorId: modal.criadoPorId || currentUser?.id || "", criadoPor: modal.criadoPor || currentUser?.nome || "",
+      criadoEm: modal.criadoEm || agora, atualizadoPor: currentUser?.nome || "", atualizadoEm: agora,
+    };
+    const politicasAprovacao = existente ? politicas.map(p => p.id === payload.id ? payload : p) : [...politicas, payload];
+    update({ ...data, politicasAprovacao });
+    setModal(null);
+    showToast(existente ? `Política atualizada para a versão ${payload.versao}. Processos já em andamento continuam na versão anterior.` : "Política criada.");
+    if (validacaoAtual.alertas.length) showToast(validacaoAtual.alertas[0], "warn");
+  };
+
+  const alternarAtiva = p => {
+    update({ ...data, politicasAprovacao: politicas.map(x => x.id === p.id ? { ...x, ativa: !x.ativa, atualizadoPor: currentUser?.nome || "", atualizadoEm: new Date().toISOString() } : x) });
+    showToast(p.ativa ? "Política desativada." : "Política ativada.");
+  };
+
+  const abrirSimulador = p => { setSimulando(p); setResultadoSim(null); };
+  const executarSimulacao = () => {
+    const motor = MOTORES_APROVACAO_POR_ENTIDADE[simulando.entidadeTipo]?.();
+    if (!motor) { showToast("Nenhum motor de execução cadastrado para este tipo de processo.", "error"); return; }
+    const contexto = { valorTotal:Number(contextoSim.valorTotal||0), obraId:contextoSim.obraId, categoria:contextoSim.categoria, urgencia:contextoSim.urgencia, solicitanteId:contextoSim.solicitanteId||currentUser?.id||"" };
+    setResultadoSim(motor.simularPolitica(simulando, contexto, data));
+  };
+
+  const eventosAuditoria = useMemo(() => [...(data.auditoriaAprovacao||[])].sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))).slice(0,200), [data.auditoriaAprovacao]);
+
+  const delegacoes = data.delegacoesAprovacao || [];
+  const [delegForm, setDelegForm] = useState({ usuarioOrigemId:"", usuarioDestinoId:"", inicio:today(), fim:"", escopo:"" });
+  const podeDelegar = podeGerenciarDelegacoes(currentUser?.role);
+
+  if (!podeAdministrar) return <div style={{padding:24,textAlign:"center",color:C.red}}>Acesso exclusivo da administração.</div>;
+
+  const mudarComportamentoSemPolitica = v => {
+    update({ ...data, configAprovacao: { ...data.configAprovacao, comportamentoSemPolitica: v } });
+    showToast("Comportamento padrão atualizado.");
+  };
+
+  const criarDelegacao = () => {
+    if (!delegForm.usuarioOrigemId || !delegForm.usuarioDestinoId) { showToast("Selecione quem está ausente e quem vai substituir.", "error"); return; }
+    if (delegForm.usuarioOrigemId === delegForm.usuarioDestinoId) { showToast("O substituto não pode ser o mesmo usuário ausente.", "error"); return; }
+    if (!delegForm.inicio) { showToast("Informe a data de início da delegação.", "error"); return; }
+    if (delegForm.fim && delegForm.fim < delegForm.inicio) { showToast("A data final não pode ser anterior ao início.", "error"); return; }
+    const destino = (data.usuarios||[]).find(u => u.id === delegForm.usuarioDestinoId);
+    const registro = { id: uid(), usuarioOrigemId: delegForm.usuarioOrigemId, usuarioDestinoId: delegForm.usuarioDestinoId, usuarioDestinoNome: destino?.nome||"", inicio: delegForm.inicio, fim: delegForm.fim||"", escopo: delegForm.escopo||"", ativo: true, criadoEm: new Date().toISOString() };
+    update({ ...data, delegacoesAprovacao: [...delegacoes, registro] });
+    setDelegForm({ usuarioOrigemId:"", usuarioDestinoId:"", inicio:today(), fim:"", escopo:"" });
+    showToast("Delegação criada.");
+  };
+  const revogarDelegacao = id => {
+    update({ ...data, delegacoesAprovacao: delegacoes.map(d => d.id===id ? { ...d, ativo:false } : d) });
+    showToast("Delegação revogada.");
+  };
+
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{background:`${C.yellow}0B`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:8}}>
+      <p style={{fontSize:10.5,color:C.muted}}>Quando nenhuma política ativa se aplicar a um processo, o app nunca trava sozinho - ele segue o comportamento padrão abaixo. Hoje só o setor de Compras tem aprovadores conectados ao motor; outros setores exigem trabalho de desenvolvimento antes de aparecerem aqui.</p>
+      <div style={{maxWidth:340}}><Sel label="Comportamento sem política aplicável" value={data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar"} onChange={mudarComportamentoSemPolitica} options={[{v:"auto_aprovar",l:"Aprovar automaticamente"},{v:"fila_administrativa",l:"Enviar à fila do administrador"},{v:"bloquear",l:"Bloquear até intervenção manual"}]}/></div>
+    </div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <b style={{fontSize:12,color:C.text}}>{politicas.length} política(s) de aprovação cadastrada(s)</b>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.enxuto())}>Modelo enxuto</Btn>
+        <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.intermediario())}>Modelo intermediário</Btn>
+        <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.segregado())}>Modelo segregado</Btn>
+        <Btn onClick={abrirNova}><Ic n="plus"/> Do zero</Btn>
+      </div>
+    </div>
+    <p style={{fontSize:9,color:C.muted,marginTop:-6}}>Os modelos só preenchem o formulário como ponto de partida - nada é salvo até você revisar e confirmar, e tudo continua editável depois.</p>
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+      {politicas.map((p,i)=><div key={p.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:9,padding:"11px 12px",borderTop:i?`1px solid ${C.line}`:"none",alignItems:"center"}}>
+        <div style={{minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+            <p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{p.nome||"Sem nome"}</p>
+            <Badge color={p.ativa?C.green:C.muted}>{p.ativa?"ATIVA":"INATIVA"}</Badge>
+            <Badge color={C.blue}>v{p.versao}</Badge>
+          </div>
+          <p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{SETORES_APROVACAO.find(s=>s.v===p.entidadeTipo)?.l||p.entidadeTipo} · prioridade {p.prioridade} · {p.etapas.length} etapa(s){p.condicoes.length?` · ${p.condicoes.length} condição(ões)`:" · sem condição (aplica sempre que ativa)"}</p>
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <Btn size="sm" v="ghost" onClick={()=>abrirSimulador(p)}><Ic n="eye"/> Simular</Btn>
+          <Btn size="sm" v="ghost" onClick={()=>abrirEditar(p)}>Editar</Btn>
+          <Btn size="sm" v={p.ativa?"ghost":"success"} onClick={()=>alternarAtiva(p)}>{p.ativa?"Desativar":"Ativar"}</Btn>
+        </div>
+      </div>)}
+      {!politicas.length && <p style={{padding:30,textAlign:"center",fontSize:11,color:C.muted}}>Nenhuma política cadastrada ainda. Enquanto isso, tudo segue o comportamento padrão acima.</p>}
+    </div>
+
+    {podeDelegar && <>
+      <b style={{fontSize:11.5,color:C.text,marginTop:4}}>Delegações (férias, afastamento, substituição)</b>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:6}}>
+          <Sel label="Usuário ausente" value={delegForm.usuarioOrigemId} onChange={v=>setDelegForm({...delegForm,usuarioOrigemId:v})} options={[{v:"",l:"Selecione"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
+          <Sel label="Substituto" value={delegForm.usuarioDestinoId} onChange={v=>setDelegForm({...delegForm,usuarioDestinoId:v})} options={[{v:"",l:"Selecione"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
+          <Inp label="Início" type="date" value={delegForm.inicio} onChange={v=>setDelegForm({...delegForm,inicio:v})}/>
+          <Inp label="Fim (opcional)" type="date" value={delegForm.fim} onChange={v=>setDelegForm({...delegForm,fim:v})}/>
+        </div>
+        <Inp label="Escopo/motivo (anotação - ainda não filtra por setor)" value={delegForm.escopo} onChange={v=>setDelegForm({...delegForm,escopo:v})} placeholder="Ex.: férias, cobre só Compras"/>
+        <Btn onClick={criarDelegacao}><Ic n="plus"/> Criar delegação</Btn>
+        <div style={{display:"flex",flexDirection:"column",gap:5,marginTop:4}}>
+          {delegacoes.map(d=><div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 9px"}}>
+            <div style={{minWidth:0}}>
+              <p style={{fontSize:10.5,color:C.text}}>{(data.usuarios||[]).find(u=>u.id===d.usuarioOrigemId)?.nome||"Usuário removido"} → {d.usuarioDestinoNome||"?"} <Badge color={d.ativo?C.green:C.muted}>{d.ativo?"ATIVA":"REVOGADA"}</Badge></p>
+              <p style={{fontSize:9,color:C.muted,marginTop:2}}>{fmtDateFull(d.inicio)}{d.fim?` até ${fmtDateFull(d.fim)}`:" · sem data de fim"}{d.escopo?` · ${d.escopo}`:""}</p>
+            </div>
+            {d.ativo && <Btn size="sm" v="ghost" onClick={()=>revogarDelegacao(d.id)}>Revogar</Btn>}
+          </div>)}
+          {!delegacoes.length && <p style={{fontSize:10,color:C.muted}}>Nenhuma delegação cadastrada.</p>}
+        </div>
+      </div>
+    </>}
+
+    <b style={{fontSize:11.5,color:C.text,marginTop:4}}>Auditoria de aprovações</b>
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+      {eventosAuditoria.map((e,i)=><div key={e.id||i} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:9,padding:"9px 12px",borderTop:i?`1px solid ${C.line}`:"none"}}>
+        <div style={{minWidth:0}}><p style={{fontSize:10.5,color:C.text}}>{e.motivo||e.evento}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>{e.evento}{e.usuario?` · ${e.usuario}`:""}{e.instanciaId?` · ${e.instanciaId}`:""}</p></div>
+        <p style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>{e.data?new Date(e.data).toLocaleString("pt-BR"):""}</p>
+      </div>)}
+      {!eventosAuditoria.length && <p style={{padding:20,textAlign:"center",fontSize:10.5,color:C.muted}}>Nenhum evento de aprovação registrado ainda.</p>}
+    </div>
+
+    {modal && <Modal wide title={modal.id?`Editar política · v${modal.versao||1}`:"Nova política de aprovação"} onClose={()=>setModal(null)}>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
+          <Inp label="Nome da política *" value={modal.nome} onChange={v=>setModal({...modal,nome:v})} placeholder="Ex.: Alçada de pedidos até R$ 5.000"/>
+          <Sel label="Tipo de processo" value={modal.entidadeTipo} onChange={v=>setModal({...modal,entidadeTipo:v})} options={SETORES_APROVACAO}/>
+          <Inp label="Prioridade (maior vence em caso de empate)" type="number" value={modal.prioridade} onChange={v=>setModal({...modal,prioridade:Number(v||0)})}/>
+          <label style={{display:"flex",alignItems:"center",gap:7,marginTop:18}}><input type="checkbox" checked={modal.ativa} onChange={()=>setModal({...modal,ativa:!modal.ativa})}/><span style={{fontSize:11,color:C.text}}>Política ativa</span></label>
+          <Inp label="Vigência início (opcional)" type="date" value={modal.vigenciaInicio} onChange={v=>setModal({...modal,vigenciaInicio:v})}/>
+          <Inp label="Vigência fim (opcional)" type="date" value={modal.vigenciaFim} onChange={v=>setModal({...modal,vigenciaFim:v})}/>
+        </div>
+        <Inp label="Descrição (opcional)" value={modal.descricao} onChange={v=>setModal({...modal,descricao:v})} multiline/>
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><b style={{fontSize:11,color:C.text}}>Condições para esta política se aplicar</b><Btn size="sm" v="ghost" onClick={()=>setModal({...modal,condicoes:[...modal.condicoes,novaCondicaoAprovacao()]})}><Ic n="plus"/> Condição</Btn></div>
+        <p style={{fontSize:9.5,color:C.muted,marginTop:-6}}>Sem nenhuma condição, a política se aplica sempre que estiver ativa e dentro da vigência.</p>
+        {modal.condicoes.map(c=><EditorCondicaoAprovacao key={c.id} condicao={c} data={data} onChange={nc=>setModal({...modal,condicoes:modal.condicoes.map(x=>x.id===nc.id?nc:x)})} onRemove={()=>setModal({...modal,condicoes:modal.condicoes.filter(x=>x.id!==c.id)})}/>)}
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}><b style={{fontSize:11,color:C.text}}>Etapas de aprovação</b><Btn size="sm" v="ghost" onClick={()=>setModal({...modal,etapas:[...modal.etapas,novaEtapaAprovacao(modal.etapas.length)]})}><Ic n="plus"/> Etapa</Btn></div>
+        {!modal.etapas.length && <div style={{background:`${C.blue}0B`,border:`1px solid ${C.blue}44`,borderRadius:7,padding:"8px 10px",fontSize:10,color:C.muted}}>Sem nenhuma etapa, esta política aprova automaticamente - use isso para dispensar aprovação explicitamente (fica registrado como decisão da política, não como aprovação humana).</div>}
+        {modal.etapas.map(e=><EditorEtapaAprovacao key={e.id} etapa={e} data={data} onChange={ne=>setModal({...modal,etapas:modal.etapas.map(x=>x.id===ne.id?ne:x)})} onRemove={()=>setModal({...modal,etapas:modal.etapas.filter(x=>x.id!==e.id)})}/>)}
+
+        <b style={{fontSize:11,color:C.text,marginTop:4}}>Autoaprovação (o próprio solicitante aprova)</b>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
+          <Sel label="Quando permitir" value={modal.autoaprovacao.modo} onChange={v=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,modo:v}})} options={Object.entries(ROTULOS_AUTOAPROVACAO).map(([v,l])=>({v,l}))}/>
+          {modal.autoaprovacao.modo==="abaixo_valor" && <Inp label="Valor limite (R$)" type="number" value={modal.autoaprovacao.valorLimite} onChange={v=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,valorLimite:Number(v||0)}})}/>}
+        </div>
+        {modal.autoaprovacao.modo==="perfis_especificos" && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:5}}>
+          {ROLES.map(r=><label key={r.v} style={{display:"flex",alignItems:"center",gap:6,border:`1px solid ${modal.autoaprovacao.perfis.includes(r.v)?C.blue:C.border}`,background:modal.autoaprovacao.perfis.includes(r.v)?`${C.blue}0B`:C.bg,borderRadius:6,padding:"5px 7px",cursor:"pointer"}}>
+            <input type="checkbox" checked={modal.autoaprovacao.perfis.includes(r.v)} onChange={()=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,perfis:modal.autoaprovacao.perfis.includes(r.v)?modal.autoaprovacao.perfis.filter(x=>x!==r.v):[...modal.autoaprovacao.perfis,r.v]}})}/>
+            <span style={{fontSize:10,color:C.text}}>{r.l}</span>
+          </label>)}
+        </div>}
+
+        {validacaoAtual.erros.length>0 && <div style={{background:`${C.red}0C`,border:`1px solid ${C.red}55`,borderRadius:7,padding:"9px 11px"}}>{validacaoAtual.erros.map((m,i)=><p key={i} style={{fontSize:10.5,color:C.red}}>· {m}</p>)}</div>}
+        {validacaoAtual.alertas.length>0 && <div style={{background:`${C.yellow}0C`,border:`1px solid ${C.yellow}55`,borderRadius:7,padding:"9px 11px"}}>{validacaoAtual.alertas.map((m,i)=><p key={i} style={{fontSize:10.5,color:C.yellowD}}>· {m}</p>)}</div>}
+
+        <div style={{display:"flex",gap:8}}>
+          <Btn v="ghost" full onClick={()=>setModal(null)}>Cancelar</Btn>
+          <Btn full onClick={salvar} disabled={!validacaoAtual.valida}><Ic n="check"/> {modal.id?"Salvar nova versão":"Criar política"}</Btn>
+        </div>
+      </div>
+    </Modal>}
+
+    {simulando && <Modal title={`Simular · ${simulando.nome}`} onClose={()=>setSimulando(null)}>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
+          <Inp label="Valor total (R$)" type="number" value={contextoSim.valorTotal} onChange={v=>setContextoSim({...contextoSim,valorTotal:v})}/>
+          <Sel label="Obra" value={contextoSim.obraId} onChange={v=>setContextoSim({...contextoSim,obraId:v})} options={[{v:"",l:"Nenhuma"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+          <Sel label="Prioridade" value={contextoSim.urgencia} onChange={v=>setContextoSim({...contextoSim,urgencia:v})} options={[{v:"normal",l:"Normal"},{v:"urgente",l:"Urgente"}]}/>
+          <Sel label="Solicitante" value={contextoSim.solicitanteId} onChange={v=>setContextoSim({...contextoSim,solicitanteId:v})} options={[{v:"",l:"Eu mesmo"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
+        </div>
+        <Btn onClick={executarSimulacao}><Ic n="check"/> Simular</Btn>
+        {resultadoSim && <div style={{display:"flex",flexDirection:"column",gap:7}}>
+          <Badge color={resultadoSim.status==="aprovada"?C.green:resultadoSim.status==="em_andamento"?C.blue:C.orange}>{resultadoSim.status.toUpperCase()}</Badge>
+          {resultadoSim.etapas.map((e,i)=><div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 10px"}}>
+            <p style={{fontSize:10.5,fontWeight:750,color:C.text}}>{e.nome||`Etapa ${i+1}`} · {e.status}</p>
+            <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{(e.aprovadoresElegiveis||[]).map(a=>a.nome).join(", ")||e.motivoConclusao||"Sem aprovador elegível"}</p>
+          </div>)}
+          {!resultadoSim.etapas.length && <p style={{fontSize:10.5,color:C.muted}}>{resultadoSim.motivo}</p>}
+        </div>}
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// Rótulo legível da entidade por trás de uma instância de aprovação - hoje
+// só conhece solicitação de compra (único tipo com resolvedores reais); um
+// novo tipo cai no fallback genérico até ganhar sua própria descrição aqui.
+const rotuloEntidadeAprovacao = (instancia, data) => {
+  if (instancia.entidadeTipo === "solicitacaoCompra") {
+    const sol = (data.solicitacoesCompra||[]).find(s => s.id === instancia.entidadeId);
+    if (!sol) return "Solicitação de compra removida";
+    const obraNome = (data.obras||[]).find(o => o.id === sol.obraId)?.name || "Obra";
+    const valor = (sol.itens||[]).reduce((s,i)=>s+Number(i.quantidade||0)*Number(i.precoRef||0),0);
+    return `Solicitação ${sol.numero} · ${obraNome} · ${fmt(valor)}`;
+  }
+  if (instancia.entidadeTipo === "pagamentoTerceiro") {
+    const pag = (data.pagsTerceiros||[]).find(p => p.id === instancia.entidadeId);
+    if (!pag) return "Pagamento de terceiro removido";
+    return `Pagamento · ${pag.tercName||"Terceiro"} · ${fmt(pag.amount)}${pag.medicaoTercId?" · com medição":" · sem medição"}`;
+  }
+  return SETORES_APROVACAO.find(s => s.v === instancia.entidadeTipo)?.l || instancia.entidadeTipo;
+};
+
+// Painel de pendências - qualquer usuário elegível em qualquer etapa "em
+// andamento" de qualquer instância, independente do setor. Fica de fora da
+// Central do Administrador de propósito: quem decide não precisa ser admin.
+function AprovacoesPendentes({ data, update, showToast, currentUser }) {
+  const [justificativas, setJustificativas] = useState({});
+  const pendentes = useMemo(() => (data.instanciasAprovacao||[])
+    .filter(i => i.status === "em_andamento" && i.snapshotPolitica)
+    .map(instancia => ({
+      instancia,
+      etapas: instancia.snapshotPolitica.etapas
+        .map((etapa, idx) => ({ etapa, resultado: instancia.resultadosEtapas[idx] }))
+        .filter(({ resultado }) => resultado?.status === "em_andamento" && (resultado.aprovadoresElegiveis||[]).some(u => u.id === currentUser?.id)),
+    }))
+    .filter(x => x.etapas.length > 0)
+  , [data.instanciasAprovacao, currentUser?.id]);
+
+  const decidir = (instancia, etapaId, decisao) => {
+    const justificativa = justificativas[etapaId] || "";
+    if (decisao === "reprovado" && !justificativa.trim()) { showToast("Informe o motivo da reprovação.", "error"); return; }
+    const motor = MOTORES_APROVACAO_POR_ENTIDADE[instancia.entidadeTipo]?.();
+    if (!motor) { showToast("Nenhum motor de execução cadastrado para este tipo de processo.", "error"); return; }
+    const { data: next, resumo } = motor.registrarDecisao(data, {
+      instanciaId: instancia.id, etapaId, aprovadorId: currentUser?.id||"", aprovadorNome: currentUser?.nome||currentUser?.email||"Operador",
+      decisao, justificativa, contexto: { valorTotal:0 },
+    });
+    if (!resumo.ok) { showToast(resumo.motivo||"Não foi possível registrar a decisão.", "error"); return; }
+    update(next);
+    setJustificativas(j => ({ ...j, [etapaId]: "" }));
+    showToast(decisao==="aprovado" ? "Aprovação registrada." : "Reprovação registrada.");
+  };
+
+  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <PageHero eyebrow="Aprovações" title="Minhas aprovações pendentes" description="Etapas de qualquer processo onde você está entre os aprovadores elegíveis."/>
+    {!pendentes.length && <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:30,textAlign:"center"}}><p style={{fontSize:11,color:C.muted}}>Nenhuma aprovação pendente para você no momento.</p></div>}
+    {pendentes.map(({instancia,etapas})=><div key={instancia.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,display:"flex",flexDirection:"column",gap:9}}>
+      <b style={{fontSize:11.5,color:C.text}}>{rotuloEntidadeAprovacao(instancia,data)}</b>
+      {etapas.map(({etapa,resultado})=><div key={etapa.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:10,display:"flex",flexDirection:"column",gap:7}}>
+        <p style={{fontSize:10.5,fontWeight:750,color:C.text}}>{etapa.nome||"Etapa de aprovação"}</p>
+        {(resultado.autoaprovacaoDestacada||resultado.semAprovadorEncontrado) && <p style={{fontSize:9,color:C.yellowD}}>{resultado.autoaprovacaoDestacada?"Você é o próprio solicitante - autoaprovação permitida pela política.":"Sem aprovador elegível originalmente - encaminhado à fila do administrador."}</p>}
+        <Inp label="Justificativa (obrigatória para reprovar)" value={justificativas[etapa.id]||""} onChange={v=>setJustificativas(j=>({...j,[etapa.id]:v}))} multiline/>
+        <div style={{display:"flex",gap:8}}>
+          <Btn v="danger" onClick={()=>decidir(instancia,etapa.id,"reprovado")}><Ic n="x"/> Reprovar</Btn>
+          <Btn onClick={()=>decidir(instancia,etapa.id,"aprovado")}><Ic n="check"/> Aprovar</Btn>
+        </div>
+      </div>)}
+    </div>)}
+  </div>;
+}
+
 function CentralAdministrador({data,update,showToast,currentUser}){
   const {cols}=useBreakpoint();
   const [secao,setSecao]=useState("auditoria");
@@ -15524,8 +15959,10 @@ function CentralAdministrador({data,update,showToast,currentUser}){
       actions={<Badge color={C.green}>ACESSO TOTAL</Badge>}
     />
     <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>{[["Alterações hoje",metricas.hoje,C.blue],["Últimos 7 dias",metricas.semana,C.purple],["Usuários ativos",metricas.usuarios,C.green],["Exclusões/cancelamentos",metricas.exclusoes,metricas.exclusoes?C.red:C.muted]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,padding:11}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:21,fontWeight:900,color:c,marginTop:4}}>{v}</p></div>)}</div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><Btn v={secao==="auditoria"?"primary":"ghost"} onClick={()=>setSecao("auditoria")}><Ic n="clipboard"/> Auditoria e resumo por IA</Btn><Btn v={secao==="usuarios"?"primary":"ghost"} onClick={()=>setSecao("usuarios")}><Ic n="users"/> Usuários e permissões</Btn></div>
-    {secao==="usuarios"?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}><div style={{background:`${C.yellow}0B`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"9px 11px",marginBottom:12,fontSize:10.5,color:C.muted}}>Nesta tela o administrador pode criar operadores, editar perfil e e-mail, restringir por obra, escolher telas individualmente, definir limite comercial, ativar/inativar, trocar PIN, ativar login por e-mail e redefinir senha.</div><GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser}/></div>:<>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}><Btn v={secao==="auditoria"?"primary":"ghost"} onClick={()=>setSecao("auditoria")}><Ic n="clipboard"/> Auditoria e resumo por IA</Btn><Btn v={secao==="usuarios"?"primary":"ghost"} onClick={()=>setSecao("usuarios")}><Ic n="users"/> Usuários e permissões</Btn><Btn v={secao==="aprovacoes"?"primary":"ghost"} onClick={()=>setSecao("aprovacoes")}><Ic n="check"/> Aprovações</Btn></div>
+    {secao==="usuarios"?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}><div style={{background:`${C.yellow}0B`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"9px 11px",marginBottom:12,fontSize:10.5,color:C.muted}}>Nesta tela o administrador pode criar operadores, editar perfil e e-mail, restringir por obra, escolher telas individualmente, definir limite comercial, ativar/inativar, trocar PIN, ativar login por e-mail e redefinir senha.</div><GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser}/></div>
+    :secao==="aprovacoes"?<GestaoAprovacoes data={data} update={update} showToast={showToast} currentUser={currentUser}/>
+    :<>
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12}}><div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:7}}><Sel label="Usuário" value={usuario} onChange={setUsuario} options={[{v:"todos",l:"Todos os usuários"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/><Sel label="Obra" value={obra} onChange={setObra} options={[{v:"todas",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Tipo de evento" value={tipo} onChange={setTipo} options={[{v:"todos",l:"Todos os tipos"},...tipos.map(t=>({v:t,l:t}))]}/><Inp label="Desde" type="date" value={inicio} onChange={setInicio}/><Inp label="Até" type="date" value={fim} onChange={setFim}/><Inp label="Pesquisar" value={busca} onChange={setBusca} placeholder="Ação, usuário ou obra"/></div><div style={{display:"flex",gap:7,marginTop:10,flexWrap:"wrap"}}><Btn onClick={gerarResumo} disabled={analisando}><Ic n="ia"/> {analisando?"Analisando...":"Gerar resumo por IA"}</Btn><Btn v="ghost" onClick={exportar}><Ic n="download"/> Exportar auditoria</Btn><span style={{fontSize:10,color:C.muted,alignSelf:"center"}}>{filtrados.length} registro(s) encontrados</span></div></div>
       {resumoIA&&<div style={{background:`${C.purple}08`,border:`1px solid ${C.purple}44`,borderLeft:`4px solid ${C.purple}`,borderRadius:10,padding:14}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><b style={{fontSize:11,color:C.purple}}>RESUMO EXECUTIVO POR IA</b><Btn size="sm" v="ghost" onClick={()=>navigator.clipboard.writeText(resumoIA)}>Copiar</Btn></div><div style={{whiteSpace:"pre-wrap",fontSize:11.5,lineHeight:1.65,color:C.text,marginTop:8}}>{resumoIA}</div><p style={{fontSize:8.5,color:C.muted,marginTop:8}}>Resumo de apoio gerencial. Confirme decisões sensíveis nos registros detalhados abaixo.</p></div>}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>{filtrados.slice(0,500).map((e,i)=>{const u=usuariosPorId.get(e._operadorId);const destrutivo=/remove|exclu|cancel|delete/i.test(`${e.type} ${e.message}`);return <div key={e._id} style={{display:"grid",gridTemplateColumns:"38px minmax(0,1fr) auto",gap:9,padding:"11px 12px",borderTop:i?`1px solid ${C.line}`:"none",alignItems:"start"}}><span style={{width:32,height:32,borderRadius:99,display:"grid",placeItems:"center",background:`${destrutivo?C.red:C.blue}12`,color:destrutivo?C.red:C.blue,fontSize:9,fontWeight:900}}>{e._operador.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:11.5,color:C.text,lineHeight:1.45}}>{e.message||"Alteração sem descrição"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}><b style={{color:C.text}}>{e._operador}</b>{u?.role?` · ${ROLES.find(r=>r.v===u.role)?.l||u.role}`:""}{e._obra?` · ${e._obra}`:""} · {e.type||"alteração"}</p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:9.5,fontWeight:750}}>{e._dia?fmtDateFull(e._dia):"-"}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>{e._at?new Date(e._at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):""}</p></div></div>})}{!filtrados.length&&<p style={{padding:30,textAlign:"center",fontSize:11,color:C.muted}}>Nenhuma alteração encontrada com estes filtros.</p>}{filtrados.length>500&&<p style={{padding:10,textAlign:"center",fontSize:9.5,color:C.muted}}>Exibindo 500 registros. Use os filtros ou exporte para consultar todos.</p>}</div>
@@ -25045,7 +25482,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       const valorTotalEstimado=itens.reduce((s,i)=>s+Number(i.quantidade||0)*Number(i.precoRef||0),0);
       const contexto={valorTotal:valorTotalEstimado,obraId:registro.obraId,categoria:"material",
         solicitanteId:registro.solicitanteId,urgencia:registro.prioridade};
-      const {data:comAprovacao,resumo}=motorAprovacaoCompras.iniciarInstancia(dataFinal,{
+      const {data:comAprovacao,resumo}=motorAprovacaoGenerico.iniciarInstancia(dataFinal,{
         entidadeTipo:"solicitacaoCompra",entidadeId:solicitacaoId,contexto,operador:currentUser,
         comportamentoSemPolitica:data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar",
       });
@@ -25069,7 +25506,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       .filter(({resultado})=>resultado.status==="em_andamento"&&(resultado.aprovadoresElegiveis||[]).some(u=>u.id===currentUser?.id));
   };
   const decidirAprovacao=(instancia,etapaId,decisao,justificativa="")=>{
-    const {data:next,resumo}=motorAprovacaoCompras.registrarDecisao(data,{
+    const {data:next,resumo}=motorAprovacaoGenerico.registrarDecisao(data,{
       instanciaId:instancia.id,etapaId,aprovadorId:currentUser?.id||"",aprovadorNome:currentUser?.nome||currentUser?.email||"Operador",
       decisao,justificativa,contexto:{valorTotal:0},
     });
@@ -36072,7 +36509,7 @@ const NAV_GROUPS = [
   },
   {
     id: "painel", label: "Painel", icon: "home", color: C.yellow,
-    tabs: ["home", "tv", "chat"],
+    tabs: ["home", "tv", "chat", "aprov_pend"],
   },
   {
     id: "eng_grp", label: "Engenharia", icon: "building", color: C.blue,
@@ -36108,6 +36545,7 @@ const NAV_GROUPS = [
 
 const TAB_META = {
   admin_central:{ label:"Central do administrador", icon:"shield", group:"admin_grp" },
+  aprov_pend:{ label:"Minhas aprovações", icon:"check", group:"painel" },
   home:   { label: "Dashboard",  icon: "home",     group: "painel"   },
   tv:     { label: "Modo TV",    icon: "eye",      group: "painel"   },
   chat:   { label: "Comunicação",icon: "mail",     group: "painel"   },
@@ -36702,6 +37140,12 @@ export default function App() {
     );
   })() : false;
   const compraPending=data?(data.solicitacoesCompra||[]).some(s=>s.status==="enviada"&&(!currentUser?.obraId||s.obraId===currentUser.obraId)):false;
+  const aprovacaoPendente = data ? (data.instanciasAprovacao||[]).some(i =>
+    i.status==="em_andamento" && i.snapshotPolitica && i.snapshotPolitica.etapas.some((etapa,idx) => {
+      const resultado = i.resultadosEtapas[idx];
+      return resultado?.status==="em_andamento" && (resultado.aprovadoresElegiveis||[]).some(u=>u.id===currentUser?.id);
+    })
+  ) : false;
   const comercialPending=data?(()=>{
     const com=data.comercial||{},now=Date.now();
     const lead=(com.leads||[]).some(l=>!["perdido","arquivado","transferido"].includes(l.etapa)&&(!l.responsavelId||!l.proximaAtividadeEm));
@@ -36719,7 +37163,7 @@ export default function App() {
     compras_grp: compraPending ? "!" : null,
     com_grp: comercialPending ? "!" : null,
     ia_grp:    tercPending ? "!" : null,
-    painel:    null,
+    painel:    aprovacaoPendente ? "!" : null,
     cfg_grp:   null,
   };
 
@@ -36729,6 +37173,7 @@ export default function App() {
     terc:  tercPending || null,
     cmp:   compraPending || null,
     com_dash: comercialPending || null,
+    aprov_pend: aprovacaoPendente || null,
   };
 
   //  Conflito de gravação 
@@ -37189,6 +37634,7 @@ export default function App() {
           {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
           {tab === "admin_central" && <CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
+          {tab === "aprov_pend" && <AprovacoesPendentes data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
           {tab.startsWith("com_") && <Comercial data={data} update={update} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} />}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}

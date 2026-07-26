@@ -1,8 +1,7 @@
-import { calculateMeasurementProgress } from "./calculations.js";
 import { normalizeTechnicalMeasurement } from "./model.js";
 
 const issueId=(id,code)=>`medicao-legada:${id}:${code}`;
-const uniqueIssues=(issues=[])=>{
+export const uniqueIssues=(issues=[])=>{
   const seen=new Set();
   return issues.filter(issue=>{
     const key=issue?.chave||issue?.id;
@@ -42,11 +41,10 @@ export const migrateLegacyTechnicalMeasurements=(data={})=>{
         gravado:frozenProgress,calculado:normalized.avancoFisico,
       });
     }
-    const {physicalProgress}=calculateMeasurementProgress(record?.itens||[]);
     return {
       ...normalized,
       numero:Number(record?.numero||0)>0?Number(record.numero):normalized.numero,
-      avancoFisico:Number.isFinite(frozenProgress)?frozenProgress:physicalProgress,
+      avancoFisico:Number.isFinite(frozenProgress)?frozenProgress:normalized.avancoFisico,
       legacyStatus:record?.legacyStatus||String(record?.status||""),
     };
   });

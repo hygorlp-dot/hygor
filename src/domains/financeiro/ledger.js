@@ -25,7 +25,7 @@ const competenceOf = value => /^\d{4}-\d{2}$/.test(String(value || "").slice(0, 
   ? String(value).slice(0, 7) : "";
 const statusOf = item => String(item?.status || "").trim()
   .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-const active = item => item?.deletedAt == null && item?.ativo !== false && !INACTIVE.has(statusOf(item));
+export const active = item => item?.deletedAt == null && item?.ativo !== false && !INACTIVE.has(statusOf(item));
 const positiveCents = (...values) => {
   for (const value of values) {
     const cents = toCents(value);

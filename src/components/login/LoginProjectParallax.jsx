@@ -29,13 +29,14 @@ export default function LoginProjectParallax({logoSrc=""}){
     if(reduceMotion||window.matchMedia("(pointer: coarse)").matches)return undefined;
     const visual=visualRef.current;
     if(!visual)return undefined;
+    let rect=visual.getBoundingClientRect();
+    const updateRect=()=>{rect=visual.getBoundingClientRect();};
     const reset=()=>{
       landscapeTargetX.set(0);landscapeTargetY.set(0);
       houseTargetX.set(0);houseTargetY.set(0);
       houseTargetRotateX.set(0);houseTargetRotateY.set(0);
     };
     const move=event=>{
-      const rect=visual.getBoundingClientRect();
       const horizontal=(event.clientX-rect.left)/rect.width-.5;
       const vertical=(event.clientY-rect.top)/rect.height-.5;
       // Uma câmera acompanhando o olhar: sem inércia baseada em velocidade e
@@ -46,9 +47,11 @@ export default function LoginProjectParallax({logoSrc=""}){
     };
     visual.addEventListener("pointermove",move,{passive:true});
     visual.addEventListener("pointerleave",reset);
+    window.addEventListener("resize",updateRect);
     return ()=>{
       visual.removeEventListener("pointermove",move);
       visual.removeEventListener("pointerleave",reset);
+      window.removeEventListener("resize",updateRect);
     };
   },[reduceMotion,landscapeTargetX,landscapeTargetY,houseTargetX,houseTargetY,houseTargetRotateX,houseTargetRotateY]);
 
