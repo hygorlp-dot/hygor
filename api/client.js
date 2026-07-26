@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
-import { clearPortalSessionCookie, createPortalSessionCookie, createPortalSessionToken, hashPortalSessionToken, normalizePortalEmail, parseCookies, PORTAL_SESSION_COOKIE, verifyPortalPassword } from "../../server/client-portal-auth.js";
-import { isPortalRecordVisible, projectClientPortalData } from "../../server/client-portal-projection.js";
-import { COMPANY, auditPortalEvent, clearLoginFailures, genericAuthFailure, hashIdentifier, loginBlocked, noStore, portalDb, portalUnavailable, readPortalSession, registerLoginFailure, requestIp, secureCookie } from "../../server/client-portal-runtime.js";
+import { clearPortalSessionCookie, createPortalSessionCookie, createPortalSessionToken, hashPortalSessionToken, normalizePortalEmail, parseCookies, PORTAL_SESSION_COOKIE, verifyPortalPassword } from "../server/client-portal-auth.js";
+import { isPortalRecordVisible, projectClientPortalData } from "../server/client-portal-projection.js";
+import { COMPANY, auditPortalEvent, clearLoginFailures, genericAuthFailure, hashIdentifier, loginBlocked, noStore, portalDb, portalUnavailable, readPortalSession, registerLoginFailure, requestIp, secureCookie } from "../server/client-portal-runtime.js";
 
 const DOMAINS = Object.freeze({
   weekly_update:"weeklyUpdates", timeline:"timeline", media:"media", decision:"decisions",
@@ -9,7 +9,11 @@ const DOMAINS = Object.freeze({
   payment:"clientPayments", document:"documents", message:"messages", team:"team", support:"support",
 });
 const array = value => Array.isArray(value) ? value : [];
-const routeParts = req => array(req.query?.route).map(part => String(part));
+const routeParts = req => {
+  const route=req.query?.route;
+  if(Array.isArray(route))return route.map(part=>String(part)).filter(Boolean);
+  return String(route || "").split("/").filter(Boolean);
+};
 const recordFromPublication = (row, projectId) => ({
   ...(row.payload || {}), obraId:projectId, status:row.status, visibility:row.visibility,
   visibleToProfiles:array(row.visible_to_profiles), visibleToUserIds:array(row.visible_to_user_ids),
