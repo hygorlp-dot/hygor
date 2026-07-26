@@ -1,0 +1,4 @@
+import { DEPENDENCY_TYPES } from "./constants.js";
+export const validateWbs=(item={})=>{const errors=[];if(!item.id||!item.obraId||!String(item.codigo||"").trim()||!String(item.descricao||"").trim())errors.push("Pacote EAP exige identificação, obra, código e descrição.");const links=item.orcamentoItens||[];if(links.length>1){const total=links.reduce((sum,link)=>sum+Number(link.rateio||0),0);if(Math.abs(total-100)>.001)errors.push("Vários itens orçamentários exigem rateio total de 100%.");}return {ok:!errors.length,errors};};
+export const validateActivity=(item={})=>{const errors=[];if(!item.id||!item.obraId||!item.wbsId)errors.push("Atividade exige identificação, obra e pacote EAP.");if(Number(item.durationDays)<0)errors.push("Duração não pode ser negativa.");return {ok:!errors.length,errors};};
+export const validateDependency=(item={})=>({ok:!!item.fromId&&!!item.toId&&item.fromId!==item.toId&&DEPENDENCY_TYPES.includes(item.type||"FS"),errors:[]});
