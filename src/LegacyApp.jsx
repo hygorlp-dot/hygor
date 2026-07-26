@@ -21541,7 +21541,6 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const [recebedorMaoObraId,setRecebedorMaoObraId]=useState("");
   const [detalhesPix,setDetalhesPix]=useState(false);
   const [pixAutoPreparadoId,setPixAutoPreparadoId]=useState("");
-  const [confirmarPixModal,setConfirmarPixModal]=useState(null); // { employeeId }
   const [entradaModal,setEntradaModal]=useState(null);        // { trId }
   const [entradaForm,setEntradaForm]=useState({tipo:"medicao",contratoId:"",medicaoId:"",obraId:"",categoria:"aporte_cliente",descricao:"",novaParcela:false,novaParcelaDescricao:"",novaParcelaCompetencia:"",novaParcelaValor:""});
   const [transferModal,setTransferModal]=useState(null);     // { trId }
@@ -21929,7 +21928,6 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     setRecebedorMaoObraId(tr.recebedorMaoObra?.employeeId || "");
     setDetalhesPix(false);
     setPixAutoPreparadoId("");
-    setConfirmarPixModal(null);
     setApropModal(tr);
   };
 
@@ -22010,7 +22008,6 @@ function Conciliacao({ data, update, showToast, currentUser }) {
       return;
     }
     setDetalhesPix(false);
-    setConfirmarPixModal({employeeId:s.emp.id});
   };
   const selecionarOperarioNosDetalhes = (employeeId) => {
     setRecebedorMaoObraId(employeeId);
@@ -22570,7 +22567,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
             )}
 
             <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>{setApropModal(null);setRateios([]);setMedAlvo(null);setConfirmarPixModal(null);}} full>Cancelar</Btn>
+              <Btn v="ghost" onClick={()=>{setApropModal(null);setRateios([]);setMedAlvo(null);}} full>Cancelar</Btn>
               <Btn onClick={confirmarApropriacao} full disabled={Math.abs(diferenca) >= 0.01}>
                 <Ic n="check"/> Confirmar conciliação
               </Btn>
@@ -22578,26 +22575,6 @@ function Conciliacao({ data, update, showToast, currentUser }) {
           </div>
         </Modal>
       )}
-
-      {confirmarPixModal && apropModal && (() => {
-        const operario=recebedoresMaoObra.find(item=>item.emp.id===confirmarPixModal.employeeId);
-        if(!operario)return null;
-        const obra=(data.obras||[]).find(item=>item.id===operario.emp.obra);
-        return <Modal title="Confirmar conciliação PIX" onClose={()=>setConfirmarPixModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            <div style={{background:`${C.green}0A`,border:`1px solid ${C.green}55`,borderRadius:8,padding:"12px 13px"}}>
-              <p style={{fontSize:10,color:C.muted}}>Confirmar que este PIX foi recebido por</p>
-              <p style={{fontSize:15,fontWeight:850,color:C.text,marginTop:4}}>{operario.emp.name}</p>
-              <p style={{fontSize:10.5,color:C.muted,marginTop:4}}>Obra: <b style={{color:C.text}}>{obra?.name||"Não identificada"}</b> · Mão de obra · {fmt(alvo)}</p>
-              <p style={{fontSize:9.5,color:C.muted,marginTop:7,lineHeight:1.45}}>A confirmação vincula o PIX ao operário e registra o rateio auditável. Nenhum outro ajuste é necessário.</p>
-            </div>
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setConfirmarPixModal(null)} full>Voltar</Btn>
-              <Btn onClick={async()=>{const ok=await confirmarApropriacao();if(ok)setConfirmarPixModal(null);}} full disabled={conciliando}><Ic n="check"/> Confirmar</Btn>
-            </div>
-          </div>
-        </Modal>;
-      })()}
 
       {/*  Modal: revisar sugestão do motor de candidatos  */}
       {candidatoModal && (() => {
