@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { createExactPixLaborCandidate, findRegisteredEmployeePix, isExactPixLaborMatch } from "./pix-card";
+import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "./pix-card";
 
 const candidate={emp:{id:"e1",name:"Antônio Lourenço",pixHolder:"Maria da Silva",pixKey:"123e4567-e89b",obra:"obra-1"},divergencia:0};
 
 describe("cartão PIX de mão de obra",()=>{
-  it("identifica na fila uma chave PIX de funcionário, sem conciliar o movimento",()=>{
+  it("identifica na fila chave PIX somente quando o nome também aparece",()=>{
     const hit=findRegisteredEmployeePix({valor:-500,descricao:"Pix enviado: Cp :18236120-Antonio Pereira"},[
       {id:"e1",name:"Antonio Pereira",pixKey:"18236120",active:true},
     ]);
-    expect(hit).toMatchObject({employee:{id:"e1"},match:"chave_documento"});
+    expect(hit).toMatchObject({employee:{id:"e1"},match:"chave_documento_e_nome"});
     expect(findRegisteredEmployeePix({valor:500,descricao:"Pix recebido 18236120"},[{id:"e1",pixKey:"18236120"}])).toBeNull();
+    expect(findRegisteredEmployeePix({valor:-500,descricao:"Pix enviado: Cp :18236120"},[
+      {id:"e1",name:"Antonio Pereira",pixKey:"18236120",active:true},
+    ])).toBeNull();
+    expect(hasEmployeePixNameEvidence({descricao:"PIX enviado Iveson Alves da Silva"},{name:"Iveson Alves da Silva"})).toBe(true);
+    expect(hasEmployeePixNameEvidence({descricao:"PIX enviado Iveson"},{name:"Iveson Alves da Silva"})).toBe(false);
   });
   it("pré-seleciona somente nome/titular/chave com valor exato e obra conhecida",()=>{
     expect(isExactPixLaborMatch({valor:-1000,data:"2026-07-20",descricao:"PIX enviado Antônio Lourenço"},candidate)).toBe(true);
@@ -19,6 +24,7 @@ describe("cartão PIX de mão de obra",()=>{
     expect(isExactPixLaborMatch({valor:-1000,data:"2026-07-20",descricao:"PIX Antônio Lourenço"},{...candidate,divergencia:12})).toBe(false);
     expect(isExactPixLaborMatch({valor:-1000,data:"2026-07-20",descricao:"PIX desconhecido"},candidate)).toBe(false);
     expect(isExactPixLaborMatch({valor:-1000,descricao:"PIX Antônio Lourenço"},candidate)).toBe(false);
+    expect(isExactPixLaborMatch({valor:-1000,data:"2026-07-20",descricao:"PIX 123e4567-e89b"},candidate)).toBe(false);
   });
   it("promove a correspondência inequívoca para candidata da fila, sem baixá-la",()=>{
     const result=createExactPixLaborCandidate(

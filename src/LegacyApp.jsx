@@ -140,7 +140,7 @@ import {
   hashArquivo,
   mascararDocumento, mascararChavePix,
 } from "./domains/conciliacao/index.js";
-import { createExactPixLaborCandidate, findRegisteredEmployeePix, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
+import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
 import {
   createApprovalEngine, validarPolitica, encontrarPoliticaAplicavel,
   podeAdministrarPoliticas, podeGerenciarDelegacoes,
@@ -21441,7 +21441,10 @@ const sugerirPagamentoMaoObra = (tr, data, days) => {
   // quem nao trabalhou no periodo historico consultado.
   (data.employees || []).forEach(emp => {
     const esp = valorEsperadoPonto(data, emp, days);
-    if (esp.total <= 0) return;   // nao trabalhou no periodo
+    const nomeOuTitularNoPix=hasEmployeePixNameEvidence(tr,emp);
+    // Sem nome/titular, um valor igual ou um número na descrição não basta
+    // para sugerir que um PIX foi pagamento de mão de obra.
+    if(!nomeOuTitularNoPix)return;
 
     let score = 0;
     const motivos = [];
@@ -21456,15 +21459,8 @@ const sugerirPagamentoMaoObra = (tr, data, days) => {
     else if (base && dif/base <= 0.02) { score += 60; motivos.push("valor ~2% do ponto"); }
     else if (base && dif/base <= 0.08) { score += 25; motivos.push("valor proximo do ponto"); }
 
-    // Nome do proprio operario no extrato.
-    if (prim(emp.name) && desc.includes(prim(emp.name))) {
-      score += 45; motivos.push("nome do operario na descricao");
-    }
-    // Nome do TITULAR do PIX (esposa/terceiro) no extrato - o caso central.
-    if (emp.pixHolder && prim(emp.pixHolder) && !desc.includes(prim(emp.name || "")) &&
-        desc.includes(prim(emp.pixHolder))) {
-      score += 45; motivos.push(`pago a ${emp.pixHolder} (titular do PIX)`);
-    }
+    score += 45;
+    motivos.push("nome ou titular PIX confirmado na descrição");
     // Chave PIX citada.
     if (emp.pixKey && desc.includes(semAcentoConc(emp.pixKey).slice(0, 8))) {
       score += 20; motivos.push("chave PIX na descricao");
@@ -21473,6 +21469,7 @@ const sugerirPagamentoMaoObra = (tr, data, days) => {
     if (score >= 40) {
       // Divergencia: pagou diferente do que o ponto diz que deveria.
       const divergencia = dif >= 0.01 ? saida - esp.total : 0;
+      if(esp.total<=0)motivos.push("sem valor registrado no ponto para a quinzena");
       cands.push({
         emp, score, motivos,
         esperado: esp.total, esperadoBruto: esp.bruto, pago: saida,
@@ -21925,7 +21922,10 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     setPadraoRegra("");
     setCriarRegra(false);
     setMedAlvo(null);          // nada pré-selecionado: quem casa é o usuário
-    setRecebedorMaoObraId(tr.recebedorMaoObra?.employeeId || "");
+    const operarioRegistrado=(data.employees||[]).find(emp=>emp.id===tr.recebedorMaoObra?.employeeId);
+    // Uma seleção pendente herdada só é reaproveitada se a descrição também
+    // trouxer nome/titular PIX; chave numérica isolada não pré-seleciona.
+    setRecebedorMaoObraId(operarioRegistrado&&hasEmployeePixNameEvidence(tr,operarioRegistrado)?operarioRegistrado.id:"");
     setDetalhesPix(false);
     setPixAutoPreparadoId("");
     setApropModal(tr);
@@ -21952,7 +21952,10 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     if (!apropModal || Number(apropModal.valor || 0) >= 0) return [];
     const porId=new Map(sugMaoObra.map(item=>[item.emp.id,item]));
     (data.employees||[]).filter(emp=>emp.active!==false).forEach(emp=>{
-      if(!porId.has(emp.id))porId.set(emp.id,{emp,esperado:0,pago:Math.abs(Number(apropModal.valor||0)),diasTrabalhados:0,divergencia:0,motivos:["seleção manual"],pagoATerceiro:false});
+      if(!porId.has(emp.id)){
+        const pago=Math.abs(Number(apropModal.valor||0));
+        porId.set(emp.id,{emp,esperado:0,pago,diasTrabalhados:0,divergencia:pago,motivos:["sem cruzamento de nome/titular no ponto"],pagoATerceiro:false});
+      }
     });
     return [...porId.values()].sort((a,b)=>a.emp.name.localeCompare(b.emp.name));
   },[apropModal,sugMaoObra,data.employees]);
@@ -21991,6 +21994,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const totalRateado = somaRateios(rateios.map(r => ({...r, valor: Number(r.valor||0)})));
   const alvo = apropModal ? Math.abs(Number(apropModal.valor)) : 0;
   const diferenca = alvo - totalRateado;
+  const temDivergenciaRecebedor=Math.abs(Number(recebedorSelecionado?.divergencia||0))>=.01;
   const rateioMaoObraPreparado=!!(recebedorSelecionado?.emp?.obra&&rateios.length===1&&rateios[0]?.destino==="obra"&&rateios[0]?.obraId===recebedorSelecionado.emp.obra&&rateios[0]?.categoria==="mao_obra"&&Math.abs(Number(rateios[0]?.valor||0)-alvo)<.01);
   const rateioPixAutomatico=!!(rateioMaoObraPreparado&&correspondenciaPixExata?.emp.id===recebedorSelecionado?.emp.id);
 
@@ -22442,26 +22446,29 @@ function Conciliacao({ data, update, showToast, currentUser }) {
             {/* Cartão PIX: o operador confirma uma decisão já explicada, em vez
                 de remontar um rateio que o ponto e o extrato já determinaram. */}
             {apropModal && Number(apropModal.valor||0)<0 && (
-              <div style={{background:C.surface,border:`1px solid ${rateioMaoObraPreparado?`${C.green}66`:recebedorSelecionado?`${C.orange}66`:C.border}`,borderRadius:10,padding:"12px 13px"}}>
+              <div style={{background:C.surface,border:`1px solid ${rateioMaoObraPreparado?(temDivergenciaRecebedor?`${C.orange}88`:`${C.green}66`):recebedorSelecionado?`${C.orange}66`:C.border}`,borderRadius:10,padding:"12px 13px"}}>
                 <p style={{fontSize:9,fontWeight:850,letterSpacing:1,textTransform:"uppercase",color:C.yellowD}}>Cartão PIX · saída bancária</p>
                 <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10,marginTop:8}}>
                   <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Quem recebeu</p><p style={{fontSize:13,fontWeight:850,color:C.text,marginTop:2}}>{recebedorSelecionado?.emp.name||"Aguardando identificação"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{recebedorSelecionado?.emp.pixHolder?`Titular PIX: ${recebedorSelecionado.emp.pixHolder}`:"Selecione apenas se o cruzamento não for inequívoco"}</p></div>
                   <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Obra sugerida</p><p style={{fontSize:13,fontWeight:850,color:C.text,marginTop:2}}>{(data.obras||[]).find(o=>o.id===recebedorSelecionado?.emp.obra)?.name||"Definir nos detalhes"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{recebedorSelecionado?.periodoPonto?`Ponto: ${recebedorSelecionado.periodoPonto}`:`Quinzena a conferir`} · {recebedorSelecionado?.diasTrabalhados||0} dia(s)</p></div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10,marginTop:9,paddingTop:9,borderTop:`1px solid ${C.line}`}}>
-                  <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Valor do ponto</p><p style={{fontSize:14,fontWeight:850,color:rateioMaoObraPreparado?C.green:C.text,marginTop:2}}>{recebedorSelecionado?fmt(recebedorSelecionado.esperado||0):"—"}</p><p style={{fontSize:9.5,color:recebedorSelecionado&&Math.abs(Number(recebedorSelecionado.divergencia||0))>=.01?C.orange:C.muted,marginTop:2}}>{recebedorSelecionado&&Math.abs(Number(recebedorSelecionado.divergencia||0))>=.01?`${fmt(Math.abs(recebedorSelecionado.divergencia))} de divergência — confirme nos detalhes`:`Pagamento PIX ${fmt(alvo)}`}</p></div>
+                  <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Valor do ponto</p><p style={{fontSize:14,fontWeight:850,color:rateioMaoObraPreparado&&!temDivergenciaRecebedor?C.green:C.text,marginTop:2}}>{recebedorSelecionado?fmt(recebedorSelecionado.esperado||0):"—"}</p><p style={{fontSize:9.5,color:temDivergenciaRecebedor?C.orange:C.muted,marginTop:2}}>{temDivergenciaRecebedor?`${fmt(Math.abs(recebedorSelecionado.divergencia))} de divergência · PIX ${fmt(alvo)}`:`Pagamento PIX ${fmt(alvo)}`}</p></div>
                   <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Evidência PIX</p><p style={{fontSize:10.5,fontWeight:750,color:C.text,marginTop:3,lineHeight:1.35,wordBreak:"break-word"}}>{apropModal.descricao||"Descrição não informada"}</p></div>
                 </div>
                 {rateioPixAutomatico&&<p style={{fontSize:10,color:C.green,fontWeight:800,marginTop:10}}>Correspondência confirmável: titular/chave PIX, valor e quinzena de referência foram identificados. O rateio para mão de obra desta obra já foi preparado.</p>}
-                {rateioMaoObraPreparado&&!rateioPixAutomatico&&<p style={{fontSize:10,color:C.green,fontWeight:800,marginTop:10}}>Operário selecionado. A obra e o rateio de mão de obra foram preparados; basta confirmar.</p>}
+                {rateioMaoObraPreparado&&!rateioPixAutomatico&&!temDivergenciaRecebedor&&<p style={{fontSize:10,color:C.green,fontWeight:800,marginTop:10}}>Operário selecionado. A obra e o rateio de mão de obra foram preparados; basta confirmar.</p>}
+                {rateioMaoObraPreparado&&temDivergenciaRecebedor&&<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:10}}>Atenção: nome/titular foi encontrado, mas o PIX diverge do valor do ponto. Confirme somente se este pagamento estiver correto.</p>}
                 {!rateioMaoObraPreparado&&<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:10}}>Escolha abaixo quem recebeu este PIX. A conciliação só será efetivada após sua confirmação.</p>}
                 {sugMaoObra.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6,marginTop:10,paddingTop:10,borderTop:`1px solid ${C.line}`}}>
                   <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Quem recebeu este PIX?</p>
                   {sugMaoObra.map(s=>{
                     const selecionado=recebedorSelecionado?.emp.id===s.emp.id;
-                    return <button type="button" key={s.emp.id} onClick={()=>selecionarOperarioPix(s)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,width:"100%",textAlign:"left",padding:"9px 10px",background:selecionado?`${C.green}0E`:C.card,border:`1px solid ${selecionado?`${C.green}88`:C.line}`,borderRadius:7,cursor:"pointer"}}>
+                    const temDivergencia=Math.abs(Number(s.divergencia||0))>=.01;
+                    const cor=temDivergencia?C.orange:C.green;
+                    return <button type="button" key={s.emp.id} onClick={()=>selecionarOperarioPix(s)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,width:"100%",textAlign:"left",padding:"9px 10px",background:selecionado?`${cor}0E`:C.card,border:`1px solid ${selecionado?`${cor}88`:C.line}`,borderRadius:7,cursor:"pointer"}}>
                       <span style={{minWidth:0}}><b style={{fontSize:10.5,color:C.text}}>{s.emp.name}</b><span style={{fontSize:9.5,color:C.muted}}> · {s.motivos.join(" · ")}</span></span>
-                      <span style={{fontSize:10.5,fontWeight:850,color:C.green,whiteSpace:"nowrap"}}>{fmt(s.esperado)}</span>
+                      <span style={{fontSize:10.5,fontWeight:850,color:cor,whiteSpace:"nowrap"}}>{temDivergencia?`Dif. ${fmt(Math.abs(s.divergencia))}`:fmt(s.esperado)}</span>
                     </button>;
                   })}
                 </div>}
