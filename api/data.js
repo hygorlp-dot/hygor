@@ -612,10 +612,19 @@ export default async function handler(req, res) {
         const auditEntry={id:crypto.randomUUID(),idempotencyKey:command.idempotencyKey,type:command.type,transactionId:String(command.payload?.transactionId||""),actorId:usuario.id,createdAt:new Date().toISOString(),resumo:result.resumo};
         return {data:{...result.data,reconciliationCommandLog:[...(result.data.reconciliationCommandLog||[]),auditEntry].slice(-1000)},resumo:result.resumo};
       };
-      const persist=async(base,executed)=>salvarFinanceiroComAuditoria({expectedUpdatedAt:base.updatedAt,value:executed.data,actor:usuario,
-        action:`reconciliation_${String(command.type).toLowerCase()}`,
-        before:{transaction:(base.payload?.transacoes||[]).find(item=>String(item.id)===String(command.payload?.transactionId||""))||null},
-        after:{transaction:(executed.data?.transacoes||[]).find(item=>String(item.id)===String(command.payload?.transactionId||""))||null,command:{type:command.type,idempotencyKey:command.idempotencyKey}});
+      const persist=async(base,executed)=>{
+        const transactionId=String(command.payload?.transactionId||"");
+        const beforeTransaction=(base.payload?.transacoes||[]).find(item=>String(item.id)===transactionId)||null;
+        const afterTransaction=(executed.data?.transacoes||[]).find(item=>String(item.id)===transactionId)||null;
+        return salvarFinanceiroComAuditoria({
+          expectedUpdatedAt:base.updatedAt,
+          value:executed.data,
+          actor:usuario,
+          action:`reconciliation_${String(command.type).toLowerCase()}`,
+          before:{transaction:beforeTransaction},
+          after:{transaction:afterTransaction,command:{type:command.type,idempotencyKey:command.idempotencyKey}},
+        });
+      };
       let executed=execute(atual);
       if(executed.error)return res.status(409).json({error:executed.error});
       if(executed.idempotent)return res.status(200).json({ok:true,idempotent:true,resumo:executed.resumo,data:projectDataForUser(atual,usuario),updatedAt});

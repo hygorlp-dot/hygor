@@ -1,6 +1,7 @@
 {
   "name": "arcd-ponto-pro",
   "version": "2.0.0",
+  "type": "module",
   "private": true,
   "dependencies": {
     "@radix-ui/react-label": "^2.1.13",
