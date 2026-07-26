@@ -1,0 +1,1 @@
+export const canOperateSafety=role=>["admin","engenheiro","seguranca"].includes(String(role||""));export const canCloseSafetyIncident=role=>["admin","engenheiro","seguranca"].includes(String(role||""));
