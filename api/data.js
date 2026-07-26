@@ -30,7 +30,7 @@ import { validatePurchaseChanges } from "../server/permission-policies.js";
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { findSectionConflicts } from "../server/three-way-conflicts.js";
-import { authorizeSectionChanges, validateNoPhysicalDeletes } from "../server/section-authorizations.js";
+import { authorizeSectionChanges, validateBudgetBaselinePolicy, validateNoPhysicalDeletes } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
@@ -853,6 +853,8 @@ export default async function handler(req, res) {
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),sections);
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
+      const erroBaseline=validateBudgetBaselinePolicy(atual,{...atual,...sections},usuario);
+      if(erroBaseline)return res.status(403).json({error:erroBaseline});
       if(chaves.includes("conferencias")){
         const baseConferencias=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"conferencias")?baseSections.conferencias:atual?.conferencias;
         const erroPermissao=validarAlteracoesConferencias(usuario,baseConferencias||[],sections.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
@@ -919,6 +921,8 @@ export default async function handler(req, res) {
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(atual,payload);
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
+      const erroBaseline=validateBudgetBaselinePolicy(atual,payload,usuario);
+      if(erroBaseline)return res.status(403).json({error:erroBaseline});
       if(!igual(payload.conferencias,atual?.conferencias)){
         const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],payload.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
         if(erroPermissao)return res.status(403).json({error:erroPermissao});

@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { authorizeSectionChanges,validateNoPhysicalDeletes } from "./section-authorizations.js";
+import { authorizeSectionChanges,validateBudgetBaselinePolicy,validateNoPhysicalDeletes } from "./section-authorizations.js";
 describe("autorização de produção",()=>{
   it("permite planejamento somente ao perfil previsto",()=>{
     expect(authorizeSectionChanges({role:"planejamento"},{scheduleActivities:[{id:"a",obraId:"o"}]})).toBe("");
@@ -20,5 +20,17 @@ describe("autorização de produção",()=>{
     expect(validateNoPhysicalDeletes(anterior,{payments:[{id:"p1",valor:100,status:"estornada"}]})).toMatch(/exige um motivo/);
     expect(validateNoPhysicalDeletes(anterior,{payments:[{id:"p1",valor:100,deletedAt:"2026-07-26"}]})).toMatch(/exclusão lógica/);
     expect(validateNoPhysicalDeletes(anterior,{payments:[{id:"p1",valor:100,status:"estornada",motivoEstorno:"Duplicidade"}]})).toBe("");
+  });
+  it("reserva aprovação e adoção de baseline ao administrador",()=>{
+    const draft={id:"o1",obraId:"obra-1",versionStatus:"rascunho"};
+    const approved={...draft,versionStatus:"aprovado",lockedAt:"2026-07-26T10:00:00Z",approvedById:"admin"};
+    expect(validateBudgetBaselinePolicy({orcamentos:[draft]},{orcamentos:[approved]},{role:"engenheiro"})).toMatch(/administrador/);
+    expect(validateBudgetBaselinePolicy({orcamentos:[draft],budgetBaselines:[]},{orcamentos:[approved],budgetBaselines:[{id:"b1",obraId:"obra-1",budgetId:"o1",tipo:"controle",ativo:true}]},{role:"admin"})).toBe("");
+  });
+  it("recusa baseline ambígua ou vinculada a rascunho",()=>{
+    const draft={id:"o1",obraId:"obra-1",versionStatus:"rascunho"};
+    expect(validateBudgetBaselinePolicy({budgetBaselines:[]},{orcamentos:[draft],budgetBaselines:[{id:"b1",obraId:"obra-1",budgetId:"o1",ativo:true}]},{role:"admin"})).toMatch(/aprovada/);
+    const approved={...draft,versionStatus:"aprovado",lockedAt:"x",approvedById:"a"};
+    expect(validateBudgetBaselinePolicy({budgetBaselines:[]},{orcamentos:[approved],budgetBaselines:[{id:"b1",obraId:"obra-1",budgetId:"o1",ativo:true},{id:"b2",obraId:"obra-1",budgetId:"o1",ativo:true}]},{role:"admin"})).toMatch(/mais de uma baseline/);
   });
 });

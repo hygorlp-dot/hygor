@@ -155,3 +155,36 @@ export const validateNoPhysicalDeletes = (previous = {}, next = {}) => {
   }
   return "";
 };
+
+// ORC-001: a aprovação é uma fronteira de domínio, não um detalhe da tela.
+// Um engenheiro pode preparar revisões, mas não consegue promover uma versão
+// manualmente por save-sections nem criar/trocar uma baseline por requisição.
+const byRecordId=value=>new Map((Array.isArray(value)?value:[]).map(item=>[String(item?.id||""),item]).filter(([id])=>id));
+const sameJson=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+export const validateBudgetBaselinePolicy=(previous={},next={},user={})=>{
+  const previousBudgets=byRecordId(previous.orcamentos),nextBudgets=byRecordId(next.orcamentos);
+  for(const [id,budget] of nextBudgets){
+    const before=previousBudgets.get(id);
+    const wasApproved=before&&orcamentoAprovado(before);
+    const isApproved=orcamentoAprovado(budget);
+    if(!wasApproved&&isApproved){
+      if(user.role!=="admin")return "Somente o administrador pode aprovar uma versão orçamentária.";
+      if(!String(budget.lockedAt||budget.approvedAt||"").trim()||!String(budget.approvedById||budget.lockedById||"").trim())return "A aprovação da versão exige data e autor auditáveis.";
+    }
+  }
+
+  if(Object.prototype.hasOwnProperty.call(next,"budgetBaselines")){
+    const before=Array.isArray(previous.budgetBaselines)?previous.budgetBaselines:[];
+    const after=Array.isArray(next.budgetBaselines)?next.budgetBaselines:[];
+    if(!sameJson(before,after)&&user.role!=="admin")return "Somente o administrador pode criar ou trocar a baseline do orçamento.";
+    const active=new Map();
+    for(const baseline of after.filter(item=>item?.ativo!==false)){
+      const key=`${baseline.obraId||""}|${baseline.tipo||"controle"}`;
+      if(active.has(key))return "Há mais de uma baseline ativa para a mesma obra e finalidade.";
+      active.set(key,baseline);
+      const budget=nextBudgets.get(String(baseline.budgetId||""));
+      if(!budget||!orcamentoAprovado(budget))return "A baseline deve apontar para uma versão orçamentária aprovada e bloqueada.";
+    }
+  }
+  return "";
+};
