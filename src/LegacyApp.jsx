@@ -23952,7 +23952,7 @@ const SINAL_MOV = Object.fromEntries(TIPOS_MOV.map(t => [t.v, t.sinal]));
 // que todo saldo seja rastreável até sua origem.
 const calcSaldos = (movs) => {
   const m = {};
-  (movs || []).forEach(x => {
+  (movs || []).filter(x=>!['cancelado','cancelada','estornado','estornada'].includes(String(x?.status||'').toLowerCase())).forEach(x => {
     const k = `${x.obraId}|${x.materialId}`;
     m[k] = (m[k] || 0) + (SINAL_MOV[x.tipo] ?? 0) * Number(x.qtd || 0);
   });
@@ -23971,7 +23971,7 @@ const materiaisAbaixoMinimo = (data) => {
   const minimos = (data.materiais || []).filter(m => m.ativo !== false && Number(m.estoqueMin || 0) > 0);
   if (!minimos.length) return [];
   const obrasAtivas = (data.obras || []).filter(o => o.status !== "done");
-  const movimentou = new Set((data.movEstoque || []).map(x => `${x.obraId}|${x.materialId}`));
+  const movimentou = new Set((data.movEstoque || []).filter(x=>!['cancelado','cancelada','estornado','estornada'].includes(String(x?.status||'').toLowerCase())).map(x => `${x.obraId}|${x.materialId}`));
   const out = [];
   obrasAtivas.forEach(o => {
     minimos.forEach(m => {
@@ -24001,7 +24001,7 @@ const baixarPorComposicao = (comp, qtdExecutada) =>
 // Curva ABC pelo VALOR consumido (80/95 é o corte clássico)
 const calcCurvaABC = (movs, materiais) => {
   const val = {};
-  (movs || []).filter(x => x.tipo === "consumo").forEach(x => {
+  (movs || []).filter(x => x.tipo === "consumo" && !['cancelado','cancelada','estornado','estornada'].includes(String(x?.status||'').toLowerCase())).forEach(x => {
     val[x.materialId] = (val[x.materialId] || 0) + Number(x.qtd||0) * Number(x.valorUnit||0);
   });
   const lista = Object.entries(val)
@@ -24031,7 +24031,7 @@ const calcCurvaABC = (movs, materiais) => {
 // de fora, a curva mentiria sobre o total gasto.
 const calcCurvaABCServicos = (movs, composicoes) => {
   const val = {};
-  (movs || []).filter(x => x.tipo === "consumo").forEach(x => {
+  (movs || []).filter(x => x.tipo === "consumo" && !['cancelado','cancelada','estornado','estornada'].includes(String(x?.status||'').toLowerCase())).forEach(x => {
     const k = x.servicoId || "__avulso__";
     if (!val[k]) val[k] = { valor: 0, execucoes: new Set() };
     val[k].valor += Number(x.qtd || 0) * Number(x.valorUnit || 0);
@@ -32958,6 +32958,7 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const movs = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return (data.movEstoque||[])
+      .filter(x => !["cancelado","cancelada","estornado","estornada"].includes(String(x.status||"").toLowerCase()))
       .filter(x => !obraAtual || x.obraId === obraAtual)
       .filter(x => !termo || (matPorId(x.materialId)?.descricao || "").toLowerCase().includes(termo))
       .sort((a,b) => (b.data||"").localeCompare(a.data||""))
@@ -33023,9 +33024,14 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="" }) {
   };
 
   const excluirMov = (id) => {
-    if (!window.confirm("Excluir este movimento? O saldo será recalculado.")) return;
-    update({ ...data, movEstoque: (data.movEstoque||[]).filter(x => x.id !== id) });
-    showToast("Movimento excluído.");
+    const motivo=window.prompt("Motivo do estorno do movimento de estoque:");
+    if(!String(motivo||"").trim())return;
+    const agora=new Date().toISOString();
+    update({ ...data, movEstoque: (data.movEstoque||[]).map(x => x.id !== id ? x : {
+      ...x,status:"estornado",motivoEstorno:String(motivo).trim(),estornadoEm:agora,
+      estornadoPorId:currentUser?.id||"",estornadoPor:currentUser?.nome||"",
+    }) });
+    showToast("Movimento estornado e preservado para auditoria. O saldo foi recalculado.");
   };
 
   //  Composição 
