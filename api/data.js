@@ -28,6 +28,7 @@ import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archiv
 import { validatePurchaseChanges } from "../server/permission-policies.js";
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
+import { findSectionConflicts } from "../server/three-way-conflicts.js";
 import { authorizeSectionChanges, validateNoPhysicalDeletes } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
@@ -844,6 +845,11 @@ export default async function handler(req, res) {
       }
 
       const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
+      if(houveConcorrencia&&!baseSections)return res.status(409).json({conflict:true,reason:"A versão de origem é necessária para mesclar alterações concorrentes."});
+      if(houveConcorrencia){
+        const conflicts=findSectionConflicts(baseSections,sections,atual,chaves);
+        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
+      }
       const aplicar = (estado, concorrente) => {
         const proximo={...(estado||{})};
         chaves.forEach(k => {
@@ -863,6 +869,8 @@ export default async function handler(req, res) {
       let combinado=houveConcorrencia;
       if(!gravado){
         const recente=await lerLinha();
+        const conflicts=findSectionConflicts(baseSections,sections,recente.payload,chaves);
+        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
         valor=aplicar(recente.payload,true);
         agora=new Date().toISOString();
         const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
@@ -908,6 +916,10 @@ export default async function handler(req, res) {
       // instante, mas são strings diferentes — e comparar com !== dava
       // conflito eterno. O ponto simplesmente não salvava.
       const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
+      if(houveConcorrencia&&basePayload){
+        const conflicts=findSectionConflicts(basePayload,payload,atual,Object.keys(secoesAlteradas));
+        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
+      }
       let valor=houveConcorrencia&&basePayload?mesclarTresVias(basePayload,payload,atual):payload;
       if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:atual,currentUpdatedAt:updatedAt});
 
@@ -925,7 +937,10 @@ export default async function handler(req, res) {
       // updated_at impede sobrescrita; nesse caso relê e reaplica a mesma mescla.
       if(!gravado){
         if(!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou ao mesmo tempo."});
-        const recente=await lerLinha();valor=mesclarTresVias(basePayload,payload,recente.payload);
+        const recente=await lerLinha();
+        const conflicts=findSectionConflicts(basePayload,payload,recente.payload,Object.keys(secoesAlteradas));
+        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
+        valor=mesclarTresVias(basePayload,payload,recente.payload);
         const novoAgora=new Date().toISOString();
         const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
           before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
