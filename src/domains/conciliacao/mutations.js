@@ -97,6 +97,19 @@ export const registrarPagamentoEConciliar = (data, params) => {
   const bloqueioPeriodo = motivoPeriodoFechado(data, dataPagamento || tr.data);
   if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
+  // A transação só pode ser baixada quando o fato de origem existe no estado
+  // autoritativo. Sem esta guarda, um ID removido poderia deixar o extrato
+  // conciliado sem pagamento/recebimento correspondente.
+  const collectionsByType={
+    nota:["notasFiscais","Nota fiscal"],pedido:["pedidos","Pedido"],medicao:["medicoes","Medição"],
+    medicaoTerc:["medicoesTerc","Medição de terceiro"],funcionario:["employees","Funcionário"],
+    tituloFolha:["titulosFolha","Título de folha"],
+  };
+  const required=collectionsByType[tipo];
+  if(required&&!(data[required[0]]||[]).some(item=>item.id===entidadeId)){
+    return { data, resumo:{ok:false,motivo:`${required[1]} não encontrado`} };
+  }
+
   const registradoPor = nomeOperador(operador);
   const criados = [];
   let next = { ...data };

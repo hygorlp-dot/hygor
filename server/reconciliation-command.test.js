@@ -27,6 +27,14 @@ describe("reconciliation command server boundary",()=>{
     expect(result.data).toBe(data);
   });
 
+  test("recusa baixa para uma obrigação que não existe mais",()=>{
+    const data=fixture();
+    const result=applyReconciliationCommand(data,{type:RECONCILIATION_COMMAND.CONFIRM_PAYMENT,payload:{transactionId:"debit",targetType:"nota",targetId:"nota-apagada"}},actor);
+    expect(result.resumo).toMatchObject({ok:false,motivo:"Nota fiscal não encontrado"});
+    expect(result.data).toBe(data);
+    expect(result.data.transacoes.find(item=>item.id==="debit")?.status).toBe("pendente");
+  });
+
   test("confirma pagamento pelo valor do extrato, sem aceitar valor do navegador",()=>{
     const result=applyReconciliationCommand(fixture(),{type:RECONCILIATION_COMMAND.CONFIRM_PAYMENT,payload:{transactionId:"debit",targetType:"nota",targetId:"n1",valor:1}},actor);
     expect(result.resumo.ok).toBe(true);
