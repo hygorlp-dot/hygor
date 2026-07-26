@@ -26956,7 +26956,7 @@ const CHAVES_ISOLADAS_OBRA=[
   "conferencias","qualidadeRegistros","solicitacoesCompra","terceirizados",
   "medicoesTerc","contratosTerc","pagsTerceiros","planos","rdos","pedidos",
   "cotacoes","movEstoque","transacoes","licencas","locacoesEquip",
-  "jobRiskAnalyses","workPermits",
+  "jobRiskAnalyses","workPermits","lookaheadWindows",
 ];
 
 const registroPertenceObra=(registro,obraId,idsFuncionarios=new Set(),idsTerceiros=new Set())=>{
