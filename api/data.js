@@ -70,6 +70,11 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
   [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_RELEASED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
   [OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED]:["admin","compras","financeiro"],
+  [OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
+  [OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
+  [OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED]:["admin","engenheiro","qualidade"],
+  [OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
+  [OPERATIONAL_COMMAND.QUALITY_RECORD_DETAILS_UPDATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
 };
 const BACKUP_FOLDER="00 - Backups ARCD";
 const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
@@ -666,7 +671,7 @@ export default async function handler(req, res) {
 
       const persistir=async(base,value)=>salvarComAuditoria({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
-        before:{command:command.type,entityId:command.payload?.measurementId||command.payload?.pedidoId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||""},
+        before:{command:command.type,entityId:command.payload?.measurementId||command.payload?.pedidoId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.records?.[0]?.id||""},
         after:{command:command.type,idempotencyKey:command.idempotencyKey}});
       let gravacao=await persistir({updatedAt},result.data);
       if(!gravacao.applied){

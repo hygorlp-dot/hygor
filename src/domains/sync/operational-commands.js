@@ -23,6 +23,11 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
   WEEKLY_COMMITMENT_CREATED:"COMPROMISSO_SEMANAL_CRIADO",
   WEEKLY_COMMITMENT_RELEASED:"COMPROMISSO_SEMANAL_LIBERADO",
+  QUALITY_PLAN_GENERATED:"PLANO_QUALIDADE_GERADO",
+  QUALITY_ITEM_INSPECTED:"ITEM_QUALIDADE_INSPECIONADO",
+  QUALITY_NONCONFORMITY_RESOLVED:"NAO_CONFORMIDADE_RESOLVIDA",
+  QUALITY_RECORD_RELEASED:"FICHA_QUALIDADE_LIBERADA",
+  QUALITY_RECORD_DETAILS_UPDATED:"FICHA_QUALIDADE_ATUALIZADA",
 });
 
 const receipts=data=>Array.isArray(data?.operationalCommandReceipts)?data.operationalCommandReceipts:[];
@@ -73,11 +78,97 @@ const validateProgressSafety=(data={},record={})=>{
   });
   return result.ok?"":result.reason;
 };
+const qualityRecords=data=>Array.isArray(data?.qualidadeRegistros)?data.qualidadeRegistros:[];
+const replaceQualityRecord=(data,id,record)=>({...data,qualidadeRegistros:qualityRecords(data).map(item=>item.id===id?record:item)});
+const qualityKey=record=>`${record.tipo||""}|${record.etapaId||record.materialId||record.itemOrcamentoId||""}`;
+const openNonconformity=record=>record?.naoConformidade&&!['encerrada','cancelada'].includes(record.naoConformidade.status);
+const qualityRecordVersionError=(record,command)=>requiresVersion(record,command.expectedVersion,"A ficha de qualidade");
 
 export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
   if(duplicate(data,command.idempotencyKey))return {ok:true,idempotent:true,data};
   const now=command.now||new Date().toISOString();
+
+  if(command.type===OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED){
+    const records=Array.isArray(command.payload?.records)?command.payload.records:[];
+    if(!records.length||records.length>500)return fail("O plano de qualidade precisa conter entre 1 e 500 fichas.");
+    const obraId=String(records[0]?.obraId||"");
+    if(!obraId||records.some(record=>String(record?.obraId||"")!==obraId))return fail("Todas as fichas do plano precisam pertencer à mesma obra.");
+    const ids=new Set(qualityRecords(data).map(record=>record.id));
+    const keys=new Set(qualityRecords(data).filter(record=>String(record.obraId)===obraId).map(qualityKey));
+    const created=[];
+    for(const raw of records){
+      if(!raw?.id||!['fvs','fvm'].includes(raw.tipo)||!String(raw.titulo||"").trim())return fail("Ficha de qualidade inválida.");
+      const key=qualityKey(raw);
+      if(ids.has(raw.id)||keys.has(key))continue;
+      ids.add(raw.id);keys.add(key);
+      created.push({...raw,status:'planejada',version:1,criadoEm:raw.criadoEm||now,atualizadoEm:now,criadoPorId:command.actorId||'',criadoPor:command.actorName||''});
+    }
+    const next={...data,qualidadeRegistros:[...qualityRecords(data),...created]};
+    return {ok:true,data:appendReceipt(next,command,`qualidade:${obraId}`,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED){
+    const recordId=String(command.payload?.recordId||"");
+    const itemId=String(command.payload?.itemId||"");
+    const result=String(command.payload?.result||"");
+    if(!['conforme','nao_conforme','nao_aplicavel'].includes(result))return fail("Resultado de inspeção inválido.");
+    const current=qualityRecords(data).find(record=>record.id===recordId);
+    if(!current)return fail("Ficha de qualidade não encontrada.");
+    const versionError=qualityRecordVersionError(current,command);
+    if(versionError)return fail(versionError);
+    if(current.status==='aprovada')return fail("Uma ficha liberada não pode receber nova inspeção. Abra uma nova reinspeção.");
+    if(!(current.itens||[]).some(item=>item.id===itemId))return fail("Critério de inspeção não encontrado.");
+    const items=(current.itens||[]).map(item=>item.id===itemId?{...item,status:result,responsavelId:command.actorId||'',responsavel:command.actorName||'',verificadoEm:now}:item);
+    const nonconformity=result==='nao_conforme'?(openNonconformity(current)?current.naoConformidade:{descricao:'Item(ns) não conforme(s) identificado(s) na inspeção.',disposicao:'Segregar, conter ou suspender a liberação até decisão.',acao:'',responsavelId:current.responsavelId||'',responsavel:current.responsavel||'',prazo:'',status:'aberta',verificacaoEficacia:'',encerradoEm:'',criadaEm:now,criadaPorId:command.actorId||''}):current.naoConformidade;
+    const updated={...current,itens:items,status:result==='nao_conforme'?'reprovada':current.status,naoConformidade:nonconformity,version:versionOf(current)+1,atualizadoEm:now};
+    return {ok:true,data:appendReceipt(replaceQualityRecord(data,recordId,updated),command,recordId,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED){
+    const recordId=String(command.payload?.recordId||"");
+    const current=qualityRecords(data).find(record=>record.id===recordId);
+    if(!current)return fail("Ficha de qualidade não encontrada.");
+    const versionError=qualityRecordVersionError(current,command);
+    if(versionError)return fail(versionError);
+    if(!openNonconformity(current))return fail("Não há não conformidade aberta nesta ficha.");
+    const action=String(command.payload?.correctiveAction||"").trim();
+    const effectiveness=String(command.payload?.effectiveness||"").trim();
+    if(!action||!effectiveness)return fail("Registre a ação corretiva e a verificação de eficácia antes da reinspeção.");
+    const updated={...current,status:'em_inspecao',itens:(current.itens||[]).map(item=>item.status==='nao_conforme'?{...item,status:'conforme',responsavelId:command.actorId||'',responsavel:command.actorName||'',verificadoEm:now}:item),naoConformidade:{...current.naoConformidade,acao:action,verificacaoEficacia:effectiveness,status:'encerrada',encerradoEm:now,encerradoPorId:command.actorId||''},version:versionOf(current)+1,atualizadoEm:now};
+    return {ok:true,data:appendReceipt(replaceQualityRecord(data,recordId,updated),command,recordId,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED){
+    const recordId=String(command.payload?.recordId||"");
+    const current=qualityRecords(data).find(record=>record.id===recordId);
+    if(!current)return fail("Ficha de qualidade não encontrada.");
+    const versionError=qualityRecordVersionError(current,command);
+    if(versionError)return fail(versionError);
+    if((current.itens||[]).some(item=>item.status==='pendente'))return fail("Conclua todos os critérios antes de liberar a ficha.");
+    if((current.itens||[]).some(item=>item.status==='nao_conforme')||openNonconformity(current))return fail("Encerre a não conformidade e verifique a eficácia antes de liberar a ficha.");
+    const updated={...current,status:'aprovada',inspetorId:command.actorId||'',inspetor:command.actorName||'',concluidoEm:now,version:versionOf(current)+1,atualizadoEm:now};
+    return {ok:true,data:appendReceipt(replaceQualityRecord(data,recordId,updated),command,recordId,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.QUALITY_RECORD_DETAILS_UPDATED){
+    const recordId=String(command.payload?.recordId||"");
+    const current=qualityRecords(data).find(record=>record.id===recordId);
+    if(!current)return fail("Ficha de qualidade não encontrada.");
+    const versionError=qualityRecordVersionError(current,command);
+    if(versionError)return fail(versionError);
+    const patch=command.payload?.patch||{};
+    const allowed={};
+    if(Object.hasOwn(patch,'responsavelId')){
+      const user=(data.usuarios||[]).find(item=>item.id===patch.responsavelId&&item.active!==false);
+      if(!user)return fail("Responsável da ficha inválido.");
+      allowed.responsavelId=user.id;allowed.responsavel=user.nome||'';
+    }
+    if(Object.hasOwn(patch,'normaProjeto'))allowed.normaProjeto=String(patch.normaProjeto||'').trim().slice(0,2000);
+    if(!Object.keys(allowed).length)return fail("Nenhuma atualização válida foi informada para a ficha.");
+    const updated={...current,...allowed,version:versionOf(current)+1,atualizadoEm:now};
+    return {ok:true,data:appendReceipt(replaceQualityRecord(data,recordId,updated),command,recordId,now)};
+  }
 
   if(command.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED){
     const measurement=command.payload?.measurement;

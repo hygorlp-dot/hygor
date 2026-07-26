@@ -4,7 +4,7 @@ import { validateOperationalCommandScope } from "./operational-command-policy.js
 
 describe("escopo servidor de comandos operacionais",()=>{
   const data={
-    medicoesObra:[{id:"m-a",obraId:"obra-a"}],rdos:[{id:"r-a",obraId:"obra-a"}],pedidos:[{id:"p-a",obraId:"obra-a"}],progressRecords:[{id:"av-a",obraId:"obra-a"}],weeklyCommitments:[{id:"c-a",obraId:"obra-a"}],
+    medicoesObra:[{id:"m-a",obraId:"obra-a"}],rdos:[{id:"r-a",obraId:"obra-a"}],pedidos:[{id:"p-a",obraId:"obra-a"}],progressRecords:[{id:"av-a",obraId:"obra-a"}],weeklyCommitments:[{id:"c-a",obraId:"obra-a"}],qualidadeRegistros:[{id:"q-a",obraId:"obra-a"}],
   };
   const user={id:"u-1",role:"engenheiro",obraId:"obra-a"};
   it("aceita somente a obra atribuída em criação e cancelamento de medição",()=>{
@@ -24,5 +24,10 @@ describe("escopo servidor de comandos operacionais",()=>{
   it("mantém a conclusão do compromisso dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED,payload:{commitmentId:"c-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED,payload:{commitment:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
+  });
+  it("não permite inspecionar ou gerar ficha fora da obra atribuída",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED,payload:{recordId:"q-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data:{...data,qualidadeRegistros:[{id:"q-b",obraId:"obra-b"}]},command:{type:OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED,payload:{recordId:"q-b"}}})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED,payload:{records:[{obraId:"obra-b"}]}}})).toMatchObject({ok:false});
   });
 });

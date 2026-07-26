@@ -161,4 +161,26 @@ describe("comandos operacionais versionados",()=>{
     const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,"measurement-quality-legacy-0001",{measurement:{id:"m-1",obraId:"o-1",data:"2026-07-25",itens:[{tarefaId:"t-1",pctConfirmado:10}]}}));
     expect(result.ok).toBe(false);expect(result.reason).toMatch(/não conformidade impeditiva/);
   });
+
+  it("gera fichas de qualidade sem duplicar o plano da obra",()=>{
+    const initial={qualidadeRegistros:[]};
+    const payload={records:[{id:"q-1",obraId:"o-1",tipo:"fvs",etapaId:"e-1",titulo:"Alvenaria",itens:[]}]};
+    const created=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED,"quality-plan-0001",payload));
+    const repeated=applyOperationalCommand(created.data,command(OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED,"quality-plan-0001",payload));
+    expect(created.data.qualidadeRegistros[0]).toMatchObject({id:"q-1",status:"planejada",version:1});
+    expect(repeated.idempotent).toBe(true);expect(repeated.data.qualidadeRegistros).toHaveLength(1);
+  });
+
+  it("preserva NC, exige eficácia e só libera a ficha após reinspeção",()=>{
+    const initial={qualidadeRegistros:[{id:"q-1",obraId:"o-1",version:1,status:"em_inspecao",itens:[{id:"i-1",status:"pendente"}]}]};
+    const rejected=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED,"quality-item-0001",{recordId:"q-1",itemId:"i-1",result:"nao_conforme"},1));
+    expect(rejected.data.qualidadeRegistros[0]).toMatchObject({status:"reprovada",version:2});
+    const blocked=applyOperationalCommand(rejected.data,command(OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED,"quality-release-0001",{recordId:"q-1"},2));
+    expect(blocked.ok).toBe(false);
+    const incomplete=applyOperationalCommand(rejected.data,command(OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED,"quality-nc-0001",{recordId:"q-1",correctiveAction:"Corrigir"},2));
+    expect(incomplete.ok).toBe(false);
+    const resolved=applyOperationalCommand(rejected.data,command(OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED,"quality-nc-0002",{recordId:"q-1",correctiveAction:"Corrigir",effectiveness:"Reinspeção aprovada"},2));
+    const released=applyOperationalCommand(resolved.data,command(OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED,"quality-release-0002",{recordId:"q-1"},3));
+    expect(released.data.qualidadeRegistros[0]).toMatchObject({status:"aprovada",version:4});
+  });
 });
