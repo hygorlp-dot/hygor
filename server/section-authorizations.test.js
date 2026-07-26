@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { authorizeSectionChanges,validateBudgetBaselinePolicy,validateNoPhysicalDeletes } from "./section-authorizations.js";
+import { authorizeSectionChanges,validateBudgetBaselinePolicy,validateNoPhysicalDeletes,validatePlanningBaselinePolicy } from "./section-authorizations.js";
 describe("autorização de produção",()=>{
   it("permite planejamento somente ao perfil previsto",()=>{
     expect(authorizeSectionChanges({role:"planejamento"},{scheduleActivities:[{id:"a",obraId:"o"}]})).toBe("");
@@ -32,5 +32,13 @@ describe("autorização de produção",()=>{
     expect(validateBudgetBaselinePolicy({budgetBaselines:[]},{orcamentos:[draft],budgetBaselines:[{id:"b1",obraId:"obra-1",budgetId:"o1",ativo:true}]},{role:"admin"})).toMatch(/aprovada/);
     const approved={...draft,versionStatus:"aprovado",lockedAt:"x",approvedById:"a"};
     expect(validateBudgetBaselinePolicy({budgetBaselines:[]},{orcamentos:[approved],budgetBaselines:[{id:"b1",obraId:"obra-1",budgetId:"o1",ativo:true},{id:"b2",obraId:"obra-1",budgetId:"o1",ativo:true}]},{role:"admin"})).toMatch(/mais de uma baseline/);
+  });
+  it("mantém baseline de cronograma imutável e revisável por vínculo explícito",()=>{
+    const baseline={id:"p1",status:"aprovada",approvedAt:"2026-07-26",approvedById:"d1",tarefas:["a"]};
+    expect(validatePlanningBaselinePolicy({scheduleBaselines:[baseline]},{scheduleBaselines:[{...baseline,tarefas:["b"]}]},{role:"diretoria"})).toMatch(/imutável/);
+    expect(validatePlanningBaselinePolicy({scheduleBaselines:[baseline]},{scheduleBaselines:[{...baseline,status:"substituida"},{id:"p2",status:"rascunho",revisionOf:"p1",reason:"Aditivo aprovado"}]},{role:"diretoria"})).toBe("");
+  });
+  it("não permite aprovação de cronograma por perfil operacional",()=>{
+    expect(validatePlanningBaselinePolicy({scheduleBaselines:[]},{scheduleBaselines:[{id:"p1",status:"aprovada",approvedAt:"2026-07-26",approvedById:"d1"}]},{role:"planejamento"})).toMatch(/administrador ou diretoria/);
   });
 });

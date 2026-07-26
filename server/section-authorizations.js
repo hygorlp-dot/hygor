@@ -188,3 +188,28 @@ export const validateBudgetBaselinePolicy=(previous={},next={},user={})=>{
   }
   return "";
 };
+
+// PLAN-001: baseline do cronograma é uma fotografia aprovada. Ela não pode
+// ser editada ou substituída silenciosamente; uma revisão cria outro registro
+// e conserva a ligação e a justificativa da versão anterior.
+const baselineApproved=item=>String(item?.status||"").toLowerCase()==="aprovada";
+const baselineSuperseded=item=>["substituida","substituída","superseded"].includes(String(item?.status||"").toLowerCase());
+export const validatePlanningBaselinePolicy=(previous={},next={},user={})=>{
+  if(!Object.prototype.hasOwnProperty.call(next,"scheduleBaselines"))return "";
+  const before=byRecordId(previous.scheduleBaselines),after=byRecordId(next.scheduleBaselines);
+  const approvalRole=["admin","diretoria"].includes(user.role);
+  for(const [id,item] of after){
+    const old=before.get(id);
+    if(!old&&baselineApproved(item)){
+      if(!approvalRole)return "Somente administrador ou diretoria podem aprovar a baseline do cronograma.";
+      if(!String(item.approvedAt||"").trim()||!String(item.approvedById||"").trim())return "A aprovação da baseline exige data e autor auditáveis.";
+    }
+    if(old&&baselineApproved(old)&&!sameJson(old,item)){
+      if(!baselineSuperseded(item))return "Baseline aprovada do cronograma é imutável. Crie uma revisão explícita.";
+      if(!approvalRole)return "Somente administrador ou diretoria podem substituir uma baseline aprovada.";
+      const revision=[...after.values()].find(candidate=>candidate.revisionOf===id&&String(candidate.reason||"").trim());
+      if(!revision)return "Substituir a baseline exige uma nova revisão com justificativa e vínculo à versão anterior.";
+    }
+  }
+  return "";
+};
