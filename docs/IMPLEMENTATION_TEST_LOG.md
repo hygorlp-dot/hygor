@@ -150,8 +150,29 @@ Contrato de autoria do DRE e razão financeiro canônico incluídos na execuçã
 
 ### Próxima etapa
 
-**LIBERADA:** REC-001 — baixa e conciliação bancária pelo comando transacional
-do servidor, incluindo baixa parcial e estorno.
+## REC-001 — conciliação comandada pelo servidor
+
+**Status:** IMPLEMENTADA; aguardando a homologação desta publicação em produção.
+
+- O navegador passou a enviar somente comando, IDs e a intenção de conciliar.
+  O servidor relê a fotografia autoritativa, valida papel, sinal de entrada ou
+  saída, obra, saldo e fechamento do rateio em centavos.
+- Entradas de medição/contrato, entradas manuais, pagamentos, vínculos já
+  existentes, transferências, estornos e rateios usam a mesma persistência
+  `financial_save_with_sync`, que grava auditoria e atualiza o razão canônico
+  dentro da transação do blob.
+- Reversão requer motivo, é restrita ao administrador e nunca apaga o fato
+  original; muda somente o status dos efeitos que a própria conciliação criou.
+- A tela não aceita mais valor livre na baixa simples. Baixa parcial permanece
+  reservada ao rateio N:N, que fecha em centavos, evitando marcar como quitado
+  um movimento bancário parcialmente aplicado.
+
+### Evidência local
+
+- `server/reconciliation-command.test.js` cobre crédito versus débito, valor
+  autoritativo, rateio, obra inexistente e estorno com motivo.
+- `npm test` — 32 arquivos, 189 testes aprovados; `npm run lint`, build,
+  checagem sintática da API e `git diff --check` aprovados.
 
 ### Subportão 2B — Comandos operacionais locais
 

@@ -21594,27 +21594,30 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     return { ...m, idx };
   });
 
-  const executarVincular = (tr, c) => {
-    const { data: next, resumo } = vincularPagamentoExistente(data, {
-      transacaoId: tr.id, tipo: c.tipo, entidadeId: c.entidadeId, pagamentoId: c.pagamentoId, operador: currentUser,
-    });
-    if (!resumo.ok) { showToast(resumo.motivo||"Não foi possível vincular.", "error"); return; }
-    update(next);
+  const executarConciliacaoNoServidor = async (command, erroPadrao) => {
+    setConciliando(true);
+    try {
+      const resposta=await executarComandoConciliacao({...command,idempotencyKey:`rec_${Date.now()}_${Math.random().toString(36).slice(2,12)}`});
+      if(!resposta?.ok){showToast(resposta?.error||erroPadrao,"error");return false;}
+      await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
+      return true;
+    } finally { setConciliando(false); }
+  };
+
+  const executarVincular = async (tr, c) => {
+    const ok=await executarConciliacaoNoServidor({type:"LINK_EXISTING_PAYMENT",payload:{transactionId:tr.id,targetType:c.tipo,targetId:c.entidadeId,paymentId:c.pagamentoId||""}},"O servidor não confirmou o vínculo.");
+    if(!ok)return;
     fecharCandidato();
     showToast("Vínculo confirmado e transação conciliada.");
   };
-  const executarRegistrarPagamento = (tr, c) => {
+  const executarRegistrarPagamento = async (tr, c) => {
     const valor = Number(String(pagamentoForm.valor||"").replace(",", "."));
     if (!(valor > 0)) { showToast("Informe o valor pago.", "error"); return; }
-    const { data: next, resumo } = registrarPagamentoEConciliar(data, {
-      transacaoId: tr.id, tipo: c.tipo, entidadeId: c.entidadeId,
-      valor, dataPagamento: pagamentoForm.data || tr.data, operador: currentUser,
-      score:c.score, confianca:c.confianca, motivos:c.motivos,
-    });
-    if (!resumo.ok) { showToast(resumo.motivo||"Não foi possível registrar o pagamento.", "error"); return; }
-    update(next);
+    if(Math.abs(valor-Math.abs(Number(tr.valor||0)))>0.01){showToast("Para baixa parcial, use o rateio N:N. A confirmação simples usa todo o valor do extrato.","warn");return;}
+    const ok=await executarConciliacaoNoServidor({type:"CONFIRM_PAYMENT",payload:{transactionId:tr.id,targetType:c.tipo,targetId:c.entidadeId,observacao:`Sugestão ${c.confianca||""}`}},"O servidor não confirmou o pagamento.");
+    if(!ok)return;
     fecharCandidato();
-    showToast(valor < Math.abs(Number(c.saldoCentavos||0))/100 - 0.01 ? "Pagamento parcial registrado e conciliado." : "Pagamento registrado e conciliado.");
+    showToast("Pagamento registrado e conciliado.");
   };
   const abrirValidarEntrada = (tr) => {
     setEntradaForm({
@@ -21648,11 +21651,8 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     } else {
       command={type:"CONFIRM_MANUAL_ENTRY",payload:{transactionId:tr.id,entryType:tipo,obraId:entradaForm.obraId,categoria:entradaForm.categoria,descricao:entradaForm.descricao}};
     }
-    setConciliando(true);
-    const resposta=await executarComandoConciliacao({...command,idempotencyKey:`rec_${Date.now()}_${Math.random().toString(36).slice(2,12)}`});
-    setConciliando(false);
-    if (!resposta?.ok) { showToast(resposta?.error || "O servidor não confirmou a entrada. Nenhuma alteração foi salva.", "error"); return; }
-    await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
+    const ok=await executarConciliacaoNoServidor(command,"O servidor não confirmou a entrada. Nenhuma alteração foi salva.");
+    if(!ok)return;
     setEntradaModal(null);
     showToast(tipo === "entradaContrato" ? "Entrada do contrato validada e vinculada ao extrato." : tipo === "medicao" ? "Recebimento da parcela validado e conciliado." : tipo === "recebimento_administracao" ? "Recebimento manual da obra por administração conciliado." : "Entrada registrada no caixa, sem criar receita no DRE.");
   };
@@ -21670,12 +21670,11 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const candidatasTransferencia = (tr) => (data.transacoes||[])
     .filter(t => t.id!==tr.id && t.status==="pendente" && Math.sign(Number(t.valor))!==Math.sign(Number(tr.valor)) && igualCentavos(Math.abs(t.valor),Math.abs(tr.valor),50))
     .sort((a,b)=>diasEntre(a.data,tr.data)-diasEntre(b.data,tr.data));
-  const confirmarTransferencia = (tr, destino) => {
-    const { data: next, resumo } = marcarTransferenciaInterna(data, {
-      transacaoOrigemId: Number(tr.valor)<0?tr.id:destino.id, transacaoDestinoId: Number(tr.valor)<0?destino.id:tr.id, operador: currentUser,
-    });
-    if (!resumo.ok) { showToast(resumo.motivo||"Não foi possível vincular a transferência.", "error"); return; }
-    update(next); setTransferModal(null);
+  const confirmarTransferencia = async (tr, destino) => {
+    const origemId=Number(tr.valor)<0?tr.id:destino.id, destinoId=Number(tr.valor)<0?destino.id:tr.id;
+    const ok=await executarConciliacaoNoServidor({type:"CONFIRM_TRANSFER",payload:{transactionId:origemId,counterpartyTransactionId:destinoId}},"O servidor não confirmou a transferência.");
+    if(!ok)return;
+    setTransferModal(null);
     showToast("Transferência interna registrada - sem efeito no DRE.");
   };
 
@@ -21683,10 +21682,10 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const candidatasEstorno = (tr) => (data.transacoes||[])
     .filter(t => t.id!==tr.id && Math.sign(Number(t.valor))!==Math.sign(Number(tr.valor)) && igualCentavos(Math.abs(t.valor),Math.abs(tr.valor),50))
     .sort((a,b)=>diasEntre(a.data,tr.data)-diasEntre(b.data,tr.data));
-  const confirmarEstorno = (tr, origem) => {
-    const { data: next, resumo } = marcarEstorno(data, { transacaoId: tr.id, transacaoOrigemId: origem?.id||"", operador: currentUser });
-    if (!resumo.ok) { showToast(resumo.motivo||"Não foi possível marcar o estorno.", "error"); return; }
-    update(next); setEstornoModal(null);
+  const confirmarEstorno = async (tr, origem) => {
+    const ok=await executarConciliacaoNoServidor({type:"CONFIRM_REVERSAL",payload:{transactionId:tr.id,originalTransactionId:origem?.id||""}},"O servidor não confirmou o estorno.");
+    if(!ok)return;
+    setEstornoModal(null);
     showToast("Estorno vinculado ao movimento original.");
   };
 
@@ -21973,153 +21972,28 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const alvo = apropModal ? Math.abs(Number(apropModal.valor)) : 0;
   const diferenca = alvo - totalRateado;
 
-  const confirmarApropriacao = () => {
-    if (!apropModal) return;
-    const tr = apropModal;
-    const rs = rateios.map(r => ({ ...r, valor: Number(r.valor||0) }));
-
-    if (!rs.length)                       { showToast("Adicione ao menos um destino.", "error"); return; }
-    if (rs.some(r => r.valor <= 0))       { showToast("Todo rateio precisa de valor maior que zero.", "error"); return; }
-    if (rs.some(r => r.destino==="obra" && !r.obraId)) { showToast("Selecione a obra de cada rateio.", "error"); return; }
-    if (Math.abs(diferenca) >= 0.01) {
-      showToast(`O rateio não fecha: faltam ${fmt(Math.abs(diferenca))}.`, "error"); return;
-    }
-
-    const comp    = (tr.data || "").slice(0,7);
-    const entrada = Number(tr.valor) > 0;
-
-    // Gera os lançamentos nos MESMOS arrays que o DRE já lê. Assim a
-    // conciliação alimenta o resultado sem duplicar regra de negócio.
-    const novasOutras  = [];
-    const novasEmpresa = [];
-    const novosPagtos  = [];
-    const gerados      = [];
-
-    rs.forEach(r => {
-      const id = uid();
-      gerados.push(id);
-      if (r.destino === "obra") {
-        if (entrada) {
-          // Se a entrada quita uma MEDIÇÃO, ela NÃO vira pagamento avulso:
-          // a receita já é reconhecida pela medição. Lançar os dois contaria
-          // o mesmo dinheiro duas vezes no DRE.
-          if (medAlvo && r.obraId === medAlvo.m.obraId) {
-            gerados.pop();   // não gerou lançamento - o vínculo é com a medição
-            return;
-          }
-          novosPagtos.push({
-            id, obraId: r.obraId, date: tr.data, amount: r.valor,
-            description: `[Extrato] ${tr.descricao}`.slice(0,120),
-          });
-        } else {
-          novasOutras.push({
-            id, obraId: r.obraId, competencia: comp,
-            categoria: r.categoria,
-            descricao: `[Extrato] ${tr.descricao}`.slice(0,120),
-            valor: r.valor,
-          });
-        }
-      } else {
-        novasEmpresa.push({
-          id, competencia: comp, categoria: r.categoria,
-          descricao: `[Extrato] ${tr.descricao}`.slice(0,120),
-          valor: entrada ? -r.valor : r.valor,   // entrada na empresa reduz despesa
-          recorrente: false,
-        });
-      }
-    });
-
-    // Regra de auto-classificação para as próximas
-    const regras = [...(data.regrasConc||[])];
-    if (criarRegra && padraoRegra.trim() && rs.length === 1) {
-      regras.push({
-        id: uid(), padrao: padraoRegra.trim(),
-        destino: rs[0].destino, obraId: rs[0].obraId, categoria: rs[0].categoria,
-      });
-    }
-
-    // Quitação da medição - recebimento PARCIAL ou TOTAL. O valor do
-    // movimento bancário pode ser menor que o previsto da medição; nesse
-    // caso ela fica "parcial" em vez de virar "recebida" à força.
-    const medicoes = medAlvo
-      ? (data.medicoes||[]).map(m => m.id === medAlvo.m.id
-          ? aplicarRecebimentoMedicao(m, { id:uid(), valor: Math.abs(Number(tr.valor)), data: tr.data, origem: "conciliacao_bancaria", transacaoId: tr.id, actor:currentUser })
-          : m)
-      : (data.medicoes||[]);
-
-    const recebedorMaoObra=recebedorSelecionado ? {
-      employeeId:recebedorSelecionado.emp.id, employeeName:recebedorSelecionado.emp.name,
-      pixHolder:recebedorSelecionado.emp.pixHolder||"", valorPago:Math.abs(Number(tr.valor||0)),
-      valorEsperado:Number(recebedorSelecionado.esperado||0), diasTrabalhados:Number(recebedorSelecionado.diasTrabalhados||0),
-      confirmadoEm:new Date().toISOString(), confirmadoPorId:currentUser?.id||"", confirmadoPor:currentUser?.nome||currentUser?.email||"Operador",
-    } : null;
-    const detalheRateio=medAlvo
-      ? `Vinculada à medição ${medAlvo.m.descricao||medAlvo.m.id}.`
-      : `${rs.length} rateio(s): ${rs.map(r=>`${r.destino==="obra"?nomeObra(r.obraId):"Empresa"} / ${r.categoria} / ${fmt(r.valor)}`).join("; ")}`;
-    const detalheRecebedor=recebedorMaoObra
-      ? ` · Recebedor confirmado: ${recebedorMaoObra.employeeName}${recebedorMaoObra.pixHolder?` (PIX de ${recebedorMaoObra.pixHolder})`:""}.`
-      : "";
-    update({
-      ...data,
-      transacoes: (data.transacoes||[]).map(t =>
-        t.id === tr.id ? {
-          ...t, status:"conciliado", rateios: rs, gerados,
-          recebedorMaoObra,
-          vinculo: medAlvo ? { tipo:"medicao", id: medAlvo.m.id } : null,
-          ignoradoMotivo:"",statusAtualizadoEm:new Date().toISOString(),statusAtualizadoPorId:currentUser?.id||"",statusAtualizadoPor:currentUser?.nome||currentUser?.email||"Operador",
-        } : t),
-      medicoes,
-      outrasDesp:      [...(data.outrasDesp||[]),      ...novasOutras],
-      despesasEmpresa: [...(data.despesasEmpresa||[]), ...novasEmpresa],
-      payments:        [...(data.payments||[]),        ...novosPagtos],
-      regrasConc: regras,
-      aprendizadoConc: entrada ? data.aprendizadoConc : registrarAprendizadoConc(data.aprendizadoConc, tr, rs.length===1?rs[0]:null, currentUser),
-      historicoConc:[...(data.historicoConc||[]),eventoHistorico("conciliada",tr,tr.status,"conciliado",detalheRateio+detalheRecebedor)],
-    });
-    setApropModal(null); setRateios([]); setMedAlvo(null); setRecebedorMaoObraId("");
-
-    // Se a saída foi material para uma obra, isso é uma COMPRA - e compra
-    // tem contrapartida física. O financeiro já está lançado; o que falta é
-    // dar entrada no estoque. Avisamos, mas não fazemos sozinho: só você sabe
-    // quantos sacos vieram na nota.
-    const compraMaterial = !entrada && rs.some(r => r.destino === "obra" && r.categoria === "material");
-
-    showToast(
-      medAlvo
-        ? `Conciliada e ${medAlvo.m.descricao || "medição"} marcada como recebida.`
-        : compraMaterial
-          ? "Conciliada. Lembre de dar entrada no Estoque."
-          : "Transação conciliada e lançada no DRE."
-    );
+  const confirmarApropriacao = async () => {
+    if(!apropModal)return;
+    const rs=rateios.map(item=>({destination:item.destino,obraId:item.obraId,category:item.categoria,value:Number(item.valor||0)}));
+    if(!rs.length||rs.some(item=>!(item.value>0))||Math.abs(diferenca)>=0.01){showToast("Confira os destinos: o rateio precisa fechar exatamente o valor do extrato.","error");return;}
+    const worker=recebedorSelecionado?{employeeId:recebedorSelecionado.emp.id,employeeName:recebedorSelecionado.emp.name,pixHolder:recebedorSelecionado.emp.pixHolder||""}:null;
+    const autoRule=criarRegra&&padraoRegra.trim()?{pattern:padraoRegra.trim()}:null;
+    const ok=await executarConciliacaoNoServidor({type:"CONFIRM_ALLOCATION",payload:{transactionId:apropModal.id,allocations:rs,measurementId:medAlvo?.m?.id||"",worker,autoRule}},"O servidor não confirmou o rateio.");
+    if(!ok)return;
+    const compraMaterial=Number(apropModal.valor)<0&&rs.some(item=>item.destination==="obra"&&item.category==="material");
+    setApropModal(null);setRateios([]);setMedAlvo(null);setRecebedorMaoObraId("");
+    showToast(compraMaterial?"Conciliação confirmada. Lembre de registrar a entrada física no estoque.":"Conciliação confirmada e refletida no DRE.");
   };
 
-  // Desfazer: remove os lançamentos gerados. Sem isso, "desconciliar"
-  // deixaria a despesa no DRE para sempre.
-  const desfazer = (tr) => {
-    const ger = new Set(tr.gerados || []);
-
-    // Se esta transação quitou (parcial ou totalmente) uma medição, remove
-    // SÓ o recebimento que ELA gerou - preserva qualquer outro recebimento
-    // anterior/posterior daquela medição em vez de zerar tudo.
-    const medicoes = tr.vinculo?.tipo === "medicao"
-      ? (data.medicoes||[]).map(m => {
-          if (m.id !== tr.vinculo.id) return m;
-          const recebimentoId = (m.recebimentos||[]).find(r => r.transacaoId === tr.id)?.id;
-          return recebimentoId ? removerRecebimentoMedicao(m, recebimentoId) : m;
-        })
-      : (data.medicoes||[]);
-
-    update({
-      ...data,
-      medicoes,
-      transacoes: (data.transacoes||[]).map(t =>
-        t.id === tr.id ? { ...t, status:"pendente", rateios: [], gerados: [], vinculo: null,statusAtualizadoEm:new Date().toISOString(),statusAtualizadoPorId:currentUser?.id||"",statusAtualizadoPor:currentUser?.nome||currentUser?.email||"Operador" } : t),
-      outrasDesp:      (data.outrasDesp||[]).map(x => ger.has(x.id)?cancelarRegistro(x,"Conciliação bancária desfeita",currentUser,"estornado"):x),
-      despesasEmpresa: (data.despesasEmpresa||[]).map(x => ger.has(x.id)?cancelarRegistro(x,"Conciliação bancária desfeita",currentUser,"estornado"):x),
-      payments:        (data.payments||[]).map(x => ger.has(x.id)?cancelarRegistro(x,"Conciliação bancária desfeita",currentUser,"estornado"):x),
-      historicoConc:[...(data.historicoConc||[]),eventoHistorico("conciliacao_desfeita",tr,"conciliado","pendente",`${ger.size} lançamento(s) financeiro(s) estornado(s).`)],
-    });
-    showToast("Conciliação desfeita e lançamentos estornados.");
+  // Estornos também passam pelo servidor. O motivo é obrigatório para que
+  // a reversão tenha evidência auditável e a projeção canônica seja refeita
+  // na mesma transação do blob legado.
+  const desfazer = async (tr) => {
+    const motivo=window.prompt("Motivo do estorno da conciliação:","");
+    if(motivo===null)return;
+    if(!String(motivo).trim()){showToast("Informe o motivo do estorno.","error");return;}
+    const ok=await executarConciliacaoNoServidor({type:"REVERSE_RECONCILIATION",payload:{transactionId:tr.id,reason:motivo}},"O servidor não confirmou o estorno.");
+    if(ok)showToast("Conciliação desfeita e lançamentos estornados.");
   };
 
   const abrirIgnorar = (alvos,titulo) => {

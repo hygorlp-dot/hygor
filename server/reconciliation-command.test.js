@@ -39,4 +39,13 @@ describe("reconciliation command server boundary",()=>{
     expect(result.resumo.ok).toBe(false);
     expect(result.data.transacoes[0].status).toBe("conciliado");
   });
+
+  test("fecha rateio em centavos e recusa obra que não pertence ao servidor",()=>{
+    const data={...fixture(),obras:[{id:"obra"}]};
+    const ok=applyReconciliationCommand(data,{type:RECONCILIATION_COMMAND.CONFIRM_ALLOCATION,payload:{transactionId:"debit",allocations:[{destination:"obra",obraId:"obra",category:"material",value:300}]}},actor);
+    expect(ok.resumo.ok).toBe(true);
+    expect(ok.data.outrasDesp[0]).toMatchObject({obraId:"obra",valor:300,transacaoId:"debit"});
+    const invalid=applyReconciliationCommand(fixture(),{type:RECONCILIATION_COMMAND.CONFIRM_ALLOCATION,payload:{transactionId:"debit",allocations:[{destination:"obra",obraId:"forjada",category:"material",value:300}]}},actor);
+    expect(invalid.resumo.ok).toBe(false);
+  });
 });

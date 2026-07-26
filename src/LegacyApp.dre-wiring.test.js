@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source=readFileSync(resolve(process.cwd(), "src/LegacyApp.jsx"), "utf8");
+const reconciliationServer=readFileSync(resolve(process.cwd(), "server/reconciliation-command.js"), "utf8");
 
 describe("contrato de autoria do DRE", () => {
   it("entrega o usuário autenticado até o cancelamento auditável", () => {
@@ -14,7 +15,11 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain("createManualReceipt({data,receipt:payForm,actor:currentUser,id:uid()})");
     expect(source).toContain("reverseManualReceipt({data,receiptId:id,reason:motivo,actor:currentUser})");
     expect(source).toContain('origem: "revisao_vencidas", actor:currentUser');
-    expect(source).toContain('origem: "conciliacao_bancaria", transacaoId: tr.id, actor:currentUser');
+    // REC-001: o recebimento bancário não é mais montado no React. A tela
+    // envia a intenção e o servidor aplica o recebimento sobre o extrato
+    // autoritativo, preservando origem e vínculo da transação.
+    expect(source).toContain('type:"CONFIRM_RECEIPT"');
+    expect(reconciliationServer).toContain('origem:"conciliacao_bancaria",transacaoId:transaction.id,actor');
     expect(source).toContain("<DRE          data={data} update={update} showToast={showToast} currentUser={currentUser} />");
   });
 
