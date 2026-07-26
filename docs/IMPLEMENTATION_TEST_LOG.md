@@ -54,3 +54,47 @@ Contrato de autoria do DRE e razão financeiro canônico incluídos na execuçã
 ### Próxima etapa
 
 **LIBERADA:** Etapa 2 — concorrência, comandos e fila de salvamento.
+
+## Etapa 2 — Concorrência, comandos e fila de salvamento
+
+**Status:** EM EXECUÇÃO — subportão de fila serial APROVADO; a migração completa
+de comandos por entidade e versão esperada no servidor continua nesta etapa.
+
+### Subportão 2A — Fila serial, retry e conexão interrompida
+
+- `src/domains/sync/save-queue.js` centraliza estados explícitos: `idle`,
+  `saving`, `retry_scheduled`, `offline`, `conflict` e `failed`.
+- Uma alteração nova substitui apenas o próximo snapshot pendente; nunca a
+  gravação em voo. Assim, o último estado acumulado é preservado sem vários
+  `save` concorrentes.
+- Falhas temporárias usam backoff limitado. Depois do limite, não há loop
+  silencioso: a fila permanece em `failed` até ação explícita do operador.
+- Sem conexão, o snapshot fica pendente em `offline` e é retomado no evento
+  `online` do navegador. O dashboard mostra o estado real de sincronização.
+- Conflitos continuam exigindo resolução explícita; não há last-write-wins.
+
+### Arquivos alterados
+
+- `src/LegacyApp.jsx`
+- `src/domains/sync/save-queue.js`
+- `src/domains/sync/save-queue.test.js`
+
+### Testes criados ou alterados
+
+- `src/domains/sync/save-queue.test.js`: preservação durante gravação em voo,
+  backoff, parada em falha, conflito explícito, reconexão e 100 alterações
+  rápidas acumuladas.
+
+### Execução e resultados
+
+- `npm test -- --run src/domains/sync/save-queue.test.js src/LegacyApp.setup.test.js` — 2 arquivos, 7 testes aprovados, 0 reprovados.
+- `npm run lint` — aprovado: fronteira financeira canônica válida.
+- `npm run build` — aprovado: Vite concluiu a compilação de produção.
+- `git diff --check` — aprovado, sem erro de espaços.
+
+### Riscos remanescentes e próximo subportão
+
+- Chamadas legadas ainda transmitem snapshots por seção; falta migrar os
+  agregados críticos para comandos com versão esperada validada no servidor.
+- A etapa 2 só poderá ser marcada como aprovada depois dessa migração e de
+  testes de conflito por mesma entidade.

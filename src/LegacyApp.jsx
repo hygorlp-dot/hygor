@@ -111,6 +111,7 @@ import {
 } from "./domains/financeiro/ledger";
 import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeasurements } from "./domains/financeiro/measurement-mutations";
 import { cancelThirdPartyMeasurement, createThirdPartyMeasurement, createThirdPartyPayment, payThirdPartyMeasurement, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
+import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import {
   analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
@@ -4596,7 +4597,7 @@ function HeroWeatherScene({icone}){
   </div>;
 }
 
-function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima}){
+function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima,saveState=SAVE_QUEUE_STATE.IDLE}){
   const {isDesktop}=useBreakpoint();
   const agora=new Date(),nome=(currentUser?.nome||"operador").trim().split(/\s+/)[0];
   const saudacao=agora.getHours()<12?"Bom dia":agora.getHours()<18?"Boa tarde":"Boa noite";
@@ -4617,11 +4618,19 @@ function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualiza
     zap:      {condicao:"com trovoada",piada:"Hoje o café do escritório rende mais que o canteiro.",cor:C.red},
   }[clima.icone];
   const climaTxt=climaObra&&`Hoje o clima em Caruaru está ${climaObra.condicao}, ${clima.temperatura}°, ventos a ${clima.vento} km/h${clima.uv!=null?`, índice UV ${clima.uv}${clima.uvLabel?` (${clima.uvLabel})`:""}`:""}. ${climaObra.piada}`;
+  const syncInfo={
+    [SAVE_QUEUE_STATE.IDLE]:{label:"sincronizado",color:C.green},
+    [SAVE_QUEUE_STATE.SAVING]:{label:"salvando alterações",color:C.yellowD},
+    [SAVE_QUEUE_STATE.RETRY_SCHEDULED]:{label:"nova tentativa agendada",color:C.orange},
+    [SAVE_QUEUE_STATE.OFFLINE]:{label:"alterações aguardando conexão",color:C.orange},
+    [SAVE_QUEUE_STATE.CONFLICT]:{label:"conflito aguardando resolução",color:C.red},
+    [SAVE_QUEUE_STATE.FAILED]:{label:"alterações não sincronizadas",color:C.red},
+  }[saveState]||{label:"sincronizado",color:C.green};
   return <section className="dashboard-tech-hero" style={{position:"relative",overflow:"hidden",minHeight:isDesktop?178:232,borderRadius:C.rLg,padding:isDesktop?"20px 22px":"18px",color:C.text,background:C.card,border:`1px solid ${C.border}`,boxShadow:"none"}}>
     <HeroWeatherScene icone={clima?.icone}/>
     <span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",top:0,left:0,right:0,height:2,background:C.yellow}}/>
     <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",minHeight:isDesktop?136:196,justifyContent:"space-between",gap:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:7,height:7,borderRadius:99,background:C.green}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:C.yellowD}}>ARCD Operational Intelligence · online</span></div><p style={{fontSize:10,color:C.muted,marginTop:7}}>{papel} · sincronizado{ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"}</p></div><div style={{display:"flex",alignItems:"center",gap:6}}>{onBuscar&&<Btn v="ghost" iconOnly onClick={onBuscar} title="Buscar" ariaLabel="Buscar"><Ic n="funnel" s={13}/></Btn>}{onAtualizar&&<Btn v="ghost" iconOnly onClick={onAtualizar} title="Atualizar" ariaLabel="Atualizar"><Ic n="refresh" s={13}/></Btn>}</div></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:7,height:7,borderRadius:99,background:syncInfo.color}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:C.yellowD}}>ARCD Operational Intelligence · {syncInfo.label}</span></div><p style={{fontSize:10,color:C.muted,marginTop:7}}>{papel} · {syncInfo.label}{saveState===SAVE_QUEUE_STATE.IDLE?(ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"):""}</p></div><div style={{display:"flex",alignItems:"center",gap:6}}>{onBuscar&&<Btn v="ghost" iconOnly onClick={onBuscar} title="Buscar" ariaLabel="Buscar"><Ic n="funnel" s={13}/></Btn>}{onAtualizar&&<Btn v="ghost" iconOnly onClick={onAtualizar} title="Atualizar" ariaLabel="Atualizar"><Ic n="refresh" s={13}/></Btn>}</div></div>
       <div className="dashboard-greeting" style={{maxWidth:640}}>
         <p style={{fontSize:9,textTransform:"uppercase",letterSpacing:1.2,color:C.yellowD,fontWeight:800}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</p>
         <h1 style={{...TYPO.h1,fontSize:"clamp(24px,3vw,32px)",marginTop:5}}>{saudacao}, {nome}.</h1>
@@ -4728,7 +4737,7 @@ function CubChart({cub}){
   </section>;
 }
 
-function DashboardEngenheiro({data,onTab,currentUser,ultimaSync}){
+function DashboardEngenheiro({data,onTab,currentUser,ultimaSync,saveState}){
   const {cols,isDesktop}=useBreakpoint();
   const [obraFiltro,setObraFiltro]=useState("all");
   const ehAuditor=currentUser?.role==="engenheiro_auditor";
@@ -4745,7 +4754,7 @@ function DashboardEngenheiro({data,onTab,currentUser,ultimaSync}){
   const abrir=c=>{sessionStorage.setItem("arcd_obra_contexto",c.obraId);sessionStorage.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
   const impacto={baixo:C.green,medio:C.orange,alto:"#E26A2C",critico:C.red};
   return <div className="anim dashboard-tech-motion" style={{display:"flex",flexDirection:"column",gap:16}}>
-    <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={fila} onAbrir={onTab}/>
+    <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={fila} onAbrir={onTab} saveState={saveState}/>
     <FilaOperador fila={fila} onTab={onTab}/>
     <div><p style={{...TYPO.eyebrow,color:C.blue}}>{ehAuditor?"Auditoria de engenharia":"Engenharia de campo"}</p><h2 style={{...TYPO.h2,marginTop:4}}>{ehAuditor?"Vistorias e validações":"Correções e evidências"}</h2><p style={{...TYPO.bodyMuted,marginTop:5}}>{ehAuditor?"Crie vistorias, registre os achados e valide as evidências enviadas pelos engenheiros de campo.":"Acesse apenas as pendências atribuídas a você e envie a foto da correção para validação do auditor."}</p></div>
     <div className="dashboard-kpi-grid" style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:9}}>{(ehAuditor?[["Pendências auditadas",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Para sua validação",aguardandoValidacao,C.green,"check"],["Vistorias sob sua responsabilidade",conferencias.length,C.purple,"building"]]:[["Pendências para corrigir",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Aguardando sua correção",aguardandoCorrecao,C.orange,"camera"]]).map(([l,v,c,i],idx)=><span key={l} style={{"--row-i":idx}}><KpiCard label={l} value={v} icon={i} color={c}/></span>)}</div>
@@ -4756,7 +4765,7 @@ function DashboardEngenheiro({data,onTab,currentUser,ultimaSync}){
 
 // Dashboard executivo premium. A tela trabalha por exceção: primeiro mostra
 // saúde da empresa, depois o que exige decisão e só então os resumos de apoio.
-function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar }) {
+function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar, saveState }) {
   const { cols, isDesktop } = useBreakpoint();
   const agora=new Date();
   const [periodo,setPeriodo]=useState({y:agora.getFullYear(),m:agora.getMonth()});
@@ -4813,7 +4822,7 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
     {/* Marca d'água institucional: grande, porém abaixo de todo o conteúdo. */}
     <img src={ARCD_LOGO} alt="" aria-hidden="true" style={{position:"fixed",right:isDesktop?"4%":"-12%",bottom:"3%",width:isDesktop?430:280,height:isDesktop?430:280,objectFit:"contain",opacity:.018,pointerEvents:"none",filter:"grayscale(1)",zIndex:0}}/>
 
-    <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima}/>
+    <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima} saveState={saveState}/>
     <FilaOperador fila={filaOperador} onTab={onTab}/>
     <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
@@ -36278,6 +36287,7 @@ export default function App() {
   const [toast,       setToast]       = useState(null);
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
   const [ultimaSync,  setUltimaSync]  = useState(null);
+  const [estadoSalvar,setEstadoSalvar] = useState(SAVE_QUEUE_STATE.IDLE);
   // A lista de obras e o painel detalhado ocupam alturas diferentes. Sem este
   // reset o navegador preserva o scroll da lista e a obra pode abrir já no
   // meio do conteúdo. O layout effect executa antes da pintura, sem salto.
@@ -36363,51 +36373,33 @@ export default function App() {
   // conflitava consigo mesmo e "nao salvava". Agora existe no maximo 1 save em
   // voo; estados novos apenas substituem o proximo a enviar (coalescencia).
   // Como o estado local ja acumula tudo, salvar so o mais recente nao perde nada.
-  const saveEmVooRef = useRef(false);
-  const savePendenteRef = useRef(null);
-  const saveTentativasRef = useRef(0);
-
-  const processarFilaSave = useCallback(async () => {
-    if (saveEmVooRef.current) return;
-    const alvo = savePendenteRef.current;
-    if (!alvo) return;
-    savePendenteRef.current = null;
-    saveEmVooRef.current = true;
-    try {
-      const r = await saveDataDetailed(alvo,baseServidorRef.current);
-      if (r.conflict) {
-        // Conflito real (outro usuario). O banner de mescla cuida do resto.
-        saveTentativasRef.current = 0;
-        showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações estão sendo mescladas — confira o aviso.", "error");
-      } else if (!r.ok) {
-        // Falha de rede/servidor: re-enfileira o estado (se nada mais novo
-        // chegou) e tenta de novo com espera crescente, ate 3 vezes.
-        if (!savePendenteRef.current) savePendenteRef.current = alvo;
-        saveTentativasRef.current += 1;
-        if (saveTentativasRef.current <= 3) {
-          const espera = 1500 * saveTentativasRef.current;
-          showToast(`Sem resposta do servidor. Tentando salvar de novo em ${Math.round(espera/1000)}s...`, "error");
-          window.setTimeout(() => { saveEmVooRef.current = false; processarFilaSave(); }, espera);
-          return; // nao libera o voo agora; o timeout libera
-        }
-        saveTentativasRef.current = 0;
-        showToast(r.reason || "Não foi possível salvar após 3 tentativas. Confira a conexão — suas alterações seguem na tela e serão reenviadas na próxima ação.", "error");
-      } else {
-        saveTentativasRef.current = 0;
-        const confirmado=normalizeData(r.merged&&r.data?r.data:alvo);
-        baseServidorRef.current = confirmado;
-        if(r.merged){ultimoDataRef.current=confirmado;dataAtualRef.current=confirmado;setData(confirmado);showToast("Alterações simultâneas foram combinadas automaticamente.");}
+  const saveQueueRef=useRef(null);
+  if(!saveQueueRef.current){
+    saveQueueRef.current=createSaveQueue({
+      save:alvo=>saveDataDetailed(alvo,baseServidorRef.current),
+      onState:setEstadoSalvar,
+      onSuccess:({result, target})=>{
+        const confirmado=normalizeData(result.merged&&result.data?result.data:target);
+        baseServidorRef.current=confirmado;
+        if(result.merged){ultimoDataRef.current=confirmado;dataAtualRef.current=confirmado;setData(confirmado);showToast("Alterações simultâneas foram combinadas automaticamente.");}
         setUltimaSync(new Date());
-      }
-    } catch (err) {
-      console.error(err);
-      if (!savePendenteRef.current) savePendenteRef.current = alvo;
-      showToast("Erro ao salvar. Nada foi confirmado no servidor.", "error");
-    } finally {
-      saveEmVooRef.current = false;
-      if (savePendenteRef.current) processarFilaSave();
-    }
-  }, [showToast]);
+      },
+      onConflict:()=>showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações aguardam resolução do conflito.","error"),
+      onRetry:({delay})=>showToast(`Sem resposta do servidor. Nova tentativa em ${Math.round(delay/1000)}s.`,"error"),
+      onFailed:({result,offline})=>showToast(offline?"Sem conexão. As alterações seguem guardadas e serão retomadas ao reconectar.":(result?.reason||"Alterações não sincronizadas. Confira a conexão e faça uma nova ação para tentar novamente."),"error"),
+    });
+  }
+  const processarFilaSave = useCallback(() => { void saveQueueRef.current?.flush(); }, []);
+
+  useEffect(()=>{
+    const retomar=()=>{
+      if(saveQueueRef.current?.getState()!==SAVE_QUEUE_STATE.OFFLINE)return;
+      showToast("Conexão restaurada. Retomando alterações pendentes.");
+      saveQueueRef.current.resume();
+    };
+    window.addEventListener("online",retomar);
+    return()=>window.removeEventListener("online",retomar);
+  },[showToast]);
 
   const update = useCallback(async (next) => {
     // ADOTAR ESTADO DO SERVIDOR (sem re-salvar)
@@ -36484,8 +36476,7 @@ export default function App() {
     // Enfileira: se ja ha um save em voo, este estado apenas substitui o
     // proximo a enviar. Nunca ha dois saves simultaneos - fim dos 409 do
     // proprio dispositivo contra si mesmo.
-    savePendenteRef.current = normalized;
-    processarFilaSave();
+    saveQueueRef.current.enqueue(normalized);
   }, [showToast, currentUser, processarFilaSave]);
 
   // No boot buscamos APENAS a lista de perfis (nome + papel). Nenhum dado
@@ -36729,6 +36720,7 @@ export default function App() {
     const meu = conflito?.rejectedPayload;
     const base = baseServidorRef.current;   // versão que EU tinha ao começar a editar
     setConflito(null);
+    saveQueueRef.current?.discard();
     const fresco = await loadDataWithMeta();
     if (!fresco?.data) { showToast("Não consegui recarregar. Tente de novo.", "error"); return; }
 
@@ -36756,6 +36748,7 @@ export default function App() {
 
   const descartarMinhaVersao = async () => {
     setConflito(null);
+    saveQueueRef.current?.discard();
     const fresco = await loadDataWithMeta();
     if (fresco?.data) {
       adoptServerVersion(fresco.updatedAt, fresco.data);
@@ -36772,7 +36765,7 @@ export default function App() {
   // empresa sem toast e sem disparar um novo save, mantendo a tela pública
   // silenciosa enquanto recebe as alterações feitas pelos operadores.
   const atualizarPainelTV = useCallback(async () => {
-    if (saveEmVooRef.current || savePendenteRef.current) return;
+    if (saveQueueRef.current?.hasPending()) return;
     const fresco=await loadDataWithMeta();
     if(!fresco?.data)return;
     adoptServerVersion(fresco.updatedAt);
@@ -37161,9 +37154,9 @@ export default function App() {
 
         <main className="arcd-main" style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
           {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
-            ? <DashboardEngenheiro data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}/>
+            ? <DashboardEngenheiro data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
             : <Dashboard data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
-                              onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} />)}
+                              onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} saveState={estadoSalvar} />)}
           {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
           {tab === "admin_central" && <CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
