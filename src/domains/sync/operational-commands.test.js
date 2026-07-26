@@ -47,6 +47,15 @@ describe("comandos operacionais versionados",()=>{
     expect(cancelled.data.progressRecords[0]).toMatchObject({status:"cancelado",version:2,motivoCancelamento:"Registro duplicado"});
   });
 
+  it("bloqueia avanço de atividade crítica sem APR e permissão liberada",()=>{
+    const initial={progressRecords:[],scheduleActivities:[{id:"a-1",criticalActivity:true}],employees:[{id:"u-1"}],jobRiskAnalyses:[],workPermits:[]};
+    const payload={record:{id:"p-1",obraId:"o-1",activityId:"a-1",data:"2026-07-25",quantity:5,workerIds:["u-1"]}};
+    const blocked=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-safety-0001",payload,0));
+    expect(blocked.ok).toBe(false);expect(blocked.reason).toMatch(/APR aprovada/);
+    const released=applyOperationalCommand({...initial,jobRiskAnalyses:[{activityId:"a-1",status:"aprovada"}],workPermits:[{activityId:"a-1",status:"liberada"}]},command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-safety-0002",payload,0));
+    expect(released.ok).toBe(true);
+  });
+
   it("não duplica entrada física ao repetir um recebimento de pedido",()=>{
     const initial={pedidos:[{id:"p-1",obraId:"o-1",version:3,itens:[{id:"i-1",materialId:"mat-1",qtd:2,qtdRecebida:0,precoUnit:10}]}],movEstoque:[],materiais:[]};
     const payload={pedidoId:"p-1",receivedQuantities:{"i-1":2},stockEntries:[{id:"stock-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:2}]};

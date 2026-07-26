@@ -11,6 +11,7 @@ import {
 import { inactive } from "../financeiro/workflows.js";
 import { cancelProgressRecord, createProgressRecord } from "../producao/mutations.js";
 import { canReleaseForMeasurement } from "../qualidade/calculations.js";
+import { validateActivitySafety } from "../seguranca/calculations.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -51,6 +52,20 @@ const validateMeasurementQuality=(data={},measurement={})=>{
     if(!release.ok)return `A tarefa ${item.tarefaId} não pode ser medida: ${release.reason}`;
   }
   return "";
+};
+const validateProgressSafety=(data={},record={})=>{
+  const source=(data.scheduleActivities||[]).find(item=>String(item.id)===String(record.activityId));
+  if(!source||!(source.criticalActivity||source.atividadeCritica))return "";
+  const activity={...source,criticalActivity:true};
+  const workerIds=new Set(record.workerIds||[]);
+  const workers=(data.employees||[]).filter(item=>workerIds.has(item.id));
+  const result=validateActivitySafety({
+    activity,workers,
+    aprs:(data.jobRiskAnalyses||[]).filter(item=>!item.obraId||String(item.obraId)===String(record.obraId)),
+    permits:(data.workPermits||[]).filter(item=>!item.obraId||String(item.obraId)===String(record.obraId)),
+    asOf:record.data,
+  });
+  return result.ok?"":result.reason;
 };
 
 export const applyOperationalCommand=(data,command)=>{
@@ -136,6 +151,8 @@ export const applyOperationalCommand=(data,command)=>{
     if(command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("O avanço físico ainda não existe na versão esperada.");
     const created=createProgressRecord(record,{actor:{id:command.actorId,nome:command.actorName},now});
     if(!created.ok)return fail(created.error);
+    const safetyError=validateProgressSafety(data,created.record);
+    if(safetyError)return fail(`Avanço físico bloqueado por segurança: ${safetyError}`);
     const next={...data,progressRecords:[...(data?.progressRecords||[]),created.record]};
     return {ok:true,data:appendReceipt(next,command,created.record.id,now)};
   }
