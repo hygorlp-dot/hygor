@@ -3,7 +3,8 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/api/client/:route*", "destination": "/api/client?route=:route*" }
+    { "source": "/api/client/:route*", "destination": "/api/client?route=:route*" },
+    { "source": "/cliente/:route*", "destination": "/index.html" }
   ],
   "functions": {
     "api/data.js": {
