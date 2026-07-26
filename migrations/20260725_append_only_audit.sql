@@ -43,5 +43,8 @@ begin
     values(p_company_id,'company_app_data',p_key,p_action,p_actor_id,p_actor_name,p_correlation_id,coalesce(p_before,'{}'),coalesce(p_after,'{}'),'api/data');
   return query select v_now,true;
 end $$;
-revoke all on function public.company_save_with_audit(text,text,timestamptz,jsonb,text,text,uuid,text,jsonb,jsonb) from public;
+-- A RPC é exclusiva da API (service role). Clientes autenticados ou anônimos
+-- não podem forjar antes/depois, ator ou correlação diretamente pelo PostgREST.
+revoke all on function public.company_save_with_audit(text,text,timestamptz,jsonb,text,text,uuid,text,jsonb,jsonb) from public, anon, authenticated;
+grant execute on function public.company_save_with_audit(text,text,timestamptz,jsonb,text,text,uuid,text,jsonb,jsonb) to service_role;
 notify pgrst,'reload schema';
