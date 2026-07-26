@@ -124,6 +124,7 @@ import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularA
 import { migrateSupplyData } from "./domains/suprimentos/migration";
 import { migrateCommercial } from "./domains/comercial/migrations";
 import { selectCommercialWorkspace } from "./domains/comercial/selectors";
+import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/record-schema";
 import MarcosCurvaASuprimentos from "./features/suprimentos/MarcosCurvaASuprimentos";
 import {
   aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
@@ -1685,7 +1686,7 @@ const clampDiaNoMes = (ano, mesIdx, dia) => {
 };
 
 const DEFAULT = () => ({
-  schemaVersion: 4,
+  schemaVersion: APP_SCHEMA_VERSION,
   userName: "",
   config: {
     companyName: "ArcD Obras",
@@ -1743,6 +1744,9 @@ const DEFAULT = () => ({
   unlockRequests: [],
   dailyCheckDate: "",
   changeLog: [],
+  // Pendências de dados históricos que não podem ser "consertadas" pela
+  // normalização. A Central do Administrador passa a tratá-las com auditoria.
+  qualidadeDados: [],
   // Módulo versionado de marcos e Curva A. As listas começam vazias para não
   // alterar nenhum fato legado durante a migração idempotente.
   suprimentosConfig: {},
@@ -1955,7 +1959,7 @@ const normalizeData = incoming => {
     catch{return valor;}
   };
 
-  return {
+  const normalized = {
     ...base,
     ...d,
     config: {
@@ -2134,7 +2138,11 @@ const normalizeData = incoming => {
     medicoesObra: Array.isArray(d.medicoesObra) ? d.medicoesObra.map(m => ({
       id:     m.id     || uid(),
       obraId: m.obraId || "",
-      data:   m.data   || today(),
+      // Um registro sem data é um dado pendente, não uma medição feita hoje.
+      // `data` continua como alias de compatibilidade para as telas legadas;
+      // `dataMedicao` torna explícito o dia efetivo da verificação.
+      data:   m.dataMedicao || m.data || "",
+      dataMedicao: m.dataMedicao || m.data || "",
       numero: Number(m.numero || 0),
       responsavel: m.responsavel || "",
       observacao:  m.observacao  || "",
@@ -2238,7 +2246,8 @@ const normalizeData = incoming => {
       id:     m.id     || uid(),
       tercId: m.tercId || "",
       obraId: m.obraId || "",
-      data:   m.data   || today(),
+      data:   m.dataMedicao || m.data || "",
+      dataMedicao: m.dataMedicao || m.data || "",
       numero: Number(m.numero || 0),
       itens: Array.isArray(m.itens) ? m.itens.map(i => ({
         etapaId:     i.etapaId || "",
@@ -2778,7 +2787,7 @@ const normalizeData = incoming => {
       transacaoId: x.transacaoId || "",       // casado com o pagamento no extrato
       origemPagamento: x.origemPagamento === "cliente_direto" ? "cliente_direto" : x.origemPagamento === "empresa" ? "empresa" : "caixa_obra",
       pagamentos:Array.isArray(x.pagamentos)?x.pagamentos.map(pg=>({
-        id:pg.id||uid(),data:pg.data||x.data||today(),valor:Number(pg.valor||0),
+        id:pg.id||uid(),data:pg.data||x.data||"",valor:Number(pg.valor||0),
         origem:pg.origem==="cliente_direto"?"cliente_direto":pg.origem==="empresa"?"empresa":"caixa_obra",
         conciliado:!!pg.conciliado,transacaoId:pg.transacaoId||"",referencia:pg.referencia||"",observacao:pg.observacao||"",
         comprovantes:Array.isArray(pg.comprovantes)?pg.comprovantes.map(a=>({id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Comprovante de pagamento",url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0),enviadoEm:a.enviadoEm||"",enviadoPorId:a.enviadoPorId||"",enviadoPor:a.enviadoPor||""})).filter(a=>a.url):[],
@@ -2807,7 +2816,7 @@ const normalizeData = incoming => {
       descricao:n.descricao||"",categoria:n.categoria||"",pastaDrive:n.pastaDrive||"",criadoPorId:n.criadoPorId||"",criadoPor:n.criadoPor||"",
       aprovadoPorId:n.aprovadoPorId||"",aprovadoPor:n.aprovadoPor||"",aprovadoEm:n.aprovadoEm||"",transacaoId:n.transacaoId||"",
       pagamentos:Array.isArray(n.pagamentos)?n.pagamentos.map(pg=>({
-        id:pg.id||uid(),data:pg.data||n.vencimento||n.emissao||today(),valor:Number(pg.valor||0),
+        id:pg.id||uid(),data:pg.data||n.vencimento||n.emissao||"",valor:Number(pg.valor||0),
         origem:pg.origem==="cliente_direto"?"cliente_direto":pg.origem==="caixa_obra"?"caixa_obra":"empresa",
         conciliado:!!pg.conciliado,transacaoId:pg.transacaoId||"",referencia:pg.referencia||"",observacao:pg.observacao||"",
         comprovantes:Array.isArray(pg.comprovantes)?pg.comprovantes.map(a=>({id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Comprovante de pagamento",url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0),enviadoEm:a.enviadoEm||"",enviadoPorId:a.enviadoPorId||"",enviadoPor:a.enviadoPor||""})).filter(a=>a.url):[],
@@ -2900,7 +2909,7 @@ const normalizeData = incoming => {
     caixaObra: Array.isArray(d.caixaObra) ? d.caixaObra.map(x => ({
       id:          x.id          || uid(),
       obraId:      x.obraId      || "",
-      data:        x.data        || today(),
+      data:        x.data        || "",
       tipo:        x.tipo        || "aporte",   // "aporte" | "despesa"
       categoria:   x.categoria   || "material",
       descricao:   x.descricao   || "",
@@ -3270,7 +3279,9 @@ const normalizeData = incoming => {
     unlockRequests: Array.isArray(d.unlockRequests) ? d.unlockRequests : [],
     dailyCheckDate: d.dailyCheckDate || "",
     changeLog: Array.isArray(d.changeLog) ? d.changeLog : [],
+    qualidadeDados: Array.isArray(d.qualidadeDados) ? d.qualidadeDados : [],
   };
+  return finalizeNormalizedData(d, normalized);
 };
 
 // 

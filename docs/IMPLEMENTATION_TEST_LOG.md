@@ -185,3 +185,47 @@ Contrato de autoria do DRE e razão financeiro canônico incluídos na execuçã
   0 reprovados; suíte completa: 31 arquivos, 184 testes aprovados, 0
   reprovados; lint, build, `node --check api/data.js` e `git diff --check`
   aprovados.
+
+## Etapa 3 — Normalização, schema e qualidade de dados
+
+**Status:** APROVADA para a camada de compatibilidade do normalizador.
+
+### Alterações realizadas
+
+- Introduzido `src/domains/data/record-schema.js`, schema versionado `5`,
+  aplicado ao final de `normalizeData`.
+- Metadados de auditoria, campos desconhecidos e estados cancelados são
+  preservados no round-trip das coleções auditáveis já migradas.
+- Medições técnicas, medições de terceiros, pagamentos legados e caixa de
+  obra deixam de receber `today()` quando a data histórica está ausente.
+- Medições sem data efetiva agora permanecem sem data e geram uma pendência
+  determinística em `qualidadeDados`, sem duplicação em novas normalizações.
+
+### Testes criados
+
+- `src/domains/data/record-schema.test.js`: idempotência, cancelamento,
+  auditoria, campos futuros e pendência por data ausente.
+- `src/LegacyApp.normalization.test.js`: contrato da integração do schema na
+  normalização do aplicativo e ausência de preenchimento com a data atual.
+
+### Execução e resultados
+
+- `npm test` — 35 arquivos, 195 testes aprovados, 0 reprovados.
+- `npm run lint` — aprovado: fronteira financeira canônica válida.
+- `node --check api/data.js` — aprovado.
+- `npm run build` — aprovado.
+- `git diff --check` — aprovado.
+
+### Evidência funcional
+
+Um registro técnico legado sem data não aparece mais como medido hoje. Ele
+permanece sem data e é encaminhado para correção auditável; uma medição
+cancelada continua cancelada após recarregar/normalizar. O prebuild ainda
+informa o warning conhecido de tipo de módulo do Node e o aviso de tamanho de
+chunk; nenhum deles altera dados ou a fronteira financeira e ambos permanecem
+registrados para a etapa de infraestrutura/performance.
+
+### Próxima etapa
+
+**LIBERADA:** Etapa 4 — Central do Administrador por função, com autorização
+servidora por função, ação e escopo de obra.
