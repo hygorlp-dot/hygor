@@ -4712,6 +4712,7 @@ function NoticiasSetor({carregando,noticias,titulo="Notícias do setor",subtitul
 }
 
 function CubChart({cub}){
+  const {pick}=useBreakpoint();
   const [projetoId,setProjetoId]=useState(()=>{
     try{return localStorage.getItem("arcd_cub_projeto")||"R1-A";}catch{return "R1-A";}
   });
@@ -4734,7 +4735,7 @@ function CubChart({cub}){
   const varMesPct=ultimo&&penultimo?((ultimo.valor-penultimo.valor)/penultimo.valor*100):null;
   const grupos=[...new Set(projetos.map(p=>p.group))];
   return <section className="cub-chart" style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",gap:6}}>
-    <ChartPanel eyebrow="Índice de custo · Pernambuco" title={`CUB-PE · ${projeto.label} (${projeto.group.split("·").pop().trim()})`} height={210}
+    <ChartPanel eyebrow="Índice de custo · Pernambuco" title={`CUB-PE · ${projeto.label} (${projeto.group.split("·").pop().trim()})`} height={pick(150,190,210)}
       subtitle={`${projeto.description} · ${cub.regimeLabel||"valor oficial do Sinduscon-PE"}. Competência: ${ultimo?.mes||cub.atual?.mes||"—"}.`}
       action={<div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap"}}>
         <label style={{display:"flex",flexDirection:"column",gap:3,textAlign:"left"}}>
@@ -27923,7 +27924,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 //  - Ligado ao orcamento: cobertura, planejado x orcado
 // ==============================================================
 function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
-  const { isDesktop, cols } = useBreakpoint();
+  const { isDesktop, isMobile, cols } = useBreakpoint();
 
   // O cronograma pode nascer de uma revisão em rascunho. Isso não promove a
   // revisão a baseline nem a libera para DRE, medição ou qualidade.
@@ -28978,6 +28979,10 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
                 // Inicio e fim sao inclusivos; a barra precisa ocupar tambem a
                 // celula do ultimo dia para coincidir com a regua tecnica.
                 const w = Math.max(pxPorDia, (diasCorridos(ini, fim) + 1) * pxPorDia);
+                // Alça maior no toque (o dedo é bem menos preciso que o mouse) e
+                // sempre limitada a metade da barra, senão as duas alças se
+                // sobrepõem numa tarefa curta e a barra vira só "mover".
+                const larguraAlca = Math.max(6, Math.min(isMobile ? 18 : 12, Math.floor(w / 2) - 1));
                 return (
                   <div key={t.id} style={{ height: ALTURA_LINHA, position: "relative",
                                            borderBottom: `1px solid ${C.line}`,
@@ -29010,16 +29015,26 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
                                      color: "#fff", padding: "0 7px", whiteSpace: "nowrap" }}>
                         {t.progresso > 0 ? `${t.progresso}%` : ""}
                       </span>
-                      {/* Alca de redimensionar - inicio */}
-                      <div onMouseDown={(e) => iniciarDrag(e, t, "inicio")}
+                      {/* Alça de redimensionar - início. Fundo sutil sempre visível
+                          (não só no hover) para o dedo achar a borda no toque, e
+                          um risco central marcando a pegada. */}
+                      {!t.titulo && <div onMouseDown={(e) => iniciarDrag(e, t, "inicio")}
                            onTouchStart={(e) => iniciarDrag(e, t, "inicio")}
-                           style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 10,
-                                    cursor: "ew-resize", touchAction: "none" }} />
-                      {/* Alca de redimensionar - fim */}
-                      <div onMouseDown={(e) => iniciarDrag(e, t, "fim")}
+                           title="Arraste para ajustar o início"
+                           style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: larguraAlca,
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    background: "rgba(0,0,0,.14)", cursor: "ew-resize", touchAction: "none", zIndex: 2 }}>
+                        <span style={{ width: 2, height: "40%", borderRadius: 2, background: "rgba(255,255,255,.85)" }}/>
+                      </div>}
+                      {/* Alça de redimensionar - fim */}
+                      {!t.titulo && <div onMouseDown={(e) => iniciarDrag(e, t, "fim")}
                            onTouchStart={(e) => iniciarDrag(e, t, "fim")}
-                           style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 10,
-                                    cursor: "ew-resize", touchAction: "none" }} />
+                           title="Arraste para ajustar o fim"
+                           style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: larguraAlca,
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    background: "rgba(0,0,0,.14)", cursor: "ew-resize", touchAction: "none", zIndex: 2 }}>
+                        <span style={{ width: 2, height: "40%", borderRadius: 2, background: "rgba(255,255,255,.85)" }}/>
+                      </div>}
                     </div>
                     {/* Barra fina do REALIZADO (datas reais), sob a planejada.
                         Azul = dentro/antes do fim planejado; vermelha = passou. */}
