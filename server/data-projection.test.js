@@ -10,7 +10,7 @@ const payload={
     {id:"obra-a",name:"Obra A",oneDriveDriveId:"drive-a",oneDriveFolderId:"folder-a",portalCliente:{token:"segredo"}},
     {id:"obra-b",name:"Obra B",oneDriveDriveId:"drive-b"},
   ],
-  employees:[{id:"e-a",obra:"obra-a",name:"Equipe A",cpf:"111.111.111-11",conta:"0001"},{id:"e-b",obra:"obra-b",name:"Equipe B",cpf:"222.222.222-22"}],
+  employees:[{id:"e-a",obra:"obra-a",name:"Equipe A",cpf:"111.111.111-11",conta:"0001",pixChave:"cpf@pix",salario:2400,valorHora:18},{id:"e-b",obra:"obra-b",name:"Equipe B",cpf:"222.222.222-22"}],
   attendance:{
     "e-a":{"2026-07-01":{status:"P",obraId:"obra-a"},"2026-07-02":{status:"P",obraId:"obra-b"}},
     "e-b":{"2026-07-01":{status:"P",obraId:"obra-b"}},
@@ -38,5 +38,10 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
   it("mantém os dados pessoais apenas na projeção de RH",()=>{
     const projected=projectDataForUser(payload,{id:"rh",role:"rh",obraId:"obra-a"});
     expect(projected.employees).toMatchObject([{id:"e-a",cpf:"111.111.111-11",conta:"0001"}]);
+  });
+
+  it("não entrega PIX ou remuneração a quem não é do RH",()=>{
+    const projected=projectDataForUser(payload,{id:"u-a",role:"financeiro",obraId:"obra-a"});
+    expect(projected.employees).toEqual([{id:"e-a",obra:"obra-a",name:"Equipe A"}]);
   });
 });

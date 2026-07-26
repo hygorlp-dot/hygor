@@ -23,10 +23,13 @@ const sanitizeUser = (user, self = false) => {
 const sanitizeEmployee = (employee, role = "") => {
   if(role === "rh") return employee;
   // Engenharia, compras e financeiro precisam da identificação operacional,
-  // não de documentos pessoais ou coordenadas bancárias do colaborador.
+  // não de documentos pessoais, remuneração ou coordenadas de pagamento.
   const {
     cpf,rg,pis,ctps,email,telefone,phone,celular,endereco,address,
-    banco,agencia,conta,contaBancaria,bankAccount,bankAgency,...safe
+    banco,agencia,conta,contaBancaria,bankAccount,bankAgency,
+    pix,pixKey,pixChave,chavePix,pixTipo,pixType,
+    salario,salarioBase,valorHora,valorDia,valorDiaria,remuneracao,
+    custoHora,custoDia,custoMensal,valorFolha,...safe
   }=employee||{};
   return safe;
 };
