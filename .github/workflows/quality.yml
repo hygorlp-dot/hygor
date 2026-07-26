@@ -44,6 +44,6 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Contratos das migrations e integração financeira
-        run: npm test -- src/integration/financial-transaction-migration.test.js server/financial-shadow.test.js server/reconciliation-command.test.js
+        run: npm test -- src/integration/financial-transaction-migration.test.js src/integration/auth-rate-limit-migration.test.js server/financial-shadow.test.js server/reconciliation-command.test.js
       - name: Sintaxe da fronteira de API
         run: node --check api/data.js

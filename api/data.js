@@ -203,6 +203,20 @@ const registrarFalha = (ip) => {
   if (!t || Date.now() - t.desde > JANELA) tentativas.set(ip, { n: 1, desde: Date.now() });
   else t.n += 1;
 };
+const subjectRateLimit=ip=>crypto.createHash("sha256").update(`${COMPANY}|${ip||"unknown"}`).digest("hex");
+const rateLimitCentral=async(ip,action)=>{
+  const rpc=action==="status"?"auth_rate_limit_status":"auth_rate_limit_failure";
+  try {
+    const {data,error}=await db.rpc(rpc,{p_company_id:COMPANY,p_subject_hash:subjectRateLimit(ip)});
+    // Durante a instalação da migration, mantém o freio local sem derrubar login.
+    if(error)return null;
+    const row=Array.isArray(data)?data[0]:data;
+    return {blocked:!!row?.blocked,retry:Number(row?.retry_after_seconds||0)};
+  } catch {
+    // Falha transitória do banco não transforma a autenticação em indisponível.
+    return null;
+  }
+};
 
 const lerLinha = async () => {
   const { data, error } = await db
@@ -536,7 +550,8 @@ export default async function handler(req, res) {
     }
 
     // ── Daqui pra baixo, sessão individual ou PIN de transição ─────
-    if (bloqueado(ip)) {
+    const limiteCentral=await rateLimitCentral(ip,"status");
+    if (limiteCentral?.blocked||bloqueado(ip)) {
       return res.status(429).json({ error: "Muitas tentativas. Aguarde 5 minutos." });
     }
 
@@ -552,6 +567,7 @@ export default async function handler(req, res) {
 
     if (!usuario) {
       registrarFalha(ip);
+      await rateLimitCentral(ip,"failure");
       return res.status(401).json({ error: "Sessão inválida ou PIN incorreto." });
     }
 
