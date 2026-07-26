@@ -11,4 +11,10 @@ describe("autorização de produção",()=>{
     expect(validateNoPhysicalDeletes(anterior,{orcamentos:[{id:"o1",versionStatus:"aprovada",itens:[{id:"i1",precoUnit:11}]}]})).toMatch(/imutáveis/);
     expect(validateNoPhysicalDeletes(anterior,{orcamentos:[]})).toMatch(/não podem ser excluídas/);
   });
+  it("exige motivo também para estorno e exclusão lógica",()=>{
+    const anterior={payments:[{id:"p1",valor:100}]};
+    expect(validateNoPhysicalDeletes(anterior,{payments:[{id:"p1",valor:100,status:"estornada"}]})).toMatch(/exige um motivo/);
+    expect(validateNoPhysicalDeletes(anterior,{payments:[{id:"p1",valor:100,deletedAt:"2026-07-26"}]})).toMatch(/exclusão lógica/);
+    expect(validateNoPhysicalDeletes(anterior,{payments:[{id:"p1",valor:100,status:"estornada",motivoEstorno:"Duplicidade"}]})).toBe("");
+  });
 });

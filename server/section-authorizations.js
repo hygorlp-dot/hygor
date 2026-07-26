@@ -58,7 +58,9 @@ const APPEND_ONLY_SECTIONS=new Set([
   "employees","advances","terceirizados","rescisoes",
 ]);
 const ids=value=>new Set((Array.isArray(value)?value:[]).map(item=>String(item?.id||"")).filter(Boolean));
-const cancelado=item=>["cancelado","cancelada","estornado","arquivado"].includes(String(item?.status||"").toLowerCase());
+const cancelado=item=>[
+  "cancelado","cancelada","cancelled","canceled","estornado","estornada","reversed","arquivado","arquivada",
+].includes(String(item?.status||"").toLowerCase());
 const temMotivo=item=>String(item?.motivoCancelamento||item?.motivoEstorno||item?.motivoArquivamento||"").trim().length>0;
 const porId=value=>new Map((Array.isArray(value)?value:[]).map(item=>[String(item?.id||""),item]).filter(([id])=>id));
 
@@ -68,8 +70,9 @@ const validarCancelamentos = (antes, depois, nome) => {
   if(removidos.length)return `Não é permitido excluir fisicamente registros de ${nome}. Cancele ou estorne informando o motivo.`;
   for(const [id, anterior] of anteriores){
     const proximo=posteriores.get(id);
-    if(proximo && !cancelado(anterior) && cancelado(proximo) && !temMotivo(proximo)){
-      return `O cancelamento de ${nome} exige um motivo.`;
+    if(proximo && !cancelado(anterior) && (cancelado(proximo)||proximo.deletedAt!=null)){
+      if(proximo.deletedAt!=null&&!cancelado(proximo))return `A exclusão lógica de ${nome} exige status de cancelamento ou estorno e motivo.`;
+      if(!temMotivo(proximo))return `O cancelamento de ${nome} exige um motivo.`;
     }
   }
   return "";
