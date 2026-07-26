@@ -57,8 +57,7 @@ Contrato de autoria do DRE e razão financeiro canônico incluídos na execuçã
 
 ## Etapa 2 — Concorrência, comandos e fila de salvamento
 
-**Status:** EM EXECUÇÃO — subportão de fila serial APROVADO; a migração completa
-de comandos por entidade e versão esperada no servidor continua nesta etapa.
+**Status:** APROVADA
 
 ### Subportão 2A — Fila serial, retry e conexão interrompida
 
@@ -92,22 +91,36 @@ de comandos por entidade e versão esperada no servidor continua nesta etapa.
 - `npm run build` — aprovado: Vite concluiu a compilação de produção.
 - `git diff --check` — aprovado, sem erro de espaços.
 
-### Riscos remanescentes e próximo subportão
+### Fechamento do gate — comandos por agregado no servidor
 
 - `src/domains/sync/operational-commands.js` introduz comandos puros,
   idempotência persistida no dataset e `expectedVersion` por entidade para
   medição técnica, RDO e recebimento de pedido.
-- O RDO e o cancelamento de medição técnica já foram ligados ao executor por
-  comando; atualizações funcionais agora usam o estado mais recente do app,
-  eliminando closures antigas nesses fluxos.
+- RDO, criação/cancelamento de medição técnica e recebimento físico de pedido
+  usam `operational-command` no servidor. O navegador não confirma o fato
+  antes da resposta autoritativa e adota a projeção devolvida pelo servidor.
 - `api/data.js` expõe `operational-command`: autentica o papel, exige chave
   idempotente, revalida `expectedVersion` no snapshot autoritativo e somente
   repete contra leitura recente quando o mesmo comando ainda é compatível.
-- Chamadas legadas ainda transmitem snapshots por seção; falta migrar os
-  agregados críticos restantes para essa rota; a fila do cliente ainda usa o
-  save por seções durante a transição.
-- A etapa 2 só poderá ser marcada como aprovada depois dessa migração e de
-  testes de conflito por mesma entidade.
+- O recebimento de pedido é recalculado no servidor a partir do saldo atual:
+  excedente, item inválido e divergência entre estoque e pedido são recusados;
+  repetição da chave não duplica a entrada física.
+- A fila de snapshots permanece apenas como ponte para coleções legadas não
+  críticas; não faz last-write-wins e bloqueia um comando se houver edição
+  local ainda não sincronizada.
+
+### Execução e resultados do gate final
+
+- `npm test -- --run src/domains/sync/operational-commands.test.js src/domains/sync/save-queue.test.js` — 2 arquivos, 12 testes aprovados.
+- `node --check api/data.js` — aprovado.
+- `npm run lint` — aprovado.
+- `npm run build` — aprovado.
+- `npm test` — 32 arquivos, 188 testes aprovados, 0 reprovados.
+- `git diff --check` — aprovado.
+
+### Próxima etapa
+
+**LIBERADA:** FIN-002 — carga idempotente e homologação em sombra do motor financeiro.
 
 ### Subportão 2B — Comandos operacionais locais
 

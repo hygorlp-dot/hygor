@@ -76,7 +76,8 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          enviarMensagemChat, listarMensagensChat, apagarMensagemChat, silenciarUsuarioChat, dessilenciarUsuarioChat,
          listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
-         consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro } from "./api";
+         consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
+         executarComandoOperacional } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -112,7 +113,7 @@ import {
 import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeasurements } from "./domains/financeiro/measurement-mutations";
 import { cancelThirdPartyMeasurement, createThirdPartyMeasurement, createThirdPartyPayment, payThirdPartyMeasurement, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
-import { applyOperationalCommand, OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
+import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import {
   analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
@@ -24706,7 +24707,7 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
   );
 }
 
-function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR }) {
+function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR, dispatchCommand=null }) {
   const { cols, pick, isDesktop } = useBreakpoint();
   const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"mapa");
   const [obraSel, setObraSel] = useState(obraIdFixo);
@@ -25347,7 +25348,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   // O recebimento físico NÃO depende de pagamento prévio - o material pode
   // chegar antes, durante ou depois da quitação (compra a prazo é o caso
   // normal). O saldo em aberto continua visível, só não bloqueia mais.
-  const receber = (pedido, recebidos) => {
+  const receber = async (pedido, recebidos) => {
     // recebidos: { [itemId]: qtd que chegou AGORA }
     const linhas = pedido.itens.map(i => ({
       ...i,
@@ -25371,7 +25372,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     // Cada item recebido vira ENTRADA no estoque da obra. É aqui que Compras
     // encosta no Estoque - e é a única coisa física que um pedido gera.
     const entradas = linhas.filter(l => l.chegou > 0).map(l => ({
-      id: uid(), pedidoId: pedido.id,
+      id: uid(), receiptId:uid(), pedidoItemId:l.id, pedidoId: pedido.id,
       obraId: pedido.obraId,
       materialId: l.materialId,
       tipo: "entrada",
@@ -25401,7 +25402,18 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       }),
     };
 
-    update({
+    let pedidoConfirmado=pedidoAtualizado;
+    if(dispatchCommand){
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
+        return {type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,
+          idempotencyKey:`pedido-recebimento-${pedido.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{pedidoId:pedido.id,receivedQuantities:Object.fromEntries(linhas.filter(l=>l.chegou>0).map(l=>[l.id,l.chegou])),stockEntries:entradas}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível registrar o recebimento.","error");return;}
+      pedidoConfirmado=(result.data?.pedidos||[]).find(item=>item.id===pedido.id)||pedidoAtualizado;
+    }else update({
       ...data,
       pedidos: (data.pedidos||[]).map(p => p.id === pedido.id ? pedidoAtualizado : p),
       movEstoque: [...(data.movEstoque||[]), ...entradas],
@@ -25409,7 +25421,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     });
 
     setRecModal(null);
-    const st = statusPedido(pedidoAtualizado);
+    const st = statusPedido(pedidoConfirmado);
     showToast(
       st === "recebido"
         ? `Pedido ${pedido.numero} recebido por completo. Estoque atualizado.`
@@ -26544,34 +26556,49 @@ function dadosDaObraIsolados(data,obraId){
   return isolado;
 }
 
-function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, showToast, currentUser }) {
+// Reaplica somente o recorte de uma obra sobre o dataset completo. Mantê-la
+// fora do componente permite que callbacks funcionais sejam resolvidos sobre
+// a versão mais recente do servidor, sem trazer de volta coleções antigas do
+// painel isolado.
+function recomporDadosDaObra(base,proximos,obraId){
+  const funcionariosAtuais=(base.employees||[]).filter(e=>e.obra===obraId);
+  const terceirosAtuais=(base.terceirizados||[]).filter(t=>t.obraId===obraId);
+  const idsFuncionarios=new Set(funcionariosAtuais.map(e=>e.id));
+  const idsTerceiros=new Set(terceirosAtuais.map(t=>t.id));
+  const resultado={...base,...proximos};
+  const recompor=(chave,predicado)=>{
+    if(!Array.isArray(proximos[chave]))return;
+    const externos=(base[chave]||[]).filter(item=>!predicado(item));
+    resultado[chave]=[...externos,...proximos[chave]];
+  };
+  recompor("obras",o=>o.id===obraId);
+  recompor("employees",e=>e.obra===obraId);
+  CHAVES_ISOLADAS_OBRA.forEach(chave=>recompor(chave,item=>registroPertenceObra(item,obraId,idsFuncionarios,idsTerceiros)));
+  recompor("equipamentos",e=>!e.obraAtualId||e.obraAtualId===obraId);
+  recompor("advances",a=>idsFuncionarios.has(a.employeeId||a.funcionarioId));
+  recompor("rescisoes",r=>idsFuncionarios.has(r.employeeId||r.funcionarioId));
+  if(proximos.attendance){
+    const externos=Object.fromEntries(Object.entries(base.attendance||{}).filter(([id])=>!idsFuncionarios.has(id)));
+    resultado.attendance={...externos,...proximos.attendance};
+  }
+  return resultado;
+}
+
+function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, showToast, currentUser, dispatchCommand=null }) {
   const { cols } = useBreakpoint();
   const ehAdmin=currentUser?.role==="admin";
   const obra = (data.obras||[]).find(o => o.id === obraId);
   const dadosObra=useMemo(()=>dadosDaObraIsolados(data,obraId),[data,obraId]);
   const atualizarDadosObra=useCallback(proximos=>{
-    if(!proximos||typeof proximos!=="object")return;
-    const funcionariosAtuais=(data.employees||[]).filter(e=>e.obra===obraId);
-    const terceirosAtuais=(data.terceirizados||[]).filter(t=>t.obraId===obraId);
-    const idsFuncionarios=new Set(funcionariosAtuais.map(e=>e.id));
-    const idsTerceiros=new Set(terceirosAtuais.map(t=>t.id));
-    const resultado={...data,...proximos};
-    const recompor=(chave,predicado)=>{
-      if(!Array.isArray(proximos[chave]))return;
-      const externos=(data[chave]||[]).filter(item=>!predicado(item));
-      resultado[chave]=[...externos,...proximos[chave]];
-    };
-    recompor("obras",o=>o.id===obraId);
-    recompor("employees",e=>e.obra===obraId);
-    CHAVES_ISOLADAS_OBRA.forEach(chave=>recompor(chave,item=>registroPertenceObra(item,obraId,idsFuncionarios,idsTerceiros)));
-    recompor("equipamentos",e=>!e.obraAtualId||e.obraAtualId===obraId);
-    recompor("advances",a=>idsFuncionarios.has(a.employeeId||a.funcionarioId));
-    recompor("rescisoes",r=>idsFuncionarios.has(r.employeeId||r.funcionarioId));
-    if(proximos.attendance){
-      const externos=Object.fromEntries(Object.entries(data.attendance||{}).filter(([id])=>!idsFuncionarios.has(id)));
-      resultado.attendance={...externos,...proximos.attendance};
+    if(typeof proximos==="function"){
+      update(atual=>{
+        const resolvido=proximos(dadosDaObraIsolados(atual,obraId));
+        return resolvido&&typeof resolvido==="object"?recomporDadosDaObra(atual,resolvido,obraId):atual;
+      });
+      return;
     }
-    update(resultado);
+    if(!proximos||typeof proximos!=="object")return;
+    update(recomporDadosDaObra(data,proximos,obraId));
   },[data,obraId,update]);
   const [abaConteudo,setAbaConteudo]=useState("geral");
   const [grupoMenuObra,setGrupoMenuObra]=useState("geral");
@@ -27424,11 +27451,11 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       </>:<div style={{paddingTop:4}}>
         {abaConteudo==="orc"&&<Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
         {abaConteudo==="plan"&&<Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
-        {abaConteudo==="rdo"&&<DiarioObra data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
+        {abaConteudo==="rdo"&&<DiarioObra data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="qualidade"&&<Qualidade data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="conferencia"&&<Conferencia data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
-        {abaConteudo==="med"&&<MedicaoEvolucao data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
-        {abaConteudo==="cmp"&&<Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
+        {abaConteudo==="med"&&<MedicaoEvolucao data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>}
+        {abaConteudo==="cmp"&&<Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="est"&&<Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="dre"&&<DRE data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
@@ -29665,10 +29692,10 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
   useEffect(()=>{const id=sessionStorage.getItem("arcd_rdo_obra");if(id&&(data.obras||[]).some(o=>o.id===id)){setObraId(id);setFiltroObraRdo(id);}sessionStorage.removeItem("arcd_rdo_obra");},[data.obras]);
 
   // ---- Persistencia do RDO ----
-  const salvarRDO = (mut) => {
+  const salvarRDO = async (mut) => {
     if(dispatchCommand){
       const idempotencyKey=`rdo-${uid()}-${Date.now()}`;
-      const result=dispatchCommand(atual=>{
+      const result=await dispatchCommand(atual=>{
         const existente=(atual.rdos||[]).find(item=>item.obraId===obraId&&item.data===dataRDO);
         const base=existente
           ? {...existente,responsavel:existente.responsavel||responsavelAutomatico?.nome||"",responsavelId:existente.responsavelId||responsavelAutomatico?.id||"",registradoPor:existente.registradoPor||currentUser?.nome||"",registradoPorId:existente.registradoPorId||currentUser?.id||""}
@@ -29700,19 +29727,28 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
 
   const abrirRdo = item => { setObraId(item.obraId); setDataRDO(item.data); setModoRdo("editor"); };
   const novoRdo = () => { setObraId(filtroObraRdo!=="all"?filtroObraRdo:(obraId||obras[0]?.id||"")); setDataRDO(today()); setModoRdo("editor"); };
-  const concluirRdo = () => {
+  const concluirRdo = async () => {
     if(!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)){showToast?.("Somente um engenheiro pode revisar e concluir o diário.","error");return;}
     if(!rdo.revisaoEngenheiro?.aprovado){showToast?.("Confirme a revisão técnica antes de concluir o diário.","error");return;}
-    salvarRDO(r=>({...r,status:"concluido",concluidoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()}));
+    await salvarRDO(r=>({...r,status:"concluido",concluidoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()}));
   };
-  const excluirRdo = item => {
+  const excluirRdo = async item => {
     const motivo=window.prompt(`Motivo do cancelamento do RDO ${item.codigo||""} de ${fmtDate(item.data)}:`);
     if(!String(motivo||"").trim())return false;
     const agora=new Date().toISOString();
-    update({...data,rdos:(data.rdos||[]).map(x=>x.id!==item.id?x:{
+    if(dispatchCommand){
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.rdos||[]).find(x=>x.id===item.id);
+        return {type:OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,idempotencyKey:`rdo-cancelamento-${item.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{reportId:item.id,reason:String(motivo).trim()}};
+      });
+      if(!result?.ok){showToast?.(result?.reason||"Não foi possível cancelar o diário.","error");return false;}
+    }else update({...data,rdos:(data.rdos||[]).map(x=>x.id!==item.id?x:{
       ...x,status:"cancelado",motivoCancelamento:String(motivo).trim(),canceladoEm:agora,
       canceladoPorId:currentUser?.id||"",canceladoPor:currentUser?.nome||"",atualizadoEm:agora,
-    })}); showToast?.("Diário cancelado e preservado no histórico."); return true;
+    })});
+    showToast?.("Diário cancelado e preservado no histórico."); return true;
   };
   const duplicarRdo = item => {
     const codigo=Math.max(0,...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1;
@@ -30968,7 +31004,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
     setConfModal(true);
   };
 
-  const salvarConfirmacao = () => {
+  const salvarConfirmacao = async () => {
     const itens = tarefas.map(t => ({
       tarefaId: t.id, nome: t.nome,
       pctDiario: t.progresso || 0,
@@ -30984,17 +31020,25 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
       responsavel: confResp.trim(), observacao: confObs.trim(),
       itens, avancoFisico,
     };
-    // O boletim vira a verdade oficial e sincroniza o planejamento e o ultimo
-    // RDO de cada servico, sem alterar os diarios historicos anteriores.
-    const base = { ...data, medicoesObra: [...(data.medicoesObra || []), medicao] };
-    update(aplicarAjustesProgresso(base, obraId,
-      itens.map(i => ({ tarefaId:i.tarefaId, progresso:i.pctConfirmado })),
-      "medicao_oficial"));
+    const ajustes=itens.map(i => ({ tarefaId:i.tarefaId, progresso:i.pctConfirmado }));
+    // A medição é o fato oficial: ela é confirmada primeiro pelo comando
+    // versionado. O reflexo no planejamento é uma projeção operacional, sem
+    // alterar diários já concluídos.
+    if(dispatchCommand){
+      const result=await dispatchCommand({type:OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,
+        idempotencyKey:`medicao-criacao-${medicao.id}-${uid()}`,expectedVersion:0,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{measurement:medicao}});
+      if(!result?.ok){showToast?.(result?.reason||"Não foi possível confirmar a medição.","error");return;}
+      update(atual=>aplicarAjustesProgresso(atual, obraId, ajustes, "medicao_oficial"));
+    }else{
+      const base = { ...data, medicoesObra: [...(data.medicoesObra || []), medicao] };
+      update(aplicarAjustesProgresso(base, obraId, ajustes, "medicao_oficial"));
+    }
     setConfModal(false);
     showToast?.(`Medição ${medicao.numero} confirmada: ${avancoFisico.toFixed(0)}% físico.`);
   };
 
-  const removerMedicaoObra = (m) => {
+  const removerMedicaoObra = async (m) => {
     if((data.medicoes||[]).some(item=>item.medicaoTecnicaId===m.id&&!["cancelada","cancelado"].includes(item.status))){
       showToast?.("A medição já possui faturamento. Cancele o documento financeiro antes.","error");return;
     }
@@ -31006,7 +31050,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
     if(!String(motivo||"").trim())return;
     const agora=new Date().toISOString();
     if(dispatchCommand){
-      const result=dispatchCommand(atual=>{
+      const result=await dispatchCommand(atual=>{
         const vigente=(atual.medicoesObra||[]).find(item=>item.id===m.id);
         return {type:OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED,idempotencyKey:`medicao-cancelamento-${m.id}-${uid()}`,
           expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
@@ -36486,14 +36530,30 @@ export default function App() {
   // Ponte de migração para comandos por agregado. O comando é criado dentro
   // da atualização funcional, portanto `expectedVersion` é verificado contra
   // a entidade realmente vigente — não contra um render antigo do componente.
+  // Comandos críticos não passam mais pelo save por seções: o servidor lê a
+  // versão autoritativa, valida a entidade e persiste a alteração com sua
+  // chave idempotente. A corrente evita que dois cliques deste navegador
+  // disputem a mesma versão da entidade entre si.
+  const commandTailRef=useRef(Promise.resolve());
   const dispatchOperationalCommand=useCallback(commandOrFactory=>{
-    let result={ok:false,reason:"Comando não executado."};
-    update(atual=>{
+    const executar=async()=>{
+      // Não misturamos um comando versionado com um snapshot local ainda não
+      // confirmado. Se a fila não puder esvaziar, preservar a edição local é
+      // mais seguro que executar o comando sobre uma base desconhecida.
+      if(saveQueueRef.current?.hasPending()){
+        await saveQueueRef.current.flush();
+        if(saveQueueRef.current?.hasPending())return {ok:false,reason:"Há alterações locais aguardando sincronização. Aguarde a confirmação e tente novamente."};
+      }
+      const atual=dataAtualRef.current||DEFAULT();
       const command=typeof commandOrFactory==="function"?commandOrFactory(atual):commandOrFactory;
-      result=applyOperationalCommand(atual,command);
-      return result.ok?result.data:atual;
-    });
-    return result;
+      const resposta=await executarComandoOperacional(command);
+      if(!resposta?.ok)return {ok:false,reason:resposta?.reason||resposta?.error||"O servidor não confirmou o comando operacional."};
+      await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
+      return {ok:true,idempotent:!!resposta.idempotent,data:resposta.data};
+    };
+    const pendente=commandTailRef.current.then(executar,executar);
+    commandTailRef.current=pendente.catch(()=>undefined);
+    return pendente;
   },[update]);
 
   // No boot buscamos APENAS a lista de perfis (nome + papel). Nenhum dado
@@ -37180,7 +37240,7 @@ export default function App() {
           {tab.startsWith("com_") && <Comercial data={data} update={update} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} />}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
-                           currentUser={currentUser}
+                           currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}
                            onVoltar={() => setObraAberta("")}
                            onEditarObra={()=>{sessionStorage.setItem("arcd_editar_obra",obraAberta);setObraAberta("");}}
                            onTab={(t) => { setObraAberta(""); setTab(t); }} />
@@ -37207,7 +37267,7 @@ export default function App() {
           {tab === "equip"    && <Equipamentos data={data} update={update} showToast={showToast}/>}
           {tab === "equip_fin"&& <Equipamentos data={data} update={update} showToast={showToast} contexto="financeiro"/>}
           {tab === "licenca"  && <Licenciamento data={data} update={update} showToast={showToast}/>}
-          {tab === "cmp"      && <Compras      data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
+          {tab === "cmp"      && <Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "fornecedores" && <RankingFornecedores data={data} update={update} showToast={showToast}/>}
           {tab === "suprimentos" && <Suprimentos data={data} update={update} showToast={showToast} onTab={(t)=>{setObraAberta("");setTab(t);}}/>}
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab}/>}
