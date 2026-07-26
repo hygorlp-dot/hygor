@@ -139,7 +139,7 @@ import {
   hashArquivo,
   mascararDocumento, mascararChavePix,
 } from "./domains/conciliacao/index.js";
-import { isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
+import { findRegisteredEmployeePix, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
 import {
   createApprovalEngine, validarPolitica, encontrarPoliticaAplicavel,
   podeAdministrarPoliticas, podeGerenciarDelegacoes,
@@ -22231,12 +22231,15 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                 const entrada=Number(tr.valor)>0,sug=tr.status==="pendente"?sugerirRateio(tr,data.regrasConc,data.aprendizadoConc):null;
                 const candidatas=aba==="pendentes"?(candidatosPorTransacao.get(tr.id)||[]):[];
                 const melhor=candidatas[0];
-                return <tr key={tr.id} style={{background:selecionadas.includes(tr.id)?`${C.yellow}08`:"transparent"}}>
-                  <td style={{padding:6,borderBottom:`1px solid ${C.line}`,borderLeft:`3px solid ${entrada?C.green:C.red}`}}>{["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
+                const pixFuncionario=findRegisteredEmployeePix(tr,data.employees);
+                const corMovimento=entrada?C.green:pixFuncionario?C.yellow:C.red;
+                return <tr key={tr.id} style={{background:selecionadas.includes(tr.id)?`${C.yellow}08`:pixFuncionario?`${C.yellow}0D`:"transparent"}}>
+                  <td style={{padding:6,borderBottom:`1px solid ${C.line}`,borderLeft:`3px solid ${corMovimento}`}}>{["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
                   <td style={{padding:"7px 8px",fontSize:8.8,color:C.muted,whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{fmtDate(tr.data)}</td>
                   <td title={tr.descricao} style={{padding:"7px 8px",maxWidth:aba==="pendentes"?260:410,borderBottom:`1px solid ${C.line}`}}>
                     <p style={{fontSize:9.7,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tr.descricao}</p>
                     <p style={{fontSize:7.9,color:entrada?C.green:C.red,marginTop:2,fontWeight:800}}>{entrada?"ENTRADA":"SAÍDA"}{tr.extratoId?` · ${data.extratos?.find(e=>e.id===tr.extratoId)?.arquivo||"EXTRATO"}`:""}</p>
+                    {pixFuncionario&&<p style={{fontSize:8,color:C.yellowD,marginTop:3,fontWeight:900}}>PIX DE FUNCIONÁRIO · possível recebimento: {pixFuncionario.employee.name||pixFuncionario.employee.nome}</p>}
                   </td>
                   {aba==="pendentes"
                     ? <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}>
@@ -22251,7 +22254,9 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                             </div>
                           : sug
                             ? <span style={{fontSize:9,color:C.blue}}>{sug.origem==="aprendizado"?`Sugestão aprendida (${sug.confirmacoes} confirmações)`:"Sugestão de regra"}: {sug.destino==="obra"?nomeObra(sug.obraId):"Empresa"} · {sug.categoria}</span>
-                            : <span style={{fontSize:9,color:C.muted}}>Sem candidata - use rateio manual</span>}
+                            : pixFuncionario
+                              ? <span style={{fontSize:9,color:C.yellowD,fontWeight:800}}>Chave PIX cadastrada · confirme no cartão PIX</span>
+                              : <span style={{fontSize:9,color:C.muted}}>Sem candidata - use rateio manual</span>}
                       </td>
                     : <td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,borderBottom:`1px solid ${C.line}`}}>
                         {tr.status==="conciliado"
