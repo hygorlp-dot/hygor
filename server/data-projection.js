@@ -20,6 +20,16 @@ const sanitizeUser = (user, self = false) => {
   const { pin, authUserId, email, maxDesconto, ...safe } = user || {};
   return self ? { ...safe, email: email || "", maxDesconto:Number(maxDesconto || 0) } : safe;
 };
+const sanitizeEmployee = (employee, role = "") => {
+  if(role === "rh") return employee;
+  // Engenharia, compras e financeiro precisam da identificação operacional,
+  // não de documentos pessoais ou coordenadas bancárias do colaborador.
+  const {
+    cpf,rg,pis,ctps,email,telefone,phone,celular,endereco,address,
+    banco,agencia,conta,contaBancaria,bankAccount,bankAgency,...safe
+  }=employee||{};
+  return safe;
+};
 const hasObra = (item, allowed) => !allowed.size || allowed.has(String(item?.obraId || item?.obra || ""));
 const filterByObra = (value, allowed) => Array.isArray(value) ? value.filter(item => hasObra(item, allowed)) : value;
 
@@ -39,6 +49,7 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     const value = payload[key];
     if (value === undefined) continue;
     if (key === "obras") { out.obras = (value || []).filter(item => hasObra({ obraId:item.id }, allowedObras)).map(sanitizeObra); continue; }
+    if (key === "employees") { out.employees=(value||[]).filter(item=>hasObra(item,allowedObras)).map(item=>sanitizeEmployee(item,user.role)); continue; }
     if (key === "attendance") {
       const permittedEmployees = new Set((payload.employees || []).filter(item => hasObra(item, allowedObras)).map(item => String(item.id)));
       // A lotação do colaborador não basta: ele pode ter apontamentos em mais
