@@ -100,7 +100,7 @@ import {
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
 import { calculateContractProjection, createDreCalculations } from "./domains/dre/calculations";
-import { cancelCompanyExpense, cancelDreExpense, createDreExpense } from "./domains/dre/mutations";
+import { cancelCompanyExpense, cancelDreExpense, createDreExpense, saveCompanyExpense } from "./domains/dre/mutations";
 import {
   buildFinancialLedger,
   selectDRE as selectLedgerDRE,
@@ -34192,15 +34192,8 @@ Regras: não invente números, datas, clientes ou causas. Diferencie competênci
   };
 
   const saveDesp = () => {
-    if (!despForm.competencia||!despForm.valor) { showToast("Preencha competência e valor.","error"); return; }
-    const payload = { id:editDesp||uid(), ...despForm, valor:Number(despForm.valor||0) };
-    const list = editDesp
-      ? (data.despesasEmpresa||[]).map(d=>d.id===editDesp?payload:d)
-      : [...(data.despesasEmpresa||[]),payload];
-    update({...data,despesasEmpresa:list});
-    setDespModal(false); setEditDesp(null);
-    setDespForm({competencia:"",categoria:"aluguel",descricao:"",valor:"",recorrente:false});
-    showToast(editDesp?"Despesa atualizada.":"Despesa registrada.");
+    try{update(saveCompanyExpense({data,expense:despForm,actor:currentUser,id:editDesp||uid()}));setDespModal(false);setEditDesp(null);setDespForm({competencia:"",categoria:"aluguel",descricao:"",valor:"",recorrente:false});showToast(editDesp?"Despesa atualizada.":"Despesa registrada.");}
+    catch(error){showToast(error.message||"Não foi possível registrar a despesa.","error");}
   };
 
   const delDesp = id => {

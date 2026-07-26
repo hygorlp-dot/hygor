@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFinancialLedger, selectDRE } from "../financeiro/ledger";
-import { cancelCompanyExpense, cancelDreExpense, createDreExpense } from "./mutations";
+import { cancelCompanyExpense, cancelDreExpense, createDreExpense, saveCompanyExpense } from "./mutations";
 
 describe("cancelamento auditável de despesa no DRE", () => {
   const data={ outrasDesp:[{ id:"desp-1", obraId:"obra-1", valor:1250, descricao:"Argamassa", status:"ativo" }] };
@@ -38,5 +38,13 @@ describe("cancelamento auditável de despesa no DRE", () => {
     const result=cancelCompanyExpense({data:{despesasEmpresa:[{id:"corp-1",competencia:"2026-07",valor:90,descricao:"Software"}]},expenseId:"corp-1",reason:"Duplicidade",actor,now:"2026-07-04T10:00:00.000Z"});
     expect(result.despesasEmpresa[0]).toMatchObject({status:"cancelada",canceladoPorId:"u-1",motivoCancelamento:"Duplicidade"});
     expect(selectDRE(buildFinancialLedger(result),{competence:"2026-07"}).costs).toBe(0);
+  });
+
+  it("cria e versiona despesa corporativa reconhecida uma única vez", () => {
+    const created=saveCompanyExpense({data:{},expense:{competencia:"2026-07",categoria:"software",descricao:"Sistema",valor:"99.9",recorrente:true},actor,id:"corp-2",now:"2026-07-01T00:00:00.000Z"});
+    expect(created.despesasEmpresa[0]).toMatchObject({status:"ativo",origem:"dre_empresa",createdById:"u-1",version:1,valor:99.9});
+    const edited=saveCompanyExpense({data:created,expense:{competencia:"2026-07",categoria:"software",descricao:"Sistema",valor:120,recorrente:true},actor,id:"corp-2",now:"2026-07-02T00:00:00.000Z"});
+    expect(edited.despesasEmpresa[0]).toMatchObject({valor:120,version:2,createdAt:"2026-07-01T00:00:00.000Z",updatedAt:"2026-07-02T00:00:00.000Z"});
+    expect(selectDRE(buildFinancialLedger(edited),{competence:"2026-07"}).costs).toBe(120);
   });
 });
