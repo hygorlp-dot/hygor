@@ -28035,6 +28035,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
   const [vincPreview, setVincPreview] = useState(null);   // antecessoras/sucessoras propostas
   const [novoCompromisso, setNovoCompromisso] = useState(null);
   const [novoAvanco, setNovoAvanco] = useState(null);
+  const [novaRestricao, setNovaRestricao] = useState(null);
   const [zoom, setZoom] = useState("semana");             // dia | semana | mes
   const [aba,  setAba]  = useState("gantt");              // gantt | mensal | curvaS | ff
   const [ffModo, setFfModo] = useState("previsto");       // previsto | realizado (tabela FF mensal)
@@ -28148,6 +28149,24 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
     });
     if(!result?.ok)showToast?.(result?.reason||"Não foi possível estornar o avanço.","error");
     else showToast?.("Avanço estornado e preservado no histórico.");
+  };
+  const lookaheadsDaObra=(data.lookaheadWindows||[]).filter(item=>String(item.obraId)===String(obraId));
+  const criarLookahead=async()=>{
+    if(!dispatchCommand){showToast?.("O Lookahead exige conexão com o servidor.","error");return;}
+    const pacotes=tarefas.filter(item=>!item.titulo).slice(0,80).map(item=>({id:item.id,descricao:item.nome||"Atividade"}));
+    if(!pacotes.length){showToast?.("Inclua atividades no cronograma antes de criar o Lookahead.","error");return;}
+    const result=await dispatchCommand(()=>({type:OPERATIONAL_COMMAND.LOOKAHEAD_CREATED,idempotencyKey:`lookahead-${uid()}`,expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{lookahead:{id:uid(),obraId,semanaInicio:today(),semanaFim:today(),horizonteSemanas:4,pacotes}}}));
+    if(!result?.ok)showToast?.(result?.reason||"Não foi possível criar o Lookahead.","error");else showToast?.("Lookahead criado a partir das atividades do cronograma.");
+  };
+  const adicionarRestricao=async()=>{
+    const form=novaRestricao||{};if(!form.lookaheadId||!form.pacoteId||!String(form.descricao||"").trim()){showToast?.("Selecione pacote e descreva a restrição.","error");return;}
+    const result=await dispatchCommand(atual=>{const vigente=(atual.lookaheadWindows||[]).find(item=>item.id===form.lookaheadId);return {type:OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED,idempotencyKey:`restricao-lookahead-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{lookaheadId:form.lookaheadId,constraint:{id:uid(),obraId,pacoteId:form.pacoteId,categoria:form.categoria||"outro",descricao:String(form.descricao).trim(),bloqueante:true,dataIdentificacao:today(),dataNecessidade:form.dataNecessidade||today()}}};});
+    if(!result?.ok)showToast?.(result?.reason||"Não foi possível registrar a restrição.","error");else{setNovaRestricao(null);showToast?.("Restrição registrada no Lookahead.");}
+  };
+  const liberarRestricao=async(lookahead,restricao)=>{
+    const evidencia=window.prompt("Informe a referência da evidência de liberação (documento, foto ou protocolo):");if(!String(evidencia||"").trim())return;
+    const result=await dispatchCommand(atual=>{const vigente=(atual.lookaheadWindows||[]).find(item=>item.id===lookahead.id);return {type:OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_RELEASED,idempotencyKey:`liberar-restricao-${restricao.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{lookaheadId:lookahead.id,constraintId:restricao.id,evidenceIds:[String(evidencia).trim()]}};});
+    if(!result?.ok)showToast?.(result?.reason||"Não foi possível liberar a restrição.","error");else showToast?.("Restrição liberada com evidência.");
   };
 
   const upsertTarefa = (t) => salvarPlano(p => {
@@ -28730,6 +28749,8 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
           </div>{avancos.length>0&&<details style={{marginTop:7}}><summary style={{cursor:"pointer",fontSize:9.5,color:C.muted}}>Evidências de produção · {avancos.length}</summary><div style={{marginTop:6,display:"flex",flexDirection:"column",gap:4}}>{avancos.map(avanco=>{const cancelado=avanco.status==="cancelado";return <div key={avanco.id} style={{display:"grid",gridTemplateColumns:"1fr auto",alignItems:"center",gap:8,padding:"6px 8px",border:`1px solid ${C.line}`,borderRadius:6,background:cancelado?C.surface:C.card}}><span style={{fontSize:9.5,color:cancelado?C.muted:C.text}}>{fmtDate(avanco.data)} · <b>{Number(avanco.quantity||0)}</b>{cancelado?` · estornado: ${avanco.motivoCancelamento||"sem motivo"}`:""}</span>{!cancelado&&podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={()=>estornarAvanco(avanco)}>Estornar</Btn>}</div>;})}</div></details>}</div>;
         })}{!compromissosDaObra.length&&!novoCompromisso&&<p style={{padding:"13px 12px",fontSize:10.5,color:C.muted}}>Nenhum compromisso ativo. Adicione o que será entregue nesta semana para acompanhar o PPC.</p>}</div>
       </div>}
+
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><div style={{padding:"10px 12px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><div><p style={{fontSize:10,fontWeight:900,letterSpacing:.7,color:C.muted,textTransform:"uppercase"}}>Lookahead</p><b style={{fontSize:12,color:C.text}}>Restrições antes da execução</b></div><Btn size="sm" v="ghost" onClick={criarLookahead} disabled={!!lookaheadsDaObra.length}>Criar 4 semanas</Btn></div>{lookaheadsDaObra.map(lookahead=><div key={lookahead.id} style={{padding:"10px 12px",borderTop:`1px solid ${C.line}`}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><p style={{fontSize:10,color:C.text,fontWeight:800}}>Janela de {lookahead.horizonteSemanas} semanas · {lookahead.pacotes?.length||0} pacotes</p><Btn size="sm" v="ghost" onClick={()=>setNovaRestricao({lookaheadId:lookahead.id,pacoteId:lookahead.pacotes?.[0]?.id||"",categoria:"outro",descricao:"",dataNecessidade:today()})}>Adicionar restrição</Btn></div>{novaRestricao?.lookaheadId===lookahead.id&&<div style={{marginTop:8,display:"grid",gridTemplateColumns:cols(1,2,4),gap:7}}><Sel label="Pacote" value={novaRestricao.pacoteId} onChange={value=>setNovaRestricao(form=>({...form,pacoteId:value}))} options={(lookahead.pacotes||[]).map(item=>({v:item.id,l:item.descricao||item.id}))}/><Sel label="Categoria" value={novaRestricao.categoria} onChange={value=>setNovaRestricao(form=>({...form,categoria:value}))} options={["material","mao_de_obra","equipamento","seguranca","qualidade","projeto","outro"].map(value=>({v:value,l:value.replaceAll("_"," ")}))}/><Inp label="Necessária em" type="date" value={novaRestricao.dataNecessidade} onChange={value=>setNovaRestricao(form=>({...form,dataNecessidade:value}))}/><Inp label="Restrição" value={novaRestricao.descricao} onChange={value=>setNovaRestricao(form=>({...form,descricao:value}))}/><div style={{display:"flex",gap:6,alignItems:"end"}}><Btn size="sm" v="ghost" onClick={()=>setNovaRestricao(null)}>Cancelar</Btn><Btn size="sm" onClick={adicionarRestricao}>Registrar</Btn></div></div>}<div style={{marginTop:8}}>{(lookahead.restricoes||[]).map(restricao=>{const liberada=restricao.status==="liberada";return <div key={restricao.id} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"7px 0",borderTop:`1px solid ${C.line}`}}><span style={{fontSize:10,color:liberada?C.muted:C.text}}>{restricao.descricao} · {restricao.categoria}</span>{liberada?<Badge color={C.green}>LIBERADA</Badge>:<Btn size="sm" v="ghost" onClick={()=>liberarRestricao(lookahead,restricao)}>Liberar</Btn>}</div>;})}{!(lookahead.restricoes||[]).length&&<p style={{fontSize:10,color:C.muted}}>Nenhuma restrição registrada.</p>}</div></div>)}{!lookaheadsDaObra.length&&<p style={{padding:"13px 12px",fontSize:10.5,color:C.muted}}>Crie uma janela de 4 semanas para antecipar material, projetos, equipe, segurança e demais bloqueios.</p>}</div>
 
       {/* Fisico-financeiro em destaque: previsao de custo final e eficiencia */}
       {ff.linhas.length > 0 && (
