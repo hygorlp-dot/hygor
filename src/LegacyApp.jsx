@@ -27987,6 +27987,9 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
     const vinculados=ativos.filter(item=>String(item.obraId||item.obra||"")===String(obraId));
     return vinculados.length?vinculados:ativos;
   }, [data.employees, obraId]);
+  const avancosPorCompromisso = useMemo(() => (data.progressRecords||[]).filter(item=>String(item.obraId)===String(obraId)&&item.commitmentId).reduce((map,item)=>{
+    const key=String(item.commitmentId);map.set(key,[...(map.get(key)||[]),item]);return map;
+  },new Map()), [data.progressRecords, obraId]);
   const podeConcluirCompromisso=["admin","engenheiro","engenheiro_auditor","planejamento","mestre"].includes(currentUser?.role);
   const compBase   = useMemo(() => compararBaseline(tarefas, plano), [tarefas, plano]);
   // Planejado x realizado automatico: progresso medido vs reta do cronograma.
@@ -28112,6 +28115,19 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
       actorId:currentUser?.id||"",actorName:currentUser?.nome||"",expectedVersion:0,payload:{record:{id:uid(),obraId,activityId:form.activityId,commitmentId:form.commitmentId,quantity:Number(form.quantity),data:form.data,workerIds:form.workerIds||[]}}}));
     if(!result?.ok){showToast?.(result?.reason||"Não foi possível registrar o avanço.","error");return;}
     setNovoAvanco(null);showToast?.("Avanço físico registrado.");
+  };
+  const estornarAvanco = async avanco => {
+    if(!dispatchCommand){showToast?.("O estorno de avanço exige conexão com o servidor.","error");return;}
+    const motivo=window.prompt(`Motivo do estorno de ${Number(avanco.quantity||0)} registrado em ${fmtDate(avanco.data)}:`);
+    if(!String(motivo||"").trim())return;
+    if(!window.confirm("Confirmar estorno? O lançamento será preservado no histórico."))return;
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.progressRecords||[]).find(item=>item.id===avanco.id);
+      return {type:OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED,idempotencyKey:`avanco-fisico-estorno-${avanco.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{recordId:avanco.id,reason:String(motivo).trim()}};
+    });
+    if(!result?.ok)showToast?.(result?.reason||"Não foi possível estornar o avanço.","error");
+    else showToast?.("Avanço estornado e preservado no histórico.");
   };
 
   const upsertTarefa = (t) => salvarPlano(p => {
@@ -28694,10 +28710,11 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
         <div>{compromissosDaObra.slice(0,8).map(compromisso=>{
           const concluido=compromisso.status==="concluido",naoConcluido=compromisso.status==="nao_concluido",cor=concluido?C.green:naoConcluido?C.orange:C.blue;
           const meta=Math.max(0,Number(compromisso.quantidadePrometida||0)),feito=Math.max(0,Number(compromisso.quantidadeRealizada||0)),pct=meta?Math.min(100,feito/meta*100):0;
-          return <div key={compromisso.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:12,alignItems:"center",padding:"10px 12px",borderTop:`1px solid ${C.line}`}}>
+          const avancos=(avancosPorCompromisso.get(String(compromisso.id))||[]).slice().sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+          return <div key={compromisso.id} style={{padding:"10px 12px",borderTop:`1px solid ${C.line}`}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:12,alignItems:"center"}}>
             <div style={{minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}><b style={{fontSize:11,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{compromisso.descricao||"Compromisso sem descrição"}</b><span style={{fontSize:9,fontWeight:900,color:cor,textTransform:"uppercase",whiteSpace:"nowrap"}}>{concluido?"concluído":naoConcluido?"não concluído":"em aberto"}</span></div><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{feito} entregue de {meta||"—"} prometido{compromisso.motivoNaoCumprimento?` · ${compromisso.motivoNaoCumprimento}`:""}</p><div style={{height:3,background:C.surface,borderRadius:99,overflow:"hidden",marginTop:6}}><i style={{display:"block",height:"100%",width:`${pct}%`,background:cor}}/></div></div>
             {!concluido&&!naoConcluido&&podeConcluirCompromisso&&<div style={{display:"flex",gap:6,alignItems:"center"}}><Btn size="sm" v="ghost" onClick={()=>abrirNovoAvanco(compromisso)}>Registrar avanço</Btn><Btn size="sm" v="ghost" onClick={()=>concluirCompromissoSemanal(compromisso)}>Concluir</Btn></div>}
-          </div>;
+          </div>{avancos.length>0&&<details style={{marginTop:7}}><summary style={{cursor:"pointer",fontSize:9.5,color:C.muted}}>Evidências de produção · {avancos.length}</summary><div style={{marginTop:6,display:"flex",flexDirection:"column",gap:4}}>{avancos.map(avanco=>{const cancelado=avanco.status==="cancelado";return <div key={avanco.id} style={{display:"grid",gridTemplateColumns:"1fr auto",alignItems:"center",gap:8,padding:"6px 8px",border:`1px solid ${C.line}`,borderRadius:6,background:cancelado?C.surface:C.card}}><span style={{fontSize:9.5,color:cancelado?C.muted:C.text}}>{fmtDate(avanco.data)} · <b>{Number(avanco.quantity||0)}</b>{cancelado?` · estornado: ${avanco.motivoCancelamento||"sem motivo"}`:""}</span>{!cancelado&&podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={()=>estornarAvanco(avanco)}>Estornar</Btn>}</div>;})}</div></details>}</div>;
         })}{!compromissosDaObra.length&&!novoCompromisso&&<p style={{padding:"13px 12px",fontSize:10.5,color:C.muted}}>Nenhum compromisso ativo. Adicione o que será entregue nesta semana para acompanhar o PPC.</p>}</div>
       </div>}
 
