@@ -119,7 +119,7 @@ import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularA
 import { migrateSupplyData } from "./domains/suprimentos/migration";
 import MarcosCurvaASuprimentos from "./features/suprimentos/MarcosCurvaASuprimentos";
 import {
-  aplicarRecebimentoMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
+  aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
   paraCentavos, deCentavos, igualCentavos,
   criarIndicesFinanceiros, transacoesConsumidas,
   gerarCandidatosConciliacao, faixaDoScore, FAIXA_CONFIANCA,
@@ -6166,15 +6166,20 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
   };
 
   const toggleRecebido = (m) => {
-    // Ação binária (sem campo de valor) - ao marcar, lança o SALDO restante
-    // como um recebimento (não reseta o que já tinha entrado via banco); ao
-    // desmarcar, limpa todo o histórico de recebimentos desta medição.
+    // A ação mantém cada fato de recebimento. Ao desfazer, cria estornos
+    // auditáveis em vez de apagar a evidência financeira da medição.
     const recebidaPorInteiro = statusRecebimentoMedicao(m)==="recebida";
-    const updated = !recebidaPorInteiro
-      ? aplicarRecebimentoMedicao(m, { valor: Number(m.valorPrevisto||0) - totalRecebidoMedicao(m), data: today(), origem: "manual" })
-      : { ...m, recebimentos: [], recebido: false, valorRecebido: 0, dataPagamento: "" };
-    update({...data, medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
-    showToast(!recebidaPorInteiro ? "ok Marcado como recebido." : "Desmarcado.");
+    try {
+      const motivo=recebidaPorInteiro ? window.prompt("Motivo do estorno do recebimento:") : "";
+      if (recebidaPorInteiro&&!String(motivo||"").trim()) return;
+      const updated = !recebidaPorInteiro
+        ? aplicarRecebimentoMedicao(m, { id:uid(), valor: Number(m.valorPrevisto||0) - totalRecebidoMedicao(m), data: today(), origem: "manual", actor:currentUser })
+        : estornarRecebimentosMedicao(m,{actor:currentUser,reason:motivo});
+      update({...data, medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
+      showToast(!recebidaPorInteiro ? "ok Marcado como recebido." : "Recebimento estornado e preservado para auditoria.");
+    } catch (error) {
+      showToast(error.message||"Não foi possível alterar o recebimento.","error");
+    }
   };
 
   const deleteMedicao = id => {

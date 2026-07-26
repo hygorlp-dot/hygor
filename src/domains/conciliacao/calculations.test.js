@@ -1,7 +1,7 @@
 import {
   paraCentavos, deCentavos, igualCentavos,
   chaveTransacao, parseOFX, somaRateios, diasEntre,
-  aplicarRecebimentoMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
+  aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
 } from "./calculations";
 
 describe("domínio de conciliação - centavos", () => {
@@ -83,6 +83,23 @@ describe("domínio de conciliação - recebimento parcial de medição (correç�
     expect(revertida.recebimentos).toHaveLength(2);
     expect(revertida.recebimentos[0].id).toBe("r1");
     expect(revertida.recebimentos[1].status).toBe("estornado");
+  });
+
+  test("estorna todos os recebimentos manuais com motivo e autoria sem apagar a evidência", () => {
+    let m=aplicarRecebimentoMedicao(medicaoBase,{id:"r1",valor:1000,data:"2026-01-10",origem:"manual"});
+    m=estornarRecebimentosMedicao(m,{actor:{id:"u1",nome:"Financeiro"},reason:"Duplicidade",now:"2026-01-11T10:00:00.000Z"});
+    expect(m).toMatchObject({recebido:false,valorRecebido:0,dataPagamento:""});
+    expect(m.recebimentos[0]).toMatchObject({id:"r1",status:"estornado",motivoEstorno:"Duplicidade",estornadoPorId:"u1"});
+  });
+
+  test("não estorna pelo atalho um recebimento vinculado ao extrato", () => {
+    const m=aplicarRecebimentoMedicao(medicaoBase,{id:"r1",valor:1000,data:"2026-01-10",transacaoId:"tx-1"});
+    expect(()=>estornarRecebimentosMedicao(m,{actor:{id:"u1"},reason:"x"})).toThrow("Desfaça a conciliação bancária");
+  });
+
+  test("preserva o valor espelho legado como evidência estornada", () => {
+    const m=estornarRecebimentosMedicao({id:"m-legado",valorPrevisto:1000,valorRecebido:300,dataPagamento:"2026-01-10"},{actor:{id:"u1"},reason:"Ajuste",now:"2026-01-11T10:00:00.000Z"});
+    expect(m.recebimentos[0]).toMatchObject({valor:300,legacy:true,status:"estornado",motivoEstorno:"Ajuste"});
   });
 
   test("medição sem valorPrevisto (0) some como recebida assim que entra qualquer valor", () => {
