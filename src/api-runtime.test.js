@@ -20,7 +20,7 @@ describe("runtime ESM das APIs", () => {
   });
 
   it("consolida as rotas do portal sem alterar as URLs públicas", () => {
-    const filename = resolve(process.cwd(), "api/client/[...route].js");
+    const filename = resolve(process.cwd(), "api/client.js");
     const source = readFileSync(filename, "utf8");
     const parsed = parseSync(filename, source);
     expect(parsed.errors).toEqual([]);

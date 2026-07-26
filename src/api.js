@@ -140,6 +140,8 @@ export const consultarDreCanonico = ({year,month,period="mes",obraId=""}) =>
 export const consultarDreEmpresaCanonico = ({year,month}) =>
   chamar({ action:"financial-company-dre-report", ...credenciais(), year, month, period:"mes" });
 export const executarBackup = action => chamar({ action:`backup-${action}`, ...credenciais() });
+export const gerenciarAcessoPortalCliente = payload =>
+  chamar({ action:"client-portal-admin", ...credenciais(), ...payload });
 
 // ── Tela de login: quem existe? ────────────────────────────────────
 // Devolve só nome e papel. O hash do PIN nunca sai do servidor.

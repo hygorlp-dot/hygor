@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(resolve(process.cwd(), "migrations/005_client_portal_foundation.up.sql"), "utf8");
+const api = readFileSync(resolve(process.cwd(), "api/data.js"), "utf8");
 
 describe("fundação persistente do Portal do Cliente", () => {
   it("isola usuários, vínculos, sessões, auditoria e publicações em tabelas próprias", () => {
@@ -19,5 +20,14 @@ describe("fundação persistente do Portal do Cliente", () => {
     expect(migration).toContain("'published'");
     expect(migration).toContain("'owner'");
     expect(migration).toContain("'observer'");
+  });
+
+  it("provisiona e revoga acessos somente pelo comando administrativo autenticado", () => {
+    expect(api).toContain('action === "client-portal-admin"');
+    expect(api).toContain('usuario.role!=="admin"');
+    expect(api).toContain("hashPortalPassword(password)");
+    expect(api).toContain('operation==="revoke"');
+    expect(api).toContain('event_type:"access_provisioned"');
+    expect(api).toContain('event_type:"access_revoked"');
   });
 });

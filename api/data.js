@@ -38,6 +38,7 @@ import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/syn
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import { hasLegacyFinancialWrite, validateFinancialWritePath } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
+import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
@@ -608,6 +609,84 @@ export default async function handler(req, res) {
       if(error)throw error;
       await salvarIndicePerfis(novo);
       return res.status(200).json({ok:true,data:novo,updatedAt:gravado?.updated_at||agora});
+    }
+
+    if (action === "client-portal-admin") {
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores podem gerenciar acessos de clientes."});
+      const operation=String(req.body?.operation || "list");
+      const obraId=String(req.body?.obraId || "");
+      const obra=(atual.obras || []).find(item=>String(item.id)===obraId);
+      if(!obra)return res.status(404).json({error:"Obra não encontrada."});
+
+      const listAccess=async()=>{
+        const {data:memberships,error}=await db.from("client_portal_project_memberships")
+          .select("id,portal_user_id,profile,grants,revokes,active,created_at,client_portal_users!inner(id,email,phone,status,last_login_at)")
+          .eq("company_id",COMPANY).eq("project_id",obraId).order("created_at",{ascending:false});
+        if(error)throw error;
+        return (memberships || []).map(item=>{
+          const client=Array.isArray(item.client_portal_users)?item.client_portal_users[0]:item.client_portal_users;
+          return {
+            id:item.id,userId:item.portal_user_id,profile:item.profile,grants:item.grants||[],revokes:item.revokes||[],
+            active:item.active!==false,email:client?.email||"",phone:client?.phone||"",
+            status:client?.status||"",lastLoginAt:client?.last_login_at||"",
+          };
+        });
+      };
+
+      if(operation==="list")return res.status(200).json({ok:true,accesses:await listAccess()});
+
+      if(operation==="revoke"){
+        const membershipId=String(req.body?.membershipId || "");
+        const {data:membership,error:findError}=await db.from("client_portal_project_memberships")
+          .select("id,portal_user_id").eq("company_id",COMPANY).eq("project_id",obraId).eq("id",membershipId).maybeSingle();
+        if(findError)throw findError;
+        if(!membership)return res.status(404).json({error:"Acesso não encontrado."});
+        const now=new Date().toISOString();
+        const {error}=await db.from("client_portal_project_memberships").update({active:false,updated_at:now}).eq("id",membership.id);
+        if(error)throw error;
+        await db.from("client_portal_sessions").update({revoked_at:now}).eq("company_id",COMPANY).eq("portal_user_id",membership.portal_user_id).is("revoked_at",null);
+        await db.from("client_portal_audit_events").insert({company_id:COMPANY,portal_user_id:membership.portal_user_id,project_id:obraId,event_type:"access_revoked",metadata:{actorId:usuario.id}});
+        return res.status(200).json({ok:true,accesses:await listAccess()});
+      }
+
+      const publishProject=async()=>{
+        const plano=(atual.planos||[]).find(item=>String(item.obraId)===obraId);
+        const tarefas=(plano?.tarefas||[]).filter(item=>!item.titulo).slice(0,80);
+        const progress=tarefas.length?Math.round(tarefas.reduce((sum,item)=>sum+Math.max(0,Math.min(100,Number(item.progresso||0))),0)/tarefas.length):0;
+        const rows=[{
+          domain:"project_summary",payload:{name:obra.name||"Obra",coverImage:obra.capaUrl||"",currentPhase:obra.status||"",progress,estimatedCompletion:obra.contractEnd||"",lastUpdate:new Date().toISOString()},
+        }];
+        if(obra.portalCliente?.publicarCronograma!==false)for(const item of tarefas)rows.push({domain:"timeline",payload:{id:item.id,phase:item.nome||item.descricao||"Etapa",status:Number(item.progresso||0)>=100?"Concluído":"Em andamento",plannedStart:item.inicio||"",plannedEnd:item.fim||"",progress:Number(item.progresso||0)}});
+        if(obra.portalCliente?.publicarFinanceiro)for(const item of (atual.medicoes||[]).filter(entry=>String(entry.obraId)===obraId).slice(0,80))rows.push({domain:"measurement",payload:{id:item.id,number:item.descricao||item.competencia||"Medição",period:item.competencia||"",amount:Number(item.valorPrevisto||0),status:item.recebido?"Recebida":"Publicada"}});
+        const now=new Date().toISOString();
+        await db.from("client_portal_publications").update({status:"superseded",updated_at:now}).eq("company_id",COMPANY).eq("project_id",obraId).eq("status","published");
+        const {error}=await db.from("client_portal_publications").insert(rows.map(row=>({company_id:COMPANY,project_id:obraId,domain:row.domain,status:"published",visibility:"project_users",payload:row.payload,created_by:usuario.id,published_by:usuario.id,published_at:now})));
+        if(error)throw error;
+      };
+
+      if(operation==="publish"){await publishProject();return res.status(200).json({ok:true,accesses:await listAccess()});}
+      if(operation!=="provision")return res.status(400).json({error:"Operação de portal inválida."});
+
+      const email=normalizePortalEmail(req.body?.email), password=String(req.body?.password||"");
+      const profile=String(req.body?.profile||"owner");
+      const allowedProfiles=new Set(["owner","spouse","representative","financial","external_architect","observer"]);
+      if(!email||!email.includes("@"))return res.status(400).json({error:"Informe um e-mail válido."});
+      if(!validPortalPassword(password))return res.status(400).json({error:"A senha inicial deve ter 12 caracteres, letras e números."});
+      if(!allowedProfiles.has(profile))return res.status(400).json({error:"Perfil de cliente inválido."});
+      let {data:portalUser,error:userError}=await db.from("client_portal_users").select("id").eq("company_id",COMPANY).eq("email",email).maybeSingle();
+      if(userError)throw userError;
+      const userValues={company_id:COMPANY,email,phone:String(req.body?.phone||"").trim(),password_hash:hashPortalPassword(password),status:"active",updated_at:new Date().toISOString()};
+      if(portalUser){
+        const {error}=await db.from("client_portal_users").update(userValues).eq("id",portalUser.id);if(error)throw error;
+      }else{
+        const created=await db.from("client_portal_users").insert(userValues).select("id").single();if(created.error)throw created.error;portalUser=created.data;
+      }
+      const membershipValues={company_id:COMPANY,portal_user_id:portalUser.id,project_id:obraId,profile,grants:Array.isArray(req.body?.grants)?req.body.grants:[],revokes:Array.isArray(req.body?.revokes)?req.body.revokes:[],active:true,updated_at:new Date().toISOString()};
+      const {error:membershipError}=await db.from("client_portal_project_memberships").upsert(membershipValues,{onConflict:"company_id,portal_user_id,project_id"});
+      if(membershipError)throw membershipError;
+      await publishProject();
+      await db.from("client_portal_audit_events").insert({company_id:COMPANY,portal_user_id:portalUser.id,project_id:obraId,event_type:"access_provisioned",metadata:{actorId:usuario.id,profile}});
+      return res.status(200).json({ok:true,accesses:await listAccess(),portalUrl:`/cliente/obra/${encodeURIComponent(obraId)}`});
     }
 
     // Motor Financeiro Canônico: o navegador envia somente o comando. A RPC

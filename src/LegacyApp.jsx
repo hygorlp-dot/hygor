@@ -77,7 +77,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
          consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
-         executarComandoOperacional, executarComandoConciliacao } from "./api";
+         executarComandoOperacional, executarComandoConciliacao, gerenciarAcessoPortalCliente } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -25606,6 +25606,10 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
 
   const gerarPedidoSolicitacao=(sol)=>{
     if(!podeProcessar){showToast("Somente o setor de Compras pode transformar a solicitação em pedido.","error");return;}
+    const instanciaApr=instanciaAprovacaoDe(sol);
+    if(instanciaApr&&instanciaApr.status!=="aprovada"){
+      if(!window.confirm(`Esta solicitação ainda não foi aprovada (status: ${instanciaApr.status}). Deseja continuar mesmo assim?`))return;
+    }
     const itens=sol.itens.map(item=>{
       const existente=materiais.find(m=>(item.codigoRef&&maiusculoOrcamento(m.codigo)===maiusculoOrcamento(item.codigoRef)&&maiusculoOrcamento(m.fonteRef||item.fonteRef)===maiusculoOrcamento(item.fonteRef))||
         (!item.codigoRef&&maiusculoOrcamento(m.descricao)===maiusculoOrcamento(item.descricaoRef)));
@@ -26403,12 +26407,24 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
           const pedido=pedidoPorId.get(sol.pedidoId);
           const sla=slaSolicitacao(sol,today());
           const corBorda=sla&&sla.status==="estourado"?C.red:status.c;
+          const instanciaApr=instanciaAprovacaoDe(sol);
+          const etapasApr=etapasPendentesParaMim(instanciaApr);
+          const aprCor={aprovada:C.green,reprovada:C.red,bloqueada:C.orange,em_andamento:C.blue}[instanciaApr?.status];
+          const aprRotulo={aprovada:"APROVADA",reprovada:"REPROVADA",bloqueada:"AGUARDANDO CONFIGURAÇÃO",em_andamento:"AGUARDANDO APROVAÇÃO"}[instanciaApr?.status];
           return <div key={sol.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${corBorda}`,borderRadius:6,padding:"10px 12px"}}>
             <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{sol.numero}{sol.prioridade==="urgente"&&<span style={{color:C.red}}> · URGENTE</span>}</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Solicitado por {sol.solicitanteNome||"Engenharia"} · {sol.criadoEm?new Date(sol.criadoEm).toLocaleString("pt-BR"):""}{sol.necessidade?` · necessário em ${fmtDate(sol.necessidade)}`:""}</p></div><div style={{textAlign:"right",flexShrink:0}}><Badge color={status.c}>{status.l}</Badge>
+              {instanciaApr&&instanciaApr.status!=="aprovada"&&<div style={{marginTop:3}}><Badge color={aprCor}>{aprRotulo}</Badge></div>}
               {sla&&<div style={{marginTop:3}}><Badge color={sla.status==="estourado"?C.red:sla.status==="no_limite"?C.orange:C.muted}>
                 {sla.status==="estourado"?`SLA ESTOURADO · ${sla.dias}d (limite ${sla.limite}d)`:sla.status==="no_limite"?`ÚLTIMO DIA DO SLA`:`${sla.dias}d de ${sla.limite}d`}
               </Badge></div>}
             </div></div>
+            {etapasApr.length>0&&<div style={{marginTop:8,background:`${C.blue}0C`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"8px 10px"}}>
+              <p style={{fontSize:10.5,fontWeight:800,color:C.blue}}>Aguardando sua aprovação · {etapasApr[0].etapa.nome}</p>
+              <div style={{display:"flex",gap:6,marginTop:6}}>
+                <Btn size="sm" onClick={()=>decidirAprovacao(instanciaApr,etapasApr[0].etapa.id,"aprovado")}><Ic n="check"/> Aprovar</Btn>
+                <Btn size="sm" v="danger" onClick={()=>{const motivo=window.prompt("Motivo da reprovação:");if(motivo)decidirAprovacao(instanciaApr,etapasApr[0].etapa.id,"reprovado",motivo);}}>Reprovar</Btn>
+              </div>
+            </div>}
             <div style={{marginTop:8,borderTop:`1px solid ${C.line}`,paddingTop:6}}>{sol.itens.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:isDesktop?"95px minmax(0,1fr) auto auto":"78px minmax(0,1fr) auto",gap:7,fontSize:10.5,marginTop:4,alignItems:"center"}}><b style={{color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef} {item.codigoRef}</b><span style={{color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricaoRef}>{item.descricaoRef}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{Number(item.quantidade||0).toLocaleString("pt-BR")} {item.unidadeRef}</b>{podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" v="ghost" onClick={()=>abrirCotacaoDaSolicitacao(sol,item)}>COTAR</Btn>}</div>)}</div>
             {sol.observacao&&<p style={{fontSize:10,color:C.muted,marginTop:7}}>{sol.observacao}</p>}
             {sol.contatos?.length>0&&<p style={{fontSize:10,color:C.green,fontWeight:700,marginTop:7}}>
@@ -27133,6 +27149,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const [criandoPasta,setCriandoPasta]=useState(false);
   const inicializacaoPastaRef=useRef("");
   const [visualizandoComoCliente,setVisualizandoComoCliente]=useState(false);
+  const [acessosPortal,setAcessosPortal]=useState([]);
+  const [portalBusy,setPortalBusy]=useState(false);
+  const [portalForm,setPortalForm]=useState({email:"",phone:"",profile:"owner",password:""});
   const portal = obra?.portalCliente || {};
   const atualizarPortal = (campos) => {
     const token = portal.token || (globalThis.crypto?.randomUUID?.() || uid()+uid());
@@ -27141,12 +27160,55 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const linkPortal = portal.token ? `${window.location.origin}${window.location.pathname}?portal=${encodeURIComponent(obraId)}&token=${encodeURIComponent(portal.token)}` : "";
   // O link com token continua atendendo o portal legado. O novo portal usa
   // sessão individual e nunca recebe token da obra na URL.
-  const linkNovoPortal = `${window.location.origin}/cliente/obra/${encodeURIComponent(obraId)}`;
+  const linkNovoPortal = `${window.location.origin}/cliente/obra/${encodeURIComponent(obraId)}${portal.token?`?token=${encodeURIComponent(portal.token)}`:""}`;
   const copiarLinkPortal = async () => {
     if(!portal.ativo){showToast?.("Ative o portal antes de copiar o link.","error");return;}
-    try{await navigator.clipboard.writeText(linkPortal);showToast?.("Link seguro do cliente copiado.");}
-    catch{window.prompt("Copie o link do portal:",linkPortal);}
+    try{await navigator.clipboard.writeText(linkNovoPortal);showToast?.("Link direto do cliente copiado.");}
+    catch{window.prompt("Copie o link do portal:",linkNovoPortal);}
   };
+  const carregarAcessosPortal=async()=>{
+    const resposta=await gerenciarAcessoPortalCliente({operation:"list",obraId});
+    if(resposta.status===200)setAcessosPortal(resposta.accesses||[]);
+    else showToast?.(resposta.error||"Não foi possível carregar os acessos do portal.","error");
+  };
+  const gerarSenhaPortal=()=>{
+    const random=(globalThis.crypto?.getRandomValues?globalThis.crypto.getRandomValues(new Uint32Array(1))[0].toString(36):Date.now().toString(36)).padStart(8,"0");
+    const senha=`Arcd${random}2026`;
+    setPortalForm(form=>({...form,password:senha}));
+  };
+  const cadastrarAcessoPortal=async()=>{
+    setPortalBusy(true);
+    try{
+      const resposta=await gerenciarAcessoPortalCliente({operation:"provision",obraId,...portalForm});
+      if(resposta.status!==200)throw new Error(resposta.error||"Não foi possível criar o acesso.");
+      setAcessosPortal(resposta.accesses||[]);
+      showToast?.("Acesso individual criado e dados da obra publicados.");
+    }catch(error){showToast?.(error.message,"error");}
+    finally{setPortalBusy(false);}
+  };
+  const revogarAcessoPortal=async membershipId=>{
+    setPortalBusy(true);
+    try{
+      const resposta=await gerenciarAcessoPortalCliente({operation:"revoke",obraId,membershipId});
+      if(resposta.status!==200)throw new Error(resposta.error||"Não foi possível revogar o acesso.");
+      setAcessosPortal(resposta.accesses||[]);
+      showToast?.("Acesso revogado e sessões encerradas.");
+    }catch(error){showToast?.(error.message,"error");}
+    finally{setPortalBusy(false);}
+  };
+  const publicarPortalSeguro=async()=>{
+    setPortalBusy(true);
+    try{
+      const resposta=await gerenciarAcessoPortalCliente({operation:"publish",obraId});
+      if(resposta.status!==200)throw new Error(resposta.error||"Não foi possível publicar os dados.");
+      showToast?.("Dados seguros do portal atualizados.");
+    }catch(error){showToast?.(error.message,"error");}
+    finally{setPortalBusy(false);}
+  };
+
+  useEffect(()=>{
+    if(abaConteudo==="portal"&&ehAdmin)void carregarAcessosPortal();
+  },[abaConteudo,obraId,ehAdmin]);
 
   const registrarWorkspaceObra=workspace=>{
     if(!workspace?.driveId||!workspace?.folderId)return;
@@ -27919,8 +27981,20 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}><div><p style={{fontSize:10,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:.7}}>Experiência do cliente</p><h2 style={{fontSize:22,color:C.text,marginTop:3}}>Portal transparente da obra</h2><p style={{fontSize:11,color:C.muted,marginTop:4,maxWidth:650,lineHeight:1.55}}>Link exclusivo e somente leitura. Custos internos, compras, equipe, folha e dados administrativos nunca são enviados ao portal.</p></div><Btn v={portal.ativo?"danger":"success"} onClick={()=>atualizarPortal({ativo:!portal.ativo})}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
             <div style={{marginTop:14}}><Inp label="Mensagem de abertura" value={portal.mensagem||""} onChange={v=>atualizarPortal({mensagem:v})} placeholder="Ex.: Sua obra avança com qualidade e segurança."/></div>
             <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:8,marginTop:12}}>{[["publicarFotos","Fotos aprovadas",portal.publicarFotos!==false],["publicarCronograma","Cronograma resumido",portal.publicarCronograma!==false],["publicarFinanceiro","Medições e pagamentos",!!portal.publicarFinanceiro],["publicarDocumentos","Documentos liberados",portal.publicarDocumentos!==false]].map(([k,l,checked])=><label key={k} style={{display:"flex",gap:8,alignItems:"center",padding:"10px 11px",border:`1px solid ${checked?C.blue:C.border}`,borderRadius:8,background:checked?`${C.blue}08`:C.surface,cursor:"pointer",fontSize:11,fontWeight:750,color:C.text}}><input type="checkbox" checked={checked} onChange={e=>atualizarPortal({[k]:e.target.checked})}/>{l}</label>)}</div>
-            <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap"}}><Btn onClick={copiarLinkPortal} disabled={!portal.ativo}><Ic n="link"/> Copiar link legado</Btn><Btn v="primary" onClick={()=>window.open(linkNovoPortal,"_blank","noopener,noreferrer")}><Ic n="lock"/> Abrir novo portal</Btn>{portal.ativo&&<Btn v={visualizandoComoCliente?"primary":"ghost"} onClick={()=>setVisualizandoComoCliente(v=>!v)}><Ic n="eye"/> {visualizandoComoCliente?"Fechar visualização":"Visualizar como cliente"}</Btn>}<Btn v="ghost" onClick={()=>{setVisualizandoComoCliente(false);atualizarPortal({token:globalThis.crypto?.randomUUID?.()||uid()+uid()});}}><Ic n="refresh"/> Revogar link anterior</Btn></div>
-            <p style={{marginTop:9,fontSize:10.5,lineHeight:1.5,color:C.muted}}>O novo portal usa e-mail, senha e permissão individual por obra. Ele não reutiliza o token do link legado.</p>
+            <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap"}}><Btn onClick={copiarLinkPortal} disabled={!portal.ativo}><Ic n="link"/> Copiar link sem login</Btn><Btn v="primary" onClick={()=>window.open(linkNovoPortal,"_blank","noopener,noreferrer")}><Ic n="lock"/> Abrir novo portal</Btn><Btn v="ghost" onClick={publicarPortalSeguro} disabled={portalBusy}><Ic n="refresh"/> Atualizar dados publicados</Btn>{portal.ativo&&<Btn v={visualizandoComoCliente?"primary":"ghost"} onClick={()=>setVisualizandoComoCliente(v=>!v)}><Ic n="eye"/> {visualizandoComoCliente?"Fechar visualização":"Visualizar legado"}</Btn>}<Btn v="ghost" onClick={()=>{setVisualizandoComoCliente(false);atualizarPortal({token:globalThis.crypto?.randomUUID?.()||uid()+uid()});}}><Ic n="refresh"/> Revogar link anterior</Btn></div>
+            <p style={{marginTop:9,fontSize:10.5,lineHeight:1.5,color:C.muted}}>O link sem login mostra somente os dados marcados para publicação. O acesso individual acrescenta histórico, perfil e auditoria por cliente.</p>
+          </div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16}}>
+            <h3 style={{fontSize:15,color:C.text}}>Acessos individuais</h3>
+            <p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Cadastre o cliente, defina a senha inicial e vincule-o somente a esta obra.</p>
+            <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:8,marginTop:12}}>
+              <label style={{fontSize:10,fontWeight:800,color:C.text}}>E-mail<input value={portalForm.email} onChange={e=>setPortalForm(form=>({...form,email:e.target.value}))} type="email" placeholder="cliente@email.com" style={{display:"block",width:"100%",marginTop:5,padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6}}/></label>
+              <label style={{fontSize:10,fontWeight:800,color:C.text}}>Telefone<input value={portalForm.phone} onChange={e=>setPortalForm(form=>({...form,phone:e.target.value}))} placeholder="(81) 99999-9999" style={{display:"block",width:"100%",marginTop:5,padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6}}/></label>
+              <label style={{fontSize:10,fontWeight:800,color:C.text}}>Perfil<select value={portalForm.profile} onChange={e=>setPortalForm(form=>({...form,profile:e.target.value}))} style={{display:"block",width:"100%",marginTop:5,padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6}}><option value="owner">Proprietário</option><option value="spouse">Cônjuge</option><option value="representative">Representante</option><option value="financial">Financeiro</option><option value="external_architect">Arquiteto externo</option><option value="observer">Observador</option></select></label>
+              <label style={{fontSize:10,fontWeight:800,color:C.text}}>Senha inicial<div style={{display:"flex",gap:5,marginTop:5}}><input value={portalForm.password} onChange={e=>setPortalForm(form=>({...form,password:e.target.value}))} style={{width:"100%",padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6}}/><Btn size="sm" v="ghost" onClick={gerarSenhaPortal}>Gerar</Btn></div></label>
+            </div>
+            <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}><Btn onClick={cadastrarAcessoPortal} disabled={portalBusy||!portalForm.email||!portalForm.password}><Ic n="user"/> {portalBusy?"Salvando...":"Criar ou atualizar acesso"}</Btn>{portalForm.password&&<Btn v="ghost" onClick={()=>navigator.clipboard.writeText(`Portal ARCD: ${linkNovoPortal}\nE-mail: ${portalForm.email}\nSenha inicial: ${portalForm.password}`)}><Ic n="copy"/> Copiar convite</Btn>}</div>
+            <div style={{marginTop:14}}>{!acessosPortal.length?<p style={{fontSize:11,color:C.muted}}>Nenhum cliente com acesso individual nesta obra.</p>:acessosPortal.map(acesso=><div key={acesso.id} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderTop:`1px solid ${C.line}`,fontSize:11}}><div style={{flex:1}}><strong style={{color:C.text}}>{acesso.email}</strong><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{acesso.profile} · {acesso.active?"Ativo":"Revogado"}{acesso.lastLoginAt?` · último acesso ${new Date(acesso.lastLoginAt).toLocaleString("pt-BR")}`:""}</p></div>{acesso.active&&<Btn size="sm" v="danger" onClick={()=>revogarAcessoPortal(acesso.id)} disabled={portalBusy}><Ic n="x"/> Revogar</Btn>}</div>)}</div>
           </div>
           {visualizandoComoCliente&&portal.ativo&&<div style={{background:"#eef1f5",border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",boxShadow:`0 14px 38px ${C.shadow}`}}><div style={{display:"flex",alignItems:"center",gap:7,padding:"9px 12px",background:"#e4e8ee",borderBottom:`1px solid ${C.border}`}}><span style={{width:9,height:9,borderRadius:99,background:"#ff5f57"}}/><span style={{width:9,height:9,borderRadius:99,background:"#febc2e"}}/><span style={{width:9,height:9,borderRadius:99,background:"#28c840"}}/><div style={{flex:1,background:"#fff",borderRadius:6,padding:"5px 9px",fontSize:9.5,color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{linkPortal}</div><Btn size="sm" v="ghost" onClick={()=>window.open(linkPortal,"_blank","noopener,noreferrer")}>Abrir em nova aba ↗</Btn></div><div style={{padding:"8px 12px",background:`${C.blue}09`,borderBottom:`1px solid ${C.blue}25`,fontSize:10,color:C.blue,fontWeight:750}}>PRÉ-VISUALIZAÇÃO EXATA · abaixo está a mesma página acessada pelo cliente</div><iframe title={`Portal do cliente · ${obra.name}`} src={linkPortal} sandbox="allow-scripts allow-same-origin allow-popups" style={{display:"block",width:"100%",height:"min(760px,75vh)",border:0,background:"#fff"}}/></div>}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16}}><h3 style={{fontSize:14,color:C.text}}>Documentos liberados ao cliente</h3><p style={{fontSize:10.5,color:C.muted,margin:"3px 0 10px"}}>O documento só aparece no portal quando marcado individualmente.</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:11,color:C.muted}}>Nenhum documento enviado.</p>:(obra.documentosOneDrive||[]).map(doc=><label key={doc.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderTop:`1px solid ${C.line}`,fontSize:11.5,color:C.text}}><input type="checkbox" checked={doc.publicarCliente===true} onChange={e=>update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,documentosOneDrive:(o.documentosOneDrive||[]).map(d=>d.id===doc.id?{...d,publicarCliente:e.target.checked}:d)}:o)})}/><Ic n="file"/><span style={{flex:1}}>{doc.nome}</span><span style={{color:doc.publicarCliente?C.green:C.muted}}>{doc.publicarCliente?"Publicado":"Interno"}</span></label>)}</div>

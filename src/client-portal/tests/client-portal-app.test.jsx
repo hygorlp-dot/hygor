@@ -5,10 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import ClientPortalApp from "../app/ClientPortalApp.jsx";
 import { ClientPortalBottomNav } from "../app/ClientPortalBottomNav.jsx";
 import { ClientPortalRouter } from "../app/ClientPortalRouter.jsx";
+import { readClientPortalByLink } from "../services/clientPortalApi.js";
 
 const mounted = [];
 function render(ui) { const container=document.createElement("div"); document.body.append(container); const root=createRoot(container); act(() => root.render(ui)); mounted.push({container,root}); return container; }
-afterEach(() => { while(mounted.length){ const {container,root}=mounted.pop(); act(() => root.unmount()); container.remove(); } });
+afterEach(() => { while(mounted.length){ const {container,root}=mounted.pop(); act(() => root.unmount()); container.remove(); } vi.restoreAllMocks(); window.history.replaceState({}, "", "/"); });
 
 const portalData = { project:{name:"Residência Monte Verde",progress:48,currentPhase:"Instalações",estimatedCompletion:"18 de dezembro de 2026"}, decisions:[{id:"d"}], measurements:[{id:"m"}], publishedMedia:[{id:"photo"}], weeklyUpdates:[{id:"w",period:"14–20 jul",summary:"Instalações concluídas",nextSteps:["Revestimentos"]}] };
 
@@ -34,6 +35,17 @@ describe("ClientPortalApp", () => {
     expect(financial.disabled).toBe(true);
     act(() => financial.click());
     expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it("converte o link revogável sem login para a projeção segura do portal novo", async () => {
+    const fetchMock=vi.spyOn(globalThis,"fetch").mockResolvedValue({
+      ok:true,status:200,json:async()=>({portal:{obra:{id:"obra-a",nome:"Residência Monte Verde"},progresso:48,cronograma:[{id:"t",nome:"Fundação",progresso:35}],fotos:[],medicoes:[],documentos:[],atualizacoes:[]}}),
+    });
+    const result=await readClientPortalByLink("obra-a","token-seguro");
+    expect(result.project).toMatchObject({id:"obra-a",name:"Residência Monte Verde",progress:48});
+    expect(result.timeline[0]).toMatchObject({phase:"Fundação",progress:35});
+    expect(fetchMock).toHaveBeenCalledWith("/api/data",expect.objectContaining({method:"POST"}));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({action:"client-portal",obraId:"obra-a",token:"token-seguro"});
   });
 
   it("renders published progress, decisions and financial content instead of placeholders", () => {
