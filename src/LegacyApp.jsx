@@ -21541,6 +21541,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const [recebedorMaoObraId,setRecebedorMaoObraId]=useState("");
   const [detalhesPix,setDetalhesPix]=useState(false);
   const [pixAutoPreparadoId,setPixAutoPreparadoId]=useState("");
+  const [confirmarPixModal,setConfirmarPixModal]=useState(null); // { employeeId }
   const [entradaModal,setEntradaModal]=useState(null);        // { trId }
   const [entradaForm,setEntradaForm]=useState({tipo:"medicao",contratoId:"",medicaoId:"",obraId:"",categoria:"aporte_cliente",descricao:"",novaParcela:false,novaParcelaDescricao:"",novaParcelaCompetencia:"",novaParcelaValor:""});
   const [transferModal,setTransferModal]=useState(null);     // { trId }
@@ -21928,6 +21929,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     setRecebedorMaoObraId(tr.recebedorMaoObra?.employeeId || "");
     setDetalhesPix(false);
     setPixAutoPreparadoId("");
+    setConfirmarPixModal(null);
     setApropModal(tr);
   };
 
@@ -21968,7 +21970,6 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     setRateios([{destino:"obra",obraId:sugestao.emp.obra,categoria:"mao_obra",valor:String(Math.abs(Number(apropModal.valor||0)).toFixed(2))}]);
     setPixAutoPreparadoId(apropModal.id);
   },[apropModal,correspondenciaPixExata,pixAutoPreparadoId]);
-  const rateioPixAutomatico=!!(correspondenciaPixExata&&recebedorSelecionado?.emp.id===correspondenciaPixExata.emp.id&&rateios.length===1&&rateios[0]?.destino==="obra"&&rateios[0]?.obraId===correspondenciaPixExata.emp.obra&&rateios[0]?.categoria==="mao_obra");
 
   // Ao escolher uma medição, o rateio já vai pronto para a obra dela
   const escolherMedicao = (c) => {
@@ -21992,18 +21993,43 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const totalRateado = somaRateios(rateios.map(r => ({...r, valor: Number(r.valor||0)})));
   const alvo = apropModal ? Math.abs(Number(apropModal.valor)) : 0;
   const diferenca = alvo - totalRateado;
+  const rateioMaoObraPreparado=!!(recebedorSelecionado?.emp?.obra&&rateios.length===1&&rateios[0]?.destino==="obra"&&rateios[0]?.obraId===recebedorSelecionado.emp.obra&&rateios[0]?.categoria==="mao_obra"&&Math.abs(Number(rateios[0]?.valor||0)-alvo)<.01);
+  const rateioPixAutomatico=!!(rateioMaoObraPreparado&&correspondenciaPixExata?.emp.id===recebedorSelecionado?.emp.id);
+
+  const prepararRateioMaoObra = (s) => {
+    if(!s?.emp?.obra)return false;
+    setRecebedorMaoObraId(s.emp.id);
+    setRateios([{destino:"obra",obraId:s.emp.obra,categoria:"mao_obra",valor:String(alvo.toFixed(2))}]);
+    return true;
+  };
+  const selecionarOperarioPix = (s) => {
+    if(!prepararRateioMaoObra(s)){
+      setRecebedorMaoObraId(s?.emp?.id||"");
+      setDetalhesPix(true);
+      showToast("Este operário não tem obra definida. Informe o destino antes de conciliar.","warn");
+      return;
+    }
+    setDetalhesPix(false);
+    setConfirmarPixModal({employeeId:s.emp.id});
+  };
+  const selecionarOperarioNosDetalhes = (employeeId) => {
+    setRecebedorMaoObraId(employeeId);
+    const s=recebedoresMaoObra.find(item=>item.emp.id===employeeId);
+    if(s?.emp?.obra)prepararRateioMaoObra(s);
+  };
 
   const confirmarApropriacao = async () => {
     if(!apropModal)return;
     const rs=rateios.map(item=>({destination:item.destino,obraId:item.obraId,category:item.categoria,value:Number(item.valor||0)}));
-    if(!rs.length||rs.some(item=>!(item.value>0))||Math.abs(diferenca)>=0.01){showToast("Confira os destinos: o rateio precisa fechar exatamente o valor do extrato.","error");return;}
+    if(!rs.length||rs.some(item=>!(item.value>0))||Math.abs(diferenca)>=0.01){showToast("Confira os destinos: o rateio precisa fechar exatamente o valor do extrato.","error");return false;}
     const worker=recebedorSelecionado?{employeeId:recebedorSelecionado.emp.id,employeeName:recebedorSelecionado.emp.name,pixHolder:recebedorSelecionado.emp.pixHolder||""}:null;
     const autoRule=criarRegra&&padraoRegra.trim()?{pattern:padraoRegra.trim()}:null;
     const ok=await executarConciliacaoNoServidor({type:"CONFIRM_ALLOCATION",payload:{transactionId:apropModal.id,allocations:rs,measurementId:medAlvo?.m?.id||"",worker,autoRule}},"O servidor não confirmou o rateio.");
-    if(!ok)return;
+    if(!ok)return false;
     const compraMaterial=Number(apropModal.valor)<0&&rs.some(item=>item.destination==="obra"&&item.category==="material");
     setApropModal(null);setRateios([]);setMedAlvo(null);setRecebedorMaoObraId("");
     showToast(compraMaterial?"Conciliação confirmada. Lembre de registrar a entrada física no estoque.":"Conciliação confirmada e refletida no DRE.");
+    return true;
   };
 
   // Estornos também passam pelo servidor. O motivo é obrigatório para que
@@ -22418,30 +22444,40 @@ function Conciliacao({ data, update, showToast, currentUser }) {
             {/* Cartão PIX: o operador confirma uma decisão já explicada, em vez
                 de remontar um rateio que o ponto e o extrato já determinaram. */}
             {apropModal && Number(apropModal.valor||0)<0 && (
-              <div style={{background:C.surface,border:`1px solid ${rateioPixAutomatico?`${C.green}66`:recebedorSelecionado?`${C.orange}66`:C.border}`,borderRadius:10,padding:"12px 13px"}}>
+              <div style={{background:C.surface,border:`1px solid ${rateioMaoObraPreparado?`${C.green}66`:recebedorSelecionado?`${C.orange}66`:C.border}`,borderRadius:10,padding:"12px 13px"}}>
                 <p style={{fontSize:9,fontWeight:850,letterSpacing:1,textTransform:"uppercase",color:C.yellowD}}>Cartão PIX · saída bancária</p>
                 <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10,marginTop:8}}>
                   <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Quem recebeu</p><p style={{fontSize:13,fontWeight:850,color:C.text,marginTop:2}}>{recebedorSelecionado?.emp.name||"Aguardando identificação"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{recebedorSelecionado?.emp.pixHolder?`Titular PIX: ${recebedorSelecionado.emp.pixHolder}`:"Selecione apenas se o cruzamento não for inequívoco"}</p></div>
                   <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Obra sugerida</p><p style={{fontSize:13,fontWeight:850,color:C.text,marginTop:2}}>{(data.obras||[]).find(o=>o.id===recebedorSelecionado?.emp.obra)?.name||"Definir nos detalhes"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{recebedorSelecionado?.periodoPonto?`Ponto: ${recebedorSelecionado.periodoPonto}`:`Quinzena a conferir`} · {recebedorSelecionado?.diasTrabalhados||0} dia(s)</p></div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10,marginTop:9,paddingTop:9,borderTop:`1px solid ${C.line}`}}>
-                  <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Valor do ponto</p><p style={{fontSize:14,fontWeight:850,color:rateioPixAutomatico?C.green:C.text,marginTop:2}}>{recebedorSelecionado?fmt(recebedorSelecionado.esperado||0):"—"}</p><p style={{fontSize:9.5,color:recebedorSelecionado&&Math.abs(Number(recebedorSelecionado.divergencia||0))>=.01?C.orange:C.muted,marginTop:2}}>{recebedorSelecionado&&Math.abs(Number(recebedorSelecionado.divergencia||0))>=.01?`${fmt(Math.abs(recebedorSelecionado.divergencia))} de divergência — confirme nos detalhes`:`Pagamento PIX ${fmt(alvo)}`}</p></div>
+                  <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Valor do ponto</p><p style={{fontSize:14,fontWeight:850,color:rateioMaoObraPreparado?C.green:C.text,marginTop:2}}>{recebedorSelecionado?fmt(recebedorSelecionado.esperado||0):"—"}</p><p style={{fontSize:9.5,color:recebedorSelecionado&&Math.abs(Number(recebedorSelecionado.divergencia||0))>=.01?C.orange:C.muted,marginTop:2}}>{recebedorSelecionado&&Math.abs(Number(recebedorSelecionado.divergencia||0))>=.01?`${fmt(Math.abs(recebedorSelecionado.divergencia))} de divergência — confirme nos detalhes`:`Pagamento PIX ${fmt(alvo)}`}</p></div>
                   <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Evidência PIX</p><p style={{fontSize:10.5,fontWeight:750,color:C.text,marginTop:3,lineHeight:1.35,wordBreak:"break-word"}}>{apropModal.descricao||"Descrição não informada"}</p></div>
                 </div>
                 {rateioPixAutomatico&&<p style={{fontSize:10,color:C.green,fontWeight:800,marginTop:10}}>Correspondência confirmável: titular/chave PIX, valor e quinzena de referência foram identificados. O rateio para mão de obra desta obra já foi preparado.</p>}
-                {!rateioPixAutomatico&&<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:10}}>Há uma divergência ou falta de evidência. Escolha o recebedor e o destino antes de confirmar.</p>}
+                {rateioMaoObraPreparado&&!rateioPixAutomatico&&<p style={{fontSize:10,color:C.green,fontWeight:800,marginTop:10}}>Operário selecionado. A obra e o rateio de mão de obra foram preparados; basta confirmar.</p>}
+                {!rateioMaoObraPreparado&&<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:10}}>Escolha abaixo quem recebeu este PIX. A conciliação só será efetivada após sua confirmação.</p>}
+                {sugMaoObra.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6,marginTop:10,paddingTop:10,borderTop:`1px solid ${C.line}`}}>
+                  <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Quem recebeu este PIX?</p>
+                  {sugMaoObra.map(s=>{
+                    const selecionado=recebedorSelecionado?.emp.id===s.emp.id;
+                    return <button type="button" key={s.emp.id} onClick={()=>selecionarOperarioPix(s)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,width:"100%",textAlign:"left",padding:"9px 10px",background:selecionado?`${C.green}0E`:C.card,border:`1px solid ${selecionado?`${C.green}88`:C.line}`,borderRadius:7,cursor:"pointer"}}>
+                      <span style={{minWidth:0}}><b style={{fontSize:10.5,color:C.text}}>{s.emp.name}</b><span style={{fontSize:9.5,color:C.muted}}> · {s.motivos.join(" · ")}</span></span>
+                      <span style={{fontSize:10.5,fontWeight:850,color:C.green,whiteSpace:"nowrap"}}>{fmt(s.esperado)}</span>
+                    </button>;
+                  })}
+                </div>}
                 <button onClick={()=>setDetalhesPix(v=>!v)} style={{marginTop:10,border:0,background:"transparent",padding:0,color:C.yellowD,fontSize:10.5,fontWeight:850,cursor:"pointer"}}>{detalhesPix?"Ocultar ajustes e evidências":"Trocar operário ou obra / ver evidências"}</button>
                 {detalhesPix&&<div style={{display:"flex",flexDirection:"column",gap:7,marginTop:10,paddingTop:10,borderTop:`1px solid ${C.line}`}}>
-                  <Sel label="Quem recebeu este pagamento?" value={recebedorMaoObraId} onChange={setRecebedorMaoObraId} options={[{v:"",l:"Não vincular a um colaborador agora"},...recebedoresMaoObra.map(s=>({v:s.emp.id,l:[s.emp.name,s.emp.pixHolder?`PIX: ${s.emp.pixHolder}`:""].filter(Boolean).join(" · ")}))]}/>
-                  {sugMaoObra.map(s=><div key={s.emp.id} style={{display:"flex",justifyContent:"space-between",gap:9,padding:"7px 8px",background:C.card,border:`1px solid ${Math.abs(Number(s.divergencia||0))<.01?C.line:`${C.orange}55`}`,borderRadius:7}}><span style={{fontSize:10,color:C.text}}><b>{s.emp.name}</b> · {s.motivos.join(" · ")}</span><span style={{fontSize:10,fontWeight:800,color:Math.abs(Number(s.divergencia||0))<.01?C.green:C.orange,whiteSpace:"nowrap"}}>{fmt(s.esperado)}</span></div>)}
+                  <Sel label="Outro operário" value={recebedorMaoObraId} onChange={selecionarOperarioNosDetalhes} options={[{v:"",l:"Não vincular a um colaborador agora"},...recebedoresMaoObra.map(s=>({v:s.emp.id,l:[s.emp.name,s.emp.pixHolder?`PIX: ${s.emp.pixHolder}`:""].filter(Boolean).join(" · ")}))]}/>
                 </div>}
               </div>
             )}
 
-            {!rateioPixAutomatico&&<p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>Divida o valor entre obras e a empresa somente quando esta saída não puder ser associada de forma inequívoca.</p>}
+            {!rateioMaoObraPreparado&&<p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>Divida o valor entre obras e a empresa somente quando esta saída não puder ser associada de forma inequívoca.</p>}
 
             {/* Linhas de rateio */}
-            {!rateioPixAutomatico&&rateios.map((r,i)=>(
+            {!rateioMaoObraPreparado&&rateios.map((r,i)=>(
               <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 11px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
                   <p style={{fontSize:10,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>
@@ -22477,10 +22513,10 @@ function Conciliacao({ data, update, showToast, currentUser }) {
               </div>
             ))}
 
-            {!rateioPixAutomatico&&<Btn v="ghost" onClick={addRateio} full><Ic n="plus"/> Adicionar outro destino</Btn>}
+            {!rateioMaoObraPreparado&&<Btn v="ghost" onClick={addRateio} full><Ic n="plus"/> Adicionar outro destino</Btn>}
 
             {/* Fechamento do rateio */}
-            {!rateioPixAutomatico&&<div style={{
+            {!rateioMaoObraPreparado&&<div style={{
               background: Math.abs(diferenca) < 0.01 ? `${C.green}0E` : `${C.orange}0E`,
               border:`1.5px solid ${Math.abs(diferenca) < 0.01 ? C.green : C.orange}`,
               borderRadius:6, padding:"10px 12px",
@@ -22505,7 +22541,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
             </div>}
 
             {/* Criar regra */}
-            {!rateioPixAutomatico&&rateios.length === 1 && (
+            {!rateioMaoObraPreparado&&rateios.length === 1 && (
               <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
                 <label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer"}}>
                   <div onClick={()=>setCriarRegra(!criarRegra)} style={{
@@ -22533,7 +22569,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
             )}
 
             <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>{setApropModal(null);setRateios([]);setMedAlvo(null);}} full>Cancelar</Btn>
+              <Btn v="ghost" onClick={()=>{setApropModal(null);setRateios([]);setMedAlvo(null);setConfirmarPixModal(null);}} full>Cancelar</Btn>
               <Btn onClick={confirmarApropriacao} full disabled={Math.abs(diferenca) >= 0.01}>
                 <Ic n="check"/> Confirmar conciliação
               </Btn>
@@ -22541,6 +22577,26 @@ function Conciliacao({ data, update, showToast, currentUser }) {
           </div>
         </Modal>
       )}
+
+      {confirmarPixModal && apropModal && (() => {
+        const operario=recebedoresMaoObra.find(item=>item.emp.id===confirmarPixModal.employeeId);
+        if(!operario)return null;
+        const obra=(data.obras||[]).find(item=>item.id===operario.emp.obra);
+        return <Modal title="Confirmar conciliação PIX" onClose={()=>setConfirmarPixModal(null)}>
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div style={{background:`${C.green}0A`,border:`1px solid ${C.green}55`,borderRadius:8,padding:"12px 13px"}}>
+              <p style={{fontSize:10,color:C.muted}}>Confirmar que este PIX foi recebido por</p>
+              <p style={{fontSize:15,fontWeight:850,color:C.text,marginTop:4}}>{operario.emp.name}</p>
+              <p style={{fontSize:10.5,color:C.muted,marginTop:4}}>Obra: <b style={{color:C.text}}>{obra?.name||"Não identificada"}</b> · Mão de obra · {fmt(alvo)}</p>
+              <p style={{fontSize:9.5,color:C.muted,marginTop:7,lineHeight:1.45}}>A confirmação vincula o PIX ao operário e registra o rateio auditável. Nenhum outro ajuste é necessário.</p>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setConfirmarPixModal(null)} full>Voltar</Btn>
+              <Btn onClick={async()=>{const ok=await confirmarApropriacao();if(ok)setConfirmarPixModal(null);}} full disabled={conciliando}><Ic n="check"/> Confirmar</Btn>
+            </div>
+          </div>
+        </Modal>;
+      })()}
 
       {/*  Modal: revisar sugestão do motor de candidatos  */}
       {candidatoModal && (() => {
