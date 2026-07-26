@@ -27982,6 +27982,11 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
   const compromissosDaObra = useMemo(() => (data.weeklyCommitments||[])
     .filter(item=>String(item.obraId)===String(obraId)&&item.status!=="cancelado")
     .map(item=>applyProgressToCommitment(item,data.progressRecords||[])), [data.weeklyCommitments, data.progressRecords, obraId]);
+  const trabalhadoresDaObra = useMemo(() => {
+    const ativos=(data.employees||[]).filter(item=>item.active!==false);
+    const vinculados=ativos.filter(item=>String(item.obraId||item.obra||"")===String(obraId));
+    return vinculados.length?vinculados:ativos;
+  }, [data.employees, obraId]);
   const podeConcluirCompromisso=["admin","engenheiro","engenheiro_auditor","planejamento","mestre"].includes(currentUser?.role);
   const compBase   = useMemo(() => compararBaseline(tarefas, plano), [tarefas, plano]);
   // Planejado x realizado automatico: progresso medido vs reta do cronograma.
@@ -28020,6 +28025,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
   const [questIA,     setQuestIA]     = useState(null);   // parecer opcional da IA
   const [vincPreview, setVincPreview] = useState(null);   // antecessoras/sucessoras propostas
   const [novoCompromisso, setNovoCompromisso] = useState(null);
+  const [novoAvanco, setNovoAvanco] = useState(null);
   const [zoom, setZoom] = useState("semana");             // dia | semana | mes
   const [aba,  setAba]  = useState("gantt");              // gantt | mensal | curvaS | ff
   const [ffModo, setFfModo] = useState("previsto");       // previsto | realizado (tabela FF mensal)
@@ -28093,6 +28099,19 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
       actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{commitment:{id:uid(),obraId,activityId:form.activityId,descricao:String(form.descricao).trim(),quantidadePrometida:Number(form.quantidadePrometida),data:form.data}}}));
     if(!result?.ok){showToast?.(result?.reason||"Não foi possível criar o compromisso.","error");return;}
     setNovoCompromisso(null);showToast?.("Compromisso semanal criado.");
+  };
+  const abrirNovoAvanco = compromisso => setNovoAvanco({commitmentId:compromisso.id,activityId:compromisso.activityId,descricao:compromisso.descricao||"",quantity:"",data:today(),workerIds:[]});
+  const alternarTrabalhadorAvanco = employeeId => setNovoAvanco(form=>({...form,workerIds:(form.workerIds||[]).includes(employeeId)?form.workerIds.filter(id=>id!==employeeId):[...(form.workerIds||[]),employeeId]}));
+  const registrarAvanco = async () => {
+    const form=novoAvanco||{};
+    if(!String(form.activityId||"").trim()||Number(form.quantity)<=0||!/^\d{4}-\d{2}-\d{2}$/.test(String(form.data||""))){showToast?.("Informe quantidade executada e data válida.","error");return;}
+    const atividade=(data.scheduleActivities||[]).find(item=>String(item.id)===String(form.activityId));
+    if((atividade?.criticalActivity||atividade?.atividadeCritica)&&!(form.workerIds||[]).length){showToast?.("Atividade crítica exige a equipe identificada.","error");return;}
+    if(!dispatchCommand){showToast?.("O registro de avanço exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(()=>({type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,idempotencyKey:`avanco-fisico-${uid()}`,
+      actorId:currentUser?.id||"",actorName:currentUser?.nome||"",expectedVersion:0,payload:{record:{id:uid(),obraId,activityId:form.activityId,commitmentId:form.commitmentId,quantity:Number(form.quantity),data:form.data,workerIds:form.workerIds||[]}}}));
+    if(!result?.ok){showToast?.(result?.reason||"Não foi possível registrar o avanço.","error");return;}
+    setNovoAvanco(null);showToast?.("Avanço físico registrado.");
   };
 
   const upsertTarefa = (t) => salvarPlano(p => {
@@ -28671,12 +28690,13 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
           <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:10,color:C.muted}}>{ppcSemanal.completed} concluído(s) de {ppcSemanal.total}</span>{podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={abrirNovoCompromisso}>Adicionar</Btn>}</div>
         </div>
         {novoCompromisso&&<div style={{padding:"10px 12px",background:C.surface,borderBottom:`1px solid ${C.line}`}}><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:8}}><Sel label="Atividade" value={novoCompromisso.activityId} onChange={v=>setNovoCompromisso(form=>({...form,activityId:v}))} options={tarefas.filter(item=>!item.titulo).map(item=>({v:item.id,l:item.nome||"Atividade"}))}/><Inp label="Compromisso" value={novoCompromisso.descricao} onChange={v=>setNovoCompromisso(form=>({...form,descricao:v}))} placeholder="Ex.: Assentar alvenaria do pavimento"/><Inp label="Meta" type="number" value={novoCompromisso.quantidadePrometida} onChange={v=>setNovoCompromisso(form=>({...form,quantidadePrometida:v}))}/><Inp label="Data" type="date" value={novoCompromisso.data} onChange={v=>setNovoCompromisso(form=>({...form,data:v}))}/></div><div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:9}}><Btn size="sm" v="ghost" onClick={()=>setNovoCompromisso(null)}>Cancelar</Btn><Btn size="sm" onClick={criarCompromissoSemanal}>Criar compromisso</Btn></div></div>}
+        {novoAvanco&&<div style={{padding:"10px 12px",background:C.surface,borderBottom:`1px solid ${C.line}`}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline",marginBottom:8}}><div><p style={{fontSize:9.5,fontWeight:900,textTransform:"uppercase",letterSpacing:.6,color:C.blue}}>Registro de produção</p><b style={{fontSize:11,color:C.text}}>{novoAvanco.descricao}</b></div><span style={{fontSize:9.5,color:C.muted}}>O avanço entra na evidência do compromisso.</span></div><div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}><Inp label="Quantidade executada" type="number" value={novoAvanco.quantity} onChange={v=>setNovoAvanco(form=>({...form,quantity:v}))}/><Inp label="Data" type="date" value={novoAvanco.data} onChange={v=>setNovoAvanco(form=>({...form,data:v}))}/></div><div style={{marginTop:9}}><p style={{fontSize:9.5,fontWeight:800,color:C.text}}>Equipe vinculada <span style={{fontWeight:500,color:C.muted}}>· obrigatória em atividade crítica</span></p><div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>{trabalhadoresDaObra.map(worker=>{const checked=(novoAvanco.workerIds||[]).includes(worker.id);return <label key={worker.id} style={{display:"inline-flex",gap:6,alignItems:"center",padding:"6px 8px",border:`1px solid ${checked?C.blue:C.border}`,borderRadius:6,background:checked?`${C.blue}08`:C.card,cursor:"pointer",fontSize:10,color:C.text}}><input type="checkbox" checked={checked} onChange={()=>alternarTrabalhadorAvanco(worker.id)} style={{accentColor:C.blue}}/>{worker.name||worker.nome||"Colaborador"}</label>;})}{!trabalhadoresDaObra.length&&<span style={{fontSize:10,color:C.orange}}>Nenhum colaborador ativo disponível para vincular.</span>}</div></div><div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:9}}><Btn size="sm" v="ghost" onClick={()=>setNovoAvanco(null)}>Cancelar</Btn><Btn size="sm" onClick={registrarAvanco}>Registrar avanço</Btn></div></div>}
         <div>{compromissosDaObra.slice(0,8).map(compromisso=>{
           const concluido=compromisso.status==="concluido",naoConcluido=compromisso.status==="nao_concluido",cor=concluido?C.green:naoConcluido?C.orange:C.blue;
           const meta=Math.max(0,Number(compromisso.quantidadePrometida||0)),feito=Math.max(0,Number(compromisso.quantidadeRealizada||0)),pct=meta?Math.min(100,feito/meta*100):0;
           return <div key={compromisso.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:12,alignItems:"center",padding:"10px 12px",borderTop:`1px solid ${C.line}`}}>
             <div style={{minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}><b style={{fontSize:11,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{compromisso.descricao||"Compromisso sem descrição"}</b><span style={{fontSize:9,fontWeight:900,color:cor,textTransform:"uppercase",whiteSpace:"nowrap"}}>{concluido?"concluído":naoConcluido?"não concluído":"em aberto"}</span></div><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{feito} entregue de {meta||"—"} prometido{compromisso.motivoNaoCumprimento?` · ${compromisso.motivoNaoCumprimento}`:""}</p><div style={{height:3,background:C.surface,borderRadius:99,overflow:"hidden",marginTop:6}}><i style={{display:"block",height:"100%",width:`${pct}%`,background:cor}}/></div></div>
-            {!concluido&&!naoConcluido&&podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={()=>concluirCompromissoSemanal(compromisso)}>Concluir</Btn>}
+            {!concluido&&!naoConcluido&&podeConcluirCompromisso&&<div style={{display:"flex",gap:6,alignItems:"center"}}><Btn size="sm" v="ghost" onClick={()=>abrirNovoAvanco(compromisso)}>Registrar avanço</Btn><Btn size="sm" v="ghost" onClick={()=>concluirCompromissoSemanal(compromisso)}>Concluir</Btn></div>}
           </div>;
         })}{!compromissosDaObra.length&&!novoCompromisso&&<p style={{padding:"13px 12px",fontSize:10.5,color:C.muted}}>Nenhum compromisso ativo. Adicione o que será entregue nesta semana para acompanhar o PPC.</p>}</div>
       </div>}

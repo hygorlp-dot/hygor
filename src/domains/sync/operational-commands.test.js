@@ -61,6 +61,8 @@ describe("comandos operacionais versionados",()=>{
     expect(blocked.ok).toBe(false);expect(blocked.reason).toMatch(/APR aprovada/);
     const released=applyOperationalCommand({...initial,jobRiskAnalyses:[{activityId:"a-1",status:"aprovada"}],workPermits:[{activityId:"a-1",status:"liberada"}]},command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-safety-0002",payload,0));
     expect(released.ok).toBe(true);
+    const withoutWorkers=applyOperationalCommand({...initial,jobRiskAnalyses:[{activityId:"a-1",status:"aprovada"}],workPermits:[{activityId:"a-1",status:"liberada"}]},command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-safety-0003",{record:{...payload.record,workerIds:[]}},0));
+    expect(withoutWorkers.ok).toBe(false);expect(withoutWorkers.reason).toMatch(/equipe identificada/);
   });
 
   it("conclui compromisso semanal somente com produção ou motivo",()=>{

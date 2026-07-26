@@ -60,6 +60,7 @@ const validateProgressSafety=(data={},record={})=>{
   if(!source||!(source.criticalActivity||source.atividadeCritica))return "";
   const activity={...source,criticalActivity:true};
   const workerIds=new Set(record.workerIds||[]);
+  if(!workerIds.size)return "Atividade crítica exige equipe identificada.";
   const workers=(data.employees||[]).filter(item=>workerIds.has(item.id));
   const result=validateActivitySafety({
     activity,workers,
