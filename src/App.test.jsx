@@ -4,8 +4,8 @@ import { act } from "react";
 const mountedRoots = [];
 
 // LegacyApp é pesado (Supabase, ExcelJS, Recharts...) e não deve ser
-// montado de verdade num teste de roteamento - só precisamos confirmar
-// que a rota /sistema resolve para ele, não testar o app operacional aqui.
+// montado de verdade neste teste de entrada - só precisamos confirmar
+// que qualquer URL resolve diretamente para o ambiente operacional.
 vi.mock("./LegacyApp", () => ({
   default: () => <div data-testid="operational-app-stub">Sistema operacional (stub)</div>,
 }));
@@ -30,28 +30,27 @@ afterEach(() => {
   window.history.pushState({}, "", "/");
 });
 
-test("rota '/' renderiza a landing page pública sem tocar o app operacional", async () => {
+test("rota '/' abre diretamente o app operacional", async () => {
   const { container } = await renderApp("/");
-  expect(container.textContent).toContain("ARCD Construtech");
-  expect(container.textContent).toContain("Do primeiro traço à entrega das chaves.");
-  expect(container.querySelector('[data-testid="operational-app-stub"]')).toBeNull();
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(container.querySelector('[data-testid="operational-app-stub"]')).toBeTruthy();
 });
 
-test("rota '/sistema' carrega o app operacional (via lazy loading)", async () => {
+test("rota '/sistema' mantém acesso ao app operacional", async () => {
   const { container } = await renderApp("/sistema");
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   expect(container.querySelector('[data-testid="operational-app-stub"]')).toBeTruthy();
 });
 
-test("rota '/app' redireciona para '/sistema'", async () => {
+test("rota '/app' abre o app sem redirecionamento intermediário", async () => {
   const { container } = await renderApp("/app");
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
-  expect(window.location.pathname).toBe("/sistema");
+  expect(window.location.pathname).toBe("/app");
   expect(container.querySelector('[data-testid="operational-app-stub"]')).toBeTruthy();
 });
 
-test("rota desconhecida volta para a landing", async () => {
+test("rota desconhecida também abre o login operacional", async () => {
   const { container } = await renderApp("/rota-que-nao-existe");
-  expect(window.location.pathname).toBe("/");
-  expect(container.textContent).toContain("ARCD Construtech");
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(container.querySelector('[data-testid="operational-app-stub"]')).toBeTruthy();
 });

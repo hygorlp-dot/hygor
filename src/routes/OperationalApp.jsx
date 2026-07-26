@@ -1,8 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 
-// Sistema operacional existente - só é baixado quando a rota /sistema é
-// acessada. Nada aqui é compartilhado com a landing pública (bundle,
-// dados ou lógica), preservando o isolamento entre as duas áreas.
+// O sistema operacional continua em chunk próprio para exibir um estado de
+// carregamento imediato enquanto o aplicativo principal é baixado.
 const LegacyApp = lazy(() =>
   import(/* webpackChunkName: "operational-app" */ "../LegacyApp")
 );
