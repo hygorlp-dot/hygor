@@ -382,6 +382,12 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
         origem:payment.origem || payment.pagador || "",
       },
     };
+    if (payment.reconhecerCusto === false) {
+      add({ ...base, id: `pagamento_terceiro_legado:${id}:cash`, effect: "cash_out" });
+      issue("THIRD_PARTY_PAYMENT_UNALLOCATED", "pagamento_terceiro", payment,
+        "Pagamento de terceiro sem medição vinculada; saída mantida fora do DRE até a alocação.", { severity:"info" });
+      return;
+    }
     add({ ...base, id: `pagamento_terceiro_legado:${id}:cost`, effect: "cost" });
     add({ ...base, id: `pagamento_terceiro_legado:${id}:cash`, effect: "cash_out" });
     issue("THIRD_PARTY_PAYMENT_WITHOUT_MEASUREMENT", "pagamento_terceiro_legado", payment, "Custo reconhecido pelo pagamento por falta de medição.", { severity: "warning" });

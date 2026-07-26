@@ -110,6 +110,7 @@ import {
   selectFinancialMovements,
 } from "./domains/financeiro/ledger";
 import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeasurements } from "./domains/financeiro/measurement-mutations";
+import { createThirdPartyPayment, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
 import {
   analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
@@ -11325,31 +11326,31 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
       showToast("Este contrato não possui obra vinculada.", "error"); return;
     }
     const ret = calcRetencoes(amount, terc);
-    const pagsTerceiros = [...(data.pagsTerceiros || []), {
-      id: uid(), tercId: terc.id, tercName: terc.name, specialty: terc.specialty,
-      obraId: terc.obraId, date: friday, amount, description: payDesc || `Pagamento semanal ${fmtDateFull(friday)}`,
-      // A origem é definida para este lançamento e permanece congelada para que
-      // alterações futuras no contrato não reescrevam DREs já fechados.
-      pagador: paySource,
-      issRetido: ret.issRetido, inssRetido: ret.inssRetido, liquido: ret.liquido,
-    }];
-    update({ ...data, pagsTerceiros });
-    setPayModal(null); setPayAmount(""); setPayDesc(""); setPaySource("");
-    const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(terc.obraId)}`;
-    showToast(ret.retido > 0
-      ? `${terc.name} - ${fmt(amount)} bruto, ${fmt(ret.liquido)} líquido, pago ${origem}.`
-      : `${terc.name} - pagamento registrado ${origem}.`);
+    try {
+      update(createThirdPartyPayment({data,actor:currentUser,id:uid(),payment:{
+        tercId:terc.id,tercName:terc.name,specialty:terc.specialty,obraId:terc.obraId,date:friday,amount,
+        description:payDesc || `Pagamento semanal ${fmtDateFull(friday)}`,pagador:paySource,
+        issRetido:ret.issRetido,inssRetido:ret.inssRetido,liquido:ret.liquido,
+      }}));
+      setPayModal(null); setPayAmount(""); setPayDesc(""); setPaySource("");
+      const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(terc.obraId)}`;
+      showToast(ret.retido > 0
+        ? `${terc.name} - ${fmt(amount)} bruto, ${fmt(ret.liquido)} líquido, pago ${origem}.`
+        : `${terc.name} - pagamento registrado ${origem}.`);
+    } catch (error) {
+      showToast(error.message||"Não foi possível registrar o pagamento.","error");
+    }
   };
 
   const removePay = id => {
     const motivo=window.prompt("Motivo do estorno do pagamento:");
     if(!String(motivo||"").trim())return;
-    // A medição permanece vinculada ao fato estornado: o vínculo é prova,
-    // não uma referência a ser apagada.
-    update({ ...data,
-      pagsTerceiros: (data.pagsTerceiros || []).map(p=>p.id===id?cancelarRegistro(p,motivo,currentUser,"estornado"):p),
-      medicoesTerc: (data.medicoesTerc || []).map(m => m.pagamentoId === id ? { ...m, pagamentoEstornadoEm:new Date().toISOString() } : m) });
-    showToast("Pagamento estornado e preservado para auditoria.");
+    try {
+      update(reverseThirdPartyPayment({data,paymentId:id,reason:motivo,actor:currentUser}));
+      showToast("Pagamento estornado e preservado para auditoria.");
+    } catch (error) {
+      showToast(error.message||"Não foi possível estornar o pagamento.","error");
+    }
   };
 
   //  KANBAN DE CONTRATOS 
