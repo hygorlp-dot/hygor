@@ -56,6 +56,16 @@ describe("comandos operacionais versionados",()=>{
     expect(released.ok).toBe(true);
   });
 
+  it("conclui compromisso semanal somente com produção ou motivo",()=>{
+    const initial={weeklyCommitments:[{id:"c-1",obraId:"o-1",activityId:"a-1",quantidadePrometida:10,version:1,status:"aberto"}],progressRecords:[]};
+    const blocked=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED,"weekly-commitment-0001",{commitmentId:"c-1"},1));
+    expect(blocked.ok).toBe(false);
+    const justified=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED,"weekly-commitment-0002",{commitmentId:"c-1",reason:"Material não entregue"},1));
+    expect(justified.data.weeklyCommitments[0]).toMatchObject({status:"nao_concluido",version:2,motivoNaoCumprimento:"Material não entregue"});
+    const fulfilled=applyOperationalCommand({...initial,progressRecords:[{id:"p-1",commitmentId:"c-1",quantity:10,status:"confirmado"}]},command(OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED,"weekly-commitment-0003",{commitmentId:"c-1"},1));
+    expect(fulfilled.data.weeklyCommitments[0]).toMatchObject({status:"concluido",version:2,quantidadeRealizada:10});
+  });
+
   it("não duplica entrada física ao repetir um recebimento de pedido",()=>{
     const initial={pedidos:[{id:"p-1",obraId:"o-1",version:3,itens:[{id:"i-1",materialId:"mat-1",qtd:2,qtdRecebida:0,precoUnit:10}]}],movEstoque:[],materiais:[]};
     const payload={pedidoId:"p-1",receivedQuantities:{"i-1":2},stockEntries:[{id:"stock-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:2}]};

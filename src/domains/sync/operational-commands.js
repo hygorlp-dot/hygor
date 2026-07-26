@@ -9,7 +9,7 @@ import {
   validateTechnicalMeasurement,
 } from "../medicoes/index.js";
 import { inactive } from "../financeiro/workflows.js";
-import { cancelProgressRecord, createProgressRecord } from "../producao/mutations.js";
+import { cancelProgressRecord, completeWeeklyCommitment, createProgressRecord } from "../producao/mutations.js";
 import { canReleaseForMeasurement } from "../qualidade/calculations.js";
 import { validateActivitySafety } from "../seguranca/calculations.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
@@ -20,6 +20,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   PURCHASE_RECEIPT_RECORDED:"PEDIDO_RECEBIMENTO_REGISTRADO",
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
+  WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
 });
 
 const receipts=data=>Array.isArray(data?.operationalCommandReceipts)?data.operationalCommandReceipts:[];
@@ -166,6 +167,20 @@ export const applyOperationalCommand=(data,command)=>{
     const cancelled=cancelProgressRecord(current,{reason:command.payload?.reason,actor:{id:command.actorId,nome:command.actorName},now});
     if(!cancelled.ok)return fail(cancelled.error);
     const next={...data,progressRecords:(data?.progressRecords||[]).map(item=>item.id===id?cancelled.record:item)};
+    return {ok:true,data:appendReceipt(next,command,id,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED){
+    const id=String(command.payload?.commitmentId||"");
+    const current=(data?.weeklyCommitments||[]).find(item=>item.id===id);
+    if(!current)return fail("Compromisso semanal não encontrado.");
+    const versionError=requiresVersion(current,command.expectedVersion,"O compromisso semanal");
+    if(versionError)return fail(versionError);
+    if(["concluido","cancelado"].includes(current.status))return fail("Este compromisso semanal não pode mais ser concluído.");
+    const result=completeWeeklyCommitment(current,data?.progressRecords||[],{actor:{id:command.actorId,nome:command.actorName},now,reason:command.payload?.reason});
+    if(!result.ok)return fail(result.error);
+    const commitment={...result.commitment,version:versionOf(current)+1,completedAt:now,completedById:command.actorId||""};
+    const next={...data,weeklyCommitments:(data?.weeklyCommitments||[]).map(item=>item.id===id?commitment:item)};
     return {ok:true,data:appendReceipt(next,command,id,now)};
   }
 

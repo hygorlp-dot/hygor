@@ -64,6 +64,7 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
   [OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
   [OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED]:["admin","compras","financeiro"],
 };
 const BACKUP_FOLDER="00 - Backups ARCD";
@@ -661,7 +662,7 @@ export default async function handler(req, res) {
 
       const persistir=async(base,value)=>salvarComAuditoria({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
-        before:{command:command.type,entityId:command.payload?.measurementId||command.payload?.pedidoId||command.payload?.recordId||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||""},
+        before:{command:command.type,entityId:command.payload?.measurementId||command.payload?.pedidoId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||""},
         after:{command:command.type,idempotencyKey:command.idempotencyKey}});
       let gravacao=await persistir({updatedAt},result.data);
       if(!gravacao.applied){
