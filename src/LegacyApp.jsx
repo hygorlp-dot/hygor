@@ -123,6 +123,7 @@ import {
 } from "./domains/financeiro/workflows";
 import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
 import { calculateCPM as calculateCanonicalCPM, calculatePPC } from "./domains/planejamento";
+import { applyProgressToCommitment } from "./domains/producao";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
 import { migrateCommercial } from "./domains/comercial/migrations";
 import { selectCommercialWorkspace } from "./domains/comercial/selectors";
@@ -27878,7 +27879,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       </Secao>
       </>:<div style={{paddingTop:4}}>
         {abaConteudo==="orc"&&<Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
-        {abaConteudo==="plan"&&<Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="plan"&&<Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="rdo"&&<DiarioObra data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="qualidade"&&<Qualidade data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="conferencia"&&<Conferencia data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
@@ -27919,7 +27920,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 //  - Marcos: pontos no tempo (compra de porcelanato, vistoria...)
 //  - Ligado ao orcamento: cobertura, planejado x orcado
 // ==============================================================
-function Planejamento({ data, update, showToast, obraIdFixo="" }) {
+function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
   const { isDesktop, cols } = useBreakpoint();
 
   // O cronograma pode nascer de uma revisão em rascunho. Isso não promove a
@@ -27978,6 +27979,10 @@ function Planejamento({ data, update, showToast, obraIdFixo="" }) {
     catch{return {projectDuration:0,criticalPath:[],activities:[]};}
   }, [tarefas, cal]);
   const ppcSemanal = useMemo(() => calculatePPC((data.weeklyCommitments||[]).filter(item=>String(item.obraId)===String(obraId))), [data.weeklyCommitments, obraId]);
+  const compromissosDaObra = useMemo(() => (data.weeklyCommitments||[])
+    .filter(item=>String(item.obraId)===String(obraId)&&item.status!=="cancelado")
+    .map(item=>applyProgressToCommitment(item,data.progressRecords||[])), [data.weeklyCommitments, data.progressRecords, obraId]);
+  const podeConcluirCompromisso=["admin","engenheiro","engenheiro_auditor","planejamento","mestre"].includes(currentUser?.role);
   const compBase   = useMemo(() => compararBaseline(tarefas, plano), [tarefas, plano]);
   // Planejado x realizado automatico: progresso medido vs reta do cronograma.
   const autoCmp    = useMemo(() => desvioAutomatico(tarefas, today()), [tarefas]);
@@ -28058,6 +28063,21 @@ function Planejamento({ data, update, showToast, obraIdFixo="" }) {
       }];
     }
     update({ ...data, planos });
+  };
+  const concluirCompromissoSemanal = async compromisso => {
+    if(!dispatchCommand){showToast?.("A conclusão segura de compromissos exige conexão com o servidor.","error");return;}
+    const atingiuMeta=compromisso.eligibleForCompletion;
+    const motivo=atingiuMeta?"":window.prompt(`A produção de “${compromisso.descricao||"compromisso"}” não atingiu a meta. Informe o motivo:`);
+    if(!atingiuMeta&&!String(motivo||"").trim())return;
+    if(!window.confirm(atingiuMeta?`Confirmar ${compromisso.quantidadeRealizada||0} de ${compromisso.quantidadePrometida||0} como concluído?`:`Confirmar como não concluído: ${motivo}?`))return;
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.weeklyCommitments||[]).find(item=>item.id===compromisso.id);
+      return {type:OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED,idempotencyKey:`compromisso-semanal-${compromisso.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{commitmentId:compromisso.id,reason:String(motivo||"").trim()}};
+    });
+    if(!result?.ok)showToast?.(result?.reason||"Não foi possível concluir o compromisso.","error");
+    else showToast?.(atingiuMeta?"Compromisso concluído com a produção registrada.":"Não cumprimento registrado com motivo.");
   };
 
   const upsertTarefa = (t) => salvarPlano(p => {
@@ -28629,6 +28649,21 @@ function Planejamento({ data, update, showToast, obraIdFixo="" }) {
         <MiniKpi label="Caminho crítico" value={cpmCanonico.criticalPath.length?`${cpmCanonico.criticalPath.length} atividade(s)`:"—"} cor={cpmCanonico.criticalPath.length?C.orange:C.muted} sub={cpmCanonico.projectDuration?`${cpmCanonico.projectDuration} dia(s) de duração lógica`:"Sem atividades encadeadas"}/>
         <MiniKpi label="PPC semanal" value={ppcSemanal.total?`${Math.round(ppcSemanal.ppc*100)}%`:"—"} cor={ppcSemanal.total&&ppcSemanal.ppc<.8?C.orange:C.green} sub={ppcSemanal.total?`${ppcSemanal.completed} de ${ppcSemanal.total} compromissos concluídos`:"Sem compromisso registrado"}/>
       </div>
+
+      {compromissosDaObra.length>0&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+        <div style={{padding:"10px 12px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:10,alignItems:"center"}}>
+          <div><p style={{fontSize:10,fontWeight:900,letterSpacing:.7,color:C.muted,textTransform:"uppercase"}}>Plano de curto prazo</p><b style={{display:"block",fontSize:12,color:C.text,marginTop:2}}>Compromissos da obra</b></div>
+          <span style={{fontSize:10,color:C.muted}}>{ppcSemanal.completed} concluído(s) de {ppcSemanal.total}</span>
+        </div>
+        <div>{compromissosDaObra.slice(0,8).map(compromisso=>{
+          const concluido=compromisso.status==="concluido",naoConcluido=compromisso.status==="nao_concluido",cor=concluido?C.green:naoConcluido?C.orange:C.blue;
+          const meta=Math.max(0,Number(compromisso.quantidadePrometida||0)),feito=Math.max(0,Number(compromisso.quantidadeRealizada||0)),pct=meta?Math.min(100,feito/meta*100):0;
+          return <div key={compromisso.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:12,alignItems:"center",padding:"10px 12px",borderTop:`1px solid ${C.line}`}}>
+            <div style={{minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}><b style={{fontSize:11,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{compromisso.descricao||"Compromisso sem descrição"}</b><span style={{fontSize:9,fontWeight:900,color:cor,textTransform:"uppercase",whiteSpace:"nowrap"}}>{concluido?"concluído":naoConcluido?"não concluído":"em aberto"}</span></div><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{feito} entregue de {meta||"—"} prometido{compromisso.motivoNaoCumprimento?` · ${compromisso.motivoNaoCumprimento}`:""}</p><div style={{height:3,background:C.surface,borderRadius:99,overflow:"hidden",marginTop:6}}><i style={{display:"block",height:"100%",width:`${pct}%`,background:cor}}/></div></div>
+            {!concluido&&!naoConcluido&&podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={()=>concluirCompromissoSemanal(compromisso)}>Concluir</Btn>}
+          </div>;
+        })}</div>
+      </div>}
 
       {/* Fisico-financeiro em destaque: previsao de custo final e eficiencia */}
       {ff.linhas.length > 0 && (
@@ -37711,7 +37746,7 @@ export default function App() {
             : <Obras       data={data} update={update} showToast={showToast}
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
-          {tab === "plan"   && <Planejamento data={data} update={update} showToast={showToast} />}
+          {tab === "plan"   && <Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "plan_suprimentos" && <MarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conferencia" && <Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} />}
