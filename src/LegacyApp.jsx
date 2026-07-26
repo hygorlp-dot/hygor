@@ -115,6 +115,8 @@ import {
   linkThirdPartyInvoice,
 } from "./domains/financeiro/workflows";
 import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
+import { migrateSupplyData } from "./domains/suprimentos/migration";
+import MarcosCurvaASuprimentos from "./features/suprimentos/MarcosCurvaASuprimentos";
 import {
   aplicarRecebimentoMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
   paraCentavos, deCentavos, igualCentavos,
@@ -1674,6 +1676,7 @@ const clampDiaNoMes = (ano, mesIdx, dia) => {
 };
 
 const DEFAULT = () => ({
+  schemaVersion: 4,
   userName: "",
   config: {
     companyName: "ArcD Obras",
@@ -1731,6 +1734,14 @@ const DEFAULT = () => ({
   unlockRequests: [],
   dailyCheckDate: "",
   changeLog: [],
+  // Módulo versionado de marcos e Curva A. As listas começam vazias para não
+  // alterar nenhum fato legado durante a migração idempotente.
+  suprimentosConfig: {},
+  curvaAbcSnapshots: [],
+  planosSuprimento: [],
+  marcosSuprimento: [],
+  alertasSuprimento: [],
+  reservasEstoque: [],
 });
 
 const maiusculoOrcamento = valor => String(valor ?? "").toLocaleUpperCase("pt-BR");
@@ -1835,6 +1846,9 @@ const AUDIT_SECOES = [
   { k:"solicitacoesCompra", nome:"solicitação de compra", campo:"descricao" },
   { k:"pedidos",       nome:"pedido de compra", campo:"numero" },
   { k:"planos",        nome:"planejamento",   campo:"obraId" },
+  { k:"curvaAbcSnapshots",nome:"snapshot da Curva ABC",campo:"obraId" },
+  { k:"planosSuprimento",nome:"plano de suprimento",campo:"descricao" },
+  { k:"marcosSuprimento",nome:"marco de suprimento",campo:"nome" },
   { k:"rdos",          nome:"diário de obra", campo:"data" },
   { k:"conferencias",  nome:"conferência técnica", campo:"codigo" },
   { k:"movEstoque",    nome:"movimentação de estoque", campo:"descricao" },
@@ -1909,7 +1923,7 @@ const detectarMudancasAudit = (antes, depois) => {
 
 const normalizeData = incoming => {
   const base = DEFAULT();
-  const d = incoming && typeof incoming === "object" ? incoming : {};
+  const d = migrateSupplyData(incoming && typeof incoming === "object" ? incoming : {});
   // Migração única e estável dos códigos internos. Códigos ARCD já gravados
   // são preservados; composições antigas (CP-001, códigos livres etc.) recebem
   // o próximo número disponível sem colidir com insumos já cadastrados.
@@ -14915,10 +14929,10 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","tv","chat","admin_central","obras","orc","plan","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
-  engenheiro:  ["home","tv","obras","orc","plan","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
-  engenheiro_auditor:["home","tv","obras","orc","plan","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
-  compras:     ["home","tv","cmp","fornecedores","suprimentos","est","cad","ia"],
+  admin:       ["home","tv","chat","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
+  engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
+  engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
+  compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
   rh:          ["home","tv","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   comercial:   ["home","tv","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","ia"],
@@ -14927,7 +14941,7 @@ const ROLE_TABS = {
 
 const ACCESS_SECTORS=[
   {id:"engenharia",label:"Engenharia",color:"#1565C0",tabs:[
-    ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["rdo","Diário de obra"],["conferencia","Conferência"],["med","Medição técnica"],
+    ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["plan_suprimentos","Marcos e Curva A"],["rdo","Diário de obra"],["conferencia","Conferência"],["med","Medição técnica"],
     ["terc","Terceiros"],["equip","Equipamentos"],["licenca","Licenciamento"],["obsoletos","Obsoletos"],
   ]},
   {id:"compras",label:"Compras",color:"#D97706",tabs:[
@@ -36025,7 +36039,7 @@ const NAV_GROUPS = [
     id: "eng_grp", label: "Engenharia", icon: "building", color: C.blue,
     // O fluxo da Engenharia parte da obra. Os módulos operacionais aparecem
     // na barra superior da obra aberta, evitando uma lista lateral duplicada.
-    tabs: ["obras"],
+    tabs: ["obras","plan_suprimentos"],
   },
   {
     id: "compras_grp", label: "Compras", icon: "cart", color: C.orange,
@@ -36077,6 +36091,7 @@ const TAB_META = {
   com_perdas:{label:"Perdas",icon:"alert",group:"com_grp"},
   com_relatorios:{label:"Relatórios",icon:"trending",group:"com_grp"},
   plan:   { label: "Planejamento", icon: "calendar", group: "eng_grp"},
+  plan_suprimentos: { label:"Marcos e Curva A", icon:"trending", group:"eng_grp" },
   rdo:    { label: "Diario de obra", icon: "clipboard", group: "eng_grp"},
   conferencia: { label: "Conferência", icon: "check", group: "eng_grp"},
   med:    { label: "Medicao",        icon: "ruler",  group: "eng_grp"},
@@ -37122,6 +37137,7 @@ export default function App() {
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "plan"   && <Planejamento data={data} update={update} showToast={showToast} />}
+          {tab === "plan_suprimentos" && <MarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "conferencia" && <Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser}/>}

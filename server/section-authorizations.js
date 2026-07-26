@@ -4,6 +4,7 @@ const SECTION_ROLES = Object.freeze({
   usuarios:["admin"], config:["admin"], obras:["admin"], condominios:["admin"],
   orcamentos:["admin","engenheiro","engenheiro_auditor"], budgetBaselines:["admin"],
   planos:["admin","engenheiro","engenheiro_auditor"], rdos:["admin","engenheiro"],
+  curvaAbcSnapshots:["admin","engenheiro","engenheiro_auditor"], planosSuprimento:["admin","engenheiro","engenheiro_auditor","compras"], marcosSuprimento:["admin","engenheiro","engenheiro_auditor","compras"], alertasSuprimento:["admin","engenheiro","engenheiro_auditor","compras"], reservasEstoque:["admin","compras","engenheiro","engenheiro_auditor"], suprimentosConfig:["admin","engenheiro","engenheiro_auditor"],
   conferencias:["admin","engenheiro","engenheiro_auditor"], qualidadeRegistros:["admin","engenheiro","engenheiro_auditor"],
   solicitacoesCompra:["admin","compras","engenheiro","engenheiro_auditor"], pedidos:["admin","compras","financeiro"], cotacoes:["admin","compras"],
   fornecedores:["admin","compras","financeiro"], materiais:["admin","compras","engenheiro","engenheiro_auditor"], estoque:["admin","compras","engenheiro","engenheiro_auditor"], movEstoque:["admin","compras","engenheiro","engenheiro_auditor"],
@@ -39,6 +40,7 @@ export const authorizeSectionChanges = (user = {}, sections = {}) => {
 const APPEND_ONLY_SECTIONS=new Set([
   "conferencias","qualidadeRegistros","pedidos","cotacoes","notasFiscais",
   "payments","transacoes","caixaObra","movEstoque","outrasDesp",
+  "curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque",
   "pagsTerceiros","pagamentosFolha","medicoes","medicoesObra","medicoesTerc","rdos",
   "fechamentosFinanceiros",
   "employees","advances","terceirizados","rescisoes",
