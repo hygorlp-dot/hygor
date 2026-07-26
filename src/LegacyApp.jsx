@@ -5274,12 +5274,14 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
   },[movimentosDRE,detalheKpi,filtroDetalhe]);
 
   const saveDesp = () => {
-    if(!despForm.obraId||!despForm.competencia||!despForm.valor) { showToast("Preencha obra, competência e valor.","error"); return; }
-    const item = { id:uid(), ...despForm, valor:Number(despForm.valor||0) };
-    update({...data, outrasDesp:[...(data.outrasDesp||[]),item]});
-    setDespModal(false);
-    setDespForm({obraId:"",competencia:"",categoria:"material",descricao:"",valor:""});
-    showToast("Despesa registrada.");
+    try {
+      update(createDreExpense({data,expense:despForm,actor:currentUser,id:uid()}));
+      setDespModal(false);
+      setDespForm({obraId:"",competencia:"",categoria:"material",descricao:"",valor:""});
+      showToast("Despesa registrada.");
+    } catch (error) {
+      showToast(error.message||"Não foi possível registrar a despesa.","error");
+    }
   };
 
   const delDesp = id => {
