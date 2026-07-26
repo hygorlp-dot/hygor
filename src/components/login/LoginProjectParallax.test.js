@@ -6,6 +6,7 @@ const source=readFileSync(resolve(process.cwd(),"src/components/login/LoginProje
 
 describe("parallax da maquete no login",()=>{
   it("mantém paisagem e casa em camadas de profundidade distintas",()=>{
+    expect(source).toContain("login-projects-depth.png");
     expect(source).toContain("login-project-landscape");
     expect(source).toContain("login-project-house-layer");
     expect(source).toContain("login-project-house");

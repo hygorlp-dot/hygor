@@ -7,7 +7,7 @@ import {
   useReducedMotion,
   useSpring,
 } from "motion/react";
-import projectHouse from "../../assets/login-projects.png";
+import projectHouse from "../../assets/login-projects-depth.png";
 
 export default function LoginProjectParallax(){
   const reduceMotion=useReducedMotion();

@@ -127,23 +127,6 @@
   background: linear-gradient(90deg, rgba(23, 27, 32, .08) 45%, #171b20 100%);
 }
 
-.login-project-visual::before {
-  position: absolute;
-  inset: -35% 0 auto;
-  z-index: 1;
-  height: 38%;
-  content: "";
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgba(212, 175, 55, .05) 58%,
-    rgba(212, 175, 55, .42) 99%,
-    transparent
-  );
-  animation: login-project-scan 7s linear infinite;
-}
-
 .login-tech-map {
   position: absolute;
   inset: 6% 34% 5% 2%;
@@ -313,11 +296,6 @@
 
 .login-brand-mark {
   position: relative;
-}
-
-@keyframes login-project-scan {
-  from { transform: translateY(0); }
-  to { transform: translateY(360%); }
 }
 
 @keyframes login-story-enter {
@@ -961,7 +939,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .login-project-visual::before,
   .login-tech-map path,
   .login-tech-map circle,
   .login-tech-signal,
