@@ -56,9 +56,10 @@ const validateMeasurementQuality=(data={},measurement={})=>{
   return "";
 };
 const validateProgressSafety=(data={},record={})=>{
-  const source=(data.scheduleActivities||[]).find(item=>String(item.id)===String(record.activityId));
-  if(!source||!(source.criticalActivity||source.atividadeCritica))return "";
-  const activity={...source,criticalActivity:true};
+  const source=(data.scheduleActivities||[]).find(item=>String(item.id)===String(record.activityId))||{};
+  const critical=Boolean(source.criticalActivity||source.atividadeCritica||record.criticalActivity);
+  if(!critical)return "";
+  const activity={...source,id:source.id||record.activityId,criticalActivity:true};
   const workerIds=new Set(record.workerIds||[]);
   if(!workerIds.size)return "Atividade crítica exige equipe identificada.";
   const workers=(data.employees||[]).filter(item=>workerIds.has(item.id));

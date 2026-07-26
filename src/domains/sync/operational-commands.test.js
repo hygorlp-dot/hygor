@@ -65,6 +65,15 @@ describe("comandos operacionais versionados",()=>{
     expect(withoutWorkers.ok).toBe(false);expect(withoutWorkers.reason).toMatch(/equipe identificada/);
   });
 
+  it("aplica a segurança a compromisso crítico mesmo sem atividade no novo cadastro",()=>{
+    const initial={progressRecords:[],employees:[{id:"u-1"}],jobRiskAnalyses:[],workPermits:[]};
+    const payload={record:{id:"p-1",obraId:"o-1",activityId:"legado-1",criticalActivity:true,data:"2026-07-25",quantity:5,workerIds:[]}};
+    const withoutWorkers=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-legacy-safety-0001",payload,0));
+    expect(withoutWorkers.ok).toBe(false);expect(withoutWorkers.reason).toMatch(/equipe identificada/);
+    const released=applyOperationalCommand({...initial,jobRiskAnalyses:[{activityId:"legado-1",status:"aprovada"}],workPermits:[{activityId:"legado-1",status:"liberada"}]},command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-legacy-safety-0002",{record:{...payload.record,workerIds:["u-1"]}},0));
+    expect(released.ok).toBe(true);
+  });
+
   it("conclui compromisso semanal somente com produção ou motivo",()=>{
     const initial={weeklyCommitments:[{id:"c-1",obraId:"o-1",activityId:"a-1",quantidadePrometida:10,version:1,status:"aberto"}],progressRecords:[]};
     const blocked=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED,"weekly-commitment-0001",{commitmentId:"c-1"},1));
