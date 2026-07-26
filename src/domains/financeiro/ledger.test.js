@@ -85,6 +85,26 @@ describe("razão financeiro único — fixture julho/2026", () => {
   });
 });
 
+describe("status econômicos do razão", () => {
+  test("arquivamento preserva o compromisso econômico", () => {
+    const ledger=buildFinancialLedger({pedidos:[{
+      id:"ped-arquivado",obraId:"obra-1",numero:"ARQ-01",status:"arquivado",data:"2026-07-10",valorTotal:1250,
+    }]});
+    expect(ledger.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({effect:"commitment_increase",amountCents:125000,sourceId:"ped-arquivado"}),
+    ]));
+  });
+
+  test.each(["estornada","ESTORNADA","reversed","cancelled","rejeitado"]) (
+    "status %s não deixa uma despesa produzir custo",status=>{
+      const ledger=buildFinancialLedger({outrasDesp:[{
+        id:"desp-inativa",obraId:"obra-1",competencia:"2026-07",valor:500,status,
+      }]});
+      expect(ledger.events.filter(event=>event.sourceId==="desp-inativa")).toEqual([]);
+    },
+  );
+});
+
 describe("compatibilidade e pendências financeiras", () => {
   test("recebimento parcial vale mesmo com booleano falso", () => {
     const data={obras:[{id:"o"}],medicoes:[{id:"m",obraId:"o",competencia:"2026-07",valorPrevisto:1000,recebido:false,recebimentos:[{id:"r",valor:400,data:"2026-07-10"}]}]};

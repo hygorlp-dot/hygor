@@ -6,14 +6,25 @@
 export const toCents = value => Math.round(Number(value || 0) * 100);
 export const fromCents = value => Number(value || 0) / 100;
 
-const INACTIVE = new Set(["cancelado", "cancelada", "rejeitada", "rascunho", "estornado", "excluido", "excluida", "arquivado"]);
+// Arquivamento só muda a organização da interface: jamais anula um fato
+// econômico. Cancelamento, rejeição e estorno, por sua vez, são estados sem
+// efeito na projeção derivada. A normalização evita que acentos ou a variante
+// inglesa alterem o resultado financeiro.
+const INACTIVE = new Set([
+  "cancelado", "cancelada", "cancelled", "canceled",
+  "rejeitado", "rejeitada", "rejected",
+  "rascunho", "draft",
+  "estornado", "estornada", "reversed", "reverted",
+  "excluido", "excluida", "deleted",
+]);
 const RECOGNIZABLE_INVOICE = new Set(["recebida", "aprovada", "paga", "conferida", "reconhecida"]);
-const APPROVED_ORDER = new Set(["aprovado", "aprovada", "emitido", "emitida", "comprado", "recebido", "entregue", "pago", "parcial"]);
+const APPROVED_ORDER = new Set(["aprovado", "aprovada", "emitido", "emitida", "comprado", "recebido", "entregue", "pago", "parcial", "arquivado", "arquivada", "archived"]);
 const isoDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").slice(0, 10))
   ? String(value).slice(0, 10) : "";
 const competenceOf = value => /^\d{4}-\d{2}$/.test(String(value || "").slice(0, 7))
   ? String(value).slice(0, 7) : "";
-const statusOf = item => String(item?.status || "").trim().toLowerCase();
+const statusOf = item => String(item?.status || "").trim()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const active = item => item?.deletedAt == null && item?.ativo !== false && !INACTIVE.has(statusOf(item));
 const positiveCents = (...values) => {
   for (const value of values) {
