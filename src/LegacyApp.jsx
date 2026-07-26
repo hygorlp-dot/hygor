@@ -122,6 +122,8 @@ import {
 } from "./domains/financeiro/workflows";
 import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
+import { migrateCommercial } from "./domains/comercial/migrations";
+import { selectCommercialWorkspace } from "./domains/comercial/selectors";
 import MarcosCurvaASuprimentos from "./features/suprimentos/MarcosCurvaASuprimentos";
 import {
   aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
@@ -1994,6 +1996,7 @@ const normalizeData = incoming => {
         metas:Array.isArray(c.metas)?c.metas.map(x=>({...x,id:x.id||uid(),responsavelId:x.responsavelId||"",equipe:x.equipe||"",periodo:x.periodo||"",receita:Number(x.receita||0),contratos:Number(x.contratos||0),ticketMedio:Number(x.ticketMedio||0),conversao:Number(x.conversao||0)})):[],
         comissoes:Array.isArray(c.comissoes)?c.comissoes.map(x=>({...x,id:x.id||uid(),vendaId:x.vendaId||"",responsavelId:x.responsavelId||"",parceiroId:x.parceiroId||"",base:Number(x.base||0),percentual:Number(x.percentual||0),valor:Number(x.valor||0),status:x.status||"prevista"})):[],
         vendas:Array.isArray(c.vendas)?c.vendas.map(x=>({...x,id:x.id||uid(),leadId:x.leadId||"",contratoId:x.contratoId||"",clienteId:x.clienteId||"",obraId:x.obraId||"",valor:Number(x.valor||0),fechadaEm:x.fechadaEm||new Date().toISOString(),responsavelId:x.responsavelId||""})):[],
+        schemaVersion:Number(c.schemaVersion||0),opportunities:Array.isArray(c.opportunities)?c.opportunities:[],stageEvents:Array.isArray(c.stageEvents)?c.stageEvents:[],
       };
     })(),
     obras: Array.isArray(d.obras) ? d.obras.map(o => ({
@@ -14970,13 +14973,13 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","tv","chat","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
+  admin:       ["home","tv","chat","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_pipeline","com_relationships","com_deals","com_management"],
   engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
   rh:          ["home","tv","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
-  comercial:   ["home","tv","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","ia"],
+  comercial:   ["home","tv","com_workspace","com_pipeline","com_relationships","com_deals","ia"],
   visualizador:["home","tv"],
 };
 
@@ -14996,10 +14999,7 @@ const ACCESS_SECTORS=[
     ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["folha","Folha de pagamento"],["resc","Rescisões"],
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
-    ["com_dash","Dashboard comercial"],["com_indicacoes","Indicações"],["com_leads","Leads"],["com_funil","Funil de vendas"],["com_jornada","Jornada do cliente"],["com_agenda","Agenda"],
-    ["com_reunioes","Reuniões"],["com_tarefas","Tarefas e follow-ups"],["com_propostas","Propostas"],
-    ["com_negociacoes","Negociações"],["com_contratos","Contratos"],["com_clientes","Clientes"],["com_parceiros","Parceiros e indicações"],
-    ["com_metas","Metas e comissões"],["com_perdas","Motivos de perda"],["com_relatorios","Relatórios comerciais"],
+    ["com_workspace","Meu trabalho"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
   ]},
   {id:"geral",label:"Recursos gerais",color:"#6B6459",tabs:[
     ["ia","Inteligência artificial"],["cad","Cadastros gerais"],
@@ -34792,7 +34792,8 @@ const comDateTime=iso=>iso?new Date(iso).toLocaleString("pt-BR"):"-";
 const comAddMes=(iso,n)=>{const d=new Date(`${iso||today()}T12:00:00`);d.setMonth(d.getMonth()+n);return toLocalISODate(d);};
 
 function Comercial({data,update,showToast,currentUser,view,onTab}){
-  const {cols,formGrid}=useBreakpoint();const com=data.comercial||{};
+  const {cols,formGrid}=useBreakpoint();const com=migrateCommercial(data.comercial||{});
+  const commercialView={com_workspace:"com_dash",com_pipeline:"com_funil",com_relationships:"com_leads",com_deals:"com_propostas",com_management:"com_relatorios"}[view]||view;
   const leads=com.leads||[],atividades=com.atividades||[],reunioes=com.reunioes||[],propostas=com.propostas||[],contratos=com.contratos||[];
   const clientes=com.clientes||[],parceiros=com.parceiros||[],metas=com.metas||[],comissoes=com.comissoes||[],vendas=com.vendas||[];
   const usuarios=(data.usuarios||[]).filter(u=>u.active!==false);const [busca,setBusca]=useState("");
@@ -34988,8 +34989,9 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const kpi=(l,v,c,sub)=><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 11px"}}><p style={{fontSize:8.5,color:C.muted,fontWeight:800,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:17,fontWeight:900,color:c,marginTop:2}}>{v}</p>{sub&&<p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{sub}</p>}</div>;
   const KpiCard=({label,value,sub,color,icon,tab})=><button onClick={()=>tab&&onTab(tab)} style={{background:C.card,border:`1px solid ${C.border}`,padding:"12px 13px",borderRadius:8,textAlign:"left",color:C.text,cursor:tab?"pointer":"default",transition:"border-color .12s, background .12s",display:"flex",flexDirection:"column",gap:7}} onMouseEnter={e=>{if(tab)e.currentTarget.style.borderColor=color;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:C.muted,fontSize:9.5,fontWeight:800,textTransform:"uppercase",letterSpacing:.6}}>{label}</span><Ic n={icon} s={13} color={color}/></div><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,color:C.text,fontSize:22,letterSpacing:-.3,lineHeight:1}}>{value}</p>{sub&&<p style={{color:C.muted,fontSize:10,marginTop:-1}}>{sub}</p>}<div style={{height:2,background:color,borderRadius:99,opacity:.85,marginTop:1}}/></button>;
 
+  const workspace=useMemo(()=>selectCommercialWorkspace(com),[com]);
   let conteudo=null;
-  if(view==="com_indicacoes"){
+  if(commercialView==="com_indicacoes"){
     // Painel do motor de indicacao: quem traz negocio, se a carteira esta
     // produzindo, como esta a satisfacao e onde o funil vaza.
     const rank = rankingIndicadores(com);
@@ -35157,7 +35159,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     </>;
   }
 
-  if(view==="com_dash"){
+  if(commercialView==="com_dash"){
     const novos=leads.filter(l=>l.createdAt?.slice(0,7)===mesAtual).length,semAt=leadAtivos.filter(l=>!l.proximaAtividadeEm).length,reu=reunioes.filter(r=>r.status==="agendada").length,prop=propostas.filter(p=>p.status==="enviada").length,cont=contratos.filter(k=>["enviado","aguardando_assinatura"].includes(k.status)).length,vendasMes=vendas.filter(v=>v.fechadaEm?.slice(0,7)===mesAtual),funil=leadAtivos.reduce((s,l)=>s+Number(l.orcamentoEstimado||0),0),ponderada=leadAtivos.reduce((s,l)=>s+Number(l.orcamentoEstimado||0)*Number(l.probabilidade||0)/100,0),receitaMes=vendasMes.reduce((s,v)=>s+Number(v.valor||0),0),ticket=vendasMes.length?receitaMes/vendasMes.length:0,conv=leads.length?vendas.length/leads.length*100:0,meta=metas.filter(m=>m.periodo===mesAtual).reduce((s,m)=>s+Number(m.receita||0),0),progressoMeta=meta?Math.min(100,receitaMes/meta*100):0;
     const perdas={};leads.filter(l=>l.etapa==="perdido").forEach(l=>perdas[l.motivoPerda||"Não informado"]=(perdas[l.motivoPerda||"Não informado"]||0)+1);
     const fases=COM_JORNADA.map(f=>{const lista=leadAtivos.filter(l=>comFaseDaEtapa(l.etapa)===f.id);return{...f,qtd:lista.length,valor:lista.reduce((s,l)=>s+Number(l.orcamentoEstimado||0),0)};});
@@ -35225,9 +35227,9 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
         </section>
       </div>
     </div>;
-  } else if(view==="com_leads"){
+  } else if(commercialView==="com_leads"){
     const lista=leads.filter(l=>[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${leads.length} cadastrado(s)`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> NOVO LEAD</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:6}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{l.nome}</p><p style={{fontSize:10,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:9.5,color:C.blue,marginTop:3}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:12,color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:9,color:C.muted,marginTop:2}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
-  } else if(view==="com_funil"){
+  } else if(commercialView==="com_funil"){
     conteudo=<><Titulo titulo="Funil de vendas" sub="Arraste os cards; toda mudança fica registrada no histórico" acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> LEAD</Btn>}/><div style={KB.scroll}>{COM_ETAPAS.filter(([id])=>id!=="arquivado").map(([id,label])=>{const ls=leads.filter(l=>l.etapa===id);const soma=ls.reduce((s,l)=>s+(l.orcamentoEstimado||0),0);return <div key={id} onDragOver={e=>e.preventDefault()} onDrop={e=>{const l=leadBy(e.dataTransfer.getData("leadId"));if(l)moverLead(l,id);}} style={KB.coluna(C.blue,false)}><div style={KB.colHead(C.blue)}><b style={{fontSize:10,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{label.toUpperCase()}</b><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}><span style={KB.contador}>{ls.length}</span>{soma>0&&<span style={{fontSize:8.5,fontWeight:700,color:C.yellowD}}>{fmt(soma)}</span>}</div></div><div style={KB.colBody}>{ls.map(l=><div key={l.id} draggable onDragStart={e=>e.dataTransfer.setData("leadId",l.id)} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{...KB.card(l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:null),borderLeft:`3px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}><div style={{display:"flex",justifyContent:"space-between",gap:5}}><p style={{fontSize:11,fontWeight:800,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p><span style={{fontSize:9,color:C.yellowD,fontWeight:700,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</span></div><p style={{fontSize:9,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.servico||"-"}</p><div style={{display:"flex",justifyContent:"space-between",gap:5,alignItems:"center"}}><span style={{fontSize:8.5,color:C.muted}}>{nomeUsuario(l.responsavelId)} · {l.probabilidade}%</span><span style={{fontSize:8.5,fontWeight:700,color:comDias(l.etapaDesde)>=5?C.orange:C.muted}}>{comDias(l.etapaDesde)}d</span></div><p style={{fontSize:8.5,color:l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:C.blue,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?"⚠ ":""}{l.proximaAtividade||"Sem próxima atividade"}</p></div>)}{!ls.length&&<div style={{padding:"12px 6px",textAlign:"center",fontSize:9,color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,margin:"2px 0"}}>Solte aqui</div>}</div></div>;})}</div></>;
   } else if(view==="com_jornada"){
     // KANBAN DA JORNADA DO CLIENTE
@@ -36021,7 +36023,7 @@ const NAV_GROUPS = [
   },
   {
     id: "com_grp", label: "Comercial", icon: "users", color: C.green,
-    tabs: ["com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"],
+    tabs: ["com_workspace","com_pipeline","com_relationships","com_deals","com_management"],
   },
   {
     id: "ia_grp", label: "IA", icon: "ia", color: C.orange,
@@ -36041,6 +36043,11 @@ const TAB_META = {
   obras:  { label: "Obras",      icon: "building", group: "eng_grp"},
   orc:    { label: "Orçamento",  icon: "fileText", group: "eng_grp"},
   com_dash:{label:"Dashboard",icon:"chart",group:"com_grp"},
+  com_workspace:{label:"Meu trabalho",icon:"clipboard",group:"com_grp"},
+  com_pipeline:{label:"Pipeline",icon:"funnel",group:"com_grp"},
+  com_relationships:{label:"Relacionamentos",icon:"users",group:"com_grp"},
+  com_deals:{label:"Propostas e contratos",icon:"fileText",group:"com_grp"},
+  com_management:{label:"Gestão comercial",icon:"chart",group:"com_grp"},
   com_indicacoes:{label:"Indicações",icon:"users",group:"com_grp"},
   com_leads:{label:"Leads",icon:"user",group:"com_grp"},
   com_funil:{label:"Funil",icon:"funnel",group:"com_grp"},

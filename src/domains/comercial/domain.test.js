@@ -1,0 +1,4 @@
+import { describe, expect, test } from "vitest";
+import { migrateCommercial } from "./migrations.js";
+import { transitionOpportunity } from "./transitions.js";
+describe("domínio comercial",()=>{test("migra legado de forma idempotente",()=>{const once=migrateCommercial({leads:[{id:"l1",nome:"Ana",etapa:"proposta_enviada",responsavelId:"u"}]});const twice=migrateCommercial(once);expect(twice.opportunities).toHaveLength(1);expect(twice.opportunities[0].stage).toBe("proposta");});test("bloqueia retrocesso sem motivo e registra evento",()=>{const commercial={opportunities:[{id:"o",stage:"proposta",highestStage:"proposta"}]};expect(transitionOpportunity(commercial,{opportunityId:"o",targetStage:"escopo"}).ok).toBe(false);expect(transitionOpportunity(commercial,{opportunityId:"o",targetStage:"negociacao",actor:{id:"u",nome:"U"}}).data.stageEvents).toHaveLength(1);});});
