@@ -106,6 +106,17 @@ const validarFechamentosImutaveis = (antes, depois) => {
   }
   return "";
 };
+const orcamentoAprovado=item=>["aprovado","aprovada"].includes(String(item?.versionStatus||item?.status||"").toLowerCase())||item?.locked===true||item?.imutavel===true;
+const validarOrcamentosAprovados=(antes,depois)=>{
+  const anteriores=porId(antes),posteriores=porId(depois);
+  for(const [id,orcamento] of anteriores){
+    if(!orcamentoAprovado(orcamento))continue;
+    const proximo=posteriores.get(id);
+    if(!proximo)return "Versões aprovadas do orçamento não podem ser excluídas.";
+    if(JSON.stringify(proximo)!==JSON.stringify(orcamento))return "Versões aprovadas do orçamento são imutáveis. Crie uma revisão para alterar valores ou composições.";
+  }
+  return "";
+};
 export const validateNoPhysicalDeletes = (previous = {}, next = {}) => {
   for(const key of APPEND_ONLY_SECTIONS){
     if(!Object.prototype.hasOwnProperty.call(next,key))continue;
@@ -118,6 +129,10 @@ export const validateNoPhysicalDeletes = (previous = {}, next = {}) => {
   }
   if(Object.prototype.hasOwnProperty.call(next,"fechamentosFinanceiros")){
     const erro=validarFechamentosImutaveis(previous.fechamentosFinanceiros,next.fechamentosFinanceiros);
+    if(erro)return erro;
+  }
+  if(Object.prototype.hasOwnProperty.call(next,"orcamentos")){
+    const erro=validarOrcamentosAprovados(previous.orcamentos,next.orcamentos);
     if(erro)return erro;
   }
   for(const [section,child,label] of [
