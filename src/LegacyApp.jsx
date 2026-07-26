@@ -122,6 +122,7 @@ import {
   linkThirdPartyInvoice,
 } from "./domains/financeiro/workflows";
 import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
+import { calculateCPM as calculateCanonicalCPM, calculatePPC } from "./domains/planejamento";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
 import { migrateCommercial } from "./domains/comercial/migrations";
 import { selectCommercialWorkspace } from "./domains/comercial/selectors";
@@ -27965,6 +27966,18 @@ function Planejamento({ data, update, showToast, obraIdFixo="" }) {
   const ffMensalPrev = useMemo(() => fisicoFinanceiroMensal(tarefas, cal, { realizado:false }), [tarefas, cal]);
   const ffMensalReal = useMemo(() => fisicoFinanceiroMensal(tarefas, cal, { realizado:true }), [tarefas, cal]);
   const critico    = useMemo(() => caminhoCritico(tarefas, cal), [tarefas, cal]);
+  // A tela histórica continua desenhando o Gantt, mas os indicadores abaixo
+  // passam pelo motor puro: a mesma precedência que será usada pela API não
+  // pode ser recalculada por uma regra visual paralela.
+  const cpmCanonico = useMemo(() => {
+    const atividades=tarefas.filter(t=>!t.titulo).map(t=>({
+      id:t.id,durationDays:Math.max(1,diasUteis(t.inicio,t.fim,cal)),
+    }));
+    const dependencias=tarefas.filter(t=>!t.titulo).flatMap(t=>(t.depende||[]).map(fromId=>({fromId,toId:t.id,type:"FS"})));
+    try{return calculateCanonicalCPM(atividades,dependencias);}
+    catch{return {projectDuration:0,criticalPath:[],activities:[]};}
+  }, [tarefas, cal]);
+  const ppcSemanal = useMemo(() => calculatePPC((data.weeklyCommitments||[]).filter(item=>String(item.obraId)===String(obraId))), [data.weeklyCommitments, obraId]);
   const compBase   = useMemo(() => compararBaseline(tarefas, plano), [tarefas, plano]);
   // Planejado x realizado automatico: progresso medido vs reta do cronograma.
   const autoCmp    = useMemo(() => desvioAutomatico(tarefas, today()), [tarefas]);
@@ -28610,6 +28623,11 @@ function Planejamento({ data, update, showToast, obraIdFixo="" }) {
         <MiniKpi label="Cobertura do orcamento" value={`${resumo.coberto.toFixed(0)}%`}
                  cor={resumo.coberto >= 99 ? C.green : C.orange}
                  sub={resumo.coberto < 99 ? "faltam etapas" : "completo"} />
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:cols(2,2,2),gap:8}}>
+        <MiniKpi label="Caminho crítico" value={cpmCanonico.criticalPath.length?`${cpmCanonico.criticalPath.length} atividade(s)`:"—"} cor={cpmCanonico.criticalPath.length?C.orange:C.muted} sub={cpmCanonico.projectDuration?`${cpmCanonico.projectDuration} dia(s) de duração lógica`:"Sem atividades encadeadas"}/>
+        <MiniKpi label="PPC semanal" value={ppcSemanal.total?`${Math.round(ppcSemanal.ppc*100)}%`:"—"} cor={ppcSemanal.total&&ppcSemanal.ppc<.8?C.orange:C.green} sub={ppcSemanal.total?`${ppcSemanal.completed} de ${ppcSemanal.total} compromissos concluídos`:"Sem compromisso registrado"}/>
       </div>
 
       {/* Fisico-financeiro em destaque: previsao de custo final e eficiencia */}
