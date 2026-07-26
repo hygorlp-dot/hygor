@@ -17155,6 +17155,15 @@ const fundirEvolucao = (tarefas, rdos, obraId) => {
     const manualAtualizadoEm = t.progressoAtualizadoEm || "";
     const diarioAtualizadoEm = info?.atualizadoEm || "";
 
+    // Uma medição técnica aprovada é a fonte oficial do físico. O diário
+    // continua como evidência de produção, mas não pode sobrescrever o
+    // boletim aprovado por ter sido editado depois.
+    if (t.progressoOrigem === "medicao_tecnica_aprovada") {
+      return { ...t, diasTrabalhados: info?.diasTrabalhados || 0,
+               ultimaMedicao: t.ultimaMedicao || info?.ultimaData || "",
+               origemProgresso: "medicao_tecnica_aprovada" };
+    }
+
     // A ultima alteracao vence, independentemente da tela em que foi feita.
     // Assim, um ajuste na Medicao ou no Planejamento pode corrigir um valor do
     // Diario, e uma edicao posterior no Diario volta a atualizar todo o sistema.
@@ -28147,10 +28156,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
   // duplicado: ela e materializada como antecessora nas outras tarefas.
   const salvarTarefaEVinculos = (t) => {
     const sucessoras = Array.isArray(t.sucessoras) ? t.sucessoras : [];
-    const { sucessoras:_, ...dados } = t;
-    const tarefaEfetiva = tarefas.find(x => x.id === dados.id);
-    const mudouProgresso = dados.progresso !== undefined
-      && Number(dados.progresso || 0) !== Number(tarefaEfetiva?.progresso || 0);
+    const { sucessoras:_, progresso:progressoIgnorado, ...dados } = t;
     const planos = (data.planos || []).map(p => {
       if (p.obraId !== obraId) return p;
       return { ...p, tarefas: (p.tarefas || []).map(x => {
@@ -28161,9 +28167,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
       }) };
     });
     const base = { ...data, planos };
-    update(mudouProgresso
-      ? aplicarAjustesProgresso(base, obraId, [{ tarefaId:dados.id, progresso:dados.progresso }], "planejamento")
-      : base);
+    update(base);
   };
 
   // Edicao direta das colunas do Gantt. Alterar o inicio preserva a duracao;
@@ -28183,9 +28187,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
       const n = Math.max(1, Math.min(3660, Math.round(Number(valor)||1)));
       upsertTarefa({id:t.id,fim:somaDiasUteis(t.inicio,n,cal)});
     } else if (campo === "progresso") {
-      const p = Math.max(0, Math.min(100, Number(valor)||0));
-      update(aplicarAjustesProgresso(data, obraId,
-        [{ tarefaId:t.id, etapaId:t.etapaId, progresso:p }], "planejamento"));
+      showToast?.("O avanço físico é confirmado somente no boletim de medição.", "warn");
     }
   };
   const upsertMarco = (m) => salvarPlano(p => {
@@ -28877,12 +28879,8 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
                     </div>
                   ),
                   progresso: (
-                    <div key="progresso" style={{display:"flex",alignItems:"center"}}>
-                      <input key={`${t.id}-prog-${t.progresso}`} type="number" min="0" max="100"
-                        defaultValue={Number(t.progresso||0)} disabled={t.titulo}
-                        onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                        onBlur={e=>Number(e.target.value)!==Number(t.progresso||0)&&atualizarTarefaNaLinha(t,"progresso",e.target.value)}
-                        style={{...estiloInput,textAlign:"center"}}/>
+                    <div key="progresso" title="Confirmado no boletim de medição" style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"0 6px"}}>
+                      <span style={{fontSize:10,fontWeight:800,color:t.progressoOrigem==="medicao_tecnica_aprovada"?C.green:C.text}}>{Number(t.progresso||0).toFixed(0)}%</span>
                     </div>
                   ),
                   antecessora: (
@@ -29897,7 +29895,6 @@ function MiniKpi({ label, value, cor, sub }) {
 function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
   const [ini, setIni] = useState(tarefa.inicio || "");
   const [fim, setFim] = useState(tarefa.fim || "");
-  const [prog, setProg] = useState(String(tarefa.progresso || 0));
   const [iniReal, setIniReal] = useState(tarefa.inicioReal || "");
   const [fimReal, setFimReal] = useState(tarefa.fimReal || "");
   const [custoReal, setCustoReal] = useState(String(tarefa.custoReal || ""));
@@ -29916,7 +29913,6 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
     const fimFinal = fim ? ajustarParaDiaUtil(fim, cal, -1) : fim;
     if (inicioFinal && fimFinal && fimFinal < inicioFinal) return;
     onSalvar({ id: tarefa.id, inicio: inicioFinal, fim: fimFinal,
-               progresso: Math.max(0, Math.min(100, Number(prog) || 0)),
                inicioReal: iniReal || "", fimReal: fimReal || "",
                custoReal: Number(custoReal) || 0,
                depende:preds.filter(id=>candidatasPred.some(t=>t.id===id)),
@@ -29949,7 +29945,11 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
         {((ini && !ehDiaUtil(ini,cal)) || (fim && !ehDiaUtil(fim,cal))) && (
           <p style={{ fontSize: 11, color: C.orange }}>Ao salvar, as datas serao ajustadas para os dias trabalhados mais proximos.</p>
         )}
-        <Inp label="Progresso (%)" type="number" value={prog} onChange={setProg} min="0" max="100" />
+        <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px"}}>
+          <p style={{fontSize:9.5,fontWeight:850,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}>Avanço físico confirmado</p>
+          <b style={{display:"block",fontSize:15,color:C.text,marginTop:2}}>{Number(tarefa.progresso||0).toFixed(0)}%</b>
+          <p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Altere pelo boletim de medição para manter a trilha auditável.</p>
+        </div>
         {!tarefa.titulo && (
           <div style={{ background:`${C.blue}0A`, border:`1px solid ${C.blue}33`, borderRadius:8, padding:"10px 11px", display:"flex", flexDirection:"column", gap:8 }}>
             <p style={{ fontSize:10.5, fontWeight:800, color:C.blue, textTransform:"uppercase", letterSpacing:.5 }}>Realizado (execução)</p>
