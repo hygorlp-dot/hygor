@@ -207,6 +207,11 @@ describe("comandos operacionais versionados",()=>{
     const incomplete=applyOperationalCommand(rejected.data,command(OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED,"quality-nc-0001",{recordId:"q-1",correctiveAction:"Corrigir"},2));
     expect(incomplete.ok).toBe(false);
     const resolved=applyOperationalCommand(rejected.data,command(OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED,"quality-nc-0002",{recordId:"q-1",correctiveAction:"Corrigir",effectiveness:"Reinspeção aprovada"},2));
+    const fichaReinspecionada=resolved.data.qualidadeRegistros[0];
+    expect(fichaReinspecionada.itens[0].historicoInspecoes).toMatchObject([
+      {resultado:"nao_conforme",tipo:"inspecao"},{resultado:"conforme",tipo:"reinspecao",resultadoAnterior:"nao_conforme"},
+    ]);
+    expect(fichaReinspecionada.historicoReinspecoes).toMatchObject([{acaoCorretiva:"Corrigir",verificacaoEficacia:"Reinspeção aprovada",itens:[{itemId:"i-1",resultadoAnterior:"nao_conforme"}]}]);
     const released=applyOperationalCommand(resolved.data,command(OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED,"quality-release-0002",{recordId:"q-1"},3));
     expect(released.data.qualidadeRegistros[0]).toMatchObject({status:"aprovada",version:4});
   });

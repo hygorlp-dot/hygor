@@ -132,7 +132,10 @@ export const applyOperationalCommand=(data,command)=>{
     if(versionError)return fail(versionError);
     if(current.status==='aprovada')return fail("Uma ficha liberada não pode receber nova inspeção. Abra uma nova reinspeção.");
     if(!(current.itens||[]).some(item=>item.id===itemId))return fail("Critério de inspeção não encontrado.");
-    const items=(current.itens||[]).map(item=>item.id===itemId?{...item,status:result,responsavelId:command.actorId||'',responsavel:command.actorName||'',verificadoEm:now}:item);
+    const items=(current.itens||[]).map(item=>item.id===itemId?{
+      ...item,status:result,responsavelId:command.actorId||'',responsavel:command.actorName||'',verificadoEm:now,
+      historicoInspecoes:[...(item.historicoInspecoes||[]),{id:`ins_${command.idempotencyKey}`,resultado:result,inspecionadoEm:now,inspecionadoPorId:command.actorId||'',inspecionadoPor:command.actorName||'',tipo:'inspecao'}].slice(-100),
+    }:item);
     const nonconformity=result==='nao_conforme'?(openNonconformity(current)?current.naoConformidade:{descricao:'Item(ns) não conforme(s) identificado(s) na inspeção.',disposicao:'Segregar, conter ou suspender a liberação até decisão.',acao:'',responsavelId:current.responsavelId||'',responsavel:current.responsavel||'',prazo:'',status:'aberta',verificacaoEficacia:'',encerradoEm:'',criadaEm:now,criadaPorId:command.actorId||''}):current.naoConformidade;
     const updated={...current,itens:items,status:result==='nao_conforme'?'reprovada':current.status,naoConformidade:nonconformity,version:versionOf(current)+1,atualizadoEm:now};
     return {ok:true,data:appendReceipt(replaceQualityRecord(data,recordId,updated),command,recordId,now)};
@@ -148,7 +151,12 @@ export const applyOperationalCommand=(data,command)=>{
     const action=String(command.payload?.correctiveAction||"").trim();
     const effectiveness=String(command.payload?.effectiveness||"").trim();
     if(!action||!effectiveness)return fail("Registre a ação corretiva e a verificação de eficácia antes da reinspeção.");
-    const updated={...current,status:'em_inspecao',itens:(current.itens||[]).map(item=>item.status==='nao_conforme'?{...item,status:'conforme',responsavelId:command.actorId||'',responsavel:command.actorName||'',verificadoEm:now}:item),naoConformidade:{...current.naoConformidade,acao:action,verificacaoEficacia:effectiveness,status:'encerrada',encerradoEm:now,encerradoPorId:command.actorId||''},version:versionOf(current)+1,atualizadoEm:now};
+    const affected=(current.itens||[]).filter(item=>item.status==='nao_conforme');
+    const reinspection={id:`reins_${command.idempotencyKey}`,tipo:'reinspecao',reinspecionadaEm:now,reinspecionadaPorId:command.actorId||'',reinspecionadaPor:command.actorName||'',acaoCorretiva:action,verificacaoEficacia:effectiveness,itens:affected.map(item=>({itemId:item.id,resultadoAnterior:item.status}))};
+    const updated={...current,status:'em_inspecao',itens:(current.itens||[]).map(item=>item.status==='nao_conforme'?{
+      ...item,status:'conforme',responsavelId:command.actorId||'',responsavel:command.actorName||'',verificadoEm:now,
+      historicoInspecoes:[...(item.historicoInspecoes||[]),{id:`ins_${command.idempotencyKey}_${item.id}`,resultado:'conforme',inspecionadoEm:now,inspecionadoPorId:command.actorId||'',inspecionadoPor:command.actorName||'',tipo:'reinspecao',resultadoAnterior:'nao_conforme'}].slice(-100),
+    }:item),historicoReinspecoes:[...(current.historicoReinspecoes||[]),reinspection].slice(-100),naoConformidade:{...current.naoConformidade,acao:action,verificacaoEficacia:effectiveness,status:'encerrada',encerradoEm:now,encerradoPorId:command.actorId||''},version:versionOf(current)+1,atualizadoEm:now};
     return {ok:true,data:appendReceipt(replaceQualityRecord(data,recordId,updated),command,recordId,now)};
   }
 
