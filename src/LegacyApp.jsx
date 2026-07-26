@@ -6124,7 +6124,7 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
     const dataPg=decisao.modo==="vencimento"?m.dataVencimento:(decisao.dataOutra||m.dataVencimento);
     const saldo = Number(m.valorPrevisto||0) - totalRecebidoMedicao(m);
     if (saldo <= 0.01) return m;
-    return aplicarRecebimentoMedicao(m, { valor: saldo, data: dataPg, origem: "revisao_vencidas" });
+    return aplicarRecebimentoMedicao(m, { id:uid(), valor: saldo, data: dataPg, origem: "revisao_vencidas", actor:currentUser });
   });
 
   // Guarda a resposta atual e avanca. O banco de dados recebe uma unica
@@ -6666,15 +6666,19 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setPagarModal(null)} full>Cancelar</Btn>
               <Btn v="success" onClick={()=>{
-                const m = pagarModal.m;
-                const dataPg = pagarModal.data || today();
-                const saldo = Number(m.valorPrevisto||0) - totalRecebidoMedicao(m);
-                const updated = saldo > 0.01
-                  ? aplicarRecebimentoMedicao(m, { valor: saldo, data: dataPg, origem: "manual" })
-                  : m;
-                update({ ...data, medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x) });
-                showToast(`${m.obraName} - ${fmt(m.valorPrevisto)} recebido em ${fmtDate(dataPg)}.`);
-                setPagarModal(null);
+                try {
+                  const m = pagarModal.m;
+                  const dataPg = pagarModal.data || today();
+                  const saldo = Number(m.valorPrevisto||0) - totalRecebidoMedicao(m);
+                  const updated = saldo > 0.01
+                    ? aplicarRecebimentoMedicao(m, { id:uid(), valor: saldo, data: dataPg, origem: "manual", actor:currentUser })
+                    : m;
+                  update({ ...data, medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x) });
+                  showToast(`${m.obraName} - ${fmt(m.valorPrevisto)} recebido em ${fmtDate(dataPg)}.`);
+                  setPagarModal(null);
+                } catch (error) {
+                  showToast(error.message||"Não foi possível confirmar o recebimento.","error");
+                }
               }} full><Ic n="check"/> Confirmar</Btn>
             </div>
           </div>
@@ -21973,7 +21977,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     // caso ela fica "parcial" em vez de virar "recebida" à força.
     const medicoes = medAlvo
       ? (data.medicoes||[]).map(m => m.id === medAlvo.m.id
-          ? aplicarRecebimentoMedicao(m, { valor: Math.abs(Number(tr.valor)), data: tr.data, origem: "conciliacao_bancaria", transacaoId: tr.id })
+          ? aplicarRecebimentoMedicao(m, { id:uid(), valor: Math.abs(Number(tr.valor)), data: tr.data, origem: "conciliacao_bancaria", transacaoId: tr.id, actor:currentUser })
           : m)
       : (data.medicoes||[]);
 
