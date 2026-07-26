@@ -122,6 +122,37 @@ Contrato de autoria do DRE e razão financeiro canônico incluídos na execuçã
 
 **LIBERADA:** FIN-002 — carga idempotente e homologação em sombra do motor financeiro.
 
+## FIN-002 / DRE-001 — Homologação em sombra e leitura canônica
+
+**Status:** APROVADA para leitura canônica; **FIN-003 permanece desativado**.
+
+- A carga de produção executada no deploy confirmou `197` fatos legados,
+  `153` liquidações e `480` projeções de DRE, com `0` divergências financeiras
+  e `0` divergências de projeção.
+- As gravações que tocam seções financeiras passam por
+  `financial_save_with_sync` mesmo em modo sombra. O blob legado e a projeção
+  canônica são atualizados na mesma transação; não existe janela de DRE
+  canônico defasado após uma nova operação.
+- DRE de obra e DRE da empresa consomem os eventos canônicos quando o relatório
+  os disponibiliza. O cálculo legado permanece apenas para detalhes ainda não
+  presentes na projeção, sem substituir os indicadores canônicos.
+- `FINANCIAL_ENGINE_ENFORCE` não foi alterado. A ativação continua bloqueada
+  até a conclusão da baixa/conciliação transacional (REC-001) e do gate final.
+
+### Evidência de produção
+
+- Deploy `pontos-b16xggn3v-hygor-s-projects1.vercel.app`: log do prebuild
+  registrou `FIN-002: migration e carga concluídas; 197 fatos, 153
+  liquidações, 480 projeções DRE, 0 divergências.`
+- `npm test` — 32 arquivos, 189 testes aprovados, 0 reprovados.
+- `npm run lint`, `npm run build`, `node --check api/data.js` e
+  `git diff --check` — aprovados.
+
+### Próxima etapa
+
+**LIBERADA:** REC-001 — baixa e conciliação bancária pelo comando transacional
+do servidor, incluindo baixa parcial e estorno.
+
 ### Subportão 2B — Comandos operacionais locais
 
 **Status:** APROVADO

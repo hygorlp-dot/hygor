@@ -77,7 +77,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
          consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
-         executarComandoOperacional } from "./api";
+         executarComandoOperacional, executarComandoConciliacao } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -21525,6 +21525,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const [regraModal,setRegraModal]=useState(null);
   // Fechamento bancário
   const [fecharModal,setFecharModal]=useState(null);
+  const [conciliando,setConciliando]=useState(false);
 
   const podeOperarConc=podeOperarConciliacao(currentUser?.role);
   const podeElevado=podeDesfazerConciliacao(currentUser?.role);
@@ -21635,27 +21636,23 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     setEntradaForm(f=>({...f,medicaoId:medicao.id,novaParcela:false,novaParcelaDescricao:""}));
     showToast("Parcela cadastrada. Confira-a e confirme a entrada bancária.");
   };
-  const confirmarEntrada = () => {
+  const confirmarEntrada = async () => {
     const tr = (data.transacoes||[]).find(t=>t.id===entradaModal?.trId);
     if (!tr || Number(tr.valor) <= 0) { showToast("Selecione uma entrada bancária válida.", "error"); return; }
     const tipo = entradaForm.tipo;
-    let resultado;
+    let command;
     if (tipo === "entradaContrato" || tipo === "medicao") {
       const entidadeId = tipo === "entradaContrato" ? entradaForm.contratoId : entradaForm.medicaoId;
       if (!entidadeId) { showToast(tipo === "entradaContrato" ? "Selecione o contrato." : "Selecione a parcela ou medição.", "error"); return; }
-      resultado = registrarPagamentoEConciliar(data, {
-        transacaoId: tr.id, tipo, entidadeId, valor: Math.abs(Number(tr.valor)), dataPagamento: tr.data,
-        observacao: entradaForm.descricao, operador: currentUser,
-      });
+      command={type:"CONFIRM_RECEIPT",payload:{transactionId:tr.id,targetType:tipo,targetId:entidadeId,observacao:entradaForm.descricao}};
     } else {
-      resultado = criarLancamentoPelaTransacao(data, {
-        transacaoId: tr.id, tipoLancamento: tipo, obraId: entradaForm.obraId,
-        categoria: entradaForm.categoria, descricao: entradaForm.descricao, operador: currentUser,
-        duplicidadeRevisada: true,
-      });
+      command={type:"CONFIRM_MANUAL_ENTRY",payload:{transactionId:tr.id,entryType:tipo,obraId:entradaForm.obraId,categoria:entradaForm.categoria,descricao:entradaForm.descricao}};
     }
-    if (!resultado?.resumo?.ok) { showToast(resultado?.resumo?.motivo || "Não foi possível validar a entrada.", "error"); return; }
-    update(resultado.data);
+    setConciliando(true);
+    const resposta=await executarComandoConciliacao({...command,idempotencyKey:`rec_${Date.now()}_${Math.random().toString(36).slice(2,12)}`});
+    setConciliando(false);
+    if (!resposta?.ok) { showToast(resposta?.error || "O servidor não confirmou a entrada. Nenhuma alteração foi salva.", "error"); return; }
+    await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
     setEntradaModal(null);
     showToast(tipo === "entradaContrato" ? "Entrada do contrato validada e vinculada ao extrato." : tipo === "medicao" ? "Recebimento da parcela validado e conciliado." : tipo === "recebimento_administracao" ? "Recebimento manual da obra por administração conciliado." : "Entrada registrada no caixa, sem criar receita no DRE.");
   };
@@ -22426,7 +22423,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
           {entradaForm.tipo==="entrada_caixa_obra"&&<Sel label="Obra do caixa" value={entradaForm.obraId} onChange={v=>setEntradaForm(f=>({...f,obraId:v}))} options={[{v:"",l:"Selecione a obra..."},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
           {tipoSemDre&&<Sel label="Classificação" value={entradaForm.categoria} onChange={v=>setEntradaForm(f=>({...f,categoria:v}))} options={[{v:"aporte_cliente",l:"Recurso do cliente"},{v:"capital_socio",l:"Capital de sócio"},{v:"credito",l:"Crédito / empréstimo"},{v:"outros",l:"Outros recursos"}]}/>}
           <Inp label="Observação" value={entradaForm.descricao} onChange={v=>setEntradaForm(f=>({...f,descricao:v}))} placeholder="Identificação no extrato, contrato ou comprovante"/>
-          <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setEntradaModal(null)} full>Cancelar</Btn><Btn onClick={confirmarEntrada} full><Ic n="check"/> Confirmar entrada</Btn></div>
+          <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setEntradaModal(null)} full disabled={conciliando}>Cancelar</Btn><Btn onClick={confirmarEntrada} full disabled={conciliando}>{conciliando?"Confirmando no servidor…":<><Ic n="check"/> Confirmar entrada</>}</Btn></div>
         </div></Modal>;
       })()}
 

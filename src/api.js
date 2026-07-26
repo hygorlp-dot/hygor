@@ -131,6 +131,7 @@ export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", {
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
 export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });
 export const executarComandoOperacional = command => chamar({ action:"operational-command", ...credenciais(), command });
+export const executarComandoConciliacao = command => chamar({ action:"reconciliation-command", ...credenciais(), command });
 export const consultarSombraFinanceira = () => chamar({ action:"financial-shadow-report", ...credenciais() });
 export const prepararSombraFinanceira = () => chamar({ action:"financial-shadow-migrate", ...credenciais() });
 export const sincronizarSombraFinanceira = () => chamar({ action:"financial-shadow-sync", ...credenciais() });

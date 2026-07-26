@@ -30,6 +30,7 @@ import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../ser
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { authorizeSectionChanges, validateNoPhysicalDeletes } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
+import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "./microsoft/_graph.js";
 
@@ -53,6 +54,8 @@ const FINANCIAL_COMMAND_ROLES = {
   CREATE_FINANCIAL_TITLE:["admin","financeiro"], REGISTER_SETTLEMENT:["admin","financeiro"],
   REVERSE_SETTLEMENT:["admin","financeiro"], CLOSE_ACCOUNTING_PERIOD:["admin"],
 };
+const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
+const RECONCILIATION_OPERATOR_ROLES=new Set(["admin","financeiro"]);
 const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
@@ -589,6 +592,43 @@ export default async function handler(req, res) {
       const {data:resultado,error}=await db.rpc("financial_execute_command",{p_company_id:COMPANY,p_actor_id:usuario.id,p_command:command});
       if(error){console.error("Falha no motor financeiro:",error.message);return res.status(409).json({error:"O comando não foi efetivado. Nenhum lançamento parcial foi salvo."});}
       return res.status(200).json(resultado);
+    }
+
+    // REC-001: a classificação bancária não recebe mais um snapshot montado
+    // no navegador. O servidor relê a transação, aplica a regra pura e salva
+    // blob, auditoria e projeção financeira canônica na mesma transação.
+    if(action==="reconciliation-command"){
+      const command=req.body?.command||{};
+      if(!RECONCILIATION_COMMANDS.has(command.type))return res.status(400).json({error:"Comando de conciliação inválido."});
+      if(!RECONCILIATION_OPERATOR_ROLES.has(usuario.role))return res.status(403).json({error:"Seu perfil não pode operar a conciliação."});
+      if(command.type===RECONCILIATION_COMMAND.REVERSE_RECONCILIATION&&usuario.role!=="admin")return res.status(403).json({error:"Somente administrador pode desfazer uma conciliação."});
+      if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente de conciliação inválida."});
+
+      const execute=base=>{
+        const already=(base.reconciliationCommandLog||[]).find(item=>item.idempotencyKey===command.idempotencyKey);
+        if(already)return {idempotent:true,data:base,resumo:already.resumo||{ok:true}};
+        const result=applyReconciliationCommand(base,command,usuario);
+        if(!result?.resumo?.ok)return {error:result?.resumo?.motivo||"Não foi possível conciliar a transação."};
+        const auditEntry={id:crypto.randomUUID(),idempotencyKey:command.idempotencyKey,type:command.type,transactionId:String(command.payload?.transactionId||""),actorId:usuario.id,createdAt:new Date().toISOString(),resumo:result.resumo};
+        return {data:{...result.data,reconciliationCommandLog:[...(result.data.reconciliationCommandLog||[]),auditEntry].slice(-1000)},resumo:result.resumo};
+      };
+      const persist=async(base,executed)=>salvarFinanceiroComAuditoria({expectedUpdatedAt:base.updatedAt,value:executed.data,actor:usuario,
+        action:`reconciliation_${String(command.type).toLowerCase()}`,
+        before:{transaction:(base.payload?.transacoes||[]).find(item=>String(item.id)===String(command.payload?.transactionId||""))||null},
+        after:{transaction:(executed.data?.transacoes||[]).find(item=>String(item.id)===String(command.payload?.transactionId||""))||null,command:{type:command.type,idempotencyKey:command.idempotencyKey}});
+      let executed=execute(atual);
+      if(executed.error)return res.status(409).json({error:executed.error});
+      if(executed.idempotent)return res.status(200).json({ok:true,idempotent:true,resumo:executed.resumo,data:projectDataForUser(atual,usuario),updatedAt});
+      let saved=await persist({payload:atual,updatedAt},executed);
+      if(!saved.applied){
+        const recent=await lerLinha();
+        executed=execute(recent.payload);
+        if(executed.error)return res.status(409).json({error:executed.error,conflict:true,currentUpdatedAt:recent.updatedAt});
+        if(executed.idempotent)return res.status(200).json({ok:true,idempotent:true,resumo:executed.resumo,data:projectDataForUser(recent.payload,usuario),updatedAt:recent.updatedAt});
+        saved=await persist({payload:recent.payload,updatedAt:recent.updatedAt},executed);
+        if(!saved.applied)return res.status(409).json({error:"Outra alteração foi gravada ao mesmo tempo. Tente novamente.",conflict:true});
+      }
+      return res.status(200).json({ok:true,resumo:executed.resumo,data:projectDataForUser(executed.data,usuario),updatedAt:saved.updatedAt||new Date().toISOString()});
     }
 
     // Comandos operacionais usam versão da própria entidade, não a semântica
