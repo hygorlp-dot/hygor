@@ -46,6 +46,17 @@ describe("projeção canônica do DRE", () => {
     expect(work.totalCustos).toBe(90);
   });
 
+  it("mantém a diária histórica quando uma quinzena arquivada é restaurada",()=>{
+    const data={
+      config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra 1"}],
+      employees:[{id:"e1",obra:"o1",dailyRate:250,vtDaily:30,vrDaily:30,startDate:"2026-01-01"}],
+      attendance:{e1:{"2026-07-07":{status:"P",obraId:"o1",archivedDailyRate:100,archivedVtDaily:10,archivedVrDaily:20}}},
+      medicoes:[],payments:[],pagsTerceiros:[],rescisoes:[],outrasDesp:[],pedidos:[],equipamentos:[],locacoesEquip:[],manutencoesEquip:[],
+    };
+    const work=buildDreProjectionRows(data).find(row=>row.sourceId==="2026-07:mes:o1")?.payload;
+    expect(work.moData).toEqual({laborCost:100,benefitCost:30,totalCost:130});
+  });
+
   it("detecta qualquer divergência entre a projeção e o razão", () => {
     const expected=[{sourceId:"2026-07:mes:o1",payload:{faturamento:1000,moData:{laborCost:100}}}];
     const matching=[{source_id:"2026-07:mes:o1",event_type:"dre_snapshot",payload:{active:true,faturamento:1000,moData:{laborCost:100}}}];

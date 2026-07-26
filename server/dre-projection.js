@@ -73,9 +73,13 @@ const laborCost = (data,obraId,days) => {
     const obraOn=date=>getAtt(data,employee.id,date)?.obraId||employee.obra||"";
     for(const date of days){
       if(obraOn(date)!==obraId||!employed(employee,date)||inPeriod.includes(date))continue;
-      const status=getAtt(data,employee.id,date)?.status;
+      const record=getAtt(data,employee.id,date);
+      const status=record.status;
       const factor=status==="P"?1:(status==="M"?0.5:0);
-      if(factor){labor+=Number(employee.dailyRate||0)*factor;benefits+=(Number(employee.vtDaily||0)+Number(employee.vrDaily||0))*factor;}
+      if(factor){
+        labor+=Number(record.archivedDailyRate??employee.dailyRate??0)*factor;
+        benefits+=(Number(record.archivedVtDaily??employee.vtDaily??0)+Number(record.archivedVrDaily??employee.vrDaily??0))*factor;
+      }
     }
     for(const date of inPeriod){
       if(!employed(employee,date)||obraOn(date)!==obraId)continue;

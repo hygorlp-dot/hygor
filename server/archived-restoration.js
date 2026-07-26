@@ -4,8 +4,15 @@ const cloneAttendance = attendance => Object.fromEntries(
 
 // Restaura apenas dias que não foram relançados depois do arquivamento. A
 // fotografia arquivada permanece intacta: ela é a evidência do fechamento.
-export const restoreArchivedAttendance = ({attendance = {}, archiveAttendance = {}} = {}) => {
+// A diária e os benefícios do dia também voltam congelados no lançamento:
+// reabrir o ponto não pode recalcular meses fechados com o salário de hoje.
+export const restoreArchivedAttendance = ({attendance = {}, archiveAttendance = {}, employeesSnapshot = []} = {}) => {
   const restored = cloneAttendance(attendance);
+  const rates=new Map((employeesSnapshot||[]).map(employee=>[String(employee.id),{
+    archivedDailyRate:Number(employee.dailyRate||0),
+    archivedVtDaily:Number(employee.vtDaily||0),
+    archivedVrDaily:Number(employee.vrDaily||0),
+  }]));
   let devolvidos = 0;
   let mantidos = 0;
 
@@ -16,7 +23,7 @@ export const restoreArchivedAttendance = ({attendance = {}, archiveAttendance = 
         mantidos += 1;
         continue;
       }
-      target[date] = record;
+      target[date] = {...record,...(rates.get(String(employeeId))||{})};
       devolvidos += 1;
     }
     restored[employeeId] = target;

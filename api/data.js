@@ -1146,6 +1146,7 @@ export default async function handler(req, res) {
       }
       const {attendance, devolvidos, mantidos} = restoreArchivedAttendance({
         attendance: atual?.attendance || {}, archiveAttendance: arq.attendance || {},
+        employeesSnapshot: arq.employeesSnapshot || [],
       });
 
       const agora = new Date().toISOString();

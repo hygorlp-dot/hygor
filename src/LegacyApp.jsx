@@ -4007,9 +4007,11 @@ const _calcObraLaborCostRaw = (data, obraId, days) => {
       if (obraDoDia(e, d) !== obraId) return;
       if (!isEmployeeEmployedOnDate(e, d)) return;
       if (holidaysInPeriod.includes(d)) return;
-      const st = attStatus(data, e.id, d);
-      if (st === "P") { laborCost += Number(e.dailyRate||0); benefitCost += Number(e.vtDaily||0)+Number(e.vrDaily||0); }
-      else if (st === "M") { laborCost += Number(e.dailyRate||0)*.5; benefitCost += (Number(e.vtDaily||0)+Number(e.vrDaily||0))*.5; }
+      const registro=getAtt(data,e.id,d),st = registro?.status;
+      const diaria=Number(registro?.archivedDailyRate??e.dailyRate??0);
+      const beneficios=Number(registro?.archivedVtDaily??e.vtDaily??0)+Number(registro?.archivedVrDaily??e.vrDaily??0);
+      if (st === "P") { laborCost += diaria; benefitCost += beneficios; }
+      else if (st === "M") { laborCost += diaria*.5; benefitCost += beneficios*.5; }
     });
     // Feriado segue a MESMA regra: a obra do dia, não o cadastro. Deixar o
     // feriado amarrado à lotação faria o DSR cair numa obra e os dias
