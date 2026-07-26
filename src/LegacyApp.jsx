@@ -21952,7 +21952,8 @@ const periodoPontoDaTransacao = (iso) => {
 
 // Painel de números da conciliação
 const calcConciliacao = (data) => {
-  const trans = data.transacoes || [];
+  const extratosArquivados = new Set((data.extratos || []).filter(e => e.status === "arquivado").map(e => String(e.id)));
+  const trans = (data.transacoes || []).filter(t => !extratosArquivados.has(String(t.extratoId || "")));
   const pend  = trans.filter(t => t.status === "pendente");
   const conc  = trans.filter(t => t.status === "conciliado");
   const ign   = trans.filter(t => t.status === "ignorado");
@@ -22030,7 +22031,8 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   ), [data.rejeicoesConc]);
 
   const transacoes = useMemo(() => {
-    const t = [...(data.transacoes || [])];
+    const extratosArquivados = new Set((data.extratos || []).filter(e => e.status === "arquivado").map(e => String(e.id)));
+    const t = (data.transacoes || []).filter(item => !extratosArquivados.has(String(item.extratoId || "")));
     const ordem={pronta:0,revisar:1,investigar:2,sem_correspondencia:3,bloqueada:4};
     t.sort((a,b) => {
       if(aba==="pendentes"&&a.status==="pendente"&&b.status==="pendente"){
@@ -22044,7 +22046,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     const porStatus=aba === "pendentes"?t.filter(x=>x.status==="pendente"):aba === "conciliadas"?t.filter(x=>x.status==="conciliado"):aba === "ignoradas"?t.filter(x=>x.status==="ignorado"):t;
     const termo=semAcentoConc(buscaConc.trim());
     return porStatus.filter(x=>(tipoMovimento==="todos"||(tipoMovimento==="entradas"?Number(x.valor)>0:Number(x.valor)<0))&&(!termo||semAcentoConc(`${x.descricao} ${x.data} ${x.ignoradoMotivo||""}`).includes(termo)));
-  }, [data.transacoes, aba, buscaConc, tipoMovimento, analisesPorTransacao]);
+  }, [data.transacoes, data.extratos, aba, buscaConc, tipoMovimento, analisesPorTransacao]);
   const transacoesVisiveis=transacoes.slice(0,limiteVisivel);
   const todosSelecionados=transacoes.length>0&&transacoes.every(t=>selecionadas.includes(t.id));
 
@@ -22549,37 +22551,28 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     setSelecionadas([]);setAba("pendentes");showToast(`${itens.length} transação(ões) reaberta(s).`);
   };
 
-  // Um extrato com transação já conciliada não pode ser apagado de verdade -
-  // vira arquivo (sai das listas ativas, nada é perdido). Só some de fato
-  // quando não tem NENHUMA transação conciliada (comportamento antigo).
-  const arquivarOuExcluirExtrato = (ext) => {
+  // Extrato é evidência bancária, inclusive sem conciliação. Arquivá-lo só
+  // o remove da fila ativa: as transações e seus vínculos nunca são apagados.
+  const arquivarExtrato = (ext) => {
     const n = (data.transacoes||[]).filter(t => t.extratoId===ext.id);
     const conc = n.filter(t => t.status==="conciliado").length;
-    if (conc > 0) {
-      if (!podeArquivarExtrato(currentUser?.role)) { showToast("Somente administrador pode arquivar um extrato com transações conciliadas.", "error"); return; }
-      if (!window.confirm(`Arquivar o extrato "${ext.arquivo}"?\n\nEle sai das listagens ativas, mas nada é apagado (${conc} transação(ões) conciliada(s) preservada(s)).`)) return;
-      update({
-        ...data,
-        extratos: (data.extratos||[]).map(e => e.id===ext.id ? {...e, status:"arquivado", arquivadoEm:new Date().toISOString()} : e),
-        historicoConc:[...(data.historicoConc||[]),eventoHistorico("extrato_arquivado",null,"","arquivado",`Extrato arquivado com ${conc} transação(ões) conciliada(s) preservada(s).`,{extratoId:ext.id,descricao:ext.arquivo})],
-      });
-      showToast("Extrato arquivado.");
-      return;
-    }
-    if (!window.confirm(`Excluir o extrato "${ext.arquivo}"?\n\nRemove ${n.length} transação(ões) pendente(s)/ignorada(s) (nenhuma conciliada).`)) return;
+    if (!podeArquivarExtrato(currentUser?.role)) { showToast("Somente administrador pode arquivar extratos.", "error"); return; }
+    const motivo=window.prompt(`Motivo para arquivar "${ext.arquivo}".\n\n${n.length} transação(ões), incluindo ${conc} conciliada(s), serão preservadas fora da fila ativa.`, "");
+    if(motivo===null)return;
+    if(!String(motivo).trim()){showToast("Informe o motivo do arquivamento para manter a trilha auditável.","error");return;}
+    const agora=new Date().toISOString();
     update({
       ...data,
-      extratos:   (data.extratos||[]).filter(e => e.id !== ext.id),
-      transacoes: (data.transacoes||[]).filter(t => t.extratoId !== ext.id),
-      historicoConc:[...(data.historicoConc||[]),eventoHistorico("extrato_excluido",null,"","excluido",`${n.length} transação(ões) removida(s), nenhuma conciliada.`,{extratoId:ext.id,descricao:ext.arquivo,valor:n.reduce((s,t)=>s+Math.abs(Number(t.valor||0)),0)})],
+      extratos:(data.extratos||[]).map(e=>e.id===ext.id?{...e,status:"arquivado",arquivadoEm:agora,arquivadoPorId:currentUser?.id||"",arquivadoPor:currentUser?.nome||currentUser?.email||"Operador",motivoArquivamento:String(motivo).trim()}:e),
+      historicoConc:[...(data.historicoConc||[]),eventoHistorico("extrato_arquivado",null,"","arquivado",`Extrato arquivado com ${n.length} transação(ões) preservada(s): ${String(motivo).trim()}`,{extratoId:ext.id,descricao:ext.arquivo,valor:n.reduce((s,t)=>s+Math.abs(Number(t.valor||0)),0),motivo:String(motivo).trim()})],
     });
-    showToast("Extrato removido.");
+    showToast("Extrato arquivado; transações preservadas fora da fila ativa.");
   };
 
   const nomeObra = (id) => (data.obras.find(o=>o.id===id)?.name) || "-";
   const alternarSelecao=id=>setSelecionadas(lista=>lista.includes(id)?lista.filter(item=>item!==id):[...lista,id]);
   const alternarTodas=()=>setSelecionadas(todosSelecionados?[]:transacoes.map(t=>t.id));
-  const rotuloAcao={extrato_importado:"Extrato importado",conciliada:"Conciliação confirmada",conciliacao_desfeita:"Conciliação desfeita",ignorada:"Transação ignorada",ignorada_em_lote:"Ignorada em lote",reaberta:"Transação reaberta",reaberta_em_lote:"Reaberta em lote",extrato_excluido:"Extrato excluído",conciliacao_legada:"Conciliação anterior",ignorado_legado:"Ignorada anteriormente"};
+  const rotuloAcao={extrato_importado:"Extrato importado",extrato_arquivado:"Extrato arquivado",conciliada:"Conciliação confirmada",conciliacao_desfeita:"Conciliação desfeita",ignorada:"Transação ignorada",ignorada_em_lote:"Ignorada em lote",reaberta:"Transação reaberta",reaberta_em_lote:"Reaberta em lote",conciliacao_legada:"Conciliação anterior",ignorado_legado:"Ignorada anteriormente"};
   const corAcao=acao=>acao==="conciliada"||acao==="extrato_importado"?C.green:acao.includes("desfeita")||acao.includes("reaberta")?C.blue:acao.includes("ignorada")?C.orange:acao.includes("excluido")?C.red:C.muted;
 
   return (
@@ -22670,7 +22663,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                         <td style={{padding:"7px 8px",fontSize:10,fontWeight:800,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.qtd}{conc>0&&<small style={{display:"block",fontSize:7.8,color:C.green,fontWeight:700}}>{conc} conciliada(s)</small>}</td>
                         <td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.importadoEm?new Date(e.importadoEm).toLocaleString("pt-BR"):"-"}</td>
                         <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={e.status==="arquivado"?C.muted:C.green}>{e.status==="arquivado"?"Arquivado":"Ativo"}</Badge></td>
-                        <td style={{padding:"5px 7px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.status!=="arquivado"&&<Btn size="sm" v={conc>0?"ghost":"danger"} onClick={()=>arquivarOuExcluirExtrato(e)}>{conc>0?"Arquivar":<Ic n="trash"/>}</Btn>}</td>
+                        <td style={{padding:"5px 7px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.status!=="arquivado"&&<Btn size="sm" v="ghost" onClick={()=>arquivarExtrato(e)}>Arquivar</Btn>}</td>
                       </tr>;
                     })}
                   </tbody>
