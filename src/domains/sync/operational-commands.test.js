@@ -73,6 +73,13 @@ describe("comandos operacionais versionados",()=>{
     expect(fulfilled.data.weeklyCommitments[0]).toMatchObject({status:"concluido",version:2,quantidadeRealizada:10});
   });
 
+  it("cria compromisso semanal de forma idempotente",()=>{
+    const initial={weeklyCommitments:[]};const payload={commitment:{id:"c-1",obraId:"o-1",activityId:"a-1",descricao:"Alvenaria",quantidadePrometida:10}};
+    const created=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED,"weekly-create-0001",payload));
+    const repeated=applyOperationalCommand(created.data,command(OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED,"weekly-create-0001",payload));
+    expect(created.data.weeklyCommitments[0]).toMatchObject({status:"aberto",version:1});expect(repeated.idempotent).toBe(true);
+  });
+
   it("não duplica entrada física ao repetir um recebimento de pedido",()=>{
     const initial={pedidos:[{id:"p-1",obraId:"o-1",version:3,itens:[{id:"i-1",materialId:"mat-1",qtd:2,qtdRecebida:0,precoUnit:10}]}],movEstoque:[],materiais:[]};
     const payload={pedidoId:"p-1",receivedQuantities:{"i-1":2},stockEntries:[{id:"stock-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:2}]};

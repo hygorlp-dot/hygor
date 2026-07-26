@@ -28019,6 +28019,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
   const [questPreview, setQuestPreview] = useState(null); // cronograma proposto pela IA
   const [questIA,     setQuestIA]     = useState(null);   // parecer opcional da IA
   const [vincPreview, setVincPreview] = useState(null);   // antecessoras/sucessoras propostas
+  const [novoCompromisso, setNovoCompromisso] = useState(null);
   const [zoom, setZoom] = useState("semana");             // dia | semana | mes
   const [aba,  setAba]  = useState("gantt");              // gantt | mensal | curvaS | ff
   const [ffModo, setFfModo] = useState("previsto");       // previsto | realizado (tabela FF mensal)
@@ -28078,6 +28079,20 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
     });
     if(!result?.ok)showToast?.(result?.reason||"Não foi possível concluir o compromisso.","error");
     else showToast?.(atingiuMeta?"Compromisso concluído com a produção registrada.":"Não cumprimento registrado com motivo.");
+  };
+  const abrirNovoCompromisso = () => {
+    const primeiraAtividade=tarefas.find(item=>!item.titulo);
+    if(!primeiraAtividade){showToast?.("Inclua ao menos uma atividade no cronograma antes de criar um compromisso.","error");return;}
+    setNovoCompromisso({descricao:"",activityId:primeiraAtividade.id,quantidadePrometida:"",data:today()});
+  };
+  const criarCompromissoSemanal = async () => {
+    const form=novoCompromisso||{};
+    if(!String(form.descricao||"").trim()||!String(form.activityId||"").trim()||Number(form.quantidadePrometida)<=0){showToast?.("Informe atividade, descrição e meta maior que zero.","error");return;}
+    if(!dispatchCommand){showToast?.("A criação segura de compromissos exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(()=>({type:OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED,idempotencyKey:`compromisso-semanal-novo-${uid()}`,
+      actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{commitment:{id:uid(),obraId,activityId:form.activityId,descricao:String(form.descricao).trim(),quantidadePrometida:Number(form.quantidadePrometida),data:form.data}}}));
+    if(!result?.ok){showToast?.(result?.reason||"Não foi possível criar o compromisso.","error");return;}
+    setNovoCompromisso(null);showToast?.("Compromisso semanal criado.");
   };
 
   const upsertTarefa = (t) => salvarPlano(p => {
@@ -28650,11 +28665,12 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
         <MiniKpi label="PPC semanal" value={ppcSemanal.total?`${Math.round(ppcSemanal.ppc*100)}%`:"—"} cor={ppcSemanal.total&&ppcSemanal.ppc<.8?C.orange:C.green} sub={ppcSemanal.total?`${ppcSemanal.completed} de ${ppcSemanal.total} compromissos concluídos`:"Sem compromisso registrado"}/>
       </div>
 
-      {compromissosDaObra.length>0&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+      {(compromissosDaObra.length>0||podeConcluirCompromisso)&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
         <div style={{padding:"10px 12px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:10,alignItems:"center"}}>
           <div><p style={{fontSize:10,fontWeight:900,letterSpacing:.7,color:C.muted,textTransform:"uppercase"}}>Plano de curto prazo</p><b style={{display:"block",fontSize:12,color:C.text,marginTop:2}}>Compromissos da obra</b></div>
-          <span style={{fontSize:10,color:C.muted}}>{ppcSemanal.completed} concluído(s) de {ppcSemanal.total}</span>
+          <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:10,color:C.muted}}>{ppcSemanal.completed} concluído(s) de {ppcSemanal.total}</span>{podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={abrirNovoCompromisso}>Adicionar</Btn>}</div>
         </div>
+        {novoCompromisso&&<div style={{padding:"10px 12px",background:C.surface,borderBottom:`1px solid ${C.line}`}}><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:8}}><Sel label="Atividade" value={novoCompromisso.activityId} onChange={v=>setNovoCompromisso(form=>({...form,activityId:v}))} options={tarefas.filter(item=>!item.titulo).map(item=>({v:item.id,l:item.nome||"Atividade"}))}/><Inp label="Compromisso" value={novoCompromisso.descricao} onChange={v=>setNovoCompromisso(form=>({...form,descricao:v}))} placeholder="Ex.: Assentar alvenaria do pavimento"/><Inp label="Meta" type="number" value={novoCompromisso.quantidadePrometida} onChange={v=>setNovoCompromisso(form=>({...form,quantidadePrometida:v}))}/><Inp label="Data" type="date" value={novoCompromisso.data} onChange={v=>setNovoCompromisso(form=>({...form,data:v}))}/></div><div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:9}}><Btn size="sm" v="ghost" onClick={()=>setNovoCompromisso(null)}>Cancelar</Btn><Btn size="sm" onClick={criarCompromissoSemanal}>Criar compromisso</Btn></div></div>}
         <div>{compromissosDaObra.slice(0,8).map(compromisso=>{
           const concluido=compromisso.status==="concluido",naoConcluido=compromisso.status==="nao_concluido",cor=concluido?C.green:naoConcluido?C.orange:C.blue;
           const meta=Math.max(0,Number(compromisso.quantidadePrometida||0)),feito=Math.max(0,Number(compromisso.quantidadeRealizada||0)),pct=meta?Math.min(100,feito/meta*100):0;
@@ -28662,7 +28678,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
             <div style={{minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}><b style={{fontSize:11,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{compromisso.descricao||"Compromisso sem descrição"}</b><span style={{fontSize:9,fontWeight:900,color:cor,textTransform:"uppercase",whiteSpace:"nowrap"}}>{concluido?"concluído":naoConcluido?"não concluído":"em aberto"}</span></div><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{feito} entregue de {meta||"—"} prometido{compromisso.motivoNaoCumprimento?` · ${compromisso.motivoNaoCumprimento}`:""}</p><div style={{height:3,background:C.surface,borderRadius:99,overflow:"hidden",marginTop:6}}><i style={{display:"block",height:"100%",width:`${pct}%`,background:cor}}/></div></div>
             {!concluido&&!naoConcluido&&podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={()=>concluirCompromissoSemanal(compromisso)}>Concluir</Btn>}
           </div>;
-        })}</div>
+        })}{!compromissosDaObra.length&&!novoCompromisso&&<p style={{padding:"13px 12px",fontSize:10.5,color:C.muted}}>Nenhum compromisso ativo. Adicione o que será entregue nesta semana para acompanhar o PPC.</p>}</div>
       </div>}
 
       {/* Fisico-financeiro em destaque: previsao de custo final e eficiencia */}

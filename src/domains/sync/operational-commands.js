@@ -9,7 +9,7 @@ import {
   validateTechnicalMeasurement,
 } from "../medicoes/index.js";
 import { inactive } from "../financeiro/workflows.js";
-import { cancelProgressRecord, completeWeeklyCommitment, createProgressRecord } from "../producao/mutations.js";
+import { cancelProgressRecord, completeWeeklyCommitment, createProgressRecord, createWeeklyCommitment } from "../producao/mutations.js";
 import { canReleaseForMeasurement } from "../qualidade/calculations.js";
 import { validateActivitySafety } from "../seguranca/calculations.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
@@ -21,6 +21,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
+  WEEKLY_COMMITMENT_CREATED:"COMPROMISSO_SEMANAL_CRIADO",
 });
 
 const receipts=data=>Array.isArray(data?.operationalCommandReceipts)?data.operationalCommandReceipts:[];
@@ -186,6 +187,16 @@ export const applyOperationalCommand=(data,command)=>{
     const commitment={...result.commitment,version:versionOf(current)+1,completedAt:now,completedById:command.actorId||""};
     const next={...data,weeklyCommitments:(data?.weeklyCommitments||[]).map(item=>item.id===id?commitment:item)};
     return {ok:true,data:appendReceipt(next,command,id,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED){
+    const input=command.payload?.commitment;
+    if(!input?.id)return fail("Compromisso semanal sem identificação.");
+    if((data?.weeklyCommitments||[]).some(item=>item.id===input.id))return fail("Já existe um compromisso semanal com esta identificação.");
+    const created=createWeeklyCommitment(input,{actor:{id:command.actorId,nome:command.actorName},now});
+    if(!created.ok)return fail(created.error);
+    const next={...data,weeklyCommitments:[...(data?.weeklyCommitments||[]),created.commitment]};
+    return {ok:true,data:appendReceipt(next,command,created.commitment.id,now)};
   }
 
   if(command.type===OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED){

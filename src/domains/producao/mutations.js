@@ -21,4 +21,10 @@ export const cancelProgressRecord=(record={}, {reason="",actor={},now=""}={})=>{
   if(!String(reason).trim())return {ok:false,error:"Estorno do avanço físico exige motivo."};
   return {ok:true,record:{...record,status:"cancelado",motivoCancelamento:String(reason).trim(),cancelledAt:now,cancelledById:actor.id||"",version:Number(record.version||0)+1,history:[...(record.history||[]),event("cancelled",actor,now,String(reason).trim())]}};
 };
+export const createWeeklyCommitment=(input={}, {actor={},now=""}={})=>{
+  const quantity=Number(input.quantidadePrometida);
+  if(!String(input.id||"").trim()||!String(input.obraId||"").trim()||!String(input.activityId||"").trim()||!String(input.descricao||"").trim())return {ok:false,error:"Compromisso semanal exige identificação, obra, atividade e descrição."};
+  if(!Number.isFinite(quantity)||quantity<=0)return {ok:false,error:"Compromisso semanal exige meta maior que zero."};
+  return {ok:true,commitment:{...input,quantidadePrometida:quantity,status:"aberto",version:1,createdAt:now,createdById:actor.id||"",history:[...(input.history||[]),event("created",actor,now)]}};
+};
 export const completeWeeklyCommitment=(commitment,progress,{actor={},now="",reason=""}={})=>{const next=applyProgressToCommitment(commitment,progress);if(!next.eligibleForCompletion&&!String(reason).trim())return {ok:false,error:"Produção insuficiente exige motivo de não cumprimento."};return {ok:true,commitment:{...next,status:next.eligibleForCompletion?"concluido":"nao_concluido",motivoNaoCumprimento:next.eligibleForCompletion?"":String(reason),updatedAt:now,updatedById:actor.id||""}};};

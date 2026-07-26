@@ -23,5 +23,6 @@ describe("escopo servidor de comandos operacionais",()=>{
   });
   it("mantém a conclusão do compromisso dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED,payload:{commitmentId:"c-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED,payload:{commitment:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
   });
 });
