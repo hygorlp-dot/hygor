@@ -114,6 +114,7 @@ import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeas
 import { cancelThirdPartyMeasurement, createThirdPartyMeasurement, createThirdPartyPayment, payThirdPartyMeasurement, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
+import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import {
   analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
@@ -30875,6 +30876,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
   const [confPct, setConfPct] = useState({});          // pct confirmado por tarefa
   const [confResp, setConfResp] = useState("");
   const [confObs, setConfObs] = useState("");
+  const [confData, setConfData] = useState(today());
   const [fatModal,setFatModal]=useState(null);
   const [fatForm,setFatForm]=useState({valor:"",competencia:today().slice(0,7),dataVencimento:""});
 
@@ -30890,7 +30892,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
   const abrirConfirmacao = () => {
     if (!tarefas.length) { showToast?.("Sem serviços para medir.", "error"); return; }
     setConfPct(Object.fromEntries(tarefas.map(t => [t.id, String(t.progresso || 0)])));
-    setConfResp(""); setConfObs("");
+    setConfResp(""); setConfObs(""); setConfData(today());
     setConfModal(true);
   };
 
@@ -30905,12 +30907,11 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
     const avancoFisico = custoTotal
       ? itens.reduce((s, i) => s + i.custo * i.pctConfirmado, 0) / custoTotal : 0;
     const medicao = {
-      id: uid(), obraId, data: today(),
+      id: uid(), obraId, data: confData, dataMedicao: confData,
       numero: medicoesObra.length + 1,
       responsavel: confResp.trim(), observacao: confObs.trim(),
       itens, avancoFisico,
     };
-    const ajustes=itens.map(i => ({ tarefaId:i.tarefaId, progresso:i.pctConfirmado }));
     // A medição é o fato oficial: ela é confirmada primeiro pelo comando
     // versionado. O reflexo no planejamento é uma projeção operacional, sem
     // alterar diários já concluídos.
@@ -30919,10 +30920,9 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
         idempotencyKey:`medicao-criacao-${medicao.id}-${uid()}`,expectedVersion:0,
         actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{measurement:medicao}});
       if(!result?.ok){showToast?.(result?.reason||"Não foi possível confirmar a medição.","error");return;}
-      update(atual=>aplicarAjustesProgresso(atual, obraId, ajustes, "medicao_oficial"));
     }else{
       const base = { ...data, medicoesObra: [...(data.medicoesObra || []), medicao] };
-      update(aplicarAjustesProgresso(base, obraId, ajustes, "medicao_oficial"));
+      update(rebuildTechnicalMeasurementProjection(base, obraId, new Date().toISOString()));
     }
     setConfModal(false);
     showToast?.(`Medição ${medicao.numero} confirmada: ${avancoFisico.toFixed(0)}% físico.`);
@@ -30947,10 +30947,13 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
           payload:{measurementId:m.id,reason:String(motivo).trim()}};
       });
       if(!result?.ok){showToast?.(result?.reason||"Não foi possível cancelar a medição.","error");return;}
-    }else update({ ...data, medicoesObra: (data.medicoesObra || []).map(x => x.id!==m.id?x:{
+    }else {
+      const base={ ...data, medicoesObra: (data.medicoesObra || []).map(x => x.id!==m.id?x:{
       ...x,status:"cancelada",motivoCancelamento:String(motivo).trim(),canceladaEm:agora,
       canceladaPorId:currentUser?.id||"",canceladaPor:currentUser?.nome||"",
-    }) });
+      }) };
+      update(rebuildTechnicalMeasurementProjection(base, obraId, agora));
+    }
     showToast?.("Medição cancelada e preservada no histórico.");
   };
 
@@ -30973,14 +30976,10 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
     showToast?.(`Faturamento de ${fmt(result.measurement.valorPrevisto)} gerado a partir da medição técnica.`);
   };
 
-  // Ajuste central: pode corrigir inclusive um valor vindo do Diario. O instante
-  // da alteracao fica salvo e passa a prevalecer em todas as telas.
+  // O plano é uma projeção do boletim aprovado. Não há sobrescrita manual do
+  // fato técnico: uma correção cria novo boletim e mantém a trilha auditável.
   const ajustarManual = (tarefaId, progresso) => {
-    const tarefa = tarefas.find(t => t.id === tarefaId);
-    update(aplicarAjustesProgresso(data, obraId, [{
-      tarefaId, etapaId: tarefa?.etapaId || "", progresso,
-    }], "medicao"));
-    showToast?.("Medição ajustada em todas as telas");
+    showToast?.("O avanço oficial só pode ser alterado em um novo boletim de medição aprovado.", "warn");
   };
 
   if (!obras.length) {
@@ -31064,9 +31063,8 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
       </div>
 
       <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, padding: "0 4px" }}>
-        A medição é única em todo o sistema. Você pode ajustá-la aqui, no <b>Diário de Obra</b>
-        ou no Planejamento; a alteração mais recente passa a valer em todas as telas e alimenta
-        a curva S e o físico-financeiro.
+        O diário sugere o avanço. O boletim técnico aprovado é a única fonte do avanço oficial e
+        alimenta a curva S e o físico-financeiro; correções geram um novo boletim auditável.
       </p>
 
       {/* Boletim de medição: confirma o avanço contra o diário */}
@@ -31133,6 +31131,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
               fiscal aprova. A divergência aceita fica registrada no boletim, e o
               progresso do cronograma passa a ser o confirmado.
             </p>
+            <Inp label="Data efetiva da medição" type="date" value={confData} onChange={setConfData}/>
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
               {tarefas.map((t, i) => {
                 const conf = Number(confPct[t.id]) || 0;

@@ -2,6 +2,12 @@
 // persistência por agregado. Eles são puros para poderem ser exercitados sem
 // navegador e, principalmente, não fazem "last write wins" para a mesma
 // entidade. A migração do endpoint para comandos usa este mesmo contrato.
+import {
+  normalizeTechnicalMeasurement,
+  rebuildTechnicalMeasurementProjection,
+  technicalMeasurementAuditEvent,
+  validateTechnicalMeasurement,
+} from "../medicoes/index.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -26,6 +32,10 @@ const requiresVersion=(current,expected,label)=>{
   if(expected==null)return "";
   return versionOf(current)===Number(expected)?"":`${label} foi alterado por outra pessoa. Atualize a tela antes de tentar novamente.`;
 };
+const appendTechnicalMeasurementAudit=(data,event)=>({
+  ...data,
+  technicalMeasurementAuditEvents:[...(data?.technicalMeasurementAuditEvents||[]),event].slice(-2000),
+});
 
 export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
@@ -36,8 +46,17 @@ export const applyOperationalCommand=(data,command)=>{
     const measurement=command.payload?.measurement;
     if(!measurement?.id)return fail("Medição técnica sem identificação.");
     if((data?.medicoesObra||[]).some(item=>item.id===measurement.id))return fail("Já existe uma medição técnica com esta identificação.");
-    const next={...data,medicoesObra:[...(data?.medicoesObra||[]),{...measurement,version:1,createdAt:measurement.createdAt||now,updatedAt:now}]};
-    return {ok:true,data:appendReceipt(next,command,measurement.id,now)};
+    const nextNumber=Math.max(0,...(data?.medicoesObra||[]).filter(item=>item.obraId===measurement.obraId).map(item=>Number(item.numero||0)))+1;
+    const created={...normalizeTechnicalMeasurement({...measurement,numero:nextNumber},{now,nextNumber}),version:1};
+    const validation=validateTechnicalMeasurement(created,{requireApprovedItems:true});
+    if(!validation.ok)return fail(validation.errors.join(" "));
+    let next={...data,medicoesObra:[...(data?.medicoesObra||[]),created]};
+    next=rebuildTechnicalMeasurementProjection(next,created.obraId,now);
+    next=appendTechnicalMeasurementAudit(next,technicalMeasurementAuditEvent({
+      type:"MEDICAO_TECNICA_APROVADA",measurement:created,
+      actor:{id:command.actorId,nome:command.actorName},occurredAt:now,
+    }));
+    return {ok:true,data:appendReceipt(next,command,created.id,now)};
   }
 
   if(command.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED){
@@ -47,8 +66,18 @@ export const applyOperationalCommand=(data,command)=>{
     const versionError=requiresVersion(current,command.expectedVersion,"A medição técnica");
     if(versionError)return fail(versionError);
     if(["cancelada","cancelado"].includes(current.status))return fail("A medição técnica já está cancelada.");
-    const cancelled={...current,status:"cancelada",motivoCancelamento:String(command.payload?.reason||"").trim(),canceladaEm:now,canceladaPorId:command.actorId||"",canceladaPor:command.actorName||"",updatedAt:now,version:versionOf(current)+1};
-    const next={...data,medicoesObra:(data.medicoesObra||[]).map(item=>item.id===id?cancelled:item)};
+    const reason=String(command.payload?.reason||"").trim();
+    if(!reason)return fail("Informe o motivo do cancelamento da medição técnica.");
+    if((data?.medicoes||[]).some(item=>item.medicaoTecnicaId===id&&!['cancelada','cancelado','estornada','estornado'].includes(String(item.status||"").toLowerCase()))){
+      return fail("Cancele primeiro o faturamento vinculado à medição técnica.");
+    }
+    const cancelled={...current,status:"cancelada",motivoCancelamento:reason,canceladaEm:now,canceladaPorId:command.actorId||"",canceladaPor:command.actorName||"",updatedAt:now,version:versionOf(current)+1};
+    let next={...data,medicoesObra:(data.medicoesObra||[]).map(item=>item.id===id?cancelled:item)};
+    next=rebuildTechnicalMeasurementProjection(next,current.obraId,now);
+    next=appendTechnicalMeasurementAudit(next,technicalMeasurementAuditEvent({
+      type:"MEDICAO_TECNICA_CANCELADA",measurement:cancelled,
+      actor:{id:command.actorId,nome:command.actorName},occurredAt:now,reason,
+    }));
     return {ok:true,data:appendReceipt(next,command,id,now)};
   }
 
