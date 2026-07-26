@@ -24,7 +24,7 @@ export default defineConfig({
     testTimeout: 10000,
     environment: "jsdom",
     globals: true,
-    include: ["src/**/*.test.{js,jsx}"],
+    include: ["src/**/*.test.{js,jsx}", "server/**/*.test.{js,jsx}"],
     exclude: ["node_modules/**", ".agents/**", ".claude/**", ".claude-flow/**"],
     coverage: {
       provider: "v8",

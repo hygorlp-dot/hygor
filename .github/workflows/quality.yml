@@ -1,6 +1,7 @@
 name: Qualidade
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -15,6 +16,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Fronteiras de domínio e financeiro
+        run: npm run lint
       - name: Testes financeiros e de permissões com cobertura
         run: npm run test:coverage
       - name: Build de produção
@@ -30,3 +33,17 @@ jobs:
           path: |
             bundle-metrics.json
             coverage/coverage-summary.json
+
+  migration-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Contratos das migrations e integração financeira
+        run: npm test -- src/integration/financial-transaction-migration.test.js server/financial-shadow.test.js server/reconciliation-command.test.js
+      - name: Sintaxe da fronteira de API
+        run: node --check api/data.js

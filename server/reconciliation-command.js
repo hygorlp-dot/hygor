@@ -89,7 +89,7 @@ const allocateTransaction = (data, transaction, payload, actor) => {
     categoria:normalized[0].category,ativa:true,criadoPorId:actor?.id||"",criadoPor:actor?.nome||actor?.email||"Operador",criadoEm:new Date().toISOString(),
   }:null;
   const transactions=(data.transacoes||[]).map(item=>String(item.id)===String(transaction.id)?{
-    ...item,status:"conciliado",rateios:normalized,gerados,vinculo:measurement?{tipo:"medicao",id:measurement.id}:null,recebedorMaoObra:worker,
+    ...item,status:"conciliado",rateios:normalized,gerados:generated,vinculo:measurement?{tipo:"medicao",id:measurement.id}:null,recebedorMaoObra:worker,
     statusAtualizadoEm:new Date().toISOString(),statusAtualizadoPorId:actor?.id||"",statusAtualizadoPor:actor?.nome||actor?.email||"Operador",
   }:item);
   const historico=[...(data.historicoConc||[]),{id:commandId("hist"),criadoEm:new Date().toISOString(),transacaoId:transaction.id,extratoId:transaction.extratoId,acao:"conciliada",statusAnterior:transaction.status,statusNovo:"conciliado",descricao:measurement?`Medição ${measurement.descricao||measurement.id} conciliada`:`${normalized.length} rateio(s) confirmado(s)`,valor:transaction.valor,operadorId:actor?.id||"",operador:actor?.nome||actor?.email||"Operador"}];
