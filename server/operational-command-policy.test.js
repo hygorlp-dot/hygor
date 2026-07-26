@@ -30,4 +30,8 @@ describe("escopo servidor de comandos operacionais",()=>{
     expect(validateOperationalCommandScope({user,data:{...data,qualidadeRegistros:[{id:"q-b",obraId:"obra-b"}]},command:{type:OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED,payload:{recordId:"q-b"}}})).toMatchObject({ok:false});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED,payload:{records:[{obraId:"obra-b"}]}}})).toMatchObject({ok:false});
   });
+  it("mantém APR e permissão de trabalho no escopo da obra",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED,payload:{analysis:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED,payload:{permit:{obraId:"obra-b"}}}})).toMatchObject({ok:false});
+  });
 });

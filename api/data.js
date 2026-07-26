@@ -75,6 +75,8 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED]:["admin","engenheiro","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_RECORD_DETAILS_UPDATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
+  [OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED]:["admin","engenheiro","seguranca"],
+  [OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED]:["admin","engenheiro","seguranca"],
 };
 const BACKUP_FOLDER="00 - Backups ARCD";
 const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;

@@ -28,6 +28,8 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   QUALITY_NONCONFORMITY_RESOLVED:"NAO_CONFORMIDADE_RESOLVIDA",
   QUALITY_RECORD_RELEASED:"FICHA_QUALIDADE_LIBERADA",
   QUALITY_RECORD_DETAILS_UPDATED:"FICHA_QUALIDADE_ATUALIZADA",
+  SAFETY_RISK_ANALYSIS_SAVED:"APR_SALVA",
+  SAFETY_WORK_PERMIT_SAVED:"PERMISSAO_TRABALHO_SALVA",
 });
 
 const receipts=data=>Array.isArray(data?.operationalCommandReceipts)?data.operationalCommandReceipts:[];
@@ -83,6 +85,10 @@ const replaceQualityRecord=(data,id,record)=>({...data,qualidadeRegistros:qualit
 const qualityKey=record=>`${record.tipo||""}|${record.etapaId||record.materialId||record.itemOrcamentoId||""}`;
 const openNonconformity=record=>record?.naoConformidade&&!['encerrada','cancelada'].includes(record.naoConformidade.status);
 const qualityRecordVersionError=(record,command)=>requiresVersion(record,command.expectedVersion,"A ficha de qualidade");
+const safetyRecords=(data,key)=>Array.isArray(data?.[key])?data[key]:[];
+const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||""));
+const replaceSafetyRecord=(data,key,id,record)=>({...data,[key]:safetyRecords(data,key).map(item=>item.id===id?record:item)});
+const safetyCommandError=(record,command,label)=>requiresVersion(record,command.expectedVersion,label);
 
 export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
@@ -168,6 +174,51 @@ export const applyOperationalCommand=(data,command)=>{
     if(!Object.keys(allowed).length)return fail("Nenhuma atualização válida foi informada para a ficha.");
     const updated={...current,...allowed,version:versionOf(current)+1,atualizadoEm:now};
     return {ok:true,data:appendReceipt(replaceQualityRecord(data,recordId,updated),command,recordId,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED){
+    const input=command.payload?.analysis||{};
+    const id=String(input.id||"");
+    const obraId=String(input.obraId||"");
+    const activityId=String(input.activityId||"");
+    const status=String(input.status||"rascunho");
+    if(!id||!obraId||!activityId)return fail("APR exige identificação, obra e atividade.");
+    if(!["rascunho","aprovada"].includes(status))return fail("Status da APR inválido.");
+    const current=safetyRecords(data,"jobRiskAnalyses").find(item=>item.id===id);
+    if(current){
+      const versionError=safetyCommandError(current,command,"A APR");
+      if(versionError)return fail(versionError);
+      if(current.status==="aprovada")return fail("APR aprovada é imutável. Crie uma revisão para alterar riscos ou controles.");
+      if(String(current.obraId)!==obraId||String(current.activityId)!==activityId)return fail("A APR não pode ser movida para outra obra ou atividade.");
+    }else if(command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("A APR ainda não existe na versão esperada.");
+    const risks=Array.isArray(input.risks)?input.risks.filter(Boolean):[];
+    const controls=Array.isArray(input.controls)?input.controls.filter(Boolean):[];
+    if(status==="aprovada"&&(!risks.length||!controls.length))return fail("APR aprovada exige ao menos um risco e uma medida de controle.");
+    const record={...(current||{}),...input,id,obraId,activityId,status,risks,controls,version:versionOf(current)+1,atualizadoEm:now,...(!current?{criadoEm:now,criadoPorId:command.actorId||"",criadoPor:command.actorName||""}:{})};
+    const next=current?replaceSafetyRecord(data,"jobRiskAnalyses",id,record):{...data,jobRiskAnalyses:[...safetyRecords(data,"jobRiskAnalyses"),record]};
+    return {ok:true,data:appendReceipt(next,command,id,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED){
+    const input=command.payload?.permit||{};
+    const id=String(input.id||"");
+    const obraId=String(input.obraId||"");
+    const activityId=String(input.activityId||"");
+    const status=String(input.status||"rascunho");
+    if(!id||!obraId||!activityId)return fail("Permissão de trabalho exige identificação, obra e atividade.");
+    if(!["rascunho","liberada","suspensa","encerrada"].includes(status))return fail("Status da permissão de trabalho inválido.");
+    if(!validDate(input.validFrom)||!validDate(input.validUntil)||String(input.validUntil)<String(input.validFrom))return fail("Informe a vigência válida da permissão de trabalho.");
+    const current=safetyRecords(data,"workPermits").find(item=>item.id===id);
+    if(current){
+      const versionError=safetyCommandError(current,command,"A permissão de trabalho");
+      if(versionError)return fail(versionError);
+      if(["encerrada"].includes(current.status))return fail("Permissão encerrada é imutável. Crie uma nova permissão.");
+      if(String(current.obraId)!==obraId||String(current.activityId)!==activityId)return fail("A permissão não pode ser movida para outra obra ou atividade.");
+    }else if(command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("A permissão de trabalho ainda não existe na versão esperada.");
+    if(status==="liberada"&&!safetyRecords(data,"jobRiskAnalyses").some(item=>String(item.obraId)===obraId&&String(item.activityId)===activityId&&item.status==="aprovada"))return fail("Libere a permissão somente após a APR aprovada para esta atividade.");
+    const record={...(current||{}),...input,id,obraId,activityId,status,version:versionOf(current)+1,atualizadoEm:now,...(!current?{criadoEm:now,criadoPorId:command.actorId||"",criadoPor:command.actorName||""}:{})};
+    const next=current?replaceSafetyRecord(data,"workPermits",id,record):{...data,workPermits:[...safetyRecords(data,"workPermits"),record]};
+    return {ok:true,data:appendReceipt(next,command,id,now)};
   }
 
   if(command.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED){

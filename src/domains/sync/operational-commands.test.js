@@ -74,6 +74,21 @@ describe("comandos operacionais versionados",()=>{
     expect(released.ok).toBe(true);
   });
 
+  it("versiona APR, exige controles para aprová-la e libera PT somente após a APR",()=>{
+    const initial={jobRiskAnalyses:[],workPermits:[]};
+    const invalidApr=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED,"safety-apr-invalid-0001",{analysis:{id:"apr-1",obraId:"o-1",activityId:"a-1",status:"aprovada",risks:[],controls:[]}},0));
+    expect(invalidApr.ok).toBe(false);
+    const draft=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED,"safety-apr-draft-0001",{analysis:{id:"apr-1",obraId:"o-1",activityId:"a-1",status:"rascunho",risks:["queda"],controls:["linha de vida"]}},0));
+    const prematurePermit=applyOperationalCommand(draft.data,command(OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED,"safety-permit-blocked-0001",{permit:{id:"pt-1",obraId:"o-1",activityId:"a-1",status:"liberada",validFrom:"2026-07-25",validUntil:"2026-07-26"}},0));
+    expect(prematurePermit.ok).toBe(false);expect(prematurePermit.reason).toMatch(/APR aprovada/);
+    const approved=applyOperationalCommand(draft.data,command(OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED,"safety-apr-approved-0001",{analysis:{...draft.data.jobRiskAnalyses[0],status:"aprovada"}},1));
+    const released=applyOperationalCommand(approved.data,command(OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED,"safety-permit-released-0001",{permit:{id:"pt-1",obraId:"o-1",activityId:"a-1",status:"liberada",validFrom:"2026-07-25",validUntil:"2026-07-26"}},0));
+    expect(approved.data.jobRiskAnalyses[0]).toMatchObject({status:"aprovada",version:2});
+    expect(released.data.workPermits[0]).toMatchObject({status:"liberada",version:1});
+    const stale=applyOperationalCommand(released.data,command(OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED,"safety-permit-stale-0001",{permit:{...released.data.workPermits[0],status:"suspensa"}},0));
+    expect(stale.ok).toBe(false);expect(stale.reason).toMatch(/alterad/);
+  });
+
   it("conclui compromisso semanal somente com produção ou motivo",()=>{
     const initial={weeklyCommitments:[{id:"c-1",obraId:"o-1",activityId:"a-1",quantidadePrometida:10,version:1,status:"aberto"}],progressRecords:[]};
     const blocked=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED,"weekly-commitment-0001",{commitmentId:"c-1"},1));
