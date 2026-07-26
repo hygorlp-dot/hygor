@@ -41,7 +41,14 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     if (key === "obras") { out.obras = (value || []).filter(item => hasObra({ obraId:item.id }, allowedObras)).map(sanitizeObra); continue; }
     if (key === "attendance") {
       const permittedEmployees = new Set((payload.employees || []).filter(item => hasObra(item, allowedObras)).map(item => String(item.id)));
-      out.attendance = Object.fromEntries(Object.entries(value || {}).filter(([employeeId]) => permittedEmployees.has(String(employeeId))));
+      // A lotação do colaborador não basta: ele pode ter apontamentos em mais
+      // de uma obra. Filtra cada dia para não revelar produção de outra obra.
+      out.attendance = Object.fromEntries(Object.entries(value || {}).flatMap(([employeeId,days])=>{
+        if(!permittedEmployees.has(String(employeeId)))return [];
+        const scopedDays=Object.fromEntries(Object.entries(days||{}).filter(([,record])=>
+          typeof record!=="object"||record===null||(!record.obraId&&!record.obra)||hasObra(record,allowedObras)));
+        return Object.keys(scopedDays).length?[[employeeId,scopedDays]]:[];
+      }));
       continue;
     }
     if (key === "comercial") {
