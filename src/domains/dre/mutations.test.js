@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFinancialLedger, selectDRE } from "../financeiro/ledger";
-import { cancelCompanyExpense, cancelDreExpense, createDreExpense, saveCompanyExpense } from "./mutations";
+import { cancelCompanyExpense, cancelDreExpense, createDreExpense, replicateCompanyRecurringExpenses, saveCompanyExpense } from "./mutations";
 
 describe("cancelamento auditável de despesa no DRE", () => {
   const data={ outrasDesp:[{ id:"desp-1", obraId:"obra-1", valor:1250, descricao:"Argamassa", status:"ativo" }] };
@@ -46,5 +46,11 @@ describe("cancelamento auditável de despesa no DRE", () => {
     const edited=saveCompanyExpense({data:created,expense:{competencia:"2026-07",categoria:"software",descricao:"Sistema",valor:120,recorrente:true},actor,id:"corp-2",now:"2026-07-02T00:00:00.000Z"});
     expect(edited.despesasEmpresa[0]).toMatchObject({valor:120,version:2,createdAt:"2026-07-01T00:00:00.000Z",updatedAt:"2026-07-02T00:00:00.000Z"});
     expect(selectDRE(buildFinancialLedger(edited),{competence:"2026-07"}).costs).toBe(120);
+  });
+
+  it("copia somente recorrências ativas com nova autoria e sem duplicar destino", () => {
+    const data={despesasEmpresa:[{id:"a",competencia:"2026-06",categoria:"software",descricao:"Sistema",valor:100,recorrente:true},{id:"b",competencia:"2026-06",categoria:"aluguel",descricao:"Sede",valor:50,recorrente:true,status:"cancelada"}]};
+    const result=replicateCompanyRecurringExpenses({data,fromCompetence:"2026-06",toCompetence:"2026-07",actor,ids:["new-a"],now:"2026-07-01T00:00:00.000Z"});
+    expect(result.copied).toBe(1);expect(result.despesasEmpresa.at(-1)).toMatchObject({id:"new-a",competencia:"2026-07",origem:"recorrencia_dre_empresa",createdById:"u-1",status:"ativo"});
   });
 });

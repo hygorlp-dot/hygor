@@ -100,7 +100,7 @@ import {
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
 import { calculateContractProjection, createDreCalculations } from "./domains/dre/calculations";
-import { cancelCompanyExpense, cancelDreExpense, createDreExpense, saveCompanyExpense } from "./domains/dre/mutations";
+import { cancelCompanyExpense, cancelDreExpense, createDreExpense, replicateCompanyRecurringExpenses, saveCompanyExpense } from "./domains/dre/mutations";
 import {
   buildFinancialLedger,
   selectDRE as selectLedgerDRE,
@@ -34181,14 +34181,8 @@ Regras: não invente números, datas, clientes ou causas. Diferencie competênci
   // Despesas recorrentes - auto-copiar para o mês atual
   const replicarRecorrentes = () => {
     const prevYM = month===0?`${year-1}-12`:`${year}-${String(month).padStart(2,"0")}`;
-    const recorrentes = (data.despesasEmpresa||[]).filter(d=>d.competencia===prevYM && d.recorrente);
-    const jaExistem   = (data.despesasEmpresa||[]).filter(d=>d.competencia===ym);
-    const novas = recorrentes
-      .filter(r => !jaExistem.some(j=>j.categoria===r.categoria&&j.descricao===r.descricao))
-      .map(r => ({...r, id:uid(), competencia:ym}));
-    if (!novas.length) { showToast("Nenhuma despesa recorrente do mês anterior a copiar.","warn"); return; }
-    update({...data,despesasEmpresa:[...(data.despesasEmpresa||[]),...novas]});
-    showToast(`${novas.length} despesa(s) recorrente(s) copiada(s) para ${period}.`);
+    try{const result=replicateCompanyRecurringExpenses({data,fromCompetence:prevYM,toCompetence:ym,actor:currentUser,ids:Array.from({length:(data.despesasEmpresa||[]).length},()=>uid())});if(!result.copied){showToast("Nenhuma despesa recorrente ativa do mês anterior a copiar.","warn");return;}const {copied,...next}=result;update(next);showToast(`${copied} despesa(s) recorrente(s) copiada(s) para ${period}.`);}
+    catch(error){showToast(error.message||"Não foi possível copiar as despesas recorrentes.","error");}
   };
 
   const saveDesp = () => {

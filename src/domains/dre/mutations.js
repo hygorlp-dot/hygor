@@ -62,3 +62,14 @@ export const saveCompanyExpense = ({ data, expense, actor, id, now = new Date().
   const registro={...anterior,...expense,id,competencia,descricao,valor,categoria:String(expense?.categoria||"outros"),recorrente:!!expense?.recorrente,status:anterior?.status||"ativo",origem:anterior?.origem||"dre_empresa",createdAt:anterior?.createdAt||now,createdById:anterior?.createdById||actor.id,createdBy:anterior?.createdBy||actor.nome||actor.email||"Usuário autenticado",updatedAt:now,updatedById:actor.id,updatedBy:actor.nome||actor.email||"Usuário autenticado",version:Number(anterior?.version||0)+1};
   return {...data,despesasEmpresa:anterior?despesas.map(item=>item.id===id?registro:item):[...despesas,registro]};
 };
+
+export const replicateCompanyRecurringExpenses = ({ data, fromCompetence, toCompetence, actor, ids = [], now = new Date().toISOString() }) => {
+  if (!actor?.id) throw new Error("Sessão do usuário indisponível para copiar despesas recorrentes.");
+  if (!/^\d{4}-\d{2}$/.test(String(fromCompetence || "")) || !/^\d{4}-\d{2}$/.test(String(toCompetence || ""))) throw new Error("Informe competências válidas para copiar despesas recorrentes.");
+  const despesas=Array.isArray(data?.despesasEmpresa) ? data.despesasEmpresa : [];
+  const existentes=new Set(despesas.filter(item=>item.competencia===toCompetence&&!['cancelado','cancelada','estornado','arquivado'].includes(String(item.status||'').toLowerCase())).map(item=>`${item.categoria}|${item.descricao}`));
+  const fontes=despesas.filter(item=>item.competencia===fromCompetence&&item.recorrente&&!['cancelado','cancelada','estornado','arquivado'].includes(String(item.status||'').toLowerCase())&&!existentes.has(`${item.categoria}|${item.descricao}`));
+  if (ids.length<fontes.length) throw new Error("Identificadores insuficientes para copiar despesas recorrentes.");
+  const novos=fontes.map((item,index)=>({...item,id:ids[index],competencia:toCompetence,status:"ativo",origem:"recorrencia_dre_empresa",createdAt:now,createdById:actor.id,createdBy:actor.nome||actor.email||"Usuário autenticado",updatedAt:now,updatedById:actor.id,updatedBy:actor.nome||actor.email||"Usuário autenticado",version:1,motivoCancelamento:"",canceladoEm:"",canceladoPorId:"",canceladoPor:""}));
+  return {...data,despesasEmpresa:[...despesas,...novos],copied:novos.length};
+};
