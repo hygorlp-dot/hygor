@@ -17,4 +17,9 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain('origem: "conciliacao_bancaria", transacaoId: tr.id, actor:currentUser');
     expect(source).toContain("<DRE          data={data} update={update} showToast={showToast} currentUser={currentUser} />");
   });
+
+  it("consome a projeção canônica quando ela está disponível, mesmo antes do bloqueio FIN-003", () => {
+    expect(source).toContain('relatorio?.source==="canonical_ledger"&&relatorio.current');
+    expect(source).toContain('razaoEmpresa?.source==="canonical_ledger"&&razaoEmpresa.current');
+  });
 });

@@ -760,7 +760,11 @@ export default async function handler(req, res) {
     if (action === "save-sections") {
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
-      const exigeMotorFinanceiro=FINANCIAL_ENGINE_ENFORCE&&chaves.some(key=>FINANCIAL_LEGACY_SECTIONS.has(key));
+      // Mesmo em sombra, toda mutação financeira atualiza a projeção
+      // canônica na mesma transação do blob. Assim o DRE pode ler o razão sem
+      // ficar defasado; FIN-003 continua sendo apenas o bloqueio das escritas
+      // legadas, ainda desligado.
+      const sincronizaFinanceiro=chaves.some(key=>FINANCIAL_LEGACY_SECTIONS.has(key));
       if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
       const erroAutorizacao=authorizeSectionChanges(usuario,Object.fromEntries(chaves.map(key=>[key,sections[key]])));
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
@@ -794,8 +798,8 @@ export default async function handler(req, res) {
       };
       let valor=aplicar(atual,houveConcorrencia);
       let agora=new Date().toISOString();
-      const salvarVersao=exigeMotorFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
-      let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_sections":"save_sections",
+      const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
+      let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
         before:Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
       let gravado=gravacao.applied?{updated_at:gravacao.updatedAt}:null;
 
@@ -804,7 +808,7 @@ export default async function handler(req, res) {
         const recente=await lerLinha();
         valor=aplicar(recente.payload,true);
         agora=new Date().toISOString();
-        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_sections":"save_sections",
+        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
           before:Object.fromEntries(chaves.map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado={updated_at:retry.updatedAt};combinado=true;
@@ -818,7 +822,7 @@ export default async function handler(req, res) {
       if (!payload) return res.status(400).json({ error: "Nada para salvar." });
       const secoesAlteradas=Object.fromEntries([...new Set([...Object.keys(payload||{}),...Object.keys(atual||{})])]
         .filter(key=>!igual(payload?.[key],atual?.[key])).map(key=>[key,payload?.[key]]));
-      const exigeMotorFinanceiro=FINANCIAL_ENGINE_ENFORCE&&Object.keys(secoesAlteradas).some(key=>FINANCIAL_LEGACY_SECTIONS.has(key));
+      const sincronizaFinanceiro=Object.keys(secoesAlteradas).some(key=>FINANCIAL_LEGACY_SECTIONS.has(key));
       const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas);
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(atual,payload);
@@ -857,8 +861,8 @@ export default async function handler(req, res) {
       // .select() devolve a linha COMO O BANCO A GUARDOU. Assim o carimbo que
       // mandamos de volta ao navegador é exatamente o que estará lá na próxima
       // comparação — sem discrepância de formato.
-      const salvarVersao=exigeMotorFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
-      const primeira=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_blob":"save_blob",before:beforeAudit,after:afterAudit});
+      const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
+      const primeira=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",before:beforeAudit,after:afterAudit});
       let gravado=primeira.applied?{updated_at:primeira.updatedAt}:null;
       // Outra gravação pode entrar entre a leitura e o UPDATE. A condição no
       // updated_at impede sobrescrita; nesse caso relê e reaplica a mesma mescla.
@@ -866,7 +870,7 @@ export default async function handler(req, res) {
         if(!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou ao mesmo tempo."});
         const recente=await lerLinha();valor=mesclarTresVias(basePayload,payload,recente.payload);
         const novoAgora=new Date().toISOString();
-        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_blob":"save_blob",
+        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
           before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado={updated_at:retry.updatedAt};

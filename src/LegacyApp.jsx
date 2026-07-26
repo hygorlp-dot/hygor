@@ -5185,7 +5185,10 @@ function DRELegado({ data, update, showToast, currentUser=null, obraIdFixo="" })
     });
     return()=>{ativo=false;};
   },[year,month,periodoDRE,obraFinanceiraId,data]);
-  const aplicarRazao=(legado,relatorio)=>relatorio?.engineEnforced&&relatorio.current
+  // FIN-002 já provou a igualdade em produção. A fonte visual do DRE passa a
+  // ser o evento canônico; o cálculo legado fica somente como complemento de
+  // detalhes que ainda não possuem projeção própria, não como indicador.
+  const aplicarRazao=(legado,relatorio)=>relatorio?.source==="canonical_ledger"&&relatorio.current
     ? {...legado,...relatorio.current,fonteFinanceira:"razao_canonico"} : legado;
   const dre = useMemo(()=>aplicarRazao(dreLegado,razaoDRE.consolidado),[dreLegado,razaoDRE.consolidado]);
   const dreObra = useMemo(()=>aplicarRazao(dreObraLegado,razaoDRE.obra),[dreObraLegado,razaoDRE.obra]);
@@ -5194,13 +5197,13 @@ function DRELegado({ data, update, showToast, currentUser=null, obraIdFixo="" })
   // permaneciam presos ao consolidado.
   const dreResumo=(obraIdFixo||view==="obra")?dreObra:dre;
   const hist  = useMemo(()=>calcDREHistorico(data,year,month,6).map((linha,index)=>
-    razaoDRE.consolidado?.engineEnforced&&razaoDRE.consolidado.history?.[index]
+    razaoDRE.consolidado?.source==="canonical_ledger"&&razaoDRE.consolidado.history?.[index]
       ? {...linha,...razaoDRE.consolidado.history[index],fonteFinanceira:"razao_canonico"} : linha
   ), [data,year,month,razaoDRE.consolidado]);
   const histObra=useMemo(()=>Array.from({length:6},(_,i)=>{
     const d=new Date(year,month-5+i,1);
     const base=calcDREObra(data,obraFinanceiraId,d.getFullYear(),d.getMonth(),"mes");
-    const linha=razaoDRE.obra?.engineEnforced&&razaoDRE.obra.history?.[i]
+    const linha=razaoDRE.obra?.source==="canonical_ledger"&&razaoDRE.obra.history?.[i]
       ? {...base,...razaoDRE.obra.history[i]} : base;
     return {mes:`${monthName(d.getMonth())}/${String(d.getFullYear()).slice(2)}`,faturamento:linha.faturamento,
       recebido:linha.recebido,custos:linha.totalCustos,maoDeObra:linha.moData.laborCost+linha.moData.benefitCost,
@@ -34154,7 +34157,7 @@ function DREEmpresa({ data, update, showToast, currentUser=null }) {
     });
     return()=>{ativo=false;};
   },[data,year,month]);
-  const dre = useMemo(()=>razaoEmpresa?.engineEnforced&&razaoEmpresa.current
+  const dre = useMemo(()=>razaoEmpresa?.source==="canonical_ledger"&&razaoEmpresa.current
     ? {...dreLegadoEmpresa,...razaoEmpresa.current,fonteFinanceira:"razao_canonico"}
     : dreLegadoEmpresa,[dreLegadoEmpresa,razaoEmpresa]);
   const period  = `${fullMonth(month)} ${year}`;
@@ -34166,7 +34169,7 @@ function DREEmpresa({ data, update, showToast, currentUser=null }) {
   const historico = useMemo(() => Array.from({length:6},(_,i)=>{
     const d=new Date(year,month-5+i,1);
     const base=calcDREEmpresa(data,d.getFullYear(),d.getMonth());
-    const dr=razaoEmpresa?.engineEnforced&&razaoEmpresa.history?.[i]
+    const dr=razaoEmpresa?.source==="canonical_ledger"&&razaoEmpresa.history?.[i]
       ? {...base,...razaoEmpresa.history[i]} : base;
     return { mes:`${monthName(d.getMonth())}/${String(d.getFullYear()).slice(2)}`, ...dr };
   }), [data,year,month,razaoEmpresa]);
