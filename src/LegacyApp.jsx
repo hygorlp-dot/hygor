@@ -122,7 +122,7 @@ import {
   linkThirdPartyInvoice,
 } from "./domains/financeiro/workflows";
 import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
-import { calculateCPM as calculateCanonicalCPM, calculatePPC } from "./domains/planejamento";
+import { calculateCPM as calculateCanonicalCPM, calculateLineOfBalance, calculatePPC } from "./domains/planejamento";
 import { applyProgressToCommitment } from "./domains/producao";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
 import { migrateCommercial } from "./domains/comercial/migrations";
@@ -27988,6 +27988,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
     catch{return {projectDuration:0,criticalPath:[],activities:[]};}
   }, [tarefas, cal]);
   const ppcSemanal = useMemo(() => calculatePPC((data.weeklyCommitments||[]).filter(item=>String(item.obraId)===String(obraId))), [data.weeklyCommitments, obraId]);
+  const linhaBalanco = useMemo(() => calculateLineOfBalance(tarefas.filter(item=>!item.titulo)), [tarefas]);
   const compromissosDaObra = useMemo(() => (data.weeklyCommitments||[])
     .filter(item=>String(item.obraId)===String(obraId)&&item.status!=="cancelado")
     .map(item=>applyProgressToCommitment(item,data.progressRecords||[])), [data.weeklyCommitments, data.progressRecords, obraId]);
@@ -29149,7 +29150,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
           {/* Abas */}
           <div style={{ padding: "8px 8px 0" }}>
-            <TabRow tabs={[["mensal","Financeiro mensal"],["curvaS","Curva S"],["ff","Fisico-financeiro"],["base","Planejado × Realizado"]]} active={aba} onChange={setAba}/>
+            <TabRow tabs={[["mensal","Financeiro mensal"],["curvaS","Curva S"],["ff","Fisico-financeiro"],["lob","Linha de balanço"],["base","Planejado × Realizado"]]} active={aba} onChange={setAba}/>
           </div>
 
           <div style={{ padding: "14px" }}>
@@ -29197,6 +29198,12 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
                     </p>
                   </div>
                 )
+            )}
+
+            {aba === "lob" && (
+              linhaBalanco.lines.length===0
+                ? <div style={{padding:"8px 0"}}><p style={{fontSize:12,fontWeight:800,color:C.text}}>Ainda não há frentes repetitivas configuradas.</p><p style={{fontSize:10.5,color:C.muted,marginTop:5,lineHeight:1.5}}>Abra uma tarefa, informe o mesmo grupo repetitivo e a frente ou pavimento. A Linha de Balanço mostrará a cadência e avisará se a sequência for invertida.</p></div>
+                : <div><p style={{fontSize:11,color:C.muted,marginBottom:12,lineHeight:1.5}}>Cada faixa representa a passagem de uma equipe pelas frentes. A cadência compara a distância entre inícios; âmbar só indica sequência invertida ou irregular.</p><div style={{display:"flex",flexDirection:"column",gap:10}}>{linhaBalanco.lines.map(line=>{const warning=line.reversed.length>0||!line.stable;const color=warning?C.orange:C.blue;return <div key={line.group} style={{border:`1px solid ${C.border}`,borderLeft:`3px solid ${color}`,borderRadius:7,padding:"10px 11px",background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline",flexWrap:"wrap"}}><b style={{fontSize:11,color:C.text}}>{line.group}</b><span style={{fontSize:9.5,fontWeight:800,color:warning?C.orange:C.muted}}>{line.cadenceDays==null?"cadência indisponível":`${line.cadenceDays.toFixed(1).replace(".",",")} dia(s) por frente`}</span></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:6,marginTop:8}}>{line.entries.map(entry=><div key={entry.activityId} style={{padding:"7px 8px",border:`1px solid ${C.line}`,borderRadius:6,background:C.surface}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Frente {entry.front}</p><b style={{display:"block",fontSize:10,color:C.text,marginTop:2}}>{fmtDate(entry.start)} → {fmtDate(entry.finish)}</b><p style={{fontSize:9,color:entry.progress>=100?C.green:C.muted,marginTop:3}}>{Number(entry.progress||0).toFixed(0)}% físico</p></div>)}</div>{warning&&<p style={{fontSize:9.5,color:C.orange,marginTop:8}}>{line.reversed.length?"Sequência invertida entre frentes: revise as datas antes de mobilizar a equipe.":"Cadência irregular entre frentes: confira a continuidade da equipe."}</p>}</div>;})}</div></div>
             )}
 
             {/* --- FISICO-FINANCEIRO --- */}
@@ -29912,6 +29919,8 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
   const [iniReal, setIniReal] = useState(tarefa.inicioReal || "");
   const [fimReal, setFimReal] = useState(tarefa.fimReal || "");
   const [custoReal, setCustoReal] = useState(String(tarefa.custoReal || ""));
+  const [linhaBalancoGrupo, setLinhaBalancoGrupo] = useState(tarefa.linhaBalancoGrupo || "");
+  const [linhaBalancoFrente, setLinhaBalancoFrente] = useState(String(tarefa.linhaBalancoFrente ?? ""));
   const [preds, setPreds] = useState([...(tarefa.depende || [])]);
   const [sucs, setSucs] = useState(idsSucessoras(tarefas, tarefa.id));
   const indice = (tarefas || []).findIndex(t => t.id === tarefa.id);
@@ -29929,6 +29938,8 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
     onSalvar({ id: tarefa.id, inicio: inicioFinal, fim: fimFinal,
                inicioReal: iniReal || "", fimReal: fimReal || "",
                custoReal: Number(custoReal) || 0,
+               linhaBalancoGrupo: linhaBalancoGrupo.trim(),
+               linhaBalancoFrente: linhaBalancoFrente===""?null:Number(linhaBalancoFrente),
                depende:preds.filter(id=>candidatasPred.some(t=>t.id===id)),
                sucessoras:sucs.filter(id=>candidatasSuc.some(t=>t.id===id)) });
   };
@@ -29964,6 +29975,7 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
           <b style={{display:"block",fontSize:15,color:C.text,marginTop:2}}>{Number(tarefa.progresso||0).toFixed(0)}%</b>
           <p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Altere pelo boletim de medição para manter a trilha auditável.</p>
         </div>
+        {!tarefa.titulo&&<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px"}}><p style={{fontSize:9.5,fontWeight:850,color:C.muted,textTransform:"uppercase",letterSpacing:.45,marginBottom:7}}>Linha de balanço</p><div style={{display:"grid",gridTemplateColumns:"1fr 110px",gap:8}}><Inp label="Grupo repetitivo" value={linhaBalancoGrupo} onChange={setLinhaBalancoGrupo} placeholder="Ex.: Alvenaria"/><Inp label="Frente / pavimento" type="number" value={linhaBalancoFrente} onChange={setLinhaBalancoFrente} placeholder="Ex.: 3"/></div><p style={{fontSize:9.5,color:C.muted,marginTop:5}}>Preencha em tarefas repetidas para acompanhar a cadência entre frentes.</p></div>}
         {!tarefa.titulo && (
           <div style={{ background:`${C.blue}0A`, border:`1px solid ${C.blue}33`, borderRadius:8, padding:"10px 11px", display:"flex", flexDirection:"column", gap:8 }}>
             <p style={{ fontSize:10.5, fontWeight:800, color:C.blue, textTransform:"uppercase", letterSpacing:.5 }}>Realizado (execução)</p>

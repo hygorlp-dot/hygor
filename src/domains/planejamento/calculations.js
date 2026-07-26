@@ -57,6 +57,28 @@ export const calculatePPC=(commitments=[])=>{
   return {total:eligible.length,completed:done.length,blocked:blocked.length,ppc:eligible.length?done.length/eligible.length:0,causes:Object.entries(causes).sort((a,b)=>b[1]-a[1]).map(([cause,count])=>({cause,count}))};
 };
 
+const dayNumber=value=>{const date=String(value||"");return /^\d{4}-\d{2}-\d{2}$/.test(date)?Math.floor(Date.parse(`${date}T00:00:00Z`)/86400000):null;};
+/** Linha de Balanço: atividades repetitivas por frente/pavimento. A sequência
+ * vem de campos explícitos para não assumir pavimentos a partir do texto. */
+export const calculateLineOfBalance=(activities=[])=>{
+  const groups=new Map();
+  (activities||[]).forEach(activity=>{
+    const group=String(activity?.linhaBalancoGrupo||"").trim(),front=Number(activity?.linhaBalancoFrente);
+    const startDay=dayNumber(activity?.inicio),finishDay=dayNumber(activity?.fim);
+    if(!group||!Number.isFinite(front)||startDay==null||finishDay==null)return;
+    groups.set(group,[...(groups.get(group)||[]),{activityId:String(activity.id||""),name:String(activity.nome||"Atividade"),front,start:String(activity.inicio),finish:String(activity.fim),startDay,finishDay,progress:n(activity.progresso)}]);
+  });
+  const lines=[...groups.entries()].map(([group,entries])=>{
+    const ordered=entries.slice().sort((a,b)=>a.front-b.front||a.startDay-b.startDay);
+    const steps=ordered.slice(1).map((entry,index)=>({from:ordered[index],to:entry,daysPerFront:(entry.startDay-ordered[index].startDay)/Math.max(1,entry.front-ordered[index].front)}));
+    const cadence=steps.length?steps.reduce((sum,step)=>sum+step.daysPerFront,0)/steps.length:null;
+    const reversed=steps.filter(step=>step.to.startDay<step.from.startDay).map(step=>({fromFront:step.from.front,toFront:step.to.front}));
+    const cadenceSpread=steps.length?Math.max(...steps.map(step=>step.daysPerFront))-Math.min(...steps.map(step=>step.daysPerFront)):0;
+    return {group,entries:ordered,cadenceDays:cadence,cadenceSpread,reversed,stable:!reversed.length&&cadenceSpread<=1};
+  }).filter(line=>line.entries.length>=2).sort((a,b)=>a.group.localeCompare(b.group));
+  return {lines,alerts:lines.flatMap(line=>line.reversed.map(item=>({group:line.group,...item,type:"sequencia_invertida"})))};
+};
+
 export const calculateProductivity=({quantity=0,workerHours=0,equipmentHours=0,actualCostCents=0,budgetQuantity=0,budgetWorkerHours=0}={})=>{
   const qty=n(quantity),hours=n(workerHours),equip=n(equipmentHours),cost=Math.round(actualCostCents||0);const hhPerUnit=qty?hours/qty:null,productivity=hours?qty/hours:null,budgetHHPerUnit=n(budgetQuantity)?n(budgetWorkerHours)/n(budgetQuantity):null;
   return {quantity:qty,workerHours:hours,equipmentHours:equip,hhPerUnit,productivity,unitCostCents:qty?Math.round(cost/qty):null,productivityDeviation:budgetHHPerUnit!=null&&hhPerUnit!=null?hhPerUnit-budgetHHPerUnit:null};
