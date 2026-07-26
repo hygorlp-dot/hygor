@@ -25,6 +25,7 @@ import path from "node:path";
 import postgres from "postgres";
 import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
+import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
@@ -1113,27 +1114,26 @@ export default async function handler(req, res) {
       if (!linha) return res.status(404).json({ error: "Arquivo não encontrado." });
 
       const arq = linha.value || {};
-      const attendance = { ...(atual?.attendance || {}) };
-      let devolvidos = 0, mantidos = 0;
-      for (const [empId, mapa] of Object.entries(arq.attendance || {})) {
-        const destino = { ...(attendance[empId] || {}) };
-        for (const [d, reg] of Object.entries(mapa || {})) {
-          if (destino[d]) { mantidos += 1; continue; }
-          destino[d] = reg; devolvidos += 1;
-        }
-        attendance[empId] = destino;
+      const restauracoes = {...(atual?.quinzenasRestauradas || {})};
+      if (restauracoes[quinzenaId]) {
+        return res.status(200).json({ ok: true, data: atual, updatedAt, devolvidos: 0, mantidos: 0, idempotent: true });
       }
+      const {attendance, devolvidos, mantidos} = restoreArchivedAttendance({
+        attendance: atual?.attendance || {}, archiveAttendance: arq.attendance || {},
+      });
 
       const agora = new Date().toISOString();
       const marcadores = { ...(atual?.quinzenasArquivadas || {}) };
       delete marcadores[quinzenaId];
       const custosArquivados = { ...(atual?.archivedLaborCosts || {}) };
       delete custosArquivados[quinzenaId];
+      restauracoes[quinzenaId] = restorationRecord({archive: arq, quinzenaId, actor: usuario, at: agora});
       const novoPrincipal = {
         ...atual,
         attendance,
         archivedLaborCosts: custosArquivados,
         quinzenasArquivadas: marcadores,
+        quinzenasRestauradas: restauracoes,
         changeLog: [
           ...(atual?.changeLog || []),
           { id: `res_${Date.now()}`, date: agora.slice(0, 10), at: agora, type: "quinzena_restored",
@@ -1147,11 +1147,6 @@ export default async function handler(req, res) {
         .eq("company_id", COMPANY).eq("key", KEY)
         .select("updated_at").maybeSingle();
       if (errMain) throw errMain;
-
-      const { error: errDel } = await db.from("company_app_data")
-        .delete()
-        .eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId));
-      if (errDel) throw errDel;
 
       return res.status(200).json({ ok: true, data: novoPrincipal, updatedAt: gravado?.updated_at || agora, devolvidos, mantidos });
     }
