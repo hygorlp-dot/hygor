@@ -59,7 +59,7 @@ const cancelarRegistro = (registro, motivo, usuario, status="cancelado") => ({
 });
 // O navegador não conversa mais com o banco. Fala com /api/data, que roda no
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
-import { listarPerfis, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail,
+import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail,
          saveData, saveDataDetailed, logout as encerrarSessao,
          registrarPresenca, encerrarPresenca, listarPresencas,
          loadDataWithMeta, adoptServerVersion, subirFoto,
@@ -15010,7 +15010,7 @@ const hashPin = async (pin) => {
 
 //  Tela de Login 
 
-function LoginScreen({ perfis, onLogin, erroInicial="" }) {
+function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
   const [metodo,setMetodo]=useState("email");
   const [email,setEmail]=useState("");
   const [senha,setSenha]=useState("");
@@ -15020,6 +15020,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="" }) {
   const [pin,setPin]=useState("");
   const [erro,setErro]=useState("");
   const [loading,setLoading]=useState(false);
+  const [setupForm,setSetupForm]=useState({nome:"",email:"",pin:"",confirmacao:""});
   const usuarios=perfis||[];
   const roleAtual=ROLES.find(r=>r.v===selUser?.role)||ROLES[0];
 
@@ -15046,6 +15047,22 @@ function LoginScreen({ perfis, onLogin, erroInicial="" }) {
     if(novo.length===6)tentarEntrar(novo);
   };
   const trocarMetodo=v=>{setMetodo(v);setStep("select");setErro("");setPin("");};
+  const concluirPrimeiroAcesso=async()=>{
+    const nome=setupForm.nome.trim(),email=setupForm.email.trim().toLowerCase(),pin=setupForm.pin;
+    if(!nome){setErro("Informe o nome do administrador.");return;}
+    if(pin.length<4){setErro("O PIN tem no mínimo 4 dígitos.");return;}
+    if(pin!==setupForm.confirmacao){setErro("Os PINs não coincidem.");return;}
+    setLoading(true);setErro("");
+    try{
+      const usuario={id:uid(),nome,role:"admin",email,pin:await hashPin(pin),active:true,createdAt:new Date().toISOString()};
+      const criado=await criarPrimeiroAdmin({usuarios:[usuario]});
+      if(!criado.ok)throw new Error(criado.erro||"Não foi possível criar o administrador.");
+      const acesso=await entrarComPin(usuario.id,pin);
+      if(!acesso.ok)throw new Error(acesso.erro||"Administrador criado, mas não foi possível iniciar a sessão.");
+      onLogin(acesso.usuario,acesso.data);
+    }catch(error){setErro(error.message||"Não foi possível concluir o primeiro acesso.");}
+    finally{setLoading(false);}
+  };
 
   return (
     <div className="login-tech-shell">
@@ -15080,7 +15097,16 @@ function LoginScreen({ perfis, onLogin, erroInicial="" }) {
 
         <CardContent>
             {erroInicial&&<div role="alert" className="mb-4 rounded-md border border-red-400/35 bg-red-400/10 px-3 py-2 text-xs font-medium text-red-100">{erroInicial}</div>}
-            <Tabs value={metodo} onValueChange={trocarMetodo}>
+            {precisaSetup ? <div className="flex flex-col gap-4">
+              <div className="rounded-md border border-[#d4af37]/30 bg-[#d4af37]/10 p-3 text-xs leading-relaxed text-slate-300">
+                Crie o administrador inicial. Os dados existentes da empresa serão preservados.
+              </div>
+              <div className="flex flex-col gap-2"><Label htmlFor="setup-nome" className="text-xs font-semibold text-slate-300">Nome do administrador</Label><Input id="setup-nome" value={setupForm.nome} onChange={e=>setSetupForm(f=>({...f,nome:e.target.value}))} autoFocus className="h-11 border-white/10 bg-white/[0.04] text-white"/></div>
+              <div className="flex flex-col gap-2"><Label htmlFor="setup-email" className="text-xs font-semibold text-slate-300">E-mail corporativo</Label><Input id="setup-email" type="email" value={setupForm.email} onChange={e=>setSetupForm(f=>({...f,email:e.target.value}))} className="h-11 border-white/10 bg-white/[0.04] text-white"/></div>
+              <div className="grid grid-cols-2 gap-3"><div className="flex flex-col gap-2"><Label htmlFor="setup-pin" className="text-xs font-semibold text-slate-300">PIN</Label><Input id="setup-pin" type="password" inputMode="numeric" value={setupForm.pin} onChange={e=>setSetupForm(f=>({...f,pin:e.target.value}))} className="h-11 border-white/10 bg-white/[0.04] text-white"/></div><div className="flex flex-col gap-2"><Label htmlFor="setup-confirmacao" className="text-xs font-semibold text-slate-300">Confirmar PIN</Label><Input id="setup-confirmacao" type="password" inputMode="numeric" value={setupForm.confirmacao} onChange={e=>setSetupForm(f=>({...f,confirmacao:e.target.value}))} className="h-11 border-white/10 bg-white/[0.04] text-white"/></div></div>
+              {erro&&<Alert key={erro} variant="destructive" className="py-2.5 login-error-shake"><AlertDescription className="text-xs">{erro}</AlertDescription></Alert>}
+              <Button onClick={concluirPrimeiroAcesso} disabled={loading} className="h-11 w-full bg-[#d4af37] font-bold text-[#10151d] hover:bg-[#e1c159]">{loading?"Criando ambiente...":"Criar administrador e entrar"}</Button>
+            </div> : <Tabs value={metodo} onValueChange={trocarMetodo}>
               <TabsList className="grid grid-cols-2 w-full h-11 border border-white/10 bg-white/[0.04] p-1">
                 <TabsTrigger value="email" className="text-xs text-slate-400 data-[state=active]:bg-[#d4af37] data-[state=active]:text-[#10151d] data-[state=active]:shadow-none">E-mail e senha</TabsTrigger>
                 <TabsTrigger value="pin" className="text-xs text-slate-400 data-[state=active]:bg-[#d4af37] data-[state=active]:text-[#10151d] data-[state=active]:shadow-none">PIN de acesso</TabsTrigger>
@@ -15192,7 +15218,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="" }) {
                   </div>
                 )}
               </TabsContent>
-            </Tabs>
+            </Tabs>}
         </CardContent>
 
         <CardFooter className="justify-between border-t border-white/10 pt-4 text-[11px] text-slate-500">
@@ -36246,6 +36272,7 @@ export default function App() {
   const [obraAberta,  setObraAberta]  = useState("");
   const [loading,     setLoading]     = useState(true);
   const [erroInicial, setErroInicial] = useState("");
+  const [firstSetup, setFirstSetup] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [conflito,    setConflito]    = useState(null);
   const [toast,       setToast]       = useState(null);
@@ -36820,6 +36847,7 @@ export default function App() {
         perfis={perfis}
         onLogin={handleLogin}
         erroInicial={erroInicial}
+        precisaSetup={firstSetup}
       />
     );
   }
