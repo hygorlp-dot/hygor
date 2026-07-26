@@ -151,4 +151,14 @@ describe("comandos operacionais versionados",()=>{
     const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,"measurement-quality-0001",{measurement:{id:"m-1",obraId:"o-1",data:"2026-07-25",itens:[{tarefaId:"t-1",pctConfirmado:10}]}}));
     expect(result.ok).toBe(false);expect(result.reason).toMatch(/não pode ser medida/);
   });
+
+  it("bloqueia a medição quando a FVS legada está reprovada",()=>{
+    const initial={medicoesObra:[],qualidadeRegistros:[{
+      id:"q-1",obraId:"o-1",status:"reprovada",
+      itens:[{id:"qi-1",status:"nao_conforme"}],
+      naoConformidade:{status:"aberta"},
+    }]};
+    const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,"measurement-quality-legacy-0001",{measurement:{id:"m-1",obraId:"o-1",data:"2026-07-25",itens:[{tarefaId:"t-1",pctConfirmado:10}]}}));
+    expect(result.ok).toBe(false);expect(result.reason).toMatch(/não conformidade impeditiva/);
+  });
 });

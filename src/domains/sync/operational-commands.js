@@ -10,7 +10,7 @@ import {
 } from "../medicoes/index.js";
 import { inactive } from "../financeiro/workflows.js";
 import { cancelProgressRecord, completeWeeklyCommitment, createProgressRecord, createWeeklyCommitment, releaseWeeklyCommitment } from "../producao/mutations.js";
-import { canReleaseForMeasurement } from "../qualidade/calculations.js";
+import { buildQualityProjection, canReleaseForMeasurement } from "../qualidade/calculations.js";
 import { validateActivitySafety } from "../seguranca/calculations.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
@@ -47,9 +47,10 @@ const appendTechnicalMeasurementAudit=(data,event)=>({
 });
 const validateMeasurementQuality=(data={},measurement={})=>{
   if(String(measurement.status||"")!=="aprovada")return "";
+  const quality=buildQualityProjection(data);
   for(const item of measurement.itens||[]){
     const release=canReleaseForMeasurement({
-      inspections:data.inspections||[],nonconformities:data.nonconformities||[],
+      inspections:quality.inspections,nonconformities:quality.nonconformities,
       obraId:measurement.obraId,serviceId:item.tarefaId,
     });
     if(!release.ok)return `A tarefa ${item.tarefaId} não pode ser medida: ${release.reason}`;
