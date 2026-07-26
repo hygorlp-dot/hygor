@@ -35,6 +35,7 @@ import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialSc
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
+import { hasLegacyFinancialWrite, validateFinancialWritePath } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "./microsoft/_graph.js";
 
 const URL     = process.env.SUPABASE_URL;
@@ -45,13 +46,6 @@ const PROFILE_KEY = "arced_auth_profiles_v1";
 // Ativação somente após executar a migração canônica e concluir a comparação
 // em sombra. Evita quebrar instalações legadas durante a transição.
 const FINANCIAL_ENGINE_ENFORCE = process.env.FINANCIAL_ENGINE_ENFORCE === "true";
-const FINANCIAL_LEGACY_SECTIONS = new Set([
-  "payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","transacoes",
-  "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
-  "titulosFolha","reconciliationLinks","rescisoes","comercial",
-  "attendance","employees","archivedLaborCosts","config","obras",
-  "equipamentos","locacoesEquip","manutencoesEquip",
-]);
 const FINANCIAL_COMMANDS = new Set(["CREATE_FINANCIAL_TITLE","REGISTER_SETTLEMENT","REVERSE_SETTLEMENT","CLOSE_ACCOUNTING_PERIOD"]);
 const FINANCIAL_COMMAND_ROLES = {
   CREATE_FINANCIAL_TITLE:["admin","financeiro"], REGISTER_SETTLEMENT:["admin","financeiro"],
@@ -834,8 +828,11 @@ export default async function handler(req, res) {
       // canônica na mesma transação do blob. Assim o DRE pode ler o razão sem
       // ficar defasado; FIN-003 continua sendo apenas o bloqueio das escritas
       // legadas, ainda desligado.
-      const sincronizaFinanceiro=chaves.some(key=>FINANCIAL_LEGACY_SECTIONS.has(key));
+      const secoesFinanceiras=Object.fromEntries(chaves.map(key=>[key,sections[key]]));
+      const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesFinanceiras);
       if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
+      const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesFinanceiras});
+      if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       const erroAutorizacao=authorizeSectionChanges(usuario,Object.fromEntries(chaves.map(key=>[key,sections[key]])));
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),sections);
@@ -899,7 +896,9 @@ export default async function handler(req, res) {
       if (!payload) return res.status(400).json({ error: "Nada para salvar." });
       const secoesAlteradas=Object.fromEntries([...new Set([...Object.keys(payload||{}),...Object.keys(atual||{})])]
         .filter(key=>!igual(payload?.[key],atual?.[key])).map(key=>[key,payload?.[key]]));
-      const sincronizaFinanceiro=Object.keys(secoesAlteradas).some(key=>FINANCIAL_LEGACY_SECTIONS.has(key));
+      const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesAlteradas);
+      const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesAlteradas});
+      if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas);
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(atual,payload);
