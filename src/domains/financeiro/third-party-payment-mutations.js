@@ -39,3 +39,47 @@ export const reverseThirdPartyPayment = ({ data, paymentId, reason, actor, now =
     medicoesTerc:(Array.isArray(data?.medicoesTerc)?data.medicoesTerc:[]).map(item=>item.pagamentoId!==paymentId?item:{...item,pagamentoEstornadoEm:now,pagamentoEstornadoPorId:actor.id}),
   };
 };
+
+export const createThirdPartyMeasurement = ({ data, measurement, actor, id, now = new Date().toISOString() }) => {
+  if (!actor?.id) throw new Error("Sessão do usuário indisponível para registrar a medição de terceiro.");
+  if (!id) throw new Error("Identificador da medição de terceiro ausente.");
+  const tercId=String(measurement?.tercId || "");
+  const obraId=String(measurement?.obraId || "");
+  const date=String(measurement?.data || "");
+  const total=Number(measurement?.total);
+  const itens=Array.isArray(measurement?.itens) ? measurement.itens : [];
+  if (!tercId || !obraId) throw new Error("A medição precisa ter contrato e obra vinculados.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Informe uma data válida para a medição.");
+  if (!(total > 0) || !Number.isFinite(total) || !itens.length) throw new Error("A medição precisa ter etapas executadas e valor positivo.");
+  const nome=userName(actor);
+  const registro={
+    ...measurement,id,tercId,obraId,date,total,itens:itens.map(item=>({...item})),status:"aprovada",origem:"medicao_terceiro",
+    pagamentoId:"",createdAt:now,createdById:actor.id,createdBy:nome,updatedAt:now,updatedById:actor.id,updatedBy:nome,version:1,
+  };
+  return {...data,medicoesTerc:[...(Array.isArray(data?.medicoesTerc)?data.medicoesTerc:[]),registro]};
+};
+
+export const cancelThirdPartyMeasurement = ({ data, measurementId, reason, actor, now = new Date().toISOString() }) => {
+  if (!actor?.id) throw new Error("Sessão do usuário indisponível para cancelar a medição de terceiro.");
+  const motivoCancelamento=String(reason || "").trim();
+  if (!motivoCancelamento) throw new Error("Informe o motivo do cancelamento da medição.");
+  const medicoes=Array.isArray(data?.medicoesTerc)?data.medicoesTerc:[];
+  const medicao=medicoes.find(item=>item.id===measurementId);
+  if (!medicao) throw new Error("Medição de terceiro não encontrada.");
+  if (inactive(medicao)) throw new Error("Esta medição já está cancelada.");
+  const possuiPagamento=(data?.pagsTerceiros || []).some(item=>(item.medicaoTercId===measurementId||item.medicaoId===measurementId)&&!inactive(item));
+  if (medicao.pagamentoId || possuiPagamento) throw new Error("Estorne o pagamento antes de cancelar a medição.");
+  const nome=userName(actor);
+  return {...data,medicoesTerc:medicoes.map(item=>item.id!==measurementId?item:{
+    ...item,status:"cancelada",motivoCancelamento,canceladoEm:now,canceladoPorId:actor.id,canceladoPor:nome,
+    updatedAt:now,updatedById:actor.id,updatedBy:nome,version:Number(item.version || 0)+1,
+  })};
+};
+
+export const payThirdPartyMeasurement = ({ data, measurementId, payment, actor, id, now = new Date().toISOString() }) => {
+  const medicao=(data?.medicoesTerc || []).find(item=>item.id===measurementId&&!inactive(item));
+  if (!medicao) throw new Error("Medição de terceiro não encontrada ou cancelada.");
+  if (medicao.pagamentoId) throw new Error("Esta medição já possui pagamento registrado.");
+  const result=createThirdPartyPayment({data,payment:{...payment,obraId:medicao.obraId,tercId:medicao.tercId,medicaoTercId:medicao.id,amount:medicao.total},actor,id,now});
+  return {...result,medicoesTerc:(result.medicoesTerc || []).map(item=>item.id===medicao.id?{...item,pagamentoId:id,pagamentoRegistradoEm:now,pagamentoRegistradoPorId:actor.id}:item)};
+};

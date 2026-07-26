@@ -110,7 +110,7 @@ import {
   selectFinancialMovements,
 } from "./domains/financeiro/ledger";
 import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeasurements } from "./domains/financeiro/measurement-mutations";
-import { createThirdPartyPayment, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
+import { cancelThirdPartyMeasurement, createThirdPartyMeasurement, createThirdPartyPayment, payThirdPartyMeasurement, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
 import {
   analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
@@ -11599,15 +11599,20 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     if (!itens.length) { showToast("Nenhuma etapa avançou desde a última medição.", "warn"); return; }
     const total = itens.reduce((s, i) => s + i.valor, 0);
     const medicao = {
-      id: uid(), tercId: tercSel, obraId: tercAtual.obraId || "",
+      tercId: tercSel, obraId: tercAtual.obraId || "",
       data: medForm.data || today(), numero: medicoesTercAtual.length + 1,
       itens, total, observacao: String(medForm.observacao || "").trim(), pagamentoId: "",
       fotos:(medForm.fotos||[]).map(f=>({...f})),responsavelEvidenciaId:currentUser?.id||"",
       responsavelEvidencia:currentUser?.nome||"",responsavelEvidenciaRole:currentUser?.role||"",
     };
-    update({ ...data, medicoesTerc: [...(data.medicoesTerc || []), medicao] });
-    setMedModal(false);
-    showToast(`Medição ${medicao.numero} registrada: ${fmt(total)}.`);
+    try {
+      const result=createThirdPartyMeasurement({data,measurement:medicao,actor:currentUser,id:uid()});
+      update(result);
+      setMedModal(false);
+      showToast(`Medição ${medicao.numero} registrada: ${fmt(total)}.`);
+    } catch (error) {
+      showToast(error.message||"Não foi possível registrar a medição.","error");
+    }
   };
 
   // A ultima medicao pode ser desfeita sem ambiguidade. Uma do meio nao: os
@@ -11620,8 +11625,12 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     if (m.pagamentoId) { showToast("Esta medição já virou pagamento. Remova o pagamento primeiro.", "error"); return; }
     const motivo=window.prompt(`Motivo do cancelamento da medição ${m.numero}:`);
     if(!String(motivo||"").trim())return;
-    update({ ...data, medicoesTerc: (data.medicoesTerc || []).map(x => x.id!==m.id?x:cancelarRegistro(x,motivo,currentUser,"cancelada")) });
-    showToast("Medição cancelada e preservada para auditoria.");
+    try {
+      update(cancelThirdPartyMeasurement({data,measurementId:m.id,reason:motivo,actor:currentUser}));
+      showToast("Medição cancelada e preservada para auditoria.");
+    } catch (error) {
+      showToast(error.message||"Não foi possível cancelar a medição.","error");
+    }
   };
 
   const abrirPagamentoMedicao = m => {
@@ -11648,25 +11657,22 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     if (m.pagamentoId) { showToast("Esta medição já foi paga.", "warn"); setMedPayModal(null); return; }
     const semEvidencia=!(m.fotos||[]).length;
     if(semEvidencia&&!riscoSemFotoAceito){showToast("Pagamento de risco: confirme que o financeiro está ciente da ausência de fotografia.","error");return;}
-    const ret = calcRetencoes(m.total, t);
-    const pag = { id: uid(), tercId: m.tercId, tercName: t.name, specialty: t.specialty,
-      obraId: m.obraId, date: m.data, amount: m.total, medicaoId: m.id,
-      description: `Medição ${m.numero} - ${fmtDateFull(m.data)}`,
-      pagador: paySource,
-      issRetido: ret.issRetido, inssRetido: ret.inssRetido, liquido: ret.liquido,
-      semEvidenciaFotografica:semEvidencia,
-      riscoSemFotoAceitoEm:semEvidencia?new Date().toISOString():"",
-      riscoSemFotoAceitoPor:semEvidencia?(currentUser?.nome||"Operador financeiro"):"" };
-    update({ ...data,
-      pagsTerceiros: [...(data.pagsTerceiros || []), pag],
-      medicoesTerc: (data.medicoesTerc || []).map(x => x.id === m.id ? { ...x, pagamentoId: pag.id } : x) });
-    const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(m.obraId)}`;
-    setMedPayModal(null);
-    setPaySource("");
-    setRiscoSemFotoAceito(false);
-    showToast(ret.retido > 0
-      ? `Medição paga ${origem}: ${fmt(m.total)} bruto, ${fmt(ret.liquido)} líquido ao prestador.`
-      : `Pagamento de ${fmt(m.total)} registrado ${origem} para ${t.name}.`);
+    try {
+      const ret = calcRetencoes(m.total, t);
+      update(payThirdPartyMeasurement({data,measurementId:m.id,actor:currentUser,id:uid(),payment:{
+        tercName:t.name,specialty:t.specialty,date:m.data,description:`Medição ${m.numero} - ${fmtDateFull(m.data)}`,
+        pagador:paySource,issRetido:ret.issRetido,inssRetido:ret.inssRetido,liquido:ret.liquido,
+        semEvidenciaFotografica:semEvidencia,riscoSemFotoAceitoEm:semEvidencia?new Date().toISOString():"",
+        riscoSemFotoAceitoPor:semEvidencia?(currentUser?.nome||"Operador financeiro"):"",
+      }}));
+      const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(m.obraId)}`;
+      setMedPayModal(null); setPaySource(""); setRiscoSemFotoAceito(false);
+      showToast(ret.retido > 0
+        ? `Medição paga ${origem}: ${fmt(m.total)} bruto, ${fmt(ret.liquido)} líquido ao prestador.`
+        : `Pagamento de ${fmt(m.total)} registrado ${origem} para ${t.name}.`);
+    } catch (error) {
+      showToast(error.message||"Não foi possível registrar o pagamento da medição.","error");
+    }
   };
   const confirmarVinculoNotaTerceiro=()=>{
     const result=linkThirdPartyInvoice(data,{medicaoTercId:notaTercModal?.id,notaFiscalId:notaTercId});
