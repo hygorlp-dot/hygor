@@ -17,6 +17,8 @@ export const operationalCommandObraId=(data={},command={})=>{
   if([OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED,OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED,OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED,OPERATIONAL_COMMAND.QUALITY_RECORD_DETAILS_UPDATED].includes(command?.type))return String((data?.qualidadeRegistros||[]).find(item=>item.id===payload?.recordId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED)return String(payload?.analysis?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED)return String(payload?.permit?.obraId||"");
+  if(command?.type===OPERATIONAL_COMMAND.LOOKAHEAD_CREATED)return String(payload?.lookahead?.obraId||"");
+  if([OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED,OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_RELEASED,OPERATIONAL_COMMAND.LOOKAHEAD_PACKAGE_COMMITTED].includes(command?.type))return String((data?.lookaheadWindows||[]).find(item=>item.id===payload?.lookaheadId)?.obraId||"");
   return "";
 };
 

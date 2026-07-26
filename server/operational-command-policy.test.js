@@ -4,7 +4,7 @@ import { validateOperationalCommandScope } from "./operational-command-policy.js
 
 describe("escopo servidor de comandos operacionais",()=>{
   const data={
-    medicoesObra:[{id:"m-a",obraId:"obra-a"}],rdos:[{id:"r-a",obraId:"obra-a"}],pedidos:[{id:"p-a",obraId:"obra-a"}],progressRecords:[{id:"av-a",obraId:"obra-a"}],weeklyCommitments:[{id:"c-a",obraId:"obra-a"}],qualidadeRegistros:[{id:"q-a",obraId:"obra-a"}],
+    medicoesObra:[{id:"m-a",obraId:"obra-a"}],rdos:[{id:"r-a",obraId:"obra-a"}],pedidos:[{id:"p-a",obraId:"obra-a"}],progressRecords:[{id:"av-a",obraId:"obra-a"}],weeklyCommitments:[{id:"c-a",obraId:"obra-a"}],qualidadeRegistros:[{id:"q-a",obraId:"obra-a"}],lookaheadWindows:[{id:"la-a",obraId:"obra-a"}],
   };
   const user={id:"u-1",role:"engenheiro",obraId:"obra-a"};
   it("aceita somente a obra atribuída em criação e cancelamento de medição",()=>{
@@ -33,5 +33,9 @@ describe("escopo servidor de comandos operacionais",()=>{
   it("mantém APR e permissão de trabalho no escopo da obra",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED,payload:{analysis:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED,payload:{permit:{obraId:"obra-b"}}}})).toMatchObject({ok:false});
+  });
+  it("não deixa alterar o Lookahead de outra obra",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.LOOKAHEAD_CREATED,payload:{lookahead:{obraId:"obra-a"}}}})).toMatchObject({ok:true});
+    expect(validateOperationalCommandScope({user,data:{...data,lookaheadWindows:[{id:"la-b",obraId:"obra-b"}]},command:{type:OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED,payload:{lookaheadId:"la-b"}}})).toMatchObject({ok:false});
   });
 });

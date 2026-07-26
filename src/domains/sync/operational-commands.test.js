@@ -89,6 +89,18 @@ describe("comandos operacionais versionados",()=>{
     expect(stale.ok).toBe(false);expect(stale.reason).toMatch(/alterad/);
   });
 
+  it("versiona restrição de Lookahead e exige evidência antes da liberação",()=>{
+    const initial={lookaheadWindows:[]};
+    const created=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.LOOKAHEAD_CREATED,"lookahead-create-0001",{lookahead:{id:"la-1",obraId:"o-1",semanaInicio:"2026-07-27",semanaFim:"2026-08-21",horizonteSemanas:4,pacotes:[{id:"pac-1",descricao:"Concretagem"}]}},0));
+    const restricted=applyOperationalCommand(created.data,command(OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED,"lookahead-constraint-0001",{lookaheadId:"la-1",constraint:{id:"res-1",obraId:"o-1",pacoteId:"pac-1",categoria:"seguranca",descricao:"APR",bloqueante:true,dataIdentificacao:"2026-07-25",dataNecessidade:"2026-07-27"}},1));
+    const noEvidence=applyOperationalCommand(restricted.data,command(OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_RELEASED,"lookahead-release-0001",{lookaheadId:"la-1",constraintId:"res-1",evidenceIds:[]},2));
+    expect(noEvidence.ok).toBe(false);
+    const released=applyOperationalCommand(restricted.data,command(OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_RELEASED,"lookahead-release-0002",{lookaheadId:"la-1",constraintId:"res-1",evidenceIds:["doc-1"]},2));
+    const committed=applyOperationalCommand(released.data,command(OPERATIONAL_COMMAND.LOOKAHEAD_PACKAGE_COMMITTED,"lookahead-commit-0001",{lookaheadId:"la-1",packageId:"pac-1"},3));
+    expect(released.data.lookaheadWindows[0]).toMatchObject({version:3});
+    expect(committed.data.lookaheadWindows[0].pacotes[0]).toMatchObject({status:"comprometido",comprometido:true});
+  });
+
   it("conclui compromisso semanal somente com produção ou motivo",()=>{
     const initial={weeklyCommitments:[{id:"c-1",obraId:"o-1",activityId:"a-1",quantidadePrometida:10,version:1,status:"aberto"}],progressRecords:[]};
     const blocked=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED,"weekly-commitment-0001",{commitmentId:"c-1"},1));

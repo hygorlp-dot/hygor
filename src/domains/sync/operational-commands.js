@@ -12,6 +12,7 @@ import { inactive } from "../financeiro/workflows.js";
 import { cancelProgressRecord, completeWeeklyCommitment, createProgressRecord, createWeeklyCommitment, releaseWeeklyCommitment } from "../producao/mutations.js";
 import { buildQualityProjection, canReleaseForMeasurement } from "../qualidade/calculations.js";
 import { validateActivitySafety } from "../seguranca/calculations.js";
+import { addConstraint, commitWorkPackage, createLookahead, releaseConstraint } from "../lookahead/commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -30,6 +31,10 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   QUALITY_RECORD_DETAILS_UPDATED:"FICHA_QUALIDADE_ATUALIZADA",
   SAFETY_RISK_ANALYSIS_SAVED:"APR_SALVA",
   SAFETY_WORK_PERMIT_SAVED:"PERMISSAO_TRABALHO_SALVA",
+  LOOKAHEAD_CREATED:"LOOKAHEAD_CRIADO",
+  LOOKAHEAD_CONSTRAINT_ADDED:"RESTRICAO_LOOKAHEAD_ADICIONADA",
+  LOOKAHEAD_CONSTRAINT_RELEASED:"RESTRICAO_LOOKAHEAD_LIBERADA",
+  LOOKAHEAD_PACKAGE_COMMITTED:"PACOTE_LOOKAHEAD_COMPROMETIDO",
 });
 
 const receipts=data=>Array.isArray(data?.operationalCommandReceipts)?data.operationalCommandReceipts:[];
@@ -89,6 +94,8 @@ const safetyRecords=(data,key)=>Array.isArray(data?.[key])?data[key]:[];
 const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||""));
 const replaceSafetyRecord=(data,key,id,record)=>({...data,[key]:safetyRecords(data,key).map(item=>item.id===id?record:item)});
 const safetyCommandError=(record,command,label)=>requiresVersion(record,command.expectedVersion,label);
+const lookaheads=data=>Array.isArray(data?.lookaheadWindows)?data.lookaheadWindows:[];
+const replaceLookahead=(data,id,record)=>({...data,lookaheadWindows:lookaheads(data).map(item=>item.id===id?record:item)});
 
 export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
@@ -219,6 +226,32 @@ export const applyOperationalCommand=(data,command)=>{
     const record={...(current||{}),...input,id,obraId,activityId,status,version:versionOf(current)+1,atualizadoEm:now,...(!current?{criadoEm:now,criadoPorId:command.actorId||"",criadoPor:command.actorName||""}:{})};
     const next=current?replaceSafetyRecord(data,"workPermits",id,record):{...data,workPermits:[...safetyRecords(data,"workPermits"),record]};
     return {ok:true,data:appendReceipt(next,command,id,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.LOOKAHEAD_CREATED){
+    const input=command.payload?.lookahead||{};
+    if(!input.id)return fail("Lookahead sem identificação.");
+    if(lookaheads(data).some(item=>item.id===input.id))return fail("Já existe um Lookahead com esta identificação.");
+    if(command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("O Lookahead ainda não existe na versão esperada.");
+    const result=createLookahead(input,{actor:{id:command.actorId,nome:command.actorName},now});
+    if(!result.ok)return fail(result.error);
+    const created={...result.lookahead,version:1,atualizadoEm:now};
+    return {ok:true,data:appendReceipt({...data,lookaheadWindows:[...lookaheads(data),created]},command,created.id,now)};
+  }
+
+  if([OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED,OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_RELEASED,OPERATIONAL_COMMAND.LOOKAHEAD_PACKAGE_COMMITTED].includes(command.type)){
+    const lookaheadId=String(command.payload?.lookaheadId||"");
+    const current=lookaheads(data).find(item=>item.id===lookaheadId);
+    if(!current)return fail("Lookahead não encontrado.");
+    const versionError=requiresVersion(current,command.expectedVersion,"O Lookahead");
+    if(versionError)return fail(versionError);
+    let result;
+    if(command.type===OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED)result=addConstraint(current,command.payload?.constraint,{actor:{id:command.actorId,nome:command.actorName},now});
+    if(command.type===OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_RELEASED)result=releaseConstraint(current,command.payload?.constraintId,{evidenceIds:command.payload?.evidenceIds,actor:{id:command.actorId,nome:command.actorName},now});
+    if(command.type===OPERATIONAL_COMMAND.LOOKAHEAD_PACKAGE_COMMITTED)result=commitWorkPackage(current,command.payload?.packageId,{exceptionReason:command.payload?.exceptionReason,now});
+    if(!result?.ok)return fail(result?.error||"Não foi possível atualizar o Lookahead.");
+    const updated={...result.lookahead,version:versionOf(current)+1,atualizadoEm:now};
+    return {ok:true,data:appendReceipt(replaceLookahead(data,lookaheadId,updated),command,lookaheadId,now)};
   }
 
   if(command.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED){
