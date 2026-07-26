@@ -43,6 +43,14 @@ describe("A. vincular pagamento já existente - nunca cria lançamento novo", ()
     const { resumo } = vincularPagamentoExistente(data, { transacaoId: "t1", tipo: "nota", entidadeId: "n1", operador });
     expect(resumo.ok).toBe(false);
   });
+
+  test("recusa vínculo para um fato inexistente sem alterar o extrato", () => {
+    const data=dataBase();
+    const {data:next,resumo}=vincularPagamentoExistente(data,{transacaoId:"t2",tipo:"nota",entidadeId:"n-inexistente",operador});
+    expect(resumo.ok).toBe(false);
+    expect(next).toBe(data);
+    expect(next.transacoes.find(item=>item.id==="t2")?.status).toBe("pendente");
+  });
 });
 
 describe("A2. vincular quando o pagamento já foi registrado noutro módulo (Central de Pagamentos) sem transação", () => {

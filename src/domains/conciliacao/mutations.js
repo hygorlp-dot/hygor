@@ -49,6 +49,22 @@ export const vincularPagamentoExistente = (data, { transacaoId, tipo, entidadeId
   const bloqueioPeriodo = motivoPeriodoFechado(data, tr.data);
   if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
+  const has=(collection,id)=>(data[collection]||[]).some(item=>item.id===id);
+  const note=(data.notasFiscais||[]).find(item=>item.id===entidadeId);
+  const order=(data.pedidos||[]).find(item=>item.id===entidadeId);
+  const validTarget=(
+    (["nota","nota_fiscal"].includes(tipo)&&!!note)
+    ||(tipo==="pedido"&&!!order)
+    ||(tipo==="medicao"&&has("medicoes",entidadeId))
+    ||(tipo==="medicaoTerc"&&has("medicoesTerc",entidadeId))
+    ||(tipo==="funcionario"&&has("employees",entidadeId))
+    ||(tipo==="caixaObra"&&has("caixaObra",entidadeId))
+    ||(tipo==="pagamentoNota"&&!!note&&(note.pagamentos||[]).some(item=>item.id===pagamentoId))
+    ||(tipo==="pagamentoPedido"&&!!order&&(order.pagamentos||[]).some(item=>item.id===pagamentoId))
+    ||(tipo==="pagsTerceiros"&&has("pagsTerceiros",pagamentoId||entidadeId))
+  );
+  if(!validTarget)return { data, resumo:{ok:false,motivo:"O fato financeiro selecionado não existe ou não pode ser vinculado"} };
+
   const vinculo = { tipo, id: entidadeId };
   const transacoes = marcarTransacao(data.transacoes, transacaoId, { status: "conciliado", vinculo, obs: observacao });
 
