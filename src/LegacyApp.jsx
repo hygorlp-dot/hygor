@@ -19612,7 +19612,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
   const exportXLSXExportado = async () => {
     await carregarXLSX();
     if (!orc || !calc) return;
-    const bdiMult = 1 + Number(orc.bdi||0)/100;
+    const itemCalcPorId=new Map(projectBudgetExport(orc).rows.map(item=>[item.id,item]));
     const aoa = [["Nível corrigido","Item","Fonte","Código","Descrição","Unidade","Quantidade","Custo unitário (sem BDI)","BDI (%)","Preço unitário (com BDI)","Preço total (R$)"]];
 
     achatarArvore(calc.arvore).forEach(n => {
@@ -19621,7 +19621,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
       } else if (ehTitulo(n)) {
         aoa.push(["Título",n.codigoItem,"","",n.descricao||"","","","","","",""]);
       } else {
-        const custo = Number(n.quantidade||0) * Number(n.precoUnit||0);
+        const calculado=itemCalcPorId.get(n.id)||{};
         aoa.push([
           "Serviço",
           n.codigoItem,
@@ -19631,9 +19631,9 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
           n.unidade || "",
           Number(n.quantidade||0),
           Number(n.precoUnit||0),
-          Number(orc.bdi||0)/100,
-          Number(n.precoUnit||0)*bdiMult,
-          custo*bdiMult,
+          Number(calculado.bdi||0)/100,
+          Number(calculado.precoUnitario||0),
+          Number(calculado.total||0),
         ]);
       }
     });
