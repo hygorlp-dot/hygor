@@ -9,6 +9,13 @@
 // duplicam o mesmo fato financeiro (requisito crítico da entrega).
 import { aplicarRecebimentoMedicao, removerRecebimentoMedicao } from "./calculations.js";
 import { saldoTituloFolha, situacaoTituloFolha, validarLiquidacaoFolha } from "./payroll.js";
+import { isDateInClosedPeriod } from "../financeiro/workflows.js";
+
+// Nenhuma conciliação pode alterar um fato datado dentro de um período já
+// fechado sem reabertura formal (§ integridade financeira não é opcional).
+// Devolve o motivo de bloqueio, ou "" quando a data está livre.
+const motivoPeriodoFechado = (data, date) =>
+  isDateInClosedPeriod(data, date) ? "O período financeiro desta data já está fechado. Reabra o fechamento antes de conciliar." : "";
 
 export const gerarIdConc = (prefixo = "c") =>
   `${prefixo}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -39,6 +46,8 @@ export const vincularPagamentoExistente = (data, { transacaoId, tipo, entidadeId
   const tr = transacaoPorId(data, transacaoId);
   if (!tr) return { data, resumo: { ok: false, motivo: "Transação não encontrada" } };
   if (tr.status === "conciliado") return { data, resumo: { ok: false, motivo: "Transação já conciliada" } };
+  const bloqueioPeriodo = motivoPeriodoFechado(data, tr.data);
+  if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
   const vinculo = { tipo, id: entidadeId };
   const transacoes = marcarTransacao(data.transacoes, transacaoId, { status: "conciliado", vinculo, obs: observacao });
@@ -85,6 +94,8 @@ export const registrarPagamentoEConciliar = (data, params) => {
   const tr = transacaoPorId(data, transacaoId);
   if (!tr) return { data, resumo: { ok: false, motivo: "Transação não encontrada" } };
   if (tr.status === "conciliado") return { data, resumo: { ok: false, motivo: "Transação já conciliada" } };
+  const bloqueioPeriodo = motivoPeriodoFechado(data, dataPagamento || tr.data);
+  if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
   const registradoPor = nomeOperador(operador);
   const criados = [];
@@ -256,6 +267,8 @@ export const criarLancamentoPelaTransacao = (data, params) => {
   if (!tr) return { data, resumo: { ok: false, motivo: "Transação não encontrada" } };
   if (tr.status === "conciliado") return { data, resumo: { ok: false, motivo: "Transação já conciliada" } };
   if (!duplicidadeRevisada) return { data, resumo: { ok: false, motivo: "Verificação de duplicidade obrigatória antes de criar lançamento novo" } };
+  const bloqueioPeriodo = motivoPeriodoFechado(data, tr.data);
+  if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
   const valor = Math.abs(Number(tr.valor));
   const id = gerarIdConc("lanc");
@@ -326,6 +339,8 @@ export const marcarTransferenciaInterna = (data, { transacaoOrigemId, transacaoD
   if (origem.status === "conciliado" || destino.status === "conciliado") return { data, resumo: { ok: false, motivo: "Uma das transações já está conciliada" } };
   if (Math.sign(Number(origem.valor)) === Math.sign(Number(destino.valor))) return { data, resumo: { ok: false, motivo: "Transferência interna exige uma saída e uma entrada" } };
   if (Math.abs(Math.abs(Number(origem.valor)) - Math.abs(Number(destino.valor))) > 0.01) return { data, resumo: { ok: false, motivo: "Os valores da transferência não conferem" } };
+  const bloqueioPeriodo = motivoPeriodoFechado(data, origem.data) || motivoPeriodoFechado(data, destino.data);
+  if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
   const parId = gerarIdConc("transf");
   const vinculo = { tipo: "transferencia_interna", id: parId };
@@ -362,6 +377,8 @@ export const marcarEstorno = (data, { transacaoId, transacaoOrigemId, operador }
   const origem = transacaoOrigemId ? transacaoPorId(data, transacaoOrigemId) : null;
   if (transacaoOrigemId && !origem) return { data, resumo: { ok: false, motivo: "Movimento original não encontrado" } };
   if (origem && Math.sign(Number(origem.valor)) === Math.sign(Number(tr.valor))) return { data, resumo: { ok: false, motivo: "Estorno deve ter sinal oposto ao movimento original" } };
+  const bloqueioPeriodo = motivoPeriodoFechado(data, tr.data);
+  if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
   const vinculo = { tipo: "estorno", id: transacaoOrigemId };
   const transacoes = marcarTransacao(data.transacoes, transacaoId, { status: "conciliado", vinculo });
@@ -384,6 +401,8 @@ export const conciliarMuitosParaMuitos = (data, params) => {
   const transacoesAlvo = transacaoIds.map(id => transacaoPorId(data, id)).filter(Boolean);
   if (transacoesAlvo.length !== transacaoIds.length) return { data, resumo: { ok: false, motivo: "Alguma transação não foi encontrada" } };
   if (transacoesAlvo.some(t => t.status === "conciliado")) return { data, resumo: { ok: false, motivo: "Alguma transação já está conciliada" } };
+  const transacaoBloqueadaPeriodo = transacoesAlvo.find(t => motivoPeriodoFechado(data, t.data));
+  if (transacaoBloqueadaPeriodo) return { data, resumo: { ok: false, motivo: motivoPeriodoFechado(data, transacaoBloqueadaPeriodo.data) } };
 
   const valorMovimentos = transacoesAlvo.reduce((s, t) => s + Math.abs(Number(t.valor)), 0);
   const valorItens = itens.reduce((s, i) => s + Number(i.valorAplicadoCentavos || 0), 0) / 100;
@@ -433,6 +452,8 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
   const tr = transacaoPorId(data, transacaoId);
   if (!tr) return { data, resumo: { ok: false, motivo: "Transação não encontrada" } };
   if (tr.status !== "conciliado") return { data, resumo: { ok: false, motivo: "Transação não está conciliada" } };
+  const bloqueioPeriodo = motivoPeriodoFechado(data, tr.data);
+  if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
   const gerados = tr.gerados || [];
   let next = { ...data };
