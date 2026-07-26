@@ -71,7 +71,16 @@ const allocateTransaction = (data, transaction, payload, actor) => {
       if(isIncome){newReceipts.push({id,obraId:item.obraId,date:transaction.data,amount:item.value,description:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),tipo:"recebimento_avulso",origem:"conciliacao_bancaria",transacaoId:transaction.id,conciliado:true,registradoPorId:actor?.id||"",registradoPor:actor?.nome||actor?.email||"Operador",registradoEm:new Date().toISOString()});generated.push({tipo:"payments",id,entidadeId:id});}
       else {newOtherExpenses.push({id,obraId:item.obraId,competencia:String(transaction.data||"").slice(0,7),data:transaction.data,dataPagamento:transaction.data,pago:true,categoria:item.category,descricao:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),valor:item.value,transacaoId:transaction.id});generated.push({tipo:"outrasDesp",id,entidadeId:id});}
     }else{
-      newCompanyExpenses.push({id,competencia:String(transaction.data||"").slice(0,7),data:transaction.data,dataPagamento:transaction.data,pago:true,categoria:item.category,descricao:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),valor:isIncome?-item.value:item.value,recorrente:false,transacaoId:transaction.id});generated.push({tipo:"despesasEmpresa",id,entidadeId:id});
+      // Crédito sem obra/medição é caixa ainda não alocado, não estorno de
+      // despesa. Estornar custo para representar uma entrada aumentaria o DRE
+      // sem receita por competência correspondente.
+      if(isIncome){
+        newReceipts.push({id,obraId:"",date:transaction.data,amount:item.value,description:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),tipo:"recebimento_avulso",origem:"conciliacao_bancaria",transacaoId:transaction.id,conciliado:true,registradoPorId:actor?.id||"",registradoPor:actor?.nome||actor?.email||"Operador",registradoEm:new Date().toISOString()});
+        generated.push({tipo:"payments",id,entidadeId:id});
+      }else{
+        newCompanyExpenses.push({id,competencia:String(transaction.data||"").slice(0,7),data:transaction.data,dataPagamento:transaction.data,pago:true,categoria:item.category,descricao:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),valor:item.value,recorrente:false,transacaoId:transaction.id});
+        generated.push({tipo:"despesasEmpresa",id,entidadeId:id});
+      }
     }
   });
   const receiptId=measurement?commandId("rec"):"";

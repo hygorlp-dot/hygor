@@ -56,4 +56,11 @@ describe("reconciliation command server boundary",()=>{
     const invalid=applyReconciliationCommand(fixture(),{type:RECONCILIATION_COMMAND.CONFIRM_ALLOCATION,payload:{transactionId:"debit",allocations:[{destination:"obra",obraId:"forjada",category:"material",value:300}]}},actor);
     expect(invalid.resumo.ok).toBe(false);
   });
+
+  test("entrada rateada para a empresa permanece caixa não alocado, sem estornar custo",()=>{
+    const result=applyReconciliationCommand(fixture(),{type:RECONCILIATION_COMMAND.CONFIRM_ALLOCATION,payload:{transactionId:"credit",allocations:[{destination:"empresa",category:"aporte",value:500}]}},actor);
+    expect(result.resumo.ok).toBe(true);
+    expect(result.data.payments).toMatchObject([{obraId:"",amount:500,transacaoId:"credit"}]);
+    expect(result.data.despesasEmpresa).toEqual([]);
+  });
 });
