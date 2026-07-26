@@ -109,6 +109,7 @@ import {
   selectAccountsPayable as selectLedgerAccountsPayable,
   selectFinancialMovements,
 } from "./domains/financeiro/ledger";
+import { cancelClientMeasurement, saveClientMeasurement } from "./domains/financeiro/measurement-mutations";
 import {
   analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
@@ -5971,26 +5972,19 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
   };
 
   const saveMedicao = () => {
-    if (!selObra) { showToast("Selecione uma obra.","error"); return; }
-    if (!form.competencia) { showToast("Informe a competência.","error"); return; }
-    const previsto = calcPrevisto(form, obra);
-    const periodo  = form.tipo==="percentual"
-      ? Math.max(0, Number(form.percentualAcumulado||0) - prevAcumulado(form.competencia, editId||undefined)) : 0;
-    const payload = {
-      id: editId || uid(), obraId: selObra,
-      competencia: form.competencia, tipo: form.tipo,
-      percentualAcumulado: Number(form.percentualAcumulado||0), percentualPeriodo: periodo,
-      valorPrevisto: previsto,
-      valorRecebido: form.recebido ? Number(form.valorRecebido||previsto) : 0,
-      dataPagamento: form.recebido ? (form.dataPagamento||today()) : "",
-      descricao: form.descricao, recebido: form.recebido,
-    };
-    const medicoes = editId
-      ? (data.medicoes||[]).map(m => m.id===editId ? payload : m)
-      : [...(data.medicoes||[]), payload];
-    update({ ...data, medicoes });
-    setModal(false);
-    showToast(editId ? "Medição atualizada." : "Medição registrada.");
+    try {
+      const previsto = calcPrevisto(form, obra);
+      const periodo  = form.tipo==="percentual"
+        ? Math.max(0, Number(form.percentualAcumulado||0) - prevAcumulado(form.competencia, editId||undefined)) : 0;
+      update(saveClientMeasurement({
+        data, actor:currentUser, id:editId || uid(), receiptId:form.recebido&&!editId?uid():"",
+        measurement:{...form,obraId:selObra,valorPrevisto:previsto,percentualPeriodo:periodo},
+      }));
+      setModal(false);
+      showToast(editId ? "Medição atualizada." : "Medição registrada.");
+    } catch (error) {
+      showToast(error.message||"Não foi possível salvar a medição.","error");
+    }
   };
 
   //  Geração automática de parcelas fixas 
@@ -6185,8 +6179,12 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
   const deleteMedicao = id => {
     const motivo=window.prompt("Motivo do cancelamento da medição:");
     if(!String(motivo||"").trim())return;
-    update({...data, medicoes:(data.medicoes||[]).map(m=>m.id===id?cancelarRegistro({...m,recebido:false,valorRecebido:0,dataPagamento:""},motivo,currentUser,"cancelada"):m)});
-    showToast("Medição cancelada e preservada para auditoria.");
+    try {
+      update(cancelClientMeasurement({data,measurementId:id,reason:motivo,actor:currentUser}));
+      showToast("Medição cancelada e preservada para auditoria.");
+    } catch (error) {
+      showToast(error.message||"Não foi possível cancelar a medição.","error");
+    }
   };
 
   const formPrevisto = calcPrevisto(form, obra);
