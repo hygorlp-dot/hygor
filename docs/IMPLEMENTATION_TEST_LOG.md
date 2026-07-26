@@ -100,8 +100,12 @@ de comandos por entidade e versão esperada no servidor continua nesta etapa.
 - O RDO e o cancelamento de medição técnica já foram ligados ao executor por
   comando; atualizações funcionais agora usam o estado mais recente do app,
   eliminando closures antigas nesses fluxos.
+- `api/data.js` expõe `operational-command`: autentica o papel, exige chave
+  idempotente, revalida `expectedVersion` no snapshot autoritativo e somente
+  repete contra leitura recente quando o mesmo comando ainda é compatível.
 - Chamadas legadas ainda transmitem snapshots por seção; falta migrar os
-  agregados críticos restantes e validar a mesma versão esperada no servidor.
+  agregados críticos restantes para essa rota; a fila do cliente ainda usa o
+  save por seções durante a transição.
 - A etapa 2 só poderá ser marcada como aprovada depois dessa migração e de
   testes de conflito por mesma entidade.
 
@@ -114,4 +118,5 @@ de comandos por entidade e versão esperada no servidor continua nesta etapa.
   medição e não duplicidade de estoque em recebimento.
 - Execução direcionada após a integração: 3 arquivos, 11 testes aprovados,
   0 reprovados; suíte completa: 31 arquivos, 184 testes aprovados, 0
-  reprovados; lint, build e `git diff --check` aprovados.
+  reprovados; lint, build, `node --check api/data.js` e `git diff --check`
+  aprovados.

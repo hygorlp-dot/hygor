@@ -30,6 +30,7 @@ import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../ser
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { authorizeSectionChanges, validateNoPhysicalDeletes } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
+import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "./microsoft/_graph.js";
 
 const URL     = process.env.SUPABASE_URL;
@@ -51,6 +52,12 @@ const FINANCIAL_COMMANDS = new Set(["CREATE_FINANCIAL_TITLE","REGISTER_SETTLEMEN
 const FINANCIAL_COMMAND_ROLES = {
   CREATE_FINANCIAL_TITLE:["admin","financeiro"], REGISTER_SETTLEMENT:["admin","financeiro"],
   REVERSE_SETTLEMENT:["admin","financeiro"], CLOSE_ACCOUNTING_PERIOD:["admin"],
+};
+const OPERATIONAL_COMMAND_ROLES = {
+  [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED]:["admin","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED]:["admin","compras","financeiro"],
 };
 const BACKUP_FOLDER="00 - Backups ARCD";
 const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
@@ -581,6 +588,36 @@ export default async function handler(req, res) {
       const {data:resultado,error}=await db.rpc("financial_execute_command",{p_company_id:COMPANY,p_actor_id:usuario.id,p_command:command});
       if(error){console.error("Falha no motor financeiro:",error.message);return res.status(409).json({error:"O comando não foi efetivado. Nenhum lançamento parcial foi salvo."});}
       return res.status(200).json(resultado);
+    }
+
+    // Comandos operacionais usam versão da própria entidade, não a semântica
+    // insegura de "último snapshot vence". A rota ainda devolve a projeção
+    // filtrada pelo papel para poder substituir o save legado gradualmente.
+    if(action==="operational-command"){
+      const command=req.body?.command||{};
+      const roles=OPERATIONAL_COMMAND_ROLES[command.type];
+      if(!roles)return res.status(400).json({error:"Comando operacional inválido."});
+      if(!roles.includes(usuario.role))return res.status(403).json({error:"Seu perfil não pode executar este comando operacional."});
+      if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});
+
+      let result=applyOperationalCommand(atual,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
+      if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:updatedAt});
+      if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(atual,usuario),updatedAt});
+
+      const persistir=async(base,value)=>salvarComAuditoria({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
+        action:`operational_${command.type.toLowerCase()}`,
+        before:{command:command.type,entityId:command.payload?.measurementId||command.payload?.pedidoId||command.payload?.report?.id||command.payload?.measurement?.id||""},
+        after:{command:command.type,idempotencyKey:command.idempotencyKey}});
+      let gravacao=await persistir({updatedAt},result.data);
+      if(!gravacao.applied){
+        const recente=await lerLinha();
+        result=applyOperationalCommand(recente.payload,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
+        if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:recente.updatedAt});
+        if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(recente.payload,usuario),updatedAt:recente.updatedAt});
+        gravacao=await persistir(recente,result.data);
+        if(!gravacao.applied)return res.status(409).json({conflict:true,reason:"Outra alteração foi gravada ao mesmo tempo. Tente novamente."});
+      }
+      return res.status(200).json({ok:true,data:projectDataForUser(result.data,usuario),updatedAt:gravacao.updatedAt||new Date().toISOString()});
     }
 
     // FIN-002: fotografia em sombra do legado versus motor canônico. Não
