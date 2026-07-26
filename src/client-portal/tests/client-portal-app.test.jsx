@@ -39,11 +39,12 @@ describe("ClientPortalApp", () => {
 
   it("converte o link revogável sem login para a projeção segura do portal novo", async () => {
     const fetchMock=vi.spyOn(globalThis,"fetch").mockResolvedValue({
-      ok:true,status:200,json:async()=>({portal:{obra:{id:"obra-a",nome:"Residência Monte Verde"},progresso:48,cronograma:[{id:"t",nome:"Fundação",progresso:35}],fotos:[],medicoes:[],documentos:[],atualizacoes:[]}}),
+      ok:true,status:200,json:async()=>({portal:{obra:{id:"obra-a",nome:"Residência Monte Verde"},progresso:48,cronograma:[{id:"t",nome:"Fundação",progresso:35}],fotos:[],medicoes:[],documentos:[{id:"doc",nome:"Boletim",url:"https://cliente/boletim.pdf"}],atualizacoes:[]}}),
     });
     const result=await readClientPortalByLink("obra-a","token-seguro");
     expect(result.project).toMatchObject({id:"obra-a",name:"Residência Monte Verde",progress:48});
     expect(result.timeline[0]).toMatchObject({phase:"Fundação",progress:35});
+    expect(result.publishedDocuments[0]).toMatchObject({title:"Boletim",url:"https://cliente/boletim.pdf"});
     expect(fetchMock).toHaveBeenCalledWith("/api/data",expect.objectContaining({method:"POST"}));
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({action:"client-portal",obraId:"obra-a",token:"token-seguro"});
   });
@@ -66,6 +67,10 @@ describe("ClientPortalApp", () => {
     const financial=render(<ClientPortalRouter portalData={richPortal} permissions={{viewFinancial:true}} />);
     expect(financial.textContent).toContain("R$ 110.000,00");
     expect(financial.textContent).not.toContain("salário");
+    window.history.replaceState({}, "", "/cliente/obra/obra-a/documentos");
+    const documents=render(<ClientPortalRouter portalData={{...richPortal,publishedDocuments:[{id:"doc",title:"Boletim de medição",url:"https://cliente/boletim.pdf"}]}} permissions={{downloadDocuments:true}} />);
+    expect(documents.textContent).toContain("Boletim de medição");
+    expect(documents.querySelector("a")?.href).toBe("https://cliente/boletim.pdf");
     window.history.replaceState({}, "", "/");
   });
 });

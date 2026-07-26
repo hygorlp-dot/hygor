@@ -38,7 +38,9 @@ const normalizeLegacyPortal = source => {
       id:`pag-${item.id}`, description:item.descricao, amount:Number(item.valorRecebido || 0),
       status:"Recebido",
     })),
-    documents:portal.documentos || [],
+    publishedDocuments:(portal.documentos || []).map(item=>({
+      id:item.id, title:item.nome, url:item.url, category:"Documento da obra",
+    })),
     decisions:[],
   };
 };

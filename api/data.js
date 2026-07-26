@@ -39,6 +39,7 @@ import { validateOperationalCommandScope } from "../server/operational-command-p
 import { hasLegacyFinancialWrite, validateFinancialWritePath } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
+import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
@@ -650,15 +651,8 @@ export default async function handler(req, res) {
       }
 
       const publishProject=async()=>{
-        const plano=(atual.planos||[]).find(item=>String(item.obraId)===obraId);
-        const tarefas=(plano?.tarefas||[]).filter(item=>!item.titulo).slice(0,80);
-        const progress=tarefas.length?Math.round(tarefas.reduce((sum,item)=>sum+Math.max(0,Math.min(100,Number(item.progresso||0))),0)/tarefas.length):0;
-        const rows=[{
-          domain:"project_summary",payload:{name:obra.name||"Obra",coverImage:obra.capaUrl||"",currentPhase:obra.status||"",progress,estimatedCompletion:obra.contractEnd||"",lastUpdate:new Date().toISOString()},
-        }];
-        if(obra.portalCliente?.publicarCronograma!==false)for(const item of tarefas)rows.push({domain:"timeline",payload:{id:item.id,phase:item.nome||item.descricao||"Etapa",status:Number(item.progresso||0)>=100?"Concluído":"Em andamento",plannedStart:item.inicio||"",plannedEnd:item.fim||"",progress:Number(item.progresso||0)}});
-        if(obra.portalCliente?.publicarFinanceiro)for(const item of (atual.medicoes||[]).filter(entry=>String(entry.obraId)===obraId).slice(0,80))rows.push({domain:"measurement",payload:{id:item.id,number:item.descricao||item.competencia||"Medição",period:item.competencia||"",amount:Number(item.valorPrevisto||0),status:item.recebido?"Recebida":"Publicada"}});
         const now=new Date().toISOString();
+        const rows=buildClientPortalPublicationRows({data:atual,projectId:obraId,publishedAt:now});
         await db.from("client_portal_publications").update({status:"superseded",updated_at:now}).eq("company_id",COMPANY).eq("project_id",obraId).eq("status","published");
         const {error}=await db.from("client_portal_publications").insert(rows.map(row=>({company_id:COMPANY,project_id:obraId,domain:row.domain,status:"published",visibility:"project_users",payload:row.payload,created_by:usuario.id,published_by:usuario.id,published_at:now})));
         if(error)throw error;

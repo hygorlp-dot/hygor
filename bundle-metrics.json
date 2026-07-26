@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-25T23:59:18.283Z",
+  "generatedAt": "2026-07-26T22:55:12.146Z",
   "totals": {
-    "bytes": 3881547,
-    "gzipBytes": 1080918
+    "bytes": 4109368,
+    "gzipBytes": 1141432
   },
   "assets": [
     {
-      "name": "LegacyApp-Br56XhPB.js",
-      "bytes": 2053917,
-      "gzipBytes": 573724
+      "name": "LegacyApp-BmL7LWy5.js",
+      "bytes": 2201543,
+      "gzipBytes": 613701
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -21,34 +21,115 @@
       "gzipBytes": 106620
     },
     {
-      "name": "vendor-DLS2yCis.js",
-      "bytes": 265387,
-      "gzipBytes": 87142
+      "name": "vendor-H6O5w9l-.js",
+      "bytes": 265394,
+      "gzipBytes": 87145
     },
     {
-      "name": "sinapi-parser.worker-BcaEAY6v.js",
-      "bytes": 106993,
-      "gzipBytes": 32255
+      "name": "sinapi-parser.worker-DK35Q8wa.js",
+      "bytes": 106995,
+      "gzipBytes": 32257
     },
     {
-      "name": "index-BrhHZb9I.css",
-      "bytes": 103857,
-      "gzipBytes": 21193
+      "name": "index-B8Nu7GWa.css",
+      "bytes": 121376,
+      "gzipBytes": 24350
     },
     {
-      "name": "index-mniXPuGi.js",
-      "bytes": 4890,
-      "gzipBytes": 2294
+      "name": "ClientPortalApp-DodmM9Is.js",
+      "bytes": 22180,
+      "gzipBytes": 5807
     },
     {
-      "name": "spreadsheet-dgzD4Y_t.js",
-      "bytes": 2512,
-      "gzipBytes": 1331
+      "name": "SupplierEditor-Ctkee0-X.js",
+      "bytes": 15910,
+      "gzipBytes": 5002
+    },
+    {
+      "name": "index-NsWfUrtZ.js",
+      "bytes": 8148,
+      "gzipBytes": 3548
+    },
+    {
+      "name": "ClientPortalApp-D_OTJdpB.css",
+      "bytes": 9779,
+      "gzipBytes": 2527
+    },
+    {
+      "name": "SupplierEditor-BkHwlS_S.css",
+      "bytes": 10138,
+      "gzipBytes": 2010
+    },
+    {
+      "name": "spreadsheet-BLjK4IkC.js",
+      "bytes": 2514,
+      "gzipBytes": 1334
+    },
+    {
+      "name": "categories-Cuyw95nU.js",
+      "bytes": 1400,
+      "gzipBytes": 772
     },
     {
       "name": "rolldown-runtime-DAXXjFlN.js",
       "bytes": 1269,
       "gzipBytes": 704
     }
-  ]
+  ],
+  "media": {
+    "totals": {
+      "bytes": 1987107
+    },
+    "assets": [
+      {
+        "name": "media/login-background.webm",
+        "bytes": 1826609
+      },
+      {
+        "name": "login-projects-depth-8FZOWFLr.webp",
+        "bytes": 94014
+      },
+      {
+        "name": "login-architectural-landscape-ATwiky3j.webp",
+        "bytes": 66484
+      }
+    ]
+  },
+  "budget": {
+    "limits": {
+      "totalGzipBytes": 1228800,
+      "genericJavaScriptGzipBytes": 204800,
+      "staticMediaTotalBytes": 4194304,
+      "genericStaticMediaBytes": 1048576,
+      "chunks": [
+        {
+          "label": "LegacyApp",
+          "maxGzipBytes": 614400
+        },
+        {
+          "label": "spreadsheet-tools",
+          "maxGzipBytes": 281600
+        },
+        {
+          "label": "charts",
+          "maxGzipBytes": 128000
+        },
+        {
+          "label": "vendor",
+          "maxGzipBytes": 102400
+        },
+        {
+          "label": "ClientPortalApp",
+          "maxGzipBytes": 51200
+        }
+      ],
+      "media": [
+        {
+          "label": "vídeo de fundo do login",
+          "maxBytes": 3145728
+        }
+      ]
+    },
+    "violations": []
+  }
 }

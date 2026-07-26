@@ -15,7 +15,9 @@ const routeParts = req => {
   return String(route || "").split("/").filter(Boolean);
 };
 const recordFromPublication = (row, projectId) => ({
-  ...(row.payload || {}), obraId:projectId, status:row.status, visibility:row.visibility,
+  ...(row.payload || {}), obraId:projectId, status:row.status,
+  clientStatus:row.payload?.clientStatus || row.payload?.status || "",
+  visibility:row.visibility,
   visibleToProfiles:array(row.visible_to_profiles), visibleToUserIds:array(row.visible_to_user_ids),
 });
 
