@@ -23,7 +23,7 @@ describe("título de folha e PIX", () => {
     expect(title).toBeDefined();
     expect(title.entidadeId).toBe("tf1");
     expect(title.metadados.payroll.saldo).toBe(1000);
-    expect(title.motivos).toContain("Chave PIX estruturada corresponde");
+    expect(title.motivos).toContain("Chave PIX exata e exclusiva");
   });
 
   test("liquida parcialmente sem criar custo no DRE e mantém saldo", () => {

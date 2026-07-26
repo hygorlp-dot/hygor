@@ -132,6 +132,7 @@ import {
   paraCentavos, deCentavos, igualCentavos,
   criarIndicesFinanceiros, transacoesConsumidas,
   gerarCandidatosConciliacao, faixaDoScore, FAIXA_CONFIANCA,
+  criarRegistroIdentidades, analisarMovimentoConciliacao, resumoQuinzenaConciliacao,
   vincularPagamentoExistente, registrarPagamentoEConciliar, criarLancamentoPelaTransacao,
   conciliarMuitosParaMuitos, desfazerConciliacao as desfazerConciliacaoDominio,
   marcarTransferenciaInterna, marcarEstorno, gerarIdConc,
@@ -22000,17 +22001,39 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     data.notasFiscais, data.pedidos, data.medicoes, data.medicoesTerc,
     data.terceirizados, data.employees, data.caixaObra, data.transacoes,
   ]);
+  const registroIdentidades=useMemo(()=>criarRegistroIdentidades(data),[
+    data.contasBancarias,data.employees,data.terceirizados,data.fornecedores,
+    data.proprietariosEquip,data.clientes,data.comercial,
+  ]);
+  // Este mapa é a fonte da classificação operacional da fila. O cartão PIX
+  // continua sendo apenas uma visualização especializada da mesma decisão.
+  const analisesPorTransacao=useMemo(()=>new Map((data.transacoes||[]).map(tr=>[
+    tr.id,analisarMovimentoConciliacao(tr,data,{indices:indicesFinanceiros,registry:registroIdentidades}),
+  ])),[data,indicesFinanceiros,registroIdentidades]);
+  const periodoQuinzenaConc=useMemo(()=>periodoPontoDaTransacao(today()),[]);
+  const resumoQuinzena=useMemo(()=>resumoQuinzenaConciliacao(data,{
+    inicio:periodoQuinzenaConc.days[0]||"",fim:periodoQuinzenaConc.days.at(-1)||"",
+  }),[data,periodoQuinzenaConc]);
   const rejeitadasSet = useMemo(() => new Set(
     (data.rejeicoesConc||[]).map(r=>`${r.transacaoId}:${r.candidatoTipo}:${r.candidatoId}`)
   ), [data.rejeicoesConc]);
 
   const transacoes = useMemo(() => {
     const t = [...(data.transacoes || [])];
-    t.sort((a,b) => (b.data||"").localeCompare(a.data||""));
+    const ordem={pronta:0,revisar:1,investigar:2,sem_correspondencia:3,bloqueada:4};
+    t.sort((a,b) => {
+      if(aba==="pendentes"&&a.status==="pendente"&&b.status==="pendente"){
+        const aAnalise=analisesPorTransacao.get(a.id),bAnalise=analisesPorTransacao.get(b.id);
+        const diff=(ordem[aAnalise?.classificacaoOperacional]??9)-(ordem[bAnalise?.classificacaoOperacional]??9);
+        if(diff)return diff;
+        if(aAnalise?.classificacaoOperacional==="investigar")return Math.abs(Number(b.valor||0))-Math.abs(Number(a.valor||0));
+      }
+      return (b.data||"").localeCompare(a.data||"");
+    });
     const porStatus=aba === "pendentes"?t.filter(x=>x.status==="pendente"):aba === "conciliadas"?t.filter(x=>x.status==="conciliado"):aba === "ignoradas"?t.filter(x=>x.status==="ignorado"):t;
     const termo=semAcentoConc(buscaConc.trim());
     return porStatus.filter(x=>(tipoMovimento==="todos"||(tipoMovimento==="entradas"?Number(x.valor)>0:Number(x.valor)<0))&&(!termo||semAcentoConc(`${x.descricao} ${x.data} ${x.ignoradoMotivo||""}`).includes(termo)));
-  }, [data.transacoes, aba, buscaConc, tipoMovimento]);
+  }, [data.transacoes, aba, buscaConc, tipoMovimento, analisesPorTransacao]);
   const transacoesVisiveis=transacoes.slice(0,limiteVisivel);
   const todosSelecionados=transacoes.length>0&&transacoes.every(t=>selecionadas.includes(t.id));
 
@@ -22047,6 +22070,11 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const corFaixa=f=>f===FAIXA_CONFIANCA.FORTE?C.green:f===FAIXA_CONFIANCA.CONFIRMAR?C.blue:f===FAIXA_CONFIANCA.LISTA?C.orange:C.muted;
 
   const abrirCandidato = (tr) => {
+    const analise=analisesPorTransacao.get(tr.id);
+    if(analise?.classificacaoOperacional==="bloqueada"){
+      showToast("A confirmação está bloqueada: corrija o cadastro duplicado antes de conciliar.","error");
+      return;
+    }
     const cs = candidatosPorTransacao.get(tr.id) || [];
     const c = cs[0];
     setPagamentoForm({ valor: c ? String(Math.min(Math.abs(tr.valor), deCentavos(c.saldoCentavos||0)||Math.abs(tr.valor)).toFixed(2)) : String(Math.abs(tr.valor).toFixed(2)), data: tr.data });
@@ -22345,6 +22373,11 @@ function Conciliacao({ data, update, showToast, currentUser }) {
 
   //  Apropriar 
   const abrirApropriacao = (tr) => {
+    const analise=analisesPorTransacao.get(tr.id);
+    if(analise?.classificacaoOperacional==="bloqueada"){
+      showToast("A confirmação está bloqueada enquanto houver conflito de identidade.","error");
+      return;
+    }
     const sug = sugerirRateio(tr, data.regrasConc, data.aprendizadoConc);
     setRateios(
       (tr.rateios && tr.rateios.length)
@@ -22554,9 +22587,21 @@ function Conciliacao({ data, update, showToast, currentUser }) {
         actions={importando?<span style={{fontSize:9,fontWeight:800,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:700}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>}
       />
 
-      <TabRow equal tabs={[["pendentes",`Fila inteligente · ${calc.pendentes}`],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras",`Regras · ${(data.regrasConc||[]).length}`],["fechamentos",`Fechamentos · ${(data.fechamentosBancarios||[]).length}`],["historico","Histórico"]]} active={aba} onChange={setAba}/>
+      <TabRow equal tabs={[["pendentes",`Fila inteligente · ${calc.pendentes}`],["quinzena","Quinzena"],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras",`Regras · ${(data.regrasConc||[]).length}`],["fechamentos",`Fechamentos · ${(data.fechamentosBancarios||[]).length}`],["historico","Histórico"]]} active={aba} onChange={setAba}/>
 
       {!["extratos","regras","fechamentos"].includes(aba)&&<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 7px"}}><div style={{position:"relative",minWidth:190,flex:1}}><Ic n="search" s={12} color={C.muted} style={{position:"absolute",left:8,top:8}}/><input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar data ou descrição..."} style={{width:"100%",height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 9px 0 27px",fontSize:9.5,outline:"none"}}/></div>{aba!=="historico"&&<select value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 8px",fontSize:9}}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}{["pendentes","ignoradas"].includes(aba)&&<button onClick={alternarTodas} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.muted,padding:"0 8px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{todosSelecionados?"Desmarcar":"Selecionar todas"}</button>}{aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}{aba==="pendentes"&&calc.pendentes>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar((data.transacoes||[]).filter(t=>t.status==="pendente"),"Ignorar todas as pendentes")}>Ignorar todas · {calc.pendentes}</Btn>}{aba==="ignoradas"&&selecionadas.length>0&&<Btn size="sm" v="info" onClick={()=>reabrir(selecionadas)}>Reabrir selecionadas · {selecionadas.length}</Btn>}</div>}
+
+      {aba==="quinzena"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 12px"}}>
+          <p style={{fontSize:11,fontWeight:850,color:C.text}}>Resumo auditável da quinzena · {periodoQuinzenaConc.periodoPonto}</p>
+          <p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Folha, liquidações e PIX conciliados; o pagamento não reconhece custo novamente.</p>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:7,marginTop:10}}>{[["Previsto",fmt(resumoQuinzena.totalPrevisto),C.text],["Pago",fmt(resumoQuinzena.totalPago),C.green],["Saldo pendente",fmt(resumoQuinzena.saldoPendente),resumoQuinzena.saldoPendente?C.orange:C.green],["Operários",resumoQuinzena.totalOperarios,C.blue]].map(([label,value,color])=><div key={label} style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"8px 9px"}}><p style={{fontSize:8,color:C.muted,textTransform:"uppercase",fontWeight:800}}>{label}</p><p style={{fontSize:14,fontWeight:900,color,marginTop:3}}>{value}</p></div>)}</div>
+        </div>
+        <div className="scroll-x" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
+          <table style={{width:"100%",minWidth:580,borderCollapse:"collapse"}}><thead><tr>{["Pessoa","Obra","Previsto","Pago","Saldo"].map(label=><th key={label} style={{padding:"7px 9px",textAlign:label==="Pessoa"||label==="Obra"?"left":"right",fontSize:8,color:C.muted,textTransform:"uppercase"}}>{label}</th>)}</tr></thead><tbody>{resumoQuinzena.porPessoa.length?resumoQuinzena.porPessoa.map(row=><tr key={row.pessoaId}><td style={{padding:"7px 9px",fontSize:9.5,fontWeight:800,borderTop:`1px solid ${C.line}`}}>{row.nome}{row.pixTitular&&<small style={{display:"block",fontSize:8,color:C.muted}}>Titular PIX: {row.pixTitular}</small>}</td><td style={{padding:"7px 9px",fontSize:9,color:C.muted,borderTop:`1px solid ${C.line}`}}>{(data.obras||[]).find(item=>item.id===row.obraId)?.name||"Não definida"}</td><td style={{padding:"7px 9px",fontSize:9.5,textAlign:"right",borderTop:`1px solid ${C.line}`}}>{fmt(row.previsto)}</td><td style={{padding:"7px 9px",fontSize:9.5,textAlign:"right",color:C.green,borderTop:`1px solid ${C.line}`}}>{fmt(row.pago)}</td><td style={{padding:"7px 9px",fontSize:9.5,fontWeight:850,textAlign:"right",color:row.saldo?C.orange:C.green,borderTop:`1px solid ${C.line}`}}>{fmt(row.saldo)}</td></tr>):<tr><td colSpan="5" style={{padding:18,textAlign:"center",fontSize:10,color:C.muted}}>Nenhum título de folha nesta quinzena.</td></tr>}</tbody></table>
+        </div>
+        {(resumoQuinzena.pagamentosParciais.length||resumoQuinzena.foraCompetencia.length||resumoQuinzena.pixTitularDivergente.length)>0&&<p style={{fontSize:9.5,color:C.orange,fontWeight:800}}>Atenção: {resumoQuinzena.pagamentosParciais.length} pagamento(s) parcial(is), {resumoQuinzena.foraCompetencia.length} fora da competência e {resumoQuinzena.pixTitularDivergente.length} PIX com titular divergente.</p>}
+      </div>}
 
       {aba==="extratos"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -22705,6 +22750,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                 const entrada=Number(tr.valor)>0,sug=tr.status==="pendente"?sugerirRateio(tr,data.regrasConc,data.aprendizadoConc):null;
                 const candidatas=aba==="pendentes"?(candidatosPorTransacao.get(tr.id)||[]):[];
                 const melhor=candidatas[0];
+                const analise=analisesPorTransacao.get(tr.id);
                 const melhorEhPixMaoDeObra=melhor?.tipo==="maoObraPonto";
                 const pixFuncionario=findRegisteredEmployeePix(tr,data.employees);
                 const corMovimento=entrada?C.green:pixFuncionario?C.yellow:C.red;
@@ -22723,9 +22769,11 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                               <p style={{fontSize:9,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{melhor.titulo}</p>
                               <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}>
                                 <Badge color={corFaixa(melhor.confianca)}>{melhor.score} pts</Badge>
+                                {analise&&<Badge color={analise.classificacaoOperacional==="bloqueada"?C.red:analise.classificacaoOperacional==="pronta"?C.green:analise.classificacaoOperacional==="revisar"?C.blue:C.orange}>{analise.classificacaoOperacional.replace("_"," ")}</Badge>}
                                 {melhor.alertas.length>0&&<span title={melhor.alertas.join("; ")} style={{fontSize:9,color:C.orange,fontWeight:800}}>! {melhor.alertas.length}</span>}
                                 {candidatas.length>1&&<span style={{fontSize:8,color:C.muted}}>+{candidatas.length-1}</span>}
                               </div>
+                              {analise?.melhorCandidata?.bloqueios?.length>0&&<p title={analise.melhorCandidata.bloqueios.join("; ")} style={{fontSize:8,color:C.red,fontWeight:800,marginTop:3}}>BLOQUEADA · corrigir cadastro</p>}
                             </div>
                           : sug
                             ? <span style={{fontSize:9,color:C.blue}}>{sug.origem==="aprendizado"?`Sugestão aprendida (${sug.confirmacoes} confirmações)`:"Sugestão de regra"}: {sug.destino==="obra"?nomeObra(sug.obraId):"Empresa"} · {sug.categoria}</span>

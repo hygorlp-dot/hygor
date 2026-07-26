@@ -40,6 +40,20 @@ describe("motor de candidatos - nunca decide sozinho, só pontua", () => {
     const candidatas = gerarCandidatosConciliacao(transacao, data, indices);
     const nota = candidatas.find(c => c.entidadeId === "n1");
     expect(nota.alertas.some(a => a.includes("CPF/CNPJ"))).toBe(true);
+    expect(nota.bloqueios.some(a => a.includes("CPF/CNPJ"))).toBe(true);
+  });
+
+  test("identificador bancário único recebe evidência forte sem dispensar a confirmação", () => {
+    const dataComId={...data,notasFiscais:[{...data.notasFiscais[0],fitid:"fit-unico"}]};
+    const nota=gerarCandidatosConciliacao({id:"t-id",valor:-1500,data:"2026-01-16",fitid:"fit-unico"},dataComId,criarIndicesFinanceiros(dataComId)).find(item=>item.entidadeId==="n1");
+    expect(nota.score).toBeGreaterThanOrEqual(90);
+    expect(nota.motivos.some(item=>item.includes("Identificador bancário"))).toBe(true);
+  });
+
+  test("período bancário fechado bloqueia a confirmação", () => {
+    const fechado={...data,fechamentosBancarios:[{status:"fechado",dataInicio:"2026-01-01",dataFim:"2026-01-31"}]};
+    const nota=gerarCandidatosConciliacao({id:"t-fechado",valor:-1500,data:"2026-01-16"},fechado,criarIndicesFinanceiros(fechado)).find(item=>item.entidadeId==="n1");
+    expect(nota.bloqueios.some(item=>item.includes("período financeiro fechado"))).toBe(true);
   });
 
   test("transação já consumida por outro vínculo não é sugerida de novo", () => {
