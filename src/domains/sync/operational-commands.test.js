@@ -66,6 +66,7 @@ describe("comandos operacionais versionados",()=>{
     expect(cancelled.data.medicoesObra[0]).toMatchObject({status:"cancelada",version:2,motivoCancelamento:"Medição duplicada"});
     expect(cancelled.data.technicalMeasurementAuditEvents).toHaveLength(2);
     expect(cancelled.data.technicalMeasurementProgress["o-1"].items).toEqual([]);
+    expect(cancelled.data.planos[0].tarefas[0]).toMatchObject({progresso:0,progressoOrigem:"sem_medicao_tecnica",medicaoTecnicaId:""});
   });
 
   it("não cancela a fonte técnica enquanto houver faturamento vigente",()=>{

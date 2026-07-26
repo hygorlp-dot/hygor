@@ -40,18 +40,31 @@ describe("medição técnica → faturamento",()=>{
     const data={medicoesObra:[{
       id:"mt1",obraId:"o1",status:"confirmada",data:"2026-07-20",numero:2,avancoFisico:35,
       itens:[{tarefaId:"t1",nome:"Estrutura",pctConfirmado:35}],
-    }],medicoes:[]};
+    }],obras:[{id:"o1",contractValue:100000}],medicoes:[]};
     const created=createBillingFromTechnicalMeasurement(data,{
-      medicaoTecnicaId:"mt1",valor:25000,competencia:"2026-07",dataVencimento:"2026-08-10",
+      medicaoTecnicaId:"mt1",valor:1,competencia:"2026-07",dataVencimento:"2026-08-10",
     });
     expect(created.ok).toBe(true);
     expect(created.measurement).toMatchObject({
-      id:"fat-mt1",obraId:"o1",medicaoTecnicaId:"mt1",valorPrevisto:25000,competencia:"2026-07",
+      id:"fat-mt1",obraId:"o1",medicaoTecnicaId:"mt1",valorPrevisto:35000,competencia:"2026-07",
     });
+    expect(created.measurement.snapshotTecnico.faturamento).toMatchObject({cumulativeAmountCents:3500000,alreadyBilledCents:0,incrementalAmountCents:3500000});
     expect(createBillingFromTechnicalMeasurement(
       {...data,medicoes:[created.measurement]},
-      {medicaoTecnicaId:"mt1",valor:25000,competencia:"2026-07"},
+      {medicaoTecnicaId:"mt1",competencia:"2026-07"},
     ).ok).toBe(false);
+  });
+
+  test("fatura apenas o incremento contratual e nunca aceita valor digitado",()=>{
+    const data={
+      obras:[{id:"o1",contractValue:100000}],
+      medicoesObra:[{id:"mt2",obraId:"o1",status:"aprovada",data:"2026-07-31",numero:2,avancoFisico:55,itens:[{tarefaId:"t1",pctConfirmado:55}]}],
+      medicoes:[{id:"fat-anterior",obraId:"o1",medicaoTecnicaId:"mt1",tipo:"medicao_tecnica",valorPrevisto:35000,status:"emitida"}],
+    };
+    const result=createBillingFromTechnicalMeasurement(data,{medicaoTecnicaId:"mt2",valor:999999,competencia:"2026-07"});
+    expect(result.ok).toBe(true);
+    expect(result.measurement.valorPrevisto).toBe(20000);
+    expect(result.measurement.snapshotTecnico.faturamento.incrementalAmountCents).toBe(2000000);
   });
 });
 

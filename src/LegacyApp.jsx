@@ -30878,7 +30878,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
   const [confObs, setConfObs] = useState("");
   const [confData, setConfData] = useState(today());
   const [fatModal,setFatModal]=useState(null);
-  const [fatForm,setFatForm]=useState({valor:"",competencia:today().slice(0,7),dataVencimento:""});
+  const [fatForm,setFatForm]=useState({competencia:today().slice(0,7),dataVencimento:""});
 
   // Medições de obra já confirmadas desta obra, em ordem.
   const medicoesObra = useMemo(() =>
@@ -30961,13 +30961,14 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
     if((data.medicoes||[]).some(item=>item.medicaoTecnicaId===m.id&&item.status!=="cancelada")){
       showToast?.("Esta medição técnica já foi faturada.","warn");return;
     }
-    const valorSugerido=(m.itens||[]).reduce((sum,item)=>sum+Number(item.custo||0)*Number(item.pctConfirmado||0)/100,0);
-    setFatForm({valor:valorSugerido?String(Math.round(valorSugerido*100)/100):"",competencia:String(m.data||today()).slice(0,7),dataVencimento:""});
+    const preview=createBillingFromTechnicalMeasurement(data,{medicaoTecnicaId:m.id,competencia:String(m.data||today()).slice(0,7)});
+    if(!preview.ok){showToast?.(preview.error,"error");return;}
+    setFatForm({competencia:String(m.data||today()).slice(0,7),dataVencimento:""});
     setFatModal(m);
   };
   const confirmarFaturamento=()=>{
     const result=createBillingFromTechnicalMeasurement(data,{
-      medicaoTecnicaId:fatModal?.id,valor:fatForm.valor,competencia:fatForm.competencia,
+      medicaoTecnicaId:fatModal?.id,competencia:fatForm.competencia,
       dataVencimento:fatForm.dataVencimento,
     });
     if(!result.ok){showToast?.(result.error,"error");return;}
@@ -31173,9 +31174,12 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
         <div style={{display:"flex",flexDirection:"column",gap:9}}>
           <div style={{padding:"8px 10px",border:`1px solid ${C.blue}55`,borderRadius:7,background:`${C.blue}08`}}>
             <b style={{fontSize:10.5,color:C.blue}}>Avanço físico confirmado: {Number(fatModal.avancoFisico||0).toFixed(1)}%</b>
-            <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>O faturamento manterá o ID e o snapshot deste boletim para auditoria.</p>
+            <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>O valor é calculado pelo contrato e pelo avanço ainda não faturado; não há digitação manual.</p>
           </div>
-          <Inp label="Valor a faturar" type="number" value={fatForm.valor} onChange={valor=>setFatForm(form=>({...form,valor}))}/>
+          {(()=>{
+            const preview=createBillingFromTechnicalMeasurement(data,{medicaoTecnicaId:fatModal.id,competencia:fatForm.competencia});
+            return preview.ok?<div style={{padding:"9px 10px",border:`1px solid ${C.green}55`,borderRadius:7,background:`${C.green}08`}}><p style={{fontSize:9.5,color:C.muted}}>Faturamento incremental calculado</p><b style={{fontSize:15,color:C.green}}>{fmt(preview.measurement.valorPrevisto)}</b></div>:<p style={{fontSize:10.5,color:C.red}}>{preview.error}</p>;
+          })()}
           <Inp label="Competência" type="month" value={fatForm.competencia} onChange={competencia=>setFatForm(form=>({...form,competencia}))}/>
           <Inp label="Vencimento" type="date" value={fatForm.dataVencimento} onChange={dataVencimento=>setFatForm(form=>({...form,dataVencimento}))}/>
           <div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={()=>setFatModal(null)}>Cancelar</Btn><Btn v="success" full onClick={confirmarFaturamento}>Gerar faturamento</Btn></div>
