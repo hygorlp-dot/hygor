@@ -1,5 +1,5 @@
 import {
-  buildFinancialLedger, selectDRE, selectCashFlow, selectAccountsReceivable,
+  buildFinancialLedger, selectDRE, selectCashFlow, selectAccountsReceivable, selectCorporateOperatingCosts,
   selectAccountsPayable, selectCommitments, validateFinancialReconciliation,
   recebimentosDaMedicao, toCents,
 } from "./ledger";
@@ -70,6 +70,17 @@ describe("razão financeiro único — fixture julho/2026", () => {
   test("payments é somente entrada avulsa, nunca custo ou saída", () => {
     const events = ledger.events.filter(event => event.sourceType === "recebimento_avulso");
     expect(events.map(event => event.effect)).toEqual(["cash_in"]);
+  });
+
+  test("despesa administrativa é selecionada pelo razão, com estorno líquido", () => {
+    const ledger=buildFinancialLedger({despesasEmpresa:[
+      {id:"sede",competencia:"2026-07",categoria:"aluguel",valor:900},
+      {id:"estorno",competencia:"2026-07",categoria:"aluguel",valor:-150},
+    ]});
+    const selected=selectCorporateOperatingCosts(ledger,{competence:"2026-07"});
+    expect(selected.costCents).toBe(toCents(750));
+    expect(selected.costs).toBe(750);
+    expect(selected.events).toHaveLength(2);
   });
 
   test("pedido não entra no DRE e NF não duplica custo no pagamento", () => {

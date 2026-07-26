@@ -614,6 +614,17 @@ export const selectDRE = (ledger, filters = {}) => {
   };
 };
 
+// Centraliza a leitura das despesas administrativas no razão. Telas de
+// controladoria não devem somar `despesasEmpresa` diretamente.
+export const selectCorporateOperatingCosts = (ledger, filters = {}) => {
+  const events=(ledger?.events||[]).filter(event=>
+    !event.obraId&&event.sourceType==="despesa_empresa"
+    && eventMatches(event,filters,"competence")
+    && ["cost","cost_reversal"].includes(event.effect));
+  const costCents=sumEffects(events,["cost"],["cost_reversal"]);
+  return {costCents,costs:fromCents(costCents),events};
+};
+
 export const selectCashFlow = (ledger, filters = {}) => {
   const events = ledger.events.filter(event => eventMatches(event, filters, "date") && ["cash_in", "cash_out"].includes(event.effect));
   const cashInCents = sumEffects(events, ["cash_in"], []);

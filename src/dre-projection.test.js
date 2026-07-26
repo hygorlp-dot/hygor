@@ -10,6 +10,7 @@ describe("projeção canônica do DRE", () => {
       employees:[{id:"e1",obra:"o1",dailyRate:100,vtDaily:10,vrDaily:20,startDate:"2026-01-01"}],
       attendance:{e1:{"2026-07-06":{status:"P",obraId:"o1"}}},
       medicoes:[{id:"m1",obraId:"o1",competencia:"2026-07",valorPrevisto:1000,recebido:true,valorRecebido:800,dataPagamento:"2026-07-10"}],
+      despesasEmpresa:[{id:"d-corp",competencia:"2026-07",data:"2026-07-12",categoria:"aluguel",descricao:"Sede",valor:50,pago:true}],
       payments:[],pagsTerceiros:[],rescisoes:[],outrasDesp:[],
       pedidos:[{id:"p1",obraId:"o1",status:"enviado",data:"2026-07-08",itens:[{qtd:2,precoUnit:50}]}],
       equipamentos:[],locacoesEquip:[],manutencoesEquip:[],
@@ -26,7 +27,8 @@ describe("projeção canônica do DRE", () => {
     expect(company).toMatchObject({faturamento:1000,recebido:800,laborCost:100,benefitCost:30,comprasCost:0});
     expect(companyStatement).toMatchObject({
       faturamentoObras:1000,recebidoObras:800,laborTotal:100,benefTotal:30,
-      totalCSP:130,lucroBruto:870,ebitda:870,lucroLiquido:870,
+      totalCSP:130,lucroBruto:870,totalDespOp:50,ebitda:820,lucroLiquido:820,
+      despPorCat:{aluguel:50},
     });
   });
 

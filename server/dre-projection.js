@@ -141,62 +141,60 @@ const expenseCategories=[
   ["crea","fiscal"],["seg_fianca","outros"],["outros","outros"],
 ];
 const companyDre = (data,year,month) => {
-  const ym=`${year}-${String(month+1).padStart(2,"0")}`,days=getDays(year,month),cfg=data?.config||{};
-  const measurements=(data?.medicoes||[]).filter(item=>active(item)&&item.competencia===ym);
-  const faturamentoObras=measurements.reduce((sum,item)=>sum+Number(item.valorPrevisto||0),0);
-  const recebidoObras=measurements.filter(item=>item.recebido)
-    .reduce((sum,item)=>sum+Number(item.valorRecebido||0),0)
-    +(data?.payments||[]).filter(item=>active(item)&&item.date?.startsWith(ym))
-      .reduce((sum,item)=>sum+Number(item.amount||0),0);
+  const ym=`${year}-${String(month+1).padStart(2,"0")}`,cfg=data?.config||{};
+  // A DRE da empresa não pode reconstruir valores a partir das coleções
+  // operacionais. A fonte é a mesma projeção de razão usada no DRE por obra.
+  const base=calculations.calcDREConsolidado(data,year,month,"mes");
+  const workRows=base.obras||[];
+  const workRevenue=workRows.reduce((sum,row)=>sum+Number(row.faturamento||0),0);
+  const workCosts=workRows.reduce((sum,row)=>sum+Number(row.totalCustos||0),0);
+  const corporateCosts=(base.ledger?.events||[]).filter(event=>
+    !event.obraId&&event.competence===ym&&["cost","cost_reversal"].includes(event.effect));
+  const signedAmount=event=>(event.effect==="cost_reversal"?-1:1)*Number(event.amountCents||0)/100;
+  const faturamentoObras=workRevenue;
+  const recebidoObras=base.entradasCaixa;
   const deducaoISS=faturamentoObras*Number(cfg.aliquotaISS||0)/100;
   const deducaoPIS=faturamentoObras*Number(cfg.aliquotaPIS||0)/100;
   const deducaoCOFINS=faturamentoObras*Number(cfg.aliquotaCOFINS||0)/100;
   const totalDeducoes=deducaoISS+deducaoPIS+deducaoCOFINS,receitaLiquida=faturamentoObras-totalDeducoes;
-  const laborTotal=(data?.obras||[]).reduce((sum,work)=>sum+laborCost(data,work.id,days).laborCost,0);
-  const benefTotal=(data?.obras||[]).reduce((sum,work)=>sum+laborCost(data,work.id,days).benefitCost,0);
-  const tercTotal=(data?.pagsTerceiros||[]).filter(item=>active(item)&&item.date?.startsWith(ym))
-    .reduce((sum,item)=>sum+Number(item.amount||0),0);
-  const rescTotal=(data?.rescisoes||[]).filter(item=>active(item)&&item.demissao?.startsWith(ym))
-    .reduce((sum,item)=>sum+Number(item.totalLiquido||0),0);
-  const outrasDiretas=(data?.outrasDesp||[]).filter(item=>active(item)&&item.competencia===ym)
-    .reduce((sum,item)=>sum+Number(item.valor||0),0);
-  const totalCSP=laborTotal+benefTotal+tercTotal+rescTotal+outrasDiretas;
+  const laborTotal=base.laborCost,benefTotal=base.benefitCost,tercTotal=base.tercCost;
+  const rescTotal=base.rescTotal;
+  const outrasDiretas=base.outrasTotal+base.comprasCost+base.equipCostObras;
+  const totalCSP=workCosts;
   const lucroBruto=receitaLiquida-totalCSP,margemBruta=receitaLiquida?lucroBruto/receitaLiquida*100:0;
-  const despEmp=(data?.despesasEmpresa||[]).filter(item=>active(item)&&item.competencia===ym);
   const despPorCat=Object.fromEntries(expenseCategories.map(([category])=>[
-    category,round(despEmp.filter(item=>item.categoria===category).reduce((sum,item)=>sum+Number(item.valor||0),0)),
+    category,round(corporateCosts.filter(event=>event.sourceType==="despesa_empresa"&&event.category===category)
+      .reduce((sum,event)=>sum+signedAmount(event),0)),
   ]));
   const sumGroup=group=>expenseCategories.filter(([,itemGroup])=>itemGroup===group)
     .reduce((sum,[category])=>sum+Number(despPorCat[category]||0),0);
   const totalDespAdmin=sumGroup("admin"),totalDespFiscal=sumGroup("fiscal"),totalDespOutros=sumGroup("outros");
   const totalDespOp=totalDespAdmin+totalDespFiscal+totalDespOutros;
-  const ebitda=lucroBruto-totalDespOp,margemEbitda=receitaLiquida?ebitda/receitaLiquida*100:0;
+  const ebitda=lucroBruto-totalDespOp+Number(base.equipLucro||0),margemEbitda=receitaLiquida?ebitda/receitaLiquida*100:0;
   const resultFinanceiro=0,lair=ebitda;
   const provisaoIR=lair>0?lair*Number(cfg.aliquotaIR||0)/100:0;
   const provisaoCSLL=lair>0?lair*Number(cfg.aliquotaCSLL||0)/100:0;
   const totalImpostoLucro=provisaoIR+provisaoCSLL,lucroLiquido=lair-totalImpostoLucro;
   const margemLiquida=receitaLiquida?lucroLiquido/receitaLiquida*100:0;
-  const porObra=(data?.obras||[]).map(work=>{
-    const labor=laborCost(data,work.id,days);
-    const receitaMed=measurements.filter(item=>item.obraId===work.id).reduce((sum,item)=>sum+Number(item.valorPrevisto||0),0);
-    const receitaLivre=(data?.payments||[]).filter(item=>active(item)&&item.obraId===work.id&&item.date?.startsWith(ym))
-      .reduce((sum,item)=>sum+Number(item.amount||0),0);
-    const receita=receitaMed+receitaLivre;
-    const terc=(data?.pagsTerceiros||[]).filter(item=>active(item)&&item.obraId===work.id&&item.date?.startsWith(ym))
-      .reduce((sum,item)=>sum+Number(item.amount||0),0);
-    const outras=(data?.outrasDesp||[]).filter(item=>active(item)&&item.obraId===work.id&&item.competencia===ym)
-      .reduce((sum,item)=>sum+Number(item.valor||0),0);
-    const despesa=labor.laborCost+labor.benefitCost+terc+outras,resultado=receita-despesa;
-    return {id:work.id,name:work.name,status:work.status,receita:round(receita),receitaMed:round(receitaMed),
-      receitaLivre:round(receitaLivre),laborCost:labor.laborCost,benefitCost:labor.benefitCost,terc:round(terc),
-      outras:round(outras),despesa:round(despesa),resultado:round(resultado),
-      margemPct:receita?round(resultado/receita*100):null};
+  const despEmp=corporateCosts.filter(event=>event.sourceType==="despesa_empresa").map(event=>({
+    id:event.sourceId,categoria:event.category,descricao:event.description,competencia:event.competence,
+    data:event.date,valor:signedAmount(event),status:event.effect==="cost_reversal"?"estornado":"ativo",
+  }));
+  const porObra=workRows.map(row=>{
+    const receita=Number(row.faturamento||0),despesa=Number(row.totalCustos||0),resultado=Number(row.lucroBruto||0);
+    return {id:row.obra?.id,name:row.obra?.name,status:row.obra?.status,receita:round(receita),receitaMed:round(receita),
+      receitaLivre:0,recebido:round(row.recebido||0),laborCost:row.moData?.laborCost||0,benefitCost:row.moData?.benefitCost||0,
+      terc:round(row.tercCost||0),outras:round((row.outrasTotal||0)+(row.comprasCost||0)+(row.equipCost||0)),
+      despesa:round(despesa),resultado:round(resultado),margemPct:receita?round(resultado/receita*100):null};
   }).filter(item=>item.receita||item.despesa).sort((a,b)=>b.resultado-a.resultado);
   return Object.fromEntries(Object.entries({
     ym,faturamentoObras,recebidoObras,deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
     laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,totalCSP,lucroBruto,margemBruta,
     despPorCat,totalDespAdmin,totalDespFiscal,totalDespOutros,totalDespOp,ebitda,margemEbitda,
     resultFinanceiro,lair,provisaoIR,provisaoCSLL,totalImpostoLucro,lucroLiquido,margemLiquida,despEmp,porObra,
+    entradasCaixa:base.entradasCaixa,saidasCaixa:base.saidasCaixa,saldoCaixa:base.saldoCaixa,
+    contasReceber:base.contasReceber,contasPagar:base.contasPagar,comprometido:base.comprometido,
+    recebimentosNaoAlocados:base.recebimentosNaoAlocados,pagamentosNaoAlocados:base.pagamentosNaoAlocados,
   }).map(([key,value])=>[key,typeof value==="number"?round(value):value]));
 };
 

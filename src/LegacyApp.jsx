@@ -108,6 +108,7 @@ import {
   selectCashFlow as selectLedgerCashFlow,
   selectAccountsReceivable as selectLedgerAccountsReceivable,
   selectAccountsPayable as selectLedgerAccountsPayable,
+  selectCorporateOperatingCosts,
   selectFinancialMovements,
 } from "./domains/financeiro/ledger";
 import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeasurements } from "./domains/financeiro/measurement-mutations";
@@ -7116,7 +7117,8 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
   const [anexoMov,setAnexoMov]=useState(null);const [subindoAnexoMov,setSubindoAnexoMov]=useState(false);
   const ym=`${ano}-${String(mes+1).padStart(2,"0")}`;const obrasSelecionadas=(data.obras||[]).filter(o=>obraId==="all"||o.id===obraId);
   const dre=useMemo(()=>obraId==="all"?calcDREConsolidado(data,ano,mes):calcDREObra(data,obraId,ano,mes),[data,obraId,ano,mes]);
-  const despesasAdministrativas=obraId==="all"?Number(calcDREEmpresa(data,ano,mes).totalDespOp||0):0;
+  const despesasAdministrativas=obraId==="all"
+    ? selectCorporateOperatingCosts(dre.ledger,{competence:ym}).costs : 0;
   const faturamento=Number(dre.faturamento||0),recebido=Number(dre.entradasCaixa||0),aReceber=Number(dre.contasReceber??dre.aReceber??0),custos=Number(dre.totalCustos||0),resultado=Number(dre.lucroBruto??(faturamento-custos));
   const notas=(data.notasFiscais||[]).filter(n=>(obraId==="all"||n.obraId===obraId)&&(docPeriodo==="todos"||String(n.emissao||n.criadoEm||"").startsWith(ym)));
   const notasAbertas=notas.filter(n=>!["paga","cancelada"].includes(n.status));const valorNotasAbertas=Number(dre.contasPagar||0);
@@ -34828,7 +34830,18 @@ function DREEmpresa({ data, update, showToast, currentUser=null }) {
   const [razaoEmpresa,setRazaoEmpresa]=useState(null);
   const DF = k => v => setDespForm(f=>({...f,[k]:v}));
 
-  const dreLegadoEmpresa = useMemo(()=>calcDREEmpresa(data,year,month), [data,year,month]);
+  const ym      = `${year}-${String(month+1).padStart(2,"0")}`;
+  // A tela empresarial é leitora do snapshot canônico. Não há fallback para
+  // filtros/reduções locais: se a projeção ainda não estiver disponível, a UI
+  // mostra estado vazio e deixa explícita a pendência de sincronização.
+  const dreVazio=useMemo(()=>({
+    ym,faturamentoObras:0,recebidoObras:0,deducaoISS:0,deducaoPIS:0,deducaoCOFINS:0,totalDeducoes:0,receitaLiquida:0,
+    laborTotal:0,benefTotal:0,tercTotal:0,rescTotal:0,outrasDiretas:0,totalCSP:0,lucroBruto:0,margemBruta:0,
+    despPorCat:Object.fromEntries(CATS_DESP.map(item=>[item.v,0])),totalDespAdmin:0,totalDespFiscal:0,totalDespOutros:0,totalDespOp:0,
+    ebitda:0,margemEbitda:0,resultFinanceiro:0,lair:0,provisaoIR:0,provisaoCSLL:0,totalImpostoLucro:0,lucroLiquido:0,margemLiquida:0,
+    despEmp:[],porObra:[],entradasCaixa:0,saidasCaixa:0,saldoCaixa:0,contasReceber:0,contasPagar:0,comprometido:0,
+    recebimentosNaoAlocados:0,pagamentosNaoAlocados:0,
+  }),[ym]);
   useEffect(()=>{
     let ativo=true;
     consultarDreEmpresaCanonico({year,month}).then(report=>{
@@ -34837,21 +34850,19 @@ function DREEmpresa({ data, update, showToast, currentUser=null }) {
     return()=>{ativo=false;};
   },[data,year,month]);
   const dre = useMemo(()=>razaoEmpresa?.source==="canonical_ledger"&&razaoEmpresa.current
-    ? {...dreLegadoEmpresa,...razaoEmpresa.current,fonteFinanceira:"razao_canonico"}
-    : dreLegadoEmpresa,[dreLegadoEmpresa,razaoEmpresa]);
+    ? {...dreVazio,...razaoEmpresa.current,fonteFinanceira:"razao_canonico"}
+    : {...dreVazio,fonteFinanceira:"sincronizacao_pendente"},[dreVazio,razaoEmpresa]);
   const period  = `${fullMonth(month)} ${year}`;
   const years   = Array.from({length:4},(_,i)=>now.getFullYear()-2+i).map(y=>({v:String(y),l:String(y)}));
-  const ym      = `${year}-${String(month+1).padStart(2,"0")}`;
   const fmt2    = n => Number(n||0).toFixed(2).replace(".",",");
 
   // Histórico de DREs para gráfico
   const historico = useMemo(() => Array.from({length:6},(_,i)=>{
     const d=new Date(year,month-5+i,1);
-    const base=calcDREEmpresa(data,d.getFullYear(),d.getMonth());
     const dr=razaoEmpresa?.source==="canonical_ledger"&&razaoEmpresa.history?.[i]
-      ? {...base,...razaoEmpresa.history[i]} : base;
+      ? {...dreVazio,...razaoEmpresa.history[i]} : dreVazio;
     return { mes:`${monthName(d.getMonth())}/${String(d.getFullYear()).slice(2)}`, ...dr };
-  }), [data,year,month,razaoEmpresa]);
+  }), [year,month,razaoEmpresa,dreVazio]);
 
   const diagnosticoGerencial = useMemo(() => {
     const alertas = [];
@@ -35104,6 +35115,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           <Btn size="sm" onClick={gerarPDF}><Ic n="file" s={13}/> Exportar PDF</Btn>
         </>}
       />
+
+      {dre.fonteFinanceira!=="razao_canonico"&&<Notice v="warn">A DRE está aguardando a projeção do razão canônico para este período. Nenhum cálculo local será exibido como resultado financeiro.</Notice>}
 
       <div className="dre-company-toolbar">
         <TabRow tabs={[
