@@ -26956,6 +26956,7 @@ const CHAVES_ISOLADAS_OBRA=[
   "conferencias","qualidadeRegistros","solicitacoesCompra","terceirizados",
   "medicoesTerc","contratosTerc","pagsTerceiros","planos","rdos","pedidos",
   "cotacoes","movEstoque","transacoes","licencas","locacoesEquip",
+  "jobRiskAnalyses","workPermits",
 ];
 
 const registroPertenceObra=(registro,obraId,idsFuncionarios=new Set(),idsTerceiros=new Set())=>{
@@ -27519,7 +27520,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           largura da tela; o segundo mostra apenas os módulos do grupo ativo. */}
       {(()=>{const grupos=[
         {id:"geral",label:"Geral",itens:[["geral","Visão geral",null]]},
-        {id:"obra",label:"Obra",itens:[["orc","Orçamento","orc"],["plan","Planejamento","plan"],["rdo","Diário de obra","rdo"],["med","Medição","med"]]},
+        {id:"obra",label:"Obra",itens:[["orc","Orçamento","orc"],["plan","Planejamento","plan"],["rdo","Diário de obra","rdo"],["med","Medição","med"],["seguranca","Segurança",null]]},
         {id:"qualidade",label:"Gestão da qualidade",itens:[["qualidade","FVS / FVM",null],["conferencia","Conferência","conferencia"]]},
         {id:"suprimentos",label:"Suprimentos",itens:[["cmp","Compras","cmp"],["est","Estoque","est"]]},
         {id:"financeiro",label:"Financeiro",itens:[["dre","DRE da obra","dre"]]},
@@ -27527,7 +27528,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {id:"recursos",label:"Recursos",itens:[["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null],...(ehAdmin?[["portal","Portal do cliente",null]]:[])]},
       ];const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:12,display:"flex",flexDirection:"column",gap:6}}>
         <TabRow equal tabs={grupos.map(g=>[g.id,g.label])} active={grupoMenuObra} onChange={id=>{setGrupoMenuObra(id);if(id==="geral")setAbaConteudo("geral");}}/>
-        {grupo.id!=="geral"&&<TabRow equal tabs={grupo.itens.map(([id,label])=>[id,label])} active={abaConteudo} onChange={id=>{const item=grupo.itens.find(([iid])=>iid===id);if(["arquivos","portal","qualidade"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}/>}
+        {grupo.id!=="geral"&&<TabRow equal tabs={grupo.itens.map(([id,label])=>[id,label])} active={abaConteudo} onChange={id=>{const item=grupo.itens.find(([iid])=>iid===id);if(["arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}/>}
       </div>;})()}
       </div>
 
@@ -27885,6 +27886,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="plan"&&<Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="rdo"&&<DiarioObra data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="qualidade"&&<Qualidade data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
+        {abaConteudo==="seguranca"&&<SegurancaObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="conferencia"&&<Conferencia data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="med"&&<MedicaoEvolucao data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="cmp"&&<Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
@@ -31047,6 +31049,35 @@ const criteriosQualidade=(tipo,nome="")=>{
   if(/ESQUAD|VIDRO/.test(n))base.push(["Vãos, fixações, vedação, ferragens e funcionamento","Medição/teste funcional"]);
   return base;
 };
+
+function SegurancaObra({data,showToast,currentUser,obraIdFixo="",dispatchCommand=null}){
+  const atividades=(data.scheduleActivities||[]).filter(item=>String(item.obraId||obraIdFixo)===String(obraIdFixo));
+  const aprs=(data.jobRiskAnalyses||[]).filter(item=>item.obraId===obraIdFixo);
+  const permits=(data.workPermits||[]).filter(item=>item.obraId===obraIdFixo);
+  const dataHoje=new Date().toISOString().slice(0,10);
+  const [apr,setApr]=useState({activityId:"",riscos:"",controles:""});
+  const [pt,setPt]=useState({activityId:"",validFrom:dataHoje,validUntil:dataHoje});
+  const enviar=async (factory,fallback)=>{
+    if(!dispatchCommand){showToast?.("Esta operação exige conexão com o servidor.","error");return null;}
+    const result=await dispatchCommand(factory);
+    if(!result?.ok)showToast?.(result?.reason||fallback,"error");
+    return result;
+  };
+  const salvarApr=async status=>{
+    if(!apr.activityId){showToast?.("Selecione a atividade da APR.","error");return;}
+    const riscos=apr.riscos.split("\n").map(item=>item.trim()).filter(Boolean),controles=apr.controles.split("\n").map(item=>item.trim()).filter(Boolean);
+    const result=await enviar(()=>({type:OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED,idempotencyKey:`apr-${uid()}`,expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{analysis:{id:uid(),obraId:obraIdFixo,activityId:apr.activityId,status,risks:riscos,controls}}}),"Não foi possível salvar a APR.");
+    if(result?.ok){setApr({activityId:"",riscos:"",controles:""});showToast?.(status==="aprovada"?"APR aprovada.":"APR salva como rascunho.");}
+  };
+  const liberarPt=async()=>{
+    if(!pt.activityId){showToast?.("Selecione a atividade da permissão.","error");return;}
+    const result=await enviar(()=>({type:OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED,idempotencyKey:`pt-${uid()}`,expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{permit:{id:uid(),obraId:obraIdFixo,activityId:pt.activityId,status:"liberada",validFrom:pt.validFrom,validUntil:pt.validUntil}}}),"Não foi possível liberar a permissão.");
+    if(result?.ok){setPt({activityId:"",validFrom:dataHoje,validUntil:dataHoje});showToast?.("Permissão de trabalho liberada.");}
+  };
+  const atividadeNome=id=>(atividades.find(item=>item.id===id)?.nome||atividades.find(item=>item.id===id)?.descricao||id||"Atividade não identificada");
+  const activityOptions=[{v:"",l:"Selecione"},...atividades.map(item=>({v:item.id,l:item.nome||item.descricao||item.id}))];
+  return <div style={{display:"flex",flexDirection:"column",gap:10}}><PageHero eyebrow="Engenharia de campo" title="Segurança operacional" description="APR e Permissão de Trabalho que liberam atividades críticas de forma auditável."/><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:9}}><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:11}}><p style={{fontSize:12,fontWeight:900,color:C.text}}>Nova APR</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>A aprovação exige risco e controle definidos.</p><div style={{marginTop:8,display:"grid",gap:7}}><Sel label="Atividade" value={apr.activityId} onChange={value=>setApr(form=>({...form,activityId:value}))} options={activityOptions}/><Inp label="Riscos (um por linha)" multiline value={apr.riscos} onChange={value=>setApr(form=>({...form,riscos:value}))} placeholder="Queda de altura"/><Inp label="Controles (um por linha)" multiline value={apr.controles} onChange={value=>setApr(form=>({...form,controles:value}))} placeholder="Linha de vida inspecionada"/><div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={()=>salvarApr("rascunho")}>Salvar rascunho</Btn><Btn full onClick={()=>salvarApr("aprovada")}>Aprovar APR</Btn></div></div></div><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:11}}><p style={{fontSize:12,fontWeight:900,color:C.text}}>Permissão de trabalho</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Só é liberada quando houver APR aprovada para a atividade.</p><div style={{marginTop:8,display:"grid",gap:7}}><Sel label="Atividade" value={pt.activityId} onChange={value=>setPt(form=>({...form,activityId:value}))} options={activityOptions}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><Inp label="Início" type="date" value={pt.validFrom} onChange={value=>setPt(form=>({...form,validFrom:value}))}/><Inp label="Fim" type="date" value={pt.validUntil} onChange={value=>setPt(form=>({...form,validUntil:value}))}/></div><Btn full onClick={liberarPt}>Liberar permissão</Btn></div></div></div><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}><div style={{padding:"10px 12px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:11.5,fontWeight:900,color:C.text}}>Liberadores de atividades críticas</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>O avanço físico será bloqueado até APR aprovada e PT liberada.</p></div><Badge color={C.green}>{permits.filter(item=>item.status==="liberada").length} PT liberada(s)</Badge></div>{[...new Set([...aprs.map(item=>item.activityId),...permits.map(item=>item.activityId)])].map(activityId=>{const aprAtiva=aprs.find(item=>item.activityId===activityId&&item.status==="aprovada"),ptAtiva=permits.find(item=>item.activityId===activityId&&item.status==="liberada");const liberada=aprAtiva&&ptAtiva;return <div key={activityId} style={{padding:"9px 12px",borderTop:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:9,alignItems:"center"}}><div><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>{atividadeNome(activityId)}</p><p style={{fontSize:8.8,color:C.muted,marginTop:2}}>APR {aprAtiva?"aprovada":"pendente"} · PT {ptAtiva?`${ptAtiva.validFrom} a ${ptAtiva.validUntil}`:"pendente"}</p></div><Badge color={liberada?C.green:C.orange}>{liberada?"LIBERADA":"PENDENTE"}</Badge></div>;})}{!aprs.length&&!permits.length&&<p style={{padding:18,textAlign:"center",fontSize:10.5,color:C.muted}}>Ainda não há APR ou permissão registradas nesta obra.</p>}</div></div>;
+}
 
 function QualidadeLegada({data,update,showToast,currentUser,obraIdFixo=""}){
   const obra=(data.obras||[]).find(o=>o.id===obraIdFixo);const orc=orcamentoDaObra(data,obraIdFixo);
