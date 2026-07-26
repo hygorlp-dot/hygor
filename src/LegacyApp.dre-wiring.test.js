@@ -26,5 +26,6 @@ describe("contrato de autoria do DRE", () => {
   it("consome a projeção canônica quando ela está disponível, mesmo antes do bloqueio FIN-003", () => {
     expect(source).toContain('relatorio?.source==="canonical_ledger"&&relatorio.current');
     expect(source).toContain('razaoEmpresa?.source==="canonical_ledger"&&razaoEmpresa.current');
+    expect(source).not.toContain("const calcDREEmpresa =");
   });
 });
