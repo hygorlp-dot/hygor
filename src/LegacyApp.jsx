@@ -100,6 +100,7 @@ import {
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
 import { calculateContractProjection, createDreCalculations } from "./domains/dre/calculations";
+import { cancelDreExpense } from "./domains/dre/mutations";
 import {
   buildFinancialLedger,
   selectDRE as selectLedgerDRE,
@@ -5129,11 +5130,11 @@ function FinanceiroObraPainel({data,update,showToast,obraId}){
   </div>;
 }
 
-function DRE({data,update,showToast,obraIdFixo=""}){
-  return obraIdFixo?<FinanceiroObraPainel data={data} update={update} showToast={showToast} obraId={obraIdFixo}/>:<DRELegado data={data} update={update} showToast={showToast}/>;
+function DRE({data,update,showToast,currentUser=null,obraIdFixo=""}){
+  return obraIdFixo?<FinanceiroObraPainel data={data} update={update} showToast={showToast} obraId={obraIdFixo}/>:<DRELegado data={data} update={update} showToast={showToast} currentUser={currentUser}/>;
 }
 
-function DRELegado({ data, update, showToast, obraIdFixo="" }) {
+function DRELegado({ data, update, showToast, currentUser=null, obraIdFixo="" }) {
   const { cols } = useBreakpoint();
   const now   = new Date();
   const [year,  setYear]   = useState(now.getFullYear());
@@ -5281,8 +5282,12 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
   const delDesp = id => {
     const motivo=window.prompt("Motivo do cancelamento da despesa:");
     if(!String(motivo||"").trim())return;
-    update({...data,outrasDesp:(data.outrasDesp||[]).map(d=>d.id===id?cancelarRegistro(d,motivo,currentUser):d)});
-    showToast("Despesa cancelada e preservada para auditoria.");
+    try {
+      update(cancelDreExpense({ data, expenseId:id, reason:motivo, actor:currentUser }));
+      showToast("Despesa cancelada e preservada para auditoria.");
+    } catch (error) {
+      showToast(error.message || "Não foi possível cancelar a despesa.", "error");
+    }
   };
 
   //  Linha DRE reutilizável
@@ -27390,7 +27395,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="med"&&<MedicaoEvolucao data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
         {abaConteudo==="cmp"&&<Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="est"&&<Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
-        {abaConteudo==="dre"&&<DRE data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="dre"&&<DRE data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="equipe"&&<Equipe data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="terc"&&<Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
@@ -37149,7 +37154,7 @@ export default function App() {
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
-          {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} />}
+          {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
           {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
