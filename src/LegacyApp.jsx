@@ -100,7 +100,7 @@ import {
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
 import { calculateContractProjection, createDreCalculations } from "./domains/dre/calculations";
-import { cancelDreExpense, createDreExpense } from "./domains/dre/mutations";
+import { cancelCompanyExpense, cancelDreExpense, createDreExpense } from "./domains/dre/mutations";
 import {
   buildFinancialLedger,
   selectDRE as selectLedgerDRE,
@@ -33981,7 +33981,7 @@ const calcDREEmpresa = (data, year, month) => {
       .reduce((sum,event)=>sum+(event.effect==="cost"?event.amountCents:-event.amountCents),0)/100;
     return acc;
   },{});
-  const despEmp=(data.despesasEmpresa||[]).filter(d=>d.competencia===ym);
+  const despEmp=(data.despesasEmpresa||[]).filter(d=>d.competencia===ym&&!['cancelado','cancelada','estornado','arquivado'].includes(String(d.status||'').toLowerCase()));
   const totalDespAdmin  = CATS_DESP.filter(c=>c.grupo==="admin").reduce((s,c)=>s+despPorCat[c.v],0);
   const totalDespFiscal = CATS_DESP.filter(c=>c.grupo==="fiscal").reduce((s,c)=>s+despPorCat[c.v],0);
   const totalDespOutros = CATS_DESP.filter(c=>c.grupo==="outros").reduce((s,c)=>s+despPorCat[c.v],0);
@@ -34035,7 +34035,7 @@ const calcDREEmpresa = (data, year, month) => {
   };
 };
 
-function DREEmpresa({ data, update, showToast }) {
+function DREEmpresa({ data, update, showToast, currentUser=null }) {
   const { cols } = useBreakpoint();
   const now = new Date();
   const [year,  setYear]   = useState(now.getFullYear());
@@ -34206,8 +34206,8 @@ Regras: não invente números, datas, clientes ou causas. Diferencie competênci
   const delDesp = id => {
     const motivo=window.prompt("Motivo do cancelamento da despesa:");
     if(!String(motivo||"").trim())return;
-    update({...data,despesasEmpresa:(data.despesasEmpresa||[]).map(d=>d.id===id?cancelarRegistro(d,motivo,null,"cancelada"):d)});
-    showToast("Despesa cancelada e preservada para auditoria.");
+    try{update(cancelCompanyExpense({data,expenseId:id,reason:motivo,actor:currentUser}));showToast("Despesa cancelada e preservada para auditoria.");}
+    catch(error){showToast(error.message||"Não foi possível cancelar a despesa.","error");}
   };
 
   //  PDF gerencial 
@@ -37156,7 +37156,7 @@ export default function App() {
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} />}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
-          {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} />}
+          {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser}/>}

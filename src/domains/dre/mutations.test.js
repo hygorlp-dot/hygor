@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFinancialLedger, selectDRE } from "../financeiro/ledger";
-import { cancelDreExpense, createDreExpense } from "./mutations";
+import { cancelCompanyExpense, cancelDreExpense, createDreExpense } from "./mutations";
 
 describe("cancelamento auditável de despesa no DRE", () => {
   const data={ outrasDesp:[{ id:"desp-1", obraId:"obra-1", valor:1250, descricao:"Argamassa", status:"ativo" }] };
@@ -32,5 +32,11 @@ describe("cancelamento auditável de despesa no DRE", () => {
     expect(() => createDreExpense({ ...input, expense:{ ...input.expense, competencia:"julho" } })).toThrow("competência válida");
     expect(() => createDreExpense({ ...input, expense:{ ...input.expense, descricao:"" } })).toThrow("descrição");
     expect(() => createDreExpense({ ...input, expense:{ ...input.expense, valor:0 } })).toThrow("valor positivo");
+  });
+
+  it("cancela despesa corporativa com autoria e a remove do razão", () => {
+    const result=cancelCompanyExpense({data:{despesasEmpresa:[{id:"corp-1",competencia:"2026-07",valor:90,descricao:"Software"}]},expenseId:"corp-1",reason:"Duplicidade",actor,now:"2026-07-04T10:00:00.000Z"});
+    expect(result.despesasEmpresa[0]).toMatchObject({status:"cancelada",canceladoPorId:"u-1",motivoCancelamento:"Duplicidade"});
+    expect(selectDRE(buildFinancialLedger(result),{competence:"2026-07"}).costs).toBe(0);
   });
 });

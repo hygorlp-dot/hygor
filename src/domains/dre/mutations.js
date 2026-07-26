@@ -37,3 +37,14 @@ export const createDreExpense = ({ data, expense, actor, id, now = new Date().to
   };
   return { ...data, outrasDesp:[...(Array.isArray(data?.outrasDesp) ? data.outrasDesp : []), registro] };
 };
+
+export const cancelCompanyExpense = ({ data, expenseId, reason, actor, now = new Date().toISOString() }) => {
+  if (!actor?.id) throw new Error("Sessão do usuário indisponível para cancelar a despesa corporativa.");
+  const motivoCancelamento=String(reason || "").trim();
+  if (!motivoCancelamento) throw new Error("Informe o motivo do cancelamento da despesa corporativa.");
+  const despesas=Array.isArray(data?.despesasEmpresa) ? data.despesasEmpresa : [];
+  const expense=despesas.find(item=>item.id===expenseId);
+  if (!expense) throw new Error("Despesa corporativa não encontrada.");
+  if (["cancelado","cancelada","estornado"].includes(String(expense.status || "").toLowerCase())) throw new Error("Esta despesa corporativa já está cancelada ou estornada.");
+  return {...data,despesasEmpresa:despesas.map(item=>item.id!==expenseId?item:{...item,status:"cancelada",motivoCancelamento,canceladoEm:now,canceladoPorId:actor.id,canceladoPor:actor.nome||actor.email||"Usuário autenticado",updatedAt:now,updatedById:actor.id,updatedBy:actor.nome||actor.email||"Usuário autenticado"})};
+};
