@@ -100,7 +100,7 @@ import {
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
 import { calculateContractProjection, createDreCalculations } from "./domains/dre/calculations";
-import { cancelDreExpense } from "./domains/dre/mutations";
+import { cancelDreExpense, createDreExpense } from "./domains/dre/mutations";
 import {
   buildFinancialLedger,
   selectDRE as selectLedgerDRE,
@@ -5058,7 +5058,7 @@ const calcResumoExecutivo = (data, year, month) => {
   };
 };
 
-function FinanceiroObraPainel({data,update,showToast,obraId}){
+function FinanceiroObraPainel({data,update,showToast,currentUser=null,obraId}){
   const {isDesktop}=useBreakpoint();
   const agora=new Date();
   const [aba,setAba]=useState("resumo");
@@ -5097,9 +5097,12 @@ function FinanceiroObraPainel({data,update,showToast,obraId}){
     :aba==="caixa"?filtrar(movimentos).filter(m=>["entrada","saida"].includes(m.tipo))
     :filtrar(movimentos);
   const salvarDespesa=()=>{
-    if(!despForm.descricao.trim()||Number(despForm.valor)<=0){showToast("Informe descrição e valor da despesa.","error");return;}
-    update({...data,outrasDesp:[...(data.outrasDesp||[]),{...despForm,id:uid(),obraId,valor:Number(despForm.valor),competencia:despForm.competencia||periodo}]});
-    setDespModal(false);setDespForm({obraId,competencia:periodo,categoria:"material",descricao:"",valor:""});showToast("Despesa registrada na obra.");
+    try {
+      update(createDreExpense({ data, expense:{ ...despForm, obraId, competencia:despForm.competencia || periodo }, actor:currentUser, id:uid() }));
+      setDespModal(false);setDespForm({obraId,competencia:periodo,categoria:"material",descricao:"",valor:""});showToast("Despesa registrada na obra.");
+    } catch (error) {
+      showToast(error.message || "Não foi possível registrar a despesa.","error");
+    }
   };
   const Metric=({label,value,detail,tone="neutral"})=><div className={`obra-fin-metric ${tone}`}><span>{label}</span><strong>{fmt(value)}</strong><small>{detail}</small></div>;
   const Tabela=({lista})=><div className="obra-fin-table-wrap"><table className="obra-fin-table"><thead><tr><th>Movimentação</th><th>Origem</th><th>Data</th><th>Natureza</th><th>Valor</th></tr></thead><tbody>{lista.map(m=><tr key={m.id}><td data-label="Movimentação"><b>{m.descricao}</b><small>{m.documento||m.grupo}</small></td><td data-label="Origem">{m.origem}</td><td data-label="Data">{m.data?fmtDate(m.data):"—"}</td><td data-label="Natureza"><span className={`obra-fin-status ${m.status}`}>{m.tipo==="receita"?"Receita reconhecida":m.tipo==="custo"?"Custo incorrido":m.tipo==="entrada"?"Entrada de caixa":"Saída de caixa"}</span></td><td data-label="Valor" className={["custo","saida"].includes(m.tipo)?"despesa":"receita"}>{["custo","saida"].includes(m.tipo)?"− ":"+ "}{fmt(m.valor)}</td></tr>)}</tbody></table>{!lista.length&&<div className="obra-fin-empty">Nenhuma movimentação encontrada neste filtro.</div>}</div>;
@@ -5131,7 +5134,7 @@ function FinanceiroObraPainel({data,update,showToast,obraId}){
 }
 
 function DRE({data,update,showToast,currentUser=null,obraIdFixo=""}){
-  return obraIdFixo?<FinanceiroObraPainel data={data} update={update} showToast={showToast} obraId={obraIdFixo}/>:<DRELegado data={data} update={update} showToast={showToast} currentUser={currentUser}/>;
+  return obraIdFixo?<FinanceiroObraPainel data={data} update={update} showToast={showToast} currentUser={currentUser} obraId={obraIdFixo}/>:<DRELegado data={data} update={update} showToast={showToast} currentUser={currentUser}/>;
 }
 
 function DRELegado({ data, update, showToast, currentUser=null, obraIdFixo="" }) {
