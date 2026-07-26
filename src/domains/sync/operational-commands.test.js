@@ -91,6 +91,16 @@ describe("comandos operacionais versionados",()=>{
     expect(created.data.weeklyCommitments[0]).toMatchObject({status:"aberto",version:1});expect(repeated.idempotent).toBe(true);
   });
 
+  it("mantém restrição auditável e bloqueia avanço até a liberação",()=>{
+    const initial={weeklyCommitments:[],progressRecords:[]};
+    const created=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED,"weekly-blocked-create-0001",{commitment:{id:"c-1",obraId:"o-1",activityId:"a-1",descricao:"Alvenaria",quantidadePrometida:10,blockingReason:"Aguardando material"}}));
+    expect(created.data.weeklyCommitments[0]).toMatchObject({status:"bloqueado",blockingReason:"Aguardando material",version:1});
+    const blocked=applyOperationalCommand(created.data,command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"weekly-blocked-progress-0001",{record:{id:"p-1",obraId:"o-1",activityId:"a-1",commitmentId:"c-1",data:"2026-07-25",quantity:5}},0));
+    expect(blocked.ok).toBe(false);expect(blocked.reason).toMatch(/bloqueado/);
+    const released=applyOperationalCommand(created.data,command(OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_RELEASED,"weekly-blocked-release-0001",{commitmentId:"c-1",reason:"Material entregue"},1));
+    expect(released.data.weeklyCommitments[0]).toMatchObject({status:"aberto",blockingReason:"",restrictionResolution:"Material entregue",version:2});
+  });
+
   it("não duplica entrada física ao repetir um recebimento de pedido",()=>{
     const initial={pedidos:[{id:"p-1",obraId:"o-1",version:3,itens:[{id:"i-1",materialId:"mat-1",qtd:2,qtdRecebida:0,precoUnit:10}]}],movEstoque:[],materiais:[]};
     const payload={pedidoId:"p-1",receivedQuantities:{"i-1":2},stockEntries:[{id:"stock-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:2}]};

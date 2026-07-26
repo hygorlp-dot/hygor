@@ -52,9 +52,9 @@ export const calculateEarnedValue=({plannedCents=0,earnedCents=0,actualCents=0,b
 };
 
 export const calculatePPC=(commitments=[])=>{
-  const eligible=commitments.filter(item=>item.status!=="cancelado");const done=eligible.filter(item=>item.status==="concluido");
+  const active=commitments.filter(item=>item.status!=="cancelado"),blocked=active.filter(item=>item.status==="bloqueado"),eligible=active.filter(item=>item.status!=="bloqueado"),done=eligible.filter(item=>item.status==="concluido");
   const causes={};eligible.filter(item=>item.status==="nao_concluido").forEach(item=>{const cause=String(item.motivoNaoCumprimento||"não informado");causes[cause]=(causes[cause]||0)+1;});
-  return {total:eligible.length,completed:done.length,ppc:eligible.length?done.length/eligible.length:0,causes:Object.entries(causes).sort((a,b)=>b[1]-a[1]).map(([cause,count])=>({cause,count}))};
+  return {total:eligible.length,completed:done.length,blocked:blocked.length,ppc:eligible.length?done.length/eligible.length:0,causes:Object.entries(causes).sort((a,b)=>b[1]-a[1]).map(([cause,count])=>({cause,count}))};
 };
 
 export const calculateProductivity=({quantity=0,workerHours=0,equipmentHours=0,actualCostCents=0,budgetQuantity=0,budgetWorkerHours=0}={})=>{

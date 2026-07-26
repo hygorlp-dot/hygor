@@ -9,7 +9,7 @@ import {
   validateTechnicalMeasurement,
 } from "../medicoes/index.js";
 import { inactive } from "../financeiro/workflows.js";
-import { cancelProgressRecord, completeWeeklyCommitment, createProgressRecord, createWeeklyCommitment } from "../producao/mutations.js";
+import { cancelProgressRecord, completeWeeklyCommitment, createProgressRecord, createWeeklyCommitment, releaseWeeklyCommitment } from "../producao/mutations.js";
 import { canReleaseForMeasurement } from "../qualidade/calculations.js";
 import { validateActivitySafety } from "../seguranca/calculations.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
@@ -22,6 +22,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
   WEEKLY_COMMITMENT_CREATED:"COMPROMISSO_SEMANAL_CRIADO",
+  WEEKLY_COMMITMENT_RELEASED:"COMPROMISSO_SEMANAL_LIBERADO",
 });
 
 const receipts=data=>Array.isArray(data?.operationalCommandReceipts)?data.operationalCommandReceipts:[];
@@ -157,6 +158,8 @@ export const applyOperationalCommand=(data,command)=>{
     const current=(data?.progressRecords||[]).find(item=>item.id===record.id);
     if(current)return fail("Avanço físico já existe. Para corrigir, estorne e registre um novo avanço.");
     if(command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("O avanço físico ainda não existe na versão esperada.");
+    const commitment=(data?.weeklyCommitments||[]).find(item=>item.id===record.commitmentId);
+    if(commitment?.status==="bloqueado")return fail("O compromisso semanal está bloqueado. Resolva a restrição antes de registrar avanço.");
     const created=createProgressRecord(record,{actor:{id:command.actorId,nome:command.actorName},now});
     if(!created.ok)return fail(created.error);
     const safetyError=validateProgressSafety(data,created.record);
@@ -183,6 +186,7 @@ export const applyOperationalCommand=(data,command)=>{
     if(!current)return fail("Compromisso semanal não encontrado.");
     const versionError=requiresVersion(current,command.expectedVersion,"O compromisso semanal");
     if(versionError)return fail(versionError);
+    if(current.status==="bloqueado")return fail("Resolva a restrição antes de concluir o compromisso semanal.");
     if(["concluido","cancelado"].includes(current.status))return fail("Este compromisso semanal não pode mais ser concluído.");
     const result=completeWeeklyCommitment(current,data?.progressRecords||[],{actor:{id:command.actorId,nome:command.actorName},now,reason:command.payload?.reason});
     if(!result.ok)return fail(result.error);
@@ -199,6 +203,18 @@ export const applyOperationalCommand=(data,command)=>{
     if(!created.ok)return fail(created.error);
     const next={...data,weeklyCommitments:[...(data?.weeklyCommitments||[]),created.commitment]};
     return {ok:true,data:appendReceipt(next,command,created.commitment.id,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_RELEASED){
+    const id=String(command.payload?.commitmentId||"");
+    const current=(data?.weeklyCommitments||[]).find(item=>item.id===id);
+    if(!current)return fail("Compromisso semanal não encontrado.");
+    const versionError=requiresVersion(current,command.expectedVersion,"O compromisso semanal");
+    if(versionError)return fail(versionError);
+    const released=releaseWeeklyCommitment(current,{reason:command.payload?.reason,actor:{id:command.actorId,nome:command.actorName},now});
+    if(!released.ok)return fail(released.error);
+    const next={...data,weeklyCommitments:(data?.weeklyCommitments||[]).map(item=>item.id===id?released.commitment:item)};
+    return {ok:true,data:appendReceipt(next,command,id,now)};
   }
 
   if(command.type===OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED){

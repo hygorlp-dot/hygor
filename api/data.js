@@ -66,6 +66,7 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
   [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
   [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_RELEASED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
   [OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED]:["admin","compras","financeiro"],
 };
 const BACKUP_FOLDER="00 - Backups ARCD";
