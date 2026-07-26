@@ -32,6 +32,7 @@ import { authorizeSectionChanges, validateNoPhysicalDeletes } from "../server/se
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
+import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "./microsoft/_graph.js";
 
 const URL     = process.env.SUPABASE_URL;
@@ -649,6 +650,8 @@ export default async function handler(req, res) {
       if(!roles)return res.status(400).json({error:"Comando operacional inválido."});
       if(!roles.includes(usuario.role))return res.status(403).json({error:"Seu perfil não pode executar este comando operacional."});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});
+      const scope=validateOperationalCommandScope({user:usuario,data:atual,command});
+      if(!scope.ok)return res.status(scope.error.includes("vinculado")?400:403).json({error:scope.error});
 
       let result=applyOperationalCommand(atual,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
       if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:updatedAt});
