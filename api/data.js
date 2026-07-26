@@ -27,6 +27,7 @@ import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData } from 
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
+import { validateProcurementChain } from "../server/procurement-chain-policy.js";
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { findSectionConflicts } from "../server/three-way-conflicts.js";
@@ -867,6 +868,10 @@ export default async function handler(req, res) {
         const erroCompras=validatePurchaseChanges(usuario,basePedidos||[],sections.pedidos||[]);
         if(erroCompras)return res.status(403).json({error:erroCompras});
       }
+      if(chaves.some(key=>["solicitacoesCompra","cotacoes","pedidos","notasFiscais"].includes(key))){
+        const erroCadeiaCompras=validateProcurementChain({...atual,...sections});
+        if(erroCadeiaCompras)return res.status(409).json({error:erroCadeiaCompras});
+      }
       if(chaves.includes("obras")){
         const baseObras=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"obras")?baseSections.obras:atual?.obras;
         const erroObras=validarExclusaoObras(usuario,baseObras||[],sections.obras||[]);
@@ -934,6 +939,10 @@ export default async function handler(req, res) {
       if(!igual(payload.pedidos,atual?.pedidos)){
         const erroCompras=validatePurchaseChanges(usuario,basePayload?.pedidos||atual?.pedidos||[],payload.pedidos||[]);
         if(erroCompras)return res.status(403).json({error:erroCompras});
+      }
+      if(["solicitacoesCompra","cotacoes","pedidos","notasFiscais"].some(key=>!igual(payload?.[key],atual?.[key]))){
+        const erroCadeiaCompras=validateProcurementChain(payload);
+        if(erroCadeiaCompras)return res.status(409).json({error:erroCadeiaCompras});
       }
       if(!igual(payload.obras,atual?.obras)){
         const erroObras=validarExclusaoObras(usuario,basePayload?.obras||atual?.obras||[],payload.obras||[]);
