@@ -27,6 +27,7 @@ const SECTION_ROLES = Object.freeze({
 
 const scoped = value => Array.isArray(value) ? value : [];
 const hasForeignObra = (value, obraId) => scoped(value).some(item => item?.obraId && String(item.obraId) !== String(obraId));
+const hasUnscopedRecord = value => scoped(value).some(item => item && !item.obraId && !item.obra);
 
 export const authorizeSectionChanges = (user = {}, sections = {}) => {
   const keys=Object.keys(sections || {}).filter(key=>key&&!key.startsWith("__"));
@@ -36,6 +37,10 @@ export const authorizeSectionChanges = (user = {}, sections = {}) => {
     if (!roles) return `A seção ${key} não pode ser alterada por esta rota.`;
     if (!roles.includes(user.role)) return "Seu perfil não possui permissão para alterar esta seção.";
     if (user.obraId && hasForeignObra(sections[key], user.obraId)) return "Não é permitido alterar dados de outra obra.";
+    // Um perfil vinculado a obra não pode transformar uma mutação em registro
+    // global omitindo o vínculo. Referências corporativas continuam exclusivas
+    // de perfis sem restrição de obra ou do administrador.
+    if(user.obraId&&hasUnscopedRecord(sections[key]))return "Registros de perfil restrito precisam estar vinculados à sua obra.";
   }
   return "";
 };

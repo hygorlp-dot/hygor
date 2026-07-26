@@ -5,6 +5,10 @@ describe("autorização de produção",()=>{
     expect(authorizeSectionChanges({role:"planejamento"},{scheduleActivities:[{id:"a",obraId:"o"}]})).toBe("");
     expect(authorizeSectionChanges({role:"financeiro"},{scheduleActivities:[{id:"a",obraId:"o"}]})).toMatch(/permissão/);
   });
+  it("não permite criar registro global por perfil restrito a obra",()=>{
+    expect(authorizeSectionChanges({role:"financeiro",obraId:"o1"},{payments:[{id:"p1",valor:100}]})).toMatch(/precisam estar vinculados/);
+    expect(authorizeSectionChanges({role:"financeiro",obraId:"o1"},{payments:[{id:"p1",obraId:"o1",valor:100}]})).toBe("");
+  });
   it("não aceita exclusão física de baseline",()=>expect(validateNoPhysicalDeletes({scheduleBaselines:[{id:"b"}]},{scheduleBaselines:[]})).toMatch(/excluir fisicamente/));
   it("impede alteração ou remoção de versão orçamentária aprovada",()=>{
     const anterior={orcamentos:[{id:"o1",versionStatus:"aprovada",itens:[{id:"i1",precoUnit:10}]}]};
