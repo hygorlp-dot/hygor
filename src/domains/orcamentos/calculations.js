@@ -37,7 +37,9 @@ export const projectBudgetExport = budget => {
   return {...calculation,rows:calculation.items.map(item=>({
     id:item.id,codigo:item.codigo||"",descricao:item.descricao||"",unidade:item.unidade||"",
     quantidade:item.quantidade,custoUnitario:item.custoUnitario,bdi:item.bdiEfetivo,
-    precoUnitario:fromCents(toCents(item.totalCentavos/Math.max(item.quantidade||1,1))),
+    // total já está expresso em moeda; não o converta novamente para centavos.
+    // Essa projeção é consumida igualmente por tela, PDF e XLSX.
+    precoUnitario:item.quantidade>0?item.total/item.quantidade:0,
     custoDireto:item.custoDireto,valorBDI:item.valorBDI,total:item.total,
     custoDiretoCentavos:item.custoDiretoCentavos,bdiCentavos:item.bdiCentavos,totalCentavos:item.totalCentavos,
   }))};
