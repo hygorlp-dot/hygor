@@ -1,0 +1,7 @@
+:root {
+  --arcd-radius-sm: 0;
+  --arcd-radius-md: 0.125rem;
+  --arcd-radius-lg: 0.25rem;
+  --arcd-radius-xl: 0.25rem;
+  --arcd-radius-pill: 9999px;
+}

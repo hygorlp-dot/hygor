@@ -1,0 +1,29 @@
+:root {
+  --arcd-font-sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --arcd-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --arcd-font-size-xs: 0.75rem;
+  --arcd-font-size-sm: 0.875rem;
+  --arcd-font-size-md: 1rem;
+  --arcd-font-size-lg: 1.125rem;
+  --arcd-font-size-xl: 1.25rem;
+  --arcd-font-size-2xl: 1.5rem;
+  --arcd-font-size-3xl: 1.875rem;
+
+  --arcd-line-height-tight: 1.15;
+  --arcd-line-height-normal: 1.5;
+  --arcd-line-height-relaxed: 1.65;
+  --arcd-font-weight-regular: 400;
+  --arcd-font-weight-medium: 500;
+  --arcd-font-weight-semibold: 600;
+  --arcd-font-weight-bold: 700;
+}
+
+.arcd-heading-page { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-size: var(--arcd-font-size-2xl); font-weight: var(--arcd-font-weight-bold); line-height: var(--arcd-line-height-tight); }
+.arcd-heading-section { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-size: var(--arcd-font-size-xl); font-weight: var(--arcd-font-weight-semibold); line-height: var(--arcd-line-height-tight); }
+.arcd-heading-card { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-size: var(--arcd-font-size-lg); font-weight: var(--arcd-font-weight-semibold); line-height: var(--arcd-line-height-tight); }
+.arcd-body { color: var(--arcd-text-primary); font-size: var(--arcd-font-size-sm); line-height: var(--arcd-line-height-normal); }
+.arcd-body-muted { color: var(--arcd-text-secondary); font-size: var(--arcd-font-size-sm); line-height: var(--arcd-line-height-normal); }
+.arcd-label { color: var(--arcd-text-primary); font-size: var(--arcd-font-size-xs); font-weight: var(--arcd-font-weight-semibold); }
+.arcd-caption { color: var(--arcd-text-muted); font-size: var(--arcd-font-size-xs); }
+.arcd-number { color: var(--arcd-text-primary); font-family: var(--arcd-font-mono); font-variant-numeric: tabular-nums; }

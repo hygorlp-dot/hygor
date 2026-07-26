@@ -1,0 +1,23 @@
+/* Tema padrão ARCD. Mantém o visual Carbon já publicado; esta camada apenas
+   formaliza a intenção para que componentes não precisem conhecer hexadecimais. */
+[data-theme="carbon"] {
+  color-scheme: light;
+  --arcd-surface-page: var(--arcd-gray-50);
+  --arcd-surface-card: var(--arcd-gray-0);
+  --arcd-surface-muted: var(--arcd-gray-100);
+  --arcd-surface-subtle: var(--arcd-gray-100);
+  --arcd-surface-elevated: var(--arcd-gray-0);
+  --arcd-surface-inverse: var(--arcd-gray-900);
+  --arcd-text-primary: var(--arcd-gray-900);
+  --arcd-text-secondary: var(--arcd-gray-600);
+  --arcd-text-muted: var(--arcd-gray-500);
+  --arcd-text-inverse: var(--arcd-gray-0);
+  --arcd-border-subtle: var(--arcd-gray-200);
+  --arcd-border-default: var(--arcd-gray-200);
+  --arcd-border-strong: #8d8d8d;
+  --arcd-action-primary: var(--arcd-gold-400);
+  --arcd-action-primary-hover: var(--arcd-gold-500);
+  --arcd-action-primary-active: var(--arcd-gold-600);
+  --arcd-action-primary-text: var(--arcd-gray-900);
+  --arcd-focus-ring: var(--arcd-gold-400);
+}

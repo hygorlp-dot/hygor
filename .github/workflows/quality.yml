@@ -18,10 +18,16 @@ jobs:
       - run: npm ci
       - name: Fronteiras de domínio e financeiro
         run: npm run lint
+      - name: Fronteiras arquiteturais
+        run: npm run architecture:check
+      - name: Typecheck progressivo
+        run: npm run typecheck
       - name: Testes financeiros e de permissões com cobertura
         run: npm run test:coverage
       - name: Build de produção
         run: npm run build
+      - name: Catálogo isolado do Design System
+        run: npm run build-storybook
       - name: Métricas de bundle
         run: npm run quality:bundle
       - name: Auditoria de vulnerabilidades
@@ -33,6 +39,7 @@ jobs:
           path: |
             bundle-metrics.json
             coverage/coverage-summary.json
+            storybook-static
 
   migration-contracts:
     runs-on: ubuntu-latest

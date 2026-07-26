@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LazyMotion,
   domAnimation,
@@ -7,10 +7,16 @@ import {
   useReducedMotion,
   useSpring,
 } from "motion/react";
-import projectHouse from "../../assets/login-projects-depth.png";
+import projectHouse from "../../assets/login-projects-depth.webp";
+import architecturalLandscape from "../../assets/login-architectural-landscape.webp";
+
+const loginBackgroundVideoUrl=(import.meta.env.VITE_LOGIN_BACKGROUND_VIDEO_URL||"/media/login-background.webm").trim();
 
 export default function LoginProjectParallax({logoSrc=""}){
   const reduceMotion=useReducedMotion();
+  const [videoFailed,setVideoFailed]=useState(false);
+  const saveData=typeof navigator!=="undefined"&&navigator.connection?.saveData;
+  const showVideo=Boolean(loginBackgroundVideoUrl)&&!reduceMotion&&!saveData&&!videoFailed;
   const landscapeTargetX=useMotionValue(0);
   const landscapeTargetY=useMotionValue(0);
   const houseTargetX=useMotionValue(0);
@@ -39,11 +45,11 @@ export default function LoginProjectParallax({logoSrc=""}){
     const move=event=>{
       const horizontal=(event.clientX-rect.left)/rect.width-.5;
       const vertical=(event.clientY-rect.top)/rect.height-.5;
-      // Uma câmera acompanhando o olhar: sem inércia baseada em velocidade e
-      // sem giro no eixo Z, que fazia a foto parecer um cartão flutuante.
-      landscapeTargetX.set(horizontal*7);landscapeTargetY.set(vertical*4);
-      houseTargetX.set(horizontal*-11);houseTargetY.set(vertical*-7);
-      houseTargetRotateY.set(horizontal*-1.8);houseTargetRotateX.set(vertical*1.25);
+      // A camada distante acompanha a câmera de forma mínima. A casa reage um
+      // pouco mais ao olhar para comunicar profundidade, sem girar no eixo Z.
+      landscapeTargetX.set(horizontal*5);landscapeTargetY.set(vertical*3);
+      houseTargetX.set(horizontal*-9);houseTargetY.set(vertical*-5);
+      houseTargetRotateY.set(horizontal*-1.25);houseTargetRotateX.set(vertical*.85);
     };
     visual.addEventListener("pointermove",move,{passive:true});
     visual.addEventListener("pointerleave",reset);
@@ -57,9 +63,22 @@ export default function LoginProjectParallax({logoSrc=""}){
 
   return <LazyMotion features={domAnimation} strict>
     <div ref={visualRef} className="login-project-visual" aria-hidden="true">
-      <m.img
+      {showVideo?<m.video
+        className="login-project-image login-project-landscape login-project-video"
+        src={loginBackgroundVideoUrl}
+        poster={architecturalLandscape}
+        autoPlay muted loop playsInline preload="metadata"
+        onError={()=>setVideoFailed(true)}
+        style={{
+          x:landscapeX,y:landscapeY,
+          transformPerspective:1100,
+        }}
+        initial={{opacity:0,scale:1.1}}
+        animate={{opacity:1,scale:1.065}}
+        transition={{duration:1.25,ease:[.22,1,.36,1]}}
+      />:<m.img
         className="login-project-image login-project-landscape"
-        src={projectHouse}
+        src={architecturalLandscape}
         alt=""
         draggable="false"
         style={{
@@ -69,8 +88,8 @@ export default function LoginProjectParallax({logoSrc=""}){
         initial={reduceMotion?false:{opacity:0,scale:1.1}}
         animate={{opacity:1,scale:1.065}}
         transition={{duration:1.25,ease:[.22,1,.36,1]}}
-      />
-      <div className="login-project-house-layer">
+      />}
+      {!showVideo&&<div className="login-project-house-layer">
         <m.img
           className="login-project-image login-project-house"
           src={projectHouse}
@@ -85,7 +104,7 @@ export default function LoginProjectParallax({logoSrc=""}){
           animate={{opacity:1,scale:1.075}}
           transition={{duration:1.25,ease:[.22,1,.36,1]}}
         />
-      </div>
+      </div>}
       {logoSrc&&<img className="login-project-brand-watermark" src={logoSrc} alt="" draggable="false"/>}
     </div>
   </LazyMotion>;

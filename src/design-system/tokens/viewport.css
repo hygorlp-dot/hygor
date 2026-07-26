@@ -1,0 +1,14 @@
+:root { --arcd-viewport-height: 100dvh; }
+
+.arcd-mobile-viewport {
+  min-block-size: var(--arcd-viewport-height);
+  min-block-size: 100svh;
+  min-block-size: 100dvh;
+}
+
+.arcd-mobile-scroll {
+  min-block-size: 0;
+  overflow: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}

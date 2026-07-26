@@ -1,0 +1,5 @@
+:root {
+  --arcd-elevation-none: var(--arcd-shadow-none);
+  --arcd-elevation-overlay: var(--arcd-shadow-md);
+  --arcd-elevation-modal: var(--arcd-shadow-lg);
+}

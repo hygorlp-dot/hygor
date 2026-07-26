@@ -1,0 +1,30 @@
+:root,
+[data-density="comfortable"] {
+  --arcd-control-height: 2.75rem;
+  --arcd-table-row-height: 2.625rem;
+  --arcd-panel-padding: 1rem;
+  --arcd-layout-gap: 0.875rem;
+}
+
+[data-density="compact"] {
+  --arcd-control-height: 2.25rem;
+  --arcd-table-row-height: 2.125rem;
+  --arcd-panel-padding: 0.75rem;
+  --arcd-layout-gap: 0.625rem;
+}
+
+[data-density="spacious"] {
+  --arcd-control-height: 3rem;
+  --arcd-table-row-height: 3rem;
+  --arcd-panel-padding: 1.25rem;
+  --arcd-layout-gap: 1.125rem;
+}
+
+[data-context="field"] {
+  --arcd-control-height: 3.25rem;
+  --arcd-table-row-height: 3.125rem;
+  --arcd-panel-padding: 1.25rem;
+  --arcd-layout-gap: 1rem;
+  --arcd-border-default: #747d83;
+  --arcd-text-secondary: #40484d;
+}

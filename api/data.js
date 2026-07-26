@@ -37,7 +37,7 @@ import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/re
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import { hasLegacyFinancialWrite, validateFinancialWritePath } from "../server/financial-write-policy.js";
-import { getOrCreateFolder, graph, refresh, rootItem } from "./microsoft/_graph.js";
+import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side

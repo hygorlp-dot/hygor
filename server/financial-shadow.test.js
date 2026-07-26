@@ -24,4 +24,22 @@ describe("homologação financeira em sombra", () => {
       { scope:"o1", metric:"received", legacyAmount:500, canonicalAmount:499, difference:-1 },
     ]);
   });
+
+  it("preserva a obra de um terceiro mesmo quando a empresa faz o pagamento", () => {
+    const snapshot = buildLegacyFinancialFacts({
+      pagsTerceiros:[{
+        id:"t-empresa", obraId:"obra-42", pagador:"empresa", amount:1250,
+        date:"2026-07-22",
+      }],
+    });
+
+    expect(snapshot.facts).toHaveLength(1);
+    expect(snapshot.facts[0]).toMatchObject({
+      obraId:"obra-42",
+      metadata:{ pagador:"empresa" },
+    });
+    expect(summarizeLegacyFinancialFacts(snapshot)).toMatchObject({
+      "obra-42":{ thirdParty:1250 },
+    });
+  });
 });

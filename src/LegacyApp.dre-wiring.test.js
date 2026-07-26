@@ -28,4 +28,9 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain('razaoEmpresa?.source==="canonical_ledger"&&razaoEmpresa.current');
     expect(source).not.toContain("const calcDREEmpresa =");
   });
+
+  it("mostra o aviso de projeção pendente pelo componente de alerta disponível", () => {
+    expect(source).not.toContain("<Notice v=\"warn\">");
+    expect(source).toContain('<Alert variant="warning"><AlertDescription className="text-xs">A DRE está aguardando a projeção do razão canônico');
+  });
 });

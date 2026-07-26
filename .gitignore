@@ -2,6 +2,7 @@ node_modules/
 build/
 dist/
 coverage/
+storybook-static/
 .tools/
 .mcp.json
 .agents/
@@ -13,3 +14,16 @@ whatsapp-test/.env
 
 .vercel
 .env*
+
+# Estado local de ferramentas/agents e relatórios reproduzíveis de execução.
+# Não pertencem ao código ou à configuração de produção.
+.claude/
+.claude-flow/
+.swarm/
+playwright-report/
+test-results/
+ruvector.db
+bundle-metrics.json
+skills-lock.json
+CLAUDE.md
+PRODUCT.md

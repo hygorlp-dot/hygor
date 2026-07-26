@@ -1,0 +1,19 @@
+@media print {
+  :root {
+    --arcd-surface-page: #ffffff;
+    --arcd-surface-card: #ffffff;
+    --arcd-surface-muted: #ffffff;
+    --arcd-surface-elevated: #ffffff;
+    --arcd-text-primary: #000000;
+    --arcd-text-secondary: #333333;
+    --arcd-text-muted: #555555;
+    --arcd-border-subtle: #cccccc;
+    --arcd-border-default: #999999;
+    --arcd-border-strong: #555555;
+    --arcd-shadow-none: none;
+    --arcd-shadow-hairline: none;
+    --arcd-shadow-sm: none;
+    --arcd-shadow-md: none;
+    --arcd-shadow-lg: none;
+  }
+}

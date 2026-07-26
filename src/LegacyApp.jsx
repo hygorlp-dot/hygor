@@ -1,4 +1,4 @@
-import { Children, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, LineChart, Pie,
   PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -87,7 +87,13 @@ import { Alert, AlertDescription } from "./components/ui/alert";
 import LoginProjectParallax from "./components/login/LoginProjectParallax";
 import { Eye, EyeOff, ChevronLeft, Delete } from "lucide-react";
 import { cn } from "./lib/utils";
+import { features } from "./config/features";
+import { SUPPLIER_CATEGORIES as RAMOS_FORNECIMENTO } from "./domains/suppliers/categories";
 import { useCountUp } from "./lib/useCountUp";
+
+// O editor novo só é baixado se a flag local do piloto for habilitada. Com a
+// flag desligada, o modal histórico continua sendo a única implementação.
+const LazySupplierEditor = lazy(() => import("./domains/suppliers/SupplierEditor").then(module => ({ default: module.SupplierEditor })));
 import {
   PACOTES_TARIFA, melhorTarifa, textoComposicao, tarifasDaLocacao,
   tarifasCustoDaLocacao, cobrancaLocacao, disponibilidadeNoDia,
@@ -129,6 +135,7 @@ import { migrateSupplyData } from "./domains/suprimentos/migration";
 import { migrateCommercial } from "./domains/comercial/migrations";
 import { selectCommercialWorkspace } from "./domains/comercial/selectors";
 import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/record-schema";
+import { uploadWithRetry } from "./domains/documentos/upload-retry";
 import MarcosCurvaASuprimentos from "./features/suprimentos/MarcosCurvaASuprimentos";
 import {
   aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
@@ -208,40 +215,53 @@ const ARCD_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABXgAAAV4CAYAAAA
 
 const C = {
   // ARCD Carbon: concreto claro, tinta grafite e ouro como único acento.
-  bg:       "#F1F2F3",
-  surface:  "#E6E8EA",
-  card:     "#FAFAFA",
-  card2:    "#F0F1F2",
-  border:   "#CDD0D3",
+  bg:       "#F4F4F4",
+  surface:  "#FFFFFF",
+  card:     "#FFFFFF",
+  card2:    "#EDEDED",
+  border:   "#D6D6D6",
   // Ouro ARCD - cor principal
   yellow:   "#D4AF37",     // Ouro ARCD
-  yellowD:  "#B8930F",     // Ouro escuro
+  yellowD:  "#8F6E00",     // Ouro escuro
   yellowDim:"#F0E6B8",     // Ouro claro
   // Grafite ARCD
-  text:     "#121212",     // Grafite - texto principal
-  muted:    "#62676C",
-  subtle:   "#41464B",
+  text:     "#161616",     // Grafite - texto principal
+  muted:    "#525252",
+  subtle:   "#393939",
   ink:      "#121212",     // Texto sobre fundo ouro
   // Cinza Técnico
   cinza:    "#A8A8A8",
   sand:     "#F4F4F4",
   ivory:    "#EDEDED",
   // Sistema
-  green:    "#1E6B31",     // Verde técnico
-  red:      "#B71C1C",     // Vermelho técnico
-  blue:     "#0D47A1",     // Azul técnico
-  orange:   "#BF360C",     // Laranja técnico
+  green:    "#24A148",     // Verde técnico
+  red:      "#DA1E28",     // Vermelho técnico
+  blue:     "#0F62FE",     // Azul técnico
+  orange:   "#8A3800",     // Laranja técnico
   purple:   "#4A148C",     // Roxo técnico
-  line:     "#D9DCDE",
-  shadow:   "rgba(18,18,18,.045)",
+  line:     "#D6D6D6",
+  shadow:   "rgba(22,22,22,.045)",
   // Tokens de forma - controlam a "temperatura" visual do app inteiro. Valores
   // baixos = aspecto técnico/instrumento; altos = aspecto consumidor. Toda a
   // interface lê daqui, então ajustar aqui muda tudo de forma coerente.
-  rSm:      4,             // raio pequeno (chips, inputs internos)
-  rMd:      4,
+  rSm:      2,             // raio pequeno (chips, inputs internos)
+  rMd:      2,
   rLg:      4,
   shHair:   "none",
   shCard:   "none",
+};
+
+// Ponte curta durante a migração: pontos que ainda recebem a paleta legada
+// publicam somente uma intenção visual para as classes semânticas. Nenhum
+// componente novo deve receber hexadecimais ou escolher cores livremente.
+const semanticToneFromLegacyColor = color => {
+  if (color === C.green) return "success";
+  if (color === C.red) return "danger";
+  if (color === C.orange) return "warning";
+  if (color === C.blue) return "info";
+  if (color === C.purple) return "auxiliary";
+  if (color === C.yellow || color === C.yellowD) return "primary";
+  return "neutral";
 };
 
 // Escala tipografica unica do app. Toda tela nova (ou revisada) deve montar
@@ -423,14 +443,14 @@ button:not(:disabled):hover{filter:brightness(.98)}
 button:not(:disabled):active{filter:brightness(.94)}
 button:focus-visible{outline:2px solid ${C.yellow};outline-offset:2px}
 .arcd-btn{
-  min-height:36px;border-width:1px!important;border-radius:6px!important;
+  min-height:36px;border-width:1px!important;border-radius:var(--radius-control)!important;
   font-size:11px!important;font-weight:650!important;letter-spacing:.08px!important;
   text-transform:none!important;line-height:1.1;white-space:nowrap;
   box-shadow:none!important;
   transition:background .15s ease,border-color .15s ease,color .15s ease,transform .1s ease!important;
 }
-.arcd-btn[data-size="sm"]{min-height:30px;padding:4px 9px!important;font-size:10px!important;border-radius:6px!important}
-.arcd-btn[data-size="lg"]{min-height:42px;padding:9px 16px!important;font-size:12px!important;border-radius:7px!important}
+.arcd-btn[data-size="sm"]{min-height:30px;padding:4px 9px!important;font-size:10px!important;border-radius:var(--radius-control)!important}
+.arcd-btn[data-size="lg"]{min-height:42px;padding:9px 16px!important;font-size:12px!important;border-radius:var(--radius-control)!important}
 .arcd-btn svg{width:13px!important;height:13px!important;flex:0 0 13px}
 .arcd-btn[data-size="sm"] svg{width:11px!important;height:11px!important;flex-basis:11px}
 .arcd-btn[data-icon-only="true"]{width:36px;padding:0!important}
@@ -440,14 +460,24 @@ button:focus-visible{outline:2px solid ${C.yellow};outline-offset:2px}
 .arcd-btn:not(:disabled):active{transform:translateY(1px);filter:none}
 .arcd-btn[aria-busy="true"]{cursor:progress}
 .arcd-btn[aria-busy="true"] svg{animation:spin .8s linear infinite}
-@media(max-width:767px){.arcd-btn:not([data-size="sm"]){min-height:42px}}
+/* No celular o espaço clicável é maior que o ícone. Isso preserva a
+   densidade visual da tabela, mas evita toques imprecisos em campo. */
+@media(max-width:767px){
+  .arcd-btn{min-height:var(--arcd-touch-target-min)!important}
+  .arcd-btn[data-icon-only="true"]{width:var(--arcd-touch-target-min);min-width:var(--arcd-touch-target-min)}
+  .arcd-tab{min-height:var(--arcd-touch-target-min)}
+  button:not(.arcd-btn)[title="Editar"],button:not(.arcd-btn)[title="Excluir"],button:not(.arcd-btn)[title="Remover"],button:not(.arcd-btn)[title="Editar obra"],button:not(.arcd-btn)[title="Excluir obra"]{
+    width:var(--arcd-touch-target-min)!important;height:var(--arcd-touch-target-min)!important;
+    min-width:var(--arcd-touch-target-min)!important;min-height:var(--arcd-touch-target-min)!important;
+  }
+}
 .arcd-tab{min-height:32px;padding:6px 10px!important;border:0!important;border-bottom:2px solid transparent!important;background:transparent!important;border-radius:0!important;color:${C.muted};font-size:10px!important;font-weight:600!important;white-space:nowrap}
 .arcd-tab[data-active="true"]{color:${C.text}!important;border-bottom-color:${C.yellow}!important;font-weight:600!important}
 .arcd-tab:hover{color:${C.text};filter:none!important}
 .arcd-pill{min-height:23px;padding:3px 7px!important;border-radius:99px!important;font-size:8.5px!important;font-weight:800!important;letter-spacing:.08px}
 button:not(.arcd-btn)[title="Editar"],button:not(.arcd-btn)[title="Excluir"],button:not(.arcd-btn)[title="Remover"],button:not(.arcd-btn)[title="Editar obra"],button:not(.arcd-btn)[title="Excluir obra"]{
   width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;
-  padding:0!important;display:inline-grid!important;place-items:center!important;border-radius:6px!important;
+  padding:0!important;display:inline-grid!important;place-items:center!important;border-radius:var(--radius-control)!important;
   border:1px solid ${C.border}!important;background:${C.card}!important;box-shadow:none!important;
 }
 input:focus,select:focus,textarea:focus{
@@ -502,7 +532,7 @@ input:focus,select:focus,textarea:focus{
   background:transparent; border:0; border-radius:${C.rSm}px;
   cursor:pointer; text-align:left;
   color:${C.muted};
-  font-family:'Inter','Inter Display',sans-serif;
+  font-family:var(--type-body);
   font-size:10px; font-weight:700; letter-spacing:.6px; text-transform:uppercase;
   transition:background .12s ease, color .12s ease;
 }
@@ -529,7 +559,7 @@ input:focus,select:focus,textarea:focus{
 .nav-body{
   overflow:hidden;
   margin-left:14px;
-  border-left:1.5px solid var(--gc-rail);
+  border-left:1px solid var(--gc-rail);
   padding-left:0;
   animation:navOpen .18s ease;
 }
@@ -546,7 +576,7 @@ input:focus,select:focus,textarea:focus{
   background:transparent; border:0; border-radius:0 ${C.rSm}px ${C.rSm}px 0;
   cursor:pointer; text-align:left;
   color:${C.muted};
-  font-family:'Inter','Inter Display',sans-serif;
+  font-family:var(--type-body);
   font-size:12px; font-weight:500;
   transition:background .12s ease, color .12s ease;
   --ic-color:${C.muted};
@@ -612,7 +642,7 @@ input:focus,select:focus,textarea:focus{
   width:100%; display:flex; align-items:center; gap:9px;
   padding:14px 15px;
   background:transparent; border:0; cursor:pointer; text-align:left;
-  font-family:'Inter Display','Inter',sans-serif;
+  font-family:var(--type-display);
   transition:background .14s ease;
 }
 .acc-hd:hover{ background:${C.surface}; }
@@ -646,7 +676,7 @@ input:focus,select:focus,textarea:focus{
   background:transparent; border:1px solid ${C.border};
   border-radius:8px; cursor:pointer;
   color:${C.yellowD}; font-size:11.5px; font-weight:700;
-  font-family:'Inter Display','Inter',sans-serif;
+  font-family:var(--type-display);
   transition:background .14s ease, border-color .14s ease;
 }
 .acc-link:hover{ background:${C.yellow}0F; border-color:${C.yellow}; }
@@ -1189,30 +1219,6 @@ const getAttendanceCompletionMessage = summary => {
 // Ramos de fornecimento. Um fornecedor pode atender varios (uma casa de
 // construcao vende de tudo; uma serralheria so metais). Serve para filtrar a
 // busca e para o sistema sugerir de quem comprar cada material.
-const RAMOS_FORNECIMENTO = [
-  { v:"casa_construcao", l:"Casa de construção" },
-  { v:"cimento",         l:"Cimento e argamassas" },
-  { v:"areia_brita",     l:"Areia, brita e aterro" },
-  { v:"concreto",        l:"Concreto usinado" },
-  { v:"aco",             l:"Aço e vergalhões" },
-  { v:"metais",          l:"Metais" },
-  { v:"madeira",         l:"Madeira" },
-  { v:"porcelanato",     l:"Porcelanato e cerâmica" },
-  { v:"pedras",          l:"Pedras, mármore e granito" },
-  { v:"eletrico",        l:"Material elétrico" },
-  { v:"hidraulico",      l:"Material hidráulico" },
-  { v:"louca_metal",     l:"Louças e metais sanitários" },
-  { v:"tintas",          l:"Tintas e vernizes" },
-  { v:"gesso",           l:"Gesso e drywall" },
-  { v:"esquadrias",      l:"Esquadrias e vidros" },
-  { v:"cobertura",       l:"Telhas e cobertura" },
-  { v:"impermeabilizante",l:"Impermeabilizantes" },
-  { v:"ferragens",       l:"Ferragens e fixação" },
-  { v:"ferramentas",     l:"Ferramentas" },
-  { v:"epi",             l:"EPI e segurança" },
-  { v:"locacao",         l:"Locação de equipamentos" },
-  { v:"outros",          l:"Outros" },
-];
 const rotuloRamo = v => RAMOS_FORNECIMENTO.find(r => r.v === v)?.l || v;
 
 // ==============================================================
@@ -3794,22 +3800,22 @@ function ChartPanel({ eyebrow="Análise visual", title, subtitle, legend=[], act
 // componente flat, no mesmo sistema Carbon do dashboard. Sem alterar o
 // conteúdo de cada tela — só o invólucro visual.
 function PageHero({eyebrow,title,description,alert,stats,actions}){
-  return <section className="page-hero" style={{position:"relative",overflow:"hidden",borderRadius:C.rLg,padding:"15px 17px",background:C.card,border:`1px solid ${C.border}`,boxShadow:"none"}}>
-    <span className="dashboard-hero-rule" aria-hidden="true" style={{position:"absolute",top:0,left:0,right:0,height:2,background:C.yellow}}/>
-    <div style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
-      <div style={{minWidth:0}}>
-        {eyebrow&&<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><span style={{width:7,height:7,borderRadius:99,background:C.green}}/><span style={{fontSize:9,fontWeight:850,letterSpacing:1.6,textTransform:"uppercase",color:C.yellowD}}>{eyebrow}</span></div>}
-        <h2 style={TYPO.h2}>{title}</h2>
-        {description&&<p style={{...TYPO.bodyMuted,marginTop:7,maxWidth:560}}>{description}</p>}
-        {alert&&<div style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:10,padding:"6px 10px",borderRadius:99,fontSize:10.5,fontWeight:800,background:`${alert.tone==="success"?C.green:C.red}12`,color:alert.tone==="success"?C.green:C.red}}><Ic n={alert.tone==="success"?"check":"alert"} s={13}/>{alert.text}</div>}
+  return <section className="page-hero">
+    <span className="page-hero__rule" aria-hidden="true"/>
+    <div className="page-hero__main">
+      <div className="page-hero__copy">
+        {eyebrow&&<div className="page-hero__eyebrow"><span className="page-hero__eyebrow-dot"/><span>{eyebrow}</span></div>}
+        <h2 className="page-hero__title">{title}</h2>
+        {description&&<p className="page-hero__description">{description}</p>}
+        {alert&&<div className="page-hero__alert" data-tone={alert.tone||"danger"}><Ic n={alert.tone==="success"?"check":"alert"} s={13}/>{alert.text}</div>}
       </div>
-      {actions&&<div className="page-hero-actions" style={{display:"flex",gap:7,flexWrap:"wrap",justifyContent:"flex-end"}}>{actions}</div>}
+      {actions&&<div className="page-hero-actions">{actions}</div>}
     </div>
-    {!!stats?.length&&<div style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:6,marginTop:13}}>
-      {stats.map(s=><div key={s.label} style={{padding:"9px 10px",border:`1px solid ${C.border}`,background:C.card2,borderRadius:7}}>
-        <p style={{fontSize:8.5,fontWeight:850,letterSpacing:.75,textTransform:"uppercase",color:C.muted}}>{s.label}</p>
-        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:18,fontWeight:800,color:s.color||C.text,marginTop:3,lineHeight:1}}>{s.value}</p>
-        {s.detail&&<p style={{fontSize:8.5,color:C.muted,marginTop:5}}>{s.detail}</p>}
+    {!!stats?.length&&<div className="page-hero__stats">
+      {stats.map(s=><div key={s.label} className="page-hero__stat">
+        <p className="page-hero__stat-label">{s.label}</p>
+        <p className="page-hero__stat-value" data-tone={semanticToneFromLegacyColor(s.color)}>{s.value}</p>
+        {s.detail&&<p className="page-hero__stat-detail">{s.detail}</p>}
       </div>)}
     </div>}
   </section>;
@@ -3830,30 +3836,17 @@ function TabRow({ tabs, active, onChange, equal = false }) {
     ? { v:t[0], l:t[1], detail: typeof t[2]==="string" ? t[2] : null, count: typeof t[2]==="number" ? t[2] : null }
     : t);
   return (
-    <div className="tab-row" style={{
-      display: equal ? "grid" : "flex",
-      gridTemplateColumns: equal ? `repeat(${itens.length},1fr)` : undefined,
-      gap:4, overflowX: equal ? "visible" : "auto", padding:4,
-      background:C.surface, border:`1px solid ${C.line}`, borderRadius:10,
-    }}>
+    <div className="tab-row" data-equal={equal} style={equal ? { "--arcd-tab-count": itens.length } : undefined}>
       {itens.map(({v,l,icon,detail,count}) => {
         const isActive = active === v;
         return (
-          <button key={v} type="button" aria-pressed={isActive} onClick={() => onChange(v)} style={{
-            flex: equal ? "1 1 0" : "0 0 auto",
-            whiteSpace: equal ? "normal" : "nowrap",
-            cursor:"pointer", textAlign:"left",
-            padding: detail ? "7px 12px" : "9px 13px",
-            borderRadius:7, border:`1px solid ${isActive?C.text:"transparent"}`,
-            background: isActive?C.text:"transparent", color: isActive?"#fff":C.muted,
-            display:"flex", flexDirection:"column", gap:1,
-          }}>
-            <span style={{...TYPO.tab, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", color:"inherit"}}>
+          <button key={v} type="button" className="tab-row__tab" data-active={isActive} data-detail={Boolean(detail)} aria-pressed={isActive} onClick={() => onChange(v)}>
+            <span className="tab-row__label">
               {icon && <Ic n={icon} s={13}/>}
               {l}
-              {count>0 && <b style={{fontSize:9,fontWeight:800,padding:"1px 6px",borderRadius:99,background:isActive?"rgba(255,255,255,.22)":`${C.yellow}22`,color:isActive?"#fff":C.yellowD}}>{count}</b>}
+              {count>0 && <b className="tab-row__count">{count}</b>}
             </span>
-            {detail && <small style={{...TYPO.tabDetail, color:isActive?"rgba(255,255,255,.75)":C.muted}}>{detail}</small>}
+            {detail && <small className="tab-row__detail">{detail}</small>}
           </button>
         );
       })}
@@ -3921,19 +3914,19 @@ function Modal({ title, children, onClose, wide = false, panelClass = "" }) {
 
 function Toast({ toast }) {
   if (!toast) return null;
-  const color = toast.type==="error"?C.red:toast.type==="warn"?C.yellow:C.green;
+  const color = toast.type==="error"?C.red:toast.type==="warn"?C.orange:C.green;
   return (
-    <div className="no-print" style={{
+    <div className="no-print arcd-toast" role={toast.type==="error" ? "alert" : "status"} aria-live={toast.type==="error" ? "assertive" : "polite"} style={{
       position:"fixed", left:"50%", bottom:20,
       transform:"translateX(-50%)", zIndex:1200,
       maxWidth:"calc(100vw - 28px)",
       background:C.bg,
       border:`1px solid ${color}`,
-      borderLeft:`4px solid ${color}`,
+      borderLeft:`3px solid ${color}`,
       color:C.text, padding:"9px 13px",
-      boxShadow:`0 8px 32px rgba(18,18,18,.15)`,
-      fontSize:11.5, fontWeight:600, borderRadius:7,
-      fontFamily:"'Inter','Inter Display',sans-serif",
+      boxShadow:"none",
+      fontSize:11.5, fontWeight:600, borderRadius:C.rMd,
+      fontFamily:FONT_DISPLAY,
     }}>
       {toast.msg}
     </div>
@@ -4559,17 +4552,13 @@ const construirFilaOperador=(data,currentUser)=>{
 function KpiCard({label,value,detail,icon,color=C.blue,onClick}){
   const displayValue=useCountUp(value);
   const Comp=onClick?"button":"div";
-  return <Comp onClick={onClick} className="dashboard-kpi" style={{
-    width:"100%",height:"100%",minWidth:0,textAlign:"left",cursor:onClick?"pointer":"default",
-    border:`1px solid ${C.border}`,background:C.card,borderRadius:C.rLg,
-    padding:12,position:"relative",overflow:"hidden",
-  }}>
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-      <span style={{fontSize:10,fontWeight:750,letterSpacing:.65,textTransform:"uppercase",color:C.muted}}>{label}</span>
-      <span style={{width:25,height:25,borderRadius:7,display:"grid",placeItems:"center",background:`${color}12`,color}}><Ic n={icon} s={13}/></span>
+  return <Comp type={onClick?"button":undefined} onClick={onClick} className="dashboard-kpi" data-tone={semanticToneFromLegacyColor(color)} data-interactive={Boolean(onClick)}>
+    <div className="dashboard-kpi__head">
+      <span className="dashboard-kpi__label">{label}</span>
+      <span className="dashboard-kpi__icon"><Ic n={icon} s={13}/></span>
     </div>
-    <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(19px,2vw,23px)",fontWeight:780,letterSpacing:-.7,color:C.text,marginTop:7,lineHeight:1}}>{displayValue}</p>
-    {detail&&<p style={{fontSize:9.5,color:C.muted,marginTop:5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{detail}</p>}
+    <p className="dashboard-kpi__value">{displayValue}</p>
+    {detail&&<p className="dashboard-kpi__detail">{detail}</p>}
   </Comp>;
 }
 
@@ -15129,16 +15118,10 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
 
       <section className="login-project-story" aria-label="Plataforma ARCD">
         <div className="login-eyebrow">
-          <span />
-          ARCD · CONTROLE INTEGRADO
+          ARCD OBRAS
         </div>
         <h1>Da obra ao dado.<br/><strong>Em tempo real.</strong></h1>
         <p>Decisões, equipes e projetos conectados em uma única operação.</p>
-        <div className="login-project-phases" aria-label="Jornada do projeto">
-          <div><small>01</small><b>Planejamento</b></div>
-          <div><small>02</small><b>Execução</b></div>
-          <div><small>03</small><b>Controle</b></div>
-        </div>
       </section>
 
       <main className="login-access-column">
@@ -15189,7 +15172,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
                            placeholder="Digite sua senha" className="h-11 border-white/10 bg-white/[0.04] pr-10 text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
                     <button type="button" onClick={()=>setMostrarSenha(v=>!v)}
                             aria-label={mostrarSenha?"Ocultar senha":"Mostrar senha"}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                            className="login-password-toggle absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
                       {mostrarSenha ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                     </button>
                   </div>
@@ -16844,21 +16827,39 @@ const distribuicaoMensal = (tarefas, cal) => {
 };
 
 // ==============================================================
-//  CURVA S (avanco fisico acumulado ao longo do tempo)
-//  Para cada mes da obra, o % do custo total que DEVERIA estar
-//  concluido ate ali (planejado) - a classica curva S.
+//  CURVA S (avanco fisico acumulado ao longo do tempo). A leitura semanal
+//  evita que uma obra de poucos meses vire uma linha com apenas 3 ou 4 pontos.
+//  O valor continua vindo da distribuicao por dias uteis; nenhum ponto e
+//  interpolado para deixar o grafico "mais bonito".
 // ==============================================================
 const curvaS = (tarefas, cal) => {
-  const dist = distribuicaoMensal(tarefas, cal);
-  const total = dist.reduce((s, d) => s + d.valor, 0);
+  const porSemana = {};
+  const inicioSemana = iso => {
+    const data = new Date(`${iso}T12:00:00`);
+    data.setDate(data.getDate() - ((data.getDay() + 6) % 7));
+    return data.toISOString().slice(0,10);
+  };
+  (tarefas || []).forEach(t => {
+    if (t.titulo || !t.inicio || !t.fim || !t.custo) return;
+    const uteis = diasUteis(t.inicio, t.fim, cal) || 1;
+    const porDia = Number(t.custo || 0) / uteis;
+    let cur = t.inicio, guard = 0;
+    while (cur <= t.fim && guard < 3660) {
+      if (ehDiaUtil(cur, cal)) {
+        const semana = inicioSemana(cur);
+        porSemana[semana] = (porSemana[semana] || 0) + porDia;
+      }
+      cur = somaDias(cur, 1); guard++;
+    }
+  });
+  const periodos = Object.keys(porSemana).sort();
+  const total = periodos.reduce((sum, semana) => sum + porSemana[semana], 0);
   if (!total) return [];
-  return dist.map(d => ({
-    mes: d.mes,
-    pctMes: (d.valor / total) * 100,
-    pctAcum: (d.acumulado / total) * 100,
-    valor: d.valor,
-    acumulado: d.acumulado,
-  }));
+  let acumulado = 0;
+  return periodos.map(semana => {
+    const valor = porSemana[semana]; acumulado += valor;
+    return { mes:semana, periodo:"semana", pctMes:(valor/total)*100, pctAcum:(acumulado/total)*100, valor, acumulado };
+  });
 };
 
 // ==============================================================
@@ -24519,8 +24520,15 @@ function RankingFornecedores({data,update,showToast}){
       <div className="supplier-facts"><div><span>Volume comprado</span><b>{fmt(selecionado.valorComprado)}</b></div><div><span>Propostas / vitórias</span><b>{selecionado.propostas.length} / {selecionado.vitorias}</b></div><div><span>Pedidos</span><b>{selecionado.pedidos.length}</b></div><div><span>Entregas no prazo</span><b>{selecionado.entregas?`${selecionado.noPrazo}/${selecionado.entregas}`:"Sem dados"}</b></div></div>
       <div className="supplier-detail-actions"><Btn v="ghost" onClick={()=>setFornModal({...selecionado.fornecedor,categorias:selecionado.fornecedor.categorias||[]})}><Ic n="edit"/> Editar cadastro</Btn></div>
     </aside></div>}
-    {fornModal&&<ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
+    {fornModal&&<FornecedorEditorPilot form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
   </div>;
+}
+
+function FornecedorEditorPilot({ form, setForm, onSave }) {
+  if (!features.newSupplierEditor) return <ModalFornecedor form={form} setForm={setForm} onSave={onSave} />;
+  return <Suspense fallback={<Modal title="Carregando fornecedor" onClose={()=>setForm(null)}><p style={{fontSize:11,color:C.muted}}>Preparando editor…</p></Modal>}>
+    <LazySupplierEditor open supplier={form} onOpenChange={open=>!open&&setForm(null)} onSave={onSave}/>
+  </Suspense>;
 }
 
 function ModalFornecedor({ form, setForm, onSave }) {
@@ -26894,7 +26902,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         fornecedores={fornecedores} pedidos={data.pedidos} materiais={data.materiais} data={data} onClose={()=>setCotWpp(null)}
         onContato={(fornecedorId,fornecedorNome)=>registrarContatoSolicitacao(cotWpp.solicitacaoId,fornecedorId,fornecedorNome)}/>}
       {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)} orcamentos={data.orcamentos||[]} data={data} update={update} showToast={showToast}/>}
-      {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
+      {fornModal && <FornecedorEditorPilot form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
                                      fornecedores={fornecedores} materiais={materiais}
                                      linhasOrc={linhasOrc} data={data} basesReferencia={basesCompra}/>}
@@ -28053,7 +28061,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
   // O cronograma inicia em modo compacto: somente Atividade / custo fica
   // visivel. As demais colunas podem ser habilitadas pelo menu "Colunas".
   const [colsCrono, setColsCrono] = useState({
-    inicio:false, fim:false, dias:false, custo:false, progresso:false,
+    inicio:true, fim:true, dias:false, custo:false, progresso:false,
     antecessora:false, sucessora:false,
   });
   const [colsCronoAberto, setColsCronoAberto] = useState(false);
@@ -28795,6 +28803,9 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
             <Btn v="ghost" size="sm" onClick={() => setExportA2Modal(true)}>
               <Ic n="download" s={13}/> Exportar A2
             </Btn>
+            <Btn v="ghost" size="sm" onClick={() => setColsCrono(atual => ({...atual,inicio:!(atual.inicio&&atual.fim),fim:!(atual.inicio&&atual.fim)}))}>
+              {colsCrono.inicio&&colsCrono.fim ? "Ocultar datas" : "Editar datas"}
+            </Btn>
             <Btn v="ghost" size="sm" onClick={() => setMarcoModal({ modo: "novo", marco: { tipo: "compra", data: today() } })}>
               + Marco
             </Btn>
@@ -28815,6 +28826,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
           <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",height:10,borderLeft:`2px solid ${C.red}`,marginRight:5}}/>Hoje</span>
           <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.orange}25`,border:`1px solid ${C.orange}`,marginRight:4}}/>Conflito de vinculo</span>
           <span style={{fontSize:9.5,color:C.text}}><i style={{display:"inline-block",width:12,height:8,background:C.red,marginRight:4,verticalAlign:"middle"}}/>Caminho crítico (folga zero)</span>
+          <span style={{fontSize:9.5,color:C.muted}}>Arraste a barra para mover · alças nas bordas ajustam início e fim</span>
           <span style={{fontSize:9.5,color:C.muted}} title="Total de dias de atraso que o projeto tolera fora do caminho crítico">Fim: dia útil {critico.fimProjeto ?? "-"}</span>
           <span style={{fontSize:9.5,color:C.muted,marginLeft:"auto"}}>{(cal.diasSemana||[]).length} dias/semana - {(cal.feriados||[]).length} feriado(s) no calendario</span>
         </div>
@@ -28887,16 +28899,16 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
                   ),
                   inicio: (
                     <div key="inicio" style={{display:"flex",alignItems:"center"}}>
-                      <input key={`${t.id}-ini-${t.inicio}`} type="date" defaultValue={t.inicio||""} disabled={t.titulo}
+                      <input className="planning-inline-date" aria-label={`Início planejado de ${t.nome||"atividade"}`} key={`${t.id}-ini-${t.inicio}`} type="date" value={t.inicio||""} disabled={t.titulo}
                         onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                        onBlur={e=>e.target.value&&e.target.value!==t.inicio&&atualizarTarefaNaLinha(t,"inicio",e.target.value)} style={estiloInput}/>
+                        onChange={e=>e.target.value&&e.target.value!==t.inicio&&atualizarTarefaNaLinha(t,"inicio",e.target.value)} style={estiloInput}/>
                     </div>
                   ),
                   fim: (
                     <div key="fim" style={{display:"flex",alignItems:"center"}}>
-                      <input key={`${t.id}-fim-${t.fim}`} type="date" defaultValue={t.fim||""} disabled={t.titulo}
+                      <input className="planning-inline-date" aria-label={`Fim planejado de ${t.nome||"atividade"}`} key={`${t.id}-fim-${t.fim}`} type="date" value={t.fim||""} disabled={t.titulo}
                         onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
-                        onBlur={e=>e.target.value&&e.target.value!==t.fim&&atualizarTarefaNaLinha(t,"fim",e.target.value)} style={estiloInput}/>
+                        onChange={e=>e.target.value&&e.target.value!==t.fim&&atualizarTarefaNaLinha(t,"fim",e.target.value)} style={estiloInput}/>
                     </div>
                   ),
                   dias: (
@@ -29020,6 +29032,7 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
                     <div
                       onMouseDown={(e) => t.titulo ? null : iniciarDrag(e, t, "mover")}
                       onTouchStart={(e) => t.titulo ? null : iniciarDrag(e, t, "mover")}
+                      title={t.titulo ? t.nome : `${t.nome} — arraste para mover; use as alças para ajustar as datas`}
                       style={{
                         position: "absolute", left: x,
                         top: t.titulo ? 14 : 7,
@@ -29108,9 +29121,9 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
                 if (!linhas.length) return null;
                 const cInc = "#8a8a8a";
                 return (
-                  <svg style={{ position: "absolute", left: 0, top: 0, width: larguraGrade,
+                <svg style={{ position: "absolute", left: 0, top: 0, width: larguraGrade,
                                 height: ALTURA_REGUA + tarefas.length * ALTURA_LINHA,
-                                pointerEvents: "auto", zIndex: 2, overflow: "hidden" }}>
+                                pointerEvents: "auto", zIndex: 0, overflow: "hidden" }}>
                     <defs>
                       <marker id="setaDep" markerWidth="7" markerHeight="7" refX="5.5" refY="3"
                               orient="auto" markerUnits="userSpaceOnUse">
@@ -29838,20 +29851,24 @@ function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
 // ao fundo e ponto interativo. Mais informacao, menos poluicao visual.
 function CurvaSGrafico({ dados, real }) {
   const [hover, setHover] = useState(null);
-  const W = 640, H = 260, padL = 40, padR = 16, padT = 16, padB = 40;
+  const W = 760, H = 196, padL = 40, padR = 16, padT = 14, padB = 36;
   const n = dados.length;
   if (!n) return null;
   const iw = W - padL - padR, ih = H - padT - padB;
   const px = (i) => padL + (n === 1 ? iw/2 : (i/(n-1))*iw);
   const py = (pct) => padT + ih - (pct/100)*ih;
 
-  // Realizado acumulado (%) alinhado aos mesmos meses do planejado.
+  // Realizado acumulado: os fatos existentes ainda são mensais. Em uma curva
+  // semanal eles entram somente no último ponto da competência, sem repetir o
+  // mesmo valor em todas as semanas e sem inventar distribuição diária.
   const realPorMes = {};
   if (real) real.meses.forEach(m => { realPorMes[m] = real.totalPorMes[m] || 0; });
   const realTotal = real ? real.totalGeral : 0;
   let accR = 0;
-  const serieReal = dados.map(d => {
-    accR += (realPorMes[d.mes] || 0);
+  const serieReal = dados.map((d, i) => {
+    const mes = d.mes.slice(0,7);
+    const proximoMes = dados[i+1]?.mes?.slice(0,7);
+    if (mes !== proximoMes) accR += (realPorMes[mes] || 0);
     return realTotal ? (accR/realTotal)*100 : 0;
   });
   const temReal = realTotal > 0;
@@ -29871,9 +29888,7 @@ function CurvaSGrafico({ dados, real }) {
         {temReal && <span style={{ display:"flex", alignItems:"center", gap:5, color:C.muted }}>
           <span style={{ width:14, height:3, background:C.blue, borderRadius:2 }}/>Realizado
         </span>}
-        <span style={{ display:"flex", alignItems:"center", gap:5, color:C.muted }}>
-          <span style={{ width:9, height:9, background:`${C.yellow}44`, borderRadius:2 }}/>% do mes
-        </span>
+        <span style={{color:C.muted}}>Pontos semanais · valores por dia útil</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", minWidth:420, height:"auto" }}
            onMouseLeave={()=>setHover(null)}>
@@ -29884,16 +29899,14 @@ function CurvaSGrafico({ dados, real }) {
             <text x={padL-6} y={py(g)+3} textAnchor="end" fontSize="9" fill={C.muted}>{g}%</text>
           </g>
         ))}
-        {/* barras mensais discretas (% do mes) */}
+        {/* Peso semanal discreto: referência de distribuição, sem competir com a curva. */}
         {dados.map((d,i) => {
-          const bh = (d.pctMes/maxMes) * (ih*0.5);
+          const bh = (d.pctMes/maxMes) * (ih*0.22);
           return <rect key={i} x={px(i)-bw/2} y={padT+ih-bh} width={bw} height={bh}
-                       fill={C.yellow} opacity="0.20" rx="2"/>;
+                       fill={C.muted} opacity="0.16" rx="2"/>;
         })}
-        {/* area sob planejado */}
-        <polygon points={`${px(0)},${py(0)} ${linhaPrev} ${px(n-1)},${py(0)}`} fill={C.yellow} opacity="0.08"/>
         {/* linha planejado */}
-        <polyline points={linhaPrev} fill="none" stroke={C.yellow} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <polyline points={linhaPrev} fill="none" stroke={C.yellowD} strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round"/>
         {/* linha realizado */}
         {temReal && <polyline points={linhaReal} fill="none" stroke={C.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 0"/>}
         {/* pontos + interacao */}
@@ -29903,8 +29916,8 @@ function CurvaSGrafico({ dados, real }) {
             <circle cx={px(i)} cy={py(d.pctAcum)} r="3.5" fill={C.yellowD}/>
             <rect x={px(i)-(iw/n)/2} y={padT} width={iw/n} height={ih} fill="transparent"
                   onMouseEnter={()=>setHover(i)} style={{ cursor:"pointer" }}/>
-            {i % Math.ceil(n/8 || 1) === 0 && (
-              <text x={px(i)} y={H-padB+16} textAnchor="middle" fontSize="8.5" fill={C.muted}>{fmtMesAno(d.mes+"-01")}</text>
+            {i % Math.ceil(n/7 || 1) === 0 && (
+              <text x={px(i)} y={H-padB+16} textAnchor="middle" fontSize="8.5" fill={C.muted}>{d.periodo==="semana"?fmtDate(d.mes):fmtMesAno(d.mes+"-01")}</text>
             )}
           </g>
         ))}
@@ -29917,10 +29930,10 @@ function CurvaSGrafico({ dados, real }) {
       {hover!==null && (
         <div style={{ marginTop:8, padding:"8px 12px", background:C.surface, borderRadius:8,
                       border:`1px solid ${C.border}`, fontSize:11.5, display:"flex", gap:16, flexWrap:"wrap" }}>
-          <b style={{ color:C.text }}>{fmtMesAno(dados[hover].mes+"-01")}</b>
+          <b style={{ color:C.text }}>{dados[hover].periodo==="semana"?`Semana de ${fmtDate(dados[hover].mes)}`:fmtMesAno(dados[hover].mes+"-01")}</b>
           <span style={{ color:C.muted }}>Planejado acum.: <b style={{ color:C.yellowD }}>{dados[hover].pctAcum.toFixed(1)}%</b></span>
           {temReal && <span style={{ color:C.muted }}>Realizado acum.: <b style={{ color:C.blue }}>{serieReal[hover].toFixed(1)}%</b></span>}
-          <span style={{ color:C.muted }}>No mes: <b style={{ color:C.text }}>{fmt(dados[hover].valor)}</b></span>
+          <span style={{ color:C.muted }}>No período: <b style={{ color:C.text }}>{fmt(dados[hover].valor)}</b></span>
         </div>
       )}
     </div>
@@ -31500,7 +31513,8 @@ function ModalPendenciaConferencia({form,setForm,etapasNivel1,responsaveis,obra,
       for(const [index,file] of files.entries()){
         if(!String(file.type||"").startsWith("image/"))throw new Error(`${file.name||"Arquivo"} não é uma imagem válida.`);
         const dataUrl=await comprimirImagem(file);
-        const resp=await enviarArquivoOneDrive({dataUrl,obraId:obra?.id,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`conferencia-${Date.now()}-${index+1}.jpg`});
+        const fileName=`conferencia-${Date.now()}-${index+1}.jpg`;
+        const resp=await uploadWithRetry(()=>enviarArquivoOneDrive({dataUrl,obraId:obra?.id,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName}));
         const url=resp.url||resp.item?.webUrl||"";
         if(!url)throw new Error(resp.error||`Falha ao enviar ${file.name||"a foto"}.`);
         novas.push({id:resp.item?.id||uid(),url,legenda:String(file.name||"Registro da vistoria").replace(/\.[^.]+$/,""),path:resp.path||"",tipo:"registro",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm:new Date().toISOString()});
@@ -32596,7 +32610,7 @@ function Cadastros({ data, update, showToast, onTab }) {
 
       {matModal && <ModalMaterial form={matModal} setForm={setMatModal} onSave={salvarMaterial}
                                   unidades={unidades}/>}
-      {fornModal && <ModalFornecedor form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
+      {fornModal && <FornecedorEditorPilot form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
       {compEmpresaModal && <Modal title="Editar composição da empresa" onClose={()=>setCompEmpresaModal(null)} wide>
         <div style={{display:"flex",flexDirection:"column",gap:11}}>
           {compEmpresaModal.origemCodigo&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}35`,borderRadius:7,padding:"8px 10px"}}>
@@ -35040,7 +35054,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         </>}
       />
 
-      {dre.fonteFinanceira!=="razao_canonico"&&<Notice v="warn">A DRE está aguardando a projeção do razão canônico para este período. Nenhum cálculo local será exibido como resultado financeiro.</Notice>}
+      {dre.fonteFinanceira!=="razao_canonico"&&<Alert variant="warning"><AlertDescription className="text-xs">A DRE está aguardando a projeção do razão canônico para este período. Nenhum cálculo local será exibido como resultado financeiro.</AlertDescription></Alert>}
 
       <div className="dre-company-toolbar">
         <TabRow tabs={[
@@ -37570,9 +37584,9 @@ export default function App() {
         {isDesktop && (
           <aside className="no-print arcd-sidebar" style={{
             position:"fixed", top:0, left:0, bottom:0, width:SIDEBAR_W, zIndex:90,
-            background:C.bg, borderRight:`1.5px solid ${C.border}`,
+            background:C.bg, borderRight:`1px solid ${C.border}`,
             display:"flex", flexDirection:"column",
-            boxShadow:`1px 0 8px ${C.shadow}`,
+            boxShadow:"none",
             transition:"width .18s ease",
           }}>
             {/* Marca */}
@@ -37582,7 +37596,7 @@ export default function App() {
               justifyContent:"space-between", gap:8,
             }}>
               {sidebarCompacta
-                ? <div style={{ width:30, height:30, borderRadius:8, display:"grid", placeItems:"center", background:C.yellow }}>
+                ? <div style={{ width:30, height:30, borderRadius:C.rMd, display:"grid", placeItems:"center", background:C.yellow }}>
                     <Ic n="building" s={17} color="#171717"/>
                   </div>
                 : <BrandMark/>}
@@ -37591,7 +37605,7 @@ export default function App() {
                 title={sidebarCompacta ? "Expandir menu" : "Minimizar menu"}
                 aria-label={sidebarCompacta ? "Expandir menu lateral" : "Minimizar menu lateral"}
                 style={{
-                  width:30, height:30, flexShrink:0, borderRadius:8, cursor:"pointer",
+                  width:30, height:30, flexShrink:0, borderRadius:C.rMd, cursor:"pointer",
                   border:`1px solid ${C.border}`, background:C.surface, color:C.muted,
                   display:"grid", placeItems:"center", fontSize:20, lineHeight:1,
                 }}
@@ -37602,7 +37616,7 @@ export default function App() {
             <div style={{ padding:"10px 10px 4px" }}>
               <button onClick={()=>setBuscaAberta(true)} style={{
                 display:"flex", alignItems:"center", justifyContent:sidebarCompacta ? "center" : "flex-start", gap:8, width:"100%",
-                background:C.surface, border:`1px solid ${C.border}`, borderRadius:8,
+                background:C.surface, border:`1px solid ${C.border}`, borderRadius:C.rMd,
                 padding:sidebarCompacta ? "8px" : "8px 10px", cursor:"pointer", color:C.muted }}
                 title={sidebarCompacta ? "Buscar (Ctrl + K)" : undefined}
                 aria-label="Buscar no sistema">
@@ -37770,8 +37784,8 @@ export default function App() {
         <header className="no-print arcd-topbar" style={{
           position:"sticky", top:0, zIndex:50,
           background:"rgba(255,255,255,.97)", backdropFilter:"blur(18px)",
-          borderBottom:`1.5px solid ${C.border}`,
-          boxShadow:`0 1px 8px ${C.shadow}`,
+          borderBottom:`1px solid ${C.border}`,
+          boxShadow:"none",
         }}>
           <div className="app-header-inner" style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "12px 22px" : "10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
             <div className="app-header-context" style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -37796,7 +37810,7 @@ export default function App() {
             {/* Usuário logado + ponto rápido */}
             <div className="app-header-actions" style={{ display:"flex", alignItems:"center", gap:8 }}>
               {/* Badge do usuário - no desktop já aparece no rodapé da sidebar */}
-              <div className="app-user-badge" style={{ display: isDesktop ? "none" : "flex", alignItems:"center", gap:6, padding:"4px 10px", background:C.surface, borderRadius:6, border:`1px solid ${C.border}` }}>
+              <div className="app-user-badge" style={{ display: isDesktop ? "none" : "flex", alignItems:"center", gap:6, padding:"4px 10px", background:C.surface, borderRadius:C.rMd, border:`1px solid ${C.border}` }}>
                 <div style={{ width:7, height:7, borderRadius:"50%", background:ROLES.find(r=>r.v===currentUser?.role)?.color||C.yellow, flexShrink:0 }}/>
                 <p style={{ fontSize:11, fontWeight:600, color:C.text, maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{currentUser?.nome}</p>
                 <button onClick={sairDoSistema} style={{
@@ -37812,14 +37826,14 @@ export default function App() {
                   onClick={() => setTab("ponto")}
                   style={{
                     background: tab==="ponto" ? C.yellow : C.surface,
-                    color: tab==="ponto" ? "#fff" : C.text,
-                    border:`1.5px solid ${tab==="ponto"?C.yellow:C.border}`,
-                    borderRadius:6, padding:"7px 12px",
+                    color: tab==="ponto" ? C.text : C.text,
+                    border:`1px solid ${tab==="ponto"?C.yellow:C.border}`,
+                    borderRadius:C.rMd, padding:"7px 12px",
                     display:"inline-flex", alignItems:"center", gap:5,
                     cursor:"pointer", fontFamily:"'Inter Display','Inter',sans-serif",
                     fontWeight:700, textTransform:"uppercase", letterSpacing:.6, fontSize:12,
                     position:"relative",
-                    "--ic-color": tab==="ponto" ? "#fff" : C.text,
+                    "--ic-color": C.text,
                   }}
                 >
                   <Ic n="clock" s={13}/> <span className="app-quick-label">Ponto</span>
@@ -37920,7 +37934,7 @@ export default function App() {
           position:"fixed", bottom:0, left:0, right:0, zIndex:80,
           background:"rgba(255,255,255,.98)", backdropFilter:"blur(20px)",
           borderTop:`1px solid ${C.border}`,
-          boxShadow:`0 -4px 20px ${C.shadow}`,
+          boxShadow:"none",
         }}>
           <div style={{ maxWidth:maxConteudo, margin:"0 auto" }}>
 
@@ -37935,7 +37949,7 @@ export default function App() {
                   const meta = TAB_META[tabId];
                   const isActive = tab === tabId;
                   return (
-                    <button key={tabId} onClick={() => setTab(tabId)} style={{
+                    <button key={tabId} data-active={isActive} onClick={() => setTab(tabId)} style={{
                       flexShrink:0,
                       background: isActive ? `${activeGroup.color}22` : "transparent",
                       color: isActive ? activeGroup.color : C.muted,
@@ -37956,7 +37970,7 @@ export default function App() {
                 {activeGroup?.id==="eng_grp" && obrasMenuEngenharia.map(obra => {
                   const isActive = tab==="obras" && obraAberta===obra.id;
                   return (
-                    <button key={obra.id} onClick={() => irPara("obras", obra.id)} style={{
+                    <button key={obra.id} data-active={isActive} onClick={() => irPara("obras", obra.id)} style={{
                       flexShrink:0,
                       background: isActive ? `${activeGroup.color}22` : "transparent",
                       color: isActive ? activeGroup.color : C.muted,
@@ -37986,7 +38000,7 @@ export default function App() {
                 const isActive = activeGroup?.id === group.id;
                 const badge = groupBadge[group.id];
                 return (
-                  <button key={group.id} onClick={() => goGroup(group)} style={{
+                  <button key={group.id} data-active={isActive} onClick={() => goGroup(group)} style={{
                     background: isActive ? `${group.color}15` : "transparent",
                     color: isActive ? group.color : C.muted,
                     border:"none",

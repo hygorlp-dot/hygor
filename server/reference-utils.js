@@ -1,9 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════
-// api/utils.js — Utilitários compartilhados entre endpoints
-//
-// Evita duplicação de código entre references.js e upload.js
-// ═══════════════════════════════════════════════════════════════════
-
 export const normalizeText = (value) => 
   String(value || "")
     .normalize("NFD")

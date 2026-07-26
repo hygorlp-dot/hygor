@@ -5,22 +5,22 @@ import { cva } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border text-sm font-semibold normal-case tracking-[0.01em] ring-offset-background transition-[background-color,border-color,color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af37] focus-visible:ring-offset-2 active:translate-y-px disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex min-h-[var(--arcd-control-height)] items-center justify-center gap-2 whitespace-nowrap rounded-[var(--arcd-radius-md)] border text-sm font-semibold normal-case tracking-[0.01em] transition-[background-color,border-color,color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--arcd-focus-ring)] focus-visible:ring-offset-2 active:translate-y-px disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "border-[#b8930f] bg-[#d4af37] text-[#121212] hover:bg-[#c8a329]",
-        destructive: "border-[#e0b1b1] bg-[#fff7f7] text-[#b71c1c] hover:border-[#b71c1c] hover:bg-[#fbeaea]",
-        outline: "border-[#cdd0d3] bg-[#fafafa] text-[#121212] hover:border-[#aeb3b7] hover:bg-[#e6e8ea]",
-        secondary: "border-[#cdd0d3] bg-[#e6e8ea] text-[#121212] hover:bg-[#d9dcde]",
-        ghost: "border-transparent bg-transparent text-[#41464b] hover:bg-[#e6e8ea] hover:text-[#121212]",
-        link: "border-transparent bg-transparent text-[#0d47a1] underline-offset-4 hover:underline",
+        default: "border-[var(--arcd-action-primary)] bg-[var(--arcd-action-primary)] text-[var(--arcd-action-primary-text)] hover:bg-[var(--arcd-action-primary-hover)]",
+        destructive: "border-[var(--arcd-danger-border)] bg-[var(--arcd-danger-surface)] text-[var(--arcd-danger-text)] hover:border-[var(--arcd-danger-text)]",
+        outline: "border-[var(--arcd-border-strong)] bg-[var(--arcd-surface-card)] text-[var(--arcd-text-primary)] hover:border-[var(--arcd-text-secondary)] hover:bg-[var(--arcd-surface-muted)]",
+        secondary: "border-[var(--arcd-border-default)] bg-[var(--arcd-surface-muted)] text-[var(--arcd-text-primary)] hover:bg-[var(--arcd-surface-subtle)]",
+        ghost: "border-transparent bg-transparent text-[var(--arcd-text-secondary)] hover:bg-[var(--arcd-surface-muted)] hover:text-[var(--arcd-text-primary)]",
+        link: "border-transparent bg-transparent text-[var(--arcd-info-text)] underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        default: "px-4 py-2",
+        sm: "min-h-9 px-3",
+        lg: "min-h-12 px-8",
+        icon: "w-[var(--arcd-control-height)] px-0",
       },
     },
     defaultVariants: {

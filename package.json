@@ -10,6 +10,7 @@
     "@supabase/supabase-js": "^2.45.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dexie": "^4.4.4",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.26.0",
@@ -29,7 +30,14 @@
     "lint": "node scripts/check-financial-boundaries.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "quality:bundle": "node scripts/bundle-metrics.mjs"
+    "typecheck": "tsc --noEmit -p tsconfig.quality.json",
+    "quality:bundle": "node scripts/bundle-metrics.mjs",
+    "assets:login": "node scripts/optimize-login-assets.mjs",
+    "architecture:check": "depcruise --config .dependency-cruiser.cjs src api server",
+    "quality:knip": "knip --config knip.json --no-exit-code --reporter compact --no-progress --include files,dependencies,exports",
+    "pwa:generate": "node scripts/generate-shell-service-worker.mjs",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "browserslist": {
     "production": [
@@ -41,14 +49,22 @@
     ]
   },
   "devDependencies": {
+    "@storybook/react-vite": "^10.5.4",
     "@vitejs/plugin-react": "^6.0.4",
     "@vitest/coverage-v8": "^4.1.10",
     "autoprefixer": "^10.5.4",
+    "dependency-cruiser": "^18.1.0",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
+    "knip": "^6.29.0",
     "postcss": "^8.5.22",
+    "sharp": "^0.35.3",
+    "storybook": "^10.5.4",
     "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3",
     "vite": "^8.1.5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "workbox-build": "^7.4.1"
   },
   "overrides": {
     "brace-expansion": "^5.0.8",

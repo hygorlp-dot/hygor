@@ -1,0 +1,13 @@
+.arcd-field-home { display: grid; gap: var(--arcd-space-5); }
+.arcd-field-context { display: grid; gap: var(--arcd-space-1); padding: var(--arcd-space-4); border: 1px solid var(--arcd-color-border); border-radius: var(--arcd-radius-lg); background: var(--arcd-color-surface); }
+.arcd-field-context__eyebrow { color: var(--arcd-color-primary-hover); font-size: var(--arcd-font-size-xs); font-weight: var(--arcd-font-weight-bold); letter-spacing: .08em; text-transform: uppercase; }
+.arcd-field-context__title { margin: 0; font-size: var(--arcd-font-size-xl); line-height: var(--arcd-line-height-tight); }
+.arcd-field-context__meta { color: var(--arcd-color-text-muted); font-size: var(--arcd-font-size-sm); }
+.arcd-field-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--arcd-space-3); }
+.arcd-field-action-card { display: grid; min-block-size: 8.5rem; align-content: space-between; gap: var(--arcd-space-3); border: 1px solid var(--arcd-color-border); border-radius: var(--arcd-radius-lg); padding: var(--arcd-space-4); background: var(--arcd-color-surface); color: var(--arcd-color-text); text-align: left; cursor: pointer; }
+.arcd-field-action-card:not(:disabled):hover { border-color: var(--arcd-color-primary); background: var(--arcd-color-primary-subtle); }
+.arcd-field-action-card:focus-visible { outline: 3px solid color-mix(in srgb, var(--arcd-color-focus) 62%, transparent); outline-offset: 2px; }
+.arcd-field-action-card:disabled { opacity: .55; cursor: not-allowed; }
+.arcd-field-action-card__icon { display: grid; width: var(--arcd-touch-target-comfortable); height: var(--arcd-touch-target-comfortable); place-items: center; border-radius: var(--arcd-radius-md); background: var(--arcd-color-surface-muted); color: var(--arcd-color-primary-hover); }
+.arcd-field-action-card__title { font-size: var(--arcd-font-size-sm); font-weight: var(--arcd-font-weight-bold); }
+.arcd-field-action-card__description { margin-top: var(--arcd-space-1); color: var(--arcd-color-text-muted); font-size: var(--arcd-font-size-xs); line-height: var(--arcd-line-height-normal); }
