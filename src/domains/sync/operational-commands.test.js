@@ -13,7 +13,7 @@ describe("comandos operacionais versionados",()=>{
   });
 
   it("aplica a mesma entidade em ordem e recusa versão antiga",()=>{
-    const initial={rdos:[{id:"r-1",version:1,descricao:"antes"}]};
+    const initial={rdos:[{id:"r-1",obraId:"o-1",data:"2026-07-25",version:1,descricao:"antes"}]};
     const first=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,"field-report-0002",{report:{id:"r-1",descricao:"depois"}},1));
     const stale=applyOperationalCommand(first.data,command(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,"field-report-0003",{report:{id:"r-1",descricao:"perdido"}},1));
     expect(first.data.rdos[0]).toMatchObject({descricao:"depois",version:2});expect(stale).toMatchObject({ok:false});expect(stale.reason).toMatch(/alterado/);
@@ -28,10 +28,17 @@ describe("comandos operacionais versionados",()=>{
 
   it("cancela o RDO sem apagá-lo e impede versão antiga",()=>{
     const initial={rdos:[{id:"r-1",version:2,status:"concluido"}]};
+    const noReason=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,"field-report-cancel-0000",{reportId:"r-1"},2));
+    expect(noReason.ok).toBe(false);
     const first=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,"field-report-cancel-0001",{reportId:"r-1",reason:"Lançamento duplicado"},2));
     const stale=applyOperationalCommand(first.data,command(OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,"field-report-cancel-0002",{reportId:"r-1",reason:"Outro"},2));
-    expect(first.data.rdos[0]).toMatchObject({status:"cancelado",motivoCancelamento:"Lançamento duplicado",version:3});
+    expect(first.data.rdos[0]).toMatchObject({status:"cancelado",motivoCancelamento:"Lançamento duplicado",version:3});expect(first.data.rdos[0].operationalHistory).toHaveLength(1);
     expect(stale).toMatchObject({ok:false});
+  });
+
+  it("recusa diário sem obra ou data antes de persistir",()=>{
+    const invalid=applyOperationalCommand({rdos:[]},command(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,"field-report-invalid-0001",{report:{id:"r-1",obraId:"o-1"}},0));
+    expect(invalid.ok).toBe(false);expect(invalid.reason).toMatch(/obra e data/);
   });
 
   it("registra avanço físico de forma idempotente e permite apenas estorno motivado",()=>{

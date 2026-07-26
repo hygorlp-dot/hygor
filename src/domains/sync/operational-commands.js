@@ -119,6 +119,8 @@ export const applyOperationalCommand=(data,command)=>{
     const report=command.payload?.report;
     if(!report?.id)return fail("Diário de obra sem identificação.");
     const current=(data?.rdos||[]).find(item=>item.id===report.id);
+    const effective=current?{...current,...report}:report;
+    if(!String(effective.obraId||"").trim()||!/^\d{4}-\d{2}-\d{2}$/.test(String(effective.data||"")))return fail("Diário de obra exige obra e data válida.");
     if(current){
       const versionError=requiresVersion(current,command.expectedVersion,"O diário de obra");
       if(versionError)return fail(versionError);
@@ -139,7 +141,9 @@ export const applyOperationalCommand=(data,command)=>{
     const versionError=requiresVersion(current,command.expectedVersion,"O diário de obra");
     if(versionError)return fail(versionError);
     if(current.status==="cancelado")return fail("O diário de obra já está cancelado.");
-    const cancelled={...current,status:"cancelado",motivoCancelamento:String(command.payload?.reason||"").trim(),canceladoEm:now,canceladoPorId:command.actorId||"",canceladoPor:command.actorName||"",updatedAt:now,atualizadoEm:now,version:versionOf(current)+1};
+    const reason=String(command.payload?.reason||"").trim();
+    if(!reason)return fail("Cancelamento do diário de obra exige motivo.");
+    const cancelled={...current,status:"cancelado",motivoCancelamento:reason,canceladoEm:now,canceladoPorId:command.actorId||"",canceladoPor:command.actorName||"",updatedAt:now,atualizadoEm:now,version:versionOf(current)+1,operationalHistory:[...(current.operationalHistory||[]),{type:"cancelled",at:now,byId:command.actorId||"",by:command.actorName||"",reason}]};
     const next={...data,rdos:(data.rdos||[]).map(item=>item.id===id?cancelled:item)};
     return {ok:true,data:appendReceipt(next,command,id,now)};
   }
