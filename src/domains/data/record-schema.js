@@ -1,7 +1,9 @@
 // Schema de compatibilidade para o blob legado. O normalizador da interface
 // pode continuar preenchendo campos de apresentação, mas não pode apagar
 // metadados de auditoria nem inventar uma data histórica.
-export const APP_SCHEMA_VERSION = 5;
+import { migrateLegacyTechnicalMeasurements } from "../medicoes/migrations.js";
+
+export const APP_SCHEMA_VERSION = 6;
 
 const AUDIT_FIELDS = new Set([
   "id", "obraId", "status", "createdAt", "createdById", "createdBy",
@@ -69,8 +71,11 @@ export const finalizeNormalizedData = (source, normalized) => {
   Object.keys(next).forEach(key => {
     if (Array.isArray(next[key])) next[key] = preserveCollection(source, next, key);
   });
+  const migrated=migrateLegacyTechnicalMeasurements(next);
+  Object.assign(next,migrated.data);
   const quality = Array.isArray(next.qualidadeDados) ? next.qualidadeDados : [];
-  next.qualidadeDados = [...quality, ...missingEffectiveDateIssues(source, quality)];
+  const allIssues=[...quality,...missingEffectiveDateIssues(source,quality),...migrated.issues];
+  next.qualidadeDados=allIssues.filter((issue,index)=>allIssues.findIndex(other=>(other?.chave||other?.id)===(issue?.chave||issue?.id))===index);
   next.schemaVersion = Math.max(APP_SCHEMA_VERSION, Number(source?.schemaVersion || 0), Number(next.schemaVersion || 0));
   return next;
 };

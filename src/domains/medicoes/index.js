@@ -5,3 +5,4 @@ export * from "./model.js";
 export * from "./projections.js";
 export * from "./audit.js";
 export * from "./selectors.js";
+export * from "./migrations.js";

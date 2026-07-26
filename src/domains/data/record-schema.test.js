@@ -30,4 +30,13 @@ describe("schema versionado de registros legados", () => {
     expect(result.qualidadeDados).toEqual([expect.objectContaining({ chave: "data-efetiva-ausente:medicoesObra:mt-sem-data", status: "aberta" })]);
     expect(finalizeNormalizedData(result, result).qualidadeDados).toHaveLength(1);
   });
+
+  it("migra boletim legado de modo idempotente e expõe divergência sem reescrever o fato",()=>{
+    const legacy={medicoesObra:[{id:"mt-1",obraId:"obra-a",status:"confirmada",data:"2026-07-20",avancoFisico:80,itens:[{tarefaId:"t-1",custo:100,pctConfirmado:50}]}]};
+    const once=finalizeNormalizedData(legacy,legacy);
+    const twice=finalizeNormalizedData(once,once);
+    expect(once.medicoesObra[0]).toMatchObject({schemaVersion:1,status:"aprovada",legacyStatus:"confirmada",dataMedicao:"2026-07-20",avancoFisico:80});
+    expect(once.qualidadeDados).toEqual(expect.arrayContaining([expect.objectContaining({tipo:"medicao_tecnica_avanco_divergente",gravado:80,calculado:50})]));
+    expect(twice).toEqual(once);
+  });
 });
