@@ -10,6 +10,7 @@ describe("parallax da maquete no login",()=>{
     expect(source).toContain("login-project-landscape");
     expect(source).toContain("login-project-house-layer");
     expect(source).toContain("login-project-house");
+    expect(source).toContain("login-project-brand-watermark");
   });
 
   it("respeita redução de movimento e não anima dispositivos de toque",()=>{

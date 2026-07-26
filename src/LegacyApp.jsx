@@ -15093,7 +15093,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
 
   return (
     <div className="login-tech-shell">
-      <LoginProjectParallax/>
+      <LoginProjectParallax logoSrc={ARCD_LOGO}/>
 
       <section className="login-project-story" aria-label="Plataforma ARCD">
         <div className="login-eyebrow">
@@ -22267,6 +22267,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                 const entrada=Number(tr.valor)>0,sug=tr.status==="pendente"?sugerirRateio(tr,data.regrasConc,data.aprendizadoConc):null;
                 const candidatas=aba==="pendentes"?(candidatosPorTransacao.get(tr.id)||[]):[];
                 const melhor=candidatas[0];
+                const melhorEhPixMaoDeObra=melhor?.tipo==="maoObraPonto";
                 const pixFuncionario=findRegisteredEmployeePix(tr,data.employees);
                 const corMovimento=entrada?C.green:pixFuncionario?C.yellow:C.red;
                 return <tr key={tr.id} style={{background:selecionadas.includes(tr.id)?`${C.yellow}08`:pixFuncionario?`${C.yellow}0D`:"transparent"}}>
@@ -22304,7 +22305,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                   <td style={{padding:"7px 8px",fontSize:10.5,fontWeight:900,color:entrada?C.green:C.red,textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{entrada?"+ ":""}{fmt(Math.abs(tr.valor))}</td>
                   <td style={{padding:"5px 7px",textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>
                     {tr.status==="pendente"&&<>
-                      {melhor&&<Btn size="sm" onClick={()=>melhor.tipo==="maoObraPonto"?abrirApropriacao(tr):abrirCandidato(tr)}><Ic n="check"/> {melhor.tipo==="maoObraPonto"?"Confirmar PIX":"Revisar sugestão"}</Btn>}{" "}
+                      {melhor&&<Btn size="sm" onClick={()=>melhorEhPixMaoDeObra?abrirApropriacao(tr):abrirCandidato(tr)}><Ic n="check"/> {melhorEhPixMaoDeObra?"Confirmar PIX":"Revisar sugestão"}</Btn>}{" "}
                       {entrada&&<Btn size="sm" v="success" onClick={()=>abrirValidarEntrada(tr)}><Ic n="check"/> Validar entrada</Btn>}{" "}
                       <Btn size="sm" v="ghost" onClick={()=>abrirApropriacao(tr)}>Rateio manual</Btn>{" "}
                       <Btn size="sm" v="ghost" onClick={()=>setTransferModal({trId:tr.id})}>Transferência</Btn>{" "}
@@ -22675,7 +22676,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                 {c && <Btn v="ghost" onClick={()=>rejeitarCandidato(tr,c)}>Não corresponde</Btn>}
               </div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap",paddingTop:8,borderTop:`1px solid ${C.line}`}}>
-                <Btn v="ghost" onClick={()=>{fecharCandidato();abrirApropriacao(tr);}}>Rateio manual / criar lançamento</Btn>
+                {c?.tipo!=="maoObraPonto" && <Btn v="ghost" onClick={()=>{fecharCandidato();abrirApropriacao(tr);}}>Rateio manual / criar lançamento</Btn>}
                 <Btn v="ghost" onClick={()=>{fecharCandidato();setTransferModal({trId:tr.id});}}>Transferência interna</Btn>
                 <Btn v="ghost" onClick={()=>{fecharCandidato();setEstornoModal({trId:tr.id});}}>Estorno</Btn>
                 <Btn v="ghost" onClick={fecharCandidato}>Manter pendente</Btn>
@@ -31032,6 +31033,10 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
     setFatForm({competencia:String(m.data||today()).slice(0,7),dataVencimento:""});
     setFatModal(m);
   };
+  const faturamentoPreview=useMemo(
+    ()=>fatModal?createBillingFromTechnicalMeasurement(data,{medicaoTecnicaId:fatModal.id,competencia:fatForm.competencia}):null,
+    [data,fatModal,fatForm.competencia],
+  );
   const confirmarFaturamento=()=>{
     const result=createBillingFromTechnicalMeasurement(data,{
       medicaoTecnicaId:fatModal?.id,competencia:fatForm.competencia,
@@ -31242,10 +31247,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
             <b style={{fontSize:10.5,color:C.blue}}>Avanço físico confirmado: {Number(fatModal.avancoFisico||0).toFixed(1)}%</b>
             <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>O valor é calculado pelo contrato e pelo avanço ainda não faturado; não há digitação manual.</p>
           </div>
-          {(()=>{
-            const preview=createBillingFromTechnicalMeasurement(data,{medicaoTecnicaId:fatModal.id,competencia:fatForm.competencia});
-            return preview.ok?<div style={{padding:"9px 10px",border:`1px solid ${C.green}55`,borderRadius:7,background:`${C.green}08`}}><p style={{fontSize:9.5,color:C.muted}}>Faturamento incremental calculado</p><b style={{fontSize:15,color:C.green}}>{fmt(preview.measurement.valorPrevisto)}</b></div>:<p style={{fontSize:10.5,color:C.red}}>{preview.error}</p>;
-          })()}
+          {faturamentoPreview?.ok?<div style={{padding:"9px 10px",border:`1px solid ${C.green}55`,borderRadius:7,background:`${C.green}08`}}><p style={{fontSize:9.5,color:C.muted}}>Faturamento incremental calculado</p><b style={{fontSize:15,color:C.green}}>{fmt(faturamentoPreview.measurement.valorPrevisto)}</b></div>:<p style={{fontSize:10.5,color:C.red}}>{faturamentoPreview?.error}</p>}
           <Inp label="Competência" type="month" value={fatForm.competencia} onChange={competencia=>setFatForm(form=>({...form,competencia}))}/>
           <Inp label="Vencimento" type="date" value={fatForm.dataVencimento} onChange={dataVencimento=>setFatForm(form=>({...form,dataVencimento}))}/>
           <div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={()=>setFatModal(null)}>Cancelar</Btn><Btn v="success" full onClick={confirmarFaturamento}>Gerar faturamento</Btn></div>

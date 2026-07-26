@@ -9,7 +9,7 @@ import {
 } from "motion/react";
 import projectHouse from "../../assets/login-projects-depth.png";
 
-export default function LoginProjectParallax(){
+export default function LoginProjectParallax({logoSrc=""}){
   const reduceMotion=useReducedMotion();
   const landscapeTargetX=useMotionValue(0);
   const landscapeTargetY=useMotionValue(0);
@@ -83,6 +83,7 @@ export default function LoginProjectParallax(){
           transition={{duration:1.25,ease:[.22,1,.36,1]}}
         />
       </div>
+      {logoSrc&&<img className="login-project-brand-watermark" src={logoSrc} alt="" draggable="false"/>}
     </div>
   </LazyMotion>;
 }

@@ -61,20 +61,6 @@
   isolation: isolate;
 }
 
-.login-tech-shell::before {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  content: "";
-  pointer-events: none;
-  opacity: .16;
-  background-image:
-    linear-gradient(rgba(212, 175, 55, .12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(212, 175, 55, .12) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: linear-gradient(90deg, #000, transparent 72%);
-}
-
 .login-project-visual {
   position: absolute;
   inset: 0 37% 0 0;
@@ -118,6 +104,20 @@
 .login-project-house {
   filter: saturate(.88) brightness(1.025) contrast(.98);
   transform-origin: 32% 57%;
+}
+
+.login-project-brand-watermark {
+  position: absolute;
+  z-index: 2;
+  top: clamp(34px, 8vh, 96px);
+  right: clamp(28px, 7vw, 120px);
+  width: clamp(118px, 14vw, 210px);
+  height: auto;
+  opacity: .32;
+  pointer-events: none;
+  user-select: none;
+  filter: grayscale(1) sepia(.28) saturate(.7) brightness(1.8);
+  mix-blend-mode: screen;
 }
 
 .login-project-visual::after {
@@ -282,18 +282,6 @@
   background: rgba(212, 175, 55, .06);
 }
 
-.login-brand-mark::after {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  content: "";
-  background: #d4af37;
-  transform: translate(25px, -25px);
-  box-shadow: 0 0 0 0 rgba(212, 175, 55, .35);
-  animation: login-signal 2.8s ease-out infinite;
-}
-
 .login-brand-mark {
   position: relative;
 }
@@ -306,11 +294,6 @@
 @keyframes login-panel-enter {
   from { opacity: 0; transform: translateX(18px); }
   to { opacity: 1; transform: none; }
-}
-
-@keyframes login-signal {
-  0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, .38); }
-  65%, 100% { box-shadow: 0 0 0 9px rgba(212, 175, 55, 0); }
 }
 
 @keyframes login-network-flow {
@@ -369,11 +352,6 @@
     padding: 178px 16px 24px;
   }
 
-  .login-tech-shell::before {
-    background-size: 48px 48px;
-    mask-image: linear-gradient(#000, transparent 58%);
-  }
-
   .login-project-visual {
     inset: 0 0 auto;
     height: 260px;
@@ -384,6 +362,13 @@
     width: 114%;
     height: 114%;
     object-position: center 42%;
+  }
+
+  .login-project-brand-watermark {
+    top: 20px;
+    right: 22px;
+    width: 104px;
+    opacity: .24;
   }
 
   .login-project-visual::after {
@@ -944,7 +929,6 @@
   .login-tech-signal,
   .login-project-story,
   .login-access-card,
-  .login-brand-mark::after,
   .dashboard-tech-motion > section,
   .dashboard-kpi,
   .dashboard-mission-rows > button,
