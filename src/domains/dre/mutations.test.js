@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildFinancialLedger, selectDRE } from "../financeiro/ledger";
-import { cancelCompanyExpense, cancelDreExpense, createDreExpense, replicateCompanyRecurringExpenses, saveCompanyExpense } from "./mutations";
+import { buildFinancialLedger, selectCashFlow, selectDRE } from "../financeiro/ledger";
+import { cancelCompanyExpense, cancelDreExpense, createDreExpense, createManualReceipt, replicateCompanyRecurringExpenses, reverseManualReceipt, saveCompanyExpense } from "./mutations";
 
 describe("cancelamento auditável de despesa no DRE", () => {
   const data={ outrasDesp:[{ id:"desp-1", obraId:"obra-1", valor:1250, descricao:"Argamassa", status:"ativo" }] };
@@ -32,6 +32,24 @@ describe("cancelamento auditável de despesa no DRE", () => {
     expect(() => createDreExpense({ ...input, expense:{ ...input.expense, competencia:"julho" } })).toThrow("competência válida");
     expect(() => createDreExpense({ ...input, expense:{ ...input.expense, descricao:"" } })).toThrow("descrição");
     expect(() => createDreExpense({ ...input, expense:{ ...input.expense, valor:0 } })).toThrow("valor positivo");
+  });
+
+  it("registra recebimento manual auditável somente como entrada de caixa", () => {
+    const result=createManualReceipt({data:{payments:[]},receipt:{obraId:"obra-1",date:"2026-07-05",amount:"700.25",description:"Sinal"},actor,id:"rec-1",now:"2026-07-05T10:00:00.000Z"});
+    expect(result.payments[0]).toMatchObject({id:"rec-1",status:"ativo",origem:"manual",tipo:"recebimento_avulso",createdById:"u-1",amount:700.25});
+    const ledger=buildFinancialLedger(result);
+    const cash=selectCashFlow(ledger,{obraId:"obra-1",startDate:"2026-07-01",endDate:"2026-07-31"});
+    expect(cash.cashIn).toBe(700.25);
+    const dre=selectDRE(ledger,{obraId:"obra-1",competence:"2026-07"});
+    expect(dre.costs).toBe(0);
+  });
+
+  it("estorna recebimento manual preservando autoria e bloqueia fato conciliado", () => {
+    const data=createManualReceipt({data:{payments:[]},receipt:{obraId:"obra-1",date:"2026-07-05",amount:700},actor,id:"rec-1"});
+    const result=reverseManualReceipt({data,receiptId:"rec-1",reason:"Duplicidade",actor,now:"2026-07-06T10:00:00.000Z"});
+    expect(result.payments[0]).toMatchObject({status:"estornado",motivoCancelamento:"Duplicidade",canceladoPorId:"u-1"});
+    expect(selectCashFlow(buildFinancialLedger(result),{obraId:"obra-1",startDate:"2026-07-01",endDate:"2026-07-31"}).cashIn).toBe(0);
+    expect(()=>reverseManualReceipt({data:{payments:[{...data.payments[0],conciliado:true,transacaoId:"tx-1"}]},receiptId:"rec-1",reason:"x",actor})).toThrow("Desfaça a conciliação");
   });
 
   it("cancela despesa corporativa com autoria e a remove do razão", () => {

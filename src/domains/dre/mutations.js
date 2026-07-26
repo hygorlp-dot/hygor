@@ -38,6 +38,37 @@ export const createDreExpense = ({ data, expense, actor, id, now = new Date().to
   return { ...data, outrasDesp:[...(Array.isArray(data?.outrasDesp) ? data.outrasDesp : []), registro] };
 };
 
+export const createManualReceipt = ({ data, receipt, actor, id, now = new Date().toISOString() }) => {
+  if (!actor?.id) throw new Error("Sessão do usuário indisponível para registrar o recebimento.");
+  if (!id) throw new Error("Identificador do recebimento ausente.");
+  const obraId=String(receipt?.obraId || "");
+  const date=String(receipt?.date || receipt?.data || "");
+  const amount=Number(receipt?.amount ?? receipt?.valor);
+  if (!obraId) throw new Error("Selecione a obra do recebimento.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Informe uma data válida para o recebimento.");
+  if (!(amount > 0) || !Number.isFinite(amount)) throw new Error("Informe um valor positivo para o recebimento.");
+  const userName=actor.nome || actor.email || "Usuário autenticado";
+  const registro={
+    id, obraId, date, amount, description:String(receipt?.description || receipt?.descricao || "Recebimento avulso").trim() || "Recebimento avulso",
+    tipo:"recebimento_avulso", origem:"manual", transacaoId:"", conciliado:false, medicaoId:"", contratoId:"", status:"ativo",
+    createdAt:now, createdById:actor.id, createdBy:userName, updatedAt:now, updatedById:actor.id, updatedBy:userName,
+  };
+  return { ...data, payments:[...(Array.isArray(data?.payments) ? data.payments : []), registro] };
+};
+
+export const reverseManualReceipt = ({ data, receiptId, reason, actor, now = new Date().toISOString() }) => {
+  if (!actor?.id) throw new Error("Sessão do usuário indisponível para estornar o recebimento.");
+  const motivoCancelamento=String(reason || "").trim();
+  if (!motivoCancelamento) throw new Error("Informe o motivo do estorno do recebimento.");
+  const payments=Array.isArray(data?.payments) ? data.payments : [];
+  const receipt=payments.find(item=>item.id===receiptId);
+  if (!receipt) throw new Error("Recebimento não encontrado.");
+  if (["cancelado","cancelada","estornado"].includes(String(receipt.status || "").toLowerCase())) throw new Error("Este recebimento já está estornado.");
+  if (receipt.conciliado || receipt.transacaoId) throw new Error("Desfaça a conciliação bancária antes de estornar este recebimento.");
+  const userName=actor.nome || actor.email || "Usuário autenticado";
+  return {...data,payments:payments.map(item=>item.id!==receiptId?item:{...item,status:"estornado",motivoCancelamento,canceladoEm:now,canceladoPorId:actor.id,canceladoPor:userName,updatedAt:now,updatedById:actor.id,updatedBy:userName})};
+};
+
 export const cancelCompanyExpense = ({ data, expenseId, reason, actor, now = new Date().toISOString() }) => {
   if (!actor?.id) throw new Error("Sessão do usuário indisponível para cancelar a despesa corporativa.");
   const motivoCancelamento=String(reason || "").trim();

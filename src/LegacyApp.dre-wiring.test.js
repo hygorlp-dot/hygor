@@ -11,6 +11,8 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain("cancelDreExpense({ data, expenseId:id, reason:motivo, actor:currentUser })");
     expect(source).toContain("createDreExpense({ data, expense:{ ...despForm, obraId, competencia:despForm.competencia || periodo }, actor:currentUser, id:uid() })");
     expect(source).toContain("createDreExpense({data,expense:despForm,actor:currentUser,id:uid()})");
+    expect(source).toContain("createManualReceipt({data,receipt:payForm,actor:currentUser,id:uid()})");
+    expect(source).toContain("reverseManualReceipt({data,receiptId:id,reason:motivo,actor:currentUser})");
     expect(source).toContain("<DRE          data={data} update={update} showToast={showToast} currentUser={currentUser} />");
   });
 });

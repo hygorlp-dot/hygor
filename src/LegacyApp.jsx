@@ -100,7 +100,7 @@ import {
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
 import { calculateContractProjection, createDreCalculations } from "./domains/dre/calculations";
-import { cancelCompanyExpense, cancelDreExpense, createDreExpense, replicateCompanyRecurringExpenses, saveCompanyExpense } from "./domains/dre/mutations";
+import { cancelCompanyExpense, cancelDreExpense, createDreExpense, createManualReceipt, replicateCompanyRecurringExpenses, reverseManualReceipt, saveCompanyExpense } from "./domains/dre/mutations";
 import {
   buildFinancialLedger,
   selectDRE as selectLedgerDRE,
@@ -7360,26 +7360,25 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
   const quinzenalChart = financialView.fortnightly;
 
   const savePayment = () => {
-    if(!payForm.obraId||!payForm.amount||isNaN(Number(payForm.amount))){
-      showToast("Preencha obra, data e valor.","error"); return;
+    try {
+      update(createManualReceipt({data,receipt:payForm,actor:currentUser,id:uid()}));
+      setPayModal(false);
+      setPayForm({obraId:"",date:today(),amount:"",description:""});
+      showToast("Recebimento registrado.");
+    } catch (error) {
+      showToast(error.message||"Não foi possível registrar o recebimento.","error");
     }
-    const payments=[...(data.payments||[]),{
-      id:uid(),obraId:payForm.obraId,date:payForm.date,amount:Number(payForm.amount),
-      description:payForm.description||"Recebimento avulso",
-      tipo:"recebimento_avulso",origem:"manual",transacaoId:"",conciliado:false,
-      medicaoId:"",contratoId:"",
-    }];
-    update({...data,payments});
-    setPayModal(false);
-    setPayForm({obraId:"",date:today(),amount:"",description:""});
-    showToast("Recebimento registrado.");
   };
 
   const removePayment = id => {
     const motivo=window.prompt("Motivo do estorno do recebimento:");
     if(!String(motivo||"").trim())return;
-    update({...data,payments:(data.payments||[]).map(p=>p.id===id?cancelarRegistro(p,motivo,currentUser,"estornado"):p)});
-    showToast("Recebimento estornado e preservado para auditoria.");
+    try {
+      update(reverseManualReceipt({data,receiptId:id,reason:motivo,actor:currentUser}));
+      showToast("Recebimento estornado e preservado para auditoria.");
+    } catch (error) {
+      showToast(error.message||"Não foi possível estornar o recebimento.","error");
+    }
   };
 
   const exportXLS = async () => {
