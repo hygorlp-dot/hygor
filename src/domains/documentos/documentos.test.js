@@ -1,0 +1,2 @@
+import { describe,expect,it } from "vitest";import { documentIsCurrent } from "./calculations.js";import { createRfiConstraint } from "./mutations.js";
+describe("documentos",()=>{it("não apresenta documento superado como vigente",()=>expect(documentIsCurrent({id:"d",revision:1},[{documentId:"d",revision:2,status:"publicado"}])).toBe(false));it("cria restrição bloqueante a partir de RFI",()=>{const result=createRfiConstraint({id:"r",obraId:"o",activityId:"a",dueDate:"2026-08-01"},{id:"c",now:"2026-07-26"});expect(result.constraint.bloqueante).toBe(true);});});

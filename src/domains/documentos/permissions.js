@@ -1,0 +1,1 @@
+export const canManageDocuments=role=>["admin","engenheiro","engenheiro_auditor","documentos"].includes(String(role||""));export const canRespondRfi=role=>["admin","engenheiro","engenheiro_auditor"].includes(String(role||""));
