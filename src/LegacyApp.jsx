@@ -121,7 +121,7 @@ import {
   createMonthlyClosingSnapshot,
   linkThirdPartyInvoice,
 } from "./domains/financeiro/workflows";
-import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
+import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, projectBudgetExport, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
 import { calculateCPM as calculateCanonicalCPM, calculateLineOfBalance, calculatePPC } from "./domains/planejamento";
 import { applyProgressToCommitment } from "./domains/producao";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
@@ -19678,7 +19678,8 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
   //  Exportar PDF 
   const exportPDF = () => {
     if (!orc || !calc) return;
-    const bdiMult = 1 + Number(orc.bdi||0)/100;
+    const exportacao=projectBudgetExport(orc);
+    const itemCalcPorId=new Map(exportacao.rows.map(item=>[item.id,item]));
     const f2 = n => Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2});
 
     // Cores por nível de hierarquia
@@ -19701,6 +19702,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
           <td colspan="7">${escapeHtml(n.descricao || "")}</td>
         </tr>`;
       }
+      const calculado=itemCalcPorId.get(n.id)||{};
       return `<tr>
         <td>${n.codigoItem}</td>
         <td>${escapeHtml(n.codigo)}</td>
@@ -19708,8 +19710,8 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
         <td class="desc">${escapeHtml(n.descricao)}</td>
         <td class="c">${escapeHtml(n.unidade)}</td>
         <td class="r">${f2(n.quantidade)}</td>
-        <td class="r">${f2(n.precoUnit * bdiMult)}</td>
-        <td class="r">${f2(n.quantidade * n.precoUnit * bdiMult)}</td>
+        <td class="r">${f2(calculado.precoUnitario)}</td>
+        <td class="r">${f2(calculado.total)}</td>
       </tr>`;
     }).join("");
 

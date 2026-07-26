@@ -30,6 +30,19 @@ export const calculateBudget = budget => {
   return {engineVersion:ENGINE_VERSION,items,etapas,custoDiretoCentavos,valorBDICentavos,totalCentavos,custoDireto:fromCents(custoDiretoCentavos),valorBDI:fromCents(valorBDICentavos),total:fromCents(totalCentavos),porM2:Number(budget?.areaM2||0)>0?fromCents(totalCentavos)/Number(budget.areaM2):0,qtdItens:items.length};
 };
 
+// Projeção única para tela, PDF e planilhas. Consumidores de exportação não
+// recalculam BDI: recebem os mesmos centavos e preços unitários do motor.
+export const projectBudgetExport = budget => {
+  const calculation=calculateBudget(budget);
+  return {...calculation,rows:calculation.items.map(item=>({
+    id:item.id,codigo:item.codigo||"",descricao:item.descricao||"",unidade:item.unidade||"",
+    quantidade:item.quantidade,custoUnitario:item.custoUnitario,bdi:item.bdiEfetivo,
+    precoUnitario:fromCents(toCents(item.totalCentavos/Math.max(item.quantidade||1,1))),
+    custoDireto:item.custoDireto,valorBDI:item.valorBDI,total:item.total,
+    custoDiretoCentavos:item.custoDiretoCentavos,bdiCentavos:item.bdiCentavos,totalCentavos:item.totalCentavos,
+  }))};
+};
+
 export const calculateABC = budget => {
   const calc=calculateBudget(budget),groups=new Map();
   calc.items.forEach(item=>{const key=[item.fonte||"PROPRIA",item.codigo||item.descricao,item.unidade||""].join("|");const old=groups.get(key)||{...item,quantidade:0,custoDiretoCentavos:0,bdiCentavos:0,totalCentavos:0,ocorrencias:0};old.quantidade+=item.quantidade;old.custoDiretoCentavos+=item.custoDiretoCentavos;old.bdiCentavos+=item.bdiCentavos;old.totalCentavos+=item.totalCentavos;old.ocorrencias++;groups.set(key,old);});
