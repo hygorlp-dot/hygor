@@ -30,6 +30,12 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json-summary"],
       include: ["src/domains/**/*.js"],
+      thresholds: {
+        statements: 75,
+        branches: 55,
+        functions: 70,
+        lines: 80,
+      },
     },
   },
 });
