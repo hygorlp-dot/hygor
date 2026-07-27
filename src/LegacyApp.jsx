@@ -84,6 +84,7 @@ import { Label } from "./components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Alert, AlertDescription } from "./components/ui/alert";
+import { ThemeSettings } from "./design-system/theme/ThemeSettings";
 import { Eye, EyeOff, ChevronLeft, Delete } from "lucide-react";
 import { cn } from "./lib/utils";
 import { features } from "./config/features";
@@ -14767,8 +14768,10 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
       <PageHero
         eyebrow="Sistema"
         title="Configurações"
-        description="Dados da empresa, aprovações e calendário."
+        description="Aparência, dados da empresa, aprovações e calendário."
       />
+
+      <ThemeSettings />
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"'Inter Display','Inter',sans-serif", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Empresa</h3>

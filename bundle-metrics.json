@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-27T21:31:24.898Z",
+  "generatedAt": "2026-07-27T22:13:15.155Z",
   "totals": {
-    "bytes": 4149008,
-    "gzipBytes": 1153642
+    "bytes": 4154296,
+    "gzipBytes": 1154921
   },
   "assets": [
     {
-      "name": "LegacyApp-DgmHHUbD.js",
-      "bytes": 2178524,
-      "gzipBytes": 606397
+      "name": "LegacyApp-B2tYZCv4.js",
+      "bytes": 2179786,
+      "gzipBytes": 606885
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -31,9 +31,9 @@
       "gzipBytes": 32257
     },
     {
-      "name": "index-CBt0BNZP.css",
-      "bytes": 129855,
-      "gzipBytes": 25674
+      "name": "index-C2TLGiiO.css",
+      "bytes": 133693,
+      "gzipBytes": 26275
     },
     {
       "name": "ClientPortalApp-DNn-QSPC.js",
@@ -51,14 +51,14 @@
       "gzipBytes": 5174
     },
     {
-      "name": "SupplierEditor-BomCg4jG.js",
-      "bytes": 15432,
-      "gzipBytes": 4811
+      "name": "SupplierEditor-pCn4uPcV.js",
+      "bytes": 14199,
+      "gzipBytes": 4542
     },
     {
-      "name": "index-Ct9elooZ.js",
-      "bytes": 8645,
-      "gzipBytes": 3748
+      "name": "index-lbDkPacv.js",
+      "bytes": 8978,
+      "gzipBytes": 3889
     },
     {
       "name": "ClientPortalApp-CY00BwLl.css",
@@ -76,9 +76,14 @@
       "gzipBytes": 1334
     },
     {
-      "name": "LegacyMobileNavigation-BmoJkk3H.js",
-      "bytes": 2657,
-      "gzipBytes": 1231
+      "name": "categories-8q-X6Lxo.js",
+      "bytes": 2659,
+      "gzipBytes": 1247
+    },
+    {
+      "name": "LegacyMobileNavigation-BRL1N7j-.js",
+      "bytes": 2628,
+      "gzipBytes": 1216
     },
     {
       "name": "LoginProjectParallax-COWgOAZU.js",
@@ -91,14 +96,9 @@
       "gzipBytes": 1073
     },
     {
-      "name": "MobileMoreMenu-4IyZDwyz.js",
+      "name": "MobileMoreMenu-CXiBKfy4.js",
       "bytes": 1832,
       "gzipBytes": 876
-    },
-    {
-      "name": "categories-B7neWC6X.js",
-      "bytes": 1383,
-      "gzipBytes": 753
     },
     {
       "name": "rolldown-runtime-DAXXjFlN.js",
@@ -111,14 +111,9 @@
       "gzipBytes": 604
     },
     {
-      "name": "Button-BYsi2Bbh.js",
-      "bytes": 1102,
-      "gzipBytes": 572
-    },
-    {
-      "name": "utils-BLWxBJbN.js",
-      "bytes": 172,
-      "gzipBytes": 164
+      "name": "Button-C8bTEi-o.js",
+      "bytes": 1115,
+      "gzipBytes": 575
     }
   ],
   "media": {

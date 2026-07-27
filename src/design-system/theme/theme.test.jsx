@@ -31,7 +31,7 @@ describe("ARCD Theme Engine", () => {
     expect(localStorage.getItem(THEME_STORAGE_KEYS.theme)).toBe("carbon");
   });
 
-  it("aceita densidade válida e faz fallback de tema ainda não habilitado", () => {
+  it("aceita densidade válida e faz fallback de tema desconhecido", () => {
     const container = render(<ThemeProvider><Probe /></ThemeProvider>);
     act(() => [...container.querySelectorAll("button")].find(button => button.textContent === "Compacto").click());
     expect(document.documentElement.dataset.density).toBe("compact");
@@ -40,6 +40,7 @@ describe("ARCD Theme Engine", () => {
   });
 
   it("valida preferências e tokens obrigatórios", () => {
+    expect(normalizeTheme("architectural")).toBe("architectural");
     expect(normalizeTheme("dark")).toBe(DEFAULT_THEME);
     expect(normalizeDensity("wide")).toBe(DEFAULT_DENSITY);
     expect(validateThemeTokens(token => token === "--arcd-focus-ring" ? "" : "#ffffff")).toEqual({ valid: false, missing: ["--arcd-focus-ring"], invalid: [] });
@@ -51,9 +52,13 @@ describe("ARCD Theme Engine", () => {
   it("permite ajustar densidade e restaurar o padrão no seletor", () => {
     const container = render(<ThemeProvider><ThemeSettings /></ThemeProvider>);
     const selects = container.querySelectorAll("select");
+    expect([...selects[0].options].map(option => option.value)).toEqual(["carbon", "architectural"]);
+    act(() => { selects[0].value = "architectural"; selects[0].dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(document.documentElement.dataset.theme).toBe("architectural");
     act(() => { selects[1].value = "spacious"; selects[1].dispatchEvent(new Event("change", { bubbles: true })); });
     expect(document.documentElement.dataset.density).toBe("spacious");
     act(() => [...container.querySelectorAll("button")].find(button => button.textContent === "Restaurar padrão").click());
+    expect(document.documentElement.dataset.theme).toBe(DEFAULT_THEME);
     expect(document.documentElement.dataset.density).toBe(DEFAULT_DENSITY);
   });
 

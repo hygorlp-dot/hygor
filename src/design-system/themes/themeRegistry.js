@@ -9,6 +9,12 @@ export const themeRegistry = Object.freeze({
     description: "Tema técnico padrão da ARCD.",
     enabled: true,
   }),
+  architectural: Object.freeze({
+    id: "architectural",
+    label: "ARCD Estrutural",
+    description: "Carbon com navegação escura e leitura arquitetônica.",
+    enabled: true,
+  }),
 });
 
 export const enabledThemeIds = Object.freeze(Object.values(themeRegistry).filter(theme => theme.enabled).map(theme => theme.id));
