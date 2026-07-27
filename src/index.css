@@ -2771,6 +2771,201 @@
 .tab-row__count { border-radius: var(--arcd-radius-pill); padding: 1px var(--arcd-space-2); background: var(--arcd-action-primary-subtle); color: var(--arcd-action-primary-active); font-size: var(--arcd-font-size-xs); font-weight: var(--arcd-font-weight-bold); }
 .tab-row__tab[data-active="true"] .tab-row__count { background: color-mix(in srgb, var(--arcd-text-inverse) 22%, transparent); color: var(--arcd-text-inverse); }
 
+/* Terceirizados: espaço operacional aninhado na obra.
+   A hierarquia evita repetir o contraste forte da navegação principal. */
+.terceiros-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arcd-space-3);
+}
+
+.terceiros-workspace .page-hero {
+  padding: var(--arcd-space-4);
+}
+
+.terceiros-workspace .page-hero__eyebrow {
+  margin-bottom: var(--arcd-space-1);
+}
+
+.terceiros-workspace .page-hero__title {
+  font-size: 1.25rem;
+}
+
+.terceiros-workspace .page-hero__description {
+  margin-top: var(--arcd-space-1);
+}
+
+.terceiros-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--arcd-border-default);
+  border-radius: var(--arcd-radius-lg);
+  background: var(--arcd-surface-card);
+}
+
+.terceiros-summary__item {
+  min-width: 0;
+  padding: var(--arcd-space-3) var(--arcd-space-4);
+}
+
+.terceiros-summary__item + .terceiros-summary__item {
+  border-left: 1px solid var(--arcd-border-default);
+}
+
+.terceiros-summary__label {
+  color: var(--arcd-text-secondary);
+  font-size: var(--arcd-font-size-xs);
+  font-weight: var(--arcd-font-weight-bold);
+}
+
+.terceiros-summary__value {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--arcd-text-primary);
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--arcd-font-weight-bold);
+  line-height: var(--arcd-line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terceiros-summary__detail {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--arcd-text-muted);
+  font-size: var(--arcd-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terceiros-pending {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--arcd-space-3);
+  width: 100%;
+  min-height: var(--arcd-control-height);
+  border: 1px solid var(--arcd-warning-border);
+  border-radius: var(--arcd-radius-lg);
+  padding: var(--arcd-space-2) var(--arcd-space-3);
+  background: var(--arcd-warning-surface);
+  color: var(--arcd-warning-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.terceiros-pending:hover {
+  border-color: var(--arcd-warning-text);
+}
+
+.terceiros-pending:focus-visible {
+  outline: 2px solid var(--arcd-focus-ring);
+  outline-offset: 2px;
+}
+
+.terceiros-pending__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.terceiros-pending__copy b {
+  overflow: hidden;
+  color: var(--arcd-text-primary);
+  font-size: var(--arcd-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terceiros-pending__copy small {
+  overflow: hidden;
+  color: var(--arcd-warning-text);
+  font-size: var(--arcd-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terceiros-pending > strong {
+  color: var(--arcd-text-primary);
+  font-size: var(--arcd-font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.terceiros-tabs .tab-row {
+  gap: 0;
+  padding: 0;
+  border-radius: var(--arcd-radius-lg);
+}
+
+.terceiros-tabs .tab-row__tab {
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-right: 1px solid var(--arcd-border-default);
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--arcd-text-secondary);
+  text-align: center;
+}
+
+.terceiros-tabs .tab-row__tab:last-child {
+  border-right: 0;
+}
+
+.terceiros-tabs .tab-row__tab[data-active="true"] {
+  border-bottom-color: var(--arcd-action-primary);
+  background: var(--arcd-action-primary-subtle);
+  color: var(--arcd-text-primary);
+}
+
+.terceiros-tabs .tab-row__tab[data-active="true"] .tab-row__count {
+  background: var(--arcd-action-primary);
+  color: var(--arcd-action-primary-text);
+}
+
+.terceiros-empty {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border: 1px solid var(--arcd-border-default);
+  border-radius: var(--arcd-radius-lg);
+  padding: var(--arcd-space-8) var(--arcd-space-4);
+  background: var(--arcd-surface-card);
+  text-align: center;
+}
+
+.terceiros-empty__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--arcd-border-default);
+  border-radius: var(--arcd-radius-lg);
+  background: var(--arcd-surface-muted);
+  color: var(--arcd-action-primary-active);
+}
+
+.terceiros-empty h3 {
+  margin-top: var(--arcd-space-3);
+  color: var(--arcd-text-primary);
+  font-size: var(--arcd-font-size-lg);
+  font-weight: var(--arcd-font-weight-semibold);
+}
+
+.terceiros-empty p {
+  max-width: 52ch;
+  margin: var(--arcd-space-1) 0 var(--arcd-space-4);
+  color: var(--arcd-text-secondary);
+  font-size: var(--arcd-font-size-sm);
+  line-height: var(--arcd-line-height-normal);
+}
+
 /* Planejamento: campos de data são edição direta, não texto decorativo.
    O foco usa a cor de ação ARCD para permanecer visível em teclado e toque. */
 .planning-inline-date {
@@ -2805,6 +3000,50 @@
 
   .tab-row button {
     min-height: 40px !important;
+  }
+
+  .terceiros-workspace .page-hero__main,
+  .terceiros-workspace .page-hero-actions,
+  .terceiros-workspace .page-hero-actions > * {
+    width: 100%;
+  }
+
+  .terceiros-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .terceiros-summary__item + .terceiros-summary__item {
+    border-left: 0;
+  }
+
+  .terceiros-summary__item:nth-child(even) {
+    border-left: 1px solid var(--arcd-border-default);
+  }
+
+  .terceiros-summary__item:nth-child(n + 3) {
+    border-top: 1px solid var(--arcd-border-default);
+  }
+
+  .terceiros-pending {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .terceiros-pending > strong {
+    grid-column: 2;
+  }
+
+  .terceiros-pending > span:first-child {
+    grid-row: 1 / span 2;
+  }
+
+  .terceiros-pending > span + span {
+    grid-column: 2;
+  }
+
+  .terceiros-pending > svg,
+  .terceiros-pending > span:last-child {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
 
   .arcd-btn[data-size="sm"] {

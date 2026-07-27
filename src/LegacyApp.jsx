@@ -11161,6 +11161,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
 
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
+  const novoContratoVazio = () => ({ ...emptyT, obraId: obraIdFixo || "" });
 
   // Abre o modal para editar: numeros viram string (os inputs sao de texto) e
   // os campos novos preservam o que ja existe.
@@ -11176,7 +11177,8 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
   const friday     = getFridayOfWeek(weekOffset);
   const { start: weekStart, end: weekEnd } = getWeekRange(friday);
   const allTerc    = data.terceirizados || [];
-  const activeTerc = allTerc.filter(t => t.active !== false);
+  const scopedTerc = obraIdFixo ? allTerc.filter(t => t.obraId === obraIdFixo) : allTerc;
+  const activeTerc = scopedTerc.filter(t => t.active !== false);
 
   // Um mesmo prestador pode possuir vários contratos. O cadastro fiscal,
   // bancário e de contato é compartilhado pelo `prestadorId`; obra, escopo,
@@ -11223,7 +11225,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     ...cadastroCompartilhado(t),
     // A especialidade é apenas uma sugestão: pode variar por contrato.
     specialty: t.specialty || emptyT.specialty,
-    obraId: "",
+    obraId: obraIdFixo || "",
     contractValue: "",
     weeklyRate: "",
     notes: "",
@@ -11251,12 +11253,15 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
 
   // KPIs
   const totalWeekly     = activeTerc.reduce((s, t) => s + Number(t.weeklyRate || 0), 0);
-  const totalContracts  = allTerc.reduce((s, t) => s + Number(t.contractValue || 0), 0);
-  const totalPaidAll    = (data.pagsTerceiros || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+  const totalContracts  = scopedTerc.reduce((s, t) => s + Number(t.contractValue || 0), 0);
+  const scopedTercIds   = new Set(scopedTerc.map(t => t.id));
+  const totalPaidAll    = (data.pagsTerceiros || [])
+    .filter(p => scopedTercIds.has(p.tercId))
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
   const pendingCount    = activeTerc.filter(t => !wasPaidThisWeek(t.id)).length;
   const pendingTotal    = activeTerc.filter(t => !wasPaidThisWeek(t.id)).reduce((s,t) => s+Number(t.weeklyRate||0), 0);
 
-  const filteredTerc = allTerc
+  const filteredTerc = scopedTerc
     .filter(t => filterObra === "all" || t.obraId === filterObra)
     .filter(t => filterSpec === "all" || t.specialty === filterSpec)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -11418,7 +11423,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
   // interfere na organização contratual por obra.
   const kanbansPorObra = useMemo(() => {
     const grupos = {};
-    allTerc.forEach(t => {
+    scopedTerc.forEach(t => {
       const chave = t.obraId || "__sem_obra__";
       (grupos[chave] = grupos[chave] || []).push(t);
     });
@@ -11441,7 +11446,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
         // Empate: mais no início da execução (menor avanço) primeiro.
         return a.avanco - b.avanco;
       });
-  }, [allTerc, avancoContrato, obraName]);
+  }, [scopedTerc, avancoContrato, obraName]);
 
   // Distribui uma lista de terceiros nas 4 colunas de situação. Reutilizável:
   // cada quadro-por-obra chama com a sua própria lista.
@@ -11494,16 +11499,16 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
 
   //  DOCUMENTOS DO TERCEIRIZADO 
 
-  // Documentos de todos os contratos, achatados, para o painel de pendencias.
+  // Documentos dos contratos visíveis neste contexto, achatados para o painel.
   const documentosPendentes = useMemo(() => {
     const lista = [];
-    allTerc.forEach(t => (t.documentos || []).forEach(doc => {
+    scopedTerc.forEach(t => (t.documentos || []).forEach(doc => {
       const dias = diasAte(doc.validade);
       if (dias === null) return;
       if (dias <= 30) lista.push({ ...doc, tercId: t.id, tercName: t.name, obraId: t.obraId, dias });
     }));
     return lista.sort((a, b) => a.dias - b.dias);
-  }, [allTerc]);
+  }, [scopedTerc]);
 
   //  ETAPAS DO CONTRATO E MEDICOES 
   // "1.500,00" | "1500.50" | 1500 -> number. Decide pelo separador que aparece
@@ -11520,7 +11525,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
   };
   const pct = v => Math.max(0, Math.min(100, Number(String(v ?? "").replace(",", ".")) || 0));
 
-  const tercAtual = allTerc.find(t => t.id === tercSel) || null;
+  const tercAtual = scopedTerc.find(t => t.id === tercSel) || null;
   const etapasTerc = tercAtual?.etapas || [];
 
   // Medicoes em ordem cronologica. O acumulado de uma etapa e o da ULTIMA
@@ -11731,7 +11736,9 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
 
   // Medicao registrada e ainda nao paga e divida vencida com o terceiro. Ficava
   // invisivel: os KPIs so olhavam pagamento semanal e contrato.
-  const medicoesAPagar = (data.medicoesTerc || []).filter(m => !m.pagamentoId && Number(m.total || 0) > 0);
+  const medicoesAPagar = (data.medicoesTerc || []).filter(m =>
+    scopedTercIds.has(m.tercId) && !m.pagamentoId && Number(m.total || 0) > 0
+  );
   const totalAPagarMed = medicoesAPagar.reduce((s, m) => s + Number(m.total || 0), 0);
   const pagamentosSemEvidencia=(data.pagsTerceiros||[]).filter(p=>p.medicaoId&&p.semEvidenciaFotografica&&(filterObra==="all"||p.obraId===filterObra));
 
@@ -11754,57 +11761,57 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
 
   //  JSX 
   return (
-    <div className="anim" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+    <div className="anim terceiros-workspace">
 
       <PageHero
         eyebrow="Subcontratados"
         title="Terceirizados"
-        description="Contratos, especialidades e pagamentos toda sexta-feira."
+        description="Contratos, medições, documentos e pagamentos da equipe subcontratada."
+        actions={<Btn onClick={() => { setForm(novoContratoVazio()); setModal(true); }}>
+          <Ic n="plus"/> Novo contrato
+        </Btn>}
       />
 
-      {/* KPI bar */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+      {/* Resumo operacional: uma faixa única evita quatro cartões concorrentes. */}
+      <section className="terceiros-summary" aria-label="Resumo dos terceirizados">
         {[
-          ["Ativos",       activeTerc.length,     C.orange, "terc"],
-          ["Custo/semana", fmt(totalWeekly),       C.yellow, "dollar"],
-          ["Total contratos", fmt(totalContracts), C.green,  "dollar"],
-          ["Total pago",   fmt(totalPaidAll),      C.blue,   "check"],
-        ].map(([l,v,c,ic]) => (
-          <div key={l} style={{ background:C.card, border:`1px solid ${C.border}`, borderTop:`3px solid ${c}`, padding:"12px 14px", borderRadius:10 }}>
-            <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>{l}</p>
-            <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, color:c, fontSize:26, lineHeight:1.1, marginTop:4 }}>{v}</p>
+          ["Ativos", activeTerc.length, "Contratos em execução"],
+          ["Custo semanal", fmt(totalWeekly), "Previsão recorrente"],
+          ["Contratado", fmt(totalContracts), `${scopedTerc.length} contrato(s)`],
+          ["Pago", fmt(totalPaidAll), "Histórico acumulado"],
+        ].map(([label,value,detail]) => (
+          <div className="terceiros-summary__item" key={label}>
+            <p className="terceiros-summary__label">{label}</p>
+            <p className="terceiros-summary__value">{value}</p>
+            <p className="terceiros-summary__detail">{detail}</p>
           </div>
         ))}
-        {/* So aparece quando ha o que pagar - card fixo em zero vira ruido. */}
-        {medicoesAPagar.length > 0 && (
-          <button onClick={() => setView("medicoes")} style={{
-            gridColumn:"1 / -1", textAlign:"left", cursor:"pointer",
-            background:`${C.red}0E`, border:`1px solid ${C.red}55`, borderTop:`3px solid ${C.red}`,
-            padding:"12px 14px", borderRadius:10,
-          }}>
-            <p style={{ fontSize:10, fontWeight:900, color:C.red, textTransform:"uppercase", letterSpacing:.8 }}>
-              {medicoesAPagar.length} medição(ões) medida(s) e não paga(s)
-            </p>
-            <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, color:C.red, fontSize:26, lineHeight:1.1, marginTop:4 }}>
-              {fmt(totalAPagarMed)}
-            </p>
-          </button>
-        )}
-      </div>
+      </section>
+
+      {medicoesAPagar.length > 0 && (
+        <button className="terceiros-pending" type="button" onClick={() => setView("medicoes")}>
+          <span><Ic n="alert" s={15}/></span>
+          <span className="terceiros-pending__copy">
+            <b>{medicoesAPagar.length} medição(ões) aguardando pagamento</b>
+            <small>Revise os lançamentos medidos antes de pagar.</small>
+          </span>
+          <strong>{fmt(totalAPagarMed)}</strong>
+          <Ic n="chevR" s={15}/>
+        </button>
+      )}
 
       {/* Sub-nav */}
-      <TabRow equal tabs={[["kanban","Quadro"],["cadastro","Cadastro"],["medicoes","Medições"],["pagamentos","Pagamentos"]]} active={view} onChange={setView}/>
+      <div className="terceiros-tabs">
+        <TabRow equal tabs={[
+          ["kanban","Quadro",activeTerc.length],
+          ["cadastro","Cadastro",scopedTerc.length],
+          ["medicoes","Medições",medicoesAPagar.length],
+          ["pagamentos","Pagamentos",pendingCount],
+        ]} active={view} onChange={setView}/>
+      </div>
 
       {/*  VIEW: KANBAN  */}
       {view === "kanban" && (<>
-        {/* Ação de novo contrato. O filtro de obra saiu: agora cada obra tem
-            seu próprio quadro, então não há o que filtrar. */}
-        <div style={{ display:"flex", justifyContent:"flex-end" }}>
-          <Btn size="sm" onClick={() => { setForm({ ...emptyT }); setModal(true); }}>
-            <Ic n="plus"/> Novo contrato
-          </Btn>
-        </div>
-
         {/* Painel de documentos vencendo - so aparece quando ha pendencia */}
         {documentosPendentes.length > 0 && (
           <div style={{ background:`${C.red}0C`, border:`1px solid ${C.red}44`, borderRadius:10, padding:"11px 13px" }}>
@@ -11828,9 +11835,14 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
 
         {/* Colunas. Rolagem horizontal no celular; cada card arrasta entre colunas. */}
         {kanbansPorObra.length === 0 && (
-          <p style={{ padding:"28px 12px", textAlign:"center", fontSize:12, color:C.muted }}>
-            Nenhum terceirizado cadastrado ainda. Crie um contrato para o quadro da obra aparecer.
-          </p>
+          <section className="terceiros-empty">
+            <span className="terceiros-empty__icon"><Ic n="users" s={22}/></span>
+            <h3>Nenhum contrato de terceiro nesta obra</h3>
+            <p>Cadastre o primeiro prestador para acompanhar etapas, medições, documentos e pagamentos.</p>
+            <Btn onClick={() => { setForm(novoContratoVazio()); setModal(true); }}>
+              <Ic n="plus"/> Criar primeiro contrato
+            </Btn>
+          </section>
         )}
 
         {/* Um quadro por obra. Só obras COM terceirizados aparecem. Ordem: mais
@@ -11891,7 +11903,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
                             onDragStart={() => setArrastando(t.id)}
                             onDragEnd={() => { setArrastando(null); setColunaAlvo(null); }}
                             onClick={() => { setTercSel(t.id); setView("medicoes"); }}
-                            style={{ ...KB.card(null), borderLeft:`3px solid ${info.color}`,
+                            style={{ ...KB.card(null), borderColor:`${info.color}66`,
                                      opacity: arrastando === t.id ? .4 : 1 }}>
                             <div style={{ display:"flex", justifyContent:"space-between", gap:6 }}>
                               <div style={{ minWidth:0 }}>
@@ -11972,7 +11984,6 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
           <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:1 }}>
             {filteredTerc.length} terceirizado(s)
           </p>
-          <Btn onClick={() => { setForm(emptyT); setModal(true); }} size="sm"><Ic n="plus"/> Novo</Btn>
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
@@ -11999,9 +12010,8 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
               <div key={obra.id}>
                 {/* Cabeçalho da obra */}
                 <div style={{
-                  background:`linear-gradient(90deg,${C.orange}18,transparent)`,
-                  borderLeft:`4px solid ${C.orange}`,borderBottom:`1px solid ${C.line}`,
-                  padding:"8px 14px",borderRadius:"12px 12px 0 0",marginBottom:-1,
+                  background:C.surface,border:`1px solid ${C.line}`,
+                  padding:"8px 14px",borderRadius:"4px 4px 0 0",marginBottom:-1,
                   display:"flex",justifyContent:"space-between",alignItems:"center",
                 }}>
                   <div>
@@ -12022,7 +12032,6 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
                       <button onClick={() => setExpanded(exp ? null : t.id)} style={{
                         width:"100%", background:"transparent", border:0, color:C.text,
                         padding:"12px 16px", textAlign:"left", cursor:"pointer",
-                        borderLeft:`5px solid ${sp.color}`,
                       }}>
                         <div style={{ display:"flex", justifyContent:"space-between", gap:10 }}>
                           <div style={{ flex:1 }}>
@@ -12125,13 +12134,13 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
         {/* Sem obra definida */}
         {filteredTerc.filter(t=>!t.obraId).length > 0 && (
           <div>
-            <div style={{borderLeft:`4px solid ${C.muted}`,padding:"8px 14px",marginBottom:4}}>
+            <div style={{borderBottom:`1px solid ${C.line}`,padding:"8px 14px",marginBottom:4}}>
               <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:14,color:C.muted}}>Sem obra definida</p>
             </div>
             {filteredTerc.filter(t=>!t.obraId).map(t=>{
               const sp=specInfo(t.specialty);
               return(
-                <div key={t.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${sp.color}`,padding:"12px 14px",borderRadius:8,marginBottom:4}}>
+                <div key={t.id} style={{background:C.card,border:`1px solid ${sp.color}66`,padding:"12px 14px",borderRadius:4,marginBottom:4}}>
                   <div style={{display:"flex",justifyContent:"space-between"}}>
                     <p style={{fontWeight:700}}>{sp.emoji} {t.name}</p>
                     <div style={{display:"flex",gap:5}}>
@@ -12151,7 +12160,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
       {view === "medicoes" && (<>
         <Sel label="Contrato" value={tercSel} onChange={setTercSel}
           options={[{v:"",l:"Selecione o terceirizado..."},
-            ...allTerc.map(t => ({ v:t.id, l:`${t.name} · ${specInfo(t.specialty).l}${t.obraId?` · ${obraName(t.obraId)}`:""}` }))]}/>
+            ...scopedTerc.map(t => ({ v:t.id, l:`${t.name} · ${specInfo(t.specialty).l}${t.obraId?` · ${obraName(t.obraId)}`:""}` }))]}/>
 
         {!tercSel && (
           <div style={{ padding:26, textAlign:"center", background:C.card, border:`1px solid ${C.border}`, borderRadius:10 }}>
@@ -12169,7 +12178,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
             const col = colKanban(tercAtual.situacao);
             const docOk = tercAtual.documento ? validarDocumento(tercAtual.documento, tercAtual.tipoPessoa) : null;
             return (
-              <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`5px solid ${info.color}`, borderRadius:10, padding:"13px 15px" }}>
+              <div style={{ background:C.card, border:`1px solid ${info.color}66`, borderRadius:4, padding:"13px 15px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:8, flexWrap:"wrap" }}>
                   <div style={{ minWidth:0 }}>
                     <p style={{ fontSize:16, fontWeight:900, color:C.text }}>{tercAtual.name}</p>
@@ -12339,8 +12348,8 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
           </p>
           <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
             {[...medicoesTercAtual].reverse().map(m => (
-              <div key={m.id} style={{ background:C.card, border:`1px solid ${C.border}`,
-                                       borderLeft:`4px solid ${m.pagamentoId?C.green:C.orange}`, borderRadius:8, padding:"10px 13px" }}>
+              <div key={m.id} style={{ background:C.card, border:`1px solid ${m.pagamentoId?C.green+"66":C.orange+"66"}`,
+                                       borderRadius:4, padding:"10px 13px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:9, flexWrap:"wrap" }}>
                   <div>
                     <p style={{ fontSize:13.5, fontWeight:900, color:C.text }}>
@@ -12425,7 +12434,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
 
       {/*  VIEW: PAGAMENTOS  */}
       {view === "pagamentos" && (<>
-        {pagamentosSemEvidencia.length>0&&<div style={{background:`${C.red}0D`,border:`1px solid ${C.red}66`,borderLeft:`4px solid ${C.red}`,borderRadius:9,padding:"10px 12px"}}><p style={{fontSize:10.5,fontWeight:900,color:C.red,textTransform:"uppercase"}}>Auditoria financeira · {pagamentosSemEvidencia.length} pagamento(s) sem foto</p><p style={{fontSize:10,color:C.muted,lineHeight:1.45,marginTop:3}}>Foram pagos após reconhecimento explícito do risco. Revise as medições e solicite a comprovação da execução ao engenheiro responsável.</p></div>}
+        {pagamentosSemEvidencia.length>0&&<div style={{background:`${C.red}0D`,border:`1px solid ${C.red}66`,borderRadius:4,padding:"10px 12px"}}><p style={{fontSize:10.5,fontWeight:900,color:C.red,textTransform:"uppercase"}}>Auditoria financeira · {pagamentosSemEvidencia.length} pagamento(s) sem foto</p><p style={{fontSize:10,color:C.muted,lineHeight:1.45,marginTop:3}}>Foram pagos após reconhecimento explícito do risco. Revise as medições e solicite a comprovação da execução ao engenheiro responsável.</p></div>}
         {/* Impostos retidos a recolher - mês da sexta atual. So aparece se ha
             retencao no periodo; e um lembrete de obrigacao, nao um card fixo. */}
         {(() => {
@@ -12507,8 +12516,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
               <div key={t.id} style={{
                 background: paid ? `${C.green}10` : C.card,
                 border: `1px solid ${paid ? C.green+"44" : C.line}`,
-                borderLeft: `5px solid ${paid ? C.green : C.orange}`,
-                padding:"14px 16px", borderRadius:10,
+                padding:"14px 16px", borderRadius:4,
                 display:"flex", justifyContent:"space-between", alignItems:"center", gap:12,
               }}>
                 <div style={{ flex:1 }}>
