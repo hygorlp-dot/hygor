@@ -17,7 +17,7 @@ const SECTION_ROLES = Object.freeze({
   employees:["admin","rh"], attendance:["admin","rh","engenheiro"], attendanceLocks:["admin","rh"], unlockRequests:["admin","rh","engenheiro"], advances:["admin","rh"],
   titulosFolha:["admin","rh","financeiro"], pagamentosFolha:["admin","rh","financeiro"], rescisoes:["admin","rh","financeiro"], quinzenasArquivadas:["admin","rh"],
   payments:["admin","financeiro"], medicoes:["admin","financeiro"], outrasDesp:["admin","financeiro"], despesasEmpresa:["admin","financeiro"], caixaObra:["admin","financeiro"], notasFiscais:["admin","financeiro","compras"], documentosMovimentacoes:["admin","financeiro"], transacoes:["admin","financeiro"], reconciliationLinks:["admin","financeiro"], fechamentosFinanceiros:["admin"],
-  equipamentos:["admin","engenheiro","engenheiro_auditor","compras","financeiro"], locacoesEquip:["admin","engenheiro","engenheiro_auditor","financeiro"], terceirizados:["admin","engenheiro","engenheiro_auditor","financeiro"], pagsTerceiros:["admin","financeiro"],
+  equipamentos:["admin","engenheiro","engenheiro_auditor","compras","financeiro"], locacoesEquip:["admin","engenheiro","engenheiro_auditor","financeiro"], terceirizados:["admin","rh","engenheiro","engenheiro_auditor","financeiro"], medicoesTerc:["admin","engenheiro","engenheiro_auditor"], pagsTerceiros:["admin","financeiro"],
   comercial:["admin","comercial"],
   // Legado transitório: o cliente ainda gera mensagens de atividade. DATA-001
   // migra a prova para a trilha append-only do servidor; até lá, só papéis

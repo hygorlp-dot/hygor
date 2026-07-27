@@ -15,6 +15,12 @@ describe("autorização de produção",()=>{
     expect(authorizeSectionChanges(engenheiro,{attendance:{e1:{"2026-07-27":{status:"P",obraId:"o1"}}}})).toBe("");
     expect(authorizeSectionChanges(engenheiro,{attendance:{e1:{"2026-07-27":{status:"P",obraId:"o2"}}}})).toMatch(/outra obra/i);
   });
+  it("permite ao RH administrar contratos de terceiros sem liberar medições ou pagamentos",()=>{
+    const contrato={id:"t1",obraId:"o1",name:"Prestador"};
+    expect(authorizeSectionChanges({role:"rh"},{terceirizados:[contrato]})).toBe("");
+    expect(authorizeSectionChanges({role:"rh"},{medicoesTerc:[{id:"m1",obraId:"o1",tercId:"t1"}]})).toMatch(/permissão/);
+    expect(authorizeSectionChanges({role:"rh"},{pagsTerceiros:[{id:"p1",obraId:"o1",tercId:"t1"}]})).toMatch(/permissão/);
+  });
   it("não aceita exclusão física de baseline",()=>expect(validateNoPhysicalDeletes({scheduleBaselines:[{id:"b"}]},{scheduleBaselines:[]})).toMatch(/excluir fisicamente/));
   it("impede alteração ou remoção de versão orçamentária aprovada",()=>{
     const anterior={orcamentos:[{id:"o1",versionStatus:"aprovada",itens:[{id:"i1",precoUnit:10}]}]};

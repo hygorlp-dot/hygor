@@ -11137,6 +11137,11 @@ function FluxoCaixa({ data }) {
 
 function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null }) {
   const { formGrid } = useBreakpoint();
+  const perfil=currentUser?.role;
+  const podeGerenciarContratos=["admin","rh","engenheiro","engenheiro_auditor","financeiro"].includes(perfil);
+  const podeGerenciarMedicoes=["admin","engenheiro","engenheiro_auditor"].includes(perfil);
+  const podeGerenciarPagamentos=["admin","financeiro"].includes(perfil);
+  const ehRH = perfil === "rh";
   const emptyT = { id:"", prestadorId:"", name:"", specialty:"eletricista", obraId:"", contractValue:"", weeklyRate:"", phone:"", pixKey:"", notes:"", startDate:today(),
     situacao:"andamento", endDate:"", tipoPessoa:"PJ", documento:"", razaoSocial:"", inscEstadual:"", inscMunicipal:"",
     email:"", responsavel:"", cep:"", endereco:"", cidade:"", ufEnd:"", tipoContrato:"medicao",
@@ -11165,7 +11170,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
   const [subindoFotosMed,setSubindoFotosMed]=useState(false);
   const [riscoSemFotoAceito,setRiscoSemFotoAceito]=useState(false);
   const inputFotosMedRef=useRef(null);
-  const podeRegistrarEvidencia=["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&currentUser?.active!==false;
+  const podeRegistrarEvidencia=podeGerenciarMedicoes&&currentUser?.active!==false;
 
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
@@ -11760,7 +11765,30 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     return etapas.reduce((s, e) => s + Number(e.valor || 0) * (acum[e.id] || 0) / 100, 0) / base * 100;
   };
 
+  const abrirContrato = t => {
+    if (podeGerenciarMedicoes) {
+      setTercSel(t.id);
+      setView("medicoes");
+      return;
+    }
+    setExpanded(t.id);
+    setView("cadastro");
+  };
   const abrirMedicoesDe = id => { setTercSel(id); setView("medicoes"); };
+  const tabsTerceiros = [
+    ["kanban","Quadro",activeTerc.length],
+    ["cadastro","Cadastro",scopedTerc.length],
+    ...(podeGerenciarMedicoes ? [["medicoes","Medições",medicoesAPagar.length]] : []),
+    ...(podeGerenciarPagamentos ? [["pagamentos","Pagamentos",pendingCount]] : []),
+  ];
+  const resumoTerceiros = [
+    ["Ativos", activeTerc.length, "Contratos em execução"],
+    ["Custo semanal", fmt(totalWeekly), "Previsão recorrente"],
+    ["Contratado", fmt(totalContracts), `${scopedTerc.length} contrato(s)`],
+    ehRH
+      ? ["Documentos críticos", documentosPendentes.length, "Vencidos ou a vencer"]
+      : ["Pago", fmt(totalPaidAll), "Histórico acumulado"],
+  ];
 
   const paidThisWeekAmount = activeTerc.reduce((s, t) => {
     const p = thisWeekPay(t.id);
@@ -11774,20 +11802,17 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
       <PageHero
         eyebrow="Subcontratados"
         title="Terceirizados"
-        description="Contratos, medições, documentos e pagamentos da equipe subcontratada."
-        actions={<Btn onClick={() => { setForm(novoContratoVazio()); setModal(true); }}>
+        description={ehRH
+          ? "Cadastros, contratos, documentos e alocação da equipe subcontratada."
+          : "Contratos, medições, documentos e pagamentos da equipe subcontratada."}
+        actions={podeGerenciarContratos && <Btn onClick={() => { setForm(novoContratoVazio()); setModal(true); }}>
           <Ic n="plus"/> Novo contrato
         </Btn>}
       />
 
       {/* Resumo operacional: uma faixa única evita quatro cartões concorrentes. */}
       <section className="terceiros-summary" aria-label="Resumo dos terceirizados">
-        {[
-          ["Ativos", activeTerc.length, "Contratos em execução"],
-          ["Custo semanal", fmt(totalWeekly), "Previsão recorrente"],
-          ["Contratado", fmt(totalContracts), `${scopedTerc.length} contrato(s)`],
-          ["Pago", fmt(totalPaidAll), "Histórico acumulado"],
-        ].map(([label,value,detail]) => (
+        {resumoTerceiros.map(([label,value,detail]) => (
           <div className="terceiros-summary__item" key={label}>
             <p className="terceiros-summary__label">{label}</p>
             <p className="terceiros-summary__value">{value}</p>
@@ -11796,7 +11821,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
         ))}
       </section>
 
-      {medicoesAPagar.length > 0 && (
+      {podeGerenciarPagamentos && medicoesAPagar.length > 0 && (
         <button className="terceiros-pending" type="button" onClick={() => setView("medicoes")}>
           <span><Ic n="alert" s={15}/></span>
           <span className="terceiros-pending__copy">
@@ -11810,12 +11835,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
 
       {/* Sub-nav */}
       <div className="terceiros-tabs">
-        <TabRow equal tabs={[
-          ["kanban","Quadro",activeTerc.length],
-          ["cadastro","Cadastro",scopedTerc.length],
-          ["medicoes","Medições",medicoesAPagar.length],
-          ["pagamentos","Pagamentos",pendingCount],
-        ]} active={view} onChange={setView}/>
+        <TabRow equal tabs={tabsTerceiros} active={view} onChange={setView}/>
       </div>
 
       {/*  VIEW: KANBAN  */}
@@ -11847,9 +11867,9 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
             <span className="terceiros-empty__icon"><Ic n="users" s={22}/></span>
             <h3>Nenhum contrato de terceiro nesta obra</h3>
             <p>Cadastre o primeiro prestador para acompanhar etapas, medições, documentos e pagamentos.</p>
-            <Btn onClick={() => { setForm(novoContratoVazio()); setModal(true); }}>
+            {podeGerenciarContratos && <Btn onClick={() => { setForm(novoContratoVazio()); setModal(true); }}>
               <Ic n="plus"/> Criar primeiro contrato
-            </Btn>
+            </Btn>}
           </section>
         )}
 
@@ -11910,7 +11930,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
                           <div key={t.id} draggable
                             onDragStart={() => setArrastando(t.id)}
                             onDragEnd={() => { setArrastando(null); setColunaAlvo(null); }}
-                            onClick={() => { setTercSel(t.id); setView("medicoes"); }}
+                            onClick={() => abrirContrato(t)}
                             style={{ ...KB.card(null), borderColor:`${info.color}66`,
                                      opacity: arrastando === t.id ? .4 : 1 }}>
                             <div style={{ display:"flex", justifyContent:"space-between", gap:6 }}>
@@ -11982,7 +12002,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
         })}
         <p style={{ fontSize:10.5, color:C.muted, textAlign:"center" }}>
           Um quadro por obra, ordenados pelos que têm mais terceirizados e estão mais no início.
-          Arraste os cards entre as colunas ou use as setas. Toque num card para abrir as medições.
+          Arraste os cards entre as colunas ou use as setas. Toque num card para abrir {podeGerenciarMedicoes ? "as medições" : "o cadastro"}.
         </p>
       </>)}
 
@@ -12089,8 +12109,8 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
                             </p>
                           )}
                           {t.notes && <p style={{ fontSize:12, color:C.muted, fontStyle:"italic" }}>"{t.notes}"</p>}
-                          <p style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase" }}>Últimos pagamentos</p>
-                          {(data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).slice(-5).reverse().map(p=>{
+                          {podeGerenciarPagamentos && <p style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase" }}>Últimos pagamentos</p>}
+                          {podeGerenciarPagamentos && (data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).slice(-5).reverse().map(p=>{
                             const instanciaPag=p.aprovacaoInstanciaId?(data.instanciasAprovacao||[]).find(i=>i.id===p.aprovacaoInstanciaId):null;
                             const statusAprovacao=instanciaPag&&instanciaPag.status!=="aprovada"?instanciaPag.status:null;
                             return <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.line}`, paddingBottom:6 }}>
@@ -12107,16 +12127,16 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
                               </div>
                             </div>;
                           })}
-                          {!(data.pagsTerceiros||[]).some(p=>p.tercId===t.id) && (
+                          {podeGerenciarPagamentos && !(data.pagsTerceiros||[]).some(p=>p.tercId===t.id) && (
                             <p style={{ fontSize:12, color:C.muted }}>Nenhum pagamento registrado.</p>
                           )}
                           <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                            <Btn size="sm" v="info" onClick={()=>abrirMedicoesDe(t.id)}>
+                            {podeGerenciarMedicoes && <Btn size="sm" v="info" onClick={()=>abrirMedicoesDe(t.id)}>
                               <Ic n="medicoes"/> {(t.etapas||[]).length ? "Medições" : "Dividir em etapas"}
-                            </Btn>
-                            <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));setPaySource("");}}>
+                            </Btn>}
+                            {podeGerenciarPagamentos && <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));setPaySource("");}}>
                               <Ic n="dollar"/> Registrar pagamento
-                            </Btn>
+                            </Btn>}
                             <Btn size="sm" v="ghost" onClick={()=>editarTerc(t)}>
                               <Ic n="edit"/> Editar
                             </Btn>
@@ -15014,7 +15034,7 @@ const ROLES = [
   { v:"engenheiro", l:"Engenheiro de Campo",desc:"Obras, Ponto, Equipe, Terceiros",    color:"#1565C0" },
   { v:"engenheiro_auditor", l:"Engenheiro Auditor",desc:"Auditoria técnica, vistorias e conferências", color:"#0F766E" },
   { v:"compras",    l:"Setor de Compras",   desc:"Solicitações, pedidos, fornecedores e estoque", color:"#D97706" },
-  { v:"rh",         l:"RH / Gestão",       desc:"Equipe, Folha, Rescisão",             color:"#2E7D32" },
+  { v:"rh",         l:"RH / Gestão",       desc:"Equipe, Terceirizados, Folha e Rescisão", color:"#2E7D32" },
   { v:"financeiro", l:"Financeiro",         desc:"Pagamentos, notas, conciliação, DRE e auditoria", color:"#6A1B9A" },
   { v:"comercial",  l:"Comercial",          desc:"Orçamentos e atividades comerciais", color:"#2E7D32" },
   { v:"visualizador",l:"Visualizador",      desc:"Somente Dashboard (somente leitura)", color:"#6B6459" },
@@ -15025,7 +15045,7 @@ const ROLE_TABS = {
   engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
-  rh:          ["home","tv","ponto","ponto_geral","equipe","folha","resc","cad","ia"],
+  rh:          ["home","tv","ponto","ponto_geral","equipe","terc","folha","resc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   comercial:   ["home","tv","com_workspace","com_pipeline","com_relationships","com_deals","ia"],
   visualizador:["home","tv"],
@@ -15034,7 +15054,7 @@ const ROLE_TABS = {
 const ACCESS_SECTORS=[
   {id:"engenharia",label:"Engenharia",color:"#1565C0",tabs:[
     ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["plan_suprimentos","Marcos e Curva A"],["rdo","Diário de obra"],["conferencia","Conferência"],["med","Medição técnica"],
-    ["terc","Terceiros"],["equip","Equipamentos"],["licenca","Licenciamento"],["obsoletos","Obsoletos"],
+    ["equip","Equipamentos"],["licenca","Licenciamento"],["obsoletos","Obsoletos"],
   ]},
   {id:"compras",label:"Compras",color:"#D97706",tabs:[
     ["cmp","Compras e solicitações"],["fornecedores","Fornecedores e ranking"],["est","Estoque"],
@@ -15044,7 +15064,7 @@ const ACCESS_SECTORS=[
     ["equip_fin","Locação de equipamentos"],["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["relat","Relatórios"],
   ]},
   {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
-    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["folha","Folha de pagamento"],["resc","Rescisões"],
+    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
     ["com_workspace","Meu trabalho"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
@@ -15062,7 +15082,7 @@ const allowedTabsForUser=user=>{
   // Dashboard e Modo TV são visões institucionais somente leitura; continuam
   // disponíveis mesmo em cadastros antigos cuja lista personalizada de abas
   // foi criada antes da existência do painel corporativo.
-  const herdadas=user.role==="financeiro"?["equip_fin"]:user.role==="engenheiro"?["ponto"]:[];
+  const herdadas=user.role==="financeiro"?["equip_fin"]:user.role==="engenheiro"?["ponto"]:user.role==="rh"?["terc"]:[];
   return [...new Set(["home","tv","chat","aprov_pend",...base,...herdadas])].filter(tab=>valid.has(tab)&&tab!=="config");
 };
 
@@ -36880,7 +36900,7 @@ const NAV_GROUPS = [
   },
   {
     id: "rh_grp", label: "Recursos humanos", icon: "users", color: "#0F766E",
-    tabs: ["equipe", "ponto", "ponto_geral", "folha", "resc"],
+    tabs: ["equipe", "ponto", "ponto_geral", "terc", "folha", "resc"],
   },
   {
     id: "com_grp", label: "Comercial", icon: "users", color: C.green,
@@ -36933,7 +36953,7 @@ const TAB_META = {
   ponto:  { label: "Ponto por obra", icon: "clock", group: "rh_grp"},
   ponto_geral: { label: "Gestão do ponto", icon: "calendar", group: "rh_grp"},
   equipe: { label: "Equipes", icon: "users", group: "rh_grp"},
-  terc:   { label: "Terceiros",  icon: "handshake",group: "eng_grp"},
+  terc:   { label: "Terceirizados", icon: "handshake", group: "rh_grp" },
   folha:  { label: "Folha",      icon: "wallet",   group: "rh_grp"  },
   resc:   { label: "Rescisão",   icon: "briefcase",group: "rh_grp"  },
   dre_emp:  { label: "DRE empresa", icon: "chart",  group: "fin_grp" },

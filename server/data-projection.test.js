@@ -17,6 +17,8 @@ const payload={
   },
   dailyCheckDate:"2026-07-27",
   pedidos:[{id:"p-a",obraId:"obra-a"},{id:"p-b",obraId:"obra-b"}],
+  terceirizados:[{id:"t-a",obraId:"obra-a",name:"Prestador A"},{id:"t-b",obraId:"obra-b",name:"Prestador B"}],
+  pagsTerceiros:[{id:"pg-a",obraId:"obra-a",tercId:"t-a",amount:100}],
 };
 
 describe("SEC-001 · projeção de leitura por obra",()=>{
@@ -40,6 +42,8 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
   it("mantém os dados pessoais apenas na projeção de RH",()=>{
     const projected=projectDataForUser(payload,{id:"rh",role:"rh",obraId:"obra-a"});
     expect(projected.employees).toMatchObject([{id:"e-a",cpf:"111.111.111-11",conta:"0001"}]);
+    expect(projected.terceirizados).toEqual([{id:"t-a",obraId:"obra-a",name:"Prestador A"}]);
+    expect(projected.pagsTerceiros).toBeUndefined();
   });
 
   it("não entrega PIX ou remuneração a quem não é do RH",()=>{
