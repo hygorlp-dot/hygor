@@ -5,10 +5,17 @@ const positiveNumber = (value, fallback = 0) => {
   return Number.isFinite(number) && number >= 0 ? number : fallback;
 };
 
+const safeRecord = value => value && typeof value === "object" && !Array.isArray(value)
+  ? value
+  : {};
+
 export const attendanceFactor = status =>
   status === "P" ? 1 : status === "M" ? 0.5 : 0;
 
-export const resolveOvertimePolicy = ({ employee = {}, record = {}, config = {} } = {}) => {
+export const resolveOvertimePolicy = input => {
+  const employee = safeRecord(input?.employee);
+  const record = safeRecord(input?.record);
+  const config = safeRecord(input?.config);
   const workdayHours = positiveNumber(
     record.archivedWorkdayHours
       ?? employee.workdayHours
@@ -28,10 +35,17 @@ export const resolveOvertimePolicy = ({ employee = {}, record = {}, config = {} 
 // a hora extra é calculada sobre a hora normal acrescida do percentual
 // configurado. Falta ou dia sem situação não pode gerar hora extra.
 export const calculateAttendanceDayCost = ({
-  employee = {},
-  record = {},
-  config = {},
+  employee: employeeInput,
+  record: recordInput,
+  config: configInput,
 } = {}) => {
+  // Dia sem lançamento é representado por `null` no legado. Defaults de
+  // desestruturação só tratam `undefined`, portanto o valor nulo atravessava
+  // até `record.status` e derrubava Dashboard/DRE. Registro ausente equivale
+  // corretamente a custo zero, nunca a presença presumida.
+  const employee = safeRecord(employeeInput);
+  const record = safeRecord(recordInput);
+  const config = safeRecord(configInput);
   const factor = attendanceFactor(record.status);
   const dailyRate = positiveNumber(record.archivedDailyRate ?? employee.dailyRate);
   const vtDaily = positiveNumber(record.archivedVtDaily ?? employee.vtDaily);

@@ -73,4 +73,23 @@ describe("cálculo canônico de Ponto e folha", () => {
       additionalPercent: 50,
     });
   });
+
+  it("trata dia nulo do legado como ausência de lançamento e custo zero", () => {
+    expect(calculateAttendanceDayCost({
+      employee: { dailyRate:120, vtDaily:12, vrDaily:18 },
+      record: null,
+      config: null,
+    })).toMatchObject({
+      factor: 0,
+      basePay: 0,
+      overtimePay: 0,
+      benefitCost: 0,
+      laborCost: 0,
+      totalCost: 0,
+    });
+    expect(resolveOvertimePolicy({ employee:null, record:null, config:null })).toEqual({
+      workdayHours: 8,
+      additionalPercent: 50,
+    });
+  });
 });
