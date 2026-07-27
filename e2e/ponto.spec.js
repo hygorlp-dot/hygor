@@ -32,8 +32,8 @@ const initialState = () => ({
   config: { paymentHolidays: [] },
 });
 
-const installIsolatedBackend = async page => {
-  let state = initialState();
+const installIsolatedBackend = async (page, stateOverride = {}) => {
+  let state = { ...initialState(), ...stateOverride };
   const saves = [];
 
   await page.route("**/api/data", async route => {
@@ -120,6 +120,20 @@ test("PIN incorreto informa o erro sem iniciar sessão", async ({ page }) => {
 
   await expect(page.getByText("PIN incorreto.")).toBeVisible();
   await expect(page.getByText("Boa tarde, Engenheiro.")).toHaveCount(0);
+});
+
+test("dataset legado com aprovação nula não derruba o app após o login", async ({ page }) => {
+  await installIsolatedBackend(page, {
+    instanciasAprovacao: [
+      null,
+      { id: "apr-valida", status: "aprovada", snapshotPolitica: null, resultadosEtapas: [] },
+    ],
+  });
+
+  await login(page);
+
+  await expect(page.getByText("Algo quebrou nesta tela")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Abrir Ponto" })).toBeVisible();
 });
 
 test("engenheiro salva, recarrega e finaliza o ponto da própria obra no mobile", async ({ page }) => {

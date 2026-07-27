@@ -160,7 +160,7 @@ import {
 import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
 import {
   createApprovalEngine, validarPolitica, encontrarPoliticaAplicavel,
-  podeAdministrarPoliticas, podeGerenciarDelegacoes, OPERADORES,
+  normalizeApprovalInstances, podeAdministrarPoliticas, podeGerenciarDelegacoes, OPERADORES,
 } from "./domains/aprovacoes/index.js";
 
 // Resolvedores concretos do motor de aprovação para o app ARCD: como este
@@ -2531,7 +2531,7 @@ const normalizeData = incoming => {
       criadoPorId: p.criadoPorId || "", criadoPor: p.criadoPor || "", criadoEm: p.criadoEm || new Date().toISOString(),
       atualizadoPor: p.atualizadoPor || "", atualizadoEm: p.atualizadoEm || "",
     })) : [],
-    instanciasAprovacao: Array.isArray(d.instanciasAprovacao) ? d.instanciasAprovacao : [],
+    instanciasAprovacao: normalizeApprovalInstances(d.instanciasAprovacao),
     decisoesAprovacao: Array.isArray(d.decisoesAprovacao) ? d.decisoesAprovacao : [],
     delegacoesAprovacao: Array.isArray(d.delegacoesAprovacao) ? d.delegacoesAprovacao.map(dl => ({
       id: dl.id || uid(), usuarioOrigemId: dl.usuarioOrigemId || "", usuarioDestinoId: dl.usuarioDestinoId || "",
@@ -25730,8 +25730,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   const etapasPendentesParaMim=(instancia)=>{
     if(!instancia||instancia.status!=="em_andamento"||!instancia.snapshotPolitica)return[];
     return instancia.snapshotPolitica.etapas
-      .map((e,i)=>({etapa:e,resultado:instancia.resultadosEtapas[i]}))
-      .filter(({resultado})=>resultado.status==="em_andamento"&&(resultado.aprovadoresElegiveis||[]).some(u=>u.id===currentUser?.id));
+      .map((e,i)=>({etapa:e,resultado:instancia.resultadosEtapas?.[i]}))
+      .filter(({resultado})=>resultado?.status==="em_andamento"&&(resultado.aprovadoresElegiveis||[]).some(u=>u.id===currentUser?.id));
   };
   const decidirAprovacao=(instancia,etapaId,decisao,justificativa="")=>{
     const {data:next,resumo}=motorAprovacaoGenerico.registrarDecisao(data,{
@@ -37640,8 +37640,8 @@ export default function App() {
   })() : false;
   const compraPending=data?(data.solicitacoesCompra||[]).some(s=>s.status==="enviada"&&(!currentUser?.obraId||s.obraId===currentUser.obraId)):false;
   const aprovacaoPendente = data ? (data.instanciasAprovacao||[]).some(i =>
-    i.status==="em_andamento" && i.snapshotPolitica && i.snapshotPolitica.etapas.some((etapa,idx) => {
-      const resultado = i.resultadosEtapas[idx];
+    i?.status==="em_andamento" && i.snapshotPolitica && i.snapshotPolitica.etapas.some((etapa,idx) => {
+      const resultado = i.resultadosEtapas?.[idx];
       return resultado?.status==="em_andamento" && (resultado.aprovadoresElegiveis||[]).some(u=>u.id===currentUser?.id);
     })
   ) : false;
