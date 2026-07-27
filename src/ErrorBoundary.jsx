@@ -22,11 +22,12 @@ export default class ErrorBoundary extends Component {
     console.error("Erro não tratado:", { reference: diagnostic.reference, erro, componentStack: info?.componentStack });
     const componentStack = String(info?.componentStack || "");
     this.setState({ componentStack });
-    fetch("/api/client-errors", {
+    fetch("/api/data", {
       method: "POST",
       headers: { "content-type": "application/json" },
       keepalive: true,
       body: JSON.stringify({
+        action: "client-error",
         reference: diagnostic.reference,
         message: diagnostic.message,
         pathname: window.location.pathname,

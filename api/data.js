@@ -41,6 +41,7 @@ import { hasLegacyFinancialWrite, validateFinancialWritePath } from "../server/f
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
 import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
+import { sanitizeClientError } from "../server/client-error-report.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
@@ -194,6 +195,9 @@ const mesmoInstante = (a, b) => {
 const tentativas = new Map();
 const LIMITE = 8;
 const JANELA = 5 * 60 * 1000;
+const clientErrorBuckets = new Map();
+const CLIENT_ERROR_WINDOW = 60 * 1000;
+const CLIENT_ERROR_LIMIT = 12;
 
 const bloqueado = (ip) => {
   const t = tentativas.get(ip);
@@ -206,6 +210,15 @@ const registrarFalha = (ip) => {
   const t = tentativas.get(ip);
   if (!t || Date.now() - t.desde > JANELA) tentativas.set(ip, { n: 1, desde: Date.now() });
   else t.n += 1;
+};
+const aceitarErroCliente = (ip, now=Date.now()) => {
+  const atual=clientErrorBuckets.get(ip);
+  if(!atual||now-atual.desde>=CLIENT_ERROR_WINDOW){
+    clientErrorBuckets.set(ip,{desde:now,n:1});
+    return true;
+  }
+  atual.n+=1;
+  return atual.n<=CLIENT_ERROR_LIMIT;
 };
 const limparFalhas = subject => tentativas.delete(subject);
 const subjectRateLimit=subject=>crypto.createHash("sha256").update(`${COMPANY}|${subject||"unknown"}`).digest("hex");
@@ -432,6 +445,11 @@ export default async function handler(req, res) {
   const { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
 
   try {
+    if(action==="client-error"){
+      if(!aceitarErroCliente(ip))return res.status(429).json({error:"Limite de diagnósticos atingido."});
+      console.error("[ARCD_CLIENT_ERROR]",JSON.stringify(sanitizeClientError(req.body)));
+      return res.status(202).json({ok:true});
+    }
     if(action==="backup-create"&&cronAutorizado(req))return res.status(200).json(await criarBackupOneDrive(req,"system:vercel-cron"));
     if(action==="backup-verify"&&cronAutorizado(req))return res.status(200).json(await verificarBackupOneDrive(req));
     if (action === "client-portal") {
