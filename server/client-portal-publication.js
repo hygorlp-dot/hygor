@@ -67,6 +67,11 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
   const measured = measurements.reduce((sum, item) => sum + number(item?.valorPrevisto), 0);
   const paid = measurements.reduce((sum, item) => sum + receivedAmount(item), 0);
   const contractOriginal = number(obra.contractValue);
+  const suppliers = new Map(list(data.fornecedores).map(item => [String(item?.id), text(item?.nome) || "Fornecedor"]));
+  const materials = new Map(list(data.materiais).map(item => [String(item?.id), {
+    description:text(item?.descricao) || "Material",
+    unit:text(item?.unidade) || "UN",
+  }]));
 
   const rows = [{
     domain: "project_summary",
@@ -166,6 +171,119 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
       });
     }
     rows.push(...measurementPayments(measurements));
+  }
+
+  if (portal.publicarCaixaObra) {
+    const chronological=list(data.caixaObra)
+      .filter(item=>String(item?.obraId)===obraId && active(item))
+      .sort((a,b)=>String(a?.data || "").localeCompare(String(b?.data || "")));
+    let balance=0;
+    const movements=chronological.map(item=>{
+      const amount=number(item.valor);
+      balance+=item.tipo==="aporte" ? amount : -amount;
+      return {
+        domain:"cash_movement",
+        payload:{
+          id:text(item.id),
+          date:text(item.data),
+          type:item.tipo==="aporte" ? "Aporte" : "Despesa",
+          category:text(item.categoria) || (item.tipo==="aporte" ? "Aporte" : "Outros"),
+          description:text(item.descricao) || (item.tipo==="aporte" ? "Aporte para a obra" : "Despesa da obra"),
+          amount,
+          balance,
+        },
+      };
+    });
+    const totalContributions=chronological.filter(item=>item.tipo==="aporte").reduce((sum,item)=>sum+number(item.valor),0);
+    const totalExpenses=chronological.filter(item=>item.tipo!=="aporte").reduce((sum,item)=>sum+number(item.valor),0);
+    rows.push({
+      domain:"cash_summary",
+      payload:{id:`caixa-${obraId}`,totalContributions,totalExpenses,balance,asOf:publishedAt.slice(0,10)},
+    });
+    rows.push(...movements.reverse().slice(0,40));
+  }
+
+  if (portal.publicarNotasFiscais) {
+    rows.push(...list(data.notasFiscais)
+      .filter(item=>String(item?.obraId)===obraId && active(item) && text(item?.status).toLowerCase()!=="rejeitada")
+      .sort((a,b)=>String(b?.emissao || "").localeCompare(String(a?.emissao || "")))
+      .slice(0,30)
+      .map(item=>({
+        domain:"invoice",
+        payload:{
+          id:text(item.id),
+          type:text(item.tipo).toUpperCase() || "NF",
+          number:text(item.numero) || "Sem número",
+          issuedAt:text(item.emissao),
+          dueDate:text(item.vencimento),
+          supplierName:text(item.fornecedorNome) || suppliers.get(String(item.fornecedorId)) || "Fornecedor",
+          description:text(item.descricao),
+          category:text(item.categoria) || "Compras e serviços",
+          grossAmount:number(item.valorBruto),
+          netAmount:number(item.valorLiquido || item.valorBruto),
+          clientStatus:text(item.status) || "Recebida",
+        },
+      })));
+  }
+
+  if (portal.publicarCompras) {
+    rows.push(...list(data.pedidos)
+      .filter(item=>String(item?.obraId)===obraId && active(item) && text(item?.status).toLowerCase()!=="rascunho")
+      .sort((a,b)=>String(b?.data || "").localeCompare(String(a?.data || "")))
+      .slice(0,30)
+      .map(item=>{
+        const items=list(item.itens).map(entry=>{
+          const material=materials.get(String(entry?.materialId));
+          return {
+            description:text(entry?.descricaoRef) || material?.description || "Material",
+            unit:text(entry?.unidadeRef) || material?.unit || "UN",
+            quantity:number(entry?.qtd),
+            receivedQuantity:number(entry?.qtdRecebida),
+            unitPrice:number(entry?.precoUnit),
+          };
+        });
+        return {
+          domain:"purchase_order",
+          payload:{
+            id:text(item.id),
+            number:text(item.numero) || "Pedido",
+            date:text(item.data),
+            expectedAt:text(item.previsao),
+            supplierName:suppliers.get(String(item.fornecedorId)) || "Fornecedor",
+            clientStatus:text(item.status) || "Enviado",
+            total:items.reduce((sum,entry)=>sum+entry.quantity*entry.unitPrice,0),
+            items,
+          },
+        };
+      }));
+  }
+
+  if (portal.publicarCotacoes) {
+    rows.push(...list(data.cotacoes)
+      .filter(item=>String(item?.obraId)===obraId && active(item))
+      .sort((a,b)=>String(b?.data || "").localeCompare(String(a?.data || "")))
+      .slice(0,20)
+      .map(item=>{
+        const material=materials.get(String(item.materialId));
+        return {
+          domain:"quotation",
+          payload:{
+            id:text(item.id),
+            date:text(item.data),
+            clientStatus:text(item.status) || "Aberta",
+            material:material?.description || "Material",
+            unit:material?.unit || "UN",
+            quantity:number(item.qtd),
+            proposals:list(item.propostas).map(proposal=>({
+              supplierName:suppliers.get(String(proposal?.fornecedorId)) || "Fornecedor",
+              unitPrice:number(proposal?.precoUnit),
+              total:number(proposal?.precoUnit)*number(item.qtd),
+              leadTimeDays:number(proposal?.prazoDias),
+              selected:String(item.escolhida || "")===String(proposal?.id || ""),
+            })),
+          },
+        };
+      }));
   }
 
   if (portal.publicarDocumentos !== false) {

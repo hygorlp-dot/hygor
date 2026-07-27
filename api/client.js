@@ -6,7 +6,9 @@ import { COMPANY, auditPortalEvent, clearLoginFailures, genericAuthFailure, hash
 const DOMAINS = Object.freeze({
   weekly_update:"weeklyUpdates", timeline:"timeline", media:"media", decision:"decisions",
   change_order:"changeOrders", financial_summary:"financialSummaries", measurement:"measurements",
-  payment:"clientPayments", document:"documents", message:"messages", team:"team", support:"support",
+  payment:"clientPayments", cash_summary:"projectCashSummaries", cash_movement:"projectCashMovements",
+  invoice:"clientInvoices", purchase_order:"clientPurchaseOrders", quotation:"clientQuotations",
+  document:"documents", message:"messages", team:"team", support:"support",
 });
 const array = value => Array.isArray(value) ? value : [];
 const routeParts = req => {
@@ -89,7 +91,7 @@ async function dashboard(req, res, db, projectId) {
     if (!active) return noStore(res).status(401).json({error:"Sessão do portal inválida ou expirada."});
     const membership=active.projects.find(item=>item.projectId===projectId);
     if (!membership) return noStore(res).status(403).json({error:"Você não possui acesso a esta obra."});
-    const { data:publications, error }=await db.from("client_portal_publications").select("domain,status,visibility,visible_to_profiles,visible_to_user_ids,payload,published_at").eq("company_id",COMPANY).eq("project_id",projectId).eq("status","published").order("published_at",{ascending:false}).range(0,199);
+    const { data:publications, error }=await db.from("client_portal_publications").select("domain,status,visibility,visible_to_profiles,visible_to_user_ids,payload,published_at").eq("company_id",COMPANY).eq("project_id",projectId).eq("status","published").order("published_at",{ascending:false}).range(0,499);
     if (error) throw error;
     const user={id:active.user.id,profile:membership.profile,projectIds:[projectId],permissions:Object.entries(membership.permissions).filter(([,enabled])=>enabled).map(([capability])=>capability)};
     const rows=(publications || []).filter(row=>isPortalRecordVisible(recordFromPublication(row,projectId),user));

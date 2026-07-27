@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-26T22:55:12.146Z",
+  "generatedAt": "2026-07-27T02:51:59.100Z",
   "totals": {
-    "bytes": 4109368,
-    "gzipBytes": 1141432
+    "bytes": 4119855,
+    "gzipBytes": 1143487
   },
   "assets": [
     {
-      "name": "LegacyApp-BmL7LWy5.js",
-      "bytes": 2201543,
-      "gzipBytes": 613701
+      "name": "LegacyApp-pYI05LUA.js",
+      "bytes": 2202691,
+      "gzipBytes": 614020
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -36,9 +36,9 @@
       "gzipBytes": 24350
     },
     {
-      "name": "ClientPortalApp-DodmM9Is.js",
-      "bytes": 22180,
-      "gzipBytes": 5807
+      "name": "ClientPortalApp-ChdL1pRF.js",
+      "bytes": 29105,
+      "gzipBytes": 7158
     },
     {
       "name": "SupplierEditor-Ctkee0-X.js",
@@ -46,14 +46,14 @@
       "gzipBytes": 5002
     },
     {
-      "name": "index-NsWfUrtZ.js",
+      "name": "index-Dyw2XZw3.js",
       "bytes": 8148,
-      "gzipBytes": 3548
+      "gzipBytes": 3549
     },
     {
-      "name": "ClientPortalApp-D_OTJdpB.css",
-      "bytes": 9779,
-      "gzipBytes": 2527
+      "name": "ClientPortalApp-CY00BwLl.css",
+      "bytes": 12193,
+      "gzipBytes": 2911
     },
     {
       "name": "SupplierEditor-BkHwlS_S.css",

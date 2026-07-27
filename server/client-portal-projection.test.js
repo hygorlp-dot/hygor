@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { projectClientFinancialSummary, projectClientPortalData } from "./client-portal-projection.js";
 import { CLIENT_PORTAL_DATA_INVENTORY } from "./client-portal-inventory.js";
 
-const user = { id:"client-a", projectIds:["obra-a"], permissions:["viewProgress", "viewMedia", "viewFinancial", "downloadDocuments", "viewWeeklyUpdates", "viewDecisions", "viewChanges", "sendMessages", "viewTeam"] };
+const user = { id:"client-a", projectIds:["obra-a"], permissions:["viewProgress", "viewMedia", "viewFinancial", "viewProjectCash", "viewProcurement", "downloadDocuments", "viewWeeklyUpdates", "viewDecisions", "viewChanges", "sendMessages", "viewTeam"] };
 const project = { id:"obra-a", name:"Residência Monte Verde", portalCoverImage:"https://media/capa.webp", portalProgress:48, internalCost:900000, margin:0.25, bankAccounts:["segredo"] };
 const sourceData = {
   weeklyUpdates:[{ id:"weekly-public", obraId:"obra-a", status:"published", period:"14–20 jul", summary:"Instalações concluídas", internalNotes:"não publicar" }, { id:"weekly-draft", obraId:"obra-a", status:"draft", summary:"rascunho" }, { id:"weekly-other", obraId:"obra-b", status:"published", summary:"outra obra" }],
@@ -12,6 +12,11 @@ const sourceData = {
   changeOrders:[{ id:"change", obraId:"obra-a", status:"published", title:"Aditivo aprovado", financialImpact:4850, salary:999 }],
   measurements:[{ id:"measurement", obraId:"obra-a", status:"published", codigo:"M-01", clientAmount:25000, valorPrevisto:25000, valorRecebido:10000, reconciliation:{id:"interno"} }],
   clientPayments:[{ id:"payment", obraId:"obra-a", status:"published", amount:10000, bankAccount:"não publicar" }],
+  projectCashSummaries:[{id:"cash",obraId:"obra-a",status:"published",totalContributions:10000,totalExpenses:2500,balance:7500,bankAccount:"não publicar"}],
+  projectCashMovements:[{id:"cash-movement",obraId:"obra-a",status:"published",date:"2026-07-12",type:"Despesa",category:"Material",description:"Cimento",amount:2500,balance:7500,transacaoId:"não publicar"}],
+  clientInvoices:[{id:"invoice",obraId:"obra-a",status:"published",number:"124",supplierName:"Casa dos Materiais",netAmount:2400,chave:"não publicar"}],
+  clientPurchaseOrders:[{id:"purchase",obraId:"obra-a",status:"published",number:"PC-001",total:250,items:[{description:"Cimento",quantity:10,unitPrice:25}],payments:[{pix:"não publicar"}]}],
+  clientQuotations:[{id:"quotation",obraId:"obra-a",status:"published",material:"Cimento",quantity:10,proposals:[{supplierName:"Casa dos Materiais",total:250,selected:true,cnpj:"não publicar"}]}],
   documents:[{ id:"document", obraId:"obra-a", status:"published", nome:"Medição", clientUrl:"https://signed/document", internalUrl:"https://interno" }],
   messages:[{ id:"message", obraId:"obra-a", status:"published", subject:"Reunião", body:"Confirmada", senderName:"Equipe", internalNotes:"nunca" }],
   team:[{ id:"team", obraId:"obra-a", status:"published", nome:"Ana", funcao:"Arquiteta", cpf:"000", salario:1000 }],
@@ -26,6 +31,11 @@ describe("projectClientPortalData", () => {
     expect(result.publishedMedia).toEqual([expect.objectContaining({ id:"media-public", caption:"Banheiro social" })]);
     expect(result.measurements).toEqual([expect.objectContaining({ id:"measurement", amount:25000 })]);
     expect(result.publishedDocuments[0]).toEqual(expect.objectContaining({ url:"https://signed/document" }));
+    expect(result.projectCashSummary[0]).toMatchObject({balance:7500});
+    expect(result.invoices[0]).toMatchObject({number:"124",netAmount:2400});
+    expect(result.purchaseOrders[0]).toMatchObject({number:"PC-001",total:250});
+    expect(result.quotations[0].proposals[0]).toMatchObject({selected:true,total:250});
+    expect(JSON.stringify(result)).not.toContain("não publicar");
   });
 
   it("never exposes workforce, payroll, payment keys or internal fields", () => {
@@ -51,6 +61,8 @@ describe("projectClientPortalData", () => {
     expect(result.measurements).toEqual([]);
     expect(result.publishedDocuments).toEqual([]);
     expect(result.publishedMedia).toEqual([]);
+    expect(result.projectCashMovements).toEqual([]);
+    expect(result.purchaseOrders).toEqual([]);
   });
 
   it("respeita visibilidade editorial e nunca reaproveita URL interna de mídia", () => {

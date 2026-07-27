@@ -41,6 +41,11 @@ const normalizeLegacyPortal = source => {
     publishedDocuments:(portal.documentos || []).map(item=>({
       id:item.id, title:item.nome, url:item.url, category:"Documento da obra",
     })),
+    projectCashSummary:portal.caixaResumo ? [portal.caixaResumo] : [],
+    projectCashMovements:portal.caixaMovimentacoes || [],
+    invoices:portal.notasFiscais || [],
+    purchaseOrders:portal.compras || [],
+    quotations:portal.cotacoes || [],
     decisions:[],
   };
 };

@@ -5,6 +5,8 @@ describe("client portal server policy", () => {
   it("grants only the financial profile capabilities", () => {
     const permissions = clientPortalPermissions({ profile:"financial" });
     expect(permissions.viewFinancial).toBe(true);
+    expect(permissions.viewProjectCash).toBe(true);
+    expect(permissions.viewProcurement).toBe(true);
     expect(permissions.approveMeasurements).toBe(true);
     expect(permissions.viewMedia).toBe(false);
     expect(permissions.openAssistance).toBe(false);

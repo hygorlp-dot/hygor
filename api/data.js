@@ -461,14 +461,20 @@ export default async function handler(req, res) {
       })) : [];
       const documentos = portal.publicarDocumentos === false ? [] : (obra.documentosOneDrive || [])
         .filter(d => d.publicarCliente === true).map(d => ({ id:d.id, nome:d.nome || "Documento", url:d.url || "" }));
-      const atualizacoes = (p?.changeLog || []).filter(e => e.obraId === obraId)
-        .slice(-20).reverse().map(e => ({ id:e.id, at:e.at || e.date || "", mensagem:e.message || "Atualização da obra", responsavel:e.operador || "Equipe ArcD" }));
+      const rowsPublicados=buildClientPortalPublicationRows({data:p,projectId:obraId,publishedAt:portal.atualizadoEm || new Date().toISOString()});
+      const payloads=domain=>rowsPublicados.filter(row=>row.domain===domain).map(row=>row.payload);
+      const atualizacoes=payloads("weekly_update").map(item=>({id:item.id,at:item.period,mensagem:item.summary,responsavel:item.authorName||"Equipe ARCD"}));
       return res.status(200).json({ portal:{
         obra:{ id:obra.id, nome:obra.name, status:obra.status, capaUrl:obra.capaUrl || "", cliente:obra.cliente || "", engenheiro:obra.engineer || "", endereco:obra.address || "", inicio:obra.contractStart || obra.startDate || "", terminoPrevisto:obra.contractEnd || "" },
         mensagem:portal.mensagem || "Acompanhe aqui a evolução da sua obra.", progresso,
         cronograma:portal.publicarCronograma === false ? [] : tarefas.slice(0,30),
         diarios:rdos.map(r => ({ id:r.id, codigo:r.codigo, data:r.data, descricao:r.descricao || "", clima:r.clima || {}, fotos:(r.fotos||[]).filter(f=>f.publicarCliente!==false).length })),
         fotos, medicoes, documentos, atualizacoes,
+        caixaResumo:payloads("cash_summary")[0] || null,
+        caixaMovimentacoes:payloads("cash_movement"),
+        notasFiscais:payloads("invoice"),
+        compras:payloads("purchase_order"),
+        cotacoes:payloads("quotation"),
         atualizadoEm:portal.atualizadoEm || "",
       }});
     }

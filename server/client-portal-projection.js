@@ -63,6 +63,11 @@ const documentItem = item => ({ id:string(item.id), title:string(item.title || i
 const messageItem = item => ({ id:string(item.id), subject:string(item.subject), contextType:string(item.contextType), contextId:string(item.contextId), body:string(item.body), createdAt:string(item.createdAt), senderName:string(item.senderName), attachments:list(item.attachments).filter(published).map(mediaItem).filter(item => item.url) });
 const teamItem = item => ({ id:string(item.id), name:string(item.name || item.nome), role:string(item.role || item.funcao), photoUrl:string(item.photoUrl), contactChannel:string(item.clientContactChannel) });
 const financialSummary = item => ({ id:string(item.id), contractOriginal:number(item.contractOriginal), approvedChanges:number(item.approvedChanges), contractCurrent:number(item.contractCurrent), measured:number(item.measured), approved:number(item.approved), paid:number(item.paid), openAmount:number(item.openAmount), balanceToMeasure:number(item.balanceToMeasure), asOf:string(item.asOf), status:string(item.status) });
+const projectCashSummary = item => ({ id:string(item.id), totalContributions:number(item.totalContributions), totalExpenses:number(item.totalExpenses), balance:number(item.balance), asOf:string(item.asOf) });
+const projectCashMovement = item => ({ id:string(item.id), date:string(item.date), type:string(item.type), category:string(item.category), description:string(item.description), amount:number(item.amount), balance:number(item.balance) });
+const invoiceItem = item => ({ id:string(item.id), type:string(item.type), number:string(item.number), issuedAt:string(item.issuedAt), dueDate:string(item.dueDate), supplierName:string(item.supplierName), description:string(item.description), category:string(item.category), grossAmount:number(item.grossAmount), netAmount:number(item.netAmount), status:string(item.clientStatus || item.status) });
+const purchaseOrderItem = item => ({ id:string(item.id), number:string(item.number), date:string(item.date), expectedAt:string(item.expectedAt), supplierName:string(item.supplierName), status:string(item.clientStatus || item.status), total:number(item.total), items:list(item.items).map(entry=>({ description:string(entry.description), unit:string(entry.unit), quantity:number(entry.quantity), receivedQuantity:number(entry.receivedQuantity), unitPrice:number(entry.unitPrice) })) });
+const quotationItem = item => ({ id:string(item.id), date:string(item.date), status:string(item.clientStatus || item.status), material:string(item.material), unit:string(item.unit), quantity:number(item.quantity), proposals:list(item.proposals).map(entry=>({ supplierName:string(entry.supplierName), unitPrice:number(entry.unitPrice), total:number(entry.total), leadTimeDays:number(entry.leadTimeDays), selected:entry.selected===true })) });
 const supportItem = item => ({ id:string(item.id), number:string(item.number), status:string(item.status), category:string(item.category), environment:string(item.environment), openedAt:string(item.openedAt), updatedAt:string(item.updatedAt), slaDueAt:string(item.slaDueAt) });
 
 export function projectClientProjectSummary(input) { const c=context(input); return portalProject(c.project); }
@@ -93,6 +98,11 @@ export function projectClientPortalData(input = {}) {
     financialSummary:projectClientFinancialSummary(c),
     measurements:projectClientMeasurements(c),
     payments:c.can("viewFinancial") ? publishedRecords(c.sourceData,"clientPayments",c.projectId,c.user).map(paymentItem) : [],
+    projectCashSummary:c.can("viewProjectCash") ? publishedRecords(c.sourceData,"projectCashSummaries",c.projectId,c.user).map(projectCashSummary) : [],
+    projectCashMovements:c.can("viewProjectCash") ? publishedRecords(c.sourceData,"projectCashMovements",c.projectId,c.user).map(projectCashMovement) : [],
+    invoices:c.can("viewProcurement") ? publishedRecords(c.sourceData,"clientInvoices",c.projectId,c.user).map(invoiceItem) : [],
+    purchaseOrders:c.can("viewProcurement") ? publishedRecords(c.sourceData,"clientPurchaseOrders",c.projectId,c.user).map(purchaseOrderItem) : [],
+    quotations:c.can("viewProcurement") ? publishedRecords(c.sourceData,"clientQuotations",c.projectId,c.user).map(quotationItem) : [],
     publishedDocuments:projectClientDocuments(c),
     publishedMedia:projectClientMedia(c),
     messages:projectClientMessages(c),

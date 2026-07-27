@@ -27,6 +27,6 @@ export default function ClientPortalApp({ session, portalData }) {
   if (state.error) return <main className="arcd-client-loading"><div><h1>Não foi possível abrir sua obra</h1><p>{state.error}</p><button type="button" onClick={refresh}>Tentar novamente</button></div></main>;
   if (!remotePortal) return <ClientPortalLoading />;
   const membership=remoteSession?.projects?.find(item=>item.projectId===selectedProject) || remoteSession?.projects?.[0] || {};
-  const linkPermissions=sharedToken?{viewProgress:true,viewMedia:true,viewFinancial:true,downloadDocuments:true}:{};
+  const linkPermissions=sharedToken?{viewProgress:true,viewMedia:true,viewFinancial:true,viewProjectCash:true,viewProcurement:true,downloadDocuments:true}:{};
   return <ClientPortalRouter portalData={remotePortal} permissions={membership.permissions || session?.permissions || linkPermissions} />;
 }
