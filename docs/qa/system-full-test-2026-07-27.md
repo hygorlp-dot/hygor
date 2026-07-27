@@ -152,10 +152,9 @@ horizontal.
 
 ## Riscos e ações operacionais
 
-1. A migration `20260727_auth_rate_limit_success.sql` precisa ser executada no
-   Supabase para que a limpeza central do rate limit fique ativa. Sem ela, o
-   freio local funciona e a API mantém fallback, mas falhas centrais expiram
-   somente pela janela configurada.
+1. As migrations de rate limit são idempotentes e fazem parte do gate de build
+   produtivo. A publicação deve comprovar sua execução junto com a homologação
+   financeira em sombra.
 2. O bundle principal passou no gate, porém permanece próximo do limite
    (592,06 de 600 KiB gzip). Novas telas devem continuar sendo carregadas sob
    demanda.
@@ -168,6 +167,6 @@ horizontal.
 
 ## Recomendação
 
-O código está aprovado para publicação após commit. Executar a migration de
-rate limit no Supabase é a única ação operacional necessária para ativar
-integralmente a limpeza central de tentativas bem-sucedidas.
+O código está aprovado para publicação. O build produtivo deve encerrar com
+zero divergências na homologação financeira e com as RPCs de rate limit
+aplicadas antes de liberar a nova versão.

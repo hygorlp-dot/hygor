@@ -6,6 +6,7 @@ describe("SEC-002 — limite de tentativas compartilhado", () => {
   const sql=fs.readFileSync(path.join(process.cwd(),"migrations","20260726_auth_rate_limit.sql"),"utf8");
   const successSql=fs.readFileSync(path.join(process.cwd(),"migrations","20260727_auth_rate_limit_success.sql"),"utf8");
   const api=fs.readFileSync(path.join(process.cwd(),"api","data.js"),"utf8");
+  const productionMigration=fs.readFileSync(path.join(process.cwd(),"scripts","apply-financial-shadow.mjs"),"utf8");
 
   it("persiste somente um hash do sujeito e aplica bloqueio atômico",()=>{
     expect(sql).toContain("subject_hash text not null");
@@ -32,5 +33,10 @@ describe("SEC-002 — limite de tentativas compartilhado", () => {
     expect(api).toContain('rateLimitCentral(authSubject,"failure")');
     expect(api).toContain('rateLimitCentral(authSubject,"success")');
     expect(api).toContain('crypto.createHash("sha256")');
+  });
+
+  it("aplica as RPCs idempotentes no gate de produção",()=>{
+    expect(productionMigration).toContain("../migrations/20260726_auth_rate_limit.sql");
+    expect(productionMigration).toContain("../migrations/20260727_auth_rate_limit_success.sql");
   });
 });
