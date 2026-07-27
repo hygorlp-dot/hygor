@@ -9,7 +9,7 @@ alterado ou excluído.
 
 O gate técnico da aplicação foi aprovado após as correções:
 
-- 107 arquivos de teste e 480 testes aprovados;
+- 108 arquivos de teste e 483 testes aprovados;
 - 13 cenários E2E aprovados em mobile, tablet, paisagem e desktop;
 - build, typecheck, fronteira financeira e auditoria de dependências aprovados;
 - razão financeiro e golden masters sem divergências;
@@ -126,7 +126,7 @@ npm run test:e2e
 Resultados finais:
 
 ```text
-Vitest:     107 arquivos / 480 testes aprovados
+Vitest:     108 arquivos / 483 testes aprovados
 Playwright: 13 testes aprovados
 Coverage:   79,32% statements / 61,32% branches /
             79,28% functions / 87,92% lines
