@@ -10,7 +10,7 @@ import { buildLocalErrorDiagnostic } from "./observability/local-error-diagnosti
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { erro: null };
+    this.state = { erro: null, componentStack: "" };
   }
 
   static getDerivedStateFromError(erro) {
@@ -20,6 +20,20 @@ export default class ErrorBoundary extends Component {
   componentDidCatch(erro, info) {
     const diagnostic = buildLocalErrorDiagnostic(erro, { pathname: window.location.pathname });
     console.error("Erro não tratado:", { reference: diagnostic.reference, erro, componentStack: info?.componentStack });
+    const componentStack = String(info?.componentStack || "");
+    this.setState({ componentStack });
+    fetch("/api/client-errors", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        reference: diagnostic.reference,
+        message: diagnostic.message,
+        pathname: window.location.pathname,
+        errorStack: String(erro?.stack || ""),
+        componentStack,
+      }),
+    }).catch(() => {});
   }
 
   copiarDiagnostico = diagnostic => {
@@ -28,7 +42,7 @@ export default class ErrorBoundary extends Component {
   };
 
   render() {
-    const { erro } = this.state;
+    const { erro, componentStack } = this.state;
     if (!erro) return this.props.children;
     const diagnostic = buildLocalErrorDiagnostic(erro, { pathname: window.location.pathname });
 
@@ -72,6 +86,7 @@ export default class ErrorBoundary extends Component {
             overflowX: "auto", margin: "0 0 18px", whiteSpace: "pre-wrap",
           }}>
             {diagnostic.text}
+            {componentStack ? `\nOrigem: ${componentStack.trim().split("\n")[0].trim()}` : ""}
           </pre>
 
           <button
