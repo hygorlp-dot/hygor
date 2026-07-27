@@ -9479,9 +9479,11 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
   </div>;
 }
 
-function Ponto({ data, update, showToast, obraIdFixo="" }) {
+function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
+  const obraInicial=obraIdFixo||currentUser?.obraId||
+    (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
   const [selDate, setSelDate] = useState(today());
-  const [filterObra, setFilterObra] = useState(obraIdFixo||"all");
+  const [filterObra, setFilterObra] = useState(obraInicial);
   const [noteModal, setNoteModal] = useState(null);
   const [noteText, setNoteText] = useState("");
   const [otModal, setOtModal] = useState(null);
@@ -9538,11 +9540,17 @@ function Ponto({ data, update, showToast, obraIdFixo="" }) {
   };
 
   const confirmTeamWithoutChanges = () => {
-    update({
+    const next={
       ...data,
       dailyCheckDate: today(),
-      changeLog: [...data.changeLog, { id: uid(), date: today(), type: "daily_check", message: "Verificação diária concluída: equipe sem alterações." }],
-    });
+    };
+    // Perfis restritos recebem uma projeção da própria obra e não devem
+    // regravar o changeLog global. A auditoria append-only do servidor já
+    // registra esta mutação com autor e horário.
+    if(!currentUser?.obraId){
+      next.changeLog=[...data.changeLog,{id:uid(),date:today(),type:"daily_check",message:"Verificação diária concluída: equipe sem alterações."}];
+    }
+    update(next);
     showToast("Equipe confirmada sem alterações.");
   };
 
@@ -9677,7 +9685,7 @@ function Ponto({ data, update, showToast, obraIdFixo="" }) {
     list.forEach(e => {
       attendance[e.id] = {
         ...(attendance[e.id] || {}),
-        [selDate]: { ...(getAtt(data, e.id, selDate) || {}), status },
+        [selDate]: { ...(getAtt(data, e.id, selDate) || {}), status, obraId:filterObra },
       };
     });
     update({ ...data, attendance });
@@ -15054,7 +15062,7 @@ const allowedTabsForUser=user=>{
   // Dashboard e Modo TV são visões institucionais somente leitura; continuam
   // disponíveis mesmo em cadastros antigos cuja lista personalizada de abas
   // foi criada antes da existência do painel corporativo.
-  const herdadas=user.role==="financeiro"?["equip_fin"]:[];
+  const herdadas=user.role==="financeiro"?["equip_fin"]:user.role==="engenheiro"?["ponto"]:[];
   return [...new Set(["home","tv","chat","aprov_pend",...base,...herdadas])].filter(tab=>valid.has(tab)&&tab!=="config");
 };
 
@@ -27978,7 +27986,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="cmp"&&<Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="est"&&<Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="dre"&&<DRE data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
-        {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
         {abaConteudo==="equipe"&&<Equipe data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="terc"&&<Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
         {abaConteudo==="equip"&&<Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
@@ -37232,7 +37240,7 @@ export default function App() {
     let proximo = base;
     try {
       const antes = dataAtualRef.current;
-      if (antes && base && base.changeLog === antes.changeLog) {
+      if (antes && base && base.changeLog === antes.changeLog && !currentUser?.obraId) {
         // changeLog não foi mexido manualmente nesta chamada: detecta e anexa.
         const mudancas = detectarMudancasAudit(antes, base);
         if (mudancas.length) {
@@ -37998,7 +38006,7 @@ export default function App() {
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} />}
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
-          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} />}
+          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} />}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}

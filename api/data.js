@@ -31,6 +31,7 @@ import { validateProcurementChain } from "../server/procurement-chain-policy.js"
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { findSectionConflicts } from "../server/three-way-conflicts.js";
+import { mergeScopedAttendance } from "../server/scoped-attendance-merge.js";
 import { authorizeSectionChanges, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
@@ -966,9 +967,12 @@ export default async function handler(req, res) {
       const aplicar = (estado, concorrente) => {
         const proximo={...(estado||{})};
         chaves.forEach(k => {
-          proximo[k]=concorrente&&baseSections&&Object.prototype.hasOwnProperty.call(baseSections,k)
+          const recebido=concorrente&&baseSections&&Object.prototype.hasOwnProperty.call(baseSections,k)
             ? mesclarTresVias(baseSections[k],sections[k],estado?.[k])
             : sections[k];
+          proximo[k]=k==="attendance"&&usuario.obraId
+            ? mergeScopedAttendance({current:estado?.attendance,incoming:recebido,user:usuario,employees:estado?.employees})
+            : recebido;
         });
         return proximo;
       };
@@ -1044,6 +1048,11 @@ export default async function handler(req, res) {
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
       }
       let valor=houveConcorrencia&&basePayload?mesclarTresVias(basePayload,payload,atual):payload;
+      if(usuario.obraId&&!igual(payload?.attendance,atual?.attendance)){
+        valor={...valor,attendance:mergeScopedAttendance({
+          current:atual?.attendance,incoming:valor?.attendance,user:usuario,employees:atual?.employees,
+        })};
+      }
       if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:atual,currentUpdatedAt:updatedAt});
 
       const agora = new Date().toISOString();

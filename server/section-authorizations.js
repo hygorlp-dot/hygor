@@ -22,7 +22,7 @@ const SECTION_ROLES = Object.freeze({
   // Legado transitório: o cliente ainda gera mensagens de atividade. DATA-001
   // migra a prova para a trilha append-only do servidor; até lá, só papéis
   // operacionais podem anexar este histórico junto de uma seção autorizada.
-  changeLog:["admin","engenheiro","engenheiro_auditor","compras","financeiro","rh","comercial"], dailyCheckDate:["admin","rh"],
+  changeLog:["admin","engenheiro","engenheiro_auditor","compras","financeiro","rh","comercial"], dailyCheckDate:["admin","rh","engenheiro"],
 });
 
 const scoped = value => Array.isArray(value) ? value : [];
@@ -36,6 +36,13 @@ export const authorizeSectionChanges = (user = {}, sections = {}) => {
     const roles=SECTION_ROLES[key];
     if (!roles) return `A seção ${key} não pode ser alterada por esta rota.`;
     if (!roles.includes(user.role)) return "Seu perfil não possui permissão para alterar esta seção.";
+    if(user.obraId&&key==="attendance"){
+      const foreign=Object.values(sections.attendance||{}).some(days=>Object.values(days||{}).some(record=>{
+        const obraId=String(record?.obraId||record?.obra||"");
+        return obraId&&obraId!==String(user.obraId);
+      }));
+      if(foreign)return "Não é permitido alterar dados de outra obra.";
+    }
     if (user.obraId && hasForeignObra(sections[key], user.obraId)) return "Não é permitido alterar dados de outra obra.";
     // Um perfil vinculado a obra não pode transformar uma mutação em registro
     // global omitindo o vínculo. Referências corporativas continuam exclusivas
