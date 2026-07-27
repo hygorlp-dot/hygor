@@ -117,3 +117,58 @@ export const calcEquipMes = (data,equipId,ym) => {
   const custo=custoDono+manut;
   return {receita,descontos,custoDono,manut,custo,lucro:receita-custo,diasTotais,locacoes:locacoes.length};
 };
+
+export const calcEquipamentosMes = (data,ym) => {
+  const equips=(data?.equipamentos||[]).filter(e=>e?.ativo!==false);
+  const linhas=equips.map(e=>{
+    const fin=calcEquipMes(data,e.id,ym);
+    const proprio=!e.proprietarioId;
+    return {equip:e,proprio,...fin};
+  });
+  const total=linhas.reduce((acc,line)=>({
+    receita:acc.receita+line.receita,
+    custoDono:acc.custoDono+line.custoDono,
+    manut:acc.manut+line.manut,
+    custo:acc.custo+line.custo,
+    lucro:acc.lucro+line.lucro,
+    descontos:acc.descontos+line.descontos,
+  }),{receita:0,custoDono:0,manut:0,custo:0,lucro:0,descontos:0});
+  return {
+    linhas,
+    total,
+    proprios:linhas.filter(line=>line.proprio),
+    terceiros:linhas.filter(line=>!line.proprio),
+    lucroProprios:linhas.filter(line=>line.proprio).reduce((sum,line)=>sum+line.lucro,0),
+    lucroTerceiros:linhas.filter(line=>!line.proprio).reduce((sum,line)=>sum+line.lucro,0),
+    emManutencao:equips.filter(e=>e.status==="manutencao").length,
+    locados:equips.filter(e=>e.status==="locado").length,
+    disponiveis:equips.filter(e=>e.status==="disponivel").length,
+  };
+};
+
+export const calcEquipCustoObra = (data,obraId,ym,periodStart="",periodEnd="") => {
+  const [year,month]=ym.split("-").map(Number);
+  const start=periodStart||`${ym}-01`;
+  const end=periodEnd||`${ym}-${String(new Date(year,month,0).getDate()).padStart(2,"0")}`;
+  return (data?.locacoesEquip||[])
+    .filter(locacao=>locacao?.obraId===obraId)
+    .reduce((total,locacao)=>{
+      const days=diasLocacaoNoPeriodo(locacao,start,end);
+      if(!days)return total;
+      const gross=days*Number(locacao.valorDiaria||0);
+      const discount=Number(locacao.descontoValor||0)+gross*Number(locacao.descontoPct||0)/100;
+      return total+Math.max(0,gross-discount);
+    },0);
+};
+
+export const calcEquipFaturamentoEmpresa = (data,ym) => {
+  const report=calcEquipamentosMes(data,ym);
+  return {
+    receita:report.total.receita,
+    custoDono:report.total.custoDono,
+    manut:report.total.manut,
+    lucro:report.total.lucro,
+    receitaProprios:report.proprios.reduce((sum,line)=>sum+line.receita,0),
+    receitaTerceiros:report.terceiros.reduce((sum,line)=>sum+line.receita,0),
+  };
+};

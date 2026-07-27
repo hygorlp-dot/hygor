@@ -51,9 +51,6 @@ export const createDreCalculations = ({
   getQ,
   monthName,
   calcObraLaborCost,
-  calcObraTercCost: _calcObraTercCost,
-  calcTercEmpresaCost: _calcTercEmpresaCost,
-  calcObraComprasCost: _calcObraComprasCost,
   calcEquipCustoObra,
   calcEquipFaturamentoEmpresa,
 }) => {

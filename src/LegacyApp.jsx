@@ -99,7 +99,7 @@ const LazyLoginProjectParallax = lazy(() => import("./components/login/LoginProj
 import {
   PACOTES_TARIFA, melhorTarifa, textoComposicao, tarifasDaLocacao,
   tarifasCustoDaLocacao, cobrancaLocacao, disponibilidadeNoDia,
-  picoUsoNoPeriodo, diasLocacaoNoPeriodo, calcEquipMes,
+  picoUsoNoPeriodo, diasLocacaoNoPeriodo, calcEquipMes, calcEquipamentosMes,
 } from "./domains/equipamentos/calculations";
 import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
@@ -108,7 +108,7 @@ import {
   historicoPreco, historicoPrecoTodos, analisePreco, mapaGerencialCompras,
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
-import { calculateContractProjection, createDreCalculations } from "./domains/dre/calculations";
+import { calculateContractProjection } from "./domains/dre/calculations";
 import { cancelCompanyExpense, cancelDreExpense, createDreExpense, createManualReceipt, replicateCompanyRecurringExpenses, reverseManualReceipt, saveCompanyExpense } from "./domains/dre/mutations";
 import {
   buildFinancialLedger,
@@ -121,6 +121,9 @@ import {
 } from "./domains/financeiro/ledger";
 import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeasurements } from "./domains/financeiro/measurement-mutations";
 import { cancelThirdPartyMeasurement, createThirdPartyMeasurement, createThirdPartyPayment, payThirdPartyMeasurement, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
+import { createFinancialCalculationEngine } from "./domains/financeiro/calculation-engine";
+import { calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-cash";
+import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-summary";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
@@ -3935,81 +3938,35 @@ function Toast({ toast }) {
 // HELPERS FINANCEIROS
 // 
 
-//  Cache de cálculos pesados 
-// calcObraLaborCost é chamada dezenas de vezes por render com os mesmos
-// argumentos (DRE, Relatórios, Dashboard, Financeiro). O cache evita
-// recalcular o mesmo período/obra repetidamente. É invalidado sempre que
-// o objeto `data` muda de referência (imutabilidade garante correção).
-let _laborCacheData = null;
-let _laborCache = new Map();
+const {
+  calcObraLaborCost,
+  diasPeriodoDRE,
+  calcDREObra,
+  calcDREConsolidado,
+  calcDREHistorico,
+  calcVisaoFinanceira,
+  calcProjecaoContratoObra,
+} = createFinancialCalculationEngine({
+  getDays,
+  getQ,
+  monthName,
+  getPayrollHolidays,
+  isWeekdayIso:prIsWeekdayIso,
+  isEmployeeEmployedOnDate,
+  getAttendance:getAtt,
+  getHolidayPayRule,
+});
 
-const calcObraLaborCost = (data, obraId, days) => {
-  // Invalida o cache quando `data` muda (nova referência de objeto)
-  if (_laborCacheData !== data) {
-    _laborCacheData = data;
-    _laborCache = new Map();
-  }
-  const key = `${obraId}|${days[0]||""}|${days[days.length-1]||""}|${days.length}`;
-  const hit = _laborCache.get(key);
-  if (hit) return hit;
-
-  const corrente = _calcObraLaborCostRaw(data, obraId, days);
-  const datas = new Set(days || []);
-  let laborArchived = 0, benefitArchived = 0;
-  Object.values(data?.archivedLaborCosts || {}).forEach(arquivo => {
-    Object.entries(arquivo?.byDate || {}).forEach(([date, obras]) => {
-      if (!datas.has(date)) return;
-      const custo = obras?.[obraId];
-      laborArchived += Number(custo?.laborCost || 0);
-      benefitArchived += Number(custo?.benefitCost || 0);
-    });
-  });
-  const result = {
-    laborCost: corrente.laborCost + laborArchived,
-    benefitCost: corrente.benefitCost + benefitArchived,
-    totalCost: corrente.totalCost + laborArchived + benefitArchived,
-  };
-  _laborCache.set(key, result);
-  return result;
-};
-
-const _calcObraLaborCostRaw = (data, obraId, days) => {
-  const year = days[0] ? Number(days[0].slice(0,4)) : new Date().getFullYear();
-  const holidays = getPayrollHolidays(data, year);
-  const holidaysInPeriod = days.filter(d => holidays.includes(d) && prIsWeekdayIso(d));
-  let laborCost = 0, benefitCost = 0;
-
-  // A obra de um dia trabalhado vem do PRÓPRIO PONTO. Registros antigos, de
-  // antes desta mudança, não têm obraId - para eles caímos na obra de lotação,
-  // que era o comportamento anterior. Assim o histórico não muda de valor.
-  const obraDoDia = (e, d) => {
-    const reg = data.attendance?.[e.id]?.[d];
-    return reg?.obraId || e.obra || "";
-  };
-
-  data.employees.forEach(e => {
-    // Não filtramos mais pelo cadastro: um funcionário pode ter trabalhado
-    // nesta obra em alguns dias mesmo estando lotado em outra.
-    days.forEach(d => {
-      if (obraDoDia(e, d) !== obraId) return;
-      if (!isEmployeeEmployedOnDate(e, d)) return;
-      if (holidaysInPeriod.includes(d)) return;
-      const registro=getAtt(data,e.id,d);
-      const custo=calculateAttendanceDayCost({employee:e,record:registro,config:data.config});
-      laborCost += custo.laborCost;
-      benefitCost += custo.benefitCost;
-    });
-    // Feriado segue a MESMA regra: a obra do dia, não o cadastro. Deixar o
-    // feriado amarrado à lotação faria o DSR cair numa obra e os dias
-    // trabalhados em outra.
-    holidaysInPeriod.forEach(h => {
-      if (!isEmployeeEmployedOnDate(e, h)) return;
-      if (obraDoDia(e, h) !== obraId) return;
-      laborCost += Number(getHolidayPayRule(data, e, h, holidays).amount||0);
-    });
-  });
-  return { laborCost, benefitCost, totalCost: laborCost + benefitCost };
-};
+const {
+  statusObraExec,
+  calcAlertas,
+  calcResumoExecutivo,
+} = createExecutiveSummaryEngine({
+  calcDREObra,
+  calcDREConsolidado,
+  today,
+  colors:C,
+});
 
 // extraCosts é opcional (default = tudo zero) para não quebrar quem ainda
 // chama calcObraRevenue só com laborCost - só passa a mudar o resultado de
@@ -4027,9 +3984,8 @@ const _calcObraLaborCostRaw = (data, obraId, days) => {
 // desligando cada categoria - ex.: um contrato admin_only que não deve cobrar
 // administração sobre mão de obra própria.
 // IMPORTANTE: quem chama esta função com outrasTotal deve excluir daí a
-// parcela de materiais já contabilizada em materialCost (calcObraMaterialCost
-// soma só a categoria "material" de outrasDesp), senão o valor é somado em
-// dobro na base de admin_only.
+// parcela de materiais já contabilizada em materialCost pelo ledger, senão o
+// valor é somado em dobro na base de admin_only.
 const calcObraRevenue = calculateContractProjection;
 
 // 
@@ -4901,183 +4857,6 @@ const categoriasDesp = (data) => {
 // Rotulo de uma categoria por chave (cai na propria chave se nao achar).
 const rotuloCategoria = (data, v) =>
   (categoriasDesp(data).find(c => c.v === v)?.l) || v;
-
-// Custo de locação de equipamentos numa OBRA, no mês. É o que a obra "paga"
-// para usar os equipamentos alocados a ela — a diária cobrada, líquida de
-// desconto, somada por dia dentro do período. Vale tanto para equipamento
-// próprio quanto de terceiro: do ponto de vista da obra, é custo de locação.
-const calcEquipCustoObra = (data, obraId, ym, periodStart="", periodEnd="") => {
-  const [y,m] = ym.split("-").map(Number);
-  const pi = periodStart || `${ym}-01`;
-  const pf = periodEnd || `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2,"0")}`;
-  return (data.locacoesEquip||[])
-    .filter(l => l.obraId === obraId)
-    .reduce((s,l) => {
-      const dias = diasLocacaoNoPeriodo(l, pi, pf);
-      if (!dias) return s;
-      const bruto = dias * Number(l.valorDiaria||0);
-      const desc  = Number(l.descontoValor||0) + bruto * Number(l.descontoPct||0)/100;
-      return s + Math.max(0, bruto - desc);
-    }, 0);
-};
-
-// Faturamento da EMPRESA com locação de equipamentos no mês. A empresa presta
-// o serviço de locação: fatura a receita cobrada. Para equipamento próprio, o
-// custo direto é só a manutenção. Para equipamento de terceiro, a empresa também
-// paga o dono — então informamos receita e custo separadamente para o DRE poder
-// reconhecer o líquido corretamente.
-const calcEquipFaturamentoEmpresa = (data, ym) => {
-  const rel = calcEquipamentosMes(data, ym);
-  return {
-    receita:   rel.total.receita,     // tudo que a empresa fatura de locação
-    custoDono: rel.total.custoDono,   // repasse aos donos terceiros
-    manut:     rel.total.manut,       // manutenção bancada pela empresa
-    lucro:     rel.total.lucro,       // receita − custoDono − manut
-    receitaProprios: rel.proprios.reduce((s,l)=>s+l.receita,0),
-    receitaTerceiros: rel.terceiros.reduce((s,l)=>s+l.receita,0),
-  };
-};
-
-const {
-  diasPeriodoDRE,
-  calcDREObra,
-  calcDREConsolidado,
-  calcDREHistorico,
-  calcVisaoFinanceira,
-  calcProjecaoContratoObra,
-} = createDreCalculations({
-  getDays,
-  getQ,
-  monthName,
-  calcObraLaborCost,
-  calcObraTercCost,
-  calcTercEmpresaCost,
-  calcObraTercEmpresaCost,
-  calcObraComprasCost,
-  calcEquipCustoObra,
-  calcEquipFaturamentoEmpresa,
-});
-
-// RESUMO EXECUTIVO - agrega, só com dados reais do app, o retrato da empresa
-// para o painel do dashboard. Cada obra ganha um status calculado (saudável /
-// atenção / crítica) a partir do desvio entre avanço físico e financeiro e da
-// margem. Nada aqui é inventado: se o dado não existe, o campo fica zero e a
-// UI simplesmente não mostra.
-const statusObraExec = (o) => {
-  // Regra por exceção: crítico se margem negativa OU desembolso muito à frente
-  // da execução; atenção se margem baixa ou pequeno descolamento; senão saudável.
-  const desalinho = o.pctFinanceiro - o.pctFisico;   // + = gastando/faturando à frente do que executa
-  if (o.prazo && o.prazo < today() && o.pctFisico < 100) return { k:"critica", l:"Atrasada", cor:C.red };
-  if (o.margem < 0 || desalinho > 20) return { k:"critica",  l:"Crítica",  cor:C.red };
-  if (o.margem < 10 || desalinho > 10) return { k:"atencao",  l:"Atenção",  cor:C.orange };
-  return { k:"saudavel", l:"Saudável", cor:C.green };
-};
-
-// CENTRAL DE ALERTAS - agrega as decisões pendentes de hoje, por severidade.
-// Só usa dado que existe. Cada alerta sabe para onde levar (tab), então o
-// dashboard vira uma lista de ações, não só de números.
-const calcAlertas = (data, year, month) => {
-  const hoje = new Date(); hoje.setHours(0,0,0,0);
-  const A = [];
-  const push = (sev, texto, tab, obraId="") => A.push({ sev, texto, tab, obraId });
-  // sev: 3=crítico, 2=alto, 1=médio
-
-  // Obras estourando custo (margem negativa).
-  (data.obras||[]).forEach(o => {
-    const d = calcDREObra(data, o.id, year, month);
-    if (d.margemBruta < 0 && d.faturadoAcum > 0)
-      push(3, `${o.name}: margem negativa (${d.margemBruta.toFixed(0)}%)`, "dre", o.id);
-  });
-
-  // Pedidos de compra atrasados (previsão passou e não entregue).
-  (data.pedidos||[]).forEach(p => {
-    if (!p.previsao) return;
-    if (["entregue","recebido","cancelado"].includes(p.status)) return;
-    const prev = new Date(p.previsao+"T00:00:00");
-    if (prev < hoje) {
-      const dias = Math.floor((hoje - prev)/86400000);
-      push(dias>=5?3:2, `Pedido ${p.numero||""} atrasado ha ${dias} dia(s)${p.fornecedor?` - ${p.fornecedor}`:""}`, "cmp");
-    }
-  });
-
-  // Solicitacoes de compra aguardando acao.
-  const solPend = (data.solicitacoesCompra||[]).filter(s=>s.status==="enviada").length;
-  if (solPend > 0) push(1, `${solPend} solicitacao(oes) de compra aguardando`, "cmp");
-
-  // Contratos aguardando assinatura.
-  (data.comercial?.contratos||[]).forEach(k => {
-    if (["rascunho","aguardando","aguardando_assinatura","pendente"].includes(k.status))
-      push(2, `Contrato ${k.numero||""} aguardando assinatura`, "com_contratos");
-  });
-
-  // Leads sem proxima atividade ou com atividade vencida.
-  const leadsAtivos = (data.comercial?.leads||[]).filter(l => !["perdido","arquivado","transferido"].includes(l.etapa) && l.status!=="perdido");
-  let leadsSemRetorno = 0, leadsVencidos = 0;
-  leadsAtivos.forEach(l => {
-    if (!l.proximaAtividadeEm) { leadsSemRetorno++; return; }
-    if (new Date(l.proximaAtividadeEm) < hoje) leadsVencidos++;
-  });
-  if (leadsVencidos > 0) push(2, `${leadsVencidos} lead(s) com follow-up vencido`, "com_funil");
-  if (leadsSemRetorno > 0) push(1, `${leadsSemRetorno} lead(s) sem proxima atividade`, "com_leads");
-
-  // Documentos de terceiros vencidos.
-  let docVencidos = 0;
-  (data.terceirizados||[]).forEach(t => (t.documentos||[]).forEach(doc => {
-    if (doc.validade && new Date(doc.validade) < hoje) docVencidos++;
-  }));
-  if (docVencidos > 0) push(2, `${docVencidos} documento(s) de terceiro vencido(s)`, "terc");
-
-  return A.sort((a,b) => b.sev - a.sev);
-};
-
-const calcResumoExecutivo = (data, year, month) => {
-  const dre = calcDREConsolidado(data, year, month);
-  const obrasAtivas = data.obras.filter(o => o.status !== "done" && o.status !== "paused");
-
-  const obras = data.obras.map(o => {
-    const d = calcDREObra(data, o.id, year, month);
-    // Avanço físico: prioridade para boletins de medição confirmados; senão o
-    // percentual das medições; senão zero.
-    const boletins = (data.medicoesObra||[]).filter(m => m.obraId===o.id);
-    const fisico = boletins.length
-      ? boletins.reduce((mx,b)=>Math.max(mx, b.avancoFisico||0), 0)
-      : d.pctAvanco || 0;
-    const pctFinanceiro = d.pctFaturado || 0;
-    const linha = {
-      id:o.id, nome:o.name, cliente:o.client||o.engineer||"", cidade:o.address||"",
-      status:o.status, prazo:o.contractEnd||"",
-      contrato:d.contratoTotal, faturadoAcum:d.faturadoAcum, recebidoAcum:d.recebidoAcum,
-      backlog:d.backlog, custoMes:d.totalCustos, margem:d.margemBruta,
-      pctFisico:Math.round(fisico), pctFinanceiro:Math.round(pctFinanceiro),
-      aReceber:d.aReceberAcum,
-    };
-    linha.exec = statusObraExec(linha);
-    return linha;
-  });
-
-  const comercial = data.comercial || {};
-  const leadsAtivos = (comercial.leads||[]).filter(l => !["perdido","arquivado","transferido"].includes(l.etapa));
-  const pipeline = leadsAtivos.reduce((s,l)=>s+Number(l.orcamentoEstimado||0),0);
-  const pipelinePonderado = leadsAtivos.reduce((s,l)=>s+Number(l.orcamentoEstimado||0)*Number(l.probabilidade||0)/100,0);
-  const contratosComerciais = (comercial.contratos||[]).reduce((s,k)=>s+Number(k.valor||0),0);
-
-  // Compras pendentes (todas as obras)
-  const pedidos = (data.pedidos||[]).filter(p => p.status && !["cancelado","entregue","recebido"].includes(p.status));
-  const comprasPendentes = pedidos.length;
-  const solicitacoesAbertas = (data.solicitacoesCompra||[]).filter(s=>s.status==="enviada").length;
-
-  return {
-    dre,
-    obrasAtivas: obrasAtivas.length,
-    contratoTotalCarteira: data.obras.reduce((s,o)=>s+Number(o.contractValue||0),0),
-    obras,
-    obrasAtencao: obras.filter(o=>o.exec.k==="atencao").length,
-    obrasCriticas: obras.filter(o=>o.exec.k==="critica").length,
-    pipeline, pipelinePonderado, contratosComerciais,
-    leadsAtivos: leadsAtivos.length,
-    comprasPendentes, solicitacoesAbertas,
-  };
-};
 
 function FinanceiroObraPainel({data,update,showToast,currentUser=null,obraId}){
   const {isDesktop}=useBreakpoint();
@@ -10833,62 +10612,6 @@ function Folha({ data, showToast, onTab }) {
       )}
     </div>
   );
-}
-
-// 
-// HELPER - custo de terceiros por obra/período
-// 
-
-function calcObraTercCost(data, obraId, periodStart, periodEnd) {
-  // Custo direto da OBRA: só os pagamentos cuja origem foi escolhida como obra
-  // no momento do lançamento. Os pagos pela empresa saem daqui e viram despesa administrativa
-  // no consolidado - senão a margem da obra ficaria pior do que a realidade
-  // por um custo que não é dela.
-  return (data.pagsTerceiros || [])
-    .filter(p => p.obraId === obraId && p.pagador !== "empresa" && p.date >= periodStart && p.date <= periodEnd)
-    .reduce((s, p) => s + Number(p.amount || 0), 0);
-}
-
-// Custo de MATERIAIS de uma obra numa competência (mês): soma só as despesas
-// avulsas (outrasDesp) lançadas com categoria "material" - é a base usada
-// para cobrar o percentual de administração em contratos mistos (MO fixa +
-// administração), que não deve incidir sobre mão de obra nem sobre outras
-// categorias de despesa (equipamento, taxa, overhead etc.). Um material pode
-// ser marcado com contaAdmin:false (ex.: comprado direto pelo cliente) para
-// ficar fora dessa base, mesmo sendo categoria "material".
-function calcObraMaterialCost(data, obraId, ym) {
-  return (data.outrasDesp || [])
-    .filter(d => d.obraId === obraId && d.categoria === "material" && d.competencia === ym && d.contaAdmin !== false)
-    .reduce((s, d) => s + Number(d.valor || 0), 0);
-}
-
-// Compras (pedidos) da obra no período - materiais e insumos comprados pelo
-// fluxo de Compras, à parte dos lançamentos manuais de outrasDesp.
-function calcObraComprasCost(data, obraId, periodStart, periodEnd) {
-  const ledger=buildFinancialLedger(data);
-  const dre=selectLedgerDRE(ledger,{obraId,startDate:periodStart,endDate:periodEnd});
-  return dre.events.filter(event=>event.sourceType==="nota_fiscal"&&event.effect==="cost")
-    .reduce((sum,event)=>sum+event.amountCents,0)/100;
-}
-
-// Pagamentos de terceiros realizados pela EMPRESA no período (todas as obras). Vai para o DRE
-// consolidado como despesa administrativa, fora do custo de qualquer obra.
-function calcTercEmpresaCost(data, periodStart, periodEnd) {
-  return (data.pagsTerceiros || [])
-    .filter(p => p.pagador === "empresa" && p.date >= periodStart && p.date <= periodEnd)
-    .reduce((s, p) => s + Number(p.amount || 0), 0);
-}
-
-// Igual a calcTercEmpresaCost, mas filtrado por obra: terceirizados que a
-// EMPRESA pagou (não saiu do caixa/orçamento da obra) mas que foram
-// contratados PARA essa obra específica. Não entra no custo/margem da obra
-// no DRE (a empresa absorve esse valor como overhead - ver calcObraTercCost),
-// mas é um custo real do canteiro e por isso conta na base do percentual de
-// administração cobrado do cliente.
-function calcObraTercEmpresaCost(data, obraId, periodStart, periodEnd) {
-  return (data.pagsTerceiros || [])
-    .filter(p => p.obraId === obraId && p.pagador === "empresa" && p.date >= periodStart && p.date <= periodEnd)
-    .reduce((s, p) => s + Number(p.amount || 0), 0);
 }
 
 // 
@@ -23890,30 +23613,6 @@ const resumoLocacaoEquip = (data, equipId, days) => {
   };
 };
 
-const calcEquipamentosMes = (data, ym) => {
-  const equips = (data.equipamentos||[]).filter(e => e.ativo !== false);
-  const linhas = equips.map(e => {
-    const fin = calcEquipMes(data, e.id, ym);
-    const proprio = !e.proprietarioId;
-    return { equip:e, proprio, ...fin };
-  });
-  const total = linhas.reduce((a,l)=>({
-    receita:a.receita+l.receita, custoDono:a.custoDono+l.custoDono,
-    manut:a.manut+l.manut, custo:a.custo+l.custo, lucro:a.lucro+l.lucro, descontos:a.descontos+l.descontos,
-  }),{receita:0,custoDono:0,manut:0,custo:0,lucro:0,descontos:0});
-  return {
-    linhas,
-    total,
-    proprios:  linhas.filter(l=>l.proprio),
-    terceiros: linhas.filter(l=>!l.proprio),
-    lucroProprios:  linhas.filter(l=>l.proprio).reduce((s,l)=>s+l.lucro,0),
-    lucroTerceiros: linhas.filter(l=>!l.proprio).reduce((s,l)=>s+l.lucro,0),
-    emManutencao: equips.filter(e=>e.status==="manutencao").length,
-    locados: equips.filter(e=>e.status==="locado").length,
-    disponiveis: equips.filter(e=>e.status==="disponivel").length,
-  };
-};
-
 // ===========================================================================
 // CURVA DE NECESSIDADE DE MATERIAIS + COMPARAÇÃO DE PREÇOS + PESQUISA ABC
 // ---------------------------------------------------------------------------
@@ -34655,20 +34354,6 @@ const CAIXA_CATS = [
   { v:"taxa",         l:"Taxa / Documentação",    icon:"" },
   { v:"outros",       l:"Outros",                 icon:"" },
 ];
-
-const calcCaixaObra = (data, obraId) => {
-  const movs = (data.caixaObra||[])
-    .filter(m => m.obraId === obraId)
-    .sort((a,b) => (a.data||"").localeCompare(b.data||""));
-  let saldo = 0;
-  const comSaldo = movs.map(m => {
-    saldo += m.tipo==="aporte" ? Number(m.valor||0) : -Number(m.valor||0);
-    return { ...m, saldoAcumulado: saldo };
-  });
-  const totalAportes  = movs.filter(m=>m.tipo==="aporte").reduce((s,m)=>s+Number(m.valor||0),0);
-  const totalDespesas = movs.filter(m=>m.tipo==="despesa").reduce((s,m)=>s+Number(m.valor||0),0);
-  return { movimentos: comSaldo.reverse(), saldo, totalAportes, totalDespesas };
-};
 
 // Layout único de relatório em PDF/impressão para o app inteiro - mesmo
 // cabeçalho, grade de KPIs, tabelas e assinaturas do relatório de Folha de
