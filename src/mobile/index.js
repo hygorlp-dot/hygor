@@ -3,6 +3,7 @@ export { MobileAppBar } from "./MobileAppBar.jsx";
 export { MobileAppShell } from "./MobileAppShell.jsx";
 export { MobileBottomNavigation, MOBILE_NAV_ITEMS } from "./MobileBottomNavigation.jsx";
 export { MobileMoreMenu } from "./MobileMoreMenu.jsx";
+export { LegacyMobileNavigation, selectMobilePrimaryGroups } from "./LegacyMobileNavigation.jsx";
 export { MobilePageContainer } from "./MobilePageContainer.jsx";
 export { FullScreenEditor, KeyboardAwareContainer, MobileEditorHeader, StickyFormActions } from "./editing/index.js";
 export { ActiveFilterChips, MobileFilterSheet } from "./filters/index.js";

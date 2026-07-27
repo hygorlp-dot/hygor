@@ -94,6 +94,8 @@ import { useCountUp } from "./lib/useCountUp";
 // O editor novo só é baixado se a flag local do piloto for habilitada. Com a
 // flag desligada, o modal histórico continua sendo a única implementação.
 const LazySupplierEditor = lazy(() => import("./domains/suppliers/SupplierEditor").then(module => ({ default: module.SupplierEditor })));
+const LazyLegacyMobileNavigation = lazy(() => import("./mobile/LegacyMobileNavigation.jsx")
+  .then(module => ({ default:module.LegacyMobileNavigation })));
 import {
   PACOTES_TARIFA, melhorTarifa, textoComposicao, tarifasDaLocacao,
   tarifasCustoDaLocacao, cobrancaLocacao, disponibilidadeNoDia,
@@ -356,11 +358,12 @@ const G = `
   --radius-control:2px;--radius-card:4px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body,#root{min-height:100%}
+html,body,#root{width:100%;min-width:0;max-width:100%;min-height:100%}
+body{min-width:320px}
 
 /*  LAYOUT FLUIDO 
-   Nada pode estourar a largura da tela, em nenhuma dimensão. */
-html,body{max-width:100%;overflow-x:hidden}
+   O elemento que exceder deve ser corrigido ou receber rolagem local. A raiz
+   não mascara estouros com overflow hidden. */
 
 /* Em CSS Grid e Flex, um filho tem min-width:auto por padrão: ele se
    RECUSA a encolher abaixo da largura da palavra mais longa que contém.
@@ -387,38 +390,6 @@ body{
   font-size:12px;
   line-height:1.42;
   letter-spacing:.16px;
-}
-/* Estrutura mobile: menus com muitos módulos não podem disputar a mesma
-   largura. Cada destino conserva uma área de toque legível e a barra rola. */
-.app-header-inner,.app-header-context,.app-header-actions{min-width:0}
-.mobile-primary-nav{
-  display:flex!important;
-  overflow-x:auto;
-  overscroll-behavior-x:contain;
-  scrollbar-width:none;
-  -webkit-overflow-scrolling:touch;
-  scroll-snap-type:x proximity;
-}
-.mobile-primary-nav>button{flex:1 0 72px;min-width:72px;scroll-snap-align:start}
-.mobile-subnav{overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
-@media(max-width:767px){
-  .app-header-inner{padding:8px 10px!important;gap:7px!important}
-  .app-header-context{gap:7px!important;overflow:hidden}
-  .app-breadcrumb{min-width:0;overflow:hidden}
-  .app-breadcrumb span{
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  }
-  .app-header-actions{gap:5px!important;flex-shrink:0}
-  .mobile-primary-nav{padding-bottom:calc(8px + env(safe-area-inset-bottom))!important}
-  .mobile-subnav{padding-left:10px!important;padding-right:10px!important}
-}
-@media(max-width:419px){
-  .app-user-badge{display:none!important}
-  .app-header-context{gap:5px!important}
-  .app-breadcrumb span:last-child{display:none}
-  .app-quick-label{display:none}
-  .app-quick-point{width:36px;height:36px;padding:0!important;justify-content:center}
-  main{padding:10px!important}
 }
 /* Escala comum para todas as telas. Os módulos antigos possuem muitos
    tamanhos inline; estes tetos impedem títulos gigantes e preservam a
@@ -3565,13 +3536,14 @@ function Inp({ label, value, onChange, type = "text", placeholder = "", max, min
   const Comp = multiline ? "textarea" : "input";
 
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span style={{
+    <label className="arcd-field arcd-legacy-field" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {label && <span className="arcd-field__label" style={{
         color: C.text, fontSize: 9.5, fontWeight: 700,
         letterSpacing: 0.1,
         fontFamily:"'Inter Display','Inter',sans-serif",
       }}>{textoUi(label)}</span>}
       <Comp
+        className="arcd-field-control"
         ref={inputRef}
         type={multiline ? undefined : type}
         value={value ?? ""}
@@ -3705,13 +3677,14 @@ function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disabled = f
 
 function Sel({ label, value, onChange, options = [], disabled = false }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span style={{
+    <label className="arcd-field arcd-legacy-field" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {label && <span className="arcd-field__label" style={{
         color: C.text, fontSize: 9.5, fontWeight: 700,
         letterSpacing: 0.1,
         fontFamily:"'Inter Display','Inter',sans-serif",
       }}>{textoUi(label)}</span>}
       <select
+        className="arcd-field-control"
         value={value ?? ""}
         onChange={e => onChange(e.target.value)}
         disabled={disabled}
@@ -3873,10 +3846,25 @@ function Divider() {
 
 function Modal({ title, children, onClose, wide = false, panelClass = "" }) {
   const { isDesktop } = useBreakpoint();
+  const panelRef = useRef(null);
+  const previousFocusRef = useRef(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   useEffect(() => {
+    previousFocusRef.current = document.activeElement;
     document.body.classList.add("no-scroll");
-    return () => document.body.classList.remove("no-scroll");
+    const focusTimer = window.setTimeout(() => panelRef.current?.focus(), 0);
+    const handleKeyDown = event => {
+      if (event.key === "Escape") closeRef.current?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.classList.remove("no-scroll");
+      previousFocusRef.current?.focus?.();
+    };
   }, []);
 
   return (
@@ -3890,9 +3878,16 @@ function Modal({ title, children, onClose, wide = false, panelClass = "" }) {
       }}
       onMouseDown={e => { if(e.target===e.currentTarget) onClose?.(); }}
     >
-      <div className={`animUp arcd-modal-panel ${panelClass}`.trim()} style={{
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={textoUi(title)}
+        tabIndex={-1}
+        className={`animUp arcd-modal-panel ${panelClass}`.trim()}
+        style={{
         width:"100%", maxWidth: wide ? (isDesktop?860:720) : (isDesktop?520:460),
-        maxHeight:"92vh", overflowY:"auto",
+        maxHeight:"min(92dvh, 900px)", overflowY:"auto",
         background:C.bg,
         border:`1px solid ${C.border}`,
         borderRadius:10,
@@ -38081,43 +38076,17 @@ export default function App() {
               </div>
             )}
 
-            {/* Grupos principais */}
-            <div className="mobile-primary-nav" style={{
-              display:"grid",
-              gridTemplateColumns:`repeat(${visibleGroups.length}, 1fr)`,
-              padding:"6px 8px 10px",
-            }}>
-              {visibleGroups.map(group => {
-                const isActive = activeGroup?.id === group.id;
-                const badge = groupBadge[group.id];
-                return (
-                  <button key={group.id} data-active={isActive} onClick={() => goGroup(group)} style={{
-                    background: isActive ? `${group.color}15` : "transparent",
-                    color: isActive ? group.color : C.muted,
-                    border:"none",
-                    borderTop: isActive ? `2px solid ${group.color}` : "2px solid transparent",
-                    padding:"7px 4px 4px",
-                    cursor:"pointer", fontSize:9, fontWeight:900,
-                    textTransform:"uppercase", letterSpacing:.5,
-                    display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-                    position:"relative",
-                    transition:"all .15s ease",
-                    "--ic-color": isActive ? group.color : C.muted,
-                  }}>
-                    <Ic n={group.icon} s={isActive ? 20 : 18}/>
-                    {group.label}
-                    {badge && (
-                      <span style={{
-                        position:"absolute", top:4, right:"calc(50% - 14px)",
-                        background:C.red, color:"#fff",
-                        width:8, height:8, borderRadius:"50%",
-                        border:`2px solid ${C.bg}`, fontSize:0,
-                      }}/>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Quatro setores prioritários + Mais. O setor atual permanece
+                visível e o restante abre em um painel acessível. */}
+            <Suspense fallback={<div className="mobile-primary-nav-loading" aria-hidden="true"/>}>
+              <LazyLegacyMobileNavigation
+                groups={visibleGroups}
+                activeGroupId={activeGroup?.id}
+                badges={groupBadge}
+                onSelectGroup={goGroup}
+                renderIcon={(name,size)=><Ic n={name} s={size}/>}
+              />
+            </Suspense>
           </div>
         </nav>
         )}

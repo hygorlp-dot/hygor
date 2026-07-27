@@ -14,4 +14,5 @@
 .arcd-mobile-more-menu__items { display: grid; gap: var(--arcd-space-1); margin-top: var(--arcd-space-3); }
 .arcd-mobile-more-menu__item { display: flex; min-block-size: var(--arcd-touch-target-min); align-items: center; gap: var(--arcd-space-3); border: 0; border-radius: var(--arcd-radius-md); padding: 0 var(--arcd-space-3); background: transparent; color: var(--arcd-color-text); font: inherit; text-align: left; cursor: pointer; }
 .arcd-mobile-more-menu__item:hover { background: var(--arcd-color-surface-muted); }
+.arcd-mobile-more-menu__item[data-active="true"] { box-shadow: inset 3px 0 var(--arcd-action-primary); background: var(--arcd-action-primary-subtle); color: var(--arcd-text-primary); font-weight: var(--arcd-font-weight-semibold); }
 @media (min-width: 768px) { .arcd-mobile-shell { min-block-size: auto; } .arcd-mobile-bottom-nav { display: none; } .arcd-mobile-page { padding-bottom: var(--arcd-space-6); } }

@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ActiveProjectSwitcher, MobileAppShell, MobileBottomNavigation } from "./index.js";
+import { ActiveProjectSwitcher, LegacyMobileNavigation, MobileAppShell, MobileBottomNavigation, selectMobilePrimaryGroups } from "./index.js";
 
 const mounted = [];
 function render(ui) { const container = document.createElement("div"); document.body.append(container); const root = createRoot(container); act(() => root.render(ui)); mounted.push({ container, root }); return container; }
@@ -23,6 +23,43 @@ describe("MobileBottomNavigation", () => {
   });
 });
 
+describe("navegação móvel do app legado", () => {
+  const groups = [
+    { id:"admin_grp", label:"Administração" },
+    { id:"painel", label:"Painel" },
+    { id:"eng_grp", label:"Engenharia" },
+    { id:"compras_grp", label:"Compras" },
+    { id:"fin_grp", label:"Financeiro" },
+    { id:"rh_grp", label:"Recursos humanos" },
+  ];
+
+  it("limita a barra a quatro setores e mantém o setor atual visível", () => {
+    const layout = selectMobilePrimaryGroups(groups, "rh_grp");
+    expect(layout.primary).toHaveLength(4);
+    expect(layout.primary.map(group => group.id)).toContain("rh_grp");
+    expect(layout.overflow.map(group => group.id)).not.toContain("rh_grp");
+    expect([...layout.primary, ...layout.overflow]).toHaveLength(groups.length);
+  });
+
+  it("oferece no máximo cinco alvos na barra e abre os demais em Mais", async () => {
+    const onSelectGroup = vi.fn();
+    const container = render(<LegacyMobileNavigation
+      groups={groups}
+      activeGroupId="painel"
+      onSelectGroup={onSelectGroup}
+      renderIcon={() => <span aria-hidden="true">i</span>}
+    />);
+    expect(container.querySelectorAll(".mobile-primary-nav > button")).toHaveLength(5);
+    const more = [...container.querySelectorAll("button")].find(button => button.textContent.includes("Mais"));
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+    await act(async () => { more.click(); await Promise.resolve(); });
+    expect(more.getAttribute("aria-expanded")).toBe("true");
+    expect(document.querySelector("#arcd-mobile-modules-menu")).toBeTruthy();
+    act(() => [...document.querySelectorAll(".arcd-mobile-more-menu__item")][0].click());
+    expect(onSelectGroup).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("MobileAppShell", () => {
   it("mantém obra ativa na sessão e abre o menu Mais", () => {
     const onNavigate = vi.fn();
@@ -34,8 +71,10 @@ describe("MobileAppShell", () => {
     const more = [...container.querySelectorAll("button")].find(button => button.textContent.includes("Mais"));
     act(() => more.click());
     expect(document.querySelector('[role="dialog"]')).toBeTruthy();
+    expect(document.body.classList.contains("no-scroll")).toBe(true);
     act(() => [...document.querySelectorAll("button")].find(button => button.textContent === "Suprimentos").click());
     expect(onNavigate).toHaveBeenCalledWith("supplies");
+    expect(document.body.classList.contains("no-scroll")).toBe(false);
   });
 
   it("fecha Mais por toque fora e por Escape", () => {
