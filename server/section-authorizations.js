@@ -14,7 +14,7 @@ const SECTION_ROLES = Object.freeze({
   wasteRecords:["admin","engenheiro","ambiental"], resourceConsumption:["admin","engenheiro","ambiental"], environmentalLicenses:["admin","engenheiro","ambiental"], punchItems:["admin","engenheiro","qualidade"], warranties:["admin","engenheiro","assistencia"], serviceTickets:["admin","engenheiro","assistencia"],
   solicitacoesCompra:["admin","compras","engenheiro","engenheiro_auditor"], pedidos:["admin","compras","financeiro"], cotacoes:["admin","compras"],
   fornecedores:["admin","compras","financeiro"], materiais:["admin","compras","engenheiro","engenheiro_auditor"], estoque:["admin","compras","engenheiro","engenheiro_auditor"], movEstoque:["admin","compras","engenheiro","engenheiro_auditor"],
-  employees:["admin","rh"], attendance:["admin","rh","engenheiro"], attendanceLocks:["admin","rh"], unlockRequests:["admin","rh","engenheiro"], advances:["admin","rh"],
+  employees:["admin","rh"], attendance:["admin","rh","engenheiro"], attendanceLocks:["admin","rh","engenheiro"], unlockRequests:["admin","rh","engenheiro"], advances:["admin","rh"],
   titulosFolha:["admin","rh","financeiro"], pagamentosFolha:["admin","rh","financeiro"], rescisoes:["admin","rh","financeiro"], quinzenasArquivadas:["admin","rh"],
   payments:["admin","financeiro"], medicoes:["admin","financeiro"], outrasDesp:["admin","financeiro"], despesasEmpresa:["admin","financeiro"], caixaObra:["admin","financeiro"], notasFiscais:["admin","financeiro","compras"], documentosMovimentacoes:["admin","financeiro"], transacoes:["admin","financeiro"], reconciliationLinks:["admin","financeiro"], fechamentosFinanceiros:["admin"],
   equipamentos:["admin","engenheiro","engenheiro_auditor","compras","financeiro"], locacoesEquip:["admin","engenheiro","engenheiro_auditor","financeiro"], terceirizados:["admin","rh","engenheiro","engenheiro_auditor","financeiro"], medicoesTerc:["admin","engenheiro","engenheiro_auditor"], pagsTerceiros:["admin","financeiro"],
@@ -41,6 +41,13 @@ export const authorizeSectionChanges = (user = {}, sections = {}) => {
         const obraId=String(record?.obraId||record?.obra||"");
         return obraId&&obraId!==String(user.obraId);
       }));
+      if(foreign)return "Não é permitido alterar dados de outra obra.";
+    }
+    if(user.obraId&&key==="attendanceLocks"){
+      const foreign=Object.values(sections.attendanceLocks||{}).some(lock=>{
+        const obraId=String(lock?.obraId||lock?.obra||"");
+        return obraId&&obraId!==String(user.obraId);
+      });
       if(foreign)return "Não é permitido alterar dados de outra obra.";
     }
     if (user.obraId && hasForeignObra(sections[key], user.obraId)) return "Não é permitido alterar dados de outra obra.";

@@ -12,6 +12,9 @@ export const restoreArchivedAttendance = ({attendance = {}, archiveAttendance = 
     archivedDailyRate:Number(employee.dailyRate||0),
     archivedVtDaily:Number(employee.vtDaily||0),
     archivedVrDaily:Number(employee.vrDaily||0),
+    archivedWorkdayHours:Number(employee.workdayHours||8),
+    archivedWorkStart:String(employee.workStart||"07:00"),
+    archivedOvertimeAdditionalPercent:Number(employee.overtimeAdditionalPercent??50),
   }]));
   let devolvidos = 0;
   let mantidos = 0;

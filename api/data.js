@@ -31,7 +31,7 @@ import { validateProcurementChain } from "../server/procurement-chain-policy.js"
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { findSectionConflicts } from "../server/three-way-conflicts.js";
-import { mergeScopedAttendance } from "../server/scoped-attendance-merge.js";
+import { mergeScopedAttendance, mergeScopedAttendanceLocks } from "../server/scoped-attendance-merge.js";
 import { authorizeSectionChanges, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
@@ -207,11 +207,12 @@ const registrarFalha = (ip) => {
   if (!t || Date.now() - t.desde > JANELA) tentativas.set(ip, { n: 1, desde: Date.now() });
   else t.n += 1;
 };
-const subjectRateLimit=ip=>crypto.createHash("sha256").update(`${COMPANY}|${ip||"unknown"}`).digest("hex");
-const rateLimitCentral=async(ip,action)=>{
-  const rpc=action==="status"?"auth_rate_limit_status":"auth_rate_limit_failure";
+const limparFalhas = subject => tentativas.delete(subject);
+const subjectRateLimit=subject=>crypto.createHash("sha256").update(`${COMPANY}|${subject||"unknown"}`).digest("hex");
+const rateLimitCentral=async(subject,action)=>{
+  const rpc=action==="status"?"auth_rate_limit_status":action==="success"?"auth_rate_limit_success":"auth_rate_limit_failure";
   try {
-    const {data,error}=await db.rpc(rpc,{p_company_id:COMPANY,p_subject_hash:subjectRateLimit(ip)});
+    const {data,error}=await db.rpc(rpc,{p_company_id:COMPANY,p_subject_hash:subjectRateLimit(subject)});
     // Durante a instalação da migration, mantém o freio local sem derrubar login.
     if(error)return null;
     const row=Array.isArray(data)?data[0]:data;
@@ -483,14 +484,25 @@ export default async function handler(req, res) {
     if (action === "auth-login") {
       const email=String(req.body?.email||"").trim().toLowerCase();
       const password=String(req.body?.password||"");
+      const authSubject=`${ip}|email:${email||"unknown"}`;
+      const limiteCentral=await rateLimitCentral(authSubject,"status");
+      if(limiteCentral?.blocked||bloqueado(authSubject)){
+        return res.status(429).json({error:"Muitas tentativas. Aguarde 5 minutos."});
+      }
       const {data:auth,error}=await db.auth.signInWithPassword({email,password});
-      if(error||!auth?.session)return res.status(401).json({error:"E-mail ou senha inválidos."});
+      if(error||!auth?.session){
+        registrarFalha(authSubject);
+        await rateLimitCentral(authSubject,"failure");
+        return res.status(401).json({error:"E-mail ou senha inválidos."});
+      }
       const {payload:p,updatedAt}=await lerLinha();
       // signInWithPassword já devolve um usuário autenticado pelo Supabase.
       // Consultá-lo novamente com getUser adicionava uma viagem de rede inteira
       // ao login sem aumentar a segurança desta mesma requisição.
       const usuario=encontrarUsuarioAuth(p,auth.user||auth.session.user);
       if(!usuario)return res.status(403).json({error:"Conta sem vínculo com um operador ativo do ArcD."});
+      limparFalhas(authSubject);
+      await rateLimitCentral(authSubject,"success");
       const completo=await anexarCustosArquivados(p);
       return res.status(200).json({data:projectDataForUser(completo,usuario),updatedAt,usuario:publicUser(usuario),accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
     }
@@ -560,9 +572,14 @@ export default async function handler(req, res) {
     }
 
     // ── Daqui pra baixo, sessão individual ou PIN de transição ─────
-    const limiteCentral=await rateLimitCentral(ip,"status");
-    if (limiteCentral?.blocked||bloqueado(ip)) {
-      return res.status(429).json({ error: "Muitas tentativas. Aguarde 5 minutos." });
+    // Token JWT válido não participa do contador de tentativas de PIN. Isso
+    // impede que falhas de outra pessoa no mesmo NAT bloqueiem sessões ativas.
+    const usaPin=!accessToken;
+    if(usaPin){
+      const limiteCentral=await rateLimitCentral(ip,"status");
+      if (limiteCentral?.blocked||bloqueado(ip)) {
+        return res.status(429).json({ error: "Muitas tentativas. Aguarde 5 minutos." });
+      }
     }
 
     // A leitura do dataset e a validação do token não dependem uma da outra.
@@ -576,9 +593,15 @@ export default async function handler(req, res) {
     const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || conferirPin(atual, userId, pin);
 
     if (!usuario) {
-      registrarFalha(ip);
-      await rateLimitCentral(ip,"failure");
+      if(usaPin){
+        registrarFalha(ip);
+        await rateLimitCentral(ip,"failure");
+      }
       return res.status(401).json({ error: "Sessão inválida ou PIN incorreto." });
+    }
+    if(usaPin){
+      limparFalhas(ip);
+      await rateLimitCentral(ip,"success");
     }
 
     if (action === "auth-provision") {
@@ -972,6 +995,8 @@ export default async function handler(req, res) {
             : sections[k];
           proximo[k]=k==="attendance"&&usuario.obraId
             ? mergeScopedAttendance({current:estado?.attendance,incoming:recebido,user:usuario,employees:estado?.employees})
+            : k==="attendanceLocks"&&usuario.obraId
+              ? mergeScopedAttendanceLocks({current:estado?.attendanceLocks,incoming:recebido,user:usuario})
             : recebido;
         });
         return proximo;
@@ -1051,6 +1076,11 @@ export default async function handler(req, res) {
       if(usuario.obraId&&!igual(payload?.attendance,atual?.attendance)){
         valor={...valor,attendance:mergeScopedAttendance({
           current:atual?.attendance,incoming:valor?.attendance,user:usuario,employees:atual?.employees,
+        })};
+      }
+      if(usuario.obraId&&!igual(payload?.attendanceLocks,atual?.attendanceLocks)){
+        valor={...valor,attendanceLocks:mergeScopedAttendanceLocks({
+          current:atual?.attendanceLocks,incoming:valor?.attendanceLocks,user:usuario,
         })};
       }
       if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:atual,currentUpdatedAt:updatedAt});
@@ -1145,6 +1175,9 @@ export default async function handler(req, res) {
           id: e.id, name: e.name, role: e.role || "", obra: e.obra || "",
           dailyRate: Number(e.dailyRate || 0),
           vtDaily: Number(e.vtDaily || 0), vrDaily: Number(e.vrDaily || 0),
+          workdayHours: Number(e.workdayHours || 8),
+          workStart: String(e.workStart || "07:00"),
+          overtimeAdditionalPercent: Number(e.overtimeAdditionalPercent ?? 50),
           startDate: e.startDate || "", endDate: e.endDate || "",
         }));
 

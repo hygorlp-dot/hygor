@@ -8,7 +8,7 @@ describe("projeção canônica do DRE", () => {
       config:{paymentHolidays:[]},
       obras:[{id:"o1",name:"Obra 1",contractValue:10000}],
       employees:[{id:"e1",obra:"o1",dailyRate:100,vtDaily:10,vrDaily:20,startDate:"2026-01-01"}],
-      attendance:{e1:{"2026-07-06":{status:"P",obraId:"o1"}}},
+      attendance:{e1:{"2026-07-06":{status:"P",obraId:"o1",ot:2}}},
       medicoes:[{id:"m1",obraId:"o1",competencia:"2026-07",valorPrevisto:1000,recebido:true,valorRecebido:800,dataPagamento:"2026-07-10"}],
       despesasEmpresa:[{id:"d-corp",competencia:"2026-07",data:"2026-07-12",categoria:"aluguel",descricao:"Sede",valor:50,pago:true}],
       payments:[],pagsTerceiros:[],rescisoes:[],outrasDesp:[],
@@ -21,13 +21,13 @@ describe("projeção canônica do DRE", () => {
     const companyStatement=rows.find(row=>row.sourceId==="2026-07:mes:company_dre")?.payload;
     expect(work).toMatchObject({
       faturamento:1000,recebido:800,comprasCost:0,
-      moData:{laborCost:100,benefitCost:30,totalCost:130},
-      totalCustos:130,lucroBruto:870,
+      moData:{laborCost:137.5,benefitCost:30,totalCost:167.5},
+      totalCustos:167.5,lucroBruto:832.5,
     });
-    expect(company).toMatchObject({faturamento:1000,recebido:800,laborCost:100,benefitCost:30,comprasCost:0});
+    expect(company).toMatchObject({faturamento:1000,recebido:800,laborCost:137.5,benefitCost:30,comprasCost:0});
     expect(companyStatement).toMatchObject({
-      faturamentoObras:1000,recebidoObras:800,laborTotal:100,benefTotal:30,
-      totalCSP:130,lucroBruto:870,totalDespOp:50,ebitda:820,lucroLiquido:820,
+      faturamentoObras:1000,recebidoObras:800,laborTotal:137.5,benefTotal:30,
+      totalCSP:167.5,lucroBruto:832.5,totalDespOp:50,ebitda:782.5,lucroLiquido:782.5,
       despPorCat:{aluguel:50},
     });
   });
@@ -55,6 +55,20 @@ describe("projeção canônica do DRE", () => {
     };
     const work=buildDreProjectionRows(data).find(row=>row.sourceId==="2026-07:mes:o1")?.payload;
     expect(work.moData).toEqual({laborCost:100,benefitCost:30,totalCost:130});
+  });
+
+  it("leva o desconto auditável de atraso para a obra e a empresa",()=>{
+    const data={
+      config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra 1"}],
+      employees:[{id:"e1",obra:"o1",dailyRate:80,vtDaily:10,vrDaily:20,workdayHours:8,workStart:"07:00",startDate:"2026-01-01"}],
+      attendance:{e1:{"2026-07-08":{status:"P",obraId:"o1",entrada:"07:30",saida:"16:30",workedMinutes:540,atrasoMin:30}}},
+      medicoes:[],payments:[],pagsTerceiros:[],rescisoes:[],outrasDesp:[],pedidos:[],equipamentos:[],locacoesEquip:[],manutencoesEquip:[],
+    };
+    const rows=buildDreProjectionRows(data);
+    const work=rows.find(row=>row.sourceId==="2026-07:mes:o1")?.payload;
+    const company=rows.find(row=>row.sourceId==="2026-07:mes:empresa")?.payload;
+    expect(work.moData).toEqual({laborCost:75,benefitCost:30,totalCost:105});
+    expect(company).toMatchObject({laborCost:75,benefitCost:30});
   });
 
   it("detecta qualquer divergência entre a projeção e o razão", () => {

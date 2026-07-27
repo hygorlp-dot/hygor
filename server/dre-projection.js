@@ -1,5 +1,6 @@
 import { createDreCalculations } from "../src/domains/dre/calculations.js";
 import { calcEquipMes, diasLocacaoNoPeriodo } from "../src/domains/equipamentos/calculations.js";
+import { calculateAttendanceDayCost } from "../src/domains/ponto/payroll.js";
 
 const inactive = new Set([
   "cancelado", "cancelada", "cancelled", "canceled",
@@ -74,12 +75,9 @@ const laborCost = (data,obraId,days) => {
     for(const date of days){
       if(obraOn(date)!==obraId||!employed(employee,date)||inPeriod.includes(date))continue;
       const record=getAtt(data,employee.id,date);
-      const status=record.status;
-      const factor=status==="P"?1:(status==="M"?0.5:0);
-      if(factor){
-        labor+=Number(record.archivedDailyRate??employee.dailyRate??0)*factor;
-        benefits+=(Number(record.archivedVtDaily??employee.vtDaily??0)+Number(record.archivedVrDaily??employee.vrDaily??0))*factor;
-      }
+      const cost=calculateAttendanceDayCost({employee,record,config:data?.config||{}});
+      labor+=cost.laborCost;
+      benefits+=cost.benefitCost;
     }
     for(const date of inPeriod){
       if(!employed(employee,date)||obraOn(date)!==obraId)continue;

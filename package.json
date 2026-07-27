@@ -29,6 +29,7 @@
     "build": "vite build",
     "lint": "node scripts/check-financial-boundaries.mjs",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit -p tsconfig.quality.json",
     "quality:bundle": "node scripts/bundle-metrics.mjs",
@@ -49,6 +50,7 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@storybook/react-vite": "^10.5.4",
     "@vitejs/plugin-react": "^6.0.4",
     "@vitest/coverage-v8": "^4.1.10",

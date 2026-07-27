@@ -18,19 +18,29 @@ Chromium, Firefox e WebKit, screenshots e trace em falhas.
 Dev-only, sem bundle de produção. Browsers aumentam tempo/armazenamento de CI;
 testes usarão base isolada e jamais produção.
 
-## POC
+## Implementação
 
-Foi criada uma jornada de login local sem credenciais e executada em Chromium.
-O browser não iniciou: falta `libnspr4.so` nesta máquina. A instalação de WebKit
-também reportou bibliotecas gráficas/mídia ausentes. Não houve acesso a produção.
+O Playwright foi mantido como dependência exclusiva de desenvolvimento. A suíte
+usa um backend isolado em memória: não acessa nem altera produção. O primeiro
+fluxo cobre login inválido e o ciclo crítico de Ponto em viewport mobile:
+lançamento, resposta do servidor, recarga, isolamento por obra e finalização.
+
+O ambiente local desta auditoria não permite instalar pacotes do sistema. Para
+executar o Chromium, as bibliotecas Debian foram extraídas numa pasta temporária
+e fornecidas por `LD_LIBRARY_PATH`. Na CI, a instalação homologada é feita com
+`npx playwright install --with-deps chromium`.
 
 ## Testes
 
-O teste foi removido junto à POC para não deixar a suíte falhando. A retomada
-exige imagem CI oficial do Playwright ou máquina homologada com `playwright
-install --with-deps`; então deve cobrir Chromium e WebKit, com trace em falha.
+```bash
+npm run test:e2e
+```
+
+Falhas preservam screenshot, vídeo e trace. O job `browser-critical-flows` da
+CI executa a jornada em Chromium e publica essas evidências quando necessário.
 
 ## Riscos, decisão e rollback
 
-**Adiar — gate reprovado por pré-requisito de ambiente.** O rollback removeu
-configuração, teste e dependência; nada de runtime foi alterado.
+**Adotar para fluxos críticos.** O custo permanece fora do bundle de produção.
+O rollback remove `@playwright/test`, `playwright.config.js`, `e2e/` e o job
+`browser-critical-flows`.

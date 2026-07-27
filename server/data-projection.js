@@ -65,6 +65,10 @@ export const projectDataForUser = (payload = {}, user = {}) => {
       }));
       continue;
     }
+    if(key==="attendanceLocks"){
+      out.attendanceLocks=Object.fromEntries(Object.entries(value||{}).filter(([,lock])=>hasObra(lock,allowedObras)));
+      continue;
+    }
     if (key === "comercial") {
       out.comercial = Object.fromEntries(Object.entries(value || {}).map(([name, records]) => [name, Array.isArray(records)
         ? records.filter(record => !record.responsavelId || record.responsavelId === user.id || hasObra(record, allowedObras)) : records]));

@@ -54,3 +54,24 @@ jobs:
         run: npm test -- src/integration/financial-transaction-migration.test.js src/integration/auth-rate-limit-migration.test.js src/integration/audit-migration.test.js server/financial-shadow.test.js server/reconciliation-command.test.js
       - name: Sintaxe da fronteira de API
         run: node --check api/data.js
+
+  browser-critical-flows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Instalar Chromium homologado
+        run: npx playwright install --with-deps chromium
+      - name: Login e Ponto em navegador real
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: evidencias-playwright
+          path: |
+            playwright-report
+            test-results

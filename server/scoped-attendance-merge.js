@@ -36,3 +36,15 @@ export const mergeScopedAttendance = ({current = {}, incoming = {}, user = {}, e
 
   return merged;
 };
+
+export const mergeScopedAttendanceLocks = ({current = {}, incoming = {}, user = {}} = {}) => {
+  const obraId=String(user.obraId || "");
+  if(!obraId)return incoming;
+  const foreign=Object.fromEntries(Object.entries(current || {}).filter(([,lock])=>
+    String(lock?.obraId || lock?.obra || "") !== obraId
+  ));
+  const scoped=Object.fromEntries(Object.entries(incoming || {}).filter(([,lock])=>
+    String(lock?.obraId || lock?.obra || "") === obraId
+  ));
+  return {...foreign,...scoped};
+};

@@ -443,7 +443,7 @@
     padding-left: 20px;
   }
 
-  .login-access-card .grid-cols-2 {
+  .login-access-card .grid-cols-2:not([role="tablist"]) {
     grid-template-columns: minmax(0, 1fr);
   }
 }

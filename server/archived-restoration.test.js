@@ -10,7 +10,15 @@ describe("restauração de quinzena arquivada", () => {
     });
     expect(result).toMatchObject({devolvidos: 1, mantidos: 1});
     expect(result.attendance.e1["2026-07-07"]).toEqual({status: "F"});
-    expect(result.attendance.e1["2026-07-08"]).toEqual({status: "P",archivedDailyRate:125,archivedVtDaily:10,archivedVrDaily:15});
+    expect(result.attendance.e1["2026-07-08"]).toEqual({
+      status:"P",
+      archivedDailyRate:125,
+      archivedVtDaily:10,
+      archivedVrDaily:15,
+      archivedWorkdayHours:8,
+      archivedWorkStart:"07:00",
+      archivedOvertimeAdditionalPercent:50,
+    });
   });
 
   it("registra a restauração sem alterar a fotografia arquivada", () => {

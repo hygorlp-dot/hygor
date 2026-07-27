@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-27T18:28:34.885Z",
+  "generatedAt": "2026-07-27T20:15:15.460Z",
   "totals": {
-    "bytes": 4138017,
-    "gzipBytes": 1149369
+    "bytes": 4146827,
+    "gzipBytes": 1153350
   },
   "assets": [
     {
-      "name": "LegacyApp-DVFBqdoV.js",
-      "bytes": 2202189,
-      "gzipBytes": 614363
+      "name": "LegacyApp-BEFdZX41.js",
+      "bytes": 2176775,
+      "gzipBytes": 606268
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -21,9 +21,9 @@
       "gzipBytes": 106620
     },
     {
-      "name": "vendor-B5TATvTG.js",
-      "bytes": 265493,
-      "gzipBytes": 87187
+      "name": "vendor-Cl7rXy6g.js",
+      "bytes": 265484,
+      "gzipBytes": 87176
     },
     {
       "name": "sinapi-parser.worker-DK35Q8wa.js",
@@ -31,24 +31,34 @@
       "gzipBytes": 32257
     },
     {
-      "name": "index-CXGwfYB3.css",
-      "bytes": 129835,
-      "gzipBytes": 25662
+      "name": "index-CBt0BNZP.css",
+      "bytes": 129855,
+      "gzipBytes": 25674
     },
     {
-      "name": "ClientPortalApp-DZDIizDk.js",
+      "name": "ClientPortalApp-DNn-QSPC.js",
       "bytes": 29105,
-      "gzipBytes": 7160
+      "gzipBytes": 7161
     },
     {
-      "name": "SupplierEditor-np18BEb0.js",
+      "name": "MarcosCurvaASuprimentos-B1qJI3gT.js",
+      "bytes": 17906,
+      "gzipBytes": 5694
+    },
+    {
+      "name": "calculations-Cq-3Yhlb.js",
+      "bytes": 13575,
+      "gzipBytes": 5174
+    },
+    {
+      "name": "SupplierEditor-BomCg4jG.js",
       "bytes": 15432,
-      "gzipBytes": 4814
+      "gzipBytes": 4811
     },
     {
-      "name": "index-M3N7zoY5.js",
-      "bytes": 8177,
-      "gzipBytes": 3567
+      "name": "index-roQE7-jy.js",
+      "bytes": 8213,
+      "gzipBytes": 3582
     },
     {
       "name": "ClientPortalApp-CY00BwLl.css",
@@ -66,9 +76,14 @@
       "gzipBytes": 1334
     },
     {
-      "name": "LegacyMobileNavigation-BBQJ-cWB.js",
+      "name": "LegacyMobileNavigation-C7OZUDn3.js",
       "bytes": 2657,
       "gzipBytes": 1233
+    },
+    {
+      "name": "LoginProjectParallax-COWgOAZU.js",
+      "bytes": 2696,
+      "gzipBytes": 1196
     },
     {
       "name": "LegacyMobileNavigation-Bu58Uv5t.css",
@@ -76,14 +91,14 @@
       "gzipBytes": 1073
     },
     {
-      "name": "MobileMoreMenu-C2noek59.js",
+      "name": "MobileMoreMenu-LYZiMC1Z.js",
       "bytes": 1832,
-      "gzipBytes": 879
+      "gzipBytes": 877
     },
     {
-      "name": "categories-QydswMHh.js",
+      "name": "categories-B7neWC6X.js",
       "bytes": 1383,
-      "gzipBytes": 754
+      "gzipBytes": 753
     },
     {
       "name": "rolldown-runtime-DAXXjFlN.js",
@@ -96,14 +111,14 @@
       "gzipBytes": 604
     },
     {
-      "name": "Button-CVU06JK-.js",
+      "name": "Button-BYsi2Bbh.js",
       "bytes": 1102,
-      "gzipBytes": 573
+      "gzipBytes": 572
     },
     {
-      "name": "utils-B6zrjn6r.js",
+      "name": "utils-BLWxBJbN.js",
       "bytes": 172,
-      "gzipBytes": 162
+      "gzipBytes": 164
     }
   ],
   "media": {

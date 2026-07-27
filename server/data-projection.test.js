@@ -15,6 +15,10 @@ const payload={
     "e-a":{"2026-07-01":{status:"P",obraId:"obra-a"},"2026-07-02":{status:"P",obraId:"obra-b"}},
     "e-b":{"2026-07-01":{status:"P",obraId:"obra-b"}},
   },
+  attendanceLocks:{
+    "2026-07-27__obra-a":{id:"2026-07-27__obra-a",obraId:"obra-a",locked:true},
+    "2026-07-27__obra-b":{id:"2026-07-27__obra-b",obraId:"obra-b",locked:true},
+  },
   dailyCheckDate:"2026-07-27",
   pedidos:[{id:"p-a",obraId:"obra-a"},{id:"p-b",obraId:"obra-b"}],
   terceirizados:[{id:"t-a",obraId:"obra-a",name:"Prestador A"},{id:"t-b",obraId:"obra-b",name:"Prestador B"}],
@@ -27,6 +31,9 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     expect(projected.obras).toEqual([{id:"obra-a",name:"Obra A"}]);
     expect(projected.pedidos).toEqual([{id:"p-a",obraId:"obra-a"}]);
     expect(projected.attendance).toEqual({"e-a":{"2026-07-01":{status:"P",obraId:"obra-a"}}});
+    expect(projected.attendanceLocks).toEqual({
+      "2026-07-27__obra-a":{id:"2026-07-27__obra-a",obraId:"obra-a",locked:true},
+    });
     expect(projected.dailyCheckDate).toBe("2026-07-27");
     expect(projected.employees).toEqual([{id:"e-a",obra:"obra-a",name:"Equipe A"}]);
     expect(projected.usuarios).toEqual([{id:"u-a",nome:"Operador A",obraId:"obra-a",email:"a@arcd.com",maxDesconto:0}]);

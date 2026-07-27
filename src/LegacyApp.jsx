@@ -84,7 +84,6 @@ import { Label } from "./components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Alert, AlertDescription } from "./components/ui/alert";
-import LoginProjectParallax from "./components/login/LoginProjectParallax";
 import { Eye, EyeOff, ChevronLeft, Delete } from "lucide-react";
 import { cn } from "./lib/utils";
 import { features } from "./config/features";
@@ -96,6 +95,7 @@ import { useCountUp } from "./lib/useCountUp";
 const LazySupplierEditor = lazy(() => import("./domains/suppliers/SupplierEditor").then(module => ({ default: module.SupplierEditor })));
 const LazyLegacyMobileNavigation = lazy(() => import("./mobile/LegacyMobileNavigation.jsx")
   .then(module => ({ default:module.LegacyMobileNavigation })));
+const LazyLoginProjectParallax = lazy(() => import("./components/login/LoginProjectParallax"));
 import {
   PACOTES_TARIFA, melhorTarifa, textoComposicao, tarifasDaLocacao,
   tarifasCustoDaLocacao, cobrancaLocacao, disponibilidadeNoDia,
@@ -124,6 +124,10 @@ import { cancelThirdPartyMeasurement, createThirdPartyMeasurement, createThirdPa
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
+import { canManageAttendanceWorkforce, resolveAttendanceObraId } from "./domains/ponto/permissions";
+import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
+import { normalizeAttendanceRecord } from "./domains/ponto/records";
+import { calculateTimekeeping, formatMinutes } from "./domains/ponto/timekeeping";
 import {
   analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
@@ -138,7 +142,7 @@ import { migrateCommercial } from "./domains/comercial/migrations";
 import { selectCommercialWorkspace } from "./domains/comercial/selectors";
 import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/record-schema";
 import { uploadWithRetry } from "./domains/documentos/upload-retry";
-import MarcosCurvaASuprimentos from "./features/suprimentos/MarcosCurvaASuprimentos";
+const LazyMarcosCurvaASuprimentos = lazy(() => import("./features/suprimentos/MarcosCurvaASuprimentos"));
 import {
   aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
   paraCentavos, deCentavos, igualCentavos,
@@ -851,16 +855,7 @@ const fmtPhone = value => {
 
 const getAtt = (data, empId, date) => {
   const value = data?.attendance?.[empId]?.[date];
-  if (!value) return null;
-  if (typeof value === "string") return { status: value, ot: 0, note: "" };
-  return {
-    status: value.status || null,
-    ot: Number(value.ot || 0),
-    note: value.note || "",
-    // A obra pertence ao lancamento diario do ponto. Sem devolver este campo,
-    // a folha acabava usando apenas a lotacao atual do funcionario.
-    obraId: value.obraId || "",
-  };
+  return normalizeAttendanceRecord(value);
 };
 
 const attStatus = (data, empId, date) => getAtt(data, empId, date)?.status || null;
@@ -3999,11 +3994,10 @@ const _calcObraLaborCostRaw = (data, obraId, days) => {
       if (obraDoDia(e, d) !== obraId) return;
       if (!isEmployeeEmployedOnDate(e, d)) return;
       if (holidaysInPeriod.includes(d)) return;
-      const registro=getAtt(data,e.id,d),st = registro?.status;
-      const diaria=Number(registro?.archivedDailyRate??e.dailyRate??0);
-      const beneficios=Number(registro?.archivedVtDaily??e.vtDaily??0)+Number(registro?.archivedVrDaily??e.vrDaily??0);
-      if (st === "P") { laborCost += diaria; benefitCost += beneficios; }
-      else if (st === "M") { laborCost += diaria*.5; benefitCost += beneficios*.5; }
+      const registro=getAtt(data,e.id,d);
+      const custo=calculateAttendanceDayCost({employee:e,record:registro,config:data.config});
+      laborCost += custo.laborCost;
+      benefitCost += custo.benefitCost;
     });
     // Feriado segue a MESMA regra: a obra do dia, não o cadastro. Deixar o
     // feriado amarrado à lotação faria o DSR cair numa obra e os dias
@@ -8577,6 +8571,9 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
     dailyRate: "",
     vtDaily: "",
     vrDaily: "",
+    workdayHours: "8",
+    workStart: "07:00",
+    overtimeAdditionalPercent: "50",
     obra: "",
     active: true,
     startDate: "",
@@ -8606,6 +8603,9 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
       dailyRate: String(employee.dailyRate || ""),
       vtDaily: String(employee.vtDaily || ""),
       vrDaily: String(employee.vrDaily || ""),
+      workdayHours: String(employee.workdayHours || 8),
+      workStart: String(employee.workStart || "07:00"),
+      overtimeAdditionalPercent: String(employee.overtimeAdditionalPercent ?? 50),
     });
     setModal(true);
   }, [data.employees]);
@@ -8632,6 +8632,9 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
       dailyRate: Number(form.dailyRate || 0),
       vtDaily: Number(form.vtDaily || 0),
       vrDaily: Number(form.vrDaily || 0),
+      workdayHours: Math.max(1, Number(form.workdayHours || 8)),
+      workStart: form.workStart || "07:00",
+      overtimeAdditionalPercent: Math.max(0, Number(form.overtimeAdditionalPercent ?? 50)),
       active: form.active !== false,
       endDate: form.active === false ? form.endDate : "",
       terminationReason: form.active === false ? (form.terminationReason || "Inativado") : "",
@@ -8795,7 +8798,7 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
                 </button>
                 <div style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
                   <Btn v="ghost" size="sm" title="Ver ficha do funcionário" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file" /></Btn>
-                  <Btn v="ghost" size="sm" onClick={() => { setForm({ ...e, dailyRate: String(e.dailyRate || ""), vtDaily: String(e.vtDaily || ""), vrDaily: String(e.vrDaily || "") }); setModal(true); }}><Ic n="edit" /></Btn>
+                  <Btn v="ghost" size="sm" onClick={() => { setForm({ ...e, dailyRate: String(e.dailyRate || ""), vtDaily: String(e.vtDaily || ""), vrDaily: String(e.vrDaily || ""), workdayHours:String(e.workdayHours||8), workStart:String(e.workStart||"07:00"), overtimeAdditionalPercent:String(e.overtimeAdditionalPercent??50) }); setModal(true); }}><Ic n="edit" /></Btn>
                   {e.active !== false && <Btn v="danger" size="sm" onClick={() => archiveEmp(e.id)}><Ic n="x" /></Btn>}
                 </div>
               </div>
@@ -8851,6 +8854,9 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
             <Sel label="Status" value={String(form.active !== false)} onChange={v => F("active")(v === "true")} options={[{ v: "true", l: "Ativo" }, { v: "false", l: "Inativo / Demitido" }]} />
             <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
             <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
+            <Inp label="Jornada padrão (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
+            <Inp label="Início previsto da jornada" type="time" value={form.workStart} onChange={F("workStart")} />
+            <Inp label="Adicional de hora extra (%)" type="number" min="0" value={form.overtimeAdditionalPercent} onChange={F("overtimeAdditionalPercent")} />
             <Inp label="CPF" value={form.cpf} onChange={v => F("cpf")(fmtCPF(v))} />
             <Inp label="Telefone" value={form.phone} onChange={v => F("phone")(fmtPhone(v))} />
             <Inp label="Tipo PIX" value={form.pixType} onChange={F("pixType")} />
@@ -9437,10 +9443,15 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
       // CONGELADA no snapshot (a da epoca do pagamento, nao a atual).
       const linhas=(arqView.employeesSnapshot||[]).map(e=>{
         const mapa=arqView.attendance?.[e.id]||{};
-        let p=0,m=0,f=0;
-        Object.values(mapa).forEach(r=>{if(r?.status==="P")p++;else if(r?.status==="M")m++;else if(r?.status==="F")f++;});
+        let p=0,m=0,f=0,he=0,custo=0;
+        Object.values(mapa).forEach(r=>{
+          if(r?.status==="P")p++;else if(r?.status==="M")m++;else if(r?.status==="F")f++;
+          const calculo=calculateAttendanceDayCost({employee:e,record:r});
+          he+=calculo.overtimeHours;
+          custo+=calculo.laborCost;
+        });
         const dias=p+m*0.5;
-        return {...e,p,m,f,dias,custo:dias*Number(e.dailyRate||0)};
+        return {...e,p,m,f,he,dias,custo};
       }).sort((a,b)=>a.name.localeCompare(b.name));
       const totDias=linhas.reduce((s,l)=>s+l.dias,0);
       const totCusto=linhas.reduce((s,l)=>s+l.custo,0);
@@ -9451,7 +9462,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
         <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8}}>
           <table style={{borderCollapse:"collapse",width:"100%",fontSize:11}}>
             <thead><tr style={{background:C.surface}}>
-              {["Funcionário","P","½","F","Dias","Diária","Custo"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:h==="Funcionário"?"left":"center",fontSize:9.5,fontWeight:800,color:C.muted,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+              {["Funcionário","P","½","F","HE","Dias","Diária","Custo"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:h==="Funcionário"?"left":"center",fontSize:9.5,fontWeight:800,color:C.muted,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
             </tr></thead>
             <tbody>
               {linhas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}>
@@ -9459,6 +9470,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
                 <td style={{textAlign:"center",color:C.green,fontWeight:800}}>{l.p}</td>
                 <td style={{textAlign:"center",color:C.yellowD,fontWeight:800}}>{l.m}</td>
                 <td style={{textAlign:"center",color:C.red,fontWeight:800}}>{l.f}</td>
+                <td style={{textAlign:"center",color:C.purple,fontWeight:800}}>{l.he}h</td>
                 <td style={{textAlign:"center",fontWeight:800}}>{l.dias.toFixed(1).replace(".0","")}</td>
                 <td style={{textAlign:"center",color:C.muted}}>{fmt(l.dailyRate)}</td>
                 <td style={{textAlign:"center",fontWeight:900,color:C.yellowD}}>{fmt(l.custo)}</td>
@@ -9466,14 +9478,14 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
             </tbody>
             <tfoot><tr style={{background:C.surface,borderTop:`2px solid ${C.border}`}}>
               <td style={{padding:"8px 10px",fontWeight:900}}>TOTAL · {linhas.length} funcionário(s)</td>
-              <td colSpan={3}></td>
+              <td colSpan={4}></td>
               <td style={{textAlign:"center",fontWeight:900}}>{totDias.toFixed(1).replace(".0","")}</td>
               <td></td>
               <td style={{textAlign:"center",fontWeight:900,color:C.yellowD}}>{fmt(totCusto)}</td>
             </tr></tfoot>
           </table>
         </div>
-        <p style={{fontSize:10,color:C.subtle,marginTop:8}}>Custo em diárias, sem VT/VR e adiantamentos — a folha paga já foi conferida antes do arquivamento.</p>
+        <p style={{fontSize:10,color:C.subtle,marginTop:8}}>Custo em diárias e horas extras, sem VT/VR e adiantamentos — valores congelados no arquivo.</p>
       </Modal>;
     })()}
   </div>;
@@ -9488,6 +9500,10 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
   const [noteText, setNoteText] = useState("");
   const [otModal, setOtModal] = useState(null);
   const [otHours, setOtHours] = useState("0");
+  const [timeModal, setTimeModal] = useState(null);
+  const [timeForm, setTimeForm] = useState({
+    entrada:"", intervaloSaida:"", intervaloRetorno:"", saida:"",
+  });
   const [movementModal, setMovementModal] = useState(null);
   const [unlockModal, setUnlockModal] = useState(null);
   const [lastAllDoneNotification, setLastAllDoneNotification] = useState("");
@@ -9503,6 +9519,12 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
   const selectedObraCanEdit = selectedObra ? canEditAttendance(data, selectedObra.id, selDate) : true;
   const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
   const attendanceCompletion = getAttendanceCompletionMessage(obraAttendanceSummary);
+  const podeMovimentarEquipe=canManageAttendanceWorkforce(currentUser?.role);
+  const obraDoPonto = employee => resolveAttendanceObraId({
+    record:getAtt(data,employee?.id,selDate),
+    selectedObraId:filterObra,
+    employeeObraId:employee?.obra,
+  });
 
   useEffect(() => {
     const notificationKey = `${selDate}__all_done`;
@@ -9530,7 +9552,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
   };
 
   const requireUnlocked = employee => {
-    const obraId = employee?.obra || filterObra;
+    const obraId = obraDoPonto(employee);
     if (!obraId || obraId === "all") return false;
     if (canEditAttendance(data, obraId, selDate)) return false;
 
@@ -9583,8 +9605,13 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
         lockedAt: new Date().toISOString(),
       },
     };
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "attendance_lock", message: `Ponto finalizado e bloqueado: ${obra.name} em ${fmtDateFull(selDate)}.` }];
-    update({ ...data, attendanceLocks, changeLog });
+    const next={ ...data, attendanceLocks };
+    // Perfis vinculados a uma obra não recebem nem regravam o changeLog
+    // global. A auditoria append-only do servidor registra a finalização.
+    if(!currentUser?.obraId){
+      next.changeLog=[...data.changeLog, { id: uid(), date: today(), type:"attendance_lock", message:`Ponto finalizado e bloqueado: ${obra.name} em ${fmtDateFull(selDate)}.` }];
+    }
+    update(next);
     showToast("Ponto da obra finalizado e bloqueado.");
   };
 
@@ -9621,6 +9648,16 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
           [selDate]: {
             ...prev,
             status: nextStatus,
+            // Hora extra só existe em presença ou meio período. Ao mudar para
+            // falta/sem registro, removemos o valor para não deixar evidência
+            // contraditória na folha e nos relatórios.
+            ot: ["P", "M"].includes(nextStatus) ? Number(prev.ot || 0) : 0,
+            entrada:["P","M"].includes(nextStatus) ? (prev.entrada||"") : "",
+            intervaloSaida:["P","M"].includes(nextStatus) ? (prev.intervaloSaida||"") : "",
+            intervaloRetorno:["P","M"].includes(nextStatus) ? (prev.intervaloRetorno||"") : "",
+            saida:["P","M"].includes(nextStatus) ? (prev.saida||"") : "",
+            workedMinutes:["P","M"].includes(nextStatus) ? Number(prev.workedMinutes||0) : 0,
+            atrasoMin:["P","M"].includes(nextStatus) ? Number(prev.atrasoMin||0) : 0,
             // Só carimba a obra se o dia foi efetivamente marcado
             obraId: nextStatus ? obraDoDia : (prev.obraId || ""),
           },
@@ -9655,18 +9692,80 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
     if (requireUnlocked(emp)) return;
 
     const prev = getAtt(data, otModal, selDate) || { status: null, ot: 0, note: "" };
+    if (!["P","M"].includes(prev.status)) {
+      showToast("Marque presença ou meio dia antes de registrar hora extra.", "error");
+      return;
+    }
+    const horas=Number(otHours);
+    if (!Number.isFinite(horas) || horas < 0 || horas > 24) {
+      showToast("Informe uma quantidade de horas extras entre 0 e 24.", "error");
+      return;
+    }
     update({
       ...data,
       attendance: {
         ...data.attendance,
         [otModal]: {
           ...(data.attendance[otModal] || {}),
-          [selDate]: { ...prev, ot: Number(otHours || 0) },
+          [selDate]: { ...prev, ot: horas },
         },
       },
     });
     setOtModal(null);
     showToast("Hora extra registrada.");
+  };
+
+  const openTimekeeping = employee => {
+    if (requireDailyCheck()) return;
+    if (requireUnlocked(employee)) return;
+    const record=getAtt(data,employee.id,selDate) || {};
+    setTimeForm({
+      entrada:record.entrada || "",
+      intervaloSaida:record.intervaloSaida || "",
+      intervaloRetorno:record.intervaloRetorno || "",
+      saida:record.saida || "",
+    });
+    setTimeModal(employee.id);
+  };
+
+  const timekeepingPreview = timeModal
+    ? calculateTimekeeping({
+        ...timeForm,
+        jornadaInicio:data.employees.find(e=>e.id===timeModal)?.workStart
+          || data.config?.payrollWorkStart
+          || "07:00",
+      })
+    : null;
+
+  const saveTimekeeping = () => {
+    const employee=data.employees.find(e=>e.id===timeModal);
+    if (!employee || requireDailyCheck() || requireUnlocked(employee)) return;
+    const prev=getAtt(data,timeModal,selDate) || {status:null,ot:0,note:""};
+    if (!["P","M"].includes(prev.status)) {
+      showToast("Marque presença ou meio dia antes de registrar a jornada.","error");
+      return;
+    }
+    if (!timekeepingPreview?.valid) {
+      showToast(timekeepingPreview?.error || "Confira os horários informados.","error");
+      return;
+    }
+    update({
+      ...data,
+      attendance:{
+        ...data.attendance,
+        [timeModal]:{
+          ...(data.attendance[timeModal]||{}),
+          [selDate]:{
+            ...prev,
+            ...timeForm,
+            workedMinutes:Number(timekeepingPreview.workedMinutes||0),
+            atrasoMin:Number(timekeepingPreview.delayMinutes||0),
+          },
+        },
+      },
+    });
+    setTimeModal(null);
+    showToast("Jornada registrada.");
   };
 
   const markAll = status => {
@@ -9685,7 +9784,20 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
     list.forEach(e => {
       attendance[e.id] = {
         ...(attendance[e.id] || {}),
-        [selDate]: { ...(getAtt(data, e.id, selDate) || {}), status, obraId:filterObra },
+        [selDate]: {
+          ...(getAtt(data, e.id, selDate) || {}),
+          status,
+          ot:["P", "M"].includes(status)
+            ? Number(getAtt(data, e.id, selDate)?.ot || 0)
+            : 0,
+          entrada:["P","M"].includes(status) ? (getAtt(data,e.id,selDate)?.entrada||"") : "",
+          intervaloSaida:["P","M"].includes(status) ? (getAtt(data,e.id,selDate)?.intervaloSaida||"") : "",
+          intervaloRetorno:["P","M"].includes(status) ? (getAtt(data,e.id,selDate)?.intervaloRetorno||"") : "",
+          saida:["P","M"].includes(status) ? (getAtt(data,e.id,selDate)?.saida||"") : "",
+          workedMinutes:["P","M"].includes(status) ? Number(getAtt(data,e.id,selDate)?.workedMinutes||0) : 0,
+          atrasoMin:["P","M"].includes(status) ? Number(getAtt(data,e.id,selDate)?.atrasoMin||0) : 0,
+          obraId:filterObra,
+        },
       };
     });
     update({ ...data, attendance });
@@ -9801,7 +9913,15 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
         const status = att?.status;
         const ot = Number(att?.ot || 0);
         const note = att?.note || "";
-        const cardLocked = isAttendanceLocked(data, e.obra, selDate) && !canEditAttendance(data, e.obra, selDate);
+        const timekeeping=calculateTimekeeping({
+          entrada:att?.entrada,
+          intervaloSaida:att?.intervaloSaida,
+          intervaloRetorno:att?.intervaloRetorno,
+          saida:att?.saida,
+          jornadaInicio:e.workStart || data.config?.payrollWorkStart || "07:00",
+        });
+        const obraIdPonto=obraDoPonto(e);
+        const cardLocked = isAttendanceLocked(data, obraIdPonto, selDate) && !canEditAttendance(data, obraIdPonto, selDate);
         const borderCol = cardLocked ? C.red : status === "P" ? C.green : status === "M" ? C.yellowD : status === "F" ? C.red : C.border;
         const aberto = expandedCard === e.id;
 
@@ -9814,6 +9934,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
               </div>
               <div style={{ display: "flex", gap: 4, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 {cardLocked && <Badge color={C.red}><Ic n="lock" s={10} /> Bloqueado</Badge>}
+                {timekeeping.valid&&!timekeeping.empty&&<Badge color={C.blue}>{formatMinutes(timekeeping.workedMinutes)}</Badge>}
+                {timekeeping.valid&&timekeeping.delayMinutes>0&&<Badge color={C.orange}>{timekeeping.delayMinutes} min atraso</Badge>}
                 {ot > 0 && <Badge color={C.purple}>{ot}h extra</Badge>}
               </div>
             </div>
@@ -9821,7 +9943,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
             {note && <p style={{ color: C.subtle, fontSize: 11, marginBottom: 8, fontStyle: "italic" }}>"{note}"</p>}
 
             {cardLocked ? (
-              <Btn v="warning" size="sm" full onClick={() => setUnlockModal({ obraId: e.obra, date: selDate, employee: e })}><Ic n="mail" /> Solicitar permissão</Btn>
+              <Btn v="warning" size="sm" full onClick={() => setUnlockModal({ obraId: obraIdPonto, date: selDate, employee: e })}><Ic n="mail" /> Solicitar permissão</Btn>
             ) : (
               <>
                 {/* Ação principal: presença. Três botões grandes e claros. */}
@@ -9861,14 +9983,15 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
                 </button>
                 {aberto && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 6 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5 }}>
+                      <Btn v="ghost" size="sm" full onClick={() => openTimekeeping(e)}><Ic n="calendar" /> Jornada</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setOtModal(e.id); setOtHours(String(ot)); }}><Ic n="clock" /> Hora extra</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setNoteModal(e.id); setNoteText(note); }}><Ic n="edit" /> Observação</Btn>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+                    {podeMovimentarEquipe && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                       <Btn v="warning" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}><Ic n="building" /> Transferir</Btn>
                       <Btn v="danger" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}><Ic n="x" /> Demitir</Btn>
-                    </div>
+                    </div>}
                   </div>
                 )}
               </>
@@ -9896,6 +10019,29 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <Btn v="ghost" onClick={() => setOtModal(null)} full>Cancelar</Btn>
             <Btn v="info" onClick={saveOT} full><Ic n="check" /> Registrar</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {timeModal && (
+        <Modal title="Jornada do dia" onClose={() => setTimeModal(null)}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Inp label="Entrada" type="time" value={timeForm.entrada} onChange={v=>setTimeForm(f=>({...f,entrada:v}))}/>
+            <Inp label="Saída para intervalo" type="time" value={timeForm.intervaloSaida} onChange={v=>setTimeForm(f=>({...f,intervaloSaida:v}))}/>
+            <Inp label="Retorno do intervalo" type="time" value={timeForm.intervaloRetorno} onChange={v=>setTimeForm(f=>({...f,intervaloRetorno:v}))}/>
+            <Inp label="Saída" type="time" value={timeForm.saida} onChange={v=>setTimeForm(f=>({...f,saida:v}))}/>
+          </div>
+          <div style={{marginTop:12,padding:10,border:`1px solid ${timekeepingPreview?.valid?C.border:C.red}`,borderRadius:7,background:C.surface}}>
+            {timekeepingPreview?.valid
+              ? <p style={{fontSize:11,fontWeight:750,color:C.text}}>
+                  Total: {formatMinutes(timekeepingPreview.workedMinutes)}
+                  {timekeepingPreview.delayMinutes>0?` · atraso de ${timekeepingPreview.delayMinutes} min`:" · sem atraso"}
+                </p>
+              : <p style={{fontSize:11,fontWeight:750,color:C.red}}>{timekeepingPreview?.error}</p>}
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:12}}>
+            <Btn v="ghost" onClick={()=>setTimeModal(null)} full>Cancelar</Btn>
+            <Btn onClick={saveTimekeeping} full><Ic n="check"/> Salvar jornada</Btn>
           </div>
         </Modal>
       )}
@@ -9970,6 +10116,7 @@ function Folha({ data, showToast, onTab }) {
     let faltas = 0;
     let semRegistro = 0;
     let ot = 0;
+    let overtimePay = 0;
     let vt = 0;
     let vr = 0;
     // Mapa por obra efetivamente registrada no ponto. Alem dos dias, guarda
@@ -9981,7 +10128,7 @@ function Folha({ data, showToast, onTab }) {
       if (!obrasPorDia[chave]) obrasPorDia[chave] = {
         obraId: obraId || "", presentes: 0, meiodia: 0, faltas: 0,
         semRegistro: 0, feriadosPagos: 0, feriadosPerdidos: 0,
-        valorDias: 0, valorFeriados: 0, vt: 0, vr: 0, ot: 0,
+        valorDias: 0, valorFeriados: 0, overtimePay:0, vt: 0, vr: 0, ot: 0,
       };
       const o = obrasPorDia[chave];
       if (tipo === "P") o.presentes++;
@@ -9992,6 +10139,7 @@ function Folha({ data, showToast, onTab }) {
       else if (tipo === "HD") o.feriadosPerdidos++;
       o.valorDias += Number(valores.valorDias || 0);
       o.valorFeriados += Number(valores.valorFeriados || 0);
+      o.overtimePay += Number(valores.overtimePay || 0);
       o.vt += Number(valores.vt || 0);
       o.vr += Number(valores.vr || 0);
       o.ot += Number(valores.ot || 0);
@@ -10009,25 +10157,25 @@ function Folha({ data, showToast, onTab }) {
       const obraId = a?.obraId || getEmpObraIdOnDate(employee, d);
 
       if (st === "P") {
-        const valorDia = Number(employee.dailyRate || 0);
-        const valorVT = Number(employee.vtDaily || 0);
-        const valorVR = Number(employee.vrDaily || 0);
-        gross += valorDia;
+        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config});
+        gross += custo.laborCost;
+        overtimePay += custo.overtimePay;
         presentes++;
         ot += extra;
-        vt += valorVT;
-        vr += valorVR;
-        addToObra(obraId, "P", { valorDias:valorDia, vt:valorVT, vr:valorVR, ot:extra });
+        vt += Number(employee.vtDaily || 0);
+        vr += Number(employee.vrDaily || 0);
+        addToObra(obraId, "P", { valorDias:custo.basePay-custo.delayDeduction, overtimePay:custo.overtimePay,
+          vt:Number(employee.vtDaily||0), vr:Number(employee.vrDaily||0), ot:extra });
       } else if (st === "M") {
-        const valorDia = Number(employee.dailyRate || 0) * 0.5;
-        const valorVT = Number(employee.vtDaily || 0) * 0.5;
-        const valorVR = Number(employee.vrDaily || 0) * 0.5;
-        gross += valorDia;
+        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config});
+        gross += custo.laborCost;
+        overtimePay += custo.overtimePay;
         meiodia++;
         ot += extra;
-        vt += valorVT;
-        vr += valorVR;
-        addToObra(obraId, "M", { valorDias:valorDia, vt:valorVT, vr:valorVR, ot:extra });
+        vt += Number(employee.vtDaily || 0) * 0.5;
+        vr += Number(employee.vrDaily || 0) * 0.5;
+        addToObra(obraId, "M", { valorDias:custo.basePay-custo.delayDeduction, overtimePay:custo.overtimePay,
+          vt:Number(employee.vtDaily||0)*0.5, vr:Number(employee.vrDaily||0)*0.5, ot:extra });
       } else if (st === "F") {
         faltas++;
         addToObra(obraId, "F");
@@ -10064,8 +10212,8 @@ function Folha({ data, showToast, onTab }) {
         // Dia trabalhado equivalente: meio periodo vale 0,5; falta nao conta.
         diasTrabalhados: v.presentes + (v.meiodia * 0.5),
         totalRegistros: v.presentes + v.meiodia + v.faltas,
-        bruto: v.valorDias + v.valorFeriados,
-        custoDireto: v.valorDias + v.valorFeriados + v.vt + v.vr,
+        bruto: v.valorDias + v.valorFeriados + v.overtimePay,
+        custoDireto: v.valorDias + v.valorFeriados + v.overtimePay + v.vt + v.vr,
       }))
       .sort((a, b) => b.diasTrabalhados - a.diasTrabalhados || a.obraName.localeCompare(b.obraName));
 
@@ -10101,6 +10249,7 @@ function Folha({ data, showToast, onTab }) {
       faltas,
       semRegistro,
       ot,
+      overtimePay,
       vt,
       vr,
       feriadosPagos,
@@ -10147,16 +10296,16 @@ function Folha({ data, showToast, onTab }) {
   // ai o Total Liquido fecha pela OBRA, nao pela equipe toda.
   const valEfetivos = (r) => {
     if (filterObra === "all") {
-      return { gross:r.gross, vt:r.vt, vr:r.vr, advances:r.advances, net:r.net,
+      return { gross:r.gross, overtimePay:r.overtimePay, vt:r.vt, vr:r.vr, advances:r.advances, net:r.net,
                presentes:r.presentes, meiodia:r.meiodia, faltas:r.faltas,
                semRegistro:r.semRegistro, feriadosPagos:r.feriadosPagos,
                feriadosPerdidos:r.feriadosPerdidos, holidayPay:r.holidayPay };
     }
     const o = (r.obrasPorDia || []).find(x => x.obraId === filterObra);
-    if (!o) return { gross:0, vt:0, vr:0, advances:0, net:0, presentes:0, meiodia:0,
+    if (!o) return { gross:0, overtimePay:0, vt:0, vr:0, advances:0, net:0, presentes:0, meiodia:0,
                      faltas:0, semRegistro:0, feriadosPagos:0, feriadosPerdidos:0, holidayPay:0 };
     return {
-      gross: o.bruto, vt: o.vt, vr: o.vr, advances: o.advancesObra, net: o.netObra,
+      gross: o.bruto, overtimePay:o.overtimePay, vt: o.vt, vr: o.vr, advances: o.advancesObra, net: o.netObra,
       presentes: o.presentes, meiodia: o.meiodia, faltas: o.faltas,
       semRegistro: o.semRegistro, feriadosPagos: o.feriadosPagos,
       feriadosPerdidos: o.feriadosPerdidos, holidayPay: o.valorFeriados,
@@ -10209,6 +10358,7 @@ function Folha({ data, showToast, onTab }) {
 
   const T = {
     gross: rows.reduce((s, r) => s + valEfetivos(r).gross, 0),
+    overtimePay: rows.reduce((s, r) => s + valEfetivos(r).overtimePay, 0),
     vt: rows.reduce((s, r) => s + valEfetivos(r).vt, 0),
     vr: rows.reduce((s, r) => s + valEfetivos(r).vr, 0),
     advances: rows.reduce((s, r) => s + valEfetivos(r).advances, 0),
@@ -10237,12 +10387,13 @@ function Folha({ data, showToast, onTab }) {
       obraId:l.obraId, obraName:l.obraName, funcionarios:new Set(), presentes:0,
       meiodia:0, diasTrabalhados:0, faltas:0, semRegistro:0, feriadosPagos:0,
       feriadosPerdidos:0, valorDias:0, valorFeriados:0, ot:0, vt:0, vr:0,
+      overtimePay:0,
       bruto:0, custoDireto:0,
     });
     const o = resumoPorObraMap.get(l.obraId);
     if (l.diasTrabalhados > 0 || l.feriadosPagos > 0) o.funcionarios.add(l.empId);
     ["presentes","meiodia","diasTrabalhados","faltas","semRegistro","feriadosPagos",
-     "feriadosPerdidos","valorDias","valorFeriados","ot","vt","vr","bruto","custoDireto"]
+     "feriadosPerdidos","valorDias","valorFeriados","overtimePay","ot","vt","vr","bruto","custoDireto"]
       .forEach(k => { o[k] += Number(l[k] || 0); });
   });
   const resumoPorObra = [...resumoPorObraMap.values()]
@@ -10262,7 +10413,8 @@ function Folha({ data, showToast, onTab }) {
       : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio periodo"
       : a?.status === "F" ? "Falta" : "Sem registro";
     const equivalente = a?.status === "P" ? 1 : a?.status === "M" ? 0.5 : 0;
-    const valorDia = feriado ? Number(regraFer?.amount || 0) : Number(r.dailyRate || 0) * equivalente;
+    const custoDia=feriado?null:calculateAttendanceDayCost({employee:r,record:a,config:data.config});
+    const valorDia = feriado ? Number(regraFer?.amount || 0) : Number(custoDia?.laborCost || 0);
     const valorVT = feriado ? 0 : Number(r.vtDaily || 0) * equivalente;
     const valorVR = feriado ? 0 : Number(r.vrDaily || 0) * equivalente;
     return {
@@ -10583,7 +10735,7 @@ function Folha({ data, showToast, onTab }) {
               )}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
                 {[
-                  ["Diária", fmt(r.dailyRate)], ["Bruto", fmt(v.gross)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Líquido", fmt(v.net), C.yellow], ["HE", `${r.ot}h`], ["Feriados pagos", v.feriadosPagos], ["Feriados perdidos", v.feriadosPerdidos, C.red], ["Valor feriado", fmt(v.holidayPay), C.green],
+                  ["Diária", fmt(r.dailyRate)], ["Bruto", fmt(v.gross)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Líquido", fmt(v.net), C.yellow], ["HE", `${r.ot}h · ${fmt(v.overtimePay)}`, C.purple], ["Feriados pagos", v.feriadosPagos], ["Feriados perdidos", v.feriadosPerdidos, C.red], ["Valor feriado", fmt(v.holidayPay), C.green],
                 ].map(([label, value, color]) => (
                   <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, padding: 8 }}>
                     <p style={{ color: C.muted, fontSize: 10, textTransform: "uppercase" }}>{label}</p>
@@ -13314,73 +13466,52 @@ function Relatorios({ data, showToast }) {
   const payrollHolidays = useMemo(() => getPayrollHolidays(data, year), [data.config?.paymentHolidays, year]);
   const holidaysInMonth = useMemo(() => days.filter(d => payrollHolidays.includes(d) && prIsWeekdayIso(d)),
     [days, payrollHolidays]);
-  // Map obraId -> funcionarios vinculados (obra atual OU ultima obra), montado
-  // uma vez em vez de filtrar data.employees inteiro por obra dentro do loop.
-  const empsPorObra = useMemo(() => {
-    const m = new Map();
-    data.employees.forEach(e => {
-      [e.obra, e.lastObra].filter(Boolean).forEach(obraId => {
-        const lista = m.get(obraId);
-        if (lista) { if (!lista.includes(e)) lista.push(e); } else m.set(obraId, [e]);
-      });
-    });
-    return m;
-  }, [data.employees]);
-
   const obraCostRows = useMemo(() => data.obras.map(o => {
-    const emps = empsPorObra.get(o.id) || [];
-    const activeEmps = emps.filter(e => e.active !== false && e.obra === o.id);
+    const activeEmps = data.employees.filter(e => e.active !== false && e.obra === o.id);
 
     let presentes = 0;
     let meiodia = 0;
     let faltas = 0;
     let semRegistro = 0;
-    let laborCost = 0;
-    let benefitCost = 0;
     let holidayPay = 0;
 
-    emps.forEach(e => {
-      const belongsNow = e.obra === o.id;
-      const hasAnyAttendance = days.some(d => !!getAtt(data, e.id, d));
-
-      // Observação: a estrutura atual do ponto não grava a obra por dia.
-      // Portanto, para relatórios históricos, o custo é atribuído à obra atual do trabalhador.
-      // lastObra serve apenas para manter vínculo de histórico após demissão/arquivamento.
-      if (!belongsNow && !hasAnyAttendance) return;
-
+    data.employees.forEach(e => {
       days.forEach(d => {
         if (!isEmployeeEmployedOnDate(e, d)) return;
         if (holidaysInMonth.includes(d)) return;
 
         const a = getAtt(data, e.id, d);
+        const obraDoDia = resolveAttendanceObraId({
+          record: a,
+          employeeObraId: e.obra,
+        });
+        if (obraDoDia !== o.id) return;
         const s = a?.status;
 
         if (s === "P") {
           presentes++;
-          laborCost += Number(e.dailyRate || 0);
-          benefitCost += Number(e.vtDaily || 0) + Number(e.vrDaily || 0);
         } else if (s === "M") {
           meiodia++;
-          laborCost += Number(e.dailyRate || 0) * 0.5;
-          benefitCost += (Number(e.vtDaily || 0) + Number(e.vrDaily || 0)) * 0.5;
         } else if (s === "F") {
           faltas++;
-        } else if (belongsNow && e.active !== false) {
+        } else if (e.obra === o.id && e.active !== false) {
           semRegistro++;
         }
       });
 
       holidaysInMonth.forEach(h => {
         if (!isEmployeeEmployedOnDate(e, h)) return;
-        if (!belongsNow && e.active !== false) return;
+        const a = getAtt(data, e.id, h);
+        if (resolveAttendanceObraId({ record: a, employeeObraId: e.obra }) !== o.id) return;
         const rule = getHolidayPayRule(data, e, h, payrollHolidays);
         holidayPay += Number(rule.amount || 0);
       });
     });
 
+    // Fonte única dos valores: a mesma função consumida pelo DRE, incluindo
+    // hora extra, benefício, obra gravada no ponto e custos arquivados.
+    const { laborCost, benefitCost, totalCost } = calcObraLaborCost(data, o.id, days);
     const areaM2 = Number(o.areaM2 || 0);
-    laborCost += holidayPay;
-    const totalCost = laborCost + benefitCost;
     const laborCostPerM2 = areaM2 > 0 ? laborCost / areaM2 : 0;
     const totalCostPerM2 = areaM2 > 0 ? totalCost / areaM2 : 0;
 
@@ -13400,7 +13531,7 @@ function Relatorios({ data, showToast }) {
       laborCostPerM2,
       totalCostPerM2,
     };
-  }), [data.obras, data.attendance, empsPorObra, days, holidaysInMonth, payrollHolidays]);
+  }), [data, days, holidaysInMonth, payrollHolidays]);
 
   const filteredRows = obraCostRows.filter(r => filterObra === "all" || r.id === filterObra);
 
@@ -13443,26 +13574,28 @@ function Relatorios({ data, showToast }) {
   }));
 
   const topCost = useMemo(() => data.employees.map(e => {
-    if (filterObra !== "all" && e.obra !== filterObra && e.lastObra !== filterObra) return null;
-
     let total = 0;
 
     days.forEach(d => {
       if (!isEmployeeEmployedOnDate(e, d)) return;
       if (holidaysInMonth.includes(d)) return;
-      const st = attStatus(data, e.id, d);
-      if (st === "P") total += Number(e.dailyRate || 0);
-      if (st === "M") total += Number(e.dailyRate || 0) * 0.5;
+      const record = getAtt(data, e.id, d);
+      const obraDoDia = resolveAttendanceObraId({ record, employeeObraId: e.obra });
+      if (filterObra !== "all" && obraDoDia !== filterObra) return;
+      total += calculateAttendanceDayCost({ employee:e, record, config:data.config }).laborCost;
     });
 
     holidaysInMonth.forEach(h => {
       if (!isEmployeeEmployedOnDate(e, h)) return;
+      const record = getAtt(data, e.id, h);
+      const obraDoDia = resolveAttendanceObraId({ record, employeeObraId: e.obra });
+      if (filterObra !== "all" && obraDoDia !== filterObra) return;
       total += Number(getHolidayPayRule(data, e, h, payrollHolidays).amount || 0);
     });
 
     return { name: e.name, obra: obraName(e.obra), total };
   }).filter(i => i && i.total > 0).sort((a, b) => b.total - a.total).slice(0, 10),
-    [data.employees, data.attendance, filterObra, days, holidaysInMonth, payrollHolidays, obraPorIdRel]);
+    [data, filterObra, days, holidaysInMonth, payrollHolidays, obraPorIdRel]);
 
   const exportObraCosts = async () => {
     await carregarXLSX();
@@ -13944,29 +14077,24 @@ const getAgentMonthCostByObra = (data, year = new Date().getFullYear(), month = 
   const holidaysInMonth = days.filter(d => holidays.includes(d) && prIsWeekdayIso(d));
 
   return (data.obras || []).map(obra => {
-    let laborCost = 0;
-    let benefitCost = 0;
     let presentes = 0;
     let meiodia = 0;
     let faltas = 0;
     let semRegistro = 0;
 
     (data.employees || []).forEach(emp => {
-      if (emp.obra !== obra.id && emp.lastObra !== obra.id) return;
-
       days.forEach(day => {
         if (!isEmployeeEmployedOnDate(emp, day)) return;
         if (holidaysInMonth.includes(day)) return;
-        const status = attStatus(data, emp.id, day);
+        const record = getAtt(data, emp.id, day);
+        const obraDoDia = resolveAttendanceObraId({ record, employeeObraId: emp.obra });
+        if (obraDoDia !== obra.id) return;
+        const status = record?.status;
 
         if (status === "P") {
           presentes++;
-          laborCost += Number(emp.dailyRate || 0);
-          benefitCost += Number(emp.vtDaily || 0) + Number(emp.vrDaily || 0);
         } else if (status === "M") {
           meiodia++;
-          laborCost += Number(emp.dailyRate || 0) * 0.5;
-          benefitCost += (Number(emp.vtDaily || 0) + Number(emp.vrDaily || 0)) * 0.5;
         } else if (status === "F") {
           faltas++;
         } else if (emp.active !== false && emp.obra === obra.id) {
@@ -13974,15 +14102,11 @@ const getAgentMonthCostByObra = (data, year = new Date().getFullYear(), month = 
         }
       });
 
-      holidaysInMonth.forEach(h => {
-        if (!isEmployeeEmployedOnDate(emp, h)) return;
-        if (emp.obra !== obra.id) return;
-        laborCost += Number(getHolidayPayRule(data, emp, h, holidays).amount || 0);
-      });
     });
 
+    // O CFO/IA recebe exatamente a mesma MO do DRE e dos relatórios.
+    const { laborCost, benefitCost, totalCost } = calcObraLaborCost(data, obra.id, days);
     const areaM2 = Number(obra.areaM2 || 0);
-    const totalCost = laborCost + benefitCost;
 
     return {
       obraId: obra.id,
@@ -15149,7 +15273,9 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
 
   return (
     <div className="login-tech-shell">
-      <LoginProjectParallax logoSrc={ARCD_LOGO}/>
+      <Suspense fallback={<div className="login-project-visual" aria-hidden="true"/>}>
+        <LazyLoginProjectParallax logoSrc={ARCD_LOGO}/>
+      </Suspense>
 
       <section className="login-project-story" aria-label="Plataforma ARCD">
         <div className="login-eyebrow">
@@ -37945,6 +38071,7 @@ export default function App() {
               {allowedTabs.includes("ponto") && (
                 <button
                   className="app-quick-point"
+                  aria-label="Abrir Ponto"
                   onClick={() => setTab("ponto")}
                   style={{
                     background: tab==="ponto" ? C.yellow : C.surface,
@@ -38019,7 +38146,7 @@ export default function App() {
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "plan"   && <Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "plan_suprimentos" && <MarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} />}
+          {tab === "plan_suprimentos" && <Suspense fallback={<div className="arcd-page-loading">Carregando suprimentos...</div>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conferencia" && <Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
