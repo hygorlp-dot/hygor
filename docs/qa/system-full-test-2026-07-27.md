@@ -86,6 +86,9 @@ O gate técnico da aplicação foi aprovado após as correções:
    limitação agora ocorre antes da autenticação e usa IP + e-mail.
 3. Um login bem-sucedido não limpava falhas anteriores. Foi criada a RPC
    restrita `auth_rate_limit_success` e o fallback local correspondente.
+4. A migration original do rate limit possuía `blocked_until-now` em uma
+   expressão SQL, interpretando `now` como coluna. Foi corrigida para
+   `blocked_until-now()` e validada pelo próprio gate produtivo.
 
 ## Conferência numérica
 

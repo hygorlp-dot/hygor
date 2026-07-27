@@ -15,7 +15,7 @@ create or replace function public.auth_rate_limit_status(p_company_id text,p_sub
 returns table(blocked boolean,retry_after_seconds integer)
 language sql security definer set search_path=public as $$
   select coalesce(blocked_until>now(),false),
-    greatest(0,extract(epoch from (blocked_until-now))::integer)
+    greatest(0,extract(epoch from (blocked_until-now()))::integer)
   from auth_rate_limits where company_id=p_company_id and subject_hash=p_subject_hash
 $$;
 

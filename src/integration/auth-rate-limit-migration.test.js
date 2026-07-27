@@ -14,6 +14,7 @@ describe("SEC-002 — limite de tentativas compartilhado", () => {
     expect(sql).toContain("on conflict(company_id,subject_hash) do update");
     expect(sql).toContain("auth_rate_limit_failure");
     expect(sql).toContain("p_limit integer default 8");
+    expect(sql).toContain("blocked_until-now()");
   });
 
   it("não expõe as RPCs SECURITY DEFINER ao navegador",()=>{
