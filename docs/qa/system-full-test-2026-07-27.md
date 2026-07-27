@@ -89,6 +89,9 @@ O gate técnico da aplicação foi aprovado após as correções:
 4. A migration original do rate limit possuía `blocked_until-now` em uma
    expressão SQL, interpretando `now` como coluna. Foi corrigida para
    `blocked_until-now()` e validada pelo próprio gate produtivo.
+5. Uma resposta HTTP 200 incompleta no login podia acessar `usuario.id` e
+   causar erro de runtime. O frontend agora valida dados, usuário e token antes
+   de abrir a sessão.
 
 ## Conferência numérica
 

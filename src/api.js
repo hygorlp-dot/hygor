@@ -166,6 +166,9 @@ export const entrarComPin = async (userId, pin) => {
   if (r.status === 429) return { ok: false, erro: r.error || "Muitas tentativas." };
   if (r.status === 401) return { ok: false, erro: "PIN incorreto." };
   if (r.status !== 200)  return { ok: false, erro: r.error || "Falha ao entrar." };
+  if (!r.data || !r.usuario?.id) {
+    return { ok:false, erro:"O servidor devolveu uma resposta de autenticação inválida. Tente novamente." };
+  }
 
   abrirSessao(userId, pin);
   ultimoUpdatedAt = r.updatedAt || null;
@@ -175,6 +178,9 @@ export const entrarComPin = async (userId, pin) => {
 export const entrarComEmail = async (email,password) => {
   const r=await chamar({action:"auth-login",email,password});
   if(r.status!==200)return{ok:false,erro:r.error||"E-mail ou senha inválidos."};
+  if(!r.data||!r.usuario?.id||!r.accessToken){
+    return{ok:false,erro:"O servidor devolveu uma resposta de autenticação inválida. Tente novamente."};
+  }
   abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken);
   ultimoUpdatedAt=r.updatedAt||null;
   return{ok:true,data:r.data,usuario:r.usuario};
