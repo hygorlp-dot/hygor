@@ -14,12 +14,15 @@ import { buildQualityProjection, canReleaseForMeasurement } from "../qualidade/c
 import { validateActivitySafety } from "../seguranca/calculations.js";
 import { addConstraint, commitWorkPackage, createLookahead, releaseConstraint } from "../lookahead/commands.js";
 import { applyEquipmentCommand, EQUIPMENT_COMMAND } from "../equipamentos/commands.js";
+import { createManualReceipt, reverseManualReceipt } from "../dre/mutations.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
   FIELD_REPORT_CHANGED:"RDO_CAMPO_ALTERADO",
   FIELD_REPORT_CANCELLED:"RDO_CANCELADO",
   PURCHASE_RECEIPT_RECORDED:"PEDIDO_RECEBIMENTO_REGISTRADO",
+  MANUAL_RECEIPT_CREATED:"RECEBIMENTO_MANUAL_CRIADO",
+  MANUAL_RECEIPT_REVERSED:"RECEBIMENTO_MANUAL_ESTORNADO",
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -406,6 +409,40 @@ export const applyOperationalCommand=(data,command)=>{
     if(!released.ok)return fail(released.error);
     const next={...data,weeklyCommitments:(data?.weeklyCommitments||[]).map(item=>item.id===id?released.commitment:item)};
     return {ok:true,data:appendReceipt(next,command,id,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED){
+    const receipt=command.payload?.receipt||{};
+    const id=String(receipt.id||"");
+    if(!id)return fail("Recebimento manual sem identificação.");
+    if(command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("O novo recebimento precisa iniciar na versão zero.");
+    if((data?.payments||[]).some(item=>item.id===id))return fail("Já existe um recebimento com esta identificação.");
+    if(!(data?.obras||[]).some(item=>String(item.id)===String(receipt.obraId||"")))return fail("A obra do recebimento não existe.");
+    try{
+      const next=createManualReceipt({
+        data,receipt,actor:{id:command.actorId,nome:command.actorName},id,now,
+      });
+      return {ok:true,data:appendReceipt(next,command,id,now)};
+    }catch(error){
+      return fail(error?.message||"Recebimento manual inválido.");
+    }
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED){
+    const id=String(command.payload?.receiptId||"");
+    const current=(data?.payments||[]).find(item=>item.id===id);
+    if(!current)return fail("Recebimento não encontrado.");
+    const versionError=requiresVersion(current,command.expectedVersion,"O recebimento");
+    if(versionError)return fail(versionError);
+    try{
+      const next=reverseManualReceipt({
+        data,receiptId:id,reason:command.payload?.reason,
+        actor:{id:command.actorId,nome:command.actorName},now,
+      });
+      return {ok:true,data:appendReceipt(next,command,id,now)};
+    }catch(error){
+      return fail(error?.message||"Não foi possível estornar o recebimento.");
+    }
   }
 
   if(command.type===OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED){

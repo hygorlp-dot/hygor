@@ -15,6 +15,8 @@ export const operationalCommandObraId=(data={},command={})=>{
   if(command?.type===OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_RELEASED)return String((data?.weeklyCommitments||[]).find(item=>item.id===payload?.commitmentId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED)return String(payload?.commitment?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED)return String((data?.pedidos||[]).find(item=>item.id===payload?.pedidoId)?.obraId||"");
+  if(command?.type===OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED)return String(payload?.receipt?.obraId||"");
+  if(command?.type===OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED)return String((data?.payments||[]).find(item=>item.id===payload?.receiptId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED)return String(payload?.records?.[0]?.obraId||"");
   if([OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED,OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED,OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED,OPERATIONAL_COMMAND.QUALITY_RECORD_DETAILS_UPDATED].includes(command?.type))return String((data?.qualidadeRegistros||[]).find(item=>item.id===payload?.recordId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED)return String(payload?.analysis?.obraId||"");

@@ -215,4 +215,60 @@ describe("comandos operacionais versionados",()=>{
     const released=applyOperationalCommand(resolved.data,command(OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED,"quality-release-0002",{recordId:"q-1"},3));
     expect(released.data.qualidadeRegistros[0]).toMatchObject({status:"aprovada",version:4});
   });
+
+  it("cria e estorna recebimento manual de forma idempotente e versionada",()=>{
+    const initial={obras:[{id:"o-1"}],payments:[]};
+    const createCommand=command(OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,"manual-receipt-create-0001",{
+      receipt:{id:"rec-1",obraId:"o-1",date:"2026-07-25",amount:900,description:"Parcela extra"},
+    },0);
+    const created=applyOperationalCommand(initial,createCommand);
+    expect(created.data.payments[0]).toMatchObject({
+      id:"rec-1",obraId:"o-1",amount:900,status:"ativo",version:1,createdById:"u-1",
+    });
+    const repeated=applyOperationalCommand(created.data,createCommand);
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+    expect(repeated.data.payments).toHaveLength(1);
+
+    const reversed=applyOperationalCommand(created.data,command(
+      OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,
+      "manual-receipt-reverse-0001",
+      {receiptId:"rec-1",reason:"Duplicidade"},
+      1,
+    ));
+    expect(reversed.data.payments[0]).toMatchObject({
+      id:"rec-1",status:"estornado",version:2,motivoCancelamento:"Duplicidade",canceladoPorId:"u-1",
+    });
+    const stale=applyOperationalCommand(created.data,command(
+      OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,
+      "manual-receipt-reverse-0002",
+      {receiptId:"rec-1",reason:"Outro motivo"},
+      0,
+    ));
+    expect(stale).toMatchObject({ok:false});
+    expect(stale.reason).toMatch(/alterado/);
+  });
+
+  it("recusa recebimento sem obra existente e estorno de item conciliado",()=>{
+    const missingProject=applyOperationalCommand(
+      {obras:[],payments:[]},
+      command(OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,"manual-receipt-invalid-0001",{
+        receipt:{id:"rec-1",obraId:"inexistente",date:"2026-07-25",amount:100},
+      },0),
+    );
+    expect(missingProject).toMatchObject({ok:false});
+    expect(missingProject.reason).toMatch(/obra.*não existe/i);
+
+    const reconciled={obras:[{id:"o-1"}],payments:[{
+      id:"rec-2",obraId:"o-1",date:"2026-07-25",amount:100,status:"ativo",
+      origem:"manual",conciliado:true,transacaoId:"tx-1",version:1,
+    }]};
+    const reversed=applyOperationalCommand(reconciled,command(
+      OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,
+      "manual-receipt-blocked-0001",
+      {receiptId:"rec-2",reason:"Duplicidade"},
+      1,
+    ));
+    expect(reversed).toMatchObject({ok:false});
+    expect(reversed.reason).toMatch(/Desfaça a conciliação/);
+  });
 });

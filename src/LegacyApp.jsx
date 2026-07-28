@@ -111,7 +111,7 @@ import {
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
 import { calculateContractProjection } from "./domains/dre/calculations";
-import { cancelCompanyExpense, cancelDreExpense, createDreExpense, createManualReceipt, replicateCompanyRecurringExpenses, reverseManualReceipt, saveCompanyExpense } from "./domains/dre/mutations";
+import { cancelCompanyExpense, cancelDreExpense, createDreExpense, replicateCompanyRecurringExpenses, saveCompanyExpense } from "./domains/dre/mutations";
 import {
   buildFinancialLedger,
   selectDRE as selectLedgerDRE,
@@ -6687,7 +6687,7 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,C=C_ARCD_
   </div>;
 }
 
-function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
+function Financeiro({ data, update, showToast, currentUser, dispatchCommand=async()=>({ok:false,reason:"Comandos financeiros indisponíveis."}), C=C_ARCD_SETOR }) {
   const [areaFinanceira,setAreaFinanceira]=useState(()=>currentUser?.role==="financeiro"?"pagamentos":"visao");
   const [abrirCadastroFiscal,setAbrirCadastroFiscal]=useState(false);
   const abrirNovaNota=useCallback(()=>{setAbrirCadastroFiscal(true);setAreaFinanceira("fiscal");},[]);
@@ -6699,6 +6699,7 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
   const [filterObra, setFilterObra] = useState("all");
   const [expanded, setExpanded] = useState(null);
   const [payModal, setPayModal] = useState(false);
+  const [paymentCommandPending,setPaymentCommandPending]=useState(false);
   const [payForm, setPayForm] = useState({ obraId:"", date:today(), amount:"", description:"" });
   const PF = k => v => setPayForm(f=>({...f,[k]:v}));
 
@@ -6728,25 +6729,53 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
   // do lancamento; o custo de MO e rateado por dias trabalhados na quinzena.
   const quinzenalChart = financialView.fortnightly;
 
-  const savePayment = () => {
+  const savePayment = async() => {
+    if(paymentCommandPending)return;
+    setPaymentCommandPending(true);
+    const id=uid();
     try {
-      update(createManualReceipt({data,receipt:payForm,actor:currentUser,id:uid()}));
+      const result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,
+        idempotencyKey:`manual-receipt-create-${id}-${uid()}`,
+        expectedVersion:0,
+        actorId:currentUser?.id||"",
+        actorName:currentUser?.nome||"",
+        payload:{receipt:{...payForm,id}},
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o recebimento.");
       setPayModal(false);
       setPayForm({obraId:"",date:today(),amount:"",description:""});
       showToast("Recebimento registrado.");
     } catch (error) {
       showToast(error.message||"Não foi possível registrar o recebimento.","error");
+    } finally {
+      setPaymentCommandPending(false);
     }
   };
 
-  const removePayment = id => {
+  const removePayment = async id => {
+    if(paymentCommandPending)return;
     const motivo=window.prompt("Motivo do estorno do recebimento:");
     if(!String(motivo||"").trim())return;
+    setPaymentCommandPending(true);
     try {
-      update(reverseManualReceipt({data,receiptId:id,reason:motivo,actor:currentUser}));
+      const result=await dispatchCommand(atual=>{
+        const receipt=(atual.payments||[]).find(item=>item.id===id);
+        return {
+          type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,
+          idempotencyKey:`manual-receipt-reverse-${id}-${uid()}`,
+          expectedVersion:Number(receipt?.version||0),
+          actorId:currentUser?.id||"",
+          actorName:currentUser?.nome||"",
+          payload:{receiptId:id,reason:motivo},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o estorno.");
       showToast("Recebimento estornado e preservado para auditoria.");
     } catch (error) {
       showToast(error.message||"Não foi possível estornar o recebimento.","error");
+    } finally {
+      setPaymentCommandPending(false);
     }
   };
 
@@ -7014,7 +7043,7 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:20,color:C.green,letterSpacing:.5}}>{fmt(p.amount)}</p>
             {p.removable
-              ? <Btn v="danger" size="sm" onClick={()=>removePayment(p.sourceId)}><Ic n="trash"/></Btn>
+              ? <Btn v="danger" size="sm" disabled={paymentCommandPending} onClick={()=>removePayment(p.sourceId)}><Ic n="trash"/></Btn>
               : <Badge color={C.muted}>Vinculado</Badge>}
           </div>
         </div>
@@ -7030,8 +7059,8 @@ function Financeiro({ data, update, showToast, currentUser, C=C_ARCD_SETOR }) {
             <Inp label="Valor recebido (R$) *" type="number" value={payForm.amount} onChange={PF("amount")} placeholder="0,00"/>
             <Inp label="Descrição" value={payForm.description} onChange={PF("description")} placeholder="Ex.: Medição #1, parcela 50%..."/>
             <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setPayModal(false)} full>Cancelar</Btn>
-              <Btn v="success" onClick={savePayment} full><Ic n="check"/> Salvar</Btn>
+              <Btn v="ghost" disabled={paymentCommandPending} onClick={()=>setPayModal(false)} full>Cancelar</Btn>
+              <Btn v="success" disabled={paymentCommandPending} onClick={savePayment} full><Ic n="check"/> {paymentCommandPending?"Salvando...":"Salvar"}</Btn>
             </div>
           </div>
         </Modal>
@@ -37513,7 +37542,7 @@ export default function App() {
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} currentUser={currentUser} />}
-          {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
+          {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
           {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
           {tab === "equip"    && <Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}

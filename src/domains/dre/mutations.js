@@ -52,6 +52,7 @@ export const createManualReceipt = ({ data, receipt, actor, id, now = new Date()
     id, obraId, date, amount, description:String(receipt?.description || receipt?.descricao || "Recebimento avulso").trim() || "Recebimento avulso",
     tipo:"recebimento_avulso", origem:"manual", transacaoId:"", conciliado:false, medicaoId:"", contratoId:"", status:"ativo",
     createdAt:now, createdById:actor.id, createdBy:userName, updatedAt:now, updatedById:actor.id, updatedBy:userName,
+    version:1,
   };
   return { ...data, payments:[...(Array.isArray(data?.payments) ? data.payments : []), registro] };
 };
@@ -66,7 +67,7 @@ export const reverseManualReceipt = ({ data, receiptId, reason, actor, now = new
   if (["cancelado","cancelada","estornado"].includes(String(receipt.status || "").toLowerCase())) throw new Error("Este recebimento já está estornado.");
   if (receipt.conciliado || receipt.transacaoId) throw new Error("Desfaça a conciliação bancária antes de estornar este recebimento.");
   const userName=actor.nome || actor.email || "Usuário autenticado";
-  return {...data,payments:payments.map(item=>item.id!==receiptId?item:{...item,status:"estornado",motivoCancelamento,canceladoEm:now,canceladoPorId:actor.id,canceladoPor:userName,updatedAt:now,updatedById:actor.id,updatedBy:userName})};
+  return {...data,payments:payments.map(item=>item.id!==receiptId?item:{...item,status:"estornado",motivoCancelamento,canceladoEm:now,canceladoPorId:actor.id,canceladoPor:userName,updatedAt:now,updatedById:actor.id,updatedBy:userName,version:Number(item.version||0)+1})};
 };
 
 export const cancelCompanyExpense = ({ data, expenseId, reason, actor, now = new Date().toISOString() }) => {

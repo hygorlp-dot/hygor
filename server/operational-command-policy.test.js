@@ -5,6 +5,7 @@ import { validateOperationalCommandScope } from "./operational-command-policy.js
 describe("escopo servidor de comandos operacionais",()=>{
   const data={
     medicoesObra:[{id:"m-a",obraId:"obra-a"}],rdos:[{id:"r-a",obraId:"obra-a"}],pedidos:[{id:"p-a",obraId:"obra-a"}],progressRecords:[{id:"av-a",obraId:"obra-a"}],weeklyCommitments:[{id:"c-a",obraId:"obra-a"}],qualidadeRegistros:[{id:"q-a",obraId:"obra-a"}],lookaheadWindows:[{id:"la-a",obraId:"obra-a"}],
+    payments:[{id:"rec-a",obraId:"obra-a"}],
     equipamentos:[{id:"eq-a",obraAtualId:"obra-a"},{id:"eq-b",obraAtualId:"obra-b"}],
     locacoesEquip:[{id:"loc-a",obraId:"obra-a",equipamentoId:"eq-a"}],
   };
@@ -17,6 +18,11 @@ describe("escopo servidor de comandos operacionais",()=>{
   it("não deixa usar identificador de outra obra para RDO ou recebimento",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,payload:{reportId:"r-a"}}})).toMatchObject({ok:true});
     expect(validateOperationalCommandScope({user,data:{...data,pedidos:[{id:"p-b",obraId:"obra-b"}]},command:{type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,payload:{pedidoId:"p-b"}}})).toMatchObject({ok:false});
+  });
+  it("protege criação e estorno de recebimento manual pelo escopo da obra",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,payload:{receipt:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,payload:{receipt:{obraId:"obra-b"}}}})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,payload:{receiptId:"rec-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("mantém o avanço físico dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
