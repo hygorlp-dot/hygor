@@ -1,11 +1,13 @@
 // Permissões do domínio de Conciliação Bancária. Sem React, DOM ou persistência.
 
-export const CONCILIACAO_VIEW_ROLES = Object.freeze(["admin", "financeiro"]);
+export const CONCILIACAO_VIEW_ROLES = Object.freeze(["admin", "financeiro", "rh"]);
 export const CONCILIACAO_OPERAR_ROLES = Object.freeze(["admin", "financeiro"]);
+export const CONCILIACAO_TRABALHISTA_ROLES = Object.freeze(["admin", "financeiro", "rh"]);
 export const CONCILIACAO_ELEVADO_ROLES = Object.freeze(["admin"]);
 
 export const podeVerConciliacao = role => CONCILIACAO_VIEW_ROLES.includes(String(role || ""));
 export const podeOperarConciliacao = role => CONCILIACAO_OPERAR_ROLES.includes(String(role || ""));
+export const podeOperarConciliacaoTrabalhista = role => CONCILIACAO_TRABALHISTA_ROLES.includes(String(role || ""));
 
 // Desfazer, reabrir período e arquivar extrato exigem permissão elevada -
 // são operações que alteram fatos financeiros já fechados/auditados.

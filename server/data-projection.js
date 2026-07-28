@@ -1,6 +1,10 @@
 import {
   resolveEmployeeAttendanceObraId,
 } from "../src/domains/ponto/permissions.js";
+import {
+  findRegisteredEmployeePix,
+  hasEmployeePixNameEvidence,
+} from "../src/domains/conciliacao/pix-card.js";
 
 // Projeção de leitura do blob legado. Enquanto os domínios ainda compartilham
 // um único documento, a fronteira de segurança precisa existir no servidor:
@@ -11,7 +15,7 @@ const ROLE_SECTIONS = Object.freeze({
   engenheiro_auditor:["obras","condominios","licencas","orcamentos","budgetBaselines","planos","rdos","conferencias","qualidadeRegistros","medicoesObra","medicoesTecnicas","materiais","estoque","movEstoque","solicitacoesCompra","pedidos","cotacoes","fornecedores","terceirizados","equipamentos","locacoesEquip","manutencoesEquip","transferenciasEquip","employees","caixaObra","baseFavoritos","composicoesEmpresa","suprimentosConfig","curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque"],
   compras:["obras","materiais","estoque","movEstoque","solicitacoesCompra","pedidos","cotacoes","fornecedores","notasFiscais","equipamentos","baseFavoritos","planos","suprimentosConfig","curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque"],
   financeiro:["obras","equipamentos","locacoesEquip","manutencoesEquip","transferenciasEquip","terceirizados","pagsTerceiros","payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","notasFiscais","documentosMovimentacoes","transacoes","reconciliationLinks","orcamentos","budgetBaselines","pedidos","fornecedores","titulosFolha","pagamentosFolha","rescisoes","quinzenasArquivadas","archivedLaborCosts","employees","attendance","medicoesObra","fechamentosFinanceiros"],
-  rh:["obras","employees","attendance","attendanceLocks","unlockRequests","dailyCheckDate","advances","titulosFolha","pagamentosFolha","rescisoes","quinzenasArquivadas","archivedLaborCosts","terceirizados"],
+  rh:["obras","employees","attendance","attendanceLocks","unlockRequests","dailyCheckDate","advances","titulosFolha","pagamentosFolha","rescisoes","quinzenasArquivadas","archivedLaborCosts","terceirizados","transacoes","historicoConc","reconciliationCommandLog"],
   comercial:["obras","comercial"],
   visualizador:["obras"],
 });
@@ -49,12 +53,25 @@ const employeeHasScopedAttendance=(payload,employee,allowedObras)=>{
   return Object.entries(payload?.attendance?.[employee?.id]||{}).some(([date,record])=>
     allowedObras.has(resolvedRecordObraId(payload,employee,date,record)));
 };
+const isRhLaborTransaction=(transaction,employees)=>{
+  if(Number(transaction?.valor||0)>=0)return false;
+  const selectedEmployeeId=String(transaction?.recebedorMaoObra?.employeeId||"");
+  if(selectedEmployeeId&&employees.some(employee=>String(employee.id)===selectedEmployeeId))return true;
+  if(["funcionario","tituloFolha"].includes(transaction?.vinculo?.tipo))return true;
+  return Boolean(findRegisteredEmployeePix(transaction,employees))
+    ||employees.some(employee=>hasEmployeePixNameEvidence(transaction,employee));
+};
 
 export const projectDataForUser = (payload = {}, user = {}) => {
   if (user.role === "admin") return payload;
   const allowedSections = new Set(ROLE_SECTIONS[user.role] || []);
   const allowedObras = new Set(user.obraId ? [String(user.obraId)] : []);
   const out = {};
+  const scopedEmployees=(payload.employees||[])
+    .filter(item=>employeeHasScopedAttendance(payload,item,allowedObras));
+  const rhTransactionIds=user.role==="rh"
+    ?new Set((payload.transacoes||[]).filter(item=>isRhLaborTransaction(item,scopedEmployees)).map(item=>String(item.id)))
+    :null;
 
   // Apenas o perfil atual traz preferências de acesso; hashes, e-mails de
   // terceiros e identificadores de autenticação nunca atravessam a API.
@@ -92,6 +109,18 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     }
     if(key==="attendanceLocks"){
       out.attendanceLocks=Object.fromEntries(Object.entries(value||{}).filter(([,lock])=>hasObra(lock,allowedObras)));
+      continue;
+    }
+    if(user.role==="rh"&&key==="transacoes"){
+      out.transacoes=(value||[]).filter(item=>rhTransactionIds.has(String(item.id)));
+      continue;
+    }
+    if(user.role==="rh"&&key==="historicoConc"){
+      out.historicoConc=(value||[]).filter(item=>rhTransactionIds.has(String(item.transacaoId)));
+      continue;
+    }
+    if(user.role==="rh"&&key==="reconciliationCommandLog"){
+      out.reconciliationCommandLog=(value||[]).filter(item=>rhTransactionIds.has(String(item.transactionId)));
       continue;
     }
     if (key === "comercial") {

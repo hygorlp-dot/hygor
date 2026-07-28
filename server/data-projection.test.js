@@ -23,6 +23,19 @@ const payload={
   pedidos:[{id:"p-a",obraId:"obra-a"},{id:"p-b",obraId:"obra-b"}],
   terceirizados:[{id:"t-a",obraId:"obra-a",name:"Prestador A"},{id:"t-b",obraId:"obra-b",name:"Prestador B"}],
   pagsTerceiros:[{id:"pg-a",obraId:"obra-a",tercId:"t-a",amount:100}],
+  transacoes:[
+    {id:"pix-a",data:"2026-07-01",valor:-1000,status:"pendente",descricao:"Pix enviado para Equipe A"},
+    {id:"pix-b",data:"2026-07-01",valor:-900,status:"pendente",descricao:"Pix enviado para Fornecedor B"},
+    {id:"entrada",data:"2026-07-01",valor:3000,status:"pendente",descricao:"Pix recebido do Cliente"},
+  ],
+  historicoConc:[
+    {id:"h-a",transacaoId:"pix-a"},
+    {id:"h-b",transacaoId:"pix-b"},
+  ],
+  reconciliationCommandLog:[
+    {id:"c-a",transactionId:"pix-a"},
+    {id:"c-b",transactionId:"pix-b"},
+  ],
 };
 
 describe("SEC-001 · projeção de leitura por obra",()=>{
@@ -51,6 +64,9 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     expect(projected.employees).toMatchObject([{id:"e-a",cpf:"111.111.111-11",conta:"0001"}]);
     expect(projected.terceirizados).toEqual([{id:"t-a",obraId:"obra-a",name:"Prestador A"}]);
     expect(projected.pagsTerceiros).toBeUndefined();
+    expect(projected.transacoes.map(item=>item.id)).toEqual(["pix-a"]);
+    expect(projected.historicoConc.map(item=>item.id)).toEqual(["h-a"]);
+    expect(projected.reconciliationCommandLog.map(item=>item.id)).toEqual(["c-a"]);
   });
 
   it("não entrega PIX ou remuneração a quem não é do RH",()=>{

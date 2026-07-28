@@ -34,6 +34,8 @@ import { findSectionConflicts } from "../server/three-way-conflicts.js";
 import { authorizeSectionChanges, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
+import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
+import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
@@ -57,7 +59,6 @@ const FINANCIAL_COMMAND_ROLES = {
   REVERSE_SETTLEMENT:["admin","financeiro"], CLOSE_ACCOUNTING_PERIOD:["admin"],
 };
 const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
-const RECONCILIATION_OPERATOR_ROLES=new Set(["admin","financeiro"]);
 const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
 const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
@@ -801,11 +802,12 @@ export default async function handler(req, res) {
     if(action==="reconciliation-command"){
       const command=req.body?.command||{};
       if(!RECONCILIATION_COMMANDS.has(command.type))return res.status(400).json({error:"Comando de conciliação inválido."});
-      if(!RECONCILIATION_OPERATOR_ROLES.has(usuario.role))return res.status(403).json({error:"Seu perfil não pode operar a conciliação."});
       if(command.type===RECONCILIATION_COMMAND.REVERSE_RECONCILIATION&&usuario.role!=="admin")return res.status(403).json({error:"Somente administrador pode desfazer uma conciliação."});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente de conciliação inválida."});
 
       const execute=base=>{
+        const authorization=authorizeReconciliationCommand(base,command,usuario);
+        if(!authorization.ok)return {forbidden:true,error:authorization.error};
         const already=(base.reconciliationCommandLog||[]).find(item=>item.idempotencyKey===command.idempotencyKey);
         if(already)return {idempotent:true,data:base,resumo:already.resumo||{ok:true}};
         const result=applyReconciliationCommand(base,command,usuario);
@@ -826,19 +828,28 @@ export default async function handler(req, res) {
           after:{transaction:afterTransaction,command:{type:command.type,idempotencyKey:command.idempotencyKey}},
         });
       };
-      let executed=execute(atual);
-      if(executed.error)return res.status(409).json({error:executed.error});
-      if(executed.idempotent)return res.status(200).json({ok:true,idempotent:true,resumo:executed.resumo,data:projectDataForUser(atual,usuario),updatedAt});
-      let saved=await persist({payload:atual,updatedAt},executed);
-      if(!saved.applied){
-        const recent=await lerLinha();
-        executed=execute(recent.payload);
-        if(executed.error)return res.status(409).json({error:executed.error,conflict:true,currentUpdatedAt:recent.updatedAt});
-        if(executed.idempotent)return res.status(200).json({ok:true,idempotent:true,resumo:executed.resumo,data:projectDataForUser(recent.payload,usuario),updatedAt:recent.updatedAt});
-        saved=await persist({payload:recent.payload,updatedAt:recent.updatedAt},executed);
-        if(!saved.applied)return res.status(409).json({error:"Outra alteração foi gravada ao mesmo tempo. Tente novamente.",conflict:true});
+      const outcome=await executeReconciliationWithRetry({
+        initial:{payload:atual,updatedAt},execute,persist,reload:lerLinha,maxAttempts:6,
+      });
+      if(outcome.kind==="error"){
+        return res.status(outcome.forbidden?403:409).json({
+          error:outcome.error,
+          ...(outcome.forbidden?{}:{conflict:outcome.attempts>1,currentUpdatedAt:outcome.base?.updatedAt}),
+        });
       }
-      return res.status(200).json({ok:true,resumo:executed.resumo,data:projectDataForUser(executed.data,usuario),updatedAt:saved.updatedAt||new Date().toISOString()});
+      if(outcome.kind==="idempotent")return res.status(200).json({
+        ok:true,idempotent:true,resumo:outcome.resumo,
+        data:projectDataForUser(outcome.base.payload,usuario),updatedAt:outcome.base.updatedAt,
+      });
+      if(outcome.kind==="busy")return res.status(503).json({
+        error:"O servidor está processando outras alterações. A conciliação não foi perdida; tente confirmar novamente.",
+        code:"RECONCILIATION_CONCURRENCY_BUSY",retryable:true,currentUpdatedAt:outcome.base?.updatedAt,
+      });
+      return res.status(200).json({
+        ok:true,resumo:outcome.executed.resumo,
+        data:projectDataForUser(outcome.executed.data,usuario),
+        updatedAt:outcome.saved.updatedAt||new Date().toISOString(),
+      });
     }
 
     // Ponto é persistido por fato, nunca pela substituição da seção projetada.

@@ -181,7 +181,7 @@ import {
   vincularPagamentoExistente, registrarPagamentoEConciliar, criarLancamentoPelaTransacao,
   conciliarMuitosParaMuitos, desfazerConciliacao as desfazerConciliacaoDominio,
   marcarTransferenciaInterna, marcarEstorno, gerarIdConc,
-  podeVerConciliacao, podeOperarConciliacao, podeDesfazerConciliacao,
+  podeVerConciliacao, podeOperarConciliacao, podeOperarConciliacaoTrabalhista, podeDesfazerConciliacao,
   podeReabrirFechamento, podeArquivarExtrato, podeFecharPeriodo, podeCriarRegra,
   hashArquivo,
   mascararDocumento, mascararChavePix,
@@ -14370,7 +14370,7 @@ const ROLE_TABS = {
   engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
-  rh:          ["home","tv","ponto","ponto_geral","equipe","terc","folha","resc","cad","ia"],
+  rh:          ["home","tv","ponto","ponto_geral","equipe","terc","folha","resc","conc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   comercial:   ["home","tv","com_workspace","com_pipeline","com_relationships","com_deals","ia"],
   visualizador:["home","tv"],
@@ -14389,7 +14389,7 @@ const ACCESS_SECTORS=[
     ["equip_fin","Locação de equipamentos"],["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["relat","Relatórios"],
   ]},
   {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
-    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],
+    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["conc","Conciliação da folha"],
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
     ["com_workspace","Meu trabalho"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
@@ -14407,7 +14407,7 @@ const allowedTabsForUser=user=>{
   // Dashboard e Modo TV são visões institucionais somente leitura; continuam
   // disponíveis mesmo em cadastros antigos cuja lista personalizada de abas
   // foi criada antes da existência do painel corporativo.
-  const herdadas=user.role==="financeiro"?["equip_fin"]:user.role==="engenheiro"?["ponto"]:user.role==="rh"?["terc"]:[];
+  const herdadas=user.role==="financeiro"?["equip_fin"]:user.role==="engenheiro"?["ponto"]:user.role==="rh"?["terc","conc"]:[];
   return [...new Set(["home","tv","chat","aprov_pend",...base,...herdadas])]
     .filter(tab=>valid.has(tab)&&tab!=="config")
     .filter(tab=>user.role!=="engenheiro_auditor"||!["ponto","ponto_geral"].includes(tab));
@@ -21359,6 +21359,8 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const [conciliando,setConciliando]=useState(false);
 
   const podeOperarConc=podeOperarConciliacao(currentUser?.role);
+  const podeOperarConcTrabalhista=podeOperarConciliacaoTrabalhista(currentUser?.role);
+  const modoConciliacaoRh=currentUser?.role==="rh";
   const podeElevado=podeDesfazerConciliacao(currentUser?.role);
 
   const calc = useMemo(() => calcConciliacao(data), [data.transacoes]);
@@ -21465,7 +21467,16 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     try {
       const sincronizado=await update({__aguardarFila:true});
       if(!sincronizado?.ok){showToast("Conclua o salvamento pendente antes de conciliar.","error");return false;}
-      const resposta=await executarComandoConciliacao({...command,idempotencyKey:`rec_${Date.now()}_${Math.random().toString(36).slice(2,12)}`});
+      // A mesma chave acompanha todas as retentativas. Se a primeira chamada
+      // tiver sido efetivada e apenas a resposta se perder, o servidor devolve
+      // o resultado já salvo em vez de criar uma segunda liquidação.
+      const commandWithKey={...command,idempotencyKey:`rec_${Date.now()}_${Math.random().toString(36).slice(2,12)}`};
+      let resposta=null;
+      for(let attempt=0;attempt<3;attempt+=1){
+        resposta=await executarComandoConciliacao(commandWithKey);
+        if(resposta?.ok||![429,503].includes(Number(resposta?.status||0)))break;
+        await new Promise(resolve=>window.setTimeout(resolve,500*(attempt+1)));
+      }
       if(!resposta?.ok){showToast(resposta?.error||erroPadrao,"error");return false;}
       await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
       return true;
@@ -21865,6 +21876,10 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     const rs=rateios.map(item=>({destination:item.destino,obraId:item.obraId,category:item.categoria,value:Number(item.valor||0)}));
     if(!rs.length||rs.some(item=>!(item.value>0))||Math.abs(diferenca)>=0.01){showToast("Confira os destinos: o rateio precisa fechar exatamente o valor do extrato.","error");return false;}
     const worker=recebedorSelecionado?{employeeId:recebedorSelecionado.emp.id,employeeName:recebedorSelecionado.emp.name,pixHolder:recebedorSelecionado.emp.pixHolder||""}:null;
+    if(modoConciliacaoRh&&(!podeOperarConcTrabalhista||!worker||rs.some(item=>item.destination!=="obra"||item.category!=="mao_obra"))){
+      showToast("O RH deve selecionar o funcionário e a obra para conciliar como Mão de obra.","error");
+      return false;
+    }
     const autoRule=criarRegra&&padraoRegra.trim()?{pattern:padraoRegra.trim()}:null;
     const ok=await executarConciliacaoNoServidor({type:"CONFIRM_ALLOCATION",payload:{transactionId:apropModal.id,allocations:rs,measurementId:medAlvo?.m?.id||"",worker,autoRule}},"O servidor não confirmou o rateio.");
     if(!ok)return false;
@@ -21936,9 +21951,9 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:8}}>
       <PageHero
-        eyebrow="Financeiro · controle bancário"
-        title="Conciliação Bancária"
-        description="Classifique, audite e reverta movimentos sem perder o histórico."
+        eyebrow={modoConciliacaoRh?"RH · pagamentos da equipe":"Financeiro · controle bancário"}
+        title={modoConciliacaoRh?"Conciliação da folha":"Conciliação Bancária"}
+        description={modoConciliacaoRh?"Confirme os PIX dos funcionários usando cadastro, ponto, obra e valor como evidências.":"Classifique, audite e reverta movimentos sem perder o histórico."}
         stats={[
           {label:"Pendentes",value:calc.pendentes,color:C.orange},
           {label:"Conciliadas",value:calc.conciliadas,color:C.green},
@@ -21946,12 +21961,14 @@ function Conciliacao({ data, update, showToast, currentUser }) {
           {label:"A classificar",value:fmt(calc.valorPendente),color:C.yellowD},
           {label:"Progresso",value:`${calc.pct.toFixed(0)}%`,color:C.green},
         ]}
-        actions={importando?<span style={{fontSize:9,fontWeight:800,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:700}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>}
+        actions={modoConciliacaoRh?null:(importando?<span style={{fontSize:9,fontWeight:800,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:700}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>)}
       />
 
-      <TabRow equal tabs={[["pendentes",`Fila inteligente · ${calc.pendentes}`],["quinzena","Quinzena"],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras",`Regras · ${(data.regrasConc||[]).length}`],["fechamentos",`Fechamentos · ${(data.fechamentosBancarios||[]).length}`],["historico","Histórico"]]} active={aba} onChange={setAba}/>
+      <TabRow equal tabs={modoConciliacaoRh
+        ?[["pendentes",`PIX a confirmar · ${calc.pendentes}`],["quinzena","Quinzena"],["conciliadas",`Confirmados · ${calc.conciliadas}`],["historico","Histórico"]]
+        :[["pendentes",`Fila inteligente · ${calc.pendentes}`],["quinzena","Quinzena"],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras",`Regras · ${(data.regrasConc||[]).length}`],["fechamentos",`Fechamentos · ${(data.fechamentosBancarios||[]).length}`],["historico","Histórico"]]} active={aba} onChange={setAba}/>
 
-      {!["extratos","regras","fechamentos"].includes(aba)&&<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 7px"}}><div style={{position:"relative",minWidth:190,flex:1}}><Ic n="search" s={12} color={C.muted} style={{position:"absolute",left:8,top:8}}/><input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar data ou descrição..."} style={{width:"100%",height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 9px 0 27px",fontSize:9.5,outline:"none"}}/></div>{aba!=="historico"&&<select value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 8px",fontSize:9}}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}{["pendentes","ignoradas"].includes(aba)&&<button onClick={alternarTodas} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.muted,padding:"0 8px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{todosSelecionados?"Desmarcar":"Selecionar todas"}</button>}{aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}{aba==="pendentes"&&calc.pendentes>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar((data.transacoes||[]).filter(t=>t.status==="pendente"),"Ignorar todas as pendentes")}>Ignorar todas · {calc.pendentes}</Btn>}{aba==="ignoradas"&&selecionadas.length>0&&<Btn size="sm" v="info" onClick={()=>reabrir(selecionadas)}>Reabrir selecionadas · {selecionadas.length}</Btn>}</div>}
+      {!["extratos","regras","fechamentos"].includes(aba)&&<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 7px"}}><div style={{position:"relative",minWidth:190,flex:1}}><Ic n="search" s={12} color={C.muted} style={{position:"absolute",left:8,top:8}}/><input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar funcionário, data ou PIX..."} style={{width:"100%",height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 9px 0 27px",fontSize:9.5,outline:"none"}}/></div>{aba!=="historico"&&!modoConciliacaoRh&&<select value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 8px",fontSize:9}}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<button onClick={alternarTodas} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.muted,padding:"0 8px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{todosSelecionados?"Desmarcar":"Selecionar todas"}</button>}{!modoConciliacaoRh&&aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}{!modoConciliacaoRh&&aba==="pendentes"&&calc.pendentes>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar((data.transacoes||[]).filter(t=>t.status==="pendente"),"Ignorar todas as pendentes")}>Ignorar todas · {calc.pendentes}</Btn>}{!modoConciliacaoRh&&aba==="ignoradas"&&selecionadas.length>0&&<Btn size="sm" v="info" onClick={()=>reabrir(selecionadas)}>Reabrir selecionadas · {selecionadas.length}</Btn>}</div>}
 
       {aba==="quinzena"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 12px"}}>
@@ -22105,7 +22122,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
         : <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
             <table style={{width:"100%",minWidth:aba==="pendentes"?1020:900,borderCollapse:"collapse",background:C.card}}>
               <thead><tr>
-                <th style={{width:32,padding:6,borderBottom:`1px solid ${C.border}`}}>{["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={todosSelecionados} onChange={alternarTodas}/>}</th>
+                <th style={{width:32,padding:6,borderBottom:`1px solid ${C.border}`}}>{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={todosSelecionados} onChange={alternarTodas}/>}</th>
                 {["Data","Movimento",...(aba==="pendentes"?["Melhor candidato"]:["Classificação"]),"Valor","Ações"].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Valor"||h==="Ações"?"right":"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
               </tr></thead>
               <tbody>{transacoesVisiveis.map(tr=>{
@@ -22117,7 +22134,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                 const pixFuncionario=findRegisteredEmployeePix(tr,data.employees);
                 const corMovimento=entrada?C.green:pixFuncionario?C.yellow:C.red;
                 return <tr key={tr.id} style={{background:selecionadas.includes(tr.id)?`${C.yellow}08`:pixFuncionario?`${C.yellow}0D`:"transparent"}}>
-                  <td style={{padding:6,borderBottom:`1px solid ${C.line}`,borderLeft:`3px solid ${corMovimento}`}}>{["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
+                  <td style={{padding:6,borderBottom:`1px solid ${C.line}`,borderLeft:`3px solid ${corMovimento}`}}>{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
                   <td style={{padding:"7px 8px",fontSize:8.8,color:C.muted,whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{fmtDate(tr.data)}</td>
                   <td title={tr.descricao} style={{padding:"7px 8px",maxWidth:aba==="pendentes"?260:410,borderBottom:`1px solid ${C.line}`}}>
                     <p style={{fontSize:9.7,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tr.descricao}</p>
@@ -22153,15 +22170,19 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                   <td style={{padding:"7px 8px",fontSize:10.5,fontWeight:900,color:entrada?C.green:C.red,textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{entrada?"+ ":""}{fmt(Math.abs(tr.valor))}</td>
                   <td style={{padding:"5px 7px",textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>
                     {tr.status==="pendente"&&<>
-                      {melhor&&<Btn size="sm" onClick={()=>melhorEhPixMaoDeObra?abrirApropriacao(tr):abrirCandidato(tr)}><Ic n="check"/> {melhorEhPixMaoDeObra?"Confirmar PIX":"Revisar sugestão"}</Btn>}{" "}
-                      {entrada&&<Btn size="sm" v="success" onClick={()=>abrirValidarEntrada(tr)}><Ic n="check"/> Validar entrada</Btn>}{" "}
-                      <Btn size="sm" v="ghost" onClick={()=>abrirApropriacao(tr)}>Rateio manual</Btn>{" "}
-                      <Btn size="sm" v="ghost" onClick={()=>setTransferModal({trId:tr.id})}>Transferência</Btn>{" "}
-                      <Btn size="sm" v="ghost" onClick={()=>setEstornoModal({trId:tr.id})}>Estorno</Btn>{" "}
-                      <Btn size="sm" v="ghost" onClick={()=>abrirIgnorar([tr],"Ignorar transação")}>Ignorar</Btn>
+                      {modoConciliacaoRh
+                        ?<Btn size="sm" onClick={()=>melhor&&melhor.tipo==="tituloFolha"?abrirCandidato(tr):abrirApropriacao(tr)}><Ic n="check"/> Confirmar funcionário</Btn>
+                        :<>
+                          {melhor&&<Btn size="sm" onClick={()=>melhorEhPixMaoDeObra?abrirApropriacao(tr):abrirCandidato(tr)}><Ic n="check"/> {melhorEhPixMaoDeObra?"Confirmar PIX":"Revisar sugestão"}</Btn>}{" "}
+                          {entrada&&<Btn size="sm" v="success" onClick={()=>abrirValidarEntrada(tr)}><Ic n="check"/> Validar entrada</Btn>}{" "}
+                          <Btn size="sm" v="ghost" onClick={()=>abrirApropriacao(tr)}>Rateio manual</Btn>{" "}
+                          <Btn size="sm" v="ghost" onClick={()=>setTransferModal({trId:tr.id})}>Transferência</Btn>{" "}
+                          <Btn size="sm" v="ghost" onClick={()=>setEstornoModal({trId:tr.id})}>Estorno</Btn>{" "}
+                          <Btn size="sm" v="ghost" onClick={()=>abrirIgnorar([tr],"Ignorar transação")}>Ignorar</Btn>
+                        </>}
                     </>}
-                    {tr.status==="conciliado"&&<Btn size="sm" v="ghost" onClick={()=>desfazer(tr)}>Desfazer</Btn>}
-                    {tr.status==="ignorado"&&<><Btn size="sm" onClick={()=>abrirApropriacao(tr)}>Reclassificar</Btn> <Btn size="sm" v="ghost" onClick={()=>reabrir([tr])}>Reabrir</Btn></>}
+                    {tr.status==="conciliado"&&!modoConciliacaoRh&&<Btn size="sm" v="ghost" onClick={()=>desfazer(tr)}>Desfazer</Btn>}
+                    {tr.status==="ignorado"&&!modoConciliacaoRh&&<><Btn size="sm" onClick={()=>abrirApropriacao(tr)}>Reclassificar</Btn> <Btn size="sm" v="ghost" onClick={()=>reabrir([tr])}>Reabrir</Btn></>}
                   </td>
                 </tr>;
               })}</tbody>
@@ -22504,12 +22525,12 @@ function Conciliacao({ data, update, showToast, currentUser }) {
                 {c && c.podeVincular && c.bloqueios.length===0 && <Btn onClick={()=>executarVincular(tr,c)}><Ic n="check"/> Confirmar vínculo</Btn>}
                 {c && c.podeRegistrarPagamento && c.bloqueios.length===0 && <Btn onClick={()=>executarRegistrarPagamento(tr,c)}><Ic n="check"/> Registrar pagamento e conciliar</Btn>}
                 {cs.length>1 && <Btn v="ghost" onClick={()=>trocarCandidato(1)}>Outro candidato</Btn>}
-                {c && <Btn v="ghost" onClick={()=>rejeitarCandidato(tr,c)}>Não corresponde</Btn>}
+                {c && !modoConciliacaoRh&&<Btn v="ghost" onClick={()=>rejeitarCandidato(tr,c)}>Não corresponde</Btn>}
               </div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap",paddingTop:8,borderTop:`1px solid ${C.line}`}}>
-                {c?.tipo!=="maoObraPonto" && <Btn v="ghost" onClick={()=>{fecharCandidato();abrirApropriacao(tr);}}>Rateio manual / criar lançamento</Btn>}
-                <Btn v="ghost" onClick={()=>{fecharCandidato();setTransferModal({trId:tr.id});}}>Transferência interna</Btn>
-                <Btn v="ghost" onClick={()=>{fecharCandidato();setEstornoModal({trId:tr.id});}}>Estorno</Btn>
+                {!modoConciliacaoRh&&c?.tipo!=="maoObraPonto" && <Btn v="ghost" onClick={()=>{fecharCandidato();abrirApropriacao(tr);}}>Rateio manual / criar lançamento</Btn>}
+                {!modoConciliacaoRh&&<Btn v="ghost" onClick={()=>{fecharCandidato();setTransferModal({trId:tr.id});}}>Transferência interna</Btn>}
+                {!modoConciliacaoRh&&<Btn v="ghost" onClick={()=>{fecharCandidato();setEstornoModal({trId:tr.id});}}>Estorno</Btn>}
                 <Btn v="ghost" onClick={fecharCandidato}>Manter pendente</Btn>
               </div>
             </div>
