@@ -89,7 +89,11 @@ export const diasEntre = (a, b) => {
 
 // Painel de números da conciliação (KPIs da fila)
 export const calcConciliacao = (data) => {
-  const trans = data.transacoes || [];
+  const archivedStatements = new Set((data?.extratos || [])
+    .filter(statement => statement?.status === "arquivado")
+    .map(statement => String(statement.id)));
+  const trans = (data?.transacoes || []).filter(transaction =>
+    !archivedStatements.has(String(transaction?.extratoId || "")));
   const pend = trans.filter(t => t.status === "pendente");
   const conc = trans.filter(t => t.status === "conciliado");
   const ign = trans.filter(t => t.status === "ignorado");

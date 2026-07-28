@@ -1,6 +1,7 @@
 import {
   paraCentavos, deCentavos, igualCentavos,
   chaveTransacao, parseOFX, somaRateios, diasEntre,
+  calcConciliacao,
   aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
 } from "./calculations";
 
@@ -46,6 +47,33 @@ describe("domínio de conciliação - importação", () => {
     expect(diasEntre("2026-01-01", "2026-01-05")).toBe(4);
     expect(diasEntre("2026-01-05", "2026-01-01")).toBe(4);
     expect(diasEntre("", "2026-01-01")).toBe(999);
+  });
+});
+
+describe("domínio de conciliação - posição da fila", () => {
+  test("ignora transações de extratos arquivados e resume apenas a fila ativa", () => {
+    const result = calcConciliacao({
+      extratos:[
+        { id:"ativo", status:"importado" },
+        { id:"antigo", status:"arquivado" },
+      ],
+      transacoes:[
+        { id:"t1", extratoId:"ativo", status:"pendente", valor:-100 },
+        { id:"t2", extratoId:"ativo", status:"conciliado", valor:250 },
+        { id:"t3", extratoId:"ativo", status:"ignorado", valor:-25 },
+        { id:"t4", extratoId:"antigo", status:"pendente", valor:-999 },
+      ],
+    });
+    expect(result).toEqual({
+      total:3,
+      pendentes:1,
+      conciliadas:1,
+      ignoradas:1,
+      valorPendente:100,
+      entradas:250,
+      saidas:0,
+      pct:expect.closeTo(66.666666, 5),
+    });
   });
 });
 

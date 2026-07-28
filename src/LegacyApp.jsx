@@ -124,6 +124,7 @@ import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeas
 import { cancelThirdPartyMeasurement, createThirdPartyMeasurement, createThirdPartyPayment, payThirdPartyMeasurement, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
 import { createFinancialCalculationEngine } from "./domains/financeiro/calculation-engine";
 import { calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-cash";
+import { saldoPagamentoNota, statusPagamentoNota, totalPagoNota } from "./domains/financeiro/payables";
 import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-summary";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
@@ -3947,6 +3948,8 @@ const {
   calcDREHistorico,
   calcVisaoFinanceira,
   calcProjecaoContratoObra,
+  calculateFinancialRanking:calcularRankingFinanceiro,
+  calculateMonthlyFinancialReport:calcRelatorioMensal,
 } = createFinancialCalculationEngine({
   getDays,
   getQ,
@@ -3955,6 +3958,7 @@ const {
   isWeekdayIso:prIsWeekdayIso,
   isEmployeeEmployedOnDate,
   getAttendance:getAtt,
+  getAttendanceStatus:attStatus,
   getHolidayPayRule,
 });
 
@@ -6960,55 +6964,6 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
     {aba==="documentos"&&<><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Inp label="Pesquisar nota, fornecedor, obra ou arquivo" value={buscaDoc} onChange={setBuscaDoc} placeholder="Ex.: B2-04, energia, fornecedor..."/><button onClick={()=>setDocPeriodo(v=>v==="periodo"?"todos":"periodo")} style={{height:36,border:`1px solid ${C.border}`,background:C.card,color:C.text,borderRadius:7,padding:"0 10px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{docPeriodo==="periodo"?`${fullMonth(mes)} ${ano}`:"Todo o histórico"}</button></div><div style={{display:"flex",flexDirection:"column",gap:6}}>{documentos.map(item=>{const cor=statusCor(item.status);return <div key={item.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${item.url?C.blue:C.orange}`,borderRadius:8,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:8,fontWeight:900,color:C.blue,textTransform:"uppercase"}}>{item.tipo}</span><span style={{fontSize:8,fontWeight:850,color:cor,background:`${cor}12`,borderRadius:4,padding:"2px 5px"}}>{item.status||"cadastrado"}</span></div><p style={{fontSize:11,fontWeight:850,color:C.text,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.referencia} · {item.nome}</p><p style={{fontSize:8.8,color:C.muted,marginTop:2}}>{obraNome(item.obraId)}{item.fornecedor?` · ${item.fornecedor}`:""}{item.data?` · ${fmtDate(item.data)}`:""}{item.valor?` · ${fmt(item.valor)}`:""}</p></div>{item.url?<a href={item.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:5,border:`1px solid ${C.blue}`,background:`${C.blue}0D`,color:C.blue,borderRadius:7,padding:"6px 9px",fontSize:9,fontWeight:850,textDecoration:"none"}}><Ic n="file" s={12}/> Visualizar</a>:<span style={{fontSize:8.8,color:C.orange,fontWeight:800}}>SEM ANEXO</span>}</div>})}{!documentos.length&&<div style={{padding:28,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:9,color:C.muted,fontSize:10}}>Nenhuma nota ou documento encontrado com os filtros escolhidos.</div>}</div></>}
     <ModalLegendaDocumento anexo={anexoMov} setAnexo={setAnexoMov} onClose={()=>!subindoAnexoMov&&setAnexoMov(null)} onSalvar={salvarDocumentoMovimento} salvando={subindoAnexoMov} titulo="Anexar documento à movimentação" C={C}/>
   </div>;
-}
-
-const limitarNotaFinanceira=v=>Math.max(0,Math.min(100,Number(v)||0));
-function calcularRankingFinanceiro(data,year,month,obraId=""){
-  const ym=`${year}-${String(month+1).padStart(2,"0")}`;
-  const fim=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,"0")}`;
-  const obras=(data.obras||[]).filter(o=>!obraId||o.id===obraId);
-  const linhas=obras.map(obra=>{
-    const dre=calcDREObra(data,obra.id,year,month);
-    const notas=(data.notasFiscais||[]).filter(n=>n.obraId===obra.id&&n.status!=="cancelada"&&String(n.emissao||n.criadoEm||fim).slice(0,10)<=fim);
-    const notasVencidas=notas.filter(n=>saldoPagamentoNota(n)>.01&&n.vencimento&&n.vencimento<=fim).length;
-    const pedidos=(data.pedidos||[]).filter(p=>p.obraId===obra.id&&!["cancelado","rascunho"].includes(p.status)&&String(p.data||fim).slice(0,10)<=fim);
-    const pedidosComNota=new Set(notas.map(n=>n.pedidoId).filter(Boolean));
-    const pedidosSemNota=pedidos.filter(p=>!pedidosComNota.has(p.id)).length;
-    const pagamentos=[...pedidos.flatMap(p=>p.pagamentos||[]),...notas.flatMap(n=>n.pagamentos||[])];
-    const idsPagamentos=new Set();
-    const pagamentosUnicos=pagamentos.filter(pg=>{if(idsPagamentos.has(pg.id))return false;idsPagamentos.add(pg.id);return true;});
-    const naoConciliados=pagamentosUnicos.filter(pg=>!pg.conciliado&&String(pg.data||fim).slice(0,10)<=fim).length;
-    const recebiveisVencidos=(data.medicoes||[]).filter(m=>
-      m.obraId===obra.id
-      && statusRecebimentoMedicao(m)!=="recebida"
-      && m.dataVencimento
-      && m.dataVencimento<=fim
-    ).length;
-    const temMovimento=dre.faturamento>0||dre.recebido>0||dre.totalCustos>0||dre.faturadoAcum>0||notas.length>0||pedidos.length>0;
-    if(!temMovimento)return null;
-    const margemPct=dre.faturamento>0?dre.margemBruta:(dre.totalCustos>0?-100:0);
-    const indiceMargem=dre.faturamento>0?limitarNotaFinanceira((margemPct+10)/35*100):(dre.totalCustos>0?0:50);
-    const recebimentoPct=dre.faturamento>0?(dre.recebido/dre.faturamento)*100:(dre.faturadoAcum>0?(dre.recebidoAcum/dre.faturadoAcum)*100:50);
-    const indiceRecebimento=limitarNotaFinanceira(recebimentoPct);
-    const margemCaixa=dre.recebido>0?dre.margemCaixa:(dre.totalCustos>0?-100:0);
-    const indiceCaixa=dre.recebido>0?limitarNotaFinanceira((margemCaixa+30)/50*100):(dre.totalCustos>0?0:50);
-    const indiceConformidade=limitarNotaFinanceira(100-Math.min(45,notasVencidas*18)-Math.min(30,pedidosSemNota*10)-Math.min(25,naoConciliados*8));
-    const nota=Math.round(indiceMargem*.35+indiceRecebimento*.25+indiceCaixa*.20+indiceConformidade*.20);
-    const faixa=nota>=90?{conceito:"A+",situacao:"Excelente"}:nota>=80?{conceito:"A",situacao:"Saudável"}:nota>=70?{conceito:"B",situacao:"Estável"}:nota>=55?{conceito:"C",situacao:"Atenção"}:{conceito:"D",situacao:"Crítica"};
-    const alertas=[];
-    if(dre.lucroBruto<0)alertas.push("resultado negativo");
-    if(recebimentoPct<80&&dre.faturamento>0)alertas.push("recebimento abaixo de 80%");
-    if(dre.saldoCaixa<0)alertas.push("caixa do período negativo");
-    if(notasVencidas)alertas.push(`${notasVencidas} nota(s) vencida(s)`);
-    if(pedidosSemNota)alertas.push(`${pedidosSemNota} pedido(s) sem NF`);
-    if(naoConciliados)alertas.push(`${naoConciliados} pagamento(s) a conciliar`);
-    if(recebiveisVencidos)alertas.push(`${recebiveisVencidos} recebível(is) vencido(s)`);
-    return{id:obra.id,nome:obra.name||"Obra",codigo:obra.code||obra.codigo||"",nota,faixa,conceito:faixa.conceito,situacao:faixa.situacao,alertas,
-      faturamento:dre.faturamento,recebido:dre.recebido,custos:dre.totalCustos,resultado:dre.lucroBruto,margemPct,recebimentoPct,
-      saldoCaixa:dre.saldoCaixa,notasVencidas,pedidosSemNota,naoConciliados,recebiveisVencidos,
-      indices:{margem:Math.round(indiceMargem),recebimento:Math.round(indiceRecebimento),caixa:Math.round(indiceCaixa),conformidade:Math.round(indiceConformidade)}};
-  }).filter(Boolean).sort((a,b)=>b.nota-a.nota||b.resultado-a.resultado||a.nome.localeCompare(b.nome));
-  return linhas.map((linha,indice)=>({...linha,posicao:indice+1}));
 }
 
 function RankingFinanceiro({data,year,month,obraId="",onSelecionarObra,C=C_ARCD_SETOR}){
@@ -12801,79 +12756,6 @@ const compLabel = ym => {
   if (!ym) return "-";
   const [y, m] = ym.split("-");
   return `${fullMonth(Number(m)-1)} ${y}`;
-};
-
-// 
-// HELPER - Relatório mensal completo por obra
-// 
-
-const calcRelatorioMensal = (data, year, month) => {
-  const days   = getDays(year, month);
-  const ym     = `${year}-${String(month+1).padStart(2,"0")}`;
-  const per0   = days[0]  || "";
-  const perF   = days[days.length-1] || "";
-
-  return data.obras.map(obra => {
-    // Todos os valores financeiros do relatório vêm do mesmo razão usado no
-    // DRE. As coleções operacionais abaixo servem apenas para abrir detalhes.
-    const dreObraMes = calcDREObra(data, obra.id, year, month, "mes");
-    const moData = dreObraMes.moData;
-    const tercCost = dreObraMes.tercCost;
-    // A lista detalhada tem de bater com o total: só pagamentos que oneram a
-    // obra (os pagos pela empresa aparecem no consolidado, não aqui).
-    const tercDetalhes = (data.pagsTerceiros||[]).filter(p =>
-      p.obraId === obra.id && p.pagador !== "empresa" && p.date && p.date.startsWith(ym)
-    );
-
-    // Rescisões vinculadas à obra no mês
-    const rescDetalhes = (data.rescisoes||[]).filter(r =>
-      r.obraName === obra.name && r.demissao && r.demissao.startsWith(ym)
-    );
-    const rescTotal = dreObraMes.rescTotal;
-
-    // Adiantamentos pagos no mês para funcionários desta obra
-    const empIds = data.employees
-      .filter(e => e.obra===obra.id || e.lastObra===obra.id)
-      .map(e => e.id);
-    const adiantDetalhes = (data.advances||[]).filter(a =>
-      empIds.includes(a.empId) && a.date && a.date.startsWith(ym)
-    );
-    const adiantTotal = adiantDetalhes.reduce((s,a)=>s+Number(a.amount||0),0);
-
-    const received = dreObraMes.entradasCaixa;
-    const recDetalhes = selectFinancialMovements(dreObraMes.ledger, {
-      obraId:obra.id, startDate:per0, endDate:perF,
-    }).filter(event=>event.natureza==="cash_in").map(event=>({
-      id:event.id, date:event.data, amount:event.valor,
-      description:event.descricao, tipo:event.origem,
-    }));
-
-    // Receita esperada pelo contrato (admin_only cobra sobre todos os custos;
-    // fixed_labor_admin cobra só sobre materiais + terceirizados do mês)
-    const { revenue: revenueEsperada } = calcProjecaoContratoObra(data, obra.id, year, month);
-
-    // Presença
-    const empsDaObra = data.employees.filter(e=>e.obra===obra.id||e.lastObra===obra.id);
-    const presencaDias = empsDaObra.reduce((s,e)=>
-      s+days.filter(d=>attStatus(data,e.id,d)==="P").length, 0);
-    const faltas = empsDaObra.reduce((s,e)=>
-      s+days.filter(d=>attStatus(data,e.id,d)==="F").length, 0);
-    const activeEmps = data.employees.filter(e=>e.active!==false&&e.obra===obra.id).length;
-    const activeTercs = (data.terceirizados||[]).filter(t=>t.active!==false&&t.obraId===obra.id).length;
-
-    // DRE
-    const totalDespesas  = dreObraMes.totalCustos;
-    const margem         = dreObraMes.lucroBruto;
-    const margemEsperada = revenueEsperada - totalDespesas;
-    const margemPct      = dreObraMes.margemBruta;
-
-    return {
-      obra, moData, tercCost, tercDetalhes, rescTotal, rescDetalhes,
-      adiantTotal, adiantDetalhes, received, recDetalhes,
-      revenueEsperada, totalDespesas, margem, margemEsperada, margemPct,
-      activeEmps, activeTercs, presencaDias, faltas,
-    };
-  });
 };
 
 // 
@@ -21845,24 +21727,6 @@ const periodoPontoDaTransacao = (iso) => {
   };
 };
 
-// Painel de números da conciliação
-const calcConciliacao = (data) => {
-  const extratosArquivados = new Set((data.extratos || []).filter(e => e.status === "arquivado").map(e => String(e.id)));
-  const trans = (data.transacoes || []).filter(t => !extratosArquivados.has(String(t.extratoId || "")));
-  const pend  = trans.filter(t => t.status === "pendente");
-  const conc  = trans.filter(t => t.status === "conciliado");
-  const ign   = trans.filter(t => t.status === "ignorado");
-  const vPend = pend.reduce((s,t) => s + Math.abs(Number(t.valor||0)), 0);
-  const entradas = conc.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0);
-  const saidas   = conc.filter(t=>t.valor<0).reduce((s,t)=>s+Math.abs(t.valor),0);
-  return {
-    total: trans.length,
-    pendentes: pend.length, conciliadas: conc.length, ignoradas: ign.length,
-    valorPendente: vPend, entradas, saidas,
-    pct: trans.length ? ((conc.length + ign.length) / trans.length) * 100 : 0,
-  };
-};
-
 function Conciliacao({ data, update, showToast, currentUser }) {
   const { formGrid } = useBreakpoint();
   const [aba,        setAba]        = useState("pendentes");  // pendentes|conciliadas|ignoradas|extratos|historico
@@ -23209,16 +23073,6 @@ function Conciliacao({ data, update, showToast, currentUser }) {
 //   - Histórico    → quanto você pagou nesse item, e com quem
 // 
 
-const totalPagoNota = n => (n.pagamentos||[]).reduce((s,pg)=>s+Number(pg.valor||0),0);
-const saldoPagamentoNota = n => Math.max(0,Number(n.valorLiquido||n.valorBruto||0)-totalPagoNota(n));
-const statusPagamentoNota = n => {
-  if(n.status==="cancelada")return "cancelada";
-  const total=Number(n.valorLiquido||n.valorBruto||0),pago=totalPagoNota(n);
-  if(n.status==="paga"||pago>=total-.01)return "paga";
-  if(pago>0)return "parcial";
-  if(n.status==="aprovada")return "autorizada";
-  return "conferencia";
-};
 // Retorna somente as etapas-raiz do orçamento. Compras não deve exigir que o
 // operador escolha uma composição detalhada: o vínculo financeiro é sempre
 // feito no primeiro nível e continua auditável mesmo quando a planilha muda.

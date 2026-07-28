@@ -13,6 +13,8 @@ describe("fachada dos motores financeiros", () => {
       isEmployeeEmployedOnDate:() => true,
       getAttendance:(data, employeeId, date) =>
         data.attendance?.[employeeId]?.[date] || null,
+      getAttendanceStatus:(data, employeeId, date) =>
+        data.attendance?.[employeeId]?.[date]?.status || "",
       getHolidayPayRule:() => ({ amount:0 }),
     });
     const data = {

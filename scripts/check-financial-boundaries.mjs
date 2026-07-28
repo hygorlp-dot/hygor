@@ -12,7 +12,7 @@ const canonicalScreens = [
   ["FinanceiroObraPainel", section("function FinanceiroObraPainel(", "function DRE(")],
   ["DRELegado", section("function DRELegado(", "function MedicoesView(")],
   ["MedicoesView", section("function MedicoesView(", "function ModoIADocumento(")],
-  ["FinanceiroAdministrativo", section("function FinanceiroAdministrativo(", "function calcularRankingFinanceiro(")],
+  ["FinanceiroAdministrativo", section("function FinanceiroAdministrativo(", "function RankingFinanceiro(")],
 ];
 const violations = [
   ["cálculo direto de mão de obra", /\bcalcObraLaborCost\s*\(/],
@@ -31,6 +31,14 @@ canonicalScreens.forEach(([name, screen]) => {
   if (/\bcalcObra(ComprasCost|TercCost|TercEmpresaCost|MaterialCost|LaborCost)\s*\(/.test(screen)) {
     violations.push([`${name} chamou cálculo financeiro legado`, /./]);
   }
+});
+[
+  ["ranking financeiro voltou para a UI", /\bfunction\s+calcularRankingFinanceiro\s*\(/],
+  ["posição de notas voltou para a UI", /\bconst\s+(totalPagoNota|saldoPagamentoNota|statusPagamentoNota)\s*=/],
+  ["resumo de conciliação voltou para a UI", /\bconst\s+calcConciliacao\s*=/],
+  ["relatório financeiro mensal voltou para a UI", /\bconst\s+calcRelatorioMensal\s*=/],
+].forEach(([description, pattern]) => {
+  if (pattern.test(source)) violations.push([description, pattern]);
 });
 
 if (violations.length) {

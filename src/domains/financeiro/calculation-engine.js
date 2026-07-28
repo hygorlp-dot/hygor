@@ -1,4 +1,6 @@
 import { createDreCalculations } from "../dre/calculations.js";
+import { createFinancialRankingEngine } from "../controladoria/financial-ranking.js";
+import { createMonthlyFinancialReportEngine } from "../controladoria/monthly-report.js";
 import {
   calcEquipCustoObra,
   calcEquipFaturamentoEmpresa,
@@ -12,6 +14,7 @@ export const createFinancialCalculationEngine = ({
   getDays,
   getQ,
   monthName,
+  getAttendanceStatus,
   ...laborDependencies
 } = {}) => {
   const { calculateWorkLaborCost } = createLaborCostEngine(laborDependencies);
@@ -23,11 +26,22 @@ export const createFinancialCalculationEngine = ({
     calcEquipCustoObra,
     calcEquipFaturamentoEmpresa,
   });
+  const ranking = createFinancialRankingEngine({
+    calculateWorkDre:dre.calcDREObra,
+  });
+  const reports = createMonthlyFinancialReportEngine({
+    getDays,
+    calculateWorkDre:dre.calcDREObra,
+    calculateWorkContractProjection:dre.calcProjecaoContratoObra,
+    getAttendanceStatus,
+  });
 
   return {
     calcObraLaborCost:calculateWorkLaborCost,
     calcEquipCustoObra,
     calcEquipFaturamentoEmpresa,
     ...dre,
+    ...ranking,
+    ...reports,
   };
 };
