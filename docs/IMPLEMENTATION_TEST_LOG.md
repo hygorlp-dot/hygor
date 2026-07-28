@@ -229,3 +229,27 @@ registrados para a etapa de infraestrutura/performance.
 
 **LIBERADA:** Etapa 4 — Central do Administrador por função, com autorização
 servidora por função, ação e escopo de obra.
+
+## Rodada de migração — motor operacional do ponto
+
+**Status:** APROVADA
+
+- Calendário mensal e quinzenal, feriados oficiais e personalizados, datas de
+  pagamento, seleção histórica de funcionários, bloqueios temporários e resumo
+  de conclusão por obra foram retirados de `LegacyApp.jsx`.
+- `src/domains/ponto/attendance-engine.js` passou a ser a fonte única dessas
+  regras. A tela preserva os mesmos nomes de integração, sem duplicar cálculo.
+- `LegacyApp.jsx` foi reduzido de `37.860` para `37.521` linhas nesta rodada.
+- O motor financeiro de mão de obra continua recebendo as funções canônicas do
+  ponto por injeção e não passou a depender da interface.
+
+### Evidências do gate
+
+- `npm test` — 123 arquivos, 555 testes aprovados.
+- Testes direcionados de ponto, permissões e custo de mão de obra — 17
+  aprovados.
+- Playwright — 24 cenários aprovados em 320x568, 360x800, 390x844, 430x932,
+  768x1024 e 844x390.
+- `npm run lint`, `npm run typecheck`, `npm run architecture:check`,
+  `npm run build` e `git diff --check` — aprovados.
+- `FINANCIAL_ENGINE_ENFORCE` permaneceu desativado.

@@ -133,7 +133,28 @@ import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
-import { normalizeAttendanceRecord } from "./domains/ponto/records";
+import {
+  attStatus,
+  buildPermissionEmail,
+  canEditAttendance,
+  employeeRelevantInPeriod,
+  employeeRelevantOnDate,
+  getAtt,
+  getAttendanceCompletionMessage,
+  getDays,
+  getHolidayPayRule,
+  getObraAttendanceSummary,
+  getPayrollHolidays,
+  getPayrollPaymentCalendar,
+  getPlanningHolidays,
+  getQ,
+  isAttendanceLocked,
+  isEmployeeEmployedOnDate,
+  prIsWeekdayIso,
+  prParseIso,
+  prUniqueDates,
+  toLocalISODate,
+} from "./domains/ponto/attendance-engine";
 import { calculateTimekeeping, formatMinutes } from "./domains/ponto/timekeeping";
 import {
   analyzePurchaseThreeWayMatch,
@@ -704,14 +725,6 @@ div::-webkit-scrollbar{height:0;width:0}
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 const pointOperationId=()=>crypto.randomUUID();
 
-const toLocalISODate = date => {
-  const d = date instanceof Date ? date : new Date(date);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
-
 const today = () => toLocalISODate(new Date());
 
 const fmt = n => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -794,39 +807,6 @@ const fmtMesAno = iso => {
   return `${meses[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
 };
 
-// getDays é função pura de (year, month) → cache permanente
-const _daysCache = new Map();
-const getDays = (year, monthIndex) => {
-  const key = `${year}-${monthIndex}`;
-  const hit = _daysCache.get(key);
-  if (hit) return hit;
-
-  const days = [];
-  const dt = new Date(year, monthIndex, 1, 12, 0, 0);
-
-  while (dt.getMonth() === monthIndex) {
-    days.push(toLocalISODate(dt));
-    dt.setDate(dt.getDate() + 1);
-  }
-
-  _daysCache.set(key, days);
-  return days;
-};
-
-const getQ = (year, monthIndex) => {
-  // Ciclos reais da folha: 06 a 20 e 21 a 05 do mes seguinte.
-  const atual = getDays(year, monthIndex);
-  const proxRef = new Date(year, monthIndex + 1, 1, 12, 0, 0);
-  const proximo = getDays(proxRef.getFullYear(), proxRef.getMonth());
-  return {
-    q1: atual.filter(d => { const dia=Number(d.split("-")[2]); return dia >= 6 && dia <= 20; }),
-    q2: [
-      ...atual.filter(d => Number(d.split("-")[2]) >= 21),
-      ...proximo.filter(d => Number(d.split("-")[2]) <= 5),
-    ],
-  };
-};
-
 // Prazo da obra: dado contractStart/contractEnd, devolve % de tempo decorrido,
 // dias restantes e um rotulo/cor. null se nao ha datas de contrato.
 const prazoObra = (obra) => {
@@ -862,331 +842,12 @@ const fmtPhone = value => {
   return v.replace(/(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3").replace(/-$/, "");
 };
 
-const getAtt = (data, empId, date) => {
-  const value = data?.attendance?.[empId]?.[date];
-  return normalizeAttendanceRecord(value);
-};
-
-const attStatus = (data, empId, date) => getAtt(data, empId, date)?.status || null;
-
-const isEmployeeEmployedOnDate = (employee, dateIso) => {
-  if (!employee) return false;
-  if (employee.startDate && dateIso < employee.startDate) return false;
-  if (employee.endDate && dateIso > employee.endDate) return false;
-  return true;
-};
-
-// REGRA IMUTAVEL: um funcionario desligado continua pertencendo ao historico
-// dos periodos em que esteve contratado ou possui lancamentos de ponto.
-const employeeHasRecordInPeriod = (data, employee, days) =>
-  (days || []).some(date => {
-    const registro = getAtt(data, employee?.id, date);
-    return Boolean(
-      registro?.status ||
-      Number(registro?.ot || 0) > 0 ||
-      String(registro?.note || "").trim()
-    );
-  });
-
-const employeeRelevantInPeriod = (data, employee, days) => {
-  if (!employee) return false;
-  const esteveContratado = (days || []).some(date =>
-    isEmployeeEmployedOnDate(employee, date)
-  );
-  return esteveContratado || employeeHasRecordInPeriod(data, employee, days);
-};
-
-const employeeRelevantOnDate = (data, employee, date) =>
-  isEmployeeEmployedOnDate(employee, date) ||
-  Boolean(getAtt(data, employee?.id, date));
-
 const escapeHtml = value => String(value || "")
   .replace(/&/g, "&amp;")
   .replace(/</g, "&lt;")
   .replace(/>/g, "&gt;")
   .replace(/\"/g, "&quot;")
   .replace(/'/g, "&#039;");
-
-// 
-// Feriados e calendário de pagamento
-// 
-
-const prDateAtNoon = (year, monthIndex, day) => new Date(year, monthIndex, day, 12, 0, 0);
-const prIso = date => toLocalISODate(date);
-const prParseIso = iso => {
-  const [y, m, d] = iso.split("-").map(Number);
-  return prDateAtNoon(y, m - 1, d);
-};
-const prAddDays = (date, days) => {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return prDateAtNoon(d.getFullYear(), d.getMonth(), d.getDate());
-};
-const prUniqueDates = arr => [...new Set(arr.filter(Boolean))].sort();
-
-const prEasterDate = year => {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return prDateAtNoon(year, month, day);
-};
-
-// Feriados oficiais são função pura do ano → cache permanente
-const _holidaysCache = new Map();
-const getOfficialHolidaysCaruaruPE = year => {
-  const hit = _holidaysCache.get(year);
-  if (hit) return hit;
-
-  const easter = prEasterDate(year);
-  const goodFriday = prIso(prAddDays(easter, -2));
-  const corpusChristi = prIso(prAddDays(easter, 60));
-
-  const result = prUniqueDates([
-    // Nacionais
-    `${year}-01-01`,
-    `${year}-04-21`,
-    `${year}-05-01`,
-    `${year}-09-07`,
-    `${year}-10-12`,
-    `${year}-11-02`,
-    `${year}-11-15`,
-    `${year}-11-20`,
-    `${year}-12-25`,
-
-    // Estadual - Pernambuco
-    `${year}-03-06`,
-
-    // Municipais - Caruaru
-    goodFriday,
-    `${year}-05-18`,
-    corpusChristi,
-    `${year}-06-24`,
-    `${year}-09-15`,
-
-    // São Pedro, 29/06, não foi incluído por ter sido substituído por Corpus Christi em 2024.
-  ]);
-  _holidaysCache.set(year, result);
-  return result;
-};
-
-const getPayrollHolidays = (data, year) => {
-  const official = getOfficialHolidaysCaruaruPE(year);
-  const custom = data?.config?.paymentHolidays || [];
-  const customDates = custom
-    .map(h => (typeof h === "string" ? h : h?.date || ""))
-    .filter(Boolean);
-
-  return prUniqueDates([...official, ...customDates]);
-};
-
-// A mesma fonte de feriados usada pela folha fica disponivel para o
-// planejamento. Mantemos o nome quando ele foi cadastrado pelo operador e
-// identificamos os demais como oficiais.
-const getPlanningHolidays = (data, years = []) => {
-  const anos = [...new Set(years.map(Number).filter(Boolean))];
-  const porData = new Map();
-  anos.forEach(year => {
-    getOfficialHolidaysCaruaruPE(year).forEach(dataFer => {
-      if (!porData.has(dataFer)) porData.set(dataFer, { data: dataFer, nome: "Feriado oficial" });
-    });
-  });
-  (data?.config?.paymentHolidays || []).forEach(h => {
-    const dataFer = typeof h === "string" ? h : (h?.date || h?.data || "");
-    if (!dataFer || !anos.includes(Number(dataFer.slice(0, 4)))) return;
-    const nome = typeof h === "string" ? "Feriado cadastrado" : (h?.name || h?.nome || "Feriado cadastrado");
-    porData.set(dataFer, { data: dataFer, nome });
-  });
-  return [...porData.values()].sort((a, b) => a.data.localeCompare(b.data));
-};
-
-const prIsHoliday = (date, holidays) => holidays.includes(prIso(date));
-const prIsWeekend = date => [0, 6].includes(date.getDay());
-const prIsNonBusinessDay = (date, holidays) => prIsWeekend(date) || prIsHoliday(date, holidays);
-
-const prPreviousBusinessDay = (date, holidays) => {
-  let d = prAddDays(date, -1);
-  while (prIsNonBusinessDay(d, holidays)) d = prAddDays(d, -1);
-  return d;
-};
-
-const prNextBusinessDay = (date, holidays) => {
-  let d = prAddDays(date, 1);
-  while (prIsNonBusinessDay(d, holidays)) d = prAddDays(d, 1);
-  return d;
-};
-
-const adjustPayrollPaymentDate = (baseDate, holidays) => {
-  const day = baseDate.getDay();
-  const isHoliday = prIsHoliday(baseDate, holidays);
-
-  if (day === 6) return prPreviousBusinessDay(baseDate, holidays);
-  if (day === 0) return prNextBusinessDay(baseDate, holidays);
-
-  if (isHoliday) {
-    const previousDay = prAddDays(baseDate, -1);
-    if (previousDay.getDay() === 0) return prNextBusinessDay(baseDate, holidays);
-    return prPreviousBusinessDay(baseDate, holidays);
-  }
-
-  return baseDate;
-};
-
-const getPayrollPaymentCalendar = (year, monthIndex, q, data) => {
-  // 1ª quinzena do mês selecionado paga dia 20 do mesmo mês.
-  // 2ª quinzena do mês selecionado paga dia 05 do mês seguinte.
-  const paymentMonth = q === "1" ? monthIndex : monthIndex + 1;
-  const paymentYear = paymentMonth > 11 ? year + 1 : year;
-  const normalizedPaymentMonth = paymentMonth > 11 ? 0 : paymentMonth;
-  const baseDay = q === "1" ? 20 : 5;
-  const baseDate = prDateAtNoon(paymentYear, normalizedPaymentMonth, baseDay);
-  const holidays = getPayrollHolidays(data, paymentYear);
-  const adjustedDate = adjustPayrollPaymentDate(baseDate, holidays);
-
-  return {
-    baseDate: prIso(baseDate),
-    paymentDate: prIso(adjustedDate),
-    adjusted: prIso(baseDate) !== prIso(adjustedDate),
-  };
-};
-
-const prIsWeekdayIso = iso => {
-  const day = prParseIso(iso).getDay();
-  return day >= 1 && day <= 5;
-};
-
-const prPreviousWorkdayIso = (iso, holidays) => {
-  let d = prAddDays(prParseIso(iso), -1);
-  while (prIsNonBusinessDay(d, holidays)) d = prAddDays(d, -1);
-  return prIso(d);
-};
-
-const prNextWorkdayIso = (iso, holidays) => {
-  let d = prAddDays(prParseIso(iso), 1);
-  while (prIsNonBusinessDay(d, holidays)) d = prAddDays(d, 1);
-  return prIso(d);
-};
-
-const prIsMarkedAbsent = (data, empId, dateIso) => getAtt(data, empId, dateIso)?.status === "F";
-
-const getHolidayPayRule = (data, employee, holidayIso, holidays) => {
-  const before = prPreviousWorkdayIso(holidayIso, holidays);
-  const after = prNextWorkdayIso(holidayIso, holidays);
-  const missedBefore = prIsMarkedAbsent(data, employee.id, before);
-  const missedAfter = prIsMarkedAbsent(data, employee.id, after);
-  const losesHoliday = missedBefore || missedAfter;
-
-  return {
-    holidayIso,
-    before,
-    after,
-    missedBefore,
-    missedAfter,
-    losesHoliday,
-    amount: losesHoliday ? 0 : Number(employee.dailyRate || 0),
-  };
-};
-
-// 
-// Bloqueio de ponto por obra/data e permissões
-// 
-
-const attendanceLockKey = (obraId, date) => `${date}__${obraId}`;
-const getAttendanceLock = (data, obraId, date) => data?.attendanceLocks?.[attendanceLockKey(obraId, date)] || null;
-const isAttendanceLocked = (data, obraId, date) => !!getAttendanceLock(data, obraId, date)?.locked;
-
-const hasApprovedUnlock = (data, obraId, date, userId="") => {
-  const now = new Date();
-  return (data?.unlockRequests || []).some(r =>
-    r.obraId === obraId &&
-    r.date === date &&
-    r.status === "approved" &&
-    !!r.requestedById &&
-    String(r.requestedById) === String(userId) &&
-    r.validUntil &&
-    new Date(r.validUntil) > now
-  );
-};
-
-const canEditAttendance = (data, obraId, date, userId="") => !isAttendanceLocked(data, obraId, date) || hasApprovedUnlock(data, obraId, date, userId);
-
-const buildPermissionEmail = ({ to, obraName, date, employeeName, reason, approvalLink }) => {
-  const subject = `Permissão para alterar ponto - ${obraName} - ${fmtDateFull(date)}`;
-  const body = [
-    "Solicitação de permissão para alteração de ponto.",
-    "",
-    `Obra: ${obraName}`,
-    `Data do ponto: ${fmtDateFull(date)}`,
-    employeeName ? `Trabalhador: ${employeeName}` : "Trabalhador: todos / não especificado",
-    "",
-    "Motivo informado:",
-    reason || "Não informado.",
-    "",
-    "Para aprovar a alteração por 30 minutos, acesse o link abaixo:",
-    approvalLink,
-    "",
-    "Observação: a aprovação pelo link exige que o aprovador tenha acesso ao sistema.",
-    "",
-    "Solicitação gerada automaticamente pelo sistema ArcD Obras.",
-  ].join("\n");
-
-  return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-};
-
-// 
-// Controle de ponto cadastrado por obra
-// 
-
-const getAttendanceStatusForDate = (data, empId, date) => getAtt(data, empId, date)?.status || null;
-
-const isValidAttendanceStatus = status => status === "P" || status === "M" || status === "F";
-
-const getObraAttendanceSummary = (data, date) => {
-  const activeObras = (data?.obras || []).filter(o => o.status !== "done");
-  const activeEmployees = (data?.employees || []).filter(e => e.active !== false);
-
-  return activeObras.map(obra => {
-    const employees = activeEmployees.filter(e => e.obra === obra.id && isEmployeeEmployedOnDate(e, date));
-    const registeredEmployees = employees.filter(e => isValidAttendanceStatus(getAttendanceStatusForDate(data, e.id, date)));
-    const missingEmployees = employees.filter(e => !isValidAttendanceStatus(getAttendanceStatusForDate(data, e.id, date)));
-
-    return {
-      obraId: obra.id,
-      obraName: obra.name,
-      totalEmployees: employees.length,
-      registeredCount: registeredEmployees.length,
-      missingCount: missingEmployees.length,
-      completed: employees.length > 0 && missingEmployees.length === 0,
-      hasTeam: employees.length > 0,
-      missingEmployees,
-    };
-  });
-};
-
-const getAttendanceCompletionMessage = summary => {
-  const obrasWithTeam = summary.filter(o => o.hasTeam);
-  const pendingObras = summary.filter(o => o.hasTeam && !o.completed);
-  const completedObras = summary.filter(o => o.hasTeam && o.completed);
-  const obrasWithoutTeam = summary.filter(o => !o.hasTeam);
-
-  return {
-    allDone: obrasWithTeam.length > 0 && pendingObras.length === 0,
-    pendingObras,
-    completedObras,
-    obrasWithoutTeam,
-    totalWithTeam: obrasWithTeam.length,
-  };
-};
 
 // 
 // Dados padrão e normalização
