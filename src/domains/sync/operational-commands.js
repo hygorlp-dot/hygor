@@ -38,6 +38,10 @@ import {
   applyThirdPartyCommand,
   THIRD_PARTY_COMMAND,
 } from "../financeiro/third-party-commands.js";
+import {
+  applyInvoiceCommand,
+  INVOICE_COMMAND,
+} from "../financeiro/invoice-commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -54,6 +58,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...PURCHASE_CANCELLATION_COMMAND,
   ...BANK_TRANSACTION_COMMAND,
   ...THIRD_PARTY_COMMAND,
+  ...INVOICE_COMMAND,
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -207,6 +212,14 @@ export const applyOperationalCommand=(data,command)=>{
       data:appendReceipt(
         thirdPartyResult.data,command,thirdPartyResult.entityId,now,
       ),
+    };
+  }
+  const invoiceResult=applyInvoiceCommand(data,command,now);
+  if(invoiceResult){
+    if(!invoiceResult.ok)return invoiceResult;
+    return {
+      ok:true,summary:invoiceResult.summary,
+      data:appendReceipt(invoiceResult.data,command,invoiceResult.entityId,now),
     };
   }
   if(command.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED){

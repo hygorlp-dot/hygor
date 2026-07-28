@@ -12,6 +12,7 @@ describe("escopo servidor de comandos operacionais",()=>{
     terceirizados:[{id:"terc-a",obraId:"obra-a"},{id:"terc-b",obraId:"obra-b"}],
     medicoesTerc:[{id:"mt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
     pagsTerceiros:[{id:"pt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
+    notasFiscais:[{id:"nf-a",obraId:"obra-a",version:1}],
   };
   const user={id:"u-1",role:"engenheiro",obraId:"obra-a"};
   it("aceita somente a obra atribuída em criação e cancelamento de medição",()=>{
@@ -120,6 +121,20 @@ describe("escopo servidor de comandos operacionais",()=>{
     expect(validateOperationalCommandScope({user,data,command:{
       type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED,
       payload:{paymentId:"pt-a"},
+    }})).toMatchObject({ok:true,obraId:"obra-a"});
+  });
+  it("protege criação, edição e aprovação fiscal pela obra autoritativa",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.INVOICE_SAVED,
+      payload:{invoice:{id:"nf-new",obraId:"obra-a"}},
+    }})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.INVOICE_SAVED,
+      payload:{invoice:{id:"nf-new",obraId:"obra-b"}},
+    }})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.INVOICE_APPROVED,
+      payload:{invoiceId:"nf-a"},
     }})).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("mantém o avanço físico dentro da obra atribuída",()=>{

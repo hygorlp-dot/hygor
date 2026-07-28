@@ -155,7 +155,6 @@ import {
 } from "./domains/ponto/attendance-engine";
 import { calculateTimekeeping, formatMinutes } from "./domains/ponto/timekeeping";
 import {
-  analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
   createMonthlyClosingSnapshot,
 } from "./domains/financeiro/workflows";
@@ -3289,6 +3288,60 @@ function Sel({ label, value, onChange, options = [], disabled = false }) {
   );
 }
 
+// Botão que abre um menu de opções, para listas longas onde o <select> nativo
+// fica pouco legível (ex.: etapas do funil comercial).
+function SelBtn({ label, value, onChange, options = [], disabled = false }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const aoClicarFora = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", aoClicarFora);
+    return () => document.removeEventListener("mousedown", aoClicarFora);
+  }, [open]);
+  const atual = options.find(o => String(o.v) === String(value ?? ""));
+  return (
+    <div ref={ref} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 4 }}>
+      {label && <span className="arcd-field__label" style={{
+        color: C.text, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.1,
+        fontFamily: "'Inter Display','Inter',sans-serif",
+      }}>{textoUi(label)}</span>}
+      <button type="button" disabled={disabled} onClick={() => setOpen(v => !v)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+          background: disabled ? C.surface : C.bg, border: `1.5px solid ${C.line}`, color: C.text,
+          padding: "8px 10px", borderRadius: 7, fontSize: 12, cursor: disabled ? "default" : "pointer",
+          fontFamily: "'Inter','Inter Display',sans-serif", textAlign: "left",
+        }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{atual?.l || "Selecione"}</span>
+        <Ic n="chevron" s={12} color={C.muted}/>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, zIndex: 20,
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
+          boxShadow: "0 6px 18px rgba(18,18,18,.14)", maxHeight: 260, overflowY: "auto", padding: 4,
+        }}>
+          {options.map(o => {
+            const selecionada = String(o.v) === String(value ?? "");
+            return (
+              <button key={String(o.v)} type="button" onClick={() => { onChange(o.v); setOpen(false); }}
+                style={{
+                  width: "100%", textAlign: "left", padding: "7px 9px", borderRadius: 6, border: 0,
+                  background: selecionada ? `${C.blue}14` : "transparent",
+                  color: selecionada ? C.blue : C.text, fontWeight: selecionada ? 800 : 500,
+                  fontSize: 12, cursor: "pointer", fontFamily: "'Inter','Inter Display',sans-serif",
+                }}>
+                {o.l}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Badge({ children, color = C.yellow }) {
   return (
     <span style={{
@@ -6345,7 +6398,7 @@ const sugerirDestinoDocumento=(destinos,sugestao,obraId)=>{
   const melhor=avaliados[0],segundo=avaliados[1];return melhor?.pontos>=5&&(!segundo||melhor.pontos-segundo.pontos>=2)?melhor.d:null;
 };
 
-function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraIdInicial="",C=C_MODO_IA}){
+function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraIdInicial="",C=C_MODO_IA,dispatchCommand=null}){
   const {formGrid}=useBreakpoint();
   const obras=(data.obras||[]).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
   const destinos=useMemo(()=>destinosDocumentoIA(data,modulo).filter(d=>!currentUser?.obraId||!d.obraId||d.obraId===currentUser.obraId),[data,modulo,currentUser?.obraId]);
@@ -6396,9 +6449,35 @@ function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraI
       const analiseIA={...sugestao,confianca:Number(sugestao?.confianca||0),revisadoPorId:currentUser?.id||"",revisadoPor:currentUser?.nome||"",revisadoEm:agora};
       if(destino){
         if(modulo==="financeiro"){
-          const registros=data.documentosMovimentacoes||[];const registro=registros.find(r=>r.movimentoId===destino.id);const documentosMovimentacoes=registro?registros.map(r=>r.movimentoId===destino.id?{...r,documentos:[...(r.documentos||[]),doc]}:r):[...registros,{id:uid(),movimentoId:destino.id,obraId:destino.obraId||"",tipo:destino.label.split(" · ")[0],documentos:[doc]}];
-          const notasFiscais=destino.entidade==="nota"?(data.notasFiscais||[]).map(n=>n.id===destino.entidadeId?{...n,documentos:[...(n.documentos||[]),doc],atualizadoEm:agora}:n):data.notasFiscais;
-          update({...data,obras:obrasAtualizadas,documentosMovimentacoes,notasFiscais});
+          let commandData=data;
+          if(destino.entidade==="nota"){
+            if(!dispatchCommand)throw new Error("Comando fiscal indisponível.");
+            const result=await dispatchCommand(atual=>{
+              const nota=(atual.notasFiscais||[]).find(n=>n.id===destino.entidadeId);
+              return {
+                type:OPERATIONAL_COMMAND.INVOICE_SAVED,
+                idempotencyKey:`invoice-document-${destino.entidadeId}-${doc.id}-${uid()}`,
+                expectedVersion:Number(nota?.version||0),
+                actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+                payload:{invoice:{
+                  ...nota,documentos:[...(nota?.documentos||[]),doc],
+                }},
+              };
+            });
+            if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o vínculo à nota.");
+            commandData=result.data;
+          }
+          const registros=commandData.documentosMovimentacoes||[];
+          const registro=registros.find(r=>r.movimentoId===destino.id);
+          const documentosMovimentacoes=registro
+            ?registros.map(r=>r.movimentoId===destino.id
+              ?{...r,documentos:[...(r.documentos||[]),doc]}:r)
+            :[...registros,{id:uid(),movimentoId:destino.id,
+              obraId:destino.obraId||"",tipo:destino.label.split(" · ")[0],
+              documentos:[doc]}];
+          update({...commandData,obras:(commandData.obras||[]).map(o=>
+            o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o),
+            documentosMovimentacoes});
         }else if(destino.entidade==="cotacao"){
           update({...data,obras:obrasAtualizadas,cotacoes:(data.cotacoes||[]).map(c=>c.id===destino.entidadeId?{...c,propostas:(c.propostas||[]).map(p=>p.id===destino.propostaId?{...p,documentos:[...(p.documentos||[]),doc]}:p)}:c)});
         }else{
@@ -6408,8 +6487,21 @@ function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraI
       }
       if(modulo==="financeiro"){
         const notaId=uid();const numero=String(form.numero||`DOC-${Date.now()}`).trim();const nota={id:notaId,tipo:["nfe","nfse","frete"].includes(form.tipoDocumento)?form.tipoDocumento:"outro",numero,serie:"",chave:"",emissao:form.emissao||today(),vencimento:form.vencimento||"",fornecedorId:"",fornecedorNome:form.fornecedorNome||"Não identificado",documentoFornecedor:form.documentoFornecedor||"",obraId:form.obraId,pedidoId:"",valorBruto:Number(form.valorBruto),valorLiquido:Number(form.valorLiquido||form.valorBruto),retencoes:{iss:0,inss:0,irrf:0,pis:0,cofins:0,csll:0,outros:0},rateios:[{id:uid(),obraId:form.obraId,etapaId:"",percentual:100,valor:Number(form.valorBruto)}],documentos:[doc],status:"recebida",divergencias:sugestao?.alertas||[],analiseIA,descricao:form.descricao,categoria:form.categoria,pastaDrive:pastaNova,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",criadoEm:agora,atualizadoEm:agora};
-        const documentosMovimentacoes=[...(data.documentosMovimentacoes||[]),{id:uid(),movimentoId:`nf-${notaId}`,obraId:form.obraId,tipo:"Nota fiscal",documentos:[doc]}];
-        update({...data,obras:obrasAtualizadas,notasFiscais:[...(data.notasFiscais||[]),nota],documentosMovimentacoes});
+        if(!dispatchCommand)throw new Error("Comando fiscal indisponível.");
+        const result=await dispatchCommand(()=>({
+          type:OPERATIONAL_COMMAND.INVOICE_SAVED,
+          idempotencyKey:`invoice-ai-create-${notaId}-${uid()}`,
+          expectedVersion:0,
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{invoice:nota},
+        }));
+        if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a nota.");
+        const documentosMovimentacoes=[...(result.data.documentosMovimentacoes||[]),{
+          id:uid(),movimentoId:`nf-${notaId}`,obraId:form.obraId,
+          tipo:"Nota fiscal",documentos:[doc]}];
+        update({...result.data,obras:(result.data.obras||[]).map(o=>
+          o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o),
+          documentosMovimentacoes});
       }else{
         const norm=v=>String(v||"").replace(/\D/g,"");let fornecedor=(data.fornecedores||[]).find(f=>(norm(form.documentoFornecedor)&&norm(f.cnpj)===norm(form.documentoFornecedor))||String(f.nome||"").toLowerCase()===String(form.fornecedorNome||"").toLowerCase());const fornecedores=[...(data.fornecedores||[])];if(!fornecedor){fornecedor={id:uid(),nome:form.fornecedorNome||"Fornecedor a confirmar",cnpj:form.documentoFornecedor||"",categorias:[],ativo:true};fornecedores.push(fornecedor);}const material={id:uid(),codigo:`IA-${String((data.materiais||[]).length+1).padStart(4,"0")}`,descricao:maiusculoOrcamento(form.descricao||form.categoria||"ITEM LIDO POR IA"),unidade:"UN",categoria:"outros",estoqueMin:0,precoMedio:Number(form.valorBruto),fonteRef:"IA",ativo:true};const pedido={id:uid(),numero:`PC-IA-${String((data.pedidos||[]).length+1).padStart(4,"0")}`,obraId:form.obraId,fornecedorId:fornecedor.id,data:form.emissao||today(),previsao:form.vencimento||"",status:"rascunho",referenciaId:"",solicitacaoId:"",itens:[{id:uid(),materialId:material.id,qtd:1,precoUnit:Number(form.valorBruto),qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"IA",codigoRef:material.codigo,descricaoRef:material.descricao,unidadeRef:"UN",precoRef:Number(form.valorBruto),dataBaseRef:"",ufRef:""}],cotacaoId:"",transacaoId:"",origemPagamento:form.origemPagamento,pagamentos:[],documentos:[doc],analiseIA,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",criadoEm:agora,obs:`Documento ${form.numero||arquivo.name} · ${form.categoria||"classificação a revisar"}`};update({...data,obras:obrasAtualizadas,fornecedores,materiais:[...(data.materiais||[]),material],pedidos:[...(data.pedidos||[]),pedido]});
       }
@@ -6423,8 +6515,8 @@ function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraI
 
 const novaNotaFiscal=()=>({id:"",tipo:"nfe",numero:"",serie:"",chave:"",emissao:today(),vencimento:"",fornecedorId:"",fornecedorNome:"",documentoFornecedor:"",obraId:"",pedidoId:"",valorBruto:"",valorLiquido:"",retencoes:{iss:0,inss:0,irrf:0,pis:0,cofins:0,csll:0,outros:0},rateios:[],documentos:[],pagamentos:[],status:"recebida",divergencias:[],analiseIA:null});
 
-function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,onCadastroAberto}){
-  const {cols,formGrid}=useBreakpoint();const notas=data.notasFiscais||[];const [form,setForm]=useState(null);const [subindo,setSubindo]=useState(false);const [filtro,setFiltro]=useState("todas");const [anexoFiscal,setAnexoFiscal]=useState(null);
+function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,onCadastroAberto,dispatchCommand=null}){
+  const {cols,formGrid}=useBreakpoint();const notas=data.notasFiscais||[];const [form,setForm]=useState(null);const [subindo,setSubindo]=useState(false);const [filtro,setFiltro]=useState("todas");const [anexoFiscal,setAnexoFiscal]=useState(null);const [invoiceCommandPending,setInvoiceCommandPending]=useState(false);
   const contasPagarFiscal=useMemo(
     ()=>selectLedgerAccountsPayable(buildFinancialLedger(data),{asOfDate:today()}),
     [data],
@@ -6435,24 +6527,67 @@ function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,on
   const setRetencao=(campo,valor)=>setForm(f=>{const retencoes={...f.retencoes,[campo]:valor};return{...f,retencoes,valorLiquido:String(Math.max(0,Number(f.valorBruto||0)-Object.values(retencoes).reduce((s,x)=>s+Number(x||0),0)))}});
   const importar=e=>{const file=e.target.files?.[0];e.target.value="";if(!file||!form)return;if(file.size>5.5*1024*1024){showToast("O documento deve ter no máximo 5,5 MB.","error");return;}setAnexoFiscal({file,legenda:String(file.name||"").replace(/\.[^.]+$/,"")||"Documento fiscal"});};
   const salvarAnexoFiscal=async()=>{if(!anexoFiscal?.file||!form||!String(anexoFiscal.legenda||"").trim())return;const file=anexoFiscal.file;setSubindo(true);try{const dataUrl=await arquivoComoDataUrl(file);let extra={};if(file.name.toLowerCase().endsWith(".xml")){const texto=await file.text();extra=lerXmlFiscal(texto)||{};}const obra=(data.obras||[]).find(o=>o.id===form.obraId);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Administrativo",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:`Notas fiscais/${String(form.emissao||today()).slice(0,7)}`,date:form.emissao||today(),fileName:file.name});if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha no envio.");const agora=new Date().toISOString();const doc={id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(anexoFiscal.legenda).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type,tamanho:file.size||0,enviadoEm:agora,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};setForm(f=>({...f,...extra,retencoes:{...f.retencoes,...(extra.retencoes||{})},valorLiquido:extra.valorBruto?Math.max(0,extra.valorBruto-Object.values(extra.retencoes||{}).reduce((s,v)=>s+Number(v||0),0)):f.valorLiquido,documentos:[...(f.documentos||[]),doc]}));const obras=(data.obras||[]).map(o=>o.id===form.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);if(form.obraId)update({...data,obras});setAnexoFiscal(null);showToast("Documento fiscal salvo no OneDrive, com legenda e pronto para conferência.");}catch(err){showToast(err.message||"Falha ao importar documento.","error");}finally{setSubindo(false);}};
-  const salvar=()=>{
+  const salvar=async()=>{
     if(!form.obraId||!form.numero||Number(form.valorBruto)<=0){showToast("Informe obra, número e valor da nota.","error");return;}
+    if(!dispatchCommand||invoiceCommandPending)return;
     const ret=totalRet(form);
-    const n={...form,id:form.id||uid(),valorBruto:Number(form.valorBruto),valorLiquido:Number(form.valorLiquido||Number(form.valorBruto)-ret),rateios:form.rateios?.length?form.rateios:[{id:uid(),obraId:form.obraId,etapaId:"",percentual:100,valor:Number(form.valorBruto)}],criadoEm:form.criadoEm||new Date().toISOString(),atualizadoEm:new Date().toISOString()};
-    const baseNotas=notas.filter(item=>item.id!==n.id);
-    const match=form.pedidoId?analyzePurchaseThreeWayMatch({...data,notasFiscais:[...baseNotas,n]},form.pedidoId):null;
-    const labels={
-      RECEIPT_EXCEEDS_ORDER:"Recebimento físico acima do pedido.",
-      INVOICE_EXCEEDS_ORDER:"Notas fiscais acima do valor contratado no pedido.",
-      INVOICE_EXCEEDS_PHYSICAL_RECEIPT:"Valor fiscal acima do material fisicamente recebido.",
+    const invoiceId=form.id||uid();
+    const invoice={
+      ...form,id:invoiceId,valorBruto:Number(form.valorBruto),
+      valorLiquido:Number(form.valorLiquido||Number(form.valorBruto)-ret),
+      rateios:form.rateios?.length?form.rateios:[{
+        id:uid(),obraId:form.obraId,etapaId:"",percentual:100,
+        valor:Number(form.valorBruto),
+      }],
     };
-    const divergencias=(match?.issues||[]).map(issue=>`${labels[issue.code]||issue.code} Diferença: ${fmt(Math.abs(issue.differenceCents||0)/100)}.`);
-    const nota={...n,divergencias,threeWayMatch:match?{status:match.status,orderedCents:match.orderedCents,receivedCents:match.receivedCents,invoicedCents:match.invoicedCents,checkedAt:new Date().toISOString()}:null};
-    update({...data,notasFiscais:form.id?notas.map(x=>x.id===form.id?nota:x):[...notas,nota]});
-    setForm(null);
-    showToast(divergencias.length?"Nota salva com divergências na conferência de três vias.":"Pedido, recebimento físico e nota conferidos.");
+    setInvoiceCommandPending(true);
+    try{
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.notasFiscais||[]).find(item=>item.id===invoiceId);
+        return {
+          type:OPERATIONAL_COMMAND.INVOICE_SAVED,
+          idempotencyKey:`invoice-save-${invoiceId}-${uid()}`,
+          expectedVersion:vigente?Number(vigente.version||0):0,
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{invoice},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a nota.");
+      setForm(null);
+      const divergencias=Number(result.summary?.divergenceCount||0);
+      showToast(divergencias
+        ?"Nota salva com divergências na conferência de três vias."
+        :"Pedido, recebimento físico e nota conferidos.");
+    }catch(error){
+      showToast(error.message||"Não foi possível salvar a nota fiscal.","error");
+    }finally{
+      setInvoiceCommandPending(false);
+    }
   };
-  const aprovar=n=>{if(n.divergencias?.length&&!window.confirm("A nota possui divergências. Aprovar mesmo assim?"))return;update({...data,notasFiscais:notas.map(x=>x.id===n.id?{...x,status:"aprovada",aprovadoPorId:currentUser?.id||"",aprovadoPor:currentUser?.nome||"",aprovadoEm:new Date().toISOString()}:x)});showToast("Nota aprovada para pagamento.");};
+  const aprovar=async n=>{
+    const riskAccepted=!!n.divergencias?.length;
+    if(riskAccepted&&!window.confirm("A nota possui divergências. Aprovar mesmo assim?"))return;
+    if(!dispatchCommand||invoiceCommandPending)return;
+    setInvoiceCommandPending(true);
+    try{
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.notasFiscais||[]).find(item=>item.id===n.id);
+        return {
+          type:OPERATIONAL_COMMAND.INVOICE_APPROVED,
+          idempotencyKey:`invoice-approve-${n.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{invoiceId:n.id,riskAccepted},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a aprovação.");
+      showToast("Nota aprovada para pagamento.");
+    }catch(error){
+      showToast(error.message||"Não foi possível aprovar a nota fiscal.","error");
+    }finally{
+      setInvoiceCommandPending(false);
+    }
+  };
   const lista=notas.filter(n=>filtro==="todas"||n.status===filtro);const valorPendente=contasPagarFiscal.balanceCents/100;
   return <div style={{display:"flex",flexDirection:"column",gap:10}}>
     <PageHero
@@ -6959,10 +7094,10 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
   const NavegacaoFinanceira=()=> <div className="financial-area-nav" style={{display:"grid",gridTemplateColumns:`repeat(${abasFinanceiras.length},minmax(0,1fr))`,gap:3,padding:3,border:`1px solid ${C.border}`,borderRadius:8,background:C.surface,overflowX:"auto"}}>{abasFinanceiras.map(([v,l])=><button key={v} onClick={()=>setAreaFinanceira(v)} style={{...TYPO.tab,padding:"6px 8px",border:`1px solid ${areaFinanceira===v?(v==="ia"?C.purple:C.green):"transparent"}`,borderRadius:5,background:areaFinanceira===v?C.card:"transparent",color:areaFinanceira===v?(v==="ia"?C.purple:C.green):C.muted,cursor:"pointer",whiteSpace:"nowrap"}}>{v==="ia"&&<><Ic n="brain" s={11}/> </>}{v==="pagamentos"&&<><Ic n="receipt" s={11}/> </>}{v==="administrativo"&&<><Ic n="building" s={11}/> </>}{v==="fiscal"&&<><Ic n="file" s={11}/> </>}{l}</button>)}</div>;
   if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralPagamentosFinanceiro data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} dispatchCommand={dispatchCommand} C={C}/></div>;
   if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
-  if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralFiscal data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal}/></div>;
+  if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralFiscal data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal} dispatchCommand={dispatchCommand}/></div>;
   if(areaFinanceira==="fechamento"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FechamentoFinanceiroMensal data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
   if(areaFinanceira==="homologacao"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><HomologacaoFinanceira data={data} showToast={showToast} C={C}/></div>;
-  if(areaFinanceira==="ia")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><ModoIADocumento modulo="financeiro" data={data} update={update} showToast={showToast} currentUser={currentUser} onClose={()=>setAreaFinanceira("fiscal")}/></div>;
+  if(areaFinanceira==="ia")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><ModoIADocumento modulo="financeiro" data={data} update={update} showToast={showToast} currentUser={currentUser} onClose={()=>setAreaFinanceira("fiscal")} dispatchCommand={dispatchCommand}/></div>;
 
   return (
     <div className="anim financial-overview" style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -36701,7 +36836,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     </Modal>}
 
     {leadForm&&<Modal title={leadForm.id?`Lead · ${leadForm.nome}`:"Novo lead"} onClose={()=>setLeadForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"flex",gap:4,overflowX:"auto",paddingBottom:3}}>{[["geral","Visão geral"],["cadastro","Dados cadastrais"],["projeto","Projeto/serviço"],["qualificacao","Qualificação"],["atividades","Atividades"],["reunioes","Reuniões"],["propostas","Propostas"],["negociacoes","Negociações"],["contratos","Contratos"],["documentos","Documentos"],["financeiro","Financeiro"],["historico","Histórico"]].map(([id,l])=><button key={id} onClick={()=>setLeadAba(id)} style={{border:`1px solid ${leadAba===id?C.green:C.border}`,background:leadAba===id?`${C.green}10`:C.bg,color:leadAba===id?C.green:C.muted,borderRadius:6,padding:"5px 8px",fontSize:9.5,fontWeight:800,whiteSpace:"nowrap",cursor:"pointer"}}>{l}</button>)}</div>
-      {leadAba==="geral"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Nome *" value={leadForm.nome} onChange={v=>setLeadForm(f=>({...f,nome:v}))}/><Sel label="Etapa" value={leadForm.etapa} onChange={v=>setLeadForm(f=>({...f,etapa:v}))} options={COM_ETAPAS.map(([v,l])=>({v,l}))}/><Sel label="Responsável *" value={leadForm.responsavelId} onChange={v=>setLeadForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Serviço de interesse" value={leadForm.servico} onChange={v=>setLeadForm(f=>({...f,servico:v}))}/><Inp label="Orçamento estimado" type="number" value={leadForm.orcamentoEstimado} onChange={v=>setLeadForm(f=>({...f,orcamentoEstimado:v}))}/><Inp label="Fechamento previsto" type="date" value={leadForm.fechamentoPrevisto} onChange={v=>setLeadForm(f=>({...f,fechamentoPrevisto:v}))}/><Inp label="Probabilidade %" type="number" value={leadForm.probabilidade} onChange={v=>setLeadForm(f=>({...f,probabilidade:v,temperatura:Number(v)>=70?"quente":Number(v)>=35?"morno":"frio"}))}/><Sel label="Temperatura" value={leadForm.temperatura} onChange={v=>setLeadForm(f=>({...f,temperatura:v}))} options={[{v:"frio",l:"Frio"},{v:"morno",l:"Morno"},{v:"quente",l:"Quente"}]}/><Inp label="Prazo desejado" value={leadForm.prazoDesejado} onChange={v=>setLeadForm(f=>({...f,prazoDesejado:v}))}/><Inp label="Próxima atividade *" value={leadForm.proximaAtividade} onChange={v=>setLeadForm(f=>({...f,proximaAtividade:v}))}/><Inp label="Data da próxima atividade *" type="datetime-local" value={leadForm.proximaAtividadeEm} onChange={v=>setLeadForm(f=>({...f,proximaAtividadeEm:v}))}/><Sel label="Origem" value={leadForm.origem} onChange={v=>setLeadForm(f=>({...f,origem:v}))} options={[{v:"",l:"Selecione"},...['Indicação','Site','Instagram','WhatsApp','Parceiro','Tráfego pago','Prospecção','Outro'].map(v=>({v,l:v}))]}/>
+      {leadAba==="geral"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Nome *" value={leadForm.nome} onChange={v=>setLeadForm(f=>({...f,nome:v}))}/><SelBtn label="Etapa" value={leadForm.etapa} onChange={v=>setLeadForm(f=>({...f,etapa:v}))} options={COM_ETAPAS.map(([v,l])=>({v,l}))}/><Sel label="Responsável *" value={leadForm.responsavelId} onChange={v=>setLeadForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Serviço de interesse" value={leadForm.servico} onChange={v=>setLeadForm(f=>({...f,servico:v}))}/><Inp label="Orçamento estimado" type="number" value={leadForm.orcamentoEstimado} onChange={v=>setLeadForm(f=>({...f,orcamentoEstimado:v}))}/><Inp label="Fechamento previsto" type="date" value={leadForm.fechamentoPrevisto} onChange={v=>setLeadForm(f=>({...f,fechamentoPrevisto:v}))}/><Inp label="Probabilidade %" type="number" value={leadForm.probabilidade} onChange={v=>setLeadForm(f=>({...f,probabilidade:v,temperatura:Number(v)>=70?"quente":Number(v)>=35?"morno":"frio"}))}/><Sel label="Temperatura" value={leadForm.temperatura} onChange={v=>setLeadForm(f=>({...f,temperatura:v}))} options={[{v:"frio",l:"Frio"},{v:"morno",l:"Morno"},{v:"quente",l:"Quente"}]}/><Inp label="Prazo desejado" value={leadForm.prazoDesejado} onChange={v=>setLeadForm(f=>({...f,prazoDesejado:v}))}/><Inp label="Próxima atividade *" value={leadForm.proximaAtividade} onChange={v=>setLeadForm(f=>({...f,proximaAtividade:v}))}/><Inp label="Data da próxima atividade *" type="datetime-local" value={leadForm.proximaAtividadeEm} onChange={v=>setLeadForm(f=>({...f,proximaAtividadeEm:v}))}/><Sel label="Origem" value={leadForm.origem} onChange={v=>setLeadForm(f=>({...f,origem:v}))} options={[{v:"",l:"Selecione"},...['Indicação','Site','Instagram','WhatsApp','Parceiro','Tráfego pago','Prospecção','Outro'].map(v=>({v,l:v}))]}/>
       {/* QUEM INDICOU: so aparece quando a origem e indicacao. E o dado que
           alimenta o ranking de indicadores - sem ele o motor fica cego. */}
       {leadForm.origem==="Indicação" && (<>

@@ -416,4 +416,28 @@ describe("comandos operacionais versionados",()=>{
     expect(repeated).toMatchObject({ok:true,idempotent:true});
     expect(repeated.data.pagsTerceiros).toHaveLength(1);
   });
+
+  it("salva nota fiscal uma única vez pela fronteira operacional",()=>{
+    const initial={
+      obras:[{id:"o-1"}],pedidos:[],notasFiscais:[],
+      fechamentosFinanceiros:[],
+    };
+    const create=command(
+      OPERATIONAL_COMMAND.INVOICE_SAVED,
+      "invoice-save-operational-0001",
+      {invoice:{
+        id:"nf-1",tipo:"nfe",numero:"100",obraId:"o-1",
+        emissao:"2026-07-25",vencimento:"2026-08-05",
+        valorBruto:500,retencoes:{},rateios:[],
+        documentos:[],pagamentos:[],
+      }},0,
+    );
+    const first=applyOperationalCommand(initial,create);
+    const repeated=applyOperationalCommand(first.data,create);
+    expect(first.data.notasFiscais).toMatchObject([{
+      id:"nf-1",valorBruto:500,valorLiquido:500,version:1,
+    }]);
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+    expect(repeated.data.notasFiscais).toHaveLength(1);
+  });
 });

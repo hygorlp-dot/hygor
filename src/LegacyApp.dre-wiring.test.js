@@ -40,6 +40,10 @@ describe("contrato de autoria do DRE", () => {
     expect(source).not.toContain('update(createThirdPartyMeasurement(');
     expect(source).not.toContain('update(cancelThirdPartyMeasurement(');
     expect(source).not.toContain('update(payThirdPartyMeasurement(');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.INVOICE_SAVED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.INVOICE_APPROVED');
+    expect(source).not.toContain('update({...data,notasFiscais:form.id?');
+    expect(source).not.toContain('update({...data,notasFiscais:notas.map(');
     expect(source).not.toContain("update(createDreExpense(");
     expect(source).not.toContain("update(cancelDreExpense(");
     expect(source).not.toContain("update(saveCompanyExpense(");
