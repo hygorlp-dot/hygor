@@ -37,6 +37,7 @@ import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialSc
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
 import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
+import { projectReconciliationPatch } from "../server/reconciliation-response.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
@@ -829,11 +830,20 @@ export default async function handler(req, res) {
         error:"O servidor está processando outras alterações. A conciliação não foi perdida; tente confirmar novamente.",
         code:"RECONCILIATION_CONCURRENCY_BUSY",retryable:true,currentUpdatedAt:outcome.base?.updatedAt,
       });
-      return res.status(200).json({
+      // Sem concorrência, devolvemos somente as seções confirmadas pelo
+      // comando. Se foi preciso reexecutar sobre uma versão mais nova, a
+      // fotografia completa continua sendo enviada para incorporar também as
+      // mudanças do outro operador.
+      const resposta={
         ok:true,resumo:outcome.executed.resumo,
-        data:projectDataForUser(outcome.executed.data,usuario),
         updatedAt:outcome.saved.updatedAt||new Date().toISOString(),
-      });
+      };
+      if(outcome.attempts===1){
+        resposta.sections=projectReconciliationPatch(outcome.base.payload,outcome.executed.data,usuario);
+      }else{
+        resposta.data=projectDataForUser(outcome.executed.data,usuario);
+      }
+      return res.status(200).json(resposta);
     }
 
     // Ponto é persistido por fato, nunca pela substituição da seção projetada.

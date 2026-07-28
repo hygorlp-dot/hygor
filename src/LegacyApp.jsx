@@ -21484,7 +21484,11 @@ function Conciliacao({ data, update, showToast, currentUser }) {
         await new Promise(resolve=>window.setTimeout(resolve,500*(attempt+1)));
       }
       if(!resposta?.ok){showToast(resposta?.error||erroPadrao,"error");return false;}
-      await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
+      if(resposta.sections){
+        await update({__adotarServidorPatch:true,sections:resposta.sections,updatedAt:resposta.updatedAt});
+      }else{
+        await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
+      }
       return true;
     } catch(error) {
       console.error("Falha ao confirmar conciliação:",error);
@@ -36593,6 +36597,21 @@ export default function App() {
       ultimoDataRef.current = norm;
       dataAtualRef.current = norm;
       setData(norm);
+      setUltimaSync(new Date());
+      return;
+    }
+    // Respostas de comandos granulares trazem somente as seções confirmadas.
+    // Mesclá-las diretamente evita baixar e normalizar todo o cadastro após
+    // cada PIX, sem alterar a fotografia autoritativa das demais seções.
+    if (next && next.__adotarServidorPatch) {
+      const sections=next.sections&&typeof next.sections==="object"?next.sections:{};
+      const atual={...(dataAtualRef.current||DEFAULT()),...sections};
+      const base={...(baseServidorRef.current||dataAtualRef.current||DEFAULT()),...sections};
+      adoptServerVersion(next.updatedAt);
+      baseServidorRef.current=base;
+      ultimoDataRef.current=atual;
+      dataAtualRef.current=atual;
+      setData(atual);
       setUltimaSync(new Date());
       return;
     }
