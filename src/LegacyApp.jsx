@@ -2851,6 +2851,13 @@ const normalizeData = incoming => {
     dailyCheckDate: d.dailyCheckDate || "",
     changeLog: Array.isArray(d.changeLog) ? d.changeLog : [],
     qualidadeDados: Array.isArray(d.qualidadeDados) ? d.qualidadeDados : [],
+    eventosEmpresa: Array.isArray(d.eventosEmpresa) ? d.eventosEmpresa.map(x => ({
+      ...x,
+      id: x.id || uid(), titulo: x.titulo || "", data: x.data || "",
+      tipo: x.tipo || "outro", descricao: x.descricao || "",
+      criadoPorId: x.criadoPorId || "", criadoPor: x.criadoPor || "",
+      criadoEm: x.criadoEm || new Date().toISOString(),
+    })) : [],
   };
   return finalizeNormalizedData(d, normalized);
 };
@@ -4344,7 +4351,135 @@ function CubChart({cub}){
   </section>;
 }
 
-function DashboardEngenheiro({data,onTab,currentUser,ultimaSync,saveState}){
+const TIPO_EVENTO_EMPRESA={
+  aniversario:{l:"Aniversário",c:C.purple}, reuniao:{l:"Reunião",c:C.blue},
+  feriado:{l:"Feriado",c:C.orange}, outro:{l:"Outro",c:C.muted},
+};
+
+// Calendário compartilhado, visível para toda a empresa independente do
+// papel do usuário (aniversários, reuniões gerais, feriados, avisos). Não usa
+// o motor de comandos: é um cadastro leve, sem impacto financeiro ou de
+// auditoria, salvo pelo caminho simples de seção (como leads/clientes).
+function CalendarioEmpresa({data,update,showToast,currentUser}){
+  const {isDesktop}=useBreakpoint();
+  const [mesOffset,setMesOffset]=useState(0);
+  const [diaSelecionado,setDiaSelecionado]=useState("");
+  const [eventoForm,setEventoForm]=useState(null);
+  const eventos=data.eventosEmpresa||[];
+
+  const salvarEvento=async()=>{
+    const f=eventoForm;
+    if(!String(f.titulo||"").trim()){showToast("Informe o título do evento.","error");return;}
+    if(!f.data){showToast("Informe a data do evento.","error");return;}
+    const agora=new Date().toISOString();
+    const registro={
+      id:f.id||uid(),titulo:String(f.titulo).trim(),data:f.data,tipo:f.tipo||"outro",
+      descricao:String(f.descricao||"").trim(),
+      criadoPorId:f.criadoPorId||currentUser?.id||"",criadoPor:f.criadoPor||currentUser?.nome||"",
+      criadoEm:f.criadoEm||agora,
+    };
+    const lista=f.id?eventos.map(e=>e.id===f.id?registro:e):[...eventos,registro];
+    const result=await update({...data,eventosEmpresa:lista});
+    if(result&&result.ok===false){showToast("Não foi possível salvar o evento.","error");return;}
+    setEventoForm(null);
+    showToast(f.id?"Evento atualizado.":"Evento cadastrado.");
+  };
+
+  const excluirEvento=async evento=>{
+    if(!window.confirm(`Excluir o evento "${evento.titulo}"?`))return;
+    const result=await update({...data,eventosEmpresa:eventos.filter(e=>e.id!==evento.id)});
+    if(result&&result.ok===false){showToast("Não foi possível excluir o evento.","error");return;}
+    showToast("Evento excluído.");
+  };
+
+  const calRef=new Date();calRef.setDate(1);calRef.setMonth(calRef.getMonth()+mesOffset);
+  const ano=calRef.getFullYear(),mesIdx=calRef.getMonth();
+  const diasNoMes=new Date(ano,mesIdx+1,0).getDate();
+  const primeiroDiaSemana=new Date(ano,mesIdx,1).getDay();
+  const eventosPorDia={};
+  eventos.forEach(e=>{if(!e.data)return;(eventosPorDia[e.data]=eventosPorDia[e.data]||[]).push(e);});
+  const celulas=[...Array(primeiroDiaSemana).fill(null),...Array.from({length:diasNoMes},(_,i)=>{
+    const dia=`${ano}-${String(mesIdx+1).padStart(2,"0")}-${String(i+1).padStart(2,"0")}`;
+    return {dia,numero:i+1,eventos:eventosPorDia[dia]||[]};
+  })];
+  const proximos=eventos.filter(e=>e.data>=today()).sort((a,b)=>a.data.localeCompare(b.data)).slice(0,8);
+
+  return <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none",padding:18}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,gap:8,flexWrap:"wrap"}}>
+      <h3 style={TYPO.h3}>Calendário da empresa</h3>
+      <Btn size="sm" onClick={()=>setEventoForm({id:"",titulo:"",data:diaSelecionado||today(),tipo:"outro",descricao:""})}><Ic n="plus"/> Novo evento</Btn>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1fr) 220px":"1fr",gap:16}}>
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <button onClick={()=>setMesOffset(m=>m-1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:16,padding:"2px 10px"}}>‹</button>
+          <b style={{fontSize:12,color:C.text,textTransform:"capitalize"}}>{calRef.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</b>
+          <button onClick={()=>setMesOffset(m=>m+1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:16,padding:"2px 10px"}}>›</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
+          {["D","S","T","Q","Q","S","S"].map((d,i)=><span key={i} style={{textAlign:"center",fontSize:9,fontWeight:800,color:C.muted}}>{d}</span>)}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+          {celulas.map((c,i)=>c?(
+            <button key={c.dia} onClick={()=>setDiaSelecionado(v=>v===c.dia?"":c.dia)}
+              style={{minHeight:52,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",gap:3,padding:"4px 2px",
+                border:`1px solid ${diaSelecionado===c.dia?C.blue:C.border}`,borderRadius:6,
+                background:diaSelecionado===c.dia?`${C.blue}14`:c.dia===today()?`${C.yellowD}10`:"transparent",cursor:"pointer"}}>
+              <span style={{fontSize:10.5,fontWeight:diaSelecionado===c.dia?800:600,color:diaSelecionado===c.dia?C.blue:C.text}}>{c.numero}</span>
+              <div style={{display:"flex",gap:2,flexWrap:"wrap",justifyContent:"center"}}>
+                {c.eventos.slice(0,3).map(e=><span key={e.id} title={e.titulo} style={{width:5,height:5,borderRadius:99,background:(TIPO_EVENTO_EMPRESA[e.tipo]||TIPO_EVENTO_EMPRESA.outro).c}}/>)}
+              </div>
+            </button>
+          ):<div key={`vazio-${i}`}/>)}
+        </div>
+        {diaSelecionado&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <p style={{fontSize:10.5,fontWeight:800,color:C.text}}>{fmtDate(diaSelecionado)}</p>
+            <button onClick={()=>setDiaSelecionado("")} style={{background:"transparent",border:0,color:C.blue,fontSize:10,fontWeight:700,cursor:"pointer"}}>Fechar</button>
+          </div>
+          {(eventosPorDia[diaSelecionado]||[]).map(e=><div key={e.id} style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
+            <div style={{minWidth:0}}>
+              <p style={{fontSize:11,fontWeight:700,color:C.text}}>{e.titulo}</p>
+              <p style={{fontSize:9,color:C.muted,marginTop:1}}>{(TIPO_EVENTO_EMPRESA[e.tipo]||TIPO_EVENTO_EMPRESA.outro).l}{e.descricao?` · ${e.descricao}`:""}</p>
+            </div>
+            <div style={{display:"flex",gap:4,flexShrink:0}}>
+              <button onClick={()=>setEventoForm({...e})} style={{background:"transparent",border:0,color:C.blue,fontSize:9.5,fontWeight:700,cursor:"pointer"}}>Editar</button>
+              <button onClick={()=>excluirEvento(e)} style={{background:"transparent",border:0,color:C.red,fontSize:9.5,fontWeight:700,cursor:"pointer"}}>Excluir</button>
+            </div>
+          </div>)}
+          {!(eventosPorDia[diaSelecionado]||[]).length&&<p style={{fontSize:10,color:C.muted}}>Nenhum evento neste dia.</p>}
+        </div>}
+      </div>
+      <div>
+        <p style={{fontSize:9.5,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Próximos eventos</p>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {proximos.map(e=><div key={e.id} style={{display:"flex",gap:7,alignItems:"flex-start"}}>
+            <span style={{width:6,height:6,borderRadius:99,background:(TIPO_EVENTO_EMPRESA[e.tipo]||TIPO_EVENTO_EMPRESA.outro).c,marginTop:4,flexShrink:0}}/>
+            <div style={{minWidth:0}}>
+              <p style={{fontSize:10.5,fontWeight:700,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{e.titulo}</p>
+              <p style={{fontSize:9,color:C.muted}}>{fmtDate(e.data)}</p>
+            </div>
+          </div>)}
+          {!proximos.length&&<p style={{fontSize:10,color:C.muted}}>Nenhum evento futuro.</p>}
+        </div>
+      </div>
+    </div>
+    {eventoForm&&<Modal title={eventoForm.id?"Editar evento":"Novo evento"} onClose={()=>setEventoForm(null)}>
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        <Inp label="Título *" value={eventoForm.titulo} onChange={v=>setEventoForm(f=>({...f,titulo:v}))}/>
+        <Inp label="Data *" type="date" value={eventoForm.data} onChange={v=>setEventoForm(f=>({...f,data:v}))}/>
+        <Sel label="Tipo" value={eventoForm.tipo} onChange={v=>setEventoForm(f=>({...f,tipo:v}))} options={Object.entries(TIPO_EVENTO_EMPRESA).map(([v,o])=>({v,l:o.l}))}/>
+        <Inp label="Descrição" value={eventoForm.descricao} onChange={v=>setEventoForm(f=>({...f,descricao:v}))}/>
+        <div style={{display:"flex",gap:8}}>
+          <Btn v="ghost" full onClick={()=>setEventoForm(null)}>Cancelar</Btn>
+          <Btn full onClick={salvarEvento}><Ic n="check"/> Salvar</Btn>
+        </div>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync,saveState}){
   const {cols,isDesktop}=useBreakpoint();
   const [obraFiltro,setObraFiltro]=useState("all");
   const ehAuditor=currentUser?.role==="engenheiro_auditor";
@@ -4367,12 +4502,13 @@ function DashboardEngenheiro({data,onTab,currentUser,ultimaSync,saveState}){
     <div className="dashboard-kpi-grid" style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:9}}>{(ehAuditor?[["Pendências auditadas",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Para sua validação",aguardandoValidacao,C.green,"check"],["Vistorias sob sua responsabilidade",conferencias.length,C.purple,"building"]]:[["Pendências para corrigir",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Aguardando sua correção",aguardandoCorrecao,C.orange,"camera"]]).map(([l,v,c,i],idx)=><span key={l} style={{"--row-i":idx}}><KpiCard label={l} value={v} icon={i} color={c}/></span>)}</div>
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none",display:"flex",gap:8,alignItems:"end",flexWrap:"wrap",padding:12}}><div style={{minWidth:240,flex:1}}><Sel label="Filtrar conferências por obra" value={obraFiltro} onChange={setObraFiltro} options={[{v:"all",l:"Todas as obras disponíveis"},...obras.map(o=>({v:o.id,l:o.name}))]}/></div><Btn v="ghost" onClick={()=>onTab("obras")}><Ic n="building"/> Abrir todas as obras</Btn>{currentUser?.obraId&&<p style={{width:"100%",fontSize:9.5,color:C.orange}}>Seu cadastro está restrito a uma obra. O administrador pode liberar “Todas as obras” na Central do Administrador.</p>}</div>
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}><div style={{padding:"13px 15px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between"}}><b style={{fontSize:12.5,color:C.text}}>Pendências sob sua responsabilidade</b><span style={{fontSize:9.5,color:C.muted}}>{ehAuditor?"Análise e validação técnica":"Somente envio da correção"}</span></div>{!abertas.length?<div style={{padding:30,textAlign:"center"}}><Ic n="check" s={24} color={C.green}/><p style={{fontSize:12,fontWeight:750,color:C.text,marginTop:7}}>Nenhuma pendência aberta neste filtro</p></div>:abertas.map(({p,c,obra},index)=>{const acao=ehAuditor?(p.status==="aguardando_validacao"?"Validar evidência":"Acompanhar vistoria"):(p.status==="aguardando_validacao"?"Aguardando auditor":"Enviar correção");const corAcao=acao==="Validar evidência"?C.green:acao==="Enviar correção"?C.orange:C.blue;return <button key={`${c.id}-${p.id}`} onClick={()=>abrir(c)} style={{width:"100%",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",padding:"13px 15px",display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,.7fr) minmax(260px,1.5fr) 130px 140px 26px":"1fr auto",gap:12,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div><p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>{obra?.name||"Obra"}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>CONF-{String(c.codigo||0).padStart(3,"0")}</p></div><div style={{minWidth:0}}><p style={{fontSize:11.5,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.descricao}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.ajusteNecessario}</p></div><span style={{display:isDesktop?"inline-flex":"none",justifySelf:"start"}}><Badge color={impacto[p.impacto]||C.orange}>{p.impacto}</Badge></span><span style={{fontSize:9.5,fontWeight:800,color:corAcao,whiteSpace:"nowrap"}}>{acao}</span><span style={{fontSize:18,color:C.muted}}>›</span></button>;})}</div>
+    <CalendarioEmpresa data={data} update={update} showToast={showToast} currentUser={currentUser}/>
   </div>;
 }
 
 // Dashboard executivo premium. A tela trabalha por exceção: primeiro mostra
 // saúde da empresa, depois o que exige decisão e só então os resumos de apoio.
-function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar, saveState }) {
+function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, onBuscar, onAtualizar, saveState }) {
   const { cols, isDesktop } = useBreakpoint();
   const agora=new Date();
   const [periodo,setPeriodo]=useState({y:agora.getFullYear(),m:agora.getMonth()});
@@ -4465,6 +4601,7 @@ function Dashboard({ data, onTab, ultimaSync, currentUser, onBuscar, onAtualizar
     <section style={{position:"relative",zIndex:1}}><Titulo>Ações rápidas</Titulo><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:8}}>{[
       ["Nova compra","cart","cmp"],["Novo lead","user","com_leads"],["Lançar despesa","dollar","dre_emp"],["Abrir ponto","clock","ponto"],["Revisar medições","ruler","medicoes"],["Conferências","check","conferencia"],
     ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} className="dashboard-quick-action" style={{minHeight:70,border:`1px solid ${C.border}`,background:C.card,borderRadius:C.rLg,padding:11,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",textAlign:"left",...TYPO.label}}><span style={{width:28,height:28,borderRadius:9,background:C.card2,display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
+    <CalendarioEmpresa data={data} update={update} showToast={showToast} currentUser={currentUser}/>
   </div>;
 }
 
@@ -10314,162 +10451,206 @@ function Folha({ data, showToast, onTab }) {
   for (let i = now.getFullYear() - 1; i <= now.getFullYear() + 2; i++) years.push({ v: String(i), l: String(i) });
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim payroll-workspace">
       <PageHero
         eyebrow="Recursos humanos"
         title="Folha de Pagamento"
-        description="Cálculo automático quinzenal com feriados e datas de pagamento."
+        description="Conferência quinzenal da equipe, dos apontamentos e do valor líquido por obra."
+        alert={pendenciasRelatorio.length?{
+          tone:"danger",
+          text:`${pendenciasRelatorio.length} funcionário(s) exigem conferência antes do fechamento`,
+        }:{
+          tone:"success",
+          text:"Folha pronta para conferência e exportação",
+        }}
+        stats={[
+          {label:"Total líquido",value:fmt(T.net),detail:periodLabel,color:C.yellow},
+          {label:"Valor bruto",value:fmt(T.gross),detail:`VT + VR: ${fmt(T.vt+T.vr)}`},
+          {label:"Funcionários",value:rows.length,detail:filterObra==="all"?"Todas as obras":obraName(filterObra)},
+          {label:"Pagamento",value:paymentDateLabel,detail:paymentObs,color:paymentInfo.adjusted?C.orange:C.green},
+        ]}
+        actions={pendenciasRelatorio.length?<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>:null}
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel value={String(year)} onChange={v => setYear(Number(v))} options={years} />
-        <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Sel value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena" }, { v: "2", l: "2ª quinzena" }]} />
-        <Sel value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
-      </div>
-
-      <div style={{ background: `linear-gradient(135deg, ${C.yellow}, ${C.yellowD})`, color: C.bg, padding: 18, border: `1px solid ${C.yellow}` }}>
-        <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase", opacity: 0.78 }}>Total líquido</p>
-        <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize: 38, letterSpacing: 2 }}>{fmt(T.net)}</p>
-        <p style={{ fontSize: 12, fontWeight: 700 }}>{rows.length} funcionário(s)  {periodLabel}</p>
-        <p style={{ fontSize: 14, fontWeight: 900, marginTop: 6 }}>Pagamento: {paymentDateLabel}</p>
-        <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.86 }}>{paymentObs}</p>
-        {(T.feriadosPagos + T.feriadosPerdidos) > 0 && <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.86, marginTop: 4 }}>Feriados: {T.feriadosPagos} pago(s), {T.feriadosPerdidos} perdido(s)  Valor: {fmt(T.holidayPay)}</p>}
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8, fontSize: 12, fontWeight: 700 }}>
-          <span>Bruto: {fmt(T.gross)}</span>
-          {T.vt > 0 && <span>VT: {fmt(T.vt)}</span>}
-          {T.vr > 0 && <span>VR: {fmt(T.vr)}</span>}
-          {T.advances > 0 && <span>Adiant.: -{fmt(T.advances)}</span>}
+      <section className="payroll-controls" aria-label="Competência e escopo da folha">
+        <div className="payroll-section-heading">
+          <div>
+            <h3>Competência e escopo</h3>
+            <p>{fmtDateFull(days[0])} a {fmtDateFull(days[days.length-1])}</p>
+          </div>
+          <span className="payroll-scope-chip">{filterObra==="all"?"Consolidado da empresa":obraName(filterObra)}</span>
         </div>
+        <div className="payroll-filter-grid">
+          <Sel label="Ano" value={String(year)} onChange={v => setYear(Number(v))} options={years} />
+          <Sel label="Mês de referência" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+          <Sel label="Ciclo da folha" value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena · 06 a 20" }, { v: "2", l: "2ª quinzena · 21 a 05" }]} />
+          <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+        </div>
+      </section>
+
+      <section className="payroll-summary-strip" aria-label="Composição do pagamento">
+        <div><span>Valor dos dias</span><strong>{fmt(T.gross-T.holidayPay)}</strong></div>
+        <div><span>Feriados</span><strong>{fmt(T.holidayPay)}</strong><small>{T.feriadosPagos} pago(s) · {T.feriadosPerdidos} perdido(s)</small></div>
+        <div><span>Benefícios</span><strong>{fmt(T.vt+T.vr)}</strong><small>VT {fmt(T.vt)} · VR {fmt(T.vr)}</small></div>
+        <div><span>Adiantamentos</span><strong data-tone={T.advances>0?"danger":"neutral"}>{T.advances>0?`− ${fmt(T.advances)}`:fmt(0)}</strong></div>
+      </section>
+
+      <section className="payroll-actionbar" aria-label="Ações da folha">
+        <div>
+          <h3>Relatórios e compartilhamento</h3>
+          <p>Os arquivos respeitam a competência e a obra selecionadas acima.</p>
+        </div>
+        <div className="payroll-actions">
+          <Btn v="primary" onClick={() => solicitarRelatorio("excel")}><Ic n="download" /> Exportar Excel</Btn>
+          <Btn v="ghost" onClick={() => solicitarRelatorio("pdf")}><Ic n="file" /> Gerar PDF</Btn>
+          <Btn v="ghost" onClick={() => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`)}><Ic n="mail" /> Enviar por e-mail</Btn>
+          <Btn v="ghost" onClick={() => navigator.clipboard.writeText(buildText()).then(() => showToast("Resumo copiado.")).catch(() => showToast("Não foi possível copiar o resumo.", "error"))}><Ic n="copy" /> Copiar resumo</Btn>
+        </div>
+      </section>
+
+      <div className="payroll-list-heading">
+        <div><h3>Funcionários da quinzena</h3><p>Abra uma linha para conferir composição, obras e espelho diário.</p></div>
+        <span>{rows.length} registro(s)</span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <Btn v="ghost" onClick={() => solicitarRelatorio("pdf")}><Ic n="file" /> PDF / Imprimir</Btn>
-        <Btn v="success" onClick={() => solicitarRelatorio("excel")}><Ic n="download" /> Excel detalhado .xlsx</Btn>
-        <Btn v="info" onClick={() => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`)}><Ic n="mail" /> E-mail</Btn>
-        <Btn v="success" onClick={() => navigator.clipboard.writeText(buildText()).then(() => showToast("Copiado.")).catch(() => showToast("Erro ao copiar.", "error"))}><Ic n="copy" /> WhatsApp</Btn>
-      </div>
-
-      {rows.length === 0 && <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 20, textAlign: "center", color: C.muted }}>Nenhum funcionário com movimentação nesta quinzena.</div>}
+      {rows.length === 0 && <div className="payroll-empty"><Ic n="users" s={22}/><strong>Nenhuma movimentação nesta quinzena</strong><p>Revise a competência ou abra a gestão do ponto para lançar as presenças.</p><Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn></div>}
 
       {rows.map(r => {
         const v = valEfetivos(r);
+        const workedDays=(v.presentes+v.meiodia*0.5).toFixed(1).replace(".",",");
+        const hasIssue=v.semRegistro>0||v.faltas>0;
         return (
-        <div key={r.id}>
-          <button onClick={() => setExpandedId(expandedId === r.id ? null : r.id)} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.yellow}`, padding: 14, width: "100%", cursor: "pointer", color: C.text, textAlign: "left", display: "flex", justifyContent: "space-between", gap: 8 }}>
-            <div>
-              <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 17 }}>{r.name}</p>
-              <p style={{ color: C.muted, fontSize: 12 }}>{filterObra === "all" ? obraName(r.obra) : obraName(filterObra)}  {(v.presentes+v.meiodia*0.5).toFixed(1).replace(".",",")} dia(s) trabalhado(s)  {v.presentes}P {v.meiodia}M {v.faltas}F {v.semRegistro}S/R  {v.feriadosPagos}FP {v.feriadosPerdidos}FD{r.ot > 0 ? `  ${r.ot}h` : ""}</p>
+        <article key={r.id} className="payroll-person" data-expanded={expandedId===r.id}>
+          <button
+            type="button"
+            className="payroll-person__trigger"
+            aria-expanded={expandedId===r.id}
+            aria-controls={`payroll-detail-${r.id}`}
+            onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+          >
+            <div className="payroll-person__identity">
+              <span className="payroll-person__chevron" aria-hidden="true"><Ic n="chevron" s={13}/></span>
+              <div>
+                <p className="payroll-person__name">{r.name}</p>
+                <p className="payroll-person__work">{filterObra === "all" ? obraName(r.obra) : obraName(filterObra)} · {workedDays} dia(s) equivalente(s)</p>
+              </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 19, color: C.yellow }}>{fmt(v.net)}</p>
-              {v.advances > 0 && <p style={{ color: C.red, fontSize: 11 }}>-{fmt(v.advances)}</p>}
+            <div className="payroll-person__signals" aria-label="Resumo do ponto">
+              <span data-tone="success">{v.presentes} presente(s)</span>
+              {v.meiodia>0&&<span data-tone="warning">{v.meiodia} meio(s)</span>}
+              {v.faltas>0&&<span data-tone="danger">{v.faltas} falta(s)</span>}
+              {v.semRegistro>0&&<span data-tone="danger">{v.semRegistro} sem registro</span>}
+              {!hasIssue&&<span data-tone="neutral">Ponto conferido</span>}
+            </div>
+            <div className="payroll-person__amount">
+              <small>Líquido</small>
+              <strong>{fmt(v.net)}</strong>
+              {v.advances > 0 && <span>Adiantamento: − {fmt(v.advances)}</span>}
             </div>
           </button>
 
           {expandedId === r.id && (
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderTop: 0, padding: 14 }}>
+            <div id={`payroll-detail-${r.id}`} className="payroll-person__detail">
               {filterObra !== "all" && (r.obrasPorDia||[]).length > 1 && (
-                <p style={{ fontSize:11, color:C.muted, marginBottom:10, background:`${C.blue}0E`, border:`1px solid ${C.blue}33`, borderRadius:6, padding:"7px 9px" }}>
+                <p className="payroll-scope-note">
                   Valores referentes apenas a <b>{obraName(filterObra)}</b>. Este funcionário também trabalhou em outras obras na quinzena; o líquido total dele é {fmt(r.net)}.
                 </p>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
+              <div className="payroll-detail-metrics">
                 {[
                   ["Diária", fmt(r.dailyRate)], ["Bruto", fmt(v.gross)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Líquido", fmt(v.net), C.yellow], ["HE", `${r.ot}h · ${fmt(v.overtimePay)}`, C.purple], ["Feriados pagos", v.feriadosPagos], ["Feriados perdidos", v.feriadosPerdidos, C.red], ["Valor feriado", fmt(v.holidayPay), C.green],
                 ].map(([label, value, color]) => (
-                  <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, padding: 8 }}>
-                    <p style={{ color: C.muted, fontSize: 10, textTransform: "uppercase" }}>{label}</p>
-                    <p style={{ color: color || C.text, fontWeight: 900 }}>{value}</p>
+                  <div key={label} className="payroll-detail-metric">
+                    <p>{label}</p>
+                    <strong style={{color:color||C.text}}>{value}</strong>
                   </div>
                 ))}
               </div>
 
               {r.holidayRules.length > 0 && (
-                <div style={{ marginBottom: 12 }}>
-                  <p style={{ color: C.yellow, fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, textTransform: "uppercase", marginBottom: 6 }}>Regra de feriados</p>
+                <section className="payroll-detail-section">
+                  <h4>Regra de feriados</h4>
                   {r.holidayRules.map(h => (
-                    <p key={h.holidayIso} style={{ color: h.losesHoliday ? C.red : C.green, fontSize: 12, marginBottom: 3 }}>
-                      {fmtDateFull(h.holidayIso)}: {h.losesHoliday ? "perdido" : "pago"}  anterior {fmtDateFull(h.before)}{h.missedBefore ? " faltou" : " ok"}  posterior {fmtDateFull(h.after)}{h.missedAfter ? " faltou" : " ok"}
-                    </p>
+                    <div key={h.holidayIso} className="payroll-holiday-rule" data-tone={h.losesHoliday?"danger":"success"}>
+                      <strong>{fmtDateFull(h.holidayIso)} · {h.losesHoliday ? "Feriado perdido" : "Feriado pago"}</strong>
+                      <span>Anterior: {fmtDateFull(h.before)} ({h.missedBefore ? "falta" : "presença"}) · Posterior: {fmtDateFull(h.after)} ({h.missedAfter ? "falta" : "presença"})</span>
+                    </div>
                   ))}
-                </div>
+                </section>
               )}
 
               {r.obrasPorDia.filter(o => filterObra === "all" || o.obraId === filterObra).length > 0 && (
-                <div style={{ marginBottom:12 }}>
-                  <p style={{ color:C.yellow, fontFamily:"'Inter Display','Inter',sans-serif",
-                              fontWeight:900, textTransform:"uppercase", marginBottom:6 }}>
-                    Dias trabalhados por obra
-                  </p>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:6}}>
+                <section className="payroll-detail-section">
+                  <h4>Dias trabalhados por obra</h4>
+                  <div className="payroll-project-grid">
                     {r.obrasPorDia.filter(o => filterObra === "all" || o.obraId === filterObra).map(o => (
-                      <div key={o.obraId || "sem-obra"} style={{background:C.card,border:`1px solid ${C.border}`,padding:"8px 10px"}}>
-                        <p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{o.obraName}</p>
-                        <p style={{fontSize:15,fontWeight:900,color:C.green,marginTop:2}}>
-                          {o.diasTrabalhados.toFixed(1).replace(".",",")} dia(s)
-                        </p>
-                        <p style={{fontSize:9.5,color:C.muted}}>{o.presentes} integral(is) + {o.meiodia} meio(s) período(s) · {o.faltas} falta(s)</p>
+                      <div key={o.obraId || "sem-obra"} className="payroll-project-row">
+                        <div><strong>{o.obraName}</strong><span>{o.presentes} integral(is) + {o.meiodia} meio(s) · {o.faltas} falta(s)</span></div>
+                        <b>{o.diasTrabalhados.toFixed(1).replace(".",",")} dia(s)</b>
                       </div>
                     ))}
                   </div>
-                </div>
+                </section>
               )}
 
-              {r.pixKey && <p style={{ color: C.subtle, fontSize: 12, marginBottom: 10 }}>PIX: {r.pixKey}</p>}
+              {r.pixKey && <p className="payroll-pix"><span>Chave PIX</span><b>{r.pixKey}</b></p>}
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(43px, 1fr))", gap: 4 }}>
+              <section className="payroll-detail-section">
+                <h4>Espelho diário</h4>
+                <div className="payroll-day-grid">
                 {days.map(d => {
                   const a = getAtt(data, r.id, d);
                   const st = a?.status;
                   const isHoliday = holidaysInPeriod.includes(d) && isEmployeeEmployedOnDate(r, d);
                   const col = isHoliday ? C.blue : st === "P" ? C.green : st === "M" ? C.yellow : st === "F" ? C.red : C.muted;
                   return (
-                    <div key={d} style={{ background: C.card, border: `1px solid ${C.border}`, padding: 5, textAlign: "center" }}>
-                      <p style={{ color: C.muted, fontSize: 9 }}>{fmtDate(d)}</p>
-                      <p style={{ color: col, fontWeight: 900 }}>{isHoliday ? "FER" : st || "-"}</p>
+                    <div key={d} className="payroll-day" title={fmtDateFull(d)}>
+                      <span>{fmtDate(d)}</span>
+                      <strong style={{color:col}}>{isHoliday ? "FER" : st || "—"}</strong>
                     </div>
                   );
                 })}
+                </div>
+              </section>
               </div>
-            </div>
           )}
-        </div>
+        </article>
         );
       })}
 
       {relatorioPendente && (
-        <Modal title="Conferencia antes de gerar o relatorio" onClose={() => setRelatorioPendente("")} wide>
-          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-            <div style={{ background:"rgba(220,38,38,.08)", border:`1px solid ${C.red}`, padding:12, borderRadius:6 }}>
-              <p style={{ color:C.red, fontWeight:900, fontSize:14 }}>Existem dados pendentes nesta quinzena.</p>
-              <p style={{ color:C.text, fontSize:12, marginTop:4 }}>
-                {pendenciasRelatorio.length} funcionario(s) precisam de conferencia | {totalDiasSemRegistro} dia(s) sem registro | {totalSemPix} PIX ausente(s).
-              </p>
-              <p style={{ color:C.muted, fontSize:11, marginTop:4 }}>Sabados, domingos e feriados nao sao considerados como falta de registro.</p>
+        <Modal title="Conferência antes de gerar o relatório" onClose={() => setRelatorioPendente("")} wide>
+          <div className="payroll-review">
+            <div className="payroll-review__summary">
+              <span><Ic n="alert" s={16}/></span>
+              <div>
+                <h3>Há informações pendentes nesta quinzena</h3>
+                <p>
+                  {pendenciasRelatorio.length} funcionário(s) para conferir · {totalDiasSemRegistro} dia(s) sem registro · {totalSemPix} PIX ausente(s).
+                </p>
+                <small>Sábados, domingos e feriados não são considerados ausência de registro.</small>
+              </div>
             </div>
 
-            <div style={{ maxHeight:360, overflowY:"auto", display:"flex", flexDirection:"column", gap:7 }}>
+            <div className="payroll-review__list">
               {pendenciasRelatorio.map(p => (
-                <div key={p.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${C.red}`, padding:"9px 11px", borderRadius:6 }}>
-                  <p style={{ fontWeight:900, color:C.text }}>{p.nome}</p>
+                <div key={p.id} className="payroll-review__item">
+                  <strong>{p.nome}</strong>
                   {p.semRegistro.length > 0 && (
-                    <p style={{ fontSize:11, color:C.red, marginTop:3 }}>
+                    <p data-tone="danger">
                       {p.nenhumRegistro ? "Nenhum ponto registrado" : `${p.semRegistro.length} dia(s) sem ponto`}: {p.semRegistro.slice(0,8).map(fmtDate).join(", ")}{p.semRegistro.length > 8 ? ` e mais ${p.semRegistro.length - 8}` : ""}
                     </p>
                   )}
-                  {p.campos.length > 0 && <p style={{ fontSize:11, color:C.yellowD, marginTop:3 }}>Dados faltando: {p.campos.join(", ")}.</p>}
+                  {p.campos.length > 0 && <p data-tone="warning">Dados faltando: {p.campos.join(", ")}.</p>}
                 </div>
               ))}
             </div>
 
-            <p style={{ color:C.muted, fontSize:11 }}>Voce pode corrigir agora ou continuar e gerar o arquivo com as pendencias existentes.</p>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:8 }}>
-              <Btn v="danger" onClick={() => { setRelatorioPendente(""); onTab?.("ponto_geral"); }}>Corrigir ponto</Btn>
+            <p className="payroll-review__help">Corrija as informações agora ou gere o arquivo mantendo as pendências claramente identificadas.</p>
+            <div className="payroll-review__actions">
+              <Btn v="primary" onClick={() => { setRelatorioPendente(""); onTab?.("ponto_geral"); }}>Corrigir ponto</Btn>
               <Btn v="ghost" onClick={() => { setRelatorioPendente(""); onTab?.("equipe"); }}>Preencher PIX / cadastro</Btn>
-              <Btn v="success" onClick={continuarComPendencias}>Continuar mesmo assim</Btn>
+              <Btn v="warning" onClick={continuarComPendencias}>Gerar com pendências</Btn>
             </div>
           </div>
         </Modal>
@@ -38750,8 +38931,8 @@ export default function App() {
 
         <main className="arcd-main" style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
           {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
-            ? <DashboardEngenheiro data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
-            : <Dashboard data={data} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
+            ? <DashboardEngenheiro data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
+            : <Dashboard data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} saveState={estadoSalvar} />)}
           {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}

@@ -79,6 +79,10 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     .filter(item => item.id === user.id || !allowedObras.size || String(item.obraId || "") === String(user.obraId))
     .map(item => sanitizeUser(item, item.id === user.id));
 
+  // Calendário compartilhado: visível para todos os papéis, sem recorte por
+  // obra (aniversários, reuniões gerais e avisos são de interesse de todos).
+  out.eventosEmpresa = payload.eventosEmpresa || [];
+
   for (const key of allowedSections) {
     const value = payload[key];
     if (value === undefined) continue;
