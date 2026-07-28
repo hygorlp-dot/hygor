@@ -22,6 +22,9 @@ import {
   PURCHASE_CANCELLATION_COMMAND_TYPES,
   purchaseCancellationCommandObraId,
 } from "../src/domains/compras/purchase-cancellation-command.js";
+import {
+  BANK_TRANSACTION_COMMAND_TYPES,
+} from "../src/domains/conciliacao/transaction-commands.js";
 
 export const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
@@ -55,6 +58,11 @@ export const operationalCommandObraId=(data={},command={})=>{
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
   const obraId=operationalCommandObraId(data,command);
+  if(BANK_TRANSACTION_COMMAND_TYPES.has(command.type)){
+    return ["admin","financeiro"].includes(user?.role)
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Seu perfil não pode alterar transações bancárias da empresa."};
+  }
   if(COMPANY_EXPENSE_COMMAND_TYPES.has(command.type)){
     return ["admin","financeiro"].includes(user?.role)
       ?{ok:true,obraId:"",scope:"company"}

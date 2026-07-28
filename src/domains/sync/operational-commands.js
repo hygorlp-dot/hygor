@@ -30,6 +30,10 @@ import {
   applyPurchaseCancellationCommand,
   PURCHASE_CANCELLATION_COMMAND,
 } from "../compras/purchase-cancellation-command.js";
+import {
+  applyBankTransactionCommand,
+  BANK_TRANSACTION_COMMAND,
+} from "../conciliacao/transaction-commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -44,6 +48,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...WORK_CASH_COMMAND,
   ...PAYABLE_PAYMENT_COMMAND,
   ...PURCHASE_CANCELLATION_COMMAND,
+  ...BANK_TRANSACTION_COMMAND,
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -176,6 +181,16 @@ export const applyOperationalCommand=(data,command)=>{
       ok:true,impact:purchaseCancellationResult.impact,
       data:appendReceipt(
         purchaseCancellationResult.data,command,purchaseCancellationResult.entityId,now,
+      ),
+    };
+  }
+  const bankTransactionResult=applyBankTransactionCommand(data,command,now);
+  if(bankTransactionResult){
+    if(!bankTransactionResult.ok)return bankTransactionResult;
+    return {
+      ok:true,summary:bankTransactionResult.summary,
+      data:appendReceipt(
+        bankTransactionResult.data,command,bankTransactionResult.entityId,now,
       ),
     };
   }

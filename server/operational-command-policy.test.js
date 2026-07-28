@@ -86,6 +86,21 @@ describe("escopo servidor de comandos operacionais",()=>{
       command:{type:OPERATIONAL_COMMAND.PURCHASE_CANCELLED,payload:{orderId:"p-b"}},
     })).toMatchObject({ok:false});
   });
+  it("reserva os comandos de transações bancárias ao financeiro corporativo",()=>{
+    const command={
+      type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED,
+      payload:{targets:[{id:"tx-1",expectedVersion:0}]},
+    };
+    expect(validateOperationalCommandScope({user,data,command}))
+      .toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({
+      user:{id:"fin",role:"financeiro",obraId:"obra-a"},data,command,
+    })).toMatchObject({ok:true,scope:"company",obraId:""});
+    expect(validateOperationalCommandScope({
+      user:{id:"admin",role:"admin"},data,
+      command:{type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED,payload:{}},
+    })).toMatchObject({ok:true,scope:"company"});
+  });
   it("mantém o avanço físico dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-b"}}}})).toMatchObject({ok:false});

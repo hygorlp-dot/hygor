@@ -1535,7 +1535,7 @@ const normalizeData = incoming => {
     comercial: (()=>{
       const c=d.comercial&&typeof d.comercial==="object"?d.comercial:{};
       return {
-        leads:Array.isArray(c.leads)?c.leads.map(l=>({id:l.id||uid(),nome:l.nome||"",tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone||"",whatsapp:l.whatsapp||"",email:l.email||"",cidade:l.cidade||"",origem:l.origem||"",indicadoPorClienteId:l.indicadoPorClienteId||"",indicadoPorObraId:l.indicadoPorObraId||"",indicadoPorNome:l.indicadoPorNome||"",responsavelId:l.responsavelId||"",servico:l.servico||"",orcamentoEstimado:Number(l.orcamentoEstimado||0),prazoDesejado:l.prazoDesejado||"",probabilidade:Number(l.probabilidade||10),fechamentoPrevisto:l.fechamentoPrevisto||"",temperatura:l.temperatura||"morno",observacoes:l.observacoes||"",endereco:l.endereco||"",condominio:l.condominio||"",lote:l.lote||"",areaTerreno:Number(l.areaTerreno||0),areaConstrucao:Number(l.areaConstrucao||0),pavimentos:Number(l.pavimentos||0),tipoServico:l.tipoServico||"",prazoPretendido:l.prazoPretendido||"",padrao:l.padrao||"alto",orcamentoDisponivel:Number(l.orcamentoDisponivel||0),projetosExistentes:l.projetosExistentes||"",etapa:l.etapa||"novo",etapaDesde:l.etapaDesde||l.createdAt||new Date().toISOString(),proximaAtividade:l.proximaAtividade||"",proximaAtividadeEm:l.proximaAtividadeEm||"",status:l.status||"ativo",createdAt:l.createdAt||new Date().toISOString(),updatedAt:l.updatedAt||"",documentos:Array.isArray(l.documentos)?l.documentos:[],historico:Array.isArray(l.historico)?l.historico:[],motivoPerda:l.motivoPerda||"",concorrente:l.concorrente||"",valorConcorrente:Number(l.valorConcorrente||0),reativacaoEm:l.reativacaoEm||"",qualificacao:l.qualificacao||""})):[],
+        leads:Array.isArray(c.leads)?c.leads.map(l=>({...l,id:l.id||uid(),nome:l.nome||"",tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone||"",whatsapp:l.whatsapp||"",email:l.email||"",cidade:l.cidade||"",origem:l.origem||"",indicadoPorClienteId:l.indicadoPorClienteId||"",indicadoPorObraId:l.indicadoPorObraId||"",indicadoPorNome:l.indicadoPorNome||"",responsavelId:l.responsavelId||"",servico:l.servico||"",orcamentoEstimado:Number(l.orcamentoEstimado||0),prazoDesejado:l.prazoDesejado||"",probabilidade:Number(l.probabilidade||10),fechamentoPrevisto:l.fechamentoPrevisto||"",temperatura:l.temperatura||"morno",observacoes:l.observacoes||"",endereco:l.endereco||"",condominio:l.condominio||"",lote:l.lote||"",areaTerreno:Number(l.areaTerreno||0),areaConstrucao:Number(l.areaConstrucao||0),pavimentos:Number(l.pavimentos||0),tipoServico:l.tipoServico||"",prazoPretendido:l.prazoPretendido||"",padrao:l.padrao||"alto",orcamentoDisponivel:Number(l.orcamentoDisponivel||0),projetosExistentes:l.projetosExistentes||"",etapa:l.etapa||"novo",etapaDesde:l.etapaDesde||l.createdAt||new Date().toISOString(),proximaAtividade:l.proximaAtividade||"",proximaAtividadeEm:l.proximaAtividadeEm||"",status:l.status||"ativo",createdAt:l.createdAt||new Date().toISOString(),updatedAt:l.updatedAt||"",documentos:Array.isArray(l.documentos)?l.documentos:[],historico:Array.isArray(l.historico)?l.historico:[],motivoPerda:l.motivoPerda||"",concorrente:l.concorrente||"",valorConcorrente:Number(l.valorConcorrente||0),reativacaoEm:l.reativacaoEm||"",qualificacao:l.qualificacao||""})):[],
         atividades:Array.isArray(c.atividades)?c.atividades.map(a=>({...a,id:a.id||uid(),leadId:a.leadId||"",tipo:a.tipo||"followup",titulo:a.titulo||"",dataHora:a.dataHora||"",responsavelId:a.responsavelId||"",status:a.status||"pendente",observacoes:a.observacoes||"",createdAt:a.createdAt||new Date().toISOString()})):[],
         reunioes:Array.isArray(c.reunioes)?c.reunioes.map(r=>({...r,id:r.id||uid(),leadId:r.leadId||"",dataHora:r.dataHora||"",tipo:r.tipo||"presencial",local:r.local||"",participantes:r.participantes||"",responsavelComercialId:r.responsavelComercialId||"",responsavelTecnicoId:r.responsavelTecnicoId||"",pauta:r.pauta||"",resumo:r.resumo||"",necessidades:r.necessidades||"",objecoes:r.objecoes||"",orcamentoDisponivel:Number(r.orcamentoDisponivel||0),proximosPassos:r.proximosPassos||"",proximoContato:r.proximoContato||"",status:r.status||"agendada",documentos:Array.isArray(r.documentos)?r.documentos:[]})):[],
         propostas:Array.isArray(c.propostas)?c.propostas.map(p=>({...p,id:p.id||uid(),numero:p.numero||"",versao:Number(p.versao||1),leadId:p.leadId||"",clienteId:p.clienteId||"",objeto:p.objeto||"",escopo:p.escopo||"",inclusos:p.inclusos||"",exclusos:p.exclusos||"",entregaveis:p.entregaveis||"",prazo:p.prazo||"",valor:Number(p.valor||0),formaPagamento:p.formaPagamento||"",validade:p.validade||"",responsabilidades:p.responsabilidades||"",premissas:p.premissas||"",status:p.status||"rascunho",createdAt:p.createdAt||new Date().toISOString(),enviadoEm:p.enviadoEm||"",visualizadoEm:p.visualizadoEm||"",aceitoEm:p.aceitoEm||"",rejeitadoEm:p.rejeitadoEm||"",desconto:Number(p.desconto||0),documentos:Array.isArray(p.documentos)?p.documentos:[],historico:Array.isArray(p.historico)?p.historico:[],negociacoes:Array.isArray(p.negociacoes)?p.negociacoes:[]})):[],
@@ -1867,6 +1867,7 @@ const normalizeData = incoming => {
     })) : [],
 
     extratos: Array.isArray(d.extratos) ? d.extratos.map(x => ({
+      ...x,
       id:          x.id     || uid(),
       contaBancariaId: x.contaBancariaId || "",
       banco:       x.banco  || "",
@@ -1889,6 +1890,7 @@ const normalizeData = incoming => {
     })) : [],
 
     transacoes: Array.isArray(d.transacoes) ? d.transacoes.map(x => ({
+      ...x,
       id:        x.id        || uid(),
       extratoId: x.extratoId || "",
       contaBancariaId: x.contaBancariaId || "",
@@ -21562,6 +21564,8 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
   // Fechamento bancário
   const [fecharModal,setFecharModal]=useState(null);
   const [conciliando,setConciliando]=useState(false);
+  const [transacaoCommandPending,setTransacaoCommandPending]=useState(false);
+  const transacaoCommandPendingRef=useRef(false);
 
   const podeOperarConc=podeOperarConciliacao(currentUser?.role);
   const podeOperarConcTrabalhista=podeOperarConciliacaoTrabalhista(currentUser?.role);
@@ -21640,6 +21644,23 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
   },[data.historicoConc,data.transacoes,buscaConc]);
   useEffect(()=>{setSelecionadas([]);setLimiteVisivel(30);},[aba,buscaConc,tipoMovimento]);
   const eventoHistorico=(acao,tr,statusAnterior,statusNovo,detalhes="",extra={})=>({id:uid(),transacaoId:tr?.id||"",extratoId:tr?.extratoId||extra.extratoId||"",acao,statusAnterior,statusNovo,descricao:tr?.descricao||extra.descricao||"",valor:Number(tr?.valor||extra.valor||0),detalhes,operadorId:currentUser?.id||"",operador:currentUser?.nome||currentUser?.email||"Operador",criadoEm:new Date().toISOString(),loteId:extra.loteId||""});
+  const executarComandoBancario=async commandOrFactory=>{
+    if(!dispatchCommand||transacaoCommandPendingRef.current||transacaoCommandPending)return {ok:false};
+    transacaoCommandPendingRef.current=true;
+    setTransacaoCommandPending(true);
+    try{
+      const result=await dispatchCommand(commandOrFactory);
+      if(!result?.ok)showToast(result?.reason||"O servidor não confirmou a alteração bancária.","error");
+      return result||{ok:false};
+    }catch(error){
+      console.error("Falha no comando de transação bancária:",error);
+      showToast(error?.message||"O servidor não confirmou a alteração bancária.","error");
+      return {ok:false};
+    }finally{
+      transacaoCommandPendingRef.current=false;
+      setTransacaoCommandPending(false);
+    }
+  };
 
   //  Motor de candidatos - Fila inteligente
   const rotuloFaixa={[FAIXA_CONFIANCA.FORTE]:"Candidata forte",[FAIXA_CONFIANCA.CONFIRMAR]:"Confirmar",[FAIXA_CONFIANCA.LISTA]:"Possível",[FAIXA_CONFIANCA.FRACA]:"Fraca"};
@@ -21871,7 +21892,6 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
 
   //  Importar extrato
   const importar = async (file) => {
-    await carregarXLSX();
     if (!file) return;
     setImportando(true);
     try {
@@ -21885,6 +21905,7 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
         hash = hashArquivo(txt);
       } else {
         // CSV / XLSX: detecta as colunas de data, descrição e valor
+        await carregarXLSX();
         const buf = await file.arrayBuffer();
         const wb  = await XLSX.read(buf, { type:"array", cellDates:false });
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"", raw:false });
@@ -21930,55 +21951,52 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
         hash = hashArquivo(`${file.name}|${file.size}|${file.lastModified}`);
       }
 
-      if (!brutas.length) { showToast("Nenhuma transação encontrada no arquivo.", "error"); setImportando(false); return; }
+      if (!brutas.length) { showToast("Nenhuma transação encontrada no arquivo.", "error"); return; }
+      if(brutas.length>5000){showToast("O arquivo excede 5.000 movimentos. Divida o período bancário e importe novamente.","error");return;}
 
-      // Deduplicação: nunca reimportar uma transação que já está no sistema
-      const jaTem = new Set((data.transacoes||[]).map(t => t.chave));
-      const novas = [];
-      const dups  = [];
-      brutas.forEach(t => {
+      // O navegador apenas interpreta o arquivo. A deduplicação definitiva
+      // acontece no servidor contra a versão autoritativa e também dentro do
+      // próprio lote, evitando decisões baseadas em uma tela desatualizada.
+      const movimentos = brutas.map(t => {
         const chave = chaveTransacao(t);
-        if (jaTem.has(chave)) { dups.push(t); return; }
-        jaTem.add(chave);   // evita duplicata dentro do próprio arquivo
-        novas.push({
+        return {
           id: uid(), extratoId: "", contaBancariaId: contaBancariaImport, data: t.data, descricao: t.descricao,
           descricaoOriginal:t.descricaoOriginal||t.descricao, valor: t.valor, chave, fitid:t.fitid||"",
           endToEndId:t.endToEndId||"", txid:t.txid||"", tipoOperacao:t.tipoOperacao||"",
           direcao:t.valor>0?"entrada":"saida", contraparteNome:t.contraparteNome||"", contraparteDocumento:t.contraparteDocumento||"",
           chavePix:t.chavePix||"", metadadosImportacao:t.metadadosImportacao||{arquivo:file.name},
           status: "pendente", rateios: [], gerados: [], obs: "",
-        });
+        };
       });
-
-      if (!novas.length) {
-        showToast(`Todas as ${dups.length} transações já haviam sido importadas.`, "warn");
-        setImportando(false); return;
-      }
-
-      const datas = novas.map(t=>t.data).sort();
+      const datas = movimentos.map(t=>t.data).sort();
       const extrato = {
         id: uid(), contaBancariaId: contaBancariaImport, banco, conta, arquivo: file.name, hashArquivo: hash,
         dataInicio: datas[0], dataFim: datas[datas.length-1],
         importadoEm: new Date().toISOString(), importadoPorId: currentUser?.id||"", importadoPor: currentUser?.nome||currentUser?.email||"",
-        qtd: novas.length, qtdDuplicadas: dups.length, status: "ativo",
+        qtd: movimentos.length, qtdDuplicadas: 0, status: "ativo",
       };
-      novas.forEach(t => { t.extratoId = extrato.id; });
+      movimentos.forEach(t => { t.extratoId = extrato.id; });
 
-      update({
-        ...data,
-        extratos:   [...(data.extratos||[]), extrato],
-        transacoes: [...(data.transacoes||[]), ...novas],
-        historicoConc:[...(data.historicoConc||[]),eventoHistorico("extrato_importado",null,"","pendente",`${novas.length} nova(s) transação(ões); ${dups.length} repetida(s) descartada(s).`,{extratoId:extrato.id,descricao:extrato.arquivo,valor:novas.reduce((s,t)=>s+Math.abs(Number(t.valor||0)),0)})],
-      });
+      const result=await executarComandoBancario(()=>({
+        type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED,
+        idempotencyKey:`bank-import-${extrato.id}-${uid()}`,
+        payload:{
+          statement:extrato,transactions:movimentos,
+        },
+      }));
+      if(!result?.ok)return;
+      const imported=Number(result.summary?.imported??movimentos.length);
+      const duplicates=Number(result.summary?.duplicates??0);
       showToast(
-        dups.length
-          ? `${novas.length} novas importadas  ${dups.length} já existiam (ignoradas).`
-          : `${novas.length} transações importadas.`
+        duplicates
+          ? `${imported} novas importadas · ${duplicates} já existiam (ignoradas).`
+          : `${imported} transações importadas.`
       );
     } catch (e) {
       showToast("Erro ao ler o extrato. Confirme o formato (.ofx, .csv ou .xlsx).", "error");
+    } finally {
+      setImportando(false);
     }
-    setImportando(false);
   };
 
   //  Apropriar 
@@ -22134,21 +22152,39 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
     if(!itens.length){showToast("Nenhuma transação pendente selecionada.","warn");return;}
     setIgnorarModal({ids:itens.map(t=>t.id),titulo:titulo||"Ignorar transações",motivo:"",valor:itens.reduce((s,t)=>s+Math.abs(Number(t.valor||0)),0)});
   };
-  const confirmarIgnorar = () => {
+  const confirmarIgnorar = async () => {
     const motivo=String(ignorarModal?.motivo||"").trim();
     if(!motivo){showToast("Informe o motivo para manter o histórico auditável.","error");return;}
-    const ids=new Set(ignorarModal.ids||[]),agora=new Date().toISOString(),loteId=uid();
+    const ids=new Set(ignorarModal.ids||[]);
     const alvos=(data.transacoes||[]).filter(t=>ids.has(t.id)&&t.status==="pendente");
-    update({...data,transacoes:(data.transacoes||[]).map(t=>ids.has(t.id)&&t.status==="pendente"?{...t,status:"ignorado",ignoradoMotivo:motivo,statusAtualizadoEm:agora,statusAtualizadoPorId:currentUser?.id||"",statusAtualizadoPor:currentUser?.nome||currentUser?.email||"Operador"}:t),historicoConc:[...(data.historicoConc||[]),...alvos.map(t=>eventoHistorico(alvos.length>1?"ignorada_em_lote":"ignorada",t,"pendente","ignorado",motivo,{loteId}))]});
+    const result=await executarComandoBancario(atual=>({
+      type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED,
+      idempotencyKey:`bank-ignore-${Date.now()}-${uid()}`,
+      payload:{
+        reason:motivo,
+        targets:(atual.transacoes||[])
+          .filter(t=>ids.has(t.id))
+          .map(t=>({id:t.id,expectedVersion:Number(t.version||0)})),
+      },
+    }));
+    if(!result?.ok)return;
     setIgnorarModal(null);setSelecionadas([]);showToast(`${alvos.length} transação(ões) ignorada(s). Você pode reabri-las na aba Ignoradas.`);
   };
-  const reabrir = (alvos) => {
+  const reabrir = async (alvos) => {
     const ids=new Set((alvos||[]).map(item=>typeof item==="string"?item:item.id));
     const itens=(data.transacoes||[]).filter(t=>ids.has(t.id)&&t.status==="ignorado");
     if(!itens.length)return;
     if(itens.length>1&&!window.confirm(`Reabrir ${itens.length} transações para nova classificação?`))return;
-    const agora=new Date().toISOString(),loteId=uid();
-    update({...data,transacoes:(data.transacoes||[]).map(t=>ids.has(t.id)&&t.status==="ignorado"?{...t,status:"pendente",ignoradoMotivo:"",statusAtualizadoEm:agora,statusAtualizadoPorId:currentUser?.id||"",statusAtualizadoPor:currentUser?.nome||currentUser?.email||"Operador"}:t),historicoConc:[...(data.historicoConc||[]),...itens.map(t=>eventoHistorico(itens.length>1?"reaberta_em_lote":"reaberta",t,"ignorado","pendente",t.ignoradoMotivo?`Motivo anterior: ${t.ignoradoMotivo}`:"",{loteId}))]});
+    const result=await executarComandoBancario(atual=>({
+      type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED,
+      idempotencyKey:`bank-reopen-${Date.now()}-${uid()}`,
+      payload:{
+        targets:(atual.transacoes||[])
+          .filter(t=>ids.has(t.id))
+          .map(t=>({id:t.id,expectedVersion:Number(t.version||0)})),
+      },
+    }));
+    if(!result?.ok)return;
     setSelecionadas([]);setAba("pendentes");showToast(`${itens.length} transação(ões) reaberta(s).`);
   };
 
@@ -37649,6 +37685,7 @@ export default function App() {
       return {
         ok:true,idempotent:!!resposta.idempotent,data:resposta.data,
         ...(resposta.copied!=null?{copied:resposta.copied}:{}),
+        ...(resposta.summary!=null?{summary:resposta.summary}:{}),
       };
     };
     const pendente=commandTailRef.current.then(executar,executar);
