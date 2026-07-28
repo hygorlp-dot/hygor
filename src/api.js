@@ -243,7 +243,13 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
     return detalhe;
   }
 
-  if (r.status !== 200) return { ok: false, conflict: false, reason: r.error || "Falha ao salvar." };
+  if (r.status !== 200) return {
+    ok:false,
+    conflict:false,
+    status:r.status,
+    code:r.code || "",
+    reason:r.error || "Falha ao salvar.",
+  };
 
   ultimoUpdatedAt = r.updatedAt || null;
   return { ok: true, conflict: false, merged:!!r.merged, data:r.data, savedSections:r.savedSections||chaves, updatedAt: ultimoUpdatedAt };

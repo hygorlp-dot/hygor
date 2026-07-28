@@ -58,4 +58,20 @@ describe("fila serializada de salvamento", () => {
     expect(snapshots.at(-1).eventos).toHaveLength(100);
     expect(snapshots.at(-1).eventos.at(-1)).toBe(99);
   });
+
+  it("não chama erro de regra do servidor de falha de conexão nem repete 409", async()=>{
+    let calls=0;let retryCount=0;let failure;
+    const queue=createSaveQueue({
+      save:async()=>{calls+=1;return{ok:false,status:409,reason:"FIN-003 bloqueou a seção."};},
+      onRetry:()=>{retryCount+=1;},
+      onFailed:event=>{failure=event;},
+    });
+    queue.enqueue({attendance:{}});
+    await Promise.resolve();
+
+    expect(calls).toBe(1);
+    expect(retryCount).toBe(0);
+    expect(queue.getState()).toBe(SAVE_QUEUE_STATE.FAILED);
+    expect(failure.result.reason).toBe("FIN-003 bloqueou a seção.");
+  });
 });

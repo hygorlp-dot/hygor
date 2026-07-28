@@ -29,6 +29,15 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
         onFailed({result,attempts,pending:target,offline:true});
         return;
       }
+      // Recusas de regra/permissão chegaram ao servidor e não serão resolvidas
+      // repetindo a mesma requisição. Exibir o motivo real evita a mensagem
+      // enganosa "sem resposta" e impede um loop de 409/403.
+      const status=Number(result?.status||0);
+      if(status>=400&&status<500&&![408,429].includes(status)){
+        transition(SAVE_QUEUE_STATE.FAILED);
+        onFailed({result,attempts,pending:target,offline:false});
+        return;
+      }
       attempts+=1;
       if(attempts<=maxRetries){
         const delay=retryDelay(attempts);

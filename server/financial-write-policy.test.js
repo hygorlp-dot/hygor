@@ -14,4 +14,10 @@ describe("gate FIN-003 de persistência",()=>{
   it("não bloqueia seções não financeiras",()=>{
     expect(validateFinancialWritePath({engineEnforced:true,sections:{preferencias:{tema:"claro"}}})).toEqual({ok:true});
   });
+
+  it("mantém o ponto como fonte operacional auditada do razão",()=>{
+    const sections={attendance:{e1:{"2026-07-28":{status:"P",obraId:"o1"}}}};
+    expect(hasLegacyFinancialWrite(sections)).toBe(true);
+    expect(validateFinancialWritePath({engineEnforced:true,sections})).toEqual({ok:true});
+  });
 });

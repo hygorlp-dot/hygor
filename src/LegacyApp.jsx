@@ -36826,7 +36826,7 @@ export default function App() {
         setUltimaSync(new Date());
       },
       onConflict:()=>showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações aguardam resolução do conflito.","error"),
-      onRetry:({delay})=>showToast(`Sem resposta do servidor. Nova tentativa em ${Math.round(delay/1000)}s.`,"error"),
+      onRetry:({result,delay})=>showToast(`${result?.reason||"Não foi possível conectar ao servidor."} Nova tentativa em ${Math.round(delay/1000)}s.`,"error"),
       onFailed:({result,offline})=>showToast(offline?"Sem conexão. As alterações seguem guardadas e serão retomadas ao reconectar.":(result?.reason||"Alterações não sincronizadas. Confira a conexão e faça uma nova ação para tentar novamente."),"error"),
     });
   }
