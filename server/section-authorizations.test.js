@@ -22,6 +22,13 @@ describe("autorização de produção",()=>{
     expect(authorizeSectionChanges({role:"rh"},{pagsTerceiros:[{id:"p1",obraId:"o1",tercId:"t1"}]})).toMatch(/permissão/);
   });
   it("não aceita exclusão física de baseline",()=>expect(validateNoPhysicalDeletes({scheduleBaselines:[{id:"b"}]},{scheduleBaselines:[]})).toMatch(/excluir fisicamente/));
+  it("bloqueia substituição acidental de catálogos por uma fotografia antiga",()=>{
+    const anterior={materiais:[{id:"m1"},{id:"m2"}]};
+    expect(validateNoPhysicalDeletes(anterior,{materiais:[{id:"m1"},{id:"m3"}]})).toMatch(/substituiria cadastros/);
+    expect(validateNoPhysicalDeletes(anterior,{materiais:[]})).toMatch(/substituiria cadastros/);
+    expect(validateNoPhysicalDeletes(anterior,{materiais:[{id:"m2"}]})).toBe("");
+    expect(validateNoPhysicalDeletes(anterior,{materiais:[...anterior.materiais,{id:"m3"}]})).toBe("");
+  });
   it("impede alteração ou remoção de versão orçamentária aprovada",()=>{
     const anterior={orcamentos:[{id:"o1",versionStatus:"aprovada",itens:[{id:"i1",precoUnit:10}]}]};
     expect(validateNoPhysicalDeletes(anterior,{orcamentos:[{id:"o1",versionStatus:"aprovada",itens:[{id:"i1",precoUnit:11}]}]})).toMatch(/imutáveis/);

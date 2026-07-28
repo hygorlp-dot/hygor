@@ -128,6 +128,7 @@ import { calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-ca
 import { saldoPagamentoNota, statusPagamentoNota, totalPagoNota } from "./domains/financeiro/payables";
 import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-summary";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
+import { reconcileOptimisticSnapshot } from "./domains/sync/optimistic-merge";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from "./domains/ponto/permissions";
@@ -36532,7 +36533,11 @@ export default function App() {
     // Aceita atualização funcional. O resolvedor recebe sempre o espelho mais
     // recente, mesmo que o React ainda não tenha renderizado o clique anterior.
     // Isso elimina a dependência de closures antigos nos fluxos migrados.
-    if(typeof next==="function")next=next(dataAtualRef.current||DEFAULT());
+    let rendered=data||dataAtualRef.current||DEFAULT();
+    if(typeof next==="function"){
+      rendered=dataAtualRef.current||rendered;
+      next=next(rendered);
+    }
     if(next&&next.__aguardarFila){
       return saveQueueRef.current?.waitForIdle()||{ok:true,state:SAVE_QUEUE_STATE.IDLE};
     }
@@ -36552,28 +36557,19 @@ export default function App() {
       return;
     }
 
-    // RECONCILIACAO CONTRA O ESTADO MAIS RECENTE
-    // Se um save anterior ainda nao propagou pelo React, o `next` que chega
-    // pode ter sido montado sobre um `data` velho (closure do componente), o
-    // que apagaria aquele save. Comparamos, por secao (top-level key), o `next`
-    // com o ultimo estado que produzimos: as secoes iguais ao render anterior
-    // herdam a versao mais recente; as que o chamador de fato mudou prevalecem.
-    let base = next;
-    try {
-      const recente = ultimoDataRef.current;
-      const anterior = dataAtualRef.current;
-      if (recente && anterior && recente !== anterior) {
-        // Houve save(s) que o closure do chamador ainda nao viu.
-        const reconciliado = { ...recente };
-        Object.keys(next).forEach(k => {
-          // O chamador mudou esta secao se ela difere do que ele tinha (anterior).
-          if (next[k] !== anterior[k]) reconciliado[k] = next[k];
-        });
-        // Secoes novas que so existem no next tambem entram.
-        Object.keys(next).forEach(k => { if (!(k in reconciliado)) reconciliado[k] = next[k]; });
-        base = reconciliado;
-      }
-    } catch (e) { console.error("reconc", e); base = next; }
+    // RECONCILIAÇÃO CONTRA O ESTADO MAIS RECENTE
+    // `rendered` é exatamente a fotografia usada pelo handler do clique.
+    // `ultimoDataRef` pode já conter outro cadastro ainda não renderizado.
+    // A mescla de três vias aplica só a intenção do clique e conserva tanto
+    // alterações de outros módulos quanto dois cadastros rápidos na mesma lista.
+    let base=next;
+    try{
+      base=reconcileOptimisticSnapshot({
+        latest:ultimoDataRef.current||rendered,
+        rendered,
+        intended:next,
+      });
+    }catch(e){console.error("optimistic-reconcile",e);base=next;}
 
     // O histórico auditável é criado exclusivamente no servidor, na mesma
     // transação da mutação. O cliente nunca fabrica nem substitui auditoria.
@@ -36586,7 +36582,7 @@ export default function App() {
     // proximo a enviar. Nunca ha dois saves simultaneos - fim dos 409 do
     // proprio dispositivo contra si mesmo.
     return saveQueueRef.current.enqueue(normalized);
-  }, [showToast]);
+  }, [data,showToast]);
 
   // Ponte de migração para comandos por agregado. O comando é criado dentro
   // da atualização funcional, portanto `expectedVersion` é verificado contra

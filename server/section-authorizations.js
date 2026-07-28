@@ -64,6 +64,23 @@ const cancelado=item=>[
 ].includes(String(item?.status||"").toLowerCase());
 const temMotivo=item=>String(item?.motivoCancelamento||item?.motivoEstorno||item?.motivoArquivamento||"").trim().length>0;
 const porId=value=>new Map((Array.isArray(value)?value:[]).map(item=>[String(item?.id||""),item]).filter(([id])=>id));
+const CATALOG_SECTIONS=new Set([
+  "unidades","materiais","fornecedores","composicoes","composicoesEmpresa",
+  "fases","categoriasDesp",
+]);
+
+const validarMutacaoCatalogo=(antes,depois,nome)=>{
+  const anteriores=porId(antes),posteriores=porId(depois);
+  const removidos=[...anteriores.keys()].filter(id=>!posteriores.has(id));
+  const adicionados=[...posteriores.keys()].filter(id=>!anteriores.has(id));
+  // Uma tela de cadastro opera um registro por vez. Várias remoções, ou
+  // remover e criar IDs no mesmo snapshot, indicam quase sempre que um clique
+  // partiu de uma renderização antiga e tentou substituir o catálogo vigente.
+  if(removidos.length>1||(removidos.length&&adicionados.length)){
+    return `A atualização de ${nome} substituiria cadastros existentes. Recarregue os dados e salve um registro por vez.`;
+  }
+  return "";
+};
 
 const validarCancelamentos = (antes, depois, nome) => {
   const anteriores=porId(antes), posteriores=porId(depois);
@@ -122,6 +139,11 @@ const validarOrcamentosAprovados=(antes,depois)=>{
   return "";
 };
 export const validateNoPhysicalDeletes = (previous = {}, next = {}) => {
+  for(const key of CATALOG_SECTIONS){
+    if(!Object.prototype.hasOwnProperty.call(next,key))continue;
+    const erro=validarMutacaoCatalogo(previous[key],next[key],key);
+    if(erro)return erro;
+  }
   for(const key of APPEND_ONLY_SECTIONS){
     if(!Object.prototype.hasOwnProperty.call(next,key))continue;
     const erro=validarCancelamentos(previous[key],next[key],key);
