@@ -10489,7 +10489,7 @@ function Folha({ data, showToast, onTab }) {
       </section>
 
       <section className="payroll-summary-strip" aria-label="Composição do pagamento">
-        <div><span>Valor dos dias</span><strong>{fmt(T.gross-T.holidayPay)}</strong></div>
+        <div><span>Dias + horas extras</span><strong>{fmt(T.gross-T.holidayPay)}</strong></div>
         <div><span>Feriados</span><strong>{fmt(T.holidayPay)}</strong><small>{T.feriadosPagos} pago(s) · {T.feriadosPerdidos} perdido(s)</small></div>
         <div><span>Benefícios</span><strong>{fmt(T.vt+T.vr)}</strong><small>VT {fmt(T.vt)} · VR {fmt(T.vr)}</small></div>
         <div><span>Adiantamentos</span><strong data-tone={T.advances>0?"danger":"neutral"}>{T.advances>0?`− ${fmt(T.advances)}`:fmt(0)}</strong></div>
@@ -10558,7 +10558,7 @@ function Folha({ data, showToast, onTab }) {
               )}
               <div className="payroll-detail-metrics">
                 {[
-                  ["Diária", fmt(r.dailyRate)], ["Bruto", fmt(v.gross)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Líquido", fmt(v.net), C.yellow], ["HE", `${r.ot}h · ${fmt(v.overtimePay)}`, C.purple], ["Feriados pagos", v.feriadosPagos], ["Feriados perdidos", v.feriadosPerdidos, C.red], ["Valor feriado", fmt(v.holidayPay), C.green],
+                  ["Diária", fmt(r.dailyRate)], ["Bruto", fmt(v.gross)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Líquido", fmt(v.net), C.yellowD], ["HE", `${r.ot}h · ${fmt(v.overtimePay)}`, C.purple], ["Feriados pagos", v.feriadosPagos], ["Feriados perdidos", v.feriadosPerdidos, C.red], ["Valor feriado", fmt(v.holidayPay), C.green],
                 ].map(([label, value, color]) => (
                   <div key={label} className="payroll-detail-metric">
                     <p>{label}</p>
