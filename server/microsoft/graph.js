@@ -18,8 +18,25 @@ export const seal = value => { const iv = crypto.randomBytes(12); const cipher =
 export const unseal = value => { try { const raw = Buffer.from(value, "base64url"); const decipher = crypto.createDecipheriv("aes-256-gcm", key(), raw.subarray(0, 12)); decipher.setAuthTag(raw.subarray(12, 28)); return JSON.parse(Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString("utf8")); } catch { return null; } };
 export const cookies = req => Object.fromEntries(String(req.headers.cookie || "").split(";").map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf("=");return [x.slice(0,i),decodeURIComponent(x.slice(i+1))];}));
 export const setCookie = (res, name, value, maxAge = 60 * 60 * 24 * 90) => res.setHeader("Set-Cookie", [...(Array.isArray(res.getHeader("Set-Cookie"))?res.getHeader("Set-Cookie"):res.getHeader("Set-Cookie")?[res.getHeader("Set-Cookie")]:[]),`${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`]);
-export const saveCentralSession = async session => { if(!db)return; await db.from("company_app_data").upsert({company_id:COMPANY,key:AUTH_KEY,value:{sealed:seal(session)},updated_at:new Date().toISOString()},{onConflict:"company_id,key"}); };
-const loadCentralSession = async () => { if(!db)return null; const {data}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",AUTH_KEY).maybeSingle(); return unseal(data?.value?.sealed); };
+export const saveCentralSession = async session => {
+  if(!db)throw new Error("Persistência central do OneDrive não configurada.");
+  const {error}=await db.from("company_app_data").upsert({
+    company_id:COMPANY,key:AUTH_KEY,value:{sealed:seal(session)},
+    updated_at:new Date().toISOString(),
+  },{onConflict:"company_id,key"});
+  if(error)throw new Error(`Não foi possível persistir a sessão central do OneDrive: ${error.message}`);
+  const confirmed=await loadCentralSession();
+  if(!confirmed?.refreshToken){
+    throw new Error("A sessão central do OneDrive não pôde ser confirmada após a gravação.");
+  }
+};
+const loadCentralSession = async () => {
+  if(!db)return null;
+  const {data,error}=await db.from("company_app_data").select("value")
+    .eq("company_id",COMPANY).eq("key",AUTH_KEY).maybeSingle();
+  if(error)throw new Error(`Não foi possível carregar a sessão central do OneDrive: ${error.message}`);
+  return unseal(data?.value?.sealed);
+};
 export const verifyAppUser = async (userId,pin,accessToken) => !db ? null : authenticateAppContext({userId,pin,accessToken},{scope:"onedrive"});
 export const fileSignature=(driveId,itemId)=>crypto.createHmac("sha256",String(CLIENT_SECRET)).update(`${driveId}:${itemId}`).digest("base64url");
 export const configured = () => !!(CLIENT_ID && CLIENT_SECRET && REDIRECT_URI && ROOT_URL);

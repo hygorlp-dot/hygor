@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-28T00:11:16.918Z",
+  "generatedAt": "2026-07-28T18:37:14.668Z",
   "totals": {
-    "bytes": 4154607,
-    "gzipBytes": 1155025
+    "bytes": 4166412,
+    "gzipBytes": 1158802
   },
   "assets": [
     {
-      "name": "LegacyApp-6WXLpyn0.js",
-      "bytes": 2180097,
-      "gzipBytes": 606987
+      "name": "LegacyApp-Bi9m4ixl.js",
+      "bytes": 2191716,
+      "gzipBytes": 610722
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -31,9 +31,9 @@
       "gzipBytes": 32257
     },
     {
-      "name": "index-C2TLGiiO.css",
-      "bytes": 133693,
-      "gzipBytes": 26275
+      "name": "index-DVl8cai4.css",
+      "bytes": 133879,
+      "gzipBytes": 26317
     },
     {
       "name": "ClientPortalApp-DNn-QSPC.js",
@@ -56,9 +56,9 @@
       "gzipBytes": 4542
     },
     {
-      "name": "index-BXfHA4ss.js",
+      "name": "index-R_M4Le2v.js",
       "bytes": 8978,
-      "gzipBytes": 3890
+      "gzipBytes": 3889
     },
     {
       "name": "ClientPortalApp-CY00BwLl.css",
@@ -81,9 +81,9 @@
       "gzipBytes": 1247
     },
     {
-      "name": "LegacyMobileNavigation-B5oR2DCj.js",
+      "name": "LegacyMobileNavigation-Te1NtqYX.js",
       "bytes": 2628,
-      "gzipBytes": 1216
+      "gzipBytes": 1217
     },
     {
       "name": "LoginProjectParallax-COWgOAZU.js",
@@ -96,7 +96,7 @@
       "gzipBytes": 1073
     },
     {
-      "name": "MobileMoreMenu-Cqx0p-ZI.js",
+      "name": "MobileMoreMenu-B3IgyXBV.js",
       "bytes": 1832,
       "gzipBytes": 877
     },

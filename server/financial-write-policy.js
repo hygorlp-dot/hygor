@@ -3,7 +3,7 @@
 export const FINANCIAL_LEGACY_SECTIONS=new Set([
   "payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","transacoes",
   "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
-  "titulosFolha","reconciliationLinks","rescisoes","comercial",
+  "titulosFolha","reconciliationLinks","rescisoes",
   "attendance","employees","archivedLaborCosts","config","obras",
   "equipamentos","locacoesEquip","manutencoesEquip",
 ]);
@@ -21,7 +21,7 @@ export const FINANCIAL_OPERATIONAL_SOURCE_SECTIONS=new Set(["attendance"]);
 export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
   "payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","transacoes",
   "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
-  "titulosFolha","reconciliationLinks","rescisoes","comercial",
+  "titulosFolha","reconciliationLinks","rescisoes",
   "attendance","employees","archivedLaborCosts","config","obras",
 ]);
 
@@ -35,7 +35,6 @@ export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
   rh_ponto:[
     "attendance","employees","archivedLaborCosts","pagamentosFolha","titulosFolha","rescisoes",
   ],
-  comercial:["comercial"],
   obras_configuracoes:["obras","config"],
 });
 

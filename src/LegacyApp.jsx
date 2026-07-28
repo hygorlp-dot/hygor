@@ -36522,7 +36522,18 @@ export default function App() {
       onSuccess:({result, target})=>{
         const confirmado=normalizeData(result.merged&&result.data?result.data:target);
         baseServidorRef.current=confirmado;
-        if(result.merged){ultimoDataRef.current=confirmado;dataAtualRef.current=confirmado;setData(confirmado);showToast("Alterações simultâneas foram combinadas automaticamente.");}
+        if(result.merged){
+          // Uma resposta mesclada confirma `target`, mas pode chegar depois de
+          // outro clique já ter produzido um snapshot local mais novo. Reaplica
+          // essa intenção pendente sobre a nova base para a tela não "voltar"
+          // e esconder uma edição que a fila ainda vai enviar.
+          const localMaisNovo=ultimoDataRef.current||dataAtualRef.current||target;
+          const rebaseado=normalizeData(reconcileOptimisticSnapshot({
+            latest:confirmado,rendered:target,intended:localMaisNovo,
+          }));
+          ultimoDataRef.current=rebaseado;dataAtualRef.current=rebaseado;setData(rebaseado);
+          showToast("Alterações simultâneas foram combinadas automaticamente.");
+        }
         setUltimaSync(new Date());
       },
       onConflict:()=>showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações aguardam resolução do conflito.","error"),

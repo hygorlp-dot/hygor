@@ -49,12 +49,21 @@ const tokenExpiraEmBreve = (token, margemSegundos=30) => {
 
 const renovarSessaoEmail = async () => {
   if(!sessao.refreshToken)return false;
-  const response=await fetch(ROTA,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"auth-refresh",refreshToken:sessao.refreshToken})});
-  const refreshed=await response.json().catch(()=>({}));
-  if(!response.ok||!refreshed.accessToken)return false;
-  sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
-  try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
-  return true;
+  const controller=new AbortController();
+  const timer=window.setTimeout(()=>controller.abort(),15000);
+  try{
+    const response=await fetch(ROTA,{
+      method:"POST",signal:controller.signal,
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({action:"auth-refresh",refreshToken:sessao.refreshToken}),
+    });
+    const refreshed=await response.json().catch(()=>({}));
+    if(!response.ok||!refreshed.accessToken)return false;
+    sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
+    try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
+    return true;
+  }catch{return false;}
+  finally{window.clearTimeout(timer);}
 };
 
 export const fecharSessao = () => {
@@ -105,22 +114,30 @@ const chamar = async (body) => {
 // de e-mail antes de repetir a requisição.
 const chamarRotaAutenticada = async (rota, payload = {}) => {
   if (!temSessao()) return { ok:false, status:401, error:"Sessão encerrada." };
-  const executar = () => fetch(rota, {
-    method:"POST",
-    headers:{ "content-type":"application/json" },
-    body:JSON.stringify({ ...credenciais(), ...payload }),
-  });
-  let response = await executar();
+  const executar = async () => {
+    const controller=new AbortController();
+    const timer=window.setTimeout(()=>controller.abort(),45000);
+    try{
+      const response=await fetch(rota,{
+        method:"POST",signal:controller.signal,
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({...credenciais(),...payload}),
+      });
+      return {response};
+    }catch(error){
+      return {error:error?.name==="AbortError"
+        ?"O servidor demorou mais de 45 segundos para responder."
+        :"Não foi possível conectar ao servidor."};
+    }finally{window.clearTimeout(timer);}
+  };
+  let tentativa=await executar();
+  if(!tentativa.response)return {ok:false,status:0,error:tentativa.error};
+  let response=tentativa.response;
   if (response.status === 401 && sessao.refreshToken) {
-    const refreshResponse = await fetch(ROTA, {
-      method:"POST", headers:{ "content-type":"application/json" },
-      body:JSON.stringify({ action:"auth-refresh", refreshToken:sessao.refreshToken }),
-    });
-    const refreshed = await refreshResponse.json().catch(() => ({}));
-    if (refreshResponse.ok && refreshed.accessToken) {
-      sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
-      try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
-      response=await executar();
+    if(await renovarSessaoEmail()){
+      tentativa=await executar();
+      if(!tentativa.response)return {ok:false,status:0,error:tentativa.error};
+      response=tentativa.response;
     }
   }
   const json=await response.json().catch(()=>({}));
@@ -341,7 +358,11 @@ export const listarPresencas = async () => {
 // Dividem o endpoint /api/presence (dispatch por "action") em vez de cada um
 // ganhar seu próprio arquivo - o Hobby plan do Vercel tem um teto de 12
 // Serverless Functions por deployment.
-export const enviarMensagemChat = texto => chamarRotaAutenticada("/api/presence", { action: "chat-send", text: texto });
+const novaOperacaoId=()=>globalThis.crypto?.randomUUID?.()
+  || `op-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+export const enviarMensagemChat = texto => chamarRotaAutenticada("/api/presence", {
+  action:"chat-send",text:texto,operationId:novaOperacaoId(),
+});
 export const listarMensagensChat = () => chamarRotaAutenticada("/api/presence", { action: "chat-list" });
 export const apagarMensagemChat = messageId => chamarRotaAutenticada("/api/presence", { action: "chat-delete", messageId });
 export const silenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/presence", { action: "chat-mute", targetUserId });
@@ -349,7 +370,9 @@ export const dessilenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/a
 
 export const listarAjustesRanking = () => chamarRotaAutenticada("/api/presence", { action: "ranking-list" });
 export const adicionarAjusteRanking = (targetUserId, pontos, motivo) =>
-  chamarRotaAutenticada("/api/presence", { action: "ranking-add", targetUserId, pontos, motivo });
+  chamarRotaAutenticada("/api/presence", {
+    action:"ranking-add",targetUserId,pontos,motivo,operationId:novaOperacaoId(),
+  });
 export const removerAjusteRanking = adjustmentId => chamarRotaAutenticada("/api/presence", { action: "ranking-remove", adjustmentId });
 
 // ── Quinzenas arquivadas ──────────────────────────────────────────

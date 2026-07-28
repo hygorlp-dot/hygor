@@ -1,11 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { decodeAppData } from "../server/data-codec.js";
+import { compactProfiles, decodeAppData } from "../server/data-codec.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const DATA_KEY = "arced_ponto_v1";
+const PROFILE_KEY = "arced_auth_profiles_v1";
 
 const sha256 = value => crypto.createHash("sha256").update(String(value || "")).digest("hex");
 const attempts = new Map();
@@ -34,14 +35,32 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
   const db = createClient(URL, SERVICE, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data, error } = await db.from("company_app_data")
+  const {data:profileRow,error:profileError}=await db.from("company_app_data")
     .select("value")
     .eq("company_id", COMPANY)
-    .eq("key", DATA_KEY)
+    .eq("key", PROFILE_KEY)
     .maybeSingle();
-  if (error || !data) return null;
-
-  const payload = decodeAppData(data.value);
+  if(profileError)return null;
+  let payload=profileRow?.value||null;
+  // Índices antigos não possuíam o hash do PIN. Fazemos uma única leitura do
+  // blob legado e regeneramos o índice; autenticações seguintes permanecem
+  // leves e não descompactam toda a empresa.
+  const indexedUser=(payload?.usuarios||[]).find(u=>u.id===userId);
+  const needsFullPayload=!payload||(!accessToken&&userId&&pin&&!indexedUser?.pin);
+  if(needsFullPayload){
+    const {data,error}=await db.from("company_app_data")
+      .select("value")
+      .eq("company_id",COMPANY)
+      .eq("key",DATA_KEY)
+      .maybeSingle();
+    if(error||!data)return null;
+    const fullPayload=decodeAppData(data.value);
+    payload=compactProfiles(fullPayload);
+    const {error:indexError}=await db.from("company_app_data").upsert({
+      company_id:COMPANY,key:PROFILE_KEY,value:payload,updated_at:new Date().toISOString(),
+    },{onConflict:"company_id,key"});
+    if(indexError)console.error("Não foi possível atualizar o índice de autenticação:",indexError.message);
+  }
   if (accessToken) {
     const { data: auth, error: authError } = await db.auth.getUser(accessToken);
     if (!authError && auth?.user) {

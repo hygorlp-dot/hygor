@@ -31,6 +31,7 @@ import { validateProcurementChain } from "../server/procurement-chain-policy.js"
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { findSectionConflicts } from "../server/three-way-conflicts.js";
+import { mergeThreeWay } from "../server/three-way-merge.js";
 import { authorizeSectionChanges, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
@@ -376,30 +377,6 @@ const encontrarUsuarioAuth = (payload, authUser) => {
 
 const igual = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const objeto = value => value && typeof value === "object" && !Array.isArray(value);
-const mesclarTresVias = (base, recebido, atual) => {
-  if (igual(recebido, base)) return atual;
-  if (igual(atual, base)) return recebido;
-  if (Array.isArray(recebido) && Array.isArray(atual) && Array.isArray(base)) {
-    const identificavel = [...base,...recebido,...atual].every(x => objeto(x) && x.id != null);
-    if (!identificavel) return recebido;
-    const bm=new Map(base.map(x=>[String(x.id),x])), rm=new Map(recebido.map(x=>[String(x.id),x])), am=new Map(atual.map(x=>[String(x.id),x]));
-    const ordem=[...atual.map(x=>String(x.id)),...recebido.map(x=>String(x.id))].filter((id,i,a)=>a.indexOf(id)===i);
-    return ordem.flatMap(id => {
-      const b=bm.get(id), r=rm.get(id), a=am.get(id);
-      if (b && !r) return igual(a,b)?[]:(a?[a]:[]);
-      if (!r) return a?[a]:[];
-      if (!a) return [r];
-      return [mesclarTresVias(b,r,a)];
-    });
-  }
-  if (objeto(recebido) && objeto(atual)) {
-    const out={};
-    const keys=new Set([...Object.keys(base||{}),...Object.keys(atual),...Object.keys(recebido)]);
-    keys.forEach(k=>{out[k]=mesclarTresVias(base?.[k],recebido[k],atual[k]);});
-    return out;
-  }
-  return recebido;
-};
 
 // A Conferência tem segregação de função: o vistoriador registra e julga;
 // quem recebeu o ajuste apenas anexa a própria evidência. A validação precisa
@@ -1144,17 +1121,17 @@ export default async function handler(req, res) {
         const conflicts=findSectionConflicts(baseSections,sections,atual,chaves);
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
       }
-      const aplicar = (estado, concorrente) => {
+      const aplicar = estado => {
         const proximo={...(estado||{})};
         chaves.forEach(k => {
-          const recebido=concorrente&&baseSections&&Object.prototype.hasOwnProperty.call(baseSections,k)
-            ? mesclarTresVias(baseSections[k],sections[k],estado?.[k])
+          const recebido=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,k)
+            ? mergeThreeWay(baseSections[k],sections[k],estado?.[k])
             : sections[k];
           proximo[k]=recebido;
         });
         return proximo;
       };
-      let valor=aplicar(atual,houveConcorrencia);
+      let valor=aplicar(atual);
       let agora=new Date().toISOString();
       const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
       let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
@@ -1166,7 +1143,7 @@ export default async function handler(req, res) {
         const recente=await lerLinha();
         const conflicts=findSectionConflicts(baseSections,sections,recente.payload,chaves);
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
-        valor=aplicar(recente.payload,true);
+        valor=aplicar(recente.payload);
         agora=new Date().toISOString();
         const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
           before:Object.fromEntries(chaves.map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
@@ -1243,8 +1220,8 @@ export default async function handler(req, res) {
         const conflicts=findSectionConflicts(basePayload,incomingPayload,atual,Object.keys(secoesAlteradas));
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
       }
-      let valor=houveConcorrencia&&basePayload?mesclarTresVias(basePayload,incomingPayload,atual):incomingPayload;
-      if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:atual,currentUpdatedAt:updatedAt});
+      let valor=basePayload?mergeThreeWay(basePayload,incomingPayload,atual):incomingPayload;
+      if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:projectDataForUser(atual,usuario),currentUpdatedAt:updatedAt});
 
       const agora = new Date().toISOString();
       const beforeAudit=Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,atual?.[key]]));
@@ -1263,7 +1240,7 @@ export default async function handler(req, res) {
         const recente=await lerLinha();
         const conflicts=findSectionConflicts(basePayload,incomingPayload,recente.payload,Object.keys(secoesAlteradas));
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
-        valor=mesclarTresVias(basePayload,incomingPayload,recente.payload);
+        valor=mergeThreeWay(basePayload,incomingPayload,recente.payload);
         const novoAgora=new Date().toISOString();
         const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
           before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
@@ -1490,17 +1467,30 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ error: "Ação desconhecida." });
   } catch (err) {
-    console.error("Falha em /api/data:", err);
+    const correlationId=crypto.randomUUID();
+    console.error(`Falha em /api/data [${correlationId}]:`, err);
     if(err?.code==="ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED"){
       return res.status(503).json({
         error:"O arquivamento seguro ainda não está instalado no banco. Execute migrations/006_attendance_archive_transaction.up.sql.",
         code:err.code,
+        correlationId,
+        retryable:false,
       });
     }
     if(err?.code==="AUDIT_RPC_MIGRATION_REQUIRED"){
-      return res.status(503).json({error:err.message,code:err.code});
+      return res.status(503).json({
+        error:err.message,
+        code:err.code,
+        correlationId,
+        retryable:false,
+      });
     }
     // Não devolve o erro cru: pode conter nome de tabela, coluna, etc.
-    return res.status(500).json({ error: "Erro interno." });
+    return res.status(500).json({
+      error:"Não foi possível concluir a operação no servidor.",
+      code:"DATA_INTERNAL_ERROR",
+      correlationId,
+      retryable:true,
+    });
   }
 }

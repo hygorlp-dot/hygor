@@ -41,6 +41,10 @@ export default async function handler(req, res) {
   // 1. Autentica.
   const user = await authenticateAppUser({userId,pin,accessToken},{scope:"upload"});
   if (!user) return res.status(401).json({ error: "PIN invalido." });
+  const requestedWork=String(obraId||"");
+  if(user.obraId&&requestedWork!==String(user.obraId)){
+    return res.status(403).json({error:"Você não pode enviar arquivos para outra obra."});
+  }
 
   // 2. Valida a imagem (data URL base64).
   if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
@@ -59,7 +63,7 @@ export default async function handler(req, res) {
   // 3. Caminho: diario-obra/{obra}/{ano}/{uuid}.jpg
   const ano   = new Date().getFullYear();
   const nome  = `${crypto.randomUUID()}.${extensao}`;
-  const path  = `${(obraId || "geral").replace(/[^a-zA-Z0-9_-]/g, "")}/${ano}/${nome}`;
+  const path  = `${(requestedWork || "geral").replace(/[^a-zA-Z0-9_-]/g, "")}/${ano}/${nome}`;
 
   try {
     const { error: upErr } = await db.storage

@@ -21,6 +21,15 @@ export const encodeAppData = value => {
 };
 
 export const compactProfiles = payload => ({
-  usuarios:(payload?.usuarios||[]).map(u=>({id:u.id,nome:u.nome,role:u.role,email:u.email||"",authUserId:u.authUserId||"",active:u.active!==false})),
+  usuarios:(payload?.usuarios||[]).map(u=>({
+    id:u.id,
+    nome:u.nome,
+    role:u.role,
+    email:u.email||"",
+    authUserId:u.authUserId||"",
+    pin:u.pin||"",
+    obraId:u.obraId||"",
+    active:u.active!==false,
+  })),
   atualizadoEm:new Date().toISOString(),
 });

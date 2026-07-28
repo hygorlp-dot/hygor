@@ -35,4 +35,17 @@ describe("reconciliação de cadastros otimistas",()=>{
     expect(reconcileOptimisticSnapshot({latest,rendered,intended}).unidades.map(item=>item.id))
       .toEqual(["u2","u3"]);
   });
+
+  it("reaplica uma edição local mais nova sobre a resposta mesclada do servidor",()=>{
+    const enviado={leads:[{id:"l1",etapa:"novo"}]};
+    const confirmado={
+      leads:[{id:"l1",etapa:"novo"},{id:"l2",etapa:"qualificacao"}],
+    };
+    const localMaisNovo={leads:[{id:"l1",etapa:"proposta"},{id:"l2",etapa:"qualificacao"}]};
+    expect(reconcileOptimisticSnapshot({
+      latest:confirmado,rendered:enviado,intended:localMaisNovo,
+    })).toEqual({
+      leads:[{id:"l1",etapa:"proposta"},{id:"l2",etapa:"qualificacao"}],
+    });
+  });
 });

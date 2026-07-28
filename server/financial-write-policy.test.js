@@ -51,7 +51,7 @@ describe("gate FIN-003 de persistência",()=>{
     expect(readiness.pending).toContain("medicoes");
     expect(readiness.pending).toContain("pedidos");
     expect(readiness.pending).toContain("obras");
-    expect(readiness.pending).toContain("comercial");
+    expect(readiness.pending).not.toContain("comercial");
     expect(readiness.pending).not.toContain("equipamentos");
     expect(readiness.pending).not.toContain("locacoesEquip");
     expect(readiness.pending).not.toContain("manutencoesEquip");

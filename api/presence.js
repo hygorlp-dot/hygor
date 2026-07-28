@@ -44,7 +44,7 @@ export default async function handler(req, res) {
 
   const {
     action, userId, pin, accessToken, sessionId, tab, device,
-    text, messageId, targetUserId, pontos, motivo, adjustmentId,
+    text, messageId, targetUserId, pontos, motivo, adjustmentId, operationId,
   } = req.body || {};
   const user = await authenticateAppUser({userId,pin,accessToken},{scope:"presence"});
   if (!user) return res.status(401).json({ error: "Sessao invalida." });
@@ -80,15 +80,17 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
       const key = `${PRESENCE_PREFIX}${sessionId}`;
-      const { data: atual } = await db.from("company_app_data")
+      const { data: atual, error: readError } = await db.from("company_app_data")
         .select("value").eq("company_id", COMPANY).eq("key", key).maybeSingle();
+      if(readError)throw readError;
       if (atual) {
         const agora = new Date().toISOString();
         const value = typeof atual.value === "string" ? JSON.parse(atual.value) : atual.value;
-        await db.from("company_app_data").update({
+        const {error:updateError}=await db.from("company_app_data").update({
           value: { ...value, lastSeen: agora, loggedOutAt: agora },
           updated_at: agora,
         }).eq("company_id", COMPANY).eq("key", key);
+        if(updateError)throw updateError;
       }
       return res.status(200).json({ ok: true });
     }
@@ -97,10 +99,11 @@ export default async function handler(req, res) {
       if (user.role !== "admin") return res.status(403).json({ error: "Acesso restrito ao administrador." });
       const limiteHistorico = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       // Evita acumular uma linha para sempre a cada aba/dispositivo utilizado.
-      await db.from("company_app_data").delete()
+      const {error:cleanupError}=await db.from("company_app_data").delete()
         .eq("company_id", COMPANY)
         .like("key", `${PRESENCE_PREFIX}%`)
         .lt("updated_at", limiteHistorico);
+      if(cleanupError)throw cleanupError;
       const { data: rows, error } = await db.from("company_app_data")
         .select("value,updated_at")
         .eq("company_id", COMPANY)
@@ -134,14 +137,16 @@ export default async function handler(req, res) {
       if (!conteudo) return res.status(400).json({ error: "Mensagem vazia." });
 
       const agora = new Date().toISOString();
-      const id = crypto.randomUUID();
+      const id = /^[a-zA-Z0-9-]{12,80}$/.test(String(operationId||""))
+        ? String(operationId)
+        : crypto.randomUUID();
       const value = {
         id, userId: user.id, userName: user.nome, role: user.role,
         text: conteudo, createdAt: agora, deletedAt: null, deletedBy: null,
       };
-      const { error } = await db.from("company_app_data").insert({
+      const { error } = await db.from("company_app_data").upsert({
         company_id: COMPANY, key: `${MSG_PREFIX}${id}`, value, updated_at: agora,
-      });
+      },{onConflict:"company_id,key",ignoreDuplicates:true});
       if (error) throw error;
       return res.status(200).json({ ok: true, message: value });
     }
@@ -219,15 +224,17 @@ export default async function handler(req, res) {
       const justificativa = String(motivo || "").trim().slice(0, 500);
       if (!justificativa) return res.status(400).json({ error: "Justifique o ajuste." });
 
-      const id = crypto.randomUUID();
+      const id = /^[a-zA-Z0-9-]{12,80}$/.test(String(operationId||""))
+        ? String(operationId)
+        : crypto.randomUUID();
       const agora = new Date().toISOString();
       const value = {
         userId: targetUserId, pontos: pts, motivo: justificativa,
         criadoPorId: user.id, criadoPor: user.nome, criadoEm: agora,
       };
-      const { error } = await db.from("company_app_data").insert({
+      const { error } = await db.from("company_app_data").upsert({
         company_id: COMPANY, key: `${ADJ_PREFIX}${id}`, value, updated_at: agora,
-      });
+      },{onConflict:"company_id,key",ignoreDuplicates:true});
       if (error) throw error;
       return res.status(200).json({ ok: true, ajuste: { id, ...value } });
     }
@@ -235,9 +242,11 @@ export default async function handler(req, res) {
     if (action === "ranking-remove") {
       if (user.role !== "admin") return res.status(403).json({ error: "Apenas o administrador pode remover um ajuste." });
       if (!adjustmentId) return res.status(400).json({ error: "Ajuste nao informado." });
-      const { error } = await db.from("company_app_data").delete()
-        .eq("company_id", COMPANY).eq("key", `${ADJ_PREFIX}${adjustmentId}`);
+      const {data:removed,error}=await db.from("company_app_data").delete()
+        .eq("company_id", COMPANY).eq("key", `${ADJ_PREFIX}${adjustmentId}`)
+        .select("key");
       if (error) throw error;
+      if(!removed?.length)return res.status(404).json({error:"Ajuste não encontrado."});
       return res.status(200).json({ ok: true });
     }
 

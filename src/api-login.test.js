@@ -53,4 +53,13 @@ describe("contrato de resposta do login", () => {
       reason:"Aguarde antes de tentar novamente.",
     });
   });
+
+  it("transforma falha de rede de rota auxiliar em resposta controlada",async()=>{
+    vi.stubGlobal("fetch",vi.fn(()=>Promise.reject(new TypeError("offline"))));
+    const {abrirSessao,chamarIA}=await import("./api.js");
+    abrirSessao("u1","123456");
+    await expect(chamarIA({prompt:"teste"})).resolves.toEqual({
+      ok:false,status:0,error:"Não foi possível conectar ao servidor.",
+    });
+  });
 });
