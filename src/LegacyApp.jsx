@@ -37205,6 +37205,17 @@ export default function App() {
   const pontoPending = data
     ? getObraAttendanceSummary(data, today()).some(o => o.hasTeam && !o.completed)
     : false;
+  const syncStatus = {
+    [SAVE_QUEUE_STATE.IDLE]:{
+      label:ultimaSync?`Salvo às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Dados sincronizados",
+      color:C.green,
+    },
+    [SAVE_QUEUE_STATE.SAVING]:{label:"Salvando alterações...",color:C.yellowD},
+    [SAVE_QUEUE_STATE.RETRY_SCHEDULED]:{label:"Tentando salvar novamente...",color:C.orange},
+    [SAVE_QUEUE_STATE.OFFLINE]:{label:"Sem conexão · alterações protegidas",color:C.orange},
+    [SAVE_QUEUE_STATE.CONFLICT]:{label:"Conflito de salvamento",color:C.red},
+    [SAVE_QUEUE_STATE.FAILED]:{label:"Alterações ainda não salvas",color:C.red},
+  }[estadoSalvar]||{label:"Verificando salvamento...",color:C.muted};
 
   // Alerta: terceiros a pagar esta sexta?
   const tercPending = data ? (() => {
@@ -37633,6 +37644,31 @@ export default function App() {
 
             {/* Usuário logado + ponto rápido */}
             <div className="app-header-actions" style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <div
+                className="app-save-status"
+                data-testid="save-status"
+                data-state={estadoSalvar}
+                role="status"
+                aria-live="polite"
+                title={syncStatus.label}
+                style={{
+                  display:"inline-flex",alignItems:"center",gap:6,minHeight:32,
+                  padding:"5px 9px",border:`1px solid ${syncStatus.color}44`,
+                  borderRadius:C.rMd,background:`${syncStatus.color}0B`,
+                  color:C.text,whiteSpace:"nowrap",
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width:7,height:7,borderRadius:"50%",background:syncStatus.color,flexShrink:0,
+                    boxShadow:estadoSalvar===SAVE_QUEUE_STATE.SAVING?`0 0 0 4px ${syncStatus.color}1F`:"none",
+                  }}
+                />
+                <span className="app-save-status-label" style={{fontSize:10.5,fontWeight:750}}>
+                  {syncStatus.label}
+                </span>
+              </div>
               {/* Badge do usuário - no desktop já aparece no rodapé da sidebar */}
               <div className="app-user-badge" style={{ display: isDesktop ? "none" : "flex", alignItems:"center", gap:6, padding:"4px 10px", background:C.surface, borderRadius:C.rMd, border:`1px solid ${C.border}` }}>
                 <div style={{ width:7, height:7, borderRadius:"50%", background:ROLES.find(r=>r.v===currentUser?.role)?.color||C.yellow, flexShrink:0 }}/>

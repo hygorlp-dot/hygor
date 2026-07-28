@@ -2554,6 +2554,19 @@
     display: none !important;
   }
 
+  .arcd-topbar .app-save-status {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px !important;
+    justify-content: center;
+    padding: 0 !important;
+  }
+
+  .arcd-topbar .app-save-status-label {
+    display: none;
+  }
+
   .arcd-topbar .app-header-actions {
     flex: 0 0 auto;
   }

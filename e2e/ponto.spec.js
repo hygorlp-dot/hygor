@@ -152,6 +152,8 @@ test("não deixa atualizar a página enquanto o salvamento ainda está em trâns
 
   await page.getByRole("button", { name: "Presente", exact:true }).click();
   await expect.poll(()=>backend.getSaves().length).toBeGreaterThan(0);
+  await expect(page.getByTestId("save-status")).toHaveAttribute("data-state","saving");
+  await expect(page.getByTestId("save-status")).toHaveAttribute("title","Salvando alterações...");
   const protectedRefresh=await page.evaluate(()=>{
     const event=new Event("beforeunload",{cancelable:true});
     window.dispatchEvent(event);
@@ -165,6 +167,8 @@ test("não deixa atualizar a página enquanto o salvamento ainda está em trâns
   // Depois da confirmação da fila, atualizar não exibe bloqueio e o servidor
   // devolve exatamente o fato salvo.
   await page.waitForTimeout(3100);
+  await expect(page.getByTestId("save-status")).toHaveAttribute("data-state","idle");
+  await expect(page.getByTestId("save-status")).toHaveAttribute("title",/Salvo às \d{2}:\d{2}/);
   await page.reload();
   await expect(page.getByText(/Bo[ma] (dia|tarde|noite), Engenheiro\./)).toBeVisible();
   await page.getByRole("button", { name: "Abrir Ponto" }).click();
