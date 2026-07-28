@@ -121,7 +121,6 @@ import {
   selectCorporateOperatingCosts,
   selectFinancialMovements,
 } from "./domains/financeiro/ledger";
-import { cancelClientMeasurement, saveClientMeasurement, saveGeneratedClientMeasurements } from "./domains/financeiro/measurement-mutations";
 import { cancelThirdPartyMeasurement, createThirdPartyMeasurement, createThirdPartyPayment, payThirdPartyMeasurement, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
 import { createFinancialCalculationEngine } from "./domains/financeiro/calculation-engine";
 import { calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-cash";
@@ -5286,7 +5285,7 @@ const BILLING_LABELS = {
   livre:       "Livre",
 };
 
-function MedicoesView({ data, update, showToast, currentUser=null }) {
+function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null }) {
   const { cols } = useBreakpoint();
   const now   = new Date();
   const [selObra,  setSelObra]  = useState(data.obras[0]?.id || "");
@@ -5301,6 +5300,7 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
   // ficam locais ate a ultima parcela e sao salvas juntas; assim um update da
   // primeira resposta nao desmonta o assistente antes de perguntar as demais.
   const [conciliar,  setConciliar]  = useState(null);
+  const [measurementCommandPending,setMeasurementCommandPending]=useState(false);
 
   const emptyM = {
     competencia: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`,
@@ -5378,19 +5378,35 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
     setModal(true);
   };
 
-  const saveMedicao = () => {
+  const saveMedicao = async() => {
+    if(!dispatchCommand||measurementCommandPending)return;
+    setMeasurementCommandPending(true);
     try {
       const previsto = calcPrevisto(form, obra);
       const periodo  = form.tipo==="percentual"
         ? Math.max(0, Number(form.percentualAcumulado||0) - prevAcumulado(form.competencia, editId||undefined)) : 0;
-      update(saveClientMeasurement({
-        data, actor:currentUser, id:editId || uid(), receiptId:form.recebido&&!editId?uid():"",
-        measurement:{...form,obraId:selObra,valorPrevisto:previsto,percentualPeriodo:periodo},
-      }));
+      const id=editId||uid();
+      const receiptId=form.recebido&&!editId?uid():"";
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.medicoes||[]).find(item=>item.id===id);
+        return {
+          type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED,
+          idempotencyKey:`client-measurement-save-${id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{
+            measurement:{...form,id,obraId:selObra,valorPrevisto:previsto,percentualPeriodo:periodo},
+            receiptId,
+          },
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a medição.");
       setModal(false);
       showToast(editId ? "Medição atualizada." : "Medição registrada.");
     } catch (error) {
       showToast(error.message||"Não foi possível salvar a medição.","error");
+    } finally {
+      setMeasurementCommandPending(false);
     }
   };
 
@@ -5424,7 +5440,8 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
   };
 
-  const gerarParcelasFixas = () => {
+  const gerarParcelasFixas = async() => {
+    if(!dispatchCommand||measurementCommandPending)return;
     if (!obra?.contractStart) {
       showToast("Configure a data de início do contrato na obra.","error"); return;
     }
@@ -5491,16 +5508,22 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
 
     if (novas.length === 0) { showToast("Todas as parcelas já estão lançadas.","warn"); return; }
 
-    let medicoesList;
+    setMeasurementCommandPending(true);
     try {
-      const result=saveGeneratedClientMeasurements({data,obraId:selObra,measurements:novas,overwrite:gerarOpts.sobreescrever,actor:currentUser});
-      medicoesList=result.medicoes;
-      update(result);
+      const result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENTS_GENERATED,
+        idempotencyKey:`client-measurements-generate-${selObra}-${uid()}`,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{obraId:selObra,measurements:novas,overwrite:gerarOpts.sobreescrever},
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou as parcelas.");
       setGerarModal(false);
       showToast(`${novas.length} parcelas geradas!${tipo==="admin_only"||tipo==="fixed_labor_admin"?" Calcule o valor Admin % mês a mês conforme executado.":""}`);
     } catch (error) {
       showToast(error.message||"Não foi possível gerar as parcelas.","error");
       return;
+    } finally {
+      setMeasurementCommandPending(false);
     }
 
     // Parcelas que ja nasceram vencidas (contrato retroativo): em vez de
@@ -5515,7 +5538,6 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
       setConciliar({
         fila: vencidas.map(v => v.id),
         idx: 0,
-        medicoesBase: medicoesList,
         decisoes: {},
         // decisao pendente da parcela atual: "" (nao escolhido) | "vencimento" | "outra" | "aberto"
         modo: "vencimento",
@@ -5525,24 +5547,58 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
   };
 
   //  Conciliacao das parcelas vencidas recem-geradas 
-  const aplicarDecisoesParcelas = (lista, decisoes) => (lista||[]).map(m => {
-    const decisao=decisoes?.[m.id];
-    if (!decisao || decisao.modo==="aberto") return m;
-    const dataPg=decisao.modo==="vencimento"?m.dataVencimento:(decisao.dataOutra||m.dataVencimento);
-    const saldo = Number(m.valorPrevisto||0) - totalRecebidoMedicao(m);
-    if (saldo <= 0.01) return m;
-    return aplicarRecebimentoMedicao(m, { id:uid(), valor: saldo, data: dataPg, origem: "revisao_vencidas", actor:currentUser });
-  });
+  const aplicarDecisoesParcelas = async decisoes => {
+    if(!dispatchCommand||measurementCommandPending)return {ok:false};
+    if(!Object.values(decisoes||{}).some(decisao=>decisao&&decisao.modo!=="aberto")){
+      return {ok:true};
+    }
+    setMeasurementCommandPending(true);
+    try{
+      const result=await dispatchCommand(atual=>{
+        const changes=Object.entries(decisoes||{}).flatMap(([id,decisao])=>{
+          if(!decisao||decisao.modo==="aberto")return [];
+          const measurement=(atual.medicoes||[]).find(item=>item.id===id);
+          if(!measurement)return [];
+          const balance=Number(measurement.valorPrevisto||0)-totalRecebidoMedicao(measurement);
+          if(balance<=0.01)return [];
+          return [{
+            measurementId:id,expectedVersion:Number(measurement.version||0),action:"receive",
+            receipt:{
+              id:uid(),valor:balance,
+              data:decisao.modo==="vencimento"
+                ?measurement.dataVencimento
+                :(decisao.dataOutra||measurement.dataVencimento),
+              origem:"revisao_vencidas",
+            },
+          }];
+        });
+        return {
+          type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED,
+          idempotencyKey:`client-measurement-overdue-${uid()}`,
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{changes},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou os recebimentos.");
+      return result;
+    }catch(error){
+      showToast(error.message||"Não foi possível revisar as parcelas vencidas.","error");
+      return {ok:false};
+    }finally{
+      setMeasurementCommandPending(false);
+    }
+  };
 
   // Guarda a resposta atual e avanca. O banco de dados recebe uma unica
   // atualizacao ao final, depois que TODAS as vencidas foram perguntadas.
-  const conciliarAplicar = () => {
+  const conciliarAplicar = async() => {
     if (!conciliar) return;
     const id  = conciliar.fila[conciliar.idx];
     const decisoes={...(conciliar.decisoes||{}),[id]:{modo:conciliar.modo,dataOutra:conciliar.dataOutra}};
     const prox = conciliar.idx + 1;
     if (prox >= conciliar.fila.length) {
-      update({...data,medicoes:aplicarDecisoesParcelas(conciliar.medicoesBase||data.medicoes,decisoes)});
+      const result=await aplicarDecisoesParcelas(decisoes);
+      if(!result.ok)return;
       setConciliar(null);
       showToast(`${conciliar.fila.length} parcela(s) vencida(s) revisada(s).`);
     } else {
@@ -5551,49 +5607,129 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
   };
 
   // Marca TODAS as parcelas restantes da fila como pagas no proprio vencimento.
-  const conciliarTodasNoVencimento = () => {
+  const conciliarTodasNoVencimento = async() => {
     if (!conciliar) return;
     const restantes = conciliar.fila.slice(conciliar.idx);
     const decisoes={...(conciliar.decisoes||{})};
     restantes.forEach(id=>{decisoes[id]={modo:"vencimento",dataOutra:""};});
-    update({ ...data, medicoes: aplicarDecisoesParcelas(conciliar.medicoesBase||data.medicoes,decisoes) });
+    const result=await aplicarDecisoesParcelas(decisoes);
+    if(!result.ok)return;
     setConciliar(null);
     showToast(`${restantes.length} parcela(s) marcadas como pagas no vencimento.`);
   };
 
-  const conciliarDecidirDepois = () => {
+  const conciliarDecidirDepois = async() => {
     if (!conciliar) return;
     if (Object.keys(conciliar.decisoes||{}).length) {
-      update({...data,medicoes:aplicarDecisoesParcelas(conciliar.medicoesBase||data.medicoes,conciliar.decisoes)});
+      const result=await aplicarDecisoesParcelas(conciliar.decisoes);
+      if(!result.ok)return;
     }
     setConciliar(null);
   };
 
-  const toggleRecebido = (m) => {
+  const toggleRecebido = async(m) => {
     // A ação mantém cada fato de recebimento. Ao desfazer, cria estornos
     // auditáveis em vez de apagar a evidência financeira da medição.
     const recebidaPorInteiro = statusRecebimentoMedicao(m)==="recebida";
+    if(!dispatchCommand||measurementCommandPending)return;
+    setMeasurementCommandPending(true);
     try {
       const motivo=recebidaPorInteiro ? window.prompt("Motivo do estorno do recebimento:") : "";
-      if (recebidaPorInteiro&&!String(motivo||"").trim()) return;
-      const updated = !recebidaPorInteiro
-        ? aplicarRecebimentoMedicao(m, { id:uid(), valor: Number(m.valorPrevisto||0) - totalRecebidoMedicao(m), data: today(), origem: "manual", actor:currentUser })
-        : estornarRecebimentosMedicao(m,{actor:currentUser,reason:motivo});
-      update({...data, medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
+      if (recebidaPorInteiro&&!String(motivo||"").trim())return;
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.medicoes||[]).find(item=>item.id===m.id);
+        const balance=Number(vigente?.valorPrevisto||0)-totalRecebidoMedicao(vigente||{});
+        return {
+          type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED,
+          idempotencyKey:`client-measurement-receipt-${m.id}-${uid()}`,
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{changes:[recebidaPorInteiro
+            ?{measurementId:m.id,expectedVersion:Number(vigente?.version||0),action:"reverse_all",reason:motivo}
+            :{measurementId:m.id,expectedVersion:Number(vigente?.version||0),action:"receive",receipt:{id:uid(),valor:balance,data:today(),origem:"manual"}}
+          ]},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o recebimento.");
       showToast(!recebidaPorInteiro ? "ok Marcado como recebido." : "Recebimento estornado e preservado para auditoria.");
     } catch (error) {
       showToast(error.message||"Não foi possível alterar o recebimento.","error");
+    } finally {
+      setMeasurementCommandPending(false);
     }
   };
 
-  const deleteMedicao = id => {
+  const deleteMedicao = async id => {
     const motivo=window.prompt("Motivo do cancelamento da medição:");
     if(!String(motivo||"").trim())return;
+    if(!dispatchCommand||measurementCommandPending)return;
+    setMeasurementCommandPending(true);
     try {
-      update(cancelClientMeasurement({data,measurementId:id,reason:motivo,actor:currentUser}));
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.medicoes||[]).find(item=>item.id===id);
+        return {
+          type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_CANCELLED,
+          idempotencyKey:`client-measurement-cancel-${id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{measurementId:id,reason:motivo},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o cancelamento.");
       showToast("Medição cancelada e preservada para auditoria.");
     } catch (error) {
       showToast(error.message||"Não foi possível cancelar a medição.","error");
+    } finally {
+      setMeasurementCommandPending(false);
+    }
+  };
+
+  const fecharAdministracao=async(m,adminAmount)=>{
+    if(!dispatchCommand||measurementCommandPending)return;
+    setMeasurementCommandPending(true);
+    try{
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.medicoes||[]).find(item=>item.id===m.id);
+        return {
+          type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_ADMIN_CLOSED,
+          idempotencyKey:`client-measurement-admin-${m.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{measurementId:m.id,adminAmount},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o fechamento.");
+      showToast(`Fechado: administração de ${fmt(adminAmount)} aplicada à medição.`);
+    }catch(error){
+      showToast(error.message||"Não foi possível fechar a administração.","error");
+    }finally{
+      setMeasurementCommandPending(false);
+    }
+  };
+
+  const confirmarRecebimento=async(m,dataPagamento)=>{
+    if(!dispatchCommand||measurementCommandPending)return false;
+    setMeasurementCommandPending(true);
+    try{
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.medicoes||[]).find(item=>item.id===m.id);
+        const balance=Number(vigente?.valorPrevisto||0)-totalRecebidoMedicao(vigente||{});
+        return {
+          type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED,
+          idempotencyKey:`client-measurement-receipt-${m.id}-${uid()}`,
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{changes:[{
+            measurementId:m.id,expectedVersion:Number(vigente?.version||0),action:"receive",
+            receipt:{id:uid(),valor:balance,data:dataPagamento,origem:"manual"},
+          }]},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o recebimento.");
+      return true;
+    }catch(error){
+      showToast(error.message||"Não foi possível confirmar o recebimento.","error");
+      return false;
+    }finally{
+      setMeasurementCommandPending(false);
     }
   };
 
@@ -5849,10 +5985,7 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
                       </p>
                       <Btn size="sm" v="ghost" style={{marginTop:6}} onClick={()=>{
                         if (previsaoAdmin.valor<=0) { showToast("Ainda não há custos lançados neste período para calcular.","error"); return; }
-                        const novoTotal = Number(m.valorMOFixo||0) + previsaoAdmin.valor;
-                        const updated = {...m, valorAdminPct:previsaoAdmin.valor, valorPrevisto:novoTotal};
-                        update({...data,medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x)});
-                        showToast(`Fechado: administração de ${fmt(previsaoAdmin.valor)} aplicada à medição.`);
+                        void fecharAdministracao(m,previsaoAdmin.valor);
                       }}>
                         Fechar valor desta competência
                       </Btn>
@@ -6072,21 +6205,15 @@ function MedicoesView({ data, update, showToast, currentUser=null }) {
             </p>
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setPagarModal(null)} full>Cancelar</Btn>
-              <Btn v="success" onClick={()=>{
-                try {
-                  const m = pagarModal.m;
-                  const dataPg = pagarModal.data || today();
-                  const saldo = Number(m.valorPrevisto||0) - totalRecebidoMedicao(m);
-                  const updated = saldo > 0.01
-                    ? aplicarRecebimentoMedicao(m, { id:uid(), valor: saldo, data: dataPg, origem: "manual", actor:currentUser })
-                    : m;
-                  update({ ...data, medicoes:(data.medicoes||[]).map(x=>x.id===m.id?updated:x) });
+              <Btn v="success" disabled={measurementCommandPending} onClick={async()=>{
+                const m = pagarModal.m;
+                const dataPg = pagarModal.data || today();
+                const ok=await confirmarRecebimento(m,dataPg);
+                if(ok){
                   showToast(`${m.obraName} - ${fmt(m.valorPrevisto)} recebido em ${fmtDate(dataPg)}.`);
                   setPagarModal(null);
-                } catch (error) {
-                  showToast(error.message||"Não foi possível confirmar o recebimento.","error");
                 }
-              }} full><Ic n="check"/> Confirmar</Btn>
+              }} full><Ic n="check"/> {measurementCommandPending?"Confirmando...":"Confirmar"}</Btn>
             </div>
           </div>
         </Modal>
@@ -21359,7 +21486,7 @@ const periodoPontoDaTransacao = (iso) => {
   };
 };
 
-function Conciliacao({ data, update, showToast, currentUser }) {
+function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=null }) {
   const { formGrid } = useBreakpoint();
   const [aba,        setAba]        = useState("pendentes");  // pendentes|conciliadas|ignoradas|extratos|historico
   const [importando, setImportando] = useState(false);
@@ -21551,16 +21678,30 @@ function Conciliacao({ data, update, showToast, currentUser }) {
     });
     setEntradaModal({trId:tr.id});
   };
-  const cadastrarParcelaDaEntrada = () => {
+  const cadastrarParcelaDaEntrada = async() => {
+    if(!dispatchCommand||conciliando)return;
     const tr=(data.transacoes||[]).find(t=>t.id===entradaModal?.trId);
     if(!entradaForm.obraId){showToast("Selecione primeiro a obra que recebeu o valor.","error");return;}
     const descricao=String(entradaForm.novaParcelaDescricao||"").trim();
     const valor=Number(String(entradaForm.novaParcelaValor||"").replace(",","."));
     if(!descricao||!(valor>0)){showToast("Informe identificação e valor previsto da parcela.","error");return;}
     const medicao={id:uid(),obraId:entradaForm.obraId,descricao,competencia:entradaForm.novaParcelaCompetencia||String(tr?.data||today()).slice(0,7),valorPrevisto:valor,valorRecebido:0,recebido:false,origem:"conciliacao_bancaria",criadoEm:new Date().toISOString(),criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||currentUser?.email||"Operador"};
-    update({...data,medicoes:[...(data.medicoes||[]),medicao],changeLog:[...(data.changeLog||[]),{id:uid(),date:today(),type:"medicao_cadastrada_na_conciliacao",obraId:medicao.obraId,message:`Parcela ${descricao} cadastrada para conciliar entrada bancária.`}].slice(-200)});
-    setEntradaForm(f=>({...f,medicaoId:medicao.id,novaParcela:false,novaParcelaDescricao:""}));
-    showToast("Parcela cadastrada. Confira-a e confirme a entrada bancária.");
+    setConciliando(true);
+    try{
+      const result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED,
+        idempotencyKey:`reconciliation-measurement-create-${medicao.id}-${uid()}`,
+        expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{measurement:medicao},
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a parcela.");
+      setEntradaForm(f=>({...f,medicaoId:medicao.id,novaParcela:false,novaParcelaDescricao:""}));
+      showToast("Parcela cadastrada. Confira-a e confirme a entrada bancária.");
+    }catch(error){
+      showToast(error.message||"Não foi possível cadastrar a parcela.","error");
+    }finally{
+      setConciliando(false);
+    }
   };
   const confirmarEntrada = async () => {
     const tr = (data.transacoes||[]).find(t=>t.id===entradaModal?.trId);
@@ -31154,6 +31295,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
   const [confData, setConfData] = useState(today());
   const [fatModal,setFatModal]=useState(null);
   const [fatForm,setFatForm]=useState({competencia:today().slice(0,7),dataVencimento:""});
+  const [billingPending,setBillingPending]=useState(false);
 
   // Medições de obra já confirmadas desta obra, em ordem.
   const medicoesObra = useMemo(() =>
@@ -31245,15 +31387,29 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
     ()=>fatModal?createBillingFromTechnicalMeasurement(data,{medicaoTecnicaId:fatModal.id,competencia:fatForm.competencia}):null,
     [data,fatModal,fatForm.competencia],
   );
-  const confirmarFaturamento=()=>{
-    const result=createBillingFromTechnicalMeasurement(data,{
-      medicaoTecnicaId:fatModal?.id,competencia:fatForm.competencia,
-      dataVencimento:fatForm.dataVencimento,
-    });
-    if(!result.ok){showToast?.(result.error,"error");return;}
-    update({...data,medicoes:[...(data.medicoes||[]),result.measurement]});
-    setFatModal(null);
-    showToast?.(`Faturamento de ${fmt(result.measurement.valorPrevisto)} gerado a partir da medição técnica.`);
+  const confirmarFaturamento=async()=>{
+    if(!dispatchCommand||billingPending)return;
+    setBillingPending(true);
+    try{
+      const technicalId=fatModal?.id;
+      const result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_BILLED,
+        idempotencyKey:`client-measurement-billing-${technicalId}-${uid()}`,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{
+          id:`fat-${technicalId}`,medicaoTecnicaId:technicalId,
+          competencia:fatForm.competencia,dataVencimento:fatForm.dataVencimento,
+        },
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o faturamento.");
+      const billing=(result.data?.medicoes||[]).find(item=>item.medicaoTecnicaId===technicalId&&item.status!=="cancelada");
+      setFatModal(null);
+      showToast?.(`Faturamento de ${fmt(billing?.valorPrevisto||0)} gerado a partir da medição técnica.`);
+    }catch(error){
+      showToast?.(error.message||"Não foi possível gerar o faturamento.","error");
+    }finally{
+      setBillingPending(false);
+    }
   };
 
   // O plano é uma projeção do boletim aprovado. Não há sobrescrita manual do
@@ -31458,7 +31614,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
           {faturamentoPreview?.ok?<div style={{padding:"9px 10px",border:`1px solid ${C.green}55`,borderRadius:7,background:`${C.green}08`}}><p style={{fontSize:9.5,color:C.muted}}>Faturamento incremental calculado</p><b style={{fontSize:15,color:C.green}}>{fmt(faturamentoPreview.measurement.valorPrevisto)}</b></div>:<p style={{fontSize:10.5,color:C.red}}>{faturamentoPreview?.error}</p>}
           <Inp label="Competência" type="month" value={fatForm.competencia} onChange={competencia=>setFatForm(form=>({...form,competencia}))}/>
           <Inp label="Vencimento" type="date" value={fatForm.dataVencimento} onChange={dataVencimento=>setFatForm(form=>({...form,dataVencimento}))}/>
-          <div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={()=>setFatModal(null)}>Cancelar</Btn><Btn v="success" full onClick={confirmarFaturamento}>Gerar faturamento</Btn></div>
+          <div style={{display:"flex",gap:7}}><Btn v="ghost" disabled={billingPending} full onClick={()=>setFatModal(null)}>Cancelar</Btn><Btn v="success" disabled={billingPending} full onClick={confirmarFaturamento}>{billingPending?"Gerando...":"Gerar faturamento"}</Btn></div>
         </div>
       </Modal>}
     </div>
@@ -35022,7 +35178,7 @@ const comDias=iso=>iso?Math.max(0,Math.floor((Date.now()-new Date(iso).getTime()
 const comDateTime=iso=>iso?new Date(iso).toLocaleString("pt-BR"):"-";
 const comAddMes=(iso,n)=>{const d=new Date(`${iso||today()}T12:00:00`);d.setMonth(d.getMonth()+n);return toLocalISODate(d);};
 
-function Comercial({data,update,showToast,currentUser,view,onTab}){
+function Comercial({data,update,dispatchCommand,showToast,currentUser,view,onTab}){
   const {cols,formGrid}=useBreakpoint();const com=migrateCommercial(data.comercial||{});
   const commercialView={com_workspace:"com_dash",com_pipeline:"com_funil",com_relationships:"com_leads",com_deals:"com_propostas",com_management:"com_relatorios"}[view]||view;
   const leads=com.leads||[],atividades=com.atividades||[],reunioes=com.reunioes||[],propostas=com.propostas||[],contratos=com.contratos||[];
@@ -35037,6 +35193,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const [negForm,setNegForm]=useState(null);const [contratoForm,setContratoForm]=useState(null);const [clienteForm,setClienteForm]=useState(null);const [parceiroForm,setParceiroForm]=useState(null);
   const [metaForm,setMetaForm]=useState(null);const [perdaForm,setPerdaForm]=useState(null);
   const [subindoDocumentoComercial,setSubindoDocumentoComercial]=useState(false);
+  const [ativandoContratoId,setAtivandoContratoId]=useState("");
   const setCom=(patch)=>update({...data,comercial:{...com,...patch}});
   const persistirComercial=async(patch,{mensagem="",aoConfirmar}={})=>{
     const result=await setCom(patch);
@@ -35183,15 +35340,45 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const salvarNegociacao=async f=>{const p=propostas.find(x=>x.id===f.propostaId);if(!p)return;if(Number(f.desconto||0)>limiteDesconto&&!f.aprovadorId){showToast(`Desconto acima de ${limiteDesconto}% exige responsável pela aprovação.`,"error");return;}const n={...f,id:uid(),valorInicial:Number(f.valorInicial||p.valor),valorNegociado:Number(f.valorNegociado||0),desconto:Number(f.desconto||0),data:new Date().toISOString(),responsavelId:currentUser?.id||"",aprovado:Number(f.desconto||0)<=limiteDesconto||!!f.aprovadorId};await persistirComercial({propostas:propostas.map(x=>x.id===p.id?{...x,status:"negociacao",negociacoes:[...(x.negociacoes||[]),n],valor:n.valorNegociado||x.valor}:x),leads:leads.map(l=>l.id===p.leadId?{...l,etapa:"negociacao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Negociação salva.",aoConfirmar:()=>setNegForm(null)});};
   const criarContrato=p=>{const existente=contratos.find(k=>k.propostaId===p.id);if(existente){setContratoForm({...existente});return;}if(p.status!=="aceita"&&!window.confirm("A proposta ainda não está aceita. Criar contrato mesmo assim?"))return;const l=leadBy(p.leadId);setContratoForm({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:"",parcelas:"1",diaVencimento:"5",prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});};
   const salvarContrato=async f=>{if(!String(f.numero||"").trim()){showToast("Informe o número do contrato.","error");return;}const k={...f,id:f.id||uid(),status:f.status||"elaboracao",valor:Number(f.valor||0),entrada:Number(f.entrada||0),parcelas:Number(f.parcelas||1),diaVencimento:Number(f.diaVencimento||5),elaboradoEm:f.elaboradoEm||new Date().toISOString(),atualizadoEm:new Date().toISOString()};await persistirComercial({contratos:f.id?contratos.map(x=>x.id===f.id?k:x):[...contratos,k],leads:leads.map(l=>l.id===k.leadId?{...l,etapa:k.status==="enviado"?"contrato_enviado":"contrato_elaboracao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Contrato salvo como rascunho.",aoConfirmar:()=>setContratoForm(null)});};
-  const finalizarContrato=k=>{const p=propostas.find(x=>x.id===k.propostaId),l=leadBy(k.leadId);const faltas=[];if(!l)faltas.push("lead vinculado");if(k.propostaId&&p?.status!=="aceita")faltas.push("proposta aceita");if(!k.contratante)faltas.push("contratante");if(!(Number(k.valor)>0))faltas.push("valor do contrato");if(!k.assinadoEm&&k.status!=="assinado")faltas.push("contrato assinado");if(!k.documentosRecebidos)faltas.push("documentos recebidos");if(!k.entradaPaga)faltas.push("entrada confirmada");if(!k.escopoValidado)faltas.push("escopo validado");if(!k.responsavelTecnicoId)faltas.push("responsável técnico");if(faltas.length){showToast(`Falta: ${faltas.join(", ")}.`,"error");return;}
-    const clienteExist=clientes.find(c=>c.leadId===l.id),cliente=clienteExist||{...clienteVazio(),id:uid(),leadId:l.id,nome:l.nome,tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone,whatsapp:l.whatsapp,email:l.email,cidade:l.cidade,endereco:l.endereco,createdAt:new Date().toISOString()};const obraId=k.obraId||uid();const obraExist=(data.obras||[]).some(o=>o.id===obraId);const obra={id:obraId,name:l.nome||k.objeto,clienteId:cliente.id,cliente:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome,address:l.endereco||l.cidade,engineerId:k.responsavelTecnicoId||"",engineer:nomeUsuario(k.responsavelTecnicoId),startDate:k.inicio,status:"active",areaM2:Number(l.areaConstrucao||0),contractType:"fixed_labor",contractValue:k.valor,adminPercentage:0,billingType:"parcelado",parcelaMensal:k.parcelas?Math.max(0,(k.valor-k.entrada)/k.parcelas):0,contractStart:k.inicio,contractEnd:k.conclusao,totalParcelas:k.parcelas,billingFrequency:"mensal",diaVenc1:k.diaVencimento,diaVenc2:k.diaVencimento,entrada:k.entrada,entradaDate:today(),hasCaixa:true,faseId:""};const venda={id:uid(),leadId:l.id,contratoId:k.id,clienteId:cliente.id,obraId,valor:k.valor,fechadaEm:new Date().toISOString(),responsavelId:k.responsavelComercialId||l.responsavelId};const parceiro=parceiros.find(x=>x.id===l.parceiroId),pct=Number(parceiro?.comissaoPct||1),comissao={id:uid(),vendaId:venda.id,responsavelId:venda.responsavelId,parceiroId:parceiro?.id||"",base:k.valor,percentual:pct,valor:k.valor*pct/100,status:"prevista"};
-    // A entrada já foi validada no Comercial/Conciliação. Ao criar a obra,
-    // transportamos os recebimentos reais (datas e transações), em vez de
-    // inventar um recebimento "hoje" e perder sua rastreabilidade bancária.
-    const contas=[];const recebimentosEntrada=(k.recebimentosEntrada||[]).map(r=>({...r,id:r.id||uid(),origem:r.origem||"contrato"}));const totalEntradaRecebida=recebimentosEntrada.reduce((s,r)=>s+Number(r.valor||0),0);const ultimoRecebimento=recebimentosEntrada.slice().sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")))[0];if(k.entrada>0)contas.push({id:uid(),obraId,competencia:(ultimoRecebimento?.data||today()).slice(0,7),dataVencimento:ultimoRecebimento?.data||today(),numeroParcela:"Entrada",tipo:"entrada",percentualAcumulado:0,percentualPeriodo:0,valorMOFixo:k.entrada,valorAdminPct:0,valorPrevisto:k.entrada,valorRecebido:totalEntradaRecebida||k.entrada,dataPagamento:ultimoRecebimento?.data||today(),recebimentos:recebimentosEntrada,descricao:`Entrada contrato ${k.numero}`,recebido:totalEntradaRecebida>=Number(k.entrada||0)-.01});const saldo=Math.max(0,k.valor-k.entrada),parcs=Math.max(1,k.parcelas),valorParc=saldo/parcs;for(let i=1;i<=parcs&&valorParc>0;i++){const venc=comAddMes(k.inicio||today(),i-1);contas.push({id:uid(),obraId,competencia:venc.slice(0,7),dataVencimento:venc,numeroParcela:String(i),tipo:"parcela",percentualAcumulado:0,percentualPeriodo:0,valorMOFixo:valorParc,valorAdminPct:0,valorPrevisto:valorParc,valorRecebido:0,dataPagamento:"",descricao:`Parcela ${i}/${parcs} · ${k.numero}`,recebido:false});}
-    const kickoff={id:uid(),leadId:l.id,dataHora:`${k.inicio||today()}T09:00`,tipo:"inicio_obra",local:l.endereco||"Obra",participantes:`Cliente, ${nomeUsuario(k.responsavelTecnicoId)}, ${nomeUsuario(venda.responsavelId)}`,responsavelComercialId:venda.responsavelId,responsavelTecnicoId:k.responsavelTecnicoId,pauta:"Reunião de início e transferência para Engenharia",resumo:"",necessidades:l.observacoes,objecoes:"",orcamentoDisponivel:k.valor,proximosPassos:"Validar mobilização e cronograma",proximoContato:k.inicio,status:"agendada",documentos:[]};
-    const posVenda={id:uid(),leadId:l.id,tipo:"pos_venda",titulo:"Contato de pós-venda e confirmação do início",dataHora:`${comAddMes(k.inicio||today(),1)}T09:00`,responsavelId:venda.responsavelId,status:"pendente",observacoes:`Criado automaticamente após a contratação ${k.numero}.`,createdAt:new Date().toISOString()};
-    update({...data,obras:obraExist?data.obras:data.obras.concat(obra),medicoes:[...(data.medicoes||[]),...contas],changeLog:[...(data.changeLog||[]),{id:uid(),date:today(),type:"venda_transferida",message:`Venda ${k.numero} transferida à Engenharia e Financeiro.`}],comercial:{...com,clientes:clienteExist?clientes:[...clientes,cliente],vendas:[...vendas,venda],comissoes:[...comissoes,comissao],atividades:[...atividades,posVenda],reunioes:[...reunioes,kickoff],contratos:contratos.map(x=>x.id===k.id?{...x,status:"contratado",obraId,clienteId:cliente.id}:x),leads:leads.map(x=>x.id===l.id?{...x,etapa:"transferido",status:"ganho",etapaDesde:new Date().toISOString(),historico:[...(x.historico||[]),{id:uid(),data:new Date().toISOString(),tipo:"fechamento",texto:`Venda fechada e transferida para obra ${obra.name}`}]}:x)}});showToast("Venda confirmada: cliente, obra, contas, comissão, kickoff e pós-venda criados.");};
+  const finalizarContrato=async k=>{
+    if(!dispatchCommand){
+      showToast("O comando de ativação comercial não está disponível.","error");
+      return;
+    }
+    const installmentCount=Math.max(1,Number(k.parcelas||1));
+    const obraId=k.obraId||uid();
+    setAtivandoContratoId(k.id);
+    try{
+      const result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED,
+        idempotencyKey:`commercial-contract-activate-${k.id}-${uid()}`,
+        actorId:currentUser?.id||"",
+        actorName:currentUser?.nome||"",
+        payload:{
+          contractId:k.id,
+          obraId,
+          ids:{
+            clientId:uid(),
+            obraId,
+            saleId:uid(),
+            commissionId:uid(),
+            kickoffId:uid(),
+            postSaleId:uid(),
+            entryMeasurementId:uid(),
+            entryReceiptId:uid(),
+            installmentMeasurementIds:Array.from({length:installmentCount},()=>uid()),
+          },
+        },
+      }));
+      if(!result?.ok){
+        showToast(result?.reason||"Não foi possível confirmar e transferir a venda.","error");
+        return;
+      }
+      showToast("Venda confirmada: cliente, obra, contas, comissão, kickoff e pós-venda criados.");
+    }finally{
+      setAtivandoContratoId("");
+    }
+  };
 
   const clienteVazio=()=>({id:"",leadId:"",nome:"",tipoPessoa:"PF",documento:"",rg:"",orgaoExpedidor:"",dataNascimento:"",nacionalidade:"Brasileira",estadoCivil:"",regimeBens:"",profissao:"",conjugeNome:"",conjugeCpf:"",telefone:"",whatsapp:"",email:"",cep:"",endereco:"",numero:"",complemento:"",bairro:"",cidade:"",uf:"PE",razaoSocial:"",nomeFantasia:"",inscricaoEstadual:"",inscricaoMunicipal:"",representanteNome:"",representanteCpf:"",representanteRg:"",representanteOrgaoExpedidor:"",representanteCargo:"",representanteNacionalidade:"Brasileira",representanteEstadoCivil:"",representanteProfissao:"",observacoes:""});
   const pendenciasCliente=c=>{
@@ -35245,29 +35432,282 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     finally{setSubindoDocumentoComercial(false);}
   };
 
-  const DocumentosComerciais=({tipo,registro,setRegistro})=><div style={{gridColumn:"1/-1",padding:"10px",border:`1px solid ${C.border}`,borderRadius:8,background:C.surface}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-      <div><p style={{fontSize:10,fontWeight:800,color:C.text}}>Documentos anexados</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>PDF, Word, Excel ou imagem · máximo de 5,5 MB por arquivo</p></div>
-      <label style={{display:"inline-flex",alignItems:"center",gap:5,padding:"7px 10px",border:`1px solid ${C.blue}`,borderRadius:6,background:C.card,color:C.blue,fontSize:9.5,fontWeight:750,cursor:subindoDocumentoComercial?"wait":"pointer"}}>
-        <Ic n={subindoDocumentoComercial?"refresh":"plus"} s={11}/>{subindoDocumentoComercial?"Enviando...":"Anexar arquivo"}
-        <input type="file" disabled={subindoDocumentoComercial} accept=".pdf,.doc,.docx,.xls,.xlsx,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";anexarDocumentoComercial(tipo,registro,setRegistro,file);}}/>
-      </label>
+  const DocumentosComerciais = ({ tipo, registro, setRegistro }) => (
+    <div
+      style={{
+        gridColumn: "1/-1",
+        padding: "10px",
+        border: `1px solid ${C.border}`,
+        borderRadius: 8,
+        background: C.surface,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <p style={{ fontSize: 10, fontWeight: 800, color: C.text }}>
+            Documentos anexados
+          </p>
+          <p style={{ fontSize: 8.5, color: C.muted, marginTop: 2 }}>
+            PDF, Word, Excel ou imagem · máximo de 5,5 MB por arquivo
+          </p>
+        </div>
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "7px 10px",
+            border: `1px solid ${C.blue}`,
+            borderRadius: 6,
+            background: C.card,
+            color: C.blue,
+            fontSize: 9.5,
+            fontWeight: 750,
+            cursor: subindoDocumentoComercial ? "wait" : "pointer",
+          }}
+        >
+          <Ic n={subindoDocumentoComercial ? "refresh" : "plus"} s={11} />
+          {subindoDocumentoComercial ? "Enviando..." : "Anexar arquivo"}
+          <input
+            type="file"
+            disabled={subindoDocumentoComercial}
+            accept=".pdf,.doc,.docx,.xls,.xlsx,image/jpeg,image/png,image/webp"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              anexarDocumentoComercial(tipo, registro, setRegistro, file);
+            }}
+          />
+        </label>
+      </div>
+      {!!(registro.documentos || []).length && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 5,
+            marginTop: 8,
+          }}
+        >
+          {registro.documentos.map((doc) => (
+            <div
+              key={doc.id}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0,1fr) auto auto",
+                gap: 6,
+                alignItems: "center",
+                padding: "7px 8px",
+                border: `1px solid ${C.line}`,
+                borderRadius: 6,
+                background: C.card,
+              }}
+            >
+              <a
+                href={doc.url}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  overflow: "hidden",
+                  color: C.blue,
+                  fontSize: 9.5,
+                  fontWeight: 700,
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {doc.legenda || doc.nome} ↗
+              </a>
+              <span style={{ fontSize: 8, color: C.muted }}>
+                {doc.tamanho
+                  ? `${(doc.tamanho / 1024 / 1024).toFixed(1)} MB`
+                  : ""}
+              </span>
+              <button
+                type="button"
+                title="Remover do cadastro"
+                onClick={() =>
+                  setRegistro((f) => ({
+                    ...f,
+                    documentos: (f.documentos || []).filter(
+                      (d) => d.id !== doc.id,
+                    ),
+                  }))
+                }
+                style={{
+                  width: 25,
+                  height: 25,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 5,
+                  background: C.card,
+                  color: C.red,
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
-    {!!(registro.documentos||[]).length&&<div style={{display:"flex",flexDirection:"column",gap:5,marginTop:8}}>{registro.documentos.map(doc=><div key={doc.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:6,alignItems:"center",padding:"7px 8px",border:`1px solid ${C.line}`,borderRadius:6,background:C.card}}>
-      <a href={doc.url} target="_blank" rel="noreferrer" style={{overflow:"hidden",color:C.blue,fontSize:9.5,fontWeight:700,textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.legenda||doc.nome} ↗</a>
-      <span style={{fontSize:8,color:C.muted}}>{doc.tamanho?`${(doc.tamanho/1024/1024).toFixed(1)} MB`:""}</span>
-      <button type="button" title="Remover do cadastro" onClick={()=>setRegistro(f=>({...f,documentos:(f.documentos||[]).filter(d=>d.id!==doc.id)}))} style={{width:25,height:25,border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.red,cursor:"pointer"}}>×</button>
-    </div>)}</div>}
-  </div>;
+  );
 
-  const Titulo=({titulo,sub,acao})=><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}><div><p style={{fontSize:9.5,fontWeight:800,color:C.green,textTransform:"uppercase",letterSpacing:.8}}>Comercial</p><h3 style={{fontSize:"clamp(15px,3.5vw,19px)",color:C.text,fontWeight:800,letterSpacing:-.2}}>{titulo}</h3>{sub&&<p style={{fontSize:10.5,color:C.muted,marginTop:2}}>{sub}</p>}</div>{acao}</div>;
-  const vazio=t=><p style={{fontSize:11,color:C.muted,textAlign:"center",padding:18}}>{t}</p>;
-  const kpi=(l,v,c,sub)=><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 11px"}}><p style={{fontSize:8.5,color:C.muted,fontWeight:800,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:17,fontWeight:900,color:c,marginTop:2}}>{v}</p>{sub&&<p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{sub}</p>}</div>;
-  const KpiCard=({label,value,sub,color,icon,tab})=><button onClick={()=>tab&&onTab(tab)} style={{background:C.card,border:`1px solid ${C.border}`,padding:"12px 13px",borderRadius:8,textAlign:"left",color:C.text,cursor:tab?"pointer":"default",transition:"border-color .12s, background .12s",display:"flex",flexDirection:"column",gap:7}} onMouseEnter={e=>{if(tab)e.currentTarget.style.borderColor=color;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:C.muted,fontSize:9.5,fontWeight:800,textTransform:"uppercase",letterSpacing:.6}}>{label}</span><Ic n={icon} s={13} color={color}/></div><p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,color:C.text,fontSize:22,letterSpacing:-.3,lineHeight:1}}>{value}</p>{sub&&<p style={{color:C.muted,fontSize:10,marginTop:-1}}>{sub}</p>}<div style={{height:2,background:color,borderRadius:99,opacity:.85,marginTop:1}}/></button>;
+  const Titulo = ({ titulo, sub, acao }) => (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: 8,
+        flexWrap: "wrap",
+      }}
+    >
+      <div>
+        <p
+          style={{
+            fontSize: 9.5,
+            fontWeight: 800,
+            color: C.green,
+            textTransform: "uppercase",
+            letterSpacing: 0.8,
+          }}
+        >
+          Comercial
+        </p>
+        <h3
+          style={{
+            fontSize: "clamp(15px,3.5vw,19px)",
+            color: C.text,
+            fontWeight: 800,
+            letterSpacing: -0.2,
+          }}
+        >
+          {titulo}
+        </h3>
+        {sub && (
+          <p style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{sub}</p>
+        )}
+      </div>
+      {acao}
+    </div>
+  );
+  const vazio = (t) => (
+    <p
+      style={{ fontSize: 11, color: C.muted, textAlign: "center", padding: 18 }}
+    >
+      {t}
+    </p>
+  );
+  const kpi = (l, v, c, sub) => (
+    <div
+      style={{
+        background: C.card,
+        border: `1px solid ${C.border}`,
+        borderRadius: 6,
+        padding: "10px 11px",
+      }}
+    >
+      <p
+        style={{
+          fontSize: 8.5,
+          color: C.muted,
+          fontWeight: 800,
+          textTransform: "uppercase",
+        }}
+      >
+        {l}
+      </p>
+      <p style={{ fontSize: 17, fontWeight: 900, color: c, marginTop: 2 }}>
+        {v}
+      </p>
+      {sub && (
+        <p style={{ fontSize: 8.5, color: C.muted, marginTop: 1 }}>{sub}</p>
+      )}
+    </div>
+  );
+  const KpiCard = ({ label, value, sub, color, icon, tab }) => (
+    <button
+      onClick={() => tab && onTab(tab)}
+      style={{
+        background: C.card,
+        border: `1px solid ${C.border}`,
+        padding: "12px 13px",
+        borderRadius: 8,
+        textAlign: "left",
+        color: C.text,
+        cursor: tab ? "pointer" : "default",
+        transition: "border-color .12s, background .12s",
+        display: "flex",
+        flexDirection: "column",
+        gap: 7,
+      }}
+      onMouseEnter={(e) => {
+        if (tab) e.currentTarget.style.borderColor = color;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = C.border;
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <span
+          style={{
+            color: C.muted,
+            fontSize: 9.5,
+            fontWeight: 800,
+            textTransform: "uppercase",
+            letterSpacing: 0.6,
+          }}
+        >
+          {label}
+        </span>
+        <Ic n={icon} s={13} color={color} />
+      </div>
+      <p
+        style={{
+          fontFamily: "'Inter Display','Inter',sans-serif",
+          fontWeight: 800,
+          color: C.text,
+          fontSize: 22,
+          letterSpacing: -0.3,
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p style={{ color: C.muted, fontSize: 10, marginTop: -1 }}>{sub}</p>
+      )}
+      <div
+        style={{
+          height: 2,
+          background: color,
+          borderRadius: 99,
+          opacity: 0.85,
+          marginTop: 1,
+        }}
+      />
+    </button>
+  );
 
-  const workspace=useMemo(()=>selectCommercialWorkspace(com),[com]);
-  let conteudo=null;
-  if(commercialView==="com_indicacoes"){
+  const workspace = useMemo(() => selectCommercialWorkspace(com), [com]);
+  let conteudo = null;
+  if (commercialView === "com_indicacoes") {
     // Painel do motor de indicacao: quem traz negocio, se a carteira esta
     // produzindo, como esta a satisfacao e onde o funil vaza.
     const rank = rankingIndicadores(com);
@@ -35276,163 +35716,499 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     const acoes = momentosIndicacao(data);
     const conv = conversaoPorFase(leads);
     const ciclo = cicloMedioVenda(com);
-    const maiorPerda = conv.slice(1).reduce((m,l)=>l.perdaNaFase>(m?.perdaNaFase||0)?l:m, null);
+    const maiorPerda = conv
+      .slice(1)
+      .reduce((m, l) => (l.perdaNaFase > (m?.perdaNaFase || 0) ? l : m), null);
 
-    conteudo = <>
-      <Titulo titulo="Indicações" sub="O canal que mais traz negócio para a ARCD"
-        acao={<Btn onClick={()=>setNpsForm({id:"",clienteId:"",obraId:"",nota:"",comentario:"",data:today(),indicaria:true,pediuIndicacao:false})}>
-          <Ic n="plus"/> PESQUISA</Btn>}/>
+    conteudo = (
+      <>
+        <Titulo
+          titulo="Indicações"
+          sub="O canal que mais traz negócio para a ARCD"
+          acao={
+            <Btn
+              onClick={() =>
+                setNpsForm({
+                  id: "",
+                  clienteId: "",
+                  obraId: "",
+                  nota: "",
+                  comentario: "",
+                  data: today(),
+                  indicaria: true,
+                  pediuIndicacao: false,
+                })
+              }
+            >
+              <Ic n="plus" /> PESQUISA
+            </Btn>
+          }
+        />
 
-      {/* ---- O TERMOMETRO DO MOTOR ---- */}
-      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
-        <KpiCard label="Indicações por obra entregue" value={tx.porObraEntregue.toFixed(1)}
-          sub={`${tx.indicacoes} indicações · ${tx.obrasEntregues} obras`}
-          color={tx.porObraEntregue>=1.5?C.green:tx.porObraEntregue>=0.8?C.orange:C.red} icon="users"/>
-        <KpiCard label="Carteira que indicou" value={`${tx.pctClientesAtivos.toFixed(0)}%`}
-          sub={`${tx.clientesQueIndicaram} de ${tx.totalClientes} clientes`}
-          color={tx.pctClientesAtivos>=40?C.green:C.orange} icon="users"/>
-        <KpiCard label="NPS da entrega" value={nps.nps==null?"-":nps.nps.toFixed(0)}
-          sub={nps.total?`${nps.promotores} promotores · ${nps.detratores} detratores`:"sem pesquisa"}
-          color={nps.nps==null?C.muted:nps.nps>=50?C.green:nps.nps>=0?C.orange:C.red} icon="chart"/>
-        <KpiCard label="Ciclo médio de venda" value={ciclo.n?`${ciclo.medio.toFixed(0)}d`:"-"}
-          sub={ciclo.n?`mediana ${ciclo.mediana}d · ${ciclo.n} vendas`:"sem venda fechada"}
-          color={C.blue} icon="clock"/>
-      </div>
+        {/* ---- O TERMOMETRO DO MOTOR ---- */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: cols(2, 4, 4),
+            gap: 8,
+          }}
+        >
+          <KpiCard
+            label="Indicações por obra entregue"
+            value={tx.porObraEntregue.toFixed(1)}
+            sub={`${tx.indicacoes} indicações · ${tx.obrasEntregues} obras`}
+            color={
+              tx.porObraEntregue >= 1.5
+                ? C.green
+                : tx.porObraEntregue >= 0.8
+                  ? C.orange
+                  : C.red
+            }
+            icon="users"
+          />
+          <KpiCard
+            label="Carteira que indicou"
+            value={`${tx.pctClientesAtivos.toFixed(0)}%`}
+            sub={`${tx.clientesQueIndicaram} de ${tx.totalClientes} clientes`}
+            color={tx.pctClientesAtivos >= 40 ? C.green : C.orange}
+            icon="users"
+          />
+          <KpiCard
+            label="NPS da entrega"
+            value={nps.nps == null ? "-" : nps.nps.toFixed(0)}
+            sub={
+              nps.total
+                ? `${nps.promotores} promotores · ${nps.detratores} detratores`
+                : "sem pesquisa"
+            }
+            color={
+              nps.nps == null
+                ? C.muted
+                : nps.nps >= 50
+                  ? C.green
+                  : nps.nps >= 0
+                    ? C.orange
+                    : C.red
+            }
+            icon="chart"
+          />
+          <KpiCard
+            label="Ciclo médio de venda"
+            value={ciclo.n ? `${ciclo.medio.toFixed(0)}d` : "-"}
+            sub={
+              ciclo.n
+                ? `mediana ${ciclo.mediana}d · ${ciclo.n} vendas`
+                : "sem venda fechada"
+            }
+            color={C.blue}
+            icon="clock"
+          />
+        </div>
 
-      {/* ---- ACOES DO MOMENTO ---- */}
-      {acoes.length>0 && (
-        <div style={{background:`${C.yellow}0C`,border:`1.5px solid ${C.yellow}66`,borderRadius:10,padding:"12px 14px"}}>
-          <p style={{fontSize:12,fontWeight:900,color:C.yellowD,marginBottom:3}}>
-            {acoes.length} ação(ões) para gerar indicação agora
+        {/* ---- ACOES DO MOMENTO ---- */}
+        {acoes.length > 0 && (
+          <div
+            style={{
+              background: `${C.yellow}0C`,
+              border: `1.5px solid ${C.yellow}66`,
+              borderRadius: 10,
+              padding: "12px 14px",
+            }}
+          >
+            <p
+              style={{
+                fontSize: 12,
+                fontWeight: 900,
+                color: C.yellowD,
+                marginBottom: 3,
+              }}
+            >
+              {acoes.length} ação(ões) para gerar indicação agora
+            </p>
+            <p
+              style={{
+                fontSize: 10,
+                color: C.muted,
+                marginBottom: 9,
+                lineHeight: 1.45,
+              }}
+            >
+              Indicação não é sorte: existem momentos em que o cliente está mais
+              propenso.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {acoes.slice(0, 8).map((a, i) => {
+                const cor =
+                  a.tipo === "recuperar"
+                    ? C.red
+                    : a.tipo === "nps"
+                      ? C.blue
+                      : a.tipo === "pedir"
+                        ? C.green
+                        : C.orange;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      background: C.card,
+                      border: `1px solid ${C.border}`,
+                      borderLeft: `3px solid ${cor}`,
+                      borderRadius: 7,
+                      padding: "8px 11px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p
+                        style={{
+                          fontSize: 11.5,
+                          fontWeight: 800,
+                          color: C.text,
+                        }}
+                      >
+                        {a.titulo}
+                      </p>
+                      <p
+                        style={{ fontSize: 9.5, color: C.muted, marginTop: 2 }}
+                      >
+                        {a.obraNome}
+                        {a.clienteNome ? ` · ${a.clienteNome}` : ""} —{" "}
+                        {a.motivo}
+                      </p>
+                    </div>
+                    {a.tipo === "nps" && (
+                      <Btn
+                        size="sm"
+                        v="ghost"
+                        onClick={() =>
+                          setNpsForm({
+                            id: "",
+                            clienteId: a.clienteId,
+                            obraId: a.obraId,
+                            nota: "",
+                            comentario: "",
+                            data: today(),
+                            indicaria: true,
+                            pediuIndicacao: false,
+                          })
+                        }
+                      >
+                        Registrar
+                      </Btn>
+                    )}
+                    {a.tipo === "pedir" && (
+                      <Btn
+                        size="sm"
+                        v="ghost"
+                        onClick={() => marcarPedidoIndicacao(a.obraId)}
+                      >
+                        Pedi
+                      </Btn>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ---- RANKING DE INDICADORES ---- */}
+        <div>
+          <p
+            style={{
+              fontSize: 10,
+              fontWeight: 900,
+              color: C.muted,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              marginBottom: 6,
+            }}
+          >
+            Quem traz negócio
           </p>
-          <p style={{fontSize:10,color:C.muted,marginBottom:9,lineHeight:1.45}}>
-            Indicação não é sorte: existem momentos em que o cliente está mais propenso.
-          </p>
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {acoes.slice(0,8).map((a,i)=>{
-              const cor = a.tipo==="recuperar"?C.red : a.tipo==="nps"?C.blue : a.tipo==="pedir"?C.green : C.orange;
-              return (
-                <div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${cor}`,
-                     borderRadius:7,padding:"8px 11px",display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}>
-                  <div style={{minWidth:0,flex:1}}>
-                    <p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{a.titulo}</p>
-                    <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>
-                      {a.obraNome}{a.clienteNome?` · ${a.clienteNome}`:""} — {a.motivo}
+          {rank.length === 0 ? (
+            vazio(
+              "Nenhuma indicação registrada ainda. Preencha 'Indicado por' ao cadastrar o lead.",
+            )
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {rank.map((r, i) => (
+                <div
+                  key={r.chave}
+                  style={{
+                    background: C.card,
+                    border: `1px solid ${C.border}`,
+                    borderLeft: `4px solid ${i === 0 ? C.yellow : C.border}`,
+                    borderRadius: 7,
+                    padding: "10px 12px",
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0,1fr) auto",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <p
+                      style={{ fontSize: 12.5, fontWeight: 900, color: C.text }}
+                    >
+                      {r.nome}
+                      {i === 0 && (
+                        <span
+                          style={{
+                            fontSize: 9,
+                            color: C.yellowD,
+                            fontWeight: 800,
+                            marginLeft: 6,
+                            background: `${C.yellow}22`,
+                            padding: "1px 6px",
+                            borderRadius: 99,
+                          }}
+                        >
+                          MAIOR INDICADOR
+                        </span>
+                      )}
+                    </p>
+                    <p style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
+                      {r.total} indicação(ões) · {r.ganhos} fechada(s) ·{" "}
+                      {r.emAberto} em aberto
+                      {r.perdidos > 0 ? ` · ${r.perdidos} perdida(s)` : ""}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 9.5,
+                        color: r.conversao >= 50 ? C.green : C.muted,
+                        marginTop: 2,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {r.conversao.toFixed(0)}% de conversão
                     </p>
                   </div>
-                  {(a.tipo==="nps") && (
-                    <Btn size="sm" v="ghost" onClick={()=>setNpsForm({id:"",clienteId:a.clienteId,obraId:a.obraId,
-                      nota:"",comentario:"",data:today(),indicaria:true,pediuIndicacao:false})}>Registrar</Btn>
-                  )}
-                  {(a.tipo==="pedir") && (
-                    <Btn size="sm" v="ghost" onClick={()=>marcarPedidoIndicacao(a.obraId)}>Pedi</Btn>
-                  )}
+                  <div style={{ textAlign: "right" }}>
+                    <b style={{ fontSize: 13, color: C.yellowD }}>
+                      {fmt(r.valorGerado)}
+                    </b>
+                    <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
+                      gerado
+                    </p>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
 
-      {/* ---- RANKING DE INDICADORES ---- */}
-      <div>
-        <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:6}}>
-          Quem traz negócio
-        </p>
-        {rank.length===0 ? vazio("Nenhuma indicação registrada ainda. Preencha 'Indicado por' ao cadastrar o lead.") : (
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {rank.map((r,i)=>(
-              <div key={r.chave} style={{background:C.card,border:`1px solid ${C.border}`,
-                   borderLeft:`4px solid ${i===0?C.yellow:C.border}`,borderRadius:7,padding:"10px 12px",
-                   display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,alignItems:"center"}}>
-                <div style={{minWidth:0}}>
-                  <p style={{fontSize:12.5,fontWeight:900,color:C.text}}>
-                    {r.nome}{i===0 && <span style={{fontSize:9,color:C.yellowD,fontWeight:800,marginLeft:6,background:`${C.yellow}22`,padding:"1px 6px",borderRadius:99}}>MAIOR INDICADOR</span>}
-                  </p>
-                  <p style={{fontSize:10,color:C.muted,marginTop:2}}>
-                    {r.total} indicação(ões) · {r.ganhos} fechada(s) · {r.emAberto} em aberto
-                    {r.perdidos>0?` · ${r.perdidos} perdida(s)`:""}
-                  </p>
-                  <p style={{fontSize:9.5,color:r.conversao>=50?C.green:C.muted,marginTop:2,fontWeight:700}}>
-                    {r.conversao.toFixed(0)}% de conversão
-                  </p>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <b style={{fontSize:13,color:C.yellowD}}>{fmt(r.valorGerado)}</b>
-                  <p style={{fontSize:9,color:C.muted,marginTop:2}}>gerado</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ---- ONDE O FUNIL VAZA ---- */}
-      <div>
-        <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:6}}>
-          Onde o funil vaza
-        </p>
-        {maiorPerda && maiorPerda.perdaNaFase>0 && (
-          <div style={{background:`${C.red}0A`,border:`1px solid ${C.red}44`,borderRadius:8,padding:"9px 12px",marginBottom:8}}>
-            <p style={{fontSize:11,color:C.red,fontWeight:700,lineHeight:1.45}}>
-              Maior perda na fase <b>{maiorPerda.label}</b>: {maiorPerda.perdaNaFase} lead(s) não passaram daqui.
-            </p>
-          </div>
-        )}
-        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-          {conv.map((l,i)=>{
-            const largura = conv[0].alcancaram ? (l.alcancaram/conv[0].alcancaram)*100 : 0;
-            return (
-              <div key={l.id} style={{padding:"8px 12px",borderTop:i?`1px solid ${C.line}`:"none"}}>
-                <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:3}}>
-                  <span style={{fontSize:11,color:C.text,fontWeight:600}}>{l.label}</span>
-                  <span style={{fontSize:10.5,color:C.muted}}>
-                    {l.alcancaram}
-                    {i>0 && <b style={{color:l.taxaDaAnterior>=70?C.green:l.taxaDaAnterior>=40?C.orange:C.red,marginLeft:6}}>
-                      {l.taxaDaAnterior.toFixed(0)}%
-                    </b>}
-                  </span>
-                </div>
-                <div style={{height:6,background:C.surface,borderRadius:3,overflow:"hidden"}}>
-                  <div style={{height:"100%",width:`${largura}%`,background:l.cor||C.blue,borderRadius:3}}/>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ---- PESQUISAS REGISTRADAS ---- */}
-      <div>
-        <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:6}}>
-          Satisfação na entrega
-        </p>
-        {(com.pesquisas||[]).length===0 ? vazio("Nenhuma pesquisa registrada.") : (
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {(com.pesquisas||[]).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")).map(p=>{
-              const cor = p.nota>=9?C.green : p.nota>=7?C.orange : C.red;
-              const rot = p.nota>=9?"promotor" : p.nota>=7?"neutro" : "detrator";
-              const cli = (com.clientes||[]).find(c=>c.id===p.clienteId);
-              const obr = (data.obras||[]).find(o=>o.id===p.obraId);
+        {/* ---- ONDE O FUNIL VAZA ---- */}
+        <div>
+          <p
+            style={{
+              fontSize: 10,
+              fontWeight: 900,
+              color: C.muted,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              marginBottom: 6,
+            }}
+          >
+            Onde o funil vaza
+          </p>
+          {maiorPerda && maiorPerda.perdaNaFase > 0 && (
+            <div
+              style={{
+                background: `${C.red}0A`,
+                border: `1px solid ${C.red}44`,
+                borderRadius: 8,
+                padding: "9px 12px",
+                marginBottom: 8,
+              }}
+            >
+              <p
+                style={{
+                  fontSize: 11,
+                  color: C.red,
+                  fontWeight: 700,
+                  lineHeight: 1.45,
+                }}
+              >
+                Maior perda na fase <b>{maiorPerda.label}</b>:{" "}
+                {maiorPerda.perdaNaFase} lead(s) não passaram daqui.
+              </p>
+            </div>
+          )}
+          <div
+            style={{
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: 8,
+              overflow: "hidden",
+            }}
+          >
+            {conv.map((l, i) => {
+              const largura = conv[0].alcancaram
+                ? (l.alcancaram / conv[0].alcancaram) * 100
+                : 0;
               return (
-                <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${cor}`,
-                     borderRadius:7,padding:"9px 12px",display:"grid",gridTemplateColumns:"auto minmax(0,1fr)",gap:10,alignItems:"center"}}>
-                  <div style={{textAlign:"center",minWidth:38}}>
-                    <b style={{fontSize:18,color:cor}}>{p.nota}</b>
-                    <p style={{fontSize:8,color:cor,fontWeight:700,textTransform:"uppercase"}}>{rot}</p>
+                <div
+                  key={l.id}
+                  style={{
+                    padding: "8px 12px",
+                    borderTop: i ? `1px solid ${C.line}` : "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      marginBottom: 3,
+                    }}
+                  >
+                    <span
+                      style={{ fontSize: 11, color: C.text, fontWeight: 600 }}
+                    >
+                      {l.label}
+                    </span>
+                    <span style={{ fontSize: 10.5, color: C.muted }}>
+                      {l.alcancaram}
+                      {i > 0 && (
+                        <b
+                          style={{
+                            color:
+                              l.taxaDaAnterior >= 70
+                                ? C.green
+                                : l.taxaDaAnterior >= 40
+                                  ? C.orange
+                                  : C.red,
+                            marginLeft: 6,
+                          }}
+                        >
+                          {l.taxaDaAnterior.toFixed(0)}%
+                        </b>
+                      )}
+                    </span>
                   </div>
-                  <div style={{minWidth:0}}>
-                    <p style={{fontSize:11.5,fontWeight:700,color:C.text}}>{cli?.nome||obr?.cliente||"Cliente"}</p>
-                    <p style={{fontSize:9.5,color:C.muted}}>{obr?.name||"-"} · {p.data?fmtDate(p.data):""}</p>
-                    {p.comentario && <p style={{fontSize:10,color:C.subtle,marginTop:3,fontStyle:"italic"}}>"{p.comentario}"</p>}
+                  <div
+                    style={{
+                      height: 6,
+                      background: C.surface,
+                      borderRadius: 3,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${largura}%`,
+                        background: l.cor || C.blue,
+                        borderRadius: 3,
+                      }}
+                    />
                   </div>
                 </div>
               );
             })}
           </div>
-        )}
-      </div>
-    </>;
+        </div>
+
+        {/* ---- PESQUISAS REGISTRADAS ---- */}
+        <div>
+          <p
+            style={{
+              fontSize: 10,
+              fontWeight: 900,
+              color: C.muted,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              marginBottom: 6,
+            }}
+          >
+            Satisfação na entrega
+          </p>
+          {(com.pesquisas || []).length === 0 ? (
+            vazio("Nenhuma pesquisa registrada.")
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {(com.pesquisas || [])
+                .slice()
+                .sort((a, b) => (b.data || "").localeCompare(a.data || ""))
+                .map((p) => {
+                  const cor =
+                    p.nota >= 9 ? C.green : p.nota >= 7 ? C.orange : C.red;
+                  const rot =
+                    p.nota >= 9
+                      ? "promotor"
+                      : p.nota >= 7
+                        ? "neutro"
+                        : "detrator";
+                  const cli = (com.clientes || []).find(
+                    (c) => c.id === p.clienteId,
+                  );
+                  const obr = (data.obras || []).find((o) => o.id === p.obraId);
+                  return (
+                    <div
+                      key={p.id}
+                      style={{
+                        background: C.card,
+                        border: `1px solid ${C.border}`,
+                        borderLeft: `4px solid ${cor}`,
+                        borderRadius: 7,
+                        padding: "9px 12px",
+                        display: "grid",
+                        gridTemplateColumns: "auto minmax(0,1fr)",
+                        gap: 10,
+                        alignItems: "center",
+                      }}
+                    >
+                      <div style={{ textAlign: "center", minWidth: 38 }}>
+                        <b style={{ fontSize: 18, color: cor }}>{p.nota}</b>
+                        <p
+                          style={{
+                            fontSize: 8,
+                            color: cor,
+                            fontWeight: 700,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {rot}
+                        </p>
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <p
+                          style={{
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            color: C.text,
+                          }}
+                        >
+                          {cli?.nome || obr?.cliente || "Cliente"}
+                        </p>
+                        <p style={{ fontSize: 9.5, color: C.muted }}>
+                          {obr?.name || "-"} · {p.data ? fmtDate(p.data) : ""}
+                        </p>
+                        {p.comentario && (
+                          <p
+                            style={{
+                              fontSize: 10,
+                              color: C.subtle,
+                              marginTop: 3,
+                              fontStyle: "italic",
+                            }}
+                          >
+                            "{p.comentario}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      </>
+    );
   }
 
   if(commercialView==="com_dash"){
@@ -35600,7 +36376,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   } else if(["com_propostas","com_negociacoes"].includes(view)){
     const lista=view==="com_negociacoes"?propostas.filter(p=>(p.negociacoes||[]).length||p.status==="negociacao"):propostas;conteudo=<><Titulo titulo={view==="com_propostas"?"Propostas":"Negociações"} sub="Versões, envio, visualização, descontos, aceite e rejeição" acao={<Btn onClick={()=>setPropostaForm(propostaVazia(leadAtivos[0]?.id||""))}><Ic n="plus"/> PROPOSTA</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{lista.map(p=>{const l=leadBy(p.leadId);return <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{p.numero} · V{p.versao} · {l?.nome}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{p.objeto} · validade {fmtDate(p.validade)}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(p.valor)}</b><p style={{fontSize:9,color:C.blue}}>{p.status}</p></div></div>{(p.negociacoes||[]).slice(-1).map(n=><p key={n.id} style={{fontSize:9.5,color:C.orange,marginTop:5}}>Negociado: {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · desconto {n.desconto}%</p>)}<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setPropostaForm({...p,versao:p.versao+1})}><Ic n="edit"/></Btn><Btn size="sm" v="ghost" onClick={()=>pdfProposta(p)}>PDF</Btn><Btn size="sm" v="success" onClick={()=>compartilharProposta(p)}>WHATSAPP</Btn><a href={`mailto:${encodeURIComponent(l?.email||"")}?subject=${encodeURIComponent(`Proposta ${p.numero}`)}&body=${encodeURIComponent(`Olá ${l?.nome||""}, segue nossa proposta ${p.numero}, versão ${p.versao}, no valor de ${fmt(p.valor)}.`)}`} style={{textDecoration:"none"}}><Btn size="sm" v="ghost">E-MAIL</Btn></a>{p.status==="rascunho"&&<Btn size="sm" onClick={()=>statusProposta(p,"enviada")}>ENVIAR</Btn>}{p.status==="enviada"&&<Btn size="sm" v="ghost" onClick={()=>statusProposta(p,"visualizada")}>VISUALIZADA</Btn>}<Btn size="sm" v="ghost" onClick={()=>setNegForm({propostaId:p.id,valorInicial:p.valor,valorNegociado:p.valor,desconto:"",formaPagamento:p.formaPagamento,parcelas:"",alteracaoEscopo:"",objecoes:"",respostas:"",aprovadorId:""})}>NEGOCIAR</Btn>{!["aceita","rejeitada"].includes(p.status)&&<Btn size="sm" v="success" onClick={()=>statusProposta(p,"aceita")}>ACEITAR</Btn>}{p.status==="aceita"&&<Btn size="sm" onClick={()=>criarContrato(p)}>GERAR CONTRATO</Btn>}</div></div>;})}{!lista.length&&vazio("Nenhuma proposta.")}</div></>;
   } else if(view==="com_contratos"){
-    conteudo=<><Titulo titulo="Contratos" sub="Elaboração, assinatura, entrada e transferência para Engenharia" acao={<Btn onClick={()=>setContratoForm(contratoVazio())}><Ic n="plus"/> Novo contrato</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{contratos.map(k=>{const l=leadBy(k.leadId),faltas=[!k.assinadoEm&&k.status!=="assinado"?"assinatura":"",!k.documentosRecebidos?"documentos":"",!k.entradaPaga?"entrada":"",!k.escopoValidado?"escopo":"",!k.responsavelTecnicoId?"responsável técnico":""].filter(Boolean);return <div key={k.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${k.status==="contratado"?C.green:faltas.length?C.orange:C.blue}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{k.numero} · {k.contratante||"Rascunho sem contratante"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{k.objeto||"Objeto ainda não informado"} · proposta {propostas.find(p=>p.id===k.propostaId)?.numero||"-"}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(k.valor)}</b><p style={{fontSize:9,color:C.blue}}>{k.status}</p></div></div>{faltas.length>0&&k.status!=="contratado"&&<p style={{fontSize:9.5,color:C.orange,marginTop:5}}>Pendente: {faltas.join(", ")}</p>}<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setContratoForm({...k})}><Ic n="edit"/> Editar</Btn>{k.status==="elaboracao"&&<Btn size="sm" onClick={()=>{if(!k.leadId||!k.contratante||!(Number(k.valor)>0)){showToast("Complete lead, contratante e valor antes de enviar.","error");return;}setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"enviado",enviadoEm:new Date().toISOString()}:x)});}}>ENVIAR</Btn>}{k.status==="enviado"&&<Btn size="sm" v="success" onClick={()=>setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"assinado",assinadoEm:new Date().toISOString()}:x),leads:leads.map(x=>x.id===k.leadId?{...x,etapa:"contrato_assinado"}:x)})}>REGISTRAR ASSINATURA</Btn>}{k.status!=="contratado"&&<Btn size="sm" v="success" onClick={()=>finalizarContrato(k)}>CONFIRMAR CONTRATAÇÃO</Btn>}{k.obraId&&<Btn size="sm" v="ghost" onClick={()=>onTab("obras")}>ABRIR OBRA</Btn>}</div></div>;})}{!contratos.length&&vazio("Nenhum contrato salvo.")}</div></>;
+    conteudo=<><Titulo titulo="Contratos" sub="Elaboração, assinatura, entrada e transferência para Engenharia" acao={<Btn onClick={()=>setContratoForm(contratoVazio())}><Ic n="plus"/> Novo contrato</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{contratos.map(k=>{const l=leadBy(k.leadId),faltas=[!k.assinadoEm&&k.status!=="assinado"?"assinatura":"",!k.documentosRecebidos?"documentos":"",!k.entradaPaga?"entrada":"",!k.escopoValidado?"escopo":"",!k.responsavelTecnicoId?"responsável técnico":""].filter(Boolean);return <div key={k.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${k.status==="contratado"?C.green:faltas.length?C.orange:C.blue}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{k.numero} · {k.contratante||"Rascunho sem contratante"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{k.objeto||"Objeto ainda não informado"} · proposta {propostas.find(p=>p.id===k.propostaId)?.numero||"-"}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(k.valor)}</b><p style={{fontSize:9,color:C.blue}}>{k.status}</p></div></div>{faltas.length>0&&k.status!=="contratado"&&<p style={{fontSize:9.5,color:C.orange,marginTop:5}}>Pendente: {faltas.join(", ")}</p>}<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setContratoForm({...k})}><Ic n="edit"/> Editar</Btn>{k.status==="elaboracao"&&<Btn size="sm" onClick={()=>{if(!k.leadId||!k.contratante||!(Number(k.valor)>0)){showToast("Complete lead, contratante e valor antes de enviar.","error");return;}setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"enviado",enviadoEm:new Date().toISOString()}:x)});}}>ENVIAR</Btn>}{k.status==="enviado"&&<Btn size="sm" v="success" onClick={()=>setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"assinado",assinadoEm:new Date().toISOString()}:x),leads:leads.map(x=>x.id===k.leadId?{...x,etapa:"contrato_assinado"}:x)})}>REGISTRAR ASSINATURA</Btn>}{k.status!=="contratado"&&<Btn size="sm" v="success" disabled={ativandoContratoId===k.id} onClick={()=>finalizarContrato(k)}>{ativandoContratoId===k.id?"CONFIRMANDO...":"CONFIRMAR CONTRATAÇÃO"}</Btn>}{k.obraId&&<Btn size="sm" v="ghost" onClick={()=>onTab("obras")}>ABRIR OBRA</Btn>}</div></div>;})}{!contratos.length&&vazio("Nenhum contrato salvo.")}</div></>;
   } else if(view==="com_clientes"){
     conteudo=<><Titulo titulo="Clientes" sub="Qualificação completa para propostas, contratos e documentos" acao={<Btn onClick={()=>setClienteForm(clienteVazio())}><Ic n="plus"/> CLIENTE</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{clientes.map(c=>{const pend=pendenciasCliente(c),pronto=!pend.length;return <div key={c.id} style={{background:C.card,border:`1px solid ${pronto?C.green:C.border}`,borderLeft:`4px solid ${pronto?C.green:C.orange}`,borderRadius:6,padding:"10px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}</p>{c.tipoPessoa==="PJ"&&c.nomeFantasia&&<p style={{fontSize:9.5,color:C.muted}}>{c.nomeFantasia}</p>}</div><Btn size="sm" v="ghost" onClick={()=>setClienteForm({...clienteVazio(),...c})}><Ic n="edit"/></Btn></div><p style={{fontSize:10,color:C.muted,marginTop:3}}>{c.tipoPessoa} · {c.documento?maskDoc(c.documento,c.tipoPessoa):"sem documento"} · {c.cidade||"-"}/{c.uf||"-"}</p><p style={{fontSize:10,color:C.blue,marginTop:3}}>{c.whatsapp||c.telefone||"-"} · {c.email||"-"}</p><p style={{fontSize:9.5,color:pronto?C.green:C.orange,marginTop:5,fontWeight:800}}>{pronto?"CADASTRO CONTRATUAL COMPLETO":`${pend.length} pendência(s): ${pend.slice(0,3).join(", ")}${pend.length>3?"...":""}`}</p><p style={{fontSize:9.5,color:C.green,marginTop:5}}>{(vendasPorCliente.get(c.id)||[]).length} contrato(s) · {fmt((vendasPorCliente.get(c.id)||[]).reduce((s,v)=>s+v.valor,0))}</p></div>;})}{!clientes.length&&vazio("Nenhum cliente cadastrado.")}</div></>;
   } else if(view==="com_parceiros"){
@@ -37517,7 +38293,7 @@ export default function App() {
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
           {tab === "admin_central" && <CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
           {tab === "aprov_pend" && <AprovacoesPendentes data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
-          {tab.startsWith("com_") && <Comercial data={data} update={update} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} />}
+          {tab.startsWith("com_") && <Comercial data={data} update={update} dispatchCommand={dispatchOperationalCommand} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} />}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
                            currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}
@@ -37543,7 +38319,7 @@ export default function App() {
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
+          {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
           {tab === "equip"    && <Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "equip_fin"&& <Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/>}
@@ -37552,7 +38328,7 @@ export default function App() {
           {tab === "fornecedores" && <RankingFornecedores data={data} update={update} showToast={showToast}/>}
           {tab === "suprimentos" && <Suprimentos data={data} update={update} showToast={showToast} onTab={(t)=>{setObraAberta("");setTab(t);}}/>}
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab}/>}
-          {tab === "medicoes" && <MedicoesView data={data} update={update} showToast={showToast} currentUser={currentUser} />}
+          {tab === "medicoes" && <MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "caixa"    && <CaixaObra    data={data} update={update} showToast={showToast} />}
           {tab === "relat"    && <Relatorios   data={data} showToast={showToast} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}

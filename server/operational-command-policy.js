@@ -1,10 +1,16 @@
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { canOperateTechnicalMeasurement } from "../src/domains/medicoes/permissions.js";
 import { EQUIPMENT_COMMAND_TYPES, equipmentCommandObraId } from "../src/domains/equipamentos/commands.js";
+import {
+  CLIENT_MEASUREMENT_COMMAND_TYPES,
+  clientMeasurementCommandObraId,
+} from "../src/domains/financeiro/measurement-commands.js";
 
 export const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
   if(EQUIPMENT_COMMAND_TYPES.has(command?.type))return equipmentCommandObraId(data,command);
+  if(CLIENT_MEASUREMENT_COMMAND_TYPES.has(command?.type))return clientMeasurementCommandObraId(data,command);
+  if(command?.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED)return String(payload?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED)return String(payload?.measurement?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED)return String(payload?.report?.obraId||"");

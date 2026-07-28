@@ -15,6 +15,11 @@ import { validateActivitySafety } from "../seguranca/calculations.js";
 import { addConstraint, commitWorkPackage, createLookahead, releaseConstraint } from "../lookahead/commands.js";
 import { applyEquipmentCommand, EQUIPMENT_COMMAND } from "../equipamentos/commands.js";
 import { createManualReceipt, reverseManualReceipt } from "../dre/mutations.js";
+import {
+  applyClientMeasurementCommand,
+  CLIENT_MEASUREMENT_COMMAND,
+} from "../financeiro/measurement-commands.js";
+import { activateCommercialContract } from "../comercial/contract-activation.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -23,6 +28,8 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   PURCHASE_RECEIPT_RECORDED:"PEDIDO_RECEBIMENTO_REGISTRADO",
   MANUAL_RECEIPT_CREATED:"RECEBIMENTO_MANUAL_CRIADO",
   MANUAL_RECEIPT_REVERSED:"RECEBIMENTO_MANUAL_ESTORNADO",
+  ...CLIENT_MEASUREMENT_COMMAND,
+  COMMERCIAL_CONTRACT_ACTIVATED:"CONTRATO_COMERCIAL_ATIVADO",
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -110,6 +117,25 @@ export const applyOperationalCommand=(data,command)=>{
   if(equipmentResult){
     if(!equipmentResult.ok)return equipmentResult;
     return {ok:true,data:appendReceipt(equipmentResult.data,command,equipmentResult.entityId,now)};
+  }
+  const financialMeasurementResult=applyClientMeasurementCommand(data,command,now);
+  if(financialMeasurementResult){
+    if(!financialMeasurementResult.ok)return financialMeasurementResult;
+    return {
+      ok:true,
+      data:appendReceipt(
+        financialMeasurementResult.data,command,
+        financialMeasurementResult.entityId,now,
+      ),
+    };
+  }
+  if(command.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED){
+    const result=activateCommercialContract({
+      data,contractId:command.payload?.contractId,obraId:command.payload?.obraId,
+      ids:command.payload?.ids,actor:{id:command.actorId,nome:command.actorName},now,
+    });
+    if(!result.ok)return fail(result.error);
+    return {ok:true,data:appendReceipt(result.data,command,result.entityId,now)};
   }
 
   if(command.type===OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED){

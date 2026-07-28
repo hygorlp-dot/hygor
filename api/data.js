@@ -75,6 +75,13 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED]:["admin","compras","financeiro"],
   [OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENTS_GENERATED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_CANCELLED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_ADMIN_CLOSED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_BILLED]:["admin","financeiro","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED]:["admin","comercial"],
   [OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED]:["admin","engenheiro","qualidade"],
@@ -95,6 +102,11 @@ const OPERATIONAL_COMMAND_ROLES = {
 };
 const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,
+  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED,OPERATIONAL_COMMAND.CLIENT_MEASUREMENTS_GENERATED,
+  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_CANCELLED,OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED,
+  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_ADMIN_CLOSED,
+  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_BILLED,
+  OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED,
   OPERATIONAL_COMMAND.EQUIPMENT_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,
   OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
@@ -903,7 +915,7 @@ export default async function handler(req, res) {
         const save=FINANCIAL_OPERATIONAL_COMMANDS.has(command.type)?salvarFinanceiroComAuditoria:salvarComAuditoria;
         return save({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
-        before:{command:command.type,entityId:command.payload?.measurementId||command.payload?.pedidoId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.rentalId||command.payload?.equipmentId||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.equipment?.id||command.payload?.rental?.id||command.payload?.maintenance?.id||command.payload?.transfer?.id||command.payload?.records?.[0]?.id||""},
+        before:{command:command.type,entityId:command.payload?.contractId||command.payload?.medicaoTecnicaId||command.payload?.measurementId||command.payload?.pedidoId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.rentalId||command.payload?.equipmentId||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.equipment?.id||command.payload?.rental?.id||command.payload?.maintenance?.id||command.payload?.transfer?.id||command.payload?.records?.[0]?.id||""},
         after:{command:command.type,idempotencyKey:command.idempotencyKey}});
       };
       let gravacao=await persistir({updatedAt},result.data);

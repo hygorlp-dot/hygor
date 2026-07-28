@@ -271,4 +271,60 @@ describe("comandos operacionais versionados",()=>{
     expect(reversed).toMatchObject({ok:false});
     expect(reversed.reason).toMatch(/Desfaça a conciliação/);
   });
+
+  it("encaminha medição financeira e impede duplicidade pela chave idempotente",()=>{
+    const initial={obras:[{id:"o-1"}],medicoes:[]};
+    const payload={measurement:{
+      id:"mf-1",obraId:"o-1",competencia:"2026-07",tipo:"mensal_fixo",
+      valorPrevisto:1500,descricao:"Parcela 1",
+    }};
+    const create=command(
+      OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED,
+      "client-measurement-save-0001",
+      payload,0,
+    );
+    const first=applyOperationalCommand(initial,create);
+    const repeated=applyOperationalCommand(first.data,create);
+    expect(first.data.medicoes[0]).toMatchObject({id:"mf-1",version:1});
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+    expect(repeated.data.medicoes).toHaveLength(1);
+  });
+
+  it("ativa contrato comercial uma única vez pelo comando idempotente",()=>{
+    const initial={
+      obras:[],medicoes:[],usuarios:[{id:"eng-1",nome:"Engenheira"}],
+      comercial:{
+        leads:[{id:"lead-1",nome:"Cliente",responsavelId:"seller-1",historico:[]}],
+        propostas:[{id:"proposal-1",status:"aceita"}],
+        contratos:[{
+          id:"contract-1",numero:"CONT-1",leadId:"lead-1",propostaId:"proposal-1",
+          contratante:"Cliente",valor:1000,entrada:0,parcelas:1,inicio:"2026-08-01",
+          status:"assinado",assinadoEm:"2026-07-28T12:00:00.000Z",
+          documentosRecebidos:true,entradaPaga:true,escopoValidado:true,
+          responsavelTecnicoId:"eng-1",
+        }],
+        clientes:[],parceiros:[],vendas:[],comissoes:[],atividades:[],reunioes:[],
+      },
+    };
+    const activate=command(
+      OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED,
+      "commercial-contract-activate-0001",
+      {
+        contractId:"contract-1",obraId:"obra-1",
+        ids:{
+          clientId:"client-1",obraId:"obra-1",saleId:"sale-1",
+          commissionId:"commission-1",kickoffId:"kickoff-1",postSaleId:"post-sale-1",
+          installmentMeasurementIds:["installment-1"],
+        },
+      },
+    );
+    const first=applyOperationalCommand(initial,activate);
+    const repeated=applyOperationalCommand(first.data,activate);
+    expect(first.ok).toBe(true);
+    expect(first.data.obras).toHaveLength(1);
+    expect(first.data.medicoes).toHaveLength(1);
+    expect(first.data.comercial.vendas).toHaveLength(1);
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+    expect(repeated.data.comercial.vendas).toHaveLength(1);
+  });
 });

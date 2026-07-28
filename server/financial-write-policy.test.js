@@ -51,7 +51,7 @@ describe("gate FIN-003 de persistência",()=>{
     expect(readiness.ready).toBe(false);
     expect(readiness.pending).toEqual(expected);
     expect(Object.keys(readiness.modules).sort()).toEqual(Object.keys(FINANCIAL_MODULE_SECTION_MATRIX).sort());
-    expect(readiness.pending).toContain("medicoes");
+    expect(readiness.pending).not.toContain("medicoes");
     expect(readiness.pending).toContain("pedidos");
     expect(readiness.pending).toContain("obras");
     expect(readiness.pending).not.toContain("comercial");
@@ -62,12 +62,12 @@ describe("gate FIN-003 de persistência",()=>{
 
   it("não contabiliza seções já migradas para comandos transacionais como escritores de snapshot",()=>{
     const readiness=financialEnforcementReadiness();
-    for(const section of ["reconciliationLinks","archivedLaborCosts","payments"]){
+    for(const section of ["reconciliationLinks","archivedLaborCosts","payments","medicoes"]){
       expect(FINANCIAL_LEGACY_SECTIONS.has(section),section).toBe(true);
       expect(FINANCIAL_SNAPSHOT_WRITER_SECTIONS.has(section),section).toBe(false);
       expect(readiness.pending,section).not.toContain(section);
     }
-    expect(readiness.pending).toHaveLength(15);
+    expect(readiness.pending).toHaveLength(14);
   });
 
   it("mantém todos os escritores associados a um módulo funcional",()=>{

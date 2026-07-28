@@ -15,7 +15,11 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain("type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED");
     expect(source).toContain("type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED");
     expect(source).toContain("<Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />");
-    expect(source).toContain('origem: "revisao_vencidas", actor:currentUser');
+    expect(source).toContain("type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED");
+    expect(source).toContain("type:OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED");
+    expect(source).not.toContain("medicoes:[...(data.medicoes||[]),...contas]");
+    expect(source).toContain('origem:"revisao_vencidas"');
+    expect(source).not.toContain('origem: "revisao_vencidas", actor:currentUser');
     // REC-001: o recebimento bancário não é mais montado no React. A tela
     // envia a intenção e o servidor aplica o recebimento sobre o extrato
     // autoritativo, preservando origem e vínculo da transação.
