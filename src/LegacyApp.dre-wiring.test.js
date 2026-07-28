@@ -18,6 +18,8 @@ describe("contrato de autoria do DRE", () => {
     expect(source).not.toContain('update({...data, caixaObra:[...(data.caixaObra||[]), payload]})');
     expect(source).toContain('type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED');
     expect(source).toContain('type:OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED');
+    expect(source).toContain('targetType:"pedido",targetId:pedido.id,paymentId:pagamentoId,newOrigin:novaOrigem');
+    expect(source).not.toContain('targetType:"pedido",targetId:pedido.id,paymentId,newOrigin:novaOrigem');
     expect(source).toContain('type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED');
     expect(source).not.toContain('const caixaObra=f.origem==="caixa_obra"?[...(data.caixaObra||[])');
     expect(source).toContain('type:OPERATIONAL_COMMAND.PURCHASE_CANCELLED');

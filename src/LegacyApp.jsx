@@ -25342,7 +25342,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
           expectedVersion:Number(vigente?.version||0),
           actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
           payload:{
-            targetType:"pedido",targetId:pedido.id,paymentId,newOrigin:novaOrigem,
+            targetType:"pedido",targetId:pedido.id,paymentId:pagamentoId,newOrigin:novaOrigem,
             workCashMovementId:novaOrigem==="caixa_obra"?uid():"",
             adjustmentId:uid(),
           },
