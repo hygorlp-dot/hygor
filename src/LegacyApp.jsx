@@ -21468,6 +21468,7 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   });
 
   const executarConciliacaoNoServidor = async (command, erroPadrao) => {
+    if(conciliando)return false;
     setConciliando(true);
     try {
       const sincronizado=await update({__aguardarFila:true});
@@ -21485,6 +21486,10 @@ function Conciliacao({ data, update, showToast, currentUser }) {
       if(!resposta?.ok){showToast(resposta?.error||erroPadrao,"error");return false;}
       await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
       return true;
+    } catch(error) {
+      console.error("Falha ao confirmar conciliação:",error);
+      showToast(error?.message||erroPadrao||"Não foi possível confirmar a conciliação.","error");
+      return false;
     } finally { setConciliando(false); }
   };
 
@@ -22448,10 +22453,11 @@ function Conciliacao({ data, update, showToast, currentUser }) {
 
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>{setApropModal(null);setRateios([]);setMedAlvo(null);}} full>Cancelar</Btn>
-              <Btn onClick={confirmarApropriacao} full disabled={Math.abs(diferenca) >= 0.01}>
-                <Ic n="check"/> Confirmar conciliação
+              <Btn onClick={confirmarApropriacao} full loading={conciliando} disabled={Math.abs(diferenca) >= 0.01}>
+                <Ic n="check"/> {conciliando?"Conciliando no servidor...":"Confirmar conciliação"}
               </Btn>
             </div>
+            {conciliando&&<p role="status" aria-live="polite" style={{fontSize:10,color:C.yellowD,fontWeight:750,textAlign:"right"}}>Validando transação, funcionário, obra e valor. Aguarde a confirmação.</p>}
           </div>
         </Modal>
       )}

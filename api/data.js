@@ -40,7 +40,7 @@ import { executeReconciliationWithRetry } from "../server/reconciliation-executi
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
-import { hasLegacyFinancialWrite, validateFinancialWritePath } from "../server/financial-write-policy.js";
+import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
 import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
@@ -337,6 +337,13 @@ const executarArquivoPontoTransacional=async({
 };
 
 const salvarFinanceiroComAuditoria = async ({ expectedUpdatedAt, value, actor, action, before, after }) => {
+  // Enquanto FIN-003 está em sombra, o legado é a fonte oficial. Exigir a
+  // reconstrução integral do razão dentro de cada clique deixava conciliações
+  // presas em 503 sob concorrência. A ativação do enforcement restaura a
+  // transação conjunta; até lá, preservamos disponibilidade + auditoria.
+  if(financialPersistenceMode(FINANCIAL_ENGINE_ENFORCE)==="audited_shadow"){
+    return salvarComAuditoria({expectedUpdatedAt,value,actor,action,before,after});
+  }
   if(!process.env.POSTGRES_URL_NON_POOLING)throw new Error("A conexão transacional do motor financeiro não está configurada.");
   const correlationId=crypto.randomUUID();
   const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});

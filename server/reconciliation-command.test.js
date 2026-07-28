@@ -57,6 +57,38 @@ describe("reconciliation command server boundary",()=>{
     expect(invalid.resumo.ok).toBe(false);
   });
 
+  test("concilia PIX de mão de obra com funcionário, obra e valor do extrato",()=>{
+    const data={
+      ...fixture(),
+      obras:[{id:"alphaville",nome:"ALPHAVILLE"}],
+      transacoes:[{id:"pix-jose",valor:-1000,data:"2026-07-20",status:"pendente",descricao:"Pix enviado: José Silva de Lima"}],
+    };
+    const result=applyReconciliationCommand(data,{
+      type:RECONCILIATION_COMMAND.CONFIRM_ALLOCATION,
+      payload:{
+        transactionId:"pix-jose",
+        allocations:[{destination:"obra",obraId:"alphaville",category:"mao_obra",value:1000}],
+        worker:{employeeId:"jose-henrique",employeeName:"JOSÉ HENRIQUE DE LIRA LIMA",pixHolder:"José Silva de Lima"},
+      },
+    },actor);
+    expect(result.resumo.ok).toBe(true);
+    expect(result.data.transacoes[0]).toMatchObject({
+      status:"conciliado",
+      recebedorMaoObra:{
+        employeeId:"jose-henrique",
+        employeeName:"JOSÉ HENRIQUE DE LIRA LIMA",
+        pixHolder:"José Silva de Lima",
+        valorPago:1000,
+      },
+    });
+    expect(result.data.outrasDesp[0]).toMatchObject({
+      obraId:"alphaville",
+      categoria:"mao_obra",
+      valor:1000,
+      transacaoId:"pix-jose",
+    });
+  });
+
   test("entrada rateada para a empresa permanece caixa não alocado, sem estornar custo",()=>{
     const result=applyReconciliationCommand(fixture(),{type:RECONCILIATION_COMMAND.CONFIRM_ALLOCATION,payload:{transactionId:"credit",allocations:[{destination:"empresa",category:"aporte",value:500}]}},actor);
     expect(result.resumo.ok).toBe(true);

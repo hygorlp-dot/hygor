@@ -41,6 +41,14 @@ export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
 export const hasLegacyFinancialWrite=sections=>Object.keys(sections||{})
   .some(section=>FINANCIAL_LEGACY_SECTIONS.has(section));
 
+// Em sombra, o blob legado continua sendo a fonte oficial e não pode ficar
+// indisponível por lentidão/concorrência na reconstrução do razão. A gravação
+// auditável é confirmada primeiro; a sincronização canônica continua sendo
+// homologada pelas rotinas explícitas. Quando o enforcement for ativado, a
+// persistência volta obrigatoriamente à transação conjunta.
+export const financialPersistenceMode=engineEnforced=>
+  engineEnforced?"transactional_ledger":"audited_shadow";
+
 export const hasBlockedLegacyFinancialWrite=sections=>Object.keys(sections||{})
   .some(section=>
     FINANCIAL_LEGACY_SECTIONS.has(section)

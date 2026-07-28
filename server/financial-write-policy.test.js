@@ -4,6 +4,7 @@ import {
   FINANCIAL_MODULE_SECTION_MATRIX,
   FINANCIAL_OPERATIONAL_SOURCE_SECTIONS,
   FINANCIAL_SNAPSHOT_WRITER_SECTIONS,
+  financialPersistenceMode,
   financialEnforcementReadiness,
   hasLegacyFinancialWrite,
   validateFinancialWritePath,
@@ -12,6 +13,8 @@ import {
 describe("gate FIN-003 de persistência",()=>{
   it("mantém o legado disponível enquanto o motor estiver em sombra",()=>{
     expect(validateFinancialWritePath({engineEnforced:false,sections:{medicoes:[]}})).toEqual({ok:true});
+    expect(financialPersistenceMode(false)).toBe("audited_shadow");
+    expect(financialPersistenceMode(true)).toBe("transactional_ledger");
   });
 
   it("recusa snapshot financeiro quando o motor é oficial",()=>{
