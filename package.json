@@ -23,7 +23,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "scripts": {
-    "prebuild": "node scripts/apply-financial-shadow.mjs",
+    "prebuild": "node scripts/check-financial-enforcement-readiness.mjs && node scripts/apply-financial-shadow.mjs",
     "start": "vite",
     "dev": "vite",
     "build": "vite build",

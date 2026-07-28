@@ -14,6 +14,33 @@ export const FINANCIAL_LEGACY_SECTIONS=new Set([
 // e títulos legados. A auditoria e a transação do save-sections permanecem.
 export const FINANCIAL_OPERATIONAL_SOURCE_SECTIONS=new Set(["attendance"]);
 
+// Seções que ainda possuem ao menos um escritor por snapshot no aplicativo.
+// Enquanto qualquer uma delas continuar sujeita ao bloqueio do FIN-003, ligar
+// o enforcement derruba um módulo funcional. A lista é deliberadamente
+// explícita para funcionar como checklist de migração e gate de deploy.
+export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
+  "payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","transacoes",
+  "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
+  "titulosFolha","reconciliationLinks","rescisoes","comercial",
+  "attendance","employees","archivedLaborCosts","config","obras",
+  "equipamentos","locacoesEquip","manutencoesEquip",
+]);
+
+export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
+  financeiro_conciliacao:[
+    "payments","outrasDesp","despesasEmpresa","caixaObra","transacoes","reconciliationLinks",
+  ],
+  medicoes_dre:["medicoes"],
+  compras_fiscal:["pedidos","notasFiscais"],
+  terceiros:["pagsTerceiros","medicoesTerc"],
+  rh_ponto:[
+    "attendance","employees","archivedLaborCosts","pagamentosFolha","titulosFolha","rescisoes",
+  ],
+  comercial:["comercial"],
+  obras_configuracoes:["obras","config"],
+  equipamentos:["equipamentos","locacoesEquip","manutencoesEquip"],
+});
+
 export const hasLegacyFinancialWrite=sections=>Object.keys(sections||{})
   .some(section=>FINANCIAL_LEGACY_SECTIONS.has(section));
 
@@ -29,4 +56,17 @@ export const validateFinancialWritePath=({engineEnforced=false,sections={}}={})=
     ok:false,
     error:"FIN-003 está ativo: alterações financeiras devem usar o comando transacional do razão, não o salvamento legado.",
   };
+};
+
+export const financialEnforcementReadiness=()=>{
+  const pending=[...FINANCIAL_SNAPSHOT_WRITER_SECTIONS]
+    .filter(section=>
+      FINANCIAL_LEGACY_SECTIONS.has(section)
+      && !FINANCIAL_OPERATIONAL_SOURCE_SECTIONS.has(section)
+    )
+    .sort();
+  const modules=Object.fromEntries(Object.entries(FINANCIAL_MODULE_SECTION_MATRIX)
+    .map(([module,sections])=>[module,sections.filter(section=>pending.includes(section))])
+    .filter(([,sections])=>sections.length));
+  return {ready:pending.length===0,pending,modules};
 };

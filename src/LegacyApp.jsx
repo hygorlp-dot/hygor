@@ -150,6 +150,7 @@ import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/recor
 import { uploadWithRetry } from "./domains/documentos/upload-retry";
 const LazyMarcosCurvaASuprimentos = lazy(() => import("./features/suprimentos/MarcosCurvaASuprimentos"));
 import {
+  calcConciliacao,
   aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
   paraCentavos, deCentavos, igualCentavos,
   criarIndicesFinanceiros, transacoesConsumidas,
