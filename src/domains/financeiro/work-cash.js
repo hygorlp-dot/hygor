@@ -1,6 +1,9 @@
+import { active } from "./ledger.js";
+
 export const calculateWorkCash = (data, obraId) => {
   const movements = (data?.caixaObra || [])
     .filter(movement => movement?.obraId === obraId)
+    .filter(active)
     .sort((left, right) => String(left?.data || "").localeCompare(String(right?.data || "")));
   let balance = 0;
   const withBalance = movements.map(movement => {

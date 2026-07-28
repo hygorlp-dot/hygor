@@ -6,6 +6,7 @@ describe("escopo servidor de comandos operacionais",()=>{
   const data={
     medicoesObra:[{id:"m-a",obraId:"obra-a"}],rdos:[{id:"r-a",obraId:"obra-a"}],pedidos:[{id:"p-a",obraId:"obra-a"}],progressRecords:[{id:"av-a",obraId:"obra-a"}],weeklyCommitments:[{id:"c-a",obraId:"obra-a"}],qualidadeRegistros:[{id:"q-a",obraId:"obra-a"}],lookaheadWindows:[{id:"la-a",obraId:"obra-a"}],
     payments:[{id:"rec-a",obraId:"obra-a"}],medicoes:[{id:"med-a",obraId:"obra-a"}],
+    caixaObra:[{id:"cx-a",obraId:"obra-a",version:1}],
     equipamentos:[{id:"eq-a",obraAtualId:"obra-a"},{id:"eq-b",obraAtualId:"obra-b"}],
     locacoesEquip:[{id:"loc-a",obraId:"obra-a",equipamentoId:"eq-a"}],
   };
@@ -51,6 +52,20 @@ describe("escopo servidor de comandos operacionais",()=>{
     expect(validateOperationalCommandScope({
       user:{id:"fin",role:"financeiro"},data,command:companyCommand,
     })).toMatchObject({ok:true,scope:"company"});
+  });
+  it("mantém criação e cancelamento do caixa dentro da obra atribuída",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED,
+      payload:{movement:{obraId:"obra-a"}},
+    }})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED,
+      payload:{movement:{obraId:"obra-b"}},
+    }})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED,
+      payload:{movementId:"cx-a"},
+    }})).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("mantém o avanço físico dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});

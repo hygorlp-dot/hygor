@@ -21,6 +21,7 @@ import {
 } from "../financeiro/measurement-commands.js";
 import { activateCommercialContract } from "../comercial/contract-activation.js";
 import { applyExpenseCommand, EXPENSE_COMMAND } from "../financeiro/expense-commands.js";
+import { applyWorkCashCommand, WORK_CASH_COMMAND } from "../financeiro/work-cash-commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -32,6 +33,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...CLIENT_MEASUREMENT_COMMAND,
   COMMERCIAL_CONTRACT_ACTIVATED:"CONTRATO_COMERCIAL_ATIVADO",
   ...EXPENSE_COMMAND,
+  ...WORK_CASH_COMMAND,
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -137,6 +139,14 @@ export const applyOperationalCommand=(data,command)=>{
     return {
       ok:true,copied:expenseResult.copied,
       data:appendReceipt(expenseResult.data,command,expenseResult.entityId,now),
+    };
+  }
+  const workCashResult=applyWorkCashCommand(data,command,now);
+  if(workCashResult){
+    if(!workCashResult.ok)return workCashResult;
+    return {
+      ok:true,
+      data:appendReceipt(workCashResult.data,command,workCashResult.entityId,now),
     };
   }
   if(command.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED){

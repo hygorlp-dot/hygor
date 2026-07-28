@@ -34204,12 +34204,13 @@ function gerarRelatorioCaixaObraPDF(data, obra, caixa, showToast) {
   abrirRelatorioPadrao(html, showToast);
 }
 
-function CaixaObra({ data, update, showToast }) {
+function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) {
   const { cols } = useBreakpoint();
   const obrasComCaixa = useMemo(() => data.obras.filter(o => o.hasCaixa), [data.obras]);
   const [selObra, setSelObra] = useState(obrasComCaixa[0]?.id || "");
   const [modal,   setModal]   = useState(false);
   const [tipoNovo,setTipoNovo]= useState("aporte");
+  const [workCashPending,setWorkCashPending]=useState(false);
   const [form,    setForm]    = useState({ data:today(), tipo:"aporte", categoria:"material", descricao:"", valor:"", comprovante:"" });
   const F = k => v => setForm(f=>({...f,[k]:v}));
 
@@ -34227,29 +34228,60 @@ function CaixaObra({ data, update, showToast }) {
     setModal(true);
   };
 
-  const saveMov = () => {
+  const saveMov = async() => {
+    if(!dispatchCommand||workCashPending)return;
     if (!selObra) { showToast("Selecione uma obra.","error"); return; }
     if (!form.valor || isNaN(Number(form.valor))) { showToast("Informe um valor válido.","error"); return; }
     if(form.tipo==="despesa"&&Number(form.valor)>caixa.saldo+.001){showToast(`Lançamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e não pode ficar negativo. Registre um aporte primeiro.`,"error");return;}
-    const payload = {
-      id:uid(), obraId:selObra, ...form, valor:Number(form.valor||0),
-      conciliado:false, transacaoId:"", naturezaEntrada:form.tipo==="aporte"?"aporte_manual":"",
-      efeitoDRE:form.tipo==="aporte"?"sem_efeito":"custo_obra", registradoEm:new Date().toISOString(),
-    };
-    update({...data, caixaObra:[...(data.caixaObra||[]), payload]});
+    const id=uid();
+    setWorkCashPending(true);
+    let result;
+    try{
+      result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED,
+        idempotencyKey:`work-cash-create-${id}-${uid()}`,
+        expectedVersion:0,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{movement:{id,obraId:selObra,...form,valor:Number(form.valor||0)}},
+      }));
+    }catch(error){
+      result={ok:false,reason:error?.message||"Não foi possível registrar o movimento."};
+    }finally{
+      setWorkCashPending(false);
+    }
+    if(!result?.ok){showToast(result?.reason||"Não foi possível registrar o movimento.","error");return;}
     setModal(false);
     const novoSaldo=caixa.saldo+(form.tipo==="aporte"?Number(form.valor):-Number(form.valor));
     const limite=Math.max(500,(caixa.totalAportes+(form.tipo==="aporte"?Number(form.valor):0))*.10);
     showToast(form.tipo==="despesa"&&novoSaldo<=limite?`Despesa registrada, mas o caixa ficou baixo: ${fmt(novoSaldo)}. Providencie novo aporte.`:form.tipo==="aporte"?"Aporte registrado.":"Despesa registrada.",form.tipo==="despesa"&&novoSaldo<=limite?"warn":undefined);
   };
 
-  const delMov = id => {
+  const delMov = async id => {
+    if(!dispatchCommand||workCashPending)return;
     const movimento=(data.caixaObra||[]).find(m=>m.id===id);
     if(movimento?.pagamentoId){showToast("Este gasto foi gerado por um pagamento de Compras e não pode ser removido isoladamente.","error");return;}
     if(movimento?.transacaoId){showToast("Este lançamento veio da conciliação bancária. Desfaça a conciliação para manter o histórico consistente.","error");return;}
     const motivo=window.prompt("Motivo do cancelamento deste lançamento:");
     if(!String(motivo||"").trim())return;
-    update({...data, caixaObra:(data.caixaObra||[]).map(m=>m.id===id?cancelarRegistro(m,motivo,null,m.tipo==="aporte"?"cancelado":"estornado"):m)});
+    setWorkCashPending(true);
+    let result;
+    try{
+      result=await dispatchCommand(atual=>{
+        const vigente=(atual.caixaObra||[]).find(m=>m.id===id);
+        return {
+          type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED,
+          idempotencyKey:`work-cash-cancel-${id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{movementId:id,reason:String(motivo).trim()},
+        };
+      });
+    }catch(error){
+      result={ok:false,reason:error?.message||"Não foi possível cancelar o lançamento."};
+    }finally{
+      setWorkCashPending(false);
+    }
+    if(!result?.ok){showToast(result?.reason||"Não foi possível cancelar o lançamento.","error");return;}
     showToast("Lançamento cancelado e preservado para auditoria.");
   };
 
@@ -34318,8 +34350,8 @@ function CaixaObra({ data, update, showToast }) {
 
         {/* Ações */}
         <div style={{display:"grid",gridTemplateColumns:cols("1fr 1fr","1fr 1fr","220px 220px"),gap:8}}>
-          <Btn v="success" onClick={()=>openNew("aporte")} full>^ Registrar aporte</Btn>
-          <Btn v="danger" onClick={()=>openNew("despesa")} full>v Registrar gasto</Btn>
+          <Btn v="success" disabled={workCashPending} onClick={()=>openNew("aporte")} full>^ Registrar aporte</Btn>
+          <Btn v="danger" disabled={workCashPending} onClick={()=>openNew("despesa")} full>v Registrar gasto</Btn>
         </div>
 
         {/* Extrato */}
@@ -34348,7 +34380,7 @@ function CaixaObra({ data, update, showToast }) {
                     <p style={{fontSize:14,fontWeight:800,color:m.tipo==="aporte"?C.green:C.red}}>{m.tipo==="aporte"?"+":""}{fmt(m.valor)}</p>
                     <p style={{fontSize:10,color:C.muted}}>saldo {fmt(m.saldoAcumulado)}</p>
                   </div>
-                  <Btn size="sm" v="danger" onClick={()=>delMov(m.id)}><Ic n="trash"/></Btn>
+                  <Btn size="sm" v="danger" disabled={workCashPending} onClick={()=>delMov(m.id)}><Ic n="trash"/></Btn>
                 </div>
               </div>
             );
@@ -34389,8 +34421,8 @@ function CaixaObra({ data, update, showToast }) {
             )}
 
             <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
-              <Btn v={form.tipo==="aporte"?"success":"danger"} onClick={saveMov} full><Ic n="check"/> Registrar</Btn>
+              <Btn v="ghost" disabled={workCashPending} onClick={()=>setModal(false)} full>Cancelar</Btn>
+              <Btn v={form.tipo==="aporte"?"success":"danger"} disabled={workCashPending} onClick={saveMov} full><Ic n="check"/> {workCashPending?"Salvando...":"Registrar"}</Btn>
             </div>
           </div>
         </Modal>
@@ -38429,7 +38461,7 @@ export default function App() {
           {tab === "suprimentos" && <Suprimentos data={data} update={update} showToast={showToast} onTab={(t)=>{setObraAberta("");setTab(t);}}/>}
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab}/>}
           {tab === "medicoes" && <MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "caixa"    && <CaixaObra    data={data} update={update} showToast={showToast} />}
+          {tab === "caixa"    && <CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "relat"    && <Relatorios   data={data} showToast={showToast} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
           {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}
