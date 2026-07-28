@@ -7075,11 +7075,15 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
     sessionStorage.removeItem("arcd_editar_obra");const obra=(data.obras||[]).find(o=>o.id===id);if(!obra)return;
     setForm({...obra,areaM2:String(obra.areaM2||""),diaVenc1:String(obra.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(obra.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);
   },[data.obras]);
-  const salvarClienteDaObra=()=>{
+  const salvarClienteDaObra=async()=>{
     const f=clienteModal;if(!f?.nome?.trim()||!f.documento||!f.telefone||!f.email||!f.endereco||!f.numero||!f.cidade||!f.uf){showToast("Preencha nome, documento, contato e endereço contratual.","error");return;}
     const cliente={...clienteContratualVazio(),...f,id:f.id||uid(),nome:f.nome.trim(),createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
     const lista=f.id?clientes.map(c=>c.id===f.id?cliente:c):[...clientes,cliente];
-    update({...data,comercial:{...(data.comercial||{}),clientes:lista}});
+    const result=await update({...data,comercial:{...(data.comercial||{}),clientes:lista}});
+    if(!result?.ok){
+      showToast("O servidor não confirmou o cliente. Os dados continuam abertos para uma nova tentativa.","error");
+      return;
+    }
     setForm(x=>({...x,clienteId:cliente.id,cliente:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome}));
     setClienteModal(null);showToast("Cliente cadastrado e vinculado à obra.");
   };
@@ -34994,6 +34998,16 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const [metaForm,setMetaForm]=useState(null);const [perdaForm,setPerdaForm]=useState(null);
   const [subindoDocumentoComercial,setSubindoDocumentoComercial]=useState(false);
   const setCom=(patch)=>update({...data,comercial:{...com,...patch}});
+  const persistirComercial=async(patch,{mensagem="",aoConfirmar}={})=>{
+    const result=await setCom(patch);
+    if(!result?.ok){
+      showToast("O servidor não confirmou o cadastro comercial. Os dados continuam abertos para uma nova tentativa.","error");
+      return false;
+    }
+    aoConfirmar?.();
+    if(mensagem)showToast(mensagem);
+    return true;
+  };
   // Maps id->registro, montados uma vez por render em vez de .find() por
   // chamada - nomeUsuario/leadBy sao usados dezenas de vezes por tela
   // (cards de lead, kanban, agenda, propostas, contratos...).
@@ -35024,7 +35038,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
 
   const leadVazio=()=>({id:"",nome:"",tipoPessoa:"PF",telefone:"",whatsapp:"",email:"",cidade:"",origem:"",indicadoPorClienteId:"",indicadoPorObraId:"",indicadoPorNome:"",responsavelId:currentUser?.id||"",servico:"",orcamentoEstimado:"",prazoDesejado:"",probabilidade:"20",fechamentoPrevisto:"",temperatura:"morno",observacoes:"",endereco:"",condominio:"",lote:"",areaTerreno:"",areaConstrucao:"",pavimentos:"",tipoServico:"",prazoPretendido:"",padrao:"alto",orcamentoDisponivel:"",projetosExistentes:"",etapa:"novo",proximaAtividade:"Primeiro contato",proximaAtividadeEm:"",qualificacao:"",documentos:[],historico:[]});
   // Salva a pesquisa de satisfacao da entrega (NPS).
-  const salvarNps=()=>{
+  const salvarNps=async()=>{
     const f=npsForm;
     if(!f?.obraId){showToast("Escolha a obra.","error");return;}
     if(f.nota===""||f.nota===null||isNaN(Number(f.nota))){showToast("Informe a nota de 0 a 10.","error");return;}
@@ -35038,26 +35052,28 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     const lista=f.id
       ? (com.pesquisas||[]).map(p=>p.id===f.id?reg:p)
       : [...(com.pesquisas||[]),reg];
-    update({...data,comercial:{...com,pesquisas:lista}});
-    setNpsForm(null);
-    showToast(reg.nota>=9?"Promotor registrado - vale pedir indicação.":"Pesquisa registrada.");
+    await persistirComercial({pesquisas:lista},{
+      mensagem:reg.nota>=9?"Promotor registrado - vale pedir indicação.":"Pesquisa registrada.",
+      aoConfirmar:()=>setNpsForm(null),
+    });
   };
 
   // Marca que o cliente ja foi convidado a indicar (sai da lista de acoes).
-  const marcarPedidoIndicacao=(obraId)=>{
+  const marcarPedidoIndicacao=async(obraId)=>{
     const lista=(com.pesquisas||[]).map(p=>p.obraId===obraId?{...p,pediuIndicacao:true}:p);
-    update({...data,comercial:{...com,pesquisas:lista}});
-    showToast("Registrado. Acompanhe se vem indicação nas próximas semanas.");
+    await persistirComercial({pesquisas:lista},{
+      mensagem:"Registrado. Acompanhe se vem indicação nas próximas semanas.",
+    });
   };
 
-  const salvarLead=()=>{const f=leadForm;if(!f?.nome.trim()){showToast("Informe o nome do lead.","error");return;}if(!f.responsavelId||!f.proximaAtividadeEm){showToast("Todo lead ativo precisa de responsável e próxima atividade.","error");return;}const duplicado=leads.find(l=>l.id!==f.id&&((f.email&&l.email?.toLowerCase()===f.email.toLowerCase())||(f.whatsapp&&l.whatsapp===f.whatsapp)));if(duplicado&&!window.confirm(`Possível duplicidade com ${duplicado.nome}. Continuar?`))return;
+  const salvarLead=async()=>{const f=leadForm;if(!f?.nome.trim()){showToast("Informe o nome do lead.","error");return;}if(!f.responsavelId||!f.proximaAtividadeEm){showToast("Todo lead ativo precisa de responsável e próxima atividade.","error");return;}const duplicado=leads.find(l=>l.id!==f.id&&((f.email&&l.email?.toLowerCase()===f.email.toLowerCase())||(f.whatsapp&&l.whatsapp===f.whatsapp)));if(duplicado&&!window.confirm(`Possível duplicidade com ${duplicado.nome}. Continuar?`))return;
     const antigo=leads.find(l=>l.id===f.id),id=f.id||uid(),now=new Date().toISOString();const hist=[...(f.historico||[])];if(!antigo)hist.push({id:uid(),data:now,tipo:"criacao",texto:`Lead criado por ${currentUser?.nome||"usuário"}`});if(antigo&&antigo.etapa!==f.etapa)hist.push({id:uid(),data:now,tipo:"etapa",texto:`Etapa alterada de ${comEtapaLabel(antigo.etapa)} para ${comEtapaLabel(f.etapa)}`});
     const novo={...f,id,orcamentoEstimado:Number(f.orcamentoEstimado||0),probabilidade:Number(f.probabilidade||0),orcamentoDisponivel:Number(f.orcamentoDisponivel||0),areaTerreno:Number(f.areaTerreno||0),areaConstrucao:Number(f.areaConstrucao||0),pavimentos:Number(f.pavimentos||0),etapaDesde:antigo?.etapa===f.etapa?antigo.etapaDesde:now,createdAt:antigo?.createdAt||now,updatedAt:now,historico:hist,status:"ativo"};
-    let novasAt=atividades;if(!antigo)novasAt=[...atividades,{id:uid(),leadId:id,tipo:"primeiro_contato",titulo:f.proximaAtividade||"Primeiro contato",dataHora:f.proximaAtividadeEm,responsavelId:f.responsavelId,status:"pendente",observacoes:"Criada automaticamente",createdAt:now}];setCom({leads:antigo?leads.map(l=>l.id===id?novo:l):[...leads,novo],atividades:novasAt});setLeadForm(null);showToast(antigo?"Lead atualizado.":"Lead criado com tarefa de primeiro contato.");};
+    let novasAt=atividades;if(!antigo)novasAt=[...atividades,{id:uid(),leadId:id,tipo:"primeiro_contato",titulo:f.proximaAtividade||"Primeiro contato",dataHora:f.proximaAtividadeEm,responsavelId:f.responsavelId,status:"pendente",observacoes:"Criada automaticamente",createdAt:now}];await persistirComercial({leads:antigo?leads.map(l=>l.id===id?novo:l):[...leads,novo],atividades:novasAt},{mensagem:antigo?"Lead atualizado.":"Lead criado com tarefa de primeiro contato.",aoConfirmar:()=>setLeadForm(null)});};
   const moverLead=(lead,etapa)=>{if(etapa==="perdido"){setPerdaForm({leadId:lead.id,motivo:"",concorrente:"",valorConcorrente:"",observacoes:"",reativacaoEm:""});return;}const now=new Date().toISOString();setCom({leads:leads.map(l=>l.id===lead.id?{...l,etapa,status:etapa==="arquivado"?"arquivado":etapa==="novo"?"ativo":l.status,etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"etapa",texto:`Movido para ${comEtapaLabel(etapa)} por ${currentUser?.nome||"usuário"}`}]}:l)});};
-  const salvarPerda=()=>{if(!perdaForm.motivo){showToast("Informe o motivo da perda.","error");return;}const now=new Date().toISOString();setCom({leads:leads.map(l=>l.id===perdaForm.leadId?{...l,...perdaForm,valorConcorrente:Number(perdaForm.valorConcorrente||0),etapa:"perdido",status:"perdido",etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"perda",texto:`Lead perdido: ${perdaForm.motivo}`}]}:l)});setPerdaForm(null);showToast("Perda registrada com histórico.");};
-  const salvarAtividade=f=>{if(!f.leadId||!f.titulo||!f.dataHora){showToast("Informe lead, título e data.","error");return;}const a={...f,id:f.id||uid(),responsavelId:f.responsavelId||currentUser?.id||"",status:f.status||"pendente",createdAt:f.createdAt||new Date().toISOString()};const ats=f.id?atividades.map(x=>x.id===f.id?a:x):[...atividades,a];setCom({atividades:ats,leads:leads.map(l=>l.id===a.leadId?{...l,proximaAtividade:a.titulo,proximaAtividadeEm:a.dataHora}:l)});setAtividadeForm(null);};
-  const salvarReuniao=f=>{
+  const salvarPerda=async()=>{if(!perdaForm.motivo){showToast("Informe o motivo da perda.","error");return;}const now=new Date().toISOString();await persistirComercial({leads:leads.map(l=>l.id===perdaForm.leadId?{...l,...perdaForm,valorConcorrente:Number(perdaForm.valorConcorrente||0),etapa:"perdido",status:"perdido",etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"perda",texto:`Lead perdido: ${perdaForm.motivo}`}]}:l)},{mensagem:"Perda registrada com histórico.",aoConfirmar:()=>setPerdaForm(null)});};
+  const salvarAtividade=async f=>{if(!f.leadId||!f.titulo||!f.dataHora){showToast("Informe lead, título e data.","error");return;}const a={...f,id:f.id||uid(),responsavelId:f.responsavelId||currentUser?.id||"",status:f.status||"pendente",createdAt:f.createdAt||new Date().toISOString()};const ats=f.id?atividades.map(x=>x.id===f.id?a:x):[...atividades,a];await persistirComercial({atividades:ats,leads:leads.map(l=>l.id===a.leadId?{...l,proximaAtividade:a.titulo,proximaAtividadeEm:a.dataHora}:l)},{mensagem:f.id?"Tarefa atualizada.":"Tarefa cadastrada.",aoConfirmar:()=>setAtividadeForm(null)});};
+  const salvarReuniao=async f=>{
     if(!f.leadId||!f.dataHora){showToast("Informe lead, data e horário.","error");return;}
     const anterior=f.id?reunioes.find(x=>x.id===f.id):null;
     const executada=f.status==="realizada";
@@ -35084,21 +35100,27 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
         proximaAtividadeEm:executada?(proximoHorario||l.proximaAtividadeEm):r.dataHora,
         historico,updatedAt:now};
     });
-    setCom({reunioes:f.id?reunioes.map(x=>x.id===f.id?r:x):[...reunioes,r],leads:leadsAtualizados});
-    setLeadForm(aberta=>aberta?.id===r.leadId?(leadsAtualizados.find(l=>l.id===r.leadId)||aberta):aberta);
-    setReuniaoForm(null);
-    showToast(executada?"Reunião confirmada e registrada no histórico do lead.":anterior?"Reunião atualizada.":"Reunião agendada.");
+    await persistirComercial({
+      reunioes:f.id?reunioes.map(x=>x.id===f.id?r:x):[...reunioes,r],
+      leads:leadsAtualizados,
+    },{
+      mensagem:executada?"Reunião confirmada e registrada no histórico do lead.":anterior?"Reunião atualizada.":"Reunião agendada.",
+      aoConfirmar:()=>{
+        setLeadForm(aberta=>aberta?.id===r.leadId?(leadsAtualizados.find(l=>l.id===r.leadId)||aberta):aberta);
+        setReuniaoForm(null);
+      },
+    });
   };
 
   const propostaVazia=leadId=>{const l=leadBy(leadId);return{id:"",numero:`PROP-${String(propostas.length+1).padStart(4,"0")}`,versao:1,leadId:leadId||"",objeto:l?.servico||"",escopo:"",inclusos:"",exclusos:"",entregaveis:"",prazo:l?.prazoDesejado||"",valor:l?.orcamentoEstimado||"",formaPagamento:"",validade:"",responsabilidades:"",premissas:"",status:"rascunho",desconto:"",documentos:[],historico:[],negociacoes:[]};};
   const contratoVazio=()=>({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:"",propostaId:"",clienteId:"",contratante:"",objeto:"",escopo:"",valor:"",entrada:"",parcelas:"1",diaVencimento:"5",prazo:"",inicio:"",conclusao:"",responsabilidades:"",responsavelComercialId:currentUser?.id||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});
-  const salvarProposta=f=>{if(!String(f.numero||"").trim()){showToast("Informe o número da proposta.","error");return;}if(f.status!=="rascunho"&&(!f.leadId||!f.objeto||!(Number(f.valor)>0))){showToast("Para avançar a proposta, informe lead, objeto e valor.","error");return;}if(Number(f.desconto||0)>limiteDesconto){showToast(`Seu limite de desconto é ${limiteDesconto}%. Solicite aprovação para continuar.`,"error");return;}const p={...f,id:f.id||uid(),status:f.status||"rascunho",versao:Number(f.versao||1),valor:Number(f.valor||0),desconto:Number(f.desconto||0),createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),historico:[...(f.historico||[]),{id:uid(),data:new Date().toISOString(),tipo:f.id?"revisao":"criacao",texto:f.id?`Versão ${f.versao} salva`:"Proposta salva como rascunho"}]};setCom({propostas:f.id?propostas.map(x=>x.id===f.id?p:x):[...propostas,p],leads:leads.map(l=>l.id===p.leadId?{...l,etapa:p.status==="enviada"?"proposta_enviada":"proposta_elaboracao",etapaDesde:new Date().toISOString()}:l)});setPropostaForm(null);showToast("Proposta salva.");};
+  const salvarProposta=async f=>{if(!String(f.numero||"").trim()){showToast("Informe o número da proposta.","error");return;}if(f.status!=="rascunho"&&(!f.leadId||!f.objeto||!(Number(f.valor)>0))){showToast("Para avançar a proposta, informe lead, objeto e valor.","error");return;}if(Number(f.desconto||0)>limiteDesconto){showToast(`Seu limite de desconto é ${limiteDesconto}%. Solicite aprovação para continuar.`,"error");return;}const p={...f,id:f.id||uid(),status:f.status||"rascunho",versao:Number(f.versao||1),valor:Number(f.valor||0),desconto:Number(f.desconto||0),createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),historico:[...(f.historico||[]),{id:uid(),data:new Date().toISOString(),tipo:f.id?"revisao":"criacao",texto:f.id?`Versão ${f.versao} salva`:"Proposta salva como rascunho"}]};await persistirComercial({propostas:f.id?propostas.map(x=>x.id===f.id?p:x):[...propostas,p],leads:leads.map(l=>l.id===p.leadId?{...l,etapa:p.status==="enviada"?"proposta_enviada":"proposta_elaboracao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Proposta salva.",aoConfirmar:()=>setPropostaForm(null)});};
   const statusProposta=(p,status)=>{if(["enviada","aceita"].includes(status)&&(!p.leadId||!p.objeto||!(Number(p.valor)>0))){showToast("Complete lead, objeto e valor antes de avançar a proposta.","error");return;}const now=new Date().toISOString(),campo=status==="enviada"?"enviadoEm":status==="visualizada"?"visualizadoEm":status==="aceita"?"aceitoEm":status==="rejeitada"?"rejeitadoEm":"",l=leadBy(p.leadId),ja=contratos.find(k=>k.propostaId===p.id);const contratoAuto=status==="aceita"&&!ja?{id:uid(),numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",contratada:data.config.companyName||"ARCD OBRAS",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:0,parcelas:1,diaVencimento:5,prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[],elaboradoEm:now}:null;setCom({propostas:propostas.map(x=>x.id===p.id?{...x,status,...(campo?{[campo]:now}:{}),historico:[...(x.historico||[]),{id:uid(),data:now,tipo:"status",texto:`Status: ${status}`}]}:x),leads:leads.map(x=>x.id===p.leadId?{...x,etapa:status==="enviada"?"proposta_enviada":status==="aceita"?"contrato_elaboracao":status==="negociacao"?"negociacao":x.etapa,etapaDesde:now}:x),...(contratoAuto?{contratos:[...contratos,contratoAuto]}:{})});if(contratoAuto)showToast("Proposta aceita e contrato gerado automaticamente.");};
   const pdfProposta=p=>{const l=leadBy(p.leadId),html=`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(p.numero)}</title><style>body{font-family:Arial;margin:38px;color:#151515}h1{font-size:22px}h2{font-size:14px;margin-top:22px;border-bottom:1px solid #ccc;padding-bottom:5px}.head{display:flex;justify-content:space-between}.value{font-size:22px;font-weight:bold}.box{background:#f5f5f5;padding:12px;margin:10px 0;white-space:pre-wrap}footer{margin-top:40px;font-size:10px;color:#666}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><div class="head"><div><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")}</h1><p>${escapeHtml(data.config.cnpj||"")}</p></div><div><b>${escapeHtml(p.numero)} · V${p.versao}</b><p>Validade: ${escapeHtml(fmtDate(p.validade))}</p></div></div><h2>CLIENTE</h2><p>${escapeHtml(l?.nome||"")} · ${escapeHtml(l?.email||"")} · ${escapeHtml(l?.whatsapp||"")}</p><h2>OBJETO</h2><div class="box">${escapeHtml(p.objeto)}</div><h2>ESCOPO</h2><div class="box">${escapeHtml(p.escopo)}</div><h2>INCLUSOS / NÃO INCLUSOS</h2><div class="box">${escapeHtml(p.inclusos)}\n\nNão inclusos:\n${escapeHtml(p.exclusos)}</div><h2>ENTREGÁVEIS E PRAZO</h2><div class="box">${escapeHtml(p.entregaveis)}\nPrazo: ${escapeHtml(p.prazo)}</div><h2>INVESTIMENTO</h2><p class="value">${fmt(p.valor)}</p><div class="box">${escapeHtml(p.formaPagamento)}</div><h2>RESPONSABILIDADES E PREMISSAS</h2><div class="box">${escapeHtml(p.responsabilidades)}\n\n${escapeHtml(p.premissas)}</div><footer>Gerado pelo ARCD OBRAS em ${new Date().toLocaleString("pt-BR")}</footer></body></html>`;const w=window.open("","_blank");w.document.write(html);w.document.close();};
   const compartilharProposta=p=>{const l=leadBy(p.leadId),texto=`Olá ${l?.nome||""}, segue a proposta ${p.numero} (versão ${p.versao}) para ${p.objeto}, no valor de ${fmt(p.valor)}. Validade: ${fmtDate(p.validade)}.`;navigator.clipboard.writeText(texto).then(()=>showToast("Mensagem copiada para WhatsApp."));};
-  const salvarNegociacao=f=>{const p=propostas.find(x=>x.id===f.propostaId);if(!p)return;if(Number(f.desconto||0)>limiteDesconto&&!f.aprovadorId){showToast(`Desconto acima de ${limiteDesconto}% exige responsável pela aprovação.`,"error");return;}const n={...f,id:uid(),valorInicial:Number(f.valorInicial||p.valor),valorNegociado:Number(f.valorNegociado||0),desconto:Number(f.desconto||0),data:new Date().toISOString(),responsavelId:currentUser?.id||"",aprovado:Number(f.desconto||0)<=limiteDesconto||!!f.aprovadorId};setCom({propostas:propostas.map(x=>x.id===p.id?{...x,status:"negociacao",negociacoes:[...(x.negociacoes||[]),n],valor:n.valorNegociado||x.valor}:x),leads:leads.map(l=>l.id===p.leadId?{...l,etapa:"negociacao",etapaDesde:new Date().toISOString()}:l)});setNegForm(null);};
+  const salvarNegociacao=async f=>{const p=propostas.find(x=>x.id===f.propostaId);if(!p)return;if(Number(f.desconto||0)>limiteDesconto&&!f.aprovadorId){showToast(`Desconto acima de ${limiteDesconto}% exige responsável pela aprovação.`,"error");return;}const n={...f,id:uid(),valorInicial:Number(f.valorInicial||p.valor),valorNegociado:Number(f.valorNegociado||0),desconto:Number(f.desconto||0),data:new Date().toISOString(),responsavelId:currentUser?.id||"",aprovado:Number(f.desconto||0)<=limiteDesconto||!!f.aprovadorId};await persistirComercial({propostas:propostas.map(x=>x.id===p.id?{...x,status:"negociacao",negociacoes:[...(x.negociacoes||[]),n],valor:n.valorNegociado||x.valor}:x),leads:leads.map(l=>l.id===p.leadId?{...l,etapa:"negociacao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Negociação salva.",aoConfirmar:()=>setNegForm(null)});};
   const criarContrato=p=>{const existente=contratos.find(k=>k.propostaId===p.id);if(existente){setContratoForm({...existente});return;}if(p.status!=="aceita"&&!window.confirm("A proposta ainda não está aceita. Criar contrato mesmo assim?"))return;const l=leadBy(p.leadId);setContratoForm({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:"",parcelas:"1",diaVencimento:"5",prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});};
-  const salvarContrato=f=>{if(!String(f.numero||"").trim()){showToast("Informe o número do contrato.","error");return;}const k={...f,id:f.id||uid(),status:f.status||"elaboracao",valor:Number(f.valor||0),entrada:Number(f.entrada||0),parcelas:Number(f.parcelas||1),diaVencimento:Number(f.diaVencimento||5),elaboradoEm:f.elaboradoEm||new Date().toISOString(),atualizadoEm:new Date().toISOString()};setCom({contratos:f.id?contratos.map(x=>x.id===f.id?k:x):[...contratos,k],leads:leads.map(l=>l.id===k.leadId?{...l,etapa:k.status==="enviado"?"contrato_enviado":"contrato_elaboracao",etapaDesde:new Date().toISOString()}:l)});setContratoForm(null);showToast("Contrato salvo como rascunho.");};
+  const salvarContrato=async f=>{if(!String(f.numero||"").trim()){showToast("Informe o número do contrato.","error");return;}const k={...f,id:f.id||uid(),status:f.status||"elaboracao",valor:Number(f.valor||0),entrada:Number(f.entrada||0),parcelas:Number(f.parcelas||1),diaVencimento:Number(f.diaVencimento||5),elaboradoEm:f.elaboradoEm||new Date().toISOString(),atualizadoEm:new Date().toISOString()};await persistirComercial({contratos:f.id?contratos.map(x=>x.id===f.id?k:x):[...contratos,k],leads:leads.map(l=>l.id===k.leadId?{...l,etapa:k.status==="enviado"?"contrato_enviado":"contrato_elaboracao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Contrato salvo como rascunho.",aoConfirmar:()=>setContratoForm(null)});};
   const finalizarContrato=k=>{const p=propostas.find(x=>x.id===k.propostaId),l=leadBy(k.leadId);const faltas=[];if(!l)faltas.push("lead vinculado");if(k.propostaId&&p?.status!=="aceita")faltas.push("proposta aceita");if(!k.contratante)faltas.push("contratante");if(!(Number(k.valor)>0))faltas.push("valor do contrato");if(!k.assinadoEm&&k.status!=="assinado")faltas.push("contrato assinado");if(!k.documentosRecebidos)faltas.push("documentos recebidos");if(!k.entradaPaga)faltas.push("entrada confirmada");if(!k.escopoValidado)faltas.push("escopo validado");if(!k.responsavelTecnicoId)faltas.push("responsável técnico");if(faltas.length){showToast(`Falta: ${faltas.join(", ")}.`,"error");return;}
     const clienteExist=clientes.find(c=>c.leadId===l.id),cliente=clienteExist||{...clienteVazio(),id:uid(),leadId:l.id,nome:l.nome,tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone,whatsapp:l.whatsapp,email:l.email,cidade:l.cidade,endereco:l.endereco,createdAt:new Date().toISOString()};const obraId=k.obraId||uid();const obraExist=(data.obras||[]).some(o=>o.id===obraId);const obra={id:obraId,name:l.nome||k.objeto,clienteId:cliente.id,cliente:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome,address:l.endereco||l.cidade,engineerId:k.responsavelTecnicoId||"",engineer:nomeUsuario(k.responsavelTecnicoId),startDate:k.inicio,status:"active",areaM2:Number(l.areaConstrucao||0),contractType:"fixed_labor",contractValue:k.valor,adminPercentage:0,billingType:"parcelado",parcelaMensal:k.parcelas?Math.max(0,(k.valor-k.entrada)/k.parcelas):0,contractStart:k.inicio,contractEnd:k.conclusao,totalParcelas:k.parcelas,billingFrequency:"mensal",diaVenc1:k.diaVencimento,diaVenc2:k.diaVencimento,entrada:k.entrada,entradaDate:today(),hasCaixa:true,faseId:""};const venda={id:uid(),leadId:l.id,contratoId:k.id,clienteId:cliente.id,obraId,valor:k.valor,fechadaEm:new Date().toISOString(),responsavelId:k.responsavelComercialId||l.responsavelId};const parceiro=parceiros.find(x=>x.id===l.parceiroId),pct=Number(parceiro?.comissaoPct||1),comissao={id:uid(),vendaId:venda.id,responsavelId:venda.responsavelId,parceiroId:parceiro?.id||"",base:k.valor,percentual:pct,valor:k.valor*pct/100,status:"prevista"};
     // A entrada já foi validada no Comercial/Conciliação. Ao criar a obra,
@@ -35117,7 +35139,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       : [["rg","RG"],["orgaoExpedidor","órgão expedidor"],["nacionalidade","nacionalidade"],["estadoCivil","estado civil"],["profissao","profissão"],...(["Casado(a)","União estável"].includes(c.estadoCivil)?[["regimeBens","regime de bens"],["conjugeNome","nome do cônjuge/companheiro"]]:[])];
     return [...comuns,...especificos].filter(([campo])=>!String(c[campo]||"").trim()).map(([,nome])=>nome);
   };
-  const salvarCliente=f=>{
+  const salvarCliente=async f=>{
     if(!f?.nome?.trim()){showToast("Informe o nome do cliente.","error");return;}
     const documento=soDigitos(f.documento);
     if(!documento){showToast(`Informe o ${f.tipoPessoa==="PJ"?"CNPJ":"CPF"}.`,"error");return;}
@@ -35128,11 +35150,16 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     if(f.tipoPessoa==="PF"&&conjugeCpf&&!validarDocumento(conjugeCpf,"PF")){showToast("CPF do cônjuge inválido.","error");return;}
     const cliente={...f,id:f.id||uid(),nome:f.nome.trim(),documento,representanteCpf,conjugeCpf,createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
     const lista=f.id?clientes.map(c=>c.id===f.id?cliente:c):[...clientes,cliente];
-    setCom({clientes:lista,contratos:contratos.map(k=>k.clienteId===cliente.id?{...k,contratante:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome}:k)});
-    setClienteForm(null);showToast(f.id?"Cliente atualizado.":"Cliente cadastrado.");
+    await persistirComercial({
+      clientes:lista,
+      contratos:contratos.map(k=>k.clienteId===cliente.id?{...k,contratante:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome}:k),
+    },{
+      mensagem:f.id?"Cliente atualizado.":"Cliente cadastrado.",
+      aoConfirmar:()=>setClienteForm(null),
+    });
   };
-  const salvarParceiro=f=>{if(!f.nome)return;const p={...f,id:f.id||uid(),comissaoPct:Number(f.comissaoPct||0),ativo:true};setCom({parceiros:f.id?parceiros.map(x=>x.id===f.id?p:x):[...parceiros,p]});setParceiroForm(null);};
-  const salvarMeta=f=>{if(!f.periodo)return;const m={...f,id:f.id||uid(),receita:Number(f.receita||0),contratos:Number(f.contratos||0),ticketMedio:Number(f.ticketMedio||0),conversao:Number(f.conversao||0)};setCom({metas:f.id?metas.map(x=>x.id===f.id?m:x):[...metas,m]});setMetaForm(null);};
+  const salvarParceiro=async f=>{if(!f.nome)return;const p={...f,id:f.id||uid(),comissaoPct:Number(f.comissaoPct||0),ativo:true};await persistirComercial({parceiros:f.id?parceiros.map(x=>x.id===f.id?p:x):[...parceiros,p]},{mensagem:f.id?"Parceiro atualizado.":"Parceiro cadastrado.",aoConfirmar:()=>setParceiroForm(null)});};
+  const salvarMeta=async f=>{if(!f.periodo)return;const m={...f,id:f.id||uid(),receita:Number(f.receita||0),contratos:Number(f.contratos||0),ticketMedio:Number(f.ticketMedio||0),conversao:Number(f.conversao||0)};await persistirComercial({metas:f.id?metas.map(x=>x.id===f.id?m:x):[...metas,m]},{mensagem:f.id?"Meta atualizada.":"Meta cadastrada.",aoConfirmar:()=>setMetaForm(null)});};
   const exportarRelatorio=async()=>{await carregarXLSX();const rows=vendedores.map(v=>({Vendedor:v.nome,Leads:v.leads,Vendas:v.vendas,Receita:v.receita,"Conversão %":v.conversao}));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Comercial");await XLSX.writeFile(wb,`ARCD_Comercial_${today()}.xlsx`);};
 
   const anexarDocumentoComercial=async(tipo,registro,setRegistro,file)=>{

@@ -68,6 +68,11 @@ const CATALOG_SECTIONS=new Set([
   "unidades","materiais","fornecedores","composicoes","composicoesEmpresa",
   "fases","categoriasDesp",
 ]);
+const COMMERCIAL_COLLECTIONS=new Set([
+  "leads","atividades","reunioes","propostas","contratos","clientes",
+  "parceiros","metas","comissoes","vendas","pesquisas","opportunities",
+  "stageEvents",
+]);
 
 const validarMutacaoCatalogo=(antes,depois,nome)=>{
   const anteriores=porId(antes),posteriores=porId(depois);
@@ -78,6 +83,15 @@ const validarMutacaoCatalogo=(antes,depois,nome)=>{
   // partiu de uma renderização antiga e tentou substituir o catálogo vigente.
   if(removidos.length>1||(removidos.length&&adicionados.length)){
     return `A atualização de ${nome} substituiria cadastros existentes. Recarregue os dados e salve um registro por vez.`;
+  }
+  return "";
+};
+
+const validarMutacaoComercial=(antes={},depois={})=>{
+  for(const nome of COMMERCIAL_COLLECTIONS){
+    if(!Object.prototype.hasOwnProperty.call(depois||{},nome))continue;
+    const erro=validarMutacaoCatalogo(antes?.[nome],depois?.[nome],`comercial.${nome}`);
+    if(erro)return erro;
   }
   return "";
 };
@@ -147,6 +161,10 @@ export const validateNoPhysicalDeletes = (previous = {}, next = {}) => {
   for(const key of APPEND_ONLY_SECTIONS){
     if(!Object.prototype.hasOwnProperty.call(next,key))continue;
     const erro=validarCancelamentos(previous[key],next[key],key);
+    if(erro)return erro;
+  }
+  if(Object.prototype.hasOwnProperty.call(next,"comercial")){
+    const erro=validarMutacaoComercial(previous.comercial,next.comercial);
     if(erro)return erro;
   }
   if(Object.prototype.hasOwnProperty.call(next,"conferencias")){

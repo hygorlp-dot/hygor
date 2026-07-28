@@ -29,6 +29,24 @@ describe("autorização de produção",()=>{
     expect(validateNoPhysicalDeletes(anterior,{materiais:[{id:"m2"}]})).toBe("");
     expect(validateNoPhysicalDeletes(anterior,{materiais:[...anterior.materiais,{id:"m3"}]})).toBe("");
   });
+  it("bloqueia substituição acidental dos cadastros comerciais",()=>{
+    const anterior={comercial:{
+      clientes:[{id:"c1"},{id:"c2"}],
+      propostas:[{id:"p1"},{id:"p2"}],
+    }};
+    expect(validateNoPhysicalDeletes(anterior,{comercial:{
+      clientes:[{id:"c1"},{id:"c3"}],
+      propostas:anterior.comercial.propostas,
+    }})).toMatch(/comercial\.clientes substituiria cadastros/);
+    expect(validateNoPhysicalDeletes(anterior,{comercial:{
+      clientes:anterior.comercial.clientes,
+      propostas:[],
+    }})).toMatch(/comercial\.propostas substituiria cadastros/);
+    expect(validateNoPhysicalDeletes(anterior,{comercial:{
+      clientes:[...anterior.comercial.clientes,{id:"c3"}],
+      propostas:anterior.comercial.propostas,
+    }})).toBe("");
+  });
   it("impede alteração ou remoção de versão orçamentária aprovada",()=>{
     const anterior={orcamentos:[{id:"o1",versionStatus:"aprovada",itens:[{id:"i1",precoUnit:10}]}]};
     expect(validateNoPhysicalDeletes(anterior,{orcamentos:[{id:"o1",versionStatus:"aprovada",itens:[{id:"i1",precoUnit:11}]}]})).toMatch(/imutáveis/);
