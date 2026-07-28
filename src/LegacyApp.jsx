@@ -25688,42 +25688,19 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       transacaoId: "", servicoId: "", orcItemId:l.orcItemId||"",orcNivel1Id:l.orcNivel1Id||"", etapa: "",
     }));
 
-    // Atualiza o preço médio do material com o que foi efetivamente pago
-    const materiaisAtualizados = (data.materiais||[]).map(m => {
-      const l = linhas.find(x => x.materialId === m.id && x.chegou > 0);
-      return l ? { ...m, precoMedio: Number(l.precoUnit || m.precoMedio || 0) } : m;
+    if(!dispatchCommand){
+      showToast("O recebimento seguro exige conexão com o servidor.","error");
+      return;
+    }
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
+      return {type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,
+        idempotencyKey:`pedido-recebimento-${pedido.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{pedidoId:pedido.id,receivedQuantities:Object.fromEntries(linhas.filter(l=>l.chegou>0).map(l=>[l.id,l.chegou])),stockEntries:entradas}};
     });
-
-    const pedidoAtualizado = {
-      ...pedido,
-      itens: pedido.itens.map(i => {
-        const l = linhas.find(x => x.id === i.id);
-        return l && l.chegou > 0
-          ? { ...i, qtdRecebida: Number(i.qtdRecebida || 0) + l.chegou,
-              recebimentos:[...(i.recebimentos||[]),{id:uid(),data:quando,qtd:l.chegou,
-                precoUnit:Number(i.precoUnit||0),responsavelId:currentUser?.id||"",
-                responsavel:currentUser?.nome||"",registradoEm:new Date().toISOString()}] }
-          : i;
-      }),
-    };
-
-    let pedidoConfirmado=pedidoAtualizado;
-    if(dispatchCommand){
-      const result=await dispatchCommand(atual=>{
-        const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
-        return {type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,
-          idempotencyKey:`pedido-recebimento-${pedido.id}-${uid()}`,
-          expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{pedidoId:pedido.id,receivedQuantities:Object.fromEntries(linhas.filter(l=>l.chegou>0).map(l=>[l.id,l.chegou])),stockEntries:entradas}};
-      });
-      if(!result?.ok){showToast(result?.reason||"Não foi possível registrar o recebimento.","error");return;}
-      pedidoConfirmado=(result.data?.pedidos||[]).find(item=>item.id===pedido.id)||pedidoAtualizado;
-    }else update({
-      ...data,
-      pedidos: (data.pedidos||[]).map(p => p.id === pedido.id ? pedidoAtualizado : p),
-      movEstoque: [...(data.movEstoque||[]), ...entradas],
-      materiais: materiaisAtualizados,
-    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível registrar o recebimento.","error");return;}
+    const pedidoConfirmado=(result.data?.pedidos||[]).find(item=>item.id===pedido.id)||pedido;
 
     setRecModal(null);
     const st = statusPedido(pedidoConfirmado);
@@ -27181,8 +27158,11 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   // A equipe de campo confirma que o material chegou -> tudo do pedido vira
   // ENTRADA no estoque (apropriacao automatica), sem abrir o recebimento
   // completo. Aceita tudo de uma vez; ajustes finos ficam para a aba Compras.
-  const confirmarChegada = (pedido) => {
-    if (!update) return;
+  const confirmarChegada = async pedido => {
+    if (!dispatchCommand) {
+      showToast?.("O recebimento seguro exige conexão com o servidor.","error");
+      return;
+    }
     // Recebimento não depende de pagamento prévio - compra a prazo é o caso
     // normal. O saldo em aberto (se houver) segue visível em Compras > Financeiro.
     const quando = today();
@@ -27190,28 +27170,36 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       .map(i => ({ ...i, falta: Number(i.qtd || 0) - Number(i.qtdRecebida || 0) }))
       .filter(i => i.falta > 0)
       .map(i => ({
-        id: uid(), obraId: pedido.obraId, materialId: i.materialId,
+        id: uid(),receiptId:uid(),pedidoId:pedido.id,pedidoItemId:i.id,
+        obraId: pedido.obraId, materialId: i.materialId,
         tipo: "entrada", qtd: i.falta, valorUnit: Number(i.precoUnit || 0),
         data: quando,
         descricao: `Chegada confirmada - pedido ${pedido.numero}`,
         transacaoId: "", servicoId: "",orcItemId:i.orcItemId||"",orcNivel1Id:i.orcNivel1Id||"", etapa: "",
       }));
-    const pedidoAtualizado = {
-      ...pedido,
-      itens: (pedido.itens || []).map(i => ({ ...i, qtdRecebida: Number(i.qtd || 0) })),
-      chegadaConfirmada: quando,
-    };
-    // Atualiza preco medio com o que foi pago.
-    const materiaisAtualizados = (data.materiais || []).map(m => {
-      const l = entradas.find(x => x.materialId === m.id);
-      return l ? { ...m, precoMedio: Number(l.valorUnit || m.precoMedio || 0) } : m;
+    if(!entradas.length){
+      showToast?.(`O pedido ${pedido.numero} já foi recebido por completo.`,"warn");
+      setChegadaModal(null);
+      return;
+    }
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
+      return {
+        type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,
+        idempotencyKey:`pedido-chegada-${pedido.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{
+          pedidoId:pedido.id,
+          receivedQuantities:Object.fromEntries(entradas.map(item=>[item.pedidoItemId,item.qtd])),
+          stockEntries:entradas,
+        },
+      };
     });
-    update({
-      ...data,
-      pedidos: (data.pedidos || []).map(p => p.id === pedido.id ? pedidoAtualizado : p),
-      movEstoque: [...(data.movEstoque || []), ...entradas],
-      materiais: materiaisAtualizados,
-    });
+    if(!result?.ok){
+      showToast?.(result?.reason||"O servidor não confirmou a chegada do material.","error");
+      return;
+    }
     setChegadaModal(null);
     showToast?.(`Material do pedido ${pedido.numero} apropriado ao estoque.`);
   };

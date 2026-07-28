@@ -53,7 +53,7 @@ describe("gate FIN-003 de persistência",()=>{
     expect(Object.keys(readiness.modules).sort()).toEqual(Object.keys(FINANCIAL_MODULE_SECTION_MATRIX).sort());
     expect(readiness.pending).not.toContain("medicoes");
     expect(readiness.pending).not.toContain("caixaObra");
-    expect(readiness.pending).toContain("pedidos");
+    expect(readiness.pending).not.toContain("pedidos");
     expect(readiness.pending).toContain("obras");
     expect(readiness.pending).not.toContain("comercial");
     expect(readiness.pending).not.toContain("equipamentos");
@@ -67,13 +67,13 @@ describe("gate FIN-003 de persistência",()=>{
       "reconciliationLinks","archivedLaborCosts","payments","medicoes",
       "outrasDesp","despesasEmpresa","caixaObra","transacoes",
       "pagsTerceiros","medicoesTerc",
-      "notasFiscais",
+      "notasFiscais","pedidos",
     ]){
       expect(FINANCIAL_LEGACY_SECTIONS.has(section),section).toBe(true);
       expect(FINANCIAL_SNAPSHOT_WRITER_SECTIONS.has(section),section).toBe(false);
       expect(readiness.pending,section).not.toContain(section);
     }
-    expect(readiness.pending).toHaveLength(7);
+    expect(readiness.pending).toHaveLength(6);
   });
 
   it("mantém todos os escritores associados a um módulo funcional",()=>{

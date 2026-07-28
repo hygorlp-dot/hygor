@@ -124,6 +124,11 @@ const normalizeOrder=(data,raw,current,{newMaterials=[]}={})=>{
     documentos:(current?.documentos||raw.documentos||[]).map(item=>({...item})),
   };
   if(!candidate.numero)return {error:"Informe o número do pedido."};
+  if((data.pedidos||[]).some(item=>
+    String(item.id)!==id&&active(item)
+    &&String(item.numero||"").trim().toLowerCase()===candidate.numero.toLowerCase())){
+    return {error:"Já existe um pedido ativo com este número."};
+  }
   const paidCents=activePayments(current).reduce((sum,item)=>sum+toCents(item.valor),0);
   if(orderTotalCents(candidate)<paidCents)return {
     error:"O total do pedido não pode ficar abaixo dos pagamentos ativos.",
