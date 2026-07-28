@@ -31568,9 +31568,19 @@ function Cadastros({ data, update, showToast, onTab }) {
     const t = busca.trim().toLowerCase();
     return t ? arr.filter(x => String(x[campo]||"").toLowerCase().includes(t)) : arr;
   };
+  const persistirCadastro=async(next,mensagem,aoConfirmar)=>{
+    const result=await update(next);
+    if(!result?.ok){
+      showToast(result?.reason||"O cadastro não foi confirmado pelo servidor. Os dados informados continuam na tela para nova tentativa.","error");
+      return false;
+    }
+    aoConfirmar?.();
+    showToast(mensagem);
+    return true;
+  };
 
   //  Unidade 
-  const salvarUnidade = (f) => {
+  const salvarUnidade = async (f) => {
     const sigla = f.sigla.trim().toLowerCase();
     if (!sigla) { showToast("Informe a sigla.", "error"); return; }
 
@@ -31579,14 +31589,12 @@ function Cadastros({ data, update, showToast, onTab }) {
     if (jaExiste) { showToast(`A sigla "${sigla}" já existe.`, "error"); return; }
 
     const u = { id: f.id || uid(), sigla, nome: f.nome.trim() };
-    update({ ...data, unidades: f.id
+    await persistirCadastro({ ...data, unidades: f.id
       ? unidades.map(x => x.id === f.id ? u : x)
-      : [...unidades, u] });
-    setUniModal(null);
-    showToast(f.id ? "Unidade atualizada." : "Unidade criada.");
+      : [...unidades, u] },f.id ? "Unidade atualizada e salva." : "Unidade criada e salva.",()=>setUniModal(null));
   };
 
-  const excluirUnidade = (u) => {
+  const excluirUnidade = async (u) => {
     // Não deixa apagar unidade em uso: os materiais ficariam órfãos e o
     // sistema voltaria a ter unidade "fantasma".
     const emUso = (data.materiais||[]).filter(m => m.unidade === u.sigla).length
@@ -31596,12 +31604,11 @@ function Cadastros({ data, update, showToast, onTab }) {
       return;
     }
     if (!window.confirm(`Excluir a unidade "${u.sigla}"?`)) return;
-    update({ ...data, unidades: unidades.filter(x => x.id !== u.id) });
-    showToast("Unidade removida.");
+    await persistirCadastro({ ...data, unidades: unidades.filter(x => x.id !== u.id) },"Unidade removida e alteração salva.");
   };
 
   //  Categoria do DRE 
-  const salvarCategoria = (f) => {
+  const salvarCategoria = async (f) => {
     const nome = (f.l || "").trim();
     if (!nome) { showToast("Dê um nome à categoria.", "error"); return; }
     const atuais = categoriasDesp(data);
@@ -31614,12 +31621,10 @@ function Cadastros({ data, update, showToast, onTab }) {
     const nova = f.v
       ? base.map(c => c.v === f.v ? { ...c, l: nome } : c)
       : [...base, { v, l: nome }];
-    update({ ...data, categoriasDesp: nova });
-    setCatModal(null);
-    showToast(f.v ? "Categoria atualizada." : "Categoria criada.");
+    await persistirCadastro({ ...data, categoriasDesp: nova },f.v ? "Categoria atualizada e salva." : "Categoria criada e salva.",()=>setCatModal(null));
   };
 
-  const excluirCategoria = (c) => {
+  const excluirCategoria = async (c) => {
     // Nao deixa apagar categoria em uso: as despesas ficariam sem rotulo.
     const emUso = (data.outrasDesp || []).filter(d => d.categoria === c.v).length
                 + (data.despesasEmpresa || []).filter(d => d.categoria === c.v).length;
@@ -31630,40 +31635,35 @@ function Cadastros({ data, update, showToast, onTab }) {
     if (c.v === "outros") { showToast("A categoria Outros é a rede de segurança e não pode ser apagada.", "error"); return; }
     if (!window.confirm(`Excluir a categoria "${c.l}"?`)) return;
     const base = (data.categoriasDesp || []).length ? data.categoriasDesp : OUTRAS_CATEGORIAS;
-    update({ ...data, categoriasDesp: base.filter(x => x.v !== c.v) });
-    showToast("Categoria removida.");
+    await persistirCadastro({ ...data, categoriasDesp: base.filter(x => x.v !== c.v) },"Categoria removida e alteração salva.");
   };
 
   //  Material 
-  const salvarMaterial = (f) => {
+  const salvarMaterial = async (f) => {
     if (!f.descricao.trim()) { showToast("Descreva o material.", "error"); return; }
     const p = {
       id: f.id || uid(), codigo: f.id?f.codigo:proximoCodigoArcd(data), descricao: f.descricao.trim(),
       unidade: f.unidade || "un", categoria: f.categoria || "outros",
       estoqueMin: Number(f.estoqueMin||0), precoMedio: Number(f.precoMedio||0), ativo: true,
     };
-    update({ ...data, materiais: f.id
+    await persistirCadastro({ ...data, materiais: f.id
       ? (data.materiais||[]).map(m => m.id === f.id ? p : m)
-      : [...(data.materiais||[]), p] });
-    setMatModal(null);
-    showToast(f.id ? "Insumo atualizado." : "Insumo cadastrado.");
+      : [...(data.materiais||[]), p] },f.id ? "Insumo atualizado e salvo." : "Insumo cadastrado e salvo.",()=>setMatModal(null));
   };
 
   //  Fornecedor 
-  const salvarForn = (f) => {
+  const salvarForn = async (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome.", "error"); return; }
     const p = { ...f, id: f.id || uid(), nome: f.nome.trim(),
       categorias: Array.isArray(f.categorias) ? f.categorias : [], ativo: true };
     delete p.ramosSugeridos;
-    update({ ...data, fornecedores: f.id
+    await persistirCadastro({ ...data, fornecedores: f.id
       ? (data.fornecedores||[]).map(x => x.id === f.id ? p : x)
-      : [...(data.fornecedores||[]), p] });
-    setFornModal(null);
-    showToast(f.id ? "Fornecedor atualizado." : "Fornecedor cadastrado.");
+      : [...(data.fornecedores||[]), p] },f.id ? "Fornecedor atualizado e salvo." : "Fornecedor cadastrado e salvo.",()=>setFornModal(null));
   };
 
   //  Terceirizado 
-  const salvarTerc = (f) => {
+  const salvarTerc = async (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome.", "error"); return; }
     const p = {
       ...(data.terceirizados||[]).find(t => t.id === f.id) || {},
@@ -31675,30 +31675,26 @@ function Cadastros({ data, update, showToast, onTab }) {
       obraId: f.obraId || "",
       active: true,
     };
-    update({ ...data, terceirizados: f.id
+    await persistirCadastro({ ...data, terceirizados: f.id
       ? (data.terceirizados||[]).map(t => t.id === f.id ? p : t)
-      : [...(data.terceirizados||[]), p] });
-    setTercModal(null);
-    showToast(f.id ? "Terceirizado atualizado." : "Terceirizado cadastrado.");
+      : [...(data.terceirizados||[]), p] },f.id ? "Terceirizado atualizado e salvo." : "Terceirizado cadastrado e salvo.",()=>setTercModal(null));
   };
 
   //  Composição 
-  const salvarComposicao = (f) => {
+  const salvarComposicao = async (f) => {
     if (!f.nome.trim()) { showToast("Dê um nome ao serviço.", "error"); return; }
     const itens = (f.itens||[]).filter(i => i.materialId && Number(i.coef) > 0)
       .map(i => ({ materialId: i.materialId, coef: Number(i.coef) }));
     if (!itens.length) { showToast("Adicione ao menos um insumo.", "error"); return; }
     const p = { id: f.id || uid(), codigo:f.id?(f.codigo||proximoCodigoArcd(data)):proximoCodigoArcd(data), nome: f.nome.trim(), unidade: f.unidade || "m2", itens };
-    update({ ...data, composicoes: f.id
+    await persistirCadastro({ ...data, composicoes: f.id
       ? (data.composicoes||[]).map(c => c.id === f.id ? p : c)
-      : [...(data.composicoes||[]), p] });
-    setCompModal(null);
-    showToast("Composição salva.");
+      : [...(data.composicoes||[]), p] },"Composição confirmada pelo servidor.",()=>setCompModal(null));
   };
 
   // Composições próprias usadas pelo orçamento. Podem nascer de uma cópia
   // SINAPI/ORSE e ficam separadas das composições de baixa de estoque.
-  const salvarComposicaoEmpresa = (f) => {
+  const salvarComposicaoEmpresa = async (f) => {
     const codigo = maiusculoOrcamento(f.codigo||proximoCodigoArcd(data)).trim();
     const descricao = maiusculoOrcamento(f.descricao).trim();
     const unidade = maiusculoOrcamento(f.unidade || "UN").trim();
@@ -31736,19 +31732,19 @@ function Cadastros({ data, update, showToast, onTab }) {
       const defs = (orcamento.composicoesProprias || []).map(comp => comp.id === p.id ? p : comp);
       return {...orcamento,itens:itensOrc,composicoesProprias:defs};
     });
-    update({...data,composicoesEmpresa:f.id ? compsEmpresa.map(c => c.id === f.id ? p : c) : [...compsEmpresa,p],
-      baseFavoritos:favoritos,orcamentos});
-    setCompEmpresaModal(null);
-    showToast(f.id ? "Composição da empresa atualizada em todos os orçamentos." : "Composição adicionada ao cadastro da empresa.");
+    await persistirCadastro({...data,composicoesEmpresa:f.id ? compsEmpresa.map(c => c.id === f.id ? p : c) : [...compsEmpresa,p],
+      baseFavoritos:favoritos,orcamentos},
+    f.id ? "Composição da empresa atualizada e salva." : "Composição adicionada e salva.",
+    ()=>setCompEmpresaModal(null));
   };
 
-  const excluirComposicaoEmpresa = (comp) => {
+  const excluirComposicaoEmpresa = async (comp) => {
     if (!window.confirm(`Retirar ${comp.codigo} do cadastro da empresa? Os orçamentos já emitidos serão preservados.`)) return;
     const codigo = maiusculoOrcamento(comp.codigo).trim();
-    update({...data,composicoesEmpresa:compsEmpresa.filter(c => c.id !== comp.id),
-      baseFavoritos:(data.baseFavoritos || []).filter(item => !(maiusculoOrcamento(item.fonte) === "PRÓPRIA" && maiusculoOrcamento(item.codigo).trim() === codigo))});
-    setCompEmpresaModal(null);
-    showToast("Composição retirada do catálogo. Os orçamentos existentes foram mantidos.");
+    await persistirCadastro({...data,composicoesEmpresa:compsEmpresa.filter(c => c.id !== comp.id),
+      baseFavoritos:(data.baseFavoritos || []).filter(item => !(maiusculoOrcamento(item.fonte) === "PRÓPRIA" && maiusculoOrcamento(item.codigo).trim() === codigo))},
+    "Composição retirada e alteração salva. Os orçamentos existentes foram mantidos.",
+    ()=>setCompEmpresaModal(null));
   };
 
   const Voltar = () => (
