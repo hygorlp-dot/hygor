@@ -95,7 +95,7 @@ const login = async page => {
   await page.locator("#login-email").fill(PROFILE.email);
   await page.locator("#login-senha").fill("senha-isolada");
   await page.getByRole("button", { name: "Acessar central ARCD" }).click();
-  await expect(page.getByText("Boa tarde, Engenheiro.")).toBeVisible();
+  await expect(page.getByText(/Bom (dia|tarde|noite), Engenheiro\./)).toBeVisible();
 };
 
 test("PIN incorreto informa o erro sem iniciar sessão", async ({ page }) => {
@@ -119,7 +119,7 @@ test("PIN incorreto informa o erro sem iniciar sessão", async ({ page }) => {
   await page.getByRole("button", { name: "Confirmar acesso" }).click();
 
   await expect(page.getByText("PIN incorreto.")).toBeVisible();
-  await expect(page.getByText("Boa tarde, Engenheiro.")).toHaveCount(0);
+  await expect(page.getByText(/Bom (dia|tarde|noite), Engenheiro\./)).toHaveCount(0);
 });
 
 test("dataset legado com aprovação nula não derruba o app após o login", async ({ page }) => {
@@ -145,9 +145,12 @@ test("engenheiro salva, recarrega e finaliza o ponto da própria obra no mobile"
   await expect(page.getByRole("button", { name: "Transferir" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Demitir" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Confirmar equipe sem alterações" }).click();
+  // O primeiro clique deve bastar: a conferência diária é registrada junto
+  // com a presença, sem obrigar o engenheiro a executar uma etapa anterior.
+  await expect(page.getByRole("button", { name: "Confirmar equipe sem alterações" })).toBeVisible();
   await page.getByRole("button", { name: "Presente", exact: true }).click();
   await expect(page.getByText("1/1 lançados")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirmar equipe sem alterações" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Mais opções" }).click();
   await page.getByRole("button", { name: "Jornada" }).click();
@@ -205,7 +208,7 @@ test("engenheiro salva, recarrega e finaliza o ponto da própria obra no mobile"
   await page.getByRole("button", { name: "Salvar jornada" }).click();
 
   await page.reload();
-  await expect(page.getByText("Boa tarde, Engenheiro.")).toBeVisible();
+  await expect(page.getByText(/Bom (dia|tarde|noite), Engenheiro\./)).toBeVisible();
   await page.getByRole("button", { name: "Abrir Ponto" }).click();
   await expect(page.getByText("1/1 lançados")).toBeVisible();
   await expect(page.getByText("8h45")).toBeVisible();

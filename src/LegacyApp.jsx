@@ -130,6 +130,7 @@ import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { canManageAttendanceWorkforce, resolveAttendanceObraId } from "./domains/ponto/permissions";
+import { applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
 import { normalizeAttendanceRecord } from "./domains/ponto/records";
 import { calculateTimekeeping, formatMinutes } from "./domains/ponto/timekeeping";
@@ -9352,11 +9353,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
 
   const setAtt = (empId, status) => {
     const emp = data.employees.find(e => e.id === empId);
-    if (requireDailyCheck()) return;
     if (requireUnlocked(emp)) return;
-
-    const prev = getAtt(data, empId, selDate) || { status: null, ot: 0, note: "" };
-    const nextStatus = prev.status === status ? null : status;
 
     // Grava EM QUAL OBRA o dia foi trabalhado.
     //
@@ -9374,31 +9371,14 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
     // o caso comum: cada um no seu canteiro.
     const obraDoDia = (filterObra && filterObra !== "all") ? filterObra : (emp?.obra || "");
 
-    update({
-      ...data,
-      attendance: {
-        ...data.attendance,
-        [empId]: {
-          ...(data.attendance[empId] || {}),
-          [selDate]: {
-            ...prev,
-            status: nextStatus,
-            // Hora extra só existe em presença ou meio período. Ao mudar para
-            // falta/sem registro, removemos o valor para não deixar evidência
-            // contraditória na folha e nos relatórios.
-            ot: ["P", "M"].includes(nextStatus) ? Number(prev.ot || 0) : 0,
-            entrada:["P","M"].includes(nextStatus) ? (prev.entrada||"") : "",
-            intervaloSaida:["P","M"].includes(nextStatus) ? (prev.intervaloSaida||"") : "",
-            intervaloRetorno:["P","M"].includes(nextStatus) ? (prev.intervaloRetorno||"") : "",
-            saida:["P","M"].includes(nextStatus) ? (prev.saida||"") : "",
-            workedMinutes:["P","M"].includes(nextStatus) ? Number(prev.workedMinutes||0) : 0,
-            atrasoMin:["P","M"].includes(nextStatus) ? Number(prev.atrasoMin||0) : 0,
-            // Só carimba a obra se o dia foi efetivamente marcado
-            obraId: nextStatus ? obraDoDia : (prev.obraId || ""),
-          },
-        },
-      },
-    });
+    update(applyAttendanceStatus({
+      data,
+      employeeId:empId,
+      date:selDate,
+      status,
+      obraId:obraDoDia,
+      currentDate:today(),
+    }));
   };
 
   const saveNote = () => {
@@ -9504,7 +9484,6 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
   };
 
   const markAll = status => {
-    if (requireDailyCheck()) return;
     if (filterObra === "all") {
       showToast("Selecione uma obra específica para marcar todos.", "error");
       return;
@@ -9515,27 +9494,14 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
       return;
     }
 
-    const attendance = { ...data.attendance };
-    list.forEach(e => {
-      attendance[e.id] = {
-        ...(attendance[e.id] || {}),
-        [selDate]: {
-          ...(getAtt(data, e.id, selDate) || {}),
-          status,
-          ot:["P", "M"].includes(status)
-            ? Number(getAtt(data, e.id, selDate)?.ot || 0)
-            : 0,
-          entrada:["P","M"].includes(status) ? (getAtt(data,e.id,selDate)?.entrada||"") : "",
-          intervaloSaida:["P","M"].includes(status) ? (getAtt(data,e.id,selDate)?.intervaloSaida||"") : "",
-          intervaloRetorno:["P","M"].includes(status) ? (getAtt(data,e.id,selDate)?.intervaloRetorno||"") : "",
-          saida:["P","M"].includes(status) ? (getAtt(data,e.id,selDate)?.saida||"") : "",
-          workedMinutes:["P","M"].includes(status) ? Number(getAtt(data,e.id,selDate)?.workedMinutes||0) : 0,
-          atrasoMin:["P","M"].includes(status) ? Number(getAtt(data,e.id,selDate)?.atrasoMin||0) : 0,
-          obraId:filterObra,
-        },
-      };
-    });
-    update({ ...data, attendance });
+    update(applyAttendanceStatusBatch({
+      data,
+      employees:list,
+      date:selDate,
+      status,
+      obraId:filterObra,
+      currentDate:today(),
+    }));
     showToast("Ponto marcado para todos.");
   };
 
@@ -9590,8 +9556,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
 
       {dailyCheckPending && (
         <div style={{ background: `${C.yellow}12`, border: `1px solid ${C.yellow}55`, borderRadius: 8, padding: "10px 12px" }}>
-          <p style={{ color: C.yellowD, fontWeight: 800, fontSize: 11.5, marginBottom: 4 }}>Verificação diária pendente</p>
-          <p style={{ color: C.muted, fontSize: 11, marginBottom: 9, lineHeight: 1.5 }}>Se alguém foi transferido ou demitido, use os botões no card do trabalhador. Senão, confirme abaixo.</p>
+          <p style={{ color: C.yellowD, fontWeight: 800, fontSize: 11.5, marginBottom: 4 }}>Conferência rápida da equipe</p>
+          <p style={{ color: C.muted, fontSize: 11, marginBottom: 9, lineHeight: 1.5 }}>Você já pode lançar o ponto: o primeiro registro confirma automaticamente a equipe. Use o botão abaixo somente quando não houver lançamentos hoje.</p>
           <Btn v="ghost" size="sm" onClick={confirmTeamWithoutChanges} full>Confirmar equipe sem alterações</Btn>
         </div>
       )}

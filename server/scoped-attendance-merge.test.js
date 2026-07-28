@@ -40,4 +40,32 @@ describe("salvamento de ponto restrito por obra",()=>{
       "2026-07-27__o2":{id:"2026-07-27__o2",obraId:"o2",locked:true},
     });
   });
+
+  it("preserva os pontos de Isabela e Michelly em salvamentos sequenciais",()=>{
+    const employees=[
+      {id:"func-isabela",obra:"obra-isabela"},
+      {id:"func-michelly",obra:"obra-michelly"},
+    ];
+    const initial={
+      "func-isabela":{"2026-07-27":{status:"F",obraId:"obra-isabela"}},
+      "func-michelly":{"2026-07-27":{status:"F",obraId:"obra-michelly"}},
+    };
+    const afterIsabela=mergeScopedAttendance({
+      current:initial,
+      incoming:{"func-isabela":{"2026-07-27":{status:"P",obraId:"obra-isabela"}}},
+      user:{id:"e424f0e1jltb",name:"Maria Isabela",role:"engenheiro",obraId:"obra-isabela"},
+      employees,
+    });
+    const afterMichelly=mergeScopedAttendance({
+      current:afterIsabela,
+      incoming:{"func-michelly":{"2026-07-27":{status:"M",obraId:"obra-michelly"}}},
+      user:{id:"icszx5ulw28l",name:"Michelly Silva",role:"engenheiro",obraId:"obra-michelly"},
+      employees,
+    });
+
+    expect(afterMichelly).toEqual({
+      "func-isabela":{"2026-07-27":{status:"P",obraId:"obra-isabela"}},
+      "func-michelly":{"2026-07-27":{status:"M",obraId:"obra-michelly"}},
+    });
+  });
 });
