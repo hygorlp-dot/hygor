@@ -18,7 +18,7 @@ export const createThirdPartyPayment = ({ data, payment, actor, id, now = new Da
     ...payment,id,tercId,amount,date,pagador,medicaoTercId:String(payment?.medicaoTercId || ""),
     description:String(payment?.description || payment?.descricao || "Pagamento de terceiro").trim() || "Pagamento de terceiro",
     status:"ativo",origem:"manual_sem_medicao",reconhecerCusto:false,
-    createdAt:now,createdById:actor.id,createdBy:nome,updatedAt:now,updatedById:actor.id,updatedBy:nome,
+    createdAt:now,createdById:actor.id,createdBy:nome,updatedAt:now,updatedById:actor.id,updatedBy:nome,version:1,
   };
   return {...data,pagsTerceiros:[...(Array.isArray(data?.pagsTerceiros)?data.pagsTerceiros:[]),registro]};
 };
@@ -35,8 +35,8 @@ export const reverseThirdPartyPayment = ({ data, paymentId, reason, actor, now =
   const nome=userName(actor);
   return {
     ...data,
-    pagsTerceiros:pagamentos.map(item=>item.id!==paymentId?item:{...item,status:"estornado",motivoCancelamento,canceladoEm:now,canceladoPorId:actor.id,canceladoPor:nome,updatedAt:now,updatedById:actor.id,updatedBy:nome}),
-    medicoesTerc:(Array.isArray(data?.medicoesTerc)?data.medicoesTerc:[]).map(item=>item.pagamentoId!==paymentId?item:{...item,pagamentoEstornadoEm:now,pagamentoEstornadoPorId:actor.id}),
+    pagsTerceiros:pagamentos.map(item=>item.id!==paymentId?item:{...item,status:"estornado",motivoCancelamento,canceladoEm:now,canceladoPorId:actor.id,canceladoPor:nome,updatedAt:now,updatedById:actor.id,updatedBy:nome,version:Number(item.version||0)+1}),
+    medicoesTerc:(Array.isArray(data?.medicoesTerc)?data.medicoesTerc:[]).map(item=>item.pagamentoId!==paymentId?item:{...item,pagamentoId:"",pagamentoEstornadoEm:now,pagamentoEstornadoPorId:actor.id,updatedAt:now,updatedById:actor.id,updatedBy:nome,version:Number(item.version||0)+1}),
   };
 };
 
@@ -81,5 +81,15 @@ export const payThirdPartyMeasurement = ({ data, measurementId, payment, actor, 
   if (!medicao) throw new Error("Medição de terceiro não encontrada ou cancelada.");
   if (medicao.pagamentoId) throw new Error("Esta medição já possui pagamento registrado.");
   const result=createThirdPartyPayment({data,payment:{...payment,obraId:medicao.obraId,tercId:medicao.tercId,medicaoTercId:medicao.id,amount:medicao.total},actor,id,now});
-  return {...result,medicoesTerc:(result.medicoesTerc || []).map(item=>item.id===medicao.id?{...item,pagamentoId:id,pagamentoRegistradoEm:now,pagamentoRegistradoPorId:actor.id}:item)};
+  return {
+    ...result,
+    pagsTerceiros:(result.pagsTerceiros||[]).map(item=>item.id===id
+      ?{...item,origem:"liquidacao_medicao",reconhecerCusto:false}:item),
+    medicoesTerc:(result.medicoesTerc || []).map(item=>item.id===medicao.id?{
+      ...item,pagamentoId:id,pagamentoRegistradoEm:now,
+      pagamentoRegistradoPorId:actor.id,updatedAt:now,
+      updatedById:actor.id,updatedBy:userName(actor),
+      version:Number(item.version||0)+1,
+    }:item),
+  };
 };

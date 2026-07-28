@@ -385,4 +385,35 @@ describe("comandos operacionais versionados",()=>{
     expect(repeated).toMatchObject({ok:true,idempotent:true});
     expect(repeated.data.outrasDesp).toHaveLength(1);
   });
+
+  it("registra pagamento de terceiro uma única vez pela fronteira operacional",()=>{
+    const initial={
+      usuarios:[{id:"u-1",nome:"Ana",role:"financeiro",active:true}],
+      obras:[{id:"o-1"}],
+      terceirizados:[{
+        id:"t-1",name:"Prestador",specialty:"pedreiro",obraId:"o-1",
+        active:true,etapas:[],
+      }],
+      pagsTerceiros:[],medicoesTerc:[],
+      politicasAprovacao:[],instanciasAprovacao:[],auditoriaAprovacao:[],
+      fechamentosFinanceiros:[],
+    };
+    const create=command(
+      OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED,
+      "third-party-payment-create-0001",
+      {payment:{
+        id:"pt-1",tercId:"t-1",date:"2026-07-25",
+        amount:800,pagador:"empresa",
+      }},
+      0,
+    );
+    const first=applyOperationalCommand(initial,create);
+    const repeated=applyOperationalCommand(first.data,create);
+    expect(first).toMatchObject({ok:true});
+    expect(first.data.pagsTerceiros).toMatchObject([{
+      id:"pt-1",obraId:"o-1",version:1,createdById:"u-1",
+    }]);
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+    expect(repeated.data.pagsTerceiros).toHaveLength(1);
+  });
 });

@@ -25,6 +25,10 @@ import {
 import {
   BANK_TRANSACTION_COMMAND_TYPES,
 } from "../src/domains/conciliacao/transaction-commands.js";
+import {
+  THIRD_PARTY_COMMAND_TYPES,
+  thirdPartyCommandObraId,
+} from "../src/domains/financeiro/third-party-commands.js";
 
 export const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
@@ -34,6 +38,7 @@ export const operationalCommandObraId=(data={},command={})=>{
   if(WORK_CASH_COMMAND_TYPES.has(command?.type))return workCashCommandObraId(data,command);
   if(PAYABLE_PAYMENT_COMMAND_TYPES.has(command?.type))return payablePaymentCommandObraId(data,command);
   if(PURCHASE_CANCELLATION_COMMAND_TYPES.has(command?.type))return purchaseCancellationCommandObraId(data,command);
+  if(THIRD_PARTY_COMMAND_TYPES.has(command?.type))return thirdPartyCommandObraId(data,command);
   if(command?.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED)return String(payload?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED)return String(payload?.measurement?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");

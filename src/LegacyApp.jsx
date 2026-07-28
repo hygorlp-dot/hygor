@@ -120,7 +120,6 @@ import {
   selectCorporateOperatingCosts,
   selectFinancialMovements,
 } from "./domains/financeiro/ledger";
-import { cancelThirdPartyMeasurement, createThirdPartyMeasurement, createThirdPartyPayment, payThirdPartyMeasurement, reverseThirdPartyPayment } from "./domains/financeiro/third-party-payment-mutations";
 import { createFinancialCalculationEngine } from "./domains/financeiro/calculation-engine";
 import { calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-cash";
 import { saldoPagamentoNota, statusPagamentoNota, totalPagoNota } from "./domains/financeiro/payables";
@@ -159,7 +158,6 @@ import {
   analyzePurchaseThreeWayMatch,
   createBillingFromTechnicalMeasurement,
   createMonthlyClosingSnapshot,
-  linkThirdPartyInvoice,
 } from "./domains/financeiro/workflows";
 import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, projectBudgetExport, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
 import { calculateCPM as calculateCanonicalCPM, calculateLineOfBalance, calculatePPC } from "./domains/planejamento";
@@ -188,9 +186,10 @@ import {
 } from "./domains/conciliacao/index.js";
 import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
 import {
-  createApprovalEngine, validarPolitica, encontrarPoliticaAplicavel,
+  validarPolitica, encontrarPoliticaAplicavel,
   normalizeApprovalInstances, podeAdministrarPoliticas, podeGerenciarDelegacoes, OPERADORES,
 } from "./domains/aprovacoes/index.js";
+import { arcdApprovalEngine as motorAprovacaoGenerico } from "./domains/aprovacoes/arcd-engine.js";
 
 // Resolvedores concretos do motor de aprovação para o app ARCD: como este
 // app ainda não tem cargo/hierarquia/departamento/centro de custo cadastrados,
@@ -200,34 +199,6 @@ import {
 // existe em `usuarios[].role` (admin/financeiro/compras/engenheiro/rh/...).
 // Genéricos por natureza (não dependem de nada específico de Compras) -
 // reutilizados por qualquer entidadeTipo, ver MOTORES_APROVACAO_POR_ENTIDADE.
-const usuarioAtivo = (u) => ({ id: u.id, nome: u.nome });
-const resolvedoresAprovacaoGenericos = {
-  usuario: (ref, _ctx, data) => {
-    const u = (data.usuarios || []).find(x => x.id === ref && x.active !== false);
-    return u ? [usuarioAtivo(u)] : [];
-  },
-  cargo: (ref, _ctx, data) => (data.usuarios || []).filter(u => u.role === ref && u.active !== false).map(usuarioAtivo),
-  perfil: (ref, ctx, data) => resolvedoresAprovacaoGenericos.cargo(ref, ctx, data),
-  grupo: (ref, ctx, data) => resolvedoresAprovacaoGenericos.cargo(ref, ctx, data),
-  responsavelObra: (_ref, ctx, data) => {
-    const obra = (data.obras || []).find(o => o.id === ctx?.obraId);
-    if (!obra?.engineerId) return [];
-    const u = (data.usuarios || []).find(x => x.id === obra.engineerId && x.active !== false);
-    return u ? [usuarioAtivo(u)] : [];
-  },
-  gerenteObra: (ref, ctx, data) => resolvedoresAprovacaoGenericos.responsavelObra(ref, ctx, data),
-  responsavelCentroCusto: () => [],
-  responsavelDepartamento: () => [],
-  superiorHierarquico: () => [],
-  compradorResponsavel: (_ref, _ctx, data) => (data.usuarios || []).filter(u => u.role === "compras" && u.active !== false).map(usuarioAtivo),
-  financeiro: (_ref, _ctx, data) => (data.usuarios || []).filter(u => u.role === "financeiro" && u.active !== false).map(usuarioAtivo),
-  controladoria: () => [],
-  diretoria: () => [],
-  administrador: (_ref, _ctx, data) => (data.usuarios || []).filter(u => u.role === "admin" && u.active !== false).map(usuarioAtivo),
-  campoSolicitacao: (_ref, ctx) => ctx?.aprovadorEspecificoId ? [{ id: ctx.aprovadorEspecificoId, nome: ctx.aprovadorEspecificoNome || ctx.aprovadorEspecificoId }] : [],
-};
-const motorAprovacaoGenerico = createApprovalEngine(resolvedoresAprovacaoGenericos);
-
 // 
 // ARCD OBRAS - aplicação legada em migração incremental por domínio
 // - Base compartilhada Supabase via supabase.js
@@ -1720,6 +1691,7 @@ const normalizeData = incoming => {
       canceladaEm:m.canceladaEm||"",canceladaPorId:m.canceladaPorId||"",canceladaPor:m.canceladaPor||"",
     })) : [],
     terceirizados: Array.isArray(d.terceirizados) ? d.terceirizados.map(t => ({
+      ...t,
       // `id` identifica o CONTRATO. `prestadorId` identifica o cadastro único
       // do terceirizado e pode se repetir em vários contratos/obras.
       id: t.id || uid(),
@@ -1805,6 +1777,7 @@ const normalizeData = incoming => {
     // diferenca entre os dois. Guardar o acumulado (e nao so o avanco) e o que
     // permite corrigir uma medicao a maior sem reescrever o historico.
     medicoesTerc: Array.isArray(d.medicoesTerc) ? d.medicoesTerc.map(m => ({
+      ...m,
       id:     m.id     || uid(),
       tercId: m.tercId || "",
       obraId: m.obraId || "",
@@ -10733,7 +10706,7 @@ function FluxoCaixa({ data }) {
 // TERCEIROS - cadastro e pagamentos semanais
 // 
 
-function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null }) {
+function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
   const { formGrid } = useBreakpoint();
   const perfil=currentUser?.role;
   const podeGerenciarContratos=["admin","rh","engenheiro","engenheiro_auditor","financeiro"].includes(perfil);
@@ -10767,6 +10740,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
   const [medForm,     setMedForm]     = useState({ data: today(), observacao:"", pcts:{}, fotos:[] });
   const [subindoFotosMed,setSubindoFotosMed]=useState(false);
   const [riscoSemFotoAceito,setRiscoSemFotoAceito]=useState(false);
+  const [thirdPartyCommandPending,setThirdPartyCommandPending]=useState(false);
   const inputFotosMedRef=useRef(null);
   const podeRegistrarEvidencia=podeGerenciarMedicoes&&currentUser?.active!==false;
 
@@ -10790,6 +10764,9 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
   const allTerc    = data.terceirizados || [];
   const scopedTerc = obraIdFixo ? allTerc.filter(t => t.obraId === obraIdFixo) : allTerc;
   const activeTerc = scopedTerc.filter(t => t.active !== false);
+  const registroTerceiroAtivo=registro=>
+    !["cancelado","cancelada","estornado","estornada","arquivado"]
+      .includes(String(registro?.status||"").toLowerCase());
 
   // Um mesmo prestador pode possuir vários contratos. O cadastro fiscal,
   // bancário e de contato é compartilhado pelo `prestadorId`; obra, escopo,
@@ -10858,16 +10835,18 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
   };
 
   const wasPaidThisWeek = id =>
-    (data.pagsTerceiros || []).some(p => p.tercId === id && p.date >= weekStart && p.date <= weekEnd);
+    (data.pagsTerceiros || []).some(p =>
+      registroTerceiroAtivo(p)&&p.tercId === id && p.date >= weekStart && p.date <= weekEnd);
   const thisWeekPay = id =>
-    (data.pagsTerceiros || []).find(p => p.tercId === id && p.date >= weekStart && p.date <= weekEnd);
+    (data.pagsTerceiros || []).find(p =>
+      registroTerceiroAtivo(p)&&p.tercId === id && p.date >= weekStart && p.date <= weekEnd);
 
   // KPIs
   const totalWeekly     = activeTerc.reduce((s, t) => s + Number(t.weeklyRate || 0), 0);
   const totalContracts  = scopedTerc.reduce((s, t) => s + Number(t.contractValue || 0), 0);
   const scopedTercIds   = new Set(scopedTerc.map(t => t.id));
   const totalPaidAll    = (data.pagsTerceiros || [])
-    .filter(p => scopedTercIds.has(p.tercId))
+    .filter(p => registroTerceiroAtivo(p)&&scopedTercIds.has(p.tercId))
     .reduce((s, p) => s + Number(p.amount || 0), 0);
   const pendingCount    = activeTerc.filter(t => !wasPaidThisWeek(t.id)).length;
   const pendingTotal    = activeTerc.filter(t => !wasPaidThisWeek(t.id)).reduce((s,t) => s+Number(t.weeklyRate||0), 0);
@@ -10961,7 +10940,8 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     showToast("Status atualizado.");
   };
 
-  const savePay = terc => {
+  const savePay = async terc => {
+    if(!dispatchCommand||thirdPartyCommandPending)return;
     const amount = Number(payAmount || terc.weeklyRate || 0);
     if (!amount) { showToast("Informe o valor.", "error"); return; }
     if (paySource !== "empresa" && paySource !== "obra") {
@@ -10971,23 +10951,22 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
       showToast("Este contrato não possui obra vinculada.", "error"); return;
     }
     const ret = calcRetencoes(amount, terc);
+    setThirdPartyCommandPending(true);
     try {
       const paymentId = uid();
-      // Pagamento manual (sem medição vinculada) - o motor sabe disso via
-      // `possuiMedicao` e pode exigir uma etapa a mais para esse caso, sem
-      // travar o lançamento: a aprovação corre em paralelo, auditável, e o
-      // pagamento fica visível como pendente até alguém decidir.
-      const { data: comAprovacao, resumo } = motorAprovacaoGenerico.iniciarInstancia(data, {
-        entidadeTipo:"pagamentoTerceiro", entidadeId:paymentId,
-        contexto:{ valorTotal:amount, obraId:terc.obraId||"", possuiMedicao:"nao", solicitanteId:currentUser?.id||"" },
-        operador:currentUser, comportamentoSemPolitica:data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar",
-      });
-      update(createThirdPartyPayment({data:comAprovacao,actor:currentUser,id:paymentId,payment:{
-        tercId:terc.id,tercName:terc.name,specialty:terc.specialty,obraId:terc.obraId,date:friday,amount,
-        description:payDesc || `Pagamento semanal ${fmtDateFull(friday)}`,pagador:paySource,
-        issRetido:ret.issRetido,inssRetido:ret.inssRetido,liquido:ret.liquido,
-        aprovacaoInstanciaId:resumo.instanciaId,
-      }}));
+      const result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED,
+        idempotencyKey:`third-payment-create-${paymentId}-${uid()}`,
+        expectedVersion:0,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{payment:{
+          id:paymentId,tercId:terc.id,date:friday,amount,
+          description:payDesc || `Pagamento semanal ${fmtDateFull(friday)}`,
+          pagador:paySource,issRetido:ret.issRetido,
+          inssRetido:ret.inssRetido,liquido:ret.liquido,
+        }},
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o pagamento.");
       setPayModal(null); setPayAmount(""); setPayDesc(""); setPaySource("");
       const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(terc.obraId)}`;
       showToast(ret.retido > 0
@@ -10995,17 +10974,33 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
         : `${terc.name} - pagamento registrado ${origem}.`);
     } catch (error) {
       showToast(error.message||"Não foi possível registrar o pagamento.","error");
+    } finally {
+      setThirdPartyCommandPending(false);
     }
   };
 
-  const removePay = id => {
+  const removePay = async id => {
     const motivo=window.prompt("Motivo do estorno do pagamento:");
     if(!String(motivo||"").trim())return;
+    if(!dispatchCommand||thirdPartyCommandPending)return;
+    setThirdPartyCommandPending(true);
     try {
-      update(reverseThirdPartyPayment({data,paymentId:id,reason:motivo,actor:currentUser}));
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.pagsTerceiros||[]).find(item=>item.id===id);
+        return {
+          type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED,
+          idempotencyKey:`third-payment-reverse-${id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{paymentId:id,reason:motivo},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o estorno.");
       showToast("Pagamento estornado e preservado para auditoria.");
     } catch (error) {
       showToast(error.message||"Não foi possível estornar o pagamento.","error");
+    } finally {
+      setThirdPartyCommandPending(false);
     }
   };
 
@@ -11016,13 +11011,16 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
   // que ja existe (pago / valor do contrato) para o card nunca ficar mudo.
   const avancoContrato = useCallback(t => {
     const etapas = t.etapas || [];
-    const meds = (data.medicoesTerc || []).filter(m => m.tercId === t.id);
+    const meds = (data.medicoesTerc || [])
+      .filter(m => registroTerceiroAtivo(m)&&m.tercId === t.id);
     if (etapas.length) {
       const soma = etapas.reduce((s, e) => s + Number(e.valor || 0), 0);
       const medido = meds.reduce((s, m) => s + Number(m.total || 0), 0);
       return soma > 0 ? Math.min(100, medido / soma * 100) : 0;
     }
-    const pago = (data.pagsTerceiros || []).filter(p => p.tercId === t.id).reduce((s, p) => s + Number(p.amount || 0), 0);
+    const pago = (data.pagsTerceiros || [])
+      .filter(p => registroTerceiroAtivo(p)&&p.tercId === t.id)
+      .reduce((s, p) => s + Number(p.amount || 0), 0);
     const val = Number(t.contractValue || 0);
     return val > 0 ? Math.min(100, pago / val * 100) : 0;
   }, [data.medicoesTerc, data.pagsTerceiros]);
@@ -11142,7 +11140,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
   // Medicoes em ordem cronologica. O acumulado de uma etapa e o da ULTIMA
   // medicao que a mediu - por isso a ordem importa mais que o numero.
   const medicoesDo = id => (data.medicoesTerc || [])
-    .filter(m => m.tercId === id)
+    .filter(m => registroTerceiroAtivo(m)&&m.tercId === id)
     .sort((a, b) => (a.data + a.id).localeCompare(b.data + b.id));
 
   const medicoesTercAtual = tercSel ? medicoesDo(tercSel) : [];
@@ -11247,7 +11245,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
              valor: Number(e.valor || 0) * (acum - anterior) / 100 };
   });
 
-  const salvarMedicao = () => {
+  const salvarMedicao = async () => {
     if (!tercAtual) return;
     if(!podeRegistrarEvidencia){showToast("Somente um engenheiro de campo ou auditor pode registrar esta medição.","error");return;}
     if(!(medForm.fotos||[]).length){showToast("Anexe ao menos uma fotografia da execução antes de salvar a medição.","error");return;}
@@ -11261,19 +11259,30 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
       fotos:(medForm.fotos||[]).map(f=>({...f})),responsavelEvidenciaId:currentUser?.id||"",
       responsavelEvidencia:currentUser?.nome||"",responsavelEvidenciaRole:currentUser?.role||"",
     };
+    if(!dispatchCommand||thirdPartyCommandPending)return;
+    setThirdPartyCommandPending(true);
     try {
-      const result=createThirdPartyMeasurement({data,measurement:medicao,actor:currentUser,id:uid()});
-      update(result);
+      const measurementId=uid();
+      const result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,
+        idempotencyKey:`third-measurement-create-${measurementId}-${uid()}`,
+        expectedVersion:0,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{measurement:{...medicao,id:measurementId}},
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a medição.");
       setMedModal(false);
       showToast(`Medição ${medicao.numero} registrada: ${fmt(total)}.`);
     } catch (error) {
       showToast(error.message||"Não foi possível registrar a medição.","error");
+    } finally {
+      setThirdPartyCommandPending(false);
     }
   };
 
   // A ultima medicao pode ser desfeita sem ambiguidade. Uma do meio nao: os
   // acumulados seguintes foram calculados em cima dela.
-  const removerMedicao = m => {
+  const removerMedicao = async m => {
     const ultima = medicoesDo(m.tercId).slice(-1)[0];
     if (!ultima || ultima.id !== m.id) {
       showToast("Só a última medição pode ser removida - as seguintes partem dela.", "error"); return;
@@ -11281,11 +11290,25 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     if (m.pagamentoId) { showToast("Esta medição já virou pagamento. Remova o pagamento primeiro.", "error"); return; }
     const motivo=window.prompt(`Motivo do cancelamento da medição ${m.numero}:`);
     if(!String(motivo||"").trim())return;
+    if(!dispatchCommand||thirdPartyCommandPending)return;
+    setThirdPartyCommandPending(true);
     try {
-      update(cancelThirdPartyMeasurement({data,measurementId:m.id,reason:motivo,actor:currentUser}));
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.medicoesTerc||[]).find(item=>item.id===m.id);
+        return {
+          type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED,
+          idempotencyKey:`third-measurement-cancel-${m.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{measurementId:m.id,reason:motivo},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o cancelamento.");
       showToast("Medição cancelada e preservada para auditoria.");
     } catch (error) {
       showToast(error.message||"Não foi possível cancelar a medição.","error");
+    } finally {
+      setThirdPartyCommandPending(false);
     }
   };
 
@@ -11299,7 +11322,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     setRiscoSemFotoAceito(false);
   };
 
-  const confirmarPagamentoMedicao = () => {
+  const confirmarPagamentoMedicao = async () => {
     const m = medPayModal;
     if (!m) return;
     const t = allTerc.find(x => x.id === m.tercId);
@@ -11313,21 +11336,30 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
     if (m.pagamentoId) { showToast("Esta medição já foi paga.", "warn"); setMedPayModal(null); return; }
     const semEvidencia=!(m.fotos||[]).length;
     if(semEvidencia&&!riscoSemFotoAceito){showToast("Pagamento de risco: confirme que o financeiro está ciente da ausência de fotografia.","error");return;}
+    if(!dispatchCommand||thirdPartyCommandPending)return;
+    setThirdPartyCommandPending(true);
     try {
       const ret = calcRetencoes(m.total, t);
       const paymentId = uid();
-      const { data: comAprovacao, resumo } = motorAprovacaoGenerico.iniciarInstancia(data, {
-        entidadeTipo:"pagamentoTerceiro", entidadeId:paymentId,
-        contexto:{ valorTotal:m.total, obraId:m.obraId||"", possuiMedicao:"sim", solicitanteId:currentUser?.id||"" },
-        operador:currentUser, comportamentoSemPolitica:data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar",
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.medicoesTerc||[]).find(item=>item.id===m.id);
+        return {
+          type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID,
+          idempotencyKey:`third-measurement-pay-${m.id}-${paymentId}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{
+            measurementId:m.id,riskAccepted:semEvidencia&&riscoSemFotoAceito,
+            payment:{
+              id:paymentId,date:today(),
+              description:`Medição ${m.numero} - ${fmtDateFull(m.data)}`,
+              pagador:paySource,issRetido:ret.issRetido,
+              inssRetido:ret.inssRetido,liquido:ret.liquido,
+            },
+          },
+        };
       });
-      update(payThirdPartyMeasurement({data:comAprovacao,measurementId:m.id,actor:currentUser,id:paymentId,payment:{
-        tercName:t.name,specialty:t.specialty,date:m.data,description:`Medição ${m.numero} - ${fmtDateFull(m.data)}`,
-        pagador:paySource,issRetido:ret.issRetido,inssRetido:ret.inssRetido,liquido:ret.liquido,
-        semEvidenciaFotografica:semEvidencia,riscoSemFotoAceitoEm:semEvidencia?new Date().toISOString():"",
-        riscoSemFotoAceitoPor:semEvidencia?(currentUser?.nome||"Operador financeiro"):"",
-        aprovacaoInstanciaId:resumo.instanciaId,
-      }}));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o pagamento.");
       const origem = paySource === "empresa" ? "pela empresa" : `pela obra ${obraName(m.obraId)}`;
       setMedPayModal(null); setPaySource(""); setRiscoSemFotoAceito(false);
       showToast(ret.retido > 0
@@ -11335,23 +11367,47 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null })
         : `Pagamento de ${fmt(m.total)} registrado ${origem} para ${t.name}.`);
     } catch (error) {
       showToast(error.message||"Não foi possível registrar o pagamento da medição.","error");
+    } finally {
+      setThirdPartyCommandPending(false);
     }
   };
-  const confirmarVinculoNotaTerceiro=()=>{
-    const result=linkThirdPartyInvoice(data,{medicaoTercId:notaTercModal?.id,notaFiscalId:notaTercId});
-    if(!result.ok){showToast(result.error||"Não foi possível vincular a nota.","error");return;}
-    update({...data,medicoesTerc:result.medicoesTerc,notasFiscais:result.notasFiscais});
-    setNotaTercModal(null);setNotaTercId("");
-    showToast("Nota fiscal vinculada à medição sem duplicar o custo.");
+  const confirmarVinculoNotaTerceiro=async()=>{
+    if(!notaTercModal?.id||!notaTercId||!dispatchCommand||thirdPartyCommandPending)return;
+    setThirdPartyCommandPending(true);
+    try{
+      const result=await dispatchCommand(atual=>{
+        const medicao=(atual.medicoesTerc||[]).find(item=>item.id===notaTercModal.id);
+        const nota=(atual.notasFiscais||[]).find(item=>item.id===notaTercId);
+        return {
+          type:OPERATIONAL_COMMAND.THIRD_PARTY_INVOICE_LINKED,
+          idempotencyKey:`third-invoice-link-${notaTercModal.id}-${notaTercId}-${uid()}`,
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{
+            measurementId:notaTercModal.id,invoiceId:notaTercId,
+            expectedMeasurementVersion:Number(medicao?.version||0),
+            expectedInvoiceVersion:Number(nota?.version||0),
+          },
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o vínculo.");
+      setNotaTercModal(null);setNotaTercId("");
+      showToast("Nota fiscal vinculada à medição sem duplicar o custo.");
+    }catch(error){
+      showToast(error.message||"Não foi possível vincular a nota.","error");
+    }finally{
+      setThirdPartyCommandPending(false);
+    }
   };
 
   // Medicao registrada e ainda nao paga e divida vencida com o terceiro. Ficava
   // invisivel: os KPIs so olhavam pagamento semanal e contrato.
   const medicoesAPagar = (data.medicoesTerc || []).filter(m =>
-    scopedTercIds.has(m.tercId) && !m.pagamentoId && Number(m.total || 0) > 0
+    registroTerceiroAtivo(m)&&scopedTercIds.has(m.tercId) && !m.pagamentoId && Number(m.total || 0) > 0
   );
   const totalAPagarMed = medicoesAPagar.reduce((s, m) => s + Number(m.total || 0), 0);
-  const pagamentosSemEvidencia=(data.pagsTerceiros||[]).filter(p=>p.medicaoId&&p.semEvidenciaFotografica&&(filterObra==="all"||p.obraId===filterObra));
+  const pagamentosSemEvidencia=(data.pagsTerceiros||[]).filter(p=>
+    registroTerceiroAtivo(p)&&p.medicaoTercId&&p.semEvidenciaFotografica
+    &&(filterObra==="all"||p.obraId===filterObra));
 
   // Avanco fisico de qualquer contrato, para o card do cadastro.
   const avancoDoContrato = t => {
@@ -27595,7 +27651,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="dre"&&<DRE data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
         {abaConteudo==="equipe"&&<Equipe data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
-        {abaConteudo==="terc"&&<Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
+        {abaConteudo==="terc"&&<Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="equip"&&<Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/>}
         {abaConteudo==="licenca"&&<Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:12}}>
@@ -36471,7 +36527,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   } else if(commercialView==="com_leads"){
     const lista=leads.filter(l=>isVisibleLead(l)&&[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${leads.filter(isVisibleLead).length} cadastrado(s)`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> NOVO LEAD</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:6}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{l.nome}</p><p style={{fontSize:10,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:9.5,color:C.blue,marginTop:3}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:12,color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:9,color:C.muted,marginTop:2}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
   } else if(commercialView==="com_funil"){
-    conteudo=<><Titulo titulo="Funil de vendas" sub="Arraste os cards; toda mudança fica registrada no histórico" acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> LEAD</Btn>}/><div style={KB.scroll}>{COM_ETAPAS.filter(([id])=>id!=="arquivado").map(([id,label])=>{const ls=leads.filter(l=>isVisibleLead(l)&&l.etapa===id);const soma=ls.reduce((s,l)=>s+(l.orcamentoEstimado||0),0);return <div key={id} onDragOver={e=>e.preventDefault()} onDrop={e=>{const l=leadBy(e.dataTransfer.getData("leadId"));if(l)moverLead(l,id);}} style={KB.coluna(C.blue,false)}><div style={KB.colHead(C.blue)}><b style={{fontSize:10,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{label.toUpperCase()}</b><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}><span style={KB.contador}>{ls.length}</span>{soma>0&&<span style={{fontSize:8.5,fontWeight:700,color:C.yellowD}}>{fmt(soma)}</span>}</div></div><div style={KB.colBody}>{ls.map(l=><div key={l.id} draggable onDragStart={e=>e.dataTransfer.setData("leadId",l.id)} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{...KB.card(l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:null),borderLeft:`3px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}><div style={{display:"flex",justifyContent:"space-between",gap:5}}><p style={{fontSize:11,fontWeight:800,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p><span style={{fontSize:9,color:C.yellowD,fontWeight:700,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</span></div><p style={{fontSize:9,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.servico||"-"}</p><div style={{display:"flex",justifyContent:"space-between",gap:5,alignItems:"center"}}><span style={{fontSize:8.5,color:C.muted}}>{nomeUsuario(l.responsavelId)} · {l.probabilidade}%</span><span style={{fontSize:8.5,fontWeight:700,color:comDias(l.etapaDesde)>=5?C.orange:C.muted}}>{comDias(l.etapaDesde)}d</span></div><p style={{fontSize:8.5,color:l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:C.blue,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?"⚠ ":""}{l.proximaAtividade||"Sem próxima atividade"}</p></div>)}{!ls.length&&<div style={{padding:"12px 6px",textAlign:"center",fontSize:9,color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,margin:"2px 0"}}>Solte aqui</div>}</div></div>;})}</div></>;
+    conteudo=<><Titulo titulo="Funil de vendas" sub="Arraste os cards; toda mudança fica registrada no histórico" acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> LEAD</Btn>}/><div style={{...KB.scroll,flexWrap:"wrap",overflowX:"visible",scrollSnapType:"none"}}>{COM_ETAPAS.filter(([id])=>id!=="arquivado").map(([id,label])=>{const ls=leads.filter(l=>isVisibleLead(l)&&l.etapa===id);const soma=ls.reduce((s,l)=>s+(l.orcamentoEstimado||0),0);return <div key={id} onDragOver={e=>e.preventDefault()} onDrop={e=>{const l=leadBy(e.dataTransfer.getData("leadId"));if(l)moverLead(l,id);}} style={KB.coluna(C.blue,false)}><div style={KB.colHead(C.blue)}><b style={{fontSize:10,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{label.toUpperCase()}</b><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}><span style={KB.contador}>{ls.length}</span>{soma>0&&<span style={{fontSize:8.5,fontWeight:700,color:C.yellowD}}>{fmt(soma)}</span>}</div></div><div style={KB.colBody}>{ls.map(l=><div key={l.id} draggable onDragStart={e=>e.dataTransfer.setData("leadId",l.id)} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{...KB.card(l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:null),borderLeft:`3px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}><div style={{display:"flex",justifyContent:"space-between",gap:5}}><p style={{fontSize:11,fontWeight:800,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p><span style={{fontSize:9,color:C.yellowD,fontWeight:700,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</span></div><p style={{fontSize:9,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.servico||"-"}</p><div style={{display:"flex",justifyContent:"space-between",gap:5,alignItems:"center"}}><span style={{fontSize:8.5,color:C.muted}}>{nomeUsuario(l.responsavelId)} · {l.probabilidade}%</span><span style={{fontSize:8.5,fontWeight:700,color:comDias(l.etapaDesde)>=5?C.orange:C.muted}}>{comDias(l.etapaDesde)}d</span></div><p style={{fontSize:8.5,color:l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:C.blue,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?"⚠ ":""}{l.proximaAtividade||"Sem próxima atividade"}</p></div>)}{!ls.length&&<div style={{padding:"12px 6px",textAlign:"center",fontSize:9,color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,margin:"2px 0"}}>Solte aqui</div>}</div></div>;})}</div></>;
   } else if(view==="com_jornada"){
     // KANBAN DA JORNADA DO CLIENTE
     // Colunas = fases da jornada (não as 20 etapas). O lead cai na coluna certa
@@ -38504,7 +38560,7 @@ export default function App() {
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} />}
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
-          {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
+          {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}

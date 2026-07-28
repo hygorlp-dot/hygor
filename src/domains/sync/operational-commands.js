@@ -34,6 +34,10 @@ import {
   applyBankTransactionCommand,
   BANK_TRANSACTION_COMMAND,
 } from "../conciliacao/transaction-commands.js";
+import {
+  applyThirdPartyCommand,
+  THIRD_PARTY_COMMAND,
+} from "../financeiro/third-party-commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -49,6 +53,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...PAYABLE_PAYMENT_COMMAND,
   ...PURCHASE_CANCELLATION_COMMAND,
   ...BANK_TRANSACTION_COMMAND,
+  ...THIRD_PARTY_COMMAND,
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -191,6 +196,16 @@ export const applyOperationalCommand=(data,command)=>{
       ok:true,summary:bankTransactionResult.summary,
       data:appendReceipt(
         bankTransactionResult.data,command,bankTransactionResult.entityId,now,
+      ),
+    };
+  }
+  const thirdPartyResult=applyThirdPartyCommand(data,command,now);
+  if(thirdPartyResult){
+    if(!thirdPartyResult.ok)return thirdPartyResult;
+    return {
+      ok:true,summary:thirdPartyResult.summary,
+      data:appendReceipt(
+        thirdPartyResult.data,command,thirdPartyResult.entityId,now,
       ),
     };
   }

@@ -9,6 +9,9 @@ describe("escopo servidor de comandos operacionais",()=>{
     caixaObra:[{id:"cx-a",obraId:"obra-a",version:1}],
     equipamentos:[{id:"eq-a",obraAtualId:"obra-a"},{id:"eq-b",obraAtualId:"obra-b"}],
     locacoesEquip:[{id:"loc-a",obraId:"obra-a",equipamentoId:"eq-a"}],
+    terceirizados:[{id:"terc-a",obraId:"obra-a"},{id:"terc-b",obraId:"obra-b"}],
+    medicoesTerc:[{id:"mt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
+    pagsTerceiros:[{id:"pt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
   };
   const user={id:"u-1",role:"engenheiro",obraId:"obra-a"};
   it("aceita somente a obra atribuída em criação e cancelamento de medição",()=>{
@@ -100,6 +103,24 @@ describe("escopo servidor de comandos operacionais",()=>{
       user:{id:"admin",role:"admin"},data,
       command:{type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED,payload:{}},
     })).toMatchObject({ok:true,scope:"company"});
+  });
+  it("protege medições e pagamentos de terceiros pela obra autoritativa",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,
+      payload:{measurement:{tercId:"terc-a"}},
+    }})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,
+      payload:{measurement:{tercId:"terc-b"}},
+    }})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED,
+      payload:{measurementId:"mt-a"},
+    }})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED,
+      payload:{paymentId:"pt-a"},
+    }})).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("mantém o avanço físico dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});

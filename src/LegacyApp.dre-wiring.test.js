@@ -29,6 +29,17 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED');
     expect(source).not.toContain('transacoes: [...(data.transacoes||[]), ...novas]');
     expect(source).not.toContain('transacoes:(data.transacoes||[]).map(t=>ids.has(t.id)');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_INVOICE_LINKED');
+    expect(source).not.toContain('update(createThirdPartyPayment(');
+    expect(source).not.toContain('update(reverseThirdPartyPayment(');
+    expect(source).not.toContain('update(createThirdPartyMeasurement(');
+    expect(source).not.toContain('update(cancelThirdPartyMeasurement(');
+    expect(source).not.toContain('update(payThirdPartyMeasurement(');
     expect(source).not.toContain("update(createDreExpense(");
     expect(source).not.toContain("update(cancelDreExpense(");
     expect(source).not.toContain("update(saveCompanyExpense(");
