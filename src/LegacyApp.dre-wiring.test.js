@@ -16,6 +16,12 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain('type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED');
     expect(source).toContain('<CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />');
     expect(source).not.toContain('update({...data, caixaObra:[...(data.caixaObra||[]), payload]})');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED');
+    expect(source).not.toContain('const caixaObra=f.origem==="caixa_obra"?[...(data.caixaObra||[])');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.PURCHASE_CANCELLED');
+    expect(source).not.toContain('const caixaObra=(data.caixaObra||[]).map(m=>m.pedidoId!==p.id?m:');
     expect(source).not.toContain("update(createDreExpense(");
     expect(source).not.toContain("update(cancelDreExpense(");
     expect(source).not.toContain("update(saveCompanyExpense(");

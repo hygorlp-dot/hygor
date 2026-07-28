@@ -52,6 +52,7 @@ describe("gate FIN-003 de persistência",()=>{
     expect(readiness.pending).toEqual(expected);
     expect(Object.keys(readiness.modules).sort()).toEqual(Object.keys(FINANCIAL_MODULE_SECTION_MATRIX).sort());
     expect(readiness.pending).not.toContain("medicoes");
+    expect(readiness.pending).not.toContain("caixaObra");
     expect(readiness.pending).toContain("pedidos");
     expect(readiness.pending).toContain("obras");
     expect(readiness.pending).not.toContain("comercial");
@@ -64,13 +65,13 @@ describe("gate FIN-003 de persistência",()=>{
     const readiness=financialEnforcementReadiness();
     for(const section of [
       "reconciliationLinks","archivedLaborCosts","payments","medicoes",
-      "outrasDesp","despesasEmpresa",
+      "outrasDesp","despesasEmpresa","caixaObra",
     ]){
       expect(FINANCIAL_LEGACY_SECTIONS.has(section),section).toBe(true);
       expect(FINANCIAL_SNAPSHOT_WRITER_SECTIONS.has(section),section).toBe(false);
       expect(readiness.pending,section).not.toContain(section);
     }
-    expect(readiness.pending).toHaveLength(12);
+    expect(readiness.pending).toHaveLength(11);
   });
 
   it("mantém todos os escritores associados a um módulo funcional",()=>{

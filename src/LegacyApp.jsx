@@ -1832,6 +1832,7 @@ const normalizeData = incoming => {
     })) : [],
     rescisoes: Array.isArray(d.rescisoes) ? d.rescisoes : [],
     outrasDesp: Array.isArray(d.outrasDesp) ? d.outrasDesp.map(x => ({
+      ...x,
       id: x.id || uid(),
       obraId: x.obraId || "",
       competencia: x.competencia || "",
@@ -1843,6 +1844,7 @@ const normalizeData = incoming => {
       contaAdmin: x.contaAdmin !== false,
     })) : [],
     despesasEmpresa: Array.isArray(d.despesasEmpresa) ? d.despesasEmpresa.map(x => ({
+      ...x,
       id:          x.id          || uid(),
       competencia: x.competencia || "",
       categoria:   x.categoria   || "outros",
@@ -2052,6 +2054,7 @@ const normalizeData = incoming => {
     // O elo físico é o RECEBIMENTO: quando o material chega, o pedido gera
     // uma entrada em movEstoque. É aí que Compras encosta no Estoque.
     solicitacoesCompra: Array.isArray(d.solicitacoesCompra) ? d.solicitacoesCompra.map(x => ({
+      ...x,
       id:x.id||uid(),numero:x.numero||"",obraId:x.obraId||"",solicitanteId:x.solicitanteId||"",
       solicitanteNome:x.solicitanteNome||"",criadoEm:x.criadoEm||"",necessidade:x.necessidade||"",
       prioridade:x.prioridade||"normal",status:x.status||"enviada",observacao:x.observacao||"",
@@ -2301,6 +2304,7 @@ const normalizeData = incoming => {
     })) : [],
 
     cotacoes: Array.isArray(d.cotacoes) ? d.cotacoes.map(x => ({
+      ...x,
       id:         x.id         || uid(),
       obraId:     x.obraId     || "",
       materialId: x.materialId || "",
@@ -2334,6 +2338,7 @@ const normalizeData = incoming => {
     })) : [],
 
     pedidos: Array.isArray(d.pedidos) ? d.pedidos.map(x => ({
+      ...x,
       id:           x.id           || uid(),
       numero:       x.numero       || "",
       obraId:       x.obraId       || "",
@@ -2374,6 +2379,7 @@ const normalizeData = incoming => {
       transacaoId: x.transacaoId || "",       // casado com o pagamento no extrato
       origemPagamento: x.origemPagamento === "cliente_direto" ? "cliente_direto" : x.origemPagamento === "empresa" ? "empresa" : "caixa_obra",
       pagamentos:Array.isArray(x.pagamentos)?x.pagamentos.map(pg=>({
+        ...pg,
         id:pg.id||uid(),data:pg.data||x.data||"",valor:Number(pg.valor||0),
         origem:pg.origem==="cliente_direto"?"cliente_direto":pg.origem==="empresa"?"empresa":"caixa_obra",
         conciliado:!!pg.conciliado,transacaoId:pg.transacaoId||"",referencia:pg.referencia||"",observacao:pg.observacao||"",
@@ -2393,6 +2399,7 @@ const normalizeData = incoming => {
     })) : [],
 
     notasFiscais:Array.isArray(d.notasFiscais)?d.notasFiscais.map(n=>({
+      ...n,
       id:n.id||uid(),tipo:n.tipo||"nfe",numero:n.numero||"",serie:n.serie||"",chave:n.chave||"",
       emissao:n.emissao||"",vencimento:n.vencimento||"",fornecedorId:n.fornecedorId||"",fornecedorNome:n.fornecedorNome||"",documentoFornecedor:n.documentoFornecedor||"",
       obraId:n.obraId||"",pedidoId:n.pedidoId||"",medicaoTercId:n.medicaoTercId||"",valorBruto:Number(n.valorBruto||0),valorLiquido:Number(n.valorLiquido||n.valorBruto||0),
@@ -2403,6 +2410,7 @@ const normalizeData = incoming => {
       descricao:n.descricao||"",categoria:n.categoria||"",pastaDrive:n.pastaDrive||"",criadoPorId:n.criadoPorId||"",criadoPor:n.criadoPor||"",
       aprovadoPorId:n.aprovadoPorId||"",aprovadoPor:n.aprovadoPor||"",aprovadoEm:n.aprovadoEm||"",transacaoId:n.transacaoId||"",
       pagamentos:Array.isArray(n.pagamentos)?n.pagamentos.map(pg=>({
+        ...pg,
         id:pg.id||uid(),data:pg.data||n.vencimento||n.emissao||"",valor:Number(pg.valor||0),
         origem:pg.origem==="cliente_direto"?"cliente_direto":pg.origem==="caixa_obra"?"caixa_obra":"empresa",
         conciliado:!!pg.conciliado,transacaoId:pg.transacaoId||"",referencia:pg.referencia||"",observacao:pg.observacao||"",
@@ -2453,6 +2461,7 @@ const normalizeData = incoming => {
     // Saldo NÃO é armazenado: é derivado dos movimentos. Fonte única de
     // verdade, e todo saldo é auditável até a origem.
     movEstoque: Array.isArray(d.movEstoque) ? d.movEstoque.map(x => ({
+      ...x,
       id:         x.id         || uid(),
       obraId:     x.obraId     || "",
       materialId: x.materialId || "",
@@ -2494,6 +2503,7 @@ const normalizeData = incoming => {
     })) : [],
 
     caixaObra: Array.isArray(d.caixaObra) ? d.caixaObra.map(x => ({
+      ...x,
       id:          x.id          || uid(),
       obraId:      x.obraId      || "",
       data:        x.data        || "",
@@ -6505,7 +6515,7 @@ function ModalLegendaDocumento({anexo,setAnexo,onClose,onSalvar,salvando=false,t
   </div></Modal>;
 }
 
-function CentralPagamentosFinanceiro({data,update,showToast,currentUser,onNovaNota,onAbrirFiscal,C=C_ARCD_SETOR}){
+function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAbrirFiscal,dispatchCommand,C=C_ARCD_SETOR}){
   const {cols,formGrid}=useBreakpoint();
   const [obraId,setObraId]=useState("all");
   const [filtro,setFiltro]=useState("fila");
@@ -6528,8 +6538,8 @@ function CentralPagamentosFinanceiro({data,update,showToast,currentUser,onNovaNo
   const notasAtivas=useMemo(()=>notas.filter(n=>n.status!=="cancelada"),[notas]);
   const pedidosComNota=useMemo(()=>new Set(notasAtivas.map(n=>n.pedidoId).filter(Boolean)),[notasAtivas]);
   const obrigacoes=useMemo(()=>{
-    const linhasNotas=notasAtivas.map(n=>{const total=Number(n.valorLiquido||n.valorBruto||0),saldo=saldoPagamentoNota(n),pagamentos=n.pagamentos||[],status=statusPagamentoNota(n);const vencida=saldo>.01&&n.vencimento&&n.vencimento<today()&&status!=="conferencia";return{id:`nota-${n.id}`,tipo:"nota",registro:n,obraId:n.obraId,numero:`${String(n.tipo||"NF").toUpperCase()} ${n.numero||"sem número"}`,fornecedor:n.fornecedorNome||"Fornecedor não informado",emissao:n.emissao,vencimento:n.vencimento,total,saldo,pagamentos,documentos:n.documentos||[],estado:saldo<=.01?"paga":vencida?"vencida":status};});
-    const linhasPedidos=pedidos.filter(p=>!["cancelado","rascunho"].includes(p.status)&&!pedidosComNota.has(p.id)).map(p=>{const total=totalPedido(p),saldo=saldoPagamentoPedido(p),pagamentos=p.pagamentos||[];return{id:`pedido-${p.id}`,tipo:"pedido",registro:p,obraId:p.obraId,numero:p.numero||"Pedido",fornecedor:fornecedorPedido(p),emissao:p.data,vencimento:p.previsao,total,saldo,pagamentos,documentos:p.documentos||[],estado:saldo<=.01?"paga":totalPagoPedido(p)>0?"parcial":"sem_nota"};});
+    const linhasNotas=notasAtivas.map(n=>{const total=Number(n.valorLiquido||n.valorBruto||0),saldo=saldoPagamentoNota(n),pagamentos=(n.pagamentos||[]).filter(pg=>pg.status!=="estornado"),status=statusPagamentoNota(n);const vencida=saldo>.01&&n.vencimento&&n.vencimento<today()&&status!=="conferencia";return{id:`nota-${n.id}`,tipo:"nota",registro:n,obraId:n.obraId,numero:`${String(n.tipo||"NF").toUpperCase()} ${n.numero||"sem número"}`,fornecedor:n.fornecedorNome||"Fornecedor não informado",emissao:n.emissao,vencimento:n.vencimento,total,saldo,pagamentos,documentos:n.documentos||[],estado:saldo<=.01?"paga":vencida?"vencida":status};});
+    const linhasPedidos=pedidos.filter(p=>!["cancelado","rascunho"].includes(p.status)&&!pedidosComNota.has(p.id)).map(p=>{const total=totalPedido(p),saldo=saldoPagamentoPedido(p),pagamentos=(p.pagamentos||[]).filter(pg=>pg.status!=="estornado");return{id:`pedido-${p.id}`,tipo:"pedido",registro:p,obraId:p.obraId,numero:p.numero||"Pedido",fornecedor:fornecedorPedido(p),emissao:p.data,vencimento:p.previsao,total,saldo,pagamentos,documentos:p.documentos||[],estado:saldo<=.01?"paga":totalPagoPedido(p)>0?"parcial":"sem_nota"};});
     const prioridade={vencida:0,autorizada:1,parcial:2,conferencia:3,sem_nota:4,paga:5};
     return[...linhasNotas,...linhasPedidos].sort((a,b)=>(prioridade[a.estado]??9)-(prioridade[b.estado]??9)||String(a.vencimento||"9999").localeCompare(String(b.vencimento||"9999")));
   },[notasAtivas,pedidos,pedidosComNota,fornecedorPedido]);
@@ -6591,32 +6601,26 @@ function CentralPagamentosFinanceiro({data,update,showToast,currentUser,onNovaNo
     if(transacaoSelecionada&&Math.abs(Math.abs(Number(transacaoSelecionada.valor||0))-valor)>.02){showToast(`A transação selecionada é de ${fmt(Math.abs(Number(transacaoSelecionada.valor||0)))} e não confere com o pagamento de ${fmt(valor)}. Faça a conciliação por rateio no módulo Conciliação.`,"error");return;}
     setSalvando(true);
     try{
-      const pagamentoId=uid();let comprovantes=[];let obrasAtualizadas=obras;
-      if(f.comprovanteFile){const file=f.comprovanteFile,dataUrl=await arquivoComoDataUrl(file);const pasta=item.tipo==="nota"?`Notas fiscais/${item.numero}/Comprovantes`:`Pagamentos de compras/${item.numero}/Comprovantes`;const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:pasta,date:f.data||today(),fileName:file.name});if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o comprovante no OneDrive.");comprovantes=[{id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(f.comprovanteLegenda||file.name).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type||"",tamanho:Number(file.size||0),enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""}];obrasAtualizadas=obras.map(o=>o.id===item.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);}
+      const pagamentoId=uid();let comprovantes=[];let workspace=null;
+      if(f.comprovanteFile){const file=f.comprovanteFile,dataUrl=await arquivoComoDataUrl(file);const pasta=item.tipo==="nota"?`Notas fiscais/${item.numero}/Comprovantes`:`Pagamentos de compras/${item.numero}/Comprovantes`;const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:pasta,date:f.data||today(),fileName:file.name});if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o comprovante no OneDrive.");comprovantes=[{id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(f.comprovanteLegenda||file.name).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type||"",tamanho:Number(file.size||0),enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""}];workspace=resp.workspace||null;}
       const transacao=transacaoSelecionada;const conciliado=!!f.conciliado||!!transacao;
-      const novoPagamento={id:pagamentoId,data:f.data||today(),valor,origem:f.origem,conciliado,transacaoId:f.transacaoId||"",referencia:f.referencia||transacao?.descricao||"",observacao:f.observacao||"",comprovantes,registradoPorId:currentUser?.id||"",registradoPor:currentUser?.nome||"",registradoEm:new Date().toISOString()};
-      let pedidosAtualizados=pedidos,notasAtualizadas=notas;
-      if(item.tipo==="nota"){
-        const nota=item.registro,pagamentosNota=[...(nota.pagamentos||[]),novoPagamento],quitada=pagamentosNota.reduce((s,pg)=>s+Number(pg.valor||0),0)>=Number(nota.valorLiquido||nota.valorBruto||0)-.01;
-        notasAtualizadas=notas.map(n=>n.id===nota.id?{...n,pagamentos:pagamentosNota,status:quitada?"paga":"aprovada",transacaoId:f.transacaoId||n.transacaoId||"",atualizadoEm:new Date().toISOString()}:n);
-        if(nota.pedidoId){pedidosAtualizados=pedidos.map(p=>{if(p.id!==nota.pedidoId)return p;const valorPedido=Math.min(valor,saldoPagamentoPedido(p));if(valorPedido<=.001)return p;const pgPedido={...novoPagamento,valor:valorPedido,notaFiscalId:nota.id};const pagamentosPedido=[...(p.pagamentos||[]),pgPedido],quitado=pagamentosPedido.reduce((s,pg)=>s+Number(pg.valor||0),0)>=totalPedido(p)-.01;return{...p,pagamentos:pagamentosPedido,origemPagamento:f.origem,liberadoEntregaEm:quitado?new Date().toISOString():p.liberadoEntregaEm||"",liberadoEntregaPor:quitado?(currentUser?.nome||"Financeiro"):p.liberadoEntregaPor||""};});}
-      }else{
-        const pedido=item.registro,pagamentosPedido=[...(pedido.pagamentos||[]),novoPagamento],quitado=pagamentosPedido.reduce((s,pg)=>s+Number(pg.valor||0),0)>=totalPedido(pedido)-.01;
-        pedidosAtualizados=pedidos.map(p=>p.id===pedido.id?{...p,pagamentos:pagamentosPedido,origemPagamento:f.origem,liberadoEntregaEm:quitado?new Date().toISOString():p.liberadoEntregaEm||"",liberadoEntregaPor:quitado?(currentUser?.nome||"Financeiro"):p.liberadoEntregaPor||""}:p);
-      }
-      const descricaoCaixa=item.tipo==="nota"?`Pagamento ${item.numero} · ${item.fornecedor}`:`Pagamento do pedido ${item.numero} · ${item.fornecedor}`;
-      const caixaObra=f.origem==="caixa_obra"?[...(data.caixaObra||[]),{id:uid(),obraId:item.obraId,data:f.data||today(),tipo:"despesa",categoria:item.tipo==="nota"?(item.registro.categoria||"outros"):"material",descricao:descricaoCaixa,valor,comprovante:comprovantes[0]?.legenda||f.referencia||"",pedidoId:item.tipo==="pedido"?item.registro.id:item.registro.pedidoId||"",notaFiscalId:item.tipo==="nota"?item.registro.id:"",pagamentoId,documentos:comprovantes}]:data.caixaObra;
-      // A ligação transação↔pagamento passa pela mesma mutação de domínio que
-      // a tela de Conciliação usa - garante um único caminho para marcar
-      // `transacoes` como conciliado (evita a transação já vinculada virar
-      // conciliada duas vezes, com históricos divergentes).
-      let transacoes=data.transacoes,historicoConc=data.historicoConc;
-      if(f.transacaoId){
-        const baseTransacoes=(data.transacoes||[]).map(t=>t.id===f.transacaoId&&!t.rateios?.length?{...t,rateios:[{destino:"obra",obraId:item.obraId,categoria:item.tipo==="nota"?(item.registro.categoria||"outros"):"material",valor:Math.abs(Number(t.valor||valor))}]}:t);
-        const vinc=vincularPagamentoExistente({...data,transacoes:baseTransacoes},{transacaoId:f.transacaoId,tipo:item.tipo==="nota"?"nota_fiscal":"pedido",entidadeId:item.registro.id,operador:currentUser,observacao:f.referencia||""});
-        if(vinc.resumo.ok){transacoes=vinc.data.transacoes;historicoConc=vinc.data.historicoConc;}
-      }
-      update({...data,obras:obrasAtualizadas,pedidos:pedidosAtualizados,notasFiscais:notasAtualizadas,caixaObra,transacoes,historicoConc});
+      const novoPagamento={id:pagamentoId,data:f.data||today(),valor,origem:f.origem,conciliado,transacaoId:f.transacaoId||"",referencia:f.referencia||transacao?.descricao||"",observacao:f.observacao||"",comprovantes};
+      const result=await dispatchCommand(atual=>{
+        const vigente=((item.tipo==="nota"?atual.notasFiscais:atual.pedidos)||[])
+          .find(registro=>registro.id===item.registro.id);
+        return {
+          type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,
+          idempotencyKey:`payable-payment-create-${pagamentoId}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{
+            targetType:item.tipo,targetId:item.registro.id,payment:novoPagamento,
+            workCashMovementId:f.origem==="caixa_obra"?uid():"",
+            workspace,
+          },
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o pagamento.");
       const saldoCaixa=caixa.saldo-valor;setPagamento(null);
       if(f.origem==="caixa_obra"&&saldoCaixa<=caixa.limiteBaixo)showToast(`Pagamento registrado. Atenção: o caixa ficou baixo em ${fmt(saldoCaixa)}.`,"warn");else showToast(item.saldo-valor<=.01?`${item.numero} quitada e encaminhada para conciliação.`:`Pagamento parcial registrado. Saldo restante: ${fmt(item.saldo-valor)}.`);
     }catch(err){showToast(err.message||"Não foi possível registrar o pagamento.","error");}finally{setSalvando(false);}
@@ -6978,7 +6982,7 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
   const podeAcessarAdministrativoFinanceiro=["admin","financeiro"].includes(currentUser?.role);
   const abasFinanceiras=[["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
   const NavegacaoFinanceira=()=> <div className="financial-area-nav" style={{display:"grid",gridTemplateColumns:`repeat(${abasFinanceiras.length},minmax(0,1fr))`,gap:3,padding:3,border:`1px solid ${C.border}`,borderRadius:8,background:C.surface,overflowX:"auto"}}>{abasFinanceiras.map(([v,l])=><button key={v} onClick={()=>setAreaFinanceira(v)} style={{...TYPO.tab,padding:"6px 8px",border:`1px solid ${areaFinanceira===v?(v==="ia"?C.purple:C.green):"transparent"}`,borderRadius:5,background:areaFinanceira===v?C.card:"transparent",color:areaFinanceira===v?(v==="ia"?C.purple:C.green):C.muted,cursor:"pointer",whiteSpace:"nowrap"}}>{v==="ia"&&<><Ic n="brain" s={11}/> </>}{v==="pagamentos"&&<><Ic n="receipt" s={11}/> </>}{v==="administrativo"&&<><Ic n="building" s={11}/> </>}{v==="fiscal"&&<><Ic n="file" s={11}/> </>}{l}</button>)}</div>;
-  if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralPagamentosFinanceiro data={data} update={update} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} C={C}/></div>;
+  if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralPagamentosFinanceiro data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} dispatchCommand={dispatchCommand} C={C}/></div>;
   if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
   if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralFiscal data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal}/></div>;
   if(areaFinanceira==="fechamento"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FechamentoFinanceiroMensal data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
@@ -24743,6 +24747,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   const [pagModal,setPagModal]=useState(null);
   const [excluirCompraModal,setExcluirCompraModal]=useState(null);
   const [subindoComprovantePagamento,setSubindoComprovantePagamento]=useState(false);
+  const [cancelandoCompra,setCancelandoCompra]=useState(false);
   const [filtroFinanceiro,setFiltroFinanceiro]=useState("pendentes");
   const [buscaCotacao,setBuscaCotacao]=useState("");
   const [statusCotacao,setStatusCotacao]=useState("todas");
@@ -25275,26 +25280,36 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001){showToast(`Pagamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e ficaria negativo em ${fmt(valor-caixa.saldo)}. Registre um aporte antes de pagar.`,"error");return;}
     setSubindoComprovantePagamento(true);
     try{
-    const pagamentoId=uid();let comprovantes=[];let obrasAtualizadas=data.obras||[];
+    const pagamentoId=uid();let comprovantes=[];let workspace=null;
     if(f.comprovanteFile){
       const file=f.comprovanteFile,dataUrl=await arquivoComoDataUrl(file);
       const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:`Pagamentos de compras/${pedido.numero||"Pedido"}/${String(f.data||today()).slice(0,7)}`,date:f.data||today(),fileName:file.name});
       if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o comprovante no OneDrive.");
       comprovantes=[{id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(f.comprovanteLegenda||file.name).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type||"",tamanho:Number(file.size||0),enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""}];
-      obrasAtualizadas=(data.obras||[]).map(o=>o.id===pedido.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);
+      workspace=resp.workspace||null;
     }
     const transacao=(data.transacoes||[]).find(t=>t.id===f.transacaoId);
     const pagamento={id:pagamentoId,data:f.data||today(),valor,origem:f.origem,conciliado:!!f.conciliado||!!transacao,
       transacaoId:f.transacaoId||"",referencia:f.referencia||transacao?.descricao||"",observacao:f.observacao||"",
       comprovantes,
       registradoPorId:currentUser?.id||"",registradoPor:currentUser?.nome||"",registradoEm:new Date().toISOString()};
-    const pagamentos=[...(pedido.pagamentos||[]),pagamento];
-    const quitado=pagamentos.reduce((s,pg)=>s+Number(pg.valor||0),0)>=totalPedido(pedido)-.01;
-    const atualizado={...pedido,pagamentos,origemPagamento:f.origem,
-      liberadoEntregaEm:quitado?new Date().toISOString():pedido.liberadoEntregaEm||"",
-      liberadoEntregaPor:quitado?(currentUser?.nome||"Financeiro"):pedido.liberadoEntregaPor||""};
-    const caixaObra=f.origem==="caixa_obra"?[...(data.caixaObra||[]),{id:uid(),obraId:pedido.obraId,data:f.data||today(),tipo:"despesa",categoria:"material",descricao:`Pagamento do pedido ${pedido.numero} · ${nomeForn(pedido.fornecedorId)}`,valor,comprovante:comprovantes[0]?.legenda||f.referencia||"",pedidoId:pedido.id,pagamentoId,documentos:comprovantes}]:data.caixaObra;
-    update({...data,obras:obrasAtualizadas,caixaObra,pedidos:(data.pedidos||[]).map(p=>p.id===pedido.id?atualizado:p)});
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
+      return {
+        type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,
+        idempotencyKey:`purchase-payment-create-${pagamentoId}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{
+          targetType:"pedido",targetId:pedido.id,payment:pagamento,
+          workCashMovementId:f.origem==="caixa_obra"?uid():"",
+          workspace,
+        },
+      };
+    });
+    if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o pagamento.");
+    const pedidoConfirmado=(result.data?.pedidos||[]).find(item=>item.id===pedido.id);
+    const quitado=saldoPagamentoPedido(pedidoConfirmado||pedido)<=.01;
     const saldoProjetado=caixa.saldo-valor;
     setPagModal(null);
     if(f.origem==="caixa_obra"&&saldoProjetado<=caixa.limiteBaixo)showToast(`Pagamento registrado, mas o caixa ficou baixo: ${fmt(saldoProjetado)}. Recomenda-se novo aporte (reserva mínima ${fmt(caixa.limiteBaixo)}).`,"warn");
@@ -25303,7 +25318,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     finally{setSubindoComprovantePagamento(false);}
   };
 
-  const reclassificarOrigemPagamento=(pedido,pagamentoId,novaOrigem)=>{
+  const reclassificarOrigemPagamento=async(pedido,pagamentoId,novaOrigem)=>{
     const pagamento=(pedido.pagamentos||[]).find(pg=>pg.id===pagamentoId);
     if(!pagamento||pagamento.origem===novaOrigem)return;
     const rotulos={empresa:"Conta da empresa",caixa_obra:"Caixa da obra",cliente_direto:"Cliente direto"};
@@ -25316,43 +25331,54 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         showToast(`O caixa possui ${fmt(caixa.saldo)} e não comporta este pagamento de ${fmt(pagamento.valor)}.`,"error");return;
       }
     }
-    let caixaObra=(data.caixaObra||[]).filter(l=>!(l.pedidoId===pedido.id&&l.pagamentoId===pagamentoId));
-    if(novaOrigem==="caixa_obra")caixaObra=[...caixaObra,{id:uid(),obraId:pedido.obraId,data:pagamento.data||today(),tipo:"despesa",categoria:"material",
-      descricao:`Pagamento do pedido ${pedido.numero} · ${nomeForn(pedido.fornecedorId)}`,valor:Number(pagamento.valor||0),
-      comprovante:pagamento.comprovantes?.[0]?.legenda||pagamento.referencia||"",pedidoId:pedido.id,pagamentoId,
-      documentos:pagamento.comprovantes||[],reclassificadoEm:new Date().toISOString()}];
-    const pagamentos=(pedido.pagamentos||[]).map(pg=>pg.id===pagamentoId?{...pg,origem:novaOrigem,
-      conciliado:novaOrigem==="empresa"?!!pg.transacaoId:false,
-      origemAnterior:pg.origem,reclassificadoEm:new Date().toISOString(),reclassificadoPor:currentUser?.nome||"Operador"}:pg);
-    const ajuste={id:uid(),motivo:`Origem do pagamento de ${fmt(pagamento.valor)} alterada de ${rotulos[pagamento.origem]||pagamento.origem} para ${rotulos[novaOrigem]}.`,
-      usuarioId:currentUser?.id||"",usuario:currentUser?.nome||"Operador",criadoEm:new Date().toISOString(),
-      totalAnterior:totalPedido(pedido),totalNovo:totalPedido(pedido),resumo:"Reclassificação da origem do pagamento por arrastar."};
-    update({...data,caixaObra,pedidos:(data.pedidos||[]).map(p=>p.id===pedido.id?{...p,pagamentos,origemPagamento:novaOrigem,ajustes:[...(p.ajustes||[]),ajuste]}:p)});
+    setSubindoComprovantePagamento(true);
+    let result;
+    try{
+      result=await dispatchCommand(atual=>{
+        const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
+        return {
+          type:OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED,
+          idempotencyKey:`purchase-payment-reclassify-${pagamentoId}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{
+            targetType:"pedido",targetId:pedido.id,paymentId,newOrigin:novaOrigem,
+            workCashMovementId:novaOrigem==="caixa_obra"?uid():"",
+            adjustmentId:uid(),
+          },
+        };
+      });
+    }catch(error){result={ok:false,reason:error?.message};}
+    finally{setSubindoComprovantePagamento(false);}
+    if(!result?.ok){showToast(result?.reason||"Não foi possível reclassificar o pagamento.","error");return;}
     showToast(`Pagamento movido para ${rotulos[novaOrigem]}.`);
   };
 
-  const excluirPagamento=(pedido,pagamento)=>{
+  const excluirPagamento=async(pedido,pagamento)=>{
     if(!canManagePurchases(currentUser?.role)){
       showToast("Somente Administração, Compras ou Financeiro podem excluir pagamentos.","error");return;
     }
     const motivo=window.prompt(`Motivo do estorno do pagamento de ${fmt(pagamento.valor)}:`);
     if(!String(motivo||"").trim())return;
-    const pagamentos=(pedido.pagamentos||[]).map(pg=>pg.id===pagamento.id?{...pg,status:"estornado",estornadoEm:new Date().toISOString(),estornadoPor:currentUser?.nome||"Operador",motivoEstorno:String(motivo).trim()}:pg);
-    const quitado=pagamentos.reduce((s,pg)=>s+Number(pg.valor||0),0)>=totalPedido(pedido)-.01;
-    const agora=new Date().toISOString();
-    const ajuste={id:uid(),motivo:`Pagamento de ${fmt(pagamento.valor)} excluído.`,
-      usuarioId:currentUser?.id||"",usuario:currentUser?.nome||"Operador",criadoEm:agora,
-      totalAnterior:totalPedido(pedido),totalNovo:totalPedido(pedido),resumo:"Exclusão de pagamento no Financeiro de Compras."};
-    const pedidos=(data.pedidos||[]).map(p=>p.id===pedido.id?{...p,pagamentos,
-      liberadoEntregaEm:quitado?p.liberadoEntregaEm||agora:"",
-      liberadoEntregaPor:quitado?p.liberadoEntregaPor||currentUser?.nome||"Financeiro":"",
-      ajustes:[...(p.ajustes||[]),ajuste]}:p);
-    const caixaObra=(data.caixaObra||[]).map(l=>l.pedidoId===pedido.id&&l.pagamentoId===pagamento.id?{...l,status:"estornado",estornadoEm:agora,motivoEstorno:String(motivo).trim()}:l);
-    const log={id:uid(),date:today(),at:agora,type:"purchase_payment_deleted",obraId:pedido.obraId,
-      pedidoId:pedido.id,pedidoNumero:pedido.numero,pagamentoId:pagamento.id,valor:Number(pagamento.valor||0),
-      operador:currentUser?.nome||"Operador",operadorId:currentUser?.id||"",
-      message:`Pagamento de ${fmt(pagamento.valor)} estornado do pedido ${pedido.numero}: ${String(motivo).trim()}.`};
-    update({...data,pedidos,caixaObra,changeLog:[...(data.changeLog||[]),log].slice(-500)});
+    setSubindoComprovantePagamento(true);
+    let result;
+    try{
+      result=await dispatchCommand(atual=>{
+        const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
+        return {
+          type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED,
+          idempotencyKey:`purchase-payment-reverse-${pagamento.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{
+            targetType:"pedido",targetId:pedido.id,paymentId:pagamento.id,
+            reason:String(motivo).trim(),adjustmentId:uid(),
+          },
+        };
+      });
+    }catch(error){result={ok:false,reason:error?.message};}
+    finally{setSubindoComprovantePagamento(false);}
+    if(!result?.ok){showToast(result?.reason||"Não foi possível estornar o pagamento.","error");return;}
     showToast("Pagamento estornado e preservado no histórico.");
   };
 
@@ -25441,15 +25467,31 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     );
   };
 
-  const cancelarPedido = (p) => {
+  const cancelarPedido = async(p) => {
+    if(cancelandoCompra)return;
     const jaRecebeu = (p.itens||[]).some(i => Number(i.qtdRecebida) > 0);
     if (jaRecebeu) {
       showToast("Pedido já tem material recebido. Estorne pelo Estoque antes.", "error");
       return;
     }
-    if (!window.confirm(`Cancelar o pedido ${p.numero}?`)) return;
-    update({ ...data, pedidos: (data.pedidos||[]).map(x =>
-      x.id === p.id ? { ...x, status: "cancelado" } : x) });
+    const motivo=window.prompt(`Motivo do cancelamento do pedido ${p.numero}:`);
+    if(!String(motivo||"").trim())return;
+    setCancelandoCompra(true);
+    let result;
+    try{
+      result=await dispatchCommand(atual=>{
+        const vigente=(atual.pedidos||[]).find(item=>item.id===p.id);
+        return {
+          type:OPERATIONAL_COMMAND.PURCHASE_CANCELLED,
+          idempotencyKey:`purchase-cancel-${p.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{orderId:p.id,reason:String(motivo).trim()},
+        };
+      });
+    }catch(error){result={ok:false,reason:error?.message};}
+    finally{setCancelandoCompra(false);}
+    if(!result?.ok){showToast(result?.reason||"Não foi possível cancelar o pedido.","error");return;}
     showToast("Pedido cancelado.");
   };
 
@@ -25471,7 +25513,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     });
   };
 
-  const excluirCompraDefinitivamente=()=>{
+  const excluirCompraDefinitivamente=async()=>{
+    if(cancelandoCompra)return;
     const f=excluirCompraModal,p=f?.pedido;
     if(!p||!podeExcluirCompra){
       showToast("Seu perfil não pode excluir esta compra.","error");return;
@@ -25482,41 +25525,22 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     if(String(f.confirmacao||"").trim().toUpperCase()!==String(p.numero||"").trim().toUpperCase()){
       showToast(`Digite ${p.numero} para confirmar a exclusão.`,"error");return;
     }
-    const agora=new Date().toISOString();
-    const impacto={
-      pagamentos:(p.pagamentos||[]).length,valorPago:totalPagoPedido(p),
-      recebimentos:(p.itens||[]).reduce((s,i)=>s+(i.recebimentos||[]).length,0),
-      movimentosEstoque:f.movimentos.length,movimentosCaixa:f.caixas.length,
-      notasFiscais:f.notas.length,
-    };
-    // Notas fiscais e movimentos originados nelas são documentos contábeis:
-    // permanecem no Financeiro, mas perdem o vínculo com o pedido excluído.
-    const notasFiscais=(data.notasFiscais||[]).map(n=>n.pedidoId===p.id?{
-      ...n,pedidoId:"",
-      divergencias:[...new Set([...(n.divergencias||[]),`O pedido ${p.numero} vinculado a esta nota foi excluído pelo setor de Compras.`])],
-      atualizadoEm:agora,
-    }:n);
-    const caixaObra=(data.caixaObra||[]).map(m=>m.pedidoId!==p.id?m:{
-      ...m,status:"cancelado",motivoCancelamento:String(f.motivo).trim(),canceladoEm:agora,
-    });
-    const solicitacoesCompra=(data.solicitacoesCompra||[]).map(s=>s.pedidoId===p.id?{
-      ...s,status:"enviada",pedidoId:"",analisadoEm:"",analisadoPor:"",
-    }:s);
-    const cotacoes=(data.cotacoes||[]).map(c=>c.pedidoId===p.id?{
-      ...c,status:"aberta",pedidoId:"",escolhida:"",
-      decididoPorId:"",decididoPorNome:"",decididoEm:"",justificativaEscolha:"",
-    }:c);
-    const exclusao={id:uid(),date:today(),at:agora,type:"purchase_deleted",
-      obraId:p.obraId,pedidoId:p.id,pedidoNumero:p.numero,
-      operador:currentUser?.nome||"Compras",operadorId:currentUser?.id||"",
-      motivo:String(f.motivo).trim(),impacto,
-      message:`${currentUser?.nome||"Compras"} excluiu a compra ${p.numero}: ${String(f.motivo).trim()}`};
-    update({
-      ...data,pedidos:(data.pedidos||[]).map(x=>x.id===p.id?{...x,status:"cancelado",canceladoEm:agora,canceladoPor:currentUser?.nome||"Compras",motivoCancelamento:String(f.motivo).trim(),impactoCancelamento:impacto}:x),
-      movEstoque:(data.movEstoque||[]).map(m=>movimentoDoPedido(m,p)?{...m,status:"cancelado",motivoCancelamento:String(f.motivo).trim()}:m),
-      caixaObra,notasFiscais,solicitacoesCompra,cotacoes,
-      changeLog:[...(data.changeLog||[]),exclusao].slice(-500),
-    });
+    setCancelandoCompra(true);
+    let result;
+    try{
+      result=await dispatchCommand(atual=>{
+        const vigente=(atual.pedidos||[]).find(item=>item.id===p.id);
+        return {
+          type:OPERATIONAL_COMMAND.PURCHASE_CANCELLED,
+          idempotencyKey:`purchase-cancel-${p.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{orderId:p.id,reason:String(f.motivo).trim()},
+        };
+      });
+    }catch(error){result={ok:false,reason:error?.message};}
+    finally{setCancelandoCompra(false);}
+    if(!result?.ok){showToast(result?.reason||"Não foi possível excluir a compra.","error");return;}
     setExcluirCompraModal(null);
     showToast(`Compra ${p.numero} cancelada. Os fatos e vínculos foram preservados para auditoria.`);
   };
@@ -26177,7 +26201,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
                     })}><Ic n="edit"/> Editar pedido</Btn>
                   )}
                   {st !== "cancelado" && st !== "recebido" && (
-                    <Btn size="sm" v="danger" onClick={()=>cancelarPedido(p)}><Ic n="trash"/> Cancelar pedido</Btn>
+                    <Btn size="sm" v="danger" disabled={cancelandoCompra} onClick={()=>cancelarPedido(p)}><Ic n="trash"/> Cancelar pedido</Btn>
                   )}
                   {podeExcluirCompra&&(
                     <Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir definitivamente</Btn>
@@ -26521,7 +26545,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         </div>
         <Inp label="Motivo da exclusão *" value={excluirCompraModal.motivo} onChange={v=>setExcluirCompraModal(f=>({...f,motivo:v}))} multiline placeholder="Ex.: compra duplicada, obra incorreta ou pedido criado por engano"/>
         <Inp label={`Digite ${excluirCompraModal.pedido.numero} para confirmar *`} value={excluirCompraModal.confirmacao} onChange={v=>setExcluirCompraModal(f=>({...f,confirmacao:v}))}/>
-        <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setExcluirCompraModal(null)}>Manter compra</Btn><Btn v="danger" full onClick={excluirCompraDefinitivamente}><Ic n="trash"/> Excluir compra</Btn></div>
+        <div style={{display:"flex",gap:8}}><Btn v="ghost" full disabled={cancelandoCompra} onClick={()=>setExcluirCompraModal(null)}>Manter compra</Btn><Btn v="danger" full disabled={cancelandoCompra} onClick={excluirCompraDefinitivamente}><Ic n="trash"/> {cancelandoCompra?"Cancelando...":"Excluir compra"}</Btn></div>
       </div></Modal>}
     </div>
   );

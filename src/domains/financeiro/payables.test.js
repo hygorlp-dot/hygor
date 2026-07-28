@@ -28,4 +28,17 @@ describe("posição de pagamento de notas fiscais", () => {
     expect(statusPagamentoNota({ status:"aprovada", valorBruto:100 })).toBe("autorizada");
     expect(statusPagamentoNota({ status:"rascunho", valorBruto:100 })).toBe("conferencia");
   });
+
+  it("retira pagamentos estornados da quitação sem apagar o histórico",()=>{
+    const nota={
+      status:"paga",valorLiquido:100,
+      pagamentos:[
+        {id:"p-1",valor:60,status:"ativo"},
+        {id:"p-2",valor:40,status:"estornado"},
+      ],
+    };
+    expect(totalPagoNota(nota)).toBe(60);
+    expect(saldoPagamentoNota(nota)).toBe(40);
+    expect(nota.pagamentos).toHaveLength(2);
+  });
 });

@@ -26,6 +26,44 @@ describe("comandos operacionais versionados",()=>{
     expect(repeated.ok).toBe(true);expect(repeated.idempotent).toBe(true);expect(repeated.data.medicoesObra).toHaveLength(1);
   });
 
+  it("registra pagamento de compra uma única vez pela chave idempotente",()=>{
+    const initial={
+      obras:[{id:"o-1",hasCaixa:false}],
+      pedidos:[{id:"p-1",obraId:"o-1",status:"enviado",version:1,itens:[{id:"i-1",qtd:2,precoUnit:50}],pagamentos:[]}],
+      notasFiscais:[],caixaObra:[],transacoes:[],historicoConc:[],
+    };
+    const payload={targetType:"pedido",targetId:"p-1",payment:{
+      id:"pg-1",data:"2026-07-25",valor:50,origem:"empresa",comprovantes:[],
+    }};
+    const first=applyOperationalCommand(initial,command(
+      OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,"payable-payment-0001",payload,1,
+    ));
+    const repeated=applyOperationalCommand(first.data,command(
+      OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,"payable-payment-0001",payload,1,
+    ));
+    expect(first.ok).toBe(true);
+    expect(first.data.pedidos[0].pagamentos).toHaveLength(1);
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+    expect(repeated.data.pedidos[0].pagamentos).toHaveLength(1);
+  });
+
+  it("cancela uma compra sem remover pedido ou movimentos",()=>{
+    const initial={
+      pedidos:[{id:"p-1",numero:"PC-1",obraId:"o-1",data:"2026-07-20",status:"enviado",version:1,itens:[],pagamentos:[]}],
+      movEstoque:[{id:"me-1",pedidoId:"p-1",obraId:"o-1",status:"ativo"}],
+      caixaObra:[],notasFiscais:[],solicitacoesCompra:[],cotacoes:[],
+      transacoes:[],fechamentosFinanceiros:[],
+    };
+    const cancelled=applyOperationalCommand(initial,command(
+      OPERATIONAL_COMMAND.PURCHASE_CANCELLED,"purchase-cancel-0001",
+      {orderId:"p-1",reason:"Duplicado"},1,
+    ));
+    expect(cancelled.ok).toBe(true);
+    expect(cancelled.data.pedidos).toHaveLength(1);
+    expect(cancelled.data.pedidos[0]).toMatchObject({status:"cancelado",version:2});
+    expect(cancelled.data.movEstoque[0].status).toBe("cancelado");
+  });
+
   it("cancela o RDO sem apagá-lo e impede versão antiga",()=>{
     const initial={rdos:[{id:"r-1",version:2,status:"concluido"}]};
     const noReason=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,"field-report-cancel-0000",{reportId:"r-1"},2));

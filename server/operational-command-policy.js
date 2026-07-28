@@ -14,6 +14,14 @@ import {
   WORK_CASH_COMMAND_TYPES,
   workCashCommandObraId,
 } from "../src/domains/financeiro/work-cash-commands.js";
+import {
+  PAYABLE_PAYMENT_COMMAND_TYPES,
+  payablePaymentCommandObraId,
+} from "../src/domains/financeiro/payable-payment-commands.js";
+import {
+  PURCHASE_CANCELLATION_COMMAND_TYPES,
+  purchaseCancellationCommandObraId,
+} from "../src/domains/compras/purchase-cancellation-command.js";
 
 export const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
@@ -21,6 +29,8 @@ export const operationalCommandObraId=(data={},command={})=>{
   if(CLIENT_MEASUREMENT_COMMAND_TYPES.has(command?.type))return clientMeasurementCommandObraId(data,command);
   if(EXPENSE_COMMAND_TYPES.has(command?.type))return expenseCommandObraId(data,command);
   if(WORK_CASH_COMMAND_TYPES.has(command?.type))return workCashCommandObraId(data,command);
+  if(PAYABLE_PAYMENT_COMMAND_TYPES.has(command?.type))return payablePaymentCommandObraId(data,command);
+  if(PURCHASE_CANCELLATION_COMMAND_TYPES.has(command?.type))return purchaseCancellationCommandObraId(data,command);
   if(command?.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED)return String(payload?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED)return String(payload?.measurement?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");

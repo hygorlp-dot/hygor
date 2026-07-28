@@ -1,4 +1,5 @@
 // Regras puras do contexto de Compras. Sem React, DOM ou persistência.
+import { calculateWorkCash } from "../financeiro/work-cash.js";
 
 export const STATUS_PEDIDO = {
   rascunho:{l:"Rascunho",c:"#6B6459"},enviado:{l:"Enviado",c:"#0D47A1"},
@@ -34,10 +35,9 @@ export const origemPagamentoLabel = origem =>
   ({empresa:"Empresa",caixa_obra:"Caixa da obra",cliente_direto:"Cliente direto"}[origem]||"Empresa");
 
 export const situacaoCaixaObra = (data,obraId) => {
-  const movimentos=(data.caixaObra||[]).filter(m=>m.obraId===obraId);
-  const aportes=movimentos.filter(m=>m.tipo==="aporte").reduce((s,m)=>s+Number(m.valor||0),0);
-  const despesas=movimentos.filter(m=>m.tipo==="despesa").reduce((s,m)=>s+Number(m.valor||0),0);
-  const saldo=aportes-despesas,limiteBaixo=Math.max(500,aportes*.10);
+  const caixa=calculateWorkCash(data,obraId);
+  const saldo=caixa.saldo,aportes=caixa.totalAportes,despesas=caixa.totalDespesas;
+  const limiteBaixo=Math.max(500,aportes*.10);
   return {saldo,aportes,despesas,limiteBaixo,baixo:saldo<=limiteBaixo};
 };
 

@@ -67,6 +67,25 @@ describe("escopo servidor de comandos operacionais",()=>{
       payload:{movementId:"cx-a"},
     }})).toMatchObject({ok:true,obraId:"obra-a"});
   });
+  it("protege pagamentos de obrigações pelo vínculo autoritativo da obra",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,
+      payload:{targetType:"pedido",targetId:"p-a"},
+    }})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data:{...data,pedidos:[{id:"p-b",obraId:"obra-b"}]},command:{
+      type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED,
+      payload:{targetType:"pedido",targetId:"p-b",paymentId:"pg-1"},
+    }})).toMatchObject({ok:false});
+  });
+  it("protege o cancelamento integral da compra pelo pedido autoritativo",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.PURCHASE_CANCELLED,payload:{orderId:"p-a"},
+    }})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({
+      user,data:{...data,pedidos:[{id:"p-b",obraId:"obra-b"}]},
+      command:{type:OPERATIONAL_COMMAND.PURCHASE_CANCELLED,payload:{orderId:"p-b"}},
+    })).toMatchObject({ok:false});
+  });
   it("mantém o avanço físico dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-b"}}}})).toMatchObject({ok:false});

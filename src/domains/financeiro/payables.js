@@ -1,7 +1,9 @@
 // Posição de pagamento de documentos fiscais. Este módulo não conhece React,
 // persistência ou conciliação: recebe uma nota e devolve somente sua posição.
+import { active } from "./ledger.js";
+
 export const totalPagoNota = nota =>
-  (nota?.pagamentos || []).reduce((total, pagamento) =>
+  (nota?.pagamentos || []).filter(active).reduce((total, pagamento) =>
     total + Number(pagamento?.valor || 0), 0);
 
 export const saldoPagamentoNota = nota =>

@@ -22,6 +22,14 @@ import {
 import { activateCommercialContract } from "../comercial/contract-activation.js";
 import { applyExpenseCommand, EXPENSE_COMMAND } from "../financeiro/expense-commands.js";
 import { applyWorkCashCommand, WORK_CASH_COMMAND } from "../financeiro/work-cash-commands.js";
+import {
+  applyPayablePaymentCommand,
+  PAYABLE_PAYMENT_COMMAND,
+} from "../financeiro/payable-payment-commands.js";
+import {
+  applyPurchaseCancellationCommand,
+  PURCHASE_CANCELLATION_COMMAND,
+} from "../compras/purchase-cancellation-command.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -34,6 +42,8 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   COMMERCIAL_CONTRACT_ACTIVATED:"CONTRATO_COMERCIAL_ATIVADO",
   ...EXPENSE_COMMAND,
   ...WORK_CASH_COMMAND,
+  ...PAYABLE_PAYMENT_COMMAND,
+  ...PURCHASE_CANCELLATION_COMMAND,
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -147,6 +157,26 @@ export const applyOperationalCommand=(data,command)=>{
     return {
       ok:true,
       data:appendReceipt(workCashResult.data,command,workCashResult.entityId,now),
+    };
+  }
+  const payablePaymentResult=applyPayablePaymentCommand(data,command,now);
+  if(payablePaymentResult){
+    if(!payablePaymentResult.ok)return payablePaymentResult;
+    return {
+      ok:true,
+      data:appendReceipt(
+        payablePaymentResult.data,command,payablePaymentResult.entityId,now,
+      ),
+    };
+  }
+  const purchaseCancellationResult=applyPurchaseCancellationCommand(data,command,now);
+  if(purchaseCancellationResult){
+    if(!purchaseCancellationResult.ok)return purchaseCancellationResult;
+    return {
+      ok:true,impact:purchaseCancellationResult.impact,
+      data:appendReceipt(
+        purchaseCancellationResult.data,command,purchaseCancellationResult.entityId,now,
+      ),
     };
   }
   if(command.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED){

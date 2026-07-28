@@ -24,7 +24,7 @@ export const FINANCIAL_OPERATIONAL_SOURCE_SECTIONS=new Set(["attendance"]);
 // como seções financeiras legadas, mas não pertencem mais a este checklist:
 // seus escritores foram migrados para comandos servidores idempotentes.
 export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
-  "caixaObra","transacoes",
+  "transacoes",
   "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
   "titulosFolha","rescisoes",
   "attendance","employees","config","obras",
@@ -32,7 +32,7 @@ export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
 
 export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
   financeiro_conciliacao:[
-    "caixaObra","transacoes",
+    "transacoes",
   ],
   compras_fiscal:["pedidos","notasFiscais"],
   terceiros:["pagsTerceiros","medicoesTerc"],

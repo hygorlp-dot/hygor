@@ -82,3 +82,33 @@ export const applyWorkCashCommand=(data={},command={},now=new Date().toISOString
     entityId:id,
   };
 };
+
+// Composição interna usada pelo comando de pagamento. O comando público de
+// caixa continua impedindo que um lançamento vinculado seja cancelado
+// isoladamente; somente o estorno/reclassificação do pagamento de origem pode
+// chamar esta fronteira, informando o mesmo pagamentoId.
+export const cancelWorkCashMovementFromPayment=(data={},{
+  movementId="",paymentId="",reason="",actor={},now=new Date().toISOString(),
+}={})=>{
+  const current=movementById(data,movementId);
+  if(!current)return fail("Movimento do caixa não encontrado.");
+  if(inactive(current))return fail("Este movimento já está cancelado ou estornado.");
+  if(!paymentId||String(current.pagamentoId||"")!==String(paymentId)){
+    return fail("O movimento não pertence ao pagamento informado.");
+  }
+  if(current.transacaoId)return fail("Desfaça a conciliação bancária antes de estornar este movimento.");
+  const cleanReason=String(reason||"").trim();
+  if(!cleanReason)return fail("Informe o motivo do estorno do movimento.");
+  if(!actor.id)return fail("Sessão do usuário indisponível para estornar o movimento.");
+  const userName=actor.nome||"Usuário autenticado";
+  const cancelled={
+    ...current,status:"estornado",motivoCancelamento:cleanReason,
+    canceladoEm:now,canceladoPorId:actor.id,canceladoPor:userName,
+    updatedAt:now,updatedById:actor.id,updatedBy:userName,version:versionOf(current)+1,
+  };
+  return {
+    ok:true,
+    data:{...data,caixaObra:(data.caixaObra||[]).map(item=>item.id===movementId?cancelled:item)},
+    entityId:movementId,
+  };
+};

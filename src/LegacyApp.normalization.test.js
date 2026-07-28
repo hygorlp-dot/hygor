@@ -17,4 +17,15 @@ describe("contrato do normalizador legado", () => {
     expect(source).toContain('return finalizeNormalizedData(d, normalized);');
     expect(source).toContain('qualidadeDados: Array.isArray(d.qualidadeDados) ? d.qualidadeDados : [],');
   });
+
+  it("preserva metadados server-side dos agregados financeiros versionados",()=>{
+    expect(source).toMatch(/outrasDesp:[\s\S]*?map\(x => \(\{\s*\.\.\.x,/);
+    expect(source).toMatch(/despesasEmpresa:[\s\S]*?map\(x => \(\{\s*\.\.\.x,/);
+    expect(source).toMatch(/pedidos:[\s\S]*?map\(x => \(\{\s*\.\.\.x,/);
+    expect(source).toMatch(/notasFiscais:[\s\S]*?map\(n=>\(\{\s*\.\.\.n,/);
+    expect(source).toMatch(/caixaObra:[\s\S]*?map\(x => \(\{\s*\.\.\.x,/);
+    expect(source).toMatch(/solicitacoesCompra:[\s\S]*?map\(x => \(\{\s*\.\.\.x,/);
+    expect(source).toMatch(/cotacoes:[\s\S]*?map\(x => \(\{\s*\.\.\.x,/);
+    expect(source).toMatch(/movEstoque:[\s\S]*?map\(x => \(\{\s*\.\.\.x,/);
+  });
 });
