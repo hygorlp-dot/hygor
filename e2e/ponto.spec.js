@@ -32,7 +32,7 @@ const initialState = () => ({
   config: { paymentHolidays: [] },
 });
 
-const installIsolatedBackend = async (page, stateOverride = {}) => {
+const installIsolatedBackend = async (page, stateOverride = {}, options = {}) => {
   let state = { ...initialState(), ...stateOverride };
   const saves = [];
 
@@ -70,6 +70,7 @@ const installIsolatedBackend = async (page, stateOverride = {}) => {
     if (body.action === "save-sections") {
       saves.push(structuredClone(body.sections || {}));
       state = { ...state, ...(body.sections || {}) };
+      if(options.saveDelayMs)await new Promise(resolve=>setTimeout(resolve,options.saveDelayMs));
       return route.fulfill({
         json: {
           ok: true,
@@ -77,6 +78,14 @@ const installIsolatedBackend = async (page, stateOverride = {}) => {
           savedSections: Object.keys(body.sections || {}),
         },
       });
+    }
+    if(body.action === "save"){
+      saves.push(structuredClone(body.payload||{}));
+      state=structuredClone(body.payload||state);
+      if(options.saveDelayMs)await new Promise(resolve=>setTimeout(resolve,options.saveDelayMs));
+      return route.fulfill({json:{
+        ok:true,updatedAt:new Date().toISOString(),data:state,
+      }});
     }
 
     return route.fulfill({ json: { ok: true, usuario: PROFILE, data: state } });
@@ -95,7 +104,7 @@ const login = async page => {
   await page.locator("#login-email").fill(PROFILE.email);
   await page.locator("#login-senha").fill("senha-isolada");
   await page.getByRole("button", { name: "Acessar central ARCD" }).click();
-  await expect(page.getByText(/Bom (dia|tarde|noite), Engenheiro\./)).toBeVisible();
+  await expect(page.getByText(/Bo[ma] (dia|tarde|noite), Engenheiro\./)).toBeVisible();
 };
 
 test("PIN incorreto informa o erro sem iniciar sessão", async ({ page }) => {
@@ -119,7 +128,7 @@ test("PIN incorreto informa o erro sem iniciar sessão", async ({ page }) => {
   await page.getByRole("button", { name: "Confirmar acesso" }).click();
 
   await expect(page.getByText("PIN incorreto.")).toBeVisible();
-  await expect(page.getByText(/Bom (dia|tarde|noite), Engenheiro\./)).toHaveCount(0);
+  await expect(page.getByText(/Bo[ma] (dia|tarde|noite), Engenheiro\./)).toHaveCount(0);
 });
 
 test("dataset legado com aprovação nula não derruba o app após o login", async ({ page }) => {
@@ -134,6 +143,32 @@ test("dataset legado com aprovação nula não derruba o app após o login", asy
 
   await expect(page.getByText("Algo quebrou nesta tela")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Abrir Ponto" })).toBeVisible();
+});
+
+test("não deixa atualizar a página enquanto o salvamento ainda está em trânsito", async ({ page }) => {
+  const backend=await installIsolatedBackend(page,{}, {saveDelayMs:3000});
+  await login(page);
+  await page.getByRole("button", { name: "Abrir Ponto" }).click();
+
+  await page.getByRole("button", { name: "Presente", exact:true }).click();
+  await expect.poll(()=>backend.getSaves().length).toBeGreaterThan(0);
+  const protectedRefresh=await page.evaluate(()=>{
+    const event=new Event("beforeunload",{cancelable:true});
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(protectedRefresh).toBe(true);
+  await expect.poll(() =>
+    backend.getState().attendance?.["emp-qa"]?.[new Date().toLocaleDateString("sv-SE")]?.status
+  ).toBe("P");
+
+  // Depois da confirmação da fila, atualizar não exibe bloqueio e o servidor
+  // devolve exatamente o fato salvo.
+  await page.waitForTimeout(3100);
+  await page.reload();
+  await expect(page.getByText(/Bo[ma] (dia|tarde|noite), Engenheiro\./)).toBeVisible();
+  await page.getByRole("button", { name: "Abrir Ponto" }).click();
+  await expect(page.getByText("1/1 lançados")).toBeVisible();
 });
 
 test("engenheiro salva, recarrega e finaliza o ponto da própria obra no mobile", async ({ page }) => {
@@ -208,7 +243,7 @@ test("engenheiro salva, recarrega e finaliza o ponto da própria obra no mobile"
   await page.getByRole("button", { name: "Salvar jornada" }).click();
 
   await page.reload();
-  await expect(page.getByText(/Bom (dia|tarde|noite), Engenheiro\./)).toBeVisible();
+  await expect(page.getByText(/Bo[ma] (dia|tarde|noite), Engenheiro\./)).toBeVisible();
   await page.getByRole("button", { name: "Abrir Ponto" }).click();
   await expect(page.getByText("1/1 lançados")).toBeVisible();
   await expect(page.getByText("8h45")).toBeVisible();

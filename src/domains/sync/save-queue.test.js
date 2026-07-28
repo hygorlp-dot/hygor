@@ -32,8 +32,9 @@ describe("fila serializada de salvamento", () => {
 
   it("preserva conflito para resolução explícita sem last-write-wins", async () => {
     const queue=createSaveQueue({save:async()=>({ok:false,conflict:true})});
-    queue.enqueue({id:"a"});await Promise.resolve();
+    const settled=queue.enqueue({id:"a"});await Promise.resolve();
     expect(queue.getState()).toBe(SAVE_QUEUE_STATE.CONFLICT);expect(queue.hasPending()).toBe(true);
+    expect(await settled).toEqual({ok:false,state:SAVE_QUEUE_STATE.CONFLICT});
     queue.discard();expect(queue.getState()).toBe(SAVE_QUEUE_STATE.IDLE);expect(queue.hasPending()).toBe(false);
   });
 
@@ -73,5 +74,35 @@ describe("fila serializada de salvamento", () => {
     expect(retryCount).toBe(0);
     expect(queue.getState()).toBe(SAVE_QUEUE_STATE.FAILED);
     expect(failure.result.reason).toBe("FIN-003 bloqueou a seção.");
+  });
+
+  it("aguarda de verdade a requisição em voo antes de liberar um comando seguinte", async()=>{
+    const first=deferred();let settled=false;
+    const queue=createSaveQueue({save:async()=>first.promise});
+    queue.enqueue({equipamentos:[{id:"eq-1"}]});
+    const waiting=queue.waitForIdle().then(result=>{settled=true;return result;});
+    await Promise.resolve();
+    expect(queue.hasPending()).toBe(true);
+    expect(settled).toBe(false);
+    first.resolve({ok:true});
+    const result=await waiting;
+    expect(result).toEqual({ok:true,state:SAVE_QUEUE_STATE.IDLE});
+    expect(queue.hasPending()).toBe(false);
+  });
+
+  it("só resolve a espera depois de drenar o snapshot mais recente", async()=>{
+    const first=deferred();const calls=[];
+    const queue=createSaveQueue({save:async snapshot=>{
+      calls.push(snapshot);
+      return calls.length===1?first.promise:{ok:true};
+    }});
+    queue.enqueue({eventos:["primeiro"]});
+    queue.enqueue({eventos:["primeiro","segundo"]});
+    const waiting=queue.waitForIdle();
+    first.resolve({ok:true});
+    const result=await waiting;
+    expect(result.ok).toBe(true);
+    expect(calls).toEqual([{eventos:["primeiro"]},{eventos:["primeiro","segundo"]}]);
+    expect(queue.hasPending()).toBe(false);
   });
 });

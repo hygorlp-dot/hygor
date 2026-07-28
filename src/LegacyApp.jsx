@@ -9020,6 +9020,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
       "Faça isso somente APÓS conferir e pagar a folha desta quinzena."
     ].join("\n");
     if(!window.confirm(aviso))return;
+    const sincronizado=await update({__aguardarFila:true});
+    if(!sincronizado?.ok){showToast("Conclua o conflito de salvamento antes de arquivar a quinzena.","error");return;}
     setArqBusy(true);
     const r=await arquivarQuinzena({quinzenaId,label:quinzenaLabel,dates:diasCiclo});
     setArqBusy(false);
@@ -9038,6 +9040,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
 
   const restaurarArquivo=async()=>{
     if(!window.confirm(`Restaurar a ${quinzenaLabel}?\n\nOs lançamentos voltam ao ponto principal e a quinzena reabre para edição. Dias relançados depois do arquivamento são mantidos como estão.`))return;
+    const sincronizado=await update({__aguardarFila:true});
+    if(!sincronizado?.ok){showToast("Conclua o conflito de salvamento antes de restaurar a quinzena.","error");return;}
     setArqBusy(true);
     const r=await restaurarQuinzena(quinzenaId);
     setArqBusy(false);
@@ -15087,6 +15091,8 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
   const ativarContaEmail=async()=>{
     if(senhaTemp.length<8){showToast("A senha temporária deve ter ao menos 8 caracteres.","error");return;}
     if(senhaTemp!==senhaTemp2){showToast("As senhas não coincidem.","error");return;}
+    const sincronizado=await update({__aguardarFila:true});
+    if(!sincronizado?.ok){showToast("Conclua o salvamento pendente antes de ativar a conta.","error");return;}
     setAtivandoConta(true);
     const r=await provisionarContaEmail(contaModal,senhaTemp);
     setAtivandoConta(false);
@@ -21858,6 +21864,8 @@ function Conciliacao({ data, update, showToast, currentUser }) {
   const executarConciliacaoNoServidor = async (command, erroPadrao) => {
     setConciliando(true);
     try {
+      const sincronizado=await update({__aguardarFila:true});
+      if(!sincronizado?.ok){showToast("Conclua o salvamento pendente antes de conciliar.","error");return false;}
       const resposta=await executarComandoConciliacao({...command,idempotencyKey:`rec_${Date.now()}_${Math.random().toString(36).slice(2,12)}`});
       if(!resposta?.ok){showToast(resposta?.error||erroPadrao,"error");return false;}
       await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
@@ -36889,11 +36897,24 @@ export default function App() {
     return()=>window.removeEventListener("online",retomar);
   },[showToast]);
 
+  useEffect(()=>{
+    const protegerSaida=event=>{
+      if(!saveQueueRef.current?.hasPending())return;
+      event.preventDefault();
+      event.returnValue="";
+    };
+    window.addEventListener("beforeunload",protegerSaida);
+    return()=>window.removeEventListener("beforeunload",protegerSaida);
+  },[]);
+
   const update = useCallback(async (next) => {
     // Aceita atualização funcional. O resolvedor recebe sempre o espelho mais
     // recente, mesmo que o React ainda não tenha renderizado o clique anterior.
     // Isso elimina a dependência de closures antigos nos fluxos migrados.
     if(typeof next==="function")next=next(dataAtualRef.current||DEFAULT());
+    if(next&&next.__aguardarFila){
+      return saveQueueRef.current?.waitForIdle()||{ok:true,state:SAVE_QUEUE_STATE.IDLE};
+    }
     // ADOTAR ESTADO DO SERVIDOR (sem re-salvar)
     // Operacoes cirurgicas como arquivar/restaurar quinzena acontecem no
     // servidor e ja voltam com o dataset novo + carimbo. Aqui apenas
@@ -36968,7 +36989,7 @@ export default function App() {
     // Enfileira: se ja ha um save em voo, este estado apenas substitui o
     // proximo a enviar. Nunca ha dois saves simultaneos - fim dos 409 do
     // proprio dispositivo contra si mesmo.
-    saveQueueRef.current.enqueue(normalized);
+    return saveQueueRef.current.enqueue(normalized);
   }, [showToast, currentUser, processarFilaSave]);
 
   // Ponte de migração para comandos por agregado. O comando é criado dentro
@@ -36985,8 +37006,8 @@ export default function App() {
       // confirmado. Se a fila não puder esvaziar, preservar a edição local é
       // mais seguro que executar o comando sobre uma base desconhecida.
       if(saveQueueRef.current?.hasPending()){
-        await saveQueueRef.current.flush();
-        if(saveQueueRef.current?.hasPending())return {ok:false,reason:"Há alterações locais aguardando sincronização. Aguarde a confirmação e tente novamente."};
+        const drained=await saveQueueRef.current.waitForIdle();
+        if(!drained.ok||saveQueueRef.current?.hasPending())return {ok:false,reason:"Há alterações locais aguardando sincronização. Aguarde a confirmação e tente novamente."};
       }
       const atual=dataAtualRef.current||DEFAULT();
       const command=typeof commandOrFactory==="function"?commandOrFactory(atual):commandOrFactory;

@@ -11,9 +11,32 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
   let inFlight=false;
   let retryScheduled=false;
   let attempts=0;
+  const waiters=new Set();
 
   const transition=next=>{state=next;onState(next);};
   const hasPending=()=>!!pending||inFlight||retryScheduled;
+  const terminal=()=>[SAVE_QUEUE_STATE.CONFLICT,SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.OFFLINE].includes(state);
+  const isSettled=()=>!inFlight&&!retryScheduled&&(terminal()||(!pending&&state===SAVE_QUEUE_STATE.IDLE));
+  const settleWaiters=()=>{
+    if(!isSettled())return;
+    const result={ok:state===SAVE_QUEUE_STATE.IDLE,state};
+    for(const waiter of waiters){
+      waiters.delete(waiter);
+      if(waiter.timer)clearTimeout(waiter.timer);
+      waiter.resolve(result);
+    }
+  };
+  const waitForIdle=(timeoutMs=50000)=>{
+    if(isSettled())return Promise.resolve({ok:state===SAVE_QUEUE_STATE.IDLE,state});
+    return new Promise(resolve=>{
+      const waiter={resolve};
+      waiters.add(waiter);
+      if(timeoutMs>0)waiter.timer=setTimeout(()=>{
+        if(!waiters.delete(waiter))return;
+        resolve({ok:false,state,timeout:true});
+      },timeoutMs);
+    });
+  };
 
   const flush=async()=>{
     if(inFlight||retryScheduled||state===SAVE_QUEUE_STATE.CONFLICT||!pending)return;
@@ -69,6 +92,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
     }finally{
       inFlight=false;
       if(drain&&pending)void flush();
+      else settleWaiters();
     }
   };
 
@@ -77,15 +101,17 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
       pending=snapshot;
       if([SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.OFFLINE].includes(state)){attempts=0;transition(SAVE_QUEUE_STATE.IDLE);}
       void flush();
+      return waitForIdle();
     },
     flush,
+    waitForIdle,
     resume(){
       if(state!==SAVE_QUEUE_STATE.OFFLINE)return;
       attempts=0;
       transition(SAVE_QUEUE_STATE.IDLE);
       void flush();
     },
-    discard(){pending=null;attempts=0;retryScheduled=false;transition(SAVE_QUEUE_STATE.IDLE);},
+    discard(){pending=null;attempts=0;retryScheduled=false;transition(SAVE_QUEUE_STATE.IDLE);settleWaiters();},
     getState:()=>state,
     hasPending,
   };
