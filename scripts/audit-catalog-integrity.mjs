@@ -14,6 +14,11 @@ const catalogs=[
   "usuarios","obras","employees","terceirizados","unidades","materiais",
   "fornecedores","composicoes","composicoesEmpresa","fases","categoriasDesp",
 ];
+const commercialCollections=[
+  "leads","atividades","reunioes","propostas","contratos","clientes",
+  "parceiros","metas","comissoes","vendas","pesquisas","opportunities",
+  "stageEvents",
+];
 const idSet=value=>new Set((Array.isArray(value)?value:[]).map(item=>String(item?.id||"")).filter(Boolean));
 
 const {data:row,error}=await db.from("company_app_data")
@@ -21,6 +26,9 @@ const {data:row,error}=await db.from("company_app_data")
 if(error)throw error;
 const current=decodeAppData(row.value);
 const currentCounts=Object.fromEntries(catalogs.map(key=>[key,Array.isArray(current[key])?current[key].length:0]));
+const commercialCounts=Object.fromEntries(commercialCollections.map(key=>[
+  key,Array.isArray(current.comercial?.[key])?current.comercial[key].length:0,
+]));
 
 const {data:events,error:auditError}=await db.from("audit_events")
   .select("id,created_at,action,actor_id,before_snapshot,after_snapshot")
@@ -29,6 +37,7 @@ if(auditError)throw auditError;
 
 const suspicious=[];
 const recoverable=new Map(catalogs.map(key=>[key,new Set()]));
+const commercialRecoverable=new Map(commercialCollections.map(key=>[key,new Set()]));
 for(const event of events||[]){
   const before=event.before_snapshot||{},after=event.after_snapshot||{};
   for(const key of catalogs){
@@ -45,11 +54,28 @@ for(const event of events||[]){
       });
     }
   }
+  for(const key of commercialCollections){
+    if(!Array.isArray(before.comercial?.[key])||!Array.isArray(after.comercial?.[key]))continue;
+    const previous=idSet(before.comercial[key]),next=idSet(after.comercial[key]);
+    const removed=[...previous].filter(id=>!next.has(id));
+    const added=[...next].filter(id=>!previous.has(id));
+    if(removed.length){
+      const currentIds=idSet(current.comercial?.[key]);
+      removed.filter(id=>!currentIds.has(id)).forEach(id=>commercialRecoverable.get(key).add(id));
+      suspicious.push({
+        eventId:event.id,at:event.created_at,action:event.action,
+        section:`comercial.${key}`,before:previous.size,after:next.size,
+        removed:removed.length,added:added.length,
+      });
+    }
+  }
 }
 
 console.log(JSON.stringify({
   updatedAt:row.updated_at,
   currentCounts,
+  commercialCounts,
   suspicious:suspicious.slice(0,100),
   recoverableCounts:Object.fromEntries([...recoverable].map(([key,ids])=>[key,ids.size])),
+  commercialRecoverableCounts:Object.fromEntries([...commercialRecoverable].map(([key,ids])=>[key,ids.size])),
 },null,2));
