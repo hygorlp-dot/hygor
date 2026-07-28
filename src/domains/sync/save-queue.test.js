@@ -76,6 +76,63 @@ describe("fila serializada de salvamento", () => {
     expect(failure.result.reason).toBe("FIN-003 bloqueou a seção.");
   });
 
+  it("não repete recusas 403 nem timeout HTTP 408",async()=>{
+    for(const status of [403,408]){
+      let calls=0;
+      const queue=createSaveQueue({save:async()=>{calls+=1;return{ok:false,status};}});
+      queue.enqueue({id:String(status)});
+      await Promise.resolve();
+      expect(calls).toBe(1);
+      expect(queue.getState()).toBe(SAVE_QUEUE_STATE.FAILED);
+    }
+  });
+
+  it("repete 500 somente até o limite configurado",async()=>{
+    const scheduled=[];let calls=0;
+    const queue=createSaveQueue({
+      maxRetries:3,
+      save:async()=>{calls+=1;return{ok:false,status:500};},
+      schedule:(fn,delay)=>{scheduled.push({fn,delay});return scheduled.length;},
+    });
+    queue.enqueue({id:"server-error"});await Promise.resolve();
+    expect(scheduled[0].delay).toBe(1500);
+    scheduled.shift().fn();await Promise.resolve();
+    expect(scheduled[0].delay).toBe(3000);
+    scheduled.shift().fn();await Promise.resolve();
+    expect(scheduled[0].delay).toBe(4500);
+    scheduled.shift().fn();await Promise.resolve();
+    expect(calls).toBe(4);
+    expect(queue.getState()).toBe(SAVE_QUEUE_STATE.FAILED);
+    expect(scheduled).toHaveLength(0);
+  });
+
+  it("respeita Retry-After do servidor em respostas 429",async()=>{
+    const scheduled=[];
+    const queue=createSaveQueue({
+      save:async()=>({ok:false,status:429,retryAfter:8}),
+      schedule:(fn,delay)=>{scheduled.push({fn,delay});return scheduled.length;},
+    });
+    queue.enqueue({id:"rate-limit"});await Promise.resolve();
+    expect(scheduled[0].delay).toBe(8000);
+    queue.destroy();
+  });
+
+  it("cancela o único timer pendente ao destruir a fila",async()=>{
+    const scheduled=[];const cancelled=[];
+    const queue=createSaveQueue({
+      save:async()=>({ok:false,status:503}),
+      schedule:fn=>{const token={fn};scheduled.push(token);return token;},
+      cancelSchedule:token=>cancelled.push(token),
+    });
+    queue.enqueue({id:"retry"});await Promise.resolve();
+    expect(scheduled).toHaveLength(1);
+    queue.destroy();
+    expect(cancelled).toEqual([scheduled[0]]);
+    expect(queue.hasPending()).toBe(false);
+    scheduled[0].fn();await Promise.resolve();
+    expect(queue.getState()).toBe(SAVE_QUEUE_STATE.FAILED);
+  });
+
   it("aguarda de verdade a requisição em voo antes de liberar um comando seguinte", async()=>{
     const first=deferred();let settled=false;
     const queue=createSaveQueue({save:async()=>first.promise});

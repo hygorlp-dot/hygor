@@ -1,4 +1,5 @@
 import { calculateAttendanceDayCost } from "../ponto/payroll.js";
+import { resolveEmployeeAttendanceObraId } from "../ponto/permissions.js";
 
 const requiredFunction = (value, name) => {
   if (typeof value !== "function") {
@@ -34,10 +35,9 @@ export const createLaborCostEngine = ({
     let laborCost = 0;
     let benefitCost = 0;
 
-    const workForDate = (employee, date) => {
-      const record = data?.attendance?.[employee.id]?.[date];
-      return record?.obraId || employee.obra || "";
-    };
+    const workForDate = (employee, date) => resolveEmployeeAttendanceObraId({
+      data,employee,date,
+    });
 
     (data?.employees || []).forEach(employee => {
       days.forEach(date => {

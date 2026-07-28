@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { projectDataForUser } from "./data-projection.js";
+import { projectDataForUser, publicUser } from "./data-projection.js";
 
 const payload={
   usuarios:[
@@ -56,6 +56,46 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
   it("não entrega PIX ou remuneração a quem não é do RH",()=>{
     const projected=projectDataForUser(payload,{id:"u-a",role:"financeiro",obraId:"obra-a"});
     expect(projected.employees).toEqual([{id:"e-a",obra:"obra-a",name:"Equipe A"}]);
+  });
+
+  it("preserva o apontamento histórico na obra antiga após transferência",()=>{
+    const transferred={
+      ...payload,
+      employees:[{
+        id:"e-a",name:"Equipe A",obra:"obra-b",
+        obraHistory:[{date:"2026-07-15",fromObraId:"obra-a",toObraId:"obra-b"}],
+      }],
+      attendance:{
+        "e-a":{
+          "2026-07-10":{status:"P"},
+          "2026-07-20":{status:"P"},
+        },
+      },
+    };
+    const oldObra=projectDataForUser(transferred,{id:"eng-a",role:"engenheiro",obraId:"obra-a"});
+    const newObra=projectDataForUser(transferred,{id:"eng-b",role:"engenheiro",obraId:"obra-b"});
+    expect(oldObra.employees).toHaveLength(1);
+    expect(oldObra.attendance).toEqual({
+      "e-a":{"2026-07-10":{status:"P",obraId:"obra-a",obraIdInferred:true}},
+    });
+    expect(newObra.attendance).toEqual({
+      "e-a":{"2026-07-20":{status:"P",obraId:"obra-b",obraIdInferred:true}},
+    });
+  });
+
+  it("não entrega ponto, bloqueios ou liberações ao engenheiro auditor",()=>{
+    const projected=projectDataForUser(payload,{id:"u-a",role:"engenheiro_auditor",obraId:"obra-a"});
+    expect(projected.attendance).toBeUndefined();
+    expect(projected.attendanceLocks).toBeUndefined();
+    expect(projected.unlockRequests).toBeUndefined();
+    expect(projected.dailyCheckDate).toBeUndefined();
+  });
+
+  it("remove abas personalizadas de ponto do perfil auditor",()=>{
+    expect(publicUser({
+      id:"auditor",nome:"Auditor",role:"engenheiro_auditor",
+      accessTabs:["home","ponto","ponto_geral","conferencia"],
+    }).accessTabs).toEqual(["home","conferencia"]);
   });
 
   it("projeta frota, manutenção e transferências relacionadas à obra atribuída",()=>{

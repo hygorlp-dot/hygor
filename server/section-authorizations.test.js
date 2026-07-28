@@ -9,13 +9,11 @@ describe("autorização de produção",()=>{
     expect(authorizeSectionChanges({role:"financeiro",obraId:"o1"},{payments:[{id:"p1",valor:100}]})).toMatch(/precisam estar vinculados/);
     expect(authorizeSectionChanges({role:"financeiro",obraId:"o1"},{payments:[{id:"p1",obraId:"o1",valor:100}]})).toBe("");
   });
-  it("permite ao engenheiro de campo confirmar a equipe e lançar presença apenas na própria obra",()=>{
+  it("reserva ponto, bloqueio e verificação diária aos comandos granulares",()=>{
     const engenheiro={role:"engenheiro",obraId:"o1"};
-    expect(authorizeSectionChanges(engenheiro,{dailyCheckDate:"2026-07-27"})).toBe("");
-    expect(authorizeSectionChanges(engenheiro,{attendance:{e1:{"2026-07-27":{status:"P",obraId:"o1"}}}})).toBe("");
-    expect(authorizeSectionChanges(engenheiro,{attendance:{e1:{"2026-07-27":{status:"P",obraId:"o2"}}}})).toMatch(/outra obra/i);
-    expect(authorizeSectionChanges(engenheiro,{attendanceLocks:{"2026-07-27__o1":{id:"2026-07-27__o1",obraId:"o1",locked:true}}})).toBe("");
-    expect(authorizeSectionChanges(engenheiro,{attendanceLocks:{"2026-07-27__o2":{id:"2026-07-27__o2",obraId:"o2",locked:true}}})).toMatch(/outra obra/i);
+    expect(authorizeSectionChanges(engenheiro,{dailyCheckDate:"2026-07-27"})).toMatch(/não pode ser alterada por esta rota/);
+    expect(authorizeSectionChanges(engenheiro,{attendance:{e1:{"2026-07-27":{status:"P",obraId:"o1"}}}})).toMatch(/não pode ser alterada por esta rota/);
+    expect(authorizeSectionChanges(engenheiro,{attendanceLocks:{"2026-07-27__o1":{id:"2026-07-27__o1",obraId:"o1",locked:true}}})).toMatch(/não pode ser alterada por esta rota/);
   });
   it("permite ao RH administrar contratos de terceiros sem liberar medições ou pagamentos",()=>{
     const contrato={id:"t1",obraId:"o1",name:"Prestador"};

@@ -67,6 +67,54 @@ const installIsolatedBackend = async (page, stateOverride = {}, options = {}) =>
         },
       });
     }
+    if(String(body.action||"").startsWith("attendance-")){
+      saves.push(structuredClone(body));
+      let result={};
+      if(body.action==="attendance-upsert"){
+        const attendance={...(state.attendance||{})};
+        const days={...(attendance[body.employeeId]||{})};
+        if(body.record?.status)days[body.date]=structuredClone(body.record);
+        else delete days[body.date];
+        attendance[body.employeeId]=days;
+        state={...state,attendance};
+        if(body.confirmDailyCheck)state.dailyCheckDate=body.date;
+        result={attendance:[{
+          employeeId:body.employeeId,date:body.date,
+          obraId:body.selectedObraId||body.record?.obraId||"",
+          record:body.record?.status?structuredClone(body.record):null,
+        }],dailyCheckDate:state.dailyCheckDate||""};
+      }
+      if(body.action==="attendance-batch-upsert"){
+        const attendance={...(state.attendance||{})};
+        const confirmed=[];
+        for(const patch of body.patches||[]){
+          const days={...(attendance[patch.employeeId]||{})};
+          if(patch.record?.status)days[patch.date]=structuredClone(patch.record);
+          else delete days[patch.date];
+          attendance[patch.employeeId]=days;
+          confirmed.push({
+            employeeId:patch.employeeId,date:patch.date,
+            obraId:patch.selectedObraId||patch.record?.obraId||"",
+            record:patch.record?.status?structuredClone(patch.record):null,
+          });
+        }
+        state={...state,attendance};
+        if(body.confirmDailyCheck)state.dailyCheckDate=body.patches?.[0]?.date||state.dailyCheckDate;
+        result={attendance:confirmed,dailyCheckDate:state.dailyCheckDate||""};
+      }
+      if(body.action==="attendance-daily-check"){
+        state={...state,dailyCheckDate:body.date};
+        result={dailyCheckDate:body.date};
+      }
+      if(body.action==="attendance-lock"){
+        const id=`${body.date}__${body.obraId}`;
+        const lock={id,obraId:body.obraId,date:body.date,locked:true};
+        state={...state,attendanceLocks:{...(state.attendanceLocks||{}),[id]:lock}};
+        result={lock};
+      }
+      if(options.saveDelayMs)await new Promise(resolve=>setTimeout(resolve,options.saveDelayMs));
+      return route.fulfill({json:{ok:true,result,updatedAt:new Date().toISOString()}});
+    }
     if (body.action === "save-sections") {
       saves.push(structuredClone(body.sections || {}));
       state = { ...state, ...(body.sections || {}) };
@@ -261,7 +309,7 @@ test("engenheiro salva, recarrega e finaliza o ponto da própria obra no mobile"
   await expect.poll(() => Object.values(backend.getState().attendanceLocks || {}).length)
     .toBe(1);
 
-  const lockSave = backend.getSaves().find(save => save.attendanceLocks);
+  const lockSave = backend.getSaves().find(save => save.action==="attendance-lock");
   expect(lockSave).toBeTruthy();
   expect(lockSave.changeLog).toBeUndefined();
   expect(await page.evaluate(() =>

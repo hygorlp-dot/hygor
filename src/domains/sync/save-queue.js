@@ -5,16 +5,18 @@ export const SAVE_QUEUE_STATE = Object.freeze({
 // Serializa snapshots já reconciliados pelo App. A fila não descarta uma nova
 // alteração enquanto uma gravação está em voo e nunca reinicia sozinha depois
 // de atingir o limite de falhas.
-export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}, onConflict = () => {}, onRetry = () => {}, onFailed = () => {}, schedule = setTimeout, maxRetries = 3, retryDelay = attempt => 1500 * attempt, isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false }) => {
+export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}, onConflict = () => {}, onRetry = () => {}, onFailed = () => {}, schedule = setTimeout, cancelSchedule = clearTimeout, maxRetries = 3, retryDelay = attempt => 1500 * attempt, isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false }) => {
   let state=SAVE_QUEUE_STATE.IDLE;
   let pending=null;
   let inFlight=false;
   let retryScheduled=false;
+  let retryTimer=null;
+  let destroyed=false;
   let attempts=0;
   const waiters=new Set();
 
   const transition=next=>{state=next;onState(next);};
-  const hasPending=()=>!!pending||inFlight||retryScheduled;
+  const hasPending=()=>!destroyed&&(!!pending||inFlight||retryScheduled);
   const terminal=()=>[SAVE_QUEUE_STATE.CONFLICT,SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.OFFLINE].includes(state);
   const isSettled=()=>!inFlight&&!retryScheduled&&(terminal()||(!pending&&state===SAVE_QUEUE_STATE.IDLE));
   const settleWaiters=()=>{
@@ -39,7 +41,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
   };
 
   const flush=async()=>{
-    if(inFlight||retryScheduled||state===SAVE_QUEUE_STATE.CONFLICT||!pending)return;
+    if(destroyed||inFlight||retryScheduled||state===SAVE_QUEUE_STATE.CONFLICT||!pending)return;
     const target=pending;
     pending=null;
     inFlight=true;
@@ -56,18 +58,26 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
       // repetindo a mesma requisição. Exibir o motivo real evita a mensagem
       // enganosa "sem resposta" e impede um loop de 409/403.
       const status=Number(result?.status||0);
-      if(status>=400&&status<500&&![408,429].includes(status)){
+      const retryable=[0,429,500,502,503,504].includes(status);
+      if(!retryable){
         transition(SAVE_QUEUE_STATE.FAILED);
         onFailed({result,attempts,pending:target,offline:false});
         return;
       }
       attempts+=1;
       if(attempts<=maxRetries){
-        const delay=retryDelay(attempts);
+        const serverDelay=status===429
+          ?Math.max(0,Number(result?.retryAfter||result?.retry_after_seconds||0)*1000)
+          :0;
+        const delay=Math.max(retryDelay(attempts),serverDelay);
         retryScheduled=true;
         transition(SAVE_QUEUE_STATE.RETRY_SCHEDULED);
         onRetry({result,attempt:attempts,delay});
-        schedule(()=>{retryScheduled=false;void flush();},delay);
+        retryTimer=schedule(()=>{
+          retryTimer=null;
+          retryScheduled=false;
+          void flush();
+        },delay);
       }else{
         transition(SAVE_QUEUE_STATE.FAILED);
         onFailed({result,attempts,pending:target});
@@ -98,6 +108,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
 
   return {
     enqueue(snapshot){
+      if(destroyed)return Promise.resolve({ok:false,state:SAVE_QUEUE_STATE.FAILED,destroyed:true});
       pending=snapshot;
       if([SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.OFFLINE].includes(state)){attempts=0;transition(SAVE_QUEUE_STATE.IDLE);}
       void flush();
@@ -106,12 +117,22 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
     flush,
     waitForIdle,
     resume(){
-      if(state!==SAVE_QUEUE_STATE.OFFLINE)return;
+      if(destroyed||state!==SAVE_QUEUE_STATE.OFFLINE)return;
       attempts=0;
       transition(SAVE_QUEUE_STATE.IDLE);
       void flush();
     },
-    discard(){pending=null;attempts=0;retryScheduled=false;transition(SAVE_QUEUE_STATE.IDLE);settleWaiters();},
+    discard(){
+      pending=null;attempts=0;retryScheduled=false;
+      if(retryTimer!=null){cancelSchedule(retryTimer);retryTimer=null;}
+      transition(SAVE_QUEUE_STATE.IDLE);settleWaiters();
+    },
+    destroy(){
+      destroyed=true;pending=null;attempts=0;retryScheduled=false;
+      if(retryTimer!=null){cancelSchedule(retryTimer);retryTimer=null;}
+      transition(SAVE_QUEUE_STATE.FAILED);
+      settleWaiters();
+    },
     getState:()=>state,
     hasPending,
   };

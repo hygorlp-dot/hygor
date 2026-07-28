@@ -31,12 +31,12 @@ import { validateProcurementChain } from "../server/procurement-chain-policy.js"
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { findSectionConflicts } from "../server/three-way-conflicts.js";
-import { mergeScopedAttendance, mergeScopedAttendanceLocks } from "../server/scoped-attendance-merge.js";
 import { authorizeSectionChanges, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
+import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import { hasLegacyFinancialWrite, validateFinancialWritePath } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
@@ -58,6 +58,7 @@ const FINANCIAL_COMMAND_ROLES = {
 };
 const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
 const RECONCILIATION_OPERATOR_ROLES=new Set(["admin","financeiro"]);
+const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
 const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
@@ -95,9 +96,9 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
 const BACKUP_FOLDER="00 - Backups ARCD";
 const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
 
-const db = createClient(URL, SERVICE, {
+const db = URL&&SERVICE ? createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
-});
+}) : null;
 
 const listarLinhasBackup=async()=>{
   const rows=[];let from=0;
@@ -293,9 +294,44 @@ const salvarComAuditoria = async ({ expectedUpdatedAt, value, actor, action, bef
     p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
     p_correlation_id:correlationId,p_action:action,p_before:before||{},p_after:after||{},
   });
-  if(error)throw error;
+  if(error){
+    if(/PGRST202|schema cache|Could not find the function|does not exist/i.test(`${error.code||""} ${error.message||""}`)){
+      const missing=new Error("A migration de persistência e auditoria ainda não foi aplicada.");
+      missing.code="AUDIT_RPC_MIGRATION_REQUIRED";
+      throw missing;
+    }
+    throw error;
+  }
   const result=Array.isArray(data)?data[0]:data;
   return { applied:!!result?.applied, updatedAt:result?.updated_at||null, correlationId };
+};
+
+const executarArquivoPontoTransacional=async({
+  mode,expectedUpdatedAt,mainValue,archiveKey,archiveValue,actor,before,after,
+})=>{
+  const correlationId=crypto.randomUUID();
+  const rpc=mode==="archive"?"attendance_archive_transaction":"attendance_restore_transaction";
+  const args={
+    p_company_id:COMPANY,p_main_key:KEY,p_archive_key:archiveKey,
+    p_expected_updated_at:expectedUpdatedAt,p_main_value:encodeAppData(mainValue),
+    p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
+    p_actor_role:String(actor?.role||""),
+    p_correlation_id:correlationId,p_before:before||{},p_after:after||{},
+  };
+  if(mode==="archive")args.p_archive_value=archiveValue||{};
+  const {data,error}=await db.rpc(rpc,args);
+  if(error){
+    const wrapped=new Error(/PGRST202|schema cache|Could not find the function|does not exist/i.test(`${error.code||""} ${error.message||""}`)
+      ?"A migration transacional do arquivo de ponto não foi aplicada."
+      :"A transação do arquivo de ponto falhou.");
+    wrapped.code=/migration/i.test(wrapped.message)?"ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED":"ATTENDANCE_ARCHIVE_FAILED";
+    throw wrapped;
+  }
+  const result=Array.isArray(data)?data[0]:data;
+  return {
+    applied:!!result?.applied,updatedAt:result?.updated_at||null,
+    reason:String(result?.reason||""),correlationId,
+  };
 };
 
 const salvarFinanceiroComAuditoria = async ({ expectedUpdatedAt, value, actor, action, before, after }) => {
@@ -449,7 +485,10 @@ const validarAlteracoesConferencias=(usuario,anterior=[],proximo=[],autoritativo
 
 export default async function handler(req, res) {
   if (!URL || !SERVICE) {
-    return res.status(503).json({ error: "Banco não configurado no servidor." });
+    return res.status(503).json({
+      error:"Persistência não configurada: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausente.",
+      code:"PERSISTENCE_ENV_MISSING",
+    });
   }
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
@@ -802,6 +841,40 @@ export default async function handler(req, res) {
       return res.status(200).json({ok:true,resumo:executed.resumo,data:projectDataForUser(executed.data,usuario),updatedAt:saved.updatedAt||new Date().toISOString()});
     }
 
+    // Ponto é persistido por fato, nunca pela substituição da seção projetada.
+    // O payload permanece constante (um registro ou lote curto), a validação
+    // usa o dataset autoritativo e a mesma RPC grava mutação + auditoria.
+    if(ATTENDANCE_COMMANDS.has(action)){
+      const command={...req.body,action};
+      const operationNow=new Date().toISOString();
+      let base={payload:atual,updatedAt};
+      for(let attempt=0;attempt<6;attempt+=1){
+        const applied=applyAttendanceCommand(base.payload,usuario,command,operationNow);
+        if(!applied.ok)return res.status(applied.status||400).json({ok:false,error:applied.error});
+        if(applied.idempotent){
+          return res.status(200).json({
+            ok:true,idempotent:true,result:applied.result,updatedAt:base.updatedAt,
+          });
+        }
+        const saved=await salvarComAuditoria({
+          expectedUpdatedAt:base.updatedAt,value:applied.data,actor:usuario,
+          action:applied.audit?.action||action,
+          before:applied.audit?.before||{},
+          after:applied.audit?.after||{operationId:command.operationId},
+        });
+        if(saved.applied){
+          return res.status(200).json({
+            ok:true,result:applied.result,updatedAt:saved.updatedAt||operationNow,
+          });
+        }
+        base=await lerLinha();
+      }
+      return res.status(503).json({
+        ok:false,code:"ATTENDANCE_CONCURRENCY_BUSY",
+        error:"Há muitas atualizações de ponto ao mesmo tempo. O servidor preservou os dados; tente novamente em instantes.",
+      });
+    }
+
     // Comandos operacionais usam versão da própria entidade, não a semântica
     // insegura de "último snapshot vence". A rota ainda devolve a projeção
     // filtrada pelo papel para poder substituir o save legado gradualmente.
@@ -967,6 +1040,41 @@ export default async function handler(req, res) {
       });
     }
 
+    if(action==="persistence-health"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores verificam a persistência."});
+      const tableCheck=await db.from("company_app_data").select("key",{head:true,count:"exact"})
+        .eq("company_id",COMPANY).eq("key",KEY);
+      if(tableCheck.error)return res.status(503).json({
+        ok:false,code:"COMPANY_APP_DATA_UNAVAILABLE",
+        error:"A tabela principal não respondeu à verificação.",
+      });
+      const probeId=crypto.randomUUID();
+      const auditCheck=await db.rpc("company_save_with_audit",{
+        p_company_id:`${COMPANY}__health_probe`,p_key:"health",
+        p_expected_updated_at:"1970-01-01T00:00:00.000Z",p_value:{},
+        p_actor_id:String(usuario.id||"admin"),p_actor_name:String(usuario.nome||"Administrador"),
+        p_correlation_id:probeId,p_action:"health_probe",p_before:{},p_after:{},
+      });
+      if(auditCheck.error)return res.status(503).json({
+        ok:false,code:"AUDIT_RPC_UNAVAILABLE",
+        error:"A RPC append-only não está disponível. Execute migrations/20260725_append_only_audit.sql.",
+      });
+      const archiveCheck=await db.rpc("attendance_archive_transaction",{
+        p_company_id:`${COMPANY}__health_probe`,p_main_key:"health",p_archive_key:"health_archive",
+        p_expected_updated_at:"1970-01-01T00:00:00.000Z",p_main_value:{},p_archive_value:{},
+        p_actor_id:String(usuario.id||"admin"),p_actor_name:String(usuario.nome||"Administrador"),
+        p_actor_role:String(usuario.role||""),
+        p_correlation_id:crypto.randomUUID(),p_before:{},p_after:{},
+      });
+      if(archiveCheck.error)return res.status(503).json({
+        ok:false,code:"ATTENDANCE_ARCHIVE_RPC_UNAVAILABLE",
+        error:"A RPC transacional do arquivo de ponto não está disponível. Execute migrations/006_attendance_archive_transaction.up.sql.",
+      });
+      return res.status(200).json({
+        ok:true,companyAppData:true,auditRpc:true,attendanceArchiveRpc:true,
+      });
+    }
+
     // ── 4. Salvar somente os módulos alterados ─────────────────────
     // O estado histórico continua compatível com o blob existente, porém o
     // navegador não precisa mais reenviar (e duplicar como base) toda a empresa
@@ -976,6 +1084,12 @@ export default async function handler(req, res) {
     if (action === "save-sections") {
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
+      const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const legacyPointWrite=chaves.find(key=>commandOnlySections.includes(key));
+      if(legacyPointWrite)return res.status(409).json({
+        error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
+        code:"ATTENDANCE_GRANULAR_REQUIRED",
+      });
       // Mesmo em sombra, toda mutação financeira atualiza a projeção
       // canônica na mesma transação do blob. Assim o DRE pode ler o razão sem
       // ficar defasado; FIN-003 continua sendo apenas o bloqueio das escritas
@@ -1025,11 +1139,7 @@ export default async function handler(req, res) {
           const recebido=concorrente&&baseSections&&Object.prototype.hasOwnProperty.call(baseSections,k)
             ? mesclarTresVias(baseSections[k],sections[k],estado?.[k])
             : sections[k];
-          proximo[k]=k==="attendance"&&usuario.obraId
-            ? mergeScopedAttendance({current:estado?.attendance,incoming:recebido,user:usuario,employees:estado?.employees})
-            : k==="attendanceLocks"&&usuario.obraId
-              ? mergeScopedAttendanceLocks({current:estado?.attendanceLocks,incoming:recebido,user:usuario})
-            : recebido;
+          proximo[k]=recebido;
         });
         return proximo;
       };
@@ -1053,39 +1163,57 @@ export default async function handler(req, res) {
         gravado={updated_at:retry.updatedAt};combinado=true;
       }
       if(chaves.includes("usuarios"))await salvarIndicePerfis(valor);
-      return res.status(200).json({ok:true,merged:combinado,data:combinado?valor:undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
+      return res.status(200).json({ok:true,merged:combinado,data:combinado?projectDataForUser(valor,usuario):undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
     }
 
     // ── 4b. Salvar blob completo (compatibilidade / primeiro acesso) ─
     if (action === "save") {
       if (!payload) return res.status(400).json({ error: "Nada para salvar." });
-      const secoesAlteradas=Object.fromEntries([...new Set([...Object.keys(payload||{}),...Object.keys(atual||{})])]
-        .filter(key=>!igual(payload?.[key],atual?.[key])).map(key=>[key,payload?.[key]]));
+      const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const attemptedCommandOnly=commandOnlySections.find(key=>
+        Object.prototype.hasOwnProperty.call(payload,key)&&!igual(payload?.[key],atual?.[key]));
+      if(attemptedCommandOnly)return res.status(409).json({
+        error:`A seção ${attemptedCommandOnly} exige o comando granular do servidor.`,
+        code:"ATTENDANCE_GRANULAR_REQUIRED",
+      });
+      const incomingPayload={...payload};
+      commandOnlySections.forEach(key=>{
+        if(Object.prototype.hasOwnProperty.call(atual||{},key))incomingPayload[key]=atual[key];
+        else delete incomingPayload[key];
+      });
+      const secoesAlteradas=Object.fromEntries([...new Set([...Object.keys(incomingPayload||{}),...Object.keys(atual||{})])]
+        .filter(key=>!igual(incomingPayload?.[key],atual?.[key])).map(key=>[key,incomingPayload?.[key]]));
+      const legacyPointWrite=Object.keys(secoesAlteradas).find(key=>
+        commandOnlySections.includes(key));
+      if(legacyPointWrite)return res.status(409).json({
+        error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
+        code:"ATTENDANCE_GRANULAR_REQUIRED",
+      });
       const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesAlteradas);
       const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesAlteradas});
       if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas);
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
-      const erroExclusao=validateNoPhysicalDeletes(atual,payload);
+      const erroExclusao=validateNoPhysicalDeletes(atual,incomingPayload);
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
-      const erroBaseline=validateBudgetBaselinePolicy(atual,payload,usuario);
+      const erroBaseline=validateBudgetBaselinePolicy(atual,incomingPayload,usuario);
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
-      const erroBaselinePlano=validatePlanningBaselinePolicy(atual,payload,usuario);
+      const erroBaselinePlano=validatePlanningBaselinePolicy(atual,incomingPayload,usuario);
       if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
-      if(!igual(payload.conferencias,atual?.conferencias)){
-        const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],payload.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
+      if(!igual(incomingPayload.conferencias,atual?.conferencias)){
+        const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],incomingPayload.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
         if(erroPermissao)return res.status(403).json({error:erroPermissao});
       }
-      if(!igual(payload.pedidos,atual?.pedidos)){
-        const erroCompras=validatePurchaseChanges(usuario,basePayload?.pedidos||atual?.pedidos||[],payload.pedidos||[]);
+      if(!igual(incomingPayload.pedidos,atual?.pedidos)){
+        const erroCompras=validatePurchaseChanges(usuario,basePayload?.pedidos||atual?.pedidos||[],incomingPayload.pedidos||[]);
         if(erroCompras)return res.status(403).json({error:erroCompras});
       }
-      if(["solicitacoesCompra","cotacoes","pedidos","notasFiscais"].some(key=>!igual(payload?.[key],atual?.[key]))){
-        const erroCadeiaCompras=validateProcurementChain(payload);
+      if(["solicitacoesCompra","cotacoes","pedidos","notasFiscais"].some(key=>!igual(incomingPayload?.[key],atual?.[key]))){
+        const erroCadeiaCompras=validateProcurementChain(incomingPayload);
         if(erroCadeiaCompras)return res.status(409).json({error:erroCadeiaCompras});
       }
-      if(!igual(payload.obras,atual?.obras)){
-        const erroObras=validarExclusaoObras(usuario,basePayload?.obras||atual?.obras||[],payload.obras||[]);
+      if(!igual(incomingPayload.obras,atual?.obras)){
+        const erroObras=validarExclusaoObras(usuario,basePayload?.obras||atual?.obras||[],incomingPayload.obras||[]);
         if(erroObras)return res.status(403).json({error:erroObras});
       }
 
@@ -1101,20 +1229,10 @@ export default async function handler(req, res) {
       // conflito eterno. O ponto simplesmente não salvava.
       const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
       if(houveConcorrencia&&basePayload){
-        const conflicts=findSectionConflicts(basePayload,payload,atual,Object.keys(secoesAlteradas));
+        const conflicts=findSectionConflicts(basePayload,incomingPayload,atual,Object.keys(secoesAlteradas));
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
       }
-      let valor=houveConcorrencia&&basePayload?mesclarTresVias(basePayload,payload,atual):payload;
-      if(usuario.obraId&&!igual(payload?.attendance,atual?.attendance)){
-        valor={...valor,attendance:mergeScopedAttendance({
-          current:atual?.attendance,incoming:valor?.attendance,user:usuario,employees:atual?.employees,
-        })};
-      }
-      if(usuario.obraId&&!igual(payload?.attendanceLocks,atual?.attendanceLocks)){
-        valor={...valor,attendanceLocks:mergeScopedAttendanceLocks({
-          current:atual?.attendanceLocks,incoming:valor?.attendanceLocks,user:usuario,
-        })};
-      }
+      let valor=houveConcorrencia&&basePayload?mesclarTresVias(basePayload,incomingPayload,atual):incomingPayload;
       if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:atual,currentUpdatedAt:updatedAt});
 
       const agora = new Date().toISOString();
@@ -1132,9 +1250,9 @@ export default async function handler(req, res) {
       if(!gravado){
         if(!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou ao mesmo tempo."});
         const recente=await lerLinha();
-        const conflicts=findSectionConflicts(basePayload,payload,recente.payload,Object.keys(secoesAlteradas));
+        const conflicts=findSectionConflicts(basePayload,incomingPayload,recente.payload,Object.keys(secoesAlteradas));
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
-        valor=mesclarTresVias(basePayload,payload,recente.payload);
+        valor=mesclarTresVias(basePayload,incomingPayload,recente.payload);
         const novoAgora=new Date().toISOString();
         const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
           before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
@@ -1142,7 +1260,7 @@ export default async function handler(req, res) {
         gravado={updated_at:retry.updatedAt};
       }
       if(!igual(valor?.usuarios,atual?.usuarios))await salvarIndicePerfis(valor);
-      return res.status(200).json({ ok: true, merged:!!houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora), data:(houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora))?valor:undefined, updatedAt: gravado?.updated_at || agora });
+      return res.status(200).json({ ok: true, merged:!!houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora), data:(houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora))?projectDataForUser(valor,usuario):undefined, updatedAt: gravado?.updated_at || agora });
     }
 
     // ── 5. Quinzenas arquivadas ────────────────────────────────────
@@ -1231,15 +1349,6 @@ export default async function handler(req, res) {
         summarizeArchivedCosts({ attendance: fatia, employeesSnapshot })
       );
 
-      const { error: errArq } = await db.from("company_app_data")
-        .insert({
-          company_id: COMPANY,
-          key: chaveArquivo(quinzenaId),
-          value: { meta, attendance: fatia, employeesSnapshot, financialSnapshot: resumoFinanceiro },
-          updated_at: agora,
-        });
-      if (errArq) throw errArq;
-
       const novoPrincipal = {
         ...atual,
         attendance: restante,
@@ -1248,21 +1357,25 @@ export default async function handler(req, res) {
           [quinzenaId]: resumoFinanceiro,
         },
         quinzenasArquivadas: { ...(atual?.quinzenasArquivadas || {}), [quinzenaId]: meta },
-        changeLog: [
-          ...(atual?.changeLog || []),
-          { id: `arq_${Date.now()}`, date: agora.slice(0, 10), at: agora, type: "quinzena_archived",
-            operador: usuario.nome, operadorId: usuario.id,
-            message: `${usuario.nome} finalizou e arquivou a quinzena ${meta.label} (${totalLanc} lançamento(s) de ${employeesSnapshot.length} funcionário(s))` },
-        ].slice(-200),
       };
-
-      const { data: gravado, error: errMain } = await db.from("company_app_data")
-        .update({ value: encodeAppData(novoPrincipal), updated_at: agora, updated_by: null })
-        .eq("company_id", COMPANY).eq("key", KEY)
-        .select("updated_at").maybeSingle();
-      if (errMain) throw errMain;
-
-      return res.status(200).json({ ok: true, data: novoPrincipal, updatedAt: gravado?.updated_at || agora, meta });
+      const archiveValue={meta,attendance:fatia,employeesSnapshot,financialSnapshot:resumoFinanceiro};
+      const transaction=await executarArquivoPontoTransacional({
+        mode:"archive",expectedUpdatedAt:updatedAt,mainValue:novoPrincipal,
+        archiveKey:chaveArquivo(quinzenaId),archiveValue,actor:usuario,
+        before:{quinzenaId,attendance:fatia},
+        after:{quinzenaId,meta,financialSnapshot:resumoFinanceiro},
+      });
+      if(!transaction.applied){
+        const status=transaction.reason==="archive_exists"?409:transaction.reason==="concurrent_update"?409:500;
+        return res.status(status).json({
+          error:transaction.reason==="archive_exists"?"Esta quinzena já foi arquivada.":"Os dados mudaram durante o arquivamento. Recarregue e tente novamente.",
+          code:`ATTENDANCE_ARCHIVE_${transaction.reason.toUpperCase()}`,
+        });
+      }
+      return res.status(200).json({
+        ok:true,data:projectDataForUser(novoPrincipal,usuario),
+        updatedAt:transaction.updatedAt||agora,meta,
+      });
     }
 
     if (action === "list-quinzena-archives") {
@@ -1303,6 +1416,12 @@ export default async function handler(req, res) {
       }
       const { quinzenaId } = req.body || {};
       if (!quinzenaValida(quinzenaId)) return res.status(400).json({ error: "Quinzena inválida." });
+      if((atual?.quinzenasRestauradas||{})[quinzenaId]){
+        return res.status(200).json({
+          ok:true,data:projectDataForUser(atual,usuario),updatedAt,
+          devolvidos:0,mantidos:0,idempotent:true,
+        });
+      }
       const { data: linha, error: errLer } = await db.from("company_app_data")
         .select("value")
         .eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
@@ -1311,9 +1430,6 @@ export default async function handler(req, res) {
 
       const arq = linha.value || {};
       const restauracoes = {...(atual?.quinzenasRestauradas || {})};
-      if (restauracoes[quinzenaId]) {
-        return res.status(200).json({ ok: true, data: atual, updatedAt, devolvidos: 0, mantidos: 0, idempotent: true });
-      }
       const {attendance, devolvidos, mantidos} = restoreArchivedAttendance({
         attendance: atual?.attendance || {}, archiveAttendance: arq.attendance || {},
         employeesSnapshot: arq.employeesSnapshot || [],
@@ -1331,26 +1447,48 @@ export default async function handler(req, res) {
         archivedLaborCosts: custosArquivados,
         quinzenasArquivadas: marcadores,
         quinzenasRestauradas: restauracoes,
-        changeLog: [
-          ...(atual?.changeLog || []),
-          { id: `res_${Date.now()}`, date: agora.slice(0, 10), at: agora, type: "quinzena_restored",
-            operador: usuario.nome, operadorId: usuario.id,
-            message: `${usuario.nome} restaurou a quinzena ${arq.meta?.label || quinzenaId} (${devolvidos} lançamento(s) devolvido(s)${mantidos ? `, ${mantidos} mantido(s) como estavam` : ""})` },
-        ].slice(-200),
       };
-
-      const { data: gravado, error: errMain } = await db.from("company_app_data")
-        .update({ value: encodeAppData(novoPrincipal), updated_at: agora, updated_by: null })
-        .eq("company_id", COMPANY).eq("key", KEY)
-        .select("updated_at").maybeSingle();
-      if (errMain) throw errMain;
-
-      return res.status(200).json({ ok: true, data: novoPrincipal, updatedAt: gravado?.updated_at || agora, devolvidos, mantidos });
+      const transaction=await executarArquivoPontoTransacional({
+        mode:"restore",expectedUpdatedAt:updatedAt,mainValue:novoPrincipal,
+        archiveKey:chaveArquivo(quinzenaId),actor:usuario,
+        before:{quinzenaId,meta:arq.meta||{}},
+        after:{quinzenaId,devolvidos,mantidos,restoration:restauracoes[quinzenaId]},
+      });
+      if(!transaction.applied){
+        if(transaction.reason==="archive_not_found"){
+          const recent=await lerLinha();
+          if(recent.payload?.quinzenasRestauradas?.[quinzenaId]){
+            return res.status(200).json({
+              ok:true,data:projectDataForUser(recent.payload,usuario),updatedAt:recent.updatedAt,
+              devolvidos:0,mantidos:0,idempotent:true,
+            });
+          }
+        }
+        return res.status(transaction.reason==="concurrent_update"?409:404).json({
+          error:transaction.reason==="concurrent_update"
+            ?"Os dados mudaram durante a restauração. Recarregue e tente novamente."
+            :"Arquivo não encontrado.",
+          code:`ATTENDANCE_RESTORE_${transaction.reason.toUpperCase()}`,
+        });
+      }
+      return res.status(200).json({
+        ok:true,data:projectDataForUser(novoPrincipal,usuario),
+        updatedAt:transaction.updatedAt||agora,devolvidos,mantidos,
+      });
     }
 
     return res.status(400).json({ error: "Ação desconhecida." });
   } catch (err) {
     console.error("Falha em /api/data:", err);
+    if(err?.code==="ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED"){
+      return res.status(503).json({
+        error:"O arquivamento seguro ainda não está instalado no banco. Execute migrations/006_attendance_archive_transaction.up.sql.",
+        code:err.code,
+      });
+    }
+    if(err?.code==="AUDIT_RPC_MIGRATION_REQUIRED"){
+      return res.status(503).json({error:err.message,code:err.code});
+    }
     // Não devolve o erro cru: pode conter nome de tabela, coluna, etc.
     return res.status(500).json({ error: "Erro interno." });
   }

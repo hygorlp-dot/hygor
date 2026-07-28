@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { applyAttendanceStatus,applyAttendanceStatusBatch } from "./attendance-mutations";
+import { applyAttendanceServerResult, applyAttendanceStatus,applyAttendanceStatusBatch } from "./attendance-mutations";
 
 describe("mutações de ponto",()=>{
   it("permite ao primeiro clique confirmar a equipe e lançar a presença",()=>{
@@ -79,5 +79,18 @@ describe("mutações de ponto",()=>{
       status:"P",
       obraId:"obra-isabela",
     });
+  });
+
+  it("aplica somente os fatos confirmados devolvidos pelo servidor",()=>{
+    const data={attendance:{e1:{"2026-07-27":{status:"P",obraId:"o1"}}},attendanceLocks:{},unlockRequests:[]};
+    const next=applyAttendanceServerResult(data,{
+      attendance:[{employeeId:"e1",date:"2026-07-28",record:{status:"F",obraId:"o1"}}],
+      dailyCheckDate:"2026-07-28",
+      lock:{id:"2026-07-28__o1",obraId:"o1",date:"2026-07-28",locked:true},
+    });
+    expect(next.attendance.e1["2026-07-27"].status).toBe("P");
+    expect(next.attendance.e1["2026-07-28"]).toMatchObject({status:"F",obraId:"o1"});
+    expect(next.dailyCheckDate).toBe("2026-07-28");
+    expect(next.attendanceLocks["2026-07-28__o1"].locked).toBe(true);
   });
 });

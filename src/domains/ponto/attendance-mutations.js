@@ -77,3 +77,34 @@ export const applyAttendanceStatusBatch = ({
   }
   return next;
 };
+
+export const applyAttendanceServerResult = (data, result = {}) => {
+  let next=data;
+  if(Array.isArray(result.attendance)){
+    const attendance={...(next?.attendance||{})};
+    for(const patch of result.attendance){
+      const employeeId=String(patch?.employeeId||"");
+      const date=String(patch?.date||"");
+      if(!employeeId||!date)continue;
+      const days={...(attendance[employeeId]||{})};
+      if(patch.record)days[date]=normalizeAttendanceRecord(patch.record);
+      else delete days[date];
+      if(Object.keys(days).length)attendance[employeeId]=days;
+      else delete attendance[employeeId];
+    }
+    next={...next,attendance};
+  }
+  if(result.dailyCheckDate)next={...next,dailyCheckDate:String(result.dailyCheckDate)};
+  if(result.lock?.id){
+    next={...next,attendanceLocks:{...(next?.attendanceLocks||{}),[result.lock.id]:result.lock}};
+  }
+  if(result.unlockRequest?.id){
+    const requests=Array.isArray(next?.unlockRequests)?next.unlockRequests:[];
+    const exists=requests.some(item=>String(item?.id)===String(result.unlockRequest.id));
+    next={...next,unlockRequests:exists
+      ?requests.map(item=>String(item?.id)===String(result.unlockRequest.id)?result.unlockRequest:item)
+      :[...requests,result.unlockRequest],
+    };
+  }
+  return next;
+};

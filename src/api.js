@@ -93,7 +93,11 @@ const chamar = async (body) => {
     }
   }
   const json = await r.json().catch(() => ({}));
-  return { status: r.status, ...json };
+  const retryAfterHeader=Number(r.headers?.get?.("retry-after")||0);
+  return {
+    status:r.status,...json,
+    retryAfter:Number((json.retryAfter??json.retry_after_seconds??retryAfterHeader)||0),
+  };
 };
 
 // Rotas serverless que também precisam reconhecer o operador. Centralizar
@@ -132,6 +136,7 @@ export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", {
 export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });
 export const executarComandoOperacional = command => chamar({ action:"operational-command", ...credenciais(), command });
 export const executarComandoConciliacao = command => chamar({ action:"reconciliation-command", ...credenciais(), command });
+export const executarComandoPonto = command => chamar({ ...credenciais(), ...command });
 export const consultarSombraFinanceira = () => chamar({ action:"financial-shadow-report", ...credenciais() });
 export const prepararSombraFinanceira = () => chamar({ action:"financial-shadow-migrate", ...credenciais() });
 export const sincronizarSombraFinanceira = () => chamar({ action:"financial-shadow-sync", ...credenciais() });
@@ -207,25 +212,35 @@ export const loadData = async () => {
 // ── Salvar ─────────────────────────────────────────────────────────
 export const saveDataDetailed = async (payload,basePayload=null) => {
   if (!temSessao()) return { ok: false, conflict: false, reason: "Sessão encerrada." };
+  // Ponto e auditoria possuem comandos autoritativos próprios. Excluí-los
+  // daqui impede que um snapshot antigo substitua lançamentos ou histórico.
+  const commandOnlyKeys=new Set([
+    "attendance","attendanceLocks","unlockRequests","dailyCheckDate",
+    "attendanceOperationReceipts","changeLog",
+  ]);
+  const safePayload=Object.fromEntries(Object.entries(payload||{}).filter(([key])=>!commandOnlyKeys.has(key)));
+  const safeBase=basePayload
+    ?Object.fromEntries(Object.entries(basePayload||{}).filter(([key])=>!commandOnlyKeys.has(key)))
+    :null;
 
   // Depois da primeira carga existe uma base confirmada. Nesse caso enviamos
   // apenas as coleções de primeiro nível que realmente mudaram. Isso reduz o
   // corpo da requisição, evita reenviar fotos/metadados de módulos intocados e
   // permite ao servidor combinar usuários trabalhando em setores diferentes.
-  const chaves = basePayload
-    ? [...new Set([...Object.keys(basePayload||{}),...Object.keys(payload||{})])]
-        .filter(k => JSON.stringify(basePayload?.[k]) !== JSON.stringify(payload?.[k]))
+  const chaves = safeBase
+    ? [...new Set([...Object.keys(safeBase),...Object.keys(safePayload)])]
+        .filter(k => JSON.stringify(safeBase?.[k]) !== JSON.stringify(safePayload?.[k]))
     : [];
-  const porSecoes = !!basePayload && chaves.length > 0;
-  if (basePayload && !chaves.length) return { ok:true, conflict:false, unchanged:true, updatedAt:ultimoUpdatedAt };
-  const sections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,payload[k]])) : undefined;
-  const baseSections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,basePayload[k]])) : undefined;
+  const porSecoes = !!safeBase && chaves.length > 0;
+  if (safeBase && !chaves.length) return { ok:true, conflict:false, unchanged:true, updatedAt:ultimoUpdatedAt };
+  const sections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,safePayload[k]])) : undefined;
+  const baseSections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,safeBase[k]])) : undefined;
 
   const r = await chamar(porSecoes ? {
     action:"save-sections",...credenciais(),sections,baseSections,
     expectedUpdatedAt:ultimoUpdatedAt,
   } : {
-    action:"save",...credenciais(),payload,basePayload,
+    action:"save",...credenciais(),payload:safePayload,basePayload:safeBase,
     expectedUpdatedAt:ultimoUpdatedAt,
   });
 
@@ -235,7 +250,7 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
       reason: r.reason,
       currentData: r.currentData,
       currentUpdatedAt: r.currentUpdatedAt,
-      rejectedPayload: payload,     // o que VOCÊ fez não se perde
+      rejectedPayload: safePayload,     // o que VOCÊ fez não se perde
     };
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("arcd:data-conflict", { detail: detalhe }));
@@ -248,6 +263,7 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
     conflict:false,
     status:r.status,
     code:r.code || "",
+    retryAfter:Number(r.retryAfter||0),
     reason:r.error || "Falha ao salvar.",
   };
 

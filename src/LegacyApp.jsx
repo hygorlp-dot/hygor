@@ -60,7 +60,7 @@ const cancelarRegistro = (registro, motivo, usuario, status="cancelado") => ({
 // O navegador não conversa mais com o banco. Fala com /api/data, que roda no
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
 import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail,
-         saveData, saveDataDetailed, logout as encerrarSessao,
+         saveDataDetailed, logout as encerrarSessao,
          registrarPresenca, encerrarPresenca, listarPresencas,
          loadDataWithMeta, adoptServerVersion, subirFoto,
          conectarOneDrive, statusOneDrive, criarEstruturaOneDrive,
@@ -77,7 +77,8 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
          consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
-         executarComandoOperacional, executarComandoConciliacao, gerenciarAcessoPortalCliente } from "./api";
+         executarComandoOperacional, executarComandoConciliacao, executarComandoPonto,
+         gerenciarAcessoPortalCliente } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -129,8 +130,8 @@ import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
-import { canManageAttendanceWorkforce, resolveAttendanceObraId } from "./domains/ponto/permissions";
-import { applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
+import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from "./domains/ponto/permissions";
+import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
 import { normalizeAttendanceRecord } from "./domains/ponto/records";
 import { calculateTimekeeping, formatMinutes } from "./domains/ponto/timekeeping";
@@ -701,6 +702,7 @@ div::-webkit-scrollbar{height:0;width:0}
 // 
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const pointOperationId=()=>crypto.randomUUID();
 
 const toLocalISODate = date => {
   const d = date instanceof Date ? date : new Date(date);
@@ -1103,18 +1105,20 @@ const attendanceLockKey = (obraId, date) => `${date}__${obraId}`;
 const getAttendanceLock = (data, obraId, date) => data?.attendanceLocks?.[attendanceLockKey(obraId, date)] || null;
 const isAttendanceLocked = (data, obraId, date) => !!getAttendanceLock(data, obraId, date)?.locked;
 
-const hasApprovedUnlock = (data, obraId, date) => {
+const hasApprovedUnlock = (data, obraId, date, userId="") => {
   const now = new Date();
   return (data?.unlockRequests || []).some(r =>
     r.obraId === obraId &&
     r.date === date &&
     r.status === "approved" &&
+    !!r.requestedById &&
+    String(r.requestedById) === String(userId) &&
     r.validUntil &&
     new Date(r.validUntil) > now
   );
 };
 
-const canEditAttendance = (data, obraId, date) => !isAttendanceLocked(data, obraId, date) || hasApprovedUnlock(data, obraId, date);
+const canEditAttendance = (data, obraId, date, userId="") => !isAttendanceLocked(data, obraId, date) || hasApprovedUnlock(data, obraId, date, userId);
 
 const buildPermissionEmail = ({ to, obraName, date, employeeName, reason, approvalLink }) => {
   const subject = `Permissão para alterar ponto - ${obraName} - ${fmtDateFull(date)}`;
@@ -1824,100 +1828,6 @@ const mesclarDados = (servidor, meu, base) => {
     }
   });
   return saida;
-};
-
-// AUDITORIA - detecta o que mudou entre dois estados do app, em linguagem
-// legível. Compara as seções (listas com id) e diz o que foi criado, alterado
-// ou removido, com o nome do item quando dá para saber. Não descreve CADA campo
-// (seria ruído) - descreve a AÇÃO por item, que é o que interessa no feed.
-const AUDIT_SECOES = [
-  { k:"obras",         nome:"obra",           campo:"name" },
-  { k:"employees",     nome:"funcionário",    campo:"name" },
-  { k:"terceirizados", nome:"terceirizado",   campo:"name" },
-  { k:"orcamentos",    nome:"orçamento",      campo:"nome" },
-  { k:"medicoes",      nome:"medição",        campo:"descricao" },
-  { k:"medicoesObra",  nome:"boletim de medição", campo:"numero" },
-  { k:"payments",      nome:"pagamento",      campo:"amount" },
-  { k:"advances",      nome:"adiantamento",   campo:"amount" },
-  { k:"pagsTerceiros", nome:"pagamento de terceiro", campo:"amount" },
-  { k:"despesasEmpresa",nome:"despesa da empresa", campo:"descricao" },
-  { k:"caixaObra",     nome:"lançamento de caixa", campo:"descricao" },
-  { k:"solicitacoesCompra", nome:"solicitação de compra", campo:"descricao" },
-  { k:"pedidos",       nome:"pedido de compra", campo:"numero" },
-  { k:"planos",        nome:"planejamento",   campo:"obraId" },
-  { k:"curvaAbcSnapshots",nome:"snapshot da Curva ABC",campo:"obraId" },
-  { k:"planosSuprimento",nome:"plano de suprimento",campo:"descricao" },
-  { k:"marcosSuprimento",nome:"marco de suprimento",campo:"nome" },
-  { k:"rdos",          nome:"diário de obra", campo:"data" },
-  { k:"conferencias",  nome:"conferência técnica", campo:"codigo" },
-  { k:"movEstoque",    nome:"movimentação de estoque", campo:"descricao" },
-  { k:"outrasDesp",    nome:"despesa da obra", campo:"descricao" },
-  { k:"locacoesEquip", nome:"locação de equipamento", campo:"equipamentoId" },
-  { k:"usuarios",      nome:"usuário",        campo:"nome" },
-  { k:"unidades",      nome:"unidade",        campo:"sigla" },
-  { k:"fases",         nome:"fase",           campo:"nome" },
-];
-const AUDIT_COMERCIAL = [
-  { k:"leads",      nome:"lead",       campo:"nome" },
-  { k:"reunioes",   nome:"reunião",    campo:"leadId" },
-  { k:"propostas",  nome:"proposta",   campo:"numero" },
-  { k:"contratos",  nome:"contrato",   campo:"numero" },
-  { k:"negociacoes",nome:"negociação", campo:"leadId" },
-  { k:"clientes",   nome:"cliente",    campo:"nome" },
-  { k:"parceiros",  nome:"parceiro",   campo:"nome" },
-  { k:"metas",      nome:"meta",       campo:"periodo" },
-  { k:"vendas",     nome:"venda",      campo:"numero" },
-  { k:"atividades", nome:"atividade",  campo:"titulo" },
-];
-
-const diffListaAudit = (antes, depois, nome, campo) => {
-  const A = Array.isArray(antes) ? antes : [];
-  const D = Array.isArray(depois) ? depois : [];
-  // Só sabe diferenciar por id. Sem id, ignora (não gera log ruidoso).
-  if (!A.every(x=>x&&x.id) || !D.every(x=>x&&x.id)) return [];
-  const mapaA = new Map(A.map(x=>[x.id,x]));
-  const mapaD = new Map(D.map(x=>[x.id,x]));
-  const rotulo = item => {
-    const v = item?.[campo];
-    if (v===undefined || v===null || v==="") return "";
-    return typeof v === "number" ? String(v) : String(v).slice(0,40);
-  };
-  const eventos = [];
-  D.forEach(item => {
-    if (!mapaA.has(item.id)) {
-      const r = rotulo(item);
-      eventos.push({ acao:"criou", texto:`criou ${nome}${r?` "${r}"`:""}`, obraId:item.obraId||"" });
-    } else if (JSON.stringify(mapaA.get(item.id)) !== JSON.stringify(item)) {
-      const r = rotulo(item);
-      eventos.push({ acao:"editou", texto:`editou ${nome}${r?` "${r}"`:""}`, obraId:item.obraId||"" });
-    }
-  });
-  A.forEach(item => {
-    if (!mapaD.has(item.id)) {
-      const r = rotulo(item);
-      eventos.push({ acao:"removeu", texto:`removeu ${nome}${r?` "${r}"`:""}`, obraId:item.obraId||"" });
-    }
-  });
-  return eventos;
-};
-
-// Compara dois estados e devolve uma lista curta de descrições de mudança.
-// Limita a poucos eventos por save para o feed não explodir num import em massa.
-const detectarMudancasAudit = (antes, depois) => {
-  if (!antes) return [];
-  const eventos = [];
-  AUDIT_SECOES.forEach(({k,nome,campo}) => {
-    eventos.push(...diffListaAudit(antes[k], depois[k], nome, campo));
-  });
-  const comA = antes.comercial || {}, comD = depois.comercial || {};
-  AUDIT_COMERCIAL.forEach(({k,nome,campo}) => {
-    eventos.push(...diffListaAudit(comA[k], comD[k], nome, campo));
-  });
-  // attendance é um objeto (não lista com id): registra só que houve lançamento.
-  if (JSON.stringify(antes.attendance||{}) !== JSON.stringify(depois.attendance||{})) {
-    eventos.push({ acao:"editou", texto:"lançou ponto" });
-  }
-  return eventos;
 };
 
 const normalizeData = incoming => {
@@ -3283,7 +3193,7 @@ const normalizeData = incoming => {
         ...u.accessTabs,
         ...((u.role==="rh")?["ponto","ponto_geral","folha"]:(u.role==="financeiro")?["ponto_geral","folha"]:[]),
         ...((["engenheiro","engenheiro_auditor"].includes(u.role))?["conferencia"]:[]),
-      ])]:null,
+      ])].filter(tab=>u.role!=="engenheiro_auditor"||!["ponto","ponto_geral"].includes(tab)):null,
       email:    u.email    || "",
       maxDesconto:Number(u.maxDesconto ?? 10),
       obraId:   u.obraId   || "",   // restringe a uma obra (opcional)
@@ -5031,11 +4941,11 @@ function DRELegado({ data, update, showToast, currentUser=null, obraIdFixo="" })
     const ids=new Set();
     (data.employees||[]).forEach(emp=>(dreObra.days||[]).forEach(dia=>{
       const reg=data.attendance?.[emp.id]?.[dia];
-      const obraDia=reg?.obraId||emp.obra||"";
+      const obraDia=resolveEmployeeAttendanceObraId({data,employee:emp,date:dia,record:reg});
       if(obraDia===obraFinanceiraId&&["P","M"].includes(attStatus(data,emp.id,dia)))ids.add(emp.id);
     }));
     const homemDias=(data.employees||[]).reduce((s,emp)=>s+(dreObra.days||[]).reduce((sd,dia)=>{
-      const reg=data.attendance?.[emp.id]?.[dia],obraDia=reg?.obraId||emp.obra||"";
+      const reg=data.attendance?.[emp.id]?.[dia],obraDia=resolveEmployeeAttendanceObraId({data,employee:emp,date:dia,record:reg});
       if(obraDia!==obraFinanceiraId)return sd;
       const st=attStatus(data,emp.id,dia);return sd+(st==="P"?1:st==="M"?0.5:0);
     },0),0);
@@ -8798,7 +8708,7 @@ function gerarFichaFuncionarioPDF(data, employee, showToast) {
 // Modal de movimentação individual
 //
 
-function WorkerMovementModal({ data, update, showToast, employee, initialMode = "transfer", onClose }) {
+function WorkerMovementModal({ data, update, showToast, employee, initialMode = "transfer", onClose, dispatchAttendanceCommand }) {
   const { formGrid } = useBreakpoint();
   const [mode, setMode] = useState(initialMode);
   const [newObra, setNewObra] = useState("");
@@ -8808,7 +8718,7 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
   const activeObras = data.obras.filter(o => o.status !== "done");
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
 
-  const saveTransfer = () => {
+  const saveTransfer = async () => {
     if (!newObra) {
       showToast("Selecione a nova obra.", "error");
       return;
@@ -8827,41 +8737,35 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
       return;
     }
 
-    const from = obraName(employee.obra);
     const to = obraName(newObra);
     const employees = data.employees.map(emp => emp.id === employee.id ? {
       ...emp,
       obra: newObra,
       lastObra: emp.obra,
+      obraHistory:[...(emp.obraHistory||[]),{
+        date:today(),fromObraId:emp.obra||"",toObraId:newObra,
+      }],
       active: true,
       endDate: "",
       terminationReason: "",
     } : emp);
 
-    const changeLog = [...data.changeLog, {
-      id: uid(),
-      date: today(),
-      type: "transfer",
-      empId: employee.id,
-      empName: employee.name,
-      from,
-      to,
-      fromId: employee.obra,  // ← ID gravado para busca confiável
-      toId: newObra,          // ← ID gravado para busca confiável
-      message: `${employee.name} transferido de ${from} para ${to}`,
-    }];
-    update({ ...data, employees, changeLog, dailyCheckDate: today() });
+    const saved=await update({ ...data, employees });
+    if(!saved?.ok){showToast(saved?.reason||"A transferência não foi confirmada pelo servidor.","error");return;}
+    const checked=await dispatchAttendanceCommand({
+      action:"attendance-daily-check",operationId:pointOperationId(),date:today(),
+    });
+    if(!checked?.ok){showToast(checked?.reason||"A transferência foi salva, mas a conferência diária não foi confirmada.","error");return;}
     showToast(`${employee.name} transferido para ${to}.`);
     onClose();
   };
 
-  const saveDismissal = () => {
+  const saveDismissal = async () => {
     if (!endDate) {
       showToast("Informe a data de término.", "error");
       return;
     }
 
-    const from = obraName(employee.obra);
     const employees = data.employees.map(emp => emp.id === employee.id ? {
       ...emp,
       active: false,
@@ -8870,8 +8774,12 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
       lastObra: emp.obra,
     } : emp);
 
-    const changeLog = [...data.changeLog, { id: uid(), date: endDate, type: "dismissal", empId: employee.id, empName: employee.name, from, message: `${employee.name} demitido/inativado em ${fmtDateFull(endDate)}` }];
-    update({ ...data, employees, changeLog, dailyCheckDate: today() });
+    const saved=await update({ ...data, employees });
+    if(!saved?.ok){showToast(saved?.reason||"A demissão não foi confirmada pelo servidor.","error");return;}
+    const checked=await dispatchAttendanceCommand({
+      action:"attendance-daily-check",operationId:pointOperationId(),date:today(),
+    });
+    if(!checked?.ok){showToast(checked?.reason||"A demissão foi salva, mas a conferência diária não foi confirmada.","error");return;}
     showToast(`${employee.name} demitido/inativado.`);
     onClose();
   };
@@ -8906,37 +8814,25 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
   );
 }
 
-function UnlockRequestModal({ data, update, showToast, obraId, date, employee, onClose }) {
+function UnlockRequestModal({ data, dispatchAttendanceCommand, showToast, obraId, date, employee, onClose }) {
   const [reason, setReason] = useState("");
   const obra = data.obras.find(o => o.id === obraId);
   const obraName = obra?.name || "-";
   const approverEmail = data.config.approverEmail || "hygorlp@gmail.com";
 
-  const sendRequest = () => {
+  const sendRequest = async () => {
     if (!reason.trim()) {
       showToast("Informe o motivo da solicitação.", "error");
       return;
     }
 
-    const requestId = uid();
+    const requestId = pointOperationId();
     const approvalLink = `${window.location.origin}${window.location.pathname}?approve_unlock=${encodeURIComponent(requestId)}`;
-    const request = {
-      id: requestId,
-      obraId,
-      obraName,
-      date,
-      employeeId: employee?.id || "",
-      employeeName: employee?.name || "",
-      reason,
-      status: "pending",
-      requestedAt: new Date().toISOString(),
-      requestedTo: approverEmail,
-      approvalLink,
-    };
-
-    const unlockRequests = [...data.unlockRequests, request];
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "unlock_request", empId: employee?.id || "", empName: employee?.name || "", message: `Solicitação de alteração de ponto enviada para ${obraName} em ${fmtDateFull(date)}.` }];
-    update({ ...data, unlockRequests, changeLog });
+    const result=await dispatchAttendanceCommand({
+      action:"attendance-unlock-request",operationId:requestId,requestId,obraId,date,
+      employeeId:employee?.id||"",reason,
+    });
+    if(!result?.ok){showToast(result?.reason||"A solicitação não foi registrada.","error");return;}
 
     window.location.href = buildPermissionEmail({
       to: approverEmail,
@@ -8947,7 +8843,7 @@ function UnlockRequestModal({ data, update, showToast, obraId, date, employee, o
       approvalLink,
     });
 
-    showToast("Solicitação registrada e e-mail preparado.");
+    showToast("Solicitação registrada no servidor e e-mail preparado.");
     onClose();
   };
 
@@ -8974,7 +8870,7 @@ function UnlockRequestModal({ data, update, showToast, obraId, date, employee, o
 // Ponto
 // 
 
-function PontoGeral({ data, update, showToast, currentUser, onTab }) {
+function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAttendanceCommand }) {
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
   const [year,setYear]=useState(refInicial.getFullYear());
@@ -9055,8 +8951,11 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
   const days=diasCiclo.filter(prIsWeekdayIso);
   const feriados=prUniqueDates([...new Set(diasCiclo.map(d=>Number(d.slice(0,4))))].flatMap(ano=>getPayrollHolidays(data,ano)));
   const obraName=id=>(data.obras||[]).find(o=>o.id===id)?.name||"-";
+  const obraDoRegistro=(employee,date,record,selectedObraId="")=>resolveEmployeeAttendanceObraId({
+    data,employee,date,record,selectedObraId,
+  });
   const employees=(data.employees||[]).filter(e=>employeeRelevantInPeriod(data,e,diasCiclo))
-    .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>getAtt(data,e.id,d)?.obraId===filterObra))
+    .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>obraDoRegistro(e,d,getAtt(data,e.id,d))===filterObra))
     .filter(e=>[e.name,e.role,obraName(e.obra)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name));
   const diaLabel=iso=>{const d=prParseIso(iso);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
@@ -9064,24 +8963,44 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
   const corStatus=st=>st==="P"?C.green:st==="M"?C.yellow:st==="F"?C.red:C.muted;
   const proxStatus=st=>st==="P"?"M":st==="M"?"F":st==="F"?null:"P";
 
-  const salvarCelula=(emp,date,patch)=>{
+  const salvarCelula=async(emp,date,patch)=>{
     if(bloqueadoPorArquivo())return;
     const anterior=getAtt(data,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
     const novo={...anterior,...patch};
-    const obraId=novo.obraId||emp.obra||"";
-    if(obraId&&!canEditAttendance(data,obraId,date)){
+    const obraId=obraDoRegistro(emp,date,novo,patch.obraId);
+    if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){
       showToast(`O ponto de ${obraName(obraId)} em ${fmtDateFull(date)} está bloqueado. Libere-o no Ponto diário.`,"error");return;
     }
-    update({...data,attendance:{...(data.attendance||{}),[emp.id]:{...(data.attendance?.[emp.id]||{}),[date]:{...novo,obraId:novo.status?obraId:(novo.obraId||obraId)}}}});
+    const result=await dispatchAttendanceCommand({
+      action:"attendance-upsert",operationId:pointOperationId(),employeeId:emp.id,date,
+      selectedObraId:patch.obraId||obraId,
+      record:{...novo,obraId},
+    });
+    if(!result?.ok)showToast(result?.reason||"O ponto não foi salvo.","error");
   };
 
   // Sem preenchimento automático de presença: cada dia é marcado manualmente,
   // clicando na própria célula - evita presença lançada sem verificação real.
-  const limparLinha=emp=>{
+  const limparLinha=async emp=>{
     if(bloqueadoPorArquivo())return;
     if(!window.confirm(`Limpar os lançamentos visíveis de ${emp.name}?`))return;
-    const attendance={...(data.attendance||{})},mapa={...(attendance[emp.id]||{})};let bloqueados=0;
-    days.forEach(date=>{const ant=getAtt(data,emp.id,date);if(!ant)return;const obraId=ant.obraId||emp.obra||"";if(obraId&&!canEditAttendance(data,obraId,date)){bloqueados++;return;}delete mapa[date];});attendance[emp.id]=mapa;update({...data,attendance});showToast(bloqueados?`${bloqueados} dia(s) bloqueado(s) foram preservados.`:"Lançamentos do período removidos.");
+    let bloqueados=0;
+    const patches=days.flatMap(date=>{
+      const ant=getAtt(data,emp.id,date);
+      if(!ant)return [];
+      const obraId=obraDoRegistro(emp,date,ant);
+      if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){bloqueados++;return [];}
+      return [{employeeId:emp.id,date,selectedObraId:obraId,record:{...ant,status:null,obraId}}];
+    });
+    if(!patches.length){
+      showToast(bloqueados?"Os lançamentos visíveis estão bloqueados.":"Não há lançamentos para limpar.",bloqueados?"error":"success");
+      return;
+    }
+    const result=await dispatchAttendanceCommand({
+      action:"attendance-batch-upsert",operationId:pointOperationId(),patches,
+    });
+    if(!result?.ok){showToast(result?.reason||"Os lançamentos não foram removidos.","error");return;}
+    showToast(bloqueados?`${bloqueados} dia(s) bloqueado(s) foram preservados; os demais foram removidos.`:"Lançamentos do período removidos.");
   };
 
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
@@ -9165,7 +9084,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
           </td>
           <td className="ponto-col-total" style={{textAlign:"center",fontWeight:800,fontSize:13,color:C.blue,borderTop:`1px solid ${C.line}`,fontFamily:"'Inter Display','Inter',sans-serif"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
           {days.map(date=>{
-            const att=getAtt(data,emp.id,date),st=att?.status,obraId=att?.obraId||emp.obra||"",fora=!employeeRelevantOnDate(data,emp,date),feriado=feriados.includes(date);
+            const att=getAtt(data,emp.id,date),st=att?.status,obraId=obraDoRegistro(emp,date,att),fora=!employeeRelevantOnDate(data,emp,date),feriado=feriados.includes(date);
             const foraDeLotacao=st&&obraId&&obraId!==emp.obra;   // trabalhou em obra diferente da lotação
             const cellKey=`${emp.id}::${date}`;
             const aberto=obraCell===cellKey;
@@ -9257,7 +9176,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab }) {
   </div>;
 }
 
-function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
+function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand }) {
   const obraInicial=obraIdFixo||currentUser?.obraId||
     (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
   const [selDate, setSelDate] = useState(today());
@@ -9282,15 +9201,25 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const selectedObra = filterObra !== "all" ? data.obras.find(o => o.id === filterObra) : null;
   const selectedObraLocked = selectedObra ? isAttendanceLocked(data, selectedObra.id, selDate) : false;
-  const selectedObraCanEdit = selectedObra ? canEditAttendance(data, selectedObra.id, selDate) : true;
+  const selectedObraCanEdit = selectedObra ? canEditAttendance(data, selectedObra.id, selDate, currentUser?.id) : true;
   const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
   const attendanceCompletion = getAttendanceCompletionMessage(obraAttendanceSummary);
   const podeMovimentarEquipe=canManageAttendanceWorkforce(currentUser?.role);
-  const obraDoPonto = employee => resolveAttendanceObraId({
-    record:getAtt(data,employee?.id,selDate),
-    selectedObraId:filterObra,
-    employeeObraId:employee?.obra,
+  const obraDoPonto = employee => resolveEmployeeAttendanceObraId({
+    data,employee,date:selDate,selectedObraId:filterObra,
   });
+  const persistAttendanceRecord=async({employee,date=selDate,record,selectedObraId,confirmDailyCheck=false,successMessage=""})=>{
+    const result=await dispatchAttendanceCommand({
+      action:"attendance-upsert",operationId:pointOperationId(),
+      employeeId:employee.id,date,selectedObraId,record,confirmDailyCheck,
+    });
+    if(!result?.ok){
+      showToast(result?.reason||"A alteração de ponto não foi confirmada pelo servidor.","error");
+      return false;
+    }
+    if(successMessage)showToast(successMessage);
+    return true;
+  };
 
   useEffect(() => {
     const notificationKey = `${selDate}__all_done`;
@@ -9306,7 +9235,9 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
     .filter(e => {
       if (filterObra === "all") return true;
       const registro = getAtt(data, e.id, selDate);
-      const obraDoDia = registro?.obraId || e.obra || e.lastObra || "";
+      const obraDoDia = resolveEmployeeAttendanceObraId({
+        data,employee:e,date:selDate,record:registro,
+      });
       return obraDoDia === filterObra;
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -9320,29 +9251,22 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
   const requireUnlocked = employee => {
     const obraId = obraDoPonto(employee);
     if (!obraId || obraId === "all") return false;
-    if (canEditAttendance(data, obraId, selDate)) return false;
+    if (canEditAttendance(data, obraId, selDate, currentUser?.id)) return false;
 
     setUnlockModal({ obraId, date: selDate, employee: employee || null });
     showToast("Este ponto já foi finalizado. Solicite permissão para alterar.", "warn");
     return true;
   };
 
-  const confirmTeamWithoutChanges = () => {
-    const next={
-      ...data,
-      dailyCheckDate: today(),
-    };
-    // Perfis restritos recebem uma projeção da própria obra e não devem
-    // regravar o changeLog global. A auditoria append-only do servidor já
-    // registra esta mutação com autor e horário.
-    if(!currentUser?.obraId){
-      next.changeLog=[...data.changeLog,{id:uid(),date:today(),type:"daily_check",message:"Verificação diária concluída: equipe sem alterações."}];
-    }
-    update(next);
+  const confirmTeamWithoutChanges = async () => {
+    const result=await dispatchAttendanceCommand({
+      action:"attendance-daily-check",operationId:pointOperationId(),date:today(),
+    });
+    if(!result?.ok){showToast(result?.reason||"A equipe não foi confirmada no servidor.","error");return;}
     showToast("Equipe confirmada sem alterações.");
   };
 
-  const finalizeObraAttendance = () => {
+  const finalizeObraAttendance = async () => {
     if (filterObra === "all") {
       showToast("Selecione uma obra específica para finalizar o ponto.", "error");
       return;
@@ -9359,29 +9283,14 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
 
     if (!window.confirm(`${msg}\n\nDepois disso, alterações precisarão de permissão.`)) return;
 
-    const key = attendanceLockKey(filterObra, selDate);
-    const attendanceLocks = {
-      ...data.attendanceLocks,
-      [key]: {
-        id: key,
-        obraId: filterObra,
-        obraName: obra.name,
-        date: selDate,
-        locked: true,
-        lockedAt: new Date().toISOString(),
-      },
-    };
-    const next={ ...data, attendanceLocks };
-    // Perfis vinculados a uma obra não recebem nem regravam o changeLog
-    // global. A auditoria append-only do servidor registra a finalização.
-    if(!currentUser?.obraId){
-      next.changeLog=[...data.changeLog, { id: uid(), date: today(), type:"attendance_lock", message:`Ponto finalizado e bloqueado: ${obra.name} em ${fmtDateFull(selDate)}.` }];
-    }
-    update(next);
+    const result=await dispatchAttendanceCommand({
+      action:"attendance-lock",operationId:pointOperationId(),obraId:filterObra,date:selDate,
+    });
+    if(!result?.ok){showToast(result?.reason||"O ponto não foi finalizado no servidor.","error");return;}
     showToast("Ponto da obra finalizado e bloqueado.");
   };
 
-  const setAtt = (empId, status) => {
+  const setAtt = async (empId, status) => {
     const emp = data.employees.find(e => e.id === empId);
     if (requireUnlocked(emp)) return;
 
@@ -9401,37 +9310,35 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
     // o caso comum: cada um no seu canteiro.
     const obraDoDia = (filterObra && filterObra !== "all") ? filterObra : (emp?.obra || "");
 
-    update(applyAttendanceStatus({
+    const next=applyAttendanceStatus({
       data,
       employeeId:empId,
       date:selDate,
       status,
       obraId:obraDoDia,
       currentDate:today(),
-    }));
+    });
+    await persistAttendanceRecord({
+      employee:emp,date:selDate,record:next.attendance?.[empId]?.[selDate],
+      selectedObraId:obraDoDia,confirmDailyCheck:selDate===today(),
+    });
   };
 
-  const saveNote = () => {
+  const saveNote = async () => {
     const emp = data.employees.find(e => e.id === noteModal);
     if (requireDailyCheck()) return;
     if (requireUnlocked(emp)) return;
 
     const prev = getAtt(data, noteModal, selDate) || { status: null, ot: 0, note: "" };
-    update({
-      ...data,
-      attendance: {
-        ...data.attendance,
-        [noteModal]: {
-          ...(data.attendance[noteModal] || {}),
-          [selDate]: { ...prev, note: noteText },
-        },
-      },
+    const ok=await persistAttendanceRecord({
+      employee:emp,record:{...prev,note:noteText},
+      selectedObraId:obraDoPonto(emp),confirmDailyCheck:selDate===today(),
+      successMessage:"Observação salva.",
     });
-    setNoteModal(null);
-    showToast("Observação salva.");
+    if(ok)setNoteModal(null);
   };
 
-  const saveOT = () => {
+  const saveOT = async () => {
     const emp = data.employees.find(e => e.id === otModal);
     if (requireDailyCheck()) return;
     if (requireUnlocked(emp)) return;
@@ -9446,18 +9353,12 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
       showToast("Informe uma quantidade de horas extras entre 0 e 24.", "error");
       return;
     }
-    update({
-      ...data,
-      attendance: {
-        ...data.attendance,
-        [otModal]: {
-          ...(data.attendance[otModal] || {}),
-          [selDate]: { ...prev, ot: horas },
-        },
-      },
+    const ok=await persistAttendanceRecord({
+      employee:emp,record:{...prev,ot:horas},
+      selectedObraId:obraDoPonto(emp),confirmDailyCheck:selDate===today(),
+      successMessage:"Hora extra registrada.",
     });
-    setOtModal(null);
-    showToast("Hora extra registrada.");
+    if(ok)setOtModal(null);
   };
 
   const openTimekeeping = employee => {
@@ -9482,7 +9383,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
       })
     : null;
 
-  const saveTimekeeping = () => {
+  const saveTimekeeping = async () => {
     const employee=data.employees.find(e=>e.id===timeModal);
     if (!employee || requireDailyCheck() || requireUnlocked(employee)) return;
     const prev=getAtt(data,timeModal,selDate) || {status:null,ot:0,note:""};
@@ -9494,26 +9395,19 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
       showToast(timekeepingPreview?.error || "Confira os horários informados.","error");
       return;
     }
-    update({
-      ...data,
-      attendance:{
-        ...data.attendance,
-        [timeModal]:{
-          ...(data.attendance[timeModal]||{}),
-          [selDate]:{
-            ...prev,
-            ...timeForm,
-            workedMinutes:Number(timekeepingPreview.workedMinutes||0),
-            atrasoMin:Number(timekeepingPreview.delayMinutes||0),
-          },
-        },
+    const ok=await persistAttendanceRecord({
+      employee,selectedObraId:obraDoPonto(employee),confirmDailyCheck:selDate===today(),
+      record:{
+        ...prev,...timeForm,
+        workedMinutes:Number(timekeepingPreview.workedMinutes||0),
+        atrasoMin:Number(timekeepingPreview.delayMinutes||0),
       },
+      successMessage:"Jornada registrada.",
     });
-    setTimeModal(null);
-    showToast("Jornada registrada.");
+    if(ok)setTimeModal(null);
   };
 
-  const markAll = status => {
+  const markAll = async status => {
     if (filterObra === "all") {
       showToast("Selecione uma obra específica para marcar todos.", "error");
       return;
@@ -9524,14 +9418,23 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
       return;
     }
 
-    update(applyAttendanceStatusBatch({
+    const next=applyAttendanceStatusBatch({
       data,
       employees:list,
       date:selDate,
       status,
       obraId:filterObra,
       currentDate:today(),
+    });
+    const patches=list.map(employee=>({
+      employeeId:employee.id,date:selDate,selectedObraId:filterObra,
+      record:next.attendance?.[employee.id]?.[selDate],
     }));
+    const result=await dispatchAttendanceCommand({
+      action:"attendance-batch-upsert",operationId:pointOperationId(),patches,
+      confirmDailyCheck:selDate===today(),
+    });
+    if(!result?.ok){showToast(result?.reason||"O lote de ponto não foi salvo.","error");return;}
     showToast("Ponto marcado para todos.");
   };
 
@@ -9652,7 +9555,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
           jornadaInicio:e.workStart || data.config?.payrollWorkStart || "07:00",
         });
         const obraIdPonto=obraDoPonto(e);
-        const cardLocked = isAttendanceLocked(data, obraIdPonto, selDate) && !canEditAttendance(data, obraIdPonto, selDate);
+        const cardLocked = isAttendanceLocked(data, obraIdPonto, selDate) && !canEditAttendance(data, obraIdPonto, selDate, currentUser?.id);
         const borderCol = cardLocked ? C.red : status === "P" ? C.green : status === "M" ? C.yellowD : status === "F" ? C.red : C.border;
         const aberto = expandedCard === e.id;
 
@@ -9731,8 +9634,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null }) {
         );
       })}
 
-      {movementModal && <WorkerMovementModal data={data} update={update} showToast={showToast} employee={movementModal.emp} initialMode={movementModal.mode} onClose={() => setMovementModal(null)} />}
-      {unlockModal && <UnlockRequestModal data={data} update={update} showToast={showToast} obraId={unlockModal.obraId} date={unlockModal.date} employee={unlockModal.employee} onClose={() => setUnlockModal(null)} />}
+      {movementModal && <WorkerMovementModal data={data} update={update} showToast={showToast} employee={movementModal.emp} initialMode={movementModal.mode} onClose={() => setMovementModal(null)} dispatchAttendanceCommand={dispatchAttendanceCommand} />}
+      {unlockModal && <UnlockRequestModal data={data} dispatchAttendanceCommand={dispatchAttendanceCommand} showToast={showToast} obraId={unlockModal.obraId} date={unlockModal.date} employee={unlockModal.employee} onClose={() => setUnlockModal(null)} />}
 
       {noteModal && (
         <Modal title="Observação" onClose={() => setNoteModal(null)}>
@@ -13083,9 +12986,11 @@ function Relatorios({ data, showToast }) {
         if (holidaysInMonth.includes(d)) return;
 
         const a = getAtt(data, e.id, d);
-        const obraDoDia = resolveAttendanceObraId({
-          record: a,
-          employeeObraId: e.obra,
+        const obraDoDia = resolveEmployeeAttendanceObraId({
+          data,
+          employee:e,
+          date:d,
+          record:a,
         });
         if (obraDoDia !== o.id) return;
         const s = a?.status;
@@ -13104,7 +13009,12 @@ function Relatorios({ data, showToast }) {
       holidaysInMonth.forEach(h => {
         if (!isEmployeeEmployedOnDate(e, h)) return;
         const a = getAtt(data, e.id, h);
-        if (resolveAttendanceObraId({ record: a, employeeObraId: e.obra }) !== o.id) return;
+        if (resolveEmployeeAttendanceObraId({
+          data,
+          employee:e,
+          date:h,
+          record:a,
+        }) !== o.id) return;
         const rule = getHolidayPayRule(data, e, h, payrollHolidays);
         holidayPay += Number(rule.amount || 0);
       });
@@ -13182,7 +13092,12 @@ function Relatorios({ data, showToast }) {
       if (!isEmployeeEmployedOnDate(e, d)) return;
       if (holidaysInMonth.includes(d)) return;
       const record = getAtt(data, e.id, d);
-      const obraDoDia = resolveAttendanceObraId({ record, employeeObraId: e.obra });
+      const obraDoDia = resolveEmployeeAttendanceObraId({
+        data,
+        employee:e,
+        date:d,
+        record,
+      });
       if (filterObra !== "all" && obraDoDia !== filterObra) return;
       total += calculateAttendanceDayCost({ employee:e, record, config:data.config }).laborCost;
     });
@@ -13190,7 +13105,12 @@ function Relatorios({ data, showToast }) {
     holidaysInMonth.forEach(h => {
       if (!isEmployeeEmployedOnDate(e, h)) return;
       const record = getAtt(data, e.id, h);
-      const obraDoDia = resolveAttendanceObraId({ record, employeeObraId: e.obra });
+      const obraDoDia = resolveEmployeeAttendanceObraId({
+        data,
+        employee:e,
+        date:h,
+        record,
+      });
       if (filterObra !== "all" && obraDoDia !== filterObra) return;
       total += Number(getHolidayPayRule(data, e, h, payrollHolidays).amount || 0);
     });
@@ -13689,7 +13609,12 @@ const getAgentMonthCostByObra = (data, year = new Date().getFullYear(), month = 
         if (!isEmployeeEmployedOnDate(emp, day)) return;
         if (holidaysInMonth.includes(day)) return;
         const record = getAtt(data, emp.id, day);
-        const obraDoDia = resolveAttendanceObraId({ record, employeeObraId: emp.obra });
+        const obraDoDia = resolveEmployeeAttendanceObraId({
+          data,
+          employee:emp,
+          date:day,
+          record,
+        });
         if (obraDoDia !== obra.id) return;
         const status = record?.status;
 
@@ -14598,7 +14523,7 @@ function ConfiguracaoIA({ showToast }) {
   </div>;
 }
 
-function Config({ data, update, showToast, currentUser, onLogout }) {
+function Config({ data, update, showToast, currentUser, onLogout, dispatchAttendanceCommand }) {
   const { formGrid } = useBreakpoint();
   const [form, setForm] = useState(data.config);
   const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
@@ -14610,18 +14535,29 @@ function Config({ data, update, showToast, currentUser, onLogout }) {
     showToast("Configurações salvas.");
   };
 
-  const approveRequest = id => {
-    const validUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-    const unlockRequests = (data.unlockRequests||[]).map(r => r.id === id ? { ...r, status: "approved", approvedAt: new Date().toISOString(), validUntil } : r);
-    const req = (data.unlockRequests||[]).find(r => r.id === id);
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "unlock_approved", message: `Permissão aprovada para ${req?.obraName || "obra"} em ${fmtDateFull(req?.date)} até ${new Date(validUntil).toLocaleTimeString("pt-BR")}.` }];
-    update({ ...data, unlockRequests, changeLog });
+  const approveRequest = async id => {
+    const result=await dispatchAttendanceCommand({
+      action:"attendance-unlock-approve",
+      operationId:pointOperationId(),
+      requestId:id,
+    });
+    if(!result?.ok){
+      showToast(result?.reason||"A permissão não foi aprovada pelo servidor.","error");
+      return;
+    }
     showToast("Permissão aprovada por 30 minutos.");
   };
 
-  const rejectRequest = id => {
-    const unlockRequests = (data.unlockRequests||[]).map(r => r.id === id ? { ...r, status: "rejected", rejectedAt: new Date().toISOString() } : r);
-    update({ ...data, unlockRequests });
+  const rejectRequest = async id => {
+    const result=await dispatchAttendanceCommand({
+      action:"attendance-unlock-reject",
+      operationId:pointOperationId(),
+      requestId:id,
+    });
+    if(!result?.ok){
+      showToast(result?.reason||"A solicitação não foi recusada pelo servidor.","error");
+      return;
+    }
     showToast("Solicitação recusada.");
   };
 
@@ -14771,7 +14707,7 @@ const ROLES = [
 const ROLE_TABS = {
   admin:       ["home","tv","chat","aprov_pend","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_pipeline","com_relationships","com_deals","com_management"],
   engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
-  engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
+  engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
   rh:          ["home","tv","ponto","ponto_geral","equipe","terc","folha","resc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
@@ -14811,7 +14747,9 @@ const allowedTabsForUser=user=>{
   // disponíveis mesmo em cadastros antigos cuja lista personalizada de abas
   // foi criada antes da existência do painel corporativo.
   const herdadas=user.role==="financeiro"?["equip_fin"]:user.role==="engenheiro"?["ponto"]:user.role==="rh"?["terc"]:[];
-  return [...new Set(["home","tv","chat","aprov_pend",...base,...herdadas])].filter(tab=>valid.has(tab)&&tab!=="config");
+  return [...new Set(["home","tv","chat","aprov_pend",...base,...herdadas])]
+    .filter(tab=>valid.has(tab)&&tab!=="config")
+    .filter(tab=>user.role!=="engenheiro_auditor"||!["ponto","ponto_geral"].includes(tab));
 };
 
 const hashPin = async (pin) => {
@@ -26720,7 +26658,9 @@ const registroPertenceObra=(registro,obraId,idsFuncionarios=new Set(),idsTerceir
 };
 
 function dadosDaObraIsolados(data,obraId){
-  const funcionarios=(data.employees||[]).filter(e=>e.obra===obraId);
+  const funcionarios=(data.employees||[]).filter(e=>e.obra===obraId||
+    Object.entries(data.attendance?.[e.id]||{}).some(([date,record])=>
+      resolveEmployeeAttendanceObraId({data,employee:e,date,record})===obraId));
   const terceiros=(data.terceirizados||[]).filter(t=>t.obraId===obraId);
   const idsFuncionarios=new Set(funcionarios.map(e=>e.id));
   const idsTerceiros=new Set(terceiros.map(t=>t.id));
@@ -26745,7 +26685,9 @@ function recomporDadosDaObra(base,proximos,obraId){
   const terceirosAtuais=(base.terceirizados||[]).filter(t=>t.obraId===obraId);
   const idsFuncionarios=new Set(funcionariosAtuais.map(e=>e.id));
   const idsTerceiros=new Set(terceirosAtuais.map(t=>t.id));
-  const resultado={...base,...proximos};
+  // Ponto é somente leitura neste adaptador; toda escrita usa os comandos
+  // granulares e nunca recompõe/substitui a seção attendance.
+  const resultado={...base,...proximos,attendance:base.attendance};
   const recompor=(chave,predicado)=>{
     if(!Array.isArray(proximos[chave]))return;
     const externos=(base[chave]||[]).filter(item=>!predicado(item));
@@ -26757,14 +26699,10 @@ function recomporDadosDaObra(base,proximos,obraId){
   recompor("equipamentos",e=>!e.obraAtualId||e.obraAtualId===obraId);
   recompor("advances",a=>idsFuncionarios.has(a.employeeId||a.funcionarioId));
   recompor("rescisoes",r=>idsFuncionarios.has(r.employeeId||r.funcionarioId));
-  if(proximos.attendance){
-    const externos=Object.fromEntries(Object.entries(base.attendance||{}).filter(([id])=>!idsFuncionarios.has(id)));
-    resultado.attendance={...externos,...proximos.attendance};
-  }
   return resultado;
 }
 
-function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, showToast, currentUser, dispatchCommand=null }) {
+function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, showToast, currentUser, dispatchCommand=null, dispatchAttendanceCommand=null }) {
   const { cols } = useBreakpoint();
   const ehAdmin=currentUser?.role==="admin";
   const obra = (data.obras||[]).find(o => o.id === obraId);
@@ -26793,7 +26731,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     const presentesHoje = (data.employees||[]).filter(e => {
       const reg = data.attendance?.[e.id]?.[hoje];
       if (!reg?.status || (reg.status !== "P" && reg.status !== "M")) return false;
-      return (reg.obraId || e.obra) === obraId;
+      return resolveEmployeeAttendanceObraId({data,employee:e,date:hoje,record:reg})===obraId;
     }).length;
 
     //  Financeiro: posição acumulada derivada do mesmo razão do DRE.
@@ -27688,7 +27626,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="cmp"&&<Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="est"&&<Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="dre"&&<DRE data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
-        {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
+        {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
         {abaConteudo==="equipe"&&<Equipe data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="terc"&&<Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
         {abaConteudo==="equip"&&<Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/>}
@@ -34658,7 +34596,7 @@ function DREEmpresa({ data, update, showToast, currentUser=null }) {
         obras:(data.obras||[]).map(obra=>{
           const o=dre.porObra.find(x=>x.id===obra.id);
           const dias=getDays(year,month),ids=new Set();let homemDias=0;
-          (data.employees||[]).forEach(emp=>dias.forEach(dia=>{const reg=data.attendance?.[emp.id]?.[dia],obraDia=reg?.obraId||emp.obra||"";if(obraDia!==obra.id)return;const st=attStatus(data,emp.id,dia);if(st==="P"||st==="M"){ids.add(emp.id);homemDias+=st==="P"?1:.5;}}));
+          (data.employees||[]).forEach(emp=>dias.forEach(dia=>{const reg=data.attendance?.[emp.id]?.[dia],obraDia=resolveEmployeeAttendanceObraId({data,employee:emp,date:dia,record:reg});if(obraDia!==obra.id)return;const st=attStatus(data,emp.id,dia);if(st==="P"||st==="M"){ids.add(emp.id);homemDias+=st==="P"?1:.5;}}));
           return {id:obra.id,nome:obra.name,status:obra.status,valorContrato:Number(obra.contractValue||0),receita:o?.receita||0,despesa:o?.despesa||0,resultado:o?.resultado||0,margem:o?.margemPct??null,maoDeObra:o?.laborCost||0,beneficios:o?.benefitCost||0,terceiros:o?.terc||0,outras:o?.outras||0,pessoasNoPeriodo:ids.size,homemDias};
         }),
         tendencia:historico.map(h=>({mes:h.mes,faturamento:h.faturamentoObras,recebido:h.recebidoObras,custosDiretos:h.totalCSP,despesasOperacionais:h.totalDespOp,ebitda:h.ebitda,lucroLiquido:h.lucroLiquido})),
@@ -36870,6 +36808,7 @@ export default function App() {
   // voo; estados novos apenas substituem o proximo a enviar (coalescencia).
   // Como o estado local ja acumula tudo, salvar so o mais recente nao perde nada.
   const saveQueueRef=useRef(null);
+  const attendanceCommandInFlightRef=useRef(0);
   if(!saveQueueRef.current){
     saveQueueRef.current=createSaveQueue({
       save:alvo=>saveDataDetailed(alvo,baseServidorRef.current),
@@ -36885,7 +36824,7 @@ export default function App() {
       onFailed:({result,offline})=>showToast(offline?"Sem conexão. As alterações seguem guardadas e serão retomadas ao reconectar.":(result?.reason||"Alterações não sincronizadas. Confira a conexão e faça uma nova ação para tentar novamente."),"error"),
     });
   }
-  const processarFilaSave = useCallback(() => { void saveQueueRef.current?.flush(); }, []);
+  useEffect(()=>()=>saveQueueRef.current?.destroy?.(),[]);
 
   useEffect(()=>{
     const retomar=()=>{
@@ -36899,7 +36838,7 @@ export default function App() {
 
   useEffect(()=>{
     const protegerSaida=event=>{
-      if(!saveQueueRef.current?.hasPending())return;
+      if(!saveQueueRef.current?.hasPending()&&!attendanceCommandInFlightRef.current)return;
       event.preventDefault();
       event.returnValue="";
     };
@@ -36954,34 +36893,9 @@ export default function App() {
       }
     } catch (e) { console.error("reconc", e); base = next; }
 
-    // Auditoria automática: detecta o que mudou em relação ao estado atual e
-    // carimba com operador e hora. Compara ignorando o próprio changeLog (senão
-    // registrar geraria mudança que se auto-registra). Eventos ricos de RH/ponto
-    // que já vêm com mensagem própria no changeLog são preservados; aqui só
-    // acrescentamos o que mais mudou, com autor e horário.
-    let proximo = base;
-    try {
-      const antes = dataAtualRef.current;
-      if (antes && base && base.changeLog === antes.changeLog && !currentUser?.obraId) {
-        // changeLog não foi mexido manualmente nesta chamada: detecta e anexa.
-        const mudancas = detectarMudancasAudit(antes, base);
-        if (mudancas.length) {
-          const agoraISO = new Date().toISOString();
-          const operador = currentUser?.nome || "Sistema";
-          const operadorId = currentUser?.id || "";
-          // Em saves em massa (import), resume em vez de listar tudo.
-          const entradas = mudancas.length > 6
-            ? [{ id: uid(), date: today(), at: agoraISO, operador, operadorId,
-                 type:"bulk", message:`${operador} fez ${mudancas.length} alterações` }]
-            : mudancas.map(m => ({ id: uid(), date: today(), at: agoraISO, operador, operadorId, obraId:m.obraId||"",
-                 type:m.acao, message:`${operador} ${m.texto}` }));
-          const log = [...(base.changeLog || []), ...entradas].slice(-5000); // histórico administrativo amplo, com limite de segurança para o blob
-          proximo = { ...base, changeLog: log };
-        }
-      }
-    } catch (e) { console.error("audit", e); }
-
-    const normalized = normalizeData(proximo);
+    // O histórico auditável é criado exclusivamente no servidor, na mesma
+    // transação da mutação. O cliente nunca fabrica nem substitui auditoria.
+    const normalized = normalizeData(base);
     ultimoDataRef.current = normalized;   // registra sincronamente o estado mais recente
     dataAtualRef.current = normalized;    // e adianta o espelho (o effect confirmaria depois)
     setData(normalized);   // otimista: a interface não trava esperando a rede
@@ -36990,7 +36904,7 @@ export default function App() {
     // proximo a enviar. Nunca ha dois saves simultaneos - fim dos 409 do
     // proprio dispositivo contra si mesmo.
     return saveQueueRef.current.enqueue(normalized);
-  }, [showToast, currentUser, processarFilaSave]);
+  }, [showToast]);
 
   // Ponte de migração para comandos por agregado. O comando é criado dentro
   // da atualização funcional, portanto `expectedVersion` é verificado contra
@@ -37020,6 +36934,61 @@ export default function App() {
     commandTailRef.current=pendente.catch(()=>undefined);
     return pendente;
   },[update]);
+
+  const dispatchAttendanceCommand=useCallback(commandOrFactory=>{
+    const executar=async()=>{
+      if(saveQueueRef.current?.hasPending()){
+        const drained=await saveQueueRef.current.waitForIdle();
+        if(!drained.ok||saveQueueRef.current?.hasPending()){
+          return {ok:false,reason:"Há alterações locais ainda não confirmadas. Resolva o salvamento antes de registrar o ponto."};
+        }
+      }
+      const command=typeof commandOrFactory==="function"
+        ?commandOrFactory(dataAtualRef.current||DEFAULT())
+        :commandOrFactory;
+      attendanceCommandInFlightRef.current+=1;
+      setEstadoSalvar(SAVE_QUEUE_STATE.SAVING);
+      try{
+        let resposta=null;
+        for(let attempt=0;attempt<=3;attempt+=1){
+          resposta=await executarComandoPonto(command);
+          if(resposta?.ok)break;
+          const retryable=[0,429,500,502,503,504].includes(Number(resposta?.status||0));
+          if(!retryable||attempt===3)break;
+          const serverDelay=Number(resposta?.status||0)===429
+            ?Math.max(0,Number(resposta?.retryAfter||resposta?.retry_after_seconds||0)*1000)
+            :0;
+          await new Promise(resolve=>window.setTimeout(resolve,Math.max(1500*(attempt+1),serverDelay)));
+        }
+        if(!resposta?.ok){
+          setEstadoSalvar(SAVE_QUEUE_STATE.FAILED);
+          return {
+            ok:false,status:Number(resposta?.status||0),code:resposta?.code||"",
+            reason:resposta?.error||"O servidor não confirmou o registro de ponto.",
+          };
+        }
+        const atual=normalizeData(applyAttendanceServerResult(dataAtualRef.current||DEFAULT(),resposta.result));
+        const base=normalizeData(applyAttendanceServerResult(baseServidorRef.current||DEFAULT(),resposta.result));
+        adoptServerVersion(resposta.updatedAt);
+        baseServidorRef.current=base;
+        ultimoDataRef.current=atual;
+        dataAtualRef.current=atual;
+        setData(atual);
+        setUltimaSync(new Date());
+        setEstadoSalvar(SAVE_QUEUE_STATE.IDLE);
+        return {ok:true,idempotent:!!resposta.idempotent,result:resposta.result,data:atual};
+      }catch(error){
+        console.error("attendance-command",error);
+        setEstadoSalvar(SAVE_QUEUE_STATE.FAILED);
+        return {ok:false,status:0,reason:"O servidor não confirmou o registro de ponto."};
+      }finally{
+        attendanceCommandInFlightRef.current=Math.max(0,attendanceCommandInFlightRef.current-1);
+      }
+    };
+    const pending=commandTailRef.current.then(executar,executar);
+    commandTailRef.current=pending.catch(()=>undefined);
+    return pending;
+  },[]);
 
   // No boot buscamos APENAS a lista de perfis (nome + papel). Nenhum dado
   // financeiro, nenhum CPF, nenhum hash de PIN sai do servidor aqui.
@@ -37087,13 +37056,19 @@ export default function App() {
       return;
     }
 
-    const validUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-    const unlockRequests = (data.unlockRequests||[]).map(r => r.id === requestId ? { ...r, status: "approved", approvedAt: new Date().toISOString(), validUntil } : r);
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "unlock_approved_link", message: `Permissão aprovada via link para ${req.obraName} em ${fmtDateFull(req.date)}.` }];
-    update({ ...data, unlockRequests, changeLog });
-    showToast("Permissão aprovada por 30 minutos.");
-    window.history.replaceState({}, "", window.location.pathname + window.location.hash);
-  }, [data, loading, showToast, update]);
+    (async()=>{
+      const result=await dispatchAttendanceCommand({
+        action:"attendance-unlock-approve",
+        operationId:pointOperationId(),
+        requestId,
+      });
+      showToast(
+        result?.ok?"Permissão aprovada por 30 minutos.":result?.reason||"A permissão não foi aprovada pelo servidor.",
+        result?.ok?"success":"error",
+      );
+      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+    })();
+  }, [data, loading, showToast, dispatchAttendanceCommand]);
 
   //  Navegação por grupos (filtrada por role) 
   const allowedTabs  = allowedTabsForUser(currentUser);
@@ -37294,9 +37269,15 @@ export default function App() {
       // terceirizados não faz ninguém perder trabalho.
       const merged = mesclarDados(fresco.data, meu, base);
       const norm = normalizeData(merged);
-      const ok = await saveData(norm);
-      if (ok) { baseServidorRef.current = norm; ultimoDataRef.current = norm; dataAtualRef.current = norm; setData(norm); showToast("Suas alterações foram mescladas com as da outra pessoa."); }
-      else    { showToast("Ainda em conflito. Recarregue a página.", "error"); }
+      const result = await saveDataDetailed(norm,normalizeData(fresco.data));
+      if (result.ok) {
+        const confirmed=normalizeData(result.merged&&result.data?result.data:norm);
+        baseServidorRef.current=confirmed;ultimoDataRef.current=confirmed;dataAtualRef.current=confirmed;
+        setData(confirmed);setUltimaSync(new Date());
+        showToast("Suas alterações foram mescladas com as da outra pessoa.");
+      } else {
+        showToast(result.reason||"Ainda em conflito. Recarregue a página.","error");
+      }
     } else {
       const norm = normalizeData(fresco.data);
       baseServidorRef.current = norm;
@@ -37751,6 +37732,7 @@ export default function App() {
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
                            currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}
+                           dispatchAttendanceCommand={dispatchAttendanceCommand}
                            onVoltar={() => setObraAberta("")}
                            onEditarObra={()=>{sessionStorage.setItem("arcd_editar_obra",obraAberta);setObraAberta("");}}
                            onTab={(t) => { setObraAberta(""); setTab(t); }} />
@@ -37765,8 +37747,8 @@ export default function App() {
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} />}
           {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
-          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} />}
-          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} />}
+          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
+          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} currentUser={currentUser} />}
@@ -37786,7 +37768,7 @@ export default function App() {
           {tab === "relat"    && <Relatorios   data={data} showToast={showToast} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
           {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}
-          {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} />}
+          {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} dispatchAttendanceCommand={dispatchAttendanceCommand} />}
         </main>
 
         {/*  NAV INFERIOR - só celular/tablet (no desktop é sidebar)  */}

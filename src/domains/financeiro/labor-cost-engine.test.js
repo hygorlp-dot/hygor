@@ -55,4 +55,22 @@ describe("motor financeiro de mão de obra", () => {
     expect(second).toBe(first);
     expect(holidayPay).toHaveBeenCalledTimes(1);
   });
+
+  it("não transfere o custo histórico para a lotação nova do funcionário",()=>{
+    const engine=createLaborCostEngine(dependencies());
+    const data={
+      config:{},obras:[{id:"o1",name:"Obra antiga"},{id:"o2",name:"Obra nova"}],
+      employees:[{
+        id:"e1",obra:"o2",dailyRate:100,
+        obraHistory:[{date:"2026-07-15",fromObraId:"o1",toObraId:"o2"}],
+      }],
+      attendance:{e1:{
+        "2026-07-10":{status:"P"},
+        "2026-07-20":{status:"P"},
+      }},
+    };
+    expect(engine.calculateCurrentCost(data,"o1",["2026-07-10"])).toMatchObject({laborCost:100});
+    expect(engine.calculateCurrentCost(data,"o2",["2026-07-10"])).toMatchObject({laborCost:0});
+    expect(engine.calculateCurrentCost(data,"o2",["2026-07-20"])).toMatchObject({laborCost:100});
+  });
 });

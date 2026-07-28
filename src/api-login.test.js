@@ -39,4 +39,18 @@ describe("contrato de resposta do login", () => {
     });
     expect(temSessao()).toBe(true);
   });
+
+  it("preserva Retry-After para a fila respeitar o limite do servidor",async()=>{
+    vi.stubGlobal("fetch",vi.fn(()=>Promise.resolve({
+      status:429,
+      headers:{get:name=>name.toLowerCase()==="retry-after"?"8":null},
+      json:()=>Promise.resolve({error:"Aguarde antes de tentar novamente."}),
+    })));
+    const {abrirSessao,saveDataDetailed}=await import("./api.js");
+    abrirSessao("u1","123456");
+    await expect(saveDataDetailed({obras:[]})).resolves.toMatchObject({
+      ok:false,status:429,retryAfter:8,
+      reason:"Aguarde antes de tentar novamente.",
+    });
+  });
 });
