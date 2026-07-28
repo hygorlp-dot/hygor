@@ -7,11 +7,15 @@ const reconciliationServer=readFileSync(resolve(process.cwd(), "server/reconcili
 
 describe("contrato de autoria do DRE", () => {
   it("entrega o usuário autenticado até o cancelamento auditável", () => {
-    expect(source).toContain("function DRE({data,update,showToast,currentUser=null,obraIdFixo=\"\"})");
-    expect(source).toContain("<DRELegado data={data} update={update} showToast={showToast} currentUser={currentUser}/>");
-    expect(source).toContain("cancelDreExpense({ data, expenseId:id, reason:motivo, actor:currentUser })");
-    expect(source).toContain("createDreExpense({ data, expense:{ ...despForm, obraId, competencia:despForm.competencia || periodo }, actor:currentUser, id:uid() })");
-    expect(source).toContain("createDreExpense({data,expense:despForm,actor:currentUser,id:uid()})");
+    expect(source).toContain('type:OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.PROJECT_EXPENSE_CANCELLED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.COMPANY_EXPENSE_CANCELLED');
+    expect(source).toContain('type:OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED');
+    expect(source).not.toContain("update(createDreExpense(");
+    expect(source).not.toContain("update(cancelDreExpense(");
+    expect(source).not.toContain("update(saveCompanyExpense(");
+    expect(source).not.toContain("update(cancelCompanyExpense(");
     expect(source).toContain("type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED");
     expect(source).toContain("type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED");
     expect(source).toContain("<Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />");
@@ -25,7 +29,7 @@ describe("contrato de autoria do DRE", () => {
     // autoritativo, preservando origem e vínculo da transação.
     expect(source).toContain('type:"CONFIRM_RECEIPT"');
     expect(reconciliationServer).toContain('origem:"conciliacao_bancaria",transacaoId:transaction.id,actor');
-    expect(source).toContain("<DRE          data={data} update={update} showToast={showToast} currentUser={currentUser} />");
+    expect(source).toContain("<DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />");
   });
 
   it("consome a projeção canônica quando ela está disponível, mesmo antes do bloqueio FIN-003", () => {

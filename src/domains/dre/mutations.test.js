@@ -67,8 +67,8 @@ describe("cancelamento auditável de despesa no DRE", () => {
   });
 
   it("copia somente recorrências ativas com nova autoria e sem duplicar destino", () => {
-    const data={despesasEmpresa:[{id:"a",competencia:"2026-06",categoria:"software",descricao:"Sistema",valor:100,recorrente:true},{id:"b",competencia:"2026-06",categoria:"aluguel",descricao:"Sede",valor:50,recorrente:true,status:"cancelada"}]};
+    const data={despesasEmpresa:[{id:"a",competencia:"2026-06",categoria:"software",descricao:"Sistema",valor:100,recorrente:true,pago:true,dataPagamento:"2026-06-10",transacaoId:"tx-a"},{id:"b",competencia:"2026-06",categoria:"aluguel",descricao:"Sede",valor:50,recorrente:true,status:"cancelada"}]};
     const result=replicateCompanyRecurringExpenses({data,fromCompetence:"2026-06",toCompetence:"2026-07",actor,ids:["new-a"],now:"2026-07-01T00:00:00.000Z"});
-    expect(result.copied).toBe(1);expect(result.despesasEmpresa.at(-1)).toMatchObject({id:"new-a",competencia:"2026-07",origem:"recorrencia_dre_empresa",createdById:"u-1",status:"ativo"});
+    expect(result.copied).toBe(1);expect(result.despesasEmpresa.at(-1)).toMatchObject({id:"new-a",competencia:"2026-07",origem:"recorrencia_dre_empresa",createdById:"u-1",status:"ativo",pago:false,dataPagamento:"",transacaoId:""});
   });
 });

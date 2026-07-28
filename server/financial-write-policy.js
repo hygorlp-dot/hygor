@@ -19,11 +19,12 @@ export const FINANCIAL_OPERATIONAL_SOURCE_SECTIONS=new Set(["attendance"]);
 // o enforcement derruba um módulo funcional. A lista é deliberadamente
 // explícita para funcionar como checklist de migração e gate de deploy.
 //
-// reconciliationLinks, archivedLaborCosts, payments e medicoes continuam protegidas
+// reconciliationLinks, archivedLaborCosts, payments, medicoes, outrasDesp e
+// despesasEmpresa continuam protegidas
 // como seções financeiras legadas, mas não pertencem mais a este checklist:
 // seus escritores foram migrados para comandos servidores idempotentes.
 export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
-  "outrasDesp","despesasEmpresa","caixaObra","transacoes",
+  "caixaObra","transacoes",
   "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
   "titulosFolha","rescisoes",
   "attendance","employees","config","obras",
@@ -31,7 +32,7 @@ export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
 
 export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
   financeiro_conciliacao:[
-    "outrasDesp","despesasEmpresa","caixaObra","transacoes",
+    "caixaObra","transacoes",
   ],
   compras_fiscal:["pedidos","notasFiscais"],
   terceiros:["pagsTerceiros","medicoesTerc"],

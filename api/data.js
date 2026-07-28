@@ -82,6 +82,11 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_ADMIN_CLOSED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_BILLED]:["admin","financeiro","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED]:["admin","comercial"],
+  [OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.PROJECT_EXPENSE_CANCELLED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.COMPANY_EXPENSE_CANCELLED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED]:["admin","engenheiro","qualidade"],
@@ -107,6 +112,9 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_ADMIN_CLOSED,
   OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_BILLED,
   OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED,
+  OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED,OPERATIONAL_COMMAND.PROJECT_EXPENSE_CANCELLED,
+  OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED,OPERATIONAL_COMMAND.COMPANY_EXPENSE_CANCELLED,
+  OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED,
   OPERATIONAL_COMMAND.EQUIPMENT_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,
   OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
@@ -915,7 +923,7 @@ export default async function handler(req, res) {
         const save=FINANCIAL_OPERATIONAL_COMMANDS.has(command.type)?salvarFinanceiroComAuditoria:salvarComAuditoria;
         return save({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
-        before:{command:command.type,entityId:command.payload?.contractId||command.payload?.medicaoTecnicaId||command.payload?.measurementId||command.payload?.pedidoId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.rentalId||command.payload?.equipmentId||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.equipment?.id||command.payload?.rental?.id||command.payload?.maintenance?.id||command.payload?.transfer?.id||command.payload?.records?.[0]?.id||""},
+        before:{command:command.type,entityId:command.payload?.contractId||command.payload?.medicaoTecnicaId||command.payload?.expenseId||command.payload?.measurementId||command.payload?.pedidoId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.rentalId||command.payload?.equipmentId||command.payload?.expense?.id||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.equipment?.id||command.payload?.rental?.id||command.payload?.maintenance?.id||command.payload?.transfer?.id||command.payload?.records?.[0]?.id||""},
         after:{command:command.type,idempotencyKey:command.idempotencyKey}});
       };
       let gravacao=await persistir({updatedAt},result.data);
@@ -927,7 +935,11 @@ export default async function handler(req, res) {
         gravacao=await persistir(recente,result.data);
         if(!gravacao.applied)return res.status(409).json({conflict:true,reason:"Outra alteração foi gravada ao mesmo tempo. Tente novamente."});
       }
-      return res.status(200).json({ok:true,data:projectDataForUser(result.data,usuario),updatedAt:gravacao.updatedAt||new Date().toISOString()});
+      return res.status(200).json({
+        ok:true,data:projectDataForUser(result.data,usuario),
+        updatedAt:gravacao.updatedAt||new Date().toISOString(),
+        ...(result.copied!=null?{copied:result.copied}:{}),
+      });
     }
 
     // FIN-002: fotografia em sombra do legado versus motor canônico. Não

@@ -111,7 +111,6 @@ import {
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
 import { calculateContractProjection } from "./domains/dre/calculations";
-import { cancelCompanyExpense, cancelDreExpense, createDreExpense, replicateCompanyRecurringExpenses, saveCompanyExpense } from "./domains/dre/mutations";
 import {
   buildFinancialLedger,
   selectDRE as selectLedgerDRE,
@@ -4462,13 +4461,14 @@ const categoriasDesp = (data) => {
 const rotuloCategoria = (data, v) =>
   (categoriasDesp(data).find(c => c.v === v)?.l) || v;
 
-function FinanceiroObraPainel({data,update,showToast,currentUser=null,obraId}){
+function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCommand=null}){
   const {isDesktop}=useBreakpoint();
   const agora=new Date();
   const [aba,setAba]=useState("resumo");
   const [periodo,setPeriodo]=useState(`${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,"0")}`);
   const [busca,setBusca]=useState("");
   const [despModal,setDespModal]=useState(false);
+  const [expenseCommandPending,setExpenseCommandPending]=useState(false);
   const [despForm,setDespForm]=useState({obraId,competencia:periodo,categoria:"material",descricao:"",valor:""});
   const obra=(data.obras||[]).find(o=>o.id===obraId);
   const [ano,mes]=periodo.split("-").map(Number);
@@ -4500,12 +4500,24 @@ function FinanceiroObraPainel({data,update,showToast,currentUser=null,obraId}){
   const listaAba=aba==="dre"?filtrar(movimentos).filter(m=>["receita","custo"].includes(m.tipo))
     :aba==="caixa"?filtrar(movimentos).filter(m=>["entrada","saida"].includes(m.tipo))
     :filtrar(movimentos);
-  const salvarDespesa=()=>{
+  const salvarDespesa=async()=>{
+    if(!dispatchCommand||expenseCommandPending)return;
+    setExpenseCommandPending(true);
     try {
-      update(createDreExpense({ data, expense:{ ...despForm, obraId, competencia:despForm.competencia || periodo }, actor:currentUser, id:uid() }));
+      const id=uid();
+      const result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED,
+        idempotencyKey:`project-expense-create-${id}-${uid()}`,
+        expectedVersion:0,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{expense:{...despForm,id,obraId,competencia:despForm.competencia||periodo}},
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a despesa.");
       setDespModal(false);setDespForm({obraId,competencia:periodo,categoria:"material",descricao:"",valor:""});showToast("Despesa registrada na obra.");
     } catch (error) {
       showToast(error.message || "Não foi possível registrar a despesa.","error");
+    } finally {
+      setExpenseCommandPending(false);
     }
   };
   const Metric=({label,value,detail,tone="neutral"})=><div className={`obra-fin-metric ${tone}`}><span>{label}</span><strong>{fmt(value)}</strong><small>{detail}</small></div>;
@@ -4533,15 +4545,15 @@ function FinanceiroObraPainel({data,update,showToast,currentUser=null,obraId}){
           </div>
         </div>
       )}
-      <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setDespModal(false)}>Cancelar</Btn><Btn full onClick={salvarDespesa}>Salvar despesa</Btn></div></div></Modal>}
+      <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setDespModal(false)}>Cancelar</Btn><Btn full disabled={expenseCommandPending} onClick={salvarDespesa}>{expenseCommandPending?"Salvando...":"Salvar despesa"}</Btn></div></div></Modal>}
   </div>;
 }
 
-function DRE({data,update,showToast,currentUser=null,obraIdFixo=""}){
-  return obraIdFixo?<FinanceiroObraPainel data={data} update={update} showToast={showToast} currentUser={currentUser} obraId={obraIdFixo}/>:<DRELegado data={data} update={update} showToast={showToast} currentUser={currentUser}/>;
+function DRE({data,showToast,currentUser=null,obraIdFixo="",dispatchCommand=null}){
+  return obraIdFixo?<FinanceiroObraPainel data={data} showToast={showToast} currentUser={currentUser} obraId={obraIdFixo} dispatchCommand={dispatchCommand}/>:<DRELegado data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand}/>;
 }
 
-function DRELegado({ data, update, showToast, currentUser=null, obraIdFixo="" }) {
+function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchCommand=null }) {
   const { cols } = useBreakpoint();
   const now   = new Date();
   const [year,  setYear]   = useState(now.getFullYear());
@@ -4550,6 +4562,7 @@ function DRELegado({ data, update, showToast, currentUser=null, obraIdFixo="" })
   const [view,  setView]   = useState(obraIdFixo?"obra":"consolidado"); // "consolidado" | "obra" | "historico"
   const [selObra, setSelObra] = useState(obraIdFixo||data.obras[0]?.id||"");
   const [despModal, setDespModal] = useState(false);
+  const [expenseCommandPending,setExpenseCommandPending]=useState(false);
   const [despForm,  setDespForm]  = useState({ obraId:"", competencia:"", categoria:"material", descricao:"", valor:"" });
   const [detalheKpi, setDetalheKpi] = useState("");
   const [filtroDetalhe, setFiltroDetalhe] = useState({ busca:"", categoria:"todos", obra:"todas", ordem:"data_desc" });
@@ -4680,25 +4693,51 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
     });
   },[movimentosDRE,detalheKpi,filtroDetalhe]);
 
-  const saveDesp = () => {
+  const saveDesp = async() => {
+    if(!dispatchCommand||expenseCommandPending)return;
+    setExpenseCommandPending(true);
     try {
-      update(createDreExpense({data,expense:despForm,actor:currentUser,id:uid()}));
+      const id=uid();
+      const result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED,
+        idempotencyKey:`project-expense-create-${id}-${uid()}`,
+        expectedVersion:0,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{expense:{...despForm,id}},
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a despesa.");
       setDespModal(false);
       setDespForm({obraId:"",competencia:"",categoria:"material",descricao:"",valor:""});
       showToast("Despesa registrada.");
     } catch (error) {
       showToast(error.message||"Não foi possível registrar a despesa.","error");
+    } finally {
+      setExpenseCommandPending(false);
     }
   };
 
-  const delDesp = id => {
+  const delDesp = async id => {
     const motivo=window.prompt("Motivo do cancelamento da despesa:");
     if(!String(motivo||"").trim())return;
+    if(!dispatchCommand||expenseCommandPending)return;
+    setExpenseCommandPending(true);
     try {
-      update(cancelDreExpense({ data, expenseId:id, reason:motivo, actor:currentUser }));
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.outrasDesp||[]).find(item=>item.id===id);
+        return {
+          type:OPERATIONAL_COMMAND.PROJECT_EXPENSE_CANCELLED,
+          idempotencyKey:`project-expense-cancel-${id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{expenseId:id,reason:motivo},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o cancelamento.");
       showToast("Despesa cancelada e preservada para auditoria.");
     } catch (error) {
       showToast(error.message || "Não foi possível cancelar a despesa.", "error");
+    } finally {
+      setExpenseCommandPending(false);
     }
   };
 
@@ -4804,7 +4843,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
                   <span>{x.descricao||x.categoria} <span style={{color:C.muted,fontSize:9}}>({fmtDateFull(x.competencia+"-01")})</span></span>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <span style={{color:C.orange,fontWeight:700}}>{fmt(x.valor)}</span>
-                    <button onClick={()=>delDesp(x.id)} style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:11,padding:0}}>x</button>
+                    <button disabled={expenseCommandPending} onClick={()=>delDesp(x.id)} style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:11,padding:0}}>x</button>
                   </div>
                 </div>
               ))}
@@ -5182,7 +5221,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
               </div>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                 <p style={{color:C.orange,fontWeight:900}}>{fmt(d.valor)}</p>
-                <Btn size="sm" v="danger" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
+                <Btn size="sm" v="danger" disabled={expenseCommandPending} onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
               </div>
             </div>
           ))}
@@ -5269,7 +5308,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             )}
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setDespModal(false)} full>Cancelar</Btn>
-              <Btn v="warning" onClick={saveDesp} full><Ic n="check"/> Lançar</Btn>
+              <Btn v="warning" disabled={expenseCommandPending} onClick={saveDesp} full><Ic n="check"/> {expenseCommandPending?"Salvando...":"Lançar"}</Btn>
             </div>
           </div>
         </Modal>
@@ -27493,7 +27532,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="med"&&<MedicaoEvolucao data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="cmp"&&<Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="est"&&<Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
-        {abaConteudo==="dre"&&<DRE data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
+        {abaConteudo==="dre"&&<DRE data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
         {abaConteudo==="equipe"&&<Equipe data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="terc"&&<Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
@@ -34382,7 +34421,7 @@ const CATS_DESP = [
   { v:"outros",         l:"Outros",                    grupo:"outros"},
 ];
 
-function DREEmpresa({ data, update, showToast, currentUser=null }) {
+function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null }) {
   const { cols } = useBreakpoint();
   const now = new Date();
   const [year,  setYear]   = useState(now.getFullYear());
@@ -34391,6 +34430,7 @@ function DREEmpresa({ data, update, showToast, currentUser=null }) {
   const [analiseIA, setAnaliseIA] = useState(null);
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [despModal, setDespModal] = useState(false);
+  const [expenseCommandPending,setExpenseCommandPending]=useState(false);
   const [editDesp,  setEditDesp]  = useState(null);
   const [despForm,  setDespForm]  = useState({ competencia:"", categoria:"aluguel", descricao:"", valor:"", recorrente:false });
   const [razaoEmpresa,setRazaoEmpresa]=useState(null);
@@ -34535,22 +34575,79 @@ Regras: não invente números, datas, clientes ou causas. Diferencie competênci
   };
 
   // Despesas recorrentes - auto-copiar para o mês atual
-  const replicarRecorrentes = () => {
+  const replicarRecorrentes = async() => {
+    if(!dispatchCommand||expenseCommandPending)return;
     const prevYM = month===0?`${year-1}-12`:`${year}-${String(month).padStart(2,"0")}`;
-    try{const result=replicateCompanyRecurringExpenses({data,fromCompetence:prevYM,toCompetence:ym,actor:currentUser,ids:Array.from({length:(data.despesasEmpresa||[]).length},()=>uid())});if(!result.copied){showToast("Nenhuma despesa recorrente ativa do mês anterior a copiar.","warn");return;}const {copied,...next}=result;update(next);showToast(`${copied} despesa(s) recorrente(s) copiada(s) para ${period}.`);}
-    catch(error){showToast(error.message||"Não foi possível copiar as despesas recorrentes.","error");}
+    setExpenseCommandPending(true);
+    try{
+      const result=await dispatchCommand(()=>({
+        type:OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED,
+        idempotencyKey:`company-expenses-replicate-${ym}-${uid()}`,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{
+          fromCompetence:prevYM,toCompetence:ym,
+          ids:Array.from({length:(data.despesasEmpresa||[]).length},()=>uid()),
+        },
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a cópia.");
+      if(!result.copied){showToast("Nenhuma despesa recorrente ativa do mês anterior a copiar.","warn");return;}
+      showToast(`${result.copied} despesa(s) recorrente(s) copiada(s) para ${period}.`);
+    }catch(error){
+      showToast(error.message||"Não foi possível copiar as despesas recorrentes.","error");
+    }finally{
+      setExpenseCommandPending(false);
+    }
   };
 
-  const saveDesp = () => {
-    try{update(saveCompanyExpense({data,expense:despForm,actor:currentUser,id:editDesp||uid()}));setDespModal(false);setEditDesp(null);setDespForm({competencia:"",categoria:"aluguel",descricao:"",valor:"",recorrente:false});showToast(editDesp?"Despesa atualizada.":"Despesa registrada.");}
-    catch(error){showToast(error.message||"Não foi possível registrar a despesa.","error");}
+  const saveDesp = async() => {
+    if(!dispatchCommand||expenseCommandPending)return;
+    const id=editDesp||uid();
+    setExpenseCommandPending(true);
+    try{
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.despesasEmpresa||[]).find(item=>item.id===id);
+        return {
+          type:OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED,
+          idempotencyKey:`company-expense-save-${id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{expense:{...despForm,id}},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a despesa.");
+      setDespModal(false);setEditDesp(null);
+      setDespForm({competencia:"",categoria:"aluguel",descricao:"",valor:"",recorrente:false});
+      showToast(editDesp?"Despesa atualizada.":"Despesa registrada.");
+    }catch(error){
+      showToast(error.message||"Não foi possível registrar a despesa.","error");
+    }finally{
+      setExpenseCommandPending(false);
+    }
   };
 
-  const delDesp = id => {
+  const delDesp = async id => {
     const motivo=window.prompt("Motivo do cancelamento da despesa:");
     if(!String(motivo||"").trim())return;
-    try{update(cancelCompanyExpense({data,expenseId:id,reason:motivo,actor:currentUser}));showToast("Despesa cancelada e preservada para auditoria.");}
-    catch(error){showToast(error.message||"Não foi possível cancelar a despesa.","error");}
+    if(!dispatchCommand||expenseCommandPending)return;
+    setExpenseCommandPending(true);
+    try{
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.despesasEmpresa||[]).find(item=>item.id===id);
+        return {
+          type:OPERATIONAL_COMMAND.COMPANY_EXPENSE_CANCELLED,
+          idempotencyKey:`company-expense-cancel-${id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{expenseId:id,reason:motivo},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o cancelamento.");
+      showToast("Despesa cancelada e preservada para auditoria.");
+    }catch(error){
+      showToast(error.message||"Não foi possível cancelar a despesa.","error");
+    }finally{
+      setExpenseCommandPending(false);
+    }
   };
 
   //  PDF gerencial 
@@ -34920,7 +35017,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         <div style={{background:C.surface,padding:"9px 11px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
           <div><p style={{fontWeight:750,fontSize:11,color:C.text}}>Despesas operacionais</p><p style={{fontSize:8.5,color:C.muted,marginTop:1,textTransform:"uppercase",letterSpacing:.55}}>{period}</p></div>
           <div style={{display:"flex",gap:5}}>
-            <Btn size="sm" v="ghost" onClick={replicarRecorrentes}><Ic n="copy"/> Replicar</Btn>
+            <Btn size="sm" v="ghost" disabled={expenseCommandPending} onClick={replicarRecorrentes}><Ic n="copy"/> Replicar</Btn>
             <Btn size="sm" onClick={()=>{setDespForm({competencia:ym,categoria:"aluguel",descricao:"",valor:"",recorrente:false});setEditDesp(null);setDespModal(true);}}>
               <Ic n="plus"/> Nova despesa
             </Btn>
@@ -34930,7 +35027,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         {dre.despEmp.length===0 && (
           <div style={{padding:"20px 14px",textAlign:"center"}}>
             <p style={{color:C.muted,fontSize:12,marginBottom:8}}>Nenhuma despesa operacional lançada em {period}.</p>
-            <Btn size="sm" v="ghost" onClick={replicarRecorrentes}> Replicar despesas do mês anterior</Btn>
+            <Btn size="sm" v="ghost" disabled={expenseCommandPending} onClick={replicarRecorrentes}> Replicar despesas do mês anterior</Btn>
           </div>
         )}
 
@@ -34946,7 +35043,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
             <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
               <p style={{fontSize:12.5,fontWeight:800,color:C.red,marginRight:3}}>({fmt(d.valor)})</p>
               <Btn size="sm" v="ghost" title="Editar" onClick={()=>{setDespForm({competencia:d.competencia,categoria:d.categoria,descricao:d.descricao,valor:String(d.valor),recorrente:d.recorrente});setEditDesp(d.id);setDespModal(true);}}><Ic n="edit"/></Btn>
-              <Btn size="sm" v="danger" title="Excluir" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
+              <Btn size="sm" v="danger" disabled={expenseCommandPending} title="Excluir" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
             </div>
           </div>
         ))}
@@ -34983,7 +35080,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
             </label>
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>{setDespModal(false);setEditDesp(null);}} full>Cancelar</Btn>
-              <Btn onClick={saveDesp} full><Ic n="check"/> Salvar</Btn>
+              <Btn disabled={expenseCommandPending} onClick={saveDesp} full><Ic n="check"/> {expenseCommandPending?"Salvando...":"Salvar"}</Btn>
             </div>
           </div>
         </Modal>
@@ -37493,7 +37590,10 @@ export default function App() {
       const resposta=await executarComandoOperacional(command);
       if(!resposta?.ok)return {ok:false,reason:resposta?.reason||resposta?.error||"O servidor não confirmou o comando operacional."};
       await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
-      return {ok:true,idempotent:!!resposta.idempotent,data:resposta.data};
+      return {
+        ok:true,idempotent:!!resposta.idempotent,data:resposta.data,
+        ...(resposta.copied!=null?{copied:resposta.copied}:{}),
+      };
     };
     const pendente=commandTailRef.current.then(executar,executar);
     commandTailRef.current=pendente.catch(()=>undefined);
@@ -38316,8 +38416,8 @@ export default function App() {
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
-          {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} currentUser={currentUser} />}
-          {tab === "dre"      && <DRE          data={data} update={update} showToast={showToast} currentUser={currentUser} />}
+          {tab === "dre_emp"  && <DREEmpresa  data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast} currentUser={currentUser}/>}

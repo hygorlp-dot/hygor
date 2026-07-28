@@ -34,6 +34,24 @@ describe("escopo servidor de comandos operacionais",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED,payload:{obraId:"obra-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED,payload:{obraId:"obra-b"}}})).toMatchObject({ok:false});
   });
+  it("protege despesas por obra e reserva despesas corporativas ao financeiro",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED,
+      payload:{expense:{obraId:"obra-a"}},
+    }})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{
+      type:OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED,
+      payload:{expense:{obraId:"obra-b"}},
+    }})).toMatchObject({ok:false});
+    const companyCommand={
+      type:OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED,
+      payload:{expense:{id:"c-1"}},
+    };
+    expect(validateOperationalCommandScope({user,data,command:companyCommand})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({
+      user:{id:"fin",role:"financeiro"},data,command:companyCommand,
+    })).toMatchObject({ok:true,scope:"company"});
+  });
   it("mantém o avanço físico dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-b"}}}})).toMatchObject({ok:false});

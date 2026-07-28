@@ -5,11 +5,17 @@ import {
   CLIENT_MEASUREMENT_COMMAND_TYPES,
   clientMeasurementCommandObraId,
 } from "../src/domains/financeiro/measurement-commands.js";
+import {
+  COMPANY_EXPENSE_COMMAND_TYPES,
+  EXPENSE_COMMAND_TYPES,
+  expenseCommandObraId,
+} from "../src/domains/financeiro/expense-commands.js";
 
 export const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
   if(EQUIPMENT_COMMAND_TYPES.has(command?.type))return equipmentCommandObraId(data,command);
   if(CLIENT_MEASUREMENT_COMMAND_TYPES.has(command?.type))return clientMeasurementCommandObraId(data,command);
+  if(EXPENSE_COMMAND_TYPES.has(command?.type))return expenseCommandObraId(data,command);
   if(command?.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED)return String(payload?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED)return String(payload?.measurement?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");
@@ -34,6 +40,11 @@ export const operationalCommandObraId=(data={},command={})=>{
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
   const obraId=operationalCommandObraId(data,command);
+  if(COMPANY_EXPENSE_COMMAND_TYPES.has(command.type)){
+    return ["admin","financeiro"].includes(user?.role)
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Seu perfil não pode alterar despesas corporativas."};
+  }
   if(EQUIPMENT_COMMAND_TYPES.has(command.type)&&!obraId){
     return user?.role==="admin"||!user?.obraId
       ? {ok:true,obraId:"",scope:"company"}

@@ -11,12 +11,14 @@ export const cancelDreExpense = ({ data, expenseId, reason, actor, now = new Dat
   if (["cancelado", "cancelada", "estornado"].includes(String(expense.status || "").toLowerCase())) {
     throw new Error("Esta despesa já está cancelada ou estornada.");
   }
+  if (expense.transacaoId) throw new Error("Desfaça a conciliação bancária antes de cancelar esta despesa.");
   return {
     ...data,
     outrasDesp:despesas.map(item => item.id !== expenseId ? item : ({
       ...item, status:"cancelado", motivoCancelamento, canceladoEm:now,
       canceladoPorId:actor.id, canceladoPor:actor.nome || actor.email || "Usuário autenticado",
       updatedAt:now, updatedById:actor.id, updatedBy:actor.nome || actor.email || "Usuário autenticado",
+      version:Number(item.version || 0)+1,
     })),
   };
 };
@@ -34,6 +36,7 @@ export const createDreExpense = ({ data, expense, actor, id, now = new Date().to
     id, obraId:String(expense?.obraId || ""), competencia, categoria:String(expense?.categoria || "outros"), descricao, valor,
     status:"ativo", origem:"dre_obra", createdAt:now, createdById:actor.id, createdBy:actor.nome || actor.email || "Usuário autenticado",
     updatedAt:now, updatedById:actor.id, updatedBy:actor.nome || actor.email || "Usuário autenticado",
+    version:1,
   };
   return { ...data, outrasDesp:[...(Array.isArray(data?.outrasDesp) ? data.outrasDesp : []), registro] };
 };
@@ -78,7 +81,8 @@ export const cancelCompanyExpense = ({ data, expenseId, reason, actor, now = new
   const expense=despesas.find(item=>item.id===expenseId);
   if (!expense) throw new Error("Despesa corporativa não encontrada.");
   if (["cancelado","cancelada","estornado"].includes(String(expense.status || "").toLowerCase())) throw new Error("Esta despesa corporativa já está cancelada ou estornada.");
-  return {...data,despesasEmpresa:despesas.map(item=>item.id!==expenseId?item:{...item,status:"cancelada",motivoCancelamento,canceladoEm:now,canceladoPorId:actor.id,canceladoPor:actor.nome||actor.email||"Usuário autenticado",updatedAt:now,updatedById:actor.id,updatedBy:actor.nome||actor.email||"Usuário autenticado"})};
+  if (expense.transacaoId) throw new Error("Desfaça a conciliação bancária antes de cancelar esta despesa corporativa.");
+  return {...data,despesasEmpresa:despesas.map(item=>item.id!==expenseId?item:{...item,status:"cancelada",motivoCancelamento,canceladoEm:now,canceladoPorId:actor.id,canceladoPor:actor.nome||actor.email||"Usuário autenticado",updatedAt:now,updatedById:actor.id,updatedBy:actor.nome||actor.email||"Usuário autenticado",version:Number(item.version||0)+1})};
 };
 
 export const saveCompanyExpense = ({ data, expense, actor, id, now = new Date().toISOString() }) => {
@@ -102,6 +106,15 @@ export const replicateCompanyRecurringExpenses = ({ data, fromCompetence, toComp
   const existentes=new Set(despesas.filter(item=>item.competencia===toCompetence&&!['cancelado','cancelada','estornado','arquivado'].includes(String(item.status||'').toLowerCase())).map(item=>`${item.categoria}|${item.descricao}`));
   const fontes=despesas.filter(item=>item.competencia===fromCompetence&&item.recorrente&&!['cancelado','cancelada','estornado','arquivado'].includes(String(item.status||'').toLowerCase())&&!existentes.has(`${item.categoria}|${item.descricao}`));
   if (ids.length<fontes.length) throw new Error("Identificadores insuficientes para copiar despesas recorrentes.");
-  const novos=fontes.map((item,index)=>({...item,id:ids[index],competencia:toCompetence,status:"ativo",origem:"recorrencia_dre_empresa",createdAt:now,createdById:actor.id,createdBy:actor.nome||actor.email||"Usuário autenticado",updatedAt:now,updatedById:actor.id,updatedBy:actor.nome||actor.email||"Usuário autenticado",version:1,motivoCancelamento:"",canceladoEm:"",canceladoPorId:"",canceladoPor:""}));
+  const novos=fontes.map((item,index)=>({
+    ...item,id:ids[index],competencia:toCompetence,status:"ativo",
+    origem:"recorrencia_dre_empresa",
+    // A recorrência cria uma nova obrigação, nunca reaproveita a baixa ou o
+    // vínculo bancário do mês anterior.
+    pago:false,dataPagamento:"",pagamentoId:"",transacaoId:"",conciliado:false,
+    createdAt:now,createdById:actor.id,createdBy:actor.nome||actor.email||"Usuário autenticado",
+    updatedAt:now,updatedById:actor.id,updatedBy:actor.nome||actor.email||"Usuário autenticado",
+    version:1,motivoCancelamento:"",canceladoEm:"",canceladoPorId:"",canceladoPor:"",
+  }));
   return {...data,despesasEmpresa:[...despesas,...novos],copied:novos.length};
 };

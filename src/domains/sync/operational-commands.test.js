@@ -327,4 +327,24 @@ describe("comandos operacionais versionados",()=>{
     expect(repeated).toMatchObject({ok:true,idempotent:true});
     expect(repeated.data.comercial.vendas).toHaveLength(1);
   });
+
+  it("cria despesa da obra sem duplicar ao repetir o comando",()=>{
+    const initial={obras:[{id:"o-1"}],outrasDesp:[],despesasEmpresa:[]};
+    const create=command(
+      OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED,
+      "project-expense-create-0001",
+      {expense:{
+        id:"d-1",obraId:"o-1",competencia:"2026-07",
+        descricao:"Material",categoria:"material",valor:100,
+      }},
+      0,
+    );
+    const first=applyOperationalCommand(initial,create);
+    const repeated=applyOperationalCommand(first.data,create);
+    expect(first.data.outrasDesp).toMatchObject([{
+      id:"d-1",version:1,createdById:"u-1",
+    }]);
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+    expect(repeated.data.outrasDesp).toHaveLength(1);
+  });
 });
