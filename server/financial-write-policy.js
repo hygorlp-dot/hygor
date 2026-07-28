@@ -18,22 +18,27 @@ export const FINANCIAL_OPERATIONAL_SOURCE_SECTIONS=new Set(["attendance"]);
 // Enquanto qualquer uma delas continuar sujeita ao bloqueio do FIN-003, ligar
 // o enforcement derruba um módulo funcional. A lista é deliberadamente
 // explícita para funcionar como checklist de migração e gate de deploy.
+//
+// reconciliationLinks e archivedLaborCosts continuam protegidas como seções
+// financeiras legadas, mas não pertencem mais a este checklist: a primeira só
+// é alterada pelo comando servidor de conciliação; a segunda, pelas RPCs
+// transacionais de arquivamento/restauração do ponto.
 export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
   "payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","transacoes",
   "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
-  "titulosFolha","reconciliationLinks","rescisoes",
-  "attendance","employees","archivedLaborCosts","config","obras",
+  "titulosFolha","rescisoes",
+  "attendance","employees","config","obras",
 ]);
 
 export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
   financeiro_conciliacao:[
-    "payments","outrasDesp","despesasEmpresa","caixaObra","transacoes","reconciliationLinks",
+    "payments","outrasDesp","despesasEmpresa","caixaObra","transacoes",
   ],
   medicoes_dre:["medicoes"],
   compras_fiscal:["pedidos","notasFiscais"],
   terceiros:["pagsTerceiros","medicoesTerc"],
   rh_ponto:[
-    "attendance","employees","archivedLaborCosts","pagamentosFolha","titulosFolha","rescisoes",
+    "attendance","employees","pagamentosFolha","titulosFolha","rescisoes",
   ],
   obras_configuracoes:["obras","config"],
 });

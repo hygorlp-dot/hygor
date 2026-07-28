@@ -60,6 +60,16 @@ describe("gate FIN-003 de persistência",()=>{
     expect(readiness.pending).not.toContain("manutencoesEquip");
   });
 
+  it("não contabiliza seções já migradas para comandos transacionais como escritores de snapshot",()=>{
+    const readiness=financialEnforcementReadiness();
+    for(const section of ["reconciliationLinks","archivedLaborCosts"]){
+      expect(FINANCIAL_LEGACY_SECTIONS.has(section),section).toBe(true);
+      expect(FINANCIAL_SNAPSHOT_WRITER_SECTIONS.has(section),section).toBe(false);
+      expect(readiness.pending,section).not.toContain(section);
+    }
+    expect(readiness.pending).toHaveLength(16);
+  });
+
   it("mantém todos os escritores associados a um módulo funcional",()=>{
     const mapped=new Set(Object.values(FINANCIAL_MODULE_SECTION_MATRIX).flat());
     expect(mapped).toEqual(new Set(FINANCIAL_SNAPSHOT_WRITER_SECTIONS));
