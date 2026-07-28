@@ -23,7 +23,6 @@ export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
   "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
   "titulosFolha","reconciliationLinks","rescisoes","comercial",
   "attendance","employees","archivedLaborCosts","config","obras",
-  "equipamentos","locacoesEquip","manutencoesEquip",
 ]);
 
 export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
@@ -38,7 +37,6 @@ export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
   ],
   comercial:["comercial"],
   obras_configuracoes:["obras","config"],
-  equipamentos:["equipamentos","locacoesEquip","manutencoesEquip"],
 });
 
 export const hasLegacyFinancialWrite=sections=>Object.keys(sections||{})

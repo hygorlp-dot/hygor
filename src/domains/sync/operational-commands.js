@@ -13,6 +13,7 @@ import { cancelProgressRecord, completeWeeklyCommitment, createProgressRecord, c
 import { buildQualityProjection, canReleaseForMeasurement } from "../qualidade/calculations.js";
 import { validateActivitySafety } from "../seguranca/calculations.js";
 import { addConstraint, commitWorkPackage, createLookahead, releaseConstraint } from "../lookahead/commands.js";
+import { applyEquipmentCommand, EQUIPMENT_COMMAND } from "../equipamentos/commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -35,6 +36,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   LOOKAHEAD_CONSTRAINT_ADDED:"RESTRICAO_LOOKAHEAD_ADICIONADA",
   LOOKAHEAD_CONSTRAINT_RELEASED:"RESTRICAO_LOOKAHEAD_LIBERADA",
   LOOKAHEAD_PACKAGE_COMMITTED:"PACOTE_LOOKAHEAD_COMPROMETIDO",
+  ...EQUIPMENT_COMMAND,
 });
 
 const receipts=data=>Array.isArray(data?.operationalCommandReceipts)?data.operationalCommandReceipts:[];
@@ -101,6 +103,11 @@ export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
   if(duplicate(data,command.idempotencyKey))return {ok:true,idempotent:true,data};
   const now=command.now||new Date().toISOString();
+  const equipmentResult=applyEquipmentCommand(data,command,now);
+  if(equipmentResult){
+    if(!equipmentResult.ok)return equipmentResult;
+    return {ok:true,data:appendReceipt(equipmentResult.data,command,equipmentResult.entityId,now)};
+  }
 
   if(command.type===OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED){
     const records=Array.isArray(command.payload?.records)?command.payload.records:[];

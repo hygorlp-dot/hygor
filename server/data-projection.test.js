@@ -57,4 +57,25 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     const projected=projectDataForUser(payload,{id:"u-a",role:"financeiro",obraId:"obra-a"});
     expect(projected.employees).toEqual([{id:"e-a",obra:"obra-a",name:"Equipe A"}]);
   });
+
+  it("projeta frota, manutenção e transferências relacionadas à obra atribuída",()=>{
+    const equipmentPayload={
+      ...payload,
+      equipamentos:[
+        {id:"eq-a",obraAtualId:"obra-a",nome:"Betoneira"},
+        {id:"eq-b",obraAtualId:"obra-b",nome:"Guincho"},
+      ],
+      locacoesEquip:[{id:"loc-a",obraId:"obra-a"},{id:"loc-b",obraId:"obra-b"}],
+      manutencoesEquip:[{id:"man-a",obraId:"obra-a"},{id:"man-b",obraId:"obra-b"}],
+      transferenciasEquip:[
+        {id:"tr-a",deObraId:"obra-b",paraObraId:"obra-a"},
+        {id:"tr-b",deObraId:"obra-b",paraObraId:"obra-c"},
+      ],
+    };
+    const projected=projectDataForUser(equipmentPayload,{id:"u-a",role:"engenheiro",obraId:"obra-a"});
+    expect(projected.equipamentos.map(item=>item.id)).toEqual(["eq-a"]);
+    expect(projected.locacoesEquip.map(item=>item.id)).toEqual(["loc-a"]);
+    expect(projected.manutencoesEquip.map(item=>item.id)).toEqual(["man-a"]);
+    expect(projected.transferenciasEquip.map(item=>item.id)).toEqual(["tr-a"]);
+  });
 });

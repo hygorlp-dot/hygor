@@ -5,6 +5,8 @@ import { validateOperationalCommandScope } from "./operational-command-policy.js
 describe("escopo servidor de comandos operacionais",()=>{
   const data={
     medicoesObra:[{id:"m-a",obraId:"obra-a"}],rdos:[{id:"r-a",obraId:"obra-a"}],pedidos:[{id:"p-a",obraId:"obra-a"}],progressRecords:[{id:"av-a",obraId:"obra-a"}],weeklyCommitments:[{id:"c-a",obraId:"obra-a"}],qualidadeRegistros:[{id:"q-a",obraId:"obra-a"}],lookaheadWindows:[{id:"la-a",obraId:"obra-a"}],
+    equipamentos:[{id:"eq-a",obraAtualId:"obra-a"},{id:"eq-b",obraAtualId:"obra-b"}],
+    locacoesEquip:[{id:"loc-a",obraId:"obra-a",equipamentoId:"eq-a"}],
   };
   const user={id:"u-1",role:"engenheiro",obraId:"obra-a"};
   it("aceita somente a obra atribuída em criação e cancelamento de medição",()=>{
@@ -37,5 +39,18 @@ describe("escopo servidor de comandos operacionais",()=>{
   it("não deixa alterar o Lookahead de outra obra",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.LOOKAHEAD_CREATED,payload:{lookahead:{obraId:"obra-a"}}}})).toMatchObject({ok:true});
     expect(validateOperationalCommandScope({user,data:{...data,lookaheadWindows:[{id:"la-b",obraId:"obra-b"}]},command:{type:OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED,payload:{lookaheadId:"la-b"}}})).toMatchObject({ok:false});
+  });
+  it("protege locação, manutenção e transferência pelo escopo da obra",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,payload:{rental:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,payload:{rentalId:"loc-a"}}})).toMatchObject({ok:true});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,payload:{maintenance:{equipamentoId:"eq-a"}}}})).toMatchObject({ok:true});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_SAVED,payload:{equipment:{obraAtualId:"obra-b"}}}})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,payload:{transfer:{equipamentoId:"eq-b",paraObraId:"obra-a"}}}})).toMatchObject({ok:false});
+  });
+  it("permite cadastro corporativo apenas para perfil sem restrição de obra",()=>{
+    const companyCommand={type:OPERATIONAL_COMMAND.EQUIPMENT_SAVED,payload:{equipment:{obraAtualId:""}}};
+    expect(validateOperationalCommandScope({user,data,command:companyCommand})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user:{id:"admin",role:"admin"},data,command:companyCommand})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user:{id:"fin",role:"financeiro"},data,command:companyCommand})).toMatchObject({ok:true,scope:"company"});
   });
 });

@@ -3,10 +3,10 @@
 // esconder menus no React não impede que o navegador leia o JSON inteiro.
 
 const ROLE_SECTIONS = Object.freeze({
-  engenheiro:["obras","condominios","licencas","orcamentos","budgetBaselines","planos","rdos","conferencias","qualidadeRegistros","medicoesObra","medicoesTecnicas","materiais","estoque","movEstoque","solicitacoesCompra","pedidos","cotacoes","fornecedores","terceirizados","equipamentos","locacoesEquip","employees","attendance","attendanceLocks","unlockRequests","dailyCheckDate","caixaObra","baseFavoritos","composicoesEmpresa","suprimentosConfig","curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque"],
-  engenheiro_auditor:["obras","condominios","licencas","orcamentos","budgetBaselines","planos","rdos","conferencias","qualidadeRegistros","medicoesObra","medicoesTecnicas","materiais","estoque","movEstoque","solicitacoesCompra","pedidos","cotacoes","fornecedores","terceirizados","equipamentos","locacoesEquip","employees","attendance","attendanceLocks","unlockRequests","caixaObra","baseFavoritos","composicoesEmpresa","suprimentosConfig","curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque"],
+  engenheiro:["obras","condominios","licencas","orcamentos","budgetBaselines","planos","rdos","conferencias","qualidadeRegistros","medicoesObra","medicoesTecnicas","materiais","estoque","movEstoque","solicitacoesCompra","pedidos","cotacoes","fornecedores","terceirizados","equipamentos","locacoesEquip","manutencoesEquip","transferenciasEquip","employees","attendance","attendanceLocks","unlockRequests","dailyCheckDate","caixaObra","baseFavoritos","composicoesEmpresa","suprimentosConfig","curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque"],
+  engenheiro_auditor:["obras","condominios","licencas","orcamentos","budgetBaselines","planos","rdos","conferencias","qualidadeRegistros","medicoesObra","medicoesTecnicas","materiais","estoque","movEstoque","solicitacoesCompra","pedidos","cotacoes","fornecedores","terceirizados","equipamentos","locacoesEquip","manutencoesEquip","transferenciasEquip","employees","attendance","attendanceLocks","unlockRequests","caixaObra","baseFavoritos","composicoesEmpresa","suprimentosConfig","curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque"],
   compras:["obras","materiais","estoque","movEstoque","solicitacoesCompra","pedidos","cotacoes","fornecedores","notasFiscais","equipamentos","baseFavoritos","planos","suprimentosConfig","curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque"],
-  financeiro:["obras","equipamentos","locacoesEquip","terceirizados","pagsTerceiros","payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","notasFiscais","documentosMovimentacoes","transacoes","reconciliationLinks","orcamentos","budgetBaselines","pedidos","fornecedores","titulosFolha","pagamentosFolha","rescisoes","quinzenasArquivadas","archivedLaborCosts","employees","attendance","medicoesObra","fechamentosFinanceiros"],
+  financeiro:["obras","equipamentos","locacoesEquip","manutencoesEquip","transferenciasEquip","terceirizados","pagsTerceiros","payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","notasFiscais","documentosMovimentacoes","transacoes","reconciliationLinks","orcamentos","budgetBaselines","pedidos","fornecedores","titulosFolha","pagamentosFolha","rescisoes","quinzenasArquivadas","archivedLaborCosts","employees","attendance","medicoesObra","fechamentosFinanceiros"],
   rh:["obras","employees","attendance","attendanceLocks","unlockRequests","advances","titulosFolha","pagamentosFolha","rescisoes","quinzenasArquivadas","archivedLaborCosts","terceirizados"],
   comercial:["obras","comercial"],
   visualizador:["obras"],
@@ -33,7 +33,9 @@ const sanitizeEmployee = (employee, role = "") => {
   }=employee||{};
   return safe;
 };
-const hasObra = (item, allowed) => !allowed.size || allowed.has(String(item?.obraId || item?.obra || ""));
+const hasObra = (item, allowed) => !allowed.size || [
+  item?.obraId,item?.obra,item?.obraAtualId,item?.paraObraId,item?.deObraId,
+].some(value=>value!=null&&value!==""&&allowed.has(String(value)));
 const filterByObra = (value, allowed) => Array.isArray(value) ? value.filter(item => hasObra(item, allowed)) : value;
 
 export const projectDataForUser = (payload = {}, user = {}) => {

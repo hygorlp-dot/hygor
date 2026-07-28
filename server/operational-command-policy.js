@@ -1,8 +1,10 @@
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { canOperateTechnicalMeasurement } from "../src/domains/medicoes/permissions.js";
+import { EQUIPMENT_COMMAND_TYPES, equipmentCommandObraId } from "../src/domains/equipamentos/commands.js";
 
 export const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
+  if(EQUIPMENT_COMMAND_TYPES.has(command?.type))return equipmentCommandObraId(data,command);
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED)return String(payload?.measurement?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED)return String(payload?.report?.obraId||"");
@@ -24,6 +26,16 @@ export const operationalCommandObraId=(data={},command={})=>{
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
   const obraId=operationalCommandObraId(data,command);
+  if(EQUIPMENT_COMMAND_TYPES.has(command.type)&&!obraId){
+    return user?.role==="admin"||!user?.obraId
+      ? {ok:true,obraId:"",scope:"company"}
+      : {ok:false,error:"Um perfil vinculado a obra não pode alterar um equipamento corporativo sem lotação."};
+  }
+  if(EQUIPMENT_COMMAND_TYPES.has(command.type)&&command.type===OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED&&user?.obraId){
+    const equipment=(data?.equipamentos||[]).find(item=>item.id===command.payload?.transfer?.equipamentoId);
+    const source=String(equipment?.obraAtualId||"");
+    if(source&&source!==String(user.obraId))return {ok:false,error:"Não é permitido transferir um equipamento alocado em outra obra."};
+  }
   if(!obraId)return {ok:false,error:"O comando operacional precisa estar vinculado a uma obra existente."};
   const isMeasurement=[OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED].includes(command.type);
   const allowed=isMeasurement

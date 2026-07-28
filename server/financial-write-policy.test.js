@@ -44,7 +44,7 @@ describe("gate FIN-003 de persistência",()=>{
     const expected=[...FINANCIAL_SNAPSHOT_WRITER_SECTIONS]
       .filter(section=>!FINANCIAL_OPERATIONAL_SOURCE_SECTIONS.has(section))
       .sort();
-    expect(new Set(FINANCIAL_LEGACY_SECTIONS)).toEqual(new Set(FINANCIAL_SNAPSHOT_WRITER_SECTIONS));
+    for(const section of FINANCIAL_SNAPSHOT_WRITER_SECTIONS)expect(FINANCIAL_LEGACY_SECTIONS.has(section),section).toBe(true);
     expect(readiness.ready).toBe(false);
     expect(readiness.pending).toEqual(expected);
     expect(Object.keys(readiness.modules).sort()).toEqual(Object.keys(FINANCIAL_MODULE_SECTION_MATRIX).sort());
@@ -52,6 +52,9 @@ describe("gate FIN-003 de persistência",()=>{
     expect(readiness.pending).toContain("pedidos");
     expect(readiness.pending).toContain("obras");
     expect(readiness.pending).toContain("comercial");
+    expect(readiness.pending).not.toContain("equipamentos");
+    expect(readiness.pending).not.toContain("locacoesEquip");
+    expect(readiness.pending).not.toContain("manutencoesEquip");
   });
 
   it("mantém todos os escritores associados a um módulo funcional",()=>{

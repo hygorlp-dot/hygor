@@ -80,7 +80,18 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre","qualidade","seguranca"],
   [OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_RELEASED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre","qualidade","seguranca"],
   [OPERATIONAL_COMMAND.LOOKAHEAD_PACKAGE_COMMITTED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
 };
+const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
+  OPERATIONAL_COMMAND.EQUIPMENT_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,
+  OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
+]);
 const BACKUP_FOLDER="00 - Backups ARCD";
 const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
 
@@ -807,10 +818,13 @@ export default async function handler(req, res) {
       if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:updatedAt});
       if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(atual,usuario),updatedAt});
 
-      const persistir=async(base,value)=>salvarComAuditoria({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
+      const persistir=async(base,value)=>{
+        const save=FINANCIAL_OPERATIONAL_COMMANDS.has(command.type)?salvarFinanceiroComAuditoria:salvarComAuditoria;
+        return save({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
-        before:{command:command.type,entityId:command.payload?.measurementId||command.payload?.pedidoId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.records?.[0]?.id||""},
+        before:{command:command.type,entityId:command.payload?.measurementId||command.payload?.pedidoId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.rentalId||command.payload?.equipmentId||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.equipment?.id||command.payload?.rental?.id||command.payload?.maintenance?.id||command.payload?.transfer?.id||command.payload?.records?.[0]?.id||""},
         after:{command:command.type,idempotencyKey:command.idempotencyKey}});
+      };
       let gravacao=await persistir({updatedAt},result.data);
       if(!gravacao.applied){
         const recente=await lerLinha();

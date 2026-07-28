@@ -2615,6 +2615,14 @@ const normalizeData = incoming => {
       sinapiDesonerado: e.sinapiDesonerado !== false,
       obs:       e.obs       || "",
       ativo:     e.ativo !== false,
+      version:   Number(e.version || 0),
+      createdAt: e.createdAt || "",
+      createdById:e.createdById || "",
+      updatedAt: e.updatedAt || "",
+      inativadoEm:e.inativadoEm || "",
+      inativadoPorId:e.inativadoPorId || "",
+      motivoInativacao:e.motivoInativacao || "",
+      operationalHistory:Array.isArray(e.operationalHistory) ? e.operationalHistory : [],
     })) : [],
 
     // Contratos de locação: um equipamento alocado a uma obra por um período,
@@ -2649,6 +2657,14 @@ const normalizeData = incoming => {
       descontoPct: Number(l.descontoPct || 0),  // desconto concedido ao cliente (%)
       descontoValor: Number(l.descontoValor || 0), // desconto fixo total (R$), alternativa ao %
       obs:         l.obs         || "",
+      status:      l.status      || (l.fim ? "encerrada" : "ativa"),
+      version:     Number(l.version || 0),
+      createdAt:   l.createdAt || "",
+      createdById: l.createdById || "",
+      updatedAt:   l.updatedAt || "",
+      encerradoEm: l.encerradoEm || "",
+      encerradoPorId:l.encerradoPorId || "",
+      operationalHistory:Array.isArray(l.operationalHistory) ? l.operationalHistory : [],
     })) : [],
 
     // Manutenções: custo que reduz o lucro do equipamento. Corretiva ou preventiva.
@@ -2664,6 +2680,12 @@ const normalizeData = incoming => {
       pagoPor:     m.pagoPor     || "empresa",    // empresa | proprietario
       fornecedor:  m.fornecedor  || "",
       obs:         m.obs         || "",
+      obraId:      m.obraId      || "",
+      version:     Number(m.version || 0),
+      createdAt:   m.createdAt || "",
+      createdById: m.createdById || "",
+      updatedAt:   m.updatedAt || "",
+      operationalHistory:Array.isArray(m.operationalHistory) ? m.operationalHistory : [],
     })) : [],
 
     // Histórico de transferências entre obras (para rastreabilidade).
@@ -2675,6 +2697,9 @@ const normalizeData = incoming => {
       data:        t.data        || "",
       responsavel: t.responsavel || "",
       obs:         t.obs         || "",
+      version:     Number(t.version || 0),
+      createdAt:   t.createdAt || "",
+      createdById: t.createdById || "",
     })) : [],
 
     fornecedores: Array.isArray(d.fornecedores) ? d.fornecedores.map(x => ({
@@ -27658,7 +27683,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
         {abaConteudo==="equipe"&&<Equipe data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="terc"&&<Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/>}
-        {abaConteudo==="equip"&&<Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="equip"&&<Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/>}
         {abaConteudo==="licenca"&&<Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
         {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:12}}>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${portal.ativo?C.green:C.muted}`,borderRadius:12,padding:16}}>
@@ -33300,7 +33325,7 @@ function Licenciamento({ data, update, showToast, obraIdFixo="" }) {
   </div>;
 }
 
-function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenharia" }) {
+function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, obraIdFixo="", contexto="engenharia" }) {
   const { formGrid } = useBreakpoint();
   const now = new Date();
   const [aba, setAba] = useState(contexto==="financeiro"?"gestao":"frota");   // frota | gestao | locacoes | manutencao | relatorio
@@ -33415,7 +33440,7 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
   };
 
   // ---- Ações de gravação ----
-  const salvarEquip = (f) => {
+  const salvarEquip = async(f) => {
     if(!f.nome){ showToast("Informe o nome do equipamento.","error"); return; }
     // Normaliza as quatro tarifas (cobradas e pagas) para numero.
     const numTar = (t) => ({
@@ -33433,15 +33458,25 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
       valorDiaria:tarifas.dia, custoDiaria:tarifasCusto.dia,
       valorAquisicao:Number(f.valorAquisicao||0),
       sinapiPreco:Number(f.sinapiPreco||0) };
-    const lista = f.id
-      ? (data.equipamentos||[]).map(x=>x.id===f.id?{...x,...eq}:x)
-      : [...(data.equipamentos||[]), {...eq, id:uid(), ativo:true, createdAt:new Date().toISOString()}];
-    update({...data, equipamentos:lista});
-    setEquipModal(null); showToast(f.id?"Equipamento atualizado.":"Equipamento cadastrado.");
+    const id=f.id||uid(),isEdit=!!f.id;
+    const result=await dispatchCommand?.(atual=>{
+      const current=(atual.equipamentos||[]).find(item=>item.id===id);
+      return {type:OPERATIONAL_COMMAND.EQUIPMENT_SAVED,idempotencyKey:`equipamento-salvar-${id}-${uid()}`,
+        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{equipment:{...eq,id,ativo:current?.ativo!==false}}};
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar o equipamento.","error");return;}
+    setEquipModal(null); showToast(isEdit?"Equipamento atualizado.":"Equipamento cadastrado.");
   };
-  const excluirEquip = (e) => {
+  const excluirEquip = async(e) => {
     if(!window.confirm(`Inativar "${e.nome}"? O histórico é preservado.`)) return;
-    update({...data, equipamentos:(data.equipamentos||[]).map(x=>x.id===e.id?{...x,ativo:false}:x)});
+    const result=await dispatchCommand?.(atual=>{
+      const current=(atual.equipamentos||[]).find(item=>item.id===e.id);
+      return {type:OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,idempotencyKey:`equipamento-inativar-${e.id}-${uid()}`,
+        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{equipmentId:e.id,reason:"Inativado pelo cadastro de equipamentos"}};
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível inativar o equipamento.","error");return;}
     showToast("Equipamento inativado.");
   };
 
@@ -33454,7 +33489,7 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
     setDonoModal(null); showToast("Proprietário salvo.");
   };
 
-  const salvarLoc = (f) => {
+  const salvarLoc = async(f) => {
     if(!f.equipamentoId||!f.obraId||!f.inicio){ showToast("Escolha equipamento, obra e data de início.","error"); return; }
     const numTar = (t) => ({
       dia:Number(t?.dia||0), semana:Number(t?.semana||0),
@@ -33465,42 +33500,53 @@ function Equipamentos({ data, update, showToast, obraIdFixo="", contexto="engenh
       tarifas:numTar(f.tarifas), tarifasCusto:numTar(f.tarifasCusto),
       valorDiaria:Number(f.valorDiaria||0), custoDiaria:Number(f.custoDiaria||0),
       descontoPct:Number(f.descontoPct||0), descontoValor:Number(f.descontoValor||0) };
-    const lista = f.id
-      ? (data.locacoesEquip||[]).map(x=>x.id===f.id?{...x,...loc}:x)
-      : [...(data.locacoesEquip||[]), {...loc, id:uid()}];
-    // Ao abrir uma locação sem fim, marca o equipamento como locado na obra.
-    const equipamentos = (data.equipamentos||[]).map(e=>{
-      if(e.id!==f.equipamentoId) return e;
-      return f.fim ? e : {...e, status:"locado", obraAtualId:f.obraId};
+    const id=f.id||uid(),isEdit=!!f.id;
+    const result=await dispatchCommand?.(atual=>{
+      const current=(atual.locacoesEquip||[]).find(item=>item.id===id);
+      return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,idempotencyKey:`locacao-equipamento-salvar-${id}-${uid()}`,
+        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{rental:{...loc,id}}};
     });
-    update({...data, locacoesEquip:lista, equipamentos});
-    setLocModal(null); showToast(f.id?"Locação atualizada.":"Locação registrada.");
+    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a locação.","error");return;}
+    setLocModal(null); showToast(isEdit?"Locação atualizada.":"Locação registrada.");
   };
-  const encerrarLoc = (l) => {
+  const encerrarLoc = async(l) => {
     const fim = window.prompt("Data de término (AAAA-MM-DD):", today());
     if(!fim) return;
-    const lista = (data.locacoesEquip||[]).map(x=>x.id===l.id?{...x,fim}:x);
-    const equipamentos = (data.equipamentos||[]).map(e=>e.id===l.equipamentoId?{...e,status:"disponivel",obraAtualId:""}:e);
-    update({...data, locacoesEquip:lista, equipamentos});
+    const result=await dispatchCommand?.(atual=>{
+      const current=(atual.locacoesEquip||[]).find(item=>item.id===l.id);
+      return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,idempotencyKey:`locacao-equipamento-encerrar-${l.id}-${uid()}`,
+        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{rentalId:l.id,endDate:fim}};
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível encerrar a locação.","error");return;}
     showToast("Locação encerrada.");
   };
 
-  const salvarManut = (f) => {
+  const salvarManut = async(f) => {
     if(!f.equipamentoId||!f.data||!f.custo){ showToast("Preencha equipamento, data e custo.","error"); return; }
     const m = { ...f, custo:Number(f.custo||0) };
-    const lista = f.id
-      ? (data.manutencoesEquip||[]).map(x=>x.id===f.id?{...x,...m}:x)
-      : [...(data.manutencoesEquip||[]), {...m, id:uid()}];
-    update({...data, manutencoesEquip:lista});
+    const id=f.id||uid();
+    const result=await dispatchCommand?.(atual=>{
+      const current=(atual.manutencoesEquip||[]).find(item=>item.id===id);
+      return {type:OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,idempotencyKey:`manutencao-equipamento-salvar-${id}-${uid()}`,
+        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{maintenance:{...m,id}}};
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a manutenção.","error");return;}
     setManutModal(null); showToast("Manutenção registrada.");
   };
 
-  const salvarTransf = (f) => {
+  const salvarTransf = async(f) => {
     if(!f.equipamentoId||!f.paraObraId){ showToast("Escolha o equipamento e a obra de destino.","error"); return; }
-    const eq = (data.equipamentos||[]).find(e=>e.id===f.equipamentoId);
-    const reg = {...f, id:uid(), deObraId:eq?.obraAtualId||"", data:f.data||today()};
-    const equipamentos = (data.equipamentos||[]).map(e=>e.id===f.equipamentoId?{...e,obraAtualId:f.paraObraId,status:"locado"}:e);
-    update({...data, transferenciasEquip:[...(data.transferenciasEquip||[]), reg], equipamentos});
+    const id=uid();
+    const result=await dispatchCommand?.(atual=>{
+      const current=(atual.equipamentos||[]).find(item=>item.id===f.equipamentoId);
+      return {type:OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,idempotencyKey:`equipamento-transferir-${f.equipamentoId}-${uid()}`,
+        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{transfer:{...f,id,data:f.data||today()}}};
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível transferir o equipamento.","error");return;}
     setTransfModal(null); showToast(`Transferido para ${obraName(f.paraObraId)}.`);
   };
 
@@ -37671,8 +37717,8 @@ export default function App() {
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
           {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
-          {tab === "equip"    && <Equipamentos data={data} update={update} showToast={showToast}/>}
-          {tab === "equip_fin"&& <Equipamentos data={data} update={update} showToast={showToast} contexto="financeiro"/>}
+          {tab === "equip"    && <Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
+          {tab === "equip_fin"&& <Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/>}
           {tab === "licenca"  && <Licenciamento data={data} update={update} showToast={showToast}/>}
           {tab === "cmp"      && <Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "fornecedores" && <RankingFornecedores data={data} update={update} showToast={showToast}/>}
