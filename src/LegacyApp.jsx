@@ -6481,7 +6481,20 @@ function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraI
         }else if(destino.entidade==="cotacao"){
           update({...data,obras:obrasAtualizadas,cotacoes:(data.cotacoes||[]).map(c=>c.id===destino.entidadeId?{...c,propostas:(c.propostas||[]).map(p=>p.id===destino.propostaId?{...p,documentos:[...(p.documentos||[]),doc]}:p)}:c)});
         }else{
-          update({...data,obras:obrasAtualizadas,pedidos:(data.pedidos||[]).map(p=>p.id===destino.entidadeId?{...p,documentos:[...(p.documentos||[]),doc]}:p)});
+          if(!dispatchCommand)throw new Error("Comando de compras indisponível.");
+          const result=await dispatchCommand(atual=>{
+            const pedido=(atual.pedidos||[]).find(item=>item.id===destino.entidadeId);
+            return {
+              type:OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,
+              idempotencyKey:`purchase-order-document-${destino.entidadeId}-${doc.id}-${uid()}`,
+              expectedVersion:Number(pedido?.version||0),
+              actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+              payload:{orderId:destino.entidadeId,document:doc},
+            };
+          });
+          if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o vínculo ao pedido.");
+          update({...result.data,obras:(result.data.obras||[]).map(o=>
+            o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o)});
         }
         showToast("Documento analisado, salvo no diretório correto e vinculado ao item selecionado.");concluirDocumentoAtivo();return;
       }
@@ -6503,7 +6516,27 @@ function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraI
           o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o),
           documentosMovimentacoes});
       }else{
-        const norm=v=>String(v||"").replace(/\D/g,"");let fornecedor=(data.fornecedores||[]).find(f=>(norm(form.documentoFornecedor)&&norm(f.cnpj)===norm(form.documentoFornecedor))||String(f.nome||"").toLowerCase()===String(form.fornecedorNome||"").toLowerCase());const fornecedores=[...(data.fornecedores||[])];if(!fornecedor){fornecedor={id:uid(),nome:form.fornecedorNome||"Fornecedor a confirmar",cnpj:form.documentoFornecedor||"",categorias:[],ativo:true};fornecedores.push(fornecedor);}const material={id:uid(),codigo:`IA-${String((data.materiais||[]).length+1).padStart(4,"0")}`,descricao:maiusculoOrcamento(form.descricao||form.categoria||"ITEM LIDO POR IA"),unidade:"UN",categoria:"outros",estoqueMin:0,precoMedio:Number(form.valorBruto),fonteRef:"IA",ativo:true};const pedido={id:uid(),numero:`PC-IA-${String((data.pedidos||[]).length+1).padStart(4,"0")}`,obraId:form.obraId,fornecedorId:fornecedor.id,data:form.emissao||today(),previsao:form.vencimento||"",status:"rascunho",referenciaId:"",solicitacaoId:"",itens:[{id:uid(),materialId:material.id,qtd:1,precoUnit:Number(form.valorBruto),qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"IA",codigoRef:material.codigo,descricaoRef:material.descricao,unidadeRef:"UN",precoRef:Number(form.valorBruto),dataBaseRef:"",ufRef:""}],cotacaoId:"",transacaoId:"",origemPagamento:form.origemPagamento,pagamentos:[],documentos:[doc],analiseIA,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",criadoEm:agora,obs:`Documento ${form.numero||arquivo.name} · ${form.categoria||"classificação a revisar"}`};update({...data,obras:obrasAtualizadas,fornecedores,materiais:[...(data.materiais||[]),material],pedidos:[...(data.pedidos||[]),pedido]});
+        if(!dispatchCommand)throw new Error("Comando de compras indisponível.");
+        const norm=v=>String(v||"").replace(/\D/g,"");
+        let fornecedor=(data.fornecedores||[]).find(f=>
+          (norm(form.documentoFornecedor)&&norm(f.cnpj)===norm(form.documentoFornecedor))
+          ||String(f.nome||"").toLowerCase()===String(form.fornecedorNome||"").toLowerCase());
+        const novoFornecedor=!fornecedor?{
+          id:uid(),nome:form.fornecedorNome||"Fornecedor a confirmar",
+          cnpj:form.documentoFornecedor||"",categorias:[],ativo:true,
+        }:null;
+        fornecedor=fornecedor||novoFornecedor;
+        const material={id:uid(),codigo:`IA-${String((data.materiais||[]).length+1).padStart(4,"0")}`,descricao:maiusculoOrcamento(form.descricao||form.categoria||"ITEM LIDO POR IA"),unidade:"UN",categoria:"outros",estoqueMin:0,precoMedio:Number(form.valorBruto),fonteRef:"IA",ativo:true};
+        const pedido={id:uid(),numero:`PC-IA-${String((data.pedidos||[]).length+1).padStart(4,"0")}`,obraId:form.obraId,fornecedorId:fornecedor.id,data:form.emissao||today(),previsao:form.vencimento||"",status:"rascunho",referenciaId:"",solicitacaoId:"",itens:[{id:uid(),materialId:material.id,qtd:1,precoUnit:Number(form.valorBruto),qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"IA",codigoRef:material.codigo,descricaoRef:material.descricao,unidadeRef:"UN",precoRef:Number(form.valorBruto),dataBaseRef:"",ufRef:""}],cotacaoId:"",transacaoId:"",origemPagamento:form.origemPagamento,pagamentos:[],documentos:[doc],analiseIA,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",criadoEm:agora,obs:`Documento ${form.numero||arquivo.name} · ${form.categoria||"classificação a revisar"}`};
+        const result=await dispatchCommand(()=>({
+          type:OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,
+          idempotencyKey:`purchase-order-ai-${pedido.id}-${uid()}`,
+          expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{order:pedido,newSupplier:novoFornecedor,newMaterials:[material]},
+        }));
+        if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o novo pedido.");
+        update({...result.data,obras:(result.data.obras||[]).map(o=>
+          o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o)});
       }
       showToast(modulo==="financeiro"?"Documento salvo, vinculado à nova nota e enviado para conferência fiscal.":"Documento salvo e vinculado ao novo pedido em rascunho.");concluirDocumentoAtivo();
     }catch(err){showToast(err.message||"Não foi possível concluir o lançamento.","error");}finally{setSalvando(false);}
@@ -25427,7 +25460,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   };
 
   //  Pedido 
-  const salvarPedido = (f) => {
+  const salvarPedido = async(f) => {
     if (!f.fornecedorId) { showToast("Selecione o fornecedor.", "error"); return; }
     const novosMateriais=[];
     const itens = (f.itens||[])
@@ -25485,11 +25518,18 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       criadoPorId:f.criadoPorId||currentUser?.id||"",criadoPor:f.criadoPor||currentUser?.nome||"",criadoEm:f.criadoEm||new Date().toISOString(),
       obs: f.obs || "",
     };
-    const solicitacoesAtualizadas=f.solicitacaoId?(data.solicitacoesCompra||[]).map(s=>s.id===f.solicitacaoId?{...s,status:"pedido_gerado",pedidoId:p.id,
-      analisadoEm:s.analisadoEm||new Date().toISOString(),analisadoPor:s.analisadoPor||currentUser?.nome||"Compras"}:s):(data.solicitacoesCompra||[]);
-    update({ ...data, materiais:[...(data.materiais||[]),...novosMateriais],solicitacoesCompra:solicitacoesAtualizadas, pedidos: f.id
-      ? (data.pedidos||[]).map(x => x.id === f.id ? p : x)
-      : [...(data.pedidos||[]), p] });
+    if(!dispatchCommand){showToast("O salvamento seguro do pedido exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.pedidos||[]).find(item=>item.id===p.id);
+      return {
+        type:OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,
+        idempotencyKey:`purchase-order-save-${p.id}-${uid()}`,
+        expectedVersion:vigente?Number(vigente.version||0):0,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{order:p,newMaterials:novosMateriais,adjustmentReason:String(f.motivoAjuste||"").trim()},
+      };
+    });
+    if(!result?.ok){showToast(result?.reason||"O servidor não confirmou o pedido.","error");return;}
     setPedModal(null);
     showToast(f.id ? "Pedido atualizado." : `Pedido ${p.numero} criado.`);
   };
@@ -25803,7 +25843,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     showToast("Cotação registrada.");
   };
 
-  const excluirCotacao=cotacao=>{
+  const excluirCotacao=async cotacao=>{
     if(!podeProcessar){
       showToast("Somente Administração ou Compras podem excluir cotações.","error");return;
     }
@@ -25811,16 +25851,19 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     const aviso=pedidoVinculado?`\n\nO pedido ${pedidoVinculado.numero} será mantido, apenas sem o vínculo com esta cotação.`:"";
     const motivo=window.prompt(`Motivo do cancelamento da cotação de ${nomeMat(cotacao.materialId)}:${aviso}`);
     if(!String(motivo||"").trim())return;
-    const agora=new Date().toISOString();
-    const solicitacoesCompra=(data.solicitacoesCompra||[]).map(s=>({
-      ...s,cotacaoIds:(s.cotacaoIds||[]).filter(id=>id!==cotacao.id)
-    }));
-    const pedidos=(data.pedidos||[]).map(p=>p.cotacaoId===cotacao.id?{...p,cotacaoId:""}:p);
-    const log={id:uid(),date:today(),at:agora,type:"purchase_quote_deleted",obraId:cotacao.obraId,
-      cotacaoId:cotacao.id,pedidoId:pedidoVinculado?.id||"",operador:currentUser?.nome||"Compras",
-      operadorId:currentUser?.id||"",message:`Cotação de ${nomeMat(cotacao.materialId)} cancelada: ${String(motivo).trim()}.`};
-    update({...data,cotacoes:(data.cotacoes||[]).map(c=>c.id===cotacao.id?{...c,status:"cancelada",canceladaEm:agora,canceladaPor:currentUser?.nome||"Compras",motivoCancelamento:String(motivo).trim()}:c),
-      solicitacoesCompra,pedidos,changeLog:[...(data.changeLog||[]),log].slice(-500)});
+    if(!dispatchCommand){showToast("O cancelamento seguro da cotação exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(atual=>{
+      const pedido=(atual.pedidos||[]).find(p=>
+        p.id===cotacao.pedidoId||p.cotacaoId===cotacao.id);
+      return {
+        type:OPERATIONAL_COMMAND.PURCHASE_QUOTE_CANCELLED,
+        idempotencyKey:`purchase-quote-cancel-${cotacao.id}-${uid()}`,
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{quoteId:cotacao.id,reason:String(motivo).trim(),
+          expectedOrderVersion:pedido?Number(pedido.version||0):null},
+      };
+    });
+    if(!result?.ok){showToast(result?.reason||"O servidor não confirmou o cancelamento da cotação.","error");return;}
     showToast("Cotação cancelada e preservada no histórico.");
   };
 
@@ -25836,7 +25879,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   }catch(err){showToast(err.message||"Não foi possível anexar o documento da cotação.","error");}finally{setSubindoAnexoCotacao(false);}};
 
   // Cotação decidida vira pedido, sem redigitar nada
-  const gerarPedidoDaCotacao = (cot, propostaId, justificativa="", navegar=true) => {
+  const gerarPedidoDaCotacao = async(cot, propostaId, justificativa="", navegar=true) => {
     const prop = cot.propostas.find(p => p.id === propostaId);
     if (!prop) return;
     const menor=Math.min(...cot.propostas.map(p=>Number(p.precoUnit||0)).filter(v=>v>0));
@@ -25844,26 +25887,19 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     if(!melhor&&!String(justificativa||"").trim()){showToast("Justifique a escolha de uma proposta que não é a mais barata.","error");return;}
 
     const numero = `PC-${String((data.pedidos||[]).length + 1).padStart(4,"0")}`;
-    const pedido = {
-      id: uid(), numero, obraId: cot.obraId,
-      fornecedorId: prop.fornecedorId,
-      data: new Date().toISOString().slice(0,10),
-      previsao: "", status: "enviado",
-      origemPagamento: "empresa",pagamentos:[],
-      itens: [{ id: uid(), materialId: cot.materialId, qtd: cot.qtd,
-                precoUnit: prop.precoUnit, qtdRecebida: 0, orcItemId:cot.orcItemId||"",orcNivel1Id:cot.orcNivel1Id||"" }],
-      cotacaoId: cot.id, transacaoId: "", obs: "",
-    };
-
-    update({
-      ...data,
-      pedidos: [...(data.pedidos||[]), pedido],
-      cotacoes: (data.cotacoes||[]).map(c => c.id === cot.id
-        ? { ...c, status:"decidida", escolhida: propostaId, pedidoId: pedido.id,
-          decididoPorId:currentUser?.id||"",decididoPorNome:currentUser?.nome||"",
-          decididoEm:new Date().toISOString(),justificativaEscolha:String(justificativa||"").trim(),
-          economia:Math.max(0,(Math.max(...cot.propostas.map(p=>Number(p.precoUnit||0)))-Number(prop.precoUnit||0))*Number(cot.qtd||0)) } : c),
-    });
+    if(!dispatchCommand){showToast("A geração segura do pedido exige conexão com o servidor.","error");return;}
+    const orderId=uid(),itemId=uid();
+    const result=await dispatchCommand(()=>({
+      type:OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
+      idempotencyKey:`purchase-order-from-quote-${cot.id}-${orderId}-${uid()}`,
+      expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{
+        quoteId:cot.id,proposalId:propostaId,orderId,itemId,number:numero,
+        date:new Date().toISOString().slice(0,10),forecast:"",
+        justification:String(justificativa||"").trim(),
+      },
+    }));
+    if(!result?.ok){showToast(result?.reason||"O servidor não confirmou o pedido da cotação.","error");return;}
     setCotDecisao(null);
     showToast(`Pedido ${numero} gerado a partir da cotação.`);
     if(navegar)setAba("pedidos");
@@ -28954,8 +28990,9 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
                       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0,
                                     width: `${t.progresso}%`, background: "rgba(255,255,255,.28)" }} />
                       <span style={{ position: "relative", fontSize: 9.5, fontWeight: 800,
-                                     color: "#fff", padding: "0 7px", whiteSpace: "nowrap" }}>
-                        {t.progresso > 0 ? `${t.progresso}%` : ""}
+                                     color: "#fff", padding: "0 7px", whiteSpace: "nowrap",
+                                     overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {t.titulo ? t.nome : (t.progresso > 0 ? `${t.progresso}%` : "")}
                       </span>
                       {/* Alça de redimensionar - início. Fundo sutil sempre visível
                           (não só no hover) para o dedo achar a borda no toque, e
@@ -36664,7 +36701,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   } else if(commercialView==="com_leads"){
     const lista=leads.filter(l=>isVisibleLead(l)&&[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${leads.filter(isVisibleLead).length} cadastrado(s)`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> NOVO LEAD</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:6}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{l.nome}</p><p style={{fontSize:10,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:9.5,color:C.blue,marginTop:3}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:12,color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:9,color:C.muted,marginTop:2}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
   } else if(commercialView==="com_funil"){
-    conteudo=<><Titulo titulo="Funil de vendas" sub="Arraste os cards; toda mudança fica registrada no histórico" acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> LEAD</Btn>}/><div style={{...KB.scroll,flexWrap:"wrap",overflowX:"visible",scrollSnapType:"none"}}>{COM_ETAPAS.filter(([id])=>id!=="arquivado").map(([id,label])=>{const ls=leads.filter(l=>isVisibleLead(l)&&l.etapa===id);const soma=ls.reduce((s,l)=>s+(l.orcamentoEstimado||0),0);return <div key={id} onDragOver={e=>e.preventDefault()} onDrop={e=>{const l=leadBy(e.dataTransfer.getData("leadId"));if(l)moverLead(l,id);}} style={KB.coluna(C.blue,false)}><div onClick={()=>setColunaResumo({label,leads:ls})} title="Ver resumo de quem está nesta etapa" style={{...KB.colHead(C.blue),cursor:"pointer"}}><b style={{fontSize:10,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{label.toUpperCase()}</b><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}><span style={KB.contador}>{ls.length}</span>{soma>0&&<span style={{fontSize:8.5,fontWeight:700,color:C.yellowD}}>{fmt(soma)}</span>}</div></div><div style={KB.colBody}>{ls.map(l=><div key={l.id} draggable onDragStart={e=>e.dataTransfer.setData("leadId",l.id)} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{...KB.card(l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:null),borderLeft:`3px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}><div style={{display:"flex",justifyContent:"space-between",gap:5}}><p style={{fontSize:11,fontWeight:800,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p><span style={{fontSize:9,color:C.yellowD,fontWeight:700,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</span></div><p style={{fontSize:9,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.servico||"-"}</p><div style={{display:"flex",justifyContent:"space-between",gap:5,alignItems:"center"}}><span style={{fontSize:8.5,color:C.muted}}>{nomeUsuario(l.responsavelId)} · {l.probabilidade}%</span><span style={{fontSize:8.5,fontWeight:700,color:comDias(l.etapaDesde)>=5?C.orange:C.muted}}>{comDias(l.etapaDesde)}d</span></div><p style={{fontSize:8.5,color:l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:C.blue,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?"⚠ ":""}{l.proximaAtividade||"Sem próxima atividade"}</p></div>)}{!ls.length&&<div style={{padding:"12px 6px",textAlign:"center",fontSize:9,color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,margin:"2px 0"}}>Solte aqui</div>}</div></div>;})}</div></>;
+    conteudo=<><Titulo titulo="Funil de vendas" sub="Arraste os cards; toda mudança fica registrada no histórico" acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> LEAD</Btn>}/><div style={{...KB.scroll,flexWrap:"wrap",overflowX:"visible",scrollSnapType:"none",rowGap:28,columnGap:8}}>{COM_ETAPAS.filter(([id])=>id!=="arquivado").map(([id,label])=>{const ls=leads.filter(l=>isVisibleLead(l)&&l.etapa===id);const soma=ls.reduce((s,l)=>s+(l.orcamentoEstimado||0),0);return <div key={id} onDragOver={e=>e.preventDefault()} onDrop={e=>{const l=leadBy(e.dataTransfer.getData("leadId"));if(l)moverLead(l,id);}} style={KB.coluna(C.blue,false)}><div onClick={()=>setColunaResumo({label,leads:ls})} title="Ver resumo de quem está nesta etapa" style={{...KB.colHead(C.blue),cursor:"pointer"}}><b style={{fontSize:10,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{label.toUpperCase()}</b><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}><span style={KB.contador}>{ls.length}</span>{soma>0&&<span style={{fontSize:8.5,fontWeight:700,color:C.yellowD}}>{fmt(soma)}</span>}</div></div><div style={KB.colBody}>{ls.map(l=><div key={l.id} draggable onDragStart={e=>e.dataTransfer.setData("leadId",l.id)} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{...KB.card(l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:null),borderLeft:`3px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}><div style={{display:"flex",justifyContent:"space-between",gap:5}}><p style={{fontSize:11,fontWeight:800,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p><span style={{fontSize:9,color:C.yellowD,fontWeight:700,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</span></div><p style={{fontSize:9,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.servico||"-"}</p><div style={{display:"flex",justifyContent:"space-between",gap:5,alignItems:"center"}}><span style={{fontSize:8.5,color:C.muted}}>{nomeUsuario(l.responsavelId)} · {l.probabilidade}%</span><span style={{fontSize:8.5,fontWeight:700,color:comDias(l.etapaDesde)>=5?C.orange:C.muted}}>{comDias(l.etapaDesde)}d</span></div><p style={{fontSize:8.5,color:l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:C.blue,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?"⚠ ":""}{l.proximaAtividade||"Sem próxima atividade"}</p></div>)}{!ls.length&&<div style={{padding:"12px 6px",textAlign:"center",fontSize:9,color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,margin:"2px 0"}}>Solte aqui</div>}</div></div>;})}</div></>;
   } else if(view==="com_jornada"){
     // KANBAN DA JORNADA DO CLIENTE
     // Colunas = fases da jornada (não as 20 etapas). O lead cai na coluna certa
