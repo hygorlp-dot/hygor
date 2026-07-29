@@ -34,6 +34,17 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     obras:[
       {id:"obra-qa",name:"Residencial Alameda",status:"active"},
     ],
+    orcamentos:[
+      {
+        id:"orcamento-rascunho-qa",
+        obraId:"obra-qa",
+        versionStatus:"rascunho",
+        updatedAt:"2026-07-29T12:00:00.000Z",
+        etapas:[{id:"etapa-fundacoes-qa",nome:"Fundações",parentId:"",ordem:1}],
+        itens:[{id:"item-concreto-qa",etapaId:"etapa-fundacoes-qa",descricao:"Concreto",quantidade:10,precoUnit:500}],
+      },
+    ],
+    budgetBaselines:[],
     employees:[
       {id:"employee-qa",name:"José Henrique de Lira Lima",pixKey:"10573521",obraId:"obra-qa",status:"active"},
     ],
@@ -105,6 +116,15 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
       await navItem.click();
       await expect(page.locator("main.arcd-main")).toBeVisible();
       await expect(page.getByText("Algo quebrou nesta tela")).toHaveCount(0);
+      if(item==="Compras") {
+        await page.locator(".compras-journey").getByRole("button").filter({hasText:"Solicitar"}).click();
+        await page.getByRole("button",{name:"SOLICITAR MATERIAIS PARA A OBRA"}).click();
+        await page.getByRole("button",{name:"CRIAR ITEM PRÓPRIO"}).click();
+        const etapa=page.getByLabel("Etapa de 1º nível do orçamento");
+        await expect(etapa.locator('option[value="etapa-fundacoes-qa"]')).toHaveCount(1);
+        await expect(page.getByText(/Vinculação ao orçamento em rascunho/)).toBeVisible();
+        await page.getByRole("button",{name:"Fechar"}).click();
+      }
       if(item==="Conciliação") {
         await expect(page.locator(".reconciliation-row")).toHaveCount(3);
         await expect(page.getByRole("button",{name:"Confirmar PIX"})).toBeVisible();

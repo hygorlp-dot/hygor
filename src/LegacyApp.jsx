@@ -24761,13 +24761,16 @@ function ModalFornecedor({ form, setForm, onSave }) {
   );
 }
 
-function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[],orcamentos=[],data,update,showToast}){
+function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[],data,update,showToast}){
   const {formGrid}=useBreakpoint();
   const [busca,setBusca]=useState("");const [resultados,setResultados]=useState([]);
   const [loading,setLoading]=useState(false);const [aviso,setAviso]=useState("");
   const [novoInsumo,setNovoInsumo]=useState(null);
   const base=basesReferencia.find(item=>item.id===form.referenciaId);
-  const orcObra=orcamentos.find(item=>item.obraId===form.obraId);
+  // A apropriação operacional já pode começar no rascunho. A baseline
+  // aprovada continua prioritária e exclusiva para os indicadores financeiros.
+  const contextoOrcamento=getPlanningBudget(data,form.obraId);
+  const orcObra=contextoOrcamento.budget;
   const linhasOrc=niveisUmOrcamento(orcObra).map(n=>({v:n.id,l:`${n.descricao} · ${fmt(n.orcado)}`}));
   const F=k=>v=>setForm(f=>({...f,[k]:v}));
   const setItem=(id,campo,valor)=>setForm(f=>({...f,itens:f.itens.map(item=>item.id===id?{...item,[campo]:valor}:item)}));
@@ -24853,6 +24856,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
         <button onClick={()=>setForm(f=>({...f,itens:f.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",padding:8}}>x</button>
       </div>
       <div style={{marginTop:7}}><Sel label="Etapa de 1º nível do orçamento" value={item.orcNivel1Id||""} onChange={v=>setItem(item.id,"orcNivel1Id",v)} options={[{v:"",l:orcObra?"Selecione a etapa principal":"A obra ainda não possui orçamento"},...linhasOrc]}/></div>
+      {contextoOrcamento.source==="rascunho"&&<p style={{fontSize:9,color:C.orange,marginTop:5}}>Vinculação ao orçamento em rascunho. A etapa organiza a compra, sem tornar esta versão uma baseline financeira.</p>}
       {item.precoRef>0&&<p style={{fontSize:9.5,color:C.muted,marginTop:5}}>Referência {item.dataBaseRef}{item.ufRef?` · ${item.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(item.precoRef))}/{item.unidadeRef}</b></p>}
     </div>)}{!form.itens.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:12}}>Pesquise um insumo ou crie um item próprio.</p>}</div>
     <p style={{fontSize:9,color:C.muted}}>Precisa do mesmo insumo em mais de uma etapa (ex.: cimento em fundação e estrutura)? Use "Duplicar" e ajuste a quantidade e a etapa de cada cópia.</p>
@@ -25311,11 +25315,15 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     return()=>{ativo=false;};
   },[]);
 
+  const contextoOrcamentoCompra=useMemo(
+    ()=>getPlanningBudget(data,obraAtual),
+    [data.orcamentos,data.budgetBaselines,obraAtual]
+  );
   const basesCompra=useMemo(()=>{
-    const orcamento=orcamentoDaObra(data,obraAtual);
+    const orcamento=contextoOrcamentoCompra.budget;
     const vinculadas=new Set(orcamento?.referencias||[]);
     return [...basesReferenciaCompra].sort((a,b)=>Number((b.idsEquivalentes||[b.id]).some(id=>vinculadas.has(id)))-Number((a.idsEquivalentes||[a.id]).some(id=>vinculadas.has(id)))||String(b.dataBase||"").localeCompare(String(a.dataBase||"")));
-  },[basesReferenciaCompra,data.orcamentos,obraAtual]);
+  },[basesReferenciaCompra,contextoOrcamentoCompra.budget]);
   const podeProcessar=canManagePurchases(currentUser?.role);
   const solicitacoes=useMemo(()=>(data.solicitacoesCompra||[]).filter(s=>obraIdsMapa.includes(s.obraId))
     .sort((a,b)=>{
@@ -25341,10 +25349,10 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
 
   // Apenas etapas de primeiro nível: a equipe compra por pacote de trabalho,
   // sem navegar por centenas de composições da planilha.
-  const linhasOrc = useMemo(() => {
-    const o = (data.orcamentos||[]).find(x => x.obraId === obraAtual);
-    return niveisUmOrcamento(o);
-  }, [data.orcamentos, obraAtual]);
+  const linhasOrc = useMemo(
+    () => niveisUmOrcamento(contextoOrcamentoCompra.budget),
+    [contextoOrcamentoCompra.budget]
+  );
 
   const nomeForn = useCallback(
     (id) => fornecedores.find(f => f.id === id)?.nome || "-",
@@ -27014,7 +27022,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       {cotWpp&&<ModalCotacaoWhatsApp titulo={cotWpp.titulo} itens={cotWpp.itens} obraNome={cotWpp.obraNome} prazo={cotWpp.prazo}
         fornecedores={fornecedores} pedidos={data.pedidos} materiais={data.materiais} data={data} onClose={()=>setCotWpp(null)}
         onContato={(fornecedorId,fornecedorNome)=>registrarContatoSolicitacao(cotWpp.solicitacaoId,fornecedorId,fornecedorNome)}/>}
-      {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)} orcamentos={data.orcamentos||[]} data={data} update={update} showToast={showToast}/>}
+      {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)} data={data} update={update} showToast={showToast}/>}
       {fornModal && <FornecedorEditorPilot form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
                                      fornecedores={fornecedores} materiais={materiais}
