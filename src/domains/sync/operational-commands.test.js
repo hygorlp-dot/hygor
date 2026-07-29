@@ -460,4 +460,25 @@ describe("comandos operacionais versionados",()=>{
     expect(repeated).toMatchObject({ok:true,idempotent:true});
     expect(repeated.data.employees).toHaveLength(1);
   });
+
+  it("salva configuração uma única vez pela fronteira operacional",()=>{
+    const initial={
+      config:{
+        companyName:"ARCD",productName:"Obras",paymentHolidays:[],
+        version:0,
+      },
+    };
+    const save=command(
+      OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED,
+      "company-config-operational-0001",
+      {config:{...initial.config,aliquotaISS:5}},
+      0,
+    );
+    const first=applyOperationalCommand(initial,save);
+    const repeated=applyOperationalCommand(first.data,save);
+    expect(first.data.config).toMatchObject({
+      companyName:"ARCD",aliquotaISS:5,version:1,updatedById:"u-1",
+    });
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+  });
 });

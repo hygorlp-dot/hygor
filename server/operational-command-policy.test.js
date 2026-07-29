@@ -177,6 +177,18 @@ describe("escopo servidor de comandos operacionais",()=>{
       command:{...command,payload:{employee:{id:"emp-novo",obra:""}}},
     })).toMatchObject({ok:true,scope:"company"});
   });
+  it("reserva configurações corporativas ao administrador",()=>{
+    const command={
+      type:OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED,
+      payload:{config:{companyName:"ARCD"}},
+    };
+    expect(validateOperationalCommandScope({
+      user:{id:"rh",role:"rh"},data,command,
+    })).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({
+      user:{id:"admin",role:"admin"},data,command,
+    })).toMatchObject({ok:true,scope:"company",obraId:""});
+  });
   it("mantém o avanço físico dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-b"}}}})).toMatchObject({ok:false});

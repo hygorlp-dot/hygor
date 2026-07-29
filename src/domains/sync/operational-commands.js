@@ -54,6 +54,10 @@ import {
   applyEmployeeCommand,
   EMPLOYEE_COMMAND,
 } from "../rh/employee-commands.js";
+import {
+  applyCompanyConfigCommand,
+  COMPANY_CONFIG_COMMAND,
+} from "../config/company-config-commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -74,6 +78,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...PURCHASE_ORDER_COMMAND,
   ...RESCISSION_COMMAND,
   ...EMPLOYEE_COMMAND,
+  ...COMPANY_CONFIG_COMMAND,
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -264,6 +269,16 @@ export const applyOperationalCommand=(data,command)=>{
       ok:true,
       data:appendReceipt(
         employeeResult.data,command,employeeResult.entityId,now,
+      ),
+    };
+  }
+  const companyConfigResult=applyCompanyConfigCommand(data,command,now);
+  if(companyConfigResult){
+    if(!companyConfigResult.ok)return companyConfigResult;
+    return {
+      ok:true,
+      data:appendReceipt(
+        companyConfigResult.data,command,companyConfigResult.entityId,now,
       ),
     };
   }

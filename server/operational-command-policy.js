@@ -45,6 +45,9 @@ import {
   EMPLOYEE_COMMAND_TYPES,
   employeeCommandObraId,
 } from "../src/domains/rh/employee-commands.js";
+import {
+  COMPANY_CONFIG_COMMAND_TYPES,
+} from "../src/domains/config/company-config-commands.js";
 
 export const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
@@ -92,6 +95,11 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
     return ["admin","financeiro"].includes(user?.role)
       ?{ok:true,obraId:"",scope:"company"}
       :{ok:false,error:"Seu perfil não pode alterar despesas corporativas."};
+  }
+  if(COMPANY_CONFIG_COMMAND_TYPES.has(command.type)){
+    return user?.role==="admin"
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Somente o administrador pode alterar as configurações da empresa."};
   }
   if(RESCISSION_COMMAND_TYPES.has(command.type)&&!obraId){
     return ["admin","rh"].includes(user?.role)

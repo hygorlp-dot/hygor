@@ -21,16 +21,16 @@ export const FINANCIAL_OPERATIONAL_SOURCE_SECTIONS=new Set(["attendance"]);
 //
 // reconciliationLinks, archivedLaborCosts, payments, medicoes, outrasDesp,
 // despesasEmpresa, transacoes, pagsTerceiros, medicoesTerc, notasFiscais,
-// pedidos, rescisoes, pagamentosFolha, titulosFolha, attendance e employees
-// continuam protegidas como seções financeiras legadas,
+// pedidos, rescisoes, pagamentosFolha, titulosFolha, attendance, employees e
+// config continuam protegidas como seções financeiras legadas,
 // mas não pertencem mais a este checklist:
 // seus escritores foram migrados para comandos servidores idempotentes.
 export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
-  "config","obras",
+  "obras",
 ]);
 
 export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
-  obras_configuracoes:["obras","config"],
+  obras_configuracoes:["obras"],
 });
 
 export const hasLegacyFinancialWrite=sections=>Object.keys(sections||{})

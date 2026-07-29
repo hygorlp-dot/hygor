@@ -8469,7 +8469,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
         idempotencyKey:`funcionario-salvar-${payload.id}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
+        expectedVersion:Number(before?.version||0),
         payload:{employee:{...(vigente||{}),...payload}},
       };
     });
@@ -8496,7 +8496,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
         idempotencyKey:`funcionario-inativar-${id}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
+        expectedVersion:Number(emp.version||0),
         payload:{employee:{...vigente,active:false,endDate,terminationReason:"Inativado",lastObra:vigente?.obra||vigente?.lastObra||""}},
       };
     });
@@ -8516,7 +8516,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
         idempotencyKey:`funcionario-arquivar-${id}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
+        expectedVersion:Number(emp.version||0),
         payload:{employee:{
           ...vigente,status:"arquivado",active:false,
           endDate:vigente?.endDate||today(),
@@ -8542,7 +8542,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
         idempotencyKey:`funcionario-desvincular-${id}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
+        expectedVersion:Number(emp.version||0),
         payload:{employee:{...vigente,obra:"",lastObra:vigente?.obra||vigente?.lastObra||""}},
       };
     });
@@ -8893,7 +8893,7 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
         idempotencyKey:`funcionario-transferir-${employee.id}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
+        expectedVersion:Number(employee.version||0),
         payload:{employee:{
           ...vigente,
           obra:newObra,
@@ -8927,7 +8927,7 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
         idempotencyKey:`funcionario-demitir-${employee.id}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
+        expectedVersion:Number(employee.version||0),
         payload:{employee:{
           ...vigente,
           active:false,
@@ -14778,15 +14778,25 @@ function ConfiguracaoIA({ showToast }) {
   </div>;
 }
 
-function Config({ data, update, showToast, currentUser, onLogout, dispatchAttendanceCommand }) {
+function Config({ data, update, showToast, currentUser, onLogout, dispatchAttendanceCommand, dispatchCommand }) {
   const { formGrid } = useBreakpoint();
   const [form, setForm] = useState(data.config);
   const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
   const holidays = getPayrollHolidays(data, holidayYear);
 
-  const saveConfig = () => {
-    update({ ...data, config: { ...data.config, ...form } });
+  const saveConfig = async () => {
+    const result=await dispatchCommand(atual=>({
+      type:OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED,
+      idempotencyKey:`configuracao-empresa-${uid()}`,
+      expectedVersion:Number(form.version||0),
+      payload:{config:{...atual.config,...form}},
+    }));
+    if(!result?.ok){
+      showToast(result?.reason||"As configurações não foram confirmadas pelo servidor.","error");
+      return;
+    }
+    if(result.data?.config)setForm(result.data.config);
     showToast("Configurações salvas.");
   };
 
@@ -32118,12 +32128,13 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
     showToast?.("Obra reativada");
   };
   const reativarEmp = async id => {
+    const employee=(data.employees||[]).find(item=>item.id===id);
     const result=await dispatchCommand(atual=>{
       const vigente=(atual.employees||[]).find(item=>item.id===id);
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
         idempotencyKey:`funcionario-reativar-${id}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
+        expectedVersion:Number(employee?.version||0),
         payload:{employee:{...vigente,active:true,endDate:"",terminationReason:"",status:"ativo"}},
       };
     });
@@ -38969,7 +38980,7 @@ export default function App() {
           {tab === "relat"    && <Relatorios   data={data} showToast={showToast} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
           {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}
-          {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} dispatchAttendanceCommand={dispatchAttendanceCommand} />}
+          {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} />}
         </main>
 
         {/*  NAV INFERIOR - só celular/tablet (no desktop é sidebar)  */}

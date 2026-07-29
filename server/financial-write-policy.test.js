@@ -68,13 +68,13 @@ describe("gate FIN-003 de persistência",()=>{
       "outrasDesp","despesasEmpresa","caixaObra","transacoes",
       "pagsTerceiros","medicoesTerc",
       "notasFiscais","pedidos","rescisoes","pagamentosFolha","titulosFolha",
-      "attendance","employees",
+      "attendance","employees","config",
     ]){
       expect(FINANCIAL_LEGACY_SECTIONS.has(section),section).toBe(true);
       expect(FINANCIAL_SNAPSHOT_WRITER_SECTIONS.has(section),section).toBe(false);
       expect(readiness.pending,section).not.toContain(section);
     }
-    expect(readiness.pending).toHaveLength(2);
+    expect(readiness.pending).toHaveLength(1);
   });
 
   it("mantém todos os escritores associados a um módulo funcional",()=>{

@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-29T13:55:23.021Z",
+  "generatedAt": "2026-07-29T14:06:08.067Z",
   "totals": {
-    "bytes": 4181322,
-    "gzipBytes": 1162587
+    "bytes": 4181769,
+    "gzipBytes": 1162734
   },
   "assets": [
     {
-      "name": "LegacyApp-kEWGGfCa.js",
-      "bytes": 2193292,
-      "gzipBytes": 612762
+      "name": "LegacyApp-CZlfUXQm.js",
+      "bytes": 2193739,
+      "gzipBytes": 612908
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -56,7 +56,7 @@
       "gzipBytes": 4542
     },
     {
-      "name": "index-D4Dkh3au.js",
+      "name": "index-Cu2yEiSK.js",
       "bytes": 8978,
       "gzipBytes": 3890
     },
@@ -81,9 +81,9 @@
       "gzipBytes": 1247
     },
     {
-      "name": "LegacyMobileNavigation-CTuEsLz5.js",
+      "name": "LegacyMobileNavigation-D-O-J9yk.js",
       "bytes": 2628,
-      "gzipBytes": 1217
+      "gzipBytes": 1216
     },
     {
       "name": "LoginProjectParallax-COWgOAZU.js",
@@ -96,9 +96,9 @@
       "gzipBytes": 1073
     },
     {
-      "name": "MobileMoreMenu-B_jgMONP.js",
+      "name": "MobileMoreMenu-EKkzt1nS.js",
       "bytes": 1832,
-      "gzipBytes": 875
+      "gzipBytes": 877
     },
     {
       "name": "rolldown-runtime-DAXXjFlN.js",
