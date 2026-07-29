@@ -11203,10 +11203,11 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   const { start: weekStart, end: weekEnd } = getWeekRange(friday);
   const allTerc    = data.terceirizados || [];
   const scopedTerc = obraIdFixo ? allTerc.filter(t => t.obraId === obraIdFixo) : allTerc;
-  const activeTerc = scopedTerc.filter(t => t.active !== false);
   const registroTerceiroAtivo=registro=>
     !["cancelado","cancelada","estornado","estornada","arquivado"]
       .includes(String(registro?.status||"").toLowerCase());
+  const activeTerc = scopedTerc.filter(t => registroTerceiroAtivo(t)&&t.active !== false);
+  const kanbanTerc = scopedTerc.filter(registroTerceiroAtivo);
 
   // Um mesmo prestador pode possuir vários contratos. O cadastro fiscal,
   // bancário e de contato é compartilhado pelo `prestadorId`; obra, escopo,
@@ -11472,7 +11473,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   // interfere na organização contratual por obra.
   const kanbansPorObra = useMemo(() => {
     const grupos = {};
-    scopedTerc.forEach(t => {
+    kanbanTerc.forEach(t => {
       const chave = t.obraId || "__sem_obra__";
       (grupos[chave] = grupos[chave] || []).push(t);
     });
@@ -11495,7 +11496,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
         // Empate: mais no início da execução (menor avanço) primeiro.
         return a.avanco - b.avanco;
       });
-  }, [scopedTerc, avancoContrato, obraName]);
+  }, [kanbanTerc, avancoContrato, obraName]);
 
   // Distribui uma lista de terceiros nas 4 colunas de situação. Reutilizável:
   // cada quadro-por-obra chama com a sua própria lista.
@@ -12064,14 +12065,23 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                             )}
 
                             {/* Mover em telas sem drag (toque): setas discretas */}
-                            <div style={{ display:"flex", gap:4, justifyContent:"flex-end" }} onClick={e => e.stopPropagation()}>
+                            <div className="terceiros-kanban-card__actions" onClick={e => e.stopPropagation()}>
+                              {podeGerenciarContratos && (
+                                <button type="button" className="terceiros-kanban-card__delete"
+                                  title="Excluir contrato do quadro"
+                                  aria-label={`Excluir contrato de ${t.name}`}
+                                  onPointerDown={e => e.stopPropagation()}
+                                  onClick={e => { e.stopPropagation(); removeTerc(t.id); }}>
+                                  <Ic n="trash" s={11}/>
+                                </button>
+                              )}
                               {COLS_KANBAN.map(c => c.v).indexOf(t.situacao) > 0 && (
-                                <button title="Mover para a esquerda"
+                                <button type="button" title="Mover para a esquerda"
                                   onClick={() => { const i = COLS_KANBAN.findIndex(c => c.v === t.situacao); moverSituacao(t, COLS_KANBAN[i-1].v); }}
                                   style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:5, color:C.muted, cursor:"pointer", fontSize:10, padding:"1px 6px" }}>←</button>
                               )}
                               {COLS_KANBAN.map(c => c.v).indexOf(t.situacao) < COLS_KANBAN.length - 1 && (
-                                <button title="Mover para a direita"
+                                <button type="button" title="Mover para a direita"
                                   onClick={() => { const i = COLS_KANBAN.findIndex(c => c.v === t.situacao); moverSituacao(t, COLS_KANBAN[i+1].v); }}
                                   style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:5, color:C.muted, cursor:"pointer", fontSize:10, padding:"1px 6px" }}>→</button>
                               )}

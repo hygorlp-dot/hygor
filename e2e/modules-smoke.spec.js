@@ -37,6 +37,9 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     employees:[
       {id:"employee-qa",name:"José Henrique de Lira Lima",pixKey:"10573521",obraId:"obra-qa",status:"active"},
     ],
+    terceirizados:[
+      {id:"third-party-qa",prestadorId:"provider-qa",name:"Elétrica Modelo",specialty:"eletricista",obraId:"obra-qa",contractValue:3500,weeklyRate:0,situacao:"andamento",active:true,documentos:[],etapas:[]},
+    ],
     transacoes:[
       {id:"tr-pix",data:"2026-07-20",descricao:'Pix enviado: "Cpf :10573521-Jose Silva de Lima"',valor:-1000,status:"pendente",extratoId:"ext-qa"},
       {id:"tr-entry",data:"2026-07-21",descricao:'Pix recebido: "Cpf :90400888-Anderson Ferreira de Oliveira"',valor:7060,status:"pendente",extratoId:"ext-qa"},
@@ -101,6 +104,13 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await pixRow.getByRole("button",{name:/Mostrar outras ações/}).click();
         await expect(pixRow.getByRole("button",{name:"Rateio manual"})).toBeVisible();
         await pixRow.getByRole("button",{name:/Ocultar outras ações/}).click();
+      }
+      if(item==="Terceirizados") {
+        const excluirContrato=page.getByRole("button",{name:"Excluir contrato de Elétrica Modelo"});
+        await expect(excluirContrato).toBeVisible();
+        page.once("dialog",dialog=>dialog.accept("Contrato duplicado no teste"));
+        await excluirContrato.click();
+        await expect(excluirContrato).toHaveCount(0);
       }
       if(item==="Conciliação"&&process.env.ARCD_VISUAL_CAPTURE) {
         await page.screenshot({path:"/tmp/arcd-conciliacao-desktop.png",fullPage:true});

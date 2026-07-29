@@ -4802,6 +4802,50 @@
   line-height: var(--arcd-line-height-normal);
 }
 
+.terceiros-kanban-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--arcd-space-1);
+}
+
+.terceiros-kanban-card__actions button {
+  display: inline-grid;
+  min-width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid var(--arcd-border-default);
+  border-radius: var(--arcd-radius-sm);
+  padding: 0;
+  background: var(--arcd-surface-muted);
+  color: var(--arcd-text-secondary);
+  cursor: pointer;
+}
+
+.terceiros-kanban-card__actions button:hover {
+  border-color: var(--arcd-border-strong);
+  background: var(--arcd-surface-card);
+  color: var(--arcd-text-primary);
+}
+
+.terceiros-kanban-card__actions .terceiros-kanban-card__delete {
+  margin-right: auto;
+  border-color: var(--arcd-danger-border);
+  background: var(--arcd-danger-surface);
+  color: var(--arcd-danger-text);
+}
+
+.terceiros-kanban-card__actions .terceiros-kanban-card__delete:hover {
+  border-color: var(--arcd-danger-text);
+  background: var(--arcd-danger-surface);
+  color: var(--arcd-danger-text);
+}
+
+.terceiros-kanban-card__actions button:focus-visible {
+  outline: 2px solid var(--arcd-focus-ring);
+  outline-offset: 2px;
+}
+
 /* Planejamento: campos de data são edição direta, não texto decorativo.
    O foco usa a cor de ação ARCD para permanecer visível em teclado e toque. */
 .planning-inline-date {
@@ -4880,6 +4924,11 @@
   .terceiros-pending > span:last-child {
     grid-column: 3;
     grid-row: 1 / span 2;
+  }
+
+  .terceiros-kanban-card__actions button {
+    min-width: 44px;
+    height: 44px;
   }
 
   .arcd-btn[data-size="sm"] {
