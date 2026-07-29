@@ -125,6 +125,12 @@ export const applyEmployeeCommand = (
     return fail("A data de término não pode anteceder a admissão.");
   }
   const obraId = String(raw.obra || "");
+  const workArea = ["campo","administrativo"].includes(raw.workArea)
+    ? raw.workArea
+    : (obraId || raw.lastObra ? "campo" : "administrativo");
+  if (workArea === "administrativo" && obraId) {
+    return fail("Funcionário administrativo não deve possuir lotação fixa em uma obra.");
+  }
   if (obraId && !(data.obras || []).some(item => String(item.id) === obraId)) {
     return fail("A obra informada para o funcionário não existe.");
   }
@@ -144,6 +150,7 @@ export const applyEmployeeCommand = (
     id,
     name,
     role:String(raw.role || "").trim(),
+    workArea,
     obra:obraId,
     dailyRate,
     vtDaily:Number(raw.vtDaily || 0),

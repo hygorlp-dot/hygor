@@ -11,4 +11,11 @@ describe("persistência transacional dos funcionários", () => {
       .toBeGreaterThanOrEqual(7);
     expect(source).not.toMatch(/update\s*\(\s*\{[^}]*employees\s*:/s);
   });
+
+  it("registra e cancela adiantamentos pelo comando versionado",()=>{
+    expect(source).toContain("OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED");
+    expect(source).toContain("OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED");
+    expect(source).not.toMatch(/update\s*\(\s*\{[^}]*advances\s*:/s);
+    expect(source).toContain("advanceDeductionForPeriod(advance,periIni,periFim)");
+  });
 });

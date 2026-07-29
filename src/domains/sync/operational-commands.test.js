@@ -461,6 +461,34 @@ describe("comandos operacionais versionados",()=>{
     expect(repeated.data.employees).toHaveLength(1);
   });
 
+  it("registra adiantamento administrativo parcelado de forma idempotente",()=>{
+    const initial={
+      employees:[{id:"emp-admin",name:"Ana",workArea:"administrativo",obra:"",active:true}],
+      advances:[],
+    };
+    const create=command(
+      OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED,
+      "payroll-advance-operational-0001",
+      {advance:{
+        id:"adv-1",empId:"emp-admin",date:"2026-07-29",amount:900,
+        installmentCount:3,firstDueDate:"2026-08-05",frequency:"quinzenal",
+      }},
+      0,
+    );
+    const first=applyOperationalCommand(initial,create);
+    const repeated=applyOperationalCommand(first.data,create);
+    expect(first.data.advances[0]).toMatchObject({
+      id:"adv-1",empId:"emp-admin",installmentCount:3,version:1,
+      installments:[
+        {number:1,amount:300,dueDate:"2026-08-05"},
+        {number:2,amount:300,dueDate:"2026-08-20"},
+        {number:3,amount:300,dueDate:"2026-09-05"},
+      ],
+    });
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+    expect(repeated.data.advances).toHaveLength(1);
+  });
+
   it("salva configuração uma única vez pela fronteira operacional",()=>{
     const initial={
       config:{

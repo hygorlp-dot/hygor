@@ -55,6 +55,10 @@ import {
   EMPLOYEE_COMMAND,
 } from "../rh/employee-commands.js";
 import {
+  applyAdvanceCommand,
+  ADVANCE_COMMAND,
+} from "../rh/advance-commands.js";
+import {
   applyCompanyConfigCommand,
   COMPANY_CONFIG_COMMAND,
 } from "../config/company-config-commands.js";
@@ -78,6 +82,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...PURCHASE_ORDER_COMMAND,
   ...RESCISSION_COMMAND,
   ...EMPLOYEE_COMMAND,
+  ...ADVANCE_COMMAND,
   ...COMPANY_CONFIG_COMMAND,
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
@@ -269,6 +274,16 @@ export const applyOperationalCommand=(data,command)=>{
       ok:true,
       data:appendReceipt(
         employeeResult.data,command,employeeResult.entityId,now,
+      ),
+    };
+  }
+  const advanceResult=applyAdvanceCommand(data,command,now);
+  if(advanceResult){
+    if(!advanceResult.ok)return advanceResult;
+    return {
+      ok:true,
+      data:appendReceipt(
+        advanceResult.data,command,advanceResult.entityId,now,
       ),
     };
   }

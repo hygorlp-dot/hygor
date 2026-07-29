@@ -1,4 +1,5 @@
 import { selectFinancialMovements } from "../financeiro/ledger.js";
+import { advanceDeductionForPeriod } from "../rh/advance-commands.js";
 
 const requiredFunction = (value, name) => {
   if (typeof value !== "function") {
@@ -46,12 +47,13 @@ export const createMonthlyFinancialReportEngine = ({
       const employeeIds = employees
         .filter(employee => employee.obra === work.id || employee.lastObra === work.id)
         .map(employee => employee.id);
+      const monthStart=`${competence}-01`;
+      const monthEnd=`${competence}-${String(new Date(Number(competence.slice(0,4)),Number(competence.slice(5,7)),0).getDate()).padStart(2,"0")}`;
       const advanceDetails = (data?.advances || []).filter(advance =>
         employeeIds.includes(advance.empId)
-        && advance.date
-        && advance.date.startsWith(competence));
+        && advanceDeductionForPeriod(advance,monthStart,monthEnd)>0);
       const advanceTotal = advanceDetails.reduce((total, advance) =>
-        total + Number(advance.amount || 0), 0);
+        total + advanceDeductionForPeriod(advance,monthStart,monthEnd), 0);
       const receiptDetails = movements(dre.ledger, {
         obraId:work.id,
         startDate,

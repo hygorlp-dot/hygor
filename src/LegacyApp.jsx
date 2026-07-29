@@ -160,6 +160,10 @@ import {
   RESCISSION_TYPE_LABEL,
 } from "./domains/rh/rescission-calculations";
 import {
+  advanceDeductionForPeriod,
+  buildAdvanceInstallments,
+} from "./domains/rh/advance-commands";
+import {
   createBillingFromTechnicalMeasurement,
   createMonthlyClosingSnapshot,
 } from "./domains/financeiro/workflows";
@@ -1609,6 +1613,9 @@ const normalizeData = incoming => {
       id: e.id || uid(),
       name: e.name || "",
       role: e.role || "",
+      workArea: ["campo","administrativo"].includes(e.workArea)
+        ? e.workArea
+        : (e.obra||e.lastObra ? "campo" : "administrativo"),
       cpf: e.cpf || "",
       phone: e.phone || "",
       pixKey: e.pixKey || "",
@@ -1623,12 +1630,32 @@ const normalizeData = incoming => {
       endDate: e.endDate || "",
       terminationReason: e.terminationReason || "",
       lastObra: e.lastObra || "",
+      version:Number(e.version||0),
+      createdAt:e.createdAt||"",
+      createdById:e.createdById||"",
+      createdBy:e.createdBy||"",
+      updatedAt:e.updatedAt||"",
+      updatedById:e.updatedById||"",
+      updatedBy:e.updatedBy||"",
     })) : [],
     // attendance: { empId: { "2026-07-01": { status, ot, note, obraId } } }
     // obraId é NOVO. Registros antigos não têm - o cálculo cai na obra de
     // lotação para eles, preservando os valores históricos.
     attendance: d.attendance || {},
-    advances: Array.isArray(d.advances) ? d.advances : [],
+    advances: Array.isArray(d.advances) ? d.advances.map(a=>({
+      ...a,id:a.id||uid(),empId:a.empId||a.employeeId||a.funcionarioId||"",
+      date:a.date||a.data||"",amount:Number(a.amount??a.valor??0),
+      description:a.description||a.descricao||"Adiantamento",
+      firstDueDate:a.firstDueDate||a.primeiroDesconto||a.date||a.data||"",
+      installmentCount:Number(a.installmentCount||a.numeroParcelas||a.installments?.length||1),
+      frequency:a.frequency||a.frequencia||"quinzenal",
+      installments:Array.isArray(a.installments)?a.installments.map((item,index)=>({
+        ...item,id:item.id||`${a.id}:parcela:${index+1}`,number:Number(item.number||index+1),
+        dueDate:item.dueDate||item.vencimento||"",amount:Number(item.amount??item.valor??0),
+        status:item.status||"programada",
+      })):[],
+      status:a.status||"ativo",version:Number(a.version||0),
+    })) : [],
     payments: Array.isArray(d.payments) ? d.payments.map(p => ({
       ...p, id:p.id||uid(), obraId:p.obraId||"", date:p.date||p.data||"",
       amount:Number(p.amount??p.valor??0), description:p.description||p.descricao||"",
@@ -8386,6 +8413,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
     id: "",
     name: "",
     role: "",
+    workArea: "campo",
     cpf: "",
     phone: "",
     pixKey: "",
@@ -8412,7 +8440,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
   const [filterObra, setFilterObra] = useState(obraIdFixo||"all");
   const [showInactive, setShowInactive] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
-  const [advForm, setAdvForm] = useState({ amount: "", description: "", date: today() });
+  const [advForm, setAdvForm] = useState({
+    amount:"",description:"",date:today(),installmentCount:"1",
+    frequency:"quinzenal",firstDueDate:today(),
+  });
 
   useEffect(() => {
     const empId = window.sessionStorage.getItem("arcd_editar_funcionario");
@@ -8435,7 +8466,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
 
   const F = key => value => setForm(f => ({ ...f, [key]: value }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
-  const empAdvances = id => (data.advances||[]).filter(a => a.empId === id);
+  const advanceActive = advance => !["cancelado","cancelada","estornado","estornada"]
+    .includes(String(advance?.status||"").toLowerCase());
+  const empAdvances = id => (data.advances||[]).filter(a => a.empId === id)
+    .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
 
   const saveEmp = async () => {
     if (!form.name.trim() || !form.dailyRate || !form.startDate) {
@@ -8459,6 +8493,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
       workStart: form.workStart || "07:00",
       overtimeAdditionalPercent: Math.max(0, Number(form.overtimeAdditionalPercent ?? 50)),
       active: form.active !== false,
+      workArea:form.workArea==="administrativo"?"administrativo":"campo",
+      obra:form.workArea==="administrativo"?"":form.obra,
       endDate: form.active === false ? form.endDate : "",
       terminationReason: form.active === false ? (form.terminationReason || "Inativado") : "",
       lastObra: form.active === false ? (before?.obra || form.obra) : (form.lastObra || ""),
@@ -8550,32 +8586,63 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
     showToast(`${emp.name} desvinculado da obra.`);
   };
 
-  const saveAdv = () => {
-    if (!advForm.amount || isNaN(Number(advForm.amount))) {
+  const saveAdv = async () => {
+    if (!(Number(advForm.amount)>0)) {
       showToast("Valor do adiantamento inválido.", "error");
       return;
     }
-    const advances = [...data.advances, { id: uid(), empId: advModal, date: advForm.date || today(), amount: Number(advForm.amount), description: advForm.description || "Adiantamento" }];
-    update({ ...data, advances });
+    const installmentCount=Number(advForm.installmentCount||1);
+    if(!Number.isInteger(installmentCount)||installmentCount<1||installmentCount>24){
+      showToast("Informe entre 1 e 24 parcelas.","error");
+      return;
+    }
+    const advanceId=uid();
+    const result=await dispatchCommand({
+      type:OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED,
+      idempotencyKey:`adiantamento-criar-${advanceId}-${uid()}`,
+      expectedVersion:0,
+      payload:{advance:{
+        id:advanceId,empId:advModal,date:advForm.date||today(),
+        amount:Number(advForm.amount),description:advForm.description||"Adiantamento",
+        installmentCount,frequency:advForm.frequency,
+        firstDueDate:advForm.firstDueDate||advForm.date||today(),
+      }},
+    });
+    if(!result?.ok){
+      showToast(result?.reason||"O adiantamento não foi confirmado pelo servidor.","error");
+      return;
+    }
     setAdvModal(null);
-    setAdvForm({ amount: "", description: "", date: today() });
-    showToast("Adiantamento registrado.");
+    setAdvForm({amount:"",description:"",date:today(),installmentCount:"1",frequency:"quinzenal",firstDueDate:today()});
+    showToast(`Adiantamento registrado em ${installmentCount} parcela(s).`);
   };
 
-  const removeAdv = id => {
+  const removeAdv = async advance => {
     const motivo=window.prompt("Motivo do cancelamento do adiantamento:");
     if(!String(motivo||"").trim())return;
-    update({ ...data, advances: (data.advances||[]).map(a=>a.id===id?cancelarRegistro(a,motivo,null,"cancelado"):a) });
+    const result=await dispatchCommand({
+      type:OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED,
+      idempotencyKey:`adiantamento-cancelar-${advance.id}-${uid()}`,
+      expectedVersion:Number(advance.version||0),
+      payload:{advanceId:advance.id,reason:String(motivo).trim()},
+    });
+    if(!result?.ok){
+      showToast(result?.reason||"O cancelamento não foi confirmado pelo servidor.","error");
+      return;
+    }
     showToast("Adiantamento cancelado e preservado para auditoria.");
   };
 
   const list = data.employees
     .filter(e => showInactive || e.active !== false)
-    .filter(e => filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra)
+    .filter(e => filterObra === "all"
+      || (filterObra==="__administrativo__"&&e.workArea==="administrativo")
+      || e.obra === filterObra || e.lastObra === filterObra)
     .filter(e => [e.name, e.role, e.cpf, e.phone].join(" ").toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
   const ativos = data.employees.filter(e=>e.active!==false);
   const semObra = ativos.filter(e=>!e.obra).length;
+  const administrativos = ativos.filter(e=>e.workArea==="administrativo").length;
   const obrasComEquipe = new Set(ativos.map(e=>e.obra).filter(Boolean)).size;
 
   return (
@@ -8587,14 +8654,15 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
         stats={[
           {label:"Ativos",value:ativos.length,color:C.green},
           {label:"Obras com equipe",value:obrasComEquipe,color:C.blue},
-          {label:"Sem lotação",value:semObra,color:semObra?C.orange:C.green},
+          {label:"Administrativo",value:administrativos,color:C.purple},
+          {label:"Sem lotação",value:semObra-administrativos,color:semObra-administrativos?C.orange:C.green},
         ]}
         actions={<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setModal(true); }}><Ic n="plus" /> Funcionário</Btn>}
       />
 
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:9,display:"grid",gridTemplateColumns:formGrid(3),gap:7,alignItems:"end"}}>
         <Inp value={search} onChange={setSearch} placeholder="Buscar nome, função, CPF ou telefone" />
-        {obraIdFixo?<Inp value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />}
+        {obraIdFixo?<Inp value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todos os funcionários"},{v:"__administrativo__",l:"Administrativo"},...data.obras.map(o=>({v:o.id,l:o.name}))]} />}
         <Btn v={showInactive ? "warning" : "ghost"} onClick={() => setShowInactive(v => !v)}>{showInactive ? "Ocultar inativos" : "Ver inativos"}</Btn>
       </div>
 
@@ -8602,14 +8670,14 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
 
       {list.map(e => {
         const advs = empAdvances(e.id);
-        const totalAdv = advs.reduce((s, a) => s + Number(a.amount || 0), 0);
+        const totalAdv = advs.filter(advanceActive).reduce((s, a) => s + Number(a.amount || 0), 0);
         const exp = expandedId === e.id;
         return (
           <div key={e.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius:11, overflow:"hidden", boxShadow:"0 1px 2px rgba(0,0,0,.025)" }}>
             <div style={{ padding:"10px 12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <button onClick={() => setExpandedId(exp ? null : e.id)} style={{ flex: 1, background: "transparent", border: 0, color: C.text, textAlign: "left", cursor: "pointer" }}>
-                  <div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:32,height:32,borderRadius:9,background:e.active===false?`${C.muted}15`:`${C.blue}12`,color:e.active===false?C.muted:C.blue,display:"grid",placeItems:"center",fontSize:10,fontWeight:900,flexShrink:0}}>{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div><p style={{ fontWeight: 800, fontSize: 13.5 }}>{e.name}</p><p style={{ color: C.muted, fontSize: 10.5,marginTop:1 }}>{e.role||"Função não informada"} · {e.obra ? obraName(e.obra) : "Sem obra"}</p></div></div>
+                  <div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:32,height:32,borderRadius:9,background:e.active===false?`${C.muted}15`:`${C.blue}12`,color:e.active===false?C.muted:C.blue,display:"grid",placeItems:"center",fontSize:10,fontWeight:900,flexShrink:0}}>{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div><p style={{ fontWeight: 800, fontSize: 13.5 }}>{e.name}</p><p style={{ color: C.muted, fontSize: 10.5,marginTop:1 }}>{e.role||"Função não informada"} · {e.workArea==="administrativo"?"Administrativo":(e.obra?obraName(e.obra):"Campo · sem obra")}</p></div></div>
                   <div style={{ marginTop: 6,marginLeft:41 }}>
                     {e.active === false && <Badge color={C.muted}>Inativo</Badge>}
                     <Badge color={C.green}>{fmt(e.dailyRate)}/dia</Badge>
@@ -8646,14 +8714,15 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
                 </div>
                 {advs.length === 0 && <p style={{ color: C.muted, fontSize: 12 }}>Nenhum adiantamento.</p>}
                 {advs.map(a => (
-                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "7px 0" }}>
+                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "7px 0",opacity:advanceActive(a)?1:.55 }}>
                     <div>
                       <p style={{ fontWeight: 800, fontSize: 13 }}>{a.description}</p>
-                      <p style={{ color: C.muted, fontSize: 11 }}>{fmtDateFull(a.date)}</p>
+                      <p style={{ color: C.muted, fontSize: 11 }}>{fmtDateFull(a.date)} · {a.installmentCount||1}x {a.frequency==="mensal"?"mensal":"quinzenal"}{!advanceActive(a)?" · cancelado":""}</p>
+                      {advanceActive(a)&&(a.installments||[]).length>0&&<p style={{color:C.subtle,fontSize:10,marginTop:2}}>{a.installments.map(item=>`${item.number}ª ${fmt(item.amount)} em ${fmtDate(item.dueDate)}`).join(" · ")}</p>}
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <span style={{ color: C.red, fontWeight: 900 }}>{fmt(a.amount)}</span>
-                      <Btn v="danger" size="sm" onClick={() => removeAdv(a.id)}><Ic n="trash" /></Btn>
+                      {advanceActive(a)&&<Btn v="danger" size="sm" onClick={() => removeAdv(a)}><Ic n="trash" /></Btn>}
                     </div>
                   </div>
                 ))}
@@ -8668,9 +8737,12 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
           <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
             <div style={{ gridColumn: "1/-1" }}><Inp label="Nome completo *" value={form.name} onChange={F("name")} /></div>
             <Inp label="Função" value={form.role} onChange={F("role")} />
+            <Sel label="Área de atuação" value={form.workArea||"campo"} onChange={value=>setForm(current=>({...current,workArea:value,...(value==="administrativo"?{obra:""}:{})}))} options={[{v:"campo",l:"Campo / obra"},{v:"administrativo",l:"Administrativo"}]}/>
             <Inp label="Admissão *" type="date" value={form.startDate} onChange={F("startDate")} />
             <Inp label="Diária *" type="number" value={form.dailyRate} onChange={F("dailyRate")} />
-            <Sel label="Obra" value={form.obra} onChange={F("obra")} options={[{ v: "", l: "Sem obra (desvinculado)" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+            {form.workArea!=="administrativo"
+              ?<Sel label="Obra" value={form.obra} onChange={F("obra")} options={[{ v: "", l: "Sem obra (desvinculado)" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+              :<Inp label="Lotação" value="Administrativo da empresa" onChange={()=>{}} disabled/>}
             <Sel label="Status" value={String(form.active !== false)} onChange={v => F("active")(v === "true")} options={[{ v: "true", l: "Ativo" }, { v: "false", l: "Inativo / Demitido" }]} />
             <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
             <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
@@ -8698,14 +8770,26 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
       )}
 
       {advModal && (
-        <Modal title="Novo adiantamento" onClose={() => setAdvModal(null)}>
+        <Modal title="Solicitar ou registrar adiantamento" onClose={() => setAdvModal(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <Inp label="Valor *" type="number" value={advForm.amount} onChange={v => setAdvForm(f => ({ ...f, amount: v }))} />
             <Inp label="Descrição" value={advForm.description} onChange={v => setAdvForm(f => ({ ...f, description: v }))} />
-            <Inp label="Data" type="date" value={advForm.date} onChange={v => setAdvForm(f => ({ ...f, date: v }))} />
+            <Inp label="Data da solicitação/liberação" type="date" value={advForm.date} onChange={v => setAdvForm(f => ({ ...f, date: v }))} />
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+              <Inp label="Quantidade de parcelas" type="number" min="1" max="24" value={advForm.installmentCount} onChange={v=>setAdvForm(f=>({...f,installmentCount:v}))}/>
+              <Sel label="Frequência do desconto" value={advForm.frequency} onChange={v=>setAdvForm(f=>({...f,frequency:v}))} options={[{v:"quinzenal",l:"A cada quinzena"},{v:"mensal",l:"Uma vez por mês"}]}/>
+              <Inp label="Primeiro desconto na folha" type="date" value={advForm.firstDueDate} onChange={v=>setAdvForm(f=>({...f,firstDueDate:v}))}/>
+            </div>
+            {Number(advForm.amount)>0&&Number(advForm.installmentCount)>0&&<div style={{padding:"9px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6}}>
+              <p style={{fontSize:9,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Programação dos descontos</p>
+              <p style={{fontSize:10.5,color:C.text,marginTop:4,lineHeight:1.55}}>{buildAdvanceInstallments({
+                advanceId:"previa",amount:Number(advForm.amount),installmentCount:Number(advForm.installmentCount),
+                firstDueDate:advForm.firstDueDate,frequency:advForm.frequency,
+              }).map(item=>`${item.number}ª ${fmt(item.amount)} · ${fmtDate(item.dueDate)}`).join("  |  ")||"Informe uma data válida."}</p>
+            </div>}
             <div style={{ display: "flex", gap: 8 }}>
               <Btn v="ghost" onClick={() => setAdvModal(null)} full>Cancelar</Btn>
-              <Btn v="warning" onClick={saveAdv} full><Ic n="check" /> Registrar</Btn>
+              <Btn v="warning" onClick={saveAdv} full><Ic n="check" /> Confirmar parcelamento</Btn>
             </div>
           </div>
         </Modal>
@@ -9996,9 +10080,9 @@ function Folha({ data, showToast, onTab }) {
 
     const periIni = diasCiclo.length > 0 ? diasCiclo[0] : "";
     const periFim = diasCiclo.length > 0 ? diasCiclo[diasCiclo.length - 1] : "";
-    const advTotal = data.advances
-      .filter(a => a.empId === employee.id && periIni && periFim && a.date >= periIni && a.date <= periFim)
-      .reduce((s, a) => s + Number(a.amount || 0), 0);
+    const advTotal = (data.advances||[])
+      .filter(a => a.empId === employee.id)
+      .reduce((sum,advance)=>sum+advanceDeductionForPeriod(advance,periIni,periFim),0);
 
     // Converte mapa para array ordenado por dias trabalhados desc
     const obrasPorDiaArr = Object.values(obrasPorDia)

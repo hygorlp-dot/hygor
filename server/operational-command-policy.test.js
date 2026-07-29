@@ -13,7 +13,8 @@ describe("escopo servidor de comandos operacionais",()=>{
     medicoesTerc:[{id:"mt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
     pagsTerceiros:[{id:"pt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
     notasFiscais:[{id:"nf-a",obraId:"obra-a",version:1}],
-    employees:[{id:"emp-a",obra:"obra-a"}],
+    employees:[{id:"emp-a",obra:"obra-a"},{id:"emp-admin",obra:"",workArea:"administrativo"}],
+    advances:[{id:"adv-a",empId:"emp-a",version:1}],
     rescisoes:[{id:"resc-a",obraId:"obra-a",version:1}],
   };
   const user={id:"u-1",role:"engenheiro",obraId:"obra-a"};
@@ -176,6 +177,27 @@ describe("escopo servidor de comandos operacionais",()=>{
       user:{id:"admin",role:"admin"},data,
       command:{...command,payload:{employee:{id:"emp-novo",obra:""}}},
     })).toMatchObject({ok:true,scope:"company"});
+  });
+  it("permite ao RH adiantamento de campo e administrativo, mas bloqueia outros perfis",()=>{
+    const fieldCommand={
+      type:OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED,
+      payload:{advance:{id:"adv-new",empId:"emp-a"}},
+    };
+    const adminCommand={
+      type:OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED,
+      payload:{advance:{id:"adv-admin",empId:"emp-admin"}},
+    };
+    expect(validateOperationalCommandScope({user,data,command:fieldCommand})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({
+      user:{id:"rh",role:"rh"},data,command:fieldCommand,
+    })).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({
+      user:{id:"rh",role:"rh"},data,command:adminCommand,
+    })).toMatchObject({ok:true,scope:"company",obraId:""});
+    expect(validateOperationalCommandScope({
+      user:{id:"rh",role:"rh"},data,
+      command:{type:OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED,payload:{advanceId:"adv-a"}},
+    })).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("reserva configurações corporativas ao administrador",()=>{
     const command={
