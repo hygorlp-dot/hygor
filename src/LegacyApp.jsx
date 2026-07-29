@@ -9663,6 +9663,9 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
       showToast("Este ponto já foi finalizado. Solicite permissão para alterar.", "warn");
       return;
     }
+    if (status === "F" && !window.confirm(`Marcar falta para ${list.length} trabalhador(es) de "${selectedObra?.name || "esta obra"}"?`)) {
+      return;
+    }
 
     const next=applyAttendanceStatusBatch({
       data,
@@ -9691,19 +9694,17 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   });
   const semReg = Math.max(0, list.length - counts.P - counts.M - counts.F);
   const registeredCount = counts.P + counts.M + counts.F;
-  const completionPct = list.length ? Math.round((registeredCount / list.length) * 100) : 0;
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim obra-attendance">
       <PageHero
         eyebrow="Registro de ponto"
         title={selectedObra?.name || "Todas as obras"}
         description={`${fmtDateFull(selDate)} · ${registeredCount}/${list.length} lançados`}
-        stats={[{label:"Cadastrado",value:`${completionPct}%`,color:completionPct===100?C.green:C.yellowD}]}
       />
 
       {/* Data e obra lado a lado: a primeira decisão de quem vai lançar. */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div className="obra-attendance__toolbar">
         <Inp label="Data" type="date" value={selDate} onChange={setSelDate} max={today()} />
         {obraIdFixo?<Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />}
       </div>
@@ -9711,83 +9712,83 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
       {/* Status das pendências: uma linha quando tudo pronto; quando falta,
           lista enxuta de obras clicáveis. Sem caixas empilhadas. */}
       {attendanceCompletion.allDone ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 7, background: `${C.green}12`, border: `1px solid ${C.green}44`, borderRadius: 8, padding: "9px 11px" }}>
+        <div className="obra-attendance__notice" data-tone="success" role="status">
           <Ic n="check" s={14} color={C.green} />
-          <p style={{ color: C.green, fontSize: 12, fontWeight: 700 }}>Todos os pontos de {fmtDateFull(selDate)} estão lançados.</p>
+          <p>Todos os pontos de {fmtDateFull(selDate)} estão lançados.</p>
         </div>
       ) : attendanceCompletion.pendingObras.length > 0 && (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-          <p style={{ fontSize: 10, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: .6, padding: "8px 11px", borderBottom: `1px solid ${C.line}` }}>
+        <section className="obra-attendance__pending" aria-labelledby="attendance-pending-title">
+          <p id="attendance-pending-title" className="obra-attendance__pending-title">
             {attendanceCompletion.pendingObras.length} obra(s) com ponto pendente
           </p>
           {attendanceCompletion.pendingObras.map(o => (
             <button key={o.obraId} onClick={() => setFilterObra(o.obraId)}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, width: "100%",
-                       background: filterObra === o.obraId ? `${C.yellow}10` : "transparent", border: 0,
-                       borderTop: `1px solid ${C.line}`, borderLeft: `3px solid ${C.red}`,
-                       padding: "8px 11px", textAlign: "left", cursor: "pointer" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.obraName}</span>
-              <span style={{ fontSize: 10.5, color: C.muted, flexShrink: 0 }}>{o.missingCount} sem ponto</span>
+              className="obra-attendance__pending-item"
+              data-active={filterObra === o.obraId}
+              aria-pressed={filterObra === o.obraId}>
+              <span className="obra-attendance__pending-marker" aria-hidden="true"/>
+              <span className="obra-attendance__pending-name">{o.obraName}</span>
+              <span className="obra-attendance__pending-count">{o.missingCount} sem ponto</span>
             </button>
           ))}
-        </div>
+        </section>
       )}
 
       {dailyCheckPending && (
-        <div style={{ background: `${C.yellow}12`, border: `1px solid ${C.yellow}55`, borderRadius: 8, padding: "10px 12px" }}>
-          <p style={{ color: C.yellowD, fontWeight: 800, fontSize: 11.5, marginBottom: 4 }}>Conferência rápida da equipe</p>
-          <p style={{ color: C.muted, fontSize: 11, marginBottom: 9, lineHeight: 1.5 }}>Você já pode lançar o ponto: o primeiro registro confirma automaticamente a equipe. Use o botão abaixo somente quando não houver lançamentos hoje.</p>
+        <div className="obra-attendance__daily-check">
+          <div>
+            <p className="obra-attendance__daily-check-title">Conferência rápida da equipe</p>
+            <p>O primeiro ponto confirma a equipe automaticamente. Use esta ação somente quando não houver lançamentos hoje.</p>
+          </div>
           <Btn v="ghost" size="sm" onClick={confirmTeamWithoutChanges} full>Confirmar equipe sem alterações</Btn>
         </div>
       )}
 
       {filterObra === "all" && (
-        <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, padding: "0 2px" }}>
+        <p className="obra-attendance__helper">
           Em todas as obras, cada ponto vai para a obra de lotação do trabalhador. Se alguém foi emprestado a outro canteiro, filtre por aquela obra antes de marcar — o custo segue para lá. Selecione uma obra para marcar todos de uma vez e finalizar o ponto.
         </p>
       )}
 
       {selectedObra && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap",
-                      background: selectedObraLocked ? `${C.red}0e` : `${C.green}0c`,
-                      border: `1px solid ${selectedObraLocked ? C.red + "55" : C.green + "44"}`,
-                      borderRadius: 8, padding: "9px 11px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+        <div className="obra-attendance__lock-state" data-locked={selectedObraLocked}>
+          <div className="obra-attendance__lock-copy">
             <Ic n={selectedObraLocked ? "lock" : "check"} s={13} color={selectedObraLocked ? C.red : C.green} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: selectedObraLocked ? C.red : C.green }}>
+            <span>
               {selectedObraLocked ? "Ponto finalizado e bloqueado" : "Ponto aberto para edição"}
             </span>
           </div>
           {selectedObraLocked ? (
             <Btn v="warning" size="sm" onClick={() => setUnlockModal({ obraId: selectedObra.id, date: selDate, employee: null })}><Ic n="mail" /> Solicitar permissão</Btn>
           ) : (
-            <Btn v="danger" size="sm" onClick={finalizeObraAttendance}><Ic n="lock" /> Finalizar ponto</Btn>
+            <Btn size="sm" onClick={finalizeObraAttendance}><Ic n="lock" /> Finalizar ponto</Btn>
           )}
         </div>
       )}
 
       {/* Resumo do dia: contadores compactos numa faixa única. */}
-      <div style={{ display: "flex", gap: 6 }}>
+      <section className="obra-attendance__summary" aria-label="Resumo do ponto">
         {[
-          ["Presentes", counts.P, C.green],
-          ["Sem registro", semReg, C.muted],
-          ["Meio dia", counts.M, C.yellowD],
-          ["Faltas", counts.F, C.red],
-        ].map(([label, n, col]) => (
-          <div key={label} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderTop: `2px solid ${col}`, borderRadius: 6, padding: "7px 4px", textAlign: "center" }}>
-            <p style={{ fontFamily: "'Inter Display','Inter',sans-serif", fontWeight: 800, fontSize: 20, color: col }}>{n}</p>
-            <p style={{ color: C.muted, fontSize: 9, marginTop: 1 }}>{label}</p>
+          ["Presentes", counts.P, "success"],
+          ["Sem registro", semReg, "neutral"],
+          ["Meio dia", counts.M, "warning"],
+          ["Faltas", counts.F, "danger"],
+        ].map(([label, n, tone]) => (
+          <div key={label} className="obra-attendance__summary-item" data-tone={tone}>
+            <p className="obra-attendance__summary-value">{n}</p>
+            <p className="obra-attendance__summary-label">{label}</p>
           </div>
         ))}
+      </section>
+
+      <div className="obra-attendance__bulk">
+        <Btn v="success" size="sm" onClick={() => markAll("P")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined}><Ic n="check" /> Todos presentes</Btn>
+        <Btn v="ghost" size="sm" onClick={() => markAll("F")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined} style={{color:C.red}}><Ic n="x" /> Todos com falta</Btn>
       </div>
 
-      <div style={{ display: "flex", gap: 8 }}>
-        <Btn v="success" size="sm" onClick={() => markAll("P")} full><Ic n="check" /> Todos presentes</Btn>
-        <Btn v="danger" size="sm" onClick={() => markAll("F")} full><Ic n="x" /> Todos com falta</Btn>
-      </div>
+      {list.length === 0 && <div className="obra-attendance__empty">Nenhum trabalhador ativo nesta seleção.</div>}
 
-      {list.length === 0 && <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 18, color: C.muted, textAlign: "center" }}>Nenhum trabalhador ativo nesta seleção.</div>}
-
+      <div className="obra-attendance__employees">
       {list.map(e => {
         const att = getAtt(data, e.id, selDate);
         const status = att?.status;
@@ -9802,53 +9803,41 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         });
         const obraIdPonto=obraDoPonto(e);
         const cardLocked = isAttendanceLocked(data, obraIdPonto, selDate) && !canEditAttendance(data, obraIdPonto, selDate, currentUser?.id);
-        const borderCol = cardLocked ? C.red : status === "P" ? C.green : status === "M" ? C.yellowD : status === "F" ? C.red : C.border;
         const aberto = expandedCard === e.id;
 
         return (
-          <div key={e.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${borderCol}`, padding: "10px 12px", opacity: cardLocked ? 0.9 : 1, borderRadius: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 9 }}>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontWeight: 800, fontSize: 13.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</p>
-                <p style={{ color: C.muted, fontSize: 10.5, marginTop: 1 }}>{obraName(e.obra)}{e.role ? ` · ${e.role}` : ""}</p>
+          <article key={e.id} className="obra-attendance-card" data-status={status||"empty"} data-locked={cardLocked}>
+            <header className="obra-attendance-card__header">
+              <div className="obra-attendance-card__identity">
+                <p className="obra-attendance-card__name" title={e.name}>{e.name}</p>
+                <p className="obra-attendance-card__meta">{obraName(e.obra)}{e.role ? ` · ${e.role}` : ""}</p>
               </div>
-              <div style={{ display: "flex", gap: 4, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <div className="obra-attendance-card__badges">
                 {cardLocked && <Badge color={C.red}><Ic n="lock" s={10} /> Bloqueado</Badge>}
                 {timekeeping.valid&&!timekeeping.empty&&<Badge color={C.blue}>{formatMinutes(timekeeping.workedMinutes)}</Badge>}
                 {timekeeping.valid&&timekeeping.delayMinutes>0&&<Badge color={C.orange}>{timekeeping.delayMinutes} min atraso</Badge>}
                 {ot > 0 && <Badge color={C.purple}>{ot}h extra</Badge>}
               </div>
-            </div>
+            </header>
 
-            {note && <p style={{ color: C.subtle, fontSize: 11, marginBottom: 8, fontStyle: "italic" }}>"{note}"</p>}
+            {note && <p className="obra-attendance-card__note">“{note}”</p>}
 
             {cardLocked ? (
               <Btn v="warning" size="sm" full onClick={() => setUnlockModal({ obraId: obraIdPonto, date: selDate, employee: e })}><Ic n="mail" /> Solicitar permissão</Btn>
             ) : (
               <>
                 {/* Ação principal: presença. Três botões grandes e claros. */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5 }}>
+                <div className="obra-attendance-card__statuses" role="group" aria-label={`Ponto de ${e.name}`}>
                   {[
-                    ["P", "check", C.green, "Presente"],
-                    ["M", "money", C.yellowD, "Meio dia"],
-                    ["F", "x", C.red, "Falta"],
-                  ].map(([st, icon, col, label]) => (
-                    <button key={st} onClick={() => setAtt(e.id, st)} style={{
-                      border: `1.5px solid ${status === st ? col : C.border}`,
-                      background: status === st ? col : C.bg,
-                      color: status === st ? "#fff" : C.subtle,
-                      padding: "10px 4px",
-                      cursor: "pointer",
-                      fontFamily: "'Inter','Inter Display',sans-serif",
-                      fontWeight: 700,
-                      fontSize: 11.5,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: 4,
-                      borderRadius: 6,
-                      "--ic-color": status === st ? "#fff" : col,
-                    }}>
+                    ["P", "check", "Presente"],
+                    ["M", "money", "Meio dia"],
+                    ["F", "x", "Falta"],
+                  ].map(([st, icon, label]) => (
+                    <button key={st} type="button" onClick={() => setAtt(e.id, st)}
+                      className="obra-attendance-card__status"
+                      data-tone={st}
+                      data-selected={status === st}
+                      aria-pressed={status === st}>
                       <Ic n={icon} s={14} /> {label}
                     </button>
                   ))}
@@ -9857,18 +9846,19 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
                 {/* Ações secundárias recolhidas: raras no dia a dia, não competem
                     com a marcação de presença. */}
                 <button onClick={() => setExpandedCard(aberto ? null : e.id)}
-                  style={{ background: "transparent", border: 0, color: C.muted, cursor: "pointer",
-                           fontSize: 10.5, fontWeight: 600, padding: "6px 0 0", display: "flex", alignItems: "center", gap: 4 }}>
-                  {aberto ? "Menos opções" : "Mais opções"} <span style={{ fontSize: 9 }}>{aberto ? "▲" : "▼"}</span>
+                  type="button"
+                  className="obra-attendance-card__more"
+                  aria-expanded={aberto}>
+                  {aberto ? "Menos opções" : "Mais opções"} <span aria-hidden="true">{aberto ? "▲" : "▼"}</span>
                 </button>
                 {aberto && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 6 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5 }}>
+                  <div className="obra-attendance-card__details">
+                    <div className="obra-attendance-card__secondary">
                       <Btn v="ghost" size="sm" full onClick={() => openTimekeeping(e)}><Ic n="calendar" /> Jornada</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setOtModal(e.id); setOtHours(String(ot)); }}><Ic n="clock" /> Hora extra</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setNoteModal(e.id); setNoteText(note); }}><Ic n="edit" /> Observação</Btn>
                     </div>
-                    {podeMovimentarEquipe && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+                    {podeMovimentarEquipe && <div className="obra-attendance-card__workforce">
                       <Btn v="warning" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}><Ic n="building" /> Transferir</Btn>
                       <Btn v="danger" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}><Ic n="x" /> Demitir</Btn>
                     </div>}
@@ -9876,9 +9866,10 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
                 )}
               </>
             )}
-          </div>
+          </article>
         );
       })}
+      </div>
 
       {movementModal && <WorkerMovementModal data={data} showToast={showToast} employee={movementModal.emp} initialMode={movementModal.mode} onClose={() => setMovementModal(null)} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchCommand} />}
       {unlockModal && <UnlockRequestModal data={data} dispatchAttendanceCommand={dispatchAttendanceCommand} showToast={showToast} obraId={unlockModal.obraId} date={unlockModal.date} employee={unlockModal.employee} onClose={() => setUnlockModal(null)} />}
