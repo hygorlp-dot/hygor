@@ -1,4 +1,4 @@
-import {beforeAll,beforeEach,describe,expect,it,vi} from "vitest";
+import {afterAll,beforeAll,beforeEach,describe,expect,it,vi} from "vitest";
 
 const testState=vi.hoisted(()=>({
   row:null,
@@ -93,6 +93,8 @@ describe("/api/data · persistência granular do ponto",()=>{
   });
 
   beforeEach(()=>{
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-28T15:00:00.000Z"));
     testState.row={
       company_id:"arcd",key:"arced_ponto_v1",value:initialData(),
       updated_at:"2026-07-28T12:00:00.000Z",
@@ -101,6 +103,7 @@ describe("/api/data · persistência granular do ponto",()=>{
     fakeDb.rpc.mockClear();
     fakeDb.from.mockClear();
   });
+  afterAll(()=>vi.useRealTimers());
 
   it("confirma no servidor, persiste após nova leitura e audita uma única vez",async()=>{
     const command={

@@ -13,6 +13,8 @@ describe("escopo servidor de comandos operacionais",()=>{
     medicoesTerc:[{id:"mt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
     pagsTerceiros:[{id:"pt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
     notasFiscais:[{id:"nf-a",obraId:"obra-a",version:1}],
+    employees:[{id:"emp-a",obra:"obra-a"}],
+    rescisoes:[{id:"resc-a",obraId:"obra-a",version:1}],
   };
   const user={id:"u-1",role:"engenheiro",obraId:"obra-a"};
   it("aceita somente a obra atribuída em criação e cancelamento de medição",()=>{
@@ -136,6 +138,29 @@ describe("escopo servidor de comandos operacionais",()=>{
       type:OPERATIONAL_COMMAND.INVOICE_APPROVED,
       payload:{invoiceId:"nf-a"},
     }})).toMatchObject({ok:true,obraId:"obra-a"});
+  });
+  it("protege rescisões pela obra do funcionário e permite lançamento manual ao RH",()=>{
+    expect(validateOperationalCommandScope({
+      user:{id:"rh",role:"rh"},data,
+      command:{
+        type:OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED,
+        payload:{rescission:{empId:"emp-a"}},
+      },
+    })).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({
+      user:{id:"rh",role:"rh"},data,
+      command:{
+        type:OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED,
+        payload:{rescission:{empName:"Cadastro manual"}},
+      },
+    })).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({
+      user:{id:"rh",role:"rh"},data,
+      command:{
+        type:OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CANCELLED,
+        payload:{rescissionId:"resc-a"},
+      },
+    })).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("mantém o avanço físico dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});

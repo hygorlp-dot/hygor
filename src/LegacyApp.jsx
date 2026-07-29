@@ -155,6 +155,11 @@ import {
 } from "./domains/ponto/attendance-engine";
 import { calculateTimekeeping, formatMinutes } from "./domains/ponto/timekeeping";
 import {
+  calculateRescission,
+  RESCISSION_TYPES,
+  RESCISSION_TYPE_LABEL,
+} from "./domains/rh/rescission-calculations";
+import {
   createBillingFromTechnicalMeasurement,
   createMonthlyClosingSnapshot,
 } from "./domains/financeiro/workflows";
@@ -14270,84 +14275,14 @@ function AgenteIA({ data, showToast, onTab }) {
 // RESCISÃO - cálculo e PDF
 // 
 
-const TIPOS_RESCISAO = [
-  { v: "sem_justa_causa",   l: "Dispensa sem justa causa (empregador)" },
-  { v: "justa_causa",       l: "Dispensa por justa causa" },
-  { v: "pedido_demissao",   l: "Pedido de demissão (funcionário)" },
-  { v: "acordo_mutuo",      l: "Acordo mútuo (art. 484-A CLT)" },
-  { v: "termino_contrato",  l: "Término de contrato de prazo determinado" },
-  { v: "acordo_interno",    l: "Acordo interno - valor fixo x tempo ativo" },
-];
+const TIPOS_RESCISAO = RESCISSION_TYPES;
+const TIPO_LABEL = RESCISSION_TYPE_LABEL;
+const calcRescisao = calculateRescission;
 
-const TIPO_LABEL = Object.fromEntries(TIPOS_RESCISAO.map(t => [t.v, t.l]));
-
-const calcRescisao = (form) => {
-  const { admissao, demissao, valorMensal, diasNoMes, tipo,
-    incluirSaldo, incluir13, incluirFerias, incluirAviso,
-    valorFixoAcordo, descAdiantamento, descOutros } = form;
-  if (!admissao || !demissao) return null;
-
-  const dataAdm = new Date(admissao + "T12:00:00");
-  const dataDem = new Date(demissao + "T12:00:00");
-  if (dataDem < dataAdm) return null;
-
-  // Tempo de serviço
-  let anos  = dataDem.getFullYear() - dataAdm.getFullYear();
-  let meses = dataDem.getMonth()    - dataAdm.getMonth();
-  let dias  = dataDem.getDate()     - dataAdm.getDate();
-  if (dias < 0)  { meses--; dias += 30; }
-  if (meses < 0) { anos--;  meses += 12; }
-  const totalMeses = anos * 12 + meses;
-  const diasResto  = dias;
-  const avos13     = totalMeses + (diasResto >= 15 ? 1 : 0);
-  const avosFerias = avos13;
-
-  const vm          = Number(valorMensal || 0);
-  const dd          = Number(diasNoMes   || 0);
-  const descAdiant  = Number(descAdiantamento || 0);
-  const descOut     = Number(descOutros       || 0);
-  const totalDesc   = descAdiant + descOut;
-
-  //  ACORDO INTERNO - cálculo especial 
-  if (tipo === "acordo_interno") {
-    const vf = Number(valorFixoAcordo || vm || 0);
-    // Meses completos + fração proporcional de dias
-    const mesesAtivos = totalMeses + (diasResto / 30);
-    const totalBruto  = vf * mesesAtivos;
-    const totalLiquido = Math.max(0, totalBruto - totalDesc);
-    return {
-      isAcordoInterno: true,
-      anos, totalMeses, diasResto, avos13: 0, avosFerias: 0,
-      mesesAtivos: Number(mesesAtivos.toFixed(4)),
-      valorFixoAcordo: vf,
-      saldoSalario: 0, dec13: 0, feriasBruto: 0, feriasTotal: 0, avisoPrevio: 0,
-      totalBruto, totalDesc, totalLiquido,
-    };
-  }
-
-  //  DEMAIS MODALIDADES 
-  const saldoSalario = incluirSaldo  ? (vm / 30) * dd : 0;
-  const dec13        = incluir13     ? (vm / 12) * avos13 : 0;
-  const feriasBruto  = incluirFerias ? (vm / 12) * avosFerias : 0;
-  const feriasTotal  = feriasBruto * (4 / 3);
-  const aviso        = incluirAviso && tipo === "sem_justa_causa" ? vm       : 0;
-  const avisoAcordo  = incluirAviso && tipo === "acordo_mutuo"    ? vm * 0.5 : 0;
-  const avisoPrevio  = aviso + avisoAcordo;
-  const totalBruto   = saldoSalario + dec13 + feriasTotal + avisoPrevio;
-  const totalLiquido = Math.max(0, totalBruto - totalDesc);
-
-  return {
-    isAcordoInterno: false,
-    anos, totalMeses, diasResto, avos13, avosFerias,
-    saldoSalario, dec13, feriasBruto, feriasTotal, avisoPrevio,
-    totalBruto, totalDesc, totalLiquido,
-  };
-};
-
-function Rescisao({ data, update, showToast }) {
+function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
   const { formGrid } = useBreakpoint();
   const emptyForm = {
-    empId: "", empName: "", empCPF: "", empFuncao: "", obraName: "",
+    empId: "", empName: "", empCPF: "", empFuncao: "", obraId: "", obraName: "",
     admissao: "", demissao: today(), valorMensal: "", diasNoMes: "",
     tipo: "sem_justa_causa",
     valorFixoAcordo: "",
@@ -14359,11 +14294,12 @@ function Rescisao({ data, update, showToast }) {
 
   const [form, setForm]       = useState(emptyForm);
   const [history, setHistory] = useState(false); // toggle
+  const [salvando, setSalvando] = useState(false);
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
 
   // Ao selecionar funcionário da lista
   const selectEmp = empId => {
-    if (!empId) { setForm(f => ({ ...f, empId:"", empName:"", empCPF:"", empFuncao:"", obraName:"", admissao:"", valorMensal:"", diasNoMes:"" })); return; }
+    if (!empId) { setForm(f => ({ ...f, empId:"", empName:"", empCPF:"", empFuncao:"", obraId:"", obraName:"", admissao:"", valorMensal:"", diasNoMes:"" })); return; }
     const emp = data.employees.find(e => e.id === empId);
     if (!emp) return;
     const obra = data.obras.find(o => o.id === emp.obra);
@@ -14372,7 +14308,7 @@ function Rescisao({ data, update, showToast }) {
     setForm(f => ({
       ...f,
       empId, empName: emp.name, empCPF: emp.cpf||"",
-      empFuncao: emp.role||"", obraName: obra?.name||"",
+      empFuncao: emp.role||"", obraId: obra?.id||"", obraName: obra?.name||"",
       admissao: emp.startDate||"",
       valorMensal: String(Math.round(vm)),
       descAdiantamento: pendAdv > 0 ? String(pendAdv) : "",
@@ -14382,15 +14318,55 @@ function Rescisao({ data, update, showToast }) {
   const calc = calcRescisao(form);
 
   // Salvar rescisão
-  const salvar = () => {
+  const salvar = async () => {
     if (!form.empName.trim() || !calc) { showToast("Preencha os dados obrigatórios.", "error"); return; }
-    const rec = {
-      id: uid(), ...form,
-      ...calc,
-      createdAt: new Date().toISOString(),
-    };
-    update({ ...data, rescisoes: [...(data.rescisoes||[]), rec] });
+    if (!dispatchCommand) { showToast("A rescisão exige conexão com o servidor.", "error"); return; }
+    setSalvando(true);
+    let result;
+    try{
+      result=await dispatchCommand(() => ({
+        type:OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED,
+        idempotencyKey:`rescisao-criar-${uid()}`,
+        expectedVersion:0,
+        actorId:currentUser?.id||"",
+        actorName:currentUser?.nome||"",
+        payload:{ rescission:{ ...form, id:uid() } },
+      }));
+    }catch{
+      result={ok:false,reason:"O servidor não respondeu ao registro da rescisão."};
+    }finally{
+      setSalvando(false);
+    }
+    if (!result.ok) { showToast(result.reason||"Não foi possível salvar a rescisão.", "error"); return; }
+    setForm(emptyForm);
     showToast("Rescisão salva no histórico.");
+  };
+
+  const cancelarRescisao = async registro => {
+    const motivo=window.prompt("Motivo do cancelamento desta rescisão:");
+    if(!String(motivo||"").trim())return;
+    if(!dispatchCommand){showToast("O cancelamento exige conexão com o servidor.","error");return;}
+    setSalvando(true);
+    let result;
+    try{
+      result=await dispatchCommand(atual=>{
+        const vigente=(atual.rescisoes||[]).find(item=>item.id===registro.id);
+        return {
+          type:OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CANCELLED,
+          idempotencyKey:`rescisao-cancelar-${registro.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",
+          actorName:currentUser?.nome||"",
+          payload:{rescissionId:registro.id,reason:String(motivo).trim()},
+        };
+      });
+    }catch{
+      result={ok:false,reason:"O servidor não respondeu ao cancelamento da rescisão."};
+    }finally{
+      setSalvando(false);
+    }
+    if(!result.ok){showToast(result.reason||"Não foi possível cancelar a rescisão.","error");return;}
+    showToast("Rescisão cancelada e preservada.");
   };
 
   // Gerar PDF
@@ -14691,7 +14667,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         <Btn v="ghost" onClick={()=>setForm(emptyForm)} full><Ic n="x"/> Limpar</Btn>
         <Btn v="danger" onClick={gerarPDF} full disabled={!calc}><Ic n="file"/> Gerar PDF</Btn>
       </div>
-      <Btn onClick={salvar} full disabled={!calc}><Ic n="check"/> Salvar no histórico</Btn>
+      <Btn onClick={salvar} full disabled={!calc||salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Salvar no histórico"}</Btn>
 
       {/* Histórico */}
       <button onClick={()=>setHistory(h=>!h)} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"10px 14px",cursor:"pointer",borderRadius:8,fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:14,textTransform:"uppercase",letterSpacing:.5,textAlign:"left"}}>
@@ -14727,12 +14703,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
             <Btn size="sm" v="danger" onClick={()=>gerarPDF(r)}>
               <Ic n="file"/> PDF
             </Btn>
-            <Btn size="sm" v="danger" onClick={()=>{
-              const motivo=window.prompt("Motivo do cancelamento desta rescisão:");
-              if(!String(motivo||"").trim())return;
-              update({...data,rescisoes:(data.rescisoes||[]).map(rc=>rc.id===r.id?cancelarRegistro(rc,motivo,null,"cancelada"):rc)});
-              showToast("Rescisão cancelada e preservada.");
-            }}><Ic n="trash"/></Btn>
+            {String(r.status||"").toLowerCase()!=="cancelada"&&<Btn size="sm" v="danger" disabled={salvando} onClick={()=>cancelarRescisao(r)}><Ic n="trash"/></Btn>}
           </div>
         </div>
       ))}
@@ -38960,7 +38931,7 @@ export default function App() {
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
-          {tab === "resc"   && <Rescisao    data={data} update={update} showToast={showToast} />}
+          {tab === "resc"   && <Rescisao    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre_emp"  && <DREEmpresa  data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
