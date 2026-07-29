@@ -42,11 +42,12 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
     .maybeSingle();
   if(profileError)return null;
   let payload=profileRow?.value||null;
-  // Índices antigos não possuíam o hash do PIN. Fazemos uma única leitura do
-  // blob legado e regeneramos o índice; autenticações seguintes permanecem
-  // leves e não descompactam toda a empresa.
+  // Índices antigos não possuíam o hash do PIN nem as obras (usadas pelo
+  // escopo de upload do OneDrive). Fazemos uma única leitura do blob legado
+  // e regeneramos o índice; autenticações seguintes permanecem leves e não
+  // descompactam toda a empresa.
   const indexedUser=(payload?.usuarios||[]).find(u=>u.id===userId);
-  const needsFullPayload=!payload||(!accessToken&&userId&&pin&&!indexedUser?.pin);
+  const needsFullPayload=!payload||!Array.isArray(payload?.obras)||(!accessToken&&userId&&pin&&!indexedUser?.pin);
   if(needsFullPayload){
     const {data,error}=await db.from("company_app_data")
       .select("value")

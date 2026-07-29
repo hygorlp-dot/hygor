@@ -15,4 +15,16 @@ describe("índice compacto de autenticação",()=>{
     expect(result.usuarios[0]).not.toHaveProperty("salario");
     expect(result.usuarios[0]).not.toHaveProperty("cpf");
   });
+
+  it("mantém as obras com o suficiente para o escopo de upload do OneDrive",()=>{
+    const result=compactProfiles({usuarios:[],obras:[{
+      id:"obra-a",name:"Residencial B2-04",status:"em_andamento",
+      oneDriveDriveId:"drive-1",oneDriveFolderId:"folder-1",oneDriveFolders:{"05 - Fotos":"folder-fotos"},
+      orcamento:123456,endereco:"não-indexar",
+    }]});
+    expect(result.obras).toEqual([{
+      id:"obra-a",name:"Residencial B2-04",
+      oneDriveDriveId:"drive-1",oneDriveFolderId:"folder-1",oneDriveFolders:{"05 - Fotos":"folder-fotos"},
+    }]);
+  });
 });

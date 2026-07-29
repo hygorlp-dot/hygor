@@ -31,5 +31,15 @@ export const compactProfiles = payload => ({
     obraId:u.obraId||"",
     active:u.active!==false,
   })),
+  // O escopo de upload do OneDrive (server/onedrive-scope.js) resolve a obra
+  // a partir deste índice compacto, não do blob completo. Sem isso, toda
+  // obra fica "indisponível" no upload — mesmo para usuários sem restrição.
+  obras:(payload?.obras||[]).map(o=>({
+    id:o.id,
+    name:o.name,
+    oneDriveDriveId:o.oneDriveDriveId||"",
+    oneDriveFolderId:o.oneDriveFolderId||"",
+    oneDriveFolders:o.oneDriveFolders&&typeof o.oneDriveFolders==="object"?o.oneDriveFolders:{},
+  })),
   atualizadoEm:new Date().toISOString(),
 });
