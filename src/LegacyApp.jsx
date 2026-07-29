@@ -8380,7 +8380,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
 // Equipe
 // 
 
-function Equipe({ data, update, showToast, obraIdFixo="" }) {
+function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
   const { formGrid } = useBreakpoint();
   const emptyEmp = {
     id: "",
@@ -8437,7 +8437,7 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const empAdvances = id => (data.advances||[]).filter(a => a.empId === id);
 
-  const saveEmp = () => {
+  const saveEmp = async () => {
     if (!form.name.trim() || !form.dailyRate || !form.startDate) {
       showToast("Nome, admissão e diária são obrigatórios.", "error");
       return;
@@ -8464,54 +8464,24 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
       lastObra: form.active === false ? (before?.obra || form.obra) : (form.lastObra || ""),
     };
 
-    const changeLog = [...data.changeLog];
-
-    if (!form.id) {
-      changeLog.push({ id: uid(), date: today(), type: "created", empId: payload.id, empName: payload.name, message: `Funcionário cadastrado: ${payload.name}` });
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.employees||[]).find(item=>item.id===payload.id);
+      return {
+        type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+        idempotencyKey:`funcionario-salvar-${payload.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        payload:{employee:{...(vigente||{}),...payload}},
+      };
+    });
+    if(!result?.ok){
+      showToast(result?.reason||"O funcionário não foi confirmado pelo servidor.","error");
+      return;
     }
-
-    if (before && before.obra !== payload.obra) {
-      changeLog.push({
-        id: uid(),
-        date: today(),
-        type: "transfer",
-        empId: payload.id,
-        empName: payload.name,
-        from: obraName(before.obra),
-        to: obraName(payload.obra),
-        fromId: before.obra,   // ← ID gravado
-        toId: payload.obra,    // ← ID gravado
-        message: `${payload.name} transferido de ${obraName(before.obra)} para ${obraName(payload.obra)}`,
-      });
-    }
-
-    if (before && before.active !== false && payload.active === false) {
-      changeLog.push({ id: uid(), date: payload.endDate || today(), type: "dismissal", empId: payload.id, empName: payload.name, from: obraName(before.obra), message: `${payload.name} inativado/demitido em ${fmtDateFull(payload.endDate)}` });
-    }
-
-    if (before && before.role !== payload.role) {
-      changeLog.push({
-        id: uid(), date: today(), type: "promotion", empId: payload.id, empName: payload.name,
-        from: before.role || "Sem função registrada", to: payload.role || "Sem função registrada",
-        message: `${payload.name} mudou de função: ${before.role || "sem função"} → ${payload.role || "sem função"}`,
-      });
-    }
-
-    if (before && Number(before.dailyRate || 0) !== payload.dailyRate) {
-      changeLog.push({
-        id: uid(), date: today(), type: "salary_change", empId: payload.id, empName: payload.name,
-        from: fmt(Number(before.dailyRate || 0)), to: fmt(payload.dailyRate),
-        message: `${payload.name} teve a diária alterada: ${fmt(Number(before.dailyRate||0))} → ${fmt(payload.dailyRate)}`,
-      });
-    }
-
-    const employees = form.id ? data.employees.map(e => (e.id === form.id ? payload : e)) : [...data.employees, payload];
-    update({ ...data, employees, changeLog });
     setModal(false);
     showToast(form.id ? "Funcionário atualizado." : "Funcionário cadastrado.");
   };
 
-  const archiveEmp = id => {
+  const archiveEmp = async id => {
     const emp = data.employees.find(e => e.id === id);
     if (!emp) return;
     if (!window.confirm(`Inativar ${emp.name}? O histórico será preservado.`)) return;
@@ -8521,35 +8491,62 @@ function Equipe({ data, update, showToast, obraIdFixo="" }) {
       return;
     }
 
-    const employees = data.employees.map(e => e.id === id ? { ...e, active: false, endDate, terminationReason: "Inativado", lastObra: e.obra } : e);
-    const changeLog = [...data.changeLog, { id: uid(), date: endDate, type: "dismissal", empId: emp.id, empName: emp.name, from: obraName(emp.obra), message: `${emp.name} inativado em ${fmtDateFull(endDate)}` }];
-    update({ ...data, employees, changeLog });
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.employees||[]).find(item=>item.id===id);
+      return {
+        type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+        idempotencyKey:`funcionario-inativar-${id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        payload:{employee:{...vigente,active:false,endDate,terminationReason:"Inativado",lastObra:vigente?.obra||vigente?.lastObra||""}},
+      };
+    });
+    if(!result?.ok){showToast(result?.reason||"O funcionário não foi inativado.","error");return;}
     showToast("Funcionário inativado com histórico preservado.");
   };
 
   // Mesmo cadastros indevidos podem já ter sido referenciados por ponto,
   // pagamentos ou conciliação. Arquivar substitui a exclusão física.
-  const deleteEmp = id => {
+  const deleteEmp = async id => {
     const emp = data.employees.find(e => e.id === id);
     if (!emp) return;
     const motivo=window.prompt(`Motivo do arquivamento de ${emp.name}:`);
     if(!String(motivo||"").trim())return;
-    const employees = data.employees.map(e=>e.id===id?{...cancelarRegistro(e,motivo,null,"arquivado"),active:false,lastObra:e.obra||e.lastObra||""}:e);
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "employee_archived", empId: emp.id, empName: emp.name, motivo:String(motivo).trim(), message: `${emp.name} arquivado; ponto e adiantamentos foram preservados.` }];
-    update({ ...data, employees, changeLog });
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.employees||[]).find(item=>item.id===id);
+      return {
+        type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+        idempotencyKey:`funcionario-arquivar-${id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        payload:{employee:{
+          ...vigente,status:"arquivado",active:false,
+          endDate:vigente?.endDate||today(),
+          terminationReason:String(motivo).trim(),
+          motivoCancelamento:String(motivo).trim(),
+          lastObra:vigente?.obra||vigente?.lastObra||"",
+        }},
+      };
+    });
+    if(!result?.ok){showToast(result?.reason||"O cadastro não foi arquivado.","error");return;}
     setExpandedId(null);
     showToast(`${emp.name} arquivado com histórico preservado.`);
   };
 
   // Desvincula da obra sem mexer em mais nada: o funcionario fica "Sem obra"
   // e some das listas por obra, mas continua no cadastro e no historico.
-  const desvincularObra = id => {
+  const desvincularObra = async id => {
     const emp = data.employees.find(e => e.id === id);
     if (!emp || !emp.obra) return;
     if (!window.confirm(`Desvincular ${emp.name} da obra ${obraName(emp.obra)}? O cadastro e o histórico são preservados.`)) return;
-    const employees = data.employees.map(e => e.id === id ? { ...e, obra: "", lastObra: e.obra } : e);
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "transfer", empId: emp.id, empName: emp.name, from: obraName(emp.obra), to: "Sem obra", fromId: emp.obra, toId: "", message: `${emp.name} desvinculado da obra ${obraName(emp.obra)}` }];
-    update({ ...data, employees, changeLog });
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.employees||[]).find(item=>item.id===id);
+      return {
+        type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+        idempotencyKey:`funcionario-desvincular-${id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        payload:{employee:{...vigente,obra:"",lastObra:vigente?.obra||vigente?.lastObra||""}},
+      };
+    });
+    if(!result?.ok){showToast(result?.reason||"O funcionário não foi desvinculado.","error");return;}
     showToast(`${emp.name} desvinculado da obra.`);
   };
 
@@ -8781,7 +8778,9 @@ function calcRankingFrequencia(data, meses = 3) {
 
 const FICHA_TIPO_LABEL = {
   created: "Cadastro", transfer: "Transferência de obra", dismissal: "Desligamento",
-  promotion: "Mudança de função", salary_change: "Alteração de diária", editou: "Edição de cadastro",
+  promotion: "Mudança de função", salary_change: "Alteração de diária",
+  employee_archived: "Cadastro arquivado", reactivation: "Reativação",
+  editou: "Edição de cadastro",
 };
 
 function gerarFichaFuncionarioPDF(data, employee, showToast) {
@@ -8859,7 +8858,7 @@ function gerarFichaFuncionarioPDF(data, employee, showToast) {
 // Modal de movimentação individual
 //
 
-function WorkerMovementModal({ data, update, showToast, employee, initialMode = "transfer", onClose, dispatchAttendanceCommand }) {
+function WorkerMovementModal({ data, showToast, employee, initialMode = "transfer", onClose, dispatchAttendanceCommand, dispatchCommand }) {
   const { formGrid } = useBreakpoint();
   const [mode, setMode] = useState(initialMode);
   const [newObra, setNewObra] = useState("");
@@ -8889,19 +8888,25 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
     }
 
     const to = obraName(newObra);
-    const employees = data.employees.map(emp => emp.id === employee.id ? {
-      ...emp,
-      obra: newObra,
-      lastObra: emp.obra,
-      obraHistory:[...(emp.obraHistory||[]),{
-        date:today(),fromObraId:emp.obra||"",toObraId:newObra,
-      }],
-      active: true,
-      endDate: "",
-      terminationReason: "",
-    } : emp);
-
-    const saved=await update({ ...data, employees });
+    const saved=await dispatchCommand(atual=>{
+      const vigente=(atual.employees||[]).find(item=>item.id===employee.id);
+      return {
+        type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+        idempotencyKey:`funcionario-transferir-${employee.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        payload:{employee:{
+          ...vigente,
+          obra:newObra,
+          lastObra:vigente?.obra||vigente?.lastObra||"",
+          obraHistory:[...(vigente?.obraHistory||[]),{
+            date:today(),fromObraId:vigente?.obra||"",toObraId:newObra,
+          }],
+          active:true,
+          endDate:"",
+          terminationReason:"",
+        }},
+      };
+    });
     if(!saved?.ok){showToast(saved?.reason||"A transferência não foi confirmada pelo servidor.","error");return;}
     const checked=await dispatchAttendanceCommand({
       action:"attendance-daily-check",operationId:pointOperationId(),date:today(),
@@ -8917,15 +8922,21 @@ function WorkerMovementModal({ data, update, showToast, employee, initialMode = 
       return;
     }
 
-    const employees = data.employees.map(emp => emp.id === employee.id ? {
-      ...emp,
-      active: false,
-      endDate,
-      terminationReason: reason || "Demitido",
-      lastObra: emp.obra,
-    } : emp);
-
-    const saved=await update({ ...data, employees });
+    const saved=await dispatchCommand(atual=>{
+      const vigente=(atual.employees||[]).find(item=>item.id===employee.id);
+      return {
+        type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+        idempotencyKey:`funcionario-demitir-${employee.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        payload:{employee:{
+          ...vigente,
+          active:false,
+          endDate,
+          terminationReason:reason||"Demitido",
+          lastObra:vigente?.obra||vigente?.lastObra||"",
+        }},
+      };
+    });
     if(!saved?.ok){showToast(saved?.reason||"A demissão não foi confirmada pelo servidor.","error");return;}
     const checked=await dispatchAttendanceCommand({
       action:"attendance-daily-check",operationId:pointOperationId(),date:today(),
@@ -9327,7 +9338,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   </div>;
 }
 
-function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand }) {
+function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand }) {
   const obraInicial=obraIdFixo||currentUser?.obraId||
     (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
   const [selDate, setSelDate] = useState(today());
@@ -9785,7 +9796,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         );
       })}
 
-      {movementModal && <WorkerMovementModal data={data} update={update} showToast={showToast} employee={movementModal.emp} initialMode={movementModal.mode} onClose={() => setMovementModal(null)} dispatchAttendanceCommand={dispatchAttendanceCommand} />}
+      {movementModal && <WorkerMovementModal data={data} showToast={showToast} employee={movementModal.emp} initialMode={movementModal.mode} onClose={() => setMovementModal(null)} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchCommand} />}
       {unlockModal && <UnlockRequestModal data={data} dispatchAttendanceCommand={dispatchAttendanceCommand} showToast={showToast} obraId={unlockModal.obraId} date={unlockModal.date} employee={unlockModal.employee} onClose={() => setUnlockModal(null)} />}
 
       {noteModal && (
@@ -27960,8 +27971,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="cmp"&&<Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="est"&&<Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="dre"&&<DRE data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
-        {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
-        {abaConteudo==="equipe"&&<Equipe data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchCommand}/>}
+        {abaConteudo==="equipe"&&<Equipe data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="terc"&&<Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="equip"&&<Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/>}
         {abaConteudo==="licenca"&&<Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
@@ -32094,7 +32105,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
 //  Saem do fluxo ativo mas ficam consultaveis. Nada e apagado:
 //  o historico (ponto, DRE, contrato) continua intacto.
 // ==============================================================
-function Obsoletos({ data, update, showToast, onTab }) {
+function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
   const { cols } = useBreakpoint();
   const [visao, setVisao] = useState("obras");   // obras | equipe
 
@@ -32106,8 +32117,17 @@ function Obsoletos({ data, update, showToast, onTab }) {
     update({ ...data, obras: (data.obras || []).map(o => o.id === id ? { ...o, status: "active" } : o) });
     showToast?.("Obra reativada");
   };
-  const reativarEmp = (id) => {
-    update({ ...data, employees: (data.employees || []).map(e => e.id === id ? { ...e, active: true, endDate: "", terminationReason: "" } : e) });
+  const reativarEmp = async id => {
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.employees||[]).find(item=>item.id===id);
+      return {
+        type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+        idempotencyKey:`funcionario-reativar-${id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        payload:{employee:{...vigente,active:true,endDate:"",terminationReason:"",status:"ativo"}},
+      };
+    });
+    if(!result?.ok){showToast?.(result?.reason||"O funcionário não foi reativado.","error");return;}
     showToast?.("Funcionario reativado");
   };
 
@@ -38925,10 +38945,10 @@ export default function App() {
           {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conferencia" && <Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} />}
-          {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} />}
+          {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
+          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
           {tab === "folha"  && <Folha       data={data} showToast={showToast} onTab={setTab} />}
           {tab === "resc"   && <Rescisao    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}

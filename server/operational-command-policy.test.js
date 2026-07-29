@@ -162,6 +162,21 @@ describe("escopo servidor de comandos operacionais",()=>{
       },
     })).toMatchObject({ok:true,obraId:"obra-a"});
   });
+  it("reserva cadastro e movimentação de funcionários ao RH e administrador",()=>{
+    const command={
+      type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+      payload:{employee:{id:"emp-a",obra:"obra-a"}},
+    };
+    expect(validateOperationalCommandScope({user,data,command}))
+      .toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({
+      user:{id:"rh",role:"rh"},data,command,
+    })).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({
+      user:{id:"admin",role:"admin"},data,
+      command:{...command,payload:{employee:{id:"emp-novo",obra:""}}},
+    })).toMatchObject({ok:true,scope:"company"});
+  });
   it("mantém o avanço físico dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-b"}}}})).toMatchObject({ok:false});

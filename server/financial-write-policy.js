@@ -21,16 +21,15 @@ export const FINANCIAL_OPERATIONAL_SOURCE_SECTIONS=new Set(["attendance"]);
 //
 // reconciliationLinks, archivedLaborCosts, payments, medicoes, outrasDesp,
 // despesasEmpresa, transacoes, pagsTerceiros, medicoesTerc, notasFiscais,
-// pedidos, rescisoes, pagamentosFolha e titulosFolha continuam protegidas como
-// seções financeiras legadas,
+// pedidos, rescisoes, pagamentosFolha, titulosFolha, attendance e employees
+// continuam protegidas como seções financeiras legadas,
 // mas não pertencem mais a este checklist:
 // seus escritores foram migrados para comandos servidores idempotentes.
 export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
-  "attendance","employees","config","obras",
+  "config","obras",
 ]);
 
 export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
-  rh_ponto:["attendance","employees"],
   obras_configuracoes:["obras","config"],
 });
 

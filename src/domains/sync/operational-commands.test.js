@@ -440,4 +440,24 @@ describe("comandos operacionais versionados",()=>{
     expect(repeated).toMatchObject({ok:true,idempotent:true});
     expect(repeated.data.notasFiscais).toHaveLength(1);
   });
+
+  it("salva funcionário uma única vez pela fronteira operacional",()=>{
+    const initial={obras:[{id:"o-1",name:"Obra 1"}],employees:[],changeLog:[]};
+    const create=command(
+      OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+      "employee-save-operational-0001",
+      {employee:{
+        id:"emp-1",name:"José",role:"Pedreiro",obra:"o-1",
+        dailyRate:150,startDate:"2026-01-10",active:true,
+      }},
+      0,
+    );
+    const first=applyOperationalCommand(initial,create);
+    const repeated=applyOperationalCommand(first.data,create);
+    expect(first.data.employees).toMatchObject([{
+      id:"emp-1",obra:"o-1",version:1,createdById:"u-1",
+    }]);
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+    expect(repeated.data.employees).toHaveLength(1);
+  });
 });

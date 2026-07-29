@@ -50,6 +50,10 @@ import {
   applyRescissionCommand,
   RESCISSION_COMMAND,
 } from "../rh/rescission-commands.js";
+import {
+  applyEmployeeCommand,
+  EMPLOYEE_COMMAND,
+} from "../rh/employee-commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -69,6 +73,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...INVOICE_COMMAND,
   ...PURCHASE_ORDER_COMMAND,
   ...RESCISSION_COMMAND,
+  ...EMPLOYEE_COMMAND,
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -249,6 +254,16 @@ export const applyOperationalCommand=(data,command)=>{
       ok:true,
       data:appendReceipt(
         rescissionResult.data,command,rescissionResult.entityId,now,
+      ),
+    };
+  }
+  const employeeResult=applyEmployeeCommand(data,command,now);
+  if(employeeResult){
+    if(!employeeResult.ok)return employeeResult;
+    return {
+      ok:true,
+      data:appendReceipt(
+        employeeResult.data,command,employeeResult.entityId,now,
       ),
     };
   }

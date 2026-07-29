@@ -41,6 +41,10 @@ import {
   RESCISSION_COMMAND_TYPES,
   rescissionCommandObraId,
 } from "../src/domains/rh/rescission-commands.js";
+import {
+  EMPLOYEE_COMMAND_TYPES,
+  employeeCommandObraId,
+} from "../src/domains/rh/employee-commands.js";
 
 export const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
@@ -54,6 +58,7 @@ export const operationalCommandObraId=(data={},command={})=>{
   if(INVOICE_COMMAND_TYPES.has(command?.type))return invoiceCommandObraId(data,command);
   if(PURCHASE_ORDER_COMMAND_TYPES.has(command?.type))return purchaseOrderCommandObraId(data,command);
   if(RESCISSION_COMMAND_TYPES.has(command?.type))return rescissionCommandObraId(data,command);
+  if(EMPLOYEE_COMMAND_TYPES.has(command?.type))return employeeCommandObraId(data,command);
   if(command?.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED)return String(payload?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED)return String(payload?.measurement?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");
@@ -92,6 +97,11 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
     return ["admin","rh"].includes(user?.role)
       ?{ok:true,obraId:"",scope:"company"}
       :{ok:false,error:"Seu perfil não pode alterar rescisões sem vínculo de obra."};
+  }
+  if(EMPLOYEE_COMMAND_TYPES.has(command.type)){
+    return ["admin","rh"].includes(user?.role)
+      ?{ok:true,obraId,scope:obraId?"work":"company"}
+      :{ok:false,error:"Seu perfil não pode alterar cadastros de funcionários."};
   }
   if(EQUIPMENT_COMMAND_TYPES.has(command.type)&&!obraId){
     return user?.role==="admin"||!user?.obraId
