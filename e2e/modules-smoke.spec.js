@@ -122,6 +122,17 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
           await page.setViewportSize({width:390,height:844});
           await page.screenshot({path:"/tmp/arcd-terceirizados-mobile.png",fullPage:true});
           await page.setViewportSize({width:1440,height:900});
+          await page.locator(".terceiros-tabs").getByRole("button",{name:/^Cadastro/}).click();
+          await page.screenshot({path:"/tmp/arcd-terceirizados-cadastro-desktop.png",fullPage:true});
+          await page.setViewportSize({width:390,height:844});
+          await page.screenshot({path:"/tmp/arcd-terceirizados-cadastro-mobile.png",fullPage:true});
+          await page.setViewportSize({width:1440,height:900});
+          await page.getByRole("button",{name:"Novo contrato"}).click();
+          await page.screenshot({path:"/tmp/arcd-terceirizados-form-desktop.png",fullPage:true});
+          await page.setViewportSize({width:390,height:844});
+          await page.screenshot({path:"/tmp/arcd-terceirizados-form-mobile.png",fullPage:true});
+          await page.getByRole("button",{name:"Fechar"}).click();
+          await page.setViewportSize({width:1440,height:900});
           await page.locator(".terceiros-tabs").getByRole("button",{name:/^Medições/}).click();
           await page.locator(".terceiros-workspace select").first().selectOption("third-party-2");
           await page.screenshot({path:"/tmp/arcd-terceirizados-medicoes-desktop.png",fullPage:true});
@@ -133,6 +144,16 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
           await page.locator(".terceiros-tabs").getByRole("button",{name:/^Quadro/}).click();
         }
         const tabsTerceiros=page.locator(".terceiros-tabs");
+        await tabsTerceiros.getByRole("button",{name:/^Cadastro/}).click();
+        await expect(page.getByRole("heading",{name:"Prestadores e contratos"})).toBeVisible();
+        await expect(page.getByLabel("Especialidade")).toBeVisible();
+        await expect(page.getByRole("button",{name:/Alessandro Ângelo da Silva/})).toBeVisible();
+        await page.getByRole("button",{name:"Novo contrato"}).click();
+        await expect(page.getByRole("heading",{name:"Prestador e alocação"})).toBeVisible();
+        await expect(page.getByRole("heading",{name:"Dados fiscais"})).toBeVisible();
+        await expect(page.getByRole("heading",{name:"Valores e pagamento"})).toBeVisible();
+        await expect(page.getByRole("button",{name:"Criar contrato"})).toBeVisible();
+        await page.getByRole("button",{name:"Fechar"}).click();
         await tabsTerceiros.getByRole("button",{name:/^Pagamentos/}).click();
         await expect(page.getByRole("button",{name:"Semana anterior"})).toBeVisible();
         await expect(page.getByRole("button",{name:"Próxima semana"})).toBeVisible();

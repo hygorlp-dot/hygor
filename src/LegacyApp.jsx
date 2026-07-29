@@ -2942,6 +2942,7 @@ function Ic({ n, s = 16, color }) {
     search:   "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35",
     calendar: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M8 2v4 M3 10h18",
     alert:    "M12 2 1 21h22L12 2z M12 9v4 M12 17h.01",
+    info:     "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 10v7 M12 7h.01",
     settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
     phone:    "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z",
     ia:       "M12 2a3 3 0 0 0-3 3 3 3 0 0 0-3 3v1a3 3 0 0 0 0 6v1a3 3 0 0 0 3 3 3 3 0 0 0 6 0 3 3 0 0 0 3-3v-1a3 3 0 0 0 0-6V8a3 3 0 0 0-3-3 3 3 0 0 0-3-3z M12 2v20", // cérebro (IA)
@@ -12114,23 +12115,27 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
 
       {/*  VIEW: CADASTRO  */}
       {view === "cadastro" && (<>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:1 }}>
-            {filteredTerc.length} terceirizado(s)
-          </p>
-        </div>
-
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-          <Sel value={filterSpec} onChange={setFilterSpec} options={[{v:"all",l:"Todas especialidades"},...SPECIALTIES.map(s=>({v:s.v,l:s.emoji+" "+s.l}))]}/>
+        <section className="terceiros-registry-toolbar" aria-label="Filtros do cadastro">
+          <div className="terceiros-registry-toolbar__heading">
+            <div>
+              <h3>Prestadores e contratos</h3>
+              <p>{filteredTerc.length} contrato(s) encontrado(s)</p>
+            </div>
+          </div>
+          <div className="terceiros-registry-filters">
+          <Sel label="Especialidade" value={filterSpec} onChange={setFilterSpec} options={[{v:"all",l:"Todas as especialidades"},...SPECIALTIES.map(s=>({v:s.v,l:s.l}))]}/>
           {obraIdFixo
-            ? <Inp value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-            : <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
-        </div>
+            ? <Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+            : <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
+          </div>
+        </section>
 
         {filteredTerc.length === 0 && (
-          <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:24, textAlign:"center", color:C.muted, borderRadius:10 }}>
-            Nenhum terceirizado cadastrado.
-          </div>
+          <section className="terceiros-empty">
+            <span className="terceiros-empty__icon"><Ic n="users" s={22}/></span>
+            <h3>Nenhum contrato neste filtro</h3>
+            <p>Altere os filtros ou cadastre um prestador para vinculá-lo a uma obra.</p>
+          </section>
         )}
 
         {/* Agrupado por obra */}
@@ -12141,19 +12146,14 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
             const obraPago = obraTerc.reduce((s,t) => s+(data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).reduce((s2,p)=>s2+Number(p.amount||0),0), 0);
             const obraWeekly = obraTerc.filter(t=>t.active!==false).reduce((s,t)=>s+Number(t.weeklyRate||0),0);
             return (
-              <div key={obra.id}>
-                {/* Cabeçalho da obra */}
-                <div style={{
-                  background:C.surface,border:`1px solid ${C.line}`,
-                  padding:"8px 14px",borderRadius:"4px 4px 0 0",marginBottom:-1,
-                  display:"flex",justifyContent:"space-between",alignItems:"center",
-                }}>
+              <section className="terceiros-registry-group" key={obra.id} aria-labelledby={`terceiros-obra-${obra.id}`}>
+                <header className="terceiros-registry-group__header">
                   <div>
-                    <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:16,color:C.orange}}>{obra.name}</p>
-                    <p style={{fontSize:11,color:C.muted,marginTop:1}}>{obraTerc.length} terceirizado(s)  {fmt(obraWeekly)}/semana  {fmt(obraPago)} pago total</p>
+                    <h3 id={`terceiros-obra-${obra.id}`}>{obra.name}</h3>
+                    <p>{obraTerc.length} contrato(s) · {fmt(obraWeekly)}/semana · {fmt(obraPago)} pago</p>
                   </div>
-                  <Badge color={C.orange}>{obraTerc.filter(t=>t.active!==false).length} ativos</Badge>
-                </div>
+                  <span>{obraTerc.filter(t=>t.active!==false).length} ativo(s)</span>
+                </header>
 
                 {obraTerc.map(t => {
                   const sp = specInfo(t.specialty);
@@ -12162,131 +12162,123 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                   const pct = t.contractValue>0 ? Math.min((pago/t.contractValue)*100, 100) : 0;
                   const exp = expanded === t.id;
                   return (
-                    <div key={t.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius: exp?"0":"0", overflow:"hidden", opacity:t.active===false?0.6:1, marginBottom:1 }}>
-                      <button onClick={() => setExpanded(exp ? null : t.id)} style={{
-                        width:"100%", background:"transparent", border:0, color:C.text,
-                        padding:"12px 16px", textAlign:"left", cursor:"pointer",
-                      }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", gap:10 }}>
-                          <div style={{ flex:1 }}>
-                            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
-                              <span style={{ fontSize:16 }}>{sp.emoji}</span>
-                              <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:17 }}>{t.name}</p>
-                              {t.active === false && <Badge color={C.muted}>Inativo</Badge>}
-                            </div>
-                            <p style={{ color:C.muted, fontSize:11 }}>{sp.l}</p>
-                            <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:3 }}>
-                              {t.weeklyRate>0 && <Badge color={C.orange}>{fmt(t.weeklyRate)}/sem</Badge>}
-                              {t.contractValue>0 && <Badge color={C.subtle}>Contrato: {fmt(t.contractValue)}</Badge>}
-                              {(t.etapas||[]).length>0 && (
-                                <Badge color={C.blue}>{(t.etapas||[]).length} etapas · {(avancoDoContrato(t)??0).toFixed(0)}% medido</Badge>
-                              )}
-                            </div>
+                    <article className="terceiros-registry-contract" data-inactive={t.active===false} key={t.id}>
+                      <button type="button" className="terceiros-registry-contract__summary"
+                        aria-expanded={exp} aria-controls={`terceiros-detalhes-${t.id}`}
+                        onClick={() => setExpanded(exp ? null : t.id)}>
+                        <div className="terceiros-registry-contract__identity">
+                          <div className="terceiros-registry-contract__title">
+                            <h4>{t.name}</h4>
+                            {t.active === false && <span>Inativo</span>}
                           </div>
-                          <div style={{ textAlign:"right", flexShrink:0 }}>
-                            <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:18, color:saldo>=0?C.green:C.red, lineHeight:1 }}>{fmt(saldo)}</p>
-                            <p style={{ fontSize:10, color:C.muted }}>saldo</p>
+                          <p>{sp.l} · {t.tipoContrato==="medicao"?"Por medição":t.tipoContrato==="empreitada"?"Empreitada":t.tipoContrato==="semanal"?"Semanal":"Diária"}</p>
+                          <div className="terceiros-registry-contract__meta">
+                            {t.weeklyRate>0 && <span>{fmt(t.weeklyRate)}/semana</span>}
+                            {t.contractValue>0 && <span>Contrato {fmt(t.contractValue)}</span>}
+                            {(t.etapas||[]).length>0 && <span>{t.etapas.length} etapa(s) · {(avancoDoContrato(t)??0).toFixed(0)}% medido</span>}
                           </div>
                         </div>
+                        <div className="terceiros-registry-contract__balance" data-negative={saldo<0}>
+                          <strong>{fmt(saldo)}</strong>
+                          <span>saldo do contrato</span>
+                        </div>
+                        <span className="terceiros-registry-contract__chevron" data-expanded={exp}>
+                          <Ic n="chevron" s={14}/>
+                        </span>
                         {t.contractValue>0 && (
-                          <div style={{ marginTop:6 }}>
-                            <div style={{ height:4, background:C.surface, borderRadius:99, overflow:"hidden" }}>
-                              <div style={{ height:"100%", width:`${pct}%`, background:pct>90?C.red:C.green, borderRadius:99 }}/>
-                            </div>
+                          <div className="terceiros-progress-track terceiros-registry-contract__progress"
+                            role="progressbar" aria-label={`Percentual pago do contrato de ${t.name}`}
+                            aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(pct)}>
+                            <span style={{width:`${pct}%`}} data-critical={pct>90}/>
                           </div>
                         )}
                       </button>
 
                       {exp && (
-                        <div style={{ borderTop:`1px solid ${C.line}`, padding:"12px 16px", background:C.surface, display:"flex", flexDirection:"column", gap:10 }}>
-                          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-                            {[["Pago total",fmt(pago),C.blue],["Saldo",fmt(saldo),saldo>=0?C.green:C.red],["Semanal",fmt(t.weeklyRate),C.orange]].map(([l,v,c])=>(
-                              <div key={l} style={{ background:C.card, border:`1px solid ${C.border}`, padding:"8px 10px", borderRadius:8 }}>
-                                <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:700 }}>{l}</p>
-                                <p style={{ fontSize:14, fontWeight:900, color:c }}>{v}</p>
+                        <div className="terceiros-registry-contract__details" id={`terceiros-detalhes-${t.id}`}>
+                          <div className="terceiros-registry-contract__facts">
+                            {[["Pago total",fmt(pago)],["Saldo",fmt(saldo)],["Semanal",fmt(t.weeklyRate)]].map(([l,v])=>(
+                              <div key={l}>
+                                <p>{l}</p>
+                                <strong>{v}</strong>
                               </div>
                             ))}
                           </div>
-                          {t.phone && <p style={{ fontSize:12, color:C.subtle }}> {t.phone}</p>}
-                          {t.pixKey && <p style={{ fontSize:12, color:C.subtle }}>PIX: {t.pixKey}</p>}
-                          {contratosDoPrestador(t).length > 1 && (
-                            <p style={{ fontSize:12, color:C.blue, fontWeight:700 }}>
-                              {contratosDoPrestador(t).length} contratos vinculados a este cadastro
-                            </p>
+                          {(t.phone || t.pixKey || contratosDoPrestador(t).length > 1) && (
+                            <dl className="terceiros-registry-contract__contact">
+                              {t.phone && <div><dt>Telefone</dt><dd>{t.phone}</dd></div>}
+                              {t.pixKey && <div><dt>Chave PIX</dt><dd>{t.pixKey}</dd></div>}
+                              {contratosDoPrestador(t).length > 1 && <div><dt>Vínculos</dt><dd>{contratosDoPrestador(t).length} contratos neste cadastro</dd></div>}
+                            </dl>
                           )}
-                          {t.notes && <p style={{ fontSize:12, color:C.muted, fontStyle:"italic" }}>"{t.notes}"</p>}
-                          {podeGerenciarPagamentos && <p style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase" }}>Últimos pagamentos</p>}
+                          {t.notes && <p className="terceiros-registry-contract__notes">{t.notes}</p>}
+                          {podeGerenciarPagamentos && <h5>Últimos pagamentos</h5>}
                           {podeGerenciarPagamentos && (data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).slice(-5).reverse().map(p=>{
                             const instanciaPag=p.aprovacaoInstanciaId?(data.instanciasAprovacao||[]).find(i=>i.id===p.aprovacaoInstanciaId):null;
                             const statusAprovacao=instanciaPag&&instanciaPag.status!=="aprovada"?instanciaPag.status:null;
-                            return <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.line}`, paddingBottom:6 }}>
+                            return <div className="terceiros-registry-payment" key={p.id}>
                               <div>
-                                <p style={{ fontSize:13, fontWeight:700 }}>{p.description}</p>
-                                <p style={{ fontSize:11, color:C.muted }}>
+                                <p>{p.description}</p>
+                                <small>
                                   {fmtDateFull(p.date)} · {p.pagador === "empresa" ? "pago pela empresa" : `pago pela obra ${obraName(p.obraId)}`}
-                                </p>
+                                </small>
                                 {statusAprovacao && <Badge color={statusAprovacao==="reprovada"?C.red:C.yellow}>{statusAprovacao==="em_andamento"?"AGUARDANDO APROVAÇÃO":statusAprovacao==="reprovada"?"REPROVADO":statusAprovacao.toUpperCase()}</Badge>}
                               </div>
-                              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                                <p style={{ color:C.green, fontWeight:900 }}>{fmt(p.amount)}</p>
+                              <div>
+                                <strong>{fmt(p.amount)}</strong>
                                 <Btn v="danger" size="sm" onClick={()=>removePay(p.id)}><Ic n="trash"/></Btn>
                               </div>
                             </div>;
                           })}
                           {podeGerenciarPagamentos && !(data.pagsTerceiros||[]).some(p=>p.tercId===t.id) && (
-                            <p style={{ fontSize:12, color:C.muted }}>Nenhum pagamento registrado.</p>
+                            <p className="terceiros-registry-contract__empty">Nenhum pagamento registrado.</p>
                           )}
-                          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                          <div className="terceiros-registry-contract__actions">
                             {podeGerenciarMedicoes && <Btn size="sm" v="info" onClick={()=>abrirMedicoesDe(t.id)}>
                               <Ic n="medicoes"/> {(t.etapas||[]).length ? "Medições" : "Dividir em etapas"}
                             </Btn>}
                             {podeGerenciarPagamentos && <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));setPaySource("");}}>
                               <Ic n="dollar"/> Registrar pagamento
                             </Btn>}
-                            <Btn size="sm" v="ghost" onClick={()=>editarTerc(t)}>
-                              <Ic n="edit"/> Editar
-                            </Btn>
-                            <Btn size="sm" v="info" onClick={()=>novoContratoDoPrestador(t)}>
-                              <Ic n="plus"/> Outra obra
-                            </Btn>
-                            <Btn size="sm" v={t.active===false?"success":"dark"} onClick={()=>toggleActive(t.id)}>
+                            {podeGerenciarContratos && <Btn size="sm" v="ghost" onClick={()=>editarTerc(t)}><Ic n="edit"/> Editar</Btn>}
+                            {podeGerenciarContratos && <Btn size="sm" v="info" onClick={()=>novoContratoDoPrestador(t)}><Ic n="plus"/> Outra obra</Btn>}
+                            {podeGerenciarContratos && <Btn size="sm" v={t.active===false?"success":"dark"} onClick={()=>toggleActive(t.id)}>
                               {t.active===false?"Reativar":"Inativar"}
-                            </Btn>
-                            <Btn size="sm" v="danger" onClick={()=>removeTerc(t.id)}><Ic n="trash"/></Btn>
+                            </Btn>}
+                            {podeGerenciarContratos && <Btn size="sm" v="danger" onClick={()=>removeTerc(t.id)}><Ic n="trash"/> Excluir</Btn>}
                           </div>
                         </div>
                       )}
-                    </div>
+                    </article>
                   );
                 })}
-                <div style={{height:8}}/>
-              </div>
+              </section>
             );
           })
         }
 
         {/* Sem obra definida */}
         {filteredTerc.filter(t=>!t.obraId).length > 0 && (
-          <div>
-            <div style={{borderBottom:`1px solid ${C.line}`,padding:"8px 14px",marginBottom:4}}>
-              <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:14,color:C.muted}}>Sem obra definida</p>
-            </div>
+          <section className="terceiros-registry-group">
+            <header className="terceiros-registry-group__header">
+              <div><h3>Sem obra definida</h3><p>Contratos que precisam ser vinculados antes da operação.</p></div>
+            </header>
             {filteredTerc.filter(t=>!t.obraId).map(t=>{
               const sp=specInfo(t.specialty);
               return(
-                <div key={t.id} style={{background:C.card,border:`1px solid ${sp.color}66`,padding:"12px 14px",borderRadius:4,marginBottom:4}}>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <p style={{fontWeight:700}}>{sp.emoji} {t.name}</p>
-                    <div style={{display:"flex",gap:5}}>
+                <div className="terceiros-registry-unassigned" key={t.id}>
+                  <div>
+                    <h4>{t.name}</h4>
+                    <p>{sp.l} · nenhuma obra vinculada</p>
+                  </div>
+                  {podeGerenciarContratos && <div>
                       <Btn size="sm" v="info" onClick={()=>novoContratoDoPrestador(t)}><Ic n="plus"/></Btn>
                       <Btn size="sm" v="ghost" onClick={()=>editarTerc(t)}><Ic n="edit"/></Btn>
-                    </div>
-                  </div>
-                  <p style={{fontSize:11,color:C.muted,marginTop:3}}>Nenhuma obra vinculada - edite para vincular</p>
+                  </div>}
                 </div>
               );
             })}
-          </div>
+          </section>
         )}
       </>)}
 
@@ -12699,18 +12691,19 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
           : null;
         const cadastroVinculado = prestadorSelecionado || existentePorDocumento;
         const contratosVinculados = cadastroVinculado ? contratosDoPrestador(cadastroVinculado) : [];
-        const secTitulo = t => (
-          <p style={{ gridColumn:"1/-1", fontSize:10, fontWeight:900, color:C.muted,
-                      textTransform:"uppercase", letterSpacing:1, marginTop:6,
-                      borderTop:`1px solid ${C.line}`, paddingTop:11 }}>{t}</p>
+        const secTitulo = (titulo, descricao) => (
+          <div className="terceiros-form-section" style={{gridColumn:"1/-1"}}>
+            <h4>{titulo}</h4>
+            {descricao && <p>{descricao}</p>}
+          </div>
         );
         return (
-        <Modal title={form.id?"Editar contrato de terceirizado":"Novo contrato de terceirizado"} onClose={()=>setModal(false)} wide>
-          <div style={{ display:"grid", gridTemplateColumns:formGrid(2), gap:12 }}>
+        <Modal title={form.id?"Editar contrato de terceirizado":"Novo contrato de terceirizado"} onClose={()=>setModal(false)} wide panelClass="terceiros-form-modal">
+          <div className="terceiros-form-grid" style={{gridTemplateColumns:formGrid(2)}}>
 
             {!form.id && prestadoresUnicos.length > 0 && (
-              <div style={{ gridColumn:"1/-1", background:`${C.blue}0C`, border:`1px solid ${C.blue}44`, borderRadius:8, padding:"10px 12px" }}>
-                <Sel label="Usar terceirizado já cadastrado (opcional)" value={form.prestadorId || ""}
+              <div className="terceiros-form-reuse" style={{gridColumn:"1/-1"}}>
+                <Sel label="Reaproveitar prestador já cadastrado" value={form.prestadorId || ""}
                   onChange={id => {
                     if (!id) { setForm({ ...emptyT }); return; }
                     const base = prestadoresUnicos.find(t => prestadorKey(t) === id);
@@ -12720,43 +12713,43 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                     v:prestadorKey(t),
                     l:`${t.name}${t.documento?` · ${maskDoc(t.documento,t.tipoPessoa)}`:""} · ${contratosDoPrestador(t).length} contrato(s)`,
                   }))]}/>
-                <p style={{ fontSize:10.5, color:C.muted, marginTop:5, lineHeight:1.45 }}>
-                  Selecione um cadastro existente para criar outro contrato. Os dados fiscais, bancários e de contato serão reaproveitados; obra, valores, etapas, medições e pagamentos serão novos.
+                <p>
+                  Evite digitação duplicada. Os dados fiscais, bancários e de contato serão reaproveitados; obra, valores, etapas, medições e pagamentos continuarão independentes.
                 </p>
               </div>
             )}
 
             {cadastroVinculado && !form.id && (
-              <div style={{ gridColumn:"1/-1", background:`${C.green}0D`, border:`1px solid ${C.green}44`, borderRadius:8, padding:"9px 11px" }}>
-                <p style={{ fontSize:11.5, fontWeight:800, color:C.green }}>
+              <div className="terceiros-form-linked" style={{gridColumn:"1/-1"}}>
+                <p>
                   Cadastro vinculado: {cadastroVinculado.name} · {contratosVinculados.length} contrato(s) existente(s)
                 </p>
-                <p style={{ fontSize:10, color:C.muted, marginTop:3 }}>
+                <small>
                   {contratosVinculados.map(t=>obraName(t.obraId)).filter((v,i,a)=>v&&v!=="-"&&a.indexOf(v)===i).join(" · ") || "Sem obra vinculada"}
-                </p>
+                </small>
               </div>
             )}
 
             {/* IDENTIFICACAO */}
+            {secTitulo("Prestador e alocação", "Identifique o prestador e defina onde e como este contrato será executado.")}
             <div style={{ gridColumn:"1/-1" }}><Inp label="Nome / Apelido *" value={form.name} onChange={F("name")} placeholder="Nome usado para identificar o prestador"/></div>
             <Sel label="Especialidade *" value={form.specialty} onChange={F("specialty")} options={SPECIALTIES.map(s=>({v:s.v,l:s.l}))}/>
             <Sel label="Obra *" value={form.obraId} onChange={F("obraId")} options={[{v:"",l:"Selecione"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
             <Sel label="Situação" value={form.situacao} onChange={F("situacao")} options={COLS_KANBAN.map(c=>({v:c.v,l:c.l}))}/>
             <Sel label="Tipo de contrato" value={form.tipoContrato} onChange={F("tipoContrato")}
               options={[{v:"medicao",l:"Por medição"},{v:"empreitada",l:"Empreitada (global)"},{v:"semanal",l:"Semanal"},{v:"diaria",l:"Diária"}]}/>
-            <div style={{ gridColumn:"1/-1", background:`${C.blue}0C`, border:`1px solid ${C.blue}44`, borderRadius:8, padding:"8px 11px" }}>
-              <p style={{ fontSize:10.5, color:C.muted, lineHeight:1.45 }}>
+            <div className="terceiros-form-note" style={{gridColumn:"1/-1"}}>
+              <Ic n="info" s={14}/>
+              <p>
                 A origem do recurso não é definida no contrato. Em cada pagamento o sistema perguntará se o valor foi pago pela empresa ou pela obra.
               </p>
             </div>
 
-            {secTitulo("Dados fiscais")}
-            <div style={{ display:"flex", gap:6, gridColumn:"1/-1" }}>
+            {secTitulo("Dados fiscais", "Esses dados pertencem ao prestador e serão compartilhados entre os contratos vinculados.")}
+            <div className="terceiros-form-choice" style={{gridColumn:"1/-1"}}>
               {[["PJ","Pessoa Jurídica (CNPJ)"],["PF","Pessoa Física (CPF)"]].map(([v,l]) => (
-                <button key={v} onClick={()=>F("tipoPessoa")(v)} style={{
-                  flex:1, padding:"9px 4px", border:`2px solid ${form.tipoPessoa===v?C.orange:C.border}`,
-                  background:form.tipoPessoa===v?`${C.orange}15`:"transparent", color:form.tipoPessoa===v?C.text:C.muted,
-                  fontWeight:800, fontSize:12, cursor:"pointer", borderRadius:6 }}>{l}</button>
+                <button type="button" key={v} aria-pressed={form.tipoPessoa===v}
+                  onClick={()=>F("tipoPessoa")(v)}>{l}</button>
               ))}
             </div>
             <div>
@@ -12781,37 +12774,33 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                   onChange={v=>F("documento")(soDigitos(v))}
                   placeholder="000.000.000-00"/>
               )}
-              {docOk === false && <p style={{ fontSize:10.5, color:C.red, marginTop:4, fontWeight:700 }}>Dígitos não conferem</p>}
-              {docOk === true && <p style={{ fontSize:10.5, color:C.green, marginTop:4, fontWeight:700 }}>Válido</p>}
+              {docOk === false && <p className="terceiros-form-validation" data-valid="false">Documento inválido. Confira os dígitos.</p>}
+              {docOk === true && <p className="terceiros-form-validation" data-valid="true">Documento válido</p>}
             </div>
             <Inp label={form.tipoPessoa==="PF"?"Nome completo (fiscal)":"Razão social"} value={form.razaoSocial} onChange={F("razaoSocial")}/>
             {form.tipoPessoa==="PJ" && <Inp label="Inscrição estadual" value={form.inscEstadual} onChange={F("inscEstadual")} placeholder="Isento, se não houver"/>}
             {form.tipoPessoa==="PJ" && <Inp label="Inscrição municipal" value={form.inscMunicipal} onChange={F("inscMunicipal")}/>}
 
-            {secTitulo("Contrato e pagamento")}
+            {secTitulo("Valores e pagamento", "Defina o valor contratado, a recorrência e as retenções aplicáveis.")}
             <Inp label="Valor do contrato (R$)" value={form.contractValue} onChange={F("contractValue")} placeholder="0,00"/>
             <Inp label="Valor semanal (R$)" value={form.weeklyRate} onChange={F("weeklyRate")} placeholder="Ex.: 2.000"/>
             <Inp label="Início" type="date" value={form.startDate} onChange={F("startDate")}/>
             <Inp label="Término previsto" type="date" value={form.endDate} onChange={F("endDate")}/>
             <div>
               <Inp label="Retenção ISS (%)" value={form.retISS} onChange={F("retISS")} placeholder="0"/>
-              <div style={{ display:"flex", gap:4, marginTop:5 }}>
+              <div className="terceiros-form-choice terceiros-form-choice--compact">
                 {[["fonte","Retido na fonte"],["prestador","Prestador paga"]].map(([v,l]) => (
-                  <button key={v} onClick={()=>F("retISSQuem")(v)} style={{
-                    flex:1, padding:"5px 4px", border:`1.5px solid ${form.retISSQuem===v?C.orange:C.border}`,
-                    background:form.retISSQuem===v?`${C.orange}15`:"transparent", color:form.retISSQuem===v?C.text:C.muted,
-                    fontSize:10, fontWeight:700, cursor:"pointer", borderRadius:6 }}>{l}</button>
+                  <button type="button" key={v} aria-pressed={form.retISSQuem===v}
+                    onClick={()=>F("retISSQuem")(v)}>{l}</button>
                 ))}
               </div>
             </div>
             <div>
               <Inp label="Retenção INSS (%)" value={form.retINSS} onChange={F("retINSS")} placeholder="0"/>
-              <div style={{ display:"flex", gap:4, marginTop:5 }}>
+              <div className="terceiros-form-choice terceiros-form-choice--compact">
                 {[["fonte","Retido na fonte"],["prestador","Prestador paga"]].map(([v,l]) => (
-                  <button key={v} onClick={()=>F("retINSSQuem")(v)} style={{
-                    flex:1, padding:"5px 4px", border:`1.5px solid ${form.retINSSQuem===v?C.orange:C.border}`,
-                    background:form.retINSSQuem===v?`${C.orange}15`:"transparent", color:form.retINSSQuem===v?C.text:C.muted,
-                    fontSize:10, fontWeight:700, cursor:"pointer", borderRadius:6 }}>{l}</button>
+                  <button type="button" key={v} aria-pressed={form.retINSSQuem===v}
+                    onClick={()=>F("retINSSQuem")(v)}>{l}</button>
                 ))}
               </div>
             </div>
@@ -12820,7 +12809,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
             <Inp label="Agência" value={form.agencia} onChange={F("agencia")}/>
             <Inp label="Conta" value={form.conta} onChange={F("conta")}/>
 
-            {secTitulo("Contato")}
+            {secTitulo("Contato e endereço", "Dados usados para comunicação, notas fiscais e conferência do pagamento.")}
             <Inp label="Responsável" value={form.responsavel} onChange={F("responsavel")} placeholder="Quem atende pela empresa"/>
             <Inp label="Telefone" value={form.phone} onChange={F("phone")} placeholder="(81) 9XXXX-XXXX"/>
             <Inp label="E-mail" value={form.email} onChange={F("email")}/>
@@ -12829,40 +12818,40 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
             <Inp label="Cidade" value={form.cidade} onChange={F("cidade")}/>
             <Inp label="UF" value={form.ufEnd} onChange={v=>F("ufEnd")(v.toUpperCase().slice(0,2))} placeholder="PE"/>
 
-            {secTitulo("Documentos com validade")}
-            <div style={{ gridColumn:"1/-1", display:"flex", flexDirection:"column", gap:6 }}>
+            {secTitulo("Documentos e observações", "Controle certidões e documentos obrigatórios antes de liberar medições e pagamentos.")}
+            <div className="terceiros-form-documents" style={{gridColumn:"1/-1"}}>
               {(form.documentos || []).map(doc => {
                 const dias = diasAte(doc.validade);
                 return (
-                  <div key={doc.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8,
-                                             background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"7px 10px" }}>
-                    <div style={{ minWidth:0 }}>
-                      <p style={{ fontSize:12, fontWeight:700, color:C.text }}>{docTercInfo(doc.tipo).l}</p>
-                      <p style={{ fontSize:10, color: dias!==null&&dias<=0?C.red:dias!==null&&dias<=30?C.orange:C.muted }}>
+                  <div className="terceiros-form-document" data-critical={dias!==null&&dias<=0} data-warning={dias!==null&&dias>0&&dias<=30} key={doc.id}>
+                    <div>
+                      <p>{docTercInfo(doc.tipo).l}</p>
+                      <small>
                         {doc.numero ? `${doc.numero} · ` : ""}vence {fmtDateFull(doc.validade)}
                         {dias!==null && (dias<0?` (vencido há ${Math.abs(dias)}d)`:dias===0?" (hoje)":` (${dias}d)`)}
-                      </p>
+                      </small>
                     </div>
-                    <button onClick={()=>delDocNoForm(doc.id)} style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", fontSize:15, flexShrink:0 }}>×</button>
+                    <button type="button" aria-label={`Remover ${docTercInfo(doc.tipo).l}`} onClick={()=>delDocNoForm(doc.id)}><Ic n="trash" s={13}/></button>
                   </div>
                 );
               })}
-              <div style={{ display:"grid", gridTemplateColumns:"1.2fr 1fr 1fr auto", gap:6, alignItems:"end" }}>
+              <div className="terceiros-form-document-add">
                 <Sel label="Tipo" value={docForm.tipo} onChange={v=>setDocForm(d=>({...d,tipo:v}))} options={DOCS_TERC.map(d=>({v:d.v,l:d.l}))}/>
                 <Inp label="Número" value={docForm.numero} onChange={v=>setDocForm(d=>({...d,numero:v}))} placeholder="Opcional"/>
                 <Inp label="Validade" type="date" value={docForm.validade} onChange={v=>setDocForm(d=>({...d,validade:v}))}/>
-                <Btn size="sm" onClick={addDocNoForm}><Ic n="plus"/></Btn>
+                <Btn size="sm" onClick={addDocNoForm}><Ic n="plus"/> Adicionar</Btn>
               </div>
             </div>
 
             <div style={{ gridColumn:"1/-1" }}><Inp label="Observações" value={form.notes} onChange={F("notes")} multiline placeholder="Escopo, condições, o que combinaram..."/></div>
           </div>
-          <div style={{ marginTop:12, background:C.surface, border:`1px solid ${C.line}`, borderRadius:8, padding:"8px 10px" }}>
-            <p style={{ fontSize:10.5, color:C.muted, lineHeight:1.45 }}>
+          <div className="terceiros-form-footnote">
+            <Ic n="info" s={14}/>
+            <p>
               Cada contrato fica vinculado a uma única obra. O mesmo terceirizado pode ter vários contratos simultâneos, inclusive com valores, especialidades, etapas e medições diferentes.
             </p>
           </div>
-          <div style={{ display:"flex", gap:8, marginTop:10 }}>
+          <div className="terceiros-form-actions">
             <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
             <Btn onClick={saveTerc} full><Ic n="check"/> {form.id?"Salvar alterações":"Criar contrato"}</Btn>
           </div>
@@ -37696,7 +37685,7 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
   if (!currentUser) return null;
 
   return (
-    <div className="no-print" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 1300, display: "flex", flexDirection: "column", alignItems: "flex-end", fontFamily: "'Inter','Inter Display',sans-serif" }}>
+    <div className="no-print arcd-team-chat" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 1300, display: "flex", flexDirection: "column", alignItems: "flex-end", fontFamily: "'Inter','Inter Display',sans-serif" }}>
       {aberto && (
         <div style={{
           width: "min(360px, calc(100vw - 32px))", height: "min(520px, calc(100vh - 120px))",
