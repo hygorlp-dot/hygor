@@ -21,6 +21,8 @@ const payload={
   },
   dailyCheckDate:"2026-07-27",
   pedidos:[{id:"p-a",obraId:"obra-a"},{id:"p-b",obraId:"obra-b"}],
+  orcamentos:[{id:"orc-a",obraId:"obra-a",versionStatus:"rascunho"},{id:"orc-b",obraId:"obra-b",versionStatus:"rascunho"}],
+  budgetBaselines:[{id:"base-a",obraId:"obra-a",budgetId:"orc-a"},{id:"base-b",obraId:"obra-b",budgetId:"orc-b"}],
   terceirizados:[{id:"t-a",obraId:"obra-a",name:"Prestador A"},{id:"t-b",obraId:"obra-b",name:"Prestador B"}],
   pagsTerceiros:[{id:"pg-a",obraId:"obra-a",tercId:"t-a",amount:100}],
   transacoes:[
@@ -57,6 +59,12 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     expect(projected).toEqual(expect.objectContaining({obras:[{id:"obra-a",name:"Obra A"}]}));
     expect(projected.pedidos).toBeUndefined();
     expect(projected.attendance).toBeUndefined();
+  });
+
+  it("entrega ao setor de Compras o orçamento necessário à apropriação da sua obra",()=>{
+    const projected=projectDataForUser(payload,{id:"compras-a",role:"compras",obraId:"obra-a"});
+    expect(projected.orcamentos).toEqual([{id:"orc-a",obraId:"obra-a",versionStatus:"rascunho"}]);
+    expect(projected.budgetBaselines).toEqual([{id:"base-a",obraId:"obra-a",budgetId:"orc-a"}]);
   });
 
   it("mantém os dados pessoais apenas na projeção de RH",()=>{

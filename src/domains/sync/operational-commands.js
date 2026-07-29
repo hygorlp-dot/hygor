@@ -31,6 +31,10 @@ import {
   PURCHASE_CANCELLATION_COMMAND,
 } from "../compras/purchase-cancellation-command.js";
 import {
+  conversionFactorOf,
+  referencePricePerPurchaseUnit,
+} from "../compras/unit-conversion.js";
+import {
   applyBankTransactionCommand,
   BANK_TRANSACTION_COMMAND,
 } from "../conciliacao/transaction-commands.js";
@@ -660,7 +664,7 @@ export const applyOperationalCommand=(data,command)=>{
     }
     if(entries.length!==requested.length||entries.some(entry=>{
       const item=byItem.get(entry?.pedidoItemId||"");
-      return !item||entry.pedidoId!==current.id||entry.obraId!==current.obraId||entry.materialId!==item.materialId||Math.abs(Number(entry.qtd||0)-Number(quantities[item.id]||0))>=1e-6;
+      return !item||entry.pedidoId!==current.id||entry.obraId!==current.obraId||entry.materialId!==item.materialId||Math.abs(Number(entry.qtdCompra??entry.qtd??0)-Number(quantities[item.id]||0))>=1e-6;
     }))return fail("Entradas de estoque não correspondem ao recebimento informado.");
     const updated={...current,itens:(current.itens||[]).map(item=>{
       const quantity=Number(quantities[item.id]||0);
@@ -670,7 +674,12 @@ export const applyOperationalCommand=(data,command)=>{
     const materials=(data?.materiais||[]).map(material=>{
       if(!receivedMaterialIds.has(material.id))return material;
       const item=(current.itens||[]).find(entry=>entry.materialId===material.id&&Number(quantities[entry.id]||0)>0);
-      return {...material,precoMedio:Number(item?.precoUnit||material.precoMedio||0)};
+      const factor=conversionFactorOf(item);
+      const canonicalPrice=factor>0?Number(item?.precoUnit||0)/factor:Number(item?.precoUnit||0);
+      return {...material,precoMedio:canonicalPrice||Number(material.precoMedio||0),
+        ultimaUnidadeCompra:item?.unidadeCompra||item?.unidadeRef||material.unidade||"",
+        ultimoFatorConversao:factor||1,
+        ultimaReferenciaCompra:referencePricePerPurchaseUnit(item)};
     });
     const next={...data,pedidos:(data.pedidos||[]).map(item=>item.id===pedidoId?updated:item),movEstoque:[...(data?.movEstoque||[]),...entries],materiais:materials};
     return {ok:true,data:appendReceipt(next,command,pedidoId,now)};

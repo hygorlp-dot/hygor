@@ -184,6 +184,26 @@ describe("comandos operacionais versionados",()=>{
     expect(excess).toMatchObject({ok:false});
   });
 
+  it("recebe em sacos e movimenta o estoque na unidade canônica",()=>{
+    const initial={pedidos:[{id:"p-1",obraId:"o-1",version:1,itens:[{
+      id:"i-1",materialId:"mat-1",qtd:10,qtdRecebida:0,precoUnit:18,
+      unidadeRef:"KG",unidadeCompra:"SC",fatorConversao:20,precoRef:.88,
+    }]}],movEstoque:[],materiais:[{id:"mat-1",unidade:"KG",precoMedio:.88}]};
+    const payload={pedidoId:"p-1",receivedQuantities:{"i-1":10},stockEntries:[{
+      id:"stock-converted",receiptId:"receipt-converted",pedidoItemId:"i-1",
+      pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:200,qtdCompra:10,
+      unidadeCompra:"SC",unidadeRef:"KG",fatorConversao:20,valorUnit:.9,
+    }]};
+    const result=applyOperationalCommand(initial,command(
+      OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,
+      "purchase-receipt-converted-0001",payload,1,
+    ));
+    expect(result.ok).toBe(true);
+    expect(result.data.movEstoque[0]).toMatchObject({qtd:200,qtdCompra:10,unidadeRef:"KG"});
+    expect(result.data.pedidos[0].itens[0].qtdRecebida).toBe(10);
+    expect(result.data.materiais[0]).toMatchObject({precoMedio:.9,ultimaUnidadeCompra:"SC"});
+  });
+
   it("recompõe o plano e preserva trilha quando uma medição é cancelada",()=>{
     const initial={
       medicoesObra:[],medicoes:[],

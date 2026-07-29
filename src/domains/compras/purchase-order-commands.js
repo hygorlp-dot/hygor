@@ -1,5 +1,6 @@
 import { active, toCents } from "../financeiro/ledger.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
+import { hasValidUnitConversion } from "./unit-conversion.js";
 
 export const PURCHASE_ORDER_COMMAND=Object.freeze({
   PURCHASE_ORDER_SAVED:"PEDIDO_COMPRA_SALVO",
@@ -76,6 +77,9 @@ const normalizeItems=(data,rawItems,newMaterials,current)=>{
     }
     if(!Number.isFinite(quantity)||quantity<=0||!Number.isFinite(unitPrice)||unitPrice<0){
       return {error:"Quantidade e preço dos itens do pedido precisam ser válidos."};
+    }
+    if(!hasValidUnitConversion(raw)){
+      return {error:"A conversão entre a unidade de compra e a unidade de referência é inválida."};
     }
     ids.add(id);
     const previous=currentItems.get(id);
@@ -213,6 +217,8 @@ const createFromQuote=(data,command,now)=>{
       id:String(payload.itemId||""),materialId:quote.materialId,qtd:Number(quote.qtd),
       precoUnit:selected,qtdRecebida:0,orcItemId:quote.orcItemId||"",
       orcNivel1Id:quote.orcNivel1Id||"",recebimentos:[],
+      unidadeRef:quote.unidadeRef||"",unidadeCompra:quote.unidadeCompra||quote.unidadeRef||"",
+      fatorConversao:Number(quote.fatorConversao||1),precoRef:Number(quote.precoRef||0),
     }],
     pagamentos:[],documentos:[],obs:"",
   };

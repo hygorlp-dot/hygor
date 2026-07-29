@@ -120,6 +120,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await page.locator(".compras-journey").getByRole("button").filter({hasText:"Solicitar"}).click();
         await page.getByRole("button",{name:"SOLICITAR MATERIAIS PARA A OBRA"}).click();
         await page.getByRole("button",{name:"CRIAR ITEM PRÓPRIO"}).click();
+        await page.getByLabel("Unidade *").fill("KG");
+        await page.getByLabel("Unidade de compra").selectOption("SC");
+        await page.getByLabel("Conteúdo de 1 SC em KG *").fill("20");
+        await page.getByLabel("Quantidade de compra *").fill("10");
+        await expect(page.getByText("10 SC = 200 KG")).toBeVisible();
         const etapa=page.getByLabel("Etapa de 1º nível do orçamento");
         await expect(etapa.locator('option[value="etapa-fundacoes-qa"]')).toHaveCount(1);
         await expect(page.getByText(/Vinculação ao orçamento em rascunho/)).toBeVisible();

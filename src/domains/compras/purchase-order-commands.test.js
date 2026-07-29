@@ -10,6 +10,7 @@ const base=()=>({
   materiais:[{id:"m-1",descricao:"Cimento"}],
   solicitacoesCompra:[{id:"s-1",obraId:"o-1",status:"enviada",cotacaoIds:["c-1"]}],
   cotacoes:[{id:"c-1",obraId:"o-1",solicitacaoId:"s-1",materialId:"m-1",qtd:2,status:"aberta",version:1,
+    unidadeRef:"KG",unidadeCompra:"SC",fatorConversao:20,precoRef:.88,
     propostas:[{id:"pr-1",fornecedorId:"f-1",precoUnit:10},{id:"pr-2",fornecedorId:"f-2",precoUnit:12}]}],
   pedidos:[],materiaisEstoque:[],pagamentos:[],fechamentosFinanceiros:[],
 });
@@ -50,6 +51,16 @@ describe("comandos transacionais de pedidos",()=>{
     )).reason).toMatch(/pagamentos ativos/i);
   });
 
+  it("rejeita pedido com embalagem sem fator de conversão",()=>{
+    const order=rawOrder();
+    order.itens[0]={...order.itens[0],unidadeRef:"KG",unidadeCompra:"SC",fatorConversao:0};
+    const result=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order},
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/conversão/i);
+  });
+
   it("gera pedido a partir da proposta e encerra a cotação sem redigitação",()=>{
     const result=applyPurchaseOrderCommand(base(),command(
       PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
@@ -57,6 +68,9 @@ describe("comandos transacionais de pedidos",()=>{
     ),"2026-07-28T12:00:00.000Z");
     expect(result.ok).toBe(true);
     expect(result.data.pedidos[0]).toMatchObject({cotacaoId:"c-1",fornecedorId:"f-1",version:1});
+    expect(result.data.pedidos[0].itens[0]).toMatchObject({
+      unidadeRef:"KG",unidadeCompra:"SC",fatorConversao:20,precoRef:.88,
+    });
     expect(result.data.cotacoes[0]).toMatchObject({status:"decidida",pedidoId:"p-1",version:2});
   });
 
