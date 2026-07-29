@@ -31,8 +31,20 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
 
   const state = {
     usuarios:[PROFILE],
-    obras:[],
-    employees:[],
+    obras:[
+      {id:"obra-qa",name:"Residencial Alameda",status:"active"},
+    ],
+    employees:[
+      {id:"employee-qa",name:"José Henrique de Lira Lima",pixKey:"10573521",obraId:"obra-qa",status:"active"},
+    ],
+    transacoes:[
+      {id:"tr-pix",data:"2026-07-20",descricao:'Pix enviado: "Cpf :10573521-Jose Silva de Lima"',valor:-1000,status:"pendente",extratoId:"ext-qa"},
+      {id:"tr-entry",data:"2026-07-21",descricao:'Pix recebido: "Cpf :90400888-Anderson Ferreira de Oliveira"',valor:7060,status:"pendente",extratoId:"ext-qa"},
+      {id:"tr-vendor",data:"2026-07-22",descricao:'Pagamento fornecedor: "Concreto Forte Ltda"',valor:-2450,status:"pendente",extratoId:"ext-qa"},
+    ],
+    extratos:[
+      {id:"ext-qa",arquivo:"Extrato Julho QA.ofx",status:"ativo"},
+    ],
     attendance:{},
     attendanceLocks:{},
     unlockRequests:[],
@@ -81,6 +93,21 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
       await navItem.click();
       await expect(page.locator("main.arcd-main")).toBeVisible();
       await expect(page.getByText("Algo quebrou nesta tela")).toHaveCount(0);
+      if(item==="Conciliação") {
+        await expect(page.locator(".reconciliation-row")).toHaveCount(3);
+        await expect(page.getByRole("button",{name:"Confirmar PIX"})).toBeVisible();
+        await expect(page.getByRole("button",{name:"Rateio manual"})).toHaveCount(0);
+        const pixRow=page.locator(".reconciliation-row").filter({has:page.getByRole("button",{name:"Confirmar PIX"})});
+        await pixRow.getByRole("button",{name:/Mostrar outras ações/}).click();
+        await expect(pixRow.getByRole("button",{name:"Rateio manual"})).toBeVisible();
+        await pixRow.getByRole("button",{name:/Ocultar outras ações/}).click();
+      }
+      if(item==="Conciliação"&&process.env.ARCD_VISUAL_CAPTURE) {
+        await page.screenshot({path:"/tmp/arcd-conciliacao-desktop.png",fullPage:true});
+        await page.setViewportSize({width:390,height:844});
+        await page.screenshot({path:"/tmp/arcd-conciliacao-mobile.png",fullPage:true});
+        await page.setViewportSize({width:1440,height:900});
+      }
     }
   }
 

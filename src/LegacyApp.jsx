@@ -22016,6 +22016,7 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
   const [tipoMovimento,setTipoMovimento]=useState("todos");
   const [selecionadas,setSelecionadas]=useState([]);
   const [limiteVisivel,setLimiteVisivel]=useState(30);
+  const [acoesTransacaoAberta,setAcoesTransacaoAberta]=useState("");
   const [ignorarModal,setIgnorarModal]=useState(null);
   // Motor de candidatos (Fila inteligente)
   const [candidatoModal,setCandidatoModal]=useState(null);   // { trId, idx }
@@ -22685,26 +22686,44 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
   const corAcao=acao=>acao==="conciliada"||acao==="extrato_importado"?C.green:acao.includes("desfeita")||acao.includes("reaberta")?C.blue:acao.includes("ignorada")?C.orange:acao.includes("excluido")?C.red:C.muted;
 
   return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:8}}>
+    <div className="anim reconciliation-workspace">
       <PageHero
         eyebrow={modoConciliacaoRh?"RH · pagamentos da equipe":"Financeiro · controle bancário"}
         title={modoConciliacaoRh?"Conciliação da folha":"Conciliação Bancária"}
         description={modoConciliacaoRh?"Confirme os PIX dos funcionários usando cadastro, ponto, obra e valor como evidências.":"Classifique, audite e reverta movimentos sem perder o histórico."}
-        stats={[
-          {label:"Pendentes",value:calc.pendentes,color:C.orange},
-          {label:"Conciliadas",value:calc.conciliadas,color:C.green},
-          {label:"Ignoradas",value:calc.ignoradas,color:C.muted},
-          {label:"A classificar",value:fmt(calc.valorPendente),color:C.yellowD},
-          {label:"Progresso",value:`${calc.pct.toFixed(0)}%`,color:C.green},
-        ]}
         actions={modoConciliacaoRh?null:(importando?<span style={{fontSize:9,fontWeight:800,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:700}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>)}
       />
 
-      <TabRow equal tabs={modoConciliacaoRh
+      <section className="reconciliation-summary" aria-label="Resumo da conciliação">
+        {[
+          ["Pendentes",calc.pendentes,"warning"],
+          ["Conciliadas",calc.conciliadas,"success"],
+          ["Ignoradas",calc.ignoradas,"neutral"],
+          ["A classificar",fmt(calc.valorPendente),"primary"],
+          ["Progresso",`${calc.pct.toFixed(0)}%`,"success"],
+        ].map(([label,value,tone])=><div key={label} className="reconciliation-summary__item" data-tone={tone}>
+          <span className="reconciliation-summary__marker" aria-hidden="true"/>
+          <p>{label}</p>
+          <strong>{value}</strong>
+        </div>)}
+      </section>
+
+      <TabRow tabs={modoConciliacaoRh
         ?[["pendentes",`PIX a confirmar · ${calc.pendentes}`],["quinzena","Quinzena"],["conciliadas",`Confirmados · ${calc.conciliadas}`],["historico","Histórico"]]
         :[["pendentes",`Fila inteligente · ${calc.pendentes}`],["quinzena","Quinzena"],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras",`Regras · ${(data.regrasConc||[]).length}`],["fechamentos",`Fechamentos · ${(data.fechamentosBancarios||[]).length}`],["historico","Histórico"]]} active={aba} onChange={setAba}/>
 
-      {!["extratos","regras","fechamentos"].includes(aba)&&<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 7px"}}><div style={{position:"relative",minWidth:190,flex:1}}><Ic n="search" s={12} color={C.muted} style={{position:"absolute",left:8,top:8}}/><input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar funcionário, data ou PIX..."} style={{width:"100%",height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 9px 0 27px",fontSize:9.5,outline:"none"}}/></div>{aba!=="historico"&&!modoConciliacaoRh&&<select value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 8px",fontSize:9}}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<button onClick={alternarTodas} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.muted,padding:"0 8px",fontSize:8.8,fontWeight:800,cursor:"pointer"}}>{todosSelecionados?"Desmarcar":"Selecionar todas"}</button>}{!modoConciliacaoRh&&aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}{!modoConciliacaoRh&&aba==="pendentes"&&calc.pendentes>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar((data.transacoes||[]).filter(t=>t.status==="pendente"),"Ignorar todas as pendentes")}>Ignorar todas · {calc.pendentes}</Btn>}{!modoConciliacaoRh&&aba==="ignoradas"&&selecionadas.length>0&&<Btn size="sm" v="info" onClick={()=>reabrir(selecionadas)}>Reabrir selecionadas · {selecionadas.length}</Btn>}</div>}
+      {!["extratos","regras","fechamentos"].includes(aba)&&<div className="reconciliation-toolbar">
+        <label className="reconciliation-search">
+          <span className="sr-only">Buscar na conciliação</span>
+          <Ic n="search" s={13} color={C.muted}/>
+          <input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar funcionário, data ou PIX..."}/>
+        </label>
+        {aba!=="historico"&&!modoConciliacaoRh&&<select aria-label="Tipo de movimento" value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}
+        {!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<button type="button" className="reconciliation-toolbar__select-all" onClick={alternarTodas}>{todosSelecionados?"Desmarcar todas":"Selecionar todas"}</button>}
+        {!modoConciliacaoRh&&aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}
+        {!modoConciliacaoRh&&aba==="pendentes"&&calc.pendentes>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar((data.transacoes||[]).filter(t=>t.status==="pendente"),"Ignorar todas as pendentes")}>Ignorar todas · {calc.pendentes}</Btn>}
+        {!modoConciliacaoRh&&aba==="ignoradas"&&selecionadas.length>0&&<Btn size="sm" v="info" onClick={()=>reabrir(selecionadas)}>Reabrir selecionadas · {selecionadas.length}</Btn>}
+      </div>}
 
       {aba==="quinzena"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 12px"}}>
@@ -22854,12 +22873,12 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
       )}
 
       {["pendentes","conciliadas","ignoradas"].includes(aba)&&(transacoes.length===0
-        ? <div style={{padding:25,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8}}><Ic n={aba==="pendentes"?"check":"receipt"} s={20} color={aba==="pendentes"?C.green:C.muted}/><p style={{fontSize:10.5,fontWeight:800,color:C.text,marginTop:5}}>{aba==="pendentes"?"Fila totalmente classificada":"Nenhuma transação neste filtro"}</p></div>
-        : <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-            <table style={{width:"100%",minWidth:aba==="pendentes"?1020:900,borderCollapse:"collapse",background:C.card}}>
+        ? <div className="reconciliation-empty"><Ic n={aba==="pendentes"?"check":"receipt"} s={20} color={aba==="pendentes"?C.green:C.muted}/><p>{aba==="pendentes"?"Fila totalmente classificada":"Nenhuma transação neste filtro"}</p><span>{aba==="pendentes"?"Todos os movimentos importados receberam uma decisão.":"Ajuste a busca ou selecione outro período."}</span></div>
+        : <div className="scroll-x reconciliation-queue">
+            <table className="reconciliation-table">
               <thead><tr>
-                <th style={{width:32,padding:6,borderBottom:`1px solid ${C.border}`}}>{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={todosSelecionados} onChange={alternarTodas}/>}</th>
-                {["Data","Movimento",...(aba==="pendentes"?["Melhor candidato"]:["Classificação"]),"Valor","Ações"].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Valor"||h==="Ações"?"right":"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+                <th className="reconciliation-table__select">{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<input aria-label="Selecionar todas as transações" type="checkbox" checked={todosSelecionados} onChange={alternarTodas}/>}</th>
+                {["Data","Movimento",...(aba==="pendentes"?["Melhor candidato"]:["Classificação"]),"Valor","Ações"].map(h=><th key={h} className={h==="Valor"||h==="Ações"?"is-right":""}>{h}</th>)}
               </tr></thead>
               <tbody>{transacoesVisiveis.map(tr=>{
                 const entrada=Number(tr.valor)>0,sug=tr.status==="pendente"?sugerirRateio(tr,data.regrasConc,data.aprendizadoConc):null;
@@ -22869,53 +22888,62 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
                 const melhorEhPixMaoDeObra=melhor?.tipo==="maoObraPonto";
                 const pixFuncionario=findRegisteredEmployeePix(tr,data.employees);
                 const corMovimento=entrada?C.green:pixFuncionario?C.yellow:C.red;
-                return <tr key={tr.id} style={{background:selecionadas.includes(tr.id)?`${C.yellow}08`:pixFuncionario?`${C.yellow}0D`:"transparent"}}>
-                  <td style={{padding:6,borderBottom:`1px solid ${C.line}`,borderLeft:`3px solid ${corMovimento}`}}>{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<input type="checkbox" checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
-                  <td style={{padding:"7px 8px",fontSize:8.8,color:C.muted,whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{fmtDate(tr.data)}</td>
-                  <td title={tr.descricao} style={{padding:"7px 8px",maxWidth:aba==="pendentes"?260:410,borderBottom:`1px solid ${C.line}`}}>
-                    <p style={{fontSize:9.7,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tr.descricao}</p>
-                    <p style={{fontSize:7.9,color:entrada?C.green:C.red,marginTop:2,fontWeight:800}}>{entrada?"ENTRADA":"SAÍDA"}{tr.extratoId?` · ${data.extratos?.find(e=>e.id===tr.extratoId)?.arquivo||"EXTRATO"}`:""}</p>
-                    {pixFuncionario&&<p style={{fontSize:8,color:C.yellowD,marginTop:3,fontWeight:900}}>PIX DE FUNCIONÁRIO · possível recebimento: {pixFuncionario.employee.name||pixFuncionario.employee.nome}</p>}
+                const acoesAbertas=acoesTransacaoAberta===tr.id;
+                const abrirAcaoPrincipal=()=>{
+                  if(modoConciliacaoRh){melhor&&melhor.tipo==="tituloFolha"?abrirCandidato(tr):abrirApropriacao(tr);return;}
+                  if(pixFuncionario&&!entrada){abrirApropriacao(tr);return;}
+                  if(melhor){melhorEhPixMaoDeObra?abrirApropriacao(tr):abrirCandidato(tr);return;}
+                  entrada?abrirValidarEntrada(tr):abrirApropriacao(tr);
+                };
+                const rotuloPrincipal=modoConciliacaoRh?"Confirmar funcionário":pixFuncionario&&!entrada?"Confirmar PIX":melhorEhPixMaoDeObra?"Confirmar PIX":melhor?"Revisar sugestão":entrada?"Validar entrada":"Classificar saída";
+                return <tr key={tr.id} className="reconciliation-row" data-selected={selecionadas.includes(tr.id)} data-pix={Boolean(pixFuncionario)} data-direction={entrada?"in":"out"}>
+                  <td className="reconciliation-cell reconciliation-cell--select">{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<input aria-label={`Selecionar ${tr.descricao}`} type="checkbox" checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
+                  <td className="reconciliation-cell reconciliation-cell--date">{fmtDate(tr.data)}</td>
+                  <td className="reconciliation-cell reconciliation-cell--movement" title={tr.descricao}>
+                    <div className="reconciliation-movement__title"><span className="reconciliation-movement__marker" style={{background:corMovimento}} aria-hidden="true"/><p>{tr.descricao}</p></div>
+                    <p className="reconciliation-movement__source">{entrada?"Entrada":"Saída"}{tr.extratoId?` · ${data.extratos?.find(e=>e.id===tr.extratoId)?.arquivo||"Extrato"}`:""}</p>
+                    {pixFuncionario&&<p className="reconciliation-pix-evidence"><Ic n="check" s={10}/> PIX cadastrado · possível pagamento para {pixFuncionario.employee.name||pixFuncionario.employee.nome}</p>}
                   </td>
                   {aba==="pendentes"
-                    ? <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}>
+                    ? <td className="reconciliation-cell reconciliation-cell--candidate">
                         {melhor
-                          ? <div>
-                              <p style={{fontSize:9,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{melhor.titulo}</p>
-                              <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}>
+                          ? <div className="reconciliation-candidate">
+                              <p className="reconciliation-candidate__title">{melhor.titulo}</p>
+                              <div className="reconciliation-candidate__meta">
                                 <Badge color={corFaixa(melhor.confianca)}>{melhor.score} pts</Badge>
                                 {analise&&<Badge color={analise.classificacaoOperacional==="bloqueada"?C.red:analise.classificacaoOperacional==="pronta"?C.green:analise.classificacaoOperacional==="revisar"?C.blue:C.orange}>{analise.classificacaoOperacional.replace("_"," ")}</Badge>}
-                                {melhor.alertas.length>0&&<span title={melhor.alertas.join("; ")} style={{fontSize:9,color:C.orange,fontWeight:800}}>! {melhor.alertas.length}</span>}
-                                {candidatas.length>1&&<span style={{fontSize:8,color:C.muted}}>+{candidatas.length-1}</span>}
+                                {melhor.alertas.length>0&&<span title={melhor.alertas.join("; ")} className="reconciliation-candidate__alert">! {melhor.alertas.length}</span>}
+                                {candidatas.length>1&&<span className="reconciliation-candidate__more">+{candidatas.length-1}</span>}
                               </div>
-                              {analise?.melhorCandidata?.bloqueios?.length>0&&<p title={analise.melhorCandidata.bloqueios.join("; ")} style={{fontSize:8,color:C.red,fontWeight:800,marginTop:3}}>BLOQUEADA · corrigir cadastro</p>}
+                              {analise?.melhorCandidata?.bloqueios?.length>0&&<p title={analise.melhorCandidata.bloqueios.join("; ")} className="reconciliation-candidate__blocked">Bloqueada · corrigir cadastro</p>}
                             </div>
                           : sug
-                            ? <span style={{fontSize:9,color:C.blue}}>{sug.origem==="aprendizado"?`Sugestão aprendida (${sug.confirmacoes} confirmações)`:"Sugestão de regra"}: {sug.destino==="obra"?nomeObra(sug.obraId):"Empresa"} · {sug.categoria}</span>
+                            ? <span className="reconciliation-candidate__rule">{sug.origem==="aprendizado"?`Sugestão aprendida (${sug.confirmacoes} confirmações)`:"Sugestão de regra"}: {sug.destino==="obra"?nomeObra(sug.obraId):"Empresa"} · {sug.categoria}</span>
                             : pixFuncionario
-                              ? <span style={{fontSize:9,color:C.yellowD,fontWeight:800}}>Chave PIX cadastrada · confirme no cartão PIX</span>
-                              : <span style={{fontSize:9,color:C.muted}}>Sem candidata - use rateio manual</span>}
+                              ? <span className="reconciliation-candidate__pix">Nome ou chave PIX reconhecida · confirme o recebedor</span>
+                              : <span className="reconciliation-candidate__empty">Sem candidata · confirme a classificação</span>}
                       </td>
-                    : <td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,borderBottom:`1px solid ${C.line}`}}>
+                    : <td className="reconciliation-cell reconciliation-cell--classification">
                         {tr.status==="conciliado"
                           ? ((tr.rateios||[]).length
                               ? <details><summary style={{cursor:"pointer",fontWeight:800,color:C.green}}>{tr.rateios.length} rateio(s)</summary>{tr.rateios.map((r,i)=><p key={i} style={{marginTop:3}}>{r.destino==="obra"?nomeObra(r.obraId):"Empresa"} · {r.categoria} · {fmt(r.valor)}</p>)}</details>
                               : (tr.vinculo?`Vinculada · ${tr.vinculo.tipo}`:"Conciliada"))
                           : <span title={tr.ignoradoMotivo} style={{color:C.orange}}>{tr.ignoradoMotivo||"Sem motivo registrado"}</span>}
                       </td>}
-                  <td style={{padding:"7px 8px",fontSize:10.5,fontWeight:900,color:entrada?C.green:C.red,textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{entrada?"+ ":""}{fmt(Math.abs(tr.valor))}</td>
-                  <td style={{padding:"5px 7px",textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>
+                  <td className="reconciliation-cell reconciliation-cell--value">{entrada?"+ ":""}{fmt(Math.abs(tr.valor))}</td>
+                  <td className="reconciliation-cell reconciliation-cell--actions">
                     {tr.status==="pendente"&&<>
-                      {modoConciliacaoRh
-                        ?<Btn size="sm" onClick={()=>melhor&&melhor.tipo==="tituloFolha"?abrirCandidato(tr):abrirApropriacao(tr)}><Ic n="check"/> Confirmar funcionário</Btn>
-                        :<>
-                          {melhor&&<Btn size="sm" onClick={()=>melhorEhPixMaoDeObra?abrirApropriacao(tr):abrirCandidato(tr)}><Ic n="check"/> {melhorEhPixMaoDeObra?"Confirmar PIX":"Revisar sugestão"}</Btn>}{" "}
-                          {entrada&&<Btn size="sm" v="success" onClick={()=>abrirValidarEntrada(tr)}><Ic n="check"/> Validar entrada</Btn>}{" "}
-                          <Btn size="sm" v="ghost" onClick={()=>abrirApropriacao(tr)}>Rateio manual</Btn>{" "}
-                          <Btn size="sm" v="ghost" onClick={()=>setTransferModal({trId:tr.id})}>Transferência</Btn>{" "}
-                          <Btn size="sm" v="ghost" onClick={()=>setEstornoModal({trId:tr.id})}>Estorno</Btn>{" "}
-                          <Btn size="sm" v="ghost" onClick={()=>abrirIgnorar([tr],"Ignorar transação")}>Ignorar</Btn>
-                        </>}
+                      <div className="reconciliation-actions__primary">
+                        <Btn size="sm" v={entrada&&!melhor?"success":"primary"} onClick={abrirAcaoPrincipal}><Ic n="check"/> {rotuloPrincipal}</Btn>
+                        {!modoConciliacaoRh&&<button type="button" className="reconciliation-actions__toggle" aria-expanded={acoesAbertas} aria-label={`${acoesAbertas?"Ocultar":"Mostrar"} outras ações de ${tr.descricao}`} onClick={()=>setAcoesTransacaoAberta(atual=>atual===tr.id?"":tr.id)}>•••</button>}
+                      </div>
+                      {acoesAbertas&&!modoConciliacaoRh&&<div className="reconciliation-actions__secondary">
+                        {entrada&&melhor&&<Btn size="sm" v="ghost" onClick={()=>abrirValidarEntrada(tr)}>Validar como outra entrada</Btn>}
+                        <Btn size="sm" v="ghost" onClick={()=>abrirApropriacao(tr)}>Rateio manual</Btn>
+                        <Btn size="sm" v="ghost" onClick={()=>setTransferModal({trId:tr.id})}>Transferência</Btn>
+                        <Btn size="sm" v="ghost" onClick={()=>setEstornoModal({trId:tr.id})}>Estorno</Btn>
+                        <Btn size="sm" v="ghost" onClick={()=>abrirIgnorar([tr],"Ignorar transação")}>Ignorar</Btn>
+                      </div>}
                     </>}
                     {tr.status==="conciliado"&&!modoConciliacaoRh&&<Btn size="sm" v="ghost" onClick={()=>desfazer(tr)}>Desfazer</Btn>}
                     {tr.status==="ignorado"&&!modoConciliacaoRh&&<><Btn size="sm" onClick={()=>abrirApropriacao(tr)}>Reclassificar</Btn> <Btn size="sm" v="ghost" onClick={()=>reabrir([tr])}>Reabrir</Btn></>}
@@ -22923,7 +22951,7 @@ function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=nul
                 </tr>;
               })}</tbody>
             </table>
-            {transacoes.length>limiteVisivel&&<button onClick={()=>setLimiteVisivel(v=>v+50)} style={{width:"100%",border:0,borderTop:`1px solid ${C.line}`,padding:7,background:C.surface,color:C.blue,fontSize:9,fontWeight:800,cursor:"pointer"}}>Mostrar mais · {transacoes.length-limiteVisivel} restante(s)</button>}
+            {transacoes.length>limiteVisivel&&<button className="reconciliation-load-more" onClick={()=>setLimiteVisivel(v=>v+50)}>Mostrar mais · {transacoes.length-limiteVisivel} restante(s)</button>}
           </div>)}
 
       {ignorarModal&&<Modal title={ignorarModal.titulo} onClose={()=>setIgnorarModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{padding:"9px 10px",border:`1px solid ${C.orange}55`,background:`${C.orange}0B`,borderRadius:8}}><b style={{fontSize:11,color:C.orange}}>{ignorarModal.ids.length} transação(ões) · {fmt(ignorarModal.valor)}</b><p style={{fontSize:9,color:C.muted,marginTop:3}}>Elas sairão da fila pendente, permanecerão auditáveis e poderão ser reabertas.</p></div><Inp label="Motivo obrigatório *" value={ignorarModal.motivo} onChange={v=>setIgnorarModal(f=>({...f,motivo:v}))} multiline placeholder="Ex.: transferência entre contas, estorno, movimento sem efeito no DRE..."/><div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setIgnorarModal(null)} full>Cancelar</Btn><Btn v="danger" onClick={confirmarIgnorar} full>Confirmar e ignorar</Btn></div></div></Modal>}
