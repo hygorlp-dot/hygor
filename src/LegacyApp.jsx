@@ -11284,15 +11284,15 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
 
   // KPIs
   const totalWeekly     = activeTerc.reduce((s, t) => s + Number(t.weeklyRate || 0), 0);
-  const totalContracts  = scopedTerc.reduce((s, t) => s + Number(t.contractValue || 0), 0);
-  const scopedTercIds   = new Set(scopedTerc.map(t => t.id));
+  const totalContracts  = kanbanTerc.reduce((s, t) => s + Number(t.contractValue || 0), 0);
+  const scopedTercIds   = new Set(kanbanTerc.map(t => t.id));
   const totalPaidAll    = (data.pagsTerceiros || [])
     .filter(p => registroTerceiroAtivo(p)&&scopedTercIds.has(p.tercId))
     .reduce((s, p) => s + Number(p.amount || 0), 0);
   const pendingCount    = activeTerc.filter(t => !wasPaidThisWeek(t.id)).length;
   const pendingTotal    = activeTerc.filter(t => !wasPaidThisWeek(t.id)).reduce((s,t) => s+Number(t.weeklyRate||0), 0);
 
-  const filteredTerc = scopedTerc
+  const filteredTerc = kanbanTerc
     .filter(t => filterObra === "all" || t.obraId === filterObra)
     .filter(t => filterSpec === "all" || t.specialty === filterSpec)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -11552,13 +11552,13 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   // Documentos dos contratos visíveis neste contexto, achatados para o painel.
   const documentosPendentes = useMemo(() => {
     const lista = [];
-    scopedTerc.forEach(t => (t.documentos || []).forEach(doc => {
+    kanbanTerc.forEach(t => (t.documentos || []).forEach(doc => {
       const dias = diasAte(doc.validade);
       if (dias === null) return;
       if (dias <= 30) lista.push({ ...doc, tercId: t.id, tercName: t.name, obraId: t.obraId, dias });
     }));
     return lista.sort((a, b) => a.dias - b.dias);
-  }, [scopedTerc]);
+  }, [kanbanTerc]);
 
   //  ETAPAS DO CONTRATO E MEDICOES 
   // "1.500,00" | "1500.50" | 1500 -> number. Decide pelo separador que aparece
@@ -11575,7 +11575,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   };
   const pct = v => Math.max(0, Math.min(100, Number(String(v ?? "").replace(",", ".")) || 0));
 
-  const tercAtual = scopedTerc.find(t => t.id === tercSel) || null;
+  const tercAtual = kanbanTerc.find(t => t.id === tercSel) || null;
   const etapasTerc = tercAtual?.etapas || [];
 
   // Medicoes em ordem cronologica. O acumulado de uma etapa e o da ULTIMA
@@ -11872,14 +11872,14 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   const abrirMedicoesDe = id => { setTercSel(id); setView("medicoes"); };
   const tabsTerceiros = [
     ["kanban","Quadro",activeTerc.length],
-    ["cadastro","Cadastro",scopedTerc.length],
+    ["cadastro","Cadastro",kanbanTerc.length],
     ...(podeGerenciarMedicoes ? [["medicoes","Medições",medicoesAPagar.length]] : []),
     ...(podeGerenciarPagamentos ? [["pagamentos","Pagamentos",pendingCount]] : []),
   ];
   const resumoTerceiros = [
     ["Ativos", activeTerc.length, "Contratos em execução"],
     ["Custo semanal", fmt(totalWeekly), "Previsão recorrente"],
-    ["Contratado", fmt(totalContracts), `${scopedTerc.length} contrato(s)`],
+    ["Contratado", fmt(totalContracts), `${kanbanTerc.length} contrato(s)`],
     ehRH
       ? ["Documentos críticos", documentosPendentes.length, "Vencidos ou a vencer"]
       : ["Pago", fmt(totalPaidAll), "Histórico acumulado"],
@@ -11937,23 +11937,27 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
       {view === "kanban" && (<>
         {/* Painel de documentos vencendo - so aparece quando ha pendencia */}
         {documentosPendentes.length > 0 && (
-          <div style={{ background:`${C.red}0C`, border:`1px solid ${C.red}44`, borderRadius:10, padding:"11px 13px" }}>
-            <p style={{ fontSize:10.5, fontWeight:900, color:C.red, textTransform:"uppercase", letterSpacing:.8, marginBottom:7 }}>
-              {documentosPendentes.length} documento(s) vencido(s) ou a vencer
-            </p>
-            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+          <section className="terceiros-doc-alert" aria-label="Documentos críticos">
+            <div className="terceiros-doc-alert__heading">
+              <span><Ic n="alert" s={14}/></span>
+              <div>
+                <h3>Documentos críticos</h3>
+                <p>{documentosPendentes.length} vencido(s) ou a vencer nos próximos 30 dias</p>
+              </div>
+            </div>
+            <div className="terceiros-doc-alert__list">
               {documentosPendentes.slice(0, 6).map(doc => (
-                <div key={doc.id} style={{ display:"flex", justifyContent:"space-between", gap:8, fontSize:11.5 }}>
-                  <span style={{ color:C.subtle, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                <div className="terceiros-doc-alert__item" key={doc.id}>
+                  <span>
                     <b>{doc.tercName}</b> · {docTercInfo(doc.tipo).l}
                   </span>
-                  <span style={{ flexShrink:0, fontWeight:800, color: doc.dias < 0 ? C.red : doc.dias <= 7 ? C.orange : C.muted }}>
+                  <strong data-critical={doc.dias <= 7}>
                     {doc.dias < 0 ? `vencido há ${Math.abs(doc.dias)}d` : doc.dias === 0 ? "vence hoje" : `${doc.dias}d`}
-                  </span>
+                  </strong>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
         {/* Colunas. Rolagem horizontal no celular; cada card arrasta entre colunas. */}
@@ -11974,46 +11978,44 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
           const colunas = distribuirColunas(bloco.lista);
           const valorObra = bloco.lista.reduce((s,t)=>s+Number(t.contractValue||0),0);
           return (
-            <div key={bloco.obraId} style={{ marginBottom:18 }}>
+            <section key={bloco.obraId} className="terceiros-board">
               {/* Cabeçalho da obra */}
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:8,
-                            flexWrap:"wrap", marginBottom:8, paddingBottom:6, borderBottom:`2px solid ${bloco.especial?C.muted:C.orange}` }}>
-                <div style={{ minWidth:0 }}>
-                  <p style={{ fontSize:13.5, fontWeight:900, color:C.text,
-                              fontFamily:"'Inter Display','Inter',sans-serif" }}>{bloco.nome}</p>
-                  <p style={{ fontSize:10, color:C.muted, marginTop:1 }}>
+              <header className="terceiros-board__header">
+                <div>
+                  <h3>{bloco.nome}</h3>
+                  <p>
                     {bloco.qtd} terceirizado(s){!bloco.especial && ` · ${bloco.avanco.toFixed(0)}% de avanço médio`}
                   </p>
                 </div>
                 {valorObra > 0 && (
-                  <span style={{ fontSize:11.5, fontWeight:800, color:C.yellowD, flexShrink:0 }}>{fmt(valorObra)} em contratos</span>
+                  <strong>{fmt(valorObra)} <span>contratados</span></strong>
                 )}
-              </div>
+              </header>
 
               {/* Colunas de situação desta obra */}
-              <div style={KB.scroll}>
+              <div className="terceiros-kanban">
                 {COLS_KANBAN.map(col => {
                   const cards = colunas[col.v] || [];
                   const soma = cards.reduce((s, t) => s + Number(t.contractValue || 0), 0);
                   const alvoKey = `${bloco.obraId}::${col.v}`;
                   const ativa = colunaAlvo === alvoKey;
                   return (
-                    <div key={col.v}
+                    <section key={col.v} className="terceiros-kanban__column" data-dragover={ativa}
+                      style={{"--terceiros-status-color":col.cor}}
                       onDragOver={e => { e.preventDefault(); setColunaAlvo(alvoKey); }}
                       onDragLeave={() => setColunaAlvo(c => c === alvoKey ? null : c)}
-                      onDrop={() => soltarNaColuna(col.v)}
-                      style={KB.coluna(col.cor, ativa)}>
-                      <div style={KB.colHead(col.cor)}>
-                        <div style={{ minWidth:0 }}>
-                          <b style={{ fontSize:11, fontWeight:800, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{col.l.toUpperCase()}</b>
-                          <p style={{ fontSize:8.5, color:C.muted, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{col.dica}</p>
+                      onDrop={() => soltarNaColuna(col.v)}>
+                      <header className="terceiros-kanban__column-header">
+                        <div>
+                          <h4>{col.l}</h4>
+                          <p>{col.dica}</p>
                         </div>
-                        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2, flexShrink:0 }}>
-                          <span style={KB.contador}>{cards.length}</span>
-                          {soma > 0 && <span style={{ fontSize:8.5, fontWeight:700, color:C.yellowD, whiteSpace:"nowrap" }}>{fmt(soma)}</span>}
+                        <div className="terceiros-kanban__column-total">
+                          <span>{cards.length}</span>
+                          {soma > 0 && <strong>{fmt(soma)}</strong>}
                         </div>
-                      </div>
-                      <div style={KB.colBody}>
+                      </header>
+                      <div className="terceiros-kanban__cards">
 
                       {cards.map(t => {
                         const info = specInfo(t.specialty);
@@ -12022,45 +12024,47 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                         const docWarn = (t.documentos || []).some(d => { const dd = diasAte(d.validade); return dd !== null && dd > 0 && dd <= 30; });
                         const docInvalido = t.documento && !validarDocumento(t.documento, t.tipoPessoa);
                         return (
-                          <div key={t.id} draggable
+                          <article key={t.id} draggable role="button" tabIndex={0}
+                            aria-label={`Abrir contrato de ${t.name}`}
                             onDragStart={() => setArrastando(t.id)}
                             onDragEnd={() => { setArrastando(null); setColunaAlvo(null); }}
                             onClick={() => abrirContrato(t)}
-                            style={{ ...KB.card(null), borderColor:`${info.color}66`,
-                                     opacity: arrastando === t.id ? .4 : 1 }}>
-                            <div style={{ display:"flex", justifyContent:"space-between", gap:6 }}>
-                              <div style={{ minWidth:0 }}>
-                                <p style={{ fontSize:11.5, fontWeight:800, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</p>
-                                <p style={{ fontSize:9, color:info.color, fontWeight:700 }}>{info.l}</p>
+                            onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();abrirContrato(t);}}}
+                            className="terceiros-kanban-card"
+                            style={{opacity:arrastando === t.id ? 0.4 : 1}}>
+                            <div className="terceiros-kanban-card__header">
+                              <div>
+                                <h5>{t.name}</h5>
+                                <p>{info.l}</p>
                               </div>
                               {t.contractValue > 0 && (
-                                <p style={{ fontSize:10, fontWeight:800, color:C.text, flexShrink:0 }}>{fmt(t.contractValue)}</p>
+                                <strong>{fmt(t.contractValue)}</strong>
                               )}
                             </div>
 
                             {t.documento && (
-                              <p style={{ fontSize:9, color:C.muted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              <p className="terceiros-kanban-card__document">
                                 {maskDoc(t.documento, t.tipoPessoa)}
                               </p>
                             )}
 
                             {/* Barra de avanco */}
-                            <div>
-                              <div style={{ height:4, background:C.surface, borderRadius:99, overflow:"hidden" }}>
-                                <div style={{ height:"100%", width:`${av}%`, background: av >= 100 ? C.green : col.cor, borderRadius:99 }}/>
+                            <div className="terceiros-kanban-card__progress">
+                              <div className="terceiros-progress-track" role="progressbar" aria-label={`Avanço medido de ${t.name}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(av)}>
+                                <span style={{width:`${av}%`}} data-complete={av>=100}/>
                               </div>
-                              <div style={{ display:"flex", justifyContent:"space-between", marginTop:2 }}>
-                                <span style={{ fontSize:8.5, color:C.muted }}>{av.toFixed(0)}% medido</span>
-                                {(t.etapas?.length > 0) && <span style={{ fontSize:8.5, color:C.muted }}>{t.etapas.length} etapa(s)</span>}
+                              <div>
+                                <span>{av.toFixed(0)}% medido</span>
+                                {(t.etapas?.length > 0) && <span>{t.etapas.length} etapa(s)</span>}
                               </div>
                             </div>
 
                             {/* Selos de alerta */}
                             {(docBad || docWarn || docInvalido) && (
-                              <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-                                {docInvalido && <span style={{ fontSize:8, fontWeight:900, color:C.red, background:`${C.red}14`, borderRadius:5, padding:"1px 5px" }}>DOC INVÁLIDO</span>}
-                                {docBad && <span style={{ fontSize:8, fontWeight:900, color:C.red, background:`${C.red}14`, borderRadius:5, padding:"1px 5px" }}>CND VENCIDA</span>}
-                                {!docBad && docWarn && <span style={{ fontSize:8, fontWeight:900, color:C.orange, background:`${C.orange}14`, borderRadius:5, padding:"1px 5px" }}>DOC A VENCER</span>}
+                              <div className="terceiros-kanban-card__alerts">
+                                {docInvalido && <span>Documento inválido</span>}
+                                {docBad && <span>CND vencida</span>}
+                                {!docBad && docWarn && <span data-warning="true">Documento a vencer</span>}
                               </div>
                             )}
 
@@ -12086,27 +12090,25 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                                   style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:5, color:C.muted, cursor:"pointer", fontSize:10, padding:"1px 6px" }}>→</button>
                               )}
                             </div>
-                          </div>
+                          </article>
                         );
                       })}
 
                       {!cards.length && (
-                        <p style={{ padding:"12px 6px", textAlign:"center", fontSize:9, color:C.muted,
-                                    border:`1px dashed ${C.border}`, borderRadius:6, margin:"2px 0" }}>
-                          {arrastando ? "Solte aqui" : "—"}
+                        <p className="terceiros-kanban__empty">
+                          {arrastando ? "Solte aqui" : "Nenhum contrato"}
                         </p>
                       )}
                       </div>
-                    </div>
+                    </section>
                   );
                 })}
               </div>
-            </div>
+            </section>
           );
         })}
-        <p style={{ fontSize:10.5, color:C.muted, textAlign:"center" }}>
-          Um quadro por obra, ordenados pelos que têm mais terceirizados e estão mais no início.
-          Arraste os cards entre as colunas ou use as setas. Toque num card para abrir {podeGerenciarMedicoes ? "as medições" : "o cadastro"}.
+        <p className="terceiros-kanban-help">
+          Arraste os cartões entre as colunas ou use as setas. Selecione um contrato para abrir {podeGerenciarMedicoes ? "as medições" : "o cadastro"}.
         </p>
       </>)}
 
@@ -12292,7 +12294,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
       {view === "medicoes" && (<>
         <Sel label="Contrato" value={tercSel} onChange={setTercSel}
           options={[{v:"",l:"Selecione o terceirizado..."},
-            ...scopedTerc.map(t => ({ v:t.id, l:`${t.name} · ${specInfo(t.specialty).l}${t.obraId?` · ${obraName(t.obraId)}`:""}` }))]}/>
+            ...kanbanTerc.map(t => ({ v:t.id, l:`${t.name} · ${specInfo(t.specialty).l}${t.obraId?` · ${obraName(t.obraId)}`:""}` }))]}/>
 
         {!tercSel && (
           <div style={{ padding:26, textAlign:"center", background:C.card, border:`1px solid ${C.border}`, borderRadius:10 }}>
@@ -12379,22 +12381,22 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
           )}
 
           {/* Resumo do contrato */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+          <section className="terceiros-contract-metrics" aria-label="Resumo financeiro do contrato">
             {[
-              ["Contrato", fmt(tercAtual.contractValue), C.green],
-              ["Medido", fmt(totalMedido), C.blue],
-              ["A medir", fmt(somaEtapas - totalMedido), (somaEtapas - totalMedido) >= 0 ? C.orange : C.red],
-              ["Avanço físico", `${pctFisico.toFixed(1)}%`, C.yellow],
-            ].map(([l,v,c]) => (
-              <div key={l} style={{ background:C.card, border:`1px solid ${C.border}`, borderTop:`3px solid ${c}`, padding:"10px 12px", borderRadius:10 }}>
-                <p style={{ fontSize:9.5, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>{l}</p>
-                <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:800, color:c, fontSize:21, lineHeight:1.1, marginTop:3 }}>{v}</p>
+              ["Contrato", fmt(tercAtual.contractValue), "neutral"],
+              ["Medido", fmt(totalMedido), "success"],
+              ["A medir", fmt(somaEtapas - totalMedido), (somaEtapas - totalMedido) >= 0 ? "warning" : "danger"],
+              ["Avanço físico", `${pctFisico.toFixed(1)}%`, "primary"],
+            ].map(([l,v,tone]) => (
+              <div className="terceiros-contract-metrics__item" data-tone={tone} key={l}>
+                <p>{l}</p>
+                <strong>{v}</strong>
               </div>
             ))}
-          </div>
+          </section>
 
-          <div style={{ height:7, background:C.surface, borderRadius:99, overflow:"hidden" }}>
-            <div style={{ height:"100%", width:`${Math.min(pctFisico,100)}%`, background:C.yellow, borderRadius:99, transition:"width .25s" }}/>
+          <div className="terceiros-contract-progress" role="progressbar" aria-label="Avanço físico do contrato" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(pctFisico)}>
+            <span style={{width:`${Math.min(pctFisico,100)}%`}}/>
           </div>
 
           {/* A soma das etapas precisa fechar com o contrato, senao a medicao
@@ -12410,46 +12412,43 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
           )}
 
           {/* Etapas do contrato */}
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-            <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:1 }}>
+          <div className="terceiros-section-heading">
+            <p>
               Etapas do contrato ({etapasTerc.length})
             </p>
-            <div style={{ display:"flex", gap:6 }}>
+            <div>
               <Btn size="sm" v="ghost" onClick={sugerirEtapas}>Sugerir etapas</Btn>
               <Btn size="sm" onClick={abrirMedicao} disabled={!podeRegistrarEvidencia}><Ic n="plus"/> Nova medição</Btn>
             </div>
           </div>
           {!podeRegistrarEvidencia&&<div style={{background:`${C.orange}0D`,border:`1px solid ${C.orange}55`,borderRadius:8,padding:"8px 11px"}}><p style={{fontSize:10.5,color:C.orange,fontWeight:800}}>A medição e suas fotografias devem ser registradas por um engenheiro de campo ou engenheiro auditor.</p></div>}
 
-          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
+          <div className="terceiros-stage-list">
             {etapasTerc.map((e, i) => {
               const acum = acumuladoPorEtapa[e.id] || 0;
               return (
-                <div key={e.id} style={{ padding:"10px 12px", borderTop:i?`1px solid ${C.line}`:0,
-                                         display:"flex", alignItems:"center", gap:9 }}>
-                  <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                <div className="terceiros-stage" key={e.id}>
+                  <div className="terceiros-stage__order">
                     <button onClick={()=>moverEtapa(e,-1)} disabled={i===0} title="Subir"
-                      style={{ background:"transparent", border:0, cursor:i===0?"default":"pointer",
-                               color:i===0?C.line:C.muted, fontSize:10, lineHeight:1, padding:"1px 3px" }}>▲</button>
+                      aria-label={`Mover ${e.nome} para cima`}>↑</button>
                     <button onClick={()=>moverEtapa(e,+1)} disabled={i===etapasTerc.length-1} title="Descer"
-                      style={{ background:"transparent", border:0, cursor:i===etapasTerc.length-1?"default":"pointer",
-                               color:i===etapasTerc.length-1?C.line:C.muted, fontSize:10, lineHeight:1, padding:"1px 3px" }}>▼</button>
+                      aria-label={`Mover ${e.nome} para baixo`}>↓</button>
                   </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <p style={{ fontSize:13, fontWeight:700, color:C.text }}>{i+1}. {e.nome}</p>
-                    <div style={{ height:4, background:C.surface, borderRadius:99, overflow:"hidden", marginTop:5 }}>
-                      <div style={{ height:"100%", width:`${acum}%`, background:acum>=100?C.green:C.blue, borderRadius:99 }}/>
+                  <div className="terceiros-stage__main">
+                    <p>{i+1}. {e.nome}</p>
+                    <div className="terceiros-progress-track" role="progressbar" aria-label={`${e.nome}: ${acum.toFixed(0)}% medido`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(acum)}>
+                      <span style={{width:`${acum}%`}} data-complete={acum>=100}/>
                     </div>
                   </div>
-                  <div style={{ textAlign:"right", flexShrink:0 }}>
-                    <p style={{ fontSize:13, fontWeight:800, color:C.text }}>{fmt(e.valor)}</p>
-                    <p style={{ fontSize:10, color:acum>=100?C.green:C.muted, fontWeight:700 }}>{acum.toFixed(1)}% medido</p>
+                  <div className="terceiros-stage__value">
+                    <strong>{fmt(e.valor)}</strong>
+                    <span data-complete={acum>=100}>{acum.toFixed(1)}% medido</span>
                   </div>
-                  <div style={{ display:"flex", gap:2, flexShrink:0 }}>
+                  <div className="terceiros-stage__actions">
                     <button onClick={()=>setEtapaForm({ id:e.id, nome:e.nome, valor:String(e.valor) })}
-                      style={{ background:"transparent", border:0, color:C.blue, cursor:"pointer", fontSize:10.5, fontWeight:700 }}>Editar</button>
+                      aria-label={`Editar etapa ${e.nome}`}><Ic n="edit" s={11}/><span>Editar</span></button>
                     <button onClick={()=>removerEtapa(e)}
-                      style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", fontSize:13 }}>x</button>
+                      aria-label={`Excluir etapa ${e.nome}`}><Ic n="trash" s={11}/></button>
                   </div>
                 </div>
               );
@@ -12479,13 +12478,13 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
             Medições ({medicoesTercAtual.length})
           </p>
           <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-            {[...medicoesTercAtual].reverse().map(m => (
+            {[...medicoesTercAtual].reverse().map((m,indiceMedicao) => (
               <div key={m.id} style={{ background:C.card, border:`1px solid ${m.pagamentoId?C.green+"66":C.orange+"66"}`,
                                        borderRadius:4, padding:"10px 13px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:9, flexWrap:"wrap" }}>
                   <div>
                     <p style={{ fontSize:13.5, fontWeight:900, color:C.text }}>
-                      Medição {m.numero} · {fmtDateFull(m.data)}
+                      Medição {m.numero||medicoesTercAtual.length-indiceMedicao} · {fmtDateFull(m.data)}
                     </p>
                     <p style={{ fontSize:10.5, color:C.muted, marginTop:2 }}>
                       {m.itens.length} etapa(s) · {m.pagamentoId ? "paga" : "aguardando pagamento"}
@@ -12593,37 +12592,35 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
         })()}
 
         {/* Navegador de semana */}
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderTop:`3px solid ${C.orange}`, padding:"14px 16px", borderRadius:10 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-            <button onClick={()=>setWeekOffset(w=>w-1)} style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.text, padding:"6px 14px", cursor:"pointer", borderRadius:8, fontWeight:900, fontSize:18 }}></button>
-            <div style={{ textAlign:"center" }}>
-              <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:24, color:C.orange, letterSpacing:1, lineHeight:1 }}>
-                 Sexta-feira
-              </p>
-              <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:"clamp(18px,8vw,32px)", color:C.text, letterSpacing:1, lineHeight:1 }}>
+        <section className="terceiros-week">
+          <div className="terceiros-week__navigator">
+            <button type="button" aria-label="Semana anterior" onClick={()=>setWeekOffset(w=>w-1)}><Ic n="chevL" s={16}/></button>
+            <div>
+              <p>Pagamentos da semana</p>
+              <strong>
                 {fmtDateFull(friday)}
-              </p>
-              <p style={{ fontSize:11, color:C.muted, marginTop:2 }}>
+              </strong>
+              <span>
                 Semana: {fmtDateFull(weekStart)} → {fmtDateFull(weekEnd)}
-              </p>
+              </span>
             </div>
-            <button onClick={()=>setWeekOffset(w=>w+1)} style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.text, padding:"6px 14px", cursor:"pointer", borderRadius:8, fontWeight:900, fontSize:18 }}></button>
+            <button type="button" aria-label="Próxima semana" onClick={()=>setWeekOffset(w=>w+1)}><Ic n="chevR" s={16}/></button>
           </div>
 
           {/* Status da semana */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginTop:4 }}>
+          <div className="terceiros-week__summary">
             {[
-              ["Pagos",      `${activeTerc.length - pendingCount}/${activeTerc.length}`, C.green ],
-              ["Pendentes",  fmt(pendingTotal),  pendingCount>0 ? C.red : C.green ],
-              ["Pago semana",fmt(paidThisWeekAmount), C.blue ],
-            ].map(([l,v,c])=>(
-              <div key={l} style={{ background:C.surface, padding:"8px 10px", borderRadius:8, textAlign:"center" }}>
-                <p style={{ fontSize:9, color:C.muted, textTransform:"uppercase", fontWeight:900 }}>{l}</p>
-                <p style={{ fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800, fontSize:20, color:c, letterSpacing:.5 }}>{v}</p>
+              ["Pagos",      `${activeTerc.length - pendingCount}/${activeTerc.length}`, pendingCount===0&&activeTerc.length>0?"success":"neutral" ],
+              ["Pendentes",  fmt(pendingTotal),  pendingCount>0 ? "danger" : "success" ],
+              ["Pago na semana",fmt(paidThisWeekAmount), "neutral" ],
+            ].map(([l,v,tone])=>(
+              <div data-tone={tone} key={l}>
+                <p>{l}</p>
+                <strong>{v}</strong>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
         {/* Lista de terceirizados com status de pagamento */}
         {activeTerc.length === 0 && (
@@ -12632,6 +12629,13 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
           </div>
         )}
 
+        <div className="terceiros-payment-filter">
+          {obraIdFixo
+            ? <Inp value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+            : <Sel label="Filtrar por obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
+        </div>
+
+        <div className="terceiros-payment-list">
         {activeTerc
           .filter(t => filterObra==="all" || t.obraId===filterObra)
           .sort((a,b) => {
@@ -12645,32 +12649,27 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
             const paid = wasPaidThisWeek(t.id);
             const paidEntry = thisWeekPay(t.id);
             return (
-              <div key={t.id} style={{
-                background: paid ? `${C.green}10` : C.card,
-                border: `1px solid ${paid ? C.green+"44" : C.line}`,
-                padding:"14px 16px", borderRadius:4,
-                display:"flex", justifyContent:"space-between", alignItems:"center", gap:12,
-              }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-                    <span style={{ fontSize:16 }}>{sp.emoji}</span>
-                    <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:900, fontSize:17 }}>{t.name}</p>
+              <article className="terceiros-payment-row" data-paid={paid} key={t.id}>
+                <div className="terceiros-payment-row__main">
+                  <div className="terceiros-payment-row__heading">
+                    <span>{sp.emoji}</span>
+                    <h3>{t.name}</h3>
                     {paid && <Badge color={C.green}>ok Pago</Badge>}
                     {paidEntry?.semEvidenciaFotografica&&<Badge color={C.red}>Sem foto</Badge>}
                   </div>
-                  <p style={{ fontSize:12, color:C.muted }}>{sp.l}  {obraName(t.obraId)}</p>
+                  <p>{sp.l} · {obraName(t.obraId)}</p>
                   {paid && paidEntry && (
-                    <p style={{ fontSize:12, color:C.green, marginTop:3 }}>
+                    <p className="terceiros-payment-row__status" data-paid="true">
                       {fmt(paidEntry.amount)} · {fmtDateFull(paidEntry.date)} · {paidEntry.pagador === "empresa" ? "empresa" : `obra ${obraName(paidEntry.obraId)}`}
                     </p>
                   )}
                   {!paid && t.weeklyRate>0 && (
-                    <p style={{ fontSize:12, color:C.orange, marginTop:3, fontWeight:700 }}>
+                    <p className="terceiros-payment-row__status">
                       Previsto: {fmt(t.weeklyRate)}
                     </p>
                   )}
                 </div>
-                <div style={{ flexShrink:0 }}>
+                <div className="terceiros-payment-row__action">
                   {!paid ? (
                     <Btn v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));setPaySource("");}}>
                       <Ic n="dollar"/> Pagar
@@ -12681,14 +12680,11 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                     </Btn>
                   )}
                 </div>
-              </div>
+              </article>
             );
           })
         }
-
-        {obraIdFixo
-          ? <Inp value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-          : <Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
+        </div>
       </>)}
 
       {/* Modal: cadastro */}

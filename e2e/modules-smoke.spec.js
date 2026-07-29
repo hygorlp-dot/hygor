@@ -39,6 +39,15 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     ],
     terceirizados:[
       {id:"third-party-qa",prestadorId:"provider-qa",name:"Elétrica Modelo",specialty:"eletricista",obraId:"obra-qa",contractValue:3500,weeklyRate:0,situacao:"andamento",active:true,documentos:[],etapas:[]},
+      {id:"third-party-2",prestadorId:"provider-2",name:"Alessandro Ângelo da Silva",specialty:"pintor",obraId:"obra-qa",contractValue:13500,weeklyRate:2600,situacao:"andamento",active:true,documentos:[],etapas:[{id:"stage-2",nome:"Pintura interna",valor:13500}]},
+      {id:"third-party-3",prestadorId:"provider-3",name:"José Henrique da Silva Santos",specialty:"eletricista",obraId:"obra-qa",contractValue:9400,weeklyRate:0,situacao:"pausado",active:false,documentos:[{id:"doc-3",tipo:"CND",validade:"2026-07-15"}],etapas:[{id:"stage-3",nome:"Infraestrutura elétrica",valor:9400}]},
+      {id:"third-party-4",prestadorId:"provider-4",name:"Marcos Aclésio Bezerra",specialty:"encanador",obraId:"obra-qa",contractValue:3500,weeklyRate:0,situacao:"contratado",active:true,documentos:[],etapas:[]},
+    ],
+    medicoesTerc:[
+      {id:"measurement-qa",tercId:"third-party-2",data:"2026-07-20",total:4050,itens:[{etapaId:"stage-2",pctAcum:30}],fotos:[]},
+    ],
+    pagsTerceiros:[
+      {id:"third-payment-qa",tercId:"third-party-2",date:"2026-07-18",amount:2600,pagador:"empresa",description:"Pagamento semanal"},
     ],
     transacoes:[
       {id:"tr-pix",data:"2026-07-20",descricao:'Pix enviado: "Cpf :10573521-Jose Silva de Lima"',valor:-1000,status:"pendente",extratoId:"ext-qa"},
@@ -108,6 +117,30 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
       if(item==="Terceirizados") {
         const excluirContrato=page.getByRole("button",{name:"Excluir contrato de Elétrica Modelo"});
         await expect(excluirContrato).toBeVisible();
+        if(process.env.ARCD_VISUAL_CAPTURE) {
+          await page.screenshot({path:"/tmp/arcd-terceirizados-desktop.png",fullPage:true});
+          await page.setViewportSize({width:390,height:844});
+          await page.screenshot({path:"/tmp/arcd-terceirizados-mobile.png",fullPage:true});
+          await page.setViewportSize({width:1440,height:900});
+          await page.locator(".terceiros-tabs").getByRole("button",{name:/^Medições/}).click();
+          await page.locator(".terceiros-workspace select").first().selectOption("third-party-2");
+          await page.screenshot({path:"/tmp/arcd-terceirizados-medicoes-desktop.png",fullPage:true});
+          await page.setViewportSize({width:390,height:844});
+          await page.screenshot({path:"/tmp/arcd-terceirizados-medicoes-mobile.png",fullPage:true});
+          await page.setViewportSize({width:1440,height:900});
+          await page.locator(".terceiros-tabs").getByRole("button",{name:/^Pagamentos/}).click();
+          await page.screenshot({path:"/tmp/arcd-terceirizados-pagamentos-desktop.png",fullPage:true});
+          await page.locator(".terceiros-tabs").getByRole("button",{name:/^Quadro/}).click();
+        }
+        const tabsTerceiros=page.locator(".terceiros-tabs");
+        await tabsTerceiros.getByRole("button",{name:/^Pagamentos/}).click();
+        await expect(page.getByRole("button",{name:"Semana anterior"})).toBeVisible();
+        await expect(page.getByRole("button",{name:"Próxima semana"})).toBeVisible();
+        await expect(page.getByText("Filtrar por obra")).toBeVisible();
+        await tabsTerceiros.getByRole("button",{name:/^Medições/}).click();
+        await page.locator(".terceiros-workspace select").first().selectOption("third-party-2");
+        await expect(page.getByText("Medição 1 · 20/07/2026")).toBeVisible();
+        await tabsTerceiros.getByRole("button",{name:/^Quadro/}).click();
         page.once("dialog",dialog=>dialog.accept("Contrato duplicado no teste"));
         await excluirContrato.click();
         await expect(excluirContrato).toHaveCount(0);
