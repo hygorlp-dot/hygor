@@ -34925,6 +34925,8 @@ function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null })
   const [editDesp,  setEditDesp]  = useState(null);
   const [despForm,  setDespForm]  = useState({ competencia:"", categoria:"aluguel", descricao:"", valor:"", recorrente:false });
   const [razaoEmpresa,setRazaoEmpresa]=useState(null);
+  const [razaoCarregando,setRazaoCarregando]=useState(true);
+  const [razaoErro,setRazaoErro]=useState("");
   const DF = k => v => setDespForm(f=>({...f,[k]:v}));
 
   const ym      = `${year}-${String(month+1).padStart(2,"0")}`;
@@ -34941,8 +34943,22 @@ function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null })
   }),[ym]);
   useEffect(()=>{
     let ativo=true;
+    setRazaoCarregando(true);
+    setRazaoErro("");
     consultarDreEmpresaCanonico({year,month}).then(report=>{
-      if(ativo)setRazaoEmpresa(report?.status===200?report:null);
+      if(!ativo)return;
+      if(report?.status===200&&report?.source==="canonical_ledger"&&report.current){
+        setRazaoEmpresa(report);
+      }else{
+        setRazaoEmpresa(null);
+        setRazaoErro(report?.error||"A projeção canônica ainda não foi gerada para este período.");
+      }
+    }).catch(error=>{
+      if(!ativo)return;
+      setRazaoEmpresa(null);
+      setRazaoErro(error?.message||"Não foi possível consultar o razão canônico.");
+    }).finally(()=>{
+      if(ativo)setRazaoCarregando(false);
     });
     return()=>{ativo=false;};
   },[data,year,month]);
@@ -35270,7 +35286,9 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         </>}
       />
 
-      {dre.fonteFinanceira!=="razao_canonico"&&<Alert variant="warning"><AlertDescription className="text-xs">A DRE está aguardando a projeção do razão canônico para este período. Nenhum cálculo local será exibido como resultado financeiro.</AlertDescription></Alert>}
+      {dre.fonteFinanceira!=="razao_canonico"&&<Alert variant="warning"><AlertDescription className="text-xs">{razaoCarregando
+        ?"Atualizando a projeção do razão canônico para este período…"
+        :`${razaoErro} Nenhum cálculo local será exibido como resultado financeiro.`}</AlertDescription></Alert>}
 
       <div className="dre-company-toolbar">
         <TabRow tabs={[

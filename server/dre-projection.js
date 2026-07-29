@@ -228,25 +228,43 @@ const yearsInData = data => {
   return Array.from({length:max-min+1},(_,index)=>min+index);
 };
 
-export const buildDreProjectionRows = data => {
-  const rows=[];
-  for(const year of yearsInData(data))for(let month=0;month<12;month++)for(const period of ["mes","q1","q2"]){
-    for(const work of data?.obras||[]){
-      const result=calculations.calcDREObra(data,work.id,year,month,period);
-      rows.push({
-        sourceId:`${year}-${String(month+1).padStart(2,"0")}:${period}:${work.id}`,
-        obraId:String(work.id),year,month,period,payload:numericProjection(result),
-      });
-    }
-    const result=calculations.calcDREConsolidado(data,year,month,period);
-    rows.push({
-      sourceId:`${year}-${String(month+1).padStart(2,"0")}:${period}:empresa`,
-      obraId:"",year,month,period,payload:numericProjection(result),
-    });
-    if(period==="mes")rows.push({
-      sourceId:`${year}-${String(month+1).padStart(2,"0")}:mes:company_dre`,
-      obraId:"",year,month,period,payload:companyDre(data,year,month),
-    });
+const buildProjectionRow = (data,{year,month,period="mes",scope="empresa"}) => {
+  const sourceId=`${year}-${String(month+1).padStart(2,"0")}:${period}:${scope}`;
+  if(scope==="company_dre"){
+    if(period!=="mes")throw new Error("O DRE empresarial aceita apenas a competência mensal.");
+    return {sourceId,obraId:"",year,month,period,payload:companyDre(data,year,month)};
   }
-  return rows;
+  if(scope==="empresa"){
+    const result=calculations.calcDREConsolidado(data,year,month,period);
+    return {sourceId,obraId:"",year,month,period,payload:numericProjection(result)};
+  }
+  const result=calculations.calcDREObra(data,scope,year,month,period);
+  return {sourceId,obraId:String(scope),year,month,period,payload:numericProjection(result)};
+};
+
+// Materialização seletiva usada pelas consultas do DRE. Ela executa o mesmo
+// motor da carga integral, mas calcula somente as competências pedidas pela
+// tela. Assim uma projeção ausente ou desatualizada é reparada no servidor sem
+// obrigar o operador a executar a homologação completa da sombra.
+export const buildRequestedDreProjectionRows = (data,requests=[]) => {
+  const unique=new Map();
+  for(const request of requests){
+    const year=Number(request?.year),month=Number(request?.month);
+    const period=["mes","q1","q2"].includes(request?.period)?request.period:"mes";
+    const scope=String(request?.scope||"empresa");
+    if(!Number.isInteger(year)||!Number.isInteger(month)||month<0||month>11||!scope)continue;
+    const key=`${year}-${month}:${period}:${scope}`;
+    if(!unique.has(key))unique.set(key,{year,month,period,scope});
+  }
+  return [...unique.values()].map(request=>buildProjectionRow(data,request));
+};
+
+export const buildDreProjectionRows = data => {
+  const requests=[];
+  for(const year of yearsInData(data))for(let month=0;month<12;month++)for(const period of ["mes","q1","q2"]){
+    for(const work of data?.obras||[])requests.push({year,month,period,scope:String(work.id)});
+    requests.push({year,month,period,scope:"empresa"});
+    if(period==="mes")requests.push({year,month,period,scope:"company_dre"});
+  }
+  return buildRequestedDreProjectionRows(data,requests);
 };

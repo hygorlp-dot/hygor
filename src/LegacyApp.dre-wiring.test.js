@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const source=readFileSync(resolve(process.cwd(), "src/LegacyApp.jsx"), "utf8");
 const reconciliationServer=readFileSync(resolve(process.cwd(), "server/reconciliation-command.js"), "utf8");
+const api=readFileSync(resolve(process.cwd(), "api/data.js"), "utf8");
 
 describe("contrato de autoria do DRE", () => {
   it("entrega o usuário autenticado até o cancelamento auditável", () => {
@@ -72,6 +73,13 @@ describe("contrato de autoria do DRE", () => {
 
   it("mostra o aviso de projeção pendente pelo componente de alerta disponível", () => {
     expect(source).not.toContain("<Notice v=\"warn\">");
-    expect(source).toContain('<Alert variant="warning"><AlertDescription className="text-xs">A DRE está aguardando a projeção do razão canônico');
+    expect(source).toContain('"Atualizando a projeção do razão canônico para este período…"');
+  });
+
+  it("reconstrói no servidor uma projeção ausente ou desatualizada", () => {
+    expect(api).toContain('String(currentEvent.payload?.sourceRevision||"")!==sourceRevision');
+    expect(api).toContain("buildRequestedDreProjectionRows(atual,projectionRequests)");
+    expect(api).toContain('code:"DRE_PROJECTION_SYNC_FAILED"');
+    expect(source).toContain('report?.status===200&&report?.source==="canonical_ledger"&&report.current');
   });
 });

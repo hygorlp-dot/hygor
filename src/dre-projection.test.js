@@ -1,8 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { buildDreProjectionRows } from "../server/dre-projection.js";
+import { buildDreProjectionRows, buildRequestedDreProjectionRows } from "../server/dre-projection.js";
 import { compareDreProjectionRows } from "../server/financial-shadow.js";
 
 describe("projeção canônica do DRE", () => {
+  it("materializa somente os períodos solicitados pela consulta", () => {
+    const data={
+      config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra 1"}],
+      employees:[],attendance:{},medicoes:[],payments:[],pagsTerceiros:[],
+      rescisoes:[],outrasDesp:[],pedidos:[],despesasEmpresa:[],
+      equipamentos:[],locacoesEquip:[],manutencoesEquip:[],
+    };
+    const rows=buildRequestedDreProjectionRows(data,[
+      {year:2026,month:6,period:"mes",scope:"company_dre"},
+      {year:2026,month:5,period:"mes",scope:"company_dre"},
+      {year:2026,month:6,period:"mes",scope:"company_dre"},
+    ]);
+    expect(rows.map(row=>row.sourceId)).toEqual([
+      "2026-07:mes:company_dre",
+      "2026-06:mes:company_dre",
+    ]);
+    expect(rows[0].payload).toMatchObject({
+      ym:"2026-07",faturamentoObras:0,totalCSP:0,lucroLiquido:0,
+    });
+  });
+
   it("consolida receita, recebimento, mão de obra e compras por obra", () => {
     const data={
       config:{paymentHolidays:[]},

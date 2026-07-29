@@ -34,6 +34,7 @@ import { findSectionConflicts } from "../server/three-way-conflicts.js";
 import { mergeThreeWay } from "../server/three-way-merge.js";
 import { authorizeSectionChanges, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
+import { buildRequestedDreProjectionRows } from "../server/dre-projection.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
 import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
@@ -1082,16 +1083,49 @@ export default async function handler(req, res) {
       }
       const scope=companyStatement?"company_dre":(requestedWork||"empresa");
       const currentId=`${year}-${String(month+1).padStart(2,"0")}:${period}:${scope}`;
-      const historyIds=Array.from({length:6},(_,index)=>{
+      const historyRequests=Array.from({length:6},(_,index)=>{
         const date=new Date(year,month-5+index,1);
-        return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}:mes:${scope}`;
+        return {year:date.getFullYear(),month:date.getMonth(),period:"mes",scope};
       });
+      const historyIds=historyRequests.map(item=>
+        `${item.year}-${String(item.month+1).padStart(2,"0")}:mes:${scope}`);
       const ids=[...new Set([currentId,...historyIds])];
-      const {data:events,error}=await db.from("financial_events")
+      const loadEvents=()=>db.from("financial_events")
         .select("source_id,payload,effective_date")
         .eq("company_id",COMPANY).eq("event_type","dre_snapshot")
         .eq("source_type","dre_projection").in("source_id",ids);
+      let {data:events,error}=await loadEvents();
       if(error)throw error;
+      let currentEvent=(events||[]).find(event=>
+        event.source_id===currentId&&event.payload?.active!==false);
+      const sourceRevision=String(updatedAt||"");
+      if(!currentEvent||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision){
+        const projectionRequests=[
+          {year,month,period,scope},
+          ...historyRequests,
+        ];
+        const rows=buildRequestedDreProjectionRows(atual,projectionRequests).map(row=>({
+          company_id:COMPANY,event_type:"dre_snapshot",source_type:"dre_projection",
+          source_id:row.sourceId,effective_date:`${row.year}-${String(row.month+1).padStart(2,"0")}-01`,
+          payload:{...row.payload,active:true,obraId:row.obraId,year:row.year,month:row.month,
+            period:row.period,sourceRevision},
+          created_by:String(usuario.id||"system"),
+        }));
+        const {error:projectionError}=await db.from("financial_events").upsert(rows,{
+          onConflict:"company_id,event_type,source_type,source_id",
+        });
+        if(projectionError){
+          console.error("Falha ao materializar o DRE canônico:",projectionError.message);
+          return res.status(503).json({
+            error:"O razão canônico não conseguiu atualizar a projeção deste período.",
+            code:"DRE_PROJECTION_SYNC_FAILED",
+          });
+        }
+        ({data:events,error}=await loadEvents());
+        if(error)throw error;
+        currentEvent=(events||[]).find(event=>
+          event.source_id===currentId&&event.payload?.active!==false);
+      }
       const activeEvents=(events||[]).filter(event=>event.payload?.active!==false);
       const byId=new Map(activeEvents.map(event=>[event.source_id,event.payload]));
       return res.status(200).json({
