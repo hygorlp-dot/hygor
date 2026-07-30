@@ -34393,6 +34393,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                         </div>
                         <p style={{fontSize:9.5,color:C.muted,marginTop:5,lineHeight:1.45}}>
                           Combinação mais barata entre as modalidades cadastradas.
+                          Para a cobrança, 1 mês tarifário corresponde a 30 dias; um período de 31 dias soma 1 mês + 1 diária.
                         </p>
                       </>)}
                   </div>

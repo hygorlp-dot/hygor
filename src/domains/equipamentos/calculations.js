@@ -256,13 +256,13 @@ export const calcEquipCustoObra = (data,obraId,ym,periodStart="",periodEnd="") =
   const start=periodStart||`${ym}-01`;
   const end=periodEnd||`${ym}-${String(new Date(year,month,0).getDate()).padStart(2,"0")}`;
   return (data?.locacoesEquip||[])
-    .filter(locacao=>locacao?.obraId===obraId)
+    .filter(locacao=>locacao?.obraId===obraId&&locacao?.status!=="cancelada")
     .reduce((total,locacao)=>{
       const days=diasLocacaoNoPeriodo(locacao,start,end);
       if(!days)return total;
-      const gross=days*Number(locacao.valorDiaria||0);
-      const discount=Number(locacao.descontoValor||0)+gross*Number(locacao.descontoPct||0)/100;
-      return total+Math.max(0,gross-discount);
+      const equipamento=(data?.equipamentos||[])
+        .find(item=>item.id===locacao.equipamentoId);
+      return total+cobrancaLocacao(locacao,equipamento,days).liquido;
     },0);
 };
 
