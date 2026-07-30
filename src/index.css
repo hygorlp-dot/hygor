@@ -6799,24 +6799,90 @@ body.no-scroll .arcd-team-chat {
 
 /* Planejamento: campos de data são edição direta, não texto decorativo.
    O foco usa a cor de ação ARCD para permanecer visível em teclado e toque. */
-.planning-inline-date {
-  border-bottom: 1px solid transparent !important;
-  transition: background-color var(--arcd-motion-fast) var(--arcd-ease-standard), border-color var(--arcd-motion-fast) var(--arcd-ease-standard);
+.planning-gantt-header-cell--date {
+  justify-content: flex-start;
+  background: color-mix(in srgb, var(--arcd-color-surface-subtle) 72%, transparent);
+  color: var(--arcd-color-text-muted) !important;
 }
 
-.planning-inline-date:hover:not(:disabled) {
-  background: var(--arcd-color-primary-subtle) !important;
-  border-bottom-color: var(--arcd-color-primary) !important;
+.planning-gantt-grid-cell--date {
+  min-width: 0;
+  background: color-mix(in srgb, var(--arcd-color-surface-subtle) 34%, transparent);
 }
 
-.planning-inline-date:focus-visible {
+.planning-gantt-date-cell {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  padding: 4px 6px;
+}
+
+.planning-gantt-date-cell--start {
+  padding-right: 5px;
+}
+
+.planning-gantt-date-cell--end {
+  padding-left: 5px;
+}
+
+.arcd-main .planning-inline-date {
+  box-sizing: border-box;
+  width: 100% !important;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 30px !important;
+  height: 30px !important;
+  padding: 4px 25px 4px 7px !important;
+  border: 1px solid var(--arcd-border-strong) !important;
+  border-radius: 6px !important;
   background: var(--arcd-color-surface) !important;
-  border-bottom-color: var(--arcd-color-primary) !important;
+  color: var(--arcd-color-text) !important;
+  font-size: 10px !important;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  transition: background-color var(--arcd-motion-fast) var(--arcd-ease-standard), border-color var(--arcd-motion-fast) var(--arcd-ease-standard), box-shadow var(--arcd-motion-fast) var(--arcd-ease-standard);
+}
+
+.arcd-main .planning-inline-date::-webkit-calendar-picker-indicator {
+  margin: 0;
+  opacity: 0.72;
+  cursor: pointer;
+}
+
+.arcd-main .planning-inline-date:hover:not(:disabled) {
+  border-color: var(--arcd-color-primary) !important;
+  background: var(--arcd-color-primary-subtle) !important;
+}
+
+.arcd-main .planning-inline-date:focus-visible {
+  background: var(--arcd-color-surface) !important;
+  border-color: var(--arcd-color-primary) !important;
   outline: 2px solid var(--arcd-color-focus) !important;
-  outline-offset: -2px;
+  outline-offset: 1px;
+  box-shadow: 0 1px 5px rgb(15 23 42 / 10%);
+}
+
+.arcd-main .planning-inline-date:disabled {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--arcd-color-text-muted) !important;
+  opacity: 0.75;
 }
 
 @media(max-width:700px){
+  .planning-gantt-date-cell {
+    padding: 2px 4px;
+  }
+
+  .arcd-main .planning-inline-date {
+    min-height: 44px !important;
+    height: 44px !important;
+    padding-right: 30px !important;
+    font-size: 16px !important;
+  }
+
   .standard-module-header {
     padding: 13px 12px !important;
   }

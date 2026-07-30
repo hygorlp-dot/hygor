@@ -28389,14 +28389,16 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
   const totalDias = Math.max(30, janela.dias + 10);   // folga de 10 dias
   const pxPorDia  = zoom === "dia" ? 34 : zoom === "semana" ? 12 : 4;
   const larguraGrade = totalDias * pxPorDia;
-  const ALTURA_LINHA = 38;
+  // A linha reserva respiro próprio para os campos de data. No celular,
+  // mantém o alvo de toque de 44 px sem invadir a atividade vizinha.
+  const ALTURA_LINHA = isDesktop ? 40 : 48;
   const ALTURA_REGUA = zoom === "dia" ? 50 : zoom === "semana" ? 40 : 30;
   // Definicao das colunas da tabela de tarefas. "atividade" sempre presente;
   // as demais respeitam colsCrono. Larguras diferentes no desktop e no celular.
   const COLS_CRONO_DEF = [
     { id:"atividade",   label:"Atividade / custo", w:isDesktop?220:150, fixa:true },
-    { id:"inicio",      label:"Data inicio",       w:isDesktop?112:105 },
-    { id:"fim",         label:"Data fim",          w:isDesktop?112:105 },
+    { id:"inicio",      label:"Data inicio",       w:isDesktop?120:132 },
+    { id:"fim",         label:"Data fim",          w:isDesktop?120:132 },
     { id:"dias",        label:"Dias trab.",        w:isDesktop?76:70 },
     { id:"custo",       label:"Custo",             w:isDesktop?100:92 },
     { id:"progresso",   label:"Progresso",         w:isDesktop?92:84 },
@@ -28788,7 +28790,9 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
               <div style={{ height: ALTURA_REGUA, borderBottom: `1px solid ${C.line}`,
                             display:"grid", gridTemplateColumns:COLUNAS_TAREFA, alignItems:"center" }}>
                 {colunasVisiveis.map((col,i)=>(
-                  <span key={col.id} style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase",
+                  <span key={col.id}
+                    className={`planning-gantt-header-cell${col.id==="inicio"||col.id==="fim"?" planning-gantt-header-cell--date":""}`}
+                    style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase",
                     padding:"0 7px",borderLeft:i?`1px solid ${C.line}`:"none",height:"100%",
                     display:"flex",alignItems:"center"}}>{col.label}</span>
                 ))}
@@ -28826,14 +28830,14 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
                     </div>
                   ),
                   inicio: (
-                    <div key="inicio" style={{display:"flex",alignItems:"center"}}>
+                    <div key="inicio" className="planning-gantt-date-cell planning-gantt-date-cell--start">
                       <input className="planning-inline-date" aria-label={`Início planejado de ${t.nome||"atividade"}`} key={`${t.id}-ini-${t.inicio}`} type="date" value={t.inicio||""} disabled={t.titulo}
                         onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
                         onChange={e=>e.target.value&&e.target.value!==t.inicio&&atualizarTarefaNaLinha(t,"inicio",e.target.value)} style={estiloInput}/>
                     </div>
                   ),
                   fim: (
-                    <div key="fim" style={{display:"flex",alignItems:"center"}}>
+                    <div key="fim" className="planning-gantt-date-cell planning-gantt-date-cell--end">
                       <input className="planning-inline-date" aria-label={`Fim planejado de ${t.nome||"atividade"}`} key={`${t.id}-fim-${t.fim}`} type="date" value={t.fim||""} disabled={t.titulo}
                         onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
                         onChange={e=>e.target.value&&e.target.value!==t.fim&&atualizarTarefaNaLinha(t,"fim",e.target.value)} style={estiloInput}/>
@@ -28882,7 +28886,9 @@ function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null
                   <div key={t.id} style={{height:ALTURA_LINHA,display:"grid",gridTemplateColumns:COLUNAS_TAREFA,
                                           borderBottom:`1px solid ${C.line}`,background:conflitoVinculo?`${C.orange}0B`:"transparent"}}>
                     {colunasVisiveis.map((col,i)=>(
-                      <div key={col.id} style={{borderLeft:bordaEsq(i),minWidth:0,display:"flex"}}>
+                      <div key={col.id}
+                        className={`planning-gantt-grid-cell${col.id==="inicio"||col.id==="fim"?" planning-gantt-grid-cell--date":""}`}
+                        style={{borderLeft:bordaEsq(i),minWidth:0,display:"flex"}}>
                         {celulas[col.id]}
                       </div>
                     ))}
