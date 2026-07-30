@@ -488,7 +488,12 @@ const gravarMutacaoNaTransacao=async({
     const snapshot=buildLegacyFinancialFacts(value);
     const [saved]=await transaction`
       select * from financial_save_with_sync(
-        ${COMPANY},${KEY},${locked.updated_at},
+        ${COMPANY},${KEY},
+        (
+          select updated_at
+            from company_app_data
+           where company_id=${COMPANY} and key=${KEY}
+        ),
         ${JSON.stringify(encodeAppData(value))}::jsonb,
         ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
         ${correlationId},${action},

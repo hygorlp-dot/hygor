@@ -18,6 +18,15 @@ describe("serialização sistêmica das mutações da empresa",()=>{
     expect(api).toContain("insert into audit_events(");
   });
 
+  it("mantém a precisão integral do updated_at dentro do PostgreSQL",()=>{
+    const start=api.indexOf("const gravarMutacaoNaTransacao=");
+    const end=api.indexOf("// Todos os escritores",start);
+    const implementation=api.slice(start,end);
+    expect(implementation).toContain("select updated_at");
+    expect(implementation).toContain("where company_id=${COMPANY} and key=${KEY}");
+    expect(implementation).not.toContain("${locked.updated_at}");
+  });
+
   it("desvia todos os comandos operacionais para a fila do banco antes do fallback CAS",()=>{
     const route=api.slice(api.indexOf('if(action==="operational-command")'));
     expect(route.indexOf("if(process.env.POSTGRES_URL_NON_POOLING)")).toBeLessThan(
