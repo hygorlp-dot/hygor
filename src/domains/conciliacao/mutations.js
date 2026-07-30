@@ -306,10 +306,12 @@ export const criarLancamentoPelaTransacao = (data, params) => {
   const criados = [];
 
   if (tipoLancamento === "despesa_obra") {
+    if (Number(tr.valor) >= 0) return { data, resumo: { ok: false, motivo: "Despesa da obra exige uma saída bancária" } };
     const item = { id, obraId, competencia: (tr.data || "").slice(0, 7), data:tr.data, dataPagamento:tr.data, pago:true, categoria: categoria || "outros", descricao: descricao || tr.descricao, valor, contaAdmin: false, transacaoId };
     next = { ...next, outrasDesp: [...(next.outrasDesp || []), item] };
     criados.push({ tipo: "outrasDesp", id, entidadeId: id });
   } else if (tipoLancamento === "despesa_administrativa" || tipoLancamento === "tarifa_bancaria" || tipoLancamento === "tributo") {
+    if (Number(tr.valor) >= 0) return { data, resumo: { ok: false, motivo: "Este lançamento exige uma saída bancária" } };
     const item = { id, competencia: (tr.data || "").slice(0, 7), data:tr.data, dataPagamento:tr.data, pago:true, categoria: categoria || tipoLancamento, descricao: descricao || tr.descricao, valor, recorrente: false, transacaoId };
     next = { ...next, despesasEmpresa: [...(next.despesasEmpresa || []), item] };
     criados.push({ tipo: "despesasEmpresa", id, entidadeId: id });

@@ -141,6 +141,26 @@ describe("C. criar lançamento novo - exige verificação de duplicidade prévia
     expect(next.transacoes.find(t => t.id === "t1").status).toBe("conciliado");
   });
 
+  test("bloqueia despesa de obra quando a transação é uma entrada bancária", () => {
+    const data = dataBase();
+    const { data: next, resumo } = criarLancamentoPelaTransacao(data, {
+      transacaoId: "t3", tipoLancamento: "despesa_obra", obraId: "o1", categoria: "outros", operador, duplicidadeRevisada: true,
+    });
+    expect(resumo.ok).toBe(false);
+    expect(resumo.motivo).toMatch(/saída bancária/i);
+    expect(next.outrasDesp).toHaveLength(0);
+  });
+
+  test("bloqueia despesa administrativa quando a transação é uma entrada bancária", () => {
+    const data = dataBase();
+    const { data: next, resumo } = criarLancamentoPelaTransacao(data, {
+      transacaoId: "t3", tipoLancamento: "despesa_administrativa", descricao: "Pix recebido", operador, duplicidadeRevisada: true,
+    });
+    expect(resumo.ok).toBe(false);
+    expect(resumo.motivo).toMatch(/saída bancária/i);
+    expect(next.despesasEmpresa).toHaveLength(0);
+  });
+
   test("registra aporte no caixa sem classificá-lo como receita ou despesa", () => {
     const data = dataBase();
     const { data: next, resumo } = criarLancamentoPelaTransacao(data, {
