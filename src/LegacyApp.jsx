@@ -33572,15 +33572,35 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     }
   };
   const excluirEquip = async(e) => {
-    if(!window.confirm(`Inativar "${e.nome}"? O histórico é preservado.`)) return;
-    const result=await dispatchCommand?.(atual=>{
-      const current=(atual.equipamentos||[]).find(item=>item.id===e.id);
-      return {type:OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,idempotencyKey:`equipamento-inativar-${e.id}-${uid()}`,
-        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{equipmentId:e.id,reason:"Inativado pelo cadastro de equipamentos"}};
-    });
-    if(!result?.ok){showToast(result?.reason||"Não foi possível inativar o equipamento.","error");return;}
-    showToast("Equipamento inativado.");
+    const locacaoAberta=(data.locacoesEquip||[]).some(locacao=>
+      locacao.equipamentoId===e.id&&locacao.status!=="cancelada"&&!locacao.fim);
+    if(locacaoAberta){
+      showToast("Encerre a locação em aberto antes de excluir o equipamento.","error");
+      return;
+    }
+    const possuiHistorico=(data.locacoesEquip||[]).some(locacao=>locacao.equipamentoId===e.id)
+      ||(data.manutencoesEquip||[]).some(manutencao=>manutencao.equipamentoId===e.id)
+      ||(data.transferenciasEquip||[]).some(transferencia=>transferencia.equipamentoId===e.id);
+    const explicacao=possuiHistorico
+      ?"Ele sairá da frota ativa, mas locações, cobranças e manutenções anteriores serão preservadas."
+      :"Ele sairá da frota ativa.";
+    if(!window.confirm(`Excluir "${e.nome}"?\n\n${explicacao}`)) return;
+    setSalvandoEquipamento("exclusao");
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.equipamentos||[]).find(item=>item.id===e.id);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,idempotencyKey:`equipamento-inativar-${e.id}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{equipmentId:e.id,reason:"Excluído da frota pelo cadastro de equipamentos"}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível excluir o equipamento.","error");return;}
+      setEquipModal(null);
+      showToast(possuiHistorico?"Equipamento excluído da frota. O histórico foi preservado.":"Equipamento excluído da frota.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao excluir o equipamento.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
   };
 
   const salvarDono = (f) => {
@@ -33752,7 +33772,10 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                     <Btn size="sm" v="ghost" onClick={()=>setLocModal({...locVazio, equipamentoId:e.id, valorDiaria:e.valorDiaria, custoDiaria:e.custoDiaria, obraId:e.obraAtualId})}>Locar</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>setTransfModal({...transfVazio, equipamentoId:e.id})}>Transferir</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>setManutModal({...manutVazio, equipamentoId:e.id})}>Manutenção</Btn>
-                    <Btn size="sm" v="ghost" onClick={()=>excluirEquip(e)}><Ic n="trash"/></Btn>
+                    <Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirEquip(e)}
+                      title="Excluir equipamento da frota" ariaLabel={`Excluir ${e.nome}`}>
+                      <Ic n="trash"/> Excluir
+                    </Btn>
                   </div>
                 </div>
               );
@@ -34184,7 +34207,12 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
             <Inp label="Data de aquisição" type="date" value={equipModal.aquisicao} onChange={v=>setEquipModal(f=>({...f,aquisicao:v}))}/>
             <Inp label="Valor de aquisição (R$)" type="number" value={equipModal.valorAquisicao} onChange={v=>setEquipModal(f=>({...f,valorAquisicao:v}))}/>
             <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={equipModal.obs} onChange={v=>setEquipModal(f=>({...f,obs:v}))} multiline/></div>
-            <div style={{gridColumn:"1/-1"}}><Btn full loading={salvandoEquipamento==="equipamento"} disabled={!!salvandoEquipamento} onClick={()=>salvarEquip(equipModal)}>{salvandoEquipamento==="equipamento"?"Salvando equipamento...":"Salvar equipamento"}</Btn></div>
+            <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:equipModal.id?"minmax(140px,.35fr) minmax(200px,1fr)":"1fr",gap:8}}>
+              {equipModal.id&&<Btn full v="danger" loading={salvandoEquipamento==="exclusao"} disabled={!!salvandoEquipamento}
+                onClick={()=>excluirEquip(equipModal)}><Ic n="trash"/> {salvandoEquipamento==="exclusao"?"Excluindo...":"Excluir equipamento"}</Btn>}
+              <Btn full loading={salvandoEquipamento==="equipamento"} disabled={!!salvandoEquipamento}
+                onClick={()=>salvarEquip(equipModal)}>{salvandoEquipamento==="equipamento"?"Salvando equipamento...":"Salvar equipamento"}</Btn>
+            </div>
           </div>
         </Modal>
       )}
