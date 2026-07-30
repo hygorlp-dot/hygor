@@ -25,7 +25,8 @@ datas e identificadores. Corpo com `letter-spacing: .16px`; títulos com peso
 ## Forma e profundidade
 
 - Grade de 4px.
-- Controles com raio de 0–2px; painéis com no máximo 4px.
+- Campos de texto, seletores e áreas editáveis usam raio de 8px, superfície
+  branca e borda contrastante; painéis permanecem estruturais, com até 4px.
 - Bordas de 1px e mudança de superfície; sem sombras decorativas.
 - Cards não devem flutuar nem usar gradientes.
 - Áreas de toque com mínimo de 44px no mobile.

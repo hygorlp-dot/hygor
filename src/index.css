@@ -594,59 +594,82 @@
   background-color: #f4f4f4;
 }
 
-.arcd-main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
-.arcd-main select,
-.arcd-main textarea {
+:is(.arcd-main, .arcd-modal-body) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+:is(.arcd-main, .arcd-modal-body) select,
+:is(.arcd-main, .arcd-modal-body) textarea {
   min-height: 40px;
-  border: 1px solid #8d8d8d !important;
-  border-bottom: 2px solid #8d8d8d !important;
-  border-radius: 2px !important;
-  background-color: #f4f4f4 !important;
-  box-shadow: inset 2px 0 0 #c6c6c6 !important;
+  border: 1px solid var(--arcd-border-strong) !important;
+  border-radius: var(--arcd-radius-control) !important;
+  background-color: var(--arcd-surface-card) !important;
+  box-shadow: none !important;
+  color: var(--arcd-text-primary) !important;
   cursor: text;
-  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition:
+    background-color var(--arcd-motion-fast) var(--arcd-ease-standard),
+    border-color var(--arcd-motion-fast) var(--arcd-ease-standard),
+    outline-color var(--arcd-motion-fast) var(--arcd-ease-standard);
 }
 
-.arcd-main select {
+:is(.arcd-main, .arcd-modal-body) input::placeholder,
+:is(.arcd-main, .arcd-modal-body) textarea::placeholder {
+  color: var(--arcd-text-muted);
+  opacity: 1;
+}
+
+:is(.arcd-main, .arcd-modal-body) select {
   cursor: pointer;
 }
 
-.arcd-main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):hover:not(:disabled),
-.arcd-main select:hover:not(:disabled),
-.arcd-main textarea:hover:not(:disabled) {
-  border-color: #525252 !important;
-  border-bottom-color: #525252 !important;
-  background-color: #ffffff !important;
-  box-shadow: inset 2px 0 0 #8d8d8d !important;
+:is(.arcd-main, .arcd-modal-body) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):hover:not(:disabled):not([readonly]),
+:is(.arcd-main, .arcd-modal-body) select:hover:not(:disabled),
+:is(.arcd-main, .arcd-modal-body) textarea:hover:not(:disabled):not([readonly]) {
+  border-color: var(--arcd-text-secondary) !important;
+  background-color: var(--arcd-gray-0) !important;
 }
 
-.arcd-main input:focus,
-.arcd-main select:focus,
-.arcd-main textarea:focus {
-  border-color: #d4af37 !important;
-  border-bottom-color: #d4af37 !important;
-  outline: 2px solid rgba(212,175,55,.45) !important;
+:is(.arcd-main, .arcd-modal-body) input:focus,
+:is(.arcd-main, .arcd-modal-body) select:focus,
+:is(.arcd-main, .arcd-modal-body) textarea:focus {
+  border-color: var(--arcd-focus-ring) !important;
+  outline: 3px solid color-mix(in srgb, var(--arcd-focus-ring) 48%, transparent) !important;
   outline-offset: 1px;
-  background-color: #ffffff !important;
-  box-shadow: inset 2px 0 0 #d4af37 !important;
+  background-color: var(--arcd-gray-0) !important;
+  box-shadow: none !important;
 }
 
-.arcd-main input:disabled,
-.arcd-main select:disabled,
-.arcd-main textarea:disabled {
-  border-color: #d6d6d6 !important;
-  border-bottom-color: #d6d6d6 !important;
-  background-color: #e8e8e8 !important;
+:is(.arcd-main, .arcd-modal-body) input[aria-invalid="true"],
+:is(.arcd-main, .arcd-modal-body) select[aria-invalid="true"],
+:is(.arcd-main, .arcd-modal-body) textarea[aria-invalid="true"],
+:is(.arcd-main, .arcd-modal-body) input:user-invalid,
+:is(.arcd-main, .arcd-modal-body) select:user-invalid,
+:is(.arcd-main, .arcd-modal-body) textarea:user-invalid {
+  border-color: var(--arcd-danger-text) !important;
+  background-color: var(--arcd-danger-surface) !important;
+}
+
+:is(.arcd-main, .arcd-modal-body) input[readonly],
+:is(.arcd-main, .arcd-modal-body) textarea[readonly] {
+  border-color: var(--arcd-border-default) !important;
+  background-color: var(--arcd-surface-page) !important;
+  color: var(--arcd-text-secondary) !important;
+  cursor: default;
+}
+
+:is(.arcd-main, .arcd-modal-body) input:disabled,
+:is(.arcd-main, .arcd-modal-body) select:disabled,
+:is(.arcd-main, .arcd-modal-body) textarea:disabled {
+  border-color: var(--arcd-border-default) !important;
+  background-color: var(--arcd-surface-muted) !important;
   box-shadow: none !important;
-  color: #6f6f6f !important;
+  color: var(--arcd-text-muted) !important;
   cursor: not-allowed;
 }
 
-.arcd-main [contenteditable="true"] {
+:is(.arcd-main, .arcd-modal-body) [contenteditable="true"] {
   min-height: 32px;
-  border: 1px dashed #8d8d8d !important;
-  border-bottom: 2px solid #8d8d8d !important;
-  background: #f4f4f4 !important;
+  border: 1px dashed var(--arcd-border-strong) !important;
+  border-radius: var(--arcd-radius-control) !important;
+  background: var(--arcd-surface-card) !important;
   cursor: text;
 }
 
@@ -663,16 +686,16 @@
   }
 }
 
-.arcd-main [contenteditable="true"]:hover {
-  border-color: #777d82 !important;
-  background: #eef0f1 !important;
+:is(.arcd-main, .arcd-modal-body) [contenteditable="true"]:hover {
+  border-color: var(--arcd-text-secondary) !important;
+  background: var(--arcd-gray-0) !important;
 }
 
-.arcd-main [contenteditable="true"]:focus {
+:is(.arcd-main, .arcd-modal-body) [contenteditable="true"]:focus {
   border-style: solid !important;
-  border-color: #d4af37 !important;
-  outline: 2px solid #d4af37;
-  outline-offset: -2px;
+  border-color: var(--arcd-focus-ring) !important;
+  outline: 3px solid color-mix(in srgb, var(--arcd-focus-ring) 48%, transparent);
+  outline-offset: 1px;
 }
 
 .arcd-main button {

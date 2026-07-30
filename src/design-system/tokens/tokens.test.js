@@ -20,4 +20,9 @@ describe("tokens do design system ARCD", () => {
     expect(source).toContain('"./safe-area.css"');
     expect(source).toContain('"./viewport.css"');
   });
+
+  it("mantém um raio próprio e consistente para campos editáveis",()=>{
+    const source=readFileSync(resolve(process.cwd(),"src/design-system/tokens/radius.css"),"utf8");
+    expect(source).toContain("--arcd-radius-control: 0.5rem");
+  });
 });
