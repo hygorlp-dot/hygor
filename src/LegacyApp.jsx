@@ -38100,7 +38100,6 @@ export default function App() {
     const atualizar = () => { registrarPresenca(tabPresencaRef.current); };
     const aoMudarVisibilidade = () => { if (!document.hidden) atualizar(); };
     const aoFechar = () => { encerrarPresenca(true); };
-    atualizar();
     const timer = window.setInterval(atualizar, 45000);
     document.addEventListener("visibilitychange", aoMudarVisibilidade);
     window.addEventListener("pagehide", aoFechar);

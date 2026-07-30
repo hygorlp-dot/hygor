@@ -17,6 +17,8 @@ const ROTA = "/api/data";
 let sessao = { userId: null, pin: null, accessToken: null, refreshToken: null, sessionId: null };
 try { sessao={...sessao,...JSON.parse(sessionStorage.getItem("arcd_auth_session")||"{}")}; } catch (_) {}
 let ultimoUpdatedAt = null;
+let renovacaoEmCurso = null;
+let presenceAuthBlocked = false;
 
 const novaSessaoId = () => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -25,10 +27,12 @@ const novaSessaoId = () => {
 
 export const abrirSessao = (userId, pin) => {
   sessao = { userId, pin, accessToken:null,refreshToken:null,sessionId: novaSessaoId() };
+  presenceAuthBlocked=false;
 };
 
 const abrirSessaoEmail=(userId,accessToken,refreshToken)=>{
   sessao={userId,pin:null,accessToken,refreshToken,sessionId:novaSessaoId()};
+  presenceAuthBlocked=false;
   try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
 };
 
@@ -49,25 +53,32 @@ const tokenExpiraEmBreve = (token, margemSegundos=30) => {
 
 const renovarSessaoEmail = async () => {
   if(!sessao.refreshToken)return false;
-  const controller=new AbortController();
-  const timer=window.setTimeout(()=>controller.abort(),15000);
-  try{
-    const response=await fetch(ROTA,{
-      method:"POST",signal:controller.signal,
-      headers:{"content-type":"application/json"},
-      body:JSON.stringify({action:"auth-refresh",refreshToken:sessao.refreshToken}),
-    });
-    const refreshed=await response.json().catch(()=>({}));
-    if(!response.ok||!refreshed.accessToken)return false;
-    sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
-    try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
-    return true;
-  }catch{return false;}
-  finally{window.clearTimeout(timer);}
+  if(renovacaoEmCurso)return renovacaoEmCurso;
+  renovacaoEmCurso=(async()=>{
+    const controller=new AbortController();
+    const timer=window.setTimeout(()=>controller.abort(),15000);
+    try{
+      const response=await fetch(ROTA,{
+        method:"POST",signal:controller.signal,
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({action:"auth-refresh",refreshToken:sessao.refreshToken}),
+      });
+      const refreshed=await response.json().catch(()=>({}));
+      if(!response.ok||!refreshed.accessToken)return false;
+      sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
+      presenceAuthBlocked=false;
+      try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
+      return true;
+    }catch{return false;}
+    finally{window.clearTimeout(timer);}
+  })();
+  try{return await renovacaoEmCurso;}
+  finally{renovacaoEmCurso=null;}
 };
 
 export const fecharSessao = () => {
   sessao = { userId: null, pin: null, accessToken:null,refreshToken:null,sessionId:null };
+  presenceAuthBlocked=false;
   try{sessionStorage.removeItem("arcd_auth_session");}catch(_){}
   ultimoUpdatedAt = null;
 };
@@ -114,6 +125,9 @@ const chamar = async (body) => {
 // de e-mail antes de repetir a requisição.
 const chamarRotaAutenticada = async (rota, payload = {}) => {
   if (!temSessao()) return { ok:false, status:401, error:"Sessão encerrada." };
+  if(sessao.accessToken&&sessao.refreshToken&&tokenExpiraEmBreve(sessao.accessToken)){
+    await renovarSessaoEmail();
+  }
   const executar = async () => {
     const controller=new AbortController();
     const timer=window.setTimeout(()=>controller.abort(),45000);
@@ -314,23 +328,29 @@ export const logout = fecharSessao;
 // Cada aba usa um sessionId próprio e grava em uma linha separada do dataset.
 const chamarPresenca = async (action, extra = {}, keepalive = false) => {
   if (!temSessao()) return { ok: false, erro: "Sessão encerrada." };
-  try {
-    const r = await fetch("/api/presence", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        action,
-        ...credenciais(),
-        sessionId: sessao.sessionId,
-        ...extra,
-      }),
-      keepalive,
-    });
-    const json = await r.json().catch(() => ({}));
-    return { ok: r.ok, status: r.status, erro: json.error, ...json };
-  } catch {
-    return { ok: false, erro: "Não foi possível atualizar a presença." };
+  if(presenceAuthBlocked)return {
+    ok:false,status:401,erro:"A presença on-line aguardará a renovação da sessão.",suspended:true,
+  };
+  const payload={action,sessionId:sessao.sessionId,...extra};
+  if(keepalive){
+    try{
+      const response=await fetch("/api/presence",{
+        method:"POST",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({...credenciais(),...payload}),
+        keepalive:true,
+      });
+      if(response.status===401)presenceAuthBlocked=true;
+      const json=await response.json().catch(()=>({}));
+      return {ok:response.ok,status:response.status,erro:json.error,...json};
+    }catch{
+      return {ok:false,status:0,erro:"Não foi possível atualizar a presença."};
+    }
   }
+  const result=await chamarRotaAutenticada("/api/presence",payload);
+  if(result.status===401)presenceAuthBlocked=true;
+  if(result.ok)presenceAuthBlocked=false;
+  return {...result,erro:result.error};
 };
 
 const descricaoDispositivo = () => {
