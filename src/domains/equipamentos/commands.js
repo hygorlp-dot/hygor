@@ -85,7 +85,6 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const input=normalizeEquipment(payload.equipment||{});
     if(!input.id||!input.nome)return fail("Informe a identificação e o nome do equipamento.");
     if(!EQUIPMENT_STATUS.has(String(input.status||"disponivel")))return fail("Situação do equipamento inválida.");
-    if(!RATE_KEYS.some(key=>input.tarifas[key]>0))return fail("Informe ao menos uma tarifa do equipamento.");
     if(!obraExists(data,input.obraAtualId))return fail("A obra atual do equipamento não existe.");
     const duplicatePatrimony=input.patrimonio&&list(data,"equipamentos").some(item=>
       item.ativo!==false&&String(item.id)!==String(input.id)

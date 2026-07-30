@@ -33440,6 +33440,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const [resultadosSinapiEquip,setResultadosSinapiEquip]=useState([]);
   const [carregandoSinapiEquip,setCarregandoSinapiEquip]=useState(false);
   const [avisoSinapiEquip,setAvisoSinapiEquip]=useState("");
+  const [salvandoEquipamento,setSalvandoEquipamento]=useState("");
 
   const obraName = id => (data.obras||[]).find(o=>o.id===id)?.name || "—";
   const donoName = id => id ? ((data.proprietariosEquip||[]).find(p=>p.id===id)?.nome || "Terceiro") : "Empresa";
@@ -33545,9 +33546,6 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     });
     const tarifas = numTar(f.tarifas);
     const tarifasCusto = numTar(f.tarifasCusto);
-    if (!PACOTES_TARIFA.some(p => tarifas[p.id] > 0)) {
-      showToast("Informe ao menos uma tarifa (dia, semana, quinzena ou mês).","error"); return;
-    }
     const eq = { ...f, tarifas, tarifasCusto,
       quantidadeTotal: Math.max(1, Number(f.quantidadeTotal || 1)),
       // Mantem os campos antigos coerentes com a tarifa diaria (retrocompat).
@@ -33555,14 +33553,21 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       valorAquisicao:Number(f.valorAquisicao||0),
       sinapiPreco:Number(f.sinapiPreco||0) };
     const id=f.id||uid(),isEdit=!!f.id;
-    const result=await dispatchCommand?.(atual=>{
-      const current=(atual.equipamentos||[]).find(item=>item.id===id);
-      return {type:OPERATIONAL_COMMAND.EQUIPMENT_SAVED,idempotencyKey:`equipamento-salvar-${id}-${uid()}`,
-        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{equipment:{...eq,id,ativo:current?.ativo!==false}}};
-    });
-    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar o equipamento.","error");return;}
-    setEquipModal(null); showToast(isEdit?"Equipamento atualizado.":"Equipamento cadastrado.");
+    setSalvandoEquipamento("equipamento");
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.equipamentos||[]).find(item=>item.id===id);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_SAVED,idempotencyKey:`equipamento-salvar-${id}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{equipment:{...eq,id,ativo:current?.ativo!==false}}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível salvar o equipamento.","error");return;}
+      setEquipModal(null); showToast(isEdit?"Equipamento atualizado.":"Equipamento cadastrado.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao cadastrar o equipamento.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
   };
   const excluirEquip = async(e) => {
     if(!window.confirm(`Inativar "${e.nome}"? O histórico é preservado.`)) return;
@@ -33597,14 +33602,21 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       valorDiaria:Number(f.valorDiaria||0), custoDiaria:Number(f.custoDiaria||0),
       descontoPct:Number(f.descontoPct||0), descontoValor:Number(f.descontoValor||0) };
     const id=f.id||uid(),isEdit=!!f.id;
-    const result=await dispatchCommand?.(atual=>{
-      const current=(atual.locacoesEquip||[]).find(item=>item.id===id);
-      return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,idempotencyKey:`locacao-equipamento-salvar-${id}-${uid()}`,
-        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{rental:{...loc,id}}};
-    });
-    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a locação.","error");return;}
-    setLocModal(null); showToast(isEdit?"Locação atualizada.":"Locação registrada.");
+    setSalvandoEquipamento("locacao");
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.locacoesEquip||[]).find(item=>item.id===id);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,idempotencyKey:`locacao-equipamento-salvar-${id}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{rental:{...loc,id}}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a locação.","error");return;}
+      setLocModal(null); showToast(isEdit?"Locação atualizada.":"Locação registrada.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao registrar a locação.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
   };
   const encerrarLoc = async(l) => {
     const fim = window.prompt("Data de término (AAAA-MM-DD):", today());
@@ -33647,9 +33659,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   };
 
   // ---- Formulários vazios ----
-  const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, obs:"" };
+  const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", tarifas:{dia:"",semana:"",quinzena:"",mes:""}, tarifasCusto:{dia:"",semana:"",quinzena:"",mes:""}, quantidadeTotal:1, valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:obraIdFixo||"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, obs:"" };
   const donoVazio  = { nome:"", documento:"", telefone:"", email:"", chavePix:"", obs:"" };
-  const locVazio   = { equipamentoId:"", obraId:"", inicio:today(), fim:"", valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
+  const locVazio   = { equipamentoId:"", obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
   const manutVazio = { equipamentoId:"", data:today(), tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
   const transfVazio= { equipamentoId:"", paraObraId:"", data:today(), responsavel:"", obs:"" };
 
@@ -34077,7 +34089,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               {(() => {
                 const t = equipModal.tarifas || {};
                 const algum = ["dia","semana","quinzena","mes"].some(k=>Number(t[k]||0)>0);
-                if (!algum) return <p style={{fontSize:10,color:C.orange,marginTop:8}}>Informe ao menos uma tarifa, senão a locação não terá valor.</p>;
+                if (!algum) return <p style={{fontSize:10,color:C.muted,marginTop:8}}>Opcional no cadastro. Você pode informar a tarifa agora ou negociar ao criar a locação.</p>;
                 // Previa: quanto sai um mes cheio pela combinacao mais barata.
                 const p30 = melhorTarifa(t, 30);
                 return (
@@ -34106,7 +34118,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
             <Inp label="Data de aquisição" type="date" value={equipModal.aquisicao} onChange={v=>setEquipModal(f=>({...f,aquisicao:v}))}/>
             <Inp label="Valor de aquisição (R$)" type="number" value={equipModal.valorAquisicao} onChange={v=>setEquipModal(f=>({...f,valorAquisicao:v}))}/>
             <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={equipModal.obs} onChange={v=>setEquipModal(f=>({...f,obs:v}))} multiline/></div>
-            <div style={{gridColumn:"1/-1"}}><Btn full onClick={()=>salvarEquip(equipModal)}>Salvar equipamento</Btn></div>
+            <div style={{gridColumn:"1/-1"}}><Btn full loading={salvandoEquipamento==="equipamento"} disabled={!!salvandoEquipamento} onClick={()=>salvarEquip(equipModal)}>{salvandoEquipamento==="equipamento"?"Salvando equipamento...":"Salvar equipamento"}</Btn></div>
           </div>
         </Modal>
       )}
@@ -34181,7 +34193,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                 negociar um preco so para esta obra. */}
             {(() => {
               const eq = (data.equipamentos||[]).find(x=>x.id===locModal.equipamentoId);
-              const usaProprias = PACOTES_TARIFA.some(p => Number(locModal.tarifas?.[p.id]||0) > 0);
+              const usaProprias = locModal.tarifaNegociada===true
+                || PACOTES_TARIFA.some(p => Number(locModal.tarifas?.[p.id]||0) > 0);
               const tarifasEfetivas = tarifasDaLocacao(locModal, eq);
               // Dias do contrato (se tiver fim); senao mostra a previa de 30 dias.
               const diasContrato = locModal.inicio && locModal.fim
@@ -34196,6 +34209,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                       <label style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.muted,cursor:"pointer"}}>
                         <input type="checkbox" checked={usaProprias}
                           onChange={e=>setLocModal(f=>({...f,
+                            tarifaNegociada:e.target.checked,
                             tarifas: e.target.checked ? {...(eq?.tarifas||{})} : {dia:0,semana:0,quinzena:0,mes:0}}))}
                           style={{width:15,height:15,accentColor:C.yellowD,cursor:"pointer"}}/>
                         Negociar preço só para esta obra
@@ -34258,7 +34272,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               );
             })()}
             <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={locModal.obs} onChange={v=>setLocModal(f=>({...f,obs:v}))} multiline/></div>
-            <div style={{gridColumn:"1/-1"}}><Btn full onClick={()=>salvarLoc(locModal)}>Salvar locação</Btn></div>
+            <div style={{gridColumn:"1/-1"}}><Btn full loading={salvandoEquipamento==="locacao"} disabled={!!salvandoEquipamento} onClick={()=>salvarLoc(locModal)}>{salvandoEquipamento==="locacao"?"Salvando locação...":"Salvar locação"}</Btn></div>
           </div>
         </Modal>
       )}

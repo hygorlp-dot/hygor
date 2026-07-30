@@ -24,6 +24,23 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(stale.reason).toMatch(/alterado por outra pessoa/);
   });
 
+  it("permite cadastrar o ativo antes de definir a tabela de locação",()=>{
+    const draft=equipment({
+      tarifas:{dia:0,semana:0,quinzena:0,mes:0},
+      tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0},
+    });
+    const created=applyOperationalCommand(
+      base(),
+      command(OPERATIONAL_COMMAND.EQUIPMENT_SAVED,"equipment-without-rates-0001",{equipment:draft},0),
+    );
+    expect(created.ok).toBe(true);
+    expect(created.data.equipamentos[0]).toMatchObject({
+      id:"eq-1",
+      valorDiaria:0,
+      tarifas:{dia:0,semana:0,quinzena:0,mes:0},
+    });
+  });
+
   it("é idempotente e recusa patrimônio ativo duplicado",()=>{
     const first=applyOperationalCommand(base(),command(OPERATIONAL_COMMAND.EQUIPMENT_SAVED,"equipment-idempotent-0001",{equipment:equipment({patrimonio:"EQ-10"})},0));
     const repeated=applyOperationalCommand(first.data,command(OPERATIONAL_COMMAND.EQUIPMENT_SAVED,"equipment-idempotent-0001",{equipment:equipment({patrimonio:"EQ-10"})},0));
