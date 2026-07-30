@@ -4,25 +4,34 @@ import { describe, expect, it } from "vitest";
 
 const api=readFileSync(resolve(process.cwd(),"api/data.js"),"utf8");
 
-describe("serialização dos comandos financeiros operacionais",()=>{
-  it("bloqueia e relê a linha antes de aplicar a despesa",()=>{
-    const start=api.indexOf("const executarComandoOperacionalFinanceiroBloqueado=");
+describe("serialização sistêmica das mutações da empresa",()=>{
+  it("bloqueia e relê a linha antes de calcular qualquer mutação",()=>{
+    const start=api.indexOf("const executarMutacaoEmpresaBloqueada=");
     const end=api.indexOf("// Confere o PIN",start);
     const implementation=api.slice(start,end);
     expect(start).toBeGreaterThan(0);
     expect(implementation).toContain("for update");
     expect(implementation.indexOf("for update")).toBeLessThan(
-      implementation.indexOf("applyOperationalCommand(current"),
+      implementation.indexOf("await mutate("),
     );
-    expect(implementation).toContain("financial_save_with_sync(");
-    expect(implementation).toContain("buildLegacyFinancialFacts(executed.data)");
+    expect(api).toContain("financial_save_with_sync(");
+    expect(api).toContain("insert into audit_events(");
   });
 
-  it("desvia o comando para a transação bloqueada antes do retry por snapshot",()=>{
+  it("desvia todos os comandos operacionais para a fila do banco antes do fallback CAS",()=>{
     const route=api.slice(api.indexOf('if(action==="operational-command")'));
-    expect(route.indexOf("if(lockedFinancial)")).toBeLessThan(
+    expect(route.indexOf("if(process.env.POSTGRES_URL_NON_POOLING)")).toBeLessThan(
       route.indexOf("const persistir=async"),
     );
-    expect(route).toContain("requiresLockedFinancialOperationalPersistence(");
+    expect(route).toContain("executarComandoOperacionalBloqueado({");
+  });
+
+  it("aplica a mesma serialização ao ponto, conciliação e cadastros legados",()=>{
+    const attendance=api.slice(api.indexOf("if(ATTENDANCE_COMMANDS.has(action))"));
+    const reconciliation=api.slice(api.indexOf('if(action==="reconciliation-command")'));
+    const sections=api.slice(api.indexOf('if (action === "save-sections")'));
+    expect(attendance).toContain("executarMutacaoEmpresaBloqueada({");
+    expect(reconciliation).toContain("executarMutacaoEmpresaBloqueada({");
+    expect(sections).toContain("executarMutacaoEmpresaBloqueada({");
   });
 });
