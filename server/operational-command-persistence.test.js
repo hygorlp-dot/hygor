@@ -13,17 +13,16 @@ const financialCommands=new Set([
 ]);
 
 describe("persistência de comandos operacionais",()=>{
-  it("não reconstrói o razão para alterações cadastrais da frota",()=>{
+  it("não reconstrói o razão para fatos operacionais da frota",()=>{
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_SAVED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,financialCommands)).toBe(false);
   });
 
-  it("mantém sincronização financeira para fatos de locação e manutenção",()=>{
-    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,financialCommands)).toBe(true);
-    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,financialCommands)).toBe(true);
-    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,financialCommands)).toBe(true);
+  it("mantém sincronização financeira para comandos que movimentam o razão",()=>{
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,financialCommands)).toBe(true);
   });
 });
-
