@@ -41,6 +41,7 @@ import { executeReconciliationWithRetry } from "../server/reconciliation-executi
 import { projectReconciliationPatch } from "../server/reconciliation-response.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
+import { requiresFinancialOperationalPersistence } from "../server/operational-command-persistence.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
@@ -972,7 +973,9 @@ export default async function handler(req, res) {
       if(!scope.ok)return res.status(scope.error.includes("vinculado")?400:403).json({error:scope.error});
 
       const persistir=async(base,value)=>{
-        const save=FINANCIAL_OPERATIONAL_COMMANDS.has(command.type)?salvarFinanceiroComAuditoria:salvarComAuditoria;
+        const save=requiresFinancialOperationalPersistence(command.type,FINANCIAL_OPERATIONAL_COMMANDS)
+          ?salvarFinanceiroComAuditoria
+          :salvarComAuditoria;
         return save({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
         before:{command:command.type,entityId:command.payload?.statement?.id||command.payload?.targets?.[0]?.id||command.payload?.contractId||command.payload?.medicaoTecnicaId||command.payload?.expenseId||command.payload?.measurementId||command.payload?.pedidoId||command.payload?.targetId||command.payload?.paymentId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.rentalId||command.payload?.equipmentId||command.payload?.rescissionId||command.payload?.advanceId||command.payload?.projectId||command.payload?.payment?.id||command.payload?.expense?.id||command.payload?.rescission?.id||command.payload?.employee?.id||command.payload?.advance?.id||command.payload?.project?.id||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.equipment?.id||command.payload?.rental?.id||command.payload?.maintenance?.id||command.payload?.transfer?.id||command.payload?.records?.[0]?.id||(command.type===OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED?"company-config":"")},

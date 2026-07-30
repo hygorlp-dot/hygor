@@ -33541,8 +33541,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     if(!f.nome){ showToast("Informe o nome do equipamento.","error"); return; }
     // Normaliza as quatro tarifas (cobradas e pagas) para numero.
     const numTar = (t) => ({
-      dia:Number(t?.dia||0), semana:Number(t?.semana||0),
-      quinzena:Number(t?.quinzena||0), mes:Number(t?.mes||0),
+      dia:Math.max(0,Number(t?.dia||0)), semana:Math.max(0,Number(t?.semana||0)),
+      quinzena:Math.max(0,Number(t?.quinzena||0)), mes:Math.max(0,Number(t?.mes||0)),
     });
     const tarifas = numTar(f.tarifas);
     const tarifasCusto = numTar(f.tarifasCusto);
@@ -33593,8 +33593,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const salvarLoc = async(f) => {
     if(!f.equipamentoId||!f.obraId||!f.inicio){ showToast("Escolha equipamento, obra e data de início.","error"); return; }
     const numTar = (t) => ({
-      dia:Number(t?.dia||0), semana:Number(t?.semana||0),
-      quinzena:Number(t?.quinzena||0), mes:Number(t?.mes||0),
+      dia:Math.max(0,Number(t?.dia||0)), semana:Math.max(0,Number(t?.semana||0)),
+      quinzena:Math.max(0,Number(t?.quinzena||0)), mes:Math.max(0,Number(t?.mes||0)),
     });
     const loc = { ...f,
       quantidade: Math.max(1, Number(f.quantidade || 1)),
@@ -34081,7 +34081,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               </p>
               <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
                 {[["dia","Por dia"],["semana","Por semana"],["quinzena","Por quinzena"],["mes","Por mês"]].map(([k,l])=>(
-                  <Inp key={k} label={`${l} (R$)`} type="number"
+                  <Inp key={k} label={`${l} (R$)`} type="number" min="0"
                        value={equipModal.tarifas?.[k] ?? ""}
                        onChange={v=>setEquipModal(f=>({...f,tarifas:{...(f.tarifas||{}),[k]:v}}))}/>
                 ))}
@@ -34106,7 +34106,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                 <p style={{fontSize:10,color:C.muted,marginBottom:9}}>Deixe zerado se o equipamento for da empresa.</p>
                 <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
                   {[["dia","Por dia"],["semana","Por semana"],["quinzena","Por quinzena"],["mes","Por mês"]].map(([k,l])=>(
-                    <Inp key={k} label={`${l} (R$)`} type="number"
+                    <Inp key={k} label={`${l} (R$)`} type="number" min="0"
                          value={equipModal.tarifasCusto?.[k] ?? ""}
                          onChange={v=>setEquipModal(f=>({...f,tarifasCusto:{...(f.tarifasCusto||{}),[k]:v}}))}/>
                   ))}
@@ -34218,7 +34218,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                     {usaProprias ? (
                       <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
                         {[["dia","Por dia"],["semana","Por semana"],["quinzena","Por quinzena"],["mes","Por mês"]].map(([k,l])=>(
-                          <Inp key={k} label={`${l} (R$)`} type="number"
+                          <Inp key={k} label={`${l} (R$)`} type="number" min="0"
                                value={locModal.tarifas?.[k] ?? ""}
                                onChange={v=>setLocModal(f=>({...f,tarifas:{...(f.tarifas||{}),[k]:v}}))}/>
                         ))}
