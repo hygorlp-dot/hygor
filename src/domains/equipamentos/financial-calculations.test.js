@@ -3,6 +3,7 @@ import {
   calcEquipCustoObra,
   calcEquipFaturamentoEmpresa,
   calcEquipamentosMes,
+  calcEquipamentosPorObra,
 } from "./calculations.js";
 
 describe("motor financeiro de equipamentos", () => {
@@ -41,5 +42,30 @@ describe("motor financeiro de equipamentos", () => {
 
   it("calcula custo da obra no recorte informado", () => {
     expect(calcEquipCustoObra(data, "o1", "2026-07", "2026-07-02", "2026-07-02")).toBe(180);
+  });
+
+  it("projeta equipamentos nas linhas e obras nas colunas sem perder a quantidade",()=>{
+    const matriz=calcEquipamentosPorObra({
+      obras:[
+        {id:"o1",name:"Obra A",status:"active"},
+        {id:"o2",name:"Obra B",status:"active"},
+      ],
+      equipamentos:[
+        {id:"e1",nome:"Betoneira",quantidadeTotal:3,tarifas:{dia:100}},
+      ],
+      locacoesEquip:[
+        {id:"l1",equipamentoId:"e1",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-03",quantidade:2},
+        {id:"l2",equipamentoId:"e1",obraId:"o2",inicio:"2026-07-02",fim:"2026-07-04",quantidade:1},
+      ],
+    },"2026-07");
+    expect(matriz.obras.map(obra=>obra.id)).toEqual(["o1","o2"]);
+    expect(matriz.linhas[0].equip).toMatchObject({nome:"Betoneira",quantidadeTotal:3});
+    expect(matriz.linhas[0].porObra.o1).toMatchObject({
+      dias:3,unidadeDias:6,quantidadePico:2,receita:600,
+    });
+    expect(matriz.linhas[0].porObra.o2).toMatchObject({
+      dias:3,unidadeDias:3,quantidadePico:1,receita:300,
+    });
+    expect(matriz.total).toMatchObject({unidadeDias:9,receita:900});
   });
 });

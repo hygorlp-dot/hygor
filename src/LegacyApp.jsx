@@ -102,6 +102,7 @@ import {
   PACOTES_TARIFA, melhorTarifa, textoComposicao, tarifasDaLocacao,
   tarifasCustoDaLocacao, cobrancaLocacao, disponibilidadeNoDia,
   picoUsoNoPeriodo, diasLocacaoNoPeriodo, calcEquipMes, calcEquipamentosMes,
+  calcEquipamentosPorObra,
 } from "./domains/equipamentos/calculations";
 import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
@@ -33451,6 +33452,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     .sort((a,b)=>a.nome.localeCompare(b.nome));
 
   const rel = useMemo(()=>calcEquipamentosMes(data, ym), [data, ym]);
+  const relPorObra = useMemo(()=>calcEquipamentosPorObra(data, ym), [data, ym]);
 
   const STATUS_EQUIP = {
     disponivel:{l:"Disponível",c:C.green},
@@ -33978,7 +33980,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       {aba==="relatorio" && <>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
           <Sel label="" value={ym} onChange={setYm} options={mesesOpts}/>
-          <Btn size="sm" v="ghost" onClick={()=>exportarRelEquip(data, ym, rel, {donoName,obraName})}><Ic n="download"/> Exportar</Btn>
+          <Btn size="sm" v="ghost" onClick={()=>exportarRelEquipPorObra(ym, relPorObra, {donoName})}><Ic n="download"/> Exportar por obra</Btn>
         </div>
 
         {/* Cartões de resumo */}
@@ -33993,29 +33995,93 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           <span>Lucro terceiros: <b style={{color:C.purple}}>{fmt(rel.lucroTerceiros)}</b></span>
         </div>
 
-        {/* Tabela por equipamento */}
-        <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-            <thead><tr style={{borderBottom:`1px solid ${C.border}`}}>
-              {["Equipamento","Dono","Dias","Receita","Custo","Lucro"].map((h,i)=>(
-                <th key={h} style={{textAlign:i>1?"right":"left",padding:"7px 9px",color:C.muted,fontSize:9.5,fontWeight:800,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
-              ))}
-            </tr></thead>
+        <div>
+          <p style={{fontSize:11.5,fontWeight:900,color:C.text}}>Cobrança por obra</p>
+          <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>
+            Dias mostram a permanência na obra. Diárias-unidade consideram também a quantidade simultânea e formam a base de conferência da cobrança.
+          </p>
+        </div>
+
+        {relPorObra.obras.some(obra=>relPorObra.totaisPorObra[obra.id]?.unidadeDias>0) && (
+          <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+            {relPorObra.obras.filter(obra=>relPorObra.totaisPorObra[obra.id]?.unidadeDias>0).map(obra=>{
+              const totalObra=relPorObra.totaisPorObra[obra.id];
+              return <div key={obra.id} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.blue}`,borderRadius:8,padding:"10px 12px"}}>
+                <p style={{fontSize:10,fontWeight:900,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{obra.name}</p>
+                <p style={{fontSize:17,fontWeight:900,color:C.green,marginTop:4}}>{fmt(totalObra.receita)}</p>
+                <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{totalObra.unidadeDias} diária(s)-unidade no mês</p>
+              </div>;
+            })}
+          </div>
+        )}
+
+        {/* Matriz: equipamentos nas linhas e obras nas colunas */}
+        <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxWidth:"100%"}}>
+          <table style={{width:"max-content",minWidth:"100%",borderCollapse:"separate",borderSpacing:0,fontSize:11}}>
+            <thead>
+              <tr>
+                <th style={{position:"sticky",left:0,zIndex:3,minWidth:240,maxWidth:280,textAlign:"left",padding:"9px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.border}`,color:C.muted,fontSize:9.5,fontWeight:900,textTransform:"uppercase"}}>
+                  Equipamento / quantidade
+                </th>
+                {relPorObra.obras.map(obra=>(
+                  <th key={obra.id} style={{minWidth:180,maxWidth:210,textAlign:"left",padding:"9px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.line}`,color:C.text,fontSize:9.5,fontWeight:900,textTransform:"uppercase"}}>
+                    {obra.name}
+                  </th>
+                ))}
+                <th style={{minWidth:170,textAlign:"right",padding:"9px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,color:C.muted,fontSize:9.5,fontWeight:900,textTransform:"uppercase"}}>
+                  Total
+                </th>
+              </tr>
+            </thead>
             <tbody>
-              {rel.linhas.filter(l=>l.receita>0||l.custo>0||l.diasTotais>0).map(l=>(
-                <tr key={l.equip.id} style={{borderBottom:`1px solid ${C.line}`}}>
-                  <td style={{padding:"7px 9px",color:C.text,fontWeight:700}}>{l.equip.nome}</td>
-                  <td style={{padding:"7px 9px",color:C.muted,fontSize:10}}>{l.proprio?"Empresa":donoName(l.equip.proprietarioId)}</td>
-                  <td style={{padding:"7px 9px",textAlign:"right",color:C.muted}}>{l.diasTotais}</td>
-                  <td style={{padding:"7px 9px",textAlign:"right",color:C.green,fontWeight:700}}>{fmt(l.receita)}</td>
-                  <td style={{padding:"7px 9px",textAlign:"right",color:C.red}}>{fmt(l.custo)}</td>
-                  <td style={{padding:"7px 9px",textAlign:"right",color:l.lucro>=0?C.green:C.red,fontWeight:800}}>{fmt(l.lucro)}</td>
+              {relPorObra.linhas.filter(linha=>linha.total.unidadeDias>0||linha.total.receita>0||linha.total.custoDono>0).map(linha=>(
+                <tr key={linha.equip.id}>
+                  <td style={{position:"sticky",left:0,zIndex:2,minWidth:240,maxWidth:280,padding:"9px 10px",background:C.card,borderBottom:`1px solid ${C.line}`,borderRight:`1px solid ${C.border}`}}>
+                    <p style={{fontSize:11,fontWeight:850,color:C.text,overflow:"hidden",textOverflow:"ellipsis"}}>{linha.equip.nome}</p>
+                    <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginTop:4}}>
+                      <span style={{padding:"2px 6px",borderRadius:99,background:C.surface,border:`1px solid ${C.border}`,fontSize:8.5,fontWeight:800,color:C.text}}>Qtd. {Math.max(1,Number(linha.equip.quantidadeTotal||1))}</span>
+                      <span style={{fontSize:8.5,color:C.muted}}>{linha.equip.proprietarioId?donoName(linha.equip.proprietarioId):"Empresa"}</span>
+                    </div>
+                  </td>
+                  {relPorObra.obras.map(obra=>{
+                    const celula=linha.porObra[obra.id];
+                    const movimentou=celula.unidadeDias>0||celula.receita>0||celula.custoDono>0;
+                    return <td key={obra.id} style={{minWidth:180,maxWidth:210,padding:"9px 10px",verticalAlign:"top",borderBottom:`1px solid ${C.line}`,borderRight:`1px solid ${C.line}`,background:movimentou?`${C.blue}05`:C.card}}>
+                      {movimentou ? <>
+                        <p style={{fontSize:11,fontWeight:850,color:C.text}}>{celula.dias} dia(s) <span style={{color:C.muted,fontWeight:650}}>· pico {celula.quantidadePico}</span></p>
+                        <p style={{fontSize:9,color:C.muted,marginTop:2}}>{celula.unidadeDias} diária(s)-unidade</p>
+                        <p style={{fontSize:11.5,fontWeight:900,color:C.green,marginTop:5}}>{fmt(celula.receita)}</p>
+                      </> : <span style={{color:C.muted}}>—</span>}
+                    </td>;
+                  })}
+                  <td style={{minWidth:170,padding:"9px 10px",textAlign:"right",verticalAlign:"top",borderBottom:`1px solid ${C.line}`,background:C.card}}>
+                    <p style={{fontSize:11.5,fontWeight:900,color:C.green}}>{fmt(linha.total.receita)}</p>
+                    <p style={{fontSize:9,color:C.muted,marginTop:2}}>{linha.total.unidadeDias} diária(s)-unidade</p>
+                  </td>
                 </tr>
               ))}
-              {!rel.linhas.some(l=>l.receita>0||l.custo>0||l.diasTotais>0) && (
-                <tr><td colSpan={6} style={{padding:20,textAlign:"center",color:C.muted}}>Sem movimentação de equipamentos em {mesLabel}.</td></tr>
+              {!relPorObra.linhas.some(linha=>linha.total.unidadeDias>0||linha.total.receita>0||linha.total.custoDono>0) && (
+                <tr><td colSpan={relPorObra.obras.length+2} style={{padding:24,textAlign:"center",color:C.muted}}>Sem movimentação de equipamentos em {mesLabel}.</td></tr>
               )}
             </tbody>
+            {relPorObra.linhas.some(linha=>linha.total.unidadeDias>0||linha.total.receita>0||linha.total.custoDono>0) && (
+              <tfoot>
+                <tr>
+                  <td style={{position:"sticky",left:0,zIndex:2,padding:"9px 10px",background:C.surface,borderRight:`1px solid ${C.border}`,fontSize:9.5,fontWeight:900,color:C.text,textTransform:"uppercase"}}>Total por obra</td>
+                  {relPorObra.obras.map(obra=>{
+                    const totalObra=relPorObra.totaisPorObra[obra.id];
+                    return <td key={obra.id} style={{padding:"9px 10px",background:C.surface,borderRight:`1px solid ${C.line}`}}>
+                      <p style={{fontSize:11,fontWeight:900,color:C.green}}>{fmt(totalObra.receita)}</p>
+                      <p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{totalObra.unidadeDias} diária(s)-unidade</p>
+                    </td>;
+                  })}
+                  <td style={{padding:"9px 10px",textAlign:"right",background:C.surface}}>
+                    <p style={{fontSize:12,fontWeight:900,color:C.green}}>{fmt(relPorObra.total.receita)}</p>
+                    <p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{relPorObra.total.unidadeDias} diária(s)-unidade</p>
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </>}
@@ -34308,21 +34374,42 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   );
 }
 
-// Exporta o relatório mensal de equipamentos em CSV (abre no Excel).
-const exportarRelEquip = (data, ym, rel, helpers) => {
-  const linhas = [["Equipamento","Dono","Dias","Receita","Custo dono","Manutenção","Custo total","Lucro"]];
-  rel.linhas.filter(l=>l.receita>0||l.custo>0||l.diasTotais>0).forEach(l=>{
-    linhas.push([
-      l.equip.nome, l.proprio?"Empresa":helpers.donoName(l.equip.proprietarioId),
-      l.diasTotais, l.receita.toFixed(2), l.custoDono.toFixed(2), l.manut.toFixed(2), l.custo.toFixed(2), l.lucro.toFixed(2),
-    ]);
+// Exporta a mesma matriz exibida na tela: equipamento nas linhas, obra nas
+// colunas e medidas separadas para dias, diárias-unidade e cobrança.
+const exportarRelEquipPorObra = (ym, rel, helpers) => {
+  const cabecalho=["Equipamento","Quantidade da frota","Dono"];
+  rel.obras.forEach(obra=>cabecalho.push(
+    `${obra.name} - dias`,
+    `${obra.name} - diárias-unidade`,
+    `${obra.name} - cobrança`,
+  ));
+  cabecalho.push("Total diárias-unidade","Total cobrança");
+  const linhas=[cabecalho];
+  rel.linhas.filter(linha=>linha.total.unidadeDias>0||linha.total.receita>0||linha.total.custoDono>0).forEach(linha=>{
+    const registro=[
+      linha.equip.nome,
+      Math.max(1,Number(linha.equip.quantidadeTotal||1)),
+      linha.equip.proprietarioId?helpers.donoName(linha.equip.proprietarioId):"Empresa",
+    ];
+    rel.obras.forEach(obra=>{
+      const celula=linha.porObra[obra.id];
+      registro.push(celula.dias,celula.unidadeDias,celula.receita.toFixed(2));
+    });
+    registro.push(linha.total.unidadeDias,linha.total.receita.toFixed(2));
+    linhas.push(registro);
   });
-  linhas.push(["TOTAL","","",rel.total.receita.toFixed(2),rel.total.custoDono.toFixed(2),rel.total.manut.toFixed(2),rel.total.custo.toFixed(2),rel.total.lucro.toFixed(2)]);
+  const totais=["TOTAL","",""];
+  rel.obras.forEach(obra=>{
+    const totalObra=rel.totaisPorObra[obra.id];
+    totais.push(totalObra.dias,totalObra.unidadeDias,totalObra.receita.toFixed(2));
+  });
+  totais.push(rel.total.unidadeDias,rel.total.receita.toFixed(2));
+  linhas.push(totais);
   const csv = linhas.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(";")).join("\n");
   const blob = new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8;"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = `equipamentos-${ym}.csv`; a.click();
+  a.href = url; a.download = `equipamentos-por-obra-${ym}.csv`; a.click();
   URL.revokeObjectURL(url);
 };
 
