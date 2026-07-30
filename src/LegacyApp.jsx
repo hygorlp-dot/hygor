@@ -118,6 +118,15 @@ import {
 import { canManagePurchases } from "./domains/compras/permissions";
 import { calculateContractProjection } from "./domains/dre/calculations";
 import {
+  COMPANY_EXPENSE_CATEGORIES,
+  COMPANY_EXPENSE_GROUPS,
+  COMPANY_PAYMENT_METHODS,
+  companyExpenseCategory,
+  companyExpenseCategoryOptions,
+  companyExpenseGroup,
+  emptyCompanyExpenseGroupTotals,
+} from "./domains/dre/expense-taxonomy";
+import {
   buildFinancialLedger,
   selectDRE as selectLedgerDRE,
   selectCashFlow as selectLedgerCashFlow,
@@ -1870,6 +1879,16 @@ const normalizeData = incoming => {
       descricao:   x.descricao   || "",
       valor:       Number(x.valor || 0),
       recorrente:  !!x.recorrente,
+      fornecedor:  x.fornecedor  || "",
+      documento:   x.documento   || "",
+      centroCusto: x.centroCusto || "escritorio",
+      vencimento:  x.vencimento  || "",
+      formaPagamento:x.formaPagamento || "",
+      cartao:      x.cartao      || "",
+      parcelas:    Math.max(1, Number(x.parcelas || 1)),
+      pago:        x.pago === true,
+      dataPagamento:x.dataPagamento || "",
+      observacao:  x.observacao  || "",
     })) : [],
     //  CONCILIAÇÃO BANCÁRIA
     // Contas bancárias cadastradas. Sem isso não dá para saber se um débito
@@ -3351,7 +3370,7 @@ function Sel({ label, value, onChange, options = [], disabled = false }) {
           fontFamily:"'Inter','Inter Display',sans-serif",
         }}
       >
-        {options.map(o => <option key={String(o.v)} value={o.v}>{o.l}</option>)}
+        {options.map(o => <option key={String(o.v)} value={o.v} disabled={o.disabled}>{o.l}</option>)}
       </select>
     </label>
   );
@@ -4537,6 +4556,26 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
     } finally {
       setExpenseCommandPending(false);
     }
+  };
+
+  const openNewCompanyExpense=()=>{
+    setDespForm(emptyCompanyExpenseForm(ym));
+    setEditDesp(null);
+    setDespModal(true);
+  };
+
+  const openEditCompanyExpense=expense=>{
+    const persisted=(data.despesasEmpresa||[]).find(item=>item.id===expense.id)||{};
+    setDespForm({
+      ...emptyCompanyExpenseForm(expense.competencia||ym),
+      ...persisted,...expense,
+      valor:String(expense.valor??persisted.valor??""),
+      parcelas:String(expense.parcelas??persisted.parcelas??1),
+      recorrente:expense.recorrente===true||persisted.recorrente===true,
+      pago:expense.pago===true||persisted.pago===true,
+    });
+    setEditDesp(expense.id);
+    setDespModal(true);
   };
 
   const delDesp = async id => {
@@ -35104,23 +35143,18 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
 // DRE DA EMPRESA - Demonstrativo de Resultado do Exercício Gerencial
 // 
 
-const CATS_DESP = [
-  { v:"aluguel",        l:"Aluguel / Sede",           grupo:"admin" },
-  { v:"pessoal_admin",  l:"Pessoal Administrativo",   grupo:"admin" },
-  { v:"terceiros",      l:"Terceiros",                 grupo:"admin" },
-  { v:"contabilidade",  l:"Honorários Contábeis e Advocatícios",grupo:"admin" },
-  { v:"energia",        l:"Energia / Água / Internet", grupo:"admin" },
-  { v:"comunicacao",    l:"Telefone / Comunicação",    grupo:"admin" },
-  { v:"material_adm",   l:"Material de Escritório",    grupo:"admin" },
-  { v:"software",       l:"Software / Assinaturas",    grupo:"admin" },
-  { v:"veiculo",        l:"Veículo / Combustível",     grupo:"admin" },
-  { v:"imposto_simples",l:"Simples Nacional / ISS",    grupo:"fiscal"},
-  { v:"imposto_ir",     l:"IR / CSLL",                 grupo:"fiscal"},
-  { v:"taxa_cartorio",  l:"Taxas / Cartório",          grupo:"fiscal"},
-  { v:"crea",           l:"CREA / IBAPE / Anuidades",  grupo:"fiscal"},
-  { v:"seg_fianca",     l:"Seguros / Fianças",         grupo:"outros"},
-  { v:"outros",         l:"Outros",                    grupo:"outros"},
-];
+const CATS_DESP = COMPANY_EXPENSE_CATEGORIES.map(category => ({
+  v:category.id, l:category.label, grupo:category.group,
+}));
+const GRUPOS_DESP = COMPANY_EXPENSE_GROUPS.map(group => ({
+  v:group.id, l:group.label, shortLabel:group.shortLabel,
+}));
+const emptyCompanyExpenseForm = competencia => ({
+  competencia, categoria:"aluguel", descricao:"", valor:"", recorrente:false,
+  fornecedor:"", documento:"", centroCusto:"escritorio", vencimento:"",
+  formaPagamento:"", cartao:"", parcelas:"1", pago:false, dataPagamento:"",
+  observacao:"",
+});
 
 function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null }) {
   const { cols } = useBreakpoint();
@@ -35133,7 +35167,9 @@ function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null })
   const [despModal, setDespModal] = useState(false);
   const [expenseCommandPending,setExpenseCommandPending]=useState(false);
   const [editDesp,  setEditDesp]  = useState(null);
-  const [despForm,  setDespForm]  = useState({ competencia:"", categoria:"aluguel", descricao:"", valor:"", recorrente:false });
+  const [despForm,  setDespForm]  = useState(emptyCompanyExpenseForm(""));
+  const [expenseGroupFilter,setExpenseGroupFilter]=useState("all");
+  const [expenseSearch,setExpenseSearch]=useState("");
   const [razaoEmpresa,setRazaoEmpresa]=useState(null);
   const [razaoCarregando,setRazaoCarregando]=useState(true);
   const [razaoErro,setRazaoErro]=useState("");
@@ -35146,7 +35182,9 @@ function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null })
   const dreVazio=useMemo(()=>({
     ym,faturamentoObras:0,recebidoObras:0,deducaoISS:0,deducaoPIS:0,deducaoCOFINS:0,totalDeducoes:0,receitaLiquida:0,
     laborTotal:0,benefTotal:0,tercTotal:0,rescTotal:0,outrasDiretas:0,totalCSP:0,lucroBruto:0,margemBruta:0,
-    despPorCat:Object.fromEntries(CATS_DESP.map(item=>[item.v,0])),totalDespAdmin:0,totalDespFiscal:0,totalDespOutros:0,totalDespOp:0,
+    despPorCat:Object.fromEntries(CATS_DESP.map(item=>[item.v,0])),despPorGrupo:emptyCompanyExpenseGroupTotals(),
+    totalDespPessoal:0,totalDespOcupacao:0,totalDespAdministrativo:0,totalDespComercial:0,totalDespFinanceiro:0,
+    totalDespAdmin:0,totalDespFiscal:0,totalDespOutros:0,totalDespOp:0,
     ebitda:0,margemEbitda:0,resultFinanceiro:0,lair:0,provisaoIR:0,provisaoCSLL:0,totalImpostoLucro:0,lucroLiquido:0,margemLiquida:0,
     despEmp:[],porObra:[],entradasCaixa:0,saidasCaixa:0,saldoCaixa:0,contasReceber:0,contasPagar:0,comprometido:0,
     recebimentosNaoAlocados:0,pagamentosNaoAlocados:0,
@@ -35175,6 +35213,33 @@ function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null })
   const dre = useMemo(()=>razaoEmpresa?.source==="canonical_ledger"&&razaoEmpresa.current
     ? {...dreVazio,...razaoEmpresa.current,fonteFinanceira:"razao_canonico"}
     : {...dreVazio,fonteFinanceira:"sincronizacao_pendente"},[dreVazio,razaoEmpresa]);
+  const expenseGroupTotals=useMemo(()=>GRUPOS_DESP.reduce((totals,group)=>({
+    ...totals,
+    [group.v]:Number(dre.despPorGrupo?.[group.v] ?? CATS_DESP
+      .filter(category=>category.grupo===group.v)
+      .reduce((sum,category)=>sum+Number(dre.despPorCat?.[category.v]||0),0)),
+  }),emptyCompanyExpenseGroupTotals()),[dre.despPorCat,dre.despPorGrupo]);
+  const visibleCompanyExpenses=useMemo(()=>{
+    const query=expenseSearch.trim().toLowerCase();
+    return (dre.despEmp||[]).filter(expense=>{
+      const group=companyExpenseGroup(expense.categoria).id;
+      if(expenseGroupFilter!=="all"&&group!==expenseGroupFilter)return false;
+      if(!query)return true;
+      return [
+        expense.descricao,expense.fornecedor,expense.documento,expense.cartao,
+        companyExpenseCategory(expense.categoria).label,companyExpenseGroup(expense.categoria).label,
+      ].join(" ").toLowerCase().includes(query);
+    });
+  },[dre.despEmp,expenseGroupFilter,expenseSearch]);
+  const expenseControl=useMemo(()=>{
+    const todayIso=today();
+    return (dre.despEmp||[]).reduce((summary,expense)=>{
+      if(expense.pago===true){summary.paid+=Number(expense.valor||0);return summary;}
+      summary.open+=Number(expense.valor||0);
+      if(expense.vencimento&&expense.vencimento<todayIso)summary.overdue+=Number(expense.valor||0);
+      return summary;
+    },{paid:0,open:0,overdue:0});
+  },[dre.despEmp]);
   const period  = `${fullMonth(month)} ${year}`;
   const years   = Array.from({length:4},(_,i)=>now.getFullYear()-2+i).map(y=>({v:String(y),l:String(y)}));
   const fmt2    = n => Number(n||0).toFixed(2).replace(".",",");
@@ -35226,7 +35291,12 @@ function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null })
           deducoes:{iss:dre.deducaoISS,pis:dre.deducaoPIS,cofins:dre.deducaoCOFINS,total:dre.totalDeducoes},
           custosDiretos:{maoDeObra:dre.laborTotal,beneficios:dre.benefTotal,terceiros:dre.tercTotal,rescisoes:dre.rescTotal,outras:dre.outrasDiretas,total:dre.totalCSP},
           lucroBruto:dre.lucroBruto,margemBruta:dre.margemBruta,
-          despesasOperacionais:{administrativas:dre.totalDespAdmin,fiscais:dre.totalDespFiscal,outras:dre.totalDespOutros,total:dre.totalDespOp,porCategoria:dre.despPorCat},
+          despesasOperacionais:{
+            pessoal:expenseGroupTotals.pessoal,ocupacao:expenseGroupTotals.ocupacao,
+            administrativas:expenseGroupTotals.administrativo,comercialViagens:expenseGroupTotals.comercial,
+            financeiras:expenseGroupTotals.financeiro,fiscais:expenseGroupTotals.fiscal,
+            outras:expenseGroupTotals.outros,total:dre.totalDespOp,porCategoria:dre.despPorCat,
+          },
           ebitda:dre.ebitda,margemEbitda:dre.margemEbitda,lucroLiquido:dre.lucroLiquido,margemLiquida:dre.margemLiquida,
         },
         obras:(data.obras||[]).map(obra=>{
@@ -35333,7 +35403,7 @@ Regras: não invente números, datas, clientes ou causas. Diferencie competênci
       });
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a despesa.");
       setDespModal(false);setEditDesp(null);
-      setDespForm({competencia:"",categoria:"aluguel",descricao:"",valor:"",recorrente:false});
+      setDespForm(emptyCompanyExpenseForm(""));
       showToast(editDesp?"Despesa atualizada.":"Despesa registrada.");
     }catch(error){
       showToast(error.message||"Não foi possível registrar a despesa.","error");
@@ -35432,11 +35502,11 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   <tr class="result"><td>= LUCRO BRUTO</td><td class="val ${d.lucroBruto<0?'neg':'pos'}">R$ ${fmt2(d.lucroBruto)} (${d.margemBruta.toFixed(1)}%)</td></tr>
 
   <tr class="sec"><td>(-) DESPESAS OPERACIONAIS</td><td class="val neg">(R$ ${fmt2(d.totalDespOp)})</td></tr>
-  <tr class="sub"><td colspan="2"><em>Despesas Administrativas</em></td></tr>
-  ${CATS_DESP.filter(c=>c.grupo==="admin"&&d.despPorCat[c.v]>0).map(c=>row("(-) "+c.l,-d.despPorCat[c.v],"sub")).join("")}
-  <tr class="sub"><td colspan="2"><em>Encargos Fiscais e Legais</em></td></tr>
-  ${CATS_DESP.filter(c=>c.grupo==="fiscal"&&d.despPorCat[c.v]>0).map(c=>row("(-) "+c.l,-d.despPorCat[c.v],"sub")).join("")}
-  ${CATS_DESP.filter(c=>c.grupo==="outros"&&d.despPorCat[c.v]>0).map(c=>row("(-) "+c.l,-d.despPorCat[c.v],"sub")).join("")}
+  ${GRUPOS_DESP.filter(group=>expenseGroupTotals[group.v]>0).map(group=>`
+    <tr class="sub"><td>${escapeHtml(group.l)}</td><td class="val neg">(R$ ${fmt2(expenseGroupTotals[group.v])})</td></tr>
+    ${CATS_DESP.filter(category=>category.grupo===group.v&&Number(d.despPorCat?.[category.v]||0)>0)
+      .map(category=>row("(-) "+category.l,-d.despPorCat[category.v],"sub")).join("")}
+  `).join("")}
   <tr class="result"><td>= EBITDA (Resultado Operacional)</td><td class="val ${d.ebitda<0?'neg':'pos'}">R$ ${fmt2(d.ebitda)} (${d.margemEbitda.toFixed(1)}%)</td></tr>
 
   <tr class="sec"><td>(+/-) RESULTADO FINANCEIRO</td><td class="val">-</td></tr>
@@ -35638,18 +35708,12 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           <DResult label="= Lucro Bruto" value={dre.lucroBruto} pct={dre.margemBruta} size={1}/>
 
           <DSec title="(-) Despesas Operacionais" color={C.orange} value={-dre.totalDespOp}/>
-          {/* Administrativas */}
-          {CATS_DESP.filter(c=>c.grupo==="admin"&&dre.despPorCat[c.v]>0).map(c=>(
-            <DRow key={c.v} label={`(-) ${c.l}`} value={-dre.despPorCat[c.v]} indent={1}/>
-          ))}
-          {/* Fiscais */}
-          {CATS_DESP.filter(c=>c.grupo==="fiscal"&&dre.despPorCat[c.v]>0).map(c=>(
-            <DRow key={c.v} label={`(-) ${c.l}`} value={-dre.despPorCat[c.v]} indent={1}/>
-          ))}
-          {/* Outros */}
-          {CATS_DESP.filter(c=>c.grupo==="outros"&&dre.despPorCat[c.v]>0).map(c=>(
-            <DRow key={c.v} label={`(-) ${c.l}`} value={-dre.despPorCat[c.v]} indent={1}/>
-          ))}
+          {GRUPOS_DESP.filter(group=>expenseGroupTotals[group.v]>0).map(group=><div key={group.v}>
+            <DRow label={`(-) ${group.l}`} value={-expenseGroupTotals[group.v]} color={C.text} indent={1}/>
+            {CATS_DESP.filter(category=>category.grupo===group.v&&Number(dre.despPorCat?.[category.v]||0)>0).map(category=>(
+              <DRow key={category.v} label={category.l} value={-dre.despPorCat[category.v]} color={C.muted} indent={2}/>
+            ))}
+          </div>)}
           {dre.totalDespOp===0&&<DRow label="Nenhuma despesa lançada neste mês" value={0} color={C.muted} indent={1}/>}
           <DResult label="= EBITDA / Resultado Operacional" value={dre.ebitda} pct={dre.margemEbitda} size={1}/>
 
@@ -35733,14 +35797,45 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
       {/* Gestão de despesas operacionais */}
       <div className="dre-company-panel dre-company-expenses" style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}>
-        <div style={{background:C.surface,padding:"9px 11px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-          <div><p style={{fontWeight:750,fontSize:11,color:C.text}}>Despesas operacionais</p><p style={{fontSize:8.5,color:C.muted,marginTop:1,textTransform:"uppercase",letterSpacing:.55}}>{period}</p></div>
+        <div style={{background:C.surface,padding:"14px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+          <div>
+            <p style={{fontWeight:850,fontSize:15,color:C.text}}>Central de despesas operacionais</p>
+            <p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Competência, pagamento e classificação do DRE em uma única página · {period}</p>
+          </div>
           <div style={{display:"flex",gap:5}}>
             <Btn size="sm" v="ghost" disabled={expenseCommandPending} onClick={replicarRecorrentes}><Ic n="copy"/> Replicar</Btn>
-            <Btn size="sm" onClick={()=>{setDespForm({competencia:ym,categoria:"aluguel",descricao:"",valor:"",recorrente:false});setEditDesp(null);setDespModal(true);}}>
+            <Btn size="sm" onClick={openNewCompanyExpense}>
               <Ic n="plus"/> Nova despesa
             </Btn>
           </div>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:cols(4),borderBottom:`1px solid ${C.border}`,background:C.bg}}>
+          {[
+            ["Despesas do mês",dre.totalDespOp,C.red],
+            ["Pagas",expenseControl.paid,C.green],
+            ["Em aberto",expenseControl.open,C.orange],
+            ["Vencidas",expenseControl.overdue,expenseControl.overdue?C.red:C.muted],
+          ].map(([label,value,color],index)=><div key={label} style={{padding:"12px 14px",borderRight:index<3?`1px solid ${C.line}`:"none"}}>
+            <p style={{fontSize:8.5,fontWeight:800,textTransform:"uppercase",letterSpacing:.7,color:C.muted}}>{label}</p>
+            <p style={{fontSize:17,fontWeight:900,color,marginTop:3}}>{fmt(value)}</p>
+          </div>)}
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:cols(4),gap:7,padding:"10px 11px",borderBottom:`1px solid ${C.border}`,background:C.surface}}>
+          {GRUPOS_DESP.map(group=><button key={group.v} type="button" onClick={()=>setExpenseGroupFilter(current=>current===group.v?"all":group.v)}
+            style={{textAlign:"left",padding:"9px 10px",borderRadius:8,cursor:"pointer",border:`1px solid ${expenseGroupFilter===group.v?C.yellowD:C.line}`,background:expenseGroupFilter===group.v?`${C.yellow}14`:C.bg,color:C.text}}>
+            <span style={{fontSize:9,fontWeight:750,color:C.muted}}>{group.shortLabel}</span>
+            <strong style={{display:"block",fontSize:13,marginTop:2}}>{fmt(expenseGroupTotals[group.v])}</strong>
+          </button>)}
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:cols(2),gap:8,padding:"9px 11px",borderBottom:`1px solid ${C.border}`}}>
+          <Inp value={expenseSearch} onChange={setExpenseSearch} placeholder="Buscar descrição, fornecedor, documento ou cartão..." />
+          <Sel value={expenseGroupFilter} onChange={setExpenseGroupFilter} options={[
+            {v:"all",l:"Todas as divisões do DRE"},
+            ...GRUPOS_DESP.map(group=>({v:group.v,l:group.l})),
+          ]}/>
         </div>
 
         {dre.despEmp.length===0 && (
@@ -35750,22 +35845,38 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           </div>
         )}
 
-        {dre.despEmp.map(d=>(
-          <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 11px",borderBottom:`1px solid ${C.line}`,gap:10}}>
+        {dre.despEmp.length>0&&visibleCompanyExpenses.length===0&&<div style={{padding:18,textAlign:"center",color:C.muted,fontSize:11}}>Nenhuma despesa corresponde aos filtros.</div>}
+
+        {visibleCompanyExpenses.map(d=>{
+          const category=companyExpenseCategory(d.categoria);
+          const group=companyExpenseGroup(d.categoria);
+          const payment=COMPANY_PAYMENT_METHODS.find(item=>item.id===d.formaPagamento)?.label||"Forma não informada";
+          const overdue=d.pago!==true&&d.vencimento&&d.vencimento<today();
+          return <div key={d.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) minmax(150px,.8fr) minmax(135px,.65fr) auto",alignItems:"center",padding:"9px 11px",borderBottom:`1px solid ${C.line}`,gap:10}}>
             <div style={{minWidth:0}}>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <p style={{fontSize:11.5,fontWeight:650,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.descricao||CATS_DESP.find(c=>c.v===d.categoria)?.l||d.categoria}</p>
+                <p style={{fontSize:11.5,fontWeight:750,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.descricao||category.label}</p>
                 {d.recorrente&&<span style={{fontSize:7.5,fontWeight:750,background:`${C.blue}12`,color:C.blue,padding:"2px 5px",borderRadius:4}}>RECORRENTE</span>}
+                <span style={{fontSize:7.5,fontWeight:750,background:d.pago?`${C.green}12`:`${overdue?C.red:C.orange}12`,color:d.pago?C.green:overdue?C.red:C.orange,padding:"2px 5px",borderRadius:4}}>{d.pago?"PAGA":overdue?"VENCIDA":"EM ABERTO"}</span>
               </div>
-              <p style={{fontSize:9.5,color:C.muted,marginTop:1}}>{CATS_DESP.find(c=>c.v===d.categoria)?.l||d.categoria}</p>
+              <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{group.shortLabel} · {category.label}{d.fornecedor?` · ${d.fornecedor}`:""}</p>
             </div>
-            <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
-              <p style={{fontSize:12.5,fontWeight:800,color:C.red,marginRight:3}}>({fmt(d.valor)})</p>
-              <Btn size="sm" v="ghost" title="Editar" onClick={()=>{setDespForm({competencia:d.competencia,categoria:d.categoria,descricao:d.descricao,valor:String(d.valor),recorrente:d.recorrente});setEditDesp(d.id);setDespModal(true);}}><Ic n="edit"/></Btn>
+            <div style={{minWidth:0}}>
+              <p style={{fontSize:9,fontWeight:700,color:C.muted}}>PAGAMENTO</p>
+              <p style={{fontSize:10.5,color:C.text,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{payment}{d.cartao?` · ${d.cartao}`:""}</p>
+              <p style={{fontSize:9,color:overdue?C.red:C.muted,marginTop:1}}>{d.pago&&d.dataPagamento?`Pago em ${fmtDate(d.dataPagamento)}`:d.vencimento?`Vence em ${fmtDate(d.vencimento)}`:"Sem vencimento"}</p>
+            </div>
+            <div>
+              <p style={{fontSize:9,fontWeight:700,color:C.muted}}>VALOR</p>
+              <p style={{fontSize:13,fontWeight:850,color:C.red,marginTop:2}}>({fmt(d.valor)})</p>
+              {Number(d.parcelas||1)>1&&<p style={{fontSize:9,color:C.muted}}>{d.parcelas} parcelas</p>}
+            </div>
+            <div style={{display:"flex",gap:5,alignItems:"center",justifyContent:"flex-end"}}>
+              <Btn size="sm" v="ghost" title="Editar" onClick={()=>openEditCompanyExpense(d)}><Ic n="edit"/></Btn>
               <Btn size="sm" v="danger" disabled={expenseCommandPending} title="Excluir" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
             </div>
-          </div>
-        ))}
+          </div>;
+        })}
 
         <div style={{padding:"8px 11px",background:C.surface,display:"flex",justifyContent:"space-between"}}>
           <p style={{fontSize:10.5,fontWeight:700,color:C.text}}>Total despesas operacionais</p>
@@ -35778,16 +35889,31 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
       {/* Modal despesa */}
       {despModal&&(
-        <Modal title={editDesp?"Editar despesa":"Nova despesa operacional"} onClose={()=>{setDespModal(false);setEditDesp(null);}}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <Modal title={editDesp?"Editar despesa":"Nova despesa operacional"} onClose={()=>{setDespModal(false);setEditDesp(null);}} wide>
+          <div style={{display:"grid",gridTemplateColumns:cols(2),gap:12}}>
             <div>
               <p style={{fontSize:11,fontWeight:700,color:C.text,textTransform:"uppercase",marginBottom:5,letterSpacing:.7}}>Competência (mês/ano) *</p>
               <input type="month" value={despForm.competencia} onChange={e=>DF("competencia")(e.target.value)} style={{width:"100%",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"10px 12px",borderRadius:6,fontSize:14,outline:"none",fontFamily:"'Inter','Inter Display',sans-serif"}}/>
             </div>
             <Sel label="Categoria *" value={despForm.categoria} onChange={DF("categoria")}
-              options={CATS_DESP.map(c=>({v:c.v,l:c.l}))}/>
-            <Inp label="Descrição" value={despForm.descricao} onChange={DF("descricao")} placeholder="Ex.: Aluguel sala Caruaru, Simples Nacional maio..."/>
+              options={companyExpenseCategoryOptions()}/>
+            <div style={{gridColumn:"1/-1"}}><Inp label="Descrição *" value={despForm.descricao} onChange={DF("descricao")} placeholder="Ex.: Internet do escritório, passagem Recife–São Paulo..."/></div>
             <Inp label="Valor (R$) *" type="number" value={despForm.valor} onChange={DF("valor")} placeholder="0,00"/>
+            <Inp label="Fornecedor / favorecido" value={despForm.fornecedor} onChange={DF("fornecedor")} placeholder="Nome ou razão social"/>
+            <Sel label="Centro de custo" value={despForm.centroCusto} onChange={DF("centroCusto")} options={[
+              {v:"escritorio",l:"Escritório / geral"},{v:"diretoria",l:"Diretoria"},
+              {v:"financeiro",l:"Financeiro"},{v:"rh",l:"Recursos humanos"},
+              {v:"comercial",l:"Comercial"},{v:"engenharia",l:"Engenharia / apoio"},
+            ]}/>
+            <Inp label="Documento / NF / fatura" value={despForm.documento} onChange={DF("documento")} placeholder="Número ou referência"/>
+            <Inp label="Vencimento" type="date" value={despForm.vencimento} onChange={DF("vencimento")}/>
+            <Sel label="Forma de pagamento" value={despForm.formaPagamento} onChange={DF("formaPagamento")}
+              options={COMPANY_PAYMENT_METHODS.map(method=>({v:method.id,l:method.label}))}/>
+            {["cartao_credito","cartao_debito"].includes(despForm.formaPagamento)&&
+              <Inp label="Cartão utilizado" value={despForm.cartao} onChange={DF("cartao")} placeholder="Ex.: Visa final 1234"/>}
+            <Inp label="Quantidade de parcelas" type="number" min="1" max="120" value={despForm.parcelas} onChange={DF("parcelas")}/>
+            <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={despForm.observacao} onChange={DF("observacao")} placeholder="Informações complementares para conferência"/></div>
+
             <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 12px",background:despForm.recorrente?`${C.blue}08`:"transparent",borderRadius:6,border:`1.5px solid ${despForm.recorrente?C.blue+"55":C.border}`}}>
               <div onClick={()=>DF("recorrente")(!despForm.recorrente)} style={{width:18,height:18,border:`2px solid ${despForm.recorrente?C.blue:C.muted}`,background:despForm.recorrente?C.blue:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
                 {despForm.recorrente&&<span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
@@ -35797,7 +35923,14 @@ td.val{text-align:right;font-weight:700;min-width:110px}
                 <p style={{fontSize:11,color:C.muted}}>Aparece no botão "Replicar" do próximo mês</p>
               </div>
             </label>
-            <div style={{display:"flex",gap:8}}>
+
+            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 12px",background:despForm.pago?`${C.green}08`:"transparent",borderRadius:6,border:`1.5px solid ${despForm.pago?C.green+"55":C.border}`}}>
+              <input type="checkbox" checked={despForm.pago===true} onChange={event=>DF("pago")(event.target.checked)} style={{width:18,height:18,accentColor:C.green}}/>
+              <div><p style={{fontSize:13,fontWeight:700,color:despForm.pago?C.green:C.muted}}>Despesa já paga</p><p style={{fontSize:11,color:C.muted}}>Se não estiver paga, permanece como conta a pagar.</p></div>
+            </label>
+            {despForm.pago&&<Inp label="Data do pagamento *" type="date" value={despForm.dataPagamento} onChange={DF("dataPagamento")}/>}
+
+            <div style={{display:"flex",gap:8,gridColumn:"1/-1"}}>
               <Btn v="ghost" onClick={()=>{setDespModal(false);setEditDesp(null);}} full>Cancelar</Btn>
               <Btn disabled={expenseCommandPending} onClick={saveDesp} full><Ic n="check"/> {expenseCommandPending?"Salvando...":"Salvar"}</Btn>
             </div>

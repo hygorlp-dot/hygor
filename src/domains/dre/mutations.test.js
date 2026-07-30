@@ -66,6 +66,27 @@ describe("cancelamento auditável de despesa no DRE", () => {
     expect(selectDRE(buildFinancialLedger(edited),{competence:"2026-07"}).costs).toBe(120);
   });
 
+  it("mantém competência e caixa separados no cadastro operacional", () => {
+    const created=saveCompanyExpense({
+      data:{},actor,id:"corp-office",now:"2026-07-01T00:00:00.000Z",
+      expense:{
+        competencia:"2026-07",categoria:"internet",descricao:"Link escritório",valor:200,
+        fornecedor:"Operadora",centroCusto:"escritorio",vencimento:"2026-08-05",
+        formaPagamento:"cartao_credito",cartao:"Corporativo final 4321",parcelas:1,
+        pago:true,dataPagamento:"2026-08-05",
+      },
+    });
+    const expense=created.despesasEmpresa[0];
+    expect(expense).toMatchObject({
+      competencia:"2026-07",categoria:"internet",pago:true,dataPagamento:"2026-08-05",
+      fornecedor:"Operadora",cartao:"Corporativo final 4321",
+    });
+    const ledger=buildFinancialLedger(created);
+    expect(selectDRE(ledger,{competence:"2026-07"}).costs).toBe(200);
+    expect(selectCashFlow(ledger,{startDate:"2026-07-01",endDate:"2026-07-31"}).cashOut).toBe(0);
+    expect(selectCashFlow(ledger,{startDate:"2026-08-01",endDate:"2026-08-31"}).cashOut).toBe(200);
+  });
+
   it("copia somente recorrências ativas com nova autoria e sem duplicar destino", () => {
     const data={despesasEmpresa:[{id:"a",competencia:"2026-06",categoria:"software",descricao:"Sistema",valor:100,recorrente:true,pago:true,dataPagamento:"2026-06-10",transacaoId:"tx-a"},{id:"b",competencia:"2026-06",categoria:"aluguel",descricao:"Sede",valor:50,recorrente:true,status:"cancelada"}]};
     const result=replicateCompanyRecurringExpenses({data,fromCompetence:"2026-06",toCompetence:"2026-07",actor,ids:["new-a"],now:"2026-07-01T00:00:00.000Z"});

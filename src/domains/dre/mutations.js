@@ -95,7 +95,30 @@ export const saveCompanyExpense = ({ data, expense, actor, id, now = new Date().
   const despesas=Array.isArray(data?.despesasEmpresa) ? data.despesasEmpresa : [];
   const anterior=despesas.find(item=>item.id===id);
   if (anterior && ["cancelado","cancelada","estornado"].includes(String(anterior.status || "").toLowerCase())) throw new Error("Não é permitido editar uma despesa corporativa cancelada.");
-  const registro={...anterior,...expense,id,competencia,descricao,valor,categoria:String(expense?.categoria||"outros"),recorrente:!!expense?.recorrente,status:anterior?.status||"ativo",origem:anterior?.origem||"dre_empresa",createdAt:anterior?.createdAt||now,createdById:anterior?.createdById||actor.id,createdBy:anterior?.createdBy||actor.nome||actor.email||"Usuário autenticado",updatedAt:now,updatedById:actor.id,updatedBy:actor.nome||actor.email||"Usuário autenticado",version:Number(anterior?.version||0)+1};
+  const vencimento=String(expense?.vencimento||"");
+  const dataPagamento=String(expense?.dataPagamento||"");
+  if (vencimento && !/^\d{4}-\d{2}-\d{2}$/.test(vencimento)) throw new Error("Informe um vencimento válido.");
+  if (dataPagamento && !/^\d{4}-\d{2}-\d{2}$/.test(dataPagamento)) throw new Error("Informe uma data de pagamento válida.");
+  const parcelas=Math.max(1,Math.trunc(Number(expense?.parcelas||1)));
+  if (parcelas>120) throw new Error("A quantidade de parcelas deve ser de no máximo 120.");
+  const formaPagamento=String(expense?.formaPagamento||"");
+  const pago=expense?.pago===true;
+  if (pago&&!dataPagamento) throw new Error("Informe a data em que a despesa foi paga.");
+  const registro={
+    ...anterior,...expense,id,competencia,descricao,valor,
+    categoria:String(expense?.categoria||"outros"),recorrente:!!expense?.recorrente,
+    fornecedor:String(expense?.fornecedor||"").trim(),documento:String(expense?.documento||"").trim(),
+    centroCusto:String(expense?.centroCusto||"escritorio"),vencimento,formaPagamento,
+    cartao:formaPagamento==="cartao_credito"||formaPagamento==="cartao_debito"
+      ? String(expense?.cartao||"").trim() : "",
+    parcelas, pago, dataPagamento:pago?dataPagamento:"",
+    observacao:String(expense?.observacao||"").trim(),
+    status:anterior?.status||"ativo",origem:anterior?.origem||"dre_empresa",
+    createdAt:anterior?.createdAt||now,createdById:anterior?.createdById||actor.id,
+    createdBy:anterior?.createdBy||actor.nome||actor.email||"Usuário autenticado",
+    updatedAt:now,updatedById:actor.id,updatedBy:actor.nome||actor.email||"Usuário autenticado",
+    version:Number(anterior?.version||0)+1,
+  };
   return {...data,despesasEmpresa:anterior?despesas.map(item=>item.id===id?registro:item):[...despesas,registro]};
 };
 

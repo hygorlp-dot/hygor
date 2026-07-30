@@ -56,10 +56,19 @@ describe("comandos de despesas",()=>{
   it("cria, edita e cancela despesa corporativa com concorrência otimista",()=>{
     const created=applyExpenseCommand(base(),command(
       EXPENSE_COMMAND.COMPANY_EXPENSE_SAVED,
-      {expense:{id:"c-1",competencia:"2026-07",descricao:"Software",categoria:"software",valor:90,recorrente:true}},
+      {expense:{
+        id:"c-1",competencia:"2026-07",descricao:"Software",categoria:"software",
+        valor:90,recorrente:true,fornecedor:"Fornecedor SA",centroCusto:"escritorio",
+        vencimento:"2026-07-20",formaPagamento:"cartao_credito",cartao:"Visa final 1234",
+        parcelas:2,pago:true,dataPagamento:"2026-07-18",
+      }},
       0,
     ),now);
-    expect(created.data.despesasEmpresa[0]).toMatchObject({version:1,valor:90});
+    expect(created.data.despesasEmpresa[0]).toMatchObject({
+      version:1,valor:90,fornecedor:"Fornecedor SA",centroCusto:"escritorio",
+      formaPagamento:"cartao_credito",cartao:"Visa final 1234",parcelas:2,
+      pago:true,dataPagamento:"2026-07-18",
+    });
     const edited=applyExpenseCommand(created.data,command(
       EXPENSE_COMMAND.COMPANY_EXPENSE_SAVED,
       {expense:{id:"c-1",competencia:"2026-07",descricao:"Software",categoria:"software",valor:120,recorrente:true}},
@@ -73,6 +82,25 @@ describe("comandos de despesas",()=>{
       EXPENSE_COMMAND.COMPANY_EXPENSE_CANCELLED,{expenseId:"c-1",reason:"Encerrado"},2,
     ),now);
     expect(cancelled.data.despesasEmpresa[0]).toMatchObject({status:"cancelada",version:3});
+  });
+
+  it("exige data ao marcar paga e preserva conta em aberto sem baixa de caixa",()=>{
+    const invalid=applyExpenseCommand(base(),command(
+      EXPENSE_COMMAND.COMPANY_EXPENSE_SAVED,
+      {expense:{id:"c-1",competencia:"2026-07",descricao:"Internet",categoria:"internet",valor:150,pago:true}},
+      0,
+    ),now);
+    expect(invalid.reason).toMatch(/data.*paga/i);
+
+    const open=applyExpenseCommand(base(),command(
+      EXPENSE_COMMAND.COMPANY_EXPENSE_SAVED,
+      {expense:{id:"c-2",competencia:"2026-07",descricao:"Internet",categoria:"internet",valor:150,pago:false,vencimento:"2026-07-30"}},
+      0,
+    ),now);
+    expect(open.ok).toBe(true);
+    expect(open.data.despesasEmpresa[0]).toMatchObject({
+      categoria:"internet",pago:false,vencimento:"2026-07-30",
+    });
   });
 
   it("replica recorrentes sem persistir metadado transitório e sem duplicar",()=>{

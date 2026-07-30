@@ -3,6 +3,8 @@
  * módulos de origem e são convertidos aqui em efeitos financeiros canônicos.
  */
 
+import { companyExpenseCategory } from "../dre/expense-taxonomy.js";
+
 export const toCents = value => Math.round(Number(value || 0) * 100);
 export const fromCents = value => Number(value || 0) / 100;
 
@@ -424,9 +426,20 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
     const date = isoDate(expense.data) || (competenceOf(expense.competencia) ? `${expense.competencia}-01` : "");
     const base = {
       amountCents: Math.abs(rawCents), date, competence: competenceOf(expense.competencia) || competenceOf(date),
-      obraId: "", category: expense.categoria || "administrativo",
+      obraId: "", category: companyExpenseCategory(expense.categoria).id,
       description: expense.descricao || "Despesa corporativa", sourceType: "despesa_empresa", sourceId: id,
-      metadata: { corporate: true, negativeNature: rawCents < 0 ? (expense.naturezaNegativa || "ajuste_legado") : "" },
+      metadata: {
+        corporate: true,
+        negativeNature: rawCents < 0 ? (expense.naturezaNegativa || "ajuste_legado") : "",
+        expenseDetails:{
+          fornecedor:expense.fornecedor||"",documento:expense.documento||"",
+          centroCusto:expense.centroCusto||"escritorio",vencimento:expense.vencimento||"",
+          formaPagamento:expense.formaPagamento||"",cartao:expense.cartao||"",
+          parcelas:Number(expense.parcelas||1),pago:expense.pago===true,
+          dataPagamento:expense.dataPagamento||"",recorrente:expense.recorrente===true,
+          observacao:expense.observacao||"",
+        },
+      },
     };
     add({ ...base, id: `despesa_empresa:${id}:${rawCents < 0 ? "reversal" : "cost"}`, effect: rawCents < 0 ? "cost_reversal" : "cost" });
     const paid = expense.pago === true || expense.dataPagamento || expense.pagamentoId || expense.transacaoId;

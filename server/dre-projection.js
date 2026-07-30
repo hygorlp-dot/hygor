@@ -1,4 +1,9 @@
 import { createDreCalculations } from "../src/domains/dre/calculations.js";
+import {
+  COMPANY_EXPENSE_CATEGORIES,
+  COMPANY_EXPENSE_GROUPS,
+  emptyCompanyExpenseGroupTotals,
+} from "../src/domains/dre/expense-taxonomy.js";
 import { calcEquipMes, diasLocacaoNoPeriodo } from "../src/domains/equipamentos/calculations.js";
 import { calculateAttendanceDayCost } from "../src/domains/ponto/payroll.js";
 
@@ -136,12 +141,9 @@ const calculations=createDreCalculations({
   calcEquipFaturamentoEmpresa:equipmentCompany,
 });
 
-const expenseCategories=[
-  ["aluguel","admin"],["pessoal_admin","admin"],["terceiros","admin"],["contabilidade","admin"],
-  ["energia","admin"],["comunicacao","admin"],["material_adm","admin"],["software","admin"],
-  ["veiculo","admin"],["imposto_simples","fiscal"],["imposto_ir","fiscal"],["taxa_cartorio","fiscal"],
-  ["crea","fiscal"],["seg_fianca","outros"],["outros","outros"],
-];
+const expenseCategories=COMPANY_EXPENSE_CATEGORIES.map(category=>[
+  category.id,category.group,
+]);
 const companyDre = (data,year,month) => {
   const ym=`${year}-${String(month+1).padStart(2,"0")}`,cfg=data?.config||{};
   // A DRE da empresa não pode reconstruir valores a partir das coleções
@@ -170,8 +172,15 @@ const companyDre = (data,year,month) => {
   ]));
   const sumGroup=group=>expenseCategories.filter(([,itemGroup])=>itemGroup===group)
     .reduce((sum,[category])=>sum+Number(despPorCat[category]||0),0);
-  const totalDespAdmin=sumGroup("admin"),totalDespFiscal=sumGroup("fiscal"),totalDespOutros=sumGroup("outros");
-  const totalDespOp=totalDespAdmin+totalDespFiscal+totalDespOutros;
+  const despPorGrupo=COMPANY_EXPENSE_GROUPS.reduce((totals,group)=>({
+    ...totals,[group.id]:sumGroup(group.id),
+  }),emptyCompanyExpenseGroupTotals());
+  const totalDespPessoal=despPorGrupo.pessoal,totalDespOcupacao=despPorGrupo.ocupacao;
+  const totalDespAdministrativo=despPorGrupo.administrativo,totalDespComercial=despPorGrupo.comercial;
+  const totalDespFinanceiro=despPorGrupo.financeiro,totalDespFiscal=despPorGrupo.fiscal;
+  const totalDespOutros=despPorGrupo.outros;
+  const totalDespAdmin=totalDespPessoal+totalDespOcupacao+totalDespAdministrativo+totalDespComercial;
+  const totalDespOp=Object.values(despPorGrupo).reduce((sum,value)=>sum+Number(value||0),0);
   const ebitda=lucroBruto-totalDespOp+Number(base.equipLucro||0),margemEbitda=receitaLiquida?ebitda/receitaLiquida*100:0;
   const resultFinanceiro=0,lair=ebitda;
   const provisaoIR=lair>0?lair*Number(cfg.aliquotaIR||0)/100:0;
@@ -181,6 +190,7 @@ const companyDre = (data,year,month) => {
   const despEmp=corporateCosts.filter(event=>event.sourceType==="despesa_empresa").map(event=>({
     id:event.sourceId,categoria:event.category,descricao:event.description,competencia:event.competence,
     data:event.date,valor:signedAmount(event),status:event.effect==="cost_reversal"?"estornado":"ativo",
+    ...(event.metadata?.expenseDetails||{}),
   }));
   const porObra=workRows.map(row=>{
     const receita=Number(row.faturamento||0),despesa=Number(row.totalCustos||0),resultado=Number(row.lucroBruto||0);
@@ -192,7 +202,8 @@ const companyDre = (data,year,month) => {
   return Object.fromEntries(Object.entries({
     ym,faturamentoObras,recebidoObras,deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
     laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,totalCSP,lucroBruto,margemBruta,
-    despPorCat,totalDespAdmin,totalDespFiscal,totalDespOutros,totalDespOp,ebitda,margemEbitda,
+    despPorCat,despPorGrupo,totalDespPessoal,totalDespOcupacao,totalDespAdministrativo,totalDespComercial,
+    totalDespFinanceiro,totalDespAdmin,totalDespFiscal,totalDespOutros,totalDespOp,ebitda,margemEbitda,
     resultFinanceiro,lair,provisaoIR,provisaoCSLL,totalImpostoLucro,lucroLiquido,margemLiquida,despEmp,porObra,
     entradasCaixa:base.entradasCaixa,saidasCaixa:base.saidasCaixa,saldoCaixa:base.saldoCaixa,
     contasReceber:base.contasReceber,contasPagar:base.contasPagar,comprometido:base.comprometido,
