@@ -33447,12 +33447,18 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const donoName = id => id ? ((data.proprietariosEquip||[]).find(p=>p.id===id)?.nome || "Terceiro") : "Empresa";
   const equipName = id => (data.equipamentos||[]).find(e=>e.id===id)?.nome || "—";
 
-  const equipamentos = (data.equipamentos||[]).filter(e=>e.ativo!==false)
+  const equipamentosAtivos = (data.equipamentos||[]).filter(e=>e.ativo!==false);
+  const equipamentos = equipamentosAtivos
     .filter(e=>[e.nome,e.categoria,e.patrimonio,donoName(e.proprietarioId)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.nome.localeCompare(b.nome));
 
   const rel = useMemo(()=>calcEquipamentosMes(data, ym), [data, ym]);
   const relPorObra = useMemo(()=>calcEquipamentosPorObra(data, ym), [data, ym]);
+  const locacoesAtivas=(data.locacoesEquip||[]).filter(locacao=>locacao.status!=="cancelada"&&!locacao.fim);
+  const totalUnidades=equipamentosAtivos.reduce((soma,equipamento)=>soma+Math.max(1,Number(equipamento.quantidadeTotal||1)),0);
+  const unidadesAlocadas=locacoesAtivas.reduce((soma,locacao)=>soma+Math.max(1,Number(locacao.quantidade||1)),0);
+  const unidadesLivres=equipamentosAtivos.reduce((soma,equipamento)=>
+    soma+Math.max(0,disponibilidadeNoDia(data,equipamento,today()).livre),0);
 
   const STATUS_EQUIP = {
     disponivel:{l:"Disponível",c:C.green},
@@ -33699,28 +33705,53 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       <PageHero
         eyebrow={contexto==="financeiro"?"Financeiro · ativos e locações":"Engenharia"}
         title={contexto==="financeiro"?"Central de locação de equipamentos":"Equipamentos"}
-        description={`${equipamentos.length} equipamento(s) · ${rel.locados} locado(s) · ${rel.emManutencao} em manutenção${contexto==="financeiro"?" · custos integrados ao DRE":""}`}
+        description={contexto==="financeiro"
+          ?"Disponibilidade, alocação, manutenção e cobrança por obra em uma única operação auditável."
+          :`${equipamentosAtivos.length} equipamento(s) ativo(s) · custos integrados à obra.`}
+        stats={contexto==="financeiro"?[
+          {label:"Frota ativa",value:`${totalUnidades} un.`,detail:`${equipamentosAtivos.length} cadastro(s)`,color:C.text},
+          {label:"Em obras",value:`${unidadesAlocadas} un.`,detail:`${locacoesAtivas.length} locação(ões) aberta(s)`,color:unidadesAlocadas?C.blue:C.muted},
+          {label:"Livres hoje",value:`${unidadesLivres} un.`,detail:"Disponíveis para alocação",color:unidadesLivres?C.green:C.orange},
+          {label:"Receita no mês",value:fmt(rel.total.receita),detail:mesLabel,color:C.green},
+        ]:undefined}
         actions={<>
-          <Btn size="sm" v="ghost" onClick={()=>setDonoModal(donoVazio)}><Ic n="user"/> Proprietário</Btn>
-          <Btn size="sm" onClick={()=>setEquipModal(equipVazio)}><Ic n="plus"/> Equipamento</Btn>
+          {contexto==="financeiro"&&<Btn size="sm" disabled={!equipamentosAtivos.length} onClick={()=>setLocModal(locVazio)}
+            title={equipamentosAtivos.length?"Criar uma nova locação":"Cadastre um equipamento antes de criar a locação"}>
+            <Ic n="plus"/> Nova locação
+          </Btn>}
+          <Btn size="sm" v={contexto==="financeiro"?"ghost":"primary"} onClick={()=>setEquipModal(equipVazio)}><Ic n="wrench"/> Novo equipamento</Btn>
+          <Btn size="sm" v="ghost" onClick={()=>setDonoModal(donoVazio)}><Ic n="user"/> Proprietários</Btn>
         </>}
       />
 
       {/* Abas internas */}
-      <TabRow tabs={[["frota","Frota"],["gestao","Gestão de locação"],["locacoes","Locações"],["manutencao","Manutenção"],["relatorio","Relatório mensal"]]} active={aba} onChange={setAba}/>
+      <TabRow tabs={[
+        {v:"frota",l:"Frota",icon:"wrench",count:equipamentosAtivos.length},
+        {v:"gestao",l:"Mapa de ocupação",icon:"calendar",count:locacoesAtivas.length},
+        {v:"locacoes",l:"Locações",icon:"building",count:(data.locacoesEquip||[]).length},
+        {v:"manutencao",l:"Manutenção",icon:"settings",count:(data.manutencoesEquip||[]).length},
+        {v:"relatorio",l:"Cobrança por obra",icon:"chart"},
+      ]} active={aba} onChange={setAba}/>
 
       {/* ---------- FROTA ---------- */}
       {aba==="frota" && <>
-        <Inp label="" value={busca} onChange={setBusca} placeholder="Buscar por nome, categoria, patrimônio ou dono..."/>
+        <div className="equipment-toolbar">
+          <Inp label="Pesquisar na frota" value={busca} onChange={setBusca} placeholder="Nome, categoria, patrimônio ou proprietário..."/>
+          <Sel label="Competência dos resultados" value={ym} onChange={setYm} options={mesesOpts}/>
+        </div>
         {equipamentos.length===0
-          ? <div style={{padding:24,textAlign:"center",color:C.muted,fontSize:12}}>Nenhum equipamento. Cadastre o primeiro.</div>
-          : <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          ? <div className="equipment-empty-state">
+              <span><Ic n="wrench" s={19}/></span>
+              <div><p>{busca?"Nenhum equipamento encontrado":"Nenhum equipamento ativo"}</p><small>{busca?"Revise o termo pesquisado ou limpe o campo.":"Cadastre o primeiro item da frota para começar a controlar locações e cobranças."}</small></div>
+              {!busca&&<Btn size="sm" onClick={()=>setEquipModal(equipVazio)}><Ic n="plus"/> Cadastrar equipamento</Btn>}
+            </div>
+          : <div className="equipment-fleet-grid" style={{gridTemplateColumns:formGrid(2)}}>
             {equipamentos.map(e=>{
               const st = STATUS_EQUIP[e.status]||STATUS_EQUIP.disponivel;
               const proprio = !e.proprietarioId;
               const fin = calcEquipMes(data, e.id, ym);
               return (
-                <div key={e.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${st.c}`,borderRadius:8,padding:"11px 13px"}}>
+                <article key={e.id} className="equipment-fleet-card" data-status={e.status||"disponivel"}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:6}}>
                     <div style={{minWidth:0}}>
                       <p style={{fontSize:13,fontWeight:800,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.nome}</p>
@@ -33767,8 +33798,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                       </div>
                     </>);
                   })()}
-                  <div style={{display:"flex",gap:4,marginTop:8,flexWrap:"wrap"}}>
-                    <Btn size="sm" v="ghost" onClick={()=>setEquipModal(e)}><Ic n="edit"/></Btn>
+                  <div className="equipment-card-actions">
+                    <Btn size="sm" v="ghost" onClick={()=>setEquipModal(e)} title={`Editar ${e.nome}`}><Ic n="edit"/> Editar</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>setLocModal({...locVazio, equipamentoId:e.id, valorDiaria:e.valorDiaria, custoDiaria:e.custoDiaria, obraId:e.obraAtualId})}>Locar</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>setTransfModal({...transfVazio, equipamentoId:e.id})}>Transferir</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>setManutModal({...manutVazio, equipamentoId:e.id})}>Manutenção</Btn>
@@ -33777,7 +33808,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                       <Ic n="trash"/> Excluir
                     </Btn>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>}
@@ -33921,16 +33952,17 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       })()}
 
       {aba==="locacoes" && <>
-        <div style={{display:"flex",justifyContent:"flex-end"}}>
+        <div className="equipment-section-heading">
+          <div><p>Histórico de locações</p><small>{locacoesAtivas.length} em andamento · {(data.locacoesEquip||[]).length} no histórico</small></div>
           <Btn size="sm" onClick={()=>setLocModal(locVazio)}><Ic n="plus"/> Nova locação</Btn>
         </div>
         {(data.locacoesEquip||[]).length===0
-          ? <div style={{padding:24,textAlign:"center",color:C.muted,fontSize:12}}>Nenhuma locação registrada.</div>
-          : <div style={{display:"flex",flexDirection:"column",gap:7}}>
+          ? <div className="equipment-empty-state"><span><Ic n="calendar" s={19}/></span><div><p>Nenhuma locação registrada</p><small>Escolha um equipamento e uma obra para iniciar o histórico de cobrança.</small></div></div>
+          : <div className="equipment-record-list">
             {[...(data.locacoesEquip||[])].sort((a,b)=>(b.inicio||"").localeCompare(a.inicio||"")).map(l=>{
               const emAberto = !l.fim;
               return (
-                <div key={l.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${emAberto?C.blue:C.muted}`,borderRadius:8,padding:"10px 12px"}}>
+                <article key={l.id} className="equipment-record" data-active={emAberto}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
                     <div style={{minWidth:0}}>
                       <p style={{fontSize:12.5,fontWeight:800,color:C.text}}>
@@ -33964,11 +33996,11 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                       );
                     })()}
                   </div>
-                  <div style={{display:"flex",gap:4,marginTop:7,justifyContent:"flex-end"}}>
-                    <Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/></Btn>
+                  <div className="equipment-record-actions">
+                    <Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>
                     {emAberto && <Btn size="sm" v="ghost" onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>}
@@ -33976,14 +34008,15 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
 
       {/* ---------- MANUTENÇÃO ---------- */}
       {aba==="manutencao" && <>
-        <div style={{display:"flex",justifyContent:"flex-end"}}>
+        <div className="equipment-section-heading">
+          <div><p>Histórico de manutenção</p><small>Custos preventivos e corretivos vinculados à frota</small></div>
           <Btn size="sm" onClick={()=>setManutModal(manutVazio)}><Ic n="plus"/> Registrar manutenção</Btn>
         </div>
         {(data.manutencoesEquip||[]).length===0
-          ? <div style={{padding:24,textAlign:"center",color:C.muted,fontSize:12}}>Nenhuma manutenção registrada.</div>
-          : <div style={{display:"flex",flexDirection:"column",gap:7}}>
+          ? <div className="equipment-empty-state"><span><Ic n="settings" s={19}/></span><div><p>Nenhuma manutenção registrada</p><small>Registre serviços e custos para acompanhar a disponibilidade real da frota.</small></div></div>
+          : <div className="equipment-record-list">
             {[...(data.manutencoesEquip||[])].sort((a,b)=>(b.data||"").localeCompare(a.data||"")).map(m=>(
-              <div key={m.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${m.tipo==="preventiva"?C.blue:C.orange}`,borderRadius:8,padding:"10px 12px"}}>
+              <article key={m.id} className="equipment-record" data-maintenance={m.tipo||"corretiva"}>
                 <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
                   <div style={{minWidth:0}}>
                     <p style={{fontSize:12.5,fontWeight:800,color:C.text}}>{equipName(m.equipamentoId)}</p>
@@ -33994,15 +34027,16 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                     <p style={{fontSize:12,fontWeight:800,color:C.red}}>{fmt(m.custo)}</p>
                   </div>
                 </div>
-              </div>
+              </article>
             ))}
           </div>}
       </>}
 
       {/* ---------- RELATÓRIO MENSAL ---------- */}
       {aba==="relatorio" && <>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-          <Sel label="" value={ym} onChange={setYm} options={mesesOpts}/>
+        <div className="equipment-report-toolbar">
+          <div><p>Fechamento por obra</p><small>Confira permanência, diárias-unidade e valor faturável antes de exportar.</small></div>
+          <Sel label="Competência" value={ym} onChange={setYm} options={mesesOpts}/>
           <Btn size="sm" v="ghost" onClick={()=>exportarRelEquipPorObra(ym, relPorObra, {donoName})}><Ic n="download"/> Exportar por obra</Btn>
         </div>
 
@@ -34029,7 +34063,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
             {relPorObra.obras.filter(obra=>relPorObra.totaisPorObra[obra.id]?.unidadeDias>0).map(obra=>{
               const totalObra=relPorObra.totaisPorObra[obra.id];
-              return <div key={obra.id} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.blue}`,borderRadius:8,padding:"10px 12px"}}>
+              return <div key={obra.id} className="equipment-work-total">
                 <p style={{fontSize:10,fontWeight:900,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{obra.name}</p>
                 <p style={{fontSize:17,fontWeight:900,color:C.green,marginTop:4}}>{fmt(totalObra.receita)}</p>
                 <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{totalObra.unidadeDias} diária(s)-unidade no mês</p>
@@ -34039,8 +34073,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
         )}
 
         {/* Matriz: equipamentos nas linhas e obras nas colunas */}
-        <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxWidth:"100%"}}>
-          <table style={{width:"max-content",minWidth:"100%",borderCollapse:"separate",borderSpacing:0,fontSize:11}}>
+        <div className="equipment-work-matrix" style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxWidth:"100%"}}>
+          <table aria-label={`Cobrança de equipamentos por obra em ${mesLabel}`} style={{width:"max-content",minWidth:"100%",borderCollapse:"separate",borderSpacing:0,fontSize:11}}>
             <thead>
               <tr>
                 <th style={{position:"sticky",left:0,zIndex:3,minWidth:240,maxWidth:280,textAlign:"left",padding:"9px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.border}`,color:C.muted,fontSize:9.5,fontWeight:900,textTransform:"uppercase"}}>
@@ -34113,7 +34147,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       {equipModal && (
         <Modal title={equipModal.id?"Editar equipamento":"Novo equipamento"} onClose={()=>{setEquipModal(null);setBuscaSinapiEquip("");setResultadosSinapiEquip([]);setAvisoSinapiEquip("");}} wide>
           <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-            <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.yellowD}`,borderRadius:6,padding:"12px 13px"}}>
+            <div className="equipment-sinapi-reference" style={{gridColumn:"1/-1"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap",marginBottom:9}}>
                 <div>
                   <p style={{fontSize:11.5,fontWeight:900,color:C.text}}>Referência de compra SINAPI</p>
