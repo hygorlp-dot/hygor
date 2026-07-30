@@ -100,22 +100,25 @@ export const calcEquipMes = (data,equipId,ym) => {
   const inicio=`${ym}-01`;
   const fim=`${ym}-${String(new Date(ano,mes,0).getDate()).padStart(2,"0")}`;
   const equip=(data.equipamentos||[]).find(e=>e.id===equipId);
-  const locacoes=(data.locacoesEquip||[]).filter(l=>l.equipamentoId===equipId);
-  let receita=0,custoDono=0,diasTotais=0,descontos=0;
+  const locacoes=(data.locacoesEquip||[])
+    .filter(l=>l.equipamentoId===equipId&&l.status!=="cancelada");
+  let receita=0,custoDono=0,diasTotais=0,descontos=0,locacoesPeriodo=0;
   locacoes.forEach(locacao=>{
     const dias=diasLocacaoNoPeriodo(locacao,inicio,fim);
     if(!dias)return;
+    locacoesPeriodo++;
     diasTotais+=dias;
     const cobranca=cobrancaLocacao(locacao,equip,dias);
     receita+=cobranca.liquido;
     descontos+=cobranca.desconto;
-    custoDono+=melhorTarifa(tarifasCustoDaLocacao(locacao,equip),dias).total;
+    custoDono+=melhorTarifa(tarifasCustoDaLocacao(locacao,equip),dias).total
+      *Math.max(1,Number(locacao.quantidade||1));
   });
   const manut=(data.manutencoesEquip||[])
     .filter(m=>m.equipamentoId===equipId&&(m.data||"").slice(0,7)===ym&&m.pagoPor!=="proprietario")
     .reduce((s,m)=>s+Number(m.custo||0),0);
   const custo=custoDono+manut;
-  return {receita,descontos,custoDono,manut,custo,lucro:receita-custo,diasTotais,locacoes:locacoes.length};
+  return {receita,descontos,custoDono,manut,custo,lucro:receita-custo,diasTotais,locacoes:locacoesPeriodo};
 };
 
 export const calcEquipamentosMes = (data,ym) => {
@@ -191,16 +194,38 @@ export const calcEquipamentosPorObra=(data,ym)=>{
       const contratos=locacoes.filter(locacao=>
         locacao.equipamentoId===equipamento.id&&locacao.obraId===obra.id);
       const unidadesPorDia=new Map();
+      const detalhes=[];
       let receita=0,custoDono=0,descontos=0;
       contratos.forEach(locacao=>{
         const dias=diasLocacaoNoPeriodo(locacao,inicio,fim);
         const quantidade=Math.max(1,Number(locacao.quantidade||1));
         const cobranca=cobrancaLocacao(locacao,equipamento,dias);
-        receita+=cobranca.liquido;
-        descontos+=cobranca.desconto;
-        custoDono+=melhorTarifa(tarifasCustoDaLocacao(locacao,equipamento),dias).total*quantidade;
+        const custoUnitario=melhorTarifa(tarifasCustoDaLocacao(locacao,equipamento),dias);
+        const custoLocacao=custoUnitario.total*quantidade;
         const primeiro=String(locacao.inicio||"")<inicio?inicio:String(locacao.inicio||"");
         const ultimo=!locacao.fim||String(locacao.fim)>fim?fim:String(locacao.fim);
+        receita+=cobranca.liquido;
+        descontos+=cobranca.desconto;
+        custoDono+=custoLocacao;
+        detalhes.push({
+          locacaoId:locacao.id,
+          inicio:primeiro,
+          fim:ultimo,
+          quantidade,
+          dias,
+          unidadeDias:dias*quantidade,
+          bruto:cobranca.bruto,
+          descontos:cobranca.desconto,
+          receita:cobranca.liquido,
+          custoDono:custoLocacao,
+          lucro:cobranca.liquido-custoLocacao,
+          composicao:cobranca.composicao,
+          composicaoCusto:custoUnitario.composicao,
+          semTarifa:cobranca.semTarifa,
+          tarifaNegociada:locacao.tarifaNegociada===true,
+          status:locacao.fim?"encerrada":"em_andamento",
+          observacao:String(locacao.obs||""),
+        });
         isoDiasEntre(primeiro,ultimo).forEach(iso=>
           unidadesPorDia.set(iso,(unidadesPorDia.get(iso)||0)+quantidade));
       });
@@ -212,6 +237,7 @@ export const calcEquipamentosPorObra=(data,ym)=>{
         quantidadePico:quantidades.length?Math.max(...quantidades):0,
         receita,custoDono,descontos,lucro:receita-custoDono,
         locacoes:contratos.length,
+        detalhes,
       };
     });
     const total=Object.values(porObra).reduce((acc,celula)=>({

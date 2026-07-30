@@ -65,6 +65,7 @@ describe("motor financeiro de equipamentos", () => {
         nome:"Betoneira",
         quantidadeTotal:2,
         tarifas:{dia:100,semana:650,quinzena:1200,mes:2000},
+        tarifasCusto:{dia:60,semana:390,quinzena:720,mes:1200},
       }],
       locacoesEquip:[{
         id:"l1",
@@ -73,12 +74,24 @@ describe("motor financeiro de equipamentos", () => {
         inicio:"2026-07-01",
         fim:"2026-07-31",
         quantidade:2,
+      },{
+        id:"cancelada",
+        equipamentoId:"e1",
+        obraId:"o1",
+        inicio:"2026-07-01",
+        fim:"2026-07-31",
+        quantidade:2,
+        status:"cancelada",
       }],
     };
 
     expect(calcEquipCustoObra(julho31Dias,"o1","2026-07")).toBe(4200);
+    const mensal=calcEquipamentosMes(julho31Dias,"2026-07");
+    expect(mensal.total)
+      .toMatchObject({receita:4200,custoDono:2520,lucro:1680});
+    expect(mensal.linhas[0].locacoes).toBe(1);
     expect(calcEquipamentosPorObra(julho31Dias,"2026-07").totaisPorObra.o1)
-      .toMatchObject({dias:31,unidadeDias:62,receita:4200});
+      .toMatchObject({dias:31,unidadeDias:62,receita:4200,custoDono:2520,lucro:1680});
   });
 
   it("projeta equipamentos nas linhas e obras nas colunas sem perder a quantidade",()=>{
@@ -100,6 +113,22 @@ describe("motor financeiro de equipamentos", () => {
     expect(matriz.linhas[0].porObra.o1).toMatchObject({
       dias:3,unidadeDias:6,quantidadePico:2,receita:600,
     });
+    expect(matriz.linhas[0].porObra.o1.detalhes[0]).toMatchObject({
+      locacaoId:"l1",
+      inicio:"2026-07-01",
+      fim:"2026-07-03",
+      quantidade:2,
+      dias:3,
+      unidadeDias:6,
+      bruto:600,
+      receita:600,
+      custoDono:0,
+      lucro:600,
+      semTarifa:false,
+      status:"encerrada",
+    });
+    expect(textoComposicao(matriz.linhas[0].porObra.o1.detalhes[0].composicao))
+      .toBe("3 dias");
     expect(matriz.linhas[0].porObra.o2).toMatchObject({
       dias:3,unidadeDias:3,quantidadePico:1,receita:300,
     });

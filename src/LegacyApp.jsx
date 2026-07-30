@@ -98,6 +98,7 @@ const LazySupplierEditor = lazy(() => import("./domains/suppliers/SupplierEditor
 const LazyLegacyMobileNavigation = lazy(() => import("./mobile/LegacyMobileNavigation.jsx")
   .then(module => ({ default:module.LegacyMobileNavigation })));
 const LazyLoginProjectParallax = lazy(() => import("./components/login/LoginProjectParallax"));
+const LazyEquipmentBillingReports = lazy(() => import("./domains/equipamentos/EquipmentBillingReports"));
 import {
   PACOTES_TARIFA, melhorTarifa, textoComposicao, tarifasDaLocacao,
   tarifasCustoDaLocacao, cobrancaLocacao, disponibilidadeNoDia,
@@ -34033,115 +34034,26 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       </>}
 
       {/* ---------- RELATÓRIO MENSAL ---------- */}
-      {aba==="relatorio" && <>
-        <div className="equipment-report-toolbar">
-          <div><p>Fechamento por obra</p><small>Confira permanência, diárias-unidade e valor faturável antes de exportar.</small></div>
-          <Sel label="Competência" value={ym} onChange={setYm} options={mesesOpts}/>
-          <Btn size="sm" v="ghost" onClick={()=>exportarRelEquipPorObra(ym, relPorObra, {donoName})}><Ic n="download"/> Exportar por obra</Btn>
-        </div>
-
-        {/* Cartões de resumo */}
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-          <MiniKpi label="Receita de locação" value={fmt(rel.total.receita)} cor={C.green}/>
-          <MiniKpi label="Custo (dono + manut.)" value={fmt(rel.total.custo)} cor={C.red}/>
-          <MiniKpi label="Lucro do mês" value={fmt(rel.total.lucro)} cor={rel.total.lucro>=0?C.green:C.red}/>
-          <MiniKpi label="Descontos concedidos" value={fmt(rel.total.descontos)} cor={C.orange}/>
-        </div>
-        <div style={{display:"flex",gap:8,fontSize:10.5,color:C.muted,flexWrap:"wrap"}}>
-          <span>Lucro próprios: <b style={{color:C.green}}>{fmt(rel.lucroProprios)}</b></span>
-          <span>Lucro terceiros: <b style={{color:C.purple}}>{fmt(rel.lucroTerceiros)}</b></span>
-        </div>
-
-        <div>
-          <p style={{fontSize:11.5,fontWeight:900,color:C.text}}>Cobrança por obra</p>
-          <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>
-            Dias mostram a permanência na obra. Diárias-unidade consideram também a quantidade simultânea e formam a base de conferência da cobrança.
-          </p>
-        </div>
-
-        {relPorObra.obras.some(obra=>relPorObra.totaisPorObra[obra.id]?.unidadeDias>0) && (
-          <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
-            {relPorObra.obras.filter(obra=>relPorObra.totaisPorObra[obra.id]?.unidadeDias>0).map(obra=>{
-              const totalObra=relPorObra.totaisPorObra[obra.id];
-              return <div key={obra.id} className="equipment-work-total">
-                <p style={{fontSize:10,fontWeight:900,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{obra.name}</p>
-                <p style={{fontSize:17,fontWeight:900,color:C.green,marginTop:4}}>{fmt(totalObra.receita)}</p>
-                <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{totalObra.unidadeDias} diária(s)-unidade no mês</p>
-              </div>;
-            })}
-          </div>
-        )}
-
-        {/* Matriz: equipamentos nas linhas e obras nas colunas */}
-        <div className="equipment-work-matrix" style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxWidth:"100%"}}>
-          <table aria-label={`Cobrança de equipamentos por obra em ${mesLabel}`} style={{width:"max-content",minWidth:"100%",borderCollapse:"separate",borderSpacing:0,fontSize:11}}>
-            <thead>
-              <tr>
-                <th style={{position:"sticky",left:0,zIndex:3,minWidth:240,maxWidth:280,textAlign:"left",padding:"9px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.border}`,color:C.muted,fontSize:9.5,fontWeight:900,textTransform:"uppercase"}}>
-                  Equipamento / quantidade
-                </th>
-                {relPorObra.obras.map(obra=>(
-                  <th key={obra.id} style={{minWidth:180,maxWidth:210,textAlign:"left",padding:"9px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.line}`,color:C.text,fontSize:9.5,fontWeight:900,textTransform:"uppercase"}}>
-                    {obra.name}
-                  </th>
-                ))}
-                <th style={{minWidth:170,textAlign:"right",padding:"9px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,color:C.muted,fontSize:9.5,fontWeight:900,textTransform:"uppercase"}}>
-                  Total
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {relPorObra.linhas.filter(linha=>linha.total.unidadeDias>0||linha.total.receita>0||linha.total.custoDono>0).map(linha=>(
-                <tr key={linha.equip.id}>
-                  <td style={{position:"sticky",left:0,zIndex:2,minWidth:240,maxWidth:280,padding:"9px 10px",background:C.card,borderBottom:`1px solid ${C.line}`,borderRight:`1px solid ${C.border}`}}>
-                    <p style={{fontSize:11,fontWeight:850,color:C.text,overflow:"hidden",textOverflow:"ellipsis"}}>{linha.equip.nome}</p>
-                    <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginTop:4}}>
-                      <span style={{padding:"2px 6px",borderRadius:99,background:C.surface,border:`1px solid ${C.border}`,fontSize:8.5,fontWeight:800,color:C.text}}>Qtd. {Math.max(1,Number(linha.equip.quantidadeTotal||1))}</span>
-                      <span style={{fontSize:8.5,color:C.muted}}>{linha.equip.proprietarioId?donoName(linha.equip.proprietarioId):"Empresa"}</span>
-                    </div>
-                  </td>
-                  {relPorObra.obras.map(obra=>{
-                    const celula=linha.porObra[obra.id];
-                    const movimentou=celula.unidadeDias>0||celula.receita>0||celula.custoDono>0;
-                    return <td key={obra.id} style={{minWidth:180,maxWidth:210,padding:"9px 10px",verticalAlign:"top",borderBottom:`1px solid ${C.line}`,borderRight:`1px solid ${C.line}`,background:movimentou?`${C.blue}05`:C.card}}>
-                      {movimentou ? <>
-                        <p style={{fontSize:11,fontWeight:850,color:C.text}}>{celula.dias} dia(s) <span style={{color:C.muted,fontWeight:650}}>· pico {celula.quantidadePico}</span></p>
-                        <p style={{fontSize:9,color:C.muted,marginTop:2}}>{celula.unidadeDias} diária(s)-unidade</p>
-                        <p style={{fontSize:11.5,fontWeight:900,color:C.green,marginTop:5}}>{fmt(celula.receita)}</p>
-                      </> : <span style={{color:C.muted}}>—</span>}
-                    </td>;
-                  })}
-                  <td style={{minWidth:170,padding:"9px 10px",textAlign:"right",verticalAlign:"top",borderBottom:`1px solid ${C.line}`,background:C.card}}>
-                    <p style={{fontSize:11.5,fontWeight:900,color:C.green}}>{fmt(linha.total.receita)}</p>
-                    <p style={{fontSize:9,color:C.muted,marginTop:2}}>{linha.total.unidadeDias} diária(s)-unidade</p>
-                  </td>
-                </tr>
-              ))}
-              {!relPorObra.linhas.some(linha=>linha.total.unidadeDias>0||linha.total.receita>0||linha.total.custoDono>0) && (
-                <tr><td colSpan={relPorObra.obras.length+2} style={{padding:24,textAlign:"center",color:C.muted}}>Sem movimentação de equipamentos em {mesLabel}.</td></tr>
-              )}
-            </tbody>
-            {relPorObra.linhas.some(linha=>linha.total.unidadeDias>0||linha.total.receita>0||linha.total.custoDono>0) && (
-              <tfoot>
-                <tr>
-                  <td style={{position:"sticky",left:0,zIndex:2,padding:"9px 10px",background:C.surface,borderRight:`1px solid ${C.border}`,fontSize:9.5,fontWeight:900,color:C.text,textTransform:"uppercase"}}>Total por obra</td>
-                  {relPorObra.obras.map(obra=>{
-                    const totalObra=relPorObra.totaisPorObra[obra.id];
-                    return <td key={obra.id} style={{padding:"9px 10px",background:C.surface,borderRight:`1px solid ${C.line}`}}>
-                      <p style={{fontSize:11,fontWeight:900,color:C.green}}>{fmt(totalObra.receita)}</p>
-                      <p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{totalObra.unidadeDias} diária(s)-unidade</p>
-                    </td>;
-                  })}
-                  <td style={{padding:"9px 10px",textAlign:"right",background:C.surface}}>
-                    <p style={{fontSize:12,fontWeight:900,color:C.green}}>{fmt(relPorObra.total.receita)}</p>
-                    <p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{relPorObra.total.unidadeDias} diária(s)-unidade</p>
-                  </td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </>}
+      {aba==="relatorio" && <Suspense fallback={<div className="equipment-report-empty"><strong>Preparando relatórios</strong><p>Organizando dados gerenciais e memórias por obra...</p></div>}>
+        <LazyEquipmentBillingReports
+          data={data}
+          monthly={rel}
+          matrix={relPorObra}
+          period={ym}
+          periodLabel={mesLabel}
+          periodOptions={mesesOpts}
+          onPeriodChange={setYm}
+          ownerName={donoName}
+          logoSrc={data.config?.companyImageUrl||data.config?.logoUrl||ARCD_LOGO}
+          formatCurrency={fmt}
+          formatDate={fmtDate}
+          formatComposition={textoComposicao}
+          onPrintManagement={()=>imprimirRelEquipGerencial(data,ym,mesLabel,rel,relPorObra,donoName,showToast)}
+          onPrintWork={obra=>imprimirRelEquipObra(data,ym,mesLabel,relPorObra,obra,donoName,showToast)}
+          onExportManagement={()=>exportarRelEquipPorObra(ym,relPorObra,{donoName})}
+          onExportWork={obra=>exportarRelEquipObraDetalhado(ym,relPorObra,obra,{donoName})}
+        />
+      </Suspense>}
 
       {/* ===== MODAIS ===== */}
       {equipModal && (
@@ -34445,8 +34357,11 @@ const exportarRelEquipPorObra = (ym, rel, helpers) => {
     `${obra.name} - dias`,
     `${obra.name} - diárias-unidade`,
     `${obra.name} - cobrança`,
+    `${obra.name} - repasse`,
+    `${obra.name} - descontos`,
+    `${obra.name} - resultado`,
   ));
-  cabecalho.push("Total diárias-unidade","Total cobrança");
+  cabecalho.push("Total diárias-unidade","Total cobrança","Total repasse","Total descontos","Total resultado");
   const linhas=[cabecalho];
   rel.linhas.filter(linha=>linha.total.unidadeDias>0||linha.total.receita>0||linha.total.custoDono>0).forEach(linha=>{
     const registro=[
@@ -34456,23 +34371,96 @@ const exportarRelEquipPorObra = (ym, rel, helpers) => {
     ];
     rel.obras.forEach(obra=>{
       const celula=linha.porObra[obra.id];
-      registro.push(celula.dias,celula.unidadeDias,celula.receita.toFixed(2));
+      registro.push(
+        celula.dias,
+        celula.unidadeDias,
+        celula.receita.toFixed(2),
+        celula.custoDono.toFixed(2),
+        celula.descontos.toFixed(2),
+        celula.lucro.toFixed(2),
+      );
     });
-    registro.push(linha.total.unidadeDias,linha.total.receita.toFixed(2));
+    registro.push(
+      linha.total.unidadeDias,
+      linha.total.receita.toFixed(2),
+      linha.total.custoDono.toFixed(2),
+      linha.total.descontos.toFixed(2),
+      linha.total.lucro.toFixed(2),
+    );
     linhas.push(registro);
   });
   const totais=["TOTAL","",""];
   rel.obras.forEach(obra=>{
     const totalObra=rel.totaisPorObra[obra.id];
-    totais.push(totalObra.dias,totalObra.unidadeDias,totalObra.receita.toFixed(2));
+    totais.push(
+      totalObra.dias,
+      totalObra.unidadeDias,
+      totalObra.receita.toFixed(2),
+      totalObra.custoDono.toFixed(2),
+      totalObra.descontos.toFixed(2),
+      totalObra.lucro.toFixed(2),
+    );
   });
-  totais.push(rel.total.unidadeDias,rel.total.receita.toFixed(2));
+  totais.push(
+    rel.total.unidadeDias,
+    rel.total.receita.toFixed(2),
+    rel.total.custoDono.toFixed(2),
+    rel.total.descontos.toFixed(2),
+    rel.total.lucro.toFixed(2),
+  );
   linhas.push(totais);
+  baixarCsv(linhas,`equipamentos-gerencial-${ym}.csv`);
+};
+
+const exportarRelEquipObraDetalhado=(ym,rel,obra,helpers)=>{
+  if(!obra)return;
+  const linhas=[[
+    "Obra","Equipamento","Patrimônio","Proprietário","Início cobrado","Fim cobrado",
+    "Situação","Quantidade","Dias","Diárias-unidade","Composição tarifária",
+    "Valor bruto","Desconto","Cobrança líquida","Repasse ao proprietário","Resultado","Observação",
+  ]];
+  rel.linhas.forEach(linha=>{
+    (linha.porObra[obra.id]?.detalhes||[]).forEach(detalhe=>linhas.push([
+      obra.name,
+      linha.equip.nome,
+      linha.equip.patrimonio||"",
+      linha.equip.proprietarioId?helpers.donoName(linha.equip.proprietarioId):"Empresa (próprio)",
+      detalhe.inicio,
+      detalhe.fim,
+      detalhe.status==="em_andamento"?"Em andamento":"Encerrada",
+      detalhe.quantidade,
+      detalhe.dias,
+      detalhe.unidadeDias,
+      detalhe.semTarifa?"Sem tarifa":textoComposicao(detalhe.composicao),
+      detalhe.bruto.toFixed(2),
+      detalhe.descontos.toFixed(2),
+      detalhe.receita.toFixed(2),
+      detalhe.custoDono.toFixed(2),
+      detalhe.lucro.toFixed(2),
+      detalhe.observacao,
+    ]));
+  });
+  const total=rel.totaisPorObra[obra.id]||{};
+  linhas.push([
+    "TOTAL","","","","","","","","",Number(total.unidadeDias||0),"",
+    (Number(total.receita||0)+Number(total.descontos||0)).toFixed(2),
+    Number(total.descontos||0).toFixed(2),
+    Number(total.receita||0).toFixed(2),
+    Number(total.custoDono||0).toFixed(2),
+    Number(total.lucro||0).toFixed(2),
+    "",
+  ]);
+  const nomeSeguro=String(obra.name||"obra").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-zA-Z0-9]+/g,"-").replace(/^-|-$/g,"").toLowerCase();
+  baixarCsv(linhas,`equipamentos-${nomeSeguro}-${ym}.csv`);
+};
+
+const baixarCsv=(linhas,nomeArquivo)=>{
   const csv = linhas.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(";")).join("\n");
   const blob = new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8;"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = `equipamentos-por-obra-${ym}.csv`; a.click();
+  a.href = url; a.download = nomeArquivo; a.click();
   URL.revokeObjectURL(url);
 };
 
@@ -34567,6 +34555,169 @@ function abrirRelatorioPadrao(html, showToast) {
   if (!w) { showToast?.("Não foi possível abrir a impressão. Permita pop-ups para este aplicativo e tente novamente.", "error"); return; }
   w.document.open(); w.document.write(html); w.document.close(); w.focus();
   window.setTimeout(() => w.print(), 300);
+}
+
+function imprimirRelEquipGerencial(data,ym,mesLabel,monthly,matrix,donoName,showToast){
+  const pct=(parte,total)=>Number(total||0)>0?(Number(parte||0)/Number(total))*100:0;
+  const dias=Math.floor((Date.parse(`${matrix.fim}T00:00:00Z`)-Date.parse(`${matrix.inicio}T00:00:00Z`))/86400000)+1;
+  const unidades=(data.equipamentos||[]).filter(item=>item.ativo!==false)
+    .reduce((sum,item)=>sum+Math.max(1,Number(item.quantidadeTotal||1)),0);
+  const capacidade=unidades*dias;
+  const detalhes=matrix.linhas.flatMap(linha=>matrix.obras.flatMap(obra=>
+    (linha.porObra[obra.id]?.detalhes||[]).map(detalhe=>({linha,obra,detalhe}))));
+  const obras=matrix.obras.map(obra=>{
+    const total=matrix.totaisPorObra[obra.id];
+    const daObra=detalhes.filter(item=>item.obra.id===obra.id);
+    return {obra,total,locacoes:daObra.length,equipamentos:new Set(daObra.map(item=>item.linha.equip.id)).size};
+  }).filter(item=>item.total.unidadeDias>0||item.total.receita>0||item.total.custoDono>0)
+    .sort((a,b)=>b.total.receita-a.total.receita);
+  const equipamentos=monthly.linhas.filter(linha=>linha.receita>0||linha.custo>0||linha.diasTotais>0)
+    .slice().sort((a,b)=>b.receita-a.receita);
+  const html=montarRelatorioPadraoHtml({
+    data,
+    titulo:"Relatório gerencial de locações",
+    subtitulo:mesLabel,
+    meta:[
+      {label:"Competência",value:ym},
+      {label:"Obras movimentadas",value:String(obras.length)},
+      {label:"Locações no período",value:String(detalhes.length)},
+      {label:"Frota ativa",value:`${unidades} unidade(s)`},
+    ],
+    kpis:[
+      {label:"Receita líquida",value:fmt(monthly.total.receita)},
+      {label:"Custo total",value:fmt(monthly.total.custo)},
+      {label:"Resultado",value:fmt(monthly.total.lucro)},
+      {label:"Margem",value:`${pct(monthly.total.lucro,monthly.total.receita).toFixed(1)}%`},
+      {label:"Utilização",value:`${pct(matrix.total.unidadeDias,capacidade).toFixed(1)}%`},
+      {label:"Descontos",value:fmt(monthly.total.descontos)},
+    ],
+    legenda:`Base de utilização: ${matrix.total.unidadeDias} de ${capacidade} diárias-unidade. Resultado das obras considera cobrança menos repasse ao proprietário; o resultado gerencial também deduz ${fmt(monthly.total.manut)} de manutenção paga pela empresa.`,
+    tabelas:[
+      {
+        titulo:"Resultado por obra",
+        descricao:"Centros de resultado ordenados pela cobrança líquida.",
+        headers:["Obra",{label:"Locações",num:true},{label:"Equip.",num:true},{label:"Diárias-un.",num:true},{label:"Bruto",num:true},{label:"Descontos",num:true},{label:"Cobrança",num:true},{label:"Repasse",num:true},{label:"Resultado",num:true},{label:"Margem",num:true}],
+        rows:obras.map(item=>[
+          escapeHtml(item.obra.name),
+          String(item.locacoes),
+          String(item.equipamentos),
+          String(item.total.unidadeDias),
+          escapeHtml(fmt(item.total.receita+item.total.descontos)),
+          escapeHtml(fmt(item.total.descontos)),
+          escapeHtml(fmt(item.total.receita)),
+          escapeHtml(fmt(item.total.custoDono)),
+          escapeHtml(fmt(item.total.lucro)),
+          `${pct(item.total.lucro,item.total.receita).toFixed(1)}%`,
+        ]),
+        totalRow:[
+          "TOTAL",
+          String(detalhes.length),
+          String(new Set(detalhes.map(item=>item.linha.equip.id)).size),
+          String(matrix.total.unidadeDias),
+          escapeHtml(fmt(matrix.total.receita+matrix.total.descontos)),
+          escapeHtml(fmt(matrix.total.descontos)),
+          escapeHtml(fmt(matrix.total.receita)),
+          escapeHtml(fmt(matrix.total.custoDono)),
+          escapeHtml(fmt(matrix.total.lucro)),
+          `${pct(matrix.total.lucro,matrix.total.receita).toFixed(1)}%`,
+        ],
+      },
+      {
+        titulo:"Rentabilidade por equipamento",
+        descricao:"Receita, repasses, manutenção e resultado de cada item da frota.",
+        headers:["Equipamento","Patrimônio","Proprietário",{label:"Dias",num:true},{label:"Receita",num:true},{label:"Descontos",num:true},{label:"Repasse",num:true},{label:"Manutenção",num:true},{label:"Resultado",num:true},{label:"Margem",num:true}],
+        rows:equipamentos.map(linha=>[
+          escapeHtml(linha.equip.nome),
+          escapeHtml(linha.equip.patrimonio||"-"),
+          escapeHtml(linha.proprio?"Empresa":donoName(linha.equip.proprietarioId)),
+          String(linha.diasTotais),
+          escapeHtml(fmt(linha.receita)),
+          escapeHtml(fmt(linha.descontos)),
+          escapeHtml(fmt(linha.custoDono)),
+          escapeHtml(fmt(linha.manut)),
+          escapeHtml(fmt(linha.lucro)),
+          `${pct(linha.lucro,linha.receita).toFixed(1)}%`,
+        ]),
+        totalRow:[
+          "TOTAL","","","",
+          escapeHtml(fmt(monthly.total.receita)),
+          escapeHtml(fmt(monthly.total.descontos)),
+          escapeHtml(fmt(monthly.total.custoDono)),
+          escapeHtml(fmt(monthly.total.manut)),
+          escapeHtml(fmt(monthly.total.lucro)),
+          `${pct(monthly.total.lucro,monthly.total.receita).toFixed(1)}%`,
+        ],
+      },
+    ],
+  });
+  abrirRelatorioPadrao(html,showToast);
+}
+
+function imprimirRelEquipObra(data,ym,mesLabel,matrix,obra,donoName,showToast){
+  if(!obra)return;
+  const total=matrix.totaisPorObra[obra.id]||{};
+  const detalhes=matrix.linhas.flatMap(linha=>(linha.porObra[obra.id]?.detalhes||[]).map(detalhe=>({
+    linha,detalhe,
+  }))).sort((a,b)=>String(a.linha.equip.nome||"").localeCompare(String(b.linha.equip.nome||""))
+    ||String(a.detalhe.inicio||"").localeCompare(String(b.detalhe.inicio||"")));
+  const equipamentos=new Set(detalhes.map(item=>item.linha.equip.id)).size;
+  const margem=Number(total.receita||0)>0?(Number(total.lucro||0)/Number(total.receita))*100:0;
+  const html=montarRelatorioPadraoHtml({
+    data,
+    titulo:"Relatório de cobrança de equipamentos",
+    subtitulo:obra.name,
+    meta:[
+      {label:"Competência",value:`${mesLabel} (${ym})`},
+      {label:"Obra",value:obra.name},
+      obra.address||obra.endereco?{label:"Endereço",value:obra.address||obra.endereco}:null,
+      obra.engineer?{label:"Responsável",value:obra.engineer}:null,
+    ],
+    kpis:[
+      {label:"Cobrança líquida",value:fmt(total.receita)},
+      {label:"Valor bruto",value:fmt(Number(total.receita||0)+Number(total.descontos||0))},
+      {label:"Descontos",value:fmt(total.descontos)},
+      {label:"Repasse",value:fmt(total.custoDono)},
+      {label:"Resultado",value:fmt(total.lucro)},
+      {label:"Margem",value:`${margem.toFixed(1)}%`},
+      {label:"Equipamentos",value:String(equipamentos)},
+      {label:"Diárias-unidade",value:String(total.unidadeDias||0)},
+    ],
+    legenda:"Memória calculada por contrato dentro da competência. Um mês tarifário corresponde a 30 dias; períodos de 31 dias incluem 1 diária adicional. O resultado representa cobrança líquida menos repasse ao proprietário, antes de manutenções não vinculadas à obra.",
+    tabelas:[{
+      titulo:"Memória detalhada das locações",
+      headers:["Equipamento","Patrimônio","Proprietário","Período","Situação",{label:"Qtd.",num:true},{label:"Dias",num:true},{label:"Diárias-un.",num:true},"Composição",{label:"Bruto",num:true},{label:"Desconto",num:true},{label:"Cobrança",num:true},{label:"Repasse",num:true},{label:"Resultado",num:true}],
+      rows:detalhes.map(({linha,detalhe})=>[
+        escapeHtml(linha.equip.nome),
+        escapeHtml(linha.equip.patrimonio||"-"),
+        escapeHtml(linha.equip.proprietarioId?donoName(linha.equip.proprietarioId):"Empresa (próprio)"),
+        `${escapeHtml(fmtDate(detalhe.inicio))} a ${escapeHtml(fmtDate(detalhe.fim))}`,
+        escapeHtml(detalhe.status==="em_andamento"?"Em andamento":"Encerrada"),
+        String(detalhe.quantidade),
+        String(detalhe.dias),
+        String(detalhe.unidadeDias),
+        escapeHtml(detalhe.semTarifa?"Sem tarifa":textoComposicao(detalhe.composicao)),
+        escapeHtml(fmt(detalhe.bruto)),
+        escapeHtml(fmt(detalhe.descontos)),
+        escapeHtml(fmt(detalhe.receita)),
+        escapeHtml(fmt(detalhe.custoDono)),
+        escapeHtml(fmt(detalhe.lucro)),
+      ]),
+      totalRow:[
+        "TOTAL","","","","","",
+        String(total.dias||0),
+        String(total.unidadeDias||0),
+        "",
+        escapeHtml(fmt(Number(total.receita||0)+Number(total.descontos||0))),
+        escapeHtml(fmt(total.descontos)),
+        escapeHtml(fmt(total.receita)),
+        escapeHtml(fmt(total.custoDono)),
+        escapeHtml(fmt(total.lucro)),
+      ],
+      vazio:`Nenhuma locação faturada para ${obra.name} nesta competência.`,
+    }],
+    assinaturas:["Responsável pela locação","Responsável pela obra"],
+  });
+  abrirRelatorioPadrao(html,showToast);
 }
 
 // Extrato/relatório financeiro do caixa de uma obra, em PDF. Compartilhado
