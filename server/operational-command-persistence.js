@@ -17,3 +17,16 @@ const AUDIT_ONLY_EQUIPMENT_COMMANDS=new Set([
 
 export const requiresFinancialOperationalPersistence=(commandType,financialCommands)=>
   financialCommands.has(commandType)&&!AUDIT_ONLY_EQUIPMENT_COMMANDS.has(commandType);
+
+// Com FIN-003 ativo, o comando financeiro precisa reler o blob somente depois
+// de obter o bloqueio da linha. Isso elimina a janela entre `lerLinha()` e a
+// RPC financeira em que ponto, conciliação ou outro operador podiam tornar
+// seis tentativas consecutivas obsoletas.
+export const requiresLockedFinancialOperationalPersistence=(
+  commandType,
+  financialCommands,
+  {engineEnforced=false,directConnection=false}={},
+)=>
+  engineEnforced
+  && directConnection
+  && requiresFinancialOperationalPersistence(commandType,financialCommands);

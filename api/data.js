@@ -41,7 +41,10 @@ import { executeReconciliationWithRetry } from "../server/reconciliation-executi
 import { projectReconciliationPatch } from "../server/reconciliation-response.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
-import { requiresFinancialOperationalPersistence } from "../server/operational-command-persistence.js";
+import {
+  requiresFinancialOperationalPersistence,
+  requiresLockedFinancialOperationalPersistence,
+} from "../server/operational-command-persistence.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
@@ -442,6 +445,95 @@ const salvarFinanceiroComAuditoria = async ({ expectedUpdatedAt, value, actor, a
       correlationId,syncResult:result?.sync_result||{},
     };
   }finally{await sql.end({timeout:2});}
+};
+
+const operationalCommandEntityId=command=>
+  command.payload?.statement?.id
+  ||command.payload?.targets?.[0]?.id
+  ||command.payload?.contractId
+  ||command.payload?.medicaoTecnicaId
+  ||command.payload?.expenseId
+  ||command.payload?.measurementId
+  ||command.payload?.pedidoId
+  ||command.payload?.targetId
+  ||command.payload?.paymentId
+  ||command.payload?.recordId
+  ||command.payload?.commitmentId
+  ||command.payload?.rentalId
+  ||command.payload?.equipmentId
+  ||command.payload?.rescissionId
+  ||command.payload?.advanceId
+  ||command.payload?.projectId
+  ||command.payload?.payment?.id
+  ||command.payload?.expense?.id
+  ||command.payload?.rescission?.id
+  ||command.payload?.employee?.id
+  ||command.payload?.advance?.id
+  ||command.payload?.project?.id
+  ||command.payload?.report?.id
+  ||command.payload?.measurement?.id
+  ||command.payload?.record?.id
+  ||command.payload?.commitment?.id
+  ||command.payload?.equipment?.id
+  ||command.payload?.rental?.id
+  ||command.payload?.maintenance?.id
+  ||command.payload?.transfer?.id
+  ||command.payload?.records?.[0]?.id
+  ||(command.type===OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED?"company-config":"");
+
+// FIN-003: obtém o bloqueio da linha antes de reler e aplicar o comando.
+// Diferentemente do retry por CAS, esta transação não pode ser ultrapassada
+// continuamente por gravações de ponto ou de outro módulo. Uma alteração real
+// na mesma entidade continua sendo recusada por `expectedVersion`.
+const executarComandoOperacionalFinanceiroBloqueado=async({command,usuario})=>{
+  const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
+    ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
+  });
+  try{
+    return await connection.begin(async transaction=>{
+      const [locked]=await transaction`
+        select value,updated_at
+          from company_app_data
+         where company_id=${COMPANY} and key=${KEY}
+         for update
+      `;
+      if(!locked)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
+      const current=decodeAppData(locked.value);
+      const scope=validateOperationalCommandScope({user:usuario,data:current,command});
+      if(!scope.ok)return {kind:"error",status:scope.error.includes("vinculado")?400:403,error:scope.error};
+      const executed=applyOperationalCommand(current,{
+        ...command,actorId:usuario.id,
+        actorName:usuario.nome||usuario.email||"Usuário autenticado",
+      });
+      if(!executed.ok)return {
+        kind:"error",status:409,error:executed.reason,
+        conflict:true,currentUpdatedAt:locked.updated_at,
+      };
+      if(executed.idempotent)return {
+        kind:"idempotent",data:current,updatedAt:locked.updated_at,
+      };
+      const correlationId=crypto.randomUUID();
+      const snapshot=buildLegacyFinancialFacts(executed.data);
+      const [saved]=await transaction`
+        select * from financial_save_with_sync(
+          ${COMPANY},${KEY},${locked.updated_at},
+          ${JSON.stringify(encodeAppData(executed.data))}::jsonb,
+          ${String(usuario.id)},${String(usuario.nome||usuario.email||"Usuário autenticado")},
+          ${correlationId},${`operational_${command.type.toLowerCase()}`},
+          ${JSON.stringify({command:command.type,entityId:operationalCommandEntityId(command)})}::jsonb,
+          ${JSON.stringify({command:command.type,idempotencyKey:command.idempotencyKey})}::jsonb,
+          ${JSON.stringify(snapshot)}::jsonb
+        )
+      `;
+      if(!saved?.applied)throw new Error("A transação financeira perdeu o bloqueio exclusivo da base.");
+      return {
+        kind:"saved",data:executed.data,updatedAt:saved.updated_at,
+        copied:executed.copied,summary:executed.summary,
+      };
+    });
+  }finally{
+    await connection.end({timeout:2});
+  }
 };
 
 // Confere o PIN contra o hash guardado no próprio dataset
@@ -972,13 +1064,33 @@ export default async function handler(req, res) {
       const scope=validateOperationalCommandScope({user:usuario,data:atual,command});
       if(!scope.ok)return res.status(scope.error.includes("vinculado")?400:403).json({error:scope.error});
 
+      const lockedFinancial=requiresLockedFinancialOperationalPersistence(
+        command.type,FINANCIAL_OPERATIONAL_COMMANDS,{
+          engineEnforced:FINANCIAL_ENGINE_ENFORCE,
+          directConnection:!!process.env.POSTGRES_URL_NON_POOLING,
+        },
+      );
+      if(lockedFinancial){
+        const outcome=await executarComandoOperacionalFinanceiroBloqueado({command,usuario});
+        if(outcome.kind==="error")return res.status(outcome.status||409).json({
+          error:outcome.error,reason:outcome.error,
+          ...(outcome.conflict?{conflict:true,currentUpdatedAt:outcome.currentUpdatedAt}:{}),
+        });
+        return res.status(200).json({
+          ok:true,idempotent:outcome.kind==="idempotent",
+          data:projectDataForUser(outcome.data,usuario),updatedAt:outcome.updatedAt,
+          ...(outcome.copied!=null?{copied:outcome.copied}:{}),
+          ...(outcome.summary!=null?{summary:outcome.summary}:{}),
+        });
+      }
+
       const persistir=async(base,value)=>{
         const save=requiresFinancialOperationalPersistence(command.type,FINANCIAL_OPERATIONAL_COMMANDS)
           ?salvarFinanceiroComAuditoria
           :salvarComAuditoria;
         return save({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
-        before:{command:command.type,entityId:command.payload?.statement?.id||command.payload?.targets?.[0]?.id||command.payload?.contractId||command.payload?.medicaoTecnicaId||command.payload?.expenseId||command.payload?.measurementId||command.payload?.pedidoId||command.payload?.targetId||command.payload?.paymentId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.rentalId||command.payload?.equipmentId||command.payload?.rescissionId||command.payload?.advanceId||command.payload?.projectId||command.payload?.payment?.id||command.payload?.expense?.id||command.payload?.rescission?.id||command.payload?.employee?.id||command.payload?.advance?.id||command.payload?.project?.id||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.equipment?.id||command.payload?.rental?.id||command.payload?.maintenance?.id||command.payload?.transfer?.id||command.payload?.records?.[0]?.id||(command.type===OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED?"company-config":"")},
+        before:{command:command.type,entityId:operationalCommandEntityId(command)},
         after:{command:command.type,idempotencyKey:command.idempotencyKey}});
       };
 

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
-import { requiresFinancialOperationalPersistence } from "./operational-command-persistence.js";
+import {
+  requiresFinancialOperationalPersistence,
+  requiresLockedFinancialOperationalPersistence,
+} from "./operational-command-persistence.js";
 
 const financialCommands=new Set([
   OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,
+  OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED,
   OPERATIONAL_COMMAND.EQUIPMENT_SAVED,
   OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,
@@ -24,5 +28,19 @@ describe("persistência de comandos operacionais",()=>{
 
   it("mantém sincronização financeira para comandos que movimentam o razão",()=>{
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,financialCommands)).toBe(true);
+  });
+
+  it("serializa o comando financeiro quando FIN-003 e a conexão direta estão ativos",()=>{
+    const options={engineEnforced:true,directConnection:true};
+    expect(requiresLockedFinancialOperationalPersistence(
+      OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED,financialCommands,options,
+    )).toBe(true);
+    expect(requiresLockedFinancialOperationalPersistence(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,financialCommands,options,
+    )).toBe(false);
+    expect(requiresLockedFinancialOperationalPersistence(
+      OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED,financialCommands,
+      {...options,engineEnforced:false},
+    )).toBe(false);
   });
 });
