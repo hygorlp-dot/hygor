@@ -33,6 +33,8 @@ describe("serialização sistêmica das mutações da empresa",()=>{
       route.indexOf("const persistir=async"),
     );
     expect(route).toContain("executarComandoOperacionalBloqueado({");
+    expect(route).toContain("projectChangedSectionsPatch(");
+    expect(route).toContain("outcome.basePayload,outcome.data");
   });
 
   it("aplica a mesma serialização ao ponto, conciliação e cadastros legados",()=>{

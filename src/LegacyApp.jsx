@@ -38363,9 +38363,19 @@ export default function App() {
       const command=typeof commandOrFactory==="function"?commandOrFactory(atual):commandOrFactory;
       const resposta=await executarComandoOperacional(command);
       if(!resposta?.ok)return {ok:false,reason:resposta?.reason||resposta?.error||"O servidor não confirmou o comando operacional."};
-      await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
+      const recebeuPatch=resposta.sections&&typeof resposta.sections==="object";
+      if(recebeuPatch){
+        await update({
+          __adotarServidorPatch:true,
+          sections:resposta.sections,
+          updatedAt:resposta.updatedAt,
+        });
+      }else{
+        await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
+      }
+      const confirmado=dataAtualRef.current||resposta.data||DEFAULT();
       return {
-        ok:true,idempotent:!!resposta.idempotent,data:resposta.data,
+        ok:true,idempotent:!!resposta.idempotent,data:confirmado,
         ...(resposta.copied!=null?{copied:resposta.copied}:{}),
         ...(resposta.summary!=null?{summary:resposta.summary}:{}),
       };

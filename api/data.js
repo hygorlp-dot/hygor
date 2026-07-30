@@ -39,6 +39,7 @@ import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/re
 import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
 import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
 import { projectReconciliationPatch } from "../server/reconciliation-response.js";
+import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import {
@@ -56,6 +57,10 @@ const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — s
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const KEY     = "arced_ponto_v1";
 const PROFILE_KEY = "arced_auth_profiles_v1";
+const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
+  "operationalCommandReceipts",
+  "changeLog",
+];
 // Ativação somente após executar a migração canônica e concluir a comparação
 // em sombra. Evita quebrar instalações legadas durante a transição.
 const FINANCIAL_ENGINE_ENFORCE = process.env.FINANCIAL_ENGINE_ENFORCE === "true";
@@ -585,6 +590,7 @@ const executarComandoOperacionalBloqueado=async({command,usuario,financial})=>{
       };
       return {
         kind:"save",data:executed.data,
+        basePayload:current,
         copied:executed.copied,summary:executed.summary,
         before:{command:command.type,entityId:operationalCommandEntityId(command)},
         after:{command:command.type,idempotencyKey:command.idempotencyKey},
@@ -1216,7 +1222,13 @@ export default async function handler(req, res) {
         });
         return res.status(200).json({
           ok:true,idempotent:outcome.kind==="idempotent",
-          data:projectDataForUser(outcome.data,usuario),updatedAt:outcome.updatedAt,
+          ...(outcome.kind==="idempotent"
+            ?{data:projectDataForUser(outcome.data,usuario)}
+            :{sections:projectChangedSectionsPatch(
+              outcome.basePayload,outcome.data,usuario,
+              {exclude:OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS},
+            )}),
+          updatedAt:outcome.updatedAt,
           ...(outcome.copied!=null?{copied:outcome.copied}:{}),
           ...(outcome.summary!=null?{summary:outcome.summary}:{}),
         });
@@ -1244,7 +1256,11 @@ export default async function handler(req, res) {
         const gravacao=await persistir(base,result.data);
         if(gravacao.applied){
           return res.status(200).json({
-            ok:true,data:projectDataForUser(result.data,usuario),
+            ok:true,
+            sections:projectChangedSectionsPatch(
+              base.payload,result.data,usuario,
+              {exclude:OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS},
+            ),
             updatedAt:gravacao.updatedAt||new Date().toISOString(),
             ...(result.copied!=null?{copied:result.copied}:{}),
             ...(result.summary!=null?{summary:result.summary}:{}),
