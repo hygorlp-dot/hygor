@@ -1,1 +1,0 @@
-export const canEditDailyLog=role=>["admin","engenheiro","mestre"].includes(String(role||""));export const canCloseDailyLog=role=>["admin","engenheiro"].includes(String(role||""));export const canReopenDailyLog=role=>String(role||"")==="admin";

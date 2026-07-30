@@ -1,1 +1,0 @@
-export const canInspectQuality=role=>["admin","engenheiro","engenheiro_auditor","qualidade"].includes(String(role||""));export const canCloseNonconformity=role=>["admin","engenheiro","qualidade"].includes(String(role||""));

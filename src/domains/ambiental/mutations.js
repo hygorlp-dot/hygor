@@ -1,1 +1,0 @@
-export const createWasteRecord=(input,{actor={},now=""}={})=>{if(!input.id||!input.obraId||!(Number(input.quantity)>0)||!input.classification)return {ok:false,error:"Resíduo exige obra, classificação e quantidade."};return {ok:true,record:{...input,status:"registrado",createdAt:now,createdById:actor.id||"",version:1}};};

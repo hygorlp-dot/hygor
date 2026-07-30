@@ -8,13 +8,21 @@ export default defineConfig({
     alias: {"@": fileURLToPath(new URL("./src", import.meta.url))},
   },
   build: {
-    sourcemap: true,
+    // O navegador de produção não precisa receber 10+ MB de mapas contendo o
+    // código-fonte completo. Previews e builds locais preservam os mapas para
+    // diagnóstico; produção publica somente os artefatos executáveis.
+    sourcemap: process.env.VERCEL_ENV !== "production",
     chunkSizeWarningLimit: 650,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes("exceljs")) return "spreadsheet-tools";
           if (id.includes("recharts") || id.includes("d3-")) return "charts";
+          if (
+            id.includes("/src/domains/financeiro/")
+            || id.includes("/src/domains/dre/")
+            || id.includes("/src/domains/conciliacao/")
+          ) return "financial-domain";
           if (id.includes("node_modules")) return "vendor";
         },
       },
