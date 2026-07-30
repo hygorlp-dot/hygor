@@ -79,9 +79,30 @@ export default function EquipmentBillingReports({
     .filter(line=>line.receita>0||line.custo>0||line.diasTotais>0)
     .slice()
     .sort((a,b)=>b.receita-a.receita);
+  const ownerWorkRows=useMemo(()=>{
+    const grouped=new Map();
+    details.filter(detail=>detail.equipamento.proprietarioId).forEach(detail=>{
+      const key=`${detail.equipamento.proprietarioId}:${detail.obra.id}`;
+      const current=grouped.get(key)||{
+        ownerId:detail.equipamento.proprietarioId,
+        owner:ownerName(detail.equipamento.proprietarioId),
+        obra:detail.obra,
+        equipments:new Set(),
+        rentals:0,
+        unitDays:0,
+        amount:0,
+      };
+      current.equipments.add(detail.equipamento.id);
+      current.rentals++;
+      current.unitDays+=numero(detail.unidadeDias);
+      current.amount+=numero(detail.custoDono);
+      grouped.set(key,current);
+    });
+    return [...grouped.values()].map(row=>({...row,equipmentCount:row.equipments.size}))
+      .sort((a,b)=>String(a.owner).localeCompare(String(b.owner))||String(a.obra.name).localeCompare(String(b.obra.name)));
+  },[details,ownerName]);
 
   const workEquipmentCount=new Set(selectedDetails.map(detail=>detail.equipamento.id)).size;
-  const workMargin=selectedTotal?percentual(selectedTotal.lucro,selectedTotal.receita):0;
 
   return (
     <section className="equipment-billing-report" aria-label="Relatórios de cobrança de locações">
@@ -201,6 +222,24 @@ export default function EquipmentBillingReports({
             </table>
           </div>
         </div>
+
+        <div className="equipment-report-section">
+          <div className="equipment-report-section__heading">
+            <div><span>CONTAS A PAGAR DE LOCAÇÕES</span><h3>Quanto cada proprietário receberá por obra</h3></div>
+            <small>Valores calculados pelas tarifas de custo de cada contrato</small>
+          </div>
+          <div className="equipment-report-table">
+            <table>
+              <thead><tr><th>Proprietário</th><th>Obra</th><th className="num">Equip.</th><th className="num">Locações</th><th className="num">Diárias-un.</th><th className="num">Valor a receber</th></tr></thead>
+              <tbody>{ownerWorkRows.length?ownerWorkRows.map(row=><tr key={`${row.ownerId}-${row.obra.id}`}>
+                <td><strong>{row.owner}</strong></td><td><strong>{row.obra.name}</strong><small>{row.obra.address||row.obra.endereco||"Endereço não informado"}</small></td>
+                <td className="num">{row.equipmentCount}</td><td className="num">{row.rentals}</td><td className="num">{row.unitDays}</td>
+                <td className={`num ${row.amount>0?"positive":"negative"}`}>{row.amount>0?formatCurrency(row.amount):"Tarifa de custo ausente"}</td>
+              </tr>):<tr><td colSpan="6" className="empty">Nenhum equipamento de terceiros movimentado em {periodLabel}.</td></tr>}</tbody>
+              {ownerWorkRows.length>0&&<tfoot><tr><td colSpan="5"><strong>Total a pagar aos proprietários</strong></td><td className="num">{formatCurrency(ownerWorkRows.reduce((sum,row)=>sum+row.amount,0))}</td></tr></tfoot>}
+            </table>
+          </div>
+        </div>
       </>}
 
       {mode==="obra"&&<>
@@ -236,10 +275,8 @@ export default function EquipmentBillingReports({
               ["Cobrança líquida",formatCurrency(selectedTotal?.receita)],
               ["Valor bruto",formatCurrency(numero(selectedTotal?.receita)+numero(selectedTotal?.descontos))],
               ["Descontos",formatCurrency(selectedTotal?.descontos)],
-              ["Repasse a terceiros",formatCurrency(selectedTotal?.custoDono)],
-              ["Resultado da locação",formatCurrency(selectedTotal?.lucro)],
-              ["Margem",`${workMargin.toFixed(1)}%`],
               ["Equipamentos",String(workEquipmentCount)],
+              ["Locações",String(selectedDetails.length)],
               ["Diárias-unidade",String(selectedTotal?.unidadeDias||0)],
             ].map(([label,value])=><article key={label}><span>{label}</span><strong>{value}</strong></article>)}
           </div>
@@ -256,18 +293,16 @@ export default function EquipmentBillingReports({
             </div>
             <div className="equipment-report-table is-detailed">
               <table>
-                <thead><tr><th>Equipamento</th><th>Proprietário</th><th>Período</th><th className="num">Qtd.</th><th className="num">Dias</th><th className="num">Diárias-un.</th><th>Composição</th><th className="num">Bruto</th><th className="num">Desconto</th><th className="num">Cobrança</th><th className="num">Repasse</th><th className="num">Resultado</th></tr></thead>
+                <thead><tr><th>Equipamento</th><th>Período</th><th className="num">Qtd.</th><th className="num">Dias</th><th className="num">Diárias-un.</th><th>Composição</th><th className="num">Bruto</th><th className="num">Desconto</th><th className="num">Cobrança</th></tr></thead>
                 <tbody>{selectedDetails.map(detail=><tr key={`${detail.equipamento.id}-${detail.locacaoId}`}>
                   <td><strong>{detail.equipamento.nome}</strong><small>{detail.equipamento.patrimonio||detail.equipamento.categoria||"Sem patrimônio"}{detail.observacao?` · ${detail.observacao}`:""}</small></td>
-                  <td>{detail.equipamento.proprietarioId?ownerName(detail.equipamento.proprietarioId):"Empresa (próprio)"}</td>
                   <td>{formatDate(detail.inicio)} a {formatDate(detail.fim)}<small>{detail.status==="em_andamento"?"Em andamento":"Encerrada"}{detail.tarifaNegociada?" · tarifa negociada":""}</small></td>
                   <td className="num">{detail.quantidade}</td><td className="num">{detail.dias}</td><td className="num">{detail.unidadeDias}</td>
                   <td>{detail.semTarifa?<span className="negative">Sem tarifa</span>:formatComposition(detail.composicao)}</td>
                   <td className="num">{formatCurrency(detail.bruto)}</td><td className="num">{formatCurrency(detail.descontos)}</td>
-                  <td className="num positive">{formatCurrency(detail.receita)}</td><td className="num">{formatCurrency(detail.custoDono)}</td>
-                  <td className={`num ${detail.lucro>=0?"positive":"negative"}`}>{formatCurrency(detail.lucro)}</td>
+                  <td className="num positive">{formatCurrency(detail.receita)}</td>
                 </tr>)}</tbody>
-                <tfoot><tr><td colSpan="5"><strong>Total da obra</strong></td><td className="num">{selectedTotal?.unidadeDias||0}</td><td>—</td><td className="num">{formatCurrency(numero(selectedTotal?.receita)+numero(selectedTotal?.descontos))}</td><td className="num">{formatCurrency(selectedTotal?.descontos)}</td><td className="num positive">{formatCurrency(selectedTotal?.receita)}</td><td className="num">{formatCurrency(selectedTotal?.custoDono)}</td><td className={`num ${numero(selectedTotal?.lucro)>=0?"positive":"negative"}`}>{formatCurrency(selectedTotal?.lucro)}</td></tr></tfoot>
+                <tfoot><tr><td colSpan="4"><strong>Total da obra</strong></td><td className="num">{selectedTotal?.unidadeDias||0}</td><td>—</td><td className="num">{formatCurrency(numero(selectedTotal?.receita)+numero(selectedTotal?.descontos))}</td><td className="num">{formatCurrency(selectedTotal?.descontos)}</td><td className="num positive">{formatCurrency(selectedTotal?.receita)}</td></tr></tfoot>
               </table>
             </div>
           </div>

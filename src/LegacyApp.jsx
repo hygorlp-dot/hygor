@@ -34049,9 +34049,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           formatDate={fmtDate}
           formatComposition={textoComposicao}
           onPrintManagement={()=>imprimirRelEquipGerencial(data,ym,mesLabel,rel,relPorObra,donoName,showToast)}
-          onPrintWork={obra=>imprimirRelEquipObra(data,ym,mesLabel,relPorObra,obra,donoName,showToast)}
+          onPrintWork={obra=>imprimirRelEquipObra(data,ym,mesLabel,relPorObra,obra,showToast)}
           onExportManagement={()=>exportarRelEquipPorObra(ym,relPorObra,{donoName})}
-          onExportWork={obra=>exportarRelEquipObraDetalhado(ym,relPorObra,obra,{donoName})}
+          onExportWork={obra=>exportarRelEquipObraDetalhado(ym,relPorObra,obra)}
         />
       </Suspense>}
 
@@ -34412,19 +34412,18 @@ const exportarRelEquipPorObra = (ym, rel, helpers) => {
   baixarCsv(linhas,`equipamentos-gerencial-${ym}.csv`);
 };
 
-const exportarRelEquipObraDetalhado=(ym,rel,obra,helpers)=>{
+const exportarRelEquipObraDetalhado=(ym,rel,obra)=>{
   if(!obra)return;
   const linhas=[[
-    "Obra","Equipamento","Patrimônio","Proprietário","Início cobrado","Fim cobrado",
+    "Obra","Equipamento","Patrimônio","Início cobrado","Fim cobrado",
     "Situação","Quantidade","Dias","Diárias-unidade","Composição tarifária",
-    "Valor bruto","Desconto","Cobrança líquida","Repasse ao proprietário","Resultado","Observação",
+    "Valor bruto","Desconto","Cobrança líquida","Observação",
   ]];
   rel.linhas.forEach(linha=>{
     (linha.porObra[obra.id]?.detalhes||[]).forEach(detalhe=>linhas.push([
       obra.name,
       linha.equip.nome,
       linha.equip.patrimonio||"",
-      linha.equip.proprietarioId?helpers.donoName(linha.equip.proprietarioId):"Empresa (próprio)",
       detalhe.inicio,
       detalhe.fim,
       detalhe.status==="em_andamento"?"Em andamento":"Encerrada",
@@ -34435,19 +34434,15 @@ const exportarRelEquipObraDetalhado=(ym,rel,obra,helpers)=>{
       detalhe.bruto.toFixed(2),
       detalhe.descontos.toFixed(2),
       detalhe.receita.toFixed(2),
-      detalhe.custoDono.toFixed(2),
-      detalhe.lucro.toFixed(2),
       detalhe.observacao,
     ]));
   });
   const total=rel.totaisPorObra[obra.id]||{};
   linhas.push([
-    "TOTAL","","","","","","","","",Number(total.unidadeDias||0),"",
+    "TOTAL","","","","","","","",Number(total.unidadeDias||0),"",
     (Number(total.receita||0)+Number(total.descontos||0)).toFixed(2),
     Number(total.descontos||0).toFixed(2),
     Number(total.receita||0).toFixed(2),
-    Number(total.custoDono||0).toFixed(2),
-    Number(total.lucro||0).toFixed(2),
     "",
   ]);
   const nomeSeguro=String(obra.name||"obra").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
@@ -34573,6 +34568,30 @@ function imprimirRelEquipGerencial(data,ym,mesLabel,monthly,matrix,donoName,show
     .sort((a,b)=>b.total.receita-a.total.receita);
   const equipamentos=monthly.linhas.filter(linha=>linha.receita>0||linha.custo>0||linha.diasTotais>0)
     .slice().sort((a,b)=>b.receita-a.receita);
+  const proprietariosPorObra=(()=>{
+    const agrupado=new Map();
+    detalhes.filter(item=>item.linha.equip.proprietarioId).forEach(item=>{
+      const proprietarioId=item.linha.equip.proprietarioId;
+      const chave=`${proprietarioId}:${item.obra.id}`;
+      const atual=agrupado.get(chave)||{
+        proprietarioId,
+        proprietario:donoName(proprietarioId),
+        obra:item.obra,
+        equipamentos:new Set(),
+        locacoes:0,
+        unidadeDias:0,
+        valor:0,
+      };
+      atual.equipamentos.add(item.linha.equip.id);
+      atual.locacoes++;
+      atual.unidadeDias+=Number(item.detalhe.unidadeDias||0);
+      atual.valor+=Number(item.detalhe.custoDono||0);
+      agrupado.set(chave,atual);
+    });
+    return [...agrupado.values()].map(item=>({...item,quantidadeEquipamentos:item.equipamentos.size}))
+      .sort((a,b)=>String(a.proprietario).localeCompare(String(b.proprietario))
+        ||String(a.obra.name).localeCompare(String(b.obra.name)));
+  })();
   const html=montarRelatorioPadraoHtml({
     data,
     titulo:"Relatório gerencial de locações",
@@ -34648,12 +34667,30 @@ function imprimirRelEquipGerencial(data,ym,mesLabel,monthly,matrix,donoName,show
           `${pct(monthly.total.lucro,monthly.total.receita).toFixed(1)}%`,
         ],
       },
+      {
+        titulo:"Valores a pagar por proprietário e obra",
+        descricao:"Demonstrativo interno calculado pelas tarifas de custo das locações de terceiros.",
+        headers:["Proprietário","Obra",{label:"Equip.",num:true},{label:"Locações",num:true},{label:"Diárias-un.",num:true},{label:"Valor a receber",num:true}],
+        rows:proprietariosPorObra.map(item=>[
+          escapeHtml(item.proprietario),
+          escapeHtml(item.obra.name),
+          String(item.quantidadeEquipamentos),
+          String(item.locacoes),
+          String(item.unidadeDias),
+          item.valor>0?escapeHtml(fmt(item.valor)):"TARIFA DE CUSTO AUSENTE",
+        ]),
+        totalRow:[
+          "TOTAL","","","","",
+          escapeHtml(fmt(proprietariosPorObra.reduce((sum,item)=>sum+item.valor,0))),
+        ],
+        vazio:"Nenhum equipamento de terceiros movimentado nesta competência.",
+      },
     ],
   });
   abrirRelatorioPadrao(html,showToast);
 }
 
-function imprimirRelEquipObra(data,ym,mesLabel,matrix,obra,donoName,showToast){
+function imprimirRelEquipObra(data,ym,mesLabel,matrix,obra,showToast){
   if(!obra)return;
   const total=matrix.totaisPorObra[obra.id]||{};
   const detalhes=matrix.linhas.flatMap(linha=>(linha.porObra[obra.id]?.detalhes||[]).map(detalhe=>({
@@ -34661,7 +34698,6 @@ function imprimirRelEquipObra(data,ym,mesLabel,matrix,obra,donoName,showToast){
   }))).sort((a,b)=>String(a.linha.equip.nome||"").localeCompare(String(b.linha.equip.nome||""))
     ||String(a.detalhe.inicio||"").localeCompare(String(b.detalhe.inicio||"")));
   const equipamentos=new Set(detalhes.map(item=>item.linha.equip.id)).size;
-  const margem=Number(total.receita||0)>0?(Number(total.lucro||0)/Number(total.receita))*100:0;
   const html=montarRelatorioPadraoHtml({
     data,
     titulo:"Relatório de cobrança de equipamentos",
@@ -34676,20 +34712,17 @@ function imprimirRelEquipObra(data,ym,mesLabel,matrix,obra,donoName,showToast){
       {label:"Cobrança líquida",value:fmt(total.receita)},
       {label:"Valor bruto",value:fmt(Number(total.receita||0)+Number(total.descontos||0))},
       {label:"Descontos",value:fmt(total.descontos)},
-      {label:"Repasse",value:fmt(total.custoDono)},
-      {label:"Resultado",value:fmt(total.lucro)},
-      {label:"Margem",value:`${margem.toFixed(1)}%`},
       {label:"Equipamentos",value:String(equipamentos)},
+      {label:"Locações",value:String(detalhes.length)},
       {label:"Diárias-unidade",value:String(total.unidadeDias||0)},
     ],
-    legenda:"Memória calculada por contrato dentro da competência. Um mês tarifário corresponde a 30 dias; períodos de 31 dias incluem 1 diária adicional. O resultado representa cobrança líquida menos repasse ao proprietário, antes de manutenções não vinculadas à obra.",
+    legenda:"Memória de cobrança calculada por contrato dentro da competência. Um mês tarifário corresponde a 30 dias; períodos de 31 dias incluem 1 diária adicional. Informações internas de propriedade, repasse e margem não integram este relatório da obra.",
     tabelas:[{
       titulo:"Memória detalhada das locações",
-      headers:["Equipamento","Patrimônio","Proprietário","Período","Situação",{label:"Qtd.",num:true},{label:"Dias",num:true},{label:"Diárias-un.",num:true},"Composição",{label:"Bruto",num:true},{label:"Desconto",num:true},{label:"Cobrança",num:true},{label:"Repasse",num:true},{label:"Resultado",num:true}],
+      headers:["Equipamento","Patrimônio","Período","Situação",{label:"Qtd.",num:true},{label:"Dias",num:true},{label:"Diárias-un.",num:true},"Composição",{label:"Bruto",num:true},{label:"Desconto",num:true},{label:"Cobrança",num:true}],
       rows:detalhes.map(({linha,detalhe})=>[
         escapeHtml(linha.equip.nome),
         escapeHtml(linha.equip.patrimonio||"-"),
-        escapeHtml(linha.equip.proprietarioId?donoName(linha.equip.proprietarioId):"Empresa (próprio)"),
         `${escapeHtml(fmtDate(detalhe.inicio))} a ${escapeHtml(fmtDate(detalhe.fim))}`,
         escapeHtml(detalhe.status==="em_andamento"?"Em andamento":"Encerrada"),
         String(detalhe.quantidade),
@@ -34699,19 +34732,15 @@ function imprimirRelEquipObra(data,ym,mesLabel,matrix,obra,donoName,showToast){
         escapeHtml(fmt(detalhe.bruto)),
         escapeHtml(fmt(detalhe.descontos)),
         escapeHtml(fmt(detalhe.receita)),
-        escapeHtml(fmt(detalhe.custoDono)),
-        escapeHtml(fmt(detalhe.lucro)),
       ]),
       totalRow:[
-        "TOTAL","","","","","",
+        "TOTAL","","","","",
         String(total.dias||0),
         String(total.unidadeDias||0),
         "",
         escapeHtml(fmt(Number(total.receita||0)+Number(total.descontos||0))),
         escapeHtml(fmt(total.descontos)),
         escapeHtml(fmt(total.receita)),
-        escapeHtml(fmt(total.custoDono)),
-        escapeHtml(fmt(total.lucro)),
       ],
       vazio:`Nenhuma locação faturada para ${obra.name} nesta competência.`,
     }],
