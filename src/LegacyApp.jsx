@@ -106,6 +106,10 @@ import {
   calcEquipamentosPorObra,
 } from "./domains/equipamentos/calculations";
 import {
+  EQUIPMENT_IMAGE_OPTIONS,
+  equipmentImageFor,
+} from "./domains/equipamentos/images";
+import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
   pedidoLiberadoParaReceber, origemPagamentoLabel, situacaoCaixaObra,
@@ -2206,6 +2210,8 @@ const normalizeData = incoming => {
       sinapiDataBase: e.sinapiDataBase || "",
       sinapiUf: e.sinapiUf || "",
       sinapiDesonerado: e.sinapiDesonerado !== false,
+      imagemUrl: e.imagemUrl || "",
+      imagemTipo: e.imagemTipo || "auto",
       obs:       e.obs       || "",
       ativo:     e.ativo !== false,
       version:   Number(e.version || 0),
@@ -33458,6 +33464,24 @@ function Licenciamento({ data, update, showToast, obraIdFixo="" }) {
   </div>;
 }
 
+function EquipmentImage({equipment,preview=false}) {
+  const visual=equipmentImageFor(equipment);
+  return <figure className={`equipment-photo${preview?" equipment-photo--preview":""}`} data-source={visual.source}>
+    <div className="equipment-photo__placeholder" aria-hidden="true">
+      <Ic n="wrench" s={preview?24:20}/>
+      <span>Escolha o tipo visual</span>
+    </div>
+    {visual.src&&<img
+      key={visual.src}
+      src={visual.src}
+      alt={`Uma unidade de ${equipment?.nome||"equipamento"}`}
+      loading={preview?"eager":"lazy"}
+      onError={event=>{event.currentTarget.hidden=true;event.currentTarget.parentElement.dataset.source="missing";}}
+    />}
+    <figcaption>{visual.label}</figcaption>
+  </figure>;
+}
+
 function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, obraIdFixo="", contexto="engenharia" }) {
   const { formGrid } = useBreakpoint();
   const now = new Date();
@@ -33583,6 +33607,10 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   // ---- Ações de gravação ----
   const salvarEquip = async(f) => {
     if(!f.nome){ showToast("Informe o nome do equipamento.","error"); return; }
+    if(f.imagemUrl&&!/^https:\/\//i.test(String(f.imagemUrl).trim())){
+      showToast("A foto original precisa usar uma URL segura iniciada por https://.","error");
+      return;
+    }
     // Normaliza as quatro tarifas (cobradas e pagas) para numero.
     const numTar = (t) => ({
       dia:Math.max(0,Number(t?.dia||0)), semana:Math.max(0,Number(t?.semana||0)),
@@ -33723,7 +33751,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   };
 
   // ---- Formulários vazios ----
-  const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", tarifas:{dia:"",semana:"",quinzena:"",mes:""}, tarifasCusto:{dia:"",semana:"",quinzena:"",mes:""}, quantidadeTotal:1, valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:obraIdFixo||"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, obs:"" };
+  const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", tarifas:{dia:"",semana:"",quinzena:"",mes:""}, tarifasCusto:{dia:"",semana:"",quinzena:"",mes:""}, quantidadeTotal:1, valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:obraIdFixo||"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, imagemUrl:"", imagemTipo:"auto", obs:"" };
   const donoVazio  = { nome:"", documento:"", telefone:"", email:"", chavePix:"", obs:"" };
   const locVazio   = { equipamentoId:"", obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
   const manutVazio = { equipamentoId:"", data:today(), tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
@@ -33788,6 +33816,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               const fin = calcEquipMes(data, e.id, ym);
               return (
                 <article key={e.id} className="equipment-fleet-card" data-status={e.status||"disponivel"}>
+                  <EquipmentImage equipment={e}/>
+                  <div className="equipment-fleet-card__body">
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:6}}>
                     <div style={{minWidth:0}}>
                       <p style={{fontSize:13,fontWeight:800,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.nome}</p>
@@ -33843,6 +33873,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                       title="Excluir equipamento da frota" ariaLabel={`Excluir ${e.nome}`}>
                       <Ic n="trash"/> Excluir
                     </Btn>
+                  </div>
                   </div>
                 </article>
               );
@@ -34132,6 +34163,27 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                 <p style={{gridColumn:"1/-1",fontSize:8.5,color:C.muted,lineHeight:1.4}}>Referência gerencial. Confirme unidade, especificação, data-base, frete e condições comerciais antes de decidir a compra.</p>
               </div>}
             </div>
+            <section className="equipment-image-editor" style={{gridColumn:"1/-1"}}>
+              <EquipmentImage equipment={equipModal} preview/>
+              <div className="equipment-image-editor__content">
+                <div>
+                  <p className="equipment-image-editor__eyebrow">Identificação visual da frota</p>
+                  <h3>Uma unidade, sem cenário</h3>
+                  <p>A imagem automática acompanha o nome do equipamento. Se houver uma foto real de catálogo em fundo branco, informe a URL e ela terá prioridade.</p>
+                </div>
+                <div className="equipment-image-editor__fields">
+                  <Sel label="Imagem automática" value={equipModal.imagemTipo||"auto"}
+                    onChange={v=>setEquipModal(f=>({...f,imagemTipo:v}))}
+                    options={EQUIPMENT_IMAGE_OPTIONS}/>
+                  <Inp label="URL da foto original (opcional)" type="url" value={equipModal.imagemUrl||""}
+                    onChange={v=>setEquipModal(f=>({...f,imagemUrl:v}))}
+                    placeholder="https://.../equipamento.webp"/>
+                </div>
+                {!!equipModal.imagemUrl&&<Btn size="sm" v="ghost" onClick={()=>setEquipModal(f=>({...f,imagemUrl:""}))}>
+                  Usar novamente a imagem IA
+                </Btn>}
+              </div>
+            </section>
             <Inp label="Nome *" value={equipModal.nome} onChange={v=>setEquipModal(f=>({...f,nome:v}))} placeholder="Ex.: Betoneira 400L"/>
             <Inp label="Categoria" value={equipModal.categoria} onChange={v=>setEquipModal(f=>({...f,categoria:v}))} placeholder="Concretagem, Elevação..."/>
             <Inp label="Patrimônio / série" value={equipModal.patrimonio} onChange={v=>setEquipModal(f=>({...f,patrimonio:v}))}/>
