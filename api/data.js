@@ -42,7 +42,7 @@ import { projectReconciliationPatch } from "../server/reconciliation-response.js
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
-import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath } from "../server/financial-write-policy.js";
+import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
 import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
@@ -115,6 +115,8 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED]:["admin","rh"],
   [OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED]:["admin","rh"],
   [OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED]:["admin"],
+  [OPERATIONAL_COMMAND.PROJECT_SAVED]:["admin"],
+  [OPERATIONAL_COMMAND.PROJECT_DELETED]:["admin"],
   [OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED]:["admin","engenheiro","qualidade"],
@@ -168,6 +170,7 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED,
   OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED,
   OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED,
+  OPERATIONAL_COMMAND.PROJECT_SAVED,OPERATIONAL_COMMAND.PROJECT_DELETED,
   OPERATIONAL_COMMAND.EQUIPMENT_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,
   OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
@@ -976,7 +979,7 @@ export default async function handler(req, res) {
         const save=FINANCIAL_OPERATIONAL_COMMANDS.has(command.type)?salvarFinanceiroComAuditoria:salvarComAuditoria;
         return save({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
-        before:{command:command.type,entityId:command.payload?.statement?.id||command.payload?.targets?.[0]?.id||command.payload?.contractId||command.payload?.medicaoTecnicaId||command.payload?.expenseId||command.payload?.measurementId||command.payload?.pedidoId||command.payload?.targetId||command.payload?.paymentId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.rentalId||command.payload?.equipmentId||command.payload?.rescissionId||command.payload?.advanceId||command.payload?.payment?.id||command.payload?.expense?.id||command.payload?.rescission?.id||command.payload?.employee?.id||command.payload?.advance?.id||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.equipment?.id||command.payload?.rental?.id||command.payload?.maintenance?.id||command.payload?.transfer?.id||command.payload?.records?.[0]?.id||(command.type===OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED?"company-config":"")},
+        before:{command:command.type,entityId:command.payload?.statement?.id||command.payload?.targets?.[0]?.id||command.payload?.contractId||command.payload?.medicaoTecnicaId||command.payload?.expenseId||command.payload?.measurementId||command.payload?.pedidoId||command.payload?.targetId||command.payload?.paymentId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.rentalId||command.payload?.equipmentId||command.payload?.rescissionId||command.payload?.advanceId||command.payload?.projectId||command.payload?.payment?.id||command.payload?.expense?.id||command.payload?.rescission?.id||command.payload?.employee?.id||command.payload?.advance?.id||command.payload?.project?.id||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.equipment?.id||command.payload?.rental?.id||command.payload?.maintenance?.id||command.payload?.transfer?.id||command.payload?.records?.[0]?.id||(command.type===OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED?"company-config":"")},
         after:{command:command.type,idempotencyKey:command.idempotencyKey}});
       };
       let gravacao=await persistir({updatedAt},result.data);
@@ -1216,6 +1219,10 @@ export default async function handler(req, res) {
       const secoesFinanceiras=Object.fromEntries(chaves.map(key=>[key,sections[key]]));
       const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesFinanceiras);
       if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
+      const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
+        engineEnforced:FINANCIAL_ENGINE_ENFORCE,before:atual,after:{...atual,...sections},
+      });
+      if(!erroSnapshotObra.ok)return res.status(409).json({error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"});
       const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesFinanceiras});
       if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       const erroAutorizacao=authorizeSectionChanges(usuario,Object.fromEntries(chaves.map(key=>[key,sections[key]])));
@@ -1309,6 +1316,10 @@ export default async function handler(req, res) {
         code:"ATTENDANCE_GRANULAR_REQUIRED",
       });
       const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesAlteradas);
+      const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
+        engineEnforced:FINANCIAL_ENGINE_ENFORCE,before:atual,after:incomingPayload,
+      });
+      if(!erroSnapshotObra.ok)return res.status(409).json({error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"});
       const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesAlteradas});
       if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas);

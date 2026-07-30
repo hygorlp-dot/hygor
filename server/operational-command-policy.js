@@ -52,6 +52,10 @@ import {
 import {
   COMPANY_CONFIG_COMMAND_TYPES,
 } from "../src/domains/config/company-config-commands.js";
+import {
+  PROJECT_COMMAND_TYPES,
+  projectCommandObraId,
+} from "../src/domains/obras/project-commands.js";
 
 export const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
@@ -67,6 +71,7 @@ export const operationalCommandObraId=(data={},command={})=>{
   if(RESCISSION_COMMAND_TYPES.has(command?.type))return rescissionCommandObraId(data,command);
   if(EMPLOYEE_COMMAND_TYPES.has(command?.type))return employeeCommandObraId(data,command);
   if(ADVANCE_COMMAND_TYPES.has(command?.type))return advanceCommandObraId(data,command);
+  if(PROJECT_COMMAND_TYPES.has(command?.type))return projectCommandObraId(data,command);
   if(command?.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED)return String(payload?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED)return String(payload?.measurement?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");
@@ -105,6 +110,11 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
     return user?.role==="admin"
       ?{ok:true,obraId:"",scope:"company"}
       :{ok:false,error:"Somente o administrador pode alterar as configurações da empresa."};
+  }
+  if(PROJECT_COMMAND_TYPES.has(command.type)){
+    return user?.role==="admin"
+      ?{ok:true,obraId,scope:"company"}
+      :{ok:false,error:"Somente o administrador pode alterar ou excluir uma obra."};
   }
   if(RESCISSION_COMMAND_TYPES.has(command.type)&&!obraId){
     return ["admin","rh"].includes(user?.role)

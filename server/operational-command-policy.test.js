@@ -211,6 +211,25 @@ describe("escopo servidor de comandos operacionais",()=>{
       user:{id:"admin",role:"admin"},data,command,
     })).toMatchObject({ok:true,scope:"company",obraId:""});
   });
+  it("reserva cadastro e exclusão de obras ao administrador",()=>{
+    const save={
+      type:OPERATIONAL_COMMAND.PROJECT_SAVED,
+      payload:{project:{id:"obra-a",name:"B2-04"}},
+    };
+    const remove={
+      type:OPERATIONAL_COMMAND.PROJECT_DELETED,
+      payload:{projectId:"obra-a"},
+    };
+    expect(validateOperationalCommandScope({
+      user:{id:"rh",role:"rh"},data,command:save,
+    })).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({
+      user:{id:"admin",role:"admin"},data,command:save,
+    })).toMatchObject({ok:true,scope:"company",obraId:"obra-a"});
+    expect(validateOperationalCommandScope({
+      user:{id:"admin",role:"admin"},data,command:remove,
+    })).toMatchObject({ok:true,scope:"company",obraId:"obra-a"});
+  });
   it("mantém o avanço físico dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-b"}}}})).toMatchObject({ok:false});

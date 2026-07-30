@@ -7589,7 +7589,7 @@ function ClienteContratualModal({form,setForm,onClose,onSave,formGrid}){
   </div></Modal>;
 }
 
-function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
+function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchCommand }) {
   const { formGrid, cols, isDesktop } = useBreakpoint();
   const empty = { id: "", name: "", clienteId:"", cliente: "", address: "", condominioId:"", condominioNome:"", quadra:"", lote:"", engineer: "", engineerId: "", startDate: "", faseId: "", status: "active", areaM2: "", oneDriveUrl: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
   const [modal, setModal] = useState(false);
@@ -7845,13 +7845,28 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
       else showToast(`Obra salva, mas o OneDrive não criou a pasta: ${ws.error||"falha na conexão"}`, "error");
     }
 
-    const obras = form.id ? data.obras.map(o => (o.id === form.id ? payload : o)) : [...data.obras, payload];
-    update({ ...data, obras });
+    if(!dispatchCommand){
+      showToast("O comando transacional de obras não está disponível.","error");
+      return;
+    }
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.obras||[]).find(o=>o.id===payload.id);
+      return {
+        type:OPERATIONAL_COMMAND.PROJECT_SAVED,
+        idempotencyKey:`obra-salvar-${payload.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        payload:{project:payload},
+      };
+    });
+    if(!result.ok){
+      showToast(result.reason||"Não foi possível salvar a obra.","error");
+      return;
+    }
     setModal(false);
     showToast(form.id ? "Obra atualizada." : "Obra cadastrada.");
   };
 
-  const remove = id => {
+  const remove = async id => {
     if (!ehAdmin) {
       showToast("Somente o administrador pode excluir uma obra.", "error");
       return;
@@ -7861,7 +7876,23 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser }) {
       return;
     }
     if (!window.confirm("Remover obra?")) return;
-    update({ ...data, obras: data.obras.filter(o => o.id !== id) });
+    if(!dispatchCommand){
+      showToast("O comando transacional de obras não está disponível.","error");
+      return;
+    }
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.obras||[]).find(o=>o.id===id);
+      return {
+        type:OPERATIONAL_COMMAND.PROJECT_DELETED,
+        idempotencyKey:`obra-excluir-${id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        payload:{projectId:id},
+      };
+    });
+    if(!result.ok){
+      showToast(result.reason||"Não foi possível excluir a obra.","error");
+      return;
+    }
     showToast("Obra removida.");
   };
 
@@ -39137,7 +39168,7 @@ export default function App() {
                            onVoltar={() => setObraAberta("")}
                            onEditarObra={()=>{sessionStorage.setItem("arcd_editar_obra",obraAberta);setObraAberta("");}}
                            onTab={(t) => { setObraAberta(""); setTab(t); }} />
-            : <Obras       data={data} update={update} showToast={showToast}
+            : <Obras       data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand}
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "plan"   && <Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}

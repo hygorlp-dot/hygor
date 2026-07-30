@@ -66,6 +66,10 @@ import {
   applyCompanyConfigCommand,
   COMPANY_CONFIG_COMMAND,
 } from "../config/company-config-commands.js";
+import {
+  applyProjectCommand,
+  PROJECT_COMMAND,
+} from "../obras/project-commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -88,6 +92,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...EMPLOYEE_COMMAND,
   ...ADVANCE_COMMAND,
   ...COMPANY_CONFIG_COMMAND,
+  ...PROJECT_COMMAND,
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -298,6 +303,16 @@ export const applyOperationalCommand=(data,command)=>{
       ok:true,
       data:appendReceipt(
         companyConfigResult.data,command,companyConfigResult.entityId,now,
+      ),
+    };
+  }
+  const projectResult=applyProjectCommand(data,command,now);
+  if(projectResult){
+    if(!projectResult.ok)return projectResult;
+    return {
+      ok:true,
+      data:appendReceipt(
+        projectResult.data,command,projectResult.entityId,now,
       ),
     };
   }

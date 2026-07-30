@@ -4,7 +4,7 @@ export const FINANCIAL_LEGACY_SECTIONS=new Set([
   "payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","transacoes",
   "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
   "titulosFolha","reconciliationLinks","rescisoes",
-  "attendance","employees","archivedLaborCosts","config","obras",
+  "attendance","employees","archivedLaborCosts","config",
   "equipamentos","locacoesEquip","manutencoesEquip",
 ]);
 
@@ -25,13 +25,58 @@ export const FINANCIAL_OPERATIONAL_SOURCE_SECTIONS=new Set(["attendance"]);
 // config continuam protegidas como seções financeiras legadas,
 // mas não pertencem mais a este checklist:
 // seus escritores foram migrados para comandos servidores idempotentes.
-export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set([
-  "obras",
+export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set();
+
+export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({});
+
+export const PROJECT_FINANCIAL_FIELDS=Object.freeze([
+  "contractType","contractValue","adminPercentage",
+  "adminBaseMateriais","adminBaseMaoDeObra","adminBaseTerceirizados",
+  "billingType","parcelaMensal","contractStart","contractEnd",
+  "totalParcelas","billingFrequency","diaVenc1","diaVenc2",
+  "entrada","entradaDate","hasCaixa",
 ]);
 
-export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({
-  obras_configuracoes:["obras"],
-});
+const projectFinancialValue=(project,field)=>{
+  if([
+    "contractValue","adminPercentage","parcelaMensal","totalParcelas",
+    "diaVenc1","diaVenc2","entrada",
+  ].includes(field))return Number(project?.[field]||0);
+  if(field==="hasCaixa")return !!project?.[field];
+  if([
+    "adminBaseMateriais","adminBaseMaoDeObra","adminBaseTerceirizados",
+  ].includes(field))return project?.[field] == null ? null : !!project[field];
+  return String(project?.[field]||"");
+};
+
+// A coleção de obras contém documentos, fase, portal e OneDrive, que não são
+// fatos financeiros e continuam usando o merge por seção. Somente criação,
+// exclusão e campos que alteram contrato, faturamento ou caixa ficam restritos
+// ao comando versionado do agregado da obra quando o FIN-003 está ativo.
+export const validateProjectFinancialSnapshotPolicy=({
+  engineEnforced=false,before={},after={},
+}={})=>{
+  if(!engineEnforced)return {ok:true};
+  const previous=new Map((before?.obras||[]).map(item=>[String(item?.id||""),item]));
+  const next=new Map((after?.obras||[]).map(item=>[String(item?.id||""),item]));
+  const structuralChange=[...previous.keys()].some(id=>!next.has(id))
+    || [...next.keys()].some(id=>!previous.has(id));
+  if(structuralChange)return {
+    ok:false,
+    error:"FIN-003 está ativo: cadastro e exclusão de obras exigem o comando transacional.",
+  };
+  for(const [id,current] of previous){
+    const proposed=next.get(id);
+    const field=PROJECT_FINANCIAL_FIELDS.find(key=>
+      projectFinancialValue(current,key)!==projectFinancialValue(proposed,key)
+    );
+    if(field)return {
+      ok:false,
+      error:`FIN-003 está ativo: o campo contratual ${field} da obra exige o comando transacional.`,
+    };
+  }
+  return {ok:true};
+};
 
 export const hasLegacyFinancialWrite=sections=>Object.keys(sections||{})
   .some(section=>FINANCIAL_LEGACY_SECTIONS.has(section));
