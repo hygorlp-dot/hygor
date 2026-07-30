@@ -132,6 +132,7 @@ import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
+import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
 import {
   attStatus,
@@ -8765,6 +8766,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const [filterObra,setFilterObra]=useState("all");
   const [busca,setBusca]=useState("");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
+  const pendingCellsRef=useRef(new Map());
+  const [,setPendingCellsRevision]=useState(0);
   const {q1,q2}=getQ(year,month);
   const diasCiclo=q==="1"?q1:q2;
 
@@ -8848,20 +8851,46 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const semana=iso=>["DOM","SEG","TER","QUA","QUI","SEX","SÁB"][prParseIso(iso).getDay()];
   const corStatus=st=>st==="P"?C.green:st==="M"?C.yellow:st==="F"?C.red:C.muted;
   const proxStatus=st=>st==="P"?"M":st==="M"?"F":st==="F"?null:"P";
+  const cellKeyFor=(employeeId,date)=>`${employeeId}::${date}`;
+  const attendanceFor=(employeeId,date)=>{
+    const pending=pendingCellsRef.current.get(cellKeyFor(employeeId,date));
+    return pending?pending.record:getAtt(data,employeeId,date);
+  };
+  const markPending=(operationId,patches)=>{
+    patches.forEach(patch=>pendingCellsRef.current.set(cellKeyFor(patch.employeeId,patch.date),{
+      operationId,
+      record:patch.record,
+    }));
+    setPendingCellsRevision(value=>value+1);
+  };
+  const clearPending=(operationId,patches)=>{
+    let changed=false;
+    patches.forEach(patch=>{
+      const key=cellKeyFor(patch.employeeId,patch.date);
+      if(pendingCellsRef.current.get(key)?.operationId!==operationId)return;
+      pendingCellsRef.current.delete(key);
+      changed=true;
+    });
+    if(changed)setPendingCellsRevision(value=>value+1);
+  };
 
   const salvarCelula=async(emp,date,patch)=>{
     if(bloqueadoPorArquivo())return;
-    const anterior=getAtt(data,emp.id,date)||{status:null,ot:0,note:"",obraId:""};
+    const anterior=attendanceFor(emp.id,date)||{status:null,ot:0,note:"",obraId:""};
     const novo={...anterior,...patch};
     const obraId=obraDoRegistro(emp,date,novo,patch.obraId);
     if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){
       showToast(`O ponto de ${obraName(obraId)} em ${fmtDateFull(date)} está bloqueado. Libere-o no Ponto diário.`,"error");return;
     }
+    const operationId=pointOperationId();
+    const patches=[{employeeId:emp.id,date,record:{...novo,obraId}}];
+    markPending(operationId,patches);
     const result=await dispatchAttendanceCommand({
-      action:"attendance-upsert",operationId:pointOperationId(),employeeId:emp.id,date,
+      action:"attendance-upsert",operationId,employeeId:emp.id,date,
       selectedObraId:patch.obraId||obraId,
       record:{...novo,obraId},
     });
+    clearPending(operationId,patches);
     if(!result?.ok)showToast(result?.reason||"O ponto não foi salvo.","error");
   };
 
@@ -8882,9 +8911,12 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       showToast(bloqueados?"Os lançamentos visíveis estão bloqueados.":"Não há lançamentos para limpar.",bloqueados?"error":"success");
       return;
     }
+    const operationId=pointOperationId();
+    markPending(operationId,patches);
     const result=await dispatchAttendanceCommand({
-      action:"attendance-batch-upsert",operationId:pointOperationId(),patches,
+      action:"attendance-batch-upsert",operationId,patches,
     });
+    clearPending(operationId,patches);
     if(!result?.ok){showToast(result?.reason||"Os lançamentos não foram removidos.","error");return;}
     showToast(bloqueados?`${bloqueados} dia(s) bloqueado(s) foram preservados; os demais foram removidos.`:"Lançamentos do período removidos.");
   };
@@ -8952,7 +8984,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
           <th className="ponto-col-total" style={{minWidth:64,background:C.surface,color:C.text,padding:8,fontSize:9.5,fontWeight:800,borderBottom:`1px solid ${C.border}`}}>DIAS</th>
           {days.map(date=>{const feriado=feriados.includes(date);return <th className="ponto-col-dia" key={date} title={feriado?"Feriado cadastrado":""} style={{minWidth:64,background:feriado?`${C.red}14`:C.surface,color:feriado?C.red:C.text,padding:"6px 4px",borderLeft:`1px solid ${C.line}`,borderBottom:`1px solid ${C.border}`}}><div style={{fontSize:10,fontWeight:800}}>{diaLabel(date)}</div><div style={{fontSize:7.5,fontWeight:feriado?900:600,opacity:feriado?1:.6}}>{feriado?"FER":semana(date)}</div></th>;})}
         </tr></thead>
-        <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attStatus(data,emp.id,d);return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:`1px solid ${C.line}`}}>
+        <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attendanceFor(emp.id,d)?.status;return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:`1px solid ${C.line}`}}>
           <td className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:2,background:C.card,padding:"8px 12px",borderTop:`1px solid ${C.line}`,minWidth:290}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
               <div style={{minWidth:0}}>
@@ -8970,17 +9002,19 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
           </td>
           <td className="ponto-col-total" style={{textAlign:"center",fontWeight:800,fontSize:13,color:C.blue,borderTop:`1px solid ${C.line}`,fontFamily:"'Inter Display','Inter',sans-serif"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
           {days.map(date=>{
-            const att=getAtt(data,emp.id,date),st=att?.status,obraId=obraDoRegistro(emp,date,att),fora=!employeeRelevantOnDate(data,emp,date),feriado=feriados.includes(date);
+            const cellKey=cellKeyFor(emp.id,date),pending=pendingCellsRef.current.has(cellKey);
+            const att=attendanceFor(emp.id,date),st=att?.status,obraId=obraDoRegistro(emp,date,att),fora=!employeeRelevantOnDate(data,emp,date),feriado=feriados.includes(date);
             const foraDeLotacao=st&&obraId&&obraId!==emp.obra;   // trabalhou em obra diferente da lotação
-            const cellKey=`${emp.id}::${date}`;
             const aberto=obraCell===cellKey;
             return <td className="ponto-dia-cell" key={date} style={{padding:4,borderTop:`1px solid ${C.line}`,borderLeft:`1px solid ${C.line}`,background:feriado?`${C.red}06`:fora?C.surface:C.card,verticalAlign:"middle"}}>
               {fora?<div style={{textAlign:"center",color:C.muted,fontSize:11}}>—</div>:<>
                 <button onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
-                  title={st==="P"?"Presente":st==="M"?"Meio dia":st==="F"?"Falta":"Sem registro"}
+                  aria-busy={pending}
+                  title={pending?"Salvando...":st==="P"?"Presente":st==="M"?"Meio dia":st==="F"?"Falta":"Sem registro"}
                   style={{width:"100%",height:30,border:`1.5px solid ${st?corStatus(st):C.border}`,borderRadius:5,
                           background:st?corStatus(st):C.bg,color:st?"#fff":C.muted,
-                          fontWeight:800,cursor:"pointer",fontSize:12,fontFamily:"'Inter Display','Inter',sans-serif"}}>
+                          fontWeight:800,cursor:"pointer",fontSize:12,fontFamily:"'Inter Display','Inter',sans-serif",
+                          boxShadow:pending?`0 0 0 2px ${C.blue}33`:"none",opacity:pending ? .82 : 1}}>
                   {rotuloCurto(st)}
                 </button>
                 {/* Obra: escondida por padrão. Mostra um chip discreto só quando a
@@ -38131,6 +38165,7 @@ export default function App() {
   // Como o estado local ja acumula tudo, salvar so o mais recente nao perde nada.
   const saveQueueRef=useRef(null);
   const attendanceCommandInFlightRef=useRef(0);
+  const attendanceQueueRef=useRef(null);
   if(!saveQueueRef.current){
     saveQueueRef.current=createSaveQueue({
       save:alvo=>saveDataDetailed(alvo,baseServidorRef.current),
@@ -38171,7 +38206,7 @@ export default function App() {
 
   useEffect(()=>{
     const protegerSaida=event=>{
-      if(!saveQueueRef.current?.hasPending()&&!attendanceCommandInFlightRef.current)return;
+      if(!saveQueueRef.current?.hasPending()&&!attendanceCommandInFlightRef.current&&!attendanceQueueRef.current?.hasPending())return;
       event.preventDefault();
       event.returnValue="";
     };
@@ -38282,17 +38317,13 @@ export default function App() {
     return pendente;
   },[update]);
 
-  const dispatchAttendanceCommand=useCallback(commandOrFactory=>{
-    const executar=async()=>{
+  const executeAttendanceCommand=useCallback(async command=>{
       if(saveQueueRef.current?.hasPending()){
         const drained=await saveQueueRef.current.waitForIdle();
         if(!drained.ok||saveQueueRef.current?.hasPending()){
           return {ok:false,reason:"Há alterações locais ainda não confirmadas. Resolva o salvamento antes de registrar o ponto."};
         }
       }
-      const command=typeof commandOrFactory==="function"
-        ?commandOrFactory(dataAtualRef.current||DEFAULT())
-        :commandOrFactory;
       attendanceCommandInFlightRef.current+=1;
       setEstadoSalvar(SAVE_QUEUE_STATE.SAVING);
       try{
@@ -38331,11 +38362,22 @@ export default function App() {
       }finally{
         attendanceCommandInFlightRef.current=Math.max(0,attendanceCommandInFlightRef.current-1);
       }
-    };
-    const pending=commandTailRef.current.then(executar,executar);
-    commandTailRef.current=pending.catch(()=>undefined);
-    return pending;
   },[]);
+
+  const dispatchAttendanceCommand=useCallback(commandOrFactory=>{
+    const command=typeof commandOrFactory==="function"
+      ?commandOrFactory(dataAtualRef.current||DEFAULT())
+      :commandOrFactory;
+    if(!attendanceQueueRef.current){
+      attendanceQueueRef.current=createAttendanceCommandQueue({
+        execute:executeAttendanceCommand,
+        createOperationId:pointOperationId,
+      });
+    }
+    return attendanceQueueRef.current.enqueue(command);
+  },[executeAttendanceCommand]);
+
+  useEffect(()=>()=>attendanceQueueRef.current?.destroy?.(),[]);
 
   // No boot buscamos APENAS a lista de perfis (nome + papel). Nenhum dado
   // financeiro, nenhum CPF, nenhum hash de PIN sai do servidor aqui.
