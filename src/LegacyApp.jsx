@@ -4057,6 +4057,67 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
   </div>;
 }
 
+const construirFilaOperador=(data,currentUser)=>{
+  const role=currentUser?.role||"visualizador",userId=currentUser?.id||"",hoje=today();
+  const acessos=new Set(allowedTabsForUser(currentUser));
+  const obrasAtivas=(data.obras||[]).filter(o=>o.status!=="done");
+  const minhasObras=role==="admin"?obrasAtivas:obrasAtivas.filter(o=>
+    !currentUser?.obraId||o.id===currentUser.obraId).filter(o=>role!=="engenheiro"||
+    o.engineerId===userId||o.engineer===currentUser?.nome||currentUser?.obraId===o.id);
+  const escopoEngenharia=minhasObras.length?minhasObras:(["engenheiro","engenheiro_auditor"].includes(role)?obrasAtivas.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId):obrasAtivas);
+  const idsObras=new Set(escopoEngenharia.map(o=>o.id));
+  const fila=[];
+  const incluir=(id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color)=>{
+    if(!quantidade||!acessos.has(tab))return;
+    fila.push({id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color});
+  };
+
+  if(role==="admin"||["engenheiro","engenheiro_auditor"].includes(role)||acessos.has("rdo")){
+    const semRdo=escopoEngenharia.filter(o=>!(data.rdos||[]).some(r=>r.obraId===o.id&&r.data===hoje&&r.status==="concluido"));
+    incluir("rdo-hoje","Engenharia","Diário de obra do dia",`${semRdo.slice(0,3).map(o=>o.name).join(", ")}${semRdo.length>3?` e mais ${semRdo.length-3}`:""}`,semRdo.length,2,"rdo","clipboard",C.blue);
+    const equipe=(data.employees||[]).filter(e=>e.active!==false&&(!idsObras.size||idsObras.has(e.obra)));
+    const semPonto=equipe.filter(e=>!["P","M","F"].includes(attStatus(data,e.id,hoje)));
+    incluir("ponto-hoje","Campo","Apontamentos de equipe incompletos",`${semPonto.length} de ${equipe.length} profissional(is) sem situação registrada hoje`,semPonto.length,semPonto.length===equipe.length?3:2,"ponto","clock",C.orange);
+    const fichas=(data.qualidadeRegistros||[]).filter(q=>idsObras.has(q.obraId)&&q.status!=="aprovada"&&(role==="admin"||!q.responsavelId||q.responsavelId===userId));
+    incluir("qualidade","Qualidade","FVS/FVM aguardando inspeção",`${fichas.filter(q=>q.status==="reprovada").length} ficha(s) reprovada(s) exigem correção`,fichas.length,fichas.some(q=>q.status==="reprovada")?3:1,"obras","check",C.purple);
+    const patologias=(data.conferencias||[]).flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&(role==="admin"||(role==="engenheiro_auditor"&&c.responsavelId===userId)||(role==="engenheiro"&&p.responsavelAjusteId===userId))).map(p=>({...p,obraId:c.obraId})));
+    incluir("patologias","Qualidade","Patologias e inconformidades abertas",`${patologias.filter(p=>p.impacto==="critico").length} crítica(s) · ${patologias.filter(p=>!(p.fotos||[]).some(f=>f.tipo==="ajuste")).length} aguardando foto`,patologias.length,patologias.some(p=>p.impacto==="critico")?3:2,"conferencia","alert",C.red);
+  }
+
+  if(role==="admin"||role==="compras"||acessos.has("cmp")){
+    const solicitacoes=(data.solicitacoesCompra||[]).filter(s=>["enviada","em_analise"].includes(s.status));
+    incluir("solicitacoes","Compras","Solicitações aguardando processamento",`${solicitacoes.filter(s=>s.prioridade==="urgente").length} urgente(s) para cotar ou transformar em pedido`,solicitacoes.length,solicitacoes.some(s=>s.prioridade==="urgente")?3:2,"cmp","cart",C.orange);
+    const pedidos=(data.pedidos||[]).filter(p=>!["recebido","cancelado"].includes(p.status));
+    incluir("pedidos","Compras","Pedidos ainda não concluídos",`${pedidos.filter(p=>p.status==="parcial").length} com recebimento parcial`,pedidos.length,pedidos.some(p=>p.status==="parcial")?2:1,"cmp","box",C.yellowD);
+  }
+
+  if(role==="admin"||role==="financeiro"||acessos.has("conc")){
+    const conciliacoes=(data.transacoes||[]).filter(t=>t.status==="pendente");
+    incluir("conciliacao","Financeiro","Movimentos sem conciliação",`${conciliacoes.length} lançamento(s) ainda sem obra/categoria confirmada`,conciliacoes.length,conciliacoes.length>10?3:2,"conc","receipt",C.purple);
+    const notas=(data.notasFiscais||[]).filter(n=>n.status==="recebida");
+    incluir("fiscal","Financeiro","Notas aguardando conferência",`${notas.filter(n=>n.divergencias?.length).length} documento(s) com divergência de pedido ou recebimento`,notas.length,notas.some(n=>n.divergencias?.length)?3:2,"fin","fileText",C.red);
+    const med=(data.medicoes||[]).filter(m=>statusRecebimentoMedicao(m)!=="recebida"&&(!m.dataVencimento||m.dataVencimento<=hoje));
+    incluir("medicoes","Financeiro","Medições a receber",`${med.filter(m=>m.dataVencimento&&m.dataVencimento<hoje).length} vencida(s)`,med.length,med.some(m=>m.dataVencimento&&m.dataVencimento<hoje)?3:1,"medicoes","ruler",C.green);
+  }
+
+  if(role==="admin"||role==="rh"||acessos.has("ponto_geral")){
+    const ativos=(data.employees||[]).filter(e=>e.active!==false);
+    const semPonto=ativos.filter(e=>!["P","M","F"].includes(attStatus(data,e.id,hoje)));
+    incluir("rh-ponto","RH","Fechamento diário do ponto",`${semPonto.length} de ${ativos.length} cadastro(s) sem apontamento`,semPonto.length,semPonto.length===ativos.length?3:2,"ponto_geral","users",C.green);
+    const incompletos=ativos.filter(e=>!e.pixKey||!e.dailyRate||!e.obra);
+    incluir("rh-cadastro","RH","Cadastros de equipe incompletos",`${incompletos.filter(e=>!e.pixKey).length} sem PIX · ${incompletos.filter(e=>!e.obra).length} sem lotação`,incompletos.length,1,"equipe","user",C.blue);
+  }
+
+  if(role==="admin"||role==="comercial"||acessos.has("com_tarefas")){
+    const atividades=(data.comercial?.atividades||[]).filter(a=>a.status!=="concluida"&&(role==="admin"||!a.responsavelId||a.responsavelId===userId));
+    const atrasadas=atividades.filter(a=>a.dataHora&&a.dataHora<new Date().toISOString());
+    incluir("comercial-atividades","Comercial","Follow-ups e atividades pendentes",`${atrasadas.length} atividade(s) fora do prazo`,atividades.length,atrasadas.length?3:1,"com_tarefas","funnel",C.green);
+    const leads=(data.comercial?.leads||[]).filter(l=>!["perdido","arquivado","transferido"].includes(l.etapa)&&(role==="admin"||!l.responsavelId||l.responsavelId===userId)&&!l.proximaAtividadeEm);
+    incluir("comercial-leads","Comercial","Leads sem próximo passo",`${leads.length} oportunidade(s) precisam de data e ação definida`,leads.length,2,"com_leads","target",C.orange);
+  }
+  return fila.sort((a,b)=>b.severidade-a.severidade||b.quantidade-a.quantidade);
+};
+
 function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync,saveState}){
   const {cols,isDesktop}=useBreakpoint();
   const [obraFiltro,setObraFiltro]=useState("all");
@@ -30931,7 +30992,7 @@ function SegurancaObra({data,showToast,currentUser,obraIdFixo="",dispatchCommand
   const salvarApr=async status=>{
     if(!apr.activityId){showToast?.("Selecione a atividade da APR.","error");return;}
     const riscos=apr.riscos.split("\n").map(item=>item.trim()).filter(Boolean),controles=apr.controles.split("\n").map(item=>item.trim()).filter(Boolean);
-    const result=await enviar(()=>({type:OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED,idempotencyKey:`apr-${uid()}`,expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{analysis:{id:uid(),obraId:obraIdFixo,activityId:apr.activityId,status,risks:riscos,controls}}}),"Não foi possível salvar a APR.");
+    const result=await enviar(()=>({type:OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED,idempotencyKey:`apr-${uid()}`,expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{analysis:{id:uid(),obraId:obraIdFixo,activityId:apr.activityId,status,risks:riscos,controls:controles}}}),"Não foi possível salvar a APR.");
     if(result?.ok){setApr({activityId:"",riscos:"",controles:""});showToast?.(status==="aprovada"?"APR aprovada.":"APR salva como rascunho.");}
   };
   const liberarPt=async()=>{
