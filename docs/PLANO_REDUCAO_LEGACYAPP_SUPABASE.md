@@ -119,6 +119,19 @@ os motores puros permanecem como especificação executável e golden master.
 7. Tornar a coleção legada somente leitura e removê-la após a janela de
    homologação.
 
+### Andamento
+
+- `CORE-001` iniciado em 30/07/2026:
+  `core_projects`, `core_employees`, `core_employee_assignments`,
+  `core_employee_identifiers`, `core_suppliers`,
+  `core_third_party_profiles` e `core_third_party_contracts`.
+- A migration `007_create_core_registry_projection` é aditiva, possui rollback,
+  RLS sem política direta para navegador e RPC exclusiva da `service_role`.
+- A carga é executada em sombra durante o deploy, compara IDs e hashes e bloqueia
+  a publicação se houver divergência.
+- O `company_app_data` continua sendo a fonte operacional até os gates de
+  contagem, vínculo, permissão e escrita transacional serem aprovados.
+
 ## Próximas extrações de código
 
 Ordem recomendada pelo volume e isolamento atuais:

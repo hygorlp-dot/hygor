@@ -23,7 +23,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "scripts": {
-    "prebuild": "node scripts/check-financial-enforcement-readiness.mjs && node scripts/audit-catalog-integrity.mjs && npm run financial:migrate-shadow",
+    "prebuild": "node scripts/check-financial-enforcement-readiness.mjs && node scripts/audit-catalog-integrity.mjs && npm run financial:migrate-shadow && npm run registry:migrate-shadow",
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
@@ -34,6 +34,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.quality.json",
     "quality:bundle": "node scripts/bundle-metrics.mjs",
     "financial:migrate-shadow": "node scripts/apply-financial-shadow.mjs",
+    "registry:migrate-shadow": "node scripts/apply-core-registry-shadow.mjs",
     "assets:login": "node scripts/optimize-login-assets.mjs",
     "architecture:check": "depcruise --config .dependency-cruiser.cjs src api server",
     "quality:knip": "knip --config knip.json --no-exit-code --reporter compact --no-progress --include files,dependencies,exports",
