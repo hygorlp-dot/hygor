@@ -20228,6 +20228,7 @@ ${blocoBDI}
 
                   return (
                     <div key={it.id}
+                      className="budget-line-row"
                       draggable
                       onDragStart={e => { setArrastandoItem(it.id); e.dataTransfer.effectAllowed = "move"; }}
                       onDragEnd={() => { setArrastandoItem(null); setSobreItem(null); }}
