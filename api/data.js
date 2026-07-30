@@ -971,10 +971,6 @@ export default async function handler(req, res) {
       const scope=validateOperationalCommandScope({user:usuario,data:atual,command});
       if(!scope.ok)return res.status(scope.error.includes("vinculado")?400:403).json({error:scope.error});
 
-      let result=applyOperationalCommand(atual,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
-      if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:updatedAt});
-      if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(atual,usuario),updatedAt});
-
       const persistir=async(base,value)=>{
         const save=FINANCIAL_OPERATIONAL_COMMANDS.has(command.type)?salvarFinanceiroComAuditoria:salvarComAuditoria;
         return save({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
@@ -982,20 +978,30 @@ export default async function handler(req, res) {
         before:{command:command.type,entityId:command.payload?.statement?.id||command.payload?.targets?.[0]?.id||command.payload?.contractId||command.payload?.medicaoTecnicaId||command.payload?.expenseId||command.payload?.measurementId||command.payload?.pedidoId||command.payload?.targetId||command.payload?.paymentId||command.payload?.recordId||command.payload?.commitmentId||command.payload?.rentalId||command.payload?.equipmentId||command.payload?.rescissionId||command.payload?.advanceId||command.payload?.projectId||command.payload?.payment?.id||command.payload?.expense?.id||command.payload?.rescission?.id||command.payload?.employee?.id||command.payload?.advance?.id||command.payload?.project?.id||command.payload?.report?.id||command.payload?.measurement?.id||command.payload?.record?.id||command.payload?.commitment?.id||command.payload?.equipment?.id||command.payload?.rental?.id||command.payload?.maintenance?.id||command.payload?.transfer?.id||command.payload?.records?.[0]?.id||(command.type===OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED?"company-config":"")},
         after:{command:command.type,idempotencyKey:command.idempotencyKey}});
       };
-      let gravacao=await persistir({updatedAt},result.data);
-      if(!gravacao.applied){
-        const recente=await lerLinha();
-        result=applyOperationalCommand(recente.payload,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
-        if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:recente.updatedAt});
-        if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(recente.payload,usuario),updatedAt:recente.updatedAt});
-        gravacao=await persistir(recente,result.data);
-        if(!gravacao.applied)return res.status(409).json({conflict:true,reason:"Outra alteração foi gravada ao mesmo tempo. Tente novamente."});
+
+      // Um único reenvio não bastava sob concorrência real: qualquer gravação
+      // em qualquer outra tela (todas dividem a mesma linha) já derrubava a
+      // segunda tentativa. Reexecuta o comando sobre a fotografia mais nova,
+      // no mesmo padrão de tentativas limitadas usado acima para o ponto.
+      let base={payload:atual,updatedAt};
+      for(let attempt=0;attempt<6;attempt+=1){
+        const result=applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
+        if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
+        if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
+        const gravacao=await persistir(base,result.data);
+        if(gravacao.applied){
+          return res.status(200).json({
+            ok:true,data:projectDataForUser(result.data,usuario),
+            updatedAt:gravacao.updatedAt||new Date().toISOString(),
+            ...(result.copied!=null?{copied:result.copied}:{}),
+            ...(result.summary!=null?{summary:result.summary}:{}),
+          });
+        }
+        base=await lerLinha();
       }
-      return res.status(200).json({
-        ok:true,data:projectDataForUser(result.data,usuario),
-        updatedAt:gravacao.updatedAt||new Date().toISOString(),
-        ...(result.copied!=null?{copied:result.copied}:{}),
-        ...(result.summary!=null?{summary:result.summary}:{}),
+      return res.status(503).json({
+        ok:false,code:"OPERATIONAL_COMMAND_CONCURRENCY_BUSY",
+        error:"Há muitas atualizações ao mesmo tempo. O servidor preservou os dados; tente novamente em instantes.",
       });
     }
 
