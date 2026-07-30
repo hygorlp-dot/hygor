@@ -4353,41 +4353,71 @@ function NoticiasSetor({carregando,noticias,titulo="Notícias do setor",subtitul
   </section>;
 }
 
+const CUB_PADRAO_COR={baixo:C.cinza,normal:C.blue,alto:C.yellow,especial:C.yellow};
+const CUB_PADRAO_LABEL={baixo:"Padrão baixo",normal:"Padrão normal",alto:"Padrão alto",especial:"Especial"};
+const CUB_PADRAO_ORDEM=["baixo","normal","alto","especial"];
+
 function CubChart({cub}){
   const {pick}=useBreakpoint();
-  const [projetoId,setProjetoId]=useState(()=>{
-    try{return localStorage.getItem("arcd_cub_projeto")||"R1-A";}catch{return "R1-A";}
+  const [edificacaoId,setEdificacaoId]=useState(()=>{
+    try{return localStorage.getItem("arcd_cub_edificacao")||"";}catch{return "";}
   });
   if(!cub)return null;
-  const projetos=(cub.projetos||[
+  const projetosBase=cub.projetos||[
     {id:"R1-A",label:"R-1",description:"Residência unifamiliar",group:"Residencial · padrão alto"},
     {id:"R8-N",label:"R-8",description:"Residencial · 8 pavimentos",group:"Residencial · padrão normal"},
-  ]).filter(p=>cub.serie.some(s=>Number.isFinite(s.valores?.[p.id]??(p.id==="R1-A"?s.r1a:p.id==="R8-N"?s.r8n:null))));
-  const projeto=projetos.find(p=>p.id===projetoId)||projetos[0];
-  if(!projeto)return null;
+  ];
+  const temValor=p=>cub.serie.some(s=>Number.isFinite(s.valores?.[p.id]??(p.id==="R1-A"?s.r1a:p.id==="R8-N"?s.r8n:null)));
+  // Agrupa os projetos-padrão do Sinduscon-PE por edificação (mesmo `label`),
+  // reunindo seus padrões construtivos (baixo/normal/alto) num só cartão —
+  // é essa comparação de padrão, não o projeto isolado, que orienta orçamento.
+  const edificacoes=[];
+  const porLabel=new Map();
+  projetosBase.filter(temValor).forEach(p=>{
+    const grupo=p.group||"";
+    const padrao=grupo.includes("baixo")?"baixo":grupo.includes("normal")?"normal":grupo.includes("alto")?"alto":"especial";
+    const categoria=grupo.split("·")[0].trim()||"Outros";
+    let ed=porLabel.get(p.label);
+    if(!ed){ed={id:p.label,label:p.label,description:p.description,categoria,padroes:{}};porLabel.set(p.label,ed);edificacoes.push(ed);}
+    ed.padroes[padrao]=p.id;
+  });
+  if(!edificacoes.length)return null;
+  const edificacao=edificacoes.find(e=>e.id===edificacaoId)||edificacoes.find(e=>e.id==="R-1")||edificacoes[0];
   const selecionar=id=>{
-    setProjetoId(id);
-    try{localStorage.setItem("arcd_cub_projeto",id);}catch{}
+    setEdificacaoId(id);
+    try{localStorage.setItem("arcd_cub_edificacao",id);}catch{}
   };
-  const serie=cub.serie.map(s=>({
-    mes:s.mes,
-    valor:s.valores?.[projeto.id]??(projeto.id==="R1-A"?s.r1a:projeto.id==="R8-N"?s.r8n:null),
-  })).filter(s=>Number.isFinite(s.valor));
+  const categorias=[...new Set(edificacoes.map(e=>e.categoria))];
+  const tiers=CUB_PADRAO_ORDEM.filter(t=>edificacao.padroes[t]);
+  const serie=cub.serie.map(s=>{
+    const row={mes:s.mes};
+    tiers.forEach(t=>{
+      const id=edificacao.padroes[t];
+      row[t]=s.valores?.[id]??(id==="R1-A"?s.r1a:id==="R8-N"?s.r8n:null);
+    });
+    return row;
+  });
   const ultimo=serie[serie.length-1], penultimo=serie[serie.length-2];
-  const varMesPct=ultimo&&penultimo?((ultimo.valor-penultimo.valor)/penultimo.valor*100):null;
-  const grupos=[...new Set(projetos.map(p=>p.group))];
+  const destaqueTier=tiers[tiers.length-1];
+  const destaqueUltimo=ultimo?.[destaqueTier], destaquePenultimo=penultimo?.[destaqueTier];
+  const varMesPct=Number.isFinite(destaqueUltimo)&&Number.isFinite(destaquePenultimo)?((destaqueUltimo-destaquePenultimo)/destaquePenultimo*100):null;
+  const valoresUltimo=tiers.map(t=>({tier:t,valor:ultimo?.[t]})).filter(v=>Number.isFinite(v.valor));
+  const maior=valoresUltimo.reduce((a,b)=>!a||b.valor>a.valor?b:a,null);
+  const menor=valoresUltimo.reduce((a,b)=>!a||b.valor<a.valor?b:a,null);
+  const premiumPct=maior&&menor&&maior.tier!==menor.tier&&menor.valor>0?((maior.valor-menor.valor)/menor.valor*100):null;
   return <section className="cub-chart" style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",gap:6}}>
-    <ChartPanel eyebrow="Índice de custo · Pernambuco" title={`CUB-PE · ${projeto.label} (${projeto.group.split("·").pop().trim()})`} height={pick(150,190,210)}
-      subtitle={`${projeto.description} · ${cub.regimeLabel||"valor oficial do Sinduscon-PE"}. Competência: ${ultimo?.mes||cub.atual?.mes||"—"}.`}
+    <ChartPanel eyebrow="Índice de custo · Pernambuco" title={`CUB-PE · ${edificacao.label} (${edificacao.description})`} height={pick(170,210,230)}
+      subtitle={`Comparativo por padrão construtivo · ${cub.regimeLabel||"valor oficial do Sinduscon-PE"}. Competência: ${ultimo?.mes||cub.atual?.mes||"—"}.`}
+      legend={tiers.length>1?tiers.map(t=>({label:CUB_PADRAO_LABEL[t],color:CUB_PADRAO_COR[t]})):[]}
       action={<div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap"}}>
         <label style={{display:"flex",flexDirection:"column",gap:3,textAlign:"left"}}>
-          <span style={{fontSize:8,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>Tipo de projeto</span>
-          <select aria-label="Tipo de projeto CUB" value={projeto.id} onChange={e=>selecionar(e.target.value)}
+          <span style={{fontSize:8,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>Tipo de edificação</span>
+          <select aria-label="Tipo de edificação CUB" value={edificacao.id} onChange={e=>selecionar(e.target.value)}
             style={{minWidth:205,height:34,padding:"0 28px 0 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,cursor:"pointer"}}>
-            {grupos.map(grupo=><optgroup key={grupo} label={grupo}>{projetos.filter(p=>p.group===grupo).map(p=><option key={p.id} value={p.id}>{p.label} · {p.description}</option>)}</optgroup>)}
+            {categorias.map(cat=><optgroup key={cat} label={cat}>{edificacoes.filter(e=>e.categoria===cat).map(e=><option key={e.id} value={e.id}>{e.label} · {e.description}</option>)}</optgroup>)}
           </select>
         </label>
-        <span><b style={{fontSize:17,fontWeight:800,color:C.text}}>R$ {ultimo?.valor?.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:9,color:C.muted}}>/m²</small></span>
+        {Number.isFinite(destaqueUltimo)&&<span><b style={{fontSize:17,fontWeight:800,color:C.text}}>R$ {destaqueUltimo.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:9,color:C.muted}}>/m² · {CUB_PADRAO_LABEL[destaqueTier].toLowerCase()}</small></span>}
         {Number.isFinite(varMesPct)&&<span style={{fontSize:10.5,fontWeight:800,color:varMesPct>=0?C.orange:C.green}}>{varMesPct>=0?"+":""}{varMesPct.toFixed(2)}% no mês</span>}
       </div>}>
       <ResponsiveContainer width="100%" height="100%">
@@ -4396,10 +4426,11 @@ function CubChart({cub}){
           <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} interval={1}/>
           <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>`R$${(v/1000).toFixed(1)}k`} domain={["dataMin-60","dataMax+60"]}/>
           <Tooltip content={<ArcdChartTooltip formatter={v=>`R$ ${v.toLocaleString("pt-BR",{minimumFractionDigits:2})}/m²`}/>}/>
-          <Line type="monotone" dataKey="valor" name={`${projeto.label} · ${projeto.group}`} stroke={C.yellow} strokeWidth={2.5} dot={false} activeDot={{r:5}} connectNulls/>
+          {tiers.map(t=><Line key={t} type="monotone" dataKey={t} name={CUB_PADRAO_LABEL[t]} stroke={CUB_PADRAO_COR[t]} strokeWidth={t===destaqueTier?2.5:2} dot={false} activeDot={{r:5}} connectNulls/>)}
         </LineChart>
       </ResponsiveContainer>
     </ChartPanel>
+    {Number.isFinite(premiumPct)&&<p style={{fontSize:9.5,color:C.text,padding:"0 4px",fontWeight:600}}>{CUB_PADRAO_LABEL[maior.tier]} está <b style={{color:C.yellowD}}>{premiumPct.toFixed(1)}%</b> acima do {CUB_PADRAO_LABEL[menor.tier].toLowerCase()} nesta competência.</p>}
     <p style={{fontSize:8.5,color:C.muted,padding:"0 4px"}}>Fonte oficial: relatório mensal de composição CUB/m² do Sinduscon-PE, com mão de obra e encargos sociais sem desoneração. Referência técnica; não substitui o orçamento da obra.</p>
   </section>;
 }
