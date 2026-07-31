@@ -3,6 +3,7 @@ import { criarRegistroIdentidades, identificarContraparte } from "./identity.js"
 import { criarIndicesFinanceiros } from "./selectors.js";
 import { gerarCandidatosConciliacao } from "./matching.js";
 import { paraCentavos } from "./calculations.js";
+import { active } from "../financeiro/ledger.js";
 
 export const VERSAO_MOTOR_CONCILIACAO="2026.07.01";
 export const ACAO_CONCILIACAO=Object.freeze({
@@ -84,7 +85,7 @@ export const resumoQuinzenaConciliacao=(data,{inicio,fim}={})=>{
   const people=new Map(); const byWork=new Map();
   titles.forEach(title=>{
     const employee=(data.employees||[]).find(item=>item.id===title.employeeId)||{};
-    const expected=Number(title.liquido||title.valor||0),paid=(title.liquidacoes||[]).filter(item=>item.status!=="estornado").reduce((sum,item)=>sum+Number(item.valor||0),0);
+    const expected=Number(title.liquido||title.valor||0),paid=(title.liquidacoes||[]).filter(active).reduce((sum,item)=>sum+Number(item.valor||0),0);
     const key=employee.id||title.employeeId; const row=people.get(key)||{pessoaId:key,nome:employee.name||employee.nome||title.funcionarioNome||"Não identificado",previsto:0,pago:0,obraId:employee.obra||"",pixTitular:employee.pixHolder||""};
     row.previsto+=expected;row.pago+=paid;people.set(key,row);
     const workKey=row.obraId||"sem_obra";const work=byWork.get(workKey)||{obraId:workKey,previsto:0,pago:0};work.previsto+=expected;work.pago+=paid;byWork.set(workKey,work);

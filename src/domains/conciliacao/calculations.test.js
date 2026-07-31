@@ -96,6 +96,17 @@ describe("domínio de conciliação - recebimento parcial de medição (correç�
     expect(statusRecebimentoMedicao(m)).toBe("recebida");
   });
 
+  test("ignora variações de estorno ao somar e permite novo recebimento", () => {
+    const medicao={...medicaoBase,recebimentos:[
+      {id:"r0",valor:400,data:"2026-01-09",status:"ESTORNADA"},
+      {id:"r1",valor:200,data:"2026-01-10"},
+    ]};
+    expect(totalRecebidoMedicao(medicao)).toBe(200);
+    const atualizada=aplicarRecebimentoMedicao(medicao,{id:"r2",valor:300,data:"2026-01-11"});
+    expect(atualizada.valorRecebido).toBe(500);
+    expect(atualizada.recebido).toBe(false);
+  });
+
   test("um recebimento com valor igual ao previsto fecha em uma única vez (compatibilidade com o fluxo antigo)", () => {
     const m = aplicarRecebimentoMedicao(medicaoBase, { valor: 1000, data: "2026-01-10", origem: "manual" });
     expect(m.recebido).toBe(true);

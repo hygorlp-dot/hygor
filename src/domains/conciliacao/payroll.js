@@ -2,6 +2,7 @@
 // custo. O DRE continua lendo ponto/folha. Esta coleção só controla saldo,
 // liquidação e evidência bancária.
 import { paraCentavos } from "./calculations.js";
+import { active } from "../financeiro/ledger.js";
 
 export const normalizarDocumento = value => String(value || "").replace(/\D/g, "");
 
@@ -25,7 +26,7 @@ export const mascararChavePix = value => {
 
 export const totalLiquidadoFolha = title =>
   Array.isArray(title?.liquidacoes) && title.liquidacoes.length
-    ? title.liquidacoes.filter(item=>item.status!=="estornado").reduce((sum, item) => sum + Number(item.valor || 0), 0)
+    ? title.liquidacoes.filter(active).reduce((sum, item) => sum + Number(item.valor || 0), 0)
     : Number(title?.valorPago || 0);
 
 export const situacaoTituloFolha = title => {
