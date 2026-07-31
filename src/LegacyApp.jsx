@@ -157,6 +157,7 @@ import {
 import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, projectBudgetExport, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
 import { auditBudgetDimensions as conferenciaDimensional } from "./domains/orcamentos/dimensional-audit";
 import { BDI_TCU, BDI_COMPONENTES_EDIF, calculateBdi as calcBDI, classifyBdi as situacaoBDI, formatBdiPercent as f2p } from "./domains/orcamentos/bdi";
+import { referenceBaseKey as chaveBaseReferencia, consolidateReferenceBases as consolidarBasesReferencia } from "./domains/orcamentos/reference-bases";
 import { calculateCPM as calculateCanonicalCPM, calculateLineOfBalance, calculatePPC } from "./domains/planejamento";
 import { applyProgressToCommitment } from "./domains/producao";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
@@ -16967,27 +16968,6 @@ const calcOrcamento = (orc) => {
 //  curva mente: o mesmo servico apareceria varias vezes com valor fatiado.
 const CLASSE_ABC = { A:{ cor:"#C62828", limite:80 }, B:{ cor:"#EF6C00", limite:95 }, C:{ cor:"#2E7D32", limite:100 } };
 const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
-const chaveBaseReferencia = base => [
-  String(base?.fonte || "").toUpperCase(),
-  String(base?.dataBase || ""),
-  String(base?.uf || "").toUpperCase(),
-  base?.fonte === "SINAPI" ? (base?.desonerado === false ? "NAO_DESONERADA" : "DESONERADA") : "OFICIAL",
-].join("|");
-const consolidarBasesReferencia = (bases=[]) => {
-  const grupos = new Map();
-  bases.forEach(base => {
-    const chave = chaveBaseReferencia(base);
-    grupos.set(chave, [...(grupos.get(chave) || []), base]);
-  });
-  return [...grupos.values()].map(grupo => {
-    const ordenado = [...grupo].sort((a,b) =>
-      Number(b.status === "ready") - Number(a.status === "ready") ||
-      Number(b.total || 0) - Number(a.total || 0) ||
-      String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
-    return {...ordenado[0], idsEquivalentes:ordenado.map(base=>base.id), duplicadas:Math.max(0,ordenado.length-1)};
-  }).sort((a,b)=>String(b.dataBase||"").localeCompare(String(a.dataBase||""))||String(a.fonte||"").localeCompare(String(b.fonte||"")));
-};
-
 const calcCurvaABCOrc = (orc, calc, { agrupar = true } = {}) => {
   const bdiMult = 1 + Number(orc.bdi||0)/100;
   const reais = achatarArvore(calc.arvore)
