@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-31T13:28:32.154Z",
+  "generatedAt": "2026-07-31T13:36:32.603Z",
   "totals": {
-    "bytes": 4304881,
-    "gzipBytes": 1185940
+    "bytes": 4305016,
+    "gzipBytes": 1186244
   },
   "assets": [
     {
-      "name": "LegacyApp-CuYwcYWH.js",
-      "bytes": 2144742,
-      "gzipBytes": 601480
+      "name": "LegacyApp-C4wtT2Qh.js",
+      "bytes": 2144877,
+      "gzipBytes": 601776
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -21,9 +21,9 @@
       "gzipBytes": 102430
     },
     {
-      "name": "index-Bh26cF7S.js",
+      "name": "index-4a7aH6Z2.js",
       "bytes": 142412,
-      "gzipBytes": 46649
+      "gzipBytes": 46655
     },
     {
       "name": "index-tGB1OYN5.css",
@@ -36,17 +36,17 @@
       "gzipBytes": 34655
     },
     {
-      "name": "LoginProjectParallax-DzJnpcjL.js",
+      "name": "LoginProjectParallax-CCw4eQu2.js",
       "bytes": 79193,
       "gzipBytes": 27418
     },
     {
-      "name": "Button-6kQGa4rs.js",
+      "name": "Button-BzdWhDM6.js",
       "bytes": 28598,
-      "gzipBytes": 9232
+      "gzipBytes": 9233
     },
     {
-      "name": "RealEstateCommercial-DzJQNsTi.js",
+      "name": "RealEstateCommercial-BtJY2pVZ.js",
       "bytes": 39764,
       "gzipBytes": 8972
     },
@@ -56,12 +56,12 @@
       "gzipBytes": 8003
     },
     {
-      "name": "ClientPortalApp-CfwN_M1n.js",
+      "name": "ClientPortalApp-DSwEFUgH.js",
       "bytes": 29098,
-      "gzipBytes": 7152
+      "gzipBytes": 7154
     },
     {
-      "name": "MarcosCurvaASuprimentos-tQfaVSQv.js",
+      "name": "MarcosCurvaASuprimentos-DVdRBwG9.js",
       "bytes": 17899,
       "gzipBytes": 5693
     },
@@ -71,14 +71,14 @@
       "gzipBytes": 5174
     },
     {
-      "name": "SupplierEditor-C5rEjE93.js",
+      "name": "SupplierEditor-CBCP3epu.js",
       "bytes": 14187,
-      "gzipBytes": 4535
+      "gzipBytes": 4534
     },
     {
-      "name": "EquipmentBillingReports-XtS2KRY0.js",
+      "name": "EquipmentBillingReports-DIro43HS.js",
       "bytes": 16720,
-      "gzipBytes": 4041
+      "gzipBytes": 4042
     },
     {
       "name": "real-estate-BVanGF-i.js",
@@ -91,7 +91,7 @@
       "gzipBytes": 2911
     },
     {
-      "name": "categories-BIKRtR1a.js",
+      "name": "categories-DxpDpj0L.js",
       "bytes": 6719,
       "gzipBytes": 2894
     },
@@ -121,9 +121,9 @@
       "gzipBytes": 1334
     },
     {
-      "name": "LegacyMobileNavigation-Vx8fQHnB.js",
+      "name": "LegacyMobileNavigation-CN8tdvsA.js",
       "bytes": 2709,
-      "gzipBytes": 1261
+      "gzipBytes": 1260
     },
     {
       "name": "LegacyMobileNavigation-Bu58Uv5t.css",
@@ -136,7 +136,7 @@
       "gzipBytes": 1043
     },
     {
-      "name": "MobileMoreMenu-oO2BgSm6.js",
+      "name": "MobileMoreMenu-DgZJrs1k.js",
       "bytes": 1854,
       "gzipBytes": 883
     },

@@ -155,6 +155,7 @@ import {
   createMonthlyClosingSnapshot,
 } from "./domains/financeiro/workflows";
 import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, projectBudgetExport, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
+import { auditBudgetDimensions as conferenciaDimensional } from "./domains/orcamentos/dimensional-audit";
 import { calculateCPM as calculateCanonicalCPM, calculateLineOfBalance, calculatePPC } from "./domains/planejamento";
 import { applyProgressToCommitment } from "./domains/producao";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
@@ -15746,74 +15747,8 @@ const BDI_COMPONENTES_EDIF = {
 //   1.0  = ~igual (forro, piso, contrapiso, laje, impermeab. de laje)
 //   ~2.5 = paredes tem 2 faces e pe-direito (reboco, chapisco, pintura parede)
 // tol: tolerancia (fracao) antes de virar alerta.
-const FAMILIAS_DIM = [
-  // Regras especificas precisam vir antes das genericas: "contrapiso" contem
-  // "piso" e "pintura de forro" contem "forro".
-  { chave: "pintura_teto",termos: ["pintura de teto", "pintura forro", "massa corrida teto"], fator: 1.0, tol: 0.20, obs: "Pintura de teto segue a area construida." },
-  { chave: "contrapiso",  termos: ["contrapiso", "regularizacao de piso"], fator: 1.0, tol: 0.15, obs: "Contrapiso segue a area construida." },
-  { chave: "piso",        termos: ["piso", "porcelanato", "ceramica piso", "revestimento de piso"], fator: 1.0, tol: 0.15, obs: "Piso segue a area construida." },
-  { chave: "forro",       termos: ["forro", "gesso"],                 fator: 1.0,  tol: 0.15, obs: "Forro segue de perto a area construida (menos vazios)." },
-  { chave: "laje",        termos: ["laje"],                           fator: 1.0,  tol: 0.20, obs: "Laje se aproxima da area construida por pavimento." },
-  { chave: "cobertura",   termos: ["telha", "cobertura", "telhado"],  fator: 1.2,  tol: 0.25, obs: "Cobertura costuma ser um pouco maior que a area (beirais, caimento)." },
-  { chave: "reboco",      termos: ["reboco", "emboco", "massa unica", "chapisco"], fator: 2.5, tol: 0.35, obs: "Paredes tem 2 faces e pe-direito: costuma ser ~2,5x a area." },
-  { chave: "alvenaria",   termos: ["alvenaria", "vedacao", "tijolo", "bloco ceramico", "bloco de concreto"], fator: 2.2, tol: 0.40, obs: "Alvenaria acompanha o perimetro e o pe-direito." },
-  { chave: "pintura_par", termos: ["pintura", "massa corrida", "textura"], fator: 2.5, tol: 0.40, obs: "Pintura de parede: 2 faces e pe-direito." },
-];
-
 const semAcentoDim = (s) => String(s || "").toLowerCase()
   .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-// Classifica um item numa familia (a primeira que casar por termo).
-// So considera itens medidos em m2 (area).
-const familiaDoItem = (item) => {
-  const un = semAcentoDim(item.unidade).replace(/²/g, "2").replace(/[^a-z0-9]/g, "");
-  // Metro linear (m) nao e area e nao pode alimentar a conferencia em m2.
-  const ehArea = un === "m2";
-  if (!ehArea) return null;
-  const desc = semAcentoDim(item.descricao);
-  // pintura de teto antes de pintura de parede (mais especifico primeiro)
-  for (const fam of FAMILIAS_DIM) {
-    if (fam.termos.some(t => desc.includes(semAcentoDim(t)))) return fam;
-  }
-  return null;
-};
-
-// Roda a conferencia. Devolve as familias encontradas com quantidade somada,
-// esperada e o status (ok | alto | baixo). Precisa da area construida > 0.
-const conferenciaDimensional = (orc, areaConstruida) => {
-  const area = Number(areaConstruida || 0);
-  const itens = (orc?.itens || []).filter(it => it.tipo !== "titulo" && Number(it.quantidade || 0) > 0);
-
-  const porFamilia = {};
-  itens.forEach(it => {
-    const fam = familiaDoItem(it);
-    if (!fam) return;
-    if (!porFamilia[fam.chave]) porFamilia[fam.chave] = { fam, qtd: 0, itens: [] };
-    porFamilia[fam.chave].qtd += Number(it.quantidade || 0);
-    porFamilia[fam.chave].itens.push(it.descricao);
-  });
-
-  const linhas = Object.values(porFamilia).map(g => {
-    const esperado = area * g.fam.fator;
-    const dif = g.qtd - esperado;
-    const difPct = esperado ? (dif / esperado) : 0;
-    let status = "ok";
-    if (area > 0) {
-      if (difPct > g.fam.tol) status = "alto";
-      else if (difPct < -g.fam.tol) status = "baixo";
-    } else {
-      status = "sem_area";
-    }
-    return {
-      chave: g.fam.chave, nome: g.fam.chave.replace(/_/g, " "),
-      qtd: g.qtd, esperado, dif, difPct: difPct * 100,
-      status, obs: g.fam.obs, exemplos: g.itens.slice(0, 3),
-    };
-  }).sort((a, b) => Math.abs(b.difPct) - Math.abs(a.difPct));
-
-  const alertas = linhas.filter(l => l.status === "alto" || l.status === "baixo");
-  return { area, linhas, alertas, temArea: area > 0 };
-};
 
 // Auditoria tecnica reproduzivel do escopo. A IA recebe estes achados depois,
 // mas nao decide sozinha se algo esta faltando: primeiro aplicamos regras
