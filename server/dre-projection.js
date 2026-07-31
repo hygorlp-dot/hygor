@@ -6,12 +6,8 @@ import {
 } from "../src/domains/dre/expense-taxonomy.js";
 import { calcEquipMes, diasLocacaoNoPeriodo } from "../src/domains/equipamentos/calculations.js";
 import { calculateAttendanceDayCost } from "../src/domains/ponto/payroll.js";
+import { active } from "../src/domains/financeiro/ledger.js";
 
-const inactive = new Set([
-  "cancelado", "cancelada", "cancelled", "canceled",
-  "estornado", "estornada", "reversed", "arquivado", "arquivada",
-]);
-const active = item => !inactive.has(String(item?.status || "").toLowerCase());
 const round = value => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 const localIso = date => {
   const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,"0"),d=String(date.getDate()).padStart(2,"0");

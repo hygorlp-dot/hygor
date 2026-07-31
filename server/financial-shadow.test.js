@@ -42,4 +42,22 @@ describe("homologação financeira em sombra", () => {
       "obra-42":{ thirdParty:1250 },
     });
   });
+
+  it("preserva fatos arquivados e elimina somente cancelamentos e estornos", () => {
+    const snapshot = buildLegacyFinancialFacts({
+      pagsTerceiros:[
+        {id:"terc-arq",obraId:"obra-1",amount:900,date:"2026-07-15",status:"arquivada"},
+        {id:"terc-est",obraId:"obra-1",amount:400,date:"2026-07-16",status:"estornado"},
+      ],
+      outrasDesp:[
+        {id:"desp-arq",obraId:"obra-1",valor:150,competencia:"2026-07",status:"arquivado"},
+        {id:"desp-can",obraId:"obra-1",valor:80,competencia:"2026-07",status:"cancelada"},
+      ],
+    });
+
+    expect(snapshot.facts.map(item=>item.legacyId).sort()).toEqual(["desp-arq","terc-arq"]);
+    expect(summarizeLegacyFinancialFacts(snapshot)).toMatchObject({
+      "obra-1":{thirdParty:900,expenses:150},
+    });
+  });
 });
