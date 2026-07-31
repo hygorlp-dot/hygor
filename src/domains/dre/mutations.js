@@ -1,6 +1,8 @@
 // Mutações pequenas e auditáveis do DRE. A tela não pode cancelar uma despesa
 // sem uma identidade de usuário: além de quebrar no navegador, isso criaria um
 // evento financeiro sem autoria.
+import { active } from "../financeiro/ledger.js";
+
 export const cancelDreExpense = ({ data, expenseId, reason, actor, now = new Date().toISOString() }) => {
   if (!actor?.id) throw new Error("Sessão do usuário indisponível para cancelar a despesa.");
   const motivoCancelamento = String(reason || "").trim();
@@ -126,8 +128,14 @@ export const replicateCompanyRecurringExpenses = ({ data, fromCompetence, toComp
   if (!actor?.id) throw new Error("Sessão do usuário indisponível para copiar despesas recorrentes.");
   if (!/^\d{4}-\d{2}$/.test(String(fromCompetence || "")) || !/^\d{4}-\d{2}$/.test(String(toCompetence || ""))) throw new Error("Informe competências válidas para copiar despesas recorrentes.");
   const despesas=Array.isArray(data?.despesasEmpresa) ? data.despesasEmpresa : [];
-  const existentes=new Set(despesas.filter(item=>item.competencia===toCompetence&&!['cancelado','cancelada','estornado','arquivado'].includes(String(item.status||'').toLowerCase())).map(item=>`${item.categoria}|${item.descricao}`));
-  const fontes=despesas.filter(item=>item.competencia===fromCompetence&&item.recorrente&&!['cancelado','cancelada','estornado','arquivado'].includes(String(item.status||'').toLowerCase())&&!existentes.has(`${item.categoria}|${item.descricao}`));
+  const existentes=new Set(despesas
+    .filter(item=>item.competencia===toCompetence&&active(item))
+    .map(item=>`${item.categoria}|${item.descricao}`));
+  const fontes=despesas.filter(item=>
+    item.competencia===fromCompetence
+    &&item.recorrente
+    &&active(item)
+    &&!existentes.has(`${item.categoria}|${item.descricao}`));
   if (ids.length<fontes.length) throw new Error("Identificadores insuficientes para copiar despesas recorrentes.");
   const novos=fontes.map((item,index)=>({
     ...item,id:ids[index],competencia:toCompetence,status:"ativo",
