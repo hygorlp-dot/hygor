@@ -178,6 +178,11 @@ import {
   validateBrazilianDocument as validarDocumento,
 } from "./domains/data/brazilian-documents";
 import { calculateWithholdings as calcRetencoes } from "./domains/terceirizados/withholdings";
+import {
+  daysUntil as diasAte,
+  THIRD_PARTY_KANBAN_COLUMNS as COLS_KANBAN,
+  thirdPartyKanbanColumn as colKanban,
+} from "./domains/terceirizados/workflow";
 import { uploadWithRetry } from "./domains/documentos/upload-retry";
 const LazyMarcosCurvaASuprimentos = lazy(() => import("./features/suprimentos/MarcosCurvaASuprimentos"));
 import {
@@ -951,23 +956,6 @@ const docTercInfo = v => DOCS_TERC.find(d => d.v === v) || { l: v || "Documento"
 
 // Colunas do Kanban de contratos. A ordem e o fluxo natural de um contrato de
 // terceiro: contratado -> em obra -> parou por algum motivo -> entregue.
-const COLS_KANBAN = [
-  { v: "contratado", l: "Contratado",   cor: "#54a0ff", dica: "Fechado, ainda não começou" },
-  { v: "andamento",  l: "Em andamento", cor: "#f6d833", dica: "Executando em obra" },
-  { v: "pausado",    l: "Paralisado",   cor: "#ff9f1c", dica: "Interrompido temporariamente" },
-  { v: "concluido",  l: "Concluído",    cor: "#26de81", dica: "Contrato entregue" },
-];
-const colKanban = v => COLS_KANBAN.find(c => c.v === v) || COLS_KANBAN[1];
-
-// Dias entre hoje e uma data ISO (negativo = venceu ha N dias).
-const diasAte = iso => {
-  if (!iso) return null;
-  const alvo = new Date(iso + "T00:00:00");
-  if (isNaN(alvo)) return null;
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  return Math.round((alvo - hoje) / 86400000);
-};
-
 const ETAPAS_SUGERIDAS = {
   eletricista: ["Rasgo de parede","Eletrodutos e caixas","Enfiação","Quadros e disjuntores","Tomadas e interruptores","Luminárias","Testes e energização"],
   encanador:   ["Rasgo de parede","Tubulação de água fria","Tubulação de esgoto","Tubulação de águas pluviais","Louças e metais","Teste de estanqueidade"],
@@ -4560,6 +4548,12 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
           <DRERow label={`(-) MO própria · ${d.days?.length||0} dias no período`} value={d.moData.laborCost} color={C.orange} indent={1}/>
           <DRERow label="(-) Benefícios VT/VR" value={d.moData.benefitCost} color={C.muted}   indent={1}/>
           <DRERow label="(-) Terceirizados (obra)" value={d.tercCost}          color={C.purple}  indent={1}/>
+          {d.tercPago>0&&(
+            <div style={{padding:"5px 12px 5px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",opacity:.75}}>
+              <p style={{fontSize:10.5,color:C.muted,fontStyle:"italic"}}>↳ já pago em caixa (referência, não afeta a margem desta obra)</p>
+              <p style={{fontSize:11,color:C.green,fontWeight:700}}>{fmt(d.tercPago)}</p>
+            </div>
+          )}
           {d.comprasCost>0&&<DRERow label="(-) Materiais reconhecidos por nota fiscal" value={d.comprasCost} color={C.yellowD} indent={1}/>}
           {d.rescTotal>0&&<DRERow label="(-) Rescisões" value={d.rescTotal} color={C.red} indent={1}/>}
           {d.equipCost>0&&<DRERow label="(-) Locação de equipamentos" value={d.equipCost} color={C.blue} indent={1}/>}
