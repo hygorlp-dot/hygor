@@ -160,6 +160,7 @@ import { BDI_TCU, BDI_COMPONENTES_EDIF, calculateBdi as calcBDI, classifyBdi as 
 import { referenceBaseKey as chaveBaseReferencia, consolidateReferenceBases as consolidarBasesReferencia } from "./domains/orcamentos/reference-bases";
 import { BudgetTextCell as CelulaTexto } from "./domains/orcamentos/BudgetTextCell";
 import { auditBudgetTechnicalScope } from "./domains/orcamentos/technical-audit";
+import { buildBudgetTree as construirArvore, flattenBudgetTree as achatarArvore, budgetSubtreeIds as idsDaSubarvore, budgetStageLevel as nivelDaEtapa, calculateBudgetTree as calcOrcamento } from "./domains/orcamentos/tree";
 import { calculateCPM as calculateCanonicalCPM, calculateLineOfBalance, calculatePPC } from "./domains/planejamento";
 import { applyProgressToCommitment } from "./domains/producao";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
@@ -16764,103 +16765,6 @@ const aplicarAjustesProgresso = (data, obraId, ajustes, origem = "manual") => {
   return { ...data, planos, rdos };
 };
 
-const construirArvore = (etapas, itens) => {
-  // Índice pai → filhos
-  const porPai = {};
-  (etapas||[]).forEach(e => {
-    const p = e.parentId || "";
-    (porPai[p] = porPai[p] || []).push(e);
-  });
-
-  // Índice etapa → itens, montado UMA vez. Antes, cada etapa varria a lista
-  // inteira de itens (O(etapas x itens)); agora é uma passada só (O(etapas + itens)).
-  const porEtapa = {};
-  (itens||[]).forEach(it => {
-    (porEtapa[it.etapaId] = porEtapa[it.etapaId] || []).push(it);
-  });
-
-  const walk = (paiId, prefixo, nivel) => (porPai[paiId] || []).map((et, i) => {
-    const codigo = prefixo ? `${prefixo}.${i+1}` : String(i+1);
-    const sub = walk(et.id, codigo, nivel + 1);
-    const meusItens = (porEtapa[et.id] || [])
-      .map((it, j) => ({ ...it, codigoItem: `${codigo}.${sub.length + j + 1}` }));
-    return { ...et, codigo, nivel, sub, itens: meusItens };
-  });
-
-  return walk("", "", 1);
-};
-
-// Custo de um nó = itens diretos + tudo que está abaixo dele
-const ehTitulo = (it) => it.tipo === "titulo";
-
-const calcNo = (no, bdi) => {
-  const sub = no.sub.map(s => calcNo(s, bdi));
-  const itensCalculados=no.itens.filter(it=>!ehTitulo(it)).map(it=>{
-    const custo=Number(it.quantidade||0)*Number(it.precoUnit||0);const bdiItem=bdiDoItem(it,bdi);return {custo,total:custo*(1+bdiItem/100)};
-  });
-  const cdItens = itensCalculados.reduce((s,it)=>s+it.custo,0);
-  const cdSub   = sub.reduce((s,x) => s + x.custoDireto, 0);
-  const custoDireto = cdItens + cdSub;
-  const total=itensCalculados.reduce((s,it)=>s+it.total,0)+sub.reduce((s,x)=>s+x.total,0);
-  return { ...no, sub, custoDireto, total };
-};
-
-// Achata a árvore na ordem de leitura (etapa → sub-etapas → itens diretos)
-const achatarArvore = (nos, out = []) => {
-  nos.forEach(n => {
-    out.push({ tipo:"etapa", ...n });
-    achatarArvore(n.sub, out);
-    n.itens.forEach(it => out.push({ tipo:"item", ...it }));
-  });
-  return out;
-};
-
-// Coleta o id de uma etapa e de todos os seus descendentes
-const idsDaSubarvore = (etapas, raizId) => {
-  const ids = [raizId];
-  let mudou = true;
-  while (mudou) {
-    mudou = false;
-    (etapas||[]).forEach(e => {
-      if (e.parentId && ids.includes(e.parentId) && !ids.includes(e.id)) {
-        ids.push(e.id); mudou = true;
-      }
-    });
-  }
-  return ids;
-};
-
-// Profundidade de uma etapa (1 = raiz)
-const nivelDaEtapa = (etapas, id) => {
-  let n = 1, atual = (etapas||[]).find(e => e.id === id);
-  while (atual && atual.parentId) {
-    n++;
-    atual = (etapas||[]).find(e => e.id === atual.parentId);
-    if (n > 20) break;   // trava contra ciclo
-  }
-  return n;
-};
-
-const calcOrcamento = (orc) => {
-  const bdi   = Number(orc.bdi||0), canonico=calcularOrcamentoCanonico(orc);
-  const itens = orc.itens || [];
-
-  const reais       = itens.filter(it => !ehTitulo(it));
-  const custoDireto = canonico.custoDireto;
-  const valorBDI    = canonico.valorBDI;
-  const total       = canonico.total;
-  const porM2       = Number(orc.areaM2||0) > 0 ? total / Number(orc.areaM2) : 0;
-
-  const comPct = (n) => ({
-    ...n,
-    pct: total > 0 ? (n.total/total)*100 : 0,
-    sub: n.sub.map(comPct),
-  });
-  const arvore = construirArvore(orc.etapas, itens).map(n => comPct(calcNo(n, bdi)));
-
-  return { custoDireto, valorBDI, total, porM2, arvore, qtdItens: reais.length };
-};
-
 //  CURVA ABC 
 //  Principio de Pareto aplicado a orcamento: poucos itens respondem pela maior
 //  parte do custo. Ordena os itens por custo decrescente, acumula o percentual
@@ -19011,7 +18915,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
     achatarArvore(calc.arvore).forEach(n => {
       if (n.tipo === "etapa") {
         aoa.push([n.nivel===1?"LOTE":`Nível ${n.nivel}`,n.codigo,"","",n.nome,"","","","","",n.total||0]);
-      } else if (ehTitulo(n)) {
+      } else if (n.tipo === "titulo") {
         aoa.push(["Título",n.codigoItem,"","",n.descricao||"","","","","","",""]);
       } else {
         const calculado=itemCalcPorId.get(n.id)||{};
@@ -19847,7 +19751,7 @@ ${blocoBDI}
                   );
 
                   //  Linha de TÍTULO: texto puro, sem código, sem valor 
-                  if (ehTitulo(it)) {
+                  if (it.tipo === "titulo") {
                     return (
                       <div key={it.id} style={{
                         padding: "7px 12px",
