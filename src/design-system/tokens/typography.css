@@ -17,13 +17,29 @@
   --arcd-font-weight-medium: 500;
   --arcd-font-weight-semibold: 600;
   --arcd-font-weight-bold: 700;
+
+  /* Escala operacional extraída do dashboard. Estes são os únicos tamanhos
+     semânticos para títulos, conteúdo, rótulos e dados em todo o app. */
+  --arcd-type-page-title: clamp(1.3125rem, 2.2vw, 1.5625rem);
+  --arcd-type-section-title: clamp(1.0625rem, 1.7vw, 1.1875rem);
+  --arcd-type-card-title: 0.875rem;
+  --arcd-type-body: 0.75rem;
+  --arcd-type-label: 0.6875rem;
+  --arcd-type-caption: 0.625rem;
+  --arcd-type-kpi: clamp(1.1875rem, 2vw, 1.4375rem);
+  --arcd-icon-size-sm: 0.8125rem;
+  --arcd-icon-size-md: 1rem;
+  --arcd-icon-size-lg: 1.25rem;
+  --arcd-letter-spacing-body: 0.01rem;
+  --arcd-letter-spacing-label: 0.04rem;
+  --arcd-letter-spacing-tight: -0.02em;
 }
 
-.arcd-heading-page { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-size: var(--arcd-font-size-2xl); font-weight: var(--arcd-font-weight-bold); line-height: var(--arcd-line-height-tight); }
-.arcd-heading-section { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-size: var(--arcd-font-size-xl); font-weight: var(--arcd-font-weight-semibold); line-height: var(--arcd-line-height-tight); }
-.arcd-heading-card { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-size: var(--arcd-font-size-lg); font-weight: var(--arcd-font-weight-semibold); line-height: var(--arcd-line-height-tight); }
-.arcd-body { color: var(--arcd-text-primary); font-size: var(--arcd-font-size-sm); line-height: var(--arcd-line-height-normal); }
-.arcd-body-muted { color: var(--arcd-text-secondary); font-size: var(--arcd-font-size-sm); line-height: var(--arcd-line-height-normal); }
-.arcd-label { color: var(--arcd-text-primary); font-size: var(--arcd-font-size-xs); font-weight: var(--arcd-font-weight-semibold); }
-.arcd-caption { color: var(--arcd-text-muted); font-size: var(--arcd-font-size-xs); }
+.arcd-heading-page { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-size: var(--arcd-type-page-title); font-weight: var(--arcd-font-weight-semibold); letter-spacing: var(--arcd-letter-spacing-tight); line-height: var(--arcd-line-height-tight); }
+.arcd-heading-section { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-size: var(--arcd-type-section-title); font-weight: var(--arcd-font-weight-semibold); letter-spacing: var(--arcd-letter-spacing-tight); line-height: var(--arcd-line-height-tight); }
+.arcd-heading-card { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-size: var(--arcd-type-card-title); font-weight: var(--arcd-font-weight-semibold); line-height: 1.25; }
+.arcd-body { color: var(--arcd-text-primary); font-size: var(--arcd-type-body); letter-spacing: var(--arcd-letter-spacing-body); line-height: var(--arcd-line-height-normal); }
+.arcd-body-muted { color: var(--arcd-text-secondary); font-size: var(--arcd-type-body); letter-spacing: var(--arcd-letter-spacing-body); line-height: var(--arcd-line-height-normal); }
+.arcd-label { color: var(--arcd-text-primary); font-size: var(--arcd-type-label); font-weight: var(--arcd-font-weight-semibold); letter-spacing: var(--arcd-letter-spacing-label); }
+.arcd-caption { color: var(--arcd-text-muted); font-size: var(--arcd-type-caption); }
 .arcd-number { color: var(--arcd-text-primary); font-family: var(--arcd-font-mono); font-variant-numeric: tabular-nums; }

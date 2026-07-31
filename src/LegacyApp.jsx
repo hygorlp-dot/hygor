@@ -310,15 +310,15 @@ const semanticToneFromLegacyColor = color => {
 // soltos - e o que unifica visualmente heroes, cards e paineis diferentes.
 const FONT_DISPLAY = "'IBM Plex Sans','Helvetica Neue',Arial,sans-serif";
 const TYPO = {
-  h1:      { fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:"clamp(24px,4vw,34px)", letterSpacing:-.8, lineHeight:1.1, color:C.text },
-  h2:      { fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:"clamp(20px,3vw,26px)", letterSpacing:-.7, lineHeight:1.12, color:C.text },
-  h3:      { fontFamily:FONT_DISPLAY, fontWeight:750, fontSize:14.5, letterSpacing:-.2, lineHeight:1.2, color:C.text },
-  h4:      { fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:12.5, letterSpacing:0, lineHeight:1.25, color:C.text },
-  eyebrow: { fontSize:9, fontWeight:850, letterSpacing:1.4, textTransform:"uppercase", color:C.yellowD },
-  body:    { fontSize:11.5, fontWeight:400, lineHeight:1.5, color:C.text },
-  bodyMuted:{ fontSize:11.5, fontWeight:400, lineHeight:1.5, color:C.muted },
-  small:   { fontSize:9.5, fontWeight:600, color:C.muted },
-  label:   { fontFamily:FONT_DISPLAY, fontSize:9.5, fontWeight:700, letterSpacing:.1, color:C.text },
+  h1:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-page-title)", letterSpacing:"var(--arcd-letter-spacing-tight)", lineHeight:1.15, color:C.text },
+  h2:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-section-title)", letterSpacing:"var(--arcd-letter-spacing-tight)", lineHeight:1.18, color:C.text },
+  h3:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-card-title)", letterSpacing:-.1, lineHeight:1.25, color:C.text },
+  h4:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-body)", letterSpacing:0, lineHeight:1.3, color:C.text },
+  eyebrow: { fontSize:"var(--arcd-type-caption)", fontWeight:700, letterSpacing:"var(--arcd-letter-spacing-label)", textTransform:"uppercase", color:C.yellowD },
+  body:    { fontSize:"var(--arcd-type-body)", fontWeight:400, lineHeight:1.5, color:C.text },
+  bodyMuted:{ fontSize:"var(--arcd-type-body)", fontWeight:400, lineHeight:1.5, color:C.muted },
+  small:   { fontSize:"var(--arcd-type-caption)", fontWeight:500, color:C.muted },
+  label:   { fontFamily:FONT_DISPLAY, fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing:"var(--arcd-letter-spacing-body)", color:C.text },
   // Tamanho/peso reais vêm do override global (.tab-row button) em index.css,
   // que também cobre sidebar, nav mobile e os demais menus de abas do app -
   // isto aqui é só o fallback caso a classe não esteja disponível.
@@ -390,10 +390,10 @@ const G = `
   --type-display:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;
   --type-body:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;
   --type-data:'IBM Plex Mono',ui-monospace,monospace;
-  --fs-caption:9px;--fs-label:9.5px;--fs-body:12px;--fs-title:18px;
-  --fs-page-title:clamp(21px,2.2vw,25px);
-  --fs-section-title:clamp(17px,1.7vw,19px);
-  --fs-card-title:14px;
+  --fs-caption:var(--arcd-type-caption);--fs-label:var(--arcd-type-label);--fs-body:var(--arcd-type-body);--fs-title:var(--arcd-type-section-title);
+  --fs-page-title:var(--arcd-type-page-title);
+  --fs-section-title:var(--arcd-type-section-title);
+  --fs-card-title:var(--arcd-type-card-title);
   --radius-control:2px;--radius-card:4px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -3029,7 +3029,7 @@ function Ic({ n, s = 16, color }) {
     );
   }
   return (
-    <span aria-hidden="true" style={{
+    <span aria-hidden="true" className="arcd-icon" data-icon-size={s<=13?"sm":s>=20?"lg":"md"} style={{
       width:s+4, height:s+4, display:"inline-flex", alignItems:"center",
       justifyContent:"center", color: color || `var(--ic-color, ${C.yellow})`,
       flexShrink:0,

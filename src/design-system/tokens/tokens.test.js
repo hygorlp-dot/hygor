@@ -25,4 +25,9 @@ describe("tokens do design system ARCD", () => {
     const source=readFileSync(resolve(process.cwd(),"src/design-system/tokens/radius.css"),"utf8");
     expect(source).toContain("--arcd-radius-control: 0.5rem");
   });
+
+  it("expõe a escala tipográfica e de ícones adotada pelo dashboard",()=>{
+    const source=readFileSync(resolve(process.cwd(),"src/design-system/tokens/typography.css"),"utf8");
+    ["--arcd-type-page-title","--arcd-type-section-title","--arcd-type-card-title","--arcd-type-body","--arcd-type-label","--arcd-type-caption","--arcd-type-kpi","--arcd-icon-size-sm","--arcd-icon-size-md","--arcd-icon-size-lg"].forEach(token=>expect(source).toContain(token));
+  });
 });

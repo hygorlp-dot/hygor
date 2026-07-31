@@ -699,9 +699,16 @@
 }
 
 .arcd-main button {
-  border-radius: 2px !important;
+  border-radius: var(--arcd-radius-md) !important;
   box-shadow: none !important;
 }
+
+/* Contrato visual extraído do dashboard: qualquer módulo pode reutilizar a
+   mesma escala de ícones sem escolher dimensões e espessuras ad hoc. */
+.arcd-icon { line-height: 0; vertical-align: middle; }
+.arcd-icon svg { width: var(--arcd-icon-size-md); height: var(--arcd-icon-size-md); stroke-width: 2; }
+.arcd-icon[data-icon-size="sm"] svg { width: var(--arcd-icon-size-sm); height: var(--arcd-icon-size-sm); }
+.arcd-icon[data-icon-size="lg"] svg { width: var(--arcd-icon-size-lg); height: var(--arcd-icon-size-lg); }
 
 .arcd-main [style*="box-shadow"],
 .arcd-main [style*="boxShadow"] {

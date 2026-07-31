@@ -44,3 +44,24 @@ sequência planejamento → execução → controle.
 - Mobile: uma coluna, navegação horizontal rolável e controles de 44px.
 - Nenhum menu pode sobrepor outro; textos longos truncam ou quebram sem aumentar
   a largura da viewport.
+
+## Padrão operacional do dashboard
+
+O dashboard é a referência visual para todas as telas operacionais. Novos
+módulos e revisões devem consumir os tokens `--arcd-type-*` e
+`--arcd-icon-size-*`, sem criar tamanhos locais equivalentes.
+
+- Título de página: `--arcd-type-page-title`, peso 600.
+- Título de seção: `--arcd-type-section-title`, peso 600.
+- Título de card: `--arcd-type-card-title`, peso 600.
+- Corpo operacional: `--arcd-type-body`, peso 400.
+- Rótulos: `--arcd-type-label`, peso 600; caixa alta apenas em indicadores e
+  cabeçalhos curtos.
+- Legendas e metadados: `--arcd-type-caption`, sem reduzir abaixo desse valor.
+- Valores de KPI: `--arcd-type-kpi`, com algarismos tabulares quando forem
+  medições, datas, códigos ou valores financeiros.
+- Ícones: 13px em controles compactos, 16px no uso padrão e 20px em destaques.
+  Todos usam o mesmo traço de 2px e nunca substituem o rótulo de uma ação.
+- Cards de resumo usam `SummaryCard`; cabeçalhos usam `PageHeader`; controles
+  usam os primitivos do design system. Estado é comunicado por cor, texto e
+  ícone, nunca apenas por cor.

@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Button } from "../primitives/index.js";
-import { ConfirmDialog, EmptyState, ErrorState, PageHeader, StatusBadge } from "./index.js";
+import { ConfirmDialog, EmptyState, ErrorState, PageHeader, StatusBadge, SummaryCard } from "./index.js";
 
 const mounted = [];
 function changeNativeValue(element, value) {
@@ -41,6 +41,17 @@ describe("padrões de página", () => {
     const container = render(<><StatusBadge status="pending" /><StatusBadge status="legacy-status" /></>);
     expect(container.textContent).toContain("Pendente");
     expect(container.textContent).toContain("legacy-status");
+  });
+
+  it("usa o contrato visual do dashboard nos resumos interativos",()=>{
+    const onClick=vi.fn();
+    const container=render(<SummaryCard label="Obras ativas" value="12" detail="Operação acompanhada" icon={<svg/>} tone="success" onClick={onClick}/>);
+    const card=container.querySelector(".arcd-summary-card");
+    expect(card.tagName).toBe("BUTTON");
+    expect(card.dataset.tone).toBe("success");
+    expect(card.querySelector(".arcd-summary-card__icon")).toBeTruthy();
+    act(()=>card.click());
+    expect(onClick).toHaveBeenCalledOnce();
   });
 });
 
