@@ -26,6 +26,21 @@ describe("domínio de compras", () => {
     expect(statusPagamentoPedido(pedido)).toBe("parcial");
   });
 
+  test("ignora variações de estorno no saldo e nos indicadores gerenciais", () => {
+    const comEstorno={
+      ...pedido,id:"p-est",obraId:"o1",status:"enviado",
+      pagamentos:[
+        {valor:60,origem:"empresa",conciliado:true},
+        {valor:40,origem:"caixa_obra",status:"ESTORNADA",conciliado:false},
+      ],
+    };
+    expect(totalPagoPedido(comEstorno)).toBe(60);
+    expect(saldoPagamentoPedido(comEstorno)).toBe(40);
+    const mapa=mapaGerencialCompras({pedidos:[comEstorno]},["o1"],"2026-07-23");
+    expect(mapa.origens).toMatchObject({empresa:60,caixa_obra:0});
+    expect(mapa.semConciliacao).toHaveLength(0);
+  });
+
   test("calcula preço médio ponderado pela quantidade", () => {
     const resultado = analisePreco([
       { preco: 20, qtd: 1 },

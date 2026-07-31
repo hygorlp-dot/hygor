@@ -1,5 +1,6 @@
 // Regras puras do contexto de Compras. Sem React, DOM ou persistência.
 import { calculateWorkCash } from "../financeiro/work-cash.js";
+import { active } from "../financeiro/ledger.js";
 
 export const STATUS_PEDIDO = {
   rascunho:{l:"Rascunho",c:"#6B6459"},enviado:{l:"Enviado",c:"#0D47A1"},
@@ -20,7 +21,7 @@ export const recebidoPedido = pedido => (pedido.itens||[])
   .reduce((s,i)=>s+Number(i.qtdRecebida||0)*Number(i.precoUnit||0),0);
 export const pendentePedido = pedido => totalPedido(pedido)-recebidoPedido(pedido);
 export const totalPagoPedido = pedido => {
-  const pagamentos=(pedido.pagamentos||[]).filter(p=>p.status!=="estornado").reduce((s,p)=>s+Number(p.valor||0),0);
+  const pagamentos=(pedido.pagamentos||[]).filter(active).reduce((s,p)=>s+Number(p.valor||0),0);
   return pagamentos>0?pagamentos:(pedido.transacaoId?totalPedido(pedido):0);
 };
 export const saldoPagamentoPedido = pedido => Math.max(0,totalPedido(pedido)-totalPagoPedido(pedido));
@@ -98,7 +99,8 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
     p.previsao && hoje && p.previsao < hoje && statusPedido(p) !== "recebido");
   const semPrevisao = pedidosValidos.filter(p => !p.previsao);
   const semCotacao = pedidosValidos.filter(p => !p.cotacaoId);
-  const semConciliacao = pedidos.flatMap(p => p.pagamentos || []).filter(pg => !pg.conciliado);
+  const pagamentos = pedidos.flatMap(p => p.pagamentos || []).filter(active);
+  const semConciliacao = pagamentos.filter(pg => !pg.conciliado);
   const recebidosSemQuitar = pedidosValidos.filter(p =>
     statusPedido(p) === "recebido" && statusPagamentoPedido(p) !== "pago");
   const cotacoesCompetitivas = cotacoes.filter(c => (c.propostas || []).length >= 3);
@@ -122,7 +124,6 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
     .sort((a, b) => b.valor - a.valor);
   const concentracaoTop3 = fornecedores.slice(0, 3)
     .reduce((s, f) => s + f.participacao, 0);
-  const pagamentos = pedidos.flatMap(p => p.pagamentos || []);
   const origens = {
     empresa: pagamentos.filter(p => p.origem === "empresa").reduce((s, p) => s + Number(p.valor || 0), 0),
     caixa_obra: pagamentos.filter(p => p.origem === "caixa_obra").reduce((s, p) => s + Number(p.valor || 0), 0),
