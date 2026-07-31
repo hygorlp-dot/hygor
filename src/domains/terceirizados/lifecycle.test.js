@@ -6,7 +6,7 @@ import {
 } from "./lifecycle";
 
 describe("ciclo de vida de terceirizados", () => {
-  it("remove efeitos de cancelamentos, estornos e arquivamentos", () => {
+  it("remove efeitos de cancelamentos, estornos e contratos arquivados", () => {
     for (const status of THIRD_PARTY_INACTIVE_STATUSES) {
       expect(isThirdPartyRecordActive({ status })).toBe(false);
     }
@@ -18,6 +18,10 @@ describe("ciclo de vida de terceirizados", () => {
     expect(isThirdPartyRecordActive(null)).toBe(true);
     expect(isThirdPartyRecordActive({ status: "aprovada" })).toBe(true);
     expect(isThirdPartyRecordActive({ status: "pago" })).toBe(true);
+  });
+
+  it("preserva medição arquivada como fato histórico e econômico", () => {
+    expect(isThirdPartyRecordActive({ status: "arquivada", total: 3500 })).toBe(true);
   });
 
   it("considera a desativação explícita somente para contratos", () => {
