@@ -158,6 +158,7 @@ import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularA
 import { auditBudgetDimensions as conferenciaDimensional } from "./domains/orcamentos/dimensional-audit";
 import { BDI_TCU, BDI_COMPONENTES_EDIF, calculateBdi as calcBDI, classifyBdi as situacaoBDI, formatBdiPercent as f2p } from "./domains/orcamentos/bdi";
 import { referenceBaseKey as chaveBaseReferencia, consolidateReferenceBases as consolidarBasesReferencia } from "./domains/orcamentos/reference-bases";
+import { BudgetTextCell as CelulaTexto } from "./domains/orcamentos/BudgetTextCell";
 import { calculateCPM as calculateCanonicalCPM, calculateLineOfBalance, calculatePPC } from "./domains/planejamento";
 import { applyProgressToCommitment } from "./domains/producao";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
@@ -17045,44 +17046,6 @@ const compFormVazio = (extra = {}) => ({ id:"", codigo:"", descricao:"", unidade
 //  foco a cada edicao. Quando o campo NAO esta em foco, ele se sincroniza com o
 //  valor vindo de fora (atualizacao de precos, busca por codigo, importacao).
 // ---------------------------------------------------------------------------
-const CelulaTexto = memo(function CelulaTexto({ value, onCommit, onDigitar, onEnter, onEscape, ...rest }) {
-  const [local, setLocal] = useState(value ?? "");
-  const focado   = useRef(false);
-  const cancelar = useRef(false);
-
-  // Fora de foco, o campo obedece ao orcamento (atualizacao de precos, busca
-  // por codigo, importacao). Em foco, quem manda e quem esta digitando.
-  useEffect(() => { if (!focado.current) setLocal(value ?? ""); }, [value]);
-
-  const descartar = el => { cancelar.current = true; setLocal(value ?? ""); el.blur(); };
-
-  return (
-    <input
-      {...rest}
-      value={local}
-      onFocus={() => { focado.current = true; }}
-      onChange={e => { setLocal(e.target.value); onDigitar?.(e); }}
-      onBlur={e => {
-        focado.current = false;
-        const texto = e.target.value;
-        if (cancelar.current) { cancelar.current = false; setLocal(value ?? ""); return; }
-        if (texto !== (value ?? "")) onCommit?.(texto);
-        else setLocal(value ?? "");
-      }}
-      onKeyDown={e => {
-        if (e.key === "Escape") { onEscape?.(); descartar(e.currentTarget); return; }
-        if (e.key === "Enter") {
-          e.preventDefault();
-          // onEnter que devolve true ja resolveu a linha (ex.: escolheu uma
-          // composicao da base); o texto digitado e descartado sem gravar.
-          if (onEnter?.(e) === true) descartar(e.currentTarget);
-          else e.currentTarget.blur();
-        }
-      }}
-    />
-  );
-});
-
 function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null }) {
   const { cols, formGrid } = useBreakpoint();
   const ehAdmin = currentUser?.role === "admin";
