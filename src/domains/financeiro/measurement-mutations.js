@@ -1,6 +1,9 @@
-const inactive = item => ["cancelado", "cancelada", "estornado", "arquivado"].includes(String(item?.status || "").toLowerCase());
+import { active } from "./ledger.js";
+import { isClientMeasurementMutable } from "./measurement-lifecycle.js";
+
+const inactive = item => !isClientMeasurementMutable(item);
 const activeReceipts = measurement => (Array.isArray(measurement?.recebimentos) ? measurement.recebimentos : [])
-  .filter(item=>String(item?.status || "").toLowerCase() !== "estornado");
+  .filter(active);
 const userName = actor => actor?.nome || actor?.email || "Usuário autenticado";
 
 export const saveClientMeasurement = ({ data, measurement, actor, id, receiptId, now = new Date().toISOString() }) => {
