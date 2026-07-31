@@ -8,6 +8,7 @@ import {
   reverseThirdPartyPayment,
 } from "./third-party-payment-mutations.js";
 import { isDateInClosedPeriod, linkThirdPartyInvoice } from "./workflows.js";
+import { isActiveThirdPartyContract } from "../terceirizados/lifecycle.js";
 
 export const THIRD_PARTY_COMMAND=Object.freeze({
   THIRD_PARTY_PAYMENT_RECORDED:"PAGAMENTO_TERCEIRO_REGISTRADO",
@@ -90,7 +91,7 @@ const startPaymentApproval=(data,{paymentId,value,obraId,hasMeasurement,actor,no
 
 const validateContract=(data,contractId)=>{
   const contract=contractById(data,contractId);
-  if(!contract||contract.active===false)return {
+  if(!contract||!isActiveThirdPartyContract(contract))return {
     error:"Contrato de terceiro não encontrado ou inativo.",
   };
   if(!contract.obraId||!projectExists(data,contract.obraId))return {

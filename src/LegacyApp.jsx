@@ -199,6 +199,7 @@ import {
 import {
   isActiveThirdPartyContract,
   isThirdPartyRecordActive as registroTerceiroAtivo,
+  isVisibleThirdPartyContract,
 } from "./domains/terceirizados/lifecycle";
 import { uploadWithRetry } from "./domains/documentos/upload-retry";
 const LazyMarcosCurvaASuprimentos = lazy(() => import("./features/suprimentos/MarcosCurvaASuprimentos"));
@@ -10764,7 +10765,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   const allTerc    = data.terceirizados || [];
   const scopedTerc = obraIdFixo ? allTerc.filter(t => t.obraId === obraIdFixo) : allTerc;
   const activeTerc = scopedTerc.filter(isActiveThirdPartyContract);
-  const kanbanTerc = scopedTerc.filter(registroTerceiroAtivo);
+  const kanbanTerc = scopedTerc.filter(isVisibleThirdPartyContract);
 
   // Um mesmo prestador pode possuir vários contratos. O cadastro fiscal,
   // bancário e de contato é compartilhado pelo `prestadorId`; obra, escopo,

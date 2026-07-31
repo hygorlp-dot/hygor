@@ -1,4 +1,6 @@
-const inactive = item => ["cancelado", "cancelada", "estornado", "arquivado"].includes(String(item?.status || "").toLowerCase());
+import { isThirdPartyRecordActive } from "../terceirizados/lifecycle.js";
+
+const inactive = item => !isThirdPartyRecordActive(item);
 const userName = actor => actor?.nome || actor?.email || "Usuário autenticado";
 
 export const createThirdPartyPayment = ({ data, payment, actor, id, now = new Date().toISOString() }) => {
