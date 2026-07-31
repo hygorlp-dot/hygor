@@ -157,12 +157,18 @@ export const createDreCalculations = ({
     const recebidoDasMedicoes = fromCents(ledger.events
       .filter(event => event.effect === "cash_in" && event.sourceType === "medicao" && event.obraId === obraId && event.date >= ctx.per0 && event.date <= ctx.perF)
       .reduce((sum,event)=>sum+event.amountCents,0));
+    // Regime de caixa, apenas informativo: quanto do custo de terceirizados
+    // (ja lancado em tercCost por competencia) foi efetivamente pago. Nao
+    // soma em totalCustos para nao duplicar o custo ja reconhecido na medicao.
+    const tercPago = fromCents(ledger.events
+      .filter(event => event.effect === "cash_out" && event.category === "terceirizado" && event.obraId === obraId && event.date >= ctx.per0 && event.date <= ctx.perF)
+      .reduce((sum,event)=>sum+event.amountCents,0));
     const meds = (data.medicoes || []).filter(measurement => measurement.obraId === obraId && measurement.tipo === "percentual");
     const pctAvanco = meds.length ? Math.max(...meds.map(measurement => Number(measurement.percentualAcumulado || 0))) : 0;
     return {
       obra, ym:ctx.ym, periodo, days:ctx.days, per0:ctx.per0, perF:ctx.perF,
       faturamento, recebido, aReceber, medDoMes,
-      moData:supplemental.labor, tercCost,
+      moData:supplemental.labor, tercCost, tercPago,
       // Pagador/origem não muda a natureza do custo. Terceiros pagos pela
       // empresa já estão em `tercCost`; manter outra soma duplicaria o detalhe.
       tercEmpresaObra:0,

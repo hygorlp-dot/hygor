@@ -38,6 +38,23 @@ describe("domínio do DRE", () => {
     expect(dre.saldoCaixa).toBe(3000);
   });
 
+  test("tercPago soma em caixa apenas o pagamento efetivo, sem duplicar o custo por competência", () => {
+    const dados = {
+      ...data,
+      medicoesTerc: [{
+        id: "med-terc-1", obraId: "obra-1", tercId: "terc-1",
+        data: "2026-07-10", total: 200, status: "aprovada", pagamentoId: "pag-1",
+      }],
+      pagsTerceiros: [{
+        id: "pag-1", tercId: "terc-1", obraId: "obra-1", medicaoTercId: "med-terc-1",
+        amount: 150, date: "2026-07-12", status: "ativo",
+      }],
+    };
+    const dre = regras.calcDREObra(dados, "obra-1", 2026, 6);
+    expect(dre.tercCost).toBe(200);
+    expect(dre.tercPago).toBe(150);
+  });
+
   test("consolidado preserva a soma das obras", () => {
     const dre = regras.calcDREConsolidado(data, 2026, 6);
     expect(dre.faturamento).toBe(5000);
