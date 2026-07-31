@@ -18,14 +18,6 @@ const lerSinapiEmSegundoPlano = async (...args) => {
   return readSinapiInWorker(...args);
 };
 
-// Fatos operacionais não são apagados. Esta forma única mantém motivo, autor
-// e instante para que DRE, auditoria e conciliação possam excluir o efeito
-// econômico sem perder a evidência do que ocorreu.
-const cancelarRegistro = (registro, motivo, usuario, status="cancelado") => ({
-  ...registro, status, motivoCancelamento:String(motivo || "").trim(),
-  canceladoEm:new Date().toISOString(), canceladoPorId:usuario?.id || "",
-  canceladoPor:usuario?.nome || "",
-});
 // O navegador não conversa mais com o banco. Fala com /api/data, que roda no
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
 import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail, definirPinOperador,
@@ -178,6 +170,7 @@ import { normalizeRealEstateCommercial } from "./domains/comercial/real-estate";
 import { selectCommercialWorkspace } from "./domains/comercial/selectors";
 import { archiveLeadForDeletion, isVisibleLead } from "./domains/comercial/leads";
 import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/record-schema";
+import { cancelRecord as cancelarRegistro } from "./domains/data/soft-delete";
 import { uploadWithRetry } from "./domains/documentos/upload-retry";
 const LazyMarcosCurvaASuprimentos = lazy(() => import("./features/suprimentos/MarcosCurvaASuprimentos"));
 import {
