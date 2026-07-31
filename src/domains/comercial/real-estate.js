@@ -93,6 +93,19 @@ export const updateUnitWithAudit=({unit,previous,actor={},now=new Date().toISOSt
   return next;
 };
 
+export const attachRealEstateDocument=(commercial,{collection,recordId,document})=>{
+  const allowed=new Set(["empreendimentos","unidadesImobiliarias","imoveisAvulsos"]);
+  if(!allowed.has(collection))throw new Error("Tipo de imóvel inválido para anexos.");
+  const data=normalizeRealEstateCommercial(commercial);
+  if(!(data[collection]||[]).some(item=>item.id===recordId))throw new Error("Imóvel não encontrado para anexar o arquivo.");
+  return {...data,[collection]:data[collection].map(item=>{
+    if(item.id!==recordId)return item;
+    const next={...item,documentos:[...(item.documentos||[]),document]};
+    if(document.categoria==="foto")next.imagens=[...(item.imagens||[]),document];
+    return next;
+  })};
+};
+
 export const createReservation=({commercial,reservation,id,actor={},now=new Date().toISOString()})=>{
   const data=releaseExpiredReservations(commercial,now.slice(0,10));
   const unit=data.unidadesImobiliarias.find(item=>item.id===reservation.unidadeId);

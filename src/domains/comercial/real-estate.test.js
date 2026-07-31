@@ -1,6 +1,6 @@
 import { describe,expect,it } from "vitest";
 import {
-  createPropertySale,createReservation,normalizeRealEstateCommercial,
+  attachRealEstateDocument,createPropertySale,createReservation,normalizeRealEstateCommercial,
   releaseExpiredReservations,selectRealEstateDashboard,updateUnitWithAudit,
 } from "./real-estate.js";
 
@@ -50,5 +50,13 @@ describe("domínio imobiliário comercial",()=>{
     const dashboard=selectRealEstateDashboard({...base(),unidadesImobiliarias:[changed]});
     expect(dashboard.metrics.vgvNegotiation).toBe(520000);
     expect(dashboard.metrics.activeLeads).toBe(1);
+  });
+
+  it("organiza fotos e documentos no dossiê sem sobrescrever os arquivos existentes",()=>{
+    const first=attachRealEstateDocument(base(),{collection:"unidadesImobiliarias",recordId:"unit-1",document:{id:"doc-1",nome:"Contrato.pdf",categoria:"contrato"}});
+    const second=attachRealEstateDocument(first,{collection:"unidadesImobiliarias",recordId:"unit-1",document:{id:"img-1",nome:"Fachada.webp",categoria:"foto"}});
+    expect(second.unidadesImobiliarias[0].documentos.map(item=>item.id)).toEqual(["doc-1","img-1"]);
+    expect(second.unidadesImobiliarias[0].imagens.map(item=>item.id)).toEqual(["img-1"]);
+    expect(()=>attachRealEstateDocument(second,{collection:"pedidos",recordId:"unit-1",document:{id:"x"}})).toThrow(/inválido/i);
   });
 });

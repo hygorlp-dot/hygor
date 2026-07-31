@@ -14744,13 +14744,13 @@ const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","tv","chat","aprov_pend","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_pipeline","com_relationships","com_deals","com_management"],
+  admin:       ["home","tv","chat","aprov_pend","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],
   engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
   rh:          ["home","tv","ponto","ponto_geral","equipe","terc","folha","resc","conc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
-  comercial:   ["home","tv","com_workspace","com_pipeline","com_relationships","com_deals","com_management","com_funil","com_leads","com_propostas","com_negociacoes","com_agenda","com_parceiros","com_metas","com_relatorios","ia"],
+  comercial:   ["home","tv","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management","com_funil","com_leads","com_propostas","com_negociacoes","com_agenda","com_parceiros","com_metas","com_relatorios","ia"],
   visualizador:["home","tv"],
 };
 
@@ -14770,7 +14770,7 @@ const ACCESS_SECTORS=[
     ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["conc","Conciliação da folha"],
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
-    ["com_workspace","Meu trabalho"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
+    ["com_workspace","Comercial da empresa"],["com_real_estate","Venda de imóveis"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
   ]},
   {id:"geral",label:"Recursos gerais",color:"#6B6459",tabs:[
     ["ia","Inteligência artificial"],["cad","Cadastros gerais"],
@@ -36132,17 +36132,14 @@ const comDateTime=iso=>iso?new Date(iso).toLocaleString("pt-BR"):"-";
 const comAddMes=(iso,n)=>{const d=new Date(`${iso||today()}T12:00:00`);d.setMonth(d.getMonth()+n);return toLocalISODate(d);};
 const COM_IMOBILIARIO_SECTIONS=[
   {id:"overview",label:"Visão geral",icon:"chart"},
-  {id:"crm",label:"CRM / Leads",route:"com_funil",icon:"funnel"},
   {id:"developments",label:"Empreendimentos",icon:"building"},
   {id:"properties",label:"Imóveis avulsos",icon:"home"},
   {id:"units",label:"Unidades",icon:"grid"},
-  {id:"proposals",label:"Propostas",route:"com_propostas",icon:"fileText"},
   {id:"reservations",label:"Reservas",icon:"clock"},
   {id:"sales",label:"Vendas",icon:"dollar"},
   {id:"visits",label:"Agenda e visitas",icon:"calendar"},
   {id:"brokers",label:"Corretores e parceiros",icon:"users"},
-  {id:"commissions",label:"Comissões",route:"com_metas",icon:"wallet"},
-  {id:"documents",label:"Documentos",icon:"file"},
+  {id:"documents",label:"Arquivos dos imóveis",icon:"file"},
   {id:"reports",label:"Relatórios",icon:"trending"},
 ];
 const COM_ROUTE_SECTION={com_funil:"crm",com_leads:"crm",com_propostas:"proposals",com_negociacoes:"proposals",com_metas:"commissions"};
@@ -36177,11 +36174,11 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     if(mensagem)showToast(mensagem);
     return true;
   };
-  const activeCommercialSection=view==="com_workspace"?realEstateSection:(COM_ROUTE_SECTION[commercialView]||realEstateSection);
+  const activeCommercialSection=view==="com_real_estate"?realEstateSection:(COM_ROUTE_SECTION[commercialView]||realEstateSection);
   const openCommercialSection=section=>{
     if(section.route){onTab(section.route);return;}
     setRealEstateSection(section.id);
-    if(view!=="com_workspace")onTab("com_workspace");
+    if(view!=="com_real_estate")onTab("com_real_estate");
   };
   // Maps id->registro, montados uma vez por render em vez de .find() por
   // chamada - nomeUsuario/leadBy sao usados dezenas de vezes por tela
@@ -36407,6 +36404,26 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       setRegistro(atual=>({...atual,documentos:[...(atual.documentos||[]),documento]}));
       showToast("Documento anexado e salvo no OneDrive.");
     }catch(err){showToast(err.message||"Não foi possível anexar o documento.","error");}
+    finally{setSubindoDocumentoComercial(false);}
+  };
+
+  const anexarArquivoImobiliario=async(tipo,registro,file)=>{
+    if(!file)return null;
+    if(file.size>5.5*1024*1024){showToast("O arquivo deve ter no máximo 5,5 MB.","error");return null;}
+    setSubindoDocumentoComercial(true);
+    try{
+      const dataUrl=await arquivoComoDataUrl(file);
+      const referencia=String(registro.nome||registro.titulo||registro.codigo||"Sem referência").replace(/[\\/:*?"<>|]/g,"-");
+      const resp=await enviarArquivoOneDrive({dataUrl,obraName:"Comercial imobiliário",category:"imoveis",
+        subfolder:`${referencia}/${tipo}`,date:today(),fileName:file.name});
+      if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o arquivo no OneDrive.");
+      const documento={id:resp.item?.id||uid(),nome:resp.item?.name||file.name,
+        legenda:String(file.name||"Arquivo").replace(/\.[^.]+$/,""),url:resp.item?.webUrl||resp.url,
+        path:resp.path||"",tipo:file.type||"",categoria:tipo,tamanho:Number(file.size||0),
+        enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};
+      showToast("Arquivo do imóvel salvo no OneDrive.");
+      return documento;
+    }catch(err){showToast(err.message||"Não foi possível anexar o arquivo.","error");return null;}
     finally{setSubindoDocumentoComercial(false);}
   };
 
@@ -37403,12 +37420,12 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     conteudo=<><Titulo titulo="Relatórios comerciais" sub="Desempenho por vendedor, origem, receita, conversão e funil" acao={<Btn onClick={exportarRelatorio}>EXPORTAR EXCEL</Btn>}/><div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:6}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface}}>{["VENDEDOR","LEADS","VENDAS","RECEITA","CONVERSÃO"].map(h=><th key={h} style={{padding:7,textAlign:h==="VENDEDOR"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{vendedores.map(v=><tr key={v.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:7}}>{v.nome}</td><td style={{padding:7,textAlign:"right"}}>{v.leads}</td><td style={{padding:7,textAlign:"right"}}>{v.vendas}</td><td style={{padding:7,textAlign:"right"}}>{fmt(v.receita)}</td><td style={{padding:7,textAlign:"right"}}>{v.conversao.toFixed(1)}%</td></tr>)}</tbody></table></div><div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:6}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface}}>{["ORIGEM","LEADS","VENDAS","RECEITA"].map(h=><th key={h} style={{padding:7,textAlign:h==="ORIGEM"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{origens.map(o=><tr key={o.origem} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:7}}>{o.origem}</td><td style={{padding:7,textAlign:"right"}}>{o.leads}</td><td style={{padding:7,textAlign:"right"}}>{o.vendas}</td><td style={{padding:7,textAlign:"right"}}>{fmt(o.receita)}</td></tr>)}</tbody></table></div></>;
   }
 
-  const showRealEstateHub=view==="com_workspace"&&!["crm","proposals","commissions"].includes(activeCommercialSection);
+  const showRealEstateHub=view==="com_real_estate";
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{display:"flex",gap:5,overflowX:"auto",padding:"6px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,position:"sticky",top:58,zIndex:18}}>
+    {showRealEstateHub&&<div style={{display:"flex",gap:5,overflowX:"auto",padding:"6px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,position:"sticky",top:58,zIndex:18}}>
       {COM_IMOBILIARIO_SECTIONS.map(section=><button key={section.id} type="button" onClick={()=>openCommercialSection(section)} style={{display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",minHeight:34,padding:"7px 10px",borderRadius:7,border:`1px solid ${activeCommercialSection===section.id?C.yellowD:C.line}`,background:activeCommercialSection===section.id?`${C.yellow}18`:C.bg,color:C.text,fontSize:9.5,fontWeight:750,cursor:"pointer"}}><Ic n={section.icon} s={12}/>{section.label}</button>)}
-    </div>
-    {showRealEstateHub?<Suspense fallback={<div style={{padding:30,textAlign:"center",color:C.muted}}>Carregando gestão imobiliária...</div>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onLegacyNavigate={onTab}/></Suspense>:conteudo}
+    </div>}
+    {showRealEstateHub?<Suspense fallback={<div style={{padding:30,textAlign:"center",color:C.muted}}>Carregando gestão imobiliária...</div>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onUploadFile={anexarArquivoImobiliario} onLegacyNavigate={onTab}/></Suspense>:conteudo}
     {npsForm&&<Modal title="Pesquisa de satisfação na entrega" onClose={()=>setNpsForm(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
@@ -38111,7 +38128,7 @@ const NAV_GROUPS = [
   },
   {
     id: "com_grp", label: "Comercial", icon: "users", color: C.green,
-    tabs: ["com_workspace","com_pipeline","com_relationships","com_deals","com_management"],
+    tabs: ["com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],
   },
   {
     id: "ia_grp", label: "IA", icon: "ia", color: C.orange,
@@ -38132,7 +38149,8 @@ const TAB_META = {
   obras:  { label: "Obras",      icon: "building", group: "eng_grp"},
   orc:    { label: "Orçamento",  icon: "fileText", group: "eng_grp"},
   com_dash:{label:"Dashboard",icon:"chart",group:"com_grp"},
-  com_workspace:{label:"Meu trabalho",icon:"clipboard",group:"com_grp"},
+  com_workspace:{label:"Comercial da empresa",icon:"clipboard",group:"com_grp"},
+  com_real_estate:{label:"Venda de imóveis",icon:"building",group:"com_grp"},
   com_pipeline:{label:"Pipeline",icon:"funnel",group:"com_grp"},
   com_relationships:{label:"Relacionamentos",icon:"users",group:"com_grp"},
   com_deals:{label:"Propostas e contratos",icon:"fileText",group:"com_grp"},
