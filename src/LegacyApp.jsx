@@ -171,6 +171,7 @@ import { selectCommercialWorkspace } from "./domains/comercial/selectors";
 import { archiveLeadForDeletion, isVisibleLead } from "./domains/comercial/leads";
 import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/record-schema";
 import { cancelRecord as cancelarRegistro } from "./domains/data/soft-delete";
+import { calculateWithholdings as calcRetencoes } from "./domains/terceirizados/withholdings";
 import { uploadWithRetry } from "./domains/documentos/upload-retry";
 const LazyMarcosCurvaASuprimentos = lazy(() => import("./features/suprimentos/MarcosCurvaASuprimentos"));
 import {
@@ -989,21 +990,6 @@ const DOCS_TERC = [
   { v: "OUTRO",  l: "Outro" },
 ];
 const docTercInfo = v => DOCS_TERC.find(d => d.v === v) || { l: v || "Documento" };
-
-// Decompoe um valor bruto de pagamento em retencoes e liquido, conforme o
-// regime de cada imposto no contrato. Retencao so incide quando "quem recolhe"
-// e a fonte (a empresa). Retorna tudo pronto para o pagamento e para o DRE.
-//   bruto      -> custo real da obra (o que ela deve pelo servico)
-//   issRetido  -> ISS que a empresa segura e recolhe (0 se pago pelo prestador)
-//   inssRetido -> idem INSS
-//   liquido    -> o que efetivamente cai na conta do prestador
-const calcRetencoes = (bruto, terc) => {
-  const b = Number(bruto || 0);
-  const iss  = terc?.retISSQuem  === "fonte" ? b * Number(terc?.retISS  || 0) / 100 : 0;
-  const inss = terc?.retINSSQuem === "fonte" ? b * Number(terc?.retINSS || 0) / 100 : 0;
-  const retido = iss + inss;
-  return { bruto: b, issRetido: iss, inssRetido: inss, retido, liquido: b - retido };
-};
 
 // Colunas do Kanban de contratos. A ordem e o fluxo natural de um contrato de
 // terceiro: contratado -> em obra -> parou por algum motivo -> entregue.
