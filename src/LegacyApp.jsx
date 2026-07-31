@@ -156,6 +156,7 @@ import {
 } from "./domains/financeiro/workflows";
 import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, projectBudgetExport, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
 import { auditBudgetDimensions as conferenciaDimensional } from "./domains/orcamentos/dimensional-audit";
+import { BDI_TCU, BDI_COMPONENTES_EDIF, calculateBdi as calcBDI, classifyBdi as situacaoBDI, formatBdiPercent as f2p } from "./domains/orcamentos/bdi";
 import { calculateCPM as calculateCanonicalCPM, calculateLineOfBalance, calculatePPC } from "./domains/planejamento";
 import { applyProgressToCommitment } from "./domains/producao";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
@@ -15710,26 +15711,11 @@ const ETAPAS_PADRAO = [
 // fixa um INTERVALO (1º quartil  3º quartil). Adotar valor fora dele não
 // é proibido, mas exige justificativa técnica no processo - é exatamente
 // isso que a auditoria cobra.
-const BDI_TCU = [
-  { v:"edificios",  l:"Construção de edifícios",                    q1:20.34, med:22.12, q3:25.00 },
-  { v:"rodovias",   l:"Construção de rodovias e ferrovias",         q1:19.60, med:20.97, q3:24.23 },
-  { v:"saneamento", l:"Redes de água, esgoto e correlatas",         q1:20.76, med:24.18, q3:26.44 },
-  { v:"energia",    l:"Estações e redes de distribuição de energia",q1:24.00, med:25.84, q3:27.86 },
-  { v:"portuarias", l:"Obras portuárias, marítimas e fluviais",     q1:22.80, med:27.48, q3:30.95 },
-  { v:"fornecimento",l:"Fornecimento de materiais e equipamentos",  q1:11.10, med:14.02, q3:16.80 },
-];
 
 // Faixas dos componentes para CONSTRUÇÃO DE EDIFÍCIOS (Acórdão 2622/2013).
 // Servem de baliza no modo detalhado; os demais tipos de obra têm tabelas
 // próprias - por isso o alerta de faixa usa sempre o BDI total, que é o que
 // o TCU efetivamente audita.
-const BDI_COMPONENTES_EDIF = {
-  ac:     { q1:3.00, med:4.00, q3:5.50, l:"Administração Central" },
-  seguro: { q1:0.80, med:0.80, q3:1.00, l:"Seguro e Garantia"     },
-  risco:  { q1:0.97, med:1.27, q3:1.27, l:"Risco"                 },
-  df:     { q1:0.59, med:1.23, q3:1.39, l:"Despesas Financeiras"  },
-  lucro:  { q1:6.16, med:7.40, q3:8.96, l:"Lucro"                 },
-};
 
 // Fórmula do TCU:
 //   BDI = [ (1+AC+S+R+G) x (1+DF) x (1+L) / (1  I) ]  1
@@ -15843,31 +15829,6 @@ const auditarOrcamentoTecnico = (orc, areaConstruida) => {
   };
 };
 
-const calcBDI = (p) => {
-  const d = (x) => Number(x || 0) / 100;
-  const ac = d(p.ac), seg = d(p.seguro), ris = d(p.risco), gar = d(p.garantia);
-  const df = d(p.df), lucro = d(p.lucro);
-  const I  = d(p.pis) + d(p.cofins) + d(p.iss) + d(p.cprb);
-
-  if (I >= 1) return { bdi: 0, tributos: I*100, erro: "Tributos somam 100% ou mais." };
-
-  const bdi = (((1 + ac + seg + ris + gar) * (1 + df) * (1 + lucro)) / (1 - I) - 1) * 100;
-  return { bdi, tributos: I * 100, erro: null };
-};
-
-// Situação do BDI face à faixa do TCU
-// Formata percentual no padrão BR ("3,00")
-const f2p = (n) => Number(n||0).toFixed(2).replace(".", ",") + "%";
-
-const situacaoBDI = (bdi, tipo) => {
-  const t = BDI_TCU.find(x => x.v === tipo) || BDI_TCU[0];
-  if (bdi < t.q1) return { st:"abaixo", cor:"#BF360C", faixa:t,
-    msg:`Abaixo do 1º quartil (${t.q1}%). Exige justificativa - o TCU questiona BDI subestimado por indício de jogo de planilha.` };
-  if (bdi > t.q3) return { st:"acima",  cor:"#B71C1C", faixa:t,
-    msg:`Acima do 3º quartil (${t.q3}%). Exige justificativa técnica expressa no processo.` };
-  return { st:"dentro", cor:"#1E6B31", faixa:t,
-    msg:`Dentro da faixa aceitável do TCU (${t.q1}% a ${t.q3}%).` };
-};
 
 // 
 // RESPONSIVIDADE
