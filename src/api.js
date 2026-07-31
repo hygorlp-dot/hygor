@@ -309,6 +309,13 @@ export const provisionarContaEmail=async(targetUserId,password)=>{
   return{ok:true,data:r.data,updatedAt:r.updatedAt};
 };
 
+export const definirPinOperador=async(targetUserId,newPin)=>{
+  const r=await chamar({action:"auth-pin-set",...credenciais(),targetUserId,newPin});
+  if(r.status!==200)return{ok:false,erro:r.error||"Não foi possível definir o PIN."};
+  ultimoUpdatedAt=r.updatedAt||ultimoUpdatedAt;
+  return{ok:true,data:r.data,updatedAt:r.updatedAt};
+};
+
 export const saveData = async (payload) => {
   const r = await saveDataDetailed(payload);
   return !!r.ok;

@@ -59,7 +59,7 @@ const cancelarRegistro = (registro, motivo, usuario, status="cancelado") => ({
 });
 // O navegador não conversa mais com o banco. Fala com /api/data, que roda no
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
-import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail,
+import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail, definirPinOperador,
          saveDataDetailed, logout as encerrarSessao,
          registrarPresenca, encerrarPresenca, listarPresencas,
          loadDataWithMeta, adoptServerVersion, subirFoto,
@@ -14791,11 +14791,6 @@ const allowedTabsForUser=user=>{
     .filter(tab=>user.role!=="engenheiro_auditor"||!["ponto","ponto_geral"].includes(tab));
 };
 
-const hashPin = async (pin) => {
-  const buf  = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
-};
-
 //  Tela de Login 
 
 function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
@@ -14842,7 +14837,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
     if(pin!==setupForm.confirmacao){setErro("Os PINs não coincidem.");return;}
     setLoading(true);setErro("");
     try{
-      const usuario={id:uid(),nome,role:"admin",email,pin:await hashPin(pin),active:true,createdAt:new Date().toISOString()};
+      const usuario={id:uid(),nome,role:"admin",email,pinPlain:pin,active:true,createdAt:new Date().toISOString()};
       const criado=await criarPrimeiroAdmin({usuarios:[usuario]});
       if(!criado.ok)throw new Error(criado.erro||"Não foi possível criar o administrador.");
       const acesso=await entrarComPin(usuario.id,pin);
@@ -15058,9 +15053,11 @@ function GestaoUsuarios({ data, update, showToast, currentUser }) {
   const savePin = async (userId) => {
     if (newPin.length < 4) { showToast("PIN mínimo 4 dígitos.","error"); return; }
     if (newPin !== newPin2) { showToast("PINs não coincidem.","error"); return; }
-    const h = await hashPin(newPin);
-    const usuarios = (data.usuarios||[]).map(u=>u.id===userId?{...u,pin:h}:u);
-    update({...data, usuarios});
+    const sincronizado=await update({__aguardarFila:true});
+    if(!sincronizado?.ok){showToast("Conclua o salvamento pendente antes de definir o PIN.","error");return;}
+    const resultado=await definirPinOperador(userId,newPin);
+    if(!resultado.ok){showToast(resultado.erro||"Não foi possível definir o PIN.","error");return;}
+    update({__adotarServidor:true,data:resultado.data,updatedAt:resultado.updatedAt});
     setPinModal(null); setNewPin(""); setNewPin2("");
     showToast("PIN definido com sucesso.");
   };

@@ -49,6 +49,7 @@ import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
+import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "../server/app-auth-security.js";
 import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
 import { sanitizeClientError } from "../server/client-error-report.js";
 
@@ -216,8 +217,6 @@ const verificarBackupOneDrive=async req=>{
   return{...verifyBackupBundle({body:await read(backup),key,manifest}),name:backup.name,bytes:Number(backup.size||manifest.bytes||0)};
 };
 
-const sha256 = (s) => crypto.createHash("sha256").update(String(s)).digest("hex");
-
 const listarTabelaFinanceira = async (table, columns) => {
   const rows=[];
   for(let from=0;;from+=1000){
@@ -323,19 +322,9 @@ const aceitarErroCliente = (ip, now=Date.now()) => {
   return atual.n<=CLIENT_ERROR_LIMIT;
 };
 const limparFalhas = subject => tentativas.delete(subject);
-const subjectRateLimit=subject=>crypto.createHash("sha256").update(`${COMPANY}|${subject||"unknown"}`).digest("hex");
 const rateLimitCentral=async(subject,action)=>{
-  const rpc=action==="status"?"auth_rate_limit_status":action==="success"?"auth_rate_limit_success":"auth_rate_limit_failure";
-  try {
-    const {data,error}=await db.rpc(rpc,{p_company_id:COMPANY,p_subject_hash:subjectRateLimit(subject)});
-    // Durante a instalação da migration, mantém o freio local sem derrubar login.
-    if(error)return null;
-    const row=Array.isArray(data)?data[0]:data;
-    return {blocked:!!row?.blocked,retry:Number(row?.retry_after_seconds||0)};
-  } catch {
-    // Falha transitória do banco não transforma a autenticação em indisponível.
-    return null;
-  }
+  const result=await applyPersistentAuthRateLimit(db,{company:COMPANY,subject,action});
+  return result?{blocked:result.blocked,retry:result.retryAfter}:null;
 };
 
 const lerLinha = async () => {
@@ -602,13 +591,9 @@ const executarComandoOperacionalBloqueado=async({command,usuario,financial})=>{
 // Confere o PIN contra o hash guardado no próprio dataset
 const conferirPin = (payload, userId, pin) => {
   const u = (payload?.usuarios || []).find(x => x.id === userId && x.active !== false);
-  if (!u) return null;
-  // Comparação em tempo constante: comparar strings com === vaza, pelo tempo
-  // de resposta, quantos caracteres iniciais bateram.
-  const a = Buffer.from(sha256(pin));
-  const b = Buffer.from(String(u.pin || ""));
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  return u;
+  if (!u) return {usuario:null,upgradeHash:""};
+  const verification=verifyAppPin(pin,u.pin);
+  return {usuario:verification.ok?u:null,upgradeHash:verification.needsUpgrade?hashAppPin(pin):""};
 };
 
 const encontrarUsuarioAuth = (payload, authUser) => {
@@ -832,10 +817,13 @@ export default async function handler(req, res) {
         return res.status(409).json({ error: "Já existe usuário. Setup encerrado." });
       }
 
-      const novoUsuario = (payload?.usuarios || [])[0];
-      if (!novoUsuario?.id || !novoUsuario?.pin) {
+      const recebido = (payload?.usuarios || [])[0];
+      const pinInicial=String(recebido?.pinPlain||"");
+      if (!recebido?.id || pinInicial.length<4) {
         return res.status(400).json({ error: "Dados do administrador incompletos." });
       }
+      const {pinPlain:_,...camposUsuario}=recebido;
+      const novoUsuario={...camposUsuario,pin:hashAppPin(pinInicial)};
 
       // Se já há dados, PRESERVA tudo e só acrescenta o usuário.
       // Se a linha está vazia/inexistente, aí sim usa o payload como base.
@@ -878,8 +866,9 @@ export default async function handler(req, res) {
       lerLinha(),
       accessToken ? db.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
     ]);
-    const { payload: atual, updatedAt } = linha;
-    const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || conferirPin(atual, userId, pin);
+    let { payload: atual, updatedAt } = linha;
+    const pinAuth=usaPin?conferirPin(atual,userId,pin):{usuario:null,upgradeHash:""};
+    const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || pinAuth.usuario;
 
     if (!usuario) {
       if(usaPin){
@@ -891,6 +880,40 @@ export default async function handler(req, res) {
     if(usaPin){
       limparFalhas(ip);
       await rateLimitCentral(ip,"success");
+      if(pinAuth.upgradeHash){
+        const atualizado={...atual,usuarios:(atual.usuarios||[]).map(item=>item.id===usuario.id?{...item,pin:pinAuth.upgradeHash}:item)};
+        const migration=await salvarComAuditoria({
+          expectedUpdatedAt:updatedAt,value:atualizado,actor:usuario,action:"auth_pin_upgraded",
+          before:{userId:usuario.id,algorithm:"sha256"},after:{userId:usuario.id,algorithm:"scrypt-v1"},
+        });
+        if(migration.applied){
+          atual=atualizado;
+          updatedAt=migration.updatedAt;
+          await salvarIndicePerfis(atualizado);
+        }
+      }
+    }
+
+    if(action==="auth-pin-set"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores podem definir o PIN de operadores."});
+      const targetUserId=String(req.body?.targetUserId||"");
+      const newPin=String(req.body?.newPin||"");
+      if(newPin.length<4||newPin.length>12||!/^[0-9]+$/.test(newPin))return res.status(400).json({error:"O PIN deve conter entre 4 e 12 dígitos."});
+      const outcome=await executarMutacaoEmpresaBloqueada({
+        actor:usuario,action:"auth_pin_set",financial:false,
+        mutate:async({payload:current})=>{
+          const target=(current.usuarios||[]).find(item=>String(item.id)===targetUserId);
+          if(!target)return {kind:"error",status:404,error:"Operador não encontrado."};
+          return {
+            kind:"save",
+            data:{...current,usuarios:(current.usuarios||[]).map(item=>String(item.id)===targetUserId?{...item,pin:hashAppPin(newPin)}:item)},
+            before:{userId:targetUserId,credentialChanged:true},after:{userId:targetUserId,algorithm:"scrypt-v1"},
+          };
+        },
+      });
+      if(outcome.kind==="error")return res.status(outcome.status||400).json({error:outcome.error});
+      await salvarIndicePerfis(outcome.data);
+      return res.status(200).json({ok:true,data:projectDataForUser(outcome.data,usuario),updatedAt:outcome.updatedAt});
     }
 
     if (action === "auth-provision") {
