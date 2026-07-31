@@ -194,6 +194,10 @@ import {
   paymentFriday as getFridayOfWeek,
   paymentWeekRange as getWeekRange,
 } from "./domains/terceirizados/payment-week";
+import {
+  isActiveThirdPartyContract,
+  isThirdPartyRecordActive as registroTerceiroAtivo,
+} from "./domains/terceirizados/lifecycle";
 import { uploadWithRetry } from "./domains/documentos/upload-retry";
 const LazyMarcosCurvaASuprimentos = lazy(() => import("./features/suprimentos/MarcosCurvaASuprimentos"));
 import {
@@ -10752,10 +10756,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   const { start: weekStart, end: weekEnd } = getWeekRange(friday);
   const allTerc    = data.terceirizados || [];
   const scopedTerc = obraIdFixo ? allTerc.filter(t => t.obraId === obraIdFixo) : allTerc;
-  const registroTerceiroAtivo=registro=>
-    !["cancelado","cancelada","estornado","estornada","arquivado"]
-      .includes(String(registro?.status||"").toLowerCase());
-  const activeTerc = scopedTerc.filter(t => registroTerceiroAtivo(t)&&t.active !== false);
+  const activeTerc = scopedTerc.filter(isActiveThirdPartyContract);
   const kanbanTerc = scopedTerc.filter(registroTerceiroAtivo);
 
   // Um mesmo prestador pode possuir vários contratos. O cadastro fiscal,
