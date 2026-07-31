@@ -387,10 +387,22 @@ export const listarPresencas = async () => {
 // Serverless Functions por deployment.
 const novaOperacaoId=()=>globalThis.crypto?.randomUUID?.()
   || `op-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-export const enviarMensagemChat = texto => chamarRotaAutenticada("/api/presence", {
-  action:"chat-send",text:texto,operationId:novaOperacaoId(),
+export const enviarMensagemChat = (texto, { mentions = [], attachment = null } = {}) => chamarRotaAutenticada("/api/presence", {
+  action:"chat-send",text:texto,mentions,attachment,operationId:novaOperacaoId(),
 });
 export const listarMensagensChat = () => chamarRotaAutenticada("/api/presence", { action: "chat-list" });
+// Anexo de chat: sobe pro Storage num caminho próprio ("chat/"), sem exigir
+// obra (o chat é da empresa toda) e aceitando mais tipos que a foto do diário.
+export const subirAnexoChat = async ({ dataUrl, ext }) => {
+  if (!temSessao()) return { ok: false, error: "Sem sessão." };
+  const r = await fetch("/api/upload", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...credenciais(), dataUrl, ext, folder: "chat" }),
+  });
+  const j = await r.json().catch(() => ({ error: "Falha no upload." }));
+  return { ok: r.ok && j.ok !== false && !j.error, ...j };
+};
 export const apagarMensagemChat = messageId => chamarRotaAutenticada("/api/presence", { action: "chat-delete", messageId });
 export const silenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/presence", { action: "chat-mute", targetUserId });
 export const dessilenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/presence", { action: "chat-unmute", targetUserId });

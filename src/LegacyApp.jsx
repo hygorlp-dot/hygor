@@ -34,7 +34,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          arquivarQuinzena, restaurarQuinzena,
          carregarQuinzenaArquivada, chamarIA, verificarStatusIA, configurarGemini,
          removerConfiguracaoIA, consultarCNPJReceita, buscarResumoDiario,
-         enviarMensagemChat, listarMensagensChat, apagarMensagemChat, silenciarUsuarioChat, dessilenciarUsuarioChat,
+         enviarMensagemChat, listarMensagensChat, apagarMensagemChat, silenciarUsuarioChat, dessilenciarUsuarioChat, subirAnexoChat,
          listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
          consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
@@ -178,6 +178,7 @@ import {
   validateBrazilianDocument as validarDocumento,
 } from "./domains/data/brazilian-documents";
 import { calculateWithholdings as calcRetencoes } from "./domains/terceirizados/withholdings";
+import { resolveMentionsInText } from "./domains/chat/mentions";
 import {
   THIRD_PARTY_DOCUMENT_TYPES as DOCS_TERC,
   THIRD_PARTY_SPECIALTIES as SPECIALTIES,
@@ -377,6 +378,10 @@ const KB = {
 };
 
 const G = `
+@keyframes chatMentionPulse{0%,100%{box-shadow:0 6px 18px rgba(0,0,0,.28)}50%{box-shadow:0 0 0 8px rgba(212,175,55,.28),0 6px 18px rgba(0,0,0,.28)}}
+@keyframes chatMessageFlash{0%,100%{outline-color:transparent}35%{outline-color:#D4AF37}}
+.chat-mention-pulse{animation:chatMentionPulse 1.4s ease-in-out infinite}
+.chat-msg-flash{outline:3px solid transparent;animation:chatMessageFlash 1.2s ease-in-out 2}
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
 :root{
   --bg:${C.bg};--surface:${C.surface};--card:${C.card};
@@ -2852,6 +2857,7 @@ function Ic({ n, s = 16, color }) {
     cloud:    "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z",
     cloudRain:"M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25 M16 13L16 21 M8 13L8 21 M12 15L12 23",
     zap:      "M13 2L3 14L12 14L11 22L21 10L12 10L13 2Z",
+    attach:   "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48", // clipe de papel (anexar arquivo no chat)
   };
   // Aliases: nomes antigos que apontam para glifos do catálogo, para não quebrar
   // usos espalhados. money/pay = cifrão; brain = ia; terc = users; week = agenda;
@@ -37251,6 +37257,26 @@ function tocarSomNotificacao() {
   } catch { /* ambiente sem suporte a áudio - a notificação visual já basta */ }
 }
 
+// Três notas ascendentes (mais chamativo que o bipe padrão) para quando a
+// mensagem nova te @menciona - precisa soar diferente de "chegou mensagem".
+function tocarSomMencao() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const tocarNota = (freq, inicio) => {
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.type = "sine"; osc.frequency.setValueAtTime(freq, ctx.currentTime + inicio);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime + inicio);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + inicio + 0.22);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + inicio); osc.stop(ctx.currentTime + inicio + 0.22);
+    };
+    tocarNota(660, 0); tocarNota(880, 0.12); tocarNota(1046, 0.24);
+    setTimeout(() => ctx.close(), 700);
+  } catch { /* ambiente sem suporte a áudio - o toast e o destaque já bastam */ }
+}
+
 // Chat flutuante da empresa: bolha fixa no canto inferior direito, minimizável,
 // com visual próximo do WhatsApp (fundo bege, balões verdes/brancos, cabeçalho
 // escuro). Fica montado em qualquer tela do app - não depende da aba "chat"
@@ -37263,6 +37289,7 @@ const WA = {
   bg: "#ECE5DD",
   green: "#25D366",
   red: "#E53935",
+  mentionBg: "rgba(7,94,84,.14)",
 };
 
 function IconeChat({ size = 26 }) {
@@ -37273,6 +37300,19 @@ function IconeChat({ size = 26 }) {
   );
 }
 
+// Destaca "@Nome" dentro do texto da mensagem para quem já foi resolvido como
+// menção real (não qualquer "@" digitado à toa).
+function destacarMencoes(texto, mentions) {
+  if (!texto || !mentions?.length) return texto;
+  const nomes = new Set(mentions.map(m => m.nome).filter(Boolean));
+  if (!nomes.size) return texto;
+  const escapados = [...nomes].map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).sort((a, b) => b.length - a.length);
+  const partes = texto.split(new RegExp(`(@(?:${escapados.join("|")}))`, "g"));
+  return partes.map((parte, i) => (parte.startsWith("@") && nomes.has(parte.slice(1)))
+    ? <b key={i} style={{ color: WA.header, background: WA.mentionBg, borderRadius: 4, padding: "0 3px" }}>{parte}</b>
+    : <span key={i}>{parte}</span>);
+}
+
 function ChatFlutuante({ currentUser, usuarios, showToast }) {
   const [aberto, setAberto] = useState(false);
   const [gestaoAberta, setGestaoAberta] = useState(false);
@@ -37281,13 +37321,24 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [naoLidas, setNaoLidas] = useState(0);
+  const [temMencaoNaoLida, setTemMencaoNaoLida] = useState(false);
+  const [mencaoParaAbrirId, setMencaoParaAbrirId] = useState(null);
+  const [mencaoDestacadaId, setMencaoDestacadaId] = useState(null);
+  const [mencaoQuery, setMencaoQuery] = useState(null);
+  const [anexoPendente, setAnexoPendente] = useState(null);
+  const [subindoAnexo, setSubindoAnexo] = useState(false);
   const scrollRef = useRef(null);
+  const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const ultimoIdRef = useRef(null);
   const primeiraCargaRef = useRef(true);
   const abertoRef = useRef(false);
   useEffect(() => { abertoRef.current = aberto; }, [aberto]);
 
   const ehAdmin = currentUser?.role === "admin";
+  const usuariosMencionaveis = (usuarios || []).filter(u => u.active !== false && u.id !== currentUser?.id);
+
+  const mencoesNoTexto = t => resolveMentionsInText(t, usuariosMencionaveis);
 
   const carregarChat = useCallback(async () => {
     const r = await listarMensagensChat();
@@ -37303,13 +37354,21 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
         : [];
       const novasDeOutros = novas.filter(m => m.userId !== currentUser?.id && !m.deletedAt);
       if (novasDeOutros.length && !primeiraCargaRef.current) {
-        tocarSomNotificacao();
-        if (!abertoRef.current) setNaoLidas(n => n + novasDeOutros.length);
+        const mencaoRecebida = novasDeOutros.find(m => (m.mentions || []).some(mm => mm.id === currentUser?.id));
+        if (mencaoRecebida) {
+          tocarSomMencao();
+          showToast?.(`${mencaoRecebida.userName} mencionou você no chat.`, "info");
+          if (!abertoRef.current) { setNaoLidas(n => n + novasDeOutros.length); setTemMencaoNaoLida(true); }
+          setMencaoParaAbrirId(mencaoRecebida.id);
+        } else {
+          tocarSomNotificacao();
+          if (!abertoRef.current) setNaoLidas(n => n + novasDeOutros.length);
+        }
       }
       ultimoIdRef.current = ultima.id;
     }
     primeiraCargaRef.current = false;
-  }, [currentUser?.id]);
+  }, [currentUser?.id, showToast]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -37319,21 +37378,69 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
   }, [carregarChat, currentUser]);
 
   useEffect(() => {
-    if (aberto && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [mensagens, aberto]);
+    if (aberto && scrollRef.current && !mencaoParaAbrirId) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [mensagens, aberto, mencaoParaAbrirId]);
 
-  const abrirPainel = () => { setAberto(true); setNaoLidas(0); };
+  // Ao abrir o painel com uma menção pendente, pula direto para ela em vez de
+  // rolar para o fim - é o motivo de o usuário ter clicado no sino.
+  useEffect(() => {
+    if (!aberto || !mencaoParaAbrirId) return;
+    const el = scrollRef.current?.querySelector(`[data-msg-id="${mencaoParaAbrirId}"]`);
+    el?.scrollIntoView({ block: "center" });
+    setMencaoDestacadaId(mencaoParaAbrirId);
+    setMencaoParaAbrirId(null);
+    const t = setTimeout(() => setMencaoDestacadaId(null), 2400);
+    return () => clearTimeout(t);
+  }, [aberto, mencaoParaAbrirId, mensagens]);
+
+  const abrirPainel = () => { setAberto(true); setNaoLidas(0); setTemMencaoNaoLida(false); };
 
   const euEstouMutado = mutados.some(m => m.userId === currentUser?.id);
 
+  const aoDigitar = valor => {
+    setTexto(valor);
+    const m = /@([^\s@]*)$/.exec(valor);
+    setMencaoQuery(m ? m[1] : null);
+  };
+
+  const escolherMencao = u => {
+    setTexto(t => t.replace(/@([^\s@]*)$/, `@${u.nome} `));
+    setMencaoQuery(null);
+    inputRef.current?.focus();
+  };
+
+  const sugestoesMencao = mencaoQuery === null ? [] : usuariosMencionaveis
+    .filter(u => String(u.nome || "").toLowerCase().includes(mencaoQuery.toLowerCase()))
+    .slice(0, 6);
+
+  const escolherArquivo = async e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setSubindoAnexo(true);
+    try {
+      const ehImagem = String(file.type || "").startsWith("image/");
+      if (!ehImagem && file.size > 4 * 1024 * 1024) throw new Error("Arquivo muito grande (máx. 4MB).");
+      const dataUrl = ehImagem ? await comprimirImagem(file) : await arquivoComoDataUrl(file);
+      const ext = (file.name.split(".").pop() || "").slice(0, 8);
+      const r = await subirAnexoChat({ dataUrl, ext });
+      if (!r.ok || !r.url) throw new Error(r.error || "Falha ao enviar o arquivo.");
+      setAnexoPendente({ url: r.url, name: file.name, type: file.type || "", size: file.size || 0 });
+    } catch (err) {
+      showToast?.(err.message || "Falha ao enviar o arquivo.", "error");
+    } finally {
+      setSubindoAnexo(false);
+    }
+  };
+
   const enviar = async () => {
     const t = texto.trim();
-    if (!t) return;
+    if (!t && !anexoPendente) return;
     setEnviando(true);
-    const r = await enviarMensagemChat(t);
+    const r = await enviarMensagemChat(t, { mentions: mencoesNoTexto(t), attachment: anexoPendente });
     setEnviando(false);
     if (!r.ok) { showToast?.(r.error || "Não foi possível enviar a mensagem.", "error"); return; }
-    setTexto("");
+    setTexto(""); setAnexoPendente(null); setMencaoQuery(null);
     carregarChat();
   };
 
@@ -37405,16 +37512,33 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
                 {mensagens.map(m => {
                   const minha = m.userId === currentUser?.id;
                   const apagada = !!m.deletedAt;
+                  const destacada = mencaoDestacadaId === m.id;
                   return (
-                    <div key={m.id} style={{ alignSelf: minha ? "flex-end" : "flex-start", maxWidth: "82%", display: "flex", alignItems: "flex-end", gap: 4 }}>
-                      <div style={{
+                    <div key={m.id} data-msg-id={m.id} style={{ alignSelf: minha ? "flex-end" : "flex-start", maxWidth: "82%", display: "flex", alignItems: "flex-end", gap: 4 }}>
+                      <div className={destacada ? "chat-msg-flash" : ""} style={{
                         padding: "6px 9px", borderRadius: 8, background: apagada ? "#f2f2f2" : (minha ? WA.bubbleMine : WA.bubbleTheirs),
                         boxShadow: "0 1px 1px rgba(0,0,0,.12)",
                       }}>
                         {!minha && !apagada && <p style={{ fontSize: 9.5, fontWeight: 800, color: "#1565C0", marginBottom: 1 }}>{m.userName}</p>}
-                        <p style={{ fontSize: 12, color: apagada ? "#999" : "#111", fontStyle: apagada ? "italic" : "normal", lineHeight: 1.35, wordBreak: "break-word" }}>
-                          {apagada ? "Mensagem apagada pelo administrador" : m.text}
-                        </p>
+                        {!apagada && m.attachment && (
+                          m.attachment.type?.startsWith("image/") ? (
+                            <a href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: m.text ? 6 : 2 }}>
+                              <img src={m.attachment.url} alt={m.attachment.name} style={{ maxWidth: "100%", maxHeight: 180, borderRadius: 6, display: "block" }} />
+                            </a>
+                          ) : (
+                            <a href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{
+                              display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6,
+                              background: "rgba(0,0,0,.05)", marginBottom: m.text ? 6 : 2, textDecoration: "none",
+                            }}>
+                              <Ic n="file" s={16} color="#666" />
+                              <span style={{ fontSize: 11, color: "#222", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{m.attachment.name}</span>
+                              <Ic n="download" s={13} color="#888" />
+                            </a>
+                          )
+                        )}
+                        {(m.text || apagada) && <p style={{ fontSize: 12, color: apagada ? "#999" : "#111", fontStyle: apagada ? "italic" : "normal", lineHeight: 1.35, wordBreak: "break-word" }}>
+                          {apagada ? "Mensagem apagada pelo administrador" : destacarMencoes(m.text, m.mentions)}
+                        </p>}
                         <p style={{ fontSize: 8.5, color: "#8a8a8a", textAlign: "right", marginTop: 2 }}>
                           {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                         </p>
@@ -37429,19 +37553,66 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
                   );
                 })}
               </div>
-              <div style={{ padding: 8, background: "#F0F0F0", display: "flex", gap: 7, flexShrink: 0 }}>
-                <input value={texto} onChange={e => setTexto(e.target.value)} disabled={euEstouMutado || enviando}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
-                  placeholder={euEstouMutado ? "Você foi silenciado" : "Mensagem"}
-                  style={{ flex: 1, height: 36, border: "1px solid #ddd", borderRadius: 20, background: "#fff", color: "#111", padding: "0 13px", fontSize: 12.5, outline: "none" }} />
-                <button onClick={enviar} disabled={euEstouMutado || enviando || !texto.trim()} title="Enviar" aria-label="Enviar"
-                  style={{
-                    width: 36, height: 36, borderRadius: "50%", border: 0, flexShrink: 0,
-                    background: (euEstouMutado || !texto.trim()) ? "#b8e3c9" : WA.green, color: "#fff",
-                    display: "grid", placeItems: "center", cursor: (euEstouMutado || !texto.trim()) ? "default" : "pointer",
+              <div style={{ padding: 8, background: "#F0F0F0", flexShrink: 0, position: "relative" }}>
+                {sugestoesMencao.length > 0 && (
+                  <div style={{
+                    position: "absolute", left: 8, right: 8, bottom: "100%", marginBottom: 6, background: "#fff",
+                    borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.18)", border: "1px solid #ddd", overflow: "hidden", zIndex: 2,
                   }}>
-                  <Ic n="chevR" s={15} />
-                </button>
+                    {sugestoesMencao.map(u => (
+                      <button key={u.id} onClick={() => escolherMencao(u)} style={{
+                        display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px",
+                        border: 0, background: "transparent", cursor: "pointer", textAlign: "left",
+                      }}>
+                        <span style={{
+                          width: 24, height: 24, borderRadius: "50%", background: WA.header, color: "#fff",
+                          fontSize: 10, fontWeight: 800, display: "grid", placeItems: "center", flexShrink: 0,
+                        }}>{(u.nome || "?").slice(0, 1).toUpperCase()}</span>
+                        <span style={{ fontSize: 12, color: "#222", fontWeight: 700 }}>{u.nome}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {anexoPendente && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7, padding: "6px 8px", background: "#fff", borderRadius: 8, border: "1px solid #ddd" }}>
+                    {anexoPendente.type?.startsWith("image/")
+                      ? <img src={anexoPendente.url} alt="" style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 4 }} />
+                      : <Ic n="file" s={16} color="#666" />}
+                    <span style={{ fontSize: 11, color: "#222", fontWeight: 700, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{anexoPendente.name}</span>
+                    <button onClick={() => setAnexoPendente(null)} title="Remover anexo" aria-label="Remover anexo"
+                      style={{ background: "transparent", border: 0, color: "#999", cursor: "pointer", padding: 3 }}>
+                      <Ic n="x" s={13} />
+                    </button>
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 7 }}>
+                  <input ref={fileInputRef} type="file" onChange={escolherArquivo} style={{ display: "none" }}
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,audio/*" />
+                  <button onClick={() => fileInputRef.current?.click()} disabled={euEstouMutado || subindoAnexo}
+                    title="Anexar arquivo" aria-label="Anexar arquivo" style={{
+                      width: 36, height: 36, borderRadius: "50%", border: 0, flexShrink: 0, background: "#fff", color: "#555",
+                      display: "grid", placeItems: "center", cursor: euEstouMutado ? "default" : "pointer", opacity: subindoAnexo ? .6 : 1,
+                    }}>
+                    {subindoAnexo
+                      ? <div style={{ width: 14, height: 14, border: "2px solid #ccc", borderTopColor: WA.header, borderRadius: 99, animation: "spin 1s linear infinite" }} />
+                      : <Ic n="attach" s={16} />}
+                  </button>
+                  <input ref={inputRef} value={texto} onChange={e => aoDigitar(e.target.value)} disabled={euEstouMutado || enviando}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); }
+                      if (e.key === "Escape") setMencaoQuery(null);
+                    }}
+                    placeholder={euEstouMutado ? "Você foi silenciado" : "Mensagem · use @ para marcar alguém"}
+                    style={{ flex: 1, height: 36, border: "1px solid #ddd", borderRadius: 20, background: "#fff", color: "#111", padding: "0 13px", fontSize: 12.5, outline: "none" }} />
+                  <button onClick={enviar} disabled={euEstouMutado || enviando || (!texto.trim() && !anexoPendente)} title="Enviar" aria-label="Enviar"
+                    style={{
+                      width: 36, height: 36, borderRadius: "50%", border: 0, flexShrink: 0,
+                      background: (euEstouMutado || (!texto.trim() && !anexoPendente)) ? "#b8e3c9" : WA.green, color: "#fff",
+                      display: "grid", placeItems: "center", cursor: (euEstouMutado || (!texto.trim() && !anexoPendente)) ? "default" : "pointer",
+                    }}>
+                    <Ic n="chevR" s={15} />
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -37450,6 +37621,7 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
 
       {/* Bolha flutuante */}
       <button onClick={() => (aberto ? setAberto(false) : abrirPainel())} title="Comunicação da equipe" aria-label="Abrir chat da equipe"
+        className={temMencaoNaoLida ? "chat-mention-pulse" : ""}
         style={{
           width: 56, height: 56, borderRadius: "50%", border: 0, background: WA.green, cursor: "pointer",
           display: "grid", placeItems: "center", boxShadow: "0 6px 18px rgba(0,0,0,.28)", position: "relative",

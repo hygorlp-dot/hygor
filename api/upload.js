@@ -19,16 +19,26 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { authenticateAppUser } from "./auth.js";
+import {
+  canUploadToDestination,
+  isAcceptedUploadMime,
+  uploadDestination,
+  uploadStoragePrefix,
+  UPLOAD_DESTINATION,
+} from "../server/upload-policy.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const COMPANY = process.env.COMPANY_ID || "arcd";
 const BUCKET  = process.env.SUPABASE_BUCKET || "diario-obra";
 
 const db = createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+// Anexos do chat interno não pertencem a uma obra (é uma conversa da empresa
+// toda), por isso aceitam mais tipos de arquivo e não passam pela checagem de
+// escopo por obra usada nas fotos do diário. Mantido restrito mesmo assim:
+// documentos e mídia comuns de conversa, nunca executáveis.
 // Aceita corpo maior (fotos ja comprimidas no cliente, ~200-800KB em base64).
 export const config = { api: { bodyParser: { sizeLimit: "6mb" } } };
 
@@ -36,34 +46,39 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Metodo nao permitido." });
   if (!URL || !SERVICE) return res.status(500).json({ error: "Storage nao configurado." });
 
-  const { userId, pin, accessToken, dataUrl, obraId, ext } = req.body || {};
+  const { userId, pin, accessToken, dataUrl, obraId, ext, folder } = req.body || {};
+  const paraChat = uploadDestination(folder) === UPLOAD_DESTINATION.CHAT;
 
   // 1. Autentica.
   const user = await authenticateAppUser({userId,pin,accessToken},{scope:"upload"});
   if (!user) return res.status(401).json({ error: "PIN invalido." });
   const requestedWork=String(obraId||"");
-  if(user.obraId&&requestedWork!==String(user.obraId)){
+  if(!canUploadToDestination(user,{obraId:requestedWork,folder})){
     return res.status(403).json({error:"Você não pode enviar arquivos para outra obra."});
   }
 
-  // 2. Valida a imagem (data URL base64).
-  if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
-    return res.status(400).json({ error: "Imagem invalida." });
+  // 2. Valida o arquivo (data URL base64).
+  if (!dataUrl || typeof dataUrl !== "string" || dataUrl.indexOf(",") < 0) {
+    return res.status(400).json({ error: "Arquivo invalido." });
   }
   const virgula = dataUrl.indexOf(",");
+  const mime = dataUrl.slice(5, virgula).split(";")[0];  // ex.: image/jpeg
+  const tipoAceito = isAcceptedUploadMime(mime, folder);
+  if (!tipoAceito) {
+    return res.status(400).json({ error: paraChat ? "Tipo de arquivo não suportado no chat." : "Imagem invalida." });
+  }
   const base64  = dataUrl.slice(virgula + 1);
   const buffer  = Buffer.from(base64, "base64");
-  // Limite de seguranca: ~4MB por foto ja descomprimida.
+  // Limite de seguranca: ~4MB por arquivo ja descomprimido.
   if (buffer.length > 4 * 1024 * 1024) {
-    return res.status(413).json({ error: "Foto muito grande. Comprima antes." });
+    return res.status(413).json({ error: paraChat ? "Arquivo muito grande (máx. 4MB)." : "Foto muito grande. Comprima antes." });
   }
-  const mime = dataUrl.slice(5, virgula).split(";")[0];  // ex.: image/jpeg
   const extensao = (ext || mime.split("/")[1] || "jpg").replace(/[^a-z0-9]/gi, "");
 
-  // 3. Caminho: diario-obra/{obra}/{ano}/{uuid}.jpg
+  // 3. Caminho: diario-obra/{obra}/{ano}/{uuid}.jpg  ou  diario-obra/chat/{ano}/{uuid}.ext
   const ano   = new Date().getFullYear();
   const nome  = `${crypto.randomUUID()}.${extensao}`;
-  const path  = `${(requestedWork || "geral").replace(/[^a-zA-Z0-9_-]/g, "")}/${ano}/${nome}`;
+  const path = `${uploadStoragePrefix({obraId:requestedWork,folder})}/${ano}/${nome}`;
 
   try {
     const { error: upErr } = await db.storage
