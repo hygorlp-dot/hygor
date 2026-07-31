@@ -12096,6 +12096,11 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                   <div style={{ textAlign:"right" }}>
                     <p style={{ fontSize:17, fontWeight:800, color:m.total>=0?C.green:C.red,
                                 fontFamily:"'Inter Display','Inter',sans-serif" }}>{fmt(m.total)}</p>
+                    <span style={{ marginTop:4, display:"inline-flex" }}>
+                      <Badge color={m.pagamentoId?C.green:C.orange}>
+                        <Ic n={m.pagamentoId?"check":"clock"} s={9}/> {m.pagamentoId?"PAGO":"EM ABERTO"}
+                      </Badge>
+                    </span>
                   </div>
                 </div>
                 <div style={{ marginTop:7, display:"flex", flexDirection:"column", gap:3 }}>
