@@ -11,42 +11,11 @@ const carregarXLSX = async () => {
   return XLSX;
 };
 
-// A referência oficial da Caixa é grande. O worker faz leitura seletiva do
-// XML interno do XLSX e emite progresso real, sem materializar a pasta inteira.
-const lerSinapiEmSegundoPlano = async (file, uf, aoAtualizarEtapa = () => {}) => {
-  if (typeof Worker === "undefined") throw new Error("Seu navegador não suporta a leitura segura de planilhas em segundo plano.");
-  const bytes = await file.arrayBuffer();
-  return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL("./workers/sinapi-parser.worker.js", import.meta.url), { type:"module" });
-    let limite;
-    const renovarLimite = () => {
-      window.clearTimeout(limite);
-      limite = window.setTimeout(() => {
-        worker.terminate();
-        reject(new Error("A leitura do XLSX ficou 2 minutos sem avançar. Confirme se o arquivo oficial está íntegro e tente novamente."));
-      }, 2 * 60 * 1000);
-    };
-    renovarLimite();
-    const encerrar = () => {
-      window.clearTimeout(limite);
-      worker.terminate();
-    };
-    worker.onmessage = ({ data }) => {
-      if (data?.tipo === "etapa") {
-        renovarLimite();
-        aoAtualizarEtapa(data.mensagem, data.progresso);
-        return;
-      }
-      encerrar();
-      if (data?.tipo === "concluido") resolve(data.extraida);
-      else reject(new Error(data?.mensagem || "Não foi possível interpretar o XLSX oficial."));
-    };
-    worker.onerror = event => {
-      encerrar();
-      reject(new Error(event.message || "Falha no processamento em segundo plano do XLSX."));
-    };
-    worker.postMessage({ bytes, uf }, [bytes]);
-  });
+// O importador oficial é grande e só entra no bundle quando o operador escolhe
+// um XLSX. O worker continua emitindo progresso e protegendo a tela de travas.
+const lerSinapiEmSegundoPlano = async (...args) => {
+  const { readSinapiInWorker } = await import("./domains/orcamentos/sinapi-import");
+  return readSinapiInWorker(...args);
 };
 
 // Fatos operacionais não são apagados. Esta forma única mantém motivo, autor
