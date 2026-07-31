@@ -154,7 +154,7 @@ import {
   createBillingFromTechnicalMeasurement,
   createMonthlyClosingSnapshot,
 } from "./domains/financeiro/workflows";
-import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, projectBudgetExport, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
+import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, projectBudgetABC, projectBudgetExport, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
 import { auditBudgetDimensions as conferenciaDimensional } from "./domains/orcamentos/dimensional-audit";
 import { BDI_TCU, BDI_COMPONENTES_EDIF, calculateBdi as calcBDI, classifyBdi as situacaoBDI, formatBdiPercent as f2p } from "./domains/orcamentos/bdi";
 import { referenceBaseKey as chaveBaseReferencia, consolidateReferenceBases as consolidarBasesReferencia } from "./domains/orcamentos/reference-bases";
@@ -16969,70 +16969,6 @@ const calcOrcamento = (orc) => {
 //  curva mente: o mesmo servico apareceria varias vezes com valor fatiado.
 const CLASSE_ABC = { A:{ cor:"#C62828", limite:80 }, B:{ cor:"#EF6C00", limite:95 }, C:{ cor:"#2E7D32", limite:100 } };
 const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
-const calcCurvaABCOrc = (orc, calc, { agrupar = true } = {}) => {
-  const bdiMult = 1 + Number(orc.bdi||0)/100;
-  const reais = achatarArvore(calc.arvore)
-    .filter(n => n.tipo !== "etapa" && !ehTitulo(n) && Number(n.quantidade||0) * Number(n.precoUnit||0) > 0);
-
-  let linhas;
-  if (agrupar) {
-    const mapa = new Map();
-    reais.forEach(n => {
-      // Sem codigo (produto avulso), a descricao e a identidade do item.
-      const chave = (n.codigo || `~${(n.descricao||"").trim().toLowerCase()}`) + "|" + (n.unidade||"");
-      const custo = Number(n.quantidade||0) * Number(n.precoUnit||0);
-      const ex = mapa.get(chave);
-      if (ex) {
-        ex.quantidade += Number(n.quantidade||0);
-        ex.custoDireto += custo;
-        ex.ocorrencias += 1;
-      } else {
-        mapa.set(chave, {
-          codigo: n.codigo || "", fonte: n.fonte || "", descricao: n.descricao || "",
-          unidade: n.unidade || "", quantidade: Number(n.quantidade||0),
-          precoUnit: Number(n.precoUnit||0), custoDireto: custo, ocorrencias: 1,
-        });
-      }
-    });
-    linhas = [...mapa.values()];
-  } else {
-    linhas = reais.map(n => ({
-      codigo: n.codigo || "", fonte: n.fonte || "", descricao: n.descricao || "",
-      unidade: n.unidade || "", quantidade: Number(n.quantidade||0),
-      precoUnit: Number(n.precoUnit||0),
-      custoDireto: Number(n.quantidade||0) * Number(n.precoUnit||0), ocorrencias: 1,
-    }));
-  }
-
-  const totalCD = linhas.reduce((s,l) => s + l.custoDireto, 0);
-  linhas.sort((a,b) => b.custoDireto - a.custoDireto);
-
-  let acum = 0;
-  const itens = linhas.map((l, i) => {
-    const pct = totalCD > 0 ? (l.custoDireto/totalCD)*100 : 0;
-    // A classe olha o acumulado ANTES deste item: quem cruza a fronteira dos 80%
-    // ainda e A. Se olhasse o acumulado depois, um orcamento onde o primeiro
-    // item ja passa de 80% ficaria com a classe A VAZIA - justo o item que mais
-    // pesa cairia em B, que e o oposto do que a curva serve para mostrar.
-    const classe = acum < CLASSE_ABC.A.limite ? "A" : acum < CLASSE_ABC.B.limite ? "B" : "C";
-    acum += pct;
-    return { ...l, ordem: i+1, total: l.custoDireto * bdiMult, pct, pctAcum: Math.min(acum, 100), classe };
-  });
-
-  const resumo = ["A","B","C"].map(c => {
-    const g = itens.filter(i => i.classe === c);
-    const cd = g.reduce((s,i) => s + i.custoDireto, 0);
-    return {
-      classe: c, cor: CLASSE_ABC[c].cor, qtd: g.length,
-      custoDireto: cd, total: cd * bdiMult,
-      pctValor: totalCD > 0 ? (cd/totalCD)*100 : 0,
-      pctItens: itens.length > 0 ? (g.length/itens.length)*100 : 0,
-    };
-  });
-
-  return { itens, resumo, totalCD, totalComBDI: totalCD * bdiMult };
-};
-
 // Formulario zerado de composicao propria. O codigo entra vazio de proposito:
 // quem preenche e o efeito de numeracao automatica, ja com a serie da empresa.
 const compFormVazio = (extra = {}) => ({ id:"", codigo:"", descricao:"", unidade:"UN",
@@ -17245,8 +17181,8 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
   // A curva so e recalculada quando o orcamento ou o agrupamento mudam -
   // ordenar milhares de itens a cada render travaria a tela.
   const abc = useMemo(
-    () => (orc && calc) ? calcCurvaABCOrc(orc, calc, { agrupar: abcAgrupar }) : null,
-    [orc, calc, abcAgrupar]
+    () => orc ? projectBudgetABC(orc, { group:abcAgrupar }) : null,
+    [orc, abcAgrupar]
   );
 
   // Area de referencia para a conferencia dimensional: a do orcamento; se ela

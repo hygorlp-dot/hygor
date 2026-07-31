@@ -52,6 +52,52 @@ export const calculateABC = budget => {
   return {items,totalCD:calc.custoDireto,totalComBDI:calc.total,resumo:["A","B","C"].map(classe=>{const list=items.filter(i=>i.classe===classe),cent=list.reduce((s,i)=>s+i.totalCentavos,0);return {classe,qtd:list.length,total:fromCents(cent),pctValor:calc.totalCentavos?cent/calc.totalCentavos*100:0};})};
 };
 
+// Adaptador canônico para a tela e exportação histórica da Curva ABC. Mantém
+// os nomes esperados pela interface, mas deriva valores exclusivamente do
+// mesmo cálculo por centavos usado no orçamento (inclusive BDI por item).
+export const projectBudgetABC = (budget, { group = true } = {}) => {
+  const calculation = calculateBudget(budget);
+  const groups = new Map();
+  calculation.items.forEach((item, index) => {
+    const key = group
+      ? [item.codigo || `~${String(item.descricao || "").trim().toLowerCase()}`, item.unidade || ""].join("|")
+      : `${index}|${item.id || ""}`;
+    const current = groups.get(key) || {
+      codigo:item.codigo || "", fonte:item.fonte || "", descricao:item.descricao || "",
+      unidade:item.unidade || "", quantidade:0, precoUnit:item.custoUnitario,
+      custoDiretoCentavos:0, totalCentavos:0, ocorrencias:0,
+    };
+    current.quantidade += item.quantidade;
+    current.custoDiretoCentavos += item.custoDiretoCentavos;
+    current.totalCentavos += item.totalCentavos;
+    current.ocorrencias += 1;
+    groups.set(key, current);
+  });
+  const totalCD = fromCents(calculation.custoDiretoCentavos);
+  let accumulated = 0;
+  const itens = [...groups.values()]
+    .sort((a, b) => b.custoDiretoCentavos - a.custoDiretoCentavos)
+    .map((item, index) => {
+      const custoDireto = fromCents(item.custoDiretoCentavos);
+      const pct = calculation.custoDiretoCentavos ? item.custoDiretoCentavos / calculation.custoDiretoCentavos * 100 : 0;
+      const classe = accumulated < 80 ? "A" : accumulated < 95 ? "B" : "C";
+      accumulated += pct;
+      return { ...item, ordem:index + 1, custoDireto, total:fromCents(item.totalCentavos), pct, pctAcum:Math.min(100, accumulated), classe };
+    });
+  const colors = { A:"#C62828", B:"#EF6C00", C:"#2E7D32" };
+  const resumo = ["A", "B", "C"].map(classe => {
+    const items = itens.filter(item => item.classe === classe);
+    const custoDireto = items.reduce((sum, item) => sum + item.custoDireto, 0);
+    return {
+      classe, cor:colors[classe], qtd:items.length, custoDireto,
+      total:items.reduce((sum, item) => sum + item.total, 0),
+      pctValor:totalCD ? custoDireto / totalCD * 100 : 0,
+      pctItens:itens.length ? items.length / itens.length * 100 : 0,
+    };
+  });
+  return { itens, resumo, totalCD, totalComBDI:calculation.total };
+};
+
 export const getActiveBudgetBaseline=(data,obraId,purpose="controle")=>{
   const all=(data?.budgetBaselines||[]).filter(x=>x.obraId===obraId&&x.ativo!==false&&x.tipo===purpose);
   if(all.length!==1)return {budget:null,case:all.length?"baseline_ambigua":"baseline_ausente"};
