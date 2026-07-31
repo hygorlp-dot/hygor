@@ -178,7 +178,8 @@ import {
   validateBrazilianDocument as validarDocumento,
 } from "./domains/data/brazilian-documents";
 import { calculateWithholdings as calcRetencoes } from "./domains/terceirizados/withholdings";
-import { resolveMentionsInText } from "./domains/chat/mentions";
+import { resolveMentionsInText, splitMentionText } from "./domains/chat/mentions";
+import { playChatMentionSound, playChatMessageSound } from "./domains/chat/notification-sounds";
 import {
   THIRD_PARTY_DOCUMENT_TYPES as DOCS_TERC,
   THIRD_PARTY_SPECIALTIES as SPECIALTIES,
@@ -37239,44 +37240,6 @@ function Comunicacao({ data, currentUser, showToast }) {
 // Bipe curto via Web Audio API - sem depender de um arquivo de áudio para
 // empacotar. Silencioso em navegadores que bloqueiam áudio sem interação
 // prévia do usuário (ignora o erro; a mensagem já chegou visualmente).
-function tocarSomNotificacao() {
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.09);
-    gain.gain.setValueAtTime(0.16, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.start(); osc.stop(ctx.currentTime + 0.3);
-    osc.onended = () => ctx.close();
-  } catch { /* ambiente sem suporte a áudio - a notificação visual já basta */ }
-}
-
-// Três notas ascendentes (mais chamativo que o bipe padrão) para quando a
-// mensagem nova te @menciona - precisa soar diferente de "chegou mensagem".
-function tocarSomMencao() {
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const tocarNota = (freq, inicio) => {
-      const osc = ctx.createOscillator(); const gain = ctx.createGain();
-      osc.type = "sine"; osc.frequency.setValueAtTime(freq, ctx.currentTime + inicio);
-      gain.gain.setValueAtTime(0.18, ctx.currentTime + inicio);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + inicio + 0.22);
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + inicio); osc.stop(ctx.currentTime + inicio + 0.22);
-    };
-    tocarNota(660, 0); tocarNota(880, 0.12); tocarNota(1046, 0.24);
-    setTimeout(() => ctx.close(), 700);
-  } catch { /* ambiente sem suporte a áudio - o toast e o destaque já bastam */ }
-}
-
 // Chat flutuante da empresa: bolha fixa no canto inferior direito, minimizável,
 // com visual próximo do WhatsApp (fundo bege, balões verdes/brancos, cabeçalho
 // escuro). Fica montado em qualquer tela do app - não depende da aba "chat"
@@ -37302,17 +37265,6 @@ function IconeChat({ size = 26 }) {
 
 // Destaca "@Nome" dentro do texto da mensagem para quem já foi resolvido como
 // menção real (não qualquer "@" digitado à toa).
-function destacarMencoes(texto, mentions) {
-  if (!texto || !mentions?.length) return texto;
-  const nomes = new Set(mentions.map(m => m.nome).filter(Boolean));
-  if (!nomes.size) return texto;
-  const escapados = [...nomes].map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).sort((a, b) => b.length - a.length);
-  const partes = texto.split(new RegExp(`(@(?:${escapados.join("|")}))`, "g"));
-  return partes.map((parte, i) => (parte.startsWith("@") && nomes.has(parte.slice(1)))
-    ? <b key={i} style={{ color: WA.header, background: WA.mentionBg, borderRadius: 4, padding: "0 3px" }}>{parte}</b>
-    : <span key={i}>{parte}</span>);
-}
-
 function ChatFlutuante({ currentUser, usuarios, showToast }) {
   const [aberto, setAberto] = useState(false);
   const [gestaoAberta, setGestaoAberta] = useState(false);
@@ -37356,12 +37308,12 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
       if (novasDeOutros.length && !primeiraCargaRef.current) {
         const mencaoRecebida = novasDeOutros.find(m => (m.mentions || []).some(mm => mm.id === currentUser?.id));
         if (mencaoRecebida) {
-          tocarSomMencao();
+          playChatMentionSound();
           showToast?.(`${mencaoRecebida.userName} mencionou você no chat.`, "info");
           if (!abertoRef.current) { setNaoLidas(n => n + novasDeOutros.length); setTemMencaoNaoLida(true); }
           setMencaoParaAbrirId(mencaoRecebida.id);
         } else {
-          tocarSomNotificacao();
+          playChatMessageSound();
           if (!abertoRef.current) setNaoLidas(n => n + novasDeOutros.length);
         }
       }
@@ -37537,7 +37489,9 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
                           )
                         )}
                         {(m.text || apagada) && <p style={{ fontSize: 12, color: apagada ? "#999" : "#111", fontStyle: apagada ? "italic" : "normal", lineHeight: 1.35, wordBreak: "break-word" }}>
-                          {apagada ? "Mensagem apagada pelo administrador" : destacarMencoes(m.text, m.mentions)}
+                          {apagada ? "Mensagem apagada pelo administrador" : splitMentionText(m.text, m.mentions).map((part, index) => part.mentioned
+                            ? <b key={index} style={{ color: WA.header, background: WA.mentionBg, borderRadius:4, padding:"0 3px" }}>{part.text}</b>
+                            : <span key={index}>{part.text}</span>)}
                         </p>}
                         <p style={{ fontSize: 8.5, color: "#8a8a8a", textAlign: "right", marginTop: 2 }}>
                           {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { resolveMentionsInText } from "./mentions";
+import { resolveMentionsInText, splitMentionText } from "./mentions";
 
 const users = [
   { id: "u1", nome: "Ana" },
@@ -37,5 +37,23 @@ describe("resolveMentionsInText", () => {
 
   test("retorna vazio quando não há @ no texto", () => {
     expect(resolveMentionsInText("mensagem qualquer", users)).toEqual([]);
+  });
+
+  test("segmenta somente menções resolvidas para destaque visual", () => {
+    expect(splitMentionText("Oi @Ana Paula e @Carlos", [
+      { id: "u2", nome: "Ana Paula" },
+      { id: "u3", nome: "Carlos" },
+    ])).toEqual([
+      { text: "Oi ", mentioned: false },
+      { text: "@Ana Paula", mentioned: true },
+      { text: " e ", mentioned: false },
+      { text: "@Carlos", mentioned: true },
+    ]);
+  });
+
+  test("não destaca arroba sem vínculo estruturado", () => {
+    expect(splitMentionText("Envie para @Suporte", [])).toEqual([
+      { text: "Envie para @Suporte", mentioned: false },
+    ]);
   });
 });

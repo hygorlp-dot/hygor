@@ -16,3 +16,17 @@ export function resolveMentionsInText(text, candidateUsers) {
     });
   return found;
 }
+
+export function splitMentionText(text, mentions) {
+  const value = String(text || "");
+  const names = new Set((mentions || []).map(mention => String(mention?.nome || "")).filter(Boolean));
+  if (!value || !names.size) return [{ text: value, mentioned: false }];
+  const escaped = [...names]
+    .map(name => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .sort((a, b) => b.length - a.length);
+  const parts = value.split(new RegExp(`(@(?:${escaped.join("|")}))`, "g"));
+  return parts.filter(Boolean).map(part => ({
+    text: part,
+    mentioned: part.startsWith("@") && names.has(part.slice(1)),
+  }));
+}
