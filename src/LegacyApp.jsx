@@ -2,7 +2,7 @@ import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect
 import {
   Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, LineChart, Pie,
   PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
+} from "./components/charts/LazyRecharts";
 // Planilhas são um recurso pesado e opcional. O pacote só entra na memória
 // quando o usuário realmente importa ou exporta um arquivo.
 let XLSX = null;

@@ -17,13 +17,14 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes("exceljs")) return "spreadsheet-tools";
-          if (id.includes("recharts") || id.includes("d3-")) return "charts";
           if (
             id.includes("/src/domains/financeiro/")
             || id.includes("/src/domains/dre/")
             || id.includes("/src/domains/conciliacao/")
           ) return "financial-domain";
-          if (id.includes("node_modules")) return "vendor";
+          // As dependências compartilhadas ficam a cargo do particionamento
+          // automático. Isso evita que React seja puxado para o chunk lazy de
+          // gráficos e torne Recharts uma dependência inicial novamente.
         },
       },
     },

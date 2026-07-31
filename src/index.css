@@ -710,6 +710,16 @@
 .arcd-icon[data-icon-size="sm"] svg { width: var(--arcd-icon-size-sm); height: var(--arcd-icon-size-sm); }
 .arcd-icon[data-icon-size="lg"] svg { width: var(--arcd-icon-size-lg); height: var(--arcd-icon-size-lg); }
 
+.arcd-chart-loading {
+  min-height: 7.5rem;
+  border-radius: var(--arcd-radius-md);
+  background: linear-gradient(90deg, var(--arcd-surface-subtle) 25%, var(--arcd-surface-card) 50%, var(--arcd-surface-subtle) 75%);
+  background-size: 200% 100%;
+  animation: arcd-chart-loading 1.15s ease-in-out infinite;
+}
+@keyframes arcd-chart-loading { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .arcd-chart-loading { animation: none; } }
+
 .arcd-main [style*="box-shadow"],
 .arcd-main [style*="boxShadow"] {
   box-shadow: none !important;
