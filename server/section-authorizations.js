@@ -71,7 +71,8 @@ const CATALOG_SECTIONS=new Set([
 const COMMERCIAL_COLLECTIONS=new Set([
   "leads","atividades","reunioes","propostas","contratos","clientes",
   "parceiros","metas","comissoes","vendas","pesquisas","opportunities",
-  "stageEvents",
+  "stageEvents","empreendimentos","unidadesImobiliarias","imoveisAvulsos",
+  "reservasImobiliarias","vendasImobiliarias","visitasImobiliarias","corretores",
 ]);
 
 const validarMutacaoCatalogo=(antes,depois,nome)=>{

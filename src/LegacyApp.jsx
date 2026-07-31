@@ -99,6 +99,8 @@ const LazyLegacyMobileNavigation = lazy(() => import("./mobile/LegacyMobileNavig
   .then(module => ({ default:module.LegacyMobileNavigation })));
 const LazyLoginProjectParallax = lazy(() => import("./components/login/LoginProjectParallax"));
 const LazyEquipmentBillingReports = lazy(() => import("./domains/equipamentos/EquipmentBillingReports"));
+const LazyRealEstateCommercial = lazy(() => import("./domains/comercial/RealEstateCommercial")
+  .then(module => ({ default:module.RealEstateCommercial })));
 import {
   PACOTES_TARIFA, melhorTarifa, textoComposicao, tarifasDaLocacao,
   tarifasCustoDaLocacao, cobrancaLocacao, disponibilidadeNoDia,
@@ -196,6 +198,7 @@ import {
   referenceTotalOf,
 } from "./domains/compras/unit-conversion";
 import { migrateCommercial } from "./domains/comercial/migrations";
+import { normalizeRealEstateCommercial } from "./domains/comercial/real-estate";
 import { selectCommercialWorkspace } from "./domains/comercial/selectors";
 import { archiveLeadForDeletion, isVisibleLead } from "./domains/comercial/leads";
 import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/record-schema";
@@ -1388,6 +1391,8 @@ const DEFAULT = () => ({
   solicitacoesCompra: [],// requisições da engenharia/obra para o setor de compras
   comercial: {
     leads:[], atividades:[], reunioes:[], propostas:[], contratos:[], clientes:[], parceiros:[], metas:[], comissoes:[], vendas:[],
+    empreendimentos:[], unidadesImobiliarias:[], imoveisAvulsos:[], reservasImobiliarias:[],
+    vendasImobiliarias:[], visitasImobiliarias:[], corretores:[], funilImobiliario:[],
   },
   usuarios: [],   // sistema de login e permissões
   terceirizados: [],
@@ -1537,8 +1542,9 @@ const normalizeData = incoming => {
     },
     comercial: (()=>{
       const c=d.comercial&&typeof d.comercial==="object"?d.comercial:{};
-      return {
-        leads:Array.isArray(c.leads)?c.leads.map(l=>({...l,id:l.id||uid(),nome:l.nome||"",tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone||"",whatsapp:l.whatsapp||"",email:l.email||"",cidade:l.cidade||"",origem:l.origem||"",indicadoPorClienteId:l.indicadoPorClienteId||"",indicadoPorObraId:l.indicadoPorObraId||"",indicadoPorNome:l.indicadoPorNome||"",responsavelId:l.responsavelId||"",servico:l.servico||"",orcamentoEstimado:Number(l.orcamentoEstimado||0),prazoDesejado:l.prazoDesejado||"",probabilidade:Number(l.probabilidade||10),fechamentoPrevisto:l.fechamentoPrevisto||"",temperatura:l.temperatura||"morno",observacoes:l.observacoes||"",endereco:l.endereco||"",condominio:l.condominio||"",lote:l.lote||"",areaTerreno:Number(l.areaTerreno||0),areaConstrucao:Number(l.areaConstrucao||0),pavimentos:Number(l.pavimentos||0),tipoServico:l.tipoServico||"",prazoPretendido:l.prazoPretendido||"",padrao:l.padrao||"alto",orcamentoDisponivel:Number(l.orcamentoDisponivel||0),projetosExistentes:l.projetosExistentes||"",etapa:l.etapa||"novo",etapaDesde:l.etapaDesde||l.createdAt||new Date().toISOString(),proximaAtividade:l.proximaAtividade||"",proximaAtividadeEm:l.proximaAtividadeEm||"",status:l.status||"ativo",createdAt:l.createdAt||new Date().toISOString(),updatedAt:l.updatedAt||"",documentos:Array.isArray(l.documentos)?l.documentos:[],historico:Array.isArray(l.historico)?l.historico:[],motivoPerda:l.motivoPerda||"",concorrente:l.concorrente||"",valorConcorrente:Number(l.valorConcorrente||0),reativacaoEm:l.reativacaoEm||"",qualificacao:l.qualificacao||""})):[],
+      return normalizeRealEstateCommercial({
+        ...c,
+        leads:Array.isArray(c.leads)?c.leads.map(l=>({...l,id:l.id||uid(),nome:l.nome||"",tipoPessoa:l.tipoPessoa||"PF",telefone:l.telefone||"",whatsapp:l.whatsapp||"",email:l.email||"",cidade:l.cidade||"",origem:l.origem||"",indicadoPorClienteId:l.indicadoPorClienteId||"",indicadoPorObraId:l.indicadoPorObraId||"",indicadoPorNome:l.indicadoPorNome||"",responsavelId:l.responsavelId||"",servico:l.servico||"",orcamentoEstimado:Number(l.orcamentoEstimado||0),prazoDesejado:l.prazoDesejado||"",probabilidade:Number(l.probabilidade||10),fechamentoPrevisto:l.fechamentoPrevisto||"",temperatura:l.temperatura||"morno",observacoes:l.observacoes||"",endereco:l.endereco||"",condominio:l.condominio||"",lote:l.lote||"",areaTerreno:Number(l.areaTerreno||0),areaConstrucao:Number(l.areaConstrucao||0),pavimentos:Number(l.pavimentos||0),tipoServico:l.tipoServico||"",prazoPretendido:l.prazoPretendido||"",padrao:l.padrao||"alto",orcamentoDisponivel:Number(l.orcamentoDisponivel||0),projetosExistentes:l.projetosExistentes||"",etapa:l.etapa||"novo",etapaDesde:l.etapaDesde||l.createdAt||new Date().toISOString(),proximaAtividade:l.proximaAtividade||"",proximaAtividadeEm:l.proximaAtividadeEm||"",status:l.status||"ativo",createdAt:l.createdAt||new Date().toISOString(),updatedAt:l.updatedAt||"",documentos:Array.isArray(l.documentos)?l.documentos:[],historico:Array.isArray(l.historico)?l.historico:[],motivoPerda:l.motivoPerda||"",concorrente:l.concorrente||"",valorConcorrente:Number(l.valorConcorrente||0),reativacaoEm:l.reativacaoEm||"",qualificacao:l.qualificacao||"",documento:l.documento||"",campanha:l.campanha||"",empreendimentoInteresseId:l.empreendimentoInteresseId||"",unidadesInteresse:Array.isArray(l.unidadesInteresse)?l.unidadesInteresse:[],tipoImovel:l.tipoImovel||"",finalidade:l.finalidade||"compra",faixaPreco:Number(l.faixaPreco||0),valorEntrada:Number(l.valorEntrada||0),rendaMensal:Number(l.rendaMensal||0),necessitaFinanciamento:l.necessitaFinanciamento===true,usaFgts:l.usaFgts===true,prazoCompra:l.prazoCompra||"",bairroDesejado:l.bairroDesejado||"",caracteristicasDesejadas:l.caracteristicasDesejadas||"",consentimentoDados:l.consentimentoDados===true,ultimaInteracao:l.ultimaInteracao||"",score:Number(l.score||0)})):[],
         atividades:Array.isArray(c.atividades)?c.atividades.map(a=>({...a,id:a.id||uid(),leadId:a.leadId||"",tipo:a.tipo||"followup",titulo:a.titulo||"",dataHora:a.dataHora||"",responsavelId:a.responsavelId||"",status:a.status||"pendente",observacoes:a.observacoes||"",createdAt:a.createdAt||new Date().toISOString()})):[],
         reunioes:Array.isArray(c.reunioes)?c.reunioes.map(r=>({...r,id:r.id||uid(),leadId:r.leadId||"",dataHora:r.dataHora||"",tipo:r.tipo||"presencial",local:r.local||"",participantes:r.participantes||"",responsavelComercialId:r.responsavelComercialId||"",responsavelTecnicoId:r.responsavelTecnicoId||"",pauta:r.pauta||"",resumo:r.resumo||"",necessidades:r.necessidades||"",objecoes:r.objecoes||"",orcamentoDisponivel:Number(r.orcamentoDisponivel||0),proximosPassos:r.proximosPassos||"",proximoContato:r.proximoContato||"",status:r.status||"agendada",documentos:Array.isArray(r.documentos)?r.documentos:[]})):[],
         propostas:Array.isArray(c.propostas)?c.propostas.map(p=>({...p,id:p.id||uid(),numero:p.numero||"",versao:Number(p.versao||1),leadId:p.leadId||"",clienteId:p.clienteId||"",objeto:p.objeto||"",escopo:p.escopo||"",inclusos:p.inclusos||"",exclusos:p.exclusos||"",entregaveis:p.entregaveis||"",prazo:p.prazo||"",valor:Number(p.valor||0),formaPagamento:p.formaPagamento||"",validade:p.validade||"",responsabilidades:p.responsabilidades||"",premissas:p.premissas||"",status:p.status||"rascunho",createdAt:p.createdAt||new Date().toISOString(),enviadoEm:p.enviadoEm||"",visualizadoEm:p.visualizadoEm||"",aceitoEm:p.aceitoEm||"",rejeitadoEm:p.rejeitadoEm||"",desconto:Number(p.desconto||0),documentos:Array.isArray(p.documentos)?p.documentos:[],historico:Array.isArray(p.historico)?p.historico:[],negociacoes:Array.isArray(p.negociacoes)?p.negociacoes:[]})):[],
@@ -1561,7 +1567,7 @@ const normalizeData = incoming => {
         comissoes:Array.isArray(c.comissoes)?c.comissoes.map(x=>({...x,id:x.id||uid(),vendaId:x.vendaId||"",responsavelId:x.responsavelId||"",parceiroId:x.parceiroId||"",base:Number(x.base||0),percentual:Number(x.percentual||0),valor:Number(x.valor||0),status:x.status||"prevista"})):[],
         vendas:Array.isArray(c.vendas)?c.vendas.map(x=>({...x,id:x.id||uid(),leadId:x.leadId||"",contratoId:x.contratoId||"",clienteId:x.clienteId||"",obraId:x.obraId||"",valor:Number(x.valor||0),fechadaEm:x.fechadaEm||new Date().toISOString(),responsavelId:x.responsavelId||""})):[],
         schemaVersion:Number(c.schemaVersion||0),opportunities:Array.isArray(c.opportunities)?c.opportunities:[],stageEvents:Array.isArray(c.stageEvents)?c.stageEvents:[],
-      };
+      });
     })(),
     obras: Array.isArray(d.obras) ? d.obras.map(o => ({
       id: o.id || uid(),
@@ -14764,7 +14770,7 @@ const ROLE_TABS = {
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
   rh:          ["home","tv","ponto","ponto_geral","equipe","terc","folha","resc","conc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
-  comercial:   ["home","tv","com_workspace","com_pipeline","com_relationships","com_deals","ia"],
+  comercial:   ["home","tv","com_workspace","com_pipeline","com_relationships","com_deals","com_management","com_funil","com_leads","com_propostas","com_negociacoes","com_agenda","com_parceiros","com_metas","com_relatorios","ia"],
   visualizador:["home","tv"],
 };
 
@@ -36126,6 +36132,22 @@ const comEtapaLabel=id=>COM_ETAPAS.find(([v])=>v===id)?.[1]||id;
 const comDias=iso=>iso?Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/86400000)):0;
 const comDateTime=iso=>iso?new Date(iso).toLocaleString("pt-BR"):"-";
 const comAddMes=(iso,n)=>{const d=new Date(`${iso||today()}T12:00:00`);d.setMonth(d.getMonth()+n);return toLocalISODate(d);};
+const COM_IMOBILIARIO_SECTIONS=[
+  {id:"overview",label:"Visão geral",icon:"chart"},
+  {id:"crm",label:"CRM / Leads",route:"com_funil",icon:"funnel"},
+  {id:"developments",label:"Empreendimentos",icon:"building"},
+  {id:"properties",label:"Imóveis avulsos",icon:"home"},
+  {id:"units",label:"Unidades",icon:"grid"},
+  {id:"proposals",label:"Propostas",route:"com_propostas",icon:"fileText"},
+  {id:"reservations",label:"Reservas",icon:"clock"},
+  {id:"sales",label:"Vendas",icon:"dollar"},
+  {id:"visits",label:"Agenda e visitas",icon:"calendar"},
+  {id:"brokers",label:"Corretores e parceiros",icon:"users"},
+  {id:"commissions",label:"Comissões",route:"com_metas",icon:"wallet"},
+  {id:"documents",label:"Documentos",icon:"file"},
+  {id:"reports",label:"Relatórios",icon:"trending"},
+];
+const COM_ROUTE_SECTION={com_funil:"crm",com_leads:"crm",com_propostas:"proposals",com_negociacoes:"proposals",com_metas:"commissions"};
 
 function Comercial({data,update,dispatchCommand,showToast,currentUser,view,onTab}){
   const {cols,formGrid}=useBreakpoint();const com=migrateCommercial(data.comercial||{});
@@ -36145,6 +36167,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const [metaForm,setMetaForm]=useState(null);const [perdaForm,setPerdaForm]=useState(null);
   const [subindoDocumentoComercial,setSubindoDocumentoComercial]=useState(false);
   const [ativandoContratoId,setAtivandoContratoId]=useState("");
+  const [realEstateSection,setRealEstateSection]=useState("overview");
   const setCom=(patch)=>update({...data,comercial:{...com,...patch}});
   const persistirComercial=async(patch,{mensagem="",aoConfirmar}={})=>{
     const result=await setCom(patch);
@@ -36155,6 +36178,12 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     aoConfirmar?.();
     if(mensagem)showToast(mensagem);
     return true;
+  };
+  const activeCommercialSection=view==="com_workspace"?realEstateSection:(COM_ROUTE_SECTION[commercialView]||realEstateSection);
+  const openCommercialSection=section=>{
+    if(section.route){onTab(section.route);return;}
+    setRealEstateSection(section.id);
+    if(view!=="com_workspace")onTab("com_workspace");
   };
   // Maps id->registro, montados uma vez por render em vez de .find() por
   // chamada - nomeUsuario/leadBy sao usados dezenas de vezes por tela
@@ -37376,7 +37405,12 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     conteudo=<><Titulo titulo="Relatórios comerciais" sub="Desempenho por vendedor, origem, receita, conversão e funil" acao={<Btn onClick={exportarRelatorio}>EXPORTAR EXCEL</Btn>}/><div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:6}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface}}>{["VENDEDOR","LEADS","VENDAS","RECEITA","CONVERSÃO"].map(h=><th key={h} style={{padding:7,textAlign:h==="VENDEDOR"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{vendedores.map(v=><tr key={v.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:7}}>{v.nome}</td><td style={{padding:7,textAlign:"right"}}>{v.leads}</td><td style={{padding:7,textAlign:"right"}}>{v.vendas}</td><td style={{padding:7,textAlign:"right"}}>{fmt(v.receita)}</td><td style={{padding:7,textAlign:"right"}}>{v.conversao.toFixed(1)}%</td></tr>)}</tbody></table></div><div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:6}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface}}>{["ORIGEM","LEADS","VENDAS","RECEITA"].map(h=><th key={h} style={{padding:7,textAlign:h==="ORIGEM"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{origens.map(o=><tr key={o.origem} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:7}}>{o.origem}</td><td style={{padding:7,textAlign:"right"}}>{o.leads}</td><td style={{padding:7,textAlign:"right"}}>{o.vendas}</td><td style={{padding:7,textAlign:"right"}}>{fmt(o.receita)}</td></tr>)}</tbody></table></div></>;
   }
 
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{conteudo}
+  const showRealEstateHub=view==="com_workspace"&&!["crm","proposals","commissions"].includes(activeCommercialSection);
+  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",gap:5,overflowX:"auto",padding:"6px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,position:"sticky",top:58,zIndex:18}}>
+      {COM_IMOBILIARIO_SECTIONS.map(section=><button key={section.id} type="button" onClick={()=>openCommercialSection(section)} style={{display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",minHeight:34,padding:"7px 10px",borderRadius:7,border:`1px solid ${activeCommercialSection===section.id?C.yellowD:C.line}`,background:activeCommercialSection===section.id?`${C.yellow}18`:C.bg,color:C.text,fontSize:9.5,fontWeight:750,cursor:"pointer"}}><Ic n={section.icon} s={12}/>{section.label}</button>)}
+    </div>
+    {showRealEstateHub?<Suspense fallback={<div style={{padding:30,textAlign:"center",color:C.muted}}>Carregando gestão imobiliária...</div>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onLegacyNavigate={onTab}/></Suspense>:conteudo}
     {npsForm&&<Modal title="Pesquisa de satisfação na entrega" onClose={()=>setNpsForm(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>

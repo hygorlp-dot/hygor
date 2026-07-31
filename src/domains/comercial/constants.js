@@ -1,4 +1,4 @@
-export const COMMERCIAL_SCHEMA_VERSION=2;
+export const COMMERCIAL_SCHEMA_VERSION=3;
 export const COMMERCIAL_DESTINATIONS=Object.freeze(["com_workspace","com_pipeline","com_relationships","com_deals","com_management"]);
 export const LEGACY_COMMERCIAL_ROUTE=Object.freeze({
   com_dash:"com_workspace",com_agenda:"com_workspace",com_reunioes:"com_workspace",com_tarefas:"com_workspace",
