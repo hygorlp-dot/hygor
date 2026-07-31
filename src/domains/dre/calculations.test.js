@@ -99,6 +99,19 @@ describe("domínio do DRE", () => {
     expect(dre.totalCustos).toBe(920);
   });
 
+  test("mantém despesa de obra arquivada no total e no detalhamento", () => {
+    const dados = {
+      ...data,
+      outrasDesp:[
+        {id:"arq",obraId:"obra-1",competencia:"2026-07",data:"2026-07-10",valor:175,status:"arquivada"},
+        {id:"can",obraId:"obra-1",competencia:"2026-07",data:"2026-07-10",valor:90,status:"cancelada"},
+      ],
+    };
+    const dre = regras.calcDREObra(dados,"obra-1",2026,6);
+    expect(dre.outrasTotal).toBe(175);
+    expect(dre.outrasDesp.map(item=>item.id)).toEqual(["arq"]);
+  });
+
   test("a visão financeira usa as mesmas equações do DRE e separa caixa", () => {
     const dados = {
       ...data,
