@@ -190,6 +190,10 @@ import {
   THIRD_PARTY_KANBAN_COLUMNS as COLS_KANBAN,
   thirdPartyKanbanColumn as colKanban,
 } from "./domains/terceirizados/workflow";
+import {
+  paymentFriday as getFridayOfWeek,
+  paymentWeekRange as getWeekRange,
+} from "./domains/terceirizados/payment-week";
 import { uploadWithRetry } from "./domains/documentos/upload-retry";
 const LazyMarcosCurvaASuprimentos = lazy(() => import("./features/suprimentos/MarcosCurvaASuprimentos"));
 import {
@@ -928,23 +932,6 @@ const ramosDosCnaes = (cnaes) => {
 // Tipos de documento de habilitacao com validade, para o painel de pendencias.
 // Colunas do Kanban de contratos. A ordem e o fluxo natural de um contrato de
 // terceiro: contratado -> em obra -> parou por algum motivo -> entregue.
-// Retorna a sexta-feira da semana atual, navegável por weekOffset
-const getFridayOfWeek = (weekOffset = 0) => {
-  const d = new Date();
-  const day = d.getDay(); // 0=Dom..6=Sab
-  const toFri = (5 - day + 7) % 7;
-  const adjusted = (day === 0 || day === 6) ? toFri - 7 : toFri;
-  d.setDate(d.getDate() + adjusted + weekOffset * 7);
-  return toLocalISODate(d);
-};
-
-const getWeekRange = (fridayIso) => {
-  const fri = new Date(fridayIso + "T12:00:00");
-  const mon = new Date(fri); mon.setDate(fri.getDate() - 4);
-  return { start: toLocalISODate(mon), end: fridayIso };
-};
-
-
 // 
 // KANBAN - fases do fluxo de obra
 // 
