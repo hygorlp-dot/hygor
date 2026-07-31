@@ -171,6 +171,12 @@ import { selectCommercialWorkspace } from "./domains/comercial/selectors";
 import { archiveLeadForDeletion, isVisibleLead } from "./domains/comercial/leads";
 import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/record-schema";
 import { cancelRecord as cancelarRegistro } from "./domains/data/soft-delete";
+import {
+  digitsOnly as soDigitos,
+  formatBrazilianDocument as maskDoc,
+  formatCEP as maskCEP,
+  validateBrazilianDocument as validarDocumento,
+} from "./domains/data/brazilian-documents";
 import { calculateWithholdings as calcRetencoes } from "./domains/terceirizados/withholdings";
 import { uploadWithRetry } from "./domains/documentos/upload-retry";
 const LazyMarcosCurvaASuprimentos = lazy(() => import("./features/suprimentos/MarcosCurvaASuprimentos"));
@@ -930,54 +936,6 @@ const specInfo = v => SPECIALTIES.find(s => s.v === v) || { l: "Outros", emoji: 
 //  Validar o digito verificador aqui evita erro de digitacao virar problema de
 //  nota fiscal la na frente. So digitos entram nos calculos; a mascara e visual.
 // ---------------------------------------------------------------------------
-const soDigitos = v => String(v ?? "").replace(/\D/g, "");
-
-const validarCPF = v => {
-  const c = soDigitos(v);
-  if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
-  const dv = base => {
-    let soma = 0;
-    for (let i = 0; i < base; i++) soma += Number(c[i]) * (base + 1 - i);
-    const r = (soma * 10) % 11;
-    return r === 10 ? 0 : r;
-  };
-  return dv(9) === Number(c[9]) && dv(10) === Number(c[10]);
-};
-
-const validarCNPJ = v => {
-  const c = soDigitos(v);
-  if (c.length !== 14 || /^(\d)\1{13}$/.test(c)) return false;
-  const dv = base => {
-    const pesos = base === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2];
-    let soma = 0;
-    for (let i = 0; i < base; i++) soma += Number(c[i]) * pesos[i];
-    const r = soma % 11;
-    return r < 2 ? 0 : 11 - r;
-  };
-  return dv(12) === Number(c[12]) && dv(13) === Number(c[13]);
-};
-
-// Documento valido conforme o tipo de pessoa (PJ = CNPJ, PF = CPF).
-const validarDocumento = (doc, tipo) => tipo === "PF" ? validarCPF(doc) : validarCNPJ(doc);
-
-const maskCNPJ = v => {
-  const c = soDigitos(v).slice(0, 14);
-  return c
-    .replace(/^(\d{2})(\d)/, "$1.$2")
-    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/\.(\d{3})(\d)/, ".$1/$2")
-    .replace(/(\d{4})(\d)/, "$1-$2");
-};
-const maskCPF = v => {
-  const c = soDigitos(v).slice(0, 11);
-  return c
-    .replace(/^(\d{3})(\d)/, "$1.$2")
-    .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/\.(\d{3})(\d)/, ".$1-$2");
-};
-const maskDoc = (v, tipo) => tipo === "PF" ? maskCPF(v) : maskCNPJ(v);
-const maskCEP = v => soDigitos(v).slice(0, 8).replace(/^(\d{5})(\d)/, "$1-$2");
-
 // Tipos de documento de habilitacao com validade, para o painel de pendencias.
 const DOCS_TERC = [
   { v: "CND",    l: "CND Federal (Receita/PGFN)" },
