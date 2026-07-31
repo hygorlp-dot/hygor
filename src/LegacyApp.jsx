@@ -60,6 +60,7 @@ import { cn } from "./lib/utils";
 import { features } from "./config/features";
 import { SUPPLIER_CATEGORIES as RAMOS_FORNECIMENTO } from "./domains/suppliers/categories";
 import { useCountUp } from "./lib/useCountUp";
+import { useBreakpoint } from "./hooks/useBreakpoint";
 
 // O editor novo só é baixado se a flag local do piloto for habilitada. Com a
 // flag desligada, o modal histórico continua sendo a única implementação.
@@ -15748,55 +15749,6 @@ const ETAPAS_PADRAO = [
 // limite, e não a cada pixel arrastado.
 // narrow = celulares pequenos (iPhone SE, Android de entrada). Abaixo de 420px
 // não adianta encolher fonte: certos pares lado a lado precisam EMPILHAR.
-const BP = { narrow: 420, mobile: 0, tablet: 768, desktop: 1100 };
-
-const useBreakpoint = () => {
-  const ler = () => {
-    if (typeof window === "undefined") return "desktop";   // SSR
-    const w = window.innerWidth;
-    if (w >= BP.desktop) return "desktop";
-    if (w >= BP.tablet)  return "tablet";
-    return "mobile";
-  };
-  const lerEstreito = () =>
-    typeof window !== "undefined" && window.innerWidth < BP.narrow;
-
-  const [bp, setBp] = useState(ler);
-  const [estreito, setEstreito] = useState(lerEstreito);
-
-  useEffect(() => {
-    const mqNarrow  = window.matchMedia(`(min-width:${BP.narrow}px)`);
-    const mqTablet  = window.matchMedia(`(min-width:${BP.tablet}px)`);
-    const mqDesktop = window.matchMedia(`(min-width:${BP.desktop}px)`);
-    const atualizar = () => { setBp(ler()); setEstreito(lerEstreito()); };
-
-    mqNarrow.addEventListener("change", atualizar);
-    mqTablet.addEventListener("change", atualizar);
-    mqDesktop.addEventListener("change", atualizar);
-    return () => {
-      mqNarrow.removeEventListener("change", atualizar);
-      mqTablet.removeEventListener("change", atualizar);
-      mqDesktop.removeEventListener("change", atualizar);
-    };
-  }, []);
-
-  return {
-    bp,
-    estreito,                       // < 420px: pares lado a lado devem empilhar
-    isMobile:  bp === "mobile",
-    isTablet:  bp === "tablet",
-    isDesktop: bp === "desktop",
-    // Grade responsiva: cols(1,2,4) → 1 col no celular, 2 no tablet, 4 no desktop
-    cols: (m, t, d) => `repeat(${bp==="desktop" ? d : bp==="tablet" ? t : m}, 1fr)`,
-    // Escolhe um valor conforme o breakpoint
-    pick: (m, t, d) => (bp==="desktop" ? d : bp==="tablet" ? t : m),
-    // Grade de FORMULÁRIO: empilha no celular. Campo de texto em 2 colunas
-    // num aparelho de 360px sobra ~165px - corta nome, CPF, endereço.
-    // Dropdowns curtos (ano/mês) continuam lado a lado; só texto empilha.
-    formGrid: (n = 2) => (bp === "mobile" ? "1fr" : `repeat(${n}, 1fr)`),
-  };
-};
-
 const MAX_NIVEL = 5;   // 1.1.1.1.1 - além disso a indentação fica ilegível no celular
 
 // Total de um item com BDI. Se o item tiver BDI proprio (it.bdi), ele prevalece
