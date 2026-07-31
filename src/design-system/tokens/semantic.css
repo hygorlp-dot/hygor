@@ -1,0 +1,48 @@
+:root {
+  --arcd-surface-page: var(--arcd-gray-50);
+  --arcd-surface-card: var(--arcd-gray-0);
+  --arcd-surface-muted: var(--arcd-gray-100);
+  --arcd-surface-subtle: var(--arcd-gray-100);
+  --arcd-surface-elevated: var(--arcd-gray-0);
+  --arcd-surface-inverse: var(--arcd-gray-900);
+  --arcd-surface-overlay: rgb(22 22 22 / 58%);
+
+  --arcd-text-primary: var(--arcd-gray-900);
+  --arcd-text-secondary: var(--arcd-gray-600);
+  --arcd-text-muted: var(--arcd-gray-500);
+  --arcd-text-inverse: var(--arcd-gray-0);
+
+  --arcd-border-subtle: var(--arcd-gray-200);
+  --arcd-border-default: var(--arcd-gray-200);
+  --arcd-border-strong: #8d8d8d;
+
+  --arcd-action-primary: var(--arcd-gold-400);
+  --arcd-action-primary-hover: var(--arcd-gold-500);
+  --arcd-action-primary-active: var(--arcd-gold-600);
+  --arcd-action-primary-subtle: #f8f1dc;
+  --arcd-action-primary-text: var(--arcd-gray-900);
+  --arcd-focus-ring: var(--arcd-gold-400);
+
+  --arcd-success-text: var(--arcd-green-500);
+  --arcd-success-surface: #defbe6;
+  --arcd-success-border: #83bea0;
+  --arcd-warning-text: var(--arcd-orange-500);
+  --arcd-warning-surface: #fff2d5;
+  --arcd-warning-border: #d8a862;
+  --arcd-danger-text: var(--arcd-red-500);
+  --arcd-danger-surface: #fff1f1;
+  --arcd-danger-border: #d68b8b;
+  --arcd-info-text: var(--arcd-blue-500);
+  --arcd-info-surface: #edf5ff;
+  --arcd-info-border: #8bb9d4;
+  --arcd-auxiliary-text: var(--arcd-purple-500);
+  --arcd-neutral-text: var(--arcd-gray-600);
+  --arcd-neutral-surface: var(--arcd-gray-100);
+  --arcd-neutral-border: var(--arcd-gray-300);
+
+  --arcd-nav-surface: var(--arcd-surface-page);
+  --arcd-nav-active-surface: var(--arcd-surface-muted);
+  --arcd-nav-text: var(--arcd-text-secondary);
+  --arcd-nav-active-text: var(--arcd-text-primary);
+  --arcd-nav-border: var(--arcd-border-default);
+}

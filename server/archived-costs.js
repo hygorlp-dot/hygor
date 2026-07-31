@@ -1,3 +1,5 @@
+import { calculateAttendanceDayCost } from "../src/domains/ponto/payroll.js";
+
 const employedOn = (employee, date) =>
   (!employee?.startDate || date >= employee.startDate) &&
   (!employee?.endDate || date <= employee.endDate);
@@ -12,16 +14,16 @@ export const summarizeArchivedCosts = archive => {
     for (const [date, raw] of Object.entries(attendance || {})) {
       if (!employedOn(employee, date)) continue;
       const record = typeof raw === "string" ? {status: raw} : (raw || {});
-      const factor = record.status === "P" ? 1 : record.status === "M" ? 0.5 : 0;
+      const cost = calculateAttendanceDayCost({employee,record});
+      const factor = cost.factor;
       const workId = String(record.obraId || employee.obra || "");
       if (!factor || !workId) continue;
       const previous = byDate[date]?.[workId] || {laborCost: 0, benefitCost: 0};
       byDate[date] = {
         ...(byDate[date] || {}),
         [workId]: {
-          laborCost: previous.laborCost + Number(employee.dailyRate || 0) * factor,
-          benefitCost: previous.benefitCost +
-            (Number(employee.vtDaily || 0) + Number(employee.vrDaily || 0)) * factor,
+          laborCost: previous.laborCost + cost.laborCost,
+          benefitCost: previous.benefitCost + cost.benefitCost,
         },
       };
     }

@@ -81,6 +81,22 @@ Sem política, o Postgres nega por padrão. É proposital: o único caminho até
 os dados passa a ser a função serverless, que usa a `service_role` e confere
 o PIN. Se alguém roubar a anon key do bundle, não lê uma linha.
 
+Depois da fundação, execute as migrations versionadas da pasta
+[`migrations`](./migrations) na ordem numérica/data. A persistência comum
+depende de `20260725_append_only_audit.sql`; o arquivamento de ponto depende
+de `006_attendance_archive_transaction.up.sql`. O painel administrativo
+possui a ação `persistence-health` para confirmar essas RPCs.
+
+O build não executa migrations nem sincroniza dados. A preparação do motor
+financeiro é uma ação operacional explícita:
+
+```bash
+npm run financial:migrate-shadow
+```
+
+Execute-a somente com as variáveis de produção carregadas e antes de ativar
+`FINANCIAL_ENGINE_ENFORCE`.
+
 ---
 
 ## 3. Variáveis no Vercel

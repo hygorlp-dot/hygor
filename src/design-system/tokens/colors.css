@@ -1,0 +1,27 @@
+:root {
+  /* Aliases de compatibilidade. Novos componentes usam os tokens semânticos. */
+  --arcd-color-surface: var(--arcd-surface-card);
+  --arcd-color-surface-muted: var(--arcd-surface-muted);
+  --arcd-color-surface-subtle: var(--arcd-surface-subtle);
+  --arcd-color-surface-inverse: var(--arcd-surface-inverse);
+  --arcd-color-text: var(--arcd-text-primary);
+  --arcd-color-text-muted: var(--arcd-text-secondary);
+  --arcd-color-text-subtle: var(--arcd-text-muted);
+  --arcd-color-text-inverse: var(--arcd-text-inverse);
+  --arcd-color-border: var(--arcd-border-default);
+  --arcd-color-border-strong: var(--arcd-border-strong);
+  --arcd-color-primary: var(--arcd-action-primary);
+  --arcd-color-primary-hover: var(--arcd-action-primary-hover);
+  --arcd-color-primary-subtle: var(--arcd-action-primary-subtle);
+  --arcd-color-primary-on: var(--arcd-action-primary-text);
+  --arcd-color-success: var(--arcd-success-text);
+  --arcd-color-success-subtle: var(--arcd-success-surface);
+  --arcd-color-warning: var(--arcd-warning-text);
+  --arcd-color-warning-subtle: var(--arcd-warning-surface);
+  --arcd-color-danger: var(--arcd-danger-text);
+  --arcd-color-danger-subtle: var(--arcd-danger-surface);
+  --arcd-color-info: var(--arcd-info-text);
+  --arcd-color-info-subtle: var(--arcd-info-surface);
+  --arcd-color-focus: var(--arcd-focus-ring);
+  --arcd-color-overlay: var(--arcd-surface-overlay);
+}

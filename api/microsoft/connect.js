@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { authConfig, configured, SCOPES, seal, setCookie, verifyAppUser } from "./_graph.js";
+import { authConfig, configured, SCOPES, seal, setCookie, verifyAppUser } from "../../server/microsoft/graph.js";
 
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"Método não permitido."});

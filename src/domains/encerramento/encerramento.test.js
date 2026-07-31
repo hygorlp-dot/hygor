@@ -1,0 +1,1 @@
+import { expect,it } from "vitest";import { closeoutReadiness } from "./calculations.js";it("bloqueia entrega com pendência",()=>expect(closeoutReadiness([{status:"em_correcao",severity:"alta"}]).ready).toBe(false));

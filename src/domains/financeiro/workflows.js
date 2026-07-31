@@ -1,4 +1,5 @@
 import {
+  active,
   buildFinancialLedger,
   selectAccountsPayable,
   selectAccountsReceivable,
@@ -9,13 +10,24 @@ import {
   validateFinancialReconciliation,
 } from "./ledger.js";
 
-const inactive = item => item?.deletedAt || ["cancelado","cancelada","rejeitada","estornado","estornada"]
-  .includes(String(item?.status || "").toLowerCase());
+export const inactive = item => !active(item);
 const orderTotalCents = order => (order?.itens || []).reduce((sum,item) =>
   sum + toCents(Number(item.qtd || 0) * Number(item.precoUnit || 0)),0);
 const receivedTotalCents = order => (order?.itens || []).reduce((sum,item) =>
   sum + toCents(Number(item.qtdRecebida || 0) * Number(item.precoUnit || 0)),0);
 const invoiceTotalCents = invoice => toCents(invoice?.valorBruto ?? invoice?.valorTotal ?? invoice?.valor);
+const activeTechnicalBilling=item=>!inactive(item)
+  && (item?.tipo==="medicao_tecnica"||String(item?.medicaoTecnicaId||"").length>0);
+
+/** A receita contratada é a baseline comercial do faturamento físico. */
+export const resolveTechnicalBillingContract=(data={},obraId="")=>{
+  const contract=(data?.comercial?.contratos||[]).find(item=>
+    item?.obraId===obraId&&["contratado","assinado"].includes(String(item?.status||"").toLowerCase())&&Number(item?.valor)>0);
+  if(contract)return {ok:true,source:"contrato_comercial",sourceId:contract.id,valueCents:toCents(contract.valor)};
+  const work=(data?.obras||[]).find(item=>item?.id===obraId);
+  if(Number(work?.contractValue)>0)return {ok:true,source:"obra",sourceId:work.id,valueCents:toCents(work.contractValue)};
+  return {ok:false,error:"A obra não possui contrato comercial ou valor contratado para faturamento físico."};
+};
 
 /**
  * Conciliação de três vias: pedido contratado, recebimento físico e documento
@@ -72,8 +84,14 @@ export const createBillingFromTechnicalMeasurement = (data = {}, params = {}) =>
   if ((data.medicoes || []).some(item=>item.medicaoTecnicaId===technical.id&&!inactive(item))) {
     return { ok:false,error:"Esta medição técnica já possui faturamento." };
   }
-  const amountCents=toCents(params.valor);
-  if (amountCents<=0) return { ok:false,error:"Informe o valor a faturar." };
+  const contract=resolveTechnicalBillingContract(data,technical.obraId);
+  if(!contract.ok)return contract;
+  const cumulativeProgress=Math.max(0,Math.min(100,Number(technical.avancoFisico||0)));
+  const cumulativeAmountCents=Math.round(contract.valueCents*cumulativeProgress/100);
+  const alreadyBilledCents=(data.medicoes||[]).filter(item=>activeTechnicalBilling(item)&&item.obraId===technical.obraId)
+    .reduce((sum,item)=>sum+toCents(item.valorPrevisto??item.valor),0);
+  const amountCents=cumulativeAmountCents-alreadyBilledCents;
+  if (amountCents<=0) return { ok:false,error:"O avanço aprovado já está integralmente faturado.",cumulativeAmountCents,alreadyBilledCents };
   const competence=String(params.competencia||technical.data||"").slice(0,7);
   if (!/^\d{4}-\d{2}$/.test(competence)) return { ok:false,error:"Informe uma competência válida." };
   const id=params.id||`fat-${technical.id}`;
@@ -88,6 +106,8 @@ export const createBillingFromTechnicalMeasurement = (data = {}, params = {}) =>
       descricao:params.descricao||`Faturamento da medição técnica ${technical.numero||technical.id}`,
       snapshotTecnico:{
         medicaoId:technical.id,data:technical.data,avancoFisico:Number(technical.avancoFisico||0),
+        contrato:{source:contract.source,sourceId:contract.sourceId,valueCents:contract.valueCents},
+        faturamento:{cumulativeProgress,cumulativeAmountCents,alreadyBilledCents,incrementalAmountCents:amountCents},
         itens:(technical.itens||[]).map(item=>({
           tarefaId:item.tarefaId||"",nome:item.nome||"",pctConfirmado:Number(item.pctConfirmado||0),
         })),

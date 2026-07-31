@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/index.js",
+    "api/**/*.js",
+    "scripts/*.mjs",
+    "vite.config.mjs",
+    "src/**/*.{test,spec}.{js,jsx}",
+    "server/**/*.{test,spec}.{js,jsx}"
+  ],
+  "project": [
+    "src/**/*.{js,jsx}",
+    "api/**/*.js",
+    "server/**/*.js",
+    "scripts/**/*.mjs"
+  ],
+  "ignore": [
+    "src/integration/**",
+    "dist/**",
+    ".agents/**",
+    ".claude/**",
+    ".claude-flow/**",
+    "whatsapp-test/**"
+  ]
+}

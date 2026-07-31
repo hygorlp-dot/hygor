@@ -9,9 +9,10 @@
 // (company_app_data), evitando inflar o documento que todo save() reenvia
 // por inteiro.
 //
-// Anexos de midia (imagem/audio/video) no chat e a integracao com o
-// OneDrive ainda nao estao implementados aqui - o chat cobre texto,
-// silenciamento e apagar mensagem pelo administrador. A pontuacao
+// O chat cobre texto, mencao a colega (@), anexo (imagem/audio/documento via
+// Supabase Storage - ver /api/upload com folder:"chat"), silenciamento e
+// apagar mensagem pelo administrador. Integracao com OneDrive ainda nao
+// implementada aqui. A pontuacao
 // automatica do ranking e calculada no cliente a partir de dados ja
 // existentes (ponto, diario, conferencias); aqui so guardamos os pontos
 // extras que o administrador concede ou desconta, com justificativa, sem
@@ -20,6 +21,11 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { authenticateAppUser } from "./auth.js";
+import {
+  deletedChatMessage,
+  sanitizeChatAttachment,
+  sanitizeChatMentions,
+} from "../server/chat-message-policy.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -38,13 +44,21 @@ const db = createClient(URL, SERVICE, {
 
 const textoSeguro = (value, max = 120) => String(value || "").replace(/[\x00-\x1f]/g, "").slice(0, max);
 
+// @menções são só um recurso de UX (destaque + "chamar atenção" no cliente):
+// este chat é único e visível a toda a empresa, sem fronteira de permissão
+// nova sendo cruzada, então validamos formato/tamanho, não referência ao
+// cadastro de usuários.
+// Anexo já foi enviado ao Storage por /api/upload; aqui só guardamos a
+// referência. Exige https:// para nunca persistir um esquema executável
+// (ex.: javascript:) que seria clicável no link do anexo.
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Metodo nao permitido." });
   if (!URL || !SERVICE) return res.status(503).json({ error: "Banco nao configurado." });
 
   const {
     action, userId, pin, accessToken, sessionId, tab, device,
-    text, messageId, targetUserId, pontos, motivo, adjustmentId,
+    text, messageId, targetUserId, pontos, motivo, adjustmentId, operationId,
+    mentions, attachment,
   } = req.body || {};
   const user = await authenticateAppUser({userId,pin,accessToken},{scope:"presence"});
   if (!user) return res.status(401).json({ error: "Sessao invalida." });
@@ -80,15 +94,17 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
       const key = `${PRESENCE_PREFIX}${sessionId}`;
-      const { data: atual } = await db.from("company_app_data")
+      const { data: atual, error: readError } = await db.from("company_app_data")
         .select("value").eq("company_id", COMPANY).eq("key", key).maybeSingle();
+      if(readError)throw readError;
       if (atual) {
         const agora = new Date().toISOString();
         const value = typeof atual.value === "string" ? JSON.parse(atual.value) : atual.value;
-        await db.from("company_app_data").update({
+        const {error:updateError}=await db.from("company_app_data").update({
           value: { ...value, lastSeen: agora, loggedOutAt: agora },
           updated_at: agora,
         }).eq("company_id", COMPANY).eq("key", key);
+        if(updateError)throw updateError;
       }
       return res.status(200).json({ ok: true });
     }
@@ -97,10 +113,11 @@ export default async function handler(req, res) {
       if (user.role !== "admin") return res.status(403).json({ error: "Acesso restrito ao administrador." });
       const limiteHistorico = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       // Evita acumular uma linha para sempre a cada aba/dispositivo utilizado.
-      await db.from("company_app_data").delete()
+      const {error:cleanupError}=await db.from("company_app_data").delete()
         .eq("company_id", COMPANY)
         .like("key", `${PRESENCE_PREFIX}%`)
         .lt("updated_at", limiteHistorico);
+      if(cleanupError)throw cleanupError;
       const { data: rows, error } = await db.from("company_app_data")
         .select("value,updated_at")
         .eq("company_id", COMPANY)
@@ -131,17 +148,21 @@ export default async function handler(req, res) {
       if (muteRow) return res.status(403).json({ error: "Você foi silenciado pelo administrador e não pode enviar mensagens." });
 
       const conteudo = String(text || "").trim().slice(0, MAX_MSG_LEN);
-      if (!conteudo) return res.status(400).json({ error: "Mensagem vazia." });
+      const anexo = sanitizeChatAttachment(attachment);
+      if (!conteudo && !anexo) return res.status(400).json({ error: "Mensagem vazia." });
 
       const agora = new Date().toISOString();
-      const id = crypto.randomUUID();
+      const id = /^[a-zA-Z0-9-]{12,80}$/.test(String(operationId||""))
+        ? String(operationId)
+        : crypto.randomUUID();
       const value = {
         id, userId: user.id, userName: user.nome, role: user.role,
-        text: conteudo, createdAt: agora, deletedAt: null, deletedBy: null,
+        text: conteudo, mentions: sanitizeChatMentions(mentions), attachment: anexo,
+        createdAt: agora, deletedAt: null, deletedBy: null,
       };
-      const { error } = await db.from("company_app_data").insert({
+      const { error } = await db.from("company_app_data").upsert({
         company_id: COMPANY, key: `${MSG_PREFIX}${id}`, value, updated_at: agora,
-      });
+      },{onConflict:"company_id,key",ignoreDuplicates:true});
       if (error) throw error;
       return res.status(200).json({ ok: true, message: value });
     }
@@ -175,7 +196,7 @@ export default async function handler(req, res) {
       if (!atual) return res.status(404).json({ error: "Mensagem nao encontrada." });
       const v = typeof atual.value === "string" ? JSON.parse(atual.value) : atual.value;
       const agora = new Date().toISOString();
-      const value = { ...v, text: "", deletedAt: agora, deletedBy: user.nome };
+      const value = deletedChatMessage(v, { at: agora, by: user.nome });
       const { error } = await db.from("company_app_data").update({ value, updated_at: agora })
         .eq("company_id", COMPANY).eq("key", key);
       if (error) throw error;
@@ -219,15 +240,17 @@ export default async function handler(req, res) {
       const justificativa = String(motivo || "").trim().slice(0, 500);
       if (!justificativa) return res.status(400).json({ error: "Justifique o ajuste." });
 
-      const id = crypto.randomUUID();
+      const id = /^[a-zA-Z0-9-]{12,80}$/.test(String(operationId||""))
+        ? String(operationId)
+        : crypto.randomUUID();
       const agora = new Date().toISOString();
       const value = {
         userId: targetUserId, pontos: pts, motivo: justificativa,
         criadoPorId: user.id, criadoPor: user.nome, criadoEm: agora,
       };
-      const { error } = await db.from("company_app_data").insert({
+      const { error } = await db.from("company_app_data").upsert({
         company_id: COMPANY, key: `${ADJ_PREFIX}${id}`, value, updated_at: agora,
-      });
+      },{onConflict:"company_id,key",ignoreDuplicates:true});
       if (error) throw error;
       return res.status(200).json({ ok: true, ajuste: { id, ...value } });
     }
@@ -235,9 +258,11 @@ export default async function handler(req, res) {
     if (action === "ranking-remove") {
       if (user.role !== "admin") return res.status(403).json({ error: "Apenas o administrador pode remover um ajuste." });
       if (!adjustmentId) return res.status(400).json({ error: "Ajuste nao informado." });
-      const { error } = await db.from("company_app_data").delete()
-        .eq("company_id", COMPANY).eq("key", `${ADJ_PREFIX}${adjustmentId}`);
+      const {data:removed,error}=await db.from("company_app_data").delete()
+        .eq("company_id", COMPANY).eq("key", `${ADJ_PREFIX}${adjustmentId}`)
+        .select("key");
       if (error) throw error;
+      if(!removed?.length)return res.status(404).json({error:"Ajuste não encontrado."});
       return res.status(200).json({ ok: true });
     }
 

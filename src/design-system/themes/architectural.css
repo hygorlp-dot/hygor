@@ -1,0 +1,139 @@
+/*
+ * ARCD Estrutural
+ *
+ * Variação opcional do Carbon incorporada do ARCD Carbon Design System.
+ * O tema preserva contraste, estados semânticos e foco do tema-base; muda
+ * somente superfícies, geometria e navegação para uma leitura arquitetônica.
+ */
+[data-theme="architectural"] {
+  color-scheme: light;
+  --arcd-surface-page: #eef0f1;
+  --arcd-surface-card: #ffffff;
+  --arcd-surface-muted: #e5e8e9;
+  --arcd-surface-subtle: #f3f4f4;
+  --arcd-surface-elevated: #ffffff;
+  --arcd-surface-inverse: #1c2126;
+  --arcd-text-primary: #16191c;
+  --arcd-text-secondary: #505a61;
+  --arcd-text-muted: #68727a;
+  --arcd-text-inverse: #f5f6f6;
+  --arcd-border-subtle: #d5dadd;
+  --arcd-border-default: #c5cbce;
+  --arcd-border-strong: #7c858b;
+  --arcd-action-primary: var(--arcd-gold-400);
+  --arcd-action-primary-hover: var(--arcd-gold-500);
+  --arcd-action-primary-active: var(--arcd-gold-600);
+  --arcd-action-primary-text: #16191c;
+  --arcd-focus-ring: var(--arcd-gold-400);
+  --arcd-accent-structural: #33475a;
+}
+
+[data-theme="architectural"] .arcd-app-shell {
+  background-color: var(--arcd-surface-page) !important;
+}
+
+[data-theme="architectural"] .arcd-main {
+  background-color: var(--arcd-surface-page);
+  background-image:
+    linear-gradient(rgba(22, 25, 28, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22, 25, 28, .035) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+[data-theme="architectural"] .works-card,
+[data-theme="architectural"] .supplier-ranking-card,
+[data-theme="architectural"] .dre-kpi-card,
+[data-theme="architectural"] .compras-next-action,
+[data-theme="architectural"] .obra-fin-balance,
+[data-theme="architectural"] .obra-fin-metric,
+[data-theme="architectural"] .obra-fin-table-wrap,
+[data-theme="architectural"] .purchase-kanban-column,
+[data-theme="architectural"] .purchase-kanban-card,
+[data-theme="architectural"] .supplier-detail,
+[data-theme="architectural"] .works-filter-bar,
+[data-theme="architectural"] .compras-journey,
+[data-theme="architectural"] .compras-toolbar {
+  border-radius: 4px !important;
+}
+
+[data-theme="architectural"] .works-card::before,
+[data-theme="architectural"] .compras-next-action::before,
+[data-theme="architectural"] .dre-company-header::before,
+[data-theme="architectural"] .dre-kpi-card::before {
+  background: var(--arcd-accent-structural) !important;
+}
+
+[data-theme="architectural"] .works-card[data-risk="true"]::before {
+  background: #b66a63 !important;
+}
+
+[data-theme="architectural"] .compras-journey button[data-active="true"] .compras-step-number {
+  border-color: var(--arcd-accent-structural) !important;
+  background: var(--arcd-accent-structural) !important;
+}
+
+[data-theme="architectural"] .supplier-card-title,
+[data-theme="architectural"] .works-card-cover {
+  border-radius: 0 !important;
+}
+
+[data-theme="architectural"] button,
+[data-theme="architectural"] .works-card,
+[data-theme="architectural"] .purchase-kanban-card,
+[data-theme="architectural"] .dashboard-kpi {
+  transition-duration: .12s !important;
+  transition-timing-function: cubic-bezier(.4, 0, .2, 1) !important;
+}
+
+[data-theme="architectural"] .arcd-sidebar {
+  border-right-color: #2a2f34 !important;
+  background: #1c2126 !important;
+}
+
+[data-theme="architectural"] .arcd-sidebar > div:first-child,
+[data-theme="architectural"] .arcd-sidebar > div:last-child {
+  border-color: #2a2f34 !important;
+  background: #20262b !important;
+}
+
+[data-theme="architectural"] .arcd-sidebar b {
+  color: #e7e9ea !important;
+}
+
+[data-theme="architectural"] .arcd-sidebar .nav-grp-hd,
+[data-theme="architectural"] .arcd-sidebar p {
+  color: #9ba3a9 !important;
+}
+
+[data-theme="architectural"] .arcd-sidebar .nav-grp-hd:hover,
+[data-theme="architectural"] .arcd-sidebar .nav-grp-hd[data-open="true"],
+[data-theme="architectural"] .arcd-sidebar .nav-item:hover {
+  color: #f5f6f6 !important;
+  background: #2a3035 !important;
+}
+
+[data-theme="architectural"] .arcd-sidebar .nav-item {
+  color: #c2c8cc;
+}
+
+[data-theme="architectural"] .arcd-sidebar .nav-item[data-active="true"] {
+  color: #ffffff;
+  background: #343b40;
+}
+
+[data-theme="architectural"] .arcd-sidebar > div:last-child p {
+  color: #c7cbce !important;
+}
+
+[data-theme="architectural"] .arcd-sidebar > div:last-child span {
+  color: #929ba1 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="architectural"] button,
+  [data-theme="architectural"] .works-card,
+  [data-theme="architectural"] .purchase-kanban-card,
+  [data-theme="architectural"] .dashboard-kpi {
+    transition-duration: .01ms !important;
+  }
+}

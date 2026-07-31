@@ -1,0 +1,11 @@
+:root {
+  --arcd-touch-target-min: 44px;
+  --arcd-touch-target-comfortable: 48px;
+  --arcd-mobile-header-height: 56px;
+  --arcd-mobile-nav-height: 64px;
+}
+
+.arcd-touch-target {
+  min-inline-size: var(--arcd-touch-target-min);
+  min-block-size: var(--arcd-touch-target-min);
+}

@@ -1,13 +1,14 @@
 import { authenticateAppUser } from "./auth.js";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
 import { buildDailyBrief } from "../server/daily-brief.js";
+import { decryptAiSecret, encryptAiSecret } from "../server/ai-secret.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const CONFIG_KEY = "arced_ai_config_gemini_v1";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const AI_ENCRYPTION_KEY = process.env.AI_ENCRYPTION_KEY || "";
 
 const MODULE_POLICIES = {
   geral: "Atue como copiloto operacional. Relacione a resposta ao setor e à obra, deixe explícitas as pendências e termine com a próxima ação recomendada.",
@@ -32,19 +33,13 @@ const normalizeModule = value => {
 const database = () => createClient(URL, SERVICE, {
   auth: { persistSession:false, autoRefreshToken:false },
 });
-const encryptionKey = () => crypto.createHash("sha256")
-  .update(`${SERVICE}:${COMPANY}:arcd-gemini-config`).digest();
-const encrypt = plainText => {
-  const iv=crypto.randomBytes(12);
-  const cipher=crypto.createCipheriv("aes-256-gcm",encryptionKey(),iv);
-  const encrypted=Buffer.concat([cipher.update(plainText,"utf8"),cipher.final()]);
-  return {encryptedKey:encrypted.toString("base64"),iv:iv.toString("base64"),tag:cipher.getAuthTag().toString("base64")};
-};
-const decrypt = value => {
-  const decipher=crypto.createDecipheriv("aes-256-gcm",encryptionKey(),Buffer.from(value.iv,"base64"));
-  decipher.setAuthTag(Buffer.from(value.tag,"base64"));
-  return Buffer.concat([decipher.update(Buffer.from(value.encryptedKey,"base64")),decipher.final()]).toString("utf8");
-};
+const encrypt = plainText => encryptAiSecret(plainText,{
+  secret:AI_ENCRYPTION_KEY||SERVICE,company:COMPANY,
+  keyVersion:AI_ENCRYPTION_KEY?"ai-v1":"service-v1",
+});
+const decrypt = value => decryptAiSecret(value,{
+  primarySecret:AI_ENCRYPTION_KEY,legacySecret:SERVICE,company:COMPANY,
+});
 const loadConfig = async () => {
   if(!URL||!SERVICE)return {apiKey:"",model:DEFAULT_MODEL,source:"none"};
   const {data,error}=await database().from("company_app_data").select("value,updated_at")
@@ -52,7 +47,17 @@ const loadConfig = async () => {
   let value=data?.value;
   if(typeof value==="string"){try{value=JSON.parse(value);}catch{value=null;}}
   if(!error&&value?.encryptedKey){
-    try{return {apiKey:decrypt(value),model:value.model||DEFAULT_MODEL,source:"admin",updatedAt:data.updated_at||value.updatedAt||"",updatedBy:value.updatedBy||"",validationStatus:value.validationStatus||"unknown",validationMessage:value.validationMessage||""};}
+    try{
+      const opened=decrypt(value);
+      if(AI_ENCRYPTION_KEY&&opened.source!=="ai-v1"){
+        const migrated={...value,...encrypt(opened.plainText)};
+        const {error:migrationError}=await database().from("company_app_data").update({
+          value:migrated,updated_at:new Date().toISOString(),
+        }).eq("company_id",COMPANY).eq("key",CONFIG_KEY);
+        if(migrationError)console.error("Não foi possível migrar a criptografia da configuração Gemini:",migrationError.message);
+      }
+      return {apiKey:opened.plainText,model:value.model||DEFAULT_MODEL,source:"admin",updatedAt:data.updated_at||value.updatedAt||"",updatedBy:value.updatedBy||"",validationStatus:value.validationStatus||"unknown",validationMessage:value.validationMessage||""};
+    }
     catch(decryptError){console.error("Não foi possível abrir a configuração do Gemini:",decryptError?.message);}
   }
   const environmentKey=String(process.env.GEMINI_API_KEY||"").trim();

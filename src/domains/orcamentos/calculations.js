@@ -30,11 +30,72 @@ export const calculateBudget = budget => {
   return {engineVersion:ENGINE_VERSION,items,etapas,custoDiretoCentavos,valorBDICentavos,totalCentavos,custoDireto:fromCents(custoDiretoCentavos),valorBDI:fromCents(valorBDICentavos),total:fromCents(totalCentavos),porM2:Number(budget?.areaM2||0)>0?fromCents(totalCentavos)/Number(budget.areaM2):0,qtdItens:items.length};
 };
 
+// Projeção única para tela, PDF e planilhas. Consumidores de exportação não
+// recalculam BDI: recebem os mesmos centavos e preços unitários do motor.
+export const projectBudgetExport = budget => {
+  const calculation=calculateBudget(budget);
+  return {...calculation,rows:calculation.items.map(item=>({
+    id:item.id,codigo:item.codigo||"",descricao:item.descricao||"",unidade:item.unidade||"",
+    quantidade:item.quantidade,custoUnitario:item.custoUnitario,bdi:item.bdiEfetivo,
+    // total já está expresso em moeda; não o converta novamente para centavos.
+    // Essa projeção é consumida igualmente por tela, PDF e XLSX.
+    precoUnitario:item.quantidade>0?item.total/item.quantidade:0,
+    custoDireto:item.custoDireto,valorBDI:item.valorBDI,total:item.total,
+    custoDiretoCentavos:item.custoDiretoCentavos,bdiCentavos:item.bdiCentavos,totalCentavos:item.totalCentavos,
+  }))};
+};
+
 export const calculateABC = budget => {
   const calc=calculateBudget(budget),groups=new Map();
   calc.items.forEach(item=>{const key=[item.fonte||"PROPRIA",item.codigo||item.descricao,item.unidade||""].join("|");const old=groups.get(key)||{...item,quantidade:0,custoDiretoCentavos:0,bdiCentavos:0,totalCentavos:0,ocorrencias:0};old.quantidade+=item.quantidade;old.custoDiretoCentavos+=item.custoDiretoCentavos;old.bdiCentavos+=item.bdiCentavos;old.totalCentavos+=item.totalCentavos;old.ocorrencias++;groups.set(key,old);});
   let accumulated=0;const items=[...groups.values()].sort((a,b)=>b.custoDiretoCentavos-a.custoDiretoCentavos).map((item,index)=>{const pct=calc.custoDiretoCentavos?item.custoDiretoCentavos/calc.custoDiretoCentavos*100:0;const classe=accumulated<80?"A":accumulated<95?"B":"C";accumulated+=pct;return {...item,ordem:index+1,custoDireto:fromCents(item.custoDiretoCentavos),total:fromCents(item.totalCentavos),pct,pctAcum:Math.min(100,accumulated),classe};});
   return {items,totalCD:calc.custoDireto,totalComBDI:calc.total,resumo:["A","B","C"].map(classe=>{const list=items.filter(i=>i.classe===classe),cent=list.reduce((s,i)=>s+i.totalCentavos,0);return {classe,qtd:list.length,total:fromCents(cent),pctValor:calc.totalCentavos?cent/calc.totalCentavos*100:0};})};
+};
+
+// Adaptador canônico para a tela e exportação histórica da Curva ABC. Mantém
+// os nomes esperados pela interface, mas deriva valores exclusivamente do
+// mesmo cálculo por centavos usado no orçamento (inclusive BDI por item).
+export const projectBudgetABC = (budget, { group = true } = {}) => {
+  const calculation = calculateBudget(budget);
+  const groups = new Map();
+  calculation.items.forEach((item, index) => {
+    const key = group
+      ? [item.codigo || `~${String(item.descricao || "").trim().toLowerCase()}`, item.unidade || ""].join("|")
+      : `${index}|${item.id || ""}`;
+    const current = groups.get(key) || {
+      codigo:item.codigo || "", fonte:item.fonte || "", descricao:item.descricao || "",
+      unidade:item.unidade || "", quantidade:0, precoUnit:item.custoUnitario,
+      custoDiretoCentavos:0, totalCentavos:0, ocorrencias:0,
+    };
+    current.quantidade += item.quantidade;
+    current.custoDiretoCentavos += item.custoDiretoCentavos;
+    current.totalCentavos += item.totalCentavos;
+    current.ocorrencias += 1;
+    groups.set(key, current);
+  });
+  const totalCD = fromCents(calculation.custoDiretoCentavos);
+  let accumulated = 0;
+  const itens = [...groups.values()]
+    .sort((a, b) => b.custoDiretoCentavos - a.custoDiretoCentavos)
+    .map((item, index) => {
+      const custoDireto = fromCents(item.custoDiretoCentavos);
+      const pct = calculation.custoDiretoCentavos ? item.custoDiretoCentavos / calculation.custoDiretoCentavos * 100 : 0;
+      const classe = accumulated < 80 ? "A" : accumulated < 95 ? "B" : "C";
+      accumulated += pct;
+      return { ...item, ordem:index + 1, custoDireto, total:fromCents(item.totalCentavos), pct, pctAcum:Math.min(100, accumulated), classe };
+    });
+  const colors = { A:"#C62828", B:"#EF6C00", C:"#2E7D32" };
+  const resumo = ["A", "B", "C"].map(classe => {
+    const items = itens.filter(item => item.classe === classe);
+    const custoDireto = items.reduce((sum, item) => sum + item.custoDireto, 0);
+    return {
+      classe, cor:colors[classe], qtd:items.length, custoDireto,
+      total:items.reduce((sum, item) => sum + item.total, 0),
+      pctValor:totalCD ? custoDireto / totalCD * 100 : 0,
+      pctItens:itens.length ? items.length / itens.length * 100 : 0,
+    };
+  });
+  return { itens, resumo, totalCD, totalComBDI:calculation.total };
 };
 
 export const getActiveBudgetBaseline=(data,obraId,purpose="controle")=>{

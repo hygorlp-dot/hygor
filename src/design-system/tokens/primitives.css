@@ -1,0 +1,22 @@
+:root {
+  --arcd-gray-0: #ffffff;
+  --arcd-gray-50: #f4f4f4;
+  --arcd-gray-100: #e8e8e8;
+  --arcd-gray-200: #d6d6d6;
+  --arcd-gray-300: #c6c6c6;
+  --arcd-gray-500: #6f6f6f;
+  --arcd-gray-600: #525252;
+  --arcd-gray-800: #393939;
+  --arcd-gray-900: #161616;
+
+  --arcd-gold-300: #f0e6b8;
+  --arcd-gold-400: #d4af37;
+  --arcd-gold-500: #b38c1b;
+  --arcd-gold-600: #8f6e00;
+
+  --arcd-green-500: #198038;
+  --arcd-red-500: #da1e28;
+  --arcd-orange-500: #8a3800;
+  --arcd-blue-500: #0f62fe;
+  --arcd-purple-500: #4a148c;
+}

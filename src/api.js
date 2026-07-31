@@ -17,6 +17,8 @@ const ROTA = "/api/data";
 let sessao = { userId: null, pin: null, accessToken: null, refreshToken: null, sessionId: null };
 try { sessao={...sessao,...JSON.parse(sessionStorage.getItem("arcd_auth_session")||"{}")}; } catch (_) {}
 let ultimoUpdatedAt = null;
+let renovacaoEmCurso = null;
+let presenceAuthBlocked = false;
 
 const novaSessaoId = () => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -25,10 +27,12 @@ const novaSessaoId = () => {
 
 export const abrirSessao = (userId, pin) => {
   sessao = { userId, pin, accessToken:null,refreshToken:null,sessionId: novaSessaoId() };
+  presenceAuthBlocked=false;
 };
 
 const abrirSessaoEmail=(userId,accessToken,refreshToken)=>{
   sessao={userId,pin:null,accessToken,refreshToken,sessionId:novaSessaoId()};
+  presenceAuthBlocked=false;
   try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
 };
 
@@ -49,16 +53,32 @@ const tokenExpiraEmBreve = (token, margemSegundos=30) => {
 
 const renovarSessaoEmail = async () => {
   if(!sessao.refreshToken)return false;
-  const response=await fetch(ROTA,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"auth-refresh",refreshToken:sessao.refreshToken})});
-  const refreshed=await response.json().catch(()=>({}));
-  if(!response.ok||!refreshed.accessToken)return false;
-  sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
-  try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
-  return true;
+  if(renovacaoEmCurso)return renovacaoEmCurso;
+  renovacaoEmCurso=(async()=>{
+    const controller=new AbortController();
+    const timer=window.setTimeout(()=>controller.abort(),15000);
+    try{
+      const response=await fetch(ROTA,{
+        method:"POST",signal:controller.signal,
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({action:"auth-refresh",refreshToken:sessao.refreshToken}),
+      });
+      const refreshed=await response.json().catch(()=>({}));
+      if(!response.ok||!refreshed.accessToken)return false;
+      sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
+      presenceAuthBlocked=false;
+      try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
+      return true;
+    }catch{return false;}
+    finally{window.clearTimeout(timer);}
+  })();
+  try{return await renovacaoEmCurso;}
+  finally{renovacaoEmCurso=null;}
 };
 
 export const fecharSessao = () => {
   sessao = { userId: null, pin: null, accessToken:null,refreshToken:null,sessionId:null };
+  presenceAuthBlocked=false;
   try{sessionStorage.removeItem("arcd_auth_session");}catch(_){}
   ultimoUpdatedAt = null;
 };
@@ -93,7 +113,11 @@ const chamar = async (body) => {
     }
   }
   const json = await r.json().catch(() => ({}));
-  return { status: r.status, ...json };
+  const retryAfterHeader=Number(r.headers?.get?.("retry-after")||0);
+  return {
+    status:r.status,...json,
+    retryAfter:Number((json.retryAfter??json.retry_after_seconds??retryAfterHeader)||0),
+  };
 };
 
 // Rotas serverless que também precisam reconhecer o operador. Centralizar
@@ -101,22 +125,33 @@ const chamar = async (body) => {
 // de e-mail antes de repetir a requisição.
 const chamarRotaAutenticada = async (rota, payload = {}) => {
   if (!temSessao()) return { ok:false, status:401, error:"Sessão encerrada." };
-  const executar = () => fetch(rota, {
-    method:"POST",
-    headers:{ "content-type":"application/json" },
-    body:JSON.stringify({ ...credenciais(), ...payload }),
-  });
-  let response = await executar();
+  if(sessao.accessToken&&sessao.refreshToken&&tokenExpiraEmBreve(sessao.accessToken)){
+    await renovarSessaoEmail();
+  }
+  const executar = async () => {
+    const controller=new AbortController();
+    const timer=window.setTimeout(()=>controller.abort(),45000);
+    try{
+      const response=await fetch(rota,{
+        method:"POST",signal:controller.signal,
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({...credenciais(),...payload}),
+      });
+      return {response};
+    }catch(error){
+      return {error:error?.name==="AbortError"
+        ?"O servidor demorou mais de 45 segundos para responder."
+        :"Não foi possível conectar ao servidor."};
+    }finally{window.clearTimeout(timer);}
+  };
+  let tentativa=await executar();
+  if(!tentativa.response)return {ok:false,status:0,error:tentativa.error};
+  let response=tentativa.response;
   if (response.status === 401 && sessao.refreshToken) {
-    const refreshResponse = await fetch(ROTA, {
-      method:"POST", headers:{ "content-type":"application/json" },
-      body:JSON.stringify({ action:"auth-refresh", refreshToken:sessao.refreshToken }),
-    });
-    const refreshed = await refreshResponse.json().catch(() => ({}));
-    if (refreshResponse.ok && refreshed.accessToken) {
-      sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
-      try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
-      response=await executar();
+    if(await renovarSessaoEmail()){
+      tentativa=await executar();
+      if(!tentativa.response)return {ok:false,status:0,error:tentativa.error};
+      response=tentativa.response;
     }
   }
   const json=await response.json().catch(()=>({}));
@@ -130,6 +165,9 @@ export const removerConfiguracaoIA = () => chamarRotaAutenticada("/api/ai-agent"
 export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
 export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });
+export const executarComandoOperacional = command => chamar({ action:"operational-command", ...credenciais(), command });
+export const executarComandoConciliacao = command => chamar({ action:"reconciliation-command", ...credenciais(), command });
+export const executarComandoPonto = command => chamar({ ...credenciais(), ...command });
 export const consultarSombraFinanceira = () => chamar({ action:"financial-shadow-report", ...credenciais() });
 export const prepararSombraFinanceira = () => chamar({ action:"financial-shadow-migrate", ...credenciais() });
 export const sincronizarSombraFinanceira = () => chamar({ action:"financial-shadow-sync", ...credenciais() });
@@ -138,6 +176,8 @@ export const consultarDreCanonico = ({year,month,period="mes",obraId=""}) =>
 export const consultarDreEmpresaCanonico = ({year,month}) =>
   chamar({ action:"financial-company-dre-report", ...credenciais(), year, month, period:"mes" });
 export const executarBackup = action => chamar({ action:`backup-${action}`, ...credenciais() });
+export const gerenciarAcessoPortalCliente = payload =>
+  chamar({ action:"client-portal-admin", ...credenciais(), ...payload });
 
 // ── Tela de login: quem existe? ────────────────────────────────────
 // Devolve só nome e papel. O hash do PIN nunca sai do servidor.
@@ -162,6 +202,9 @@ export const entrarComPin = async (userId, pin) => {
   if (r.status === 429) return { ok: false, erro: r.error || "Muitas tentativas." };
   if (r.status === 401) return { ok: false, erro: "PIN incorreto." };
   if (r.status !== 200)  return { ok: false, erro: r.error || "Falha ao entrar." };
+  if (!r.data || !r.usuario?.id) {
+    return { ok:false, erro:"O servidor devolveu uma resposta de autenticação inválida. Tente novamente." };
+  }
 
   abrirSessao(userId, pin);
   ultimoUpdatedAt = r.updatedAt || null;
@@ -171,6 +214,9 @@ export const entrarComPin = async (userId, pin) => {
 export const entrarComEmail = async (email,password) => {
   const r=await chamar({action:"auth-login",email,password});
   if(r.status!==200)return{ok:false,erro:r.error||"E-mail ou senha inválidos."};
+  if(!r.data||!r.usuario?.id||!r.accessToken){
+    return{ok:false,erro:"O servidor devolveu uma resposta de autenticação inválida. Tente novamente."};
+  }
   abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken);
   ultimoUpdatedAt=r.updatedAt||null;
   return{ok:true,data:r.data,usuario:r.usuario};
@@ -197,25 +243,35 @@ export const loadData = async () => {
 // ── Salvar ─────────────────────────────────────────────────────────
 export const saveDataDetailed = async (payload,basePayload=null) => {
   if (!temSessao()) return { ok: false, conflict: false, reason: "Sessão encerrada." };
+  // Ponto e auditoria possuem comandos autoritativos próprios. Excluí-los
+  // daqui impede que um snapshot antigo substitua lançamentos ou histórico.
+  const commandOnlyKeys=new Set([
+    "attendance","attendanceLocks","unlockRequests","dailyCheckDate",
+    "attendanceOperationReceipts","operationalCommandReceipts","changeLog",
+  ]);
+  const safePayload=Object.fromEntries(Object.entries(payload||{}).filter(([key])=>!commandOnlyKeys.has(key)));
+  const safeBase=basePayload
+    ?Object.fromEntries(Object.entries(basePayload||{}).filter(([key])=>!commandOnlyKeys.has(key)))
+    :null;
 
   // Depois da primeira carga existe uma base confirmada. Nesse caso enviamos
   // apenas as coleções de primeiro nível que realmente mudaram. Isso reduz o
   // corpo da requisição, evita reenviar fotos/metadados de módulos intocados e
   // permite ao servidor combinar usuários trabalhando em setores diferentes.
-  const chaves = basePayload
-    ? [...new Set([...Object.keys(basePayload||{}),...Object.keys(payload||{})])]
-        .filter(k => JSON.stringify(basePayload?.[k]) !== JSON.stringify(payload?.[k]))
+  const chaves = safeBase
+    ? [...new Set([...Object.keys(safeBase),...Object.keys(safePayload)])]
+        .filter(k => JSON.stringify(safeBase?.[k]) !== JSON.stringify(safePayload?.[k]))
     : [];
-  const porSecoes = !!basePayload && chaves.length > 0;
-  if (basePayload && !chaves.length) return { ok:true, conflict:false, unchanged:true, updatedAt:ultimoUpdatedAt };
-  const sections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,payload[k]])) : undefined;
-  const baseSections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,basePayload[k]])) : undefined;
+  const porSecoes = !!safeBase && chaves.length > 0;
+  if (safeBase && !chaves.length) return { ok:true, conflict:false, unchanged:true, updatedAt:ultimoUpdatedAt };
+  const sections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,safePayload[k]])) : undefined;
+  const baseSections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,safeBase[k]])) : undefined;
 
   const r = await chamar(porSecoes ? {
     action:"save-sections",...credenciais(),sections,baseSections,
     expectedUpdatedAt:ultimoUpdatedAt,
   } : {
-    action:"save",...credenciais(),payload,basePayload,
+    action:"save",...credenciais(),payload:safePayload,basePayload:safeBase,
     expectedUpdatedAt:ultimoUpdatedAt,
   });
 
@@ -225,7 +281,7 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
       reason: r.reason,
       currentData: r.currentData,
       currentUpdatedAt: r.currentUpdatedAt,
-      rejectedPayload: payload,     // o que VOCÊ fez não se perde
+      rejectedPayload: safePayload,     // o que VOCÊ fez não se perde
     };
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("arcd:data-conflict", { detail: detalhe }));
@@ -233,7 +289,14 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
     return detalhe;
   }
 
-  if (r.status !== 200) return { ok: false, conflict: false, reason: r.error || "Falha ao salvar." };
+  if (r.status !== 200) return {
+    ok:false,
+    conflict:false,
+    status:r.status,
+    code:r.code || "",
+    retryAfter:Number(r.retryAfter||0),
+    reason:r.error || "Falha ao salvar.",
+  };
 
   ultimoUpdatedAt = r.updatedAt || null;
   return { ok: true, conflict: false, merged:!!r.merged, data:r.data, savedSections:r.savedSections||chaves, updatedAt: ultimoUpdatedAt };
@@ -242,6 +305,13 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
 export const provisionarContaEmail=async(targetUserId,password)=>{
   const r=await chamar({action:"auth-provision",...credenciais(),targetUserId,password});
   if(r.status!==200)return{ok:false,erro:r.error||"Falha ao ativar a conta."};
+  ultimoUpdatedAt=r.updatedAt||ultimoUpdatedAt;
+  return{ok:true,data:r.data,updatedAt:r.updatedAt};
+};
+
+export const definirPinOperador=async(targetUserId,newPin)=>{
+  const r=await chamar({action:"auth-pin-set",...credenciais(),targetUserId,newPin});
+  if(r.status!==200)return{ok:false,erro:r.error||"Não foi possível definir o PIN."};
   ultimoUpdatedAt=r.updatedAt||ultimoUpdatedAt;
   return{ok:true,data:r.data,updatedAt:r.updatedAt};
 };
@@ -265,23 +335,29 @@ export const logout = fecharSessao;
 // Cada aba usa um sessionId próprio e grava em uma linha separada do dataset.
 const chamarPresenca = async (action, extra = {}, keepalive = false) => {
   if (!temSessao()) return { ok: false, erro: "Sessão encerrada." };
-  try {
-    const r = await fetch("/api/presence", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        action,
-        ...credenciais(),
-        sessionId: sessao.sessionId,
-        ...extra,
-      }),
-      keepalive,
-    });
-    const json = await r.json().catch(() => ({}));
-    return { ok: r.ok, status: r.status, erro: json.error, ...json };
-  } catch {
-    return { ok: false, erro: "Não foi possível atualizar a presença." };
+  if(presenceAuthBlocked)return {
+    ok:false,status:401,erro:"A presença on-line aguardará a renovação da sessão.",suspended:true,
+  };
+  const payload={action,sessionId:sessao.sessionId,...extra};
+  if(keepalive){
+    try{
+      const response=await fetch("/api/presence",{
+        method:"POST",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({...credenciais(),...payload}),
+        keepalive:true,
+      });
+      if(response.status===401)presenceAuthBlocked=true;
+      const json=await response.json().catch(()=>({}));
+      return {ok:response.ok,status:response.status,erro:json.error,...json};
+    }catch{
+      return {ok:false,status:0,erro:"Não foi possível atualizar a presença."};
+    }
   }
+  const result=await chamarRotaAutenticada("/api/presence",payload);
+  if(result.status===401)presenceAuthBlocked=true;
+  if(result.ok)presenceAuthBlocked=false;
+  return {...result,erro:result.error};
 };
 
 const descricaoDispositivo = () => {
@@ -309,15 +385,33 @@ export const listarPresencas = async () => {
 // Dividem o endpoint /api/presence (dispatch por "action") em vez de cada um
 // ganhar seu próprio arquivo - o Hobby plan do Vercel tem um teto de 12
 // Serverless Functions por deployment.
-export const enviarMensagemChat = texto => chamarRotaAutenticada("/api/presence", { action: "chat-send", text: texto });
+const novaOperacaoId=()=>globalThis.crypto?.randomUUID?.()
+  || `op-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+export const enviarMensagemChat = (texto, { mentions = [], attachment = null } = {}) => chamarRotaAutenticada("/api/presence", {
+  action:"chat-send",text:texto,mentions,attachment,operationId:novaOperacaoId(),
+});
 export const listarMensagensChat = () => chamarRotaAutenticada("/api/presence", { action: "chat-list" });
+// Anexo de chat: sobe pro Storage num caminho próprio ("chat/"), sem exigir
+// obra (o chat é da empresa toda) e aceitando mais tipos que a foto do diário.
+export const subirAnexoChat = async ({ dataUrl, ext }) => {
+  if (!temSessao()) return { ok: false, error: "Sem sessão." };
+  const r = await fetch("/api/upload", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...credenciais(), dataUrl, ext, folder: "chat" }),
+  });
+  const j = await r.json().catch(() => ({ error: "Falha no upload." }));
+  return { ok: r.ok && j.ok !== false && !j.error, ...j };
+};
 export const apagarMensagemChat = messageId => chamarRotaAutenticada("/api/presence", { action: "chat-delete", messageId });
 export const silenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/presence", { action: "chat-mute", targetUserId });
 export const dessilenciarUsuarioChat = targetUserId => chamarRotaAutenticada("/api/presence", { action: "chat-unmute", targetUserId });
 
 export const listarAjustesRanking = () => chamarRotaAutenticada("/api/presence", { action: "ranking-list" });
 export const adicionarAjusteRanking = (targetUserId, pontos, motivo) =>
-  chamarRotaAutenticada("/api/presence", { action: "ranking-add", targetUserId, pontos, motivo });
+  chamarRotaAutenticada("/api/presence", {
+    action:"ranking-add",targetUserId,pontos,motivo,operationId:novaOperacaoId(),
+  });
 export const removerAjusteRanking = adjustmentId => chamarRotaAutenticada("/api/presence", { action: "ranking-remove", adjustmentId });
 
 // ── Quinzenas arquivadas ──────────────────────────────────────────

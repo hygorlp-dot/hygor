@@ -27,7 +27,7 @@ const registrarAuditoria = (auditoria, entrada) => [
 ];
 
 const marcarInstancia = (instancias, instanciaId, patch) =>
-  (instancias || []).map(i => (i.id === instanciaId ? { ...i, ...patch } : i));
+  (instancias || []).filter(Boolean).map(i => (i.id === instanciaId ? { ...i, ...patch } : i));
 
 const ordensUnicas = etapas => [...new Set((etapas || []).map(e => Number(e.ordem || 0)))].sort((a, b) => a - b);
 
@@ -197,7 +197,7 @@ export const createApprovalEngine = (resolvedores = {}) => {
   // (é preciso informar `etapaId` porque, com etapas paralelas, mais de uma
   // pode estar "em_andamento" ao mesmo tempo).
   const registrarDecisao = (data, { instanciaId, etapaId, aprovadorId, aprovadorNome, decisao, justificativa = "", anexos = [], delegadoPor = "", substituiuUsuario = "", contexto, agora }) => {
-    const instancia = (data.instanciasAprovacao || []).find(i => i.id === instanciaId);
+    const instancia = (data.instanciasAprovacao || []).find(i => i?.id === instanciaId);
     if (!instancia) return { data, resumo: { ok: false, motivo: "Instância de aprovação não encontrada" } };
     if (instancia.status !== "em_andamento") return { data, resumo: { ok: false, motivo: "Esta aprovação já foi concluída ou não está em andamento" } };
 
@@ -205,8 +205,8 @@ export const createApprovalEngine = (resolvedores = {}) => {
     const idx = instancia.snapshotPolitica.etapas.findIndex(e => e.id === etapaId);
     if (idx < 0) return { data, resumo: { ok: false, motivo: "Etapa não encontrada nesta instância" } };
     const etapa = instancia.snapshotPolitica.etapas[idx];
-    const resultadoAtual = instancia.resultadosEtapas[idx];
-    if (resultadoAtual.status !== "em_andamento") return { data, resumo: { ok: false, motivo: "Esta etapa não está aguardando decisão" } };
+    const resultadoAtual = instancia.resultadosEtapas?.[idx];
+    if (resultadoAtual?.status !== "em_andamento") return { data, resumo: { ok: false, motivo: "Esta etapa não está aguardando decisão" } };
     const elegivelIds = new Set((resultadoAtual.aprovadoresElegiveis || []).map(u => u.id));
     if (!elegivelIds.has(aprovadorId)) return { data, resumo: { ok: false, motivo: "Este usuário não está entre os aprovadores elegíveis desta etapa" } };
 
@@ -239,7 +239,7 @@ export const createApprovalEngine = (resolvedores = {}) => {
     // (paralelas a esta) já terminaram todas. Se não, fica esperando-as.
     const ordemDaEtapa = Number(etapa.ordem || 0);
     const irmas = instancia.snapshotPolitica.etapas.map((e, i) => ({ e, i })).filter(x => Number(x.e.ordem || 0) === ordemDaEtapa);
-    const grupoResolvido = irmas.every(({ i }) => ETAPA_TERMINAL.has(resultadosEtapas[i].status));
+    const grupoResolvido = irmas.every(({ i }) => ETAPA_TERMINAL.has(resultadosEtapas[i]?.status));
 
     if (!grupoResolvido) {
       const instanciasAprovacao = marcarInstancia(data.instanciasAprovacao, instanciaId, { resultadosEtapas });
@@ -285,13 +285,13 @@ export const createApprovalEngine = (resolvedores = {}) => {
   const aplicarEscalonamento = (data, { contexto, agora } = {}) => {
     const dataAgora = agora || new Date().toISOString();
     let auditoriaAprovacao = data.auditoriaAprovacao;
-    const instanciasAprovacao = (data.instanciasAprovacao || []).map(instancia => {
+    const instanciasAprovacao = (data.instanciasAprovacao || []).filter(Boolean).map(instancia => {
       if (instancia.status !== "em_andamento" || !instancia.snapshotPolitica) return instancia;
-      let resultados = [...instancia.resultadosEtapas];
+      let resultados = Array.isArray(instancia.resultadosEtapas) ? [...instancia.resultadosEtapas] : [];
       let mudou = false;
       instancia.snapshotPolitica.etapas.forEach((etapa, i) => {
         const resultado = resultados[i];
-        if (resultado.status !== "em_andamento" || !prazoVencido(resultado.vencimentoEm, dataAgora)) return;
+        if (resultado?.status !== "em_andamento" || !prazoVencido(resultado.vencimentoEm, dataAgora)) return;
         mudou = true;
         const acao = etapa.acaoNoVencimento || "escalonar";
         auditoriaAprovacao = registrarAuditoria(auditoriaAprovacao, { instanciaId: instancia.id, evento: "prazo_vencido", motivo: `Etapa "${etapa.nome}" venceu; ação: ${acao}`, data: dataAgora });
@@ -315,7 +315,7 @@ export const createApprovalEngine = (resolvedores = {}) => {
       // "aprovar_automatico" concluiu o grupo inteiro, tenta avançar o fluxo.
       const ordemAtual = instancia.ordemAtual;
       const irmasAtuais = instancia.snapshotPolitica.etapas.map((e, i) => ({ e, i })).filter(x => Number(x.e.ordem || 0) === ordemAtual);
-      const grupoResolvido = irmasAtuais.every(({ i }) => ETAPA_TERMINAL.has(resultados[i].status));
+      const grupoResolvido = irmasAtuais.every(({ i }) => ETAPA_TERMINAL.has(resultados[i]?.status));
       if (!grupoResolvido) return { ...instancia, resultadosEtapas: resultados };
 
       const ordens = ordensUnicas(instancia.snapshotPolitica.etapas);

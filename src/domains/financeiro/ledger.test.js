@@ -1,5 +1,5 @@
 import {
-  buildFinancialLedger, selectDRE, selectCashFlow, selectAccountsReceivable,
+  buildFinancialLedger, selectDRE, selectCashFlow, selectAccountsReceivable, selectCorporateOperatingCosts,
   selectAccountsPayable, selectCommitments, validateFinancialReconciliation,
   recebimentosDaMedicao, toCents,
 } from "./ledger";
@@ -49,6 +49,8 @@ describe("razão financeiro único — fixture julho/2026", () => {
     expect(dre.costCents).toBe(toCents(47500));
     expect(dre.resultCents).toBe(toCents(52500));
     expect(dre.margin).toBe(52.5);
+    expect(dre.costByCategory.mao_obra).toBe(12000);
+    expect(dre.costBySource.nota_fiscal).toBe(24000);
   });
 
   test("fecha caixa sem duplicar transação bancária nem campo espelho", () => {
@@ -70,6 +72,17 @@ describe("razão financeiro único — fixture julho/2026", () => {
     expect(events.map(event => event.effect)).toEqual(["cash_in"]);
   });
 
+  test("despesa administrativa é selecionada pelo razão, com estorno líquido", () => {
+    const ledger=buildFinancialLedger({despesasEmpresa:[
+      {id:"sede",competencia:"2026-07",categoria:"aluguel",valor:900},
+      {id:"estorno",competencia:"2026-07",categoria:"aluguel",valor:-150},
+    ]});
+    const selected=selectCorporateOperatingCosts(ledger,{competence:"2026-07"});
+    expect(selected.costCents).toBe(toCents(750));
+    expect(selected.costs).toBe(750);
+    expect(selected.events).toHaveLength(2);
+  });
+
   test("pedido não entra no DRE e NF não duplica custo no pagamento", () => {
     const dre = selectDRE(ledger, period);
     expect(dre.events.some(event => event.sourceType === "pedido")).toBe(false);
@@ -81,6 +94,26 @@ describe("razão financeiro único — fixture julho/2026", () => {
     expect(conference.ok).toBe(true);
     expect(conference.checks.every(check => check.ok)).toBe(true);
   });
+});
+
+describe("status econômicos do razão", () => {
+  test("arquivamento preserva o compromisso econômico", () => {
+    const ledger=buildFinancialLedger({pedidos:[{
+      id:"ped-arquivado",obraId:"obra-1",numero:"ARQ-01",status:"arquivado",data:"2026-07-10",valorTotal:1250,
+    }]});
+    expect(ledger.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({effect:"commitment_increase",amountCents:125000,sourceId:"ped-arquivado"}),
+    ]));
+  });
+
+  test.each(["estornada","ESTORNADA","reversed","cancelled","rejeitado"]) (
+    "status %s não deixa uma despesa produzir custo",status=>{
+      const ledger=buildFinancialLedger({outrasDesp:[{
+        id:"desp-inativa",obraId:"obra-1",competencia:"2026-07",valor:500,status,
+      }]});
+      expect(ledger.events.filter(event=>event.sourceId==="desp-inativa")).toEqual([]);
+    },
+  );
 });
 
 describe("compatibilidade e pendências financeiras", () => {

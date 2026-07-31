@@ -1,0 +1,1 @@
+export const INSPECTION_RESULT=Object.freeze(["conforme","conforme_ressalva","nao_conforme","nao_aplicavel","aguardando_evidencia"]);export const NONCONFORMITY_STATUS=Object.freeze(["aberta","contencao","analise_causa","acao_corretiva","verificacao","encerrada"]);

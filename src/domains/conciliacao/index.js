@@ -4,3 +4,5 @@ export * from "./matching.js";
 export * from "./mutations.js";
 export * from "./permissions.js";
 export * from "./payroll.js";
+export * from "./identity.js";
+export * from "./engine.js";

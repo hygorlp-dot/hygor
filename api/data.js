@@ -25,39 +25,171 @@ import path from "node:path";
 import postgres from "postgres";
 import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
+import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
+import { validateProcurementChain } from "../server/procurement-chain-policy.js";
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
-import { authorizeSectionChanges, validateNoPhysicalDeletes } from "../server/section-authorizations.js";
+import { findSectionConflicts } from "../server/three-way-conflicts.js";
+import { mergeThreeWay } from "../server/three-way-merge.js";
+import { authorizeSectionChanges, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
-import { getOrCreateFolder, graph, refresh, rootItem } from "./microsoft/_graph.js";
+import { buildRequestedDreProjectionRows } from "../server/dre-projection.js";
+import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
+import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
+import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
+import { projectReconciliationPatch } from "../server/reconciliation-response.js";
+import { projectChangedSectionsPatch } from "../server/section-patch.js";
+import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
+import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
+import {
+  requiresFinancialOperationalPersistence,
+} from "../server/operational-command-persistence.js";
+import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
+import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
+import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
+import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
+import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "../server/app-auth-security.js";
+import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
+import { sanitizeClientError } from "../server/client-error-report.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const KEY     = "arced_ponto_v1";
 const PROFILE_KEY = "arced_auth_profiles_v1";
+const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
+  "operationalCommandReceipts",
+  "changeLog",
+];
 // Ativação somente após executar a migração canônica e concluir a comparação
 // em sombra. Evita quebrar instalações legadas durante a transição.
 const FINANCIAL_ENGINE_ENFORCE = process.env.FINANCIAL_ENGINE_ENFORCE === "true";
-const FINANCIAL_LEGACY_SECTIONS = new Set([
-  "payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","transacoes",
-  "notasFiscais","pedidos","pagsTerceiros","medicoesTerc","pagamentosFolha",
-  "titulosFolha","reconciliationLinks","rescisoes","comercial",
-  "attendance","employees","archivedLaborCosts","config","obras",
-  "equipamentos","locacoesEquip","manutencoesEquip",
-]);
 const FINANCIAL_COMMANDS = new Set(["CREATE_FINANCIAL_TITLE","REGISTER_SETTLEMENT","REVERSE_SETTLEMENT","CLOSE_ACCOUNTING_PERIOD"]);
 const FINANCIAL_COMMAND_ROLES = {
   CREATE_FINANCIAL_TITLE:["admin","financeiro"], REGISTER_SETTLEMENT:["admin","financeiro"],
   REVERSE_SETTLEMENT:["admin","financeiro"], CLOSE_ACCOUNTING_PERIOD:["admin"],
 };
+const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
+const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
+const OPERATIONAL_COMMAND_ROLES = {
+  [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED]:["admin","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_RELEASED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED]:["admin","compras","financeiro","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENTS_GENERATED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_CANCELLED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_ADMIN_CLOSED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_BILLED]:["admin","financeiro","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED]:["admin","comercial"],
+  [OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.PROJECT_EXPENSE_CANCELLED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.COMPANY_EXPENSE_CANCELLED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED]:["admin","financeiro","compras"],
+  [OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED]:["admin","financeiro","compras"],
+  [OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED]:["admin","financeiro","compras"],
+  [OPERATIONAL_COMMAND.PURCHASE_CANCELLED]:["admin","financeiro","compras"],
+  [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED]:["admin","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.THIRD_PARTY_INVOICE_LINKED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.INVOICE_SAVED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.INVOICE_APPROVED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED]:["admin","compras"],
+  [OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE]:["admin","compras"],
+  [OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED]:["admin","compras"],
+  [OPERATIONAL_COMMAND.PURCHASE_QUOTE_CANCELLED]:["admin","compras"],
+  [OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED]:["admin","rh"],
+  [OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CANCELLED]:["admin","rh"],
+  [OPERATIONAL_COMMAND.EMPLOYEE_SAVED]:["admin","rh"],
+  [OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED]:["admin","rh"],
+  [OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED]:["admin","rh"],
+  [OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED]:["admin"],
+  [OPERATIONAL_COMMAND.PROJECT_SAVED]:["admin"],
+  [OPERATIONAL_COMMAND.PROJECT_DELETED]:["admin"],
+  [OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
+  [OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
+  [OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED]:["admin","engenheiro","qualidade"],
+  [OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
+  [OPERATIONAL_COMMAND.QUALITY_RECORD_DETAILS_UPDATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
+  [OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED]:["admin","engenheiro","seguranca"],
+  [OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED]:["admin","engenheiro","seguranca"],
+  [OPERATIONAL_COMMAND.LOOKAHEAD_CREATED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre","qualidade","seguranca"],
+  [OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_RELEASED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre","qualidade","seguranca"],
+  [OPERATIONAL_COMMAND.LOOKAHEAD_PACKAGE_COMMITTED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+};
+const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
+  OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,
+  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED,OPERATIONAL_COMMAND.CLIENT_MEASUREMENTS_GENERATED,
+  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_CANCELLED,OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED,
+  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_ADMIN_CLOSED,
+  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_BILLED,
+  OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED,
+  OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED,OPERATIONAL_COMMAND.PROJECT_EXPENSE_CANCELLED,
+  OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED,OPERATIONAL_COMMAND.COMPANY_EXPENSE_CANCELLED,
+  OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED,
+  OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED,OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED,
+  OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED,
+  OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED,
+  OPERATIONAL_COMMAND.PURCHASE_CANCELLED,
+  OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED,
+  OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED,
+  OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED,
+  OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED,
+  OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED,
+  OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,
+  OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED,
+  OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID,
+  OPERATIONAL_COMMAND.THIRD_PARTY_INVOICE_LINKED,
+  OPERATIONAL_COMMAND.INVOICE_SAVED,
+  OPERATIONAL_COMMAND.INVOICE_APPROVED,
+  OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,
+  OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
+  OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,
+  OPERATIONAL_COMMAND.PURCHASE_QUOTE_CANCELLED,
+  OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED,
+  OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CANCELLED,
+  OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+  OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED,
+  OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED,
+  OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED,
+  OPERATIONAL_COMMAND.PROJECT_SAVED,OPERATIONAL_COMMAND.PROJECT_DELETED,
+  OPERATIONAL_COMMAND.EQUIPMENT_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,
+  OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
+]);
 const BACKUP_FOLDER="00 - Backups ARCD";
 const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
 
-const db = createClient(URL, SERVICE, {
+const db = URL&&SERVICE ? createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
-});
+}) : null;
 
 const listarLinhasBackup=async()=>{
   const rows=[];let from=0;
@@ -84,8 +216,6 @@ const verificarBackupOneDrive=async req=>{
   const read=async item=>Buffer.from(await (await graph(accessToken,`/drives/${driveId}/items/${item.id}/content`,{redirect:"follow"})).arrayBuffer());const manifest=JSON.parse((await read(manifestItem)).toString("utf8")),backup=children.find(item=>item.name===manifest.encryptedFile);if(!backup)throw new Error("Arquivo criptografado correspondente não encontrado.");
   return{...verifyBackupBundle({body:await read(backup),key,manifest}),name:backup.name,bytes:Number(backup.size||manifest.bytes||0)};
 };
-
-const sha256 = (s) => crypto.createHash("sha256").update(String(s)).digest("hex");
 
 const listarTabelaFinanceira = async (table, columns) => {
   const rows=[];
@@ -166,6 +296,9 @@ const mesmoInstante = (a, b) => {
 const tentativas = new Map();
 const LIMITE = 8;
 const JANELA = 5 * 60 * 1000;
+const clientErrorBuckets = new Map();
+const CLIENT_ERROR_WINDOW = 60 * 1000;
+const CLIENT_ERROR_LIMIT = 12;
 
 const bloqueado = (ip) => {
   const t = tentativas.get(ip);
@@ -178,6 +311,20 @@ const registrarFalha = (ip) => {
   const t = tentativas.get(ip);
   if (!t || Date.now() - t.desde > JANELA) tentativas.set(ip, { n: 1, desde: Date.now() });
   else t.n += 1;
+};
+const aceitarErroCliente = (ip, now=Date.now()) => {
+  const atual=clientErrorBuckets.get(ip);
+  if(!atual||now-atual.desde>=CLIENT_ERROR_WINDOW){
+    clientErrorBuckets.set(ip,{desde:now,n:1});
+    return true;
+  }
+  atual.n+=1;
+  return atual.n<=CLIENT_ERROR_LIMIT;
+};
+const limparFalhas = subject => tentativas.delete(subject);
+const rateLimitCentral=async(subject,action)=>{
+  const result=await applyPersistentAuthRateLimit(db,{company:COMPANY,subject,action});
+  return result?{blocked:result.blocked,retry:result.retryAfter}:null;
 };
 
 const lerLinha = async () => {
@@ -226,12 +373,54 @@ const salvarComAuditoria = async ({ expectedUpdatedAt, value, actor, action, bef
     p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
     p_correlation_id:correlationId,p_action:action,p_before:before||{},p_after:after||{},
   });
-  if(error)throw error;
+  if(error){
+    if(/PGRST202|schema cache|Could not find the function|does not exist/i.test(`${error.code||""} ${error.message||""}`)){
+      const missing=new Error("A migration de persistência e auditoria ainda não foi aplicada.");
+      missing.code="AUDIT_RPC_MIGRATION_REQUIRED";
+      throw missing;
+    }
+    throw error;
+  }
   const result=Array.isArray(data)?data[0]:data;
   return { applied:!!result?.applied, updatedAt:result?.updated_at||null, correlationId };
 };
 
+const executarArquivoPontoTransacional=async({
+  mode,expectedUpdatedAt,mainValue,archiveKey,archiveValue,actor,before,after,
+})=>{
+  const correlationId=crypto.randomUUID();
+  const rpc=mode==="archive"?"attendance_archive_transaction":"attendance_restore_transaction";
+  const args={
+    p_company_id:COMPANY,p_main_key:KEY,p_archive_key:archiveKey,
+    p_expected_updated_at:expectedUpdatedAt,p_main_value:encodeAppData(mainValue),
+    p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
+    p_actor_role:String(actor?.role||""),
+    p_correlation_id:correlationId,p_before:before||{},p_after:after||{},
+  };
+  if(mode==="archive")args.p_archive_value=archiveValue||{};
+  const {data,error}=await db.rpc(rpc,args);
+  if(error){
+    const wrapped=new Error(/PGRST202|schema cache|Could not find the function|does not exist/i.test(`${error.code||""} ${error.message||""}`)
+      ?"A migration transacional do arquivo de ponto não foi aplicada."
+      :"A transação do arquivo de ponto falhou.");
+    wrapped.code=/migration/i.test(wrapped.message)?"ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED":"ATTENDANCE_ARCHIVE_FAILED";
+    throw wrapped;
+  }
+  const result=Array.isArray(data)?data[0]:data;
+  return {
+    applied:!!result?.applied,updatedAt:result?.updated_at||null,
+    reason:String(result?.reason||""),correlationId,
+  };
+};
+
 const salvarFinanceiroComAuditoria = async ({ expectedUpdatedAt, value, actor, action, before, after }) => {
+  // Enquanto FIN-003 está em sombra, o legado é a fonte oficial. Exigir a
+  // reconstrução integral do razão dentro de cada clique deixava conciliações
+  // presas em 503 sob concorrência. A ativação do enforcement restaura a
+  // transação conjunta; até lá, preservamos disponibilidade + auditoria.
+  if(financialPersistenceMode(FINANCIAL_ENGINE_ENFORCE)==="audited_shadow"){
+    return salvarComAuditoria({expectedUpdatedAt,value,actor,action,before,after});
+  }
   if(!process.env.POSTGRES_URL_NON_POOLING)throw new Error("A conexão transacional do motor financeiro não está configurada.");
   const correlationId=crypto.randomUUID();
   const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
@@ -251,16 +440,160 @@ const salvarFinanceiroComAuditoria = async ({ expectedUpdatedAt, value, actor, a
   }finally{await sql.end({timeout:2});}
 };
 
+const operationalCommandEntityId=command=>
+  command.payload?.statement?.id
+  ||command.payload?.targets?.[0]?.id
+  ||command.payload?.contractId
+  ||command.payload?.medicaoTecnicaId
+  ||command.payload?.expenseId
+  ||command.payload?.measurementId
+  ||command.payload?.pedidoId
+  ||command.payload?.targetId
+  ||command.payload?.paymentId
+  ||command.payload?.recordId
+  ||command.payload?.commitmentId
+  ||command.payload?.rentalId
+  ||command.payload?.equipmentId
+  ||command.payload?.rescissionId
+  ||command.payload?.advanceId
+  ||command.payload?.projectId
+  ||command.payload?.payment?.id
+  ||command.payload?.expense?.id
+  ||command.payload?.rescission?.id
+  ||command.payload?.employee?.id
+  ||command.payload?.advance?.id
+  ||command.payload?.project?.id
+  ||command.payload?.report?.id
+  ||command.payload?.measurement?.id
+  ||command.payload?.record?.id
+  ||command.payload?.commitment?.id
+  ||command.payload?.equipment?.id
+  ||command.payload?.rental?.id
+  ||command.payload?.maintenance?.id
+  ||command.payload?.transfer?.id
+  ||command.payload?.records?.[0]?.id
+  ||(command.type===OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED?"company-config":"");
+
+const gravarMutacaoNaTransacao=async({
+  transaction,locked,value,actor,action,before,after,financial=false,
+})=>{
+  const correlationId=crypto.randomUUID();
+  if(financial&&FINANCIAL_ENGINE_ENFORCE){
+    const snapshot=buildLegacyFinancialFacts(value);
+    const [saved]=await transaction`
+      select * from financial_save_with_sync(
+        ${COMPANY},${KEY},
+        (
+          select updated_at
+            from company_app_data
+           where company_id=${COMPANY} and key=${KEY}
+        ),
+        ${JSON.stringify(encodeAppData(value))}::jsonb,
+        ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
+        ${correlationId},${action},
+        ${JSON.stringify(before||{})}::jsonb,
+        ${JSON.stringify(after||{})}::jsonb,
+        ${JSON.stringify(snapshot)}::jsonb
+      )
+    `;
+    if(!saved?.applied)throw new Error("A mutação financeira perdeu o bloqueio exclusivo da base.");
+    return {updatedAt:saved.updated_at,syncResult:saved.sync_result||{}};
+  }
+
+  const [saved]=await transaction`
+    update company_app_data
+       set value=${JSON.stringify(encodeAppData(value))}::jsonb,
+           updated_at=clock_timestamp(),
+           updated_by=null
+     where company_id=${COMPANY} and key=${KEY}
+     returning updated_at
+  `;
+  if(!saved)throw new Error("A base da empresa desapareceu durante o salvamento.");
+  await transaction`
+    insert into audit_events(
+      company_id,aggregate_type,aggregate_id,action,actor_id,actor_name,
+      correlation_id,before_snapshot,after_snapshot,source
+    ) values (
+      ${COMPANY},'company_app_data',${KEY},${action},
+      ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
+      ${correlationId},
+      ${JSON.stringify(before||{})}::jsonb,
+      ${JSON.stringify(after||{})}::jsonb,
+      'api/data'
+    )
+  `;
+  return {updatedAt:saved.updated_at};
+};
+
+// Todos os escritores do blob passam pelo mesmo bloqueio do PostgreSQL.
+// O bloqueio é obtido ANTES da releitura e do cálculo da alteração; assim,
+// módulos diferentes aguardam poucos milissegundos em fila, em vez de disputar
+// indefinidamente o mesmo `updated_at` com tentativas CAS.
+const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,mutate})=>{
+  const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
+    ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
+  });
+  try{
+    return await connection.begin(async transaction=>{
+      const [locked]=await transaction`
+        select value,updated_at
+          from company_app_data
+         where company_id=${COMPANY} and key=${KEY}
+         for update
+      `;
+      if(!locked)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
+      const current=decodeAppData(locked.value);
+      const outcome=await mutate({payload:current,updatedAt:locked.updated_at});
+      if(!outcome||outcome.kind!=="save")return outcome;
+      const saved=await gravarMutacaoNaTransacao({
+        transaction,locked,value:outcome.data,actor,action,
+        before:outcome.before,after:outcome.after,financial,
+      });
+      return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
+    });
+  }finally{
+    await connection.end({timeout:2});
+  }
+};
+
+// Uma alteração real na mesma entidade continua sendo recusada por
+// `expectedVersion`; concorrência em outro módulo apenas aguarda o bloqueio.
+const executarComandoOperacionalBloqueado=async({command,usuario,financial})=>{
+  return executarMutacaoEmpresaBloqueada({
+    actor:usuario,
+    action:`operational_${command.type.toLowerCase()}`,
+    financial,
+    mutate:async({payload:current,updatedAt})=>{
+      const scope=validateOperationalCommandScope({user:usuario,data:current,command});
+      if(!scope.ok)return {kind:"error",status:scope.error.includes("vinculado")?400:403,error:scope.error};
+      const executed=applyOperationalCommand(current,{
+        ...command,actorId:usuario.id,
+        actorName:usuario.nome||usuario.email||"Usuário autenticado",
+      });
+      if(!executed.ok)return {
+        kind:"error",status:409,error:executed.reason,
+        conflict:true,currentUpdatedAt:updatedAt,
+      };
+      if(executed.idempotent)return {
+        kind:"idempotent",data:current,updatedAt,
+      };
+      return {
+        kind:"save",data:executed.data,
+        basePayload:current,
+        copied:executed.copied,summary:executed.summary,
+        before:{command:command.type,entityId:operationalCommandEntityId(command)},
+        after:{command:command.type,idempotencyKey:command.idempotencyKey},
+      };
+    },
+  });
+};
+
 // Confere o PIN contra o hash guardado no próprio dataset
 const conferirPin = (payload, userId, pin) => {
   const u = (payload?.usuarios || []).find(x => x.id === userId && x.active !== false);
-  if (!u) return null;
-  // Comparação em tempo constante: comparar strings com === vaza, pelo tempo
-  // de resposta, quantos caracteres iniciais bateram.
-  const a = Buffer.from(sha256(pin));
-  const b = Buffer.from(String(u.pin || ""));
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  return u;
+  if (!u) return {usuario:null,upgradeHash:""};
+  const verification=verifyAppPin(pin,u.pin);
+  return {usuario:verification.ok?u:null,upgradeHash:verification.needsUpgrade?hashAppPin(pin):""};
 };
 
 const encontrarUsuarioAuth = (payload, authUser) => {
@@ -272,30 +605,6 @@ const encontrarUsuarioAuth = (payload, authUser) => {
 
 const igual = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const objeto = value => value && typeof value === "object" && !Array.isArray(value);
-const mesclarTresVias = (base, recebido, atual) => {
-  if (igual(recebido, base)) return atual;
-  if (igual(atual, base)) return recebido;
-  if (Array.isArray(recebido) && Array.isArray(atual) && Array.isArray(base)) {
-    const identificavel = [...base,...recebido,...atual].every(x => objeto(x) && x.id != null);
-    if (!identificavel) return recebido;
-    const bm=new Map(base.map(x=>[String(x.id),x])), rm=new Map(recebido.map(x=>[String(x.id),x])), am=new Map(atual.map(x=>[String(x.id),x]));
-    const ordem=[...atual.map(x=>String(x.id)),...recebido.map(x=>String(x.id))].filter((id,i,a)=>a.indexOf(id)===i);
-    return ordem.flatMap(id => {
-      const b=bm.get(id), r=rm.get(id), a=am.get(id);
-      if (b && !r) return igual(a,b)?[]:(a?[a]:[]);
-      if (!r) return a?[a]:[];
-      if (!a) return [r];
-      return [mesclarTresVias(b,r,a)];
-    });
-  }
-  if (objeto(recebido) && objeto(atual)) {
-    const out={};
-    const keys=new Set([...Object.keys(base||{}),...Object.keys(atual),...Object.keys(recebido)]);
-    keys.forEach(k=>{out[k]=mesclarTresVias(base?.[k],recebido[k],atual[k]);});
-    return out;
-  }
-  return recebido;
-};
 
 // A Conferência tem segregação de função: o vistoriador registra e julga;
 // quem recebeu o ajuste apenas anexa a própria evidência. A validação precisa
@@ -382,13 +691,21 @@ const validarAlteracoesConferencias=(usuario,anterior=[],proximo=[],autoritativo
 
 export default async function handler(req, res) {
   if (!URL || !SERVICE) {
-    return res.status(503).json({ error: "Banco não configurado no servidor." });
+    return res.status(503).json({
+      error:"Persistência não configurada: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausente.",
+      code:"PERSISTENCE_ENV_MISSING",
+    });
   }
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
   const { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
 
   try {
+    if(action==="client-error"){
+      if(!aceitarErroCliente(ip))return res.status(429).json({error:"Limite de diagnósticos atingido."});
+      console.error("[ARCD_CLIENT_ERROR]",JSON.stringify(sanitizeClientError(req.body)));
+      return res.status(202).json({ok:true});
+    }
     if(action==="backup-create"&&cronAutorizado(req))return res.status(200).json(await criarBackupOneDrive(req,"system:vercel-cron"));
     if(action==="backup-verify"&&cronAutorizado(req))return res.status(200).json(await verificarBackupOneDrive(req));
     if (action === "client-portal") {
@@ -420,14 +737,20 @@ export default async function handler(req, res) {
       })) : [];
       const documentos = portal.publicarDocumentos === false ? [] : (obra.documentosOneDrive || [])
         .filter(d => d.publicarCliente === true).map(d => ({ id:d.id, nome:d.nome || "Documento", url:d.url || "" }));
-      const atualizacoes = (p?.changeLog || []).filter(e => e.obraId === obraId)
-        .slice(-20).reverse().map(e => ({ id:e.id, at:e.at || e.date || "", mensagem:e.message || "Atualização da obra", responsavel:e.operador || "Equipe ArcD" }));
+      const rowsPublicados=buildClientPortalPublicationRows({data:p,projectId:obraId,publishedAt:portal.atualizadoEm || new Date().toISOString()});
+      const payloads=domain=>rowsPublicados.filter(row=>row.domain===domain).map(row=>row.payload);
+      const atualizacoes=payloads("weekly_update").map(item=>({id:item.id,at:item.period,mensagem:item.summary,responsavel:item.authorName||"Equipe ARCD"}));
       return res.status(200).json({ portal:{
         obra:{ id:obra.id, nome:obra.name, status:obra.status, capaUrl:obra.capaUrl || "", cliente:obra.cliente || "", engenheiro:obra.engineer || "", endereco:obra.address || "", inicio:obra.contractStart || obra.startDate || "", terminoPrevisto:obra.contractEnd || "" },
         mensagem:portal.mensagem || "Acompanhe aqui a evolução da sua obra.", progresso,
         cronograma:portal.publicarCronograma === false ? [] : tarefas.slice(0,30),
         diarios:rdos.map(r => ({ id:r.id, codigo:r.codigo, data:r.data, descricao:r.descricao || "", clima:r.clima || {}, fotos:(r.fotos||[]).filter(f=>f.publicarCliente!==false).length })),
         fotos, medicoes, documentos, atualizacoes,
+        caixaResumo:payloads("cash_summary")[0] || null,
+        caixaMovimentacoes:payloads("cash_movement"),
+        notasFiscais:payloads("invoice"),
+        compras:payloads("purchase_order"),
+        cotacoes:payloads("quotation"),
         atualizadoEm:portal.atualizadoEm || "",
       }});
     }
@@ -435,14 +758,25 @@ export default async function handler(req, res) {
     if (action === "auth-login") {
       const email=String(req.body?.email||"").trim().toLowerCase();
       const password=String(req.body?.password||"");
+      const authSubject=`${ip}|email:${email||"unknown"}`;
+      const limiteCentral=await rateLimitCentral(authSubject,"status");
+      if(limiteCentral?.blocked||bloqueado(authSubject)){
+        return res.status(429).json({error:"Muitas tentativas. Aguarde 5 minutos."});
+      }
       const {data:auth,error}=await db.auth.signInWithPassword({email,password});
-      if(error||!auth?.session)return res.status(401).json({error:"E-mail ou senha inválidos."});
+      if(error||!auth?.session){
+        registrarFalha(authSubject);
+        await rateLimitCentral(authSubject,"failure");
+        return res.status(401).json({error:"E-mail ou senha inválidos."});
+      }
       const {payload:p,updatedAt}=await lerLinha();
       // signInWithPassword já devolve um usuário autenticado pelo Supabase.
       // Consultá-lo novamente com getUser adicionava uma viagem de rede inteira
       // ao login sem aumentar a segurança desta mesma requisição.
       const usuario=encontrarUsuarioAuth(p,auth.user||auth.session.user);
       if(!usuario)return res.status(403).json({error:"Conta sem vínculo com um operador ativo do ArcD."});
+      limparFalhas(authSubject);
+      await rateLimitCentral(authSubject,"success");
       const completo=await anexarCustosArquivados(p);
       return res.status(200).json({data:projectDataForUser(completo,usuario),updatedAt,usuario:publicUser(usuario),accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
     }
@@ -483,10 +817,13 @@ export default async function handler(req, res) {
         return res.status(409).json({ error: "Já existe usuário. Setup encerrado." });
       }
 
-      const novoUsuario = (payload?.usuarios || [])[0];
-      if (!novoUsuario?.id || !novoUsuario?.pin) {
+      const recebido = (payload?.usuarios || [])[0];
+      const pinInicial=String(recebido?.pinPlain||"");
+      if (!recebido?.id || pinInicial.length<4) {
         return res.status(400).json({ error: "Dados do administrador incompletos." });
       }
+      const {pinPlain:_,...camposUsuario}=recebido;
+      const novoUsuario={...camposUsuario,pin:hashAppPin(pinInicial)};
 
       // Se já há dados, PRESERVA tudo e só acrescenta o usuário.
       // Se a linha está vazia/inexistente, aí sim usa o payload como base.
@@ -512,8 +849,14 @@ export default async function handler(req, res) {
     }
 
     // ── Daqui pra baixo, sessão individual ou PIN de transição ─────
-    if (bloqueado(ip)) {
-      return res.status(429).json({ error: "Muitas tentativas. Aguarde 5 minutos." });
+    // Token JWT válido não participa do contador de tentativas de PIN. Isso
+    // impede que falhas de outra pessoa no mesmo NAT bloqueiem sessões ativas.
+    const usaPin=!accessToken;
+    if(usaPin){
+      const limiteCentral=await rateLimitCentral(ip,"status");
+      if (limiteCentral?.blocked||bloqueado(ip)) {
+        return res.status(429).json({ error: "Muitas tentativas. Aguarde 5 minutos." });
+      }
     }
 
     // A leitura do dataset e a validação do token não dependem uma da outra.
@@ -523,12 +866,54 @@ export default async function handler(req, res) {
       lerLinha(),
       accessToken ? db.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
     ]);
-    const { payload: atual, updatedAt } = linha;
-    const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || conferirPin(atual, userId, pin);
+    let { payload: atual, updatedAt } = linha;
+    const pinAuth=usaPin?conferirPin(atual,userId,pin):{usuario:null,upgradeHash:""};
+    const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || pinAuth.usuario;
 
     if (!usuario) {
-      registrarFalha(ip);
+      if(usaPin){
+        registrarFalha(ip);
+        await rateLimitCentral(ip,"failure");
+      }
       return res.status(401).json({ error: "Sessão inválida ou PIN incorreto." });
+    }
+    if(usaPin){
+      limparFalhas(ip);
+      await rateLimitCentral(ip,"success");
+      if(pinAuth.upgradeHash){
+        const atualizado={...atual,usuarios:(atual.usuarios||[]).map(item=>item.id===usuario.id?{...item,pin:pinAuth.upgradeHash}:item)};
+        const migration=await salvarComAuditoria({
+          expectedUpdatedAt:updatedAt,value:atualizado,actor:usuario,action:"auth_pin_upgraded",
+          before:{userId:usuario.id,algorithm:"sha256"},after:{userId:usuario.id,algorithm:"scrypt-v1"},
+        });
+        if(migration.applied){
+          atual=atualizado;
+          updatedAt=migration.updatedAt;
+          await salvarIndicePerfis(atualizado);
+        }
+      }
+    }
+
+    if(action==="auth-pin-set"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores podem definir o PIN de operadores."});
+      const targetUserId=String(req.body?.targetUserId||"");
+      const newPin=String(req.body?.newPin||"");
+      if(newPin.length<4||newPin.length>12||!/^[0-9]+$/.test(newPin))return res.status(400).json({error:"O PIN deve conter entre 4 e 12 dígitos."});
+      const outcome=await executarMutacaoEmpresaBloqueada({
+        actor:usuario,action:"auth_pin_set",financial:false,
+        mutate:async({payload:current})=>{
+          const target=(current.usuarios||[]).find(item=>String(item.id)===targetUserId);
+          if(!target)return {kind:"error",status:404,error:"Operador não encontrado."};
+          return {
+            kind:"save",
+            data:{...current,usuarios:(current.usuarios||[]).map(item=>String(item.id)===targetUserId?{...item,pin:hashAppPin(newPin)}:item)},
+            before:{userId:targetUserId,credentialChanged:true},after:{userId:targetUserId,algorithm:"scrypt-v1"},
+          };
+        },
+      });
+      if(outcome.kind==="error")return res.status(outcome.status||400).json({error:outcome.error});
+      await salvarIndicePerfis(outcome.data);
+      return res.status(200).json({ok:true,data:projectDataForUser(outcome.data,usuario),updatedAt:outcome.updatedAt});
     }
 
     if (action === "auth-provision") {
@@ -561,12 +946,102 @@ export default async function handler(req, res) {
           authId=criado.user.id;
         }
       }
+      if(process.env.POSTGRES_URL_NON_POOLING){
+        const outcome=await executarMutacaoEmpresaBloqueada({
+          actor:usuario,action:"auth_provision",
+          mutate:async({payload:current})=>{
+            const vigente=(current.usuarios||[]).find(u=>u.id===alvo.id);
+            if(!vigente)return {kind:"error",status:409,error:"O operador foi removido durante a ativação da conta."};
+            const linked={...vigente,authUserId:authId,email};
+            return {
+              kind:"save",
+              data:{...current,usuarios:(current.usuarios||[]).map(u=>u.id===vigente.id?linked:u)},
+              before:{usuario:{id:vigente.id,email:vigente.email||"",authUserId:vigente.authUserId||""}},
+              after:{usuario:{id:linked.id,email:linked.email,authUserId:linked.authUserId}},
+            };
+          },
+        });
+        if(outcome.kind==="error")return res.status(outcome.status||409).json({error:outcome.error});
+        await salvarIndicePerfis(outcome.data);
+        return res.status(200).json({ok:true,data:outcome.data,updatedAt:outcome.updatedAt});
+      }
       const novo={...atual,usuarios:(atual.usuarios||[]).map(u=>u.id===alvo.id?{...u,authUserId:authId,email}:u)};
       const agora=new Date().toISOString();
       const {data:gravado,error}=await db.from("company_app_data").update({value:encodeAppData(novo),updated_at:agora}).eq("company_id",COMPANY).eq("key",KEY).select("updated_at").maybeSingle();
       if(error)throw error;
       await salvarIndicePerfis(novo);
       return res.status(200).json({ok:true,data:novo,updatedAt:gravado?.updated_at||agora});
+    }
+
+    if (action === "client-portal-admin") {
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores podem gerenciar acessos de clientes."});
+      const operation=String(req.body?.operation || "list");
+      const obraId=String(req.body?.obraId || "");
+      const obra=(atual.obras || []).find(item=>String(item.id)===obraId);
+      if(!obra)return res.status(404).json({error:"Obra não encontrada."});
+
+      const listAccess=async()=>{
+        const {data:memberships,error}=await db.from("client_portal_project_memberships")
+          .select("id,portal_user_id,profile,grants,revokes,active,created_at,client_portal_users!inner(id,email,phone,status,last_login_at)")
+          .eq("company_id",COMPANY).eq("project_id",obraId).order("created_at",{ascending:false});
+        if(error)throw error;
+        return (memberships || []).map(item=>{
+          const client=Array.isArray(item.client_portal_users)?item.client_portal_users[0]:item.client_portal_users;
+          return {
+            id:item.id,userId:item.portal_user_id,profile:item.profile,grants:item.grants||[],revokes:item.revokes||[],
+            active:item.active!==false,email:client?.email||"",phone:client?.phone||"",
+            status:client?.status||"",lastLoginAt:client?.last_login_at||"",
+          };
+        });
+      };
+
+      if(operation==="list")return res.status(200).json({ok:true,accesses:await listAccess()});
+
+      if(operation==="revoke"){
+        const membershipId=String(req.body?.membershipId || "");
+        const {data:membership,error:findError}=await db.from("client_portal_project_memberships")
+          .select("id,portal_user_id").eq("company_id",COMPANY).eq("project_id",obraId).eq("id",membershipId).maybeSingle();
+        if(findError)throw findError;
+        if(!membership)return res.status(404).json({error:"Acesso não encontrado."});
+        const now=new Date().toISOString();
+        const {error}=await db.from("client_portal_project_memberships").update({active:false,updated_at:now}).eq("id",membership.id);
+        if(error)throw error;
+        await db.from("client_portal_sessions").update({revoked_at:now}).eq("company_id",COMPANY).eq("portal_user_id",membership.portal_user_id).is("revoked_at",null);
+        await db.from("client_portal_audit_events").insert({company_id:COMPANY,portal_user_id:membership.portal_user_id,project_id:obraId,event_type:"access_revoked",metadata:{actorId:usuario.id}});
+        return res.status(200).json({ok:true,accesses:await listAccess()});
+      }
+
+      const publishProject=async()=>{
+        const now=new Date().toISOString();
+        const rows=buildClientPortalPublicationRows({data:atual,projectId:obraId,publishedAt:now});
+        await db.from("client_portal_publications").update({status:"superseded",updated_at:now}).eq("company_id",COMPANY).eq("project_id",obraId).eq("status","published");
+        const {error}=await db.from("client_portal_publications").insert(rows.map(row=>({company_id:COMPANY,project_id:obraId,domain:row.domain,status:"published",visibility:"project_users",payload:row.payload,created_by:usuario.id,published_by:usuario.id,published_at:now})));
+        if(error)throw error;
+      };
+
+      if(operation==="publish"){await publishProject();return res.status(200).json({ok:true,accesses:await listAccess()});}
+      if(operation!=="provision")return res.status(400).json({error:"Operação de portal inválida."});
+
+      const email=normalizePortalEmail(req.body?.email), password=String(req.body?.password||"");
+      const profile=String(req.body?.profile||"owner");
+      const allowedProfiles=new Set(["owner","spouse","representative","financial","external_architect","observer"]);
+      if(!email||!email.includes("@"))return res.status(400).json({error:"Informe um e-mail válido."});
+      if(!validPortalPassword(password))return res.status(400).json({error:"A senha inicial deve ter 12 caracteres, letras e números."});
+      if(!allowedProfiles.has(profile))return res.status(400).json({error:"Perfil de cliente inválido."});
+      let {data:portalUser,error:userError}=await db.from("client_portal_users").select("id").eq("company_id",COMPANY).eq("email",email).maybeSingle();
+      if(userError)throw userError;
+      const userValues={company_id:COMPANY,email,phone:String(req.body?.phone||"").trim(),password_hash:hashPortalPassword(password),status:"active",updated_at:new Date().toISOString()};
+      if(portalUser){
+        const {error}=await db.from("client_portal_users").update(userValues).eq("id",portalUser.id);if(error)throw error;
+      }else{
+        const created=await db.from("client_portal_users").insert(userValues).select("id").single();if(created.error)throw created.error;portalUser=created.data;
+      }
+      const membershipValues={company_id:COMPANY,portal_user_id:portalUser.id,project_id:obraId,profile,grants:Array.isArray(req.body?.grants)?req.body.grants:[],revokes:Array.isArray(req.body?.revokes)?req.body.revokes:[],active:true,updated_at:new Date().toISOString()};
+      const {error:membershipError}=await db.from("client_portal_project_memberships").upsert(membershipValues,{onConflict:"company_id,portal_user_id,project_id"});
+      if(membershipError)throw membershipError;
+      await publishProject();
+      await db.from("client_portal_audit_events").insert({company_id:COMPANY,portal_user_id:portalUser.id,project_id:obraId,event_type:"access_provisioned",metadata:{actorId:usuario.id,profile}});
+      return res.status(200).json({ok:true,accesses:await listAccess(),portalUrl:`/cliente/obra/${encodeURIComponent(obraId)}`});
     }
 
     // Motor Financeiro Canônico: o navegador envia somente o comando. A RPC
@@ -581,6 +1056,245 @@ export default async function handler(req, res) {
       const {data:resultado,error}=await db.rpc("financial_execute_command",{p_company_id:COMPANY,p_actor_id:usuario.id,p_command:command});
       if(error){console.error("Falha no motor financeiro:",error.message);return res.status(409).json({error:"O comando não foi efetivado. Nenhum lançamento parcial foi salvo."});}
       return res.status(200).json(resultado);
+    }
+
+    // REC-001: a classificação bancária não recebe mais um snapshot montado
+    // no navegador. O servidor relê a transação, aplica a regra pura e salva
+    // blob, auditoria e projeção financeira canônica na mesma transação.
+    if(action==="reconciliation-command"){
+      const command=req.body?.command||{};
+      if(!RECONCILIATION_COMMANDS.has(command.type))return res.status(400).json({error:"Comando de conciliação inválido."});
+      if(command.type===RECONCILIATION_COMMAND.REVERSE_RECONCILIATION&&usuario.role!=="admin")return res.status(403).json({error:"Somente administrador pode desfazer uma conciliação."});
+      if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente de conciliação inválida."});
+
+      const execute=base=>{
+        const authorization=authorizeReconciliationCommand(base,command,usuario);
+        if(!authorization.ok)return {forbidden:true,error:authorization.error};
+        const already=(base.reconciliationCommandLog||[]).find(item=>item.idempotencyKey===command.idempotencyKey);
+        if(already)return {idempotent:true,data:base,resumo:already.resumo||{ok:true}};
+        const result=applyReconciliationCommand(base,command,usuario);
+        if(!result?.resumo?.ok)return {error:result?.resumo?.motivo||"Não foi possível conciliar a transação."};
+        const auditEntry={id:crypto.randomUUID(),idempotencyKey:command.idempotencyKey,type:command.type,transactionId:String(command.payload?.transactionId||""),actorId:usuario.id,createdAt:new Date().toISOString(),resumo:result.resumo};
+        return {data:{...result.data,reconciliationCommandLog:[...(result.data.reconciliationCommandLog||[]),auditEntry].slice(-1000)},resumo:result.resumo};
+      };
+      if(process.env.POSTGRES_URL_NON_POOLING){
+        const outcome=await executarMutacaoEmpresaBloqueada({
+          actor:usuario,
+          action:`reconciliation_${String(command.type).toLowerCase()}`,
+          financial:true,
+          mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
+            const executed=execute(current);
+            if(executed.forbidden)return {kind:"error",status:403,error:executed.error};
+            if(executed.error)return {kind:"error",status:409,error:executed.error,currentUpdatedAt:lockedUpdatedAt};
+            if(executed.idempotent)return {
+              kind:"idempotent",data:current,updatedAt:lockedUpdatedAt,resumo:executed.resumo,
+            };
+            const transactionId=String(command.payload?.transactionId||"");
+            const beforeTransaction=(current.transacoes||[]).find(item=>String(item.id)===transactionId)||null;
+            const afterTransaction=(executed.data?.transacoes||[]).find(item=>String(item.id)===transactionId)||null;
+            return {
+              kind:"save",data:executed.data,resumo:executed.resumo,basePayload:current,
+              before:{transaction:beforeTransaction},
+              after:{transaction:afterTransaction,command:{type:command.type,idempotencyKey:command.idempotencyKey}},
+            };
+          },
+        });
+        if(outcome.kind==="error")return res.status(outcome.status||409).json({
+          error:outcome.error,
+          ...(outcome.currentUpdatedAt?{currentUpdatedAt:outcome.currentUpdatedAt}:{}),
+        });
+        if(outcome.kind==="idempotent")return res.status(200).json({
+          ok:true,idempotent:true,resumo:outcome.resumo,
+          data:projectDataForUser(outcome.data,usuario),updatedAt:outcome.updatedAt,
+        });
+        return res.status(200).json({
+          ok:true,resumo:outcome.resumo,updatedAt:outcome.updatedAt,
+          sections:projectReconciliationPatch(outcome.basePayload,outcome.data,usuario),
+        });
+      }
+      const persist=async(base,executed)=>{
+        const transactionId=String(command.payload?.transactionId||"");
+        const beforeTransaction=(base.payload?.transacoes||[]).find(item=>String(item.id)===transactionId)||null;
+        const afterTransaction=(executed.data?.transacoes||[]).find(item=>String(item.id)===transactionId)||null;
+        return salvarFinanceiroComAuditoria({
+          expectedUpdatedAt:base.updatedAt,
+          value:executed.data,
+          actor:usuario,
+          action:`reconciliation_${String(command.type).toLowerCase()}`,
+          before:{transaction:beforeTransaction},
+          after:{transaction:afterTransaction,command:{type:command.type,idempotencyKey:command.idempotencyKey}},
+        });
+      };
+      const outcome=await executeReconciliationWithRetry({
+        initial:{payload:atual,updatedAt},execute,persist,reload:lerLinha,maxAttempts:6,
+      });
+      if(outcome.kind==="error"){
+        return res.status(outcome.forbidden?403:409).json({
+          error:outcome.error,
+          ...(outcome.forbidden?{}:{conflict:outcome.attempts>1,currentUpdatedAt:outcome.base?.updatedAt}),
+        });
+      }
+      if(outcome.kind==="idempotent")return res.status(200).json({
+        ok:true,idempotent:true,resumo:outcome.resumo,
+        data:projectDataForUser(outcome.base.payload,usuario),updatedAt:outcome.base.updatedAt,
+      });
+      if(outcome.kind==="busy")return res.status(503).json({
+        error:"O servidor está processando outras alterações. A conciliação não foi perdida; tente confirmar novamente.",
+        code:"RECONCILIATION_CONCURRENCY_BUSY",retryable:true,currentUpdatedAt:outcome.base?.updatedAt,
+      });
+      // Sem concorrência, devolvemos somente as seções confirmadas pelo
+      // comando. Se foi preciso reexecutar sobre uma versão mais nova, a
+      // fotografia completa continua sendo enviada para incorporar também as
+      // mudanças do outro operador.
+      const resposta={
+        ok:true,resumo:outcome.executed.resumo,
+        updatedAt:outcome.saved.updatedAt||new Date().toISOString(),
+      };
+      if(outcome.attempts===1){
+        resposta.sections=projectReconciliationPatch(outcome.base.payload,outcome.executed.data,usuario);
+      }else{
+        resposta.data=projectDataForUser(outcome.executed.data,usuario);
+      }
+      return res.status(200).json(resposta);
+    }
+
+    // Ponto é persistido por fato, nunca pela substituição da seção projetada.
+    // O payload permanece constante (um registro ou lote curto), a validação
+    // usa o dataset autoritativo e a mesma RPC grava mutação + auditoria.
+    if(ATTENDANCE_COMMANDS.has(action)){
+      const command={...req.body,action};
+      const operationNow=new Date().toISOString();
+      if(process.env.POSTGRES_URL_NON_POOLING){
+        const outcome=await executarMutacaoEmpresaBloqueada({
+          actor:usuario,
+          action,
+          mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
+            const applied=applyAttendanceCommand(current,usuario,command,operationNow);
+            if(!applied.ok)return {kind:"error",status:applied.status||400,error:applied.error};
+            if(applied.idempotent)return {
+              kind:"idempotent",result:applied.result,updatedAt:lockedUpdatedAt,
+            };
+            return {
+              kind:"save",data:applied.data,result:applied.result,
+              before:applied.audit?.before||{},
+              after:applied.audit?.after||{operationId:command.operationId},
+            };
+          },
+        });
+        if(outcome.kind==="error")return res.status(outcome.status||400).json({
+          ok:false,error:outcome.error,
+        });
+        return res.status(200).json({
+          ok:true,idempotent:outcome.kind==="idempotent",
+          result:outcome.result,updatedAt:outcome.updatedAt,
+        });
+      }
+      let base={payload:atual,updatedAt};
+      for(let attempt=0;attempt<6;attempt+=1){
+        const applied=applyAttendanceCommand(base.payload,usuario,command,operationNow);
+        if(!applied.ok)return res.status(applied.status||400).json({ok:false,error:applied.error});
+        if(applied.idempotent){
+          return res.status(200).json({
+            ok:true,idempotent:true,result:applied.result,updatedAt:base.updatedAt,
+          });
+        }
+        const saved=await salvarComAuditoria({
+          expectedUpdatedAt:base.updatedAt,value:applied.data,actor:usuario,
+          action:applied.audit?.action||action,
+          before:applied.audit?.before||{},
+          after:applied.audit?.after||{operationId:command.operationId},
+        });
+        if(saved.applied){
+          return res.status(200).json({
+            ok:true,result:applied.result,updatedAt:saved.updatedAt||operationNow,
+          });
+        }
+        base=await lerLinha();
+      }
+      return res.status(503).json({
+        ok:false,code:"ATTENDANCE_CONCURRENCY_BUSY",
+        error:"Há muitas atualizações de ponto ao mesmo tempo. O servidor preservou os dados; tente novamente em instantes.",
+      });
+    }
+
+    // Comandos operacionais usam versão da própria entidade, não a semântica
+    // insegura de "último snapshot vence". A rota ainda devolve a projeção
+    // filtrada pelo papel para poder substituir o save legado gradualmente.
+    if(action==="operational-command"){
+      const command=req.body?.command||{};
+      const roles=OPERATIONAL_COMMAND_ROLES[command.type];
+      if(!roles)return res.status(400).json({error:"Comando operacional inválido."});
+      if(!roles.includes(usuario.role))return res.status(403).json({error:"Seu perfil não pode executar este comando operacional."});
+      if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});
+      const scope=validateOperationalCommandScope({user:usuario,data:atual,command});
+      if(!scope.ok)return res.status(scope.error.includes("vinculado")?400:403).json({error:scope.error});
+
+      const persistenciaFinanceira=requiresFinancialOperationalPersistence(
+        command.type,FINANCIAL_OPERATIONAL_COMMANDS,
+      );
+      // A conexão direta permite serializar TODOS os comandos, não somente os
+      // financeiros. Cadastro, RH, compras e engenharia deixam de concorrer
+      // entre si pela linha global da empresa.
+      if(process.env.POSTGRES_URL_NON_POOLING){
+        const outcome=await executarComandoOperacionalBloqueado({
+          command,usuario,financial:persistenciaFinanceira,
+        });
+        if(outcome.kind==="error")return res.status(outcome.status||409).json({
+          error:outcome.error,reason:outcome.error,
+          ...(outcome.conflict?{conflict:true,currentUpdatedAt:outcome.currentUpdatedAt}:{}),
+        });
+        return res.status(200).json({
+          ok:true,idempotent:outcome.kind==="idempotent",
+          ...(outcome.kind==="idempotent"
+            ?{data:projectDataForUser(outcome.data,usuario)}
+            :{sections:projectChangedSectionsPatch(
+              outcome.basePayload,outcome.data,usuario,
+              {exclude:OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS},
+            )}),
+          updatedAt:outcome.updatedAt,
+          ...(outcome.copied!=null?{copied:outcome.copied}:{}),
+          ...(outcome.summary!=null?{summary:outcome.summary}:{}),
+        });
+      }
+
+      const persistir=async(base,value)=>{
+        const save=persistenciaFinanceira
+          ?salvarFinanceiroComAuditoria
+          :salvarComAuditoria;
+        return save({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
+        action:`operational_${command.type.toLowerCase()}`,
+        before:{command:command.type,entityId:operationalCommandEntityId(command)},
+        after:{command:command.type,idempotencyKey:command.idempotencyKey}});
+      };
+
+      // Um único reenvio não bastava sob concorrência real: qualquer gravação
+      // em qualquer outra tela (todas dividem a mesma linha) já derrubava a
+      // segunda tentativa. Reexecuta o comando sobre a fotografia mais nova,
+      // no mesmo padrão de tentativas limitadas usado acima para o ponto.
+      let base={payload:atual,updatedAt};
+      for(let attempt=0;attempt<6;attempt+=1){
+        const result=applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
+        if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
+        if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
+        const gravacao=await persistir(base,result.data);
+        if(gravacao.applied){
+          return res.status(200).json({
+            ok:true,
+            sections:projectChangedSectionsPatch(
+              base.payload,result.data,usuario,
+              {exclude:OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS},
+            ),
+            updatedAt:gravacao.updatedAt||new Date().toISOString(),
+            ...(result.copied!=null?{copied:result.copied}:{}),
+            ...(result.summary!=null?{summary:result.summary}:{}),
+          });
+        }
+        base=await lerLinha();
+      }
+      return res.status(503).json({
+        ok:false,code:"OPERATIONAL_COMMAND_CONCURRENCY_BUSY",
+        error:"Há muitas atualizações ao mesmo tempo. O servidor preservou os dados; tente novamente em instantes.",
+      });
     }
 
     // FIN-002: fotografia em sombra do legado versus motor canônico. Não
@@ -674,16 +1388,49 @@ export default async function handler(req, res) {
       }
       const scope=companyStatement?"company_dre":(requestedWork||"empresa");
       const currentId=`${year}-${String(month+1).padStart(2,"0")}:${period}:${scope}`;
-      const historyIds=Array.from({length:6},(_,index)=>{
+      const historyRequests=Array.from({length:6},(_,index)=>{
         const date=new Date(year,month-5+index,1);
-        return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}:mes:${scope}`;
+        return {year:date.getFullYear(),month:date.getMonth(),period:"mes",scope};
       });
+      const historyIds=historyRequests.map(item=>
+        `${item.year}-${String(item.month+1).padStart(2,"0")}:mes:${scope}`);
       const ids=[...new Set([currentId,...historyIds])];
-      const {data:events,error}=await db.from("financial_events")
+      const loadEvents=()=>db.from("financial_events")
         .select("source_id,payload,effective_date")
         .eq("company_id",COMPANY).eq("event_type","dre_snapshot")
         .eq("source_type","dre_projection").in("source_id",ids);
+      let {data:events,error}=await loadEvents();
       if(error)throw error;
+      let currentEvent=(events||[]).find(event=>
+        event.source_id===currentId&&event.payload?.active!==false);
+      const sourceRevision=String(updatedAt||"");
+      if(!currentEvent||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision){
+        const projectionRequests=[
+          {year,month,period,scope},
+          ...historyRequests,
+        ];
+        const rows=buildRequestedDreProjectionRows(atual,projectionRequests).map(row=>({
+          company_id:COMPANY,event_type:"dre_snapshot",source_type:"dre_projection",
+          source_id:row.sourceId,effective_date:`${row.year}-${String(row.month+1).padStart(2,"0")}-01`,
+          payload:{...row.payload,active:true,obraId:row.obraId,year:row.year,month:row.month,
+            period:row.period,sourceRevision},
+          created_by:String(usuario.id||"system"),
+        }));
+        const {error:projectionError}=await db.from("financial_events").upsert(rows,{
+          onConflict:"company_id,event_type,source_type,source_id",
+        });
+        if(projectionError){
+          console.error("Falha ao materializar o DRE canônico:",projectionError.message);
+          return res.status(503).json({
+            error:"O razão canônico não conseguiu atualizar a projeção deste período.",
+            code:"DRE_PROJECTION_SYNC_FAILED",
+          });
+        }
+        ({data:events,error}=await loadEvents());
+        if(error)throw error;
+        currentEvent=(events||[]).find(event=>
+          event.source_id===currentId&&event.payload?.active!==false);
+      }
       const activeEvents=(events||[]).filter(event=>event.payload?.active!==false);
       const byId=new Map(activeEvents.map(event=>[event.source_id,event.payload]));
       return res.status(200).json({
@@ -713,6 +1460,41 @@ export default async function handler(req, res) {
       });
     }
 
+    if(action==="persistence-health"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores verificam a persistência."});
+      const tableCheck=await db.from("company_app_data").select("key",{head:true,count:"exact"})
+        .eq("company_id",COMPANY).eq("key",KEY);
+      if(tableCheck.error)return res.status(503).json({
+        ok:false,code:"COMPANY_APP_DATA_UNAVAILABLE",
+        error:"A tabela principal não respondeu à verificação.",
+      });
+      const probeId=crypto.randomUUID();
+      const auditCheck=await db.rpc("company_save_with_audit",{
+        p_company_id:`${COMPANY}__health_probe`,p_key:"health",
+        p_expected_updated_at:"1970-01-01T00:00:00.000Z",p_value:{},
+        p_actor_id:String(usuario.id||"admin"),p_actor_name:String(usuario.nome||"Administrador"),
+        p_correlation_id:probeId,p_action:"health_probe",p_before:{},p_after:{},
+      });
+      if(auditCheck.error)return res.status(503).json({
+        ok:false,code:"AUDIT_RPC_UNAVAILABLE",
+        error:"A RPC append-only não está disponível. Execute migrations/20260725_append_only_audit.sql.",
+      });
+      const archiveCheck=await db.rpc("attendance_archive_transaction",{
+        p_company_id:`${COMPANY}__health_probe`,p_main_key:"health",p_archive_key:"health_archive",
+        p_expected_updated_at:"1970-01-01T00:00:00.000Z",p_main_value:{},p_archive_value:{},
+        p_actor_id:String(usuario.id||"admin"),p_actor_name:String(usuario.nome||"Administrador"),
+        p_actor_role:String(usuario.role||""),
+        p_correlation_id:crypto.randomUUID(),p_before:{},p_after:{},
+      });
+      if(archiveCheck.error)return res.status(503).json({
+        ok:false,code:"ATTENDANCE_ARCHIVE_RPC_UNAVAILABLE",
+        error:"A RPC transacional do arquivo de ponto não está disponível. Execute migrations/006_attendance_archive_transaction.up.sql.",
+      });
+      return res.status(200).json({
+        ok:true,companyAppData:true,auditRpc:true,attendanceArchiveRpc:true,
+      });
+    }
+
     // ── 4. Salvar somente os módulos alterados ─────────────────────
     // O estado histórico continua compatível com o blob existente, porém o
     // navegador não precisa mais reenviar (e duplicar como base) toda a empresa
@@ -722,12 +1504,121 @@ export default async function handler(req, res) {
     if (action === "save-sections") {
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
-      const exigeMotorFinanceiro=FINANCIAL_ENGINE_ENFORCE&&chaves.some(key=>FINANCIAL_LEGACY_SECTIONS.has(key));
+      const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const legacyPointWrite=chaves.find(key=>commandOnlySections.includes(key));
+      if(legacyPointWrite)return res.status(409).json({
+        error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
+        code:"ATTENDANCE_GRANULAR_REQUIRED",
+      });
+      // Mesmo em sombra, toda mutação financeira atualiza a projeção
+      // canônica na mesma transação do blob. Assim o DRE pode ler o razão sem
+      // ficar defasado; FIN-003 continua sendo apenas o bloqueio das escritas
+      // legadas, ainda desligado.
+      const secoesFinanceiras=Object.fromEntries(chaves.map(key=>[key,sections[key]]));
+      const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesFinanceiras);
       if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
+      if(process.env.POSTGRES_URL_NON_POOLING){
+        const outcome=await executarMutacaoEmpresaBloqueada({
+          actor:usuario,
+          action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
+          financial:sincronizaFinanceiro,
+          mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
+            const houveConcorrencia=expectedUpdatedAt&&lockedUpdatedAt
+              &&!mesmoInstante(expectedUpdatedAt,lockedUpdatedAt);
+            if(houveConcorrencia&&!baseSections)return {
+              kind:"error",status:409,conflict:true,
+              error:"A versão de origem é necessária para mesclar alterações concorrentes.",
+              currentUpdatedAt:lockedUpdatedAt,
+            };
+            if(houveConcorrencia){
+              const conflicts=findSectionConflicts(baseSections,sections,current,chaves);
+              if(conflicts.length)return {
+                kind:"error",status:409,conflict:true,
+                error:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",
+                conflicts,currentUpdatedAt:lockedUpdatedAt,
+              };
+            }
+            const value={...(current||{})};
+            chaves.forEach(key=>{
+              value[key]=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,key)
+                ?mergeThreeWay(baseSections[key],sections[key],current?.[key])
+                :sections[key];
+            });
+            const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
+              engineEnforced:FINANCIAL_ENGINE_ENFORCE,before:current,after:value,
+            });
+            if(!erroSnapshotObra.ok)return {kind:"error",status:409,error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"};
+            const erroMotorFinanceiro=validateFinancialWritePath({
+              engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesFinanceiras,
+            });
+            if(!erroMotorFinanceiro.ok)return {kind:"error",status:409,error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"};
+            const erroAutorizacao=authorizeSectionChanges(usuario,secoesFinanceiras);
+            if(erroAutorizacao)return {kind:"error",status:403,error:erroAutorizacao};
+            const erroExclusao=validateNoPhysicalDeletes(
+              Object.fromEntries(chaves.map(key=>[key,current?.[key]])),sections,
+            );
+            if(erroExclusao)return {kind:"error",status:409,error:erroExclusao};
+            const erroBaseline=validateBudgetBaselinePolicy(current,value,usuario);
+            if(erroBaseline)return {kind:"error",status:403,error:erroBaseline};
+            const erroBaselinePlano=validatePlanningBaselinePolicy(current,value,usuario);
+            if(erroBaselinePlano)return {kind:"error",status:403,error:erroBaselinePlano};
+            if(chaves.includes("conferencias")){
+              const origin=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"conferencias")
+                ?baseSections.conferencias:current?.conferencias;
+              const erro=validarAlteracoesConferencias(usuario,origin||[],sections.conferencias||[],current?.conferencias||[],current?.obras||[]);
+              if(erro)return {kind:"error",status:403,error:erro};
+            }
+            if(chaves.includes("pedidos")){
+              const origin=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"pedidos")
+                ?baseSections.pedidos:current?.pedidos;
+              const erro=validatePurchaseChanges(usuario,origin||[],sections.pedidos||[]);
+              if(erro)return {kind:"error",status:403,error:erro};
+            }
+            if(chaves.some(key=>["solicitacoesCompra","cotacoes","pedidos","notasFiscais"].includes(key))){
+              const erro=validateProcurementChain(value);
+              if(erro)return {kind:"error",status:409,error:erro};
+            }
+            if(chaves.includes("obras")){
+              const origin=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"obras")
+                ?baseSections.obras:current?.obras;
+              const erro=validarExclusaoObras(usuario,origin||[],sections.obras||[]);
+              if(erro)return {kind:"error",status:403,error:erro};
+            }
+            return {
+              kind:"save",data:value,merged:!!houveConcorrencia,
+              before:Object.fromEntries(chaves.map(key=>[key,current?.[key]])),
+              after:Object.fromEntries(chaves.map(key=>[key,value?.[key]])),
+            };
+          },
+        });
+        if(outcome.kind==="error")return res.status(outcome.status||409).json({
+          error:outcome.error,code:outcome.code,
+          ...(outcome.conflict?{
+            conflict:true,reason:outcome.error,conflicts:outcome.conflicts,
+            currentUpdatedAt:outcome.currentUpdatedAt,
+          }:{}),
+        });
+        if(chaves.includes("usuarios"))await salvarIndicePerfis(outcome.data);
+        return res.status(200).json({
+          ok:true,merged:!!outcome.merged,
+          data:outcome.merged?projectDataForUser(outcome.data,usuario):undefined,
+          updatedAt:outcome.updatedAt,savedSections:chaves,
+        });
+      }
+      const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
+        engineEnforced:FINANCIAL_ENGINE_ENFORCE,before:atual,after:{...atual,...sections},
+      });
+      if(!erroSnapshotObra.ok)return res.status(409).json({error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"});
+      const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesFinanceiras});
+      if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       const erroAutorizacao=authorizeSectionChanges(usuario,Object.fromEntries(chaves.map(key=>[key,sections[key]])));
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),sections);
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
+      const erroBaseline=validateBudgetBaselinePolicy(atual,{...atual,...sections},usuario);
+      if(erroBaseline)return res.status(403).json({error:erroBaseline});
+      const erroBaselinePlano=validatePlanningBaselinePolicy(atual,{...atual,...sections},usuario);
+      if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
       if(chaves.includes("conferencias")){
         const baseConferencias=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"conferencias")?baseSections.conferencias:atual?.conferencias;
         const erroPermissao=validarAlteracoesConferencias(usuario,baseConferencias||[],sections.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
@@ -738,6 +1629,10 @@ export default async function handler(req, res) {
         const erroCompras=validatePurchaseChanges(usuario,basePedidos||[],sections.pedidos||[]);
         if(erroCompras)return res.status(403).json({error:erroCompras});
       }
+      if(chaves.some(key=>["solicitacoesCompra","cotacoes","pedidos","notasFiscais"].includes(key))){
+        const erroCadeiaCompras=validateProcurementChain({...atual,...sections});
+        if(erroCadeiaCompras)return res.status(409).json({error:erroCadeiaCompras});
+      }
       if(chaves.includes("obras")){
         const baseObras=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"obras")?baseSections.obras:atual?.obras;
         const erroObras=validarExclusaoObras(usuario,baseObras||[],sections.obras||[]);
@@ -745,56 +1640,96 @@ export default async function handler(req, res) {
       }
 
       const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
-      const aplicar = (estado, concorrente) => {
+      if(houveConcorrencia&&!baseSections)return res.status(409).json({conflict:true,reason:"A versão de origem é necessária para mesclar alterações concorrentes."});
+      if(houveConcorrencia){
+        const conflicts=findSectionConflicts(baseSections,sections,atual,chaves);
+        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
+      }
+      const aplicar = estado => {
         const proximo={...(estado||{})};
         chaves.forEach(k => {
-          proximo[k]=concorrente&&baseSections&&Object.prototype.hasOwnProperty.call(baseSections,k)
-            ? mesclarTresVias(baseSections[k],sections[k],estado?.[k])
+          const recebido=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,k)
+            ? mergeThreeWay(baseSections[k],sections[k],estado?.[k])
             : sections[k];
+          proximo[k]=recebido;
         });
         return proximo;
       };
-      let valor=aplicar(atual,houveConcorrencia);
+      let valor=aplicar(atual);
       let agora=new Date().toISOString();
-      const salvarVersao=exigeMotorFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
-      let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_sections":"save_sections",
+      const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
+      let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
         before:Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
       let gravado=gravacao.applied?{updated_at:gravacao.updatedAt}:null;
 
       let combinado=houveConcorrencia;
       if(!gravado){
         const recente=await lerLinha();
-        valor=aplicar(recente.payload,true);
+        const conflicts=findSectionConflicts(baseSections,sections,recente.payload,chaves);
+        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
+        valor=aplicar(recente.payload);
         agora=new Date().toISOString();
-        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_sections":"save_sections",
+        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
           before:Object.fromEntries(chaves.map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado={updated_at:retry.updatedAt};combinado=true;
       }
       if(chaves.includes("usuarios"))await salvarIndicePerfis(valor);
-      return res.status(200).json({ok:true,merged:combinado,data:combinado?valor:undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
+      return res.status(200).json({ok:true,merged:combinado,data:combinado?projectDataForUser(valor,usuario):undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
     }
 
     // ── 4b. Salvar blob completo (compatibilidade / primeiro acesso) ─
     if (action === "save") {
       if (!payload) return res.status(400).json({ error: "Nada para salvar." });
-      const secoesAlteradas=Object.fromEntries([...new Set([...Object.keys(payload||{}),...Object.keys(atual||{})])]
-        .filter(key=>!igual(payload?.[key],atual?.[key])).map(key=>[key,payload?.[key]]));
-      const exigeMotorFinanceiro=FINANCIAL_ENGINE_ENFORCE&&Object.keys(secoesAlteradas).some(key=>FINANCIAL_LEGACY_SECTIONS.has(key));
+      const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const attemptedCommandOnly=commandOnlySections.find(key=>
+        Object.prototype.hasOwnProperty.call(payload,key)&&!igual(payload?.[key],atual?.[key]));
+      if(attemptedCommandOnly)return res.status(409).json({
+        error:`A seção ${attemptedCommandOnly} exige o comando granular do servidor.`,
+        code:"ATTENDANCE_GRANULAR_REQUIRED",
+      });
+      const incomingPayload={...payload};
+      commandOnlySections.forEach(key=>{
+        if(Object.prototype.hasOwnProperty.call(atual||{},key))incomingPayload[key]=atual[key];
+        else delete incomingPayload[key];
+      });
+      const secoesAlteradas=Object.fromEntries([...new Set([...Object.keys(incomingPayload||{}),...Object.keys(atual||{})])]
+        .filter(key=>!igual(incomingPayload?.[key],atual?.[key])).map(key=>[key,incomingPayload?.[key]]));
+      const legacyPointWrite=Object.keys(secoesAlteradas).find(key=>
+        commandOnlySections.includes(key));
+      if(legacyPointWrite)return res.status(409).json({
+        error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
+        code:"ATTENDANCE_GRANULAR_REQUIRED",
+      });
+      const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesAlteradas);
+      const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
+        engineEnforced:FINANCIAL_ENGINE_ENFORCE,before:atual,after:incomingPayload,
+      });
+      if(!erroSnapshotObra.ok)return res.status(409).json({error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"});
+      const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesAlteradas});
+      if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas);
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
-      const erroExclusao=validateNoPhysicalDeletes(atual,payload);
+      const erroExclusao=validateNoPhysicalDeletes(atual,incomingPayload);
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
-      if(!igual(payload.conferencias,atual?.conferencias)){
-        const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],payload.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
+      const erroBaseline=validateBudgetBaselinePolicy(atual,incomingPayload,usuario);
+      if(erroBaseline)return res.status(403).json({error:erroBaseline});
+      const erroBaselinePlano=validatePlanningBaselinePolicy(atual,incomingPayload,usuario);
+      if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
+      if(!igual(incomingPayload.conferencias,atual?.conferencias)){
+        const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],incomingPayload.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
         if(erroPermissao)return res.status(403).json({error:erroPermissao});
       }
-      if(!igual(payload.pedidos,atual?.pedidos)){
-        const erroCompras=validatePurchaseChanges(usuario,basePayload?.pedidos||atual?.pedidos||[],payload.pedidos||[]);
+      if(!igual(incomingPayload.pedidos,atual?.pedidos)){
+        const erroCompras=validatePurchaseChanges(usuario,basePayload?.pedidos||atual?.pedidos||[],incomingPayload.pedidos||[]);
         if(erroCompras)return res.status(403).json({error:erroCompras});
       }
-      if(!igual(payload.obras,atual?.obras)){
-        const erroObras=validarExclusaoObras(usuario,basePayload?.obras||atual?.obras||[],payload.obras||[]);
+      if(["solicitacoesCompra","cotacoes","pedidos","notasFiscais"].some(key=>!igual(incomingPayload?.[key],atual?.[key]))){
+        const erroCadeiaCompras=validateProcurementChain(incomingPayload);
+        if(erroCadeiaCompras)return res.status(409).json({error:erroCadeiaCompras});
+      }
+      if(!igual(incomingPayload.obras,atual?.obras)){
+        const erroObras=validarExclusaoObras(usuario,basePayload?.obras||atual?.obras||[],incomingPayload.obras||[]);
         if(erroObras)return res.status(403).json({error:erroObras});
       }
 
@@ -809,8 +1744,12 @@ export default async function handler(req, res) {
       // instante, mas são strings diferentes — e comparar com !== dava
       // conflito eterno. O ponto simplesmente não salvava.
       const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
-      let valor=houveConcorrencia&&basePayload?mesclarTresVias(basePayload,payload,atual):payload;
-      if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:atual,currentUpdatedAt:updatedAt});
+      if(houveConcorrencia&&basePayload){
+        const conflicts=findSectionConflicts(basePayload,incomingPayload,atual,Object.keys(secoesAlteradas));
+        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
+      }
+      let valor=basePayload?mergeThreeWay(basePayload,incomingPayload,atual):incomingPayload;
+      if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:projectDataForUser(atual,usuario),currentUpdatedAt:updatedAt});
 
       const agora = new Date().toISOString();
       const beforeAudit=Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,atual?.[key]]));
@@ -819,22 +1758,25 @@ export default async function handler(req, res) {
       // .select() devolve a linha COMO O BANCO A GUARDOU. Assim o carimbo que
       // mandamos de volta ao navegador é exatamente o que estará lá na próxima
       // comparação — sem discrepância de formato.
-      const salvarVersao=exigeMotorFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
-      const primeira=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_blob":"save_blob",before:beforeAudit,after:afterAudit});
+      const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
+      const primeira=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",before:beforeAudit,after:afterAudit});
       let gravado=primeira.applied?{updated_at:primeira.updatedAt}:null;
       // Outra gravação pode entrar entre a leitura e o UPDATE. A condição no
       // updated_at impede sobrescrita; nesse caso relê e reaplica a mesma mescla.
       if(!gravado){
         if(!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou ao mesmo tempo."});
-        const recente=await lerLinha();valor=mesclarTresVias(basePayload,payload,recente.payload);
+        const recente=await lerLinha();
+        const conflicts=findSectionConflicts(basePayload,incomingPayload,recente.payload,Object.keys(secoesAlteradas));
+        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
+        valor=mergeThreeWay(basePayload,incomingPayload,recente.payload);
         const novoAgora=new Date().toISOString();
-        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:exigeMotorFinanceiro?"financial_save_blob":"save_blob",
+        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
           before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado={updated_at:retry.updatedAt};
       }
       if(!igual(valor?.usuarios,atual?.usuarios))await salvarIndicePerfis(valor);
-      return res.status(200).json({ ok: true, merged:!!houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora), data:(houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora))?valor:undefined, updatedAt: gravado?.updated_at || agora });
+      return res.status(200).json({ ok: true, merged:!!houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora), data:(houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora))?projectDataForUser(valor,usuario):undefined, updatedAt: gravado?.updated_at || agora });
     }
 
     // ── 5. Quinzenas arquivadas ────────────────────────────────────
@@ -899,6 +1841,9 @@ export default async function handler(req, res) {
           id: e.id, name: e.name, role: e.role || "", obra: e.obra || "",
           dailyRate: Number(e.dailyRate || 0),
           vtDaily: Number(e.vtDaily || 0), vrDaily: Number(e.vrDaily || 0),
+          workdayHours: Number(e.workdayHours || 8),
+          workStart: String(e.workStart || "07:00"),
+          overtimeAdditionalPercent: Number(e.overtimeAdditionalPercent ?? 50),
           startDate: e.startDate || "", endDate: e.endDate || "",
         }));
 
@@ -920,15 +1865,6 @@ export default async function handler(req, res) {
         summarizeArchivedCosts({ attendance: fatia, employeesSnapshot })
       );
 
-      const { error: errArq } = await db.from("company_app_data")
-        .insert({
-          company_id: COMPANY,
-          key: chaveArquivo(quinzenaId),
-          value: { meta, attendance: fatia, employeesSnapshot, financialSnapshot: resumoFinanceiro },
-          updated_at: agora,
-        });
-      if (errArq) throw errArq;
-
       const novoPrincipal = {
         ...atual,
         attendance: restante,
@@ -937,21 +1873,25 @@ export default async function handler(req, res) {
           [quinzenaId]: resumoFinanceiro,
         },
         quinzenasArquivadas: { ...(atual?.quinzenasArquivadas || {}), [quinzenaId]: meta },
-        changeLog: [
-          ...(atual?.changeLog || []),
-          { id: `arq_${Date.now()}`, date: agora.slice(0, 10), at: agora, type: "quinzena_archived",
-            operador: usuario.nome, operadorId: usuario.id,
-            message: `${usuario.nome} finalizou e arquivou a quinzena ${meta.label} (${totalLanc} lançamento(s) de ${employeesSnapshot.length} funcionário(s))` },
-        ].slice(-200),
       };
-
-      const { data: gravado, error: errMain } = await db.from("company_app_data")
-        .update({ value: encodeAppData(novoPrincipal), updated_at: agora, updated_by: null })
-        .eq("company_id", COMPANY).eq("key", KEY)
-        .select("updated_at").maybeSingle();
-      if (errMain) throw errMain;
-
-      return res.status(200).json({ ok: true, data: novoPrincipal, updatedAt: gravado?.updated_at || agora, meta });
+      const archiveValue={meta,attendance:fatia,employeesSnapshot,financialSnapshot:resumoFinanceiro};
+      const transaction=await executarArquivoPontoTransacional({
+        mode:"archive",expectedUpdatedAt:updatedAt,mainValue:novoPrincipal,
+        archiveKey:chaveArquivo(quinzenaId),archiveValue,actor:usuario,
+        before:{quinzenaId,attendance:fatia},
+        after:{quinzenaId,meta,financialSnapshot:resumoFinanceiro},
+      });
+      if(!transaction.applied){
+        const status=transaction.reason==="archive_exists"?409:transaction.reason==="concurrent_update"?409:500;
+        return res.status(status).json({
+          error:transaction.reason==="archive_exists"?"Esta quinzena já foi arquivada.":"Os dados mudaram durante o arquivamento. Recarregue e tente novamente.",
+          code:`ATTENDANCE_ARCHIVE_${transaction.reason.toUpperCase()}`,
+        });
+      }
+      return res.status(200).json({
+        ok:true,data:projectDataForUser(novoPrincipal,usuario),
+        updatedAt:transaction.updatedAt||agora,meta,
+      });
     }
 
     if (action === "list-quinzena-archives") {
@@ -992,6 +1932,12 @@ export default async function handler(req, res) {
       }
       const { quinzenaId } = req.body || {};
       if (!quinzenaValida(quinzenaId)) return res.status(400).json({ error: "Quinzena inválida." });
+      if((atual?.quinzenasRestauradas||{})[quinzenaId]){
+        return res.status(200).json({
+          ok:true,data:projectDataForUser(atual,usuario),updatedAt,
+          devolvidos:0,mantidos:0,idempotent:true,
+        });
+      }
       const { data: linha, error: errLer } = await db.from("company_app_data")
         .select("value")
         .eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
@@ -999,53 +1945,80 @@ export default async function handler(req, res) {
       if (!linha) return res.status(404).json({ error: "Arquivo não encontrado." });
 
       const arq = linha.value || {};
-      const attendance = { ...(atual?.attendance || {}) };
-      let devolvidos = 0, mantidos = 0;
-      for (const [empId, mapa] of Object.entries(arq.attendance || {})) {
-        const destino = { ...(attendance[empId] || {}) };
-        for (const [d, reg] of Object.entries(mapa || {})) {
-          if (destino[d]) { mantidos += 1; continue; }
-          destino[d] = reg; devolvidos += 1;
-        }
-        attendance[empId] = destino;
-      }
+      const restauracoes = {...(atual?.quinzenasRestauradas || {})};
+      const {attendance, devolvidos, mantidos} = restoreArchivedAttendance({
+        attendance: atual?.attendance || {}, archiveAttendance: arq.attendance || {},
+        employeesSnapshot: arq.employeesSnapshot || [],
+      });
 
       const agora = new Date().toISOString();
       const marcadores = { ...(atual?.quinzenasArquivadas || {}) };
       delete marcadores[quinzenaId];
       const custosArquivados = { ...(atual?.archivedLaborCosts || {}) };
       delete custosArquivados[quinzenaId];
+      restauracoes[quinzenaId] = restorationRecord({archive: arq, quinzenaId, actor: usuario, at: agora});
       const novoPrincipal = {
         ...atual,
         attendance,
         archivedLaborCosts: custosArquivados,
         quinzenasArquivadas: marcadores,
-        changeLog: [
-          ...(atual?.changeLog || []),
-          { id: `res_${Date.now()}`, date: agora.slice(0, 10), at: agora, type: "quinzena_restored",
-            operador: usuario.nome, operadorId: usuario.id,
-            message: `${usuario.nome} restaurou a quinzena ${arq.meta?.label || quinzenaId} (${devolvidos} lançamento(s) devolvido(s)${mantidos ? `, ${mantidos} mantido(s) como estavam` : ""})` },
-        ].slice(-200),
+        quinzenasRestauradas: restauracoes,
       };
-
-      const { data: gravado, error: errMain } = await db.from("company_app_data")
-        .update({ value: encodeAppData(novoPrincipal), updated_at: agora, updated_by: null })
-        .eq("company_id", COMPANY).eq("key", KEY)
-        .select("updated_at").maybeSingle();
-      if (errMain) throw errMain;
-
-      const { error: errDel } = await db.from("company_app_data")
-        .delete()
-        .eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId));
-      if (errDel) throw errDel;
-
-      return res.status(200).json({ ok: true, data: novoPrincipal, updatedAt: gravado?.updated_at || agora, devolvidos, mantidos });
+      const transaction=await executarArquivoPontoTransacional({
+        mode:"restore",expectedUpdatedAt:updatedAt,mainValue:novoPrincipal,
+        archiveKey:chaveArquivo(quinzenaId),actor:usuario,
+        before:{quinzenaId,meta:arq.meta||{}},
+        after:{quinzenaId,devolvidos,mantidos,restoration:restauracoes[quinzenaId]},
+      });
+      if(!transaction.applied){
+        if(transaction.reason==="archive_not_found"){
+          const recent=await lerLinha();
+          if(recent.payload?.quinzenasRestauradas?.[quinzenaId]){
+            return res.status(200).json({
+              ok:true,data:projectDataForUser(recent.payload,usuario),updatedAt:recent.updatedAt,
+              devolvidos:0,mantidos:0,idempotent:true,
+            });
+          }
+        }
+        return res.status(transaction.reason==="concurrent_update"?409:404).json({
+          error:transaction.reason==="concurrent_update"
+            ?"Os dados mudaram durante a restauração. Recarregue e tente novamente."
+            :"Arquivo não encontrado.",
+          code:`ATTENDANCE_RESTORE_${transaction.reason.toUpperCase()}`,
+        });
+      }
+      return res.status(200).json({
+        ok:true,data:projectDataForUser(novoPrincipal,usuario),
+        updatedAt:transaction.updatedAt||agora,devolvidos,mantidos,
+      });
     }
 
     return res.status(400).json({ error: "Ação desconhecida." });
   } catch (err) {
-    console.error("Falha em /api/data:", err);
+    const correlationId=crypto.randomUUID();
+    console.error(`Falha em /api/data [${correlationId}]:`, err);
+    if(err?.code==="ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED"){
+      return res.status(503).json({
+        error:"O arquivamento seguro ainda não está instalado no banco. Execute migrations/006_attendance_archive_transaction.up.sql.",
+        code:err.code,
+        correlationId,
+        retryable:false,
+      });
+    }
+    if(err?.code==="AUDIT_RPC_MIGRATION_REQUIRED"){
+      return res.status(503).json({
+        error:err.message,
+        code:err.code,
+        correlationId,
+        retryable:false,
+      });
+    }
     // Não devolve o erro cru: pode conter nome de tabela, coluna, etc.
-    return res.status(500).json({ error: "Erro interno." });
+    return res.status(500).json({
+      error:"Não foi possível concluir a operação no servidor.",
+      code:"DATA_INTERNAL_ERROR",
+      correlationId,
+      retryable:true,
+    });
   }
 }

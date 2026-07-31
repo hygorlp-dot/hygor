@@ -43,6 +43,14 @@ describe("A. vincular pagamento já existente - nunca cria lançamento novo", ()
     const { resumo } = vincularPagamentoExistente(data, { transacaoId: "t1", tipo: "nota", entidadeId: "n1", operador });
     expect(resumo.ok).toBe(false);
   });
+
+  test("recusa vínculo para um fato inexistente sem alterar o extrato", () => {
+    const data=dataBase();
+    const {data:next,resumo}=vincularPagamentoExistente(data,{transacaoId:"t2",tipo:"nota",entidadeId:"n-inexistente",operador});
+    expect(resumo.ok).toBe(false);
+    expect(next).toBe(data);
+    expect(next.transacoes.find(item=>item.id==="t2")?.status).toBe("pendente");
+  });
 });
 
 describe("A2. vincular quando o pagamento já foi registrado noutro módulo (Central de Pagamentos) sem transação", () => {
@@ -131,6 +139,26 @@ describe("C. criar lançamento novo - exige verificação de duplicidade prévia
     });
     expect(next.outrasDesp).toHaveLength(1);
     expect(next.transacoes.find(t => t.id === "t1").status).toBe("conciliado");
+  });
+
+  test("bloqueia despesa de obra quando a transação é uma entrada bancária", () => {
+    const data = dataBase();
+    const { data: next, resumo } = criarLancamentoPelaTransacao(data, {
+      transacaoId: "t3", tipoLancamento: "despesa_obra", obraId: "o1", categoria: "outros", operador, duplicidadeRevisada: true,
+    });
+    expect(resumo.ok).toBe(false);
+    expect(resumo.motivo).toMatch(/saída bancária/i);
+    expect(next.outrasDesp).toHaveLength(0);
+  });
+
+  test("bloqueia despesa administrativa quando a transação é uma entrada bancária", () => {
+    const data = dataBase();
+    const { data: next, resumo } = criarLancamentoPelaTransacao(data, {
+      transacaoId: "t3", tipoLancamento: "despesa_administrativa", descricao: "Pix recebido", operador, duplicidadeRevisada: true,
+    });
+    expect(resumo.ok).toBe(false);
+    expect(resumo.motivo).toMatch(/saída bancária/i);
+    expect(next.despesasEmpresa).toHaveLength(0);
   });
 
   test("registra aporte no caixa sem classificá-lo como receita ou despesa", () => {
@@ -238,5 +266,69 @@ describe("desfazer - nunca apaga registro pré-existente, só reverte o que a co
     expect(revertido.pedidos.find(p => p.id === "p1").pagamentos).toHaveLength(1);
     expect(revertido.pedidos.find(p => p.id === "p1").pagamentos[0].status).toBe("estornado");
     expect(revertido.notasFiscais.find(n => n.id === "n1")).toBeDefined(); // a nota em si nunca é apagada
+  });
+});
+
+describe("período financeiro fechado - nenhuma conciliação altera fato dentro dele sem reabertura formal", () => {
+  const dataComPeriodoFechado = () => ({
+    ...dataBase(),
+    fechamentosFinanceiros: [{ status: "fechado", dataInicio: "2026-01-01", dataFim: "2026-01-31" }],
+  });
+
+  test("bloqueia vincular pagamento existente numa transação de período fechado", () => {
+    const { resumo } = vincularPagamentoExistente(dataComPeriodoFechado(), { transacaoId: "t2", tipo: "nota", entidadeId: "n2", operador });
+    expect(resumo.ok).toBe(false);
+    expect(resumo.motivo).toMatch(/período financeiro/i);
+  });
+
+  test("bloqueia registrar pagamento e conciliar numa data fechada", () => {
+    const { resumo } = registrarPagamentoEConciliar(dataComPeriodoFechado(), {
+      transacaoId: "t1", tipo: "nota", entidadeId: "n1", valor: 500, dataPagamento: "2026-01-10", operador,
+    });
+    expect(resumo.ok).toBe(false);
+  });
+
+  test("bloqueia criar lançamento novo numa data fechada, mesmo com duplicidade revisada", () => {
+    const { resumo } = criarLancamentoPelaTransacao(dataComPeriodoFechado(), {
+      transacaoId: "t1", tipoLancamento: "despesa_administrativa", descricao: "Tarifa", operador, duplicidadeRevisada: true,
+    });
+    expect(resumo.ok).toBe(false);
+  });
+
+  test("bloqueia transferência interna quando uma das pontas cai no período fechado", () => {
+    const data = dataComPeriodoFechado();
+    data.transacoes.push({ id: "t4", extratoId: "e2", data: "2026-02-05", valor: 500, status: "pendente", gerados: [] });
+    const { resumo } = marcarTransferenciaInterna(data, { transacaoOrigemId: "t1", transacaoDestinoId: "t4", operador });
+    expect(resumo.ok).toBe(false);
+  });
+
+  test("bloqueia estorno numa data fechada", () => {
+    const { resumo } = marcarEstorno(dataComPeriodoFechado(), { transacaoId: "t3", operador });
+    expect(resumo.ok).toBe(false);
+  });
+
+  test("bloqueia conciliação N:N quando algum movimento cai no período fechado", () => {
+    const { resumo } = conciliarMuitosParaMuitos(dataComPeriodoFechado(), {
+      transacaoIds: ["t1", "t2"], itens: [], ajustes: [], operador,
+    });
+    expect(resumo.ok).toBe(false);
+  });
+
+  test("bloqueia desfazer uma conciliação cujo fato está datado num período já fechado", () => {
+    const livre = dataBase();
+    const { data: vinculado } = vincularPagamentoExistente(livre, { transacaoId: "t2", tipo: "nota", entidadeId: "n2", operador });
+    const fechado = { ...vinculado, fechamentosFinanceiros: [{ status: "fechado", dataInicio: "2026-01-01", dataFim: "2026-01-31" }] };
+    const { resumo } = desfazerConciliacao(fechado, "t2", operador, "tentativa");
+    expect(resumo.ok).toBe(false);
+  });
+
+  test("não bloqueia quando a data cai fora do intervalo fechado", () => {
+    const data = dataComPeriodoFechado();
+    data.transacoes.push({ id: "t5", extratoId: "e3", data: "2026-02-10", valor: -200, status: "pendente", gerados: [] });
+    data.notasFiscais.push({ id: "n3", numero: "102", valorLiquido: 200, pagamentos: [] });
+    const { resumo } = registrarPagamentoEConciliar(data, {
+      transacaoId: "t5", tipo: "nota", entidadeId: "n3", valor: 200, dataPagamento: "2026-02-10", operador,
+    });
+    expect(resumo.ok).toBe(true);
   });
 });

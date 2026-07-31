@@ -1,4 +1,4 @@
-import { configured, cookies, exchangeCode, rootItem, saveCentralSession, seal, setCookie, unseal } from "./_graph.js";
+import { configured, cookies, exchangeCode, rootItem, saveCentralSession, seal, setCookie, unseal } from "../../server/microsoft/graph.js";
 
 export default async function handler(req,res){
   try{

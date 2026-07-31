@@ -1,0 +1,6 @@
+:root {
+  --arcd-breakpoint-sm: 480px;
+  --arcd-breakpoint-md: 768px;
+  --arcd-breakpoint-lg: 1024px;
+  --arcd-breakpoint-xl: 1280px;
+}

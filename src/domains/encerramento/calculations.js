@@ -1,0 +1,1 @@
+export const closeoutReadiness=(items=[])=>{const open=items.filter(item=>!["encerrada","aprovada"].includes(item.status));return {ready:open.length===0,openCount:open.length,blocking:open.filter(item=>item.severity==="alta"||item.blocking)};};

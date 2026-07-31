@@ -1,7 +1,8 @@
 import {
   paraCentavos, deCentavos, igualCentavos,
   chaveTransacao, parseOFX, somaRateios, diasEntre,
-  aplicarRecebimentoMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
+  calcConciliacao,
+  aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
 } from "./calculations";
 
 describe("domínio de conciliação - centavos", () => {
@@ -49,6 +50,33 @@ describe("domínio de conciliação - importação", () => {
   });
 });
 
+describe("domínio de conciliação - posição da fila", () => {
+  test("ignora transações de extratos arquivados e resume apenas a fila ativa", () => {
+    const result = calcConciliacao({
+      extratos:[
+        { id:"ativo", status:"importado" },
+        { id:"antigo", status:"arquivado" },
+      ],
+      transacoes:[
+        { id:"t1", extratoId:"ativo", status:"pendente", valor:-100 },
+        { id:"t2", extratoId:"ativo", status:"conciliado", valor:250 },
+        { id:"t3", extratoId:"ativo", status:"ignorado", valor:-25 },
+        { id:"t4", extratoId:"antigo", status:"pendente", valor:-999 },
+      ],
+    });
+    expect(result).toEqual({
+      total:3,
+      pendentes:1,
+      conciliadas:1,
+      ignoradas:1,
+      valorPendente:100,
+      entradas:250,
+      saidas:0,
+      pct:expect.closeTo(66.666666, 5),
+    });
+  });
+});
+
 describe("domínio de conciliação - recebimento parcial de medição (correção do bug legado)", () => {
   const medicaoBase = { id: "m1", valorPrevisto: 1000, recebimentos: [] };
 
@@ -83,6 +111,23 @@ describe("domínio de conciliação - recebimento parcial de medição (correç�
     expect(revertida.recebimentos).toHaveLength(2);
     expect(revertida.recebimentos[0].id).toBe("r1");
     expect(revertida.recebimentos[1].status).toBe("estornado");
+  });
+
+  test("estorna todos os recebimentos manuais com motivo e autoria sem apagar a evidência", () => {
+    let m=aplicarRecebimentoMedicao(medicaoBase,{id:"r1",valor:1000,data:"2026-01-10",origem:"manual"});
+    m=estornarRecebimentosMedicao(m,{actor:{id:"u1",nome:"Financeiro"},reason:"Duplicidade",now:"2026-01-11T10:00:00.000Z"});
+    expect(m).toMatchObject({recebido:false,valorRecebido:0,dataPagamento:""});
+    expect(m.recebimentos[0]).toMatchObject({id:"r1",status:"estornado",motivoEstorno:"Duplicidade",estornadoPorId:"u1"});
+  });
+
+  test("não estorna pelo atalho um recebimento vinculado ao extrato", () => {
+    const m=aplicarRecebimentoMedicao(medicaoBase,{id:"r1",valor:1000,data:"2026-01-10",transacaoId:"tx-1"});
+    expect(()=>estornarRecebimentosMedicao(m,{actor:{id:"u1"},reason:"x"})).toThrow("Desfaça a conciliação bancária");
+  });
+
+  test("preserva o valor espelho legado como evidência estornada", () => {
+    const m=estornarRecebimentosMedicao({id:"m-legado",valorPrevisto:1000,valorRecebido:300,dataPagamento:"2026-01-10"},{actor:{id:"u1"},reason:"Ajuste",now:"2026-01-11T10:00:00.000Z"});
+    expect(m.recebimentos[0]).toMatchObject({valor:300,legacy:true,status:"estornado",motivoEstorno:"Ajuste"});
   });
 
   test("medição sem valorPrevisto (0) some como recebida assim que entra qualquer valor", () => {

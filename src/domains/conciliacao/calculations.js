@@ -89,7 +89,11 @@ export const diasEntre = (a, b) => {
 
 // Painel de números da conciliação (KPIs da fila)
 export const calcConciliacao = (data) => {
-  const trans = data.transacoes || [];
+  const archivedStatements = new Set((data?.extratos || [])
+    .filter(statement => statement?.status === "arquivado")
+    .map(statement => String(statement.id)));
+  const trans = (data?.transacoes || []).filter(transaction =>
+    !archivedStatements.has(String(transaction?.extratoId || "")));
   const pend = trans.filter(t => t.status === "pendente");
   const conc = trans.filter(t => t.status === "conciliado");
   const ign = trans.filter(t => t.status === "ignorado");
@@ -143,10 +147,13 @@ export const statusRecebimentoMedicao = medicao => {
 // Aplica um novo recebimento (total ou parcial) a uma medição, devolvendo a
 // medição atualizada. `valor` pode ser menor que o saldo (parcial) - nesse
 // caso `recebido` só vira true quando o acumulado fechar com o previsto.
-export const aplicarRecebimentoMedicao = (medicao, { id, valor, data, origem = "", transacaoId = "" }) => {
+export const aplicarRecebimentoMedicao = (medicao, { id, valor, data, origem = "", transacaoId = "", actor = null, now = new Date().toISOString() }) => {
   const recebimentos = [
     ...(Array.isArray(medicao.recebimentos) ? medicao.recebimentos : []),
-    { id: id || undefined, valor: Number(valor || 0), data: data || "", origem, transacaoId },
+    {
+      id: id || undefined, valor: Number(valor || 0), data: data || "", origem, transacaoId,
+      ...(actor?.id ? { createdAt:now, createdById:actor.id, createdBy:actor.nome || actor.email || "Usuário autenticado" } : {}),
+    },
   ];
   const total = recebimentos.reduce((s, r) => s + Number(r.valor || 0), 0);
   const previsto = Number(medicao.valorPrevisto || 0);
@@ -156,6 +163,28 @@ export const aplicarRecebimentoMedicao = (medicao, { id, valor, data, origem = "
     valorRecebido: total,
     dataPagamento: data || medicao.dataPagamento || "",
     recebido: previsto > 0 ? total >= previsto - 0.01 : total > 0,
+  };
+};
+
+export const estornarRecebimentosMedicao = (medicao, { actor, reason, now = new Date().toISOString() }) => {
+  if (!actor?.id) throw new Error("Sessão do usuário indisponível para estornar os recebimentos da medição.");
+  const motivoEstorno=String(reason || "").trim();
+  if (!motivoEstorno) throw new Error("Informe o motivo do estorno dos recebimentos.");
+  const existentes=Array.isArray(medicao?.recebimentos) ? medicao.recebimentos : [];
+  const recebimentos=existentes.length ? existentes : Number(medicao?.valorRecebido || 0) > 0 ? [{
+    id:`legado-${medicao.id || "medicao"}-${medicao.dataPagamento || "sem-data"}`,
+    valor:Number(medicao.valorRecebido || 0), data:medicao.dataPagamento || "", origem:"espelho_legado", legacy:true,
+  }] : [];
+  const ativos=recebimentos.filter(item=>item.status!=="estornado");
+  if (ativos.some(item=>item.transacaoId)) throw new Error("Desfaça a conciliação bancária antes de estornar este recebimento.");
+  const userName=actor.nome || actor.email || "Usuário autenticado";
+  return {
+    ...medicao,
+    recebimentos:recebimentos.map(item=>item.status==="estornado" ? item : ({
+      ...item, status:"estornado", motivoEstorno, estornadoEm:now,
+      estornadoPorId:actor.id, estornadoPor:userName,
+    })),
+    valorRecebido:0, dataPagamento:"", recebido:false,
   };
 };
 

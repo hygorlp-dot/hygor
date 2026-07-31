@@ -1,4 +1,5 @@
 import { Component } from "react";
+import { buildLocalErrorDiagnostic } from "./observability/local-error-diagnostic";
 
 // Sem isto, um único erro de render em qualquer componente derruba a árvore
 // inteira e o usuário vê uma TELA BRANCA, sem mensagem e sem saída — no meio
@@ -9,7 +10,7 @@ import { Component } from "react";
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { erro: null };
+    this.state = { erro: null, componentStack: "" };
   }
 
   static getDerivedStateFromError(erro) {
@@ -17,14 +18,34 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(erro, info) {
-    // Fica no console para você inspecionar; num passo futuro dá para mandar
-    // para o Supabase e ter histórico de falhas em produção.
-    console.error("Erro não tratado:", erro, info?.componentStack);
+    const diagnostic = buildLocalErrorDiagnostic(erro, { pathname: window.location.pathname });
+    console.error("Erro não tratado:", { reference: diagnostic.reference, erro, componentStack: info?.componentStack });
+    const componentStack = String(info?.componentStack || "");
+    this.setState({ componentStack });
+    fetch("/api/data", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        action: "client-error",
+        reference: diagnostic.reference,
+        message: diagnostic.message,
+        pathname: window.location.pathname,
+        errorStack: String(erro?.stack || ""),
+        componentStack,
+      }),
+    }).catch(() => {});
   }
 
+  copiarDiagnostico = diagnostic => {
+    if (!navigator.clipboard?.writeText) return;
+    navigator.clipboard.writeText(diagnostic.text).catch(() => {});
+  };
+
   render() {
-    const { erro } = this.state;
+    const { erro, componentStack } = this.state;
     if (!erro) return this.props.children;
+    const diagnostic = buildLocalErrorDiagnostic(erro, { pathname: window.location.pathname });
 
     return (
       <div style={{
@@ -53,11 +74,11 @@ export default class ErrorBoundary extends Component {
           </h1>
 
           <p style={{ fontSize: 13, color: "#6B6459", lineHeight: 1.55, margin: "0 0 6px" }}>
-            Seus dados estão salvos — o erro é só de exibição. Recarregar costuma resolver.
+            Ocorreu uma falha de exibição. Recarregar costuma resolver.
           </p>
 
           <p style={{ fontSize: 11, color: "#6B6459", lineHeight: 1.5, margin: "0 0 18px" }}>
-            Se continuar, me mande o texto abaixo.
+            Se havia uma ação em andamento, confirme o resultado após recarregar. Se continuar, envie o diagnóstico abaixo.
           </p>
 
           <pre style={{
@@ -65,8 +86,21 @@ export default class ErrorBoundary extends Component {
             padding: "10px 12px", fontSize: 11, color: "#3D3530",
             overflowX: "auto", margin: "0 0 18px", whiteSpace: "pre-wrap",
           }}>
-            {String(erro?.message || erro)}
+            {diagnostic.text}
+            {componentStack ? `\nOrigem: ${componentStack.trim().split("\n")[0].trim()}` : ""}
           </pre>
+
+          <button
+            onClick={() => this.copiarDiagnostico(diagnostic)}
+            style={{
+              width: "100%", padding: 10, borderRadius: 8, marginBottom: 8,
+              background: "#FFFFFF", color: "#3D3530", border: "1px solid #C8C2B6",
+              fontFamily: "'Inter',-apple-system,sans-serif", fontWeight: 700,
+              fontSize: 12, cursor: "pointer",
+            }}
+          >
+            Copiar diagnóstico
+          </button>
 
           <button
             onClick={() => window.location.reload()}

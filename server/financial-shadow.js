@@ -61,7 +61,10 @@ export const buildLegacyFinancialFacts = data => {
   for (const item of (data?.pagsTerceiros || []).filter(active)) {
     push({
       legacyType:"pagamento_terceiro", legacyId:String(item.id), category:"thirdParty", direction:"payable",
-      obraId:item.pagador === "empresa" ? "" : String(item.obraId || ""),
+      // Quem desembolsou o dinheiro não muda a obra que recebeu o serviço.
+      // Perder este vínculo deslocava um custo de obra para a empresa na carga
+      // em sombra e impedia a conferência por obra antes de FIN-003.
+      obraId:String(item.obraId || ""),
       titleAmount:item.amount || item.valor, recognizedAmount:item.amount || item.valor,
       recognitionType:"cost_recognized", date:item.date || item.data,
       settlements:[settlement("pagamento_terceiro", item.id, item.amount || item.valor, item.date || item.data, item.transacaoId)],

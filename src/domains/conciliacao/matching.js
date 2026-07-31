@@ -31,7 +31,7 @@ export const faixaDoScore = (score, temAlerta) => {
 
 // Monta uma candidata no formato padronizado (§6.6). `origem` é o registro
 // bruto vindo do índice (nota, pedido, medição, terceiro, funcionário...).
-const candidata = (base) => ({
+export const candidata = (base) => ({
   tipo: base.tipo,
   entidadeId: base.entidadeId || null,
   pagamentoId: base.pagamentoId || null,
@@ -68,23 +68,23 @@ const pontuarValor = (transacaoCentavos, saldoCentavos) => {
 const pontuarDocumento = (docTransacao, docCandidato) => {
   const a = soNumeros(docTransacao), b = soNumeros(docCandidato);
   if (!a || !b) return { pts: 0, motivo: null };
-  if (a === b) return { pts: 25, motivo: "CPF/CNPJ coincidente" };
+  if (a === b) return { pts: 35, motivo: "CPF/CNPJ exato e exclusivo" };
   return { pts: 0, motivo: null };
 };
 
 const pontuarContraparte = (nomeTransacao, nomeCandidato) => {
   const a = semAcento(nomeTransacao), b = semAcento(nomeCandidato);
   if (!a || !b) return { pts: 0, motivo: null };
-  if (a === b) return { pts: 10, motivo: "Nome da contraparte coincide" };
-  if (a.includes(b) || b.includes(a)) return { pts: 6, motivo: "Nome da contraparte semelhante" };
+  if (a === b) return { pts: 15, motivo: "Nome da contraparte exato" };
+  if (a.includes(b) || b.includes(a)) return { pts: 10, motivo: "Nome da contraparte semelhante" };
   return { pts: 0, motivo: null };
 };
 
 const pontuarData = (dataTransacao, dataPrevista) => {
   if (!dataPrevista) return { pts: 0, motivo: null };
   const dist = diasEntre(dataTransacao, dataPrevista);
-  if (dist <= 2) return { pts: 10, motivo: "Data próxima do vencimento/previsão" };
-  if (dist <= 7) return { pts: 6, motivo: null };
+  if (dist <= 2) return { pts: 12, motivo: "Data até dois dias da previsão" };
+  if (dist <= 7) return { pts: 7, motivo: "Data até sete dias da previsão" };
   if (dist <= 15) return { pts: 2, motivo: null };
   return { pts: 0, motivo: null };
 };
@@ -95,9 +95,20 @@ const pontuarPix = (transacao, pixKeyCandidato) => {
   // Só considera chave quando ela veio estruturada do extrato. Trechos da
   // descrição são evidência fraca e jamais uma confirmação conclusiva.
   const chave = normalizarChavePix(transacao.chavePix || transacao.pixKey || "");
-  if (chave && chave === normalizarChavePix(pixKeyCandidato)) return { pts: 25, motivo: "Chave PIX estruturada corresponde" };
+  if (chave && chave === normalizarChavePix(pixKeyCandidato)) return { pts: 35, motivo: "Chave PIX exata e exclusiva" };
   return { pts: 0, motivo: null };
 };
+
+const pontuarIdentificadorBancario = (transacao, item) => {
+  const id=[transacao?.fitid,transacao?.endToEndId,transacao?.txid].filter(Boolean).map(String);
+  const origem=[item?.fitid,item?.endToEndId,item?.txid,item?.identificadorBancario].filter(Boolean).map(String);
+  return id.some(value=>origem.includes(value))?{pts:60,motivo:"Identificador bancário único já vinculado ao fato"}:{pts:0,motivo:null};
+};
+
+const periodoFechado = (data, transacao) => (data.fechamentosBancarios||[]).some(item =>
+  item.status==="fechado" && (!item.contaBancariaId || !transacao?.contaBancariaId || String(item.contaBancariaId)===String(transacao.contaBancariaId)) &&
+  String(transacao?.data||"")>=String(item.dataInicio||"") && String(transacao?.data||"")<=String(item.dataFim||"")
+);
 
 const pontuarObra = (obraTransacao, obraCandidato) => {
   if (!obraTransacao || !obraCandidato) return { pts: 0, motivo: null };
@@ -240,6 +251,10 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
     let score = 0;
     const motivos = [], alertas = [], bloqueios = [];
 
+    if (item.status === "cancelado" || item.status === "cancelada" || item.archived === true || item.arquivado === true) {
+      bloqueios.push("O fato financeiro está cancelado ou arquivado");
+    }
+    if (periodoFechado(data, transacao)) bloqueios.push("A transação pertence a um período financeiro fechado");
     if (saldoCentavos > 0) {
       const v = pontuarValor(valorCentavos, saldoCentavos);
       score += v.pts; if (v.motivo) motivos.push(v.motivo);
@@ -251,6 +266,7 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
     score += d.pts; if (d.motivo) motivos.push(d.motivo);
     if (transacao.contraparteDocumento && documento && soNumeros(transacao.contraparteDocumento) !== soNumeros(documento) && d.pts === 0 && documento) {
       alertas.push("CPF/CNPJ informado não confere com o candidato");
+      bloqueios.push("CPF/CNPJ incompatível com o fato financeiro");
     }
     const c = pontuarContraparte(transacao.contraparteNome || transacao.descricao, contraparte);
     score += c.pts; if (c.motivo) motivos.push(c.motivo);
@@ -258,6 +274,8 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
     score += dt.pts; if (dt.motivo) motivos.push(dt.motivo);
     const px = pontuarPix(transacao, pixKey);
     score += px.pts; if (px.motivo) motivos.push(px.motivo);
+    const bankId=pontuarIdentificadorBancario(transacao,item);
+    score += bankId.pts;if(bankId.motivo)motivos.push(bankId.motivo);
     const ob = pontuarObra(transacao.obraId, obraId);
     score += ob.pts;
 

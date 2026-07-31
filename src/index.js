@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import ErrorBoundary from "./ErrorBoundary";
+import { ThemeProvider } from "./design-system/theme/ThemeProvider.jsx";
 import "./index.css";
 
 // Sem AuthGate e sem Auth: não existe mais login de e-mail/senha do Supabase.
@@ -21,10 +22,12 @@ root.render(
   React.createElement(
     React.StrictMode,
     null,
-    React.createElement(
-      ErrorBoundary,
-      null,
-      React.createElement(App, null)
+    React.createElement(ThemeProvider, null,
+      React.createElement(
+        ErrorBoundary,
+        null,
+        React.createElement(App, null)
+      )
     )
   )
 );

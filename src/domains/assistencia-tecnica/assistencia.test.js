@@ -1,0 +1,1 @@
+import { expect,it } from "vitest";import { serviceSla } from "./calculations.js";it("sinaliza SLA vencido",()=>expect(serviceSla({dueDate:"2026-07-01",status:"aberto"},"2026-07-02").overdue).toBe(true));

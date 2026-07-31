@@ -1,4 +1,4 @@
-import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, seal, setCookie, verifyAppUser, workspace } from "./_graph.js";
+import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, seal, setCookie, verifyAppUser, workspace } from "../../server/microsoft/graph.js";
 import { findScopedWork, knownWorkspace, scopedWorks } from "../../server/onedrive-scope.js";
 
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};

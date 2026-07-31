@@ -8,14 +8,23 @@ export default defineConfig({
     alias: {"@": fileURLToPath(new URL("./src", import.meta.url))},
   },
   build: {
-    sourcemap: true,
+    // O navegador de produção não precisa receber 10+ MB de mapas contendo o
+    // código-fonte completo. Previews e builds locais preservam os mapas para
+    // diagnóstico; produção publica somente os artefatos executáveis.
+    sourcemap: process.env.VERCEL_ENV !== "production",
     chunkSizeWarningLimit: 650,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes("exceljs")) return "spreadsheet-tools";
-          if (id.includes("recharts") || id.includes("d3-")) return "charts";
-          if (id.includes("node_modules")) return "vendor";
+          if (
+            id.includes("/src/domains/financeiro/")
+            || id.includes("/src/domains/dre/")
+            || id.includes("/src/domains/conciliacao/")
+          ) return "financial-domain";
+          // As dependências compartilhadas ficam a cargo do particionamento
+          // automático. Isso evita que React seja puxado para o chunk lazy de
+          // gráficos e torne Recharts uma dependência inicial novamente.
         },
       },
     },
@@ -24,12 +33,19 @@ export default defineConfig({
     testTimeout: 10000,
     environment: "jsdom",
     globals: true,
-    include: ["src/**/*.test.{js,jsx}"],
+    setupFiles: ["src/test-setup.js"],
+    include: ["src/**/*.test.{js,jsx}", "server/**/*.test.{js,jsx}"],
     exclude: ["node_modules/**", ".agents/**", ".claude/**", ".claude-flow/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
       include: ["src/domains/**/*.js"],
+      thresholds: {
+        statements: 75,
+        branches: 55,
+        functions: 70,
+        lines: 80,
+      },
     },
   },
 });

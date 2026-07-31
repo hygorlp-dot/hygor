@@ -12,13 +12,13 @@ describe("integração financeira do ponto arquivado", () => {
       }],
       attendance: {
         e1: {
-          "2026-07-10": {status: "P", obraId: "o1"},
+          "2026-07-10": {status: "P", obraId: "o1", ot:2},
           "2026-07-11": {status: "M", obraId: "o2"},
           "2026-06-20": {status: "P", obraId: "o1"},
         },
       },
     });
-    expect(result.byDate["2026-07-10"].o1).toEqual({laborCost: 100, benefitCost: 30});
+    expect(result.byDate["2026-07-10"].o1).toEqual({laborCost: 137.5, benefitCost: 30});
     expect(result.byDate["2026-07-11"].o2).toEqual({laborCost: 50, benefitCost: 15});
     expect(result.byDate["2026-06-20"]).toBeUndefined();
   });

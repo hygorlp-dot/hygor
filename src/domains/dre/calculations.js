@@ -5,10 +5,43 @@ import {
   selectAccountsReceivable,
   selectAccountsPayable,
   selectCommitments,
+  selectFinancialMovements,
   validateFinancialReconciliation,
   toCents,
   fromCents,
 } from "../financeiro/ledger.js";
+
+export const calculateContractProjection = (work, laborCost, extraCosts = {}) => {
+  const contractType = work?.contractType || "fixed_labor";
+  const contractValue = Number(work?.contractValue || 0);
+  const administrationRate = Number(work?.adminPercentage || 0) / 100;
+  const {
+    benefitCost = 0, materialCost = 0, tercCost = 0,
+    outrasTotal = 0, equipCost = 0, rescTotal = 0,
+  } = extraCosts;
+  const outrosCustos = outrasTotal + equipCost + rescTotal;
+  const totalCost = laborCost + benefitCost + tercCost + materialCost + outrosCustos;
+  const incluiMaoDeObra = work?.adminBaseMaoDeObra !== undefined
+    ? !!work.adminBaseMaoDeObra : contractType === "admin_only";
+  const incluiMateriais = work?.adminBaseMateriais !== undefined ? !!work.adminBaseMateriais : true;
+  const incluiTerceirizados = work?.adminBaseTerceirizados !== undefined
+    ? !!work.adminBaseTerceirizados : true;
+  const adminBase = (incluiMaoDeObra ? laborCost + benefitCost : 0)
+    + (incluiMateriais ? materialCost : 0)
+    + (incluiTerceirizados ? tercCost : 0)
+    + (contractType === "admin_only" ? outrosCustos : 0);
+  let revenue = 0;
+  if (contractType === "fixed_labor") revenue = contractValue;
+  else if (contractType === "fixed_labor_admin") revenue = contractValue + adminBase * administrationRate;
+  else if (contractType === "admin_only") revenue = adminBase * administrationRate;
+  const margin = revenue - laborCost;
+  return {
+    revenue, margin, marginPct:revenue ? margin / revenue * 100 : 0,
+    commitment:contractValue ? laborCost / contractValue * 100 : null,
+    totalCost, adminBase, adminBaseMisto:adminBase,
+    incluiMaoDeObra, incluiMateriais, incluiTerceirizados, outrosCustos,
+  };
+};
 
 // Adaptadores públicos do DRE. A fórmula financeira vive exclusivamente no
 // ledger; as dependências injetadas apenas traduzem ponto e equipamentos,
@@ -18,10 +51,6 @@ export const createDreCalculations = ({
   getQ,
   monthName,
   calcObraLaborCost,
-  calcObraTercCost: _calcObraTercCost,
-  calcTercEmpresaCost: _calcTercEmpresaCost,
-  calcObraTercEmpresaCost,
-  calcObraComprasCost: _calcObraComprasCost,
   calcEquipCustoObra,
   calcEquipFaturamentoEmpresa,
 }) => {
@@ -128,13 +157,21 @@ export const createDreCalculations = ({
     const recebidoDasMedicoes = fromCents(ledger.events
       .filter(event => event.effect === "cash_in" && event.sourceType === "medicao" && event.obraId === obraId && event.date >= ctx.per0 && event.date <= ctx.perF)
       .reduce((sum,event)=>sum+event.amountCents,0));
+    // Regime de caixa, apenas informativo: quanto do custo de terceirizados
+    // (ja lancado em tercCost por competencia) foi efetivamente pago. Nao
+    // soma em totalCustos para nao duplicar o custo ja reconhecido na medicao.
+    const tercPago = fromCents(ledger.events
+      .filter(event => event.effect === "cash_out" && event.category === "terceirizado" && event.obraId === obraId && event.date >= ctx.per0 && event.date <= ctx.perF)
+      .reduce((sum,event)=>sum+event.amountCents,0));
     const meds = (data.medicoes || []).filter(measurement => measurement.obraId === obraId && measurement.tipo === "percentual");
     const pctAvanco = meds.length ? Math.max(...meds.map(measurement => Number(measurement.percentualAcumulado || 0))) : 0;
     return {
       obra, ym:ctx.ym, periodo, days:ctx.days, per0:ctx.per0, perF:ctx.perF,
       faturamento, recebido, aReceber, medDoMes,
-      moData:supplemental.labor, tercCost,
-      tercEmpresaObra:calcObraTercEmpresaCost?.(data,obraId,ctx.per0,ctx.perF)||0,
+      moData:supplemental.labor, tercCost, tercPago,
+      // Pagador/origem não muda a natureza do custo. Terceiros pagos pela
+      // empresa já estão em `tercCost`; manter outra soma duplicaria o detalhe.
+      tercEmpresaObra:0,
       rescTotal, outrasTotal, outrasDesp, equipCost, comprasCost,
       totalCustos, lucroBruto, margemBruta:dre.margin,
       saldoCaixa, margemCaixa:recebido ? saldoCaixa/recebido*100 : 0,
@@ -145,6 +182,8 @@ export const createDreCalculations = ({
       entradasCaixa:cash.cashIn, saidasCaixa:cash.cashOut, contasReceber:aReceber,
       contasPagar, comprometido, recebimentosNaoAlocados, pagamentosNaoAlocados,
       recebidoDasMedicoes, dataIssues:ledger.issues, conference,
+      revenueByCategory:dre.revenueByCategory, costByCategory:dre.costByCategory,
+      revenueBySource:dre.revenueBySource, costBySource:dre.costBySource,
       ledger, dreEvents:dre.events, cashEvents:cash.events,
     };
   };
@@ -162,16 +201,31 @@ export const createDreCalculations = ({
     const corporateCostCents = corporateEvents.reduce((total,event)=>
       total + (event.effect==="cost"?event.amountCents:event.effect==="cost_reversal"?-event.amountCents:0),0);
     const equipment = calcEquipFaturamentoEmpresa(data, ctx.ym) || {receita:0,lucro:0};
+    const equipmentRevenue = Number(equipment.receita || 0);
+    const equipmentCost = Number.isFinite(Number(equipment.custoDono)) || Number.isFinite(Number(equipment.manut))
+      ? Number(equipment.custoDono || 0) + Number(equipment.manut || 0)
+      : equipmentRevenue - Number(equipment.lucro || 0);
     const resultadoObras = sum("lucroBruto");
     const resultadoCorporativo = fromCents(corporateRevenueCents-corporateCostCents);
-    const resultadoEquipamentosExternos = Number(equipment.lucro || 0);
+    const resultadoEquipamentosExternos = equipmentRevenue - equipmentCost;
     const eliminacoesInternas = 0;
     const resultadoConsolidado = resultadoObras + resultadoCorporativo + resultadoEquipamentosExternos - eliminacoesInternas;
-    const faturamento = sum("faturamento") + fromCents(corporateRevenueCents) + resultadoEquipamentosExternos;
-    const totalCustos = sum("totalCustos") + fromCents(corporateCostCents);
-    const recebido = sum("recebido");
-    const entradasCaixa = sum("entradasCaixa");
-    const saidasCaixa = sum("saidasCaixa");
+    const faturamento = sum("faturamento") + fromCents(corporateRevenueCents) + equipmentRevenue;
+    const totalCustos = sum("totalCustos") + fromCents(corporateCostCents) + equipmentCost;
+    const cash = selectCashFlow(ledger, { startDate:ctx.per0, endDate:ctx.perF, includeCorporate:true });
+    const cashAccumulated = selectCashFlow(ledger, { endDate:ctx.perF, includeCorporate:true });
+    const receivable = selectAccountsReceivable(ledger, { asOfDate:ctx.perF, includeCorporate:true });
+    const payable = selectAccountsPayable(ledger, { asOfDate:ctx.perF, includeCorporate:true });
+    const commitments = selectCommitments(ledger, { asOfDate:ctx.perF, includeCorporate:true });
+    const recebido = cash.cashIn;
+    const entradasCaixa = cash.cashIn;
+    const saidasCaixa = cash.cashOut;
+    const unallocatedReceipts = fromCents(cash.events
+      .filter(event => event.effect === "cash_in" && event.unallocated)
+      .reduce((total, event) => total + event.amountCents, 0));
+    const unallocatedPayments = fromCents(cash.events
+      .filter(event => event.effect === "cash_out" && event.unallocated)
+      .reduce((total, event) => total + event.amountCents, 0));
     const reconciliation = {
       resultadoObras, resultadoCorporativo, resultadoEquipamentosExternos,
       eliminacoesInternas, resultadoConsolidado,
@@ -179,19 +233,20 @@ export const createDreCalculations = ({
     };
     return {
       obras:rows, periodo, days:ctx.days, per0:ctx.per0, perF:ctx.perF,
-      faturamento, recebido, aReceber:sum("aReceber"),
+      faturamento, recebido, aReceber:fromCents(receivable.balanceCents),
       laborCost:sum("laborCost","moData"), benefitCost:sum("benefitCost","moData"),
       tercCost:sum("tercCost"), tercEmpresa:0, tercEmpresaObras:sum("tercEmpresaObra"),
       rescTotal:sum("rescTotal"), outrasTotal:sum("outrasTotal"), comprasCost:sum("comprasCost"),
-      equipCostObras:sum("equipCost"), equipReceita:Number(equipment.receita||0), equipLucro:resultadoEquipamentosExternos,
+      equipCostObras:sum("equipCost"), equipReceita:equipmentRevenue,
+      equipCustoEmpresa:equipmentCost, equipLucro:resultadoEquipamentosExternos,
       totalCustos, lucroBruto:resultadoConsolidado, saldoCaixa:entradasCaixa-saidasCaixa,
-      faturadoAcum:sum("faturadoAcum"), recebidoAcum:sum("recebidoAcum"), backlog:sum("backlog"),
+      faturadoAcum:sum("faturadoAcum"), recebidoAcum:cashAccumulated.cashIn, backlog:sum("backlog"),
       margemBruta:faturamento?resultadoConsolidado/faturamento*100:0,
       margemCaixa:entradasCaixa?(entradasCaixa-saidasCaixa)/entradasCaixa*100:0,
-      entradasCaixa, saidasCaixa, contasReceber:sum("contasReceber"),
-      contasPagar:sum("contasPagar"), comprometido:sum("comprometido"),
-      recebimentosNaoAlocados:sum("recebimentosNaoAlocados"),
-      pagamentosNaoAlocados:sum("pagamentosNaoAlocados"),
+      entradasCaixa, saidasCaixa, contasReceber:fromCents(receivable.balanceCents),
+      contasPagar:fromCents(payable.balanceCents), comprometido:fromCents(commitments.balanceCents),
+      recebimentosNaoAlocados:unallocatedReceipts,
+      pagamentosNaoAlocados:unallocatedPayments,
       dataIssues:ledger.issues, reconciliation,
       ledger,
       conference:validateFinancialReconciliation(ledger,{startDate:ctx.per0,endDate:ctx.perF},{
@@ -207,5 +262,143 @@ export const createDreCalculations = ({
       return {mes:`${monthName(m)}/${String(y).slice(2)}`,...calcDREConsolidado(data,y,m),y,m};
     });
 
-  return { diasPeriodoDRE, calcDREObra, calcDREConsolidado, calcDREHistorico };
+  const calcProjecaoContratoObra = (data, obraId, year, month) => {
+    const dre = calcDREObra(data, obraId, year, month);
+    const work = dre.obra;
+    const laborCost = Number(dre.moData?.laborCost || 0);
+    const benefitCost = Number(dre.moData?.benefitCost || 0);
+    const tercCost = Number(dre.costByCategory?.terceirizado || 0);
+    const materialFromInvoices = Number(dre.costBySource?.nota_fiscal || 0);
+    const otherMaterial = dre.dreEvents
+      .filter(event => event.effect === "cost" && event.sourceType === "outra_despesa" && event.category === "material")
+      .reduce((total, event) => total + event.amountCents / 100, 0);
+    const materialCost = materialFromInvoices + otherMaterial;
+    const outrasTotal = Math.max(0, dre.totalCustos - laborCost - benefitCost
+      - tercCost - materialCost - dre.equipCost - dre.rescTotal);
+    const projection = calculateContractProjection(work, laborCost, {
+      benefitCost, materialCost, tercCost, outrasTotal,
+      equipCost:dre.equipCost, rescTotal:dre.rescTotal,
+    });
+    const jaFechado = (data.medicoes || [])
+      .filter(measurement => measurement.obraId === obraId && measurement.competencia === dre.ym)
+      .reduce((total, measurement) => total + Number(measurement.valorAdminPct || 0), 0);
+    return {
+      ...projection, dre, laborCost, benefitCost, tercCost, materialCost,
+      outrasTotal, jaFechado,
+      valorAdmin:projection.adminBase * Number(work?.adminPercentage || 0) / 100,
+    };
+  };
+
+  const calcVisaoFinanceira = (data, year, month, obraId = "all") => {
+    const selectedWorks = (data.obras || []).filter(work => obraId === "all" || work.id === obraId);
+    const rows = selectedWorks.map(work => {
+      const dre = calcDREObra(data, work.id, year, month);
+      const laborCost = Number(dre.moData?.laborCost || 0);
+      const benefitCost = Number(dre.moData?.benefitCost || 0);
+      const commitmentPct = Number(work.contractValue || 0) > 0
+        ? dre.comprometido / Number(work.contractValue) * 100 : null;
+      return {
+        ...work,
+        laborCost,
+        benefitCost,
+        totalLaborAll:laborCost + benefitCost + dre.tercCost,
+        tercCost:dre.tercCost,
+        comprasCost:dre.comprasCost,
+        materialCost:dre.comprasCost,
+        equipCost:dre.equipCost,
+        outrasTotal:dre.outrasTotal,
+        rescTotal:dre.rescTotal,
+        revenue:dre.faturamento,
+        costs:dre.totalCustos,
+        margin:dre.lucroBruto,
+        marginPct:dre.margemBruta,
+        received:dre.entradasCaixa,
+        paid:dre.saidasCaixa,
+        receivedTotal:dre.recebidoAcum,
+        receivable:dre.contasReceber,
+        payable:dre.contasPagar,
+        committed:dre.comprometido,
+        commitment:commitmentPct,
+        unallocatedReceipts:dre.recebimentosNaoAlocados,
+        unallocatedPayments:dre.pagamentosNaoAlocados,
+        activeEmps:(data.employees || []).filter(employee => employee.active !== false && employee.obra === work.id).length,
+        activeTercCount:(data.terceirizados || []).filter(worker => worker.active !== false && worker.obraId === work.id).length,
+      };
+    });
+    const selected = obraId === "all"
+      ? calcDREConsolidado(data, year, month)
+      : calcDREObra(data, obraId, year, month);
+    const ledger = selected.ledger;
+    const periodMovements = selectFinancialMovements(ledger, {
+      ...(obraId === "all" ? {} : { obraId }),
+      startDate:selected.per0, endDate:selected.perF,
+    });
+    const reversalMovements = periodMovements.filter(movement =>
+      ["revenue_reversal", "cost_reversal"].includes(movement.natureza));
+    const cancelledStatuses = new Set(["cancelado", "cancelada", "estornado", "excluido", "excluida"]);
+    const cancelledCount = [
+      ...(data.medicoes || []), ...(data.notasFiscais || []), ...(data.pedidos || []),
+      ...(data.pagsTerceiros || []), ...(data.medicoesTerc || []), ...(data.outrasDesp || []),
+      ...(data.despesasEmpresa || []), ...(data.payments || []),
+    ].filter(item => (obraId === "all" || !item.obraId || item.obraId === obraId)
+      && cancelledStatuses.has(String(item.status || "").toLowerCase())).length;
+    const summary = {
+      revenue:selected.faturamento,
+      costs:selected.totalCustos,
+      result:selected.lucroBruto,
+      marginPct:selected.margemBruta,
+      cashIn:selected.entradasCaixa,
+      cashOut:selected.saidasCaixa,
+      cashBalance:selected.saldoCaixa,
+      receivable:selected.contasReceber,
+      payable:selected.contasPagar,
+      committed:selected.comprometido,
+      unallocatedReceipts:periodMovements
+        .filter(movement => movement.natureza === "cash_in" && movement.unallocated)
+        .reduce((total, movement) => total + movement.valor, 0),
+      unallocatedPayments:periodMovements
+        .filter(movement => movement.natureza === "cash_out" && movement.unallocated)
+        .reduce((total, movement) => total + movement.valor, 0),
+      reversals:reversalMovements.reduce((total, movement) => total + movement.valor, 0),
+      reversalCount:reversalMovements.length,
+      cancelledCount,
+      labor:rows.reduce((total, row) => total + row.laborCost + row.benefitCost, 0),
+      thirdParty:rows.reduce((total, row) => total + row.tercCost, 0),
+      purchases:rows.reduce((total, row) => total + row.comprasCost, 0),
+    };
+    const receipts = selectFinancialMovements(ledger, obraId === "all" ? {} : { obraId })
+      .filter(movement => movement.natureza === "cash_in")
+      .sort((left, right) => String(right.data || "").localeCompare(String(left.data || "")))
+      .map(movement => ({
+        ...movement,
+        amount:movement.valor,
+        date:movement.data,
+        description:movement.descricao,
+        removable:movement.origem === "recebimento_avulso",
+      }));
+    const fortnightly = [];
+    for (let offset = 3; offset >= 0; offset -= 1) {
+      const date = new Date(year, month - offset, 1);
+      const y = date.getFullYear();
+      const m = date.getMonth();
+      ["q1", "q2"].forEach((period, index) => {
+        const line = obraId === "all"
+          ? calcDREConsolidado(data, y, m, period)
+          : calcDREObra(data, obraId, y, m, period);
+        fortnightly.push({
+          mes:`${index + 1}a ${monthName(m)}/${String(y).slice(2)}`,
+          Recebido:Math.round(line.entradasCaixa),
+          CustoMO:Math.round(Number(line.moData?.laborCost || line.laborCost || 0)
+            + Number(line.moData?.benefitCost || line.benefitCost || 0)),
+          Terceiros:Math.round(line.tercCost),
+        });
+      });
+    }
+    return { rows, summary, receipts, fortnightly, selected };
+  };
+
+  return {
+    diasPeriodoDRE, calcDREObra, calcDREConsolidado, calcDREHistorico,
+    calcVisaoFinanceira, calcProjecaoContratoObra,
+  };
 };

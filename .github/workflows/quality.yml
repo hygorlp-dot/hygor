@@ -1,8 +1,9 @@
 name: Qualidade
 
 on:
+  workflow_dispatch:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
 
 jobs:
@@ -15,10 +16,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Fronteiras de domínio e financeiro
+        run: npm run lint
+      - name: Fronteiras arquiteturais
+        run: npm run architecture:check
+      - name: Typecheck progressivo
+        run: npm run typecheck
       - name: Testes financeiros e de permissões com cobertura
         run: npm run test:coverage
       - name: Build de produção
         run: npm run build
+      - name: Catálogo isolado do Design System
+        run: npm run build-storybook
       - name: Métricas de bundle
         run: npm run quality:bundle
       - name: Auditoria de vulnerabilidades
@@ -30,3 +39,39 @@ jobs:
           path: |
             bundle-metrics.json
             coverage/coverage-summary.json
+            storybook-static
+
+  migration-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Contratos das migrations e integração financeira
+        run: npm test -- src/integration/financial-transaction-migration.test.js src/integration/auth-rate-limit-migration.test.js src/integration/audit-migration.test.js server/financial-shadow.test.js server/reconciliation-command.test.js
+      - name: Sintaxe da fronteira de API
+        run: node --check api/data.js
+
+  browser-critical-flows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Instalar Chromium homologado
+        run: npx playwright install --with-deps chromium
+      - name: Login e Ponto em navegador real
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: evidencias-playwright
+          path: |
+            playwright-report
+            test-results

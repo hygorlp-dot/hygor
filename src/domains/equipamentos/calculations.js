@@ -100,20 +100,206 @@ export const calcEquipMes = (data,equipId,ym) => {
   const inicio=`${ym}-01`;
   const fim=`${ym}-${String(new Date(ano,mes,0).getDate()).padStart(2,"0")}`;
   const equip=(data.equipamentos||[]).find(e=>e.id===equipId);
-  const locacoes=(data.locacoesEquip||[]).filter(l=>l.equipamentoId===equipId);
-  let receita=0,custoDono=0,diasTotais=0,descontos=0;
+  const locacoes=(data.locacoesEquip||[])
+    .filter(l=>l.equipamentoId===equipId&&l.status!=="cancelada");
+  let receita=0,custoDono=0,diasTotais=0,descontos=0,locacoesPeriodo=0;
   locacoes.forEach(locacao=>{
     const dias=diasLocacaoNoPeriodo(locacao,inicio,fim);
     if(!dias)return;
+    locacoesPeriodo++;
     diasTotais+=dias;
     const cobranca=cobrancaLocacao(locacao,equip,dias);
     receita+=cobranca.liquido;
     descontos+=cobranca.desconto;
-    custoDono+=melhorTarifa(tarifasCustoDaLocacao(locacao,equip),dias).total;
+    custoDono+=melhorTarifa(tarifasCustoDaLocacao(locacao,equip),dias).total
+      *Math.max(1,Number(locacao.quantidade||1));
   });
   const manut=(data.manutencoesEquip||[])
     .filter(m=>m.equipamentoId===equipId&&(m.data||"").slice(0,7)===ym&&m.pagoPor!=="proprietario")
     .reduce((s,m)=>s+Number(m.custo||0),0);
   const custo=custoDono+manut;
-  return {receita,descontos,custoDono,manut,custo,lucro:receita-custo,diasTotais,locacoes:locacoes.length};
+  return {receita,descontos,custoDono,manut,custo,lucro:receita-custo,diasTotais,locacoes:locacoesPeriodo};
+};
+
+export const calcEquipamentosMes = (data,ym) => {
+  const equips=(data?.equipamentos||[]).filter(e=>e?.ativo!==false);
+  const linhas=equips.map(e=>{
+    const fin=calcEquipMes(data,e.id,ym);
+    const proprio=!e.proprietarioId;
+    return {equip:e,proprio,...fin};
+  });
+  const total=linhas.reduce((acc,line)=>({
+    receita:acc.receita+line.receita,
+    custoDono:acc.custoDono+line.custoDono,
+    manut:acc.manut+line.manut,
+    custo:acc.custo+line.custo,
+    lucro:acc.lucro+line.lucro,
+    descontos:acc.descontos+line.descontos,
+  }),{receita:0,custoDono:0,manut:0,custo:0,lucro:0,descontos:0});
+  return {
+    linhas,
+    total,
+    proprios:linhas.filter(line=>line.proprio),
+    terceiros:linhas.filter(line=>!line.proprio),
+    lucroProprios:linhas.filter(line=>line.proprio).reduce((sum,line)=>sum+line.lucro,0),
+    lucroTerceiros:linhas.filter(line=>!line.proprio).reduce((sum,line)=>sum+line.lucro,0),
+    emManutencao:equips.filter(e=>e.status==="manutencao").length,
+    locados:equips.filter(e=>e.status==="locado").length,
+    disponiveis:equips.filter(e=>e.status==="disponivel").length,
+  };
+};
+
+const limitesDoMes=ym=>{
+  const [ano,mes]=String(ym||"").split("-").map(Number);
+  return {
+    inicio:`${ym}-01`,
+    fim:`${ym}-${String(new Date(ano,mes,0).getDate()).padStart(2,"0")}`,
+  };
+};
+
+const isoDiasEntre=(inicio,fim)=>{
+  const dias=[];
+  if(!inicio||!fim||fim<inicio)return dias;
+  const cursor=new Date(`${inicio}T00:00:00Z`);
+  const limite=new Date(`${fim}T00:00:00Z`);
+  while(cursor<=limite){
+    dias.push(cursor.toISOString().slice(0,10));
+    cursor.setUTCDate(cursor.getUTCDate()+1);
+  }
+  return dias;
+};
+
+// Matriz de cobrança: uma linha por equipamento e uma coluna por obra. A
+// célula preserva três medidas diferentes para não esconder lotes:
+// - dias: dias de calendário em que o equipamento esteve na obra;
+// - unidadeDias: soma diária das unidades alocadas (base auditável da cobrança);
+// - quantidadePico: maior quantidade simultânea no período.
+export const calcEquipamentosPorObra=(data,ym)=>{
+  const {inicio,fim}=limitesDoMes(ym);
+  const locacoes=(data?.locacoesEquip||[]).filter(locacao=>
+    locacao?.status!=="cancelada"&&diasLocacaoNoPeriodo(locacao,inicio,fim)>0);
+  const equipamentos=(data?.equipamentos||[]).filter(equipamento=>
+    equipamento?.ativo!==false||locacoes.some(locacao=>locacao.equipamentoId===equipamento.id));
+  const obraIdsMovimentadas=new Set(locacoes.map(locacao=>locacao.obraId).filter(Boolean));
+  const obras=(data?.obras||[])
+    .filter(obra=>obra?.status==="active"||obraIdsMovimentadas.has(obra.id))
+    .sort((a,b)=>{
+      const movimento=Number(obraIdsMovimentadas.has(b.id))-Number(obraIdsMovimentadas.has(a.id));
+      return movimento||String(a.name||"").localeCompare(String(b.name||""));
+    });
+
+  const linhas=equipamentos.map(equipamento=>{
+    const porObra={};
+    obras.forEach(obra=>{
+      const contratos=locacoes.filter(locacao=>
+        locacao.equipamentoId===equipamento.id&&locacao.obraId===obra.id);
+      const unidadesPorDia=new Map();
+      const detalhes=[];
+      let receita=0,custoDono=0,descontos=0;
+      contratos.forEach(locacao=>{
+        const dias=diasLocacaoNoPeriodo(locacao,inicio,fim);
+        const quantidade=Math.max(1,Number(locacao.quantidade||1));
+        const cobranca=cobrancaLocacao(locacao,equipamento,dias);
+        const custoUnitario=melhorTarifa(tarifasCustoDaLocacao(locacao,equipamento),dias);
+        const custoLocacao=custoUnitario.total*quantidade;
+        const primeiro=String(locacao.inicio||"")<inicio?inicio:String(locacao.inicio||"");
+        const ultimo=!locacao.fim||String(locacao.fim)>fim?fim:String(locacao.fim);
+        receita+=cobranca.liquido;
+        descontos+=cobranca.desconto;
+        custoDono+=custoLocacao;
+        detalhes.push({
+          locacaoId:locacao.id,
+          inicio:primeiro,
+          fim:ultimo,
+          quantidade,
+          dias,
+          unidadeDias:dias*quantidade,
+          bruto:cobranca.bruto,
+          descontos:cobranca.desconto,
+          receita:cobranca.liquido,
+          custoDono:custoLocacao,
+          lucro:cobranca.liquido-custoLocacao,
+          composicao:cobranca.composicao,
+          composicaoCusto:custoUnitario.composicao,
+          semTarifa:cobranca.semTarifa,
+          tarifaNegociada:locacao.tarifaNegociada===true,
+          status:locacao.fim?"encerrada":"em_andamento",
+          observacao:String(locacao.obs||""),
+        });
+        isoDiasEntre(primeiro,ultimo).forEach(iso=>
+          unidadesPorDia.set(iso,(unidadesPorDia.get(iso)||0)+quantidade));
+      });
+      const quantidades=[...unidadesPorDia.values()];
+      porObra[obra.id]={
+        obraId:obra.id,
+        dias:unidadesPorDia.size,
+        unidadeDias:quantidades.reduce((s,q)=>s+q,0),
+        quantidadePico:quantidades.length?Math.max(...quantidades):0,
+        receita,custoDono,descontos,lucro:receita-custoDono,
+        locacoes:contratos.length,
+        detalhes,
+      };
+    });
+    const total=Object.values(porObra).reduce((acc,celula)=>({
+      dias:acc.dias+celula.dias,
+      unidadeDias:acc.unidadeDias+celula.unidadeDias,
+      receita:acc.receita+celula.receita,
+      custoDono:acc.custoDono+celula.custoDono,
+      descontos:acc.descontos+celula.descontos,
+      lucro:acc.lucro+celula.lucro,
+    }),{dias:0,unidadeDias:0,receita:0,custoDono:0,descontos:0,lucro:0});
+    return {equip:equipamento,porObra,total};
+  });
+  const totaisPorObra=Object.fromEntries(obras.map(obra=>[
+    obra.id,
+    linhas.reduce((acc,linha)=>{
+      const celula=linha.porObra[obra.id];
+      acc.dias+=celula.dias;
+      acc.unidadeDias+=celula.unidadeDias;
+      acc.receita+=celula.receita;
+      acc.custoDono+=celula.custoDono;
+      acc.descontos+=celula.descontos;
+      acc.lucro+=celula.lucro;
+      return acc;
+    },{dias:0,unidadeDias:0,receita:0,custoDono:0,descontos:0,lucro:0}),
+  ]));
+  return {
+    inicio,fim,obras,linhas,
+    totaisPorObra,
+    total:linhas.reduce((acc,linha)=>({
+      dias:acc.dias+linha.total.dias,
+      unidadeDias:acc.unidadeDias+linha.total.unidadeDias,
+      receita:acc.receita+linha.total.receita,
+      custoDono:acc.custoDono+linha.total.custoDono,
+      descontos:acc.descontos+linha.total.descontos,
+      lucro:acc.lucro+linha.total.lucro,
+    }),{dias:0,unidadeDias:0,receita:0,custoDono:0,descontos:0,lucro:0}),
+  };
+};
+
+export const calcEquipCustoObra = (data,obraId,ym,periodStart="",periodEnd="") => {
+  const [year,month]=ym.split("-").map(Number);
+  const start=periodStart||`${ym}-01`;
+  const end=periodEnd||`${ym}-${String(new Date(year,month,0).getDate()).padStart(2,"0")}`;
+  return (data?.locacoesEquip||[])
+    .filter(locacao=>locacao?.obraId===obraId&&locacao?.status!=="cancelada")
+    .reduce((total,locacao)=>{
+      const days=diasLocacaoNoPeriodo(locacao,start,end);
+      if(!days)return total;
+      const equipamento=(data?.equipamentos||[])
+        .find(item=>item.id===locacao.equipamentoId);
+      return total+cobrancaLocacao(locacao,equipamento,days).liquido;
+    },0);
+};
+
+export const calcEquipFaturamentoEmpresa = (data,ym) => {
+  const report=calcEquipamentosMes(data,ym);
+  return {
+    receita:report.total.receita,
+    custoDono:report.total.custoDono,
+    manut:report.total.manut,
+    lucro:report.total.lucro,
+    receitaProprios:report.proprios.reduce((sum,line)=>sum+line.receita,0),
+    receitaTerceiros:report.terceiros.reduce((sum,line)=>sum+line.receita,0),
+  };
 };

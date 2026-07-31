@@ -1,0 +1,8 @@
+.arcd-safe-top { padding-top: env(safe-area-inset-top); }
+.arcd-safe-right { padding-right: env(safe-area-inset-right); }
+.arcd-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.arcd-safe-left { padding-left: env(safe-area-inset-left); }
+
+.arcd-safe-bottom-inset {
+  padding-bottom: calc(var(--arcd-space-3) + env(safe-area-inset-bottom));
+}

@@ -1,0 +1,1 @@
+import { expect,it } from "vitest";import { environmentalIndicators } from "./calculations.js";it("calcula destinação ambiental",()=>expect(environmentalIndicators({wasteRecords:[{quantity:10,destinationApproved:true}],builtArea:5}).wastePerArea).toBe(2));

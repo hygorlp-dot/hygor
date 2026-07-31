@@ -1,0 +1,2 @@
+const roles={view:["admin","diretoria","engenheiro","engenheiro_auditor","planejamento","mestre","qualidade","seguranca"],edit:["admin","engenheiro","engenheiro_auditor","planejamento"],baseline:["admin","diretoria"]};
+export const canViewPlanning=role=>roles.view.includes(String(role||""));export const canEditPlanning=role=>roles.edit.includes(String(role||""));export const canApproveBaseline=role=>roles.baseline.includes(String(role||""));

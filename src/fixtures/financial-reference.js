@@ -22,7 +22,9 @@ export const financialReference = Object.freeze({
 export const financialGoldenExpected = Object.freeze({
   obraA:{faturamento:4000,recebido:3000,aReceber:1500,totalCustos:1600,lucroBruto:2400,saldoCaixa:3000,backlog:6000},
   obraB:{faturamento:2000,recebido:0,aReceber:2000,totalCustos:800,lucroBruto:1200,saldoCaixa:0,backlog:4000},
-  consolidado:{faturamento:6100,recebido:3000,aReceber:3500,totalCustos:2400,lucroBruto:3700,saldoCaixa:3000,backlog:10000},
+  // Locação externa é apresentada pelo bruto: R$ 150 de receita e R$ 50 de
+  // custo, preservando os mesmos R$ 100 de resultado sem esconder o giro.
+  consolidado:{faturamento:6150,recebido:3000,aReceber:3500,totalCustos:2450,lucroBruto:3700,saldoCaixa:3000,backlog:10000},
 });
 
 export const createFinancialGoldenRules = () => createDreCalculations({

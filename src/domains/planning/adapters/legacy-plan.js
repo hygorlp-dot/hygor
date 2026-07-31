@@ -1,0 +1,14 @@
+const statusMap = Object.freeze({ planejada:"not_started", pendente:"not_started", liberada:"released", em_andamento:"in_progress", bloqueada:"blocked", em_inspecao:"inspection", concluida:"completed", cancelada:"cancelled" });
+
+export function adaptLegacyPlanning({ obraId, planos = [], scheduleActivities = [], scheduleDependencies = [] } = {}) {
+  const projectId=String(obraId || ""); const plan=(planos || []).find(item => String(item.obraId)===projectId) || {};
+  const legacyTasks=(plan.tarefas || []).filter(item => !item.titulo).map((item,index) => ({ id:String(item.id || `legacy-task-${index + 1}`), projectId, wbsId:String(item.etapaId || item.faseId || "legacy-root"), name:String(item.nome || item.descricao || "Atividade"), duration:Number(item.duracao || item.durationDays || 0), startDate:String(item.inicio || ""), finishDate:String(item.fim || ""), percentComplete:Number(item.progresso || 0), status:statusMap[item.status] || "not_started", legacySource:"planos.tarefas" }));
+  const canonical=(scheduleActivities || []).filter(item => String(item.obraId)===projectId).map(item => ({ id:String(item.id), projectId, wbsId:String(item.wbsId || item.etapaId || "legacy-root"), name:String(item.nome || item.descricao || "Atividade"), duration:Number(item.duration || item.durationDays || 0), startDate:String(item.startDate || item.inicio || ""), finishDate:String(item.finishDate || item.fim || ""), percentComplete:Number(item.percentComplete ?? item.progresso ?? 0), status:statusMap[item.status] || item.status || "not_started", calendarId:String(item.calendarId || ""), legacySource:"scheduleActivities" }));
+  const activeActivities=canonical.length ? canonical : legacyTasks; const activityIds=new Set(activeActivities.map(item=>item.id));
+  const registered=(scheduleDependencies || []).filter(item => activityIds.has(String(item.fromId || item.predecessorId)) && activityIds.has(String(item.toId || item.successorId))).map(item => ({ id:String(item.id || `${item.fromId || item.predecessorId}-${item.toId || item.successorId}`), fromId:String(item.fromId || item.predecessorId), toId:String(item.toId || item.successorId), type:item.type || "FS", lag:Number(item.lag || item.lagDays || 0) }));
+  // O plano antigo também guarda antecessoras dentro da própria tarefa. Só
+  // usamos essa leitura quando não há a coleção canônica de dependências.
+  const embedded=!canonical.length ? (plan.tarefas || []).flatMap(task => (task.depende || task.predecessoras || []).map(fromId => ({ id:`legacy-${fromId}-${task.id}`, fromId:String(fromId), toId:String(task.id), type:"FS", lag:0 }))).filter(item=>activityIds.has(item.fromId)&&activityIds.has(item.toId)) : [];
+  const dependencies=registered.length ? registered : embedded;
+  return { projectId, activities:activeActivities, dependencies, source:canonical.length ? "scheduleActivities" : "planos.tarefas" };
+}

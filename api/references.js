@@ -15,7 +15,7 @@ import {
   decodeHtml,
   textFromHtml,
   decodeOrseResponse,
-} from "./utils.js";
+} from "../server/reference-utils.js";
 import { normalizeReferenceCode, referenceCodeVariants } from "../server/reference-code.js";
 
 const URL = process.env.SUPABASE_URL;
