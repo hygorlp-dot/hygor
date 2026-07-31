@@ -76,6 +76,15 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain('"Atualizando a projeção do razão canônico para este período…"');
   });
 
+  it("declara as ações do formulário corporativo dentro do DRE da empresa", () => {
+    const companyDre=source.split("function DREEmpresa(")[1]?.split("function ")[0]||"";
+    const workFinance=source.split("function FinanceiroObraPainel(")[1]?.split("function ")[0]||"";
+    expect(companyDre).toContain("const openNewCompanyExpense=");
+    expect(companyDre).toContain("const openEditCompanyExpense=");
+    expect(companyDre.indexOf("const openNewCompanyExpense=")).toBeLessThan(companyDre.indexOf("onClick={openNewCompanyExpense}"));
+    expect(workFinance).not.toContain("const openNewCompanyExpense=");
+  });
+
   it("reconstrói no servidor uma projeção ausente ou desatualizada", () => {
     expect(api).toContain('String(currentEvent.payload?.sourceRevision||"")!==sourceRevision');
     expect(api).toContain("buildRequestedDreProjectionRows(atual,projectionRequests)");

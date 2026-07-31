@@ -4564,26 +4564,6 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
     }
   };
 
-  const openNewCompanyExpense=()=>{
-    setDespForm(emptyCompanyExpenseForm(ym));
-    setEditDesp(null);
-    setDespModal(true);
-  };
-
-  const openEditCompanyExpense=expense=>{
-    const persisted=(data.despesasEmpresa||[]).find(item=>item.id===expense.id)||{};
-    setDespForm({
-      ...emptyCompanyExpenseForm(expense.competencia||ym),
-      ...persisted,...expense,
-      valor:String(expense.valor??persisted.valor??""),
-      parcelas:String(expense.parcelas??persisted.parcelas??1),
-      recorrente:expense.recorrente===true||persisted.recorrente===true,
-      pago:expense.pago===true||persisted.pago===true,
-    });
-    setEditDesp(expense.id);
-    setDespModal(true);
-  };
-
   const delDesp = async id => {
     const motivo=window.prompt("Motivo do cancelamento da despesa:");
     if(!String(motivo||"").trim())return;
@@ -35182,6 +35162,24 @@ function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null })
   const DF = k => v => setDespForm(f=>({...f,[k]:v}));
 
   const ym      = `${year}-${String(month+1).padStart(2,"0")}`;
+  const openNewCompanyExpense=()=>{
+    setDespForm(emptyCompanyExpenseForm(ym));
+    setEditDesp(null);
+    setDespModal(true);
+  };
+  const openEditCompanyExpense=expense=>{
+    const persisted=(data.despesasEmpresa||[]).find(item=>item.id===expense.id)||{};
+    setDespForm({
+      ...emptyCompanyExpenseForm(expense.competencia||ym),
+      ...persisted,...expense,
+      valor:String(expense.valor??persisted.valor??""),
+      parcelas:String(expense.parcelas??persisted.parcelas??1),
+      recorrente:expense.recorrente===true||persisted.recorrente===true,
+      pago:expense.pago===true||persisted.pago===true,
+    });
+    setEditDesp(expense.id);
+    setDespModal(true);
+  };
   // A tela empresarial é leitora do snapshot canônico. Não há fallback para
   // filtros/reduções locais: se a projeção ainda não estiver disponível, a UI
   // mostra estado vazio e deixa explícita a pendência de sincronização.
