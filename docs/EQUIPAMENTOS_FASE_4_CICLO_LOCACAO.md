@@ -119,4 +119,17 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
 - testes de comando comprovam que a tentativa prematura é bloqueada;
 - smoke E2E confirma que uma locação ativa não exibe encerramento direto.
 
+## Oitavo incremento
+
+- prorrogações e renovações são aditivos imutáveis, versionados e auditáveis;
+- o término planejado passa a ser controlado separadamente do encerramento real
+  registrado em `fim`;
+- cada aditivo preserva o snapshot de tarifas e descontos originalmente
+  negociado, sem recalcular o histórico financeiro;
+- prorrogações precisam avançar a previsão vigente;
+- renovações registram períodos próprios e recusam sobreposição;
+- locações devolvidas, encerradas ou canceladas não aceitam novos aditivos;
+- formulário operacional permite alternar entre prorrogação e renovação;
+- smoke E2E cobre os dois formatos e a separação entre previsão e encerramento.
+
 A Fase 4 ainda não está concluída.

@@ -105,6 +105,40 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(premature.reason).toMatch(/checklist de return/);
   });
 
+  it("prorroga a previsão sem alterar encerramento ou snapshot comercial",()=>{
+    const snapshot={tarifas:{dia:100},descontoPct:5,negociadoEm:"2026-08-01T10:00:00.000Z"};
+    const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",fim:"",
+      plannedEndDate:"2026-08-31",lifecycleState:"active",status:"ativa",commercialSnapshot:snapshot,version:2};
+    const result=applyOperationalCommand({...base(),locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,"rental-extension-0001",
+      {rentalId:"loc-1",amendment:{type:"extension",newEndDate:"2026-09-15",reason:"Cronograma revisado"}},2,
+    ));
+    expect(result.ok).toBe(true);
+    expect(result.data.locacoesEquip[0]).toMatchObject({plannedEndDate:"2026-09-15",fim:"",version:3,commercialSnapshot:snapshot});
+    expect(result.data.locacoesEquip[0].rentalAmendments[0]).toMatchObject({
+      type:"extension",newEndDate:"2026-09-15",createdById:"u-1",commercialSnapshot:snapshot,
+    });
+    expect(result.data.locacoesEquip[0].operationalHistory.at(-1)).toMatchObject({type:"EQUIPMENT_RENTAL_AMENDED"});
+    const stale=applyOperationalCommand(result.data,command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,"rental-extension-stale-0001",
+      {rentalId:"loc-1",amendment:{type:"extension",newEndDate:"2026-09-30"}},2,
+    ));
+    expect(stale.reason).toMatch(/alterad[oa] por outra pessoa/);
+  });
+
+  it("renova a locação em período não sobreposto",()=>{
+    const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",
+      plannedEndDate:"2026-08-31",lifecycleState:"delivered",status:"ativa",version:1};
+    const result=applyOperationalCommand({...base(),locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,"rental-renewal-0001",
+      {rentalId:"loc-1",amendment:{type:"renewal",startDate:"2026-09-01",endDate:"2026-09-30",reason:"Novo período"}},1,
+    ));
+    expect(result.ok).toBe(true);
+    expect(result.data.locacoesEquip[0]).toMatchObject({
+      plannedEndDate:"2026-09-30",renewalPeriods:[{startDate:"2026-09-01",endDate:"2026-09-30"}],version:2,
+    });
+  });
+
   it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],
       equipmentRegistryMigration:{version:1},

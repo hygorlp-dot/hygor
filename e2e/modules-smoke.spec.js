@@ -36,7 +36,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     ],
     equipamentos:[{id:"eq-qa",nome:"Betoneira QA",patrimonio:"EQ-QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:100}}],
     locacoesEquip:[
-      {id:"rental-lifecycle-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-09-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"active",version:1,tarifas:{dia:100}},
+      {id:"rental-lifecycle-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-09-01",fim:"",plannedEndDate:"2026-09-30",quantidade:1,status:"ativa",lifecycleState:"active",version:1,tarifas:{dia:100}},
       {id:"rental-separation-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-10-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"separating",version:1,tarifas:{dia:100}},
       {id:"rental-return-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-11-01",fim:"",quantidade:2,status:"ativa",lifecycleState:"pickup_requested",version:1,tarifas:{dia:100}},
     ],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
@@ -164,6 +164,16 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(page.getByText("CICLO · ATIVA")).toBeVisible();
         await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
         await expect(page.getByRole("button",{name:"Encerrar"})).toHaveCount(0);
+        const activeRentalCard=page.locator(".equipment-record").filter({hasText:"Término planejado: 30/09"});
+        await activeRentalCard.getByRole("button",{name:"Prorrogar / renovar"}).click();
+        const amendmentDialog=page.getByRole("dialog",{name:/Prorrogar ou renovar · Betoneira QA/});
+        await expect(amendmentDialog.getByText("ADITIVO DE PRAZO AUDITÁVEL")).toBeVisible();
+        await expect(amendmentDialog.getByText(/término planejado atual: 30\/09/)).toBeVisible();
+        await expect(amendmentDialog.getByLabel("Novo término planejado *")).toBeVisible();
+        await amendmentDialog.getByLabel("Tipo de aditivo *").selectOption("renewal");
+        await expect(amendmentDialog.getByLabel("Início da renovação *")).toBeVisible();
+        await expect(amendmentDialog.getByLabel("Fim da renovação *")).toBeVisible();
+        await amendmentDialog.getByRole("button",{name:"Cancelar"}).click();
         await page.getByRole("button",{name:"Checklist: Separação"}).click();
         const checklistDialog=page.getByRole("dialog",{name:/Separação · Betoneira QA/});
         await expect(checklistDialog.getByText("EVIDÊNCIA OPERACIONAL OBRIGATÓRIA")).toBeVisible();

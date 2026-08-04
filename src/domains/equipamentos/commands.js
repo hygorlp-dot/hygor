@@ -8,6 +8,7 @@ import { isValidIsoDate } from "./date.js";
 import { buildEquipmentRegistry,deriveEquipmentLocations,migrateLegacyEquipmentRegistry } from "./registry.js";
 import { validateRentalClosure,validateRentalTransition } from "./rental-lifecycle.js";
 import { validateRentalCheckpoint } from "./rental-checkpoints.js";
+import { RENTAL_AMENDMENT_TYPE,validateRentalAmendment } from "./rental-amendments.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
@@ -87,6 +88,7 @@ export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_RENTAL_CANCELLED:"LOCACAO_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_RENTAL_TRANSITIONED:"LOCACAO_EQUIPAMENTO_ESTADO_ALTERADO",
   EQUIPMENT_RENTAL_CHECKPOINT_RECORDED:"LOCACAO_EQUIPAMENTO_CHECKLIST_REGISTRADO",
+  EQUIPMENT_RENTAL_AMENDED:"LOCACAO_EQUIPAMENTO_ADITIVADA",
   EQUIPMENT_RESERVATION_SAVED:"RESERVA_EQUIPAMENTO_SALVA",
   EQUIPMENT_RESERVATION_CANCELLED:"RESERVA_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_UNAVAILABILITY_SAVED:"INDISPONIBILIDADE_EQUIPAMENTO_SALVA",
@@ -108,6 +110,7 @@ export const equipmentCommandObraId=(data={},command={})=>{
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CANCELLED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_AMENDED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_SAVED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED].includes(command.type))return String(payload.unavailability?.workId||"");
   if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_CANCELLED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED].includes(command.type))return String(unavailabilityList(data).find(item=>item.id===payload.unavailabilityId)?.workId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){
@@ -374,6 +377,25 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
       createdAt:now,createdById:command.actorId||"",createdBy:command.actorName||""};
     const record={...current,rentalCheckpoints:[...existing,checkpoint].slice(-100),version:versionOf(current)+1,updatedAt:now};
     record.operationalHistory=audit(current,command,now,"EQUIPMENT_RENTAL_CHECKPOINT_RECORDED",{checkpointId:checkpoint.id,checkpointType:checkpoint.type});
+    return {ok:true,data:replace(data,"locacoesEquip",id,record),entityId:id};
+  }
+
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_AMENDED){
+    const id=String(payload.rentalId||"");
+    const current=list(data,"locacoesEquip").find(item=>String(item.id)===id);
+    if(!current)return fail("Locação não encontrada.");
+    const stale=versionError(current,command.expectedVersion,"A locação");
+    if(stale)return fail(stale);
+    const validation=validateRentalAmendment(current,payload.amendment||{});
+    if(!validation.ok)return fail(validation.reason);
+    const amendment={...validation.record,id:`rental_amendment_${command.idempotencyKey}`,rentalId:id,status:"active",
+      commercialSnapshot:current.commercialSnapshot||null,createdAt:now,createdById:command.actorId||"",createdBy:command.actorName||""};
+    const renewalPeriods=amendment.type===RENTAL_AMENDMENT_TYPE.RENEWAL
+      ?[...(current.renewalPeriods||[]),{startDate:amendment.startDate,endDate:amendment.endDate,amendmentId:amendment.id}]
+      :[...(current.renewalPeriods||[])];
+    const record={...current,plannedEndDate:amendment.newEndDate,rentalAmendments:[...(current.rentalAmendments||[]),amendment].slice(-100),
+      renewalPeriods,version:versionOf(current)+1,updatedAt:now};
+    record.operationalHistory=audit(current,command,now,"EQUIPMENT_RENTAL_AMENDED",{amendmentId:amendment.id,amendmentType:amendment.type,newEndDate:amendment.newEndDate});
     return {ok:true,data:replace(data,"locacoesEquip",id,record),entityId:id};
   }
 

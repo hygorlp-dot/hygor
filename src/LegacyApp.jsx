@@ -2185,6 +2185,9 @@ const normalizeData = incoming => {
       lifecycleState:l.lifecycleState||"",
       lifecycleHistory:Array.isArray(l.lifecycleHistory)?l.lifecycleHistory:[],
       rentalCheckpoints:Array.isArray(l.rentalCheckpoints)?l.rentalCheckpoints:[],
+      plannedEndDate:l.plannedEndDate||l.dataPrevistaFim||"",
+      rentalAmendments:Array.isArray(l.rentalAmendments)?l.rentalAmendments:[],
+      renewalPeriods:Array.isArray(l.renewalPeriods)?l.renewalPeriods:[],
       version:     Number(l.version || 0),
       createdAt:   l.createdAt || "",
       createdById: l.createdById || "",
@@ -32996,6 +32999,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const [transfModal,setTransfModal]= useState(null);
   const [physicalReview,setPhysicalReview]=useState(null);
   const [rentalCheckpointModal,setRentalCheckpointModal]=useState(null);
+  const [rentalAmendmentModal,setRentalAmendmentModal]=useState(null);
   const [busca, setBusca] = useState("");
   const [filtroObraGestao, setFiltroObraGestao] = useState(obraIdFixo||"all");   // filtro da grade de gestao
   const [basesSinapiEquip,setBasesSinapiEquip]=useState([]);
@@ -33346,6 +33350,26 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       if(!result?.ok){showToast(result?.reason||"Não foi possível salvar o checklist.","error");return;}
       setRentalCheckpointModal(null);showToast(`${CHECKPOINT_LABEL[form.type]} registrada. A locação já pode avançar.`);
     }catch(error){showToast(error?.message||"O servidor não respondeu ao salvar o checklist.","error");}
+    finally{setSalvandoEquipamento("");}
+  };
+  const prepararAditivoLocacao=rental=>setRentalAmendmentModal({
+    rentalId:rental.id,type:"extension",currentEnd:rental.plannedEndDate||rental.dataPrevistaFim||rental.inicio||"",
+    newEndDate:"",startDate:"",endDate:"",reason:"",
+  });
+  const salvarAditivoLocacao=async form=>{
+    setSalvandoEquipamento(`aditivo-${form.rentalId}`);
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.locacoesEquip||[]).find(item=>item.id===form.rentalId);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,
+          idempotencyKey:`locacao-aditivo-${form.rentalId}-${form.type}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{rentalId:form.rentalId,amendment:{type:form.type,newEndDate:form.newEndDate,
+            startDate:form.startDate,endDate:form.endDate,reason:form.reason}}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível salvar o aditivo.","error");return;}
+      setRentalAmendmentModal(null);showToast(form.type==="renewal"?"Renovação registrada.":"Prorrogação registrada.");
+    }catch(error){showToast(error?.message||"O servidor não respondeu ao salvar o aditivo.","error");}
     finally{setSalvandoEquipamento("");}
   };
 
@@ -33779,6 +33803,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                       <span style={{display:"inline-flex",marginTop:5,padding:"3px 7px",borderRadius:99,fontSize:8.5,fontWeight:850,color:cancelada?C.red:C.blue,background:`${cancelada?C.red:C.blue}12`}}>
                         CICLO · {rentalStateLabel(lifecycleState).toUpperCase()}
                       </span>
+                      {l.plannedEndDate&&<p style={{fontSize:9,color:C.muted,marginTop:4}}>Término planejado: {fmtDate(l.plannedEndDate)}</p>}
                     </div>
                     {(() => {
                       const eqL = (data.equipamentos||[]).find(x=>x.id===l.equipamentoId);
@@ -33803,6 +33828,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   </div>
                   <div className="equipment-record-actions">
                     {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>}
+                    {emAberto&&["contracted","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararAditivoLocacao(l)}>Prorrogar / renovar</Btn>}
                     {emAberto&&lifecycleState==="pickup_requested"&&rentalReturnBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararDevolucaoParcial(l)}>Devolução parcial</Btn>}
                     {emAberto&&lifecycleNext.map(nextState=>{
                       const checkpointType=CHECKPOINT_BY_STATE[nextState];
@@ -34027,6 +34053,23 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           <Sel label="Classificação *" value={physicalReview.kind} onChange={v=>setPhysicalReview(form=>({...form,kind:v}))} options={[{v:"lot",l:"Lote controlado por quantidade"},{v:"unit",l:"Unidades físicas individualizadas"}]}/>
           {physicalReview.kind==="lot"?<><Inp label="Identificação do lote *" value={physicalReview.lotCode} onChange={v=>setPhysicalReview(form=>({...form,lotCode:v}))}/><Inp label="Unidade de controle" value={physicalReview.unit} onChange={v=>setPhysicalReview(form=>({...form,unit:v}))}/><p style={{fontSize:9.5,color:C.muted}}>Quantidade preservada do cadastro: <b>{expected}</b>.</p></>:<><Inp label={`Patrimônios / séries (${expected}) *`} value={physicalReview.assetTags} onChange={v=>setPhysicalReview(form=>({...form,assetTags:v}))} multiline placeholder="Separe por vírgula ou uma linha por unidade"/><p style={{fontSize:9.5,color:C.muted}}>Informe exatamente {expected} identificação(ões) única(s).</p></>}
           <Btn full onClick={()=>salvarRevisaoFisica(physicalReview)}>Salvar classificação física</Btn>
+        </div>
+      </Modal>;})()}
+
+      {rentalAmendmentModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalAmendmentModal.rentalId);return <Modal
+        title={`Prorrogar ou renovar · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalAmendmentModal(null)}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`}}>
+            <p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>ADITIVO DE PRAZO AUDITÁVEL</p>
+            <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{obraName(rental?.obraId)} · término planejado atual: {fmtDate(rentalAmendmentModal.currentEnd)}</p>
+            <p style={{fontSize:9,color:C.muted,marginTop:2}}>As tarifas e os descontos negociados permanecem congelados. O encerramento real não será alterado.</p>
+          </div>
+          <Sel label="Tipo de aditivo *" value={rentalAmendmentModal.type} onChange={v=>setRentalAmendmentModal(form=>({...form,type:v}))} options={[{v:"extension",l:"Prorrogação"},{v:"renewal",l:"Renovação"}]}/>
+          {rentalAmendmentModal.type==="extension"
+            ?<Inp label="Novo término planejado *" type="date" value={rentalAmendmentModal.newEndDate} onChange={v=>setRentalAmendmentModal(form=>({...form,newEndDate:v}))}/>
+            :<><Inp label="Início da renovação *" type="date" value={rentalAmendmentModal.startDate} onChange={v=>setRentalAmendmentModal(form=>({...form,startDate:v}))}/><Inp label="Fim da renovação *" type="date" value={rentalAmendmentModal.endDate} onChange={v=>setRentalAmendmentModal(form=>({...form,endDate:v}))}/></>}
+          <div style={{gridColumn:"1/-1"}}><Inp label="Motivo" value={rentalAmendmentModal.reason} onChange={v=>setRentalAmendmentModal(form=>({...form,reason:v}))} multiline/></div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalAmendmentModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`aditivo-${rentalAmendmentModal.rentalId}`} onClick={()=>salvarAditivoLocacao(rentalAmendmentModal)}>Salvar aditivo</Btn></div>
         </div>
       </Modal>;})()}
 
