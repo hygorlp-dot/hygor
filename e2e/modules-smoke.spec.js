@@ -179,6 +179,14 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
         await expect(page.getByRole("button",{name:"Encerrar"})).toHaveCount(0);
         const activeRentalCard=page.locator(".equipment-record").filter({hasText:"Término planejado: 30/09"});
+        await activeRentalCard.getByRole("button",{name:"Adicionar cobrança"}).click();
+        const chargeDialog=page.getByRole("dialog",{name:/Adicionar cobrança · Betoneira QA/});
+        await expect(chargeDialog.getByText("LINHA PREPARADA · NÃO FATURADA")).toBeVisible();
+        await chargeDialog.getByLabel("Descrição *").fill("Frete complementar");
+        await chargeDialog.getByLabel("Preço unitário (R$) *").fill("125,50");
+        await chargeDialog.getByLabel("Desconto (R$)").fill("5,50");
+        await expect(chargeDialog.getByText("Líquido previsto: R$ 120,00")).toBeVisible();
+        await chargeDialog.getByRole("button",{name:"Cancelar"}).click();
         await activeRentalCard.getByRole("button",{name:"Prorrogar / renovar"}).click();
         const amendmentDialog=page.getByRole("dialog",{name:/Prorrogar ou renovar · Betoneira QA/});
         await expect(amendmentDialog.getByText("ADITIVO DE PRAZO AUDITÁVEL")).toBeVisible();

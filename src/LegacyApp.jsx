@@ -83,6 +83,7 @@ import {
 import { deriveEquipmentLocations,physicalIdentityForRecord } from "./domains/equipamentos/registry";
 import { availableRentalTransitions,normalizeRentalState,rentalStateLabel } from "./domains/equipamentos/rental-lifecycle";
 import { rentalDeliveryBalance,rentalDispatchBalance,rentalReturnBalance,RENTAL_CHECKPOINT_TYPE } from "./domains/equipamentos/rental-checkpoints";
+import { rentalChargeSummary } from "./domains/equipamentos/rental-charges";
 import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
@@ -33002,6 +33003,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const [rentalCheckpointModal,setRentalCheckpointModal]=useState(null);
   const [rentalAmendmentModal,setRentalAmendmentModal]=useState(null);
   const [rentalReplacementModal,setRentalReplacementModal]=useState(null);
+  const [rentalChargeModal,setRentalChargeModal]=useState(null);
   const [busca, setBusca] = useState("");
   const [filtroObraGestao, setFiltroObraGestao] = useState(obraIdFixo||"all");   // filtro da grade de gestao
   const [basesSinapiEquip,setBasesSinapiEquip]=useState([]);
@@ -33400,6 +33402,22 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       if(!result?.ok){showToast(result?.reason||"Não foi possível substituir a unidade.","error");return;}
       setRentalReplacementModal(null);showToast("Unidade substituída. O histórico da locação foi preservado.");
     }catch(error){showToast(error?.message||"O servidor não respondeu ao substituir a unidade.","error");}
+    finally{setSalvandoEquipamento("");}
+  };
+  const salvarLinhaCobranca=async form=>{
+    const quantity=Number(String(form.quantity||"").replace(",",".")),unitPrice=Number(String(form.unitPrice||"").replace(",","."));
+    const discount=Number(String(form.discountAmount||0).replace(",",".")),tax=Number(String(form.taxAmount||0).replace(",","."));
+    if(!form.description||!form.unit||!Number.isFinite(quantity)||quantity<=0||!Number.isFinite(unitPrice)||unitPrice<0){showToast("Preencha descrição, quantidade, unidade e preço.","error");return;}
+    const id=uid();setSalvandoEquipamento(`cobranca-${form.rentalId}`);
+    try{const result=await dispatchCommand?.(atual=>({type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,
+      idempotencyKey:`locacao-cobranca-${id}`,expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{chargeItem:{id,rentalId:form.rentalId,workId:form.workId,type:form.type,description:form.description,
+        quantityMilli:Math.round(quantity*1000),unit:form.unit,unitPriceCents:Math.round(unitPrice*100),
+        discountAmountCents:Math.round(Math.max(0,discount)*100),taxAmountCents:Math.round(Math.max(0,tax)*100),
+        competence:form.competence,source:"manual",status:"open"}}}));
+      if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a linha de cobrança.","error");return;}
+      setRentalChargeModal(null);showToast("Linha de cobrança adicionada sem emitir faturamento.");
+    }catch(error){showToast(error?.message||"O servidor não respondeu ao salvar a cobrança.","error");}
     finally{setSalvandoEquipamento("");}
   };
 
@@ -33815,6 +33833,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               const cancelada=l.status==="cancelada";
               const emAberto = !cancelada&&!l.fim;
               const lifecycleState=normalizeRentalState(l.lifecycleState||l.status);
+              const chargeSummary=rentalChargeSummary(data.rentalChargeItems||[],{rentalId:l.id});
               const lifecycleNext=availableRentalTransitions(lifecycleState,{checkpoints:l.rentalCheckpoints||[]})
                 .filter(state=>!["cancelled","closed"].includes(state));
               return (
@@ -33834,6 +33853,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                         CICLO · {rentalStateLabel(lifecycleState).toUpperCase()}
                       </span>
                       {l.plannedEndDate&&<p style={{fontSize:9,color:C.muted,marginTop:4}}>Término planejado: {fmtDate(l.plannedEndDate)}</p>}
+                      {chargeSummary.netAmountCents!==0&&<p style={{fontSize:9,color:chargeSummary.netAmountCents>=0?C.green:C.red,marginTop:3}}>Linhas preparadas: {fmt(chargeSummary.netAmountCents/100)}</p>}
                     </div>
                     {(() => {
                       const eqL = (data.equipamentos||[]).find(x=>x.id===l.equipamentoId);
@@ -33858,6 +33878,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   </div>
                   <div className="equipment-record-actions">
                     {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>}
+                    {!cancelada&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>setRentalChargeModal({rentalId:l.id,workId:l.obraId,type:"freight",description:"",quantity:"1",unit:"un",unitPrice:"",discountAmount:"0",taxAmount:"0",competence:ym})}>Adicionar cobrança</Btn>}
                     {emAberto&&["contracted","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararAditivoLocacao(l)}>Prorrogar / renovar</Btn>}
                     {emAberto&&(l.equipmentUnitIds||[]).length>0&&["separating","ready_for_dispatch","in_transport","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>setRentalReplacementModal({rentalId:l.id,outgoingUnitId:l.equipmentUnitIds[0],incomingUnitId:"",date:today(),reason:"",notes:""})}>Substituir unidade</Btn>}
                     {emAberto&&lifecycleState==="ready_for_dispatch"&&rentalDispatchBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH)}>Expedição parcial</Btn>}
@@ -34087,6 +34108,22 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           <Sel label="Classificação *" value={physicalReview.kind} onChange={v=>setPhysicalReview(form=>({...form,kind:v}))} options={[{v:"lot",l:"Lote controlado por quantidade"},{v:"unit",l:"Unidades físicas individualizadas"}]}/>
           {physicalReview.kind==="lot"?<><Inp label="Identificação do lote *" value={physicalReview.lotCode} onChange={v=>setPhysicalReview(form=>({...form,lotCode:v}))}/><Inp label="Unidade de controle" value={physicalReview.unit} onChange={v=>setPhysicalReview(form=>({...form,unit:v}))}/><p style={{fontSize:9.5,color:C.muted}}>Quantidade preservada do cadastro: <b>{expected}</b>.</p></>:<><Inp label={`Patrimônios / séries (${expected}) *`} value={physicalReview.assetTags} onChange={v=>setPhysicalReview(form=>({...form,assetTags:v}))} multiline placeholder="Separe por vírgula ou uma linha por unidade"/><p style={{fontSize:9.5,color:C.muted}}>Informe exatamente {expected} identificação(ões) única(s).</p></>}
           <Btn full onClick={()=>salvarRevisaoFisica(physicalReview)}>Salvar classificação física</Btn>
+        </div>
+      </Modal>;})()}
+
+      {rentalChargeModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalChargeModal.rentalId);const quantity=Number(String(rentalChargeModal.quantity||0).replace(",","."))||0,price=Number(String(rentalChargeModal.unitPrice||0).replace(",","."))||0,discount=Number(String(rentalChargeModal.discountAmount||0).replace(",","."))||0,tax=Number(String(rentalChargeModal.taxAmount||0).replace(",","."))||0;const preview=Math.round((quantity*price-discount+tax)*100)/100;return <Modal title={`Adicionar cobrança · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalChargeModal(null)} wide>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.yellowD}44`,borderRadius:8,background:`${C.yellowD}08`}}><p style={{fontSize:10.5,fontWeight:850,color:C.yellowD}}>LINHA PREPARADA · NÃO FATURADA</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{obraName(rental?.obraId)} · esta inclusão não gera título nem lançamento bancário.</p></div>
+          <Sel label="Tipo *" value={rentalChargeModal.type} onChange={v=>setRentalChargeModal(form=>({...form,type:v}))} options={[{v:"rental",l:"Locação"},{v:"mobilization",l:"Mobilização"},{v:"demobilization",l:"Desmobilização"},{v:"freight",l:"Frete"},{v:"operator",l:"Operador"},{v:"fuel",l:"Combustível"},{v:"cleaning",l:"Limpeza"},{v:"insurance",l:"Seguro"},{v:"accessory",l:"Acessório"},{v:"overtime",l:"Hora excedente"},{v:"late_fee",l:"Atraso"},{v:"damage",l:"Avaria"},{v:"lost_item",l:"Item perdido"},{v:"adjustment",l:"Ajuste"},{v:"discount",l:"Desconto"},{v:"reversal",l:"Estorno"}]}/>
+          <Inp label="Competência *" type="month" value={rentalChargeModal.competence} onChange={v=>setRentalChargeModal(form=>({...form,competence:v}))}/>
+          <div style={{gridColumn:"1/-1"}}><Inp label="Descrição *" value={rentalChargeModal.description} onChange={v=>setRentalChargeModal(form=>({...form,description:v}))}/></div>
+          <Inp label="Quantidade *" value={rentalChargeModal.quantity} onChange={v=>setRentalChargeModal(form=>({...form,quantity:v}))}/>
+          <Inp label="Unidade *" value={rentalChargeModal.unit} onChange={v=>setRentalChargeModal(form=>({...form,unit:v}))}/>
+          <Inp label="Preço unitário (R$) *" value={rentalChargeModal.unitPrice} onChange={v=>setRentalChargeModal(form=>({...form,unitPrice:v}))}/>
+          <Inp label="Desconto (R$)" value={rentalChargeModal.discountAmount} onChange={v=>setRentalChargeModal(form=>({...form,discountAmount:v}))}/>
+          <Inp label="Imposto (R$)" value={rentalChargeModal.taxAmount} onChange={v=>setRentalChargeModal(form=>({...form,taxAmount:v}))}/>
+          <div style={{display:"flex",alignItems:"end",justifyContent:"flex-end",fontSize:12,fontWeight:850,color:["discount","reversal"].includes(rentalChargeModal.type)?C.red:C.green}}>Líquido previsto: {fmt(["discount","reversal"].includes(rentalChargeModal.type)?-Math.max(0,preview):Math.max(0,preview))}</div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalChargeModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`cobranca-${rentalChargeModal.rentalId}`} onClick={()=>salvarLinhaCobranca(rentalChargeModal)}>Salvar linha</Btn></div>
         </div>
       </Modal>;})()}
 

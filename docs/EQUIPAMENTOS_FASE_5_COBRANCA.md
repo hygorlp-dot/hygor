@@ -25,4 +25,17 @@ sem substituir de uma vez a memória financeira legada.
 - locações e relatórios legados continuam sendo calculados como antes até a
   ativação explícita da nova projeção.
 
+## Segundo incremento
+
+- cada locação permite preparar cobranças adicionais diretamente no histórico;
+- formulário contém tipo, competência, descrição, quantidade, unidade, preço,
+  desconto e imposto;
+- conversão para milésimos e centavos acontece na fronteira do formulário;
+- a prévia identifica explicitamente que a linha ainda não foi faturada;
+- descontos e estornos são apresentados com sinal negativo;
+- o cartão da locação mostra o total líquido das linhas já preparadas,
+  separado da cobrança contratual legada;
+- gravação usa exclusivamente o comando auditável do primeiro incremento;
+- smoke E2E cobre preenchimento e prévia exata em centavos.
+
 A Fase 5 ainda não está concluída.
