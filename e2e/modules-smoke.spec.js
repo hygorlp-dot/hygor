@@ -35,7 +35,10 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
       {id:"obra-qa",name:"Residencial Alameda",status:"active"},
     ],
     equipamentos:[{id:"eq-qa",nome:"Betoneira QA",patrimonio:"EQ-QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:100}}],
-    locacoesEquip:[{id:"rental-lifecycle-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-09-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"active",version:1,tarifas:{dia:100}}],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
+    locacoesEquip:[
+      {id:"rental-lifecycle-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-09-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"active",version:1,tarifas:{dia:100}},
+      {id:"rental-separation-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-10-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"separating",version:1,tarifas:{dia:100}},
+    ],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
     orcamentos:[
       {
         id:"orcamento-rascunho-qa",
@@ -159,6 +162,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await page.getByRole("button",{name:/Locações/}).click();
         await expect(page.getByText("CICLO · ATIVA")).toBeVisible();
         await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
+        await page.getByRole("button",{name:"Checklist: Separação"}).click();
+        const checklistDialog=page.getByRole("dialog",{name:/Separação · Betoneira QA/});
+        await expect(checklistDialog.getByText("EVIDÊNCIA OPERACIONAL OBRIGATÓRIA")).toBeVisible();
+        await expect(checklistDialog.getByRole("button",{name:"Salvar checklist"})).toBeVisible();
+        await checklistDialog.getByRole("button",{name:"Cancelar"}).click();
       }
       if(item==="Terceirizados") {
         const excluirContrato=page.getByRole("button",{name:"Excluir contrato de Elétrica Modelo"});

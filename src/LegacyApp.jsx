@@ -82,6 +82,7 @@ import {
 } from "./domains/equipamentos/images";
 import { deriveEquipmentLocations,physicalIdentityForRecord } from "./domains/equipamentos/registry";
 import { availableRentalTransitions,normalizeRentalState,rentalStateLabel } from "./domains/equipamentos/rental-lifecycle";
+import { RENTAL_CHECKPOINT_TYPE } from "./domains/equipamentos/rental-checkpoints";
 import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
@@ -32994,6 +32995,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const [indispModal,setIndispModal]=useState(null);
   const [transfModal,setTransfModal]= useState(null);
   const [physicalReview,setPhysicalReview]=useState(null);
+  const [rentalCheckpointModal,setRentalCheckpointModal]=useState(null);
   const [busca, setBusca] = useState("");
   const [filtroObraGestao, setFiltroObraGestao] = useState(obraIdFixo||"all");   // filtro da grade de gestao
   const [basesSinapiEquip,setBasesSinapiEquip]=useState([]);
@@ -33298,6 +33300,36 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       if(!result?.ok){showToast(result?.reason||"Não foi possível avançar o ciclo da locação.","error");return;}
       showToast(`Locação atualizada para ${rentalStateLabel(nextState)}.`);
     }catch(error){showToast(error?.message||"O servidor não respondeu ao atualizar a locação.","error");}
+    finally{setSalvandoEquipamento("");}
+  };
+  const CHECKPOINT_BY_STATE={ready_for_dispatch:RENTAL_CHECKPOINT_TYPE.SEPARATION,
+    in_transport:RENTAL_CHECKPOINT_TYPE.DISPATCH,delivered:RENTAL_CHECKPOINT_TYPE.DELIVERY};
+  const CHECKPOINT_LABEL={separation:"Separação",dispatch:"Expedição",delivery:"Entrega"};
+  const prepararTransicaoLocacao=(rental,nextState)=>{
+    const type=CHECKPOINT_BY_STATE[nextState];
+    const recorded=(rental.rentalCheckpoints||[]).some(item=>item.type===type&&item.status!=="cancelled");
+    if(!type||recorded){transicionarLocacao(rental,nextState);return;}
+    const work=(data.obras||[]).find(item=>item.id===rental.obraId);
+    setRentalCheckpointModal({rentalId:rental.id,nextState,type,date:today(),quantity:Number(rental.quantidade||1),
+      equipmentUnitIds:[...(rental.equipmentUnitIds||[])],accessories:"",hourMeter:"",fuel:"",condition:"",
+      photos:"",responsible:currentUser?.nome||"",receivedBy:"",address:work?.address||work?.endereco||"",
+      acceptance:"",notes:""});
+  };
+  const salvarChecklistLocacao=async form=>{
+    setSalvandoEquipamento(`checklist-${form.rentalId}`);
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.locacoesEquip||[]).find(item=>item.id===form.rentalId);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,
+          idempotencyKey:`locacao-checklist-${form.rentalId}-${form.type}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{rentalId:form.rentalId,checkpoint:{...form,quantity:Number(form.quantity||0),
+            hourMeter:Number(form.hourMeter||0),accessories:String(form.accessories||"").split(/[,;\n]/).map(value=>value.trim()).filter(Boolean),
+            photos:String(form.photos||"").split(/\n/).map(value=>value.trim()).filter(Boolean)}}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível salvar o checklist.","error");return;}
+      setRentalCheckpointModal(null);showToast(`${CHECKPOINT_LABEL[form.type]} registrada. A locação já pode avançar.`);
+    }catch(error){showToast(error?.message||"O servidor não respondeu ao salvar o checklist.","error");}
     finally{setSalvandoEquipamento("");}
   };
 
@@ -33755,10 +33787,14 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   </div>
                   <div className="equipment-record-actions">
                     {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>}
-                    {emAberto&&lifecycleNext.map(nextState=><Btn key={nextState} size="sm" v="ghost"
-                      disabled={!!salvandoEquipamento} onClick={()=>transicionarLocacao(l,nextState)}>
-                      Avançar: {rentalStateLabel(nextState)}
-                    </Btn>)}
+                    {emAberto&&lifecycleNext.map(nextState=>{
+                      const checkpointType=CHECKPOINT_BY_STATE[nextState];
+                      const recorded=(l.rentalCheckpoints||[]).some(item=>item.type===checkpointType&&item.status!=="cancelled");
+                      return <Btn key={nextState} size="sm" v="ghost" disabled={!!salvandoEquipamento}
+                        onClick={()=>prepararTransicaoLocacao(l,nextState)}>
+                        {checkpointType&&!recorded?`Checklist: ${CHECKPOINT_LABEL[checkpointType]}`:`Avançar: ${rentalStateLabel(nextState)}`}
+                      </Btn>;
+                    })}
                     {emAberto && <Btn size="sm" v="ghost" onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
                     {!cancelada&&<Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirLoc(l)}><Ic n="trash"/> Excluir</Btn>}
                   </div>
@@ -33974,6 +34010,28 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           <Sel label="Classificação *" value={physicalReview.kind} onChange={v=>setPhysicalReview(form=>({...form,kind:v}))} options={[{v:"lot",l:"Lote controlado por quantidade"},{v:"unit",l:"Unidades físicas individualizadas"}]}/>
           {physicalReview.kind==="lot"?<><Inp label="Identificação do lote *" value={physicalReview.lotCode} onChange={v=>setPhysicalReview(form=>({...form,lotCode:v}))}/><Inp label="Unidade de controle" value={physicalReview.unit} onChange={v=>setPhysicalReview(form=>({...form,unit:v}))}/><p style={{fontSize:9.5,color:C.muted}}>Quantidade preservada do cadastro: <b>{expected}</b>.</p></>:<><Inp label={`Patrimônios / séries (${expected}) *`} value={physicalReview.assetTags} onChange={v=>setPhysicalReview(form=>({...form,assetTags:v}))} multiline placeholder="Separe por vírgula ou uma linha por unidade"/><p style={{fontSize:9.5,color:C.muted}}>Informe exatamente {expected} identificação(ões) única(s).</p></>}
           <Btn full onClick={()=>salvarRevisaoFisica(physicalReview)}>Salvar classificação física</Btn>
+        </div>
+      </Modal>;})()}
+
+      {rentalCheckpointModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalCheckpointModal.rentalId);return <Modal
+        title={`${CHECKPOINT_LABEL[rentalCheckpointModal.type]} · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalCheckpointModal(null)} wide>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`}}>
+            <p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>EVIDÊNCIA OPERACIONAL OBRIGATÓRIA</p>
+            <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{obraName(rental?.obraId)} · {rentalStateLabel(rental?.lifecycleState||rental?.status)} → {rentalStateLabel(rentalCheckpointModal.nextState)}</p>
+          </div>
+          <Inp label="Data *" type="date" value={rentalCheckpointModal.date} onChange={v=>setRentalCheckpointModal(form=>({...form,date:v}))}/>
+          <Inp label="Quantidade *" type="number" min="1" disabled={(rentalCheckpointModal.equipmentUnitIds||[]).length>0} value={rentalCheckpointModal.quantity} onChange={v=>setRentalCheckpointModal(form=>({...form,quantity:v}))}/>
+          {(rentalCheckpointModal.equipmentUnitIds||[]).length>0&&<div style={{gridColumn:"1/-1",padding:"8px 10px",border:`1px solid ${C.border}`,borderRadius:7}}><p style={{fontSize:9,color:C.muted,fontWeight:800}}>UNIDADES FÍSICAS</p><p style={{fontSize:10.5,color:C.text,marginTop:3}}>{physicalIdentityForRecord(data,{equipmentUnitIds:rentalCheckpointModal.equipmentUnitIds},(data.equipamentos||[]).find(item=>item.id===rental?.equipamentoId)).label}</p></div>}
+          <Inp label="Acessórios" value={rentalCheckpointModal.accessories} onChange={v=>setRentalCheckpointModal(form=>({...form,accessories:v}))} placeholder="Separe por vírgula"/>
+          <Inp label="Horímetro" type="number" min="0" value={rentalCheckpointModal.hourMeter} onChange={v=>setRentalCheckpointModal(form=>({...form,hourMeter:v}))}/>
+          <Inp label="Combustível" value={rentalCheckpointModal.fuel} onChange={v=>setRentalCheckpointModal(form=>({...form,fuel:v}))} placeholder="Ex.: cheio, 3/4, 50%"/>
+          <Inp label="Condição aparente" value={rentalCheckpointModal.condition} onChange={v=>setRentalCheckpointModal(form=>({...form,condition:v}))}/>
+          {rentalCheckpointModal.type!==RENTAL_CHECKPOINT_TYPE.SEPARATION&&<Inp label="Responsável pela movimentação *" value={rentalCheckpointModal.responsible} onChange={v=>setRentalCheckpointModal(form=>({...form,responsible:v}))}/>}
+          {rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.DELIVERY&&<><Inp label="Responsável pelo recebimento *" value={rentalCheckpointModal.receivedBy} onChange={v=>setRentalCheckpointModal(form=>({...form,receivedBy:v}))}/><Inp label="Endereço da entrega *" value={rentalCheckpointModal.address} onChange={v=>setRentalCheckpointModal(form=>({...form,address:v}))}/><Inp label="Assinatura ou aceite" value={rentalCheckpointModal.acceptance} onChange={v=>setRentalCheckpointModal(form=>({...form,acceptance:v}))}/></>}
+          <div style={{gridColumn:"1/-1"}}><Inp label="Fotos (uma URL por linha)" value={rentalCheckpointModal.photos} onChange={v=>setRentalCheckpointModal(form=>({...form,photos:v}))} multiline/></div>
+          <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={rentalCheckpointModal.notes} onChange={v=>setRentalCheckpointModal(form=>({...form,notes:v}))} multiline/></div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalCheckpointModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`checklist-${rentalCheckpointModal.rentalId}`} onClick={()=>salvarChecklistLocacao(rentalCheckpointModal)}>Salvar checklist</Btn></div>
         </div>
       </Modal>;})()}
 

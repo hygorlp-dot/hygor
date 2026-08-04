@@ -66,4 +66,16 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
 - comando próprio com idempotência, versão esperada, escopo da obra e trilha
   de auditoria, sem movimentar o razão financeiro.
 
+## Quarto incremento
+
+- a ação do ciclo identifica automaticamente o checklist ausente e abre o
+  formulário correto;
+- formulário único para separação, expedição e entrega;
+- obra, quantidade e unidades físicas são herdadas da locação;
+- captura de acessórios, horímetro, combustível, condição aparente, fotos,
+  responsável pela movimentação, recebedor, endereço, aceite e observações;
+- após a gravação auditável, a interface passa a oferecer a transição antes
+  bloqueada;
+- smoke E2E cobre a abertura do checklist de separação no estágio correto.
+
 A Fase 4 ainda não está concluída.
