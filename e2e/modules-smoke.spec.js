@@ -34,11 +34,15 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     obras:[
       {id:"obra-qa",name:"Residencial Alameda",status:"active"},
     ],
-    equipamentos:[{id:"eq-qa",nome:"Betoneira QA",patrimonio:"EQ-QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:100}}],
+    equipamentos:[
+      {id:"eq-qa",nome:"Betoneira QA",patrimonio:"EQ-QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:100}},
+      {id:"eq-partial-qa",nome:"Plataforma parcial QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:50}},
+    ],
     locacoesEquip:[
       {id:"rental-lifecycle-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-09-01",fim:"",plannedEndDate:"2026-09-30",quantidade:1,status:"ativa",lifecycleState:"active",version:1,tarifas:{dia:100}},
       {id:"rental-separation-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-07-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"separating",version:1,tarifas:{dia:100}},
       {id:"rental-return-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-11-01",fim:"",quantidade:2,status:"ativa",lifecycleState:"pickup_requested",version:1,tarifas:{dia:100}},
+      {id:"rental-partial-dispatch-qa",equipamentoId:"eq-partial-qa",obraId:"obra-qa",inicio:"2026-06-01",fim:"",quantidade:2,status:"ativa",lifecycleState:"ready_for_dispatch",version:1,tarifas:{dia:50}},
     ],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
     orcamentos:[
       {
@@ -176,6 +180,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(amendmentDialog.getByLabel("Início da renovação *")).toBeVisible();
         await expect(amendmentDialog.getByLabel("Fim da renovação *")).toBeVisible();
         await amendmentDialog.getByRole("button",{name:"Cancelar"}).click();
+        await page.getByRole("button",{name:"Expedição parcial"}).click();
+        const partialDispatchDialog=page.getByRole("dialog",{name:/Expedição parcial · Plataforma parcial QA/});
+        await expect(partialDispatchDialog.getByLabel("Quantidade *")).toHaveValue("1");
+        await expect(partialDispatchDialog.getByRole("button",{name:"Salvar checklist"})).toBeVisible();
+        await partialDispatchDialog.getByRole("button",{name:"Cancelar"}).click();
         await page.getByRole("button",{name:"Checklist: Separação"}).click();
         const checklistDialog=page.getByRole("dialog",{name:/Separação · Betoneira QA/});
         await expect(checklistDialog.getByText("EVIDÊNCIA OPERACIONAL OBRIGATÓRIA")).toBeVisible();

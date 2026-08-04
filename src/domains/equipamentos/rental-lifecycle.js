@@ -66,6 +66,13 @@ export const validateRentalTransition=(currentState,nextState,{reason="",hasBill
   if(requiredCheckpoint&&!checkpoints.some(item=>item.type===requiredCheckpoint&&item.status!=="cancelled")){
     return {ok:false,reason:`Registre o checklist de ${requiredCheckpoint} antes de avançar a locação.`};
   }
+  const movementTypes=to===RENTAL_STATE.IN_TRANSPORT?["partial_dispatch","dispatch"]
+    :to===RENTAL_STATE.DELIVERED?["partial_delivery","delivery"]:[];
+  if(movementTypes.length){
+    const moved=checkpoints.filter(item=>movementTypes.includes(item.type)&&item.status!=="cancelled")
+      .reduce((sum,item)=>sum+Math.max(0,Number(item.quantity||0)),0);
+    if(moved<Math.max(1,Number(rentalQuantity||1)))return {ok:false,reason:"Ainda existem unidades pendentes de movimentação neste estágio."};
+  }
   if(to===RENTAL_STATE.RETURNED){
     const returned=checkpoints.filter(item=>["partial_return","return"].includes(item.type)&&item.status!=="cancelled")
       .reduce((sum,item)=>sum+Math.max(0,Number(item.quantity||0)),0);

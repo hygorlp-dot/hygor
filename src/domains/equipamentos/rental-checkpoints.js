@@ -2,14 +2,17 @@ import { isValidIsoDate } from "./date.js";
 import { normalizeRentalState,RENTAL_STATE } from "./rental-lifecycle.js";
 
 export const RENTAL_CHECKPOINT_TYPE=Object.freeze({
-  SEPARATION:"separation",DISPATCH:"dispatch",DELIVERY:"delivery",PARTIAL_RETURN:"partial_return",RETURN:"return",INSPECTION:"inspection",
+  SEPARATION:"separation",PARTIAL_DISPATCH:"partial_dispatch",DISPATCH:"dispatch",
+  PARTIAL_DELIVERY:"partial_delivery",DELIVERY:"delivery",PARTIAL_RETURN:"partial_return",RETURN:"return",INSPECTION:"inspection",
 });
 
 export const RENTAL_CHECKPOINT_TYPES=Object.freeze(Object.values(RENTAL_CHECKPOINT_TYPE));
 
 const allowedState=Object.freeze({
   separation:RENTAL_STATE.SEPARATING,
+  partial_dispatch:RENTAL_STATE.READY_FOR_DISPATCH,
   dispatch:RENTAL_STATE.READY_FOR_DISPATCH,
+  partial_delivery:RENTAL_STATE.IN_TRANSPORT,
   delivery:RENTAL_STATE.IN_TRANSPORT,
   partial_return:RENTAL_STATE.PICKUP_REQUESTED,
   return:RENTAL_STATE.PICKUP_REQUESTED,
@@ -27,24 +30,41 @@ export const rentalReturnBalance=(rental={},checkpoints=[])=>{
   return {contractedQuantity,returnedQuantity,returnedUnitIds,remainingQuantity:Math.max(0,contractedQuantity-returnedQuantity),complete:returnedQuantity>=contractedQuantity};
 };
 
+const movementBalance=(rental,checkpoints,types)=>{
+  const movements=checkpoints.filter(item=>types.includes(item.type)&&item.status!=="cancelled");
+  const movedQuantity=movements.reduce((sum,item)=>sum+Math.max(0,Math.trunc(number(item.quantity))),0);
+  const movedUnitIds=[...new Set(movements.flatMap(item=>item.equipmentUnitIds||[]).map(String))];
+  const contractedQuantity=Math.max(1,Math.trunc(number(rental.quantidade)||1));
+  return {contractedQuantity,movedQuantity,movedUnitIds,remainingQuantity:Math.max(0,contractedQuantity-movedQuantity),complete:movedQuantity>=contractedQuantity};
+};
+
+export const rentalDispatchBalance=(rental={},checkpoints=[])=>movementBalance(rental,checkpoints,[RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.DISPATCH]);
+export const rentalDeliveryBalance=(rental={},checkpoints=[])=>movementBalance(rental,checkpoints,[RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.DELIVERY]);
+
 export const validateRentalCheckpoint=(rental={},input={},existing=[])=>{
   const type=text(input.type),state=normalizeRentalState(rental.lifecycleState||rental.status);
   if(!RENTAL_CHECKPOINT_TYPES.includes(type))return {ok:false,reason:"Tipo de checklist da locação inválido."};
   if(state!==allowedState[type])return {ok:false,reason:`O checklist de ${type} não pode ser registrado no estado ${state}.`};
-  if(type!==RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN&&existing.some(item=>item.type===type&&item.status!=="cancelled"))return {ok:false,reason:"Este checklist já foi registrado para a locação."};
+  const partialTypes=[RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN];
+  if(!partialTypes.includes(type)&&existing.some(item=>item.type===type&&item.status!=="cancelled"))return {ok:false,reason:"Este checklist já foi registrado para a locação."};
   if(type===RENTAL_CHECKPOINT_TYPE.DELIVERY&&!existing.some(item=>item.type===RENTAL_CHECKPOINT_TYPE.DISPATCH&&item.status!=="cancelled"))return {ok:false,reason:"Registre a expedição antes da entrega."};
   if(type===RENTAL_CHECKPOINT_TYPE.INSPECTION&&!existing.some(item=>item.type===RENTAL_CHECKPOINT_TYPE.RETURN&&item.status!=="cancelled"))return {ok:false,reason:"Registre a devolução antes da inspeção."};
   if(!isValidIsoDate(text(input.date)))return {ok:false,reason:"Informe uma data válida para o checklist."};
   const quantity=Math.max(0,Math.trunc(number(input.quantity)));
-  const balance=rentalReturnBalance(rental,existing);
-  const limit=[RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN,RENTAL_CHECKPOINT_TYPE.RETURN].includes(type)?balance.remainingQuantity:Math.max(1,number(rental.quantidade));
+  const balance=[RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.DISPATCH].includes(type)?rentalDispatchBalance(rental,existing)
+    :[RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.DELIVERY].includes(type)?rentalDeliveryBalance(rental,existing)
+    :rentalReturnBalance(rental,existing);
+  const incrementalTypes=[RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.DISPATCH,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.DELIVERY,RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN,RENTAL_CHECKPOINT_TYPE.RETURN];
+  const limit=incrementalTypes.includes(type)?balance.remainingQuantity:Math.max(1,number(rental.quantidade));
   if(!quantity||quantity>limit)return {ok:false,reason:"A quantidade do checklist deve respeitar o saldo da locação."};
-  if(type===RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN&&quantity>=balance.remainingQuantity)return {ok:false,reason:"Use a devolução integral para devolver todo o saldo remanescente."};
-  if(type===RENTAL_CHECKPOINT_TYPE.RETURN&&quantity!==balance.remainingQuantity)return {ok:false,reason:"A devolução integral deve corresponder a todo o saldo remanescente."};
+  if(partialTypes.includes(type)&&quantity>=balance.remainingQuantity)return {ok:false,reason:"Use o checklist integral para movimentar todo o saldo remanescente."};
+  if([RENTAL_CHECKPOINT_TYPE.DISPATCH,RENTAL_CHECKPOINT_TYPE.DELIVERY,RENTAL_CHECKPOINT_TYPE.RETURN].includes(type)&&quantity!==balance.remainingQuantity)return {ok:false,reason:"O checklist integral deve corresponder a todo o saldo remanescente."};
   const rentalUnitIds=(rental.equipmentUnitIds||[]).map(String);
   const unitIds=[...new Set((input.equipmentUnitIds||[]).map(String).filter(Boolean))];
   if(unitIds.some(id=>!rentalUnitIds.includes(id)))return {ok:false,reason:"Uma unidade informada não pertence à locação."};
-  if([RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN,RENTAL_CHECKPOINT_TYPE.RETURN].includes(type)&&unitIds.some(id=>balance.returnedUnitIds.includes(id)))return {ok:false,reason:"Uma unidade física selecionada já foi devolvida."};
+  const movedUnitIds=balance.returnedUnitIds||balance.movedUnitIds||[];
+  if([RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN,RENTAL_CHECKPOINT_TYPE.RETURN].includes(type)&&unitIds.some(id=>movedUnitIds.includes(id)))return {ok:false,reason:"Uma unidade física selecionada já foi devolvida."};
+  if([RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.DISPATCH,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.DELIVERY].includes(type)&&unitIds.some(id=>movedUnitIds.includes(id)))return {ok:false,reason:"Uma unidade física selecionada já foi movimentada neste estágio."};
   if(rentalUnitIds.length&&unitIds.length!==quantity)return {ok:false,reason:"Informe exatamente as unidades físicas movimentadas."};
   if(type!==RENTAL_CHECKPOINT_TYPE.SEPARATION&&!text(input.responsible))return {ok:false,reason:"Informe o responsável pela movimentação."};
   if(type===RENTAL_CHECKPOINT_TYPE.DELIVERY&&(!text(input.receivedBy)||!text(input.address)))return {ok:false,reason:"Informe quem recebeu e o endereço da entrega."};

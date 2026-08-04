@@ -82,7 +82,7 @@ import {
 } from "./domains/equipamentos/images";
 import { deriveEquipmentLocations,physicalIdentityForRecord } from "./domains/equipamentos/registry";
 import { availableRentalTransitions,normalizeRentalState,rentalStateLabel } from "./domains/equipamentos/rental-lifecycle";
-import { rentalReturnBalance,RENTAL_CHECKPOINT_TYPE } from "./domains/equipamentos/rental-checkpoints";
+import { rentalDeliveryBalance,rentalDispatchBalance,rentalReturnBalance,RENTAL_CHECKPOINT_TYPE } from "./domains/equipamentos/rental-checkpoints";
 import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
@@ -33309,17 +33309,20 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const CHECKPOINT_BY_STATE={ready_for_dispatch:RENTAL_CHECKPOINT_TYPE.SEPARATION,
     in_transport:RENTAL_CHECKPOINT_TYPE.DISPATCH,delivered:RENTAL_CHECKPOINT_TYPE.DELIVERY,
     returned:RENTAL_CHECKPOINT_TYPE.RETURN,under_inspection:RENTAL_CHECKPOINT_TYPE.INSPECTION};
-  const CHECKPOINT_LABEL={separation:"Separação",dispatch:"Expedição",delivery:"Entrega",partial_return:"Devolução parcial",return:"Devolução",inspection:"Inspeção"};
+  const CHECKPOINT_LABEL={separation:"Separação",partial_dispatch:"Expedição parcial",dispatch:"Expedição",
+    partial_delivery:"Entrega parcial",delivery:"Entrega",partial_return:"Devolução parcial",return:"Devolução",inspection:"Inspeção"};
   const prepararTransicaoLocacao=(rental,nextState)=>{
     const type=CHECKPOINT_BY_STATE[nextState];
     const recorded=(rental.rentalCheckpoints||[]).some(item=>item.type===type&&item.status!=="cancelled");
     if(!type||recorded){transicionarLocacao(rental,nextState);return;}
     const work=(data.obras||[]).find(item=>item.id===rental.obraId);
-    const balance=rentalReturnBalance(rental,rental.rentalCheckpoints||[]);
-    const returnType=type===RENTAL_CHECKPOINT_TYPE.RETURN;
-    const availableUnitIds=(rental.equipmentUnitIds||[]).filter(id=>!balance.returnedUnitIds.includes(String(id)));
-    setRentalCheckpointModal({rentalId:rental.id,nextState,type,date:today(),quantity:returnType?balance.remainingQuantity:Number(rental.quantidade||1),
-      equipmentUnitIds:returnType?availableUnitIds:[...(rental.equipmentUnitIds||[])],accessories:"",hourMeter:"",fuel:"",condition:"",
+    const balance=type===RENTAL_CHECKPOINT_TYPE.DISPATCH?rentalDispatchBalance(rental,rental.rentalCheckpoints||[])
+      :type===RENTAL_CHECKPOINT_TYPE.DELIVERY?rentalDeliveryBalance(rental,rental.rentalCheckpoints||[])
+      :type===RENTAL_CHECKPOINT_TYPE.RETURN?rentalReturnBalance(rental,rental.rentalCheckpoints||[]):null;
+    const movedIds=balance?.movedUnitIds||balance?.returnedUnitIds||[];
+    const availableUnitIds=(rental.equipmentUnitIds||[]).filter(id=>!movedIds.includes(String(id)));
+    setRentalCheckpointModal({rentalId:rental.id,nextState,type,date:today(),quantity:balance?.remainingQuantity||Number(rental.quantidade||1),
+      equipmentUnitIds:balance?availableUnitIds:[...(rental.equipmentUnitIds||[])],accessories:"",hourMeter:"",fuel:"",condition:"",
       photos:"",responsible:currentUser?.nome||"",receivedBy:"",address:work?.address||work?.endereco||"",
       acceptance:"",cleaning:"",damages:"",missingItems:"",needsAdjustment:false,notes:""});
   };
@@ -33330,6 +33333,16 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     setRentalCheckpointModal({rentalId:rental.id,nextState:"pickup_requested",type:RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN,
       date:today(),quantity:1,equipmentUnitIds:availableUnitIds.length?[availableUnitIds[0]]:[],accessories:"",hourMeter:"",
       fuel:"",condition:"",photos:"",responsible:currentUser?.nome||"",receivedBy:"",address:work?.address||work?.endereco||"",
+      acceptance:"",cleaning:"",damages:"",missingItems:"",needsAdjustment:false,notes:""});
+  };
+  const prepararMovimentacaoParcial=(rental,type)=>{
+    const balance=type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH?rentalDispatchBalance(rental,rental.rentalCheckpoints||[])
+      :rentalDeliveryBalance(rental,rental.rentalCheckpoints||[]);
+    const availableUnitIds=(rental.equipmentUnitIds||[]).filter(id=>!balance.movedUnitIds.includes(String(id)));
+    const work=(data.obras||[]).find(item=>item.id===rental.obraId);
+    setRentalCheckpointModal({rentalId:rental.id,nextState:rental.lifecycleState,type,date:today(),quantity:1,
+      equipmentUnitIds:availableUnitIds.length?[availableUnitIds[0]]:[],accessories:"",hourMeter:"",fuel:"",condition:"",
+      photos:"",responsible:currentUser?.nome||"",receivedBy:"",address:work?.address||work?.endereco||"",
       acceptance:"",cleaning:"",damages:"",missingItems:"",needsAdjustment:false,notes:""});
   };
   const salvarChecklistLocacao=async form=>{
@@ -33829,6 +33842,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   <div className="equipment-record-actions">
                     {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>}
                     {emAberto&&["contracted","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararAditivoLocacao(l)}>Prorrogar / renovar</Btn>}
+                    {emAberto&&lifecycleState==="ready_for_dispatch"&&rentalDispatchBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH)}>Expedição parcial</Btn>}
+                    {emAberto&&lifecycleState==="in_transport"&&rentalDeliveryBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY)}>Entrega parcial</Btn>}
                     {emAberto&&lifecycleState==="pickup_requested"&&rentalReturnBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararDevolucaoParcial(l)}>Devolução parcial</Btn>}
                     {emAberto&&lifecycleNext.map(nextState=>{
                       const checkpointType=CHECKPOINT_BY_STATE[nextState];
@@ -34082,13 +34097,13 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           </div>
           <Inp label="Data *" type="date" value={rentalCheckpointModal.date} onChange={v=>setRentalCheckpointModal(form=>({...form,date:v}))}/>
           <Inp label="Quantidade *" type="number" min="1" disabled={(rentalCheckpointModal.equipmentUnitIds||[]).length>0} value={rentalCheckpointModal.quantity} onChange={v=>setRentalCheckpointModal(form=>({...form,quantity:v}))}/>
-          {(rental?.equipmentUnitIds||[]).length>0&&<div style={{gridColumn:"1/-1",padding:"8px 10px",border:`1px solid ${C.border}`,borderRadius:7}}><p style={{fontSize:9,color:C.muted,fontWeight:800}}>UNIDADES FÍSICAS</p>{rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN?<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>{(rental.equipmentUnitIds||[]).filter(id=>!rentalReturnBalance(rental,rental.rentalCheckpoints||[]).returnedUnitIds.includes(String(id))).map(unitId=>{const selected=(rentalCheckpointModal.equipmentUnitIds||[]).includes(unitId);const unit=physicalRegistry.units.find(item=>item.id===unitId);return <label key={unitId} style={{display:"inline-flex",gap:5,alignItems:"center",fontSize:9.5}}><input type="checkbox" checked={selected} onChange={()=>setRentalCheckpointModal(form=>{const ids=selected?form.equipmentUnitIds.filter(id=>id!==unitId):[...form.equipmentUnitIds,unitId];return {...form,equipmentUnitIds:ids,quantity:Math.max(1,ids.length)};})}/>{unit?.assetTag||unitId}</label>;})}</div>:<p style={{fontSize:10.5,color:C.text,marginTop:3}}>{physicalIdentityForRecord(data,{equipmentUnitIds:rentalCheckpointModal.equipmentUnitIds},(data.equipamentos||[]).find(item=>item.id===rental?.equipamentoId)).label}</p>}</div>}
+          {(rental?.equipmentUnitIds||[]).length>0&&<div style={{gridColumn:"1/-1",padding:"8px 10px",border:`1px solid ${C.border}`,borderRadius:7}}><p style={{fontSize:9,color:C.muted,fontWeight:800}}>UNIDADES FÍSICAS</p>{[RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN].includes(rentalCheckpointModal.type)?<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>{(rental.equipmentUnitIds||[]).filter(id=>{const balance=rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH?rentalDispatchBalance(rental,rental.rentalCheckpoints||[]):rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY?rentalDeliveryBalance(rental,rental.rentalCheckpoints||[]):rentalReturnBalance(rental,rental.rentalCheckpoints||[]);return !(balance.movedUnitIds||balance.returnedUnitIds||[]).includes(String(id));}).map(unitId=>{const selected=(rentalCheckpointModal.equipmentUnitIds||[]).includes(unitId);const unit=physicalRegistry.units.find(item=>item.id===unitId);return <label key={unitId} style={{display:"inline-flex",gap:5,alignItems:"center",fontSize:9.5}}><input type="checkbox" checked={selected} onChange={()=>setRentalCheckpointModal(form=>{const ids=selected?form.equipmentUnitIds.filter(id=>id!==unitId):[...form.equipmentUnitIds,unitId];return {...form,equipmentUnitIds:ids,quantity:Math.max(1,ids.length)};})}/>{unit?.assetTag||unitId}</label>;})}</div>:<p style={{fontSize:10.5,color:C.text,marginTop:3}}>{physicalIdentityForRecord(data,{equipmentUnitIds:rentalCheckpointModal.equipmentUnitIds},(data.equipamentos||[]).find(item=>item.id===rental?.equipamentoId)).label}</p>}</div>}
           <Inp label="Acessórios" value={rentalCheckpointModal.accessories} onChange={v=>setRentalCheckpointModal(form=>({...form,accessories:v}))} placeholder="Separe por vírgula"/>
           <Inp label="Horímetro" type="number" min="0" value={rentalCheckpointModal.hourMeter} onChange={v=>setRentalCheckpointModal(form=>({...form,hourMeter:v}))}/>
           <Inp label="Combustível" value={rentalCheckpointModal.fuel} onChange={v=>setRentalCheckpointModal(form=>({...form,fuel:v}))} placeholder="Ex.: cheio, 3/4, 50%"/>
           <Inp label="Condição aparente" value={rentalCheckpointModal.condition} onChange={v=>setRentalCheckpointModal(form=>({...form,condition:v}))}/>
           {rentalCheckpointModal.type!==RENTAL_CHECKPOINT_TYPE.SEPARATION&&<Inp label="Responsável pela movimentação *" value={rentalCheckpointModal.responsible} onChange={v=>setRentalCheckpointModal(form=>({...form,responsible:v}))}/>}
-          {rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.DELIVERY&&<><Inp label="Responsável pelo recebimento *" value={rentalCheckpointModal.receivedBy} onChange={v=>setRentalCheckpointModal(form=>({...form,receivedBy:v}))}/><Inp label="Endereço da entrega *" value={rentalCheckpointModal.address} onChange={v=>setRentalCheckpointModal(form=>({...form,address:v}))}/><Inp label="Assinatura ou aceite" value={rentalCheckpointModal.acceptance} onChange={v=>setRentalCheckpointModal(form=>({...form,acceptance:v}))}/></>}
+          {[RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.DELIVERY].includes(rentalCheckpointModal.type)&&<><Inp label="Responsável pelo recebimento *" value={rentalCheckpointModal.receivedBy} onChange={v=>setRentalCheckpointModal(form=>({...form,receivedBy:v}))}/><Inp label="Endereço da entrega *" value={rentalCheckpointModal.address} onChange={v=>setRentalCheckpointModal(form=>({...form,address:v}))}/><Inp label="Assinatura ou aceite" value={rentalCheckpointModal.acceptance} onChange={v=>setRentalCheckpointModal(form=>({...form,acceptance:v}))}/></>}
           {returnFlow&&<><Sel label="Limpeza" value={rentalCheckpointModal.cleaning} onChange={v=>setRentalCheckpointModal(form=>({...form,cleaning:v}))} options={[{v:"",l:"Não informado"},{v:"dispensada",l:"Dispensada"},{v:"realizada",l:"Realizada"},{v:"necessária",l:"Necessária"}]}/><Sel label="Necessita ajuste" value={String(rentalCheckpointModal.needsAdjustment)} onChange={v=>setRentalCheckpointModal(form=>({...form,needsAdjustment:v}))} options={[{v:"false",l:"Não"},{v:"true",l:"Sim"}]}/><Inp label="Avarias" value={rentalCheckpointModal.damages} onChange={v=>setRentalCheckpointModal(form=>({...form,damages:v}))} placeholder="Separe por vírgula"/><Inp label="Itens faltantes" value={rentalCheckpointModal.missingItems} onChange={v=>setRentalCheckpointModal(form=>({...form,missingItems:v}))} placeholder="Separe por vírgula"/></>}
           <div style={{gridColumn:"1/-1"}}><Inp label="Fotos (uma URL por linha)" value={rentalCheckpointModal.photos} onChange={v=>setRentalCheckpointModal(form=>({...form,photos:v}))} multiline/></div>
           <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={rentalCheckpointModal.notes} onChange={v=>setRentalCheckpointModal(form=>({...form,notes:v}))} multiline/></div>

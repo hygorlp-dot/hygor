@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {rentalReturnBalance,RENTAL_CHECKPOINT_TYPE,validateRentalCheckpoint} from "./rental-checkpoints.js";
+import {rentalDeliveryBalance,rentalDispatchBalance,rentalReturnBalance,RENTAL_CHECKPOINT_TYPE,validateRentalCheckpoint} from "./rental-checkpoints.js";
 
 const rental={id:"r1",quantidade:2,equipmentUnitIds:["u1","u2"],lifecycleState:"in_transport"};
 
@@ -42,5 +42,27 @@ describe("checklists do ciclo da locação",()=>{
     const inspecting={...rental,lifecycleState:"returned"};
     expect(validateRentalCheckpoint(inspecting,{type:"inspection",date:"2026-08-10",quantity:2,responsible:"Ana"}).reason).toMatch(/devolução antes/);
     expect(validateRentalCheckpoint(inspecting,{type:"inspection",date:"2026-08-10",quantity:2,equipmentUnitIds:["u1","u2"],responsible:"Ana"},[{type:"return"}]).ok).toBe(true);
+  });
+
+  it("acumula expedições parciais e impede repetir unidade",()=>{
+    const dispatching={...rental,lifecycleState:"ready_for_dispatch"};
+    const first=validateRentalCheckpoint(dispatching,{type:"partial_dispatch",date:"2026-08-04",quantity:1,
+      equipmentUnitIds:["u1"],responsible:"João"},[]);
+    expect(first.ok).toBe(true);
+    const existing=[{...first.record,status:"recorded"}];
+    expect(rentalDispatchBalance(dispatching,existing)).toMatchObject({movedQuantity:1,remainingQuantity:1,complete:false});
+    expect(validateRentalCheckpoint(dispatching,{type:"dispatch",date:"2026-08-05",quantity:1,
+      equipmentUnitIds:["u1"],responsible:"João"},existing).reason).toMatch(/já foi movimentada/);
+    expect(validateRentalCheckpoint(dispatching,{type:"dispatch",date:"2026-08-05",quantity:1,
+      equipmentUnitIds:["u2"],responsible:"João"},existing).ok).toBe(true);
+  });
+
+  it("acumula entregas parciais sem concluir antes do saldo",()=>{
+    const delivering={...rental,lifecycleState:"in_transport"};
+    const dispatch={type:"dispatch",quantity:2,status:"recorded"};
+    const first=validateRentalCheckpoint(delivering,{type:"partial_delivery",date:"2026-08-04",quantity:1,
+      equipmentUnitIds:["u1"],responsible:"João",receivedBy:"Maria",address:"Obra A"},[dispatch]);
+    expect(first.ok).toBe(true);
+    expect(rentalDeliveryBalance(delivering,[dispatch,{...first.record,status:"recorded"}])).toMatchObject({remainingQuantity:1,complete:false});
   });
 });

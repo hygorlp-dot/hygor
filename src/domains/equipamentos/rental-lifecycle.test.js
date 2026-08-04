@@ -20,11 +20,22 @@ describe("ciclo completo da locação",()=>{
   it("exige o checklist correspondente nos marcos logísticos",()=>{
     expect(validateRentalTransition("separating","ready_for_dispatch").reason).toMatch(/checklist de separation/);
     expect(validateRentalTransition("separating","ready_for_dispatch",{checkpoints:[{type:"separation"}]}).ok).toBe(true);
-    expect(validateRentalTransition("in_transport","delivered",{checkpoints:[{type:"delivery"}]}).ok).toBe(true);
+    expect(validateRentalTransition("in_transport","delivered",{checkpoints:[{type:"delivery",quantity:1}]}).ok).toBe(true);
     expect(validateRentalTransition("pickup_requested","returned").reason).toMatch(/checklist de return/);
     expect(validateRentalTransition("pickup_requested","returned",{checkpoints:[{type:"return",quantity:1}],rentalQuantity:1}).ok).toBe(true);
     expect(validateRentalTransition("pickup_requested","returned",{checkpoints:[{type:"partial_return",quantity:1},{type:"return",quantity:1}],rentalQuantity:3}).reason).toMatch(/pendentes/);
     expect(validateRentalTransition("returned","under_inspection",{checkpoints:[{type:"inspection"}]}).ok).toBe(true);
+  });
+  it("não avança enquanto a expedição ou entrega parcial tiver saldo",()=>{
+    expect(validateRentalTransition("ready_for_dispatch","in_transport",{checkpoints:[
+      {type:"partial_dispatch",quantity:1},{type:"dispatch",quantity:1},
+    ],rentalQuantity:3}).reason).toMatch(/pendentes de movimentação/);
+    expect(validateRentalTransition("ready_for_dispatch","in_transport",{checkpoints:[
+      {type:"partial_dispatch",quantity:1},{type:"dispatch",quantity:2},
+    ],rentalQuantity:3}).ok).toBe(true);
+    expect(validateRentalTransition("in_transport","delivered",{checkpoints:[
+      {type:"partial_delivery",quantity:1},{type:"delivery",quantity:2},
+    ],rentalQuantity:3}).ok).toBe(true);
   });
   it("exige justificativa e estorno para cancelar após faturamento",()=>{
     expect(validateRentalTransition(RENTAL_STATE.QUOTED,RENTAL_STATE.CANCELLED).reason).toMatch(/justificativa/);

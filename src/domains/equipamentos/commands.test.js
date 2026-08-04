@@ -105,6 +105,22 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(premature.reason).toMatch(/checklist de return/);
   });
 
+  it("mantém o estágio até concluir a expedição parcial",()=>{
+    const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",quantidade:3,
+      equipmentUnitIds:["u1","u2","u3"],lifecycleState:"ready_for_dispatch",status:"ativa",version:1};
+    const partial=applyOperationalCommand({...base(),locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,"rental-partial-dispatch-0001",
+      {rentalId:"loc-1",checkpoint:{type:"partial_dispatch",date:"2026-08-10",quantity:1,equipmentUnitIds:["u1"],responsible:"Carlos"}},1,
+    ));
+    expect(partial.data.locacoesEquip[0]).toMatchObject({lifecycleState:"ready_for_dispatch",version:2});
+    const premature=applyOperationalCommand(partial.data,command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,"rental-dispatch-premature-0001",
+      {rentalId:"loc-1",nextState:"in_transport"},2,
+    ));
+    expect(premature.reason).toMatch(/checklist de dispatch/);
+    expect(partial.data.locacoesEquip[0].operationalHistory.at(-1)).toMatchObject({type:"EQUIPMENT_RENTAL_CHECKPOINT_RECORDED"});
+  });
+
   it("prorroga a previsão sem alterar encerramento ou snapshot comercial",()=>{
     const snapshot={tarifas:{dia:100},descontoPct:5,negociadoEm:"2026-08-01T10:00:00.000Z"};
     const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",fim:"",

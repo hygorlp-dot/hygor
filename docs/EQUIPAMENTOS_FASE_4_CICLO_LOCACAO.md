@@ -146,4 +146,18 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
 - testes unitários cobrem todos os grupos de estado e o smoke E2E confirma a
   projeção da separação como reserva.
 
+## Décimo incremento
+
+- expedições e entregas parciais são fatos auditáveis e acumuláveis;
+- cada estágio calcula quantidade movimentada, saldo e unidades físicas já
+  processadas;
+- uma unidade não pode ser expedida ou entregue duas vezes no mesmo estágio;
+- o checklist integral movimenta somente o saldo remanescente;
+- a locação permanece em `ready_for_dispatch` ou `in_transport` enquanto
+  houver saldo pendente;
+- a transição só é liberada quando a quantidade integral tiver sido expedida
+  ou entregue;
+- a interface oferece ações próprias e seleção das unidades ainda pendentes;
+- testes unitários e smoke E2E cobrem o fluxo parcial.
+
 A Fase 4 ainda não está concluída.
