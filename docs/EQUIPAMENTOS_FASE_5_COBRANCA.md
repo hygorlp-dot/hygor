@@ -80,4 +80,19 @@ sem substituir de uma vez a memória financeira legada.
   vencimento;
 - smoke E2E cobre competência, período e valor líquido previsto.
 
+## Sexto incremento
+
+- entidade de fatura separada das linhas medidas e preparadas;
+- emissão exige número único, competência, data de emissão, vencimento e ao
+  menos uma linha elegível;
+- todas as linhas precisam pertencer à mesma locação, obra e competência;
+- totais bruto, descontos, impostos, líquido e saldo aberto são consolidados
+  em centavos;
+- linhas faturadas recebem estado `billed`, vínculo com a fatura e ficam
+  imutáveis;
+- fatura nasce em `issued`, com valor recebido zero e saldo integral aberto;
+- comando possui idempotência, usuário, auditoria, escopo e permissões
+  financeiras;
+- a emissão ainda não cria título ou movimentação bancária.
+
 A Fase 5 ainda não está concluída.

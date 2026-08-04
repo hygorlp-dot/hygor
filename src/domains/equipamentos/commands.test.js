@@ -215,6 +215,22 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(duplicate.reason).toMatch(/já foi medida/);
   });
 
+  it("emite fatura e imutabiliza as linhas selecionadas",()=>{
+    const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",status:"ativa",version:1};
+    const line={id:"charge-1",rentalId:"loc-1",workId:"obra-a",competence:"2026-08",status:"measured",grossAmountCents:10000,discountAmountCents:1000,taxAmountCents:0,netAmountCents:9000,version:1};
+    const result=applyOperationalCommand({...base(),locacoesEquip:[rental],rentalChargeItems:[line]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,"rental-invoice-issue-0001",{invoice:{
+        id:"invoice-1",rentalId:"loc-1",workId:"obra-a",competence:"2026-08",number:"FAT-2026-001",
+        issueDate:"2026-08-31",dueDate:"2026-09-10",chargeItemIds:["charge-1"],
+      }},0,
+    ));
+    expect(result.ok).toBe(true);
+    expect(result.data.rentalInvoices[0]).toMatchObject({status:"issued",netAmountCents:9000,openAmountCents:9000,version:1});
+    expect(result.data.rentalChargeItems[0]).toMatchObject({status:"billed",invoiceId:"invoice-1",version:2});
+    const edit=applyOperationalCommand(result.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,"rental-charge-billed-edit-0001",{chargeItem:result.data.rentalChargeItems[0]},2));
+    expect(edit.reason).toMatch(/não pode ser alterada/);
+  });
+
   it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],
       equipmentRegistryMigration:{version:1},

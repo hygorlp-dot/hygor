@@ -13,6 +13,7 @@ import { RENTAL_AMENDMENT_TYPE,validateRentalAmendment } from "./rental-amendmen
 import { validateRentalReplacement } from "./rental-replacements.js";
 import { buildRentalPeriodicCharge,validateRentalChargeItem } from "./rental-charges.js";
 import { normalizeBillingRule } from "./billing-cycles.js";
+import { validateRentalInvoice } from "./rental-invoices.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
@@ -96,6 +97,7 @@ export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_RENTAL_UNIT_REPLACED:"LOCACAO_EQUIPAMENTO_UNIDADE_SUBSTITUIDA",
   EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED:"LOCACAO_EQUIPAMENTO_LINHA_COBRANCA_SALVA",
   EQUIPMENT_RENTAL_CHARGE_MEASURED:"LOCACAO_EQUIPAMENTO_COBRANCA_MEDIDA",
+  EQUIPMENT_RENTAL_INVOICE_ISSUED:"LOCACAO_EQUIPAMENTO_FATURA_EMITIDA",
   EQUIPMENT_RESERVATION_SAVED:"RESERVA_EQUIPAMENTO_SALVA",
   EQUIPMENT_RESERVATION_CANCELLED:"RESERVA_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_UNAVAILABILITY_SAVED:"INDISPONIBILIDADE_EQUIPAMENTO_SALVA",
@@ -121,6 +123,7 @@ export const equipmentCommandObraId=(data={},command={})=>{
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.chargeItem?.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.invoice?.rentalId)?.obraId||"");
   if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_SAVED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED].includes(command.type))return String(payload.unavailability?.workId||"");
   if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_CANCELLED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED].includes(command.type))return String(unavailabilityList(data).find(item=>item.id===payload.unavailabilityId)?.workId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){
@@ -459,6 +462,23 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const record={...built.record,id,version:1,createdAt:now,updatedAt:now,createdById:command.actorId||"",
       operationalHistory:audit(null,command,now,"EQUIPMENT_RENTAL_CHARGE_MEASURED")};
     return {ok:true,data:{...data,rentalChargeItems:[...list(data,"rentalChargeItems"),record]},entityId:id};
+  }
+
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED){
+    const input=payload.invoice||{},id=String(input.id||"");
+    if(!id)return fail("Identifique a fatura.");
+    if(list(data,"rentalInvoices").some(item=>String(item.id)===id))return fail("Esta fatura já foi emitida.");
+    if(list(data,"rentalInvoices").some(item=>item.number===String(input.number||"").trim()&&item.status!=="cancelled"))return fail("Já existe uma fatura com este número.");
+    const rental=list(data,"locacoesEquip").find(item=>String(item.id)===String(input.rentalId));
+    if(!rental||String(rental.obraId)!==String(input.workId))return fail("A locação e a obra da fatura são inválidas.");
+    const itemIds=[...new Set((input.chargeItemIds||[]).map(String))],items=itemIds.map(itemId=>list(data,"rentalChargeItems").find(item=>String(item.id)===itemId)).filter(Boolean);
+    if(items.length!==itemIds.length)return fail("Uma linha de cobrança selecionada não existe.");
+    const validation=validateRentalInvoice(input,items);if(!validation.ok)return fail(validation.reason);
+    const invoice={...validation.record,id,chargeItemIds:itemIds,version:1,createdAt:now,updatedAt:now,createdById:command.actorId||"",
+      operationalHistory:audit(null,command,now,"EQUIPMENT_RENTAL_INVOICE_ISSUED")};
+    const billedItems=list(data,"rentalChargeItems").map(item=>itemIds.includes(String(item.id))?{...item,status:"billed",invoiceId:id,
+      billedAt:now,version:versionOf(item)+1,updatedAt:now,operationalHistory:audit(item,command,now,"EQUIPMENT_RENTAL_CHARGE_ITEM_BILLED",{invoiceId:id})}:item);
+    return {ok:true,data:{...data,rentalChargeItems:billedItems,rentalInvoices:[...list(data,"rentalInvoices"),invoice]},entityId:id};
   }
 
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){
