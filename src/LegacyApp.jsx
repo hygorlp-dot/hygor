@@ -11341,7 +11341,11 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   const salvarMedicao = async () => {
     if (!tercAtual) return;
     if(!podeRegistrarEvidencia){showToast("Somente um engenheiro de campo ou auditor pode registrar esta medição.","error");return;}
-    if(!(medForm.fotos||[]).length){showToast("Anexe ao menos uma fotografia da execução antes de salvar a medição.","error");return;}
+    if(!(medForm.fotos||[]).length){
+      showToast("Anexe ao menos uma fotografia da execução para confirmar e lançar a medição no DRE.","error");
+      inputFotosMedRef.current?.click();
+      return;
+    }
     const itens = itensDaMedicao().filter(i => Math.abs(i.pctAcum - i.pctAnterior) > 0.0001);
     if (!itens.length) { showToast("Nenhuma etapa avançou desde a última medição.", "warn"); return; }
     const total = itens.reduce((s, i) => s + i.valor, 0);
@@ -11365,7 +11369,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
       }));
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a medição.");
       setMedModal(false);
-      showToast(`Medição ${medicao.numero} registrada: ${fmt(total)}.`);
+      showToast(`Medição ${medicao.numero} confirmada: ${fmt(total)} lançado nas despesas do DRE de ${fullMonth(Number(medicao.data.slice(5,7))-1)} ${medicao.data.slice(0,4)}.`);
     } catch (error) {
       showToast(error.message||"Não foi possível registrar a medição.","error");
     } finally {
@@ -12580,12 +12584,16 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
 
             <div style={{background:C.surface,border:`1px solid ${(medForm.fotos||[]).length?C.green:C.orange}66`,borderRadius:9,padding:"11px 12px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:9,flexWrap:"wrap"}}><div><p style={{fontSize:10.5,fontWeight:900,color:C.text,textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div><Btn size="sm" v={(medForm.fotos||[]).length?"ghost":"warning"} onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed}><Ic n="camera"/> {subindoFotosMed?"Enviando...":"Adicionar fotos"}</Btn><input ref={inputFotosMedRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/></div>
-              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:8.5,color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:8}}>Nenhuma fotografia anexada. A medição ainda não pode ser salva.</p>}
+              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:8.5,color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:8}}>Nenhuma fotografia anexada. Clique em “Confirmar e lançar no DRE” para selecionar a evidência.</p>}
+            </div>
+
+            <div style={{background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"8px 11px"}}>
+              <p style={{fontSize:10,color:C.green,fontWeight:850,lineHeight:1.45}}>Ao confirmar, o valor executado será reconhecido automaticamente como despesa de terceirizado no DRE da data informada. O pagamento será apenas a baixa financeira dessa obrigação.</p>
             </div>
 
             <div style={{ display:"flex", gap:8 }}>
               <Btn v="ghost" full onClick={()=>setMedModal(false)}>Cancelar</Btn>
-              <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||!(medForm.fotos||[]).length}><Ic n="check"/> Salvar medição</Btn>
+              <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":"Confirmar e lançar no DRE"}</Btn>
             </div>
           </div>
         </Modal>
