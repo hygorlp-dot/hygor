@@ -32932,13 +32932,13 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const relPorObra = useMemo(()=>calcEquipamentosPorObra(data, ym), [data, ym]);
   const [fleetYear,fleetMonth]=ym.split("-").map(Number);
   const fleetPeriodDays=getDays(fleetYear,fleetMonth-1);
+  const totalUnidades=equipamentosAtivos.reduce((soma,equipamento)=>soma+Math.max(1,Number(equipamento.quantidadeTotal||1)),0);
   const periodRentals=(data.locacoesEquip||[]).filter(locacao=>
     locacao.status!=="cancelada"&&diasLocacaoNoPeriodo(locacao,fleetPeriodDays[0],fleetPeriodDays.at(-1))>0);
   const periodPeakUsage=fleetPeriodDays.reduce((peak,iso)=>Math.max(peak,
     equipamentosAtivos.reduce((sum,equipamento)=>sum+disponibilidadeNoDia(data,equipamento,iso).emUso,0)),0);
   const periodFreeUnits=Math.max(0,totalUnidades-periodPeakUsage);
   const locacoesAtivas=(data.locacoesEquip||[]).filter(locacao=>locacao.status!=="cancelada"&&!locacao.fim);
-  const totalUnidades=equipamentosAtivos.reduce((soma,equipamento)=>soma+Math.max(1,Number(equipamento.quantidadeTotal||1)),0);
 
   const STATUS_EQUIP = {
     disponivel:{l:"Disponível",c:C.green},
