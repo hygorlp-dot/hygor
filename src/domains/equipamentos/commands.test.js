@@ -39,6 +39,37 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(result.data.equipmentRegistryHistory.at(-1)).toMatchObject({type:"EQUIPMENT_REGISTRY_CLASSIFIED",kind:"unit"});
   });
 
+  it("transiciona o ciclo da locação com versão e auditoria",()=>{
+    const initial={...base(),locacoesEquip:[{id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",status:"ativa",version:3}]};
+    const result=applyOperationalCommand(initial,command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,"rental-transition-pickup-0001",
+      {rentalId:"loc-1",nextState:"pickup_requested"},3,
+    ));
+    expect(result.ok).toBe(true);
+    expect(result.data.locacoesEquip[0]).toMatchObject({lifecycleState:"pickup_requested",status:"ativa",version:4});
+    expect(result.data.locacoesEquip[0].lifecycleHistory.at(-1)).toMatchObject({from:"active",to:"pickup_requested",actorId:"u-1"});
+    expect(result.data.locacoesEquip[0].operationalHistory.at(-1)).toMatchObject({type:"EQUIPMENT_RENTAL_TRANSITIONED"});
+    const stale=applyOperationalCommand(result.data,command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,"rental-transition-stale-0001",
+      {rentalId:"loc-1",nextState:"returned"},3,
+    ));
+    expect(stale.reason).toMatch(/alterad[oa] por outra pessoa/);
+  });
+
+  it("recusa transição inválida e cancelamento faturado",()=>{
+    const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",lifecycleState:"contracted",version:1};
+    const invalid=applyOperationalCommand({...base(),locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,"rental-transition-invalid-0001",
+      {rentalId:"loc-1",nextState:"delivered"},1,
+    ));
+    expect(invalid.reason).toMatch(/não permitida/);
+    const billed=applyOperationalCommand({...base(),locacoesEquip:[{...rental,lifecycleState:"quoted"}],rentalChargeItems:[{id:"charge-1",rentalId:"loc-1",status:"open"}]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,"rental-transition-billed-0001",
+      {rentalId:"loc-1",nextState:"cancelled",reason:"Cliente desistiu"},1,
+    ));
+    expect(billed.reason).toMatch(/estorno/);
+  });
+
   it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],
       equipmentRegistryMigration:{version:1},

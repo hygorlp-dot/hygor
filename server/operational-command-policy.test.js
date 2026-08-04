@@ -270,6 +270,7 @@ describe("escopo servidor de comandos operacionais",()=>{
   it("protege locação, manutenção e transferência pelo escopo da obra",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,payload:{rental:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,payload:{rentalId:"loc-a"}}})).toMatchObject({ok:true});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,payload:{rentalId:"loc-a",nextState:"pickup_requested"}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,payload:{maintenance:{equipamentoId:"eq-a"}}}})).toMatchObject({ok:true});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_SAVED,payload:{equipment:{obraAtualId:"obra-b"}}}})).toMatchObject({ok:false});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,payload:{transfer:{equipamentoId:"eq-b",paraObraId:"obra-a"}}}})).toMatchObject({ok:false});
