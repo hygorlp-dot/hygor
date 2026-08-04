@@ -57,6 +57,7 @@ export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_DEACTIVATED:"EQUIPAMENTO_INATIVADO",
   EQUIPMENT_RENTAL_SAVED:"LOCACAO_EQUIPAMENTO_SALVA",
   EQUIPMENT_RENTAL_CLOSED:"LOCACAO_EQUIPAMENTO_ENCERRADA",
+  EQUIPMENT_RENTAL_CANCELLED:"LOCACAO_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_MAINTENANCE_SAVED:"MANUTENCAO_EQUIPAMENTO_SALVA",
   EQUIPMENT_TRANSFERRED:"EQUIPAMENTO_TRANSFERIDO",
 });
@@ -69,6 +70,7 @@ export const equipmentCommandObraId=(data={},command={})=>{
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_DEACTIVATED)return String(list(data,"equipamentos").find(item=>item.id===payload.equipmentId)?.obraAtualId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_SAVED)return String(payload.rental?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CLOSED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CANCELLED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){
     const input=payload.maintenance||{};
     const equipment=list(data,"equipamentos").find(item=>item.id===input.equipamentoId);
@@ -131,7 +133,6 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const current=list(data,"locacoesEquip").find(item=>String(item.id)===id);
     const stale=versionError(current,command.expectedVersion,"A locação");
     if(stale)return fail(stale);
-    if(current&&String(current.equipamentoId)!==String(input.equipamentoId))return fail("O equipamento de uma locação existente não pode ser trocado.");
     if(!current&&command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("A locação ainda não existe na versão esperada.");
     const quantidade=Math.max(1,Math.trunc(numeric(input.quantidade)||1));
     const candidate={...input,id,quantidade,inicio:String(input.inicio),fim:String(input.fim||"")};
@@ -149,14 +150,18 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     };
     record.operationalHistory=audit(current,command,now,current?"EQUIPMENT_RENTAL_UPDATED":"EQUIPMENT_RENTAL_CREATED");
     let next=current?replace(data,"locacoesEquip",id,record):{...data,locacoesEquip:[...list(data,"locacoesEquip"),record]};
-    if(!record.fim){
-      const updatedEquipment={...equipment,status:"locado",obraAtualId:record.obraId,version:versionOf(equipment)+1,updatedAt:now};
-      updatedEquipment.operationalHistory=audit(equipment,command,now,"EQUIPMENT_ALLOCATED",{obraId:record.obraId,rentalId:id});
-      next=replace(next,"equipamentos",equipment.id,updatedEquipment);
-    }else if(!hasOpenRental(next,equipment.id,id)){
-      const updatedEquipment={...equipment,status:"disponivel",obraAtualId:"",version:versionOf(equipment)+1,updatedAt:now};
-      updatedEquipment.operationalHistory=audit(equipment,command,now,"EQUIPMENT_RELEASED",{rentalId:id});
-      next=replace(next,"equipamentos",equipment.id,updatedEquipment);
+    const affectedEquipmentIds=new Set([current?.equipamentoId,equipment.id].filter(Boolean).map(String));
+    for(const equipmentId of affectedEquipmentIds){
+      const affected=list(next,"equipamentos").find(item=>String(item.id)===equipmentId);
+      if(!affected)continue;
+      const openRental=list(next,"locacoesEquip").find(item=>
+        String(item.equipamentoId)===equipmentId&&activeRental(item));
+      const updatedEquipment={...affected,status:openRental?"locado":"disponivel",
+        obraAtualId:openRental?.obraId||"",version:versionOf(affected)+1,updatedAt:now};
+      updatedEquipment.operationalHistory=audit(affected,command,now,
+        openRental?"EQUIPMENT_ALLOCATED":"EQUIPMENT_RELEASED",
+        {obraId:openRental?.obraId||"",rentalId:id});
+      next=replace(next,"equipamentos",equipmentId,updatedEquipment);
     }
     return {ok:true,data:next,entityId:id};
   }
@@ -178,6 +183,30 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     if(equipment&&!hasOpenRental(next,equipment.id,id)){
       const updatedEquipment={...equipment,status:"disponivel",obraAtualId:"",version:versionOf(equipment)+1,updatedAt:now};
       updatedEquipment.operationalHistory=audit(equipment,command,now,"EQUIPMENT_RELEASED",{rentalId:id});
+      next=replace(next,"equipamentos",equipment.id,updatedEquipment);
+    }
+    return {ok:true,data:next,entityId:id};
+  }
+
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CANCELLED){
+    const id=String(payload.rentalId||"");
+    const current=list(data,"locacoesEquip").find(item=>String(item.id)===id);
+    if(!current)return fail("Locação não encontrada.");
+    const stale=versionError(current,command.expectedVersion,"A locação");
+    if(stale)return fail(stale);
+    if(current.status==="cancelada")return fail("A locação já foi excluída.");
+    const reason=String(payload.reason||"Excluída pelo cadastro de locações").trim();
+    const record={...current,status:"cancelada",version:versionOf(current)+1,updatedAt:now,
+      canceladoEm:now,canceladoPorId:command.actorId||"",motivoCancelamento:reason};
+    record.operationalHistory=audit(current,command,now,"EQUIPMENT_RENTAL_CANCELLED",{reason});
+    let next=replace(data,"locacoesEquip",id,record);
+    const equipment=list(data,"equipamentos").find(item=>String(item.id)===String(current.equipamentoId));
+    if(equipment){
+      const remaining=list(next,"locacoesEquip").find(item=>
+        String(item.equipamentoId)===String(equipment.id)&&activeRental(item));
+      const updatedEquipment={...equipment,status:remaining?"locado":"disponivel",
+        obraAtualId:remaining?.obraId||"",version:versionOf(equipment)+1,updatedAt:now};
+      updatedEquipment.operationalHistory=audit(equipment,command,now,"EQUIPMENT_RENTAL_REMOVED",{rentalId:id,reason});
       next=replace(next,"equipamentos",equipment.id,updatedEquipment);
     }
     return {ok:true,data:next,entityId:id};

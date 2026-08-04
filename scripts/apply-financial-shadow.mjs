@@ -25,6 +25,7 @@ for(const migration of [
   "../migrations/001_sync_legacy_financial.up.sql",
   "../migrations/002_financial_transactional_projection.up.sql",
   "../migrations/003_accounting_period_enforcement.up.sql",
+  "../migrations/004_financial_events_projection_conflict.up.sql",
   "../migrations/20260726_auth_rate_limit.sql",
   "../migrations/20260727_auth_rate_limit_success.sql",
 ]){

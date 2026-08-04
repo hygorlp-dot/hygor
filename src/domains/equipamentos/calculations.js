@@ -66,7 +66,7 @@ export const cobrancaLocacao = (loc,equip,dias) => {
 
 export const unidadesEmUsoNoDia = (data,equipId,iso) =>
   (data.locacoesEquip||[])
-    .filter(l=>l.equipamentoId===equipId&&l.inicio&&l.inicio<=iso&&(!l.fim||l.fim>=iso))
+    .filter(l=>l.status!=="cancelada"&&l.equipamentoId===equipId&&l.inicio&&l.inicio<=iso&&(!l.fim||l.fim>=iso))
     .reduce((s,l)=>s+Math.max(1,Number(l.quantidade||1)),0);
 
 export const disponibilidadeNoDia = (data,equip,iso) => {

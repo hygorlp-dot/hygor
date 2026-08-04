@@ -1420,7 +1420,11 @@ export default async function handler(req, res) {
           onConflict:"company_id,event_type,source_type,source_id",
         });
         if(projectionError){
-          console.error("Falha ao materializar o DRE canônico:",projectionError.message);
+          console.error("Falha ao materializar o DRE canônico:",{
+            code:projectionError.code,message:projectionError.message,
+            details:projectionError.details,hint:projectionError.hint,
+            sourceId:currentId,
+          });
           return res.status(503).json({
             error:"O razão canônico não conseguiu atualizar a projeção deste período.",
             code:"DRE_PROJECTION_SYNC_FAILED",

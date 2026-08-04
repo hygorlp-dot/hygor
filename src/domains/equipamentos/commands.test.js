@@ -85,6 +85,35 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(result.data.equipamentos[0].operationalHistory.at(-1)).toMatchObject({type:"EQUIPMENT_DEACTIVATED"});
   });
 
+  it("exclui a locação por cancelamento auditável e libera a quantidade da frota",()=>{
+    const initial={...base(),equipamentos:[equipment({version:2,status:"locado",obraAtualId:"obra-a"})],locacoesEquip:[{
+      id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-07-01",fim:"",status:"ativa",version:1,quantidade:2,
+    }]};
+    const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CANCELLED,"equipment-rental-cancel-0001",{
+      rentalId:"loc-1",reason:"Cadastro duplicado",
+    },1));
+    expect(result.ok).toBe(true);
+    expect(result.data.locacoesEquip[0]).toMatchObject({status:"cancelada",version:2,motivoCancelamento:"Cadastro duplicado"});
+    expect(result.data.locacoesEquip[0].operationalHistory.at(-1)).toMatchObject({type:"EQUIPMENT_RENTAL_CANCELLED"});
+    expect(result.data.equipamentos[0]).toMatchObject({status:"disponivel",obraAtualId:"",version:3});
+  });
+
+  it("permite trocar o equipamento da locação e sincroniza antigo e novo",()=>{
+    const initial={...base(),equipamentos:[
+      equipment({id:"eq-1",version:2,status:"locado",obraAtualId:"obra-a"}),
+      equipment({id:"eq-2",version:1,status:"disponivel",obraAtualId:""}),
+    ],locacoesEquip:[{
+      id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-07-01",fim:"",status:"ativa",version:1,quantidade:1,
+    }]};
+    const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"equipment-rental-change-0001",{rental:{
+      ...initial.locacoesEquip[0],equipamentoId:"eq-2",
+    }},1));
+    expect(result.ok).toBe(true);
+    expect(result.data.locacoesEquip[0]).toMatchObject({equipamentoId:"eq-2",version:2});
+    expect(result.data.equipamentos.find(item=>item.id==="eq-1")).toMatchObject({status:"disponivel",obraAtualId:""});
+    expect(result.data.equipamentos.find(item=>item.id==="eq-2")).toMatchObject({status:"locado",obraAtualId:"obra-a"});
+  });
+
   it("versiona manutenção, deriva a obra e rejeita custo inválido",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,obraAtualId:"obra-a"})]};
     const invalid=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,"equipment-maintenance-invalid-0001",{maintenance:{

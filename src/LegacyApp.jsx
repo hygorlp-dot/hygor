@@ -2137,6 +2137,9 @@ const normalizeData = incoming => {
       updatedAt:   l.updatedAt || "",
       encerradoEm: l.encerradoEm || "",
       encerradoPorId:l.encerradoPorId || "",
+      canceladoEm:l.canceladoEm || "",
+      canceladoPorId:l.canceladoPorId || "",
+      motivoCancelamento:l.motivoCancelamento || "",
       operationalHistory:Array.isArray(l.operationalHistory) ? l.operationalHistory : [],
     })) : [],
 
@@ -32927,11 +32930,15 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
 
   const rel = useMemo(()=>calcEquipamentosMes(data, ym), [data, ym]);
   const relPorObra = useMemo(()=>calcEquipamentosPorObra(data, ym), [data, ym]);
+  const [fleetYear,fleetMonth]=ym.split("-").map(Number);
+  const fleetPeriodDays=getDays(fleetYear,fleetMonth-1);
+  const periodRentals=(data.locacoesEquip||[]).filter(locacao=>
+    locacao.status!=="cancelada"&&diasLocacaoNoPeriodo(locacao,fleetPeriodDays[0],fleetPeriodDays.at(-1))>0);
+  const periodPeakUsage=fleetPeriodDays.reduce((peak,iso)=>Math.max(peak,
+    equipamentosAtivos.reduce((sum,equipamento)=>sum+disponibilidadeNoDia(data,equipamento,iso).emUso,0)),0);
+  const periodFreeUnits=Math.max(0,totalUnidades-periodPeakUsage);
   const locacoesAtivas=(data.locacoesEquip||[]).filter(locacao=>locacao.status!=="cancelada"&&!locacao.fim);
   const totalUnidades=equipamentosAtivos.reduce((soma,equipamento)=>soma+Math.max(1,Number(equipamento.quantidadeTotal||1)),0);
-  const unidadesAlocadas=locacoesAtivas.reduce((soma,locacao)=>soma+Math.max(1,Number(locacao.quantidade||1)),0);
-  const unidadesLivres=equipamentosAtivos.reduce((soma,equipamento)=>
-    soma+Math.max(0,disponibilidadeNoDia(data,equipamento,today()).livre),0);
 
   const STATUS_EQUIP = {
     disponivel:{l:"Disponível",c:C.green},
@@ -33135,6 +33142,27 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     if(!result?.ok){showToast(result?.reason||"Não foi possível encerrar a locação.","error");return;}
     showToast("Locação encerrada.");
   };
+  const excluirLoc = async(l) => {
+    const equipamento=equipName(l.equipamentoId);
+    const obra=obraName(l.obraId);
+    if(!window.confirm(`Excluir a locação de "${equipamento}" em "${obra}"?\n\nEla deixará de compor a ocupação e a cobrança dos relatórios. O cancelamento permanecerá no histórico de auditoria.`))return;
+    setSalvandoEquipamento("exclusao-locacao");
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.locacoesEquip||[]).find(item=>item.id===l.id);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CANCELLED,
+          idempotencyKey:`locacao-equipamento-cancelar-${l.id}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{rentalId:l.id,reason:"Excluída pelo controle de locações"}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível excluir a locação.","error");return;}
+      setLocModal(null);showToast("Locação excluída. A frota e os relatórios foram atualizados.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao excluir a locação.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
+  };
 
   const salvarManut = async(f) => {
     if(!f.equipamentoId||!f.data||!f.custo){ showToast("Preencha equipamento, data e custo.","error"); return; }
@@ -33171,7 +33199,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const transfVazio= { equipamentoId:"", paraObraId:"", data:today(), responsavel:"", obs:"" };
 
   const obraOpts  = [{v:"",l:"Selecione a obra"}, ...(data.obras||[]).map(o=>({v:o.id,l:o.name}))];
-  const equipOpts = [{v:"",l:"Selecione o equipamento"}, ...(data.equipamentos||[]).filter(e=>e.ativo!==false).map(e=>({v:e.id,l:e.nome}))];
+  const equipOpts = [{v:"",l:"Selecione o equipamento"}, ...(data.equipamentos||[]).filter(e=>e.ativo!==false).map(e=>({
+    v:e.id,l:[e.nome,e.patrimonio||e.categoria||"sem patrimônio",donoName(e.proprietarioId)].join(" · "),
+  }))];
   const donoOpts  = [{v:"",l:"Empresa (própria)"}, ...(data.proprietariosEquip||[]).filter(p=>p.ativo!==false).map(p=>({v:p.id,l:p.nome}))];
 
   const mesLabel = (() => { const [y,m]=ym.split("-"); return `${MONTHS[Number(m)-1]} ${y}`; })();
@@ -33187,8 +33217,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           :`${equipamentosAtivos.length} equipamento(s) ativo(s) · custos integrados à obra.`}
         stats={contexto==="financeiro"?[
           {label:"Frota ativa",value:`${totalUnidades} un.`,detail:`${equipamentosAtivos.length} cadastro(s)`,color:C.text},
-          {label:"Em obras",value:`${unidadesAlocadas} un.`,detail:`${locacoesAtivas.length} locação(ões) aberta(s)`,color:unidadesAlocadas?C.blue:C.muted},
-          {label:"Livres hoje",value:`${unidadesLivres} un.`,detail:"Disponíveis para alocação",color:unidadesLivres?C.green:C.orange},
+          {label:"Em uso no mês",value:`${periodPeakUsage} un.`,detail:`${periodRentals.length} locação(ões) em ${mesLabel}`,color:periodPeakUsage?C.blue:C.muted},
+          {label:"Livres no mês",value:`${periodFreeUnits} un.`,detail:"Disponibilidade no pico de ocupação",color:periodFreeUnits?C.green:C.orange},
           {label:"Receita no mês",value:fmt(rel.total.receita),detail:mesLabel,color:C.green},
         ]:undefined}
         actions={<>
@@ -33248,7 +33278,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                     return <p style={{fontSize:9,color:C.muted,marginBottom:7}}>Compra <b style={{color:variacao>0?C.red:C.green}}>{Math.abs(variacao).toFixed(1)}% {variacao>0?"acima":"abaixo"}</b> da referência SINAPI.</p>;
                   })()}
                   {(() => {
-                    const dp = disponibilidadeNoDia(data, e, today());
+                    const dp = picoUsoNoPeriodo(data, e, fleetPeriodDays);
                     const tf = e.tarifas || {};
                     const menor = PACOTES_TARIFA.filter(p=>Number(tf[p.id]||0)>0)
                       .map(p=>`${p.label} ${fmt(tf[p.id])}`).join(" · ");
@@ -33256,8 +33286,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                       {/* Estoque do item: total, quantos na rua e quantos livres */}
                       {dp.total > 1 && (
                         <div style={{display:"flex",gap:6,marginBottom:7,flexWrap:"wrap"}}>
-                          {[["Total",dp.total,C.muted],["Em uso",dp.emUso,C.blue],
-                            ["Livre",dp.livre,dp.livre<0?C.red:dp.livre===0?C.orange:C.green]].map(([l,v,cor])=>(
+                          {[["Total",dp.total,C.muted],["Em uso",dp.pico,C.blue],
+                            ["Livre",dp.livreNoPico,dp.livreNoPico<0?C.red:dp.livreNoPico===0?C.orange:C.green]].map(([l,v,cor])=>(
                             <span key={l} style={{fontSize:9,color:C.muted,background:C.surface,
                                   border:`1px solid ${C.border}`,borderRadius:6,padding:"3px 7px"}}>
                               {l} <b style={{color:cor,fontSize:10.5}}>{v}</b>
@@ -33440,7 +33470,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           ? <div className="equipment-empty-state"><span><Ic n="calendar" s={19}/></span><div><p>Nenhuma locação registrada</p><small>Escolha um equipamento e uma obra para iniciar o histórico de cobrança.</small></div></div>
           : <div className="equipment-record-list">
             {[...(data.locacoesEquip||[])].sort((a,b)=>(b.inicio||"").localeCompare(a.inicio||"")).map(l=>{
-              const emAberto = !l.fim;
+              const cancelada=l.status==="cancelada";
+              const emAberto = !cancelada&&!l.fim;
               return (
                 <article key={l.id} className="equipment-record" data-active={emAberto}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
@@ -33453,7 +33484,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                           </span>
                         )}
                       </p>
-                      <p style={{fontSize:9.5,color:C.muted}}>{obraName(l.obraId)} · {fmtDate(l.inicio)} {l.fim?`→ ${fmtDate(l.fim)}`:"→ em andamento"}</p>
+                      <p style={{fontSize:9.5,color:cancelada?C.red:C.muted}}>{obraName(l.obraId)} · {fmtDate(l.inicio)} {cancelada?"→ excluída":l.fim?`→ ${fmtDate(l.fim)}`:"→ em andamento"}</p>
                     </div>
                     {(() => {
                       const eqL = (data.equipamentos||[]).find(x=>x.id===l.equipamentoId);
@@ -33477,8 +33508,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                     })()}
                   </div>
                   <div className="equipment-record-actions">
-                    <Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>
+                    {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>}
                     {emAberto && <Btn size="sm" v="ghost" onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
+                    {!cancelada&&<Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirLoc(l)}><Ic n="trash"/> Excluir</Btn>}
                   </div>
                 </article>
               );
@@ -33531,6 +33563,15 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           onPrintWork={obra=>imprimirRelEquipObra(data,ym,mesLabel,relPorObra,obra,showToast)}
           onExportManagement={()=>exportarRelEquipPorObra(ym,relPorObra,{donoName})}
           onExportWork={obra=>exportarRelEquipObraDetalhado(ym,relPorObra,obra)}
+          onEditRental={rentalId=>{
+            const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalId);
+            if(rental)setLocModal(rental);
+          }}
+          onDeleteRental={rentalId=>{
+            const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalId);
+            if(rental)excluirLoc(rental);
+          }}
+          onAddRentalToWork={work=>setLocModal({...locVazio,obraId:work?.id||obraIdFixo||""})}
         />
       </Suspense>}
 
@@ -33698,7 +33739,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               const refDia = locModal.inicio || today();
               // Em uso hoje, desconsiderando este proprio contrato (se estiver editando).
               const emUsoOutros = (data.locacoesEquip||[])
-                .filter(l => l.equipamentoId===eqQ.id && l.id!==locModal.id &&
+                .filter(l => l.status!=="cancelada" && l.equipamentoId===eqQ.id && l.id!==locModal.id &&
                              l.inicio && l.inicio<=refDia && (!l.fim || l.fim>=refDia))
                 .reduce((s,l)=>s+Math.max(1,Number(l.quantidade||1)),0);
               const livre = total - emUsoOutros;

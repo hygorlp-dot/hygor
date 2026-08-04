@@ -20,8 +20,12 @@ export default function EquipmentBillingReports({
   onPrintWork,
   onExportManagement,
   onExportWork,
+  onEditRental,
+  onDeleteRental,
+  onAddRentalToWork,
 }) {
   const [mode,setMode]=useState("gerencial");
+  const [equipmentQuery,setEquipmentQuery]=useState("");
   const worksWithMovement=useMemo(()=>matrix.obras.filter(obra=>{
     const total=matrix.totaisPorObra[obra.id];
     return total?.unidadeDias>0||total?.receita>0||total?.custoDono>0;
@@ -103,6 +107,37 @@ export default function EquipmentBillingReports({
   },[details,ownerName]);
 
   const workEquipmentCount=new Set(selectedDetails.map(detail=>detail.equipamento.id)).size;
+  const selectedEquipment=useMemo(()=>{
+    const grouped=new Map();
+    selectedDetails.forEach(detail=>{
+      const current=grouped.get(detail.equipamento.id)||{
+        equipamento:detail.equipamento,
+        rentals:0,
+        quantity:0,
+        unitDays:0,
+        revenue:0,
+        starts:[],
+        ends:[],
+        inProgress:false,
+      };
+      current.rentals++;
+      current.quantity+=numero(detail.quantidade);
+      current.unitDays+=numero(detail.unidadeDias);
+      current.revenue+=numero(detail.receita);
+      if(detail.inicio)current.starts.push(detail.inicio);
+      if(detail.fim)current.ends.push(detail.fim);
+      current.inProgress=current.inProgress||detail.status==="em_andamento";
+      grouped.set(detail.equipamento.id,current);
+    });
+    const query=equipmentQuery.trim().toLocaleLowerCase("pt-BR");
+    return [...grouped.values()].filter(row=>!query||[
+      row.equipamento.nome,row.equipamento.patrimonio,row.equipamento.categoria,
+    ].some(value=>String(value||"").toLocaleLowerCase("pt-BR").includes(query)));
+  },[selectedDetails,equipmentQuery]);
+  const selectedAddress=selectedWork?.address||selectedWork?.endereco||"";
+  const mapUrl=selectedAddress
+    ?`https://maps.google.com/maps?q=${encodeURIComponent(selectedAddress)}&output=embed`
+    :"";
 
   return (
     <section className="equipment-billing-report" aria-label="Relatórios de cobrança de locações">
@@ -138,6 +173,9 @@ export default function EquipmentBillingReports({
         </button>
         <button type="button" data-active={mode==="obra"} onClick={()=>setMode("obra")}>
           <span>02</span><strong>Por obra</strong><small>Memória completa da cobrança</small>
+        </button>
+        <button type="button" data-active={mode==="localizacao"} onClick={()=>setMode("localizacao")}>
+          <span>03</span><strong>Mapa da frota</strong><small>Equipamentos localizados por obra</small>
         </button>
       </nav>
 
@@ -282,6 +320,7 @@ export default function EquipmentBillingReports({
           </div>
 
           <div className="equipment-report-actions">
+            <button type="button" className="is-secondary" onClick={()=>onAddRentalToWork?.(selectedWork)}>Adicionar equipamento à obra</button>
             <button type="button" className="is-secondary" onClick={()=>onExportWork(selectedWork)}>Exportar memória da obra</button>
             <button type="button" className="is-primary" onClick={()=>onPrintWork(selectedWork)}>Imprimir / salvar PDF da obra</button>
           </div>
@@ -295,7 +334,10 @@ export default function EquipmentBillingReports({
               <table>
                 <thead><tr><th>Equipamento</th><th>Período</th><th className="num">Qtd.</th><th className="num">Dias</th><th className="num">Diárias-un.</th><th>Composição</th><th className="num">Bruto</th><th className="num">Desconto</th><th className="num">Cobrança</th></tr></thead>
                 <tbody>{selectedDetails.map(detail=><tr key={`${detail.equipamento.id}-${detail.locacaoId}`}>
-                  <td><strong>{detail.equipamento.nome}</strong><small>{detail.equipamento.patrimonio||detail.equipamento.categoria||"Sem patrimônio"}{detail.observacao?` · ${detail.observacao}`:""}</small></td>
+                  <td><strong>{detail.equipamento.nome}</strong><small>{detail.equipamento.patrimonio||detail.equipamento.categoria||"Sem patrimônio"}{detail.observacao?` · ${detail.observacao}`:""}</small><div className="equipment-rental-row-actions">
+                    <button type="button" onClick={()=>onEditRental?.(detail.locacaoId)}>Editar locação</button>
+                    <button type="button" className="is-danger" onClick={()=>onDeleteRental?.(detail.locacaoId)}>Excluir</button>
+                  </div></td>
                   <td>{formatDate(detail.inicio)} a {formatDate(detail.fim)}<small>{detail.status==="em_andamento"?"Em andamento":"Encerrada"}{detail.tarifaNegociada?" · tarifa negociada":""}</small></td>
                   <td className="num">{detail.quantidade}</td><td className="num">{detail.dias}</td><td className="num">{detail.unidadeDias}</td>
                   <td>{detail.semTarifa?<span className="negative">Sem tarifa</span>:formatComposition(detail.composicao)}</td>
@@ -310,6 +352,72 @@ export default function EquipmentBillingReports({
           <strong>Nenhuma cobrança nesta competência</strong>
           <p>Não há locações com permanência registrada em {periodLabel}.</p>
         </div>}
+      </>}
+
+      {mode==="localizacao"&&<>
+        {worksWithMovement.length? <>
+          <div className="equipment-location-summary">
+            <div>
+              <span>LOCALIZAÇÃO OPERACIONAL</span>
+              <strong>{workEquipmentCount} equipamento(s) em {selectedWork?.name}</strong>
+              <small>Posição baseada na obra vinculada à locação na competência {periodLabel}.</small>
+            </div>
+            <label className="equipment-billing-field">
+              <span>Obra no mapa</span>
+              <select value={workId} onChange={event=>setWorkId(event.target.value)}>
+                {worksWithMovement.map(obra=><option key={obra.id} value={obra.id}>{obra.name}</option>)}
+              </select>
+            </label>
+          </div>
+
+          <div className="equipment-location-layout">
+            <aside className="equipment-location-works" aria-label="Obras com equipamentos">
+              <header><span>OBRAS COM MOVIMENTAÇÃO</span><strong>{worksWithMovement.length} local(is)</strong></header>
+              {worksWithMovement.map((obra,index)=>{
+                const workDetails=details.filter(detail=>detail.obra.id===obra.id);
+                const count=new Set(workDetails.map(detail=>detail.equipamento.id)).size;
+                return <button type="button" key={obra.id} data-active={obra.id===workId} onClick={()=>setWorkId(obra.id)}>
+                  <span className="equipment-location-works__index">{String(index+1).padStart(2,"0")}</span>
+                  <span><strong>{obra.name}</strong><small>{obra.address||obra.endereco||"Endereço não informado"}</small></span>
+                  <b>{count}</b>
+                </button>;
+              })}
+            </aside>
+
+            <div className="equipment-location-map">
+              {mapUrl?<>
+                <iframe src={mapUrl} title={`Mapa da obra ${selectedWork?.name}`} loading="lazy" referrerPolicy="no-referrer-when-downgrade"/>
+                <div className="equipment-location-map__caption">
+                  <div><span>LOCAL SELECIONADO</span><strong>{selectedWork?.name}</strong><small>{selectedAddress}</small></div>
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedAddress)}`} target="_blank" rel="noreferrer">Abrir rota</a>
+                </div>
+              </>:<div className="equipment-location-map__empty"><strong>Endereço não cadastrado</strong><p>Informe o endereço da obra para exibi-la no mapa.</p></div>}
+            </div>
+          </div>
+
+          <div className="equipment-report-section">
+            <div className="equipment-report-section__heading equipment-location-heading">
+              <div><span>EQUIPAMENTOS NESTE LOCAL</span><h3>Detalhe da frota em {selectedWork?.name}</h3></div>
+              <label><span>BUSCAR EQUIPAMENTO</span><input type="search" value={equipmentQuery} onChange={event=>setEquipmentQuery(event.target.value)} placeholder="Nome, patrimônio ou categoria"/></label>
+            </div>
+            <div className="equipment-location-equipment">
+              {selectedEquipment.length?selectedEquipment.map(row=>{
+                const first=row.starts.slice().sort()[0];
+                const last=row.ends.slice().sort().at(-1);
+                return <article key={row.equipamento.id}>
+                  <div className="equipment-location-equipment__identity">
+                    <span className={`equipment-location-equipment__status ${row.inProgress?"is-active":""}`}/>
+                    <div><strong>{row.equipamento.nome}</strong><small>{row.equipamento.patrimonio||"Sem patrimônio"} · {row.equipamento.categoria||"Sem categoria"}</small></div>
+                  </div>
+                  <div><span>PERMANÊNCIA</span><strong>{first&&last?`${formatDate(first)} — ${formatDate(last)}`:"Período não informado"}</strong><small>{row.inProgress?"Em andamento":"Movimentação encerrada"}</small></div>
+                  <div><span>QUANTIDADE</span><strong>{row.quantity}</strong><small>{row.rentals} locação(ões)</small></div>
+                  <div><span>DIÁRIAS-UN.</span><strong>{row.unitDays}</strong><small>{formatCurrency(row.revenue)} faturados</small></div>
+                  <div><span>PROPRIEDADE</span><strong>{row.equipamento.proprietarioId?ownerName(row.equipamento.proprietarioId):"Empresa"}</strong><small>Local: {selectedWork?.name}</small></div>
+                </article>;
+              }):<div className="equipment-location-equipment__empty">Nenhum equipamento corresponde à busca.</div>}
+            </div>
+          </div>
+        </>:<div className="equipment-report-empty"><strong>Nenhum equipamento localizado</strong><p>Não há locações vinculadas a obras em {periodLabel}.</p></div>}
       </>}
     </section>
   );
