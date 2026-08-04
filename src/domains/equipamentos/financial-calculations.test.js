@@ -4,6 +4,7 @@ import {
   calcEquipFaturamentoEmpresa,
   calcEquipamentosMes,
   calcEquipamentosPorObra,
+  cobrancaLocacao,
   melhorTarifa,
   textoComposicao,
 } from "./calculations.js";
@@ -90,6 +91,7 @@ describe("motor financeiro de equipamentos", () => {
     expect(mensal.total)
       .toMatchObject({receita:4200,custoDono:2520,lucro:1680});
     expect(mensal.linhas[0].locacoes).toBe(1);
+    expect(mensal.linhas[0]).toMatchObject({diasContrato:31,unidadeDias:62,diasTotais:31});
     expect(calcEquipamentosPorObra(julho31Dias,"2026-07").totaisPorObra.o1)
       .toMatchObject({dias:31,unidadeDias:62,receita:4200,custoDono:2520,lucro:1680});
   });
@@ -133,5 +135,28 @@ describe("motor financeiro de equipamentos", () => {
       dias:3,unidadeDias:3,quantidadePico:1,receita:300,
     });
     expect(matriz.total).toMatchObject({unidadeDias:9,receita:900});
+  });
+
+  it("mantém dias de contrato separados de diárias-unidade em locações simultâneas",()=>{
+    const report=calcEquipamentosMes({
+      equipamentos:[{id:"e1",nome:"Andaime",quantidadeTotal:4,tarifas:{dia:10}}],
+      locacoesEquip:[
+        {id:"l1",equipamentoId:"e1",obraId:"o1",inicio:"2026-06-29",fim:"2026-07-02",quantidade:2},
+        {id:"l2",equipamentoId:"e1",obraId:"o2",inicio:"2026-07-02",fim:"2026-07-04",quantidade:1},
+      ],
+    },"2026-07");
+    expect(report.linhas[0]).toMatchObject({diasContrato:5,unidadeDias:7,receita:70});
+  });
+
+  it("usa para sempre o snapshot mesmo após alterar o cadastro",()=>{
+    const loc={quantidade:1,commercialSnapshot:{tarifas:{dia:80},tarifasCusto:{dia:30},descontoPct:10,descontoValor:4}};
+    expect(cobrancaLocacao(loc,{tarifas:{dia:999}},2)).toMatchObject({bruto:160,desconto:20,liquido:140});
+  });
+
+  it("arredonda em centavos, limita descontos defensivamente e sinaliza desconto elevado",()=>{
+    const equip={tarifas:{dia:33.33}};
+    expect(cobrancaLocacao({quantidade:3,descontoPct:0,descontoValor:0},equip,1)).toMatchObject({bruto:99.99,desconto:0,liquido:99.99});
+    expect(cobrancaLocacao({quantidade:1,descontoPct:100,descontoValor:50},equip,1)).toMatchObject({bruto:33.33,desconto:33.33,liquido:0,descontoElevado:true});
+    expect(cobrancaLocacao({quantidade:1,descontoPct:150,descontoValor:50},equip,1).liquido).toBe(0);
   });
 });

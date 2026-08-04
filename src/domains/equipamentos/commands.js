@@ -1,6 +1,9 @@
-const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo"]);
+import { rentalAvailability } from "./availability.js";
+import { diasLocacaoNoPeriodo, validateRentalDiscounts } from "./calculations.js";
+import { isValidIsoDate } from "./date.js";
+
+const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
-const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||""));
 const versionOf=value=>Number(value?.version||0);
 const fail=reason=>({ok:false,reason});
 const list=(data,key)=>Array.isArray(data?.[key])?data[key]:[];
@@ -37,20 +40,24 @@ const normalizeEquipment=input=>({
   sinapiPreco:Math.max(0,numeric(input?.sinapiPreco)),
 });
 
-const rentalOverlap=(one,two)=>{
-  const oneStart=String(one?.inicio||""),twoStart=String(two?.inicio||"");
-  const oneEnd=String(one?.fim||"9999-12-31"),twoEnd=String(two?.fim||"9999-12-31");
-  return oneStart<=twoEnd&&twoStart<=oneEnd;
+const hasRates=value=>RATE_KEYS.some(key=>numeric(value?.[key])>0);
+const commercialSnapshot=(input,equipment,command,now)=>{
+  const negotiatedRates=rates(input.tarifas);
+  const negotiatedCostRates=rates(input.tarifasCusto);
+  const source=hasRates(negotiatedRates)||hasRates(negotiatedCostRates)||input.tarifaNegociada===true
+    ?"negociada":"cadastro_equipamento";
+  const effectiveRates=source==="negociada"&&hasRates(negotiatedRates)?negotiatedRates:rates(equipment.tarifas);
+  const effectiveCostRates=source==="negociada"&&hasRates(negotiatedCostRates)?negotiatedCostRates:rates(equipment.tarifasCusto);
+  if(!hasRates(effectiveRates)&&numeric(input.valorDiaria)>0)effectiveRates.dia=numeric(input.valorDiaria);
+  if(!hasRates(effectiveCostRates)&&numeric(input.custoDiaria)>0)effectiveCostRates.dia=numeric(input.custoDiaria);
+  return {
+    tarifas:effectiveRates,tarifasCusto:effectiveCostRates,
+    descontoPct:numeric(input.descontoPct),descontoValor:numeric(input.descontoValor),
+    regraTarifaria:String(input.regraTarifaria||"menor_combinacao"),
+    negociadoEm:now,negociadoPorId:command.actorId||"",negociadoPor:command.actorName||"",
+    origemTabela:source,versaoTabela:Number(equipment.rateVersion||equipment.version||0),
+  };
 };
-
-const occupiedQuantity=(data,rental,equipmentId,exceptId="")=>list(data,"locacoesEquip")
-  .filter(item=>
-    String(item.equipamentoId)===String(equipmentId)
-    && String(item.id)!==String(exceptId)
-    && item.status!=="cancelada"
-    && rentalOverlap(item,rental)
-  )
-  .reduce((sum,item)=>sum+Math.max(1,Math.trunc(numeric(item.quantidade)||1)),0);
 
 export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_SAVED:"EQUIPAMENTO_SALVO",
@@ -129,22 +136,33 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const equipment=list(data,"equipamentos").find(item=>String(item.id)===String(input.equipamentoId));
     if(!id||!equipment||equipment.ativo===false)return fail("Selecione um equipamento ativo.");
     if(!obraExists(data,input.obraId)||!input.obraId)return fail("Selecione uma obra existente.");
-    if(!validDate(input.inicio)||input.fim&&(!validDate(input.fim)||String(input.fim)<String(input.inicio)))return fail("Informe um período válido para a locação.");
+    if(!isValidIsoDate(input.inicio)||input.fim&&(!isValidIsoDate(input.fim)||String(input.fim)<String(input.inicio)))return fail("Informe um período válido para a locação.");
     const current=list(data,"locacoesEquip").find(item=>String(item.id)===id);
     const stale=versionError(current,command.expectedVersion,"A locação");
     if(stale)return fail(stale);
     if(!current&&command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("A locação ainda não existe na versão esperada.");
     const quantidade=Math.max(1,Math.trunc(numeric(input.quantidade)||1));
     const candidate={...input,id,quantidade,inicio:String(input.inicio),fim:String(input.fim||"")};
-    const occupied=occupiedQuantity(data,candidate,equipment.id,current?.id);
-    if(occupied+quantidade>Math.max(1,Number(equipment.quantidadeTotal||1))){
-      return fail(`A locação excede a frota disponível: ${occupied} unidade(s) já estão alocadas no período.`);
+    const availability=rentalAvailability({data,equipment,rental:candidate,exceptRentalId:current?.id});
+    if(availability.exceeded){
+      const reason=availability.conflicts.map(item=>item.reason).filter(Boolean).join(", ")||"capacidade insuficiente";
+      return fail(`Equipamento indisponível (${reason}) no período ${availability.start} a ${availability.end}: ${availability.unavailable} indisponível(is), ${availability.rented} locada(s), ${availability.free} livre(s) e ${availability.requested} solicitada(s).`);
     }
+    const contractDays=candidate.fim?diasLocacaoNoPeriodo(candidate,candidate.inicio,candidate.fim):30;
+    const discountCandidate=current?.commercialSnapshot?{
+      ...candidate,
+      descontoPct:current.commercialSnapshot.descontoPct,
+      descontoValor:current.commercialSnapshot.descontoValor,
+    }:candidate;
+    const discountValidation=validateRentalDiscounts(discountCandidate,equipment,contractDays);
+    if(!discountValidation.ok)return fail(discountValidation.reason);
+    const snapshot=current?.commercialSnapshot||commercialSnapshot(candidate,equipment,command,now);
     const record={
       ...(current||{}),...candidate,
       tarifas:rates(input.tarifas),tarifasCusto:rates(input.tarifasCusto),
       valorDiaria:Math.max(0,numeric(input.valorDiaria)),custoDiaria:Math.max(0,numeric(input.custoDiaria)),
-      descontoPct:Math.max(0,numeric(input.descontoPct)),descontoValor:Math.max(0,numeric(input.descontoValor)),
+      descontoPct:snapshot.descontoPct,descontoValor:snapshot.descontoValor,
+      commercialSnapshot:snapshot,
       status:input.fim?"encerrada":"ativa",version:versionOf(current)+1,updatedAt:now,
       ...(!current?{createdAt:now,createdById:command.actorId||""}:{}),
     };
@@ -174,7 +192,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     if(stale)return fail(stale);
     if(current.fim)return fail("A locação já está encerrada.");
     const endDate=String(payload.endDate||"");
-    if(!validDate(endDate)||endDate<String(current.inicio||""))return fail("Informe uma data de término válida.");
+    if(!isValidIsoDate(endDate)||endDate<String(current.inicio||""))return fail("Informe uma data de término válida.");
     const record={...current,fim:endDate,status:"encerrada",version:versionOf(current)+1,updatedAt:now,
       encerradoEm:now,encerradoPorId:command.actorId||""};
     record.operationalHistory=audit(current,command,now,"EQUIPMENT_RENTAL_CLOSED",{endDate});
@@ -217,7 +235,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const id=String(input.id||"");
     const equipment=list(data,"equipamentos").find(item=>String(item.id)===String(input.equipamentoId));
     if(!id||!equipment)return fail("Selecione um equipamento existente.");
-    if(!validDate(input.data)||numeric(input.custo)<=0)return fail("Informe data e custo positivo da manutenção.");
+    if(!isValidIsoDate(input.data)||numeric(input.custo)<=0)return fail("Informe data e custo positivo da manutenção.");
     const obraId=String(input.obraId||equipment.obraAtualId||"");
     if(!obraExists(data,obraId))return fail("A obra da manutenção não existe.");
     const current=list(data,"manutencoesEquip").find(item=>String(item.id)===id);
@@ -241,7 +259,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     if(!id||!equipment||equipment.ativo===false)return fail("Selecione um equipamento ativo.");
     if(!input.paraObraId||!obraExists(data,input.paraObraId))return fail("Selecione uma obra de destino existente.");
     if(String(equipment.obraAtualId||"")===String(input.paraObraId))return fail("O equipamento já está na obra de destino.");
-    if(!validDate(input.data))return fail("Informe uma data válida para a transferência.");
+    if(!isValidIsoDate(input.data))return fail("Informe uma data válida para a transferência.");
     if(command.expectedVersion!=null&&versionOf(equipment)!==Number(command.expectedVersion))return fail("O equipamento foi alterado por outra pessoa. Atualize a tela antes de tentar novamente.");
     if(list(data,"transferenciasEquip").some(item=>String(item.id)===id))return fail("Esta transferência já foi registrada.");
     const transfer={...input,id,equipamentoId:equipment.id,deObraId:String(equipment.obraAtualId||""),

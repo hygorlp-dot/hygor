@@ -248,15 +248,15 @@ export default function EquipmentBillingReports({
           </div>
           <div className="equipment-report-table">
             <table>
-              <thead><tr><th>Equipamento</th><th>Propriedade</th><th className="num">Dias</th><th className="num">Receita</th><th className="num">Descontos</th><th className="num">Repasse</th><th className="num">Manutenção</th><th className="num">Resultado</th><th className="num">Margem</th></tr></thead>
+              <thead><tr><th>Equipamento</th><th>Propriedade</th><th className="num">Dias contrato</th><th className="num">Diárias-un.</th><th className="num">Receita</th><th className="num">Descontos</th><th className="num">Repasse</th><th className="num">Manutenção</th><th className="num">Resultado</th><th className="num">Margem</th></tr></thead>
               <tbody>{equipmentRanking.length?equipmentRanking.map(line=><tr key={line.equip.id}>
                 <td><strong>{line.equip.nome}</strong><small>{line.equip.patrimonio||line.equip.categoria||"Sem patrimônio"}</small></td>
-                <td>{line.proprio?"Empresa":ownerName(line.equip.proprietarioId)}</td><td className="num">{line.diasTotais}</td>
+                <td>{line.proprio?"Empresa":ownerName(line.equip.proprietarioId)}</td><td className="num">{line.diasContrato}</td><td className="num">{line.unidadeDias}</td>
                 <td className="num positive">{formatCurrency(line.receita)}</td><td className="num">{formatCurrency(line.descontos)}</td>
                 <td className="num">{formatCurrency(line.custoDono)}</td><td className="num">{formatCurrency(line.manut)}</td>
                 <td className={`num ${line.lucro>=0?"positive":"negative"}`}>{formatCurrency(line.lucro)}</td>
                 <td className="num">{percentual(line.lucro,line.receita).toFixed(1)}%</td>
-              </tr>):<tr><td colSpan="9" className="empty">Nenhum equipamento faturado em {periodLabel}.</td></tr>}</tbody>
+              </tr>):<tr><td colSpan="10" className="empty">Nenhum equipamento faturado em {periodLabel}.</td></tr>}</tbody>
             </table>
           </div>
         </div>
@@ -332,7 +332,7 @@ export default function EquipmentBillingReports({
             </div>
             <div className="equipment-report-table is-detailed">
               <table>
-                <thead><tr><th>Equipamento</th><th>Período</th><th className="num">Qtd.</th><th className="num">Dias</th><th className="num">Diárias-un.</th><th>Composição</th><th className="num">Bruto</th><th className="num">Desconto</th><th className="num">Cobrança</th></tr></thead>
+                <thead><tr><th>Equipamento</th><th>Período</th><th className="num">Qtd.</th><th className="num">Dias contrato</th><th className="num">Diárias-un.</th><th>Composição</th><th className="num">Bruto</th><th className="num">Desconto</th><th className="num">Cobrança</th></tr></thead>
                 <tbody>{selectedDetails.map(detail=><tr key={`${detail.equipamento.id}-${detail.locacaoId}`}>
                   <td><strong>{detail.equipamento.nome}</strong><small>{detail.equipamento.patrimonio||detail.equipamento.categoria||"Sem patrimônio"}{detail.observacao?` · ${detail.observacao}`:""}</small><div className="equipment-rental-row-actions">
                     <button type="button" onClick={()=>onEditRental?.(detail.locacaoId)}>Editar locação</button>
@@ -341,7 +341,7 @@ export default function EquipmentBillingReports({
                   <td>{formatDate(detail.inicio)} a {formatDate(detail.fim)}<small>{detail.status==="em_andamento"?"Em andamento":"Encerrada"}{detail.tarifaNegociada?" · tarifa negociada":""}</small></td>
                   <td className="num">{detail.quantidade}</td><td className="num">{detail.dias}</td><td className="num">{detail.unidadeDias}</td>
                   <td>{detail.semTarifa?<span className="negative">Sem tarifa</span>:formatComposition(detail.composicao)}</td>
-                  <td className="num">{formatCurrency(detail.bruto)}</td><td className="num">{formatCurrency(detail.descontos)}</td>
+                  <td className="num">{formatCurrency(detail.bruto)}</td><td className={`num ${detail.descontoElevado?"negative":""}`}>{formatCurrency(detail.descontos)}{detail.descontoElevado?<small>Desconto elevado ({detail.descontoEfetivoPct.toFixed(1)}%)</small>:null}</td>
                   <td className="num positive">{formatCurrency(detail.receita)}</td>
                 </tr>)}</tbody>
                 <tfoot><tr><td colSpan="4"><strong>Total da obra</strong></td><td className="num">{selectedTotal?.unidadeDias||0}</td><td>—</td><td className="num">{formatCurrency(numero(selectedTotal?.receita)+numero(selectedTotal?.descontos))}</td><td className="num">{formatCurrency(selectedTotal?.descontos)}</td><td className="num positive">{formatCurrency(selectedTotal?.receita)}</td></tr></tfoot>

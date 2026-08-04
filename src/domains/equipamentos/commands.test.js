@@ -66,7 +66,7 @@ describe("comandos transacionais de equipamentos",()=>{
       id:"loc-3",equipamentoId:"eq-1",obraId:"obra-b",inicio:"2026-07-15",fim:"",quantidade:1,
     }},0));
     expect(excess).toMatchObject({ok:false});
-    expect(excess.reason).toMatch(/excede a frota/);
+    expect(excess.reason).toMatch(/indisponível.*2026-07-15.*2 locada.*0 livre.*1 solicitada/);
     const closeOne=applyOperationalCommand(second.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,"equipment-rental-close-0001",{rentalId:"loc-1",endDate:"2026-07-20"},1));
     expect(closeOne.data.equipamentos[0].status).toBe("locado");
     const closeTwo=applyOperationalCommand(closeOne.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,"equipment-rental-close-0002",{rentalId:"loc-2",endDate:"2026-07-20"},1));
@@ -141,5 +141,44 @@ describe("comandos transacionais de equipamentos",()=>{
       id:"trans-2",equipamentoId:"eq-1",paraObraId:"obra-a",data:"2026-07-28",
     }},3));
     expect(stale).toMatchObject({ok:false});
+  });
+
+  it("rejeita datas inexistentes e descontos fora dos limites",()=>{
+    const initial={...base(),equipamentos:[equipment({version:1})]};
+    const rental={id:"loc-invalid",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-02-30",fim:"2026-03-02",quantidade:1};
+    expect(applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"invalid-date",{rental},0)).reason).toMatch(/período válido/);
+    const excessivePct={...rental,inicio:"2026-03-01",descontoPct:101};
+    expect(applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"invalid-pct",{rental:excessivePct},0)).reason).toMatch(/entre 0% e 100%/);
+    const excessiveFixed={...rental,inicio:"2026-03-01",fim:"2026-03-01",descontoValor:101};
+    expect(applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"invalid-fixed",{rental:excessiveFixed},0)).reason).toMatch(/não pode superar o saldo/);
+  });
+
+  it("congela a tabela, descontos, origem e usuário na criação",()=>{
+    const initial={...base(),equipamentos:[equipment({version:7})]};
+    const created=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"snapshot-create",{rental:{
+      id:"loc-snapshot",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",fim:"2026-08-02",quantidade:1,
+      tarifaNegociada:true,tarifas:{dia:80},descontoPct:10,descontoValor:5,
+    }},0));
+    expect(created.ok).toBe(true);
+    expect(created.data.locacoesEquip[0].commercialSnapshot).toMatchObject({
+      tarifas:{dia:80},descontoPct:10,descontoValor:5,regraTarifaria:"menor_combinacao",
+      negociadoPorId:"u-1",negociadoPor:"Ana",origemTabela:"negociada",versaoTabela:7,
+    });
+    const current=created.data.locacoesEquip[0];
+    const changedData={...created.data,equipamentos:[{...created.data.equipamentos[0],tarifas:{dia:999}}]};
+    const edited=applyOperationalCommand(changedData,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"snapshot-edit",{rental:{...current,obs:"preservado",descontoPct:99}},1));
+    expect(edited.ok).toBe(true);
+    expect(edited.data.locacoesEquip[0].commercialSnapshot).toEqual(current.commercialSnapshot);
+    expect(edited.data.locacoesEquip[0]).toMatchObject({descontoPct:10,descontoValor:5});
+  });
+
+  it("informa o motivo e a capacidade quando estado ou manutenção bloqueiam",()=>{
+    const blocked={...base(),equipamentos:[equipment({version:1,status:"avariado"})]};
+    const rental={id:"loc-blocked",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",fim:"2026-08-02",quantidade:1};
+    const byStatus=applyOperationalCommand(blocked,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"blocked-status",{rental},0));
+    expect(byStatus.reason).toMatch(/avariado.*2026-08-01.*2 indisponível.*0 livre.*1 solicitada/);
+    const maintenance={...base(),equipamentos:[equipment({version:1})],manutencoesEquip:[{id:"m1",equipamentoId:"eq-1",inicio:"2026-08-01",fim:"2026-08-03",status:"programada",descricao:"Revisão"}]};
+    const byMaintenance=applyOperationalCommand(maintenance,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"blocked-maintenance",{rental:{...rental,quantidade:2}},0));
+    expect(byMaintenance.reason).toMatch(/Revisão.*2 indisponível.*0 livre.*2 solicitada/);
   });
 });

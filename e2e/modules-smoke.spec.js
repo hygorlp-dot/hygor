@@ -17,7 +17,7 @@ const groups = [
     "Locação de equipamentos", "Medições", "Caixa da obra", "Relatórios"]],
   ["Recursos humanos", ["Equipes", "Ponto por obra", "Gestão do ponto",
     "Terceirizados", "Folha", "Rescisão"]],
-  ["Comercial", ["Meu trabalho", "Pipeline", "Relacionamentos",
+  ["Comercial", ["Comercial da empresa", "Venda de imóveis", "Pipeline", "Relacionamentos",
     "Propostas e contratos", "Gestão comercial"]],
   ["IA", ["IA", "Configurar Gemini"]],
   ["Ajustes", ["Cadastros", "Ajustes", "Telas antigas"]],

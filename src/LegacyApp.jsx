@@ -69,6 +69,7 @@ import {
   picoUsoNoPeriodo, diasLocacaoNoPeriodo, calcEquipMes, calcEquipamentosMes,
   calcEquipamentosPorObra,
 } from "./domains/equipamentos/calculations";
+import { rentalAvailability } from "./domains/equipamentos/availability";
 import {
   EQUIPMENT_IMAGE_OPTIONS,
   equipmentImageFor,
@@ -2130,6 +2131,28 @@ const normalizeData = incoming => {
       },
       descontoPct: Number(l.descontoPct || 0),  // desconto concedido ao cliente (%)
       descontoValor: Number(l.descontoValor || 0), // desconto fixo total (R$), alternativa ao %
+      commercialSnapshot: l.commercialSnapshot ? {
+        tarifas: {
+          dia:Number(l.commercialSnapshot.tarifas?.dia||0),
+          semana:Number(l.commercialSnapshot.tarifas?.semana||0),
+          quinzena:Number(l.commercialSnapshot.tarifas?.quinzena||0),
+          mes:Number(l.commercialSnapshot.tarifas?.mes||0),
+        },
+        tarifasCusto: {
+          dia:Number(l.commercialSnapshot.tarifasCusto?.dia||0),
+          semana:Number(l.commercialSnapshot.tarifasCusto?.semana||0),
+          quinzena:Number(l.commercialSnapshot.tarifasCusto?.quinzena||0),
+          mes:Number(l.commercialSnapshot.tarifasCusto?.mes||0),
+        },
+        descontoPct:Number(l.commercialSnapshot.descontoPct||0),
+        descontoValor:Number(l.commercialSnapshot.descontoValor||0),
+        regraTarifaria:l.commercialSnapshot.regraTarifaria||"menor_combinacao",
+        negociadoEm:l.commercialSnapshot.negociadoEm||"",
+        negociadoPorId:l.commercialSnapshot.negociadoPorId||"",
+        negociadoPor:l.commercialSnapshot.negociadoPor||"",
+        origemTabela:l.commercialSnapshot.origemTabela||"equipamento",
+        versaoTabela:Number(l.commercialSnapshot.versaoTabela||0),
+      } : null,
       obs:         l.obs         || "",
       status:      l.status      || (l.fim ? "encerrada" : "ativa"),
       version:     Number(l.version || 0),
@@ -32959,6 +32982,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     disponivel:{l:"Disponível",c:C.green},
     locado:    {l:"Locado",    c:C.blue},
     manutencao:{l:"Manutenção",c:C.orange},
+    bloqueado: {l:"Bloqueado",c:C.red},
+    avariado:  {l:"Avariado",c:C.red},
+    aguardando_inspecao:{l:"Aguardando inspeção",c:C.orange},
     inativo:   {l:"Inativo",   c:C.muted},
   };
 
@@ -33209,7 +33235,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   // ---- Formulários vazios ----
   const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", tarifas:{dia:"",semana:"",quinzena:"",mes:""}, tarifasCusto:{dia:"",semana:"",quinzena:"",mes:""}, quantidadeTotal:1, valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:obraIdFixo||"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, imagemUrl:"", imagemTipo:"auto", obs:"" };
   const donoVazio  = { nome:"", documento:"", telefone:"", email:"", chavePix:"", obs:"" };
-  const locVazio   = { equipamentoId:"", obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
+  const locVazio   = { equipamentoId:"", obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, regraTarifaria:"menor_combinacao", tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
   const manutVazio = { equipamentoId:"", data:today(), tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
   const transfVazio= { equipamentoId:"", paraObraId:"", data:today(), responsavel:"", obs:"" };
 
@@ -33750,16 +33776,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
             {(() => {
               const eqQ = (data.equipamentos||[]).find(x=>x.id===locModal.equipamentoId);
               if (!eqQ) return null;
-              const total = Math.max(1, Number(eqQ.quantidadeTotal||1));
-              const refDia = locModal.inicio || today();
-              // Em uso hoje, desconsiderando este proprio contrato (se estiver editando).
-              const emUsoOutros = (data.locacoesEquip||[])
-                .filter(l => l.status!=="cancelada" && l.equipamentoId===eqQ.id && l.id!==locModal.id &&
-                             l.inicio && l.inicio<=refDia && (!l.fim || l.fim>=refDia))
-                .reduce((s,l)=>s+Math.max(1,Number(l.quantidade||1)),0);
-              const livre = total - emUsoOutros;
-              const pedido = Math.max(1, Number(locModal.quantidade||1));
-              const estoura = pedido > livre;
+              const availability=rentalAvailability({data,equipment:eqQ,rental:locModal,exceptRentalId:locModal.id});
+              const {total,rented:emUsoOutros,unavailable,free:livre,requested:pedido,exceeded:estoura}=availability;
+              const periodo=`${fmtDate(locModal.inicio||today())} a ${locModal.fim?fmtDate(locModal.fim):"em aberto"}`;
               return (
                 <div style={{gridColumn:"1/-1"}}>
                   <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8,alignItems:"end"}}>
@@ -33769,15 +33788,14 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                     <div style={{background:estoura?`${C.red}0C`:C.surface,
                                  border:`1px solid ${estoura?C.red+"55":C.border}`,
                                  borderRadius:9,padding:"9px 12px"}}>
-                      <p style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:.5,fontWeight:800}}>Disponibilidade em {fmtDate(refDia)}</p>
+                      <p style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:.5,fontWeight:800}}>Disponibilidade de {periodo}</p>
                       <p style={{fontSize:12,color:C.text,marginTop:3}}>
-                        <b>{total}</b> no total · <b>{emUsoOutros}</b> em outras obras ·{" "}
+                        <b>{total}</b> total · <b>{emUsoOutros}</b> locada(s) · <b>{unavailable}</b> indisponível(is) ·{" "}
                         <b style={{color:livre>0?C.green:C.red}}>{livre}</b> livre(s)
                       </p>
                       {estoura && (
                         <p style={{fontSize:10.5,color:C.red,fontWeight:700,marginTop:4,lineHeight:1.4}}>
-                          Você está alocando {pedido} e só há {livre} livre(s). Dá pra salvar assim,
-                          mas a frota fica negativa - confira se não falta cadastrar unidades.
+                          Solicitação de {pedido} unidade(s) bloqueada: há somente {livre} livre(s) no período.
                         </p>
                       )}
                     </div>
@@ -33789,6 +33807,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                 negociar um preco so para esta obra. */}
             {(() => {
               const eq = (data.equipamentos||[]).find(x=>x.id===locModal.equipamentoId);
+              const snapshotCongelado=!!locModal.commercialSnapshot;
               const usaProprias = locModal.tarifaNegociada===true
                 || PACOTES_TARIFA.some(p => Number(locModal.tarifas?.[p.id]||0) > 0);
               const tarifasEfetivas = tarifasDaLocacao(locModal, eq);
@@ -33802,16 +33821,19 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:8}}>
                       <p style={{fontSize:11,fontWeight:800,color:C.text}}>Tarifas desta locação</p>
-                      <label style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.muted,cursor:"pointer"}}>
+                      {!snapshotCongelado&&<label style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.muted,cursor:"pointer"}}>
                         <input type="checkbox" checked={usaProprias}
                           onChange={e=>setLocModal(f=>({...f,
                             tarifaNegociada:e.target.checked,
                             tarifas: e.target.checked ? {...(eq?.tarifas||{})} : {dia:0,semana:0,quinzena:0,mes:0}}))}
                           style={{width:15,height:15,accentColor:C.yellowD,cursor:"pointer"}}/>
                         Negociar preço só para esta obra
-                      </label>
+                      </label>}
                     </div>
-                    {usaProprias ? (
+                    {snapshotCongelado ? <p style={{fontSize:10.5,color:C.blue,lineHeight:1.5}}>
+                      Condições comerciais congeladas em {locModal.commercialSnapshot.negociadoEm?fmtDate(String(locModal.commercialSnapshot.negociadoEm).slice(0,10)):"data não registrada"}
+                      {locModal.commercialSnapshot.negociadoPor?` por ${locModal.commercialSnapshot.negociadoPor}`:""}. Alterações no cadastro do equipamento não modificam este contrato.
+                    </p> : usaProprias ? (
                       <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
                         {[["dia","Por dia"],["semana","Por semana"],["quinzena","Por quinzena"],["mes","Por mês"]].map(([k,l])=>(
                           <Inp key={k} label={`${l} (R$)`} type="number" min="0"
@@ -33829,8 +33851,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   </div>
 
                   <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-                    <Inp label="Desconto ao cliente (%)" type="number" value={locModal.descontoPct} onChange={v=>setLocModal(f=>({...f,descontoPct:v}))}/>
-                    <Inp label="Desconto fixo (R$)" type="number" value={locModal.descontoValor} onChange={v=>setLocModal(f=>({...f,descontoValor:v}))}/>
+                    <Inp label="Desconto ao cliente (%)" type="number" min="0" max="100" disabled={snapshotCongelado} value={locModal.descontoPct} onChange={v=>setLocModal(f=>({...f,descontoPct:v}))}/>
+                    <Inp label="Desconto fixo (R$)" type="number" min="0" disabled={snapshotCongelado} value={locModal.descontoValor} onChange={v=>setLocModal(f=>({...f,descontoValor:v}))}/>
                   </div>
 
                   {/* Previa do que sera cobrado */}
@@ -34200,12 +34222,13 @@ function imprimirRelEquipGerencial(data,ym,mesLabel,monthly,matrix,donoName,show
       {
         titulo:"Rentabilidade por equipamento",
         descricao:"Receita, repasses, manutenção e resultado de cada item da frota.",
-        headers:["Equipamento","Patrimônio","Proprietário",{label:"Dias",num:true},{label:"Receita",num:true},{label:"Descontos",num:true},{label:"Repasse",num:true},{label:"Manutenção",num:true},{label:"Resultado",num:true},{label:"Margem",num:true}],
+        headers:["Equipamento","Patrimônio","Proprietário",{label:"Dias contrato",num:true},{label:"Diárias-un.",num:true},{label:"Receita",num:true},{label:"Descontos",num:true},{label:"Repasse",num:true},{label:"Manutenção",num:true},{label:"Resultado",num:true},{label:"Margem",num:true}],
         rows:equipamentos.map(linha=>[
           escapeHtml(linha.equip.nome),
           escapeHtml(linha.equip.patrimonio||"-"),
           escapeHtml(linha.proprio?"Empresa":donoName(linha.equip.proprietarioId)),
-          String(linha.diasTotais),
+          String(linha.diasContrato),
+          String(linha.unidadeDias),
           escapeHtml(fmt(linha.receita)),
           escapeHtml(fmt(linha.descontos)),
           escapeHtml(fmt(linha.custoDono)),
@@ -34214,7 +34237,7 @@ function imprimirRelEquipGerencial(data,ym,mesLabel,monthly,matrix,donoName,show
           `${pct(linha.lucro,linha.receita).toFixed(1)}%`,
         ]),
         totalRow:[
-          "TOTAL","","","",
+          "TOTAL","","","","",
           escapeHtml(fmt(monthly.total.receita)),
           escapeHtml(fmt(monthly.total.descontos)),
           escapeHtml(fmt(monthly.total.custoDono)),
@@ -34275,7 +34298,7 @@ function imprimirRelEquipObra(data,ym,mesLabel,matrix,obra,showToast){
     legenda:"Memória de cobrança calculada por contrato dentro da competência. Um mês tarifário corresponde a 30 dias; períodos de 31 dias incluem 1 diária adicional. Informações internas de propriedade, repasse e margem não integram este relatório da obra.",
     tabelas:[{
       titulo:"Memória detalhada das locações",
-      headers:["Equipamento","Patrimônio","Período","Situação",{label:"Qtd.",num:true},{label:"Dias",num:true},{label:"Diárias-un.",num:true},"Composição",{label:"Bruto",num:true},{label:"Desconto",num:true},{label:"Cobrança",num:true}],
+      headers:["Equipamento","Patrimônio","Período","Situação",{label:"Qtd.",num:true},{label:"Dias contrato",num:true},{label:"Diárias-un.",num:true},"Composição",{label:"Bruto",num:true},{label:"Desconto",num:true},{label:"Cobrança",num:true}],
       rows:detalhes.map(({linha,detalhe})=>[
         escapeHtml(linha.equip.nome),
         escapeHtml(linha.equip.patrimonio||"-"),
