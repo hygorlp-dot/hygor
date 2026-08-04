@@ -121,12 +121,16 @@ const equipmentWork = (data,obraId,ym,start,end) => (data?.locacoesEquip||[])
     return sum+Math.max(0,gross-Number(item.descontoValor||0)-gross*Number(item.descontoPct||0)/100);
   },0);
 const equipmentCompany = (data,ym) => {
-  const rows=(data?.equipamentos||[]).map(equipment=>calcEquipMes(data,equipment.id,ym));
+  const equipmentIds=new Set([
+    ...(data?.equipamentos||[]).map(equipment=>equipment.id),
+    ...(data?.locacoesEquip||[]).map(rental=>rental.equipamentoId),
+  ].filter(Boolean));
+  const rows=[...equipmentIds].map(equipmentId=>calcEquipMes(data,equipmentId,ym));
   const total=rows.reduce((acc,row)=>({
     receita:acc.receita+row.receita,custoDono:acc.custoDono+row.custoDono,
-    manut:acc.manut+row.manut,lucro:acc.lucro+row.lucro,
-  }),{receita:0,custoDono:0,manut:0,lucro:0});
-  return {...total,receitaProprios:0,receitaTerceiros:0};
+    manut:acc.manut+row.manut,lucro:acc.lucro+row.lucro,descontos:acc.descontos+row.descontos,
+  }),{receita:0,custoDono:0,manut:0,lucro:0,descontos:0});
+  return {...total,receitaBruta:total.receita+total.descontos,receitaProprios:0,receitaTerceiros:0};
 };
 
 const calculations=createDreCalculations({
@@ -151,13 +155,16 @@ const companyDre = (data,year,month) => {
   // Este demonstrativo pertence à operação de locação da empresa. Receitas e
   // custos da execução das obras permanecem nos relatórios específicos delas.
   const faturamentoObras=0;
-  const receitaLocacoes=Number(base.equipReceita||0);
+  const receitaLocacoes=Number(base.equipReceitaBruta??base.equipReceita??0);
+  const descontoLocacoes=Number(base.equipDescontos||0);
   const faturamentoTotal=receitaLocacoes;
   const recebidoObras=0;
-  const deducaoISS=faturamentoTotal*Number(cfg.aliquotaISS||0)/100;
-  const deducaoPIS=faturamentoTotal*Number(cfg.aliquotaPIS||0)/100;
-  const deducaoCOFINS=faturamentoTotal*Number(cfg.aliquotaCOFINS||0)/100;
-  const totalDeducoes=deducaoISS+deducaoPIS+deducaoCOFINS,receitaLiquida=faturamentoTotal-totalDeducoes;
+  const baseTributavel=Math.max(0,faturamentoTotal-descontoLocacoes);
+  const deducaoISS=baseTributavel*Number(cfg.aliquotaISS||0)/100;
+  const deducaoPIS=baseTributavel*Number(cfg.aliquotaPIS||0)/100;
+  const deducaoCOFINS=baseTributavel*Number(cfg.aliquotaCOFINS||0)/100;
+  const deducoesTributarias=deducaoISS+deducaoPIS+deducaoCOFINS;
+  const totalDeducoes=descontoLocacoes+deducoesTributarias,receitaLiquida=faturamentoTotal-totalDeducoes;
   const laborTotal=0,benefTotal=0,tercTotal=0,rescTotal=0,outrasDiretas=0;
   const custoLocacoes=Number(base.equipCustoEmpresa||0);
   const totalCSP=custoLocacoes;
@@ -190,7 +197,8 @@ const companyDre = (data,year,month) => {
   }));
   const porObra=[];
   return Object.fromEntries(Object.entries({
-    ym,faturamentoObras,receitaLocacoes,faturamentoTotal,recebidoObras,deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
+    ym,faturamentoObras,receitaLocacoes,faturamentoTotal,recebidoObras,descontoLocacoes,deducoesTributarias,
+    deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
     laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,custoLocacoes,totalCSP,lucroBruto,margemBruta,
     despPorCat,despPorGrupo,totalDespPessoal,totalDespOcupacao,totalDespAdministrativo,totalDespComercial,
     totalDespFinanceiro,totalDespAdmin,totalDespFiscal,totalDespOutros,totalDespOp,ebitda,margemEbitda,

@@ -58,7 +58,7 @@ const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — s
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const KEY     = "arced_ponto_v1";
 const PROFILE_KEY = "arced_auth_profiles_v1";
-const DRE_PROJECTION_VERSION = "2026-08-company-rentals-only-v2";
+const DRE_PROJECTION_VERSION = "2026-08-rental-revenue-reconciliation-v3";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",

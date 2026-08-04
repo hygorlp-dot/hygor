@@ -35,12 +35,27 @@ describe("motor financeiro de equipamentos", () => {
     });
     expect(calcEquipFaturamentoEmpresa(data, "2026-07")).toMatchObject({
       receita:360,
+      receitaBruta:360,
+      descontos:0,
       custoDono:100,
       manut:20,
       lucro:240,
       receitaProprios:200,
       receitaTerceiros:160,
     });
+  });
+
+  it("não perde locações de equipamento inativado ou com cadastro ausente",()=>{
+    const report=calcEquipamentosMes({
+      equipamentos:[{id:"inativo",ativo:false,tarifas:{dia:100}}],
+      locacoesEquip:[
+        {equipamentoId:"inativo",inicio:"2026-07-01",fim:"2026-07-01"},
+        {equipamentoId:"ausente",inicio:"2026-07-01",fim:"2026-07-01",valorDiaria:50},
+      ],
+    },"2026-07");
+    expect(report.total.receita).toBe(150);
+    expect(report.linhas).toHaveLength(2);
+    expect(report.linhas.find(line=>line.equip.id==="ausente")?.equip.cadastroAusente).toBe(true);
   });
 
   it("calcula custo da obra no recorte informado", () => {

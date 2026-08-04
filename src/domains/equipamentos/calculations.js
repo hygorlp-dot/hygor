@@ -150,7 +150,16 @@ export const calcEquipMes = (data,equipId,ym) => {
 };
 
 export const calcEquipamentosMes = (data,ym) => {
-  const equips=(data?.equipamentos||[]).filter(e=>e?.ativo!==false);
+  const {inicio,fim}=limitesDoMes(ym);
+  const rentalsInPeriod=(data?.locacoesEquip||[]).filter(locacao=>
+    locacao?.status!=="cancelada"&&diasLocacaoNoPeriodo(locacao,inicio,fim)>0);
+  const rentedIds=new Set(rentalsInPeriod.map(locacao=>locacao.equipamentoId).filter(Boolean));
+  const registered=(data?.equipamentos||[]).filter(e=>e?.ativo!==false||rentedIds.has(e.id));
+  const registeredIds=new Set(registered.map(e=>e.id));
+  const missing=[...rentedIds].filter(id=>!registeredIds.has(id)).map(id=>({
+    id,nome:"Equipamento sem cadastro",ativo:false,cadastroAusente:true,
+  }));
+  const equips=[...registered,...missing];
   const linhas=equips.map(e=>{
     const fin=calcEquipMes(data,e.id,ym);
     const proprio=!e.proprietarioId;
@@ -330,6 +339,8 @@ export const calcEquipFaturamentoEmpresa = (data,ym) => {
   const report=calcEquipamentosMes(data,ym);
   return {
     receita:report.total.receita,
+    receitaBruta:report.total.receita+report.total.descontos,
+    descontos:report.total.descontos,
     custoDono:report.total.custoDono,
     manut:report.total.manut,
     lucro:report.total.lucro,

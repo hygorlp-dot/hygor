@@ -35225,7 +35225,7 @@ function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null })
   // filtros/reduções locais: se a projeção ainda não estiver disponível, a UI
   // mostra estado vazio e deixa explícita a pendência de sincronização.
   const dreVazio=useMemo(()=>({
-    ym,faturamentoObras:0,receitaLocacoes:0,faturamentoTotal:0,recebidoObras:0,deducaoISS:0,deducaoPIS:0,deducaoCOFINS:0,totalDeducoes:0,receitaLiquida:0,
+    ym,faturamentoObras:0,receitaLocacoes:0,faturamentoTotal:0,recebidoObras:0,descontoLocacoes:0,deducoesTributarias:0,deducaoISS:0,deducaoPIS:0,deducaoCOFINS:0,totalDeducoes:0,receitaLiquida:0,
     laborTotal:0,benefTotal:0,tercTotal:0,rescTotal:0,outrasDiretas:0,custoLocacoes:0,totalCSP:0,lucroBruto:0,margemBruta:0,
     despPorCat:Object.fromEntries(CATS_DESP.map(item=>[item.v,0])),despPorGrupo:emptyCompanyExpenseGroupTotals(),
     totalDespPessoal:0,totalDespOcupacao:0,totalDespAdministrativo:0,totalDespComercial:0,totalDespFinanceiro:0,
@@ -35528,6 +35528,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   <tr class="sec"><td>RECEITA BRUTA DE LOCAÇÕES</td><td class="val">R$ ${fmt2(d.faturamentoTotal)}</td></tr>
   ${row("Locação de equipamentos da empresa",d.receitaLocacoes,"sub")}
   <tr class="sec"><td>(-) DEDUÇÕES DA RECEITA</td><td class="val neg">(R$ ${fmt2(d.totalDeducoes)})</td></tr>
+  ${d.descontoLocacoes>0?row("(-) Descontos comerciais das locações",-d.descontoLocacoes,"sub"):""}
   ${d.deducaoISS>0?row("(-) ISS "+data.config.aliquotaISS+"%",-d.deducaoISS,"sub"):""}
   ${d.deducaoPIS>0?row("(-) PIS "+data.config.aliquotaPIS+"%",-d.deducaoPIS,"sub"):""}
   ${d.deducaoCOFINS>0?row("(-) COFINS "+data.config.aliquotaCOFINS+"%",-d.deducaoCOFINS,"sub"):""}
@@ -35727,6 +35728,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           <DRow label="Locação de equipamentos da empresa" value={dre.receitaLocacoes} color={C.green} indent={1}/>
 
           <DSec title="(-) Deduções da Receita" color={C.red} value={-dre.totalDeducoes}/>
+          {dre.descontoLocacoes>0&&<DRow label="(-) Descontos comerciais das locações" value={-dre.descontoLocacoes} indent={1}/>}
           {dre.deducaoISS>0    && <DRow label={`(-) ISS ${data.config.aliquotaISS}%`}     value={-dre.deducaoISS}    indent={1}/>}
           {dre.deducaoPIS>0    && <DRow label={`(-) PIS ${data.config.aliquotaPIS}%`}     value={-dre.deducaoPIS}    indent={1}/>}
           {dre.deducaoCOFINS>0 && <DRow label={`(-) COFINS ${data.config.aliquotaCOFINS}%`} value={-dre.deducaoCOFINS} indent={1}/>}

@@ -59,13 +59,14 @@ describe("projeção canônica do DRE", () => {
       medicoes:[{id:"m1",obraId:"o1",competencia:"2026-07",valorPrevisto:1000}],
       payments:[],pagsTerceiros:[],rescisoes:[],outrasDesp:[],pedidos:[],despesasEmpresa:[],
       equipamentos:[{id:"e1",quantidadeTotal:1,proprietarioId:"",custoDiaria:20}],
-      locacoesEquip:[{id:"l1",equipamentoId:"e1",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-01",quantidade:1,valorDiaria:100,status:"encerrada"}],
+      locacoesEquip:[{id:"l1",equipamentoId:"e1",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-01",quantidade:1,valorDiaria:100,descontoValor:10,status:"encerrada"}],
       manutencoesEquip:[],
     };
     const statement=buildDreProjectionRows(data)
       .find(row=>row.sourceId==="2026-07:mes:company_dre")?.payload;
     expect(statement).toMatchObject({
       faturamentoObras:0,receitaLocacoes:100,faturamentoTotal:100,
+      descontoLocacoes:10,totalDeducoes:10,receitaLiquida:90,
     });
     expect(statement.custoLocacoes).toBeGreaterThanOrEqual(0);
     expect(statement.receitaLiquida-statement.totalCSP-statement.totalDespOp).toBe(statement.ebitda);
