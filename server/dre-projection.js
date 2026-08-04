@@ -152,15 +152,18 @@ const companyDre = (data,year,month) => {
     !event.obraId&&event.competence===ym&&["cost","cost_reversal"].includes(event.effect));
   const signedAmount=event=>(event.effect==="cost_reversal"?-1:1)*Number(event.amountCents||0)/100;
   const faturamentoObras=workRevenue;
+  const receitaLocacoes=Number(base.equipReceita||0);
+  const faturamentoTotal=faturamentoObras+receitaLocacoes;
   const recebidoObras=base.entradasCaixa;
-  const deducaoISS=faturamentoObras*Number(cfg.aliquotaISS||0)/100;
-  const deducaoPIS=faturamentoObras*Number(cfg.aliquotaPIS||0)/100;
-  const deducaoCOFINS=faturamentoObras*Number(cfg.aliquotaCOFINS||0)/100;
-  const totalDeducoes=deducaoISS+deducaoPIS+deducaoCOFINS,receitaLiquida=faturamentoObras-totalDeducoes;
+  const deducaoISS=faturamentoTotal*Number(cfg.aliquotaISS||0)/100;
+  const deducaoPIS=faturamentoTotal*Number(cfg.aliquotaPIS||0)/100;
+  const deducaoCOFINS=faturamentoTotal*Number(cfg.aliquotaCOFINS||0)/100;
+  const totalDeducoes=deducaoISS+deducaoPIS+deducaoCOFINS,receitaLiquida=faturamentoTotal-totalDeducoes;
   const laborTotal=base.laborCost,benefTotal=base.benefitCost,tercTotal=base.tercCost;
   const rescTotal=base.rescTotal;
   const outrasDiretas=base.outrasTotal+base.comprasCost+base.equipCostObras;
-  const totalCSP=workCosts;
+  const custoLocacoes=Number(base.equipCustoEmpresa||0);
+  const totalCSP=workCosts+custoLocacoes;
   const lucroBruto=receitaLiquida-totalCSP,margemBruta=receitaLiquida?lucroBruto/receitaLiquida*100:0;
   const despPorCat=Object.fromEntries(expenseCategories.map(([category])=>[
     category,round(corporateCosts.filter(event=>event.sourceType==="despesa_empresa"&&event.category===category)
@@ -177,7 +180,7 @@ const companyDre = (data,year,month) => {
   const totalDespOutros=despPorGrupo.outros;
   const totalDespAdmin=totalDespPessoal+totalDespOcupacao+totalDespAdministrativo+totalDespComercial;
   const totalDespOp=Object.values(despPorGrupo).reduce((sum,value)=>sum+Number(value||0),0);
-  const ebitda=lucroBruto-totalDespOp+Number(base.equipLucro||0),margemEbitda=receitaLiquida?ebitda/receitaLiquida*100:0;
+  const ebitda=lucroBruto-totalDespOp,margemEbitda=receitaLiquida?ebitda/receitaLiquida*100:0;
   const resultFinanceiro=0,lair=ebitda;
   const provisaoIR=lair>0?lair*Number(cfg.aliquotaIR||0)/100:0;
   const provisaoCSLL=lair>0?lair*Number(cfg.aliquotaCSLL||0)/100:0;
@@ -196,8 +199,8 @@ const companyDre = (data,year,month) => {
       despesa:round(despesa),resultado:round(resultado),margemPct:receita?round(resultado/receita*100):null};
   }).filter(item=>item.receita||item.despesa).sort((a,b)=>b.resultado-a.resultado);
   return Object.fromEntries(Object.entries({
-    ym,faturamentoObras,recebidoObras,deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
-    laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,totalCSP,lucroBruto,margemBruta,
+    ym,faturamentoObras,receitaLocacoes,faturamentoTotal,recebidoObras,deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
+    laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,custoLocacoes,totalCSP,lucroBruto,margemBruta,
     despPorCat,despPorGrupo,totalDespPessoal,totalDespOcupacao,totalDespAdministrativo,totalDespComercial,
     totalDespFinanceiro,totalDespAdmin,totalDespFiscal,totalDespOutros,totalDespOp,ebitda,margemEbitda,
     resultFinanceiro,lair,provisaoIR,provisaoCSLL,totalImpostoLucro,lucroLiquido,margemLiquida,despEmp,porObra,

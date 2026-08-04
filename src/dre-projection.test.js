@@ -53,6 +53,24 @@ describe("projeção canônica do DRE", () => {
     });
   });
 
+  it("apresenta a receita e o custo das locações separadamente no DRE empresarial", () => {
+    const data={
+      config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra 1"}],employees:[],attendance:{},
+      medicoes:[{id:"m1",obraId:"o1",competencia:"2026-07",valorPrevisto:1000}],
+      payments:[],pagsTerceiros:[],rescisoes:[],outrasDesp:[],pedidos:[],despesasEmpresa:[],
+      equipamentos:[{id:"e1",quantidadeTotal:1,proprietarioId:"",custoDiaria:20}],
+      locacoesEquip:[{id:"l1",equipamentoId:"e1",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-01",quantidade:1,valorDiaria:100,status:"encerrada"}],
+      manutencoesEquip:[],
+    };
+    const statement=buildDreProjectionRows(data)
+      .find(row=>row.sourceId==="2026-07:mes:company_dre")?.payload;
+    expect(statement).toMatchObject({
+      faturamentoObras:1000,receitaLocacoes:100,faturamentoTotal:1100,
+    });
+    expect(statement.custoLocacoes).toBeGreaterThanOrEqual(0);
+    expect(statement.receitaLiquida-statement.totalCSP-statement.totalDespOp).toBe(statement.ebitda);
+  });
+
   it("preserva custos arquivados e ignora registros cancelados", () => {
     const data={
       config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra 1"}],employees:[],attendance:{},

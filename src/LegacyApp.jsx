@@ -35225,8 +35225,8 @@ function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null })
   // filtros/reduções locais: se a projeção ainda não estiver disponível, a UI
   // mostra estado vazio e deixa explícita a pendência de sincronização.
   const dreVazio=useMemo(()=>({
-    ym,faturamentoObras:0,recebidoObras:0,deducaoISS:0,deducaoPIS:0,deducaoCOFINS:0,totalDeducoes:0,receitaLiquida:0,
-    laborTotal:0,benefTotal:0,tercTotal:0,rescTotal:0,outrasDiretas:0,totalCSP:0,lucroBruto:0,margemBruta:0,
+    ym,faturamentoObras:0,receitaLocacoes:0,faturamentoTotal:0,recebidoObras:0,deducaoISS:0,deducaoPIS:0,deducaoCOFINS:0,totalDeducoes:0,receitaLiquida:0,
+    laborTotal:0,benefTotal:0,tercTotal:0,rescTotal:0,outrasDiretas:0,custoLocacoes:0,totalCSP:0,lucroBruto:0,margemBruta:0,
     despPorCat:Object.fromEntries(CATS_DESP.map(item=>[item.v,0])),despPorGrupo:emptyCompanyExpenseGroupTotals(),
     totalDespPessoal:0,totalDespOcupacao:0,totalDespAdministrativo:0,totalDespComercial:0,totalDespFinanceiro:0,
     totalDespAdmin:0,totalDespFiscal:0,totalDespOutros:0,totalDespOp:0,
@@ -35524,14 +35524,15 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   <div class="period">${period}</div>
 </div>
 <div class="kpis">
-  <div class="kpi gold"><p class="kpi-l">Faturamento Bruto</p><p class="kpi-v">R$ ${fmt2(d.faturamentoObras)}</p></div>
+  <div class="kpi gold"><p class="kpi-l">Faturamento Bruto</p><p class="kpi-v">R$ ${fmt2(d.faturamentoTotal)}</p></div>
   <div class="kpi blue"><p class="kpi-l">Lucro Bruto</p><p class="kpi-v ${d.lucroBruto<0?'neg':'pos'}">R$ ${fmt2(d.lucroBruto)}</p></div>
   <div class="kpi green"><p class="kpi-l">EBITDA</p><p class="kpi-v ${d.ebitda<0?'neg':'pos'}">R$ ${fmt2(d.ebitda)}</p></div>
   <div class="kpi ${d.lucroLiquido>=0?'green':'red'}"><p class="kpi-l">Lucro Líquido</p><p class="kpi-v ${d.lucroLiquido<0?'neg':'pos'}">R$ ${fmt2(d.lucroLiquido)}</p></div>
 </div>
 <table><tbody>
-  <tr class="sec"><td>RECEITA BRUTA DE SERVIÇOS</td><td class="val">R$ ${fmt2(d.faturamentoObras)}</td></tr>
+  <tr class="sec"><td>RECEITA BRUTA DE SERVIÇOS</td><td class="val">R$ ${fmt2(d.faturamentoTotal)}</td></tr>
   ${row("Faturamento obras (medições emitidas)",d.faturamentoObras,"sub")}
+  ${row("Locação de equipamentos",d.receitaLocacoes,"sub")}
   <tr class="sec"><td>(-) DEDUÇÕES DA RECEITA</td><td class="val neg">(R$ ${fmt2(d.totalDeducoes)})</td></tr>
   ${d.deducaoISS>0?row("(-) ISS "+data.config.aliquotaISS+"%",-d.deducaoISS,"sub"):""}
   ${d.deducaoPIS>0?row("(-) PIS "+data.config.aliquotaPIS+"%",-d.deducaoPIS,"sub"):""}
@@ -35631,8 +35632,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       {/* KPI bar */}
       <div className="dre-company-kpis" style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
         {[
-          ["Faturamento",dre.faturamentoObras,`Recebido ${fmt(dre.recebidoObras)}`],
-          ["Receita líquida",dre.receitaLiquida,`${((dre.totalDeducoes/Math.max(dre.faturamentoObras,1))*100).toFixed(1)}% em deduções`],
+          ["Faturamento",dre.faturamentoTotal,`Obras ${fmt(dre.faturamentoObras)} · locações ${fmt(dre.receitaLocacoes)}`],
+          ["Receita líquida",dre.receitaLiquida,`${((dre.totalDeducoes/Math.max(dre.faturamentoTotal,1))*100).toFixed(1)}% em deduções`],
           ["EBITDA",dre.ebitda,`Margem ${dre.margemEbitda.toFixed(1)}%`],
           ["Lucro líquido",dre.lucroLiquido,`Margem ${dre.margemLiquida.toFixed(1)}%`],
         ].map(([l,v,s])=>(
@@ -35733,8 +35734,9 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         </div>
         <div style={{padding:"8px 14px"}}>
 
-          <DSec title="Receita Bruta de Serviços" color={C.green} value={dre.faturamentoObras}/>
+          <DSec title="Receita Bruta de Serviços" color={C.green} value={dre.faturamentoTotal}/>
           <DRow label="Faturamento obras (medições emitidas)" value={dre.faturamentoObras} indent={1}/>
+          <DRow label="Locação de equipamentos" value={dre.receitaLocacoes} color={C.green} indent={1}/>
           <DRow label="Recebido em caixa (referência)" value={dre.recebidoObras} color={C.muted} indent={1}/>
 
           <DSec title="(-) Deduções da Receita" color={C.red} value={-dre.totalDeducoes}/>
@@ -35750,6 +35752,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           {dre.tercTotal>0      && <DRow label="(-) Terceirizados pagos" value={-dre.tercTotal} indent={1}/>}
           {dre.rescTotal>0      && <DRow label="(-) Rescisões" value={-dre.rescTotal} indent={1}/>}
           {dre.outrasDiretas>0  && <DRow label="(-) Outras despesas diretas de obra" value={-dre.outrasDiretas} indent={1}/>}
+          {dre.custoLocacoes>0  && <DRow label="(-) Repasses e manutenção das locações" value={-dre.custoLocacoes} indent={1}/>}
           <DResult label="= Lucro Bruto" value={dre.lucroBruto} pct={dre.margemBruta} size={1}/>
 
           <DSec title="(-) Despesas Operacionais" color={C.orange} value={-dre.totalDespOp}/>
@@ -35784,7 +35787,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
               <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
               <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
               <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
-              <Bar dataKey="faturamentoObras" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]}/>
+              <Bar dataKey="faturamentoTotal" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]}/>
               <Bar dataKey="lucroBruto" name="Lucro bruto" fill={C.cinza} radius={[5,5,1,1]}/>
               <Bar dataKey="lucroLiquido" name="Lucro líquido" fill={C.text} radius={[5,5,1,1]}/>
             </BarChart>
