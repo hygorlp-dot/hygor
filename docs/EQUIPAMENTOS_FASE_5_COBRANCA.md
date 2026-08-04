@@ -52,4 +52,19 @@ sem substituir de uma vez a memória financeira legada.
 - `menor_combinacao` legado é traduzido para `best_combination` sem alterar
   contratos históricos.
 
+## Quarto incremento
+
+- geração da cobrança contratual medida a partir do snapshot e do ciclo
+  escolhido na locação;
+- período de utilização, início e fim do ciclo e competência ficam gravados
+  separadamente;
+- datas de emissão, vencimento e pagamento permanecem vazias até as etapas
+  próprias de faturamento e liquidação;
+- a linha gerada recebe estado `measured`, distinto de `billed` e `paid`;
+- identificador determinístico por locação e competência impede medição
+  duplicada;
+- desconto percentual é calculado em pontos-base e valores em centavos;
+- comando exige versão atual da locação, escopo da obra e perfil financeiro;
+- nenhuma medição cria título ou movimenta o razão neste incremento.
+
 A Fase 5 ainda não está concluída.

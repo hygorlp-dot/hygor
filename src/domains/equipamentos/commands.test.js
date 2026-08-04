@@ -201,6 +201,20 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(stale.reason).toMatch(/alterad[oa] por outra pessoa/);
   });
 
+  it("mede uma única cobrança contratual por competência",()=>{
+    const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",status:"ativa",quantidade:2,version:3,
+      commercialSnapshot:{regraTarifaria:"calendar_day",tarifas:{dia:100},descontoPct:10}};
+    const result=applyOperationalCommand({...base(),equipamentos:[equipment()],locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,"rental-charge-measure-0001",
+      {rentalId:"loc-1",competence:"2026-08",utilizationStart:"2026-08-01",utilizationEnd:"2026-08-03"},3,
+    ));
+    expect(result.ok).toBe(true);
+    expect(result.data.rentalChargeItems[0]).toMatchObject({id:"charge:rental:loc-1:2026-08",status:"measured",grossAmountCents:60000,netAmountCents:54000});
+    const duplicate=applyOperationalCommand(result.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,"rental-charge-measure-0002",
+      {rentalId:"loc-1",competence:"2026-08",utilizationStart:"2026-08-01",utilizationEnd:"2026-08-03"},3));
+    expect(duplicate.reason).toMatch(/já foi medida/);
+  });
+
   it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],
       equipmentRegistryMigration:{version:1},
