@@ -55,7 +55,9 @@ export const tarifasCustoDaLocacao = (loc,equip) => {
   const contrato=loc?.tarifasCusto||{};
   if(PACOTES_TARIFA.some(p=>Number(contrato[p.id]||0)>0))return contrato;
   if(Number(loc?.custoDiaria||0)>0&&!equip?.tarifasCusto)return {dia:Number(loc.custoDiaria)};
-  return equip?.tarifasCusto||(Number(loc?.custoDiaria||0)>0?{dia:Number(loc.custoDiaria)}:{});
+  return equip?.tarifasCusto
+    ||(Number(loc?.custoDiaria||0)>0?{dia:Number(loc.custoDiaria)}:null)
+    ||(Number(equip?.custoDiaria||0)>0?{dia:Number(equip.custoDiaria)}:{});
 };
 
 export const cobrancaLocacao = (loc,equip,dias) => {

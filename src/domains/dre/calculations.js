@@ -241,6 +241,8 @@ export const createDreCalculations = ({
       equipCostObras:sum("equipCost"), equipReceita:equipmentRevenue,
       equipReceitaBruta:Number(equipment.receitaBruta??equipmentRevenue),
       equipDescontos:Number(equipment.descontos||0),
+      equipRepasseTerceiros:Number(equipment.custoDono||0),
+      equipManutencao:Number(equipment.manut||0),
       equipCustoEmpresa:equipmentCost, equipLucro:resultadoEquipamentosExternos,
       totalCustos, lucroBruto:resultadoConsolidado, saldoCaixa:entradasCaixa-saidasCaixa,
       faturadoAcum:sum("faturadoAcum"), recebidoAcum:cashAccumulated.cashIn, backlog:sum("backlog"),

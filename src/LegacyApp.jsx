@@ -35226,7 +35226,7 @@ function DREEmpresa({ data, showToast, currentUser=null, dispatchCommand=null })
   // mostra estado vazio e deixa explícita a pendência de sincronização.
   const dreVazio=useMemo(()=>({
     ym,faturamentoObras:0,receitaLocacoes:0,faturamentoTotal:0,recebidoObras:0,descontoLocacoes:0,deducoesTributarias:0,deducaoISS:0,deducaoPIS:0,deducaoCOFINS:0,totalDeducoes:0,receitaLiquida:0,
-    laborTotal:0,benefTotal:0,tercTotal:0,rescTotal:0,outrasDiretas:0,custoLocacoes:0,totalCSP:0,lucroBruto:0,margemBruta:0,
+    laborTotal:0,benefTotal:0,tercTotal:0,rescTotal:0,outrasDiretas:0,repasseEquipamentosTerceiros:0,manutencaoLocacoes:0,custoLocacoes:0,totalCSP:0,lucroBruto:0,margemBruta:0,
     despPorCat:Object.fromEntries(CATS_DESP.map(item=>[item.v,0])),despPorGrupo:emptyCompanyExpenseGroupTotals(),
     totalDespPessoal:0,totalDespOcupacao:0,totalDespAdministrativo:0,totalDespComercial:0,totalDespFinanceiro:0,
     totalDespAdmin:0,totalDespFiscal:0,totalDespOutros:0,totalDespOp:0,
@@ -35541,7 +35541,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   ${d.tercTotal>0?row("(-) Terceirizados",-d.tercTotal,"sub"):""}
   ${d.rescTotal>0?row("(-) Rescisões no período",-d.rescTotal,"sub"):""}
   ${d.outrasDiretas>0?row("(-) Outras despesas diretas de obra",-d.outrasDiretas,"sub"):""}
-  ${d.custoLocacoes>0?row("(-) Repasses e manutenção das locações",-d.custoLocacoes,"sub"):""}
+  ${d.repasseEquipamentosTerceiros>0?row("(-) Repasse dos equipamentos de terceiros",-d.repasseEquipamentosTerceiros,"sub"):""}
+  ${d.manutencaoLocacoes>0?row("(-) Manutenção das locações paga pela empresa",-d.manutencaoLocacoes,"sub"):""}
   <tr class="result"><td>= LUCRO BRUTO</td><td class="val ${d.lucroBruto<0?'neg':'pos'}">R$ ${fmt2(d.lucroBruto)} (${d.margemBruta.toFixed(1)}%)</td></tr>
 
   <tr class="sec"><td>(-) DESPESAS OPERACIONAIS</td><td class="val neg">(R$ ${fmt2(d.totalDespOp)})</td></tr>
@@ -35750,7 +35751,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           {dre.tercTotal>0      && <DRow label="(-) Terceirizados pagos" value={-dre.tercTotal} indent={1}/>}
           {dre.rescTotal>0      && <DRow label="(-) Rescisões" value={-dre.rescTotal} indent={1}/>}
           {dre.outrasDiretas>0  && <DRow label="(-) Outras despesas diretas de obra" value={-dre.outrasDiretas} indent={1}/>}
-          {dre.custoLocacoes>0  && <DRow label="(-) Repasses e manutenção das locações" value={-dre.custoLocacoes} indent={1}/>}
+          {dre.repasseEquipamentosTerceiros>0&&<DRow label="(-) Repasse dos equipamentos de terceiros" value={-dre.repasseEquipamentosTerceiros} indent={1}/>}
+          {dre.manutencaoLocacoes>0&&<DRow label="(-) Manutenção das locações paga pela empresa" value={-dre.manutencaoLocacoes} indent={1}/>}
           <DResult label="= Lucro Bruto" value={dre.lucroBruto} pct={dre.margemBruta} size={1}/>
 
           <DSec title="(-) Despesas Operacionais" color={C.orange} value={-dre.totalDespOp}/>

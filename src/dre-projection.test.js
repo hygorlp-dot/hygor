@@ -58,16 +58,25 @@ describe("projeção canônica do DRE", () => {
       config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra 1"}],employees:[],attendance:{},
       medicoes:[{id:"m1",obraId:"o1",competencia:"2026-07",valorPrevisto:1000}],
       payments:[],pagsTerceiros:[],rescisoes:[],outrasDesp:[],pedidos:[],despesasEmpresa:[],
-      equipamentos:[{id:"e1",quantidadeTotal:1,proprietarioId:"",custoDiaria:20}],
-      locacoesEquip:[{id:"l1",equipamentoId:"e1",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-01",quantidade:1,valorDiaria:100,descontoValor:10,status:"encerrada"}],
+      equipamentos:[
+        {id:"e1",quantidadeTotal:1,proprietarioId:"",custoDiaria:20},
+        {id:"e2",quantidadeTotal:1,proprietarioId:"dono-1",tarifasCusto:{dia:50}},
+      ],
+      locacoesEquip:[
+        {id:"l1",equipamentoId:"e1",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-01",quantidade:1,valorDiaria:100,descontoValor:10,status:"encerrada"},
+        {id:"l2",equipamentoId:"e2",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-01",quantidade:1,valorDiaria:80,status:"encerrada"},
+      ],
       manutencoesEquip:[],
     };
     const statement=buildDreProjectionRows(data)
       .find(row=>row.sourceId==="2026-07:mes:company_dre")?.payload;
     expect(statement).toMatchObject({
-      faturamentoObras:1000,receitaLocacoes:100,faturamentoTotal:1100,
-      descontoLocacoes:10,totalDeducoes:10,receitaLiquida:1090,
+      faturamentoObras:1000,receitaLocacoes:180,faturamentoTotal:1180,
+      descontoLocacoes:10,totalDeducoes:10,receitaLiquida:1170,
+      repasseEquipamentosTerceiros:50,manutencaoLocacoes:0,custoLocacoes:50,
     });
+    // A tarifa de custo do equipamento próprio não vira repasse.
+    expect(statement.repasseEquipamentosTerceiros).toBe(50);
     expect(statement.custoLocacoes).toBeGreaterThanOrEqual(0);
     expect(statement.receitaLiquida-statement.totalCSP-statement.totalDespOp).toBe(statement.ebitda);
   });

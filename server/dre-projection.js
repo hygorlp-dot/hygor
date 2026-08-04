@@ -125,12 +125,20 @@ const equipmentCompany = (data,ym) => {
     ...(data?.equipamentos||[]).map(equipment=>equipment.id),
     ...(data?.locacoesEquip||[]).map(rental=>rental.equipamentoId),
   ].filter(Boolean));
-  const rows=[...equipmentIds].map(equipmentId=>calcEquipMes(data,equipmentId,ym));
-  const total=rows.reduce((acc,row)=>({
-    receita:acc.receita+row.receita,custoDono:acc.custoDono+row.custoDono,
-    manut:acc.manut+row.manut,lucro:acc.lucro+row.lucro,descontos:acc.descontos+row.descontos,
-  }),{receita:0,custoDono:0,manut:0,lucro:0,descontos:0});
-  return {...total,receitaBruta:total.receita+total.descontos,receitaProprios:0,receitaTerceiros:0};
+  const rows=[...equipmentIds].map(equipmentId=>({
+    equipment:(data?.equipamentos||[]).find(item=>item.id===equipmentId),
+    financial:calcEquipMes(data,equipmentId,ym),
+  }));
+  const total=rows.reduce((acc,{equipment,financial})=>({
+    receita:acc.receita+financial.receita,
+    // Tarifa de custo só é repasse quando existe proprietário terceiro. Em
+    // equipamento próprio ela é referência interna e não gera obrigação.
+    custoDono:acc.custoDono+(equipment?.proprietarioId?financial.custoDono:0),
+    manut:acc.manut+financial.manut,
+    descontos:acc.descontos+financial.descontos,
+  }),{receita:0,custoDono:0,manut:0,descontos:0});
+  return {...total,lucro:total.receita-total.custoDono-total.manut,
+    receitaBruta:total.receita+total.descontos,receitaProprios:0,receitaTerceiros:0};
 };
 
 const calculations=createDreCalculations({
@@ -169,7 +177,9 @@ const companyDre = (data,year,month) => {
   const laborTotal=base.laborCost,benefTotal=base.benefitCost,tercTotal=base.tercCost;
   const rescTotal=base.rescTotal;
   const outrasDiretas=base.outrasTotal+base.comprasCost+base.equipCostObras;
-  const custoLocacoes=Number(base.equipCustoEmpresa||0);
+  const repasseEquipamentosTerceiros=Number(base.equipRepasseTerceiros||0);
+  const manutencaoLocacoes=Number(base.equipManutencao||0);
+  const custoLocacoes=repasseEquipamentosTerceiros+manutencaoLocacoes;
   const totalCSP=workCosts+custoLocacoes;
   const lucroBruto=receitaLiquida-totalCSP,margemBruta=receitaLiquida?lucroBruto/receitaLiquida*100:0;
   const despPorCat=Object.fromEntries(expenseCategories.map(([category])=>[
@@ -208,7 +218,7 @@ const companyDre = (data,year,month) => {
   return Object.fromEntries(Object.entries({
     ym,faturamentoObras,receitaLocacoes,faturamentoTotal,recebidoObras,descontoLocacoes,deducoesTributarias,
     deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
-    laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,custoLocacoes,totalCSP,lucroBruto,margemBruta,
+    laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,repasseEquipamentosTerceiros,manutencaoLocacoes,custoLocacoes,totalCSP,lucroBruto,margemBruta,
     despPorCat,despPorGrupo,totalDespPessoal,totalDespOcupacao,totalDespAdministrativo,totalDespComercial,
     totalDespFinanceiro,totalDespAdmin,totalDespFiscal,totalDespOutros,totalDespOp,ebitda,margemEbitda,
     resultFinanceiro,lair,provisaoIR,provisaoCSLL,totalImpostoLucro,lucroLiquido,margemLiquida,despEmp,porObra,
