@@ -11,6 +11,7 @@ import { validateRentalClosure,validateRentalTransition } from "./rental-lifecyc
 import { validateRentalCheckpoint } from "./rental-checkpoints.js";
 import { RENTAL_AMENDMENT_TYPE,validateRentalAmendment } from "./rental-amendments.js";
 import { validateRentalReplacement } from "./rental-replacements.js";
+import { validateRentalChargeItem } from "./rental-charges.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
@@ -92,6 +93,7 @@ export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_RENTAL_CHECKPOINT_RECORDED:"LOCACAO_EQUIPAMENTO_CHECKLIST_REGISTRADO",
   EQUIPMENT_RENTAL_AMENDED:"LOCACAO_EQUIPAMENTO_ADITIVADA",
   EQUIPMENT_RENTAL_UNIT_REPLACED:"LOCACAO_EQUIPAMENTO_UNIDADE_SUBSTITUIDA",
+  EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED:"LOCACAO_EQUIPAMENTO_LINHA_COBRANCA_SALVA",
   EQUIPMENT_RESERVATION_SAVED:"RESERVA_EQUIPAMENTO_SALVA",
   EQUIPMENT_RESERVATION_CANCELLED:"RESERVA_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_UNAVAILABILITY_SAVED:"INDISPONIBILIDADE_EQUIPAMENTO_SALVA",
@@ -115,6 +117,7 @@ export const equipmentCommandObraId=(data={},command={})=>{
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_AMENDED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.chargeItem?.rentalId)?.obraId||"");
   if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_SAVED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED].includes(command.type))return String(payload.unavailability?.workId||"");
   if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_CANCELLED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED].includes(command.type))return String(unavailabilityList(data).find(item=>item.id===payload.unavailabilityId)?.workId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){
@@ -422,6 +425,21 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     let next=replace(data,"locacoesEquip",id,record);const event=unavailabilityList(next).find(item=>String(item.rentalId)===id);
     if(event)next=upsertUnavailability(next,{...event,equipmentUnitIds:unitIds,equipmentUnitId:unitIds.length===1?unitIds[0]:"",version:versionOf(event)+1,updatedAt:now});
     return {ok:true,data:next,entityId:id};
+  }
+
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED){
+    const input=payload.chargeItem||{},id=String(input.id||"");
+    if(!id)return fail("Identifique a linha de cobrança.");
+    const current=list(data,"rentalChargeItems").find(item=>String(item.id)===id);
+    const stale=versionError(current,command.expectedVersion,"A linha de cobrança");if(stale)return fail(stale);
+    const rental=list(data,"locacoesEquip").find(item=>String(item.id)===String(input.rentalId));
+    if(!rental)return fail("Locação não encontrada.");
+    if(String(rental.obraId)!==String(input.workId))return fail("A obra da cobrança deve ser a mesma da locação.");
+    if(current&&["billed","cancelled"].includes(current.status))return fail("Uma linha faturada ou cancelada não pode ser alterada.");
+    const validation=validateRentalChargeItem(input);if(!validation.ok)return fail(validation.reason);
+    const record={...(current||{}),...validation.record,id,version:versionOf(current)+1,updatedAt:now,
+      ...(!current?{createdAt:now,createdById:command.actorId||""}:{}),operationalHistory:audit(current,command,now,"EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED")};
+    return {ok:true,data:current?replace(data,"rentalChargeItems",id,record):{...data,rentalChargeItems:[...list(data,"rentalChargeItems"),record]},entityId:id};
   }
 
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){

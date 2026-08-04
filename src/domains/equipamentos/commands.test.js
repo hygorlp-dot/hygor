@@ -184,6 +184,23 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(result.data.locacoesEquip[0].rentalReplacements[0]).toMatchObject({outgoingUnitId:"u1",incomingUnitId:"u2",createdById:"u-1"});
   });
 
+  it("grava linha de cobrança em centavos com versão e auditoria",()=>{
+    const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",status:"ativa",version:1};
+    const result=applyOperationalCommand({...base(),locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,"rental-charge-item-0001",{chargeItem:{
+        id:"charge-1",rentalId:"loc-1",workId:"obra-a",type:"freight",description:"Frete de entrega",
+        quantityMilli:1000,unit:"un",unitPriceCents:12550,discountAmountCents:550,taxAmountCents:0,competence:"2026-08",
+      }},0,
+    ));
+    expect(result.ok).toBe(true);
+    expect(result.data.rentalChargeItems[0]).toMatchObject({grossAmountCents:12550,netAmountCents:12000,version:1,createdById:"u-1"});
+    expect(result.data.rentalChargeItems[0].operationalHistory.at(-1)).toMatchObject({type:"EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED"});
+    const stale=applyOperationalCommand(result.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,"rental-charge-item-stale-0001",{
+      chargeItem:{...result.data.rentalChargeItems[0],unitPriceCents:13000},
+    },0));
+    expect(stale.reason).toMatch(/alterad[oa] por outra pessoa/);
+  });
+
   it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],
       equipmentRegistryMigration:{version:1},
