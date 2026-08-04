@@ -56,6 +56,8 @@ export const buildEquipmentRegistry=(data={})=>{
     }
     const total=quantity(equipment.quantidadeTotal);
     const patrimony=text(equipment.patrimonio);
+    const materializedUnits=units.filter(item=>sourceId(item)===origin).length;
+    if(materializedUnits>=total){report.convertedToUnits.push(origin);continue;}
     if(total===1&&patrimony){
       if(!unitSources.has(origin)){units.push(unitFromLegacy(equipment,model.id));unitSources.add(origin);}
       report.convertedToUnits.push(origin);
@@ -106,7 +108,8 @@ export const deriveEquipmentLocations=(data={},asOf=new Date().toISOString().sli
   for(const unit of registry.units){
     const origin=sourceId(unit);
     const candidates=events.filter(event=>String(event.equipmentUnitId)===String(unit.id)
-      ||(!event.equipmentUnitId&&String(event.equipmentId)===origin));
+      ||(event.equipmentUnitIds||[]).map(String).includes(String(unit.id))
+      ||(!event.equipmentUnitId&&!(event.equipmentUnitIds||[]).length&&String(event.equipmentId)===origin));
     const event=candidates.sort((a,b)=>String(b.startDate).localeCompare(String(a.startDate)))[0];
     const type=event?locationType(event):"depot",locationId=event?(text(event.workId)||type):"depot";
     add({key:`unit:${unit.id}:${allocationKey(type,locationId)}`,modelId:unit.modelId,lotId:"",

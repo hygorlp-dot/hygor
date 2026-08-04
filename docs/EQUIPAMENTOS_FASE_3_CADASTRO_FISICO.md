@@ -46,3 +46,24 @@ lendo os identificadores legados durante a transição.
 
 Este documento registra o início da fase. Os critérios de conclusão do roteiro
 ainda não estão declarados como atendidos.
+
+## Segundo incremento
+
+Implementado na sequência:
+
+- aba **Cadastro físico** com totais de modelos, lotes, unidades e pendências;
+- mapa atual por modelo, exibindo quantidades em cada obra, manutenção,
+  bloqueio, transporte e depósito;
+- prévia segura antes da materialização e ação administrativa explícita para
+  executar o comando de migração;
+- relatório visível dos registros ambíguos e do motivo da revisão;
+- seleção de lote ou patrimônio no formulário de locação;
+- quantidade sincronizada com as unidades físicas selecionadas;
+- validação de domínio que impede unidade de outro modelo, quantidade
+  divergente e dupla locação da mesma identidade no mesmo período;
+- manutenção de `equipamentoId` em toda locação nova para compatibilidade dos
+  cálculos e relatórios existentes.
+
+O teste E2E da aba foi adicionado. Sua execução local ficou impedida pela
+ausência da biblioteca nativa `libnspr4.so` no Chromium do ambiente; testes
+unitários, typecheck e build não dependem dessa biblioteca.

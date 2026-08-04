@@ -53,4 +53,16 @@ describe("registro físico de equipamentos",()=>{
     expect(second.equipmentUnits).toEqual(first.equipmentUnits);
     expect(second.equipamentos).toEqual(data().equipamentos);
   });
+
+  it("não recria lote quando todas as unidades da origem já foram individualizadas",()=>{
+    const input={equipamentos:[{id:"eq",nome:"Martelete",quantidadeTotal:2}],
+      equipmentModels:[{id:"model",legacySourceId:"eq"}],equipmentUnits:[
+        {id:"u1",modelId:"model",legacySourceId:"eq",assetTag:"P-1"},
+        {id:"u2",modelId:"model",legacySourceId:"eq",assetTag:"P-2"},
+      ]};
+    const result=buildEquipmentRegistry(input);
+    expect(result.units).toHaveLength(2);
+    expect(result.lots).toHaveLength(0);
+    expect(result.report.convertedToUnits).toEqual(["eq"]);
+  });
 });

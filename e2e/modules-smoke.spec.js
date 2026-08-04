@@ -142,6 +142,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await pixRow.getByRole("button",{name:/Ocultar outras ações/}).click();
       }
       if(item==="Locação de equipamentos") {
+        await page.getByRole("button",{name:/Cadastro físico/}).click();
+        await expect(page.getByText("Identidade e localização física")).toBeVisible();
+        await expect(page.getByText("Prévia compatível calculada a partir da frota atual.")).toBeVisible();
+        await expect(page.getByText("Betoneira QA").first()).toBeVisible();
+        await expect(page.getByText("Registro com várias unidades e um único patrimônio")).toBeVisible();
         await page.getByRole("button",{name:/Mapa de ocupação/}).click();
         await expect(page.getByText("R = Reserva")).toBeVisible();
         await expect(page.getByText("livre 2").first()).toBeVisible();

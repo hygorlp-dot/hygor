@@ -44,6 +44,9 @@ const normalizedEvent=(item,defaults={})=>{
     id:String(item?.id||defaults.id||""),
     equipmentId:String(item?.equipmentId||item?.equipment_id||defaults.equipmentId||""),
     equipmentUnitId:String(item?.equipmentUnitId||item?.equipment_unit_id||defaults.equipmentUnitId||""),
+    equipmentUnitIds:Array.isArray(item?.equipmentUnitIds)?item.equipmentUnitIds.map(String)
+      :Array.isArray(defaults.equipmentUnitIds)?defaults.equipmentUnitIds.map(String):[],
+    equipmentLotId:String(item?.equipmentLotId||defaults.equipmentLotId||""),
     quantity:item?.affectsCapacity===false||defaults.affectsCapacity===false?0:quantity(item?.quantity??defaults.quantity),
     type,startDate,endDate,
     reason:String(item?.reason||defaults.reason||EQUIPMENT_UNAVAILABILITY_LABEL[type]||"Indisponibilidade"),
@@ -67,6 +70,7 @@ export const buildEquipmentUnavailability=(data={})=>{
     if(rentalLinks.has(String(item.id||"")))continue;
     derived.push(normalizedEvent({}, {
       id:`legacy-rental:${item.id}`,equipmentId:item.equipamentoId,quantity:item.quantidade,
+      equipmentUnitId:item.equipmentUnitId,equipmentUnitIds:item.equipmentUnitIds,equipmentLotId:item.equipmentLotId,
       type:"rental",startDate:item.inicio,endDate:item.fim,reason:"Locação",
       status:item.status,workId:item.obraId,rentalId:item.id,version:item.version,
     }));

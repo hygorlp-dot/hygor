@@ -80,6 +80,7 @@ import {
   EQUIPMENT_IMAGE_OPTIONS,
   equipmentImageFor,
 } from "./domains/equipamentos/images";
+import { deriveEquipmentLocations } from "./domains/equipamentos/registry";
 import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
@@ -1529,6 +1530,8 @@ const normalizeData = incoming => {
     equipmentUnavailability: Array.isArray(d.equipmentUnavailability) ? d.equipmentUnavailability.map(item=>({
       id:item.id||uid(),equipmentId:item.equipmentId||item.equipment_id||"",
       equipmentUnitId:item.equipmentUnitId||item.equipment_unit_id||"",
+      equipmentUnitIds:Array.isArray(item.equipmentUnitIds)?item.equipmentUnitIds.map(String):[],
+      equipmentLotId:item.equipmentLotId||"",
       quantity:Math.max(1,Number(item.quantity||1)),type:item.type||"administrative_block",
       startDate:item.startDate||item.start_date||"",endDate:item.endDate||item.end_date||"",
       reason:item.reason||"",status:item.status||"ativa",workId:item.workId||item.work_id||"",
@@ -33008,6 +33011,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     equipamentosAtivos.reduce((sum,equipamento)=>sum+disponibilidadeNoDia(data,equipamento,iso).emUso,0)),0);
   const periodFreeUnits=Math.max(0,totalUnidades-periodPeakUsage);
   const locacoesAtivas=(data.locacoesEquip||[]).filter(locacao=>locacao.status!=="cancelada"&&!locacao.fim);
+  const physicalRegistry=useMemo(()=>deriveEquipmentLocations(data,today()),[data]);
+  const physicalMigration=Number(data.equipmentRegistryMigration?.version||0)>=1;
 
   const STATUS_EQUIP = {
     disponivel:{l:"Disponível",c:C.green},
@@ -33133,6 +33138,21 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       setSalvandoEquipamento("");
     }
   };
+  const materializarCadastroFisico=async()=>{
+    if(!window.confirm("Criar o cadastro separado de modelos, lotes e unidades? Os equipamentos e históricos atuais serão preservados."))return;
+    setSalvandoEquipamento("cadastro-fisico");
+    try{
+      const result=await dispatchCommand?.(atual=>({
+        type:OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,
+        idempotencyKey:`cadastro-fisico-equipamentos-${uid()}`,
+        expectedVersion:Number(atual.equipmentRegistryMigration?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{},
+      }));
+      if(!result?.ok){showToast(result?.reason||"Não foi possível materializar o cadastro físico.","error");return;}
+      showToast("Cadastro físico criado. Equipamentos e históricos legados foram preservados.");
+    }catch(error){showToast(error?.message||"O servidor não respondeu ao criar o cadastro físico.","error");}
+    finally{setSalvandoEquipamento("");}
+  };
   const excluirEquip = async(e) => {
     const locacaoAberta=(data.locacoesEquip||[]).some(locacao=>
       locacao.equipamentoId===e.id&&locacao.status!=="cancelada"&&!locacao.fim);
@@ -33182,6 +33202,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     });
     const loc = { ...f,
       quantidade: Math.max(1, Number(f.quantidade || 1)),
+      equipmentUnitIds:Array.isArray(f.equipmentUnitIds)?f.equipmentUnitIds:[],
+      equipmentLotId:f.equipmentLotId||"",
       tarifas:numTar(f.tarifas), tarifasCusto:numTar(f.tarifasCusto),
       valorDiaria:Number(f.valorDiaria||0), custoDiaria:Number(f.custoDiaria||0),
       descontoPct:Number(f.descontoPct||0), descontoValor:Number(f.descontoValor||0) };
@@ -33295,7 +33317,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   // ---- Formulários vazios ----
   const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", tarifas:{dia:"",semana:"",quinzena:"",mes:""}, tarifasCusto:{dia:"",semana:"",quinzena:"",mes:""}, quantidadeTotal:1, valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:obraIdFixo||"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, imagemUrl:"", imagemTipo:"auto", obs:"" };
   const donoVazio  = { nome:"", documento:"", telefone:"", email:"", chavePix:"", obs:"" };
-  const locVazio   = { equipamentoId:"", obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, regraTarifaria:"menor_combinacao", tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
+  const locVazio   = { equipamentoId:"", equipmentLotId:"",equipmentUnitIds:[],obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, regraTarifaria:"menor_combinacao", tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
   const manutVazio = { equipamentoId:"", data:today(), inicio:today(), fim:today(), quantidade:1, status:"programada", tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
   const indispVazio={equipmentId:"",equipmentUnitId:"",quantity:1,type:"reservation",startDate:today(),endDate:today(),reason:"",status:"ativa",workId:""};
   const transfVazio= { equipamentoId:"", paraObraId:"", data:today(), responsavel:"", obs:"" };
@@ -33337,6 +33359,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       {/* Abas internas */}
       <TabRow tabs={[
         {v:"frota",l:"Frota",icon:"wrench",count:equipamentosAtivos.length},
+        {v:"fisico",l:"Cadastro físico",icon:"layers",count:physicalRegistry.units.length+physicalRegistry.lots.length},
         {v:"gestao",l:"Mapa de ocupação",icon:"calendar",count:locacoesAtivas.length},
         {v:"locacoes",l:"Locações",icon:"building",count:(data.locacoesEquip||[]).length},
         {v:"manutencao",l:"Manutenção",icon:"settings",count:(data.manutencoesEquip||[]).length},
@@ -33425,6 +33448,63 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               );
             })}
           </div>}
+      </>}
+
+      {/* ---------- CADASTRO FÍSICO: MODELO, LOTE E UNIDADE ---------- */}
+      {aba==="fisico" && <>
+        <div className="equipment-section-heading">
+          <div>
+            <p>Identidade e localização física</p>
+            <small>Posição derivada das alocações em {fmtDate(today())}; o cadastro legado permanece preservado.</small>
+          </div>
+          {!physicalMigration&&currentUser?.role==="admin"&&<Btn size="sm" disabled={salvandoEquipamento==="cadastro-fisico"} onClick={materializarCadastroFisico}>
+            <Ic n="layers"/> {salvandoEquipamento==="cadastro-fisico"?"Criando...":"Materializar cadastro"}
+          </Btn>}
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:8}}>
+          <MiniKpi label="Modelos" value={String(physicalRegistry.models.length)} cor={C.text} sub="produto ou classe"/>
+          <MiniKpi label="Lotes" value={String(physicalRegistry.lots.length)} cor={C.blue} sub="controle por quantidade"/>
+          <MiniKpi label="Unidades físicas" value={String(physicalRegistry.units.length)} cor={C.green} sub="ativos individualizados"/>
+          <MiniKpi label="Revisão manual" value={String(physicalRegistry.report.ambiguous.length)} cor={physicalRegistry.report.ambiguous.length?C.orange:C.green} sub="classificação ambígua"/>
+        </div>
+
+        <div style={{padding:"10px 12px",border:`1px solid ${physicalMigration?C.green:C.blue}55`,borderRadius:9,background:`${physicalMigration?C.green:C.blue}09`}}>
+          <p style={{fontSize:10.5,color:physicalMigration?C.green:C.blue,fontWeight:800}}>{physicalMigration?"Cadastro físico materializado e versionado.":"Prévia compatível calculada a partir da frota atual."}</p>
+          <p style={{fontSize:9.5,color:C.muted,marginTop:3}}>A localização abaixo não usa o campo legado de obra atual; ela é composta por locações, reservas, manutenções e bloqueios ativos.</p>
+        </div>
+
+        {physicalRegistry.report.manualReview.length>0&&<div style={{border:`1px solid ${C.orange}66`,borderRadius:9,background:`${C.orange}0B`,padding:"11px 13px"}}>
+          <p style={{fontSize:10.5,fontWeight:850,color:C.orange}}>Registros que exigem revisão</p>
+          <div style={{display:"grid",gap:5,marginTop:7}}>{physicalRegistry.report.manualReview.map(item=>{
+            const source=(data.equipamentos||[]).find(equipment=>String(equipment.id)===String(item.equipmentId));
+            return <div key={item.equipmentId} style={{fontSize:9.5,color:C.muted}}><b style={{color:C.text}}>{source?.nome||item.equipmentId}</b> — {item.reason}</div>;
+          })}</div>
+        </div>}
+
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+          {physicalRegistry.models.map(model=>{
+            const lots=physicalRegistry.lots.filter(item=>item.modelId===model.id);
+            const units=physicalRegistry.units.filter(item=>item.modelId===model.id);
+            const assetIds=new Set([...lots.map(item=>item.id),...units.map(item=>item.id)]);
+            const allocations=physicalRegistry.allocations.filter(item=>assetIds.has(item.lotId||item.unitId));
+            return <article key={model.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"start"}}>
+                <div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:850,color:C.text}}>{model.name}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>{model.category||"Sem categoria"}{model.manufacturer?` · ${model.manufacturer}`:""}</p></div>
+                <span style={{fontSize:8,fontWeight:800,color:units.length?C.green:C.blue,background:`${units.length?C.green:C.blue}12`,borderRadius:99,padding:"3px 7px",whiteSpace:"nowrap"}}>{units.length?`${units.length} unidade(s)`:`${lots.reduce((sum,lot)=>sum+Number(lot.quantity||0),0)} em lote`}</span>
+              </div>
+              <div style={{display:"grid",gap:5,marginTop:10}}>{allocations.map(allocation=>{
+                const label=allocation.type==="work"?obraName(allocation.locationId):allocation.type==="depot"?"Depósito":allocation.type==="maintenance"?"Manutenção":allocation.type==="transport"?"Em transporte":allocation.type==="exceeded"?"Conflito de quantidade":"Bloqueado";
+                const color=allocation.type==="work"?C.blue:allocation.type==="depot"?C.green:allocation.type==="exceeded"?C.red:C.orange;
+                const unit=allocation.unitId?units.find(item=>item.id===allocation.unitId):null;
+                return <div key={allocation.key} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"6px 8px",borderRadius:7,background:`${color}0B`,border:`1px solid ${color}28`}}>
+                  <span style={{fontSize:9.5,color:C.muted}}><b style={{color}}>{label}</b>{unit?.assetTag?` · ${unit.assetTag}`:""}</span><b style={{fontSize:10.5,color}}>{allocation.quantity} un.</b>
+                </div>;
+              })}</div>
+              {!allocations.length&&<p style={{fontSize:9.5,color:C.muted,marginTop:10}}>Sem posição física disponível.</p>}
+            </article>;
+          })}
+        </div>
       </>}
 
       {/* ---------- LOCAÇÕES ---------- */}
@@ -33835,7 +33915,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
             <Sel label="Equipamento *" value={locModal.equipamentoId} onChange={v=>{
               const e=(data.equipamentos||[]).find(x=>x.id===v);
-              setLocModal(f=>({...f,equipamentoId:v,valorDiaria:f.valorDiaria||e?.valorDiaria||"",custoDiaria:f.custoDiaria||e?.custoDiaria||""}));
+              const lot=physicalRegistry.lots.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(v));
+              setLocModal(f=>({...f,equipamentoId:v,equipmentLotId:lot?.id||"",equipmentUnitIds:[],quantidade:1,
+                valorDiaria:f.valorDiaria||e?.valorDiaria||"",custoDiaria:f.custoDiaria||e?.custoDiaria||""}));
             }} options={equipOpts}/>
             <Sel label="Obra *" value={locModal.obraId} onChange={v=>setLocModal(f=>({...f,obraId:v}))} options={obraOpts}/>
             <Inp label="Início *" type="date" value={locModal.inicio} onChange={v=>setLocModal(f=>({...f,inicio:v}))}/>
@@ -33846,6 +33928,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
             {(() => {
               const eqQ = (data.equipamentos||[]).find(x=>x.id===locModal.equipamentoId);
               if (!eqQ) return null;
+              const individualized=physicalRegistry.units.some(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(eqQ.id));
               const availability=rentalAvailability({data,equipment:eqQ,rental:locModal,exceptRentalId:locModal.id});
               const {total,rented:emUsoOutros,unavailable,free:livre,requested:pedido,exceeded:estoura}=availability;
               const periodo=`${fmtDate(locModal.inicio||today())} a ${locModal.fim?fmtDate(locModal.fim):"em aberto"}`;
@@ -33853,6 +33936,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                 <div style={{gridColumn:"1/-1"}}>
                   <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8,alignItems:"end"}}>
                     <Inp label="Quantidade para esta obra *" type="number" min="1"
+                         disabled={individualized}
                          value={locModal.quantidade ?? 1}
                          onChange={v=>setLocModal(f=>({...f,quantidade:v}))}/>
                     <div style={{background:estoura?`${C.red}0C`:C.surface,
@@ -33872,6 +33956,31 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   </div>
                 </div>
               );
+            })()}
+            {locModal.equipamentoId&&(()=>{
+              const sourceId=String(locModal.equipamentoId);
+              const units=physicalRegistry.units.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===sourceId);
+              const lots=physicalRegistry.lots.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===sourceId);
+              if(!units.length&&!lots.length)return null;
+              return <div style={{gridColumn:"1/-1",padding:"10px 12px",border:`1px solid ${C.blue}38`,borderRadius:9,background:`${C.blue}07`}}>
+                <p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>Identificação física</p>
+                {lots.length>0&&<div style={{marginTop:7}}><Sel label="Lote" value={locModal.equipmentLotId||lots[0]?.id||""}
+                  onChange={v=>setLocModal(form=>({...form,equipmentLotId:v,equipmentUnitIds:[]}))}
+                  options={lots.map(lot=>({v:lot.id,l:`${lot.lotCode||lot.id} · ${lot.quantity} ${lot.unit||"un"}`}))}/></div>}
+                {units.length>0&&<div style={{marginTop:7}}><p style={{fontSize:9.5,fontWeight:800,color:C.text,marginBottom:6}}>Unidades desta locação</p>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{units.map(unit=>{
+                    const selected=(locModal.equipmentUnitIds||[]).includes(unit.id);
+                    return <label key={unit.id} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 8px",border:`1px solid ${selected?C.blue:C.border}`,borderRadius:7,background:selected?`${C.blue}10`:C.card,fontSize:9.5,color:C.text,cursor:"pointer"}}>
+                      <input type="checkbox" checked={selected} onChange={()=>setLocModal(form=>{
+                        const current=form.equipmentUnitIds||[];
+                        const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];
+                        return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length)};
+                      })} style={{accentColor:C.blue}}/>{unit.assetTag||unit.serialNumber||unit.id}
+                    </label>;
+                  })}</div>
+                  <p style={{fontSize:9,color:C.muted,marginTop:6}}>A quantidade acompanha o número de unidades marcadas.</p>
+                </div>}
+              </div>;
             })()}
             {/* Tarifas: por padrao usa a tabela do equipamento. Marque para
                 negociar um preco so para esta obra. */}

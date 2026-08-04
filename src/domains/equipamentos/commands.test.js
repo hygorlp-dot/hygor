@@ -25,6 +25,29 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(result.data.equipmentRegistryMigration).toMatchObject({version:1,migratedById:"u-1"});
   });
 
+  it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
+    const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],
+      equipmentRegistryMigration:{version:1},
+      equipmentModels:[{id:"model-1",legacySourceId:"eq-1"}],
+      equipmentUnits:[
+        {id:"unit-1",modelId:"model-1",assetTag:"EQ-1A",legacySourceId:"eq-1"},
+        {id:"unit-2",modelId:"model-1",assetTag:"EQ-1B",legacySourceId:"eq-1"},
+      ]};
+    const missing=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"physical-rental-missing-0001",{rental:{
+      id:"r0",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",fim:"2026-08-10",quantidade:1,
+    }},0));
+    expect(missing.reason).toMatch(/Selecione a unidade física/);
+    const first=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"physical-rental-first-0001",{rental:{
+      id:"r1",equipamentoId:"eq-1",equipmentUnitIds:["unit-1"],obraId:"obra-a",inicio:"2026-08-01",fim:"2026-08-10",quantidade:1,
+    }},0));
+    expect(first.ok).toBe(true);
+    expect(first.data.locacoesEquip[0]).toMatchObject({equipmentUnitId:"unit-1",equipmentUnitIds:["unit-1"]});
+    const conflict=applyOperationalCommand(first.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"physical-rental-conflict-0001",{rental:{
+      id:"r2",equipamentoId:"eq-1",equipmentUnitIds:["unit-1"],obraId:"obra-b",inicio:"2026-08-05",fim:"2026-08-12",quantidade:1,
+    }},0));
+    expect(conflict.reason).toMatch(/unidade física selecionada já está indisponível/);
+  });
+
   it("cria, versiona e impede sobrescrita de equipamento",()=>{
     const created=applyOperationalCommand(base(),command(OPERATIONAL_COMMAND.EQUIPMENT_SAVED,"equipment-save-0001",{equipment:equipment()},0));
     expect(created.ok).toBe(true);

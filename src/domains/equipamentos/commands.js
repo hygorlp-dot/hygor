@@ -5,7 +5,7 @@ import {
 } from "./availability.js";
 import { diasLocacaoNoPeriodo, validateRentalDiscounts } from "./calculations.js";
 import { isValidIsoDate } from "./date.js";
-import { migrateLegacyEquipmentRegistry } from "./registry.js";
+import { buildEquipmentRegistry,migrateLegacyEquipmentRegistry } from "./registry.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
@@ -179,12 +179,28 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const stale=versionError(current,command.expectedVersion,"A locação");
     if(stale)return fail(stale);
     if(!current&&command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("A locação ainda não existe na versão esperada.");
+    const selectedUnitIds=[...new Set((Array.isArray(input.equipmentUnitIds)?input.equipmentUnitIds:[]).map(String).filter(Boolean))];
     const quantidade=Math.max(1,Math.trunc(numeric(input.quantidade)||1));
-    const candidate={...input,id,quantidade,inicio:String(input.inicio),fim:String(input.fim||"")};
+    const registry=buildEquipmentRegistry(data);
+    const sourceUnits=registry.units.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(equipment.id));
+    const sourceLots=registry.lots.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(equipment.id));
+    if(selectedUnitIds.some(unitId=>!sourceUnits.some(unit=>String(unit.id)===unitId)))return fail("Uma das unidades físicas selecionadas não pertence ao equipamento.");
+    if(Number(data?.equipmentRegistryMigration?.version||0)>=1&&sourceUnits.length&&!current&&!selectedUnitIds.length)return fail("Selecione a unidade física que será locada.");
+    if(selectedUnitIds.length&&selectedUnitIds.length!==quantidade)return fail("A quantidade da locação deve corresponder às unidades físicas selecionadas.");
+    if(input.equipmentLotId&&!sourceLots.some(lot=>String(lot.id)===String(input.equipmentLotId)))return fail("O lote selecionado não pertence ao equipamento.");
+    if(input.equipmentLotId&&quantidade>Number(sourceLots.find(lot=>String(lot.id)===String(input.equipmentLotId))?.quantity||0))return fail("A quantidade solicitada é superior à quantidade do lote.");
+    const candidate={...input,id,quantidade,equipmentUnitIds:selectedUnitIds,
+      equipmentUnitId:selectedUnitIds.length===1?selectedUnitIds[0]:"",equipmentLotId:String(input.equipmentLotId||""),
+      inicio:String(input.inicio),fim:String(input.fim||"")};
     const availability=rentalAvailability({data,equipment,rental:candidate,exceptRentalId:current?.id});
     if(availability.exceeded){
       return fail(unavailabilityConflict(availability));
     }
+    const occupiedUnits=new Set(availability.conflicts.flatMap(event=>[
+      event.equipmentUnitId,...(event.equipmentUnitIds||[]),
+    ]).filter(Boolean).map(String));
+    const repeatedUnit=selectedUnitIds.find(unitId=>occupiedUnits.has(unitId));
+    if(repeatedUnit)return fail("A unidade física selecionada já está indisponível no período informado.");
     const contractDays=candidate.fim?diasLocacaoNoPeriodo(candidate,candidate.inicio,candidate.fim):30;
     const discountCandidate=current?.commercialSnapshot?{
       ...candidate,
@@ -206,7 +222,8 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     record.operationalHistory=audit(current,command,now,current?"EQUIPMENT_RENTAL_UPDATED":"EQUIPMENT_RENTAL_CREATED");
     let next=current?replace(data,"locacoesEquip",id,record):{...data,locacoesEquip:[...list(data,"locacoesEquip"),record]};
     next=upsertUnavailability(next,{
-      id:`unav-rental:${id}`,equipmentId:equipment.id,equipmentUnitId:"",quantity,
+      id:`unav-rental:${id}`,equipmentId:equipment.id,equipmentUnitId:selectedUnitIds.length===1?selectedUnitIds[0]:"",quantity,
+      equipmentUnitIds:selectedUnitIds,equipmentLotId:record.equipmentLotId||"",
       type:EQUIPMENT_UNAVAILABILITY_TYPE.RENTAL,startDate:record.inicio,endDate:record.fim,
       reason:`Locação para ${list(data,"obras").find(item=>String(item.id)===String(record.obraId))?.name||"obra"}`,
       status:record.status,workId:record.obraId,maintenanceId:"",rentalId:id,
