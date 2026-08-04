@@ -99,3 +99,19 @@ unitários, typecheck e build não dependem dessa biblioteca.
   lote legado;
 - identidades substituídas continuam resolvidas em relatórios históricos,
   evitando que uma revisão cadastral altere a memória de uma competência.
+
+## Gate de encerramento
+
+Auditoria executada em 4 de agosto de 2026:
+
+- testes unitários: **190 arquivos e 868 testes aprovados**;
+- cobertura global: **90,61% de linhas**;
+- cobertura do domínio de equipamentos: **95,35% de linhas**;
+- typecheck, lint e build de produção: aprovados no quarto incremento;
+- E2E de cadastro físico: cenário localizado em
+  `e2e/modules-smoke.spec.js`, porém a execução não iniciou o navegador porque
+  o ambiente não possui a biblioteca nativa `libnspr4.so`.
+
+Os critérios funcionais da Fase 3 estão implementados. A fase permanece sem a
+declaração formal de encerramento até que o mesmo E2E seja executado em um
+ambiente com as dependências nativas do Chromium.
