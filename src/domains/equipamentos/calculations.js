@@ -237,6 +237,10 @@ export const calcEquipamentosPorObra=(data,ym)=>{
         custoDono+=custoLocacao;
         detalhes.push({
           locacaoId:locacao.id,
+          obraId:locacao.obraId,
+          equipmentLotId:locacao.equipmentLotId||"",
+          equipmentUnitId:locacao.equipmentUnitId||"",
+          equipmentUnitIds:[...(locacao.equipmentUnitIds||[])],
           inicio:primeiro,
           fim:ultimo,
           quantidade,

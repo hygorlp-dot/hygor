@@ -84,3 +84,18 @@ unitários, typecheck e build não dependem dessa biblioteca.
   idempotente e auditada;
 - classificações anteriores são preservadas como `superseded`, sem exclusão
   física, e o equipamento legado permanece intacto.
+
+## Quarto incremento
+
+- a matriz de cobrança preserva `equipmentLotId`, `equipmentUnitId` e
+  `equipmentUnitIds` de cada locação, além da obra do fato;
+- a memória por obra e o mapa exibem o lote ou os patrimônios efetivamente
+  selecionados na locação;
+- unidades e lotes diferentes do mesmo modelo não são mais agrupados numa
+  única linha de localização;
+- relatórios gerenciais, CSV e impressão/PDF usam a identidade física, com a
+  obra explicitada nas exportações detalhadas;
+- registros antigos continuam legíveis por meio de rótulo de patrimônio ou
+  lote legado;
+- identidades substituídas continuam resolvidas em relatórios históricos,
+  evitando que uma revisão cadastral altere a memória de uma competência.

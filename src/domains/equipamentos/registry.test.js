@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {buildEquipmentRegistry,deriveEquipmentLocations,migrateLegacyEquipmentRegistry} from "./registry.js";
+import {buildEquipmentRegistry,deriveEquipmentLocations,migrateLegacyEquipmentRegistry,physicalIdentityForRecord} from "./registry.js";
 
 const data=()=>({
   equipamentos:[
@@ -81,5 +81,17 @@ describe("registro físico de equipamentos",()=>{
       expect.objectContaining({lotId:"legacy-lot:and",type:"work",locationId:"obra-a",quantity:4}),
       expect.objectContaining({lotId:"legacy-lot:and",type:"depot",quantity:6}),
     ]));
+  });
+
+  it("preserva a identidade histórica de unidade substituída",()=>{
+    const input={equipmentUnits:[{id:"u1",assetTag:"PAT-001",status:"superseded"}]};
+    expect(physicalIdentityForRecord(input,{equipmentUnitIds:["u1"]},{}))
+      .toMatchObject({kind:"unit",label:"Patrimônio: PAT-001"});
+  });
+
+  it("resolve lote e mantém fallback para registros legados",()=>{
+    const input={equipmentLots:[{id:"lot-1",lotCode:"LOTE-A"}]};
+    expect(physicalIdentityForRecord(input,{equipmentLotId:"lot-1"},{}).label).toBe("Lote: LOTE-A");
+    expect(physicalIdentityForRecord({}, {quantidade:4}, {id:"eq"}).label).toBe("Lote legado: 4 un.");
   });
 });

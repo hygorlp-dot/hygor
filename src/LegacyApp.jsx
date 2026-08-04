@@ -80,7 +80,7 @@ import {
   EQUIPMENT_IMAGE_OPTIONS,
   equipmentImageFor,
 } from "./domains/equipamentos/images";
-import { deriveEquipmentLocations } from "./domains/equipamentos/registry";
+import { deriveEquipmentLocations,physicalIdentityForRecord } from "./domains/equipamentos/registry";
 import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
@@ -33782,8 +33782,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           formatComposition={textoComposicao}
           onPrintManagement={()=>imprimirRelEquipGerencial(data,ym,mesLabel,rel,relPorObra,donoName,showToast)}
           onPrintWork={obra=>imprimirRelEquipObra(data,ym,mesLabel,relPorObra,obra,showToast)}
-          onExportManagement={()=>exportarRelEquipPorObra(ym,relPorObra,{donoName})}
-          onExportWork={obra=>exportarRelEquipObraDetalhado(ym,relPorObra,obra)}
+          onExportManagement={()=>exportarRelEquipPorObra(data,ym,relPorObra,{donoName})}
+          onExportWork={obra=>exportarRelEquipObraDetalhado(data,ym,relPorObra,obra)}
           onEditRental={rentalId=>{
             const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalId);
             if(rental)setLocModal(rental);
@@ -34205,8 +34205,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
 
 // Exporta a mesma matriz exibida na tela: equipamento nas linhas, obra nas
 // colunas e medidas separadas para dias, diárias-unidade e cobrança.
-const exportarRelEquipPorObra = (ym, rel, helpers) => {
-  const cabecalho=["Equipamento","Quantidade da frota","Dono"];
+const exportarRelEquipPorObra = (data, ym, rel, helpers) => {
+  const cabecalho=["Equipamento","Identidade física","Quantidade da frota","Dono"];
   rel.obras.forEach(obra=>cabecalho.push(
     `${obra.name} - dias`,
     `${obra.name} - diárias-unidade`,
@@ -34220,6 +34220,7 @@ const exportarRelEquipPorObra = (ym, rel, helpers) => {
   rel.linhas.filter(linha=>linha.total.unidadeDias>0||linha.total.receita>0||linha.total.custoDono>0).forEach(linha=>{
     const registro=[
       linha.equip.nome,
+      physicalIdentityForRecord(data,{},linha.equip).label,
       Math.max(1,Number(linha.equip.quantidadeTotal||1)),
       linha.equip.proprietarioId?helpers.donoName(linha.equip.proprietarioId):"Empresa",
     ];
@@ -34243,7 +34244,7 @@ const exportarRelEquipPorObra = (ym, rel, helpers) => {
     );
     linhas.push(registro);
   });
-  const totais=["TOTAL","",""];
+  const totais=["TOTAL","","",""];
   rel.obras.forEach(obra=>{
     const totalObra=rel.totaisPorObra[obra.id];
     totais.push(
@@ -34266,10 +34267,10 @@ const exportarRelEquipPorObra = (ym, rel, helpers) => {
   baixarCsv(linhas,`equipamentos-gerencial-${ym}.csv`);
 };
 
-const exportarRelEquipObraDetalhado=(ym,rel,obra)=>{
+const exportarRelEquipObraDetalhado=(data,ym,rel,obra)=>{
   if(!obra)return;
   const linhas=[[
-    "Obra","Equipamento","Patrimônio","Início cobrado","Fim cobrado",
+    "Obra","Equipamento","Identidade física","Localização","Início cobrado","Fim cobrado",
     "Situação","Quantidade","Dias","Diárias-unidade","Composição tarifária",
     "Valor bruto","Desconto","Cobrança líquida","Observação",
   ]];
@@ -34277,7 +34278,8 @@ const exportarRelEquipObraDetalhado=(ym,rel,obra)=>{
     (linha.porObra[obra.id]?.detalhes||[]).forEach(detalhe=>linhas.push([
       obra.name,
       linha.equip.nome,
-      linha.equip.patrimonio||"",
+      physicalIdentityForRecord(data,detalhe,linha.equip).label,
+      obra.name,
       detalhe.inicio,
       detalhe.fim,
       detalhe.status==="em_andamento"?"Em andamento":"Encerrada",
@@ -34293,7 +34295,7 @@ const exportarRelEquipObraDetalhado=(ym,rel,obra)=>{
   });
   const total=rel.totaisPorObra[obra.id]||{};
   linhas.push([
-    "TOTAL","","","","","","","",Number(total.unidadeDias||0),"",
+    "TOTAL","","","","","","","","",Number(total.unidadeDias||0),"",
     (Number(total.receita||0)+Number(total.descontos||0)).toFixed(2),
     Number(total.descontos||0).toFixed(2),
     Number(total.receita||0).toFixed(2),
@@ -34498,10 +34500,10 @@ function imprimirRelEquipGerencial(data,ym,mesLabel,monthly,matrix,donoName,show
       {
         titulo:"Rentabilidade por equipamento",
         descricao:"Receita, repasses, manutenção e resultado de cada item da frota.",
-        headers:["Equipamento","Patrimônio","Proprietário",{label:"Dias contrato",num:true},{label:"Diárias-un.",num:true},{label:"Receita",num:true},{label:"Descontos",num:true},{label:"Repasse",num:true},{label:"Manutenção",num:true},{label:"Resultado",num:true},{label:"Margem",num:true}],
+        headers:["Equipamento","Identidade física","Proprietário",{label:"Dias contrato",num:true},{label:"Diárias-un.",num:true},{label:"Receita",num:true},{label:"Descontos",num:true},{label:"Repasse",num:true},{label:"Manutenção",num:true},{label:"Resultado",num:true},{label:"Margem",num:true}],
         rows:equipamentos.map(linha=>[
           escapeHtml(linha.equip.nome),
-          escapeHtml(linha.equip.patrimonio||"-"),
+          escapeHtml(physicalIdentityForRecord(data,{},linha.equip).label),
           escapeHtml(linha.proprio?"Empresa":donoName(linha.equip.proprietarioId)),
           String(linha.diasContrato),
           String(linha.unidadeDias),
@@ -34574,10 +34576,11 @@ function imprimirRelEquipObra(data,ym,mesLabel,matrix,obra,showToast){
     legenda:"Memória de cobrança calculada por contrato dentro da competência. Um mês tarifário corresponde a 30 dias; períodos de 31 dias incluem 1 diária adicional. Informações internas de propriedade, repasse e margem não integram este relatório da obra.",
     tabelas:[{
       titulo:"Memória detalhada das locações",
-      headers:["Equipamento","Patrimônio","Período","Situação",{label:"Qtd.",num:true},{label:"Dias contrato",num:true},{label:"Diárias-un.",num:true},"Composição",{label:"Bruto",num:true},{label:"Desconto",num:true},{label:"Cobrança",num:true}],
+      headers:["Equipamento","Identidade física","Localização","Período","Situação",{label:"Qtd.",num:true},{label:"Dias contrato",num:true},{label:"Diárias-un.",num:true},"Composição",{label:"Bruto",num:true},{label:"Desconto",num:true},{label:"Cobrança",num:true}],
       rows:detalhes.map(({linha,detalhe})=>[
         escapeHtml(linha.equip.nome),
-        escapeHtml(linha.equip.patrimonio||"-"),
+        escapeHtml(physicalIdentityForRecord(data,detalhe,linha.equip).label),
+        escapeHtml(obra.name),
         `${escapeHtml(fmtDate(detalhe.inicio))} a ${escapeHtml(fmtDate(detalhe.fim))}`,
         escapeHtml(detalhe.status==="em_andamento"?"Em andamento":"Encerrada"),
         String(detalhe.quantidade),
@@ -34589,7 +34592,7 @@ function imprimirRelEquipObra(data,ym,mesLabel,matrix,obra,showToast){
         escapeHtml(fmt(detalhe.receita)),
       ]),
       totalRow:[
-        "TOTAL","","","","",
+        "TOTAL","","","","","",
         String(total.dias||0),
         String(total.unidadeDias||0),
         "",

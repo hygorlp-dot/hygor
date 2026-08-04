@@ -106,7 +106,7 @@ describe("motor financeiro de equipamentos", () => {
         {id:"e1",nome:"Betoneira",quantidadeTotal:3,tarifas:{dia:100}},
       ],
       locacoesEquip:[
-        {id:"l1",equipamentoId:"e1",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-03",quantidade:2},
+        {id:"l1",equipamentoId:"e1",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-03",quantidade:2,equipmentLotId:"lot-1",equipmentUnitIds:["u1","u2"]},
         {id:"l2",equipamentoId:"e1",obraId:"o2",inicio:"2026-07-02",fim:"2026-07-04",quantidade:1},
       ],
     },"2026-07");
@@ -117,6 +117,9 @@ describe("motor financeiro de equipamentos", () => {
     });
     expect(matriz.linhas[0].porObra.o1.detalhes[0]).toMatchObject({
       locacaoId:"l1",
+      obraId:"o1",
+      equipmentLotId:"lot-1",
+      equipmentUnitIds:["u1","u2"],
       inicio:"2026-07-01",
       fim:"2026-07-03",
       quantidade:2,

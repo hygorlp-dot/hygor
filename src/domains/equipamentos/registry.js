@@ -75,6 +75,36 @@ export const buildEquipmentRegistry=(data={})=>{
   return {models,lots,units,report};
 };
 
+// Resolve a identidade que foi gravada no fato operacional. A busca usa as
+// coleções brutas (inclusive itens substituídos), pois relatórios históricos
+// não podem mudar quando um patrimônio ou lote é revisado posteriormente.
+export const physicalIdentityForRecord=(data={},record={},equipment={})=>{
+  const origin=text(equipment?.id||record?.equipamentoId);
+  const requestedUnitIds=[record?.equipmentUnitId,...(record?.equipmentUnitIds||[])]
+    .map(text).filter(Boolean);
+  const unitIds=[...new Set(requestedUnitIds)];
+  let units=list(data,"equipmentUnits").filter(item=>unitIds.includes(text(item.id)));
+  let lot=list(data,"equipmentLots").find(item=>text(item.id)===text(record?.equipmentLotId));
+
+  // Visões agregadas não possuem um fato específico. Nesse caso exibimos a
+  // identidade física atualmente materializada para a origem legada.
+  if(!unitIds.length&&!record?.equipmentLotId&&origin){
+    units=list(data,"equipmentUnits").filter(item=>item.status!=="superseded"&&sourceId(item)===origin);
+    lot=list(data,"equipmentLots").find(item=>item.status!=="superseded"&&sourceId(item)===origin);
+  }
+  const assetTags=units.map(item=>text(item.assetTag||item.serialNumber||item.plate||item.id)).filter(Boolean);
+  if(assetTags.length)return {kind:"unit",unitIds:units.map(item=>text(item.id)),assetTags,lotId:"",lotCode:"",
+    label:`Patrimônio: ${assetTags.join(", ")}`};
+  if(lot)return {kind:"lot",unitIds:[],assetTags:[],lotId:text(lot.id),lotCode:text(lot.lotCode||lot.id),
+    label:`Lote: ${text(lot.lotCode||lot.id)}`};
+  const legacyAsset=text(equipment?.patrimonio);
+  if(legacyAsset)return {kind:"legacy",unitIds:[],assetTags:[legacyAsset],lotId:"",lotCode:"",
+    label:`Patrimônio legado: ${legacyAsset}`};
+  const amount=Math.max(1,number(record?.quantidade||equipment?.quantidadeTotal)||1);
+  return {kind:"legacy-lot",unitIds:[],assetTags:[],lotId:"",lotCode:"",
+    label:`Lote legado: ${amount} un.`};
+};
+
 const onDate=(event,asOf)=>isActiveUnavailability(event)
   &&event.startDate<=asOf&&(!event.endDate||event.endDate>=asOf);
 const locationType=event=>event.type==="rental"||event.type==="reservation"?"work"

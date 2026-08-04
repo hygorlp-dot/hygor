@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { physicalIdentityForRecord } from "./registry.js";
 
 const percentual=(parte,total)=>total>0?(parte/total)*100:0;
 const numero=value=>Number(value||0);
@@ -43,8 +44,9 @@ export default function EquipmentBillingReports({
       ...detail,
       obra,
       equipamento:line.equip,
+      physicalIdentity:physicalIdentityForRecord(data,detail,line.equip),
     })))
-  ),[matrix]);
+  ),[data,matrix]);
   const selectedWork=worksWithMovement.find(obra=>obra.id===workId)||null;
   const selectedTotal=selectedWork?matrix.totaisPorObra[selectedWork.id]:null;
   const selectedDetails=useMemo(()=>details
@@ -110,8 +112,10 @@ export default function EquipmentBillingReports({
   const selectedEquipment=useMemo(()=>{
     const grouped=new Map();
     selectedDetails.forEach(detail=>{
-      const current=grouped.get(detail.equipamento.id)||{
+      const key=`${detail.equipamento.id}:${detail.physicalIdentity.label}`;
+      const current=grouped.get(key)||{
         equipamento:detail.equipamento,
+        physicalIdentity:detail.physicalIdentity,
         rentals:0,
         quantity:0,
         unitDays:0,
@@ -127,11 +131,11 @@ export default function EquipmentBillingReports({
       if(detail.inicio)current.starts.push(detail.inicio);
       if(detail.fim)current.ends.push(detail.fim);
       current.inProgress=current.inProgress||detail.status==="em_andamento";
-      grouped.set(detail.equipamento.id,current);
+      grouped.set(key,current);
     });
     const query=equipmentQuery.trim().toLocaleLowerCase("pt-BR");
     return [...grouped.values()].filter(row=>!query||[
-      row.equipamento.nome,row.equipamento.patrimonio,row.equipamento.categoria,
+      row.equipamento.nome,row.physicalIdentity.label,row.equipamento.patrimonio,row.equipamento.categoria,
     ].some(value=>String(value||"").toLocaleLowerCase("pt-BR").includes(query)));
   },[selectedDetails,equipmentQuery]);
   const selectedAddress=selectedWork?.address||selectedWork?.endereco||"";
@@ -250,7 +254,7 @@ export default function EquipmentBillingReports({
             <table>
               <thead><tr><th>Equipamento</th><th>Propriedade</th><th className="num">Dias contrato</th><th className="num">Diárias-un.</th><th className="num">Receita</th><th className="num">Descontos</th><th className="num">Repasse</th><th className="num">Manutenção</th><th className="num">Resultado</th><th className="num">Margem</th></tr></thead>
               <tbody>{equipmentRanking.length?equipmentRanking.map(line=><tr key={line.equip.id}>
-                <td><strong>{line.equip.nome}</strong><small>{line.equip.patrimonio||line.equip.categoria||"Sem patrimônio"}</small></td>
+                <td><strong>{line.equip.nome}</strong><small>{physicalIdentityForRecord(data,{},line.equip).label}</small></td>
                 <td>{line.proprio?"Empresa":ownerName(line.equip.proprietarioId)}</td><td className="num">{line.diasContrato}</td><td className="num">{line.unidadeDias}</td>
                 <td className="num positive">{formatCurrency(line.receita)}</td><td className="num">{formatCurrency(line.descontos)}</td>
                 <td className="num">{formatCurrency(line.custoDono)}</td><td className="num">{formatCurrency(line.manut)}</td>
@@ -334,7 +338,7 @@ export default function EquipmentBillingReports({
               <table>
                 <thead><tr><th>Equipamento</th><th>Período</th><th className="num">Qtd.</th><th className="num">Dias contrato</th><th className="num">Diárias-un.</th><th>Composição</th><th className="num">Bruto</th><th className="num">Desconto</th><th className="num">Cobrança</th></tr></thead>
                 <tbody>{selectedDetails.map(detail=><tr key={`${detail.equipamento.id}-${detail.locacaoId}`}>
-                  <td><strong>{detail.equipamento.nome}</strong><small>{detail.equipamento.patrimonio||detail.equipamento.categoria||"Sem patrimônio"}{detail.observacao?` · ${detail.observacao}`:""}</small><div className="equipment-rental-row-actions">
+                  <td><strong>{detail.equipamento.nome}</strong><small>{detail.physicalIdentity.label}{detail.observacao?` · ${detail.observacao}`:""}</small><div className="equipment-rental-row-actions">
                     <button type="button" onClick={()=>onEditRental?.(detail.locacaoId)}>Editar locação</button>
                     <button type="button" className="is-danger" onClick={()=>onDeleteRental?.(detail.locacaoId)}>Excluir</button>
                   </div></td>
@@ -404,10 +408,10 @@ export default function EquipmentBillingReports({
               {selectedEquipment.length?selectedEquipment.map(row=>{
                 const first=row.starts.slice().sort()[0];
                 const last=row.ends.slice().sort().at(-1);
-                return <article key={row.equipamento.id}>
+                return <article key={`${row.equipamento.id}-${row.physicalIdentity.label}`}>
                   <div className="equipment-location-equipment__identity">
                     <span className={`equipment-location-equipment__status ${row.inProgress?"is-active":""}`}/>
-                    <div><strong>{row.equipamento.nome}</strong><small>{row.equipamento.patrimonio||"Sem patrimônio"} · {row.equipamento.categoria||"Sem categoria"}</small></div>
+                    <div><strong>{row.equipamento.nome}</strong><small>{row.physicalIdentity.label} · {row.equipamento.categoria||"Sem categoria"}</small></div>
                   </div>
                   <div><span>PERMANÊNCIA</span><strong>{first&&last?`${formatDate(first)} — ${formatDate(last)}`:"Período não informado"}</strong><small>{row.inProgress?"Em andamento":"Movimentação encerrada"}</small></div>
                   <div><span>QUANTIDADE</span><strong>{row.quantity}</strong><small>{row.rentals} locação(ões)</small></div>
