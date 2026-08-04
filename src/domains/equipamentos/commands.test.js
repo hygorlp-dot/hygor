@@ -13,6 +13,18 @@ const equipment=(overrides={})=>({
 const base=()=>({obras:[{id:"obra-a"},{id:"obra-b"}],equipamentos:[],locacoesEquip:[],manutencoesEquip:[],transferenciasEquip:[]});
 
 describe("comandos transacionais de equipamentos",()=>{
+  it("materializa o cadastro físico legado uma única vez com auditoria",()=>{
+    const initial={...base(),equipamentos:[equipment({quantidadeTotal:1,patrimonio:"EQ-1"})]};
+    const result=applyOperationalCommand(initial,command(
+      OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,"equipment-registry-migration-0001",{},0,
+    ));
+    expect(result.ok).toBe(true);
+    expect(result.data.equipmentModels).toHaveLength(1);
+    expect(result.data.equipmentUnits).toHaveLength(1);
+    expect(result.data.equipamentos).toEqual(initial.equipamentos);
+    expect(result.data.equipmentRegistryMigration).toMatchObject({version:1,migratedById:"u-1"});
+  });
+
   it("cria, versiona e impede sobrescrita de equipamento",()=>{
     const created=applyOperationalCommand(base(),command(OPERATIONAL_COMMAND.EQUIPMENT_SAVED,"equipment-save-0001",{equipment:equipment()},0));
     expect(created.ok).toBe(true);

@@ -5,6 +5,7 @@ import {
 } from "./availability.js";
 import { diasLocacaoNoPeriodo, validateRentalDiscounts } from "./calculations.js";
 import { isValidIsoDate } from "./date.js";
+import { migrateLegacyEquipmentRegistry } from "./registry.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
@@ -75,6 +76,7 @@ const commercialSnapshot=(input,equipment,command,now)=>{
 };
 
 export const EQUIPMENT_COMMAND=Object.freeze({
+  EQUIPMENT_REGISTRY_MIGRATED:"CADASTRO_FISICO_EQUIPAMENTOS_MIGRADO",
   EQUIPMENT_SAVED:"EQUIPAMENTO_SALVO",
   EQUIPMENT_DEACTIVATED:"EQUIPAMENTO_INATIVADO",
   EQUIPMENT_RENTAL_SAVED:"LOCACAO_EQUIPAMENTO_SALVA",
@@ -92,6 +94,7 @@ export const EQUIPMENT_COMMAND_TYPES=new Set(Object.values(EQUIPMENT_COMMAND));
 
 export const equipmentCommandObraId=(data={},command={})=>{
   const payload=command.payload||{};
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_REGISTRY_MIGRATED)return "";
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_SAVED)return String(payload.equipment?.obraAtualId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_DEACTIVATED)return String(list(data,"equipamentos").find(item=>item.id===payload.equipmentId)?.obraAtualId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_SAVED)return String(payload.rental?.obraId||"");
@@ -110,6 +113,20 @@ export const equipmentCommandObraId=(data={},command={})=>{
 
 export const applyEquipmentCommand=(data={},command={},now=new Date().toISOString())=>{
   const payload=command.payload||{};
+
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_REGISTRY_MIGRATED){
+    const currentVersion=Number(data?.equipmentRegistryMigration?.version||0);
+    if(command.expectedVersion!=null&&currentVersion!==Number(command.expectedVersion))return fail("O cadastro físico foi migrado por outra pessoa. Atualize os dados antes de tentar novamente.");
+    if(currentVersion>=1)return {ok:true,data,entityId:"equipment-registry-v1"};
+    const migrated=migrateLegacyEquipmentRegistry(data);
+    migrated.equipmentRegistryMigration={...migrated.equipmentRegistryMigration,migratedAt:now,
+      migratedById:command.actorId||"",version:1,operationalHistory:[{
+        id:`equipment_registry_migrated_${command.idempotencyKey}`,type:"EQUIPMENT_REGISTRY_MIGRATED",
+        at:now,actorId:command.actorId||"",actorName:command.actorName||"",
+        report:migrated.equipmentRegistryMigration.report,
+      }]};
+    return {ok:true,data:migrated,entityId:"equipment-registry-v1"};
+  }
 
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_SAVED){
     const input=normalizeEquipment(payload.equipment||{});

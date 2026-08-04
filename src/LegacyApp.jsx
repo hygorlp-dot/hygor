@@ -1538,6 +1538,9 @@ const normalizeData = incoming => {
       createdBy:item.createdBy||item.created_by||"",updatedAt:item.updatedAt||"",
       operationalHistory:Array.isArray(item.operationalHistory)?item.operationalHistory:[],
     })) : [],
+    equipmentModels:Array.isArray(d.equipmentModels)?d.equipmentModels:[],
+    equipmentLots:Array.isArray(d.equipmentLots)?d.equipmentLots:[],
+    equipmentUnits:Array.isArray(d.equipmentUnits)?d.equipmentUnits:[],
     // attendance: { empId: { "2026-07-01": { status, ot, note, obraId } } }
     // obraId é NOVO. Registros antigos não têm - o cálculo cai na obra de
     // lotação para eles, preservando os valores históricos.

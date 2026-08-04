@@ -19,6 +19,12 @@ describe("escopo servidor de comandos operacionais",()=>{
     rescisoes:[{id:"resc-a",obraId:"obra-a",version:1}],
   };
   const user={id:"u-1",role:"engenheiro",obraId:"obra-a"};
+  it("reserva a migração do cadastro físico de equipamentos ao administrador",()=>{
+    const command={type:OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,payload:{}};
+    expect(validateOperationalCommandScope({user:{role:"admin"},data,command})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user,data,command})).toMatchObject({ok:false});
+  });
+
   it("aceita somente a obra atribuída em criação e cancelamento de medição",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,payload:{measurement:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,payload:{measurement:{obraId:"obra-b"}}}})).toMatchObject({ok:false});

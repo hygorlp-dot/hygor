@@ -1,0 +1,48 @@
+# Equipamentos — Fase 3: cadastro físico
+
+Data de início: 4 de agosto de 2026.
+
+## Objetivo
+
+Separar o cadastro legado, que representa ao mesmo tempo produto e quantidade,
+nos conceitos `equipmentModels`, `equipmentLots` e `equipmentUnits`, preservando
+integralmente `equipamentos` e todos os vínculos históricos existentes.
+
+## Primeiro incremento implementado
+
+- projeção determinística do legado, sem gravação automática ao abrir a tela;
+- modelo para cada origem legada;
+- unidade física para registro unitário com patrimônio;
+- lote para itens controlados por quantidade;
+- marcação de ambiguidades para registro unitário sem patrimônio ou registro
+  com quantidade múltipla e um único patrimônio;
+- relatório com unidades, lotes e itens que exigem revisão manual;
+- localização derivada das alocações do calendário único, sem depender de
+  `obraAtualId`;
+- fracionamento da localização de um lote entre várias obras e depósito;
+- comando corporativo, idempotente, versionado, auditável e exclusivo do
+  administrador para materializar a projeção no snapshot;
+- leitura compatível das três coleções novas na normalização do cliente.
+
+## Compatibilidade
+
+Os identificadores derivados usam o formato `legacy-model:<id>`,
+`legacy-lot:<id>` e `legacy-unit:<id>`. A origem permanece em
+`legacySourceId`. Coleções já materializadas têm precedência sobre a projeção,
+impedindo duplicidade em execuções repetidas.
+
+A coleção `equipamentos` não é removida nem modificada pela migração. Locações,
+manutenções, transferências, indisponibilidades, tarifas e relatórios continuam
+lendo os identificadores legados durante a transição.
+
+## Próximos incrementos da fase
+
+1. formulários próprios para modelo, lote e unidade;
+2. seleção de lote ou unidades físicas em locação, manutenção e transferência;
+3. mapa operacional consumindo exclusivamente a localização derivada;
+4. adaptação gradual dos relatórios e exportações;
+5. relatório administrativo para resolver os itens ambíguos;
+6. gates completos de cobertura, build e E2E antes de encerrar a fase.
+
+Este documento registra o início da fase. Os critérios de conclusão do roteiro
+ainda não estão declarados como atendidos.

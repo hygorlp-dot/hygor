@@ -7,6 +7,7 @@ import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js
 // transacional durante o clique. A projeção financeira os consome depois que a
 // gravação operacional curta foi confirmada.
 const AUDIT_ONLY_EQUIPMENT_COMMANDS=new Set([
+  OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,
   OPERATIONAL_COMMAND.EQUIPMENT_SAVED,
   OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,
