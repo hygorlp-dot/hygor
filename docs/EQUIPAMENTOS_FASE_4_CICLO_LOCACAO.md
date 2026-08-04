@@ -173,4 +173,21 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
 - interface permite escolher a unidade atual e uma substituta elegível;
 - testes de domínio, comando, servidor e smoke E2E cobrem a operação.
 
-A Fase 4 ainda não está concluída.
+## Gate final e encerramento
+
+- os 17 estados do roteiro estão modelados e todas as transições passam pelo
+  domínio e por comando versionado, idempotente e auditável;
+- separação, expedição, entrega, devolução, inspeção e conclusão de ajuste
+  exigem evidência operacional antes do avanço ou encerramento;
+- expedição, entrega e devolução parciais preservam o saldo da locação;
+- substituição de unidade, prorrogação e renovação mantêm o histórico e o
+  snapshot comercial;
+- disponibilidade e localização física acompanham o estágio atual;
+- locações legadas continuam compatíveis sem reescrita destrutiva;
+- cancelamento faturado permanece bloqueado até o processo de estorno da Fase
+  5, evitando alteração financeira fora do motor canônico;
+- cobertura final: 901 testes em 194 arquivos, 83,21% de statements, 65,31%
+  de branches, 85,11% de funções e 90,85% de linhas;
+- typecheck, lint, build de produção e smoke E2E desktop aprovados.
+
+Status: **Fase 4 concluída em 4 de agosto de 2026.**
