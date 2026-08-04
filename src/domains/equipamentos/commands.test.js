@@ -155,6 +155,20 @@ describe("comandos transacionais de equipamentos",()=>{
     });
   });
 
+  it("substitui unidade física sem alterar o contrato",()=>{
+    const snapshot={tarifas:{dia:100}};
+    const initial={...base(),equipamentos:[equipment()],equipmentModels:[{id:"m1",legacySourceId:"eq-1"}],
+      equipmentUnits:[{id:"u1",modelId:"m1",assetTag:"A"},{id:"u2",modelId:"m1",assetTag:"B"}],
+      locacoesEquip:[{id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",quantidade:1,
+        equipmentUnitIds:["u1"],equipmentUnitId:"u1",lifecycleState:"active",status:"ativa",commercialSnapshot:snapshot,version:1}]};
+    const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED,"rental-replace-unit-0001",{
+      rentalId:"loc-1",replacement:{outgoingUnitId:"u1",incomingUnitId:"u2",date:"2026-08-04",reason:"Avaria"},
+    },1));
+    expect(result.ok).toBe(true);
+    expect(result.data.locacoesEquip[0]).toMatchObject({equipmentUnitIds:["u2"],equipmentUnitId:"u2",commercialSnapshot:snapshot,version:2});
+    expect(result.data.locacoesEquip[0].rentalReplacements[0]).toMatchObject({outgoingUnitId:"u1",incomingUnitId:"u2",createdById:"u-1"});
+  });
+
   it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],
       equipmentRegistryMigration:{version:1},

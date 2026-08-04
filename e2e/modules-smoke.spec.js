@@ -36,13 +36,19 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     ],
     equipamentos:[
       {id:"eq-qa",nome:"Betoneira QA",patrimonio:"EQ-QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:100}},
-      {id:"eq-partial-qa",nome:"Plataforma parcial QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:50}},
+      {id:"eq-partial-qa",nome:"Plataforma parcial QA",ativo:true,status:"disponivel",quantidadeTotal:3,version:1,tarifas:{dia:50}},
+    ],
+    equipmentModels:[{id:"model-partial-qa",name:"Plataforma parcial QA",legacySourceId:"eq-partial-qa"}],
+    equipmentUnits:[
+      {id:"unit-partial-1",modelId:"model-partial-qa",assetTag:"PLAT-01"},
+      {id:"unit-partial-2",modelId:"model-partial-qa",assetTag:"PLAT-02"},
+      {id:"unit-partial-3",modelId:"model-partial-qa",assetTag:"PLAT-03"},
     ],
     locacoesEquip:[
       {id:"rental-lifecycle-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-09-01",fim:"",plannedEndDate:"2026-09-30",quantidade:1,status:"ativa",lifecycleState:"active",version:1,tarifas:{dia:100}},
       {id:"rental-separation-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-07-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"separating",version:1,tarifas:{dia:100}},
       {id:"rental-return-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-11-01",fim:"",quantidade:2,status:"ativa",lifecycleState:"pickup_requested",version:1,tarifas:{dia:100}},
-      {id:"rental-partial-dispatch-qa",equipamentoId:"eq-partial-qa",obraId:"obra-qa",inicio:"2026-06-01",fim:"",quantidade:2,status:"ativa",lifecycleState:"ready_for_dispatch",version:1,tarifas:{dia:50}},
+      {id:"rental-partial-dispatch-qa",equipamentoId:"eq-partial-qa",obraId:"obra-qa",inicio:"2026-06-01",fim:"",quantidade:2,equipmentUnitIds:["unit-partial-1","unit-partial-2"],status:"ativa",lifecycleState:"ready_for_dispatch",version:1,tarifas:{dia:50}},
     ],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
     orcamentos:[
       {
@@ -185,6 +191,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(partialDispatchDialog.getByLabel("Quantidade *")).toHaveValue("1");
         await expect(partialDispatchDialog.getByRole("button",{name:"Salvar checklist"})).toBeVisible();
         await partialDispatchDialog.getByRole("button",{name:"Cancelar"}).click();
+        await page.getByRole("button",{name:"Substituir unidade"}).click();
+        const replacementDialog=page.getByRole("dialog",{name:/Substituir unidade · Plataforma parcial QA/});
+        await expect(replacementDialog.getByLabel("Unidade atual *")).toBeVisible();
+        await expect(replacementDialog.getByLabel("Unidade substituta *").locator('option[value="unit-partial-3"]')).toHaveCount(1);
+        await replacementDialog.getByRole("button",{name:"Cancelar"}).click();
         await page.getByRole("button",{name:"Checklist: Separação"}).click();
         const checklistDialog=page.getByRole("dialog",{name:/Separação · Betoneira QA/});
         await expect(checklistDialog.getByText("EVIDÊNCIA OPERACIONAL OBRIGATÓRIA")).toBeVisible();

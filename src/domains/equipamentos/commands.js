@@ -1,5 +1,6 @@
 import {
   EQUIPMENT_UNAVAILABILITY_TYPE,
+  buildEquipmentUnavailability,
   fleetAvailability,
   rentalAvailability,
 } from "./availability.js";
@@ -9,6 +10,7 @@ import { buildEquipmentRegistry,deriveEquipmentLocations,migrateLegacyEquipmentR
 import { validateRentalClosure,validateRentalTransition } from "./rental-lifecycle.js";
 import { validateRentalCheckpoint } from "./rental-checkpoints.js";
 import { RENTAL_AMENDMENT_TYPE,validateRentalAmendment } from "./rental-amendments.js";
+import { validateRentalReplacement } from "./rental-replacements.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
@@ -89,6 +91,7 @@ export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_RENTAL_TRANSITIONED:"LOCACAO_EQUIPAMENTO_ESTADO_ALTERADO",
   EQUIPMENT_RENTAL_CHECKPOINT_RECORDED:"LOCACAO_EQUIPAMENTO_CHECKLIST_REGISTRADO",
   EQUIPMENT_RENTAL_AMENDED:"LOCACAO_EQUIPAMENTO_ADITIVADA",
+  EQUIPMENT_RENTAL_UNIT_REPLACED:"LOCACAO_EQUIPAMENTO_UNIDADE_SUBSTITUIDA",
   EQUIPMENT_RESERVATION_SAVED:"RESERVA_EQUIPAMENTO_SALVA",
   EQUIPMENT_RESERVATION_CANCELLED:"RESERVA_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_UNAVAILABILITY_SAVED:"INDISPONIBILIDADE_EQUIPAMENTO_SALVA",
@@ -111,6 +114,7 @@ export const equipmentCommandObraId=(data={},command={})=>{
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_AMENDED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_SAVED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED].includes(command.type))return String(payload.unavailability?.workId||"");
   if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_CANCELLED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED].includes(command.type))return String(unavailabilityList(data).find(item=>item.id===payload.unavailabilityId)?.workId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){
@@ -397,6 +401,27 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
       renewalPeriods,version:versionOf(current)+1,updatedAt:now};
     record.operationalHistory=audit(current,command,now,"EQUIPMENT_RENTAL_AMENDED",{amendmentId:amendment.id,amendmentType:amendment.type,newEndDate:amendment.newEndDate});
     return {ok:true,data:replace(data,"locacoesEquip",id,record),entityId:id};
+  }
+
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED){
+    const id=String(payload.rentalId||""),current=list(data,"locacoesEquip").find(item=>String(item.id)===id);
+    if(!current)return fail("Locação não encontrada.");
+    const stale=versionError(current,command.expectedVersion,"A locação");if(stale)return fail(stale);
+    const registry=buildEquipmentRegistry(data),validation=validateRentalReplacement(current,payload.replacement||{},registry.units);
+    if(!validation.ok)return fail(validation.reason);
+    const incoming=registry.units.find(item=>String(item.id)===validation.record.incomingUnitId);
+    const model=registry.models.find(item=>String(item.id)===String(incoming?.modelId));
+    if(String(model?.legacySourceId||incoming?.legacySourceId||"")!==String(current.equipamentoId))return fail("A unidade substituta deve pertencer ao mesmo equipamento.");
+    const conflicts=buildEquipmentUnavailability(data).filter(event=>event.rentalId!==id&&event.status!=="cancelada"&&event.status!=="inativa"
+      &&(event.equipmentUnitIds||[]).map(String).includes(validation.record.incomingUnitId));
+    if(conflicts.length)return fail("A unidade substituta está indisponível em outra alocação.");
+    const replacement={...validation.record,id:`rental_replacement_${command.idempotencyKey}`,createdAt:now,createdById:command.actorId||"",createdBy:command.actorName||""};
+    const unitIds=(current.equipmentUnitIds||[]).map(String).map(unitId=>unitId===replacement.outgoingUnitId?replacement.incomingUnitId:unitId);
+    const record={...current,equipmentUnitIds:unitIds,equipmentUnitId:unitIds.length===1?unitIds[0]:"",rentalReplacements:[...(current.rentalReplacements||[]),replacement].slice(-100),version:versionOf(current)+1,updatedAt:now};
+    record.operationalHistory=audit(current,command,now,"EQUIPMENT_RENTAL_UNIT_REPLACED",replacement);
+    let next=replace(data,"locacoesEquip",id,record);const event=unavailabilityList(next).find(item=>String(item.rentalId)===id);
+    if(event)next=upsertUnavailability(next,{...event,equipmentUnitIds:unitIds,equipmentUnitId:unitIds.length===1?unitIds[0]:"",version:versionOf(event)+1,updatedAt:now});
+    return {ok:true,data:next,entityId:id};
   }
 
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){

@@ -160,4 +160,17 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
 - a interface oferece ações próprias e seleção das unidades ainda pendentes;
 - testes unitários e smoke E2E cobrem o fluxo parcial.
 
+## Décimo primeiro incremento
+
+- substituição de unidade física preserva a mesma locação e o snapshot
+  comercial contratado;
+- unidade retirada e unidade substituta ficam registradas em fato imutável;
+- data, motivo, operador, versão e chave de idempotência são obrigatórios;
+- a substituta precisa pertencer ao mesmo modelo de equipamento e estar livre;
+- o evento de disponibilidade materializado passa a apontar para a nova
+  identidade física;
+- trocas após devolução, encerramento ou cancelamento são recusadas;
+- interface permite escolher a unidade atual e uma substituta elegível;
+- testes de domínio, comando, servidor e smoke E2E cobrem a operação.
+
 A Fase 4 ainda não está concluída.
