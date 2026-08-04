@@ -6,7 +6,7 @@ import {
 import { diasLocacaoNoPeriodo, validateRentalDiscounts } from "./calculations.js";
 import { isValidIsoDate } from "./date.js";
 import { buildEquipmentRegistry,deriveEquipmentLocations,migrateLegacyEquipmentRegistry } from "./registry.js";
-import { validateRentalTransition } from "./rental-lifecycle.js";
+import { validateRentalClosure,validateRentalTransition } from "./rental-lifecycle.js";
 import { validateRentalCheckpoint } from "./rental-checkpoints.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
@@ -297,6 +297,8 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const stale=versionError(current,command.expectedVersion,"A locação");
     if(stale)return fail(stale);
     if(current.fim)return fail("A locação já está encerrada.");
+    const closure=validateRentalClosure(current);
+    if(!closure.ok)return fail(closure.reason);
     const endDate=String(payload.endDate||"");
     if(!isValidIsoDate(endDate)||endDate<String(current.inicio||""))return fail("Informe uma data de término válida.");
     const record={...current,fim:endDate,status:"encerrada",lifecycleState:"closed",version:versionOf(current)+1,updatedAt:now,

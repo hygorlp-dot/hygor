@@ -39,7 +39,12 @@ export const normalizeRentalState=value=>{
   return RENTAL_STATES.includes(state)?state:RENTAL_STATE.DRAFT;
 };
 
-export const availableRentalTransitions=value=>[...(transitions[normalizeRentalState(value)]||[])];
+export const availableRentalTransitions=(value,{checkpoints=[]}={})=>{
+  const state=normalizeRentalState(value),next=[...(transitions[state]||[])];
+  if(state!==RENTAL_STATE.UNDER_INSPECTION)return next;
+  const inspection=[...checkpoints].reverse().find(item=>item.type==="inspection"&&item.status!=="cancelled");
+  return next.filter(item=>inspection?.needsAdjustment?item===RENTAL_STATE.AWAITING_ADJUSTMENT:item===RENTAL_STATE.CLOSED);
+};
 
 export const validateRentalTransition=(currentState,nextState,{reason="",hasBilling=false,checkpoints=[],rentalQuantity=1}={})=>{
   const rawTo=String(nextState||"").trim().toLowerCase();
@@ -49,6 +54,13 @@ export const validateRentalTransition=(currentState,nextState,{reason="",hasBill
   if(!(transitions[from]||[]).includes(to))return {ok:false,reason:`Transição de ${from} para ${to} não permitida.`};
   if(to===RENTAL_STATE.CANCELLED&&!String(reason||"").trim())return {ok:false,reason:"Informe a justificativa do cancelamento."};
   if(to===RENTAL_STATE.CANCELLED&&hasBilling)return {ok:false,reason:"Locação faturada exige processo de estorno antes do cancelamento."};
+  const inspection=[...checkpoints].reverse().find(item=>item.type==="inspection"&&item.status!=="cancelled");
+  if(from===RENTAL_STATE.UNDER_INSPECTION&&to===RENTAL_STATE.AWAITING_ADJUSTMENT&&!inspection?.needsAdjustment){
+    return {ok:false,reason:"A inspeção não indicou necessidade de ajuste."};
+  }
+  if(from===RENTAL_STATE.UNDER_INSPECTION&&to===RENTAL_STATE.CLOSED&&inspection?.needsAdjustment){
+    return {ok:false,reason:"Resolva os ajustes apontados pela inspeção antes de encerrar."};
+  }
   const requiredCheckpoint={ready_for_dispatch:"separation",in_transport:"dispatch",delivered:"delivery",
     returned:"return",under_inspection:"inspection"}[to];
   if(requiredCheckpoint&&!checkpoints.some(item=>item.type===requiredCheckpoint&&item.status!=="cancelled")){
@@ -60,4 +72,15 @@ export const validateRentalTransition=(currentState,nextState,{reason="",hasBill
     if(returned<Math.max(1,Number(rentalQuantity||1)))return {ok:false,reason:"Ainda existem unidades pendentes de devolução."};
   }
   return {ok:true,from,to};
+};
+
+export const validateRentalClosure=rental=>{
+  if(!rental?.lifecycleState)return {ok:true,legacy:true};
+  const state=normalizeRentalState(rental.lifecycleState);
+  if(![RENTAL_STATE.UNDER_INSPECTION,RENTAL_STATE.AWAITING_ADJUSTMENT].includes(state)){
+    return {ok:false,reason:"A locação só pode ser encerrada após devolução e inspeção."};
+  }
+  const inspection=[...(rental.rentalCheckpoints||[])].reverse().find(item=>item.type==="inspection"&&item.status!=="cancelled");
+  if(state===RENTAL_STATE.UNDER_INSPECTION&&inspection?.needsAdjustment)return {ok:false,reason:"Resolva os ajustes apontados pela inspeção antes de encerrar."};
+  return {ok:true,legacy:false};
 };

@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {availableRentalTransitions,normalizeRentalState,rentalStateLabel,RENTAL_STATE,validateRentalTransition} from "./rental-lifecycle.js";
+import {availableRentalTransitions,normalizeRentalState,rentalStateLabel,RENTAL_STATE,validateRentalClosure,validateRentalTransition} from "./rental-lifecycle.js";
 
 describe("ciclo completo da locação",()=>{
   it("normaliza estados legados sem alterar os registros",()=>{
@@ -30,5 +30,16 @@ describe("ciclo completo da locação",()=>{
     expect(validateRentalTransition(RENTAL_STATE.QUOTED,RENTAL_STATE.CANCELLED).reason).toMatch(/justificativa/);
     expect(validateRentalTransition(RENTAL_STATE.QUOTED,RENTAL_STATE.CANCELLED,{reason:"Cliente desistiu",hasBilling:true}).reason).toMatch(/estorno/);
     expect(validateRentalTransition(RENTAL_STATE.QUOTED,RENTAL_STATE.CANCELLED,{reason:"Cliente desistiu"}).ok).toBe(true);
+  });
+  it("usa o resultado da inspeção para decidir ajuste ou encerramento",()=>{
+    const clear=[{type:"inspection",needsAdjustment:false}],damaged=[{type:"inspection",needsAdjustment:true}];
+    expect(availableRentalTransitions("under_inspection",{checkpoints:clear})).toEqual(["closed"]);
+    expect(availableRentalTransitions("under_inspection",{checkpoints:damaged})).toEqual(["awaiting_adjustment"]);
+    expect(validateRentalTransition("under_inspection","closed",{checkpoints:damaged}).reason).toMatch(/Resolva os ajustes/);
+  });
+  it("bloqueia encerramento novo antes da inspeção e preserva legado",()=>{
+    expect(validateRentalClosure({status:"ativa"})).toMatchObject({ok:true,legacy:true});
+    expect(validateRentalClosure({status:"ativa",lifecycleState:"active"}).reason).toMatch(/após devolução e inspeção/);
+    expect(validateRentalClosure({lifecycleState:"under_inspection",rentalCheckpoints:[{type:"inspection",needsAdjustment:false}]}).ok).toBe(true);
   });
 });

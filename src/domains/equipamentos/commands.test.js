@@ -183,7 +183,10 @@ describe("comandos transacionais de equipamentos",()=>{
     }},0));
     expect(excess).toMatchObject({ok:false});
     expect(excess.reason).toMatch(/indisponível.*2026-07-15.*2 locada.*0 livre.*1 solicitada/);
-    const closeOne=applyOperationalCommand(second.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,"equipment-rental-close-0001",{rentalId:"loc-1",endDate:"2026-07-20"},1));
+    const prematureClose=applyOperationalCommand(second.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,"equipment-rental-premature-close-0001",{rentalId:"loc-1",endDate:"2026-07-20"},1));
+    expect(prematureClose.reason).toMatch(/após devolução e inspeção/);
+    const closable={...second.data,locacoesEquip:second.data.locacoesEquip.map(item=>({...item,lifecycleState:"under_inspection",rentalCheckpoints:[{type:"inspection",needsAdjustment:false}]}))};
+    const closeOne=applyOperationalCommand(closable,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,"equipment-rental-close-0001",{rentalId:"loc-1",endDate:"2026-07-20"},1));
     expect(closeOne.data.equipamentos[0].status).toBe("locado");
     const closeTwo=applyOperationalCommand(closeOne.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,"equipment-rental-close-0002",{rentalId:"loc-2",endDate:"2026-07-20"},1));
     expect(closeTwo.data.locacoesEquip.find(item=>item.id==="loc-2")).toMatchObject({status:"encerrada",lifecycleState:"closed"});

@@ -163,6 +163,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await page.getByRole("button",{name:/Locações/}).click();
         await expect(page.getByText("CICLO · ATIVA")).toBeVisible();
         await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
+        await expect(page.getByRole("button",{name:"Encerrar"})).toHaveCount(0);
         await page.getByRole("button",{name:"Checklist: Separação"}).click();
         const checklistDialog=page.getByRole("dialog",{name:/Separação · Betoneira QA/});
         await expect(checklistDialog.getByText("EVIDÊNCIA OPERACIONAL OBRIGATÓRIA")).toBeVisible();

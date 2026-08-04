@@ -106,4 +106,17 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
   físicas ainda em campo;
 - smoke E2E cobre a abertura do fluxo parcial sem encerrar a locação.
 
+## Sétimo incremento
+
+- locações com ciclo explícito não podem mais usar o encerramento legado antes
+  da devolução e inspeção;
+- o resultado da inspeção determina o próximo passo: encerramento quando não
+  há pendências ou `awaiting_adjustment` quando há ajuste necessário;
+- encerramento é recusado enquanto existirem ajustes apontados;
+- o botão **Encerrar** só aparece no momento compatível com o ciclo;
+- registros legados sem `lifecycleState` mantêm o encerramento antigo para não
+  interromper operações históricas;
+- testes de comando comprovam que a tentativa prematura é bloqueada;
+- smoke E2E confirma que uma locação ativa não exibe encerramento direto.
+
 A Fase 4 ainda não está concluída.

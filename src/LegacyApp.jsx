@@ -33761,7 +33761,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               const cancelada=l.status==="cancelada";
               const emAberto = !cancelada&&!l.fim;
               const lifecycleState=normalizeRentalState(l.lifecycleState||l.status);
-              const lifecycleNext=availableRentalTransitions(lifecycleState)
+              const lifecycleNext=availableRentalTransitions(lifecycleState,{checkpoints:l.rentalCheckpoints||[]})
                 .filter(state=>!["cancelled","closed"].includes(state));
               return (
                 <article key={l.id} className="equipment-record" data-active={emAberto}>
@@ -33812,7 +33812,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                         {checkpointType&&!recorded?`Checklist: ${CHECKPOINT_LABEL[checkpointType]}`:`Avançar: ${rentalStateLabel(nextState)}`}
                       </Btn>;
                     })}
-                    {emAberto && <Btn size="sm" v="ghost" onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
+                    {emAberto&&(!l.lifecycleState||["under_inspection","awaiting_adjustment"].includes(lifecycleState))&&<Btn size="sm" v="ghost" onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
                     {!cancelada&&<Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirLoc(l)}><Ic n="trash"/> Excluir</Btn>}
                   </div>
                 </article>
