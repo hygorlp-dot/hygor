@@ -1,4 +1,5 @@
 import { isValidIsoDate,isoPeriodsOverlap } from "./date.js";
+import { normalizeRentalState,rentalStateLabel } from "./rental-lifecycle.js";
 
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 const quantity=value=>Math.max(1,Math.trunc(number(value)||1));
@@ -59,8 +60,29 @@ const normalizedEvent=(item,defaults={})=>{
   };
 };
 
+export const rentalLifecycleAvailability=rental=>{
+  if(!rental?.lifecycleState)return {type:EQUIPMENT_UNAVAILABILITY_TYPE.RENTAL,
+    status:rental?.status||"ativa",affectsCapacity:true,reason:"Locação"};
+  const state=normalizeRentalState(rental.lifecycleState);
+  if(["draft","quoted","awaiting_approval","approved","cancelled"].includes(state))return {
+    type:EQUIPMENT_UNAVAILABILITY_TYPE.RESERVATION,status:"inativa",affectsCapacity:false,
+    reason:`Locação · ${rentalStateLabel(state)}`,
+  };
+  const type=["reserved","contracted","separating","ready_for_dispatch"].includes(state)
+    ?EQUIPMENT_UNAVAILABILITY_TYPE.RESERVATION
+    :state==="in_transport"?EQUIPMENT_UNAVAILABILITY_TYPE.TRANSPORT
+    :["returned","under_inspection"].includes(state)?EQUIPMENT_UNAVAILABILITY_TYPE.INSPECTION
+    :state==="awaiting_adjustment"?EQUIPMENT_UNAVAILABILITY_TYPE.DAMAGE
+    :EQUIPMENT_UNAVAILABILITY_TYPE.RENTAL;
+  return {type,status:rental.status||"ativa",affectsCapacity:true,reason:`Locação · ${rentalStateLabel(state)}`};
+};
+
 export const buildEquipmentUnavailability=(data={})=>{
-  const explicit=(data.equipmentUnavailability||[]).map(item=>normalizedEvent(item));
+  const rentals=new Map((data.locacoesEquip||[]).map(item=>[String(item.id||""),item]));
+  const explicit=(data.equipmentUnavailability||[]).map(item=>{
+    const rental=rentals.get(String(item.rentalId||item.rental_id||""));
+    return normalizedEvent(rental?{...item,...rentalLifecycleAvailability(rental)}:item);
+  });
   const rentalLinks=new Set(explicit.map(item=>item.rentalId).filter(Boolean));
   const maintenanceLinks=new Set(explicit.map(item=>item.maintenanceId).filter(Boolean));
   const transportLinks=new Set(explicit.map(item=>item.transferId).filter(Boolean));
@@ -68,11 +90,12 @@ export const buildEquipmentUnavailability=(data={})=>{
 
   for(const item of data.locacoesEquip||[]){
     if(rentalLinks.has(String(item.id||"")))continue;
+    const lifecycle=rentalLifecycleAvailability(item);
     derived.push(normalizedEvent({}, {
       id:`legacy-rental:${item.id}`,equipmentId:item.equipamentoId,quantity:item.quantidade,
       equipmentUnitId:item.equipmentUnitId,equipmentUnitIds:item.equipmentUnitIds,equipmentLotId:item.equipmentLotId,
-      type:"rental",startDate:item.inicio,endDate:item.fim,reason:"Locação",
-      status:item.status,workId:item.obraId,rentalId:item.id,version:item.version,
+      ...lifecycle,startDate:item.inicio,endDate:item.fim,
+      workId:item.obraId,rentalId:item.id,version:item.version,
     }));
   }
   for(const item of data.manutencoesEquip||[]){

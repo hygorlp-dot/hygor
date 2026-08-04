@@ -37,7 +37,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     equipamentos:[{id:"eq-qa",nome:"Betoneira QA",patrimonio:"EQ-QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:100}}],
     locacoesEquip:[
       {id:"rental-lifecycle-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-09-01",fim:"",plannedEndDate:"2026-09-30",quantidade:1,status:"ativa",lifecycleState:"active",version:1,tarifas:{dia:100}},
-      {id:"rental-separation-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-10-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"separating",version:1,tarifas:{dia:100}},
+      {id:"rental-separation-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-07-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"separating",version:1,tarifas:{dia:100}},
       {id:"rental-return-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-11-01",fim:"",quantidade:2,status:"ativa",lifecycleState:"pickup_requested",version:1,tarifas:{dia:100}},
     ],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
     orcamentos:[
@@ -153,7 +153,9 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(page.getByText("Registro com várias unidades e um único patrimônio")).toBeVisible();
         await page.getByRole("button",{name:/Mapa de ocupação/}).click();
         await expect(page.getByText("R = Reserva")).toBeVisible();
-        await expect(page.getByText("livre 2").first()).toBeVisible();
+        await expect(page.getByText("livre 1").first()).toBeVisible();
+        await page.getByLabel("Mês").selectOption("2026-07");
+        await expect(page.getByText("R1").first()).toBeVisible();
         await page.getByRole("button",{name:/Reservar \/ bloquear/}).click();
         await expect(page.getByText("Reservar ou bloquear equipamento")).toBeVisible();
         await page.getByLabel("Equipamento *").selectOption("eq-qa");

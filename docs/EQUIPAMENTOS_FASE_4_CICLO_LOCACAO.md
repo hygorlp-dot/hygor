@@ -132,4 +132,18 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
 - formulário operacional permite alternar entre prorrogação e renovação;
 - smoke E2E cobre os dois formatos e a separação entre previsão e encerramento.
 
+## Nono incremento
+
+- a fonte única de disponibilidade passa a interpretar o estado explícito da
+  locação, inclusive quando já existe evento materializado;
+- rascunhos, orçamentos e aprovações ainda sem reserva não consomem capacidade;
+- reserva, contrato e separação aparecem como capacidade reservada;
+- transporte, utilização, inspeção e avaria são projetados nas respectivas
+  categorias do mapa de ocupação;
+- cancelamentos deixam de bloquear a frota imediatamente;
+- locações legadas sem `lifecycleState` continuam projetadas como locação para
+  preservar o comportamento histórico;
+- testes unitários cobrem todos os grupos de estado e o smoke E2E confirma a
+  projeção da separação como reserva.
+
 A Fase 4 ainda não está concluída.

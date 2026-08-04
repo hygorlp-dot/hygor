@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { buildEquipmentUnavailability,fleetAvailability,rentalAvailability } from "./availability.js";
+import { buildEquipmentUnavailability,fleetAvailability,rentalAvailability,rentalLifecycleAvailability } from "./availability.js";
 
 const equipment={id:"eq-1",ativo:true,status:"disponivel",quantidadeTotal:3};
 
@@ -43,5 +43,22 @@ describe("disponibilidade de equipamentos",()=>{
     expect(events.filter(item=>item.rentalId==="l1")).toHaveLength(1);
     expect(events.map(item=>item.type)).toEqual(["rental","maintenance","transport"]);
     expect(events.find(item=>item.type==="transport")).toMatchObject({quantity:0,affectsCapacity:false});
+  });
+
+  it("projeta cada estágio do ciclo na categoria correta",()=>{
+    expect(rentalLifecycleAvailability({lifecycleState:"draft",status:"ativa"})).toMatchObject({affectsCapacity:false,status:"inativa"});
+    expect(rentalLifecycleAvailability({lifecycleState:"reserved",status:"ativa"})).toMatchObject({type:"reservation",affectsCapacity:true});
+    expect(rentalLifecycleAvailability({lifecycleState:"in_transport",status:"ativa"})).toMatchObject({type:"transport",affectsCapacity:true});
+    expect(rentalLifecycleAvailability({lifecycleState:"active",status:"ativa"})).toMatchObject({type:"rental",affectsCapacity:true});
+    expect(rentalLifecycleAvailability({lifecycleState:"under_inspection",status:"ativa"})).toMatchObject({type:"inspection",affectsCapacity:true});
+    expect(rentalLifecycleAvailability({lifecycleState:"awaiting_adjustment",status:"ativa"})).toMatchObject({type:"damage",affectsCapacity:true});
+  });
+
+  it("sincroniza evento materializado quando a locação muda de estado",()=>{
+    const base={equipmentUnavailability:[{id:"u1",equipmentId:"eq-1",rentalId:"l1",type:"rental",quantity:1,startDate:"2026-08-01",status:"ativa"}]};
+    const transported=buildEquipmentUnavailability({...base,locacoesEquip:[{id:"l1",equipamentoId:"eq-1",inicio:"2026-08-01",quantidade:1,status:"ativa",lifecycleState:"in_transport"}]});
+    expect(transported[0]).toMatchObject({type:"transport",affectsCapacity:true});
+    const cancelled=buildEquipmentUnavailability({...base,locacoesEquip:[{id:"l1",equipamentoId:"eq-1",inicio:"2026-08-01",quantidade:1,status:"cancelada",lifecycleState:"cancelled"}]});
+    expect(cancelled[0]).toMatchObject({status:"inativa",affectsCapacity:false});
   });
 });
