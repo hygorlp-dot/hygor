@@ -108,10 +108,11 @@ Auditoria executada em 4 de agosto de 2026:
 - cobertura global: **90,61% de linhas**;
 - cobertura do domínio de equipamentos: **95,35% de linhas**;
 - typecheck, lint e build de produção: aprovados no quarto incremento;
-- E2E de cadastro físico: cenário localizado em
-  `e2e/modules-smoke.spec.js`, porém a execução não iniciou o navegador porque
-  o ambiente não possui a biblioteca nativa `libnspr4.so`.
+- E2E de cadastro físico: **aprovado** no smoke desktop de todos os módulos;
+- dependências `libnspr4`, `libnss3` e `libasound` foram carregadas somente de
+  uma pasta temporária para o teste, sem instalação ou alteração global do
+  sistema operacional.
 
-Os critérios funcionais da Fase 3 estão implementados. A fase permanece sem a
-declaração formal de encerramento até que o mesmo E2E seja executado em um
-ambiente com as dependências nativas do Chromium.
+Todos os critérios funcionais e gates automatizados previstos para a Fase 3
+foram atendidos. A fase está formalmente encerrada; a evolução seguinte deve
+iniciar a máquina de estados do ciclo completo de locação descrita na Fase 4.
