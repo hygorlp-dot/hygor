@@ -67,4 +67,17 @@ sem substituir de uma vez a memória financeira legada.
 - comando exige versão atual da locação, escopo da obra e perfil financeiro;
 - nenhuma medição cria título ou movimenta o razão neste incremento.
 
+## Quinto incremento
+
+- ação **Medir competência** disponível no histórico da locação;
+- formulário separa competência, início e fim da utilização e desconto fixo
+  específico da medição;
+- prévia usa o snapshot comercial e o motor de ciclos em centavos;
+- interface identifica expressamente a medição como ainda não faturada;
+- confirmação usa o comando idempotente do quarto incremento;
+- competências medidas são listadas no cartão da locação;
+- mensagens de sucesso preservam a distinção entre medição, emissão e
+  vencimento;
+- smoke E2E cobre competência, período e valor líquido previsto.
+
 A Fase 5 ainda não está concluída.

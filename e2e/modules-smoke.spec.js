@@ -179,6 +179,12 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
         await expect(page.getByRole("button",{name:"Encerrar"})).toHaveCount(0);
         const activeRentalCard=page.locator(".equipment-record").filter({hasText:"Término planejado: 30/09"});
+        await activeRentalCard.getByRole("button",{name:"Medir competência"}).click();
+        const measurementDialog=page.getByRole("dialog",{name:/Medir competência · Betoneira QA/});
+        await expect(measurementDialog.getByText("MEDIÇÃO CONTRATUAL · NÃO FATURADA")).toBeVisible();
+        await expect(measurementDialog.getByLabel("Competência *")).toHaveValue("2026-09");
+        await expect(measurementDialog.getByText("Líquido medido: R$ 3.000,00")).toBeVisible();
+        await measurementDialog.getByRole("button",{name:"Cancelar"}).click();
         await activeRentalCard.getByRole("button",{name:"Editar"}).click();
         const rentalDialog=page.getByRole("dialog",{name:"Editar locação"});
         await expect(rentalDialog.getByLabel("Regra de cobrança *")).toBeVisible();

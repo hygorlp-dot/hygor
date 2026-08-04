@@ -83,7 +83,7 @@ import {
 import { deriveEquipmentLocations,physicalIdentityForRecord } from "./domains/equipamentos/registry";
 import { availableRentalTransitions,normalizeRentalState,rentalStateLabel } from "./domains/equipamentos/rental-lifecycle";
 import { rentalDeliveryBalance,rentalDispatchBalance,rentalReturnBalance,RENTAL_CHECKPOINT_TYPE } from "./domains/equipamentos/rental-checkpoints";
-import { rentalChargeSummary } from "./domains/equipamentos/rental-charges";
+import { buildRentalPeriodicCharge,rentalChargeSummary } from "./domains/equipamentos/rental-charges";
 import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
@@ -33004,6 +33004,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const [rentalAmendmentModal,setRentalAmendmentModal]=useState(null);
   const [rentalReplacementModal,setRentalReplacementModal]=useState(null);
   const [rentalChargeModal,setRentalChargeModal]=useState(null);
+  const [rentalMeasurementModal,setRentalMeasurementModal]=useState(null);
   const [busca, setBusca] = useState("");
   const [filtroObraGestao, setFiltroObraGestao] = useState(obraIdFixo||"all");   // filtro da grade de gestao
   const [basesSinapiEquip,setBasesSinapiEquip]=useState([]);
@@ -33420,6 +33421,24 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     }catch(error){showToast(error?.message||"O servidor não respondeu ao salvar a cobrança.","error");}
     finally{setSalvandoEquipamento("");}
   };
+  const prepararMedicaoLocacao=rental=>{
+    const competence=String(rental.inicio||ym).slice(0,7)||ym,[year,month]=competence.split("-").map(Number);
+    const monthEnd=`${competence}-${String(new Date(year,month,0).getDate()).padStart(2,"0")}`;
+    setRentalMeasurementModal({rentalId:rental.id,competence,utilizationStart:rental.inicio||`${competence}-01`,
+      utilizationEnd:rental.fim||rental.plannedEndDate||monthEnd,fixedDiscount:"0"});
+  };
+  const salvarMedicaoLocacao=async form=>{
+    setSalvandoEquipamento(`medicao-${form.rentalId}`);
+    try{const result=await dispatchCommand?.(atual=>{const current=(atual.locacoesEquip||[]).find(item=>item.id===form.rentalId);return {
+      type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,idempotencyKey:`locacao-medicao-${form.rentalId}-${form.competence}-${uid()}`,
+      expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{rentalId:form.rentalId,competence:form.competence,utilizationStart:form.utilizationStart,
+        utilizationEnd:form.utilizationEnd,fixedDiscountCents:Math.round(Math.max(0,Number(String(form.fixedDiscount||0).replace(",","."))||0)*100)}};});
+      if(!result?.ok){showToast(result?.reason||"Não foi possível medir a cobrança.","error");return;}
+      setRentalMeasurementModal(null);showToast("Cobrança medida. Emissão e vencimento continuam pendentes.");
+    }catch(error){showToast(error?.message||"O servidor não respondeu ao medir a cobrança.","error");}
+    finally{setSalvandoEquipamento("");}
+  };
 
   const salvarManut = async(f) => {
     if(!f.equipamentoId||!f.data||!f.custo){ showToast("Preencha equipamento, data e custo.","error"); return; }
@@ -33834,6 +33853,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               const emAberto = !cancelada&&!l.fim;
               const lifecycleState=normalizeRentalState(l.lifecycleState||l.status);
               const chargeSummary=rentalChargeSummary(data.rentalChargeItems||[],{rentalId:l.id});
+              const measuredCompetences=(data.rentalChargeItems||[]).filter(item=>item.rentalId===l.id&&item.status==="measured").map(item=>item.competence);
               const lifecycleNext=availableRentalTransitions(lifecycleState,{checkpoints:l.rentalCheckpoints||[]})
                 .filter(state=>!["cancelled","closed"].includes(state));
               return (
@@ -33854,6 +33874,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                       </span>
                       {l.plannedEndDate&&<p style={{fontSize:9,color:C.muted,marginTop:4}}>Término planejado: {fmtDate(l.plannedEndDate)}</p>}
                       {chargeSummary.netAmountCents!==0&&<p style={{fontSize:9,color:chargeSummary.netAmountCents>=0?C.green:C.red,marginTop:3}}>Linhas preparadas: {fmt(chargeSummary.netAmountCents/100)}</p>}
+                      {measuredCompetences.length>0&&<p style={{fontSize:9,color:C.blue,marginTop:3}}>Medida: {measuredCompetences.join(", ")}</p>}
                     </div>
                     {(() => {
                       const eqL = (data.equipamentos||[]).find(x=>x.id===l.equipamentoId);
@@ -33879,6 +33900,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   <div className="equipment-record-actions">
                     {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>}
                     {!cancelada&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>setRentalChargeModal({rentalId:l.id,workId:l.obraId,type:"freight",description:"",quantity:"1",unit:"un",unitPrice:"",discountAmount:"0",taxAmount:"0",competence:ym})}>Adicionar cobrança</Btn>}
+                    {!cancelada&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMedicaoLocacao(l)}>Medir competência</Btn>}
                     {emAberto&&["contracted","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararAditivoLocacao(l)}>Prorrogar / renovar</Btn>}
                     {emAberto&&(l.equipmentUnitIds||[]).length>0&&["separating","ready_for_dispatch","in_transport","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>setRentalReplacementModal({rentalId:l.id,outgoingUnitId:l.equipmentUnitIds[0],incomingUnitId:"",date:today(),reason:"",notes:""})}>Substituir unidade</Btn>}
                     {emAberto&&lifecycleState==="ready_for_dispatch"&&rentalDispatchBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH)}>Expedição parcial</Btn>}
@@ -34108,6 +34130,18 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           <Sel label="Classificação *" value={physicalReview.kind} onChange={v=>setPhysicalReview(form=>({...form,kind:v}))} options={[{v:"lot",l:"Lote controlado por quantidade"},{v:"unit",l:"Unidades físicas individualizadas"}]}/>
           {physicalReview.kind==="lot"?<><Inp label="Identificação do lote *" value={physicalReview.lotCode} onChange={v=>setPhysicalReview(form=>({...form,lotCode:v}))}/><Inp label="Unidade de controle" value={physicalReview.unit} onChange={v=>setPhysicalReview(form=>({...form,unit:v}))}/><p style={{fontSize:9.5,color:C.muted}}>Quantidade preservada do cadastro: <b>{expected}</b>.</p></>:<><Inp label={`Patrimônios / séries (${expected}) *`} value={physicalReview.assetTags} onChange={v=>setPhysicalReview(form=>({...form,assetTags:v}))} multiline placeholder="Separe por vírgula ou uma linha por unidade"/><p style={{fontSize:9.5,color:C.muted}}>Informe exatamente {expected} identificação(ões) única(s).</p></>}
           <Btn full onClick={()=>salvarRevisaoFisica(physicalReview)}>Salvar classificação física</Btn>
+        </div>
+      </Modal>;})()}
+
+      {rentalMeasurementModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalMeasurementModal.rentalId),equipment=(data.equipamentos||[]).find(item=>item.id===rental?.equipamentoId);const preview=buildRentalPeriodicCharge({rental,equipment,utilizationStart:rentalMeasurementModal.utilizationStart,utilizationEnd:rentalMeasurementModal.utilizationEnd,competence:rentalMeasurementModal.competence,fixedDiscountCents:Math.round((Number(String(rentalMeasurementModal.fixedDiscount||0).replace(",","."))||0)*100)});return <Modal title={`Medir competência · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalMeasurementModal(null)}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`}}><p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>MEDIÇÃO CONTRATUAL · NÃO FATURADA</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Utilização, competência, emissão e pagamento permanecem etapas separadas.</p></div>
+          <Inp label="Competência *" type="month" value={rentalMeasurementModal.competence} onChange={v=>setRentalMeasurementModal(form=>({...form,competence:v}))}/>
+          <Inp label="Desconto fixo desta medição (R$)" value={rentalMeasurementModal.fixedDiscount} onChange={v=>setRentalMeasurementModal(form=>({...form,fixedDiscount:v}))}/>
+          <Inp label="Início da utilização *" type="date" value={rentalMeasurementModal.utilizationStart} onChange={v=>setRentalMeasurementModal(form=>({...form,utilizationStart:v}))}/>
+          <Inp label="Fim da utilização *" type="date" value={rentalMeasurementModal.utilizationEnd} onChange={v=>setRentalMeasurementModal(form=>({...form,utilizationEnd:v}))}/>
+          <div style={{gridColumn:"1/-1",padding:"10px 12px",border:`1px solid ${preview.ok?C.green:C.red}44`,borderRadius:8}}>{preview.ok?<><p style={{fontSize:9.5,color:C.muted}}>Regra: {preview.record.billingRule} · bruto {fmt(preview.record.grossAmountCents/100)} · descontos {fmt(preview.record.discountAmountCents/100)}</p><p style={{fontSize:14,fontWeight:900,color:C.green,marginTop:3}}>Líquido medido: {fmt(preview.record.netAmountCents/100)}</p></>:<p style={{fontSize:10.5,color:C.red}}>{preview.reason}</p>}</div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalMeasurementModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!preview.ok} loading={salvandoEquipamento===`medicao-${rentalMeasurementModal.rentalId}`} onClick={()=>salvarMedicaoLocacao(rentalMeasurementModal)}>Confirmar medição</Btn></div>
         </div>
       </Modal>;})()}
 
