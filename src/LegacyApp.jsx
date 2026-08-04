@@ -11231,7 +11231,30 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
     ? etapasTerc.reduce((s, e) => s + Number(e.valor || 0) * (acumuladoPorEtapa[e.id] || 0) / 100, 0) / somaEtapas * 100
     : 0;
 
-  const salvarEtapa = () => {
+  const salvarEtapasNoServidor = async (etapas, mensagem) => {
+    if(!dispatchCommand||thirdPartyCommandPending)return false;
+    setThirdPartyCommandPending(true);
+    try{
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.terceirizados||[]).find(item=>item.id===tercSel);
+        return {
+          type:OPERATIONAL_COMMAND.THIRD_PARTY_CONTRACT_STAGES_SAVED,
+          idempotencyKey:`third-contract-stages-${tercSel}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{contractId:tercSel,stages:etapas},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou as etapas do contrato.");
+      showToast(mensagem);
+      return true;
+    }catch(error){
+      showToast(error.message||"Não foi possível salvar as etapas do contrato.","error");
+      return false;
+    }finally{setThirdPartyCommandPending(false);}
+  };
+
+  const salvarEtapa = async () => {
     if (!tercAtual) return;
     const nome = String(etapaForm.nome || "").trim();
     if (!nome) { showToast("Informe o nome da etapa.", "error"); return; }
@@ -11239,42 +11262,39 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
     const etapas = etapaForm.id
       ? etapasTerc.map(e => e.id === etapaForm.id ? { ...e, nome, valor } : e)
       : [...etapasTerc, { id: uid(), nome, valor, ordem: etapasTerc.length }];
-    update({ ...data, terceirizados: allTerc.map(t => t.id === tercSel ? { ...t, etapas } : t) });
-    setEtapaForm({ id: "", nome: "", valor: "" });
-    showToast(etapaForm.id ? "Etapa atualizada." : "Etapa adicionada ao contrato.");
+    if(await salvarEtapasNoServidor(etapas,etapaForm.id ? "Etapa atualizada e salva." : "Etapa adicionada e salva."))
+      setEtapaForm({ id: "", nome: "", valor: "" });
   };
 
-  const removerEtapa = etapa => {
+  const removerEtapa = async etapa => {
     if (acumuladoPorEtapa[etapa.id] > 0) {
       showToast("Esta etapa já foi medida. Zere a medição antes de removê-la.", "error"); return;
     }
     if (!window.confirm(`Remover a etapa "${etapa.nome}"?`)) return;
-    update({ ...data, terceirizados: allTerc.map(t => t.id === tercSel
-      ? { ...t, etapas: etapasTerc.filter(e => e.id !== etapa.id).map((e, i) => ({ ...e, ordem: i })) } : t) });
-    if (etapaForm.id === etapa.id) setEtapaForm({ id: "", nome: "", valor: "" });
+    const etapas=etapasTerc.filter(e => e.id !== etapa.id).map((e, i) => ({ ...e, ordem: i }));
+    if(await salvarEtapasNoServidor(etapas,"Etapa removida e alteração salva.")&&etapaForm.id === etapa.id)
+      setEtapaForm({ id: "", nome: "", valor: "" });
   };
 
-  const moverEtapa = (etapa, dir) => {
+  const moverEtapa = async (etapa, dir) => {
     const lista = [...etapasTerc];
     const i = lista.findIndex(e => e.id === etapa.id);
     const j = i + dir;
     if (i < 0 || j < 0 || j >= lista.length) return;
     [lista[i], lista[j]] = [lista[j], lista[i]];
-    update({ ...data, terceirizados: allTerc.map(t => t.id === tercSel
-      ? { ...t, etapas: lista.map((e, k) => ({ ...e, ordem: k })) } : t) });
+    await salvarEtapasNoServidor(lista.map((e, k) => ({ ...e, ordem: k })),"Ordem das etapas salva.");
   };
 
   // Sugere as etapas da especialidade e reparte o contrato por igual. E so um
   // ponto de partida: os valores sao editaveis um a um logo abaixo.
-  const sugerirEtapas = () => {
+  const sugerirEtapas = async () => {
     if (!tercAtual) return;
     if (etapasTerc.length && !window.confirm("Isso substitui as etapas atuais deste contrato. Continuar?")) return;
     if (medicoesTercAtual.length) { showToast("Este contrato já tem medições. Ajuste as etapas manualmente.", "error"); return; }
     const nomes = ETAPAS_SUGERIDAS[tercAtual.specialty] || ETAPAS_SUGERIDAS.outros;
     const fatia = Number(tercAtual.contractValue || 0) / nomes.length;
-    update({ ...data, terceirizados: allTerc.map(t => t.id === tercSel
-      ? { ...t, etapas: nomes.map((nome, i) => ({ id: uid(), nome, valor: Math.round(fatia * 100) / 100, ordem: i })) } : t) });
-    showToast(`${nomes.length} etapas sugeridas. Ajuste os valores de cada uma.`);
+    const etapas=nomes.map((nome, i) => ({ id: uid(), nome, valor: Math.round(fatia * 100) / 100, ordem: i }));
+    await salvarEtapasNoServidor(etapas,`${nomes.length} etapas sugeridas e salvas. Ajuste os valores de cada uma.`);
   };
 
   const abrirMedicao = () => {

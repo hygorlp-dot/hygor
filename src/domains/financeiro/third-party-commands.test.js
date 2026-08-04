@@ -24,6 +24,23 @@ const measurement=(overrides={})=>({
 });
 
 describe("comandos de terceiros",()=>{
+  it("salva etapas no contrato com versão e impede remover etapa já medida",()=>{
+    const saved=applyThirdPartyCommand(base(),command(
+      THIRD_PARTY_COMMAND.THIRD_PARTY_CONTRACT_STAGES_SAVED,{
+        contractId:"t-1",stages:[{id:"e-1",nome:"Fundação",valor:1200},{id:"e-2",nome:"Estrutura",valor:800}],
+      },"third-party-stages-0001",0,
+    ));
+    expect(saved.ok).toBe(true);
+    expect(saved.data.terceirizados[0]).toMatchObject({version:1,etapas:[
+      {id:"e-1",valor:1200,ordem:0},{id:"e-2",valor:800,ordem:1},
+    ]});
+    const measured={...saved.data,medicoesTerc:[measurement()]};
+    expect(applyThirdPartyCommand(measured,command(
+      THIRD_PARTY_COMMAND.THIRD_PARTY_CONTRACT_STAGES_SAVED,{
+        contractId:"t-1",stages:[{id:"e-2",nome:"Estrutura",valor:800}],
+      },"third-party-stages-0002",1,
+    )).reason).toMatch(/já medida/i);
+  });
   it("recalcula a medição pelo contrato e bloqueia percentual anterior obsoleto",()=>{
     const created=applyThirdPartyCommand(base(),command(
       THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,{

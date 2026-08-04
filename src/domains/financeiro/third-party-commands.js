@@ -17,6 +17,7 @@ export const THIRD_PARTY_COMMAND=Object.freeze({
   THIRD_PARTY_MEASUREMENT_CANCELLED:"MEDICAO_TERCEIRO_CANCELADA",
   THIRD_PARTY_MEASUREMENT_PAID:"MEDICAO_TERCEIRO_PAGA",
   THIRD_PARTY_INVOICE_LINKED:"NOTA_MEDICAO_TERCEIRO_VINCULADA",
+  THIRD_PARTY_CONTRACT_STAGES_SAVED:"ETAPAS_CONTRATO_TERCEIRO_SALVAS",
 });
 
 export const THIRD_PARTY_COMMAND_TYPES=new Set(Object.values(THIRD_PARTY_COMMAND));
@@ -326,6 +327,38 @@ const linkInvoice=(data,command,now)=>{
   };
 };
 
+const saveContractStages=(data,command,now)=>{
+  const payload=command.payload||{};
+  const contract=contractById(data,payload.contractId);
+  if(!contract)return fail("Contrato de terceiro não encontrado.");
+  if(!sameVersion(contract,command.expectedVersion)){
+    return fail("O contrato foi alterado por outra pessoa. Atualize a tela.");
+  }
+  const raw=Array.isArray(payload.stages)?payload.stages:[];
+  const ids=new Set();
+  const stages=[];
+  for(const [index,item] of raw.entries()){
+    const id=String(item?.id||""),nome=String(item?.nome||"").trim();
+    const valor=Number(item?.valor||0);
+    if(!id||ids.has(id)||!nome||!Number.isFinite(valor)||valor<0){
+      return fail("As etapas do contrato possuem dados inválidos ou repetidos.");
+    }
+    ids.add(id);
+    stages.push({...item,id,nome,valor,ordem:index});
+  }
+  const measuredStageIds=new Set((data.medicoesTerc||[])
+    .filter(item=>String(item.tercId)===String(contract.id)&&active(item))
+    .flatMap(item=>(item.itens||[]).map(stage=>String(stage.etapaId||""))));
+  if([...measuredStageIds].some(id=>!ids.has(id))){
+    return fail("Uma etapa já medida não pode ser removida do contrato.");
+  }
+  const actor=actorOf(command);
+  const updated={...contract,etapas:stages,version:versionOf(contract)+1,
+    updatedAt:now,updatedById:actor.id,updatedBy:actor.nome};
+  return {ok:true,entityId:contract.id,data:{...data,
+    terceirizados:(data.terceirizados||[]).map(item=>item.id===contract.id?updated:item)}};
+};
+
 export const thirdPartyCommandObraId=(data={},command={})=>{
   const payload=command.payload||{};
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_PAYMENT_RECORDED){
@@ -336,6 +369,9 @@ export const thirdPartyCommandObraId=(data={},command={})=>{
   }
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED){
     return String(contractById(data,payload.measurement?.tercId)?.obraId||"");
+  }
+  if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_CONTRACT_STAGES_SAVED){
+    return String(contractById(data,payload.contractId)?.obraId||"");
   }
   const measurement=measurementById(data,payload.measurementId);
   return String(measurement?.obraId||"");
@@ -349,5 +385,6 @@ export const applyThirdPartyCommand=(data={},command={},now=new Date().toISOStri
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED)return recordMeasurement(data,command,now);
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED)return cancelMeasurement(data,command,now);
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_PAID)return payMeasurement(data,command,now);
+  if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_CONTRACT_STAGES_SAVED)return saveContractStages(data,command,now);
   return linkInvoice(data,command,now);
 };
