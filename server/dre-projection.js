@@ -145,25 +145,22 @@ const companyDre = (data,year,month) => {
   // A DRE da empresa não pode reconstruir valores a partir das coleções
   // operacionais. A fonte é a mesma projeção de razão usada no DRE por obra.
   const base=calculations.calcDREConsolidado(data,year,month,"mes");
-  const workRows=base.obras||[];
-  const workRevenue=workRows.reduce((sum,row)=>sum+Number(row.faturamento||0),0);
-  const workCosts=workRows.reduce((sum,row)=>sum+Number(row.totalCustos||0),0);
   const corporateCosts=(base.ledger?.events||[]).filter(event=>
     !event.obraId&&event.competence===ym&&["cost","cost_reversal"].includes(event.effect));
   const signedAmount=event=>(event.effect==="cost_reversal"?-1:1)*Number(event.amountCents||0)/100;
-  const faturamentoObras=workRevenue;
+  // Este demonstrativo pertence à operação de locação da empresa. Receitas e
+  // custos da execução das obras permanecem nos relatórios específicos delas.
+  const faturamentoObras=0;
   const receitaLocacoes=Number(base.equipReceita||0);
-  const faturamentoTotal=faturamentoObras+receitaLocacoes;
-  const recebidoObras=base.entradasCaixa;
+  const faturamentoTotal=receitaLocacoes;
+  const recebidoObras=0;
   const deducaoISS=faturamentoTotal*Number(cfg.aliquotaISS||0)/100;
   const deducaoPIS=faturamentoTotal*Number(cfg.aliquotaPIS||0)/100;
   const deducaoCOFINS=faturamentoTotal*Number(cfg.aliquotaCOFINS||0)/100;
   const totalDeducoes=deducaoISS+deducaoPIS+deducaoCOFINS,receitaLiquida=faturamentoTotal-totalDeducoes;
-  const laborTotal=base.laborCost,benefTotal=base.benefitCost,tercTotal=base.tercCost;
-  const rescTotal=base.rescTotal;
-  const outrasDiretas=base.outrasTotal+base.comprasCost+base.equipCostObras;
+  const laborTotal=0,benefTotal=0,tercTotal=0,rescTotal=0,outrasDiretas=0;
   const custoLocacoes=Number(base.equipCustoEmpresa||0);
-  const totalCSP=workCosts+custoLocacoes;
+  const totalCSP=custoLocacoes;
   const lucroBruto=receitaLiquida-totalCSP,margemBruta=receitaLiquida?lucroBruto/receitaLiquida*100:0;
   const despPorCat=Object.fromEntries(expenseCategories.map(([category])=>[
     category,round(corporateCosts.filter(event=>event.sourceType==="despesa_empresa"&&event.category===category)
@@ -191,13 +188,7 @@ const companyDre = (data,year,month) => {
     data:event.date,valor:signedAmount(event),status:event.effect==="cost_reversal"?"estornado":"ativo",
     ...(event.metadata?.expenseDetails||{}),
   }));
-  const porObra=workRows.map(row=>{
-    const receita=Number(row.faturamento||0),despesa=Number(row.totalCustos||0),resultado=Number(row.lucroBruto||0);
-    return {id:row.obra?.id,name:row.obra?.name,status:row.obra?.status,receita:round(receita),receitaMed:round(receita),
-      receitaLivre:0,recebido:round(row.recebido||0),laborCost:row.moData?.laborCost||0,benefitCost:row.moData?.benefitCost||0,
-      terc:round(row.tercCost||0),outras:round((row.outrasTotal||0)+(row.comprasCost||0)+(row.equipCost||0)),
-      despesa:round(despesa),resultado:round(resultado),margemPct:receita?round(resultado/receita*100):null};
-  }).filter(item=>item.receita||item.despesa).sort((a,b)=>b.resultado-a.resultado);
+  const porObra=[];
   return Object.fromEntries(Object.entries({
     ym,faturamentoObras,receitaLocacoes,faturamentoTotal,recebidoObras,deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
     laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,custoLocacoes,totalCSP,lucroBruto,margemBruta,
