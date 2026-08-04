@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {availableRentalTransitions,normalizeRentalState,RENTAL_STATE,validateRentalTransition} from "./rental-lifecycle.js";
+import {availableRentalTransitions,normalizeRentalState,rentalStateLabel,RENTAL_STATE,validateRentalTransition} from "./rental-lifecycle.js";
 
 describe("ciclo completo da locação",()=>{
   it("normaliza estados legados sem alterar os registros",()=>{
@@ -10,6 +10,7 @@ describe("ciclo completo da locação",()=>{
   it("expõe somente os próximos estados permitidos",()=>{
     expect(availableRentalTransitions(RENTAL_STATE.SEPARATING)).toEqual([RENTAL_STATE.READY_FOR_DISPATCH,RENTAL_STATE.CANCELLED]);
     expect(availableRentalTransitions(RENTAL_STATE.CLOSED)).toEqual([]);
+    expect(rentalStateLabel(RENTAL_STATE.PICKUP_REQUESTED)).toBe("Retirada solicitada");
   });
   it("não entrega antes de separar nem encerra antes da inspeção",()=>{
     expect(validateRentalTransition(RENTAL_STATE.CONTRACTED,RENTAL_STATE.DELIVERED).ok).toBe(false);

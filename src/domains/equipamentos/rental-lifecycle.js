@@ -9,6 +9,17 @@ export const RENTAL_STATE=Object.freeze({
 
 export const RENTAL_STATES=Object.freeze(Object.values(RENTAL_STATE));
 
+export const RENTAL_STATE_LABEL=Object.freeze({
+  draft:"Rascunho",quoted:"Orçada",reserved:"Reservada",awaiting_approval:"Aguardando aprovação",
+  approved:"Aprovada",contracted:"Contratada",separating:"Em separação",
+  ready_for_dispatch:"Pronta para expedição",in_transport:"Em transporte",delivered:"Entregue",
+  active:"Ativa",pickup_requested:"Retirada solicitada",returned:"Devolvida",
+  under_inspection:"Em inspeção",awaiting_adjustment:"Aguardando ajuste",
+  closed:"Encerrada",cancelled:"Cancelada",
+});
+
+export const rentalStateLabel=value=>RENTAL_STATE_LABEL[normalizeRentalState(value)]||"Rascunho";
+
 const transitions=Object.freeze({
   draft:["quoted","cancelled"],quoted:["reserved","awaiting_approval","cancelled"],
   reserved:["awaiting_approval","approved","cancelled"],awaiting_approval:["approved","cancelled"],

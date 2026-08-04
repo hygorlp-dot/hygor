@@ -81,6 +81,7 @@ import {
   equipmentImageFor,
 } from "./domains/equipamentos/images";
 import { deriveEquipmentLocations,physicalIdentityForRecord } from "./domains/equipamentos/registry";
+import { availableRentalTransitions,normalizeRentalState,rentalStateLabel } from "./domains/equipamentos/rental-lifecycle";
 import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
@@ -2180,6 +2181,8 @@ const normalizeData = incoming => {
       } : null,
       obs:         l.obs         || "",
       status:      l.status      || (l.fim ? "encerrada" : "ativa"),
+      lifecycleState:l.lifecycleState||"",
+      lifecycleHistory:Array.isArray(l.lifecycleHistory)?l.lifecycleHistory:[],
       version:     Number(l.version || 0),
       createdAt:   l.createdAt || "",
       createdById: l.createdById || "",
@@ -33281,6 +33284,21 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       setSalvandoEquipamento("");
     }
   };
+  const transicionarLocacao=async(l,nextState)=>{
+    setSalvandoEquipamento(`transicao-${l.id}`);
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.locacoesEquip||[]).find(item=>item.id===l.id);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,
+          idempotencyKey:`locacao-equipamento-transicao-${l.id}-${nextState}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{rentalId:l.id,nextState,reason:""}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível avançar o ciclo da locação.","error");return;}
+      showToast(`Locação atualizada para ${rentalStateLabel(nextState)}.`);
+    }catch(error){showToast(error?.message||"O servidor não respondeu ao atualizar a locação.","error");}
+    finally{setSalvandoEquipamento("");}
+  };
 
   const salvarManut = async(f) => {
     if(!f.equipamentoId||!f.data||!f.custo){ showToast("Preencha equipamento, data e custo.","error"); return; }
@@ -33693,6 +33711,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
             {[...(data.locacoesEquip||[])].sort((a,b)=>(b.inicio||"").localeCompare(a.inicio||"")).map(l=>{
               const cancelada=l.status==="cancelada";
               const emAberto = !cancelada&&!l.fim;
+              const lifecycleState=normalizeRentalState(l.lifecycleState||l.status);
+              const lifecycleNext=availableRentalTransitions(lifecycleState)
+                .filter(state=>!["cancelled","closed"].includes(state));
               return (
                 <article key={l.id} className="equipment-record" data-active={emAberto}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
@@ -33706,6 +33727,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                         )}
                       </p>
                       <p style={{fontSize:9.5,color:cancelada?C.red:C.muted}}>{obraName(l.obraId)} · {fmtDate(l.inicio)} {cancelada?"→ excluída":l.fim?`→ ${fmtDate(l.fim)}`:"→ em andamento"}</p>
+                      <span style={{display:"inline-flex",marginTop:5,padding:"3px 7px",borderRadius:99,fontSize:8.5,fontWeight:850,color:cancelada?C.red:C.blue,background:`${cancelada?C.red:C.blue}12`}}>
+                        CICLO · {rentalStateLabel(lifecycleState).toUpperCase()}
+                      </span>
                     </div>
                     {(() => {
                       const eqL = (data.equipamentos||[]).find(x=>x.id===l.equipamentoId);
@@ -33730,6 +33754,10 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   </div>
                   <div className="equipment-record-actions">
                     {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>}
+                    {emAberto&&lifecycleNext.map(nextState=><Btn key={nextState} size="sm" v="ghost"
+                      disabled={!!salvandoEquipamento} onClick={()=>transicionarLocacao(l,nextState)}>
+                      Avançar: {rentalStateLabel(nextState)}
+                    </Btn>)}
                     {emAberto && <Btn size="sm" v="ghost" onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
                     {!cancelada&&<Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirLoc(l)}><Ic n="trash"/> Excluir</Btn>}
                   </div>

@@ -35,7 +35,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
       {id:"obra-qa",name:"Residencial Alameda",status:"active"},
     ],
     equipamentos:[{id:"eq-qa",nome:"Betoneira QA",patrimonio:"EQ-QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:100}}],
-    locacoesEquip:[],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
+    locacoesEquip:[{id:"rental-lifecycle-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-09-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"active",version:1,tarifas:{dia:100}}],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
     orcamentos:[
       {
         id:"orcamento-rascunho-qa",
@@ -156,6 +156,9 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await page.getByLabel("Motivo *").fill("Reserva de homologação");
         await expect(page.getByRole("button",{name:/Salvar/})).toBeVisible();
         await page.getByRole("button",{name:"Fechar"}).click();
+        await page.getByRole("button",{name:/Locações/}).click();
+        await expect(page.getByText("CICLO · ATIVA")).toBeVisible();
+        await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
       }
       if(item==="Terceirizados") {
         const excluirContrato=page.getByRole("button",{name:"Excluir contrato de Elétrica Modelo"});

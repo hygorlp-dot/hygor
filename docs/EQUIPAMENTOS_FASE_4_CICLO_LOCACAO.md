@@ -39,4 +39,16 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
 5. sincronizar efeitos operacionais de cada estado com disponibilidade;
 6. executar cobertura, build e E2E antes do encerramento da fase.
 
+## Segundo incremento
+
+- novas locações operacionais passam a registrar `lifecycleState: active` sem
+  alterar o efeito atual sobre ocupação e cobrança;
+- encerramento e exclusão legados sincronizam o ciclo para `closed` e
+  `cancelled`;
+- a lista de locações mostra o estágio atual com nomenclatura em português;
+- a interface oferece somente os próximos estados permitidos pela máquina;
+- cada avanço usa o comando versionado e auditável do primeiro incremento;
+- estados terminais continuam nas ações legadas até que checklists, devolução
+  e estorno sejam implementados nos próximos incrementos.
+
 A Fase 4 ainda não está concluída.

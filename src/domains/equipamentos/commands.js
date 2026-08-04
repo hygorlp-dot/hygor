@@ -256,6 +256,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
       valorDiaria:Math.max(0,numeric(input.valorDiaria)),custoDiaria:Math.max(0,numeric(input.custoDiaria)),
       descontoPct:snapshot.descontoPct,descontoValor:snapshot.descontoValor,
       commercialSnapshot:snapshot,
+      lifecycleState:current?.lifecycleState||(input.fim?"closed":"active"),
       status:input.fim?"encerrada":"ativa",version:versionOf(current)+1,updatedAt:now,
       ...(!current?{createdAt:now,createdById:command.actorId||""}:{}),
     };
@@ -295,7 +296,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     if(current.fim)return fail("A locação já está encerrada.");
     const endDate=String(payload.endDate||"");
     if(!isValidIsoDate(endDate)||endDate<String(current.inicio||""))return fail("Informe uma data de término válida.");
-    const record={...current,fim:endDate,status:"encerrada",version:versionOf(current)+1,updatedAt:now,
+    const record={...current,fim:endDate,status:"encerrada",lifecycleState:"closed",version:versionOf(current)+1,updatedAt:now,
       encerradoEm:now,encerradoPorId:command.actorId||""};
     record.operationalHistory=audit(current,command,now,"EQUIPMENT_RENTAL_CLOSED",{endDate});
     let next=replace(data,"locacoesEquip",id,record);
@@ -318,7 +319,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     if(stale)return fail(stale);
     if(current.status==="cancelada")return fail("A locação já foi excluída.");
     const reason=String(payload.reason||"Excluída pelo cadastro de locações").trim();
-    const record={...current,status:"cancelada",version:versionOf(current)+1,updatedAt:now,
+    const record={...current,status:"cancelada",lifecycleState:"cancelled",version:versionOf(current)+1,updatedAt:now,
       canceladoEm:now,canceladoPorId:command.actorId||"",motivoCancelamento:reason};
     record.operationalHistory=audit(current,command,now,"EQUIPMENT_RENTAL_CANCELLED",{reason});
     let next=replace(data,"locacoesEquip",id,record);
