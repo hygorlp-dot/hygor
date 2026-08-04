@@ -164,6 +164,7 @@ import {
   referencePricePerPurchaseUnit,
   referenceQuantityOf,
   referenceTotalOf,
+  suggestedSteelConversion,
 } from "./domains/compras/unit-conversion";
 import { migrateCommercial } from "./domains/comercial/migrations";
 import { normalizeRealEstateCommercial } from "./domains/comercial/real-estate";
@@ -1964,7 +1965,7 @@ const normalizeData = incoming => {
         fonteRef:i.fonteRef||"PRÓPRIO",codigoRef:i.codigoRef||"",descricaoRef:i.descricaoRef||"",
         unidadeRef:i.unidadeRef||"UN",quantidade:Number(i.quantidade||0),precoRef:Number(i.precoRef||0),
         unidadeCompra:i.unidadeCompra||i.unidadeRef||"UN",
-        fatorConversao:Number(i.fatorConversao||1),
+        fatorConversao:Number(i.fatorConversao||1),comprimentoBarra:Number(i.comprimentoBarra||0),
         dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"",orcItemId:i.orcItemId||"",
         orcNivel1Id:i.orcNivel1Id||"",
         observacao:i.observacao||""})):[],
@@ -2278,7 +2279,7 @@ const normalizeData = incoming => {
         descricaoRef:i.descricaoRef|| "",
         unidadeRef:  i.unidadeRef  || "",
         unidadeCompra:i.unidadeCompra||i.unidadeRef||"",
-        fatorConversao:Number(i.fatorConversao||1),
+        fatorConversao:Number(i.fatorConversao||1),comprimentoBarra:Number(i.comprimentoBarra||0),
         precoRef:    Number(i.precoRef || 0),
         dataBaseRef: i.dataBaseRef || "",
         ufRef:       i.ufRef       || "",
@@ -23867,7 +23868,14 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   const setUnidadeCompra=(id,unidadeCompra)=>setForm(f=>({...f,itens:f.itens.map(item=>{
     if(item.id!==id)return item;
     const mesmaUnidade=String(unidadeCompra).toUpperCase()===String(item.unidadeRef||"UN").toUpperCase();
-    return {...item,unidadeCompra,fatorConversao:mesmaUnidade?1:(Number(item.fatorConversao)>1?item.fatorConversao:"")};
+    const steel=suggestedSteelConversion(item,unidadeCompra,item.comprimentoBarra||12);
+    return {...item,unidadeCompra,fatorConversao:mesmaUnidade?1:(steel?.factor||(Number(item.fatorConversao)>1?item.fatorConversao:"")),
+      ...(steel?.purchaseUnit==="BR"?{comprimentoBarra:item.comprimentoBarra||12}:{})};
+  })}));
+  const setComprimentoBarra=(id,comprimentoBarra)=>setForm(f=>({...f,itens:f.itens.map(item=>{
+    if(item.id!==id)return item;
+    const steel=suggestedSteelConversion(item,item.unidadeCompra,comprimentoBarra);
+    return {...item,comprimentoBarra,fatorConversao:steel?.factor||""};
   })}));
   // Duplica um item já lançado - forma rápida de apropriar o mesmo insumo
   // (ex.: cimento) em outra etapa do orçamento, só trocando quantidade/etapa.
@@ -23954,11 +23962,13 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
       </div>
       {(()=>{const unidadeCompra=purchaseUnitOf(item),unidadeRef=String(item.unidadeRef||"UN").toUpperCase();
         const conversaoAtiva=unidadeCompra!==unidadeRef;
+        const conversaoAco=suggestedSteelConversion(item,unidadeCompra,item.comprimentoBarra||12);
         const quantidadeReferencia=referenceQuantityOf(item);
         const precoCompraRef=referencePricePerPurchaseUnit(item);
         return <div style={{display:"grid",gridTemplateColumns:formGrid(conversaoAtiva?3:2),gap:8,marginTop:7,padding:"8px 9px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:6}}>
           <Sel label="Unidade de compra" value={unidadeCompra} onChange={v=>setUnidadeCompra(item.id,v)}
             options={UNIDADES_PADRAO.map(u=>({v:u.sigla.toUpperCase(),l:`${u.sigla.toUpperCase()} · ${u.nome}`}))}/>
+          {conversaoAco?.purchaseUnit==="BR"&&<Inp label="Comprimento da barra (m) *" type="number" value={item.comprimentoBarra||12} onChange={v=>setComprimentoBarra(item.id,v)} placeholder="12"/>}
           {conversaoAtiva&&<Inp label={`Conteúdo de 1 ${unidadeCompra} em ${unidadeRef} *`} type="number" value={item.fatorConversao||""} onChange={v=>setItem(item.id,"fatorConversao",v)} placeholder="Ex.: 20"/>}
           <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end",paddingBottom:3}}>
             <p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Equivalência da solicitação</p>
@@ -23969,6 +23979,9 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
             </p>
             {conversaoAtiva&&precoCompraRef>0&&<p style={{fontSize:9,color:C.muted,marginTop:2}}>Referência convertida: {fmt(precoCompraRef)}/{unidadeCompra}</p>}
           </div>
+          {conversaoAco&&<p style={{gridColumn:"1/-1",fontSize:9.5,color:C.blue,lineHeight:1.45}}>
+            Conversão automática do aço{conversaoAco.diameterMm?` Ø ${conversaoAco.diameterMm.toLocaleString("pt-BR")} mm`:""}: {conversaoAco.kgPerMeter.toLocaleString("pt-BR",{maximumFractionDigits:4})} kg/m{conversaoAco.purchaseUnit==="BR"?` · barra de ${conversaoAco.barLength.toLocaleString("pt-BR")} m`:""}. O fator pode ser ajustado conforme o certificado do fabricante.
+          </p>}
         </div>;})()}
       <div style={{marginTop:7}}><Sel label="Etapa de 1º nível do orçamento" value={item.orcNivel1Id||""} onChange={v=>setItem(item.id,"orcNivel1Id",v)} options={[{v:"",l:orcObra?"Selecione a etapa principal":"A obra ainda não possui orçamento"},...linhasOrc]}/></div>
       {contextoOrcamento.source==="rascunho"&&<p style={{fontSize:9,color:C.orange,marginTop:5}}>Vinculação ao orçamento em rascunho. A etapa organiza a compra, sem tornar esta versão uma baseline financeira.</p>}
@@ -24722,7 +24735,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     const itensInformados=(f.itens||[]).filter(i=>String(i.descricaoRef||"").trim()&&Number(i.quantidade)>0&&String(i.unidadeRef||"").trim())
       .map(i=>({...i,codigoRef:maiusculoOrcamento(i.codigoRef||""),descricaoRef:maiusculoOrcamento(i.descricaoRef),
         unidadeRef:maiusculoOrcamento(i.unidadeRef),unidadeCompra:purchaseUnitOf(i),
-        fatorConversao:Number(i.fatorConversao||1),quantidade:Number(i.quantidade),precoRef:Number(i.precoRef||0)}));
+        fatorConversao:Number(i.fatorConversao||1),comprimentoBarra:Number(i.comprimentoBarra||0),
+        quantidade:Number(i.quantidade),precoRef:Number(i.precoRef||0)}));
     if(!itensInformados.length){showToast("Adicione ao menos um material com descrição, unidade e quantidade.","error");return;}
     if(itensInformados.some(item=>!hasValidUnitConversion(item))){
       showToast("Informe uma conversão válida para cada material comprado em unidade diferente da referência.","error");return;
@@ -24844,6 +24858,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       return{id:uid(),materialId:item.materialId||existente?.id||uid(),qtd:String(item.quantidade),precoUnit:"",qtdRecebida:0,orcItemId:item.orcItemId||"",orcNivel1Id:item.orcNivel1Id||"",
         referenciaId:item.referenciaId||"",fonteRef:item.fonteRef||"PRÓPRIO",codigoRef:item.codigoRef||"",descricaoRef:item.descricaoRef||"",
         unidadeRef:item.unidadeRef||"UN",unidadeCompra:purchaseUnitOf(item),fatorConversao:Number(item.fatorConversao||1),
+        comprimentoBarra:Number(item.comprimentoBarra||0),
         precoRef:Number(item.precoRef||0),dataBaseRef:item.dataBaseRef||"",ufRef:item.ufRef||""};
     });
     atualizarStatusSolicitacao(sol,"em_analise");
@@ -24858,7 +24873,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     setCotModal({id:"",solicitacaoId:sol.id,obraId:sol.obraId,materialId:material.id,qtd:String(item.quantidade),
       orcItemId:item.orcItemId||"",orcNivel1Id:item.orcNivel1Id||"",data:today(),
       unidadeRef:item.unidadeRef||material.unidade||"UN",unidadeCompra:purchaseUnitOf(item),
-      fatorConversao:Number(item.fatorConversao||1),precoRef:Number(item.precoRef||0),
+      fatorConversao:Number(item.fatorConversao||1),comprimentoBarra:Number(item.comprimentoBarra||0),precoRef:Number(item.precoRef||0),
       propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]},
         {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]}]});
   };
@@ -24882,7 +24897,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
                    recebimentos:Array.isArray(i.recebimentos)?i.recebimentos:[],
                    referenciaId:i.referenciaId||f.referenciaId||"",fonteRef:i.fonteRef||"",codigoRef:i.codigoRef||"",
                    descricaoRef:i.descricaoRef||"",unidadeRef:i.unidadeRef||"",
-                   unidadeCompra:purchaseUnitOf(i),fatorConversao:Number(i.fatorConversao||1),
+                   unidadeCompra:purchaseUnitOf(i),fatorConversao:Number(i.fatorConversao||1),comprimentoBarra:Number(i.comprimentoBarra||0),
                    precoRef:Number(i.precoRef||0),
                    dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"" };
       });
