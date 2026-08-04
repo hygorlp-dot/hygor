@@ -24935,7 +24935,9 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         comprimentoBarra:Number(item.comprimentoBarra||0),
         precoRef:Number(item.precoRef||0),dataBaseRef:item.dataBaseRef||"",ufRef:item.ufRef||""};
     });
-    atualizarStatusSolicitacao(sol,"em_analise");
+    // Abrir o formulário não pode gerar um salvamento paralelo. O comando
+    // PURCHASE_ORDER_SAVED confirma o pedido e muda a solicitação para
+    // `pedido_gerado` na mesma transação do servidor.
     setPedModal({id:"",numero:"",obraId:sol.obraId,fornecedorId:"",data:new Date().toISOString().slice(0,10),previsao:sol.necessidade||"",
       status:"enviado",origemPagamento:"empresa",referenciaId:itens.find(i=>i.referenciaId)?.referenciaId||"",solicitacaoId:sol.id,itens,obs:`Solicitação ${sol.numero}${sol.observacao?` · ${sol.observacao}`:""}`});
   };
