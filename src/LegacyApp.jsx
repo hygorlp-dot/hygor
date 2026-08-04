@@ -35514,7 +35514,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   <div class="company">
     <h1>${escapeHtml(data.config.companyName||"ARCD Construtech")}</h1>
     ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
-    <p>DRE Gerencial da Locação de Equipamentos</p>
+    <p>Demonstrativo de Resultado do Exercício - DRE Gerencial</p>
   </div>
   <div class="period">${period}</div>
 </div>
@@ -35525,7 +35525,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   <div class="kpi ${d.lucroLiquido>=0?'green':'red'}"><p class="kpi-l">Lucro Líquido</p><p class="kpi-v ${d.lucroLiquido<0?'neg':'pos'}">R$ ${fmt2(d.lucroLiquido)}</p></div>
 </div>
 <table><tbody>
-  <tr class="sec"><td>RECEITA BRUTA DE LOCAÇÕES</td><td class="val">R$ ${fmt2(d.faturamentoTotal)}</td></tr>
+  <tr class="sec"><td>RECEITA BRUTA DA EMPRESA</td><td class="val">R$ ${fmt2(d.faturamentoTotal)}</td></tr>
+  ${row("Faturamento de obras (medições emitidas)",d.faturamentoObras,"sub")}
   ${row("Locação de equipamentos da empresa",d.receitaLocacoes,"sub")}
   <tr class="sec"><td>(-) DEDUÇÕES DA RECEITA</td><td class="val neg">(R$ ${fmt2(d.totalDeducoes)})</td></tr>
   ${d.descontoLocacoes>0?row("(-) Descontos comerciais das locações",-d.descontoLocacoes,"sub"):""}
@@ -35535,6 +35536,11 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   <tr class="subtot"><td>= RECEITA LÍQUIDA DE SERVIÇOS</td><td class="val ${d.receitaLiquida<0?'neg':'pos'}">R$ ${fmt2(d.receitaLiquida)}</td></tr>
 
   <tr class="sec"><td>(-) CUSTO DOS SERVIÇOS PRESTADOS (CSP)</td><td class="val neg">(R$ ${fmt2(d.totalCSP)})</td></tr>
+  ${row("(-) Mão de obra direta (folha)",-d.laborTotal,"sub")}
+  ${d.benefTotal>0?row("(-) Encargos e benefícios (VT/VR)",-d.benefTotal,"sub"):""}
+  ${d.tercTotal>0?row("(-) Terceirizados",-d.tercTotal,"sub"):""}
+  ${d.rescTotal>0?row("(-) Rescisões no período",-d.rescTotal,"sub"):""}
+  ${d.outrasDiretas>0?row("(-) Outras despesas diretas de obra",-d.outrasDiretas,"sub"):""}
   ${d.custoLocacoes>0?row("(-) Repasses e manutenção das locações",-d.custoLocacoes,"sub"):""}
   <tr class="result"><td>= LUCRO BRUTO</td><td class="val ${d.lucroBruto<0?'neg':'pos'}">R$ ${fmt2(d.lucroBruto)} (${d.margemBruta.toFixed(1)}%)</td></tr>
 
@@ -35595,7 +35601,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       <PageHero
         eyebrow="Controladoria · Resultado da empresa"
         title="DRE Gerencial"
-        description="Resultado exclusivo das locações de equipamentos da empresa."
+        description="Todas as receitas da empresa, com obras e locações conciliadas separadamente."
         actions={<>
           <Btn v="ghost" size="sm" onClick={copiarParecer}><Ic n="copy" s={13}/> Copiar parecer</Btn>
           {analiseIA&&<Btn v="ghost" size="sm" onClick={imprimirRelatorioIA}><Ic n="file" s={13}/> PDF da análise</Btn>}
@@ -35611,6 +35617,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         <TabRow tabs={[
           { v:"inteligencia", l:"Visão gerencial", icon:"brain" },
           { v:"demonstrativo", l:"Demonstrativo", icon:"receipt" },
+          { v:"obras", l:"Análise por obra", icon:"building" },
           { v:"despesas", l:"Despesas operacionais", icon:"wallet" },
         ]} active={abaDRE} onChange={setAbaDRE}/>
         <div className="dre-company-period">
@@ -35622,7 +35629,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       {/* KPI bar */}
       <div className="dre-company-kpis" style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
         {[
-          ["Receita de locações",dre.faturamentoTotal,"Equipamentos locados pela empresa"],
+          ["Faturamento",dre.faturamentoTotal,`Obras ${fmt(dre.faturamentoObras)} · locações ${fmt(dre.receitaLocacoes)}`],
           ["Receita líquida",dre.receitaLiquida,`${((dre.totalDeducoes/Math.max(dre.faturamentoTotal,1))*100).toFixed(1)}% em deduções`],
           ["EBITDA",dre.ebitda,`Margem ${dre.margemEbitda.toFixed(1)}%`],
           ["Lucro líquido",dre.lucroLiquido,`Margem ${dre.margemLiquida.toFixed(1)}%`],
@@ -35724,8 +35731,10 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         </div>
         <div style={{padding:"8px 14px"}}>
 
-          <DSec title="Receita Bruta de Locações" color={C.green} value={dre.faturamentoTotal}/>
+          <DSec title="Receita Bruta da Empresa" color={C.green} value={dre.faturamentoTotal}/>
+          <DRow label="Faturamento de obras (medições emitidas)" value={dre.faturamentoObras} indent={1}/>
           <DRow label="Locação de equipamentos da empresa" value={dre.receitaLocacoes} color={C.green} indent={1}/>
+          <DRow label="Recebido em caixa (referência)" value={dre.recebidoObras} color={C.muted} indent={1}/>
 
           <DSec title="(-) Deduções da Receita" color={C.red} value={-dre.totalDeducoes}/>
           {dre.descontoLocacoes>0&&<DRow label="(-) Descontos comerciais das locações" value={-dre.descontoLocacoes} indent={1}/>}
@@ -35736,6 +35745,11 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           <DResult label="= Receita Líquida de Serviços" value={dre.receitaLiquida}/>
 
           <DSec title="(-) Custo dos Serviços Prestados (CSP)" color={C.red} value={-dre.totalCSP}/>
+          <DRow label="(-) Mão de obra direta (folha)" value={-dre.laborTotal} indent={1}/>
+          {dre.benefTotal>0     && <DRow label="(-) Encargos e benefícios (VT/VR)" value={-dre.benefTotal} indent={1}/>}
+          {dre.tercTotal>0      && <DRow label="(-) Terceirizados pagos" value={-dre.tercTotal} indent={1}/>}
+          {dre.rescTotal>0      && <DRow label="(-) Rescisões" value={-dre.rescTotal} indent={1}/>}
+          {dre.outrasDiretas>0  && <DRow label="(-) Outras despesas diretas de obra" value={-dre.outrasDiretas} indent={1}/>}
           {dre.custoLocacoes>0  && <DRow label="(-) Repasses e manutenção das locações" value={-dre.custoLocacoes} indent={1}/>}
           <DResult label="= Lucro Bruto" value={dre.lucroBruto} pct={dre.margemBruta} size={1}/>
 

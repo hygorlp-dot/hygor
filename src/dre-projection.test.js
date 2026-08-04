@@ -47,8 +47,8 @@ describe("projeção canônica do DRE", () => {
     });
     expect(company).toMatchObject({faturamento:1000,recebido:800,laborCost:137.5,benefitCost:30,comprasCost:0});
     expect(companyStatement).toMatchObject({
-      faturamentoObras:0,recebidoObras:0,laborTotal:0,benefTotal:0,
-      totalCSP:0,lucroBruto:0,totalDespOp:50,ebitda:-50,lucroLiquido:-50,
+      faturamentoObras:1000,recebidoObras:800,laborTotal:137.5,benefTotal:30,
+      totalCSP:167.5,lucroBruto:832.5,totalDespOp:50,ebitda:782.5,lucroLiquido:782.5,
       despPorCat:{aluguel:50},
     });
   });
@@ -65,8 +65,8 @@ describe("projeção canônica do DRE", () => {
     const statement=buildDreProjectionRows(data)
       .find(row=>row.sourceId==="2026-07:mes:company_dre")?.payload;
     expect(statement).toMatchObject({
-      faturamentoObras:0,receitaLocacoes:100,faturamentoTotal:100,
-      descontoLocacoes:10,totalDeducoes:10,receitaLiquida:90,
+      faturamentoObras:1000,receitaLocacoes:100,faturamentoTotal:1100,
+      descontoLocacoes:10,totalDeducoes:10,receitaLiquida:1090,
     });
     expect(statement.custoLocacoes).toBeGreaterThanOrEqual(0);
     expect(statement.receitaLiquida-statement.totalCSP-statement.totalDespOp).toBe(statement.ebitda);
