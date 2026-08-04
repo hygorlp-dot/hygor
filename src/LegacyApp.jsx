@@ -17871,7 +17871,7 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
     setCompItemSubstituirId("");setCompBusca("");setCompResultados([]);
   };
 
-  const criarInsumoDaBusca = () => {
+  const criarInsumoDaBusca = async () => {
     const descricao=maiusculoOrcamento(compBusca).trim();
     if(!descricao){showToast("Digite a descrição do novo insumo.","error");return;}
     const existente=(data.materiais||[]).find(item=>maiusculoOrcamento(item.descricao).trim()===descricao);
@@ -17884,7 +17884,8 @@ function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null })
     const preco=Number(String(precoTexto).replace(/\./g,"").replace(",","."));
     if(!Number.isFinite(preco)||preco<0){showToast("Informe um preço unitário válido.","error");return;}
     const material={id:uid(),codigo:proximoCodigoArcd(data),descricao,unidade:unidade.toLowerCase(),categoria:"outros",estoqueMin:0,precoMedio:preco,ativo:true};
-    update({...data,materiais:[...(data.materiais||[]),material]});
+    const result=await update({...data,materiais:[...(data.materiais||[]),material]});
+    if(!result?.ok){showToast(result?.reason||"O insumo não foi confirmado pelo servidor.","error");return;}
     adicionarItemComposicao({fonte:"PRÓPRIA",tipoItem:"INSUMO",codigo:material.codigo,descricao,unidade,precoUnit:preco});
     showToast(`Insumo ${material.codigo} criado e incluído na composição.`);
   };
@@ -23702,11 +23703,12 @@ function RankingFornecedores({data,update,showToast}){
   const entregasTotal=ranking.reduce((s,r)=>s+r.entregas,0);
   const noPrazoTotal=ranking.reduce((s,r)=>s+r.noPrazo,0);
   const novoFornecedor=()=>({id:"",nome:"",razaoSocial:"",nomeFantasia:"",cnpj:"",contato:"",telefone:"",email:"",categorias:[],cep:"",endereco:"",numero:"",complemento:"",bairro:"",cidade:"",uf:"",obs:"",ativo:true});
-  const salvarForn=f=>{
+  const salvarForn=async f=>{
     if(!String(f.nome||"").trim()){showToast("Informe o nome do fornecedor.","error");return;}
     const salvo={...f,id:f.id||uid(),nome:f.nome.trim(),categorias:Array.isArray(f.categorias)?f.categorias:[],ativo:f.ativo!==false};
     delete salvo.ramosSugeridos;
-    update({...data,fornecedores:f.id?fornecedores.map(x=>x.id===f.id?salvo:x):[...fornecedores,salvo]});
+    const result=await update({...data,fornecedores:f.id?fornecedores.map(x=>x.id===f.id?salvo:x):[...fornecedores,salvo]});
+    if(!result?.ok){showToast(result?.reason||"O fornecedor não foi confirmado pelo servidor.","error");return;}
     setFornModal(null);showToast(f.id?"Fornecedor atualizado.":"Fornecedor cadastrado.");
   };
   const nota=(valor,cor=C.blue)=><span className="supplier-score" style={{"--supplier-score-color":cor}}>{valor===null?"—":valor}</span>;
@@ -23934,12 +23936,13 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
     return {...f,itens};
   });
   const abrirNovoInsumo=()=>setNovoInsumo({descricao:busca&&!resultados.length?busca:"",unidade:"un",categoria:"outros",precoMedio:""});
-  const salvarNovoInsumo=()=>{
+  const salvarNovoInsumo=async()=>{
     if(!novoInsumo.descricao.trim()){showToast?.("Informe a descrição do insumo.","error");return;}
     const material={id:uid(),codigo:proximoCodigoArcd(data),descricao:maiusculoOrcamento(novoInsumo.descricao.trim()),
       unidade:novoInsumo.unidade||"un",categoria:novoInsumo.categoria||"outros",estoqueMin:0,
       precoMedio:Number(novoInsumo.precoMedio||0),ativo:true};
-    update({...data,materiais:[...(data.materiais||[]),material]});
+    const result=await update({...data,materiais:[...(data.materiais||[]),material]});
+    if(!result?.ok){showToast?.(result?.reason||"O insumo não foi confirmado pelo servidor.","error");return;}
     setForm(f=>({...f,itens:[...f.itens,{id:uid(),materialId:material.id,referenciaId:"",fonteRef:"PRÓPRIO",
       codigoRef:material.codigo,descricaoRef:material.descricao,unidadeRef:material.unidade,
       unidadeCompra:material.unidade,fatorConversao:1,quantidade:"",precoRef:material.precoMedio,
@@ -24747,14 +24750,15 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
   })),[evolucaoMaterial,analiseMaterialAtual,fornecedorPorId,obraPorId]);
 
   //  Fornecedor 
-  const salvarForn = (f) => {
+  const salvarForn = async (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome do fornecedor.", "error"); return; }
     const p = { ...f, id: f.id || uid(), nome: f.nome.trim(),
       categorias: Array.isArray(f.categorias) ? f.categorias : [], ativo: true };
     delete p.ramosSugeridos;
-    update({ ...data, fornecedores: f.id
+    const result=await update({ ...data, fornecedores: f.id
       ? (data.fornecedores||[]).map(x => x.id === f.id ? p : x)
       : [...(data.fornecedores||[]), p] });
+    if(!result?.ok){showToast(result?.reason||"O fornecedor não foi confirmado pelo servidor.","error");return;}
     setFornModal(null);
     showToast(f.id ? "Fornecedor atualizado." : "Fornecedor cadastrado.");
   };
