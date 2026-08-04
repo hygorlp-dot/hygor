@@ -19,6 +19,7 @@ const financialCommands=new Set([
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,
   OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,
   OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
 ]);
@@ -36,6 +37,7 @@ describe("persistência de comandos operacionais",()=>{
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,financialCommands)).toBe(false);
   });

@@ -231,6 +231,20 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(edit.reason).toMatch(/não pode ser alterada/);
   });
 
+  it("apropria recebimentos bancários parciais e integrais",()=>{
+    const invoice={id:"invoice-1",rentalId:"loc-1",workId:"obra-a",status:"issued",netAmountCents:10000,receivedAmountCents:0,openAmountCents:10000,version:1};
+    const initial={...base(),rentalInvoices:[invoice],transacoes:[{id:"tx-1",data:"2026-09-10",valor:60},{id:"tx-2",data:"2026-09-11",valor:40}]};
+    const partial=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,"rental-receipt-partial-0001",{
+      invoiceId:"invoice-1",receipt:{transactionId:"tx-1",amountCents:6000},
+    },1));
+    expect(partial.data.rentalInvoices[0]).toMatchObject({status:"partially_paid",receivedAmountCents:6000,openAmountCents:4000,version:2});
+    const paid=applyOperationalCommand(partial.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,"rental-receipt-final-0001",{
+      invoiceId:"invoice-1",receipt:{transactionId:"tx-2",amountCents:4000},
+    },2));
+    expect(paid.data.rentalInvoices[0]).toMatchObject({status:"paid",receivedAmountCents:10000,openAmountCents:0,paidAt:"2026-09-11",version:3});
+    expect(paid.data.rentalInvoiceReceipts).toHaveLength(2);
+  });
+
   it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],
       equipmentRegistryMigration:{version:1},

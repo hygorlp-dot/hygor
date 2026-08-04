@@ -14,6 +14,7 @@ import { validateRentalReplacement } from "./rental-replacements.js";
 import { buildRentalPeriodicCharge,validateRentalChargeItem } from "./rental-charges.js";
 import { normalizeBillingRule } from "./billing-cycles.js";
 import { validateRentalInvoice } from "./rental-invoices.js";
+import { validateRentalInvoiceReceipt } from "./rental-receipts.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
@@ -98,6 +99,7 @@ export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED:"LOCACAO_EQUIPAMENTO_LINHA_COBRANCA_SALVA",
   EQUIPMENT_RENTAL_CHARGE_MEASURED:"LOCACAO_EQUIPAMENTO_COBRANCA_MEDIDA",
   EQUIPMENT_RENTAL_INVOICE_ISSUED:"LOCACAO_EQUIPAMENTO_FATURA_EMITIDA",
+  EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED:"LOCACAO_EQUIPAMENTO_RECEBIMENTO_VINCULADO",
   EQUIPMENT_RESERVATION_SAVED:"RESERVA_EQUIPAMENTO_SALVA",
   EQUIPMENT_RESERVATION_CANCELLED:"RESERVA_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_UNAVAILABILITY_SAVED:"INDISPONIBILIDADE_EQUIPAMENTO_SALVA",
@@ -124,6 +126,7 @@ export const equipmentCommandObraId=(data={},command={})=>{
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.chargeItem?.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.invoice?.rentalId)?.obraId||"");
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED)return String(list(data,"rentalInvoices").find(item=>item.id===payload.invoiceId)?.workId||"");
   if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_SAVED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED].includes(command.type))return String(payload.unavailability?.workId||"");
   if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_CANCELLED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED].includes(command.type))return String(unavailabilityList(data).find(item=>item.id===payload.unavailabilityId)?.workId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){
@@ -479,6 +482,22 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const billedItems=list(data,"rentalChargeItems").map(item=>itemIds.includes(String(item.id))?{...item,status:"billed",invoiceId:id,
       billedAt:now,version:versionOf(item)+1,updatedAt:now,operationalHistory:audit(item,command,now,"EQUIPMENT_RENTAL_CHARGE_ITEM_BILLED",{invoiceId:id})}:item);
     return {ok:true,data:{...data,rentalChargeItems:billedItems,rentalInvoices:[...list(data,"rentalInvoices"),invoice]},entityId:id};
+  }
+
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED){
+    const invoiceId=String(payload.invoiceId||""),invoice=list(data,"rentalInvoices").find(item=>String(item.id)===invoiceId);
+    if(!invoice)return fail("Fatura não encontrada.");
+    const stale=versionError(invoice,command.expectedVersion,"A fatura");if(stale)return fail(stale);
+    const transaction=list(data,"transacoes").find(item=>String(item.id)===String(payload.receipt?.transactionId));
+    const validation=validateRentalInvoiceReceipt(invoice,transaction,payload.receipt||{},list(data,"rentalInvoiceReceipts"));
+    if(!validation.ok)return fail(validation.reason);
+    const receipt={...validation.record,id:`rental_receipt_${command.idempotencyKey}`,createdAt:now,createdById:command.actorId||"",
+      operationalHistory:audit(null,command,now,"EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED")};
+    const receivedAmountCents=Number(invoice.receivedAmountCents||0)+receipt.amountCents,openAmountCents=Math.max(0,Number(invoice.netAmountCents||0)-receivedAmountCents);
+    const updated={...invoice,receivedAmountCents,openAmountCents,status:openAmountCents===0?"paid":"partially_paid",paidAt:openAmountCents===0?receipt.paymentDate:"",
+      version:versionOf(invoice)+1,updatedAt:now,operationalHistory:audit(invoice,command,now,"EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED",{receiptId:receipt.id,amountCents:receipt.amountCents})};
+    return {ok:true,data:{...data,rentalInvoices:list(data,"rentalInvoices").map(item=>item.id===invoiceId?updated:item),
+      rentalInvoiceReceipts:[...list(data,"rentalInvoiceReceipts"),receipt]},entityId:receipt.id};
   }
 
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){

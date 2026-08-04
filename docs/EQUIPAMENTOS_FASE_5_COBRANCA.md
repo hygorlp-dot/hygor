@@ -107,4 +107,17 @@ sem substituir de uma vez a memória financeira legada.
 - faturas emitidas aparecem no cartão com valor faturado e saldo aberto;
 - smoke E2E cobre seleção, total e ação de emissão.
 
+## Oitavo incremento
+
+- recebimento de fatura exige vínculo com uma entrada bancária positiva já
+  existente;
+- o comando não cria dinheiro local nem duplica a transação do extrato;
+- uma mesma transação não pode respaldar dois recebimentos de locação;
+- valor apropriado não pode superar a entrada bancária nem o saldo aberto;
+- recebimentos parciais mudam a fatura para `partially_paid`;
+- quitação integral muda a fatura para `paid`, zera o saldo e registra a data;
+- cada apropriação preserva transação, operador, data, versão e auditoria;
+- transações e razão canônico permanecem inalterados: o fato apenas vincula a
+  evidência bancária à fatura.
+
 A Fase 5 ainda não está concluída.
