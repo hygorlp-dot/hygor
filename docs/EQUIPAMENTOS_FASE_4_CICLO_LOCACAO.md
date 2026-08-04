@@ -51,4 +51,19 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
 - estados terminais continuam nas ações legadas até que checklists, devolução
   e estorno sejam implementados nos próximos incrementos.
 
+## Terceiro incremento
+
+- entidade embutida e imutável de checklist por locação;
+- marcos de separação, expedição e entrega com data, quantidade, unidades
+  físicas, acessórios, horímetro, combustível, condição, fotos, responsáveis,
+  endereço, aceite e observações;
+- validação da quantidade contratada e das unidades vinculadas à locação;
+- entrega exige expedição anterior, responsável pelo transporte, recebedor e
+  endereço;
+- o mesmo marco não pode ser registrado duas vezes;
+- transições para `ready_for_dispatch`, `in_transport` e `delivered` exigem o
+  checklist correspondente;
+- comando próprio com idempotência, versão esperada, escopo da obra e trilha
+  de auditoria, sem movimentar o razão financeiro.
+
 A Fase 4 ainda não está concluída.

@@ -17,6 +17,11 @@ describe("ciclo completo da locação",()=>{
     expect(validateRentalTransition(RENTAL_STATE.ACTIVE,RENTAL_STATE.CLOSED).ok).toBe(false);
     expect(validateRentalTransition(RENTAL_STATE.UNDER_INSPECTION,RENTAL_STATE.CLOSED).ok).toBe(true);
   });
+  it("exige o checklist correspondente nos marcos logísticos",()=>{
+    expect(validateRentalTransition("separating","ready_for_dispatch").reason).toMatch(/checklist de separation/);
+    expect(validateRentalTransition("separating","ready_for_dispatch",{checkpoints:[{type:"separation"}]}).ok).toBe(true);
+    expect(validateRentalTransition("in_transport","delivered",{checkpoints:[{type:"delivery"}]}).ok).toBe(true);
+  });
   it("exige justificativa e estorno para cancelar após faturamento",()=>{
     expect(validateRentalTransition(RENTAL_STATE.QUOTED,RENTAL_STATE.CANCELLED).reason).toMatch(/justificativa/);
     expect(validateRentalTransition(RENTAL_STATE.QUOTED,RENTAL_STATE.CANCELLED,{reason:"Cliente desistiu",hasBilling:true}).reason).toMatch(/estorno/);

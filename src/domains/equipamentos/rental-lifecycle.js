@@ -41,7 +41,7 @@ export const normalizeRentalState=value=>{
 
 export const availableRentalTransitions=value=>[...(transitions[normalizeRentalState(value)]||[])];
 
-export const validateRentalTransition=(currentState,nextState,{reason="",hasBilling=false}={})=>{
+export const validateRentalTransition=(currentState,nextState,{reason="",hasBilling=false,checkpoints=[]}={})=>{
   const rawTo=String(nextState||"").trim().toLowerCase();
   const from=normalizeRentalState(currentState),to=normalizeRentalState(rawTo);
   if(!RENTAL_STATES.includes(rawTo))return {ok:false,reason:"Estado de destino da locação inválido."};
@@ -49,5 +49,9 @@ export const validateRentalTransition=(currentState,nextState,{reason="",hasBill
   if(!(transitions[from]||[]).includes(to))return {ok:false,reason:`Transição de ${from} para ${to} não permitida.`};
   if(to===RENTAL_STATE.CANCELLED&&!String(reason||"").trim())return {ok:false,reason:"Informe a justificativa do cancelamento."};
   if(to===RENTAL_STATE.CANCELLED&&hasBilling)return {ok:false,reason:"Locação faturada exige processo de estorno antes do cancelamento."};
+  const requiredCheckpoint={ready_for_dispatch:"separation",in_transport:"dispatch",delivered:"delivery"}[to];
+  if(requiredCheckpoint&&!checkpoints.some(item=>item.type===requiredCheckpoint&&item.status!=="cancelled")){
+    return {ok:false,reason:`Registre o checklist de ${requiredCheckpoint} antes de avançar a locação.`};
+  }
   return {ok:true,from,to};
 };

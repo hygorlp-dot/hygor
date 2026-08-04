@@ -70,6 +70,26 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(billed.reason).toMatch(/estorno/);
   });
 
+  it("registra checklist antes do marco logístico",()=>{
+    const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",quantidade:2,lifecycleState:"separating",version:1};
+    const blocked=applyOperationalCommand({...base(),locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,"rental-ready-blocked-0001",
+      {rentalId:"loc-1",nextState:"ready_for_dispatch"},1,
+    ));
+    expect(blocked.reason).toMatch(/checklist de separation/);
+    const checked=applyOperationalCommand({...base(),locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,"rental-separation-checkpoint-0001",
+      {rentalId:"loc-1",checkpoint:{type:"separation",date:"2026-08-04",quantity:2,accessories:["cabo"]}},1,
+    ));
+    expect(checked.ok).toBe(true);
+    expect(checked.data.locacoesEquip[0].rentalCheckpoints[0]).toMatchObject({type:"separation",quantity:2,createdById:"u-1"});
+    const advanced=applyOperationalCommand(checked.data,command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,"rental-ready-after-checklist-0001",
+      {rentalId:"loc-1",nextState:"ready_for_dispatch"},2,
+    ));
+    expect(advanced.data.locacoesEquip[0]).toMatchObject({lifecycleState:"ready_for_dispatch",version:3});
+  });
+
   it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],
       equipmentRegistryMigration:{version:1},

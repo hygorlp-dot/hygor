@@ -2183,6 +2183,7 @@ const normalizeData = incoming => {
       status:      l.status      || (l.fim ? "encerrada" : "ativa"),
       lifecycleState:l.lifecycleState||"",
       lifecycleHistory:Array.isArray(l.lifecycleHistory)?l.lifecycleHistory:[],
+      rentalCheckpoints:Array.isArray(l.rentalCheckpoints)?l.rentalCheckpoints:[],
       version:     Number(l.version || 0),
       createdAt:   l.createdAt || "",
       createdById: l.createdById || "",
