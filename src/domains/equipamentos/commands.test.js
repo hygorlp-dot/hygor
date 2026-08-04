@@ -404,7 +404,7 @@ describe("comandos transacionais de equipamentos",()=>{
     }},0));
     expect(created.ok).toBe(true);
     expect(created.data.locacoesEquip[0].commercialSnapshot).toMatchObject({
-      tarifas:{dia:80},descontoPct:10,descontoValor:5,regraTarifaria:"menor_combinacao",
+      tarifas:{dia:80},descontoPct:10,descontoValor:5,regraTarifaria:"best_combination",
       negociadoPorId:"u-1",negociadoPor:"Ana",origemTabela:"negociada",versaoTabela:7,
     });
     const current=created.data.locacoesEquip[0];

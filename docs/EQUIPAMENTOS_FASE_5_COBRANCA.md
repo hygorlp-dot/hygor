@@ -38,4 +38,18 @@ sem substituir de uma vez a memória financeira legada.
 - gravação usa exclusivamente o comando auditável do primeiro incremento;
 - smoke E2E cobre preenchimento e prévia exata em centavos.
 
+## Terceiro incremento
+
+- catálogo explícito de regras: melhor combinação, dia corrido, dia útil,
+  diária mínima, semana, quinzena, mês de 30 dias, mês civil e aniversário;
+- cálculo puro recebe datas, tarifas em centavos e quantidade em milésimos;
+- semana, quinzena e mês contratados não são substituídos por combinação mais
+  barata;
+- suporte a valor mínimo de contrato, franquia de horas e hora excedente;
+- regra escolhida fica congelada no snapshot comercial da locação;
+- formulário de locação permite escolher a regra antes da contratação e a
+  bloqueia depois que o snapshot existe;
+- `menor_combinacao` legado é traduzido para `best_combination` sem alterar
+  contratos históricos.
+
 A Fase 5 ainda não está concluída.

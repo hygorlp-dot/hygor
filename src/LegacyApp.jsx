@@ -33480,7 +33480,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   // ---- Formulários vazios ----
   const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", tarifas:{dia:"",semana:"",quinzena:"",mes:""}, tarifasCusto:{dia:"",semana:"",quinzena:"",mes:""}, quantidadeTotal:1, valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:obraIdFixo||"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, imagemUrl:"", imagemTipo:"auto", obs:"" };
   const donoVazio  = { nome:"", documento:"", telefone:"", email:"", chavePix:"", obs:"" };
-  const locVazio   = { equipamentoId:"", equipmentLotId:"",equipmentUnitIds:[],obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, regraTarifaria:"menor_combinacao", tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
+  const locVazio   = { equipamentoId:"", equipmentLotId:"",equipmentUnitIds:[],obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, regraTarifaria:"best_combination", tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
   const manutVazio = { equipamentoId:"",equipmentLotId:"",equipmentUnitIds:[],data:today(), inicio:today(), fim:today(), quantidade:1, status:"programada", tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
   const indispVazio={equipmentId:"",equipmentUnitId:"",quantity:1,type:"reservation",startDate:today(),endDate:today(),reason:"",status:"ativa",workId:""};
   const transfVazio= { equipamentoId:"",equipmentLotId:"",equipmentUnitIds:[],quantidade:1,deLocationId:"depot",paraObraId:"", data:today(), responsavel:"", obs:"" };
@@ -34298,6 +34298,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   </div>
 
                   <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+                    <Sel label="Regra de cobrança *" disabled={snapshotCongelado} value={locModal.commercialSnapshot?.regraTarifaria||locModal.regraTarifaria||"best_combination"} onChange={v=>setLocModal(f=>({...f,regraTarifaria:v}))} options={[{v:"best_combination",l:"Melhor combinação tarifária"},{v:"calendar_day",l:"Por dia corrido"},{v:"business_day",l:"Por dia útil"},{v:"minimum_daily",l:"Diária mínima"},{v:"tariff_week",l:"Semana tarifária"},{v:"tariff_fortnight",l:"Quinzena tarifária"},{v:"thirty_day_month",l:"Mês de 30 dias"},{v:"civil_month",l:"Mês civil"},{v:"anniversary_cycle",l:"Ciclo por aniversário"}]}/>
                     <Inp label="Desconto ao cliente (%)" type="number" min="0" max="100" disabled={snapshotCongelado} value={locModal.descontoPct} onChange={v=>setLocModal(f=>({...f,descontoPct:v}))}/>
                     <Inp label="Desconto fixo (R$)" type="number" min="0" disabled={snapshotCongelado} value={locModal.descontoValor} onChange={v=>setLocModal(f=>({...f,descontoValor:v}))}/>
                   </div>

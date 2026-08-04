@@ -12,6 +12,7 @@ import { validateRentalCheckpoint } from "./rental-checkpoints.js";
 import { RENTAL_AMENDMENT_TYPE,validateRentalAmendment } from "./rental-amendments.js";
 import { validateRentalReplacement } from "./rental-replacements.js";
 import { validateRentalChargeItem } from "./rental-charges.js";
+import { normalizeBillingRule } from "./billing-cycles.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
@@ -75,7 +76,7 @@ const commercialSnapshot=(input,equipment,command,now)=>{
   return {
     tarifas:effectiveRates,tarifasCusto:effectiveCostRates,
     descontoPct:numeric(input.descontoPct),descontoValor:numeric(input.descontoValor),
-    regraTarifaria:String(input.regraTarifaria||"menor_combinacao"),
+    regraTarifaria:normalizeBillingRule(input.regraTarifaria),
     negociadoEm:now,negociadoPorId:command.actorId||"",negociadoPor:command.actorName||"",
     origemTabela:source,versaoTabela:Number(equipment.rateVersion||equipment.version||0),
   };

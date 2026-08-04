@@ -179,6 +179,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
         await expect(page.getByRole("button",{name:"Encerrar"})).toHaveCount(0);
         const activeRentalCard=page.locator(".equipment-record").filter({hasText:"Término planejado: 30/09"});
+        await activeRentalCard.getByRole("button",{name:"Editar"}).click();
+        const rentalDialog=page.getByRole("dialog",{name:"Editar locação"});
+        await expect(rentalDialog.getByLabel("Regra de cobrança *")).toBeVisible();
+        await rentalDialog.getByLabel("Regra de cobrança *").selectOption("civil_month");
+        await rentalDialog.getByRole("button",{name:"Fechar"}).click();
         await activeRentalCard.getByRole("button",{name:"Adicionar cobrança"}).click();
         const chargeDialog=page.getByRole("dialog",{name:/Adicionar cobrança · Betoneira QA/});
         await expect(chargeDialog.getByText("LINHA PREPARADA · NÃO FATURADA")).toBeVisible();
