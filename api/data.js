@@ -58,6 +58,7 @@ const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — s
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const KEY     = "arced_ponto_v1";
 const PROFILE_KEY = "arced_auth_profiles_v1";
+const DRE_PROJECTION_VERSION = "2026-08-rental-revenue-v1";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -1418,7 +1419,9 @@ export default async function handler(req, res) {
       let currentEvent=(events||[]).find(event=>
         event.source_id===currentId&&event.payload?.active!==false);
       const sourceRevision=String(updatedAt||"");
-      if(!currentEvent||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision){
+      if(!currentEvent
+        ||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision
+        ||String(currentEvent.payload?.projectionVersion||"")!==DRE_PROJECTION_VERSION){
         const projectionRequests=[
           {year,month,period,scope},
           ...historyRequests,
@@ -1427,7 +1430,7 @@ export default async function handler(req, res) {
           company_id:COMPANY,event_type:"dre_snapshot",source_type:"dre_projection",
           source_id:row.sourceId,effective_date:`${row.year}-${String(row.month+1).padStart(2,"0")}-01`,
           payload:{...row.payload,active:true,obraId:row.obraId,year:row.year,month:row.month,
-            period:row.period,sourceRevision},
+            period:row.period,sourceRevision,projectionVersion:DRE_PROJECTION_VERSION},
           created_by:String(usuario.id||"system"),
         }));
         const {error:projectionError}=await db.from("financial_events").upsert(rows,{
