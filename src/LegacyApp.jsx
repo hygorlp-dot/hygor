@@ -69,7 +69,13 @@ import {
   picoUsoNoPeriodo, diasLocacaoNoPeriodo, calcEquipMes, calcEquipamentosMes,
   calcEquipamentosPorObra,
 } from "./domains/equipamentos/calculations";
-import { rentalAvailability } from "./domains/equipamentos/availability";
+import {
+  EQUIPMENT_UNAVAILABILITY_LABEL,
+  availabilityOnDate,
+  buildEquipmentUnavailability,
+  isActiveUnavailability,
+  rentalAvailability,
+} from "./domains/equipamentos/availability";
 import {
   EQUIPMENT_IMAGE_OPTIONS,
   equipmentImageFor,
@@ -1519,6 +1525,19 @@ const normalizeData = incoming => {
       updatedById:e.updatedById||"",
       updatedBy:e.updatedBy||"",
     })) : [],
+
+    equipmentUnavailability: Array.isArray(d.equipmentUnavailability) ? d.equipmentUnavailability.map(item=>({
+      id:item.id||uid(),equipmentId:item.equipmentId||item.equipment_id||"",
+      equipmentUnitId:item.equipmentUnitId||item.equipment_unit_id||"",
+      quantity:Math.max(1,Number(item.quantity||1)),type:item.type||"administrative_block",
+      startDate:item.startDate||item.start_date||"",endDate:item.endDate||item.end_date||"",
+      reason:item.reason||"",status:item.status||"ativa",workId:item.workId||item.work_id||"",
+      maintenanceId:item.maintenanceId||item.maintenance_id||"",rentalId:item.rentalId||item.rental_id||"",
+      transferId:item.transferId||"",affectsCapacity:item.affectsCapacity!==false,
+      version:Number(item.version||0),createdAt:item.createdAt||item.created_at||"",
+      createdBy:item.createdBy||item.created_by||"",updatedAt:item.updatedAt||"",
+      operationalHistory:Array.isArray(item.operationalHistory)?item.operationalHistory:[],
+    })) : [],
     // attendance: { empId: { "2026-07-01": { status, ot, note, obraId } } }
     // obraId é NOVO. Registros antigos não têm - o cálculo cai na obra de
     // lotação para eles, preservando os valores históricos.
@@ -2172,6 +2191,10 @@ const normalizeData = incoming => {
       id:          m.id          || uid(),
       equipamentoId:m.equipamentoId || "",
       data:        m.data        || "",
+      inicio:      m.inicio      || m.data || "",
+      fim:         m.fim         || m.dataConclusao || m.inicio || m.data || "",
+      quantidade:  Math.max(1,Number(m.quantidade||1)),
+      status:      m.status      || "programada",
       tipo:        m.tipo        || "corretiva",  // corretiva | preventiva
       descricao:   m.descricao   || "",
       custo:       Number(m.custo || 0),
@@ -32946,6 +32969,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const [donoModal,  setDonoModal]  = useState(null);
   const [locModal,   setLocModal]   = useState(null);
   const [manutModal, setManutModal] = useState(null);
+  const [indispModal,setIndispModal]=useState(null);
   const [transfModal,setTransfModal]= useState(null);
   const [busca, setBusca] = useState("");
   const [filtroObraGestao, setFiltroObraGestao] = useState(obraIdFixo||"all");   // filtro da grade de gestao
@@ -33219,6 +33243,35 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     setManutModal(null); showToast("Manutenção registrada.");
   };
 
+  const salvarIndisponibilidade=async(f)=>{
+    if(!f.equipmentId||!f.startDate||!f.endDate||!f.reason){showToast("Preencha equipamento, período e motivo.","error");return;}
+    const id=f.id||uid();
+    const isReservation=f.type==="reservation";
+    const result=await dispatchCommand?.(atual=>{
+      const current=(atual.equipmentUnavailability||[]).find(item=>item.id===id);
+      return {type:isReservation?OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED:OPERATIONAL_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED,
+        idempotencyKey:`indisponibilidade-equipamento-salvar-${id}-${uid()}`,
+        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{unavailability:{...f,id,quantity:Math.max(1,Number(f.quantity||1))}}};
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a indisponibilidade.","error");return;}
+    setIndispModal(null);showToast(isReservation?"Reserva registrada.":"Indisponibilidade registrada.");
+  };
+
+  const cancelarIndisponibilidade=async(item)=>{
+    if(!window.confirm(`Cancelar ${EQUIPMENT_UNAVAILABILITY_LABEL[item.type]||"indisponibilidade"}: ${item.reason}?`))return;
+    const isReservation=item.type==="reservation";
+    const result=await dispatchCommand?.(atual=>{
+      const current=(atual.equipmentUnavailability||[]).find(entry=>entry.id===item.id);
+      return {type:isReservation?OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_CANCELLED:OPERATIONAL_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED,
+        idempotencyKey:`indisponibilidade-equipamento-cancelar-${item.id}-${uid()}`,
+        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{unavailabilityId:item.id,reason:"Cancelada no calendário de disponibilidade"}};
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível cancelar a indisponibilidade.","error");return;}
+    showToast("Indisponibilidade cancelada.");
+  };
+
   const salvarTransf = async(f) => {
     if(!f.equipamentoId||!f.paraObraId){ showToast("Escolha o equipamento e a obra de destino.","error"); return; }
     const id=uid();
@@ -33236,7 +33289,8 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", tarifas:{dia:"",semana:"",quinzena:"",mes:""}, tarifasCusto:{dia:"",semana:"",quinzena:"",mes:""}, quantidadeTotal:1, valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:obraIdFixo||"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, imagemUrl:"", imagemTipo:"auto", obs:"" };
   const donoVazio  = { nome:"", documento:"", telefone:"", email:"", chavePix:"", obs:"" };
   const locVazio   = { equipamentoId:"", obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, regraTarifaria:"menor_combinacao", tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
-  const manutVazio = { equipamentoId:"", data:today(), tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
+  const manutVazio = { equipamentoId:"", data:today(), inicio:today(), fim:today(), quantidade:1, status:"programada", tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
+  const indispVazio={equipmentId:"",equipmentUnitId:"",quantity:1,type:"reservation",startDate:today(),endDate:today(),reason:"",status:"ativa",workId:""};
   const transfVazio= { equipamentoId:"", paraObraId:"", data:today(), responsavel:"", obs:"" };
 
   const obraOpts  = [{v:"",l:"Selecione a obra"}, ...(data.obras||[]).map(o=>({v:o.id,l:o.name}))];
@@ -33267,6 +33321,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
             title={equipamentosAtivos.length?"Criar uma nova locação":"Cadastre um equipamento antes de criar a locação"}>
             <Ic n="plus"/> Nova locação
           </Btn>}
+          {contexto==="financeiro"&&<Btn size="sm" v="ghost" disabled={!equipamentosAtivos.length} onClick={()=>setIndispModal(indispVazio)}><Ic n="calendar"/> Reservar / bloquear</Btn>}
           <Btn size="sm" v={contexto==="financeiro"?"ghost":"primary"} onClick={()=>setEquipModal(equipVazio)}><Ic n="wrench"/> Novo equipamento</Btn>
           <Btn size="sm" v="ghost" onClick={()=>setDonoModal(donoVazio)}><Ic n="user"/> Proprietários</Btn>
         </>}
@@ -33370,6 +33425,11 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       {aba==="gestao" && (()=>{
         const [ano,mes] = ym.split("-").map(Number);
         const diasMes = getDays(ano, mes-1);
+        const calendarEvents=buildEquipmentUnavailability(data).filter(isActiveUnavailability);
+        const eventosNoDia=(equipmentId,iso)=>calendarEvents.filter(event=>
+          event.equipmentId===equipmentId&&event.startDate<=iso&&(!event.endDate||event.endDate>=iso));
+        const siglaTipo={rental:"L",reservation:"R",maintenance:"M",inspection:"I",transport:"T",damage:"A",administrative_block:"B",quarantine:"Q"};
+        const corTipo={rental:C.blue,reservation:C.purple,maintenance:C.orange,inspection:C.yellowD,transport:C.green,damage:C.red,administrative_block:C.red,quarantine:C.muted};
         const filtroObraEfetivo = obraIdFixo || filtroObraGestao;
         const linhas = equipamentos.map(e => ({ eq:e, r:resumoLocacaoEquip(data, e.id, diasMes) }))
           .filter(l => filtroObraEfetivo==="all" || l.r.obras.includes(filtroObraEfetivo));
@@ -33425,7 +33485,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                                 minWidth:150,fontSize:10,color:C.muted,textTransform:"uppercase"}}>Equipamento</th>
                     {diasMes.map(d=>(
                       <th key={d} style={{position:"sticky",top:0,zIndex:2,background:ehFimSemana(d)?`${C.blue}10`:C.surface,
-                                          padding:"7px 0",minWidth:22,borderBottom:`1px solid ${C.border}`,
+                                          padding:"7px 0",minWidth:42,borderBottom:`1px solid ${C.border}`,
                                           fontSize:9,color:C.muted,fontWeight:700}}>{diaCurto(d)}</th>
                     ))}
                     {["Dias","Ocup.","Receita","Result."].map(h=>(
@@ -33454,26 +33514,26 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                         </p>
                       </td>
                       {r.grade.map(g=>{
-                        const lote = Number(eq.quantidadeTotal||1) > 1;
-                        const estourou = lote && g.unidades > Number(eq.quantidadeTotal||1);
-                        const titulo = g.locado
-                          ? `${fmtDateFull(g.data)} · ${g.obras.map(obraName).join(", ")}`
-                            + (lote?` · ${g.unidades} de ${eq.quantidadeTotal} un`:"")
-                            + (estourou?" · ALÉM DO QUE EXISTE":"")
-                          : `${fmtDateFull(g.data)} · parado`;
+                        const eventos=eventosNoDia(eq.id,g.data);
+                        const disponibilidade=availabilityOnDate(data,eq,g.data);
+                        const estourou=disponibilidade.livre===0&&eventos.reduce((sum,event)=>sum+Number(event.quantity||0),0)>disponibilidade.total;
+                        const resumoTipos=["rental","reservation","maintenance","inspection","transport","damage","administrative_block","quarantine"]
+                          .map(type=>{const qtd=eventos.filter(event=>event.type===type).reduce((sum,event)=>sum+Number(event.quantity||0),0);return qtd?`${siglaTipo[type]}${qtd}`:"";}).filter(Boolean);
+                        const titulo=`${fmtDateFull(g.data)} · ${eventos.length?eventos.map(event=>`${EQUIPMENT_UNAVAILABILITY_LABEL[event.type]||event.type}: ${event.reason}`).join(" · "):"Livre"} · ${disponibilidade.livre}/${disponibilidade.total} livre(s)`;
+                        const principal=eventos.find(event=>event.affectsCapacity!==false)||eventos[0];
                         return (
                           <td key={g.data} title={titulo}
-                              onClick={()=>{ const l=(data.locacoesEquip||[]).find(x=>x.id===g.locId); if(l) setLocModal(l); }}
+                              onClick={()=>{
+                                if(!principal)return;
+                                if(principal.rentalId){const rental=(data.locacoesEquip||[]).find(item=>item.id===principal.rentalId);if(rental)setLocModal(rental);return;}
+                                if(principal.maintenanceId){const maintenance=(data.manutencoesEquip||[]).find(item=>item.id===principal.maintenanceId);if(maintenance)setManutModal(maintenance);return;}
+                                const explicit=(data.equipmentUnavailability||[]).find(item=>item.id===principal.id);if(explicit)setIndispModal(explicit);
+                              }}
                               style={{textAlign:"center",padding:"6px 0",borderBottom:`1px solid ${C.line}`,
-                                      background:estourou?`${C.red}35`:g.locado?`${corDaObra(g.obraId)}30`:ehFimSemana(g.data)?`${C.blue}08`:"transparent",
-                                      cursor:g.locado?"pointer":"default"}}>
-                            {!g.locado
-                              ? <span style={{color:C.muted,fontSize:9}}>·</span>
-                              : lote
-                                ? <span style={{fontSize:8.5,fontWeight:800,color:estourou?C.red:C.text}}>{g.unidades}</span>
-                                : <span style={{display:"inline-block",width:9,height:9,borderRadius:2,
-                                          background:corDaObra(g.obraId),
-                                          boxShadow:g.varias?`0 0 0 2px ${C.card}, 0 0 0 3px ${C.muted}`:"none"}}/>}
+                                      background:estourou?`${C.red}35`:principal?`${corTipo[principal.type]||C.muted}24`:ehFimSemana(g.data)?`${C.blue}08`:"transparent",
+                                      cursor:principal?"pointer":"default"}}>
+                            <span style={{display:"block",fontSize:8,fontWeight:800,color:estourou?C.red:principal?(corTipo[principal.type]||C.text):C.muted}}>{resumoTipos.join(" ")||"—"}</span>
+                            <span style={{display:"block",fontSize:7.5,color:disponibilidade.livre?C.green:C.red}}>livre {disponibilidade.livre}</span>
                           </td>
                         );
                       })}
@@ -33499,6 +33559,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               ))}
             </div>
           )}
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",padding:"0 2px"}}>
+            {Object.entries(siglaTipo).map(([type,sigla])=><span key={type} style={{fontSize:9.5,color:corTipo[type]||C.muted,fontWeight:750}}>{sigla} = {EQUIPMENT_UNAVAILABILITY_LABEL[type]}</span>)}
+          </div>
         </>);
       })()}
 
@@ -33900,13 +33963,36 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
         <Modal title="Manutenção" onClose={()=>setManutModal(null)} wide>
           <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
             <Sel label="Equipamento *" value={manutModal.equipamentoId} onChange={v=>setManutModal(f=>({...f,equipamentoId:v}))} options={equipOpts}/>
-            <Inp label="Data *" type="date" value={manutModal.data} onChange={v=>setManutModal(f=>({...f,data:v}))}/>
+            <Inp label="Início *" type="date" value={manutModal.inicio||manutModal.data} onChange={v=>setManutModal(f=>({...f,inicio:v,data:v}))}/>
+            <Inp label="Término *" type="date" value={manutModal.fim||manutModal.inicio||manutModal.data} onChange={v=>setManutModal(f=>({...f,fim:v}))}/>
+            <Inp label="Unidades indisponíveis *" type="number" min="1" value={manutModal.quantidade||1} onChange={v=>setManutModal(f=>({...f,quantidade:v}))}/>
             <Sel label="Tipo" value={manutModal.tipo} onChange={v=>setManutModal(f=>({...f,tipo:v}))} options={[{v:"corretiva",l:"Corretiva"},{v:"preventiva",l:"Preventiva"}]}/>
             <Inp label="Custo (R$) *" type="number" value={manutModal.custo} onChange={v=>setManutModal(f=>({...f,custo:v}))}/>
             <Sel label="Pago por" value={manutModal.pagoPor} onChange={v=>setManutModal(f=>({...f,pagoPor:v}))} options={[{v:"empresa",l:"Empresa"},{v:"proprietario",l:"Proprietário (terceiro)"}]}/>
             <Inp label="Fornecedor / oficina" value={manutModal.fornecedor} onChange={v=>setManutModal(f=>({...f,fornecedor:v}))}/>
             <div style={{gridColumn:"1/-1"}}><Inp label="Descrição" value={manutModal.descricao} onChange={v=>setManutModal(f=>({...f,descricao:v}))} multiline/></div>
             <div style={{gridColumn:"1/-1"}}><Btn full onClick={()=>salvarManut(manutModal)}>Registrar manutenção</Btn></div>
+          </div>
+        </Modal>
+      )}
+
+      {indispModal && (
+        <Modal title={indispModal.id?"Editar indisponibilidade":"Reservar ou bloquear equipamento"} onClose={()=>setIndispModal(null)} wide>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+            <Sel label="Equipamento *" value={indispModal.equipmentId} onChange={v=>setIndispModal(f=>({...f,equipmentId:v}))} options={equipOpts}/>
+            <Sel label="Tipo *" value={indispModal.type} onChange={v=>setIndispModal(f=>({...f,type:v}))} options={[
+              {v:"reservation",l:"Reserva"},{v:"inspection",l:"Inspeção"},{v:"transport",l:"Transporte"},
+              {v:"damage",l:"Avaria"},{v:"administrative_block",l:"Bloqueio administrativo"},{v:"quarantine",l:"Quarentena"},
+            ]}/>
+            <Inp label="Início *" type="date" value={indispModal.startDate} onChange={v=>setIndispModal(f=>({...f,startDate:v}))}/>
+            <Inp label="Término *" type="date" value={indispModal.endDate} onChange={v=>setIndispModal(f=>({...f,endDate:v}))}/>
+            <Inp label="Quantidade *" type="number" min="1" value={indispModal.quantity||1} onChange={v=>setIndispModal(f=>({...f,quantity:v}))}/>
+            <Sel label="Obra (opcional)" value={indispModal.workId||""} onChange={v=>setIndispModal(f=>({...f,workId:v}))} options={obraOpts}/>
+            <div style={{gridColumn:"1/-1"}}><Inp label="Motivo *" value={indispModal.reason} onChange={v=>setIndispModal(f=>({...f,reason:v}))} multiline/></div>
+            <div style={{gridColumn:"1/-1",display:"flex",gap:8,justifyContent:"flex-end"}}>
+              {indispModal.id&&isActiveUnavailability(indispModal)&&<Btn v="danger" onClick={()=>{cancelarIndisponibilidade(indispModal);setIndispModal(null);}}><Ic n="trash"/> Cancelar</Btn>}
+              <Btn onClick={()=>salvarIndisponibilidade(indispModal)}><Ic n="check"/> Salvar</Btn>
+            </div>
           </div>
         </Modal>
       )}

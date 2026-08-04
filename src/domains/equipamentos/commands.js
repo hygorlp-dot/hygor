@@ -1,4 +1,8 @@
-import { rentalAvailability } from "./availability.js";
+import {
+  EQUIPMENT_UNAVAILABILITY_TYPE,
+  fleetAvailability,
+  rentalAvailability,
+} from "./availability.js";
 import { diasLocacaoNoPeriodo, validateRentalDiscounts } from "./calculations.js";
 import { isValidIsoDate } from "./date.js";
 
@@ -12,6 +16,7 @@ const numeric=value=>{
   const number=Number(value||0);
   return Number.isFinite(number)?number:0;
 };
+const quantity=value=>Math.max(1,Math.trunc(numeric(value)||1));
 const rates=value=>Object.fromEntries(RATE_KEYS.map(key=>[key,Math.max(0,numeric(value?.[key]))]));
 const versionError=(current,expected,label)=>{
   if(expected==null)return "";
@@ -25,6 +30,16 @@ const obraExists=(data,id)=>!id||list(data,"obras").some(item=>String(item.id)==
 const activeRental=rental=>rental?.status!=="cancelada"&&!rental?.fim;
 const hasOpenRental=(data,equipmentId,exceptId="")=>list(data,"locacoesEquip")
   .some(item=>String(item.equipamentoId)===String(equipmentId)&&String(item.id)!==String(exceptId)&&activeRental(item));
+const unavailabilityList=data=>list(data,"equipmentUnavailability");
+const upsertUnavailability=(data,record)=>{
+  const current=unavailabilityList(data).find(item=>String(item.id)===String(record.id));
+  return current?replace(data,"equipmentUnavailability",record.id,{...current,...record})
+    :{...data,equipmentUnavailability:[...unavailabilityList(data),record]};
+};
+const unavailabilityConflict=availability=>{
+  const reasons=[...new Set(availability.conflicts.map(item=>item.reason).filter(Boolean))].join(", ")||"capacidade insuficiente";
+  return `Equipamento indisponível (${reasons}) no período ${availability.start} a ${availability.end}: ${availability.locado} locada(s), ${availability.reservado} reservada(s), ${availability.manutencao} em manutenção, ${availability.bloqueado} bloqueada(s), ${availability.free} livre(s) e ${availability.requested} solicitada(s).`;
+};
 
 const normalizeEquipment=input=>({
   ...input,
@@ -65,6 +80,10 @@ export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_RENTAL_SAVED:"LOCACAO_EQUIPAMENTO_SALVA",
   EQUIPMENT_RENTAL_CLOSED:"LOCACAO_EQUIPAMENTO_ENCERRADA",
   EQUIPMENT_RENTAL_CANCELLED:"LOCACAO_EQUIPAMENTO_CANCELADA",
+  EQUIPMENT_RESERVATION_SAVED:"RESERVA_EQUIPAMENTO_SALVA",
+  EQUIPMENT_RESERVATION_CANCELLED:"RESERVA_EQUIPAMENTO_CANCELADA",
+  EQUIPMENT_UNAVAILABILITY_SAVED:"INDISPONIBILIDADE_EQUIPAMENTO_SALVA",
+  EQUIPMENT_UNAVAILABILITY_CANCELLED:"INDISPONIBILIDADE_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_MAINTENANCE_SAVED:"MANUTENCAO_EQUIPAMENTO_SALVA",
   EQUIPMENT_TRANSFERRED:"EQUIPAMENTO_TRANSFERIDO",
 });
@@ -78,6 +97,8 @@ export const equipmentCommandObraId=(data={},command={})=>{
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_SAVED)return String(payload.rental?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CLOSED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CANCELLED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
+  if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_SAVED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED].includes(command.type))return String(payload.unavailability?.workId||"");
+  if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_CANCELLED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED].includes(command.type))return String(unavailabilityList(data).find(item=>item.id===payload.unavailabilityId)?.workId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_SAVED){
     const input=payload.maintenance||{};
     const equipment=list(data,"equipamentos").find(item=>item.id===input.equipamentoId);
@@ -145,8 +166,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const candidate={...input,id,quantidade,inicio:String(input.inicio),fim:String(input.fim||"")};
     const availability=rentalAvailability({data,equipment,rental:candidate,exceptRentalId:current?.id});
     if(availability.exceeded){
-      const reason=availability.conflicts.map(item=>item.reason).filter(Boolean).join(", ")||"capacidade insuficiente";
-      return fail(`Equipamento indisponível (${reason}) no período ${availability.start} a ${availability.end}: ${availability.unavailable} indisponível(is), ${availability.rented} locada(s), ${availability.free} livre(s) e ${availability.requested} solicitada(s).`);
+      return fail(unavailabilityConflict(availability));
     }
     const contractDays=candidate.fim?diasLocacaoNoPeriodo(candidate,candidate.inicio,candidate.fim):30;
     const discountCandidate=current?.commercialSnapshot?{
@@ -168,6 +188,14 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     };
     record.operationalHistory=audit(current,command,now,current?"EQUIPMENT_RENTAL_UPDATED":"EQUIPMENT_RENTAL_CREATED");
     let next=current?replace(data,"locacoesEquip",id,record):{...data,locacoesEquip:[...list(data,"locacoesEquip"),record]};
+    next=upsertUnavailability(next,{
+      id:`unav-rental:${id}`,equipmentId:equipment.id,equipmentUnitId:"",quantity,
+      type:EQUIPMENT_UNAVAILABILITY_TYPE.RENTAL,startDate:record.inicio,endDate:record.fim,
+      reason:`Locação para ${list(data,"obras").find(item=>String(item.id)===String(record.obraId))?.name||"obra"}`,
+      status:record.status,workId:record.obraId,maintenanceId:"",rentalId:id,
+      createdAt:current?.commercialSnapshot?unavailabilityList(data).find(item=>item.rentalId===id)?.createdAt||now:now,
+      createdBy:command.actorId||"",version:versionOf(unavailabilityList(data).find(item=>item.rentalId===id))+1,
+    });
     const affectedEquipmentIds=new Set([current?.equipamentoId,equipment.id].filter(Boolean).map(String));
     for(const equipmentId of affectedEquipmentIds){
       const affected=list(next,"equipamentos").find(item=>String(item.id)===equipmentId);
@@ -197,6 +225,8 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
       encerradoEm:now,encerradoPorId:command.actorId||""};
     record.operationalHistory=audit(current,command,now,"EQUIPMENT_RENTAL_CLOSED",{endDate});
     let next=replace(data,"locacoesEquip",id,record);
+    const rentalEvent=unavailabilityList(next).find(item=>String(item.rentalId)===id);
+    if(rentalEvent)next=upsertUnavailability(next,{...rentalEvent,endDate,status:"encerrada",version:versionOf(rentalEvent)+1,updatedAt:now});
     const equipment=list(data,"equipamentos").find(item=>String(item.id)===String(current.equipamentoId));
     if(equipment&&!hasOpenRental(next,equipment.id,id)){
       const updatedEquipment={...equipment,status:"disponivel",obraAtualId:"",version:versionOf(equipment)+1,updatedAt:now};
@@ -218,6 +248,8 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
       canceladoEm:now,canceladoPorId:command.actorId||"",motivoCancelamento:reason};
     record.operationalHistory=audit(current,command,now,"EQUIPMENT_RENTAL_CANCELLED",{reason});
     let next=replace(data,"locacoesEquip",id,record);
+    const rentalEvent=unavailabilityList(next).find(item=>String(item.rentalId)===id);
+    if(rentalEvent)next=upsertUnavailability(next,{...rentalEvent,status:"cancelada",version:versionOf(rentalEvent)+1,updatedAt:now});
     const equipment=list(data,"equipamentos").find(item=>String(item.id)===String(current.equipamentoId));
     if(equipment){
       const remaining=list(next,"locacoesEquip").find(item=>
@@ -235,21 +267,74 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const id=String(input.id||"");
     const equipment=list(data,"equipamentos").find(item=>String(item.id)===String(input.equipamentoId));
     if(!id||!equipment)return fail("Selecione um equipamento existente.");
-    if(!isValidIsoDate(input.data)||numeric(input.custo)<=0)return fail("Informe data e custo positivo da manutenção.");
+    const startDate=String(input.inicio||input.data||"");
+    const endDate=String(input.fim||input.dataConclusao||startDate);
+    if(!isValidIsoDate(startDate)||!isValidIsoDate(endDate)||endDate<startDate||numeric(input.custo)<=0)return fail("Informe período válido e custo positivo da manutenção.");
     const obraId=String(input.obraId||equipment.obraAtualId||"");
     if(!obraExists(data,obraId))return fail("A obra da manutenção não existe.");
     const current=list(data,"manutencoesEquip").find(item=>String(item.id)===id);
     const stale=versionError(current,command.expectedVersion,"A manutenção");
     if(stale)return fail(stale);
     if(!current&&command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("A manutenção ainda não existe na versão esperada.");
+    const quantidade=Math.min(Math.max(1,Math.trunc(numeric(input.quantidade)||Number(equipment.quantidadeTotal)||1)),Math.max(1,Number(equipment.quantidadeTotal)||1));
+    const availability=fleetAvailability({data,equipment,startDate,endDate,requested:quantidade,except:{maintenanceId:current?.id},ignoreEquipmentStatus:true});
+    if(availability.exceeded)return fail(unavailabilityConflict(availability));
     const record={
-      ...(current||{}),...input,id,equipamentoId:equipment.id,obraId,custo:numeric(input.custo),
+      ...(current||{}),...input,id,equipamentoId:equipment.id,obraId,custo:numeric(input.custo),quantidade,
+      inicio:startDate,fim:endDate,data:startDate,
       version:versionOf(current)+1,updatedAt:now,
       ...(!current?{createdAt:now,createdById:command.actorId||""}:{}),
     };
     record.operationalHistory=audit(current,command,now,current?"EQUIPMENT_MAINTENANCE_UPDATED":"EQUIPMENT_MAINTENANCE_CREATED");
-    const next=current?replace(data,"manutencoesEquip",id,record):{...data,manutencoesEquip:[...list(data,"manutencoesEquip"),record]};
+    let next=current?replace(data,"manutencoesEquip",id,record):{...data,manutencoesEquip:[...list(data,"manutencoesEquip"),record]};
+    next=upsertUnavailability(next,{
+      id:`unav-maintenance:${id}`,equipmentId:equipment.id,equipmentUnitId:"",quantity,
+      type:EQUIPMENT_UNAVAILABILITY_TYPE.MAINTENANCE,startDate,endDate,
+      reason:record.descricao||"Manutenção",status:record.status||"programada",workId:obraId,
+      maintenanceId:id,rentalId:"",createdAt:current?.createdAt||now,createdBy:command.actorId||"",
+      version:versionOf(unavailabilityList(data).find(item=>item.maintenanceId===id))+1,
+    });
     return {ok:true,data:next,entityId:id};
+  }
+
+  if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_SAVED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED].includes(command.type)){
+    const input=payload.unavailability||{};
+    const id=String(input.id||"");
+    const equipment=list(data,"equipamentos").find(item=>String(item.id)===String(input.equipmentId));
+    const allowedTypes=new Set(Object.values(EQUIPMENT_UNAVAILABILITY_TYPE).filter(type=>!["rental","maintenance"].includes(type)));
+    const type=command.type===EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_SAVED?"reservation":String(input.type||"");
+    if(!id||!equipment||equipment.ativo===false)return fail("Selecione um equipamento ativo.");
+    if(!allowedTypes.has(type))return fail("Tipo de indisponibilidade inválido.");
+    const startDate=String(input.startDate||""),endDate=String(input.endDate||"");
+    if(!isValidIsoDate(startDate)||!isValidIsoDate(endDate)||endDate<startDate)return fail("Informe um período válido para a indisponibilidade.");
+    if(input.workId&&!obraExists(data,input.workId))return fail("A obra informada não existe.");
+    const current=unavailabilityList(data).find(item=>String(item.id)===id);
+    const stale=versionError(current,command.expectedVersion,"A indisponibilidade");
+    if(stale)return fail(stale);
+    if(!current&&command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("A indisponibilidade ainda não existe na versão esperada.");
+    const quantidade=Math.min(quantity(input.quantity),Math.max(1,Number(equipment.quantidadeTotal)||1));
+    const availability=fleetAvailability({data,equipment,startDate,endDate,requested:quantidade,except:{id:current?.id},ignoreEquipmentStatus:type!=="reservation"});
+    if(availability.exceeded)return fail(unavailabilityConflict(availability));
+    const record={...(current||{}),...input,id,equipmentId:equipment.id,equipmentUnitId:String(input.equipmentUnitId||""),
+      quantity:quantidade,type,startDate,endDate,reason:String(input.reason||"").trim()||"Indisponibilidade programada",
+      status:"ativa",workId:String(input.workId||""),maintenanceId:"",rentalId:"",
+      version:versionOf(current)+1,updatedAt:now,...(!current?{createdAt:now,createdBy:command.actorId||""}:{}),
+    };
+    record.operationalHistory=audit(current,command,now,current?"EQUIPMENT_UNAVAILABILITY_UPDATED":"EQUIPMENT_UNAVAILABILITY_CREATED");
+    return {ok:true,data:upsertUnavailability(data,record),entityId:id};
+  }
+
+  if([EQUIPMENT_COMMAND.EQUIPMENT_RESERVATION_CANCELLED,EQUIPMENT_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED].includes(command.type)){
+    const id=String(payload.unavailabilityId||"");
+    const current=unavailabilityList(data).find(item=>String(item.id)===id);
+    if(!current)return fail("Indisponibilidade não encontrada.");
+    const stale=versionError(current,command.expectedVersion,"A indisponibilidade");
+    if(stale)return fail(stale);
+    if(["cancelada","cancelado","liberada","liberado","inativa","inativo"].includes(String(current.status||"")))return fail("A indisponibilidade já foi cancelada.");
+    const reason=String(payload.reason||"Cancelada pelo operador").trim();
+    const record={...current,status:"cancelada",version:versionOf(current)+1,updatedAt:now,cancelledAt:now,cancelledBy:command.actorId||"",cancellationReason:reason};
+    record.operationalHistory=audit(current,command,now,"EQUIPMENT_UNAVAILABILITY_CANCELLED",{reason});
+    return {ok:true,data:upsertUnavailability(data,record),entityId:id};
   }
 
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_TRANSFERRED){
@@ -269,7 +354,14 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     updatedEquipment.operationalHistory=audit(equipment,command,now,"EQUIPMENT_TRANSFERRED",{
       transferId:id,deObraId:transfer.deObraId,paraObraId:transfer.paraObraId,
     });
-    const next=replace({...data,transferenciasEquip:[...list(data,"transferenciasEquip"),transfer]},"equipamentos",equipment.id,updatedEquipment);
+    let next=replace({...data,transferenciasEquip:[...list(data,"transferenciasEquip"),transfer]},"equipamentos",equipment.id,updatedEquipment);
+    next=upsertUnavailability(next,{
+      id:`unav-transport:${id}`,equipmentId:equipment.id,equipmentUnitId:"",quantity:Math.max(1,Number(input.quantidade)||1),
+      type:EQUIPMENT_UNAVAILABILITY_TYPE.TRANSPORT,startDate:input.data,endDate:input.data,
+      reason:`Transporte para ${list(data,"obras").find(item=>String(item.id)===String(input.paraObraId))?.name||"obra"}`,
+      status:"concluida",workId:String(input.paraObraId),maintenanceId:"",rentalId:"",transferId:id,
+      affectsCapacity:false,createdAt:now,createdBy:command.actorId||"",version:1,
+    });
     return {ok:true,data:next,entityId:id};
   }
 

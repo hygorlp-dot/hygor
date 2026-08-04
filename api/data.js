@@ -453,6 +453,7 @@ const operationalCommandEntityId=command=>
   ||command.payload?.recordId
   ||command.payload?.commitmentId
   ||command.payload?.rentalId
+  ||command.payload?.unavailabilityId
   ||command.payload?.equipmentId
   ||command.payload?.rescissionId
   ||command.payload?.advanceId
@@ -469,6 +470,7 @@ const operationalCommandEntityId=command=>
   ||command.payload?.commitment?.id
   ||command.payload?.equipment?.id
   ||command.payload?.rental?.id
+  ||command.payload?.unavailability?.id
   ||command.payload?.maintenance?.id
   ||command.payload?.transfer?.id
   ||command.payload?.records?.[0]?.id

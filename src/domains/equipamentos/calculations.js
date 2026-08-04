@@ -1,5 +1,6 @@
 // Domínio puro de equipamentos. Não depende de React, DOM, API ou estilos.
 // Pode ser testado e reutilizado por Engenharia, Financeiro e Compras.
+import { availabilityOnDate } from "./availability.js";
 
 export const PACOTES_TARIFA = [
   { id:"mes", label:"mês", dias:30 },
@@ -94,18 +95,19 @@ export const unidadesEmUsoNoDia = (data,equipId,iso) =>
     .reduce((s,l)=>s+Math.max(1,Number(l.quantidade||1)),0);
 
 export const disponibilidadeNoDia = (data,equip,iso) => {
-  const total=Math.max(1,Number(equip?.quantidadeTotal||1));
-  const emUso=unidadesEmUsoNoDia(data,equip.id,iso);
-  return {total,emUso,livre:total-emUso,excedido:emUso>total};
+  const availability=availabilityOnDate(data,equip,iso);
+  const emUso=availability.total-availability.livre;
+  return {total:availability.total,emUso,livre:availability.livre,excedido:emUso>availability.total,...availability};
 };
 
 export const picoUsoNoPeriodo = (data,equip,days) => {
   const total=Math.max(1,Number(equip?.quantidadeTotal||1));
   let pico=0,diasExcedidos=0;
   (days||[]).forEach(iso=>{
-    const emUso=unidadesEmUsoNoDia(data,equip.id,iso);
+    const availability=availabilityOnDate(data,equip,iso);
+    const emUso=availability.total-availability.livre;
     if(emUso>pico)pico=emUso;
-    if(emUso>total)diasExcedidos++;
+    if(availability.exceeded||emUso>total)diasExcedidos++;
   });
   return {total,pico,livreNoPico:total-pico,excedido:pico>total,diasExcedidos};
 };

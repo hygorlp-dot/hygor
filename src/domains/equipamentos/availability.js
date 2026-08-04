@@ -1,7 +1,26 @@
-import { isoPeriodsOverlap } from "./date.js";
+import { isValidIsoDate,isoPeriodsOverlap } from "./date.js";
 
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 const quantity=value=>Math.max(1,Math.trunc(number(value)||1));
+const active=item=>!["cancelada","cancelado","liberada","liberado","inativa","inativo"].includes(String(item?.status||"ativa"));
+export const isActiveUnavailability=active;
+
+export const EQUIPMENT_UNAVAILABILITY_TYPE=Object.freeze({
+  RENTAL:"rental",
+  RESERVATION:"reservation",
+  MAINTENANCE:"maintenance",
+  INSPECTION:"inspection",
+  TRANSPORT:"transport",
+  DAMAGE:"damage",
+  ADMINISTRATIVE_BLOCK:"administrative_block",
+  QUARANTINE:"quarantine",
+});
+
+export const EQUIPMENT_UNAVAILABILITY_LABEL=Object.freeze({
+  rental:"Locação",reservation:"Reserva",maintenance:"Manutenção",
+  inspection:"Inspeção",transport:"Transporte",damage:"Avaria",
+  administrative_block:"Bloqueio administrativo",quarantine:"Quarentena",
+});
 
 export const EQUIPMENT_BLOCKING_STATUS=Object.freeze({
   inativo:"inativo",
@@ -11,38 +30,130 @@ export const EQUIPMENT_BLOCKING_STATUS=Object.freeze({
   aguardando_inspecao:"aguardando inspeção",
 });
 
-const activeRental=item=>item?.status!=="cancelada";
-const activeMaintenance=item=>!["cancelada","concluida"].includes(String(item?.status||""));
+const typeCategory=type=>type==="rental"?"locado"
+  :type==="reservation"?"reservado"
+  :type==="maintenance"?"manutencao"
+  :"bloqueado";
 
-export const rentalAvailability=({data={},equipment={},rental={},exceptRentalId=""}={})=>{
+const normalizedEvent=(item,defaults={})=>{
+  const type=String(item?.type||defaults.type||"");
+  const startDate=String(item?.startDate||item?.start_date||defaults.startDate||"");
+  const endDate=String(item?.endDate||item?.end_date||defaults.endDate||"");
+  return {
+    ...item,
+    id:String(item?.id||defaults.id||""),
+    equipmentId:String(item?.equipmentId||item?.equipment_id||defaults.equipmentId||""),
+    equipmentUnitId:String(item?.equipmentUnitId||item?.equipment_unit_id||defaults.equipmentUnitId||""),
+    quantity:item?.affectsCapacity===false||defaults.affectsCapacity===false?0:quantity(item?.quantity??defaults.quantity),
+    type,startDate,endDate,
+    reason:String(item?.reason||defaults.reason||EQUIPMENT_UNAVAILABILITY_LABEL[type]||"Indisponibilidade"),
+    status:String(item?.status||defaults.status||"ativa"),
+    workId:String(item?.workId||item?.work_id||defaults.workId||""),
+    maintenanceId:String(item?.maintenanceId||item?.maintenance_id||defaults.maintenanceId||""),
+    rentalId:String(item?.rentalId||item?.rental_id||defaults.rentalId||""),
+    affectsCapacity:item?.affectsCapacity!==false&&defaults.affectsCapacity!==false,
+    version:Number(item?.version||defaults.version||0),
+  };
+};
+
+export const buildEquipmentUnavailability=(data={})=>{
+  const explicit=(data.equipmentUnavailability||[]).map(item=>normalizedEvent(item));
+  const rentalLinks=new Set(explicit.map(item=>item.rentalId).filter(Boolean));
+  const maintenanceLinks=new Set(explicit.map(item=>item.maintenanceId).filter(Boolean));
+  const transportLinks=new Set(explicit.map(item=>item.transferId).filter(Boolean));
+  const derived=[];
+
+  for(const item of data.locacoesEquip||[]){
+    if(rentalLinks.has(String(item.id||"")))continue;
+    derived.push(normalizedEvent({}, {
+      id:`legacy-rental:${item.id}`,equipmentId:item.equipamentoId,quantity:item.quantidade,
+      type:"rental",startDate:item.inicio,endDate:item.fim,reason:"Locação",
+      status:item.status,workId:item.obraId,rentalId:item.id,version:item.version,
+    }));
+  }
+  for(const item of data.manutencoesEquip||[]){
+    if(maintenanceLinks.has(String(item.id||"")))continue;
+    const equipment=(data.equipamentos||[]).find(candidate=>String(candidate.id)===String(item.equipamentoId));
+    derived.push(normalizedEvent({}, {
+      id:`legacy-maintenance:${item.id}`,equipmentId:item.equipamentoId,quantity:item.quantidade||equipment?.quantidadeTotal,
+      type:"maintenance",startDate:item.inicio||item.data,
+      endDate:item.fim||item.dataConclusao||item.inicio||item.data,
+      reason:item.descricao||"Manutenção",status:item.status,workId:item.obraId,
+      maintenanceId:item.id,version:item.version,
+    }));
+  }
+  for(const item of data.transferenciasEquip||[]){
+    if(transportLinks.has(String(item.id||"")))continue;
+    derived.push(normalizedEvent({...item,transferId:item.id}, {
+      id:`legacy-transport:${item.id}`,equipmentId:item.equipamentoId,quantity:item.quantidade,
+      type:"transport",startDate:item.data,endDate:item.data,reason:"Transporte entre obras",
+      status:"concluida",workId:item.paraObraId,affectsCapacity:false,version:item.version,
+    }));
+  }
+  return [...explicit,...derived].filter(item=>item.id&&item.equipmentId&&isValidIsoDate(item.startDate));
+};
+
+const nextIso=iso=>{
+  const date=new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate()+1);
+  return date.toISOString().slice(0,10);
+};
+
+const ignored=(event,except={})=>
+  String(event.id)===String(except.id||"")
+  ||except.rentalId&&String(event.rentalId)===String(except.rentalId)
+  ||except.maintenanceId&&String(event.maintenanceId)===String(except.maintenanceId);
+
+export const fleetAvailability=({data={},equipment={},startDate,endDate="",requested=0,except={},ignoreEquipmentStatus=false}={})=>{
   const total=quantity(equipment.quantidadeTotal);
-  const start=String(rental.inicio||""),end=String(rental.fim||"");
-  const requested=quantity(rental.quantidade);
-  const conflicts=[];
+  const start=String(startDate||""),end=String(endDate||"");
+  const periodEnd=end||"9999-12-31";
+  const events=buildEquipmentUnavailability(data)
+    .filter(event=>String(event.equipmentId)===String(equipment.id)&&active(event)&&!ignored(event,except)
+      &&isoPeriodsOverlap(start,end,event.startDate,event.endDate));
   const statusReason=equipment.ativo===false?EQUIPMENT_BLOCKING_STATUS.inativo
     :EQUIPMENT_BLOCKING_STATUS[String(equipment.status||"")]||"";
-  let unavailable=statusReason?total:0;
-  if(statusReason)conflicts.push({type:"status",reason:statusReason,quantity:total});
+  if(statusReason&&!ignoreEquipmentStatus)events.push(normalizedEvent({}, {
+    id:`equipment-status:${equipment.id}`,equipmentId:equipment.id,quantity:total,
+    type:equipment.status==="manutencao"?"maintenance":equipment.status==="avariado"?"damage"
+      :equipment.status==="aguardando_inspecao"?"inspection":"administrative_block",
+    startDate:start,endDate:end,reason:statusReason,status:"ativa",
+  }));
 
-  let rented=0;
-  for(const item of data.locacoesEquip||[]){
-    if(String(item.id)===String(exceptRentalId)||String(item.equipamentoId)!==String(equipment.id)||!activeRental(item))continue;
-    if(isoPeriodsOverlap(start,end,item.inicio,item.fim)){
-      const used=quantity(item.quantidade);rented+=used;
-      conflicts.push({type:"rental",reason:"locação sobreposta",quantity:used,id:item.id,workId:item.obraId||""});
+  const checkpoints=new Set([start]);
+  events.forEach(event=>{
+    if(event.startDate>=start&&event.startDate<=periodEnd)checkpoints.add(event.startDate);
+    if(event.endDate){
+      const after=nextIso(event.endDate);
+      if(after>=start&&after<=periodEnd)checkpoints.add(after);
     }
-  }
-
-  if(!statusReason)for(const item of data.manutencoesEquip||[]){
-    if(String(item.equipamentoId)!==String(equipment.id)||!activeMaintenance(item))continue;
-    const maintenanceStart=item.inicio||item.data;
-    const maintenanceEnd=item.fim||item.dataConclusao||maintenanceStart;
-    if(isoPeriodsOverlap(start,end,maintenanceStart,maintenanceEnd)){
-      const blocked=quantity(item.quantidade||total);unavailable+=blocked;
-      conflicts.push({type:"maintenance",reason:item.descricao||"manutenção programada",quantity:blocked,id:item.id});
-    }
-  }
-  unavailable=Math.min(total,unavailable);
-  const free=Math.max(0,total-rented-unavailable);
-  return {total,rented,unavailable,free,requested,exceeded:requested>free,conflicts,start,end:end||"em aberto"};
+  });
+  let bottleneck={locado:0,reservado:0,manutencao:0,bloqueado:0,livre:total,date:start};
+  [...checkpoints].sort().forEach(date=>{
+    const values={locado:0,reservado:0,manutencao:0,bloqueado:0};
+    events.filter(event=>event.startDate<=date&&(!event.endDate||event.endDate>=date))
+      .forEach(event=>{values[typeCategory(event.type)]+=event.quantity;});
+    const free=Math.max(0,total-values.locado-values.reservado-values.manutencao-values.bloqueado);
+    if(free<bottleneck.livre)bottleneck={...values,livre:free,date};
+  });
+  const inactive=equipment.ativo===false?total:0;
+  const request=quantity(requested);
+  return {
+    total,inativo:inactive,...bottleneck,requested:request,
+    unavailable:bottleneck.manutencao+bottleneck.bloqueado,
+    rented:bottleneck.locado,
+    free:bottleneck.livre,
+    exceeded:number(requested)>0&&request>bottleneck.livre,
+    conflicts:events,
+    start,end:end||"em aberto",
+  };
 };
+
+export const rentalAvailability=({data={},equipment={},rental={},exceptRentalId=""}={})=>
+  fleetAvailability({
+    data,equipment,startDate:rental.inicio,endDate:rental.fim,requested:rental.quantidade,
+    except:{rentalId:exceptRentalId},
+  });
+
+export const availabilityOnDate=(data,equipment,iso)=>
+  fleetAvailability({data,equipment,startDate:iso,endDate:iso,requested:0});

@@ -34,6 +34,8 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     obras:[
       {id:"obra-qa",name:"Residencial Alameda",status:"active"},
     ],
+    equipamentos:[{id:"eq-qa",nome:"Betoneira QA",patrimonio:"EQ-QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:100}}],
+    locacoesEquip:[],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
     orcamentos:[
       {
         id:"orcamento-rascunho-qa",
@@ -138,6 +140,17 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await pixRow.getByRole("button",{name:/Mostrar outras ações/}).click();
         await expect(pixRow.getByRole("button",{name:"Rateio manual"})).toBeVisible();
         await pixRow.getByRole("button",{name:/Ocultar outras ações/}).click();
+      }
+      if(item==="Locação de equipamentos") {
+        await page.getByRole("button",{name:/Mapa de ocupação/}).click();
+        await expect(page.getByText("R = Reserva")).toBeVisible();
+        await expect(page.getByText("livre 2").first()).toBeVisible();
+        await page.getByRole("button",{name:/Reservar \/ bloquear/}).click();
+        await expect(page.getByText("Reservar ou bloquear equipamento")).toBeVisible();
+        await page.getByLabel("Equipamento *").selectOption("eq-qa");
+        await page.getByLabel("Motivo *").fill("Reserva de homologação");
+        await expect(page.getByRole("button",{name:/Salvar/})).toBeVisible();
+        await page.getByRole("button",{name:"Fechar"}).click();
       }
       if(item==="Terceirizados") {
         const excluirContrato=page.getByRole("button",{name:"Excluir contrato de Elétrica Modelo"});

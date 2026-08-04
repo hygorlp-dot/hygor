@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { rentalAvailability } from "./availability.js";
+import { buildEquipmentUnavailability,fleetAvailability,rentalAvailability } from "./availability.js";
 
 const equipment={id:"eq-1",ativo:true,status:"disponivel",quantidadeTotal:3};
 
@@ -21,5 +21,27 @@ describe("disponibilidade de equipamentos",()=>{
     const result=rentalAvailability({data:{},equipment:{...equipment,status},rental:{inicio:"2026-08-01",fim:"2026-08-02",quantidade:1}});
     expect(result).toMatchObject({unavailable:3,free:0,exceeded:true});
     expect(result.conflicts[0].reason).toBeTruthy();
+  });
+
+  it("usa o menor saldo real e não soma períodos sequenciais como simultâneos",()=>{
+    const result=fleetAvailability({
+      data:{equipmentUnavailability:[
+        {id:"r1",equipmentId:"eq-1",type:"reservation",quantity:2,startDate:"2026-08-01",endDate:"2026-08-05",status:"ativa"},
+        {id:"r2",equipmentId:"eq-1",type:"reservation",quantity:2,startDate:"2026-08-06",endDate:"2026-08-10",status:"ativa"},
+      ]},equipment,startDate:"2026-08-01",endDate:"2026-08-10",requested:1,
+    });
+    expect(result).toMatchObject({total:3,reservado:2,livre:1,exceeded:false});
+  });
+
+  it("projeta legado somente quando não existe evento materializado",()=>{
+    const events=buildEquipmentUnavailability({
+      equipmentUnavailability:[{id:"u1",equipmentId:"eq-1",type:"rental",rentalId:"l1",quantity:1,startDate:"2026-08-01",endDate:"2026-08-02"}],
+      locacoesEquip:[{id:"l1",equipamentoId:"eq-1",quantidade:1,inicio:"2026-08-01",fim:"2026-08-02"}],
+      manutencoesEquip:[{id:"m1",equipamentoId:"eq-1",data:"2026-08-03",descricao:"Revisão"}],
+      transferenciasEquip:[{id:"t1",equipamentoId:"eq-1",data:"2026-08-04",paraObraId:"o1"}],
+    });
+    expect(events.filter(item=>item.rentalId==="l1")).toHaveLength(1);
+    expect(events.map(item=>item.type)).toEqual(["rental","maintenance","transport"]);
+    expect(events.find(item=>item.type==="transport")).toMatchObject({quantity:0,affectsCapacity:false});
   });
 });

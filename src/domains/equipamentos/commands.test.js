@@ -176,9 +176,37 @@ describe("comandos transacionais de equipamentos",()=>{
     const blocked={...base(),equipamentos:[equipment({version:1,status:"avariado"})]};
     const rental={id:"loc-blocked",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",fim:"2026-08-02",quantidade:1};
     const byStatus=applyOperationalCommand(blocked,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"blocked-status",{rental},0));
-    expect(byStatus.reason).toMatch(/avariado.*2026-08-01.*2 indisponível.*0 livre.*1 solicitada/);
+    expect(byStatus.reason).toMatch(/avariado.*2026-08-01.*2 bloqueada.*0 livre.*1 solicitada/);
     const maintenance={...base(),equipamentos:[equipment({version:1})],manutencoesEquip:[{id:"m1",equipamentoId:"eq-1",inicio:"2026-08-01",fim:"2026-08-03",status:"programada",descricao:"Revisão"}]};
     const byMaintenance=applyOperationalCommand(maintenance,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"blocked-maintenance",{rental:{...rental,quantidade:2}},0));
-    expect(byMaintenance.reason).toMatch(/Revisão.*2 indisponível.*0 livre.*2 solicitada/);
+    expect(byMaintenance.reason).toMatch(/Revisão.*2 em manutenção.*0 livre.*2 solicitada/);
+  });
+
+  it("serializa duas reservas disputando a última unidade disponível",()=>{
+    const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:1})]};
+    const first=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED,"reservation-concurrency-a",{unavailability:{
+      id:"res-1",equipmentId:"eq-1",workId:"obra-a",quantity:1,startDate:"2026-09-01",endDate:"2026-09-03",reason:"Mobilização",
+    }},0));
+    expect(first.ok).toBe(true);
+    const second=applyOperationalCommand(first.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED,"reservation-concurrency-b",{unavailability:{
+      id:"res-2",equipmentId:"eq-1",workId:"obra-b",quantity:1,startDate:"2026-09-02",endDate:"2026-09-04",reason:"Outra obra",
+    }},0));
+    expect(second).toMatchObject({ok:false});
+    expect(second.reason).toMatch(/Mobilização.*1 reservada.*0 livre/);
+  });
+
+  it("faz locação, reserva e manutenção disputarem a mesma capacidade",()=>{
+    const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:3})]};
+    const reservation=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED,"reservation-shared-engine",{unavailability:{
+      id:"res-1",equipmentId:"eq-1",quantity:1,startDate:"2026-10-01",endDate:"2026-10-10",reason:"Reserva comercial",
+    }},0));
+    const rental=applyOperationalCommand(reservation.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"rental-shared-engine",{rental:{
+      id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",quantidade:1,inicio:"2026-10-02",fim:"2026-10-08",
+    }},0));
+    const maintenance=applyOperationalCommand(rental.data,command(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,"maintenance-shared-engine",{maintenance:{
+      id:"man-1",equipamentoId:"eq-1",quantidade:2,inicio:"2026-10-03",fim:"2026-10-04",data:"2026-10-03",custo:100,
+    }},0));
+    expect(maintenance).toMatchObject({ok:false});
+    expect(maintenance.reason).toMatch(/1 locada.*1 reservada.*1 livre.*2 solicitada/);
   });
 });

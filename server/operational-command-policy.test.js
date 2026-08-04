@@ -9,6 +9,7 @@ describe("escopo servidor de comandos operacionais",()=>{
     caixaObra:[{id:"cx-a",obraId:"obra-a",version:1}],
     equipamentos:[{id:"eq-a",obraAtualId:"obra-a"},{id:"eq-b",obraAtualId:"obra-b"}],
     locacoesEquip:[{id:"loc-a",obraId:"obra-a",equipamentoId:"eq-a"}],
+    equipmentUnavailability:[{id:"res-a",equipmentId:"eq-a",workId:"obra-a",type:"reservation"}],
     terceirizados:[{id:"terc-a",obraId:"obra-a"},{id:"terc-b",obraId:"obra-b"}],
     medicoesTerc:[{id:"mt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
     pagsTerceiros:[{id:"pt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
@@ -26,6 +27,11 @@ describe("escopo servidor de comandos operacionais",()=>{
   it("não deixa usar identificador de outra obra para RDO ou recebimento",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,payload:{reportId:"r-a"}}})).toMatchObject({ok:true});
     expect(validateOperationalCommandScope({user,data:{...data,pedidos:[{id:"p-b",obraId:"obra-b"}]},command:{type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,payload:{pedidoId:"p-b"}}})).toMatchObject({ok:false});
+  });
+  it("protege criação e cancelamento de reservas pelo escopo da obra",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED,payload:{unavailability:{id:"res-new",equipmentId:"eq-a",workId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED,payload:{unavailability:{id:"res-new",equipmentId:"eq-b",workId:"obra-b"}}}})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_CANCELLED,payload:{unavailabilityId:"res-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("protege criação e estorno de recebimento manual pelo escopo da obra",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,payload:{receipt:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
