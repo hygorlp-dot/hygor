@@ -89,5 +89,6 @@ export const validateRentalClosure=rental=>{
   }
   const inspection=[...(rental.rentalCheckpoints||[])].reverse().find(item=>item.type==="inspection"&&item.status!=="cancelled");
   if(state===RENTAL_STATE.UNDER_INSPECTION&&inspection?.needsAdjustment)return {ok:false,reason:"Resolva os ajustes apontados pela inspeção antes de encerrar."};
+  if(state===RENTAL_STATE.AWAITING_ADJUSTMENT&&!(rental.rentalCheckpoints||[]).some(item=>item.type==="adjustment"&&item.status!=="cancelled"))return {ok:false,reason:"Registre a conclusão do ajuste antes de encerrar."};
   return {ok:true,legacy:false};
 };

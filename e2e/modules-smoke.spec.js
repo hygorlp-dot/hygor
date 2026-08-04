@@ -37,6 +37,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     equipamentos:[
       {id:"eq-qa",nome:"Betoneira QA",patrimonio:"EQ-QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:100}},
       {id:"eq-partial-qa",nome:"Plataforma parcial QA",ativo:true,status:"disponivel",quantidadeTotal:3,version:1,tarifas:{dia:50}},
+      {id:"eq-adjustment-qa",nome:"Compactador em ajuste QA",ativo:true,status:"avariado",quantidadeTotal:1,version:1,tarifas:{dia:80}},
     ],
     equipmentModels:[{id:"model-partial-qa",name:"Plataforma parcial QA",legacySourceId:"eq-partial-qa"}],
     equipmentUnits:[
@@ -49,6 +50,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
       {id:"rental-separation-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-07-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"separating",version:1,tarifas:{dia:100}},
       {id:"rental-return-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-11-01",fim:"",quantidade:2,status:"ativa",lifecycleState:"pickup_requested",version:1,tarifas:{dia:100}},
       {id:"rental-partial-dispatch-qa",equipamentoId:"eq-partial-qa",obraId:"obra-qa",inicio:"2026-06-01",fim:"",quantidade:2,equipmentUnitIds:["unit-partial-1","unit-partial-2"],status:"ativa",lifecycleState:"ready_for_dispatch",version:1,tarifas:{dia:50}},
+      {id:"rental-adjustment-qa",equipamentoId:"eq-adjustment-qa",obraId:"obra-qa",inicio:"2026-05-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"awaiting_adjustment",version:1,tarifas:{dia:80},rentalCheckpoints:[{type:"inspection",needsAdjustment:true,status:"recorded"}]},
     ],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
     orcamentos:[
       {
@@ -196,6 +198,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(replacementDialog.getByLabel("Unidade atual *")).toBeVisible();
         await expect(replacementDialog.getByLabel("Unidade substituta *").locator('option[value="unit-partial-3"]')).toHaveCount(1);
         await replacementDialog.getByRole("button",{name:"Cancelar"}).click();
+        await page.getByRole("button",{name:"Registrar ajuste concluído"}).click();
+        const adjustmentDialog=page.getByRole("dialog",{name:/Conclusão do ajuste · Compactador em ajuste QA/});
+        await expect(adjustmentDialog.getByLabel("Observações")).toBeVisible();
+        await expect(adjustmentDialog.getByRole("button",{name:"Salvar checklist"})).toBeVisible();
+        await adjustmentDialog.getByRole("button",{name:"Cancelar"}).click();
         await page.getByRole("button",{name:"Checklist: Separação"}).click();
         const checklistDialog=page.getByRole("dialog",{name:/Separação · Betoneira QA/});
         await expect(checklistDialog.getByText("EVIDÊNCIA OPERACIONAL OBRIGATÓRIA")).toBeVisible();

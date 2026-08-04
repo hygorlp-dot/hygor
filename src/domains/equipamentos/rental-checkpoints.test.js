@@ -65,4 +65,9 @@ describe("checklists do ciclo da locação",()=>{
     expect(first.ok).toBe(true);
     expect(rentalDeliveryBalance(delivering,[dispatch,{...first.record,status:"recorded"}])).toMatchObject({remainingQuantity:1,complete:false});
   });
+  it("exige evidência descritiva para concluir ajuste",()=>{
+    const adjusting={...rental,lifecycleState:"awaiting_adjustment"};
+    expect(validateRentalCheckpoint(adjusting,{type:"adjustment",date:"2026-08-12",quantity:2,equipmentUnitIds:["u1","u2"],responsible:"Ana"}).reason).toMatch(/Descreva/);
+    expect(validateRentalCheckpoint(adjusting,{type:"adjustment",date:"2026-08-12",quantity:2,equipmentUnitIds:["u1","u2"],responsible:"Ana",notes:"Carenagem substituída"}).ok).toBe(true);
+  });
 });

@@ -3,7 +3,7 @@ import { normalizeRentalState,RENTAL_STATE } from "./rental-lifecycle.js";
 
 export const RENTAL_CHECKPOINT_TYPE=Object.freeze({
   SEPARATION:"separation",PARTIAL_DISPATCH:"partial_dispatch",DISPATCH:"dispatch",
-  PARTIAL_DELIVERY:"partial_delivery",DELIVERY:"delivery",PARTIAL_RETURN:"partial_return",RETURN:"return",INSPECTION:"inspection",
+  PARTIAL_DELIVERY:"partial_delivery",DELIVERY:"delivery",PARTIAL_RETURN:"partial_return",RETURN:"return",INSPECTION:"inspection",ADJUSTMENT:"adjustment",
 });
 
 export const RENTAL_CHECKPOINT_TYPES=Object.freeze(Object.values(RENTAL_CHECKPOINT_TYPE));
@@ -17,6 +17,7 @@ const allowedState=Object.freeze({
   partial_return:RENTAL_STATE.PICKUP_REQUESTED,
   return:RENTAL_STATE.PICKUP_REQUESTED,
   inspection:RENTAL_STATE.RETURNED,
+  adjustment:RENTAL_STATE.AWAITING_ADJUSTMENT,
 });
 
 const text=value=>String(value||"").trim();
@@ -67,6 +68,7 @@ export const validateRentalCheckpoint=(rental={},input={},existing=[])=>{
   if([RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.DISPATCH,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.DELIVERY].includes(type)&&unitIds.some(id=>movedUnitIds.includes(id)))return {ok:false,reason:"Uma unidade física selecionada já foi movimentada neste estágio."};
   if(rentalUnitIds.length&&unitIds.length!==quantity)return {ok:false,reason:"Informe exatamente as unidades físicas movimentadas."};
   if(type!==RENTAL_CHECKPOINT_TYPE.SEPARATION&&!text(input.responsible))return {ok:false,reason:"Informe o responsável pela movimentação."};
+  if(type===RENTAL_CHECKPOINT_TYPE.ADJUSTMENT&&!text(input.notes))return {ok:false,reason:"Descreva o ajuste executado."};
   if(type===RENTAL_CHECKPOINT_TYPE.DELIVERY&&(!text(input.receivedBy)||!text(input.address)))return {ok:false,reason:"Informe quem recebeu e o endereço da entrega."};
   if(number(input.hourMeter)<0)return {ok:false,reason:"O horímetro não pode ser negativo."};
   return {ok:true,record:{

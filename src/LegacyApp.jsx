@@ -33312,7 +33312,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     in_transport:RENTAL_CHECKPOINT_TYPE.DISPATCH,delivered:RENTAL_CHECKPOINT_TYPE.DELIVERY,
     returned:RENTAL_CHECKPOINT_TYPE.RETURN,under_inspection:RENTAL_CHECKPOINT_TYPE.INSPECTION};
   const CHECKPOINT_LABEL={separation:"Separação",partial_dispatch:"Expedição parcial",dispatch:"Expedição",
-    partial_delivery:"Entrega parcial",delivery:"Entrega",partial_return:"Devolução parcial",return:"Devolução",inspection:"Inspeção"};
+    partial_delivery:"Entrega parcial",delivery:"Entrega",partial_return:"Devolução parcial",return:"Devolução",inspection:"Inspeção",adjustment:"Conclusão do ajuste"};
   const prepararTransicaoLocacao=(rental,nextState)=>{
     const type=CHECKPOINT_BY_STATE[nextState];
     const recorded=(rental.rentalCheckpoints||[]).some(item=>item.type===type&&item.status!=="cancelled");
@@ -33347,6 +33347,10 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       photos:"",responsible:currentUser?.nome||"",receivedBy:"",address:work?.address||work?.endereco||"",
       acceptance:"",cleaning:"",damages:"",missingItems:"",needsAdjustment:false,notes:""});
   };
+  const prepararConclusaoAjuste=rental=>setRentalCheckpointModal({rentalId:rental.id,nextState:"awaiting_adjustment",
+    type:RENTAL_CHECKPOINT_TYPE.ADJUSTMENT,date:today(),quantity:Number(rental.quantidade||1),equipmentUnitIds:[...(rental.equipmentUnitIds||[])],
+    accessories:"",hourMeter:"",fuel:"",condition:"",photos:"",responsible:currentUser?.nome||"",receivedBy:"",address:"",
+    acceptance:"",cleaning:"",damages:"",missingItems:"",needsAdjustment:false,notes:""});
   const salvarChecklistLocacao=async form=>{
     setSalvandoEquipamento(`checklist-${form.rentalId}`);
     try{
@@ -33858,6 +33862,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                     {emAberto&&(l.equipmentUnitIds||[]).length>0&&["separating","ready_for_dispatch","in_transport","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>setRentalReplacementModal({rentalId:l.id,outgoingUnitId:l.equipmentUnitIds[0],incomingUnitId:"",date:today(),reason:"",notes:""})}>Substituir unidade</Btn>}
                     {emAberto&&lifecycleState==="ready_for_dispatch"&&rentalDispatchBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH)}>Expedição parcial</Btn>}
                     {emAberto&&lifecycleState==="in_transport"&&rentalDeliveryBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY)}>Entrega parcial</Btn>}
+                    {emAberto&&lifecycleState==="awaiting_adjustment"&&!(l.rentalCheckpoints||[]).some(item=>item.type===RENTAL_CHECKPOINT_TYPE.ADJUSTMENT&&item.status!=="cancelled")&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararConclusaoAjuste(l)}>Registrar ajuste concluído</Btn>}
                     {emAberto&&lifecycleState==="pickup_requested"&&rentalReturnBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararDevolucaoParcial(l)}>Devolução parcial</Btn>}
                     {emAberto&&lifecycleNext.map(nextState=>{
                       const checkpointType=CHECKPOINT_BY_STATE[nextState];
@@ -33867,7 +33872,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                         {checkpointType&&!recorded?`Checklist: ${CHECKPOINT_LABEL[checkpointType]}`:`Avançar: ${rentalStateLabel(nextState)}`}
                       </Btn>;
                     })}
-                    {emAberto&&(!l.lifecycleState||["under_inspection","awaiting_adjustment"].includes(lifecycleState))&&<Btn size="sm" v="ghost" onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
+                    {emAberto&&(!l.lifecycleState||lifecycleState==="under_inspection"||(lifecycleState==="awaiting_adjustment"&&(l.rentalCheckpoints||[]).some(item=>item.type===RENTAL_CHECKPOINT_TYPE.ADJUSTMENT&&item.status!=="cancelled")))&&<Btn size="sm" v="ghost" onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
                     {!cancelada&&<Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirLoc(l)}><Ic n="trash"/> Excluir</Btn>}
                   </div>
                 </article>

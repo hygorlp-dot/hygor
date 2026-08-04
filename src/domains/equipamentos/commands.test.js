@@ -121,6 +121,21 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(partial.data.locacoesEquip[0].operationalHistory.at(-1)).toMatchObject({type:"EQUIPMENT_RENTAL_CHECKPOINT_RECORDED"});
   });
 
+  it("exige checklist de ajuste antes do encerramento",()=>{
+    const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",quantidade:1,
+      lifecycleState:"awaiting_adjustment",status:"ativa",version:1,rentalCheckpoints:[{type:"inspection",needsAdjustment:true}]};
+    const blocked=applyOperationalCommand({...base(),locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,"rental-adjustment-close-blocked-0001",{rentalId:"loc-1",endDate:"2026-08-12"},1,
+    ));
+    expect(blocked.reason).toMatch(/conclusão do ajuste/);
+    const checked=applyOperationalCommand({...base(),locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,"rental-adjustment-checkpoint-0001",
+      {rentalId:"loc-1",checkpoint:{type:"adjustment",date:"2026-08-12",quantity:1,responsible:"Ana",notes:"Reparo concluído"}},1,
+    ));
+    expect(checked.ok).toBe(true);
+    expect(checked.data.locacoesEquip[0].rentalCheckpoints.at(-1)).toMatchObject({type:"adjustment",createdById:"u-1"});
+  });
+
   it("prorroga a previsão sem alterar encerramento ou snapshot comercial",()=>{
     const snapshot={tarifas:{dia:100},descontoPct:5,negociadoEm:"2026-08-01T10:00:00.000Z"};
     const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",fim:"",

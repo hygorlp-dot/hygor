@@ -52,5 +52,7 @@ describe("ciclo completo da locação",()=>{
     expect(validateRentalClosure({status:"ativa"})).toMatchObject({ok:true,legacy:true});
     expect(validateRentalClosure({status:"ativa",lifecycleState:"active"}).reason).toMatch(/após devolução e inspeção/);
     expect(validateRentalClosure({lifecycleState:"under_inspection",rentalCheckpoints:[{type:"inspection",needsAdjustment:false}]}).ok).toBe(true);
+    expect(validateRentalClosure({lifecycleState:"awaiting_adjustment",rentalCheckpoints:[{type:"inspection",needsAdjustment:true}]}).reason).toMatch(/conclusão do ajuste/);
+    expect(validateRentalClosure({lifecycleState:"awaiting_adjustment",rentalCheckpoints:[{type:"inspection",needsAdjustment:true},{type:"adjustment"}]}).ok).toBe(true);
   });
 });
