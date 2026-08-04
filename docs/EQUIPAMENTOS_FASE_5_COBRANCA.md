@@ -95,4 +95,16 @@ sem substituir de uma vez a memória financeira legada.
   financeiras;
 - a emissão ainda não cria título ou movimentação bancária.
 
+## Sétimo incremento
+
+- ação **Emitir fatura** aparece quando existem linhas abertas ou medidas;
+- formulário agrupa somente linhas da mesma locação e competência;
+- operador pode conferir e selecionar as linhas antes da emissão;
+- número, emissão e vencimento são informados separadamente;
+- prévia consolida o total líquido em centavos;
+- interface informa que emissão não representa recebimento nem movimentação
+  bancária;
+- faturas emitidas aparecem no cartão com valor faturado e saldo aberto;
+- smoke E2E cobre seleção, total e ação de emissão.
+
 A Fase 5 ainda não está concluída.

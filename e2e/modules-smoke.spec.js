@@ -51,7 +51,9 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
       {id:"rental-return-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-11-01",fim:"",quantidade:2,status:"ativa",lifecycleState:"pickup_requested",version:1,tarifas:{dia:100}},
       {id:"rental-partial-dispatch-qa",equipamentoId:"eq-partial-qa",obraId:"obra-qa",inicio:"2026-06-01",fim:"",quantidade:2,equipmentUnitIds:["unit-partial-1","unit-partial-2"],status:"ativa",lifecycleState:"ready_for_dispatch",version:1,tarifas:{dia:50}},
       {id:"rental-adjustment-qa",equipamentoId:"eq-adjustment-qa",obraId:"obra-qa",inicio:"2026-05-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"awaiting_adjustment",version:1,tarifas:{dia:80},rentalCheckpoints:[{type:"inspection",needsAdjustment:true,status:"recorded"}]},
-    ],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
+    ],
+    rentalChargeItems:[{id:"charge-measured-qa",rentalId:"rental-lifecycle-qa",workId:"obra-qa",competence:"2026-09",type:"rental",description:"Locação setembro",status:"measured",grossAmountCents:300000,discountAmountCents:0,taxAmountCents:0,netAmountCents:300000,version:1}],
+    rentalInvoices:[],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
     orcamentos:[
       {
         id:"orcamento-rascunho-qa",
@@ -179,6 +181,13 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
         await expect(page.getByRole("button",{name:"Encerrar"})).toHaveCount(0);
         const activeRentalCard=page.locator(".equipment-record").filter({hasText:"Término planejado: 30/09"});
+        await activeRentalCard.getByRole("button",{name:"Emitir fatura"}).click();
+        const invoiceDialog=page.getByRole("dialog",{name:/Emitir fatura · Betoneira QA/});
+        await expect(invoiceDialog.getByText("EMISSÃO · AINDA NÃO RECEBIDA")).toBeVisible();
+        await expect(invoiceDialog.getByText("Total faturado")).toBeVisible();
+        await expect(invoiceDialog.getByText("R$ 3.000,00").last()).toBeVisible();
+        await expect(invoiceDialog.getByRole("button",{name:"Emitir com saldo aberto"})).toBeVisible();
+        await invoiceDialog.getByRole("button",{name:"Cancelar"}).click();
         await activeRentalCard.getByRole("button",{name:"Medir competência"}).click();
         const measurementDialog=page.getByRole("dialog",{name:/Medir competência · Betoneira QA/});
         await expect(measurementDialog.getByText("MEDIÇÃO CONTRATUAL · NÃO FATURADA")).toBeVisible();

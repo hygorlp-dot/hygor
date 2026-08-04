@@ -33005,6 +33005,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const [rentalReplacementModal,setRentalReplacementModal]=useState(null);
   const [rentalChargeModal,setRentalChargeModal]=useState(null);
   const [rentalMeasurementModal,setRentalMeasurementModal]=useState(null);
+  const [rentalInvoiceModal,setRentalInvoiceModal]=useState(null);
   const [busca, setBusca] = useState("");
   const [filtroObraGestao, setFiltroObraGestao] = useState(obraIdFixo||"all");   // filtro da grade de gestao
   const [basesSinapiEquip,setBasesSinapiEquip]=useState([]);
@@ -33439,6 +33440,23 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     }catch(error){showToast(error?.message||"O servidor não respondeu ao medir a cobrança.","error");}
     finally{setSalvandoEquipamento("");}
   };
+  const prepararFaturaLocacao=rental=>{
+    const eligible=(data.rentalChargeItems||[]).filter(item=>item.rentalId===rental.id&&["open","measured"].includes(item.status));
+    if(!eligible.length){showToast("Não existem linhas abertas ou medidas para faturar.","error");return;}
+    const competence=eligible[0].competence,items=eligible.filter(item=>item.competence===competence),issueDate=today(),due=new Date(`${issueDate}T00:00:00Z`);due.setUTCDate(due.getUTCDate()+10);
+    setRentalInvoiceModal({rentalId:rental.id,workId:rental.obraId,competence,number:`FAT-${competence.replace("-","")}-${String((data.rentalInvoices||[]).length+1).padStart(3,"0")}`,
+      issueDate,dueDate:due.toISOString().slice(0,10),chargeItemIds:items.map(item=>item.id)});
+  };
+  const salvarFaturaLocacao=async form=>{
+    const id=uid();setSalvandoEquipamento(`fatura-${form.rentalId}`);
+    try{const result=await dispatchCommand?.(()=>({type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,
+      idempotencyKey:`locacao-fatura-${id}`,expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{invoice:{...form,id}}}));
+      if(!result?.ok){showToast(result?.reason||"Não foi possível emitir a fatura.","error");return;}
+      setRentalInvoiceModal(null);showToast("Fatura emitida com saldo em aberto. Nenhum recebimento foi registrado.");
+    }catch(error){showToast(error?.message||"O servidor não respondeu ao emitir a fatura.","error");}
+    finally{setSalvandoEquipamento("");}
+  };
 
   const salvarManut = async(f) => {
     if(!f.equipamentoId||!f.data||!f.custo){ showToast("Preencha equipamento, data e custo.","error"); return; }
@@ -33854,6 +33872,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
               const lifecycleState=normalizeRentalState(l.lifecycleState||l.status);
               const chargeSummary=rentalChargeSummary(data.rentalChargeItems||[],{rentalId:l.id});
               const measuredCompetences=(data.rentalChargeItems||[]).filter(item=>item.rentalId===l.id&&item.status==="measured").map(item=>item.competence);
+              const rentalInvoices=(data.rentalInvoices||[]).filter(item=>item.rentalId===l.id&&item.status!=="cancelled");
               const lifecycleNext=availableRentalTransitions(lifecycleState,{checkpoints:l.rentalCheckpoints||[]})
                 .filter(state=>!["cancelled","closed"].includes(state));
               return (
@@ -33875,6 +33894,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                       {l.plannedEndDate&&<p style={{fontSize:9,color:C.muted,marginTop:4}}>Término planejado: {fmtDate(l.plannedEndDate)}</p>}
                       {chargeSummary.netAmountCents!==0&&<p style={{fontSize:9,color:chargeSummary.netAmountCents>=0?C.green:C.red,marginTop:3}}>Linhas preparadas: {fmt(chargeSummary.netAmountCents/100)}</p>}
                       {measuredCompetences.length>0&&<p style={{fontSize:9,color:C.blue,marginTop:3}}>Medida: {measuredCompetences.join(", ")}</p>}
+                      {rentalInvoices.length>0&&<p style={{fontSize:9,color:C.orange,marginTop:3}}>Faturado: {fmt(rentalInvoices.reduce((sum,item)=>sum+Number(item.netAmountCents||0),0)/100)} · em aberto {fmt(rentalInvoices.reduce((sum,item)=>sum+Number(item.openAmountCents||0),0)/100)}</p>}
                     </div>
                     {(() => {
                       const eqL = (data.equipamentos||[]).find(x=>x.id===l.equipamentoId);
@@ -33901,6 +33921,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                     {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>}
                     {!cancelada&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>setRentalChargeModal({rentalId:l.id,workId:l.obraId,type:"freight",description:"",quantity:"1",unit:"un",unitPrice:"",discountAmount:"0",taxAmount:"0",competence:ym})}>Adicionar cobrança</Btn>}
                     {!cancelada&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMedicaoLocacao(l)}>Medir competência</Btn>}
+                    {!cancelada&&(data.rentalChargeItems||[]).some(item=>item.rentalId===l.id&&["open","measured"].includes(item.status))&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararFaturaLocacao(l)}>Emitir fatura</Btn>}
                     {emAberto&&["contracted","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararAditivoLocacao(l)}>Prorrogar / renovar</Btn>}
                     {emAberto&&(l.equipmentUnitIds||[]).length>0&&["separating","ready_for_dispatch","in_transport","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>setRentalReplacementModal({rentalId:l.id,outgoingUnitId:l.equipmentUnitIds[0],incomingUnitId:"",date:today(),reason:"",notes:""})}>Substituir unidade</Btn>}
                     {emAberto&&lifecycleState==="ready_for_dispatch"&&rentalDispatchBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH)}>Expedição parcial</Btn>}
@@ -34130,6 +34151,19 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           <Sel label="Classificação *" value={physicalReview.kind} onChange={v=>setPhysicalReview(form=>({...form,kind:v}))} options={[{v:"lot",l:"Lote controlado por quantidade"},{v:"unit",l:"Unidades físicas individualizadas"}]}/>
           {physicalReview.kind==="lot"?<><Inp label="Identificação do lote *" value={physicalReview.lotCode} onChange={v=>setPhysicalReview(form=>({...form,lotCode:v}))}/><Inp label="Unidade de controle" value={physicalReview.unit} onChange={v=>setPhysicalReview(form=>({...form,unit:v}))}/><p style={{fontSize:9.5,color:C.muted}}>Quantidade preservada do cadastro: <b>{expected}</b>.</p></>:<><Inp label={`Patrimônios / séries (${expected}) *`} value={physicalReview.assetTags} onChange={v=>setPhysicalReview(form=>({...form,assetTags:v}))} multiline placeholder="Separe por vírgula ou uma linha por unidade"/><p style={{fontSize:9.5,color:C.muted}}>Informe exatamente {expected} identificação(ões) única(s).</p></>}
           <Btn full onClick={()=>salvarRevisaoFisica(physicalReview)}>Salvar classificação física</Btn>
+        </div>
+      </Modal>;})()}
+
+      {rentalInvoiceModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalInvoiceModal.rentalId);const eligible=(data.rentalChargeItems||[]).filter(item=>item.rentalId===rentalInvoiceModal.rentalId&&item.competence===rentalInvoiceModal.competence&&["open","measured"].includes(item.status));const selected=eligible.filter(item=>(rentalInvoiceModal.chargeItemIds||[]).includes(item.id)),total=selected.reduce((sum,item)=>sum+Number(item.netAmountCents||0),0);return <Modal title={`Emitir fatura · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalInvoiceModal(null)} wide>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.orange}44`,borderRadius:8,background:`${C.orange}08`}}><p style={{fontSize:10.5,fontWeight:850,color:C.orange}}>EMISSÃO · AINDA NÃO RECEBIDA</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>A emissão congela as linhas selecionadas e cria saldo em aberto, sem movimentar banco.</p></div>
+          <Inp label="Número da fatura *" value={rentalInvoiceModal.number} onChange={v=>setRentalInvoiceModal(form=>({...form,number:v}))}/>
+          <Inp label="Competência *" type="month" disabled value={rentalInvoiceModal.competence} onChange={()=>{}}/>
+          <Inp label="Data de emissão *" type="date" value={rentalInvoiceModal.issueDate} onChange={v=>setRentalInvoiceModal(form=>({...form,issueDate:v}))}/>
+          <Inp label="Vencimento *" type="date" value={rentalInvoiceModal.dueDate} onChange={v=>setRentalInvoiceModal(form=>({...form,dueDate:v}))}/>
+          <div style={{gridColumn:"1/-1",border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:9.5,fontWeight:850,color:C.text}}>LINHAS DA FATURA</p>{eligible.map(item=>{const checked=(rentalInvoiceModal.chargeItemIds||[]).includes(item.id);return <label key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"7px 0",fontSize:10.5,borderBottom:`1px solid ${C.line}`}}><span><input type="checkbox" checked={checked} onChange={()=>setRentalInvoiceModal(form=>({...form,chargeItemIds:checked?form.chargeItemIds.filter(id=>id!==item.id):[...form.chargeItemIds,item.id]}))} style={{marginRight:7}}/>{item.description}</span><b>{fmt(Number(item.netAmountCents||0)/100)}</b></label>;})}</div>
+          <div style={{gridColumn:"1/-1",display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:900,color:C.orange}}><span>Total faturado</span><span>{fmt(total/100)}</span></div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalInvoiceModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!selected.length||total<=0} loading={salvandoEquipamento===`fatura-${rentalInvoiceModal.rentalId}`} onClick={()=>salvarFaturaLocacao(rentalInvoiceModal)}>Emitir com saldo aberto</Btn></div>
         </div>
       </Modal>;})()}
 
