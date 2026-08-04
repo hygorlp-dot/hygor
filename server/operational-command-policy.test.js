@@ -23,6 +23,9 @@ describe("escopo servidor de comandos operacionais",()=>{
     const command={type:OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,payload:{}};
     expect(validateOperationalCommandScope({user:{role:"admin"},data,command})).toMatchObject({ok:true,scope:"company"});
     expect(validateOperationalCommandScope({user,data,command})).toMatchObject({ok:false});
+    const classification={type:OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED,payload:{equipmentId:"eq-a",kind:"lot"}};
+    expect(validateOperationalCommandScope({user:{role:"admin"},data,command:classification})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user:{role:"financeiro"},data,command:classification})).toMatchObject({ok:false});
   });
 
   it("aceita somente a obra atribuída em criação e cancelamento de medição",()=>{

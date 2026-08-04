@@ -65,4 +65,21 @@ describe("registro físico de equipamentos",()=>{
     expect(result.lots).toHaveLength(0);
     expect(result.report.convertedToUnits).toEqual(["eq"]);
   });
+
+  it("mantém a localização resultante de transferências físicas",()=>{
+    const input={equipamentos:[{id:"eq",nome:"Martelete",quantidadeTotal:1,patrimonio:"P-1"}],
+      transferenciasEquip:[{id:"t1",equipamentoId:"eq",equipmentUnitId:"legacy-unit:eq",equipmentUnitIds:["legacy-unit:eq"],quantidade:1,deLocationId:"depot",paraObraId:"obra-a",data:"2026-08-02",physicalRegistryMovement:true}]};
+    const result=deriveEquipmentLocations(input,"2026-08-04");
+    expect(result.allocations.find(item=>item.unitId==="legacy-unit:eq")).toMatchObject({type:"work",locationId:"obra-a",quantity:1});
+  });
+
+  it("fraciona saldo permanente de lote após transferência física",()=>{
+    const input={equipamentos:[{id:"and",nome:"Andaime",quantidadeTotal:10}],
+      transferenciasEquip:[{id:"t1",equipamentoId:"and",equipmentLotId:"legacy-lot:and",quantidade:4,deLocationId:"depot",paraObraId:"obra-a",data:"2026-08-02",physicalRegistryMovement:true}]};
+    const result=deriveEquipmentLocations(input,"2026-08-04");
+    expect(result.allocations).toEqual(expect.arrayContaining([
+      expect.objectContaining({lotId:"legacy-lot:and",type:"work",locationId:"obra-a",quantity:4}),
+      expect.objectContaining({lotId:"legacy-lot:and",type:"depot",quantity:6}),
+    ]));
+  });
 });

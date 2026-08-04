@@ -67,3 +67,20 @@ Implementado na sequência:
 O teste E2E da aba foi adicionado. Sua execução local ficou impedida pela
 ausência da biblioteca nativa `libnspr4.so` no Chromium do ambiente; testes
 unitários, typecheck e build não dependem dessa biblioteca.
+
+## Terceiro incremento
+
+- manutenção agora seleciona lote ou patrimônios e materializa o mesmo vínculo
+  na indisponibilidade do calendário;
+- uma unidade já locada, reservada ou indisponível não pode ser enviada para
+  manutenção no período conflitante;
+- transferência registra lote, unidades, quantidade, origem e destino;
+- movimentos físicos permanecem na projeção de localização após a data do
+  transporte, inclusive com saldo fracionado de lote entre depósito e obra;
+- unidades transferidas juntas precisam estar na mesma origem;
+- registros ambíguos podem ser revisados pelo administrador como lote ou como
+  unidades individualizadas;
+- a revisão exige a quantidade exata de patrimônios únicos, é versionada,
+  idempotente e auditada;
+- classificações anteriores são preservadas como `superseded`, sem exclusão
+  física, e o equipamento legado permanece intacto.

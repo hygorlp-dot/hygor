@@ -5,7 +5,7 @@ import {
 } from "./availability.js";
 import { diasLocacaoNoPeriodo, validateRentalDiscounts } from "./calculations.js";
 import { isValidIsoDate } from "./date.js";
-import { buildEquipmentRegistry,migrateLegacyEquipmentRegistry } from "./registry.js";
+import { buildEquipmentRegistry,deriveEquipmentLocations,migrateLegacyEquipmentRegistry } from "./registry.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
@@ -77,6 +77,7 @@ const commercialSnapshot=(input,equipment,command,now)=>{
 
 export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_REGISTRY_MIGRATED:"CADASTRO_FISICO_EQUIPAMENTOS_MIGRADO",
+  EQUIPMENT_REGISTRY_CLASSIFIED:"CADASTRO_FISICO_EQUIPAMENTO_CLASSIFICADO",
   EQUIPMENT_SAVED:"EQUIPAMENTO_SALVO",
   EQUIPMENT_DEACTIVATED:"EQUIPAMENTO_INATIVADO",
   EQUIPMENT_RENTAL_SAVED:"LOCACAO_EQUIPAMENTO_SALVA",
@@ -95,6 +96,7 @@ export const EQUIPMENT_COMMAND_TYPES=new Set(Object.values(EQUIPMENT_COMMAND));
 export const equipmentCommandObraId=(data={},command={})=>{
   const payload=command.payload||{};
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_REGISTRY_MIGRATED)return "";
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED)return "";
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_SAVED)return String(payload.equipment?.obraAtualId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_DEACTIVATED)return String(list(data,"equipamentos").find(item=>item.id===payload.equipmentId)?.obraAtualId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_SAVED)return String(payload.rental?.obraId||"");
@@ -126,6 +128,41 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
         report:migrated.equipmentRegistryMigration.report,
       }]};
     return {ok:true,data:migrated,entityId:"equipment-registry-v1"};
+  }
+
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED){
+    if(Number(data?.equipmentRegistryMigration?.version||0)<1)return fail("Materialize o cadastro físico antes de revisar a classificação.");
+    const equipmentId=String(payload.equipmentId||""),kind=String(payload.kind||"");
+    const equipment=list(data,"equipamentos").find(item=>String(item.id)===equipmentId);
+    if(!equipment)return fail("Equipamento legado não encontrado.");
+    const registry=buildEquipmentRegistry(data);
+    const model=registry.models.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===equipmentId);
+    if(!model)return fail("Modelo físico não encontrado.");
+    const revision=Number(data.equipmentRegistryRevision||0);
+    if(command.expectedVersion!=null&&revision!==Number(command.expectedVersion))return fail("A classificação física foi alterada por outra pessoa. Atualize a tela.");
+    let lots=list(data,"equipmentLots"),units=list(data,"equipmentUnits");
+    if(kind==="lot"){
+      const amount=Math.max(1,Math.trunc(numeric(payload.lot?.quantity)||Number(equipment.quantidadeTotal)||1));
+      const current=lots.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===equipmentId&&item.status!=="superseded");
+      const record={...(current||{}),...(payload.lot||{}),id:String(current?.id||payload.lot?.id||`legacy-lot:${equipmentId}`),modelId:model.id,
+        quantity:amount,unit:String(payload.lot?.unit||current?.unit||"un"),lotCode:String(payload.lot?.lotCode||current?.lotCode||`LOTE-${equipmentId}`),
+        legacySourceId:equipmentId,classificationReviewed:true,reviewedAt:now,reviewedById:command.actorId||"",status:"active",version:versionOf(current)+1};
+      lots=current?lots.map(item=>item.id===current.id?record:item):[...lots,record];
+      units=units.map(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===equipmentId?{...item,status:"superseded",supersededAt:now}:item);
+    }else if(kind==="unit"){
+      const requested=Array.isArray(payload.units)?payload.units:[];
+      const expected=Math.max(1,Math.trunc(Number(equipment.quantidadeTotal)||1));
+      const tags=requested.map(item=>String(item.assetTag||"").trim()).filter(Boolean);
+      if(requested.length!==expected||tags.length!==expected||new Set(tags.map(tag=>tag.toUpperCase())).size!==expected)return fail(`Informe ${expected} patrimônio(s) único(s) para individualizar este equipamento.`);
+      lots=lots.map(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===equipmentId?{...item,status:"superseded",supersededAt:now}:item);
+      const otherUnits=units.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")!==equipmentId);
+      units=[...otherUnits,...requested.map((item,index)=>({...item,id:String(item.id||`unit:${equipmentId}:${index+1}`),modelId:model.id,
+        assetTag:tags[index],legacySourceId:equipmentId,classificationReviewed:true,reviewedAt:now,reviewedById:command.actorId||"",
+        status:String(item.status||"disponivel"),version:Number(item.version||0)+1}))];
+    }else return fail("Escolha classificar como lote ou unidade física.");
+    const history=[...(data.equipmentRegistryHistory||[]),{id:`equipment_registry_classified_${command.idempotencyKey}`,
+      type:"EQUIPMENT_REGISTRY_CLASSIFIED",equipmentId,kind,at:now,actorId:command.actorId||"",actorName:command.actorName||""}].slice(-500);
+    return {ok:true,data:{...data,equipmentLots:lots,equipmentUnits:units,equipmentRegistryRevision:revision+1,equipmentRegistryHistory:history},entityId:equipmentId};
   }
 
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_SAVED){
@@ -310,11 +347,23 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const stale=versionError(current,command.expectedVersion,"A manutenção");
     if(stale)return fail(stale);
     if(!current&&command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("A manutenção ainda não existe na versão esperada.");
+    const selectedUnitIds=[...new Set((Array.isArray(input.equipmentUnitIds)?input.equipmentUnitIds:[]).map(String).filter(Boolean))];
+    const registry=buildEquipmentRegistry(data);
+    const sourceUnits=registry.units.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(equipment.id));
+    const sourceLots=registry.lots.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(equipment.id));
     const quantidade=Math.min(Math.max(1,Math.trunc(numeric(input.quantidade)||Number(equipment.quantidadeTotal)||1)),Math.max(1,Number(equipment.quantidadeTotal)||1));
+    if(selectedUnitIds.some(unitId=>!sourceUnits.some(unit=>String(unit.id)===unitId)))return fail("Uma das unidades físicas selecionadas não pertence ao equipamento.");
+    if(Number(data?.equipmentRegistryMigration?.version||0)>=1&&sourceUnits.length&&!current&&!selectedUnitIds.length)return fail("Selecione a unidade física que entrará em manutenção.");
+    if(selectedUnitIds.length&&selectedUnitIds.length!==quantidade)return fail("A quantidade da manutenção deve corresponder às unidades físicas selecionadas.");
+    if(input.equipmentLotId&&!sourceLots.some(lot=>String(lot.id)===String(input.equipmentLotId)))return fail("O lote selecionado não pertence ao equipamento.");
     const availability=fleetAvailability({data,equipment,startDate,endDate,requested:quantidade,except:{maintenanceId:current?.id},ignoreEquipmentStatus:true});
     if(availability.exceeded)return fail(unavailabilityConflict(availability));
+    const occupiedUnits=new Set(availability.conflicts.flatMap(event=>[event.equipmentUnitId,...(event.equipmentUnitIds||[])]).filter(Boolean).map(String));
+    if(selectedUnitIds.some(unitId=>occupiedUnits.has(unitId)))return fail("A unidade física selecionada já está indisponível no período da manutenção.");
     const record={
       ...(current||{}),...input,id,equipamentoId:equipment.id,obraId,custo:numeric(input.custo),quantidade,
+      equipmentUnitIds:selectedUnitIds,equipmentUnitId:selectedUnitIds.length===1?selectedUnitIds[0]:"",
+      equipmentLotId:String(input.equipmentLotId||""),
       inicio:startDate,fim:endDate,data:startDate,
       version:versionOf(current)+1,updatedAt:now,
       ...(!current?{createdAt:now,createdById:command.actorId||""}:{}),
@@ -322,7 +371,8 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     record.operationalHistory=audit(current,command,now,current?"EQUIPMENT_MAINTENANCE_UPDATED":"EQUIPMENT_MAINTENANCE_CREATED");
     let next=current?replace(data,"manutencoesEquip",id,record):{...data,manutencoesEquip:[...list(data,"manutencoesEquip"),record]};
     next=upsertUnavailability(next,{
-      id:`unav-maintenance:${id}`,equipmentId:equipment.id,equipmentUnitId:"",quantity,
+      id:`unav-maintenance:${id}`,equipmentId:equipment.id,equipmentUnitId:selectedUnitIds.length===1?selectedUnitIds[0]:"",quantity,
+      equipmentUnitIds:selectedUnitIds,equipmentLotId:record.equipmentLotId||"",
       type:EQUIPMENT_UNAVAILABILITY_TYPE.MAINTENANCE,startDate,endDate,
       reason:record.descricao||"Manutenção",status:record.status||"programada",workId:obraId,
       maintenanceId:id,rentalId:"",createdAt:current?.createdAt||now,createdBy:command.actorId||"",
@@ -377,11 +427,29 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const equipment=list(data,"equipamentos").find(item=>String(item.id)===String(input.equipamentoId));
     if(!id||!equipment||equipment.ativo===false)return fail("Selecione um equipamento ativo.");
     if(!input.paraObraId||!obraExists(data,input.paraObraId))return fail("Selecione uma obra de destino existente.");
-    if(String(equipment.obraAtualId||"")===String(input.paraObraId))return fail("O equipamento já está na obra de destino.");
     if(!isValidIsoDate(input.data))return fail("Informe uma data válida para a transferência.");
     if(command.expectedVersion!=null&&versionOf(equipment)!==Number(command.expectedVersion))return fail("O equipamento foi alterado por outra pessoa. Atualize a tela antes de tentar novamente.");
     if(list(data,"transferenciasEquip").some(item=>String(item.id)===id))return fail("Esta transferência já foi registrada.");
-    const transfer={...input,id,equipamentoId:equipment.id,deObraId:String(equipment.obraAtualId||""),
+    const registry=buildEquipmentRegistry(data);
+    const sourceUnits=registry.units.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(equipment.id));
+    const sourceLots=registry.lots.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(equipment.id));
+    const selectedUnitIds=[...new Set((Array.isArray(input.equipmentUnitIds)?input.equipmentUnitIds:[]).map(String).filter(Boolean))];
+    const amount=Math.max(1,Math.trunc(numeric(input.quantidade)||selectedUnitIds.length||1));
+    if(selectedUnitIds.some(unitId=>!sourceUnits.some(unit=>String(unit.id)===unitId)))return fail("Uma das unidades físicas selecionadas não pertence ao equipamento.");
+    if(Number(data?.equipmentRegistryMigration?.version||0)>=1&&sourceUnits.length&&!selectedUnitIds.length)return fail("Selecione a unidade física que será transferida.");
+    if(selectedUnitIds.length&&selectedUnitIds.length!==amount)return fail("A quantidade transferida deve corresponder às unidades físicas selecionadas.");
+    if(input.equipmentLotId&&!sourceLots.some(lot=>String(lot.id)===String(input.equipmentLotId)))return fail("O lote selecionado não pertence ao equipamento.");
+    const physical=Boolean(selectedUnitIds.length||input.equipmentLotId);
+    const positions=deriveEquipmentLocations(data,input.data).allocations;
+    const chosenAssets=selectedUnitIds.length?positions.filter(item=>selectedUnitIds.includes(String(item.unitId)))
+      :positions.filter(item=>String(item.lotId)===String(input.equipmentLotId));
+    const sourceLocation=String(input.deLocationId||chosenAssets.find(item=>item.quantity>=amount)?.locationId||equipment.obraAtualId||"depot");
+    if(physical&&sourceLocation===String(input.paraObraId))return fail("O ativo físico selecionado já está na obra de destino.");
+    if(selectedUnitIds.length&&chosenAssets.some(item=>String(item.locationId)!==sourceLocation))return fail("As unidades selecionadas precisam estar na mesma origem para serem transferidas juntas.");
+    if(input.equipmentLotId&&chosenAssets.filter(item=>String(item.locationId)===sourceLocation).reduce((sum,item)=>sum+Number(item.quantity||0),0)<amount)return fail("A origem não possui quantidade suficiente do lote para esta transferência.");
+    const transfer={...input,id,equipamentoId:equipment.id,deObraId:sourceLocation==="depot"?"":sourceLocation,
+      deLocationId:sourceLocation,equipmentUnitIds:selectedUnitIds,equipmentUnitId:selectedUnitIds.length===1?selectedUnitIds[0]:"",
+      equipmentLotId:String(input.equipmentLotId||""),quantidade:amount,physicalRegistryMovement:physical,
       paraObraId:String(input.paraObraId),version:1,createdAt:now,createdById:command.actorId||""};
     const updatedEquipment={...equipment,obraAtualId:transfer.paraObraId,status:"locado",
       version:versionOf(equipment)+1,updatedAt:now};
@@ -390,7 +458,8 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     });
     let next=replace({...data,transferenciasEquip:[...list(data,"transferenciasEquip"),transfer]},"equipamentos",equipment.id,updatedEquipment);
     next=upsertUnavailability(next,{
-      id:`unav-transport:${id}`,equipmentId:equipment.id,equipmentUnitId:"",quantity:Math.max(1,Number(input.quantidade)||1),
+      id:`unav-transport:${id}`,equipmentId:equipment.id,equipmentUnitId:transfer.equipmentUnitId,quantity:amount,
+      equipmentUnitIds:selectedUnitIds,equipmentLotId:transfer.equipmentLotId,
       type:EQUIPMENT_UNAVAILABILITY_TYPE.TRANSPORT,startDate:input.data,endDate:input.data,
       reason:`Transporte para ${list(data,"obras").find(item=>String(item.id)===String(input.paraObraId))?.name||"obra"}`,
       status:"concluida",workId:String(input.paraObraId),maintenanceId:"",rentalId:"",transferId:id,

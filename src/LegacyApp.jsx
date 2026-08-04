@@ -2196,6 +2196,9 @@ const normalizeData = incoming => {
     manutencoesEquip: Array.isArray(d.manutencoesEquip) ? d.manutencoesEquip.map(m => ({
       id:          m.id          || uid(),
       equipamentoId:m.equipamentoId || "",
+      equipmentUnitId:m.equipmentUnitId||"",
+      equipmentUnitIds:Array.isArray(m.equipmentUnitIds)?m.equipmentUnitIds.map(String):[],
+      equipmentLotId:m.equipmentLotId||"",
       data:        m.data        || "",
       inicio:      m.inicio      || m.data || "",
       fim:         m.fim         || m.dataConclusao || m.inicio || m.data || "",
@@ -2221,6 +2224,11 @@ const normalizeData = incoming => {
     transferenciasEquip: Array.isArray(d.transferenciasEquip) ? d.transferenciasEquip.map(t => ({
       id:          t.id          || uid(),
       equipamentoId:t.equipamentoId || "",
+      equipmentUnitId:t.equipmentUnitId||"",
+      equipmentUnitIds:Array.isArray(t.equipmentUnitIds)?t.equipmentUnitIds.map(String):[],
+      equipmentLotId:t.equipmentLotId||"",
+      quantidade:Number(t.quantidade||1),deLocationId:t.deLocationId||"",
+      physicalRegistryMovement:t.physicalRegistryMovement===true,
       deObraId:    t.deObraId    || "",
       paraObraId:  t.paraObraId  || "",
       data:        t.data        || "",
@@ -32981,6 +32989,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const [manutModal, setManutModal] = useState(null);
   const [indispModal,setIndispModal]=useState(null);
   const [transfModal,setTransfModal]= useState(null);
+  const [physicalReview,setPhysicalReview]=useState(null);
   const [busca, setBusca] = useState("");
   const [filtroObraGestao, setFiltroObraGestao] = useState(obraIdFixo||"all");   // filtro da grade de gestao
   const [basesSinapiEquip,setBasesSinapiEquip]=useState([]);
@@ -33153,6 +33162,21 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     }catch(error){showToast(error?.message||"O servidor não respondeu ao criar o cadastro físico.","error");}
     finally{setSalvandoEquipamento("");}
   };
+  const salvarRevisaoFisica=async form=>{
+    const source=(data.equipamentos||[]).find(item=>String(item.id)===String(form.equipmentId));
+    if(!source){showToast("Equipamento de origem não encontrado.","error");return;}
+    const tags=String(form.assetTags||"").split(/[;,\n]/).map(value=>value.trim()).filter(Boolean);
+    const result=await dispatchCommand?.(atual=>({
+      type:OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED,
+      idempotencyKey:`cadastro-fisico-classificar-${form.equipmentId}-${uid()}`,
+      expectedVersion:Number(atual.equipmentRegistryRevision||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{equipmentId:form.equipmentId,kind:form.kind,
+        lot:{id:`legacy-lot:${form.equipmentId}`,quantity:Number(source.quantidadeTotal||1),unit:form.unit||"un",lotCode:form.lotCode||`LOTE-${form.equipmentId}`},
+        units:tags.map((assetTag,index)=>({id:`unit:${form.equipmentId}:${index+1}`,assetTag,status:"disponivel"}))},
+    }));
+    if(!result?.ok){showToast(result?.reason||"Não foi possível revisar a classificação física.","error");return;}
+    setPhysicalReview(null);showToast("Classificação física revisada e salva.");
+  };
   const excluirEquip = async(e) => {
     const locacaoAberta=(data.locacoesEquip||[]).some(locacao=>
       locacao.equipamentoId===e.id&&locacao.status!=="cancelada"&&!locacao.fim);
@@ -33318,9 +33342,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
   const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", tarifas:{dia:"",semana:"",quinzena:"",mes:""}, tarifasCusto:{dia:"",semana:"",quinzena:"",mes:""}, quantidadeTotal:1, valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:obraIdFixo||"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, imagemUrl:"", imagemTipo:"auto", obs:"" };
   const donoVazio  = { nome:"", documento:"", telefone:"", email:"", chavePix:"", obs:"" };
   const locVazio   = { equipamentoId:"", equipmentLotId:"",equipmentUnitIds:[],obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, regraTarifaria:"menor_combinacao", tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
-  const manutVazio = { equipamentoId:"", data:today(), inicio:today(), fim:today(), quantidade:1, status:"programada", tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
+  const manutVazio = { equipamentoId:"",equipmentLotId:"",equipmentUnitIds:[],data:today(), inicio:today(), fim:today(), quantidade:1, status:"programada", tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
   const indispVazio={equipmentId:"",equipmentUnitId:"",quantity:1,type:"reservation",startDate:today(),endDate:today(),reason:"",status:"ativa",workId:""};
-  const transfVazio= { equipamentoId:"", paraObraId:"", data:today(), responsavel:"", obs:"" };
+  const transfVazio= { equipamentoId:"",equipmentLotId:"",equipmentUnitIds:[],quantidade:1,deLocationId:"depot",paraObraId:"", data:today(), responsavel:"", obs:"" };
 
   const obraOpts  = [{v:"",l:"Selecione a obra"}, ...(data.obras||[]).map(o=>({v:o.id,l:o.name}))];
   const equipOpts = [{v:"",l:"Selecione o equipamento"}, ...(data.equipamentos||[]).filter(e=>e.ativo!==false).map(e=>({
@@ -33436,7 +33460,13 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
                   <div className="equipment-card-actions">
                     <Btn size="sm" v="ghost" onClick={()=>setEquipModal(e)} title={`Editar ${e.nome}`}><Ic n="edit"/> Editar</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>setLocModal({...locVazio, equipamentoId:e.id, valorDiaria:e.valorDiaria, custoDiaria:e.custoDiaria, obraId:e.obraAtualId})}>Locar</Btn>
-                    <Btn size="sm" v="ghost" onClick={()=>setTransfModal({...transfVazio, equipamentoId:e.id})}>Transferir</Btn>
+                    <Btn size="sm" v="ghost" onClick={()=>{
+                      const lot=physicalRegistry.lots.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(e.id));
+                      const unit=physicalRegistry.units.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(e.id));
+                      const assetId=lot?.id||unit?.id;
+                      const position=physicalRegistry.allocations.find(item=>(item.lotId||item.unitId)===assetId);
+                      setTransfModal({...transfVazio,equipamentoId:e.id,equipmentLotId:lot?.id||"",equipmentUnitIds:unit?[unit.id]:[],deLocationId:position?.locationId||"depot"});
+                    }}>Transferir</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>setManutModal({...manutVazio, equipamentoId:e.id})}>Manutenção</Btn>
                     <Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirEquip(e)}
                       title="Excluir equipamento da frota" ariaLabel={`Excluir ${e.nome}`}>
@@ -33478,7 +33508,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           <p style={{fontSize:10.5,fontWeight:850,color:C.orange}}>Registros que exigem revisão</p>
           <div style={{display:"grid",gap:5,marginTop:7}}>{physicalRegistry.report.manualReview.map(item=>{
             const source=(data.equipamentos||[]).find(equipment=>String(equipment.id)===String(item.equipmentId));
-            return <div key={item.equipmentId} style={{fontSize:9.5,color:C.muted}}><b style={{color:C.text}}>{source?.nome||item.equipmentId}</b> — {item.reason}</div>;
+            return <div key={item.equipmentId} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,fontSize:9.5,color:C.muted}}><span><b style={{color:C.text}}>{source?.nome||item.equipmentId}</b> — {item.reason}</span>{physicalMigration&&currentUser?.role==="admin"&&<Btn size="sm" v="ghost" onClick={()=>setPhysicalReview({equipmentId:item.equipmentId,kind:Number(source?.quantidadeTotal||1)>1?"lot":"unit",lotCode:`LOTE-${item.equipmentId}`,unit:"un",assetTags:source?.patrimonio||""})}>Revisar</Btn>}</div>;
           })}</div>
         </div>}
 
@@ -33910,6 +33940,14 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
         </Modal>
       )}
 
+      {physicalReview&&(()=>{const source=(data.equipamentos||[]).find(item=>String(item.id)===String(physicalReview.equipmentId));const expected=Math.max(1,Number(source?.quantidadeTotal||1));return <Modal title={`Revisar cadastro físico · ${source?.nome||"Equipamento"}`} onClose={()=>setPhysicalReview(null)}>
+        <div style={{display:"flex",flexDirection:"column",gap:9}}>
+          <Sel label="Classificação *" value={physicalReview.kind} onChange={v=>setPhysicalReview(form=>({...form,kind:v}))} options={[{v:"lot",l:"Lote controlado por quantidade"},{v:"unit",l:"Unidades físicas individualizadas"}]}/>
+          {physicalReview.kind==="lot"?<><Inp label="Identificação do lote *" value={physicalReview.lotCode} onChange={v=>setPhysicalReview(form=>({...form,lotCode:v}))}/><Inp label="Unidade de controle" value={physicalReview.unit} onChange={v=>setPhysicalReview(form=>({...form,unit:v}))}/><p style={{fontSize:9.5,color:C.muted}}>Quantidade preservada do cadastro: <b>{expected}</b>.</p></>:<><Inp label={`Patrimônios / séries (${expected}) *`} value={physicalReview.assetTags} onChange={v=>setPhysicalReview(form=>({...form,assetTags:v}))} multiline placeholder="Separe por vírgula ou uma linha por unidade"/><p style={{fontSize:9.5,color:C.muted}}>Informe exatamente {expected} identificação(ões) única(s).</p></>}
+          <Btn full onClick={()=>salvarRevisaoFisica(physicalReview)}>Salvar classificação física</Btn>
+        </div>
+      </Modal>;})()}
+
       {locModal && (
         <Modal title={locModal.id?"Editar locação":"Nova locação"} onClose={()=>setLocModal(null)} wide>
           <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
@@ -34078,10 +34116,28 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       {manutModal && (
         <Modal title="Manutenção" onClose={()=>setManutModal(null)} wide>
           <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-            <Sel label="Equipamento *" value={manutModal.equipamentoId} onChange={v=>setManutModal(f=>({...f,equipamentoId:v}))} options={equipOpts}/>
+            <Sel label="Equipamento *" value={manutModal.equipamentoId} onChange={v=>{
+              const lot=physicalRegistry.lots.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(v));
+              setManutModal(f=>({...f,equipamentoId:v,equipmentLotId:lot?.id||"",equipmentUnitIds:[],quantidade:1}));
+            }} options={equipOpts}/>
             <Inp label="Início *" type="date" value={manutModal.inicio||manutModal.data} onChange={v=>setManutModal(f=>({...f,inicio:v,data:v}))}/>
             <Inp label="Término *" type="date" value={manutModal.fim||manutModal.inicio||manutModal.data} onChange={v=>setManutModal(f=>({...f,fim:v}))}/>
-            <Inp label="Unidades indisponíveis *" type="number" min="1" value={manutModal.quantidade||1} onChange={v=>setManutModal(f=>({...f,quantidade:v}))}/>
+            <Inp label="Unidades indisponíveis *" type="number" min="1"
+              disabled={physicalRegistry.units.some(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(manutModal.equipamentoId))}
+              value={manutModal.quantidade||1} onChange={v=>setManutModal(f=>({...f,quantidade:v}))}/>
+            {manutModal.equipamentoId&&(()=>{
+              const sourceId=String(manutModal.equipamentoId);
+              const units=physicalRegistry.units.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===sourceId);
+              const lots=physicalRegistry.lots.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===sourceId);
+              return <div style={{gridColumn:"1/-1",padding:"10px 12px",border:`1px solid ${C.orange}38`,borderRadius:9,background:`${C.orange}07`}}>
+                <p style={{fontSize:10.5,fontWeight:850,color:C.orange}}>Ativo que ficará indisponível</p>
+                {lots.length>0&&<div style={{marginTop:7}}><Sel label="Lote" value={manutModal.equipmentLotId||lots[0]?.id||""} onChange={v=>setManutModal(form=>({...form,equipmentLotId:v,equipmentUnitIds:[]}))} options={lots.map(lot=>({v:lot.id,l:`${lot.lotCode||lot.id} · ${lot.quantity} ${lot.unit||"un"}`}))}/></div>}
+                {units.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:7}}>{units.map(unit=>{
+                  const selected=(manutModal.equipmentUnitIds||[]).includes(unit.id);
+                  return <label key={unit.id} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 8px",border:`1px solid ${selected?C.orange:C.border}`,borderRadius:7,background:selected?`${C.orange}10`:C.card,fontSize:9.5,cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>setManutModal(form=>{const current=form.equipmentUnitIds||[];const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length)};})} style={{accentColor:C.orange}}/>{unit.assetTag||unit.serialNumber||unit.id}</label>;
+                })}</div>}
+              </div>;
+            })()}
             <Sel label="Tipo" value={manutModal.tipo} onChange={v=>setManutModal(f=>({...f,tipo:v}))} options={[{v:"corretiva",l:"Corretiva"},{v:"preventiva",l:"Preventiva"}]}/>
             <Inp label="Custo (R$) *" type="number" value={manutModal.custo} onChange={v=>setManutModal(f=>({...f,custo:v}))}/>
             <Sel label="Pago por" value={manutModal.pagoPor} onChange={v=>setManutModal(f=>({...f,pagoPor:v}))} options={[{v:"empresa",l:"Empresa"},{v:"proprietario",l:"Proprietário (terceiro)"}]}/>
@@ -34116,7 +34172,25 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
       {transfModal && (
         <Modal title="Transferir equipamento" onClose={()=>setTransfModal(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            <Sel label="Equipamento *" value={transfModal.equipamentoId} onChange={v=>setTransfModal(f=>({...f,equipamentoId:v}))} options={equipOpts}/>
+            <Sel label="Equipamento *" value={transfModal.equipamentoId} onChange={v=>{
+              const lot=physicalRegistry.lots.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(v));
+              const position=physicalRegistry.allocations.find(item=>item.lotId===lot?.id);
+              setTransfModal(f=>({...f,equipamentoId:v,equipmentLotId:lot?.id||"",equipmentUnitIds:[],quantidade:1,deLocationId:position?.locationId||"depot"}));
+            }} options={equipOpts}/>
+            {transfModal.equipamentoId&&(()=>{
+              const sourceId=String(transfModal.equipamentoId);
+              const units=physicalRegistry.units.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===sourceId);
+              const lots=physicalRegistry.lots.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===sourceId);
+              const selectedAssets=new Set([transfModal.equipmentLotId,...(transfModal.equipmentUnitIds||[])].filter(Boolean));
+              const positions=physicalRegistry.allocations.filter(item=>selectedAssets.has(item.lotId||item.unitId)&&item.type!=="exceeded");
+              const locationOptions=[...new Set(positions.map(item=>item.locationId))].map(id=>({v:id,l:id==="depot"?"Depósito":obraName(id)}));
+              return <div style={{padding:"9px 10px",border:`1px solid ${C.blue}38`,borderRadius:8,background:`${C.blue}07`,display:"grid",gap:7}}>
+                {lots.length>0&&<Sel label="Lote" value={transfModal.equipmentLotId||lots[0]?.id||""} onChange={v=>setTransfModal(form=>({...form,equipmentLotId:v,equipmentUnitIds:[]}))} options={lots.map(lot=>({v:lot.id,l:`${lot.lotCode||lot.id} · ${lot.quantity} ${lot.unit||"un"}`}))}/>}
+                {units.length>0&&<div><p style={{fontSize:9.5,fontWeight:800,color:C.text,marginBottom:5}}>Patrimônio(s)</p><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{units.map(unit=>{const selected=(transfModal.equipmentUnitIds||[]).includes(unit.id);return <label key={unit.id} style={{fontSize:9.5,padding:"5px 7px",border:`1px solid ${selected?C.blue:C.border}`,borderRadius:6,cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>setTransfModal(form=>{const current=form.equipmentUnitIds||[];const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];const firstPosition=physicalRegistry.allocations.find(item=>item.unitId===next[0]);return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length),deLocationId:firstPosition?.locationId||"depot"};})} style={{accentColor:C.blue,marginRight:5}}/>{unit.assetTag||unit.id}</label>;})}</div></div>}
+                <Inp label="Quantidade" type="number" min="1" disabled={units.length>0} value={transfModal.quantidade||1} onChange={v=>setTransfModal(form=>({...form,quantidade:v}))}/>
+                <Sel label="Origem física" value={transfModal.deLocationId||locationOptions[0]?.v||"depot"} onChange={v=>setTransfModal(form=>({...form,deLocationId:v}))} options={locationOptions.length?locationOptions:[{v:"depot",l:"Depósito"}]}/>
+              </div>;
+            })()}
             <Sel label="Para a obra *" value={transfModal.paraObraId} onChange={v=>setTransfModal(f=>({...f,paraObraId:v}))} options={obraOpts}/>
             <Inp label="Data" type="date" value={transfModal.data} onChange={v=>setTransfModal(f=>({...f,data:v}))}/>
             <Inp label="Responsável" value={transfModal.responsavel} onChange={v=>setTransfModal(f=>({...f,responsavel:v}))}/>

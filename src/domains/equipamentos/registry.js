@@ -38,9 +38,9 @@ const unitFromLegacy=(equipment,modelId)=>({
 // Projeção aditiva e determinística: coleções novas têm precedência e os
 // registros legados somente preenchem origens ainda não materializadas.
 export const buildEquipmentRegistry=(data={})=>{
-  const models=[...list(data,"equipmentModels")];
-  const lots=[...list(data,"equipmentLots")];
-  const units=[...list(data,"equipmentUnits")];
+  const models=[...list(data,"equipmentModels").filter(item=>item.status!=="superseded")];
+  const lots=[...list(data,"equipmentLots").filter(item=>item.status!=="superseded")];
+  const units=[...list(data,"equipmentUnits").filter(item=>item.status!=="superseded")];
   const modelSources=new Set(models.map(sourceId).filter(Boolean));
   const lotSources=new Set(lots.map(sourceId).filter(Boolean));
   const unitSources=new Set(units.map(sourceId).filter(Boolean));
@@ -58,6 +58,8 @@ export const buildEquipmentRegistry=(data={})=>{
     const patrimony=text(equipment.patrimonio);
     const materializedUnits=units.filter(item=>sourceId(item)===origin).length;
     if(materializedUnits>=total){report.convertedToUnits.push(origin);continue;}
+    const reviewedLot=lots.find(item=>sourceId(item)===origin&&item.classificationReviewed===true);
+    if(reviewedLot){report.convertedToLots.push(origin);continue;}
     if(total===1&&patrimony){
       if(!unitSources.has(origin)){units.push(unitFromLegacy(equipment,model.id));unitSources.add(origin);}
       report.convertedToUnits.push(origin);
@@ -88,20 +90,33 @@ export const deriveEquipmentLocations=(data={},asOf=new Date().toISOString().sli
     if(current)current.quantity+=entry.quantity;
     else allocations.push(entry);
   };
+  const physicalTransfers=list(data,"transferenciasEquip")
+    .filter(item=>item?.physicalRegistryMovement&&text(item.data)<=asOf&&item.status!=="cancelada")
+    .sort((a,b)=>text(a.data).localeCompare(text(b.data))||text(a.createdAt).localeCompare(text(b.createdAt)));
   for(const lot of registry.lots){
     const origin=sourceId(lot);
-    const lotEvents=events.filter(event=>String(event.equipmentId)===origin&&!event.equipmentUnitId);
+    const balances=new Map([["depot",number(lot.quantity)]]);
+    physicalTransfers.filter(item=>String(item.equipmentLotId)===String(lot.id)).forEach(item=>{
+      const from=text(item.deLocationId||item.deObraId)||"depot",to=text(item.paraObraId)||"depot",amount=Math.max(0,number(item.quantidade));
+      balances.set(from,Math.max(0,number(balances.get(from))-amount));
+      balances.set(to,number(balances.get(to))+amount);
+    });
+    const lotEvents=events.filter(event=>String(event.equipmentId)===origin&&!event.equipmentUnitId&&!(event.equipmentUnitIds||[]).length&&event.type!=="transport");
     let allocated=0;
     for(const event of lotEvents){
       const amount=Math.max(0,number(event.quantity));
       allocated+=amount;
       const type=locationType(event),locationId=text(event.workId)||type;
+      const sources=[locationId,"depot",...balances.keys()];let remaining=amount;
+      for(const source of sources){const available=number(balances.get(source));const used=Math.min(available,remaining);balances.set(source,available-used);remaining-=used;if(remaining<=0)break;}
       add({key:`lot:${lot.id}:${allocationKey(type,locationId)}`,modelId:lot.modelId,lotId:lot.id,
         unitId:"",type,locationId,quantity:amount,eventIds:[event.id]});
     }
-    const free=Math.max(0,number(lot.quantity)-allocated);
-    if(free)add({key:`lot:${lot.id}:depot:depot`,modelId:lot.modelId,lotId:lot.id,unitId:"",
-      type:"depot",locationId:"depot",quantity:free,eventIds:[]});
+    for(const [locationId,amount] of balances){
+      if(amount<=0)continue;
+      add({key:`lot:${lot.id}:${allocationKey(locationId==="depot"?"depot":"work",locationId)}`,modelId:lot.modelId,lotId:lot.id,unitId:"",
+        type:locationId==="depot"?"depot":"work",locationId,quantity:amount,eventIds:[]});
+    }
     if(allocated>number(lot.quantity))add({key:`lot:${lot.id}:exceeded:exceeded`,modelId:lot.modelId,
       lotId:lot.id,unitId:"",type:"exceeded",locationId:"exceeded",quantity:allocated-number(lot.quantity),eventIds:lotEvents.map(item=>item.id)});
   }
@@ -111,7 +126,8 @@ export const deriveEquipmentLocations=(data={},asOf=new Date().toISOString().sli
       ||(event.equipmentUnitIds||[]).map(String).includes(String(unit.id))
       ||(!event.equipmentUnitId&&!(event.equipmentUnitIds||[]).length&&String(event.equipmentId)===origin));
     const event=candidates.sort((a,b)=>String(b.startDate).localeCompare(String(a.startDate)))[0];
-    const type=event?locationType(event):"depot",locationId=event?(text(event.workId)||type):"depot";
+    const movement=[...physicalTransfers].reverse().find(item=>(item.equipmentUnitIds||[]).map(String).includes(String(unit.id))||String(item.equipmentUnitId||"")===String(unit.id));
+    const type=event?locationType(event):movement?"work":"depot",locationId=event?(text(event.workId)||type):movement?text(movement.paraObraId):"depot";
     add({key:`unit:${unit.id}:${allocationKey(type,locationId)}`,modelId:unit.modelId,lotId:"",
       unitId:unit.id,type,locationId,quantity:1,eventIds:event?[event.id]:[]});
   }

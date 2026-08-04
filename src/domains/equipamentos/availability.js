@@ -80,6 +80,7 @@ export const buildEquipmentUnavailability=(data={})=>{
     const equipment=(data.equipamentos||[]).find(candidate=>String(candidate.id)===String(item.equipamentoId));
     derived.push(normalizedEvent({}, {
       id:`legacy-maintenance:${item.id}`,equipmentId:item.equipamentoId,quantity:item.quantidade||equipment?.quantidadeTotal,
+      equipmentUnitId:item.equipmentUnitId,equipmentUnitIds:item.equipmentUnitIds,equipmentLotId:item.equipmentLotId,
       type:"maintenance",startDate:item.inicio||item.data,
       endDate:item.fim||item.dataConclusao||item.inicio||item.data,
       reason:item.descricao||"Manutenção",status:item.status,workId:item.obraId,

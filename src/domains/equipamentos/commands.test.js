@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../sync/operational-commands.js";
+import { buildEquipmentRegistry } from "./registry.js";
 
 const now="2026-07-28T12:00:00.000Z";
 const command=(type,key,payload,expectedVersion)=>({
@@ -23,6 +24,19 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(result.data.equipmentUnits).toHaveLength(1);
     expect(result.data.equipamentos).toEqual(initial.equipamentos);
     expect(result.data.equipmentRegistryMigration).toMatchObject({version:1,migratedById:"u-1"});
+  });
+
+  it("resolve classificação ambígua sem apagar o equipamento legado",()=>{
+    const migrated=applyOperationalCommand({...base(),equipamentos:[equipment({quantidadeTotal:2,patrimonio:"P-GERAL"})]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,"equipment-registry-review-setup",{},0,
+    ));
+    const result=applyOperationalCommand(migrated.data,command(OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED,"equipment-registry-review-units",{
+      equipmentId:"eq-1",kind:"unit",units:[{id:"u1",assetTag:"P-1"},{id:"u2",assetTag:"P-2"}],
+    },0));
+    expect(result.ok).toBe(true);
+    expect(result.data.equipamentos).toEqual(migrated.data.equipamentos);
+    expect(buildEquipmentRegistry(result.data)).toMatchObject({units:[{assetTag:"P-1"},{assetTag:"P-2"}],lots:[],report:{ambiguous:[]}});
+    expect(result.data.equipmentRegistryHistory.at(-1)).toMatchObject({type:"EQUIPMENT_REGISTRY_CLASSIFIED",kind:"unit"});
   });
 
   it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
@@ -165,6 +179,23 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(stale).toMatchObject({ok:false});
   });
 
+  it("vincula manutenção à unidade física e bloqueia identidade já locada",()=>{
+    const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],equipmentRegistryMigration:{version:1},
+      equipmentModels:[{id:"model-1",legacySourceId:"eq-1"}],equipmentUnits:[
+        {id:"unit-1",modelId:"model-1",legacySourceId:"eq-1",assetTag:"EQ-1A"},
+        {id:"unit-2",modelId:"model-1",legacySourceId:"eq-1",assetTag:"EQ-1B"},
+      ],equipmentUnavailability:[{id:"u-rental",equipmentId:"eq-1",equipmentUnitId:"unit-1",equipmentUnitIds:["unit-1"],quantity:1,type:"rental",startDate:"2026-08-01",endDate:"2026-08-10",status:"ativa"}]};
+    const conflict=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,"physical-maintenance-conflict-0001",{maintenance:{
+      id:"m1",equipamentoId:"eq-1",equipmentUnitIds:["unit-1"],inicio:"2026-08-05",fim:"2026-08-06",quantidade:1,custo:100,
+    }},0));
+    expect(conflict.reason).toMatch(/unidade física selecionada já está indisponível/);
+    const valid=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,"physical-maintenance-valid-0001",{maintenance:{
+      id:"m2",equipamentoId:"eq-1",equipmentUnitIds:["unit-2"],inicio:"2026-08-05",fim:"2026-08-06",quantidade:1,custo:100,
+    }},0));
+    expect(valid.ok).toBe(true);
+    expect(valid.data.manutencoesEquip[0]).toMatchObject({equipmentUnitId:"unit-2",equipmentUnitIds:["unit-2"]});
+  });
+
   it("transfere com versão do equipamento e registra origem e destino",()=>{
     const initial={...base(),equipamentos:[equipment({version:3,obraAtualId:"obra-a",status:"locado"})]};
     const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,"equipment-transfer-0001",{transfer:{
@@ -176,6 +207,16 @@ describe("comandos transacionais de equipamentos",()=>{
       id:"trans-2",equipamentoId:"eq-1",paraObraId:"obra-a",data:"2026-07-28",
     }},3));
     expect(stale).toMatchObject({ok:false});
+  });
+
+  it("transfere patrimônio físico e preserva sua identidade no movimento",()=>{
+    const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:1,patrimonio:"EQ-1"})],equipmentRegistryMigration:{version:1},
+      equipmentModels:[{id:"model-1",legacySourceId:"eq-1"}],equipmentUnits:[{id:"unit-1",modelId:"model-1",legacySourceId:"eq-1",assetTag:"EQ-1"}]};
+    const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,"physical-transfer-unit-0001",{transfer:{
+      id:"t1",equipamentoId:"eq-1",equipmentUnitIds:["unit-1"],quantidade:1,deLocationId:"depot",paraObraId:"obra-b",data:"2026-08-04",
+    }},1));
+    expect(result.ok).toBe(true);
+    expect(result.data.transferenciasEquip[0]).toMatchObject({equipmentUnitId:"unit-1",equipmentUnitIds:["unit-1"],deLocationId:"depot",paraObraId:"obra-b",physicalRegistryMovement:true});
   });
 
   it("rejeita datas inexistentes e descontos fora dos limites",()=>{
