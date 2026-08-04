@@ -92,4 +92,18 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
   checklist histórico de entrega;
 - smoke E2E cobre o formulário de devolução e seus campos críticos.
 
+## Sexto incremento
+
+- devoluções parciais são fatos acumuláveis e não alteram o estado da locação;
+- projeção pura informa quantidade contratada, devolvida, saldo restante,
+  unidades devolvidas e conclusão;
+- quantidade devolvida nunca pode superar o saldo;
+- a mesma unidade física não pode ser devolvida duas vezes;
+- devolução integral passa a considerar somente o saldo remanescente;
+- a transição para `returned` exige que a soma das devoluções cubra toda a
+  quantidade contratada;
+- interface oferece ação própria de devolução parcial e seleção das unidades
+  físicas ainda em campo;
+- smoke E2E cobre a abertura do fluxo parcial sem encerrar a locação.
+
 A Fase 4 ainda não está concluída.

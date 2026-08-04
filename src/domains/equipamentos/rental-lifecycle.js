@@ -41,7 +41,7 @@ export const normalizeRentalState=value=>{
 
 export const availableRentalTransitions=value=>[...(transitions[normalizeRentalState(value)]||[])];
 
-export const validateRentalTransition=(currentState,nextState,{reason="",hasBilling=false,checkpoints=[]}={})=>{
+export const validateRentalTransition=(currentState,nextState,{reason="",hasBilling=false,checkpoints=[],rentalQuantity=1}={})=>{
   const rawTo=String(nextState||"").trim().toLowerCase();
   const from=normalizeRentalState(currentState),to=normalizeRentalState(rawTo);
   if(!RENTAL_STATES.includes(rawTo))return {ok:false,reason:"Estado de destino da locação inválido."};
@@ -53,6 +53,11 @@ export const validateRentalTransition=(currentState,nextState,{reason="",hasBill
     returned:"return",under_inspection:"inspection"}[to];
   if(requiredCheckpoint&&!checkpoints.some(item=>item.type===requiredCheckpoint&&item.status!=="cancelled")){
     return {ok:false,reason:`Registre o checklist de ${requiredCheckpoint} antes de avançar a locação.`};
+  }
+  if(to===RENTAL_STATE.RETURNED){
+    const returned=checkpoints.filter(item=>["partial_return","return"].includes(item.type)&&item.status!=="cancelled")
+      .reduce((sum,item)=>sum+Math.max(0,Number(item.quantity||0)),0);
+    if(returned<Math.max(1,Number(rentalQuantity||1)))return {ok:false,reason:"Ainda existem unidades pendentes de devolução."};
   }
   return {ok:true,from,to};
 };

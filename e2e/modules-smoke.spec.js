@@ -38,7 +38,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     locacoesEquip:[
       {id:"rental-lifecycle-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-09-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"active",version:1,tarifas:{dia:100}},
       {id:"rental-separation-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-10-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"separating",version:1,tarifas:{dia:100}},
-      {id:"rental-return-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-11-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"pickup_requested",version:1,tarifas:{dia:100}},
+      {id:"rental-return-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-11-01",fim:"",quantidade:2,status:"ativa",lifecycleState:"pickup_requested",version:1,tarifas:{dia:100}},
     ],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
     orcamentos:[
       {
@@ -174,6 +174,10 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(returnDialog.getByLabel("Avarias")).toBeVisible();
         await expect(returnDialog.getByLabel("Itens faltantes")).toBeVisible();
         await returnDialog.getByRole("button",{name:"Cancelar"}).click();
+        await page.getByRole("button",{name:"Devolução parcial"}).click();
+        const partialDialog=page.getByRole("dialog",{name:/Devolução parcial · Betoneira QA/});
+        await expect(partialDialog.getByLabel("Quantidade *")).toHaveValue("1");
+        await partialDialog.getByRole("button",{name:"Cancelar"}).click();
       }
       if(item==="Terceirizados") {
         const excluirContrato=page.getByRole("button",{name:"Excluir contrato de Elétrica Modelo"});

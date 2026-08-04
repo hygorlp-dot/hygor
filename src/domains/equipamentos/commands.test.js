@@ -90,6 +90,21 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(advanced.data.locacoesEquip[0]).toMatchObject({lifecycleState:"ready_for_dispatch",version:3});
   });
 
+  it("mantém a locação aberta após devolução parcial",()=>{
+    const rental={id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",quantidade:3,
+      equipmentUnitIds:["u1","u2","u3"],lifecycleState:"pickup_requested",status:"ativa",version:1};
+    const partial=applyOperationalCommand({...base(),locacoesEquip:[rental]},command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,"rental-partial-return-0001",
+      {rentalId:"loc-1",checkpoint:{type:"partial_return",date:"2026-08-10",quantity:1,equipmentUnitIds:["u1"],responsible:"Carlos"}},1,
+    ));
+    expect(partial.data.locacoesEquip[0]).toMatchObject({lifecycleState:"pickup_requested",status:"ativa",version:2});
+    const premature=applyOperationalCommand(partial.data,command(
+      OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,"rental-partial-premature-0001",
+      {rentalId:"loc-1",nextState:"returned"},2,
+    ));
+    expect(premature.reason).toMatch(/checklist de return/);
+  });
+
   it("exige unidade física e impede locar a mesma identidade duas vezes",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],
       equipmentRegistryMigration:{version:1},

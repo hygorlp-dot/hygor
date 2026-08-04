@@ -348,7 +348,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     if(stale)return fail(stale);
     const hasBilling=list(data,"rentalChargeItems").some(item=>String(item.rentalId)===id&&item.status!=="cancelled")
       ||list(data,"rentalInvoices").some(item=>String(item.rentalId)===id&&item.status!=="cancelled");
-    const validation=validateRentalTransition(current.lifecycleState||current.status,payload.nextState,{reason:payload.reason,hasBilling,checkpoints:current.rentalCheckpoints||[]});
+    const validation=validateRentalTransition(current.lifecycleState||current.status,payload.nextState,{reason:payload.reason,hasBilling,checkpoints:current.rentalCheckpoints||[],rentalQuantity:current.quantidade});
     if(!validation.ok)return fail(validation.reason);
     const event={id:`rental_transition_${command.idempotencyKey}`,type:"EQUIPMENT_RENTAL_TRANSITIONED",
       from:validation.from,to:validation.to,reason:String(payload.reason||"").trim(),at:now,
