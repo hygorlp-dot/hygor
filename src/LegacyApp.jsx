@@ -33303,8 +33303,9 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     finally{setSalvandoEquipamento("");}
   };
   const CHECKPOINT_BY_STATE={ready_for_dispatch:RENTAL_CHECKPOINT_TYPE.SEPARATION,
-    in_transport:RENTAL_CHECKPOINT_TYPE.DISPATCH,delivered:RENTAL_CHECKPOINT_TYPE.DELIVERY};
-  const CHECKPOINT_LABEL={separation:"Separação",dispatch:"Expedição",delivery:"Entrega"};
+    in_transport:RENTAL_CHECKPOINT_TYPE.DISPATCH,delivered:RENTAL_CHECKPOINT_TYPE.DELIVERY,
+    returned:RENTAL_CHECKPOINT_TYPE.RETURN,under_inspection:RENTAL_CHECKPOINT_TYPE.INSPECTION};
+  const CHECKPOINT_LABEL={separation:"Separação",dispatch:"Expedição",delivery:"Entrega",return:"Devolução",inspection:"Inspeção"};
   const prepararTransicaoLocacao=(rental,nextState)=>{
     const type=CHECKPOINT_BY_STATE[nextState];
     const recorded=(rental.rentalCheckpoints||[]).some(item=>item.type===type&&item.status!=="cancelled");
@@ -33313,7 +33314,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
     setRentalCheckpointModal({rentalId:rental.id,nextState,type,date:today(),quantity:Number(rental.quantidade||1),
       equipmentUnitIds:[...(rental.equipmentUnitIds||[])],accessories:"",hourMeter:"",fuel:"",condition:"",
       photos:"",responsible:currentUser?.nome||"",receivedBy:"",address:work?.address||work?.endereco||"",
-      acceptance:"",notes:""});
+      acceptance:"",cleaning:"",damages:"",missingItems:"",needsAdjustment:false,notes:""});
   };
   const salvarChecklistLocacao=async form=>{
     setSalvandoEquipamento(`checklist-${form.rentalId}`);
@@ -33325,7 +33326,10 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
           payload:{rentalId:form.rentalId,checkpoint:{...form,quantity:Number(form.quantity||0),
             hourMeter:Number(form.hourMeter||0),accessories:String(form.accessories||"").split(/[,;\n]/).map(value=>value.trim()).filter(Boolean),
-            photos:String(form.photos||"").split(/\n/).map(value=>value.trim()).filter(Boolean)}}};
+            photos:String(form.photos||"").split(/\n/).map(value=>value.trim()).filter(Boolean),
+            damages:String(form.damages||"").split(/[,;\n]/).map(value=>value.trim()).filter(Boolean),
+            missingItems:String(form.missingItems||"").split(/[,;\n]/).map(value=>value.trim()).filter(Boolean),
+            needsAdjustment:form.needsAdjustment===true||form.needsAdjustment==="true"}}};
       });
       if(!result?.ok){showToast(result?.reason||"Não foi possível salvar o checklist.","error");return;}
       setRentalCheckpointModal(null);showToast(`${CHECKPOINT_LABEL[form.type]} registrada. A locação já pode avançar.`);
@@ -34013,7 +34017,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
         </div>
       </Modal>;})()}
 
-      {rentalCheckpointModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalCheckpointModal.rentalId);return <Modal
+      {rentalCheckpointModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalCheckpointModal.rentalId);const returnFlow=[RENTAL_CHECKPOINT_TYPE.RETURN,RENTAL_CHECKPOINT_TYPE.INSPECTION].includes(rentalCheckpointModal.type);return <Modal
         title={`${CHECKPOINT_LABEL[rentalCheckpointModal.type]} · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalCheckpointModal(null)} wide>
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
           <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`}}>
@@ -34029,6 +34033,7 @@ function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, o
           <Inp label="Condição aparente" value={rentalCheckpointModal.condition} onChange={v=>setRentalCheckpointModal(form=>({...form,condition:v}))}/>
           {rentalCheckpointModal.type!==RENTAL_CHECKPOINT_TYPE.SEPARATION&&<Inp label="Responsável pela movimentação *" value={rentalCheckpointModal.responsible} onChange={v=>setRentalCheckpointModal(form=>({...form,responsible:v}))}/>}
           {rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.DELIVERY&&<><Inp label="Responsável pelo recebimento *" value={rentalCheckpointModal.receivedBy} onChange={v=>setRentalCheckpointModal(form=>({...form,receivedBy:v}))}/><Inp label="Endereço da entrega *" value={rentalCheckpointModal.address} onChange={v=>setRentalCheckpointModal(form=>({...form,address:v}))}/><Inp label="Assinatura ou aceite" value={rentalCheckpointModal.acceptance} onChange={v=>setRentalCheckpointModal(form=>({...form,acceptance:v}))}/></>}
+          {returnFlow&&<><Sel label="Limpeza" value={rentalCheckpointModal.cleaning} onChange={v=>setRentalCheckpointModal(form=>({...form,cleaning:v}))} options={[{v:"",l:"Não informado"},{v:"dispensada",l:"Dispensada"},{v:"realizada",l:"Realizada"},{v:"necessária",l:"Necessária"}]}/><Sel label="Necessita ajuste" value={String(rentalCheckpointModal.needsAdjustment)} onChange={v=>setRentalCheckpointModal(form=>({...form,needsAdjustment:v}))} options={[{v:"false",l:"Não"},{v:"true",l:"Sim"}]}/><Inp label="Avarias" value={rentalCheckpointModal.damages} onChange={v=>setRentalCheckpointModal(form=>({...form,damages:v}))} placeholder="Separe por vírgula"/><Inp label="Itens faltantes" value={rentalCheckpointModal.missingItems} onChange={v=>setRentalCheckpointModal(form=>({...form,missingItems:v}))} placeholder="Separe por vírgula"/></>}
           <div style={{gridColumn:"1/-1"}}><Inp label="Fotos (uma URL por linha)" value={rentalCheckpointModal.photos} onChange={v=>setRentalCheckpointModal(form=>({...form,photos:v}))} multiline/></div>
           <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={rentalCheckpointModal.notes} onChange={v=>setRentalCheckpointModal(form=>({...form,notes:v}))} multiline/></div>
           <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalCheckpointModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`checklist-${rentalCheckpointModal.rentalId}`} onClick={()=>salvarChecklistLocacao(rentalCheckpointModal)}>Salvar checklist</Btn></div>

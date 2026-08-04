@@ -78,4 +78,18 @@ cobrança continuem com o comportamento atual durante a implantação gradual.
   bloqueada;
 - smoke E2E cobre a abertura do checklist de separação no estágio correto.
 
+## Quinto incremento
+
+- checklists de devolução integral e entrada em inspeção;
+- registro de quantidade e unidades devolvidas, horímetro final, combustível,
+  acessórios, limpeza, fotos, avarias, itens faltantes e responsável;
+- indicação explícita da necessidade de ajuste;
+- devolução integral precisa corresponder à quantidade contratada;
+- inspeção exige checklist de devolução anterior;
+- transições para `returned` e `under_inspection` ficam bloqueadas até a
+  respectiva evidência operacional;
+- compatibilidade preservada para locações legadas ativas que não possuem um
+  checklist histórico de entrega;
+- smoke E2E cobre o formulário de devolução e seus campos críticos.
+
 A Fase 4 ainda não está concluída.

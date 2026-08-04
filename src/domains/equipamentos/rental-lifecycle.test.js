@@ -21,6 +21,9 @@ describe("ciclo completo da locação",()=>{
     expect(validateRentalTransition("separating","ready_for_dispatch").reason).toMatch(/checklist de separation/);
     expect(validateRentalTransition("separating","ready_for_dispatch",{checkpoints:[{type:"separation"}]}).ok).toBe(true);
     expect(validateRentalTransition("in_transport","delivered",{checkpoints:[{type:"delivery"}]}).ok).toBe(true);
+    expect(validateRentalTransition("pickup_requested","returned").reason).toMatch(/checklist de return/);
+    expect(validateRentalTransition("pickup_requested","returned",{checkpoints:[{type:"return"}]}).ok).toBe(true);
+    expect(validateRentalTransition("returned","under_inspection",{checkpoints:[{type:"inspection"}]}).ok).toBe(true);
   });
   it("exige justificativa e estorno para cancelar após faturamento",()=>{
     expect(validateRentalTransition(RENTAL_STATE.QUOTED,RENTAL_STATE.CANCELLED).reason).toMatch(/justificativa/);

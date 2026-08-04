@@ -18,4 +18,18 @@ describe("checklists do ciclo da locação",()=>{
   it("impede duplicidade do mesmo marco",()=>{
     expect(validateRentalCheckpoint(rental,{type:"delivery",date:"2026-08-04",quantity:2},[{type:"delivery"}]).reason).toMatch(/já foi registrado/);
   });
+  it("registra devolução integral e dados de avaria",()=>{
+    const returning={...rental,lifecycleState:"pickup_requested"};
+    const result=validateRentalCheckpoint(returning,{type:"return",date:"2026-08-10",quantity:2,
+      equipmentUnitIds:["u1","u2"],responsible:"Carlos",cleaning:"necessária",damages:["Carenagem"],missingItems:["Cabo"],needsAdjustment:true},[{type:"delivery"}]);
+    expect(result.ok).toBe(true);
+    expect(result.record).toMatchObject({cleaning:"necessária",damages:["Carenagem"],missingItems:["Cabo"],needsAdjustment:true});
+    expect(validateRentalCheckpoint(returning,{type:"return",date:"2026-08-10",quantity:1,responsible:"Carlos"},[{type:"delivery"}]).reason).toMatch(/devolução integral/);
+  });
+
+  it("exige devolução anterior para iniciar inspeção",()=>{
+    const inspecting={...rental,lifecycleState:"returned"};
+    expect(validateRentalCheckpoint(inspecting,{type:"inspection",date:"2026-08-10",quantity:2,responsible:"Ana"}).reason).toMatch(/devolução antes/);
+    expect(validateRentalCheckpoint(inspecting,{type:"inspection",date:"2026-08-10",quantity:2,equipmentUnitIds:["u1","u2"],responsible:"Ana"},[{type:"return"}]).ok).toBe(true);
+  });
 });

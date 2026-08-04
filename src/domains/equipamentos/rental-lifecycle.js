@@ -49,7 +49,8 @@ export const validateRentalTransition=(currentState,nextState,{reason="",hasBill
   if(!(transitions[from]||[]).includes(to))return {ok:false,reason:`Transição de ${from} para ${to} não permitida.`};
   if(to===RENTAL_STATE.CANCELLED&&!String(reason||"").trim())return {ok:false,reason:"Informe a justificativa do cancelamento."};
   if(to===RENTAL_STATE.CANCELLED&&hasBilling)return {ok:false,reason:"Locação faturada exige processo de estorno antes do cancelamento."};
-  const requiredCheckpoint={ready_for_dispatch:"separation",in_transport:"dispatch",delivered:"delivery"}[to];
+  const requiredCheckpoint={ready_for_dispatch:"separation",in_transport:"dispatch",delivered:"delivery",
+    returned:"return",under_inspection:"inspection"}[to];
   if(requiredCheckpoint&&!checkpoints.some(item=>item.type===requiredCheckpoint&&item.status!=="cancelled")){
     return {ok:false,reason:`Registre o checklist de ${requiredCheckpoint} antes de avançar a locação.`};
   }
