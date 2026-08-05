@@ -1132,7 +1132,7 @@
 
 .payroll-summary-strip {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   overflow: hidden;
 }
 
@@ -1238,6 +1238,19 @@
 
 .payroll-summary-strip strong[data-tone="danger"] {
   color: var(--arcd-danger-text);
+}
+
+.payroll-summary-strip__net {
+  background: var(--arcd-text-primary);
+}
+
+.payroll-summary-strip__net span,
+.payroll-summary-strip__net small {
+  color: var(--arcd-border-default);
+}
+
+.payroll-summary-strip__net strong {
+  color: var(--arcd-action-primary);
 }
 
 .payroll-summary-strip small {
@@ -1678,11 +1691,11 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .payroll-summary-strip > div:nth-child(2) {
+  .payroll-summary-strip > div:nth-child(2n) {
     border-right: 0;
   }
 
-  .payroll-summary-strip > div:nth-child(-n+2) {
+  .payroll-summary-strip > div:nth-child(-n+4) {
     border-bottom: 1px solid var(--arcd-border-default);
   }
 

@@ -38,6 +38,40 @@ export const calculateUnionDue=({employee,config:configInput,payrollCycle,period
   return {amount,group,applied:amount>0};
 };
 
+// Liquidação canônica da remuneração. O desconto sindical reduz o valor que
+// sai para o funcionário, mas nunca cria pagamento negativo. O valor aplicado
+// é devolvido separadamente para o recolhimento ao sindicato permanecer
+// auditável nos relatórios e na conciliação.
+export const calculatePayrollSettlement=({gross=0,benefits=0,advances=0,unionDue=0}={})=>{
+  const value=valueInput=>Number.isFinite(Number(valueInput))?Number(valueInput):0;
+  const netBeforeUnion=Math.max(0,value(gross)+value(benefits)-Math.max(0,value(advances)));
+  const requestedUnionDue=Math.max(0,value(unionDue));
+  const appliedUnionDue=Math.min(netBeforeUnion,requestedUnionDue);
+  return {
+    netBeforeUnion,
+    requestedUnionDue,
+    appliedUnionDue,
+    netPayable:netBeforeUnion-appliedUnionDue,
+  };
+};
+
+export const allocateUnionDueByWork=(allocations=[],unionDue=0)=>{
+  const rows=(allocations||[]).map(row=>({...row}));
+  const totalBase=rows.reduce((sum,row)=>sum+Math.max(0,Number(row.netObra||0)),0);
+  const due=Math.min(Math.max(0,Number(unionDue||0)),totalBase);
+  let allocated=0;
+  rows.forEach((row,index)=>{
+    const base=Math.max(0,Number(row.netObra||0));
+    const share=index===rows.length-1?due-allocated:(totalBase?due*(base/totalBase):0);
+    const safeShare=Math.min(base,Math.max(0,share));
+    allocated+=safeShare;
+    row.unionDueObra=safeShare;
+    row.netBeforeUnionObra=base;
+    row.netObra=base-safeShare;
+  });
+  return rows;
+};
+
 export const summarizeUnionDues=rows=>(rows||[]).reduce((summary,row)=>{
   const amount=Math.max(0,Number(row?.unionDue||0));
   summary.total+=amount;
