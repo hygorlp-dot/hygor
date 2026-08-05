@@ -5152,6 +5152,38 @@
 @media(max-width:760px){.purchase-kanban-head{align-items:flex-start;flex-direction:column}.purchase-kanban-filters{width:100%;overflow-x:auto}.purchase-kanban-filters button{flex:1;white-space:nowrap}.purchase-kanban-board{grid-template-columns:repeat(5,82vw);scroll-snap-type:x proximity}.purchase-kanban-column{min-height:360px;scroll-snap-align:start}.purchase-andon-legend{overflow-x:auto;white-space:nowrap}}
 @media(max-width:620px){.purchase-dashboard-deadlines{grid-template-columns:1fr 1fr}.purchase-dashboard-kanban .purchase-kanban-board{grid-template-columns:repeat(5,82vw)}}
 
+/* Solicitação formal de materiais — contexto, materiais e confirmação. */
+.purchase-request-modal{max-width:min(980px,calc(100vw - 28px))!important;border-radius:4px!important;box-shadow:none!important;font-family:"IBM Plex Sans",sans-serif}
+.purchase-request-flow{display:flex;flex-direction:column;gap:18px}
+.purchase-request-section{display:flex;flex-direction:column;gap:12px;min-width:0}
+.purchase-request-section+section{padding-top:18px;border-top:1px solid var(--arcd-border,#d6d6d6)}
+.purchase-request-section>header{display:flex;align-items:flex-start;gap:10px}
+.purchase-request-section>header>span{display:grid;width:24px;height:24px;flex:0 0 24px;place-items:center;border:1px solid #b89525;border-radius:2px;color:#6d5600;font-size:12px;font-weight:600}
+.purchase-request-section>header h3{color:#161616;font:600 var(--arcd-type-section-title,14px)/1.3 "IBM Plex Sans",sans-serif}
+.purchase-request-section>header p{margin-top:2px;color:#525252;font:400 var(--arcd-type-caption,11px)/1.45 "IBM Plex Sans",sans-serif}
+.purchase-request-context{display:grid;gap:10px;align-items:start}
+.purchase-request-search{display:flex;flex-direction:column;gap:9px;padding:12px;border:1px solid #d6d6d6;border-radius:4px;background:#f4f4f4}
+.purchase-request-search h4,.purchase-request-material-head h4{color:#161616;font:600 var(--arcd-type-card-title,12px)/1.3 "IBM Plex Sans",sans-serif}
+.purchase-request-result{display:grid;grid-template-columns:110px minmax(0,1fr) 110px;gap:10px;width:100%;min-height:44px;align-items:center;padding:8px 10px;border:0;border-top:1px solid #e0e0e0;background:#fff;color:#161616;text-align:left;cursor:pointer}
+.purchase-request-result:first-of-type{border-top:0}.purchase-request-result:hover{background:#f4f4f4}.purchase-request-result:focus-visible,.purchase-request-remove:focus-visible,.purchase-request-undo button:focus-visible{outline:3px solid rgba(212,175,55,.35);outline-offset:2px}
+.purchase-request-result b,.purchase-request-result strong{font:600 11px/1.35 "IBM Plex Mono",monospace}.purchase-request-result strong{text-align:right;color:#6d5600}.purchase-request-result span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.purchase-request-search-error,.purchase-request-undo{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid #da1e28;background:#fff7f7;color:#8a1c23;font-size:12px}
+.purchase-request-material-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.purchase-request-material-head>div{display:flex;gap:8px;flex-wrap:wrap}
+.purchase-request-items{display:flex;flex-direction:column;gap:10px}.purchase-request-item{padding:12px;border:1px solid #d6d6d6;border-radius:4px;background:#fff}
+.purchase-request-item-main{display:grid;grid-template-columns:80px 110px minmax(180px,1fr) 86px 130px 44px auto;gap:8px;align-items:end;min-width:0}
+.purchase-request-remove{display:inline-flex;min-width:44px;min-height:44px;align-items:center;justify-content:center;gap:6px;padding:0 10px;border:1px solid #e0b1b1;border-radius:4px;background:#fff7f7;color:#a2191f;font:600 11px "IBM Plex Sans",sans-serif;cursor:pointer}
+.purchase-request-undo button{min-height:36px;border:0;background:transparent;color:#6d5600;font-weight:600;text-decoration:underline;cursor:pointer}
+.purchase-request-hint{color:#525252;font:400 var(--arcd-type-caption,11px)/1.45 "IBM Plex Sans",sans-serif}.purchase-request-error{display:block;margin-top:4px;color:#a2191f;font-size:11px;line-height:1.4}
+.purchase-request-empty{padding:22px;border:1px dashed #8d8d8d;text-align:center}.purchase-request-empty strong{display:block;font-size:13px}.purchase-request-empty p{margin-top:4px;color:#525252;font-size:12px}
+.purchase-request-summary{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:1px;border:1px solid #d6d6d6;background:#d6d6d6}.purchase-request-summary>div{min-width:0;padding:10px 12px;background:#f4f4f4}.purchase-request-summary span,.purchase-request-summary strong{display:block}.purchase-request-summary span{color:#525252;font-size:11px}.purchase-request-summary strong{margin-top:4px;overflow-wrap:anywhere;color:#161616;font:600 13px "IBM Plex Mono",monospace}
+.purchase-request-formal-notice{display:flex;align-items:center;gap:7px;padding:10px 12px;border:1px solid #b89525;background:#fffdf5;color:#4c3b00;font-size:12px;line-height:1.4}.purchase-request-actions{display:flex;gap:8px}.purchase-request-actions .arcd-btn{min-height:44px}
+.purchase-request-modal .arcd-field__label,.purchase-request-modal .arcd-field-control{font-family:"IBM Plex Sans",sans-serif!important}.purchase-request-modal .arcd-field-control:focus{border-color:#8a6b13!important;box-shadow:0 0 0 2px rgba(212,175,55,.22)}
+@media(max-width:760px){
+  .purchase-request-modal{max-width:100%!important}.purchase-request-flow{gap:16px}.purchase-request-context{grid-template-columns:1fr!important}.purchase-request-material-head{align-items:stretch;flex-direction:column}.purchase-request-material-head>div{display:grid;grid-template-columns:1fr}.purchase-request-material-head .arcd-btn{min-height:44px;width:100%!important}
+  .purchase-request-item-main{grid-template-columns:1fr 1fr}.purchase-request-item-main>div:nth-child(1),.purchase-request-item-main>label:nth-child(3){grid-column:1/-1}.purchase-request-item-main>.arcd-btn,.purchase-request-remove{width:100%!important}.purchase-request-item-main>.arcd-btn{min-height:44px}.purchase-request-result{grid-template-columns:1fr auto}.purchase-request-result span{grid-column:1/-1;grid-row:2;white-space:normal}.purchase-request-summary{grid-template-columns:1fr 1fr}.purchase-request-actions{flex-direction:column-reverse}.purchase-request-modal .arcd-field-control{min-height:44px;font-size:16px!important}
+}
+@media(max-width:420px){.purchase-request-summary{grid-template-columns:1fr}.purchase-request-item-main{grid-template-columns:1fr}.purchase-request-item-main>*{grid-column:1!important}.purchase-request-result{grid-template-columns:1fr}.purchase-request-result strong{text-align:left}}
+
 @media(max-width:390px){
   .arcd-topbar .arcd-brand-word {
     display: none;

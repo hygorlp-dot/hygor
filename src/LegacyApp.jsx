@@ -91,6 +91,11 @@ import {
   historicoPreco, historicoPrecoTodos, analisePreco, mapaGerencialCompras,
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
+import {
+  changePurchaseRequestProject,
+  purchaseRequestSummary,
+  validatePurchaseRequest,
+} from "./domains/compras/purchase-request-workflow";
 import { calculateContractProjection } from "./domains/dre/calculations";
 import {
   COMPANY_EXPENSE_CATEGORIES,
@@ -24202,13 +24207,44 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   const [busca,setBusca]=useState("");const [resultados,setResultados]=useState([]);
   const [loading,setLoading]=useState(false);const [aviso,setAviso]=useState("");
   const [novoInsumo,setNovoInsumo]=useState(null);
+  const [salvando,setSalvando]=useState(false);
+  const [erros,setErros]=useState({fieldErrors:{},items:[]});
+  const [confirmarSaida,setConfirmarSaida]=useState(false);
+  const [removido,setRemovido]=useState(null);
+  const [tentativaBusca,setTentativaBusca]=useState(0);
+  const inicialRef=useRef(JSON.stringify(form));
   const base=basesReferencia.find(item=>item.id===form.referenciaId);
   // A apropriação operacional já pode começar no rascunho. A baseline
   // aprovada continua prioritária e exclusiva para os indicadores financeiros.
   const contextoOrcamento=getPlanningBudget(data,form.obraId);
   const orcObra=contextoOrcamento.budget;
   const linhasOrc=niveisUmOrcamento(orcObra).map(n=>({v:n.id,l:`${n.descricao} · ${fmt(n.orcado)}`}));
-  const F=k=>v=>setForm(f=>({...f,[k]:v}));
+  const F=k=>v=>{setErros(e=>({...e,fieldErrors:{...(e.fieldErrors||{}),[k]:""}}));setForm(f=>({...f,[k]:v}));};
+  const fechar=()=>{
+    if(JSON.stringify(form)!==inicialRef.current){setConfirmarSaida(true);return;}
+    setForm(null);
+  };
+  const trocarObra=obraId=>{
+    if(obraId===form.obraId)return;
+    setErros({fieldErrors:{},items:[]});
+    setForm(f=>changePurchaseRequestProject(f,obraId));
+  };
+  const removerItem=id=>setForm(f=>{
+    const index=f.itens.findIndex(item=>item.id===id);if(index<0)return f;
+    setRemovido({item:f.itens[index],index});
+    return {...f,itens:f.itens.filter(item=>item.id!==id)};
+  });
+  const desfazerRemocao=()=>{if(!removido)return;setForm(f=>{const itens=[...f.itens];itens.splice(Math.min(removido.index,itens.length),0,removido.item);return{...f,itens};});setRemovido(null);};
+  const enviar=async()=>{
+    const validacao=validatePurchaseRequest(form);setErros(validacao);
+    if(!validacao.valid){
+      const primeiro=validacao.firstInvalidItem?.id;
+      window.setTimeout(()=>document.querySelector(primeiro?`[data-request-item="${primeiro}"] [aria-invalid="true"]`:`.purchase-request-modal [aria-invalid="true"]`)?.focus(),0);
+      showToast?.("Revise os campos destacados antes de formalizar a solicitação.","error");return;
+    }
+    setSalvando(true);
+    try{await onSave(form);}finally{setSalvando(false);}
+  };
   const setItem=(id,campo,valor)=>setForm(f=>({...f,itens:f.itens.map(item=>item.id===id?{...item,[campo]:valor}:item)}));
   const setUnidadeCompra=(id,unidadeCompra)=>setForm(f=>({...f,itens:f.itens.map(item=>{
     if(item.id!==id)return item;
@@ -24256,7 +24292,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
       else{setResultados([]);setAviso(resposta.error||"Não foi possível pesquisar a base.");}
       setLoading(false);
     },260);return()=>{ativo=false;window.clearTimeout(timer);};
-  },[busca,form.referenciaId]);
+  },[busca,form.referenciaId,tentativaBusca]);
 
   const precoRef=item=>{const p=base?.desonerado===false?Number(item.precoNao||0):Number(item.precoDes||0);return p||Number(item.precoDes||0)||Number(item.precoNao||0);};
   const addReferencia=item=>{
@@ -24268,24 +24304,28 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   };
   const addProprio=()=>setForm(f=>({...f,itens:[...f.itens,{id:uid(),materialId:"",referenciaId:"",fonteRef:"PRÓPRIO",codigoRef:"",descricaoRef:"",unidadeRef:"UN",unidadeCompra:"UN",fatorConversao:1,quantidade:"",precoRef:0,dataBaseRef:"",ufRef:"",orcItemId:"",orcNivel1Id:"",observacao:""}]}));
 
-  return <Modal title={form.id?`Editar solicitação ${form.numero||""}`:"Solicitar materiais para Compras"} onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:11}}>
-    <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:9}}>
-      <Sel label="Obra *" value={form.obraId} onChange={F("obraId")} options={obras.map(o=>({v:o.id,l:o.name}))}/>
-      <Inp label="Necessidade na obra" type="date" value={form.necessidade} onChange={F("necessidade")}/>
+  const resumo=purchaseRequestSummary(form);
+  return <Modal title={form.id?`Editar solicitação ${form.numero||""}`:"Solicitar materiais para Compras"} onClose={fechar} wide panelClass="purchase-request-modal"><div className="purchase-request-flow">
+    <section className="purchase-request-section"><header><span>1</span><div><h3>Contexto da solicitação</h3><p>Defina onde e quando os materiais precisam chegar.</p></div></header>
+    <div className="purchase-request-context" style={{gridTemplateColumns:formGrid(3)}}>
+      <div><Sel label="Obra *" value={form.obraId} onChange={trocarObra} options={obras.map(o=>({v:o.id,l:o.name}))}/>{erros.fieldErrors?.obraId&&<small className="purchase-request-error" role="alert">{erros.fieldErrors.obraId}</small>}</div>
+      <Inp label="Data necessária na obra *" type="date" value={form.necessidade} onChange={F("necessidade")} error={erros.fieldErrors?.necessidade}/>
       <Sel label="Prioridade" value={form.prioridade} onChange={F("prioridade")} options={[{v:"normal",l:"Normal"},{v:"urgente",l:"Urgente"}]}/>
-    </div>
-    <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}40`,borderRadius:6,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
-      <p style={{fontSize:11.5,fontWeight:900,color:C.blue}}>PESQUISAR INSUMO SINAPI / ORSE</p>
+    </div></section>
+    <section className="purchase-request-section"><header><span>2</span><div><h3>Materiais</h3><p>Pesquise uma base oficial ou cadastre o insumo no catálogo.</p></div></header>
+    <div className="purchase-request-search">
+      <h4>Pesquisar insumo SINAPI / ORSE</h4>
       <Sel label="Base de referência" value={form.referenciaId||""} onChange={v=>{F("referenciaId")(v);setBusca("");setResultados([]);}}
-        options={[{v:"",l:basesReferencia.length?"Selecione a base":"Nenhuma base pronta no Supabase"},...basesReferencia.map(b=>({v:b.id,l:`${b.fonte} · ${b.dataBase}${b.uf?` · ${b.uf}`:""}${b.fonte==="SINAPI"?` · ${b.desonerado===false?"NÃO DESONERADA":"DESONERADA"}`:""}`}))]}/>
+        options={[{v:"",l:basesReferencia.length?"Selecione a base":"Nenhuma base de referência disponível"},...basesReferencia.map(b=>({v:b.id,l:`${b.fonte} · ${b.dataBase}${b.uf?` · ${b.uf}`:""}${b.fonte==="SINAPI"?` · ${b.desonerado===false?"NÃO DESONERADA":"DESONERADA"}`:""}`}))]}/>
       <Inp label="Código ou descrição" value={busca} onChange={setBusca} placeholder="Ex.: cimento, bloco, aço..."/>
+      {form.referenciaId&&busca.trim().length===1&&<p className="purchase-request-hint">Digite pelo menos 2 caracteres para pesquisar.</p>}
       {(loading||aviso||resultados.length>0||busca.trim().length>=2)&&<div style={{maxHeight:220,overflowY:"auto",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:4}}>
-        {loading&&<p style={{fontSize:10,color:C.blue,padding:7}}>PESQUISANDO...</p>}{aviso&&<p style={{fontSize:10,color:C.orange,padding:7}}>{aviso}</p>}
-        {resultados.map((item,index)=><button key={`${item.fonte}-${item.codigo}-${index}`} onClick={()=>addReferencia(item)} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 100px",gap:8,width:"100%",alignItems:"center",padding:"7px 8px",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",cursor:"pointer",textAlign:"left"}}><b style={{fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><span style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><b style={{fontSize:9.5,color:C.yellowD,textAlign:"right"}}>{fmt(precoRef(item))}/{item.unidade}</b></button>)}
+        {loading&&<p className="purchase-request-hint" role="status">Pesquisando na base selecionada...</p>}{aviso&&<div className="purchase-request-search-error" role="alert"><span>{aviso}</span><Btn size="sm" v="ghost" onClick={()=>setTentativaBusca(n=>n+1)}>Tentar novamente</Btn></div>}
+        {resultados.map((item,index)=><button className="purchase-request-result" key={`${item.fonte}-${item.codigo}-${index}`} onClick={()=>addReferencia(item)} title={item.descricao}><b>{item.fonte} {item.codigo}</b><span>{item.descricao}</span><strong>{fmt(precoRef(item))}/{item.unidade}</strong></button>)}
         {!loading&&!resultados.length&&!aviso&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado.</p>}
       </div>}
     </div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}><p style={{fontSize:11,fontWeight:900,color:C.text}}>MATERIAIS SOLICITADOS</p><div style={{display:"flex",gap:6}}><Btn size="sm" v="ghost" onClick={addProprio}><Ic n="plus"/> CRIAR ITEM PRÓPRIO</Btn>{data&&update&&<Btn size="sm" v="warning" onClick={abrirNovoInsumo}><Ic n="plus"/> CADASTRAR NOVO INSUMO</Btn>}</div></div>
+    <div className="purchase-request-material-head"><h4>Materiais da solicitação</h4><div><Btn size="sm" v="ghost" onClick={addProprio}><Ic n="plus"/> Adicionar somente a esta solicitação</Btn>{data&&update&&<Btn size="sm" v="warning" onClick={abrirNovoInsumo}><Ic n="plus"/> Cadastrar no catálogo e adicionar</Btn>}</div></div>
     {novoInsumo&&<div style={{background:`${C.orange}0A`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
       <p style={{fontSize:10.5,fontWeight:900,color:C.orange}}>NOVO INSUMO NO CATÁLOGO</p>
       <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
@@ -24296,15 +24336,16 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
       <Inp label="Preço médio (R$)" type="number" value={novoInsumo.precoMedio} onChange={v=>setNovoInsumo(f=>({...f,precoMedio:v}))} placeholder="0,00"/>
       <div style={{display:"flex",gap:8}}><Btn size="sm" v="ghost" onClick={()=>setNovoInsumo(null)} full>Cancelar</Btn><Btn size="sm" onClick={salvarNovoInsumo} full><Ic n="check"/> Salvar insumo e adicionar</Btn></div>
     </div>}
-    <div style={{display:"flex",flexDirection:"column",gap:7}}>{form.itens.map(item=><div key={item.id} style={{background:C.surface,border:`1px solid ${item.fonteRef==="PRÓPRIO"?C.orange:C.border}`,borderRadius:6,padding:"8px 9px"}}>
-      <div style={{display:"grid",gridTemplateColumns:"80px 110px minmax(180px,1fr) 70px 95px auto auto",gap:6,alignItems:"end",overflowX:"auto"}}>
+    {removido&&<div className="purchase-request-undo" role="status"><span>Material removido da solicitação.</span><button type="button" onClick={desfazerRemocao}>Desfazer</button></div>}
+    <div className="purchase-request-items">{form.itens.map((item,itemIndex)=>{const itemErrors=erros.items?.find(e=>e.id===item.id)?.errors||{};return <article key={item.id} data-request-item={item.id} className="purchase-request-item">
+      <div className="purchase-request-item-main">
         <div><p style={{fontSize:8.5,color:C.muted,fontWeight:800,marginBottom:3}}>FONTE</p><b style={{fontSize:10,color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef}</b></div>
         <Inp label="Código" value={item.codigoRef} onChange={v=>setItem(item.id,"codigoRef",v)} placeholder="Opcional"/>
-        <Inp label="Descrição *" value={item.descricaoRef} onChange={v=>setItem(item.id,"descricaoRef",v)}/>
-        <Inp label="Unidade *" value={item.unidadeRef} onChange={v=>setItem(item.id,"unidadeRef",v)}/>
-        <Inp label="Quantidade de compra *" type="number" value={item.quantidade} onChange={v=>setItem(item.id,"quantidade",v)}/>
+        <Inp label="Descrição *" value={item.descricaoRef} onChange={v=>setItem(item.id,"descricaoRef",v)} error={itemErrors.descricaoRef}/>
+        <Inp label="Unidade *" value={item.unidadeRef} onChange={v=>setItem(item.id,"unidadeRef",v)} error={itemErrors.unidadeRef}/>
+        <Inp label="Quantidade de compra *" type="number" min="0.0001" value={item.quantidade} onChange={v=>setItem(item.id,"quantidade",v)} error={itemErrors.quantidade}/>
         <Btn v="ghost" size="sm" iconOnly title="Duplicar para lançar em outra etapa" ariaLabel="Duplicar item" onClick={()=>duplicarItem(item.id)}><Ic n="copy" s={12}/></Btn>
-        <button onClick={()=>setForm(f=>({...f,itens:f.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",padding:8}}>x</button>
+        <button type="button" className="purchase-request-remove" aria-label={`Remover ${item.descricaoRef||`material ${itemIndex+1}`}`} onClick={()=>removerItem(item.id)}><Ic n="trash" s={14}/><span>Remover</span></button>
       </div>
       {(()=>{const unidadeCompra=purchaseUnitOf(item),unidadeRef=String(item.unidadeRef||"UN").toUpperCase();
         const conversaoAtiva=unidadeCompra!==unidadeRef;
@@ -24315,7 +24356,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
           <Sel label="Unidade de compra" value={unidadeCompra} onChange={v=>setUnidadeCompra(item.id,v)}
             options={UNIDADES_PADRAO.map(u=>({v:u.sigla.toUpperCase(),l:`${u.sigla.toUpperCase()} · ${u.nome}`}))}/>
           {conversaoAco?.purchaseUnit==="BR"&&<Inp label="Comprimento da barra (m) *" type="number" value={item.comprimentoBarra||12} onChange={v=>setComprimentoBarra(item.id,v)} placeholder="12"/>}
-          {conversaoAtiva&&<Inp label={`Conteúdo de 1 ${unidadeCompra} em ${unidadeRef} *`} type="number" value={item.fatorConversao||""} onChange={v=>setItem(item.id,"fatorConversao",v)} placeholder="Ex.: 20"/>}
+          {conversaoAtiva&&<Inp label={`Conteúdo de 1 ${unidadeCompra} em ${unidadeRef} *`} type="number" min="0.0001" value={item.fatorConversao||""} onChange={v=>setItem(item.id,"fatorConversao",v)} placeholder="Ex.: 20" error={itemErrors.fatorConversao}/>}
           <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end",paddingBottom:3}}>
             <p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Equivalência da solicitação</p>
             <p style={{fontSize:10.5,fontWeight:800,color:hasValidUnitConversion(item)?C.text:C.red,marginTop:3}}>
@@ -24329,13 +24370,18 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
             Conversão automática do aço{conversaoAco.diameterMm?` Ø ${conversaoAco.diameterMm.toLocaleString("pt-BR")} mm`:""}: {conversaoAco.kgPerMeter.toLocaleString("pt-BR",{maximumFractionDigits:4})} kg/m{conversaoAco.purchaseUnit==="BR"?` · barra de ${conversaoAco.barLength.toLocaleString("pt-BR")} m`:""}. O fator pode ser ajustado conforme o certificado do fabricante.
           </p>}
         </div>;})()}
-      <div style={{marginTop:7}}><Sel label="Etapa de 1º nível do orçamento" value={item.orcNivel1Id||""} onChange={v=>setItem(item.id,"orcNivel1Id",v)} options={[{v:"",l:orcObra?"Selecione a etapa principal":"A obra ainda não possui orçamento"},...linhasOrc]}/></div>
+      <div style={{marginTop:7}}><Sel label="Etapa principal do orçamento" value={item.orcNivel1Id||""} onChange={v=>setItem(item.id,"orcNivel1Id",v)} options={[{v:"",l:orcObra?"Selecione a etapa principal":"A obra ainda não possui orçamento"},...linhasOrc]}/></div>
       {contextoOrcamento.source==="rascunho"&&<p style={{fontSize:9,color:C.orange,marginTop:5}}>Vinculação ao orçamento em rascunho. A etapa organiza a compra, sem tornar esta versão uma baseline financeira.</p>}
       {item.precoRef>0&&<p style={{fontSize:9.5,color:C.muted,marginTop:5}}>Referência {item.dataBaseRef}{item.ufRef?` · ${item.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(item.precoRef))}/{item.unidadeRef}</b></p>}
-    </div>)}{!form.itens.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:12}}>Pesquise um insumo ou crie um item próprio.</p>}</div>
-    <p style={{fontSize:9,color:C.muted}}>Precisa do mesmo insumo em mais de uma etapa (ex.: cimento em fundação e estrutura)? Use "Duplicar" e ajuste a quantidade e a etapa de cada cópia.</p>
-    <Inp label="Observação geral" value={form.observacao} onChange={F("observacao")} multiline placeholder="Local de entrega, especificação, justificativa da urgência..."/>
-    <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>CANCELAR</Btn><Btn onClick={()=>onSave(form)} full><Ic n="check"/> {form.id?"SALVAR ALTERAÇÕES":"ENVIAR PARA COMPRAS"}</Btn></div>
+    </article>})}{!form.itens.length&&<div className="purchase-request-empty"><strong>Nenhum material adicionado</strong><p>Pesquise uma base oficial ou use uma das opções de cadastro acima.</p></div>}</div>
+    <p className="purchase-request-hint">Para usar o mesmo insumo em etapas diferentes, duplique o material e ajuste quantidade e etapa.</p></section>
+    <section className="purchase-request-section"><header><span>3</span><div><h3>Revisar e formalizar</h3><p>Confira o conteúdo que será enviado oficialmente ao setor de Compras.</p></div></header>
+    <Inp label={form.prioridade==="urgente"?"Justificativa da urgência *":"Observação geral"} value={form.observacao} onChange={F("observacao")} multiline error={erros.fieldErrors?.observacao} placeholder="Local de entrega, especificação e impacto do prazo..."/>
+    <div className="purchase-request-summary"><div><span>Obra</span><strong>{obras.find(o=>o.id===form.obraId)?.name||"Não selecionada"}</strong></div><div><span>Materiais</span><strong>{resumo.itemCount}</strong></div><div><span>Quantidade informada</span><strong>{resumo.totalQuantity.toLocaleString("pt-BR")}</strong></div><div><span>Prioridade</span><strong>{resumo.urgent?"Urgente":"Normal"}</strong></div></div>
+    {erros.fieldErrors?.itens&&<p className="purchase-request-error" role="alert">{erros.fieldErrors.itens}</p>}
+    <p className="purchase-request-formal-notice"><Ic n="lock" s={14}/> Ao confirmar, a solicitação será formalizada e registrada com autor, data e horário.</p>
+    <div className="purchase-request-actions"><Btn v="ghost" onClick={fechar} disabled={salvando} full>Cancelar</Btn><Btn onClick={enviar} loading={salvando&&"Formalizando..."} full><Ic n="check"/> {form.id?"Salvar alterações":"Formalizar e enviar para Compras"}</Btn></div></section>
+    {confirmarSaida&&<Modal title="Descartar alterações?" onClose={()=>setConfirmarSaida(false)}><p style={{fontSize:13,lineHeight:1.5,color:C.text}}>As alterações desta solicitação ainda não foram formalizadas.</p><div style={{display:"flex",gap:8,marginTop:16}}><Btn v="ghost" onClick={()=>setConfirmarSaida(false)} full>Continuar editando</Btn><Btn v="danger" onClick={()=>setForm(null)} full>Descartar alterações</Btn></div></Modal>}
   </div></Modal>;
 }
 
@@ -25077,16 +25123,17 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       normalizarChaveMaterial(m.unidade||"UN")===unidade);
   };
 
-  const salvarSolicitacao=(f)=>{
-    if(!f.obraId){showToast("Selecione a obra.","error");return;}
-    const itensInformados=(f.itens||[]).filter(i=>String(i.descricaoRef||"").trim()&&Number(i.quantidade)>0&&String(i.unidadeRef||"").trim())
+  const salvarSolicitacao=async(f)=>{
+    const validacao=validatePurchaseRequest(f);
+    if(!validacao.valid){showToast("Revise todos os materiais antes de formalizar a solicitação.","error");return false;}
+    const itensInformados=(f.itens||[])
       .map(i=>({...i,codigoRef:maiusculoOrcamento(i.codigoRef||""),descricaoRef:maiusculoOrcamento(i.descricaoRef),
         unidadeRef:maiusculoOrcamento(i.unidadeRef),unidadeCompra:purchaseUnitOf(i),
         fatorConversao:Number(i.fatorConversao||1),comprimentoBarra:Number(i.comprimentoBarra||0),
         quantidade:Number(i.quantidade),precoRef:Number(i.precoRef||0)}));
-    if(!itensInformados.length){showToast("Adicione ao menos um material com descrição, unidade e quantidade.","error");return;}
+    if(!itensInformados.length){showToast("Adicione ao menos um material com descrição, unidade e quantidade.","error");return false;}
     if(itensInformados.some(item=>!hasValidUnitConversion(item))){
-      showToast("Informe uma conversão válida para cada material comprado em unidade diferente da referência.","error");return;
+      showToast("Informe uma conversão válida para cada material comprado em unidade diferente da referência.","error");return false;
     }
 
     const solicitacaoId=f.id||uid();
@@ -25115,13 +25162,17 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     });
 
     const agora=new Date().toISOString();
-    const numero=f.numero||`SC-${String((data.solicitacoesCompra||[]).length+1).padStart(4,"0")}`;
+    const proximaSequencia=Math.max(0,...(data.solicitacoesCompra||[]).map(s=>Number(String(s.numero||"").match(/\d+/)?.[0]||0)))+1;
+    const numero=f.numero||`SC-${String(proximaSequencia).padStart(4,"0")}`;
     const anterior=f.id?(data.solicitacoesCompra||[]).find(s=>s.id===f.id):null;
     const registro={...(anterior||{}),id:solicitacaoId,numero,obraId:f.obraId,
       solicitanteId:anterior?.solicitanteId||currentUser?.id||"",
       solicitanteNome:anterior?.solicitanteNome||currentUser?.nome||"Engenharia",
       criadoEm:anterior?.criadoEm||agora,atualizadoEm:f.id?agora:"",
       atualizadoPor:f.id?(currentUser?.nome||""):"",
+      formalizadoEm:anterior?.formalizadoEm||agora,
+      formalizadoPorId:anterior?.formalizadoPorId||currentUser?.id||"",
+      formalizadoPor:anterior?.formalizadoPor||currentUser?.nome||"Engenharia",
       necessidade:f.necessidade||"",prioridade:f.prioridade||"normal",status:anterior?.status||"enviada",
       observacao:f.observacao||"",analisadoEm:anterior?.analisadoEm||"",
       analisadoPor:anterior?.analisadoPor||"",pedidoId:anterior?.pedidoId||"",
@@ -25145,9 +25196,18 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       dataFinal={...comAprovacao,solicitacoesCompra:comAprovacao.solicitacoesCompra.map(s=>
         s.id===solicitacaoId?{...s,aprovacaoInstanciaId:resumo.instanciaId}:s)};
     }
-    update(dataFinal);
+    const result=await update(dataFinal);
+    if(!result?.ok){
+      const reason=result?.state===SAVE_QUEUE_STATE.OFFLINE
+        ?"Sem conexão. A solicitação continua aberta para você tentar novamente quando a internet voltar."
+        :result?.state===SAVE_QUEUE_STATE.CONFLICT
+          ?"Outra pessoa alterou os dados ao mesmo tempo. A solicitação não foi formalizada; resolva o conflito e tente novamente."
+          :"O servidor não confirmou a solicitação. Seus dados continuam no formulário para uma nova tentativa.";
+      showToast(reason,"error");return false;
+    }
     setSolModal(null);setAba("solicitacoes");
-    showToast(f.id?`Solicitação ${numero} atualizada sem perder os vínculos dos insumos.`:`Solicitação ${numero} enviada com ${itens.length} insumo(s) já cadastrado(s).`);
+    showToast(f.id?`Solicitação ${numero} atualizada e confirmada pelo servidor.`:`Solicitação ${numero} formalizada com ${itens.length} insumo(s) e confirmada pelo servidor.`);
+    return true;
   };
 
   // Instância de aprovação vinculada a uma solicitação (undefined = fluxo
