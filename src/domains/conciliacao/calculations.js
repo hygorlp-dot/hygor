@@ -2,6 +2,7 @@
 // persistência. Extraído de LegacyApp.jsx (funções que já existiam soltas
 // no arquivo, usadas pelo componente Conciliacao) para o mesmo padrão dos
 // domínios já migrados (compras, dre, equipamentos).
+import { active } from "../financeiro/ledger.js";
 
 // Normaliza texto para comparação (remove acento, caixa) - usado em toda
 // comparação de nome/descrição do motor de conciliação.
@@ -132,7 +133,7 @@ export const igualCentavos = (a, b, toleranciaCentavos = 1) =>
 // escritos como espelho do total, para não quebrar quem ainda os lê.
 export const totalRecebidoMedicao = medicao =>
   Array.isArray(medicao.recebimentos) && medicao.recebimentos.length
-    ? medicao.recebimentos.filter(r=>r.status!=="estornado").reduce((s, r) => s + Number(r.valor || 0), 0)
+    ? medicao.recebimentos.filter(active).reduce((s, r) => s + Number(r.valor || 0), 0)
     : Number(medicao.valorRecebido || 0);
 
 export const statusRecebimentoMedicao = medicao => {
@@ -155,7 +156,7 @@ export const aplicarRecebimentoMedicao = (medicao, { id, valor, data, origem = "
       ...(actor?.id ? { createdAt:now, createdById:actor.id, createdBy:actor.nome || actor.email || "Usuário autenticado" } : {}),
     },
   ];
-  const total = recebimentos.reduce((s, r) => s + Number(r.valor || 0), 0);
+  const total = recebimentos.filter(active).reduce((s, r) => s + Number(r.valor || 0), 0);
   const previsto = Number(medicao.valorPrevisto || 0);
   return {
     ...medicao,
@@ -175,12 +176,12 @@ export const estornarRecebimentosMedicao = (medicao, { actor, reason, now = new 
     id:`legado-${medicao.id || "medicao"}-${medicao.dataPagamento || "sem-data"}`,
     valor:Number(medicao.valorRecebido || 0), data:medicao.dataPagamento || "", origem:"espelho_legado", legacy:true,
   }] : [];
-  const ativos=recebimentos.filter(item=>item.status!=="estornado");
+  const ativos=recebimentos.filter(active);
   if (ativos.some(item=>item.transacaoId)) throw new Error("Desfaça a conciliação bancária antes de estornar este recebimento.");
   const userName=actor.nome || actor.email || "Usuário autenticado";
   return {
     ...medicao,
-    recebimentos:recebimentos.map(item=>item.status==="estornado" ? item : ({
+    recebimentos:recebimentos.map(item=>!active(item) ? item : ({
       ...item, status:"estornado", motivoEstorno, estornadoEm:now,
       estornadoPorId:actor.id, estornadoPor:userName,
     })),
@@ -196,7 +197,7 @@ export const removerRecebimentoMedicao = (medicao, recebimentoId) => {
       ...r, status:"estornado", motivoEstorno:"Conciliação bancária desfeita",
       estornadoEm:new Date().toISOString(),
     });
-  const ativos=recebimentos.filter(r=>r.status!=="estornado");
+  const ativos=recebimentos.filter(active);
   const total = ativos.reduce((s, r) => s + Number(r.valor || 0), 0);
   const previsto = Number(medicao.valorPrevisto || 0);
   return {

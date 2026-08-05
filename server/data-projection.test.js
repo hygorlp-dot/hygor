@@ -24,6 +24,10 @@ const payload={
   orcamentos:[{id:"orc-a",obraId:"obra-a",versionStatus:"rascunho"},{id:"orc-b",obraId:"obra-b",versionStatus:"rascunho"}],
   budgetBaselines:[{id:"base-a",obraId:"obra-a",budgetId:"orc-a"},{id:"base-b",obraId:"obra-b",budgetId:"orc-b"}],
   terceirizados:[{id:"t-a",obraId:"obra-a",name:"Prestador A"},{id:"t-b",obraId:"obra-b",name:"Prestador B"}],
+  medicoesTerc:[
+    {id:"mt-a",obraId:"obra-a",tercId:"t-a",total:500},
+    {id:"mt-b",obraId:"obra-b",tercId:"t-b",total:700},
+  ],
   pagsTerceiros:[{id:"pg-a",obraId:"obra-a",tercId:"t-a",amount:100}],
   transacoes:[
     {id:"pix-a",data:"2026-07-01",valor:-1000,status:"pendente",descricao:"Pix enviado para Equipe A"},
@@ -51,6 +55,7 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     });
     expect(projected.dailyCheckDate).toBe("2026-07-27");
     expect(projected.employees).toEqual([{id:"e-a",obra:"obra-a",name:"Equipe A"}]);
+    expect(projected.medicoesTerc).toEqual([{id:"mt-a",obraId:"obra-a",tercId:"t-a",total:500}]);
     expect(projected.usuarios).toEqual([{id:"u-a",nome:"Operador A",obraId:"obra-a",email:"a@arcd.com",maxDesconto:0}]);
   });
 
@@ -80,6 +85,7 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
   it("não entrega PIX ou remuneração a quem não é do RH",()=>{
     const projected=projectDataForUser(payload,{id:"u-a",role:"financeiro",obraId:"obra-a"});
     expect(projected.employees).toEqual([{id:"e-a",obra:"obra-a",name:"Equipe A"}]);
+    expect(projected.medicoesTerc).toEqual([{id:"mt-a",obraId:"obra-a",tercId:"t-a",total:500}]);
   });
 
   it("preserva o apontamento histórico na obra antiga após transferência",()=>{
@@ -113,6 +119,7 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     expect(projected.attendanceLocks).toBeUndefined();
     expect(projected.unlockRequests).toBeUndefined();
     expect(projected.dailyCheckDate).toBeUndefined();
+    expect(projected.medicoesTerc).toEqual([{id:"mt-a",obraId:"obra-a",tercId:"t-a",total:500}]);
   });
 
   it("remove abas personalizadas de ponto do perfil auditor",()=>{

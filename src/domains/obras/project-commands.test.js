@@ -68,4 +68,33 @@ describe("comandos transacionais de obra", () => {
       command(PROJECT_COMMAND.PROJECT_DELETED, { projectId:"obra-1" }, 3),
     )).toMatchObject({ ok:false });
   });
+
+  it("salva fases de forma versionada, preserva as obras e registra auditoria", () => {
+    const data={
+      fases:[{id:"antiga",nome:"Antiga",ordem:0}],
+      fasesVersion:2,
+      obras:[{id:"obra-1",name:"B2-04",faseId:"removida"}],
+    };
+    const result=applyProjectCommand(data,command(PROJECT_COMMAND.PROJECT_PHASES_SAVED,{phases:[
+      {id:"execucao",nome:"Execução",ordem:9},
+      {id:"entrega",nome:"Entrega",ordem:3},
+    ]},2),"2026-08-05T12:00:00.000Z");
+    expect(result).toMatchObject({ok:true,data:{fasesVersion:3}});
+    expect(result.data.fases.map(item=>item.ordem)).toEqual([0,1]);
+    expect(result.data.obras[0].faseId).toBe("execucao");
+    expect(result.data.projectPhaseAudit.at(-1)).toMatchObject({byId:"admin-1",at:"2026-08-05T12:00:00.000Z"});
+  });
+
+  it("recusa conflitos e fases inválidas sem alterar o estado", () => {
+    const data={fases:[{id:"atual",nome:"Atual",ordem:0}],fasesVersion:4,obras:[]};
+    expect(applyProjectCommand(data,command(PROJECT_COMMAND.PROJECT_PHASES_SAVED,{phases:[{id:"nova",nome:"Nova"}]},3))).toMatchObject({ok:false});
+    expect(applyProjectCommand(data,command(PROJECT_COMMAND.PROJECT_PHASES_SAVED,{phases:[]},4))).toMatchObject({ok:false});
+  });
+
+  it("registra mudança de fase no histórico operacional da obra", () => {
+    const data={obras:[{id:"obra-1",name:"B2-04",faseId:"planejamento",version:1}]};
+    const result=applyProjectCommand(data,command(PROJECT_COMMAND.PROJECT_SAVED,{project:{id:"obra-1",name:"B2-04",faseId:"execucao"}},1),"2026-08-05T13:00:00.000Z");
+    expect(result.ok).toBe(true);
+    expect(result.data.obras[0].operationalHistory).toContainEqual(expect.objectContaining({type:"phase_changed",from:"planejamento",to:"execucao"}));
+  });
 });

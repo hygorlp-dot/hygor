@@ -9,6 +9,7 @@ describe("escopo servidor de comandos operacionais",()=>{
     caixaObra:[{id:"cx-a",obraId:"obra-a",version:1}],
     equipamentos:[{id:"eq-a",obraAtualId:"obra-a"},{id:"eq-b",obraAtualId:"obra-b"}],
     locacoesEquip:[{id:"loc-a",obraId:"obra-a",equipamentoId:"eq-a"}],
+    equipmentUnavailability:[{id:"res-a",equipmentId:"eq-a",workId:"obra-a",type:"reservation"}],
     terceirizados:[{id:"terc-a",obraId:"obra-a"},{id:"terc-b",obraId:"obra-b"}],
     medicoesTerc:[{id:"mt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
     pagsTerceiros:[{id:"pt-a",tercId:"terc-a",obraId:"obra-a",version:1}],
@@ -18,6 +19,15 @@ describe("escopo servidor de comandos operacionais",()=>{
     rescisoes:[{id:"resc-a",obraId:"obra-a",version:1}],
   };
   const user={id:"u-1",role:"engenheiro",obraId:"obra-a"};
+  it("reserva a migração do cadastro físico de equipamentos ao administrador",()=>{
+    const command={type:OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,payload:{}};
+    expect(validateOperationalCommandScope({user:{role:"admin"},data,command})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user,data,command})).toMatchObject({ok:false});
+    const classification={type:OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED,payload:{equipmentId:"eq-a",kind:"lot"}};
+    expect(validateOperationalCommandScope({user:{role:"admin"},data,command:classification})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user:{role:"financeiro"},data,command:classification})).toMatchObject({ok:false});
+  });
+
   it("aceita somente a obra atribuída em criação e cancelamento de medição",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,payload:{measurement:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,payload:{measurement:{obraId:"obra-b"}}}})).toMatchObject({ok:false});
@@ -26,6 +36,11 @@ describe("escopo servidor de comandos operacionais",()=>{
   it("não deixa usar identificador de outra obra para RDO ou recebimento",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,payload:{reportId:"r-a"}}})).toMatchObject({ok:true});
     expect(validateOperationalCommandScope({user,data:{...data,pedidos:[{id:"p-b",obraId:"obra-b"}]},command:{type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,payload:{pedidoId:"p-b"}}})).toMatchObject({ok:false});
+  });
+  it("protege criação e cancelamento de reservas pelo escopo da obra",()=>{
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED,payload:{unavailability:{id:"res-new",equipmentId:"eq-a",workId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED,payload:{unavailability:{id:"res-new",equipmentId:"eq-b",workId:"obra-b"}}}})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_CANCELLED,payload:{unavailabilityId:"res-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("protege criação e estorno de recebimento manual pelo escopo da obra",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,payload:{receipt:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
@@ -255,6 +270,14 @@ describe("escopo servidor de comandos operacionais",()=>{
   it("protege locação, manutenção e transferência pelo escopo da obra",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,payload:{rental:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,payload:{rentalId:"loc-a"}}})).toMatchObject({ok:true});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,payload:{rentalId:"loc-a",nextState:"pickup_requested"}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,payload:{rentalId:"loc-a",checkpoint:{type:"separation"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,payload:{rentalId:"loc-a",amendment:{type:"extension"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED,payload:{rentalId:"loc-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,payload:{chargeItem:{rentalId:"loc-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,payload:{rentalId:"loc-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,payload:{invoice:{rentalId:"loc-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
+    expect(validateOperationalCommandScope({user,data:{...data,rentalInvoices:[{id:"inv-a",workId:"obra-a"}]},command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,payload:{invoiceId:"inv-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,payload:{maintenance:{equipamentoId:"eq-a"}}}})).toMatchObject({ok:true});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_SAVED,payload:{equipment:{obraAtualId:"obra-b"}}}})).toMatchObject({ok:false});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,payload:{transfer:{equipamentoId:"eq-b",paraObraId:"obra-a"}}}})).toMatchObject({ok:false});

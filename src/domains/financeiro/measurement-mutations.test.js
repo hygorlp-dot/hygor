@@ -41,4 +41,28 @@ describe("mutações auditáveis de medições financeiras", () => {
     const existing={id:"old-1",obraId:"obra-1",competencia:"2026-07",dataVencimento:"2026-07-10",numeroParcela:1,tipo:"mensal_fixo",valorPrevisto:1000,status:"emitida",recebimentos:[{id:"r-1",valor:1000,data:"2026-07-10"}]};
     expect(()=>saveGeneratedClientMeasurements({data:{medicoes:[existing]},obraId:"obra-1",overwrite:true,actor,measurements:[{id:"new-1",competencia:"2026-07",dataVencimento:"2026-07-10",numeroParcela:1,valorPrevisto:1000}]})).toThrow("já possuem recebimento");
   });
+
+  it("preserva arquivada no razão, mas bloqueia sua reescrita operacional", () => {
+    const archived={
+      id:"m-arq",obraId:"obra-1",competencia:"2026-07",valorPrevisto:750,
+      status:"arquivada",recebimentos:[],
+    };
+    expect(selectDRE(buildFinancialLedger({medicoes:[archived]}),{
+      obraId:"obra-1",competence:"2026-07",
+    }).revenueCents).toBe(75000);
+    expect(()=>saveClientMeasurement({
+      data:{medicoes:[archived]},measurement:{...input,valorPrevisto:800},actor,id:"m-arq",
+    })).toThrow("Não é permitido editar");
+  });
+
+  it("ignora todas as variantes de estorno ao conferir recebimentos", () => {
+    const measurement={
+      ...input,id:"m-1",status:"emitida",recebimentos:[
+        {id:"r-1",valor:1000,data:"2026-07-10",status:"ESTORNADA"},
+      ],valorRecebido:0,
+    };
+    expect(()=>cancelClientMeasurement({
+      data:{medicoes:[measurement]},measurementId:"m-1",reason:"Duplicidade",actor,
+    })).not.toThrow();
+  });
 });

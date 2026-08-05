@@ -17,7 +17,7 @@ const groups = [
     "Locação de equipamentos", "Medições", "Caixa da obra", "Relatórios"]],
   ["Recursos humanos", ["Equipes", "Ponto por obra", "Gestão do ponto",
     "Terceirizados", "Folha", "Rescisão"]],
-  ["Comercial", ["Meu trabalho", "Pipeline", "Relacionamentos",
+  ["Comercial", ["Comercial da empresa", "Venda de imóveis", "Pipeline", "Relacionamentos",
     "Propostas e contratos", "Gestão comercial"]],
   ["IA", ["IA", "Configurar Gemini"]],
   ["Ajustes", ["Cadastros", "Ajustes", "Telas antigas"]],
@@ -34,6 +34,26 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     obras:[
       {id:"obra-qa",name:"Residencial Alameda",status:"active"},
     ],
+    equipamentos:[
+      {id:"eq-qa",nome:"Betoneira QA",patrimonio:"EQ-QA",ativo:true,status:"disponivel",quantidadeTotal:2,version:1,tarifas:{dia:100}},
+      {id:"eq-partial-qa",nome:"Plataforma parcial QA",ativo:true,status:"disponivel",quantidadeTotal:3,version:1,tarifas:{dia:50}},
+      {id:"eq-adjustment-qa",nome:"Compactador em ajuste QA",ativo:true,status:"avariado",quantidadeTotal:1,version:1,tarifas:{dia:80}},
+    ],
+    equipmentModels:[{id:"model-partial-qa",name:"Plataforma parcial QA",legacySourceId:"eq-partial-qa"}],
+    equipmentUnits:[
+      {id:"unit-partial-1",modelId:"model-partial-qa",assetTag:"PLAT-01"},
+      {id:"unit-partial-2",modelId:"model-partial-qa",assetTag:"PLAT-02"},
+      {id:"unit-partial-3",modelId:"model-partial-qa",assetTag:"PLAT-03"},
+    ],
+    locacoesEquip:[
+      {id:"rental-lifecycle-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-09-01",fim:"",plannedEndDate:"2026-09-30",quantidade:1,status:"ativa",lifecycleState:"active",version:1,tarifas:{dia:100}},
+      {id:"rental-separation-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-07-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"separating",version:1,tarifas:{dia:100}},
+      {id:"rental-return-qa",equipamentoId:"eq-qa",obraId:"obra-qa",inicio:"2026-11-01",fim:"",quantidade:2,status:"ativa",lifecycleState:"pickup_requested",version:1,tarifas:{dia:100}},
+      {id:"rental-partial-dispatch-qa",equipamentoId:"eq-partial-qa",obraId:"obra-qa",inicio:"2026-06-01",fim:"",quantidade:2,equipmentUnitIds:["unit-partial-1","unit-partial-2"],status:"ativa",lifecycleState:"ready_for_dispatch",version:1,tarifas:{dia:50}},
+      {id:"rental-adjustment-qa",equipamentoId:"eq-adjustment-qa",obraId:"obra-qa",inicio:"2026-05-01",fim:"",quantidade:1,status:"ativa",lifecycleState:"awaiting_adjustment",version:1,tarifas:{dia:80},rentalCheckpoints:[{type:"inspection",needsAdjustment:true,status:"recorded"}]},
+    ],
+    rentalChargeItems:[{id:"charge-measured-qa",rentalId:"rental-lifecycle-qa",workId:"obra-qa",competence:"2026-09",type:"rental",description:"Locação setembro",status:"measured",grossAmountCents:300000,discountAmountCents:0,taxAmountCents:0,netAmountCents:300000,version:1}],
+    rentalInvoices:[],manutencoesEquip:[],transferenciasEquip:[],equipmentUnavailability:[],
     orcamentos:[
       {
         id:"orcamento-rascunho-qa",
@@ -138,6 +158,94 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await pixRow.getByRole("button",{name:/Mostrar outras ações/}).click();
         await expect(pixRow.getByRole("button",{name:"Rateio manual"})).toBeVisible();
         await pixRow.getByRole("button",{name:/Ocultar outras ações/}).click();
+      }
+      if(item==="Locação de equipamentos") {
+        await page.getByRole("button",{name:/Cadastro físico/}).click();
+        await expect(page.getByText("Identidade e localização física")).toBeVisible();
+        await expect(page.getByText("Prévia compatível calculada a partir da frota atual.")).toBeVisible();
+        await expect(page.getByText("Betoneira QA").first()).toBeVisible();
+        await expect(page.getByText("Registro com várias unidades e um único patrimônio")).toBeVisible();
+        await page.getByRole("button",{name:/Mapa de ocupação/}).click();
+        await expect(page.getByText("R = Reserva")).toBeVisible();
+        await expect(page.getByText("livre 1").first()).toBeVisible();
+        await page.getByLabel("Mês").selectOption("2026-07");
+        await expect(page.getByText("R1").first()).toBeVisible();
+        await page.getByRole("button",{name:/Reservar \/ bloquear/}).click();
+        await expect(page.getByText("Reservar ou bloquear equipamento")).toBeVisible();
+        await page.getByLabel("Equipamento *").selectOption("eq-qa");
+        await page.getByLabel("Motivo *").fill("Reserva de homologação");
+        await expect(page.getByRole("button",{name:/Salvar/})).toBeVisible();
+        await page.getByRole("button",{name:"Fechar"}).click();
+        await page.getByRole("button",{name:/Locações/}).click();
+        await expect(page.getByText("CICLO · ATIVA")).toBeVisible();
+        await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
+        await expect(page.getByRole("button",{name:"Encerrar"})).toHaveCount(0);
+        const activeRentalCard=page.locator(".equipment-record").filter({hasText:"Término planejado: 30/09"});
+        await activeRentalCard.getByRole("button",{name:"Emitir fatura"}).click();
+        const invoiceDialog=page.getByRole("dialog",{name:/Emitir fatura · Betoneira QA/});
+        await expect(invoiceDialog.getByText("EMISSÃO · AINDA NÃO RECEBIDA")).toBeVisible();
+        await expect(invoiceDialog.getByText("Total faturado")).toBeVisible();
+        await expect(invoiceDialog.getByText("R$ 3.000,00").last()).toBeVisible();
+        await expect(invoiceDialog.getByRole("button",{name:"Emitir com saldo aberto"})).toBeVisible();
+        await invoiceDialog.getByRole("button",{name:"Cancelar"}).click();
+        await activeRentalCard.getByRole("button",{name:"Medir competência"}).click();
+        const measurementDialog=page.getByRole("dialog",{name:/Medir competência · Betoneira QA/});
+        await expect(measurementDialog.getByText("MEDIÇÃO CONTRATUAL · NÃO FATURADA")).toBeVisible();
+        await expect(measurementDialog.getByLabel("Competência *")).toHaveValue("2026-09");
+        await expect(measurementDialog.getByText("Líquido medido: R$ 3.000,00")).toBeVisible();
+        await measurementDialog.getByRole("button",{name:"Cancelar"}).click();
+        await activeRentalCard.getByRole("button",{name:"Editar"}).click();
+        const rentalDialog=page.getByRole("dialog",{name:"Editar locação"});
+        await expect(rentalDialog.getByLabel("Regra de cobrança *")).toBeVisible();
+        await rentalDialog.getByLabel("Regra de cobrança *").selectOption("civil_month");
+        await rentalDialog.getByRole("button",{name:"Fechar"}).click();
+        await activeRentalCard.getByRole("button",{name:"Adicionar cobrança"}).click();
+        const chargeDialog=page.getByRole("dialog",{name:/Adicionar cobrança · Betoneira QA/});
+        await expect(chargeDialog.getByText("LINHA PREPARADA · NÃO FATURADA")).toBeVisible();
+        await chargeDialog.getByLabel("Descrição *").fill("Frete complementar");
+        await chargeDialog.getByLabel("Preço unitário (R$) *").fill("125,50");
+        await chargeDialog.getByLabel("Desconto (R$)").fill("5,50");
+        await expect(chargeDialog.getByText("Líquido previsto: R$ 120,00")).toBeVisible();
+        await chargeDialog.getByRole("button",{name:"Cancelar"}).click();
+        await activeRentalCard.getByRole("button",{name:"Prorrogar / renovar"}).click();
+        const amendmentDialog=page.getByRole("dialog",{name:/Prorrogar ou renovar · Betoneira QA/});
+        await expect(amendmentDialog.getByText("ADITIVO DE PRAZO AUDITÁVEL")).toBeVisible();
+        await expect(amendmentDialog.getByText(/término planejado atual: 30\/09/)).toBeVisible();
+        await expect(amendmentDialog.getByLabel("Novo término planejado *")).toBeVisible();
+        await amendmentDialog.getByLabel("Tipo de aditivo *").selectOption("renewal");
+        await expect(amendmentDialog.getByLabel("Início da renovação *")).toBeVisible();
+        await expect(amendmentDialog.getByLabel("Fim da renovação *")).toBeVisible();
+        await amendmentDialog.getByRole("button",{name:"Cancelar"}).click();
+        await page.getByRole("button",{name:"Expedição parcial"}).click();
+        const partialDispatchDialog=page.getByRole("dialog",{name:/Expedição parcial · Plataforma parcial QA/});
+        await expect(partialDispatchDialog.getByLabel("Quantidade *")).toHaveValue("1");
+        await expect(partialDispatchDialog.getByRole("button",{name:"Salvar checklist"})).toBeVisible();
+        await partialDispatchDialog.getByRole("button",{name:"Cancelar"}).click();
+        await page.getByRole("button",{name:"Substituir unidade"}).click();
+        const replacementDialog=page.getByRole("dialog",{name:/Substituir unidade · Plataforma parcial QA/});
+        await expect(replacementDialog.getByLabel("Unidade atual *")).toBeVisible();
+        await expect(replacementDialog.getByLabel("Unidade substituta *").locator('option[value="unit-partial-3"]')).toHaveCount(1);
+        await replacementDialog.getByRole("button",{name:"Cancelar"}).click();
+        await page.getByRole("button",{name:"Registrar ajuste concluído"}).click();
+        const adjustmentDialog=page.getByRole("dialog",{name:/Conclusão do ajuste · Compactador em ajuste QA/});
+        await expect(adjustmentDialog.getByLabel("Observações")).toBeVisible();
+        await expect(adjustmentDialog.getByRole("button",{name:"Salvar checklist"})).toBeVisible();
+        await adjustmentDialog.getByRole("button",{name:"Cancelar"}).click();
+        await page.getByRole("button",{name:"Checklist: Separação"}).click();
+        const checklistDialog=page.getByRole("dialog",{name:/Separação · Betoneira QA/});
+        await expect(checklistDialog.getByText("EVIDÊNCIA OPERACIONAL OBRIGATÓRIA")).toBeVisible();
+        await expect(checklistDialog.getByRole("button",{name:"Salvar checklist"})).toBeVisible();
+        await checklistDialog.getByRole("button",{name:"Cancelar"}).click();
+        await page.getByRole("button",{name:"Checklist: Devolução"}).click();
+        const returnDialog=page.getByRole("dialog",{name:/Devolução · Betoneira QA/});
+        await expect(returnDialog.getByLabel("Limpeza")).toBeVisible();
+        await expect(returnDialog.getByLabel("Avarias")).toBeVisible();
+        await expect(returnDialog.getByLabel("Itens faltantes")).toBeVisible();
+        await returnDialog.getByRole("button",{name:"Cancelar"}).click();
+        await page.getByRole("button",{name:"Devolução parcial"}).click();
+        const partialDialog=page.getByRole("dialog",{name:/Devolução parcial · Betoneira QA/});
+        await expect(partialDialog.getByLabel("Quantidade *")).toHaveValue("1");
+        await partialDialog.getByRole("button",{name:"Cancelar"}).click();
       }
       if(item==="Terceirizados") {
         const excluirContrato=page.getByRole("button",{name:"Excluir contrato de Elétrica Modelo"});

@@ -6,12 +6,8 @@ import {
 } from "../src/domains/dre/expense-taxonomy.js";
 import { calcEquipMes, diasLocacaoNoPeriodo } from "../src/domains/equipamentos/calculations.js";
 import { calculateAttendanceDayCost } from "../src/domains/ponto/payroll.js";
+import { active } from "../src/domains/financeiro/ledger.js";
 
-const inactive = new Set([
-  "cancelado", "cancelada", "cancelled", "canceled",
-  "estornado", "estornada", "reversed", "arquivado", "arquivada",
-]);
-const active = item => !inactive.has(String(item?.status || "").toLowerCase());
 const round = value => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 const localIso = date => {
   const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,"0"),d=String(date.getDate()).padStart(2,"0");
@@ -125,12 +121,24 @@ const equipmentWork = (data,obraId,ym,start,end) => (data?.locacoesEquip||[])
     return sum+Math.max(0,gross-Number(item.descontoValor||0)-gross*Number(item.descontoPct||0)/100);
   },0);
 const equipmentCompany = (data,ym) => {
-  const rows=(data?.equipamentos||[]).map(equipment=>calcEquipMes(data,equipment.id,ym));
-  const total=rows.reduce((acc,row)=>({
-    receita:acc.receita+row.receita,custoDono:acc.custoDono+row.custoDono,
-    manut:acc.manut+row.manut,lucro:acc.lucro+row.lucro,
-  }),{receita:0,custoDono:0,manut:0,lucro:0});
-  return {...total,receitaProprios:0,receitaTerceiros:0};
+  const equipmentIds=new Set([
+    ...(data?.equipamentos||[]).map(equipment=>equipment.id),
+    ...(data?.locacoesEquip||[]).map(rental=>rental.equipamentoId),
+  ].filter(Boolean));
+  const rows=[...equipmentIds].map(equipmentId=>({
+    equipment:(data?.equipamentos||[]).find(item=>item.id===equipmentId),
+    financial:calcEquipMes(data,equipmentId,ym),
+  }));
+  const total=rows.reduce((acc,{equipment,financial})=>({
+    receita:acc.receita+financial.receita,
+    // Tarifa de custo só é repasse quando existe proprietário terceiro. Em
+    // equipamento próprio ela é referência interna e não gera obrigação.
+    custoDono:acc.custoDono+(equipment?.proprietarioId?financial.custoDono:0),
+    manut:acc.manut+financial.manut,
+    descontos:acc.descontos+financial.descontos,
+  }),{receita:0,custoDono:0,manut:0,descontos:0});
+  return {...total,lucro:total.receita-total.custoDono-total.manut,
+    receitaBruta:total.receita+total.descontos,receitaProprios:0,receitaTerceiros:0};
 };
 
 const calculations=createDreCalculations({
@@ -156,15 +164,23 @@ const companyDre = (data,year,month) => {
     !event.obraId&&event.competence===ym&&["cost","cost_reversal"].includes(event.effect));
   const signedAmount=event=>(event.effect==="cost_reversal"?-1:1)*Number(event.amountCents||0)/100;
   const faturamentoObras=workRevenue;
+  const receitaLocacoes=Number(base.equipReceitaBruta??base.equipReceita??0);
+  const descontoLocacoes=Number(base.equipDescontos||0);
+  const faturamentoTotal=faturamentoObras+receitaLocacoes;
   const recebidoObras=base.entradasCaixa;
-  const deducaoISS=faturamentoObras*Number(cfg.aliquotaISS||0)/100;
-  const deducaoPIS=faturamentoObras*Number(cfg.aliquotaPIS||0)/100;
-  const deducaoCOFINS=faturamentoObras*Number(cfg.aliquotaCOFINS||0)/100;
-  const totalDeducoes=deducaoISS+deducaoPIS+deducaoCOFINS,receitaLiquida=faturamentoObras-totalDeducoes;
+  const baseTributavel=Math.max(0,faturamentoTotal-descontoLocacoes);
+  const deducaoISS=baseTributavel*Number(cfg.aliquotaISS||0)/100;
+  const deducaoPIS=baseTributavel*Number(cfg.aliquotaPIS||0)/100;
+  const deducaoCOFINS=baseTributavel*Number(cfg.aliquotaCOFINS||0)/100;
+  const deducoesTributarias=deducaoISS+deducaoPIS+deducaoCOFINS;
+  const totalDeducoes=descontoLocacoes+deducoesTributarias,receitaLiquida=faturamentoTotal-totalDeducoes;
   const laborTotal=base.laborCost,benefTotal=base.benefitCost,tercTotal=base.tercCost;
   const rescTotal=base.rescTotal;
   const outrasDiretas=base.outrasTotal+base.comprasCost+base.equipCostObras;
-  const totalCSP=workCosts;
+  const repasseEquipamentosTerceiros=Number(base.equipRepasseTerceiros||0);
+  const manutencaoLocacoes=Number(base.equipManutencao||0);
+  const custoLocacoes=repasseEquipamentosTerceiros+manutencaoLocacoes;
+  const totalCSP=workCosts+custoLocacoes;
   const lucroBruto=receitaLiquida-totalCSP,margemBruta=receitaLiquida?lucroBruto/receitaLiquida*100:0;
   const despPorCat=Object.fromEntries(expenseCategories.map(([category])=>[
     category,round(corporateCosts.filter(event=>event.sourceType==="despesa_empresa"&&event.category===category)
@@ -181,7 +197,7 @@ const companyDre = (data,year,month) => {
   const totalDespOutros=despPorGrupo.outros;
   const totalDespAdmin=totalDespPessoal+totalDespOcupacao+totalDespAdministrativo+totalDespComercial;
   const totalDespOp=Object.values(despPorGrupo).reduce((sum,value)=>sum+Number(value||0),0);
-  const ebitda=lucroBruto-totalDespOp+Number(base.equipLucro||0),margemEbitda=receitaLiquida?ebitda/receitaLiquida*100:0;
+  const ebitda=lucroBruto-totalDespOp,margemEbitda=receitaLiquida?ebitda/receitaLiquida*100:0;
   const resultFinanceiro=0,lair=ebitda;
   const provisaoIR=lair>0?lair*Number(cfg.aliquotaIR||0)/100:0;
   const provisaoCSLL=lair>0?lair*Number(cfg.aliquotaCSLL||0)/100:0;
@@ -200,8 +216,9 @@ const companyDre = (data,year,month) => {
       despesa:round(despesa),resultado:round(resultado),margemPct:receita?round(resultado/receita*100):null};
   }).filter(item=>item.receita||item.despesa).sort((a,b)=>b.resultado-a.resultado);
   return Object.fromEntries(Object.entries({
-    ym,faturamentoObras,recebidoObras,deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
-    laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,totalCSP,lucroBruto,margemBruta,
+    ym,faturamentoObras,receitaLocacoes,faturamentoTotal,recebidoObras,descontoLocacoes,deducoesTributarias,
+    deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
+    laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,repasseEquipamentosTerceiros,manutencaoLocacoes,custoLocacoes,totalCSP,lucroBruto,margemBruta,
     despPorCat,despPorGrupo,totalDespPessoal,totalDespOcupacao,totalDespAdministrativo,totalDespComercial,
     totalDespFinanceiro,totalDespAdmin,totalDespFiscal,totalDespOutros,totalDespOp,ebitda,margemEbitda,
     resultFinanceiro,lair,provisaoIR,provisaoCSLL,totalImpostoLucro,lucroLiquido,margemLiquida,despEmp,porObra,

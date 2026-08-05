@@ -13,6 +13,14 @@ const obraName = (data, id) =>
   (data.obras || []).find(item => String(item.id) === String(id))?.name || "Sem obra";
 const finiteNonNegative = value => Number.isFinite(Number(value)) && Number(value) >= 0;
 
+export const employeeLifecycleStatus = (employee, referenceDate = new Date().toISOString().slice(0, 10)) => {
+  if (employee?.status === "arquivado") return "arquivado";
+  const endDate = String(employee?.endDate || "");
+  if (endDate && endDate >= String(referenceDate || "")) return "desligamento_agendado";
+  if (employee?.active === false || endDate) return "desligado";
+  return "ativo";
+};
+
 export const employeeCommandObraId = (data = {}, command = {}) => {
   const raw = command.payload?.employee || {};
   const current = employeeById(data, raw.id);
@@ -53,7 +61,18 @@ const employeeChangeLog = ({ data, before, employee, actorName, now }) => {
         : `${employee.name} desvinculado da obra ${obraName(data, before.obra)}`,
     });
   }
-  if (before.active !== false && employee.active === false) {
+  const scheduledNow = employee.status === "desligamento_agendado";
+  const scheduledBefore = before.status === "desligamento_agendado";
+  if (!scheduledBefore && scheduledNow) {
+    appendChange(events, {
+      ...common,
+      date:employee.endDate || common.date,
+      type:"dismissal_scheduled",
+      from:obraName(data, before.obra),
+      motivo:employee.terminationReason || "",
+      message:`Desligamento de ${employee.name} agendado; último dia trabalhado em ${employee.endDate}.`,
+    });
+  } else if (before.active !== false && employee.active === false) {
     appendChange(events, {
       ...common,
       date:employee.endDate || common.date,
@@ -65,7 +84,7 @@ const employeeChangeLog = ({ data, before, employee, actorName, now }) => {
         : `${employee.name} inativado/demitido em ${employee.endDate}`,
     });
   }
-  if (before.active === false && employee.active !== false) {
+  if ((before.active === false || scheduledBefore) && employee.active !== false && !scheduledNow) {
     appendChange(events, {
       ...common,
       type:"reactivation",
@@ -116,9 +135,10 @@ export const applyEmployeeCommand = (
   if (!Number.isFinite(dailyRate) || dailyRate <= 0) {
     return fail("Informe uma diária positiva para o funcionário.");
   }
-  const active = raw.active !== false;
-  const endDate = active ? "" : String(raw.endDate || "");
-  if (!active && !validDate(endDate)) {
+  const scheduled = raw.status === "desligamento_agendado";
+  const active = scheduled ? true : raw.active !== false;
+  const endDate = active && !scheduled ? "" : String(raw.endDate || "");
+  if ((!active || scheduled) && !validDate(endDate)) {
     return fail("Informe uma data de término válida para inativar o funcionário.");
   }
   if (endDate && String(endDate) < String(raw.startDate)) {
@@ -161,8 +181,9 @@ export const applyEmployeeCommand = (
     active,
     startDate:String(raw.startDate),
     endDate,
-    terminationReason:active ? "" : String(raw.terminationReason || "Inativado").trim(),
-    lastObra:active
+    status:scheduled ? "desligamento_agendado" : (raw.status === "arquivado" ? "arquivado" : (active ? "ativo" : "desligado")),
+    terminationReason:active && !scheduled ? "" : String(raw.terminationReason || "Inativado").trim(),
+    lastObra:active && !scheduled
       ? String(raw.lastObra || before?.lastObra || "")
       : String(raw.lastObra || before?.obra || before?.lastObra || obraId),
     version:versionOf(before) + 1,

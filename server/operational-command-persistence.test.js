@@ -12,6 +12,14 @@ const financialCommands=new Set([
   OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,
   OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,
   OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
 ]);
@@ -22,6 +30,14 @@ describe("persistência de comandos operacionais",()=>{
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,financialCommands)).toBe(false);
   });

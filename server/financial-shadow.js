@@ -1,9 +1,6 @@
-const inactiveStatuses = new Set([
-  "cancelado", "cancelada", "cancelled", "canceled",
-  "estornado", "estornada", "reversed",
-  "arquivado", "arquivada", "deleted", "excluido", "excluida",
-]);
-const active = item => !inactiveStatuses.has(String(item?.status || "").toLowerCase());
+// A homologação em sombra precisa usar exatamente a mesma semântica do razão:
+// arquivamento preserva o fato econômico; cancelamento e estorno o anulam.
+import { active } from "../src/domains/financeiro/ledger.js";
 const amount = value => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 const isoDate = (value, fallback = "1970-01-01") => {
   const text = String(value || "");

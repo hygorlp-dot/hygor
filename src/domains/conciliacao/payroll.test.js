@@ -1,6 +1,7 @@
 import { criarIndicesFinanceiros } from "./selectors";
 import { gerarCandidatosConciliacao } from "./matching";
 import { registrarPagamentoEConciliar, desfazerConciliacao } from "./mutations";
+import { totalLiquidadoFolha } from "./payroll";
 
 const operador = { id: "financeiro", nome: "Financeiro" };
 const base = () => ({
@@ -16,6 +17,11 @@ const base = () => ({
 });
 
 describe("título de folha e PIX", () => {
+  test("não soma liquidação estornada em qualquer variação de status", () => {
+    expect(totalLiquidadoFolha({liquidacoes:[
+      {valor:250},{valor:750,status:"ESTORNADA"},
+    ]})).toBe(250);
+  });
   test("PIX estruturado de Antonio gera título acionável com rateio, sem usar só trecho de descrição", () => {
     const data=base();
     const candidates=gerarCandidatosConciliacao(data.transacoes[0],data,criarIndicesFinanceiros(data));

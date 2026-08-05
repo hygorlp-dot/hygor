@@ -17,7 +17,7 @@ describe("contrato canônico de conciliação",()=>{
     expect(list[0].transaction.id).toBe("a");
   });
   it("resume título, liquidação parcial e saldo por pessoa",()=>{
-    const summary=resumoQuinzenaConciliacao({...data,employees:[data.employees[0]],titulosFolha:[{id:"f1",employeeId:"e1",liquido:1000,periodoFim:"2026-07-20",liquidacoes:[{valor:400}]}]},{inicio:"2026-07-06",fim:"2026-07-20"});
+    const summary=resumoQuinzenaConciliacao({...data,employees:[data.employees[0]],titulosFolha:[{id:"f1",employeeId:"e1",liquido:1000,periodoFim:"2026-07-20",liquidacoes:[{valor:400},{valor:600,status:"ESTORNADA"}]}]},{inicio:"2026-07-06",fim:"2026-07-20"});
     expect(summary.totalPrevisto).toBe(1000);expect(summary.totalPago).toBe(400);expect(summary.pagamentosParciais).toHaveLength(1);
   });
 });

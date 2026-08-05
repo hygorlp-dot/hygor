@@ -96,6 +96,11 @@ export const operationalCommandObraId=(data={},command={})=>{
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
   const obraId=operationalCommandObraId(data,command);
+  if([OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED].includes(command.type)){
+    return user?.role==="admin"
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Somente o administrador pode iniciar a migração do cadastro físico de equipamentos."};
+  }
   if(BANK_TRANSACTION_COMMAND_TYPES.has(command.type)){
     return ["admin","financeiro"].includes(user?.role)
       ?{ok:true,obraId:"",scope:"company"}

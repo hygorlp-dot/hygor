@@ -1,5 +1,6 @@
 // Domínio puro de equipamentos. Não depende de React, DOM, API ou estilos.
 // Pode ser testado e reutilizado por Engenharia, Financeiro e Compras.
+import { availabilityOnDate } from "./availability.js";
 
 export const PACOTES_TARIFA = [
   { id:"mes", label:"mês", dias:30 },
@@ -40,6 +41,8 @@ export const textoComposicao = comp =>
   (comp||[]).map(c=>`${c.qtd} ${c.label}${c.qtd>1?(c.label==="mês"?"es":"s"):""}`).join(" + ")||"-";
 
 export const tarifasDaLocacao = (loc,equip) => {
+  const snapshot=loc?.commercialSnapshot?.tarifas;
+  if(PACOTES_TARIFA.some(p=>Number(snapshot?.[p.id]||0)>0))return snapshot;
   const contrato=loc?.tarifas||{};
   if(PACOTES_TARIFA.some(p=>Number(contrato[p.id]||0)>0))return contrato;
   if(Number(loc?.valorDiaria||0)>0&&!equip?.tarifas)return {dia:Number(loc.valorDiaria)};
@@ -47,41 +50,66 @@ export const tarifasDaLocacao = (loc,equip) => {
 };
 
 export const tarifasCustoDaLocacao = (loc,equip) => {
+  const snapshot=loc?.commercialSnapshot?.tarifasCusto;
+  if(PACOTES_TARIFA.some(p=>Number(snapshot?.[p.id]||0)>0))return snapshot;
   const contrato=loc?.tarifasCusto||{};
   if(PACOTES_TARIFA.some(p=>Number(contrato[p.id]||0)>0))return contrato;
   if(Number(loc?.custoDiaria||0)>0&&!equip?.tarifasCusto)return {dia:Number(loc.custoDiaria)};
-  return equip?.tarifasCusto||(Number(loc?.custoDiaria||0)>0?{dia:Number(loc.custoDiaria)}:{});
+  return equip?.tarifasCusto
+    ||(Number(loc?.custoDiaria||0)>0?{dia:Number(loc.custoDiaria)}:null)
+    ||(Number(equip?.custoDiaria||0)>0?{dia:Number(equip.custoDiaria)}:{});
 };
 
 export const cobrancaLocacao = (loc,equip,dias) => {
   const quantidade=Math.max(1,Number(loc?.quantidade||1));
   const unitario=melhorTarifa(tarifasDaLocacao(loc,equip),dias);
-  const bruto=unitario.total*quantidade;
-  const descontoPct=Number(loc?.descontoPct||0);
-  const descontoValor=Number(loc?.descontoValor||0);
-  const liquido=Math.max(0,bruto*(1-descontoPct/100)-descontoValor);
+  const brutoCentavos=Math.max(0,Math.round(unitario.total*quantidade*100));
+  const bruto=brutoCentavos/100;
+  const snapshot=loc?.commercialSnapshot;
+  const descontoPct=Math.min(100,Math.max(0,Number(snapshot?.descontoPct??loc?.descontoPct??0)));
+  const descontoPercentualCentavos=Math.round(brutoCentavos*descontoPct/100);
+  const saldoAposPercentual=Math.max(0,brutoCentavos-descontoPercentualCentavos);
+  const descontoFixoSolicitado=Math.max(0,Math.round(Number(snapshot?.descontoValor??loc?.descontoValor??0)*100));
+  const descontoFixoCentavos=Math.min(saldoAposPercentual,descontoFixoSolicitado);
+  const liquidoCentavos=saldoAposPercentual-descontoFixoCentavos;
+  const liquido=liquidoCentavos/100;
+  const desconto=(brutoCentavos-liquidoCentavos)/100;
+  const descontoEfetivoPct=brutoCentavos>0?(brutoCentavos-liquidoCentavos)/brutoCentavos*100:0;
   return {quantidade,brutoUnitario:unitario.total,bruto,composicao:unitario.composicao,
-    semTarifa:unitario.semTarifa,descontoPct,descontoValor,desconto:bruto-liquido,liquido};
+    semTarifa:unitario.semTarifa,descontoPct,descontoValor:descontoFixoCentavos/100,
+    desconto,liquido,descontoEfetivoPct,descontoElevado:descontoEfetivoPct>=20};
+};
+
+export const validateRentalDiscounts=(loc,equip,dias=30)=>{
+  const percentual=Number(loc?.descontoPct||0),fixo=Number(loc?.descontoValor||0);
+  if(!Number.isFinite(percentual)||percentual<0||percentual>100)return {ok:false,reason:"O desconto percentual deve estar entre 0% e 100%."};
+  if(!Number.isFinite(fixo)||fixo<0)return {ok:false,reason:"O desconto fixo não pode ser negativo."};
+  const base={...loc,descontoPct:0,descontoValor:0,commercialSnapshot:null};
+  const bruto=cobrancaLocacao(base,equip,dias).bruto;
+  const saldo=Math.max(0,Math.round(bruto*100)-Math.round(bruto*100*percentual/100))/100;
+  if(fixo>saldo)return {ok:false,reason:`O desconto fixo não pode superar o saldo de R$ ${saldo.toFixed(2).replace(".",",")} após o desconto percentual.`};
+  return {ok:true,bruto,saldo};
 };
 
 export const unidadesEmUsoNoDia = (data,equipId,iso) =>
   (data.locacoesEquip||[])
-    .filter(l=>l.equipamentoId===equipId&&l.inicio&&l.inicio<=iso&&(!l.fim||l.fim>=iso))
+    .filter(l=>l.status!=="cancelada"&&l.equipamentoId===equipId&&l.inicio&&l.inicio<=iso&&(!l.fim||l.fim>=iso))
     .reduce((s,l)=>s+Math.max(1,Number(l.quantidade||1)),0);
 
 export const disponibilidadeNoDia = (data,equip,iso) => {
-  const total=Math.max(1,Number(equip?.quantidadeTotal||1));
-  const emUso=unidadesEmUsoNoDia(data,equip.id,iso);
-  return {total,emUso,livre:total-emUso,excedido:emUso>total};
+  const availability=availabilityOnDate(data,equip,iso);
+  const emUso=availability.total-availability.livre;
+  return {total:availability.total,emUso,livre:availability.livre,excedido:emUso>availability.total,...availability};
 };
 
 export const picoUsoNoPeriodo = (data,equip,days) => {
   const total=Math.max(1,Number(equip?.quantidadeTotal||1));
   let pico=0,diasExcedidos=0;
   (days||[]).forEach(iso=>{
-    const emUso=unidadesEmUsoNoDia(data,equip.id,iso);
+    const availability=availabilityOnDate(data,equip,iso);
+    const emUso=availability.total-availability.livre;
     if(emUso>pico)pico=emUso;
-    if(emUso>total)diasExcedidos++;
+    if(availability.exceeded||emUso>total)diasExcedidos++;
   });
   return {total,pico,livreNoPico:total-pico,excedido:pico>total,diasExcedidos};
 };
@@ -102,12 +130,13 @@ export const calcEquipMes = (data,equipId,ym) => {
   const equip=(data.equipamentos||[]).find(e=>e.id===equipId);
   const locacoes=(data.locacoesEquip||[])
     .filter(l=>l.equipamentoId===equipId&&l.status!=="cancelada");
-  let receita=0,custoDono=0,diasTotais=0,descontos=0,locacoesPeriodo=0;
+  let receita=0,custoDono=0,diasContrato=0,unidadeDias=0,descontos=0,locacoesPeriodo=0;
   locacoes.forEach(locacao=>{
     const dias=diasLocacaoNoPeriodo(locacao,inicio,fim);
     if(!dias)return;
     locacoesPeriodo++;
-    diasTotais+=dias;
+    diasContrato+=dias;
+    unidadeDias+=dias*Math.max(1,Number(locacao.quantidade||1));
     const cobranca=cobrancaLocacao(locacao,equip,dias);
     receita+=cobranca.liquido;
     descontos+=cobranca.desconto;
@@ -118,11 +147,21 @@ export const calcEquipMes = (data,equipId,ym) => {
     .filter(m=>m.equipamentoId===equipId&&(m.data||"").slice(0,7)===ym&&m.pagoPor!=="proprietario")
     .reduce((s,m)=>s+Number(m.custo||0),0);
   const custo=custoDono+manut;
-  return {receita,descontos,custoDono,manut,custo,lucro:receita-custo,diasTotais,locacoes:locacoesPeriodo};
+  return {receita,descontos,custoDono,manut,custo,lucro:receita-custo,
+    diasContrato,unidadeDias,diasTotais:diasContrato,locacoes:locacoesPeriodo};
 };
 
 export const calcEquipamentosMes = (data,ym) => {
-  const equips=(data?.equipamentos||[]).filter(e=>e?.ativo!==false);
+  const {inicio,fim}=limitesDoMes(ym);
+  const rentalsInPeriod=(data?.locacoesEquip||[]).filter(locacao=>
+    locacao?.status!=="cancelada"&&diasLocacaoNoPeriodo(locacao,inicio,fim)>0);
+  const rentedIds=new Set(rentalsInPeriod.map(locacao=>locacao.equipamentoId).filter(Boolean));
+  const registered=(data?.equipamentos||[]).filter(e=>e?.ativo!==false||rentedIds.has(e.id));
+  const registeredIds=new Set(registered.map(e=>e.id));
+  const missing=[...rentedIds].filter(id=>!registeredIds.has(id)).map(id=>({
+    id,nome:"Equipamento sem cadastro",ativo:false,cadastroAusente:true,
+  }));
+  const equips=[...registered,...missing];
   const linhas=equips.map(e=>{
     const fin=calcEquipMes(data,e.id,ym);
     const proprio=!e.proprietarioId;
@@ -209,6 +248,10 @@ export const calcEquipamentosPorObra=(data,ym)=>{
         custoDono+=custoLocacao;
         detalhes.push({
           locacaoId:locacao.id,
+          obraId:locacao.obraId,
+          equipmentLotId:locacao.equipmentLotId||"",
+          equipmentUnitId:locacao.equipmentUnitId||"",
+          equipmentUnitIds:[...(locacao.equipmentUnitIds||[])],
           inicio:primeiro,
           fim:ultimo,
           quantidade,
@@ -216,6 +259,8 @@ export const calcEquipamentosPorObra=(data,ym)=>{
           unidadeDias:dias*quantidade,
           bruto:cobranca.bruto,
           descontos:cobranca.desconto,
+          descontoEfetivoPct:cobranca.descontoEfetivoPct,
+          descontoElevado:cobranca.descontoElevado,
           receita:cobranca.liquido,
           custoDono:custoLocacao,
           lucro:cobranca.liquido-custoLocacao,
@@ -296,6 +341,8 @@ export const calcEquipFaturamentoEmpresa = (data,ym) => {
   const report=calcEquipamentosMes(data,ym);
   return {
     receita:report.total.receita,
+    receitaBruta:report.total.receita+report.total.descontos,
+    descontos:report.total.descontos,
     custoDono:report.total.custoDono,
     manut:report.total.manut,
     lucro:report.total.lucro,

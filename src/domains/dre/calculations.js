@@ -7,6 +7,7 @@ import {
   selectCommitments,
   selectFinancialMovements,
   validateFinancialReconciliation,
+  active,
   toCents,
   fromCents,
 } from "../financeiro/ledger.js";
@@ -131,7 +132,7 @@ export const createDreCalculations = ({
       expense.obraId === obraId
       && String(expense.data || `${expense.competencia || ""}-01`) >= ctx.per0
       && String(expense.data || `${expense.competencia || ""}-01`) <= ctx.perF
-      && !["cancelado","cancelada","estornado","arquivado"].includes(String(expense.status || "").toLowerCase()));
+      && active(expense));
     const faturadoAcum = fromCents(selectDRE(ledger, { obraId, endDate:ctx.perF }).revenueCents);
     const recebidoAcum = fromCents(selectCashFlow(ledger, { obraId, endDate:ctx.perF }).cashInCents);
     const contratoTotal = Number(obra?.contractValue || 0);
@@ -238,6 +239,10 @@ export const createDreCalculations = ({
       tercCost:sum("tercCost"), tercEmpresa:0, tercEmpresaObras:sum("tercEmpresaObra"),
       rescTotal:sum("rescTotal"), outrasTotal:sum("outrasTotal"), comprasCost:sum("comprasCost"),
       equipCostObras:sum("equipCost"), equipReceita:equipmentRevenue,
+      equipReceitaBruta:Number(equipment.receitaBruta??equipmentRevenue),
+      equipDescontos:Number(equipment.descontos||0),
+      equipRepasseTerceiros:Number(equipment.custoDono||0),
+      equipManutencao:Number(equipment.manut||0),
       equipCustoEmpresa:equipmentCost, equipLucro:resultadoEquipamentosExternos,
       totalCustos, lucroBruto:resultadoConsolidado, saldoCaixa:entradasCaixa-saidasCaixa,
       faturadoAcum:sum("faturadoAcum"), recebidoAcum:cashAccumulated.cashIn, backlog:sum("backlog"),

@@ -24,6 +24,13 @@ const SECTION_ROLES = Object.freeze({
 const scoped = value => Array.isArray(value) ? value : [];
 const hasForeignObra = (value, obraId) => scoped(value).some(item => item?.obraId && String(item.obraId) !== String(obraId));
 const hasUnscopedRecord = value => scoped(value).some(item => item && !item.obraId && !item.obra);
+// Catálogos corporativos são compartilhados entre obras. O papel continua
+// sendo validado acima, mas um usuário autorizado e vinculado a uma obra não
+// deve ser obrigado a gravar um obraId artificial nesses registros.
+const CATALOG_SECTIONS=new Set([
+  "unidades","materiais","fornecedores","composicoes","composicoesEmpresa",
+  "fases","categoriasDesp",
+]);
 
 export const authorizeSectionChanges = (user = {}, sections = {}) => {
   const keys=Object.keys(sections || {}).filter(key=>key&&!key.startsWith("__"));
@@ -36,7 +43,7 @@ export const authorizeSectionChanges = (user = {}, sections = {}) => {
     // Um perfil vinculado a obra não pode transformar uma mutação em registro
     // global omitindo o vínculo. Referências corporativas continuam exclusivas
     // de perfis sem restrição de obra ou do administrador.
-    if(user.obraId&&hasUnscopedRecord(sections[key]))return "Registros de perfil restrito precisam estar vinculados à sua obra.";
+    if(user.obraId&&!CATALOG_SECTIONS.has(key)&&hasUnscopedRecord(sections[key]))return "Registros de perfil restrito precisam estar vinculados à sua obra.";
   }
   return "";
 };
@@ -64,10 +71,6 @@ const cancelado=item=>[
 ].includes(String(item?.status||"").toLowerCase());
 const temMotivo=item=>String(item?.motivoCancelamento||item?.motivoEstorno||item?.motivoArquivamento||"").trim().length>0;
 const porId=value=>new Map((Array.isArray(value)?value:[]).map(item=>[String(item?.id||""),item]).filter(([id])=>id));
-const CATALOG_SECTIONS=new Set([
-  "unidades","materiais","fornecedores","composicoes","composicoesEmpresa",
-  "fases","categoriasDesp",
-]);
 const COMMERCIAL_COLLECTIONS=new Set([
   "leads","atividades","reunioes","propostas","contratos","clientes",
   "parceiros","metas","comissoes","vendas","pesquisas","opportunities",

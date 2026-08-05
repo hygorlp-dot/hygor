@@ -58,6 +58,7 @@ const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — s
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const KEY     = "arced_ponto_v1";
 const PROFILE_KEY = "arced_auth_profiles_v1";
+const DRE_PROJECTION_VERSION = "2026-08-third-party-equipment-cost-v5";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -112,6 +113,7 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.THIRD_PARTY_INVOICE_LINKED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.THIRD_PARTY_CONTRACT_STAGES_SAVED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.INVOICE_SAVED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.INVOICE_APPROVED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED]:["admin","compras"],
@@ -126,6 +128,7 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED]:["admin"],
   [OPERATIONAL_COMMAND.PROJECT_SAVED]:["admin"],
   [OPERATIONAL_COMMAND.PROJECT_DELETED]:["admin"],
+  [OPERATIONAL_COMMAND.PROJECT_PHASES_SAVED]:["admin"],
   [OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED]:["admin","engenheiro","qualidade"],
@@ -137,10 +140,20 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre","qualidade","seguranca"],
   [OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_RELEASED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre","qualidade","seguranca"],
   [OPERATIONAL_COMMAND.LOOKAHEAD_PACKAGE_COMMITTED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED]:["admin"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED]:["admin"],
   [OPERATIONAL_COMMAND.EQUIPMENT_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
 };
@@ -180,8 +193,10 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED,
   OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED,
   OPERATIONAL_COMMAND.PROJECT_SAVED,OPERATIONAL_COMMAND.PROJECT_DELETED,
+  OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,
+  OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED,
   OPERATIONAL_COMMAND.EQUIPMENT_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,
-  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,
   OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
 ]);
 const BACKUP_FOLDER="00 - Backups ARCD";
@@ -453,6 +468,7 @@ const operationalCommandEntityId=command=>
   ||command.payload?.recordId
   ||command.payload?.commitmentId
   ||command.payload?.rentalId
+  ||command.payload?.unavailabilityId
   ||command.payload?.equipmentId
   ||command.payload?.rescissionId
   ||command.payload?.advanceId
@@ -469,6 +485,7 @@ const operationalCommandEntityId=command=>
   ||command.payload?.commitment?.id
   ||command.payload?.equipment?.id
   ||command.payload?.rental?.id
+  ||command.payload?.unavailability?.id
   ||command.payload?.maintenance?.id
   ||command.payload?.transfer?.id
   ||command.payload?.records?.[0]?.id
@@ -1404,7 +1421,9 @@ export default async function handler(req, res) {
       let currentEvent=(events||[]).find(event=>
         event.source_id===currentId&&event.payload?.active!==false);
       const sourceRevision=String(updatedAt||"");
-      if(!currentEvent||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision){
+      if(!currentEvent
+        ||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision
+        ||String(currentEvent.payload?.projectionVersion||"")!==DRE_PROJECTION_VERSION){
         const projectionRequests=[
           {year,month,period,scope},
           ...historyRequests,
@@ -1413,14 +1432,18 @@ export default async function handler(req, res) {
           company_id:COMPANY,event_type:"dre_snapshot",source_type:"dre_projection",
           source_id:row.sourceId,effective_date:`${row.year}-${String(row.month+1).padStart(2,"0")}-01`,
           payload:{...row.payload,active:true,obraId:row.obraId,year:row.year,month:row.month,
-            period:row.period,sourceRevision},
+            period:row.period,sourceRevision,projectionVersion:DRE_PROJECTION_VERSION},
           created_by:String(usuario.id||"system"),
         }));
         const {error:projectionError}=await db.from("financial_events").upsert(rows,{
           onConflict:"company_id,event_type,source_type,source_id",
         });
         if(projectionError){
-          console.error("Falha ao materializar o DRE canônico:",projectionError.message);
+          console.error("Falha ao materializar o DRE canônico:",{
+            code:projectionError.code,message:projectionError.message,
+            details:projectionError.details,hint:projectionError.hint,
+            sourceId:currentId,
+          });
           return res.status(503).json({
             error:"O razão canônico não conseguiu atualizar a projeção deste período.",
             code:"DRE_PROJECTION_SYNC_FAILED",

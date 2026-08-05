@@ -19,6 +19,13 @@ describe("runtime ESM das APIs", () => {
     expect(parsed.module).toBeDefined();
   });
 
+  it("invalida projeções antigas do DRE quando a regra de cálculo evolui", () => {
+    const source = readFileSync(resolve(process.cwd(), "api/data.js"), "utf8");
+    expect(source).toContain("const DRE_PROJECTION_VERSION =");
+    expect(source).toContain("currentEvent.payload?.projectionVersion");
+    expect(source).toContain("projectionVersion:DRE_PROJECTION_VERSION");
+  });
+
   it("consolida as rotas do portal sem alterar as URLs públicas", () => {
     const filename = resolve(process.cwd(), "api/client.js");
     const source = readFileSync(filename, "utf8");

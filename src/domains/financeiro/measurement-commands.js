@@ -9,6 +9,7 @@ import {
   saveGeneratedClientMeasurements,
 } from "./measurement-mutations.js";
 import { createBillingFromTechnicalMeasurement } from "./workflows.js";
+import { isClientMeasurementMutable } from "./measurement-lifecycle.js";
 
 export const CLIENT_MEASUREMENT_COMMAND=Object.freeze({
   CLIENT_MEASUREMENT_SAVED:"MEDICAO_FINANCEIRA_SALVA",
@@ -23,7 +24,7 @@ export const CLIENT_MEASUREMENT_COMMAND_TYPES=new Set(Object.values(CLIENT_MEASU
 
 const fail=reason=>({ok:false,reason});
 const versionOf=item=>Number(item?.version||0);
-const inactive=item=>["cancelado","cancelada","estornado","arquivado"].includes(String(item?.status||"").toLowerCase());
+const inactive=item=>!isClientMeasurementMutable(item);
 const actorFrom=command=>({id:command.actorId||"",nome:command.actorName||""});
 const measurementById=(data,id)=>(data?.medicoes||[]).find(item=>item.id===id);
 const versionError=(current,expected)=>{

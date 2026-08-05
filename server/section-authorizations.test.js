@@ -9,6 +9,13 @@ describe("autorização de produção",()=>{
     expect(authorizeSectionChanges({role:"financeiro",obraId:"o1"},{payments:[{id:"p1",valor:100}]})).toMatch(/precisam estar vinculados/);
     expect(authorizeSectionChanges({role:"financeiro",obraId:"o1"},{payments:[{id:"p1",obraId:"o1",valor:100}]})).toBe("");
   });
+  it("permite que perfis autorizados vinculados a obra mantenham catálogos globais",()=>{
+    const compras={role:"compras",obraId:"o1"};
+    expect(authorizeSectionChanges(compras,{materiais:[{id:"m1",descricao:"Aço"}]})).toBe("");
+    expect(authorizeSectionChanges(compras,{fornecedores:[{id:"f1",nome:"Fornecedor"}]})).toBe("");
+    expect(authorizeSectionChanges({role:"engenheiro",obraId:"o1"},{materiais:[{id:"m1",descricao:"Aço"}]})).toBe("");
+    expect(authorizeSectionChanges({role:"engenheiro",obraId:"o1"},{fornecedores:[{id:"f1",nome:"Fornecedor"}]})).toMatch(/permissão/);
+  });
   it("reserva ponto, bloqueio e verificação diária aos comandos granulares",()=>{
     const engenheiro={role:"engenheiro",obraId:"o1"};
     expect(authorizeSectionChanges(engenheiro,{dailyCheckDate:"2026-07-27"})).toMatch(/não pode ser alterada por esta rota/);
