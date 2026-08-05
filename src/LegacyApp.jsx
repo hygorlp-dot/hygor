@@ -122,6 +122,7 @@ import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from ".
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
+import { splitPayrollResponsibility } from "./domains/ponto/payroll-responsibility";
 import {
   attStatus,
   buildPermissionEmail,
@@ -9886,6 +9887,15 @@ function Folha({ data, showToast, onTab }) {
       }))
   ).sort((a,b) => a.obraName.localeCompare(b.obraName) || a.funcionario.localeCompare(b.funcionario));
 
+  // Responsabilidade financeira segue o contrato da obra efetivamente
+  // carimbada no ponto, não apenas a lotação atual do funcionário. Somente
+  // admin_only é pago/reembolsado pela obra; contratos fixos, mistos,
+  // administrativo e apontamentos sem obra permanecem com a construtora.
+  const responsabilidadeFolha=splitPayrollResponsibility({
+    allocations:detalheObraFuncionario,
+    works:data.obras||[],
+  });
+
   // Resumo gerencial por obra, calculado a partir do mesmo detalhamento.
   const resumoPorObraMap = new Map();
   detalheObraFuncionario.forEach(l => {
@@ -9951,6 +9961,13 @@ function Folha({ data, showToast, onTab }) {
         <td class="num">${escapeHtml(fmt(v.gross))}</td><td class="num">${escapeHtml(fmt(v.vt))}</td><td class="num">${escapeHtml(fmt(v.vr))}</td><td class="num">${escapeHtml(fmt(v.advances))}</td><td class="num"><b>${escapeHtml(fmt(v.net))}</b></td>
       </tr>`; }).join("") : `<tr><td colspan="18" class="vazio">Nenhum lançamento encontrado para o período selecionado.</td></tr>`;
 
+    const linhasResponsabilidade = lista => lista.map(l=>`<tr>
+      <td>${escapeHtml(l.obraName)}</td><td>${escapeHtml(l.funcionario)}</td><td>${escapeHtml(l.cargo||"-")}</td>
+      <td class="num">${l.diasTrabalhados.toFixed(1).replace(".",",")}</td>
+      <td class="num">${escapeHtml(fmt(l.bruto))}</td><td class="num">${escapeHtml(fmt(l.vt+l.vr))}</td>
+      <td class="num">${escapeHtml(fmt(l.advancesObra))}</td><td class="num"><b>${escapeHtml(fmt(l.netObra))}</b></td>
+    </tr>`).join("");
+
     const html = `<!doctype html>
       <html lang="pt-BR">
         <head>
@@ -9964,7 +9981,7 @@ function Folha({ data, showToast, onTab }) {
             p{margin:4px 0}
             .cabecalho{border-bottom:3px solid #d4af37;padding-bottom:10px;margin-bottom:10px}
             .meta{display:flex;gap:18px;flex-wrap:wrap;color:#333}
-            .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:10px 0}
+            .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin:10px 0}
             .kpi{border:1px solid #bbb;border-top:3px solid #d4af37;padding:7px;background:#fafafa}
             .kpi span{display:block;font-size:8px;text-transform:uppercase;color:#666;font-weight:bold}
             .kpi b{display:block;font-size:14px;margin-top:2px}
@@ -10001,6 +10018,8 @@ function Folha({ data, showToast, onTab }) {
             <div class="kpi"><span>Dias trabalhados</span><b>${rows.reduce((s,r)=>s+r.presentes+r.meiodia*0.5,0).toFixed(1).replace(".",",")}</b></div>
             <div class="kpi"><span>Total bruto</span><b>${escapeHtml(fmt(T.gross))}</b></div>
             <div class="kpi"><span>Total líquido</span><b>${escapeHtml(fmt(T.net))}</b></div>
+            <div class="kpi"><span>Obras de administração</span><b>${escapeHtml(fmt(responsabilidadeFolha.totals.administrationWorks))}</b></div>
+            <div class="kpi"><span>Construtora</span><b>${escapeHtml(fmt(responsabilidadeFolha.totals.builder))}</b></div>
           </div>
           <p class="legenda">P = presença integral · M = meio período · F = falta · S/R = sem registro · FP = feriado pago · FD = feriado perdido</p>
 
@@ -10018,6 +10037,24 @@ function Folha({ data, showToast, onTab }) {
               <tr class="total"><td colspan="13">TOTAL - ${rows.length} funcionário(s)</td><td class="num">${escapeHtml(fmt(T.gross))}</td><td class="num">${escapeHtml(fmt(T.vt))}</td><td class="num">${escapeHtml(fmt(T.vr))}</td><td class="num">${escapeHtml(fmt(T.advances))}</td><td class="num">${escapeHtml(fmt(T.net))}</td></tr>
             </tfoot>
           </table>
+
+          <div class="section">
+            <h3>Valores a pagar pelas obras de administração</h3>
+            <p style="font-size:11px;color:#555">Somente parcelas alocadas por ponto em obras do tipo “Somente Administração”.</p>
+            <table><thead><tr><th>Obra</th><th>Funcionário</th><th>Cargo</th><th>Dias</th><th>Bruto</th><th>VT + VR</th><th>Adiant.</th><th>Líquido</th></tr></thead>
+              <tbody>${linhasResponsabilidade(responsabilidadeFolha.administrationWorks)||`<tr><td colspan="8" class="vazio">Nenhum valor de folha atribuído a obras de administração.</td></tr>`}</tbody>
+              <tfoot><tr class="total"><td colspan="7">TOTAL DAS OBRAS DE ADMINISTRAÇÃO</td><td class="num">${escapeHtml(fmt(responsabilidadeFolha.totals.administrationWorks))}</td></tr></tfoot>
+            </table>
+          </div>
+
+          <div class="section">
+            <h3>Valores a pagar pela construtora</h3>
+            <p style="font-size:11px;color:#555">Contratos fixos ou mistos, equipe administrativa e apontamentos sem obra identificada.</p>
+            <table><thead><tr><th>Obra / centro</th><th>Funcionário</th><th>Cargo</th><th>Dias</th><th>Bruto</th><th>VT + VR</th><th>Adiant.</th><th>Líquido</th></tr></thead>
+              <tbody>${linhasResponsabilidade(responsabilidadeFolha.builder)||`<tr><td colspan="8" class="vazio">Nenhum valor atribuído diretamente à construtora.</td></tr>`}</tbody>
+              <tfoot><tr class="total"><td colspan="7">TOTAL DA CONSTRUTORA</td><td class="num">${escapeHtml(fmt(responsabilidadeFolha.totals.builder))}</td></tr></tfoot>
+            </table>
+          </div>
 
           <!-- Tabela de detalhe por obra -->
           <div class="section">
@@ -10101,6 +10138,25 @@ function Folha({ data, showToast, onTab }) {
     if (body2.length) ws2["!autofilter"] = {ref:`A5:P${5+body2.length}`};
     XLSX.utils.book_append_sheet(wb, ws2, "Resumo por Obra");
 
+    const responsabilidadeHeader=["Responsável pelo pagamento","Obra / centro","Funcionário","Cargo","Tipo de contrato","Dias trabalhados","Bruto","VT","VR","Adiantamento rateado","Líquido"];
+    const responsabilidadeBody=responsabilidadeFolha.rows.map(l=>[
+      l.payer==="obra_administracao"?"Obra de administração":"Construtora",
+      l.obraName,l.funcionario,l.cargo,l.contractType||"sem obra",l.diasTrabalhados,
+      l.bruto,l.vt,l.vr,l.advancesObra,l.netObra,
+    ]);
+    const wsResponsabilidade=XLSX.utils.aoa_to_sheet([
+      ["Responsabilidade pelo pagamento da folha",periodLabel],
+      ["Regra","Somente admin_only é atribuído à obra; contratos fixos/mistos e administrativo ficam com a construtora."],
+      ["Total obras de administração",responsabilidadeFolha.totals.administrationWorks],
+      ["Total construtora",responsabilidadeFolha.totals.builder],
+      ["Total conciliado",responsabilidadeFolha.totals.total],
+      [],responsabilidadeHeader,...responsabilidadeBody,
+      ["TOTAL","","","","","","","","","",responsabilidadeFolha.totals.total],
+    ]);
+    wsResponsabilidade["!cols"]=[24,26,24,18,20,18,14,12,12,20,14].map(w=>({wch:w}));
+    if(responsabilidadeBody.length)wsResponsabilidade["!autofilter"]={ref:`A7:K${7+responsabilidadeBody.length}`};
+    XLSX.utils.book_append_sheet(wb,wsResponsabilidade,"Responsabilidade");
+
     const header3 = ["Obra", "Funcionário", "Cargo", "Presenças Integrais", "Meios Períodos",
       "Dias Trabalhados Equivalentes", "Faltas", "Sem Registro", "Feriados Pagos",
       "Feriados Perdidos", "HE", "Diária", "Valor dos Dias", "Valor dos Feriados",
@@ -10134,7 +10190,7 @@ function Folha({ data, showToast, onTab }) {
     XLSX.utils.book_append_sheet(wb, ws4, "Ponto Diario");
 
     await XLSX.writeFile(wb, `arcd-folha-${year}-${String(month+1).padStart(2,"0")}-Q${q}.xlsx`);
-    showToast("Excel gerado com 4 abas: folha, obras, funcionários e ponto diário.");
+    showToast("Excel gerado com 5 abas, incluindo a separação entre obras de administração e construtora.");
   };
 
   const executarRelatorio = tipo => {
@@ -10166,6 +10222,8 @@ function Folha({ data, showToast, onTab }) {
     ...rows.map(r => { const v = valEfetivos(r); return `- ${r.name} (${filterObra === "all" ? obraName(r.obra) : obraName(filterObra)}): ${fmt(v.net)} | ${v.feriadosPagos}FP ${v.feriadosPerdidos}FD`; }),
     "",
     `TOTAL LÍQUIDO: ${fmt(T.net)}`,
+    `OBRAS DE ADMINISTRAÇÃO: ${fmt(responsabilidadeFolha.totals.administrationWorks)}`,
+    `CONSTRUTORA: ${fmt(responsabilidadeFolha.totals.builder)}`,
     `FERIADOS PAGOS: ${T.feriadosPagos}`,
     `FERIADOS PERDIDOS: ${T.feriadosPerdidos}`,
     `VALOR TOTAL DE FERIADOS: ${fmt(T.holidayPay)}`,
