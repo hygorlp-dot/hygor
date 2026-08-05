@@ -8043,6 +8043,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
   const [filterObra, setFilterObra] = useState(obraIdFixo||"all");
   const [showInactive, setShowInactive] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [dismissalModal, setDismissalModal] = useState(null);
+  const [dismissalForm, setDismissalForm] = useState({ endDate:today(), reason:"demissao_sem_justa_causa", notes:"" });
   const [advForm, setAdvForm] = useState({
     amount:"",description:"",date:today(),installmentCount:"1",
     frequency:"quinzenal",firstDueDate:today(),
@@ -8120,27 +8122,44 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
     showToast(form.id ? "Funcionário atualizado." : "Funcionário cadastrado.");
   };
 
-  const archiveEmp = async id => {
+  const archiveEmp = id => {
     const emp = data.employees.find(e => e.id === id);
     if (!emp) return;
-    if (!window.confirm(`Inativar ${emp.name}? O histórico será preservado.`)) return;
-    const endDate = window.prompt("Data de término no formato AAAA-MM-DD:", today());
-    if (!endDate) {
-      showToast("Data de término obrigatória.", "error");
-      return;
-    }
+    setDismissalModal(emp);
+    setDismissalForm({endDate:today(),reason:"demissao_sem_justa_causa",notes:""});
+  };
+
+  const confirmDismissal = async () => {
+    const emp=dismissalModal;
+    if(!emp)return;
+    if (!dismissalForm.endDate) { showToast("Informe a data do desligamento.", "error"); return; }
+    const reasonLabels={
+      demissao_sem_justa_causa:"Demissão sem justa causa",
+      pedido_demissao:"Pedido de demissão",
+      demissao_justa_causa:"Demissão por justa causa",
+      termino_contrato:"Término de contrato",
+      outro:"Outro motivo",
+    };
+    const terminationReason=reasonLabels[dismissalForm.reason]||"Desligamento";
 
     const result=await dispatchCommand(atual=>{
-      const vigente=(atual.employees||[]).find(item=>item.id===id);
+      const vigente=(atual.employees||[]).find(item=>item.id===emp.id);
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
-        idempotencyKey:`funcionario-inativar-${id}-${uid()}`,
+        idempotencyKey:`funcionario-demitir-${emp.id}-${uid()}`,
         expectedVersion:Number(emp.version||0),
-        payload:{employee:{...vigente,active:false,endDate,terminationReason:"Inativado",lastObra:vigente?.obra||vigente?.lastObra||""}},
+        payload:{employee:{
+          ...vigente,active:false,endDate:dismissalForm.endDate,
+          terminationReason,terminationType:dismissalForm.reason,
+          terminationNotes:String(dismissalForm.notes||"").trim(),
+          lastObra:vigente?.obra||vigente?.lastObra||"",
+        }},
       };
     });
-    if(!result?.ok){showToast(result?.reason||"O funcionário não foi inativado.","error");return;}
-    showToast("Funcionário inativado com histórico preservado.");
+    if(!result?.ok){showToast(result?.reason||"O desligamento não foi confirmado pelo servidor.","error");return;}
+    setDismissalModal(null);
+    setExpandedId(null);
+    showToast(`${emp.name} desligado em ${fmtDateFull(dismissalForm.endDate)}. Histórico preservado.`);
   };
 
   // Mesmo cadastros indevidos podem já ter sido referenciados por ponto,
@@ -8290,7 +8309,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
                 <div style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
                   <Btn v="ghost" size="sm" title="Ver ficha do funcionário" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file" /></Btn>
                   <Btn v="ghost" size="sm" onClick={() => { setForm({ ...e, dailyRate: String(e.dailyRate || ""), vtDaily: String(e.vtDaily || ""), vrDaily: String(e.vrDaily || ""), workdayHours:String(e.workdayHours||8), workStart:String(e.workStart||"07:00"), overtimeAdditionalPercent:String(e.overtimeAdditionalPercent??50) }); setModal(true); }}><Ic n="edit" /></Btn>
-                  {e.active !== false && <Btn v="danger" size="sm" onClick={() => archiveEmp(e.id)}><Ic n="x" /></Btn>}
+                  {e.active !== false && <Btn v="danger" size="sm" title="Demitir funcionário" onClick={() => archiveEmp(e.id)}><Ic n="x" /> Demitir</Btn>}
                 </div>
               </div>
             </div>
@@ -8307,6 +8326,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
 
                 <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                   {e.obra && <Btn v="ghost" size="sm" onClick={() => desvincularObra(e.id)}><Ic n="x" /> Desvincular da obra</Btn>}
+                  {e.active !== false && <Btn v="danger" size="sm" onClick={() => archiveEmp(e.id)}><Ic n="x" /> Demitir funcionário</Btn>}
                   <Btn v="danger" size="sm" onClick={() => deleteEmp(e.id)}><Ic n="trash" /> Arquivar cadastro</Btn>
                 </div>
 
@@ -8371,6 +8391,34 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
           </div>
         </Modal>
       )}
+
+      {dismissalModal && (()=>{
+        const openAdvances=empAdvances(dismissalModal.id).filter(advanceActive);
+        const openAdvanceTotal=openAdvances.reduce((sum,item)=>sum+Number(item.amount||0),0);
+        return <Modal title="Demitir funcionário" onClose={()=>setDismissalModal(null)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{border:`1px solid ${C.red}55`,background:`${C.red}0A`,padding:"11px 12px",borderRadius:8}}>
+              <p style={{fontSize:14,fontWeight:850,color:C.text}}>{dismissalModal.name}</p>
+              <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administrativo":obraName(dismissalModal.obra)}</p>
+            </div>
+            <Inp label="Data do desligamento *" type="date" value={dismissalForm.endDate} onChange={value=>setDismissalForm(form=>({...form,endDate:value}))}/>
+            <Sel label="Tipo de desligamento *" value={dismissalForm.reason} onChange={value=>setDismissalForm(form=>({...form,reason:value}))} options={[
+              {v:"demissao_sem_justa_causa",l:"Demissão sem justa causa"},
+              {v:"pedido_demissao",l:"Pedido de demissão"},
+              {v:"demissao_justa_causa",l:"Demissão por justa causa"},
+              {v:"termino_contrato",l:"Término de contrato"},
+              {v:"outro",l:"Outro motivo"},
+            ]}/>
+            <Inp label="Observações" value={dismissalForm.notes} onChange={value=>setDismissalForm(form=>({...form,notes:value}))} multiline placeholder="Aviso-prévio, documentos pendentes ou referência interna"/>
+            {openAdvanceTotal>0&&<div style={{border:`1px solid ${C.orange}66`,background:`${C.orange}0A`,padding:"9px 10px",borderRadius:7}}>
+              <p style={{fontSize:10.5,fontWeight:800,color:C.orange}}>Atenção: existem {openAdvances.length} adiantamento(s), totalizando {fmt(openAdvanceTotal)}.</p>
+              <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Os lançamentos serão preservados para conferência no acerto da rescisão.</p>
+            </div>}
+            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>Após confirmar, o funcionário deixa a folha e o ponto a partir da data informada. Cadastro, frequência, pagamentos, adiantamentos e obra anterior permanecem no histórico.</p>
+            <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setDismissalModal(null)}>Cancelar</Btn><Btn v="danger" full onClick={confirmDismissal}><Ic n="x"/> Confirmar demissão</Btn></div>
+          </div>
+        </Modal>;
+      })()}
 
       {advModal && (
         <Modal title="Solicitar ou registrar adiantamento" onClose={() => setAdvModal(null)}>
