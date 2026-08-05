@@ -129,7 +129,7 @@ import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStat
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
 import { splitPayrollResponsibility } from "./domains/ponto/payroll-responsibility";
-import { calculateUnionDue, normalizeRoleKey, normalizeUnionDuesConfig, summarizeUnionDues, UNION_DUE_GROUP } from "./domains/ponto/union-dues";
+import { allocateUnionDueByWork, calculatePayrollSettlement, calculateUnionDue, normalizeRoleKey, normalizeUnionDuesConfig, summarizeUnionDues, UNION_DUE_GROUP } from "./domains/ponto/union-dues";
 import {
   attStatus,
   buildPermissionEmail,
@@ -9886,10 +9886,12 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     // Ajuste de arredondamento: garante que a soma dos liquidos por obra
     // seja exatamente o liquido do funcionario (evita centavos perdidos).
     const somaNetObras = obrasPorDiaArr.reduce((s, o) => s + o.netObra, 0);
-    const netBeforeUnion = gross + vt + vr - advTotal;
+    const settlement=calculatePayrollSettlement({gross,benefits:vt+vr,advances:advTotal,unionDue:unionResult.amount});
+    const netBeforeUnion = settlement.netBeforeUnion;
     if (obrasPorDiaArr.length && Math.abs(somaNetObras - netBeforeUnion) > 0.001) {
       obrasPorDiaArr[0].netObra += (netBeforeUnion - somaNetObras);
     }
+    const obrasLiquidas=allocateUnionDueByWork(obrasPorDiaArr,settlement.appliedUnionDue);
 
     return {
       ...employee,
@@ -9907,12 +9909,13 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       holidayPay,
       holidayRules,
       advances: advTotal,
-      unionDue:unionResult.amount,
+      unionDue:settlement.appliedUnionDue,
+      requestedUnionDue:settlement.requestedUnionDue,
       unionDueGroup:unionResult.group,
       netBeforeUnion,
-      net: netBeforeUnion-unionResult.amount,
+      net: settlement.netPayable,
       days: days.length,
-      obrasPorDia: obrasPorDiaArr,
+      obrasPorDia: obrasLiquidas,
     };
   };
 
@@ -9949,16 +9952,16 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // ai o Total Liquido fecha pela OBRA, nao pela equipe toda.
   const valEfetivos = (r) => {
     if (filterObra === "all") {
-      return { gross:r.gross, overtimePay:r.overtimePay, vt:r.vt, vr:r.vr, advances:r.advances, unionDue:r.unionDue, net:r.net,
+      return { gross:r.gross, overtimePay:r.overtimePay, vt:r.vt, vr:r.vr, advances:r.advances, unionDue:r.unionDue, netBeforeUnion:r.netBeforeUnion, net:r.net,
                presentes:r.presentes, meiodia:r.meiodia, faltas:r.faltas,
                semRegistro:r.semRegistro, feriadosPagos:r.feriadosPagos,
                feriadosPerdidos:r.feriadosPerdidos, holidayPay:r.holidayPay };
     }
     const o = (r.obrasPorDia || []).find(x => x.obraId === filterObra);
-    if (!o) return { gross:0, overtimePay:0, vt:0, vr:0, advances:0, unionDue:0, net:0, presentes:0, meiodia:0,
+    if (!o) return { gross:0, overtimePay:0, vt:0, vr:0, advances:0, unionDue:0, netBeforeUnion:0, net:0, presentes:0, meiodia:0,
                      faltas:0, semRegistro:0, feriadosPagos:0, feriadosPerdidos:0, holidayPay:0 };
     return {
-      gross: o.bruto, overtimePay:o.overtimePay, vt: o.vt, vr: o.vr, advances: o.advancesObra, unionDue:0, net: o.netObra,
+      gross: o.bruto, overtimePay:o.overtimePay, vt: o.vt, vr: o.vr, advances: o.advancesObra, unionDue:o.unionDueObra||0, netBeforeUnion:o.netBeforeUnionObra||o.netObra, net:o.netObra,
       presentes: o.presentes, meiodia: o.meiodia, faltas: o.faltas,
       semRegistro: o.semRegistro, feriadosPagos: o.feriadosPagos,
       feriadosPerdidos: o.feriadosPerdidos, holidayPay: o.valorFeriados,
@@ -10021,7 +10024,11 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     feriadosPagos: rows.reduce((s, r) => s + valEfetivos(r).feriadosPagos, 0),
     feriadosPerdidos: rows.reduce((s, r) => s + valEfetivos(r).feriadosPerdidos, 0),
   };
-  const unionSummary=summarizeUnionDues(rows.map(r=>{const result=calculateUnionDue({employee:r,config:unionDraft,payrollCycle:q,periodEnd:diasCiclo.at(-1)||"",hasPayrollMovement:r.gross>0||r.advances>0});return {...r,unionDue:filterObra==="all"?result.amount:0,unionDueGroup:result.group};}));
+  const unionSummary=summarizeUnionDues(rows.map(r=>{
+    const result=calculateUnionDue({employee:r,config:unionDraft,payrollCycle:q,periodEnd:diasCiclo.at(-1)||"",hasPayrollMovement:r.gross>0||r.advances>0});
+    const settlement=calculatePayrollSettlement({gross:r.gross,benefits:r.vt+r.vr,advances:r.advances,unionDue:result.amount});
+    return {...r,unionDue:filterObra==="all"?settlement.appliedUnionDue:0,unionDueGroup:result.group};
+  }));
   const roleCatalog=useMemo(()=>[...new Set((data.employees||[]).map(e=>String(e.role||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)),[data.employees]);
   const saveUnionConfig=async()=>{
     if(unionDraft.enabled&&!unionDraft.effectiveFrom){showToast("Informe a vigência inicial para proteger folhas anteriores.","error");return;}
@@ -10130,7 +10137,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       <td>${escapeHtml(l.obraName)}</td><td>${escapeHtml(l.funcionario)}</td><td>${escapeHtml(l.cargo||"-")}</td>
       <td class="num">${l.diasTrabalhados.toFixed(1).replace(".",",")}</td>
       <td class="num">${escapeHtml(fmt(l.bruto))}</td><td class="num">${escapeHtml(fmt(l.vt+l.vr))}</td>
-      <td class="num">${escapeHtml(fmt(l.advancesObra))}</td><td class="num"><b>${escapeHtml(fmt(l.netObra))}</b></td>
+      <td class="num">${escapeHtml(fmt(l.advancesObra))}</td><td class="num">${escapeHtml(fmt(l.unionDueObra||0))}</td><td class="num"><b>${escapeHtml(fmt(l.netObra))}</b></td>
     </tr>`).join("");
 
     const html = `<!doctype html>
@@ -10182,7 +10189,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
             <div class="kpi"><span>Funcionários</span><b>${rows.length}</b></div>
             <div class="kpi"><span>Dias trabalhados</span><b>${rows.reduce((s,r)=>s+r.presentes+r.meiodia*0.5,0).toFixed(1).replace(".",",")}</b></div>
             <div class="kpi"><span>Total bruto</span><b>${escapeHtml(fmt(T.gross))}</b></div>
-            <div class="kpi"><span>Total líquido</span><b>${escapeHtml(fmt(T.net))}</b></div>
+            <div class="kpi"><span>Líquido a pagar aos funcionários</span><b>${escapeHtml(fmt(T.net))}</b></div>
             <div class="kpi"><span>Obras de administração</span><b>${escapeHtml(fmt(responsabilidadeFolha.totals.administrationWorks))}</b></div>
             <div class="kpi"><span>Construtora</span><b>${escapeHtml(fmt(responsabilidadeFolha.totals.builder))}</b></div>
           </div>
@@ -10206,18 +10213,18 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <div class="section">
             <h3>Valores a pagar pelas obras de administração</h3>
             <p style="font-size:11px;color:#555">Somente parcelas alocadas por ponto em obras do tipo “Somente Administração”.</p>
-            <table><thead><tr><th>Obra</th><th>Funcionário</th><th>Cargo</th><th>Dias</th><th>Bruto</th><th>VT + VR</th><th>Adiant.</th><th>Líquido</th></tr></thead>
-              <tbody>${linhasResponsabilidade(responsabilidadeFolha.administrationWorks)||`<tr><td colspan="8" class="vazio">Nenhum valor de folha atribuído a obras de administração.</td></tr>`}</tbody>
-              <tfoot><tr class="total"><td colspan="7">TOTAL DAS OBRAS DE ADMINISTRAÇÃO</td><td class="num">${escapeHtml(fmt(responsabilidadeFolha.totals.administrationWorks))}</td></tr></tfoot>
+            <table><thead><tr><th>Obra</th><th>Funcionário</th><th>Cargo</th><th>Dias</th><th>Bruto</th><th>VT + VR</th><th>Adiant.</th><th>Sindicato</th><th>Líquido a pagar</th></tr></thead>
+              <tbody>${linhasResponsabilidade(responsabilidadeFolha.administrationWorks)||`<tr><td colspan="9" class="vazio">Nenhum valor de folha atribuído a obras de administração.</td></tr>`}</tbody>
+              <tfoot><tr class="total"><td colspan="8">TOTAL DAS OBRAS DE ADMINISTRAÇÃO</td><td class="num">${escapeHtml(fmt(responsabilidadeFolha.totals.administrationWorks))}</td></tr></tfoot>
             </table>
           </div>
 
           <div class="section">
             <h3>Valores a pagar pela construtora</h3>
             <p style="font-size:11px;color:#555">Contratos fixos ou mistos, equipe administrativa e apontamentos sem obra identificada.</p>
-            <table><thead><tr><th>Obra / centro</th><th>Funcionário</th><th>Cargo</th><th>Dias</th><th>Bruto</th><th>VT + VR</th><th>Adiant.</th><th>Líquido</th></tr></thead>
-              <tbody>${linhasResponsabilidade(responsabilidadeFolha.builder)||`<tr><td colspan="8" class="vazio">Nenhum valor atribuído diretamente à construtora.</td></tr>`}</tbody>
-              <tfoot><tr class="total"><td colspan="7">TOTAL DA CONSTRUTORA</td><td class="num">${escapeHtml(fmt(responsabilidadeFolha.totals.builder))}</td></tr></tfoot>
+            <table><thead><tr><th>Obra / centro</th><th>Funcionário</th><th>Cargo</th><th>Dias</th><th>Bruto</th><th>VT + VR</th><th>Adiant.</th><th>Sindicato</th><th>Líquido a pagar</th></tr></thead>
+              <tbody>${linhasResponsabilidade(responsabilidadeFolha.builder)||`<tr><td colspan="9" class="vazio">Nenhum valor atribuído diretamente à construtora.</td></tr>`}</tbody>
+              <tfoot><tr class="total"><td colspan="8">TOTAL DA CONSTRUTORA</td><td class="num">${escapeHtml(fmt(responsabilidadeFolha.totals.builder))}</td></tr></tfoot>
             </table>
           </div>
 
@@ -10303,11 +10310,11 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     if (body2.length) ws2["!autofilter"] = {ref:`A5:P${5+body2.length}`};
     XLSX.utils.book_append_sheet(wb, ws2, "Resumo por Obra");
 
-    const responsabilidadeHeader=["Responsável pelo pagamento","Obra / centro","Funcionário","Cargo","Tipo de contrato","Dias trabalhados","Bruto","VT","VR","Adiantamento rateado","Líquido"];
+    const responsabilidadeHeader=["Responsável pelo pagamento","Obra / centro","Funcionário","Cargo","Tipo de contrato","Dias trabalhados","Bruto","VT","VR","Adiantamento rateado","Desconto sindical","Líquido a pagar"];
     const responsabilidadeBody=responsabilidadeFolha.rows.map(l=>[
       l.payer==="obra_administracao"?"Obra de administração":"Construtora",
       l.obraName,l.funcionario,l.cargo,l.contractType||"sem obra",l.diasTrabalhados,
-      l.bruto,l.vt,l.vr,l.advancesObra,l.netObra,
+      l.bruto,l.vt,l.vr,l.advancesObra,l.unionDueObra||0,l.netObra,
     ]);
     const wsResponsabilidade=XLSX.utils.aoa_to_sheet([
       ["Responsabilidade pelo pagamento da folha",periodLabel],
@@ -10316,10 +10323,10 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       ["Total construtora",responsabilidadeFolha.totals.builder],
       ["Total conciliado",responsabilidadeFolha.totals.total],
       [],responsabilidadeHeader,...responsabilidadeBody,
-      ["TOTAL","","","","","","","","","",responsabilidadeFolha.totals.total],
+      ["TOTAL","","","","","","","","","",T.unionDue,responsabilidadeFolha.totals.total],
     ]);
-    wsResponsabilidade["!cols"]=[24,26,24,18,20,18,14,12,12,20,14].map(w=>({wch:w}));
-    if(responsabilidadeBody.length)wsResponsabilidade["!autofilter"]={ref:`A7:K${7+responsabilidadeBody.length}`};
+    wsResponsabilidade["!cols"]=[24,26,24,18,20,18,14,12,12,20,20,18].map(w=>({wch:w}));
+    if(responsabilidadeBody.length)wsResponsabilidade["!autofilter"]={ref:`A7:L${7+responsabilidadeBody.length}`};
     XLSX.utils.book_append_sheet(wb,wsResponsabilidade,"Responsabilidade");
 
     const header3 = ["Obra", "Funcionário", "Cargo", "Presenças Integrais", "Meios Períodos",
@@ -10423,7 +10430,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           text:"Folha pronta para conferência e exportação",
         }}
         stats={[
-          {label:"Total líquido",value:fmt(T.net),detail:periodLabel,color:C.yellow},
+          {label:"Líquido a pagar",value:fmt(T.net),detail:`Após ${fmt(T.unionDue)} de sindicato`,color:C.yellow},
           {label:"Valor bruto",value:fmt(T.gross),detail:`VT + VR: ${fmt(T.vt+T.vr)}`},
           {label:"Funcionários",value:rows.length,detail:filterObra==="all"?"Todas as obras":obraName(filterObra)},
           {label:"Pagamento",value:paymentDateLabel,detail:paymentObs,color:paymentInfo.adjusted?C.orange:C.green},
@@ -10482,7 +10489,8 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         <div><span>Feriados</span><strong>{fmt(T.holidayPay)}</strong><small>{T.feriadosPagos} pago(s) · {T.feriadosPerdidos} perdido(s)</small></div>
         <div><span>Benefícios</span><strong>{fmt(T.vt+T.vr)}</strong><small>VT {fmt(T.vt)} · VR {fmt(T.vr)}</small></div>
         <div><span>Adiantamentos</span><strong data-tone={T.advances>0?"danger":"neutral"}>{T.advances>0?`− ${fmt(T.advances)}`:fmt(0)}</strong></div>
-        <div><span>Sindicato</span><strong data-tone={T.unionDue>0?"danger":"neutral"}>{T.unionDue>0?`− ${fmt(T.unionDue)}`:fmt(0)}</strong><small>{filterObra==="all"?"A recolher pela construtora":"Exibido apenas no consolidado"}</small></div>
+        <div><span>Sindicato</span><strong data-tone={T.unionDue>0?"danger":"neutral"}>{T.unionDue>0?`− ${fmt(T.unionDue)}`:fmt(0)}</strong><small>{filterObra==="all"?"A recolher pela construtora":"Desconto rateado nesta obra"}</small></div>
+        <div className="payroll-summary-strip__net"><span>Líquido a pagar</span><strong>{fmt(T.net)}</strong><small>Valor final dos pagamentos aos funcionários</small></div>
       </section>
 
       <section className="payroll-actionbar" aria-label="Ações da folha">
@@ -10533,7 +10541,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               {!hasIssue&&<span data-tone="neutral">Ponto conferido</span>}
             </div>
             <div className="payroll-person__amount">
-              <small>Líquido</small>
+              <small>Líquido a pagar</small>
               <strong>{fmt(v.net)}</strong>
               {v.advances > 0 && <span>Adiantamento: − {fmt(v.advances)}</span>}
               {v.unionDue > 0 && <span>Sindicato: − {fmt(v.unionDue)}</span>}
@@ -10549,7 +10557,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               )}
               <div className="payroll-detail-metrics">
                 {[
-                  ["Diária", fmt(r.dailyRate)], ["Bruto", fmt(v.gross)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Sindicato", fmt(v.unionDue), C.red], ["Líquido", fmt(v.net), C.yellowD], ["HE", `${r.ot}h · ${fmt(v.overtimePay)}`, C.purple], ["Feriados pagos", v.feriadosPagos], ["Feriados perdidos", v.feriadosPerdidos, C.red], ["Valor feriado", fmt(v.holidayPay), C.green],
+                  ["Diária", fmt(r.dailyRate)], ["Bruto", fmt(v.gross)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Antes do sindicato", fmt(v.netBeforeUnion)], ["Sindicato", `− ${fmt(v.unionDue)}`, C.red], ["Líquido a pagar", fmt(v.net), C.yellowD], ["HE", `${r.ot}h · ${fmt(v.overtimePay)}`, C.purple], ["Feriados pagos", v.feriadosPagos], ["Feriados perdidos", v.feriadosPerdidos, C.red], ["Valor feriado", fmt(v.holidayPay), C.green],
                 ].map(([label, value, color]) => (
                   <div key={label} className="payroll-detail-metric">
                     <p>{label}</p>
