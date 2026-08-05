@@ -10863,7 +10863,14 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   const [notaTercId,setNotaTercId]=useState("");
   const [filterObra,  setFilterObra]  = useState(obraIdFixo||"all");
   const [filterSpec,  setFilterSpec]  = useState("all");
+  const [searchTerc,  setSearchTerc]  = useState("");
   const [expanded,    setExpanded]    = useState(null);
+  const [cancelContract,setCancelContract]=useState(null);
+  const [cancelReason,setCancelReason]=useState("");
+  const [reversePayment,setReversePayment]=useState(null);
+  const [reverseReason,setReverseReason]=useState("");
+  const [stageToRemove,setStageToRemove]=useState(null);
+  const [contractDraft,setContractDraft]=useState(null);
   const [tercSel,     setTercSel]     = useState("");     // contrato aberto em Medições
   const [arrastando,  setArrastando]  = useState(null);   // id do card em drag
   const [colunaAlvo,  setColunaAlvo]  = useState(null);   // coluna sob o card
@@ -10880,6 +10887,13 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const novoContratoVazio = () => ({ ...emptyT, obraId: obraIdFixo || "" });
+  const closeContractModal = () => {
+    if(!form.id && (form.name||form.documento||form.obraId||form.contractValue)){
+      setContractDraft({...form});
+      showToast("Rascunho do contrato preservado nesta sessão.");
+    }
+    setModal(false);
+  };
 
   // Abre o modal para editar: numeros viram string (os inputs sao de texto) e
   // os campos novos preservam o que ja existe.
@@ -10897,6 +10911,12 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   const allTerc    = data.terceirizados || [];
   const scopedTerc = obraIdFixo ? allTerc.filter(t => t.obraId === obraIdFixo) : allTerc;
   const activeTerc = scopedTerc.filter(isActiveThirdPartyContract);
+  // Somente contratos recorrentes entram na fila semanal. Contratos por
+  // medição/empreitada geram obrigação exclusivamente ao confirmar a medição.
+  // Cadastros antigos sem tipo explícito continuam recorrentes quando possuem
+  // valor semanal, evitando esconder pagamentos já operados antes da migração.
+  const recurringTerc = activeTerc.filter(t =>
+    (["semanal","diaria"].includes(t.tipoContrato) || !t.tipoContrato) && Number(t.weeklyRate || 0) > 0);
   const kanbanTerc = scopedTerc.filter(isVisibleThirdPartyContract);
 
   // Um mesmo prestador pode possuir vários contratos. O cadastro fiscal,
@@ -10973,18 +10993,23 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
       registroTerceiroAtivo(p)&&p.tercId === id && p.date >= weekStart && p.date <= weekEnd);
 
   // KPIs
-  const totalWeekly     = activeTerc.reduce((s, t) => s + Number(t.weeklyRate || 0), 0);
+  const totalWeekly     = recurringTerc.reduce((s, t) => s + Number(t.weeklyRate || 0), 0);
   const totalContracts  = kanbanTerc.reduce((s, t) => s + Number(t.contractValue || 0), 0);
   const scopedTercIds   = new Set(kanbanTerc.map(t => t.id));
   const totalPaidAll    = (data.pagsTerceiros || [])
     .filter(p => registroTerceiroAtivo(p)&&scopedTercIds.has(p.tercId))
     .reduce((s, p) => s + Number(p.amount || 0), 0);
-  const pendingCount    = activeTerc.filter(t => !wasPaidThisWeek(t.id)).length;
-  const pendingTotal    = activeTerc.filter(t => !wasPaidThisWeek(t.id)).reduce((s,t) => s+Number(t.weeklyRate||0), 0);
+  const pendingCount    = recurringTerc.filter(t => !wasPaidThisWeek(t.id)).length;
+  const pendingTotal    = recurringTerc.filter(t => !wasPaidThisWeek(t.id)).reduce((s,t) => s+Number(t.weeklyRate||0), 0);
 
   const filteredTerc = kanbanTerc
     .filter(t => filterObra === "all" || t.obraId === filterObra)
     .filter(t => filterSpec === "all" || t.specialty === filterSpec)
+    .filter(t => {
+      const q=searchTerc.trim().toLocaleLowerCase("pt-BR");
+      return !q || [t.name,t.razaoSocial,t.documento,t.specialty,obraName(t.obraId)]
+        .some(value=>String(value||"").toLocaleLowerCase("pt-BR").includes(q));
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const saveTerc = () => {
@@ -11042,6 +11067,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
 
     update({ ...data, terceirizados });
     setModal(false);
+    setContractDraft(null);
     const obra = obraName(payload.obraId);
     if (form.id) showToast("Cadastro e contrato atualizados.");
     else if (existentePorDocumento || form.prestadorId) showToast(`Novo contrato de ${payload.name} criado para ${obra}.`);
@@ -11058,10 +11084,15 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
   const delDocNoForm = id => setForm(f => ({ ...f, documentos: (f.documentos || []).filter(d => d.id !== id) }));
 
   const removeTerc = id => {
-    const contrato = allTerc.find(t => t.id === id);
-    const motivo=window.prompt(`Motivo do cancelamento deste contrato${contrato?.obraId ? ` de ${obraName(contrato.obraId)}` : ""}:`);
-    if(!String(motivo||"").trim())return;
-    update({ ...data, terceirizados: allTerc.map(t => t.id===id?{...cancelarRegistro(t,motivo,currentUser,"cancelado"),active:false}:t) });
+    const contrato=allTerc.find(t=>t.id===id);
+    if(!contrato)return;
+    setCancelContract(contrato);setCancelReason("");
+  };
+  const confirmRemoveTerc = () => {
+    const motivo=cancelReason.trim();
+    if(!cancelContract||!motivo){showToast("Informe o motivo do cancelamento.","error");return;}
+    update({ ...data, terceirizados: allTerc.map(t => t.id===cancelContract.id?{...cancelarRegistro(t,motivo,currentUser,"cancelado"),active:false}:t) });
+    setCancelContract(null);setCancelReason("");
     showToast("Contrato cancelado e preservado no histórico.");
   };
 
@@ -11110,9 +11141,14 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
     }
   };
 
-  const removePay = async id => {
-    const motivo=window.prompt("Motivo do estorno do pagamento:");
-    if(!String(motivo||"").trim())return;
+  const removePay = id => {
+    const payment=(data.pagsTerceiros||[]).find(item=>item.id===id);
+    if(payment){setReversePayment(payment);setReverseReason("");}
+  };
+  const confirmRemovePay = async () => {
+    const id=reversePayment?.id;
+    const motivo=reverseReason.trim();
+    if(!id||!motivo){showToast("Informe o motivo do estorno.","error");return;}
     if(!dispatchCommand||thirdPartyCommandPending)return;
     setThirdPartyCommandPending(true);
     try {
@@ -11127,6 +11163,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
         };
       });
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o estorno.");
+      setReversePayment(null);setReverseReason("");
       showToast("Pagamento estornado e preservado para auditoria.");
     } catch (error) {
       showToast(error.message||"Não foi possível estornar o pagamento.","error");
@@ -11328,10 +11365,16 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
     if (acumuladoPorEtapa[etapa.id] > 0) {
       showToast("Esta etapa já foi medida. Zere a medição antes de removê-la.", "error"); return;
     }
-    if (!window.confirm(`Remover a etapa "${etapa.nome}"?`)) return;
+    setStageToRemove(etapa);
+  };
+  const confirmarRemocaoEtapa = async () => {
+    const etapa=stageToRemove;
+    if(!etapa)return;
     const etapas=etapasTerc.filter(e => e.id !== etapa.id).map((e, i) => ({ ...e, ordem: i }));
-    if(await salvarEtapasNoServidor(etapas,"Etapa removida e alteração salva.")&&etapaForm.id === etapa.id)
-      setEtapaForm({ id: "", nome: "", valor: "" });
+    if(await salvarEtapasNoServidor(etapas,"Etapa removida e alteração salva.")){
+      if(etapaForm.id === etapa.id)setEtapaForm({ id: "", nome: "", valor: "" });
+      setStageToRemove(null);
+    }
   };
 
   const moverEtapa = async (etapa, dir) => {
@@ -11599,7 +11642,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
       : ["Pago", fmt(totalPaidAll), "Histórico acumulado"],
   ];
 
-  const paidThisWeekAmount = activeTerc.reduce((s, t) => {
+  const paidThisWeekAmount = recurringTerc.reduce((s, t) => {
     const p = thisWeekPay(t.id);
     return s + (p ? Number(p.amount) : 0);
   }, 0);
@@ -11614,8 +11657,8 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
         description={ehRH
           ? "Cadastros, contratos, documentos e alocação da equipe subcontratada."
           : "Contratos, medições, documentos e pagamentos da equipe subcontratada."}
-        actions={podeGerenciarContratos && <Btn onClick={() => { setForm(novoContratoVazio()); setModal(true); }}>
-          <Ic n="plus"/> Novo contrato
+        actions={podeGerenciarContratos && <Btn onClick={() => { setForm(contractDraft||novoContratoVazio()); setModal(true); }}>
+          <Ic n="plus"/> {contractDraft?"Continuar cadastro":"Novo contrato"}
         </Btn>}
       />
 
@@ -11649,6 +11692,9 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
 
       {/*  VIEW: KANBAN  */}
       {view === "kanban" && (<>
+        <p className="terceiros-kanban-help">
+          Arraste os cartões ou use os controles “Mover para”. Selecione um contrato para abrir {podeGerenciarMedicoes ? "as medições" : "o cadastro"}.
+        </p>
         {/* Painel de documentos vencendo - so aparece quando ha pendencia */}
         {documentosPendentes.length > 0 && (
           <section className="terceiros-doc-alert" aria-label="Documentos críticos">
@@ -11734,7 +11780,8 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                       {cards.map(t => {
                         const info = specInfo(t.specialty);
                         const av = avancoContrato(t);
-                        const docBad = (t.documentos || []).some(d => { const dd = diasAte(d.validade); return dd !== null && dd <= 0; });
+                        const expiredDocs=(t.documentos||[]).filter(d=>{const dd=diasAte(d.validade);return dd!==null&&dd<=0;});
+                        const docBad = expiredDocs.length>0;
                         const docWarn = (t.documentos || []).some(d => { const dd = diasAte(d.validade); return dd !== null && dd > 0 && dd <= 30; });
                         const docInvalido = t.documento && !validarDocumento(t.documento, t.tipoPessoa);
                         return (
@@ -11777,31 +11824,22 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                             {(docBad || docWarn || docInvalido) && (
                               <div className="terceiros-kanban-card__alerts">
                                 {docInvalido && <span>Documento inválido</span>}
-                                {docBad && <span>CND vencida</span>}
+                                {docBad && <span>{expiredDocs.length===1?`${docTercInfo(expiredDocs[0].tipo).l} vencido`:`${expiredDocs.length} documentos vencidos`}</span>}
                                 {!docBad && docWarn && <span data-warning="true">Documento a vencer</span>}
                               </div>
                             )}
 
                             {/* Mover em telas sem drag (toque): setas discretas */}
                             <div className="terceiros-kanban-card__actions" onClick={e => e.stopPropagation()}>
-                              {podeGerenciarContratos && (
-                                <button type="button" className="terceiros-kanban-card__delete"
-                                  title="Excluir contrato do quadro"
-                                  aria-label={`Excluir contrato de ${t.name}`}
-                                  onPointerDown={e => e.stopPropagation()}
-                                  onClick={e => { e.stopPropagation(); removeTerc(t.id); }}>
-                                  <Ic n="trash" s={11}/>
-                                </button>
-                              )}
                               {COLS_KANBAN.map(c => c.v).indexOf(t.situacao) > 0 && (
-                                <button type="button" title="Mover para a esquerda"
-                                  onClick={() => { const i = COLS_KANBAN.findIndex(c => c.v === t.situacao); moverSituacao(t, COLS_KANBAN[i-1].v); }}
-                                  style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:5, color:C.muted, cursor:"pointer", fontSize:10, padding:"1px 6px" }}>←</button>
+                                <button type="button"
+                                  onClick={() => { const i = COLS_KANBAN.findIndex(c => c.v === t.situacao); moverSituacao(t, COLS_KANBAN[i-1].v); }}>
+                                  ← <span>Mover para {COLS_KANBAN[COLS_KANBAN.findIndex(c=>c.v===t.situacao)-1].l}</span></button>
                               )}
                               {COLS_KANBAN.map(c => c.v).indexOf(t.situacao) < COLS_KANBAN.length - 1 && (
-                                <button type="button" title="Mover para a direita"
-                                  onClick={() => { const i = COLS_KANBAN.findIndex(c => c.v === t.situacao); moverSituacao(t, COLS_KANBAN[i+1].v); }}
-                                  style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:5, color:C.muted, cursor:"pointer", fontSize:10, padding:"1px 6px" }}>→</button>
+                                <button type="button"
+                                  onClick={() => { const i = COLS_KANBAN.findIndex(c => c.v === t.situacao); moverSituacao(t, COLS_KANBAN[i+1].v); }}>
+                                  <span>Mover para {COLS_KANBAN[COLS_KANBAN.findIndex(c=>c.v===t.situacao)+1].l}</span> →</button>
                               )}
                             </div>
                           </article>
@@ -11821,9 +11859,6 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
             </section>
           );
         })}
-        <p className="terceiros-kanban-help">
-          Arraste os cartões entre as colunas ou use as setas. Selecione um contrato para abrir {podeGerenciarMedicoes ? "as medições" : "o cadastro"}.
-        </p>
       </>)}
 
       {/*  VIEW: CADASTRO  */}
@@ -11836,6 +11871,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
             </div>
           </div>
           <div className="terceiros-registry-filters">
+          <Inp label="Buscar prestador ou documento" value={searchTerc} onChange={setSearchTerc} placeholder="Nome, razão social, CPF ou CNPJ"/>
           <Sel label="Especialidade" value={filterSpec} onChange={setFilterSpec} options={[{v:"all",l:"Todas as especialidades"},...SPECIALTIES.map(s=>({v:s.v,l:s.l}))]}/>
           {obraIdFixo
             ? <Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
@@ -11848,6 +11884,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
             <span className="terceiros-empty__icon"><Ic n="users" s={22}/></span>
             <h3>Nenhum contrato neste filtro</h3>
             <p>Altere os filtros ou cadastre um prestador para vinculá-lo a uma obra.</p>
+            <Btn v="ghost" onClick={()=>{setSearchTerc("");setFilterSpec("all");if(!obraIdFixo)setFilterObra("all");}}>Limpar filtros</Btn>
           </section>
         )}
 
@@ -11870,9 +11907,13 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
 
                 {obraTerc.map(t => {
                   const sp = specInfo(t.specialty);
-                  const pago = (data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).reduce((s,p)=>s+Number(p.amount||0),0);
-                  const saldo = Number(t.contractValue||0) - pago;
-                  const pct = t.contractValue>0 ? Math.min((pago/t.contractValue)*100, 100) : 0;
+                  const pagamentosContrato=(data.pagsTerceiros||[]).filter(p=>registroTerceiroAtivo(p)&&p.tercId===t.id);
+                  const medicoesContrato=(data.medicoesTerc||[]).filter(m=>registroTerceiroAtivo(m)&&m.tercId===t.id);
+                  const pago = pagamentosContrato.reduce((s,p)=>s+Number(p.amount||0),0);
+                  const medido=medicoesContrato.reduce((s,m)=>s+Number(m.total||0),0);
+                  const devido=medicoesContrato.filter(m=>!m.pagamentoId).reduce((s,m)=>s+Number(m.total||0),0);
+                  const saldoExecutar=Math.max(0,Number(t.contractValue||0)-medido);
+                  const pct = t.contractValue>0 ? Math.min((medido/t.contractValue)*100, 100) : 0;
                   const exp = expanded === t.id;
                   return (
                     <article className="terceiros-registry-contract" data-inactive={t.active===false} key={t.id}>
@@ -11891,16 +11932,16 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                             {(t.etapas||[]).length>0 && <span>{t.etapas.length} etapa(s) · {(avancoDoContrato(t)??0).toFixed(0)}% medido</span>}
                           </div>
                         </div>
-                        <div className="terceiros-registry-contract__balance" data-negative={saldo<0}>
-                          <strong>{fmt(saldo)}</strong>
-                          <span>saldo do contrato</span>
+                        <div className="terceiros-registry-contract__balance" data-negative={devido>0}>
+                          <strong>{fmt(devido)}</strong>
+                          <span>devido por medições</span>
                         </div>
                         <span className="terceiros-registry-contract__chevron" data-expanded={exp}>
                           <Ic n="chevron" s={14}/>
                         </span>
                         {t.contractValue>0 && (
                           <div className="terceiros-progress-track terceiros-registry-contract__progress"
-                            role="progressbar" aria-label={`Percentual pago do contrato de ${t.name}`}
+                            role="progressbar" aria-label={`Percentual medido do contrato de ${t.name}`}
                             aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(pct)}>
                             <span style={{width:`${pct}%`}} data-critical={pct>90}/>
                           </div>
@@ -11910,7 +11951,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                       {exp && (
                         <div className="terceiros-registry-contract__details" id={`terceiros-detalhes-${t.id}`}>
                           <div className="terceiros-registry-contract__facts">
-                            {[["Pago total",fmt(pago)],["Saldo",fmt(saldo)],["Semanal",fmt(t.weeklyRate)]].map(([l,v])=>(
+                            {[["Contratado",fmt(t.contractValue)],["Medido",fmt(medido)],["Devido",fmt(devido)],["Pago",fmt(pago)],["A executar",fmt(saldoExecutar)]].map(([l,v])=>(
                               <div key={l}>
                                 <p>{l}</p>
                                 <strong>{v}</strong>
@@ -11939,7 +11980,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                               </div>
                               <div>
                                 <strong>{fmt(p.amount)}</strong>
-                                <Btn v="danger" size="sm" onClick={()=>removePay(p.id)}><Ic n="trash"/></Btn>
+                                <Btn v="danger" size="sm" onClick={()=>removePay(p.id)}><Ic n="x"/> Estornar</Btn>
                               </div>
                             </div>;
                           })}
@@ -11950,7 +11991,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                             {podeGerenciarMedicoes && <Btn size="sm" v="info" onClick={()=>abrirMedicoesDe(t.id)}>
                               <Ic n="medicoes"/> {(t.etapas||[]).length ? "Medições" : "Dividir em etapas"}
                             </Btn>}
-                            {podeGerenciarPagamentos && <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));setPaySource("");}}>
+                            {podeGerenciarPagamentos && (["semanal","diaria"].includes(t.tipoContrato)||(!t.tipoContrato&&Number(t.weeklyRate)>0)) && <Btn size="sm" v="warning" onClick={()=>{setPayModal(t);setPayAmount(String(t.weeklyRate||""));setPaySource("");}}>
                               <Ic n="dollar"/> Registrar pagamento
                             </Btn>}
                             {podeGerenciarContratos && <Btn size="sm" v="ghost" onClick={()=>editarTerc(t)}><Ic n="edit"/> Editar</Btn>}
@@ -11958,7 +11999,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                             {podeGerenciarContratos && <Btn size="sm" v={t.active===false?"success":"dark"} onClick={()=>toggleActive(t.id)}>
                               {t.active===false?"Reativar":"Inativar"}
                             </Btn>}
-                            {podeGerenciarContratos && <Btn size="sm" v="danger" onClick={()=>removeTerc(t.id)}><Ic n="trash"/> Excluir</Btn>}
+                            {podeGerenciarContratos && <Btn size="sm" v="danger" onClick={()=>removeTerc(t.id)}><Ic n="x"/> Cancelar contrato</Btn>}
                           </div>
                         </div>
                       )}
@@ -12320,7 +12361,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
           {/* Status da semana */}
           <div className="terceiros-week__summary">
             {[
-              ["Pagos",      `${activeTerc.length - pendingCount}/${activeTerc.length}`, pendingCount===0&&activeTerc.length>0?"success":"neutral" ],
+              ["Pagos",      `${recurringTerc.length - pendingCount}/${recurringTerc.length}`, pendingCount===0&&recurringTerc.length>0?"success":"neutral" ],
               ["Pendentes",  fmt(pendingTotal),  pendingCount>0 ? "danger" : "success" ],
               ["Pago na semana",fmt(paidThisWeekAmount), "neutral" ],
             ].map(([l,v,tone])=>(
@@ -12333,9 +12374,9 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
         </section>
 
         {/* Lista de terceirizados com status de pagamento */}
-        {activeTerc.length === 0 && (
+        {recurringTerc.length === 0 && (
           <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:24, textAlign:"center", color:C.muted, borderRadius:10 }}>
-            Nenhum terceirizado ativo. Cadastre na aba Cadastro.
+            Nenhum contrato semanal ou diário ativo. Contratos por medição são pagos na aba Medições.
           </div>
         )}
 
@@ -12346,7 +12387,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
         </div>
 
         <div className="terceiros-payment-list">
-        {activeTerc
+        {recurringTerc
           .filter(t => filterObra==="all" || t.obraId===filterObra)
           .sort((a,b) => {
             // Pendentes primeiro
@@ -12386,7 +12427,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
                     </Btn>
                   ) : (
                     <Btn v="ghost" size="sm" onClick={()=>paidEntry&&removePay(paidEntry.id)}>
-                      <Ic n="x"/> Desfazer
+                      <Ic n="x"/> Estornar
                     </Btn>
                   )}
                 </div>
@@ -12416,7 +12457,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
           </div>
         );
         return (
-        <Modal title={form.id?"Editar contrato de terceirizado":"Novo contrato de terceirizado"} onClose={()=>setModal(false)} wide panelClass="terceiros-form-modal">
+        <Modal title={form.id?"Editar contrato de terceirizado":"Novo contrato de terceirizado"} onClose={closeContractModal} wide panelClass="terceiros-form-modal">
           <div className="terceiros-form-grid" style={{gridTemplateColumns:formGrid(2)}}>
 
             {!form.id && prestadoresUnicos.length > 0 && (
@@ -12570,7 +12611,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
             </p>
           </div>
           <div className="terceiros-form-actions">
-            <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
+            <Btn v="ghost" onClick={closeContractModal} full>{form.id?"Cancelar":"Salvar rascunho e sair"}</Btn>
             <Btn onClick={saveTerc} full><Ic n="check"/> {form.id?"Salvar alterações":"Criar contrato"}</Btn>
           </div>
         </Modal>
@@ -12674,10 +12715,15 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
         const ret = calcRetencoes(medPayModal.total, t);
         return (
           <Modal title={`Pagar medição ${medPayModal.numero} - ${t.name}`} onClose={()=>{setMedPayModal(null);setPaySource("");setRiscoSemFotoAceito(false);}}>
-            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${C.green}`, padding:"10px 14px", borderRadius:8, marginBottom:12 }}>
+            <div className="terceiros-payment-review">
               <p style={{ fontSize:12, color:C.muted }}>{specInfo(t.specialty).emoji} {specInfo(t.specialty).l} · {obraName(medPayModal.obraId)}</p>
-              <p style={{ fontSize:18, color:C.green, fontWeight:900, marginTop:3 }}>{fmt(medPayModal.total)}</p>
-              {ret.retido > 0 && <p style={{ fontSize:10.5, color:C.muted, marginTop:2 }}>Líquido ao prestador: {fmt(ret.liquido)}</p>}
+              <div className="terceiros-payment-review__values">
+                <span><small>Bruto / obrigação</small><b>{fmt(medPayModal.total)}</b></span>
+                <span><small>ISS retido</small><b>{fmt(ret.issRetido)}</b></span>
+                <span><small>INSS retido</small><b>{fmt(ret.inssRetido)}</b></span>
+                <span><small>Líquido ao prestador</small><b>{fmt(ret.liquido)}</b></span>
+              </div>
+              <p className="terceiros-payment-review__date">Baixa em {fmtDateFull(today())} · custo reconhecido em {fmtDateFull(medPayModal.data)}</p>
             </div>
             {!(medPayModal.fotos||[]).length?<label style={{display:"flex",alignItems:"flex-start",gap:9,background:`${C.red}0D`,border:`1px solid ${C.red}77`,borderRadius:8,padding:"10px 11px",marginBottom:12,cursor:"pointer"}}><input type="checkbox" checked={riscoSemFotoAceito} onChange={e=>setRiscoSemFotoAceito(e.target.checked)} style={{marginTop:2,accentColor:C.red}}/><span><b style={{fontSize:11,color:C.red}}>Risco financeiro: medição sem fotografia da execução</b><p style={{fontSize:9.8,color:C.muted,lineHeight:1.45,marginTop:3}}>Sem evidência do engenheiro, o pagamento pode antecipar serviço não executado, incompleto ou fora da especificação. Marque somente se decidiu prosseguir mesmo assim; a exceção ficará registrada.</p></span></label>:<div style={{display:"flex",alignItems:"center",gap:7,background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"8px 10px",marginBottom:12}}><Ic n="check" color={C.green}/><p style={{fontSize:10.5,color:C.green,fontWeight:800}}>{(medPayModal.fotos||[]).length} fotografia(s) validada(s) · {medPayModal.responsavelEvidencia||medPayModal.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div>}
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
@@ -12703,7 +12749,7 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
 
       {payModal && (
         <Modal title={`Pagamento - ${payModal.name}`} onClose={()=>{setPayModal(null);setPayAmount("");setPayDesc("");setPaySource("");}}>
-          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${C.orange}`, padding:"10px 14px", borderRadius:8, marginBottom:12 }}>
+          <div className="terceiros-payment-review">
             <p style={{ fontSize:12, color:C.muted }}>{specInfo(payModal.specialty).emoji} {specInfo(payModal.specialty).l} · {obraName(payModal.obraId)}</p>
             <p style={{ fontSize:13, color:C.orange, fontWeight:700, marginTop:2 }}>Sexta-feira: {fmtDateFull(friday)}</p>
           </div>
@@ -12728,6 +12774,37 @@ function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, d
           </div>
         </Modal>
       )}
+
+      {cancelContract && (()=>{
+        const meds=(data.medicoesTerc||[]).filter(m=>registroTerceiroAtivo(m)&&m.tercId===cancelContract.id);
+        const pags=(data.pagsTerceiros||[]).filter(p=>registroTerceiroAtivo(p)&&p.tercId===cancelContract.id);
+        return <Modal title="Cancelar contrato e preservar histórico" onClose={()=>setCancelContract(null)}>
+          <div className="terceiros-audit-confirm">
+            <p><b>{cancelContract.name}</b> · {obraName(cancelContract.obraId)}</p>
+            <dl><div><dt>Contrato</dt><dd>{fmt(cancelContract.contractValue)}</dd></div><div><dt>Medições</dt><dd>{meds.length} · {fmt(meds.reduce((s,m)=>s+Number(m.total||0),0))}</dd></div><div><dt>Pagamentos</dt><dd>{pags.length} · {fmt(pags.reduce((s,p)=>s+Number(p.amount||0),0))}</dd></div></dl>
+            <p className="terceiros-audit-confirm__notice">O contrato sairá do fluxo ativo. Medições, pagamentos e reflexos históricos no DRE serão preservados para auditoria.</p>
+            <Inp label="Motivo do cancelamento *" value={cancelReason} onChange={setCancelReason} multiline placeholder="Explique por que o contrato está sendo encerrado"/>
+            <div><Btn v="ghost" full onClick={()=>setCancelContract(null)}>Voltar</Btn><Btn v="danger" full onClick={confirmRemoveTerc}>Cancelar contrato</Btn></div>
+          </div>
+        </Modal>;
+      })()}
+
+      {reversePayment && <Modal title="Estornar pagamento" onClose={()=>setReversePayment(null)}>
+        <div className="terceiros-audit-confirm">
+          <p><b>{fmt(reversePayment.amount)}</b> · {fmtDateFull(reversePayment.date)} · {reversePayment.description}</p>
+          <p className="terceiros-audit-confirm__notice">O lançamento sairá dos totais vigentes, mas continuará preservado no histórico de auditoria.</p>
+          <Inp label="Motivo do estorno *" value={reverseReason} onChange={setReverseReason} multiline placeholder="Informe o motivo e a referência da correção"/>
+          <div><Btn v="ghost" full onClick={()=>setReversePayment(null)}>Voltar</Btn><Btn v="danger" full onClick={confirmRemovePay} disabled={thirdPartyCommandPending}>{thirdPartyCommandPending?"Estornando...":"Confirmar estorno"}</Btn></div>
+        </div>
+      </Modal>}
+
+      {stageToRemove && <Modal title="Remover etapa do contrato" onClose={()=>setStageToRemove(null)}>
+        <div className="terceiros-audit-confirm">
+          <p>Remover <b>{stageToRemove.nome}</b>, no valor de <b>{fmt(stageToRemove.valor)}</b>?</p>
+          <p className="terceiros-audit-confirm__notice">A soma das etapas pode deixar de coincidir com o contrato. Esta ação só está disponível porque a etapa ainda não foi medida.</p>
+          <div><Btn v="ghost" full onClick={()=>setStageToRemove(null)}>Manter etapa</Btn><Btn v="danger" full onClick={confirmarRemocaoEtapa} disabled={thirdPartyCommandPending}>Remover etapa</Btn></div>
+        </div>
+      </Modal>}
     </div>
   );
 }

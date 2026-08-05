@@ -7,7 +7,18 @@ p0_count: 1
 p1_count: 3
 timestamp: 2026-08-05T15-11-26Z
 slug: src-legacyapp-jsx
+status: resolved
 ---
+
+## Resolução implementada — 05/08/2026
+
+- **P0:** controles do Kanban passaram de 26px para 36px, receberam destino textual e continuam operáveis sem arrastar; cancelamento foi retirado do cartão e levado ao detalhe do contrato.
+- **P1 financeiro:** somente contratos semanais/diários entram na rotina recorrente; medição/empreitada são liquidados exclusivamente pela obrigação medida. O cadastro agora expõe `Contratado → Medido → Devido → Pago → A executar`.
+- **P1 cadastro:** rascunhos de novos contratos são preservados durante a sessão e podem ser retomados pelo CTA principal; as seções e descrições existentes continuam organizando o preenchimento.
+- **P1 destrutivo:** cancelamento de contrato, estorno de pagamento e remoção de etapa usam confirmações contextuais, apresentam impacto e exigem motivo quando há trilha financeira.
+- **P2:** os resumos financeiros perderam a borda lateral decorativa, usam tokens/IBM Plex, mostram bruto, retenções, líquido e datas; busca textual, limpar filtros, ajuda antecipada e alerta documental específico foram adicionados.
+- **Verificação:** detector executado após as mudanças sem achados no trecho de Terceirizados; build aprovado e 928 testes passaram.
+
 ## Design Health Score
 
 | # | Heuristic | Score | Key Issue |
