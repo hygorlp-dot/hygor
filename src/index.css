@@ -1132,9 +1132,79 @@
 
 .payroll-summary-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   overflow: hidden;
 }
+
+.payroll-view-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--arcd-border-default);
+  border-radius: var(--arcd-radius-md);
+  background: var(--arcd-surface-muted);
+}
+
+.payroll-view-tabs button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: var(--arcd-space-2);
+  padding: 0 var(--arcd-space-4);
+  border: 0;
+  border-radius: calc(var(--arcd-radius-md) - 4px);
+  background: transparent;
+  color: var(--arcd-text-secondary);
+  font-weight: var(--arcd-font-weight-semibold);
+  cursor: pointer;
+}
+
+.payroll-view-tabs button[aria-current="page"] {
+  background: var(--arcd-text-primary);
+  color: var(--arcd-surface-primary);
+}
+
+.payroll-view-tabs button:focus-visible,
+.payroll-union__role select:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--arcd-action-primary) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.payroll-union {
+  overflow: hidden;
+  border: 1px solid var(--arcd-border-default);
+  border-radius: var(--arcd-radius-md);
+  background: var(--arcd-surface-primary);
+}
+
+.payroll-union__header,
+.payroll-union__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--arcd-space-4);
+  padding: var(--arcd-space-4);
+}
+
+.payroll-union__header h3,
+.payroll-union__roles h3 { font-size: var(--arcd-font-size-md); }
+.payroll-union__header p,
+.payroll-union__roles p { margin-top: var(--arcd-space-1); color: var(--arcd-text-secondary); font-size: var(--arcd-font-size-xs); max-width: 72ch; }
+
+.payroll-union__switch { display:flex; min-height:44px; align-items:center; gap:var(--arcd-space-2); font-weight:var(--arcd-font-weight-semibold); cursor:pointer; }
+.payroll-union__switch input { width:18px; height:18px; accent-color:var(--arcd-action-primary); }
+.payroll-union__notice { display:flex; align-items:flex-start; gap:var(--arcd-space-2); padding:var(--arcd-space-3) var(--arcd-space-4); border-block:1px solid var(--arcd-warning-border); background:var(--arcd-warning-bg); color:var(--arcd-warning-text); font-size:var(--arcd-font-size-xs); }
+.payroll-union__fields { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:var(--arcd-space-3); padding:var(--arcd-space-4); }
+.payroll-union__roles { padding:var(--arcd-space-4); border-top:1px solid var(--arcd-border-default); }
+.payroll-union__role { display:flex; min-height:58px; align-items:center; justify-content:space-between; gap:var(--arcd-space-4); border-bottom:1px solid var(--arcd-border-default); }
+.payroll-union__role > div { display:flex; flex-direction:column; gap:2px; }
+.payroll-union__role span,.payroll-union__footer span,.payroll-union__footer small { color:var(--arcd-text-secondary); font-size:var(--arcd-font-size-xs); }
+.payroll-union__role select { min-width:180px; min-height:44px; border:1px solid var(--arcd-border-default); border-radius:var(--arcd-radius-sm); padding:0 var(--arcd-space-3); background:var(--arcd-surface-primary); color:var(--arcd-text-primary); }
+.payroll-union__footer { border-top:1px solid var(--arcd-border-default); background:var(--arcd-surface-muted); }
+.payroll-union__footer > div { display:flex; flex-direction:column; }
+.payroll-union__footer strong { font-family:var(--arcd-font-mono); font-size:var(--arcd-font-size-xl); color:var(--arcd-text-primary); }
+.payroll-union__empty { padding:var(--arcd-space-5) 0; color:var(--arcd-text-secondary); text-align:center; }
 
 .payroll-summary-strip > div {
   display: flex;
@@ -1599,6 +1669,7 @@
 }
 
 @media (max-width: 980px) {
+  .payroll-union__fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .payroll-filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1648,6 +1719,14 @@
   .payroll-summary-strip {
     grid-template-columns: 1fr;
   }
+
+  .payroll-view-tabs { display:grid; align-self:stretch; grid-template-columns:1fr 1fr; }
+  .payroll-view-tabs button { justify-content:center; padding-inline:var(--arcd-space-2); }
+  .payroll-union__header,.payroll-union__footer { align-items:stretch; flex-direction:column; }
+  .payroll-union__fields { grid-template-columns:1fr; }
+  .payroll-union__role { align-items:flex-start; flex-direction:column; padding-block:var(--arcd-space-3); }
+  .payroll-union__role select { width:100%; }
+  .payroll-union__footer > * { width:100%; }
 
   .payroll-filter-grid .arcd-field-control {
     min-height: 44px;
