@@ -3,6 +3,7 @@ import {
   applyEmployeeCommand,
   EMPLOYEE_COMMAND,
   employeeCommandObraId,
+  employeeLifecycleStatus,
 } from "./employee-commands.js";
 
 const base = () => ({
@@ -125,5 +126,24 @@ describe("comando transacional de funcionários", () => {
       version:4,
     });
     expect(result.data.changeLog.at(-1).type).toBe("reactivation");
+  });
+
+  it("agenda um desligamento futuro sem retirar antes do último dia trabalhado", () => {
+    const data = { ...base(), employees:[{ ...employee(), version:1 }] };
+    const result = applyEmployeeCommand(data, command(employee({
+      active:true,
+      status:"desligamento_agendado",
+      endDate:"2026-08-20",
+      terminationReason:"Término de contrato",
+    }), 1), "2026-08-05T10:00:00.000Z");
+    expect(result.ok).toBe(true);
+    expect(result.data.employees[0]).toMatchObject({
+      active:true,
+      status:"desligamento_agendado",
+      endDate:"2026-08-20",
+    });
+    expect(employeeLifecycleStatus(result.data.employees[0], "2026-08-05")).toBe("desligamento_agendado");
+    expect(employeeLifecycleStatus(result.data.employees[0], "2026-08-21")).toBe("desligado");
+    expect(result.data.changeLog.at(-1).type).toBe("dismissal_scheduled");
   });
 });

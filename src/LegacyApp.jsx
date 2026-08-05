@@ -155,6 +155,7 @@ import {
   advanceDeductionForPeriod,
   buildAdvanceInstallments,
 } from "./domains/rh/advance-commands";
+import { employeeLifecycleStatus } from "./domains/rh/employee-commands";
 import {
   createBillingFromTechnicalMeasurement,
   createMonthlyClosingSnapshot,
@@ -3133,7 +3134,7 @@ function Btn({ children, onClick, v = "primary", size = "md", full = false, disa
   );
 }
 
-function Inp({ label, value, onChange, type = "text", placeholder = "", max, min, disabled = false, multiline = false, inputRef = null }) {
+function Inp({ label, value, onChange, type = "text", placeholder = "", max, min, disabled = false, multiline = false, inputRef = null, error = "" }) {
   const Comp = multiline ? "textarea" : "input";
 
   return (
@@ -3154,6 +3155,7 @@ function Inp({ label, value, onChange, type = "text", placeholder = "", max, min
         min={min}
         disabled={disabled}
         rows={multiline ? 3 : undefined}
+        aria-invalid={error?"true":undefined}
         style={{
           width: "100%",
           background: disabled ? C.surface : C.bg,
@@ -3167,6 +3169,7 @@ function Inp({ label, value, onChange, type = "text", placeholder = "", max, min
           fontFamily:"'Inter','Inter Display',sans-serif",
         }}
       />
+      {error&&<small role="alert" style={{color:C.red,fontSize:10}}>{error}</small>}
     </label>
   );
 }
@@ -3512,6 +3515,15 @@ function Modal({ title, children, onClose, wide = false, panelClass = "" }) {
     const focusTimer = window.setTimeout(() => panelRef.current?.focus(), 0);
     const handleKeyDown = event => {
       if (event.key === "Escape") closeRef.current?.();
+      if (event.key !== "Tab" || !panelRef.current) return;
+      const focusable = [...panelRef.current.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      )].filter(element => element.offsetParent !== null);
+      if (!focusable.length) { event.preventDefault(); panelRef.current.focus(); return; }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
@@ -8010,7 +8022,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
 // Equipe
 // 
 
-function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
+function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, currentUser=null, onTab=null }) {
   const { formGrid } = useBreakpoint();
   const emptyEmp = {
     id: "",
@@ -8041,10 +8053,16 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
   const [form, setForm] = useState(emptyEmp);
   const [search, setSearch] = useState("");
   const [filterObra, setFilterObra] = useState(obraIdFixo||"all");
-  const [showInactive, setShowInactive] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("ativo");
   const [expandedId, setExpandedId] = useState(null);
   const [dismissalModal, setDismissalModal] = useState(null);
   const [dismissalForm, setDismissalForm] = useState({ endDate:today(), reason:"demissao_sem_justa_causa", notes:"" });
+  const [archiveModal, setArchiveModal] = useState(null);
+  const [archiveReason, setArchiveReason] = useState("");
+  const [unlinkModal, setUnlinkModal] = useState(null);
+  const [pendingAction, setPendingAction] = useState("");
+  const [formErrors, setFormErrors] = useState({});
+  const nameInputRef = useRef(null);
   const [advForm, setAdvForm] = useState({
     amount:"",description:"",date:today(),installmentCount:"1",
     frequency:"quinzenal",firstDueDate:today(),
@@ -8056,7 +8074,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
     const employee = (data.employees || []).find(e => e.id === empId);
     window.sessionStorage.removeItem("arcd_editar_funcionario");
     if (!employee) return;
-    setShowInactive(true);
+    setStatusFilter(employeeLifecycleStatus(employee, today()));
     setForm({
       ...employee,
       dailyRate: String(employee.dailyRate || ""),
@@ -8077,13 +8095,13 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
     .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
 
   const saveEmp = async () => {
-    if (!form.name.trim() || !form.dailyRate || !form.startDate) {
-      showToast("Nome, admissão e diária são obrigatórios.", "error");
-      return;
-    }
-
-    if (form.active === false && !form.endDate) {
-      showToast("Informe a data de término para inativar/demitir.", "error");
+    const errors={};
+    if (!form.name.trim()) errors.name="Informe o nome completo.";
+    if (!(Number(form.dailyRate)>0)) errors.dailyRate="Informe uma diária positiva.";
+    if (!form.startDate) errors.startDate="Informe a admissão.";
+    setFormErrors(errors);
+    if (Object.keys(errors).length) {
+      window.setTimeout(()=>nameInputRef.current?.focus(),0);
       return;
     }
 
@@ -8097,12 +8115,13 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
       workdayHours: Math.max(1, Number(form.workdayHours || 8)),
       workStart: form.workStart || "07:00",
       overtimeAdditionalPercent: Math.max(0, Number(form.overtimeAdditionalPercent ?? 50)),
-      active: form.active !== false,
+      active: before?.active !== false,
       workArea:form.workArea==="administrativo"?"administrativo":"campo",
       obra:form.workArea==="administrativo"?"":form.obra,
-      endDate: form.active === false ? form.endDate : "",
-      terminationReason: form.active === false ? (form.terminationReason || "Inativado") : "",
-      lastObra: form.active === false ? (before?.obra || form.obra) : (form.lastObra || ""),
+      status:before?.status || "ativo",
+      endDate: before?.endDate || "",
+      terminationReason: before?.terminationReason || "",
+      lastObra: form.lastObra || before?.lastObra || "",
     };
 
     const result=await dispatchCommand(atual=>{
@@ -8118,7 +8137,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
       showToast(result?.reason||"O funcionário não foi confirmado pelo servidor.","error");
       return;
     }
-    setModal(false);
+    setModal(false); setFormErrors({});
     showToast(form.id ? "Funcionário atualizado." : "Funcionário cadastrado.");
   };
 
@@ -8133,6 +8152,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
     const emp=dismissalModal;
     if(!emp)return;
     if (!dismissalForm.endDate) { showToast("Informe a data do desligamento.", "error"); return; }
+    if(dismissalForm.endDate<emp.startDate){showToast("O último dia não pode anteceder a admissão.","error");return;}
+    if(dismissalForm.reason==="outro"&&!String(dismissalForm.notes||"").trim()){
+      showToast("Descreva o motivo quando selecionar Outro motivo.","error");return;
+    }
     const reasonLabels={
       demissao_sem_justa_causa:"Demissão sem justa causa",
       pedido_demissao:"Pedido de demissão",
@@ -8142,6 +8165,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
     };
     const terminationReason=reasonLabels[dismissalForm.reason]||"Desligamento";
 
+    const scheduled=dismissalForm.endDate>today();
+    setPendingAction("dismissal");
     const result=await dispatchCommand(atual=>{
       const vigente=(atual.employees||[]).find(item=>item.id===emp.id);
       return {
@@ -8149,63 +8174,82 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
         idempotencyKey:`funcionario-demitir-${emp.id}-${uid()}`,
         expectedVersion:Number(emp.version||0),
         payload:{employee:{
-          ...vigente,active:false,endDate:dismissalForm.endDate,
+          ...vigente,active:scheduled,status:scheduled?"desligamento_agendado":"desligado",endDate:dismissalForm.endDate,
           terminationReason,terminationType:dismissalForm.reason,
           terminationNotes:String(dismissalForm.notes||"").trim(),
           lastObra:vigente?.obra||vigente?.lastObra||"",
+          terminationRegisteredBy:currentUser?.nome||"Usuário autenticado",
+          terminationRegisteredAt:new Date().toISOString(),
         }},
       };
     });
+    setPendingAction("");
     if(!result?.ok){showToast(result?.reason||"O desligamento não foi confirmado pelo servidor.","error");return;}
     setDismissalModal(null);
     setExpandedId(null);
-    showToast(`${emp.name} desligado em ${fmtDateFull(dismissalForm.endDate)}. Histórico preservado.`);
+    setStatusFilter(scheduled?"desligamento_agendado":"desligado");
+    showToast(scheduled?`Desligamento de ${emp.name} agendado. Último dia: ${fmtDateFull(dismissalForm.endDate)}.`:`${emp.name} desligado. Último dia trabalhado: ${fmtDateFull(dismissalForm.endDate)}.`);
   };
 
   // Mesmo cadastros indevidos podem já ter sido referenciados por ponto,
   // pagamentos ou conciliação. Arquivar substitui a exclusão física.
-  const deleteEmp = async id => {
-    const emp = data.employees.find(e => e.id === id);
+  const deleteEmp = async () => {
+    const emp = archiveModal;
     if (!emp) return;
-    const motivo=window.prompt(`Motivo do arquivamento de ${emp.name}:`);
-    if(!String(motivo||"").trim())return;
+    if(!archiveReason.trim()){showToast("Informe o motivo do arquivamento.","error");return;}
+    setPendingAction("archive");
     const result=await dispatchCommand(atual=>{
-      const vigente=(atual.employees||[]).find(item=>item.id===id);
+      const vigente=(atual.employees||[]).find(item=>item.id===emp.id);
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
-        idempotencyKey:`funcionario-arquivar-${id}-${uid()}`,
+        idempotencyKey:`funcionario-arquivar-${emp.id}-${uid()}`,
         expectedVersion:Number(emp.version||0),
         payload:{employee:{
           ...vigente,status:"arquivado",active:false,
           endDate:vigente?.endDate||today(),
-          terminationReason:String(motivo).trim(),
-          motivoCancelamento:String(motivo).trim(),
+          terminationReason:archiveReason.trim(),
+          motivoCancelamento:archiveReason.trim(),
           lastObra:vigente?.obra||vigente?.lastObra||"",
         }},
       };
     });
+    setPendingAction("");
     if(!result?.ok){showToast(result?.reason||"O cadastro não foi arquivado.","error");return;}
+    setArchiveModal(null); setArchiveReason(""); setStatusFilter("arquivado");
     setExpandedId(null);
     showToast(`${emp.name} arquivado com histórico preservado.`);
   };
 
   // Desvincula da obra sem mexer em mais nada: o funcionario fica "Sem obra"
   // e some das listas por obra, mas continua no cadastro e no historico.
-  const desvincularObra = async id => {
-    const emp = data.employees.find(e => e.id === id);
+  const desvincularObra = async () => {
+    const emp = unlinkModal;
     if (!emp || !emp.obra) return;
-    if (!window.confirm(`Desvincular ${emp.name} da obra ${obraName(emp.obra)}? O cadastro e o histórico são preservados.`)) return;
+    setPendingAction("unlink");
     const result=await dispatchCommand(atual=>{
-      const vigente=(atual.employees||[]).find(item=>item.id===id);
+      const vigente=(atual.employees||[]).find(item=>item.id===emp.id);
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
-        idempotencyKey:`funcionario-desvincular-${id}-${uid()}`,
+        idempotencyKey:`funcionario-desvincular-${emp.id}-${uid()}`,
         expectedVersion:Number(emp.version||0),
         payload:{employee:{...vigente,obra:"",lastObra:vigente?.obra||vigente?.lastObra||""}},
       };
     });
+    setPendingAction("");
     if(!result?.ok){showToast(result?.reason||"O funcionário não foi desvinculado.","error");return;}
+    setUnlinkModal(null);
     showToast(`${emp.name} desvinculado da obra.`);
+  };
+
+  const reactivateEmp=async emp=>{
+    setPendingAction(`reactivate-${emp.id}`);
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.employees||[]).find(item=>item.id===emp.id);
+      return {type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,idempotencyKey:`funcionario-reativar-${emp.id}-${uid()}`,expectedVersion:Number(emp.version||0),payload:{employee:{...vigente,active:true,status:"ativo",endDate:"",terminationReason:"",terminationType:"",terminationNotes:""}}};
+    });
+    setPendingAction("");
+    if(!result?.ok){showToast(result?.reason||"A reativação não foi confirmada.","error");return;}
+    setStatusFilter("ativo"); setExpandedId(emp.id); showToast(`${emp.name} reativado com histórico preservado.`);
   };
 
   const saveAdv = async () => {
@@ -8255,17 +8299,22 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
     showToast("Adiantamento cancelado e preservado para auditoria.");
   };
 
+  const lifecycleOf=e=>employeeLifecycleStatus(e,today());
   const list = data.employees
-    .filter(e => showInactive || e.active !== false)
+    .filter(e => statusFilter === "todos" || lifecycleOf(e) === statusFilter)
     .filter(e => filterObra === "all"
       || (filterObra==="__administrativo__"&&e.workArea==="administrativo")
+      || (filterObra==="__sem_obra__"&&!e.obra&&e.workArea!=="administrativo")
       || e.obra === filterObra || e.lastObra === filterObra)
     .filter(e => [e.name, e.role, e.cpf, e.phone].join(" ").toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
-  const ativos = data.employees.filter(e=>e.active!==false);
+  const ativos = data.employees.filter(e=>lifecycleOf(e)==="ativo");
   const semObra = ativos.filter(e=>!e.obra).length;
   const administrativos = ativos.filter(e=>e.workArea==="administrativo").length;
-  const obrasComEquipe = new Set(ativos.map(e=>e.obra).filter(Boolean)).size;
+  const lifecycleCounts=(data.employees||[]).reduce((acc,e)=>({...acc,[lifecycleOf(e)]:(acc[lifecycleOf(e)]||0)+1}),{});
+  const clearFilters=()=>{setSearch("");setFilterObra(obraIdFixo||"all");setStatusFilter("ativo");};
+  const lifecycleLabel={ativo:"Ativo",desligamento_agendado:"Desligamento agendado",desligado:"Desligado",arquivado:"Arquivado"};
+  const lifecycleColor={ativo:C.green,desligamento_agendado:C.orange,desligado:C.muted,arquivado:C.red};
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth:1280, margin:"0 auto" }}>
@@ -8273,61 +8322,66 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
         eyebrow="Recursos Humanos"
         title="Equipes"
         description="Pessoas, lotação e dados trabalhistas em uma visão única."
-        stats={[
-          {label:"Ativos",value:ativos.length,color:C.green},
-          {label:"Obras com equipe",value:obrasComEquipe,color:C.blue},
-          {label:"Administrativo",value:administrativos,color:C.purple},
-          {label:"Sem lotação",value:semObra-administrativos,color:semObra-administrativos?C.orange:C.green},
-        ]}
-        actions={<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setModal(true); }}><Ic n="plus" /> Funcionário</Btn>}
+        actions={<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setFormErrors({}); setModal(true); }}><Ic n="plus" /> Cadastrar funcionário</Btn>}
       />
 
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:9,display:"grid",gridTemplateColumns:formGrid(3),gap:7,alignItems:"end"}}>
-        <Inp value={search} onChange={setSearch} placeholder="Buscar nome, função, CPF ou telefone" />
-        {obraIdFixo?<Inp value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todos os funcionários"},{v:"__administrativo__",l:"Administrativo"},...data.obras.map(o=>({v:o.id,l:o.name}))]} />}
-        <Btn v={showInactive ? "warning" : "ghost"} onClick={() => setShowInactive(v => !v)}>{showInactive ? "Ocultar inativos" : "Ver inativos"}</Btn>
+      <div className="team-summary" aria-label="Resumo e filtros por situação">
+        {[
+          ["ativo","Ativos",lifecycleCounts.ativo||0],
+          ["desligamento_agendado","Agendados",lifecycleCounts.desligamento_agendado||0],
+          ["desligado","Desligados",lifecycleCounts.desligado||0],
+          ["arquivado","Arquivados",lifecycleCounts.arquivado||0],
+        ].map(([value,label,count])=><button key={value} type="button" className={`team-summary__item${statusFilter===value?" is-active":""}`} onClick={()=>setStatusFilter(value)} aria-pressed={statusFilter===value}><span>{label}</span><strong>{count}</strong></button>)}
+        <button type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra-administrativos}</strong></button>
       </div>
 
-      {list.length === 0 && <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 20, textAlign: "center", color: C.muted }}>Nenhum funcionário encontrado.</div>}
+      <div className="team-toolbar">
+        <Inp label="Pesquisar na equipe" value={search} onChange={setSearch} placeholder="Nome, função, CPF ou telefone" />
+        {obraIdFixo?<Inp label="Lotação" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel label="Filtrar por lotação" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as lotações"},{v:"__administrativo__",l:"Administrativo"},{v:"__sem_obra__",l:"Sem lotação"},...data.obras.map(o=>({v:o.id,l:o.name}))]} />}
+        <Sel label="Filtrar por situação" value={statusFilter} onChange={setStatusFilter} options={[{v:"ativo",l:"Ativos"},{v:"desligamento_agendado",l:"Desligamento agendado"},{v:"desligado",l:"Desligados"},{v:"arquivado",l:"Arquivados"},{v:"todos",l:"Todas as situações"}]}/>
+      </div>
+
+      <div className="team-list-head" aria-hidden="true"><span>Funcionário</span><span>Função</span><span>Lotação</span><span>Pendências</span><span>Situação</span><span>Ações</span></div>
+      {list.length === 0 && <div className="team-empty"><strong>{(data.employees||[]).length?"Nenhum resultado com estes filtros.":"Nenhum funcionário cadastrado."}</strong><p>{(data.employees||[]).length?"Limpe os filtros ou selecione outra situação.":"Cadastre o primeiro funcionário para iniciar a gestão da equipe."}</p>{(data.employees||[]).length?<Btn v="ghost" onClick={clearFilters}>Limpar filtros</Btn>:<Btn onClick={()=>{setForm({...emptyEmp,obra:obraIdFixo||data.obras[0]?.id||""});setModal(true);}}>Cadastrar funcionário</Btn>}</div>}
 
       {list.map(e => {
         const advs = empAdvances(e.id);
         const totalAdv = advs.filter(advanceActive).reduce((s, a) => s + Number(a.amount || 0), 0);
         const exp = expandedId === e.id;
+        const lifecycle=lifecycleOf(e);
+        const detailId=`employee-detail-${e.id}`;
         return (
-          <div key={e.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius:11, overflow:"hidden", boxShadow:"0 1px 2px rgba(0,0,0,.025)" }}>
-            <div style={{ padding:"10px 12px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <button onClick={() => setExpandedId(exp ? null : e.id)} style={{ flex: 1, background: "transparent", border: 0, color: C.text, textAlign: "left", cursor: "pointer" }}>
-                  <div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:32,height:32,borderRadius:9,background:e.active===false?`${C.muted}15`:`${C.blue}12`,color:e.active===false?C.muted:C.blue,display:"grid",placeItems:"center",fontSize:10,fontWeight:900,flexShrink:0}}>{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div><p style={{ fontWeight: 800, fontSize: 13.5 }}>{e.name}</p><p style={{ color: C.muted, fontSize: 10.5,marginTop:1 }}>{e.role||"Função não informada"} · {e.workArea==="administrativo"?"Administrativo":(e.obra?obraName(e.obra):"Campo · sem obra")}</p></div></div>
-                  <div style={{ marginTop: 6,marginLeft:41 }}>
-                    {e.active === false && <Badge color={C.muted}>Inativo</Badge>}
-                    <Badge color={C.green}>{fmt(e.dailyRate)}/dia</Badge>
-                    {totalAdv > 0 && <Badge color={C.red}>Adiant. {fmt(totalAdv)}</Badge>}
-                  </div>
-                </button>
-                <div style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
-                  <Btn v="ghost" size="sm" title="Ver ficha do funcionário" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file" /></Btn>
-                  <Btn v="ghost" size="sm" onClick={() => { setForm({ ...e, dailyRate: String(e.dailyRate || ""), vtDaily: String(e.vtDaily || ""), vrDaily: String(e.vrDaily || ""), workdayHours:String(e.workdayHours||8), workStart:String(e.workStart||"07:00"), overtimeAdditionalPercent:String(e.overtimeAdditionalPercent??50) }); setModal(true); }}><Ic n="edit" /></Btn>
-                  {e.active !== false && <Btn v="danger" size="sm" title="Demitir funcionário" onClick={() => archiveEmp(e.id)}><Ic n="x" /> Demitir</Btn>}
-                </div>
-              </div>
+          <article key={e.id} className={`team-row team-row--${lifecycle}`}>
+            <div className="team-row__main">
+              <button type="button" className="team-row__employee" onClick={() => setExpandedId(exp ? null : e.id)} aria-expanded={exp} aria-controls={detailId}>
+                <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{fmt(e.dailyRate)}/dia</small></span><Ic n={exp?"chevronUp":"chevronDown"} s={13}/>
+              </button>
+              <span className="team-row__cell" data-label="Função">{e.role||"Não informada"}</span>
+              <span className="team-row__cell" data-label="Lotação">{e.workArea==="administrativo"?"Administrativo":(e.obra?obraName(e.obra):"Sem lotação")}</span>
+              <span className="team-row__cell" data-label="Pendências">{totalAdv>0?<Badge color={C.red}>Adiant. {fmt(totalAdv)}</Badge>:<span className="team-row__none">Nenhuma</span>}</span>
+              <span className="team-row__cell" data-label="Situação"><Badge color={lifecycleColor[lifecycle]}>{lifecycleLabel[lifecycle]}</Badge></span>
+              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file"/> Ficha</Btn><Btn v="ghost" size="sm" onClick={() => { setForm({ ...e, dailyRate: String(e.dailyRate || ""), vtDaily: String(e.vtDaily || ""), vrDaily: String(e.vrDaily || ""), workdayHours:String(e.workdayHours||8), workStart:String(e.workStart||"07:00"), overtimeAdditionalPercent:String(e.overtimeAdditionalPercent??50) }); setFormErrors({}); setModal(true); }}><Ic n="edit"/> Editar</Btn></div>
             </div>
 
             {exp && (
-              <div style={{ borderTop: `1px solid ${C.border}`, padding: 14, background: C.surface }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div id={detailId} className="team-row__detail">
+                <div className="team-detail-grid">
                   <p style={{ color: C.subtle, fontSize: 12 }}>CPF: {e.cpf || "-"}</p>
                   <p style={{ color: C.subtle, fontSize: 12 }}>Telefone: {e.phone || "-"}</p>
                   <p style={{ color: C.subtle, fontSize: 12 }}>PIX: {e.pixKey || "-"}</p>
                   <p style={{ color: C.subtle, fontSize: 12 }}>Admissão: {fmtDateFull(e.startDate)}</p>
-                  {e.endDate && <p style={{ color: C.red, fontSize: 12 }}>Término: {fmtDateFull(e.endDate)}</p>}
+                  {e.endDate && <p style={{ color: lifecycle==="desligamento_agendado"?C.orange:C.red, fontSize: 12 }}>Último dia trabalhado: {fmtDateFull(e.endDate)}</p>}
+                  {e.terminationReason&&<p style={{color:C.subtle,fontSize:12}}>Tipo: {e.terminationReason}</p>}
+                  {e.terminationNotes&&<p style={{color:C.subtle,fontSize:12}}>Observações: {e.terminationNotes}</p>}
+                  {e.terminationRegisteredBy&&<p style={{color:C.subtle,fontSize:12}}>Registrado por: {e.terminationRegisteredBy}</p>}
                 </div>
 
-                <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                  {e.obra && <Btn v="ghost" size="sm" onClick={() => desvincularObra(e.id)}><Ic n="x" /> Desvincular da obra</Btn>}
-                  {e.active !== false && <Btn v="danger" size="sm" onClick={() => archiveEmp(e.id)}><Ic n="x" /> Demitir funcionário</Btn>}
-                  <Btn v="danger" size="sm" onClick={() => deleteEmp(e.id)}><Ic n="trash" /> Arquivar cadastro</Btn>
+                <div className="team-detail-actions">
+                  {e.obra && lifecycle==="ativo" && <Btn v="ghost" size="sm" onClick={() => setUnlinkModal(e)}><Ic n="x" /> Desvincular da obra</Btn>}
+                  {lifecycle==="ativo" && <Btn v="danger" size="sm" onClick={() => archiveEmp(e.id)}><Ic n="x" /> Registrar desligamento</Btn>}
+                  {lifecycle==="desligamento_agendado"&&<Btn v="warning" size="sm" onClick={()=>{setDismissalModal(e);setDismissalForm({endDate:e.endDate,reason:e.terminationType||"outro",notes:e.terminationNotes||""});}}><Ic n="edit"/> Corrigir agendamento</Btn>}
+                  {["desligado","desligamento_agendado"].includes(lifecycle)&&<Btn v="success" size="sm" loading={pendingAction===`reactivate-${e.id}`} onClick={()=>reactivateEmp(e)}><Ic n="refresh"/> Reativar</Btn>}
+                  {lifecycle!=="arquivado"&&<Btn v="danger" size="sm" onClick={() => {setArchiveModal(e);setArchiveReason("");}}><Ic n="trash" /> Arquivar cadastro</Btn>}
                 </div>
 
                 <Divider />
@@ -8345,28 +8399,27 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <span style={{ color: C.red, fontWeight: 900 }}>{fmt(a.amount)}</span>
-                      {advanceActive(a)&&<Btn v="danger" size="sm" onClick={() => removeAdv(a)}><Ic n="trash" /></Btn>}
+                      {advanceActive(a)&&<Btn v="danger" size="sm" ariaLabel={`Cancelar adiantamento ${a.description}`} title={`Cancelar adiantamento ${a.description}`} onClick={() => removeAdv(a)}><Ic n="trash" /></Btn>}
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </article>
         );
       })}
 
       {modal && (
         <Modal title={form.id ? "Editar funcionário" : "Novo funcionário"} onClose={() => setModal(false)} wide>
           <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
-            <div style={{ gridColumn: "1/-1" }}><Inp label="Nome completo *" value={form.name} onChange={F("name")} /></div>
+            <div style={{ gridColumn: "1/-1" }}><Inp label="Nome completo *" value={form.name} onChange={F("name")} inputRef={nameInputRef} error={formErrors.name}/></div>
             <Inp label="Função" value={form.role} onChange={F("role")} />
             <Sel label="Área de atuação" value={form.workArea||"campo"} onChange={value=>setForm(current=>({...current,workArea:value,...(value==="administrativo"?{obra:""}:{})}))} options={[{v:"campo",l:"Campo / obra"},{v:"administrativo",l:"Administrativo"}]}/>
-            <Inp label="Admissão *" type="date" value={form.startDate} onChange={F("startDate")} />
-            <Inp label="Diária *" type="number" value={form.dailyRate} onChange={F("dailyRate")} />
+            <Inp label="Admissão *" type="date" value={form.startDate} onChange={F("startDate")} error={formErrors.startDate}/>
+            <Inp label="Diária *" type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
             {form.workArea!=="administrativo"
               ?<Sel label="Obra" value={form.obra} onChange={F("obra")} options={[{ v: "", l: "Sem obra (desvinculado)" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
               :<Inp label="Lotação" value="Administrativo da empresa" onChange={()=>{}} disabled/>}
-            <Sel label="Status" value={String(form.active !== false)} onChange={v => F("active")(v === "true")} options={[{ v: "true", l: "Ativo" }, { v: "false", l: "Inativo / Demitido" }]} />
             <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
             <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
             <Inp label="Jornada padrão (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
@@ -8378,12 +8431,6 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
             <Inp label="Titular PIX" value={form.pixHolder} onChange={F("pixHolder")} />
             <div style={{ gridColumn: "1/-1" }}><Inp label="Chave PIX" value={form.pixKey} onChange={F("pixKey")} /></div>
 
-            {form.active === false && (
-              <>
-                <Inp label="Data de término *" type="date" value={form.endDate} onChange={F("endDate")} />
-                <Inp label="Motivo" value={form.terminationReason} onChange={F("terminationReason")} />
-              </>
-            )}
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
@@ -8395,13 +8442,13 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
       {dismissalModal && (()=>{
         const openAdvances=empAdvances(dismissalModal.id).filter(advanceActive);
         const openAdvanceTotal=openAdvances.reduce((sum,item)=>sum+Number(item.amount||0),0);
-        return <Modal title="Demitir funcionário" onClose={()=>setDismissalModal(null)}>
+        return <Modal title={dismissalModal.status==="desligamento_agendado"?"Corrigir desligamento":"Registrar desligamento"} onClose={()=>setDismissalModal(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{border:`1px solid ${C.red}55`,background:`${C.red}0A`,padding:"11px 12px",borderRadius:8}}>
               <p style={{fontSize:14,fontWeight:850,color:C.text}}>{dismissalModal.name}</p>
               <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administrativo":obraName(dismissalModal.obra)}</p>
             </div>
-            <Inp label="Data do desligamento *" type="date" value={dismissalForm.endDate} onChange={value=>setDismissalForm(form=>({...form,endDate:value}))}/>
+            <Inp label="Último dia trabalhado *" type="date" min={dismissalModal.startDate} value={dismissalForm.endDate} onChange={value=>setDismissalForm(form=>({...form,endDate:value}))}/>
             <Sel label="Tipo de desligamento *" value={dismissalForm.reason} onChange={value=>setDismissalForm(form=>({...form,reason:value}))} options={[
               {v:"demissao_sem_justa_causa",l:"Demissão sem justa causa"},
               {v:"pedido_demissao",l:"Pedido de demissão"},
@@ -8409,16 +8456,20 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand }) {
               {v:"termino_contrato",l:"Término de contrato"},
               {v:"outro",l:"Outro motivo"},
             ]}/>
-            <Inp label="Observações" value={dismissalForm.notes} onChange={value=>setDismissalForm(form=>({...form,notes:value}))} multiline placeholder="Aviso-prévio, documentos pendentes ou referência interna"/>
+            <Inp label={dismissalForm.reason==="outro"?"Observações *":"Observações"} value={dismissalForm.notes} onChange={value=>setDismissalForm(form=>({...form,notes:value}))} multiline placeholder="Aviso-prévio, documentos pendentes ou referência interna"/>
             {openAdvanceTotal>0&&<div style={{border:`1px solid ${C.orange}66`,background:`${C.orange}0A`,padding:"9px 10px",borderRadius:7}}>
               <p style={{fontSize:10.5,fontWeight:800,color:C.orange}}>Atenção: existem {openAdvances.length} adiantamento(s), totalizando {fmt(openAdvanceTotal)}.</p>
-              <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Os lançamentos serão preservados para conferência no acerto da rescisão.</p>
+              <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Os lançamentos serão preservados para conferência no acerto da rescisão.</p>{onTab&&<Btn v="ghost" size="sm" onClick={()=>{setDismissalModal(null);onTab("resc");}}>Ir para Rescisões</Btn>}
             </div>}
-            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>Após confirmar, o funcionário deixa a folha e o ponto a partir da data informada. Cadastro, frequência, pagamentos, adiantamentos e obra anterior permanecem no histórico.</p>
-            <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setDismissalModal(null)}>Cancelar</Btn><Btn v="danger" full onClick={confirmDismissal}><Ic n="x"/> Confirmar demissão</Btn></div>
+            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>A data informada é inclusiva. O funcionário permanece na folha e no ponto até o último dia trabalhado e sai a partir do dia seguinte. Datas futuras ficam agendadas. Todo o histórico é preservado.</p>
+            <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setDismissalModal(null)}>Cancelar</Btn><Btn v="danger" full loading={pendingAction==="dismissal"} onClick={confirmDismissal}><Ic n="check"/> Confirmar desligamento</Btn></div>
           </div>
         </Modal>;
       })()}
+
+      {unlinkModal&&<Modal title="Desvincular da obra" onClose={()=>setUnlinkModal(null)}><div className="team-confirm"><p><strong>{unlinkModal.name}</strong> será removido da obra {obraName(unlinkModal.obra)}, mas continuará ativo e disponível para nova lotação.</p><div><Btn v="ghost" full onClick={()=>setUnlinkModal(null)}>Cancelar</Btn><Btn v="warning" full loading={pendingAction==="unlink"} onClick={desvincularObra}>Confirmar desvinculação</Btn></div></div></Modal>}
+
+      {archiveModal&&<Modal title="Arquivar cadastro" onClose={()=>setArchiveModal(null)}><div className="team-confirm"><p>Arquive <strong>{archiveModal.name}</strong> somente em caso de cadastro duplicado ou indevido. Frequência, pagamentos e auditoria serão preservados.</p><Inp label="Motivo do arquivamento *" value={archiveReason} onChange={setArchiveReason} multiline placeholder="Explique por que este cadastro não deve permanecer nas listas"/><div><Btn v="ghost" full onClick={()=>setArchiveModal(null)}>Cancelar</Btn><Btn v="danger" full loading={pendingAction==="archive"} onClick={deleteEmp}>Arquivar cadastro</Btn></div></div></Modal>}
 
       {advModal && (
         <Modal title="Solicitar ou registrar adiantamento" onClose={() => setAdvModal(null)}>
@@ -8657,6 +8708,8 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
       return;
     }
 
+    if(endDate<employee.startDate){showToast("O último dia não pode anteceder a admissão.","error");return;}
+    const scheduled=endDate>today();
     const saved=await dispatchCommand(atual=>{
       const vigente=(atual.employees||[]).find(item=>item.id===employee.id);
       return {
@@ -8665,7 +8718,8 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
         expectedVersion:Number(employee.version||0),
         payload:{employee:{
           ...vigente,
-          active:false,
+          active:scheduled,
+          status:scheduled?"desligamento_agendado":"desligado",
           endDate,
           terminationReason:reason||"Demitido",
           lastObra:vigente?.obra||vigente?.lastObra||"",
@@ -8677,12 +8731,12 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
       action:"attendance-daily-check",operationId:pointOperationId(),date:today(),
     });
     if(!checked?.ok){showToast(checked?.reason||"A demissão foi salva, mas a conferência diária não foi confirmada.","error");return;}
-    showToast(`${employee.name} demitido/inativado.`);
+    showToast(scheduled?`Desligamento agendado. Último dia trabalhado: ${fmtDateFull(endDate)}.`:`${employee.name} desligado. Último dia trabalhado: ${fmtDateFull(endDate)}.`);
     onClose();
   };
 
   return (
-    <Modal title={mode === "transfer" ? "Transferir trabalhador" : "Demitir trabalhador"} onClose={onClose}>
+    <Modal title={mode === "transfer" ? "Transferir trabalhador" : "Registrar desligamento"} onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${mode === "transfer" ? C.yellow : C.red}`, padding: 12 }}>
           <p style={{ fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, fontSize: 18 }}>{employee.name}</p>
@@ -8690,7 +8744,7 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
         </div>
         <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 8 }}>
           <Btn v={mode === "transfer" ? "warning" : "ghost"} onClick={() => setMode("transfer")} full>Transferir</Btn>
-          <Btn v={mode === "dismiss" ? "danger" : "ghost"} onClick={() => setMode("dismiss")} full>Demitir</Btn>
+          <Btn v={mode === "dismiss" ? "danger" : "ghost"} onClick={() => setMode("dismiss")} full>Desligar</Btn>
         </div>
         {mode === "transfer" ? (
           <Sel label="Nova obra *" value={newObra} onChange={setNewObra} options={[{ v: "", l: "Selecione" }, ...activeObras.filter(o => o.id !== employee.obra).map(o => ({ v: o.id, l: o.name }))]} />
@@ -27525,7 +27579,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="est"&&<Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
         {abaConteudo==="dre"&&<DRE data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchCommand}/>}
-        {abaConteudo==="equipe"&&<Equipe data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
+        {abaConteudo==="equipe"&&<Equipe data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} dispatchCommand={dispatchCommand} currentUser={currentUser} onTab={onTab}/>}
         {abaConteudo==="terc"&&<Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="equip"&&<Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/>}
         {abaConteudo==="licenca"&&<Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
@@ -39759,7 +39813,7 @@ export default function App() {
           {tab === "conferencia" && <Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "equipe" && <Equipe      data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={setTab} />}
           {tab === "terc"   && <Terceiros   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
