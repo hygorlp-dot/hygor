@@ -1,6 +1,9 @@
+import { validateProjectForm } from "./project-validation.js";
+
 export const PROJECT_COMMAND = Object.freeze({
   PROJECT_SAVED:"OBRA_SALVA",
   PROJECT_DELETED:"OBRA_EXCLUIDA",
+  PROJECT_PHASES_SAVED:"FASES_OBRA_SALVAS",
 });
 
 export const PROJECT_COMMAND_TYPES = new Set(Object.values(PROJECT_COMMAND));
@@ -70,6 +73,19 @@ export const applyProjectCommand = (
   const actorName = String(command.actorName || "").trim() || "Administrador";
   if (!actorId) return fail("Sessão do administrador indisponível.");
 
+  if(command.type===PROJECT_COMMAND.PROJECT_PHASES_SAVED){
+    const phases=Array.isArray(command.payload?.phases)?command.payload.phases:[];
+    const currentVersion=Number(data?.fasesVersion||0);
+    if(currentVersion!==Number(command.expectedVersion||0))return fail("As fases foram alteradas por outra pessoa. Atualize a tela.");
+    if(!phases.length)return fail("O fluxo precisa de ao menos uma fase.");
+    if(phases.some(item=>!String(item?.id||"").trim()||!String(item?.nome||"").trim()))return fail("Todas as fases precisam de identificação e nome.");
+    const ids=new Set(phases.map(item=>String(item.id)));
+    if(ids.size!==phases.length)return fail("Existem fases duplicadas no fluxo.");
+    const normalized=phases.map((item,index)=>({...item,nome:String(item.nome).trim(),ordem:index,updatedAt:now,updatedById:actorId,updatedBy:actorName}));
+    const fallback=normalized[0].id;
+    return {ok:true,entityId:"project-phases",data:{...data,fases:normalized,fasesVersion:currentVersion+1,obras:(data.obras||[]).map(project=>ids.has(String(project.faseId||""))?project:{...project,faseId:fallback}),projectPhaseAudit:[...(data.projectPhaseAudit||[]),{at:now,byId:actorId,by:actorName,phases:normalized.map(item=>({id:item.id,nome:item.nome,ordem:item.ordem}))}].slice(-500)}};
+  }
+
   if (command.type === PROJECT_COMMAND.PROJECT_DELETED) {
     const id = String(command.payload?.projectId || "").trim();
     const current = projectById(data, id);
@@ -122,6 +138,10 @@ export const applyProjectCommand = (
       && String(raw.contractEnd) < String(raw.contractStart)) {
     return fail("O término do contrato não pode anteceder o início.");
   }
+  const validationErrors=validateProjectForm(raw,{requireComplete:false});
+  if(Object.keys(validationErrors).length){
+    return fail(Object.values(validationErrors)[0]);
+  }
   const project = {
     ...(current || {}),
     ...patch,
@@ -142,6 +162,7 @@ export const applyProjectCommand = (
     updatedAt:now,
     updatedById:actorId,
     updatedBy:actorName,
+    operationalHistory:[...(current?.operationalHistory||[]),...(current&&String(current.faseId||"")!==String(patch.faseId||current.faseId||"")?[{type:"phase_changed",from:current.faseId||"",to:patch.faseId||"",at:now,byId:actorId,by:actorName}]:[])].slice(-500),
   };
   return {
     ok:true,

@@ -122,6 +122,7 @@ import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { reconcileOptimisticSnapshot } from "./domains/sync/optimistic-merge";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
+import { projectAlertAction, validateProjectForm } from "./domains/obras/project-validation";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
@@ -3293,7 +3294,7 @@ function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disabled = f
   );
 }
 
-function Sel({ label, value, onChange, options = [], disabled = false }) {
+function Sel({ label, value, onChange, options = [], disabled = false, error = "" }) {
   return (
     <label className="arcd-field arcd-legacy-field" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {label && <span className="arcd-field__label" style={{
@@ -3306,6 +3307,7 @@ function Sel({ label, value, onChange, options = [], disabled = false }) {
         value={value ?? ""}
         onChange={e => onChange(e.target.value)}
         disabled={disabled}
+        aria-invalid={error?"true":undefined}
         style={{
           width: "100%",
           background: disabled ? C.surface : C.bg,
@@ -3320,6 +3322,7 @@ function Sel({ label, value, onChange, options = [], disabled = false }) {
       >
         {options.map(o => <option key={String(o.v)} value={o.v} disabled={o.disabled}>{o.l}</option>)}
       </select>
+      {error&&<small role="alert" style={{color:C.red,fontSize:10}}>{error}</small>}
     </label>
   );
 }
@@ -7177,6 +7180,11 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const [search, setSearch] = useState("");
   const [oneDriveStatus, setOneDriveStatus] = useState("checking");
   const [sincronizandoPastas,setSincronizandoPastas]=useState(false);
+  const [savingProject,setSavingProject]=useState(false);
+  const [projectErrors,setProjectErrors]=useState({});
+  const [reviewingProject,setReviewingProject]=useState(false);
+  const [undoMove,setUndoMove]=useState(null);
+  const [expandedAlerts,setExpandedAlerts]=useState(new Set());
   const syncPastasIniciado=useRef(false);
   const ehAdmin=currentUser?.role==="admin";
   const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
@@ -7281,16 +7289,30 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     [porFase]
   );
 
-  const moverObra = (obraId, faseId) => {
+  const moverObra = async (obraId, faseId) => {
     const obra = (data.obras || []).find(o => o.id === obraId);
     if (!obra || obra.faseId === faseId) return;
     const fase = fases.find(f => f.id === faseId);
-    update({
-      ...data,
-      obras: data.obras.map(o => o.id === obraId ? { ...o, faseId } : o),
-    });
+    const anterior=obra.faseId||"";
+    const result=await dispatchCommand(atual=>{const vigente=(atual.obras||[]).find(o=>o.id===obraId);return {type:OPERATIONAL_COMMAND.PROJECT_SAVED,idempotencyKey:`obra-mover-${obraId}-${uid()}`,expectedVersion:Number(vigente?.version||0),payload:{project:{...vigente,faseId}}};});
+    if(!result?.ok){showToast(result?.reason||"Não foi possível mover a obra.","error");return;}
+    setUndoMove({obraId,obraName:obra.name,from:anterior,to:faseId});
     setMenuCard(null);
     showToast(`"${obra.name}" movida para ${fase?.nome || "-"}.`);
+  };
+
+  const desfazerMovimento=async()=>{
+    if(!undoMove)return;
+    const movimento=undoMove;setUndoMove(null);
+    const result=await dispatchCommand(atual=>{const vigente=(atual.obras||[]).find(o=>o.id===movimento.obraId);return {type:OPERATIONAL_COMMAND.PROJECT_SAVED,idempotencyKey:`obra-desfazer-${movimento.obraId}-${uid()}`,expectedVersion:Number(vigente?.version||0),payload:{project:{...vigente,faseId:movimento.from}}};});
+    if(!result?.ok){showToast(result?.reason||"Não foi possível desfazer o movimento.","error");return;}
+    showToast(`Movimento de "${movimento.obraName}" desfeito.`);
+  };
+
+  const salvarFases=async next=>{
+    const result=await dispatchCommand({type:OPERATIONAL_COMMAND.PROJECT_PHASES_SAVED,idempotencyKey:`fases-obras-${uid()}`,expectedVersion:Number(data.fasesVersion||0),payload:{phases:next}});
+    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar as fases.","error");return false;}
+    return true;
   };
 
   //  Fases: criar / renomear / excluir / reordenar 
@@ -7305,23 +7327,21 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     setFaseCor(fase.cor);
   };
 
-  const salvarFase = () => {
+  const salvarFase = async () => {
     if (!faseNome.trim()) { showToast("Informe o nome da fase.", "error"); return; }
     const { modo, fase } = faseModal;
     if (modo === "editar") {
-      update({ ...data, fases: (data.fases || []).map(f =>
-        f.id === fase.id ? { ...f, nome: faseNome.trim(), cor: faseCor } : f) });
+      if(!await salvarFases(fases.map(f =>f.id === fase.id ? { ...f, nome: faseNome.trim(), cor: faseCor } : f)))return;
       showToast("Fase atualizada.");
     } else {
       const ordem = fases.length ? Math.max(...fases.map(f => f.ordem)) + 1 : 0;
-      update({ ...data, fases: [...(data.fases || []),
-        { id: uid(), nome: faseNome.trim(), cor: faseCor, ordem }] });
+      if(!await salvarFases([...fases,{ id: uid(), nome: faseNome.trim(), cor: faseCor, ordem }]))return;
       showToast("Fase criada.");
     }
     setFaseModal(null); setFaseNome("");
   };
 
-  const excluirFase = (fase) => {
+  const excluirFase = async (fase) => {
     if (fases.length <= 1) { showToast("O quadro precisa de ao menos uma fase.", "error"); return; }
     const dentro = (porFase[fase.id] || []).length;
     const destino = fases.find(f => f.id !== fase.id);
@@ -7329,26 +7349,23 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
       ? `Excluir "${fase.nome}"?\n\nAs ${dentro} obra(s) desta coluna vão para "${destino.nome}". Nenhuma obra é apagada.`
       : `Excluir a fase "${fase.nome}"?`;
     if (!window.confirm(aviso)) return;
-    update({
-      ...data,
-      fases: (data.fases || []).filter(f => f.id !== fase.id),
-      // Reaponta as obras órfãs em vez de deixá-las sem coluna
-      obras: data.obras.map(o => o.faseId === fase.id ? { ...o, faseId: destino.id } : o),
-    });
+    if(!await salvarFases(fases.filter(f => f.id !== fase.id)))return;
     showToast("Fase removida.");
   };
 
-  const moverFase = (faseId, dir) => {
+  const moverFase = async (faseId, dir) => {
     const i = fases.findIndex(f => f.id === faseId);
     const j = i + dir;
     if (i < 0 || j < 0 || j >= fases.length) return;
     const nova = [...fases];
     [nova[i], nova[j]] = [nova[j], nova[i]];
-    update({ ...data, fases: nova.map((f, k) => ({ ...f, ordem: k })) });
+    if(await salvarFases(nova.map((f, k) => ({ ...f, ordem: k }))))showToast("Ordem das fases atualizada.");
   };
 
 
-  const setField = key => value => setForm(f => ({ ...f, [key]: value }));
+  const setField = key => value => {setForm(f => ({ ...f, [key]: value }));setProjectErrors(errors=>{if(!errors[key])return errors;const next={...errors};delete next[key];return next;});setReviewingProject(false);};
+
+  const abrirEditorObra=(obra=empty)=>{setForm(obra.id?{...obra,areaM2:String(obra.areaM2||""),diaVenc1:String(obra.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(obra.diaVenc2||DIA_VENC_2_PADRAO)}:{...empty});setProjectErrors({});setReviewingProject(false);setModal(true);};
 
   const abrirOneDrive = (url) => {
     if(!ehAdmin){showToast("Apenas administradores podem acessar os diretórios do OneDrive.","error");return;}
@@ -7362,29 +7379,23 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   };
 
   const save = async () => {
-    if (!form.name.trim()) {
-      showToast("Nome da obra obrigatório.", "error");
-      return;
-    }
-
     const areaM2 = Number(form.areaM2 || 0);
-
-    if (areaM2 < 0) {
-      showToast("A metragem quadrada não pode ser negativa.", "error");
-      return;
-    }
+    const errors=validateProjectForm(form);
 
     if (ehAdmin && form.oneDriveUrl) {
       try {
         const link = new URL(form.oneDriveUrl.trim());
         if (link.protocol !== "https:") throw new Error("protocolo");
       } catch (_) {
-        showToast("Informe um link válido do OneDrive iniciado por https://", "error");
-        return;
+        errors.oneDriveUrl="Informe um link válido do OneDrive iniciado por https://";
       }
     }
-
-    let payload = {
+    if(Object.keys(errors).length){setProjectErrors(errors);setReviewingProject(false);showToast(`Revise ${Object.keys(errors).length} campo(s) destacado(s).`,"error");return;}
+    if(!reviewingProject){setReviewingProject(true);return;}
+    if(savingProject)return;
+    setSavingProject(true);
+    try{
+      let payload = {
       ...form,
       id: form.id || uid(),
       cliente: clientes.find(c=>c.id===form.clienteId)?.nome || form.cliente || "",
@@ -7421,28 +7432,33 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     if (ehAdmin && !form.id && !payload.oneDriveFolderId && oneDriveStatus === "connected") {
       const ws = await criarEstruturaOneDrive(payload.name);
       if (ws.ok) payload = {...payload,oneDriveDriveId:ws.driveId,oneDriveFolderId:ws.folderId,oneDriveFolders:ws.folders||{},oneDriveUrl:ws.webUrl||payload.oneDriveUrl,oneDriveStructureVersion:2,oneDriveStructureSyncedAt:new Date().toISOString()};
-      else showToast(`Obra salva, mas o OneDrive não criou a pasta: ${ws.error||"falha na conexão"}`, "error");
+      else showToast(`A obra será salva sem pasta no OneDrive: ${ws.error||"falha na conexão"}`, "error");
     }
 
-    if(!dispatchCommand){
-      showToast("O comando transacional de obras não está disponível.","error");
-      return;
+      if(!dispatchCommand){
+        showToast("O comando transacional de obras não está disponível.","error");
+        return;
+      }
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.obras||[]).find(o=>o.id===payload.id);
+        return {
+          type:OPERATIONAL_COMMAND.PROJECT_SAVED,
+          idempotencyKey:`obra-salvar-${payload.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          payload:{project:payload},
+        };
+      });
+      if(!result.ok){
+        showToast(result.reason||"Não foi possível salvar a obra.","error");
+        return;
+      }
+      setModal(false);setReviewingProject(false);
+      showToast(form.id ? "Obra atualizada." : "Obra cadastrada.");
+    }catch(error){
+      showToast(error?.message||"A obra não pôde ser salva. Seus dados continuam no formulário para uma nova tentativa.","error");
+    }finally{
+      setSavingProject(false);
     }
-    const result=await dispatchCommand(atual=>{
-      const vigente=(atual.obras||[]).find(o=>o.id===payload.id);
-      return {
-        type:OPERATIONAL_COMMAND.PROJECT_SAVED,
-        idempotencyKey:`obra-salvar-${payload.id}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
-        payload:{project:payload},
-      };
-    });
-    if(!result.ok){
-      showToast(result.reason||"Não foi possível salvar a obra.","error");
-      return;
-    }
-    setModal(false);
-    showToast(form.id ? "Obra atualizada." : "Obra cadastrada.");
   };
 
   const remove = async id => {
@@ -7454,7 +7470,8 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
       showToast("Não é possível apagar obra com histórico de funcionários.", "error");
       return;
     }
-    if (!window.confirm("Remover obra?")) return;
+    const obra=(data.obras||[]).find(item=>item.id===id);
+    if (!window.confirm(`Remover definitivamente “${obra?.name||"esta obra"}”?\n\nA exclusão só será concluída se não existir histórico operacional ou financeiro vinculado.`)) return;
     if(!dispatchCommand){
       showToast("O comando transacional de obras não está disponível.","error");
       return;
@@ -7544,20 +7561,22 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
           {ehAdmin&&<Btn v="ghost" onClick={()=>abrirOneDrive(data.config?.oneDriveRootUrl)}><Ic n="folder" s={14}/> Arquivos gerais</Btn>}
           {ehAdmin&&oneDriveStatus==="connected"&&<Btn v="ghost" disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</Btn>}
           {ehAdmin&&oneDriveStatus!=="connected"&&<Btn v="ghost" onClick={conectarOneDrive}>Conectar OneDrive</Btn>}
-          <Btn onClick={()=>{setForm(empty);setModal(true);}}><Ic n="plus" s={14}/> Nova obra</Btn>
+          {ehAdmin&&<Btn onClick={()=>abrirEditorObra()}><Ic n="plus" s={14}/> Nova obra</Btn>}
         </>}
       />
 
       <section className="works-filter-bar" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,padding:10,boxShadow:"none"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}>
           <div className="works-category-tabs" style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:1,maxWidth:"100%"}}>
-            {categoriasObras.map(([v,l])=><button data-active={categoria===v} key={v} onClick={()=>setCategoria(v)} style={{height:32,padding:"0 10px",whiteSpace:"nowrap",borderRadius:8,border:`1px solid ${categoria===v?C.yellow:C.border}`,background:categoria===v?C.text:C.bg,color:categoria===v?"#fff":C.muted,fontSize:9.5,fontWeight:850,cursor:"pointer"}}>{l} <span style={{marginLeft:4,color:categoria===v?C.yellow:C.subtle}}>{contagensObras[v]}</span></button>)}
+            {categoriasObras.map(([v,l])=><button type="button" aria-pressed={categoria===v} data-active={categoria===v} key={v} onClick={()=>setCategoria(v)}>{l} <span>{contagensObras[v]}</span></button>)}
           </div>
           <div className="works-view-toggle" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,background:C.surface,padding:3,borderRadius:9}}>
-            {[["lista","Painel"],["quadro","Fluxo"]].map(([v,l])=><button data-active={vista===v} key={v} onClick={()=>setVista(v)} style={{height:27,padding:"0 11px",border:0,borderRadius:7,background:vista===v?C.card:"transparent",boxShadow:vista===v?"0 2px 8px rgba(18,18,18,.10)":"none",color:vista===v?C.text:C.muted,fontSize:9.5,fontWeight:850,cursor:"pointer"}}>{l}</button>)}
+            {[["lista","Painel"],["quadro","Fluxo"]].map(([v,l])=><button type="button" aria-pressed={vista===v} data-active={vista===v} key={v} onClick={()=>setVista(v)}>{l}</button>)}
           </div>
         </div>
       </section>
+
+      {undoMove&&<div className="works-undo" role="status"><div><strong>Obra movida</strong><span>“{undoMove.obraName}” mudou de fase e a alteração foi registrada.</span></div><Btn v="ghost" onClick={desfazerMovimento}>Desfazer</Btn></div>}
 
       {/*  QUADRO (KANBAN)  */}
       {vista === "quadro" && (<>
@@ -7614,7 +7633,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                       textTransform:"uppercase", letterSpacing:.6, color:C.text,
                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                     }}>{fase.nome}</p>
-                    <div style={{display:"flex",gap:1,flexShrink:0}}>
+                    {ehAdmin&&<div style={{display:"flex",gap:1,flexShrink:0}}>
                       <Btn v="ghost" size="sm" iconOnly onClick={()=>moverFase(fase.id,-1)} disabled={fi===0} title="Mover coluna p/ esquerda" ariaLabel="Mover coluna para a esquerda">
                         <Ic n="chevL" s={11}/>
                       </Btn>
@@ -7627,7 +7646,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                       <Btn v="ghost" size="sm" iconOnly onClick={()=>excluirFase(fase)} title="Excluir fase" ariaLabel="Excluir fase">
                         <Ic n="x" s={11}/>
                       </Btn>
-                    </div>
+                    </div>}
                   </div>
                   <p style={{fontSize:10,color:C.muted,marginTop:3}}>
                     {obrasDaFase.length} obra{obrasDaFase.length===1?"":"s"}
@@ -7642,12 +7661,12 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                     const menu  = menuCard === o.id;
                     return (
                       <div key={o.id}
-                        draggable
+                        draggable={ehAdmin}
                         onDragStart={() => setArrastando(o.id)}
                         onDragEnd={() => { setArrastando(null); setSobreFase(null); }}
                         style={{
                           ...KB.card(null),
-                          borderLeft:`3px solid ${fase.cor}`,
+                          border:`1px solid ${C.border}`,
                           opacity: arrastando===o.id ? .4 : 1,
                           position:"relative",
                         }}>
@@ -7657,7 +7676,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                             fontFamily:"'Inter Display','Inter',sans-serif",
                             fontSize:12.5, fontWeight:700, color:C.text, lineHeight:1.3,
                           }}>{o.name}</p>
-                          <Btn v="ghost" size="sm" iconOnly onClick={()=>setMenuCard(menu ? null : o.id)} title="Mais opções" ariaLabel="Mais opções" style={{flexShrink:0}}>⋮</Btn>
+                          {ehAdmin&&<Btn v="ghost" size="sm" iconOnly onClick={()=>setMenuCard(menu ? null : o.id)} title="Mover ou editar obra" ariaLabel="Mover ou editar obra" style={{flexShrink:0}}>⋮</Btn>}
                         </div>
 
                         {o.cliente && (
@@ -7729,12 +7748,12 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                               </button>
                             ))}
                             <div style={{height:1,background:C.line,margin:"4px 0"}}/>
-                            <button onClick={()=>{ setForm({...o, areaM2:String(o.areaM2||""), diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO), diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)}); setModal(true); setMenuCard(null); }}
+                            {ehAdmin&&<button onClick={()=>{abrirEditorObra(o);setMenuCard(null);}}
                               style={{width:"100%",textAlign:"left",padding:"6px 7px",background:"transparent",
                                       border:0,borderRadius:5,cursor:"pointer",fontSize:11.5,color:C.text,
                                       fontFamily:"'Inter',sans-serif"}}>
                                Editar obra
-                            </button>
+                            </button>}
                           </div>
                         )}
                       </div>
@@ -7743,7 +7762,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
 
                   {obrasDaFase.length === 0 && (
                     <p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:"14px 6px"}}>
-                      Arraste uma obra pra cá
+                      Mova uma obra para esta fase
                     </p>
                   )}
                 </div>
@@ -7752,24 +7771,24 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
           })}
 
           {/* Nova coluna */}
-          <div style={{flex:"0 0 168px",minWidth:168}}>
-            <button onClick={abrirNovaFase} style={{
+          {ehAdmin&&<div style={{flex:"0 0 168px",minWidth:168}}>
+            <button className="works-new-phase" onClick={abrirNovaFase} style={{
               width:"100%", padding:"14px 10px",
               background:"transparent", border:`1.5px dashed ${C.border}`,
               borderRadius:8, cursor:"pointer", color:C.muted,
               fontFamily:"'Inter Display','Inter',sans-serif", fontWeight:700, fontSize:12,
             }}>+ Nova fase</button>
-          </div>
+          </div>}
         </div>
       </>)}
 
       {/*  LISTA  */}
       {vista === "lista" && <>
-      <div className="works-search" style={{display:"flex",alignItems:"center",gap:9,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"8px 11px"}}>
+      <label className="works-search" style={{display:"flex",alignItems:"center",gap:9,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"8px 11px"}}>
         <Ic n="search" s={16} color={C.muted}/>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por obra, cliente, endereço ou responsável..." style={{flex:1,minWidth:0,border:0,outline:0,background:"transparent",color:C.text,fontSize:12.5,fontFamily:"inherit",padding:"4px 0"}}/>
+        <span className="sr-only">Buscar obras</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por obra, cliente, endereço, responsável ou fase..." style={{flex:1,minWidth:0,border:0,outline:0,background:"transparent",color:C.text,fontSize:12.5,fontFamily:"inherit",padding:"4px 0"}}/>
         <span style={{fontSize:10,color:C.muted,whiteSpace:"nowrap"}}>{list.length} resultado{list.length===1?"":"s"}</span>
-      </div>
+      </label>
 
       <div className="works-grid" style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:12}}>
         {list.map(o => {
@@ -7802,11 +7821,11 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               </div>
 
               <div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:8.5,fontWeight:800,color:C.muted,marginBottom:5}}><span>Qualidade do cadastro</span><span>{o._completude}%</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:8.5,fontWeight:800,color:C.muted,marginBottom:5}}><span>Dados essenciais preenchidos</span><span>{o._completude}%</span></div>
                 <div style={{height:4,borderRadius:99,background:C.ivory,overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${o._completude}%`,borderRadius:99,background:o._completude>=80?C.green:o._completude>=55?C.yellow:C.red}}/></div>
               </div>
 
-              {risco?<div style={{background:`${C.red}09`,border:`1px solid ${C.red}2E`,borderRadius:9,padding:"8px 9px",display:"flex",gap:7,alignItems:"flex-start"}}><Ic n="alert" s={13} color={C.red}/><div style={{minWidth:0}}><p style={{fontSize:8,fontWeight:900,textTransform:"uppercase",letterSpacing:.5,color:C.red}}>Atenção operacional</p><p style={{fontSize:9.5,color:C.subtle,lineHeight:1.35,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o._alertas[0]}{o._alertas.length>1?` +${o._alertas.length-1}`:""}</p></div></div>:<div style={{background:`${C.green}09`,border:`1px solid ${C.green}24`,borderRadius:9,padding:"8px 9px",display:"flex",gap:7,alignItems:"center"}}><Ic n="check" s={13} color={C.green}/><span style={{fontSize:9.5,fontWeight:800,color:C.green}}>Cadastro operacional regular</span></div>}
+              {risco?<div className="works-alerts"><button type="button" aria-expanded={expandedAlerts.has(o.id)} onClick={()=>setExpandedAlerts(current=>{const next=new Set(current);next.has(o.id)?next.delete(o.id):next.add(o.id);return next;})}><Ic n="alert" s={14}/><span><strong>{o._alertas.length} pendência(s)</strong><small>{expandedAlerts.has(o.id)?"Ocultar ações":"Ver como corrigir"}</small></span><Ic n="chevron" s={12}/></button>{expandedAlerts.has(o.id)&&<div className="works-alerts__list">{o._alertas.map(alert=>{const action=projectAlertAction(alert);return <div key={alert}><span>{alert}</span><button type="button" onClick={()=>ehAdmin?abrirEditorObra(o):onAbrirObra?.(o.id)}>{ehAdmin?action.label:"Abrir obra"}</button></div>;})}</div>}</div>:<div className="works-regular"><Ic n="check" s={14}/><span>Cadastro operacional regular</span></div>}
 
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,minHeight:18}}>
                 <span style={{fontSize:9.5,fontWeight:750,color:prazo?.cor||C.muted}}>{prazo?.rotulo||"Prazo não definido"}</span>
@@ -7819,7 +7838,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:`1px solid ${C.line}`}}>
                 <span style={{fontSize:8.5,color:C.muted}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span>
-                <div style={{display:"flex",gap:3}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={12}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={12}/></Btn>}</div>
+                {ehAdmin&&<div style={{display:"flex",gap:3}}><Btn v="ghost" size="sm" iconOnly onClick={()=>abrirEditorObra(o)} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={12}/></Btn><Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={12}/></Btn></div>}
               </div>
             </div>
           </article>;
@@ -7827,7 +7846,10 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:42,background:C.card,border:`1px dashed ${C.border}`,borderRadius:14}}><div style={{width:46,height:46,borderRadius:99,display:"grid",placeItems:"center",margin:"0 auto",background:C.surface,color:C.muted}}><Ic n="building" s={22}/></div><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:10}}>Nenhuma obra nesta categoria</p><p style={{fontSize:10.5,color:C.muted,marginTop:3}}>Altere o filtro ou a busca para ampliar os resultados.</p></div>}
       </div>
 
-      {false&&isDesktop&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",boxShadow:"0 8px 28px rgba(23,28,36,.06)"}}>
+      {/* A grade acima é a única representação da visão Painel. As duas
+          implementações antigas (tabela desktop e cartões móveis) foram
+          removidas para que semântica, permissões e estados não divirjam. */}
+      {false&&isDesktop&&<div hidden aria-hidden="true">
         <div style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:10,padding:"10px 14px",background:"rgba(246,247,249,.86)",borderBottom:`1px solid ${C.border}`,fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:.55}}><span>Código</span><span>Obra</span><span>Cliente</span><span>Status</span><span>Fase</span><span>Início</span><span>Responsável</span><span style={{textAlign:"right"}}>Ações</span></div>
         {list.map((o,index)=>{const st=statusMap[o.status]||statusMap.active;const fase=fases.find(f=>f.id===o.faseId);const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===o.id);const codigo=String(index+1).padStart(4,"0");return <div key={o.id} className="lift-card" onClick={()=>onAbrirObra?.(o.id)} style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:10,alignItems:"center",padding:"12px 14px",borderBottom:index<list.length-1?`1px solid ${C.line}`:"none",cursor:"pointer",background:C.card}}>
           <span style={{fontSize:10.5,fontWeight:850,color:C.blue}}>#{codigo}</span>
@@ -7842,7 +7864,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         {!list.length&&<div style={{textAlign:"center",padding:34,color:C.muted,fontSize:12}}>Nenhuma obra encontrada.</div>}
       </div>}
 
-      {false&&!isDesktop&&<div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:11}}>
+      {false&&!isDesktop&&<div hidden aria-hidden="true">
       {list.map(o => {
         const count = data.employees.filter(e => e.active !== false && e.obra === o.id).length;
         const st = statusMap[o.status] || statusMap.active;
@@ -7883,8 +7905,8 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               <p style={{fontSize:11,fontWeight:600,color:C.text,marginBottom:6}}>Cor</p>
               <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                 {CORES_FASE.map(c=>(
-                  <button key={c} onClick={()=>setFaseCor(c)} style={{
-                    width:30,height:30,borderRadius:7,background:c,cursor:"pointer",
+                  <button type="button" key={c} aria-label={`Usar cor ${c}`} aria-pressed={faseCor===c} title={`Cor ${c}`} onClick={()=>setFaseCor(c)} style={{
+                    width:44,height:44,borderRadius:7,background:c,cursor:"pointer",
                     border: faseCor===c ? `3px solid ${C.text}` : `1px solid ${C.border}`,
                   }}/>
                 ))}
@@ -7915,8 +7937,8 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               seção usam gridColumn:"1/-1", que só funciona em container grid -
               dentro do flex antigo eram CSS morto. */}
           <div style={{ display: "grid", gridTemplateColumns: formGrid(2), gap: 12 }}>
-            <Inp label="Nome *" value={form.name} onChange={setField("name")} />
-            <Inp label="Metragem quadrada (m)" type="number" value={form.areaM2} onChange={setField("areaM2")} placeholder="Ex.: 250" />
+            <Inp label="Nome *" value={form.name} onChange={setField("name")} error={projectErrors.name}/>
+            <Inp label="Área (m²)" type="number" min="0" value={form.areaM2} onChange={setField("areaM2")} placeholder="Ex.: 250" error={projectErrors.areaM2}/>
             <Inp label="Endereço" value={form.address} onChange={setField("address")} />
             <Sel label="Condomínio / loteamento" value={form.condominioId||""} onChange={setField("condominioId")}
               options={[{v:"",l:"Fora de condomínio / não informado"},...condominios.map(c=>({v:c.id,l:`${c.nome}${c.cidade?` · ${c.cidade}/${c.uf}`:""}`}))]}/>
@@ -7926,7 +7948,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:6,alignItems:"end"}}><Sel label="Cliente contratante" value={form.clienteId||""} onChange={v=>{const c=clientes.find(x=>x.id===v);setForm(f=>({...f,clienteId:v,cliente:c?.nome||""}));}} options={[{v:"",l:"Selecione um cliente"},...clientes.map(c=>({v:c.id,l:c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}))]}/><Btn v="info" onClick={()=>setClienteModal(clienteContratualVazio())}><Ic n="plus"/> Cliente</Btn></div>
             <Inp label="Data de início" type="date" value={form.startDate} onChange={setField("startDate")} />
             {ehAdmin&&<div style={{gridColumn:"1/-1"}}>
-              <Inp label="Pasta da obra no OneDrive" value={form.oneDriveUrl} onChange={setField("oneDriveUrl")} placeholder="Cole aqui o link da subpasta desta obra" />
+              <Inp label="Pasta da obra no OneDrive" value={form.oneDriveUrl} onChange={setField("oneDriveUrl")} placeholder="Cole aqui o link da subpasta desta obra" error={projectErrors.oneDriveUrl}/>
               <p style={{fontSize:10,color:C.muted,marginTop:4}}>O sistema salva apenas o link. Projetos, contratos e documentos permanecem no OneDrive.</p>
             </div>}
             <Sel label="Fase (quadro)" value={form.faseId || (fases[0]?.id||"")} onChange={setField("faseId")}
@@ -7941,10 +7963,10 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               <p style={{ fontSize:11, fontWeight:700, color:C.yellow, textTransform:"uppercase", letterSpacing:.7, marginBottom:8 }}>Contrato financeiro</p>
             </div>
             <Sel label="Modalidade do contrato *" value={form.contractType} onChange={setField("contractType")} options={CONTRACT_TYPES}/>
-            <Inp label="Valor total do contrato (R$)" type="number" value={form.contractValue} onChange={setField("contractValue")} placeholder="0,00"/>
+            <Inp label="Valor total do contrato (R$)" type="number" min="0" value={form.contractValue} onChange={setField("contractValue")} placeholder="0,00" error={projectErrors.contractValue}/>
             {(form.contractType === "fixed_labor_admin" || form.contractType === "admin_only") && (
               <div style={{gridColumn: form.contractType==="admin_only"?"1/-1":"auto"}}>
-                <Inp label="% Administração" type="number" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12"/>
+                <Inp label="% Administração" type="number" min="0" max="100" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12" error={projectErrors.adminPercentage}/>
                 <p style={{fontSize:9.5,color:C.muted,marginTop:4}}>
                   {form.contractType==="admin_only"
                     ? "Por padrão incide sobre todos os custos gastos na obra (mão de obra, benefícios, materiais, terceirizados, equipamentos e rescisões)."
@@ -7957,33 +7979,32 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                     ["adminBaseMaoDeObra","Mão de obra",form.adminBaseMaoDeObra===true||(form.adminBaseMaoDeObra===undefined&&form.contractType==="admin_only")],
                     ["adminBaseTerceirizados","Terceirizados",form.adminBaseTerceirizados!==false],
                   ].map(([campo,label,checked])=>(
-                    <label key={campo} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"8px 10px",background:checked?`${C.yellow}10`:C.surface,borderRadius:6,border:`1.5px solid ${checked?C.yellow+"55":C.border}`}}>
-                      <div onClick={()=>setField(campo)(!checked)} style={{width:18,height:18,border:`2px solid ${checked?C.yellowD:C.muted}`,background:checked?C.yellowD:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-                        {checked&&<span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
-                      </div>
+                    <label key={campo} className="works-check" data-checked={checked}>
+                      <input type="checkbox" checked={checked} onChange={e=>setField(campo)(e.target.checked)}/>
                       <p style={{fontSize:11.5,fontWeight:700,color:checked?C.yellowD:C.text}}>{label}</p>
                     </label>
                   ))}
                 </div>
+                {projectErrors.adminBases&&<p className="works-field-error" role="alert">{projectErrors.adminBases}</p>}
               </div>
             )}
             {(form.contractType === "fixed_labor" || form.contractType === "fixed_labor_admin") && (
-              <Inp label="Valor parcela MO fixo (R$)" type="number" value={form.parcelaMensal} onChange={setField("parcelaMensal")} placeholder="Ex.: 15.000"/>
+              <Inp label="Valor parcela MO fixo (R$)" type="number" min="0" value={form.parcelaMensal} onChange={setField("parcelaMensal")} placeholder="Ex.: 15.000"/>
             )}
             <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
             <p style={{gridColumn:"1/-1",fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Cronograma de cobrança</p>
             <Sel label="Frequência de cobrança *" value={form.billingFrequency} onChange={setField("billingFrequency")} options={FREQ_OPTS}/>
-            <Inp label="Total de parcelas" type="number" value={form.totalParcelas} onChange={setField("totalParcelas")} placeholder={form.billingFrequency==="quinzenal"?"Ex.: 24":"Ex.: 12"}/>
+            <Inp label="Total de parcelas" type="number" min="1" value={form.totalParcelas} onChange={setField("totalParcelas")} placeholder={form.billingFrequency==="quinzenal"?"Ex.: 24":"Ex.: 12"} error={projectErrors.totalParcelas}/>
 
             {/* Dias de vencimento - perguntados aqui, na hora de lancar a obra.
                 O padrao segue o contrato (15 e 30), mas cada obra pode fugir dele. */}
             {form.billingFrequency === "quinzenal" ? (
               <>
-                <Sel label="Vencimento da 1ª quinzena *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS}/>
-                <Sel label="Vencimento da 2ª quinzena *" value={String(form.diaVenc2||DIA_VENC_2_PADRAO)} onChange={setField("diaVenc2")} options={DIA_OPTS}/>
+                <Sel label="Vencimento da 1ª quinzena *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS} error={projectErrors.diaVenc1}/>
+                <Sel label="Vencimento da 2ª quinzena *" value={String(form.diaVenc2||DIA_VENC_2_PADRAO)} onChange={setField("diaVenc2")} options={DIA_OPTS} error={projectErrors.diaVenc2}/>
               </>
             ) : (
-              <Sel label="Dia de vencimento *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS}/>
+              <Sel label="Dia de vencimento *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS} error={projectErrors.diaVenc1}/>
             )}
             <div style={{gridColumn:"1/-1",background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"9px 12px"}}>
               <p style={{fontSize:11,color:C.subtle,lineHeight:1.6}}>
@@ -7995,11 +8016,11 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             </div>
             <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
             <p style={{gridColumn:"1/-1",fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Período e entrada</p>
-            <Inp label="Início do contrato *" type="date" value={form.contractStart} onChange={setField("contractStart")}/>
-            <Inp label="Fim previsto" type="date" value={form.contractEnd} onChange={setField("contractEnd")}/>
+            <Inp label="Início do contrato *" type="date" value={form.contractStart} onChange={setField("contractStart")} error={projectErrors.contractStart}/>
+            <Inp label="Fim previsto" type="date" value={form.contractEnd} onChange={setField("contractEnd")} error={projectErrors.contractEnd}/>
             {form.contractType !== "admin_only" && (<>
-              <Inp label="Entrada (R$)" type="number" value={form.entrada} onChange={setField("entrada")} placeholder="0,00"/>
-              <Inp label="Data da entrada" type="date" value={form.entradaDate} onChange={setField("entradaDate")}/>
+              <Inp label="Entrada (R$)" type="number" min="0" value={form.entrada} onChange={setField("entrada")} placeholder="0,00" error={projectErrors.entrada}/>
+              <Inp label="Data da entrada" type="date" value={form.entradaDate} onChange={setField("entradaDate")} error={projectErrors.entradaDate}/>
             </>)}
             {form.contractValue && form.totalParcelas && Number(form.totalParcelas)>0 && form.contractType !== "admin_only" && !form.parcelaMensal && (
               <div style={{gridColumn:"1/-1",background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"8px 12px"}}>
@@ -8011,18 +8032,17 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             )}
             {/* Caixa de obra */}
             <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
-            <label style={{gridColumn:"1/-1",display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"10px 12px",background:form.hasCaixa?`${C.green}08`:C.surface,borderRadius:6,border:`1.5px solid ${form.hasCaixa?C.green+"55":C.border}`}}>
-              <div onClick={()=>setField("hasCaixa")(!form.hasCaixa)} style={{width:20,height:20,border:`2px solid ${form.hasCaixa?C.green:C.muted}`,background:form.hasCaixa?C.green:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-                {form.hasCaixa&&<span style={{color:"#fff",fontSize:13,fontWeight:900}}>ok</span>}
-              </div>
+            <label className="works-check works-check--wide" data-checked={form.hasCaixa} style={{gridColumn:"1/-1"}}>
+              <input type="checkbox" checked={form.hasCaixa} onChange={e=>setField("hasCaixa")(e.target.checked)}/>
               <div>
                 <p style={{fontSize:13,fontWeight:700,color:form.hasCaixa?C.green:C.text}}> Esta obra possui caixa de obra</p>
                 <p style={{fontSize:11,color:C.muted,marginTop:1}}>Cliente faz aportes para compra de materiais - controle separado de entradas e gastos</p>
               </div>
             </label>
+            {reviewingProject&&<div className="works-review" role="status" style={{gridColumn:"1/-1"}}><div><strong>Revise antes de confirmar</strong><p>{form.name||"Obra sem nome"} · {CONTRACT_LABELS[form.contractType]||form.contractType} · {fmt(Number(form.contractValue||0))}</p><p>{form.billingFrequency==="quinzenal"?"2 cobranças por mês":"1 cobrança por mês"} · {form.totalParcelas||0} parcela(s) · início {fmtDate(form.contractStart)}</p></div><span>Nenhuma folha anterior será alterada por este cadastro.</span></div>}
             <div style={{ gridColumn:"1/-1", display: "flex", gap: 8, marginTop: 4 }}>
               <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
-              <Btn onClick={save} full><Ic n="check" /> Salvar</Btn>
+              <Btn onClick={save} loading={savingProject} full><Ic n="check" /> {reviewingProject?"Confirmar e salvar":"Revisar cadastro"}</Btn>
             </div>
           </div>
         </Modal>

@@ -128,6 +128,7 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED]:["admin"],
   [OPERATIONAL_COMMAND.PROJECT_SAVED]:["admin"],
   [OPERATIONAL_COMMAND.PROJECT_DELETED]:["admin"],
+  [OPERATIONAL_COMMAND.PROJECT_PHASES_SAVED]:["admin"],
   [OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
   [OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED]:["admin","engenheiro","qualidade"],

@@ -3480,14 +3480,14 @@
 @media(max-width:900px){.obra-fin-summary{grid-template-columns:1fr 1fr}.obra-fin-balance{grid-column:1/-1}.obra-fin-next{grid-template-columns:1fr}.obra-fin-budget-kpis{grid-template-columns:1fr 1fr}.obra-fin-budget-kpis>div:last-child{grid-column:1/-1}}
 @media(max-width:580px){.obra-fin-header{align-items:flex-start;flex-direction:column}.obra-fin-header button{width:100%}.obra-fin-summary{grid-template-columns:1fr}.obra-fin-balance{grid-column:auto}.obra-fin-budget-kpis{grid-template-columns:1fr}.obra-fin-budget-kpis>div:last-child{grid-column:auto}.obra-fin-controls label{width:100%}.obra-fin-controls input{width:100%}.obra-fin-table{min-width:0}.obra-fin-table thead{display:none}.obra-fin-table tr{display:block;padding:11px;border-bottom:1px solid #ddd}.obra-fin-table td{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border:0}.obra-fin-table td::before{content:attr(data-label);font-size:8px;text-transform:uppercase;color:#899095}.obra-fin-categories>div{grid-template-columns:90px 1fr 85px}}
 
-/* Central de obras: controle operacional claro, com profundidade discreta. */
+/* Central de obras: controle operacional claro e fiel ao sistema ARCD Carbon. */
 .works-hub{
-  --works-paper:#f7f8f8;
-  --works-surface:#eceeef;
-  --works-line:#d4d8da;
-  --works-ink:#24292d;
-  --works-muted:#697178;
-  --works-gold:#a98319;
+  --works-paper:var(--arcd-surface,#f7f8f8);
+  --works-surface:var(--arcd-surface-subtle,#eceeef);
+  --works-line:var(--arcd-border,#d4d8da);
+  --works-ink:var(--arcd-text,#24292d);
+  --works-muted:var(--arcd-text-muted,#697178);
+  --works-gold:var(--arcd-accent,#9b7610);
   max-width:1540px;
   margin:0 auto;
   padding:4px 0 30px;
@@ -3499,6 +3499,8 @@
   box-shadow:none!important;
 }
 .works-category-tabs button{
+  min-height:44px;
+  padding:8px 12px;
   background:transparent!important;
   border-color:transparent!important;
   color:#636b72!important;
@@ -3509,10 +3511,11 @@
   background:#fff!important;
   color:#292e32!important;
   border-color:#d1d5d7!important;
-  box-shadow:0 2px 8px rgba(27,33,37,.06);
+  box-shadow:none;
 }
 .works-category-tabs button[data-active="true"] span{color:#9b7610!important}
 .works-view-toggle{background:#dfe2e4!important}
+.works-view-toggle button{min-height:44px;padding:7px 14px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--works-muted);font-weight:750}
 .works-view-toggle button[data-active="true"]{color:#24292d!important}
 .works-search{
   min-height:44px;
@@ -3526,34 +3529,26 @@
 .works-card{
   position:relative;
   border-color:#d2d6d8!important;
-  border-radius:12px!important;
-  box-shadow:0 7px 22px rgba(26,31,35,.055)!important;
-  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease!important;
+  border-radius:4px!important;
+  box-shadow:none!important;
+  transition:border-color .16s ease,background .16s ease!important;
 }
-.works-card:before{
-  content:"";
-  position:absolute;
-  z-index:4;
-  left:0;
-  top:0;
-  bottom:0;
-  width:3px;
-  background:#6d9877;
-}
-.works-card[data-risk="true"]:before{background:#b66a63}
+.works-card:before{display:none!important}
 .works-card:hover{
-  transform:translateY(-3px)!important;
+  transform:none!important;
   border-color:#b8bec1!important;
-  box-shadow:0 15px 34px rgba(26,31,35,.10)!important;
+  box-shadow:none!important;
 }
 .works-card-cover{height:122px!important}
 .works-card-cover[data-has-image="false"]{
-  background:
-    radial-gradient(circle at 86% 14%,rgba(169,131,25,.15),transparent 34%),
-    linear-gradient(135deg,#596064,#363c40)!important;
+  background:#363c40!important;
 }
+.works-card-cover[data-has-image="false"]>span[aria-hidden="true"]{display:none}
 .works-card-body{padding:14px 15px 13px!important;gap:12px!important}
-.works-card-metrics>div{background:#eef0f1!important;border-color:#e0e3e4!important;border-radius:6px!important}
+.works-card-body p,.works-card-body small{overflow-wrap:anywhere}
+.works-card-metrics{border-block:1px solid var(--works-line)}
+.works-card-metrics>div{background:transparent!important;border:0!important;border-inline-end:1px solid var(--works-line)!important;border-radius:0!important}
+.works-card-metrics>div:last-child{border-inline-end:0!important}
 .works-card-primary{
   display:flex;
   align-items:center;
@@ -3561,23 +3556,46 @@
   padding:0 12px!important;
   background:#3a4044!important;
   border-color:#3a4044!important;
-  border-radius:7px!important;
-  transition:background .16s ease,transform .16s ease;
+  border-radius:4px!important;
+  min-height:44px;
+  transition:background .16s ease;
 }
-.works-card-primary:hover{background:#262b2f!important;transform:translateY(-1px)}
-.works-card-primary span{font-size:13px;color:#d4af37;transition:transform .16s ease}
-.works-card-primary:hover span{transform:translateX(2px)}
+.works-card-primary:hover{background:#262b2f!important;transform:none}
+.works-card-primary span{font-size:13px;color:#d4af37}
+.works-new-phase{min-height:44px;min-width:210px;border:1px dashed var(--works-line);border-radius:4px;background:transparent;color:var(--works-muted);font-weight:750}
+.works-new-phase:hover{border-color:var(--works-gold);color:var(--works-ink);background:#fff}
+.works-undo{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 13px;border:1px solid #c6d8cb;border-radius:4px;background:#edf5ef;color:#24452c}
+.works-undo>div{display:grid;gap:2px;min-width:0}.works-undo span{font-size:12px;overflow-wrap:anywhere}
+.works-alerts{border:1px solid #d8b9b5;border-radius:4px;background:#fff8f7;overflow:hidden}
+.works-alerts>button{display:flex;width:100%;min-height:44px;align-items:center;gap:9px;padding:8px 10px;border:0;background:transparent;color:#7b2922;text-align:start}
+.works-alerts>button>span{display:grid;gap:1px;flex:1}.works-alerts small{color:#765a57}
+.works-alerts__list{display:grid;border-top:1px solid #e5cdca}
+.works-alerts__list>div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-bottom:1px solid #eee0de}
+.works-alerts__list>div:last-child{border-bottom:0}.works-alerts__list span{font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.works-alerts__list button{min-height:36px;padding:6px 9px;border:1px solid #cba9a5;border-radius:4px;background:#fff;color:#742820;font-weight:750;white-space:nowrap}
+.works-regular{display:flex;align-items:center;gap:7px;min-height:40px;padding:8px 10px;border:1px solid #c7d9cb;border-radius:4px;background:#f3f8f4;color:#286039;font-size:12px;font-weight:700}
+.works-check{display:flex;align-items:flex-start;gap:10px;min-height:44px;padding:10px;border:1px solid var(--works-line);border-radius:4px;background:#fff;cursor:pointer}
+.works-check[data-checked="true"]{border-color:#8ca895;background:#f1f7f2}.works-check input{width:18px;height:18px;margin-top:1px;accent-color:#28743d;flex:none}
+.works-check:focus-within{outline:3px solid rgba(169,131,25,.24);outline-offset:2px}
+.works-check--wide{padding:12px}.works-field-error{display:block;margin-top:4px;color:#a3231d;font-size:12px;font-weight:650;line-height:1.4}
+.works-review{display:grid;gap:10px;padding:13px;border:1px solid #b99a42;border-radius:4px;background:#faf6e9;color:var(--works-ink)}
+.works-review strong{font-size:14px}.works-review p,.works-review>span{font-size:12px;line-height:1.5}.works-review>span{color:var(--works-muted)}
+.works-category-tabs button:focus-visible,.works-view-toggle button:focus-visible,.works-new-phase:focus-visible,.works-alerts button:focus-visible{outline:3px solid rgba(169,131,25,.28);outline-offset:2px}
 @media(max-width:640px){
   .works-hub{gap:10px!important;padding-top:0}
   .works-filter-bar{position:sticky;top:0;z-index:20;margin-inline:-2px}
   .works-category-tabs{width:100%;padding-bottom:4px!important}
   .works-view-toggle{width:100%}
-  .works-view-toggle button{height:32px!important}
+  .works-view-toggle button{min-height:44px!important}
   .works-search{position:sticky;top:58px;z-index:19}
   .works-search span{display:none}
   .works-grid{grid-template-columns:1fr!important}
   .works-card-cover{height:112px!important}
+  .works-search input,.works-check input+div{font-size:16px}
+  .works-undo{align-items:stretch;flex-direction:column}.works-undo button{width:100%}
+  .works-alerts__list>div{align-items:stretch;flex-direction:column}.works-alerts__list button{width:100%;min-height:44px}
 }
+@media(prefers-reduced-motion:reduce){.works-card,.works-category-tabs button,.works-card-primary{transition:none!important}}
 
 /* Compras: uma fila operacional, não um mural de indicadores. */
 .compras-view{
