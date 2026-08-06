@@ -123,6 +123,7 @@ import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { reconcileOptimisticSnapshot } from "./domains/sync/optimistic-merge";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import { projectAlertAction, validateProjectForm } from "./domains/obras/project-validation";
+import { fieldReportCompletion, fieldReportIsReadOnly } from "./domains/obras/field-report-workflow";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
@@ -1998,6 +1999,7 @@ const normalizeData = incoming => {
     solicitacoesCompra: Array.isArray(d.solicitacoesCompra) ? d.solicitacoesCompra.map(x => ({
       ...x,
       id:x.id||uid(),numero:x.numero||"",obraId:x.obraId||"",solicitanteId:x.solicitanteId||"",
+      version:Number(x.version||0),
       solicitanteNome:x.solicitanteNome||"",criadoEm:x.criadoEm||"",necessidade:x.necessidade||"",
       prioridade:x.prioridade||"normal",status:x.status||"enviada",observacao:x.observacao||"",
       analisadoEm:x.analisadoEm||"",analisadoPor:x.analisadoPor||"",pedidoId:x.pedidoId||"",
@@ -2007,7 +2009,7 @@ const normalizeData = incoming => {
       // Instância do motor de aprovação vinculada a esta solicitação (ver
       // domains/aprovacoes/). Ausente = fluxo legado sem aprovação configurada.
       aprovacaoInstanciaId:x.aprovacaoInstanciaId||"",
-      itens:Array.isArray(x.itens)?x.itens.map(i=>({id:i.id||uid(),referenciaId:i.referenciaId||"",
+      itens:Array.isArray(x.itens)?x.itens.map(i=>({id:i.id||uid(),materialId:i.materialId||"",referenciaId:i.referenciaId||"",
         fonteRef:i.fonteRef||"PRÓPRIO",codigoRef:i.codigoRef||"",descricaoRef:i.descricaoRef||"",
         unidadeRef:i.unidadeRef||"UN",quantidade:Number(i.quantidade||0),precoRef:Number(i.precoRef||0),
         unidadeCompra:i.unidadeCompra||i.unidadeRef||"UN",
@@ -2291,6 +2293,10 @@ const normalizeData = incoming => {
       uf:        x.uf       || "",
       obs:       x.obs      || "",
       ativo:     x.ativo !== false,
+      version:   Number(x.version || 0),
+      atualizadoEm:x.atualizadoEm||x.updatedAt||"",
+      atualizadoPor:x.atualizadoPor||x.updatedBy||"",
+      atualizadoPorId:x.atualizadoPorId||x.updatedById||"",
     })) : [],
 
     cotacoes: Array.isArray(d.cotacoes) ? d.cotacoes.map(x => ({
@@ -2449,9 +2455,16 @@ const normalizeData = incoming => {
       estoqueMin: Number(x.estoqueMin || 0),
       precoMedio: Number(x.precoMedio || 0), // referência p/ curva ABC
       fonteRef:   x.fonteRef   || "",
+      referenciaId:x.referenciaId||"",
       dataBaseRef:x.dataBaseRef|| "",
       ufRef:      x.ufRef      || "",
+      criadoVia:  x.criadoVia  || "",
+      solicitacaoOrigemId:x.solicitacaoOrigemId||"",
       ativo:      x.ativo !== false,
+      version:    Number(x.version||0),
+      atualizadoEm:x.atualizadoEm||"",
+      atualizadoPorId:x.atualizadoPorId||"",
+      atualizadoPor:x.atualizadoPor||"",
     })) : [],
 
     // Saldo NÃO é armazenado: é derivado dos movimentos. Fonte única de
@@ -2781,7 +2794,7 @@ const normalizeData = incoming => {
       obraId: r.obraId || "",
       data:   r.data   || "",   // YYYY-MM-DD
       codigo: Number(r.codigo || rdoIndex + 1),
-      status: r.status || "preparacao", // preparacao | concluido
+      status: r.status || "preparacao", // preparacao | concluido | cancelado
       praticabilidade: r.praticabilidade || "praticavel",
       periodos: Array.isArray(r.periodos) ? r.periodos : ["manha","tarde"],
       horarioInicio: r.horarioInicio || "",
@@ -2790,9 +2803,9 @@ const normalizeData = incoming => {
       pendencias: r.pendencias || "",
       comentarios: r.comentarios || "",
       clima:  {
-        manha: r.clima?.manha || "bom",   // bom | nublado | chuva | impraticavel
-        tarde: r.clima?.tarde || "bom",
-        noite: r.clima?.noite || "bom",
+        manha: r.clima?.manha || "",   // vazio = não informado
+        tarde: r.clima?.tarde || "",
+        noite: r.clima?.noite || "",
       },
       // Servicos executados hoje. Cada um aponta para uma tarefa do plano
       // (tarefaId) e registra o AVANCO do dia em % (progressoDia) ou o
@@ -24004,7 +24017,7 @@ const diasEntreFornecedor=(inicio,fim)=>{
 };
 const textoFreteFornecedor=valor=>String(valor||"").toLowerCase();
 
-function RankingFornecedores({data,update,showToast}){
+function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
   const [busca,setBusca]=useState("");
   const [obraId,setObraId]=useState("");
   const [periodo,setPeriodo]=useState("12");
@@ -24110,7 +24123,8 @@ function RankingFornecedores({data,update,showToast}){
     if(!String(f.nome||"").trim()){showToast("Informe o nome do fornecedor.","error");return;}
     const salvo={...f,id:f.id||uid(),nome:f.nome.trim(),categorias:Array.isArray(f.categorias)?f.categorias:[],ativo:f.ativo!==false};
     delete salvo.ramosSugeridos;
-    const result=await update({...data,fornecedores:f.id?fornecedores.map(x=>x.id===f.id?salvo:x):[...fornecedores,salvo]});
+    if(!dispatchCommand){showToast("O cadastro seguro do fornecedor exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(atual=>{const vigente=(atual.fornecedores||[]).find(x=>x.id===salvo.id);return {type:OPERATIONAL_COMMAND.SUPPLIER_SAVED,idempotencyKey:`fornecedor-${salvo.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{supplier:salvo}};});
     if(!result?.ok){showToast(result?.reason||"O fornecedor não foi confirmado pelo servidor.","error");return;}
     setFornModal(null);showToast(f.id?"Fornecedor atualizado.":"Fornecedor cadastrado.");
   };
@@ -24370,18 +24384,17 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
     return {...f,itens};
   });
   const abrirNovoInsumo=()=>setNovoInsumo({descricao:busca&&!resultados.length?busca:"",unidade:"un",categoria:"outros",precoMedio:""});
-  const salvarNovoInsumo=async()=>{
+  const salvarNovoInsumo=()=>{
     if(!novoInsumo.descricao.trim()){showToast?.("Informe a descrição do insumo.","error");return;}
     const material={id:uid(),codigo:proximoCodigoArcd(data),descricao:maiusculoOrcamento(novoInsumo.descricao.trim()),
       unidade:novoInsumo.unidade||"un",categoria:novoInsumo.categoria||"outros",estoqueMin:0,
       precoMedio:Number(novoInsumo.precoMedio||0),ativo:true};
-    const result=await update({...data,materiais:[...(data.materiais||[]),material]});
-    if(!result?.ok){showToast?.(result?.reason||"O insumo não foi confirmado pelo servidor.","error");return;}
     setForm(f=>({...f,itens:[...f.itens,{id:uid(),materialId:material.id,referenciaId:"",fonteRef:"PRÓPRIO",
       codigoRef:material.codigo,descricaoRef:material.descricao,unidadeRef:material.unidade,
       unidadeCompra:material.unidade,fatorConversao:1,quantidade:"",precoRef:material.precoMedio,
       dataBaseRef:"",ufRef:"",orcItemId:"",orcNivel1Id:"",observacao:""}]}));
     setNovoInsumo(null);
+    showToast?.("Insumo adicionado. Ele será salvo no catálogo junto com a formalização.");
   };
 
   useEffect(()=>{
@@ -24426,7 +24439,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
         {!loading&&!resultados.length&&!aviso&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado.</p>}
       </div>}
     </div>
-    <div className="purchase-request-material-head"><h4>Materiais da solicitação</h4><div><Btn size="sm" v="ghost" onClick={addProprio}><Ic n="plus"/> Adicionar somente a esta solicitação</Btn>{data&&update&&<Btn size="sm" v="warning" onClick={abrirNovoInsumo}><Ic n="plus"/> Cadastrar no catálogo e adicionar</Btn>}</div></div>
+    <div className="purchase-request-material-head"><h4>Materiais da solicitação</h4><div><Btn size="sm" v="ghost" onClick={addProprio}><Ic n="plus"/> Adicionar somente a esta solicitação</Btn>{data&&<Btn size="sm" v="warning" onClick={abrirNovoInsumo}><Ic n="plus"/> Cadastrar no catálogo e adicionar</Btn>}</div></div>
     {novoInsumo&&<div style={{background:`${C.orange}0A`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
       <p style={{fontSize:10.5,fontWeight:900,color:C.orange}}>NOVO INSUMO NO CATÁLOGO</p>
       <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
@@ -24435,7 +24448,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
         <Sel label="Categoria" value={novoInsumo.categoria} onChange={v=>setNovoInsumo(f=>({...f,categoria:v}))} options={CATS_MATERIAL}/>
       </div>
       <Inp label="Preço médio (R$)" type="number" value={novoInsumo.precoMedio} onChange={v=>setNovoInsumo(f=>({...f,precoMedio:v}))} placeholder="0,00"/>
-      <div style={{display:"flex",gap:8}}><Btn size="sm" v="ghost" onClick={()=>setNovoInsumo(null)} full>Cancelar</Btn><Btn size="sm" onClick={salvarNovoInsumo} full><Ic n="check"/> Salvar insumo e adicionar</Btn></div>
+      <div style={{display:"flex",gap:8}}><Btn size="sm" v="ghost" onClick={()=>setNovoInsumo(null)} full>Cancelar</Btn><Btn size="sm" onClick={salvarNovoInsumo} full><Ic n="check"/> Adicionar à solicitação</Btn></div>
     </div>}
     {removido&&<div className="purchase-request-undo" role="status"><span>Material removido da solicitação.</span><button type="button" onClick={desfazerRemocao}>Desfazer</button></div>}
     <div className="purchase-request-items">{form.itens.map((item,itemIndex)=>{const itemErrors=erros.items?.find(e=>e.id===item.id)?.errors||{};return <article key={item.id} data-request-item={item.id} className="purchase-request-item">
@@ -25199,9 +25212,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     const p = { ...f, id: f.id || uid(), nome: f.nome.trim(),
       categorias: Array.isArray(f.categorias) ? f.categorias : [], ativo: true };
     delete p.ramosSugeridos;
-    const result=await update({ ...data, fornecedores: f.id
-      ? (data.fornecedores||[]).map(x => x.id === f.id ? p : x)
-      : [...(data.fornecedores||[]), p] });
+    if(!dispatchCommand){showToast("O cadastro seguro do fornecedor exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(atual=>{const vigente=(atual.fornecedores||[]).find(x=>x.id===p.id);return {type:OPERATIONAL_COMMAND.SUPPLIER_SAVED,idempotencyKey:`fornecedor-${p.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{supplier:p}};});
     if(!result?.ok){showToast(result?.reason||"O fornecedor não foi confirmado pelo servidor.","error");return;}
     setFornModal(null);
     showToast(f.id ? "Fornecedor atualizado." : "Fornecedor cadastrado.");
@@ -25297,7 +25309,25 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
       dataFinal={...comAprovacao,solicitacoesCompra:comAprovacao.solicitacoesCompra.map(s=>
         s.id===solicitacaoId?{...s,aprovacaoInstanciaId:resumo.instanciaId}:s)};
     }
-    const result=await update(dataFinal);
+    if(!dispatchCommand){
+      showToast("O salvamento seguro da solicitação exige conexão com o servidor.","error");
+      return false;
+    }
+    const solicitacaoFinal=(dataFinal.solicitacoesCompra||[]).find(s=>s.id===solicitacaoId)||registro;
+    const catalogMaterials=(dataFinal.materiais||[]).filter(material=>
+      String(material.solicitacaoOrigemId||"")===String(solicitacaoId));
+    const approvalInstance=(dataFinal.instanciasAprovacao||[]).find(instance=>
+      String(instance.id||"")===String(solicitacaoFinal.aprovacaoInstanciaId||""));
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.solicitacoesCompra||[]).find(s=>String(s.id)===String(solicitacaoId));
+      return {
+        type:OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED,
+        idempotencyKey:`solicitacao-compra-${solicitacaoId}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{request:solicitacaoFinal,catalogMaterials,approvalInstance},
+      };
+    });
     if(!result?.ok){
       const reason=result?.state===SAVE_QUEUE_STATE.OFFLINE
         ?"Sem conexão. A solicitação continua aberta para você tentar novamente quando a internet voltar."
@@ -30126,6 +30156,13 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
   const [inicioRdo, setInicioRdo] = useState("");
   const [fimRdo, setFimRdo] = useState("");
   const [fotoPreviewRdo, setFotoPreviewRdo] = useState(null);
+  const [buscaEquipeRdo,setBuscaEquipeRdo]=useState("");
+  const [buscaEquipRdo,setBuscaEquipRdo]=useState("");
+  const [salvamentoRdo,setSalvamentoRdo]=useState({status:"idle",at:"",message:""});
+  const ultimoSalvamentoFalhoRdoRef=useRef(null);
+  const [camposRdoLocais,setCamposRdoLocais]=useState({});
+  const camposRdoLocaisRef=useRef({});
+  const timersCamposRdoRef=useRef(new Map());
 
   const engenheirosTodos=useMemo(()=>(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro"),[data.usuarios]);
   const engenheiroLogado=["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?currentUser:null;
@@ -30153,7 +30190,7 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
     codigo: proximoCodigoRdo,
     status:"preparacao", descricao:"", pendencias:"", comentarios:"", anexos:[],
     transcricaoVoz:"",audios:[],revisaoEngenheiro:{aprovado:false,engenheiroId:"",engenheiro:"",revisadoEm:"",observacao:""},
-    clima: { manha: "bom", tarde: "bom", noite: "bom" },
+    clima: { manha: "", tarde: "", noite: "" },
     servicos: [], efetivo: [], presencas: [], terceirizados: [], equipamentos: [],
     ocorrencias: "", fotos: [], responsavel:responsavelAutomatico?.nome||"",responsavelId:responsavelAutomatico?.id||"",
     registradoPor:currentUser?.nome||"",registradoPorId:currentUser?.id||"",
@@ -30168,10 +30205,17 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
   const recognitionRdoRef=useRef(null);
   const audioChunksRdoRef=useRef([]);
   const [servicoModal, setServicoModal] = useState(null);
+  const filaSalvamentoRdoRef=useRef(Promise.resolve({ok:true}));
   useEffect(()=>{const id=sessionStorage.getItem("arcd_rdo_obra");if(id&&(data.obras||[]).some(o=>o.id===id)){setObraId(id);setFiltroObraRdo(id);}sessionStorage.removeItem("arcd_rdo_obra");},[data.obras]);
 
   // ---- Persistencia do RDO ----
-  const salvarRDO = async (mut) => {
+  const executarSalvarRDO = async (mut) => {
+    if(fieldReportIsReadOnly(rdo)){
+      showToast?.("Este diário está encerrado e disponível somente para consulta.","error");
+      return {ok:false,reason:"read_only"};
+    }
+    setSalvamentoRdo({status:"saving",at:"",message:"Salvando alterações..."});
+    ultimoSalvamentoFalhoRdoRef.current=mut;
     if(dispatchCommand){
       const idempotencyKey=`rdo-${uid()}-${Date.now()}`;
       const result=await dispatchCommand(atual=>{
@@ -30182,8 +30226,10 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
         const report=mut(base);
         return {type:OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,idempotencyKey,expectedVersion:Number(existente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{report}};
       });
-      if(!result?.ok)showToast?.(result?.reason||"Não foi possível registrar o diário.","error");
-      return;
+      if(!result?.ok){const message=result?.reason||"Não foi possível registrar o diário.";setSalvamentoRdo({status:"error",at:"",message});showToast?.(message,"error");return result;}
+      ultimoSalvamentoFalhoRdoRef.current=null;
+      setSalvamentoRdo({status:"saved",at:new Date().toISOString(),message:"Alterações confirmadas pelo servidor."});
+      return result;
     }
     const existe = (data.rdos || []).some(r => r.id === rdo.id && rdo.id);
     let rdos;
@@ -30193,25 +30239,52 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
       const novo = mut({ ...rdo, id: uid(), criadoEm: new Date().toISOString(), atualizadoEm:new Date().toISOString() });
       rdos = [...(data.rdos || []), novo];
     }
-    update({ ...data, rdos });
+    const result=await update({ ...data, rdos });
+    if(result?.ok===false){const message=result.reason||"Não foi possível registrar o diário.";setSalvamentoRdo({status:"error",at:"",message});return result;}
+    ultimoSalvamentoFalhoRdoRef.current=null;setSalvamentoRdo({status:"saved",at:new Date().toISOString(),message:"Alterações salvas."});
+    return result||{ok:true};
   };
+  const salvarRDO=mut=>{const operacao=filaSalvamentoRdoRef.current.catch(()=>({ok:false})).then(()=>executarSalvarRDO(mut));filaSalvamentoRdoRef.current=operacao;return operacao;};
 
   const setClima = (periodo, valor) => salvarRDO(r => {
     r.clima = { ...r.clima, [periodo]: valor };
     return r;
   });
+  const aplicarClimaTodos=valor=>salvarRDO(r=>({...r,clima:{manha:valor,tarde:valor,noite:valor},atualizadoEm:new Date().toISOString()}));
 
   const setOcorrencias = (txt) => salvarRDO(r => { r.ocorrencias = txt; return r; });
   const setCampoRdo = (campo, valor) => salvarRDO(r => ({...r,[campo]:valor,atualizadoEm:new Date().toISOString()}));
+  const valorCampoRdo=campo=>Object.prototype.hasOwnProperty.call(camposRdoLocais,campo)?camposRdoLocais[campo]:(rdo[campo]||"");
+  const salvarCampoRdoPendente=async(campo,valor)=>{timersCamposRdoRef.current.delete(campo);const result=await setCampoRdo(campo,valor);if(result?.ok&&camposRdoLocaisRef.current[campo]===valor){const next={...camposRdoLocaisRef.current};delete next[campo];camposRdoLocaisRef.current=next;setCamposRdoLocais(next);}return result;};
+  const editarCampoRdo=(campo,valor)=>{const next={...camposRdoLocaisRef.current,[campo]:valor};camposRdoLocaisRef.current=next;setCamposRdoLocais(next);setSalvamentoRdo({status:"local",at:"",message:"Alterações locais aguardando sincronização."});const antigo=timersCamposRdoRef.current.get(campo);if(antigo)window.clearTimeout(antigo);timersCamposRdoRef.current.set(campo,window.setTimeout(()=>salvarCampoRdoPendente(campo,valor),650));};
+  const confirmarCampoRdo=campo=>{const timer=timersCamposRdoRef.current.get(campo);if(!timer)return;window.clearTimeout(timer);salvarCampoRdoPendente(campo,camposRdoLocaisRef.current[campo]);};
+  const sincronizarCamposRdo=async()=>{const entries=Object.entries(camposRdoLocaisRef.current);if(!entries.length)return {ok:true};entries.forEach(([campo])=>{const timer=timersCamposRdoRef.current.get(campo);if(timer)window.clearTimeout(timer);});const results=await Promise.all(entries.map(([campo,valor])=>salvarCampoRdoPendente(campo,valor)));return {ok:results.every(result=>result?.ok)};};
+  useEffect(()=>()=>timersCamposRdoRef.current.forEach(timer=>window.clearTimeout(timer)),[]);
+  useEffect(()=>{timersCamposRdoRef.current.forEach(timer=>window.clearTimeout(timer));timersCamposRdoRef.current.clear();camposRdoLocaisRef.current={};setCamposRdoLocais({});},[obraId,dataRDO]);
+  const trocarContextoRdo=async(tipo,valor)=>{const result=await sincronizarCamposRdo();const pending=await filaSalvamentoRdoRef.current;if(!result.ok||!pending?.ok){showToast?.("A troca foi bloqueada porque há alterações que ainda não foram salvas.","error");return;}if(tipo==="obra")setObraId(valor);else setDataRDO(valor);};
 
   const abrirRdo = item => { setObraId(item.obraId); setDataRDO(item.data); setModoRdo("editor"); };
   const novoRdo = () => { setObraId(filtroObraRdo!=="all"?filtroObraRdo:(obraId||obras[0]?.id||"")); setDataRDO(today()); setModoRdo("editor"); };
   const concluirRdo = async () => {
     if(!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)){showToast?.("Somente um engenheiro pode revisar e concluir o diário.","error");return;}
-    if(!rdo.revisaoEngenheiro?.aprovado){showToast?.("Confirme a revisão técnica antes de concluir o diário.","error");return;}
-    await salvarRDO(r=>({...r,status:"concluido",concluidoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()}));
+    const reportEfetivo={...rdo,...camposRdoLocaisRef.current};
+    const completion=fieldReportCompletion(reportEfetivo);
+    if(!completion.complete){const first=completion.pending[0];document.getElementById(`rdo-etapa-${first.id}`)?.scrollIntoView({behavior:"smooth",block:"start"});showToast?.(`Antes de concluir: ${completion.pending.map(item=>item.label).join(", ")}.`,"error");return;}
+    const synchronized=await sincronizarCamposRdo();if(!synchronized.ok){showToast?.("Confirme as alterações pendentes antes de concluir.","error");return;}
+    const result=await salvarRDO(r=>({...r,status:"concluido",concluidoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()}));
+    if(result?.ok)showToast?.("RDO concluído e bloqueado para edição.");
+  };
+  const reabrirRdo=async()=>{
+    if(currentUser?.role!=="admin"||!rdo.id||!dispatchCommand)return;
+    const motivo=window.prompt("Justificativa administrativa para reabrir este RDO:");
+    if(String(motivo||"").trim().length<8){if(motivo!=null)showToast?.("Informe uma justificativa com pelo menos 8 caracteres.","error");return;}
+    setSalvamentoRdo({status:"saving",at:"",message:"Reabrindo diário..."});
+    const result=await dispatchCommand(atual=>{const vigente=(atual.rdos||[]).find(item=>item.id===rdo.id);return {type:OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED,idempotencyKey:`rdo-reabertura-${rdo.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",actorRole:currentUser?.role||"",payload:{reportId:rdo.id,reason:String(motivo).trim()}};});
+    if(!result?.ok){setSalvamentoRdo({status:"error",at:"",message:result?.reason||"Não foi possível reabrir o diário."});showToast?.(result?.reason||"Não foi possível reabrir o diário.","error");return;}
+    setSalvamentoRdo({status:"saved",at:new Date().toISOString(),message:"Diário reaberto para correção."});showToast?.("RDO reaberto. A revisão técnica anterior foi invalidada.");
   };
   const excluirRdo = async item => {
+    if(!window.confirm(`Cancelar o RDO ${item.codigo||""} de ${fmtDate(item.data)}? O documento será bloqueado e continuará disponível no histórico.`))return false;
     const motivo=window.prompt(`Motivo do cancelamento do RDO ${item.codigo||""} de ${fmtDate(item.data)}:`);
     if(!String(motivo||"").trim())return false;
     const agora=new Date().toISOString();
@@ -30223,25 +30296,33 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
           payload:{reportId:item.id,reason:String(motivo).trim()}};
       });
       if(!result?.ok){showToast?.(result?.reason||"Não foi possível cancelar o diário.","error");return false;}
-    }else update({...data,rdos:(data.rdos||[]).map(x=>x.id!==item.id?x:{
+    }else {const fallbackResult=await update({...data,rdos:(data.rdos||[]).map(x=>x.id!==item.id?x:{
       ...x,status:"cancelado",motivoCancelamento:String(motivo).trim(),canceladoEm:agora,
       canceladoPorId:currentUser?.id||"",canceladoPor:currentUser?.nome||"",atualizadoEm:agora,
-    })});
+    })});if(fallbackResult?.ok===false){showToast?.(fallbackResult.reason||"Não foi possível cancelar o diário.","error");return false;}}
     showToast?.("Diário cancelado e preservado no histórico."); return true;
   };
-  const duplicarRdo = item => {
+  const duplicarRdo = async item => {
     const codigo=Math.max(0,...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1;
     let novaData=today(); while((data.rdos||[]).some(x=>x.obraId===item.obraId&&x.data===novaData)){const d=new Date(`${novaData}T12:00:00`);d.setDate(d.getDate()+1);novaData=d.toISOString().slice(0,10);}
-    const copia={...item,id:uid(),codigo,status:"preparacao",data:novaData,fotos:[],anexos:[],registradoPor:currentUser?.nome||"",registradoPorId:currentUser?.id||"",criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:""};
-    update({...data,rdos:[...(data.rdos||[]),copia]}); setObraId(copia.obraId);setDataRDO(copia.data);setModoRdo("editor");showToast?.("Dados do último diário copiados para um novo rascunho.");
+    const {operationalHistory:ignoredHistory,motivoCancelamento:ignoredCancelReason,canceladoEm:ignoredCancelledAt,canceladoPor:ignoredCancelledBy,canceladoPorId:ignoredCancelledById,reabertoEm:ignoredReopenedAt,reabertoPor:ignoredReopenedBy,reabertoPorId:ignoredReopenedById,motivoReabertura:ignoredReopenReason,...conteudo}=item;
+    const copia={...conteudo,id:uid(),codigo,status:"preparacao",data:novaData,fotos:[],anexos:[],revisaoEngenheiro:{aprovado:false,engenheiroId:"",engenheiro:"",revisadoEm:"",observacao:""},responsavel:responsavelAutomatico?.nome||"",responsavelId:responsavelAutomatico?.id||"",registradoPor:currentUser?.nome||"",registradoPorId:currentUser?.id||"",criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:"",version:0};
+    const result=await update({...data,rdos:[...(data.rdos||[]),copia]});if(result?.ok===false){showToast?.(result.reason||"Não foi possível duplicar o diário.","error");return;}setObraId(copia.obraId);setDataRDO(copia.data);setModoRdo("editor");showToast?.("Conteúdo copiado para um novo rascunho sem aprovação ou auditoria anterior.");
   };
 
   const imprimirRdo = item => {
     const obra=(data.obras||[]).find(o=>o.id===item.obraId);
-    const equipe=(item.presencas||[]).filter(p=>p.status!=="falta").map(p=>(data.employees||[]).find(e=>e.id===p.empId)?.name).filter(Boolean);
+    const equipe=(item.presencas||[]).map(p=>`${(data.employees||[]).find(e=>e.id===p.empId)?.name||"Funcionário não localizado"}: ${p.status||"não informado"}`);
     const fotos=(item.fotos||[]).map(f=>`<figure><img src="${escapeHtml(f.url)}"><figcaption>${escapeHtml(f.legenda||"")}</figcaption></figure>`).join("");
     const clima=Object.entries(item.clima||{}).map(([p,v])=>`${p}: ${CLIMA_OPC.find(x=>x.v===v)?.l||v}`).join(" · ");
-    const html=`<!doctype html><html><head><meta charset="utf-8"><title>RDO ${item.codigo}</title><style>body{font-family:Arial;margin:32px;color:#222}header{border-bottom:3px solid #d4a91e;padding-bottom:12px}h1{font-size:22px}h2{font-size:14px;margin-top:20px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:12px}.box{white-space:pre-wrap;background:#f6f6f6;padding:10px}.ia{white-space:pre-wrap;background:#f3f7ff;border-left:4px solid #1565c0;padding:12px}figure{display:inline-block;width:30%;margin:1%;vertical-align:top}img{width:100%;height:150px;object-fit:cover}figcaption{font-size:10px}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><header><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")} · RDO ${item.codigo}</h1><b>${escapeHtml(obra?.name||"")}</b><p>${escapeHtml(obra?.address||"")}</p></header><div class="meta"><p><b>Data:</b> ${fmtDate(item.data)}</p><p><b>Status:</b> ${item.status==="concluido"?"Concluído":"Em preparação"}</p><p><b>Clima:</b> ${escapeHtml(clima)}</p><p><b>Responsável:</b> ${escapeHtml(item.responsavel||"-")}</p><p><b>Equipe:</b> ${equipe.length}</p></div><h2>Descrição e atividades</h2><div class="box">${escapeHtml(item.descricao||"")}</div><h2>Ocorrências</h2><div class="box">${escapeHtml(item.ocorrencias||"")}</div><h2>Pendências</h2><div class="box">${escapeHtml(item.pendencias||"")}</div>${fotos?`<h2>Registro fotográfico</h2>${fotos}`:""}${item.reflexaoIA?.texto?`<h2>Reflexão técnica por IA</h2><div class="ia">${escapeHtml(item.reflexaoIA.texto)}</div>`:""}</body></html>`;
+    const status=item.status==="concluido"?"Concluído":item.status==="cancelado"?"Cancelado":"Rascunho / não concluído";
+    const lista=(itens,vazio="Nenhum registro")=>itens.length?`<ul>${itens.map(valor=>`<li>${escapeHtml(valor)}</li>`).join("")}</ul>`:`<p>${vazio}</p>`;
+    const servicos=(item.servicos||[]).map(s=>`${tarefas.find(t=>t.id===s.tarefaId)?.nome||s.descricao||"Serviço"}: ${Number(s.progressoAte||0)}%${s.obs?` — ${s.obs}`:""}`);
+    const terceiros=(item.terceirizados||[]).map(t=>`${(data.terceirizados||[]).find(x=>x.id===t.tercId)?.name||"Terceirizado não localizado"}: ${t.status||"não informado"}`);
+    const equipamentos=(item.equipamentos||[]).map(e=>`${(data.equipamentos||[]).find(x=>x.id===e.equipId)?.nome||e.nome||"Equipamento"}: ${Number(e.horas||0)} h`);
+    const anexos=[...(item.anexos||[]).map(a=>a.nome||"Documento anexado"),...(item.audios||[]).map(a=>a.nome||"Áudio do diário")];
+    const historico=(item.operationalHistory||[]).map(e=>`${e.type||"evento"} — ${e.at?new Date(e.at).toLocaleString("pt-BR"):"sem data"} — ${e.by||"autoria não informada"}${e.reason?` — ${e.reason}`:""}`);
+    const html=`<!doctype html><html><head><meta charset="utf-8"><title>RDO ${item.codigo}</title><style>body{font-family:"IBM Plex Sans",Arial,sans-serif;margin:32px;color:#222;line-height:1.45}.marca{padding:10px;border:2px solid #a2191f;color:#a2191f;text-align:center;font-weight:700;text-transform:uppercase}header{border-bottom:3px solid #d4a91e;padding-bottom:12px}h1{font-size:22px}h2{font-size:14px;margin-top:20px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:12px}.box{white-space:pre-wrap;background:#f6f6f6;padding:10px}.ia{white-space:pre-wrap;background:#f3f7ff;border:1px solid #1565c0;padding:12px}li,p{font-size:12px}figure{display:inline-block;width:30%;margin:1%;vertical-align:top}img{width:100%;height:150px;object-fit:cover}figcaption{font-size:10px}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button>${item.status!=="concluido"?`<div class="marca">${escapeHtml(status)}</div>`:""}<header><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")} · RDO ${item.codigo}</h1><b>${escapeHtml(obra?.name||"")}</b><p>${escapeHtml(obra?.address||"")}</p></header><div class="meta"><p><b>Data:</b> ${fmtDate(item.data)}</p><p><b>Status:</b> ${escapeHtml(status)}</p><p><b>Clima:</b> ${escapeHtml(clima||"Não informado")}</p><p><b>Responsável:</b> ${escapeHtml(item.responsavel||"-")}</p><p><b>Registrado por:</b> ${escapeHtml(item.registradoPor||"-")}</p><p><b>Versão:</b> ${Number(item.version||0)}</p></div><h2>Descrição e atividades</h2><div class="box">${escapeHtml(item.descricao||item.transcricaoVoz||"Não informado")}</div><h2>Serviços executados</h2>${lista(servicos)}<h2>Efetivo e presenças</h2>${lista(equipe)}<h2>Terceirizados</h2>${lista(terceiros)}<h2>Equipamentos</h2>${lista(equipamentos)}<h2>Ocorrências</h2><div class="box">${escapeHtml(item.ocorrencias||"Nenhuma ocorrência registrada")}</div><h2>Pendências e comentários</h2><div class="box">${escapeHtml([item.pendencias,item.comentarios].filter(Boolean).join("\n")||"Nenhum registro")}</div><h2>Revisão técnica</h2><p>${item.revisaoEngenheiro?.aprovado?`Aprovado por ${escapeHtml(item.revisaoEngenheiro.engenheiro||"engenheiro não identificado")} em ${escapeHtml(item.revisaoEngenheiro.revisadoEm?new Date(item.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR"):"data não informada")}`:"Não aprovada"}</p>${item.status==="cancelado"?`<h2>Cancelamento</h2><p>${escapeHtml(item.motivoCancelamento||"Motivo não informado")}</p>`:""}<h2>Anexos e áudios</h2>${lista(anexos)}<h2>Histórico auditável</h2>${lista(historico)}${fotos?`<h2>Registro fotográfico</h2>${fotos}`:""}${item.reflexaoIA?.texto?`<h2>Reflexão técnica por IA</h2><div class="ia">${escapeHtml(item.reflexaoIA.texto)}</div>`:""}</body></html>`;
     const w=window.open("","_blank"); if(w){w.opener=null;w.document.write(html);w.document.close();}else showToast?.("O navegador bloqueou a janela do relatório. Permita pop-ups para este site.","error");
   };
 
@@ -30299,13 +30380,12 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
     .filter(e => e.active !== false && (e.obra === obraId || !e.obra));
   const presencaDe = (empId) =>
     (rdo.presencas || []).find(p => p.empId === empId)?.status || "";
-  const ciclarPresenca = (empId) => salvarRDO(r => {
-    const atual = (r.presencas || []).find(p => p.empId === empId)?.status;
-    const proximo = atual === "presente" ? "meio" : atual === "meio" ? "falta" : atual === "falta" ? "" : "presente";
+  const setPresencaRdo = (empId,status) => salvarRDO(r => {
     r.presencas = (r.presencas || []).filter(p => p.empId !== empId);
-    if (proximo) r.presencas.push({ empId, status: proximo });
+    if(status)r.presencas.push({empId,status});
     return r;
   });
+  const marcarTodosPresentesRdo=()=>salvarRDO(r=>({...r,presencas:empregadosObra.map(emp=>({empId:emp.id,status:"presente"})),atualizadoEm:new Date().toISOString()}));
 
   // ---- Terceirizados na obra (contratos ativos desta obra) ----
   const terceirizadosObra = (data.terceirizados || [])
@@ -30313,12 +30393,10 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
   const statusTerc = (tercId) =>
     (rdo.terceirizados || []).find(t => t.tercId === tercId)?.status || "";
   // Mesmo ciclo do ponto próprio: presente → meio → falta → (limpa).
-  const ciclarTerc = (tercId) => salvarRDO(r => {
-    const atual = (r.terceirizados || []).find(t => t.tercId === tercId)?.status;
-    const proximo = atual === "presente" ? "meio" : atual === "meio" ? "falta" : atual === "falta" ? "" : "presente";
+  const setStatusTercRdo = (tercId,status) => salvarRDO(r => {
     const etapaAtual = (r.terceirizados || []).find(t => t.tercId === tercId)?.etapaId || "";
     r.terceirizados = (r.terceirizados || []).filter(t => t.tercId !== tercId);
-    if (proximo) r.terceirizados.push({ tercId, status: proximo, etapaId: etapaAtual });
+    if(status)r.terceirizados.push({tercId,status,etapaId:etapaAtual});
     return r;
   });
   // Etapa em que o terceirizado trabalhou hoje (usa as etapas do contrato dele).
@@ -30419,6 +30497,12 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
 
   const presentes = (rdo.presencas || []).filter(p => p.status === "presente").length;
   const meios = (rdo.presencas || []).filter(p => p.status === "meio").length;
+  const completionRdo=fieldReportCompletion({...rdo,...camposRdoLocais});
+  const requisitosAntesRevisaoOk=completionRdo.checks.filter(item=>item.id!=="revisao").every(item=>item.complete);
+  const somenteLeituraRdo=fieldReportIsReadOnly(rdo);
+  const salvarNovamenteRdo=()=>ultimoSalvamentoFalhoRdoRef.current&&salvarRDO(ultimoSalvamentoFalhoRdoRef.current);
+  const irParaEtapa=id=>document.getElementById(`rdo-etapa-${id}`)?.scrollIntoView({behavior:"smooth",block:"start"});
+  const voltarHistoricoRdo=async()=>{const result=await sincronizarCamposRdo();if(result.ok)setModoRdo("lista");else showToast?.("Há alterações que ainda não foram confirmadas. Tente novamente antes de sair.","error");};
 
   if (!obras.length) {
     return <div style={{ padding: 24, textAlign: "center" }}>
@@ -30438,19 +30522,20 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
         <Inp value={inicioRdo} onChange={setInicioRdo} type="date" label="Data inicial"/>
         <Inp value={fimRdo} onChange={setFimRdo} type="date" label="Data final"/>
         <Sel value={filtroObraRdo} onChange={setFiltroObraRdo} label="Obra" options={[{v:"all",l:"Todas"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-        <Sel value={filtroStatusRdo} onChange={setFiltroStatusRdo} label="Status" options={[{v:"all",l:"Todos"},{v:"preparacao",l:"Em preparação"},{v:"concluido",l:"Concluído"}]}/>
+        <Sel value={filtroStatusRdo} onChange={setFiltroStatusRdo} label="Status" options={[{v:"all",l:"Todos"},{v:"preparacao",l:"Em preparação"},{v:"concluido",l:"Concluído"},{v:"cancelado",l:"Cancelado"}]}/>
         <Sel value={filtroClimaRdo} onChange={setFiltroClimaRdo} label="Clima" options={[{v:"all",l:"Todos"},...CLIMA_OPC.map(o=>({v:o.v,l:o.l}))]}/>
         <Inp value={buscaRdo} onChange={setBuscaRdo} label="Pesquisar" placeholder="Código, obra ou descrição"/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:9}}>
-        {rdosFiltrados.map(item=>{const obra=obraPorIdRdo.get(item.obraId);return <div key={item.id} style={{border:`1px solid ${C.border}`,borderLeft:`4px solid ${item.status==="concluido"?C.green:C.orange}`,borderRadius:8,background:C.card,padding:11,minWidth:0}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:7}}><div><b style={{fontSize:12.5,color:C.text}}>RDO-{String(item.codigo||0).padStart(3,"0")} · {fmtDate(item.data)}</b><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>{obra?.name||"Obra removida"}</p></div><Badge color={item.status==="concluido"?C.green:C.orange}>{item.status==="concluido"?"Concluído":"Em preparação"}</Badge></div>
-          <p className="brk" style={{fontSize:10.5,color:C.subtle,marginTop:7,minHeight:28,lineHeight:1.4}}>{item.descricao||item.ocorrencias||item.responsavel||"Sem descrição informada."}</p>
+        {rdosFiltrados.map(item=>{const obra=obraPorIdRdo.get(item.obraId);const statusLabel=item.status==="concluido"?"Concluído":item.status==="cancelado"?"Cancelado":"Em preparação";const statusColor=item.status==="concluido"?C.green:item.status==="cancelado"?C.red:C.orange;return <article key={item.id} className="rdo-history-card" data-status={item.status||"preparacao"}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:7}}><div><b style={{fontSize:14,color:C.text}}>RDO-{String(item.codigo||0).padStart(3,"0")} · {fmtDate(item.data)}</b><p style={{fontSize:12,color:C.muted,marginTop:2}}>{obra?.name||"Obra removida"}</p></div><Badge color={statusColor}>{statusLabel}</Badge></div>
+          <p className="brk" style={{fontSize:13,color:C.subtle,marginTop:7,minHeight:28,lineHeight:1.5}}>{[item.descricao,item.ocorrencias,item.pendencias].filter(Boolean).join(" · ")||item.responsavel||"Sem descrição informada."}</p>
+          {item.status==="cancelado"&&<p className="rdo-cancel-reason"><b>Motivo do cancelamento:</b> {item.motivoCancelamento||"Não informado"}</p>}
           {(item.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4,marginTop:8}}>{item.fotos.slice(0,4).map((foto,i)=><button key={foto.url} onClick={()=>setFotoPreviewRdo({foto,item,index:i})} title="Ver foto" style={{position:"relative",padding:0,border:`1px solid ${C.border}`,borderRadius:5,overflow:"hidden",height:58,cursor:"pointer",background:C.surface}}><img src={foto.url} alt={foto.legenda||`Foto ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>{i===3&&item.fotos.length>4&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.55)",color:"#fff",fontWeight:900}}>+{item.fotos.length-4}</span>}</button>)}</div>}
           <p style={{fontSize:9.5,color:C.blue,fontWeight:700,marginTop:7}}>{(item.fotos||[]).length} foto(s) · {(item.anexos||[]).length} documento(s)</p>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginTop:9}}><Btn size="sm" v="ghost" onClick={()=>abrirRdo(item)}><Ic n="edit"/> Abrir / editar</Btn><Btn size="sm" v="ghost" onClick={()=>imprimirRdo(item)}><Ic n="fileText"/> PDF</Btn><Btn size="sm" v="ghost" onClick={()=>duplicarRdo(item)}><Ic n="copy"/> Duplicar</Btn><Btn size="sm" v="danger" onClick={()=>excluirRdo(item)}><Ic n="trash"/> Excluir</Btn></div>
-        </div>})}
-        {!rdosFiltrados.length&&<p style={{gridColumn:"1/-1",padding:24,textAlign:"center",fontSize:12,color:C.muted}}>Nenhum diário encontrado com estes filtros.</p>}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginTop:9}}><Btn size="sm" v="ghost" onClick={()=>abrirRdo(item)}><Ic n={fieldReportIsReadOnly(item)?"eye":"edit"}/> {fieldReportIsReadOnly(item)?"Consultar":"Abrir e editar"}</Btn><Btn size="sm" v="ghost" onClick={()=>imprimirRdo(item)}><Ic n="fileText"/> PDF</Btn><Btn size="sm" v="ghost" onClick={()=>duplicarRdo(item)}><Ic n="copy"/> Duplicar</Btn>{item.status!=="cancelado"&&<Btn size="sm" v="danger" onClick={()=>excluirRdo(item)}><Ic n="x"/> Cancelar RDO</Btn>}</div>
+        </article>})}
+        {!rdosFiltrados.length&&<div className="rdo-empty"><strong>Nenhum diário encontrado</strong><p>Ajuste os filtros ou limpe a pesquisa para ver outros registros.</p><Btn v="ghost" onClick={()=>{setInicioRdo("");setFimRdo("");setFiltroObraRdo("all");setFiltroStatusRdo("all");setFiltroClimaRdo("all");setBuscaRdo("");}}>Limpar filtros</Btn></div>}
       </div>
       {fotoPreviewRdo&&<Modal title={`RDO-${String(fotoPreviewRdo.item.codigo||0).padStart(3,"0")} · Foto ${fotoPreviewRdo.index+1}`} onClose={()=>setFotoPreviewRdo(null)} wide><img src={fotoPreviewRdo.foto.url} alt={fotoPreviewRdo.foto.legenda||"Foto do diário"} style={{display:"block",width:"100%",maxHeight:"70vh",objectFit:"contain",background:"#111",borderRadius:7}}/>{fotoPreviewRdo.foto.legenda&&<p style={{fontSize:12,color:C.text,marginTop:8}}>{fotoPreviewRdo.foto.legenda}</p>}<Btn full v="ghost" onClick={()=>setFotoPreviewRdo(null)} style={{marginTop:10}}>Fechar</Btn></Modal>}
     </div>;
@@ -30460,42 +30545,44 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-        <button onClick={()=>setModoRdo("lista")} style={{border:0,background:"transparent",padding:0,color:C.blue,fontSize:11.5,fontWeight:800,cursor:"pointer"}}>← Histórico dos diários</button>
+        <button onClick={voltarHistoricoRdo} style={{border:0,background:"transparent",padding:0,color:C.blue,fontSize:13,fontWeight:800,cursor:"pointer"}}>← Histórico dos diários</button>
         <div style={{display:"flex",gap:5}}>
-          {rdo.id&&<Btn size="sm" v="danger" onClick={()=>{if(excluirRdo(rdo))setModoRdo("lista");}}><Ic n="trash"/> Excluir</Btn>}
+          {rdo.id&&!somenteLeituraRdo&&<Btn size="sm" v="danger" onClick={async()=>{if(await excluirRdo(rdo))setModoRdo("lista");}}><Ic n="x"/> Cancelar RDO</Btn>}
           {rdo.id&&<Btn size="sm" v="ghost" onClick={()=>imprimirRdo(rdo)}><Ic n="fileText"/> PDF</Btn>}
-          <Btn size="sm" v={rdo.status==="concluido"?"success":"primary"} onClick={concluirRdo}><Ic n="check"/> {rdo.status==="concluido"?"Concluído":"Concluir relatório"}</Btn>
+          {rdo.status==="concluido"&&currentUser?.role==="admin"&&<Btn size="sm" v="warning" onClick={reabrirRdo}><Ic n="edit"/> Reabrir como administrador</Btn>}
+          {!somenteLeituraRdo&&<Btn size="sm" v="primary" onClick={concluirRdo} disabled={!completionRdo.complete} title={!completionRdo.complete?`Pendente: ${completionRdo.pending.map(item=>item.label).join(", ")}`:"Concluir e bloquear o RDO"}><Ic n="check"/> Concluir relatório</Btn>}
         </div>
       </div>
-      <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",padding:"8px 10px",borderRadius:7,background:rdo.status==="concluido"?`${C.green}10`:`${C.orange}10`,border:`1px solid ${rdo.status==="concluido"?C.green:C.orange}44`}}>
-        <b style={{fontSize:12,color:C.text}}>RDO-{String(rdo.codigo||0).padStart(3,"0")}</b><Badge color={rdo.status==="concluido"?C.green:C.orange}>{rdo.status==="concluido"?"Concluído":"Em preparação"}</Badge>
+      <div className="rdo-document-status" data-status={rdo.status||"preparacao"}>
+        <div><b>RDO-{String(rdo.codigo||0).padStart(3,"0")}</b><p>{somenteLeituraRdo?rdo.status==="cancelado"?"Documento cancelado e preservado no histórico.":"Documento concluído e bloqueado para edição.":`${completionRdo.pending.length} requisito(s) pendente(s) para concluir.`}</p></div><Badge color={rdo.status==="concluido"?C.green:rdo.status==="cancelado"?C.red:C.orange}>{rdo.status==="concluido"?"Concluído":rdo.status==="cancelado"?"Cancelado":"Em preparação"}</Badge>
       </div>
+      <div className="rdo-save-state" data-state={salvamentoRdo.status} role={salvamentoRdo.status==="error"?"alert":"status"} aria-live="polite"><span>{salvamentoRdo.status==="local"?"Alterações locais":salvamentoRdo.status==="saving"?"Sincronizando":salvamentoRdo.status==="error"?"Falha ao salvar":salvamentoRdo.status==="saved"?`Salvo às ${new Date(salvamentoRdo.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Pronto para registrar"}</span><p>{salvamentoRdo.message||"As alterações serão confirmadas pelo servidor."}</p>{salvamentoRdo.status==="error"&&<button onClick={salvarNovamenteRdo}>Tentar novamente</button>}</div>
 
-      <div style={{position:"sticky",top:0,zIndex:12,display:"grid",gridTemplateColumns:cols(2,5,5),gap:5,padding:6,background:"rgba(255,255,255,.94)",backdropFilter:"blur(14px)",border:`1px solid ${C.border}`,borderRadius:12,boxShadow:"0 8px 24px rgba(20,24,28,.08)"}}>
-        {[["1","Contexto",!!(obraId&&dataRDO)],["2","Relato e clima",!!(rdo.descricao||rdo.transcricaoVoz)],["3","Execução",!!(rdo.servicos||[]).length],["4","Evidências e IA",!!(rdo.fotos||[]).length&&!!rdo.reflexaoIA?.texto],["5","Revisão",!!rdo.revisaoEngenheiro?.aprovado]].map(([n,l,ok])=><div key={n} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 8px",borderRadius:8,background:ok?`${C.green}0E`:C.surface,border:`1px solid ${ok?`${C.green}44`:C.border}`}}><span style={{width:20,height:20,borderRadius:99,display:"grid",placeItems:"center",background:ok?C.green:C.card,color:ok?"#fff":C.muted,fontSize:9,fontWeight:900}}>{ok?"✓":n}</span><span style={{fontSize:9.5,fontWeight:800,color:ok?C.green:C.subtle}}>{l}</span></div>)}
-      </div>
+      <nav className="rdo-stepper" aria-label="Etapas obrigatórias do Diário de Obra">{completionRdo.checks.map((check,index)=><button type="button" key={check.id} data-complete={check.complete} aria-label={`${check.label}: ${check.complete?"concluída":"pendente"}`} onClick={()=>irParaEtapa(check.id)}><span>{check.complete?"✓":index+1}</span><b>{check.label}</b><small>{check.complete?"Concluída":"Pendente"}</small></button>)}</nav>
+
+      <fieldset className="rdo-editor-fields" disabled={somenteLeituraRdo}>
 
       {/* Seletor de obra + data */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+      <div id="rdo-etapa-contexto" className="rdo-section-anchor" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div style={{ flex: 2, minWidth: 160 }}>
           {obraIdFixo
             ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-            : <Sel label="Obra" value={obraId} onChange={setObraId}
+            : <Sel label="Obra" value={obraId} onChange={valor=>trocarContextoRdo("obra",valor)}
                  options={obras.map(o => ({ v: o.id, l: o.name }))} />}
         </div>
         <div style={{ flex: 1, minWidth: 130 }}>
-          <Inp label="Data" type="date" value={dataRDO} onChange={setDataRDO} />
+          <Inp label="Data" type="date" value={dataRDO} onChange={valor=>trocarContextoRdo("data",valor)} />
         </div>
       </div>
 
-      <Bloco titulo="Descrição detalhada e atividades planejadas">
-        <textarea value={rdo.descricao||""} onChange={e=>setCampoRdo("descricao",e.target.value)} placeholder="Objetivo da visita, serviços planejados, verificações, decisões e evolução observada..." rows={5} style={{width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card,color:C.text,fontSize:12.5,fontFamily:"inherit",resize:"vertical"}}/>
+      <Bloco id="rdo-etapa-relato" titulo="Descrição detalhada e atividades planejadas">
+        <label className="rdo-field-label" htmlFor="rdo-descricao">Relato do dia <span>obrigatório</span></label><textarea id="rdo-descricao" value={valorCampoRdo("descricao")} onChange={e=>editarCampoRdo("descricao",e.target.value)} onBlur={()=>confirmarCampoRdo("descricao")} placeholder="Objetivo da visita, serviços planejados, verificações, decisões e evolução observada..." rows={5} className="rdo-textarea"/>
       </Bloco>
 
-      <Bloco titulo="Relato por voz" acao={<div style={{display:"flex",gap:5}}><Btn size="sm" v={gravandoVoz?"danger":"info"} onClick={gravandoVoz?pararVoz:iniciarVoz} disabled={enviandoAudio}><Ic n={gravandoVoz?"stop":"mic"}/> {gravandoVoz?"Parar e salvar":"Gravar relato"}</Btn><label style={{display:"inline-flex",alignItems:"center",padding:"6px 9px",border:`1px solid ${C.border}`,borderRadius:7,fontSize:9.5,fontWeight:800,cursor:"pointer",color:C.subtle}}>Enviar áudio<input type="file" accept="audio/*" onChange={escolherAudioRdo} style={{display:"none"}}/></label></div>}>
+      <Bloco titulo="Relato por voz · opcional" acao={<div style={{display:"flex",gap:5}}><Btn size="sm" v={gravandoVoz?"danger":"info"} onClick={gravandoVoz?pararVoz:iniciarVoz} disabled={enviandoAudio}><Ic n={gravandoVoz?"stop":"mic"}/> {gravandoVoz?"Parar e salvar":"Gravar relato"}</Btn><label className="rdo-file-action">Enviar áudio<input type="file" accept="audio/*" onChange={escolherAudioRdo} style={{display:"none"}}/></label></div>}>
         {gravandoVoz&&<div style={{display:"flex",alignItems:"center",gap:7,color:C.red,fontSize:10.5,fontWeight:800,marginBottom:8}}><span style={{width:9,height:9,borderRadius:99,background:C.red,boxShadow:`0 0 0 5px ${C.red}18`}}/>Gravando e transcrevendo em português...</div>}
-        <textarea value={rdo.transcricaoVoz||""} onChange={e=>setCampoRdo("transcricaoVoz",e.target.value)} placeholder="A transcrição aparece aqui. Você também pode revisar ou complementar o relato antes da análise." rows={4} style={{width:"100%",padding:"9px 11px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card,color:C.text,fontSize:12,fontFamily:"inherit",resize:"vertical"}}/>
-        {(rdo.audios||[]).length>0&&<div style={{display:"flex",flexDirection:"column",gap:5,marginTop:8}}>{rdo.audios.map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"7px 9px",background:C.surface,borderRadius:7}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:10.5,color:C.blue,fontWeight:700}}>▶ {a.nome}</a><button onClick={()=>salvarRDO(r=>({...r,audios:(r.audios||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>×</button></div>)}</div>}
+        <label className="rdo-field-label" htmlFor="rdo-transcricao">Transcrição revisável</label><textarea id="rdo-transcricao" value={valorCampoRdo("transcricaoVoz")} onChange={e=>editarCampoRdo("transcricaoVoz",e.target.value)} onBlur={()=>confirmarCampoRdo("transcricaoVoz")} placeholder="A transcrição aparece aqui. Você também pode revisar ou complementar o relato antes da análise." rows={4} className="rdo-textarea"/>
+        {(rdo.audios||[]).length>0&&<div style={{display:"flex",flexDirection:"column",gap:5,marginTop:8}}>{rdo.audios.map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"7px 9px",background:C.surface,borderRadius:7}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:10.5,color:C.blue,fontWeight:700}}>▶ {a.nome}</a><button aria-label={`Remover áudio ${a.nome}`} onClick={()=>salvarRDO(r=>({...r,audios:(r.audios||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>×</button></div>)}</div>}
         {enviandoAudio&&<p style={{fontSize:10,color:C.blue,marginTop:7}}>Enviando áudio para a pasta do diário no OneDrive...</p>}
       </Bloco>
 
@@ -30503,26 +30590,27 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
         <div style={{ background: `${C.yellow}12`, border: `1px solid ${C.yellow}44`,
                       borderRadius: 6, padding: "9px 11px" }}>
           <p style={{ fontSize: 11.5, color: C.subtle }}>
-            Novo diario para {fmtDate(dataRDO)}. Comece registrando o clima ou os servicos - salva sozinho.
+            Novo diário para {fmtDate(dataRDO)}. Confirme o clima, registre o relato e ao menos um serviço. O indicador acima mostra quando cada alteração chegar ao servidor.
           </p>
         </div>
       )}
 
       {/* CLIMA */}
-      <Bloco titulo="Clima do dia">
+      <Bloco id="rdo-etapa-clima" titulo="Clima do dia · obrigatório" acao={<select aria-label="Aplicar o mesmo clima aos três períodos" defaultValue="" onChange={e=>{if(e.target.value){aplicarClimaTodos(e.target.value);e.target.value="";}}} className="rdo-apply-all"><option value="">Aplicar a todos...</option>{CLIMA_OPC.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>}>
         <div style={{marginBottom:9,padding:"8px 10px",borderRadius:6,background:C.surface,border:`1px solid ${C.border}`}}>
           <p style={{fontSize:9,fontWeight:900,color:C.muted,textTransform:"uppercase"}}>Responsável pelo registro · automático</p>
           <p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:2}}>{rdo.responsavel||responsavelAutomatico?.nome||"Nenhum usuário identificado"}</p>
           {currentUser?.nome&&<p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Lançado por {rdo.registradoPor||currentUser.nome}</p>}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-          {[["manha", "Manha"], ["tarde", "Tarde"], ["noite", "Noite"]].map(([p, lbl]) => (
+          {[["manha", "Manhã"], ["tarde", "Tarde"], ["noite", "Noite"]].map(([p, lbl]) => (
             <div key={p}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 4 }}>{lbl}</p>
-              <select value={rdo.clima[p]} onChange={e => setClima(p, e.target.value)}
+              <label htmlFor={`rdo-clima-${p}`} className="rdo-field-label">{lbl}</label>
+              <select id={`rdo-clima-${p}`} value={rdo.clima[p]||""} onChange={e => setClima(p, e.target.value)}
                       style={{ width: "100%", padding: "7px 6px", borderRadius: 7,
                                border: `1px solid ${C.border}`, background: C.card,
                                color: C.text, fontSize: 12 }}>
+                <option value="">Não informado</option>
                 {CLIMA_OPC.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
               </select>
             </div>
@@ -30531,8 +30619,8 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
       </Bloco>
 
       {/* SERVICOS EXECUTADOS */}
-      <Bloco titulo="Servicos executados"
-             acao={<Btn v="ghost" size="sm" onClick={() => setServicoModal({ novo: true })}>+ Servico</Btn>}>
+      <Bloco id="rdo-etapa-execucao" titulo="Serviços executados · obrigatório"
+             acao={<Btn v="ghost" size="sm" onClick={() => setServicoModal({ novo: true })}>+ Serviço</Btn>}>
         {(rdo.servicos || []).length === 0 ? (
           <p style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
             Indique quais servicos foram executados hoje. O progresso lancado aqui
@@ -30542,7 +30630,7 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
           (rdo.servicos || []).map(s => {
             const tarefa = tarefas.find(t => t.id === s.tarefaId);
             return (
-              <div key={s.tarefaId} onClick={() => setServicoModal({ servico: s })}
+              <button type="button" key={s.tarefaId} onClick={() => setServicoModal({ servico: s })} className="rdo-service-row"
                    style={{ padding: "9px 0", borderTop: `1px solid ${C.line}`, cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <span className="brk" style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>
@@ -30566,33 +30654,24 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
                     })}
                   </div>
                 )}
-              </div>
+              </button>
             );
           })
         )}
       </Bloco>
 
       {/* EFETIVO / PONTO */}
-      <Bloco titulo={`Efetivo e presencas${presentes ? ` (${presentes} presentes${meios ? ` + ${meios} meio` : ""})` : ""}`}>
-        <p style={{ fontSize: 11, color: C.muted, marginBottom: 8, lineHeight: 1.4 }}>
-          Toque no nome para marcar: presente, meio periodo, falta. Registra o ponto sem sair do diario.
-        </p>
+      <Bloco titulo={`Efetivo e presenças${presentes ? ` (${presentes} presentes${meios ? ` + ${meios} meio período` : ""})` : ""}`} acao={empregadosObra.length?<Btn size="sm" v="ghost" onClick={marcarTodosPresentesRdo}>Marcar todos presentes</Btn>:null}>
+        <p className="rdo-help">Escolha um estado explícito para cada pessoa. O registro alimenta o ponto sem sair do diário.</p>
+        {empregadosObra.length>8&&<input className="rdo-list-search" value={buscaEquipeRdo} onChange={e=>setBuscaEquipeRdo(e.target.value)} placeholder="Pesquisar funcionário..." aria-label="Pesquisar funcionário no efetivo"/>}
         {empregadosObra.length === 0 ? (
           <p style={{ fontSize: 12, color: C.muted }}>Nenhum funcionario lotado nesta obra.</p>
         ) : (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {empregadosObra.map(emp => {
+          <div className="rdo-attendance-list">
+            {empregadosObra.filter(emp=>!buscaEquipeRdo||emp.name.toLocaleLowerCase("pt-BR").includes(buscaEquipeRdo.toLocaleLowerCase("pt-BR"))).map(emp => {
               const st = presencaDe(emp.id);
-              const cor = st === "presente" ? C.green : st === "meio" ? C.yellow : st === "falta" ? C.red : C.border;
-              const bg  = st ? `${cor}18` : "transparent";
               return (
-                <button key={emp.id} onClick={() => ciclarPresenca(emp.id)} style={{
-                  padding: "7px 10px", borderRadius: 6, cursor: "pointer",
-                  border: `1.5px solid ${cor}`, background: bg,
-                  color: st ? cor : C.muted, fontSize: 11.5, fontWeight: 700,
-                }}>
-                  {emp.name}{st === "meio" ? " (meio)" : st === "falta" ? " (falta)" : ""}
-                </button>
+                <div key={emp.id} className="rdo-attendance-row"><strong>{emp.name}</strong><div role="group" aria-label={`Presença de ${emp.name}`}>{[["presente","Presente"],["meio","Meio período"],["falta","Falta"],["","Limpar"]].map(([value,label])=><button type="button" key={label} data-state={value||"clear"} aria-pressed={st===value} onClick={()=>setPresencaRdo(emp.id,value)}>{label}</button>)}</div></div>
               );
             })}
           </div>
@@ -30605,8 +30684,7 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
         return `Terceirizados${pres ? ` (${pres} trabalhando)` : ""}`;
       })()}>
         <p style={{ fontSize: 11, color: C.muted, marginBottom: 8, lineHeight: 1.4 }}>
-          Toque para marcar quem esteve na obra: trabalhando, meio periodo, faltou.
-          Selecione a etapa do contrato em que atuou.
+          Escolha o estado de cada contrato e, quando houver trabalho, selecione a etapa executada.
         </p>
         {terceirizadosObra.length === 0 ? (
           <p style={{ fontSize: 12, color: C.muted }}>
@@ -30622,16 +30700,7 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
               return (
                 <div key={terc.id} style={{ border: `1.5px solid ${st ? cor : C.border}`,
                      background: st ? `${cor}0E` : "transparent", borderRadius: 8, padding: "8px 10px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <button onClick={() => ciclarTerc(terc.id)} style={{
-                      flex: 1, textAlign: "left", background: "transparent", border: 0, cursor: "pointer", minWidth: 0 }}>
-                      <span style={{ fontSize: 12.5, fontWeight: 700, color: st ? cor : C.text }}>
-                        {terc.name}{st === "meio" ? " (meio)" : st === "falta" ? " (falta)" : ""}
-                      </span>
-                      <span style={{ fontSize: 10.5, color: info.color, fontWeight: 700, marginLeft: 6 }}>{info.l}</span>
-                    </button>
-                    <span style={{ width: 11, height: 11, borderRadius: 99, background: st ? cor : C.border, flexShrink: 0 }} />
-                  </div>
+                  <div className="rdo-third-party-head"><div><strong>{terc.name}</strong><span>{info.l}</span></div><div role="group" aria-label={`Presença de ${terc.name}`}>{[["presente","Trabalhou"],["meio","Meio período"],["falta","Faltou"],["","Limpar"]].map(([value,label])=><button type="button" key={label} aria-pressed={st===value} onClick={()=>setStatusTercRdo(terc.id,value)}>{label}</button>)}</div></div>
                   {/* Etapa do contrato - só quando presente/meio e o contrato tem etapas */}
                   {(st === "presente" || st === "meio") && (terc.etapas || []).length > 0 && (
                     <select value={etapaSel} onChange={e => setEtapaTerc(terc.id, e.target.value)}
@@ -30656,24 +30725,25 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
         <p style={{ fontSize: 11, color: C.muted, marginBottom: 8, lineHeight: 1.4 }}>
           Toque para registrar quais equipamentos estiveram na obra hoje. Se quiser, informe as horas trabalhadas.
         </p>
+        {equipamentosDaObra.length>8&&<input className="rdo-list-search" value={buscaEquipRdo} onChange={e=>setBuscaEquipRdo(e.target.value)} placeholder="Pesquisar equipamento..." aria-label="Pesquisar equipamento"/>}
         {equipamentosDaObra.length === 0 ? (
           <p style={{ fontSize: 12, color: C.muted }}>
             Nenhum equipamento cadastrado. Cadastre em Equipamentos.
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {equipamentosDaObra.map(eq => {
+            {equipamentosDaObra.filter(eq=>!buscaEquipRdo||String(eq.nome||"").toLocaleLowerCase("pt-BR").includes(buscaEquipRdo.toLocaleLowerCase("pt-BR"))).map(eq => {
               const noRdo = equipNoRdo(eq.id);
               const ativo = !!noRdo;
               return (
                 <div key={eq.id} style={{ border: `1.5px solid ${ativo ? C.blue : C.border}`,
                      background: ativo ? `${C.blue}0E` : "transparent", borderRadius: 8, padding: "8px 10px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <button onClick={() => toggleEquip(eq.id)} style={{
+                    <button onClick={() => toggleEquip(eq.id)} aria-pressed={ativo} aria-label={`${ativo?"Remover":"Adicionar"} ${eq.nome} ${ativo?"do":"ao"} diário`} style={{
                       flex: 1, textAlign: "left", background: "transparent", border: 0, cursor: "pointer", minWidth: 0 }}>
                       <span style={{ fontSize: 12.5, fontWeight: 700, color: ativo ? C.blue : C.text }}>{eq.nome}</span>
                       {eq.categoria && <span style={{ fontSize: 10.5, color: C.muted, marginLeft: 6 }}>{eq.categoria}</span>}
-                      {!eq.proprietarioId
+                      <span className="rdo-equipment-state">{ativo?"No diário":"Não utilizado"}</span>{!eq.proprietarioId
                         ? <span style={{ fontSize: 8.5, color: C.green, marginLeft: 6, fontWeight: 700 }}>PRÓPRIO</span>
                         : <span style={{ fontSize: 8.5, color: C.purple, marginLeft: 6, fontWeight: 700 }}>TERCEIRO</span>}
                     </button>
@@ -30695,24 +30765,24 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
       </Bloco>
 
       {/* OCORRENCIAS */}
-      <Bloco titulo="Ocorrencias e observacoes">
-        <textarea value={rdo.ocorrencias} onChange={e => setOcorrencias(e.target.value)}
+      <Bloco titulo="Ocorrências e observações · opcional">
+        <label className="rdo-field-label" htmlFor="rdo-ocorrencias">Fatos relevantes, impedimentos e decisões</label><textarea id="rdo-ocorrencias" value={valorCampoRdo("ocorrencias")} onChange={e=>editarCampoRdo("ocorrencias",e.target.value)} onBlur={()=>confirmarCampoRdo("ocorrencias")}
                   placeholder="Atrasos, impedimentos, visitas, acidentes, decisoes tomadas..."
                   rows={3} style={{ width: "100%", padding: "9px 11px", borderRadius: 6,
                            border: `1px solid ${C.border}`, background: C.card, color: C.text,
                            fontSize: 12.5, fontFamily: "inherit", resize: "vertical" }} />
       </Bloco>
 
-      <Bloco titulo="Pendências e providências">
-        <textarea value={rdo.pendencias||""} onChange={e=>setCampoRdo("pendencias",e.target.value)} placeholder="Pendência, responsável pela solução, prazo combinado e impacto..." rows={3} style={{width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card,color:C.text,fontSize:12.5,fontFamily:"inherit",resize:"vertical"}}/>
+      <Bloco titulo="Pendências e providências · opcional">
+        <label className="rdo-field-label" htmlFor="rdo-pendencias">Pendência, responsável, prazo e impacto</label><textarea id="rdo-pendencias" value={valorCampoRdo("pendencias")} onChange={e=>editarCampoRdo("pendencias",e.target.value)} onBlur={()=>confirmarCampoRdo("pendencias")} placeholder="Pendência, responsável pela solução, prazo combinado e impacto..." rows={3} className="rdo-textarea"/>
       </Bloco>
 
-      <Bloco titulo="Comentários e notas complementares">
-        <textarea value={rdo.comentarios||""} onChange={e=>setCampoRdo("comentarios",e.target.value)} placeholder="Comentários do cliente, fiscalização, projetistas ou equipe..." rows={3} style={{width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card,color:C.text,fontSize:12.5,fontFamily:"inherit",resize:"vertical"}}/>
+      <Bloco titulo="Comentários e notas complementares · opcional">
+        <label className="rdo-field-label" htmlFor="rdo-comentarios">Comentários do cliente, fiscalização ou equipe</label><textarea id="rdo-comentarios" value={valorCampoRdo("comentarios")} onChange={e=>editarCampoRdo("comentarios",e.target.value)} onBlur={()=>confirmarCampoRdo("comentarios")} placeholder="Comentários do cliente, fiscalização, projetistas ou equipe..." rows={3} className="rdo-textarea"/>
       </Bloco>
 
       <Bloco titulo={`Documentos e anexos${(rdo.anexos||[]).length?` (${rdo.anexos.length})`:""}`}>
-        {(rdo.anexos||[]).map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"7px 0",borderBottom:`1px solid ${C.line}`}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:11.5,color:C.blue,fontWeight:700}}>{a.nome} ↗</a><button onClick={()=>salvarRDO(r=>({...r,anexos:(r.anexos||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></div>)}
+        {(rdo.anexos||[]).map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"7px 0",borderBottom:`1px solid ${C.line}`}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:11.5,color:C.blue,fontWeight:700}}>{a.nome} ↗</a><button aria-label={`Remover documento ${a.nome}`} onClick={()=>salvarRDO(r=>({...r,anexos:(r.anexos||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>×</button></div>)}
         <label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:8,padding:"7px 10px",border:`1px dashed ${C.blue}`,borderRadius:6,color:C.blue,fontSize:11,fontWeight:800,cursor:subindoAnexo?"wait":"pointer"}}><Ic n="file"/>{subindoAnexo?"Enviando...":"Adicionar documento"}<input type="file" onChange={escolherAnexoRdo} disabled={subindoAnexo} style={{display:"none"}}/></label>
       </Bloco>
 
@@ -30724,10 +30794,8 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
                                       border: `1px solid ${C.border}` }}>
               <img src={f.url} alt={f.legenda || "Foto"} style={{ width: "100%", height: 100,
                    objectFit: "cover", display: "block" }} />
-              <button onClick={() => removerFoto(f.url)} style={{ position: "absolute", top: 4, right: 4,
-                      width: 22, height: 22, borderRadius: 6, border: 0, background: "rgba(0,0,0,.55)",
-                      color: "#fff", cursor: "pointer", fontSize: 12, lineHeight: 1 }}>x</button>
-              <input value={f.legenda} onChange={e => setLegenda(f.url, e.target.value)}
+              <button onClick={() => removerFoto(f.url)} aria-label={`Remover foto ${f.legenda||"sem legenda"}`} className="rdo-photo-remove">×</button>
+              <input value={f.legenda} onChange={e => setLegenda(f.url, e.target.value)} aria-label="Legenda da foto"
                      placeholder="Legenda" style={{ width: "100%", padding: "5px 7px", border: 0,
                      borderTop: `1px solid ${C.line}`, fontSize: 10.5, color: C.text, background: C.surface }} />
             </div>
@@ -30747,13 +30815,15 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
         </div>
       </Bloco>
 
-      <Bloco titulo="Reflexão técnica por IA" acao={<Btn v="info" size="sm" onClick={refletirRdo} disabled={refletindo||!(rdo.fotos||[]).length}><Ic n="brain"/> {refletindo?"Analisando imagens...":rdo.reflexaoIA?.texto?"Refletir novamente":"Refletir"}</Btn>}>
+      <Bloco titulo="Reflexão técnica por IA · opcional" acao={<Btn v="info" size="sm" onClick={refletirRdo} disabled={refletindo||!(rdo.fotos||[]).length}><Ic n="brain"/> {refletindo?"Analisando imagens...":rdo.reflexaoIA?.texto?"Refletir novamente":"Refletir"}</Btn>}>
         {!rdo.reflexaoIA?.texto?<div style={{padding:"12px 13px",border:`1px dashed ${C.blue}55`,borderRadius:10,background:`${C.blue}08`}}><p style={{fontSize:11.5,color:C.subtle,lineHeight:1.6}}>A IA cruza fotos, voz, clima, serviços, efetivo, materiais e planejamento. Ela sugere avanço, identifica riscos, atividades não previstas e pendências, mas nada é concluído sem revisão do engenheiro.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:9}}><div style={{background:`${C.blue}07`,border:`1px solid ${C.blue}35`,borderRadius:10,padding:"12px 13px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:8,flexWrap:"wrap"}}><b style={{fontSize:11,color:C.blue}}>PANORAMA DO DIA</b><span style={{fontSize:9.5,color:C.muted}}>{rdo.reflexaoIA.fotosAnalisadas} foto(s) · {rdo.reflexaoIA.geradoEm?new Date(rdo.reflexaoIA.geradoEm).toLocaleString("pt-BR"):""}</span></div><div style={{whiteSpace:"pre-wrap",fontSize:11.5,lineHeight:1.65,color:C.text}}>{rdo.reflexaoIA.texto}</div></div>{rdo.reflexaoIA.analise&&<><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{[["Riscos",rdo.reflexaoIA.analise.riscos,C.red],["Pendências",rdo.reflexaoIA.analise.pendencias,C.orange],["Materiais sugeridos",rdo.reflexaoIA.analise.materiais,C.purple]].map(([titulo,lista,cor])=><div key={titulo} style={{border:`1px solid ${cor}44`,borderTop:`3px solid ${cor}`,borderRadius:9,padding:"9px 10px",background:C.card}}><b style={{fontSize:9.5,color:cor,textTransform:"uppercase"}}>{titulo} · {(lista||[]).length}</b>{(lista||[]).slice(0,4).map((x,i)=><p key={i} style={{fontSize:10.5,color:C.subtle,lineHeight:1.4,marginTop:5}}>• {typeof x==="string"?x:x.descricao}</p>)}{!(lista||[]).length&&<p style={{fontSize:10,color:C.muted,marginTop:5}}>Nada indicado.</p>}</div>)}</div><div style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderRadius:9,background:C.surface}}><p style={{fontSize:9.5,fontWeight:900,color:C.muted,textTransform:"uppercase"}}>Comparação com o planejamento</p><p style={{fontSize:11,color:C.text,lineHeight:1.55,marginTop:4}}>{rdo.reflexaoIA.analise.comparacaoPlanejamento||"Sem comparação conclusiva."}</p>{(rdo.reflexaoIA.analise.atividadesNaoPrevistas||[]).map((x,i)=><p key={i} style={{fontSize:10.5,color:C.orange,marginTop:4}}>⚠ Atividade não prevista: {x}</p>)}</div><Btn v="ghost" onClick={aplicarSugestoesRdo}><Ic n="check"/> Incorporar riscos e pendências ao rascunho</Btn></>}</div>}
       </Bloco>
 
-      <Bloco titulo="Revisão obrigatória do engenheiro">
-        <div style={{padding:"11px 12px",border:`1px solid ${rdo.revisaoEngenheiro?.aprovado?C.green:C.orange}55`,borderRadius:10,background:rdo.revisaoEngenheiro?.aprovado?`${C.green}09`:`${C.orange}09`}}><label style={{display:"flex",alignItems:"flex-start",gap:9,cursor:["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"pointer":"not-allowed"}}><input type="checkbox" checked={!!rdo.revisaoEngenheiro?.aprovado} disabled={!['engenheiro','engenheiro_auditor'].includes(currentUser?.role)} onChange={e=>salvarRDO(r=>({...r,revisaoEngenheiro:{...r.revisaoEngenheiro,aprovado:e.target.checked,engenheiroId:e.target.checked?currentUser.id:"",engenheiro:e.target.checked?currentUser.nome:"",revisadoEm:e.target.checked?new Date().toISOString():""},atualizadoEm:new Date().toISOString()}))} style={{width:18,height:18,accentColor:C.green,marginTop:1}}/><span><b style={{fontSize:11.5,color:C.text}}>Revisei os dados, as fotos, a transcrição e as sugestões da IA.</b><p style={{fontSize:10,color:C.muted,lineHeight:1.45,marginTop:3}}>O avanço físico e as pendências permanecem sob responsabilidade técnica do engenheiro. Sem esta confirmação o RDO não pode ser concluído.</p></span></label>{rdo.revisaoEngenheiro?.aprovado&&<p style={{fontSize:10,color:C.green,fontWeight:800,marginTop:8}}>Revisado por {rdo.revisaoEngenheiro.engenheiro} em {new Date(rdo.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR")}</p>}{!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&<p style={{fontSize:10,color:C.orange,fontWeight:700,marginTop:8}}>Aguardando revisão do engenheiro responsável.</p>}</div>
+      <Bloco id="rdo-etapa-revisao" titulo="Revisão obrigatória do engenheiro">
+        <div style={{padding:"13px 14px",border:`1px solid ${rdo.revisaoEngenheiro?.aprovado?C.green:C.orange}55`,borderRadius:10,background:rdo.revisaoEngenheiro?.aprovado?`${C.green}09`:`${C.orange}09`}}><label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&requisitosAntesRevisaoOk?"pointer":"not-allowed"}}><input type="checkbox" checked={!!rdo.revisaoEngenheiro?.aprovado} disabled={!['engenheiro','engenheiro_auditor'].includes(currentUser?.role)||!requisitosAntesRevisaoOk} onChange={e=>salvarRDO(r=>({...r,revisaoEngenheiro:{...r.revisaoEngenheiro,aprovado:e.target.checked,engenheiroId:e.target.checked?currentUser.id:"",engenheiro:e.target.checked?currentUser.nome:"",revisadoEm:e.target.checked?new Date().toISOString():""},atualizadoEm:new Date().toISOString()}))} style={{width:22,height:22,accentColor:C.green,marginTop:1}}/><span><b style={{fontSize:14,color:C.text}}>Revisei o relato, o clima, os serviços e todas as evidências disponíveis.</b><p style={{fontSize:13,color:C.muted,lineHeight:1.5,marginTop:4}}>Fotos, áudio e reflexão por IA são opcionais. O avanço físico e as pendências permanecem sob responsabilidade técnica do engenheiro.</p></span></label>{!requisitosAntesRevisaoOk&&<p style={{fontSize:13,color:C.orange,fontWeight:700,marginTop:9}}>Complete primeiro: {completionRdo.pending.filter(item=>item.id!=="revisao").map(item=>item.label).join(", ")}.</p>}{rdo.revisaoEngenheiro?.aprovado&&<p style={{fontSize:13,color:C.green,fontWeight:800,marginTop:9}}>Revisado por {rdo.revisaoEngenheiro.engenheiro} em {new Date(rdo.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR")}</p>}{!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&<p style={{fontSize:13,color:C.orange,fontWeight:700,marginTop:9}}>Aguardando revisão do engenheiro responsável.</p>}</div>
       </Bloco>
+
+      </fieldset>
 
       {/* MODAL SERVICO */}
       {servicoModal && (
@@ -31458,15 +31528,15 @@ function ModalPendenciaConferencia({form,setForm,etapasNivel1,responsaveis,obra,
 }
 
 // Bloco visual reutilizado no diario.
-function Bloco({ titulo, acao, children }) {
+function Bloco({ id, titulo, acao, children }) {
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "13px 14px" }}>
+    <section id={id} className="rdo-block">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <p style={{ fontSize: 11, fontWeight: 900, color: C.text, textTransform: "uppercase", letterSpacing: .5 }}>{titulo}</p>
+        <h2>{titulo}</h2>
         {acao}
       </div>
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -31479,6 +31549,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
   const [obs, setObs] = useState(servico?.obs || "");
   const [equipe, setEquipe] = useState(servico?.equipe || []);
   const [tercIds, setTercIds] = useState(servico?.tercIds || []);
+  const [erro,setErro]=useState("");
 
   const disponiveis = tarefas.filter(t =>
     t.id === tarefaId || !jaLancados.includes(t.id));
@@ -31494,6 +31565,8 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
 
   const salvar = () => {
     if (!tarefaId) return;
+    if(Number(prog||0)<=0&&!String(obs||"").trim()){setErro("Informe avanço maior que 0% ou descreva o serviço realizado sem avanço físico.");return;}
+    setErro("");
     onSalvar({ tarefaId, etapaId: tarefa?.etapaId || "", descricao: tarefa?.nome || "",
                progressoAte: Math.max(0, Math.min(100, Number(prog) || 0)),
                equipe, tercIds, obs });
@@ -31526,7 +31599,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
               {empregados.map(emp => {
                 const on = equipe.includes(emp.id);
                 return (
-                  <button key={emp.id} onClick={() => toggle(equipe, setEquipe, emp.id)} style={{
+                  <button key={emp.id} aria-pressed={on} onClick={() => toggle(equipe, setEquipe, emp.id)} style={{
                     padding: "6px 9px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700,
                     border: `1.5px solid ${on ? C.blue : C.border}`, background: on ? `${C.blue}16` : "transparent",
                     color: on ? C.blue : C.muted }}>
@@ -31547,7 +31620,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
                 const on = tercIds.includes(terc.id);
                 const info = specInfo(terc.specialty);
                 return (
-                  <button key={terc.id} onClick={() => toggle(tercIds, setTercIds, terc.id)} style={{
+                  <button key={terc.id} aria-pressed={on} onClick={() => toggle(tercIds, setTercIds, terc.id)} style={{
                     padding: "6px 9px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700,
                     border: `1.5px solid ${on ? info.color : C.border}`, background: on ? `${info.color}16` : "transparent",
                     color: on ? info.color : C.muted }}>
@@ -31561,9 +31634,10 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
         )}
 
         <Inp label="Observacao (opcional)" value={obs} onChange={setObs} multiline />
+        {erro&&<p role="alert" style={{fontSize:12,color:C.red,fontWeight:700}}>{erro}</p>}
         <div style={{ display: "flex", gap: 8 }}>
           <Btn full onClick={salvar} disabled={!tarefaId}>Salvar</Btn>
-          {onRemover && <Btn v="danger" onClick={onRemover}><Ic n="trash" /></Btn>}
+          {onRemover && <Btn v="danger" onClick={onRemover} aria-label="Remover serviço executado"><Ic n="trash" /></Btn>}
         </div>
       </div>
     </Modal>
@@ -32061,7 +32135,7 @@ function VazioObs({ texto }) {
 }
 
 
-function Cadastros({ data, update, showToast, onTab }) {
+function Cadastros({ data, update, showToast, onTab, currentUser, dispatchCommand }) {
   const { cols, formGrid } = useBreakpoint();
   const [sec,   setSec]   = useState("menu");
   const [busca, setBusca] = useState("");
@@ -32161,9 +32235,10 @@ function Cadastros({ data, update, showToast, onTab }) {
       unidade: f.unidade || "un", categoria: f.categoria || "outros",
       estoqueMin: Number(f.estoqueMin||0), precoMedio: Number(f.precoMedio||0), ativo: true,
     };
-    await persistirCadastro({ ...data, materiais: f.id
-      ? (data.materiais||[]).map(m => m.id === f.id ? p : m)
-      : [...(data.materiais||[]), p] },f.id ? "Insumo atualizado e salvo." : "Insumo cadastrado e salvo.",()=>setMatModal(null));
+    if(!dispatchCommand){await persistirCadastro({ ...data, materiais: f.id?(data.materiais||[]).map(m=>m.id===f.id?p:m):[...(data.materiais||[]),p]},f.id?"Insumo atualizado e salvo.":"Insumo cadastrado e salvo.",()=>setMatModal(null));return;}
+    const result=await dispatchCommand(atual=>{const vigente=(atual.materiais||[]).find(m=>m.id===p.id);return {type:OPERATIONAL_COMMAND.MATERIAL_SAVED,idempotencyKey:`insumo-${p.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{material:p}};});
+    if(!result?.ok){showToast(result?.reason||"O insumo não foi confirmado pelo servidor. Os dados continuam no formulário.","error");return;}
+    setMatModal(null);showToast(f.id?"Insumo atualizado e confirmado pelo servidor.":"Insumo cadastrado e confirmado pelo servidor.");
   };
 
   //  Fornecedor 
@@ -32172,9 +32247,10 @@ function Cadastros({ data, update, showToast, onTab }) {
     const p = { ...f, id: f.id || uid(), nome: f.nome.trim(),
       categorias: Array.isArray(f.categorias) ? f.categorias : [], ativo: true };
     delete p.ramosSugeridos;
-    await persistirCadastro({ ...data, fornecedores: f.id
-      ? (data.fornecedores||[]).map(x => x.id === f.id ? p : x)
-      : [...(data.fornecedores||[]), p] },f.id ? "Fornecedor atualizado e salvo." : "Fornecedor cadastrado e salvo.",()=>setFornModal(null));
+    if(!dispatchCommand){await persistirCadastro({ ...data, fornecedores:f.id?(data.fornecedores||[]).map(x=>x.id===f.id?p:x):[...(data.fornecedores||[]),p]},f.id?"Fornecedor atualizado e salvo.":"Fornecedor cadastrado e salvo.",()=>setFornModal(null));return;}
+    const result=await dispatchCommand(atual=>{const vigente=(atual.fornecedores||[]).find(x=>x.id===p.id);return {type:OPERATIONAL_COMMAND.SUPPLIER_SAVED,idempotencyKey:`fornecedor-${p.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{supplier:p}};});
+    if(!result?.ok){showToast(result?.reason||"O fornecedor não foi confirmado pelo servidor. Os dados continuam no formulário.","error");return;}
+    setFornModal(null);showToast(f.id?"Fornecedor atualizado e confirmado pelo servidor.":"Fornecedor cadastrado e confirmado pelo servidor.");
   };
 
   //  Terceirizado 
@@ -32812,7 +32888,7 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
   );
 }
 
-function Estoque({ data, update, showToast, currentUser, obraIdFixo="" }) {
+function Estoque({ data, update, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
   const { cols, formGrid } = useBreakpoint();
   const [aba,      setAba]      = useState("saldo");   // saldo|movs|materiais|comp|abc
   const [obraSel,  setObraSel]  = useState(obraIdFixo);
@@ -32918,7 +32994,7 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="" }) {
   }, [data.movEstoque, obraAtual, busca, matPorId]);
 
   //  Material 
-  const salvarMaterial = (form) => {
+  const salvarMaterial = async (form) => {
     if (!form.descricao.trim()) { showToast("Descreva o material.", "error"); return; }
     const p = {
       id: form.id || uid(),
@@ -32930,12 +33006,13 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="" }) {
       precoMedio: Number(form.precoMedio || 0),
       ativo: true,
     };
-    update({
+    if(!dispatchCommand){const result=await update({
       ...data,
       materiais: form.id
         ? (data.materiais||[]).map(m => m.id === form.id ? p : m)
         : [...(data.materiais||[]), p],
-    });
+    });if(result?.ok===false){showToast(result.reason||"O insumo não foi confirmado pelo servidor.","error");return;}}
+    else {const result=await dispatchCommand(atual=>{const vigente=(atual.materiais||[]).find(m=>m.id===p.id);return {type:OPERATIONAL_COMMAND.MATERIAL_SAVED,idempotencyKey:`insumo-${p.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{material:p}};});if(!result?.ok){showToast(result?.reason||"O insumo não foi confirmado pelo servidor.","error");return;}}
     setMatModal(null);
     showToast(form.id ? "Insumo atualizado." : "Insumo cadastrado.");
   };
@@ -39197,7 +39274,7 @@ export default function App() {
       // mais seguro que executar o comando sobre uma base desconhecida.
       if(saveQueueRef.current?.hasPending()){
         const drained=await saveQueueRef.current.waitForIdle();
-        if(!drained.ok||saveQueueRef.current?.hasPending())return {ok:false,reason:"Há alterações locais aguardando sincronização. Aguarde a confirmação e tente novamente."};
+        if(!drained.ok||saveQueueRef.current?.hasPending())return {ok:false,state:drained.state,reason:drained.reason||"Há alterações locais aguardando sincronização. Use o indicador de salvamento para resolver a pendência e tente novamente."};
       }
       const atual=dataAtualRef.current||DEFAULT();
       const command=typeof commandOrFactory==="function"?commandOrFactory(atual):commandOrFactory;
@@ -40052,14 +40129,14 @@ export default function App() {
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conc"     && <Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast} currentUser={currentUser}/>}
+          {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "equip"    && <Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "equip_fin"&& <Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/>}
           {tab === "licenca"  && <Licenciamento data={data} update={update} showToast={showToast}/>}
           {tab === "cmp"      && <Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "fornecedores" && <RankingFornecedores data={data} update={update} showToast={showToast}/>}
+          {tab === "fornecedores" && <RankingFornecedores data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "suprimentos" && <Suprimentos data={data} update={update} showToast={showToast} onTab={(t)=>{setObraAberta("");setTab(t);}}/>}
-          {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab}/>}
+          {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "medicoes" && <MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "caixa"    && <CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "relat"    && <Relatorios   data={data} showToast={showToast} />}

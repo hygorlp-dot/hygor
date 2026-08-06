@@ -2,9 +2,19 @@ import { describe, expect, it } from "vitest";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "./operational-commands";
 
 const now="2026-07-25T12:00:00.000Z";
-const command=(type,idempotencyKey,payload,expectedVersion)=>({type,idempotencyKey,payload,expectedVersion,now,actorId:"u-1",actorName:"Ana"});
+const command=(type,idempotencyKey,payload,expectedVersion)=>({type,idempotencyKey,payload,expectedVersion,now,actorId:"u-1",actorName:"Ana",actorRole:"admin"});
 
 describe("comandos operacionais versionados",()=>{
+  it("integra solicitação com insumo e fornecedor sem depender do snapshot global",()=>{
+    const initial={obras:[{id:"o-1"}],materiais:[],solicitacoesCompra:[],instanciasAprovacao:[],fornecedores:[]};
+    const supplier=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.SUPPLIER_SAVED,"supplier-save-1",{supplier:{id:"f-1",nome:"Serralheria"}},0));
+    expect(supplier.ok).toBe(true);expect(supplier.data.fornecedores[0].version).toBe(1);
+    const supplierEdited=applyOperationalCommand(supplier.data,command(OPERATIONAL_COMMAND.SUPPLIER_SAVED,"supplier-save-2",{supplier:{...supplier.data.fornecedores[0],nome:"Serralheria atualizada"}},1));
+    expect(supplierEdited.ok).toBe(true);expect(supplierEdited.data.fornecedores[0]).toMatchObject({nome:"Serralheria atualizada",version:2});
+    const request={id:"s-1",numero:"SC-0001",obraId:"o-1",necessidade:"2026-08-10",prioridade:"normal",itens:[{id:"i-1",materialId:"m-1",descricaoRef:"Aço",unidadeRef:"KG",unidadeCompra:"KG",fatorConversao:1,quantidade:10}]};
+    const saved=applyOperationalCommand(supplierEdited.data,command(OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED,"request-save-1",{request,catalogMaterials:[{id:"m-1",descricao:"Aço",unidade:"KG",solicitacaoOrigemId:"s-1"}]},0));
+    expect(saved.ok).toBe(true);expect(saved.data.fornecedores).toHaveLength(1);expect(saved.data.materiais).toHaveLength(1);expect(saved.data.solicitacoesCompra[0].itens[0].materialId).toBe("m-1");
+  });
   it("preserva duas criações rápidas em coleções diferentes",()=>{
     const initial={medicoesObra:[],rdos:[]};
     const one=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,"measurement-0001",{measurement:{id:"m-1",obraId:"o-1",data:"2026-07-25",itens:[{tarefaId:"t-1",pctConfirmado:10}]}}));
@@ -77,6 +87,36 @@ describe("comandos operacionais versionados",()=>{
   it("recusa diário sem obra ou data antes de persistir",()=>{
     const invalid=applyOperationalCommand({rdos:[]},command(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,"field-report-invalid-0001",{report:{id:"r-1",obraId:"o-1"}},0));
     expect(invalid.ok).toBe(false);expect(invalid.reason).toMatch(/obra e data/);
+  });
+
+  it("só conclui RDO completo e bloqueia alterações posteriores",()=>{
+    const initial={rdos:[{id:"r-1",obraId:"o-1",data:"2026-08-06",status:"preparacao",version:1,descricao:"Relato",clima:{manha:"bom",tarde:"bom",noite:"bom"},servicos:[{tarefaId:"t-1",progressoAte:10}],revisaoEngenheiro:{aprovado:true}}]};
+    const completed=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,"field-report-complete-001",{report:{...initial.rdos[0],status:"concluido"}},1));
+    expect(completed.ok).toBe(true);
+    const edited=applyOperationalCommand(completed.data,command(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,"field-report-edit-closed-1",{report:{id:"r-1",descricao:"Alterado"}},2));
+    expect(edited.ok).toBe(false);expect(edited.reason).toMatch(/encerrado/);
+  });
+
+  it("recusa conclusão sem clima confirmado",()=>{
+    const report={id:"r-1",obraId:"o-1",data:"2026-08-06",status:"concluido",descricao:"Relato",clima:{manha:"bom",tarde:"",noite:"bom"},servicos:[{tarefaId:"t-1",progressoAte:10}],revisaoEngenheiro:{aprovado:true}};
+    const result=applyOperationalCommand({rdos:[]},command(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,"field-report-incomplete-1",{report},0));
+    expect(result.ok).toBe(false);expect(result.reason).toMatch(/Clima confirmado/);
+  });
+
+  it("reabre RDO concluído, invalida revisão e preserva auditoria",()=>{
+    const initial={rdos:[{id:"r-1",obraId:"o-1",status:"concluido",version:3,revisaoEngenheiro:{aprovado:true}}]};
+    const reopened=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED,"field-report-reopen-001",{reportId:"r-1",reason:"Correção do avanço informado"},3));
+    expect(reopened.ok).toBe(true);
+    expect(reopened.data.rdos[0]).toMatchObject({status:"preparacao",version:4,revisaoEngenheiro:{aprovado:false},motivoReabertura:"Correção do avanço informado"});
+    expect(reopened.data.rdos[0].operationalHistory.at(-1).type).toBe("reopened");
+  });
+
+  it("recusa reabertura sem papel administrativo e autoria",()=>{
+    const initial={rdos:[{id:"r-1",status:"concluido",version:1}]};
+    const unauthorized={...command(OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED,"field-report-reopen-role",{reportId:"r-1",reason:"Correção necessária"},1),actorRole:"engenheiro"};
+    expect(applyOperationalCommand(initial,unauthorized)).toMatchObject({ok:false});
+    const anonymous={...command(OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED,"field-report-reopen-author",{reportId:"r-1",reason:"Correção necessária"},1),actorId:""};
+    expect(applyOperationalCommand(initial,anonymous)).toMatchObject({ok:false});
   });
 
   it("registra avanço físico de forma idempotente e permite apenas estorno motivado",()=>{

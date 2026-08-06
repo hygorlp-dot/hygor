@@ -38,6 +38,12 @@ import {
   purchaseOrderCommandObraId,
 } from "../src/domains/compras/purchase-order-commands.js";
 import {
+  PURCHASE_REQUEST_COMMAND_TYPES,
+  purchaseRequestCommandObraId,
+} from "../src/domains/compras/purchase-request-commands.js";
+import {SUPPLIER_COMMAND_TYPES,supplierCommandObraId} from "../src/domains/compras/supplier-commands.js";
+import {MATERIAL_COMMAND_TYPES,materialCommandObraId} from "../src/domains/compras/material-commands.js";
+import {
   RESCISSION_COMMAND_TYPES,
   rescissionCommandObraId,
 } from "../src/domains/rh/rescission-commands.js";
@@ -68,6 +74,9 @@ export const operationalCommandObraId=(data={},command={})=>{
   if(THIRD_PARTY_COMMAND_TYPES.has(command?.type))return thirdPartyCommandObraId(data,command);
   if(INVOICE_COMMAND_TYPES.has(command?.type))return invoiceCommandObraId(data,command);
   if(PURCHASE_ORDER_COMMAND_TYPES.has(command?.type))return purchaseOrderCommandObraId(data,command);
+  if(PURCHASE_REQUEST_COMMAND_TYPES.has(command?.type))return purchaseRequestCommandObraId(data,command);
+  if(SUPPLIER_COMMAND_TYPES.has(command?.type))return supplierCommandObraId(data,command);
+  if(MATERIAL_COMMAND_TYPES.has(command?.type))return materialCommandObraId(data,command);
   if(RESCISSION_COMMAND_TYPES.has(command?.type))return rescissionCommandObraId(data,command);
   if(EMPLOYEE_COMMAND_TYPES.has(command?.type))return employeeCommandObraId(data,command);
   if(ADVANCE_COMMAND_TYPES.has(command?.type))return advanceCommandObraId(data,command);
@@ -77,6 +86,7 @@ export const operationalCommandObraId=(data={},command={})=>{
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED)return String(payload?.report?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED)return String((data?.rdos||[]).find(item=>item.id===payload?.reportId)?.obraId||"");
+  if(command?.type===OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED)return String((data?.rdos||[]).find(item=>item.id===payload?.reportId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED)return String(payload?.record?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED)return String((data?.progressRecords||[]).find(item=>item.id===payload?.recordId)?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED)return String((data?.weeklyCommitments||[]).find(item=>item.id===payload?.commitmentId)?.obraId||"");
@@ -96,6 +106,11 @@ export const operationalCommandObraId=(data={},command={})=>{
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
   const obraId=operationalCommandObraId(data,command);
+  if(command.type===OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED){
+    return user?.role==="admin"
+      ?{ok:true,obraId,scope:"work"}
+      :{ok:false,error:"Somente o administrador pode reabrir um Diário de Obra concluído."};
+  }
   if([OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED].includes(command.type)){
     return user?.role==="admin"
       ?{ok:true,obraId:"",scope:"company"}
@@ -115,6 +130,16 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
     return user?.role==="admin"
       ?{ok:true,obraId:"",scope:"company"}
       :{ok:false,error:"Somente o administrador pode alterar as configurações da empresa."};
+  }
+  if(SUPPLIER_COMMAND_TYPES.has(command.type)){
+    return ["admin","compras","financeiro"].includes(user?.role)
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Seu perfil não pode alterar fornecedores da empresa."};
+  }
+  if(MATERIAL_COMMAND_TYPES.has(command.type)){
+    return ["admin","compras","engenheiro","engenheiro_auditor"].includes(user?.role)
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Seu perfil não pode alterar o catálogo de insumos."};
   }
   if(PROJECT_COMMAND_TYPES.has(command.type)){
     return user?.role==="admin"
