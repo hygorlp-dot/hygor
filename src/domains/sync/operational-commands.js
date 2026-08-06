@@ -51,6 +51,12 @@ import {
   PURCHASE_ORDER_COMMAND,
 } from "../compras/purchase-order-commands.js";
 import {
+  applyPurchaseRequestCommand,
+  PURCHASE_REQUEST_COMMAND,
+} from "../compras/purchase-request-commands.js";
+import {applySupplierCommand,SUPPLIER_COMMAND} from "../compras/supplier-commands.js";
+import {applyMaterialCommand,MATERIAL_COMMAND} from "../compras/material-commands.js";
+import {
   applyRescissionCommand,
   RESCISSION_COMMAND,
 } from "../rh/rescission-commands.js";
@@ -70,11 +76,13 @@ import {
   applyProjectCommand,
   PROJECT_COMMAND,
 } from "../obras/project-commands.js";
+import { fieldReportCompletion } from "../obras/field-report-workflow.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
   FIELD_REPORT_CHANGED:"RDO_CAMPO_ALTERADO",
   FIELD_REPORT_CANCELLED:"RDO_CANCELADO",
+  FIELD_REPORT_REOPENED:"RDO_REABERTO",
   PURCHASE_RECEIPT_RECORDED:"PEDIDO_RECEBIMENTO_REGISTRADO",
   MANUAL_RECEIPT_CREATED:"RECEBIMENTO_MANUAL_CRIADO",
   MANUAL_RECEIPT_REVERSED:"RECEBIMENTO_MANUAL_ESTORNADO",
@@ -88,6 +96,9 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...THIRD_PARTY_COMMAND,
   ...INVOICE_COMMAND,
   ...PURCHASE_ORDER_COMMAND,
+  ...PURCHASE_REQUEST_COMMAND,
+  ...SUPPLIER_COMMAND,
+  ...MATERIAL_COMMAND,
   ...RESCISSION_COMMAND,
   ...EMPLOYEE_COMMAND,
   ...ADVANCE_COMMAND,
@@ -266,6 +277,23 @@ export const applyOperationalCommand=(data,command)=>{
       ),
     };
   }
+  const purchaseRequestResult=applyPurchaseRequestCommand(data,command,now);
+  if(purchaseRequestResult){
+    if(!purchaseRequestResult.ok)return purchaseRequestResult;
+    return {
+      ok:true,
+      data:appendReceipt(
+        purchaseRequestResult.data,command,purchaseRequestResult.entityId,now,
+      ),
+    };
+  }
+  const supplierResult=applySupplierCommand(data,command,now);
+  if(supplierResult){
+    if(!supplierResult.ok)return supplierResult;
+    return {ok:true,data:appendReceipt(supplierResult.data,command,supplierResult.entityId,now)};
+  }
+  const materialResult=applyMaterialCommand(data,command,now);
+  if(materialResult){if(!materialResult.ok)return materialResult;return {ok:true,data:appendReceipt(materialResult.data,command,materialResult.entityId,now)};}
   const rescissionResult=applyRescissionCommand(data,command,now);
   if(rescissionResult){
     if(!rescissionResult.ok)return rescissionResult;
@@ -530,8 +558,13 @@ export const applyOperationalCommand=(data,command)=>{
     const report=command.payload?.report;
     if(!report?.id)return fail("Diário de obra sem identificação.");
     const current=(data?.rdos||[]).find(item=>item.id===report.id);
+    if(current&&["concluido","cancelado"].includes(current.status))return fail("O diário está encerrado. Somente uma reabertura administrativa permite novas alterações.");
     const effective=current?{...current,...report}:report;
     if(!String(effective.obraId||"").trim()||!/^\d{4}-\d{2}-\d{2}$/.test(String(effective.data||"")))return fail("Diário de obra exige obra e data válida.");
+    if(effective.status==="concluido"){
+      const completion=fieldReportCompletion(effective);
+      if(!completion.complete)return fail(`Conclua os requisitos do diário: ${completion.pending.map(item=>item.label).join(", ")}.`);
+    }
     if(current){
       const versionError=requiresVersion(current,command.expectedVersion,"O diário de obra");
       if(versionError)return fail(versionError);
@@ -556,6 +589,22 @@ export const applyOperationalCommand=(data,command)=>{
     if(!reason)return fail("Cancelamento do diário de obra exige motivo.");
     const cancelled={...current,status:"cancelado",motivoCancelamento:reason,canceladoEm:now,canceladoPorId:command.actorId||"",canceladoPor:command.actorName||"",updatedAt:now,atualizadoEm:now,version:versionOf(current)+1,operationalHistory:[...(current.operationalHistory||[]),{type:"cancelled",at:now,byId:command.actorId||"",by:command.actorName||"",reason}]};
     const next={...data,rdos:(data.rdos||[]).map(item=>item.id===id?cancelled:item)};
+    return {ok:true,data:appendReceipt(next,command,id,now)};
+  }
+
+  if(command.type===OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED){
+    if(command.actorRole!=="admin")return fail("Somente o administrador pode reabrir um Diário de Obra concluído.");
+    if(!String(command.actorId||"").trim()||!String(command.actorName||"").trim())return fail("A reabertura administrativa exige autoria identificada.");
+    const id=String(command.payload?.reportId||"");
+    const current=(data?.rdos||[]).find(item=>item.id===id);
+    if(!current)return fail("Diário de obra não encontrado.");
+    const versionError=requiresVersion(current,command.expectedVersion,"O diário de obra");
+    if(versionError)return fail(versionError);
+    if(current.status!=="concluido")return fail("Somente um diário concluído pode ser reaberto.");
+    const reason=String(command.payload?.reason||"").trim();
+    if(reason.length<8)return fail("A reabertura administrativa exige uma justificativa com pelo menos 8 caracteres.");
+    const reopened={...current,status:"preparacao",concluidoEm:"",revisaoEngenheiro:{aprovado:false,engenheiroId:"",engenheiro:"",revisadoEm:"",observacao:""},reabertoEm:now,reabertoPorId:command.actorId||"",reabertoPor:command.actorName||"",motivoReabertura:reason,updatedAt:now,atualizadoEm:now,version:versionOf(current)+1,operationalHistory:[...(current.operationalHistory||[]),{type:"reopened",at:now,byId:command.actorId||"",by:command.actorName||"",reason}]};
+    const next={...data,rdos:(data.rdos||[]).map(item=>item.id===id?reopened:item)};
     return {ok:true,data:appendReceipt(next,command,id,now)};
   }
 

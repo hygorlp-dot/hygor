@@ -78,6 +78,7 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED]:["admin"],
   [OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
   [OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
   [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
@@ -117,6 +118,9 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.INVOICE_SAVED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.INVOICE_APPROVED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED]:["admin","compras"],
+  [OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.SUPPLIER_SAVED]:["admin","compras","financeiro"],
+  [OPERATIONAL_COMMAND.MATERIAL_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE]:["admin","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED]:["admin","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_QUOTE_CANCELLED]:["admin","compras"],
@@ -466,6 +470,7 @@ const operationalCommandEntityId=command=>
   ||command.payload?.targetId
   ||command.payload?.paymentId
   ||command.payload?.recordId
+  ||command.payload?.reportId
   ||command.payload?.commitmentId
   ||command.payload?.rentalId
   ||command.payload?.unavailabilityId
@@ -479,6 +484,9 @@ const operationalCommandEntityId=command=>
   ||command.payload?.employee?.id
   ||command.payload?.advance?.id
   ||command.payload?.project?.id
+  ||command.payload?.request?.id
+  ||command.payload?.supplier?.id
+  ||command.payload?.material?.id
   ||command.payload?.report?.id
   ||command.payload?.measurement?.id
   ||command.payload?.record?.id

@@ -37,6 +37,23 @@ describe("escopo servidor de comandos operacionais",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,payload:{reportId:"r-a"}}})).toMatchObject({ok:true});
     expect(validateOperationalCommandScope({user,data:{...data,pedidos:[{id:"p-b",obraId:"obra-b"}]},command:{type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,payload:{pedidoId:"p-b"}}})).toMatchObject({ok:false});
   });
+  it("reserva a reabertura do RDO ao administrador",()=>{
+    const command={type:OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED,payload:{reportId:"r-a"}};
+    expect(validateOperationalCommandScope({user,data,command})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user:{role:"admin"},data,command})).toMatchObject({ok:true,obraId:"obra-a"});
+  });
+  it("trata fornecedor como cadastro corporativo e restringe os perfis",()=>{
+    const command={type:OPERATIONAL_COMMAND.SUPPLIER_SAVED,payload:{supplier:{id:"f-1",nome:"Fornecedor"}}};
+    expect(validateOperationalCommandScope({user:{role:"compras"},data,command})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user:{role:"financeiro"},data,command})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user,data,command})).toMatchObject({ok:false});
+  });
+  it("permite catálogo de insumos aos perfis operacionais autorizados",()=>{
+    const command={type:OPERATIONAL_COMMAND.MATERIAL_SAVED,payload:{material:{id:"m-1",descricao:"Aço"}}};
+    expect(validateOperationalCommandScope({user,data,command})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user:{role:"compras"},data,command})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user:{role:"financeiro"},data,command})).toMatchObject({ok:false});
+  });
   it("protege criação e cancelamento de reservas pelo escopo da obra",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED,payload:{unavailability:{id:"res-new",equipmentId:"eq-a",workId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED,payload:{unavailability:{id:"res-new",equipmentId:"eq-b",workId:"obra-b"}}}})).toMatchObject({ok:false});

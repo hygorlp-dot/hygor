@@ -74,6 +74,8 @@ describe("fila serializada de salvamento", () => {
     expect(retryCount).toBe(0);
     expect(queue.getState()).toBe(SAVE_QUEUE_STATE.FAILED);
     expect(failure.result.reason).toBe("FIN-003 bloqueou a seção.");
+    expect(await queue.waitForIdle()).toEqual({ok:false,state:SAVE_QUEUE_STATE.FAILED,reason:"FIN-003 bloqueou a seção."});
+    expect(queue.getFailure()?.reason).toBe("FIN-003 bloqueou a seção.");
   });
 
   it("não repete recusas 403 nem timeout HTTP 408",async()=>{

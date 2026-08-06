@@ -13,6 +13,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
   let retryTimer=null;
   let destroyed=false;
   let attempts=0;
+  let lastFailure=null;
   const waiters=new Set();
 
   const transition=next=>{state=next;onState(next);};
@@ -21,7 +22,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
   const isSettled=()=>!inFlight&&!retryScheduled&&(terminal()||(!pending&&state===SAVE_QUEUE_STATE.IDLE));
   const settleWaiters=()=>{
     if(!isSettled())return;
-    const result={ok:state===SAVE_QUEUE_STATE.IDLE,state};
+    const result={ok:state===SAVE_QUEUE_STATE.IDLE,state,...(lastFailure?.reason?{reason:lastFailure.reason}:{})};
     for(const waiter of waiters){
       waiters.delete(waiter);
       if(waiter.timer)clearTimeout(waiter.timer);
@@ -29,7 +30,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
     }
   };
   const waitForIdle=(timeoutMs=50000)=>{
-    if(isSettled())return Promise.resolve({ok:state===SAVE_QUEUE_STATE.IDLE,state});
+    if(isSettled())return Promise.resolve({ok:state===SAVE_QUEUE_STATE.IDLE,state,...(lastFailure?.reason?{reason:lastFailure.reason}:{})});
     return new Promise(resolve=>{
       const waiter={resolve};
       waiters.add(waiter);
@@ -48,6 +49,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
     transition(SAVE_QUEUE_STATE.SAVING);
     let drain=false;
     const fail=result=>{
+      lastFailure=result||{reason:"Falha desconhecida ao salvar."};
       if(!pending)pending=target;
       if(isOffline()){
         transition(SAVE_QUEUE_STATE.OFFLINE);
@@ -94,6 +96,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
       }
       if(!result?.ok){fail(result);return;}
       attempts=0;
+      lastFailure=null;
       transition(SAVE_QUEUE_STATE.IDLE);
       onSuccess({result,target});
       drain=true;
@@ -110,7 +113,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
     enqueue(snapshot){
       if(destroyed)return Promise.resolve({ok:false,state:SAVE_QUEUE_STATE.FAILED,destroyed:true});
       pending=snapshot;
-      if([SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.OFFLINE].includes(state)){attempts=0;transition(SAVE_QUEUE_STATE.IDLE);}
+      if([SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.OFFLINE].includes(state)){attempts=0;lastFailure=null;transition(SAVE_QUEUE_STATE.IDLE);}
       void flush();
       return waitForIdle();
     },
@@ -118,12 +121,12 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
     waitForIdle,
     resume(){
       if(destroyed||state!==SAVE_QUEUE_STATE.OFFLINE)return;
-      attempts=0;
+      attempts=0;lastFailure=null;
       transition(SAVE_QUEUE_STATE.IDLE);
       void flush();
     },
     discard(){
-      pending=null;attempts=0;retryScheduled=false;
+      pending=null;attempts=0;lastFailure=null;retryScheduled=false;
       if(retryTimer!=null){cancelSchedule(retryTimer);retryTimer=null;}
       transition(SAVE_QUEUE_STATE.IDLE);settleWaiters();
     },
@@ -134,6 +137,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
       settleWaiters();
     },
     getState:()=>state,
+    getFailure:()=>lastFailure,
     hasPending,
   };
 };

@@ -6,8 +6,9 @@ const saveFlow=source.slice(source.indexOf("const salvarSolicitacao=async"),sour
 
 describe("persistência formal da solicitação de materiais",()=>{
   it("aguarda a confirmação remota antes de fechar o formulário",()=>{
-    expect(saveFlow).toMatch(/const result=await update\(dataFinal\)/);
-    expect(saveFlow.indexOf("await update(dataFinal)")).toBeLessThan(saveFlow.indexOf("setSolModal(null)"));
+    expect(saveFlow).toMatch(/const result=await dispatchCommand\(/);
+    expect(saveFlow).toMatch(/PURCHASE_REQUEST_SAVED/);
+    expect(saveFlow.indexOf("await dispatchCommand(")).toBeLessThan(saveFlow.indexOf("setSolModal(null)"));
   });
 
   it("mantém o formulário aberto quando a fila não confirma",()=>{
@@ -24,5 +25,18 @@ describe("persistência formal da solicitação de materiais",()=>{
     expect(saveFlow).toMatch(/formalizadoEm/);
     expect(saveFlow).toMatch(/formalizadoPorId/);
     expect(saveFlow).toMatch(/formalizadoPor/);
+  });
+
+  it("preserva o vínculo do item com o insumo ao normalizar a base",()=>{
+    expect(source).toMatch(/materialId:i\.materialId\|\|"",referenciaId:i\.referenciaId/);
+    expect(source).toMatch(/solicitacaoOrigemId:x\.solicitacaoOrigemId\|\|""/);
+  });
+  it("preserva a versão do fornecedor para permitir novas edições após recarga",()=>{
+    expect(source).toMatch(/fornecedores:[\s\S]*?version:\s+Number\(x\.version \|\| 0\)/);
+  });
+  it("preserva a versão e a origem do insumo após recarga",()=>{
+    expect(source).toMatch(/materiais:[\s\S]*?version:\s+Number\(x\.version\|\|0\)/);
+    expect(source).toContain("OPERATIONAL_COMMAND.MATERIAL_SAVED");
+    expect(source).toContain("OPERATIONAL_COMMAND.SUPPLIER_SAVED");
   });
 });
