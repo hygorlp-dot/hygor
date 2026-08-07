@@ -36,7 +36,7 @@ describe("runtime ESM das APIs", () => {
 
   it("mantém o número de funções serverless dentro do limite do plano Hobby", () => {
     const functions=apiFiles(resolve(process.cwd(),"api")).filter(filename => readFileSync(filename,"utf8").includes("export default"));
-    expect(functions).toHaveLength(12);
+    expect(functions).toHaveLength(11);
     expect(functions.length).toBeLessThanOrEqual(12);
   });
 });

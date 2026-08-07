@@ -24973,7 +24973,7 @@ function ManufacturerCompliancePanel({C,fornecedores=[]}){
     if(term.length<3){setError("Informe ao menos 3 caracteres do fabricante ou um CNPJ.");return;}
     setLoading(true);setError("");setResponse(null);
     try{
-      const request=await fetch(`/api/manufacturer-compliance?q=${encodeURIComponent(term)}`);
+      const request=await fetch(`/api/references?action=manufacturer-compliance&q=${encodeURIComponent(term)}`);
       const payload=await request.json().catch(()=>({}));
       if(!request.ok)throw new Error(payload.error||"As fontes oficiais não responderam.");
       setResponse(payload);
