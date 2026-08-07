@@ -57,4 +57,18 @@ describe("motor do caixa de obra", () => {
     });
     expect(calculateWorkCash(data,204).saldo).toBe(6009.50);
   });
+
+  it("resolve pedidos legados pelo código da obra quando o caixa usa o id canônico",()=>{
+    const data={
+      obras:[{id:"obra-uuid-b204",codigo:"B2-04",name:"B2-04 · Edifício"}],
+      caixaObra:[
+        {id:"a1",obraId:"obra-uuid-b204",tipo:"aporte",valor:10384.50,status:"ativo"},
+        {id:"d1",obraId:"obra-uuid-b204",tipo:"despesa",valor:4375,status:"ativo"},
+      ],
+    };
+    expect(workCashIsEnabled(data,"B2-04")).toBe(true);
+    expect(calculateWorkCash(data,"B2-04")).toMatchObject({
+      totalAportes:10384.50,totalDespesas:4375,saldo:6009.50,
+    });
+  });
 });
