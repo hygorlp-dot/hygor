@@ -46,4 +46,15 @@ describe("motor do caixa de obra", () => {
     expect(workCashIsEnabled(data,"o2")).toBe(false);
     expect(workCashIsEnabled({obras:[{id:"o3",caixaAtivo:"true"}]},"o3")).toBe(true);
   });
+
+  it("calcula o mesmo caixa quando identificadores legados alternam entre número e texto",()=>{
+    const data={caixaObra:[
+      {id:"a1",obraId:204,tipo:"aporte",valor:10384.50,data:"2026-07-24",status:"ativo"},
+      {id:"d1",obraId:"204",tipo:"despesa",valor:4375,data:"2026-07-26",status:"ativo"},
+    ]};
+    expect(calculateWorkCash(data,"204")).toMatchObject({
+      totalAportes:10384.50,totalDespesas:4375,saldo:6009.50,
+    });
+    expect(calculateWorkCash(data,204).saldo).toBe(6009.50);
+  });
 });

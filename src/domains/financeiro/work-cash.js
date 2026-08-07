@@ -17,8 +17,9 @@ export const workCashIsEnabled=(data,obraId)=>{
 };
 
 export const calculateWorkCash = (data, obraId) => {
+  const targetId=String(obraId||"");
   const movements = (data?.caixaObra || [])
-    .filter(movement => movement?.obraId === obraId)
+    .filter(movement => String(movement?.obraId||"") === targetId)
     .filter(active)
     .sort((left, right) => String(left?.data || "").localeCompare(String(right?.data || "")));
   let balance = 0;
