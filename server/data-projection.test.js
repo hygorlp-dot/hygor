@@ -1,5 +1,6 @@
 import { describe,expect,it } from "vitest";
 import { projectDataForUser, publicUser } from "./data-projection.js";
+import { calculateWorkCash } from "../src/domains/financeiro/work-cash.js";
 
 const payload={
   usuarios:[
@@ -21,6 +22,11 @@ const payload={
   },
   dailyCheckDate:"2026-07-27",
   pedidos:[{id:"p-a",obraId:"obra-a"},{id:"p-b",obraId:"obra-b"}],
+  caixaObra:[
+    {id:"cx-a",obraId:"obra-a",tipo:"aporte",valor:10384.50,status:"ativo"},
+    {id:"cx-a-pago",obraId:"obra-a",tipo:"despesa",valor:4375,status:"ativo"},
+    {id:"cx-b",obraId:"obra-b",tipo:"aporte",valor:500,status:"ativo"},
+  ],
   orcamentos:[{id:"orc-a",obraId:"obra-a",versionStatus:"rascunho"},{id:"orc-b",obraId:"obra-b",versionStatus:"rascunho"}],
   budgetBaselines:[{id:"base-a",obraId:"obra-a",budgetId:"orc-a"},{id:"base-b",obraId:"obra-b",budgetId:"orc-b"}],
   terceirizados:[{id:"t-a",obraId:"obra-a",name:"Prestador A"},{id:"t-b",obraId:"obra-b",name:"Prestador B"}],
@@ -66,10 +72,15 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     expect(projected.attendance).toBeUndefined();
   });
 
-  it("entrega ao setor de Compras o orçamento necessário à apropriação da sua obra",()=>{
+  it("entrega ao setor de Compras o orçamento e o caixa necessários ao pagamento da sua obra",()=>{
     const projected=projectDataForUser(payload,{id:"compras-a",role:"compras",obraId:"obra-a"});
     expect(projected.orcamentos).toEqual([{id:"orc-a",obraId:"obra-a",versionStatus:"rascunho"}]);
     expect(projected.budgetBaselines).toEqual([{id:"base-a",obraId:"obra-a",budgetId:"orc-a"}]);
+    expect(projected.caixaObra).toEqual([
+      {id:"cx-a",obraId:"obra-a",tipo:"aporte",valor:10384.50,status:"ativo"},
+      {id:"cx-a-pago",obraId:"obra-a",tipo:"despesa",valor:4375,status:"ativo"},
+    ]);
+    expect(calculateWorkCash(projected,"obra-a").saldo).toBe(6009.50);
   });
 
   it("mantém os dados pessoais apenas na projeção de RH",()=>{
