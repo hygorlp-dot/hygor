@@ -1,4 +1,4 @@
-import { calculateWorkCash } from "./work-cash.js";
+import { calculateWorkCash, workCashIsEnabled } from "./work-cash.js";
 import { active } from "./ledger.js";
 
 export const WORK_CASH_COMMAND=Object.freeze({
@@ -30,7 +30,7 @@ export const applyWorkCashCommand=(data={},command={},now=new Date().toISOString
     const project=(data.obras||[]).find(item=>String(item.id)===obraId);
     if(!id)return fail("Movimento do caixa sem identificação.");
     if(!project)return fail("A obra do movimento não existe.");
-    if(!project.hasCaixa)return fail("O caixa desta obra não está ativado.");
+    if(!workCashIsEnabled(data,obraId))return fail("O caixa desta obra não está ativado.");
     if(movementById(data,id))return fail("Já existe um movimento com esta identificação.");
     const tipo=String(raw.tipo||"");
     if(!["aporte","despesa"].includes(tipo))return fail("Tipo de movimento do caixa inválido.");

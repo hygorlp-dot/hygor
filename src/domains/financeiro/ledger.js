@@ -248,7 +248,11 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
       obraId: receipt.obraId || "", category: "recebimento_avulso",
       description: receipt.description || receipt.descricao || "Recebimento avulso",
       sourceType: "recebimento_avulso", sourceId: id, transactionId: receipt.transacaoId || "",
-      unallocated: !linked, metadata: { origem: receipt.origem || "manual", conciliado: !!receipt.conciliado },
+      unallocated: !linked, metadata: {
+        origem:receipt.origem||"manual",conciliado:!!receipt.conciliado,
+        createdBy:receipt.createdBy||"",formaPagamento:receipt.formaPagamento||"",
+        observacao:receipt.observacao||"",
+      },documentNumber:receipt.documento||"",
     };
     add({ ...base, id: `recebimento_avulso:${id}:cash`, effect: "cash_in" });
     if (receipt.medicaoId) add({ ...base, id: `recebimento_avulso:${id}:settle`, effect: "receivable_decrease", settlesSourceType: "medicao", settlesSourceId: receipt.medicaoId });
@@ -414,6 +418,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
       competence: competenceOf(expense.competencia) || competenceOf(date),
       obraId: expense.obraId || "", category: expense.categoria || "outros",
       description: expense.descricao || "Despesa da obra", sourceType: "outra_despesa", sourceId: id,
+      documentNumber:expense.documento||"",metadata:{createdBy:expense.createdBy||"",formaPagamento:expense.formaPagamento||"",observacao:expense.observacao||""},
     };
     add({ ...base, id: `outra_despesa:${id}:cost`, effect: "cost" });
     const paid = expense.pago === true || expense.dataPagamento || expense.pagamentoId || expense.transacaoId || expense.caixaObraId;
@@ -438,6 +443,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
           parcelas:Number(expense.parcelas||1),pago:expense.pago===true,
           dataPagamento:expense.dataPagamento||"",recorrente:expense.recorrente===true,
           observacao:expense.observacao||"",
+          createdBy:expense.createdBy||"",
         },
       },
     };

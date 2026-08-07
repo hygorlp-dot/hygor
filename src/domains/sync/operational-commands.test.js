@@ -370,6 +370,17 @@ describe("comandos operacionais versionados",()=>{
     expect(reversed.reason).toMatch(/Desfaça a conciliação/);
   });
 
+  it("registra entrada corporativa sem atribuir uma obra",()=>{
+    const created=applyOperationalCommand(
+      {obras:[],payments:[]},
+      command(OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,"manual-company-receipt-0001",{
+        receipt:{id:"rec-company",obraId:"",date:"2026-07-25",amount:2500,description:"Aporte dos sócios"},
+      },0),
+    );
+    expect(created).toMatchObject({ok:true});
+    expect(created.data.payments[0]).toMatchObject({id:"rec-company",obraId:"",amount:2500});
+  });
+
   it("encaminha medição financeira e impede duplicidade pela chave idempotente",()=>{
     const initial={obras:[{id:"o-1"}],medicoes:[]};
     const payload={measurement:{

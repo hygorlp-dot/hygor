@@ -49,6 +49,19 @@ describe("comandos do caixa de obra",()=>{
     ),now).reason).toMatch(/Desfaça a conciliação/);
   });
 
+  it("aceita novo movimento quando já existe caixa ativo apesar do marcador legado falso",()=>{
+    const legacy={
+      obras:[{id:"o-1",hasCaixa:false}],
+      caixaObra:[{id:"a-0",obraId:"o-1",data:"2026-07-20",tipo:"aporte",valor:100,status:"ativo"}],
+    };
+    const result=applyWorkCashCommand(legacy,command(
+      WORK_CASH_COMMAND.WORK_CASH_MOVEMENT_CREATED,
+      {movement:{id:"m-1",obraId:"o-1",data:"2026-07-28",tipo:"despesa",valor:40}},
+    ),now);
+    expect(result.ok).toBe(true);
+    expect(result.data.caixaObra).toHaveLength(2);
+  });
+
   it("cancela sem apagar e rejeita versão obsoleta",()=>{
     const initial={...base(),caixaObra:[{
       id:"m-1",obraId:"o-1",data:"2026-07-28",tipo:"aporte",valor:100,

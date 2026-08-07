@@ -679,7 +679,7 @@ export const applyOperationalCommand=(data,command)=>{
     if(!id)return fail("Recebimento manual sem identificação.");
     if(command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("O novo recebimento precisa iniciar na versão zero.");
     if((data?.payments||[]).some(item=>item.id===id))return fail("Já existe um recebimento com esta identificação.");
-    if(!(data?.obras||[]).some(item=>String(item.id)===String(receipt.obraId||"")))return fail("A obra do recebimento não existe.");
+    if(receipt.obraId&&!(data?.obras||[]).some(item=>String(item.id)===String(receipt.obraId)))return fail("A obra do recebimento não existe.");
     try{
       const next=createManualReceipt({
         data,receipt,actor:{id:command.actorId,nome:command.actorName},id,now,

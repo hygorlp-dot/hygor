@@ -33,7 +33,7 @@ export default defineConfig({
     mobileProject("mobile-landscape-844x390", 844, 390),
     {
       name: "desktop-module-smoke",
-      testMatch: /modules-smoke\.spec\.js/,
+      testMatch: /(modules-smoke|financial-hub)\.spec\.js/,
       use: { browserName:"chromium", viewport:{width:1440,height:900} },
     },
   ],

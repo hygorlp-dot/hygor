@@ -16,11 +16,12 @@ describe("comandos de despesas",()=>{
   it("cria e cancela despesa da obra com autoria, versão e escopo",()=>{
     const created=applyExpenseCommand(base(),command(
       EXPENSE_COMMAND.PROJECT_EXPENSE_CREATED,
-      {expense:{id:"d-1",obraId:"obra-1",competencia:"2026-07",descricao:"Material",categoria:"material",valor:100}},
+      {expense:{id:"d-1",obraId:"obra-1",competencia:"2026-07",data:"2026-07-28",descricao:"Material",categoria:"material",valor:100,pago:true,dataPagamento:"2026-07-28",formaPagamento:"pix",documento:"NF 10"}},
       0,
     ),now);
     expect(created.data.outrasDesp[0]).toMatchObject({
-      id:"d-1",status:"ativo",version:1,createdById:"u-1",
+      id:"d-1",status:"ativo",version:1,createdById:"u-1",pago:true,
+      dataPagamento:"2026-07-28",formaPagamento:"pix",documento:"NF 10",
     });
     expect(expenseCommandObraId(created.data,command(
       EXPENSE_COMMAND.PROJECT_EXPENSE_CANCELLED,{expenseId:"d-1"},1,

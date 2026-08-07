@@ -12,6 +12,7 @@ import {
   WORK_CASH_COMMAND,
 } from "./work-cash-commands.js";
 import { isDateInClosedPeriod } from "./workflows.js";
+import { workCashIsEnabled } from "./work-cash.js";
 
 export const PAYABLE_PAYMENT_COMMAND=Object.freeze({
   PAYABLE_PAYMENT_RECORDED:"PAGAMENTO_OBRIGACAO_REGISTRADO",
@@ -154,8 +155,7 @@ const recordPayment=(data,command,now)=>{
     }
   }
 
-  const obra=(data.obras||[]).find(item=>String(item.id)===String(target.obraId));
-  if(raw.origem==="caixa_obra"&&!obra?.hasCaixa)return fail("O caixa desta obra não está ativado.");
+  if(raw.origem==="caixa_obra"&&!workCashIsEnabled(data,target.obraId))return fail("O caixa desta obra não está ativado.");
   if(raw.origem==="caixa_obra"&&!String(payload.workCashMovementId||"")){
     return fail("O pagamento pelo caixa precisa identificar seu movimento.");
   }
@@ -228,8 +228,7 @@ const reclassifyPayment=(data,command,now)=>{
   if(payment.origem===newOrigin)return {ok:true,data,entityId:payment.id};
   const transactionError=blockLinkedTransaction(data,payment);
   if(transactionError&&newOrigin!=="empresa")return fail(transactionError);
-  const obra=(data.obras||[]).find(item=>String(item.id)===String(target.obraId));
-  if(newOrigin==="caixa_obra"&&!obra?.hasCaixa)return fail("O caixa desta obra não está ativado.");
+  if(newOrigin==="caixa_obra"&&!workCashIsEnabled(data,target.obraId))return fail("O caixa desta obra não está ativado.");
   if(newOrigin==="caixa_obra"&&!String(payload.workCashMovementId||"")){
     return fail("A reclassificação para o caixa precisa identificar seu movimento.");
   }

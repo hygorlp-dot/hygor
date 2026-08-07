@@ -36,6 +36,12 @@ export const createDreExpense = ({ data, expense, actor, id, now = new Date().to
   if (!(valor > 0) || !Number.isFinite(valor)) throw new Error("Informe um valor positivo para a despesa.");
   const registro={
     id, obraId:String(expense?.obraId || ""), competencia, categoria:String(expense?.categoria || "outros"), descricao, valor,
+    data:String(expense?.data||expense?.dataPagamento||""),
+    pago:expense?.pago===true,
+    dataPagamento:expense?.pago===true?String(expense?.dataPagamento||expense?.data||""):"",
+    formaPagamento:String(expense?.formaPagamento||""),
+    documento:String(expense?.documento||"").trim(),
+    observacao:String(expense?.observacao||"").trim(),
     status:"ativo", origem:"dre_obra", createdAt:now, createdById:actor.id, createdBy:actor.nome || actor.email || "Usuário autenticado",
     updatedAt:now, updatedById:actor.id, updatedBy:actor.nome || actor.email || "Usuário autenticado",
     version:1,
@@ -49,12 +55,12 @@ export const createManualReceipt = ({ data, receipt, actor, id, now = new Date()
   const obraId=String(receipt?.obraId || "");
   const date=String(receipt?.date || receipt?.data || "");
   const amount=Number(receipt?.amount ?? receipt?.valor);
-  if (!obraId) throw new Error("Selecione a obra do recebimento.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Informe uma data válida para o recebimento.");
   if (!(amount > 0) || !Number.isFinite(amount)) throw new Error("Informe um valor positivo para o recebimento.");
   const userName=actor.nome || actor.email || "Usuário autenticado";
   const registro={
     id, obraId, date, amount, description:String(receipt?.description || receipt?.descricao || "Recebimento avulso").trim() || "Recebimento avulso",
+    formaPagamento:String(receipt?.formaPagamento||""),documento:String(receipt?.documento||"").trim(),observacao:String(receipt?.observacao||"").trim(),
     tipo:"recebimento_avulso", origem:"manual", transacaoId:"", conciliado:false, medicaoId:"", contratoId:"", status:"ativo",
     createdAt:now, createdById:actor.id, createdBy:userName, updatedAt:now, updatedById:actor.id, updatedBy:userName,
     version:1,

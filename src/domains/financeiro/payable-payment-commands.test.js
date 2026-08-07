@@ -68,6 +68,19 @@ describe("comandos transacionais de pagamentos de obrigações",()=>{
     expect(paid.data.caixaObra[1]).toMatchObject({pagamentoId:"pg-1",status:"ativo",version:1});
   });
 
+  it("paga pelo caixa existente quando o cadastro legado da obra está desatualizado",()=>{
+    const data={...base(),
+      obras:[{id:"o-1",name:"Obra 1",hasCaixa:false}],
+      caixaObra:[{id:"a-1",obraId:"o-1",tipo:"aporte",valor:100,data:"2026-07-20",status:"ativo"}],
+    };
+    const result=applyPayablePaymentCommand(data,command(
+      PAYABLE_PAYMENT_COMMAND.PAYABLE_PAYMENT_RECORDED,
+      {targetType:"pedido",targetId:"p-1",payment:payment({origem:"caixa_obra"}),workCashMovementId:"cx-1"},
+    ),now);
+    expect(result.ok).toBe(true);
+    expect(calculateWorkCash(result.data,"o-1").saldo).toBe(40);
+  });
+
   it("sincroniza nota e pedido vinculado sem duplicar o id financeiro",()=>{
     const data={...base(),notasFiscais:[{
       id:"n-1",numero:"10",obraId:"o-1",pedidoId:"p-1",status:"aprovada",
