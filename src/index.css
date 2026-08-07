@@ -7620,3 +7620,18 @@ body.no-scroll .arcd-team-chat {
     flex-direction: column;
   }
 }
+@media (max-width: 720px) {
+  .manufacturer-compliance-intro,
+  .manufacturer-compliance-search {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .manufacturer-compliance-guide {
+    border-left: 0 !important;
+    border-top: 1px solid var(--border, #d8d8d3);
+  }
+
+  .manufacturer-compliance-search button {
+    width: 100%;
+  }
+}

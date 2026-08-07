@@ -24963,6 +24963,45 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
   );
 }
 
+function ManufacturerCompliancePanel({C,fornecedores=[]}){
+  const [query,setQuery]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [response,setResponse]=useState(null);
+  const [error,setError]=useState("");
+  const search=async()=>{
+    const term=query.trim();
+    if(term.length<3){setError("Informe ao menos 3 caracteres do fabricante ou um CNPJ.");return;}
+    setLoading(true);setError("");setResponse(null);
+    try{
+      const request=await fetch(`/api/manufacturer-compliance?q=${encodeURIComponent(term)}`);
+      const payload=await request.json().catch(()=>({}));
+      if(!request.ok)throw new Error(payload.error||"As fontes oficiais não responderam.");
+      setResponse(payload);
+    }catch(reason){setError(reason?.message||"Não foi possível concluir a consulta. Tente novamente.");}
+    finally{setLoading(false);}
+  };
+  const sourceStatus=source=>source?.status==="unavailable"?{label:"Fonte indisponível",color:C.red}:source?.results?.length?{label:`${source.total} ocorrência(s)`,color:C.green}:{label:"Nenhuma ocorrência",color:C.orange};
+  const inmetro=response?.sources?.inmetro,pbqph=response?.sources?.pbqph;
+  return <div className="manufacturer-compliance" style={{display:"flex",flexDirection:"column",gap:12}}>
+    {/* THESIS: uma mesa documental de Compras, não um selo automático. OWN-WORLD: fontes oficiais, linguagem de auditoria e rastreabilidade. STORY: identificar fabricante, consultar as duas bases, comparar o significado e abrir a evidência. FIRST VIEWPORT: campo, fornecedores cadastrados e ação principal. FORM: pesquisa única por nome ou CNPJ, resultados independentes por órgão. */}
+    <section className="manufacturer-compliance-intro" style={{display:"grid",gridTemplateColumns:"minmax(0,1.35fr) minmax(270px,.65fr)",gap:0,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden",background:C.card}}>
+      <div style={{padding:"16px 18px"}}><p style={{fontSize:9,fontWeight:850,color:C.yellowD,textTransform:"uppercase",letterSpacing:.65}}>Conferência documental</p><h3 style={{fontSize:18,fontWeight:800,marginTop:4}}>Fabricantes no Inmetro e PBQP-H</h3><p style={{fontSize:10,color:C.muted,lineHeight:1.55,marginTop:5,maxWidth:720}}>Pesquise a razão social ou o CNPJ. O resultado mostra registros do Inmetro e a situação da empresa no SiMaC, sem confundir ausência na busca com reprovação.</p>
+        <div className="manufacturer-compliance-search" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,alignItems:"end",marginTop:14}}><Inp label="Fabricante ou CNPJ" value={query} onChange={v=>{setQuery(v);setError("");}} placeholder="Ex.: Gerdau ou 07.933.914/0001-54"/><Btn onClick={search} disabled={loading}>{loading?"Consultando fontes...":"Verificar fabricante"}</Btn></div>
+        {!!fornecedores.length&&<div style={{marginTop:9}}><Sel label="Usar fornecedor cadastrado (opcional)" value="" onChange={id=>{const item=fornecedores.find(f=>String(f.id)===String(id));setQuery(item?.cnpj||item?.nome||"");setResponse(null);setError("");}} options={[{v:"",l:"Selecione para preencher a pesquisa"},...fornecedores.slice().sort((a,b)=>String(a.nome||"").localeCompare(String(b.nome||""),"pt-BR")).map(f=>({v:f.id,l:`${f.nome}${f.cnpj?` · ${f.cnpj}`:""}`}))]}/></div>}
+        {error&&<div role="alert" style={{marginTop:10,padding:"9px 10px",border:`1px solid ${C.red}`,borderRadius:7,color:C.red,fontSize:10,fontWeight:750}}>{error}</div>}
+      </div>
+      <aside className="manufacturer-compliance-guide" style={{padding:"16px 18px",background:C.surface,borderLeft:`1px solid ${C.line}`}}><b style={{fontSize:11.5}}>O que cada consulta comprova</b><dl style={{display:"grid",gap:12,marginTop:11}}><div><dt style={{fontSize:9.5,fontWeight:850,color:C.blue}}>Inmetro</dt><dd style={{fontSize:9.5,color:C.muted,lineHeight:1.5,marginTop:2}}>Registro, situação, certificado e produto ou serviço vinculado.</dd></div><div><dt style={{fontSize:9.5,fontWeight:850,color:C.green}}>PBQP-H · SiMaC</dt><dd style={{fontSize:9.5,color:C.muted,lineHeight:1.5,marginTop:2}}>Qualificação da empresa por PSQ, marca, classificação e validade publicada.</dd></div></dl></aside>
+    </section>
+    {response&&<><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}><p style={{fontSize:10,color:C.muted}}>Consulta por <b style={{color:C.text}}>{response.query}</b> · {new Date(response.searchedAt).toLocaleString("pt-BR")}</p><p style={{fontSize:9,color:C.muted}}>Confirme a validade no documento oficial antes de aprovar a compra.</p></div>
+      <section style={{border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden",background:C.card}}><header style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><div><b style={{fontSize:12}}>Inmetro · Registro de Objetos</b><p style={{fontSize:9,color:C.muted,marginTop:2}}>Registros encontrados para o fabricante consultado.</p></div><div style={{display:"flex",gap:8,alignItems:"center"}}><Badge color={sourceStatus(inmetro).color}>{sourceStatus(inmetro).label}</Badge><a href={inmetro?.officialUrl} target="_blank" rel="noreferrer" style={{fontSize:9.5,fontWeight:800,color:C.blue}}>Abrir fonte oficial ↗</a></div></header>
+        {inmetro?.status==="unavailable"?<p style={{padding:14,fontSize:10,color:C.red}}>{inmetro.message}</p>:!inmetro?.results?.length?<p style={{padding:18,textAlign:"center",fontSize:10,color:C.muted}}>Nenhum registro foi localizado. Tente a razão social completa ou confira diretamente na fonte oficial.</p>:<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:9.5}}><thead><tr style={{background:C.surface,textAlign:"left"}}>{["Registro","Situação","Certificado","Produto / serviço","Empresa"].map(label=><th key={label} style={{padding:"8px 10px",color:C.muted}}>{label}</th>)}</tr></thead><tbody>{inmetro.results.map(item=><tr key={item.registration} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:"9px 10px",whiteSpace:"nowrap"}}><a href={item.officialUrl} target="_blank" rel="noreferrer" style={{fontWeight:850,color:C.blue}}>{item.registration}</a></td><td style={{padding:"9px 10px"}}>{item.status}</td><td style={{padding:"9px 10px"}}>{item.certificate||"—"}</td><td style={{padding:"9px 10px",minWidth:190}}>{item.product}</td><td style={{padding:"9px 10px",minWidth:190,fontWeight:750}}>{item.company}</td></tr>)}</tbody></table></div>}
+      </section>
+      <section style={{border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden",background:C.card}}><header style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><div><b style={{fontSize:12}}>PBQP-H · SiMaC</b><p style={{fontSize:9,color:C.muted,marginTop:2}}>A classificação é publicada por Programa Setorial da Qualidade.</p></div><div style={{display:"flex",gap:8,alignItems:"center"}}><Badge color={sourceStatus(pbqph).color}>{sourceStatus(pbqph).label}</Badge><a href={pbqph?.officialUrl} target="_blank" rel="noreferrer" style={{fontSize:9.5,fontWeight:800,color:C.blue}}>Abrir fonte oficial ↗</a></div></header>
+        {pbqph?.status==="unavailable"?<p style={{padding:14,fontSize:10,color:C.red}}>{pbqph.message}</p>:!pbqph?.results?.length?<p style={{padding:18,textAlign:"center",fontSize:10,color:C.muted}}>Nenhuma empresa ou marca correspondente foi localizada no SiMaC. Isso, isoladamente, não significa não conformidade.</p>:<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:9.5}}><thead><tr style={{background:C.surface,textAlign:"left"}}>{["Empresa / CNPJ","PSQ","Marca e produto","Classificação","Validade"].map(label=><th key={label} style={{padding:"8px 10px",color:C.muted}}>{label}</th>)}</tr></thead><tbody>{pbqph.results.map((item,index)=><tr key={`${item.cnpj}-${item.program}-${index}`} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:"9px 10px",minWidth:210}}><b>{item.company}</b><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{item.cnpj}</p></td><td style={{padding:"9px 10px",minWidth:150}}>{item.program}</td><td style={{padding:"9px 10px",minWidth:210}}><b>{item.brand||"Marca não informada"}</b><p style={{fontSize:8.5,color:C.muted,marginTop:2,lineHeight:1.4}}>{item.product}</p></td><td style={{padding:"9px 10px"}}><Badge color={String(item.classification||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().includes("nao")?C.red:C.green}>{item.classification||"Não informada"}</Badge></td><td style={{padding:"9px 10px",whiteSpace:"nowrap"}}>{item.validUntil||"—"}</td></tr>)}</tbody></table></div>}
+      </section></>}
+  </div>;
+}
+
 function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR, dispatchCommand=null }) {
   const { cols, pick, isDesktop } = useBreakpoint();
   const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"mapa");
@@ -25966,7 +26005,7 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
     ["financeiro",`Financeiro${resumoFinanceiro.pendentes?` · ${resumoFinanceiro.pendentes}`:""}`],
     ["solicitacoes",`Solicitações${solicitacoesPendentes?` · ${solicitacoesPendentes}`:""}`],
     ["cotacoes","Cotações"],["pedidos","Pedidos"],["historico_compras","Histórico de compras"],["orcado","Orçado x comprado"],
-    ["forn","Fornecedores"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
+    ["forn","Fornecedores"],["conformidade","Conformidade de fabricantes"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
   ];
   const irParaArea=(id)=>{
     setAba(id);setMenuComprasAberto(false);
@@ -26073,6 +26112,8 @@ function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD
         </div>
         <p className="purchase-kanban-help"><b>Regra Andon:</b> vermelho exige ação imediata; amarelo deve ser tratado antes de entrar em atraso. Clique em um cartão para atualizar o registro de origem.</p>
       </div>}
+
+      {aba==="conformidade"&&<ManufacturerCompliancePanel C={C} fornecedores={fornecedores}/>}
 
       {aba==="mapa"&&<div className="compras-management-map" style={{display:"flex",flexDirection:"column",gap:10}}>
         <section style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap",padding:"14px 16px",background:C.card,border:`1px solid ${C.border}`,borderRadius:10}}>
