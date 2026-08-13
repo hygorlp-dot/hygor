@@ -21,7 +21,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Replace implementation-coupled budget-stage assertion
+      - name: Replace implementation-coupled budget-stage assertion and instrument close state
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -36,6 +36,10 @@ jobs:
                   'await expect(etapa.locator(\'option[value="etapa-fundacoes-qa"]\')).toHaveCount(1);',
                   'await expect(etapa).toBeVisible();\n        await expect(etapa.locator("option").filter({hasText:/FUNDAÇÕES/})).toHaveCount(1);',
               ),
+              (
+                  'await expect(page.getByText(/Vinculação ao orçamento em rascunho/)).toBeVisible();\n        await page.getByRole("button",{name:"Fechar"}).click();',
+                  'await expect(page.getByText(/Vinculação ao orçamento em rascunho/)).toBeVisible();\n        await page.getByRole("button",{name:"Fechar"}).click();\n        await page.waitForTimeout(150);\n        console.log("POST_COMPRAS_DIALOGS", JSON.stringify(await page.getByRole("dialog").allTextContents()));\n        console.log("POST_COMPRAS_OVERLAYS", await page.locator(".arcd-modal-overlay").count());',
+              ),
           ]
           for old, new in replacements:
               count = source.count(old)
@@ -48,9 +52,20 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Require desktop module smoke to pass
         run: npx playwright test --project=desktop-module-smoke
+      - name: Upload diagnostic evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-contract-v2-diagnostics
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
       - name: Remove one-shot workflow
+        if: success()
         run: git rm .github/workflows/autonomous-e2e-contract-rebind-v2.yml
       - name: Commit only after targeted verification
+        if: success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
