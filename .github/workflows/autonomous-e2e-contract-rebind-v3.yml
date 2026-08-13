@@ -1,0 +1,76 @@
+name: Autonomous E2E Contract Rebind V3
+
+on:
+  push:
+    branches:
+      - refactor/architecture-recovery-v1
+
+permissions:
+  contents: write
+
+jobs:
+  rebind-and-verify:
+    if: ${{ !contains(github.event.head_commit.message, '[e2e-contract-v3]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Rebind Compras smoke to current accessible semantic contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('e2e/modules-smoke.spec.js')
+          source = path.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  'const etapa=page.getByLabel("Etapa de 1º nível do orçamento");',
+                  'const etapa=page.getByLabel("Etapa principal do orçamento");',
+              ),
+              (
+                  'await expect(etapa.locator(\'option[value="etapa-fundacoes-qa"]\')).toHaveCount(1);',
+                  'await expect(etapa).toBeVisible();\n        await expect(etapa.locator("option").filter({hasText:/FUNDAÇÕES/})).toHaveCount(1);',
+              ),
+              (
+                  'await expect(page.getByText(/Vinculação ao orçamento em rascunho/)).toBeVisible();\n        await page.getByRole("button",{name:"Fechar"}).click();',
+                  'await expect(page.getByText(/Vinculação ao orçamento em rascunho/)).toBeVisible();\n        await page.getByRole("button",{name:"Fechar"}).click();\n        const discardDialog=page.getByRole("dialog",{name:"Descartar alterações?",exact:true});\n        await expect(discardDialog).toBeVisible();\n        await discardDialog.getByRole("button",{name:"Descartar alterações",exact:true}).click();\n        await expect(page.getByRole("dialog")).toHaveCount(0);\n        await expect(page.locator(".arcd-modal-overlay")).toHaveCount(0);',
+              ),
+          ]
+          for old, new in replacements:
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected stale fragment exactly once, found {count}: {old}')
+              source = source.replace(old, new)
+          path.write_text(source, encoding='utf-8')
+          PY
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Require desktop module smoke to pass
+        run: npx playwright test --project=desktop-module-smoke
+      - name: Upload diagnostic evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-contract-v3-diagnostics
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+      - name: Remove completed bootstraps
+        if: success()
+        run: |
+          git rm .github/workflows/autonomous-e2e-contract-rebind-v2.yml
+          git rm .github/workflows/autonomous-e2e-contract-rebind-v3.yml
+      - name: Commit only after targeted verification
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add e2e/modules-smoke.spec.js
+          git commit -m "test: bind Compras smoke to accessible semantic contract [e2e-contract-v3]"
+          git push origin HEAD:refactor/architecture-recovery-v1
