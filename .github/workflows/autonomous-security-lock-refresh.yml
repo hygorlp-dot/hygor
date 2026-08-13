@@ -1,0 +1,44 @@
+name: Autonomous Security Lock Refresh
+
+on:
+  push:
+    branches:
+      - refactor/architecture-recovery-v1
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lockfile:
+    if: ${{ !contains(github.event.head_commit.message, '[security-autofix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Refresh only semver-compatible vulnerable resolutions
+        run: npm audit fix --package-lock-only
+      - name: Verify reproducible install
+        run: npm ci
+      - name: Require zero high vulnerabilities
+        run: npm audit --audit-level=high
+      - name: Verify architecture and type boundaries
+        run: |
+          npm run architecture:check
+          npm run typecheck
+      - name: Remove one-shot workflow
+        run: git rm .github/workflows/autonomous-security-lock-refresh.yml
+      - name: Commit only verified lock refresh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json package.json
+          if git diff --cached --quiet; then
+            echo "No dependency file changes were required."
+          fi
+          git commit -am "chore: refresh vulnerable dependency resolutions [security-autofix]" || git commit -m "chore: remove completed security refresh bootstrap [security-autofix]"
+          git push origin HEAD:refactor/architecture-recovery-v1
