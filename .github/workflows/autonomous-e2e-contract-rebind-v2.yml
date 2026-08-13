@@ -27,14 +27,22 @@ jobs:
           from pathlib import Path
           path = Path('e2e/modules-smoke.spec.js')
           source = path.read_text(encoding='utf-8')
-          old = '''        const etapa=page.getByLabel("Etapa de 1º nível do orçamento");
-          await expect(etapa.locator('option[value="etapa-fundacoes-qa"]')).toHaveCount(1);'''
-          new = '''        const etapa=page.getByLabel("Etapa principal do orçamento");
-          await expect(etapa).toBeVisible();
-          await expect(etapa.locator("option").filter({hasText:/FUNDAÇÕES/})).toHaveCount(1);'''
-          if source.count(old) != 1:
-              raise SystemExit(f'expected stale assertion exactly once, found {source.count(old)}')
-          path.write_text(source.replace(old, new), encoding='utf-8')
+          replacements = [
+              (
+                  'const etapa=page.getByLabel("Etapa de 1º nível do orçamento");',
+                  'const etapa=page.getByLabel("Etapa principal do orçamento");',
+              ),
+              (
+                  'await expect(etapa.locator(\'option[value="etapa-fundacoes-qa"]\')).toHaveCount(1);',
+                  'await expect(etapa).toBeVisible();\n        await expect(etapa.locator("option").filter({hasText:/FUNDAÇÕES/})).toHaveCount(1);',
+              ),
+          ]
+          for old, new in replacements:
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected stale fragment exactly once, found {count}: {old}')
+              source = source.replace(old, new)
+          path.write_text(source, encoding='utf-8')
           PY
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
