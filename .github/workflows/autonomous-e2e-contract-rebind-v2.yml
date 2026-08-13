@@ -21,7 +21,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Replace implementation-coupled budget-stage assertion and instrument close state
+      - name: Rebind stale Compras smoke to current semantic UI contract
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -38,7 +38,7 @@ jobs:
               ),
               (
                   'await expect(page.getByText(/Vinculação ao orçamento em rascunho/)).toBeVisible();\n        await page.getByRole("button",{name:"Fechar"}).click();',
-                  'await expect(page.getByText(/Vinculação ao orçamento em rascunho/)).toBeVisible();\n        await page.getByRole("button",{name:"Fechar"}).click();\n        await page.waitForTimeout(150);\n        console.log("POST_COMPRAS_DIALOGS", JSON.stringify(await page.getByRole("dialog").allTextContents()));\n        console.log("POST_COMPRAS_OVERLAYS", await page.locator(".arcd-modal-overlay").count());',
+                  'await expect(page.getByText(/Vinculação ao orçamento em rascunho/)).toBeVisible();\n        await page.getByRole("button",{name:"Fechar"}).click();\n        const discardDialog=page.getByRole("dialog").filter({hasText:/Descartar alterações\?/});\n        await expect(discardDialog).toBeVisible();\n        await discardDialog.getByRole("button",{name:"Descartar alterações"}).click();\n        await expect(page.getByRole("dialog")).toHaveCount(0);\n        await expect(page.locator(".arcd-modal-overlay")).toHaveCount(0);',
               ),
           ]
           for old, new in replacements:
@@ -70,5 +70,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add e2e/modules-smoke.spec.js
-          git commit -am "test: bind Compras smoke to semantic stage contract [e2e-contract-v2]"
+          git commit -am "test: bind Compras smoke to current semantic contract [e2e-contract-v2]"
           git push origin HEAD:refactor/architecture-recovery-v1
