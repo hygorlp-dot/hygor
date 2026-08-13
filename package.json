@@ -40,7 +40,10 @@
     "quality:knip": "knip --config knip.json --no-exit-code --reporter compact --no-progress --include files,dependencies,exports",
     "pwa:generate": "node scripts/generate-shell-service-worker.mjs",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "arch:inventory": "node scripts/architecture-recovery/inventory.mjs",
+    "arch:gate": "node scripts/architecture-recovery/gate.mjs",
+    "arch:orchestrate": "node scripts/architecture-recovery/orchestrator.mjs"
   },
   "browserslist": {
     "production": [

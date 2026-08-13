@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "repository": "hygorlp-dot/hygor",
+  "recoveryBranch": "refactor/architecture-recovery-v1",
+  "canonicalBaseSha": "ef5ad21681e76049e8f302eb3ed4fe18da86b705",
+  "ratchetBaseSha": "e385154c15d931d3058d7111fdecc524b76d387c",
+  "behaviorPreservingByDefault": true,
+  "failClosed": true,
+  "hotspotBaselines": {
+    "src/LegacyApp.jsx": { "maxBytes": 2983343, "direction": "non-increasing" },
+    "api/data.js": { "maxBytes": 123341, "direction": "non-increasing" },
+    "src/index.css": { "maxBytes": 261448, "direction": "non-increasing" }
+  },
+  "addedLinePolicies": {
+    "domainForbiddenDependencies": ["react", "react-dom", "@supabase/", "dexie", "src/api", "src/db", "/api.js", "/db"],
+    "forbidProductionImportsFromTests": true,
+    "forbidTestBypass": true
+  },
+  "agents": [
+    "architecture-orchestrator",
+    "architecture-corrector",
+    "test-guardian",
+    "integration-guardian",
+    "data-migration-guardian",
+    "research-scout",
+    "security-supply-chain",
+    "performance-bundle-guardian",
+    "independent-reviewer",
+    "recovery-guardian"
+  ],
+  "stateMachine": [
+    "DISCOVER", "BASELINE", "PLAN", "CHARACTERIZE", "PATCH", "UNIT", "INTEGRATION", "E2E", "ARCH_GATE", "SECURITY", "BUNDLE", "INDEPENDENT_REVIEW", "CHECKPOINT"
+  ],
+  "terminalRequirements": {
+    "p0": 0,
+    "p1": 0,
+    "exactShaReview": true,
+    "implementerMaySelfApprove": false
+  }
+}

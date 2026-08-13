@@ -1,0 +1,49 @@
+name: architecture-recovery
+
+on:
+  push:
+    branches:
+      - refactor/architecture-recovery-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: architecture-recovery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  recovery-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies reproducibly
+        run: npm ci
+
+      - name: Install Chromium for terminal E2E
+        run: npx playwright install --with-deps chromium
+
+      - name: Run autonomous fail-closed recovery gates
+        run: npm run arch:orchestrate -- --ci --full
+
+      - name: Publish recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-recovery-${{ github.sha }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
