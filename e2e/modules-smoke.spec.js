@@ -139,7 +139,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
       if(item==="Compras") {
         await page.locator(".compras-journey").getByRole("button").filter({hasText:"Solicitar"}).click();
         await page.getByRole("button",{name:"SOLICITAR MATERIAIS PARA A OBRA"}).click();
-        await page.getByRole("button",{name:"CRIAR ITEM PRÓPRIO"}).click();
+        await page.getByRole("button",{name:"Adicionar somente a esta solicitação"}).click();
         await page.getByLabel("Unidade *").fill("KG");
         await page.getByLabel("Unidade de compra").selectOption("SC");
         await page.getByLabel("Conteúdo de 1 SC em KG *").fill("20");
