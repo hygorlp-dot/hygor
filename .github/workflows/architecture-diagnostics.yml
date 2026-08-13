@@ -1,0 +1,90 @@
+name: Architecture Diagnostics
+
+on:
+  push:
+    branches:
+      - refactor/architecture-recovery-v1
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Static architecture inventory
+        run: |
+          mkdir -p architecture-diagnostics
+          python - <<'PY'
+          from pathlib import Path
+          import json, re
+
+          roots = [Path('src'), Path('api'), Path('server')]
+          rows = []
+          for root in roots:
+              for p in root.rglob('*'):
+                  if not p.is_file() or p.suffix not in {'.js','.jsx','.ts','.tsx','.css'}:
+                      continue
+                  try:
+                      text = p.read_text(encoding='utf-8')
+                  except Exception:
+                      continue
+                  rows.append({
+                      'path': p.as_posix(),
+                      'bytes': p.stat().st_size,
+                      'lines': text.count('\n') + 1,
+                      'imports': len(re.findall(r'(?m)^\s*import\b|\brequire\s*\(', text)),
+                      'reactHooks': len(re.findall(r'\buse(?:State|Effect|Memo|Callback|Reducer|Ref)\s*\(', text)),
+                      'supabaseRefs': len(re.findall(r'\bsupabase\b', text, re.I)),
+                      'fetchRefs': len(re.findall(r'\bfetch\s*\(', text)),
+                  })
+          rows.sort(key=lambda x: x['bytes'], reverse=True)
+          Path('architecture-diagnostics/file-hotspots.json').write_text(json.dumps(rows, indent=2, ensure_ascii=False))
+
+          legacy = Path('src/LegacyApp.jsx').read_text(encoding='utf-8')
+          decls = []
+          patterns = [
+              r'(?m)^function\s+([A-Z][A-Za-z0-9_]*)\s*\(',
+              r'(?m)^const\s+([A-Z][A-Za-z0-9_]*)\s*=\s*(?:memo\s*\()?\s*(?:\([^\n]*\)|[A-Za-z_$][^=\n]*)\s*=>',
+          ]
+          for pat in patterns:
+              decls.extend(re.findall(pat, legacy))
+          Path('architecture-diagnostics/legacy-component-candidates.json').write_text(json.dumps(sorted(set(decls)), indent=2, ensure_ascii=False))
+
+          summary = {
+              'legacyBytes': Path('src/LegacyApp.jsx').stat().st_size,
+              'legacyLines': legacy.count('\n') + 1,
+              'legacySupabaseRefs': len(re.findall(r'\bsupabase\b', legacy, re.I)),
+              'legacyFetchRefs': len(re.findall(r'\bfetch\s*\(', legacy)),
+              'legacyUseState': len(re.findall(r'\buseState\s*\(', legacy)),
+              'legacyUseEffect': len(re.findall(r'\buseEffect\s*\(', legacy)),
+              'apiDataBytes': Path('api/data.js').stat().st_size,
+              'apiDataLines': Path('api/data.js').read_text(encoding='utf-8').count('\n') + 1,
+              'cssGlobalBytes': Path('src/index.css').stat().st_size,
+              'cssGlobalLines': Path('src/index.css').read_text(encoding='utf-8').count('\n') + 1,
+              'fileCount': len(rows),
+          }
+          Path('architecture-diagnostics/summary.json').write_text(json.dumps(summary, indent=2, ensure_ascii=False))
+          PY
+      - name: Dependency graph
+        run: npx depcruise --config .dependency-cruiser.cjs --output-type json src api server > architecture-diagnostics/dependency-cruiser.json || true
+      - name: Dead-code inventory
+        run: npm run quality:knip > architecture-diagnostics/knip.txt 2>&1 || true
+      - name: NPM security audit
+        run: npm audit --json > architecture-diagnostics/npm-audit.json 2>&1 || true
+      - name: Build and bundle inventory
+        run: |
+          npm run build > architecture-diagnostics/build.txt 2>&1 || true
+          npm run quality:bundle > architecture-diagnostics/bundle.txt 2>&1 || true
+          cp bundle-metrics.json architecture-diagnostics/bundle-metrics.json 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: architecture-diagnostics
+          path: architecture-diagnostics
+          retention-days: 7
