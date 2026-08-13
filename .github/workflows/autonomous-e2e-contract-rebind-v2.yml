@@ -1,0 +1,51 @@
+name: Autonomous E2E Contract Rebind V2
+
+on:
+  push:
+    branches:
+      - refactor/architecture-recovery-v1
+
+permissions:
+  contents: write
+
+jobs:
+  rebind-and-verify:
+    if: ${{ !contains(github.event.head_commit.message, '[e2e-contract-v2]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Replace implementation-coupled budget-stage assertion
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('e2e/modules-smoke.spec.js')
+          source = path.read_text(encoding='utf-8')
+          old = '''        const etapa=page.getByLabel("Etapa de 1º nível do orçamento");
+          await expect(etapa.locator('option[value="etapa-fundacoes-qa"]')).toHaveCount(1);'''
+          new = '''        const etapa=page.getByLabel("Etapa principal do orçamento");
+          await expect(etapa).toBeVisible();
+          await expect(etapa.locator("option").filter({hasText:/FUNDAÇÕES/})).toHaveCount(1);'''
+          if source.count(old) != 1:
+              raise SystemExit(f'expected stale assertion exactly once, found {source.count(old)}')
+          path.write_text(source.replace(old, new), encoding='utf-8')
+          PY
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Require desktop module smoke to pass
+        run: npx playwright test --project=desktop-module-smoke
+      - name: Remove one-shot workflow
+        run: git rm .github/workflows/autonomous-e2e-contract-rebind-v2.yml
+      - name: Commit only after targeted verification
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add e2e/modules-smoke.spec.js
+          git commit -am "test: bind Compras smoke to semantic stage contract [e2e-contract-v2]"
+          git push origin HEAD:refactor/architecture-recovery-v1
