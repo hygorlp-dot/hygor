@@ -241,7 +241,7 @@ const yearsInData = data => {
   const found=new Set([new Date().getFullYear()]);
   const scan=value=>{
     if(typeof value==="string"){
-      const match=value.match(/^(20\\d{2})-\\d{2}/);if(match)found.add(Number(match[1]));
+      const match=value.match(/^(20\d{2})-\d{2}/);if(match)found.add(Number(match[1]));
     }else if(Array.isArray(value))value.forEach(scan);
     else if(value&&typeof value==="object")Object.values(value).forEach(scan);
   };

@@ -30,4 +30,32 @@ describe("mescla autoritativa de projeções",()=>{
       financeiro:[{id:"f1"}],
     });
   });
+
+  it("não ressuscita um registro em array já excluído por outro cliente",()=>{
+    // Usuário B cancela/exclui o pedido "p1" (current não o contém mais).
+    // Usuário A, trabalhando com a cópia antiga (base), edita um campo não
+    // relacionado do mesmo pedido. O merge não deve trazer o pedido de volta.
+    const base=[{id:"p1",obraId:"obra-a",status:"aprovado",valor:1000}];
+    const incoming=[{id:"p1",obraId:"obra-a",status:"aprovado",valor:1000,obs:"nf anexada"}];
+    const current=[];
+    expect(mergeThreeWay(base,incoming,current)).toEqual([]);
+  });
+
+  it("ainda cria um item novo que não existia em base nem em current",()=>{
+    const base=[];
+    const incoming=[{id:"novo",obraId:"obra-a",status:"aberto"}];
+    const current=[];
+    expect(mergeThreeWay(base,incoming,current)).toEqual([
+      {id:"novo",obraId:"obra-a",status:"aberto"},
+    ]);
+  });
+
+  it("não ressuscita uma chave de objeto já excluída por outro cliente",()=>{
+    // Ex.: lançamento de ponto de um dia específico removido por outro
+    // usuário, enquanto o cliente atual ainda envia sua cópia desatualizada.
+    const base={emp1:{"2026-01-05":{horas:8}}};
+    const incoming={emp1:{"2026-01-05":{horas:9}}};
+    const current={emp1:{}};
+    expect(mergeThreeWay(base,incoming,current)).toEqual({emp1:{}});
+  });
 });
