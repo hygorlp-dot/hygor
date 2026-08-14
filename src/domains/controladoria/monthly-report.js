@@ -1,4 +1,4 @@
-import { selectFinancialMovements } from "../financeiro/ledger.js";
+import { active, selectFinancialMovements } from "../financeiro/ledger.js";
 import { advanceDeductionForPeriod } from "../rh/advance-commands.js";
 
 const requiredFunction = (value, name) => {
@@ -36,7 +36,8 @@ export const createMonthlyFinancialReportEngine = ({
     return (data?.obras || []).map(work => {
       const dre = workDre(data, work.id, year, month, "mes");
       const thirdPartyDetails = (data?.pagsTerceiros || []).filter(payment =>
-        payment.obraId === work.id
+        active(payment)
+        && payment.obraId === work.id
         && payment.pagador !== "empresa"
         && payment.date
         && payment.date.startsWith(competence));
