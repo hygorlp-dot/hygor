@@ -106,6 +106,19 @@ describe("status econômicos do razão", () => {
     ]));
   });
 
+  // Regressão: purchase-order-commands.js só grava status "rascunho" ou
+  // "enviado" para um pedido ativo (nunca "aprovado"/"emitido"). Sem
+  // "enviado" em APPROVED_ORDER, todo pedido de compra real ficava
+  // permanentemente invisível em "comprometido".
+  test("pedido enviado (status real gravado pelo comando de compras) gera compromisso econômico", () => {
+    const ledger=buildFinancialLedger({pedidos:[{
+      id:"ped-enviado",obraId:"obra-1",numero:"1",status:"enviado",data:"2026-07-10",valorTotal:1250,
+    }]});
+    expect(ledger.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({effect:"commitment_increase",amountCents:125000,sourceId:"ped-enviado"}),
+    ]));
+  });
+
   test.each(["estornada","ESTORNADA","reversed","cancelled","rejeitado"]) (
     "status %s não deixa uma despesa produzir custo",status=>{
       const ledger=buildFinancialLedger({outrasDesp:[{

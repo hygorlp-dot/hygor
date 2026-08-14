@@ -20,7 +20,11 @@ const INACTIVE = new Set([
   "excluido", "excluida", "deleted",
 ]);
 const RECOGNIZABLE_INVOICE = new Set(["recebida", "aprovada", "paga", "conferida", "reconhecida"]);
-const APPROVED_ORDER = new Set(["aprovado", "aprovada", "emitido", "emitida", "comprado", "recebido", "entregue", "pago", "parcial", "arquivado", "arquivada", "archived"]);
+// "enviado" é o status real que purchase-order-commands.js grava para todo
+// pedido ativo (normalizeOrder só persiste "rascunho"/"enviado"/"cancelado"
+// via purchase-cancellation-command.js) — sem ele aqui, nenhum pedido nunca
+// aparecia como comprometido, pois "aprovado"/"emitido" nunca são gravados.
+const APPROVED_ORDER = new Set(["enviado", "enviada", "aprovado", "aprovada", "emitido", "emitida", "comprado", "recebido", "entregue", "pago", "parcial", "arquivado", "arquivada", "archived"]);
 const isoDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").slice(0, 10))
   ? String(value).slice(0, 10) : "";
 const competenceOf = value => /^\d{4}-\d{2}$/.test(String(value || "").slice(0, 7))
