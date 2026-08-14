@@ -122,6 +122,23 @@ import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { reconcileOptimisticSnapshot } from "./domains/sync/optimistic-merge";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
+import { createOfflineOperationStore } from "./domains/campo-offline/local-store";
+
+// Escopo original do campo-offline (queue.js OFFLINE_TYPES): só comandos que
+// criam um registro pequeno e independente, sem leitura-modificação de um
+// agregado compartilhado, entram aqui. Ver docs do achado de auditoria —
+// conferência de qualidade e ponto ficam de fora de propósito (conflito de
+// versão em replay / fila concorrente já existente).
+const OFFLINE_QUEUEABLE_COMMANDS={
+  [OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED]:{
+    offlineType:"PROGRESS_RECORD_SAVE",
+    entityId:command=>command?.payload?.record?.id||"",
+  },
+  [OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED]:{
+    offlineType:"APR_SAVE",
+    entityId:command=>command?.payload?.analysis?.id||"",
+  },
+};
 import { projectAlertAction, validateProjectForm } from "./domains/obras/project-validation";
 import { fieldReportCompletion, fieldReportIsReadOnly } from "./domains/obras/field-report-workflow";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
@@ -39141,6 +39158,10 @@ export default function App() {
   const saveQueueRef=useRef(null);
   const attendanceCommandInFlightRef=useRef(0);
   const attendanceQueueRef=useRef(null);
+  const campoOfflineStoreRef=useRef(null);
+  if(!campoOfflineStoreRef.current){
+    campoOfflineStoreRef.current=createOfflineOperationStore();
+  }
   if(!saveQueueRef.current){
     saveQueueRef.current=createSaveQueue({
       save:alvo=>saveDataDetailed(alvo,baseServidorRef.current),
@@ -39279,7 +39300,26 @@ export default function App() {
       const atual=dataAtualRef.current||DEFAULT();
       const command=typeof commandOrFactory==="function"?commandOrFactory(atual):commandOrFactory;
       const resposta=await executarComandoOperacional(command);
-      if(!resposta?.ok)return {ok:false,reason:resposta?.reason||resposta?.error||"O servidor não confirmou o comando operacional."};
+      if(!resposta?.ok){
+        // Só entra na fila offline durável quando a falha é de conectividade
+        // (status 0/429/5xx — mesmo critério de retryable do save-queue), não
+        // quando o servidor rejeitou a regra de negócio (ex.: validação),
+        // caso em que repetir offline só confundiria o usuário.
+        const offlineSpec=OFFLINE_QUEUEABLE_COMMANDS[command?.type];
+        const retryable=[0,429,500,502,503,504].includes(Number(resposta?.status||0));
+        if(offlineSpec&&retryable&&campoOfflineStoreRef.current){
+          const entityId=offlineSpec.entityId(command)||command.idempotencyKey;
+          const queued=await campoOfflineStoreRef.current.enqueue({
+            type:offlineSpec.offlineType,idempotencyKey:command.idempotencyKey,
+            entityId,payload:command,
+          });
+          if(queued.ok){
+            showToast("Sem conexão. O lançamento foi guardado neste dispositivo e será enviado ao reconectar.","error");
+            return {ok:true,offlineQueued:true,data:atual};
+          }
+        }
+        return {ok:false,reason:resposta?.reason||resposta?.error||"O servidor não confirmou o comando operacional."};
+      }
       const recebeuPatch=resposta.sections&&typeof resposta.sections==="object";
       if(recebeuPatch){
         await update({
@@ -39300,7 +39340,44 @@ export default function App() {
     const pendente=commandTailRef.current.then(executar,executar);
     commandTailRef.current=pendente.catch(()=>undefined);
     return pendente;
-  },[update]);
+  },[update,showToast]);
+
+  // Ao reconectar, reenvia os comandos guardados offline (Fase 3 do roadmap
+  // de arquitetura) reusando a mesma idempotencyKey gerada no momento do
+  // salvamento — o servidor já deduplica por essa chave (ver `duplicate()` em
+  // operational-commands.js), então repetir com segurança não exige lógica
+  // nova aqui.
+  useEffect(()=>{
+    const retomarOffline=async()=>{
+      const store=campoOfflineStoreRef.current;
+      if(!store)return;
+      let pendentes=[];
+      try{pendentes=await store.list();}catch{return;}
+      const aguardando=pendentes.filter(item=>item.status==="pendente");
+      if(!aguardando.length)return;
+      let sincronizados=0;
+      for(const operacao of aguardando){
+        const resultado=await dispatchOperationalCommand(()=>operacao.payload);
+        // offlineQueued significa que dispatchOperationalCommand tentou de
+        // novo, falhou por conectividade e reenfileirou (idempotente) — ainda
+        // não chegou no servidor. Marcar como resolvido aqui apagaria a
+        // pendência de um dado que continua só neste dispositivo.
+        if(resultado?.offlineQueued)continue;
+        await store.resolve({
+          idempotencyKey:operacao.idempotencyKey,
+          ok:!!resultado?.ok,
+          error:resultado?.ok?"":(resultado?.reason||"Falha ao sincronizar."),
+        });
+        if(resultado?.ok)sincronizados+=1;
+      }
+      if(sincronizados>0){
+        showToast(`${sincronizados} lançamento(s) offline sincronizado(s).`);
+      }
+    };
+    window.addEventListener("online",retomarOffline);
+    retomarOffline();
+    return()=>window.removeEventListener("online",retomarOffline);
+  },[dispatchOperationalCommand,showToast]);
 
   const executeAttendanceCommand=useCallback(async command=>{
       if(saveQueueRef.current?.hasPending()){
