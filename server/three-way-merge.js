@@ -23,7 +23,11 @@ export const mergeThreeWay=(base,incoming,current)=>{
       const stored=currentById.get(id);
       if(original&&!requested)return same(stored,original)?[]:(stored?[stored]:[]);
       if(!requested)return stored?[stored]:[];
-      if(!stored)return [requested];
+      // `original` existente e `stored` ausente significa que outro cliente
+      // já excluiu este registro no estado autoritativo. Não ressuscitar o
+      // registro excluído só porque `incoming` ainda carrega uma cópia
+      // desatualizada (ex.: pedido cancelado por outro usuário).
+      if(!stored)return original?[]:[requested];
       return [mergeThreeWay(original,requested,stored)];
     });
   }
@@ -37,5 +41,8 @@ export const mergeThreeWay=(base,incoming,current)=>{
     });
     return output;
   }
+  // Mesma lógica de exclusão autoritativa para valores não-array/objeto
+  // (ex.: entrada de ponto de um dia específico removida por outro cliente).
+  if(current===undefined&&base!==undefined)return undefined;
   return incoming;
 };
