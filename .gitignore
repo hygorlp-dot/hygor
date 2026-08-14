@@ -19,8 +19,12 @@ storybook-static/
 .env*
 
 # Estado local de ferramentas/agents e relatórios reproduzíveis de execução.
-# Não pertencem ao código ou à configuração de produção.
-.claude/
+# Não pertencem ao código ou à configuração de produção. Exceção: subagentes
+# do Claude Code em .claude/agents/ são configuração de time, versionada de
+# propósito, para que qualquer pessoa usando Claude Code neste repositório
+# tenha os mesmos agentes disponíveis.
+.claude/*
+!.claude/agents/
 .claude-flow/
 .swarm/
 playwright-report/
