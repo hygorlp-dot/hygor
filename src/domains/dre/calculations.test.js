@@ -55,6 +55,30 @@ describe("domínio do DRE", () => {
     expect(dre.tercPago).toBe(150);
   });
 
+  test("tercEmpresaObra soma só o que a empresa pagou, sem afetar o custo reconhecido nem os demais pagamentos", () => {
+    const dados = {
+      ...data,
+      medicoesTerc: [{
+        id: "med-terc-1", obraId: "obra-1", tercId: "terc-1",
+        data: "2026-07-10", total: 200, status: "aprovada",
+      }],
+      pagsTerceiros: [
+        {
+          id: "pag-empresa", tercId: "terc-1", obraId: "obra-1", medicaoTercId: "med-terc-1",
+          amount: 100, date: "2026-07-12", status: "ativo", pagador: "empresa",
+        },
+        {
+          id: "pag-obra", tercId: "terc-1", obraId: "obra-1", medicaoTercId: "med-terc-1",
+          amount: 50, date: "2026-07-15", status: "ativo", pagador: "obra",
+        },
+      ],
+    };
+    const dre = regras.calcDREObra(dados, "obra-1", 2026, 6);
+    expect(dre.tercCost).toBe(200);
+    expect(dre.tercPago).toBe(150);
+    expect(dre.tercEmpresaObra).toBe(100);
+  });
+
   test("consolidado preserva a soma das obras", () => {
     const dre = regras.calcDREConsolidado(data, 2026, 6);
     expect(dre.faturamento).toBe(5000);
