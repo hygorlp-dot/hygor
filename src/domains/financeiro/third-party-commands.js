@@ -9,6 +9,7 @@ import {
 } from "./third-party-payment-mutations.js";
 import { isDateInClosedPeriod, linkThirdPartyInvoice } from "./workflows.js";
 import { isActiveThirdPartyContract } from "../terceirizados/lifecycle.js";
+import { calculateWithholdings } from "../terceirizados/withholdings.js";
 
 export const THIRD_PARTY_COMMAND=Object.freeze({
   THIRD_PARTY_PAYMENT_RECORDED:"PAGAMENTO_TERCEIRO_REGISTRADO",
@@ -60,24 +61,13 @@ const latestPercentages=(data,contractId)=>{
 };
 const projectExists=(data,id)=>(data.obras||[])
   .some(item=>String(item.id)===String(id));
+// Mesma função usada no preview da tela (LegacyApp.jsx, calcRetencoes) —
+// ver src/domains/terceirizados/withholdings.js. Evita que o valor
+// mostrado antes de confirmar o pagamento divirja do valor gravado.
 const paymentAmounts=(amount,contract)=>{
-  const grossCents=Math.round(Number(amount||0)*100);
-  const retentionCents=field=>{
-    if(contract?.[`${field}Quem`]!=="fonte")return 0;
-    const rate=Number(contract?.[field]||0);
-    if(!Number.isFinite(rate)||rate<0||rate>100)return NaN;
-    return Math.round(grossCents*rate/100);
-  };
-  const issCents=retentionCents("retISS");
-  const inssCents=retentionCents("retINSS");
-  const retainedCents=issCents+inssCents;
-  if(!Number.isFinite(retainedCents)||retainedCents>grossCents){
-    return {error:"As retenções configuradas no contrato são inválidas."};
-  }
-  return {
-    issRetido:issCents/100,inssRetido:inssCents/100,
-    liquido:(grossCents-retainedCents)/100,
-  };
+  const result=calculateWithholdings(amount,contract);
+  if(result.error)return {error:result.error};
+  return {issRetido:result.issRetido,inssRetido:result.inssRetido,liquido:result.liquido};
 };
 
 const startPaymentApproval=(data,{paymentId,value,obraId,hasMeasurement,actor,now})=>
