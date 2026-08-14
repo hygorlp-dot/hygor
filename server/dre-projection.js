@@ -5,8 +5,15 @@ import {
   emptyCompanyExpenseGroupTotals,
 } from "../src/domains/dre/expense-taxonomy.js";
 import { calcEquipMes, diasLocacaoNoPeriodo } from "../src/domains/equipamentos/calculations.js";
-import { calculateAttendanceDayCost } from "../src/domains/ponto/payroll.js";
 import { active } from "../src/domains/financeiro/ledger.js";
+import { createLaborCostEngine } from "../src/domains/financeiro/labor-cost-engine.js";
+import {
+  getAtt,
+  getPayrollHolidays,
+  getHolidayPayRule,
+  isEmployeeEmployedOnDate,
+  prIsWeekdayIso,
+} from "../src/domains/ponto/attendance-engine.js";
 
 const round = value => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 const localIso = date => {
@@ -26,77 +33,17 @@ const getQ = (year, month) => {
   };
 };
 
-const parseIso = iso => {
-  const [y,m,d]=String(iso).split("-").map(Number);
-  return new Date(y,m-1,d,12);
-};
-const addDays = (date,days) => {
-  const next=new Date(date);next.setDate(next.getDate()+days);
-  return new Date(next.getFullYear(),next.getMonth(),next.getDate(),12);
-};
-const easter = year => {
-  const a=year%19,b=Math.floor(year/100),c=year%100,d=Math.floor(b/4),e=b%4;
-  const f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
-  const i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
-  return new Date(year,Math.floor((h+l-7*m+114)/31)-1,((h+l-7*m+114)%31)+1,12);
-};
-const holidays = (data,year) => {
-  const pascoa=easter(year);
-  return [...new Set([
-    `${year}-01-01`,`${year}-04-21`,`${year}-05-01`,`${year}-09-07`,`${year}-10-12`,
-    `${year}-11-02`,`${year}-11-15`,`${year}-11-20`,`${year}-12-25`,`${year}-03-06`,
-    localIso(addDays(pascoa,-2)),`${year}-05-18`,localIso(addDays(pascoa,60)),
-    `${year}-06-24`,`${year}-09-15`,
-    ...(data?.config?.paymentHolidays||[]).map(item=>typeof item==="string"?item:item?.date||""),
-  ].filter(Boolean))].sort();
-};
-const getAtt = (data,employeeId,date) => {
-  const item=data?.attendance?.[employeeId]?.[date];
-  return typeof item==="string"?{status:item}:item||{};
-};
-const employed = (employee,date) =>
-  !(employee?.startDate&&date<employee.startDate)&&!(employee?.endDate&&date>employee.endDate);
-const previousWorkday = (iso,all) => {
-  let date=addDays(parseIso(iso),-1);
-  while([0,6].includes(date.getDay())||all.includes(localIso(date)))date=addDays(date,-1);
-  return localIso(date);
-};
-const nextWorkday = (iso,all) => {
-  let date=addDays(parseIso(iso),1);
-  while([0,6].includes(date.getDay())||all.includes(localIso(date)))date=addDays(date,1);
-  return localIso(date);
-};
-
-const laborCost = (data,obraId,days) => {
-  const all=holidays(data,Number(days[0]?.slice(0,4)||new Date().getFullYear()));
-  const inPeriod=days.filter(date=>all.includes(date)&&![0,6].includes(parseIso(date).getDay()));
-  let labor=0,benefits=0;
-  for(const employee of data?.employees||[]){
-    const obraOn=date=>getAtt(data,employee.id,date)?.obraId||employee.obra||"";
-    for(const date of days){
-      if(obraOn(date)!==obraId||!employed(employee,date)||inPeriod.includes(date))continue;
-      const record=getAtt(data,employee.id,date);
-      const cost=calculateAttendanceDayCost({employee,record,config:data?.config||{}});
-      labor+=cost.laborCost;
-      benefits+=cost.benefitCost;
-    }
-    for(const date of inPeriod){
-      if(!employed(employee,date)||obraOn(date)!==obraId)continue;
-      const absentBefore=getAtt(data,employee.id,previousWorkday(date,all))?.status==="F";
-      const absentAfter=getAtt(data,employee.id,nextWorkday(date,all))?.status==="F";
-      if(!absentBefore&&!absentAfter)labor+=Number(employee.dailyRate||0);
-    }
-  }
-  const selected=new Set(days);
-  for(const archive of Object.values(data?.archivedLaborCosts||{})){
-    for(const [date,works] of Object.entries(archive?.byDate||{})){
-      if(!selected.has(date))continue;
-      labor+=Number(works?.[obraId]?.laborCost||0);
-      benefits+=Number(works?.[obraId]?.benefitCost||0);
-    }
-  }
-  return {laborCost:round(labor),benefitCost:round(benefits),totalCost:round(labor+benefits)};
-};
+// Mesmo motor de custo de mão de obra usado no cliente (LegacyApp.jsx), para
+// que servidor e cliente nunca divirjam sobre a obra de um funcionário que
+// mudou de lotação no meio do período — ver resolveEmployeeAttendanceObraId
+// em src/domains/ponto/permissions.js, que este motor consulta internamente.
+const { calculateWorkLaborCost: laborCost } = createLaborCostEngine({
+  getPayrollHolidays,
+  isWeekdayIso: prIsWeekdayIso,
+  isEmployeeEmployedOnDate,
+  getAttendance: getAtt,
+  getHolidayPayRule,
+});
 
 const totalPurchase = purchase => (purchase?.itens||[])
   .reduce((sum,item)=>sum+Number(item.qtd??item.quantidade??0)*Number(item.precoUnit??item.preco??item.valorUnitario??0),0);
