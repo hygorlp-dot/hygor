@@ -164,15 +164,20 @@ export const createDreCalculations = ({
     const tercPago = fromCents(ledger.events
       .filter(event => event.effect === "cash_out" && event.category === "terceirizado" && event.obraId === obraId && event.date >= ctx.per0 && event.date <= ctx.perF)
       .reduce((sum,event)=>sum+event.amountCents,0));
+    // Mesmo regime de caixa de tercPago, apenas informativo, mas restrito aos
+    // pagamentos com pagador==="empresa" — quanto a empresa já desembolsou
+    // por terceiros desta obra. Pagador não muda a natureza do custo (o custo
+    // já está reconhecido em tercCost por competência); esta soma é só
+    // referência de origem do desembolso, nunca somada em totalCustos.
+    const tercEmpresaObra = fromCents(ledger.events
+      .filter(event => event.effect === "cash_out" && event.category === "terceirizado" && event.obraId === obraId && event.date >= ctx.per0 && event.date <= ctx.perF && event.metadata?.pagador === "empresa")
+      .reduce((sum,event)=>sum+event.amountCents,0));
     const meds = (data.medicoes || []).filter(measurement => measurement.obraId === obraId && measurement.tipo === "percentual");
     const pctAvanco = meds.length ? Math.max(...meds.map(measurement => Number(measurement.percentualAcumulado || 0))) : 0;
     return {
       obra, ym:ctx.ym, periodo, days:ctx.days, per0:ctx.per0, perF:ctx.perF,
       faturamento, recebido, aReceber, medDoMes,
-      moData:supplemental.labor, tercCost, tercPago,
-      // Pagador/origem não muda a natureza do custo. Terceiros pagos pela
-      // empresa já estão em `tercCost`; manter outra soma duplicaria o detalhe.
-      tercEmpresaObra:0,
+      moData:supplemental.labor, tercCost, tercPago, tercEmpresaObra,
       rescTotal, outrasTotal, outrasDesp, equipCost, comprasCost,
       totalCustos, lucroBruto, margemBruta:dre.margin,
       saldoCaixa, margemCaixa:recebido ? saldoCaixa/recebido*100 : 0,
@@ -236,7 +241,7 @@ export const createDreCalculations = ({
       obras:rows, periodo, days:ctx.days, per0:ctx.per0, perF:ctx.perF,
       faturamento, recebido, aReceber:fromCents(receivable.balanceCents),
       laborCost:sum("laborCost","moData"), benefitCost:sum("benefitCost","moData"),
-      tercCost:sum("tercCost"), tercEmpresa:0, tercEmpresaObras:sum("tercEmpresaObra"),
+      tercCost:sum("tercCost"), tercEmpresa:sum("tercEmpresaObra"), tercEmpresaObras:sum("tercEmpresaObra"),
       rescTotal:sum("rescTotal"), outrasTotal:sum("outrasTotal"), comprasCost:sum("comprasCost"),
       equipCostObras:sum("equipCost"), equipReceita:equipmentRevenue,
       equipReceitaBruta:Number(equipment.receitaBruta??equipmentRevenue),

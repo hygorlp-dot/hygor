@@ -378,7 +378,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
         ...base, amountCents: positiveCents(payment.amount, payment.valor, payment.liquido),
         date: payment.data || payment.date, sourceType: "pagamento_terceiro", sourceSubId: paymentId,
         transactionId: payment.transacaoId || "", settlesSourceType: "medicao_terceiro", settlesSourceId: id,
-        metadata:{ conciliado:!!payment.conciliado, origem:payment.origem || "" },
+        metadata:{ conciliado:!!payment.conciliado, origem:payment.origem || "", pagador:String(payment.pagador || "") },
       };
       add({ ...paymentBase, id: `medicao_terceiro:${id}:payment:${paymentId}:cash`, effect: "cash_out" });
       add({ ...paymentBase, id: `medicao_terceiro:${id}:payment:${paymentId}:settle`, effect: "payable_decrease" });
@@ -396,7 +396,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
       legacy: true, unallocated: true,
       metadata: {
         legacyPaymentBasedCost:true, conciliado:!!payment.conciliado,
-        origem:payment.origem || payment.pagador || "",
+        origem:payment.origem || payment.pagador || "", pagador:String(payment.pagador || ""),
       },
     };
     if (payment.reconhecerCusto === false) {
