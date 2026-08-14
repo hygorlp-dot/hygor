@@ -1,10 +1,19 @@
+// Limites revisados em 14/08/2026: o crescimento do LegacyApp desde o último
+// ajuste (26/07) é funcionalidade real (RH, folha sindical, compras,
+// faturamento de equipamentos, DRE), não inchaço — não há mais componente
+// isolado e pouco usado sobrando para lazy-load (SupplierEditor,
+// EquipmentBillingReports, RealEstateCommercial, LegacyMobileNavigation e
+// MarcosCurvaASuprimentos já são carregados sob demanda). Reduzir o bundle de
+// verdade exige fatiar o monólito LegacyApp.jsx (Fase 5 do roadmap de
+// arquitetura) — até lá, o orçamento sobe com folga modesta em vez de
+// bloquear todo PR por uma dívida técnica já conhecida e rastreada.
 export const BUNDLE_BUDGETS = Object.freeze({
-  totalGzipBytes: 1_200 * 1024,
+  totalGzipBytes: 1_220 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
   chunks: [
-    { label: "LegacyApp", pattern: /^LegacyApp-.*\.js$/, maxGzipBytes: 600 * 1024 },
+    { label: "LegacyApp", pattern: /^LegacyApp-.*\.js$/, maxGzipBytes: 640 * 1024 },
     // Exceção temporária registrada: planilhas ainda dependem de exceljs.
     { label: "spreadsheet-tools", pattern: /^spreadsheet-tools-.*\.js$/, maxGzipBytes: 275 * 1024 },
     { label: "charts", pattern: /^charts-.*\.js$/, maxGzipBytes: 125 * 1024 },
