@@ -85,12 +85,16 @@ const initialData=()=>({
 });
 
 describe("/api/data · persistência granular do ponto",()=>{
+  // Timeout maior que o padrão de 10s: reimportar api/data.js puxa um
+  // grafo de módulos pesado, e sob a suíte inteira rodando em paralelo
+  // (disputa de CPU entre ~215 arquivos) isso passou de 10s por duas
+  // vezes seguidas, mesmo levando poucas centenas de ms isolado.
   beforeAll(async()=>{
     process.env.SUPABASE_URL="https://attendance.test";
     process.env.SUPABASE_SERVICE_ROLE_KEY="service-role-test";
     vi.resetModules();
     ({default:handler}=await import("../../api/data.js"));
-  });
+  },30000);
 
   beforeEach(()=>{
     vi.useFakeTimers();

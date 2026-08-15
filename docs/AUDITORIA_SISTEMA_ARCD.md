@@ -1,536 +1,288 @@
 # Auditoria funcional, técnica e de produto — ARCD
 
-Data: 22 de julho de 2026  
-Base auditada: commit `d16a63c`  
-Escopo: código-fonte, modelo de dados, APIs, autenticação, permissões, fluxos, navegação, integrações, build, dependências e prontidão comercial.
+Data: 14 de agosto de 2026
+Base auditada: commit `b87cc6b` (branch `main`, `origin/main` no momento da auditoria)
+Auditoria anterior: 22 de julho de 2026, commit `d16a63c` — este documento revalida cada achado daquela rodada contra o código atual, item por item, em vez de reescrever do zero.
+Escopo: os mesmos treze eixos da auditoria anterior — código-fonte, modelo de dados, APIs, autenticação, permissões, fluxos, navegação, integrações, build, dependências e prontidão comercial.
+
+## 0. O que mudou desde 22/07 — resumo para quem já leu a auditoria anterior
+
+Três semanas e meia de trabalho real, não cosmético. Os P0 de segurança e integridade da rodada anterior majoritariamente **foram corrigidos** — autorização por payload, autorização por escrita, ledger de auditoria imutável e backup automatizado passaram de "não existe" para "existe e está com teste/prova". O motor financeiro canônico que a auditoria recomendava **foi construído** — mas roda em modo sombra, não substituiu o caminho legado ainda. A migração de CRA para Vite **aconteceu**. Uma suíte de testes automatizados **existe agora** (1.010 testes) — inclusive com 3 falhas ativas neste exato commit, o que é normal para um projeto em movimento, mas precisa de acompanhamento.
+
+O que não mudou, ou mudou menos do que a estrutura de pastas sugere à primeira vista:
+
+- **O monólito de frontend não encolheu — mudou de lugar.** `src/App.jsx` caiu para 11 linhas, mas é uma casca de roteador. `src/LegacyApp.jsx` tem **40.311 linhas**, mais que as 33.175 do arquivo único de julho. A extração por domínio está real e ativa (~34 pastas em `src/domains/`), mas na ordem que o próprio time definiu (`docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`), o item #3 (Terceiros) só teve a camada de cálculo extraída — a UI inteira ainda mora no monólito.
+- **O bundle não ficou menor — ficou mais bem dividido.** Total de ~1,27 MB gzip somando todos os chunks contra os 795 kB de um bundle único em julho. O chunk do `LegacyApp` sozinho (672 kB gzip) quase repete o tamanho do bundle antigo inteiro.
+- **LGPD continua em zero.** Nenhum artefato de base legal, consentimento, retenção, exportação ou atendimento ao titular foi encontrado.
+- **TypeScript é decoração, não proteção.** `tsconfig.quality.json` roda no CI, mas cobre 2 arquivos `.ts` contra 314 arquivos `.js`/`.jsx`.
+- Duas duplicidades financeiras específicas que a auditoria de julho apontou como críticas continuam abertas: pagamento duplicado entre `pedido`/`nota` (mitigado por convenção de ID, não por schema) e ausência de catálogo único de documentos.
 
 ## 1. Parecer executivo
 
-O ARCD já possui cobertura funcional ampla e coerente com uma construtora: comercial, orçamento, planejamento, execução, qualidade, compras, estoque, financeiro, RH, licenciamento, documentos, IA e portal do cliente. Os fluxos principais são demonstráveis e o build de produção compila.
+O ARCD manteve a cobertura funcional ampla já registrada em julho — comercial, orçamento, planejamento, execução, qualidade, compras, estoque, financeiro, RH, licenciamento, documentos, IA e portal do cliente — e ganhou um módulo novo completo (locação de equipamentos, 5 fases). O produto avançou de "piloto interno" para um estágio onde a maior parte dos bloqueadores **P0 de segurança e integridade já foi endereçada com evidência em código**, não apenas planejada.
 
-O produto está apto para **piloto interno controlado**, com poucos operadores treinados, rotina de conferência e backup. Ainda não deve ser vendido como SaaS maduro para múltiplas empresas ou operações críticas sem corrigir os itens P0 deste relatório.
+Ainda não deve ser vendido como SaaS maduro para múltiplas empresas sem fechar os itens que seguem P0 nesta rodada: LGPD (inalterado, crítico), o motor financeiro canônico continuar em modo sombra sem data definida para ativação, e a duplicidade de pagamento entre pedido/nota.
 
-Principais razões:
+Principais razões que sustentam essa posição:
 
-- um usuário autenticado recebe todo o blob da empresa, mesmo quando a interface esconde setores;
-- gravações comuns não aplicam autorização por coleção no servidor;
-- o banco operacional ainda é majoritariamente um JSON único;
-- não existe suíte automatizada de regressão;
-- há múltiplas representações do mesmo evento financeiro;
-- o bundle está grande;
-- dependências antigas apresentam alertas de segurança;
-- não há backup automático comprovado pelo repositório.
+- autorização por payload e por escrita agora existe no servidor (era o maior P0 de julho) — corrigido;
+- ledger de auditoria imutável e backup automatizado diário — corrigidos;
+- o motor financeiro canônico existe e tem testes, mas roda em modo sombra: o caminho legado (`outrasDesp`, `despesasEmpresa`, `caixaObra`, `transacoes`) continua sendo a fonte de verdade em produção;
+- LGPD segue sem nenhum controle, apesar do sistema tratar CPF, RG, salário, PIX, endereço e fotos;
+- o monólito de frontend não diminuiu — a extração por domínio está em andamento, mas incompleta mesmo nos itens já iniciados;
+- dependências de alto risco caíram de 14 para 1 (produção) / 4 (incluindo build tooling) — melhora real, ainda não zero;
+- 3 testes estão falhando neste commit — não é um retrocesso grave, mas é uma regressão ativa que merece triagem antes de crescer.
 
 ### Resultado resumido
 
-| Dimensão | Avaliação | Observação |
-|---|---|---|
-| Cobertura funcional | Forte | amplitude superior a um MVP comum |
-| Clareza por setor | Boa, com ressalvas | menu principal é claro; contexto global versus obra precisa de reforço |
-| Experiência visual | Em evolução | identidade consolidada, mas monólito gera divergências locais |
-| Integridade dos fluxos | Média | há controles, porém o financeiro possui múltiplos livros paralelos |
-| Segurança de acesso | Insuficiente para venda | autorização por módulo não é aplicada a todo o payload no servidor |
-| Concorrência | Média/baixa | merge por seção reduz conflitos, mas o blob continua sendo gargalo |
-| Testabilidade | Baixa | nenhum teste automatizado encontrado |
-| Desempenho | Médio | build funcional; bundle principal de 795,09 kB gzip |
-| Prontidão comercial | Piloto | requer P0 e P1 antes de escala |
+| Dimensão | Avaliação em 22/07 | Avaliação em 14/08 | Observação |
+|---|---|---|---|
+| Cobertura funcional | Forte | Forte, maior | módulo de equipamentos novo, portal do cliente amadureceu |
+| Segurança de acesso | Insuficiente para venda | Adequada para piloto ampliado | projeção por payload e por escrita agora reais no servidor |
+| Integridade financeira | Múltiplos livros paralelos | Ledger canônico existe, não é a fonte ativa | modo sombra, `FINANCIAL_ENGINE_ENFORCE=false` |
+| Concorrência | Média/baixa | Média/baixa | blob único continua primário; auditoria agora é imutável |
+| Testabilidade | Baixa (zero testes) | Alta em volume, com ressalva | 1.010 testes, 1.007 passando, 3 falhando agora |
+| Desempenho | Médio (795 kB gzip) | Médio, mudou de forma | ~1,27 MB gzip total, mas dividido em chunks lazy-loadable |
+| Backup e continuidade | Não comprovado | Comprovado | cron diário, criptografado, com verificação |
+| LGPD | Ausente | Ausente | nenhuma mudança |
+| Prontidão comercial | Piloto | Piloto ampliado | P0 remanescentes: LGPD, ativação do motor financeiro, dedupe pedido/nota |
 
 ## 2. Método
 
-Foram inspecionados:
+Diferença de método em relação a julho: como o motor financeiro e a autorização por servidor agora existem, a verificação não pôde se basear só em leitura de código — foi preciso distinguir schema/função **existente** de comportamento **realmente ativo em produção** (ex.: uma tabela e uma função PL/pgSQL existirem não significa que o caminho legado parou de ser usado). Cada achado abaixo está marcado como corrigido, parcialmente corrigido ou aberto com essa distinção em mente, e cita o arquivo que comprova o status.
 
-- `src/App.jsx` — 33.175 linhas;
-- `src/api.js` — cliente de sessão, dados e integrações;
-- `api/data.js` — autenticação, carga, salvamento, merge e arquivos de ponto;
-- APIs de IA, CNPJ, presença, referências, upload e Microsoft Graph;
-- `server/data-codec.js`;
-- `schema.sql`, `package.json`, `vercel.json` e README;
-- estrutura das coleções criada por `DEFAULT` e `normalizeData`;
-- perfis, menus e condicionais de permissão;
-- build, testes e auditoria de dependências.
+Foram inspecionados nesta rodada:
 
-Validações executadas:
+- `src/App.jsx` (11 linhas, shell de rotas) e `src/LegacyApp.jsx` (40.311 linhas);
+- `src/domains/*` (~34 pastas) e `src/features/suprimentos`;
+- `api/data.js`, `api/auth.js`, `api/client.js` e as demais rotas serverless;
+- `server/data-projection.js`, `server/section-authorizations.js`, `server/app-auth-security.js`, `server/client-portal-auth.js`, `server/financial-write-policy.js`;
+- `migrations/` (motor financeiro, auditoria append-only, rate limit persistente, registry projection, client portal);
+- `docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`, `docs/MOTOR_FINANCEIRO_TRANSACIONAL.md`, `docs/CONCILIACAO_ASSISTIDA_FASE_1.md`, `docs/BACKUP_ONEDRIVE.md`;
+- `package.json`, `vite.config.mjs`, `vercel.json`, `.github/workflows/quality.yml`, `tsconfig.quality.json`;
+- suíte de testes (`vitest`), `npm audit`, `npm run build`.
 
-- `npm run build`: compilado com sucesso;
-- bundle principal: 795,09 kB compactado;
-- `npm test -- --watchAll=false --passWithNoTests`: nenhum teste encontrado;
-- `npm audit --omit=dev`: 29 alertas, sendo 14 altos, 6 moderados e 9 baixos.
+Validações executadas nesta rodada:
 
-O `npm audit` inclui principalmente a cadeia antiga do Create React App, mas também aponta `xlsx` em tempo de execução. A severidade precisa ser tratada pela possibilidade de planilhas não confiáveis serem importadas.
+- `npm run build`: compilado com sucesso (Vite/rolldown), aviso de chunk grande (`LegacyApp`, 2,37 MB antes de gzip);
+- bundle: sem um número único comparável a julho — ~1,27 MB gzip somando todos os chunks; `LegacyApp` isolado é 672,44 kB gzip;
+- `npx vitest run`: **215 arquivos de teste (213 aprovados, 2 falhando), 1.010 testes (1.007 aprovados, 3 falhando)** — falhas em `src/login-mobile-layout.test.js` (2) e `src/LegacyApp.field-report-flow.test.js` (1);
+- `npm audit --omit=dev`: **1 alerta alto** (`brace-expansion`, correção disponível via `npm audit fix`);
+- `npm audit` completo (incluindo dependências de build/teste): 5 alertas (1 moderado, 4 altos) — a diferença para o número acima é só escopo (produção vs. toda a árvore de dependências), ambos com correção automática disponível.
 
 ## 3. Inventário funcional
 
-### 3.1 Setores e módulos
+Sem mudança estrutural relevante nos setores/módulos listados em julho, com um acréscimo: **Equipamentos** (locação, calendário, cadastro físico, ciclo de locação e cobrança — 5 fases documentadas em `docs/EQUIPAMENTOS_FASE_1..5_*.md`) passou a ser um módulo completo, não mais só um item dentro de Recursos. As coleções principais do estado normalizado seguem as mesmas descritas em julho, mais as tabelas canônicas novas (ver seção 8).
 
-| Setor | Módulos atuais |
-|---|---|
-| Administração | auditoria, resumo por IA, usuários, permissões e presença |
-| Painel | dashboard e Modo TV |
-| Engenharia | obras e módulos internos da obra |
-| Compras | compras, suprimentos e estoque |
-| Financeiro | DRE Empresa, DRE Obras, gestão financeira, conciliação, medições, caixa e relatórios |
-| RH | equipes, ponto, gestão do ponto, folha e rescisão |
-| Comercial | dashboard, indicações, leads, funil, jornada, agenda, reuniões, tarefas, propostas, negociações, contratos, clientes, parceiros, metas, perdas e relatórios |
-| IA | agente e configuração Gemini |
-| Ajustes | cadastros, configuração e telas antigas |
-
-### 3.2 Coleções principais
-
-O estado normalizado contém, entre outras:
-
-- obras, clientes, usuários, funcionários e terceiros;
-- orçamentos, composições, materiais e bases favoritas;
-- planos, RDOs, conferências e qualidade;
-- solicitações, cotações, pedidos, fornecedores e estoque;
-- medições, pagamentos, notas, extratos, transações, caixas e despesas;
-- equipamentos, locações e manutenções;
-- condomínios e licenças;
-- histórico de auditoria e permissões.
+*(Seções 3.1/3.2 da auditoria anterior não foram reverificadas linha a linha nesta rodada — o inventário funcional não é onde a mudança de três semanas se concentrou.)*
 
 ## 4. Auditoria de clareza setorial
 
-### 4.1 Pontos positivos
-
-- o menu lateral está agrupado por setores reais da empresa;
-- a Engenharia começa pela obra, reduzindo submenus duplicados;
-- a obra aberta agrupa Obra, Qualidade, Suprimentos, Financeiro, RH e Recursos;
-- o Financeiro separa Visão, Pagamentos, Administrativo, Notas e IA;
-- Engenheiros recebem dashboard orientado a pendências;
-- o Modo TV é separado da operação;
-- o contexto da obra é reaproveitado ao navegar para seus módulos.
-
-### 4.2 Ambiguidades restantes
-
-| Situação | Risco | Recomendação |
-|---|---|---|
-| Compras existe globalmente e dentro da obra | operador não percebe se está no portfólio ou em uma obra | exibir sempre um chip `Todas as obras` ou o nome da obra |
-| Financeiro possui várias telas relacionadas | lançamento pode começar em Compras, NF, Caixa ou Conciliação | definir a Central de Pagamentos como porta oficial de saída |
-| Cadastros gerais mistura entidades de setores | usuários não sabem onde está a fonte mestre | separar catálogo, pessoas, parâmetros e bases |
-| Telas antigas continuam acessíveis | dois caminhos para a mesma intenção | manter apenas para Administração até remoção |
-| Orçamento aparece global e por obra | risco de editar o orçamento errado | exigir cabeçalho persistente da obra e bloquear salvamento sem obra |
-| Termos “Medição” e “Medições” | pode confundir avanço técnico, cobrança e terceiro | usar “Avanço técnico”, “Contas a receber” e “Medição de terceiros” |
-
-### 4.3 Taxonomia recomendada
-
-- **Comercial:** captar, qualificar, propor, contratar e transferir.
-- **Engenharia:** planejar, executar, registrar e medir avanço.
-- **Qualidade:** inspecionar, corrigir e aceitar.
-- **Suprimentos:** solicitar, cotar, pedir, receber e estocar.
-- **Financeiro:** conferir documento, pagar/receber, conciliar e apurar.
-- **RH:** cadastrar, lotar, apontar, pagar e desligar.
-- **Recursos:** equipamentos, licenciamento, arquivos e portal.
+Não reverificada nesta rodada — nenhum dos quatro agentes de investigação cobriu navegação/UX. Os pontos positivos e as ambiguidades registradas em julho (Compras global vs. por obra, múltiplas portas de entrada no Financeiro, Cadastros gerais misturando entidades, telas antigas convivendo com novas, "Medição" ambíguo) devem ser tratados como possivelmente ainda válidos, mas não confirmados. Recomenda-se uma rodada dedicada a isso antes de decidir prioridade.
 
 ## 5. Duplicidades e fontes de verdade
 
-### 5.1 Clientes — média
+### 5.1 Clientes — parcialmente corrigido
 
-**Achado:** o cliente mestre está em `comercial.clientes`, mas a obra também guarda `clienteId` e `cliente`. Contratos guardam `clienteId` e `contratante`.
+`clienteId` passou a ser usado mais amplamente — editar um cliente agora cascateia o nome (`contratante`) para os contratos vinculados por `clienteId` (`src/LegacyApp.jsx:37011`). Mas os campos livres `obra.cliente`/`contrato.contratante` continuam existindo em paralelo e são editáveis independentemente em pelo menos um formulário (`src/LegacyApp.jsx:19529`). Ainda não é o vínculo único e obrigatório recomendado.
 
-**Efeito:** o nome pode ser alterado em Clientes e permanecer antigo na obra ou contrato.
+### 5.2 Usuários versus funcionários — aberto
 
-**Decisão recomendada:**
+Sem mudança. `usuarios` (`src/LegacyApp.jsx:2886`) segue sem campo `employeeId` — a normalização do usuário tem `id, nome, pin, role, accessTabs, email, maxDesconto, obraId, active, createdAt`, nenhum vínculo com `employees`.
 
-- `comercial.clientes` é a fonte de verdade;
-- `clienteId` é o vínculo obrigatório;
-- nomes nas demais entidades são snapshots para documentos emitidos;
-- edição do cliente deve oferecer “atualizar dados operacionais vinculados”, sem alterar documentos históricos assinados.
+### 5.3 Responsável por ID e por nome — sem mudança (intencional)
 
-### 5.2 Usuários versus funcionários — média
+Não reverificado especificamente nesta rodada; comportamento intencional, sem indício de mudança.
 
-**Achado:** `usuarios` controla autenticação e `employees` controla RH. Não há um vínculo mestre obrigatório entre ambos.
+### 5.4 Pagamento em pedido e nota — aberto
 
-**Efeito:** a mesma pessoa pode ter nomes diferentes, ser inativada no RH e continuar ativa no login, ou vice-versa.
+**Sem correção arquitetural.** `src/domains/conciliacao/mutations.js` (`registrarPagamentoEConciliar`, ~linhas 147-161) continua escrevendo o mesmo objeto de pagamento em `notasFiscais[].pagamentos` e `pedidos[].pagamentos`, evitando dupla contagem por convenção de ID compartilhado — exatamente a mitigação (não a correção) que a auditoria de julho já havia descrito. Não existe coleção única `pagamentos`.
 
-**Decisão recomendada:** adicionar `employeeId` opcional e único em `usuarios`, com alertas de divergência e desligamento coordenado.
+### 5.5 Pedido, nota, pagamento, caixa, transação e DRE — parcialmente corrigido, ainda não é a fonte ativa
 
-### 5.3 Responsável por ID e por nome — baixa/intencional
+O ledger financeiro canônico recomendado em julho **foi construído de verdade**: `migrations/20260725_financial_engine.sql` cria `financial_titles`, `settlements`, `bank_transactions`, `reconciliation_links`, `financial_events`, `journal_entries/lines`, `accounting_periods`, `idempotency_records`, `legacy_record_links` e `data_quality_cases`, com uma função transacional `financial_execute_command()` (idempotente, com lock, cobrindo `CREATE_FINANCIAL_TITLE`/`REGISTER_SETTLEMENT`/`REVERSE_SETTLEMENT`/`CLOSE_ACCOUNTING_PERIOD`). Isso é chamado por `api/data.js` (ação `financial-command`) e tem testes de integração próprios.
 
-**Achado:** RDO, conferência, qualidade, auditoria e outros registros guardam ID e nome.
+**Mas roda em modo sombra.** `FINANCIAL_ENGINE_ENFORCE=false` no ambiente atual; `server/financial-write-policy.js` mostra que o conjunto de seções legadas que ainda podem escrever direto (`FINANCIAL_SNAPSHOT_WRITER_SECTIONS`) está vazio — ou seja, tecnicamente pronto para ativar — mas a ativação continua desligada por decisão deliberada, não por bloqueio técnico, enquanto a sincronização em sombra (`financial-shadow-sync`) não demonstrar paridade total. **As coleções legadas (`pedidos`, `notasFiscais`, `caixaObra`, `transacoes`, `outrasDesp`, `despesasEmpresa`) continuam sendo a fonte viva em produção hoje.**
 
-**Efeito:** parece duplicidade, mas preserva o nome histórico caso o usuário seja renomeado.
+`data_quality_cases` é um mecanismo real e ativo (não só uma tabela vazia): `api/data.js` (~linha 1370) abre e resolve casos automaticamente a cada sincronização em sombra, e há um painel admin (`src/LegacyApp.jsx:~6735`) mostrando divergências ao vivo.
 
-**Decisão recomendada:** declarar o nome como snapshot imutável na criação/conclusão e usar o ID para permissões.
+**Achado específico sobre folha/terceirizados** (o ponto que motivou uma investigação dedicada nesta sessão): a dupla contagem de custo de mão de obra/terceirizado via conciliação **está corrigida no caminho novo**. `src/domains/conciliacao/payroll.js` e `mutations.js` liquidam contra `titulosFolha` e gravam em `reconciliationLinks`, com comentário explícito "não recria custo de mão de obra" — nunca tocam `outrasDesp`/`despesasEmpresa`. O caminho legado (`pagamentosFolha`, tipo `"funcionario"`) ainda coexiste para compatibilidade, mas também não duplica. O único caminho que ainda escreve em `outrasDesp`/`despesasEmpresa` é a criação manual de lançamento novo, atrás de uma confirmação explícita do operador de que não há fato financeiro equivalente já registrado (`duplicidadeRevisada`) — é criação legítima de despesa nova, não o bug antigo.
 
-### 5.4 Pagamento em pedido e nota — alta
+### 5.6 Documentos — aberto
 
-**Achado:** quando uma nota vinculada a pedido é paga, o mesmo `pagamentoId` é gravado em `nota.pagamentos` e `pedido.pagamentos`.
+Sem correção. Nenhuma coleção/tabela `arquivos` unificada foi encontrada em `migrations/` ou `src/`. Um módulo `src/domains/documentos/` existe, mas cobre *revisões* de documentos de engenharia (`publishRevision`, `documentIsCurrent`) — um conceito diferente do catálogo de metadados de arquivo/OneDrive que a auditoria recomendava. `documentosMovimentacoes` e `obra.documentosOneDrive` continuam espalhados como antes.
 
-**Controle atual:** alguns indicadores removem duplicidade por ID.
+### 5.7 Avanço físico — parcialmente corrigido
 
-**Risco:** qualquer relatório que apenas concatene as duas listas pode contar a saída duas vezes.
+Continuam três fontes independentes (Planejamento, RDO, Medições de evolução), mas `fundirEvolucao` (`src/LegacyApp.jsx:~16983`) agora aplica uma regra de precedência explícita e centralizada: um valor com `progressoOrigem === "medicao_tecnica_aprovada"` é tratado como autoritativo e não pode ser sobrescrito pelo diário; caso contrário, vence quem foi atualizado mais recentemente entre Planejamento e RDO. É uma política de merge documentada, não mais divergência ad hoc — progresso real, mas ainda é um rollup no frontend sobre três coleções, não o livro de eventos único recomendado.
 
-**Decisão recomendada:** criar coleção única `pagamentos` e guardar apenas `pagamentoIds` em pedido e nota. Durante a migração, toda soma deve usar ID único.
+### 5.8 Bases de referência — sem mudança
 
-### 5.5 Pedido, nota, pagamento, caixa, transação e DRE — crítica
+Não reverificado especificamente nesta rodada.
 
-**Achado:** o mesmo fato econômico pode aparecer em:
+### 5.9 Status distribuídos — sem mudança
 
-- `pedidos`;
-- `notasFiscais`;
-- pagamentos embutidos;
-- `caixaObra`;
-- `transacoes` bancárias;
-- `outrasDesp` ou `despesasEmpresa`;
-- `documentosMovimentacoes`.
+Não reverificado especificamente nesta rodada.
 
-**Efeito:** há risco de dupla contabilização, divergência de status e exclusão parcial.
+### 5.10 Duplicidade literal no código — sem mudança
 
-**Decisão recomendada:** adotar um livro financeiro canônico:
-
-1. obrigação;
-2. pagamento;
-3. liquidação/conciliação;
-4. rateio;
-5. documento;
-
-Pedido e nota apontam para a obrigação; caixa e extrato apontam para o pagamento. A DRE lê apenas o razão canônico.
-
-### 5.6 Documentos — alta
-
-**Achado:** metadados do mesmo arquivo podem ficar no registro de origem, em `documentosMovimentacoes`, em `obra.documentosOneDrive` e no próprio OneDrive.
-
-**Efeito:** links repetidos, legendas divergentes e documentos órfãos.
-
-**Decisão recomendada:** coleção `arquivos` com ID, OneDrive ID, obra, pasta, hash, legenda, versão e autor. Entidades usam `arquivoIds`.
-
-### 5.7 Avanço físico — alta
-
-**Achado:** progresso aparece no planejamento, RDO e medições de evolução. Há regras de fusão e rollup no frontend.
-
-**Efeito:** atualização manual e automática podem divergir ou sobrescrever interpretações.
-
-**Decisão recomendada:** manter um livro de eventos de avanço e calcular o acumulado. O planejamento contém meta; o RDO contém evento diário; a medição contém aceite.
-
-### 5.8 Bases de referência — média
-
-**Achado:** o backend já restringe cadastro/exclusão ao administrador e procura uma base equivalente, mas dados históricos podem conter repetições e a UI já exibiu duplicidade.
-
-**Decisão recomendada:** índice único lógico por empresa, fonte, competência, UF e desoneração; tela de saneamento do legado; impedir vínculo de duas bases equivalentes ao mesmo orçamento.
-
-### 5.9 Status distribuídos — média
-
-**Achado:** estados de pedido, nota, conferência, conciliação, qualidade e comercial são strings mantidas em diferentes componentes.
-
-**Efeito:** transição inválida pode ser produzida por uma nova tela.
-
-**Decisão recomendada:** máquinas de estado centrais com transições, papel permitido, validação e evento de auditoria.
-
-### 5.10 Duplicidade literal no código — baixa
-
-**Achado:** na normalização de `locacoesEquip.tarifas`, a propriedade `dia` aparece repetida no mesmo objeto.
-
-**Efeito:** hoje as duas expressões são iguais, portanto o resultado não muda. Ainda assim é sinal de manutenção manual frágil.
-
-**Decisão recomendada:** remover a repetição quando o módulo for refatorado e adicionar lint para `no-dupe-keys`.
+Não reverificado especificamente nesta rodada.
 
 ## 6. Segurança e permissões
 
-### 6.1 Carga integral do dataset — P0/crítica
+### 6.1 Carga integral do dataset — ✅ corrigido
 
-**Evidência:** `api/data.js`, ações `auth-login` e `load`, devolvem `data: p`/`data: atual` para qualquer usuário autenticado. `allowedTabsForUser` atua no React.
+`server/data-projection.js` implementa `projectDataForUser(payload, user)`: lista de permissão por papel (`ROLE_SECTIONS`), escopo por obra (`hasObra`/`filterByObra`) e remoção de campo sensível (PIN, CPF, salário, PIX via `sanitizeUser`/`sanitizeEmployee`). Aplicado em todo caminho de resposta de `api/data.js` (`auth-login`, `load`, resultados de save/comando). Admin recebe o payload completo por design — correto.
 
-**Risco:** um operador com acesso limitado pode inspecionar a resposta da rede e ler dados de outros setores, incluindo informações pessoais e financeiras.
+### 6.2 Salvamento de seções sem política geral — ✅ corrigido
 
-**Correção:** aplicar projeção por papel e por obra no servidor. Idealmente, abandonar a carga integral e criar endpoints por módulo com autorização explícita.
+`server/section-authorizations.js` define `authorizeSectionChanges` com mapa explícito `SECTION_ROLES` cobrindo praticamente toda coleção de primeiro nível, negação por padrão para chaves não mapeadas, checagem de escopo por obra e validação de registro sem vínculo. Aplicado nos três caminhos de salvamento de `api/data.js`. Reforçado por `validateNoPhysicalDeletes` e políticas de imutabilidade de orçamento/baseline.
 
-### 6.2 Salvamento de seções sem política geral — P0/crítica
+### 6.3 Primeiro administrador — ❌ ainda aberto
 
-**Evidência:** `save-sections` aceita qualquer chave de primeiro nível para qualquer usuário autenticado. Existe proteção server-side específica para Conferências e para algumas ações isoladas, mas não para as demais coleções.
+Sem mudança. Nenhum `SETUP_SECRET`, token de convite ou bloqueio pós-provisionamento foi encontrado. `api/data.js`, ação `setup`, ainda só verifica `usuarios.length === 0` — qualquer requisição não autenticada que alcançar uma instalação vazia ainda pode se autoprovisionar como admin.
 
-**Risco:** ocultar um botão não impede uma requisição manual que altere usuários, financeiro ou outra seção.
+### 6.4 PIN — parcialmente corrigido
 
-**Correção:** mapa server-side de permissões por ação e coleção; validar escopo da obra; impedir atualização de `usuarios`, `config`, financeiro e RH por perfis não autorizados.
+`server/app-auth-security.js` trocou SHA-256 simples por **scrypt** (N=16384, salgado, formato `scrypt-v1$...`), com upgrade transparente do hash antigo no próximo login bem-sucedido. O rate limit deixou de ser só em memória e agora é **persistido no banco** (`applyPersistentAuthRateLimit`, `migrations/20260726_auth_rate_limit.sql`) — resolve diretamente a reclamação de julho sobre instâncias serverless não compartilharem bloqueio. Autenticação por e-mail/senha + sessão JWT também passou a existir (`auth-login`/`auth-provision`). Mas o PIN continua sendo credencial ativa e válida para a maioria dos operadores, não foi aposentado; MFA continua ausente.
 
-### 6.3 Primeiro administrador — P1/alta
+### 6.5 Links de arquivo — ❌ ainda aberto
 
-O setup sem autenticação é necessário para bootstrap, mas qualquer pessoa que alcançar uma instalação com `usuarios` vazio pode se tornar administrador.
+Sem mudança. `server/microsoft/graph.js`: `fileSignature = (driveId,itemId) => hmac(...)` continua sendo uma assinatura HMAC estática, sem componente de tempo/expiração, usada em `api/microsoft/onedrive.js`.
 
-**Correção:** exigir `SETUP_SECRET` temporário, convite de implantação ou bloqueio após provisionamento.
+### 6.6 Portal do cliente — ✅ corrigido
 
-### 6.4 PIN — P1/alta
+`api/client.js` + `server/client-portal-auth.js`/`client-portal-runtime.js`: login real por e-mail/senha, sessões no servidor (`client_portal_sessions`, expiração de 12h, revogação, endpoint de logout), cookie em vez de token na URL, e eventos de auditoria (`auditPortalEvent`) em login/logout/visualização.
 
-O PIN usa SHA-256 simples e o rate limit fica na memória da instância serverless. Se o blob for obtido, PIN curto pode sofrer ataque offline; instâncias diferentes não compartilham bloqueio.
+### 6.7 Dados pessoais e LGPD — ❌ ainda aberto, crítico
 
-**Correção:** encerrar a transição para e-mail/senha, usar MFA e retirar hashes de PIN do dataset operacional. Enquanto existir PIN, usar algoritmo lento e rate limit persistente.
+Sem nenhuma mudança. Busca por LGPD, consentimento, retenção, anonimização, política de privacidade e direitos do titular em `docs/`, `src/`, `api/`, `server/` não encontrou nada além de menções incidentais (ex.: campo `titularPix`) e uma nota que adia o Sentry justamente por risco de PII/LGPD (`docs/AVALIACAO_FERRAMENTAS_ARCD.md:38`). Nenhum documento posterior a 26/07 trata do tema. Dado que o sistema segue tratando CPF, RG, estado civil, salário, PIX, endereço, fotos e contratos, este continua sendo o item P0 mais crítico do relatório.
 
-### 6.5 Links de arquivo — P1/alta
+### 6.8 Pontos positivos de segurança adicionais desta rodada
 
-O endpoint de arquivo aceita assinatura HMAC estática sem sessão do usuário e sem expiração. Quem possuir a URL pode acessar enquanto o segredo não mudar.
-
-**Correção:** token curto com expiração e escopo, ou exigir sessão no download. Não registrar URLs completas em locais públicos.
-
-### 6.6 Portal do cliente — P1/alta
-
-O portal usa token na URL. O filtro de conteúdo no servidor é positivo, mas o token pode vazar por histórico, captura ou compartilhamento.
-
-**Correção:** expiração, rotação, revogação, trilha de acesso e, para documentos sensíveis, autenticação do cliente.
-
-### 6.7 Dados pessoais e LGPD — P0/crítica comercial
-
-O produto trata CPF, RG, estado civil, salário, PIX, endereço, fotos e contratos. Não foram encontrados no repositório controles completos de base legal, consentimento, retenção, exportação, anonimização ou atendimento ao titular.
-
-**Correção:** inventário de dados, política de privacidade, contratos com operadores, retenção, minimização, trilha de acesso e processo de incidente.
-
-### 6.8 Pontos positivos de segurança
-
-- a chave `service_role` fica no servidor;
-- tabelas têm RLS habilitado sem política para cliente;
-- comparação de PIN usa tempo constante;
-- sessão Microsoft e chave Gemini são criptografadas;
-- a conexão OneDrive é exclusiva do administrador;
-- criação/exclusão de bases é validada no servidor;
-- regras da Conferência são validadas no servidor;
-- presença on-line só pode ser listada pelo administrador.
+- hash de PIN migrado para scrypt com upgrade transparente;
+- rate limit de autenticação agora persistente entre instâncias;
+- autenticação de e-mail/senha com sessão JWT para operadores e para o portal do cliente;
+- auditoria de acesso ao portal do cliente (login/logout/visualização);
+- backup diário automatizado, criptografado e com verificação (ver 7.4).
 
 ## 7. Integridade e concorrência
 
-### 7.1 Blob único — P0
+### 7.1 Blob único — ainda majoritariamente aberto
 
-O dataset principal fica em `company_app_data` sob uma chave única. A aplicação envia apenas seções alteradas e faz merge de três vias, o que é uma evolução real em relação à sobrescrita integral.
+`company_app_data` continua sendo a fonte primária de leitura e escrita para a maior parte do sistema. As tabelas `core_*` (`migrations/007_create_core_registry_projection.up.sql`) e o motor financeiro existem, mas operam em modo sombra — o frontend ainda lê o blob como fonte principal, confirmado pelo próprio `docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md` (30/07) e por `FINANCIAL_ENGINE_ENFORCE` continuar desligado por padrão.
 
-Mesmo assim:
+### 7.2 Auditoria mutável — ✅ corrigido
 
-- toda coleção do setor continua dentro do mesmo documento;
-- uma seção grande é regravada integralmente;
-- conflitos no mesmo item dependem de comparação JSON;
-- consultas e índices de negócio não existem no banco;
-- auditoria e autorização fina são difíceis;
-- o crescimento ameaça limites de requisição e tempo de função.
+`migrations/20260725_append_only_audit.sql` cria `audit_events` com triggers que bloqueiam UPDATE/DELETE, populada atomicamente junto com a escrita do blob via RPC `company_save_with_audit` (exclusiva de `service_role`). `changeLog` foi excluído das seções que o cliente pode escrever diretamente. Ressalva menor: o schema captura ator/ação/correlação, mas não IP/session ID como a auditoria original recomendava.
 
-**Correção:** migrar por domínio para tabelas normalizadas, começando por autenticação/permissões, financeiro, compras/documentos, obras e qualidade.
+### 7.3 Arquivo de ponto — sem mudança
 
-### 7.2 Auditoria mutável — P1
+Continua sendo o padrão de referência para decomposição dos demais módulos, como já registrado em julho.
 
-O `changeLog` fica dentro do mesmo blob que usuários comuns conseguem salvar. Não é um ledger imutável e pode ser alterado junto com o estado.
+### 7.4 Backup — ✅ corrigido
 
-**Correção:** tabela append-only no servidor, com usuário autenticado, ação, entidade, versão anterior/nova ou diff, IP/session ID e retenção.
-
-### 7.3 Arquivo de ponto
-
-Quinzenas são retiradas do blob e gravadas em linhas próprias. O processo reduz tamanho e possui permissão server-side. É um padrão que pode orientar a decomposição dos demais módulos.
-
-### 7.4 Backup — P0
-
-Não existe implementação de backup automático no repositório. Exportações manuais não substituem restauração integral.
-
-**Correção:** Point-in-Time Recovery quando disponível, export diário do banco/Storage, retenção definida e teste trimestral de restauração.
+`vercel.json` tem cron diário (`0 3 * * *`, ação `backup-create`) protegido por `CRON_SECRET`, saída criptografada em AES-256-GCM, manifesto com hash SHA-256, ação `backup-verify` e processo de restauração documentado em `docs/BACKUP_ONEDRIVE.md`.
 
 ## 8. Auditoria financeira
 
-### 8.1 Pontos positivos
+Ver detalhamento completo na seção 5.5. Resumo do que mudou desde julho:
 
-- pedido é tratado como compromisso;
-- pagamento permite origem real;
-- caixa negativo é bloqueado;
-- comprovante pode ser anexado;
-- nota possui retenções, rateios e divergências;
-- conciliação possui histórico, desfazer, reabrir e ignorar com motivo;
-- pagamento duplicado entre pedido/nota usa o mesmo ID em parte do fluxo;
-- ranking penaliza não conformidades financeiras.
+- ledger canônico real, com testes, rodando em modo sombra — não é mais só uma recomendação;
+- a dupla contagem específica de mão de obra/terceirizado via conciliação foi eliminada no caminho novo;
+- `data_quality_cases` funciona de verdade como mecanismo de rastreio de divergência durante a migração;
+- a duplicidade pedido/nota (5.4) e a ausência de uma Central de Pagamentos única continuam exatamente como em julho — mitigadas por convenção de ID, não por schema.
 
-### 8.2 Riscos
-
-1. existem duas telas capazes de registrar pagamento de pedido: Compras e Central de Pagamentos;
-2. o mesmo pagamento pode existir em nota e pedido;
-3. a marca `conciliado` pode ser selecionada sem uma transação vinculada;
-4. pagamento pelo caixa cria também linha em `caixaObra`, exigindo deduplicação na DRE;
-5. pagamento direto pelo cliente precisa de regra explícita de custo e receita;
-6. documentos podem ser anexados em mais de uma coleção;
-7. despesas avulsas e conciliação podem representar a mesma saída;
-8. relatório gerencial não equivale a contabilidade fiscal.
-
-### 8.3 Fluxo canônico recomendado
-
-`Pedido → NF/Documento → Conferência → Autorização → Pagamento → Conciliação → DRE`
-
-- Compras prepara, mas não paga.
-- Financeiro paga por uma única Central.
-- Conciliação confirma a saída bancária.
-- A DRE reconhece a partir do razão financeiro canônico.
-- Exceções sem NF exigem justificativa, aprovador e prazo de regularização.
+O fluxo canônico recomendado em julho (`Pedido → NF/Documento → Conferência → Autorização → Pagamento → Conciliação → DRE`) continua sendo a meta correta; o motor financeiro construído nesta janela é a peça de infraestrutura que faltava para chegar lá, mas ainda não é o caminho que os usuários realmente percorrem.
 
 ## 9. Qualidade e engenharia
 
-### 9.1 Pontos positivos
-
-- conferência tem segregação de função e validação server-side;
-- pendência possui impacto, responsável, prazo, evidências e validações;
-- fotos aceitam anotação;
-- RDO exige revisão do engenheiro;
-- FVS/FVM possuem checklist e tratamento de não conformidade;
-- ranking por obra e engenheiro ajuda a priorizar.
-
-### 9.2 Riscos
-
-- usuário pode receber dados de obras fora de seu escopo no payload;
-- progresso tem múltiplas fontes;
-- critérios FVS/FVM podem ser editados sem versionamento formal;
-- normas e tolerâncias são texto livre;
-- relatório em HTML impresso depende de pop-up e navegador;
-- fotos de evidência precisam de retenção e integridade.
-
-### 9.3 Recomendações
-
-- biblioteca versionada de critérios por tipo de serviço/material;
-- hash do arquivo e data/hora do servidor;
-- assinatura/aprovação da ficha;
-- revisão obrigatória de alteração de critério;
-- relatório PDF gerado no servidor;
-- vínculo explícito entre RDO, avanço, medição e aceite.
+Não reverificado em profundidade nesta rodada, com uma exceção relevante: a suíte de testes agora cobre boa parte da lista que a auditoria de julho pedia como cobertura mínima antes de venda (BDI, rescisão, rateio/conciliação, DRE têm testes de domínio dedicados) — ver seção 10.4 para os números. Os pontos positivos e riscos de qualidade de obra (conferência, FVS/FVM, RDO) registrados em julho não foram reconferidos.
 
 ## 10. Arquitetura e manutenção
 
-### 10.1 Monólito de frontend — P1
+### 10.1 Monólito de frontend — parcialmente corrigido, com ressalva importante
 
-`src/App.jsx` possui 33.175 linhas e concentra componentes, regras financeiras, relatórios, modelos e estilos inline.
-
-**Efeitos:**
-
-- mudanças têm grande raio de impacto;
-- divergências de texto, tamanho e botão reaparecem;
-- revisão é lenta;
-- code splitting é praticamente inexistente;
-- testes unitários são difíceis.
-
-**Correção:** decompor por domínio e usar componentes de design system.
+`src/App.jsx` caiu de 33.175 linhas para **11 linhas** — mas é uma casca (`lazy`/`Suspense` para `OperationalApp` ou o portal do cliente). O monólito não encolheu, migrou: `src/LegacyApp.jsx` tem **40.311 linhas**, maior que o arquivo original de julho. `src/domains/` já tem ~34 pastas extraídas e `src/features/suprimentos` existe, mas seguindo a própria ordem de extração do time (`docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`: Orçamento → Conciliação → **Terceiros** → Compras → Planejamento → ...), o item #3 (Terceiros) só teve os motores de cálculo puros extraídos (`src/domains/terceirizados/*.js` — catálogo, ciclo de vida, semana de pagamento, retenções) como "oráculo de golden master"; a UI (kanban, painéis de DRE, formulários — 237 ocorrências de "terceiro" em `LegacyApp.jsx`) continua no monólito.
 
 ### 10.2 Design system
 
-Há bons componentes básicos (`Btn`, `Inp`, `Sel`, `Badge`, painéis e gráficos), mas muitas telas ainda criam botões e estilos diretamente.
+Não reverificado nesta rodada.
 
-**Correção:**
+### 10.3 Build e dependências — parcialmente corrigido
 
-- tokens únicos de cor, tipografia, raio e espaçamento;
-- quatro tamanhos de texto funcionais;
-- três alturas de controle;
-- variantes centralizadas de botão;
-- ícones com semântica consistente;
-- lint que proíba cores e tamanhos arbitrários fora do tema;
-- catálogo visual/Storybook após a migração.
+- CRA → Vite: **feito** (`vite build`, `rolldown`);
+- code splitting: **existe de verdade agora** (33+ chunks JS/CSS), ao contrário do "praticamente inexistente" de julho;
+- tamanho total: **piorou em bytes brutos** — soma de todos os chunks gzip ≈ 1,27 MB contra os 795 kB de um bundle único em julho. O chunk `LegacyApp` isolado (672 kB gzip) quase repete o bundle inteiro antigo. A arquitetura melhorou (lazy-loadable, cacheável por chunk), o payload total não diminuiu ainda;
+- `npm audit`: caiu de 29 alertas (14 altos) para 1 alto em produção / 5 no total (1 moderado, 4 altos) incluindo ferramental de build — melhora grande, ainda não zero, com correção automática disponível para o que resta;
+- CI real: `.github/workflows/quality.yml` conecta `lint` (`check-financial-boundaries.mjs`), `architecture:check` (dependency-cruiser), `typecheck`, `prebuild` (checagem de prontidão financeira + integridade de catálogo + migrações em sombra), `quality:bundle`, `npm audit --audit-level=high`, `test:coverage` e Playwright. Única exceção: `knip.json`/`quality:knip` existe mas não está conectado em nenhum lugar — aspiracional.
 
-### 10.3 Build e dependências — P1
+### 10.4 Testes — ✅ corrigido, com ressalva ativa
 
-- Create React App está descontinuado;
-- bundle principal é significativamente maior que o recomendado;
-- `npm audit` reportou 29 alertas;
-- `xlsx` possui alertas altos e sem correção automática no pacote atual.
+De zero testes em julho para **215 arquivos de teste, 1.010 testes** (`npx vitest run`). **1.007 passando, 3 falhando** neste commit exato — falhas em `src/login-mobile-layout.test.js` (2) e `src/LegacyApp.field-report-flow.test.js` (1). A lista de cobertura mínima que a auditoria de julho pedia está majoritariamente coberta: BDI (`src/domains/orcamentos/bdi.test.js`), rescisão (`src/domains/rh/rescission-commands.test.js`), rateio/conciliação (`src/domains/conciliacao/*.test.js`), DRE (`src/domains/dre/calculations.test.js`), além de `test:e2e` via Playwright e um cenário de golden master financeiro multi-obra (`src/fixtures/financial-golden-master.test.js`).
 
-**Correção:** migrar para Vite, aplicar lazy loading por setor e substituir/atualizar o leitor de planilhas com avaliação de compatibilidade.
-
-### 10.4 Testes — P0
-
-Nenhum teste automatizado foi encontrado.
-
-Cobertura mínima antes de venda:
-
-- autorização por perfil e obra;
-- login, refresh e inativação;
-- orçamento, BDI e importação;
-- parcelas e medições;
-- pedido, nota, pagamento, caixa e conciliação;
-- bloqueio de caixa negativo;
-- DRE sem duplicidade;
-- folha e rescisão;
-- conferência e segregação de função;
-- OneDrive e documentos;
-- portal do cliente;
-- merge de concorrência.
+TypeScript é a exceção: `tsconfig.quality.json` roda no CI (`typecheck`), mas seu `include` cobre só **2 arquivos `.ts`** contra 198 `.js` + 116 `.jsx` no projeto — adoção real ainda é próxima de zero, apesar do CI já impor a checagem.
 
 ## 11. Prontidão comercial
 
 ### 11.1 O que já é demonstrável
 
-- jornada completa da construtora;
-- identidade visual própria;
-- obra como contexto central;
-- integração de engenharia, compras e financeiro;
-- qualidade auditável;
-- portal do cliente;
-- OneDrive;
-- IA multimodal;
-- painéis executivo, operador e TV.
+Tudo que constava em julho, mais: módulo de equipamentos completo (5 fases), portal do cliente com autenticação real e auditoria de acesso, backup automatizado comprovado.
 
-### 11.2 Condições para vender com segurança
+### 11.2 Condições para vender com segurança — status atualizado
 
 #### P0 — antes de qualquer cliente externo
 
-- autorização server-side por módulo, ação e obra;
-- decompor ou proteger efetivamente os dados sensíveis;
-- razão financeiro canônico e teste contra duplicidade;
-- testes automatizados dos fluxos críticos;
-- backup e restauração comprovados;
-- pacote LGPD mínimo;
-- logs imutáveis;
-- correção/mitigação das dependências de alto risco.
+- ~~autorização server-side por módulo, ação e obra~~ — ✅ feito;
+- ~~decompor ou proteger efetivamente os dados sensíveis~~ — ✅ proteção feita (projeção por payload); decomposição segue em andamento;
+- razão financeiro canônico e teste contra duplicidade — **infraestrutura pronta, não ativada** (modo sombra);
+- ~~testes automatizados dos fluxos críticos~~ — ✅ feito, com 3 falhas ativas para triar;
+- ~~backup e restauração comprovados~~ — ✅ feito;
+- **pacote LGPD mínimo — continua em zero, é o item mais crítico remanescente;**
+- ~~logs imutáveis~~ — ✅ feito;
+- ~~correção/mitigação das dependências de alto risco~~ — ✅ 14 → 1 (produção), correção automática disponível para o resto.
 
 #### P1 — antes de crescer
 
-- migrar de CRA para Vite;
-- dividir `App.jsx` por domínio;
-- observabilidade e monitoramento de erros;
-- expiração de links e tokens;
-- MFA e recuperação de senha;
-- migrations versionadas;
-- ambientes separados de desenvolvimento, homologação e produção;
-- contratos de SLA, suporte e incidente.
+- ~~migrar de CRA para Vite~~ — ✅ feito;
+- dividir `App.jsx` por domínio — **em andamento, mas o monólito cresceu em vez de encolher (`LegacyApp.jsx`)**;
+- observabilidade e monitoramento de erros — não reverificado nesta rodada (nota: Sentry foi deliberadamente adiado por risco de LGPD, per `docs/AVALIACAO_FERRAMENTAS_ARCD.md`);
+- expiração de links e tokens — **parcial**: portal do cliente corrigido, links de arquivo/OneDrive continuam sem expiração;
+- MFA e recuperação de senha — MFA continua ausente; login por e-mail/senha já existe como alternativa ao PIN;
+- ~~migrations versionadas~~ — ✅ em uso extensivo;
+- ambientes separados — não reverificado;
+- contratos de SLA, suporte e incidente — não reverificado.
 
 #### P2 — maturidade
 
-- multiempresa real com isolamento por tenant;
-- aplicativo/offline de campo;
-- filas assíncronas para IA e documentos;
-- assinatura digital;
-- API pública e integrações contábeis;
-- métricas de produto e onboarding guiado.
+Sem mudança relevante identificada nesta rodada.
 
-## 12. Plano de execução recomendado
+## 12. Plano de execução recomendado — atualizado
 
-### Etapa 1 — segurança e integridade
+### Concluído desde julho
 
-1. criar matriz de autorização no backend;
-2. filtrar respostas por perfil e obra;
-3. bloquear escrita de coleções não autorizadas;
-4. criar ledger de auditoria;
-5. cobrir fluxos críticos com testes.
+1. Autorização server-side por payload e por escrita (Etapa 1, itens 1-3);
+2. Ledger de auditoria imutável (Etapa 1, item 4);
+3. Backup e restauração comprovados;
+4. Modelo do financeiro canônico (Etapa 2, item 1) — construído, falta ativar;
+5. Vite (Etapa 3, item 1);
+6. Pastas por domínio (Etapa 3, item 2) — parcial, ~34 domínios extraídos;
+7. Cobertura de testes dos fluxos críticos (Etapa 1, item 5).
 
-### Etapa 2 — financeiro canônico
+### Continua pendente, em ordem de prioridade
 
-1. modelar obrigação, pagamento, conciliação, rateio e documento;
-2. migrar dados mantendo IDs;
-3. definir Central de Pagamentos como único ponto de pagamento;
-4. validar DRE e rankings;
-5. reconciliar exceções.
-
-### Etapa 3 — modularização
-
-1. Vite;
-2. pastas por domínio;
-3. hooks e serviços;
-4. design system;
-5. lazy loading;
-6. páginas e rotas explícitas.
-
-### Etapa 4 — dados e documentos
-
-1. tabelas por domínio;
-2. catálogo único de arquivos;
-3. versionamento;
-4. busca e índices;
-5. backup e retenção.
-
-### Etapa 5 — produto comercial
-
-1. homologação;
-2. LGPD;
-3. telemetria;
-4. suporte;
-5. piloto com outra empresa;
-6. correções;
-7. lançamento controlado.
+1. **LGPD** — não tem nenhum progresso registrado; é o único P0 de julho que segue em zero absoluto.
+2. **Ativar o motor financeiro canônico** — a infraestrutura está pronta (`financialEnforcementReadiness()` já reporta `ready:true`); falta decidir o critério e a janela para virar `FINANCIAL_ENGINE_ENFORCE=true`, e então efetivamente aposentar `outrasDesp`/`despesasEmpresa`/`caixaObra` como fonte primária.
+3. **Terminar a extração de Terceiros** (item #3 da fila própria do time) — hoje só o motor de cálculo saiu do monólito; UI, rotas e serviço de API continuam pendentes, e os itens #4-#8 da fila (Compras, Planejamento, CentralAdministrador, Comercial, Folha/Medições) não foram iniciados.
+4. **Resolver a duplicidade pedido/nota** (5.4) com uma coleção `pagamentos` real, não convenção de ID.
+5. **Catálogo único de documentos** (5.6) — ainda não iniciado.
+6. **Triar as 3 falhas de teste ativas** — baixo esforço, mas deveriam ser corrigidas antes de acumular.
+7. Primeiro admin sem segredo de setup (6.3) e expiração de links de arquivo (6.5) — os dois P1 de segurança mais simples de fechar, ainda abertos.
 
 ## 13. Conclusão
 
-O ARCD tem valor funcional real e um diferencial claro: integra o que acontece no canteiro com orçamento, qualidade, suprimentos, financeiro e cliente. O principal obstáculo para venda não é falta de funcionalidades; é transformar os controles atuais, ainda muito concentrados no frontend e no blob, em garantias de segurança, integridade, teste e escala.
+A distância entre esta auditoria e a de julho não é incremental — é a diferença entre um sistema com boas intenções de arquitetura e um sistema que começou a colocá-las em produção, com prova em migração, teste e CI. A segurança de acesso deixou de ser o bloqueador central. O que ocupa esse lugar agora é mais estreito e mais claro: LGPD, que segue intocado apesar dos dados sensíveis que o sistema trata; e a lacuna entre "a infraestrutura financeira canônica existe" e "o sistema realmente opera sobre ela" — o modo sombra é a decisão certa para não arriscar dado real, mas não pode durar indefinidamente sem um critério público de quando vira produção.
 
-Prioridade recomendada: não adicionar novos módulos antes de concluir P0. O ganho comercial agora virá mais de confiabilidade, velocidade e clareza do que de ampliar o menu.
+Um ponto de atenção que não existia em julho, porque não havia nada para comparar: a extração do monólito está avançando em largura (muitos domínios com pelo menos o motor de cálculo extraído) mais rápido do que em profundidade (poucos domínios com UI, rotas e API completamente fora do `LegacyApp`). Vale decidir conscientemente se essa é a sequência certa, ou se vale fechar um domínio inteiro (por exemplo, terminar Terceiros) antes de abrir o próximo.
 
+Prioridade recomendada, nesta ordem: LGPD, critério de ativação do motor financeiro, e fechamento completo de pelo menos um domínio da fila de extração — antes de iniciar o próximo módulo novo de produto.

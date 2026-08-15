@@ -1,0 +1,20 @@
+# Força LF no repositório independente do core.autocrlf de cada máquina.
+#
+# Sem isso, um checkout Windows com core.autocrlf=true converte todo texto
+# para CRLF no disco. O conteúdo commitado continua LF (git normaliza na
+# volta), mas alguns testes fazem correspondência literal de string com "\n"
+# contra o arquivo lido do disco (src/index.css, src/LegacyApp.jsx) - CRLF
+# quebra essa correspondência e produz falso positivo de teste sem nenhuma
+# mudança real de código. Ver docs/AUDITORIA_SISTEMA_ARCD.md, seção 10.4.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.pdf binary
