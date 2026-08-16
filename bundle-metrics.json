@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-08-16T15:24:46.922Z",
+  "generatedAt": "2026-08-16T15:53:49.323Z",
   "totals": {
-    "bytes": 4604379,
-    "gzipBytes": 1273288
+    "bytes": 4606314,
+    "gzipBytes": 1274961
   },
   "assets": [
     {
-      "name": "LegacyApp-lpICZBD6.js",
-      "bytes": 1858128,
-      "gzipBytes": 545538
+      "name": "LegacyApp-DpVTYn1B.js",
+      "bytes": 1756179,
+      "gzipBytes": 519980
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -21,14 +21,14 @@
       "gzipBytes": 102430
     },
     {
-      "name": "index-CpXoOmqR.js",
+      "name": "index-BaDg9uqc.js",
       "bytes": 142464,
-      "gzipBytes": 46756
+      "gzipBytes": 46755
     },
     {
-      "name": "OrcamentoView-Cbf2F7Rv.js",
-      "bytes": 182479,
-      "gzipBytes": 46115
+      "name": "OrcamentoView-SszPNAIL.js",
+      "bytes": 182498,
+      "gzipBytes": 46136
     },
     {
       "name": "index-DG-Zd4U0.css",
@@ -36,9 +36,9 @@
       "gzipBytes": 44037
     },
     {
-      "name": "ComprasView-CcKR887k.js",
-      "bytes": 172033,
-      "gzipBytes": 41293
+      "name": "ComprasView-NkKze8D9.js",
+      "bytes": 172044,
+      "gzipBytes": 41368
     },
     {
       "name": "financial-domain-DEq7AiPg.js",
@@ -51,14 +51,19 @@
       "gzipBytes": 27419
     },
     {
-      "name": "ConciliacaoView-_Dv4h0cn.js",
-      "bytes": 85844,
-      "gzipBytes": 20947
+      "name": "PlanejamentoView-CCKFz9xg.js",
+      "bytes": 103849,
+      "gzipBytes": 27138
     },
     {
-      "name": "TerceirosView-CyTb5THY.js",
-      "bytes": 79145,
-      "gzipBytes": 20597
+      "name": "ConciliacaoView-CaXZWloz.js",
+      "bytes": 85844,
+      "gzipBytes": 20942
+    },
+    {
+      "name": "TerceirosView-CbLQmB0c.js",
+      "bytes": 79150,
+      "gzipBytes": 20601
     },
     {
       "name": "Button-DexF8STh.js",
@@ -96,7 +101,7 @@
       "gzipBytes": 5459
     },
     {
-      "name": "SupplierEditor-O_sm9A3k.js",
+      "name": "SupplierEditor-VNZaToX4.js",
       "bytes": 14226,
       "gzipBytes": 4548
     },
@@ -111,9 +116,9 @@
       "gzipBytes": 2911
     },
     {
-      "name": "categories-IvfS6-aK.js",
+      "name": "categories-D7jSNetP.js",
       "bytes": 6758,
-      "gzipBytes": 2908
+      "gzipBytes": 2907
     },
     {
       "name": "sinapi-parser.worker-BbrY0EV9.js",
@@ -146,7 +151,7 @@
       "gzipBytes": 1334
     },
     {
-      "name": "LegacyMobileNavigation-CzitXkxI.js",
+      "name": "LegacyMobileNavigation-BrZY1g_9.js",
       "bytes": 2784,
       "gzipBytes": 1293
     },
@@ -251,7 +256,7 @@
       ]
     },
     "violations": [
-      "Total JS/CSS gzip 1273288 excede 1249280."
+      "Total JS/CSS gzip 1274961 excede 1249280."
     ]
   }
 }

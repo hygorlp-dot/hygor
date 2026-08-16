@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const app = readFileSync(resolve(process.cwd(), "src/LegacyApp.jsx"), "utf8");
+// Planejamento foi extraída de LegacyApp.jsx para seu próprio arquivo em
+// 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #5).
+const app = readFileSync(resolve(process.cwd(), "src/domains/planejamento/components/PlanejamentoView.jsx"), "utf8");
 const css = readFileSync(resolve(process.cwd(), "src/index.css"), "utf8");
 
 describe("enquadramento das datas do cronograma", () => {
