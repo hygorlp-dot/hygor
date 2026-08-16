@@ -9,6 +9,10 @@ const api=readFileSync(resolve(process.cwd(), "api/data.js"), "utf8");
 // 2026-08-15 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #3) - o
 // contrato de comando dele agora mora aqui, não em `source`.
 const terceirosSource=readFileSync(resolve(process.cwd(), "src/domains/terceirizados/components/TerceirosView.jsx"), "utf8");
+// Conciliação foi extraída de LegacyApp.jsx para seu próprio arquivo em
+// 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #2) - o
+// contrato de comando dela agora mora aqui, não em `source`.
+const conciliacaoSource=readFileSync(resolve(process.cwd(), "src/features/conciliacao/ConciliacaoView.jsx"), "utf8");
 
 describe("contrato de autoria do DRE", () => {
   it("entrega o usuário autenticado até o cancelamento auditável", () => {
@@ -29,11 +33,11 @@ describe("contrato de autoria do DRE", () => {
     expect(source).not.toContain('const caixaObra=f.origem==="caixa_obra"?[...(data.caixaObra||[])');
     expect(source).toContain('type:OPERATIONAL_COMMAND.PURCHASE_CANCELLED');
     expect(source).not.toContain('const caixaObra=(data.caixaObra||[]).map(m=>m.pedidoId!==p.id?m:');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED');
-    expect(source).not.toContain('transacoes: [...(data.transacoes||[]), ...novas]');
-    expect(source).not.toContain('transacoes:(data.transacoes||[]).map(t=>ids.has(t.id)');
+    expect(conciliacaoSource).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED');
+    expect(conciliacaoSource).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED');
+    expect(conciliacaoSource).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED');
+    expect(conciliacaoSource).not.toContain('transacoes: [...(data.transacoes||[]), ...novas]');
+    expect(conciliacaoSource).not.toContain('transacoes:(data.transacoes||[]).map(t=>ids.has(t.id)');
     expect(terceirosSource).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED');
     expect(terceirosSource).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED');
     expect(terceirosSource).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED');
@@ -64,7 +68,7 @@ describe("contrato de autoria do DRE", () => {
     // REC-001: o recebimento bancário não é mais montado no React. A tela
     // envia a intenção e o servidor aplica o recebimento sobre o extrato
     // autoritativo, preservando origem e vínculo da transação.
-    expect(source).toContain('type:"CONFIRM_RECEIPT"');
+    expect(conciliacaoSource).toContain('type:"CONFIRM_RECEIPT"');
     expect(reconciliationServer).toContain('origem:"conciliacao_bancaria",transacaoId:transaction.id,actor');
     expect(source).toContain("<DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />");
   });

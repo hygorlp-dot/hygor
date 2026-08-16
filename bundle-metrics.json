@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-08-16T12:13:59.770Z",
+  "generatedAt": "2026-08-16T12:31:19.919Z",
   "totals": {
-    "bytes": 4601053,
-    "gzipBytes": 1269978
+    "bytes": 4602177,
+    "gzipBytes": 1271245
   },
   "assets": [
     {
-      "name": "LegacyApp-5zJETI1H.js",
-      "bytes": 2112686,
-      "gzipBytes": 604485
+      "name": "LegacyApp-HJlGCwXq.js",
+      "bytes": 2027977,
+      "gzipBytes": 584788
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -21,14 +21,14 @@
       "gzipBytes": 102430
     },
     {
-      "name": "index-B7xUzbzp.js",
+      "name": "index-CsmpV_My.js",
       "bytes": 142464,
       "gzipBytes": 46756
     },
     {
-      "name": "OrcamentoView-DcUGrXtI.js",
-      "bytes": 182482,
-      "gzipBytes": 46106
+      "name": "OrcamentoView-Cll1ip2v.js",
+      "bytes": 182491,
+      "gzipBytes": 46127
     },
     {
       "name": "index-DG-Zd4U0.css",
@@ -46,8 +46,13 @@
       "gzipBytes": 27419
     },
     {
-      "name": "TerceirosView-a8h6V0bW.js",
-      "bytes": 79135,
+      "name": "ConciliacaoView-EkFEEu26.js",
+      "bytes": 85832,
+      "gzipBytes": 20943
+    },
+    {
+      "name": "TerceirosView-D-Aeej9t.js",
+      "bytes": 79127,
       "gzipBytes": 20589
     },
     {
@@ -86,9 +91,9 @@
       "gzipBytes": 5459
     },
     {
-      "name": "SupplierEditor-CATCm3qV.js",
+      "name": "SupplierEditor-DaBCkv_f.js",
       "bytes": 14226,
-      "gzipBytes": 4549
+      "gzipBytes": 4546
     },
     {
       "name": "real-estate-BVanGF-i.js",
@@ -101,9 +106,9 @@
       "gzipBytes": 2911
     },
     {
-      "name": "categories-HD0wmrdD.js",
+      "name": "categories-BRZ5n4_h.js",
       "bytes": 6758,
-      "gzipBytes": 2907
+      "gzipBytes": 2910
     },
     {
       "name": "sinapi-parser.worker-BbrY0EV9.js",
@@ -136,7 +141,7 @@
       "gzipBytes": 1334
     },
     {
-      "name": "LegacyMobileNavigation-Dpp1wHUC.js",
+      "name": "LegacyMobileNavigation-_yG8q_Ur.js",
       "bytes": 2784,
       "gzipBytes": 1293
     },
@@ -241,7 +246,7 @@
       ]
     },
     "violations": [
-      "Total JS/CSS gzip 1269978 excede 1249280."
+      "Total JS/CSS gzip 1271245 excede 1249280."
     ]
   }
 }
