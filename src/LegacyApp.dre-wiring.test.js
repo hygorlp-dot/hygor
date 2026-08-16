@@ -5,6 +5,10 @@ import { describe, expect, it } from "vitest";
 const source=readFileSync(resolve(process.cwd(), "src/LegacyApp.jsx"), "utf8");
 const reconciliationServer=readFileSync(resolve(process.cwd(), "server/reconciliation-command.js"), "utf8");
 const api=readFileSync(resolve(process.cwd(), "api/data.js"), "utf8");
+// Terceiros foi extraído de LegacyApp.jsx para seu próprio arquivo em
+// 2026-08-15 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #3) - o
+// contrato de comando dele agora mora aqui, não em `source`.
+const terceirosSource=readFileSync(resolve(process.cwd(), "src/domains/terceirizados/components/TerceirosView.jsx"), "utf8");
 
 describe("contrato de autoria do DRE", () => {
   it("entrega o usuário autenticado até o cancelamento auditável", () => {
@@ -30,17 +34,17 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED');
     expect(source).not.toContain('transacoes: [...(data.transacoes||[]), ...novas]');
     expect(source).not.toContain('transacoes:(data.transacoes||[]).map(t=>ids.has(t.id)');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_INVOICE_LINKED');
-    expect(source).not.toContain('update(createThirdPartyPayment(');
-    expect(source).not.toContain('update(reverseThirdPartyPayment(');
-    expect(source).not.toContain('update(createThirdPartyMeasurement(');
-    expect(source).not.toContain('update(cancelThirdPartyMeasurement(');
-    expect(source).not.toContain('update(payThirdPartyMeasurement(');
+    expect(terceirosSource).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED');
+    expect(terceirosSource).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED');
+    expect(terceirosSource).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED');
+    expect(terceirosSource).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED');
+    expect(terceirosSource).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID');
+    expect(terceirosSource).toContain('type:OPERATIONAL_COMMAND.THIRD_PARTY_INVOICE_LINKED');
+    expect(terceirosSource).not.toContain('update(createThirdPartyPayment(');
+    expect(terceirosSource).not.toContain('update(reverseThirdPartyPayment(');
+    expect(terceirosSource).not.toContain('update(createThirdPartyMeasurement(');
+    expect(terceirosSource).not.toContain('update(cancelThirdPartyMeasurement(');
+    expect(terceirosSource).not.toContain('update(payThirdPartyMeasurement(');
     expect(source).toContain('type:OPERATIONAL_COMMAND.INVOICE_SAVED');
     expect(source).toContain('type:OPERATIONAL_COMMAND.INVOICE_APPROVED');
     expect(source).not.toContain('update({...data,notasFiscais:form.id?');
