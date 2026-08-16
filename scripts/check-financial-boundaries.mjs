@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../src/LegacyApp.jsx", import.meta.url), "utf8");
+// MedicoesView foi extraída de LegacyApp.jsx para seu próprio arquivo em
+// 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #8) - a
+// tela canônica agora mora lá, não em `source`.
+const medicoesSource = await readFile(new URL("../src/domains/medicoes/components/MedicoesView.jsx", import.meta.url), "utf8");
 const section = (startToken, endToken) => {
   const start = source.indexOf(startToken);
   const end = source.indexOf(endToken, start);
@@ -10,8 +14,8 @@ const section = (startToken, endToken) => {
 const financialScreen = section("function Financeiro({", "function ClienteContratualModal(");
 const canonicalScreens = [
   ["FinanceiroObraPainel", section("function FinanceiroObraPainel(", "function DRE(")],
-  ["DRELegado", section("function DRELegado(", "function MedicoesView(")],
-  ["MedicoesView", section("function MedicoesView(", "function ModoIADocumento(")],
+  ["DRELegado", section("function DRELegado(", "function ModoIADocumento(")],
+  ["MedicoesView", medicoesSource],
   ["FinanceiroAdministrativo", section("function FinanceiroAdministrativo(", "function RankingFinanceiro(")],
 ];
 const violations = [

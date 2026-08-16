@@ -21,6 +21,10 @@ const comprasSource=readFileSync(resolve(process.cwd(), "src/domains/compras/com
 // 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #7) - o
 // contrato de comando dela agora mora aqui, não em `source`.
 const comercialSource=readFileSync(resolve(process.cwd(), "src/domains/comercial/components/ComercialView.jsx"), "utf8");
+// Medições foi extraída de LegacyApp.jsx para seu próprio arquivo em
+// 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #8) - o
+// contrato de comando dela agora mora aqui, não em `source`.
+const medicoesSource=readFileSync(resolve(process.cwd(), "src/domains/medicoes/components/MedicoesView.jsx"), "utf8");
 
 describe("contrato de autoria do DRE", () => {
   it("entrega o usuário autenticado até o cancelamento auditável", () => {
@@ -68,10 +72,10 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain("type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED");
     expect(source).toContain("type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED");
     expect(source).toContain("<Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />");
-    expect(source).toContain("type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED");
+    expect(medicoesSource).toContain("type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED");
     expect(comercialSource).toContain("type:OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED");
     expect(source).not.toContain("medicoes:[...(data.medicoes||[]),...contas]");
-    expect(source).toContain('origem:"revisao_vencidas"');
+    expect(medicoesSource).toContain('origem:"revisao_vencidas"');
     expect(source).not.toContain('origem: "revisao_vencidas", actor:currentUser');
     // REC-001: o recebimento bancário não é mais montado no React. A tela
     // envia a intenção e o servidor aplica o recebimento sobre o extrato
