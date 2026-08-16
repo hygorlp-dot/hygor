@@ -66,14 +66,21 @@ const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
 // Ativação somente após executar a migração canônica e concluir a comparação
 // em sombra. Evita quebrar instalações legadas durante a transição.
 const FINANCIAL_ENGINE_ENFORCE = process.env.FINANCIAL_ENGINE_ENFORCE === "true";
-const FINANCIAL_COMMANDS = new Set(["CREATE_FINANCIAL_TITLE","REGISTER_SETTLEMENT","REVERSE_SETTLEMENT","CLOSE_ACCOUNTING_PERIOD"]);
-const FINANCIAL_COMMAND_ROLES = {
+export const FINANCIAL_COMMANDS = new Set(["CREATE_FINANCIAL_TITLE","REGISTER_SETTLEMENT","REVERSE_SETTLEMENT","CLOSE_ACCOUNTING_PERIOD"]);
+export const FINANCIAL_COMMAND_ROLES = {
   CREATE_FINANCIAL_TITLE:["admin","financeiro"], REGISTER_SETTLEMENT:["admin","financeiro"],
   REVERSE_SETTLEMENT:["admin","financeiro"], CLOSE_ACCOUNTING_PERIOD:["admin"],
 };
+// Mesmo padrão de authorizeOperationalCommand, para o motor financeiro
+// canônico (rota "financial-command").
+export const authorizeFinancialCommand = (commandType, role) => {
+  if (!FINANCIAL_COMMANDS.has(commandType)) return { ok:false, status:400, error:"Comando financeiro inválido." };
+  if (!FINANCIAL_COMMAND_ROLES[commandType].includes(role)) return { ok:false, status:403, error:"Seu perfil não pode executar este comando financeiro." };
+  return { ok:true };
+};
 const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
 const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
-const OPERATIONAL_COMMAND_ROLES = {
+export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED]:["admin","engenheiro","engenheiro_auditor"],
@@ -150,6 +157,7 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CANCELLED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
@@ -160,6 +168,18 @@ const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_CANCELLED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+};
+// Extraído do handler para ser testável sem mock de Supabase/HTTP - é o
+// único ponto de rejeição por papel para comandos operacionais.
+export const authorizeOperationalCommand = (commandType, role) => {
+  const roles = OPERATIONAL_COMMAND_ROLES[commandType];
+  if (!roles) return { ok:false, status:400, error:"Comando operacional inválido." };
+  if (!roles.includes(role)) return { ok:false, status:403, error:"Seu perfil não pode executar este comando operacional." };
+  return { ok:true };
 };
 const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,
@@ -1075,8 +1095,8 @@ export default async function handler(req, res) {
     // Vercel sem criar uma 13ª função serverless.
     if (action === "financial-command") {
       const command=req.body?.command||{};
-      if(!FINANCIAL_COMMANDS.has(command.type))return res.status(400).json({error:"Comando financeiro inválido."});
-      if(!FINANCIAL_COMMAND_ROLES[command.type].includes(usuario.role))return res.status(403).json({error:"Seu perfil não pode executar este comando financeiro."});
+      const authzFin=authorizeFinancialCommand(command.type,usuario.role);
+      if(!authzFin.ok)return res.status(authzFin.status).json({error:authzFin.error});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave de idempotência inválida."});
       const {data:resultado,error}=await db.rpc("financial_execute_command",{p_company_id:COMPANY,p_actor_id:usuario.id,p_command:command});
       if(error){console.error("Falha no motor financeiro:",error.message);return res.status(409).json({error:"O comando não foi efetivado. Nenhum lançamento parcial foi salvo."});}
@@ -1247,9 +1267,8 @@ export default async function handler(req, res) {
     // filtrada pelo papel para poder substituir o save legado gradualmente.
     if(action==="operational-command"){
       const command=req.body?.command||{};
-      const roles=OPERATIONAL_COMMAND_ROLES[command.type];
-      if(!roles)return res.status(400).json({error:"Comando operacional inválido."});
-      if(!roles.includes(usuario.role))return res.status(403).json({error:"Seu perfil não pode executar este comando operacional."});
+      const authz=authorizeOperationalCommand(command.type,usuario.role);
+      if(!authz.ok)return res.status(authz.status).json({error:authz.error});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});
       const scope=validateOperationalCommandScope({user:usuario,data:atual,command});
       if(!scope.ok)return res.status(scope.error.includes("vinculado")?400:403).json({error:scope.error});
