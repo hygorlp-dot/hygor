@@ -1084,13 +1084,16 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       .map((e,i)=>({etapa:e,resultado:instancia.resultadosEtapas?.[i]}))
       .filter(({resultado})=>resultado?.status==="em_andamento"&&(resultado.aprovadoresElegiveis||[]).some(u=>u.id===currentUser?.id));
   };
-  const decidirAprovacao=(instancia,etapaId,decisao,justificativa="")=>{
+  const decidirAprovacao=async(instancia,etapaId,decisao,justificativa="")=>{
     const {data:next,resumo}=motorAprovacaoGenerico.registrarDecisao(data,{
       instanciaId:instancia.id,etapaId,aprovadorId:currentUser?.id||"",aprovadorNome:currentUser?.nome||currentUser?.email||"Operador",
       decisao,justificativa,contexto:{valorTotal:0},
     });
     if(!resumo.ok){showToast(resumo.motivo||"Não foi possível registrar a decisão.","error");return;}
-    update(next);
+    const result=await update(next);
+    if(result&&result.ok===false){
+      showToast(result.reason||"O servidor não confirmou a decisão. Tente novamente.","error");return;
+    }
     showToast(decisao==="aprovado"?"Aprovação registrada.":"Reprovação registrada.");
   };
 

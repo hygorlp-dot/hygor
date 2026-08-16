@@ -17,6 +17,14 @@ const push = (mapa, chave, item) => {
 const soNumeros = s => String(s || "").replace(/\D/g, "");
 const normalizarPix = s => String(s || "").trim().toLocaleLowerCase("pt-BR").replace(/\s+/g, "");
 
+// Total já recebido da entrada de um contrato comercial. Fonte única usada
+// tanto para indexar a conciliação quanto para exibir saldo na tela - evita
+// duas contas divergirem se só uma delas for atualizada no futuro.
+export const recebidoEntradaContrato = contrato =>
+  Array.isArray(contrato?.recebimentosEntrada)
+    ? contrato.recebimentosEntrada.reduce((s, item) => s + Number(item.valor || 0), 0)
+    : (contrato?.entradaPaga ? Number(contrato?.entrada || 0) : 0);
+
 // Constrói todos os índices de uma vez, a partir do blob `data` inteiro.
 // Chame uma vez por render da fila (ex.: dentro de um useMemo com
 // dependência em data.notasFiscais/pedidos/... ), nunca dentro de um map()
@@ -113,9 +121,7 @@ export const criarIndicesFinanceiros = (data) => {
   // também precisa poder ser validada diretamente pelo extrato bancário.
   (data.comercial?.contratos || []).forEach(contrato => {
     const previsto = Number(contrato.entrada || 0);
-    const recebido = Array.isArray(contrato.recebimentosEntrada)
-      ? contrato.recebimentosEntrada.reduce((s, item) => s + Number(item.valor || 0), 0)
-      : (contrato.entradaPaga ? previsto : 0);
+    const recebido = recebidoEntradaContrato(contrato);
     const saldo = previsto - recebido;
     if (saldo <= 0.01) return;
     indexar(contrato, {

@@ -222,7 +222,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const saveTerc = () => {
+  const saveTerc = async () => {
     if (!form.name.trim()) { showToast("Nome obrigatório.", "error"); return; }
     if (!form.obraId) {
       showToast("Selecione a obra deste contrato.", "error"); return;
@@ -275,7 +275,11 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     });
     if (!form.id) terceirizados = [...terceirizados, payload];
 
-    update({ ...data, terceirizados });
+    const result = await update({ ...data, terceirizados });
+    if (result && result.ok === false) {
+      showToast(result.reason || "O servidor não confirmou o cadastro. Tente novamente.", "error");
+      return;
+    }
     setModal(false);
     setContractDraft(null);
     const obra = obraName(payload.obraId);
@@ -298,17 +302,23 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     if(!contrato)return;
     setCancelContract(contrato);setCancelReason("");
   };
-  const confirmRemoveTerc = () => {
+  const confirmRemoveTerc = async () => {
     const motivo=cancelReason.trim();
     if(!cancelContract||!motivo){showToast("Informe o motivo do cancelamento.","error");return;}
-    update({ ...data, terceirizados: allTerc.map(t => t.id===cancelContract.id?{...cancelarRegistro(t,motivo,currentUser,"cancelado"),active:false}:t) });
+    const result=await update({ ...data, terceirizados: allTerc.map(t => t.id===cancelContract.id?{...cancelarRegistro(t,motivo,currentUser,"cancelado"),active:false}:t) });
+    if(result&&result.ok===false){
+      showToast(result.reason||"O servidor não confirmou o cancelamento. Tente novamente.","error");return;
+    }
     setCancelContract(null);setCancelReason("");
     showToast("Contrato cancelado e preservado no histórico.");
   };
 
-  const toggleActive = id => {
+  const toggleActive = async id => {
     const terceirizados = allTerc.map(t => t.id === id ? { ...t, active: !t.active } : t);
-    update({ ...data, terceirizados });
+    const result=await update({ ...data, terceirizados });
+    if(result&&result.ok===false){
+      showToast(result.reason||"O servidor não confirmou a alteração. Tente novamente.","error");return;
+    }
     showToast("Status atualizado.");
   };
 
@@ -1103,7 +1113,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           .filter(o => filteredTerc.some(t => t.obraId===o.id))
           .map(obra => {
             const obraTerc = filteredTerc.filter(t => t.obraId===obra.id);
-            const obraPago = obraTerc.reduce((s,t) => s+(data.pagsTerceiros||[]).filter(p=>p.tercId===t.id).reduce((s2,p)=>s2+Number(p.amount||0),0), 0);
+            const obraPago = obraTerc.reduce((s,t) => s+(data.pagsTerceiros||[]).filter(p=>registroTerceiroAtivo(p)&&p.tercId===t.id).reduce((s2,p)=>s2+Number(p.amount||0),0), 0);
             const obraWeekly = obraTerc.filter(t=>t.active!==false).reduce((s,t)=>s+Number(t.weeklyRate||0),0);
             return (
               <section className="terceiros-registry-group" key={obra.id} aria-labelledby={`terceiros-obra-${obra.id}`}>

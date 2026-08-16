@@ -32,6 +32,7 @@ import {
   totalRecebidoMedicao,
   paraCentavos, deCentavos, igualCentavos,
   criarIndicesFinanceiros,
+  recebidoEntradaContrato,
   gerarCandidatosConciliacao, FAIXA_CONFIANCA,
   criarRegistroIdentidades, analisarMovimentoConciliacao, resumoQuinzenaConciliacao,
   podeOperarConciliacao, podeOperarConciliacaoTrabalhista, podeDesfazerConciliacao,
@@ -997,7 +998,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       {entradaModal && (() => {
         const tr=(data.transacoes||[]).find(t=>t.id===entradaModal.trId);
         if (!tr) return null;
-        const contratosAbertos=(data.comercial?.contratos||[]).filter(k=>Number(k.entrada||0)>(k.recebimentosEntrada||[]).reduce((s,r)=>s+Number(r.valor||0),0)+.01);
+        const contratosAbertos=(data.comercial?.contratos||[]).filter(k=>Number(k.entrada||0)>recebidoEntradaContrato(k)+.01);
         const medicoesAbertas=(data.medicoes||[]).filter(m=>Number(m.valorPrevisto||0)>totalRecebidoMedicao(m)+.01);
         const obrasParaEntrada=(data.obras||[]).filter(o=>o.status!=="done");
         const medicoesDaObra=medicoesAbertas.filter(m=>m.obraId===entradaForm.obraId);
@@ -1007,7 +1008,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
           <div style={{background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{tr.descricao}</p><p style={{fontSize:10,color:C.muted,marginTop:3}}>{fmtDate(tr.data)} · crédito no banco</p><p style={{fontSize:17,fontWeight:900,color:C.green,marginTop:4}}>{fmt(Math.abs(Number(tr.valor)))}</p></div>
           <p style={{fontSize:10,color:C.muted,lineHeight:1.45}}>Escolha a origem real do dinheiro. A confirmação cria vínculo auditável; aporte e empréstimo não viram receita no DRE.</p>
           <Sel label="Origem da entrada" value={entradaForm.tipo} onChange={v=>setEntradaForm(f=>({...f,tipo:v}))} options={[{v:"entradaContrato",l:"Entrada de contrato comercial"},{v:"medicao",l:"Parcela / medição da obra"},{v:"recebimento_administracao",l:"Recebimento manual · obra por administração"},{v:"entrada_caixa_obra",l:"Aporte do cliente no caixa da obra"},{v:"aporte_socio",l:"Aporte de sócio"},{v:"emprestimo",l:"Empréstimo ou financiamento"},{v:"outra_entrada",l:"Outra entrada sem efeito no DRE"}]}/>
-          {entradaForm.tipo==="entradaContrato"&&<Sel label="Contrato" value={entradaForm.contratoId} onChange={v=>setEntradaForm(f=>({...f,contratoId:v}))} options={[{v:"",l:"Selecione o contrato..."},...contratosAbertos.map(k=>{const recebido=(k.recebimentosEntrada||[]).reduce((s,r)=>s+Number(r.valor||0),0);return {v:k.id,l:`${k.numero||"Contrato"} · ${k.contratante||"Cliente"} · saldo ${fmt(Number(k.entrada||0)-recebido)}`};})]}/>}
+          {entradaForm.tipo==="entradaContrato"&&<Sel label="Contrato" value={entradaForm.contratoId} onChange={v=>setEntradaForm(f=>({...f,contratoId:v}))} options={[{v:"",l:"Selecione o contrato..."},...contratosAbertos.map(k=>{const recebido=recebidoEntradaContrato(k);return {v:k.id,l:`${k.numero||"Contrato"} · ${k.contratante||"Cliente"} · saldo ${fmt(Number(k.entrada||0)-recebido)}`};})]}/>}
           {entradaForm.tipo==="medicao"&&<div style={{display:"flex",flexDirection:"column",gap:9,padding:"10px 11px",border:`1px solid ${C.border}`,borderRadius:8,background:C.surface}}>
             <div><p style={{fontSize:10,fontWeight:900,color:C.text}}>1. OBRA QUE RECEBEU</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Escolha a obra antes da parcela para não misturar lançamentos.</p></div>
             <Sel label="Obra" value={entradaForm.obraId} onChange={v=>setEntradaForm(f=>({...f,obraId:v,medicaoId:"",novaParcela:false}))} options={[{v:"",l:"Selecione a obra..."},...obrasParaEntrada.map(o=>({v:o.id,l:o.name}))]}/>
