@@ -56,7 +56,7 @@ prova os cenários que ela cobre.
 | Prioridade | Gate | Motivo objetivo | Condição de saída |
 | --- | --- | --- | --- |
 | P0 | FIN-003 / DRE-001 / REC-001 | O motor financeiro está deliberadamente em modo sombra; ativá-lo sem paridade seria risco de DRE. | Carga idempotente, divergência zero por obra/empresa e homologação de baixa/estorno. |
-| P0 | Segurança de dados | O app ainda preserva uma superfície operacional ampla no `LegacyApp.jsx` e precisa de prova por perfil/obra. | Testes negativos por ação e escopo, com 403 no servidor e auditoria verificável. |
+| P0 | Segurança de dados | **Avançado em 16/08**: a fronteira de papel para os ~90 `OPERATIONAL_COMMAND` e 4 comandos financeiros agora tem cobertura negativa exaustiva no servidor (`server/operational-command-authorization.test.js`, 100 testes — testa cada comando contra todo o universo de papéis conhecidos, não uma amostra). Escopo por obra já era bem coberto (`server/operational-command-policy.test.js`, ~54 asserções). | Falta cobrir a rota HTTP `/api/data` ponta a ponta (a checagem de papel foi extraída para função pura testável, mas a rota completa com Supabase real ainda não tem teste de integração) e auditoria verificável por ação. |
 | P1 | Portal do Cliente | `progress`, `decisions` e `financial` ainda exibem placeholder, embora a projeção segura exista. | Publicação interna, rotas reais e testes de visibilidade por obra. |
 | P1 | Design System | Há fundação semântica, mas o legado ainda tem extensa estilização inline. | Migração por telas críticas, regressão visual e acessibilidade. |
 | P1 | Campo/offline | Fila e shell existem, mas falta ensaio completo de captura, anexos, conflito e sincronização. | E2E em rede intermitente e telemetria de falhas. |
@@ -102,7 +102,7 @@ prova os cenários que ela cobre.
 | Design System | 6 | Primitivos, padrões, dados e touch targets com testes. | Legado visual ainda usa estilos inline em larga escala. | Migrar páginas de maior uso; Design + Frontend. |
 | Theme Engine | 6 | Tokens, tema e testes de provider. | Apenas base Carbon está pronta; falta aplicação completa e contraste real. | Auditoria WCAG por tela/tema; Design. |
 | Administração | 6 | Gestão de usuários e seções no legado; API de auth. O orquestrador `CentralAdministrador` foi extraído de `LegacyApp.jsx` para `domains/administracao/components/CentralAdministradorView.jsx` em 16/08 (chunk lazy próprio, 3,6 kB gzip — só o orquestrador, 56 linhas; `GestaoUsuarios`/`GestaoAprovacoes` ficaram em `LegacyApp.jsx` de propósito, pois são renderizados por outras telas também) — sem mudança de comportamento, nota não sobe por isso. | Exige E2E de papéis, delegação e recuperação. | Ações críticas por perfil; Administração. |
-| Usuários e permissões | 7 | Autorizações de seção, projeção e integração testadas. | Falta cobertura negativa completa de cada rota/ação. | Matriz 403/escopo por obra; Segurança. |
+| Usuários e permissões | 7 | Autorizações de seção, projeção e integração testadas. Nesta rodada: cobertura negativa exaustiva por papel para todo comando operacional/financeiro (`server/operational-command-authorization.test.js`) somada à cobertura de escopo por obra já existente — a matriz 403/escopo pedida na lacuna abaixo está fechada no nível de função pura. Nota não sobe por isso: falta o teste de integração HTTP real (rota `/api/data` com Supabase) e auditoria verificável por ação, que é o que a nota 8+ exigiria. | Falta teste de integração ponta a ponta da rota `/api/data` (não só da função de autorização isolada) e trilha de auditoria verificável por ação. | Integração HTTP real com Supabase de teste; Segurança. |
 | Auditoria | 7 | Migration, trilha e testes de integração presentes. | Auditoria append-only precisa homologação com Supabase real. | Mutação + leitura imutável; Segurança. |
 | Backup e recuperação | 6 | `backup.test.js` e documentos de operação. | Restauração completa e RPO/RTO não foram ensaiados. | Simulado de restore e relatório; Operações. |
 | Relatórios / Excel / PDF | 6 | Exportadores e leitores seletivos existem. | Sem golden masters visuais/cálculos por todos os módulos. | Comparar saída com dados de referência; Dados. |
@@ -193,7 +193,13 @@ decisão de produto/arquitetura, fora do escopo de uma depuração mecânica):
    integridade de dados identificado nesta rodada;
 2. Decidir a fonte de dados financeira de Terceirizados/Compras (achado #5)
    e, se for bug, corrigir com teste de paridade contra o DRE;
-3. Completar testes negativos de autorização e de mutações críticas;
+3. **Parcialmente fechado em 16/08**: testes negativos de autorização por
+   papel e por obra para comandos operacionais/financeiros — feito
+   (`server/operational-command-authorization.test.js` +
+   `server/operational-command-policy.test.js`). Falta ainda: teste de
+   integração HTTP real da rota `/api/data` (não só a função de
+   autorização isolada) e testes negativos de mutações críticas
+   (regras de negócio rejeitadas, não só papel/escopo);
 4. Homologar dados financeiros em sombra e só então decidir FIN-003;
 5. Completar o conteúdo publicado do Portal do Cliente e o painel interno de publicação;
 6. Transformar cada placeholder restante em fluxo funcional ou removê-lo do menu;
