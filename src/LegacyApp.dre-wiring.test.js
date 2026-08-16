@@ -13,6 +13,10 @@ const terceirosSource=readFileSync(resolve(process.cwd(), "src/domains/terceiriz
 // 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #2) - o
 // contrato de comando dela agora mora aqui, não em `source`.
 const conciliacaoSource=readFileSync(resolve(process.cwd(), "src/features/conciliacao/ConciliacaoView.jsx"), "utf8");
+// Compras foi extraída de LegacyApp.jsx para seu próprio arquivo em
+// 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #4) - o
+// contrato de comando dela agora mora aqui, não em `source`.
+const comprasSource=readFileSync(resolve(process.cwd(), "src/domains/compras/components/ComprasView.jsx"), "utf8");
 
 describe("contrato de autoria do DRE", () => {
   it("entrega o usuário autenticado até o cancelamento auditável", () => {
@@ -26,13 +30,13 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain('<CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />');
     expect(source).not.toContain('update({...data, caixaObra:[...(data.caixaObra||[]), payload]})');
     expect(source).toContain('type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED');
-    expect(source).toContain('targetType:"pedido",targetId:pedido.id,paymentId:pagamentoId,newOrigin:novaOrigem');
-    expect(source).not.toContain('targetType:"pedido",targetId:pedido.id,paymentId,newOrigin:novaOrigem');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED');
-    expect(source).not.toContain('const caixaObra=f.origem==="caixa_obra"?[...(data.caixaObra||[])');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.PURCHASE_CANCELLED');
-    expect(source).not.toContain('const caixaObra=(data.caixaObra||[]).map(m=>m.pedidoId!==p.id?m:');
+    expect(comprasSource).toContain('type:OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED');
+    expect(comprasSource).toContain('targetType:"pedido",targetId:pedido.id,paymentId:pagamentoId,newOrigin:novaOrigem');
+    expect(comprasSource).not.toContain('targetType:"pedido",targetId:pedido.id,paymentId,newOrigin:novaOrigem');
+    expect(comprasSource).toContain('type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED');
+    expect(comprasSource).not.toContain('const caixaObra=f.origem==="caixa_obra"?[...(data.caixaObra||[])');
+    expect(comprasSource).toContain('type:OPERATIONAL_COMMAND.PURCHASE_CANCELLED');
+    expect(comprasSource).not.toContain('const caixaObra=(data.caixaObra||[]).map(m=>m.pedidoId!==p.id?m:');
     expect(conciliacaoSource).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED');
     expect(conciliacaoSource).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED');
     expect(conciliacaoSource).toContain('type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED');

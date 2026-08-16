@@ -2,7 +2,11 @@ import {describe,expect,it} from "vitest";
 import {readFileSync} from "node:fs";
 
 const source=readFileSync(`${process.cwd()}/src/LegacyApp.jsx`,"utf8");
-const saveFlow=source.slice(source.indexOf("const salvarSolicitacao=async"),source.indexOf("// Instância de aprovação vinculada"));
+// Compras foi extraída de LegacyApp.jsx para seu próprio arquivo em
+// 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #4) -
+// salvarSolicitacao mora aqui agora.
+const comprasSource=readFileSync(`${process.cwd()}/src/domains/compras/components/ComprasView.jsx`,"utf8");
+const saveFlow=comprasSource.slice(comprasSource.indexOf("const salvarSolicitacao=async"),comprasSource.indexOf("// Instância de aprovação vinculada"));
 
 describe("persistência formal da solicitação de materiais",()=>{
   it("aguarda a confirmação remota antes de fechar o formulário",()=>{

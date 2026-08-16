@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const source = fs.readFileSync(path.join(process.cwd(), "src", "LegacyApp.jsx"), "utf8");
+// Compras foi extraída de LegacyApp.jsx para seu próprio arquivo em
+// 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #4).
+const source = fs.readFileSync(path.join(process.cwd(), "src", "domains", "compras", "components", "ComprasView.jsx"), "utf8");
 
 describe("vínculo de Compras com orçamento", () => {
   test("solicitação resolve a baseline ou o rascunho da obra selecionada", () => {
