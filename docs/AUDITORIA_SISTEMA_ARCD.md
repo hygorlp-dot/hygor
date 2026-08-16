@@ -7,11 +7,11 @@ Escopo: os mesmos treze eixos da auditoria anterior — código-fonte, modelo de
 
 ## 0. O que mudou desde 22/07 — resumo para quem já leu a auditoria anterior
 
-Três semanas e meia de trabalho real, não cosmético. Os P0 de segurança e integridade da rodada anterior majoritariamente **foram corrigidos** — autorização por payload, autorização por escrita, ledger de auditoria imutável e backup automatizado passaram de "não existe" para "existe e está com teste/prova". O motor financeiro canônico que a auditoria recomendava **foi construído** — mas roda em modo sombra, não substituiu o caminho legado ainda. A migração de CRA para Vite **aconteceu**. Uma suíte de testes automatizados **existe agora** (1.010 testes) — inclusive com 3 falhas ativas neste exato commit, o que é normal para um projeto em movimento, mas precisa de acompanhamento.
+Três semanas e meia de trabalho real, não cosmético. Os P0 de segurança e integridade da rodada anterior majoritariamente **foram corrigidos** — autorização por payload, autorização por escrita, ledger de auditoria imutável e backup automatizado passaram de "não existe" para "existe e está com teste/prova". O motor financeiro canônico que a auditoria recomendava **foi construído** — mas roda em modo sombra, não substituiu o caminho legado ainda. A migração de CRA para Vite **aconteceu**. Uma suíte de testes automatizados **existe agora** (1.010 testes, 100% passando após esta rodada corrigir 4 falhas — todas de ambiente/infraestrutura de teste, nenhuma de lógica de negócio).
 
 O que não mudou, ou mudou menos do que a estrutura de pastas sugere à primeira vista:
 
-- **O monólito de frontend não encolheu — mudou de lugar.** `src/App.jsx` caiu para 11 linhas, mas é uma casca de roteador. `src/LegacyApp.jsx` tem **40.311 linhas**, mais que as 33.175 do arquivo único de julho. A extração por domínio está real e ativa (~34 pastas em `src/domains/`), mas na ordem que o próprio time definiu (`docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`), o item #3 (Terceiros) só teve a camada de cálculo extraída — a UI inteira ainda mora no monólito.
+- **O monólito de frontend não encolheu — mudou de lugar.** `src/App.jsx` caiu para 11 linhas, mas é uma casca de roteador. `src/LegacyApp.jsx` tem **40.311 linhas**, mais que as 33.175 do arquivo único de julho. A extração por domínio está real e ativa (~34 pastas em `src/domains/`) — mas é só a camada de cálculo. Orçamento, Conciliação e Terceiros, os três primeiros itens da fila de extração do próprio time (`docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`), estão igualmente no meio do caminho: motor fora, UI inteira ainda dentro do monólito. Nenhum ainda tem rota própria.
 - **O bundle não ficou menor — ficou mais bem dividido.** Total de ~1,27 MB gzip somando todos os chunks contra os 795 kB de um bundle único em julho. O chunk do `LegacyApp` sozinho (672 kB gzip) quase repete o tamanho do bundle antigo inteiro.
 - **LGPD continua em zero.** Nenhum artefato de base legal, consentimento, retenção, exportação ou atendimento ao titular foi encontrado.
 - **TypeScript é decoração, não proteção.** `tsconfig.quality.json` roda no CI, mas cobre 2 arquivos `.ts` contra 314 arquivos `.js`/`.jsx`.
@@ -31,7 +31,7 @@ Principais razões que sustentam essa posição:
 - LGPD segue sem nenhum controle, apesar do sistema tratar CPF, RG, salário, PIX, endereço e fotos;
 - o monólito de frontend não diminuiu — a extração por domínio está em andamento, mas incompleta mesmo nos itens já iniciados;
 - dependências de alto risco caíram de 14 para 1 (produção) / 4 (incluindo build tooling) — melhora real, ainda não zero;
-- 3 testes estão falhando neste commit — não é um retrocesso grave, mas é uma regressão ativa que merece triagem antes de crescer.
+- ~~3 testes estavam falhando neste commit~~ — triados e corrigidos nesta mesma rodada (artefato de CRLF de checkout + timeout de hook sob carga, nenhum bug de lógica).
 
 ### Resultado resumido
 
@@ -41,7 +41,7 @@ Principais razões que sustentam essa posição:
 | Segurança de acesso | Insuficiente para venda | Adequada para piloto ampliado | projeção por payload e por escrita agora reais no servidor |
 | Integridade financeira | Múltiplos livros paralelos | Ledger canônico existe, não é a fonte ativa | modo sombra, `FINANCIAL_ENGINE_ENFORCE=false` |
 | Concorrência | Média/baixa | Média/baixa | blob único continua primário; auditoria agora é imutável |
-| Testabilidade | Baixa (zero testes) | Alta em volume, com ressalva | 1.010 testes, 1.007 passando, 3 falhando agora |
+| Testabilidade | Baixa (zero testes) | Alta em volume | 1.010 testes, 100% passando (3 execuções seguidas) |
 | Desempenho | Médio (795 kB gzip) | Médio, mudou de forma | ~1,27 MB gzip total, mas dividido em chunks lazy-loadable |
 | Backup e continuidade | Não comprovado | Comprovado | cron diário, criptografado, com verificação |
 | LGPD | Ausente | Ausente | nenhuma mudança |
@@ -66,7 +66,7 @@ Validações executadas nesta rodada:
 
 - `npm run build`: compilado com sucesso (Vite/rolldown), aviso de chunk grande (`LegacyApp`, 2,37 MB antes de gzip);
 - bundle: sem um número único comparável a julho — ~1,27 MB gzip somando todos os chunks; `LegacyApp` isolado é 672,44 kB gzip;
-- `npx vitest run`: **215 arquivos de teste (213 aprovados, 2 falhando), 1.010 testes (1.007 aprovados, 3 falhando)** — falhas em `src/login-mobile-layout.test.js` (2) e `src/LegacyApp.field-report-flow.test.js` (1);
+- `npx vitest run`: **215 arquivos, 1.010 testes, 100% passando** (3 execuções seguidas sem flake). As 3 falhas encontradas na primeira rodada (`login-mobile-layout.test.js`, `LegacyApp.field-report-flow.test.js`) eram artefato de `core.autocrlf=true` deste checkout Windows convertendo `src/index.css`/`src/LegacyApp.jsx` para CRLF, quebrando comparação literal de string com `\n` — corrigido (arquivos normalizados para LF, `.gitattributes` adicionado). Uma quarta falha só aparecia rodando a suíte inteira (`attendance-api-handler.test.js` estourando o `testTimeout` padrão de 10s sob disputa de CPU de 215 arquivos em paralelo) — corrigida aumentando o timeout desse hook para 30s. Nenhuma das quatro era bug de lógica de negócio;
 - `npm audit --omit=dev`: **1 alerta alto** (`brace-expansion`, correção disponível via `npm audit fix`);
 - `npm audit` completo (incluindo dependências de build/teste): 5 alertas (1 moderado, 4 altos) — a diferença para o número acima é só escopo (produção vs. toda a árvore de dependências), ambos com correção automática disponível.
 
@@ -78,7 +78,16 @@ Sem mudança estrutural relevante nos setores/módulos listados em julho, com um
 
 ## 4. Auditoria de clareza setorial
 
-Não reverificada nesta rodada — nenhum dos quatro agentes de investigação cobriu navegação/UX. Os pontos positivos e as ambiguidades registradas em julho (Compras global vs. por obra, múltiplas portas de entrada no Financeiro, Cadastros gerais misturando entidades, telas antigas convivendo com novas, "Medição" ambíguo) devem ser tratados como possivelmente ainda válidos, mas não confirmados. Recomenda-se uma rodada dedicada a isso antes de decidir prioridade.
+Reverificada nesta rodada. Nenhuma das seis ambiguidades de julho foi eliminada, mas duas ganharam mitigação visual real — vale registrar a diferença entre "continua ambíguo" e "continua duplo, mas agora avisa".
+
+| Situação (julho) | Status hoje |
+|---|---|
+| Compras existe globalmente e dentro da obra | **Parcialmente corrigido** — mesmo componente (`src/LegacyApp.jsx:24911`), mas agora mostra escopo explícito: campo "Obra: [nome]" desabilitado dentro da obra, seletor "Todas as obras / [obra]" no modo global (`~24947-24958`) |
+| Financeiro possui várias portas de entrada | **Aberto.** "Central de Pagamentos" existe só como convenção de código nos comentários (`src/domains/conciliacao/mutations.js:5-8`), não como tela. O menu ainda lista `dre_emp`, `dre`, `fin`, `conc`, `equip_fin`, `medicoes`, `caixa`, `relat` como abas separadas |
+| Cadastros gerais mistura entidades | **Aberto.** `Cadastros` (`:32155`) ainda mistura unidades, materiais, fornecedores, terceirizados, composições, fases de kanban e categorias de DRE — passou a excluir Obras/Equipe/Usuários explicitamente (`:32443-32447`), mas o núcleo do problema (catálogo + pessoas + parâmetros no mesmo lugar) segue |
+| Telas antigas continuam acessíveis, dois caminhos | **Aberto, confirmado.** `orc`, `med`, `cmp`, `dre`, `ponto`, `equipe`, `terc`, `equip`, `licenca` existem como abas globais E como links "Abrir X completo" de dentro da obra (`abrirModuloDaObra`, `:27313-27341`) |
+| Orçamento aparece global e por obra | **Parcialmente corrigido** — dentro da obra, `Orcamento` (`:17109`) abre direto a baseline aprovada ativa em modo "editor"; globalmente, abre um seletor em modo "lista" (`:17116-17117`). Reduz, não elimina, o risco de editar o orçamento errado |
+| "Medição"/"Medições" ambíguo | **Aberto, e pior do que julho registrou.** Confirma-se `med` (avanço técnico) vs. `medicoes` (cobrança) com rótulos já diferenciados — mas existe um **terceiro** conceito, "Medição de terceiro" (faturamento de subcontratado, `src/domains/financeiro/third-party-commands.js`, UI em `LegacyApp.jsx:11428-11848`), sem aba própria, escondido dentro da tela de Terceiros |
 
 ## 5. Duplicidades e fontes de verdade
 
@@ -90,9 +99,9 @@ Não reverificada nesta rodada — nenhum dos quatro agentes de investigação c
 
 Sem mudança. `usuarios` (`src/LegacyApp.jsx:2886`) segue sem campo `employeeId` — a normalização do usuário tem `id, nome, pin, role, accessTabs, email, maxDesconto, obraId, active, createdAt`, nenhum vínculo com `employees`.
 
-### 5.3 Responsável por ID e por nome — sem mudança (intencional)
+### 5.3 Responsável por ID e por nome — confirmado, sem defeito
 
-Não reverificado especificamente nesta rodada; comportamento intencional, sem indício de mudança.
+Padrão mantido de forma consistente: RDO (`src/LegacyApp.jsx:30212,30241,30254,30326`), conferência/vistoria (`:2754,31221,31305`) e qualidade (`:2800-2803` — responsável, inspetor e responsável de não conformidade) guardam par ID+nome como projetado. Design intencional, sem mudança.
 
 ### 5.4 Pagamento em pedido e nota — aberto
 
@@ -116,17 +125,17 @@ Sem correção. Nenhuma coleção/tabela `arquivos` unificada foi encontrada em 
 
 Continuam três fontes independentes (Planejamento, RDO, Medições de evolução), mas `fundirEvolucao` (`src/LegacyApp.jsx:~16983`) agora aplica uma regra de precedência explícita e centralizada: um valor com `progressoOrigem === "medicao_tecnica_aprovada"` é tratado como autoritativo e não pode ser sobrescrito pelo diário; caso contrário, vence quem foi atualizado mais recentemente entre Planejamento e RDO. É uma política de merge documentada, não mais divergência ad hoc — progresso real, mas ainda é um rollup no frontend sobre três coleções, não o livro de eventos único recomendado.
 
-### 5.8 Bases de referência — sem mudança
+### 5.8 Bases de referência — parcialmente corrigido
 
-Não reverificado especificamente nesta rodada.
+Mecanismo real de dedup foi construído desde julho: `src/domains/orcamentos/reference-bases.js` (`referenceBaseKey`, `consolidateReferenceBases`) agrupa bases equivalentes por fonte/data-base/UF/desoneração; `src/LegacyApp.jsx:17269-17278` usa isso para excluir equivalentes já vinculadas do seletor e mostrar `totalBasesDuplicadas` ao admin; `excluirBasePersistida` (`:18069-18092`) migra vínculos de orçamento para a base equivalente antes de excluir uma duplicata; `api/references.js:399-434` bloqueia criação duplicada no servidor (409 com rota de reimportação). **Falta:** ainda não existe índice único a nível de banco em `migrations/` para `budget_reference_bases` — a proteção é só de aplicação, não de schema. Risco prático bem mitigado, recomendação original não totalmente atendida.
 
-### 5.9 Status distribuídos — sem mudança
+### 5.9 Status distribuídos — parcialmente corrigido
 
-Não reverificado especificamente nesta rodada.
+`src/domains/comercial/transitions.js` (`transitionOpportunity`) é uma máquina de transição formal real, nova desde julho: valida estágio de destino contra `OPPORTUNITY_STAGES`, exige justificativa para retrocesso e motivo para "perdido". Cobre o pipeline comercial especificamente. `pedido`, `nota` e `qualidade` continuam sem guarda de transição equivalente — só strings soltas mantidas por convenção entre componentes, como em julho. Títulos financeiros já tinham `financial_execute_command` como guarda formal (sem mudança). Resultado: 2 de ~4 áreas com máquina de estado real agora, contra 1 em julho.
 
-### 5.10 Duplicidade literal no código — sem mudança
+### 5.10 Duplicidade literal no código — ✅ corrigido
 
-Não reverificado especificamente nesta rodada.
+A normalização de `locacoesEquip.tarifas` (`src/LegacyApp.jsx:2170-2194`) não tem mais a chave `dia` duplicada — é um objeto único e limpo `tarifas:{dia,semana,quinzena,mes}`, com `tarifasCusto` separado. Resolvido, provavelmente como efeito colateral do módulo de Equipamentos (5 fases) construído desde julho, não uma correção isolada.
 
 ## 6. Segurança e permissões
 
@@ -197,13 +206,25 @@ O fluxo canônico recomendado em julho (`Pedido → NF/Documento → Conferênci
 
 ## 9. Qualidade e engenharia
 
-Não reverificado em profundidade nesta rodada, com uma exceção relevante: a suíte de testes agora cobre boa parte da lista que a auditoria de julho pedia como cobertura mínima antes de venda (BDI, rescisão, rateio/conciliação, DRE têm testes de domínio dedicados) — ver seção 10.4 para os números. Os pontos positivos e riscos de qualidade de obra (conferência, FVS/FVM, RDO) registrados em julho não foram reconferidos.
+A suíte de testes agora cobre boa parte da lista que a auditoria de julho pedia como cobertura mínima antes de venda (BDI, rescisão, rateio/conciliação, DRE têm testes de domínio dedicados) — ver seção 10.4 para os números. Os riscos específicos de qualidade de obra foram reverificados nesta rodada:
+
+- **Segregação de função na conferência** — a restrição de papel no servidor para escrita em `conferencias` continua (`server/section-authorizations.js:9`), mas não foi possível confirmar nem descartar se a mesma pessoa pode executar e conferir o próprio serviço — não investigado a fundo o suficiente para veredito.
+- **Versionamento de critério FVS/FVM** — **ainda aberto.** `src/domains/qualidade/conference-workflow.js` tem lógica de achado/status/pontuação, mas nenhum campo de versionamento de critério.
+- **Revisão do engenheiro no RDO** — **sem mudança, continua exigida.** Campo `revisaoEngenheiro{aprovado,...}` confirmado e resetado a cada edição (`src/LegacyApp.jsx:2873,30209,30326,30508`).
+- **Integridade de foto/evidência** — **ainda aberto.** Nenhum hash ou timestamp de integridade encontrado no fluxo de foto/evidência.
+- **Relatório impresso via pop-up** — **ainda aberto.** `window.print()` continua em uso em pelo menos 6 lugares (`src/LegacyApp.jsx:4762,14553,19413,28454,35978,36099`); nenhuma geração de PDF no servidor encontrada, apesar de a Etapa 4 do plano de redução mencionar isso como meta.
 
 ## 10. Arquitetura e manutenção
 
 ### 10.1 Monólito de frontend — parcialmente corrigido, com ressalva importante
 
-`src/App.jsx` caiu de 33.175 linhas para **11 linhas** — mas é uma casca (`lazy`/`Suspense` para `OperationalApp` ou o portal do cliente). O monólito não encolheu, migrou: `src/LegacyApp.jsx` tem **40.311 linhas**, maior que o arquivo original de julho. `src/domains/` já tem ~34 pastas extraídas e `src/features/suprimentos` existe, mas seguindo a própria ordem de extração do time (`docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`: Orçamento → Conciliação → **Terceiros** → Compras → Planejamento → ...), o item #3 (Terceiros) só teve os motores de cálculo puros extraídos (`src/domains/terceirizados/*.js` — catálogo, ciclo de vida, semana de pagamento, retenções) como "oráculo de golden master"; a UI (kanban, painéis de DRE, formulários — 237 ocorrências de "terceiro" em `LegacyApp.jsx`) continua no monólito.
+`src/App.jsx` caiu de 33.175 linhas para **11 linhas** — mas é uma casca (`lazy`/`Suspense` para `OperationalApp` ou o portal do cliente). O monólito não encolheu, migrou: `src/LegacyApp.jsx` tem **40.311 linhas**, maior que o arquivo original de julho. `src/domains/` já tem ~34 pastas extraídas e `src/features/suprimentos` existe.
+
+**Correção em relação à primeira versão desta rodada:** a leitura inicial presumiu que Orçamento e Conciliação (itens #1 e #2 da ordem de extração de `docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`) já estavam com a UI extraída e só Terceiros (#3) ficara pela metade. Investigação mais funda mostrou que isso é **incorreto** — o próprio documento lista os três sob "Próximas extrações de código" (plural, futuro). Na prática, os três estão no mesmo estágio: motor de cálculo puro fora do monólito (`src/domains/orcamentos/`, `src/domains/conciliacao/`, `src/domains/terceirizados/`), UI inteira ainda dentro do `LegacyApp.jsx` (Orçamento em `:17109`, Conciliação em `:21572`, Terceiros em `:11088-13070`, ~1.983 linhas). Nenhum dos três tem rota própria — `src/routes/OperationalApp.jsx` (33 linhas) só faz lazy-load do `LegacyApp.jsx` inteiro como um chunk único.
+
+O único domínio que passou pelo gate completo (migration com rollback, RLS, carga em sombra com comparação de hash) é **`CORE-001`**: `core_projects`, `core_employees`, `core_third_party_profiles`/`_contracts`, etc. — registros de identidade, não os fluxos de trabalho completos.
+
+Achado que inverte a expectativa: Terceiros está, num aspecto, **à frente** de Orçamento e Conciliação — pagamentos já passam por uma camada de comando auditável e idempotente (`src/domains/financeiro/third-party-commands.js`, `third-party-payment-mutations.js`: versão, autor, aprovação, reversão), ainda que escrevendo no array `pagsTerceiros` dentro do blob, não numa tabela relacional própria (essa só existe para perfil/contrato, via CORE-001).
 
 ### 10.2 Design system
 
@@ -217,9 +238,9 @@ Não reverificado nesta rodada.
 - `npm audit`: caiu de 29 alertas (14 altos) para 1 alto em produção / 5 no total (1 moderado, 4 altos) incluindo ferramental de build — melhora grande, ainda não zero, com correção automática disponível para o que resta;
 - CI real: `.github/workflows/quality.yml` conecta `lint` (`check-financial-boundaries.mjs`), `architecture:check` (dependency-cruiser), `typecheck`, `prebuild` (checagem de prontidão financeira + integridade de catálogo + migrações em sombra), `quality:bundle`, `npm audit --audit-level=high`, `test:coverage` e Playwright. Única exceção: `knip.json`/`quality:knip` existe mas não está conectado em nenhum lugar — aspiracional.
 
-### 10.4 Testes — ✅ corrigido, com ressalva ativa
+### 10.4 Testes — ✅ corrigido
 
-De zero testes em julho para **215 arquivos de teste, 1.010 testes** (`npx vitest run`). **1.007 passando, 3 falhando** neste commit exato — falhas em `src/login-mobile-layout.test.js` (2) e `src/LegacyApp.field-report-flow.test.js` (1). A lista de cobertura mínima que a auditoria de julho pedia está majoritariamente coberta: BDI (`src/domains/orcamentos/bdi.test.js`), rescisão (`src/domains/rh/rescission-commands.test.js`), rateio/conciliação (`src/domains/conciliacao/*.test.js`), DRE (`src/domains/dre/calculations.test.js`), além de `test:e2e` via Playwright e um cenário de golden master financeiro multi-obra (`src/fixtures/financial-golden-master.test.js`).
+De zero testes em julho para **215 arquivos de teste, 1.010 testes, 100% passando** (`npx vitest run`, 3 execuções seguidas sem flake). As 3 falhas encontradas na primeira rodada desta auditoria (`login-mobile-layout.test.js`, `LegacyApp.field-report-flow.test.js`) e uma quarta que só aparecia sob a suíte completa (`attendance-api-handler.test.js`) foram triadas e corrigidas na mesma sessão — nenhuma era bug de lógica de negócio (CRLF de checkout Windows e timeout de hook sob carga, respectivamente). A lista de cobertura mínima que a auditoria de julho pedia está majoritariamente coberta: BDI (`src/domains/orcamentos/bdi.test.js`), rescisão (`src/domains/rh/rescission-commands.test.js`), rateio/conciliação (`src/domains/conciliacao/*.test.js`), DRE (`src/domains/dre/calculations.test.js`), além de `test:e2e` via Playwright e um cenário de golden master financeiro multi-obra (`src/fixtures/financial-golden-master.test.js`).
 
 TypeScript é a exceção: `tsconfig.quality.json` roda no CI (`typecheck`), mas seu `include` cobre só **2 arquivos `.ts`** contra 198 `.js` + 116 `.jsx` no projeto — adoção real ainda é próxima de zero, apesar do CI já impor a checagem.
 
@@ -236,7 +257,7 @@ Tudo que constava em julho, mais: módulo de equipamentos completo (5 fases), po
 - ~~autorização server-side por módulo, ação e obra~~ — ✅ feito;
 - ~~decompor ou proteger efetivamente os dados sensíveis~~ — ✅ proteção feita (projeção por payload); decomposição segue em andamento;
 - razão financeiro canônico e teste contra duplicidade — **infraestrutura pronta, não ativada** (modo sombra);
-- ~~testes automatizados dos fluxos críticos~~ — ✅ feito, com 3 falhas ativas para triar;
+- ~~testes automatizados dos fluxos críticos~~ — ✅ feito, 100% passando;
 - ~~backup e restauração comprovados~~ — ✅ feito;
 - **pacote LGPD mínimo — continua em zero, é o item mais crítico remanescente;**
 - ~~logs imutáveis~~ — ✅ feito;
@@ -273,10 +294,10 @@ Sem mudança relevante identificada nesta rodada.
 
 1. **LGPD** — não tem nenhum progresso registrado; é o único P0 de julho que segue em zero absoluto.
 2. **Ativar o motor financeiro canônico** — a infraestrutura está pronta (`financialEnforcementReadiness()` já reporta `ready:true`); falta decidir o critério e a janela para virar `FINANCIAL_ENGINE_ENFORCE=true`, e então efetivamente aposentar `outrasDesp`/`despesasEmpresa`/`caixaObra` como fonte primária.
-3. **Terminar a extração de Terceiros** (item #3 da fila própria do time) — hoje só o motor de cálculo saiu do monólito; UI, rotas e serviço de API continuam pendentes, e os itens #4-#8 da fila (Compras, Planejamento, CentralAdministrador, Comercial, Folha/Medições) não foram iniciados.
+3. **Extrair a UI de Orçamento, Conciliação e Terceiros** — os três estão no mesmo estágio (motor de cálculo fora, UI dentro do monólito, sem rota própria); Terceiros tem a vantagem extra de já ter camada de comando auditável para pagamento (`third-party-commands.js`). Em andamento nesta sessão para Terceiros (extração de UI/rota, sem nova migration/RLS — essa parte fica para depois). Itens #4-#8 da fila original (Compras, Planejamento, CentralAdministrador, Comercial, Folha/Medições) não foram iniciados.
 4. **Resolver a duplicidade pedido/nota** (5.4) com uma coleção `pagamentos` real, não convenção de ID.
 5. **Catálogo único de documentos** (5.6) — ainda não iniciado.
-6. **Triar as 3 falhas de teste ativas** — baixo esforço, mas deveriam ser corrigidas antes de acumular.
+6. ~~Triar as falhas de teste ativas~~ — ✅ feito nesta rodada.
 7. Primeiro admin sem segredo de setup (6.3) e expiração de links de arquivo (6.5) — os dois P1 de segurança mais simples de fechar, ainda abertos.
 
 ## 13. Conclusão
