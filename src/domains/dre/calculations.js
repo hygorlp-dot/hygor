@@ -19,6 +19,7 @@ export const calculateContractProjection = (work, laborCost, extraCosts = {}) =>
   const {
     benefitCost = 0, materialCost = 0, tercCost = 0,
     outrasTotal = 0, equipCost = 0, rescTotal = 0,
+    materialCostExcludedFromAdmin = 0,
   } = extraCosts;
   const outrosCustos = outrasTotal + equipCost + rescTotal;
   const totalCost = laborCost + benefitCost + tercCost + materialCost + outrosCustos;
@@ -27,8 +28,12 @@ export const calculateContractProjection = (work, laborCost, extraCosts = {}) =>
   const incluiMateriais = work?.adminBaseMateriais !== undefined ? !!work.adminBaseMateriais : true;
   const incluiTerceirizados = work?.adminBaseTerceirizados !== undefined
     ? !!work.adminBaseTerceirizados : true;
+  // Material lançado como "não entra na taxa de administração" continua
+  // contando no custo total da obra, só não pode inflar a base sobre a qual
+  // a taxa de administração é calculada.
+  const adminEligibleMaterialCost = Math.max(0, materialCost - materialCostExcludedFromAdmin);
   const adminBase = (incluiMaoDeObra ? laborCost + benefitCost : 0)
-    + (incluiMateriais ? materialCost : 0)
+    + (incluiMateriais ? adminEligibleMaterialCost : 0)
     + (incluiTerceirizados ? tercCost : 0)
     + (contractType === "admin_only" ? outrosCustos : 0);
   let revenue = 0;
@@ -41,6 +46,7 @@ export const calculateContractProjection = (work, laborCost, extraCosts = {}) =>
     commitment:contractValue ? laborCost / contractValue * 100 : null,
     totalCost, adminBase, adminBaseMisto:adminBase,
     incluiMaoDeObra, incluiMateriais, incluiTerceirizados, outrosCustos,
+    adminEligibleMaterialCost,
   };
 };
 
@@ -279,8 +285,12 @@ export const createDreCalculations = ({
     const benefitCost = Number(dre.moData?.benefitCost || 0);
     const tercCost = Number(dre.costByCategory?.terceirizado || 0);
     const materialFromInvoices = Number(dre.costBySource?.nota_fiscal || 0);
-    const otherMaterial = dre.dreEvents
-      .filter(event => event.effect === "cost" && event.sourceType === "outra_despesa" && event.category === "material")
+    const outraDespesaMaterial = dre.dreEvents
+      .filter(event => event.effect === "cost" && event.sourceType === "outra_despesa" && event.category === "material");
+    const otherMaterial = outraDespesaMaterial
+      .reduce((total, event) => total + event.amountCents / 100, 0);
+    const otherMaterialExcludedFromAdmin = outraDespesaMaterial
+      .filter(event => event.metadata?.contaAdmin === false)
       .reduce((total, event) => total + event.amountCents / 100, 0);
     const materialCost = materialFromInvoices + otherMaterial;
     const outrasTotal = Math.max(0, dre.totalCustos - laborCost - benefitCost
@@ -288,6 +298,7 @@ export const createDreCalculations = ({
     const projection = calculateContractProjection(work, laborCost, {
       benefitCost, materialCost, tercCost, outrasTotal,
       equipCost:dre.equipCost, rescTotal:dre.rescTotal,
+      materialCostExcludedFromAdmin: otherMaterialExcludedFromAdmin,
     });
     const jaFechado = (data.medicoes || [])
       .filter(measurement => measurement.obraId === obraId && measurement.competencia === dre.ym)

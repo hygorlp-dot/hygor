@@ -390,7 +390,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         };
       });
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o recebimento.");
-      showToast(!recebidaPorInteiro ? "ok Marcado como recebido." : "Recebimento estornado e preservado para auditoria.");
+      showToast(!recebidaPorInteiro ? "Marcado como recebido." : "Recebimento estornado e preservado para auditoria.");
     } catch (error) {
       showToast(error.message||"Não foi possível alterar o recebimento.","error");
     } finally {
@@ -665,7 +665,9 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
             const projection = calcProjecaoContratoObra(data, selObra, y, mo-1);
             return {
               valor:projection.valorAdmin, base:projection.adminBase,
-              materialCost:projection.materialCost, tercCost:projection.tercCost,
+              // Líquido (já sem o material marcado "não entra na taxa de
+              // administração"), para bater com `base`/`valor` logo abaixo.
+              materialCost:projection.adminEligibleMaterialCost, tercCost:projection.tercCost,
               totalCustos:projection.dre.totalCustos,
             };
           })();
@@ -735,7 +737,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
                 <div style={{display:"flex",flexDirection:"column",gap:5,flexShrink:0}}>
                   <Btn size="sm" v={statusRecebimentoMedicao(m)==="recebida"?"ghost":"success"} onClick={()=>toggleRecebido(m)}>
-                    {statusRecebimentoMedicao(m)==="recebida"?"Desfazer":"ok Receber"}
+                    {statusRecebimentoMedicao(m)==="recebida"?"Desfazer":"Receber"}
                   </Btn>
                   <Btn size="sm" v="ghost" onClick={()=>openEdit(m)}><Ic n="edit"/></Btn>
                   <Btn size="sm" v="danger" onClick={()=>deleteMedicao(m.id)}><Ic n="trash"/></Btn>

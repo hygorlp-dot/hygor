@@ -196,3 +196,52 @@ describe("domínio do DRE", () => {
     expect(dre.lucroBruto).toBe(4050);
   });
 });
+
+describe("calcProjecaoContratoObra — base de administração de materiais", () => {
+  const obra = { id: "obra-1", name: "Obra 1", contractType: "admin_only", adminPercentage: 10 };
+  const base = { obras: [obra], medicoes: [], payments: [], rescisoes: [] };
+
+  test("despesa de material marcada 'não entra' continua no custo total, mas não aumenta a base de administração", () => {
+    const semDespesa = regras.calcProjecaoContratoObra({ ...base, outrasDesp: [] }, "obra-1", 2026, 6);
+    const comDespesaExcluida = regras.calcProjecaoContratoObra({ ...base, outrasDesp: [
+      { obraId: "obra-1", competencia: "2026-07", valor: 5000, categoria: "material", contaAdmin: false },
+    ] }, "obra-1", 2026, 6);
+    expect(comDespesaExcluida.materialCost).toBe(semDespesa.materialCost + 5000);
+    expect(comDespesaExcluida.adminBase).toBe(semDespesa.adminBase);
+  });
+
+  test("despesa de material sem contaAdmin explícito entra na base por padrão", () => {
+    const semDespesa = regras.calcProjecaoContratoObra({ ...base, outrasDesp: [] }, "obra-1", 2026, 6);
+    const comDespesa = regras.calcProjecaoContratoObra({ ...base, outrasDesp: [
+      { obraId: "obra-1", competencia: "2026-07", valor: 5000, categoria: "material" },
+    ] }, "obra-1", 2026, 6);
+    expect(comDespesa.materialCost).toBe(semDespesa.materialCost + 5000);
+    expect(comDespesa.adminBase).toBe(semDespesa.adminBase + 5000);
+  });
+
+  test("a diferença de valorAdmin entre os dois casos é exatamente o percentual sobre o material excluído", () => {
+    const comAdmin = regras.calcProjecaoContratoObra(
+      { ...base, outrasDesp: [{ obraId: "obra-1", competencia: "2026-07", valor: 5000, categoria: "material", contaAdmin: true }] },
+      "obra-1", 2026, 6,
+    );
+    const semAdmin = regras.calcProjecaoContratoObra(
+      { ...base, outrasDesp: [{ obraId: "obra-1", competencia: "2026-07", valor: 5000, categoria: "material", contaAdmin: false }] },
+      "obra-1", 2026, 6,
+    );
+    expect(comAdmin.valorAdmin - semAdmin.valorAdmin).toBe(500);
+  });
+
+  test("adminEligibleMaterialCost é o material líquido usado pelo relatório de cobrança ao cliente", () => {
+    const projecao = regras.calcProjecaoContratoObra({ ...base, outrasDesp: [
+      { obraId: "obra-1", competencia: "2026-07", valor: 5000, categoria: "material", contaAdmin: true },
+      { obraId: "obra-1", competencia: "2026-07", valor: 2000, categoria: "material", contaAdmin: false },
+    ] }, "obra-1", 2026, 6);
+    // O bruto (materialCost) inclui os dois lançamentos; o líquido usado na
+    // base de administração exclui só o marcado "não entra". O relatório de
+    // cobrança ao cliente (RelatorioAdministracao, em LegacyApp.jsx) exibe
+    // este valor líquido, não o bruto - senão a soma das linhas "Sim" da
+    // composição de custos não bateria com a base de fato cobrada.
+    expect(projecao.materialCost).toBe(7000);
+    expect(projecao.adminEligibleMaterialCost).toBe(5000);
+  });
+});

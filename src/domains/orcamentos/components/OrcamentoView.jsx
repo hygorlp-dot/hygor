@@ -3756,7 +3756,7 @@ ${blocoBDI}
                   </div>
                   <div style={{marginTop:9,paddingTop:9,borderTop:`1px solid ${sit.cor}33`}}>
                     <p style={{fontSize:11,fontWeight:700,color:sit.cor}}>
-                      {sit.st==="dentro" ? "ok Dentro da faixa TCU" : sit.st==="acima" ? " Acima do 3º quartil" : " Abaixo do 1º quartil"}
+                      {sit.st==="dentro" ? "Dentro da faixa TCU" : sit.st==="acima" ? "Acima do 3º quartil" : "Abaixo do 1º quartil"}
                     </p>
                     <p style={{fontSize:10,color:C.muted,marginTop:3,lineHeight:1.5}}>
                       {r.erro || sit.msg}

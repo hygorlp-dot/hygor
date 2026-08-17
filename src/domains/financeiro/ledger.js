@@ -418,6 +418,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
       competence: competenceOf(expense.competencia) || competenceOf(date),
       obraId: expense.obraId || "", category: expense.categoria || "outros",
       description: expense.descricao || "Despesa da obra", sourceType: "outra_despesa", sourceId: id,
+      metadata: { contaAdmin: expense.contaAdmin !== false },
     };
     add({ ...base, id: `outra_despesa:${id}:cost`, effect: "cost" });
     const paid = expense.pago === true || expense.dataPagamento || expense.pagamentoId || expense.transacaoId || expense.caixaObraId;

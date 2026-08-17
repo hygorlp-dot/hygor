@@ -1207,7 +1207,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                            marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`}}>
                 <span style={{fontSize:12,fontWeight:700,
                               color: Math.abs(diferenca) < 0.01 ? C.green : C.orange}}>
-                  {Math.abs(diferenca) < 0.01 ? "ok Rateio fecha" : "Falta distribuir"}
+                  {Math.abs(diferenca) < 0.01 ? "Rateio fecha" : "Falta distribuir"}
                 </span>
                 <span style={{fontSize:15,fontWeight:800,
                               color: Math.abs(diferenca) < 0.01 ? C.green : C.orange}}>

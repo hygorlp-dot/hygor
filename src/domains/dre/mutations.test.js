@@ -26,6 +26,13 @@ describe("cancelamento auditável de despesa no DRE", () => {
     expect(dre.events.filter(event=>event.sourceId==="desp-2" && event.effect==="cost")).toHaveLength(1);
   });
 
+  it("persiste contaAdmin da despesa, com padrão true quando omitido", () => {
+    const comFlag=createDreExpense({ data:{ outrasDesp:[] }, expense:{ obraId:"obra-1", competencia:"2026-07", categoria:"material", descricao:"Aço", valor:5000, contaAdmin:false }, actor, id:"desp-3" });
+    expect(comFlag.outrasDesp[0].contaAdmin).toBe(false);
+    const semFlag=createDreExpense({ data:{ outrasDesp:[] }, expense:{ obraId:"obra-1", competencia:"2026-07", categoria:"material", descricao:"Cimento", valor:200 }, actor, id:"desp-4" });
+    expect(semFlag.outrasDesp[0].contaAdmin).toBe(true);
+  });
+
   it("recusa inclusão sem autor, competência, descrição ou valor válido", () => {
     const input={ data:{}, expense:{ obraId:"obra-1", competencia:"2026-07", descricao:"Cimento", valor:1 }, actor, id:"x" };
     expect(() => createDreExpense({ ...input, actor:null })).toThrow("Sessão do usuário indisponível");

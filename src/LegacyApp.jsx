@@ -9391,13 +9391,16 @@ function RelatorioAdministracao({ data, year, month, showToast }) {
       // filtro deste relatório sobrescreve o que foi definido lá).
       const {
         adminBase, incluiMaoDeObra, incluiMateriais, incluiTerceirizados,
-        outrosCustos, materialCost, tercCost, jaFechado,
+        outrosCustos, adminEligibleMaterialCost, tercCost, jaFechado,
       } = projection;
       const ap = Number(obra.adminPercentage||0);
       const valorAdmin = adminBase * (ap/100);
       return {
         obra, ap, adminBase, valorAdmin, jaFechado, pendente: Math.max(0, valorAdmin-jaFechado),
-        laborBase, materialCost, tercCost, outrosCustos,
+        // Usa o material líquido (já descontando lançamentos marcados "não
+        // entra na taxa de administração"), não o bruto - senão a soma das
+        // linhas "Sim" deste relatório não bate com a base de fato cobrada.
+        laborBase, materialCost: adminEligibleMaterialCost, tercCost, outrosCustos,
         incluiMaoDeObra, incluiMateriais, incluiTerceirizados,
       };
     });
@@ -14815,14 +14818,13 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const dadosObra=useMemo(()=>dadosDaObraIsolados(data,obraId),[data,obraId]);
   const atualizarDadosObra=useCallback(proximos=>{
     if(typeof proximos==="function"){
-      update(atual=>{
+      return update(atual=>{
         const resolvido=proximos(dadosDaObraIsolados(atual,obraId));
         return resolvido&&typeof resolvido==="object"?recomporDadosDaObra(atual,resolvido,obraId):atual;
       });
-      return;
     }
-    if(!proximos||typeof proximos!=="object")return;
-    update(recomporDadosDaObra(data,proximos,obraId));
+    if(!proximos||typeof proximos!=="object")return undefined;
+    return update(recomporDadosDaObra(data,proximos,obraId));
   },[data,obraId,update]);
   const [abaConteudo,setAbaConteudo]=useState("geral");
   const [grupoMenuObra,setGrupoMenuObra]=useState("geral");

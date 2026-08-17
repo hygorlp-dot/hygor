@@ -36,6 +36,7 @@ export const createDreExpense = ({ data, expense, actor, id, now = new Date().to
   if (!(valor > 0) || !Number.isFinite(valor)) throw new Error("Informe um valor positivo para a despesa.");
   const registro={
     id, obraId:String(expense?.obraId || ""), competencia, categoria:String(expense?.categoria || "outros"), descricao, valor,
+    contaAdmin:expense?.contaAdmin !== false,
     status:"ativo", origem:"dre_obra", createdAt:now, createdById:actor.id, createdBy:actor.nome || actor.email || "Usuário autenticado",
     updatedAt:now, updatedById:actor.id, updatedBy:actor.nome || actor.email || "Usuário autenticado",
     version:1,
