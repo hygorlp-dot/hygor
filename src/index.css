@@ -7223,6 +7223,27 @@ body.no-scroll .arcd-team-chat {
     min-height: 40px !important;
   }
 
+  /* Achado da auditoria de design (docs/AUDITORIA_DESIGN_LINHA_BASE.md):
+     data-equal usa display:grid com colunas de largura igual (bom em
+     telas largas), mas com 6-7 abas de texto longo (ex.: "Gestão da
+     qualidade") cada coluna fica estreita demais e o texto - com
+     overflow:visible no botão - vaza visualmente sobre a coluna vizinha
+     em vez de quebrar ou cortar. Troca para o mesmo padrão já usado em
+     .equipment-center.is-financial>.tab-row: flexbox com rolagem
+     horizontal, cada aba com a largura do seu próprio texto (sem quebra,
+     sem vazamento), em vez de dividir a tela em colunas fixas estreitas. */
+  .tab-row[data-equal="true"] {
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .tab-row[data-equal="true"] .tab-row__tab {
+    flex: 0 0 auto;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
   .terceiros-workspace .page-hero__main,
   .terceiros-workspace .page-hero-actions,
   .terceiros-workspace .page-hero-actions > * {
