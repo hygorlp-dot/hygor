@@ -2,14 +2,18 @@
 
 ## Estado medido em 17/08/2026
 
-- `src/LegacyApp.jsx`: 24.567 linhas (era 39.323 em 30/07 - a fila de
+- `src/LegacyApp.jsx`: 22.642 linhas (era 39.323 em 30/07 - a fila de
   extração de código da seção "Próximas extrações de código" foi fechada
-  por completo em 16-17/08, ver "Andamento das extrações de UI" abaixo).
-- Grafo de produção: 627 módulos, 1.371 dependências, sem violação
+  por completo em 16-17/08, ver "Andamento das extrações de UI" abaixo;
+  Equipamentos, a 2ª maior tela restante, foi extraída em seguida no
+  mesmo dia).
+- Grafo de produção: 628 módulos, 1.379 dependências, sem violação
   arquitetural (`npm run architecture:check`).
-- Chunk principal (`LegacyApp-*.js`): 463,13 kB gzip. Total JS/CSS gzip do
-  app: 1.251,18 kB (orçamento revisado para 1.260 kB em 17/08, ver
-  `scripts/bundle-budgets.mjs`).
+- Chunk principal (`LegacyApp-*.js`): ~590 kB gzip. Total JS/CSS gzip do
+  app: ~1.482 kB (orçamento revisado para 1.520 kB em 17/08 - o aumento é
+  um efeito de chunking do Rollup, não código duplicado; ver o comentário
+  em `scripts/bundle-budgets.mjs` e o commit da extração de Equipamentos
+  para a investigação completa).
 - Testes: 218 arquivos e 1.135 testes aprovados.
 
 Estado ainda **não medido nesta rodada** (herdado da medição de 30/07, não
@@ -156,22 +160,36 @@ com `React.lazy` no ponto de uso - mesma camada de dados (blob
 Cada feature recebeu rota com `React.lazy`, mantendo componentes, seletores e
 testes próprios sem duplicar regra financeira.
 
+Fora da fila original (medida em 17/08, ver tabela abaixo), extraída na
+sequência por ser a 2ª maior tela ainda inline:
+
+9. `Equipamentos` → `src/domains/equipamentos/components/EquipamentosView.jsx`
+   (levou junto `gradeLocacaoEquip`/`resumoLocacaoEquip`, helpers exclusivos
+   do mapa de ocupação que tinham ficado para trás na extração inicial -
+   ver nota sobre orçamento de bundle no topo deste documento).
+
 ## Próximas extrações de código
 
 Medição de 17/08/2026 por linhas de função de topo dentro de `LegacyApp.jsx`
-(maior volume ainda inline, candidatos à próxima rodada):
+(maior volume ainda inline, candidatos à próxima rodada). **As linhas abaixo
+são da medição original, anterior à extração de Equipamentos - o arquivo
+encolheu ~1.925 linhas desde então, então toda referência de linha aqui
+precisa ser reconferida com `grep -n "^function NomeDaTela"` antes de
+começar a próxima extração, não usada de olhos fechados:**
 
-| Tela | Linhas aprox. | Localização atual |
-| --- | --- | --- |
-| `AprovacoesPendentes` | ~2.130 | `LegacyApp.jsx:12031-14165` |
-| `Equipamentos` | ~1.640 | `LegacyApp.jsx:19288-20930` |
-| `ObraDetalhe` | ~1.055 | `LegacyApp.jsx:14814-15870` |
-| `DREEmpresa` | ~1.015 | `LegacyApp.jsx:21482-22497` |
-| `DRELegado` | ~970 | `LegacyApp.jsx:4398-5368` |
-| `Ponto` | ~760 | `LegacyApp.jsx:8244-9002` |
-| `DiarioObra` | ~730 | `LegacyApp.jsx:15870-16601` |
-| `Cadastros` | ~560 | `LegacyApp.jsx:17863-18420` |
-| `Estoque` | ~545 | `LegacyApp.jsx:18616-19160` |
+| Tela | Linhas aprox. (medição de 17/08, antes de extrair Equipamentos) |
+| --- | --- |
+| `AprovacoesPendentes` | ~2.130 |
+| `ObraDetalhe` | ~1.055 |
+| `DREEmpresa` | ~1.015 |
+| `DRELegado` | ~970 |
+| `Ponto` | ~760 |
+| `DiarioObra` | ~730 |
+| `Cadastros` | ~560 |
+| `Estoque` | ~545 |
+
+`Equipamentos` (~1.640 linhas) já foi extraída - ver "Andamento das
+extrações de UI" acima.
 
 `ObraDetalhe` é um caso especial: é o orquestrador de abas de uma obra (já
 delega Orçamento/Terceiros/Planejamento/Medições para os módulos extraídos
