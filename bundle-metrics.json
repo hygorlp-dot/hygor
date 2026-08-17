@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-08-17T19:00:44.415Z",
+  "generatedAt": "2026-08-17T20:28:32.512Z",
   "totals": {
-    "bytes": 4936134,
-    "gzipBytes": 1517667
+    "bytes": 4938297,
+    "gzipBytes": 1518072
   },
   "assets": [
     {
-      "name": "LegacyApp-B-WKxwsY.js",
+      "name": "LegacyApp-CwIiZuDW.js",
       "bytes": 1672848,
-      "gzipBytes": 604344
+      "gzipBytes": 604340
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -16,9 +16,9 @@
       "gzipBytes": 255655
     },
     {
-      "name": "EquipamentosView-m94kgBT_.js",
-      "bytes": 217809,
-      "gzipBytes": 106039
+      "name": "EquipamentosView-CUHetrbi.js",
+      "bytes": 219931,
+      "gzipBytes": 106450
     },
     {
       "name": "PieChart-DNw_iAr3.js",
@@ -26,29 +26,29 @@
       "gzipBytes": 102430
     },
     {
-      "name": "index-une6Jfyg.js",
+      "name": "index-ORsfHK68.js",
       "bytes": 142464,
-      "gzipBytes": 46757
+      "gzipBytes": 46754
     },
     {
-      "name": "OrcamentoView-tSCsOhjo.js",
+      "name": "OrcamentoView-B2QcQ6q0.js",
       "bytes": 182535,
       "gzipBytes": 46188
     },
     {
-      "name": "index-db2UHS1_.css",
+      "name": "index-BgB0ELOa.css",
       "bytes": 262487,
       "gzipBytes": 44228
     },
     {
-      "name": "ComprasView-D6rdPpPO.js",
+      "name": "ComprasView-CUNu0fux.js",
       "bytes": 172168,
-      "gzipBytes": 41352
+      "gzipBytes": 41350
     },
     {
-      "name": "financial-domain-D94kYtJw.js",
-      "bytes": 124495,
-      "gzipBytes": 38060
+      "name": "financial-domain-pcdxFcdL.js",
+      "bytes": 124536,
+      "gzipBytes": 38071
     },
     {
       "name": "LoginProjectParallax-DkAYIQUq.js",
@@ -56,29 +56,29 @@
       "gzipBytes": 27419
     },
     {
-      "name": "PlanejamentoView-DRpA_BZv.js",
+      "name": "PlanejamentoView-CfFA1qwZ.js",
       "bytes": 103865,
       "gzipBytes": 27150
     },
     {
-      "name": "ComercialView-Ac368NAo.js",
+      "name": "ComercialView-NxZFLzDr.js",
       "bytes": 106618,
-      "gzipBytes": 25886
+      "gzipBytes": 25882
     },
     {
-      "name": "ConciliacaoView-CJp2iLon.js",
+      "name": "ConciliacaoView-Bb9FLh38.js",
       "bytes": 85720,
       "gzipBytes": 20921
     },
     {
-      "name": "TerceirosView-tw1psMpN.js",
+      "name": "TerceirosView-C0uwd__o.js",
       "bytes": 79520,
-      "gzipBytes": 20679
+      "gzipBytes": 20678
     },
     {
-      "name": "FolhaView-DzoxLqFN.js",
+      "name": "FolhaView-mRdZlvxu.js",
       "bytes": 41340,
-      "gzipBytes": 12542
+      "gzipBytes": 12540
     },
     {
       "name": "Button-DexF8STh.js",
@@ -86,9 +86,9 @@
       "gzipBytes": 9231
     },
     {
-      "name": "MedicoesView-CoWl71DC.js",
+      "name": "MedicoesView-J4FZEN8o.js",
       "bytes": 35319,
-      "gzipBytes": 8974
+      "gzipBytes": 8972
     },
     {
       "name": "RealEstateCommercial-DXV88ngA.js",
@@ -116,22 +116,22 @@
       "gzipBytes": 5576
     },
     {
-      "name": "EquipmentBillingReports-BdhWkM_L.js",
+      "name": "EquipmentBillingReports-Wsis9w2J.js",
       "bytes": 23132,
       "gzipBytes": 5460
     },
     {
-      "name": "SupplierEditor-Bzb1SBjg.js",
+      "name": "SupplierEditor-DDyYT-TO.js",
       "bytes": 12584,
-      "gzipBytes": 4429
+      "gzipBytes": 4430
     },
     {
-      "name": "CentralAdministradorView-BcxXsAX6.js",
+      "name": "CentralAdministradorView-CA9QNOCl.js",
       "bytes": 9597,
-      "gzipBytes": 3723
+      "gzipBytes": 3724
     },
     {
-      "name": "categories-CV8OB5CC.js",
+      "name": "categories-CUgOBUoF.js",
       "bytes": 8440,
       "gzipBytes": 3442
     },
@@ -161,9 +161,9 @@
       "gzipBytes": 2494
     },
     {
-      "name": "registry-_L2KgjaV.js",
+      "name": "registry-BzK4pnzv.js",
       "bytes": 6129,
-      "gzipBytes": 2407
+      "gzipBytes": 2404
     },
     {
       "name": "Button-CoNbX7TQ.css",
@@ -176,9 +176,9 @@
       "gzipBytes": 1334
     },
     {
-      "name": "LegacyMobileNavigation-Bj1H1MSZ.js",
+      "name": "LegacyMobileNavigation-Djwik9mk.js",
       "bytes": 2784,
-      "gzipBytes": 1292
+      "gzipBytes": 1294
     },
     {
       "name": "styles-Bu58Uv5t.css",

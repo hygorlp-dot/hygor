@@ -15,6 +15,16 @@ um instrumento de operação: densa, legível, previsível e sem decoração gra
 - Aço `#525252`: texto secundário.
 - Linha técnica `#D6D6D6`: divisores e limites.
 - Verde `#24A148`, amarelo `#F1C21B` e vermelho `#DA1E28`: apenas estados.
+- Azul técnico `#0F62FE`, roxo técnico `#4A148C` e laranja técnico `#8A3800`:
+  cores informativas/secundárias (não são cor de marca nem substituem
+  verde/amarelo/vermelho como estado de sucesso/atenção/erro). Uso: destacar
+  categorias neutras (ex. "locado" vs. "disponível" quando mais de 3 estados
+  precisam ser distinguidos ao mesmo tempo), painéis de contexto informativo
+  (ex. "evidência obrigatória", "medição contratual"), e agrupamento visual
+  sem carregar semântica de sucesso/erro. Já em uso extensivo em todo o app
+  (180+ ocorrências de `C.blue` só em `LegacyApp.jsx`) - documentado aqui
+  para fechar a divergência entre paleta declarada e paleta real (achado de
+  auditoria de design, 17/08/2026).
 
 ## Tipografia
 

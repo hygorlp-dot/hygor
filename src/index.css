@@ -4688,7 +4688,7 @@
   .equipment-image-editor .equipment-photo{width:min(100%,240px);justify-self:center}
   .equipment-image-editor__fields{grid-template-columns:1fr}
   .equipment-card-actions{display:grid;grid-template-columns:1fr 1fr}
-  .equipment-card-actions>button{width:100%!important;min-height:40px}
+  .equipment-card-actions>button{width:100%!important;min-height:44px}
   .equipment-card-actions>button:last-child{grid-column:1/-1}
   .equipment-empty-state{grid-template-columns:auto minmax(0,1fr);padding:15px 13px}
   .equipment-empty-state>button{grid-column:1/-1;width:100%!important;min-height:44px}

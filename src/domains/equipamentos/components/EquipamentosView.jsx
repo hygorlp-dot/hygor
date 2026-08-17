@@ -137,6 +137,13 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
   const [rentalChargeModal,setRentalChargeModal]=useState(null);
   const [rentalMeasurementModal,setRentalMeasurementModal]=useState(null);
   const [rentalInvoiceModal,setRentalInvoiceModal]=useState(null);
+  // Confirmação de ações destrutivas/irreversíveis - substitui window.confirm
+  // nativo por um Modal próprio do design system (ver auditoria de design,
+  // achado P0: dialogs nativos do navegador quebram a marca exatamente nos
+  // momentos de maior risco). {titulo,mensagem,tom,confirmLabel,onConfirmar}
+  const [confirmModal,setConfirmModal]=useState(null);
+  // Data de término da locação - substitui window.prompt nativo (mesmo achado).
+  const [encerrarLocModal,setEncerrarLocModal]=useState(null);
   const [busca, setBusca] = useState("");
   const [filtroObraGestao, setFiltroObraGestao] = useState(obraIdFixo||"all");   // filtro da grade de gestao
   const [basesSinapiEquip,setBasesSinapiEquip]=useState([]);
@@ -294,8 +301,13 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       setSalvandoEquipamento("");
     }
   };
-  const materializarCadastroFisico=async()=>{
-    if(!window.confirm("Criar o cadastro separado de modelos, lotes e unidades? Os equipamentos e históricos atuais serão preservados."))return;
+  const materializarCadastroFisico=()=>setConfirmModal({
+    titulo:"Criar cadastro físico separado?",
+    mensagem:"Serão criados modelos, lotes e unidades a partir dos equipamentos atuais. Os equipamentos e históricos existentes serão preservados.",
+    confirmLabel:"Criar cadastro físico",
+    onConfirmar:executarMaterializarCadastroFisico,
+  });
+  const executarMaterializarCadastroFisico=async()=>{
     setSalvandoEquipamento("cadastro-fisico");
     try{
       const result=await dispatchCommand?.(atual=>({
@@ -324,7 +336,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
     if(!result?.ok){showToast(result?.reason||"Não foi possível revisar a classificação física.","error");return;}
     setPhysicalReview(null);showToast("Classificação física revisada e salva.");
   };
-  const excluirEquip = async(e) => {
+  const excluirEquip = (e) => {
     const locacaoAberta=(data.locacoesEquip||[]).some(locacao=>
       locacao.equipamentoId===e.id&&locacao.status!=="cancelada"&&!locacao.fim);
     if(locacaoAberta){
@@ -337,7 +349,15 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
     const explicacao=possuiHistorico
       ?"Ele sairá da frota ativa, mas locações, cobranças e manutenções anteriores serão preservadas."
       :"Ele sairá da frota ativa.";
-    if(!window.confirm(`Excluir "${e.nome}"?\n\n${explicacao}`)) return;
+    setConfirmModal({
+      titulo:`Excluir "${e.nome}"?`,
+      mensagem:explicacao,
+      tom:"danger",
+      confirmLabel:"Excluir equipamento",
+      onConfirmar:()=>executarExcluirEquip(e,possuiHistorico),
+    });
+  };
+  const executarExcluirEquip = async(e,possuiHistorico) => {
     setSalvandoEquipamento("exclusao");
     try{
       const result=await dispatchCommand?.(atual=>{
@@ -395,22 +415,39 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       setSalvandoEquipamento("");
     }
   };
-  const encerrarLoc = async(l) => {
-    const fim = window.prompt("Data de término (AAAA-MM-DD):", today());
-    if(!fim) return;
-    const result=await dispatchCommand?.(atual=>{
-      const current=(atual.locacoesEquip||[]).find(item=>item.id===l.id);
-      return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,idempotencyKey:`locacao-equipamento-encerrar-${l.id}-${uid()}`,
-        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{rentalId:l.id,endDate:fim}};
-    });
-    if(!result?.ok){showToast(result?.reason||"Não foi possível encerrar a locação.","error");return;}
-    showToast("Locação encerrada.");
+  const encerrarLoc = (l) => setEncerrarLocModal({locacao:l, data:today()});
+  const confirmarEncerrarLoc = async () => {
+    const {locacao:l, data:fim} = encerrarLocModal;
+    if(!fim){showToast("Informe a data de término.","error");return;}
+    setSalvandoEquipamento(`encerrar-${l.id}`);
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.locacoesEquip||[]).find(item=>item.id===l.id);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,idempotencyKey:`locacao-equipamento-encerrar-${l.id}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{rentalId:l.id,endDate:fim}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível encerrar a locação.","error");return;}
+      setEncerrarLocModal(null);
+      showToast("Locação encerrada.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao encerrar a locação.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
   };
-  const excluirLoc = async(l) => {
+  const excluirLoc = (l) => {
     const equipamento=equipName(l.equipamentoId);
     const obra=obraName(l.obraId);
-    if(!window.confirm(`Excluir a locação de "${equipamento}" em "${obra}"?\n\nEla deixará de compor a ocupação e a cobrança dos relatórios. O cancelamento permanecerá no histórico de auditoria.`))return;
+    setConfirmModal({
+      titulo:`Excluir a locação de "${equipamento}" em "${obra}"?`,
+      mensagem:"Ela deixará de compor a ocupação e a cobrança dos relatórios. O cancelamento permanecerá no histórico de auditoria.",
+      tom:"danger",
+      confirmLabel:"Excluir locação",
+      onConfirmar:()=>executarExcluirLoc(l),
+    });
+  };
+  const executarExcluirLoc = async(l) => {
     setSalvandoEquipamento("exclusao-locacao");
     try{
       const result=await dispatchCommand?.(atual=>{
@@ -618,18 +655,32 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
     setIndispModal(null);showToast(isReservation?"Reserva registrada.":"Indisponibilidade registrada.");
   };
 
-  const cancelarIndisponibilidade=async(item)=>{
-    if(!window.confirm(`Cancelar ${EQUIPMENT_UNAVAILABILITY_LABEL[item.type]||"indisponibilidade"}: ${item.reason}?`))return;
+  const cancelarIndisponibilidade=(item)=>setConfirmModal({
+    titulo:`Cancelar ${EQUIPMENT_UNAVAILABILITY_LABEL[item.type]||"indisponibilidade"}?`,
+    mensagem:item.reason||"Sem motivo registrado.",
+    tom:"danger",
+    confirmLabel:"Cancelar indisponibilidade",
+    onConfirmar:()=>executarCancelarIndisponibilidade(item),
+  });
+  const executarCancelarIndisponibilidade=async(item)=>{
     const isReservation=item.type==="reservation";
-    const result=await dispatchCommand?.(atual=>{
-      const current=(atual.equipmentUnavailability||[]).find(entry=>entry.id===item.id);
-      return {type:isReservation?OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_CANCELLED:OPERATIONAL_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED,
-        idempotencyKey:`indisponibilidade-equipamento-cancelar-${item.id}-${uid()}`,
-        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{unavailabilityId:item.id,reason:"Cancelada no calendário de disponibilidade"}};
-    });
-    if(!result?.ok){showToast(result?.reason||"Não foi possível cancelar a indisponibilidade.","error");return;}
-    showToast("Indisponibilidade cancelada.");
+    setSalvandoEquipamento(`cancelar-indisp-${item.id}`);
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.equipmentUnavailability||[]).find(entry=>entry.id===item.id);
+        return {type:isReservation?OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_CANCELLED:OPERATIONAL_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED,
+          idempotencyKey:`indisponibilidade-equipamento-cancelar-${item.id}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{unavailabilityId:item.id,reason:"Cancelada no calendário de disponibilidade"}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível cancelar a indisponibilidade.","error");return;}
+      setIndispModal(null);
+      showToast("Indisponibilidade cancelada.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao cancelar a indisponibilidade.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
   };
 
   const salvarTransf = async(f) => {
@@ -957,7 +1008,10 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                                       background:estourou?`${C.red}35`:principal?`${corTipo[principal.type]||C.muted}24`:ehFimSemana(g.data)?`${C.blue}08`:"transparent",
                                       cursor:principal?"pointer":"default"}}>
                             <span style={{display:"block",fontSize:8,fontWeight:800,color:estourou?C.red:principal?(corTipo[principal.type]||C.text):C.muted}}>{resumoTipos.join(" ")||"—"}</span>
-                            <span style={{display:"block",fontSize:7.5,color:disponibilidade.livre?C.green:C.red}}>livre {disponibilidade.livre}</span>
+                            {/* Só o número - "livre" repetido em 24+ células por linha era ruído
+                                puro (achado de auditoria de design); a cor e o tooltip já dizem
+                                o que o número significa. */}
+                            <span style={{display:"block",fontSize:7.5,color:disponibilidade.livre?C.green:C.red}}>{disponibilidade.livre}</span>
                           </td>
                         );
                       })}
@@ -985,6 +1039,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           )}
           <div style={{display:"flex",gap:10,flexWrap:"wrap",padding:"0 2px"}}>
             {Object.entries(siglaTipo).map(([type,sigla])=><span key={type} style={{fontSize:9.5,color:corTipo[type]||C.muted,fontWeight:750}}>{sigla} = {EQUIPMENT_UNAVAILABILITY_LABEL[type]}</span>)}
+            <span style={{fontSize:9.5,color:C.muted,fontWeight:750}}>Número abaixo da sigla = unidades livres no dia</span>
           </div>
         </>);
       })()}
@@ -1067,7 +1122,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                         {checkpointType&&!recorded?`Checklist: ${CHECKPOINT_LABEL[checkpointType]}`:`Avançar: ${rentalStateLabel(nextState)}`}
                       </Btn>;
                     })}
-                    {emAberto&&(!l.lifecycleState||lifecycleState==="under_inspection"||(lifecycleState==="awaiting_adjustment"&&(l.rentalCheckpoints||[]).some(item=>item.type===RENTAL_CHECKPOINT_TYPE.ADJUSTMENT&&item.status!=="cancelled")))&&<Btn size="sm" v="ghost" onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
+                    {emAberto&&(!l.lifecycleState||lifecycleState==="under_inspection"||(lifecycleState==="awaiting_adjustment"&&(l.rentalCheckpoints||[]).some(item=>item.type===RENTAL_CHECKPOINT_TYPE.ADJUSTMENT&&item.status!=="cancelled")))&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
                     {!cancelada&&<Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirLoc(l)}><Ic n="trash"/> Excluir</Btn>}
                   </div>
                 </article>
@@ -1592,7 +1647,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             <Sel label="Obra (opcional)" value={indispModal.workId||""} onChange={v=>setIndispModal(f=>({...f,workId:v}))} options={obraOpts}/>
             <div style={{gridColumn:"1/-1"}}><Inp label="Motivo *" value={indispModal.reason} onChange={v=>setIndispModal(f=>({...f,reason:v}))} multiline/></div>
             <div style={{gridColumn:"1/-1",display:"flex",gap:8,justifyContent:"flex-end"}}>
-              {indispModal.id&&isActiveUnavailability(indispModal)&&<Btn v="danger" onClick={()=>{cancelarIndisponibilidade(indispModal);setIndispModal(null);}}><Ic n="trash"/> Cancelar</Btn>}
+              {indispModal.id&&isActiveUnavailability(indispModal)&&<Btn v="danger" disabled={!!salvandoEquipamento} onClick={()=>cancelarIndisponibilidade(indispModal)}><Ic n="trash"/> Cancelar</Btn>}
               <Btn onClick={()=>salvarIndisponibilidade(indispModal)}><Ic n="check"/> Salvar</Btn>
             </div>
           </div>
@@ -1626,6 +1681,39 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             <Inp label="Responsável" value={transfModal.responsavel} onChange={v=>setTransfModal(f=>({...f,responsavel:v}))}/>
             <Inp label="Observações" value={transfModal.obs} onChange={v=>setTransfModal(f=>({...f,obs:v}))} multiline/>
             <Btn full onClick={()=>salvarTransf(transfModal)}>Confirmar transferência</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {confirmModal && (
+        <Modal title={confirmModal.titulo} onClose={()=>setConfirmModal(null)}>
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <p style={{fontSize:12.5,color:C.subtle,lineHeight:1.5,whiteSpace:"pre-line"}}>{confirmModal.mensagem}</p>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setConfirmModal(null)} style={{flex:1}}>Cancelar</Btn>
+              <Btn v={confirmModal.tom==="danger"?"danger":undefined} style={{flex:1}}
+                onClick={()=>{const acao=confirmModal.onConfirmar;setConfirmModal(null);acao();}}>
+                {confirmModal.confirmLabel||"Confirmar"}
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {encerrarLocModal && (
+        <Modal title="Encerrar locação" onClose={()=>setEncerrarLocModal(null)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <p style={{fontSize:12.5,color:C.subtle,lineHeight:1.5}}>
+              {equipName(encerrarLocModal.locacao.equipamentoId)} · {obraName(encerrarLocModal.locacao.obraId)}
+            </p>
+            <Inp label="Data de término" type="date" value={encerrarLocModal.data}
+              onChange={v=>setEncerrarLocModal(f=>({...f,data:v}))}/>
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setEncerrarLocModal(null)} style={{flex:1}}>Cancelar</Btn>
+              <Btn disabled={!!salvandoEquipamento} onClick={confirmarEncerrarLoc} style={{flex:1}}>
+                {salvandoEquipamento===`encerrar-${encerrarLocModal.locacao.id}`?"Encerrando...":"Encerrar locação"}
+              </Btn>
+            </div>
           </div>
         </Modal>
       )}

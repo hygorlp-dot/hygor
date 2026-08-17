@@ -168,7 +168,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(page.getByText("Registro com várias unidades e um único patrimônio")).toBeVisible();
         await page.getByRole("button",{name:/Mapa de ocupação/}).click();
         await expect(page.getByText("R = Reserva")).toBeVisible();
-        await expect(page.getByText("livre 1").first()).toBeVisible();
+        // A célula do dia mostra só o número de unidades livres (sem repetir a
+        // palavra "livre" em cada uma das 24+ colunas por linha - achado de
+        // auditoria de design corrigido em 17/08/2026); a legenda explica o
+        // número uma única vez, fora da grade.
+        await expect(page.getByText("Número abaixo da sigla = unidades livres no dia")).toBeVisible();
         await page.getByLabel("Mês").selectOption("2026-07");
         await expect(page.getByText("R1").first()).toBeVisible();
         await page.getByRole("button",{name:/Reservar \/ bloquear/}).click();
