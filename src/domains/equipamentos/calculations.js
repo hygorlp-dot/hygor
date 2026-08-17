@@ -140,8 +140,13 @@ export const calcEquipMes = (data,equipId,ym) => {
     const cobranca=cobrancaLocacao(locacao,equip,dias);
     receita+=cobranca.liquido;
     descontos+=cobranca.desconto;
-    custoDono+=melhorTarifa(tarifasCustoDaLocacao(locacao,equip),dias).total
-      *Math.max(1,Number(locacao.quantidade||1));
+    // Tarifa de custo só é repasse quando existe proprietário terceiro. Em
+    // equipamento próprio ela é referência interna e não gera obrigação -
+    // mesma regra aplicada no motor do servidor (server/dre-projection.js).
+    if (equip?.proprietarioId) {
+      custoDono+=melhorTarifa(tarifasCustoDaLocacao(locacao,equip),dias).total
+        *Math.max(1,Number(locacao.quantidade||1));
+    }
   });
   const manut=(data.manutencoesEquip||[])
     .filter(m=>m.equipamentoId===equipId&&(m.data||"").slice(0,7)===ym&&m.pagoPor!=="proprietario")
@@ -240,7 +245,8 @@ export const calcEquipamentosPorObra=(data,ym)=>{
         const quantidade=Math.max(1,Number(locacao.quantidade||1));
         const cobranca=cobrancaLocacao(locacao,equipamento,dias);
         const custoUnitario=melhorTarifa(tarifasCustoDaLocacao(locacao,equipamento),dias);
-        const custoLocacao=custoUnitario.total*quantidade;
+        // Mesma regra de calcEquipMes: repasse só existe com proprietário terceiro.
+        const custoLocacao=equipamento?.proprietarioId?custoUnitario.total*quantidade:0;
         const primeiro=String(locacao.inicio||"")<inicio?inicio:String(locacao.inicio||"");
         const ultimo=!locacao.fim||String(locacao.fim)>fim?fim:String(locacao.fim);
         receita+=cobranca.liquido;

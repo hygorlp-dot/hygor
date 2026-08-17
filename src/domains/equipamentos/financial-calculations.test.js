@@ -79,6 +79,7 @@ describe("motor financeiro de equipamentos", () => {
       equipamentos:[{
         id:"e1",
         nome:"Betoneira",
+        proprietarioId:"f1",
         quantidadeTotal:2,
         tarifas:{dia:100,semana:650,quinzena:1200,mes:2000},
         tarifasCusto:{dia:60,semana:390,quinzena:720,mes:1200},
@@ -109,6 +110,30 @@ describe("motor financeiro de equipamentos", () => {
     expect(mensal.linhas[0]).toMatchObject({diasContrato:31,unidadeDias:62,diasTotais:31});
     expect(calcEquipamentosPorObra(julho31Dias,"2026-07").totaisPorObra.o1)
       .toMatchObject({dias:31,unidadeDias:62,receita:4200,custoDono:2520,lucro:1680});
+  });
+
+  it("não gera repasse de custoDono para equipamento próprio, mesmo com tarifasCusto residual", () => {
+    // Cenário real: equipamento que já foi comprado pela empresa (proprietarioId
+    // limpo), mas manteve tarifasCusto de quando ainda era locado de terceiro.
+    // custoDono só é uma obrigação real quando há um proprietário terceiro -
+    // mesma regra já aplicada no motor do servidor (server/dre-projection.js).
+    const proprioComTarifaResidual = {
+      obras:[{id:"o1",name:"Obra A",status:"active"}],
+      equipamentos:[{
+        id:"e1", nome:"Betoneira",
+        tarifas:{dia:150}, tarifasCusto:{dia:90},
+      }],
+      locacoesEquip:[{
+        id:"l1", equipamentoId:"e1", obraId:"o1",
+        inicio:"2026-07-01", fim:"2026-07-10",
+      }],
+    };
+    const mensal = calcEquipamentosMes(proprioComTarifaResidual, "2026-07");
+    expect(mensal.total).toMatchObject({ receita:1500, custoDono:0, lucro:1500 });
+    expect(calcEquipFaturamentoEmpresa(proprioComTarifaResidual, "2026-07"))
+      .toMatchObject({ custoDono:0, lucro:1500 });
+    expect(calcEquipamentosPorObra(proprioComTarifaResidual,"2026-07").totaisPorObra.o1)
+      .toMatchObject({ custoDono:0, lucro:1500 });
   });
 
   it("projeta equipamentos nas linhas e obras nas colunas sem perder a quantidade",()=>{
