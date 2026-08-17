@@ -677,6 +677,34 @@
    navegação fixa no celular. Cor informa a gravidade; borda e texto fazem o resto. */
 .arcd-toast {
   font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif !important;
+  animation: arcd-toast-enter var(--arcd-motion-normal) var(--arcd-ease-standard);
+}
+
+@keyframes arcd-toast-enter {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* A classe "animUp" já era aplicada a todo painel de modal (ver Modal em
+   LegacyApp.jsx), mas nunca teve uma definição de CSS - todo modal do
+   sistema aparecia/sumia sem transição. Fecha essa lacuna com os tokens de
+   motion já existentes; reduced-motion já zera as durações via motion.css. */
+.arcd-modal-overlay {
+  animation: arcd-modal-overlay-enter var(--arcd-motion-fast) var(--arcd-ease-standard);
+}
+
+.animUp.arcd-modal-panel {
+  animation: arcd-modal-panel-enter var(--arcd-motion-normal) var(--arcd-ease-standard);
+}
+
+@keyframes arcd-modal-overlay-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes arcd-modal-panel-enter {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 @media (max-width: 767px) {
