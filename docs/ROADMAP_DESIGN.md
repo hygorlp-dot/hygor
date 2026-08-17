@@ -59,20 +59,47 @@ revisada, testada e revertida sozinha.
 
 ### Fase 1 — Unificação de tokens de cor
 
-**Decisão pendente antes de começar**: qual verde é a fonte de verdade —
-`C.green: #24A148` (usado hoje em produção) ou `--arcd-green-500: #198038`
-(o token do design-system)? Não é uma decisão técnica, é uma decisão de
-marca — não deveria ser tomada unilateralmente numa sessão de refactor.
+**Decisão tomada em 17/08/2026**: o verde do legado é a fonte de verdade.
+`--arcd-green-500` foi atualizado de `#198038` para `#24A148` em
+`src/design-system/tokens/primitives.css` (commit seguinte a este) — o
+design-system passou a bater com o que já está em produção, não o
+contrário. Verificado: suíte completa (1110 testes), testes de
+tema/tokens, `architecture:check` e `lint` continuam verdes.
 
-Depois de decidida:
-1. Fazer `C` (em `LegacyApp.jsx`) referenciar os custom properties do
-   design-system em vez de repetir os hex, ou o inverso — o que for menos
-   invasivo, dado que `C` é importado por praticamente todo o app.
-2. Confirmar visualmente (screenshot antes/depois) que nenhuma cor mudou
-   de fato, exceto a do verde reconciliado.
-3. Critério de saída: `grep` por hex literais em `LegacyApp.jsx` some da
-   paleta principal; suíte completa e `architecture:check` continuam
-   verdes.
+**Achado durante a execução que muda o plano original**: a ideia inicial
+era fazer `C` (em `LegacyApp.jsx`) referenciar os custom properties do
+design-system via string (`C.green = "var(--arcd-green-500)"`). Isso
+**não é seguro** — o código usa `C.<cor>` concatenado com um sufixo hex de
+2 dígitos para opacidade em **444 pontos** (`` `${C.blue}0D` ``,
+`` `${cor}44` ``, etc., contados em `LegacyApp.jsx` + `src/domains` +
+`src/features`). Se `C.blue` virar a string `"var(--arcd-blue-500)"`, essa
+concatenação produz `"var(--arcd-blue-500)0D"` — CSS inválido. Trocar
+todos os 444 pontos por `color-mix()` para permitir o wiring direto é, por
+si só, uma migração do tamanho da Fase 2 inteira, não um ajuste mecânico
+de baixo risco.
+
+**Escopo real e seguro da Fase 1, portanto**: sincronizar os *valores*
+entre o objeto `C` e os tokens do design-system (como foi feito para o
+verde), não a *referência* em tempo de execução. `C` continua sendo hex
+literal — é o que o padrão de opacidade por concatenação exige. A
+"fonte de verdade única" nesta fase é de intenção/documentação, garantida
+por este documento e por um teste, não por `var()` compartilhado.
+
+1. ~~Wiring direto via `var()`~~ — descartado pelo motivo acima.
+2. **Feito**: sincronizar o valor divergente do verde.
+3. **Achado adicional, decisão pendente**: `C.card2`/`C.ivory` (`#EDEDED`)
+   não batem com `--arcd-gray-100` (`#E8E8E8`) — mesma família, valor
+   diferente. `C.ink` (`#121212`) e `C.cinza` (`#A8A8A8`) não têm token
+   correspondente no design-system. Nenhum dos dois foi alterado nesta
+   sessão — são, de novo, decisões de marca/paleta, não mecânicas.
+4. **Pendente, recomendado antes de fechar a fase**: um teste (em
+   `src/design-system/tokens/tokens.test.js` ou equivalente) que compare
+   os valores de `C` com os tokens correspondentes e falhe se divergirem
+   sem essa divergência estar documentada aqui — hoje a sincronia é
+   garantida por auditoria manual, não por CI.
+5. Critério de saída: as divergências conhecidas (`card2`/`ivory`, `ink`,
+   `cinza`) decididas e sincronizadas, e um teste de regressão no lugar
+   para pegar a próxima que aparecer.
 
 ### Fase 2 — Componentização das telas de maior uso
 
