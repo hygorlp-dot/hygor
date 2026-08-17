@@ -15696,9 +15696,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         <Par l="Terceirizados" v={`${resumo.terceiros}`}/>
       </Secao>
 
-      <Secao id="orcamento" icone="orcamento" titulo="Orcamento" cor={C.yellow} atalho="orc">
+      <Secao id="orcamento" icone="orcamento" titulo="Orçamento" cor={C.yellow} atalho="orc">
         {resumo.orc ? (<>
-          <Par l="Custo orcado" v={fmt(resumo.orcTotal)}/>
+          <Par l="Custo orçado" v={fmt(resumo.orcTotal)}/>
           <Par l="Ja comprado" v={fmt(resumo.cmp.comprado)} c={C.blue}/>
           <Par l="Saldo" v={fmt(resumo.orcTotal - resumo.cmp.comprado)}
                c={resumo.cmp.comprado > resumo.orcTotal ? C.red : C.green}/>
@@ -15706,7 +15706,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
                  resumo.cmp.comprado > resumo.orcTotal ? C.red : C.yellow)}
         </>) : (
           <p style={{fontSize:11.5,color:C.muted,lineHeight:1.5}}>
-            Sem orcamento vinculado a esta obra.
+            Sem orçamento vinculado a esta obra.
           </p>
         )}
       </Secao>
@@ -15724,11 +15724,11 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
              badge={resumo.abaixoMin || null}>
         <Par l="Itens com saldo" v={`${resumo.itensEstoque}`}/>
         <Par l="Valor parado" v={fmt(resumo.valorEstoque)} c={C.yellow}/>
-        <Par l="Abaixo do minimo" v={`${resumo.abaixoMin}`}
+        <Par l="Abaixo do mínimo" v={`${resumo.abaixoMin}`}
              c={resumo.abaixoMin ? C.red : C.green}/>
       </Secao>
 
-      <Secao id="medicoes" icone="medicoes" titulo="Medicoes" cor={C.green} atalho="medicoes">
+      <Secao id="medicoes" icone="medicoes" titulo="Medições" cor={C.green} atalho="medicoes">
         <Par l="Emitidas" v={`${resumo.medicoes.length}`}/>
         <Par l="Recebidas" v={`${resumo.medicoes.filter(m=>statusRecebimentoMedicao(m)==="recebida").length}`} c={C.green}/>
         <Par l="Em aberto" v={fmt(resumo.aReceber)} c={C.orange}/>

@@ -46,6 +46,76 @@ executando estas 5 tarefas e contando passos/cliques até o resultado:
 Quanto menos passos e menos ambiguidade (o usuário nunca precisa parar
 para pensar "onde clico agora"), melhor a nota desse bloco.
 
+### Detalhamento de 3 critérios (sub-pontuação)
+
+Para "Experiência mobile/em campo", "Dashboards e visualização de dados" e
+"Consistência visual e UI" — os três critérios mais fáceis de avaliar de
+forma genérica e por isso mais fáceis de pontuar errado — usar esta
+sub-régua em vez de uma nota de cabeça. Os pontos aqui somam ao peso do
+critério dentro do bloco correspondente (não são um segundo ranking
+paralelo).
+
+**Experiência mobile/em campo** (parte de "Eficiência para gestão de obras"):
+
+| Sub-critério | Pontos |
+| --- | ---: |
+| Navegação fácil com uma mão | 0–7 |
+| Tamanho adequado de botões e áreas clicáveis | 0–6 |
+| Legibilidade de textos e informações | 0–5 |
+| Contraste para ambientes externos/sol forte | 0–4 |
+| Facilidade para registrar fotos, vídeos e documentos | 0–6 |
+| Velocidade para executar ações frequentes | 0–6 |
+| Adaptação correta a diferentes tamanhos de tela | 0–4 |
+| Funcionamento com internet ruim/offline | 0–4 |
+| Feedback claro após salvar/enviar informações | 0–3 |
+
+**Dashboards e visualização de dados** (parte de "Eficiência para gestão de obras"):
+
+| Sub-critério | Pontos |
+| --- | ---: |
+| Clareza dos principais KPIs | 0–5 |
+| Hierarquia das informações | 0–4 |
+| Facilidade para identificar atrasos | 0–4 |
+| Facilidade para identificar desvios de custos | 0–4 |
+| Facilidade para identificar riscos/problemas | 0–3 |
+| Qualidade e escolha dos gráficos | 0–3 |
+| Uso adequado de cores e alertas | 0–2 |
+| Filtros por obra, período, equipe etc. | 0–3 |
+| Possibilidade de aprofundar informações | 0–2 |
+
+Teste rápido: um gestor deveria responder em poucos segundos "a obra está
+atrasada? quanto? onde? qual atividade está causando o problema? o custo
+realizado está acima do previsto?" — se precisa interpretar dez gráficos
+para isso, o dashboard não merece nota alta aqui.
+
+**Consistência visual e UI** (bloco próprio, "Qualidade visual"):
+
+| Sub-critério | Pontos |
+| --- | ---: |
+| Consistência de botões e ações | 0–4 |
+| Consistência de cores | 0–3 |
+| Consistência de tipografia | 0–3 |
+| Padronização dos ícones | 0–3 |
+| Padronização de campos e formulários | 0–3 |
+| Espaçamentos e alinhamentos | 0–3 |
+| Estados visuais: sucesso, erro, alerta, desabilitado | 0–3 |
+| Consistência entre desktop, tablet e mobile | 0–3 |
+
+Exemplo do que derruba nota aqui: o mesmo rótulo aparecer com grafia
+diferente em dois lugares do mesmo app (não é hipotético — ver achado #2
+da auditoria de linha de base).
+
+### Faixas de classificação
+
+| Nota | Classificação |
+| --- | --- |
+| 90–100 | Excelente — referência de mercado |
+| 80–89 | Muito bom |
+| 70–79 | Bom, com melhorias importantes |
+| 60–69 | Regular |
+| 50–59 | Fraco |
+| 0–49 | Experiência problemática |
+
 ### Regra de atualização deste ranking
 
 Rodar essa avaliação **antes de começar e depois de cada fase concluída**
