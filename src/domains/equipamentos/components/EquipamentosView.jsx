@@ -325,16 +325,23 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
     const source=(data.equipamentos||[]).find(item=>String(item.id)===String(form.equipmentId));
     if(!source){showToast("Equipamento de origem não encontrado.","error");return;}
     const tags=String(form.assetTags||"").split(/[;,\n]/).map(value=>value.trim()).filter(Boolean);
-    const result=await dispatchCommand?.(atual=>({
-      type:OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED,
-      idempotencyKey:`cadastro-fisico-classificar-${form.equipmentId}-${uid()}`,
-      expectedVersion:Number(atual.equipmentRegistryRevision||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-      payload:{equipmentId:form.equipmentId,kind:form.kind,
-        lot:{id:`legacy-lot:${form.equipmentId}`,quantity:Number(source.quantidadeTotal||1),unit:form.unit||"un",lotCode:form.lotCode||`LOTE-${form.equipmentId}`},
-        units:tags.map((assetTag,index)=>({id:`unit:${form.equipmentId}:${index+1}`,assetTag,status:"disponivel"}))},
-    }));
-    if(!result?.ok){showToast(result?.reason||"Não foi possível revisar a classificação física.","error");return;}
-    setPhysicalReview(null);showToast("Classificação física revisada e salva.");
+    setSalvandoEquipamento(`revisao-fisica-${form.equipmentId}`);
+    try{
+      const result=await dispatchCommand?.(atual=>({
+        type:OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED,
+        idempotencyKey:`cadastro-fisico-classificar-${form.equipmentId}-${uid()}`,
+        expectedVersion:Number(atual.equipmentRegistryRevision||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{equipmentId:form.equipmentId,kind:form.kind,
+          lot:{id:`legacy-lot:${form.equipmentId}`,quantity:Number(source.quantidadeTotal||1),unit:form.unit||"un",lotCode:form.lotCode||`LOTE-${form.equipmentId}`},
+          units:tags.map((assetTag,index)=>({id:`unit:${form.equipmentId}:${index+1}`,assetTag,status:"disponivel"}))},
+      }));
+      if(!result?.ok){showToast(result?.reason||"Não foi possível revisar a classificação física.","error");return;}
+      setPhysicalReview(null);showToast("Classificação física revisada e salva.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao revisar a classificação física.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
   };
   const excluirEquip = (e) => {
     const locacaoAberta=(data.locacoesEquip||[]).some(locacao=>
@@ -630,29 +637,43 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
     if(!f.equipamentoId||!f.data||!f.custo){ showToast("Preencha equipamento, data e custo.","error"); return; }
     const m = { ...f, custo:Number(f.custo||0) };
     const id=f.id||uid();
-    const result=await dispatchCommand?.(atual=>{
-      const current=(atual.manutencoesEquip||[]).find(item=>item.id===id);
-      return {type:OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,idempotencyKey:`manutencao-equipamento-salvar-${id}-${uid()}`,
-        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{maintenance:{...m,id}}};
-    });
-    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a manutenção.","error");return;}
-    setManutModal(null); showToast("Manutenção registrada.");
+    setSalvandoEquipamento("manutencao");
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.manutencoesEquip||[]).find(item=>item.id===id);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,idempotencyKey:`manutencao-equipamento-salvar-${id}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{maintenance:{...m,id}}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a manutenção.","error");return;}
+      setManutModal(null); showToast("Manutenção registrada.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao registrar a manutenção.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
   };
 
   const salvarIndisponibilidade=async(f)=>{
     if(!f.equipmentId||!f.startDate||!f.endDate||!f.reason){showToast("Preencha equipamento, período e motivo.","error");return;}
     const id=f.id||uid();
     const isReservation=f.type==="reservation";
-    const result=await dispatchCommand?.(atual=>{
-      const current=(atual.equipmentUnavailability||[]).find(item=>item.id===id);
-      return {type:isReservation?OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED:OPERATIONAL_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED,
-        idempotencyKey:`indisponibilidade-equipamento-salvar-${id}-${uid()}`,
-        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{unavailability:{...f,id,quantity:Math.max(1,Number(f.quantity||1))}}};
-    });
-    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a indisponibilidade.","error");return;}
-    setIndispModal(null);showToast(isReservation?"Reserva registrada.":"Indisponibilidade registrada.");
+    setSalvandoEquipamento("indisponibilidade");
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.equipmentUnavailability||[]).find(item=>item.id===id);
+        return {type:isReservation?OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED:OPERATIONAL_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED,
+          idempotencyKey:`indisponibilidade-equipamento-salvar-${id}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{unavailability:{...f,id,quantity:Math.max(1,Number(f.quantity||1))}}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a indisponibilidade.","error");return;}
+      setIndispModal(null);showToast(isReservation?"Reserva registrada.":"Indisponibilidade registrada.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao salvar a indisponibilidade.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
   };
 
   const cancelarIndisponibilidade=(item)=>setConfirmModal({
@@ -686,14 +707,21 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
   const salvarTransf = async(f) => {
     if(!f.equipamentoId||!f.paraObraId){ showToast("Escolha o equipamento e a obra de destino.","error"); return; }
     const id=uid();
-    const result=await dispatchCommand?.(atual=>{
-      const current=(atual.equipamentos||[]).find(item=>item.id===f.equipamentoId);
-      return {type:OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,idempotencyKey:`equipamento-transferir-${f.equipamentoId}-${uid()}`,
-        expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{transfer:{...f,id,data:f.data||today()}}};
-    });
-    if(!result?.ok){showToast(result?.reason||"Não foi possível transferir o equipamento.","error");return;}
-    setTransfModal(null); showToast(`Transferido para ${obraName(f.paraObraId)}.`);
+    setSalvandoEquipamento("transferencia");
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.equipamentos||[]).find(item=>item.id===f.equipamentoId);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,idempotencyKey:`equipamento-transferir-${f.equipamentoId}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{transfer:{...f,id,data:f.data||today()}}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível transferir o equipamento.","error");return;}
+      setTransfModal(null); showToast(`Transferido para ${obraName(f.paraObraId)}.`);
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao transferir o equipamento.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
   };
 
   // ---- Formulários vazios ----
@@ -1336,7 +1364,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
         <div style={{display:"flex",flexDirection:"column",gap:9}}>
           <Sel label="Classificação *" value={physicalReview.kind} onChange={v=>setPhysicalReview(form=>({...form,kind:v}))} options={[{v:"lot",l:"Lote controlado por quantidade"},{v:"unit",l:"Unidades físicas individualizadas"}]}/>
           {physicalReview.kind==="lot"?<><Inp label="Identificação do lote *" value={physicalReview.lotCode} onChange={v=>setPhysicalReview(form=>({...form,lotCode:v}))}/><Inp label="Unidade de controle" value={physicalReview.unit} onChange={v=>setPhysicalReview(form=>({...form,unit:v}))}/><p style={{fontSize:9.5,color:C.muted}}>Quantidade preservada do cadastro: <b>{expected}</b>.</p></>:<><Inp label={`Patrimônios / séries (${expected}) *`} value={physicalReview.assetTags} onChange={v=>setPhysicalReview(form=>({...form,assetTags:v}))} multiline placeholder="Separe por vírgula ou uma linha por unidade"/><p style={{fontSize:9.5,color:C.muted}}>Informe exatamente {expected} identificação(ões) única(s).</p></>}
-          <Btn full onClick={()=>salvarRevisaoFisica(physicalReview)}>Salvar classificação física</Btn>
+          <Btn full disabled={!!salvandoEquipamento} onClick={()=>salvarRevisaoFisica(physicalReview)}>{salvandoEquipamento===`revisao-fisica-${physicalReview.equipmentId}`?"Salvando...":"Salvar classificação física"}</Btn>
         </div>
       </Modal>;})()}
 
@@ -1628,7 +1656,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             <Sel label="Pago por" value={manutModal.pagoPor} onChange={v=>setManutModal(f=>({...f,pagoPor:v}))} options={[{v:"empresa",l:"Empresa"},{v:"proprietario",l:"Proprietário (terceiro)"}]}/>
             <Inp label="Fornecedor / oficina" value={manutModal.fornecedor} onChange={v=>setManutModal(f=>({...f,fornecedor:v}))}/>
             <div style={{gridColumn:"1/-1"}}><Inp label="Descrição" value={manutModal.descricao} onChange={v=>setManutModal(f=>({...f,descricao:v}))} multiline/></div>
-            <div style={{gridColumn:"1/-1"}}><Btn full onClick={()=>salvarManut(manutModal)}>Registrar manutenção</Btn></div>
+            <div style={{gridColumn:"1/-1"}}><Btn full disabled={!!salvandoEquipamento} onClick={()=>salvarManut(manutModal)}>{salvandoEquipamento==="manutencao"?"Registrando...":"Registrar manutenção"}</Btn></div>
           </div>
         </Modal>
       )}
@@ -1648,7 +1676,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             <div style={{gridColumn:"1/-1"}}><Inp label="Motivo *" value={indispModal.reason} onChange={v=>setIndispModal(f=>({...f,reason:v}))} multiline/></div>
             <div style={{gridColumn:"1/-1",display:"flex",gap:8,justifyContent:"flex-end"}}>
               {indispModal.id&&isActiveUnavailability(indispModal)&&<Btn v="danger" disabled={!!salvandoEquipamento} onClick={()=>cancelarIndisponibilidade(indispModal)}><Ic n="trash"/> Cancelar</Btn>}
-              <Btn onClick={()=>salvarIndisponibilidade(indispModal)}><Ic n="check"/> Salvar</Btn>
+              <Btn disabled={!!salvandoEquipamento} onClick={()=>salvarIndisponibilidade(indispModal)}><Ic n="check"/> {salvandoEquipamento==="indisponibilidade"?"Salvando...":"Salvar"}</Btn>
             </div>
           </div>
         </Modal>
@@ -1680,7 +1708,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             <Inp label="Data" type="date" value={transfModal.data} onChange={v=>setTransfModal(f=>({...f,data:v}))}/>
             <Inp label="Responsável" value={transfModal.responsavel} onChange={v=>setTransfModal(f=>({...f,responsavel:v}))}/>
             <Inp label="Observações" value={transfModal.obs} onChange={v=>setTransfModal(f=>({...f,obs:v}))} multiline/>
-            <Btn full onClick={()=>salvarTransf(transfModal)}>Confirmar transferência</Btn>
+            <Btn full disabled={!!salvandoEquipamento} onClick={()=>salvarTransf(transfModal)}>{salvandoEquipamento==="transferencia"?"Transferindo...":"Confirmar transferência"}</Btn>
           </div>
         </Modal>
       )}
