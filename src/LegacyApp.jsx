@@ -48,6 +48,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Alert, AlertDescription } from "./components/ui/alert";
 import { ThemeSettings } from "./design-system/theme/ThemeSettings";
 import { Button as DesignSystemButton } from "./design-system/primitives/Button.jsx";
+import { Dialog as DesignSystemDialog } from "./design-system/primitives/Dialog.jsx";
+import { Input as DesignSystemInput } from "./design-system/primitives/Input.jsx";
+import { Select as DesignSystemSelect } from "./design-system/primitives/Select.jsx";
 import { Eye, EyeOff, ChevronLeft, Delete } from "lucide-react";
 import { cn } from "./lib/utils";
 import { features } from "./config/features";
@@ -4363,7 +4366,7 @@ function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCo
   const Tabela=({lista})=><div className="obra-fin-table-wrap"><table className="obra-fin-table"><thead><tr><th>Movimentação</th><th>Origem</th><th>Data</th><th>Natureza</th><th>Valor</th></tr></thead><tbody>{lista.map(m=><tr key={m.id}><td data-label="Movimentação"><b>{m.descricao}</b><small>{m.documento||m.grupo}</small></td><td data-label="Origem">{m.origem}</td><td data-label="Data">{m.data?fmtDate(m.data):"—"}</td><td data-label="Natureza"><span className={`obra-fin-status ${m.status}`}>{m.tipo==="receita"?"Receita reconhecida":m.tipo==="custo"?"Custo incorrido":m.tipo==="entrada"?"Entrada de caixa":"Saída de caixa"}</span></td><td data-label="Valor" className={["custo","saida"].includes(m.tipo)?"despesa":"receita"}>{["custo","saida"].includes(m.tipo)?"− ":"+ "}{fmt(m.valor)}</td></tr>)}</tbody></table>{!lista.length&&<div className="obra-fin-empty">Nenhuma movimentação encontrada neste filtro.</div>}</div>;
 
   return <div className="obra-financeiro">
-    <header className="obra-fin-header"><div><p>CONTROLE FINANCEIRO DA OBRA</p><h2>{obra?.name||"Obra"}</h2><span>Recebimentos, compromissos e pagamentos em uma única visão.</span></div><Btn onClick={()=>{setDespForm({obraId,competencia:periodo,categoria:"material",descricao:"",valor:""});setDespModal(true);}}><Ic n="plus"/> Nova despesa</Btn></header>
+    <header className="obra-fin-header"><div><p>CONTROLE FINANCEIRO DA OBRA</p><h2>{obra?.name||"Obra"}</h2><span>Recebimentos, compromissos e pagamentos em uma única visão.</span></div><DesignSystemButton onClick={()=>{setDespForm({obraId,competencia:periodo,categoria:"material",descricao:"",valor:""});setDespModal(true);}}><Ic n="plus"/> Nova despesa</DesignSystemButton></header>
     <TabRow tabs={[["resumo","Resumo"],["dre","DRE por competência"],["caixa","Entradas e saídas"],["posicoes","Contas em aberto"],["movimentos","Rastreabilidade"],["orcado","Orçado × comprometido"]]} active={aba} onChange={setAba}/>
     <div className="obra-fin-controls"><label><span>Competência</span><input type="month" value={periodo} onChange={e=>setPeriodo(e.target.value)}/></label>{aba!=="resumo"&&aba!=="orcado"&&<label className="obra-fin-search"><span>Pesquisar</span><input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Descrição, fornecedor ou categoria"/></label>}</div>
     {aba==="resumo"&&<><section className="obra-fin-summary">
@@ -4374,17 +4377,17 @@ function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCo
     {["dre","caixa","movimentos"].includes(aba)&&<Tabela lista={listaAba}/>}
     {aba==="posicoes"&&<section className="obra-fin-summary"><div className="obra-fin-column"><h3>Contas a receber</h3><Metric label="Saldo" value={dre.contasReceber} detail="Medições menos recebimentos vinculados"/><Metric label="Recebimentos não alocados" value={dre.recebimentosNaoAlocados} detail="Entraram no caixa sem baixar documento"/></div><div className="obra-fin-column"><h3>Contas a pagar</h3><Metric label="Saldo" value={dre.contasPagar} detail="NFs e medições de terceiros menos pagamentos"/><Metric label="Pagamentos não alocados" value={dre.pagamentosNaoAlocados} detail="Saíram do caixa sem obrigação reconhecida"/></div><div className="obra-fin-column"><h3>Compromissos</h3><Metric label="Pedidos comprometidos" value={dre.comprometido} detail="Pedido aprovado menos documentos reconhecidos"/></div></section>}
     {aba==="orcado"&&<section className="obra-fin-budget"><div className="obra-fin-budget-kpis"><Metric label="Custo orçado" value={orcado} detail="Orçamento aprovado"/><Metric label="Custo realizado" value={realizadoCustos} detail={`${orcado?(realizadoCustos/orcado*100).toFixed(1):"0,0"}% consumido`} tone={realizadoCustos>orcado?"danger":"negative"}/><Metric label="Saldo do orçamento" value={orcado-realizadoCustos} detail="Disponível para executar" tone={orcado-realizadoCustos>=0?"positive":"danger"}/></div><div className="obra-fin-budget-progress"><div><span>Execução financeira</span><b>{orcado?Math.round(realizadoCustos/orcado*100):0}%</b></div><i><b style={{width:`${Math.min(100,orcado?realizadoCustos/orcado*100:0)}%`}}/></i></div><div className="obra-fin-categories"><h3>Custos realizados por categoria</h3>{categorias.map(([l,v])=><div key={l}><span>{l}</span><i><b style={{width:`${realizadoCustos?v/realizadoCustos*100:0}%`}}/></i><strong>{fmt(v)}</strong></div>)}{!categorias.length&&<em>Sem custos realizados nesta competência.</em>}</div></section>}
-    {despModal&&<Modal title="Nova despesa da obra" onClose={()=>setDespModal(false)}><div style={{display:"grid",gap:10}}><Inp label="Obra" value={obra?.name||""} onChange={()=>{}} disabled/><Inp label="Descrição *" value={despForm.descricao} onChange={v=>setDespForm(f=>({...f,descricao:v}))}/><Sel label="Categoria" value={despForm.categoria} onChange={v=>setDespForm(f=>({...f,categoria:v}))} options={categoriasDesp(data)}/><Inp label="Competência" type="month" value={despForm.competencia} onChange={v=>setDespForm(f=>({...f,competencia:v}))}/><Inp label="Valor *" type="number" value={despForm.valor} onChange={v=>setDespForm(f=>({...f,valor:v}))}/>
+    <DesignSystemDialog open={despModal} onOpenChange={setDespModal} title="Nova despesa da obra"><div style={{display:"grid",gap:10}}><DesignSystemInput label="Obra" value={obra?.name||""} onChange={()=>{}} disabled/><DesignSystemInput label="Descrição" required value={despForm.descricao} onChange={e=>setDespForm(f=>({...f,descricao:e.target.value}))}/><DesignSystemSelect label="Categoria" value={despForm.categoria} onChange={e=>setDespForm(f=>({...f,categoria:e.target.value}))} options={categoriasDesp(data).map(c=>({value:c.v,label:c.l}))}/><DesignSystemInput label="Competência" type="month" value={despForm.competencia} onChange={e=>setDespForm(f=>({...f,competencia:e.target.value}))}/><DesignSystemInput label="Valor" required type="number" value={despForm.valor} onChange={e=>setDespForm(f=>({...f,valor:e.target.value}))}/>
       {despForm.categoria==="material" && ["admin_only","fixed_labor_admin"].includes(obra?.contractType) && (
         <div>
           <p style={{fontSize:11,fontWeight:700,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Este material entra na taxa de administração?</p>
           <div style={{display:"flex",gap:8}}>
-            <Btn size="sm" v={despForm.contaAdmin!==false?"success":"ghost"} onClick={()=>setDespForm(f=>({...f,contaAdmin:true}))} full>Sim, entra</Btn>
-            <Btn size="sm" v={despForm.contaAdmin===false?"danger":"ghost"} onClick={()=>setDespForm(f=>({...f,contaAdmin:false}))} full>Não entra</Btn>
+            <DesignSystemButton size="sm" variant={despForm.contaAdmin!==false?"success":"ghost"} onClick={()=>setDespForm(f=>({...f,contaAdmin:true}))} style={{flex:1}}>Sim, entra</DesignSystemButton>
+            <DesignSystemButton size="sm" variant={despForm.contaAdmin===false?"danger":"ghost"} onClick={()=>setDespForm(f=>({...f,contaAdmin:false}))} style={{flex:1}}>Não entra</DesignSystemButton>
           </div>
         </div>
       )}
-      <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setDespModal(false)}>Cancelar</Btn><Btn full disabled={expenseCommandPending} onClick={salvarDespesa}>{expenseCommandPending?"Salvando...":"Salvar despesa"}</Btn></div></div></Modal>}
+      <div style={{display:"flex",gap:8}}><DesignSystemButton variant="ghost" onClick={()=>setDespModal(false)} style={{flex:1}}>Cancelar</DesignSystemButton><DesignSystemButton disabled={expenseCommandPending} onClick={salvarDespesa} style={{flex:1}}>{expenseCommandPending?"Salvando...":"Salvar despesa"}</DesignSystemButton></div></div></DesignSystemDialog>
   </div>;
 }
 
@@ -13689,6 +13692,39 @@ export const calcOrcadoComprado = (data, obraId) => {
     .sort((a,b) => b.comprado - a.comprado);
 
   return { orc, linhas, semApropriacao };
+};
+
+// Visão executiva do orçamento por etapa de primeiro nível. Cada valor só é
+// apropriado quando a origem aponta para uma linha real do orçamento; valores
+// sem vínculo ficam separados para não produzirmos uma precisão fictícia.
+// Usada tanto por OrcamentoView.jsx (extraído) quanto por ObraDetalhe, aqui
+// mesmo - por isso não pode ficar só dentro de um dos dois.
+export const calcControleCustosOrcamento = (data, orc) => {
+  if(!orc)return{etapas:[],total:{},semApropriacao:{solicitado:0,comprometido:0,recebido:0,aplicado:0}};
+  const etapas=orc.etapas||[];const etapaPorId=new Map(etapas.map(e=>[e.id,e]));
+  const itemPorId=new Map((orc.itens||[]).filter(i=>i.tipo!=="titulo").map(i=>[i.id,i]));
+  const raizDaEtapa=id=>{let e=etapaPorId.get(id),n=0;while(e?.parentId&&n++<30)e=etapaPorId.get(e.parentId)||e;return e;};
+  const raizDoItem=id=>{const item=itemPorId.get(id);return item?raizDaEtapa(item.etapaId):null;};
+  const raizVinculo=i=>etapaPorId.get(i?.orcNivel1Id)?raizDaEtapa(i.orcNivel1Id):raizDoItem(i?.orcItemId);
+  const mapa=new Map();
+  const linha=e=>{const id=e?.id||"sem_etapa";if(!mapa.has(id))mapa.set(id,{id,nome:e?.nome||"Sem etapa",ordem:Number(e?.ordem||0),orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0});return mapa.get(id);};
+  itemPorId.forEach(item=>{linha(raizDaEtapa(item.etapaId)).orcado+=Number(item.quantidade||0)*Number(item.precoUnit||0);});
+  const sem={solicitado:0,comprometido:0,recebido:0,aplicado:0};
+  (data.solicitacoesCompra||[]).filter(s=>s.obraId===orc.obraId&&!['cancelada','rejeitada'].includes(s.status)).forEach(s=>(s.itens||[]).forEach(i=>{
+    const valor=referenceTotalOf(i),raiz=raizVinculo(i);
+    if(raiz)linha(raiz).solicitado+=valor;else sem.solicitado+=valor;
+  }));
+  const transacaoPorId=new Map((data.transacoes||[]).map(t=>[t.id,t]));
+  (data.pedidos||[]).filter(p=>p.obraId===orc.obraId&&p.status!=="cancelado").forEach(p=>{
+    const pago=statusPagamentoPedido(p)==="pago"||(!!p.transacaoId&&transacaoPorId.get(p.transacaoId)?.status==="conciliado");
+    (p.itens||[]).forEach(i=>{const raiz=raizVinculo(i),total=Number(i.qtd||0)*Number(i.precoUnit||0),recebido=Number(i.qtdRecebida||0)*Number(i.precoUnit||0);
+      if(raiz){const l=linha(raiz);l.comprometido+=total;l.recebido+=recebido;if(pago)l.pago+=total;}else{sem.comprometido+=total;sem.recebido+=recebido;}
+    });
+  });
+  (data.movEstoque||[]).filter(m=>m.obraId===orc.obraId&&m.tipo==="consumo").forEach(m=>{const valor=Number(m.qtd||0)*Number(m.valorUnit||0),raiz=raizVinculo(m);if(raiz)linha(raiz).aplicado+=valor;else sem.aplicado+=valor;});
+  const lista=[...mapa.values()].map(l=>({...l,saldo:l.orcado-l.comprometido,projecao:Math.max(l.orcado,l.comprometido),percentual:l.orcado?l.comprometido/l.orcado*100:0})).sort((a,b)=>a.ordem-b.ordem||a.nome.localeCompare(b.nome));
+  const total=lista.reduce((a,l)=>{Object.keys(a).forEach(k=>a[k]+=Number(l[k]||0));return a;},{orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0,saldo:0,projecao:0});
+  return{etapas:lista,total,semApropriacao:sem};
 };
 
 // Painel da obra: comprado → recebido → aplicado → pago.

@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-08-17T13:01:45.366Z",
+  "generatedAt": "2026-08-17T14:25:59.926Z",
   "totals": {
-    "bytes": 4610712,
-    "gzipBytes": 1280480
+    "bytes": 4611659,
+    "gzipBytes": 1280980
   },
   "assets": [
     {
-      "name": "LegacyApp-BWvbp1ZP.js",
-      "bytes": 1565241,
-      "gzipBytes": 473586
+      "name": "LegacyApp-CxnD2Bfo.js",
+      "bytes": 1567449,
+      "gzipBytes": 474133
     },
     {
       "name": "spreadsheet-tools-CSE3Njtv.js",
@@ -21,24 +21,24 @@
       "gzipBytes": 102430
     },
     {
-      "name": "OrcamentoView-GKNargL4.js",
-      "bytes": 184568,
-      "gzipBytes": 46826
-    },
-    {
-      "name": "index-D2-C7Y_O.js",
+      "name": "index-Ce-wBL2h.js",
       "bytes": 142464,
-      "gzipBytes": 46758
+      "gzipBytes": 46752
     },
     {
-      "name": "index-DG-Zd4U0.css",
-      "bytes": 261547,
-      "gzipBytes": 44037
+      "name": "OrcamentoView-CerxTdfT.js",
+      "bytes": 182495,
+      "gzipBytes": 46170
     },
     {
-      "name": "ComprasView-Cw0MjlOF.js",
-      "bytes": 172140,
-      "gzipBytes": 41355
+      "name": "index-DxAQhpJx.css",
+      "bytes": 262334,
+      "gzipBytes": 44194
+    },
+    {
+      "name": "ComprasView-HVMRTNn1.js",
+      "bytes": 172127,
+      "gzipBytes": 41397
     },
     {
       "name": "financial-domain-Bj5ZYI12.js",
@@ -51,29 +51,29 @@
       "gzipBytes": 27419
     },
     {
-      "name": "PlanejamentoView-DlliknqY.js",
-      "bytes": 103867,
-      "gzipBytes": 27137
+      "name": "PlanejamentoView-GjTPGBWy.js",
+      "bytes": 103870,
+      "gzipBytes": 27148
     },
     {
-      "name": "ComercialView-YVJvoWSt.js",
-      "bytes": 106624,
-      "gzipBytes": 25889
+      "name": "ComercialView-BvLMrYWP.js",
+      "bytes": 106625,
+      "gzipBytes": 25893
     },
     {
-      "name": "ConciliacaoView-C1E1czJv.js",
-      "bytes": 85725,
-      "gzipBytes": 20931
+      "name": "ConciliacaoView-CTX0ziZ_.js",
+      "bytes": 85727,
+      "gzipBytes": 20927
     },
     {
-      "name": "TerceirosView-BW86grHU.js",
-      "bytes": 79515,
-      "gzipBytes": 20678
+      "name": "TerceirosView-DVtf-SmT.js",
+      "bytes": 79516,
+      "gzipBytes": 20682
     },
     {
-      "name": "FolhaView-Dk4KaTOa.js",
-      "bytes": 41344,
-      "gzipBytes": 12561
+      "name": "FolhaView-BtSxBxFH.js",
+      "bytes": 41335,
+      "gzipBytes": 12558
     },
     {
       "name": "Button-DexF8STh.js",
@@ -81,14 +81,14 @@
       "gzipBytes": 9231
     },
     {
-      "name": "MedicoesView-DNcTtxpJ.js",
-      "bytes": 35310,
-      "gzipBytes": 8971
-    },
-    {
       "name": "RealEstateCommercial-DXV88ngA.js",
       "bytes": 39770,
       "gzipBytes": 8970
+    },
+    {
+      "name": "MedicoesView-gSSD2cjP.js",
+      "bytes": 35310,
+      "gzipBytes": 8967
     },
     {
       "name": "RechartsRuntime-B6vcUKay.js",
@@ -116,14 +116,19 @@
       "gzipBytes": 5459
     },
     {
-      "name": "SupplierEditor-CqQEZcO-.js",
-      "bytes": 14226,
-      "gzipBytes": 4550
+      "name": "SupplierEditor-EEpvjyeC.js",
+      "bytes": 12584,
+      "gzipBytes": 4426
     },
     {
-      "name": "CentralAdministradorView-Bbfb2MJt.js",
+      "name": "CentralAdministradorView-CKQj3d3W.js",
       "bytes": 9597,
-      "gzipBytes": 3722
+      "gzipBytes": 3723
+    },
+    {
+      "name": "categories-BFzW_e6f.js",
+      "bytes": 8440,
+      "gzipBytes": 3440
     },
     {
       "name": "real-estate-BVanGF-i.js",
@@ -134,11 +139,6 @@
       "name": "ClientPortalApp-CY00BwLl.css",
       "bytes": 12193,
       "gzipBytes": 2911
-    },
-    {
-      "name": "categories-CyQvx8la.js",
-      "bytes": 6758,
-      "gzipBytes": 2909
     },
     {
       "name": "sinapi-parser.worker-BbrY0EV9.js",
@@ -171,7 +171,7 @@
       "gzipBytes": 1334
     },
     {
-      "name": "LegacyMobileNavigation-DNwdo79U.js",
+      "name": "LegacyMobileNavigation-DHEVvDmX.js",
       "bytes": 2784,
       "gzipBytes": 1294
     },
@@ -276,7 +276,7 @@
       ]
     },
     "violations": [
-      "Total JS/CSS gzip 1280480 excede 1249280."
+      "Total JS/CSS gzip 1280980 excede 1249280."
     ]
   }
 }
