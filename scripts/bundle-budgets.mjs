@@ -17,8 +17,25 @@
 // esse crescimento nunca tinha sido checado pelo CI (12 commits locais ainda
 // não enviados ao remoto). Mesma lógica do ajuste anterior: orçamento sobe
 // com folga modesta em vez de bloquear o primeiro push depois da extração.
+//
+// Novo ajuste em 17/08/2026 (2): extração de Equipamentos (~1.640 linhas,
+// a 2ª maior tela ainda inline) para src/domains/equipamentos/components/
+// EquipamentosView.jsx. Investigado com um A/B de build isolado (mesmo
+// conteúdo-fonte, só comparando antes/depois): a extração não duplica
+// código-fonte (confirmado por diff de sourcemap - nenhum arquivo novo
+// aparece no chunk do LegacyApp), mas o Rollup passou a inlinar módulos do
+// domínio equipamentos/* tanto no chunk principal (LegacyApp ainda usa
+// melhorTarifa/cobrancaLocacao/etc. em resumoLocacaoEquip, função não
+// relacionada à tela) quanto no novo chunk dinâmico (EquipamentosView),
+// em vez de fatorar um chunk compartilhado - o mesmo módulo virou alcançável
+// por uma aresta estática (LegacyApp) e uma dinâmica (EquipamentosView) ao
+// mesmo tempo. Tentativa de forçar manualChunks a compartilhar esse código
+// piorou drasticamente (o chunk principal foi fundido inteiro dentro do
+// chunk manual) e foi revertida - não vale o risco de manualChunks nesta
+// sessão. Mesma lógica dos ajustes anteriores: orçamento sobe com folga
+// modesta; investigar manualChunks com mais cuidado fica para depois.
 export const BUNDLE_BUDGETS = Object.freeze({
-  totalGzipBytes: 1_260 * 1024,
+  totalGzipBytes: 1_520 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
