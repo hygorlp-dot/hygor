@@ -9,6 +9,51 @@
 > (`docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`): um passo por vez, suíte
 > completa verde a cada passo, sem big bang.
 
+## Critério de avaliação (framework de ranking)
+
+> Proposto pelo usuário em 17/08/2026, formalizado aqui como a régua
+> oficial de avaliação deste roadmap. Substitui qualquer instinto de
+> "parece mais bonito" por um placar com peso, porque para um sistema de
+> gestão de obras **clareza, velocidade e ausência de erro valem mais que
+> estética** — um app lindo que atrasa uma medição no campo é um app pior,
+> não melhor.
+
+Nota de 0 a 100, dividida em três blocos:
+
+| Bloco | Peso | Critérios internos |
+| --- | ---: | --- |
+| **Experiência do usuário** | 50 | Usabilidade e facilidade de aprendizado (20%); Organização da informação (15%); Prevenção de erros e feedback (7%); Acessibilidade e legibilidade (5%); Percepção de velocidade (3%) |
+| **Eficiência para gestão de obras** | 35 | Eficiência nas tarefas de obra (15%); Experiência mobile/em campo (15%); Dashboards e visualização de dados (10%, ajustado para caber no bloco — ver nota) |
+| **Qualidade visual** | 15 | Consistência visual e UI (8%); Qualidade estética (2%); resíduo do bloco de dashboards |
+
+> Nota: os pesos individuais do usuário somam 100% distribuídos em 10
+> critérios; o agrupamento em 3 blocos (50/35/15) é uma segunda camada de
+> leitura para não deixar um app esteticamente impecável, mas ruim de
+> operar, subir no ranking. Manter os dois níveis (peso por critério E
+> teto por bloco) ao pontuar.
+
+### Os 5 testes de tarefa real
+
+A nota de "Eficiência nas tarefas de obra" não é opinião — é medida
+executando estas 5 tarefas e contando passos/cliques até o resultado:
+
+1. Registrar uma ocorrência com foto.
+2. Consultar o avanço físico da obra.
+3. Identificar uma atividade atrasada.
+4. Comparar orçamento previsto × realizado.
+5. Encontrar um documento ou projeto específico.
+
+Quanto menos passos e menos ambiguidade (o usuário nunca precisa parar
+para pensar "onde clico agora"), melhor a nota desse bloco.
+
+### Regra de atualização deste ranking
+
+Rodar essa avaliação **antes de começar e depois de cada fase concluída**
+da Fase 2 em diante — não é uma nota única, é uma série temporal. A
+diferença entre a nota "antes" e "depois" de migrar uma tela é a evidência
+real de que a fase valeu a pena, no lugar de "ficou mais consistente com
+o design-system" (que é meio, não fim).
+
 ## Por que não "refazer tudo de uma vez"
 
 Este é um sistema financeiro real, em produção, com pessoas trabalhando
