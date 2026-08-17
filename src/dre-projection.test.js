@@ -81,6 +81,26 @@ describe("projeção canônica do DRE", () => {
     expect(statement.receitaLiquida-statement.totalCSP-statement.totalDespOp).toBe(statement.ebitda);
   });
 
+  it("cobra a locação por quantidade de unidades e pelo pacote tarifário mais barato, não pela diária simples", () => {
+    const data={
+      config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra 1"}],employees:[],attendance:{},
+      medicoes:[],payments:[],pagsTerceiros:[],rescisoes:[],outrasDesp:[],pedidos:[],despesasEmpresa:[],
+      equipamentos:[{id:"e1",quantidadeTotal:3},{id:"e2",quantidadeTotal:1}],
+      locacoesEquip:[
+        // 3 unidades por 5 dias a R$100/dia: custo deve multiplicar pela quantidade, não só pela diária.
+        {id:"l1",equipamentoId:"e1",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-05",quantidade:3,valorDiaria:100,status:"em_andamento"},
+        // 30 dias com tarifa mensal de R$2000 disponível: deve usar o pacote mensal, não 30 diárias de R$100.
+        {id:"l2",equipamentoId:"e2",obraId:"o1",inicio:"2026-07-01",fim:"2026-07-30",quantidade:1,valorDiaria:100,tarifas:{dia:100,mes:2000},status:"em_andamento"},
+      ],
+      manutencoesEquip:[],
+    };
+    const work=buildDreProjectionRows(data).find(row=>row.sourceId==="2026-07:mes:o1")?.payload;
+    // l1: 5 dias x R$100 x 3 unidades = 1500 (não 500, que ignoraria a quantidade).
+    // l2: pacote mensal de R$2000 (não 30 x R$100 = 3000, que ignoraria a otimização de pacote).
+    expect(work.equipCost).toBe(1500+2000);
+    expect(work.totalCustos).toBe(work.equipCost);
+  });
+
   it("preserva custos arquivados e ignora registros cancelados", () => {
     const data={
       config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra 1"}],employees:[],attendance:{},

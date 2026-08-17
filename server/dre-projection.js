@@ -4,7 +4,7 @@ import {
   COMPANY_EXPENSE_GROUPS,
   emptyCompanyExpenseGroupTotals,
 } from "../src/domains/dre/expense-taxonomy.js";
-import { calcEquipMes, diasLocacaoNoPeriodo } from "../src/domains/equipamentos/calculations.js";
+import { calcEquipCustoObra, calcEquipMes } from "../src/domains/equipamentos/calculations.js";
 import { active } from "../src/domains/financeiro/ledger.js";
 import { createLaborCostEngine } from "../src/domains/financeiro/labor-cost-engine.js";
 import {
@@ -59,14 +59,6 @@ const thirdCompanyWork = (data,obraId,start,end) => (data?.pagsTerceiros||[])
 const purchases = (data,obraId,start,end) => (data?.pedidos||[])
   .filter(item=>active(item)&&item.obraId===obraId&&item.status!=="rascunho"&&item.data>=start&&item.data<=end)
   .reduce((sum,item)=>sum+totalPurchase(item),0);
-const equipmentWork = (data,obraId,ym,start,end) => (data?.locacoesEquip||[])
-  .filter(item=>active(item)&&item.obraId===obraId)
-  .reduce((sum,item)=>{
-    const days=diasLocacaoNoPeriodo(item,start,end);
-    if(!days)return sum;
-    const gross=days*Number(item.valorDiaria||0);
-    return sum+Math.max(0,gross-Number(item.descontoValor||0)-gross*Number(item.descontoPct||0)/100);
-  },0);
 const equipmentCompany = (data,ym) => {
   const equipmentIds=new Set([
     ...(data?.equipamentos||[]).map(equipment=>equipment.id),
@@ -92,7 +84,7 @@ const calculations=createDreCalculations({
   getDays,getQ,monthName:month=>String(month+1),
   calcObraLaborCost:laborCost,calcObraTercCost:thirdWork,
   calcTercEmpresaCost:thirdCompany,calcObraTercEmpresaCost:thirdCompanyWork,
-  calcObraComprasCost:purchases,calcEquipCustoObra:equipmentWork,
+  calcObraComprasCost:purchases,calcEquipCustoObra,
   calcEquipFaturamentoEmpresa:equipmentCompany,
 });
 
