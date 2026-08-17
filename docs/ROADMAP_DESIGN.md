@@ -115,7 +115,7 @@ por este documento e por um teste, não por `var()` compartilhado.
 Ordem sugerida (por tráfego/superfície de erro, mesma lente já usada na
 matriz de qualidade):
 
-1. Dashboard
+1. Dashboard — **iniciado em 17/08/2026** (commit `698075d`)
 2. Financeiro / DRE
 3. Compras
 4. Obras
@@ -129,6 +129,29 @@ inteira num commit só.**
 Critério de saída por tela: `grep -c "style={{"` cai de forma mensurável,
 zero teste quebrado, zero mudança de comportamento, aprovação visual em
 claro e escuro (`ThemeSettings`).
+
+#### Dashboard — nota de escopo real
+
+O Dashboard (`src/LegacyApp.jsx:4178-4273`) é estruturalmente diferente
+das telas de formulário (Compras, Orçamento): **não usa `Btn`/`Sel`/`Inp`/
+`Modal` locais em nenhum lugar** — é uma tela de leitura/KPI, não de
+cadastro. A única superfície real de componente compartilhado eram os 3
+usos de `LINK_BTN_STYLE` ("Ver portfólio →", "Detalhes →", "Abrir
+comercial →"), migrados para `Button` (`variant="link"`) do
+design-system, com uma classe (`.dashboard-link-btn`) para preservar a
+aparência exata (o `variant="link"` do design-system vem com sublinhado e
+tamanho de fonte que o Dashboard nunca teve).
+
+O restante do Dashboard usa `<button>` nativo com layout customizado
+(cards de KPI clicáveis, itens de lista com grid próprio, botões de
+"ações rápidas" com ícone empilhado sobre o rótulo). Forçar esses dentro
+do componente `Button` genérico não é recomendado — não são botões de
+formulário, são cards clicáveis com estrutura visual própria; a régua de
+anti-padrão deste documento ("se reduz densidade ou legibilidade, é
+regressão") também vale para forçar um componente genérico onde a
+estrutura não cabe. **Considerar o Dashboard concluído nesta fase** — não
+há mais superfície de baixo risco a migrar ali sem também entrar em
+redesenho de layout, que é decisão de produto, não de token/componente.
 
 ### Fase 3 — Telas de uso médio
 
