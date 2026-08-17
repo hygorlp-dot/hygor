@@ -673,6 +673,15 @@
   cursor: text;
 }
 
+/* Preserva a aparência exata do antigo LINK_BTN_STYLE (Dashboard) ao migrar
+   para o Button do design-system (variant="link"): esse variant vem com
+   sublinhado e tamanho de fonte padrão, que o Dashboard nunca teve. */
+.dashboard-link-btn.arcd-button--link {
+  font-size: 10.5px;
+  font-weight: var(--arcd-font-weight-bold);
+  text-decoration: none;
+}
+
 /* O aviso nunca pode competir com o conteúdo nem ficar encoberto pela
    navegação fixa no celular. Cor informa a gravidade; borda e texto fazem o resto. */
 .arcd-toast {
