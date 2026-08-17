@@ -231,7 +231,16 @@ Ordem sugerida (por tráfego/superfície de erro, mesma lente já usada na
 matriz de qualidade):
 
 1. Dashboard — **iniciado em 17/08/2026** (commit `698075d`)
-2. Financeiro / DRE
+2. Financeiro / DRE — **iniciado em 17/08/2026**: modal de despesa da
+   `FinanceiroObraPainel` (visão por obra) migrado primeiro; em seguida o
+   modal "Lançar Outras Despesas" da `DRELegado` (visão consolidada,
+   `src/LegacyApp.jsx:4398-5372`), mesmo padrão (`Dialog`/`Input`/
+   `Select`/`Button`). `DRELegado` ainda tem 3 modais locais (`Btn`/`Sel`/
+   `Inp`/`Modal`) por migrar: o modal de upload por IA (mais complexo —
+   fluxo de análise em lote e revisão de sugestões) e o modal de detalhe
+   de KPI `detalheKpi` (busca + filtro de categoria + tabela) — deixados
+   para cortes seguintes, seguindo a regra de migrar um componente por
+   vez, do mais isolado ao mais acoplado.
 3. Compras
 4. Obras
 5. Ponto

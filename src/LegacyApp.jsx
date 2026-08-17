@@ -5128,39 +5128,34 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       )}
 
       {/* Modal: outras despesas */}
-      {despModal&&(
-        <Modal title="Lançar Outras Despesas" onClose={()=>setDespModal(false)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            {obraIdFixo
-              ? <Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-              : <Sel label="Obra *" value={despForm.obraId} onChange={DF("obraId")} options={[{v:"",l:"Selecione"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
-            }
+      <DesignSystemDialog open={despModal} onOpenChange={setDespModal} title="Lançar Outras Despesas">
+        <div style={{display:"grid",gap:10}}>
+          {obraIdFixo
+            ? <DesignSystemInput label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+            : <DesignSystemSelect label="Obra" required value={despForm.obraId} onChange={e=>DF("obraId")(e.target.value)} options={[{value:"",label:"Selecione"},...data.obras.map(o=>({value:o.id,label:o.name}))]}/>
+          }
+          <DesignSystemInput label="Competência (mês/ano)" required type="month" value={despForm.competencia} onChange={e=>DF("competencia")(e.target.value)}/>
+          <DesignSystemSelect label="Categoria" required value={despForm.categoria} onChange={e=>DF("categoria")(e.target.value)} options={categoriasDesp(data).map(c=>({value:c.v,label:c.l}))}/>
+          <DesignSystemInput label="Descrição" value={despForm.descricao} onChange={e=>DF("descricao")(e.target.value)} placeholder="Ex.: Concreto fck 25 - 20m, Andaime locado..."/>
+          <DesignSystemInput label="Valor (R$)" required type="number" value={despForm.valor} onChange={e=>DF("valor")(e.target.value)} placeholder="0,00"/>
+          {despForm.categoria==="material" && ["admin_only","fixed_labor_admin"].includes(
+            (data.obras.find(o=>o.id===(obraIdFixo||despForm.obraId))||{}).contractType
+          ) && (
             <div>
-              <p style={{fontSize:11,fontWeight:700,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Competência (mês/ano) *</p>
-              <input type="month" value={despForm.competencia} onChange={e=>DF("competencia")(e.target.value)} style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,color:C.text,padding:"11px 13px",borderRadius:10,fontSize:14,outline:"none"}}/>
-            </div>
-            <Sel label="Categoria *" value={despForm.categoria} onChange={DF("categoria")} options={categoriasDesp(data)}/>
-            <Inp label="Descrição" value={despForm.descricao} onChange={DF("descricao")} placeholder="Ex.: Concreto fck 25 - 20m, Andaime locado..."/>
-            <Inp label="Valor (R$) *" type="number" value={despForm.valor} onChange={DF("valor")} placeholder="0,00"/>
-            {despForm.categoria==="material" && ["admin_only","fixed_labor_admin"].includes(
-              (data.obras.find(o=>o.id===(obraIdFixo||despForm.obraId))||{}).contractType
-            ) && (
-              <div>
-                <p style={{fontSize:11,fontWeight:700,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Este material entra na taxa de administração?</p>
-                <div style={{display:"flex",gap:6}}>
-                  <Btn size="sm" v={despForm.contaAdmin!==false?"success":"ghost"} onClick={()=>DF("contaAdmin")(true)} full>Sim, entra</Btn>
-                  <Btn size="sm" v={despForm.contaAdmin===false?"danger":"ghost"} onClick={()=>DF("contaAdmin")(false)} full>Não entra</Btn>
-                </div>
-                <p style={{fontSize:9.5,color:C.muted,marginTop:5,lineHeight:1.4}}>Material comprado direto pelo cliente ou já embutido no contrato, por exemplo, não deve entrar na base do percentual de administração.</p>
+              <p style={{fontSize:11,fontWeight:700,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Este material entra na taxa de administração?</p>
+              <div style={{display:"flex",gap:8}}>
+                <DesignSystemButton size="sm" variant={despForm.contaAdmin!==false?"success":"ghost"} onClick={()=>DF("contaAdmin")(true)} style={{flex:1}}>Sim, entra</DesignSystemButton>
+                <DesignSystemButton size="sm" variant={despForm.contaAdmin===false?"danger":"ghost"} onClick={()=>DF("contaAdmin")(false)} style={{flex:1}}>Não entra</DesignSystemButton>
               </div>
-            )}
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setDespModal(false)} full>Cancelar</Btn>
-              <Btn v="warning" disabled={expenseCommandPending} onClick={saveDesp} full><Ic n="check"/> {expenseCommandPending?"Salvando...":"Lançar"}</Btn>
+              <p style={{fontSize:9.5,color:C.muted,marginTop:5,lineHeight:1.4}}>Material comprado direto pelo cliente ou já embutido no contrato, por exemplo, não deve entrar na base do percentual de administração.</p>
             </div>
+          )}
+          <div style={{display:"flex",gap:8}}>
+            <DesignSystemButton variant="ghost" onClick={()=>setDespModal(false)} style={{flex:1}}>Cancelar</DesignSystemButton>
+            <DesignSystemButton disabled={expenseCommandPending} onClick={saveDesp} style={{flex:1}}><Ic n="check"/> {expenseCommandPending?"Salvando...":"Lançar"}</DesignSystemButton>
           </div>
-        </Modal>
-      )}
+        </div>
+      </DesignSystemDialog>
     </div>
   );
 }
