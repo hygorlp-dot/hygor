@@ -1,14 +1,19 @@
 # Redução do `LegacyApp` e migração gradual ao Supabase
 
-## Estado medido em 30/07/2026
+## Estado medido em 17/08/2026
 
-- `src/LegacyApp.jsx`: 39.323 para 38.802 linhas nesta rodada.
-- Arquivos órfãos removidos: 30.
-- Imagens PNG duplicadas e sem uso removidas: 3,78 MB no repositório.
-- Grafo de produção: 530 para 500 módulos, sem violação arquitetural.
-- Chunk principal: 600,79 para 569,95 kB gzip.
-- Motores de DRE, financeiro e conciliação: chunk próprio de 31,75 kB gzip.
-- Testes: 153 arquivos e 698 testes aprovados.
+- `src/LegacyApp.jsx`: 24.567 linhas (era 39.323 em 30/07 - a fila de
+  extração de código da seção "Próximas extrações de código" foi fechada
+  por completo em 16-17/08, ver "Andamento das extrações de UI" abaixo).
+- Grafo de produção: 627 módulos, 1.371 dependências, sem violação
+  arquitetural (`npm run architecture:check`).
+- Chunk principal (`LegacyApp-*.js`): 463,13 kB gzip. Total JS/CSS gzip do
+  app: 1.251,18 kB (orçamento revisado para 1.260 kB em 17/08, ver
+  `scripts/bundle-budgets.mjs`).
+- Testes: 218 arquivos e 1.135 testes aprovados.
+
+Estado ainda **não medido nesta rodada** (herdado da medição de 30/07, não
+recalculado): arquivos órfãos e imagens duplicadas removidas.
 
 O maior acoplamento restante não é somente visual. O frontend ainda lê muitas
 coleções do documento único `company_app_data` e reconstrói seleções,
@@ -132,21 +137,50 @@ os motores puros permanecem como especificação executável e golden master.
 - O `company_app_data` continua sendo a fonte operacional até os gates de
   contagem, vínculo, permissão e escrita transacional serem aprovados.
 
+## Andamento das extrações de UI (fila fechada em 16-17/08/2026)
+
+Os 8 itens abaixo já foram extraídos de `LegacyApp.jsx` para arquivo próprio,
+com `React.lazy` no ponto de uso - mesma camada de dados (blob
+`company_app_data`), sem nova migration/RLS:
+
+1. `Orcamento` → `src/domains/orcamentos/components/OrcamentoView.jsx`;
+2. `Conciliacao` → `src/features/conciliacao/ConciliacaoView.jsx`;
+3. `Terceiros` → `src/domains/terceirizados/components/TerceirosView.jsx`;
+4. `Compras` → `src/domains/compras/components/ComprasView.jsx`;
+5. `Planejamento` → `src/domains/planejamento/components/PlanejamentoView.jsx`;
+6. `CentralAdministrador` → `src/domains/administracao/components/CentralAdministradorView.jsx`;
+7. `Comercial` → `src/domains/comercial/components/ComercialView.jsx`;
+8. `Folha` → `src/domains/ponto/components/FolhaView.jsx` e `MedicoesView` →
+   `src/domains/medicoes/components/MedicoesView.jsx`.
+
+Cada feature recebeu rota com `React.lazy`, mantendo componentes, seletores e
+testes próprios sem duplicar regra financeira.
+
 ## Próximas extrações de código
 
-Ordem recomendada pelo volume e isolamento atuais:
+Medição de 17/08/2026 por linhas de função de topo dentro de `LegacyApp.jsx`
+(maior volume ainda inline, candidatos à próxima rodada):
 
-1. `Orcamento` e importadores SINAPI/ORSE;
-2. `Conciliacao`;
-3. `Terceiros`;
-4. `Compras`;
-5. `Planejamento`;
-6. `CentralAdministrador`;
-7. `Comercial`;
-8. `Folha` e `MedicoesView`.
+| Tela | Linhas aprox. | Localização atual |
+| --- | --- | --- |
+| `AprovacoesPendentes` | ~2.130 | `LegacyApp.jsx:12031-14165` |
+| `Equipamentos` | ~1.640 | `LegacyApp.jsx:19288-20930` |
+| `ObraDetalhe` | ~1.055 | `LegacyApp.jsx:14814-15870` |
+| `DREEmpresa` | ~1.015 | `LegacyApp.jsx:21482-22497` |
+| `DRELegado` | ~970 | `LegacyApp.jsx:4398-5368` |
+| `Ponto` | ~760 | `LegacyApp.jsx:8244-9002` |
+| `DiarioObra` | ~730 | `LegacyApp.jsx:15870-16601` |
+| `Cadastros` | ~560 | `LegacyApp.jsx:17863-18420` |
+| `Estoque` | ~545 | `LegacyApp.jsx:18616-19160` |
+
+`ObraDetalhe` é um caso especial: é o orquestrador de abas de uma obra (já
+delega Orçamento/Terceiros/Planejamento/Medições para os módulos extraídos
+acima) - seu volume não é lógica de negócio nova, é o roteamento entre abas
+mais os formulários de cadastro/edição da obra em si.
 
 Cada feature deve receber rota com `React.lazy`, serviço de API, componentes,
-seletores e testes próprios. A extração não autoriza duplicar regra financeira.
+seletores e testes próprios. A extração não autoriza duplicar regra
+financeira.
 
 ## Gate obrigatório por módulo
 
