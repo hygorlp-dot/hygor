@@ -87,19 +87,28 @@ por este documento e por um teste, não por `var()` compartilhado.
 
 1. ~~Wiring direto via `var()`~~ — descartado pelo motivo acima.
 2. **Feito**: sincronizar o valor divergente do verde.
-3. **Achado adicional, decisão pendente**: `C.card2`/`C.ivory` (`#EDEDED`)
-   não batem com `--arcd-gray-100` (`#E8E8E8`) — mesma família, valor
-   diferente. `C.ink` (`#121212`) e `C.cinza` (`#A8A8A8`) não têm token
-   correspondente no design-system. Nenhum dos dois foi alterado nesta
-   sessão — são, de novo, decisões de marca/paleta, não mecânicas.
-4. **Pendente, recomendado antes de fechar a fase**: um teste (em
-   `src/design-system/tokens/tokens.test.js` ou equivalente) que compare
-   os valores de `C` com os tokens correspondentes e falhe se divergirem
-   sem essa divergência estar documentada aqui — hoje a sincronia é
-   garantida por auditoria manual, não por CI.
-5. Critério de saída: as divergências conhecidas (`card2`/`ivory`, `ink`,
-   `cinza`) decididas e sincronizadas, e um teste de regressão no lugar
-   para pegar a próxima que aparecer.
+3. **Feito (17/08/2026)**: as 3 divergências restantes, todas decididas a
+   favor do legado (já em produção):
+   - `C.card2`/`C.ivory` (`#EDEDED`) vs. `--arcd-gray-100` (`#E8E8E8`) →
+     `--arcd-gray-100` atualizado para `#ededed`.
+   - `C.cinza` (`#A8A8A8`, "cinza técnico" de série de gráfico/texto
+     neutro secundário) não tinha token → criado `--arcd-gray-400`
+     (preenche o degrau que faltava entre gray-300 e gray-500; o valor
+     bate com o gray-40 padrão do IBM Carbon, então não é arbitrário).
+   - `C.ink` (`#121212`, texto sobre fundo de ação/dourado) não tinha
+     token → criado `--arcd-gray-950`, e `--arcd-action-primary-text`
+     (em `carbon.css` e `semantic.css`, o tema padrão) passou a apontar
+     para ele em vez de `--arcd-gray-900` (que é 5 tons mais claro,
+     `#161616` vs `#121212` — outra divergência que só apareceu ao
+     rastrear o papel semântico real de `C.ink`, não só o valor bruto).
+     `architectural.css` (tema alternativo, não usado pelo legado) não
+     foi tocado — tem paleta própria, não corresponde ao mesmo papel.
+4. **Feito**: `src/integration/design-tokens-parity.test.js` cobre agora
+   os 19 pares confirmados (era 15) — nenhuma divergência de cor conhecida
+   ficou sem teste.
+5. Critério de saída: **fechado**. Todas as divergências conhecidas
+   decididas e sincronizadas; suíte completa (1129 testes), testes de
+   tema/tokens, `architecture:check` e `lint` verdes.
 
 ### Fase 2 — Componentização das telas de maior uso
 

@@ -18,6 +18,6 @@
   --arcd-action-primary: var(--arcd-gold-400);
   --arcd-action-primary-hover: var(--arcd-gold-500);
   --arcd-action-primary-active: var(--arcd-gold-600);
-  --arcd-action-primary-text: var(--arcd-gray-900);
+  --arcd-action-primary-text: var(--arcd-gray-950);
   --arcd-focus-ring: var(--arcd-gold-400);
 }

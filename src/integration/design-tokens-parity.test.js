@@ -29,14 +29,18 @@ describe("paridade de cor entre C (legado) e os tokens do design-system", () => 
   const paresQueDevemBater = [
     ["bg", "arcd-gray-50"],
     ["surface", "arcd-gray-0"],
+    ["card2", "arcd-gray-100"],
+    ["ivory", "arcd-gray-100"],
     ["border", "arcd-gray-200"],
     ["line", "arcd-gray-200"],
+    ["cinza", "arcd-gray-400"],
     ["yellow", "arcd-gold-400"],
     ["yellowD", "arcd-gold-600"],
     ["yellowDim", "arcd-gold-300"],
     ["text", "arcd-gray-900"],
     ["muted", "arcd-gray-600"],
     ["subtle", "arcd-gray-800"],
+    ["ink", "arcd-gray-950"],
     ["green", "arcd-green-500"],
     ["red", "arcd-red-500"],
     ["blue", "arcd-blue-500"],
@@ -46,15 +50,5 @@ describe("paridade de cor entre C (legado) e os tokens do design-system", () => 
 
   it.each(paresQueDevemBater)("C.%s bate com --%s", (chaveLegado, tokenDesignSystem) => {
     expect(extractLegacyColor(chaveLegado)).toBe(extractToken(tokenDesignSystem));
-  });
-
-  // Divergências conhecidas e não resolvidas (decisão de marca pendente,
-  // não mecânica - ver docs/ROADMAP_DESIGN.md, Fase 1, item 3). Este teste
-  // não falha nelas de propósito: falharia todo dia até alguém decidir.
-  // Serve só de documentação executável - se algum dia baterem, o teste
-  // acima de paresQueDevemBater é o lugar certo para movê-las.
-  it("card2/ivory e gray-100 são uma divergência conhecida, não um bug novo", () => {
-    expect(extractLegacyColor("card2")).toBe("#ededed");
-    expect(extractToken("arcd-gray-100")).toBe("#e8e8e8");
   });
 });

@@ -1,13 +1,20 @@
 :root {
   --arcd-gray-0: #ffffff;
   --arcd-gray-50: #f4f4f4;
-  --arcd-gray-100: #e8e8e8;
+  --arcd-gray-100: #ededed;
   --arcd-gray-200: #d6d6d6;
   --arcd-gray-300: #c6c6c6;
+  /* gray-400: mesmo valor do "cinza técnico" (C.cinza) do legado - séries de
+     gráfico e texto neutro secundário. Bate com o gray-40 do IBM Carbon. */
+  --arcd-gray-400: #a8a8a8;
   --arcd-gray-500: #6f6f6f;
   --arcd-gray-600: #525252;
   --arcd-gray-800: #393939;
   --arcd-gray-900: #161616;
+  /* gray-950: mesmo valor de C.ink do legado - texto sobre fundo de ação
+     (dourado). Mais escuro que gray-900, papel semântico próprio (ver
+     --arcd-action-primary-text), não é "mais um passo de cinza genérico". */
+  --arcd-gray-950: #121212;
 
   --arcd-gold-300: #f0e6b8;
   --arcd-gold-400: #d4af37;
