@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Btn, C, Ic, Inp, Modal, PageHero, Sel, XLSX,
-  carregarXLSX, escapeHtml, fmt, fmtDate, fmtDateFull, today, uid,
+  carregarXLSX, escapeHtml, fmt, fmtDate, fmtDateFull, fullMonth, today, uid,
 } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import {

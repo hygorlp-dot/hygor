@@ -17,6 +17,7 @@ import {
 } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { totalRecebidoMedicao, statusRecebimentoMedicao } from "../../conciliacao/index.js";
+import { toLocalISODate } from "../../ponto/attendance-engine";
 
 const BILLING_LABELS = {
   mensal_fixo: "Parcela mensal fixa",

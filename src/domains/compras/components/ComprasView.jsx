@@ -35,6 +35,7 @@ import {
   historicoPrecoTodos, analisePreco, mapaGerencialCompras,
 } from "../calculations";
 import { canManagePurchases } from "../permissions";
+import { arcdApprovalEngine as motorAprovacaoGenerico } from "../../aprovacoes/arcd-engine.js";
 import {
   changePurchaseRequestProject,
   purchaseRequestSummary,

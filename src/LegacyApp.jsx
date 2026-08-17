@@ -12157,13 +12157,6 @@ export const ETAPAS_PADRAO = [
 // não adianta encolher fonte: certos pares lado a lado precisam EMPILHAR.
 export const MAX_NIVEL = 5;   // 1.1.1.1.1 - além disso a indentação fica ilegível no celular
 
-// Total de um item com BDI. Se o item tiver BDI proprio (it.bdi), ele prevalece
-// sobre o BDI global do orcamento - permite uma linha com BDI diferente.
-const bdiDoItem = (it, bdiGlobal) =>
-  bdiEfetivoCanonico(it,bdiGlobal);
-const itemTotal = (it, bdi) =>
-  Number(it.quantidade||0) * Number(it.precoUnit||0) * (1 + bdiDoItem(it, bdi)/100);
-
 //  Árvore de etapas 
 // A numeração (1, 1.1, 1.1.2) NÃO é armazenada: é derivada da posição na
 // árvore. Assim, inserir ou remover uma etapa renumera tudo automaticamente,
@@ -13134,11 +13127,6 @@ const aplicarAjustesProgresso = (data, obraId, ajustes, origem = "manual") => {
 //  curva mente: o mesmo servico apareceria varias vezes com valor fatiado.
 export const CLASSE_ABC = { A:{ cor:"#C62828", limite:80 }, B:{ cor:"#EF6C00", limite:95 }, C:{ cor:"#2E7D32", limite:100 } };
 export const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
-// Formulario zerado de composicao propria. O codigo entra vazio de proposito:
-// quem preenche e o efeito de numeracao automatica, ja com a serie da empresa.
-const compFormVazio = (extra = {}) => ({ id:"", codigo:"", descricao:"", unidade:"UN",
-  origemFonte:"PRÓPRIA", origemCodigo:"", origemDataBase:"", origemUf:"", itens:[], ...extra });
-
 // A tela de Orçamento foi extraída para
 // src/domains/orcamentos/components/OrcamentoView.jsx em 2026-08-16 -
 // importada como `Orcamento` abaixo, mesmo nome de sempre. O comentário
@@ -13704,37 +13692,6 @@ export const calcOrcadoComprado = (data, obraId) => {
     .sort((a,b) => b.comprado - a.comprado);
 
   return { orc, linhas, semApropriacao };
-};
-
-// Visão executiva do orçamento por etapa de primeiro nível. Cada valor só é
-// apropriado quando a origem aponta para uma linha real do orçamento; valores
-// sem vínculo ficam separados para não produzirmos uma precisão fictícia.
-const calcControleCustosOrcamento = (data, orc) => {
-  if(!orc)return{etapas:[],total:{},semApropriacao:{solicitado:0,comprometido:0,recebido:0,aplicado:0}};
-  const etapas=orc.etapas||[];const etapaPorId=new Map(etapas.map(e=>[e.id,e]));
-  const itemPorId=new Map((orc.itens||[]).filter(i=>i.tipo!=="titulo").map(i=>[i.id,i]));
-  const raizDaEtapa=id=>{let e=etapaPorId.get(id),n=0;while(e?.parentId&&n++<30)e=etapaPorId.get(e.parentId)||e;return e;};
-  const raizDoItem=id=>{const item=itemPorId.get(id);return item?raizDaEtapa(item.etapaId):null;};
-  const raizVinculo=i=>etapaPorId.get(i?.orcNivel1Id)?raizDaEtapa(i.orcNivel1Id):raizDoItem(i?.orcItemId);
-  const mapa=new Map();
-  const linha=e=>{const id=e?.id||"sem_etapa";if(!mapa.has(id))mapa.set(id,{id,nome:e?.nome||"Sem etapa",ordem:Number(e?.ordem||0),orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0});return mapa.get(id);};
-  itemPorId.forEach(item=>{linha(raizDaEtapa(item.etapaId)).orcado+=Number(item.quantidade||0)*Number(item.precoUnit||0);});
-  const sem={solicitado:0,comprometido:0,recebido:0,aplicado:0};
-  (data.solicitacoesCompra||[]).filter(s=>s.obraId===orc.obraId&&!['cancelada','rejeitada'].includes(s.status)).forEach(s=>(s.itens||[]).forEach(i=>{
-    const valor=referenceTotalOf(i),raiz=raizVinculo(i);
-    if(raiz)linha(raiz).solicitado+=valor;else sem.solicitado+=valor;
-  }));
-  const transacaoPorId=new Map((data.transacoes||[]).map(t=>[t.id,t]));
-  (data.pedidos||[]).filter(p=>p.obraId===orc.obraId&&p.status!=="cancelado").forEach(p=>{
-    const pago=statusPagamentoPedido(p)==="pago"||(!!p.transacaoId&&transacaoPorId.get(p.transacaoId)?.status==="conciliado");
-    (p.itens||[]).forEach(i=>{const raiz=raizVinculo(i),total=Number(i.qtd||0)*Number(i.precoUnit||0),recebido=Number(i.qtdRecebida||0)*Number(i.precoUnit||0);
-      if(raiz){const l=linha(raiz);l.comprometido+=total;l.recebido+=recebido;if(pago)l.pago+=total;}else{sem.comprometido+=total;sem.recebido+=recebido;}
-    });
-  });
-  (data.movEstoque||[]).filter(m=>m.obraId===orc.obraId&&m.tipo==="consumo").forEach(m=>{const valor=Number(m.qtd||0)*Number(m.valorUnit||0),raiz=raizVinculo(m);if(raiz)linha(raiz).aplicado+=valor;else sem.aplicado+=valor;});
-  const lista=[...mapa.values()].map(l=>({...l,saldo:l.orcado-l.comprometido,projecao:Math.max(l.orcado,l.comprometido),percentual:l.orcado?l.comprometido/l.orcado*100:0})).sort((a,b)=>a.ordem-b.ordem||a.nome.localeCompare(b.nome));
-  const total=lista.reduce((a,l)=>{Object.keys(a).forEach(k=>a[k]+=Number(l[k]||0));return a;},{orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0,saldo:0,projecao:0});
-  return{etapas:lista,total,semApropriacao:sem};
 };
 
 // Painel da obra: comprado → recebido → aplicado → pago.
@@ -23449,7 +23406,12 @@ export default function App() {
       onFailed:({result,offline})=>showToast(offline?"Sem conexão. As alterações seguem guardadas e serão retomadas ao reconectar.":(result?.reason||"Alterações não sincronizadas. Confira a conexão e faça uma nova ação para tentar novamente."),"error"),
     });
   }
-  useEffect(()=>()=>saveQueueRef.current?.destroy?.(),[]);
+  // Zera a ref (não só destrói) para que uma remontagem real - ou a
+  // montagem dupla do StrictMode em desenvolvimento - recrie a fila em vez
+  // de reaproveitar a instância já destruída (`if(!saveQueueRef.current)`
+  // acima nunca seria verdadeiro de outra forma, e todo update() passaria a
+  // falhar silenciosamente com {ok:false,destroyed:true} para sempre).
+  useEffect(()=>()=>{saveQueueRef.current?.destroy?.();saveQueueRef.current=null;},[]);
 
   useEffect(()=>{
     const retomar=()=>{
@@ -23700,7 +23662,10 @@ export default function App() {
     return attendanceQueueRef.current.enqueue(command);
   },[executeAttendanceCommand]);
 
-  useEffect(()=>()=>attendanceQueueRef.current?.destroy?.(),[]);
+  // Mesmo motivo do cleanup de saveQueueRef acima: zera a ref para que a
+  // fila seja recriada após destroy, em vez de ficar permanentemente
+  // destruída (visível na montagem dupla do StrictMode em desenvolvimento).
+  useEffect(()=>()=>{attendanceQueueRef.current?.destroy?.();attendanceQueueRef.current=null;},[]);
 
   // No boot buscamos APENAS a lista de perfis (nome + papel). Nenhum dado
   // financeiro, nenhum CPF, nenhum hash de PIN sai do servidor aqui.

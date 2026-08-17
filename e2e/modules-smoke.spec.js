@@ -145,10 +145,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await page.getByLabel("Conteúdo de 1 SC em KG *").fill("20");
         await page.getByLabel("Quantidade de compra *").fill("10");
         await expect(page.getByText("10 SC = 200 KG")).toBeVisible();
-        const etapa=page.getByLabel("Etapa de 1º nível do orçamento");
+        const etapa=page.getByLabel("Etapa principal do orçamento");
         await expect(etapa.locator('option[value="etapa-fundacoes-qa"]')).toHaveCount(1);
         await expect(page.getByText(/Vinculação ao orçamento em rascunho/)).toBeVisible();
         await page.getByRole("button",{name:"Fechar"}).click();
+        await page.getByRole("button",{name:"Descartar alterações"}).click();
       }
       if(item==="Conciliação") {
         await expect(page.locator(".reconciliation-row")).toHaveCount(3);
@@ -248,8 +249,6 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await partialDialog.getByRole("button",{name:"Cancelar"}).click();
       }
       if(item==="Terceirizados") {
-        const excluirContrato=page.getByRole("button",{name:"Excluir contrato de Elétrica Modelo"});
-        await expect(excluirContrato).toBeVisible();
         if(process.env.ARCD_VISUAL_CAPTURE) {
           await page.screenshot({path:"/tmp/arcd-terceirizados-desktop.png",fullPage:true});
           await page.setViewportSize({width:390,height:844});
@@ -279,6 +278,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         const tabsTerceiros=page.locator(".terceiros-tabs");
         await tabsTerceiros.getByRole("button",{name:/^Cadastro/}).click();
         await expect(page.getByRole("heading",{name:"Prestadores e contratos"})).toBeVisible();
+        const contractCard=page.locator(".terceiros-registry-contract").filter({hasText:"Elétrica Modelo"});
+        const contractSummary=contractCard.locator(".terceiros-registry-contract__summary");
+        if((await contractSummary.getAttribute("aria-expanded"))!=="true") await contractSummary.click();
+        const excluirContrato=contractCard.getByRole("button",{name:"Cancelar contrato"});
+        await expect(excluirContrato).toBeVisible();
         await expect(page.getByLabel("Especialidade")).toBeVisible();
         await expect(page.getByRole("button",{name:/Alessandro Ângelo da Silva/})).toBeVisible();
         await page.getByRole("button",{name:"Novo contrato"}).click();
@@ -294,10 +298,12 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await tabsTerceiros.getByRole("button",{name:/^Medições/}).click();
         await page.locator(".terceiros-workspace select").first().selectOption("third-party-2");
         await expect(page.getByText("Medição 1 · 20/07/2026")).toBeVisible();
-        await tabsTerceiros.getByRole("button",{name:/^Quadro/}).click();
-        page.once("dialog",dialog=>dialog.accept("Contrato duplicado no teste"));
+        await tabsTerceiros.getByRole("button",{name:/^Cadastro/}).click();
         await excluirContrato.click();
-        await expect(excluirContrato).toHaveCount(0);
+        await page.getByLabel("Motivo do cancelamento *").fill("Encerramento antecipado - smoke test");
+        await page.getByRole("dialog",{name:"Cancelar contrato e preservar histórico"}).getByRole("button",{name:"Cancelar contrato"}).click();
+        await expect(page.getByText("Contrato cancelado e preservado no histórico.")).toBeVisible();
+        await expect(contractCard).toHaveCount(0);
       }
       if(item==="Conciliação"&&process.env.ARCD_VISUAL_CAPTURE) {
         await page.screenshot({path:"/tmp/arcd-conciliacao-desktop.png",fullPage:true});
