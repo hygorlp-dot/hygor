@@ -319,10 +319,22 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         // (só checa ausência de erro) não pegava isso - só um conteúdo real
         // esperado pega. Corrigido trocando `view` por `commercialView` nos
         // ramos de renderização.
-        await expect(page.getByText("Propostas", {exact:true})).toBeVisible();
+        await expect(page.getByRole("heading",{name:"Propostas"})).toBeVisible();
+        // Sub-navegação adicionada em 18/08/2026: antes deste ponto,
+        // "Contratos"/"Clientes"/"Parceiros" só eram alcançáveis por atalho
+        // indireto do dashboard - agora têm pill própria dentro do destino
+        // "Propostas e contratos".
+        await page.getByRole("button",{name:"Contratos",exact:true}).click();
+        await expect(page.getByText("Elaboração, assinatura, entrada e transferência para Engenharia")).toBeVisible();
+        await page.getByRole("button",{name:"Clientes",exact:true}).click();
+        await expect(page.getByText("Qualificação completa para propostas, contratos e documentos")).toBeVisible();
       }
       if(item==="Gestão comercial") {
         await expect(page.getByText("Relatórios comerciais")).toBeVisible();
+        await page.getByRole("button",{name:"Metas e comissões",exact:true}).click();
+        await expect(page.getByText("Metas por vendedor/equipe e comissões das vendas")).toBeVisible();
+        await page.getByRole("button",{name:"Perdas",exact:true}).click();
+        await expect(page.getByText("Análise, concorrentes e reativação futura")).toBeVisible();
       }
       if(item==="Terceirizados") {
         if(process.env.ARCD_VISUAL_CAPTURE) {

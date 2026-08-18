@@ -666,8 +666,12 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       {t}
     </p>
   );
+  // `key={l}` deixa este helper seguro para uso dentro de .map() (o rótulo
+  // já é único em todo call site conhecido) sem quebrar o uso avulso, onde
+  // React simplesmente ignora um key fora de lista.
   const kpi = (l, v, c, sub) => (
     <div
+      key={l}
       style={{
         background: C.card,
         border: `1px solid ${C.border}`,
@@ -1485,9 +1489,31 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   }
 
   const showRealEstateHub=view==="com_real_estate";
+  // Sub-navegação de "Propostas e contratos" (com_deals) e "Gestão
+  // comercial" (com_management) - os 2 destinos consolidados que agrupam
+  // várias telas legadas (LEGACY_COMMERCIAL_ROUTE em constants.js), mas até
+  // aqui só mostravam a tela padrão do grupo (com_propostas/com_relatorios),
+  // sem jeito de alcançar as demais a partir da barra lateral - achado da
+  // auditoria de 18/08/2026 ("Contratos"/"Clientes"/"Parceiros"/"Metas" só
+  // eram alcançáveis por atalho indireto do dashboard). Mesmo padrão visual
+  // de pill-nav já usado em COM_IMOBILIARIO_SECTIONS acima.
+  const dealsSections=[
+    {id:"com_propostas",l:"Propostas"},{id:"com_negociacoes",l:"Negociações"},
+    {id:"com_contratos",l:"Contratos"},{id:"com_clientes",l:"Clientes"},{id:"com_parceiros",l:"Parceiros"},
+  ];
+  const managementSections=[
+    {id:"com_relatorios",l:"Relatórios"},{id:"com_metas",l:"Metas e comissões"},{id:"com_perdas",l:"Perdas"},
+  ];
+  const activeSubNav=
+    view==="com_deals"||dealsSections.some(s=>s.id===commercialView) ? dealsSections
+    : view==="com_management"||managementSections.some(s=>s.id===commercialView) ? managementSections
+    : null;
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
     {showRealEstateHub&&<div style={{display:"flex",gap:5,overflowX:"auto",padding:"6px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,position:"sticky",top:58,zIndex:18}}>
       {COM_IMOBILIARIO_SECTIONS.map(section=><button key={section.id} type="button" onClick={()=>openCommercialSection(section)} style={{display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",minHeight:34,padding:"7px 10px",borderRadius:7,border:`1px solid ${activeCommercialSection===section.id?C.yellowD:C.line}`,background:activeCommercialSection===section.id?`${C.yellow}18`:C.bg,color:C.text,fontSize:9.5,fontWeight:750,cursor:"pointer"}}><Ic n={section.icon} s={12}/>{section.label}</button>)}
+    </div>}
+    {activeSubNav&&<div style={{display:"flex",gap:5,overflowX:"auto",padding:"6px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9}}>
+      {activeSubNav.map(section=><button key={section.id} type="button" onClick={()=>onTab(section.id)} style={{display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",minHeight:34,padding:"7px 10px",borderRadius:7,border:`1px solid ${commercialView===section.id?C.yellowD:C.line}`,background:commercialView===section.id?`${C.yellow}18`:C.bg,color:C.text,fontSize:9.5,fontWeight:750,cursor:"pointer"}}>{section.l}</button>)}
     </div>}
     {showRealEstateHub?<Suspense fallback={<div style={{padding:30,textAlign:"center",color:C.muted}}>Carregando gestão imobiliária...</div>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} showToast={showToast} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onUploadFile={anexarArquivoImobiliario} onLegacyNavigate={onTab}/></Suspense>:conteudo}
     {npsForm&&<Modal title="Pesquisa de satisfação na entrega" onClose={()=>setNpsForm(null)}>
