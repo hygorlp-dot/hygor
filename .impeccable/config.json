@@ -10,6 +10,24 @@
           "src/index.css"
         ],
         "createdAt": "2026-07-25T12:32:13.139Z"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/domains/comercial/real-estate.css"
+        ],
+        "createdAt": "2026-08-18T15:38:00.753Z",
+        "reason": "unidade imobiliária: border-left codifica status funcional (disponível/reservada/vendida/bloqueada/em_negociação), não decoração - DESIGN.md exige que estado seja comunicado por cor+texto+ícone; código pré-existente em produção, não introduzido nesta sessão"
+      },
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "src/domains/comercial/real-estate.css"
+        ],
+        "createdAt": "2026-08-18T15:38:07.439Z",
+        "reason": "linha dourada de topo no .re-page-header é a assinatura ARCD documentada em DESIGN.md (linha dourada como marca/hero), nao decoracao aleatoria; codigo pre-existente em producao, nao introduzido nesta sessao"
       }
     ]
   }
