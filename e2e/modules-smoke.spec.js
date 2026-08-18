@@ -166,6 +166,13 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(page.getByText("Prévia compatível calculada a partir da frota atual.")).toBeVisible();
         await expect(page.getByText("Betoneira QA").first()).toBeVisible();
         await expect(page.getByText("Registro com várias unidades e um único patrimônio")).toBeVisible();
+        // Submissão real do fluxo "exemplar" citado na auditoria - confirma
+        // que o confirmModal (que substituiu window.confirm) e o comando
+        // versionado funcionam de ponta a ponta, não só a UI de leitura.
+        await page.getByRole("button",{name:"Materializar cadastro"}).click();
+        const migrateDialog=page.getByRole("dialog",{name:"Criar cadastro físico separado?"});
+        await migrateDialog.getByRole("button",{name:"Criar cadastro físico"}).click();
+        await expect(page.getByText("Cadastro físico criado. Equipamentos e históricos legados foram preservados.")).toBeVisible();
         await page.getByRole("button",{name:/Mapa de ocupação/}).click();
         await expect(page.getByText("R = Reserva")).toBeVisible();
         // A célula do dia mostra só o número de unidades livres (sem repetir a
@@ -176,12 +183,20 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await page.getByLabel("Mês").selectOption("2026-07");
         await expect(page.getByText("R1").first()).toBeVisible();
         await page.getByRole("button",{name:/Reservar \/ bloquear/}).click();
-        await expect(page.getByText("Reservar ou bloquear equipamento")).toBeVisible();
-        await page.getByLabel("Equipamento *").selectOption("eq-qa");
-        await page.getByLabel("Motivo *").fill("Reserva de homologação");
-        await expect(page.getByRole("button",{name:/Salvar/})).toBeVisible();
-        await page.getByRole("button",{name:"Fechar"}).click();
+        const reservationDialog=page.getByRole("dialog",{name:"Reservar ou bloquear equipamento"});
+        await expect(reservationDialog).toBeVisible();
+        await reservationDialog.getByLabel("Equipamento *").selectOption("eq-qa");
+        await reservationDialog.getByLabel("Motivo *").fill("Reserva de homologação");
+        // Submissão real (não só abrir/fechar) - regressão contra o achado de
+        // auditoria "salvarIndisponibilidade sem try/catch/trava", corrigido
+        // em 17/08/2026 (docs/AUDITORIA_EQUIPAMENTOS.md).
+        await reservationDialog.getByRole("button",{name:/Salvar/}).click();
+        await expect(page.getByText("Reserva registrada.")).toBeVisible();
         await page.getByRole("button",{name:/Locações/}).click();
+        // Aviso persistente de que cobrança/medição/fatura (Fase 5) ainda não
+        // alimenta o DRE - substitui depender só dos toasts por ação
+        // (achado de auditoria de estrutura, ver AUDITORIA_EQUIPAMENTOS.md).
+        await expect(page.getByText("COBRANÇA POR CICLO · EM DESENVOLVIMENTO")).toBeVisible();
         await expect(page.getByText("CICLO · ATIVA")).toBeVisible();
         await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
         await expect(page.getByRole("button",{name:"Encerrar"})).toHaveCount(0);
@@ -251,6 +266,25 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         const partialDialog=page.getByRole("dialog",{name:/Devolução parcial · Betoneira QA/});
         await expect(partialDialog.getByLabel("Quantidade *")).toHaveValue("1");
         await partialDialog.getByRole("button",{name:"Cancelar"}).click();
+
+        // Submissão real (não só abrir/cancelar) - regressão contra os
+        // achados de auditoria de 17-18/08/2026: `salvarDono` ignorava o
+        // pipeline de comandos e `salvarManut` não tinha try/catch/trava.
+        // Cobre a lacuna registrada em docs/AUDITORIA_EQUIPAMENTOS.md
+        // ("integração UI→comando→toast não tem rede de segurança").
+        await page.getByRole("button",{name:"Proprietários"}).click();
+        const ownerDialog=page.getByRole("dialog",{name:"Novo proprietário (terceiro)"});
+        await ownerDialog.getByLabel("Nome *").fill("Locadora QA Ltda");
+        await ownerDialog.getByRole("button",{name:"Salvar proprietário"}).click();
+        await expect(page.getByText("Proprietário salvo.")).toBeVisible();
+
+        await page.getByRole("button",{name:/^Manutenção/}).click();
+        await page.getByRole("button",{name:"Registrar manutenção"}).click();
+        const maintenanceDialog=page.getByRole("dialog",{name:"Manutenção"});
+        await maintenanceDialog.getByLabel("Equipamento *").selectOption("eq-qa");
+        await maintenanceDialog.getByLabel("Custo (R$) *").fill("350");
+        await maintenanceDialog.getByRole("button",{name:"Registrar manutenção"}).click();
+        await expect(page.getByText("Manutenção registrada.")).toBeVisible();
       }
       if(item==="Terceirizados") {
         if(process.env.ARCD_VISUAL_CAPTURE) {

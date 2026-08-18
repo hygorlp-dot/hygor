@@ -29,24 +29,31 @@ de dinheiro real é mais grave que um `try/catch` faltando.
 
 | Parte | Nota | Por quê |
 | --- | --- | --- |
-| **Cadastro físico** (`fisico`) | **8** (era 7,5 - `salvarRevisaoFisica` corrigido) | Fluxo mais robusto tecnicamente (`materializarCadastroFisico` com padrão exemplar). Não é mais alcançado por nenhum dos 3 achados de DRE (Achado 1 e 2 corrigidos, Achado 3 reclassificado) nem pela falta de `try/catch`/trava, já corrigida. |
-| **Relatório** (`relatorio`) | **8** (era 7 - herdava os achados de DRE, agora corrigidos/reclassificados) | Componente limpo, sem lógica de gravação própria. O número que exibe agora reflete um servidor corrigido (Achado 1) e um cliente já correto (Achado 2); Achado 3 é lacuna documentada de feature, não erro de cálculo. |
-| **Mapa de ocupação** (`gestao`) | **7,5** (era 6 - `salvarIndisponibilidade`/`cancelarIndisponibilidade` corrigidos) | Grade em si é sólida e só leitura; o modal de indisponibilidade que ela abre já tem trava contra duplo-clique e não fecha mais antes do resultado assíncrono. |
-| **Frota** (`frota`) | **8** (era 6,5 - Achado 1 corrigido, `salvarDono` corrigido) | Achado 1 (custo no servidor) e Achado 2 (guard de proprietário) corrigidos. No código, `salvarEquip`/`excluirEquip`/`salvarTransf`/`salvarDono` seguem agora o mesmo padrão de comando versionado + trava. |
-| **Manutenção** (`manutencao`) | **7,5** (era 4 - `salvarManut` corrigido) | Era o pior ponto de código da tela (`salvarManut` sem `try/catch`, sem trava, botão sem `disabled` - único ponto de entrada da aba, sem proteção nenhuma); agora segue o mesmo padrão das demais. Estruturalmente correta no DRE (decisão consciente que manutenção só afeta o nível empresa, não a obra). |
-| **Locações** (`locacoes`) | **7** (era 6 - Achado 1 corrigido, `encerrarLoc` migrado para modal) | A aba mais rica e, isoladamente, a mais bem protegida em termos de wiring de comando - `encerrarLoc` não destoa mais (modal `encerrarLocModal` no lugar de `window.prompt`). O subsistema de cobrança/medição/fatura de locação ainda não alimenta o DRE, mas isso é fase documentada e conscientemente inacabada (`docs/EQUIPAMENTOS_FASE_5_COBRANCA.md`), não um bug - os toasts avisam honestamente o usuário. |
+| **Cadastro físico** (`fisico`) | **8,5** (era 8 - `materializarCadastroFisico` agora com E2E de submissão real) | Fluxo mais robusto tecnicamente. Não é mais alcançado por nenhum dos 3 achados de DRE nem pela falta de `try/catch`/trava. `e2e/modules-smoke.spec.js` agora clica "Materializar cadastro" → confirma no modal → verifica o toast de sucesso, não só a navegação. |
+| **Relatório** (`relatorio`) | **8,5** (era 8 - protegido pelo novo guardrail estrutural) | Componente limpo, sem lógica de gravação própria. O número que exibe reflete um servidor corrigido (Achado 1) e um cliente correto (Achado 2); `scripts/check-financial-boundaries.mjs` agora falha o build se `server/dre-projection.js` voltar a reimplementar `valorDiaria`/`custoDiaria` localmente em vez de usar `calcEquipCustoObra` - a exata classe de regressão do Achado 1. |
+| **Mapa de ocupação** (`gestao`) | **8,5** (era 7,5 - `salvarIndisponibilidade` agora com E2E de submissão real) | Grade sólida e só leitura; o modal de indisponibilidade tem trava contra duplo-clique. `modules-smoke.spec.js` agora preenche e salva uma reserva de verdade (antes só abria e fechava o modal) e confirma o toast "Reserva registrada." |
+| **Frota** (`frota`) | **8,5** (era 8 - `salvarDono` agora com comando versionado e E2E de submissão real) | Achado 1 e Achado 2 corrigidos. `salvarEquip`/`excluirEquip`/`salvarTransf`/`salvarDono` seguem o mesmo padrão de comando+trava. `modules-smoke.spec.js` agora cria um proprietário de verdade via UI e confirma o toast. |
+| **Manutenção** (`manutencao`) | **8,5** (era 7,5 - `salvarManut` agora com E2E de submissão real) | Era o pior ponto de código da tela; corrigido, e agora `modules-smoke.spec.js` registra uma manutenção de verdade (equipamento + custo) e confirma o toast "Manutenção registrada." - fecha a lacuna que mais pesava contra esta aba. |
+| **Locações** (`locacoes`) | **7,5** (era 7 - aviso persistente sobre a Fase 5 substitui depender só de toasts) | A aba mais rica e bem protegida em wiring de comando. O subsistema de cobrança/medição/fatura ainda não alimenta o DRE (Achado 3, decisão de produto em aberto, não um bug) - mas agora a aba mostra um aviso fixo ("COBRANÇA POR CICLO · EM DESENVOLVIMENTO") assim que o usuário abre a lista de locações, em vez de só avisar depois que ele já iniciou uma ação. Reduz o risco de alguém interpretar o subsistema como concluído; não resolve a integração em si. |
 
-**Nota geral do módulo: 7,7/10** (era 6,3 - revisado após corrigir o Achado
-1, corrigir as 7 funções de gravação sem proteção e migrar `encerrarLoc`
-para modal) - código de UI maduro (padrão consistente de comando
-versionado + trava+catch em toda função de gravação, boa cobertura de
-teste unitário nos domínios puros e agora também de `commands.test.js`
-para o novo comando de proprietário). O que segue pesando contra a nota
-mais alta é a decisão em aberto sobre a Fase 5 de cobrança de locação
-(Achado 3, arquitetural, não um bug) e a lacuna real de completude
-funcional frente a sistemas de mercado (tabela "Completude funcional",
-abaixo) - nenhum dos dois é um "conserto pontual", ambos são trabalho de
-produto/shape.
+**Nota geral do módulo: 8,3/10** (era 7,7 - revisado após 3 melhorias
+estruturais: (1) `scripts/check-financial-boundaries.mjs` passou a vigiar
+`server/dre-projection.js` contra a exata classe de regressão do Achado 1;
+(2) `e2e/modules-smoke.spec.js` passou a submeter de verdade 4 dos fluxos
+antes só verificados por unidade - materializar cadastro físico, reservar
+equipamento, registrar manutenção e cadastrar proprietário - fechando boa
+parte do item #3 de "oportunidades de melhoria estrutural"; (3) aviso
+persistente sobre a Fase 5 de cobrança na aba Locações). Código de UI
+maduro, comando versionado + trava+catch em toda função de gravação, rede
+de segurança de teste bem mais forte que antes desta rodada. **Não chega a
+8,5** porque o que resta é, deliberadamente, decisão de produto e não
+conserto de código: (a) a Fase 5 de cobrança de locação (Achado 3) - retomar
+e concluir, ou pausar/simplificar explicitamente - continua sem decisão; e
+(b) a lacuna de completude funcional frente a sistemas de mercado (tabela
+abaixo, com destaque para a calculadora de tarifa de locação que o usuário
+pediu para investigar) segue sem nenhum item implementado. Fechar (a) e/ou
+avançar em (b) é o caminho real para passar de 8,3 - não é algo que se
+resolve só revisando código existente.
 
 ## Achados de conformidade com o DRE (severidade máxima desta auditoria)
 
@@ -172,7 +179,7 @@ equipamentos, todos passando. Nenhum teste de componente para
 | --- | --- | --- | --- |
 | 1 | `EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED` é um comando com handler completo e testado (`commands.js:487-501`) mas **sem nenhuma UI que o dispare em todo o projeto** - não é abandonado, é o "Oitavo incremento" da Fase 5, ainda não construído (decisão registrada em "Próximos passos", item 5). | Médio | Baixo (investigar primeiro) - **investigado, decisão registrada** |
 | 2 | ~~`Equipamentos` não aparece em nenhuma fase de `docs/ROADMAP_DESIGN.md`~~ | Médio | **Corrigido** - adicionado à Fase 3 |
-| 3 | E2E (`modules-smoke.spec.js`) só testa caminho feliz de *visibilidade* (abre modal, clica Cancelar) - nenhum cenário realmente submete um formulário e verifica sucesso ou erro. A regra de negócio em si é bem testada em unidade (`commands.test.js`, inclusive corrida de duas reservas disputando a última unidade), mas a integração UI→comando→toast não tem rede de segurança. | Médio | Baixo-médio |
+| 3 | ~~E2E só testa caminho feliz de *visibilidade*~~ - **parcialmente corrigido**: `modules-smoke.spec.js` agora submete de verdade 4 fluxos (materializar cadastro físico, reservar/bloquear, registrar manutenção, cadastrar proprietário) e confirma o toast de sucesso. Ainda faltam submissões reais para `salvarLoc`/`salvarTransf`/`salvarLinhaCobranca`/`salvarMedicaoLocacao`/`salvarFaturaLocacao`/`encerrarLoc`/`cancelarIndisponibilidade` - a regra de negócio de todos eles é bem testada em unidade (`commands.test.js`), só falta a integração UI→comando→toast. | Médio (reduzido) | Baixo-médio |
 | 4 | Dividir `EquipamentosView.jsx` em subcomponentes próprios | Baixo (nenhuma das outras 8 telas extraídas foi dividida - seria inconsistência isolada, não um padrão do projeto) | Médio |
 | 5 | Duplicação de lógica entre Equipamentos e Terceirizados | Não confirmada (os dois domínios resolvem problemas genuinamente diferentes - ativo físico com capacidade finita vs. contrato de serviço) | N/A |
 
@@ -228,3 +235,20 @@ Valor médio, esforço médio.
    junto da decisão do item 3 sobre retomar ou não a Fase 5.
 6. ~~Adicionar `Equipamentos` ao `docs/ROADMAP_DESIGN.md`~~ - **feito**
    (Fase 3, com nota sobre o polish já aplicado).
+7. ~~`scripts/check-financial-boundaries.mjs` não cobria `server/*.js`~~ -
+   **corrigido**: guardrail agora falha o build se `server/dre-projection.js`
+   voltar a tocar `valorDiaria`/`custoDiaria` diretamente ou perder o import
+   de `calcEquipCustoObra` - vigia especificamente a regressão do Achado 1.
+   Continua sem cobrir outros domínios servidor além de equipamentos -
+   escopo deliberado, não generalizar sem necessidade concreta.
+8. ~~E2E sem submissão real (item #3 de melhoria estrutural)~~ -
+   **parcialmente corrigido**: 4 dos ~11 fluxos de gravação agora têm
+   submissão real testada. Os 7 restantes (`salvarLoc`, `salvarTransf`,
+   `salvarLinhaCobranca`, `salvarMedicaoLocacao`, `salvarFaturaLocacao`,
+   `encerrarLoc`, `cancelarIndisponibilidade`) seguem só com teste de
+   visibilidade - candidatos a uma rodada futura, mesmo padrão.
+9. Nota geral do módulo em 8,3/10 (meta do usuário era 8,5). O que falta
+   para os 0,2 restantes não é código a corrigir, é decisão de produto:
+   fechar o item 3 (Fase 5 de cobrança) e/ou avançar algum item da tabela
+   de completude funcional (calculadora de tarifa de locação é o de maior
+   valor/menor esforço relativo, ver tabela acima).

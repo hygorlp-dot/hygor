@@ -1088,6 +1088,15 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           <div><p>Histórico de locações</p><small>{locacoesAtivas.length} em andamento · {(data.locacoesEquip||[]).length} no histórico</small></div>
           <Btn size="sm" onClick={()=>setLocModal(locVazio)}><Ic n="plus"/> Nova locação</Btn>
         </div>
+        {/* Aviso persistente (não só o toast por ação) - achado de auditoria:
+            cobrança/medição/fatura de locação (Fase 5) ainda não alimenta o
+            DRE; a receita reconhecida hoje vem do modelo antigo de tarifa por
+            período. Ver docs/AUDITORIA_EQUIPAMENTOS.md e
+            docs/EQUIPAMENTOS_FASE_5_COBRANCA.md. */}
+        <div style={{padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`,marginBottom:10}}>
+          <p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>COBRANÇA POR CICLO · EM DESENVOLVIMENTO</p>
+          <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Linhas de cobrança, medições e faturas registradas nesta aba ainda não entram no DRE - a receita de locação reconhecida hoje vem do período/tarifa do contrato. Use esses recursos como controle interno até a integração ser concluída.</p>
+        </div>
         {(data.locacoesEquip||[]).length===0
           ? <div className="equipment-empty-state"><span><Ic n="calendar" s={19}/></span><div><p>Nenhuma locação registrada</p><small>Escolha um equipamento e uma obra para iniciar o histórico de cobrança.</small></div></div>
           : <div className="equipment-record-list">

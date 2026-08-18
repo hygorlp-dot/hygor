@@ -1,6 +1,13 @@
 import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../src/LegacyApp.jsx", import.meta.url), "utf8");
+// server/dre-projection.js reimplementou localmente o custo de locação de
+// equipamento (dias * valorDiaria, ignorando quantidade e pacote tarifário)
+// em vez de usar o motor canônico - achado #1 da auditoria de Equipamentos
+// de 17/08/2026, corrigido no mesmo dia. O guardrail acima só varre
+// LegacyApp.jsx/MedicoesView.jsx (só o cliente) - este bug era no
+// servidor, um ponto cego real da rede de segurança até aqui.
+const dreProjectionSource = await readFile(new URL("../server/dre-projection.js", import.meta.url), "utf8");
 // MedicoesView foi extraída de LegacyApp.jsx para seu próprio arquivo em
 // 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #8) - a
 // tela canônica agora mora lá, não em `source`.
@@ -44,6 +51,19 @@ canonicalScreens.forEach(([name, screen]) => {
 ].forEach(([description, pattern]) => {
   if (pattern.test(source)) violations.push([description, pattern]);
 });
+
+if (!/import\s*\{[^}]*\bcalcEquipCustoObra\b[^}]*\}\s*from\s*["']\.\.\/src\/domains\/equipamentos\/calculations\.js["']/.test(dreProjectionSource)) {
+  violations.push([
+    "server/dre-projection.js não importa calcEquipCustoObra do motor canônico de equipamentos (regressão do achado #1)",
+    /./,
+  ]);
+}
+if (/\bvalorDiaria\b|\bcustoDiaria\b/.test(dreProjectionSource)) {
+  violations.push([
+    "server/dre-projection.js manipula valorDiaria/custoDiaria diretamente - custo de locação deve vir só de calcEquipCustoObra (regressão do achado #1: dias*valorDiaria ignorava quantidade e pacote tarifário)",
+    /./,
+  ]);
+}
 
 if (violations.length) {
   console.error("Fronteira financeira violada:");
