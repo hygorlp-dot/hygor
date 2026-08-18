@@ -286,6 +286,20 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await maintenanceDialog.getByRole("button",{name:"Registrar manutenção"}).click();
         await expect(page.getByText("Manutenção registrada.")).toBeVisible();
       }
+      if(item==="Propostas e contratos") {
+        // Regressão do achado P0 de 18/08/2026: este destino (com_deals) e
+        // "Gestão comercial" (com_management) renderizavam completamente em
+        // branco porque ComercialView.jsx comparava a prop `view` crua (que
+        // chega como "com_deals") contra os IDs legados ("com_propostas")
+        // em vez de usar `commercialView`, já traduzido. O smoke genérico
+        // (só checa ausência de erro) não pegava isso - só um conteúdo real
+        // esperado pega. Corrigido trocando `view` por `commercialView` nos
+        // ramos de renderização.
+        await expect(page.getByText("Propostas", {exact:true})).toBeVisible();
+      }
+      if(item==="Gestão comercial") {
+        await expect(page.getByText("Relatórios comerciais")).toBeVisible();
+      }
       if(item==="Terceirizados") {
         if(process.env.ARCD_VISUAL_CAPTURE) {
           await page.screenshot({path:"/tmp/arcd-terceirizados-desktop.png",fullPage:true});
