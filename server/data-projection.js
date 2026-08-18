@@ -32,12 +32,17 @@ const sanitizeEmployee = (employee, role = "") => {
   if(role === "rh") return employee;
   // Engenharia, compras e financeiro precisam da identificação operacional,
   // não de documentos pessoais, remuneração ou coordenadas de pagamento.
+  // dailyRate/vtDaily/vrDaily/overtimeAdditionalPercent são os campos reais
+  // do cadastro atual (src/domains/rh/employee-commands.js) - os nomes
+  // legados abaixo (salario, valorHora...) não existem mais na gravação,
+  // mas ficam para não reabrir uma projeção antiga em sombra.
   const {
     cpf,rg,pis,ctps,email,telefone,phone,celular,endereco,address,
     banco,agencia,conta,contaBancaria,bankAccount,bankAgency,
     pix,pixKey,pixChave,chavePix,pixTipo,pixType,
     salario,salarioBase,valorHora,valorDia,valorDiaria,remuneracao,
-    custoHora,custoDia,custoMensal,valorFolha,...safe
+    custoHora,custoDia,custoMensal,valorFolha,
+    dailyRate,vtDaily,vrDaily,overtimeAdditionalPercent,...safe
   }=employee||{};
   return safe;
 };

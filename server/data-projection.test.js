@@ -10,7 +10,15 @@ const payload={
     {id:"obra-a",name:"Obra A",oneDriveDriveId:"drive-a",oneDriveFolderId:"folder-a",portalCliente:{token:"segredo"}},
     {id:"obra-b",name:"Obra B",oneDriveDriveId:"drive-b"},
   ],
-  employees:[{id:"e-a",obra:"obra-a",name:"Equipe A",cpf:"111.111.111-11",conta:"0001",pixChave:"cpf@pix",salario:2400,valorHora:18},{id:"e-b",obra:"obra-b",name:"Equipe B",cpf:"222.222.222-22"}],
+  // dailyRate/vtDaily/vrDaily/overtimeAdditionalPercent são os campos reais
+  // de remuneração gravados hoje (src/domains/rh/employee-commands.js) -
+  // salario/valorHora são nomes legados mantidos só para não reabrir uma
+  // projeção antiga em sombra. Achado de segurança de 18/08/2026:
+  // sanitizeEmployee só removia os nomes legados, vazando os reais para
+  // engenheiro/compras/financeiro - corrigido, e este fixture agora usa os
+  // nomes reais para que o teste abaixo (toEqual, forma exata) pegue uma
+  // regressão de verdade, não só a dos nomes antigos que nunca existiram.
+  employees:[{id:"e-a",obra:"obra-a",name:"Equipe A",cpf:"111.111.111-11",conta:"0001",pixChave:"cpf@pix",salario:2400,valorHora:18,dailyRate:120,vtDaily:8,vrDaily:22,overtimeAdditionalPercent:50},{id:"e-b",obra:"obra-b",name:"Equipe B",cpf:"222.222.222-22"}],
   attendance:{
     "e-a":{"2026-07-01":{status:"P",obraId:"obra-a"},"2026-07-02":{status:"P",obraId:"obra-b"}},
     "e-b":{"2026-07-01":{status:"P",obraId:"obra-b"}},
@@ -70,6 +78,20 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     const projected=projectDataForUser(payload,{id:"compras-a",role:"compras",obraId:"obra-a"});
     expect(projected.orcamentos).toEqual([{id:"orc-a",obraId:"obra-a",versionStatus:"rascunho"}]);
     expect(projected.budgetBaselines).toEqual([{id:"base-a",obraId:"obra-a",budgetId:"orc-a"}]);
+  });
+
+  it("nunca vaza remuneração real (dailyRate/vtDaily/vrDaily) para papéis fora de RH/admin",()=>{
+    for(const role of ["engenheiro","engenheiro_auditor","compras","financeiro"]){
+      const projected=projectDataForUser(payload,{id:"u-x",role,obraId:role==="compras"||role==="financeiro"?undefined:"obra-a"});
+      const employeeA=(projected.employees||[]).find(item=>item.id==="e-a");
+      if(!employeeA)continue;
+      expect(employeeA).not.toHaveProperty("dailyRate");
+      expect(employeeA).not.toHaveProperty("vtDaily");
+      expect(employeeA).not.toHaveProperty("vrDaily");
+      expect(employeeA).not.toHaveProperty("overtimeAdditionalPercent");
+      expect(employeeA).not.toHaveProperty("salario");
+      expect(employeeA).not.toHaveProperty("valorHora");
+    }
   });
 
   it("mantém os dados pessoais apenas na projeção de RH",()=>{

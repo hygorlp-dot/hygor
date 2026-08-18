@@ -1,4 +1,5 @@
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
+import { validDate } from "./date-validation.js";
 import {
   calculateRescission,
   RESCISSION_TYPE_LABEL,
@@ -12,7 +13,6 @@ export const RESCISSION_COMMAND = Object.freeze({
 export const RESCISSION_COMMAND_TYPES = new Set(Object.values(RESCISSION_COMMAND));
 
 const fail = reason => ({ ok:false, reason });
-const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
 const versionOf = item => Number(item?.version || 0);
 const byId = (data, id) => (data.rescisoes || []).find(item => String(item.id) === String(id));
 const active = item => !["cancelada", "cancelado", "estornada", "estornado"].includes(String(item?.status || "").toLowerCase());

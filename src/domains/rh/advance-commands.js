@@ -1,3 +1,5 @@
+import { validDate } from "./date-validation.js";
+
 export const ADVANCE_COMMAND = Object.freeze({
   PAYROLL_ADVANCE_CREATED:"ADIANTAMENTO_FOLHA_CRIADO",
   PAYROLL_ADVANCE_CANCELLED:"ADIANTAMENTO_FOLHA_CANCELADO",
@@ -6,7 +8,6 @@ export const ADVANCE_COMMAND = Object.freeze({
 export const ADVANCE_COMMAND_TYPES = new Set(Object.values(ADVANCE_COMMAND));
 
 const fail=reason=>({ok:false,reason});
-const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||""));
 const versionOf=item=>Number(item?.version||0);
 const active=item=>!["cancelado","cancelada","estornado","estornada"].includes(
   String(item?.status||"").toLowerCase(),

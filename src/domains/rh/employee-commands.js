@@ -1,3 +1,5 @@
+import { validDate } from "./date-validation.js";
+
 export const EMPLOYEE_COMMAND = Object.freeze({
   EMPLOYEE_SAVED:"FUNCIONARIO_SALVO",
 });
@@ -6,7 +8,6 @@ export const EMPLOYEE_COMMAND_TYPES = new Set(Object.values(EMPLOYEE_COMMAND));
 
 const fail = reason => ({ ok:false, reason });
 const versionOf = item => Number(item?.version || 0);
-const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
 const employeeById = (data, id) =>
   (data.employees || []).find(item => String(item.id) === String(id));
 const obraName = (data, id) =>
