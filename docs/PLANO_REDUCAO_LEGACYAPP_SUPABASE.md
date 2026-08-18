@@ -2,11 +2,11 @@
 
 ## Estado medido em 17/08/2026
 
-- `src/LegacyApp.jsx`: 22.642 linhas (era 39.323 em 30/07 - a fila de
-  extração de código da seção "Próximas extrações de código" foi fechada
-  por completo em 16-17/08, ver "Andamento das extrações de UI" abaixo;
-  Equipamentos, a 2ª maior tela restante, foi extraída em seguida no
-  mesmo dia).
+- `src/LegacyApp.jsx`: 22.579 linhas em 18/08 (era 22.642 em 17/08, era
+  39.323 em 30/07 - a fila de extração de código da seção "Próximas
+  extrações de código" foi fechada por completo em 16-17/08, ver
+  "Andamento das extrações de UI" abaixo; Equipamentos e depois
+  AprovacoesPendentes foram extraídas em seguida, fora da fila original).
 - Grafo de produção: 628 módulos, 1.379 dependências, sem violação
   arquitetural (`npm run architecture:check`).
 - Chunk principal (`LegacyApp-*.js`): ~590 kB gzip. Total JS/CSS gzip do
@@ -160,36 +160,75 @@ com `React.lazy` no ponto de uso - mesma camada de dados (blob
 Cada feature recebeu rota com `React.lazy`, mantendo componentes, seletores e
 testes próprios sem duplicar regra financeira.
 
-Fora da fila original (medida em 17/08, ver tabela abaixo), extraída na
-sequência por ser a 2ª maior tela ainda inline:
+Fora da fila original (medida em 17/08, ver tabela abaixo), extraídas na
+sequência por serem as maiores telas ainda inline:
 
 9. `Equipamentos` → `src/domains/equipamentos/components/EquipamentosView.jsx`
    (levou junto `gradeLocacaoEquip`/`resumoLocacaoEquip`, helpers exclusivos
    do mapa de ocupação que tinham ficado para trás na extração inicial -
    ver nota sobre orçamento de bundle no topo deste documento).
+10. `AprovacoesPendentes` → `src/domains/aprovacoes/components/AprovacoesPendentesView.jsx`
+    (18/08/2026) - a tela em si tinha só ~45 linhas; a estimativa de
+    ~2.130 linhas da tabela original estava errada por um motivo
+    importante, ver "Correção do método de medição" abaixo.
+    `SETORES_APROVACAO`/`MOTORES_APROVACAO_POR_ENTIDADE` continuam em
+    `LegacyApp.jsx` (agora exportados) porque `EditorEtapaAprovacao`
+    (edição de política de aprovação, ainda inline) também os usa.
+
+## Correção do método de medição (achado de 18/08/2026)
+
+A tabela "Próximas extrações" original foi medida contando a distância até
+a *próxima declaração `^function`* em `LegacyApp.jsx`. Isso **superestima**
+o tamanho real de várias telas, porque entre um componente e o próximo
+frequentemente existem dezenas a centenas de linhas de **funções/constantes
+utilitárias exportadas**, sem relação com o componente anterior, usadas por
+outras telas (inclusive já extraídas) via `import {...} from "./LegacyApp"`
+- não são código do componente e não devem ser contadas nem movidas junto.
+
+Caso mais extremo: `AprovacoesPendentes` "media" ~2.130 linhas pelo método
+antigo, mas a função em si tinha **45 linhas** - as ~2.000 linhas restantes
+eram funções de Planejamento (`curvaS`, `caminhoCritico`, `montarCronogramaIA`...),
+Conciliação (`parseOFX`, `sugerirRateio`...) e Compras/Estoque
+(`calcCompras`, `calcCurvaABC`...) soltas entre as duas funções, a maioria
+já servindo os módulos extraídos desses domínios.
+
+Remedição feita em 18/08/2026, com verificação manual de cada intervalo
+(conferindo se há `const`/`export const` de outro domínio entre o início do
+componente e a próxima função):
+
+| Tela | Estimativa antiga (17/08) | Tamanho real (18/08) | Diferença |
+| --- | ---: | ---: | ---: |
+| `AprovacoesPendentes` | ~2.130 | 45 (extraído) | -98% |
+| `ObraDetalhe` | ~1.055 | ~987 | -6% |
+| `DREEmpresa` | ~1.015 | ~806 | -21% |
+| `DRELegado` | ~970 | ~771 | -21% |
+| `Ponto` | ~760 | ~507 | -33% |
+| `DiarioObra` | ~730 | ~707 | -3% |
+| `Cadastros` | ~560 | ~557 | -1% |
+| `Estoque` | ~545 | ~544 | 0% |
+
+A maioria estava só um pouco inflada (Cadastros/Estoque/DiarioObra batem
+quase exato - não têm utilitário interstitial relevante). `Ponto` e
+`DREEmpresa`/`DRELegado` tinham overcounting real (~500 linhas de
+`buildAlertMessage`/`buildQuickAlerts` no caso de Ponto ficam de fora;
+constantes/cálculos de Comercial e do modal de IA no caso de
+DREEmpresa/DRELegado). `AprovacoesPendentes` foi o único caso extremo.
+
+**`ObraDetalhe` (~987 linhas) é agora o maior candidato real.** É um caso
+especial (roteador de abas da obra, já delega Orçamento/Terceiros/
+Planejamento/Medições para os módulos extraídos) - antes de extrair,
+mapear com cuidado quais abas ele ainda renderiza inline vs. delega, e
+não presumir que o volume é lógica de negócio nova.
 
 ## Próximas extrações de código
 
-Medição de 17/08/2026 por linhas de função de topo dentro de `LegacyApp.jsx`
-(maior volume ainda inline, candidatos à próxima rodada). **As linhas abaixo
-são da medição original, anterior à extração de Equipamentos - o arquivo
-encolheu ~1.925 linhas desde então, então toda referência de linha aqui
-precisa ser reconferida com `grep -n "^function NomeDaTela"` antes de
-começar a próxima extração, não usada de olhos fechados:**
+Números já corrigidos - ver tabela acima. Antes de começar qualquer uma,
+reconferir com `grep -n "^function NomeDaTela"` e o mesmo processo manual
+de checar interstitials usado nesta remedição, porque o arquivo continua
+encolhendo a cada extração e novos interstitials podem aparecer.
 
-| Tela | Linhas aprox. (medição de 17/08, antes de extrair Equipamentos) |
-| --- | --- |
-| `AprovacoesPendentes` | ~2.130 |
-| `ObraDetalhe` | ~1.055 |
-| `DREEmpresa` | ~1.015 |
-| `DRELegado` | ~970 |
-| `Ponto` | ~760 |
-| `DiarioObra` | ~730 |
-| `Cadastros` | ~560 |
-| `Estoque` | ~545 |
-
-`Equipamentos` (~1.640 linhas) já foi extraída - ver "Andamento das
-extrações de UI" acima.
+`Equipamentos` (~1.640 linhas) e `AprovacoesPendentes` (45 linhas) já
+foram extraídas - ver "Andamento das extrações de UI" acima.
 
 `ObraDetalhe` é um caso especial: é o orquestrador de abas de uma obra (já
 delega Orçamento/Terceiros/Planejamento/Medições para os módulos extraídos
