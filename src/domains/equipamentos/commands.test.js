@@ -306,6 +306,35 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(duplicate.reason).toMatch(/patrimônio/);
   });
 
+  it("cria, versiona e impede sobrescrita de proprietário de equipamento",()=>{
+    const created=applyOperationalCommand(base(),command(OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED,"owner-save-0001",{owner:{
+      id:"dono-1",nome:"Locadora Terra Firme",documento:"12.345.678/0001-90",telefone:"11999990000",
+    }},0));
+    expect(created.ok).toBe(true);
+    expect(created.data.proprietariosEquip[0]).toMatchObject({id:"dono-1",nome:"Locadora Terra Firme",tipo:"terceiro",ativo:true,version:1});
+    expect(created.data.proprietariosEquip[0].operationalHistory.at(-1)).toMatchObject({type:"EQUIPMENT_OWNER_CREATED",actorId:"u-1"});
+
+    const updated=applyOperationalCommand(created.data,command(OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED,"owner-save-0002",{owner:{
+      id:"dono-1",nome:"Locadora Terra Firme Ltda",telefone:"11999990000",
+    }},1));
+    expect(updated.data.proprietariosEquip[0]).toMatchObject({nome:"Locadora Terra Firme Ltda",version:2});
+    expect(updated.data.proprietariosEquip[0].operationalHistory.at(-1)).toMatchObject({type:"EQUIPMENT_OWNER_UPDATED"});
+
+    const stale=applyOperationalCommand(updated.data,command(OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED,"owner-save-0003",{owner:{
+      id:"dono-1",nome:"Valor perdido",
+    }},1));
+    expect(stale).toMatchObject({ok:false});
+    expect(stale.reason).toMatch(/alterado por outra pessoa/);
+  });
+
+  it("recusa proprietário de equipamento sem nome",()=>{
+    const result=applyOperationalCommand(base(),command(OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED,"owner-save-invalid-0001",{owner:{
+      id:"dono-1",nome:"",
+    }},0));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/nome do proprietário/);
+  });
+
   it("controla a capacidade por período e libera a frota ao encerrar",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,obraAtualId:""})]};
     const first=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"equipment-rental-0001",{rental:{

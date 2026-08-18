@@ -280,8 +280,16 @@ redesenho de layout, que é decisão de produto, não de token/componente.
 ### Fase 3 — Telas de uso médio
 
 Terceirizados, Planejamento, Comercial, Administração, Folha, Medições,
-Conciliação — mesma técnica da Fase 2, depois que o padrão estiver
-validado nas 5 telas de maior uso.
+Conciliação, Equipamentos — mesma técnica da Fase 2, depois que o padrão
+estiver validado nas 5 telas de maior uso.
+
+Equipamentos (`src/domains/equipamentos/components/EquipamentosView.jsx`,
+extraída de `LegacyApp.jsx` em 17/08/2026) já recebeu uma auditoria de
+funcionamento/DRE e uma rodada de polish pontual (dialogs nativos
+substituídos por `Modal`/`confirmModal` próprios, achado P0 —
+ver `docs/AUDITORIA_EQUIPAMENTOS.md`), mas ainda usa os primitivos locais
+(`Btn`/`Sel`/`Inp`/`Modal`), não os componentes do design-system — entra
+na mesma fila e técnica das demais telas desta fase.
 
 ### Fase 4 — Telas administrativas / baixo uso
 

@@ -383,13 +383,24 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
     }
   };
 
-  const salvarDono = (f) => {
+  const salvarDono = async(f) => {
     if(!f.nome){ showToast("Informe o nome do proprietário.","error"); return; }
-    const lista = f.id
-      ? (data.proprietariosEquip||[]).map(x=>x.id===f.id?{...x,...f}:x)
-      : [...(data.proprietariosEquip||[]), {...f, id:uid(), tipo:"terceiro", ativo:true}];
-    update({...data, proprietariosEquip:lista});
-    setDonoModal(null); showToast("Proprietário salvo.");
+    const id=f.id||uid(),isEdit=!!f.id;
+    setSalvandoEquipamento("proprietario");
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.proprietariosEquip||[]).find(item=>item.id===id);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED,idempotencyKey:`proprietario-equipamento-salvar-${id}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{owner:{...f,id}}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível salvar o proprietário.","error");return;}
+      setDonoModal(null); showToast(isEdit?"Proprietário atualizado.":"Proprietário salvo.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao salvar o proprietário.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
   };
 
   const salvarLoc = async(f) => {
@@ -1355,7 +1366,8 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             <Inp label="E-mail" value={donoModal.email} onChange={v=>setDonoModal(f=>({...f,email:v}))}/>
             <Inp label="Chave Pix" value={donoModal.chavePix} onChange={v=>setDonoModal(f=>({...f,chavePix:v}))}/>
             <Inp label="Observações" value={donoModal.obs} onChange={v=>setDonoModal(f=>({...f,obs:v}))} multiline/>
-            <Btn full onClick={()=>salvarDono(donoModal)}>Salvar proprietário</Btn>
+            <Btn full loading={salvandoEquipamento==="proprietario"} disabled={!!salvandoEquipamento}
+              onClick={()=>salvarDono(donoModal)}>{salvandoEquipamento==="proprietario"?"Salvando proprietário...":"Salvar proprietário"}</Btn>
           </div>
         </Modal>
       )}

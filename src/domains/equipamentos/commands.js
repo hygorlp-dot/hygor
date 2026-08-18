@@ -89,6 +89,7 @@ export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_REGISTRY_CLASSIFIED:"CADASTRO_FISICO_EQUIPAMENTO_CLASSIFICADO",
   EQUIPMENT_SAVED:"EQUIPAMENTO_SALVO",
   EQUIPMENT_DEACTIVATED:"EQUIPAMENTO_INATIVADO",
+  EQUIPMENT_OWNER_SAVED:"PROPRIETARIO_EQUIPAMENTO_SALVO",
   EQUIPMENT_RENTAL_SAVED:"LOCACAO_EQUIPAMENTO_SALVA",
   EQUIPMENT_RENTAL_CLOSED:"LOCACAO_EQUIPAMENTO_ENCERRADA",
   EQUIPMENT_RENTAL_CANCELLED:"LOCACAO_EQUIPAMENTO_CANCELADA",
@@ -116,6 +117,7 @@ export const equipmentCommandObraId=(data={},command={})=>{
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED)return "";
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_SAVED)return String(payload.equipment?.obraAtualId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_DEACTIVATED)return String(list(data,"equipamentos").find(item=>item.id===payload.equipmentId)?.obraAtualId||"");
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_OWNER_SAVED)return "";
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_SAVED)return String(payload.rental?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CLOSED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CANCELLED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
@@ -212,6 +214,26 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     };
     record.operationalHistory=audit(current,command,now,current?"EQUIPMENT_UPDATED":"EQUIPMENT_CREATED");
     const next=current?replace(data,"equipamentos",record.id,record):{...data,equipamentos:[...list(data,"equipamentos"),record]};
+    return {ok:true,data:next,entityId:record.id};
+  }
+
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_OWNER_SAVED){
+    const input=payload.owner||{};
+    const id=String(input.id||"");
+    const nome=String(input.nome||"").trim();
+    if(!id||!nome)return fail("Informe o nome do proprietário.");
+    const current=list(data,"proprietariosEquip").find(item=>String(item.id)===id);
+    const stale=versionError(current,command.expectedVersion,"O proprietário");
+    if(stale)return fail(stale);
+    if(!current&&command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("O proprietário ainda não existe na versão esperada.");
+    const record={
+      ...(current||{}),...input,id,nome,
+      tipo:current?.tipo||"terceiro",ativo:current?.ativo!==false,
+      version:versionOf(current)+1,updatedAt:now,
+      ...(!current?{createdAt:now,createdById:command.actorId||""}:{}),
+    };
+    record.operationalHistory=audit(current,command,now,current?"EQUIPMENT_OWNER_UPDATED":"EQUIPMENT_OWNER_CREATED");
+    const next=current?replace(data,"proprietariosEquip",record.id,record):{...data,proprietariosEquip:[...list(data,"proprietariosEquip"),record]};
     return {ok:true,data:next,entityId:record.id};
   }
 

@@ -29,20 +29,24 @@ de dinheiro real é mais grave que um `try/catch` faltando.
 
 | Parte | Nota | Por quê |
 | --- | --- | --- |
-| **Cadastro físico** (`fisico`) | **7,5** | Fluxo mais robusto tecnicamente (`materializarCadastroFisico` com padrão exemplar). Não é alcançado por nenhum dos 3 achados de DRE. Só perde pontos por `salvarRevisaoFisica` sem `try/catch`/trava (risco atenuado pela versão otimista no servidor). |
-| **Relatório** (`relatorio`) | **7** | Componente limpo, sem lógica de gravação própria - mas herda os 3 achados de DRE por baixo (o número que ele mostra pode estar errado por causa do servidor). Nota alta na parte que audita (código), mas o dado que exibe é duvidoso. |
-| **Mapa de ocupação** (`gestao`) | **6** | Grade em si é sólida e só leitura, mas o modal de indisponibilidade que ela abre tem os dois piores casos de falha silenciosa da tela inteira (duplicação de bloqueios, modal que fecha antes do resultado assíncrono aparecer). |
-| **Frota** (`frota`) | **6,5** (era 5,5 - Achado 2 já corrigido) | Tinha o Achado 1 (em correção separada) e o Achado 2 (corrigido nesta sessão). No código em si, `salvarEquip`/`excluirEquip` são exemplares, mas `salvarTransf` e `salvarDono` (que ignora todo o pipeline de comandos) puxam para baixo. |
-| **Manutenção** (`manutencao`) | **4** | Pior ponto de código da tela (`salvarManut` sem `try/catch`, sem trava, botão sem `disabled` - único ponto de entrada da aba, sem proteção nenhuma). Estruturalmente correta no DRE (não é bug, é decisão consciente que manutenção só afeta o nível empresa, não a obra), mas o código que a implementa é o mais frágil. |
-| **Locações** (`locacoes`) | **6** (era 3,5 - Achado 3 reclassificado) | A aba mais rica e, isoladamente, a mais bem protegida em termos de wiring de comando (travas por chave, só `encerrarLoc` destoa). O subsistema de cobrança/medição/fatura de locação não alimenta o DRE, mas isso é fase documentada e inacabada (`docs/EQUIPAMENTOS_FASE_5_COBRANCA.md`), não um bug escondido - os toasts avisam honestamente o usuário. Ainda pesa o Achado 1 (em correção separada), que afeta diretamente o custo calculado de uma locação. |
+| **Cadastro físico** (`fisico`) | **8** (era 7,5 - `salvarRevisaoFisica` corrigido) | Fluxo mais robusto tecnicamente (`materializarCadastroFisico` com padrão exemplar). Não é mais alcançado por nenhum dos 3 achados de DRE (Achado 1 e 2 corrigidos, Achado 3 reclassificado) nem pela falta de `try/catch`/trava, já corrigida. |
+| **Relatório** (`relatorio`) | **8** (era 7 - herdava os achados de DRE, agora corrigidos/reclassificados) | Componente limpo, sem lógica de gravação própria. O número que exibe agora reflete um servidor corrigido (Achado 1) e um cliente já correto (Achado 2); Achado 3 é lacuna documentada de feature, não erro de cálculo. |
+| **Mapa de ocupação** (`gestao`) | **7,5** (era 6 - `salvarIndisponibilidade`/`cancelarIndisponibilidade` corrigidos) | Grade em si é sólida e só leitura; o modal de indisponibilidade que ela abre já tem trava contra duplo-clique e não fecha mais antes do resultado assíncrono. |
+| **Frota** (`frota`) | **8** (era 6,5 - Achado 1 corrigido, `salvarDono` corrigido) | Achado 1 (custo no servidor) e Achado 2 (guard de proprietário) corrigidos. No código, `salvarEquip`/`excluirEquip`/`salvarTransf`/`salvarDono` seguem agora o mesmo padrão de comando versionado + trava. |
+| **Manutenção** (`manutencao`) | **7,5** (era 4 - `salvarManut` corrigido) | Era o pior ponto de código da tela (`salvarManut` sem `try/catch`, sem trava, botão sem `disabled` - único ponto de entrada da aba, sem proteção nenhuma); agora segue o mesmo padrão das demais. Estruturalmente correta no DRE (decisão consciente que manutenção só afeta o nível empresa, não a obra). |
+| **Locações** (`locacoes`) | **7** (era 6 - Achado 1 corrigido, `encerrarLoc` migrado para modal) | A aba mais rica e, isoladamente, a mais bem protegida em termos de wiring de comando - `encerrarLoc` não destoa mais (modal `encerrarLocModal` no lugar de `window.prompt`). O subsistema de cobrança/medição/fatura de locação ainda não alimenta o DRE, mas isso é fase documentada e conscientemente inacabada (`docs/EQUIPAMENTOS_FASE_5_COBRANCA.md`), não um bug - os toasts avisam honestamente o usuário. |
 
-**Nota geral do módulo: 6,3/10** (era 5,6 - revisado após corrigir o Achado 2
-e reclassificar o Achado 3) - código de UI razoavelmente maduro (padrão
-consistente de trava+catch na maioria das funções, boa cobertura de teste
-unitário nos domínios puros). O que mais pesa contra a nota agora é o
-Achado 1 (ainda em correção) e as 6 funções de gravação sem proteção contra
-falha de rede/duplo-clique, mais a lacuna real de completude funcional
-frente a sistemas de mercado.
+**Nota geral do módulo: 7,7/10** (era 6,3 - revisado após corrigir o Achado
+1, corrigir as 7 funções de gravação sem proteção e migrar `encerrarLoc`
+para modal) - código de UI maduro (padrão consistente de comando
+versionado + trava+catch em toda função de gravação, boa cobertura de
+teste unitário nos domínios puros e agora também de `commands.test.js`
+para o novo comando de proprietário). O que segue pesando contra a nota
+mais alta é a decisão em aberto sobre a Fase 5 de cobrança de locação
+(Achado 3, arquitetural, não um bug) e a lacuna real de completude
+funcional frente a sistemas de mercado (tabela "Completude funcional",
+abaixo) - nenhum dos dois é um "conserto pontual", ambos são trabalho de
+produto/shape.
 
 ## Achados de conformidade com o DRE (severidade máxima desta auditoria)
 
@@ -140,20 +144,22 @@ ponto cego real da rede de segurança atual, não só desta feature.
 
 ## Achados de funcionamento e boas práticas (por aba)
 
-Seis funções de gravação **não seguem o padrão** (que a maioria segue
+Sete funções de gravação **não seguiam o padrão** (que a maioria seguia
 corretamente: `setSalvandoEquipamento(chave)` → `try/catch` → `result?.ok`
 checado → `finally` limpa a trava, com o botão usando
-`disabled={!!salvandoEquipamento}`):
+`disabled={!!salvandoEquipamento}`). **Todas as 7 foram corrigidas nesta
+sessão** (commits desta sessão de audit+polish, mais o fix do `salvarDono`
+descrito abaixo):
 
-| Severidade | Função | Local | Efeito |
-| --- | --- | --- | --- |
-| Alta | `salvarManut` | `EquipamentosView.jsx:592-604`, botão `:1576` | Sem `try/catch`, sem trava, botão sem `disabled` - único ponto de entrada da aba Manutenção inteira, sem proteção nenhuma. Duplo-clique cria manutenções duplicadas, cada uma bloqueando o equipamento duas vezes no calendário. |
-| Média | `salvarIndisponibilidade` | `:606-619`, botão `:1596` | Duplo-clique duplica bloqueios visíveis no mapa de ocupação. |
-| Média | `cancelarIndisponibilidade` | `:621-633`, `:1595` | O modal fecha (`setIndispModal(null)`) antes do resultado assíncrono - se falhar, o toast de erro aparece depois que a tela já "esqueceu" a ação. |
-| Média | `salvarTransf` | `:635-646`, botão `:1628` | Duplo-clique gera transferências duplicadas no histórico. |
-| Média | `salvarRevisaoFisica` | `:312-326`, botão `:1284` | Risco atenuado pela versão otimista no servidor, mas ainda sem feedback de erro de rede. |
-| Média | `encerrarLoc` | `:398-409`, botão `:1070` | Usa `window.prompt` em vez de modal com `<Inp type="date">` (inconsistente com o resto da aba); é o único botão da lista de ações da locação sem `disabled`. |
-| Média | `salvarDono` | `:359-366`, botão `:1275` | Ignora todo o pipeline de comandos versionados - usa `update()` direto, sem `expectedVersion`, sem auditoria, sem aviso de "alterado por outra pessoa". Única entidade do domínio nessa situação. |
+| Severidade | Função | Local | Efeito (antes da correção) | Status |
+| --- | --- | --- | --- | --- |
+| Alta | `salvarManut` | `EquipamentosView.jsx:592-604`, botão `:1576` | Sem `try/catch`, sem trava, botão sem `disabled` - único ponto de entrada da aba Manutenção inteira, sem proteção nenhuma. Duplo-clique cria manutenções duplicadas, cada uma bloqueando o equipamento duas vezes no calendário. | **Corrigido** |
+| Média | `salvarIndisponibilidade` | `:606-619`, botão `:1596` | Duplo-clique duplica bloqueios visíveis no mapa de ocupação. | **Corrigido** |
+| Média | `cancelarIndisponibilidade` | `:621-633`, `:1595` | O modal fecha (`setIndispModal(null)`) antes do resultado assíncrono - se falhar, o toast de erro aparece depois que a tela já "esqueceu" a ação. | **Corrigido** |
+| Média | `salvarTransf` | `:635-646`, botão `:1628` | Duplo-clique gera transferências duplicadas no histórico. | **Corrigido** |
+| Média | `salvarRevisaoFisica` | `:312-326`, botão `:1284` | Risco atenuado pela versão otimista no servidor, mas ainda sem feedback de erro de rede. | **Corrigido** |
+| Média | `encerrarLoc` | `:398-409`, botão `:1070` | Usava `window.prompt` em vez de modal com `<Inp type="date">` (inconsistente com o resto da aba); era o único botão da lista de ações da locação sem `disabled`. | **Corrigido** (modal `encerrarLocModal`) |
+| Média | `salvarDono` | `:386-393` original, botão `:1358` | Ignorava todo o pipeline de comandos versionados - usava `update()` direto, sem `expectedVersion`, sem auditoria, sem aviso de "alterado por outra pessoa". Única entidade do domínio nessa situação. | **Corrigido** — novo comando `EQUIPMENT_OWNER_SAVED` (`commands.js`), `salvarDono` agora usa `dispatchCommand` + trava, com testes em `commands.test.js` |
 
 Cobertura de teste: 14 arquivos / 101 testes nos módulos puros de
 equipamentos, todos passando. Nenhum teste de componente para
@@ -164,8 +170,8 @@ equipamentos, todos passando. Nenhum teste de componente para
 
 | # | Achado | Impacto | Esforço |
 | --- | --- | --- | --- |
-| 1 | `EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED` é um comando com handler completo e testado (`commands.js:487-501`) mas **sem nenhuma UI que o dispare em todo o projeto** - parece funcionalidade de conciliação de recebimento de fatura abandonada pela metade. | Médio | Baixo (investigar primeiro) |
-| 2 | `Equipamentos` não aparece em nenhuma fase de `docs/ROADMAP_DESIGN.md`, apesar de ter mais `style={{` (203) que `Terceiros` (127), que já está na Fase 3. | Médio | Baixo (é só adicionar ao roadmap) |
+| 1 | `EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED` é um comando com handler completo e testado (`commands.js:487-501`) mas **sem nenhuma UI que o dispare em todo o projeto** - não é abandonado, é o "Oitavo incremento" da Fase 5, ainda não construído (decisão registrada em "Próximos passos", item 5). | Médio | Baixo (investigar primeiro) - **investigado, decisão registrada** |
+| 2 | ~~`Equipamentos` não aparece em nenhuma fase de `docs/ROADMAP_DESIGN.md`~~ | Médio | **Corrigido** - adicionado à Fase 3 |
 | 3 | E2E (`modules-smoke.spec.js`) só testa caminho feliz de *visibilidade* (abre modal, clica Cancelar) - nenhum cenário realmente submete um formulário e verifica sucesso ou erro. A regra de negócio em si é bem testada em unidade (`commands.test.js`, inclusive corrida de duas reservas disputando a última unidade), mas a integração UI→comando→toast não tem rede de segurança. | Médio | Baixo-médio |
 | 4 | Dividir `EquipamentosView.jsx` em subcomponentes próprios | Baixo (nenhuma das outras 8 telas extraídas foi dividida - seria inconsistência isolada, não um padrão do projeto) | Médio |
 | 5 | Duplicação de lógica entre Equipamentos e Terceirizados | Não confirmada (os dois domínios resolvem problemas genuinamente diferentes - ativo físico com capacidade finita vs. contrato de serviço) | N/A |
@@ -195,25 +201,30 @@ de conflito (`rentalAvailability`) já existem; o que falta é uma visão
 proativa "vai ficar livre em X" cruzada com demanda futura de outra obra.
 Valor médio, esforço médio.
 
-## Próximos passos sugeridos (atualizado após a correção do Achado 2)
+## Próximos passos sugeridos (atualizado após a rodada de correção "revise os erros")
 
 1. ~~Achado 2 (guard de proprietário terceiro)~~ - **corrigido nesta
    sessão**.
-2. Achado 1 (quantidade/pacote tarifário no servidor) - em correção numa
-   sessão separada; conferir o resultado e rodar a suíte completa quando
-   terminar.
-3. Achado 3 (cobrança/fatura de locação) - **não é mais um item de "corrigir
+2. ~~Achado 1 (quantidade/pacote tarifário no servidor)~~ - **corrigido
+   nesta sessão** (commit `acc0c19`, recuperado e integrado de uma sessão
+   paralela do usuário; servidor agora usa `calcEquipCustoObra` canônico
+   em vez de reimplementar o cálculo). Suíte completa verde após a
+   aplicação.
+3. Achado 3 (cobrança/fatura de locação) - **não é um item de "corrigir
    bug"**: é decidir se a Fase 5 (`docs/EQUIPAMENTOS_FASE_5_COBRANCA.md`,
    inacabada desde 04/08) é retomada e concluída (incluindo a "ativação
    explícita da nova projeção" que o próprio plano prevê como etapa
    separada, com cuidado para não contar receita em dobro com o modelo
-   antigo), ou explicitamente pausada/simplificada. Não é um conserto
-   pontual.
-4. As 6 funções de gravação sem `try/catch`/trava são um conserto
-   mecânico, baixo risco, alto valor - candidatas a uma correção rápida
-   isolada, no mesmo padrão das já corrigidas nesta sessão.
-5. `EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED` não é abandonado - é o
-   "Oitavo incremento" da Fase 5 (commit `fe7f9ca`), implementado no
-   backend mas sem UI ainda. Mesma decisão do item 3: retomar a Fase 5 ou
-   não.
-6. Adicionar `Equipamentos` ao `docs/ROADMAP_DESIGN.md`.
+   antigo), ou explicitamente pausada/simplificada. Continua em aberto -
+   decisão de produto, não conserto pontual.
+4. ~~As 7 funções de gravação sem `try/catch`/trava~~ (inclui `salvarDono`,
+   corrigido por último via o novo comando `EQUIPMENT_OWNER_SAVED`) -
+   **todas corrigidas nesta sessão**.
+5. `EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED` continua sem UI - **decisão
+   confirmada nesta rodada: não construir agora**. É o "Oitavo incremento"
+   da Fase 5 (commit `fe7f9ca`), com handler completo e testado no
+   backend; a UI de vínculo de recebimento é trabalho novo de tela
+   (conciliação de fatura × extrato bancário), não um bug a corrigir - fica
+   junto da decisão do item 3 sobre retomar ou não a Fase 5.
+6. ~~Adicionar `Equipamentos` ao `docs/ROADMAP_DESIGN.md`~~ - **feito**
+   (Fase 3, com nota sobre o polish já aplicado).
