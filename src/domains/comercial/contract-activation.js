@@ -89,7 +89,16 @@ export const activateCommercialContract=({
     responsavelId:contract.responsavelComercialId||lead.responsavelId||"",
   };
   const partner=(commercial.parceiros||[]).find(item=>item.id===lead.parceiroId);
-  const commissionPercentage=Number(partner?.comissaoPct||1);
+  // Achado P3 da auditoria de 18/08/2026: quando a venda não tem parceiro de
+  // indicação (o caso comum - venda direta), não existe hoje nenhum campo de
+  // comissão de vendedor/usuário no schema (só parceiros e corretores
+  // imobiliários têm `comissaoPct`). Este 1% é um valor de fallback
+  // histórico, sem origem documentada nem configuração - mantido como está
+  // para não inventar uma regra de negócio nova sem confirmação do usuário.
+  // Se um dia existir uma taxa de comissão por vendedor, ela deve substituir
+  // esta constante aqui.
+  const DIRECT_SALE_DEFAULT_COMMISSION_PCT=1;
+  const commissionPercentage=Number(partner?.comissaoPct||DIRECT_SALE_DEFAULT_COMMISSION_PCT);
   const commission={
     id:ids.commissionId,vendaId:sale.id,responsavelId:sale.responsavelId,
     parceiroId:partner?.id||"",base:sale.valor,percentual:commissionPercentage,

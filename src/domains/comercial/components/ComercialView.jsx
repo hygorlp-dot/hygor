@@ -59,6 +59,14 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const [metaForm,setMetaForm]=useState(null);const [perdaForm,setPerdaForm]=useState(null);
   const [subindoDocumentoComercial,setSubindoDocumentoComercial]=useState(false);
   const [ativandoContratoId,setAtivandoContratoId]=useState("");
+  // Trava genérica contra duplo-clique para as gravações do módulo (mesmo
+  // padrão de EquipamentosView.jsx: uma string identificando a ação em
+  // andamento, checada nos botões via `salvandoComercial==="tag"` /
+  // `disabled={!!salvandoComercial}`).
+  const [salvandoComercial,setSalvandoComercial]=useState("");
+  // Modal de confirmação estilizado, substituindo window.confirm nativo
+  // (mesmo padrão de EquipamentosView.jsx: {titulo,mensagem,tom,confirmLabel,onConfirmar}).
+  const [confirmModal,setConfirmModal]=useState(null);
   const [realEstateSection,setRealEstateSection]=useState("overview");
   const setCom=(patch)=>update({...data,comercial:{...com,...patch}});
   const persistirComercial=async(patch,{mensagem="",aoConfirmar}={})=>{
@@ -121,25 +129,67 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     const lista=f.id
       ? (com.pesquisas||[]).map(p=>p.id===f.id?reg:p)
       : [...(com.pesquisas||[]),reg];
-    await persistirComercial({pesquisas:lista},{
-      mensagem:reg.nota>=9?"Promotor registrado - vale pedir indicação.":"Pesquisa registrada.",
-      aoConfirmar:()=>setNpsForm(null),
-    });
+    setSalvandoComercial("nps");
+    try{
+      await persistirComercial({pesquisas:lista},{
+        mensagem:reg.nota>=9?"Promotor registrado - vale pedir indicação.":"Pesquisa registrada.",
+        aoConfirmar:()=>setNpsForm(null),
+      });
+    }finally{setSalvandoComercial("");}
   };
 
   // Marca que o cliente ja foi convidado a indicar (sai da lista de acoes).
   const marcarPedidoIndicacao=async(obraId)=>{
     const lista=(com.pesquisas||[]).map(p=>p.obraId===obraId?{...p,pediuIndicacao:true}:p);
-    await persistirComercial({pesquisas:lista},{
-      mensagem:"Registrado. Acompanhe se vem indicação nas próximas semanas.",
-    });
+    setSalvandoComercial(`marcar-indicacao-${obraId}`);
+    try{
+      await persistirComercial({pesquisas:lista},{
+        mensagem:"Registrado. Acompanhe se vem indicação nas próximas semanas.",
+      });
+    }finally{setSalvandoComercial("");}
   };
 
-  const salvarLead=async()=>{const f=leadForm;if(!f?.nome.trim()){showToast("Informe o nome do lead.","error");return;}if(!f.responsavelId||!f.proximaAtividadeEm){showToast("Todo lead ativo precisa de responsável e próxima atividade.","error");return;}const duplicado=leads.find(l=>l.id!==f.id&&((f.email&&l.email?.toLowerCase()===f.email.toLowerCase())||(f.whatsapp&&l.whatsapp===f.whatsapp)));if(duplicado&&!window.confirm(`Possível duplicidade com ${duplicado.nome}. Continuar?`))return;
+  const executarSalvarLead=async f=>{
     const antigo=leads.find(l=>l.id===f.id),id=f.id||uid(),now=new Date().toISOString();const hist=[...(f.historico||[])];if(!antigo)hist.push({id:uid(),data:now,tipo:"criacao",texto:`Lead criado por ${currentUser?.nome||"usuário"}`});if(antigo&&antigo.etapa!==f.etapa)hist.push({id:uid(),data:now,tipo:"etapa",texto:`Etapa alterada de ${comEtapaLabel(antigo.etapa)} para ${comEtapaLabel(f.etapa)}`});
     const novo={...f,id,orcamentoEstimado:Number(f.orcamentoEstimado||0),probabilidade:Number(f.probabilidade||0),orcamentoDisponivel:Number(f.orcamentoDisponivel||0),areaTerreno:Number(f.areaTerreno||0),areaConstrucao:Number(f.areaConstrucao||0),pavimentos:Number(f.pavimentos||0),etapaDesde:antigo?.etapa===f.etapa?antigo.etapaDesde:now,createdAt:antigo?.createdAt||now,updatedAt:now,historico:hist,status:"ativo"};
-    let novasAt=atividades;if(!antigo)novasAt=[...atividades,{id:uid(),leadId:id,tipo:"primeiro_contato",titulo:f.proximaAtividade||"Primeiro contato",dataHora:f.proximaAtividadeEm,responsavelId:f.responsavelId,status:"pendente",observacoes:"Criada automaticamente",createdAt:now}];await persistirComercial({leads:antigo?leads.map(l=>l.id===id?novo:l):[...leads,novo],atividades:novasAt},{mensagem:antigo?"Lead atualizado.":"Lead criado com tarefa de primeiro contato.",aoConfirmar:()=>setLeadForm(null)});};
-  const excluirLead=async lead=>{
+    let novasAt=atividades;if(!antigo)novasAt=[...atividades,{id:uid(),leadId:id,tipo:"primeiro_contato",titulo:f.proximaAtividade||"Primeiro contato",dataHora:f.proximaAtividadeEm,responsavelId:f.responsavelId,status:"pendente",observacoes:"Criada automaticamente",createdAt:now}];
+    setSalvandoComercial("lead");
+    try{
+      await persistirComercial({leads:antigo?leads.map(l=>l.id===id?novo:l):[...leads,novo],atividades:novasAt},{mensagem:antigo?"Lead atualizado.":"Lead criado com tarefa de primeiro contato.",aoConfirmar:()=>setLeadForm(null)});
+    }finally{setSalvandoComercial("");}
+  };
+  const salvarLead=()=>{
+    const f=leadForm;
+    if(!f?.nome.trim()){showToast("Informe o nome do lead.","error");return;}
+    if(!f.responsavelId||!f.proximaAtividadeEm){showToast("Todo lead ativo precisa de responsável e próxima atividade.","error");return;}
+    const duplicado=leads.find(l=>l.id!==f.id&&((f.email&&l.email?.toLowerCase()===f.email.toLowerCase())||(f.whatsapp&&l.whatsapp===f.whatsapp)));
+    if(duplicado){
+      setConfirmModal({
+        titulo:"Possível lead duplicado",
+        mensagem:`Já existe um lead parecido com estes dados de contato: "${duplicado.nome}". Deseja salvar mesmo assim?`,
+        confirmLabel:"Salvar mesmo assim",
+        onConfirmar:()=>executarSalvarLead(f),
+      });
+      return;
+    }
+    executarSalvarLead(f);
+  };
+  const executarExcluirLead=async lead=>{
+    const result=archiveLeadForDeletion(com,{leadId:lead.id,actor:currentUser});
+    if(!result.ok){showToast(result.error||"Não foi possível excluir o lead.","error");return;}
+    const next=result.commercial;
+    setSalvandoComercial(`lead-excluir-${lead.id}`);
+    try{
+      await persistirComercial({
+        leads:next.leads,atividades:next.atividades,reunioes:next.reunioes,
+        opportunities:next.opportunities,stageEvents:next.stageEvents,
+      },{
+        mensagem:"Lead excluído. O histórico e os vínculos foram preservados.",
+        aoConfirmar:()=>setLeadForm(null),
+      });
+    }finally{setSalvandoComercial("");}
+  };
+  const excluirLead=lead=>{
     if(!lead?.id)return;
     const vinculados=[
       propostas.filter(item=>item.leadId===lead.id).length,
@@ -149,21 +199,38 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     const aviso=vinculados
       ?` Existem ${vinculados} proposta(s), contrato(s) ou reunião(ões) vinculados; eles serão preservados para auditoria.`
       :"";
-    if(!window.confirm(`Excluir o lead “${lead.nome}”? Ele sairá das listas e do funil.${aviso}`))return;
-    const result=archiveLeadForDeletion(com,{leadId:lead.id,actor:currentUser});
-    if(!result.ok){showToast(result.error||"Não foi possível excluir o lead.","error");return;}
-    const next=result.commercial;
-    await persistirComercial({
-      leads:next.leads,atividades:next.atividades,reunioes:next.reunioes,
-      opportunities:next.opportunities,stageEvents:next.stageEvents,
-    },{
-      mensagem:"Lead excluído. O histórico e os vínculos foram preservados.",
-      aoConfirmar:()=>setLeadForm(null),
+    setConfirmModal({
+      titulo:"Excluir lead?",
+      mensagem:`O lead "${lead.nome}" sairá das listas e do funil.${aviso}`,
+      tom:"danger",
+      confirmLabel:"Excluir lead",
+      onConfirmar:()=>executarExcluirLead(lead),
     });
   };
-  const moverLead=(lead,etapa)=>{if(etapa==="perdido"){setPerdaForm({leadId:lead.id,motivo:"",concorrente:"",valorConcorrente:"",observacoes:"",reativacaoEm:""});return;}const now=new Date().toISOString();setCom({leads:leads.map(l=>l.id===lead.id?{...l,etapa,status:etapa==="arquivado"?"arquivado":etapa==="novo"?"ativo":l.status,etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"etapa",texto:`Movido para ${comEtapaLabel(etapa)} por ${currentUser?.nome||"usuário"}`}]}:l)});};
-  const salvarPerda=async()=>{if(!perdaForm.motivo){showToast("Informe o motivo da perda.","error");return;}const now=new Date().toISOString();await persistirComercial({leads:leads.map(l=>l.id===perdaForm.leadId?{...l,...perdaForm,valorConcorrente:Number(perdaForm.valorConcorrente||0),etapa:"perdido",status:"perdido",etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"perda",texto:`Lead perdido: ${perdaForm.motivo}`}]}:l)},{mensagem:"Perda registrada com histórico.",aoConfirmar:()=>setPerdaForm(null)});};
-  const salvarAtividade=async f=>{if(!f.leadId||!f.titulo||!f.dataHora){showToast("Informe lead, título e data.","error");return;}const a={...f,id:f.id||uid(),responsavelId:f.responsavelId||currentUser?.id||"",status:f.status||"pendente",createdAt:f.createdAt||new Date().toISOString()};const ats=f.id?atividades.map(x=>x.id===f.id?a:x):[...atividades,a];await persistirComercial({atividades:ats,leads:leads.map(l=>l.id===a.leadId?{...l,proximaAtividade:a.titulo,proximaAtividadeEm:a.dataHora}:l)},{mensagem:f.id?"Tarefa atualizada.":"Tarefa cadastrada.",aoConfirmar:()=>setAtividadeForm(null)});};
+  // Achado P2 da auditoria de 18/08/2026: gravava com setCom puro, sem checar
+  // o resultado - arrastar um card no funil podia falhar em silêncio.
+  const moverLead=async(lead,etapa)=>{
+    if(etapa==="perdido"){setPerdaForm({leadId:lead.id,motivo:"",concorrente:"",valorConcorrente:"",observacoes:"",reativacaoEm:""});return;}
+    const now=new Date().toISOString();
+    await persistirComercial({leads:leads.map(l=>l.id===lead.id?{...l,etapa,status:etapa==="arquivado"?"arquivado":etapa==="novo"?"ativo":l.status,etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"etapa",texto:`Movido para ${comEtapaLabel(etapa)} por ${currentUser?.nome||"usuário"}`}]}:l)});
+  };
+  const salvarPerda=async()=>{
+    if(!perdaForm.motivo){showToast("Informe o motivo da perda.","error");return;}
+    const now=new Date().toISOString();
+    setSalvandoComercial("perda");
+    try{
+      await persistirComercial({leads:leads.map(l=>l.id===perdaForm.leadId?{...l,...perdaForm,valorConcorrente:Number(perdaForm.valorConcorrente||0),etapa:"perdido",status:"perdido",etapaDesde:now,historico:[...(l.historico||[]),{id:uid(),data:now,tipo:"perda",texto:`Lead perdido: ${perdaForm.motivo}`}]}:l)},{mensagem:"Perda registrada com histórico.",aoConfirmar:()=>setPerdaForm(null)});
+    }finally{setSalvandoComercial("");}
+  };
+  const salvarAtividade=async f=>{
+    if(!f.leadId||!f.titulo||!f.dataHora){showToast("Informe lead, título e data.","error");return;}
+    const a={...f,id:f.id||uid(),responsavelId:f.responsavelId||currentUser?.id||"",status:f.status||"pendente",createdAt:f.createdAt||new Date().toISOString()};
+    const ats=f.id?atividades.map(x=>x.id===f.id?a:x):[...atividades,a];
+    setSalvandoComercial("atividade");
+    try{
+      await persistirComercial({atividades:ats,leads:leads.map(l=>l.id===a.leadId?{...l,proximaAtividade:a.titulo,proximaAtividadeEm:a.dataHora}:l)},{mensagem:f.id?"Tarefa atualizada.":"Tarefa cadastrada.",aoConfirmar:()=>setAtividadeForm(null)});
+    }finally{setSalvandoComercial("");}
+  };
   const salvarReuniao=async f=>{
     if(!f.leadId||!f.dataHora){showToast("Informe lead, data e horário.","error");return;}
     const anterior=f.id?reunioes.find(x=>x.id===f.id):null;
@@ -191,27 +258,109 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
         proximaAtividadeEm:executada?(proximoHorario||l.proximaAtividadeEm):r.dataHora,
         historico,updatedAt:now};
     });
-    await persistirComercial({
-      reunioes:f.id?reunioes.map(x=>x.id===f.id?r:x):[...reunioes,r],
-      leads:leadsAtualizados,
-    },{
-      mensagem:executada?"Reunião confirmada e registrada no histórico do lead.":anterior?"Reunião atualizada.":"Reunião agendada.",
-      aoConfirmar:()=>{
-        setLeadForm(aberta=>aberta?.id===r.leadId?(leadsAtualizados.find(l=>l.id===r.leadId)||aberta):aberta);
-        setReuniaoForm(null);
-      },
-    });
+    setSalvandoComercial("reuniao");
+    try{
+      await persistirComercial({
+        reunioes:f.id?reunioes.map(x=>x.id===f.id?r:x):[...reunioes,r],
+        leads:leadsAtualizados,
+      },{
+        mensagem:executada?"Reunião confirmada e registrada no histórico do lead.":anterior?"Reunião atualizada.":"Reunião agendada.",
+        aoConfirmar:()=>{
+          setLeadForm(aberta=>aberta?.id===r.leadId?(leadsAtualizados.find(l=>l.id===r.leadId)||aberta):aberta);
+          setReuniaoForm(null);
+        },
+      });
+    }finally{setSalvandoComercial("");}
   };
 
   const propostaVazia=leadId=>{const l=leadBy(leadId);return{id:"",numero:`PROP-${String(propostas.length+1).padStart(4,"0")}`,versao:1,leadId:leadId||"",objeto:l?.servico||"",escopo:"",inclusos:"",exclusos:"",entregaveis:"",prazo:l?.prazoDesejado||"",valor:l?.orcamentoEstimado||"",formaPagamento:"",validade:"",responsabilidades:"",premissas:"",status:"rascunho",desconto:"",documentos:[],historico:[],negociacoes:[]};};
   const contratoVazio=()=>({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:"",propostaId:"",clienteId:"",contratante:"",objeto:"",escopo:"",valor:"",entrada:"",parcelas:"1",diaVencimento:"5",prazo:"",inicio:"",conclusao:"",responsabilidades:"",responsavelComercialId:currentUser?.id||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});
-  const salvarProposta=async f=>{if(!String(f.numero||"").trim()){showToast("Informe o número da proposta.","error");return;}if(f.status!=="rascunho"&&(!f.leadId||!f.objeto||!(Number(f.valor)>0))){showToast("Para avançar a proposta, informe lead, objeto e valor.","error");return;}if(Number(f.desconto||0)>limiteDesconto){showToast(`Seu limite de desconto é ${limiteDesconto}%. Solicite aprovação para continuar.`,"error");return;}const p={...f,id:f.id||uid(),status:f.status||"rascunho",versao:Number(f.versao||1),valor:Number(f.valor||0),desconto:Number(f.desconto||0),createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),historico:[...(f.historico||[]),{id:uid(),data:new Date().toISOString(),tipo:f.id?"revisao":"criacao",texto:f.id?`Versão ${f.versao} salva`:"Proposta salva como rascunho"}]};await persistirComercial({propostas:f.id?propostas.map(x=>x.id===f.id?p:x):[...propostas,p],leads:leads.map(l=>l.id===p.leadId?{...l,etapa:p.status==="enviada"?"proposta_enviada":"proposta_elaboracao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Proposta salva.",aoConfirmar:()=>setPropostaForm(null)});};
-  const statusProposta=(p,status)=>{if(["enviada","aceita"].includes(status)&&(!p.leadId||!p.objeto||!(Number(p.valor)>0))){showToast("Complete lead, objeto e valor antes de avançar a proposta.","error");return;}const now=new Date().toISOString(),campo=status==="enviada"?"enviadoEm":status==="visualizada"?"visualizadoEm":status==="aceita"?"aceitoEm":status==="rejeitada"?"rejeitadoEm":"",l=leadBy(p.leadId),ja=contratos.find(k=>k.propostaId===p.id);const contratoAuto=status==="aceita"&&!ja?{id:uid(),numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",contratada:data.config.companyName||"ARCD OBRAS",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:0,parcelas:1,diaVencimento:5,prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[],elaboradoEm:now}:null;setCom({propostas:propostas.map(x=>x.id===p.id?{...x,status,...(campo?{[campo]:now}:{}),historico:[...(x.historico||[]),{id:uid(),data:now,tipo:"status",texto:`Status: ${status}`}]}:x),leads:leads.map(x=>x.id===p.leadId?{...x,etapa:status==="enviada"?"proposta_enviada":status==="aceita"?"contrato_elaboracao":status==="negociacao"?"negociacao":x.etapa,etapaDesde:now}:x),...(contratoAuto?{contratos:[...contratos,contratoAuto]}:{})});if(contratoAuto)showToast("Proposta aceita e contrato gerado automaticamente.");};
+  const salvarProposta=async f=>{
+    if(!String(f.numero||"").trim()){showToast("Informe o número da proposta.","error");return;}
+    if(f.status!=="rascunho"&&(!f.leadId||!f.objeto||!(Number(f.valor)>0))){showToast("Para avançar a proposta, informe lead, objeto e valor.","error");return;}
+    if(Number(f.desconto||0)>limiteDesconto){showToast(`Seu limite de desconto é ${limiteDesconto}%. Solicite aprovação para continuar.`,"error");return;}
+    const p={...f,id:f.id||uid(),status:f.status||"rascunho",versao:Number(f.versao||1),valor:Number(f.valor||0),desconto:Number(f.desconto||0),createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),historico:[...(f.historico||[]),{id:uid(),data:new Date().toISOString(),tipo:f.id?"revisao":"criacao",texto:f.id?`Versão ${f.versao} salva`:"Proposta salva como rascunho"}]};
+    setSalvandoComercial("proposta");
+    try{
+      await persistirComercial({propostas:f.id?propostas.map(x=>x.id===f.id?p:x):[...propostas,p],leads:leads.map(l=>l.id===p.leadId?{...l,etapa:p.status==="enviada"?"proposta_enviada":"proposta_elaboracao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Proposta salva.",aoConfirmar:()=>setPropostaForm(null)});
+    }finally{setSalvandoComercial("");}
+  };
+  // Achado P1 da auditoria de 18/08/2026: gravava com setCom puro, sem checar
+  // o resultado - e é a mesma função que gera contrato automaticamente ao
+  // aceitar a proposta. Convertida para persistirComercial (mesmo padrão
+  // já usado no resto do arquivo) para avisar o vendedor se a gravação falhar.
+  const statusProposta=async(p,status)=>{
+    if(["enviada","aceita"].includes(status)&&(!p.leadId||!p.objeto||!(Number(p.valor)>0))){showToast("Complete lead, objeto e valor antes de avançar a proposta.","error");return;}
+    const now=new Date().toISOString(),campo=status==="enviada"?"enviadoEm":status==="visualizada"?"visualizadoEm":status==="aceita"?"aceitoEm":status==="rejeitada"?"rejeitadoEm":"",l=leadBy(p.leadId),ja=contratos.find(k=>k.propostaId===p.id);
+    const contratoAuto=status==="aceita"&&!ja?{id:uid(),numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",contratada:data.config.companyName||"ARCD OBRAS",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:0,parcelas:1,diaVencimento:5,prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[],elaboradoEm:now}:null;
+    setSalvandoComercial(`proposta-status-${p.id}`);
+    try{
+      await persistirComercial({
+        propostas:propostas.map(x=>x.id===p.id?{...x,status,...(campo?{[campo]:now}:{}),historico:[...(x.historico||[]),{id:uid(),data:now,tipo:"status",texto:`Status: ${status}`}]}:x),
+        leads:leads.map(x=>x.id===p.leadId?{...x,etapa:status==="enviada"?"proposta_enviada":status==="aceita"?"contrato_elaboracao":status==="negociacao"?"negociacao":x.etapa,etapaDesde:now}:x),
+        ...(contratoAuto?{contratos:[...contratos,contratoAuto]}:{}),
+      },{
+        mensagem:contratoAuto?"Proposta aceita e contrato gerado automaticamente.":"",
+      });
+    }finally{setSalvandoComercial("");}
+  };
   const pdfProposta=p=>{const l=leadBy(p.leadId),html=`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(p.numero)}</title><style>body{font-family:Arial;margin:38px;color:#151515}h1{font-size:22px}h2{font-size:14px;margin-top:22px;border-bottom:1px solid #ccc;padding-bottom:5px}.head{display:flex;justify-content:space-between}.value{font-size:22px;font-weight:bold}.box{background:#f5f5f5;padding:12px;margin:10px 0;white-space:pre-wrap}footer{margin-top:40px;font-size:10px;color:#666}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><div class="head"><div><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")}</h1><p>${escapeHtml(data.config.cnpj||"")}</p></div><div><b>${escapeHtml(p.numero)} · V${p.versao}</b><p>Validade: ${escapeHtml(fmtDate(p.validade))}</p></div></div><h2>CLIENTE</h2><p>${escapeHtml(l?.nome||"")} · ${escapeHtml(l?.email||"")} · ${escapeHtml(l?.whatsapp||"")}</p><h2>OBJETO</h2><div class="box">${escapeHtml(p.objeto)}</div><h2>ESCOPO</h2><div class="box">${escapeHtml(p.escopo)}</div><h2>INCLUSOS / NÃO INCLUSOS</h2><div class="box">${escapeHtml(p.inclusos)}\n\nNão inclusos:\n${escapeHtml(p.exclusos)}</div><h2>ENTREGÁVEIS E PRAZO</h2><div class="box">${escapeHtml(p.entregaveis)}\nPrazo: ${escapeHtml(p.prazo)}</div><h2>INVESTIMENTO</h2><p class="value">${fmt(p.valor)}</p><div class="box">${escapeHtml(p.formaPagamento)}</div><h2>RESPONSABILIDADES E PREMISSAS</h2><div class="box">${escapeHtml(p.responsabilidades)}\n\n${escapeHtml(p.premissas)}</div><footer>Gerado pelo ARCD OBRAS em ${new Date().toLocaleString("pt-BR")}</footer></body></html>`;const w=window.open("","_blank");w.document.write(html);w.document.close();};
   const compartilharProposta=p=>{const l=leadBy(p.leadId),texto=`Olá ${l?.nome||""}, segue a proposta ${p.numero} (versão ${p.versao}) para ${p.objeto}, no valor de ${fmt(p.valor)}. Validade: ${fmtDate(p.validade)}.`;navigator.clipboard.writeText(texto).then(()=>showToast("Mensagem copiada para WhatsApp."));};
-  const salvarNegociacao=async f=>{const p=propostas.find(x=>x.id===f.propostaId);if(!p)return;if(Number(f.desconto||0)>limiteDesconto&&!f.aprovadorId){showToast(`Desconto acima de ${limiteDesconto}% exige responsável pela aprovação.`,"error");return;}const n={...f,id:uid(),valorInicial:Number(f.valorInicial||p.valor),valorNegociado:Number(f.valorNegociado||0),desconto:Number(f.desconto||0),data:new Date().toISOString(),responsavelId:currentUser?.id||"",aprovado:Number(f.desconto||0)<=limiteDesconto||!!f.aprovadorId};await persistirComercial({propostas:propostas.map(x=>x.id===p.id?{...x,status:"negociacao",negociacoes:[...(x.negociacoes||[]),n],valor:n.valorNegociado||x.valor}:x),leads:leads.map(l=>l.id===p.leadId?{...l,etapa:"negociacao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Negociação salva.",aoConfirmar:()=>setNegForm(null)});};
-  const criarContrato=p=>{const existente=contratos.find(k=>k.propostaId===p.id);if(existente){setContratoForm({...existente});return;}if(p.status!=="aceita"&&!window.confirm("A proposta ainda não está aceita. Criar contrato mesmo assim?"))return;const l=leadBy(p.leadId);setContratoForm({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:"",parcelas:"1",diaVencimento:"5",prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});};
-  const salvarContrato=async f=>{if(!String(f.numero||"").trim()){showToast("Informe o número do contrato.","error");return;}const k={...f,id:f.id||uid(),status:f.status||"elaboracao",valor:Number(f.valor||0),entrada:Number(f.entrada||0),parcelas:Number(f.parcelas||1),diaVencimento:Number(f.diaVencimento||5),elaboradoEm:f.elaboradoEm||new Date().toISOString(),atualizadoEm:new Date().toISOString()};await persistirComercial({contratos:f.id?contratos.map(x=>x.id===f.id?k:x):[...contratos,k],leads:leads.map(l=>l.id===k.leadId?{...l,etapa:k.status==="enviado"?"contrato_enviado":"contrato_elaboracao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Contrato salvo como rascunho.",aoConfirmar:()=>setContratoForm(null)});};
+  const salvarNegociacao=async f=>{
+    const p=propostas.find(x=>x.id===f.propostaId);if(!p)return;
+    if(Number(f.desconto||0)>limiteDesconto&&!f.aprovadorId){showToast(`Desconto acima de ${limiteDesconto}% exige responsável pela aprovação.`,"error");return;}
+    const n={...f,id:uid(),valorInicial:Number(f.valorInicial||p.valor),valorNegociado:Number(f.valorNegociado||0),desconto:Number(f.desconto||0),data:new Date().toISOString(),responsavelId:currentUser?.id||"",aprovado:Number(f.desconto||0)<=limiteDesconto||!!f.aprovadorId};
+    setSalvandoComercial("negociacao");
+    try{
+      await persistirComercial({propostas:propostas.map(x=>x.id===p.id?{...x,status:"negociacao",negociacoes:[...(x.negociacoes||[]),n],valor:n.valorNegociado||x.valor}:x),leads:leads.map(l=>l.id===p.leadId?{...l,etapa:"negociacao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Negociação salva.",aoConfirmar:()=>setNegForm(null)});
+    }finally{setSalvandoComercial("");}
+  };
+  const criarContrato=p=>{
+    const existente=contratos.find(k=>k.propostaId===p.id);
+    if(existente){setContratoForm({...existente});return;}
+    const abrirFormularioContrato=()=>{
+      const l=leadBy(p.leadId);
+      setContratoForm({id:"",numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:"",parcelas:"1",diaVencimento:"5",prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[]});
+    };
+    if(p.status!=="aceita"){
+      setConfirmModal({
+        titulo:"Proposta ainda não aceita",
+        mensagem:"A proposta ainda não está aceita. Criar contrato mesmo assim?",
+        confirmLabel:"Criar contrato mesmo assim",
+        onConfirmar:abrirFormularioContrato,
+      });
+      return;
+    }
+    abrirFormularioContrato();
+  };
+  const salvarContrato=async f=>{
+    if(!String(f.numero||"").trim()){showToast("Informe o número do contrato.","error");return;}
+    const k={...f,id:f.id||uid(),status:f.status||"elaboracao",valor:Number(f.valor||0),entrada:Number(f.entrada||0),parcelas:Number(f.parcelas||1),diaVencimento:Number(f.diaVencimento||5),elaboradoEm:f.elaboradoEm||new Date().toISOString(),atualizadoEm:new Date().toISOString()};
+    setSalvandoComercial("contrato");
+    try{
+      await persistirComercial({contratos:f.id?contratos.map(x=>x.id===f.id?k:x):[...contratos,k],leads:leads.map(l=>l.id===k.leadId?{...l,etapa:k.status==="enviado"?"contrato_enviado":"contrato_elaboracao",etapaDesde:new Date().toISOString()}:l)},{mensagem:"Contrato salvo como rascunho.",aoConfirmar:()=>setContratoForm(null)});
+    }finally{setSalvandoComercial("");}
+  };
+  // Achado P1 da auditoria de 18/08/2026: os botões "ENVIAR" e "REGISTRAR
+  // ASSINATURA" do card de contrato gravavam com setCom puro, sem checar o
+  // resultado. Extraídas para funções nomeadas usando persistirComercial
+  // (mesmo padrão do resto do arquivo) + trava contra duplo-clique.
+  const enviarContrato=async k=>{
+    if(!k.leadId||!k.contratante||!(Number(k.valor)>0)){showToast("Complete lead, contratante e valor antes de enviar.","error");return;}
+    setSalvandoComercial(`contrato-enviar-${k.id}`);
+    try{
+      await persistirComercial({contratos:contratos.map(x=>x.id===k.id?{...x,status:"enviado",enviadoEm:new Date().toISOString()}:x)},{mensagem:"Contrato enviado."});
+    }finally{setSalvandoComercial("");}
+  };
+  const registrarAssinaturaContrato=async k=>{
+    setSalvandoComercial(`contrato-assinatura-${k.id}`);
+    try{
+      await persistirComercial({
+        contratos:contratos.map(x=>x.id===k.id?{...x,status:"assinado",assinadoEm:new Date().toISOString()}:x),
+        leads:leads.map(x=>x.id===k.leadId?{...x,etapa:"contrato_assinado"}:x),
+      },{mensagem:"Assinatura registrada."});
+    }finally{setSalvandoComercial("");}
+  };
   const finalizarContrato=async k=>{
     if(!dispatchCommand){
       showToast("O comando de ativação comercial não está disponível.","error");
@@ -271,16 +420,33 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     if(f.tipoPessoa==="PF"&&conjugeCpf&&!validarDocumento(conjugeCpf,"PF")){showToast("CPF do cônjuge inválido.","error");return;}
     const cliente={...f,id:f.id||uid(),nome:f.nome.trim(),documento,representanteCpf,conjugeCpf,createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
     const lista=f.id?clientes.map(c=>c.id===f.id?cliente:c):[...clientes,cliente];
-    await persistirComercial({
-      clientes:lista,
-      contratos:contratos.map(k=>k.clienteId===cliente.id?{...k,contratante:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome}:k),
-    },{
-      mensagem:f.id?"Cliente atualizado.":"Cliente cadastrado.",
-      aoConfirmar:()=>setClienteForm(null),
-    });
+    setSalvandoComercial("cliente");
+    try{
+      await persistirComercial({
+        clientes:lista,
+        contratos:contratos.map(k=>k.clienteId===cliente.id?{...k,contratante:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome}:k),
+      },{
+        mensagem:f.id?"Cliente atualizado.":"Cliente cadastrado.",
+        aoConfirmar:()=>setClienteForm(null),
+      });
+    }finally{setSalvandoComercial("");}
   };
-  const salvarParceiro=async f=>{if(!f.nome)return;const p={...f,id:f.id||uid(),comissaoPct:Number(f.comissaoPct||0),ativo:true};await persistirComercial({parceiros:f.id?parceiros.map(x=>x.id===f.id?p:x):[...parceiros,p]},{mensagem:f.id?"Parceiro atualizado.":"Parceiro cadastrado.",aoConfirmar:()=>setParceiroForm(null)});};
-  const salvarMeta=async f=>{if(!f.periodo)return;const m={...f,id:f.id||uid(),receita:Number(f.receita||0),contratos:Number(f.contratos||0),ticketMedio:Number(f.ticketMedio||0),conversao:Number(f.conversao||0)};await persistirComercial({metas:f.id?metas.map(x=>x.id===f.id?m:x):[...metas,m]},{mensagem:f.id?"Meta atualizada.":"Meta cadastrada.",aoConfirmar:()=>setMetaForm(null)});};
+  const salvarParceiro=async f=>{
+    if(!f.nome)return;
+    const p={...f,id:f.id||uid(),comissaoPct:Number(f.comissaoPct||0),ativo:true};
+    setSalvandoComercial("parceiro");
+    try{
+      await persistirComercial({parceiros:f.id?parceiros.map(x=>x.id===f.id?p:x):[...parceiros,p]},{mensagem:f.id?"Parceiro atualizado.":"Parceiro cadastrado.",aoConfirmar:()=>setParceiroForm(null)});
+    }finally{setSalvandoComercial("");}
+  };
+  const salvarMeta=async f=>{
+    if(!f.periodo)return;
+    const m={...f,id:f.id||uid(),receita:Number(f.receita||0),contratos:Number(f.contratos||0),ticketMedio:Number(f.ticketMedio||0),conversao:Number(f.conversao||0)};
+    setSalvandoComercial("meta");
+    try{
+      await persistirComercial({metas:f.id?metas.map(x=>x.id===f.id?m:x):[...metas,m]},{mensagem:f.id?"Meta atualizada.":"Meta cadastrada.",aoConfirmar:()=>setMetaForm(null)});
+    }finally{setSalvandoComercial("");}
+  };
   const exportarRelatorio=async()=>{await carregarXLSX();const rows=vendedores.map(v=>({Vendedor:v.nome,Leads:v.leads,Vendas:v.vendas,Receita:v.receita,"Conversão %":v.conversao}));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Comercial");await XLSX.writeFile(wb,`ARCD_Comercial_${today()}.xlsx`);};
 
   const anexarDocumentoComercial=async(tipo,registro,setRegistro,file)=>{
@@ -795,9 +961,10 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                       <Btn
                         size="sm"
                         v="ghost"
+                        disabled={!!salvandoComercial}
                         onClick={() => marcarPedidoIndicacao(a.obraId)}
                       >
-                        Pedi
+                        {salvandoComercial===`marcar-indicacao-${a.obraId}`?"Registrando...":"Pedi"}
                       </Btn>
                     )}
                   </div>
@@ -1302,9 +1469,9 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     </div>}
     <div style={{display:"flex",flexDirection:"column",gap:6}}>{filtrados.map(x=>{const venc=x.dataHora&&new Date(x.dataHora).getTime()<agora&&!["concluida","realizada","cancelada"].includes(x.status);return <div key={`${x._tipo}-${x.id}`} style={{display:"grid",gridTemplateColumns:"145px minmax(0,1fr) auto",gap:8,alignItems:"center",background:C.card,border:`1px solid ${venc?C.red:C.border}`,borderLeft:`4px solid ${x.status==="realizada"?C.green:venc?C.red:C.blue}`,borderRadius:6,padding:"8px 10px"}}><div><b style={{fontSize:10,color:x.status==="realizada"?C.green:venc?C.red:C.blue}}>{comDateTime(x.dataHora)}</b><p style={{fontSize:8.5,color:C.muted}}>{x._tipo.toUpperCase()} · {x.status}</p></div><div><p style={{fontSize:11,fontWeight:800,color:C.text}}>{x.titulo||`Reunião · ${leadBy(x.leadId)?.nome||"Lead"}`}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{leadBy(x.leadId)?.nome||"-"} · {x.local||x.observacoes||""}</p>{x._tipo==="reuniao"&&x.status==="realizada"&&x.resumo&&<p style={{fontSize:9.5,color:C.green,marginTop:3}}>Executada · {x.resumo}</p>}</div><div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>{x._tipo==="atividade"&&x.status!=="concluida"&&<Btn size="sm" v="success" onClick={()=>setCom({atividades:atividades.map(a=>a.id===x.id?{...a,status:"concluida"}:a)})}>OK</Btn>}{x._tipo==="reuniao"&&x.status!=="realizada"&&x.status!=="cancelada"&&<Btn size="sm" v="success" onClick={()=>setReuniaoForm({...x,status:"realizada"})}><Ic n="check"/> Confirmar execução</Btn>}<Btn size="sm" v="ghost" onClick={()=>x._tipo==="atividade"?setAtividadeForm({...x}):setReuniaoForm({...x})}>{x._tipo==="reuniao"?"Abrir":"Editar"}</Btn></div></div>;})}{!filtrados.length&&vazio("Nenhum compromisso cadastrado.")}</div></>;
   } else if(["com_propostas","com_negociacoes"].includes(commercialView)){
-    const lista=commercialView==="com_negociacoes"?propostas.filter(p=>(p.negociacoes||[]).length||p.status==="negociacao"):propostas;conteudo=<><Titulo titulo={commercialView==="com_propostas"?"Propostas":"Negociações"} sub="Versões, envio, visualização, descontos, aceite e rejeição" acao={<Btn onClick={()=>setPropostaForm(propostaVazia(leadAtivos[0]?.id||""))}><Ic n="plus"/> PROPOSTA</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{lista.map(p=>{const l=leadBy(p.leadId);return <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{p.numero} · V{p.versao} · {l?.nome}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{p.objeto} · validade {fmtDate(p.validade)}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(p.valor)}</b><p style={{fontSize:9,color:C.blue}}>{p.status}</p></div></div>{(p.negociacoes||[]).slice(-1).map(n=><p key={n.id} style={{fontSize:9.5,color:C.orange,marginTop:5}}>Negociado: {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · desconto {n.desconto}%</p>)}<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setPropostaForm({...p,versao:p.versao+1})}><Ic n="edit"/></Btn><Btn size="sm" v="ghost" onClick={()=>pdfProposta(p)}>PDF</Btn><Btn size="sm" v="success" onClick={()=>compartilharProposta(p)}>WHATSAPP</Btn><a href={`mailto:${encodeURIComponent(l?.email||"")}?subject=${encodeURIComponent(`Proposta ${p.numero}`)}&body=${encodeURIComponent(`Olá ${l?.nome||""}, segue nossa proposta ${p.numero}, versão ${p.versao}, no valor de ${fmt(p.valor)}.`)}`} style={{textDecoration:"none"}}><Btn size="sm" v="ghost">E-MAIL</Btn></a>{p.status==="rascunho"&&<Btn size="sm" onClick={()=>statusProposta(p,"enviada")}>ENVIAR</Btn>}{p.status==="enviada"&&<Btn size="sm" v="ghost" onClick={()=>statusProposta(p,"visualizada")}>VISUALIZADA</Btn>}<Btn size="sm" v="ghost" onClick={()=>setNegForm({propostaId:p.id,valorInicial:p.valor,valorNegociado:p.valor,desconto:"",formaPagamento:p.formaPagamento,parcelas:"",alteracaoEscopo:"",objecoes:"",respostas:"",aprovadorId:""})}>NEGOCIAR</Btn>{!["aceita","rejeitada"].includes(p.status)&&<Btn size="sm" v="success" onClick={()=>statusProposta(p,"aceita")}>ACEITAR</Btn>}{p.status==="aceita"&&<Btn size="sm" onClick={()=>criarContrato(p)}>GERAR CONTRATO</Btn>}</div></div>;})}{!lista.length&&vazio("Nenhuma proposta.")}</div></>;
+    const lista=commercialView==="com_negociacoes"?propostas.filter(p=>(p.negociacoes||[]).length||p.status==="negociacao"):propostas;conteudo=<><Titulo titulo={commercialView==="com_propostas"?"Propostas":"Negociações"} sub="Versões, envio, visualização, descontos, aceite e rejeição" acao={<Btn onClick={()=>setPropostaForm(propostaVazia(leadAtivos[0]?.id||""))}><Ic n="plus"/> PROPOSTA</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{lista.map(p=>{const l=leadBy(p.leadId);return <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{p.numero} · V{p.versao} · {l?.nome}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{p.objeto} · validade {fmtDate(p.validade)}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(p.valor)}</b><p style={{fontSize:9,color:C.blue}}>{p.status}</p></div></div>{(p.negociacoes||[]).slice(-1).map(n=><p key={n.id} style={{fontSize:9.5,color:C.orange,marginTop:5}}>Negociado: {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · desconto {n.desconto}%</p>)}<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setPropostaForm({...p,versao:p.versao+1})}><Ic n="edit"/></Btn><Btn size="sm" v="ghost" onClick={()=>pdfProposta(p)}>PDF</Btn><Btn size="sm" v="success" onClick={()=>compartilharProposta(p)}>WHATSAPP</Btn><a href={`mailto:${encodeURIComponent(l?.email||"")}?subject=${encodeURIComponent(`Proposta ${p.numero}`)}&body=${encodeURIComponent(`Olá ${l?.nome||""}, segue nossa proposta ${p.numero}, versão ${p.versao}, no valor de ${fmt(p.valor)}.`)}`} style={{textDecoration:"none"}}><Btn size="sm" v="ghost">E-MAIL</Btn></a>{p.status==="rascunho"&&<Btn size="sm" disabled={!!salvandoComercial} onClick={()=>statusProposta(p,"enviada")}>{salvandoComercial===`proposta-status-${p.id}`?"ENVIANDO...":"ENVIAR"}</Btn>}{p.status==="enviada"&&<Btn size="sm" v="ghost" disabled={!!salvandoComercial} onClick={()=>statusProposta(p,"visualizada")}>VISUALIZADA</Btn>}<Btn size="sm" v="ghost" onClick={()=>setNegForm({propostaId:p.id,valorInicial:p.valor,valorNegociado:p.valor,desconto:"",formaPagamento:p.formaPagamento,parcelas:"",alteracaoEscopo:"",objecoes:"",respostas:"",aprovadorId:""})}>NEGOCIAR</Btn>{!["aceita","rejeitada"].includes(p.status)&&<Btn size="sm" v="success" disabled={!!salvandoComercial} onClick={()=>statusProposta(p,"aceita")}>{salvandoComercial===`proposta-status-${p.id}`?"CONFIRMANDO...":"ACEITAR"}</Btn>}{p.status==="aceita"&&<Btn size="sm" onClick={()=>criarContrato(p)}>GERAR CONTRATO</Btn>}</div></div>;})}{!lista.length&&vazio("Nenhuma proposta.")}</div></>;
   } else if(commercialView==="com_contratos"){
-    conteudo=<><Titulo titulo="Contratos" sub="Elaboração, assinatura, entrada e transferência para Engenharia" acao={<Btn onClick={()=>setContratoForm(contratoVazio())}><Ic n="plus"/> Novo contrato</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{contratos.map(k=>{const l=leadBy(k.leadId),faltas=[!k.assinadoEm&&k.status!=="assinado"?"assinatura":"",!k.documentosRecebidos?"documentos":"",!k.entradaPaga?"entrada":"",!k.escopoValidado?"escopo":"",!k.responsavelTecnicoId?"responsável técnico":""].filter(Boolean);return <div key={k.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${k.status==="contratado"?C.green:faltas.length?C.orange:C.blue}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{k.numero} · {k.contratante||"Rascunho sem contratante"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{k.objeto||"Objeto ainda não informado"} · proposta {propostas.find(p=>p.id===k.propostaId)?.numero||"-"}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(k.valor)}</b><p style={{fontSize:9,color:C.blue}}>{k.status}</p></div></div>{faltas.length>0&&k.status!=="contratado"&&<p style={{fontSize:9.5,color:C.orange,marginTop:5}}>Pendente: {faltas.join(", ")}</p>}<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setContratoForm({...k})}><Ic n="edit"/> Editar</Btn>{k.status==="elaboracao"&&<Btn size="sm" onClick={()=>{if(!k.leadId||!k.contratante||!(Number(k.valor)>0)){showToast("Complete lead, contratante e valor antes de enviar.","error");return;}setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"enviado",enviadoEm:new Date().toISOString()}:x)});}}>ENVIAR</Btn>}{k.status==="enviado"&&<Btn size="sm" v="success" onClick={()=>setCom({contratos:contratos.map(x=>x.id===k.id?{...x,status:"assinado",assinadoEm:new Date().toISOString()}:x),leads:leads.map(x=>x.id===k.leadId?{...x,etapa:"contrato_assinado"}:x)})}>REGISTRAR ASSINATURA</Btn>}{k.status!=="contratado"&&<Btn size="sm" v="success" disabled={ativandoContratoId===k.id} onClick={()=>finalizarContrato(k)}>{ativandoContratoId===k.id?"CONFIRMANDO...":"CONFIRMAR CONTRATAÇÃO"}</Btn>}{k.obraId&&<Btn size="sm" v="ghost" onClick={()=>onTab("obras")}>ABRIR OBRA</Btn>}</div></div>;})}{!contratos.length&&vazio("Nenhum contrato salvo.")}</div></>;
+    conteudo=<><Titulo titulo="Contratos" sub="Elaboração, assinatura, entrada e transferência para Engenharia" acao={<Btn onClick={()=>setContratoForm(contratoVazio())}><Ic n="plus"/> Novo contrato</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{contratos.map(k=>{const l=leadBy(k.leadId),faltas=[!k.assinadoEm&&k.status!=="assinado"?"assinatura":"",!k.documentosRecebidos?"documentos":"",!k.entradaPaga?"entrada":"",!k.escopoValidado?"escopo":"",!k.responsavelTecnicoId?"responsável técnico":""].filter(Boolean);return <div key={k.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${k.status==="contratado"?C.green:faltas.length?C.orange:C.blue}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{k.numero} · {k.contratante||"Rascunho sem contratante"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{k.objeto||"Objeto ainda não informado"} · proposta {propostas.find(p=>p.id===k.propostaId)?.numero||"-"}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(k.valor)}</b><p style={{fontSize:9,color:C.blue}}>{k.status}</p></div></div>{faltas.length>0&&k.status!=="contratado"&&<p style={{fontSize:9.5,color:C.orange,marginTop:5}}>Pendente: {faltas.join(", ")}</p>}<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setContratoForm({...k})}><Ic n="edit"/> Editar</Btn>{k.status==="elaboracao"&&<Btn size="sm" disabled={!!salvandoComercial} onClick={()=>enviarContrato(k)}>{salvandoComercial===`contrato-enviar-${k.id}`?"ENVIANDO...":"ENVIAR"}</Btn>}{k.status==="enviado"&&<Btn size="sm" v="success" disabled={!!salvandoComercial} onClick={()=>registrarAssinaturaContrato(k)}>{salvandoComercial===`contrato-assinatura-${k.id}`?"REGISTRANDO...":"REGISTRAR ASSINATURA"}</Btn>}{k.status!=="contratado"&&<Btn size="sm" v="success" disabled={ativandoContratoId===k.id} onClick={()=>finalizarContrato(k)}>{ativandoContratoId===k.id?"CONFIRMANDO...":"CONFIRMAR CONTRATAÇÃO"}</Btn>}{k.obraId&&<Btn size="sm" v="ghost" onClick={()=>onTab("obras")}>ABRIR OBRA</Btn>}</div></div>;})}{!contratos.length&&vazio("Nenhum contrato salvo.")}</div></>;
   } else if(commercialView==="com_clientes"){
     conteudo=<><Titulo titulo="Clientes" sub="Qualificação completa para propostas, contratos e documentos" acao={<Btn onClick={()=>setClienteForm(clienteVazio())}><Ic n="plus"/> CLIENTE</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{clientes.map(c=>{const pend=pendenciasCliente(c),pronto=!pend.length;return <div key={c.id} style={{background:C.card,border:`1px solid ${pronto?C.green:C.border}`,borderLeft:`4px solid ${pronto?C.green:C.orange}`,borderRadius:6,padding:"10px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}><div><p style={{fontSize:12,fontWeight:900,color:C.text}}>{c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}</p>{c.tipoPessoa==="PJ"&&c.nomeFantasia&&<p style={{fontSize:9.5,color:C.muted}}>{c.nomeFantasia}</p>}</div><Btn size="sm" v="ghost" onClick={()=>setClienteForm({...clienteVazio(),...c})}><Ic n="edit"/></Btn></div><p style={{fontSize:10,color:C.muted,marginTop:3}}>{c.tipoPessoa} · {c.documento?maskDoc(c.documento,c.tipoPessoa):"sem documento"} · {c.cidade||"-"}/{c.uf||"-"}</p><p style={{fontSize:10,color:C.blue,marginTop:3}}>{c.whatsapp||c.telefone||"-"} · {c.email||"-"}</p><p style={{fontSize:9.5,color:pronto?C.green:C.orange,marginTop:5,fontWeight:800}}>{pronto?"CADASTRO CONTRATUAL COMPLETO":`${pend.length} pendência(s): ${pend.slice(0,3).join(", ")}${pend.length>3?"...":""}`}</p><p style={{fontSize:9.5,color:C.green,marginTop:5}}>{(vendasPorCliente.get(c.id)||[]).length} contrato(s) · {fmt((vendasPorCliente.get(c.id)||[]).reduce((s,v)=>s+v.valor,0))}</p></div>;})}{!clientes.length&&vazio("Nenhum cliente cadastrado.")}</div></>;
   } else if(commercialView==="com_parceiros"){
@@ -1322,7 +1489,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     {showRealEstateHub&&<div style={{display:"flex",gap:5,overflowX:"auto",padding:"6px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,position:"sticky",top:58,zIndex:18}}>
       {COM_IMOBILIARIO_SECTIONS.map(section=><button key={section.id} type="button" onClick={()=>openCommercialSection(section)} style={{display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",minHeight:34,padding:"7px 10px",borderRadius:7,border:`1px solid ${activeCommercialSection===section.id?C.yellowD:C.line}`,background:activeCommercialSection===section.id?`${C.yellow}18`:C.bg,color:C.text,fontSize:9.5,fontWeight:750,cursor:"pointer"}}><Ic n={section.icon} s={12}/>{section.label}</button>)}
     </div>}
-    {showRealEstateHub?<Suspense fallback={<div style={{padding:30,textAlign:"center",color:C.muted}}>Carregando gestão imobiliária...</div>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onUploadFile={anexarArquivoImobiliario} onLegacyNavigate={onTab}/></Suspense>:conteudo}
+    {showRealEstateHub?<Suspense fallback={<div style={{padding:30,textAlign:"center",color:C.muted}}>Carregando gestão imobiliária...</div>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} showToast={showToast} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onUploadFile={anexarArquivoImobiliario} onLegacyNavigate={onTab}/></Suspense>:conteudo}
     {npsForm&&<Modal title="Pesquisa de satisfação na entrega" onClose={()=>setNpsForm(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
@@ -1383,7 +1550,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
 
         <div style={{display:"flex",gap:8}}>
           <Btn v="ghost" onClick={()=>setNpsForm(null)} full>Cancelar</Btn>
-          <Btn onClick={salvarNps} full><Ic n="check"/> Salvar</Btn>
+          <Btn disabled={!!salvandoComercial} onClick={salvarNps} full><Ic n="check"/> {salvandoComercial==="nps"?"Salvando...":"Salvar"}</Btn>
         </div>
       </div>
     </Modal>}
@@ -1433,13 +1600,13 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       {leadAba==="documentos"&&<div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:6,alignItems:"end"}}><Inp label="Nome do documento" value={docForm.nome} onChange={v=>setDocForm(f=>({...f,nome:v}))}/><Inp label="Link do arquivo" value={docForm.url} onChange={v=>setDocForm(f=>({...f,url:v}))}/><Btn size="sm" onClick={()=>{if(docForm.nome&&docForm.url){setLeadForm(f=>({...f,documentos:[...(f.documentos||[]),{id:uid(),...docForm,data:new Date().toISOString()}]}));setDocForm({nome:"",url:""});}}}>ADICIONAR</Btn></div>{(leadForm.documentos||[]).map(d=><p key={d.id} style={{fontSize:10.5,padding:6}}><a href={d.url} target="_blank" rel="noreferrer">{d.nome}</a></p>)}</div>}
       {leadAba==="financeiro"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>{kpi("Propostas",fmt(propostas.filter(p=>p.leadId===leadForm.id).reduce((s,p)=>Math.max(s,p.valor),0)),C.blue)}{kpi("Contratos",fmt(contratos.filter(k=>k.leadId===leadForm.id).reduce((s,k)=>s+k.valor,0)),C.green)}{kpi("Recebido",fmt(recebidoDoLead(leadForm.id)),C.yellowD)}</div>}
       {leadAba==="historico"&&<div>{(leadForm.historico||[]).slice().reverse().map(h=><div key={h.id} style={{borderLeft:`3px solid ${C.blue}`,padding:"5px 8px",marginBottom:5}}><p style={{fontSize:9,color:C.muted}}>{comDateTime(h.data)} · {h.tipo}</p><p style={{fontSize:10.5,color:C.text}}>{h.texto}</p></div>)}</div>}
-      <div style={{display:"flex",gap:7,justifyContent:"space-between",flexWrap:"wrap"}}>{leadForm.id?<Btn v="danger" onClick={()=>excluirLead(leadForm)}><Ic n="trash"/> EXCLUIR LEAD</Btn>:<span/>}<div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setLeadForm(null)}>CANCELAR</Btn><Btn onClick={salvarLead}><Ic n="check"/> SALVAR LEAD</Btn></div></div></div></Modal>}
+      <div style={{display:"flex",gap:7,justifyContent:"space-between",flexWrap:"wrap"}}>{leadForm.id?<Btn v="danger" disabled={!!salvandoComercial} onClick={()=>excluirLead(leadForm)}><Ic n="trash"/> EXCLUIR LEAD</Btn>:<span/>}<div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setLeadForm(null)}>CANCELAR</Btn><Btn disabled={!!salvandoComercial} onClick={salvarLead}><Ic n="check"/> {salvandoComercial==="lead"?"Salvando...":"SALVAR LEAD"}</Btn></div></div></div></Modal>}
 
-    {atividadeForm&&<Modal title="Tarefa / follow-up" onClose={()=>setAtividadeForm(null)}><div style={{display:"flex",flexDirection:"column",gap:9}}><Sel label="Lead *" value={atividadeForm.leadId} onChange={v=>setAtividadeForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Título *" value={atividadeForm.titulo} onChange={v=>setAtividadeForm(f=>({...f,titulo:v}))}/><Inp label="Data e hora *" type="datetime-local" value={atividadeForm.dataHora} onChange={v=>setAtividadeForm(f=>({...f,dataHora:v}))}/><Sel label="Responsável" value={atividadeForm.responsavelId} onChange={v=>setAtividadeForm(f=>({...f,responsavelId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Inp label="Observações" value={atividadeForm.observacoes} onChange={v=>setAtividadeForm(f=>({...f,observacoes:v}))} multiline/><Btn onClick={()=>salvarAtividade(atividadeForm)}>SALVAR</Btn></div></Modal>}
-    {reuniaoForm&&<Modal title={reuniaoForm.id?`Reunião · ${leadBy(reuniaoForm.leadId)?.nome||"Lead"}`:"Nova reunião comercial"} onClose={()=>setReuniaoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>{reuniaoForm.status==="realizada"&&<div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.green}`,borderRadius:7,background:`${C.green}0B`}}><b style={{fontSize:10.5,color:C.green}}>CONFIRMAR REUNIÃO EXECUTADA</b><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Preencha o resumo e os próximos passos. Ao salvar, o registro entrará automaticamente no histórico do lead.</p></div>}<Sel label="Lead *" value={reuniaoForm.leadId} onChange={v=>setReuniaoForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Data e hora *" type="datetime-local" value={reuniaoForm.dataHora} onChange={v=>setReuniaoForm(f=>({...f,dataHora:v}))}/><Sel label="Situação" value={reuniaoForm.status||"agendada"} onChange={v=>setReuniaoForm(f=>({...f,status:v}))} options={[{v:"agendada",l:"Agendada"},{v:"realizada",l:"Executada"},{v:"cancelada",l:"Cancelada"}]}/><Sel label="Tipo" value={reuniaoForm.tipo} onChange={v=>setReuniaoForm(f=>({...f,tipo:v}))} options={[{v:"presencial",l:"Presencial"},{v:"online",l:"On-line"},{v:"visita",l:"Visita técnica"}]}/><Inp label="Local ou link" value={reuniaoForm.local} onChange={v=>setReuniaoForm(f=>({...f,local:v}))}/><Inp label="Participantes" value={reuniaoForm.participantes} onChange={v=>setReuniaoForm(f=>({...f,participantes:v}))}/><Sel label="Responsável técnico" value={reuniaoForm.responsavelTecnicoId} onChange={v=>setReuniaoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["pauta","Pauta"],["resumo",reuniaoForm.status==="realizada"?"Resumo da reunião *":"Resumo"],["necessidades","Necessidades"],["objecoes","Objeções"],["proximosPassos","Próximos passos"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={reuniaoForm[k]} onChange={v=>setReuniaoForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Orçamento disponível" type="number" value={reuniaoForm.orcamentoDisponivel} onChange={v=>setReuniaoForm(f=>({...f,orcamentoDisponivel:v}))}/><Inp label="Próximo contato" type="date" value={reuniaoForm.proximoContato} onChange={v=>setReuniaoForm(f=>({...f,proximoContato:v}))}/><div style={{gridColumn:"1/-1",display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setReuniaoForm(null)} full>Cancelar</Btn><Btn v={reuniaoForm.status==="realizada"?"success":"primary"} onClick={()=>salvarReuniao(reuniaoForm)} full>{reuniaoForm.status==="realizada"?"CONFIRMAR EXECUÇÃO E SALVAR NO LEAD":"SALVAR REUNIÃO"}</Btn></div></div></Modal>}
-    {propostaForm&&<Modal title="Proposta comercial" onClose={()=>setPropostaForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={propostaForm.numero} onChange={v=>setPropostaForm(f=>({...f,numero:v}))}/><Inp label="Versão" type="number" value={propostaForm.versao} onChange={v=>setPropostaForm(f=>({...f,versao:v}))}/><Sel label="Lead" value={propostaForm.leadId} onChange={v=>setPropostaForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Vincular depois"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Objeto" value={propostaForm.objeto} onChange={v=>setPropostaForm(f=>({...f,objeto:v}))}/><Inp label="Valor" type="number" value={propostaForm.valor} onChange={v=>setPropostaForm(f=>({...f,valor:v}))}/><Inp label="Validade" type="date" value={propostaForm.validade} onChange={v=>setPropostaForm(f=>({...f,validade:v}))}/>{[["escopo","Escopo"],["inclusos","Serviços inclusos"],["exclusos","Não inclusos"],["entregaveis","Entregáveis"],["formaPagamento","Forma de pagamento"],["responsabilidades","Responsabilidades"],["premissas","Premissas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={propostaForm[k]} onChange={v=>setPropostaForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Prazo" value={propostaForm.prazo} onChange={v=>setPropostaForm(f=>({...f,prazo:v}))}/><Inp label="Desconto %" type="number" value={propostaForm.desconto} onChange={v=>setPropostaForm(f=>({...f,desconto:v}))}/><DocumentosComerciais tipo="proposta" registro={propostaForm} setRegistro={setPropostaForm}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarProposta(propostaForm)} full disabled={subindoDocumentoComercial}><Ic n="check"/> Salvar rascunho</Btn></div></div></Modal>}
-    {negForm&&<Modal title="Registrar negociação" onClose={()=>setNegForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Valor inicial" type="number" value={negForm.valorInicial} onChange={v=>setNegForm(f=>({...f,valorInicial:v}))}/><Inp label="Valor negociado" type="number" value={negForm.valorNegociado} onChange={v=>setNegForm(f=>({...f,valorNegociado:v}))}/><Inp label="Desconto %" type="number" value={negForm.desconto} onChange={v=>setNegForm(f=>({...f,desconto:v}))}/><Inp label="Forma de pagamento" value={negForm.formaPagamento} onChange={v=>setNegForm(f=>({...f,formaPagamento:v}))}/><Inp label="Parcelas" type="number" value={negForm.parcelas} onChange={v=>setNegForm(f=>({...f,parcelas:v}))}/><Sel label="Aprovador" value={negForm.aprovadorId} onChange={v=>setNegForm(f=>({...f,aprovadorId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["alteracaoEscopo","Alteração de escopo"],["objecoes","Objeções do cliente"],["respostas","Respostas dadas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={negForm[k]} onChange={v=>setNegForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarNegociacao(negForm)} full>SALVAR NEGOCIAÇÃO</Btn></div></div></Modal>}
-    {contratoForm&&<Modal title="Contrato comercial" onClose={()=>setContratoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={contratoForm.numero} onChange={v=>setContratoForm(f=>({...f,numero:v}))}/><Sel label="Lead" value={contratoForm.leadId||""} onChange={v=>{const lead=leadBy(v);setContratoForm(f=>({...f,leadId:v,contratante:f.contratante||lead?.nome||""}));}} options={[{v:"",l:"Vincular depois"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Contratante" value={contratoForm.contratante} onChange={v=>setContratoForm(f=>({...f,contratante:v}))}/><Inp label="Valor" type="number" value={contratoForm.valor} onChange={v=>setContratoForm(f=>({...f,valor:v}))}/><Inp label="Entrada" type="number" value={contratoForm.entrada} onChange={v=>setContratoForm(f=>({...f,entrada:v}))}/><Inp label="Parcelas" type="number" value={contratoForm.parcelas} onChange={v=>setContratoForm(f=>({...f,parcelas:v}))}/><Inp label="Dia de vencimento" type="number" value={contratoForm.diaVencimento} onChange={v=>setContratoForm(f=>({...f,diaVencimento:v}))}/><Inp label="Início" type="date" value={contratoForm.inicio} onChange={v=>setContratoForm(f=>({...f,inicio:v}))}/><Inp label="Conclusão" type="date" value={contratoForm.conclusao} onChange={v=>setContratoForm(f=>({...f,conclusao:v}))}/><Inp label="Prazo" value={contratoForm.prazo} onChange={v=>setContratoForm(f=>({...f,prazo:v}))}/><Sel label="Responsável comercial" value={contratoForm.responsavelComercialId} onChange={v=>setContratoForm(f=>({...f,responsavelComercialId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Sel label="Responsável técnico" value={contratoForm.responsavelTecnicoId} onChange={v=>setContratoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Definir depois"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Link para assinatura eletrônica" value={contratoForm.assinaturaUrl||""} onChange={v=>setContratoForm(f=>({...f,assinaturaUrl:v}))}/>{[["objeto","Objeto"],["escopo","Escopo"],["responsabilidades","Responsabilidades"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={contratoForm[k]} onChange={v=>setContratoForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1",display:"flex",gap:8,flexWrap:"wrap"}}>{[["documentosRecebidos","Documentos recebidos"],["entradaPaga","Entrada confirmada"],["escopoValidado","Escopo validado"]].map(([k,l])=><label key={k} style={{fontSize:10.5,color:C.text,display:"flex",gap:5,alignItems:"center"}}><input type="checkbox" checked={!!contratoForm[k]} onChange={e=>setContratoForm(f=>({...f,[k]:e.target.checked}))}/>{l}</label>)}</div><DocumentosComerciais tipo="contrato" registro={contratoForm} setRegistro={setContratoForm}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarContrato(contratoForm)} full disabled={subindoDocumentoComercial}><Ic n="check"/> Salvar rascunho</Btn></div></div></Modal>}
+    {atividadeForm&&<Modal title="Tarefa / follow-up" onClose={()=>setAtividadeForm(null)}><div style={{display:"flex",flexDirection:"column",gap:9}}><Sel label="Lead *" value={atividadeForm.leadId} onChange={v=>setAtividadeForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Título *" value={atividadeForm.titulo} onChange={v=>setAtividadeForm(f=>({...f,titulo:v}))}/><Inp label="Data e hora *" type="datetime-local" value={atividadeForm.dataHora} onChange={v=>setAtividadeForm(f=>({...f,dataHora:v}))}/><Sel label="Responsável" value={atividadeForm.responsavelId} onChange={v=>setAtividadeForm(f=>({...f,responsavelId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Inp label="Observações" value={atividadeForm.observacoes} onChange={v=>setAtividadeForm(f=>({...f,observacoes:v}))} multiline/><Btn disabled={!!salvandoComercial} onClick={()=>salvarAtividade(atividadeForm)}>{salvandoComercial==="atividade"?"Salvando...":"SALVAR"}</Btn></div></Modal>}
+    {reuniaoForm&&<Modal title={reuniaoForm.id?`Reunião · ${leadBy(reuniaoForm.leadId)?.nome||"Lead"}`:"Nova reunião comercial"} onClose={()=>setReuniaoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>{reuniaoForm.status==="realizada"&&<div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.green}`,borderRadius:7,background:`${C.green}0B`}}><b style={{fontSize:10.5,color:C.green}}>CONFIRMAR REUNIÃO EXECUTADA</b><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Preencha o resumo e os próximos passos. Ao salvar, o registro entrará automaticamente no histórico do lead.</p></div>}<Sel label="Lead *" value={reuniaoForm.leadId} onChange={v=>setReuniaoForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Data e hora *" type="datetime-local" value={reuniaoForm.dataHora} onChange={v=>setReuniaoForm(f=>({...f,dataHora:v}))}/><Sel label="Situação" value={reuniaoForm.status||"agendada"} onChange={v=>setReuniaoForm(f=>({...f,status:v}))} options={[{v:"agendada",l:"Agendada"},{v:"realizada",l:"Executada"},{v:"cancelada",l:"Cancelada"}]}/><Sel label="Tipo" value={reuniaoForm.tipo} onChange={v=>setReuniaoForm(f=>({...f,tipo:v}))} options={[{v:"presencial",l:"Presencial"},{v:"online",l:"On-line"},{v:"visita",l:"Visita técnica"}]}/><Inp label="Local ou link" value={reuniaoForm.local} onChange={v=>setReuniaoForm(f=>({...f,local:v}))}/><Inp label="Participantes" value={reuniaoForm.participantes} onChange={v=>setReuniaoForm(f=>({...f,participantes:v}))}/><Sel label="Responsável técnico" value={reuniaoForm.responsavelTecnicoId} onChange={v=>setReuniaoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["pauta","Pauta"],["resumo",reuniaoForm.status==="realizada"?"Resumo da reunião *":"Resumo"],["necessidades","Necessidades"],["objecoes","Objeções"],["proximosPassos","Próximos passos"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={reuniaoForm[k]} onChange={v=>setReuniaoForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Orçamento disponível" type="number" value={reuniaoForm.orcamentoDisponivel} onChange={v=>setReuniaoForm(f=>({...f,orcamentoDisponivel:v}))}/><Inp label="Próximo contato" type="date" value={reuniaoForm.proximoContato} onChange={v=>setReuniaoForm(f=>({...f,proximoContato:v}))}/><div style={{gridColumn:"1/-1",display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setReuniaoForm(null)} full>Cancelar</Btn><Btn v={reuniaoForm.status==="realizada"?"success":"primary"} disabled={!!salvandoComercial} onClick={()=>salvarReuniao(reuniaoForm)} full>{salvandoComercial==="reuniao"?"Salvando...":reuniaoForm.status==="realizada"?"CONFIRMAR EXECUÇÃO E SALVAR NO LEAD":"SALVAR REUNIÃO"}</Btn></div></div></Modal>}
+    {propostaForm&&<Modal title="Proposta comercial" onClose={()=>setPropostaForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={propostaForm.numero} onChange={v=>setPropostaForm(f=>({...f,numero:v}))}/><Inp label="Versão" type="number" value={propostaForm.versao} onChange={v=>setPropostaForm(f=>({...f,versao:v}))}/><Sel label="Lead" value={propostaForm.leadId} onChange={v=>setPropostaForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Vincular depois"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Objeto" value={propostaForm.objeto} onChange={v=>setPropostaForm(f=>({...f,objeto:v}))}/><Inp label="Valor" type="number" value={propostaForm.valor} onChange={v=>setPropostaForm(f=>({...f,valor:v}))}/><Inp label="Validade" type="date" value={propostaForm.validade} onChange={v=>setPropostaForm(f=>({...f,validade:v}))}/>{[["escopo","Escopo"],["inclusos","Serviços inclusos"],["exclusos","Não inclusos"],["entregaveis","Entregáveis"],["formaPagamento","Forma de pagamento"],["responsabilidades","Responsabilidades"],["premissas","Premissas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={propostaForm[k]} onChange={v=>setPropostaForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Prazo" value={propostaForm.prazo} onChange={v=>setPropostaForm(f=>({...f,prazo:v}))}/><Inp label="Desconto %" type="number" value={propostaForm.desconto} onChange={v=>setPropostaForm(f=>({...f,desconto:v}))}/><DocumentosComerciais tipo="proposta" registro={propostaForm} setRegistro={setPropostaForm}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarProposta(propostaForm)} full disabled={subindoDocumentoComercial||!!salvandoComercial}><Ic n="check"/> {salvandoComercial==="proposta"?"Salvando...":"Salvar rascunho"}</Btn></div></div></Modal>}
+    {negForm&&<Modal title="Registrar negociação" onClose={()=>setNegForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Valor inicial" type="number" value={negForm.valorInicial} onChange={v=>setNegForm(f=>({...f,valorInicial:v}))}/><Inp label="Valor negociado" type="number" value={negForm.valorNegociado} onChange={v=>setNegForm(f=>({...f,valorNegociado:v}))}/><Inp label="Desconto %" type="number" value={negForm.desconto} onChange={v=>setNegForm(f=>({...f,desconto:v}))}/><Inp label="Forma de pagamento" value={negForm.formaPagamento} onChange={v=>setNegForm(f=>({...f,formaPagamento:v}))}/><Inp label="Parcelas" type="number" value={negForm.parcelas} onChange={v=>setNegForm(f=>({...f,parcelas:v}))}/><Sel label="Aprovador" value={negForm.aprovadorId} onChange={v=>setNegForm(f=>({...f,aprovadorId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["alteracaoEscopo","Alteração de escopo"],["objecoes","Objeções do cliente"],["respostas","Respostas dadas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={negForm[k]} onChange={v=>setNegForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1"}}><Btn disabled={!!salvandoComercial} onClick={()=>salvarNegociacao(negForm)} full>{salvandoComercial==="negociacao"?"Salvando...":"SALVAR NEGOCIAÇÃO"}</Btn></div></div></Modal>}
+    {contratoForm&&<Modal title="Contrato comercial" onClose={()=>setContratoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={contratoForm.numero} onChange={v=>setContratoForm(f=>({...f,numero:v}))}/><Sel label="Lead" value={contratoForm.leadId||""} onChange={v=>{const lead=leadBy(v);setContratoForm(f=>({...f,leadId:v,contratante:f.contratante||lead?.nome||""}));}} options={[{v:"",l:"Vincular depois"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Contratante" value={contratoForm.contratante} onChange={v=>setContratoForm(f=>({...f,contratante:v}))}/><Inp label="Valor" type="number" value={contratoForm.valor} onChange={v=>setContratoForm(f=>({...f,valor:v}))}/><Inp label="Entrada" type="number" value={contratoForm.entrada} onChange={v=>setContratoForm(f=>({...f,entrada:v}))}/><Inp label="Parcelas" type="number" value={contratoForm.parcelas} onChange={v=>setContratoForm(f=>({...f,parcelas:v}))}/><Inp label="Dia de vencimento" type="number" value={contratoForm.diaVencimento} onChange={v=>setContratoForm(f=>({...f,diaVencimento:v}))}/><Inp label="Início" type="date" value={contratoForm.inicio} onChange={v=>setContratoForm(f=>({...f,inicio:v}))}/><Inp label="Conclusão" type="date" value={contratoForm.conclusao} onChange={v=>setContratoForm(f=>({...f,conclusao:v}))}/><Inp label="Prazo" value={contratoForm.prazo} onChange={v=>setContratoForm(f=>({...f,prazo:v}))}/><Sel label="Responsável comercial" value={contratoForm.responsavelComercialId} onChange={v=>setContratoForm(f=>({...f,responsavelComercialId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Sel label="Responsável técnico" value={contratoForm.responsavelTecnicoId} onChange={v=>setContratoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Definir depois"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Link para assinatura eletrônica" value={contratoForm.assinaturaUrl||""} onChange={v=>setContratoForm(f=>({...f,assinaturaUrl:v}))}/>{[["objeto","Objeto"],["escopo","Escopo"],["responsabilidades","Responsabilidades"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={contratoForm[k]} onChange={v=>setContratoForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1",display:"flex",gap:8,flexWrap:"wrap"}}>{[["documentosRecebidos","Documentos recebidos"],["entradaPaga","Entrada confirmada"],["escopoValidado","Escopo validado"]].map(([k,l])=><label key={k} style={{fontSize:10.5,color:C.text,display:"flex",gap:5,alignItems:"center"}}><input type="checkbox" checked={!!contratoForm[k]} onChange={e=>setContratoForm(f=>({...f,[k]:e.target.checked}))}/>{l}</label>)}</div><DocumentosComerciais tipo="contrato" registro={contratoForm} setRegistro={setContratoForm}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarContrato(contratoForm)} full disabled={subindoDocumentoComercial||!!salvandoComercial}><Ic n="check"/> {salvandoComercial==="contrato"?"Salvando...":"Salvar rascunho"}</Btn></div></div></Modal>}
     {clienteForm&&<Modal title={clienteForm.id?"Editar qualificação do cliente":"Novo cliente"} onClose={()=>setClienteForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
         <Sel label="Tipo de pessoa *" value={clienteForm.tipoPessoa} onChange={v=>setClienteForm(f=>({...f,tipoPessoa:v,documento:""}))} options={[{v:"PF",l:"Pessoa física"},{v:"PJ",l:"Pessoa jurídica"}]}/>
@@ -1499,11 +1666,26 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       </div>
       <Inp label="Observações contratuais" value={clienteForm.observacoes} onChange={v=>setClienteForm(f=>({...f,observacoes:v}))} multiline placeholder="Procurador, segundo contratante, dados do cônjuge, condições especiais..."/>
       {pendenciasCliente(clienteForm).length>0&&<div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"8px 10px"}}><p style={{fontSize:10,color:C.orange,fontWeight:800}}>Ainda faltam para a qualificação: {pendenciasCliente(clienteForm).join(", ")}.</p></div>}
-      <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setClienteForm(null)} full>Cancelar</Btn><Btn onClick={()=>salvarCliente(clienteForm)} full><Ic n="check"/> Salvar cliente</Btn></div>
+      <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setClienteForm(null)} full>Cancelar</Btn><Btn disabled={!!salvandoComercial} onClick={()=>salvarCliente(clienteForm)} full><Ic n="check"/> {salvandoComercial==="cliente"?"Salvando...":"Salvar cliente"}</Btn></div>
     </div></Modal>}
 
-    {parceiroForm&&<Modal title="Parceiro / indicação" onClose={()=>setParceiroForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Nome *" value={parceiroForm.nome} onChange={v=>setParceiroForm(f=>({...f,nome:v}))}/><Sel label="Tipo" value={parceiroForm.tipo} onChange={v=>setParceiroForm(f=>({...f,tipo:v}))} options={[{v:"indicador",l:"Indicador"},{v:"arquiteto",l:"Arquiteto"},{v:"corretor",l:"Corretor"},{v:"outro",l:"Outro"}]}/><Inp label="Telefone" value={parceiroForm.telefone} onChange={v=>setParceiroForm(f=>({...f,telefone:v}))}/><Inp label="E-mail" value={parceiroForm.email} onChange={v=>setParceiroForm(f=>({...f,email:v}))}/><Inp label="Comissão %" type="number" value={parceiroForm.comissaoPct} onChange={v=>setParceiroForm(f=>({...f,comissaoPct:v}))}/><Inp label="Observações" value={parceiroForm.observacoes} onChange={v=>setParceiroForm(f=>({...f,observacoes:v}))} multiline/><Btn onClick={()=>salvarParceiro(parceiroForm)}>SALVAR</Btn></div></Modal>}
-    {metaForm&&<Modal title="Meta comercial" onClose={()=>setMetaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Período" type="month" value={metaForm.periodo} onChange={v=>setMetaForm(f=>({...f,periodo:v}))}/><Sel label="Vendedor" value={metaForm.responsavelId} onChange={v=>setMetaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Equipe"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Equipe" value={metaForm.equipe} onChange={v=>setMetaForm(f=>({...f,equipe:v}))}/><Inp label="Meta de receita" type="number" value={metaForm.receita} onChange={v=>setMetaForm(f=>({...f,receita:v}))}/><Inp label="Contratos" type="number" value={metaForm.contratos} onChange={v=>setMetaForm(f=>({...f,contratos:v}))}/><Inp label="Ticket médio" type="number" value={metaForm.ticketMedio} onChange={v=>setMetaForm(f=>({...f,ticketMedio:v}))}/><Inp label="Conversão %" type="number" value={metaForm.conversao} onChange={v=>setMetaForm(f=>({...f,conversao:v}))}/><Btn onClick={()=>salvarMeta(metaForm)}>SALVAR META</Btn></div></Modal>}
-    {perdaForm&&<Modal title="Registrar perda obrigatória" onClose={()=>setPerdaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Sel label="Motivo *" value={perdaForm.motivo} onChange={v=>setPerdaForm(f=>({...f,motivo:v}))} options={[{v:"",l:"Selecione"},...COM_PERDAS.map(v=>({v,l:v}))]}/><Inp label="Concorrente" value={perdaForm.concorrente} onChange={v=>setPerdaForm(f=>({...f,concorrente:v}))}/><Inp label="Valor do concorrente" type="number" value={perdaForm.valorConcorrente} onChange={v=>setPerdaForm(f=>({...f,valorConcorrente:v}))}/><Inp label="Possível reativação" type="date" value={perdaForm.reativacaoEm} onChange={v=>setPerdaForm(f=>({...f,reativacaoEm:v}))}/><Inp label="Observações" value={perdaForm.observacoes} onChange={v=>setPerdaForm(f=>({...f,observacoes:v}))} multiline/><Btn v="danger" onClick={salvarPerda}>CONFIRMAR PERDA</Btn></div></Modal>}
+    {parceiroForm&&<Modal title="Parceiro / indicação" onClose={()=>setParceiroForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Nome *" value={parceiroForm.nome} onChange={v=>setParceiroForm(f=>({...f,nome:v}))}/><Sel label="Tipo" value={parceiroForm.tipo} onChange={v=>setParceiroForm(f=>({...f,tipo:v}))} options={[{v:"indicador",l:"Indicador"},{v:"arquiteto",l:"Arquiteto"},{v:"corretor",l:"Corretor"},{v:"outro",l:"Outro"}]}/><Inp label="Telefone" value={parceiroForm.telefone} onChange={v=>setParceiroForm(f=>({...f,telefone:v}))}/><Inp label="E-mail" value={parceiroForm.email} onChange={v=>setParceiroForm(f=>({...f,email:v}))}/><Inp label="Comissão %" type="number" value={parceiroForm.comissaoPct} onChange={v=>setParceiroForm(f=>({...f,comissaoPct:v}))}/><Inp label="Observações" value={parceiroForm.observacoes} onChange={v=>setParceiroForm(f=>({...f,observacoes:v}))} multiline/><Btn disabled={!!salvandoComercial} onClick={()=>salvarParceiro(parceiroForm)}>{salvandoComercial==="parceiro"?"Salvando...":"SALVAR"}</Btn></div></Modal>}
+    {metaForm&&<Modal title="Meta comercial" onClose={()=>setMetaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Período" type="month" value={metaForm.periodo} onChange={v=>setMetaForm(f=>({...f,periodo:v}))}/><Sel label="Vendedor" value={metaForm.responsavelId} onChange={v=>setMetaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Equipe"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Equipe" value={metaForm.equipe} onChange={v=>setMetaForm(f=>({...f,equipe:v}))}/><Inp label="Meta de receita" type="number" value={metaForm.receita} onChange={v=>setMetaForm(f=>({...f,receita:v}))}/><Inp label="Contratos" type="number" value={metaForm.contratos} onChange={v=>setMetaForm(f=>({...f,contratos:v}))}/><Inp label="Ticket médio" type="number" value={metaForm.ticketMedio} onChange={v=>setMetaForm(f=>({...f,ticketMedio:v}))}/><Inp label="Conversão %" type="number" value={metaForm.conversao} onChange={v=>setMetaForm(f=>({...f,conversao:v}))}/><Btn disabled={!!salvandoComercial} onClick={()=>salvarMeta(metaForm)}>{salvandoComercial==="meta"?"Salvando...":"SALVAR META"}</Btn></div></Modal>}
+    {perdaForm&&<Modal title="Registrar perda obrigatória" onClose={()=>setPerdaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Sel label="Motivo *" value={perdaForm.motivo} onChange={v=>setPerdaForm(f=>({...f,motivo:v}))} options={[{v:"",l:"Selecione"},...COM_PERDAS.map(v=>({v,l:v}))]}/><Inp label="Concorrente" value={perdaForm.concorrente} onChange={v=>setPerdaForm(f=>({...f,concorrente:v}))}/><Inp label="Valor do concorrente" type="number" value={perdaForm.valorConcorrente} onChange={v=>setPerdaForm(f=>({...f,valorConcorrente:v}))}/><Inp label="Possível reativação" type="date" value={perdaForm.reativacaoEm} onChange={v=>setPerdaForm(f=>({...f,reativacaoEm:v}))}/><Inp label="Observações" value={perdaForm.observacoes} onChange={v=>setPerdaForm(f=>({...f,observacoes:v}))} multiline/><Btn v="danger" disabled={!!salvandoComercial} onClick={salvarPerda}>{salvandoComercial==="perda"?"Salvando...":"CONFIRMAR PERDA"}</Btn></div></Modal>}
+
+    {confirmModal && (
+      <Modal title={confirmModal.titulo} onClose={()=>setConfirmModal(null)}>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <p style={{fontSize:12.5,color:C.muted,lineHeight:1.5,whiteSpace:"pre-line"}}>{confirmModal.mensagem}</p>
+          <div style={{display:"flex",gap:8}}>
+            <Btn v="ghost" onClick={()=>setConfirmModal(null)} style={{flex:1}}>Cancelar</Btn>
+            <Btn v={confirmModal.tom==="danger"?"danger":undefined} style={{flex:1}}
+              onClick={()=>{const acao=confirmModal.onConfirmar;setConfirmModal(null);acao();}}>
+              {confirmModal.confirmLabel||"Confirmar"}
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+    )}
   </div>;
 }

@@ -19,9 +19,99 @@ Assessment A/B), depuração de bugs reais no código, e investigação
 preparatória de geração de propostas/contratos em PDF (sem implementar —
 falta o modelo do usuário).
 
-**Nada foi corrigido nesta sessão.** É só diagnóstico; ao contrário da
-auditoria de Equipamentos (que corrigiu achados no mesmo fluxo), aqui o
-pedido explícito do usuário foi "faça um checklist", não "corrija".
+**Nada foi corrigido na sessão original desta auditoria** (18/08/2026,
+diagnóstico). Numa sessão seguinte, ainda em 18/08/2026, o usuário pediu
+"corrija o bug e vá em busca de mais" — o Achado 0 (P0 de roteamento) foi
+corrigido primeiro, separadamente (commit `f01deb7`), e os achados restantes
+foram corrigidos numa segunda leva. Ver "Atualização de 18/08/2026
+(correções aplicadas)" logo abaixo para o que foi de fato corrigido, o que
+foi investigado e descartado, e o que ficou de fora por decisão consciente.
+
+## Atualização de 18/08/2026 (correções aplicadas)
+
+Depois do Achado 0 (já corrigido separadamente), os demais achados de
+funcionamento foram confirmados lendo o código e corrigidos com a mesma
+disciplina da auditoria de Equipamentos (increments pequenos, trava contra
+duplo-clique + `try/finally` seguindo o padrão exato já usado em
+`finalizarContrato`/`EquipamentosView.jsx`, suíte de testes completa verde a
+cada lote). Nenhuma abstração nova nem refatoração além do necessário.
+
+**Corrigidos:**
+- **P1** — `statusProposta` (`ComercialView.jsx`) convertida de `setCom`
+  direto para `persistirComercial` (checa `result?.ok`, avisa com toast em
+  caso de falha). Continua gerando o contrato automaticamente ao aceitar a
+  proposta, mas agora avisa se a gravação falhar.
+- **P1** — Botões "ENVIAR" e "REGISTRAR ASSINATURA" do card de contrato
+  extraídos para `enviarContrato`/`registrarAssinaturaContrato`, usando
+  `persistirComercial` + trava contra duplo-clique.
+- **P2** — `moverLead` (arrastar card no funil) convertida para
+  `persistirComercial`, avisando com toast se a gravação falhar.
+- **P2** — Trava contra duplo-clique (`salvandoComercial`, mesmo padrão de
+  `EquipamentosView.jsx`: uma string por ação, checada como
+  `salvandoComercial==="tag"` / `disabled={!!salvandoComercial}`) aplicada
+  às 11 funções listadas na auditoria (`salvarLead`, `salvarPerda`,
+  `salvarAtividade`, `salvarReuniao`, `salvarProposta`, `salvarContrato`,
+  `salvarCliente`, `salvarParceiro`, `salvarMeta`, `salvarNps`,
+  `marcarPedidoIndicacao`) mais `salvarNegociacao` e os dois novos
+  `enviarContrato`/`registrarAssinaturaContrato` (mesma categoria de bug,
+  achado durante a correção).
+- **P2** — Os 3 `window.confirm` nativos em `ComercialView.jsx`
+  (duplicidade de lead, exclusão de lead, contrato a partir de proposta não
+  aceita) substituídos por um modal de confirmação estilizado
+  (`confirmModal`/`{titulo,mensagem,tom,confirmLabel,onConfirmar}`), o mesmo
+  padrão já usado em `EquipamentosView.jsx`.
+- **P2** — `RealEstateCommercial.jsx` agora recebe `showToast` como prop
+  (passada em `<LazyRealEstateCommercial>` de `ComercialView.jsx`). O
+  `window.confirm` de desvincular documento virou um `confirmState` local
+  com o mesmo `Dialog` já usado no resto do componente; os dois
+  `window.alert` de erro (reserva/venda) viram `showToast(msg,"error")`.
+- **P3** — Taxa de comissão de 1%: nomeada como constante
+  `DIRECT_SALE_DEFAULT_COMMISSION_PCT` em `contract-activation.js` com
+  comentário explicando que é um valor de fallback histórico sem origem
+  documentada nem configuração — nenhuma regra de negócio nova foi
+  inventada, só documentação. Comportamento idêntico a antes.
+
+**Investigado e descartado (não corrigido, com justificativa):**
+- **P3 — `pdfProposta` duplicando `montarRelatorioPadraoHtml`**: confirmado
+  real, mas não corrigido nesta leva — é uma unificação de template HTML
+  fora do escopo de "bug real", e a seção de "Ferramenta de propostas e
+  contratos em PDF" deste documento já recomenda tratar isso junto da
+  implementação de PDF de verdade (bloqueada no modelo do usuário), não
+  isoladamente agora.
+- **Pipeline de oportunidades morto** (achado estrutural #1): confirmado
+  real (workspace computado e nunca usado, `transitionOpportunity` sem
+  chamador) — é decisão de produto (terminar a migração vs. remover código
+  morto), não bug. Não corrigido, permanece como item aberto no checklist.
+- **Ciclo de vida de `comissoes`** (nunca sai de "prevista", não lido pelo
+  `ledger.js`): confirmado real, mas implementar "marcar como paga" e
+  decidir se isso vira despesa no DRE é uma decisão de regra de negócio que
+  não deveria ser inventada sem confirmação do usuário — permanece aberto.
+
+**Novos bugs procurados e não encontrados**: revisão de
+`activities.js`, `leads.js`, `migrations.js`, `selectors.js`,
+`transitions.js`, `real-estate.js` não achou nenhuma condição de corrida,
+comando sem `expectedVersion`/auditoria, ou cálculo financeiro duplicado
+localmente além do que a auditoria original já tinha mapeado (o único
+achado adicional foi `salvarNegociacao`, já corrigido acima, encontrado por
+ter exatamente o mesmo padrão dos 11 já listados).
+
+**Verificação**: `npx vitest run` (218 arquivos, 1140 testes, 100% verde),
+`npm run build`, `npm run typecheck`, `npm run architecture:check` e
+`npx playwright test e2e/modules-smoke.spec.js` todos verdes a cada lote.
+Um novo cenário real foi adicionado ao smoke test (exclusão de lead via o
+modal de confirmação estilizado, cobrindo a troca do `window.confirm`
+nativo e a trava contra duplo-clique de `excluirLead`).
+
+**Nota geral do módulo depois desta leva: 7,4/10** (subiu de 6,7, que já
+tinha subido de facto para ~7,6 com a correção isolada do Achado 0 — a nota
+volta a ficar um pouco abaixo desse número porque os achados de
+funcionamento P2/P3 muito numerosos, mesmo corrigidos, ainda refletem que o
+padrão "trava + toast de erro" não era generalizado por padrão neste
+arquivo, ao contrário de Equipamentos onde ele já nasceu consistente na
+maior parte do código). O que ainda pesa contra uma nota mais alta: (1) a
+identidade visual fragmentada em três sistemas (não tocada nesta leva — é
+achado de design, não de bug funcional), (2) o pipeline de oportunidades
+morto sem decisão tomada, e (3) o ciclo de vida incompleto de comissões.
 
 **Achado mais grave desta auditoria, confirmado por duas fontes
 independentes** (leitura de código + evidência visual ao vivo, ver Achado 0
@@ -596,7 +686,7 @@ colar.*
 
 ### Achados de bug/funcionamento a corrigir (por severidade)
 
-- [ ] **P0 — fazer primeiro** — Corrigir o bug de roteamento (Achado 0):
+- [x] **P0 — fazer primeiro** — Corrigir o bug de roteamento (Achado 0):
       trocar `view` por `commercialView` em todos os ramos do `if/else` a
       partir de `ComercialView.jsx:1167`, ou importar e aplicar
       `LEGACY_COMMERCIAL_ROUTE` (`constants.js:3-8`, já existe e não é
@@ -605,37 +695,58 @@ colar.*
       lateral em produção. Ao corrigir, decidir também para onde
       "Gestão comercial" deve levar Metas (`com_metas`) — hoje nem o
       mapeamento correto cobre esse destino.
+      **Corrigido em 18/08/2026, commit `f01deb7` (sessão principal, antes
+      desta leva).**
 - [ ] **P0 (achado da crítica de design)** — Adicionar um passo de
       confirmação explícito antes de `finalizarContrato`
       (`ComercialView.jsx:204-242`): hoje é a ação mais irreversível e cara
       do setor (cria 9 registros ligados) e tem *menos* fricção que excluir
       um único lead. Um modal estilizado (não `window.confirm`) mostrando o
-      que vai ser criado resolve.
-- [ ] **P1** — `statusProposta` (`ComercialView.jsx:198`) passar a usar
+      que vai ser criado resolve. **Fora do escopo desta leva de correção**
+      — é uma mudança de comportamento/UX nova (adicionar uma etapa de
+      confirmação que não existia), não um dos achados de funcionamento já
+      identificados pelo usuário para corrigir; permanece como recomendação
+      de design em aberto.
+- [x] **P1** — `statusProposta` (`ComercialView.jsx:198`) passar a usar
       `persistirComercial` (ou equivalente que cheque `result?.ok` e avise
       o usuário em caso de falha), já que essa função também gera contrato
-      automaticamente na aceitação.
-- [ ] **P1** — Botões "ENVIAR" e "REGISTRAR ASSINATURA" do card de
+      automaticamente na aceitação. **Corrigido em 18/08/2026.**
+- [x] **P1** — Botões "ENVIAR" e "REGISTRAR ASSINATURA" do card de
       contrato (`ComercialView.jsx:1296`) idem — checar sucesso da
-      gravação antes de considerar a ação concluída.
-- [ ] **P2** — `moverLead` (`ComercialView.jsx:153`) idem, ou pelo menos
-      reverter visualmente o card se a gravação falhar.
-- [ ] **P2** — Generalizar o padrão trava-contra-duplo-clique
+      gravação antes de considerar a ação concluída. **Corrigido em
+      18/08/2026** (extraídas para `enviarContrato`/
+      `registrarAssinaturaContrato`).
+- [x] **P2** — `moverLead` (`ComercialView.jsx:153`) idem, ou pelo menos
+      reverter visualmente o card se a gravação falhar. **Corrigido em
+      18/08/2026** (convertida para `persistirComercial`; segue o padrão do
+      resto do arquivo de avisar por toast em vez de reverter visualmente).
+- [x] **P2** — Generalizar o padrão trava-contra-duplo-clique
       (`setSalvando<algo>` + `disabled`) já usado em `finalizarContrato`
       para as 11 funções de gravação listadas no achado de funcionamento.
-- [ ] **P2** — Trocar os 3 `window.confirm`/`window.prompt` nativos por
+      **Corrigido em 18/08/2026** (mais `salvarNegociacao`, achado extra da
+      mesma categoria durante a correção).
+- [x] **P2** — Trocar os 3 `window.confirm`/`window.prompt` nativos por
       modal consistente com o resto do app (`ComercialView.jsx:127, 141,
-      202`).
-- [ ] **P2** — Passar `showToast` como prop para `RealEstateCommercial`
+      202`). **Corrigido em 18/08/2026** (novo `confirmModal` estilizado,
+      mesmo padrão de `EquipamentosView.jsx`).
+- [x] **P2** — Passar `showToast` como prop para `RealEstateCommercial`
       (`ComercialView.jsx:1314` no `<LazyRealEstateCommercial>`) e trocar
       os 3 usos de `window.confirm`/`window.alert` em
-      `RealEstateCommercial.jsx:59, 98, 99`.
+      `RealEstateCommercial.jsx:59, 98, 99`. **Corrigido em 18/08/2026.**
 - [ ] **P3** — Unificar `pdfProposta` ao padrão
-      `montarRelatorioPadraoHtml`/`abrirRelatorioPadrao`.
-- [ ] **P3** — Decidir a origem da taxa de comissão de 1%
+      `montarRelatorioPadraoHtml`/`abrirRelatorioPadrao`. **Não corrigido
+      nesta leva** — decisão deliberada de deixar para quando a
+      implementação de PDF de verdade avançar (ver seção "Ferramenta de
+      propostas e contratos em PDF"), para não criar um quarto padrão de
+      geração de documento no meio do caminho.
+- [x] **P3** — Decidir a origem da taxa de comissão de 1%
       (`contract-activation.js:92`): documentar de onde vem, tornar
       configurável, ou trocar por uma regra explícita (ex. taxa do
       vendedor, se/quando esse campo existir no cadastro de usuário).
+      **Corrigido parcialmente em 18/08/2026**: nomeada como constante
+      `DIRECT_SALE_DEFAULT_COMMISSION_PCT` com comentário documentando a
+      origem desconhecida — sem tornar configurável nem trocar a regra
+      (decisão de produto, não tomada nesta leva).
 - [ ] **P3** — Decidir o ciclo de vida de `comissoes`: criar o caminho de
       "marcar como paga" e decidir se/como isso deveria refletir no DRE
       como despesa, ou documentar explicitamente (como a Fase 5 de

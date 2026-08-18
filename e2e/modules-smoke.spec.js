@@ -88,6 +88,15 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
     extratos:[
       {id:"ext-qa",arquivo:"Extrato Julho QA.ofx",status:"ativo"},
     ],
+    comercial:{
+      leads:[
+        {id:"lead-qa-1",nome:"Cliente Duplicado QA",tipoPessoa:"PF",telefone:"81999990000",
+          whatsapp:"81999990000",email:"cliente.dup@qa.test",cidade:"Recife",origem:"Site",
+          responsavelId:PROFILE.id,servico:"Reforma",orcamentoEstimado:50000,probabilidade:"40",
+          temperatura:"morno",etapa:"novo",status:"ativo",proximaAtividade:"Ligar para o cliente",
+          proximaAtividadeEm:"2026-09-01T09:00",historico:[],documentos:[]},
+      ],
+    },
     attendance:{},
     attendanceLocks:{},
     unlockRequests:[],
@@ -285,6 +294,21 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await maintenanceDialog.getByLabel("Custo (R$) *").fill("350");
         await maintenanceDialog.getByRole("button",{name:"Registrar manutenção"}).click();
         await expect(page.getByText("Manutenção registrada.")).toBeVisible();
+      }
+      if(item==="Relacionamentos") {
+        // Regressão dos achados P2 de 18/08/2026: `excluirLead` usava
+        // window.confirm nativo (Playwright rejeita/ignora dialogs nativos
+        // sem um handler dedicado, então um window.confirm real travaria
+        // este teste) e não tinha trava contra duplo-clique. Convertido
+        // para o mesmo modal de confirmação estilizado já usado no resto
+        // do app (padrão de EquipamentosView.jsx) - ver
+        // docs/AUDITORIA_COMERCIAL.md.
+        await page.getByText("Cliente Duplicado QA").click();
+        await page.getByRole("button",{name:"EXCLUIR LEAD"}).click();
+        const excluirLeadDialog=page.getByRole("dialog",{name:"Excluir lead?"});
+        await expect(excluirLeadDialog).toBeVisible();
+        await excluirLeadDialog.getByRole("button",{name:"Excluir lead"}).click();
+        await expect(page.getByText("Lead excluído. O histórico e os vínculos foram preservados.")).toBeVisible();
       }
       if(item==="Propostas e contratos") {
         // Regressão do achado P0 de 18/08/2026: este destino (com_deals) e
