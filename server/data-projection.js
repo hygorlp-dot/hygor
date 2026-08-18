@@ -46,6 +46,16 @@ const sanitizeEmployee = (employee, role = "") => {
   }=employee||{};
   return safe;
 };
+const sanitizeRescission = (rescission, role) => {
+  if (role === "rh") return rescission;
+  // empCPF é o único dado pessoal sensível gravado na rescisão
+  // (src/domains/rh/rescission-commands.js). Financeiro precisa dos valores
+  // (valorMensal, totalLiquido...) para o DRE/pagamento, não do CPF do
+  // trabalhador - e, ao contrário de titulosFolha, nenhuma rotina de
+  // conciliação lê empCPF, então remover aqui não quebra nada existente.
+  const { empCPF, ...safe } = rescission || {};
+  return safe;
+};
 const hasObra = (item, allowed) => !allowed.size || [
   item?.obraId,item?.obra,item?.obraAtualId,item?.paraObraId,item?.deObraId,
 ].some(value=>value!=null&&value!==""&&allowed.has(String(value)));
@@ -118,6 +128,10 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     }
     if(key==="attendanceLocks"){
       out.attendanceLocks=Object.fromEntries(Object.entries(value||{}).filter(([,lock])=>hasObra(lock,allowedObras)));
+      continue;
+    }
+    if(key==="rescisoes"){
+      out.rescisoes=filterByObra(value,allowedObras).map(item=>sanitizeRescission(item,user.role));
       continue;
     }
     if(user.role==="rh"&&key==="transacoes"){

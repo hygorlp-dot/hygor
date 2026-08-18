@@ -50,6 +50,9 @@ const payload={
     {id:"c-a",transactionId:"pix-a"},
     {id:"c-b",transactionId:"pix-b"},
   ],
+  rescisoes:[
+    {id:"r-a",obraId:"obra-a",empId:"e-a",empName:"Equipe A",empCPF:"111.111.111-11",totalLiquido:1200,status:"ativa"},
+  ],
 };
 
 describe("SEC-001 · projeção de leitura por obra",()=>{
@@ -108,6 +111,20 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     const projected=projectDataForUser(payload,{id:"u-a",role:"financeiro",obraId:"obra-a"});
     expect(projected.employees).toEqual([{id:"e-a",obra:"obra-a",name:"Equipe A"}]);
     expect(projected.medicoesTerc).toEqual([{id:"mt-a",obraId:"obra-a",tercId:"t-a",total:500}]);
+  });
+
+  it("não entrega o CPF da rescisão a quem não é do RH, mas mantém os valores financeiros",()=>{
+    const projected=projectDataForUser(payload,{id:"fin-a",role:"financeiro"});
+    expect(projected.rescisoes).toEqual([
+      {id:"r-a",obraId:"obra-a",empId:"e-a",empName:"Equipe A",totalLiquido:1200,status:"ativa"},
+    ]);
+  });
+
+  it("mantém o CPF da rescisão para o RH", () => {
+    const projected=projectDataForUser(payload,{id:"rh",role:"rh",obraId:"obra-a"});
+    expect(projected.rescisoes).toEqual([
+      {id:"r-a",obraId:"obra-a",empId:"e-a",empName:"Equipe A",empCPF:"111.111.111-11",totalLiquido:1200,status:"ativa"},
+    ]);
   });
 
   it("preserva o apontamento histórico na obra antiga após transferência",()=>{
