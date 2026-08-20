@@ -18,6 +18,22 @@ Este é um SaaS de gestão de obras. A fonte única de verdade para valores fina
 
 O padrão comum: duas partes do sistema concordam sobre COMO fazer uma conta ou QUAL status representa um estado, sem um contrato compartilhado (tipo, enum, ou função importada) que force as duas a andarem juntas. Isso não é hipotético — é o que já aconteceu três vezes.
 
+## Mapa de acoplamento de dados entre domínios (referência para o passo 2)
+
+Levantamento feito em 20/08/2026, em resposta a um incidente de contenção de trava (não de bug de valor) que expôs o quanto os comandos operacionais estão interligados via campos de nível superior de `data`. Use este mapa para saber, sem precisar regrepar do zero, quais consumidores checar quando um domínio muda — é exatamente o "trace os consumidores" do passo 2, pré-calculado.
+
+**Por que isso importa para o DRE especificamente**: `FINANCIAL_OPERATIONAL_COMMANDS` (`api/data.js:185-226`) — a lista de comandos que o servidor trata como financeiros — não é um subconjunto limpo de "domínio financeiro"; ela inclui `RESCISSION_*`, `EMPLOYEE_SAVED`, `ADVANCE_*` (RH), todos os ~19 comandos de Equipamentos, `PROJECT_SAVED/DELETED` (Obras), `COMPANY_CONFIG_SAVED`, e todo o cluster de Compras/Comercial. Isso confirma, com uma fonte independente da citada nos 3 bugs de referência, que "financeiro" neste sistema é um fio que atravessa quase todo domínio operacional — exatamente por isso um bug de divergência pode nascer em qualquer um desses módulos, não só em `src/domains/financeiro/*`.
+
+**Cluster fortemente acoplado (compras + financeiro + comercial + obras)** — hoje é, na prática, um único domínio transacional: Compras/Pedido, Compras/Solicitação, Compras/Fornecedor, Compras/Material, Compras/Recebimento de Pedido, Compras/Cancelamento, Financeiro/Pagamento de Obrigação, Financeiro/Notas Fiscais, Financeiro/Caixa de Obra, Financeiro/Terceiros, Financeiro/Medição Cliente, Conciliação Bancária, Comercial/Contrato e Obras/Projeto se entrelaçam via `data.pedidos`, `data.notasFiscais`, `data.transacoes`, `data.caixaObra`, `data.fornecedores`, `data.materiais`, `data.solicitacoesCompra`, `data.cotacoes`, `data.instanciasAprovacao`, `data.medicoes`/`data.medicoesObra` e `data.obras` (o campo mais compartilhado do sistema inteiro — escrito por 3 grupos, lido por quase todos). Uma mudança em QUALQUER um destes tem alta chance de ter um consumidor num dos outros doze.
+
+**Acoplamentos específicos mais relevantes para achar divergência de valor:**
+- `EMPLOYEE_SAVED` (RH) só é "RH" de nome — `dailyRate`/`vtDaily`/`vrDaily` fazem dele um comando financeiro de fato (por isso está em `FINANCIAL_OPERATIONAL_COMMANDS`). Qualquer mudança em como `employees` é lido/gravado precisa checar `labor-cost-engine.js` e o DRE do servidor, não só as telas de RH.
+- Produção/Avanço Físico ↔ Produção/Compromisso Semanal têm acoplamento mútuo real (cada um lê o array que o outro escreve), mais leitura de `employees`/`jobRiskAnalyses`/`workPermits` de RH/Segurança — mudança num afeta o gate de bloqueio do outro.
+- Medição Técnica compartilha `medicoesObra`/`medicoes`/`qualidadeRegistros` com Financeiro/Medição Cliente e Qualidade, incluindo o gate de aprovação de qualidade (`canReleaseForMeasurement`) — um invariante de negócio real, não referência trivial.
+- RH/Rescisão e RH/Adiantamento leem `data.employees` (existência/status ativo) mas não o escrevem — leitura de referência que pode ficar defasada se RH/Funcionário gravar concorrentemente.
+
+**Domínios genuinamente isolados hoje** (zero overlap de leitura ou escrita de campo com qualquer outro grupo) — se um PR mexe só aqui, é seguro presumir baixo risco de divergência cross-domínio, mesmo assim confira o passo 3 (cliente vs. servidor) dentro do próprio domínio: RDO/Diário de Obra (`data.rdos`), Lookahead (`data.lookaheadWindows`), Config/Empresa (`data.config`). Equipamentos é quase-isolado (só lê `obras`/`transacoes` de fora, ~13 campos próprios nunca escritos por ninguém mais) mas está classificado como financeiro e tem alto volume de comandos — trate como financeiro mesmo assim.
+
 ## Quando invocar
 
 - **Revisão de PR antes de mesclar.** O diff toca `src/domains/financeiro/*`, `src/domains/dre/*`, `server/dre-projection.js`, `server/financial-shadow.js`, ou qualquer `calculations.js`/`mutations.js`/`*-commands.js` de um domínio operacional (compras, terceirizados, ponto, equipamentos, rh, medições, conciliação).
