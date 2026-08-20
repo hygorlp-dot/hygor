@@ -7147,6 +7147,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   const [archiveModal, setArchiveModal] = useState(null);
   const [archiveReason, setArchiveReason] = useState("");
   const [unlinkModal, setUnlinkModal] = useState(null);
+  const [advCancelModal, setAdvCancelModal] = useState(null);
+  const [advCancelReason, setAdvCancelReason] = useState("");
   const [pendingAction, setPendingAction] = useState("");
   const [formErrors, setFormErrors] = useState({});
   const nameInputRef = useRef(null);
@@ -7370,19 +7372,25 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     showToast(`Adiantamento registrado em ${installmentCount} parcela(s).`);
   };
 
-  const removeAdv = async advance => {
-    const motivo=window.prompt("Motivo do cancelamento do adiantamento:");
-    if(!String(motivo||"").trim())return;
+  const removeAdv = advance => { setAdvCancelModal(advance); setAdvCancelReason(""); };
+
+  const confirmRemoveAdv = async () => {
+    const advance = advCancelModal;
+    if (!advance) return;
+    if(!advCancelReason.trim()){showToast("Informe o motivo do cancelamento.","error");return;}
+    setPendingAction("advCancel");
     const result=await dispatchCommand({
       type:OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED,
       idempotencyKey:`adiantamento-cancelar-${advance.id}-${uid()}`,
       expectedVersion:Number(advance.version||0),
-      payload:{advanceId:advance.id,reason:String(motivo).trim()},
+      payload:{advanceId:advance.id,reason:advCancelReason.trim()},
     });
+    setPendingAction("");
     if(!result?.ok){
       showToast(result?.reason||"O cancelamento não foi confirmado pelo servidor.","error");
       return;
     }
+    setAdvCancelModal(null); setAdvCancelReason("");
     showToast("Adiantamento cancelado e preservado para auditoria.");
   };
 
@@ -7418,6 +7426,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
           ["desligamento_agendado","Agendados",lifecycleCounts.desligamento_agendado||0],
           ["desligado","Desligados",lifecycleCounts.desligado||0],
           ["arquivado","Arquivados",lifecycleCounts.arquivado||0],
+          ["todos","Todas as situações",(data.employees||[]).length],
         ].map(([value,label,count])=><button key={value} type="button" className={`team-summary__item${statusFilter===value?" is-active":""}`} onClick={()=>setStatusFilter(value)} aria-pressed={statusFilter===value}><span>{label}</span><strong>{count}</strong></button>)}
         <button type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra-administrativos}</strong></button>
       </div>
@@ -7425,7 +7434,6 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       <div className="team-toolbar">
         <Inp label="Pesquisar na equipe" value={search} onChange={setSearch} placeholder="Nome, função, CPF ou telefone" />
         {obraIdFixo?<Inp label="Lotação" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel label="Filtrar por lotação" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as lotações"},{v:"__administrativo__",l:"Administrativo"},{v:"__sem_obra__",l:"Sem lotação"},...data.obras.map(o=>({v:o.id,l:o.name}))]} />}
-        <Sel label="Filtrar por situação" value={statusFilter} onChange={setStatusFilter} options={[{v:"ativo",l:"Ativos"},{v:"desligamento_agendado",l:"Desligamento agendado"},{v:"desligado",l:"Desligados"},{v:"arquivado",l:"Arquivados"},{v:"todos",l:"Todas as situações"}]}/>
       </div>
 
       <div className="team-list-head" aria-hidden="true"><span>Funcionário</span><span>Função</span><span>Lotação</span><span>Pendências</span><span>Situação</span><span>Ações</span></div>
@@ -7498,26 +7506,45 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
 
       {modal && (
         <Modal title={form.id ? "Editar funcionário" : "Novo funcionário"} onClose={() => setModal(false)} wide>
-          <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
-            <div style={{ gridColumn: "1/-1" }}><Inp label="Nome completo *" value={form.name} onChange={F("name")} inputRef={nameInputRef} error={formErrors.name}/></div>
-            <Inp label="Função" value={form.role} onChange={F("role")} />
-            <Sel label="Área de atuação" value={form.workArea||"campo"} onChange={value=>setForm(current=>({...current,workArea:value,...(value==="administrativo"?{obra:""}:{})}))} options={[{v:"campo",l:"Campo / obra"},{v:"administrativo",l:"Administrativo"}]}/>
-            <Inp label="Admissão *" type="date" value={form.startDate} onChange={F("startDate")} error={formErrors.startDate}/>
-            <Inp label="Diária *" type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
-            {form.workArea!=="administrativo"
-              ?<Sel label="Obra" value={form.obra} onChange={F("obra")} options={[{ v: "", l: "Sem obra (desvinculado)" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
-              :<Inp label="Lotação" value="Administrativo da empresa" onChange={()=>{}} disabled/>}
-            <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
-            <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
-            <Inp label="Jornada padrão (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
-            <Inp label="Início previsto da jornada" type="time" value={form.workStart} onChange={F("workStart")} />
-            <Inp label="Adicional de hora extra (%)" type="number" min="0" value={form.overtimeAdditionalPercent} onChange={F("overtimeAdditionalPercent")} />
-            <Inp label="CPF" value={form.cpf} onChange={v => F("cpf")(fmtCPF(v))} />
-            <Inp label="Telefone" value={form.phone} onChange={v => F("phone")(fmtPhone(v))} />
-            <Inp label="Tipo PIX" value={form.pixType} onChange={F("pixType")} />
-            <Inp label="Titular PIX" value={form.pixHolder} onChange={F("pixHolder")} />
-            <div style={{ gridColumn: "1/-1" }}><Inp label="Chave PIX" value={form.pixKey} onChange={F("pixKey")} /></div>
-
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <p style={TYPO.eyebrow}>Identificação</p>
+              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+                <div style={{ gridColumn: "1/-1" }}><Inp label="Nome completo *" value={form.name} onChange={F("name")} inputRef={nameInputRef} error={formErrors.name}/></div>
+                <Inp label="Função" value={form.role} onChange={F("role")} />
+                <Inp label="CPF" value={form.cpf} onChange={v => F("cpf")(fmtCPF(v))} />
+                <Inp label="Telefone" value={form.phone} onChange={v => F("phone")(fmtPhone(v))} />
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <p style={TYPO.eyebrow}>Lotação</p>
+              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+                <Sel label="Área de atuação" value={form.workArea||"campo"} onChange={value=>setForm(current=>({...current,workArea:value,...(value==="administrativo"?{obra:""}:{})}))} options={[{v:"campo",l:"Campo / obra"},{v:"administrativo",l:"Administrativo"}]}/>
+                <Inp label="Admissão *" type="date" value={form.startDate} onChange={F("startDate")} error={formErrors.startDate}/>
+                {form.workArea!=="administrativo"
+                  ?<Sel label="Obra" value={form.obra} onChange={F("obra")} options={[{ v: "", l: "Sem obra (desvinculado)" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+                  :<Inp label="Lotação" value="Administrativo da empresa" onChange={()=>{}} disabled/>}
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <p style={TYPO.eyebrow}>Remuneração</p>
+              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+                <Inp label="Diária *" type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
+                <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
+                <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
+                <Inp label="Jornada padrão (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
+                <Inp label="Início previsto da jornada" type="time" value={form.workStart} onChange={F("workStart")} />
+                <Inp label="Adicional de hora extra (%)" type="number" min="0" value={form.overtimeAdditionalPercent} onChange={F("overtimeAdditionalPercent")} />
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <p style={TYPO.eyebrow}>PIX</p>
+              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+                <Inp label="Tipo PIX" value={form.pixType} onChange={F("pixType")} />
+                <Inp label="Titular PIX" value={form.pixHolder} onChange={F("pixHolder")} />
+                <div style={{ gridColumn: "1/-1" }}><Inp label="Chave PIX" value={form.pixKey} onChange={F("pixKey")} /></div>
+              </div>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
@@ -7557,6 +7584,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       {unlinkModal&&<Modal title="Desvincular da obra" onClose={()=>setUnlinkModal(null)}><div className="team-confirm"><p><strong>{unlinkModal.name}</strong> será removido da obra {obraName(unlinkModal.obra)}, mas continuará ativo e disponível para nova lotação.</p><div><Btn v="ghost" full onClick={()=>setUnlinkModal(null)}>Cancelar</Btn><Btn v="warning" full loading={pendingAction==="unlink"} onClick={desvincularObra}>Confirmar desvinculação</Btn></div></div></Modal>}
 
       {archiveModal&&<Modal title="Arquivar cadastro" onClose={()=>setArchiveModal(null)}><div className="team-confirm"><p>Arquive <strong>{archiveModal.name}</strong> somente em caso de cadastro duplicado ou indevido. Frequência, pagamentos e auditoria serão preservados.</p><Inp label="Motivo do arquivamento *" value={archiveReason} onChange={setArchiveReason} multiline placeholder="Explique por que este cadastro não deve permanecer nas listas"/><div><Btn v="ghost" full onClick={()=>setArchiveModal(null)}>Cancelar</Btn><Btn v="danger" full loading={pendingAction==="archive"} onClick={deleteEmp}>Arquivar cadastro</Btn></div></div></Modal>}
+
+      {advCancelModal&&<Modal title="Cancelar adiantamento" onClose={()=>setAdvCancelModal(null)}><div className="team-confirm"><p>Cancele o adiantamento de <strong>{fmt(Number(advCancelModal.amount||0))}</strong>{advCancelModal.description?` (${advCancelModal.description})`:""}. O lançamento é preservado para auditoria.</p><Inp label="Motivo do cancelamento *" value={advCancelReason} onChange={setAdvCancelReason} multiline placeholder="Explique por que este adiantamento está sendo cancelado"/><div><Btn v="ghost" full onClick={()=>setAdvCancelModal(null)}>Cancelar</Btn><Btn v="danger" full loading={pendingAction==="advCancel"} onClick={confirmRemoveAdv}>Confirmar cancelamento</Btn></div></div></Modal>}
 
       {advModal && (
         <Modal title="Solicitar ou registrar adiantamento" onClose={() => setAdvModal(null)}>
@@ -10519,6 +10548,8 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
   const [form, setForm]       = useState(emptyForm);
   const [history, setHistory] = useState(false); // toggle
   const [salvando, setSalvando] = useState(false);
+  const [rescCancelModal, setRescCancelModal] = useState(null);
+  const [rescCancelReason, setRescCancelReason] = useState("");
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
 
   // Ao selecionar funcionário da lista
@@ -10577,9 +10608,12 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
     showToast("Rescisão salva no histórico.");
   };
 
-  const cancelarRescisao = async registro => {
-    const motivo=window.prompt("Motivo do cancelamento desta rescisão:");
-    if(!String(motivo||"").trim())return;
+  const cancelarRescisao = registro => { setRescCancelModal(registro); setRescCancelReason(""); };
+
+  const confirmCancelarRescisao = async () => {
+    const registro = rescCancelModal;
+    if (!registro) return;
+    if(!rescCancelReason.trim()){showToast("Informe o motivo do cancelamento.","error");return;}
     if(!dispatchCommand){showToast("O cancelamento exige conexão com o servidor.","error");return;}
     setSalvando(true);
     let result;
@@ -10592,7 +10626,7 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
           expectedVersion:Number(vigente?.version||0),
           actorId:currentUser?.id||"",
           actorName:currentUser?.nome||"",
-          payload:{rescissionId:registro.id,reason:String(motivo).trim()},
+          payload:{rescissionId:registro.id,reason:rescCancelReason.trim()},
         };
       });
     }catch{
@@ -10601,6 +10635,7 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
       setSalvando(false);
     }
     if(!result.ok){showToast(result.reason||"Não foi possível cancelar a rescisão.","error");return;}
+    setRescCancelModal(null); setRescCancelReason("");
     showToast("Rescisão cancelada e preservada.");
   };
 
@@ -10912,7 +10947,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Btn v="ghost" onClick={()=>setForm(emptyForm)} full><Ic n="x"/> Limpar</Btn>
-        <Btn v="danger" onClick={gerarPDF} full disabled={!calc}><Ic n="file"/> Gerar PDF</Btn>
+        <Btn v="ghost" onClick={gerarPDF} full disabled={!calc}><Ic n="file"/> Gerar PDF</Btn>
       </div>
       <Btn onClick={salvar} full disabled={!calc||salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Salvar no histórico"}</Btn>
 
@@ -10956,13 +10991,15 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
             {String(r.status||"").toLowerCase()==="cancelada"&&<Btn size="sm" v="ghost" onClick={()=>{setForm({...r,id:uid()});setHistory(false);}}>
               <Ic n="edit"/> Reabrir
             </Btn>}
-            <Btn size="sm" v="danger" onClick={()=>gerarPDF(r)}>
+            <Btn size="sm" v="ghost" onClick={()=>gerarPDF(r)}>
               <Ic n="file"/> PDF
             </Btn>
             {String(r.status||"").toLowerCase()!=="cancelada"&&<Btn size="sm" v="danger" disabled={salvando} onClick={()=>cancelarRescisao(r)}><Ic n="trash"/></Btn>}
           </div>
         </div>
       ))}
+
+      {rescCancelModal&&<Modal title="Cancelar rescisão" onClose={()=>setRescCancelModal(null)}><div className="team-confirm"><p>Cancele a rescisão de <strong>{rescCancelModal.empName}</strong>. O registro é preservado no histórico para auditoria.</p><Inp label="Motivo do cancelamento *" value={rescCancelReason} onChange={setRescCancelReason} multiline placeholder="Explique por que esta rescisão está sendo cancelada"/><div><Btn v="ghost" full onClick={()=>setRescCancelModal(null)}>Cancelar</Btn><Btn v="danger" full loading={salvando} onClick={confirmCancelarRescisao}>Confirmar cancelamento</Btn></div></div></Modal>}
     </div>
   );
 }
