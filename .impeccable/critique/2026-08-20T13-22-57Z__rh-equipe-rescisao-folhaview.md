@@ -8,6 +8,96 @@ p1_count: 1
 timestamp: 2026-08-20T13-22-57Z
 slug: rh-equipe-rescisao-folhaview
 ---
+
+## Adendo de correção (20/08/2026, mesmo dia)
+
+**Nota revisada: 29/40 (72,5%)**, de 23/40. Correções aplicadas em 4
+commits pequenos e verificados (`f8c89cb`, `f7a659f`, `11bd6ae`,
+`3ea9dd1`), cada um passando pela suíte completa (`vitest`, `build`,
+`architecture:check`, `typecheck`) e, no commit que tocou o `Modal`
+compartilhado, também pelo smoke e2e completo de todos os módulos
+autorizados (`e2e/modules-smoke.spec.js`), não só RH.
+
+### Corrigido
+
+- **[P1] Vocabulário de motivo de desligamento** (Consistency and
+  Standards, Error Prevention, Recognition Rather Than Recall):
+  `confirmDismissal` agora grava `terminationType` já mapeado para o
+  vocabulário de `RESCISSION_TYPES` (`DISMISSAL_TO_RESCISSION_TYPE`);
+  `Rescisao.selectEmp()` pré-seleciona `form.tipo` a partir disso, com
+  nota visível e não-bloqueante ("Herdado do desligamento registrado em
+  Equipe - revise se necessário"). "Corrigir agendamento" ganhou o mapa
+  inverso para não quebrar ao reabrir o formulário de Equipe. Sem
+  migração retroativa - só desligamentos registrados a partir de agora
+  carregam o campo.
+- **[P2] Botão "Gerar PDF" com estilo `danger`**: trocado para `ghost`
+  (as duas ocorrências - botão principal e o "PDF" do histórico).
+- **[P2] `window.prompt()` em `removeAdv`/`cancelarRescisao`**: as duas
+  trocadas pelo padrão `Modal`+`Inp` já usado no resto do app (mesma
+  estrutura do modal de arquivamento de funcionário), motivo obrigatório,
+  gate function abre modal / execute function faz o trabalho.
+- **[P2] Modal de funcionário (16 campos)**: agrupado em 4 seções
+  (Identificação, Lotação, Remuneração, PIX) com `TYPO.eyebrow` como
+  título de seção - mesmos campos, mesma validação, só reorganização
+  visual.
+- **[P2] Filtros de status duplicados**: removido o dropdown `Sel`,
+  mantida a barra de pills (mais consistente com o resto da tela), com
+  "Todas as situações" adicionada à barra para não perder a opção.
+- **[P3] Gradiente banido no card de resultado da Rescisão**: trocado
+  por fundo sólido `${C.yellow}12` + borda `${C.yellow}44` (mesmo padrão
+  do card "Acordo interno" na mesma tela); mini-cards internos trocaram
+  o overlay `rgba(0,0,0,.15)` (pensado para o gradiente escuro) por
+  `C.surface`/`C.border`.
+- **[P3] Cor do logo no PDF de rescisão**: `#f6d833` -> `#D4AF37`
+  (dourado canônico, igual ao já usado no PDF da FolhaView).
+- **[P3] Hex hardcoded em `src/index.css:7560-7563`**: trocado pelos
+  tokens `--arcd-color-success/warning/text-muted/danger`, com o hex
+  original mantido como fallback do `var()`.
+- **[P3, opcional] Sombra decorativa do `Modal` compartilhado**:
+  removida (`boxShadow: 0 20px 60px rgba(18,18,18,.16)`), a borda de
+  1px já presente cumpre sozinha a regra de DESIGN.md ("Bordas de 1px e
+  mudança de superfície; sem sombras decorativas"). Como afeta todo
+  modal do app, foi verificada com o smoke e2e completo, não só o de RH.
+
+### Não corrigido (fora do escopo desta rodada, por decisão explícita)
+
+- Adoção de `SummaryCard`/`PageHeader` nas 3 telas - reescrita de
+  componente maior, não um polish pontual.
+- As 5 bordas decorativas "side-tab" apontadas pelo scan determinístico
+  (`LegacyApp.jsx`, ex. cards de Equipe/Rescisão) e o Arial nos
+  templates de impressão/PDF (`FolhaView.jsx:479`, PDF de rescisão) -
+  achados do detector que não estavam na lista de correções desta
+  sessão; continuam abertos.
+- `team-row__initials` com dourado decorativo - achado leve, risco
+  desproporcional para mexer em CSS de avatar compartilhado agora.
+- Toggle "Acordo interno" descartando seleções sem aviso - comportamento
+  de formulário mais delicado, deixado para uma sessão dedicada a
+  entender todo o fluxo.
+- Achado de ferramenta sobre `DESIGN.md` sem frontmatter YAML -
+  infraestrutura da skill `impeccable`, fora deste projeto.
+
+### Por que 29 e não mais
+
+A pontuação por heurística abaixo é uma revisão honesta, não uma
+reinterpretação favorável: heurísticas onde a correção foi completa e
+direta (Consistency/Standards, com a unificação de vocabulário e o
+botão `danger`) subiram mais; heurísticas onde só parte do problema
+original foi endereçada (Aesthetic/Minimalist, onde o gradiente e o
+modal de 16 campos foram corrigidos mas o side-tab antipattern e a
+ausência de `SummaryCard` continuam) subiram menos. Nenhum heurística
+foi levada ao 4/4 nesta rodada.
+
+| # | Heurística | Antes | Depois | Por quê |
+|---|---|---|---|---|
+| 3 | User Control and Freedom | 2 | 3 | Os 2 `window.prompt()` do módulo RH viraram Modal+Inp; outros `window.prompt`/`confirm` no resto do app (fora do escopo) continuam. |
+| 4 | Consistency and Standards | 1 | 3 | Vocabulário unificado e herdado entre as telas; botão "Gerar PDF" não usa mais `danger`. Não é 4 porque o `danger` ainda aparece em outros botões de ação não-destrutiva fora do escopo revisado. |
+| 5 | Error Prevention | 2 | 3 | A herança do motivo de desligamento com nota visível reduz o risco de mis-seleção manual: não é bloqueio/validação cruzada dura (decisão consciente, ver nota do achado P1 - o usuário pode sobrescrever), por isso não chega a 4. |
+| 6 | Recognition Rather Than Recall | 2 | 3 | Motivo de desligamento não precisa mais ser lembrado e redigitado; filtro de status duplicado removido. |
+| 8 | Aesthetic and Minimalist Design | 2 | 3 | Modal de 16 campos agrupado, gradiente banido removido, sombra decorativa do Modal removida. Não chega a 4: as 5 bordas "side-tab" e a ausência de `SummaryCard`/`PageHeader` (fora do escopo desta rodada) continuam. |
+
+Demais heurísticas (1, 2, 7, 9, 10) sem mudança de nota - não foram
+objeto de correção nesta rodada.
+
 Method: dual-agent (A: isolated design-review sub-agent · B: isolated detector+browser-evidence sub-agent)
 
 ## Design Health Score
