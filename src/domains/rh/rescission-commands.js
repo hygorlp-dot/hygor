@@ -61,6 +61,15 @@ const createRescission = (data, command, now) => {
     obs:String(raw.obs || "").trim(),
   };
   if (!input.empName) return fail("Informe o trabalhador da rescisão.");
+  // Achado de auditoria de 20/08/2026: nada impedia criar uma segunda
+  // rescisão ATIVA para o mesmo funcionário (só a identificação da própria
+  // rescisão era checada) - cada rescisão vira um fato financeiro na
+  // categoria "rescisao" do razão, então duas ativas para a mesma pessoa
+  // contam a demissão em dobro no DRE. Cancele a existente antes de criar
+  // outra (mesmo princípio já usado para bloquear cancelamento conciliado).
+  if (input.empId && (data.rescisoes || []).some(item => String(item.empId) === input.empId && active(item))) {
+    return fail("Este funcionário já tem uma rescisão ativa registrada. Cancele a existente antes de criar outra.");
+  }
   if (!validDate(input.admissao) || !validDate(input.demissao)) return fail("Informe datas válidas de admissão e rescisão.");
   if (!RESCISSION_TYPE_LABEL[input.tipo]) return fail("O motivo da rescisão é inválido.");
   if (!nonNegativeNumber(input.valorMensal) || !nonNegativeNumber(input.valorFixoAcordo)

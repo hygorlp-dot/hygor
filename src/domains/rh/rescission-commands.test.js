@@ -84,6 +84,33 @@ describe("comandos de rescisão trabalhista", () => {
     });
   });
 
+  it("impede criar uma segunda rescisão ativa para o mesmo funcionário", () => {
+    const data = {
+      ...base(),
+      rescisoes:[{ ...raw(), obraId:"obra-1", status:"ativa", version:1 }],
+    };
+    const duplicate = applyRescissionCommand(data, command(
+      RESCISSION_COMMAND.PAYROLL_RESCISSION_CREATED,
+      { rescission:raw({ id:"resc-2" }) },
+    ));
+    expect(duplicate).toMatchObject({ ok:false });
+    expect(duplicate.reason).toMatch(/já tem uma rescisão ativa/i);
+
+    // Depois de cancelar a original, uma nova rescisão para o mesmo
+    // funcionário volta a ser permitida.
+    const cancelled = applyRescissionCommand(data, command(
+      RESCISSION_COMMAND.PAYROLL_RESCISSION_CANCELLED,
+      { rescissionId:"resc-1", reason:"Cadastro incorreto" },
+      1,
+    ), "2026-07-28T13:00:00.000Z");
+    const recreated = applyRescissionCommand(cancelled.data, command(
+      RESCISSION_COMMAND.PAYROLL_RESCISSION_CREATED,
+      { rescission:raw({ id:"resc-2" }) },
+    ));
+    expect(recreated.ok).toBe(true);
+    expect(recreated.data.rescisoes).toHaveLength(2);
+  });
+
   it("impede cancelamento conciliado", () => {
     const data = {
       ...base(),
