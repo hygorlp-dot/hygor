@@ -2,11 +2,12 @@
 
 ## Estado medido em 17/08/2026
 
-- `src/LegacyApp.jsx`: 22.579 linhas em 18/08 (era 22.642 em 17/08, era
-  39.323 em 30/07 - a fila de extração de código da seção "Próximas
-  extrações de código" foi fechada por completo em 16-17/08, ver
-  "Andamento das extrações de UI" abaixo; Equipamentos e depois
-  AprovacoesPendentes foram extraídas em seguida, fora da fila original).
+- `src/LegacyApp.jsx`: 21.656 linhas em 20/08 (era 22.579 em 18/08, era
+  22.642 em 17/08, era 39.323 em 30/07 - a fila de extração de código da
+  seção "Próximas extrações de código" foi fechada por completo em
+  16-17/08, ver "Andamento das extrações de UI" abaixo; Equipamentos,
+  AprovacoesPendentes e depois Equipe/Rescisao foram extraídas em
+  seguida, fora da fila original).
 - Grafo de produção: 628 módulos, 1.379 dependências, sem violação
   arquitetural (`npm run architecture:check`).
 - Chunk principal (`LegacyApp-*.js`): ~590 kB gzip. Total JS/CSS gzip do
@@ -174,6 +175,21 @@ sequência por serem as maiores telas ainda inline:
     `SETORES_APROVACAO`/`MOTORES_APROVACAO_POR_ENTIDADE` continuam em
     `LegacyApp.jsx` (agora exportados) porque `EditorEtapaAprovacao`
     (edição de política de aprovação, ainda inline) também os usa.
+11. `Equipe` → `src/domains/rh/components/EquipeView.jsx` e `Rescisao` →
+    `src/domains/rh/components/RescisaoView.jsx` (20/08/2026, parte da
+    rodada de auditoria/correção do RH). Mesmo padrão da correção de
+    método acima: a crítica de design tinha medido "Equipe" como ~3.381
+    linhas, mas a função real tem ~515 linhas - a diferença era código
+    intersticial não relacionado (`calcFrequenciaMensalFuncionario`,
+    `Ponto` e outras telas ainda inline entre `Equipe` e `Rescisao`, que
+    ficam ~2.900 linhas separadas fisicamente das duas telas extraídas).
+    `Rescisao` tinha ~483 linhas, também sem código intersticial.
+    `gerarFichaFuncionarioPDF` continua em `LegacyApp.jsx` (agora
+    exportada) porque tem outro consumidor além de `Equipe`. Dois testes
+    de wiring estático (`LegacyApp.employee-command-wiring.test.js`,
+    `LegacyApp.rescission-command-wiring.test.js`) foram atualizados para
+    ler os novos arquivos, seguindo o mesmo padrão já usado quando
+    `Folha` foi extraída.
 
 ## Correção do método de medição (achado de 18/08/2026)
 
