@@ -56,8 +56,10 @@ const sanitizeRescission = (rescission, role) => {
   // Rescisões em RelatorioMensal (LegacyApp.jsx, ~linha 9951-9952) lê
   // rc.empCPF direto de data.rescisoes - com este filtro, ela passa a
   // mostrar "-" para o papel financeiro em vez do CPF real. Não trava nada
-  // (o `||"-"` do export já trata ausência), mas É uma mudança de
-  // comportamento visível, não confirmada com o usuário ainda.
+  // (o `||"-"` do export já trata ausência). Comportamento confirmado com o
+  // usuário em 20/08/2026: financeiro não deveria ver CPF de funcionário em
+  // lugar nenhum, mesmo princípio do achado P0 original - "-" é o
+  // comportamento correto, não um bug a corrigir.
   const { empCPF, ...safe } = rescission || {};
   return safe;
 };

@@ -159,6 +159,7 @@ import {
   RESCISSION_TYPES,
   RESCISSION_TYPE_LABEL,
 } from "./domains/rh/rescission-calculations";
+import { isRescissionActive } from "./domains/rh/rescission-commands";
 import {
   advanceDeductionForPeriod,
   buildAdvanceInstallments,
@@ -10795,7 +10796,10 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
   // preenchimento manual (CPF/obra/admissão à mão, sem autocomplete).
   // Corrigido: continua listando todo ativo, e também todo inativo que
   // ainda não tem rescisão em aberto registrada.
-  const rescindedEmpIds = new Set((data.rescisoes||[]).filter(r=>r.status!=="cancelada").map(r=>r.empId));
+  // isRescissionActive (achado de revisão da PR: reusar o mesmo helper de
+  // rescission-commands.js, mesmo padrão já usado para isAdvanceActive) em
+  // vez de checar só a string "cancelada" à mão.
+  const rescindedEmpIds = new Set((data.rescisoes||[]).filter(isRescissionActive).map(r=>r.empId));
   const activeEmps = data.employees.filter(e => e.active !== false || !rescindedEmpIds.has(e.id));
   const rescisoes  = (data.rescisoes||[]).slice().reverse();
 

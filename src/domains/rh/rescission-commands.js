@@ -15,7 +15,12 @@ export const RESCISSION_COMMAND_TYPES = new Set(Object.values(RESCISSION_COMMAND
 const fail = reason => ({ ok:false, reason });
 const versionOf = item => Number(item?.version || 0);
 const byId = (data, id) => (data.rescisoes || []).find(item => String(item.id) === String(id));
-const active = item => !["cancelada", "cancelado", "estornada", "estornado"].includes(String(item?.status || "").toLowerCase());
+// Exportado (achado da revisão da PR #60): é o mesmo padrão já usado em
+// advance-commands.js (isAdvanceActive) - evita reimplementar esta lista de
+// status "inativo" ad hoc em outro arquivo (era o caso do seletor de
+// funcionário em Rescisão, LegacyApp.jsx, corrigido para reusar isto).
+export const isRescissionActive = item => !["cancelada", "cancelado", "estornada", "estornado"].includes(String(item?.status || "").toLowerCase());
+const active = isRescissionActive;
 const nonNegativeNumber = value => Number.isFinite(Number(value)) && Number(value) >= 0;
 
 export const rescissionCommandObraId = (data = {}, command = {}) => {
