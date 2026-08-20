@@ -3620,7 +3620,6 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "" 
         background:C.bg,
         border:`1px solid ${C.border}`,
         borderRadius:10,
-        boxShadow:`0 20px 60px rgba(18,18,18,.16)`,
       }}>
         <div className="arcd-modal-header" style={{
           display:"flex", justifyContent:"space-between", alignItems:"center",
