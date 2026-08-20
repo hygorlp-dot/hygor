@@ -1,5 +1,5 @@
 import { WORKER_ELIGIBILITY } from "./constants.js";
-const overdue=(date,asOf)=>!!date&&String(date)<String(asOf);
+export const overdue=(date,asOf)=>!!date&&String(date)<String(asOf);
 export const evaluateWorkerEligibility=(worker={},requirements={},asOf="")=>{
   if(worker.active===false||worker.blocked===true)return {status:WORKER_ELIGIBILITY.BLOCKED,reasons:["Trabalhador bloqueado ou inativo."]};
   const reasons=[];if((requirements.requiredDocuments||[]).some(key=>!worker.documents?.[key]))reasons.push("Documentação obrigatória pendente.");

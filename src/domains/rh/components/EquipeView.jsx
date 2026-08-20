@@ -11,9 +11,33 @@ import {
   Badge, Btn, C, Divider, Ic, Inp, Modal, PageHero, Sel, TYPO,
   fmt, fmtDateFull, gerarFichaFuncionarioPDF, today, uid,
 } from "../../../LegacyApp";
+import { overdue } from "../../seguranca/calculations";
+import { WORKER_TRAINING_TYPES } from "../../seguranca/constants";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { buildAdvanceInstallments } from "../advance-commands";
 import { employeeLifecycleStatus } from "../employee-commands";
+
+// Estado inicial dos documentos/certificações de cada funcionário: um mapa
+// key->{expiresAt} com uma entrada por NR do catálogo (ver
+// domains/seguranca/constants.js). Compartilhado como referência inicial
+// (nunca mutado in-place; toda edição gera um objeto novo via spread) e
+// usado também para preencher NRs que um cadastro antigo ainda não tinha.
+const EMPTY_TRAININGS = Object.fromEntries(WORKER_TRAINING_TYPES.map(t => [t.key, { expiresAt: "" }]));
+
+// Lista, por funcionário, quais documentos/certificações estão vencidos na
+// data informada. Usada só para exibir alertas nesta tela (ficha e lista) -
+// não bloqueia nenhuma ação aqui. O bloqueio automático de avanço em
+// atividade crítica (evaluateWorkerEligibility/validateActivitySafety) já
+// lê os mesmos campos, mas depende de uma tela ainda inexistente para
+// configurar quais atividades exigem quais documentos/treinamentos.
+const complianceStatus = (employee, asOf) => {
+  const expired = [];
+  if (overdue(employee.examExpiresAt, asOf)) expired.push("Exame ocupacional (ASO)");
+  WORKER_TRAINING_TYPES.forEach(t => {
+    if (overdue(employee.trainings?.[t.key]?.expiresAt, asOf)) expired.push(t.label);
+  });
+  return { expired };
+};
 
 const fmtCPF = value => {
   const v = String(value || "").replace(/\D/g, "").slice(0, 11);
@@ -80,7 +104,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     endDate: "",
     terminationReason: "",
     lastObra: "",
+    examExpiresAt: "",
+    trainings: EMPTY_TRAININGS,
   };
+  const setTraining = key => value => setForm(f => ({ ...f, trainings: { ...(f.trainings || EMPTY_TRAININGS), [key]: { expiresAt: value } } }));
 
   const [modal, setModal] = useState(false);
   const [advModal, setAdvModal] = useState(null);
@@ -119,6 +146,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       workdayHours: String(employee.workdayHours || 8),
       workStart: String(employee.workStart || "07:00"),
       overtimeAdditionalPercent: String(employee.overtimeAdditionalPercent ?? 50),
+      examExpiresAt: String(employee.examExpiresAt || ""),
+      trainings: { ...EMPTY_TRAININGS, ...(employee.trainings || {}) },
     });
     setModal(true);
   }, [data.employees]);
@@ -151,6 +180,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       workdayHours: Math.max(1, Number(form.workdayHours || 8)),
       workStart: form.workStart || "07:00",
       overtimeAdditionalPercent: Math.max(0, Number(form.overtimeAdditionalPercent ?? 50)),
+      examExpiresAt: form.examExpiresAt || "",
+      trainings: form.trainings || EMPTY_TRAININGS,
       active: before?.active !== false,
       workArea:form.workArea==="administrativo"?"administrativo":"campo",
       obra:form.workArea==="administrativo"?"":form.obra,
@@ -389,6 +420,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       {list.map(e => {
         const advs = empAdvances(e.id);
         const totalAdv = advs.filter(advanceActive).reduce((s, a) => s + Number(a.amount || 0), 0);
+        const compliance = complianceStatus(e, today());
         const exp = expandedId === e.id;
         const lifecycle=lifecycleOf(e);
         const detailId=`employee-detail-${e.id}`;
@@ -400,9 +432,15 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
               </button>
               <span className="team-row__cell" data-label="Função">{e.role||"Não informada"}</span>
               <span className="team-row__cell" data-label="Lotação">{e.workArea==="administrativo"?"Administrativo":(e.obra?obraName(e.obra):"Sem lotação")}</span>
-              <span className="team-row__cell" data-label="Pendências">{totalAdv>0?<Badge color={C.red}>Adiant. {fmt(totalAdv)}</Badge>:<span className="team-row__none">Nenhuma</span>}</span>
+              <span className="team-row__cell" data-label="Pendências">
+                <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-start"}}>
+                  {totalAdv>0&&<Badge color={C.red}>Adiant. {fmt(totalAdv)}</Badge>}
+                  {compliance.expired.length>0&&<Badge color={C.orange}>{compliance.expired.length===1?"1 doc. vencido":`${compliance.expired.length} docs. vencidos`}</Badge>}
+                  {totalAdv<=0&&compliance.expired.length===0&&<span className="team-row__none">Nenhuma</span>}
+                </div>
+              </span>
               <span className="team-row__cell" data-label="Situação"><Badge color={lifecycleColor[lifecycle]}>{lifecycleLabel[lifecycle]}</Badge></span>
-              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file"/> Ficha</Btn><Btn v="ghost" size="sm" onClick={() => { setForm({ ...e, dailyRate: String(e.dailyRate || ""), vtDaily: String(e.vtDaily || ""), vrDaily: String(e.vrDaily || ""), workdayHours:String(e.workdayHours||8), workStart:String(e.workStart||"07:00"), overtimeAdditionalPercent:String(e.overtimeAdditionalPercent??50) }); setFormErrors({}); setModal(true); }}><Ic n="edit"/> Editar</Btn></div>
+              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file"/> Ficha</Btn><Btn v="ghost" size="sm" onClick={() => { setForm({ ...e, dailyRate: String(e.dailyRate || ""), vtDaily: String(e.vtDaily || ""), vrDaily: String(e.vrDaily || ""), workdayHours:String(e.workdayHours||8), workStart:String(e.workStart||"07:00"), overtimeAdditionalPercent:String(e.overtimeAdditionalPercent??50), examExpiresAt:String(e.examExpiresAt||""), trainings:{...EMPTY_TRAININGS,...(e.trainings||{})} }); setFormErrors({}); setModal(true); }}><Ic n="edit"/> Editar</Btn></div>
             </div>
 
             {exp && (
@@ -416,6 +454,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                   {e.terminationReason&&<p style={{color:C.subtle,fontSize:12}}>Tipo: {e.terminationReason}</p>}
                   {e.terminationNotes&&<p style={{color:C.subtle,fontSize:12}}>Observações: {e.terminationNotes}</p>}
                   {e.terminationRegisteredBy&&<p style={{color:C.subtle,fontSize:12}}>Registrado por: {e.terminationRegisteredBy}</p>}
+                  {e.examExpiresAt&&<p style={{color:overdue(e.examExpiresAt,today())?C.red:C.subtle,fontSize:12}}>ASO (exame ocupacional): {fmtDateFull(e.examExpiresAt)}{overdue(e.examExpiresAt,today())?" · vencido":""}</p>}
+                  {WORKER_TRAINING_TYPES.filter(t=>e.trainings?.[t.key]?.expiresAt).map(t=>(
+                    <p key={t.key} style={{color:overdue(e.trainings[t.key].expiresAt,today())?C.red:C.subtle,fontSize:12}}>{t.label}: {fmtDateFull(e.trainings[t.key].expiresAt)}{overdue(e.trainings[t.key].expiresAt,today())?" · vencido":""}</p>
+                  ))}
                 </div>
 
                 <div className="team-detail-actions">
@@ -490,6 +532,15 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 <Inp label="Tipo PIX" value={form.pixType} onChange={F("pixType")} />
                 <Inp label="Titular PIX" value={form.pixHolder} onChange={F("pixHolder")} />
                 <div style={{ gridColumn: "1/-1" }}><Inp label="Chave PIX" value={form.pixKey} onChange={F("pixKey")} /></div>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <p style={TYPO.eyebrow}>Documentos e certificações</p>
+              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+                <Inp label="Validade do ASO (exame ocupacional)" type="date" value={form.examExpiresAt} onChange={F("examExpiresAt")} />
+                {WORKER_TRAINING_TYPES.map(t => (
+                  <Inp key={t.key} label={`Validade ${t.label}`} type="date" value={form.trainings?.[t.key]?.expiresAt || ""} onChange={setTraining(t.key)} />
+                ))}
               </div>
             </div>
           </div>

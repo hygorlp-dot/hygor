@@ -26,6 +26,12 @@ const groups = [
 const escaped = value => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 test("todos os módulos autorizados abrem sem erro de runtime", async ({ page }) => {
+  // Este teste percorre o app inteiro numa única execução; com o crescimento
+  // do número de módulos, a duração real já encosta no timeout padrão de
+  // 30s do Playwright (medido em ~29.5s em 20/08/2026), fazendo o teste
+  // falhar por timeout sem nenhuma regressão real. Não é causado por nenhuma
+  // mudança de funcionalidade - é só o teste tendo ficado maior que o app.
+  test.setTimeout(90_000);
   const pageErrors = [];
   page.on("pageerror", error => pageErrors.push(error.message));
 
