@@ -162,6 +162,7 @@ import {
 import {
   advanceDeductionForPeriod,
   buildAdvanceInstallments,
+  isAdvanceActive,
 } from "./domains/rh/advance-commands";
 import { employeeLifecycleStatus } from "./domains/rh/employee-commands";
 import {
@@ -10497,7 +10498,10 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
     if (!emp) return;
     const obra = data.obras.find(o => o.id === emp.obra);
     const vm   = Number(emp.dailyRate || 0) * 26; // 26 dias úteis/mês
-    const pendAdv = (data.advances||[]).filter(a => a.empId === empId).reduce((s,a)=>s+Number(a.amount||0),0);
+    // Achado de auditoria de 20/08/2026: somava TODO adiantamento do
+    // funcionário, inclusive os já cancelados/estornados, sugerindo um
+    // desconto maior do que a dívida real na rescisão.
+    const pendAdv = (data.advances||[]).filter(a => a.empId === empId && isAdvanceActive(a)).reduce((s,a)=>s+Number(a.amount||0),0);
     setForm(f => ({
       ...f,
       empId, empName: emp.name, empCPF: emp.cpf||"",
@@ -10711,7 +10715,16 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
     return partes.join(" e ");
   }
 
-  const activeEmps = data.employees.filter(e => e.active !== false);
+  // Bug real de fluxo encontrado na auditoria de 20/08/2026 (persona "Riley",
+  // crítica de design do módulo RH): o seletor só listava funcionários
+  // ativos, mas confirmar o desligamento em Equipe já marca active:false
+  // imediatamente - o funcionário desaparecia do seletor exatamente no
+  // momento em que o RH precisa dele para calcular a rescisão, forçando
+  // preenchimento manual (CPF/obra/admissão à mão, sem autocomplete).
+  // Corrigido: continua listando todo ativo, e também todo inativo que
+  // ainda não tem rescisão em aberto registrada.
+  const rescindedEmpIds = new Set((data.rescisoes||[]).filter(r=>r.status!=="cancelada").map(r=>r.empId));
+  const activeEmps = data.employees.filter(e => e.active !== false || !rescindedEmpIds.has(e.id));
   const rescisoes  = (data.rescisoes||[]).slice().reverse();
 
   return (
@@ -10890,9 +10903,18 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
             </div>
           </div>
           <div style={{display:"flex",gap:6,marginTop:10}}>
-            <Btn size="sm" v="ghost" onClick={()=>{setForm({...r});setHistory(false);}}>
+            {/* "Reabrir" só existe para registro cancelado - salvar() sempre
+                cria uma rescisão NOVA (id:uid(), único comando é
+                PAYROLL_RESCISSION_CREATED, não existe comando de edição).
+                Reabrir uma rescisão ATIVA e salvar duplicava o registro
+                financeiro da mesma demissão, sem cancelar o original - risco
+                real de contar a rescisão em dobro no razão/DRE (achado de
+                auditoria de 20/08/2026). Para corrigir uma rescisão ativa, o
+                caminho correto é cancelar (com motivo e trilha de auditoria)
+                e então reabrir o cancelado. */}
+            {String(r.status||"").toLowerCase()==="cancelada"&&<Btn size="sm" v="ghost" onClick={()=>{setForm({...r,id:uid()});setHistory(false);}}>
               <Ic n="edit"/> Reabrir
-            </Btn>
+            </Btn>}
             <Btn size="sm" v="danger" onClick={()=>gerarPDF(r)}>
               <Ic n="file"/> PDF
             </Btn>

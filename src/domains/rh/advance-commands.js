@@ -9,9 +9,10 @@ export const ADVANCE_COMMAND_TYPES = new Set(Object.values(ADVANCE_COMMAND));
 
 const fail=reason=>({ok:false,reason});
 const versionOf=item=>Number(item?.version||0);
-const active=item=>!["cancelado","cancelada","estornado","estornada"].includes(
+export const isAdvanceActive=item=>!["cancelado","cancelada","estornado","estornada"].includes(
   String(item?.status||"").toLowerCase(),
 );
+const active=isAdvanceActive;
 const isoDate=date=>date.toISOString().slice(0,10);
 const parseDate=value=>{
   const [year,month,day]=String(value||"").split("-").map(Number);
