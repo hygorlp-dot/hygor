@@ -152,6 +152,27 @@ describe("comandos operacionais versionados",()=>{
     expect(released.ok).toBe(true);
   });
 
+  it("bloqueia avanço crítico por treinamento (NR) vencido informado pelo compromisso, mesmo sem scheduleActivities",()=>{
+    const base={
+      progressRecords:[],
+      employees:[{id:"u-1",trainings:{nr35:{expiresAt:"2026-01-01"}}}],
+      jobRiskAnalyses:[{activityId:"legado-1",status:"aprovada"}],
+      workPermits:[{activityId:"legado-1",status:"liberada"}],
+    };
+    const payload={record:{id:"p-1",obraId:"o-1",activityId:"legado-1",criticalActivity:true,requiredTrainings:["nr35"],data:"2026-07-25",quantity:5,workerIds:["u-1"]}};
+    const blocked=applyOperationalCommand(base,command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-training-safety-0001",payload,0));
+    expect(blocked.ok).toBe(false);expect(blocked.reason).toMatch(/não elegível/);
+    const releasedByRenewal=applyOperationalCommand({...base,employees:[{id:"u-1",trainings:{nr35:{expiresAt:"2027-01-01"}}}]},command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-training-safety-0002",payload,0));
+    expect(releasedByRenewal.ok).toBe(true);
+    const releasedByDroppingRequirement=applyOperationalCommand(base,command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-training-safety-0003",{record:{...payload.record,requiredTrainings:[]}},0));
+    expect(releasedByDroppingRequirement.ok).toBe(true);
+    // scheduleActivities (motor de cronograma novo, ainda em piloto) tem
+    // prioridade quando presente - o requiredTrainings do registro só é
+    // usado como fallback quando a atividade canônica não define nada.
+    const canonicalOverrides=applyOperationalCommand({...base,scheduleActivities:[{id:"legado-1",criticalActivity:true,requiredTrainings:[]}]},command(OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,"progress-training-safety-0004",payload,0));
+    expect(canonicalOverrides.ok).toBe(true);
+  });
+
   it("versiona APR, exige controles para aprová-la e libera PT somente após a APR",()=>{
     const initial={jobRiskAnalyses:[],workPermits:[]};
     const invalidApr=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED,"safety-apr-invalid-0001",{analysis:{id:"apr-1",obraId:"o-1",activityId:"a-1",status:"aprovada",risks:[],controls:[]}},0));

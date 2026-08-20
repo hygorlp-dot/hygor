@@ -159,7 +159,14 @@ const validateProgressSafety=(data={},record={})=>{
   const source=(data.scheduleActivities||[]).find(item=>String(item.id)===String(record.activityId))||{};
   const critical=Boolean(source.criticalActivity||source.atividadeCritica||record.criticalActivity);
   if(!critical)return "";
-  const activity={...source,id:source.id||record.activityId,criticalActivity:true};
+  // scheduleActivities é a coleção do motor de cronograma novo (ainda em
+  // piloto - ver docs/PLANNING_ENGINE_AUDIT.md), então requiredTrainings de
+  // lá só existe para a(s) obra(s) já migradas. Para toda obra no cronograma
+  // legado, o mesmo dado chega via o compromisso semanal/avanço (igual já
+  // acontece com criticalActivity acima) - se a atividade canônica não tiver
+  // a lista, cai para a do registro.
+  const requiredTrainings=Array.isArray(source.requiredTrainings)?source.requiredTrainings:(record.requiredTrainings||[]);
+  const activity={...source,id:source.id||record.activityId,criticalActivity:true,requiredTrainings};
   const workerIds=new Set(record.workerIds||[]);
   if(!workerIds.size)return "Atividade crítica exige equipe identificada.";
   const workers=(data.employees||[]).filter(item=>workerIds.has(item.id));
