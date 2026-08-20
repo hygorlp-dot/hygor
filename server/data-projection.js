@@ -51,8 +51,13 @@ const sanitizeRescission = (rescission, role) => {
   // empCPF é o único dado pessoal sensível gravado na rescisão
   // (src/domains/rh/rescission-commands.js). Financeiro precisa dos valores
   // (valorMensal, totalLiquido...) para o DRE/pagamento, não do CPF do
-  // trabalhador - e, ao contrário de titulosFolha, nenhuma rotina de
-  // conciliação lê empCPF, então remover aqui não quebra nada existente.
+  // trabalhador, e nenhuma rotina de conciliação lê empCPF.
+  // Achado da revisão de PR de 20/08/2026: a coluna "CPF" do Excel de
+  // Rescisões em RelatorioMensal (LegacyApp.jsx, ~linha 9951-9952) lê
+  // rc.empCPF direto de data.rescisoes - com este filtro, ela passa a
+  // mostrar "-" para o papel financeiro em vez do CPF real. Não trava nada
+  // (o `||"-"` do export já trata ausência), mas É uma mudança de
+  // comportamento visível, não confirmada com o usuário ainda.
   const { empCPF, ...safe } = rescission || {};
   return safe;
 };
