@@ -127,3 +127,38 @@ gate de segurança de atividade crítica hoje inerte por falta de dado). O
 item #2 tem a melhor relação valor/esforço da tabela porque a metade mais
 difícil (motor de avaliação, integração com o bloqueio de avanço físico)
 já está pronta e testada — falta "só" o cadastro e o alerta.
+
+## Status após a rodada de 20/08/2026
+
+- **Item #2 (documentos/certificações) — implementado.** `EquipeView.jsx`
+  ganhou os campos `examExpiresAt`/`trainings` (commit `a4b917c`) e o
+  bloqueio real por treinamento (NR) vencido em atividade crítica foi
+  ligado em `PlanejamentoView.jsx`/`operational-commands.js` (commit
+  `1f084d7`) — o motor `evaluateWorkerEligibility`/`validateActivitySafety`
+  que já existia agora recebe dado de verdade e bloqueia de fato, não só
+  por exame ocupacional (ASO) mas também por NR-35/18/06/10/33. Achado
+  adicional durante a implementação: `data.scheduleActivities` (onde o
+  bloqueio por atividade seria configurado) é a coleção do motor de
+  cronograma novo, ainda em piloto (`docs/PLANNING_ENGINE_AUDIT.md`) — por
+  isso `requiredTrainings` foi implementado no nível do compromisso
+  semanal/avanço físico (mesmo padrão já usado para `criticalActivity`),
+  para funcionar em qualquer obra hoje, não só na(s) já migrada(s).
+- **Item #3 (analytics/relatórios) — parcialmente implementado.** Nova aba
+  "Indicadores" em RH (commit `7f25f80`): headcount por situação,
+  admissões/desligamentos do mês, adiantamentos em aberto, contagem de
+  documentação vencida. **Continuam pendentes**: custo médio por obra/função
+  (depende de `src/domains/financeiro/labor-cost-engine.js`, motor de custo
+  dia a dia por competência que exige integração mais pesada) e
+  absenteísmo (depende de `attendance-engine.js`).
+- **Item #1 (férias) — não implementado, blueprint entregue.** Ver
+  `docs/BLUEPRINT_FERIAS.md`: modelo de dado, commands, telas, decisão de
+  DRE e um recorte de MVP explícito, mais 5 decisões que só o usuário pode
+  tomar (a mais importante: o que fazer com o "dado histórico inexistente"
+  no dia 1, que senão gera alerta de férias vencida falso para todo
+  funcionário antigo). Não implementado porque é "Esforço: Alto" e
+  mexe em `ledger.js`/DRE - decisão deliberada de não implementar sem
+  revisão do usuário primeiro.
+- **Itens #4-#9 — sem mudança**, continuam como backlog priorizável (tabela
+  acima). Nenhum tem risco de compliance direto como #1/#2 tinham; nenhum
+  foi tocado nesta rodada por decisão de foco, não por dificuldade técnica
+  particular.
