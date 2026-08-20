@@ -10669,7 +10669,7 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Arial',sans-serif;color:#111;background:#fff;padding:32px;font-size:12px}
   .header{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:3px solid #111;margin-bottom:20px}
-  .logo-box{background:#080808;color:#f6d833;padding:10px 16px;font-family:Georgia,serif;font-size:26px;font-weight:900;letter-spacing:2px;flex-shrink:0}
+  .logo-box{background:#080808;color:#D4AF37;padding:10px 16px;font-family:Georgia,serif;font-size:26px;font-weight:900;letter-spacing:2px;flex-shrink:0}
   .company-info h1{font-size:18px;font-weight:900;letter-spacing:1px}
   .company-info p{font-size:11px;color:#555;margin-top:3px}
   h2{font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin:18px 0 10px;border-bottom:1px solid #ccc;padding-bottom:5px}
@@ -10694,7 +10694,7 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
 </style>
 </head>
 <body>
-<button onclick="window.print()" style="position:fixed;top:10px;right:10px;background:#111;color:#f6d833;border:none;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;z-index:99"> Imprimir / PDF</button>
+<button onclick="window.print()" style="position:fixed;top:10px;right:10px;background:#111;color:#D4AF37;border:none;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;z-index:99"> Imprimir / PDF</button>
 
 <div class="header">
   <div class="logo-box">ArcD</div>
@@ -10919,19 +10919,19 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
       {/* Resultado */}
       {calc ? (
-        <div style={{background:`linear-gradient(135deg,${C.yellow} 0%,${C.yellowD} 60%,#4a3c0a 100%)`,color:C.ink,padding:"18px 20px",borderRadius:12,border:`1px solid ${C.yellow}`}}>
-          <p style={{fontSize:11,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",opacity:.75}}>Total líquido a receber</p>
-          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(26px,11vw,48px)",letterSpacing:1,lineHeight:.95}}>{fmt(calc.totalLiquido)}</p>
-          <p style={{fontSize:12,fontWeight:700,marginTop:6,opacity:.85}}>{valorPorExtenso(calc.totalLiquido)}</p>
+        <div style={{background:`${C.yellow}12`,color:C.text,padding:"18px 20px",borderRadius:12,border:`1px solid ${C.yellow}44`}}>
+          <p style={{fontSize:11,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",color:C.yellowD}}>Total líquido a receber</p>
+          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(26px,11vw,48px)",letterSpacing:1,lineHeight:.95,color:C.text}}>{fmt(calc.totalLiquido)}</p>
+          <p style={{fontSize:12,fontWeight:700,marginTop:6,color:C.muted}}>{valorPorExtenso(calc.totalLiquido)}</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:14}}>
             {[
               ["Vencimentos",fmt(calc.totalBruto)],
               ["Descontos",  fmt(calc.totalDesc)],
               ["Líquido",    fmt(calc.totalLiquido)],
             ].map(([l,v])=>(
-              <div key={l} style={{background:"rgba(0,0,0,.15)",padding:"8px 10px",borderRadius:8}}>
-                <p style={{fontSize:9,fontWeight:900,textTransform:"uppercase",opacity:.7}}>{l}</p>
-                <p style={{fontWeight:900,fontSize:15}}>{v}</p>
+              <div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,padding:"8px 10px",borderRadius:8}}>
+                <p style={{fontSize:9,fontWeight:900,textTransform:"uppercase",color:C.muted}}>{l}</p>
+                <p style={{fontWeight:900,fontSize:15,color:C.text}}>{v}</p>
               </div>
             ))}
           </div>
