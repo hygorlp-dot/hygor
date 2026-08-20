@@ -165,6 +165,32 @@ import {
   isAdvanceActive,
 } from "./domains/rh/advance-commands";
 import { employeeLifecycleStatus } from "./domains/rh/employee-commands";
+// Mapa Equipe -> Rescisão: o motivo de desligamento registrado em Equipe usa
+// um vocabulário próprio (5 opções) que precisa ser traduzido para o
+// vocabulário de RESCISSION_TYPES (6 opções) usado em Rescisão, para poder
+// ser herdado sem inventar um terceiro vocabulário. "outro" não tem
+// equivalente direto e cai no mesmo padrão que Rescisão já usa
+// (sem_justa_causa).
+const DISMISSAL_TO_RESCISSION_TYPE = {
+  demissao_sem_justa_causa: "sem_justa_causa",
+  demissao_justa_causa: "justa_causa",
+  pedido_demissao: "pedido_demissao",
+  termino_contrato: "termino_contrato",
+  outro: "sem_justa_causa",
+};
+// Inverso do mapa acima, usado só para reabrir o formulário de Equipe (ex.:
+// "Corrigir agendamento") a partir de um terminationType já salvo no
+// vocabulário de RESCISSION_TYPES. Valores que só existem em Rescisão
+// (acordo_mutuo/acordo_interno) não têm equivalente em Equipe e caem em
+// "outro".
+const RESCISSION_TYPE_TO_DISMISSAL = {
+  sem_justa_causa: "demissao_sem_justa_causa",
+  justa_causa: "demissao_justa_causa",
+  pedido_demissao: "pedido_demissao",
+  termino_contrato: "termino_contrato",
+  acordo_mutuo: "outro",
+  acordo_interno: "outro",
+};
 import {
   conferenceCompletionCheck,
   conferenceProgress,
@@ -7236,7 +7262,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         expectedVersion:Number(emp.version||0),
         payload:{employee:{
           ...vigente,active:scheduled,status:scheduled?"desligamento_agendado":"desligado",endDate:dismissalForm.endDate,
-          terminationReason,terminationType:dismissalForm.reason,
+          terminationReason,terminationType:DISMISSAL_TO_RESCISSION_TYPE[dismissalForm.reason]||"sem_justa_causa",
           terminationNotes:String(dismissalForm.notes||"").trim(),
           lastObra:vigente?.obra||vigente?.lastObra||"",
           terminationRegisteredBy:currentUser?.nome||"Usuário autenticado",
@@ -7440,7 +7466,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 <div className="team-detail-actions">
                   {e.obra && lifecycle==="ativo" && <Btn v="ghost" size="sm" onClick={() => setUnlinkModal(e)}><Ic n="x" /> Desvincular da obra</Btn>}
                   {lifecycle==="ativo" && <Btn v="danger" size="sm" onClick={() => archiveEmp(e.id)}><Ic n="x" /> Registrar desligamento</Btn>}
-                  {lifecycle==="desligamento_agendado"&&<Btn v="warning" size="sm" onClick={()=>{setDismissalModal(e);setDismissalForm({endDate:e.endDate,reason:e.terminationType||"outro",notes:e.terminationNotes||""});}}><Ic n="edit"/> Corrigir agendamento</Btn>}
+                  {lifecycle==="desligamento_agendado"&&<Btn v="warning" size="sm" onClick={()=>{setDismissalModal(e);setDismissalForm({endDate:e.endDate,reason:RESCISSION_TYPE_TO_DISMISSAL[e.terminationType]||"outro",notes:e.terminationNotes||""});}}><Ic n="edit"/> Corrigir agendamento</Btn>}
                   {["desligado","desligamento_agendado"].includes(lifecycle)&&<Btn v="success" size="sm" loading={pendingAction===`reactivate-${e.id}`} onClick={()=>reactivateEmp(e)}><Ic n="refresh"/> Reativar</Btn>}
                   {lifecycle!=="arquivado"&&<Btn v="danger" size="sm" onClick={() => {setArchiveModal(e);setArchiveReason("");}}><Ic n="trash" /> Arquivar cadastro</Btn>}
                 </div>
@@ -10479,6 +10505,10 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
     empId: "", empName: "", empCPF: "", empFuncao: "", obraId: "", obraName: "",
     admissao: "", demissao: today(), valorMensal: "", diasNoMes: "",
     tipo: "sem_justa_causa",
+    // Preenchido por selectEmp() quando o funcionário já tem terminationType
+    // registrado em Equipe, só para controlar a nota "herdado" abaixo do
+    // campo - nunca trava o campo, o usuário pode sobrescrever livremente.
+    tipoHerdado: "",
     valorFixoAcordo: "",
     incluirSaldo: true, incluir13: true, incluirFerias: true,
     incluirAviso: false,
@@ -10493,7 +10523,7 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
 
   // Ao selecionar funcionário da lista
   const selectEmp = empId => {
-    if (!empId) { setForm(f => ({ ...f, empId:"", empName:"", empCPF:"", empFuncao:"", obraId:"", obraName:"", admissao:"", valorMensal:"", diasNoMes:"" })); return; }
+    if (!empId) { setForm(f => ({ ...f, empId:"", empName:"", empCPF:"", empFuncao:"", obraId:"", obraName:"", admissao:"", valorMensal:"", diasNoMes:"", tipoHerdado:"" })); return; }
     const emp = data.employees.find(e => e.id === empId);
     if (!emp) return;
     const obra = data.obras.find(o => o.id === emp.obra);
@@ -10502,6 +10532,12 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
     // funcionário, inclusive os já cancelados/estornados, sugerindo um
     // desconto maior do que a dívida real na rescisão.
     const pendAdv = (data.advances||[]).filter(a => a.empId === empId && isAdvanceActive(a)).reduce((s,a)=>s+Number(a.amount||0),0);
+    // O motivo de desligamento registrado em Equipe já é salvo no vocabulário
+    // de RESCISSION_TYPES (ver DISMISSAL_TO_RESCISSION_TYPE), então pode ser
+    // herdado diretamente aqui. Só funcionários desligados depois desta
+    // mudança têm o campo - registros antigos ficam sem herança, sem
+    // migração retroativa.
+    const tipoHerdado = TIPOS_RESCISAO.some(item => item.v === emp.terminationType) ? emp.terminationType : "";
     setForm(f => ({
       ...f,
       empId, empName: emp.name, empCPF: emp.cpf||"",
@@ -10509,6 +10545,8 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
       admissao: emp.startDate||"",
       valorMensal: String(Math.round(vm)),
       descAdiantamento: pendAdv > 0 ? String(pendAdv) : "",
+      tipo: tipoHerdado || f.tipo,
+      tipoHerdado,
     }));
   };
 
@@ -10762,6 +10800,9 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
           <Inp label="Dias trabalhados no mês" type="number" value={form.diasNoMes} onChange={F("diasNoMes")} placeholder="Ex: 12"/>
         </div>
         <Sel label="Motivo da rescisão *" value={form.tipo} onChange={F("tipo")} options={TIPOS_RESCISAO}/>
+        {form.tipoHerdado && form.tipoHerdado === form.tipo && (
+          <p style={{fontSize:10.5,color:C.muted,marginTop:-4}}>Herdado do desligamento registrado em Equipe - revise se necessário.</p>
+        )}
 
         {/* Acordo interno - campo especial */}
         {form.tipo === "acordo_interno" && (
