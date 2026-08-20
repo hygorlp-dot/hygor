@@ -16,7 +16,7 @@ const groups = [
   ["Financeiro", ["DRE empresa", "DRE obras", "Gestão financeira", "Conciliação",
     "Locação de equipamentos", "Medições", "Caixa da obra", "Relatórios"]],
   ["Recursos humanos", ["Equipes", "Ponto por obra", "Gestão do ponto",
-    "Terceirizados", "Folha", "Rescisão"]],
+    "Terceirizados", "Folha", "Rescisão", "Indicadores"]],
   ["Comercial", ["Comercial da empresa", "Venda de imóveis", "Pipeline", "Relacionamentos",
     "Propostas e contratos", "Gestão comercial"]],
   ["IA", ["IA", "Configurar Gemini"]],

@@ -13,6 +13,7 @@ import {
 } from "../../../LegacyApp";
 import { overdue } from "../../seguranca/calculations";
 import { WORKER_TRAINING_TYPES } from "../../seguranca/constants";
+import { employeeComplianceStatus } from "../compliance";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { buildAdvanceInstallments } from "../advance-commands";
 import { employeeLifecycleStatus } from "../employee-commands";
@@ -23,21 +24,6 @@ import { employeeLifecycleStatus } from "../employee-commands";
 // (nunca mutado in-place; toda edição gera um objeto novo via spread) e
 // usado também para preencher NRs que um cadastro antigo ainda não tinha.
 const EMPTY_TRAININGS = Object.fromEntries(WORKER_TRAINING_TYPES.map(t => [t.key, { expiresAt: "" }]));
-
-// Lista, por funcionário, quais documentos/certificações estão vencidos na
-// data informada. Usada só para exibir alertas nesta tela (ficha e lista) -
-// não bloqueia nenhuma ação aqui. O bloqueio automático de avanço em
-// atividade crítica (evaluateWorkerEligibility/validateActivitySafety) já
-// lê os mesmos campos, mas depende de uma tela ainda inexistente para
-// configurar quais atividades exigem quais documentos/treinamentos.
-const complianceStatus = (employee, asOf) => {
-  const expired = [];
-  if (overdue(employee.examExpiresAt, asOf)) expired.push("Exame ocupacional (ASO)");
-  WORKER_TRAINING_TYPES.forEach(t => {
-    if (overdue(employee.trainings?.[t.key]?.expiresAt, asOf)) expired.push(t.label);
-  });
-  return { expired };
-};
 
 const fmtCPF = value => {
   const v = String(value || "").replace(/\D/g, "").slice(0, 11);
@@ -420,7 +406,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       {list.map(e => {
         const advs = empAdvances(e.id);
         const totalAdv = advs.filter(advanceActive).reduce((s, a) => s + Number(a.amount || 0), 0);
-        const compliance = complianceStatus(e, today());
+        const compliance = employeeComplianceStatus(e, today());
         const exp = expandedId === e.id;
         const lifecycle=lifecycleOf(e);
         const detailId=`employee-detail-${e.id}`;

@@ -10225,11 +10225,11 @@ export const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","tv","chat","aprov_pend","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],
+  admin:       ["home","tv","chat","aprov_pend","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","rh_indic","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],
   engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
-  rh:          ["home","tv","ponto","ponto_geral","equipe","terc","folha","resc","conc","cad","ia"],
+  rh:          ["home","tv","ponto","ponto_geral","equipe","terc","folha","resc","rh_indic","conc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   comercial:   ["home","tv","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management","com_funil","com_leads","com_propostas","com_negociacoes","com_agenda","com_parceiros","com_metas","com_relatorios","ia"],
   visualizador:["home","tv"],
@@ -10248,7 +10248,7 @@ const ACCESS_SECTORS=[
     ["equip_fin","Locação de equipamentos"],["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["relat","Relatórios"],
   ]},
   {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
-    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["conc","Conciliação da folha"],
+    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
     ["com_workspace","Comercial da empresa"],["com_real_estate","Venda de imóveis"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
@@ -11065,6 +11065,9 @@ const EquipeView = lazy(() => import("./domains/rh/components/EquipeView"));
 const RescisaoView = lazy(() => import("./domains/rh/components/RescisaoView"));
 // EquipeView/RescisaoView extraídas de LegacyApp.jsx em 2026-08-20, mesma
 // técnica de extração das telas anteriores.
+const IndicadoresView = lazy(() => import("./domains/rh/components/IndicadoresView"));
+// IndicadoresView nasceu fora de LegacyApp.jsx (não é extração, é tela
+// nova) - achado "RH analytics" de docs/AUDITORIA_RH.md.
 // A tela "Minhas aprovações pendentes" foi extraída para
 // src/domains/aprovacoes/components/AprovacoesPendentesView.jsx em
 // 2026-08-18, mesma técnica de extração das telas anteriores.
@@ -20212,7 +20215,7 @@ const NAV_GROUPS = [
   },
   {
     id: "rh_grp", label: "Recursos humanos", icon: "users", color: "#0F766E",
-    tabs: ["equipe", "ponto", "ponto_geral", "terc", "folha", "resc"],
+    tabs: ["equipe", "ponto", "ponto_geral", "terc", "folha", "resc", "rh_indic"],
   },
   {
     id: "com_grp", label: "Comercial", icon: "users", color: C.green,
@@ -20269,6 +20272,7 @@ const TAB_META = {
   terc:   { label: "Terceirizados", icon: "handshake", group: "rh_grp" },
   folha:  { label: "Folha",      icon: "wallet",   group: "rh_grp"  },
   resc:   { label: "Rescisão",   icon: "briefcase",group: "rh_grp"  },
+  rh_indic: { label: "Indicadores", icon: "trending", group: "rh_grp" },
   dre_emp:  { label: "DRE empresa", icon: "chart",  group: "fin_grp" },
   dre:      { label: "DRE obras",   icon: "building", group: "fin_grp" },
   fin:      { label: "Gestão financeira", icon: "trending", group: "fin_grp" },
@@ -21547,6 +21551,7 @@ export default function App() {
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}
           {tab === "dre_emp"  && <DREEmpresa  data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
