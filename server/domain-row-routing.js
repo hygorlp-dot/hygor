@@ -125,7 +125,10 @@ export const pickDomainFields = (data, domain) => {
   return picked;
 };
 
-const SPLITTABLE_DOMAINS = [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAIN_ROW.CONFIG, DOMAIN_ROW.EQUIPAMENTOS, DOMAIN_ROW.RDO];
+// Exportado para o caminho travado (api/data.js: executarMutacaoEmpresaBloqueada)
+// reconstruir a visão mesclada usando o valor recém-travado de UM domínio
+// sem precisar reimplementar a lista aqui.
+export const SPLITTABLE_DOMAINS = [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAIN_ROW.CONFIG, DOMAIN_ROW.EQUIPAMENTOS, DOMAIN_ROW.RDO];
 
 // Remove de `data` (já mesclado, com os campos das 4 linhas separadas
 // dentro) os campos de todo domínio cuja linha própria JÁ EXISTE

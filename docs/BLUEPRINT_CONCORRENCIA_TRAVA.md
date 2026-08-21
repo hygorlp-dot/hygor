@@ -334,6 +334,71 @@ outros 4 domínios:
   a linha `arced_ponto_v1__rdo` (mesmo passo manual já feito para os
   outros 4 domínios nesta sessão) - sem isso, o código já funciona
   (fallback gracioso para a core), só não ganha o benefício ainda.
+  **Concluído** logo em seguida, na mesma sessão.
+
+## Achado crítico de 21/08/2026: o caminho travado nunca respeitou o roteamento por domínio
+
+Ao dar ao RDO sua própria linha, uma releitura cuidadosa de
+`executarMutacaoEmpresaBloqueada`/`gravarMutacaoNaTransacao` revelou que **a
+separação de linhas inteira (Ponto/Lookahead/Config/Equipamentos/RDO) nunca
+funcionou de verdade em produção**. O caminho travado - o que está
+realmente ativo, já que `POSTGRES_URL_NON_POOLING` está configurado -
+travava e gravava **sempre** `key=KEY` (a linha core), sem nenhum
+parâmetro de domínio. Conferido nos 6 pontos de chamada (operational-
+command, RDO/Ponto/Equipamentos/Lookahead/Config via
+`executarComandoOperacionalBloqueado`, ATTENDANCE_COMMANDS, conciliação,
+auth, save-sections): nenhum passava uma chave de domínio antes desta
+correção. Só o caminho otimista (CAS, usado quando essa variável de
+ambiente NÃO está configurada) já respeitava o roteamento desde 20/08.
+
+Consequência prática: a contenção cruzada que toda a Fase 1 deveria ter
+eliminado (o motivo original desta investigação) **continuava existindo**
+sempre que `POSTGRES_URL_NON_POOLING` estivesse configurado - todo comando,
+de qualquer domínio, disputava a mesma linha/lock. As linhas separadas
+existiam e tinham dado (seed script já rodado, leitura via `lerLinha()`
+mesclando corretamente), mas nunca eram as gravadas pelo caminho ativo.
+Nenhum teste existente pegava isso: nenhum arquivo mockava o pacote
+`postgres` antes desta correção, só o cliente Supabase - ou seja, o
+caminho travado nunca tinha cobertura automatizada nenhuma.
+
+**Fix** (`api/data.js`):
+- `executarMutacaoEmpresaBloqueada` ganhou o parâmetro `domain` (default
+  `DOMAIN_ROW.CORE`, preserva o comportamento de quem não passa nada). Usa
+  `lerLinha()` (leitura sem lock, já paralelizada) para decidir
+  `effectiveDomain` via `linhaEfetivaParaEscrita` e travar/gravar
+  `keyForDomain(effectiveDomain)` em vez de `KEY`.
+- Como `mutate()` (ex.: `applyOperationalCommand`) pode precisar ler campos
+  de OUTRO domínio (ex.: Produção lendo `employees`), a visão passada para
+  `mutate()` continua sendo a mesclagem completa - só que agora o valor do
+  domínio efetivamente travado vem da leitura FEITA DENTRO DO LOCK
+  (`freshSlice`), nunca da cópia sem lock de `lerLinha()` (que poderia
+  estar desatualizada por uma escrita concorrente na janela entre a
+  leitura e a aquisição do lock - isso evitaria perder uma escrita, um bug
+  de "lost update"). A consistência de quem só é LIDO (não travado)
+  continua garantida por `expectedVersion` dentro de `mutate()`, a mesma
+  proteção que o caminho CAS já usa sem lock nenhum.
+- `gravarMutacaoNaTransacao` ganhou `key`/`rowVersions`/`keepDomain`
+  (mesmos parâmetros que `salvarComAuditoria`/`salvarFinanceiroComAuditoria`
+  já tinham) - grava em `key` em vez de `KEY` sempre, e só aplica
+  `coreFieldsOnly` quando `key===KEY` (quando é uma linha separada, o
+  valor já chega recortado via `pickDomainFields`).
+- `executarComandoOperacionalBloqueado` passa
+  `domain:rowForOperationalCommand(command.type)`; o handler de
+  `ATTENDANCE_COMMANDS` passa `domain:rowForAttendanceCommand()` (sempre
+  Ponto) - os dois pontos que realmente precisavam de roteamento por
+  domínio. `auth_pin_set`/`auth_provision`/conciliação/`save-sections`
+  continuam no default (`CORE`) - nenhum desses grava campo de domínio
+  separado por fora do pipeline de comando (verificado por grep, mesma
+  garantia do resto do documento), então não precisam de mudança.
+- **Teste novo**: `src/integration/operational-command-locked-path.test.js`
+  - primeiro teste do repositório a mockar o pacote `postgres` inteiro
+    (conexão direta, transação, `for update`), exercitando o caminho
+    realmente ativo em produção. Confirma EQUIPAMENTO_SALVO/
+    LOOKAHEAD_CRIADO/CONFIGURACAO_EMPRESA_SALVA/RDO_CAMPO_ALTERADO
+    gravando na própria linha sem tocar a core, FUNCIONARIO_SALVO
+    continuando na core, e o fallback gracioso quando uma linha separada
+    ainda não existe - sem este fix, todos esses 4 primeiros teriam
+    falhado (a asserção de que a linha separada mudou).
 
 ## Arquivos referenciados
 

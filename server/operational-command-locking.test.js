@@ -24,7 +24,7 @@ describe("serialização sistêmica das mutações da empresa",()=>{
     const end=api.indexOf("// Todos os escritores",start);
     const implementation=api.slice(start,end);
     expect(implementation).toContain("select updated_at");
-    expect(implementation).toContain("where company_id=${COMPANY} and key=${KEY}");
+    expect(implementation).toContain("where company_id=${COMPANY} and key=${key}");
     expect(implementation).not.toContain("${locked.updated_at}");
   });
 
@@ -55,11 +55,28 @@ describe("serialização sistêmica das mutações da empresa",()=>{
     expect((implementation.match(/financial_save_with_sync/g)||[]).length).toBe(1);
   });
 
-  it("executarMutacaoEmpresaBloqueada passa o dado anterior completo (basePayload) para decidir se sincroniza",()=>{
+  it("executarMutacaoEmpresaBloqueada passa o valor recém-travado (não a leitura sem lock) como basePayload",()=>{
     const start=api.indexOf("const executarMutacaoEmpresaBloqueada=");
     const end=api.indexOf("// Uma alteração real",start);
     const implementation=api.slice(start,end);
-    expect(implementation).toContain("basePayload:current");
+    expect(implementation).toContain("basePayload:freshSlice");
+  });
+
+  it("achado de 21/08/2026: executarMutacaoEmpresaBloqueada roteia por domínio (não trava mais sempre KEY)",()=>{
+    const start=api.indexOf("const executarMutacaoEmpresaBloqueada=");
+    const end=api.indexOf("// Uma alteração real",start);
+    const implementation=api.slice(start,end);
+    expect(implementation).toContain("domain=DOMAIN_ROW.CORE");
+    expect(implementation).toContain("linhaEfetivaParaEscrita(domain,linha.rowVersions)");
+    expect(implementation).toContain("keyForDomain(effectiveDomain)");
+    expect(implementation).toContain("SPLITTABLE_DOMAINS.map(");
+  });
+
+  it("executarComandoOperacionalBloqueado e o handler de ponto passam o domínio correto",()=>{
+    const opCommand=api.slice(api.indexOf("const executarComandoOperacionalBloqueado="));
+    expect(opCommand).toContain("domain:rowForOperationalCommand(command.type)");
+    const attendance=api.slice(api.indexOf("if(ATTENDANCE_COMMANDS.has(action))"));
+    expect(attendance).toContain("domain:rowForAttendanceCommand()");
   });
 });
 

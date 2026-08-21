@@ -46,7 +46,8 @@ import {
   requiresFinancialOperationalPersistence,
 } from "../server/operational-command-persistence.js";
 import {
-  coreFieldsOnly, DOMAIN_ROW, mergeDomainRows, pickDomainFields, rowForOperationalCommand,
+  coreFieldsOnly, DOMAIN_ROW, mergeDomainRows, pickDomainFields, rowForAttendanceCommand,
+  rowForOperationalCommand, SPLITTABLE_DOMAINS,
 } from "../server/domain-row-routing.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
@@ -611,29 +612,35 @@ export const legacyFinancialFactsChanged=(before,after)=>
     JSON.stringify(before?.[field])!==JSON.stringify(after?.[field]));
 
 const gravarMutacaoNaTransacao=async({
-  transaction,locked,value,basePayload=null,actor,action,before,after,financial=false,
+  transaction,key=KEY,rowVersions={},keepDomain=null,value,basePayload=null,actor,action,before,after,financial=false,
 })=>{
   const correlationId=crypto.randomUUID();
+  // Achado de 21/08/2026: este era o único ponto do caminho travado que
+  // ainda gravava sempre em key=KEY, ignorando o roteamento por domínio -
+  // ver executarMutacaoEmpresaBloqueada. Quando key aponta para uma linha
+  // separada, `value` já chega recortado (pickDomainFields) e não precisa
+  // de coreFieldsOnly; só a linha core precisa da poda.
+  const valorPersistido=key===KEY?coreFieldsOnly(value,rowVersions,keepDomain):value;
   // basePayload só existe quando o chamador tem o dado completo de antes da
   // mutação em mãos (executarMutacaoEmpresaBloqueada); sem ele, o default
   // (true) preserva o comportamento de sempre - sincroniza incondicionalmente.
-  const legacyFactsChanged=basePayload==null||legacyFinancialFactsChanged(basePayload,value);
+  const legacyFactsChanged=basePayload==null||legacyFinancialFactsChanged(basePayload,valorPersistido);
   if(financial&&FINANCIAL_ENGINE_ENFORCE&&legacyFactsChanged){
     // Achado de 21/08/2026: financial_sync_legacy_facts reconstruía também
     // os ~1.764 snapshots de DRE da empresa a cada chamada, dominando o
     // tempo do request (~25s medidos ao vivo). O DRE já se auto-repara na
     // leitura (ação financial-dre-report, via sourceRevision/updated_at),
     // então o caminho de escrita nunca precisa reconstruí-lo.
-    const snapshot=buildLegacyFinancialFacts(value,{includeDreSnapshots:false});
+    const snapshot=buildLegacyFinancialFacts(valorPersistido,{includeDreSnapshots:false});
     const [saved]=await transaction`
       select * from financial_save_with_sync(
-        ${COMPANY},${KEY},
+        ${COMPANY},${key},
         (
           select updated_at
             from company_app_data
-           where company_id=${COMPANY} and key=${KEY}
+           where company_id=${COMPANY} and key=${key}
         ),
-        ${JSON.stringify(encodeAppData(value))}::jsonb,
+        ${JSON.stringify(encodeAppData(valorPersistido))}::jsonb,
         ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
         ${correlationId},${action},
         ${JSON.stringify(before||{})}::jsonb,
@@ -648,10 +655,10 @@ const gravarMutacaoNaTransacao=async({
 
   const [saved]=await transaction`
     update company_app_data
-       set value=${JSON.stringify(encodeAppData(value))}::jsonb,
+       set value=${JSON.stringify(encodeAppData(valorPersistido))}::jsonb,
            updated_at=clock_timestamp(),
            updated_by=null
-     where company_id=${COMPANY} and key=${KEY}
+     where company_id=${COMPANY} and key=${key}
      returning updated_at
   `;
   if(!saved)throw new Error("A base da empresa desapareceu durante o salvamento.");
@@ -660,7 +667,7 @@ const gravarMutacaoNaTransacao=async({
       company_id,aggregate_type,aggregate_id,action,actor_id,actor_name,
       correlation_id,before_snapshot,after_snapshot,source
     ) values (
-      ${COMPANY},'company_app_data',${KEY},${action},
+      ${COMPANY},'company_app_data',${key},${action},
       ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
       ${correlationId},
       ${JSON.stringify(before||{})}::jsonb,
@@ -671,12 +678,25 @@ const gravarMutacaoNaTransacao=async({
   return {updatedAt:saved.updated_at};
 };
 
-// Todos os escritores do blob passam pelo mesmo bloqueio do PostgreSQL.
-// O bloqueio é obtido ANTES da releitura e do cálculo da alteração; assim,
-// módulos diferentes aguardam poucos milissegundos em fila, em vez de disputar
-// indefinidamente o mesmo `updated_at` com tentativas CAS.
-const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,mutate,onMark=()=>{}})=>{
-  onMark("antes de postgres() (conexao direta)");
+// Todos os escritores do blob passam pelo mesmo bloqueio do PostgreSQL - mas,
+// diferente das tentativas otimistas (CAS) que já roteiam por domínio desde
+// 20/08/2026, este caminho travava e gravava sempre a linha core, ignorando
+// a separação de linhas inteiramente (achado de 21/08/2026 - Ponto,
+// Lookahead, Config, Equipamentos e RDO nunca chegavam à própria linha
+// aqui, reintroduzindo a MESMA contenção cruzada que a separação deveria
+// eliminar). Corrigido travando só a linha do domínio de fato escrito
+// (`domain`), enquanto o restante do dado (para leitura cross-domain em
+// `mutate()`, ex.: Produção lendo `employees`) vem de uma leitura sem lock
+// via `lerLinha()` - a mesma tradeoff que o caminho CAS já usa: a
+// consistência de quem É travado/escrito é garantida pelo lock real; a
+// consistência de quem só é lido continua garantida por `expectedVersion`
+// checado dentro de `mutate()`, não por um lock de leitura.
+const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain=DOMAIN_ROW.CORE,mutate,onMark=()=>{}})=>{
+  onMark("antes de lerLinha (roteamento de dominio)");
+  const linha=await lerLinha();
+  const effectiveDomain=linhaEfetivaParaEscrita(domain,linha.rowVersions);
+  const key=keyForDomain(effectiveDomain);
+  onMark(`antes de postgres() (dominio=${effectiveDomain})`);
   const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
     ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
   });
@@ -686,17 +706,32 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,mutate
       const [locked]=await transaction`
         select value,updated_at
           from company_app_data
-         where company_id=${COMPANY} and key=${KEY}
+         where company_id=${COMPANY} and key=${key}
          for update
       `;
       onMark("apos SELECT FOR UPDATE (conexao+lock resolvidos)");
       if(!locked)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
-      const current=decodeAppData(locked.value);
+      // Reconstrói a visão mesclada completa (para mutate() ler qualquer
+      // campo cross-domain), mas usando para `effectiveDomain` o valor
+      // ACABADO DE TRAVAR - nunca a cópia de `linha` (lida sem lock antes da
+      // transação), que poderia estar desatualizada por uma escrita
+      // concorrente na janela entre a leitura e a aquisição do lock.
+      const freshSlice=decodeAppData(locked.value);
+      const rowPayloadsByDomain=Object.fromEntries(
+        SPLITTABLE_DOMAINS.map(dominio=>[
+          dominio,
+          dominio===effectiveDomain?freshSlice:pickDomainFields(linha.payload,dominio),
+        ]),
+      );
+      const corePayload=effectiveDomain===DOMAIN_ROW.CORE?freshSlice:coreFieldsOnly(linha.payload,linha.rowVersions);
+      const current=mergeDomainRows(corePayload,rowPayloadsByDomain);
       const outcome=await mutate({payload:current,updatedAt:locked.updated_at});
       onMark("apos mutate()");
       if(!outcome||outcome.kind!=="save")return outcome;
+      const valueToWrite=effectiveDomain===DOMAIN_ROW.CORE?outcome.data:pickDomainFields(outcome.data,effectiveDomain);
       const saved=await gravarMutacaoNaTransacao({
-        transaction,locked,value:outcome.data,basePayload:current,actor,action,
+        transaction,key,rowVersions:linha.rowVersions,keepDomain:effectiveDomain,
+        value:valueToWrite,basePayload:freshSlice,actor,action,
         before:outcome.before,after:outcome.after,financial,
       });
       onMark("apos gravarMutacaoNaTransacao (antes do commit)");
@@ -715,6 +750,7 @@ const executarComandoOperacionalBloqueado=async({command,usuario,financial,onMar
     actor:usuario,
     action:`operational_${command.type.toLowerCase()}`,
     financial,
+    domain:rowForOperationalCommand(command.type),
     onMark,
     mutate:async({payload:current,updatedAt})=>{
       const scope=validateOperationalCommandScope({user:usuario,data:current,command});
@@ -1329,6 +1365,7 @@ export default async function handler(req, res) {
         const outcome=await executarMutacaoEmpresaBloqueada({
           actor:usuario,
           action,
+          domain:rowForAttendanceCommand(),
           mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
             const applied=applyAttendanceCommand(current,usuario,command,operationNow);
             if(!applied.ok)return {kind:"error",status:applied.status||400,error:applied.error};
