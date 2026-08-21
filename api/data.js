@@ -65,16 +65,20 @@ const PROFILE_KEY = "arced_auth_profiles_v1";
 // de ponto por quinzena, "${KEY}__arq__<id>") - eliminam a contenção de
 // escrita entre domínios que hoje disputam a mesma linha (achado de
 // 20/08/2026, ver server/domain-row-routing.js para a classificação
-// completa e a justificativa de por que só estes 4 domínios).
+// completa e a justificativa de por que só estes domínios). RDO
+// (21/08/2026) entrou depois que duplicarRdo migrou para dispatchCommand -
+// ver o comentário em domain-row-routing.js.
 const PONTO_KEY = `${KEY}__ponto`;
 const LOOKAHEAD_KEY = `${KEY}__lookahead`;
 const CONFIG_KEY = `${KEY}__config`;
 const EQUIPAMENTOS_KEY = `${KEY}__equipamentos`;
+const RDO_KEY = `${KEY}__rdo`;
 const SPLIT_ROW_KEYS = Object.freeze({
   [DOMAIN_ROW.PONTO]: PONTO_KEY,
   [DOMAIN_ROW.LOOKAHEAD]: LOOKAHEAD_KEY,
   [DOMAIN_ROW.CONFIG]: CONFIG_KEY,
   [DOMAIN_ROW.EQUIPAMENTOS]: EQUIPAMENTOS_KEY,
+  [DOMAIN_ROW.RDO]: RDO_KEY,
 });
 const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // A linha separada de um domínio só existe depois que

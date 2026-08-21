@@ -12,18 +12,25 @@ import { COMPANY_CONFIG_COMMAND_TYPES } from "../src/domains/config/company-conf
 // Verificado por grep exaustivo antes de incluir aqui (ver
 // docs/AUDITORIA_... e a investigação da sessão): cada domínio listado só é
 // gravado pelo próprio pipeline de comando - nenhum tem uma tela ainda
-// escrevendo o mesmo campo por fora via update()/save-sections. RDO
-// (`data.rdos`) foi cogitado e DESCARTADO desta lista porque
-// `LegacyApp.jsx` (função salvarRDO) ainda grava `rdos` via update() legado
-// em paralelo ao comando FIELD_REPORT_CHANGED - separar a linha sem migrar
-// esse caminho primeiro criaria um split-brain (duas linhas achando que são
-// donas do mesmo campo).
+// escrevendo o mesmo campo por fora via update()/save-sections.
+//
+// RDO (`data.rdos`) foi cogitado e inicialmente DESCARTADO desta lista
+// (20/08/2026) porque `LegacyApp.jsx` ainda gravava `rdos` via update()
+// legado em paralelo ao comando FIELD_REPORT_CHANGED - separar a linha sem
+// migrar esse caminho primeiro criaria um split-brain. Esse caminho legado
+// foi migrado (duplicarRdo agora usa dispatchCommand) e reverificado em
+// 21/08/2026: `executarSalvarRDO`/`excluirRdo` só chamam `update()` dentro
+// de `if(!dispatchCommand){...}`, e o único ponto de renderização de
+// `<ObraDetalhe>` (LegacyApp.jsx, dentro de `<App>`) sempre passa
+// `dispatchCommand={dispatchOperationalCommand}` - o fallback é código
+// morto. RDO entra na lista com a mesma garantia dos demais domínios.
 export const DOMAIN_ROW = Object.freeze({
   CORE: "core",
   PONTO: "ponto",
   LOOKAHEAD: "lookahead",
   CONFIG: "config",
   EQUIPAMENTOS: "equipamentos",
+  RDO: "rdo",
 });
 
 // Comandos de cronograma de curto prazo (Lookahead) - só 4, definidos
@@ -35,14 +42,24 @@ const LOOKAHEAD_COMMAND_TYPES = new Set([
   OPERATIONAL_COMMAND.LOOKAHEAD_PACKAGE_COMMITTED,
 ]);
 
+// Comandos de Diário de Obra (RDO) - 3, definidos inline em
+// operational-commands.js (sem _TYPES exportado próprio, mesmo padrão do
+// Lookahead acima).
+const RDO_COMMAND_TYPES = new Set([
+  OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,
+  OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,
+  OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED,
+]);
+
 // Classifica um OPERATIONAL_COMMAND para a linha que ele deve ler/gravar.
-// Qualquer comando fora destas 3 listas cai em CORE - comportamento atual,
+// Qualquer comando fora destas listas cai em CORE - comportamento atual,
 // sem nenhuma mudança (a classificação é aditiva, nunca reduz o que já
 // existe).
 export const rowForOperationalCommand = commandType => {
   if (LOOKAHEAD_COMMAND_TYPES.has(commandType)) return DOMAIN_ROW.LOOKAHEAD;
   if (COMPANY_CONFIG_COMMAND_TYPES.has(commandType)) return DOMAIN_ROW.CONFIG;
   if (EQUIPMENT_COMMAND_TYPES.has(commandType)) return DOMAIN_ROW.EQUIPAMENTOS;
+  if (RDO_COMMAND_TYPES.has(commandType)) return DOMAIN_ROW.RDO;
   return DOMAIN_ROW.CORE;
 };
 
@@ -63,6 +80,8 @@ export const rowForAttendanceCommand = () => DOMAIN_ROW.PONTO;
 //    inclui os 3 campos do cadastro físico migrado
 //    (equipmentRegistryMigration/Revision/History) e equipmentModels
 //    (usado só por migrateLegacyEquipmentRegistry, registry.js:171).
+//  - RDO: só data.rdos (operational-commands.js:564-616,
+//    FIELD_REPORT_CHANGED/CANCELLED/REOPENED).
 // data.operationalCommandReceipts é o razão de idempotência COMPARTILHADO
 // por todo comando que passa por applyOperationalCommand
 // (operational-commands.js:126-137,195,200...) - Lookahead/Config/
@@ -89,6 +108,7 @@ export const DOMAIN_FIELDS = Object.freeze({
     "equipmentRegistryMigration", "equipmentRegistryRevision",
     "equipmentRegistryHistory", SHARED_RECEIPTS_FIELD,
   ],
+  [DOMAIN_ROW.RDO]: ["rdos", SHARED_RECEIPTS_FIELD],
 });
 
 // Extrai, de um `data` já mesclado, só os campos de uma linha específica -
@@ -105,7 +125,7 @@ export const pickDomainFields = (data, domain) => {
   return picked;
 };
 
-const SPLITTABLE_DOMAINS = [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAIN_ROW.CONFIG, DOMAIN_ROW.EQUIPAMENTOS];
+const SPLITTABLE_DOMAINS = [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAIN_ROW.CONFIG, DOMAIN_ROW.EQUIPAMENTOS, DOMAIN_ROW.RDO];
 
 // Remove de `data` (já mesclado, com os campos das 4 linhas separadas
 // dentro) os campos de todo domínio cuja linha própria JÁ EXISTE
@@ -181,7 +201,7 @@ const mergeSharedReceipts = arrays => {
 export const mergeDomainRows = (corePayload, rowPayloadsByDomain = {}) => {
   let merged = { ...(corePayload || {}) };
   const receiptCopies = Array.isArray(merged[SHARED_RECEIPTS_FIELD]) ? [merged[SHARED_RECEIPTS_FIELD]] : [];
-  for (const domain of [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAIN_ROW.CONFIG, DOMAIN_ROW.EQUIPAMENTOS]) {
+  for (const domain of [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAIN_ROW.CONFIG, DOMAIN_ROW.EQUIPAMENTOS, DOMAIN_ROW.RDO]) {
     const rowPayload = rowPayloadsByDomain[domain];
     if (!rowPayload || typeof rowPayload !== "object") continue;
     if (Array.isArray(rowPayload[SHARED_RECEIPTS_FIELD])) receiptCopies.push(rowPayload[SHARED_RECEIPTS_FIELD]);

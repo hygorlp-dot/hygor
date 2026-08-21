@@ -29,9 +29,14 @@ describe("rowForOperationalCommand", () => {
     expect(rowForOperationalCommand(OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED)).toBe(DOMAIN_ROW.EQUIPAMENTOS);
   });
 
-  it("mantém tudo o mais na linha core, sem exceção - inclui RH e RDO deliberadamente", () => {
+  it("classifica os 3 comandos de RDO na própria linha", () => {
+    expect(rowForOperationalCommand(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED)).toBe(DOMAIN_ROW.RDO);
+    expect(rowForOperationalCommand(OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED)).toBe(DOMAIN_ROW.RDO);
+    expect(rowForOperationalCommand(OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED)).toBe(DOMAIN_ROW.RDO);
+  });
+
+  it("mantém tudo o mais na linha core, sem exceção - inclui RH deliberadamente", () => {
     expect(rowForOperationalCommand(OPERATIONAL_COMMAND.EMPLOYEE_SAVED)).toBe(DOMAIN_ROW.CORE);
-    expect(rowForOperationalCommand(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED)).toBe(DOMAIN_ROW.CORE);
     expect(rowForOperationalCommand(OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED)).toBe(DOMAIN_ROW.CORE);
     expect(rowForOperationalCommand("COMANDO_INEXISTENTE")).toBe(DOMAIN_ROW.CORE);
   });
@@ -89,6 +94,19 @@ describe("pickDomainFields", () => {
   it("devolve objeto vazio para um domínio desconhecido", () => {
     expect(pickDomainFields({ a: 1 }, "inexistente")).toEqual({});
   });
+
+  it("extrai só data.rdos (e o razão compartilhado) para o domínio RDO, nada de obras/employees", () => {
+    const data = {
+      obras: [{ id: "o1" }],
+      employees: [{ id: "e1" }],
+      rdos: [{ id: "rdo1", obraId: "o1" }],
+      operationalCommandReceipts: [{ idempotencyKey: "x" }],
+    };
+    expect(pickDomainFields(data, DOMAIN_ROW.RDO)).toEqual({
+      rdos: data.rdos,
+      operationalCommandReceipts: data.operationalCommandReceipts,
+    });
+  });
 });
 
 describe("mergeDomainRows", () => {
@@ -98,11 +116,13 @@ describe("mergeDomainRows", () => {
       [DOMAIN_ROW.LOOKAHEAD]: { lookaheadWindows: [{ id: "l1" }] },
       [DOMAIN_ROW.CONFIG]: { config: { companyName: "ARCD" } },
       [DOMAIN_ROW.EQUIPAMENTOS]: { equipamentos: [{ id: "eq1" }] },
+      [DOMAIN_ROW.RDO]: { rdos: [{ id: "rdo1" }] },
     });
     expect(merged.employees).toEqual([{ id: "e1" }]);
     expect(merged.lookaheadWindows).toEqual([{ id: "l1" }]);
     expect(merged.config).toEqual({ companyName: "ARCD" });
     expect(merged.equipamentos).toEqual([{ id: "eq1" }]);
+    expect(merged.rdos).toEqual([{ id: "rdo1" }]);
   });
 
   it("cai no valor da core quando uma linha separada ainda não existe (pré-migração)", () => {
@@ -111,15 +131,16 @@ describe("mergeDomainRows", () => {
     expect(merged.lookaheadWindows).toEqual([{ id: "l1-legado" }]);
   });
 
-  it("une o razão de idempotência de Lookahead/Config/Equipamentos por união, não por sobrescrita", () => {
+  it("une o razão de idempotência de Lookahead/Config/Equipamentos/RDO por união, não por sobrescrita", () => {
     const core = { operationalCommandReceipts: [{ idempotencyKey: "core-1", appliedAt: "2026-01-01" }] };
     const merged = mergeDomainRows(core, {
       [DOMAIN_ROW.LOOKAHEAD]: { operationalCommandReceipts: [{ idempotencyKey: "lookahead-1", appliedAt: "2026-02-01" }] },
       [DOMAIN_ROW.CONFIG]: { operationalCommandReceipts: [{ idempotencyKey: "config-1", appliedAt: "2026-03-01" }] },
       [DOMAIN_ROW.EQUIPAMENTOS]: { operationalCommandReceipts: [{ idempotencyKey: "equip-1", appliedAt: "2026-04-01" }] },
+      [DOMAIN_ROW.RDO]: { operationalCommandReceipts: [{ idempotencyKey: "rdo-1", appliedAt: "2026-05-01" }] },
     });
     const keys = merged.operationalCommandReceipts.map(item => item.idempotencyKey).sort();
-    expect(keys).toEqual(["config-1", "core-1", "equip-1", "lookahead-1"]);
+    expect(keys).toEqual(["config-1", "core-1", "equip-1", "lookahead-1", "rdo-1"]);
   });
 
   it("mantém o registro com appliedAt mais recente quando a mesma idempotencyKey aparece em duas linhas", () => {
@@ -143,6 +164,7 @@ describe("coreFieldsOnly", () => {
     [DOMAIN_ROW.LOOKAHEAD]: "2026-08-21T00:00:00.000Z",
     [DOMAIN_ROW.CONFIG]: "2026-08-21T00:00:00.000Z",
     [DOMAIN_ROW.EQUIPAMENTOS]: "2026-08-21T00:00:00.000Z",
+    [DOMAIN_ROW.RDO]: "2026-08-21T00:00:00.000Z",
   };
   const merged = {
     employees: [{ id: "e1" }],
@@ -156,9 +178,10 @@ describe("coreFieldsOnly", () => {
     rentalInvoices: [], rentalInvoiceReceipts: [], transferenciasEquip: [],
     equipmentRegistryMigration: {}, equipmentRegistryRevision: 0,
     equipmentRegistryHistory: [],
+    rdos: [{ id: "r1" }],
   };
 
-  it("remove os campos das 4 linhas separadas quando todas já existem", () => {
+  it("remove os campos das 5 linhas separadas quando todas já existem", () => {
     expect(coreFieldsOnly(merged, allRowsExist)).toEqual({ employees: merged.employees });
   });
 
@@ -189,8 +212,14 @@ describe("coreFieldsOnly", () => {
     expect(result).not.toHaveProperty("lookaheadWindows");
   });
 
-  it("preserva campos que nenhum domínio separado usa (regressão: RH, RDO, financeiro...)", () => {
-    const withOthers = { employees: [{ id: "e1" }], rdos: [{ id: "r1" }], obras: [{ id: "o1" }], medicoes: [] };
+  it("preserva campos que nenhum domínio separado usa (regressão: RH, obras, financeiro...)", () => {
+    const withOthers = { employees: [{ id: "e1" }], obras: [{ id: "o1" }], medicoes: [] };
     expect(coreFieldsOnly(withOthers, allRowsExist)).toEqual(withOthers);
+  });
+
+  it("remove data.rdos quando a linha de RDO já existe, preserva quando ainda não existe", () => {
+    const withRdoRowMissing = { ...allRowsExist, [DOMAIN_ROW.RDO]: null };
+    expect(coreFieldsOnly(merged, allRowsExist)).not.toHaveProperty("rdos");
+    expect(coreFieldsOnly(merged, withRdoRowMissing).rdos).toEqual(merged.rdos);
   });
 });

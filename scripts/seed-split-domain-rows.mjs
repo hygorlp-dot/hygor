@@ -1,7 +1,7 @@
 // scripts/seed-split-domain-rows.mjs
 //
 // Ativa, para uma empresa, o benefício de api/data.js gravar Ponto/
-// Lookahead/Config/Equipamentos em linhas próprias em vez de uma só
+// Lookahead/Config/Equipamentos/RDO em linhas próprias em vez de uma só
 // (achado de 20/08/2026: EMPLOYEE_SAVED disputando a mesma linha
 // company_app_data com ATTENDANCE_COMMANDS - ver
 // server/domain-row-routing.js para a classificação completa).
@@ -12,7 +12,7 @@
 // este script é o que faz a contenção cruzada parar (o motivo desta rodada),
 // mas o deploy do código é seguro com ou sem ele já ter rodado.
 //
-// Este script cria as 4 linhas separadas, uma por empresa já existente na
+// Este script cria as 5 linhas separadas, uma por empresa já existente na
 // tabela, semeadas com uma CÓPIA dos campos correspondentes que hoje moram
 // na linha core (key=arced_ponto_v1). É seguro rodar mais de uma vez:
 // usa upsert com ignoreDuplicates, então uma linha já semeada (ou já em uso
@@ -49,6 +49,7 @@ const SPLIT_ROW_KEYS = {
   [DOMAIN_ROW.LOOKAHEAD]: `${CORE_KEY}__lookahead`,
   [DOMAIN_ROW.CONFIG]: `${CORE_KEY}__config`,
   [DOMAIN_ROW.EQUIPAMENTOS]: `${CORE_KEY}__equipamentos`,
+  [DOMAIN_ROW.RDO]: `${CORE_KEY}__rdo`,
 };
 
 const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {

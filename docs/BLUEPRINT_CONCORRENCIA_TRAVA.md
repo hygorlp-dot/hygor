@@ -294,6 +294,47 @@ dos 7 campos), mas é segura para decidir SE vale a pena chamar
   confirmar em produção que o tempo caiu para a faixa de milissegundos
   esperada.
 
+## RDO ganha linha própria (21/08/2026)
+
+O RDO (`data.rdos`) havia sido deliberadamente excluído da separação de
+linhas em 20/08/2026 porque `LegacyApp.jsx` ainda tinha um caminho de
+escrita legado (`update()`) rodando em paralelo ao comando
+`FIELD_REPORT_CHANGED` - separar a linha sem migrar esse caminho primeiro
+criaria um split-brain (duas linhas achando que são donas do mesmo campo).
+
+Nesta sessão, `duplicarRdo` foi migrado para `dispatchCommand`
+(`FIELD_REPORT_CHANGED`), e uma reverificação completa confirmou que os
+outros dois escritores (`executarSalvarRDO`, `excluirRdo`) só chamam
+`update()` dentro de `if(!dispatchCommand){...}` - código morto, já que o
+único ponto de renderização de `<DiarioObra>` que importa
+(`<ObraDetalhe>`, chamado uma única vez em `LegacyApp.jsx:21535`) sempre
+passa `dispatchCommand={dispatchOperationalCommand}`. Com o caminho legado
+comprovadamente limpo, RDO entrou no `DOMAIN_ROW` com a mesma garantia dos
+outros 4 domínios:
+
+- `server/domain-row-routing.js`: `DOMAIN_ROW.RDO`, `RDO_COMMAND_TYPES`
+  (`FIELD_REPORT_CHANGED`/`CANCELLED`/`REOPENED`, os únicos 3 comandos que
+  tocam `data.rdos`), `DOMAIN_FIELDS[DOMAIN_ROW.RDO] = ["rdos",
+  operationalCommandReceipts]`, incluído em `SPLITTABLE_DOMAINS` e no loop
+  de `mergeDomainRows`.
+- `api/data.js`: `RDO_KEY = `${KEY}__rdo`` adicionada a `SPLIT_ROW_KEYS`
+  (`lerLinha`/`coreFieldsOnly`/`keyForDomain` já eram genéricos sobre esse
+  mapa, então passaram a cobrir RDO automaticamente, sem mudança adicional
+  de código).
+- `scripts/seed-split-domain-rows.mjs`: passa a criar também a linha
+  `arced_ponto_v1__rdo` (idempotente, mesmo padrão dos outros 4 - ainda
+  precisa rodar contra produção para o benefício realmente entrar em
+  vigor).
+- Testes: `server/domain-row-routing.test.js` (classificação dos 3
+  comandos, `pickDomainFields`, `mergeDomainRows`, `coreFieldsOnly` com
+  RDO) e `src/integration/operational-command-split-rows.test.js`
+  (`RDO_CAMPO_ALTERADO` grava na própria linha e cai de volta para a core
+  quando a linha ainda não existe).
+- **Pendente**: rodar `npm run split-rows:seed` contra produção para criar
+  a linha `arced_ponto_v1__rdo` (mesmo passo manual já feito para os
+  outros 4 domínios nesta sessão) - sem isso, o código já funciona
+  (fallback gracioso para a core), só não ganha o benefício ainda.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`

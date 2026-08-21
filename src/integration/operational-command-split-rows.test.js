@@ -4,6 +4,7 @@ const CORE_KEY="arced_ponto_v1";
 const LOOKAHEAD_KEY="arced_ponto_v1__lookahead";
 const CONFIG_KEY="arced_ponto_v1__config";
 const EQUIPAMENTOS_KEY="arced_ponto_v1__equipamentos";
+const RDO_KEY="arced_ponto_v1__rdo";
 
 const testState=vi.hoisted(()=>({
   rows:{},
@@ -135,6 +136,10 @@ describe("/api/data · roteamento de OPERATIONAL_COMMAND por linha separada",()=
         company_id:"arcd",key:EQUIPAMENTOS_KEY,value:{equipamentos:[]},
         updated_at:"2026-08-20T10:00:00.000Z",
       },
+      [RDO_KEY]:{
+        company_id:"arcd",key:RDO_KEY,value:{rdos:[]},
+        updated_at:"2026-08-20T10:00:00.000Z",
+      },
     };
     testState.rpcCalls.length=0;
     fakeDb.rpc.mockClear();
@@ -168,6 +173,24 @@ describe("/api/data · roteamento de OPERATIONAL_COMMAND por linha separada",()=
     expect(testState.rpcCalls[0].p_key).toBe(CONFIG_KEY);
     expect(testState.rows[CONFIG_KEY].value.config.companyName).toBe("ARCD Obras");
     expect(testState.rows[CORE_KEY].updated_at).toBe("2026-08-20T10:00:00.000Z");
+  });
+
+  it("grava RDO_CAMPO_ALTERADO na linha de RDO, sem tocar a linha core",async()=>{
+    const result=await callApi(opCommand("RDO_CAMPO_ALTERADO",{report:{id:"rdo-1",obraId:"obra-x",data:"2026-08-20",status:"preparacao"}}));
+    expect(result.status).toBe(200);
+    expect(result.body.ok).toBe(true);
+    expect(testState.rpcCalls[0].p_key).toBe(RDO_KEY);
+    expect(testState.rows[RDO_KEY].value.rdos).toHaveLength(1);
+    expect(testState.rows[CORE_KEY].updated_at).toBe("2026-08-20T10:00:00.000Z");
+  });
+
+  it("cai de volta a gravar a linha core para RDO quando a linha separada ainda não foi semeada",async()=>{
+    delete testState.rows[RDO_KEY];
+    const result=await callApi(opCommand("RDO_CAMPO_ALTERADO",{report:{id:"rdo-2",obraId:"obra-x",data:"2026-08-20",status:"preparacao"}}));
+    expect(result.status).toBe(200);
+    expect(result.body.ok).toBe(true);
+    expect(testState.rpcCalls[0].p_key).toBe(CORE_KEY);
+    expect(testState.rows[CORE_KEY].value.rdos).toHaveLength(1);
   });
 
   it("mantém EMPLOYEE_SAVED na linha core, comportamento inalterado",async()=>{
