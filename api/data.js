@@ -45,6 +45,9 @@ import { validateOperationalCommandScope } from "../server/operational-command-p
 import {
   requiresFinancialOperationalPersistence,
 } from "../server/operational-command-persistence.js";
+import {
+  DOMAIN_ROW, mergeDomainRows, pickDomainFields, rowForOperationalCommand,
+} from "../server/domain-row-routing.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
@@ -58,6 +61,40 @@ const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — s
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const KEY     = "arced_ponto_v1";
 const PROFILE_KEY = "arced_auth_profiles_v1";
+// Linhas separadas na MESMA tabela (mesmo padrão de PROFILE_KEY e do arquivo
+// de ponto por quinzena, "${KEY}__arq__<id>") - eliminam a contenção de
+// escrita entre domínios que hoje disputam a mesma linha (achado de
+// 20/08/2026, ver server/domain-row-routing.js para a classificação
+// completa e a justificativa de por que só estes 4 domínios).
+const PONTO_KEY = `${KEY}__ponto`;
+const LOOKAHEAD_KEY = `${KEY}__lookahead`;
+const CONFIG_KEY = `${KEY}__config`;
+const EQUIPAMENTOS_KEY = `${KEY}__equipamentos`;
+const SPLIT_ROW_KEYS = Object.freeze({
+  [DOMAIN_ROW.PONTO]: PONTO_KEY,
+  [DOMAIN_ROW.LOOKAHEAD]: LOOKAHEAD_KEY,
+  [DOMAIN_ROW.CONFIG]: CONFIG_KEY,
+  [DOMAIN_ROW.EQUIPAMENTOS]: EQUIPAMENTOS_KEY,
+});
+const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
+// A linha separada de um domínio só existe depois que
+// scripts/seed-split-domain-rows.mjs roda contra a empresa (mesmo padrão de
+// "migration ainda não aplicada" usado no resto deste arquivo -
+// AUDIT_RPC_MIGRATION_REQUIRED, ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED).
+// `rowVersions[domain]` vem null de lerLinha() quando a linha não existe;
+// deixar isso cair no laço de CAS normal esgotaria as 6 tentativas e
+// devolveria um 503 de "concorrência" enganoso - o problema não é
+// concorrência, é a linha não existir ainda.
+const exigirLinhaSeparada = (domain, rowVersions) => {
+  if (domain===DOMAIN_ROW.CORE || rowVersions[domain]!=null) return null;
+  return {
+    status:503,
+    body:{
+      ok:false,code:"SPLIT_ROW_MIGRATION_REQUIRED",
+      error:"A linha separada deste domínio ainda não foi criada. Execute scripts/seed-split-domain-rows.mjs antes de usar esta funcionalidade.",
+    },
+  };
+};
 const DRE_PROJECTION_VERSION = "2026-08-third-party-equipment-cost-v5";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
@@ -367,6 +404,14 @@ const rateLimitCentral=async(subject,action)=>{
   return result?{blocked:result.blocked,retry:result.retryAfter}:null;
 };
 
+// Lê a linha core e mescla nela as linhas separadas (Ponto/Lookahead/
+// Config/Equipamentos), quando existirem. Antes da migração de dado rodar
+// (ver scripts/seed-split-domain-rows.mjs), essas linhas simplesmente não
+// existem ainda - o merge trata isso como "nenhuma contribuição", e os
+// campos continuam vindo da linha core como sempre vieram, sem quebrar
+// nada. `rowVersions` devolve o updated_at de CADA linha, para quem grava
+// um domínio separado usar como CAS da própria linha, em vez do updated_at
+// da core (que mudar por outro motivo não deveria invalidar essa gravação).
 const lerLinha = async () => {
   const { data, error } = await db
     .from("company_app_data")
@@ -375,7 +420,7 @@ const lerLinha = async () => {
     .eq("key", KEY)
     .maybeSingle();
   if (error) throw error;
-  if (!data) return { payload: null, updatedAt: null };
+  if (!data) return { payload: null, updatedAt: null, rowVersions: {} };
   const payload = decodeAppData(data.value);
   // Migração transparente: preserva o mesmo updated_at para não criar um
   // falso conflito nos navegadores que já estavam editando. Se outra gravação
@@ -388,7 +433,24 @@ const lerLinha = async () => {
       if(migrated.error)console.error("Não foi possível compactar o dataset:",migrated.error.message);
     }
   }
-  return { payload, updatedAt: data.updated_at || null };
+
+  const splitEntries = Object.entries(SPLIT_ROW_KEYS);
+  const { data: splitRows, error: splitError } = await db
+    .from("company_app_data")
+    .select("key, value, updated_at")
+    .eq("company_id", COMPANY)
+    .in("key", splitEntries.map(([, key]) => key));
+  if (splitError) throw splitError;
+
+  const rowVersions = { [DOMAIN_ROW.CORE]: data.updated_at || null };
+  const rowPayloadsByDomain = {};
+  for (const [domain, key] of splitEntries) {
+    const row = (splitRows || []).find(item => item.key === key);
+    rowVersions[domain] = row?.updated_at || null;
+    if (row) rowPayloadsByDomain[domain] = decodeAppData(row.value);
+  }
+  const merged = mergeDomainRows(payload, rowPayloadsByDomain);
+  return { payload: merged, updatedAt: data.updated_at || null, rowVersions };
 };
 
 const salvarIndicePerfis = async payload => {
@@ -406,10 +468,10 @@ const lerIndicePerfis = async () => {
 // DATA-001: a RPC atualiza o blob e insere o evento append-only na mesma
 // transação PostgreSQL. `before`/`after` recebem somente as seções alteradas,
 // evitando duplicar um blob inteiro no histórico a cada pequena edição.
-const salvarComAuditoria = async ({ expectedUpdatedAt, value, actor, action, before, after }) => {
+const salvarComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, actor, action, before, after }) => {
   const correlationId=crypto.randomUUID();
   const {data,error}=await db.rpc("company_save_with_audit",{
-    p_company_id:COMPANY,p_key:KEY,p_expected_updated_at:expectedUpdatedAt,p_value:encodeAppData(value),
+    p_company_id:COMPANY,p_key:key,p_expected_updated_at:expectedUpdatedAt,p_value:encodeAppData(value),
     p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
     p_correlation_id:correlationId,p_action:action,p_before:before||{},p_after:after||{},
   });
@@ -453,22 +515,31 @@ const executarArquivoPontoTransacional=async({
   };
 };
 
-const salvarFinanceiroComAuditoria = async ({ expectedUpdatedAt, value, actor, action, before, after }) => {
+// `financialSnapshotData` é o `data` COMPLETO mesclado (todos os domínios),
+// usado só para calcular os fatos financeiros de sincronização
+// (buildLegacyFinancialFacts lê medicoes/pedidos/notasFiscais/etc., que não
+// existem no `value` quando `value` é a fatia de uma linha separada, ex.:
+// Equipamentos). Sem esse parâmetro, gravar um comando de Equipamentos
+// routeado para a própria linha zeraria silenciosamente o snapshot
+// financeiro. Todo chamador que ainda grava a linha core inteira (o caso de
+// sempre, antes desta separação) não precisa passá-lo - o default preserva
+// o comportamento exato de antes.
+const salvarFinanceiroComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, financialSnapshotData=value, actor, action, before, after }) => {
   // Enquanto FIN-003 está em sombra, o legado é a fonte oficial. Exigir a
   // reconstrução integral do razão dentro de cada clique deixava conciliações
   // presas em 503 sob concorrência. A ativação do enforcement restaura a
   // transação conjunta; até lá, preservamos disponibilidade + auditoria.
   if(financialPersistenceMode(FINANCIAL_ENGINE_ENFORCE)==="audited_shadow"){
-    return salvarComAuditoria({expectedUpdatedAt,value,actor,action,before,after});
+    return salvarComAuditoria({key,expectedUpdatedAt,value,actor,action,before,after});
   }
   if(!process.env.POSTGRES_URL_NON_POOLING)throw new Error("A conexão transacional do motor financeiro não está configurada.");
   const correlationId=crypto.randomUUID();
   const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
   try{
-    const snapshot=buildLegacyFinancialFacts(value);
+    const snapshot=buildLegacyFinancialFacts(financialSnapshotData);
     const [result]=await sql`
       select * from financial_save_with_sync(
-        ${COMPANY},${KEY},${expectedUpdatedAt},${sql.json(encodeAppData(value))},
+        ${COMPANY},${key},${expectedUpdatedAt},${sql.json(encodeAppData(value))},
         ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
         ${correlationId},${action},${sql.json(before||{})},${sql.json(after||{})},${sql.json(snapshot)}
       )
@@ -912,7 +983,7 @@ export default async function handler(req, res) {
       lerLinha(),
       accessToken ? db.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
     ]);
-    let { payload: atual, updatedAt } = linha;
+    let { payload: atual, updatedAt, rowVersions } = linha;
     const pinAuth=usaPin?conferirPin(atual,userId,pin):{usuario:null,upgradeHash:""};
     const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || pinAuth.usuario;
 
@@ -1235,7 +1306,14 @@ export default async function handler(req, res) {
           result:outcome.result,updatedAt:outcome.updatedAt,
         });
       }
-      let base={payload:atual,updatedAt};
+      // Ponto grava na própria linha (PONTO_KEY), não na linha core - o CAS
+      // usa o updated_at da linha de ponto, então uma escrita em qualquer
+      // outro domínio (ex.: EMPLOYEE_SAVED) não invalida mais esta tentativa
+      // (achado de 20/08/2026: essa contenção cruzada é o que causava a
+      // demora/retentativas reportadas ao salvar um funcionário).
+      const linhaAusente=exigirLinhaSeparada(DOMAIN_ROW.PONTO,rowVersions);
+      if(linhaAusente)return res.status(linhaAusente.status).json(linhaAusente.body);
+      let base={payload:atual,updatedAt:rowVersions[DOMAIN_ROW.PONTO]??null};
       for(let attempt=0;attempt<6;attempt+=1){
         const applied=applyAttendanceCommand(base.payload,usuario,command,operationNow);
         if(!applied.ok)return res.status(applied.status||400).json({ok:false,error:applied.error});
@@ -1245,7 +1323,10 @@ export default async function handler(req, res) {
           });
         }
         const saved=await salvarComAuditoria({
-          expectedUpdatedAt:base.updatedAt,value:applied.data,actor:usuario,
+          key:PONTO_KEY,
+          expectedUpdatedAt:base.updatedAt,
+          value:pickDomainFields(applied.data,DOMAIN_ROW.PONTO),
+          actor:usuario,
           action:applied.audit?.action||action,
           before:applied.audit?.before||{},
           after:applied.audit?.after||{operationId:command.operationId},
@@ -1255,7 +1336,8 @@ export default async function handler(req, res) {
             ok:true,result:applied.result,updatedAt:saved.updatedAt||operationNow,
           });
         }
-        base=await lerLinha();
+        const recarregado=await lerLinha();
+        base={payload:recarregado.payload,updatedAt:recarregado.rowVersions[DOMAIN_ROW.PONTO]??null};
       }
       return res.status(503).json({
         ok:false,code:"ATTENDANCE_CONCURRENCY_BUSY",
@@ -1302,21 +1384,36 @@ export default async function handler(req, res) {
         });
       }
 
-      const persistir=async(base,value)=>{
+      // Lookahead/Config/Equipamentos gravam na própria linha (achado de
+      // 20/08/2026 - ver server/domain-row-routing.js); qualquer outro tipo
+      // de comando (RH, RDO, Financeiro, Compras...) continua indo para a
+      // linha core, exatamente como antes desta separação.
+      const domain=rowForOperationalCommand(command.type);
+      const targetKey=keyForDomain(domain);
+      const linhaAusente=exigirLinhaSeparada(domain,rowVersions);
+      if(linhaAusente)return res.status(linhaAusente.status).json(linhaAusente.body);
+
+      const persistir=async(base,resultData)=>{
+        // `financialSnapshotData` sempre recebe o `data` COMPLETO mesclado -
+        // buildLegacyFinancialFacts precisa de medicoes/pedidos/notasFiscais
+        // etc., que não existem em `valorLinha` quando o domínio é uma linha
+        // separada (ex.: Equipamentos, que é financeiro).
+        const valorLinha=domain===DOMAIN_ROW.CORE?resultData:pickDomainFields(resultData,domain);
         const save=persistenciaFinanceira
           ?salvarFinanceiroComAuditoria
           :salvarComAuditoria;
-        return save({expectedUpdatedAt:base.updatedAt,value,actor:usuario,
+        return save({key:targetKey,expectedUpdatedAt:base.updatedAt,value:valorLinha,
+        financialSnapshotData:resultData,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
         before:{command:command.type,entityId:operationalCommandEntityId(command)},
         after:{command:command.type,idempotencyKey:command.idempotencyKey}});
       };
 
       // Um único reenvio não bastava sob concorrência real: qualquer gravação
-      // em qualquer outra tela (todas dividem a mesma linha) já derrubava a
+      // em qualquer outra tela que divida a MESMA linha já derrubava a
       // segunda tentativa. Reexecuta o comando sobre a fotografia mais nova,
       // no mesmo padrão de tentativas limitadas usado acima para o ponto.
-      let base={payload:atual,updatedAt};
+      let base={payload:atual,updatedAt:domain===DOMAIN_ROW.CORE?updatedAt:rowVersions[domain]};
       for(let attempt=0;attempt<6;attempt+=1){
         const result=applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
         if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
@@ -1334,7 +1431,8 @@ export default async function handler(req, res) {
             ...(result.summary!=null?{summary:result.summary}:{}),
           });
         }
-        base=await lerLinha();
+        const recarregado=await lerLinha();
+        base={payload:recarregado.payload,updatedAt:domain===DOMAIN_ROW.CORE?recarregado.updatedAt:recarregado.rowVersions[domain]};
       }
       return res.status(503).json({
         ok:false,code:"OPERATIONAL_COMMAND_CONCURRENCY_BUSY",
