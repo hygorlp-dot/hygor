@@ -649,40 +649,47 @@ const gravarMutacaoNaTransacao=async({
 // O bloqueio é obtido ANTES da releitura e do cálculo da alteração; assim,
 // módulos diferentes aguardam poucos milissegundos em fila, em vez de disputar
 // indefinidamente o mesmo `updated_at` com tentativas CAS.
-const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,mutate})=>{
+const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,mutate,onMark=()=>{}})=>{
+  onMark("antes de postgres() (conexao direta)");
   const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
     ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
   });
   try{
     return await connection.begin(async transaction=>{
+      onMark("dentro da transacao, antes do SELECT FOR UPDATE");
       const [locked]=await transaction`
         select value,updated_at
           from company_app_data
          where company_id=${COMPANY} and key=${KEY}
          for update
       `;
+      onMark("apos SELECT FOR UPDATE (conexao+lock resolvidos)");
       if(!locked)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
       const current=decodeAppData(locked.value);
       const outcome=await mutate({payload:current,updatedAt:locked.updated_at});
+      onMark("apos mutate()");
       if(!outcome||outcome.kind!=="save")return outcome;
       const saved=await gravarMutacaoNaTransacao({
         transaction,locked,value:outcome.data,actor,action,
         before:outcome.before,after:outcome.after,financial,
       });
+      onMark("apos gravarMutacaoNaTransacao (antes do commit)");
       return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
     });
   }finally{
     await connection.end({timeout:2});
+    onMark("apos connection.end");
   }
 };
 
 // Uma alteração real na mesma entidade continua sendo recusada por
 // `expectedVersion`; concorrência em outro módulo apenas aguarda o bloqueio.
-const executarComandoOperacionalBloqueado=async({command,usuario,financial})=>{
+const executarComandoOperacionalBloqueado=async({command,usuario,financial,onMark})=>{
   return executarMutacaoEmpresaBloqueada({
     actor:usuario,
     action:`operational_${command.type.toLowerCase()}`,
     financial,
+    onMark,
     mutate:async({payload:current,updatedAt})=>{
       const scope=validateOperationalCommandScope({user:usuario,data:current,command});
       if(!scope.ok)return {kind:"error",status:scope.error.includes("vinculado")?400:403,error:scope.error};
@@ -1382,7 +1389,7 @@ export default async function handler(req, res) {
       // entre si pela linha global da empresa.
       if(process.env.POSTGRES_URL_NON_POOLING){
         const outcome=await executarComandoOperacionalBloqueado({
-          command,usuario,financial:persistenciaFinanceira,
+          command,usuario,financial:persistenciaFinanceira,onMark:__mark,
         });
         __mark("apos executarComandoOperacionalBloqueado");
         if(outcome.kind==="error")return res.status(outcome.status||409).json({
