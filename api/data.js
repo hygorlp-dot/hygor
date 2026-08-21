@@ -691,9 +691,15 @@ const gravarMutacaoNaTransacao=async({
 // consistência de quem É travado/escrito é garantida pelo lock real; a
 // consistência de quem só é lido continua garantida por `expectedVersion`
 // checado dentro de `mutate()`, não por um lock de leitura.
-const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain=DOMAIN_ROW.CORE,mutate,onMark=()=>{}})=>{
+const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain=DOMAIN_ROW.CORE,linha:linhaConhecida=null,mutate,onMark=()=>{}})=>{
+  // Achado de 21/08/2026 (medido ao vivo): todo chamador já fez lerLinha()
+  // uma vez no topo do handler, antes de qualquer branch. Reaproveitar essa
+  // leitura em vez de repeti-la aqui evita um round-trip de rede inteiro -
+  // a mesma leitura sem lock, só que mais nova que a garantia que
+  // realmente precisamos (a tolerância a essa "quase-mesma-idade" é igual
+  // à de sempre: só o que É travado precisa estar fresco).
   onMark("antes de lerLinha (roteamento de dominio)");
-  const linha=await lerLinha();
+  const linha=linhaConhecida||await lerLinha();
   const effectiveDomain=linhaEfetivaParaEscrita(domain,linha.rowVersions);
   const key=keyForDomain(effectiveDomain);
   onMark(`antes de postgres() (dominio=${effectiveDomain})`);
@@ -745,12 +751,13 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
 
 // Uma alteração real na mesma entidade continua sendo recusada por
 // `expectedVersion`; concorrência em outro módulo apenas aguarda o bloqueio.
-const executarComandoOperacionalBloqueado=async({command,usuario,financial,onMark})=>{
+const executarComandoOperacionalBloqueado=async({command,usuario,financial,linha,onMark})=>{
   return executarMutacaoEmpresaBloqueada({
     actor:usuario,
     action:`operational_${command.type.toLowerCase()}`,
     financial,
     domain:rowForOperationalCommand(command.type),
+    linha,
     onMark,
     mutate:async({payload:current,updatedAt})=>{
       const scope=validateOperationalCommandScope({user:usuario,data:current,command});
@@ -1097,6 +1104,7 @@ export default async function handler(req, res) {
       if(newPin.length<4||newPin.length>12||!/^[0-9]+$/.test(newPin))return res.status(400).json({error:"O PIN deve conter entre 4 e 12 dígitos."});
       const outcome=await executarMutacaoEmpresaBloqueada({
         actor:usuario,action:"auth_pin_set",financial:false,
+        linha:{payload:atual,rowVersions},
         mutate:async({payload:current})=>{
           const target=(current.usuarios||[]).find(item=>String(item.id)===targetUserId);
           if(!target)return {kind:"error",status:404,error:"Operador não encontrado."};
@@ -1145,6 +1153,7 @@ export default async function handler(req, res) {
       if(process.env.POSTGRES_URL_NON_POOLING){
         const outcome=await executarMutacaoEmpresaBloqueada({
           actor:usuario,action:"auth_provision",
+          linha:{payload:atual,rowVersions},
           mutate:async({payload:current})=>{
             const vigente=(current.usuarios||[]).find(u=>u.id===alvo.id);
             if(!vigente)return {kind:"error",status:409,error:"O operador foi removido durante a ativação da conta."};
@@ -1278,6 +1287,7 @@ export default async function handler(req, res) {
           actor:usuario,
           action:`reconciliation_${String(command.type).toLowerCase()}`,
           financial:true,
+          linha:{payload:atual,rowVersions},
           mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
             const executed=execute(current);
             if(executed.forbidden)return {kind:"error",status:403,error:executed.error};
@@ -1366,6 +1376,7 @@ export default async function handler(req, res) {
           actor:usuario,
           action,
           domain:rowForAttendanceCommand(),
+          linha:{payload:atual,rowVersions},
           mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
             const applied=applyAttendanceCommand(current,usuario,command,operationNow);
             if(!applied.ok)return {kind:"error",status:applied.status||400,error:applied.error};
@@ -1453,6 +1464,7 @@ export default async function handler(req, res) {
       if(process.env.POSTGRES_URL_NON_POOLING){
         const outcome=await executarComandoOperacionalBloqueado({
           command,usuario,financial:persistenciaFinanceira,onMark:__mark,
+          linha:{payload:atual,rowVersions},
         });
         __mark("apos executarComandoOperacionalBloqueado");
         if(outcome.kind==="error")return res.status(outcome.status||409).json({
@@ -1766,6 +1778,7 @@ export default async function handler(req, res) {
           actor:usuario,
           action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
           financial:sincronizaFinanceiro,
+          linha:{payload:atual,rowVersions},
           mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
             const houveConcorrencia=expectedUpdatedAt&&lockedUpdatedAt
               &&!mesmoInstante(expectedUpdatedAt,lockedUpdatedAt);

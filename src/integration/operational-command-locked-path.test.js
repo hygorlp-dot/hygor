@@ -157,6 +157,14 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
   });
   afterAll(()=>vi.useRealTimers());
 
+  it("reaproveita a lerLinha() já feita no topo do handler - não relê pelo Supabase dentro de executarMutacaoEmpresaBloqueada",async()=>{
+    await callApi(opCommand("EQUIPAMENTO_SALVO",{equipment:{id:"eq-reuse",nome:"Compactador"}}));
+    // lerLinha() faz 2 chamadas (linha core + linhas separadas via .in()).
+    // Sem o reaproveitamento de `linha`, executarMutacaoEmpresaBloqueada
+    // faria uma SEGUNDA lerLinha() antes de travar - 4 chamadas ao todo.
+    expect(fakeDb.from.mock.calls.filter(([table])=>table==="company_app_data")).toHaveLength(2);
+  });
+
   it("grava EQUIPAMENTO_SALVO na linha de equipamentos, sem tocar a linha core",async()=>{
     const result=await callApi(opCommand("EQUIPAMENTO_SALVO",{equipment:{id:"eq-1",nome:"Betoneira"}}));
     expect(result.status).toBe(200);

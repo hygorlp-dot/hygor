@@ -400,6 +400,20 @@ caminho travado nunca tinha cobertura automatizada nenhuma.
     ainda não existe - sem este fix, todos esses 4 primeiros teriam
     falhado (a asserção de que a linha separada mudou).
 
+**Otimização (confirmada ao vivo em produção logo após o deploy)**: a
+primeira versão do fix fazia uma SEGUNDA `lerLinha()` dentro de
+`executarMutacaoEmpresaBloqueada` (para decidir o domínio efetivo antes de
+travar), redundante com a que o topo do handler já faz para todo request
+(`Promise.all([lerLinha(), tokenAuth])`). Medido ao vivo: +634-659ms por
+requisição (`FUNCIONARIO_SALVO` foi de ~2,42s para ~3,53s). Corrigido
+passando `linha:{payload:atual,rowVersions}` (já disponível no escopo do
+handler) para os 6 pontos de chamada de `executarMutacaoEmpresaBloqueada`
+- a função só faz sua própria `lerLinha()` se ninguém passar `linha`
+(preserva chamadores futuros que não tiverem essa leitura em mãos). Teste
+de regressão: `src/integration/operational-command-locked-path.test.js`
+conta as chamadas ao mock do Supabase e exige exatamente 2 (uma
+`lerLinha()`), não 4.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
