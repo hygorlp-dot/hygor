@@ -227,12 +227,72 @@ mais 5 pontos, todos corrigidos nesta mesma rodada:
   rodada** por exigir tornar a RPC de arquivamento (que já é uma transação
   de duas chaves) ciente de domínio; fica registrada aqui para não ser
   esquecida.
-- O caminho travado (`gravarMutacaoNaTransacao`/
-  `executarMutacaoEmpresaBloqueada`, só usado se `POSTGRES_URL_NON_POOLING`
-  estiver configurado) tem a mesma limitação de fundo e **também não foi
-  corrigido** - confirmado inativo no ambiente atual (o padrão 409→503
-  observado só existe no caminho otimista), mas se `POSTGRES_URL_NON_POOLING`
-  for habilitado no futuro, este bloat volta a existir ali.
+- **Correção (21/08/2026):** a suposição acima de que o caminho travado
+  estava inativo em produção estava **errada** - instrumentação de tempo ao
+  vivo (ver seção "Achado de 21/08/2026: sincronização financeira síncrona"
+  abaixo) confirmou `POSTGRES_URL_NON_POOLING` ativo e sendo o caminho
+  realmente usado por `EMPLOYEE_SAVED` e outros comandos financeiros.
+  A limitação do arquivamento de ponto (parágrafo acima) permanece real e
+  não corrigida nesse caminho.
+
+## Achado de 21/08/2026: sincronização financeira síncrona dominava o tempo de escrita
+
+Depois da separação de linhas por domínio (Fase 1 completa) e do fix de
+`coreFieldsOnly` (achado anterior), salvar um funcionário continuava
+levando ~25s em produção. Instrumentação `[TIMING]` ao vivo (logs reais do
+Vercel, não suposição) isolou o problema: **100% do tempo estava dentro de
+`gravarMutacaoNaTransacao`**, entre o fim de `mutate()` (~2,2s) e o retorno
+da função (~27,2s) - abrir a conexão, travar a linha (`SELECT...FOR UPDATE`)
+e validar a regra de negócio levaram, juntos, só ~1s.
+
+**Causa raiz**: `EMPLOYEE_SAVED` está em `FINANCIAL_OPERATIONAL_COMMANDS`
+(`api/data.js:246` - correto, diária/VT/VR afetam custo de mão de obra).
+Com `FINANCIAL_ENGINE_ENFORCE=true` ativo em produção, toda gravação desse
+tipo chama a função Postgres `financial_save_with_sync`
+(`migrations/002...up.sql`), que chama `financial_sync_legacy_facts`
+(`migrations/001...up.sql`). Essa função **não é incremental**: a cada
+chamada, desativa e reconstrói do zero TODOS os fatos, transações
+bancárias e (o item mais caro) os ~1.764 snapshots de DRE da empresa
+inteira - milhares de statements SQL individuais numa única transação,
+mesmo quando a gravação em questão (ex.: editar telefone de um
+funcionário) não toca em nenhum desses dados.
+
+**Por que dreSnapshots é seguro remover do caminho de escrita**: a tela de
+DRE já se auto-repara na leitura (`api/data.js:1550-1621`, ação
+`financial-dre-report`) comparando `sourceRevision`/`updated_at` e
+reconstruindo só o período pedido - qualquer gravação já muda `updated_at`,
+então essa reconstrução completa dentro da transação sempre foi redundante
+para esse consumidor. Avaliação de risco feita pelo agente
+`dre-integration-guardian` antes de mexer (ver citações abaixo) confirmou
+que uma comparação simplista por "quais dos 7 campos financeiros legados
+mudaram" seria insegura para decidir SE sincronizar dreSnapshots (que
+depende de `employees`/`config`/`obras`/`equipamentos`/`rescisoes` - nenhum
+dos 7 campos), mas é segura para decidir SE vale a pena chamar
+`financial_save_with_sync` para os fatos/transações bancárias.
+
+**Fix aplicado** (`migrations/008_skip_dre_snapshot_sync_on_write.up.sql`,
+`api/data.js`, `server/financial-shadow.js`):
+- `financial_sync_legacy_facts`/`financial_save_with_sync` ganharam o
+  parâmetro `p_sync_dre_snapshots boolean default true` - o `default true`
+  preserva o job manual/de deploy (`financial-shadow-sync`,
+  `scripts/apply-financial-shadow.mjs`, que continuam sem passar esse
+  argumento) intacto como gate de integridade antes de promover o FIN-003.
+- O caminho transacional de escrita (`gravarMutacaoNaTransacao`,
+  `salvarFinanceiroComAuditoria`) sempre passa `false` e chama
+  `buildLegacyFinancialFacts(value,{includeDreSnapshots:false})` - nunca
+  mais reconstrói dreSnapshots ali.
+- `gravarMutacaoNaTransacao` também recebe `basePayload` (o dado completo
+  de antes da mutação) e só chama `financial_save_with_sync` quando algum
+  dos 7 campos que alimentam fatos/transações realmente mudou
+  (`legacyFinancialFactsChanged`, `api/data.js`) - caso contrário, grava
+  pelo caminho simples (update + `audit_events`).
+- Testes: `server/operational-command-locking.test.js` (estrutura do fix +
+  `legacyFinancialFactsChanged`), `server/financial-shadow.test.js`
+  (`includeDreSnapshots:false`).
+- **Limitação conhecida**: a instrumentação `[TIMING]` temporária
+  (commit `99f9cde`) ainda não foi removida - fica para depois de
+  confirmar em produção que o tempo caiu para a faixa de milissegundos
+  esperada.
 
 ## Arquivos referenciados
 

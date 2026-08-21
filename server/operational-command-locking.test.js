@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { legacyFinancialFactsChanged, LEGACY_FINANCIAL_FACT_FIELDS } from "../api/data.js";
 
 const api=readFileSync(resolve(process.cwd(),"api/data.js"),"utf8");
 
@@ -44,5 +45,59 @@ describe("serialização sistêmica das mutações da empresa",()=>{
     expect(attendance).toContain("executarMutacaoEmpresaBloqueada({");
     expect(reconciliation).toContain("executarMutacaoEmpresaBloqueada({");
     expect(sections).toContain("executarMutacaoEmpresaBloqueada({");
+  });
+
+  it("gravarMutacaoNaTransacao nunca pede a reconstrução do DRE (o self-heal da leitura já cobre)",()=>{
+    const start=api.indexOf("const gravarMutacaoNaTransacao=");
+    const end=api.indexOf("// Todos os escritores",start);
+    const implementation=api.slice(start,end);
+    expect(implementation).toContain("includeDreSnapshots:false");
+    expect((implementation.match(/financial_save_with_sync/g)||[]).length).toBe(1);
+  });
+
+  it("executarMutacaoEmpresaBloqueada passa o dado anterior completo (basePayload) para decidir se sincroniza",()=>{
+    const start=api.indexOf("const executarMutacaoEmpresaBloqueada=");
+    const end=api.indexOf("// Uma alteração real",start);
+    const implementation=api.slice(start,end);
+    expect(implementation).toContain("basePayload:current");
+  });
+});
+
+describe("legacyFinancialFactsChanged - achado de 21/08/2026 (bloat de sincronização financeira)",()=>{
+  it("é falso quando nenhum dos 7 campos legados muda (ex.: EMPLOYEE_SAVED alterando só dados cadastrais)",()=>{
+    const before={employees:[{id:"e1",nome:"Ana"}],config:{companyName:"ARCD"}};
+    const after={employees:[{id:"e1",nome:"Ana Paula"}],config:{companyName:"ARCD"}};
+    expect(legacyFinancialFactsChanged(before,after)).toBe(false);
+  });
+
+  it("é verdadeiro quando algum dos 7 campos muda (ex.: novo pagamento em pagsTerceiros)",()=>{
+    const before={pagsTerceiros:[]};
+    const after={pagsTerceiros:[{id:"t1",amount:100}]};
+    expect(legacyFinancialFactsChanged(before,after)).toBe(true);
+  });
+
+  it("compara os 7 campos individualmente - mudar transacoes não mascara nem é mascarado por medicoes",()=>{
+    const before={medicoes:[{id:"m1",valorPrevisto:100}],transacoes:[]};
+    const afterSoTransacoes={medicoes:[{id:"m1",valorPrevisto:100}],transacoes:[{id:"tr1"}]};
+    const afterSoMedicoes={medicoes:[{id:"m1",valorPrevisto:200}],transacoes:[]};
+    expect(legacyFinancialFactsChanged(before,afterSoTransacoes)).toBe(true);
+    expect(legacyFinancialFactsChanged(before,afterSoMedicoes)).toBe(true);
+    expect(legacyFinancialFactsChanged(before,before)).toBe(false);
+  });
+
+  it("não inclui employees/config/obras/equipamentos - mudar dailyRate de um funcionário não deve pular a auditoria simples silenciosamente, mas depende do self-heal do DRE na leitura (financial-dre-report), não desta lista",()=>{
+    // Documenta a decisão deliberada (ver server/dre-projection.js e
+    // labor-cost-engine.js): dreSnapshots depende de employees/config/obras/
+    // equipamentos/rescisoes, nenhum destes protegido por esta lista. Por
+    // isso o caminho de escrita NUNCA reconstrói dreSnapshots (sempre
+    // includeDreSnapshots:false) - o self-heal por leitura é quem garante a
+    // correção, independente do que esta lista cobre.
+    expect(LEGACY_FINANCIAL_FACT_FIELDS).not.toContain("employees");
+    expect(LEGACY_FINANCIAL_FACT_FIELDS).not.toContain("config");
+    expect(LEGACY_FINANCIAL_FACT_FIELDS).not.toContain("obras");
+    expect(LEGACY_FINANCIAL_FACT_FIELDS).not.toContain("equipamentos");
+    const before={employees:[{id:"e1",dailyRate:100}]};
+    const after={employees:[{id:"e1",dailyRate:180}]};
+    expect(legacyFinancialFactsChanged(before,after)).toBe(false);
   });
 });

@@ -14,7 +14,15 @@ const settlement = (legacyType, legacyId, value, date, transactionId = "") => ({
   bankTransactionLegacyId:String(transactionId || ""),
 });
 
-export const buildLegacyFinancialFacts = data => {
+// Achado de 21/08/2026: dreSnapshots (buildDreProjectionRows) recomputa a
+// projeção da empresa inteira (~1.764 linhas em produção) e dominava o
+// tempo de financial_sync_legacy_facts. A tela de DRE já se auto-repara na
+// leitura (api/data.js, ação financial-dre-report, via
+// sourceRevision/updated_at), então o caminho de escrita transacional passa
+// includeDreSnapshots:false - só o job manual/de deploy (financial-shadow-sync,
+// scripts/apply-financial-shadow.mjs) precisa do array completo, e nenhum
+// dos dois passa essa opção, preservando o comportamento de sempre.
+export const buildLegacyFinancialFacts = (data, { includeDreSnapshots = true } = {}) => {
   const facts = [];
   const push = fact => {
     if (!fact.legacyId || !(fact.titleAmount > 0)) return;
@@ -111,7 +119,7 @@ export const buildLegacyFinancialFacts = data => {
     metadata:{ extratoId:item.extratoId || "", legacyStatus:item.status || "pendente" },
   })).filter(item => item.legacyId && item.amount > 0);
 
-  return { facts, bankTransactions, dreSnapshots:buildDreProjectionRows(data) };
+  return { facts, bankTransactions, dreSnapshots:includeDreSnapshots?buildDreProjectionRows(data):[] };
 };
 
 export const summarizeLegacyFinancialFacts = ({ facts = [] } = {}) => {

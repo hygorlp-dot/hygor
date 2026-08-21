@@ -60,4 +60,18 @@ describe("homologação financeira em sombra", () => {
       "obra-1":{thirdParty:900,expenses:150},
     });
   });
+
+  it("includeDreSnapshots:false pula a reconstrução do DRE sem afetar fatos/transações", () => {
+    const data = {
+      medicoes:[{ id:"m1", obraId:"o1", competencia:"2026-07", valorPrevisto:1000, valorRecebido:400 }],
+      transacoes:[{ id:"tr1", obraId:"o1", valor:500, data:"2026-07-05" }],
+    };
+    const completo = buildLegacyFinancialFacts(data);
+    expect(completo.dreSnapshots.length).toBeGreaterThan(0);
+
+    const semDre = buildLegacyFinancialFacts(data, { includeDreSnapshots:false });
+    expect(semDre.dreSnapshots).toEqual([]);
+    expect(semDre.facts).toEqual(completo.facts);
+    expect(semDre.bankTransactions).toEqual(completo.bankTransactions);
+  });
 });

@@ -538,13 +538,14 @@ const salvarFinanceiroComAuditoria = async ({ key=KEY, expectedUpdatedAt, value,
   const correlationId=crypto.randomUUID();
   const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
   try{
-    const snapshot=buildLegacyFinancialFacts(financialSnapshotData);
+    const snapshot=buildLegacyFinancialFacts(financialSnapshotData,{includeDreSnapshots:false});
     const valorPersistido=key===KEY?coreFieldsOnly(value,rowVersions,keepDomain):value;
     const [result]=await sql`
       select * from financial_save_with_sync(
         ${COMPANY},${key},${expectedUpdatedAt},${sql.json(encodeAppData(valorPersistido))},
         ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
-        ${correlationId},${action},${sql.json(before||{})},${sql.json(after||{})},${sql.json(snapshot)}
+        ${correlationId},${action},${sql.json(before||{})},${sql.json(after||{})},${sql.json(snapshot)},
+        false
       )
     `;
     return {
@@ -594,12 +595,34 @@ const operationalCommandEntityId=command=>
   ||command.payload?.records?.[0]?.id
   ||(command.type===OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED?"company-config":"");
 
+// Só estes 7 campos alimentam financial_titles/settlements/bank_transactions
+// (buildLegacyFinancialFacts, server/financial-shadow.js:33-114) - dreSnapshots
+// NÃO entra aqui de propósito: depende de employees/config/obras/equipamentos/
+// rescisoes (labor-cost-engine.js, dre-projection.js) e já se auto-repara na
+// leitura (ver includeDreSnapshots:false abaixo), então nunca precisa
+// disparar a sincronização síncrona por si só.
+export const LEGACY_FINANCIAL_FACT_FIELDS=[
+  "medicoes","payments","pagsTerceiros","outrasDesp","despesasEmpresa","pedidos","transacoes",
+];
+export const legacyFinancialFactsChanged=(before,after)=>
+  LEGACY_FINANCIAL_FACT_FIELDS.some(field=>
+    JSON.stringify(before?.[field])!==JSON.stringify(after?.[field]));
+
 const gravarMutacaoNaTransacao=async({
-  transaction,locked,value,actor,action,before,after,financial=false,
+  transaction,locked,value,basePayload=null,actor,action,before,after,financial=false,
 })=>{
   const correlationId=crypto.randomUUID();
-  if(financial&&FINANCIAL_ENGINE_ENFORCE){
-    const snapshot=buildLegacyFinancialFacts(value);
+  // basePayload só existe quando o chamador tem o dado completo de antes da
+  // mutação em mãos (executarMutacaoEmpresaBloqueada); sem ele, o default
+  // (true) preserva o comportamento de sempre - sincroniza incondicionalmente.
+  const legacyFactsChanged=basePayload==null||legacyFinancialFactsChanged(basePayload,value);
+  if(financial&&FINANCIAL_ENGINE_ENFORCE&&legacyFactsChanged){
+    // Achado de 21/08/2026: financial_sync_legacy_facts reconstruía também
+    // os ~1.764 snapshots de DRE da empresa a cada chamada, dominando o
+    // tempo do request (~25s medidos ao vivo). O DRE já se auto-repara na
+    // leitura (ação financial-dre-report, via sourceRevision/updated_at),
+    // então o caminho de escrita nunca precisa reconstruí-lo.
+    const snapshot=buildLegacyFinancialFacts(value,{includeDreSnapshots:false});
     const [saved]=await transaction`
       select * from financial_save_with_sync(
         ${COMPANY},${KEY},
@@ -613,7 +636,8 @@ const gravarMutacaoNaTransacao=async({
         ${correlationId},${action},
         ${JSON.stringify(before||{})}::jsonb,
         ${JSON.stringify(after||{})}::jsonb,
-        ${JSON.stringify(snapshot)}::jsonb
+        ${JSON.stringify(snapshot)}::jsonb,
+        false
       )
     `;
     if(!saved?.applied)throw new Error("A mutação financeira perdeu o bloqueio exclusivo da base.");
@@ -670,7 +694,7 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,mutate
       onMark("apos mutate()");
       if(!outcome||outcome.kind!=="save")return outcome;
       const saved=await gravarMutacaoNaTransacao({
-        transaction,locked,value:outcome.data,actor,action,
+        transaction,locked,value:outcome.data,basePayload:current,actor,action,
         before:outcome.before,after:outcome.after,financial,
       });
       onMark("apos gravarMutacaoNaTransacao (antes do commit)");
