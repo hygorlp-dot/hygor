@@ -234,6 +234,13 @@ mais 5 pontos, todos corrigidos nesta mesma rodada:
   realmente usado por `EMPLOYEE_SAVED` e outros comandos financeiros.
   A limitação do arquivamento de ponto (parágrafo acima) permanece real e
   não corrigida nesse caminho.
+- **Resolvido (21/08/2026, de forma pragmática - ver seção "Limitação do
+  arquivamento de ponto: fechada" abaixo)**: em vez da migration
+  transacional de três chaves (que exigiria reabrir e testar a RPC de
+  arquivamento com risco maior do que o benefício justifica para uma ação
+  rara), uma segunda escrita best-effort (`sincronizarPontoAposArquivo`)
+  sincroniza `attendance` na linha de Ponto logo depois que o arquivamento/
+  restauração confirma na core, fechando a lacuna sem tocar a RPC.
 
 ## Achado de 21/08/2026: sincronização financeira síncrona dominava o tempo de escrita
 
@@ -413,6 +420,48 @@ handler) para os 6 pontos de chamada de `executarMutacaoEmpresaBloqueada`
 de regressão: `src/integration/operational-command-locked-path.test.js`
 conta as chamadas ao mock do Supabase e exige exatamente 2 (uma
 `lerLinha()`), não 4.
+
+## Limitação do arquivamento de ponto: fechada (21/08/2026)
+
+Retomando a limitação documentada duas vezes ("Achado adicional" acima):
+`executarArquivoPontoTransacional` (RPC `attendance_archive_transaction`/
+`attendance_restore_transaction`, `migrations/006`) sempre grava
+`attendance` na linha core, porque tornar essa RPC de duas chaves
+(`p_main_key`, `p_archive_key`) ciente de uma TERCEIRA chave (a linha de
+Ponto) exigiria uma nova migration transacional - reabrir e testar uma RPC
+que já lida com concorrência (`for update` em duas linhas) tem risco maior
+do que o benefício justifica para uma ação rara (admin/RH, periódica, sem
+concorrência real com o check-in normal).
+
+Como agora a linha de Ponto genuinamente existe em produção (seed script
+já rodado nesta sessão), a leitura normal (que sempre prioriza a linha de
+Ponto sobre a core para `attendance`) estava **de fato ignorando** o
+resultado de qualquer arquivamento/restauração feito a partir de agora -
+não era mais hipotético.
+
+**Fix pragmático, sem migration**: `sincronizarPontoAposArquivo`
+(`api/data.js`) roda logo depois que `executarArquivoPontoTransacional`
+confirma a transação principal na core. Se `rowVersions[DOMAIN_ROW.PONTO]`
+existir, faz uma segunda escrita (via `salvarComAuditoria`, o mesmo RPC
+`company_save_with_audit` de sempre) com `pickDomainFields(novoPrincipal,
+DOMAIN_ROW.PONTO)` na linha de Ponto, usando o `rowVersions` capturado no
+início do request como CAS. Se essa segunda escrita falhar (conflito de
+versão por um check-in concorrente raríssimo), a resposta ainda é `200`
+- o arquivamento em si já está correto e seguro na core; só fica um log
+de erro no servidor, sem repetir tentativa e sem bloquear a resposta.
+
+Não é atômico com a transação principal (uma janela mínima entre as duas
+escritas), mas é estritamente melhor que o estado anterior (a lacuna
+existia sempre, incondicionalmente) e evita o risco de reabrir uma RPC
+transacional financeiro-adjacente sem revisão dedicada.
+
+Testes: `src/integration/attendance-archive-ponto-sync.test.js` (novo -
+mock completo de `db.rpc`, cobre: sem sincronizar quando a linha de Ponto
+não existe ainda; sincronizando corretamente quando existe, removendo só
+as datas arquivadas; e a resposta continuando `200` mesmo se a
+sincronização falhar) e `src/integration/attendance-persistence-
+contract.test.js` (assinatura estrutural de que os dois call sites
+chamam `sincronizarPontoAposArquivo`).
 
 ## Arquivos referenciados
 

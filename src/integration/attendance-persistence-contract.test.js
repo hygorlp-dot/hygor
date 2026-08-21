@@ -49,4 +49,15 @@ describe("contrato integrado de persistência do ponto",()=>{
     expect(api).toContain("AUDIT_RPC_MIGRATION_REQUIRED");
     expect(api).toContain("ATTENDANCE_ARCHIVE_RPC_UNAVAILABLE");
   });
+
+  it("achado de 21/08/2026: sincroniza a linha de Ponto após arquivar/restaurar, quando ela já existe",()=>{
+    expect(api).toContain("const sincronizarPontoAposArquivo=async");
+    const archiveRoute=api.slice(
+      api.indexOf('action === "archive-quinzena"'),
+      api.indexOf('action === "list-quinzena-archives"'),
+    );
+    expect(archiveRoute).toContain("await sincronizarPontoAposArquivo({rowVersions,novoPrincipal,actor:usuario,quinzenaId,action:\"attendance_archive_ponto_sync\"})");
+    const restoreRoute=api.slice(api.indexOf('action === "restore-quinzena"'));
+    expect(restoreRoute).toContain("await sincronizarPontoAposArquivo({rowVersions,novoPrincipal,actor:usuario,quinzenaId,action:\"attendance_restore_ponto_sync\"})");
+  });
 });

@@ -520,6 +520,35 @@ const executarArquivoPontoTransacional=async({
   };
 };
 
+// Achado de 21/08/2026 (limitação documentada duas vezes sem correção -
+// ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): o arquivamento/restauração de
+// ponto sempre grava `attendance` na linha core (`p_main_key=KEY`, sem
+// roteamento por domínio), porque tornar attendance_archive_transaction/
+// attendance_restore_transaction (já uma RPC de duas chaves) ciente de um
+// terceiro alvo (a linha de Ponto) exigiria uma nova migration
+// transacional de três chaves - risco maior do que o benefício justifica
+// para uma ação rara (admin, periódica, não concorrente com o check-in
+// normal). Em vez disso, esta segunda escrita best-effort sincroniza a
+// cópia de `attendance` na linha própria de Ponto logo depois que a
+// transação principal já confirmou o arquivamento/restauração - fecha a
+// lacuna que fazia a leitura (que sempre prioriza a linha de Ponto sobre a
+// core para esse campo) ignorar o resultado. Se essa segunda escrita
+// falhar (ex.: conflito de versão por um check-in concorrente
+// raríssimo), o arquivamento em si já está correto e seguro na linha
+// core - só fica registrado no log do servidor, sem bloquear a resposta.
+const sincronizarPontoAposArquivo=async({rowVersions,novoPrincipal,actor,quinzenaId,action})=>{
+  if(rowVersions?.[DOMAIN_ROW.PONTO]==null)return;
+  try{
+    await salvarComAuditoria({
+      key:PONTO_KEY,expectedUpdatedAt:rowVersions[DOMAIN_ROW.PONTO],
+      value:pickDomainFields(novoPrincipal,DOMAIN_ROW.PONTO),
+      actor,action,before:{quinzenaId},after:{quinzenaId},
+    });
+  }catch(err){
+    console.error(`Falha ao sincronizar attendance na linha de Ponto apos ${action}:`,err.message);
+  }
+};
+
 // `financialSnapshotData` é o `data` COMPLETO mesclado (todos os domínios),
 // usado só para calcular os fatos financeiros de sincronização
 // (buildLegacyFinancialFacts lê medicoes/pedidos/notasFiscais/etc., que não
@@ -2154,6 +2183,7 @@ export default async function handler(req, res) {
           code:`ATTENDANCE_ARCHIVE_${transaction.reason.toUpperCase()}`,
         });
       }
+      await sincronizarPontoAposArquivo({rowVersions,novoPrincipal,actor:usuario,quinzenaId,action:"attendance_archive_ponto_sync"});
       return res.status(200).json({
         ok:true,data:projectDataForUser(novoPrincipal,usuario),
         updatedAt:transaction.updatedAt||agora,meta,
@@ -2256,6 +2286,7 @@ export default async function handler(req, res) {
           code:`ATTENDANCE_RESTORE_${transaction.reason.toUpperCase()}`,
         });
       }
+      await sincronizarPontoAposArquivo({rowVersions,novoPrincipal,actor:usuario,quinzenaId,action:"attendance_restore_ponto_sync"});
       return res.status(200).json({
         ok:true,data:projectDataForUser(novoPrincipal,usuario),
         updatedAt:transaction.updatedAt||agora,devolvidos,mantidos,
