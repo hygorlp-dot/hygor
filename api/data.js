@@ -406,14 +406,20 @@ const rateLimitCentral=async(subject,action)=>{
 // um domínio separado usar como CAS da própria linha, em vez do updated_at
 // da core (que mudar por outro motivo não deveria invalidar essa gravação).
 const lerLinha = async () => {
-  const { data, error } = await db
-    .from("company_app_data")
-    .select("value, updated_at")
-    .eq("company_id", COMPANY)
-    .eq("key", KEY)
-    .maybeSingle();
+  // Achado de 21/08/2026: as duas leituras abaixo (linha core e linhas
+  // separadas) são independentes - não há motivo para uma esperar a outra
+  // terminar. Rodá-las em paralelo (em vez de sequencialmente) tira um
+  // round-trip inteiro de rede do caminho crítico de toda gravação.
+  const splitEntries = Object.entries(SPLIT_ROW_KEYS);
+  const [{ data, error }, { data: splitRows, error: splitError }] = await Promise.all([
+    db.from("company_app_data").select("value, updated_at")
+      .eq("company_id", COMPANY).eq("key", KEY).maybeSingle(),
+    db.from("company_app_data").select("key, value, updated_at")
+      .eq("company_id", COMPANY).in("key", splitEntries.map(([, key]) => key)),
+  ]);
   if (error) throw error;
   if (!data) return { payload: null, updatedAt: null, rowVersions: {} };
+  if (splitError) throw splitError;
   const payload = decodeAppData(data.value);
   // Migração transparente: preserva o mesmo updated_at para não criar um
   // falso conflito nos navegadores que já estavam editando. Se outra gravação
@@ -426,14 +432,6 @@ const lerLinha = async () => {
       if(migrated.error)console.error("Não foi possível compactar o dataset:",migrated.error.message);
     }
   }
-
-  const splitEntries = Object.entries(SPLIT_ROW_KEYS);
-  const { data: splitRows, error: splitError } = await db
-    .from("company_app_data")
-    .select("key, value, updated_at")
-    .eq("company_id", COMPANY)
-    .in("key", splitEntries.map(([, key]) => key));
-  if (splitError) throw splitError;
 
   const rowVersions = { [DOMAIN_ROW.CORE]: data.updated_at || null };
   const rowPayloadsByDomain = {};
