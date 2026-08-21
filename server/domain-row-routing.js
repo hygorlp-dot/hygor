@@ -105,6 +105,53 @@ export const pickDomainFields = (data, domain) => {
   return picked;
 };
 
+const SPLITTABLE_DOMAINS = [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAIN_ROW.CONFIG, DOMAIN_ROW.EQUIPAMENTOS];
+
+// Remove de `data` (já mesclado, com os campos das 4 linhas separadas
+// dentro) os campos de todo domínio cuja linha própria JÁ EXISTE
+// (`rowVersions[domain] != null`) - usado para gravar a linha core sem
+// duplicar nela o que já mora em outra linha.
+//
+// Um domínio cuja linha ainda não existe (rowVersions[domain] == null,
+// migração de semeadura ainda não rodou) é DELIBERADAMENTE preservado: a
+// própria core é, temporariamente, onde esse domínio precisa continuar
+// sendo gravado (ver linhaEfetivaParaEscrita em api/data.js) - removê-lo
+// perderia o dado, já que ele não está persistido em nenhum outro lugar
+// ainda. `keepDomain` nunca é removido, mesmo que sua linha já exista -
+// usado quando ESSE é o domínio de fato sendo gravado nesta chamada
+// específica (ex.: Ponto caindo de volta para a core só nesta gravação).
+//
+// data.operationalCommandReceipts nunca é removido - é o razão de
+// idempotência compartilhado, e comandos "core" (EMPLOYEE_SAVED,
+// FIELD_REPORT_*...) também passam pelo mesmo `duplicate(data,
+// idempotencyKey)` em operational-commands.js:195, precisando da própria
+// cópia persistida na core.
+//
+// Achado de 21/08/2026, ao investigar por que salvar um funcionário
+// (EMPLOYEE_SAVED, comando "core") ficou levando ~25s mesmo depois da
+// separação de linhas: como `applyOperationalCommand` recebe e devolve o
+// `data` INTEIRO mesclado (precisa disso para comandos que leem campo de
+// outro domínio, ex. Produção lendo `employees`), o `resultData` de um
+// comando core carregava também uma cópia inteira de
+// Equipamentos/Ponto/Lookahead/Config vinda da mesclagem de leitura -
+// e essa cópia inteira estava sendo reenviada e regravada (com gzip) na
+// linha core a cada comando core, sem necessidade nenhuma (o dado já está
+// persistido, correto e atualizado nas próprias linhas separadas).
+export const coreFieldsOnly = (data, rowVersions = {}, keepDomain = null) => {
+  const excludedFields = new Set(
+    SPLITTABLE_DOMAINS
+      .filter(domain => domain !== keepDomain && rowVersions[domain] != null)
+      .flatMap(domain => DOMAIN_FIELDS[domain] || [])
+      .filter(field => field !== SHARED_RECEIPTS_FIELD),
+  );
+  const result = {};
+  Object.keys(data || {}).forEach(key => {
+    if (excludedFields.has(key)) return;
+    result[key] = data[key];
+  });
+  return result;
+};
+
 // Une várias cópias do razão de idempotência compartilhado (uma por linha
 // que o escreve) por idempotencyKey, mantendo o registro com appliedAt mais
 // recente em caso de colisão, e trunca no mesmo limite (2000) que

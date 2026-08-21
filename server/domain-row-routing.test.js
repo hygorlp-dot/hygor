@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import {
+  coreFieldsOnly,
   DOMAIN_FIELDS,
   DOMAIN_ROW,
   mergeDomainRows,
@@ -133,5 +134,63 @@ describe("mergeDomainRows", () => {
   it("não mexe no razão compartilhado quando nenhuma linha o contém", () => {
     const merged = mergeDomainRows({ employees: [] }, { [DOMAIN_ROW.PONTO]: { attendance: {} } });
     expect(merged.operationalCommandReceipts).toBeUndefined();
+  });
+});
+
+describe("coreFieldsOnly", () => {
+  const allRowsExist = {
+    [DOMAIN_ROW.PONTO]: "2026-08-21T00:00:00.000Z",
+    [DOMAIN_ROW.LOOKAHEAD]: "2026-08-21T00:00:00.000Z",
+    [DOMAIN_ROW.CONFIG]: "2026-08-21T00:00:00.000Z",
+    [DOMAIN_ROW.EQUIPAMENTOS]: "2026-08-21T00:00:00.000Z",
+  };
+  const merged = {
+    employees: [{ id: "e1" }],
+    attendance: { e1: {} }, attendanceLocks: {}, unlockRequests: [],
+    dailyCheckDate: "", attendanceOperationReceipts: [],
+    lookaheadWindows: [{ id: "l1" }],
+    config: { companyName: "ARCD" },
+    equipamentos: [{ id: "eq1" }], equipmentLots: [], equipmentModels: [],
+    equipmentUnits: [], equipmentUnavailability: [], locacoesEquip: [],
+    manutencoesEquip: [], proprietariosEquip: [], rentalChargeItems: [],
+    rentalInvoices: [], rentalInvoiceReceipts: [], transferenciasEquip: [],
+    equipmentRegistryMigration: {}, equipmentRegistryRevision: 0,
+    equipmentRegistryHistory: [],
+  };
+
+  it("remove os campos das 4 linhas separadas quando todas já existem", () => {
+    expect(coreFieldsOnly(merged, allRowsExist)).toEqual({ employees: merged.employees });
+  });
+
+  it("por padrão (sem rowVersions) não remove nada - seguro para quem ainda não passa esse parâmetro", () => {
+    expect(coreFieldsOnly(merged)).toEqual(merged);
+  });
+
+  it("preserva os campos de um domínio cuja linha ainda não existe (rowVersions[domain] == null) - é o fallback ainda gravando na core", () => {
+    const someRowsExist = { ...allRowsExist, [DOMAIN_ROW.EQUIPAMENTOS]: null };
+    const result = coreFieldsOnly(merged, someRowsExist);
+    expect(result.equipamentos).toEqual(merged.equipamentos);
+    expect(result).not.toHaveProperty("lookaheadWindows");
+    expect(result).not.toHaveProperty("attendance");
+  });
+
+  it("keepDomain nunca é removido, mesmo que a linha já exista - é o domínio de fato sendo gravado nesta chamada", () => {
+    const result = coreFieldsOnly(merged, allRowsExist, DOMAIN_ROW.PONTO);
+    expect(result.attendance).toEqual(merged.attendance);
+    expect(result.attendanceLocks).toEqual(merged.attendanceLocks);
+    expect(result).not.toHaveProperty("lookaheadWindows");
+    expect(result).not.toHaveProperty("equipamentos");
+  });
+
+  it("preserva o razão de idempotência compartilhado mesmo quando as linhas existem (também usado por comandos core)", () => {
+    const withReceipts = { ...merged, operationalCommandReceipts: [{ idempotencyKey: "x" }] };
+    const result = coreFieldsOnly(withReceipts, allRowsExist);
+    expect(result.operationalCommandReceipts).toEqual(withReceipts.operationalCommandReceipts);
+    expect(result).not.toHaveProperty("lookaheadWindows");
+  });
+
+  it("preserva campos que nenhum domínio separado usa (regressão: RH, RDO, financeiro...)", () => {
+    const withOthers = { employees: [{ id: "e1" }], rdos: [{ id: "r1" }], obras: [{ id: "o1" }], medicoes: [] };
+    expect(coreFieldsOnly(withOthers, allRowsExist)).toEqual(withOthers);
   });
 });

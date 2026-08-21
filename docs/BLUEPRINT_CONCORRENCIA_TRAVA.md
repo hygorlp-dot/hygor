@@ -179,6 +179,61 @@ ganharam linha própria nesta rodada, não só Ponto.
   continuam não implementadas, como planejado - nenhuma delas foi puxada
   para esta rodada.
 
+## Achado adicional (21/08/2026): bloat de escrita na linha core
+
+Depois do deploy, o usuário reportou que salvar um funcionário continuava
+lento (~25s, uma única tentativa, sem 409/503 - medido ao vivo com uma
+sonda de `fetch` isolada no navegador). Causa raiz: `applyOperationalCommand`
+recebe e devolve o `data` **inteiro mesclado** (precisa disso para comandos
+que leem campo de outro domínio, ex. Produção lendo `employees`), então
+`resultData` de um comando "core" (como `EMPLOYEE_SAVED`) carregava também
+uma cópia inteira de Equipamentos/Ponto/Lookahead/Config vinda da
+mesclagem de leitura em `lerLinha()` - e essa cópia inteira estava sendo
+reenviada e regravada (com gzip) na linha core a cada comando core, sem
+necessidade nenhuma (o dado já está persistido, correto e atualizado nas
+próprias linhas separadas). Isso explica o tempo: codificar/transmitir um
+blob várias vezes maior que o necessário a cada salvamento de RH.
+
+Corrigido de forma centralizada: `server/domain-row-routing.js` ganhou
+`coreFieldsOnly(data, rowVersions, keepDomain)`, que remove os campos de
+qualquer domínio separado CUJA LINHA JÁ EXISTE (preserva os campos de um
+domínio ainda não semeado, porque nesse caso a própria core é,
+temporariamente, onde ele precisa continuar sendo gravado - mesma lógica
+de `linhaEfetivaParaEscrita`). Aplicado dentro de
+`salvarComAuditoria`/`salvarFinanceiroComAuditoria` (sempre que
+`key===KEY`), então cobre automaticamente TODO chamador que grava a linha
+core - não só os dois que eu tinha tocado originalmente. Uma varredura
+completa por todo `api/data.js` (pedida explicitamente pelo usuário, "é
+provável que existam mais erros parecidos?") encontrou o mesmo padrão em
+mais 5 pontos, todos corrigidos nesta mesma rodada:
+
+- As duas ações "save-sections" e "save" (o caminho de salvamento legado
+  por seções/blob completo, usado por qualquer tela ainda não migrada para
+  comando operacional - é provavelmente o caminho de MAIOR volume de
+  escrita do sistema inteiro).
+- `reconciliation-command` (conciliação bancária).
+- O provisionamento de login (`auth_provision`, ligar e-mail/senha a um
+  operador) e o upgrade de hash de PIN (`auth_pin_upgraded`) - escritas
+  diretas na tabela, fora de `salvarComAuditoria`.
+- O arquivamento/restauração de ponto por quinzena
+  (`executarArquivoPontoTransacional`) - aqui com uma ressalva: `attendance`
+  é o campo que de fato está sendo escrito (preservado via `keepDomain`),
+  mas a transação continua sempre mirando a linha core
+  (`p_main_key`) em vez de rotear para a linha de Ponto quando ela já
+  existe. Isso significa que, depois que a linha de Ponto for semeada,
+  arquivar/restaurar uma quinzena grava um `attendance` que a leitura
+  normal vai ignorar (a mesclagem sempre prioriza a linha de Ponto sobre a
+  core para esse campo) - **limitação conhecida, não corrigida nesta
+  rodada** por exigir tornar a RPC de arquivamento (que já é uma transação
+  de duas chaves) ciente de domínio; fica registrada aqui para não ser
+  esquecida.
+- O caminho travado (`gravarMutacaoNaTransacao`/
+  `executarMutacaoEmpresaBloqueada`, só usado se `POSTGRES_URL_NON_POOLING`
+  estiver configurado) tem a mesma limitação de fundo e **também não foi
+  corrigido** - confirmado inativo no ambiente atual (o padrão 409→503
+  observado só existe no caminho otimista), mas se `POSTGRES_URL_NON_POOLING`
+  for habilitado no futuro, este bloat volta a existir ali.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`

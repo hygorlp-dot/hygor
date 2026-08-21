@@ -14967,8 +14967,10 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
     const codigo=Math.max(0,...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1;
     let novaData=today(); while((data.rdos||[]).some(x=>x.obraId===item.obraId&&x.data===novaData)){const d=new Date(`${novaData}T12:00:00`);d.setDate(d.getDate()+1);novaData=d.toISOString().slice(0,10);}
     const {operationalHistory:ignoredHistory,motivoCancelamento:ignoredCancelReason,canceladoEm:ignoredCancelledAt,canceladoPor:ignoredCancelledBy,canceladoPorId:ignoredCancelledById,reabertoEm:ignoredReopenedAt,reabertoPor:ignoredReopenedBy,reabertoPorId:ignoredReopenedById,motivoReabertura:ignoredReopenReason,...conteudo}=item;
-    const copia={...conteudo,id:uid(),codigo,status:"preparacao",data:novaData,fotos:[],anexos:[],revisaoEngenheiro:{aprovado:false,engenheiroId:"",engenheiro:"",revisadoEm:"",observacao:""},responsavel:responsavelAutomatico?.nome||"",responsavelId:responsavelAutomatico?.id||"",registradoPor:currentUser?.nome||"",registradoPorId:currentUser?.id||"",criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:"",version:0};
-    const result=await update({...data,rdos:[...(data.rdos||[]),copia]});if(result?.ok===false){showToast?.(result.reason||"Não foi possível duplicar o diário.","error");return;}setObraId(copia.obraId);setDataRDO(copia.data);setModoRdo("editor");showToast?.("Conteúdo copiado para um novo rascunho sem aprovação ou auditoria anterior.");
+    const copia={...conteudo,id:uid(),codigo,status:"preparacao",data:novaData,fotos:[],anexos:[],revisaoEngenheiro:{aprovado:false,engenheiroId:"",engenheiro:"",revisadoEm:"",observacao:""},responsavel:responsavelAutomatico?.nome||"",responsavelId:responsavelAutomatico?.id||"",registradoPor:currentUser?.nome||"",registradoPorId:currentUser?.id||"",criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:""};
+    const result=await dispatchCommand({type:OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,idempotencyKey:`rdo-duplicar-${copia.id}-${uid()}`,expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{report:copia}});
+    if(!result?.ok){showToast?.(result?.reason||"Não foi possível duplicar o diário.","error");return;}
+    setObraId(copia.obraId);setDataRDO(copia.data);setModoRdo("editor");showToast?.("Conteúdo copiado para um novo rascunho sem aprovação ou auditoria anterior.");
   };
 
   const imprimirRdo = item => {

@@ -46,7 +46,7 @@ import {
   requiresFinancialOperationalPersistence,
 } from "../server/operational-command-persistence.js";
 import {
-  DOMAIN_ROW, mergeDomainRows, pickDomainFields, rowForOperationalCommand,
+  coreFieldsOnly, DOMAIN_ROW, mergeDomainRows, pickDomainFields, rowForOperationalCommand,
 } from "../server/domain-row-routing.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
@@ -461,10 +461,19 @@ const lerIndicePerfis = async () => {
 // DATA-001: a RPC atualiza o blob e insere o evento append-only na mesma
 // transação PostgreSQL. `before`/`after` recebem somente as seções alteradas,
 // evitando duplicar um blob inteiro no histórico a cada pequena edição.
-const salvarComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, actor, action, before, after }) => {
+// Toda gravação na linha core passa por aqui - `value` pode chegar com uma
+// cópia inteira de Ponto/Lookahead/Config/Equipamentos dentro (porque
+// `atual`/`resultData`, em qualquer chamador, vêm do `data` já mesclado por
+// lerLinha()). coreFieldsOnly tira essas 4 linhas separadas do que
+// realmente vai ser codificado/gravado na core - sem isso, cada gravação
+// core reencodava (gzip) e regravava todo o histórico dessas 4 linhas de
+// novo, sem necessidade (achado de 21/08/2026: era a causa real de
+// EMPLOYEE_SAVED levando ~25s mesmo depois da separação de linhas).
+const salvarComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, rowVersions={}, keepDomain=null, actor, action, before, after }) => {
   const correlationId=crypto.randomUUID();
+  const valorPersistido=key===KEY?coreFieldsOnly(value,rowVersions,keepDomain):value;
   const {data,error}=await db.rpc("company_save_with_audit",{
-    p_company_id:COMPANY,p_key:key,p_expected_updated_at:expectedUpdatedAt,p_value:encodeAppData(value),
+    p_company_id:COMPANY,p_key:key,p_expected_updated_at:expectedUpdatedAt,p_value:encodeAppData(valorPersistido),
     p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
     p_correlation_id:correlationId,p_action:action,p_before:before||{},p_after:after||{},
   });
@@ -481,12 +490,12 @@ const salvarComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, actor, ac
 };
 
 const executarArquivoPontoTransacional=async({
-  mode,expectedUpdatedAt,mainValue,archiveKey,archiveValue,actor,before,after,
+  mode,mainKey=KEY,expectedUpdatedAt,mainValue,archiveKey,archiveValue,actor,before,after,
 })=>{
   const correlationId=crypto.randomUUID();
   const rpc=mode==="archive"?"attendance_archive_transaction":"attendance_restore_transaction";
   const args={
-    p_company_id:COMPANY,p_main_key:KEY,p_archive_key:archiveKey,
+    p_company_id:COMPANY,p_main_key:mainKey,p_archive_key:archiveKey,
     p_expected_updated_at:expectedUpdatedAt,p_main_value:encodeAppData(mainValue),
     p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
     p_actor_role:String(actor?.role||""),
@@ -517,22 +526,23 @@ const executarArquivoPontoTransacional=async({
 // financeiro. Todo chamador que ainda grava a linha core inteira (o caso de
 // sempre, antes desta separação) não precisa passá-lo - o default preserva
 // o comportamento exato de antes.
-const salvarFinanceiroComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, financialSnapshotData=value, actor, action, before, after }) => {
+const salvarFinanceiroComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, financialSnapshotData=value, rowVersions={}, keepDomain=null, actor, action, before, after }) => {
   // Enquanto FIN-003 está em sombra, o legado é a fonte oficial. Exigir a
   // reconstrução integral do razão dentro de cada clique deixava conciliações
   // presas em 503 sob concorrência. A ativação do enforcement restaura a
   // transação conjunta; até lá, preservamos disponibilidade + auditoria.
   if(financialPersistenceMode(FINANCIAL_ENGINE_ENFORCE)==="audited_shadow"){
-    return salvarComAuditoria({key,expectedUpdatedAt,value,actor,action,before,after});
+    return salvarComAuditoria({key,expectedUpdatedAt,value,rowVersions,keepDomain,actor,action,before,after});
   }
   if(!process.env.POSTGRES_URL_NON_POOLING)throw new Error("A conexão transacional do motor financeiro não está configurada.");
   const correlationId=crypto.randomUUID();
   const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
   try{
     const snapshot=buildLegacyFinancialFacts(financialSnapshotData);
+    const valorPersistido=key===KEY?coreFieldsOnly(value,rowVersions,keepDomain):value;
     const [result]=await sql`
       select * from financial_save_with_sync(
-        ${COMPANY},${key},${expectedUpdatedAt},${sql.json(encodeAppData(value))},
+        ${COMPANY},${key},${expectedUpdatedAt},${sql.json(encodeAppData(valorPersistido))},
         ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
         ${correlationId},${action},${sql.json(before||{})},${sql.json(after||{})},${sql.json(snapshot)}
       )
@@ -993,7 +1003,7 @@ export default async function handler(req, res) {
       if(pinAuth.upgradeHash){
         const atualizado={...atual,usuarios:(atual.usuarios||[]).map(item=>item.id===usuario.id?{...item,pin:pinAuth.upgradeHash}:item)};
         const migration=await salvarComAuditoria({
-          expectedUpdatedAt:updatedAt,value:atualizado,actor:usuario,action:"auth_pin_upgraded",
+          expectedUpdatedAt:updatedAt,value:atualizado,rowVersions,actor:usuario,action:"auth_pin_upgraded",
           before:{userId:usuario.id,algorithm:"sha256"},after:{userId:usuario.id,algorithm:"scrypt-v1"},
         });
         if(migration.applied){
@@ -1077,7 +1087,7 @@ export default async function handler(req, res) {
       }
       const novo={...atual,usuarios:(atual.usuarios||[]).map(u=>u.id===alvo.id?{...u,authUserId:authId,email}:u)};
       const agora=new Date().toISOString();
-      const {data:gravado,error}=await db.from("company_app_data").update({value:encodeAppData(novo),updated_at:agora}).eq("company_id",COMPANY).eq("key",KEY).select("updated_at").maybeSingle();
+      const {data:gravado,error}=await db.from("company_app_data").update({value:encodeAppData(coreFieldsOnly(novo,rowVersions)),updated_at:agora}).eq("company_id",COMPANY).eq("key",KEY).select("updated_at").maybeSingle();
       if(error)throw error;
       await salvarIndicePerfis(novo);
       return res.status(200).json({ok:true,data:novo,updatedAt:gravado?.updated_at||agora});
@@ -1229,6 +1239,7 @@ export default async function handler(req, res) {
         return salvarFinanceiroComAuditoria({
           expectedUpdatedAt:base.updatedAt,
           value:executed.data,
+          rowVersions,
           actor:usuario,
           action:`reconciliation_${String(command.type).toLowerCase()}`,
           before:{transaction:beforeTransaction},
@@ -1308,7 +1319,7 @@ export default async function handler(req, res) {
       // cai de volta a gravar a linha core inteira - ver
       // linhaEfetivaParaEscrita.
       const dominioInicial=linhaEfetivaParaEscrita(DOMAIN_ROW.PONTO,rowVersions);
-      let base={payload:atual,domain:dominioInicial,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[DOMAIN_ROW.PONTO]};
+      let base={payload:atual,domain:dominioInicial,rowVersions,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[DOMAIN_ROW.PONTO]};
       for(let attempt=0;attempt<6;attempt+=1){
         const applied=applyAttendanceCommand(base.payload,usuario,command,operationNow);
         if(!applied.ok)return res.status(applied.status||400).json({ok:false,error:applied.error});
@@ -1321,6 +1332,7 @@ export default async function handler(req, res) {
           key:keyForDomain(base.domain),
           expectedUpdatedAt:base.updatedAt,
           value:base.domain===DOMAIN_ROW.CORE?applied.data:pickDomainFields(applied.data,DOMAIN_ROW.PONTO),
+          rowVersions:base.rowVersions,keepDomain:DOMAIN_ROW.PONTO,
           actor:usuario,
           action:applied.audit?.action||action,
           before:applied.audit?.before||{},
@@ -1333,7 +1345,7 @@ export default async function handler(req, res) {
         }
         const recarregado=await lerLinha();
         const domain=linhaEfetivaParaEscrita(DOMAIN_ROW.PONTO,recarregado.rowVersions);
-        base={payload:recarregado.payload,domain,updatedAt:domain===DOMAIN_ROW.CORE?recarregado.updatedAt:recarregado.rowVersions[DOMAIN_ROW.PONTO]};
+        base={payload:recarregado.payload,domain,rowVersions:recarregado.rowVersions,updatedAt:domain===DOMAIN_ROW.CORE?recarregado.updatedAt:recarregado.rowVersions[DOMAIN_ROW.PONTO]};
       }
       return res.status(503).json({
         ok:false,code:"ATTENDANCE_CONCURRENCY_BUSY",
@@ -1398,7 +1410,7 @@ export default async function handler(req, res) {
           ?salvarFinanceiroComAuditoria
           :salvarComAuditoria;
         return save({key:keyForDomain(base.domain),expectedUpdatedAt:base.updatedAt,value:valorLinha,
-        financialSnapshotData:resultData,actor:usuario,
+        financialSnapshotData:resultData,rowVersions:base.rowVersions,keepDomain:domainAlvo,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
         before:{command:command.type,entityId:operationalCommandEntityId(command)},
         after:{command:command.type,idempotencyKey:command.idempotencyKey}});
@@ -1409,7 +1421,7 @@ export default async function handler(req, res) {
       // segunda tentativa. Reexecuta o comando sobre a fotografia mais nova,
       // no mesmo padrão de tentativas limitadas usado acima para o ponto.
       const dominioInicial=linhaEfetivaParaEscrita(domainAlvo,rowVersions);
-      let base={payload:atual,domain:dominioInicial,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[domainAlvo]};
+      let base={payload:atual,domain:dominioInicial,rowVersions,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[domainAlvo]};
       for(let attempt=0;attempt<6;attempt+=1){
         const result=applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
         if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
@@ -1429,7 +1441,7 @@ export default async function handler(req, res) {
         }
         const recarregado=await lerLinha();
         const domain=linhaEfetivaParaEscrita(domainAlvo,recarregado.rowVersions);
-        base={payload:recarregado.payload,domain,updatedAt:domain===DOMAIN_ROW.CORE?recarregado.updatedAt:recarregado.rowVersions[domainAlvo]};
+        base={payload:recarregado.payload,domain,rowVersions:recarregado.rowVersions,updatedAt:domain===DOMAIN_ROW.CORE?recarregado.updatedAt:recarregado.rowVersions[domainAlvo]};
       }
       return res.status(503).json({
         ok:false,code:"OPERATIONAL_COMMAND_CONCURRENCY_BUSY",
@@ -1804,7 +1816,7 @@ export default async function handler(req, res) {
       let valor=aplicar(atual);
       let agora=new Date().toISOString();
       const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
-      let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
+      let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
         before:Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
       let gravado=gravacao.applied?{updated_at:gravacao.updatedAt}:null;
 
@@ -1815,7 +1827,7 @@ export default async function handler(req, res) {
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
         valor=aplicar(recente.payload);
         agora=new Date().toISOString();
-        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
+        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,rowVersions:recente.rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
           before:Object.fromEntries(chaves.map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado={updated_at:retry.updatedAt};combinado=true;
@@ -1905,7 +1917,7 @@ export default async function handler(req, res) {
       // mandamos de volta ao navegador é exatamente o que estará lá na próxima
       // comparação — sem discrepância de formato.
       const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
-      const primeira=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",before:beforeAudit,after:afterAudit});
+      const primeira=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",before:beforeAudit,after:afterAudit});
       let gravado=primeira.applied?{updated_at:primeira.updatedAt}:null;
       // Outra gravação pode entrar entre a leitura e o UPDATE. A condição no
       // updated_at impede sobrescrita; nesse caso relê e reaplica a mesma mescla.
@@ -1916,7 +1928,7 @@ export default async function handler(req, res) {
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
         valor=mergeThreeWay(basePayload,incomingPayload,recente.payload);
         const novoAgora=new Date().toISOString();
-        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
+        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,rowVersions:recente.rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
           before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado={updated_at:retry.updatedAt};
@@ -2021,8 +2033,17 @@ export default async function handler(req, res) {
         quinzenasArquivadas: { ...(atual?.quinzenasArquivadas || {}), [quinzenaId]: meta },
       };
       const archiveValue={meta,attendance:fatia,employeesSnapshot,financialSnapshot:resumoFinanceiro};
+      // `attendance` está sendo gravado aqui de verdade (é o objetivo do
+      // arquivamento) - por isso keepDomain=PONTO garante que ele nunca é
+      // removido, mesmo que a linha própria de Ponto já exista. Mas o
+      // ARQUIVAMENTO em si sempre grava a linha core (mainKey=KEY, sem
+      // roteamento por domínio) - se a linha de Ponto já existir, o
+      // `attendance` reduzido gravado aqui fica sem efeito na próxima
+      // leitura (a mesclagem sempre prioriza a linha de Ponto sobre a
+      // core). Isso é uma limitação conhecida, não corrigida nesta rodada -
+      // ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md.
       const transaction=await executarArquivoPontoTransacional({
-        mode:"archive",expectedUpdatedAt:updatedAt,mainValue:novoPrincipal,
+        mode:"archive",expectedUpdatedAt:updatedAt,mainValue:coreFieldsOnly(novoPrincipal,rowVersions,DOMAIN_ROW.PONTO),
         archiveKey:chaveArquivo(quinzenaId),archiveValue,actor:usuario,
         before:{quinzenaId,attendance:fatia},
         after:{quinzenaId,meta,financialSnapshot:resumoFinanceiro},
@@ -2110,8 +2131,11 @@ export default async function handler(req, res) {
         quinzenasArquivadas: marcadores,
         quinzenasRestauradas: restauracoes,
       };
+      // Mesma ressalva do arquivamento (ver comentário lá): grava sempre a
+      // linha core; se a linha própria de Ponto já existir, o `attendance`
+      // restaurado aqui fica sem efeito na próxima leitura.
       const transaction=await executarArquivoPontoTransacional({
-        mode:"restore",expectedUpdatedAt:updatedAt,mainValue:novoPrincipal,
+        mode:"restore",expectedUpdatedAt:updatedAt,mainValue:coreFieldsOnly(novoPrincipal,rowVersions,DOMAIN_ROW.PONTO),
         archiveKey:chaveArquivo(quinzenaId),actor:usuario,
         before:{quinzenaId,meta:arq.meta||{}},
         after:{quinzenaId,devolvidos,mantidos,restoration:restauracoes[quinzenaId]},
