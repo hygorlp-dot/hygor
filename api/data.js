@@ -720,31 +720,27 @@ const gravarMutacaoNaTransacao=async({
 // consistência de quem É travado/escrito é garantida pelo lock real; a
 // consistência de quem só é lido continua garantida por `expectedVersion`
 // checado dentro de `mutate()`, não por um lock de leitura.
-const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain=DOMAIN_ROW.CORE,linha:linhaConhecida=null,mutate,onMark=()=>{}})=>{
-  // Achado de 21/08/2026 (medido ao vivo): todo chamador já fez lerLinha()
-  // uma vez no topo do handler, antes de qualquer branch. Reaproveitar essa
-  // leitura em vez de repeti-la aqui evita um round-trip de rede inteiro -
-  // a mesma leitura sem lock, só que mais nova que a garantia que
-  // realmente precisamos (a tolerância a essa "quase-mesma-idade" é igual
-  // à de sempre: só o que É travado precisa estar fresco).
-  onMark("antes de lerLinha (roteamento de dominio)");
+const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain=DOMAIN_ROW.CORE,linha:linhaConhecida=null,mutate})=>{
+  // Achado de 21/08/2026: todo chamador já fez lerLinha() uma vez no topo
+  // do handler, antes de qualquer branch. Reaproveitar essa leitura em vez
+  // de repeti-la aqui evita um round-trip de rede inteiro - a mesma
+  // leitura sem lock, só que mais nova que a garantia que realmente
+  // precisamos (a tolerância a essa "quase-mesma-idade" é igual à de
+  // sempre: só o que É travado precisa estar fresco).
   const linha=linhaConhecida||await lerLinha();
   const effectiveDomain=linhaEfetivaParaEscrita(domain,linha.rowVersions);
   const key=keyForDomain(effectiveDomain);
-  onMark(`antes de postgres() (dominio=${effectiveDomain})`);
   const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
     ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
   });
   try{
     return await connection.begin(async transaction=>{
-      onMark("dentro da transacao, antes do SELECT FOR UPDATE");
       const [locked]=await transaction`
         select value,updated_at
           from company_app_data
          where company_id=${COMPANY} and key=${key}
          for update
       `;
-      onMark("apos SELECT FOR UPDATE (conexao+lock resolvidos)");
       if(!locked)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
       // Reconstrói a visão mesclada completa (para mutate() ler qualquer
       // campo cross-domain), mas usando para `effectiveDomain` o valor
@@ -761,7 +757,6 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
       const corePayload=effectiveDomain===DOMAIN_ROW.CORE?freshSlice:coreFieldsOnly(linha.payload,linha.rowVersions);
       const current=mergeDomainRows(corePayload,rowPayloadsByDomain);
       const outcome=await mutate({payload:current,updatedAt:locked.updated_at});
-      onMark("apos mutate()");
       if(!outcome||outcome.kind!=="save")return outcome;
       const valueToWrite=effectiveDomain===DOMAIN_ROW.CORE?outcome.data:pickDomainFields(outcome.data,effectiveDomain);
       const saved=await gravarMutacaoNaTransacao({
@@ -769,25 +764,22 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
         value:valueToWrite,basePayload:freshSlice,actor,action,
         before:outcome.before,after:outcome.after,financial,
       });
-      onMark("apos gravarMutacaoNaTransacao (antes do commit)");
       return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
     });
   }finally{
     await connection.end({timeout:2});
-    onMark("apos connection.end");
   }
 };
 
 // Uma alteração real na mesma entidade continua sendo recusada por
 // `expectedVersion`; concorrência em outro módulo apenas aguarda o bloqueio.
-const executarComandoOperacionalBloqueado=async({command,usuario,financial,linha,onMark})=>{
+const executarComandoOperacionalBloqueado=async({command,usuario,financial,linha})=>{
   return executarMutacaoEmpresaBloqueada({
     actor:usuario,
     action:`operational_${command.type.toLowerCase()}`,
     financial,
     domain:rowForOperationalCommand(command.type),
     linha,
-    onMark,
     mutate:async({payload:current,updatedAt})=>{
       const scope=validateOperationalCommandScope({user:usuario,data:current,command});
       if(!scope.ok)return {kind:"error",status:scope.error.includes("vinculado")?400:403,error:scope.error};
@@ -924,12 +916,6 @@ export default async function handler(req, res) {
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
   const { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
-  // TIMING TEMPORÁRIO (21/08/2026) - diagnóstico do achado "operational-command
-  // ainda leva ~12s mesmo numa rejeição por versão (409), que deveria ser
-  // quase instantânea". Remover depois de identificar o gargalo - ver
-  // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md.
-  const __reqStart=Date.now();
-  const __mark=(label)=>console.log(`[TIMING] ${action||"?"} ${req.body?.command?.type||""} ${label}: ${Date.now()-__reqStart}ms`);
 
   try {
     if(action==="client-error"){
@@ -1097,7 +1083,6 @@ export default async function handler(req, res) {
       lerLinha(),
       accessToken ? db.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
     ]);
-    __mark("apos lerLinha+auth");
     let { payload: atual, updatedAt, rowVersions } = linha;
     const pinAuth=usaPin?conferirPin(atual,userId,pin):{usuario:null,upgradeHash:""};
     const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || pinAuth.usuario;
@@ -1474,28 +1459,24 @@ export default async function handler(req, res) {
     // insegura de "último snapshot vence". A rota ainda devolve a projeção
     // filtrada pelo papel para poder substituir o save legado gradualmente.
     if(action==="operational-command"){
-      __mark("entrou em operational-command");
       const command=req.body?.command||{};
       const authz=authorizeOperationalCommand(command.type,usuario.role);
       if(!authz.ok)return res.status(authz.status).json({error:authz.error});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});
       const scope=validateOperationalCommandScope({user:usuario,data:atual,command});
       if(!scope.ok)return res.status(scope.error.includes("vinculado")?400:403).json({error:scope.error});
-      __mark("apos authz+scope");
 
       const persistenciaFinanceira=requiresFinancialOperationalPersistence(
         command.type,FINANCIAL_OPERATIONAL_COMMANDS,
       );
-      __mark(`POSTGRES_URL_NON_POOLING=${!!process.env.POSTGRES_URL_NON_POOLING} financeiro=${persistenciaFinanceira}`);
       // A conexão direta permite serializar TODOS os comandos, não somente os
       // financeiros. Cadastro, RH, compras e engenharia deixam de concorrer
       // entre si pela linha global da empresa.
       if(process.env.POSTGRES_URL_NON_POOLING){
         const outcome=await executarComandoOperacionalBloqueado({
-          command,usuario,financial:persistenciaFinanceira,onMark:__mark,
+          command,usuario,financial:persistenciaFinanceira,
           linha:{payload:atual,rowVersions},
         });
-        __mark("apos executarComandoOperacionalBloqueado");
         if(outcome.kind==="error")return res.status(outcome.status||409).json({
           error:outcome.error,reason:outcome.error,
           ...(outcome.conflict?{conflict:true,currentUpdatedAt:outcome.currentUpdatedAt}:{}),
@@ -1544,15 +1525,11 @@ export default async function handler(req, res) {
       // no mesmo padrão de tentativas limitadas usado acima para o ponto.
       const dominioInicial=linhaEfetivaParaEscrita(domainAlvo,rowVersions);
       let base={payload:atual,domain:dominioInicial,rowVersions,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[domainAlvo]};
-      __mark("antes do laco CAS");
       for(let attempt=0;attempt<6;attempt+=1){
-        __mark(`laco CAS tentativa ${attempt} inicio`);
         const result=applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
-        __mark(`laco CAS tentativa ${attempt} apos applyOperationalCommand ok=${result.ok}`);
         if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
         if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
         const gravacao=await persistir(base,result.data);
-        __mark(`laco CAS tentativa ${attempt} apos persistir applied=${gravacao.applied}`);
         if(gravacao.applied){
           return res.status(200).json({
             ok:true,
@@ -1566,7 +1543,6 @@ export default async function handler(req, res) {
           });
         }
         const recarregado=await lerLinha();
-        __mark(`laco CAS tentativa ${attempt} apos recarregar lerLinha`);
         const domain=linhaEfetivaParaEscrita(domainAlvo,recarregado.rowVersions);
         base={payload:recarregado.payload,domain,rowVersions:recarregado.rowVersions,updatedAt:domain===DOMAIN_ROW.CORE?recarregado.updatedAt:recarregado.rowVersions[domainAlvo]};
       }

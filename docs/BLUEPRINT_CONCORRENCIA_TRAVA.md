@@ -296,10 +296,13 @@ dos 7 campos), mas é segura para decidir SE vale a pena chamar
 - Testes: `server/operational-command-locking.test.js` (estrutura do fix +
   `legacyFinancialFactsChanged`), `server/financial-shadow.test.js`
   (`includeDreSnapshots:false`).
-- **Limitação conhecida**: a instrumentação `[TIMING]` temporária
-  (commit `99f9cde`) ainda não foi removida - fica para depois de
-  confirmar em produção que o tempo caiu para a faixa de milissegundos
-  esperada.
+- **Removida (21/08/2026)**: a instrumentação `[TIMING]` temporária
+  (commit `99f9cde`) cumpriu o papel - foi o que permitiu achar tanto o
+  bloat de DRE quanto, depois, o achado crítico de que o caminho travado
+  nunca roteava por domínio (ver seções abaixo) - e foi removida (`__mark`/
+  `__reqStart`/`onMark`) depois de confirmar em produção, ao vivo, que o
+  tempo caiu para a faixa esperada em cada domínio (core, equipamentos,
+  RDO).
 
 ## RDO ganha linha própria (21/08/2026)
 
