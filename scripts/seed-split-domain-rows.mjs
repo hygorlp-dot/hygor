@@ -1,9 +1,16 @@
 // scripts/seed-split-domain-rows.mjs
 //
-// Pré-requisito para o código de api/data.js gravar Ponto/Lookahead/Config/
-// Equipamentos em linhas próprias (achado de 20/08/2026: EMPLOYEE_SAVED
-// disputando a mesma linha company_app_data com ATTENDANCE_COMMANDS -
-// ver server/domain-row-routing.js para a classificação completa).
+// Ativa, para uma empresa, o benefício de api/data.js gravar Ponto/
+// Lookahead/Config/Equipamentos em linhas próprias em vez de uma só
+// (achado de 20/08/2026: EMPLOYEE_SAVED disputando a mesma linha
+// company_app_data com ATTENDANCE_COMMANDS - ver
+// server/domain-row-routing.js para a classificação completa).
+//
+// NÃO é um pré-requisito bloqueante para o deploy: enquanto este script não
+// roda, api/data.js detecta a linha ausente e cai de volta a gravar a linha
+// core inteira - exatamente o comportamento de hoje, sem quebrar nada. Rodar
+// este script é o que faz a contenção cruzada parar (o motivo desta rodada),
+// mas o deploy do código é seguro com ou sem ele já ter rodado.
 //
 // Este script cria as 4 linhas separadas, uma por empresa já existente na
 // tabela, semeadas com uma CÓPIA dos campos correspondentes que hoje moram
@@ -17,10 +24,9 @@
 // existe), o que é peso morto aceitável no blob em troca de não arriscar
 // apagar dado por engano.
 //
-// Rodar manualmente contra produção ANTES de publicar o deploy que inclui
-// esta separação de linhas (mesmo padrão de scripts/apply-financial-shadow.mjs
-// e scripts/apply-core-registry-shadow.mjs - migration de dado, não de
-// schema, roda à parte do build):
+// Rodar manualmente contra produção (mesmo padrão de
+// scripts/apply-financial-shadow.mjs e scripts/apply-core-registry-shadow.mjs
+// - migration de dado, não de schema, roda à parte do build):
 //
 //   npm run split-rows:seed
 //

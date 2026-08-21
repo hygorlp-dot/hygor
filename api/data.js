@@ -78,23 +78,16 @@ const SPLIT_ROW_KEYS = Object.freeze({
 });
 const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // A linha separada de um domínio só existe depois que
-// scripts/seed-split-domain-rows.mjs roda contra a empresa (mesmo padrão de
-// "migration ainda não aplicada" usado no resto deste arquivo -
-// AUDIT_RPC_MIGRATION_REQUIRED, ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED).
-// `rowVersions[domain]` vem null de lerLinha() quando a linha não existe;
-// deixar isso cair no laço de CAS normal esgotaria as 6 tentativas e
-// devolveria um 503 de "concorrência" enganoso - o problema não é
-// concorrência, é a linha não existir ainda.
-const exigirLinhaSeparada = (domain, rowVersions) => {
-  if (domain===DOMAIN_ROW.CORE || rowVersions[domain]!=null) return null;
-  return {
-    status:503,
-    body:{
-      ok:false,code:"SPLIT_ROW_MIGRATION_REQUIRED",
-      error:"A linha separada deste domínio ainda não foi criada. Execute scripts/seed-split-domain-rows.mjs antes de usar esta funcionalidade.",
-    },
-  };
-};
+// scripts/seed-split-domain-rows.mjs roda contra a empresa. Enquanto isso
+// não acontece, `rowVersions[domain]` vem null de lerLinha() - em vez de
+// bloquear a escrita (o que exigiria coordenar exatamente o deploy com a
+// migração, sob risco de derrubar Ponto/Lookahead/Config/Equipamentos
+// inteiros até alguém rodar o script), cai de volta a gravar a linha core
+// inteira, exatamente como sempre funcionou antes desta separação. Assim
+// que o script rodar e a linha passar a existir, a PRÓXIMA escrita já
+// migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
+const linhaEfetivaParaEscrita = (domain, rowVersions) =>
+  (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
 const DRE_PROJECTION_VERSION = "2026-08-third-party-equipment-cost-v5";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
@@ -1306,14 +1299,16 @@ export default async function handler(req, res) {
           result:outcome.result,updatedAt:outcome.updatedAt,
         });
       }
-      // Ponto grava na própria linha (PONTO_KEY), não na linha core - o CAS
-      // usa o updated_at da linha de ponto, então uma escrita em qualquer
-      // outro domínio (ex.: EMPLOYEE_SAVED) não invalida mais esta tentativa
-      // (achado de 20/08/2026: essa contenção cruzada é o que causava a
-      // demora/retentativas reportadas ao salvar um funcionário).
-      const linhaAusente=exigirLinhaSeparada(DOMAIN_ROW.PONTO,rowVersions);
-      if(linhaAusente)return res.status(linhaAusente.status).json(linhaAusente.body);
-      let base={payload:atual,updatedAt:rowVersions[DOMAIN_ROW.PONTO]??null};
+      // Ponto grava na própria linha (PONTO_KEY) assim que ela existir - o
+      // CAS passa a usar o updated_at da linha de ponto, então uma escrita
+      // em qualquer outro domínio (ex.: EMPLOYEE_SAVED) não invalida mais
+      // esta tentativa (achado de 20/08/2026: essa contenção cruzada é o
+      // que causava a demora/retentativas reportadas ao salvar um
+      // funcionário). Antes de scripts/seed-split-domain-rows.mjs rodar,
+      // cai de volta a gravar a linha core inteira - ver
+      // linhaEfetivaParaEscrita.
+      const dominioInicial=linhaEfetivaParaEscrita(DOMAIN_ROW.PONTO,rowVersions);
+      let base={payload:atual,domain:dominioInicial,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[DOMAIN_ROW.PONTO]};
       for(let attempt=0;attempt<6;attempt+=1){
         const applied=applyAttendanceCommand(base.payload,usuario,command,operationNow);
         if(!applied.ok)return res.status(applied.status||400).json({ok:false,error:applied.error});
@@ -1323,9 +1318,9 @@ export default async function handler(req, res) {
           });
         }
         const saved=await salvarComAuditoria({
-          key:PONTO_KEY,
+          key:keyForDomain(base.domain),
           expectedUpdatedAt:base.updatedAt,
-          value:pickDomainFields(applied.data,DOMAIN_ROW.PONTO),
+          value:base.domain===DOMAIN_ROW.CORE?applied.data:pickDomainFields(applied.data,DOMAIN_ROW.PONTO),
           actor:usuario,
           action:applied.audit?.action||action,
           before:applied.audit?.before||{},
@@ -1337,7 +1332,8 @@ export default async function handler(req, res) {
           });
         }
         const recarregado=await lerLinha();
-        base={payload:recarregado.payload,updatedAt:recarregado.rowVersions[DOMAIN_ROW.PONTO]??null};
+        const domain=linhaEfetivaParaEscrita(DOMAIN_ROW.PONTO,recarregado.rowVersions);
+        base={payload:recarregado.payload,domain,updatedAt:domain===DOMAIN_ROW.CORE?recarregado.updatedAt:recarregado.rowVersions[DOMAIN_ROW.PONTO]};
       }
       return res.status(503).json({
         ok:false,code:"ATTENDANCE_CONCURRENCY_BUSY",
@@ -1384,25 +1380,24 @@ export default async function handler(req, res) {
         });
       }
 
-      // Lookahead/Config/Equipamentos gravam na própria linha (achado de
-      // 20/08/2026 - ver server/domain-row-routing.js); qualquer outro tipo
-      // de comando (RH, RDO, Financeiro, Compras...) continua indo para a
-      // linha core, exatamente como antes desta separação.
-      const domain=rowForOperationalCommand(command.type);
-      const targetKey=keyForDomain(domain);
-      const linhaAusente=exigirLinhaSeparada(domain,rowVersions);
-      if(linhaAusente)return res.status(linhaAusente.status).json(linhaAusente.body);
+      // Lookahead/Config/Equipamentos gravam na própria linha assim que ela
+      // existir (achado de 20/08/2026 - ver server/domain-row-routing.js);
+      // qualquer outro tipo de comando (RH, RDO, Financeiro, Compras...)
+      // continua indo para a linha core, exatamente como antes desta
+      // separação. Antes de scripts/seed-split-domain-rows.mjs rodar, cai
+      // de volta a gravar a linha core inteira - ver linhaEfetivaParaEscrita.
+      const domainAlvo=rowForOperationalCommand(command.type);
 
       const persistir=async(base,resultData)=>{
         // `financialSnapshotData` sempre recebe o `data` COMPLETO mesclado -
         // buildLegacyFinancialFacts precisa de medicoes/pedidos/notasFiscais
         // etc., que não existem em `valorLinha` quando o domínio é uma linha
         // separada (ex.: Equipamentos, que é financeiro).
-        const valorLinha=domain===DOMAIN_ROW.CORE?resultData:pickDomainFields(resultData,domain);
+        const valorLinha=base.domain===DOMAIN_ROW.CORE?resultData:pickDomainFields(resultData,base.domain);
         const save=persistenciaFinanceira
           ?salvarFinanceiroComAuditoria
           :salvarComAuditoria;
-        return save({key:targetKey,expectedUpdatedAt:base.updatedAt,value:valorLinha,
+        return save({key:keyForDomain(base.domain),expectedUpdatedAt:base.updatedAt,value:valorLinha,
         financialSnapshotData:resultData,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
         before:{command:command.type,entityId:operationalCommandEntityId(command)},
@@ -1413,7 +1408,8 @@ export default async function handler(req, res) {
       // em qualquer outra tela que divida a MESMA linha já derrubava a
       // segunda tentativa. Reexecuta o comando sobre a fotografia mais nova,
       // no mesmo padrão de tentativas limitadas usado acima para o ponto.
-      let base={payload:atual,updatedAt:domain===DOMAIN_ROW.CORE?updatedAt:rowVersions[domain]};
+      const dominioInicial=linhaEfetivaParaEscrita(domainAlvo,rowVersions);
+      let base={payload:atual,domain:dominioInicial,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[domainAlvo]};
       for(let attempt=0;attempt<6;attempt+=1){
         const result=applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
         if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
@@ -1432,7 +1428,8 @@ export default async function handler(req, res) {
           });
         }
         const recarregado=await lerLinha();
-        base={payload:recarregado.payload,updatedAt:domain===DOMAIN_ROW.CORE?recarregado.updatedAt:recarregado.rowVersions[domain]};
+        const domain=linhaEfetivaParaEscrita(domainAlvo,recarregado.rowVersions);
+        base={payload:recarregado.payload,domain,updatedAt:domain===DOMAIN_ROW.CORE?recarregado.updatedAt:recarregado.rowVersions[domainAlvo]};
       }
       return res.status(503).json({
         ok:false,code:"OPERATIONAL_COMMAND_CONCURRENCY_BUSY",

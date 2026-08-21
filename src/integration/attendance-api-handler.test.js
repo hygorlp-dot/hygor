@@ -201,7 +201,7 @@ describe("/api/data · persistência granular do ponto",()=>{
     expect(testState.rpcCalls).toHaveLength(0);
   });
 
-  it("recusa a escrita de ponto (503) quando a linha separada ainda não foi semeada",async()=>{
+  it("cai de volta a gravar a linha core quando a linha separada ainda não foi semeada (sem exigir ordem de deploy)",async()=>{
     delete testState.rows[PONTO_KEY];
     const result=await callApi({
       action:"attendance-upsert",accessToken:"valid-token",
@@ -209,8 +209,10 @@ describe("/api/data · persistência granular do ponto",()=>{
       employeeId:"e-a",date:"2026-07-28",selectedObraId:"obra-a",
       record:{status:"P",obraId:"obra-a"},
     });
-    expect(result.status).toBe(503);
-    expect(result.body).toMatchObject({ok:false,code:"SPLIT_ROW_MIGRATION_REQUIRED"});
-    expect(testState.rpcCalls).toHaveLength(0);
+    expect(result.status).toBe(200);
+    expect(result.body.ok).toBe(true);
+    expect(testState.rpcCalls).toHaveLength(1);
+    expect(testState.rpcCalls[0].p_key).toBe(CORE_KEY);
+    expect(testState.rows[CORE_KEY].value.attendance["e-a"]["2026-07-28"]).toMatchObject({status:"P"});
   });
 });

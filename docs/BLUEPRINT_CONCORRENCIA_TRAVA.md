@@ -165,13 +165,16 @@ ganharam linha própria nesta rodada, não só Ponto.
   Separar a linha sem migrar esse caminho primeiro criaria um split-brain
   (duas linhas achando que são donas do mesmo campo) - fica como item
   separado, não resolvido aqui.
-- **Migração de dado**: `scripts/seed-split-domain-rows.mjs` (novo,
-  `npm run split-rows:seed`) cria as 4 linhas novas por empresa, semeadas
-  com cópia dos campos correspondentes da linha core. Idempotente (upsert
-  com `ignoreDuplicates`) - precisa rodar contra produção antes/junto do
-  deploy; sem rodar, o código detecta a linha ausente e devolve
-  `503 SPLIT_ROW_MIGRATION_REQUIRED` em vez de um erro confuso de
-  concorrência.
+- **Migração de dado, sem exigir ordem de deploy**:
+  `scripts/seed-split-domain-rows.mjs` (novo, `npm run split-rows:seed`)
+  cria as 4 linhas novas por empresa, semeadas com cópia dos campos
+  correspondentes da linha core. Idempotente (upsert com
+  `ignoreDuplicates`). Enquanto ele não roda, `api/data.js` detecta a linha
+  ausente e cai de volta a gravar a linha core inteira - exatamente o
+  comportamento de hoje, sem quebrar nem bloquear nada -, e a escrita
+  seguinte já migra sozinha assim que a linha existir. Rodar o script logo
+  após o deploy é o que faz o benefício (fim da contenção cruzada) valer,
+  mas **não é um pré-requisito bloqueante** para o deploy em si.
 - Fase 1.5 (partição de Ponto por obra) e Fase 2 (tabelas relacionais)
   continuam não implementadas, como planejado - nenhuma delas foi puxada
   para esta rodada.

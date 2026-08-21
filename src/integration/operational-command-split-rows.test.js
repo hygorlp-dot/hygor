@@ -178,12 +178,14 @@ describe("/api/data · roteamento de OPERATIONAL_COMMAND por linha separada",()=
     expect(testState.rows[CORE_KEY].value.employees).toHaveLength(1);
   });
 
-  it("devolve 503 SPLIT_ROW_MIGRATION_REQUIRED quando a linha separada ainda não foi semeada",async()=>{
+  it("cai de volta a gravar a linha core quando a linha separada ainda não foi semeada (sem exigir ordem de deploy)",async()=>{
     delete testState.rows[EQUIPAMENTOS_KEY];
     const result=await callApi(opCommand("EQUIPAMENTO_SALVO",{equipment:{id:"eq-2",nome:"Guincho"}}));
-    expect(result.status).toBe(503);
-    expect(result.body).toMatchObject({ok:false,code:"SPLIT_ROW_MIGRATION_REQUIRED"});
-    expect(testState.rpcCalls).toHaveLength(0);
+    expect(result.status).toBe(200);
+    expect(result.body.ok).toBe(true);
+    expect(testState.rpcCalls).toHaveLength(1);
+    expect(testState.rpcCalls[0].p_key).toBe(CORE_KEY);
+    expect(testState.rows[CORE_KEY].value.equipamentos).toHaveLength(1);
   });
 
   it("une o razão de idempotência entre Equipamentos e Lookahead - a repetição de qualquer um dos dois é detectada",async()=>{
