@@ -37,6 +37,7 @@
     "registry:migrate-shadow": "node scripts/apply-core-registry-shadow.mjs",
     "split-rows:seed": "node scripts/seed-split-domain-rows.mjs",
     "attendance-obra-rows:seed": "node scripts/seed-attendance-obra-rows.mjs",
+    "registry:shadow-status": "node scripts/check-core-registry-shadow-status.mjs",
     "assets:login": "node scripts/optimize-login-assets.mjs",
     "architecture:check": "depcruise --config .dependency-cruiser.cjs src api server",
     "quality:knip": "knip --config knip.json --no-exit-code --reporter compact --no-progress --include files,dependencies,exports",

@@ -568,6 +568,58 @@ autossuficiente). Suíte inteira: 1240 testes, build, lint
 (`check-financial-boundaries.mjs`) e `architecture:check`
 (dependency-cruiser) sem violação nova.
 
+## Fase 2, primeiro passo: observabilidade do CORE-001 (22/08/2026)
+
+Pedido do usuário para avançar à Fase 2 (mover domínios para tabelas
+relacionais). Como a Fase 2 é "trabalho de meses" (ver seção acima), o
+escopo desta rodada foi decidido explicitamente com o usuário: **verificar
+e reforçar o CORE-001 já existente**, sem tocar em RLS por papel/obra nem
+em nenhum caminho de leitura real.
+
+**Achado**: CORE-001 (7 tabelas de cadastro em sombra - projetos,
+funcionários, vínculos, identificadores, fornecedores, perfis e contratos
+de terceiro, migration `007_create_core_registry_projection`) nasceu num
+único commit em 30/07/2026 e nunca foi tocado de novo. O gate de sombra
+roda automaticamente em todo build de produção (`npm run prebuild` →
+`registry:migrate-shadow`) e **derruba o build inteiro** se achar
+divergência - como dezenas de deploys já aconteceram com sucesso desde
+então, havia evidência indireta forte de que o gate vem passando limpo,
+mas nada tornava isso explícito ou fácil de confirmar sem vasculhar o log
+bruto de build da Vercel.
+
+O mecanismo de observabilidade em si **já existia**: `core_registry_sync_
+legacy` (a RPC que o script de sombra chama) já grava uma linha em
+`core_registry_shadow_runs` a cada sincronização bem-sucedida
+(migration 007, linhas 410-419) - só que nada nunca consultava essa
+tabela.
+
+**O que foi feito**:
+- `server/core-registry-shadow-status.js` (novo, puro, sem I/O):
+  `summarizeCoreRegistryShadowStatus` compara a última sincronização
+  registrada contra a contagem ATUAL de linhas ativas de cada tabela
+  `core_*` (deveriam sempre bater, já que a RPC arquiva tudo que sai do
+  snapshot) e contra a sincronização anterior (detecta uma seção que caiu
+  a zero de uma vez, sinal de possível perda de dado). `format
+  CoreRegistryShadowStatus` formata o resultado em texto legível.
+- `scripts/check-core-registry-shadow-status.mjs` (novo, só leitura -
+  nenhum insert/update/upsert): busca as últimas 20 sincronizações de
+  `core_registry_shadow_runs` e a contagem ativa de cada tabela `core_*`,
+  chama o módulo acima e imprime o resumo. Roda com
+  `npm run registry:shadow-status` (mesmo padrão de autenticação dos
+  scripts `seed-*`).
+- Testes: `server/core-registry-shadow-status.test.js` (8 testes -
+  ausência total de histórico, contagens batendo, divergência de
+  contagem, queda a zero, formatação com e sem alertas).
+
+**Fora do escopo desta rodada, por decisão do usuário**: políticas de RLS
+por papel/obra para as tabelas `core_*`; qualquer tela/endpoint que
+efetivamente consuma `core_projects`/`core_employees`/etc.; infraestrutura
+de Postgres real para testes (o projeto não tem pglite/testcontainers -
+`core-registry-migration.test.js` continua fazendo só asserções estáticas
+sobre o texto do SQL); começar um novo domínio relacional do zero. Definir
+qual desses é o próximo passo real de Fase 2 fica para uma decisão futura
+com o usuário, quando ele quiser avançar de novo.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
