@@ -49,7 +49,7 @@ describe("rowForAttendanceCommand", () => {
 });
 
 describe("pickDomainFields", () => {
-  it("extrai só os campos de ponto, ignorando o resto do blob mesclado", () => {
+  it("extrai só os campos de ponto (a linha 'meta', sem attendance - particionado por obra desde 22/08/2026), ignorando o resto do blob mesclado", () => {
     const data = {
       employees: [{ id: "e1" }],
       attendance: { e1: { "2026-08-20": { status: "P" } } },
@@ -60,7 +60,6 @@ describe("pickDomainFields", () => {
       config: { companyName: "ARCD" },
     };
     expect(pickDomainFields(data, DOMAIN_ROW.PONTO)).toEqual({
-      attendance: data.attendance,
       attendanceLocks: data.attendanceLocks,
       unlockRequests: data.unlockRequests,
       dailyCheckDate: data.dailyCheckDate,
@@ -185,8 +184,9 @@ describe("coreFieldsOnly", () => {
     expect(coreFieldsOnly(merged, allRowsExist)).toEqual({ employees: merged.employees });
   });
 
-  it("por padrão (sem rowVersions) não remove nada - seguro para quem ainda não passa esse parâmetro", () => {
-    expect(coreFieldsOnly(merged)).toEqual(merged);
+  it("por padrão (sem rowVersions) não remove os campos de domínio - seguro para quem ainda não passa esse parâmetro; attendance é a única exceção proposital (22/08/2026)", () => {
+    const { attendance:_ignorado, ...merged_sem_attendance } = merged;
+    expect(coreFieldsOnly(merged)).toEqual(merged_sem_attendance);
   });
 
   it("preserva os campos de um domínio cuja linha ainda não existe (rowVersions[domain] == null) - é o fallback ainda gravando na core", () => {
@@ -210,6 +210,18 @@ describe("coreFieldsOnly", () => {
     const result = coreFieldsOnly(withReceipts, allRowsExist);
     expect(result.operationalCommandReceipts).toEqual(withReceipts.operationalCommandReceipts);
     expect(result).not.toHaveProperty("lookaheadWindows");
+  });
+
+  it("achado de 22/08/2026: remove attendance da core incondicionalmente (nem consulta rowVersions[PONTO]) - o destino agora é a linha por obra ou a compartilhada de Ponto, nunca a core", () => {
+    const semNenhumaLinha = {}; // nenhum domínio migrado ainda
+    expect(coreFieldsOnly(merged, semNenhumaLinha)).not.toHaveProperty("attendance");
+    // mas o resto dos campos "sem domínio ainda" continua preservado, como sempre
+    expect(coreFieldsOnly(merged, semNenhumaLinha).lookaheadWindows).toEqual(merged.lookaheadWindows);
+  });
+
+  it("keepDomain=PONTO é a única forma de attendance sobreviver na core (arquivamento/restauração de quinzena)", () => {
+    const result = coreFieldsOnly(merged, {}, DOMAIN_ROW.PONTO);
+    expect(result.attendance).toEqual(merged.attendance);
   });
 
   it("preserva campos que nenhum domínio separado usa (regressão: RH, obras, financeiro...)", () => {

@@ -50,6 +50,10 @@ import {
   rowForOperationalCommand, SPLITTABLE_DOMAINS,
 } from "../server/domain-row-routing.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
+import {
+  applyEntriesToAttendance, attendanceObraKey, attendanceObraKeyPrefix,
+  groupAttendanceEntriesByObra, mergeAttendanceObjects, obraBucketFromKey,
+} from "../server/attendance-obra-routing.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
@@ -81,6 +85,16 @@ const SPLIT_ROW_KEYS = Object.freeze({
   [DOMAIN_ROW.EQUIPAMENTOS]: EQUIPAMENTOS_KEY,
   [DOMAIN_ROW.RDO]: RDO_KEY,
 });
+// Fase 1.5 reduzida (22/08/2026): `data.attendance` sai da linha "meta" de
+// Ponto (PONTO_KEY, que continua só com locks/unlockRequests/
+// dailyCheckDate/receipts) e passa a viver numa linha própria POR OBRA -
+// descoberta por padrão de chave (LIKE), não por um dicionário fixo como
+// SPLIT_ROW_KEYS, já que o número de obras muda com o tempo (ver
+// server/attendance-obra-routing.js para a justificativa completa de
+// escopo). `pontoObraKey(obraId)` gera a chave de uma obra;
+// PONTO_OBRA_KEY_PREFIX é o padrão usado no filtro LIKE de lerLinha().
+const PONTO_OBRA_KEY_PREFIX = attendanceObraKeyPrefix(PONTO_KEY);
+const pontoObraKey = obraId => attendanceObraKey(PONTO_KEY, obraId);
 const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // A linha separada de um domínio só existe depois que
 // scripts/seed-split-domain-rows.mjs roda contra a empresa. Enquanto isso
@@ -411,20 +425,26 @@ const rateLimitCentral=async(subject,action)=>{
 // um domínio separado usar como CAS da própria linha, em vez do updated_at
 // da core (que mudar por outro motivo não deveria invalidar essa gravação).
 const lerLinha = async () => {
-  // Achado de 21/08/2026: as duas leituras abaixo (linha core e linhas
-  // separadas) são independentes - não há motivo para uma esperar a outra
-  // terminar. Rodá-las em paralelo (em vez de sequencialmente) tira um
-  // round-trip inteiro de rede do caminho crítico de toda gravação.
+  // Achado de 21/08/2026: as três leituras abaixo (linha core, linhas
+  // separadas de domínio fixo, linhas de Ponto por obra) são independentes
+  // - não há motivo para uma esperar a outra terminar. Rodá-las em
+  // paralelo (em vez de sequencialmente) tira round-trips inteiros de rede
+  // do caminho crítico de toda gravação. A terceira usa LIKE (padrão de
+  // chave), não um .in() de lista fixa, porque o número de obras muda com
+  // o tempo - ver server/attendance-obra-routing.js.
   const splitEntries = Object.entries(SPLIT_ROW_KEYS);
-  const [{ data, error }, { data: splitRows, error: splitError }] = await Promise.all([
+  const [{ data, error }, { data: splitRows, error: splitError }, { data: pontoObraRows, error: pontoObraError }] = await Promise.all([
     db.from("company_app_data").select("value, updated_at")
       .eq("company_id", COMPANY).eq("key", KEY).maybeSingle(),
     db.from("company_app_data").select("key, value, updated_at")
       .eq("company_id", COMPANY).in("key", splitEntries.map(([, key]) => key)),
+    db.from("company_app_data").select("key, value, updated_at")
+      .eq("company_id", COMPANY).like("key", `${PONTO_OBRA_KEY_PREFIX}%`),
   ]);
   if (error) throw error;
-  if (!data) return { payload: null, updatedAt: null, rowVersions: {} };
+  if (!data) return { payload: null, updatedAt: null, rowVersions: {}, rowVersionsPontoObra: {} };
   if (splitError) throw splitError;
+  if (pontoObraError) throw pontoObraError;
   const payload = decodeAppData(data.value);
   // Migração transparente: preserva o mesmo updated_at para não criar um
   // falso conflito nos navegadores que já estavam editando. Se outra gravação
@@ -445,8 +465,22 @@ const lerLinha = async () => {
     rowVersions[domain] = row?.updated_at || null;
     if (row) rowPayloadsByDomain[domain] = decodeAppData(row.value);
   }
-  const merged = mergeDomainRows(payload, rowPayloadsByDomain);
-  return { payload: merged, updatedAt: data.updated_at || null, rowVersions };
+  let merged = mergeDomainRows(payload, rowPayloadsByDomain);
+
+  // A cópia de `attendance` que sobrar em `merged` até aqui vem da linha
+  // "meta" de Ponto (ou, se essa também não existir ainda, da própria
+  // core) - é o fallback correto para qualquer obra que ainda não ganhou
+  // linha própria. Uma linha por obra, quando existe, sempre VENCE esse
+  // fallback (mergeAttendanceObjects: fontes posteriores vencem).
+  const rowVersionsPontoObra = {};
+  const attendanceSources = [merged.attendance || {}];
+  for (const row of pontoObraRows || []) {
+    rowVersionsPontoObra[obraBucketFromKey(PONTO_KEY, row.key)] = row.updated_at || null;
+    attendanceSources.push(decodeAppData(row.value)?.attendance || {});
+  }
+  merged = { ...merged, attendance: mergeAttendanceObjects(...attendanceSources) };
+
+  return { payload: merged, updatedAt: data.updated_at || null, rowVersions, rowVersionsPontoObra };
 };
 
 const salvarIndicePerfis = async payload => {
@@ -536,12 +570,27 @@ const executarArquivoPontoTransacional=async({
 // falhar (ex.: conflito de versão por um check-in concorrente
 // raríssimo), o arquivamento em si já está correto e seguro na linha
 // core - só fica registrado no log do servidor, sem bloquear a resposta.
+// Achado de 22/08/2026 (Fase 1.5 reduzida): `attendance` saiu de
+// DOMAIN_FIELDS[PONTO], então pickDomainFields sozinho passou a devolver só
+// os 4 campos meta - esta função silenciosamente deixaria de sincronizar a
+// própria coisa para a qual existe. O arquivamento/restauração não conhece
+// obra por obra (a RPC opera a quinzena inteira, todos os funcionários), só
+// o resultado final consolidado (`novoPrincipal.attendance`, já com o
+// funcionário/data arquivado removido ou restaurado) - dividir esse
+// resultado por obra exigiria diferenciar antes/depois entrada a entrada,
+// risco maior do que uma ação rara e não concorrente justifica (mesma lógica
+// do comentário acima). Em vez disso, grava o blob completo como cópia
+// legada na própria linha de Ponto: para qualquer (funcionário,data) que
+// ainda não migrou para uma linha própria de obra, essa cópia já é a fonte
+// lida por lerLinha(); para quem já migrou, a linha de obra continua
+// vencendo a leitura (mergeAttendanceObjects) - a mesma tolerância de
+// "melhor esforço" que este best-effort já assumia antes desta fase.
 const sincronizarPontoAposArquivo=async({rowVersions,novoPrincipal,actor,quinzenaId,action})=>{
   if(rowVersions?.[DOMAIN_ROW.PONTO]==null)return;
   try{
     await salvarComAuditoria({
       key:PONTO_KEY,expectedUpdatedAt:rowVersions[DOMAIN_ROW.PONTO],
-      value:pickDomainFields(novoPrincipal,DOMAIN_ROW.PONTO),
+      value:{...pickDomainFields(novoPrincipal,DOMAIN_ROW.PONTO),attendance:novoPrincipal.attendance||{}},
       actor,action,before:{quinzenaId},after:{quinzenaId},
     });
   }catch(err){
@@ -803,6 +852,129 @@ const executarComandoOperacionalBloqueado=async({command,usuario,financial,linha
       };
     },
   });
+};
+
+// Fase 1.5 reduzida (22/08/2026, ver server/attendance-obra-routing.js):
+// attendance-upsert/attendance-batch-upsert são os únicos comandos de Ponto
+// que tocam `data.attendance` - por isso são os únicos que precisam de um
+// caminho de trava dedicado, capaz de travar MAIS de uma linha na mesma
+// transação (a linha "meta" de Ponto, para locks/unlockRequests/
+// dailyCheckDate/receipts, mais uma linha por obra distinta tocada pelo
+// lote). Os outros 5 comandos (lock/unlock/daily-check) continuam no
+// executarMutacaoEmpresaBloqueada genérico, domain:PONTO, sem mudança.
+//
+// A leitura de `current.attendance` usada para VALIDAR o comando (dentro de
+// applyAttendanceCommand) vem da cópia sem lock de `linha` (a mesma
+// tolerância que o caminho otimista/CAS já aceita hoje) - só fica
+// desatualizada no raro caso de dois usuários editando o EXATO mesmo
+// funcionário+data ao mesmo tempo. A GRAVAÇÃO em si nunca sofre esse risco:
+// cada linha de obra é travada (for update) e mesclada contra o valor
+// recém-lido via applyEntriesToAttendance, nunca sobrescrita às cegas -
+// nenhuma escrita concorrente em OUTRO funcionário/data da mesma obra se
+// perde.
+const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:linhaConhecida=null})=>{
+  const linha=linhaConhecida||await lerLinha();
+  const pontoEfetiva=linhaEfetivaParaEscrita(DOMAIN_ROW.PONTO,linha.rowVersions);
+  const pontoKeyAlvo=keyForDomain(pontoEfetiva);
+  const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
+    ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
+  });
+  try{
+    return await connection.begin(async transaction=>{
+      const [lockedPonto]=await transaction`
+        select value,updated_at from company_app_data
+         where company_id=${COMPANY} and key=${pontoKeyAlvo}
+         for update
+      `;
+      if(!lockedPonto)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
+      const freshPontoSlice=decodeAppData(lockedPonto.value);
+      // locks/unlockRequests/dailyCheckDate/receipts vêm da linha RECÉM
+      // TRAVADA (nunca de `linha`, que pode estar desatualizada) - é o que
+      // garante que ensureUnlocked e a checagem de idempotência (via
+      // attendanceOperationReceipts) enxerguem o estado mais novo possível.
+      const current={
+        ...linha.payload,
+        attendanceLocks:freshPontoSlice.attendanceLocks||{},
+        unlockRequests:freshPontoSlice.unlockRequests||[],
+        dailyCheckDate:freshPontoSlice.dailyCheckDate||"",
+        attendanceOperationReceipts:freshPontoSlice.attendanceOperationReceipts||[],
+      };
+      const applied=applyAttendanceCommand(current,usuario,command,operationNow);
+      if(!applied.ok)return {kind:"error",status:applied.status||400,error:applied.error};
+      if(applied.idempotent)return {kind:"idempotent",result:applied.result,updatedAt:lockedPonto.updated_at};
+
+      // Preserva (`...freshPontoSlice`) qualquer campo que já estivesse
+      // gravado nesta linha antes desta escrita - inclusive um eventual
+      // `attendance` legado (a própria linha de Ponto chegou a acumular
+      // attendance completo antes desta Fase 1.5, quando ainda fazia parte
+      // de DOMAIN_FIELDS[PONTO]). Sem o spread, esta gravação sobrescreveria
+      // a linha inteira só com os 4 campos meta, apagando esse legado para
+      // todo funcionário/data que este request específico não tocou.
+      const pontoValue={
+        ...freshPontoSlice,
+        attendanceLocks:applied.data.attendanceLocks||{},
+        unlockRequests:applied.data.unlockRequests||[],
+        dailyCheckDate:applied.data.dailyCheckDate||"",
+        attendanceOperationReceipts:applied.data.attendanceOperationReceipts||[],
+      };
+      const correlationId=crypto.randomUUID();
+      const [savedPonto]=await transaction`
+        update company_app_data
+           set value=${JSON.stringify(encodeAppData(pontoValue))}::jsonb,
+               updated_at=clock_timestamp(), updated_by=null
+         where company_id=${COMPANY} and key=${pontoKeyAlvo}
+         returning updated_at
+      `;
+      await transaction`
+        insert into audit_events(
+          company_id,aggregate_type,aggregate_id,action,actor_id,actor_name,
+          correlation_id,before_snapshot,after_snapshot,source
+        ) values (
+          ${COMPANY},'company_app_data',${pontoKeyAlvo},${applied.audit?.action||command.action},
+          ${String(usuario?.id||"system")},${String(usuario?.nome||usuario?.email||"Sistema")},
+          ${correlationId},
+          ${JSON.stringify(applied.audit?.before||{})}::jsonb,
+          ${JSON.stringify(applied.audit?.after||{operationId:command.operationId})}::jsonb,
+          'api/data'
+        )
+      `;
+
+      // Uma linha por obra distinta tocada pelo lote - criada sob demanda
+      // (insert ... on conflict do nothing + select for update logo em
+      // seguida, para não haver corrida entre dois primeiros-escritores da
+      // MESMA obra nova) e sempre mesclada contra o valor recém-travado via
+      // applyEntriesToAttendance, nunca sobrescrita inteira. Não precisa de
+      // um script de seed prévio: cada edição migra sozinha a célula
+      // (funcionário,data) tocada, e a leitura (lerLinha) já mescla
+      // corretamente linha-de-obra + sobra legada na linha de Ponto.
+      const grupos=groupAttendanceEntriesByObra(applied.result?.attendance);
+      for(const [obraBucket,entries] of grupos){
+        const key=`${PONTO_OBRA_KEY_PREFIX}${obraBucket}`;
+        await transaction`
+          insert into company_app_data(company_id,key,value,updated_at,updated_by)
+          values (${COMPANY},${key},${JSON.stringify(encodeAppData({attendance:{}}))}::jsonb,clock_timestamp(),null)
+          on conflict (company_id,key) do nothing
+        `;
+        const [lockedObra]=await transaction`
+          select value from company_app_data
+           where company_id=${COMPANY} and key=${key}
+           for update
+        `;
+        const existente=decodeAppData(lockedObra.value)?.attendance||{};
+        const proximo=applyEntriesToAttendance(existente,entries,applied.data.attendance);
+        await transaction`
+          update company_app_data
+             set value=${JSON.stringify(encodeAppData({attendance:proximo}))}::jsonb,
+                 updated_at=clock_timestamp(), updated_by=null
+           where company_id=${COMPANY} and key=${key}
+        `;
+      }
+
+      return {kind:"save",result:applied.result,updatedAt:savedPonto.updated_at};
+    });
+  }finally{
+    await connection.end({timeout:2});
+  }
 };
 
 // Confere o PIN contra o hash guardado no próprio dataset
@@ -1083,7 +1255,7 @@ export default async function handler(req, res) {
       lerLinha(),
       accessToken ? db.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
     ]);
-    let { payload: atual, updatedAt, rowVersions } = linha;
+    let { payload: atual, updatedAt, rowVersions, rowVersionsPontoObra } = linha;
     const pinAuth=usaPin?conferirPin(atual,userId,pin):{usuario:null,upgradeHash:""};
     const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || pinAuth.usuario;
 
@@ -1385,6 +1557,24 @@ export default async function handler(req, res) {
     if(ATTENDANCE_COMMANDS.has(action)){
       const command={...req.body,action};
       const operationNow=new Date().toISOString();
+      // upsert/batch-upsert são os únicos comandos que tocam `attendance`
+      // (agora particionado por obra - ver executarComandoPontoBloqueado);
+      // os outros 5 (lock/unlock/daily-check) só mexem nos campos "meta" que
+      // continuam numa única linha compartilhada, então seguem no caminho
+      // genérico de sempre.
+      const isAttendanceWrite=action===ATTENDANCE_COMMAND.UPSERT||action===ATTENDANCE_COMMAND.BATCH_UPSERT;
+      if(process.env.POSTGRES_URL_NON_POOLING&&isAttendanceWrite){
+        const outcome=await executarComandoPontoBloqueado({
+          usuario,command,operationNow,linha:{payload:atual,rowVersions},
+        });
+        if(outcome.kind==="error")return res.status(outcome.status||400).json({
+          ok:false,error:outcome.error,
+        });
+        return res.status(200).json({
+          ok:true,idempotent:outcome.kind==="idempotent",
+          result:outcome.result,updatedAt:outcome.updatedAt,
+        });
+      }
       if(process.env.POSTGRES_URL_NON_POOLING){
         const outcome=await executarMutacaoEmpresaBloqueada({
           actor:usuario,
@@ -1430,10 +1620,19 @@ export default async function handler(req, res) {
             ok:true,idempotent:true,result:applied.result,updatedAt:base.updatedAt,
           });
         }
+        // `attendance` saiu de DOMAIN_FIELDS[PONTO] (Fase 1.5 - agora vive em
+        // linhas por obra, ver executarComandoPontoBloqueado), então
+        // pickDomainFields sozinho não bastaria mais aqui: este caminho
+        // (CAS, hoje inativo em produção - POSTGRES_URL_NON_POOLING está
+        // definido) não implementa a divisão por obra, só continua gravando
+        // o blob inteiro de attendance na linha de Ponto, exatamente como
+        // sempre fez. Isso é seguro na leitura: linhas de obra (quando
+        // existirem) sempre vencem essa cópia no merge de lerLinha().
+        const valorComAttendance=data=>({...pickDomainFields(data,DOMAIN_ROW.PONTO),attendance:data.attendance||{}});
         const saved=await salvarComAuditoria({
           key:keyForDomain(base.domain),
           expectedUpdatedAt:base.updatedAt,
-          value:base.domain===DOMAIN_ROW.CORE?applied.data:pickDomainFields(applied.data,DOMAIN_ROW.PONTO),
+          value:base.domain===DOMAIN_ROW.CORE?applied.data:valorComAttendance(applied.data),
           rowVersions:base.rowVersions,keepDomain:DOMAIN_ROW.PONTO,
           actor:usuario,
           action:applied.audit?.action||action,

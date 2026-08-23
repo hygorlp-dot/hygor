@@ -466,6 +466,108 @@ sincronização falhar) e `src/integration/attendance-persistence-
 contract.test.js` (assinatura estrutural de que os dois call sites
 chamam `sincronizarPontoAposArquivo`).
 
+## Fase 1.5 reduzida: attendance particionado por obra (22/08/2026)
+
+O plano original de Fase 1.5 (dar a cada obra sua própria "sub-linha" de
+Ponto completa) não sobrevivia a uma investigação mais de perto: alguns
+comandos de Ponto não têm conceito de obra (`attendance-daily-check`),
+outros não carregam `obraId` no payload (`attendance-unlock-approve`/
+`-reject`, que descobrem a obra indiretamente via `unlockRequests`), e
+`attendance-batch-upsert` pode legitimamente abranger várias obras num
+único lote - tanto de propósito (`PontoGeral.limparLinha`, funcionário
+transferido no meio do ciclo) quanto sem querer (a fila de coalescência do
+cliente, `createAttendanceCommandQueue`, mescla `attendance-upsert`
+disparados em rajada de obras diferentes num único request). Forçar esses
+7 comandos a escolher uma partição fixa por obra não é natural ao negócio.
+
+**Redesenho reduzido, decidido com o usuário**: só `data.attendance`
+(o único campo que `attendance-upsert`/`attendance-batch-upsert` tocam) é
+particionado por obra. `attendanceLocks`/`unlockRequests`/`dailyCheckDate`/
+`attendanceOperationReceipts` continuam numa única linha compartilhada
+(`DOMAIN_ROW.PONTO`, a linha "meta") - sem mudança para os outros 5
+comandos.
+
+- **`server/attendance-obra-routing.js`** (novo, puro, sem I/O): chave por
+  obra (`attendanceObraKey`/`attendanceObraKeyPrefix`/`obraBucketFromKey`,
+  padrão `${PONTO_KEY}__obra__<obraId|"sem_obra">"`), mescla de leitura
+  (`mergeAttendanceObjects` - fontes posteriores vencem no mesmo
+  funcionário+data), agrupamento por obra dos registros já resolvidos que
+  `applyAttendanceCommand` devolve (`groupAttendanceEntriesByObra`), e a
+  aplicação de um lote de mudanças sobre o `attendance` de UMA linha sem
+  conhecer as outras obras (`applyEntriesToAttendance`, replica a mesma
+  semântica de exclusão de `applyValidatedPatch` em
+  `attendance-command.js`). `applyAttendanceCommand` em si não mudou nem
+  precisou mudar - é uma função pura sobre o `data` já mesclado; a divisão
+  física em linhas é inteiramente uma decisão da camada de persistência
+  (`api/data.js`), do mesmo jeito que `applyOperationalCommand` já é alheio
+  ao layout físico das linhas separadas.
+- **Descoberta por padrão de chave, não lista fixa**: diferente de
+  Ponto/Lookahead/Config/Equipamentos/RDO (`SPLIT_ROW_KEYS`, um dicionário
+  fixo de 5 entradas), o número de obras muda com o tempo - `lerLinha()`
+  descobre as linhas de obra via `like("key", "${PONTO_KEY}__obra__%")` em
+  vez de um `.in()` de lista conhecida.
+- **Migração sem seed obrigatório**: uma linha de obra é criada sob
+  demanda (`insert ... on conflict (company_id,key) do nothing` seguido de
+  `select ... for update`, dentro da mesma transação - evita a corrida
+  entre dois primeiros-escritores da MESMA obra nova) na primeira vez que
+  algum funcionário/data daquela obra é editado. Não precisa de
+  `scripts/seed-split-domain-rows.mjs` rodar antes: cada edição migra
+  sozinha a célula (funcionário,data) tocada; o que ainda não migrou
+  continua sendo lido da cópia legada na linha de Ponto
+  (`mergeAttendanceObjects`, linha de obra sempre vence quando existe).
+- **`coreFieldsOnly` (server/domain-row-routing.js)**: `attendance` saiu
+  de `DOMAIN_FIELDS[PONTO]`, mas precisa continuar sendo removido
+  incondicionalmente da linha core (nunca deve voltar a ser gravado lá,
+  ou reintroduz o mesmo bug de bloat resolvido no achado de DRE-sync mais
+  acima - só que agora para um blob de attendance multi-obra
+  potencialmente maior). Corrigido com uma exclusão incondicional de
+  `attendance`, com uma única exceção: `keepDomain===DOMAIN_ROW.PONTO`
+  (o arquivamento/restauração de quinzena é a única gravação legítima que
+  escreve `attendance` na core de propósito).
+- **`executarComandoPontoBloqueado` (api/data.js, novo)**: caminho travado
+  dedicado só para `attendance-upsert`/`attendance-batch-upsert` - trava a
+  linha meta de Ponto (ou a core, no fallback de sempre, se a linha meta
+  ainda não existir) MAIS uma linha por obra distinta tocada pelo lote, na
+  MESMA transação Postgres. A leitura de `attendance` usada para validar o
+  comando dentro de `applyAttendanceCommand` vem da cópia sem lock de
+  `lerLinha()` (mesma tolerância que o caminho otimista/CAS já aceita hoje
+  - só fica desatualizada no raro caso de dois usuários editando o EXATO
+  mesmo funcionário+data ao mesmo tempo). A GRAVAÇÃO em si não corre esse
+  risco: cada linha de obra é travada (`for update`) e mesclada contra o
+  valor recém-lido via `applyEntriesToAttendance`, nunca sobrescrita às
+  cegas. Os outros 5 comandos de Ponto continuam no
+  `executarMutacaoEmpresaBloqueada` genérico, domínio PONTO, sem mudança.
+- **Caminho CAS (hoje inativo em produção)**: não ganhou a divisão por
+  obra (o custo de uma CAS multi-linha não se justificava para um caminho
+  que não roda enquanto `POSTGRES_URL_NON_POOLING` estiver configurado) -
+  só recebeu a correção mínima para não regredir: como `attendance` saiu
+  de `DOMAIN_FIELDS[PONTO]`, `pickDomainFields` sozinho pararia de incluir
+  esse campo na gravação, apagando silenciosamente todo attendance desse
+  caminho. Continua gravando o blob inteiro na linha de Ponto, como sempre
+  fez - seguro na leitura, porque uma linha de obra (quando existir)
+  sempre vence essa cópia no merge.
+- **`sincronizarPontoAposArquivo` reconciliado**: pelo mesmo motivo do
+  item acima, `pickDomainFields(novoPrincipal, DOMAIN_ROW.PONTO)` sozinho
+  vira um no-op para attendance. O arquivamento/restauração não distingue
+  obra (a RPC de duas chaves opera a quinzena inteira, todos os
+  funcionários de uma vez) - dividir o resultado por obra exigiria
+  diferenciar entrada a entrada antes/depois, risco maior do que uma ação
+  rara e sem concorrência real justifica. Mantido como estava
+  conceitualmente: grava o blob completo de `novoPrincipal.attendance`
+  como cópia legada na linha de Ponto, com a mesma tolerância de
+  melhor-esforço que essa sincronização já tinha antes desta fase.
+
+**Testes**: `server/attendance-obra-routing.test.js` (16, módulo puro),
+`server/domain-row-routing.test.js` (atualizado para a exclusão
+incondicional de `attendance`), `src/integration/attendance-obra-locked-
+path.test.js` (novo - upsert de uma obra só toca a própria linha; lote com
+duas obras grava as duas linhas na mesma transação; reenvio do mesmo
+`operationId` é idempotente sem gravação; fallback para a core quando a
+linha meta ainda não existe, com a linha de obra continuando
+autossuficiente). Suíte inteira: 1240 testes, build, lint
+(`check-financial-boundaries.mjs`) e `architecture:check`
+(dependency-cruiser) sem violação nova.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`

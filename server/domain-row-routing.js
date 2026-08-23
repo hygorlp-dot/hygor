@@ -73,7 +73,13 @@ export const rowForAttendanceCommand = () => DOMAIN_ROW.PONTO;
 // intenção - cada campo aqui foi confirmado como escrito pelo domínio
 // correspondente via grep em 20/08/2026):
 //  - Ponto: server/attendance-command.js (applyValidatedPatch/applyLock/
-//    applyUnlockRequest/appendReceipt).
+//    applyUnlockRequest/appendReceipt). NÃO inclui `attendance` desde
+//    22/08/2026 (Fase 1.5 reduzida) - esse campo passou a ser particionado
+//    por obra, em linhas próprias fora deste dicionário fixo (ver
+//    server/attendance-obra-routing.js e api/data.js). Esta linha
+//    continua sendo a "meta" de Ponto: locks, solicitações de
+//    destravamento e o check diário, que não têm (ou não devem ter) uma
+//    obra única.
 //  - Lookahead: só data.lookaheadWindows (operational-commands.js:497-521).
 //  - Config: só data.config (company-config-commands.js).
 //  - Equipamentos: src/domains/equipamentos/commands.js + registry.js -
@@ -95,7 +101,7 @@ const SHARED_RECEIPTS_FIELD = "operationalCommandReceipts";
 
 export const DOMAIN_FIELDS = Object.freeze({
   [DOMAIN_ROW.PONTO]: [
-    "attendance", "attendanceLocks", "unlockRequests",
+    "attendanceLocks", "unlockRequests",
     "dailyCheckDate", "attendanceOperationReceipts",
   ],
   [DOMAIN_ROW.LOOKAHEAD]: ["lookaheadWindows", SHARED_RECEIPTS_FIELD],
@@ -160,6 +166,20 @@ export const SPLITTABLE_DOMAINS = [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAI
 // e essa cópia inteira estava sendo reenviada e regravada (com gzip) na
 // linha core a cada comando core, sem necessidade nenhuma (o dado já está
 // persistido, correto e atualizado nas próprias linhas separadas).
+// Achado de 22/08/2026 (Fase 1.5 reduzida): `attendance` saiu de
+// DOMAIN_FIELDS[PONTO] (agora particionado por obra, fora deste
+// dicionário de domínios fixos - ver attendance-obra-routing.js), mas
+// nunca deve voltar a ser gravado na linha core: seu destino agora é
+// sempre a linha própria da obra ou, na falta dela, a linha compartilhada
+// de Ponto - nunca a core. Diferente dos outros campos de domínio, não
+// precisa da condição `rowVersions[...] != null` (a linha de Ponto já foi
+// semeada há muito tempo - Fase 1 - então essa condição já era sempre
+// verdadeira na prática); é removido incondicionalmente, EXCETO quando
+// `keepDomain===DOMAIN_ROW.PONTO` (o arquivamento/restauração de
+// quinzena, `executarArquivoPontoTransacional`, é a única gravação
+// legítima que escreve `attendance` na core de propósito).
+const ATTENDANCE_FIELD = "attendance";
+
 export const coreFieldsOnly = (data, rowVersions = {}, keepDomain = null) => {
   const excludedFields = new Set(
     SPLITTABLE_DOMAINS
@@ -167,6 +187,7 @@ export const coreFieldsOnly = (data, rowVersions = {}, keepDomain = null) => {
       .flatMap(domain => DOMAIN_FIELDS[domain] || [])
       .filter(field => field !== SHARED_RECEIPTS_FIELD),
   );
+  if (keepDomain !== DOMAIN_ROW.PONTO) excludedFields.add(ATTENDANCE_FIELD);
   const result = {};
   Object.keys(data || {}).forEach(key => {
     if (excludedFields.has(key)) return;

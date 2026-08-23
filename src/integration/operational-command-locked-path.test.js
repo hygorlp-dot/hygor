@@ -27,10 +27,15 @@ const testState=vi.hoisted(()=>({
 const queryFor=table=>{
   const filters={};
   let inFilter=null;
+  let likeFilter=null;
   const query={
     select(){return query;},
     eq(key,value){filters[key]=value;return query;},
     in(key,values){inFilter={key,values};return query;},
+    // lerLinha() usa .like("key", `${prefix}%`) para descobrir as linhas de
+    // Ponto por obra (número dinâmico, ver server/attendance-obra-routing.js)
+    // - o mock só precisa entender o padrão de prefixo simples usado ali.
+    like(key,pattern){likeFilter={key,prefix:String(pattern||"").replace(/%$/,"")};return query;},
     maybeSingle:async()=>{
       if(table!=="company_app_data")return{data:null,error:null};
       const row=testState.rows[filters.key];
@@ -43,6 +48,12 @@ const queryFor=table=>{
         const matches=(inFilter.values||[])
           .map(key=>testState.rows[key])
           .filter(Boolean)
+          .map(row=>({key:row.key,value:row.value,updated_at:row.updated_at}));
+        result={data:matches,error:null};
+      }else if(likeFilter){
+        const matches=Object.values(testState.rows)
+          .filter(row=>String(row[likeFilter.key]||"").startsWith(likeFilter.prefix))
+          .filter(row=>!filters.company_id||filters.company_id===row.company_id)
           .map(row=>({key:row.key,value:row.value,updated_at:row.updated_at}));
         result={data:matches,error:null};
       }else{
@@ -159,10 +170,12 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
 
   it("reaproveita a lerLinha() já feita no topo do handler - não relê pelo Supabase dentro de executarMutacaoEmpresaBloqueada",async()=>{
     await callApi(opCommand("EQUIPAMENTO_SALVO",{equipment:{id:"eq-reuse",nome:"Compactador"}}));
-    // lerLinha() faz 2 chamadas (linha core + linhas separadas via .in()).
-    // Sem o reaproveitamento de `linha`, executarMutacaoEmpresaBloqueada
-    // faria uma SEGUNDA lerLinha() antes de travar - 4 chamadas ao todo.
-    expect(fakeDb.from.mock.calls.filter(([table])=>table==="company_app_data")).toHaveLength(2);
+    // lerLinha() faz 3 chamadas (linha core + linhas separadas via .in() +
+    // linhas de Ponto por obra via .like(), Fase 1.5 - ver
+    // server/attendance-obra-routing.js). Sem o reaproveitamento de `linha`,
+    // executarMutacaoEmpresaBloqueada faria uma SEGUNDA lerLinha() antes de
+    // travar - 6 chamadas ao todo.
+    expect(fakeDb.from.mock.calls.filter(([table])=>table==="company_app_data")).toHaveLength(3);
   });
 
   it("grava EQUIPAMENTO_SALVO na linha de equipamentos, sem tocar a linha core",async()=>{
