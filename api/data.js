@@ -1979,6 +1979,29 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok:true, count: count || 0, sample: sample || [] });
     }
 
+    // Utilitário estreito de limpeza (24/08/2026, migration 011 concede
+    // DELETE em purchase_requests só para service_role). Não é um comando
+    // genérico de exclusão de solicitação de compra - nenhum outro dado
+    // real teria request_number começando com "TESTE-" (o padrão usado ao
+    // verificar a escrita ao vivo em produção), então a checagem abaixo
+    // impede qualquer uso acidental fora desse propósito.
+    if(action==="purchase-requests-delete-test-row"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores limpam registros de teste."});
+      const id=String(req.body?.id||"");
+      if(!id)return res.status(400).json({error:"Informe o id do registro de teste."});
+      const { data:row, error:findError }=await db.from("purchase_requests")
+        .select("id, request_number").eq("company_id", COMPANY).eq("id", id).maybeSingle();
+      if (findError) throw findError;
+      if(!row)return res.status(404).json({error:"Registro não encontrado."});
+      if(!/^TESTE-/.test(String(row.request_number||"")))return res.status(400).json({
+        error:"Só registros com request_number começando em 'TESTE-' podem ser removidos por aqui.",
+      });
+      const { error:deleteError }=await db.from("purchase_requests")
+        .delete().eq("company_id", COMPANY).eq("id", id);
+      if (deleteError) throw deleteError;
+      return res.status(200).json({ ok:true, deleted:id });
+    }
+
     if(action==="financial-dre-report"||action==="financial-company-dre-report"){
       const year=Number(req.body?.year),month=Number(req.body?.month);
       const period=["mes","q1","q2"].includes(req.body?.period)?req.body.period:"mes";

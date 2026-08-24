@@ -33,11 +33,15 @@ const sql=postgres(process.env.POSTGRES_URL_NON_POOLING, {
   ssl:"require", max:1, connect_timeout:20, idle_timeout:5,
 });
 
+const migrationPaths=[
+  "../migrations/010_create_purchase_requests_live.up.sql",
+  "../migrations/011_grant_purchase_requests_delete.up.sql",
+];
+
 try {
-  await sql.unsafe(fs.readFileSync(
-    new URL("../migrations/010_create_purchase_requests_live.up.sql", import.meta.url),
-    "utf8",
-  ));
+  for (const migrationPath of migrationPaths) {
+    await sql.unsafe(fs.readFileSync(new URL(migrationPath, import.meta.url), "utf8"));
+  }
   const [check]=await sql`select to_regclass('public.purchase_requests') is not null as table_ok`;
   if (!check?.table_ok) throw new Error("purchase_requests: a validação pós-migração não encontrou a tabela.");
   process.stdout.write("purchase_requests: migration aplicada.\n");
