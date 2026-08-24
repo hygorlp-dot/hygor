@@ -57,6 +57,9 @@ import {
 import {
   CORE_REGISTRY_TABLES, summarizeCoreRegistryShadowStatus,
 } from "../server/core-registry-shadow-status.js";
+import {
+  EQUIPMENT_REGISTRY_TABLES, summarizeEquipmentRegistryShadowStatus,
+} from "../server/equipment-registry-shadow-status.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
@@ -1893,6 +1896,38 @@ export default async function handler(req, res) {
         sample[section] = sampleRows || [];
       }
       const summary = summarizeCoreRegistryShadowStatus({ runs: runs || [], liveCounts });
+      return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
+    }
+
+    // CORE-002, mesmo padrão do core-registry-report acima (24/08/2026, ver
+    // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md). `db` já não precisa de
+    // isolamento próprio aqui - authDb absorve toda chamada .auth.* deste
+    // arquivo desde a correção na raiz, então `db` nunca mais é contaminado.
+    if(action==="equipment-registry-report"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção de equipamentos."});
+      const { data: runs, error: runsError } = await db
+        .from("equipment_registry_shadow_runs")
+        .select("result, created_at, actor_id")
+        .eq("company_id", COMPANY)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (runsError) throw runsError;
+      const liveCounts = {};
+      const sample = {};
+      for (const [section, table] of Object.entries(EQUIPMENT_REGISTRY_TABLES)) {
+        const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
+          db.from(table).select("*", { count: "exact", head: true })
+            .eq("company_id", COMPANY).is("archived_at", null),
+          db.from(table).select("*")
+            .eq("company_id", COMPANY).is("archived_at", null)
+            .order("synced_at", { ascending: false }).limit(5),
+        ]);
+        if (countError) throw countError;
+        if (sampleError) throw sampleError;
+        liveCounts[section] = count || 0;
+        sample[section] = sampleRows || [];
+      }
+      const summary = summarizeEquipmentRegistryShadowStatus({ runs: runs || [], liveCounts });
       return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
     }
 
