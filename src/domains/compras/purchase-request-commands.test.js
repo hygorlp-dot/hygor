@@ -66,3 +66,57 @@ describe("comando transacional de solicitação de compra",()=>{
     expect(purchaseRequestCommandObraId(base(),command())).toBe("obra-1");
   });
 });
+
+const cancelCommand=(overrides={})=>({
+  type:PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_CANCELLED,
+  idempotencyKey:"solicitacao-cancel-001",expectedVersion:2,
+  actorId:"user-1",actorName:"Engenheira",
+  payload:{requestId:"sol-antiga",reason:"Pedido duplicado"},
+  ...overrides,
+});
+
+describe("cancelamento de solicitação de compra (soft-delete)",()=>{
+  it("marca status:cancelada sem remover o registro do array",()=>{
+    const result=applyPurchaseRequestCommand(base(),cancelCommand());
+    expect(result.ok).toBe(true);
+    expect(result.data.solicitacoesCompra).toHaveLength(1);
+    const cancelled=result.data.solicitacoesCompra[0];
+    expect(cancelled).toMatchObject({
+      id:"sol-antiga",status:"cancelada",version:3,
+      motivoCancelamento:"Pedido duplicado",canceladoPorId:"user-1",
+    });
+  });
+
+  it("recusa cancelar de novo uma solicitação já cancelada",()=>{
+    const data=base();
+    const first=applyPurchaseRequestCommand(data,cancelCommand());
+    const second=applyPurchaseRequestCommand(first.data,cancelCommand({expectedVersion:3}));
+    expect(second.ok).toBe(false);
+    expect(second.reason).toContain("já foi cancelada");
+  });
+
+  it("protege cancelamento concorrente por versão",()=>{
+    const result=applyPurchaseRequestCommand(base(),cancelCommand({expectedVersion:99}));
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("alterada por outra pessoa");
+  });
+
+  it("recusa cancelar uma solicitação inexistente",()=>{
+    const result=applyPurchaseRequestCommand(base(),cancelCommand({payload:{requestId:"nao-existe"}}));
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe("Solicitação não encontrada.");
+  });
+
+  it("recusa editar (SOLICITACAO_COMPRA_SALVA) uma solicitação já cancelada",()=>{
+    const cancelled=applyPurchaseRequestCommand(base(),cancelCommand());
+    const edit=applyPurchaseRequestCommand(cancelled.data,command({
+      payload:{request:{...command().payload.request,id:"sol-antiga"}},expectedVersion:3,
+    }));
+    expect(edit.ok).toBe(false);
+    expect(edit.reason).toContain("não pode mais ser editada");
+  });
+
+  it("resolve o escopo pela obra da solicitação também no cancelamento",()=>{
+    expect(purchaseRequestCommandObraId(base(),cancelCommand())).toBe("obra-1");
+  });
+});

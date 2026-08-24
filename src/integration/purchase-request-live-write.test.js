@@ -192,4 +192,26 @@ describe("/api/data · SOLICITACAO_COMPRA_SALVA grava ao vivo em purchase_reques
     });
     expect(testState.upsertCalls).toHaveLength(0);
   });
+
+  it("SOLICITACAO_COMPRA_CANCELADA também atualiza purchase_requests, refletindo status:cancelada no payload",async()=>{
+    await callApi(purchaseRequestCommand());
+    testState.upsertCalls.length=0;
+    const result=await callApi({
+      action:"operational-command",accessToken:"valid-token",
+      command:{
+        type:"SOLICITACAO_COMPRA_CANCELADA",
+        payload:{requestId:"req-1",reason:"Pedido duplicado"},
+        expectedVersion:1,idempotencyKey:"test-idem-key-purchase-request-cancel-1",
+      },
+    });
+    expect(result.status).toBe(200);
+    expect(result.body.ok).toBe(true);
+    expect(testState.upsertCalls).toHaveLength(1);
+    const [{row}]=testState.upsertCalls;
+    expect(row.id).toBe("req-1");
+    expect(row.payload).toMatchObject({status:"cancelada",motivoCancelamento:"Pedido duplicado"});
+    // O blob também reflete o cancelamento - soft-delete, o registro continua no array.
+    const blobRecord=testState.rows[CORE_KEY].value.solicitacoesCompra.find(item=>item.id==="req-1");
+    expect(blobRecord).toMatchObject({status:"cancelada"});
+  });
 });

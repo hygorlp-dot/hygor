@@ -34,9 +34,14 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+
+// Mesmo motivo do timeout estendido em beforeEach/afterEach abaixo: cada
+// teste roda várias queries reais contra o Postgres em WASM, e a suíte
+// inteira em paralelo (disputa de CPU) já estourou o padrão de 5s uma vez.
+vi.setConfig({ testTimeout: 20000 });
 
 const MIGRATIONS_DIR = path.resolve(process.cwd(), "migrations");
 
@@ -54,6 +59,10 @@ const HASH_B = "b".repeat(64);
 
 let db;
 
+// Timeout maior que o padrão de 10s: instanciar um Postgres em WASM por
+// teste e aplicar 2 migrações reais fica lento sob a suíte inteira rodando
+// em paralelo (disputa de CPU entre ~240 arquivos) - achado ao rodar
+// `npx vitest run` completo depois que o arquivo passava isolado.
 beforeEach(async () => {
   db = new PGlite({ extensions: { pgcrypto } });
 
@@ -93,11 +102,11 @@ beforeEach(async () => {
   // core_registry_sync_legacy insere nela ao final.
   await db.exec(AUDIT_EVENTS_MIGRATION_SQL);
   await db.exec(CORE_REGISTRY_MIGRATION_SQL);
-});
+}, 30000);
 
 afterEach(async () => {
   await db.close();
-});
+}, 15000);
 
 function buildSnapshot(overrides = {}) {
   return {

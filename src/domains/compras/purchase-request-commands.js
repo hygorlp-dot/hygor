@@ -3,6 +3,7 @@ import { hasValidUnitConversion } from "./unit-conversion.js";
 
 export const PURCHASE_REQUEST_COMMAND=Object.freeze({
   PURCHASE_REQUEST_SAVED:"SOLICITACAO_COMPRA_SALVA",
+  PURCHASE_REQUEST_CANCELLED:"SOLICITACAO_COMPRA_CANCELADA",
 });
 
 export const PURCHASE_REQUEST_COMMAND_TYPES=new Set(Object.values(PURCHASE_REQUEST_COMMAND));
@@ -39,6 +40,7 @@ const saveRequest=(data,command,now)=>{
   const id=String(raw.id||""),obraId=String(raw.obraId||"");
   const current=requestById(data,id);
   if(!id)return fail("Solicitação sem identificação única.");
+  if(current?.status==="cancelada")return fail("Esta solicitação foi cancelada e não pode mais ser editada.");
   if(!(data.obras||[]).some(item=>String(item.id)===obraId))return fail("Selecione uma obra existente para a solicitação.");
   if(current&&versionOf(current)!==Number(command.expectedVersion)){
     return fail("A solicitação foi alterada por outra pessoa. Atualize a tela e tente novamente.");
@@ -59,7 +61,7 @@ const saveRequest=(data,command,now)=>{
     return fail("Todos os itens precisam estar vinculados a insumos persistidos no catálogo.");
   }
   const actorName=String(command.actorName||"").trim()||"Usuário autenticado";
-  const saved={...current,...raw,id,obraId,
+  const saved={...current,...raw,id,obraId,status:current?.status||"aberta",
     version:versionOf(current)+1,atualizadoEm:now,updatedAt:now,
     atualizadoPor:actorName,updatedBy:actorName,updatedById:String(command.actorId||""),
     ...(!current?{criadoEm:raw.criadoEm||now,criadoPor:raw.criadoPor||actorName,
@@ -78,14 +80,45 @@ const saveRequest=(data,command,now)=>{
   return {ok:true,entityId:id,data:next};
 };
 
+// Cancelamento é sempre soft-delete (status:"cancelada") - mesmo padrão de
+// EQUIPMENT_RENTAL_CANCELLED (src/domains/equipamentos/commands.js): o
+// registro nunca é removido do array, só marcado. Não existia nenhum
+// comando de cancelamento/exclusão de solicitação de compra até esta
+// mudança (24/08/2026, ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md) - o único
+// jeito de "remover" uma solicitação de teste era um utilitário
+// administrativo estreito que removia a linha de verdade do array, sem
+// nenhuma auditoria de negócio.
+const cancelRequest=(data,command,now)=>{
+  const payload=command.payload||{};
+  const id=String(payload.requestId||"");
+  const current=requestById(data,id);
+  if(!id||!current)return fail("Solicitação não encontrada.");
+  if(current.status==="cancelada")return fail("Esta solicitação já foi cancelada.");
+  if(versionOf(current)!==Number(command.expectedVersion)){
+    return fail("A solicitação foi alterada por outra pessoa. Atualize a tela e tente novamente.");
+  }
+  const reason=String(payload.reason||"").trim();
+  const actorName=String(command.actorName||"").trim()||"Usuário autenticado";
+  const saved={...current,status:"cancelada",version:versionOf(current)+1,
+    atualizadoEm:now,updatedAt:now,atualizadoPor:actorName,updatedBy:actorName,
+    updatedById:String(command.actorId||""),
+    canceladoEm:now,canceladoPor:actorName,canceladoPorId:String(command.actorId||""),
+    motivoCancelamento:reason};
+  const next={...data,solicitacoesCompra:(data.solicitacoesCompra||[])
+    .map(item=>String(item.id)===id?saved:item)};
+  return {ok:true,entityId:id,data:next};
+};
+
 export const purchaseRequestCommandObraId=(data={},command={})=>{
   if(!PURCHASE_REQUEST_COMMAND_TYPES.has(command?.type))return "";
+  const requestId=command.payload?.request?.id||command.payload?.requestId;
   const request=command.payload?.request||{};
-  return String(requestById(data,request.id)?.obraId||request.obraId||"");
+  return String(requestById(data,requestId)?.obraId||request.obraId||"");
 };
 
 export const applyPurchaseRequestCommand=(data={},command={},now=new Date().toISOString())=>{
   if(!PURCHASE_REQUEST_COMMAND_TYPES.has(command.type))return null;
   if(!command.actorId)return fail("Sessão do usuário indisponível para salvar a solicitação.");
+  if(command.type===PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_CANCELLED)return cancelRequest(data,command,now);
   return saveRequest(data,command,now);
 };

@@ -33,9 +33,15 @@ const sql=postgres(process.env.POSTGRES_URL_NON_POOLING, {
   ssl:"require", max:1, connect_timeout:20, idle_timeout:5,
 });
 
+// 011 (grant DELETE) e 013 (revoke DELETE) - achado de 24/08/2026, ver
+// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md: reaplicar 011 em todo deploy
+// tornava o privilégio permanente por omissão, apesar de documentado como
+// uso único (limpeza de um registro de teste, já feita). 011 sai da cadeia
+// recorrente; 013 revoga o que já tinha sido concedido - idempotente,
+// seguro mesmo depois da primeira vez que rodar.
 const migrationPaths=[
   "../migrations/010_create_purchase_requests_live.up.sql",
-  "../migrations/011_grant_purchase_requests_delete.up.sql",
+  "../migrations/013_revoke_purchase_requests_delete.up.sql",
 ];
 
 try {

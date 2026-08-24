@@ -182,6 +182,7 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.INVOICE_APPROVED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED]:["admin","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.PURCHASE_REQUEST_CANCELLED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.SUPPLIER_SAVED]:["admin","compras","financeiro"],
   [OPERATIONAL_COMMAND.MATERIAL_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE]:["admin","compras"],
@@ -1727,9 +1728,12 @@ export default async function handler(req, res) {
           error:outcome.error,reason:outcome.error,
           ...(outcome.conflict?{conflict:true,currentUpdatedAt:outcome.currentUpdatedAt}:{}),
         });
-        if(command.type===OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED&&outcome.kind==="save"){
+        const ehComandoDeSolicitacaoCompra=command.type===OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED
+          ||command.type===OPERATIONAL_COMMAND.PURCHASE_REQUEST_CANCELLED;
+        if(ehComandoDeSolicitacaoCompra&&outcome.kind==="save"){
           await sincronizarSolicitacaoCompraAoVivo({
-            companyId:COMPANY,requestId:command.payload?.request?.id,
+            companyId:COMPANY,
+            requestId:command.payload?.request?.id||command.payload?.requestId,
             mergedData:outcome.data,actor:usuario,
           });
         }
@@ -1979,28 +1983,15 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok:true, count: count || 0, sample: sample || [] });
     }
 
-    // Utilitário estreito de limpeza (24/08/2026, migration 011 concede
-    // DELETE em purchase_requests só para service_role). Não é um comando
-    // genérico de exclusão de solicitação de compra - nenhum outro dado
-    // real teria request_number começando com "TESTE-" (o padrão usado ao
-    // verificar a escrita ao vivo em produção), então a checagem abaixo
-    // impede qualquer uso acidental fora desse propósito.
-    if(action==="purchase-requests-delete-test-row"){
-      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores limpam registros de teste."});
-      const id=String(req.body?.id||"");
-      if(!id)return res.status(400).json({error:"Informe o id do registro de teste."});
-      const { data:row, error:findError }=await db.from("purchase_requests")
-        .select("id, request_number").eq("company_id", COMPANY).eq("id", id).maybeSingle();
-      if (findError) throw findError;
-      if(!row)return res.status(404).json({error:"Registro não encontrado."});
-      if(!/^TESTE-/.test(String(row.request_number||"")))return res.status(400).json({
-        error:"Só registros com request_number começando em 'TESTE-' podem ser removidos por aqui.",
-      });
-      const { error:deleteError }=await db.from("purchase_requests")
-        .delete().eq("company_id", COMPANY).eq("id", id);
-      if (deleteError) throw deleteError;
-      return res.status(200).json({ ok:true, deleted:id });
-    }
+    // Removido em 24/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md):
+    // purchase-requests-delete-test-row usava o DELETE que a migration 011
+    // concedia a service_role em purchase_requests - achado de auditoria:
+    // esse grant tinha ficado permanente por omissão (reaplicado em todo
+    // deploy), apesar de documentado como uso único. A migration 013
+    // revoga o privilégio; sem ele, esta ação só falharia com erro de
+    // permissão, então foi removida em vez de deixada como código morto.
+    // O registro de teste que motivou sua criação já foi removido (0
+    // linhas em purchase_requests, confirmado em produção).
 
     // Mesmo utilitário estreito acima, mas para o lado do blob
     // (data.solicitacoesCompra/data.materiais) - não existe comando de
