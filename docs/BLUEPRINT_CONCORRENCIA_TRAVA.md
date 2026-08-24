@@ -747,6 +747,73 @@ sobre o texto do SQL); começar um novo domínio relacional do zero. Definir
 qual desses é o próximo passo real de Fase 2 fica para uma decisão futura
 com o usuário, quando ele quiser avançar de novo.
 
+## CORE-002: projeção cadastral de equipamentos (24/08/2026)
+
+Pedido do usuário para continuar Fase 2 "sem parar" - escolhido, seguindo a
+ordem de `PLANO_REDUCAO_LEGACYAPP_SUPABASE.md` ("Cadastros e vínculos
+operacionais"), completar a única parte de cadastro que o CORE-001 não
+cobriu: equipamentos (`reference_items`/`reference_compositions`, os outros
+itens da mesma lista, já existem como `budget_reference_bases`/
+`budget_reference_items` desde antes desta sessão - tabelas relacionais
+próprias, fora do padrão `company_app_data`).
+
+**Mesmo padrão do CORE-001**, migration `009_create_equipment_registry_
+projection`: `core_equipment` (de `data.equipamentos` - a fonte canônica
+ainda editada via `EQUIPAMENTO_SALVO`, não a normalização interna
+`equipmentModels`/`Lots`/`Units`, que é derivada e re-derivável a qualquer
+momento por `migrateLegacyEquipmentRegistry`), `core_equipment_owners` (de
+`proprietariosEquip`), `core_equipment_allocations` (de `locacoesEquip` - no
+código a locação JÁ É o vínculo equipamento-obra, não existe um conceito de
+"alocação" separado; um único projeta os dois nomes que o plano de redução
+lista) e `core_equipment_maintenance_events` (de `manutencoesEquip`). RLS
+travando tudo exceto `service_role` (sem política por papel/obra, mesmo
+critério corrigido acima). RPC `equipment_registry_sync_legacy`, tabela de
+auditoria `equipment_registry_shadow_runs`, script `apply-equipment-
+registry-shadow.mjs` no `prebuild` de produção, `check-equipment-registry-
+shadow-status.mjs` e ação `equipment-registry-report` (mesmo padrão dos
+equivalentes do CORE-001).
+
+**Escopo deliberadamente limitado** à camada de cadastro/vínculo, mesma
+disciplina do CORE-001: faturamento de locação (`rentalChargeItems`/
+`Invoices`/`Receipts`), o calendário de indisponibilidade derivado
+(`equipmentUnavailability`) e a normalização interna
+(`equipmentModels`/`Lots`/`Units`) ficam de fora - preservados dentro do
+`payload` de `core_equipment_allocations` quando relevante (tarifas,
+descontos, `lifecycleState`), nunca modelados em coluna própria. A fase
+transacional completa (fluxo de locação como comando idempotente) fica
+para depois.
+
+**Bug real encontrado e corrigido ao verificar o primeiro deploy**:
+`apply-equipment-registry-shadow.mjs` lia só a linha core
+(`company_app_data`, `key=arced_ponto_v1`) - mas os campos de equipamento
+já saem dela desde a Fase 1 de separação de linhas desta mesma sessão
+(`server/domain-row-routing.js`, `DOMAIN_ROW.EQUIPAMENTOS`, linha própria
+`${key}__equipamentos`). O gate "passou" no primeiro deploy com um
+snapshot sempre vazio - um **falso negativo silencioso** (0 divergências
+porque nada foi comparado, não porque estava tudo certo). Só foi pego
+porque `equipment-registry-report` (construído e verificado ao vivo na
+mesma rodada, mesmo padrão do CORE-001) mostrou `liveCounts` zerado contra
+21 equipamentos/48 locações reais confirmados via `load`. Corrigido
+mesclando as duas linhas antes de projetar (`mergeDomainRows`, mesmo
+utilitário que `lerLinha()` já usa) - **CORE-001 não tem esse problema**:
+`obras`/`employees`/`fornecedores`/`terceirizados` nunca saem da linha
+core (confirmado em `DOMAIN_FIELDS`, nenhum dos 4 outros domínios os
+lista).
+
+**Verificado em produção após a correção**: `equipment-registry-report`
+- 21 `core_equipment`, 2 `core_equipment_owners`, 48
+`core_equipment_allocations`, 0 `core_equipment_maintenance_events`
+(dataset real não tem nenhuma manutenção registrada ainda), 0
+divergências - contagens batendo exatamente com `data.equipamentos`/
+`locacoesEquip`/`proprietariosEquip` lidos via `load`.
+
+**Lição para o próximo domínio de Fase 2**: antes de escrever o script de
+sombra de qualquer campo novo, confirmar em `DOMAIN_FIELDS`
+(`server/domain-row-routing.js`) se esse campo já saiu da linha core - se
+sim, o script precisa ler e mesclar a linha separada correspondente, não
+só a core (como este achado mostrou, o silêncio de "0 divergências" não
+distingue "está tudo certo" de "não achei nada para comparar").
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
