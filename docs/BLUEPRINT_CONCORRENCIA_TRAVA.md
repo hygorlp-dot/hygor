@@ -611,6 +611,16 @@ tabela.
   ausência total de histórico, contagens batendo, divergência de
   contagem, queda a zero, formatação com e sem alertas).
 
+**Resultado confirmado contra produção** (rodado pelo usuário em
+23-24/08/2026, via `npm run registry:shadow-status`): gate passando limpo,
+última sincronização ~15h antes da checagem, **0 divergências** - 15
+`core_projects`, 78 `core_employees`, 78 `core_employee_assignments`, 124
+`core_employee_identifiers`, 35 `core_suppliers`, 5
+`core_third_party_profiles`, 16 `core_third_party_contracts`. A hipótese
+levantada acima (evidência indireta pelos deploys nunca falharem) se
+confirmou: o CORE-001 vem sincronizando corretamente desde 30/07/2026, só
+nunca tinha sido verificado explicitamente até agora.
+
 **Fora do escopo desta rodada, por decisão do usuário**: políticas de RLS
 por papel/obra para as tabelas `core_*`; qualquer tela/endpoint que
 efetivamente consuma `core_projects`/`core_employees`/etc.; infraestrutura
