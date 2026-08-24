@@ -1184,6 +1184,79 @@ concorrência otimista, bloqueio de edição pós-decisão/cancelamento).
 Verificação: suíte completa 241 arquivos/1313 testes verdes, `npm run
 build`, `npm run lint` e `npm run architecture:check` sem violação nova.
 
+## CORE-003: cotações e pedidos em modo sombra (24/08/2026)
+
+Usuário: "continue e seja autonomo". Com o pré-requisito fechado (seção
+acima), segui direto para a projeção relacional em modo sombra de
+`cotacoes`/`pedidos` - mesmo padrão do CORE-001 (`migrations/007`) e
+CORE-002 (`migrations/009`): só leitura, sem trocar nenhum caminho real do
+aplicativo, gate de build (`npm run prebuild`) derruba o deploy se achar
+divergência entre o blob e a projeção.
+
+**Migration 014** (`migrations/014_create_procurement_projection.up.sql`):
+- `core_quotations` - id, obra, insumo, `request_id` (vínculo com a
+  solicitação de origem), status, quantidade. Propostas ficam inteiras em
+  `payload` (nenhum outro domínio referencia uma proposta pelo próprio id
+  - mesmo princípio de escopo mínimo do CORE-001/CORE-002).
+- `core_purchase_orders` - id, obra, fornecedor, `quote_id`, `request_id`,
+  número, status. Itens/pagamentos/recebimentos ficam inteiros em
+  `payload`.
+- `procurement_registry_shadow_runs` - histórico de sincronizações, mesmo
+  padrão de `core_registry_shadow_runs`/`equipment_registry_shadow_runs`.
+- RPC `procurement_registry_sync_legacy` - upsert-on-conflict + arquiva
+  (nunca apaga) o que sai do snapshot, mesma estrutura das RPCs anteriores.
+- **Decisão de design registrada explicitamente**: `request_id` (vínculo
+  com `solicitacaoId`) NÃO tem chave estrangeira para `purchase_requests`
+  (migration 010) de propósito - `purchase_requests` é escrita AO VIVO de
+  melhor esforço desde 24/08/2026, sem garantia de cobertura de
+  solicitações anteriores a essa data (é dual-write best-effort, não um
+  sync em lote como este). Uma FK ali quebraria a sincronização de
+  qualquer cotação/pedido histórico vinculado a uma solicitação nunca
+  duplicada na tabela viva. Já `project_id`/`supplier_id` SÃO chave
+  estrangeira para `core_projects`/`core_suppliers` (CORE-001) porque
+  essas são projeção completa em lote, sempre atualizada antes desta no
+  encadeamento do `prebuild`, e nunca fazem DELETE físico (só
+  `archived_at`) - uma referência antiga permanece válida mesmo que o
+  cadastro de origem tenha sumido do blob depois.
+- Testado com execução real de Postgres via pglite
+  (`server/procurement-registry-sync-legacy.pglite.test.js`), incluindo um
+  caso que prova a FK de verdade rejeitando um pedido com fornecedor
+  inexistente - não só asserção estática de texto do SQL.
+
+**Camada JS**: `server/procurement-registry-shadow.js` (snapshot +
+comparação por hash, mesmo padrão de `equipment-registry-shadow.js`;
+filtra pedidos cuja `cotacaoId` não está no próprio snapshot antes de
+enviar à RPC, mesma auto-consistência que `allocations` já faz contra
+`equipmentIds`), `server/procurement-registry-shadow-status.js`
+(formatação do resumo, testado sem rede),
+`scripts/apply-procurement-shadow.mjs` (só roda quando
+`VERCEL_ENV==="production"`, adicionado ao fim do encadeamento do
+`prebuild`, depois de `financial-engine:rls` - depende de
+`registry:migrate-shadow` já ter rodado antes, mesmo `npm run prebuild`,
+para que `core_suppliers` já exista quando a FK for verificada),
+`scripts/check-procurement-registry-shadow-status.mjs`
+(`npm run procurement-registry:shadow-status`, mesmo padrão dos dois
+scripts de status anteriores). Ação `procurement-registry-report`
+adicionada a `api/data.js` (admin-only), mesmo padrão de
+`core-registry-report`/`equipment-registry-report`.
+
+Cotações e pedidos vivem na linha `core` (nunca saíram dela -
+`server/domain-row-routing.js`, `DOMAIN_FIELDS`), diferente de
+equipamentos (CORE-002 precisou mesclar duas linhas) - o script de
+aplicação lê só a linha core, mesmo padrão simples do CORE-001.
+
+**Ainda em aberto, por decisão deliberada (mesma disciplina de
+CORE-001/CORE-002)**: nenhuma política de RLS por papel/obra, nenhum
+caminho de leitura real (tela/endpoint fora do relatório admin) consome
+esta projeção. Virar consumidor real é o próximo passo natural, mas fica
+para quando houver necessidade concreta - não faz sentido construir uma
+tela sobre uma tabela ainda não comprovada em produção.
+
+Verificação: suíte completa 245 arquivos/1335 testes verdes, `npm run
+build`, `npm run lint` e `npm run architecture:check` sem violação nova.
+Script de aplicação testado localmente (no-op fora de produção, conforme
+esperado).
+
 ## Investigação da integração com o agente de IA (24/08/2026)
 
 Pedido do usuário para confirmar se a integração com o agente de IA (o

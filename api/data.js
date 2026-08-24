@@ -60,6 +60,9 @@ import {
 import {
   EQUIPMENT_REGISTRY_TABLES, summarizeEquipmentRegistryShadowStatus,
 } from "../server/equipment-registry-shadow-status.js";
+import {
+  PROCUREMENT_REGISTRY_TABLES, summarizeProcurementRegistryShadowStatus,
+} from "../server/procurement-registry-shadow-status.js";
 import { buildPurchaseRequestLiveRow } from "../server/purchase-request-live-write.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
@@ -1965,6 +1968,37 @@ export default async function handler(req, res) {
         sample[section] = sampleRows || [];
       }
       const summary = summarizeEquipmentRegistryShadowStatus({ runs: runs || [], liveCounts });
+      return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
+    }
+
+    // CORE-003, mesmo padrão do equipment-registry-report acima (24/08/2026,
+    // ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, seção "Comando de criação de
+    // cotação: a lacuna fundamental fechada").
+    if(action==="procurement-registry-report"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção de compras."});
+      const { data: runs, error: runsError } = await db
+        .from("procurement_registry_shadow_runs")
+        .select("result, created_at, actor_id")
+        .eq("company_id", COMPANY)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (runsError) throw runsError;
+      const liveCounts = {};
+      const sample = {};
+      for (const [section, table] of Object.entries(PROCUREMENT_REGISTRY_TABLES)) {
+        const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
+          db.from(table).select("*", { count: "exact", head: true })
+            .eq("company_id", COMPANY).is("archived_at", null),
+          db.from(table).select("*")
+            .eq("company_id", COMPANY).is("archived_at", null)
+            .order("synced_at", { ascending: false }).limit(5),
+        ]);
+        if (countError) throw countError;
+        if (sampleError) throw sampleError;
+        liveCounts[section] = count || 0;
+        sample[section] = sampleRows || [];
+      }
+      const summary = summarizeProcurementRegistryShadowStatus({ runs: runs || [], liveCounts });
       return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
     }
 
