@@ -699,6 +699,45 @@ dashboard renderizando normalmente. Não foi possível testar
 mas a mudança é um redirecionamento mecânico para um cliente
 idêntico na configuração, de risco muito baixo.
 
+## Auditoria do impacto real: `financial-shadow-sync`/`financial-shadow-migrate` (24/08/2026)
+
+Pedido do usuário para confirmar se as outras ações admin que usam `db`
+depois da resolução de sessão realmente sofreram o bug de contaminação
+(seção acima), além de `financial-shadow-report` (já testado, sem
+problema). Auditoria estática, sem precisar rodar as duas ações de
+escrita em produção:
+
+- **`financial-shadow-migrate`**: usa só uma conexão `postgres()` direta
+  (`POSTGRES_URL_NON_POOLING`) - nunca toca `db`/`authDb`. Uma conexão por
+  string de conexão autentica como usuário de banco, sem passar pelo
+  mapeamento de papel do PostgREST (`service_role`/`authenticated`/`anon`)
+  - imune a este bug por construção, não por sorte.
+- **`financial-shadow-sync`**: a escrita crítica (`insert into
+  financial_shadow_runs`, dentro de `financial_sync_legacy_facts`) também
+  roda pela mesma conexão `postgres()` direta - imune pelo mesmo motivo.
+  Só as dois `db.from("data_quality_cases")` no fim da ação (marcar casos
+  antigos como resolvidos, registrar novas divergências) usavam o `db`
+  compartilhado e teriam rodado sob o papel errado antes da correção.
+- **Achado que fecha a auditoria**: nenhuma das tabelas do motor
+  financeiro (`financial_titles`, `settlements`, `financial_events`,
+  `reconciliation_links`, `data_quality_cases`, `financial_shadow_runs`,
+  `audit_events` etc. - `migrations/20260725_financial_engine.sql`
+  inteiro) tem `enable row level security` nem grant/revoke explícito -
+  grep confirmando zero ocorrências. Sem RLS habilitada, Postgres não
+  distingue `service_role` de `authenticated` para essas tabelas
+  (dependem só do grant padrão do schema, igual para os dois papéis) - ou
+  seja, a contaminação realmente acontecia nessas duas chamadas, mas
+  nunca teve efeito observável: não havia nenhuma política capaz de
+  bloquear ou filtrar a query de um jeito diferente entre os dois papéis.
+- **Conclusão**: o bug era real (confirmado ao vivo com `core-registry-
+  report`, a única ação que já lia de uma tabela com RLS de verdade
+  travada - migration 007), mas nunca causou incidente silencioso em
+  produção antes desta sessão, porque nenhum código anterior lia de uma
+  tabela com essa trava. A correção (`authDb` isolado) segue sendo valiosa
+  como proteção para o futuro - especialmente à medida que mais tabelas
+  de Fase 2 nascerem já travadas como as `core_*`, no mesmo padrão da
+  migration 007 - mas não havia dado incorreto para corrigir retroativamente.
+
 **Fora do escopo desta rodada, por decisão do usuário**: políticas de RLS
 por papel/obra para as tabelas `core_*`; qualquer tela/endpoint que
 efetivamente consuma `core_projects`/`core_employees`/etc.; infraestrutura
