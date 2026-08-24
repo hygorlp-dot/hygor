@@ -258,10 +258,31 @@ financeira.
 ## Gate obrigatório por módulo
 
 - migration e rollback testados;
-- RLS testada por papel e obra;
+- RLS travando a tabela para todo mundo exceto `service_role`, com
+  autorização por papel/obra verificada em JS na camada de API (ver nota
+  abaixo - não é RLS por papel/obra no sentido usual);
 - comandos idempotentes e auditáveis;
 - paginação e filtros no servidor;
 - contagens e totais iguais ao legado;
 - nenhuma perda de anexos ou vínculos;
 - testes de integração, build e orçamento de bundle aprovados;
 - observação em sombra antes de remover compatibilidade.
+
+**Correção de 24/08/2026** (achado ao construir o primeiro consumidor real
+do CORE-001, `core-registry-report` - ver
+`docs/BLUEPRINT_CONCORRENCIA_TRAVA.md`, seção "Fase 2"): "RLS testada por
+papel e obra", como o item dizia antes, não se aplica a esta arquitetura.
+Grep exaustivo em `api/*.js`/`server/*.js` confirmou que nenhuma query real
+usa o token do próprio usuário para falar com o Postgres - toda leitura/
+escrita passa por um cliente Supabase com `SUPABASE_SERVICE_ROLE_KEY`
+(`db`, `api/data.js`), que ignora RLS por definição. Existe uma sessão/
+token de login (`accessToken`, validado por `authDb.auth.getUser`), mas ela
+só identifica QUEM está pedindo - a autorização por papel/obra sempre
+acontece depois, em JavaScript (ex.: `OPERATIONAL_COMMAND_ROLES`), nunca em
+política de RLS do Postgres. O padrão real de proteção de cada tabela nova
+(migration 007, `core_registry_projection`) é: `enable row level security`
++ `revoke all from public, anon, authenticated` + `grant ... to
+service_role` - RLS aqui funciona como um cadeado de "só service_role
+entra", não como filtro por papel/obra. Todo módulo futuro de Fase 2 deve
+seguir esse mesmo padrão, não tentar escrever políticas de RLS por
+papel/obra (que nunca seriam exercitadas nesta arquitetura).
