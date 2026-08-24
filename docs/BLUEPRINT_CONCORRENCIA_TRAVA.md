@@ -964,14 +964,16 @@ padrão "sem exclusão física" das `core_*`) - migration 011 concedeu
 `request_number` começando em `"TESTE-"`) removeu o registro da tabela
 relacional.
 
-**Pendência conhecida, não resolvida**: o registro de teste
-("TESTE-CLAUDE-VERIFICACAO") continua em `data.solicitacoesCompra` no
-blob - não existe comando de cancelamento/exclusão de solicitação de
-compra no aplicativo hoje (só `SOLICITACAO_COMPRA_SALVA`, criar/editar).
-O material de teste associado (`data.materiais`) também permanece.
-Inofensivo (claramente identificado como teste, não afeta cálculo
-nenhum), mas fica registrado aqui para quem for limpar manualmente ou
-decidir adicionar um comando de cancelamento no futuro.
+**Pendência conhecida na hora, resolvida na sessão seguinte**: o registro
+de teste ("TESTE-CLAUDE-VERIFICACAO") ficou em `data.solicitacoesCompra`
+no blob quando este parágrafo foi escrito, porque não existe comando de
+cancelamento/exclusão de solicitação de compra no aplicativo (só
+`SOLICITACAO_COMPRA_SALVA`, criar/editar). Removido via
+`purchase-requests-cleanup-test-blob-entry` (ver seção "Três pendências
+resolvidas em paralelo" logo abaixo) - confirmado ausente em produção via
+`load`. A lacuna de fundo (nenhum comando de cancelamento de solicitação
+de compra existe no app) continua real e não foi endereçada; só o
+registro de teste específico foi limpo.
 
 ## Três pendências resolvidas em paralelo (24/08/2026)
 
