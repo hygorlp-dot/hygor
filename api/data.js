@@ -2002,6 +2002,41 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok:true, deleted:id });
     }
 
+    // Mesmo utilitário estreito acima, mas para o lado do blob
+    // (data.solicitacoesCompra/data.materiais) - não existe comando de
+    // cancelamento/exclusão de solicitação de compra no aplicativo (só
+    // SOLICITACAO_COMPRA_SALVA, criar/editar), então o registro de teste
+    // usado para verificar a escrita ao vivo em purchase_requests
+    // (24/08/2026) não tinha como ser removido pelo caminho normal. Mesma
+    // guarda de segurança: só remove entradas cujo `numero` comece com
+    // "TESTE-".
+    if(action==="purchase-requests-cleanup-test-blob-entry"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores limpam registros de teste."});
+      if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({error:"A conexão direta do Supabase não está configurada."});
+      const id=String(req.body?.id||"");
+      if(!id)return res.status(400).json({error:"Informe o id do registro de teste."});
+      const outcome=await executarMutacaoEmpresaBloqueada({
+        actor:usuario,action:"purchase_request_test_blob_cleanup",
+        domain:DOMAIN_ROW.CORE,linha:{payload:atual,rowVersions},
+        mutate:async({payload:current})=>{
+          const record=(current.solicitacoesCompra||[]).find(item=>String(item?.id)===id);
+          if(!record)return {kind:"error",status:404,error:"Registro não encontrado no blob."};
+          if(!/^TESTE-/.test(String(record.numero||"")))return {
+            kind:"error",status:400,
+            error:"Só registros com numero começando em 'TESTE-' podem ser removidos por aqui.",
+          };
+          const nextData={
+            ...current,
+            solicitacoesCompra:(current.solicitacoesCompra||[]).filter(item=>String(item?.id)!==id),
+            materiais:(current.materiais||[]).filter(item=>String(item?.solicitacaoOrigemId||"")!==id),
+          };
+          return {kind:"save",data:nextData,before:{purchaseRequestId:id},after:{removed:true}};
+        },
+      });
+      if(outcome.kind==="error")return res.status(outcome.status||400).json({error:outcome.error});
+      return res.status(200).json({ ok:true, removed:id });
+    }
+
     if(action==="financial-dre-report"||action==="financial-company-dre-report"){
       const year=Number(req.body?.year),month=Number(req.body?.month);
       const period=["mes","q1","q2"].includes(req.body?.period)?req.body.period:"mes";
