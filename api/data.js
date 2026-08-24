@@ -1840,7 +1840,21 @@ export default async function handler(req, res) {
     // aqui em JS, nunca em RLS, mesmo padrão do resto deste arquivo).
     if(action==="core-registry-report"){
       if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção cadastral."});
-      const { data: runs, error: runsError } = await db
+      // Achado de 24/08/2026: `db` é um cliente Supabase compartilhado de
+      // escopo de módulo (pode sobreviver a múltiplas requisições numa
+      // instância "quente" da função serverless), e `db.auth.getUser(
+      // accessToken)` - chamado mais acima, na resolução de `usuario` -
+      // muda o estado interno de sessão do próprio `db`, fazendo chamadas
+      // .from() POSTERIORES (como estas) usarem o JWT do usuário logado em
+      // vez da service_role key com que `db` foi criado. Isso derruba com
+      // "permission denied" em qualquer tabela sem grant para
+      // "authenticated" (como as core_*, que revogam tudo exceto
+      // service_role - migration 007). Um cliente isolado, criado aqui e
+      // usado só nesta ação, evita essa contaminação - mesmo padrão que
+      // scripts/check-core-registry-shadow-status.mjs já usa (que nunca
+      // teve esse problema, por nunca compartilhar cliente entre requests).
+      const registryDb = createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data: runs, error: runsError } = await registryDb
         .from("core_registry_shadow_runs")
         .select("result, created_at, actor_id")
         .eq("company_id", COMPANY)
@@ -1851,9 +1865,9 @@ export default async function handler(req, res) {
       const sample = {};
       for (const [section, table] of Object.entries(CORE_REGISTRY_TABLES)) {
         const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
-          db.from(table).select("*", { count: "exact", head: true })
+          registryDb.from(table).select("*", { count: "exact", head: true })
             .eq("company_id", COMPANY).is("archived_at", null),
-          db.from(table).select("*")
+          registryDb.from(table).select("*")
             .eq("company_id", COMPANY).is("archived_at", null)
             .order("synced_at", { ascending: false }).limit(5),
         ]);
