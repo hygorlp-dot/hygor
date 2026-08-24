@@ -621,6 +621,35 @@ levantada acima (evidência indireta pelos deploys nunca falharem) se
 confirmou: o CORE-001 vem sincronizando corretamente desde 30/07/2026, só
 nunca tinha sido verificado explicitamente até agora.
 
+## Fase 2, primeiro consumidor real: `core-registry-report` (23/08/2026)
+
+**Achado que corrige o gate do `PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`**:
+"RLS testada por papel e obra" não se aplica a esta arquitetura. Grep
+exaustivo em `api/*.js`/`server/*.js` confirmou que nenhuma query real usa
+o token do próprio usuário para falar com o Postgres - toda leitura/
+escrita passa por um único cliente Supabase instanciado com
+`SUPABASE_SERVICE_ROLE_KEY` (`db`, `api/data.js:279`), que ignora RLS por
+definição. Existe uma sessão/token de login (`db.auth.getUser(accessToken)`,
+`api/data.js:1256`), mas ela só identifica QUEM está pedindo - a
+autorização por papel/obra sempre acontece depois, em JavaScript (ex.:
+`OPERATIONAL_COMMAND_ROLES`), nunca em política de RLS do Postgres.
+Escrever RLS por papel/obra para as tabelas `core_*` seria código morto:
+nunca seria exercitado, porque nenhuma requisição chega no Postgres com
+outra credencial que não seja `service_role`. Esse mesmo mal-entendido
+provavelmente se repetiria em qualquer módulo futuro de Fase 2 se não
+fosse corrigido aqui - vale revisar a redação do gate no
+`PLANO_REDUCAO_LEGACYAPP_SUPABASE.md` numa próxima rodada.
+
+**O que foi feito**: nova ação `core-registry-report` em `api/data.js`
+(mesmo padrão de `financial-shadow-report`/`financial-shadow-sync` -
+`if(usuario.role!=="admin")return res.status(403)...`, só leitura, sem
+tela própria). Reaproveita `summarizeCoreRegistryShadowStatus` (o mesmo
+módulo puro usado por `scripts/check-core-registry-shadow-status.mjs`) e
+devolve, além do resumo, uma amostra de até 5 linhas mais recentes de cada
+uma das 7 tabelas `core_*` - prova que a projeção é consultável de
+verdade via o cliente `db` compartilhado, sem exigir nenhuma política de
+RLS nova nem tocar em nenhuma tela existente.
+
 **Fora do escopo desta rodada, por decisão do usuário**: políticas de RLS
 por papel/obra para as tabelas `core_*`; qualquer tela/endpoint que
 efetivamente consuma `core_projects`/`core_employees`/etc.; infraestrutura

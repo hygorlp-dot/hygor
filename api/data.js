@@ -54,6 +54,9 @@ import {
   applyEntriesToAttendance, attendanceObraKey, attendanceObraKeyPrefix,
   groupAttendanceEntriesByObra, mergeAttendanceObjects, obraBucketFromKey,
 } from "../server/attendance-obra-routing.js";
+import {
+  CORE_REGISTRY_TABLES, summarizeCoreRegistryShadowStatus,
+} from "../server/core-registry-shadow-status.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
@@ -1824,6 +1827,43 @@ export default async function handler(req, res) {
         if(caseError)console.error("Falha ao registrar divergências da sombra:",caseError.message);
       }
       return res.status(200).json({...report,sync});
+    }
+
+    // Fase 2, primeiro consumidor real do CORE-001 (23/08/2026, ver
+    // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): só leitura, só admin. Reaproveita
+    // o mesmo resumo de server/core-registry-shadow-status.js usado por
+    // scripts/check-core-registry-shadow-status.mjs, mais uma amostra
+    // pequena de cada tabela - prova que a projeção é consultável de
+    // verdade, sem virar tela nem exigir política de RLS por papel/obra
+    // (que não se aplica aqui: toda leitura já passa por `db`, o cliente
+    // service_role compartilhado - a autorização por papel é sempre feita
+    // aqui em JS, nunca em RLS, mesmo padrão do resto deste arquivo).
+    if(action==="core-registry-report"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção cadastral."});
+      const { data: runs, error: runsError } = await db
+        .from("core_registry_shadow_runs")
+        .select("result, created_at, actor_id")
+        .eq("company_id", COMPANY)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (runsError) throw runsError;
+      const liveCounts = {};
+      const sample = {};
+      for (const [section, table] of Object.entries(CORE_REGISTRY_TABLES)) {
+        const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
+          db.from(table).select("*", { count: "exact", head: true })
+            .eq("company_id", COMPANY).is("archived_at", null),
+          db.from(table).select("*")
+            .eq("company_id", COMPANY).is("archived_at", null)
+            .order("synced_at", { ascending: false }).limit(5),
+        ]);
+        if (countError) throw countError;
+        if (sampleError) throw sampleError;
+        liveCounts[section] = count || 0;
+        sample[section] = sampleRows || [];
+      }
+      const summary = summarizeCoreRegistryShadowStatus({ runs: runs || [], liveCounts });
+      return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
     }
 
     if(action==="financial-dre-report"||action==="financial-company-dre-report"){
