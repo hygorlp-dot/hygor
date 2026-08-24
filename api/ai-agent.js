@@ -33,6 +33,34 @@ const normalizeModule = value => {
 const database = () => createClient(URL, SERVICE, {
   auth: { persistSession:false, autoRefreshToken:false },
 });
+
+// Achado de 24/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, seção
+// "Investigação da integração com o agente de IA"): a única checagem de
+// limite aqui era para tentativas de PIN incorretas (herdada de
+// authenticateAppContext) - nenhuma proteção contra um usuário já
+// autenticado gerando custo real no Gemini repetidamente (loop de
+// interface, script, ou uso descuidado). Limite simples em memória, mesmo
+// padrão já usado em api/auth.js para tentativas de PIN (Map por
+// instância, não persistente entre instâncias serverless "frias") - não é
+// defesa contra um atacante deliberado com múltiplas instâncias, mas cobre
+// o risco real (uso repetido acidental de um usuário já autenticado).
+// Só se aplica ao caminho que efetivamente chama o Gemini (chat/análise) -
+// status/configure/remove/daily-brief não custam nada em cota de API.
+const AI_RATE_WINDOW_MS = 5 * 60 * 1000;
+const AI_RATE_MAX_REQUESTS = 20;
+const aiRequestLog = new Map();
+const aiRateLimited = userId => {
+  const key = String(userId || "anonymous");
+  const now = Date.now();
+  const timestamps = (aiRequestLog.get(key) || []).filter(at => now - at < AI_RATE_WINDOW_MS);
+  if (timestamps.length >= AI_RATE_MAX_REQUESTS) {
+    aiRequestLog.set(key, timestamps);
+    return true;
+  }
+  timestamps.push(now);
+  aiRequestLog.set(key, timestamps);
+  return false;
+};
 const encrypt = plainText => encryptAiSecret(plainText,{
   secret:AI_ENCRYPTION_KEY||SERVICE,company:COMPANY,
   keyVersion:AI_ENCRYPTION_KEY?"ai-v1":"service-v1",
@@ -145,6 +173,10 @@ export default async function handler(req,res){
 
   const apiKey=aiConfig.apiKey;
   if(!apiKey)return res.status(503).json({error:"O Modo IA ainda não foi configurado pelo administrador.",code:"AI_NOT_CONFIGURED"});
+  if(aiRateLimited(user.id))return res.status(429).json({
+    error:"Muitas solicitações de IA em pouco tempo. Aguarde alguns minutos e tente novamente.",
+    code:"AI_RATE_LIMIT_LOCAL",
+  });
 
   try{
     const {messages,contexto,prompt,question,context,imagens,documentos,modulo}=req.body||{};

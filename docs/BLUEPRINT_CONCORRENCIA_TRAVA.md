@@ -1168,6 +1168,62 @@ investigar e documentar)**:
 Nenhuma mudança de código feita nesta investigação - só leitura e
 documentação, conforme pedido.
 
+## Correção dos achados do agente de IA (24/08/2026)
+
+Pedido do usuário ("corrija") para corrigir o que foi encontrado na
+investigação acima. Duas mudanças, uma delas revelando um bug de
+autenticação real e pré-existente, sem relação nenhuma com IA.
+
+**1. Limite de requisições na ação de chat/análise** (`api/ai-agent.js`):
+um limitador em memória (`aiRequestLog`, `Map` de escopo de módulo -
+mesmo padrão do limitador de tentativas de PIN em `api/auth.js`), janela
+deslizante de 5 minutos, 20 requisições por usuário
+(`AI_RATE_WINDOW_MS`/`AI_RATE_MAX_REQUESTS`). Aplicado só no caminho que
+de fato chama o Gemini (chat/análise) - `status`, `configure`, `remove` e
+resumo diário continuam sem limite, pois não geram custo de API externa.
+Ao estourar, devolve `429`/`code:"AI_RATE_LIMIT_LOCAL"`. Mesma limitação
+já assumida conscientemente no limitador de PIN: não sobrevive a cold
+starts entre instâncias serverless diferentes, então não é defesa contra
+um atacante determinado com múltiplas instâncias - é proteção contra uso
+descontrolado acidental de um usuário já autenticado, mesmo julgamento de
+risco já usado alhures no projeto.
+
+**2. Bug real e pré-existente descoberto por acidente**
+(`api/auth.js:80-94`, `authenticateAppContext`): ao escrever o teste do
+limitador acima (`src/integration/ai-agent-rate-limit.test.js`), usuários
+de teste diferentes resolviam sempre para o MESMO usuário do ArcD,
+independente do token usado. Causa raiz: o fallback de correspondência
+por e-mail, `String(u.email||"").toLowerCase()===email`, sempre que TANTO
+a sessão do Supabase Auth quanto um usuário do ArcD têm e-mail vazio
+(comum - muitos usuários operam só com PIN, sem e-mail cadastrado),
+`"" === ""` é sempre verdadeiro. Isso fazia a comparação casar por engano
+com o PRIMEIRO usuário sem e-mail da lista, resolvendo a pessoa errada em
+vez de falhar a autenticação por e-mail - o `authUserId` continuava
+funcionando normalmente; só esse fallback por e-mail tinha o buraco.
+Corrigido com uma guarda `email &&` antes da comparação, para que o
+fallback por e-mail só valha quando há um e-mail de verdade, não-vazio,
+para comparar.
+
+Este achado é significativo por si só: é um bug de autenticação em
+produção, não relacionado a IA, que existia antes desta sessão e nunca
+tinha sido notado - só veio à tona como efeito colateral de escrever um
+teste para outra coisa. Cobertura de teste dedicada adicionada em
+`api/auth.test.js` (3 casos: não casa por engano dois usuários sem
+e-mail; continua casando por `authUserId`; continua casando por e-mail
+quando ele existe de verdade) - até esta correção, `api/auth.js` não
+tinha nenhum arquivo de teste próprio, apesar de ser o ponto central de
+autenticação usado por todos os endpoints.
+
+O achado da chave Gemini criptografada com segredo derivado de
+`SUPABASE_SERVICE_ROLE_KEY` (seção anterior) permanece sem correção -
+depende de definir `AI_ENCRYPTION_KEY` no ambiente da Vercel ou de
+reconsiderar a rotação da chave de serviço, decisão que continua sendo do
+usuário.
+
+Verificação: suíte completa (`npx vitest run`) 241 arquivos/1305 testes
+verdes, `npm run build`, `npm run lint` e `npm run architecture:check`
+sem violação nova.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`

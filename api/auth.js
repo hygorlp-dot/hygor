@@ -81,9 +81,16 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
     const { data: auth, error: authError } = await authDb.auth.getUser(accessToken);
     if (!authError && auth?.user) {
       const email = String(auth.user.email || "").toLowerCase();
+      // Achado de 24/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md):
+      // sem o `email &&`, uma sessão Supabase Auth sem e-mail (comum para
+      // contas que só usam PIN) casava por acidente com o PRIMEIRO usuário
+      // do ArcD cujo campo email também está vazio - "" === "" sempre
+      // verdadeiro, resolvendo a pessoa errada em vez de falhar a
+      // autenticação por e-mail (o authUserId continua funcionando
+      // normalmente; só o fallback por e-mail tinha esse buraco).
       const linked = (payload?.usuarios || []).find(u =>
         u.active !== false &&
-        (u.authUserId === auth.user.id || String(u.email || "").toLowerCase() === email));
+        (u.authUserId === auth.user.id || (email && String(u.email || "").toLowerCase() === email)));
       if (linked){attempts.delete(key);return {user:linked,payload};}
     }
   }
