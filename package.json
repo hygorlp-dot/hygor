@@ -23,7 +23,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "scripts": {
-    "prebuild": "node scripts/check-financial-enforcement-readiness.mjs && node scripts/audit-catalog-integrity.mjs && npm run financial:migrate-shadow && npm run registry:migrate-shadow",
+    "prebuild": "node scripts/check-financial-enforcement-readiness.mjs && node scripts/audit-catalog-integrity.mjs && npm run financial:migrate-shadow && npm run registry:migrate-shadow && npm run equipment-registry:migrate-shadow",
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
@@ -35,6 +35,7 @@
     "quality:bundle": "node scripts/bundle-metrics.mjs",
     "financial:migrate-shadow": "node scripts/apply-financial-shadow.mjs",
     "registry:migrate-shadow": "node scripts/apply-core-registry-shadow.mjs",
+    "equipment-registry:migrate-shadow": "node scripts/apply-equipment-registry-shadow.mjs",
     "split-rows:seed": "node scripts/seed-split-domain-rows.mjs",
     "attendance-obra-rows:seed": "node scripts/seed-attendance-obra-rows.mjs",
     "registry:shadow-status": "node scripts/check-core-registry-shadow-status.mjs",
