@@ -1023,6 +1023,61 @@ Suíte inteira (239 arquivos, 1291 testes), build, lint e
 `architecture:check` verdes antes do commit único que consolidou as três
 frentes.
 
+## Duas pendências reais encontradas ao reconferir o documento inteiro (24/08/2026)
+
+Pedido do usuário para confirmar, lendo o blueprint inteiro (não só grep
+por palavra-chave), se realmente não sobrava nenhuma pendência - e depois
+para corrigir tudo que fosse encontrado. Um agente de auditoria
+independente rodou em paralelo enquanto a correção da lacuna já conhecida
+(comando de cancelamento) era implementada em primeiro plano.
+
+**Achado 1 (já sabido, corrigido nesta rodada)**: não existia comando de
+cancelamento/exclusão de solicitação de compra. Adicionado
+`SOLICITACAO_COMPRA_CANCELADA` (`src/domains/compras/purchase-request-
+commands.js`) - soft-delete via `status:"cancelada"`, mesmo padrão de
+`EQUIPMENT_RENTAL_CANCELLED` (`src/domains/equipamentos/commands.js`):
+nunca remove o registro do array, grava motivo/autor/data do
+cancelamento, protegido por versão otimista, e uma solicitação cancelada
+não pode mais ser editada. Também passou a alimentar `purchase_requests`
+(a escrita ao vivo). **Verificado em produção**: criei e cancelei uma
+solicitação de teste real - `status:"cancelada"` confirmado tanto no
+blob quanto na tabela relacional.
+
+**Achado 2 (novo, encontrado pelo agente de auditoria)**: a migration 011
+(concede `DELETE` em `purchase_requests` a `service_role`) tinha ficado
+**permanente em produção por omissão** - `scripts/apply-purchase-
+requests-live.mjs` reaplicava essa migration em TODO deploy, apesar do
+comentário original dizer "só para limpar um registro de teste" (uso
+único). Migration 013 revoga o privilégio (idempotente); 011 saiu da
+cadeia recorrente do script. A ação `purchase-requests-delete-test-row`,
+cuja única razão de existir era esse grant, foi removida - **verificado
+em produção**: chamá-la agora devolve "Ação desconhecida" (400),
+confirmando que o privilégio já não é mais exercitável.
+
+**Resíduo aceito, não um problema**: a solicitação de teste usada para
+verificar o cancelamento (`TESTE-CANCEL-VERIFICACAO`) foi removida do
+blob (via `purchase-requests-cleanup-test-blob-entry`), mas continua como
+uma linha em `purchase_requests` com `status:"cancelada"` no payload -
+sem `DELETE` mais concedido (de propósito, achado 2), não há como
+removê-la por aqui. Inofensiva e claramente identificável pelo prefixo
+`TESTE-`; é o comportamento correto agora que a tabela segue o mesmo
+princípio "sem exclusão física" das `core_*`.
+
+**Auditoria independente, sem outros achados**: rollback das migrations
+007/009 confirmado completo (drop na ordem certa); cobertura de RLS da
+migration 012 confirmada exaustiva contra todo uso real de `db.from()`/
+`db.rpc()` no motor financeiro; caminho CAS confirmado consistente com o
+precedente já estabelecido (inativo em produção, não precisa do gancho de
+escrita ao vivo); as três ações de relatório (`core-registry-report`/
+`equipment-registry-report`/`purchase-requests-report`) confirmadas como
+diagnóstico de backend puro, sem superfície de UI - consistente com o
+escopo já documentado, não uma lacuna.
+
+Suíte inteira (240 arquivos, 1301 testes - inclui um ajuste de timeout
+real nos testes de pglite, que estouravam o padrão de 10s sob a suíte
+inteira em paralelo), build, lint e `architecture:check` verdes antes do
+commit.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
