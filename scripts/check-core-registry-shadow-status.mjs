@@ -32,8 +32,14 @@ if (missing.length) {
 }
 
 const companyId = process.env.COMPANY_ID || "arcd";
+// trim() defensivo: colar um JWT longo num terminal (PowerShell quebrando a
+// linha dentro das aspas, por exemplo) facilmente introduz um \n/espaço nas
+// pontas, o que quebra o header "Bearer <token>" de forma confusa (erro de
+// fetch, não de credencial errada).
+const supabaseUrl = String(process.env.SUPABASE_URL || "").trim();
+const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
-const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+const db = createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
