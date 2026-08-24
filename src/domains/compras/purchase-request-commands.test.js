@@ -95,6 +95,14 @@ describe("cancelamento de solicitação de compra (soft-delete)",()=>{
     expect(second.reason).toContain("já foi cancelada");
   });
 
+  it("recusa cancelar uma solicitação que já gerou um pedido de compra",()=>{
+    const data=base();
+    data.solicitacoesCompra[0]={...data.solicitacoesCompra[0],status:"pedido_gerado",pedidoId:"pedido-1"};
+    const result=applyPurchaseRequestCommand(data,cancelCommand());
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("já gerou um pedido de compra");
+  });
+
   it("protege cancelamento concorrente por versão",()=>{
     const result=applyPurchaseRequestCommand(base(),cancelCommand({expectedVersion:99}));
     expect(result.ok).toBe(false);

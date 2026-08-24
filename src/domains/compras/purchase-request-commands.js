@@ -94,6 +94,15 @@ const cancelRequest=(data,command,now)=>{
   const current=requestById(data,id);
   if(!id||!current)return fail("Solicitação não encontrada.");
   if(current.status==="cancelada")return fail("Esta solicitação já foi cancelada.");
+  // Achado ao mapear o próximo elo da cadeia (cotações/pedidos, 24/08/2026):
+  // saveOrder (purchase-order-commands.js) marca a solicitação como
+  // status:"pedido_gerado"+pedidoId ao gerar um pedido real a partir dela.
+  // Cancelar a solicitação nesse ponto criaria inconsistência (uma
+  // solicitação "cancelada" com um pedido ativo ainda apontando para ela) -
+  // o cancelamento correto nesse caso é do PEDIDO
+  // (PURCHASE_CANCELLED/COMPRA_CANCELADA, purchase-cancellation-command.js),
+  // que já reverte a solicitação para status:"enviada" e limpa pedidoId.
+  if(current.pedidoId)return fail("Esta solicitação já gerou um pedido de compra - cancele o pedido em vez da solicitação.");
   if(versionOf(current)!==Number(command.expectedVersion)){
     return fail("A solicitação foi alterada por outra pessoa. Atualize a tela e tente novamente.");
   }
