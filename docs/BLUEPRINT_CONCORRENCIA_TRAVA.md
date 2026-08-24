@@ -1117,6 +1117,57 @@ uma cotação existente, gerando o pedido - e `cancelQuote`; a criação em si
 não foi localizada nesta investigação) - primeiro passo de uma
 investigação futura, antes de qualquer desenho de schema.
 
+## Investigação da integração com o agente de IA (24/08/2026)
+
+Pedido do usuário para confirmar se a integração com o agente de IA (o
+Gemini/"CFO Gemini" citado em `PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`,
+implementada em `api/ai-agent.js`) estava sendo documentada. Não estava -
+é uma área completamente separada da migração de Fase 2, nunca tocada
+nesta sessão. Investigação dedicada, mesmo rigor da auditoria de
+contaminação de cliente Supabase feita mais acima.
+
+**Confirmado seguro**:
+- `database()` (`api/ai-agent.js:33`) é uma fábrica por chamada (não um
+  cliente de módulo compartilhado) - mesmo padrão "seguro" já confirmado
+  pela auditoria de `.auth.*` para o resto do projeto.
+- A autenticação passa por `authenticateAppUser` → `authenticateAppContext`
+  (`api/auth.js`) - a MESMA função já corrigida nesta sessão (`authDb`
+  isolado de `db`). O agente de IA já herda essa correção sem precisar de
+  nenhuma mudança própria.
+- A chave da API Gemini nunca é devolvida ao navegador (`safeStatus()` só
+  expõe `configured`/`model`/`source`/timestamps), fica criptografada em
+  repouso (AES-256-GCM, `server/ai-secret.js`), e configurar/remover exige
+  papel admin.
+
+**Achado real, conectado ao risco já conhecido da chave exposta**: quando
+`AI_ENCRYPTION_KEY` não está configurada, a chave Gemini é criptografada
+usando um segredo DERIVADO de `SUPABASE_SERVICE_ROLE_KEY`
+(`server/ai-secret.js`, `legacySecret`/`keyVersion !=="ai-v1"`) - o mesmo
+valor que foi exposto repetidamente em texto puro nesta sessão. Isso
+significa que o risco da chave de serviço exposta (cuja rotação o usuário
+decidiu adiar, duas vezes, nesta sessão) pode se estender além do acesso
+direto ao banco: também compromete a confidencialidade da chave da API
+Gemini armazenada, **se** `AI_ENCRYPTION_KEY` não estiver definida
+separadamente no ambiente (não verificado se está - não tenho acesso às
+variáveis de ambiente da Vercel). Registro factual, não uma nova
+solicitação de rotação - o usuário já foi claro sobre isso.
+
+**Achados menores, não corrigidos (fora do escopo deste pedido, que era
+investigar e documentar)**:
+- Sem limite de requisições por usuário na ação de chat/análise em si -
+  só existe limite para tentativas de PIN incorretas
+  (`applyPersistentAuthRateLimit`, herdado de `authenticateAppContext`).
+  Um usuário autenticado poderia gerar custo real no Gemini sem
+  throttling (até 5.200 tokens de saída no módulo DRE, mais até 6 imagens
+  e 3 PDFs por requisição).
+- Dado operacional/financeiro real (`contexto`, até 24.000 caracteres)
+  é enviado ao Gemini (Google) como parte do prompt - característica de
+  design esperada para a funcionalidade, não um bug, mas vale estar
+  ciente do fluxo de dado para terceiro.
+
+Nenhuma mudança de código feita nesta investigação - só leitura e
+documentação, conforme pedido.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
