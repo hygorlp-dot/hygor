@@ -60,6 +60,7 @@ import {
 import {
   EQUIPMENT_REGISTRY_TABLES, summarizeEquipmentRegistryShadowStatus,
 } from "../server/equipment-registry-shadow-status.js";
+import { buildPurchaseRequestLiveRow } from "../server/purchase-request-live-write.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
@@ -617,6 +618,30 @@ const sincronizarPontoAposArquivo=async({rowVersions,novoPrincipal,actor,quinzen
     });
   }catch(err){
     console.error(`Falha ao sincronizar attendance na linha de Ponto apos ${action}:`,err.message);
+  }
+};
+
+// Primeira escrita transacional real de Fase 2 (24/08/2026, ver
+// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, seção "Fase 2, primeiro passo na
+// camada transacional"). Diferente de todo o resto deste arquivo (que só
+// grava o blob em company_app_data), esta função grava AO VIVO na tabela
+// relacional `purchase_requests` (migration 010) - mas só como efeito
+// colateral de melhor esforço, depois que SOLICITACAO_COMPRA_SALVA já foi
+// processado com sucesso no caminho existente. O blob continua sendo a
+// única fonte de verdade operacional: se esta gravação falhar, a resposta
+// ao usuário não muda em nada, só fica um log de erro no servidor - mesma
+// tolerância de sincronizarPontoAposArquivo, acima.
+const sincronizarSolicitacaoCompraAoVivo=async({companyId,requestId,mergedData,actor})=>{
+  if(!requestId)return;
+  const record=(mergedData?.solicitacoesCompra||[]).find(item=>String(item?.id)===String(requestId));
+  if(!record)return;
+  try{
+    const { error }=await db
+      .from("purchase_requests")
+      .upsert(buildPurchaseRequestLiveRow(companyId,record),{onConflict:"company_id,id"});
+    if(error)throw error;
+  }catch(err){
+    console.error(`Falha ao sincronizar solicitação de compra ${requestId} em purchase_requests (ator=${actor?.id||"desconhecido"}):`,err.message);
   }
 };
 
@@ -1702,6 +1727,12 @@ export default async function handler(req, res) {
           error:outcome.error,reason:outcome.error,
           ...(outcome.conflict?{conflict:true,currentUpdatedAt:outcome.currentUpdatedAt}:{}),
         });
+        if(command.type===OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED&&outcome.kind==="save"){
+          await sincronizarSolicitacaoCompraAoVivo({
+            companyId:COMPANY,requestId:command.payload?.request?.id,
+            mergedData:outcome.data,actor:usuario,
+          });
+        }
         return res.status(200).json({
           ok:true,idempotent:outcome.kind==="idempotent",
           ...(outcome.kind==="idempotent"
