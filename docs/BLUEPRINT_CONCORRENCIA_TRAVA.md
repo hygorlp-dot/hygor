@@ -973,6 +973,54 @@ Inofensivo (claramente identificado como teste, não afeta cálculo
 nenhum), mas fica registrado aqui para quem for limpar manualmente ou
 decidir adicionar um comando de cancelamento no futuro.
 
+## Três pendências resolvidas em paralelo (24/08/2026)
+
+Pedido do usuário para resolver todas as pendências documentadas antes de
+avançar, em paralelo quando possível. As três eram independentes entre si
+(arquivos diferentes, sem sobreposição de edição) - a adoção do pglite
+rodou como agente em segundo plano enquanto a limpeza do blob e a RLS
+financeira foram feitas em primeiro plano.
+
+1. **Limpeza do registro de teste no blob**: `purchase-requests-cleanup-
+   test-blob-entry` (mesma guarda de segurança do utilitário irmão para a
+   tabela relacional - só remove `numero` começando em `"TESTE-"`) remove
+   a entrada de `data.solicitacoesCompra` e o material associado
+   (`data.materiais`, via `solicitacaoOrigemId`) usando o caminho travado
+   genérico (`executarMutacaoEmpresaBloqueada`). Verificado em produção:
+   registro e material confirmados ausentes via `load` depois da limpeza,
+   contagem de solicitações voltou ao total original (5).
+
+2. **RLS real nas tabelas do motor financeiro** (migration 012):
+   `financial_titles`, `settlements`, `financial_events`,
+   `reconciliation_links`, `data_quality_cases`, `financial_shadow_runs`
+   ganham `enable row level security` + `revoke all` + grant mínimo a
+   `service_role` (só `select` nas 5 tabelas nunca escritas via
+   `db.from()`; `select, insert, update` em `data_quality_cases`, a única
+   também escrita por `financial-shadow-sync`). As RPCs de escrita do
+   motor financeiro (`financial_sync_legacy_facts`/
+   `financial_save_with_sync`) usam conexão `postgres()` direta, imunes a
+   GRANT/RLS do PostgREST por construção - nada muda para elas. Verificado
+   em produção: `financial-shadow-report` continuou respondendo `200
+   ok:true` normalmente depois do deploy, confirmando que a trava nova não
+   quebrou o único consumidor real dessas tabelas via Supabase JS.
+
+3. **Primeira infraestrutura de teste com Postgres real**: adotado
+   `@electric-sql/pglite` (recomendado pela auditoria da rodada anterior).
+   `server/core-registry-sync-legacy.pglite.test.js` executa
+   `core_registry_sync_legacy` de verdade contra um Postgres real em WASM
+   (não só asserção de texto) - upsert com valores corretos, arquivamento
+   e desarquivamento por ausência/reaparecimento no snapshot, e as duas
+   exceções de validação (`core_registry_invalid_actor_or_company`/
+   `core_registry_invalid_snapshot`). Limitação confirmada e documentada
+   no próprio arquivo: pglite não modela múltiplas roles via JWT como o
+   PostgREST real, então RLS/GRANT continuam precisando de verificação
+   contra Supabase de verdade (como o item 2 acima fez) - pglite cobre a
+   lógica SQL/PL-pgSQL das RPCs, não substitui isso.
+
+Suíte inteira (239 arquivos, 1291 testes), build, lint e
+`architecture:check` verdes antes do commit único que consolidou as três
+frentes.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
