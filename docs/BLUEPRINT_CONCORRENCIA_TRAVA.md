@@ -900,6 +900,79 @@ lido, testes rodados, bugs achados e corrigidos ao vivo).
 6. Continuar a migração de Fase 2 - cada domínio migrado reduz a
    pressão sobre o blob único.
 
+**Duas auditorias independentes rodadas em paralelo neste meio-tempo**
+(ambas só investigação, sem mudança de código):
+- Auditoria completa de todo `createClient` do repositório pelo mesmo
+  padrão do bug de `db.auth.*`: confirmado que a correção em
+  `api/data.js`/`api/auth.js` é completa - nenhum outro arquivo mistura
+  chamada de auth com `.from()`/`.rpc()` no mesmo cliente. Só riscos
+  latentes de baixa probabilidade (`api/presence.js`, `api/upload.js`,
+  `api/references.js`, `server/microsoft/graph.js` têm clientes de escopo
+  de módulo que hoje nunca tocam `.auth.*`, mas poderiam se alguém
+  adicionar isso no futuro em vez de delegar para `api/auth.js`).
+- Viabilidade de `@electric-sql/pglite` para testar as migrations de
+  verdade: recomendado adotar. Testaria a lógica SQL/PL-pgSQL real
+  (upserts, arquivamento por ausência, constraints) - teria pego o bug do
+  CORE-002 antes do deploy. Limitação importante: pglite não modela
+  múltiplas roles/RLS via JWT como o PostgREST real, então não substitui
+  verificação de RLS/GRANT contra Supabase de verdade - só complementa.
+
+## Fase 2, primeiro passo na camada transacional: `purchase_requests` (24/08/2026)
+
+Pedido do usuário para avançar da camada de cadastro (CORE-001/CORE-002,
+só leitura) para a camada transacional de Fase 2
+(`PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`, "Fluxos transacionais"). Escolhido
+com o usuário: domínio Compras (`purchase_requests` primeiro, é o início
+da cadeia `purchase_requests → quotations → purchase_orders →
+goods_receipts`, sem sobreposição com o motor financeiro existente,
+diferente de RH/settlements) e profundidade "começar a escrita
+transacional real" - diferente do CORE-001/002, que ficaram só em sombra.
+
+**Desenho**: `SOLICITACAO_COMPRA_SALVA` continua gravando o blob
+exatamente como sempre (caminho existente, inalterado - `data.
+solicitacoesCompra`, `src/domains/compras/purchase-request-commands.js`).
+Depois que esse comando é processado com sucesso no caminho travado
+(`api/data.js`, ação `operational-command`), uma nova função,
+`sincronizarSolicitacaoCompraAoVivo`, grava a MESMA solicitação também em
+`purchase_requests` (migration 010) - mas como efeito colateral de melhor
+esforço: se essa gravação falhar, a resposta ao usuário não muda em nada,
+mesma tolerância de `sincronizarPontoAposArquivo`. O blob continua sendo a
+única fonte de verdade operacional.
+
+`purchase_requests` referencia `core_projects` (migration 007) por FK
+- uma solicitação para uma obra muito recém-criada pode falhar a escrita
+ao vivo até o próximo deploy resincronizar o CORE-001; tolerado pelo mesmo
+best-effort (a criação da solicitação em si nunca é bloqueada por isso).
+
+**Escopo mínimo de propósito**: não modela `itens`/histórico de aprovação
+em colunas próprias - ficam inteiros dentro de `payload`, mesmo princípio
+do CORE-001/CORE-002. Sem RPC dedicada (diferente do CORE-001/002, que
+sincronizam em LOTE) - é um upsert direto de UM registro por vez, o
+cliente `db` (já isolado de `.auth.*` desde a correção na raiz) já tem
+grant suficiente.
+
+**Verificado em produção com um registro de teste real** (criado e depois
+removido): `SOLICITACAO_COMPRA_SALVA` respondeu `200 ok:true`
+normalmente, e `purchase-requests-report` (endpoint admin novo, mesmo
+padrão de verificação do CORE-001/002) confirmou o registro chegando em
+`purchase_requests` com todos os campos corretos (`project_id`,
+`priority`, `needed_by`, `notes`, `payload` com os itens). Limpeza:
+`purchase_requests` não tinha `delete` concedido (migration 010, mesmo
+padrão "sem exclusão física" das `core_*`) - migration 011 concedeu
+`delete` só para o registro de teste, e uma ação estreita
+(`purchase-requests-delete-test-row`, só apaga linhas com
+`request_number` começando em `"TESTE-"`) removeu o registro da tabela
+relacional.
+
+**Pendência conhecida, não resolvida**: o registro de teste
+("TESTE-CLAUDE-VERIFICACAO") continua em `data.solicitacoesCompra` no
+blob - não existe comando de cancelamento/exclusão de solicitação de
+compra no aplicativo hoje (só `SOLICITACAO_COMPRA_SALVA`, criar/editar).
+O material de teste associado (`data.materiais`) também permanece.
+Inofensivo (claramente identificado como teste, não afeta cálculo
+nenhum), mas fica registrado aqui para quem for limpar manualmente ou
+decidir adicionar um comando de cancelamento no futuro.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
