@@ -814,6 +814,92 @@ sim, o script precisa ler e mesclar a linha separada correspondente, não
 só a core (como este achado mostrou, o silêncio de "0 divergências" não
 distingue "está tudo certo" de "não achei nada para comparar").
 
+## Avaliação qualitativa do código (24/08/2026)
+
+Pedido do usuário, no meio da rodada de Fase 2, por uma leitura honesta do
+estado do código - não uma auditoria numérica, mas um julgamento
+qualitativo baseado no que foi diretamente observado nesta sessão (código
+lido, testes rodados, bugs achados e corrigidos ao vivo).
+
+**Ranking por qualidade, do mais forte ao mais fraco**:
+
+1. **Engenharia global** - checks automatizados reais
+   (`architecture:check` via dependency-cruiser, `check-financial-
+   boundaries.mjs`, orçamento de bundle no CI), 1263+ testes, disciplina
+   consistente de migração aditiva com verificação em sombra antes de
+   qualquer corte (CORE-001, CORE-002, esta sessão inteira).
+2. **Roadmap** - este documento e `PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`
+   mantidos vivos e honestos, com gates explícitos e decisões de escopo
+   registradas, inclusive os "não é para agora".
+3. **Core pericial** (motores de cálculo) - DRE, custo de mão de obra
+   etc. isolados como "motores puros", com uma regra de lint
+   (`check-financial-boundaries.mjs`) impedindo a UI de reimplementar
+   essa lógica. Fronteira arquitetural real, garantida por ferramenta.
+4. **Maturidade do produto hoje** - app de produção real, uso diário
+   (ponto, compras, financeiro), dado financeiro real. Dívida técnica
+   reconhecida e sendo trabalhada, não escondida.
+5. **Frontend foundation** - `LegacyApp.jsx` caiu de ~40 mil linhas via
+   extração para componentes de domínio; ainda tem núcleo legado grande.
+6. **Application/persistência** - cada vez mais sofisticada
+   (particionamento de linha, sombra de sincronização), mas é
+   sofisticação para compensar uma base estrutural desconfortável.
+7. **Fundação arquitetural** - o ponto mais fraco estruturalmente:
+   quase tudo mora num único blob JSONB por empresa
+   (`company_app_data`). Execução cuidadosa em cima de uma escolha de
+   base desconfortável.
+8. **Local API** - `api/data.js` é um handler monolítico com dezenas de
+   ramos `if(action===...)`. Funciona e é bem testado, mas separação de
+   responsabilidades fraca no nível do arquivo.
+9. **Segurança/integridade** - a mais fraca hoje, com evidência
+   concreta desta sessão (ver "Fragilidades" abaixo).
+
+**Fragilidades concretas** (evidenciadas nesta sessão, não suposição):
+
+- `api/data.js` monolítico - foi exatamente a distância entre a
+  resolução de `usuario` e o uso de `db` que escondeu o bug de
+  contaminação de sessão corrigido acima (seção "Correção na raiz:
+  `authDb` isolado de `db`"); só auditei `api/data.js`/`api/auth.js`
+  para esse padrão, não o resto do projeto.
+- Tabelas do motor financeiro (`financial_titles`, `settlements`,
+  `financial_events` etc., `migrations/20260725_financial_engine.sql`)
+  sem RLS nenhuma - dependem inteiramente da ausência de política para
+  `anon`/`authenticated`, não de uma trava ativa como as `core_*` têm
+  (`revoke all... grant só a service_role`).
+- `company_app_data` como blob único por empresa - mesmo com a
+  separação de linhas por domínio (Fase 1 desta sessão), campos
+  não-relacionados na mesma linha ainda competem por lock.
+- Zero infraestrutura de teste com Postgres real (sem pglite/
+  testcontainers/docker) - toda a lógica SQL das migrations 007/009 só
+  é testada por asserção de texto (`toContain("create table...")`),
+  nunca executada de verdade.
+- Os scripts de sombra (`apply-core-registry-shadow.mjs`, `apply-
+  equipment-registry-shadow.mjs`) só rodam quando `VERCEL_ENV===
+  "production"` - ninguém nunca os viu rodar com sucesso antes do
+  deploy real. Foi por isso que o bug do CORE-002 (lendo só a linha
+  core, cego à linha separada de equipamentos) só apareceu depois de ir
+  pro ar.
+- Autenticação híbrida PIN + Supabase Auth coexistindo
+  (`usaPin=!accessToken`, `api/data.js`) - fonte real de complexidade
+  condicional espalhada pelo handler.
+- Segredo de produção (`SUPABASE_SERVICE_ROLE_KEY`) exposto
+  repetidamente em texto puro no chat desta sessão - mais um problema
+  de processo/tooling do que de código, mas reflete falta de um jeito
+  mais seguro do usuário rodar scripts administrativos.
+
+**Melhorias priorizadas** (nesta ordem, por esforço/valor):
+
+1. Auditar todo uso de cliente Supabase no projeto pelo mesmo padrão do
+   bug de `db.auth.*` (baixo esforço, já há o critério de busca pronto).
+2. RLS real nas tabelas financeiras, fechando a lacuna de segurança
+   mais concreta encontrada.
+3. pglite (leve, sem Docker) para testar as RPCs SQL de verdade, não só
+   o texto - teria pego o bug do CORE-002 antes do deploy.
+4. Quebrar `api/data.js` por domínio, preservando os testes existentes.
+5. `vercel env pull` ou equivalente, eliminando a necessidade de colar
+   a chave de produção no chat.
+6. Continuar a migração de Fase 2 - cada domínio migrado reduz a
+   pressão sobre o blob único.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
