@@ -473,6 +473,8 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
 
 function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOrc=[] }) {
   const { formGrid } = useBreakpoint();
+  const [salvando,setSalvando]=useState(false);
+  const enviar=async()=>{setSalvando(true);try{await onSave(form);}finally{setSalvando(false);}};
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const setP = (i, campo, v) =>
     setForm(f => ({ ...f, propostas: f.propostas.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
@@ -537,8 +539,8 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
         <Btn v="ghost" onClick={addP} full><Ic n="plus"/> Outra proposta</Btn>
 
         <div style={{display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
-          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar cotação</Btn>
+          <Btn v="ghost" onClick={()=>setForm(null)} disabled={salvando} full>Cancelar</Btn>
+          <Btn onClick={enviar} disabled={salvando} loading={salvando&&"Salvando..."} full><Ic n="check"/> Salvar cotação</Btn>
         </div>
       </div>
     </Modal>
@@ -1490,8 +1492,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     showToast(`Compra ${p.numero} cancelada. Os fatos e vínculos foram preservados para auditoria.`);
   };
 
-  //  Cotação 
-  const salvarCotacao = (f) => {
+  //  Cotação
+  const salvarCotacao = async (f) => {
     if (!f.materialId)      { showToast("Selecione o material.", "error"); return; }
     if (Number(f.qtd) <= 0) { showToast("Informe a quantidade.", "error"); return; }
     const props = (f.propostas||[])
@@ -1500,8 +1502,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                    precoUnit: Number(p.precoUnit), prazoDias: Number(p.prazoDias||0), obs: p.obs||"",
                    documentos:Array.isArray(p.documentos)?p.documentos:[] }));
     if (props.length < 2) { showToast("Uma cotação precisa de ao menos 2 propostas.", "error"); return; }
-
-    const c = {
+    if (!dispatchCommand) { showToast("Salvar a cotação exige conexão com o servidor.", "error"); return; }
+    const quote = {
       id: f.id || uid(), obraId: f.obraId || obraAtual,
       materialId: f.materialId, qtd: Number(f.qtd),
       unidadeRef:f.unidadeRef||unidMat(f.materialId)||"UN",
@@ -1510,17 +1512,19 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       precoRef:Number(f.precoRef||0),
       orcItemId:f.orcItemId||"",orcNivel1Id:f.orcNivel1Id||"",
       data: f.data || new Date().toISOString().slice(0,10),
-      status: "aberta", propostas: props, escolhida: "", pedidoId: "",
-      solicitacaoId:f.solicitacaoId||"",
+      propostas: props, solicitacaoId:f.solicitacaoId||"",
     };
-    const solicitacoesCompra=f.solicitacaoId?(data.solicitacoesCompra||[]).map(s=>s.id===f.solicitacaoId?{
-      ...s,status:s.status==="enviada"?"em_analise":s.status,
-      analisadoEm:s.analisadoEm||new Date().toISOString(),analisadoPor:s.analisadoPor||currentUser?.nome||"Compras",
-      cotacaoIds:[...new Set([...(s.cotacaoIds||[]),c.id])],
-    }:s):(data.solicitacoesCompra||[]);
-    update({ ...data, solicitacoesCompra, cotacoes: f.id
-      ? (data.cotacoes||[]).map(x => x.id === f.id ? c : x)
-      : [...(data.cotacoes||[]), c] });
+    const result = await dispatchCommand(atual=>{
+      const vigente=(atual.cotacoes||[]).find(item=>item.id===quote.id);
+      return {
+        type:OPERATIONAL_COMMAND.QUOTATION_SAVED,
+        idempotencyKey:`purchase-quote-save-${quote.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{quote},
+      };
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar a cotação.","error");return;}
     setCotModal(null);
     showToast("Cotação registrada.");
   };

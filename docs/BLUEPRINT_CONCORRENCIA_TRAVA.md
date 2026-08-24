@@ -1117,6 +1117,73 @@ uma cotação existente, gerando o pedido - e `cancelQuote`; a criação em si
 não foi localizada nesta investigação) - primeiro passo de uma
 investigação futura, antes de qualquer desenho de schema.
 
+## Comando de criação de cotação: a lacuna fundamental fechada (24/08/2026)
+
+Retomando a cadeia de Compras (usuário: "abrir a cadeia de Compras"), o
+mapeamento pedido (agente Explore, muito completo) achou a resposta ao
+"ainda não mapeado" acima: **a criação de uma cotação nunca foi um
+comando operacional** - era `update()` direto do componente
+(`ComprasView.jsx`, `salvarCotacao`), sem versão, sem autoria e sem
+nenhum teste de comportamento. Todo o resto do domínio Compras (decidir
+cotação, cancelar cotação, cancelar pedido, pagamentos, recebimento) já é
+comando operacional adequado - só a criação ficou pra trás, provavelmente
+por ter nascido antes da extração de Compras para `src/domains/compras/`.
+
+Isso muda a ordem certa de trabalho: desenhar uma tabela relacional para
+`cotacoes`/`pedidos` antes de consertar essa lacuna significaria migrar
+um caminho de escrita que ainda nem é comandado - o mesmo problema que
+`purchase_requests` já tinha sido corrigido antes de virar tabela viva.
+Corrigido primeiro, por ser pré-requisito e ser a peça de menor risco:
+
+- Novo comando `QUOTATION_SAVED`/`COTACAO_COMPRA_SALVA`
+  (`src/domains/compras/purchase-order-commands.js`), no mesmo arquivo que
+  já trata `createFromQuote`/`cancelQuote` (mesmo domínio, mesma
+  entidade). Espelha exatamente a validação que já existia no cliente
+  (material, quantidade, mínimo de 2 propostas válidas) e acrescenta o
+  que só faltava: versionamento otimista (`version`, `expectedVersion`),
+  autoria (`criadoPorId`/`criadoPor`/`criadoEm`), e a mesma checagem de
+  conversão de unidade que `normalizeItems` já aplica aos itens do
+  pedido - `createFromQuote` copia esses campos da cotação direto para o
+  item do pedido, então validar na criação da cotação só antecipa um erro
+  que hoje só aparece depois, na hora de decidir a cotação.
+- Editar uma cotação existente agora exige que ela ainda esteja `"aberta"`
+  (rejeita edição de cotação já decidida/cancelada) - defesa em
+  profundidade, já que a UI só abre o modal de edição para cotações
+  `"aberta"` (`kanbanCompras`, `ComprasView.jsx:846`), mas o comando não
+  dependia disso até agora.
+- O vínculo `solicitacaoId` passa a ser imutável após a criação (só a
+  criação pode atribuí-lo) - o código antigo recalculava esse vínculo a
+  cada salvamento sem nunca reverter `cotacaoIds` da solicitação anterior
+  se o vínculo mudasse; como a UI nunca expõe esse campo como editável,
+  travar por comando fecha uma inconsistência que só existia em teoria.
+- `ComprasView.jsx`: `salvarCotacao` passou de `update()` síncrono para
+  `dispatchCommand` assíncrono (mesmo padrão de `excluirCotacao`/
+  `excluirCompra`, já existentes no mesmo arquivo); `ModalCotacao` ganhou
+  estado `salvando` e desabilita os botões durante o envio (mesmo padrão
+  já usado em `ModalSolicitacaoCompra`).
+- Papéis (`api/data.js`, `OPERATIONAL_COMMAND_ROLES`) e persistência
+  financeira (`FINANCIAL_OPERATIONAL_COMMANDS`) registrados iguais aos
+  outros comandos de cotação (`["admin","compras"]`) - mesma seção
+  (`cotacoes`) que `section-authorizations.js` já protegia para o
+  caminho antigo de `update()`.
+
+**Fora do escopo desta rodada, registrado para não ser esquecido**: a
+anexação de documento a uma proposta (`salvarDocumentoCotacao`,
+`ComprasView.jsx`) continua sendo `update()` direto, mesma categoria de
+lacuna que a criação tinha - candidata natural a um comando
+`PURCHASE_QUOTE_DOCUMENT_ATTACHED`, espelhando o
+`PURCHASE_ORDER_DOCUMENT_ATTACHED` que pedidos já têm. Não convertido
+agora para manter esta mudança pequena e revisável.
+
+Testes novos: `src/domains/compras/purchase-order-commands.test.js` ganhou
+6 casos para `QUOTATION_SAVED` (criação com autoria/versão/atualização da
+solicitação, mínimo de propostas, conversão de unidade inválida, obra
+divergente da solicitação, edição preservando o vínculo original,
+concorrência otimista, bloqueio de edição pós-decisão/cancelamento).
+
+Verificação: suíte completa 241 arquivos/1313 testes verdes, `npm run
+build`, `npm run lint` e `npm run architecture:check` sem violação nova.
+
 ## Investigação da integração com o agente de IA (24/08/2026)
 
 Pedido do usuário para confirmar se a integração com o agente de IA (o

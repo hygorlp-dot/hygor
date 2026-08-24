@@ -107,3 +107,87 @@ describe("comandos transacionais de pedidos",()=>{
     expect(result.data.solicitacoesCompra[0].cotacaoIds).toEqual([]);
   });
 });
+
+// Achado ao mapear o próximo elo da cadeia de Compras (24/08/2026, ver
+// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): a criação de cotação nunca teve
+// comando nem teste - era update() direto no componente. Este bloco cobre
+// o comando novo (QUOTATION_SAVED) com a mesma densidade dos demais.
+const rawQuote=()=>({
+  id:"c-2",obraId:"o-1",materialId:"m-1",qtd:5,data:"2026-08-24",
+  solicitacaoId:"s-1",
+  propostas:[{id:"pr-1",fornecedorId:"f-1",precoUnit:10},{id:"pr-2",fornecedorId:"f-2",precoUnit:12}],
+});
+
+describe("comando de criação/edição de cotação (QUOTATION_SAVED)",()=>{
+  it("cria a cotação, versiona, registra autoria e atualiza a solicitação de origem",()=>{
+    const data=base();
+    data.solicitacoesCompra=[{id:"s-1",obraId:"o-1",status:"enviada",cotacaoIds:[]}];
+    data.cotacoes=[];
+    const result=applyPurchaseOrderCommand(data,command(
+      PURCHASE_ORDER_COMMAND.QUOTATION_SAVED,{quote:rawQuote()},
+    ),"2026-08-24T12:00:00.000Z");
+    expect(result.ok).toBe(true);
+    expect(result.data.cotacoes[0]).toMatchObject({
+      id:"c-2",status:"aberta",version:1,criadoPorId:"u-1",escolhida:"",pedidoId:"",
+    });
+    expect(result.data.solicitacoesCompra[0]).toMatchObject({status:"em_analise",cotacaoIds:["c-2"]});
+  });
+
+  it("rejeita cotação com menos de 2 propostas válidas",()=>{
+    const quote={...rawQuote(),propostas:[{id:"pr-1",fornecedorId:"f-1",precoUnit:10}]};
+    const result=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.QUOTATION_SAVED,{quote},
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/2 propostas/);
+  });
+
+  it("rejeita cotação com embalagem sem fator de conversão",()=>{
+    const quote={...rawQuote(),unidadeRef:"KG",unidadeCompra:"SC",fatorConversao:0};
+    const result=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.QUOTATION_SAVED,{quote},
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/conversão/i);
+  });
+
+  it("rejeita cotação vinculada a solicitação de outra obra",()=>{
+    const data=base();
+    data.solicitacoesCompra.push({id:"s-2",obraId:"o-2",status:"enviada",cotacaoIds:[]});
+    data.obras.push({id:"o-2"});
+    const quote={...rawQuote(),id:"c-3",solicitacaoId:"s-2"};
+    const result=applyPurchaseOrderCommand(data,command(
+      PURCHASE_ORDER_COMMAND.QUOTATION_SAVED,{quote},
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/mesma obra/);
+  });
+
+  it("edita uma cotação aberta existente, versionando e preservando o vínculo original",()=>{
+    const data=base();
+    const edited={...rawQuote(),id:"c-1",qtd:9,solicitacaoId:"outra-solicitacao-ignorada"};
+    const result=applyPurchaseOrderCommand(data,command(
+      PURCHASE_ORDER_COMMAND.QUOTATION_SAVED,{quote:edited},1,
+    ),"2026-08-24T12:00:00.000Z");
+    expect(result.ok).toBe(true);
+    expect(result.data.cotacoes[0]).toMatchObject({id:"c-1",qtd:9,version:2,solicitacaoId:"s-1"});
+  });
+
+  it("rejeita edição com versão desatualizada",()=>{
+    const result=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.QUOTATION_SAVED,{quote:{...rawQuote(),id:"c-1"}},0,
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/alterad[ao] por outra pessoa/);
+  });
+
+  it("rejeita edição de cotação já decidida ou cancelada",()=>{
+    const data=base();
+    data.cotacoes[0].status="decidida";
+    const result=applyPurchaseOrderCommand(data,command(
+      PURCHASE_ORDER_COMMAND.QUOTATION_SAVED,{quote:{...rawQuote(),id:"c-1"}},1,
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/já foi decidida ou cancelada/);
+  });
+});

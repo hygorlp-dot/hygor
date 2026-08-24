@@ -1,12 +1,13 @@
 import { active, toCents } from "../financeiro/ledger.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
-import { hasValidUnitConversion } from "./unit-conversion.js";
+import { hasValidUnitConversion, purchaseUnitOf } from "./unit-conversion.js";
 
 export const PURCHASE_ORDER_COMMAND=Object.freeze({
   PURCHASE_ORDER_SAVED:"PEDIDO_COMPRA_SALVO",
   PURCHASE_ORDER_CREATED_FROM_QUOTE:"PEDIDO_COMPRA_GERADO_COTACAO",
   PURCHASE_ORDER_DOCUMENT_ATTACHED:"DOCUMENTO_PEDIDO_COMPRA_ANEXADO",
   PURCHASE_QUOTE_CANCELLED:"COTACAO_COMPRA_CANCELADA",
+  QUOTATION_SAVED:"COTACAO_COMPRA_SALVA",
 });
 
 export const PURCHASE_ORDER_COMMAND_TYPES=new Set(Object.values(PURCHASE_ORDER_COMMAND));
@@ -192,6 +193,111 @@ const saveOrder=(data,command,now)=>{
   };
 };
 
+// Achado ao mapear o próximo elo da cadeia de Compras (24/08/2026, ver
+// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): diferente de todo o resto deste
+// domínio (decidir cotação, cancelar cotação, cancelar pedido, pagamentos,
+// recebimento), a CRIAÇÃO de uma cotação nunca foi um comando operacional -
+// era update() direto do componente (ComprasView.jsx, salvarCotacao), sem
+// versão, sem autoria e sem nenhum teste de comportamento. Este comando
+// espelha exatamente a validação que já existia no cliente (material,
+// quantidade, mínimo de 2 propostas válidas) e acrescenta o que só os
+// outros comandos deste domínio já tinham: versionamento otimista,
+// autoria, e a mesma checagem de conversão de unidade que normalizeItems
+// já aplica aos itens do pedido (createFromQuote copia esses mesmos campos
+// da cotação para o item do pedido - validar aqui só antecipa o erro).
+const normalizeQuote=(data,raw,current,now)=>{
+  const id=String(raw.id||"");
+  if(!id)return {error:"Cotação sem identificação única."};
+  const obraId=String(raw.obraId||current?.obraId||"");
+  if(!projectById(data,obraId))return {error:"Selecione uma obra existente para a cotação."};
+  const materialId=String(raw.materialId||"");
+  if(!(data.materiais||[]).some(item=>String(item.id)===materialId)){
+    return {error:"Selecione um insumo existente para a cotação."};
+  }
+  const quantity=Number(raw.qtd);
+  if(!Number.isFinite(quantity)||quantity<=0)return {error:"Informe a quantidade da cotação."};
+  const proposals=(raw.propostas||[])
+    .filter(item=>item?.fornecedorId&&Number(item.precoUnit)>0)
+    .map(item=>({
+      id:String(item.id||""),fornecedorId:String(item.fornecedorId),
+      precoUnit:Number(item.precoUnit),prazoDias:Number(item.prazoDias||0),
+      obs:String(item.obs||""),
+      documentos:Array.isArray(item.documentos)?item.documentos.map(doc=>({...doc})):[],
+    }));
+  if(proposals.length<2)return {error:"Uma cotação precisa de ao menos 2 propostas."};
+  if(proposals.some(item=>!item.id||!supplierById(data,item.fornecedorId))){
+    return {error:"A cotação contém proposta sem identificação ou fornecedor válido."};
+  }
+  // A validação roda sobre os campos originais (não sobre um valor já
+  // com fallback aplicado) - Number(raw.fatorConversao||1) mascararia um
+  // fatorConversao:0 genuinamente inválido, transformando-o em 1 antes de
+  // a checagem rodar. Mesmo cuidado que normalizeItems já tem para os
+  // itens do pedido.
+  if(!hasValidUnitConversion(raw)){
+    return {error:"A conversão entre a unidade de compra e a unidade de referência é inválida."};
+  }
+  const conversion={
+    unidadeRef:String(raw.unidadeRef||"").trim()||"UN",
+    unidadeCompra:purchaseUnitOf(raw),
+    fatorConversao:Number(raw.fatorConversao||1),
+  };
+  // O vínculo com a solicitação só é atribuído na criação - editar uma
+  // cotação existente não pode trocar de onde ela veio (a solicitação de
+  // origem já recebeu o id desta cotação em cotacaoIds e não é revertido
+  // aqui, então mudar o vínculo deixaria essa lista desatualizada).
+  const requestId=String(current?.solicitacaoId||raw.solicitacaoId||"");
+  const request=requestId?requestById(data,requestId):null;
+  if(requestId&&!request)return {error:"A solicitação relacionada à cotação não existe."};
+  if(request&&String(request.obraId)!==obraId){
+    return {error:"Cotação e solicitação precisam pertencer à mesma obra."};
+  }
+  const quote={
+    id,obraId,materialId,qtd:quantity,
+    unidadeRef:conversion.unidadeRef,unidadeCompra:conversion.unidadeCompra,
+    fatorConversao:conversion.fatorConversao,precoRef:Number(raw.precoRef||0),
+    orcItemId:String(raw.orcItemId||""),orcNivel1Id:String(raw.orcNivel1Id||""),
+    data:String(raw.data||"").trim()||now.slice(0,10),
+    propostas:proposals,solicitacaoId:requestId,
+  };
+  return {quote,request};
+};
+
+const saveQuote=(data,command,now)=>{
+  const payload=command.payload||{},raw=payload.quote||{};
+  const current=quoteById(data,raw.id);
+  if(current&&current.status!=="aberta"){
+    return fail("Esta cotação já foi decidida ou cancelada e não pode mais ser editada.");
+  }
+  if(current&&!sameVersion(current,command.expectedVersion)){
+    return fail("A cotação foi alterada por outra pessoa. Atualize a tela.");
+  }
+  if(!current&&Number(command.expectedVersion)!==0)return fail("A criação da cotação exige versão inicial zero.");
+  const normalized=normalizeQuote(data,raw,current,now);
+  if(normalized.error)return fail(normalized.error);
+  const actor=actorOf(command);
+  const saved={
+    ...normalized.quote,
+    status:"aberta",escolhida:current?.escolhida||"",pedidoId:current?.pedidoId||"",
+    version:current?versionOf(current)+1:1,
+    criadoEm:current?.criadoEm||now,criadoPorId:current?.criadoPorId||actor.id,
+    criadoPor:current?.criadoPor||actor.nome,
+    updatedAt:now,updatedById:actor.id,updatedBy:actor.nome,
+  };
+  const request=normalized.request;
+  const requests=request?(data.solicitacoesCompra||[]).map(item=>String(item.id)===String(request.id)?{
+    ...item,status:item.status==="enviada"?"em_analise":item.status,
+    analisadoEm:item.analisadoEm||now,analisadoPor:item.analisadoPor||actor.nome,
+    cotacaoIds:[...new Set([...(item.cotacaoIds||[]),saved.id])],
+  }:item):(data.solicitacoesCompra||[]);
+  return {
+    ok:true,entityId:saved.id,
+    data:{...data,solicitacoesCompra:requests,
+      cotacoes:current
+        ?(data.cotacoes||[]).map(item=>String(item.id)===saved.id?saved:item)
+        :[...(data.cotacoes||[]),saved]},
+  };
+};
+
 const createFromQuote=(data,command,now)=>{
   const payload=command.payload||{},quote=quoteById(data,payload.quoteId);
   if(!quote||["cancelada","decidida"].includes(String(quote.status))){
@@ -309,6 +415,9 @@ export const purchaseOrderCommandObraId=(data={},command={})=>{
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_CANCELLED){
     return String(quoteById(data,payload.quoteId)?.obraId||"");
   }
+  if(command.type===PURCHASE_ORDER_COMMAND.QUOTATION_SAVED){
+    return String(quoteById(data,payload.quote?.id)?.obraId||payload.quote?.obraId||"");
+  }
   return "";
 };
 
@@ -322,5 +431,6 @@ export const applyPurchaseOrderCommand=(data={},command={},now=new Date().toISOS
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED){
     return attachDocument(data,command,now);
   }
+  if(command.type===PURCHASE_ORDER_COMMAND.QUOTATION_SAVED)return saveQuote(data,command,now);
   return cancelQuote(data,command,now);
 };
