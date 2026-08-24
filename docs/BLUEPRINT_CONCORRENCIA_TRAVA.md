@@ -672,8 +672,32 @@ mesma resolução de sessão** (`financial-shadow-report`,
 `financial-shadow-sync`, `financial-shadow-migrate` e qualquer ação
 futura no mesmo padrão) - elas podem estar silenciosamente rodando com o
 papel do usuário logado em vez de `service_role` para suas próprias
-queries. Não investigado nem corrigido nesta rodada (fora do escopo
-combinado); vale uma auditoria dedicada numa próxima sessão.
+queries.
+
+## Correção na raiz: `authDb` isolado de `db` (24/08/2026)
+
+Em vez de isolar cada ação afetada uma por uma, corrigido na fonte: `db`
+(escopo de módulo em `api/data.js`, compartilhado entre TODA ação de uma
+mesma requisição e potencialmente entre requisições numa instância
+"quente" da função serverless) nunca mais recebe uma chamada `.auth.*`.
+Criado `authDb`, um segundo cliente Supabase com a mesma configuração,
+usado exclusivamente pelas 7 chamadas `.auth.*` do arquivo
+(`signInWithPassword`, `refreshSession`, `getUser`, `admin.updateUserById`
+×2, `admin.listUsers`, `admin.createUser`) - `db` fica reservado só para
+`.from()`/`.rpc()` de dado, nunca mais é tocado por resolução de sessão.
+Mesmo padrão aplicado em `api/auth.js` (`authenticateAppContext`), onde o
+risco era menor (cliente criado por chamada, não por módulo) mas o mesmo
+bug de classe existia.
+
+Verificado em produção após o deploy (mesma sessão de admin já logada,
+sem precisar de nova credencial): `load` (o caminho mais comum - toda
+sessão retornando usa `accessToken` + `authDb.auth.getUser`), `core-
+registry-report` e `financial-shadow-report` - os três voltando `200,
+ok:true`, mais um reload completo da página confirmando a sessão e o
+dashboard renderizando normalmente. Não foi possível testar
+`signInWithPassword` (login do zero) ponta a ponta sem credenciais reais,
+mas a mudança é um redirecionamento mecânico para um cliente
+idêntico na configuração, de risco muito baixo.
 
 **Fora do escopo desta rodada, por decisão do usuário**: políticas de RLS
 por papel/obra para as tabelas `core_*`; qualquer tela/endpoint que
