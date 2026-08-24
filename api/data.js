@@ -1962,6 +1962,23 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
     }
 
+    // Verificação da primeira escrita transacional real de Fase 2
+    // (24/08/2026, ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md). Diferente dos
+    // dois relatórios acima (que resumem uma sincronização em lote), esta
+    // tabela recebe uma linha por vez, ao vivo - só lista o que já chegou,
+    // sem noção de "última sincronização".
+    if(action==="purchase-requests-report"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção de solicitações de compra."});
+      const [{ count, error: countError }, { data: sample, error: sampleError }] = await Promise.all([
+        db.from("purchase_requests").select("*", { count: "exact", head: true }).eq("company_id", COMPANY),
+        db.from("purchase_requests").select("*").eq("company_id", COMPANY)
+          .order("updated_at", { ascending: false }).limit(10),
+      ]);
+      if (countError) throw countError;
+      if (sampleError) throw sampleError;
+      return res.status(200).json({ ok:true, count: count || 0, sample: sample || [] });
+    }
+
     if(action==="financial-dre-report"||action==="financial-company-dre-report"){
       const year=Number(req.body?.year),month=Number(req.body?.month);
       const period=["mes","q1","q2"].includes(req.body?.period)?req.body.period:"mes";
