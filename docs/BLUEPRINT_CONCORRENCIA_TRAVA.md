@@ -646,9 +646,34 @@ fosse corrigido aqui - vale revisar a redação do gate no
 tela própria). Reaproveita `summarizeCoreRegistryShadowStatus` (o mesmo
 módulo puro usado por `scripts/check-core-registry-shadow-status.mjs`) e
 devolve, além do resumo, uma amostra de até 5 linhas mais recentes de cada
-uma das 7 tabelas `core_*` - prova que a projeção é consultável de
-verdade via o cliente `db` compartilhado, sem exigir nenhuma política de
-RLS nova nem tocar em nenhuma tela existente.
+uma das 7 tabelas `core_*`.
+
+**Achado adicional, real, descoberto ao testar contra produção (24/08/2026)**:
+a primeira versão desta ação usava o `db` compartilhado de escopo de
+módulo (o mesmo usado por `lerLinha()` e por todo o resto de
+`api/data.js`) e falhava com `permission denied for table
+core_registry_shadow_runs` (código Postgres `42501`, dica do PostgREST
+sugerindo conceder a `authenticated`). Causa: `db.auth.getUser(
+accessToken)` - chamado mais acima no handler, ao resolver `usuario` a
+partir da sessão do navegador - muda o estado interno de autenticação do
+próprio `db`, fazendo chamadas `.from()` **posteriores** nessa mesma
+requisição usarem o JWT do usuário logado em vez da `service_role` key
+com que `db` foi criado. Como as tabelas `core_*` revogam tudo exceto
+`service_role` (migration 007), a query falhava; `company_app_data`, sem
+revoke explícito, não teria mostrado o mesmo sintoma tão claramente.
+Corrigido isolando esta ação com um cliente Supabase próprio, criado só
+para ela (mesmo padrão que `scripts/check-core-registry-shadow-status.mjs`
+já usa, por nunca compartilhar cliente entre requisições) - confirmado
+funcionando em produção com dados reais (15 projetos, 78 funcionários,
+etc., 0 alertas).
+
+**Isso pode afetar outras ações admin que também usam `db` depois da
+mesma resolução de sessão** (`financial-shadow-report`,
+`financial-shadow-sync`, `financial-shadow-migrate` e qualquer ação
+futura no mesmo padrão) - elas podem estar silenciosamente rodando com o
+papel do usuário logado em vez de `service_role` para suas próprias
+queries. Não investigado nem corrigido nesta rodada (fora do escopo
+combinado); vale uma auditoria dedicada numa próxima sessão.
 
 **Fora do escopo desta rodada, por decisão do usuário**: políticas de RLS
 por papel/obra para as tabelas `core_*`; qualquer tela/endpoint que
