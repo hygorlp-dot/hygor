@@ -1078,6 +1078,45 @@ real nos testes de pglite, que estouravam o padrão de 10s sob a suíte
 inteira em paralelo), build, lint e `architecture:check` verdes antes do
 commit.
 
+## Cadeia de Compras: parada deliberada em `purchase_requests` (24/08/2026)
+
+Ao mapear o próximo elo da cadeia (`purchase_requests → quotations →
+purchase_orders`, per `PLANO_REDUCAO_LEGACYAPP_SUPABASE.md`), a
+investigação encontrou um bug real antes de qualquer código novo: o
+comando de cancelamento adicionado na rodada anterior
+(`SOLICITACAO_COMPRA_CANCELADA`) não sabia que `saveOrder`
+(`src/domains/compras/purchase-order-commands.js`) marca a solicitação
+como `status:"pedido_gerado"` + `pedidoId` ao convertê-la num pedido real
+- cancelar a solicitação nesse ponto criaria uma solicitação "cancelada"
+com um pedido ativo ainda apontando para ela. Corrigido antes de seguir
+adiante (`cancelRequest` agora recusa com `pedidoId` presente, apontando
+para o cancelamento correto - o do pedido, via `PURCHASE_CANCELLED`/
+`COMPRA_CANCELADA`, `purchase-cancellation-command.js`).
+
+Esse achado expôs a escala real do próximo elo: diferente de
+`purchase_requests` (um registro isolado, sem efeito colateral em outro
+domínio), `cotacoes`/`pedidos` têm referências cruzadas profundas -
+cancelar um pedido reverte pagamentos (`data.pagamentos`), estornos de
+caixa de obra (`cancelWorkCashMovementFromPayment`), movimentos de
+estoque, desvincula notas fiscais e reabre a solicitação de origem, tudo
+numa única transação de domínio (~130 linhas só no comando de
+cancelamento). Replicar essa lógica como projeção com escrita ao vivo
+(mesmo padrão de `purchase_requests`) exigiria o mesmo nível de cuidado
+que já quase produziu um bug nesta rodada - só que numa escala
+significativamente maior, com dinheiro real em movimento.
+
+**Decisão do usuário, explícita**: parar a cadeia de Compras aqui.
+`purchase_requests` fica como está - sólido, testado, verificado em
+produção (criação e cancelamento). Cotações e pedidos ficam documentados
+como o próximo passo natural da Fase 2 transacional, mas reservados para
+uma sessão dedicada, não continuados por inércia nesta.
+
+**Ainda não mapeado** (para quem retomar): onde exatamente uma cotação é
+CRIADA (`purchase-order-commands.js` só tem `createFromQuote` - decide
+uma cotação existente, gerando o pedido - e `cancelQuote`; a criação em si
+não foi localizada nesta investigação) - primeiro passo de uma
+investigação futura, antes de qualquer desenho de schema.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
