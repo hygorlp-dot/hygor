@@ -35,6 +35,16 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
   const db = createClient(URL, SERVICE, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  // Mesmo achado de api/data.js (24/08/2026, ver
+  // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): db.auth.getUser(accessToken)
+  // muda o estado interno de autenticação do cliente, afetando .from()/.rpc()
+  // POSTERIORES no mesmo cliente. Aqui o risco é menor (db é criado por
+  // chamada, não compartilhado entre requisições, e os caminhos que usam o
+  // resultado ficam em branches majoritariamente exclusivos), mas isolar
+  // custa nada e evita repetir o mesmo bug por engano numa mudança futura.
+  const authDb = createClient(URL, SERVICE, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   const centralSubject=`pin:${String(userId||"anonymous")}`;
   if(!accessToken){
     const central=await applyPersistentAuthRateLimit(db,{company:COMPANY,subject:centralSubject,action:"status"});
@@ -68,7 +78,7 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
     if(indexError)console.error("Não foi possível atualizar o índice de autenticação:",indexError.message);
   }
   if (accessToken) {
-    const { data: auth, error: authError } = await db.auth.getUser(accessToken);
+    const { data: auth, error: authError } = await authDb.auth.getUser(accessToken);
     if (!authError && auth?.user) {
       const email = String(auth.user.email || "").toLowerCase();
       const linked = (payload?.usuarios || []).find(u =>

@@ -282,6 +282,22 @@ const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization==
 const db = URL&&SERVICE ? createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 }) : null;
+// Achado de 24/08/2026 (docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, seção "Fase 2,
+// primeiro consumidor real"): qualquer chamada db.auth.* (signInWithPassword,
+// refreshSession, getUser, admin.*) muda o estado interno de autenticação do
+// próprio cliente - chamadas .from()/.rpc() POSTERIORES nesse mesmo cliente
+// passam a usar o JWT da sessão/usuário em vez da service_role key com que o
+// cliente foi criado. Isso já derrubou core-registry-report com "permission
+// denied" (tabelas que revogam tudo exceto service_role) e pode estar
+// silenciosamente afetando qualquer leitura/escrita feita DEPOIS da
+// resolução de `usuario` em toda ação deste arquivo - inclusive em
+// instâncias "quentes" da função serverless, que sobrevivem entre
+// requisições. authDb existe só para isolar as chamadas .auth.* - nunca deve
+// ser usado para .from()/.rpc() de dado; `db` nunca deve receber uma chamada
+// .auth.*.
+const authDb = URL&&SERVICE ? createClient(URL, SERVICE, {
+  auth: { persistSession: false, autoRefreshToken: false },
+}) : null;
 
 const listarLinhasBackup=async()=>{
   const rows=[];let from=0;
@@ -1155,7 +1171,7 @@ export default async function handler(req, res) {
       if(limiteCentral?.blocked||bloqueado(authSubject)){
         return res.status(429).json({error:"Muitas tentativas. Aguarde 5 minutos."});
       }
-      const {data:auth,error}=await db.auth.signInWithPassword({email,password});
+      const {data:auth,error}=await authDb.auth.signInWithPassword({email,password});
       if(error||!auth?.session){
         registrarFalha(authSubject);
         await rateLimitCentral(authSubject,"failure");
@@ -1174,7 +1190,7 @@ export default async function handler(req, res) {
     }
 
     if (action === "auth-refresh") {
-      const {data:auth,error}=await db.auth.refreshSession({refresh_token:String(req.body?.refreshToken||"")});
+      const {data:auth,error}=await authDb.auth.refreshSession({refresh_token:String(req.body?.refreshToken||"")});
       if(error||!auth?.session)return res.status(401).json({error:"Sessão expirada."});
       return res.status(200).json({accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
     }
@@ -1256,7 +1272,7 @@ export default async function handler(req, res) {
     // ao maior dos dois tempos, em vez de somar as duas esperas de rede.
     const [linha,tokenAuth] = await Promise.all([
       lerLinha(),
-      accessToken ? db.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
+      accessToken ? authDb.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
     ]);
     let { payload: atual, updatedAt, rowVersions, rowVersionsPontoObra } = linha;
     const pinAuth=usaPin?conferirPin(atual,userId,pin):{usuario:null,upgradeHash:""};
@@ -1317,24 +1333,24 @@ export default async function handler(req, res) {
       if(password.length<8)return res.status(400).json({error:"A senha temporária deve ter ao menos 8 caracteres."});
       let authId=alvo.authUserId||"";
       if(authId){
-        const {error}=await db.auth.admin.updateUserById(authId,{email,password,email_confirm:true,user_metadata:{arcdUserId:alvo.id,nome:alvo.nome}});
+        const {error}=await authDb.auth.admin.updateUserById(authId,{email,password,email_confirm:true,user_metadata:{arcdUserId:alvo.id,nome:alvo.nome}});
         if(error)return res.status(400).json({error:error.message});
       }else{
         // A conta pode ter sido criada antes da implantação do vínculo
         // authUserId (ou diretamente no painel do Supabase). Nesse caso não
         // tentamos cadastrar o mesmo e-mail novamente: localizamos a conta,
         // redefinimos a senha e passamos a vinculá-la ao operador do ArcD.
-        const {data:listagem,error:erroLista}=await db.auth.admin.listUsers({page:1,perPage:1000});
+        const {data:listagem,error:erroLista}=await authDb.auth.admin.listUsers({page:1,perPage:1000});
         if(erroLista)return res.status(400).json({error:erroLista.message});
         const existente=(listagem?.users||[]).find(u=>String(u.email||"").trim().toLowerCase()===email);
         if(existente){
           const vinculo=(atual.usuarios||[]).find(u=>u.id!==alvo.id&&u.authUserId===existente.id);
           if(vinculo)return res.status(409).json({error:`Este e-mail já está vinculado ao operador ${vinculo.nome}.`});
           authId=existente.id;
-          const {error}=await db.auth.admin.updateUserById(authId,{email,password,email_confirm:true,user_metadata:{...(existente.user_metadata||{}),arcdUserId:alvo.id,nome:alvo.nome}});
+          const {error}=await authDb.auth.admin.updateUserById(authId,{email,password,email_confirm:true,user_metadata:{...(existente.user_metadata||{}),arcdUserId:alvo.id,nome:alvo.nome}});
           if(error)return res.status(400).json({error:error.message});
         }else{
-          const {data:criado,error}=await db.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{arcdUserId:alvo.id,nome:alvo.nome}});
+          const {data:criado,error}=await authDb.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{arcdUserId:alvo.id,nome:alvo.nome}});
           if(error)return res.status(400).json({error:error.message});
           authId=criado.user.id;
         }
