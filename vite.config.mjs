@@ -22,9 +22,8 @@ export default defineConfig({
             || id.includes("/src/domains/dre/")
             || id.includes("/src/domains/conciliacao/")
           ) return "financial-domain";
-          // As dependências compartilhadas ficam a cargo do particionamento
-          // automático. Isso evita que React seja puxado para o chunk lazy de
-          // gráficos e torne Recharts uma dependência inicial novamente.
+          // As demais dependências compartilhadas ficam a cargo do
+          // particionamento automático do Rolldown.
         },
       },
     },

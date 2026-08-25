@@ -2168,10 +2168,85 @@ gráfico continuou vazio.** Hipótese descartada com confiança; revertido
 restaurado) - manter uma major mais antiga sem benefício comprovado não
 se justificava.
 
-**Ainda não identificado**: a causa raiz real. Avaliado com o usuário e
-escolhidas as próximas opções: (a) acesso a um ambiente local autenticado
-para depurar com o console real do navegador (esta investigação usou só
-inspeção remota via DOM/React DevTools, sem breakpoint/exceção real
-capturada), ou (b) trocar Recharts por outra biblioteca de gráficos se a
-causa se confirmar como uma incompatibilidade de fundo. Decisão de
-como prosseguir pendente com o usuário.
+**Ainda não identificado nesta seção**: a causa raiz real. Avaliado com o
+usuário e escolhido: acesso a um ambiente local autenticado para depurar
+com o console real do navegador (a investigação acima usou só inspeção
+remota via DOM/React DevTools, sem breakpoint/exceção real capturada).
+Achado e correção completos na seção seguinte.
+
+## Causa raiz encontrada e corrigida: `LazyRecharts.jsx` quebrava a identificação interna do Recharts (25/08/2026)
+
+Depuração local (proxy temporário de `/api/*` para produção, permitindo
+login real com o front-end em modo desenvolvimento - avisos mais
+verbosos que a build de produção) revelou a causa raiz real, em duas
+camadas:
+
+**1ª camada** - `src/components/charts/LazyRecharts.jsx` envolvia **todo**
+componente do Recharts em `React.lazy()`, inclusive os que são filhos de
+outro gráfico (`CartesianGrid`, `XAxis`, `YAxis`, `Line`, `Bar`, `Pie`,
+`Cell`, `Tooltip` - não só os containers `BarChart`/`LineChart`/etc.). O
+motor interno do Recharts (`generateCategoricalChart.renderByOrder`)
+identifica cada filho pelo NOME (`child.type.displayName ||
+child.type.name`) para decidir como desenhá-lo. Um wrapper
+`React.lazy()` é um objeto `{$$typeof: Symbol(react.lazy), ...}` sem
+esse nome - `renderByOrder` nunca reconhece nenhum filho, devolve um
+array vazio, sem lançar nenhum erro, e o gráfico inteiro fica em branco
+(só o `<Surface>` externo, que É montado normalmente por React via
+`ResponsiveContainer`, aparece - por isso o SVG sempre tinha `<title>`,
+`<desc>`, `<defs>` e nada mais, em toda tela testada).
+
+**2ª camada** (revelada só depois de corrigir a 1ª, propagando
+`Component.displayName=name` para o wrapper): com o nome corrigido, o
+Recharts passa a reconhecer os filhos, mas então lê propriedades
+ESTÁTICAS do componente real, como `Line.defaultProps.yAxisId`, de
+forma SÍNCRONA - antes mesmo do `import()` do wrapper lazy ter
+resolvido. Um wrapper lazy nunca carrega `.defaultProps` a tempo (só o
+componente real, quando o import resolve, muito depois do que o
+Recharts precisa) - o acesso quebra com `Cannot read properties of
+undefined (reading 'yAxisId')`, agora com um erro real (capturado pelo
+`ErrorBoundary` do app), mostrando que o problema é estrutural, não só
+de nome.
+
+**Conclusão**: qualquer componente que o Recharts INSPECIONA como
+filho de outro (não que o React simplesmente monta) precisa ser a
+referência real e síncrona - não existe forma de envolver em `lazy()`
+sem quebrar a identificação interna, porque o Recharts lê `type`/
+`props`/propriedades estáticas de forma síncrona, fora do ciclo normal
+de render/Suspense do React.
+
+**Correção**: `LazyRecharts.jsx` deixou de envolver qualquer coisa em
+`lazy()`/`Suspense` - agora é só um reexport direto do pacote `recharts`
+real, preservando o mesmo caminho de import (`./components/charts/
+LazyRecharts`) para não precisar tocar nenhum dos ~10 pontos de uso em
+`LegacyApp.jsx`. `src/components/charts/RechartsRuntime.js` (o módulo
+que só existia para ser importado dinamicamente) foi removido por não
+ter mais nenhuma referência.
+
+**Trade-off assumido, documentado, não resolvido nesta rodada**: o
+Recharts (e suas dependências `d3-shape`/`d3-scale`/`react-smooth`)
+passa a fazer parte do chunk principal (`LegacyApp`) em vez de um chunk
+próprio carregado sob demanda - o objetivo original de code-splitting
+não é mais alcançável com uma fronteira POR COMPONENTE, já que os
+componentes "filho" precisam ser síncronos. Uma divisão de código mais
+fina (lazy POR TELA - ex.: `CubChart` inteiro como um `React.lazy()`,
+com o Recharts importado de forma síncrona e real DENTRO desse chunk)
+recuperaria o benefício de bundle size, mas está fora do escopo desta
+correção (que priorizou corrigir um bug de correção total do produto,
+não uma otimização). Registrado aqui para retomar se o tamanho do bundle
+principal virar um problema real.
+
+Verificado visualmente, com evidência direta: o gráfico do CUB no
+Dashboard passou a desenhar as 3 linhas (padrão baixo/normal/alto) com
+grade e eixos, confirmado via `getBoundingClientRect`/contagem de
+elementos SVG antes/depois e captura de tela.
+
+Testes: `LazyRecharts.test.jsx` reescrito - a suíte antiga validava
+justamente o comportamento lazy que causava o bug (`typeof
+ResponsiveContainer==="function"`, verdadeiro só para o wrapper antigo);
+agora valida que cada export é EXATAMENTE a referência real do pacote
+`recharts` (`LazyRecharts[nome] === Recharts[nome]`), e mantém a
+proteção original (nenhum arquivo de `LegacyApp.jsx` importa `"recharts"`
+diretamente, só através desta fronteira).
+
+Verificação: suíte completa (247 arquivos/1381 testes), `build`, `lint`
+e `architecture:check` sem violação.
