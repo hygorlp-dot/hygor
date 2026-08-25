@@ -2250,3 +2250,23 @@ diretamente, só através desta fronteira).
 
 Verificação: suíte completa (247 arquivos/1381 testes), `build`, `lint`
 e `architecture:check` sem violação.
+
+## Rótulo de valor e variação % por ponto no gráfico do CUB (25/08/2026)
+
+Pedido do usuário, confirmado com o fix do gráfico já em produção: os
+valores mensais em R$/m² e a variação percentual em relação ao mês
+anterior devem aparecer diretamente nos pontos do gráfico, não só no
+resumo acima dele. Como o gráfico tem 3 linhas × 12 meses, rotular as 3
+poluiria/sobreporia - escolhido (opção recomendada) rotular só a linha
+já em destaque (a mais grossa, tipicamente "padrão alto").
+
+Implementado com `<LabelList content={CubPontoRotulo}/>` só no `<Line>`
+do `destaqueTier`: cada ponto ganha duas linhas de texto - o valor em
+R$/m² (arredondado) e, abaixo, a variação % frente ao mês anterior da
+MESMA série (cor laranja se alta, verde se queda; omitida no primeiro
+ponto da janela de 12 meses, que não tem mês anterior disponível).
+Margem superior do `LineChart` e o teto do domínio do eixo Y foram
+ampliados para caber os dois rótulos sem cortar no topo do gráfico.
+
+Verificação: suíte completa (247 arquivos/1381 testes), `build`, `lint`
+e `architecture:check` sem violação.

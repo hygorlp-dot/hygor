@@ -1,6 +1,6 @@
 import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, LineChart, Pie,
+  Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, Pie,
   PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "./components/charts/LazyRecharts";
 // Planilhas são um recurso pesado e opcional. O pacote só entra na memória
@@ -3900,6 +3900,18 @@ function CubChart({cub,carregando=false}){
   const destaqueTier=tiers[tiers.length-1];
   const destaqueUltimo=ultimo?.[destaqueTier], destaquePenultimo=penultimo?.[destaqueTier];
   const varMesPct=Number.isFinite(destaqueUltimo)&&Number.isFinite(destaquePenultimo)?((destaqueUltimo-destaquePenultimo)/destaquePenultimo*100):null;
+  // Rótulo por ponto só da linha em destaque (pedido do usuário, 25/08/2026):
+  // valor em R$/m² e a variação % em relação ao mês anterior - nas outras
+  // linhas ficaria poluído (3 linhas × 12 meses = 36 rótulos sobrepostos).
+  const CubPontoRotulo=({x,y,value,index})=>{
+    if(!Number.isFinite(value))return null;
+    const anterior=serie[index-1]?.[destaqueTier];
+    const pct=Number.isFinite(anterior)&&anterior>0?((value-anterior)/anterior*100):null;
+    return <g>
+      <text x={x} y={y-19} textAnchor="middle" fontSize={9} fontWeight={800} fill={C.text}>{`R$ ${Math.round(value).toLocaleString("pt-BR")}`}</text>
+      {pct!==null&&<text x={x} y={y-9} textAnchor="middle" fontSize={8} fontWeight={700} fill={pct>=0?C.orange:C.green}>{`${pct>=0?"+":""}${pct.toFixed(1)}%`}</text>}
+    </g>;
+  };
   const valoresUltimo=tiers.map(t=>({tier:t,valor:ultimo?.[t]})).filter(v=>Number.isFinite(v.valor));
   const maior=valoresUltimo.reduce((a,b)=>!a||b.valor>a.valor?b:a,null);
   const menor=valoresUltimo.reduce((a,b)=>!a||b.valor<a.valor?b:a,null);
@@ -3920,12 +3932,14 @@ function CubChart({cub,carregando=false}){
         {Number.isFinite(varMesPct)&&<span style={{fontSize:10.5,fontWeight:800,color:varMesPct>=0?C.orange:C.green}}>{varMesPct>=0?"+":""}{varMesPct.toFixed(2)}% no mês</span>}
       </div>}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={serie}>
+        <LineChart data={serie} margin={{top:26,right:10,left:0,bottom:0}}>
           <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
           <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} interval={1}/>
-          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>`R$${(v/1000).toFixed(1)}k`} domain={["dataMin-60","dataMax+60"]}/>
+          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>`R$${(v/1000).toFixed(1)}k`} domain={["dataMin-60","dataMax+90"]}/>
           <Tooltip content={<ArcdChartTooltip formatter={v=>`R$ ${v.toLocaleString("pt-BR",{minimumFractionDigits:2})}/m²`}/>}/>
-          {tiers.map(t=><Line key={t} type="monotone" dataKey={t} name={CUB_PADRAO_LABEL[t]} stroke={CUB_PADRAO_COR[t]} strokeWidth={t===destaqueTier?2.5:2} dot={false} activeDot={{r:5}} connectNulls/>)}
+          {tiers.map(t=><Line key={t} type="monotone" dataKey={t} name={CUB_PADRAO_LABEL[t]} stroke={CUB_PADRAO_COR[t]} strokeWidth={t===destaqueTier?2.5:2} dot={false} activeDot={{r:5}} connectNulls>
+            {t===destaqueTier&&<LabelList dataKey={t} content={CubPontoRotulo}/>}
+          </Line>)}
         </LineChart>
       </ResponsiveContainer>
     </ChartPanel>

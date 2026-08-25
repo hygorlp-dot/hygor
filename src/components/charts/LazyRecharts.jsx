@@ -33,6 +33,6 @@
 // necessário - não fizemos isso agora para não estender o escopo desta
 // correção.
 export {
-  Bar,BarChart,CartesianGrid,Cell,ComposedChart,Line,LineChart,Pie,PieChart,
+  Bar,BarChart,CartesianGrid,Cell,ComposedChart,LabelList,Line,LineChart,Pie,PieChart,
   ResponsiveContainer,Tooltip,XAxis,YAxis,
 } from "recharts";

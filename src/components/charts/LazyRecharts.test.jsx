@@ -16,7 +16,7 @@ import * as LazyRecharts from "./LazyRecharts";
 // futuro, por tela), sem envolver nada em lazy/Suspense.
 describe("fronteira de import do Recharts",()=>{
   it("reexporta exatamente os componentes reais do Recharts, sem nenhum wrapper",()=>{
-    ["Bar","BarChart","CartesianGrid","Cell","ComposedChart","Line","LineChart","Pie","PieChart","ResponsiveContainer","Tooltip","XAxis","YAxis"].forEach(name=>{
+    ["Bar","BarChart","CartesianGrid","Cell","ComposedChart","LabelList","Line","LineChart","Pie","PieChart","ResponsiveContainer","Tooltip","XAxis","YAxis"].forEach(name=>{
       expect(LazyRecharts[name]).toBe(Recharts[name]);
     });
   });
