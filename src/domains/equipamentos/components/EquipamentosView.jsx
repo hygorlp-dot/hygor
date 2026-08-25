@@ -137,6 +137,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
   const [rentalChargeModal,setRentalChargeModal]=useState(null);
   const [rentalMeasurementModal,setRentalMeasurementModal]=useState(null);
   const [rentalInvoiceModal,setRentalInvoiceModal]=useState(null);
+  const [rentalReceiptModal,setRentalReceiptModal]=useState(null);
   // Confirmação de ações destrutivas/irreversíveis - substitui window.confirm
   // nativo por um Modal próprio do design system (ver auditoria de design,
   // achado P0: dialogs nativos do navegador quebram a marca exatamente nos
@@ -644,6 +645,39 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
     finally{setSalvandoEquipamento("");}
   };
 
+  // Achado ao auditar comandos operacionais nunca conectados a uma tela
+  // (24/08/2026, ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md):
+  // EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED já existia e já era testado
+  // (rental-receipts.js), mas nenhuma tela disparava. Vincula uma
+  // transação bancária já importada (conciliação, mesmo padrão de
+  // seleção já usado no pagamento de pedidos de compra - Sel filtrando
+  // por sinal do valor, sem excluir por status: a validação de reuso já
+  // é feita pelo próprio comando) ao saldo em aberto de uma fatura.
+  const prepararRecebimentoFatura=invoice=>{
+    setRentalReceiptModal({invoiceId:invoice.id,rentalId:invoice.rentalId,workId:invoice.workId,
+      transactionId:"",amount:String((Number(invoice.openAmountCents||0)/100).toFixed(2)).replace(".",","),
+      paymentDate:today(),notes:""});
+  };
+  const salvarRecebimentoFatura=async form=>{
+    const amount=Number(String(form.amount||"").replace(",","."));
+    if(!form.transactionId){showToast("Selecione a transação bancária recebida.","error");return;}
+    if(!Number.isFinite(amount)||amount<=0){showToast("Informe um valor de recebimento válido.","error");return;}
+    setSalvandoEquipamento(`recebimento-${form.invoiceId}`);
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const invoice=(atual.rentalInvoices||[]).find(item=>item.id===form.invoiceId);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,
+          idempotencyKey:`locacao-recebimento-${form.invoiceId}-${uid()}`,
+          expectedVersion:Number(invoice?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{invoiceId:form.invoiceId,receipt:{transactionId:form.transactionId,
+            paymentDate:form.paymentDate,amountCents:Math.round(amount*100),notes:form.notes||""}}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível registrar o recebimento.","error");return;}
+      setRentalReceiptModal(null);showToast("Recebimento vinculado à fatura.");
+    }catch(error){showToast(error?.message||"O servidor não respondeu ao registrar o recebimento.","error");}
+    finally{setSalvandoEquipamento("");}
+  };
+
   const salvarManut = async(f) => {
     if(!f.equipamentoId||!f.data||!f.custo){ showToast("Preencha equipamento, data e custo.","error"); return; }
     const m = { ...f, custo:Number(f.custo||0) };
@@ -1107,6 +1141,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               const chargeSummary=rentalChargeSummary(data.rentalChargeItems||[],{rentalId:l.id});
               const measuredCompetences=(data.rentalChargeItems||[]).filter(item=>item.rentalId===l.id&&item.status==="measured").map(item=>item.competence);
               const rentalInvoices=(data.rentalInvoices||[]).filter(item=>item.rentalId===l.id&&item.status!=="cancelled");
+              const openRentalInvoices=rentalInvoices.filter(item=>["issued","partially_paid"].includes(item.status)&&Number(item.openAmountCents||0)>0);
               const lifecycleNext=availableRentalTransitions(lifecycleState,{checkpoints:l.rentalCheckpoints||[]})
                 .filter(state=>!["cancelled","closed"].includes(state));
               return (
@@ -1129,6 +1164,13 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                       {chargeSummary.netAmountCents!==0&&<p style={{fontSize:9,color:chargeSummary.netAmountCents>=0?C.green:C.red,marginTop:3}}>Linhas preparadas: {fmt(chargeSummary.netAmountCents/100)}</p>}
                       {measuredCompetences.length>0&&<p style={{fontSize:9,color:C.blue,marginTop:3}}>Medida: {measuredCompetences.join(", ")}</p>}
                       {rentalInvoices.length>0&&<p style={{fontSize:9,color:C.orange,marginTop:3}}>Faturado: {fmt(rentalInvoices.reduce((sum,item)=>sum+Number(item.netAmountCents||0),0)/100)} · em aberto {fmt(rentalInvoices.reduce((sum,item)=>sum+Number(item.openAmountCents||0),0)/100)}</p>}
+                      {openRentalInvoices.map(invoice=><p key={invoice.id} style={{fontSize:9,color:C.muted,marginTop:2,display:"flex",alignItems:"center",gap:6}}>
+                        {invoice.number} · saldo {fmt(Number(invoice.openAmountCents||0)/100)}
+                        <button type="button" disabled={!!salvandoEquipamento} onClick={()=>prepararRecebimentoFatura(invoice)}
+                          style={{background:"transparent",border:0,color:C.green,fontWeight:800,fontSize:9,cursor:"pointer",textDecoration:"underline",padding:0}}>
+                          Vincular recebimento
+                        </button>
+                      </p>)}
                     </div>
                     {(() => {
                       const eqL = (data.equipamentos||[]).find(x=>x.id===l.equipamentoId);
@@ -1399,6 +1441,18 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           <div style={{gridColumn:"1/-1",border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:9.5,fontWeight:850,color:C.text}}>LINHAS DA FATURA</p>{eligible.map(item=>{const checked=(rentalInvoiceModal.chargeItemIds||[]).includes(item.id);return <label key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"7px 0",fontSize:10.5,borderBottom:`1px solid ${C.line}`}}><span><input type="checkbox" checked={checked} onChange={()=>setRentalInvoiceModal(form=>({...form,chargeItemIds:checked?form.chargeItemIds.filter(id=>id!==item.id):[...form.chargeItemIds,item.id]}))} style={{marginRight:7}}/>{item.description}</span><b>{fmt(Number(item.netAmountCents||0)/100)}</b></label>;})}</div>
           <div style={{gridColumn:"1/-1",display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:900,color:C.orange}}><span>Total faturado</span><span>{fmt(total/100)}</span></div>
           <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalInvoiceModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!selected.length||total<=0} loading={salvandoEquipamento===`fatura-${rentalInvoiceModal.rentalId}`} onClick={()=>salvarFaturaLocacao(rentalInvoiceModal)}>Emitir com saldo aberto</Btn></div>
+        </div>
+      </Modal>;})()}
+
+      {rentalReceiptModal&&(()=>{const invoice=(data.rentalInvoices||[]).find(item=>item.id===rentalReceiptModal.invoiceId);const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalReceiptModal.rentalId);const candidates=(data.transacoes||[]).filter(t=>Number(t.valor)>0).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,80);return <Modal title={`Vincular recebimento · ${invoice?.number||""}`} onClose={()=>setRentalReceiptModal(null)}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.green}44`,borderRadius:8,background:`${C.green}08`}}><p style={{fontSize:10.5,fontWeight:850,color:C.green}}>RECEBIMENTO · CONCILIAÇÃO BANCÁRIA</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{equipName(rental?.equipamentoId)} · saldo em aberto {fmt(Number(invoice?.openAmountCents||0)/100)}</p></div>
+          <div style={{gridColumn:"1/-1"}}><Sel label="Transação bancária recebida *" value={rentalReceiptModal.transactionId} onChange={v=>setRentalReceiptModal(form=>({...form,transactionId:v}))}
+            options={[{v:"",l:"Selecione..."},...candidates.map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Number(t.valor||0))} · ${t.descricao||"Entrada bancária"}`}))]}/></div>
+          <Inp label="Valor recebido (R$) *" value={rentalReceiptModal.amount} onChange={v=>setRentalReceiptModal(form=>({...form,amount:v}))}/>
+          <Inp label="Data do recebimento *" type="date" value={rentalReceiptModal.paymentDate} onChange={v=>setRentalReceiptModal(form=>({...form,paymentDate:v}))}/>
+          <div style={{gridColumn:"1/-1"}}><Inp label="Observação" value={rentalReceiptModal.notes} onChange={v=>setRentalReceiptModal(form=>({...form,notes:v}))}/></div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalReceiptModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!rentalReceiptModal.transactionId} loading={salvandoEquipamento===`recebimento-${rentalReceiptModal.invoiceId}`} onClick={()=>salvarRecebimentoFatura(rentalReceiptModal)}>Vincular recebimento</Btn></div>
         </div>
       </Modal>;})()}
 

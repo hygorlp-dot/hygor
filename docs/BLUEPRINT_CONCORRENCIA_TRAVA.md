@@ -1482,6 +1482,47 @@ final linha a linha de cada um dos 2 achados genuínos foi feita manualmente
 (grep dedicado) antes de descartar os 8 falsos positivos, para não deixar
 passar um caso real disfarçado de falso positivo.
 
+## Tela de recebimento de fatura de locação (24/08/2026)
+
+Usuário escolheu, dos dois achados da auditoria acima, construir o
+primeiro: uma ação para vincular um recebimento bancário ao saldo em
+aberto de uma fatura de locação de equipamento
+(`EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED`).
+
+**Onde entrou**: `src/domains/equipamentos/components/EquipamentosView.jsx`,
+na aba de locações (`Cobrança por ciclo`, ainda em desenvolvimento - não
+entra no DRE, ver aviso já existente na tela). Cada fatura em aberto
+(`status` `issued`/`partially_paid` e `openAmountCents>0`) de uma locação
+ganhou uma linha própria com o número, o saldo, e um botão "Vincular
+recebimento". O modal (`rentalReceiptModal`) deixa escolher uma transação
+bancária já importada (`data.transacoes`, filtrada só por `valor>0` -
+mesmo critério, sem excluir por status, já usado no seletor de transação
+do pagamento de pedidos de compra em `ComprasView.jsx`, para não divergir
+de uma convenção de UI já estabelecida), valor recebido (pré-preenchido
+com o saldo em aberto, editável para recebimento parcial), data e
+observação.
+
+**Por que a UI não filtra transações já conciliadas**: a validação de
+reuso de uma transação bancária (`rental-receipts.js`,
+`validateRentalInvoiceReceipt`) já é feita pelo comando, contra
+`rentalInvoiceReceipts` (não contra `transacoes.status`). O seletor de
+transação já existente para pagamento de pedidos (`ComprasView.jsx`)
+segue a mesma prática - não filtra por status, confia na validação do
+comando. Reproduzida aqui por consistência, não por análise nova.
+
+**Verificação**: `npm run build` (JSX válido, bundle de Equipamentos
+compilou), suíte completa (245 arquivos/1343 testes, sem teste novo
+necessário - a lógica do comando já tinha cobertura própria desde antes
+desta rodada, `commands.test.js:237-241`; este código é só a ligação de
+UI, e este projeto não tem convenção de teste de componente React para
+`EquipamentosView.jsx`, mesmo padrão já observado em `ComprasView.jsx`),
+`lint` e `architecture:check` sem violação. **Limitação explícita**: não
+foi possível testar visualmente o fluxo em produção - a aba do navegador
+desta sessão não tem sessão autenticada salva (mesma limitação já
+registrada nas rodadas anteriores desta sessão) e não tenho o PIN para
+logar. Só a compilação e os testes automatizados confirmam corretude de
+código, não a experiência real da tela.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
