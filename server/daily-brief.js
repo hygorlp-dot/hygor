@@ -198,9 +198,33 @@ const buscarCubPE = async () => {
   };
 };
 
-export const buildDailyBrief = async () => {
-  const [clima, noticias, noticiasCbicPe, cub] = await Promise.all([
-    buscarClima(), buscarNoticias(), buscarNoticiasCbicPe(), comOrcamento(buscarCubPE(), 7000, null),
+// Achado de 25/08/2026 (pedido do usuário, depois da correção do sumiço
+// intermitente): o CUB-PE é um índice publicado pelo Sinduscon-PE no
+// máximo uma vez por mês - raspar o site inteiro (listar meses + baixar e
+// ler até 12 PDFs) a cada carregamento do Dashboard, de cada usuário, é
+// trabalho repetido sem necessidade e é exatamente o que deixa o daily-brief
+// vulnerável a uma rede externa lenta. `cubCache` é injetado por quem chama
+// (api/ai-agent.js, que já tem acesso ao Supabase) - daily-brief.js
+// continua sem dependência de banco, testável isolado. TTL de 24h (não
+// "1x por mês" exato): o Sinduscon-PE publica cada mês com alguns dias de
+// atraso depois de fechado, então checar 1x/dia já é conservador o
+// suficiente para nunca demorar mais que isso para pegar um mês novo,
+// sem precisar adivinhar a data exata de publicação.
+const CUB_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+export const cubCacheFresco = cache => !!cache?.dados && (Date.now() - new Date(cache.atualizadoEm || 0).getTime()) < CUB_CACHE_TTL_MS;
+
+export const buildDailyBrief = async ({ cubCache } = {}) => {
+  const cacheAtual = cubCache ? await cubCache.ler().catch(() => null) : null;
+  const cubEmCache = cubCacheFresco(cacheAtual);
+  const [clima, noticias, noticiasCbicPe, cubColetado] = await Promise.all([
+    buscarClima(), buscarNoticias(), buscarNoticiasCbicPe(),
+    cubEmCache ? Promise.resolve(cacheAtual.dados) : comOrcamento(buscarCubPE(), 7000, null),
   ]);
+  // Nunca deixa a resposta pior do que estava: se a raspagem falhou mas
+  // existe um valor em cache (mesmo vencido), serve o valor antigo em vez
+  // do aviso de indisponível - um CUB de alguns dias atrás é melhor do que
+  // nenhum, e a diferença de valor entre meses raramente é grande.
+  const cub = cubColetado || cacheAtual?.dados || null;
+  if (!cubEmCache && cubColetado && cubCache) await cubCache.gravar(cubColetado).catch(() => {});
   return { ok: true, clima, noticias, noticiasCbicPe, cub, cidade: "Caruaru, PE" };
 };

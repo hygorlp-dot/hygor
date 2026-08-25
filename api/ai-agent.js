@@ -7,6 +7,7 @@ const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const CONFIG_KEY = "arced_ai_config_gemini_v1";
+const CUB_CACHE_KEY = "arced_cub_pe_cache_v1";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const AI_ENCRYPTION_KEY = process.env.AI_ENCRYPTION_KEY || "";
 
@@ -107,6 +108,28 @@ const removeConfig = async () => {
   const {error}=await database().from("company_app_data").delete().eq("company_id",COMPANY).eq("key",CONFIG_KEY);
   if(error)throw error;
 };
+// Cache do CUB-PE (achado de 25/08/2026: raspar o site do Sinduscon-PE a
+// cada carregamento do Dashboard é trabalho repetido - o índice só muda
+// quando um mês novo é publicado). buildDailyBrief decide se o cache está
+// fresco o suficiente para usar; aqui só lemos/gravamos. Nunca lança - uma
+// falha de cache não pode derrubar o daily-brief, só faz cair no
+// comportamento de sempre raspar de novo.
+const lerCubCache = async () => {
+  if(!URL||!SERVICE)return null;
+  const {data,error}=await database().from("company_app_data").select("value")
+    .eq("company_id",COMPANY).eq("key",CUB_CACHE_KEY).maybeSingle();
+  if(error||!data?.value?.dados)return null;
+  return data.value;
+};
+const gravarCubCache = async dados => {
+  if(!URL||!SERVICE)return;
+  const agora=new Date().toISOString();
+  const {error}=await database().from("company_app_data").upsert(
+    {company_id:COMPANY,key:CUB_CACHE_KEY,value:{dados,atualizadoEm:agora},updated_at:agora,updated_by:null},
+    {onConflict:"company_id,key"},
+  );
+  if(error)console.error("Não foi possível gravar o cache do CUB-PE:",error.message);
+};
 const safeStatus = config => ({configured:!!config.apiKey,provider:"gemini",model:config.model||DEFAULT_MODEL,source:config.source||"none",updatedAt:config.updatedAt||"",updatedBy:config.updatedBy||"",validationStatus:config.validationStatus||"unknown",validationMessage:config.validationMessage||""});
 const geminiRequest = (apiKey,model,body,signal) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
   method:"POST",
@@ -127,7 +150,7 @@ export default async function handler(req,res){
   if(!user)return res.status(401).json({error:"Sessão inválida."});
 
   if(req.body?.action==="daily-brief"){
-    const brief=await buildDailyBrief();
+    const brief=await buildDailyBrief({cubCache:{ler:lerCubCache,gravar:gravarCubCache}});
     res.setHeader("Cache-Control","private, max-age=900");
     return res.status(200).json(brief);
   }

@@ -2093,3 +2093,42 @@ Verificação: suíte completa (247 arquivos/1377 testes), `build`, `lint`
 e `architecture:check` sem violação. Testado manualmente fora da Vercel
 que o pipeline completo continua respondendo em ~1,5s com os novos
 timeouts mais curtos (nenhuma regressão em condição normal).
+
+## Cache do CUB-PE: para de raspar o Sinduscon-PE a cada carregamento (25/08/2026)
+
+Pergunta do usuário, na sequência da correção acima: "isso pode conter na
+memória e só buscar as tabelas 1x por mês, não seria o ideal?" - sim.
+Raspar o site inteiro (listar meses + baixar e ler até 12 PDFs) a cada
+carregamento do Dashboard, de cada usuário, era trabalho repetido sem
+necessidade e é exatamente o que deixava o daily-brief vulnerável a uma
+rede externa lenta.
+
+`buildDailyBrief` agora aceita um `cubCache` opcional injetado por quem
+chama (`{ler, gravar}`). `daily-brief.js` continua sem dependência de
+banco (testável isolado, mesmo princípio de sempre); `api/ai-agent.js`
+(que já tem acesso ao Supabase, mesmo padrão de `loadConfig`/`saveConfig`
+para a chave do Gemini) grava o valor coletado em
+`company_app_data.arced_cub_pe_cache_v1` com um carimbo `atualizadoEm`.
+
+TTL de 24h, não "1x por mês" exato: o PDF de cada mês (confirmado nesta
+sessão) sai com alguns dias de atraso depois do mês fechar, então checar
+1x/dia já é conservador o suficiente para nunca demorar mais que isso
+para pegar um mês novo, sem precisar adivinhar a data exata de
+publicação do Sinduscon-PE.
+
+Bônus de resiliência: se a raspagem falhar (rede fora, ou estourou o
+orçamento de 7s da correção anterior) mas existir QUALQUER cache
+anterior (mesmo vencido), a resposta usa o valor antigo em vez do aviso
+"indisponível" - um CUB de alguns dias atrás é preferível a nenhum.
+
+Testado manualmente (fora da Vercel, cache simulado em memória): 1ª
+chamada raspa de verdade (1,4s) e grava; 2ª chamada usa o cache (274ms,
+sem nenhuma requisição ao Sinduscon-PE) e devolve a mesma referência de
+dados gravada.
+
+Testes novos em `daily-brief.test.js`: `cubCacheFresco` (a decisão pura
+de TTL, sem rede/banco) - fresco com poucos minutos, vencido com mais de
+24h, nunca fresco sem cache ou sem dados.
+
+Verificação: suíte completa (247 arquivos/1381 testes), `build`, `lint`
+e `architecture:check` sem violação.
