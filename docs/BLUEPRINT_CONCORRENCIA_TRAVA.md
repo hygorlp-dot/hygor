@@ -2383,3 +2383,50 @@ recalculado à mão.
 
 Verificação: suíte completa (250 arquivos/1475 testes), `build`, `lint`
 e `architecture:check` sem violação.
+
+2. **Estoque ganha CAS além do material.** Só o cadastro de material já
+   passava por comando (`MATERIAL_SAVED`, emprestado de Compras);
+   movimentação avulsa, estorno, composições e execução de serviço
+   (baixa automática de insumos) seguiam com `update()` direto, sem
+   `expectedVersion` nem revalidação de saldo contra o estado mais
+   recente do servidor. Extraído `TIPOS_MOV`/`SINAL_MOV`/`calcSaldos`/
+   `saldoDe`/`baixarPorComposicao` de `LegacyApp.jsx` para
+   `src/domains/estoque/calculations.js` (mesmo padrão dos demais
+   domínios: lógica pura, testada, sem duplicação - `LegacyApp.jsx`
+   passou a importar essas funções em vez de redefini-las). Criado
+   `src/domains/estoque/commands.js` (`STOCK_COMMAND`:
+   `MATERIAL_MOVEMENT_RECORDED`, `SERVICE_EXECUTION_RECORDED`,
+   `MATERIAL_MOVEMENT_REVERSED`, `COMPOSITION_SAVED`,
+   `COMPOSITION_DELETED`), registrado em
+   `src/domains/sync/operational-commands.js` e com papéis de
+   autorização em `api/data.js` (mesmo conjunto de `MATERIAL_SAVED`:
+   admin/compras/engenheiro/engenheiro_auditor, mais `mestre` para os
+   dois comandos de execução em campo, alinhado ao que já vale para
+   `PROGRESS_RECORD_SAVED`).
+
+   O ganho não é só CAS - é fechar uma race condition real: antes,
+   "executar serviço" conferia saldo suficiente só contra o estado local
+   do navegador antes de enviar; agora o comando reconfere a composição
+   e o saldo contra o estado mais fresco do servidor antes de aceitar
+   qualquer baixa, e rejeita a operação inteira (não parcialmente) se a
+   composição mudou ou o saldo não cobre todos os insumos - o mesmo
+   invariante "confere tudo antes de baixar qualquer um" que já existia
+   no cliente, agora também garantido no servidor.
+
+   O fluxo de reposição automática (`gerarReposicao`, que grava
+   `solicitacoesCompra`) ficou de fora deste item por decisão de escopo:
+   pertence ao domínio de Compras, que já tem seu próprio
+   `PURCHASE_REQUEST_COMMAND` - encaixá-lo lá é trabalho separado, não
+   uma lacuna de Estoque.
+
+   Testes novos: `src/domains/estoque/calculations.test.js` e
+   `src/domains/estoque/commands.test.js` (19 casos, incluindo a
+   rejeição de entradas que não batem com a composição atual - proteção
+   contra payload adulterado ou tela desatualizada). Um teste
+   pré-existente (`src/LegacyApp.stock-cancellation.test.js`) que
+   verificava o invariante "estorno preserva o registro" por inspeção de
+   texto do `LegacyApp.jsx` foi atualizado para checar os arquivos novos.
+
+Verificação: suíte completa (252 arquivos/1501 testes), `build`, `lint`
+e `architecture:check` sem violação. Falta só o item 3 da Onda 1
+(desambiguar os três domínios "Suprimentos").

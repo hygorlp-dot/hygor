@@ -125,6 +125,8 @@ const OFFLINE_QUEUEABLE_COMMANDS={
 import { projectAlertAction, validateProjectForm } from "./domains/obras/project-validation";
 import { fieldReportCompletion, fieldReportIsReadOnly } from "./domains/obras/field-report-workflow";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
+import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao } from "./domains/estoque/calculations";
+import { STOCK_COMMAND } from "./domains/estoque/commands";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
@@ -12936,29 +12938,6 @@ export const CATS_MATERIAL = [
   { v:"outros",      l:"Outros" },
 ];
 
-const TIPOS_MOV = [
-  { v:"entrada",   l:"Entrada (compra)",       sinal:+1, cor:"#1E6B31" },
-  { v:"consumo",   l:"Consumo (aplicado)",     sinal:-1, cor:"#0D47A1" },
-  { v:"perda",     l:"Perda / quebra",         sinal:-1, cor:"#B71C1C" },
-  { v:"devolucao", l:"Devolução ao fornecedor",sinal:+1, cor:"#6B6459" },
-  { v:"ajuste",    l:"Ajuste de inventário",   sinal:+1, cor:"#C2185B" },
-];
-
-const SINAL_MOV = Object.fromEntries(TIPOS_MOV.map(t => [t.v, t.sinal]));
-
-// Saldo por obra+material. NÃO é armazenado - é somado dos movimentos, para
-// que todo saldo seja rastreável até sua origem.
-const calcSaldos = (movs) => {
-  const m = {};
-  (movs || []).filter(x=>!['cancelado','cancelada','estornado','estornada'].includes(String(x?.status||'').toLowerCase())).forEach(x => {
-    const k = `${x.obraId}|${x.materialId}`;
-    m[k] = (m[k] || 0) + (SINAL_MOV[x.tipo] ?? 0) * Number(x.qtd || 0);
-  });
-  return m;
-};
-
-const saldoDe = (saldos, obraId, materialId) => saldos[`${obraId}|${materialId}`] || 0;
-
 // ── Reposicao por estoque minimo ───────────────────────────────────
 // Varre todas as obras ativas: material com minimo cadastrado e saldo abaixo
 // dele vira uma linha de reposicao, com o deficit ja calculado. So considera
@@ -12986,15 +12965,6 @@ const materiaisAbaixoMinimo = (data) => {
   });
   return out.sort((a, b) => a.obraNome.localeCompare(b.obraNome) || a.descricao.localeCompare(b.descricao));
 };
-
-// "Executei 120 m de alvenaria" → quanto sai de cada insumo
-const baixarPorComposicao = (comp, qtdExecutada) =>
-  (comp?.itens || [])
-    .filter(i => i.materialId && i.coef > 0)
-    .map(i => ({
-      materialId: i.materialId,
-      qtd: Number((i.coef * Number(qtdExecutada || 0)).toFixed(4)),
-    }));
 
 // Curva ABC pelo VALOR consumido (80/95 é o corte clássico)
 const calcCurvaABC = (movs, materiais) => {
@@ -17668,14 +17638,16 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="", dispatch
     showToast(form.id ? "Insumo atualizado." : "Insumo cadastrado.");
   };
 
-  //  Movimento avulso 
-  const salvarMov = (form) => {
+  //  Movimento avulso
+  const salvarMov = async (form) => {
     if (!form.materialId)      { showToast("Selecione o material.", "error"); return; }
     if (!form.obraId)          { showToast("Selecione a obra.", "error"); return; }
     if (Number(form.qtd) <= 0) { showToast("A quantidade precisa ser maior que zero.", "error"); return; }
+    if (!dispatchCommand)      { showToast("Registrar um movimento de estoque exige conexão com o servidor.", "error"); return; }
 
     // Saída não pode deixar saldo negativo - estoque negativo é sintoma de
     // lançamento errado, e uma vez negativo contamina todos os relatórios.
+    // (o servidor confere de novo contra o saldo mais recente antes de aceitar.)
     const sinal = SINAL_MOV[form.tipo] ?? 0;
     if (sinal < 0) {
       const disp = saldoDe(saldos, form.obraId, form.materialId);
@@ -17685,70 +17657,91 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="", dispatch
       }
     }
 
-    update({
-      ...data,
-      movEstoque: [...(data.movEstoque||[]), {
-        id: uid(),
-        obraId: form.obraId,
-        materialId: form.materialId,
-        tipo: form.tipo,
-        qtd: Number(form.qtd),
-        valorUnit: Number(form.valorUnit || 0),
+    const result = await dispatchCommand({
+      type: STOCK_COMMAND.MATERIAL_MOVEMENT_RECORDED,
+      idempotencyKey: `movimento-${uid()}`,
+      actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
+      payload: { movement: {
+        id: uid(), obraId: form.obraId, materialId: form.materialId, tipo: form.tipo,
+        qtd: Number(form.qtd), valorUnit: Number(form.valorUnit || 0),
         data: form.data || new Date().toISOString().slice(0,10),
-        descricao: form.descricao || "",
-        transacaoId: "", servicoId: "", etapa: form.etapa || "",
-      }],
+        descricao: form.descricao || "", etapa: form.etapa || "",
+      } },
     });
+    if (!result?.ok) { showToast(result?.reason || "Não foi possível registrar o movimento.", "error"); return; }
     setMovModal(null);
     showToast("Movimento registrado.");
   };
 
-  const excluirMov = (id) => {
+  const excluirMov = async (id) => {
     const motivo=window.prompt("Motivo do estorno do movimento de estoque:");
     if(!String(motivo||"").trim())return;
-    const agora=new Date().toISOString();
-    update({ ...data, movEstoque: (data.movEstoque||[]).map(x => x.id !== id ? x : {
-      ...x,status:"estornado",motivoEstorno:String(motivo).trim(),estornadoEm:agora,
-      estornadoPorId:currentUser?.id||"",estornadoPor:currentUser?.nome||"",
-    }) });
+    if(!dispatchCommand){showToast("Estornar um movimento de estoque exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand({
+      type: STOCK_COMMAND.MATERIAL_MOVEMENT_REVERSED,
+      idempotencyKey: `estorno-mov-${id}-${uid()}`,
+      actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
+      payload: { movementId: id, reason: String(motivo).trim() },
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível estornar o movimento.","error");return;}
     showToast("Movimento estornado e preservado para auditoria. O saldo foi recalculado.");
   };
 
-  //  Composição 
-  const salvarComposicao = (form) => {
+  //  Composição
+  const salvarComposicao = async (form) => {
     if (!form.nome.trim()) { showToast("Dê um nome ao serviço.", "error"); return; }
     const itens = (form.itens||[]).filter(i => i.materialId && Number(i.coef) > 0)
       .map(i => ({ materialId: i.materialId, coef: Number(i.coef) }));
     if (!itens.length) { showToast("Adicione ao menos um insumo com coeficiente.", "error"); return; }
+    if (!dispatchCommand) { showToast("Salvar uma composição exige conexão com o servidor.", "error"); return; }
 
-    const p = { id: form.id || uid(), codigo:form.id?(form.codigo||proximoCodigoArcd(data)):proximoCodigoArcd(data), nome: form.nome.trim(), unidade: form.unidade || "m2", itens };
-    update({
-      ...data,
-      composicoes: form.id
-        ? (data.composicoes||[]).map(c => c.id === form.id ? p : c)
-        : [...(data.composicoes||[]), p],
+    const id = form.id || uid();
+    const result = await dispatchCommand(atual => {
+      const vigente = (atual.composicoes||[]).find(c => c.id === id);
+      return {
+        type: STOCK_COMMAND.COMPOSITION_SAVED,
+        idempotencyKey: `composicao-${id}-${uid()}`,
+        expectedVersion: Number(vigente?.version || 0),
+        actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
+        payload: { composition: {
+          id, codigo: form.id ? (form.codigo || proximoCodigoArcd(data)) : proximoCodigoArcd(data),
+          nome: form.nome.trim(), unidade: form.unidade || "m2", itens,
+        } },
+      };
     });
+    if (!result?.ok) { showToast(result?.reason || "Não foi possível salvar a composição.", "error"); return; }
     setCompModal(null);
     showToast(form.id ? "Composição atualizada." : "Composição criada.");
   };
 
-  const excluirComposicao = (id) => {
+  const excluirComposicao = async (id) => {
     if (!window.confirm("Excluir esta composição?")) return;
-    update({ ...data, composicoes: (data.composicoes||[]).filter(c => c.id !== id) });
+    if(!dispatchCommand){showToast("Excluir uma composição exige conexão com o servidor.","error");return;}
+    const atual=(data.composicoes||[]).find(c=>c.id===id);
+    const result = await dispatchCommand({
+      type: STOCK_COMMAND.COMPOSITION_DELETED,
+      idempotencyKey: `composicao-exclusao-${id}-${uid()}`,
+      expectedVersion: Number(atual?.version || 0),
+      actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
+      payload: { compositionId: id },
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível excluir a composição.","error");return;}
     showToast("Composição excluída.");
   };
 
-  //  Executar serviço → baixa automática 
-  const executarServico = (compId, obraId, qtdExec, dataExec, etapa) => {
+  //  Executar serviço → baixa automática
+  const executarServico = async (compId, obraId, qtdExec, dataExec, etapa) => {
     const comp = (data.composicoes||[]).find(c => c.id === compId);
     if (!comp) { showToast("Composição não encontrada.", "error"); return; }
     if (Number(qtdExec) <= 0) { showToast("Informe a quantidade executada.", "error"); return; }
     if (!obraId) { showToast("Selecione a obra.", "error"); return; }
+    if (!dispatchCommand) { showToast("Executar um serviço exige conexão com o servidor.", "error"); return; }
 
     const baixas = baixarPorComposicao(comp, qtdExec);
 
     // Confere TODOS antes de baixar QUALQUER um. Baixar metade e travar no
-    // meio deixaria o estoque num estado inconsistente.
+    // meio deixaria o estoque num estado inconsistente. (o servidor confere
+    // de novo contra o saldo mais recente antes de aceitar o comando.)
     const faltando = baixas
       .map(b => ({ ...b, disp: saldoDe(saldos, obraId, b.materialId), mat: matPorId(b.materialId) }))
       .filter(b => b.qtd > b.disp + 0.0001);
@@ -17772,23 +17765,21 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="", dispatch
       const h = historicoPreco(data.pedidos, materialId);
       return h.length ? Number(h[0].preco || 0) : 0;
     };
-    const novos = baixas.map(b => ({
-      id: uid(),
-      obraId,
-      materialId: b.materialId,
-      tipo: "consumo",
-      qtd: b.qtd,
-      valorUnit: valorarMaterial(b.materialId),
-      data: quando,
-      descricao: `${qtdExec} ${comp.unidade} de ${comp.nome}`,
-      transacaoId: "",
-      servicoId: comp.id,
-      etapa: etapa || "",
+    const entries = baixas.map(b => ({
+      id: uid(), materialId: b.materialId, qtd: b.qtd,
+      valorUnit: valorarMaterial(b.materialId), data: quando,
+      descricao: `${qtdExec} ${comp.unidade} de ${comp.nome}`, etapa: etapa || "",
     }));
 
-    update({ ...data, movEstoque: [...(data.movEstoque||[]), ...novos] });
+    const result = await dispatchCommand({
+      type: STOCK_COMMAND.SERVICE_EXECUTION_RECORDED,
+      idempotencyKey: `execucao-${comp.id}-${uid()}`,
+      actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
+      payload: { compositionId: comp.id, obraId, qtdExecutada: Number(qtdExec), entries },
+    });
+    if (!result?.ok) { showToast(result?.reason || "Não foi possível executar o serviço.", "error"); return; }
     setSrvModal(false);
-    showToast(`${novos.length} insumo(s) baixado(s) automaticamente.`);
+    showToast(`${entries.length} insumo(s) baixado(s) automaticamente.`);
   };
 
   const nomeObra = (id) => obras.find(o => o.id === id)?.name || "-";
