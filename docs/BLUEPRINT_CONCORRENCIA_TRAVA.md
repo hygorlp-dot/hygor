@@ -2132,3 +2132,46 @@ de TTL, sem rede/banco) - fresco com poucos minutos, vencido com mais de
 
 Verificação: suíte completa (247 arquivos/1381 testes), `build`, `lint`
 e `architecture:check` sem violação.
+
+## Achado maior: TODO gráfico Recharts renderiza vazio em produção (25/08/2026)
+
+Ao verificar o gráfico do CUB de novo (usuário: "continua sem a linha"),
+a investigação levou a um achado bem maior que o CUB isoladamente.
+
+**Confirmado, com evidência direta** (dado extraído via React DevTools
+na sessão autenticada real, não suposição):
+
+- O SVG de qualquer gráfico Recharts (Bar/Pie/Line) - CUB no Dashboard,
+  "Evolução de faturamento" e "Distribuição de custos" no DRE por Obra,
+  "Receita, custo e margem" e "Recebimentos e custos por quinzena" em
+  Gestão financeira - contém só `<title>`, `<desc>` e `<defs>`. Nenhuma
+  grade, nenhum eixo, nenhuma linha/barra/fatia.
+- O dado que chega ao componente está perfeito (extraí o array real:
+  12 meses do CUB, todos os valores numéricos válidos).
+- O container tem o tamanho certo (medido via `getBoundingClientRect`).
+- Redimensionar a janela não resolve.
+- Nenhum erro no console.
+- **Não foi causado por nenhuma mudança desta sessão** - confirmado
+  testando uma tela nunca tocada hoje (Gestão financeira) com o mesmo
+  sintoma exato.
+
+**Hipótese testada e refutada, com rigor**: o projeto usa Vite 8, que
+embute o Rolldown (bundler em Rust que substitui o Rollup) sem
+alternativa embutida - e Recharts tem dependências com interoperabilidade
+CJS/ESM incomum (`d3-shape`, `d3-scale`, `react-smooth`), candidatas
+naturais a um bug de empacotamento nessa transição recente. Testado
+rebaixando para Vite 7.3.6 + `@vitejs/plugin-react` 4.7.0 (a última major
+com Rollup clássico, compatível com `vitest`/`storybook` já instalados) -
+deploy real, confirmado por hash de arquivo diferente (não cache). **O
+gráfico continuou vazio.** Hipótese descartada com confiança; revertido
+(commit de revert, suíte/build/lint/arquitetura verdes de novo, Vite 8
+restaurado) - manter uma major mais antiga sem benefício comprovado não
+se justificava.
+
+**Ainda não identificado**: a causa raiz real. Avaliado com o usuário e
+escolhidas as próximas opções: (a) acesso a um ambiente local autenticado
+para depurar com o console real do navegador (esta investigação usou só
+inspeção remota via DOM/React DevTools, sem breakpoint/exceção real
+capturada), ou (b) trocar Recharts por outra biblioteca de gráficos se a
+causa se confirmar como uma incompatibilidade de fundo. Decisão de
+como prosseguir pendente com o usuário.
