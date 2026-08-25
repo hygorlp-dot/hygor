@@ -1100,10 +1100,39 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     showToast(decisao==="aprovado"?"Aprovação registrada.":"Reprovação registrada.");
   };
 
+  // Achado ao fechar a lacuna de comandos de Compras (24/08/2026, ver
+  // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): esta função também cancelava
+  // solicitações (status:"cancelada") por update() direto - mesmo com o
+  // comando PURCHASE_REQUEST_CANCELLED já existindo e testado desde antes
+  // nesta sessão, ele nunca tinha sido conectado a nenhum botão. Cancelar
+  // por aqui pulava a checagem de pedidoId (uma solicitação que já gerou
+  // pedido não pode ser cancelada - só o pedido), a concorrência otimista
+  // e o motivo obrigatório de auditoria. O cancelamento foi movido para
+  // cancelarSolicitacao (abaixo, via dispatchCommand); esta função agora só
+  // cobre a transição "em_analise", que não tem comando próprio ainda (não
+  // altera dado financeiro nem de auditoria crítica).
   const atualizarStatusSolicitacao=(sol,status)=>{
     update({...data,solicitacoesCompra:(data.solicitacoesCompra||[]).map(s=>s.id===sol.id?{...s,status,
       analisadoEm:status==="em_analise"?new Date().toISOString():s.analisadoEm,
       analisadoPor:status==="em_analise"?(currentUser?.nome||""):s.analisadoPor}:s)});
+  };
+
+  const cancelarSolicitacao=async sol=>{
+    const motivo=window.prompt(`Motivo do cancelamento de ${sol.numero}:`);
+    if(!String(motivo||"").trim())return;
+    if(!dispatchCommand){showToast("O cancelamento seguro da solicitação exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.solicitacoesCompra||[]).find(item=>item.id===sol.id);
+      return {
+        type:OPERATIONAL_COMMAND.PURCHASE_REQUEST_CANCELLED,
+        idempotencyKey:`purchase-request-cancel-${sol.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{requestId:sol.id,reason:String(motivo).trim()},
+      };
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível cancelar a solicitação.","error");return;}
+    showToast(`Solicitação ${sol.numero} cancelada.`);
   };
 
   // Registra que a solicitacao foi "emitida" para um fornecedor por WhatsApp
@@ -1559,9 +1588,25 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Administrativo",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"compras",subfolder:`Cotações/${cotacao.data||today()}/${fornecedor?.nome||"Fornecedor"}`,date:cotacao.data||today(),fileName:file.name});
     if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar a cotação no OneDrive.");
     const documento={id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(anexoCotacao.legenda).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type||"",tamanho:file.size||0,enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};
-    const cotacoesAtualizadas=(data.cotacoes||[]).map(c=>c.id===cotacao.id?{...c,propostas:(c.propostas||[]).map(p=>p.id===proposta.id?{...p,documentos:[...(p.documentos||[]),documento]}:p)}:c);
-    const obrasAtualizadas=(data.obras||[]).map(o=>o.id===cotacao.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);
-    update({...data,obras:obrasAtualizadas,cotacoes:cotacoesAtualizadas});setAnexoCotacao(null);showToast("Documento anexado à proposta da cotação.");
+    if(!dispatchCommand)throw new Error("Anexar o documento exige conexão com o servidor.");
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.cotacoes||[]).find(item=>item.id===cotacao.id);
+      return {
+        type:OPERATIONAL_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED,
+        idempotencyKey:`purchase-quote-document-${cotacao.id}-${documento.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{quoteId:cotacao.id,proposalId:proposta.id,document:documento},
+      };
+    });
+    if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o vínculo à cotação.");
+    // Cache da pasta do OneDrive em `obras` fica fora do comando de
+    // propósito - mesmo padrão já usado por PURCHASE_ORDER_DOCUMENT_ATTACHED
+    // (LegacyApp.jsx): update() best-effort separado, depois que o comando
+    // (o dado auditável de verdade) já confirmou.
+    const obrasAtualizadas=(result.data.obras||[]).map(o=>o.id===cotacao.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);
+    update({...result.data,obras:obrasAtualizadas});
+    setAnexoCotacao(null);showToast("Documento anexado à proposta da cotação.");
   }catch(err){showToast(err.message||"Não foi possível anexar o documento da cotação.","error");}finally{setSubindoAnexoCotacao(false);}};
 
   // Cotação decidida vira pedido, sem redigitar nada
@@ -1977,7 +2022,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 solicitacaoId:sol.id,
               })}>COTAR POR WHATSAPP</Btn>}
               {podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" onClick={()=>gerarPedidoSolicitacao(sol)}>GERAR PEDIDO</Btn>}
-              {sol.status!=="pedido_gerado"&&sol.status!=="cancelada"&&(podeProcessar||sol.solicitanteId===currentUser?.id)&&<Btn size="sm" v="danger" onClick={()=>{if(window.confirm(`Cancelar ${sol.numero}?`))atualizarStatusSolicitacao(sol,"cancelada");}}>CANCELAR</Btn>}
+              {sol.status!=="pedido_gerado"&&sol.status!=="cancelada"&&(podeProcessar||sol.solicitanteId===currentUser?.id)&&<Btn size="sm" v="danger" onClick={()=>cancelarSolicitacao(sol)}>CANCELAR</Btn>}
             </div>
           </div>;
         })}

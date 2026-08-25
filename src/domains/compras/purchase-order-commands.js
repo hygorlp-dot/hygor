@@ -8,6 +8,7 @@ export const PURCHASE_ORDER_COMMAND=Object.freeze({
   PURCHASE_ORDER_DOCUMENT_ATTACHED:"DOCUMENTO_PEDIDO_COMPRA_ANEXADO",
   PURCHASE_QUOTE_CANCELLED:"COTACAO_COMPRA_CANCELADA",
   QUOTATION_SAVED:"COTACAO_COMPRA_SALVA",
+  PURCHASE_QUOTE_DOCUMENT_ATTACHED:"DOCUMENTO_COTACAO_COMPRA_ANEXADO",
 });
 
 export const PURCHASE_ORDER_COMMAND_TYPES=new Set(Object.values(PURCHASE_ORDER_COMMAND));
@@ -401,6 +402,48 @@ const cancelQuote=(data,command,now)=>{
   };
 };
 
+// Achado ao completar a lacuna de comandos de Compras (24/08/2026, ver
+// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): anexar documento a uma proposta
+// de cotação (ComprasView.jsx, salvarDocumentoCotacao) era a última
+// escrita do domínio ainda feita por update() direto. Espelha
+// attachDocument (pedidos) - a diferença é que o documento pertence a uma
+// PROPOSTA dentro da cotação, não à cotação diretamente. O cache de pasta
+// do OneDrive em `data.obras` continua fora deste comando, de propósito:
+// mesmo padrão já usado por PURCHASE_ORDER_DOCUMENT_ATTACHED em
+// LegacyApp.jsx (dispatchCommand só para o domínio auditado; a
+// atualização do campo de cache em `obras` é um update() best-effort
+// separado, feito pelo chamador depois que o comando confirma).
+const attachQuoteDocument=(data,command,now)=>{
+  const payload=command.payload||{},quote=quoteById(data,payload.quoteId);
+  if(!quote)return fail("Cotação não encontrada.");
+  if(quote.status!=="aberta"){
+    return fail("Esta cotação já foi decidida ou cancelada e não recebe mais documentos.");
+  }
+  if(!sameVersion(quote,command.expectedVersion)){
+    return fail("A cotação foi alterada por outra pessoa. Atualize a tela.");
+  }
+  const proposal=(quote.propostas||[]).find(item=>String(item.id)===String(payload.proposalId));
+  if(!proposal)return fail("A proposta não pertence a esta cotação.");
+  const document=payload.document||{};
+  if(!document.id||!String(document.nome||"").trim()||!String(document.url||"").trim()){
+    return fail("O documento da cotação está incompleto.");
+  }
+  if((proposal.documentos||[]).some(item=>String(item.id)===String(document.id))){
+    return fail("Este documento já está vinculado a esta proposta.");
+  }
+  const actor=actorOf(command);
+  const updated={
+    ...quote,
+    propostas:(quote.propostas||[]).map(item=>String(item.id)===String(proposal.id)
+      ?{...item,documentos:[...(item.documentos||[]),{...document}]}:item),
+    version:versionOf(quote)+1,updatedAt:now,updatedById:actor.id,updatedBy:actor.nome,
+  };
+  return {
+    ok:true,entityId:quote.id,
+    data:{...data,cotacoes:(data.cotacoes||[]).map(item=>item.id===quote.id?updated:item)},
+  };
+};
+
 export const purchaseOrderCommandObraId=(data={},command={})=>{
   const payload=command.payload||{};
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED){
@@ -418,6 +461,9 @@ export const purchaseOrderCommandObraId=(data={},command={})=>{
   if(command.type===PURCHASE_ORDER_COMMAND.QUOTATION_SAVED){
     return String(quoteById(data,payload.quote?.id)?.obraId||payload.quote?.obraId||"");
   }
+  if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED){
+    return String(quoteById(data,payload.quoteId)?.obraId||"");
+  }
   return "";
 };
 
@@ -432,5 +478,8 @@ export const applyPurchaseOrderCommand=(data={},command={},now=new Date().toISOS
     return attachDocument(data,command,now);
   }
   if(command.type===PURCHASE_ORDER_COMMAND.QUOTATION_SAVED)return saveQuote(data,command,now);
+  if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED){
+    return attachQuoteDocument(data,command,now);
+  }
   return cancelQuote(data,command,now);
 };

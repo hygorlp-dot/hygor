@@ -191,3 +191,81 @@ describe("comando de criação/edição de cotação (QUOTATION_SAVED)",()=>{
     expect(result.reason).toMatch(/já foi decidida ou cancelada/);
   });
 });
+
+// Achado ao completar a lacuna de comandos de Compras (24/08/2026, ver
+// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): anexar documento a uma proposta
+// era a última escrita do domínio ainda feita por update() direto.
+const rawDocument=()=>({
+  id:"doc-1",nome:"orcamento.pdf",url:"https://example.test/orcamento.pdf",
+});
+
+describe("comando de anexação de documento à proposta (PURCHASE_QUOTE_DOCUMENT_ATTACHED)",()=>{
+  it("anexa o documento à proposta correta e versiona a cotação",()=>{
+    const result=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED,
+      {quoteId:"c-1",proposalId:"pr-1",document:rawDocument()},1,
+    ),"2026-08-24T12:00:00.000Z");
+    expect(result.ok).toBe(true);
+    expect(result.data.cotacoes[0]).toMatchObject({version:2});
+    expect(result.data.cotacoes[0].propostas[0].documentos).toEqual([rawDocument()]);
+    expect(result.data.cotacoes[0].propostas[1].documentos||[]).toEqual([]);
+  });
+
+  it("rejeita cotação inexistente",()=>{
+    const result=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED,
+      {quoteId:"c-inexistente",proposalId:"pr-1",document:rawDocument()},
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/não encontrada/);
+  });
+
+  it("rejeita proposta que não pertence à cotação",()=>{
+    const result=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED,
+      {quoteId:"c-1",proposalId:"pr-inexistente",document:rawDocument()},1,
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/não pertence a esta cotação/);
+  });
+
+  it("rejeita documento incompleto",()=>{
+    const result=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED,
+      {quoteId:"c-1",proposalId:"pr-1",document:{id:"doc-1"}},1,
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/incompleto/);
+  });
+
+  it("rejeita documento já vinculado à mesma proposta",()=>{
+    const data=base();
+    data.cotacoes[0].propostas[0].documentos=[rawDocument()];
+    const result=applyPurchaseOrderCommand(data,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED,
+      {quoteId:"c-1",proposalId:"pr-1",document:rawDocument()},1,
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/já está vinculado/);
+  });
+
+  it("rejeita anexação a cotação já decidida ou cancelada",()=>{
+    const data=base();
+    data.cotacoes[0].status="cancelada";
+    const result=applyPurchaseOrderCommand(data,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED,
+      {quoteId:"c-1",proposalId:"pr-1",document:rawDocument()},1,
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/já foi decidida ou cancelada/);
+  });
+
+  it("rejeita concorrência otimista (versão desatualizada)",()=>{
+    const result=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED,
+      {quoteId:"c-1",proposalId:"pr-1",document:rawDocument()},0,
+    ));
+    expect(result).toMatchObject({ok:false});
+    expect(result.reason).toMatch(/alterad[ao] por outra pessoa/);
+  });
+});

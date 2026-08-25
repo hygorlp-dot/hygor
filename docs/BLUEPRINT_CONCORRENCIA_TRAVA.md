@@ -1167,13 +1167,80 @@ Corrigido primeiro, por ser pré-requisito e ser a peça de menor risco:
   (`cotacoes`) que `section-authorizations.js` já protegia para o
   caminho antigo de `update()`.
 
-**Fora do escopo desta rodada, registrado para não ser esquecido**: a
-anexação de documento a uma proposta (`salvarDocumentoCotacao`,
-`ComprasView.jsx`) continua sendo `update()` direto, mesma categoria de
-lacuna que a criação tinha - candidata natural a um comando
-`PURCHASE_QUOTE_DOCUMENT_ATTACHED`, espelhando o
-`PURCHASE_ORDER_DOCUMENT_ATTACHED` que pedidos já têm. Não convertido
-agora para manter esta mudança pequena e revisável.
+**Fechado em seguida (24/08/2026, mesma sessão, "continue e seja
+autonomo")**: a anexação de documento a uma proposta
+(`salvarDocumentoCotacao`, `ComprasView.jsx`) era a última escrita do
+domínio Compras ainda feita por `update()` direto. Virou o comando
+`PURCHASE_QUOTE_DOCUMENT_ATTACHED`/`DOCUMENTO_COTACAO_COMPRA_ANEXADO`
+(`purchase-order-commands.js`), espelhando `attachDocument` (pedidos) -
+a diferença é que o documento pertence a uma PROPOSTA dentro da cotação,
+não à cotação diretamente, e a cotação precisa estar `"aberta"` (mesma
+defesa em profundidade do `QUOTATION_SAVED`). O cache da pasta do
+OneDrive em `data.obras` ficou de propósito FORA do comando: mesmo padrão
+já usado por `PURCHASE_ORDER_DOCUMENT_ATTACHED` em `LegacyApp.jsx:5262-
+5278` - o comando cobre só o dado auditável (a cotação/proposta), e a
+atualização do campo de cache em `obras` continua um `update()` best-
+effort separado, feito depois que o comando já confirmou. Esse padrão de
+dois passos (achado ao investigar como o comando já existente de pedidos
+resolvia o mesmo problema) é o que tornou essa conversão segura sem
+precisar resolver a questão mais ampla de `obras:["admin"]` restringir
+quem pode gravar o cache de pasta - fora de escopo, não é um problema
+nesta lacuna específica.
+
+Testes novos: 7 casos em `purchase-order-commands.test.js` (anexa e
+versiona; cotação inexistente; proposta que não pertence à cotação;
+documento incompleto; documento duplicado na mesma proposta; bloqueio
+pós-decisão/cancelamento; concorrência otimista).
+
+## Cancelamento de solicitação: comando já existia, mas nunca tinha sido conectado (24/08/2026)
+
+Antes de fechar a rodada, um `grep` por `update({` em `ComprasView.jsx`
+(hábito já estabelecido nesta sessão de conferir antes de declarar uma
+lacuna fechada) achou mais dois pontos, e um deles era sério:
+
+- **`atualizarStatusSolicitacao(sol,"cancelada")`** - o botão CANCELAR de
+  solicitações de compra gravava `status:"cancelada"` por `update()`
+  direto, **apesar de `PURCHASE_REQUEST_CANCELLED` já existir e já estar
+  testado** desde a rodada em que a cadeia de Compras foi investigada
+  nesta mesma sessão (`purchase-request-commands.js`). O comando nunca
+  tinha sido ligado a
+  nenhum botão - existia e passava nos testes, mas era código morto do
+  ponto de vista de uso real. Cancelar pelo caminho antigo pulava: a
+  checagem de `pedidoId` (uma solicitação que já gerou pedido só pode ser
+  cancelada cancelando o PEDIDO - a mesma inconsistência que motivou essa
+  guarda ao criar o comando), a concorrência otimista (`expectedVersion`),
+  e os campos de auditoria (`motivoCancelamento`/`canceladoEm`/
+  `canceladoPor` nunca eram gravados). Corrigido: nova função
+  `cancelarSolicitacao` (mesmo padrão de `excluirCotacao` - `window.prompt`
+  para o motivo, `dispatchCommand` com versão lida ao vivo do estado
+  atual) substitui a chamada antiga no botão CANCELAR.
+- **`registrarContatoSolicitacao`** (registra quando uma solicitação foi
+  "emitida" por WhatsApp para um fornecedor, `data.solicitacoesCompra[].
+  contatos[]`) continua sendo `update()` direto - dado informativo/trilha
+  de contato, sem comando equivalente hoje. Diferente do cancelamento,
+  aqui não existe nenhuma proteção sendo pulada (não há comando
+  equivalente para pular) - registrado como gap conhecido, não como bug,
+  já que criar um comando novo do zero para isso é uma decisão de escopo
+  maior do que esta rodada comporta.
+- **`atualizarStatusSolicitacao(sol,"em_analise")`** continua por
+  `update()` direto pelo mesmo motivo - não existe comando para essa
+  transição específica (`PURCHASE_REQUEST_SAVED` preserva sempre o status
+  atual da solicitação existente, nunca aceita trocá-lo). Mesma categoria
+  de gap conhecido que o item acima.
+
+Testado: `npx vitest run` completo (245 arquivos/1343 testes) permanece
+verde após a mudança - não havia teste cobrindo o caminho antigo do botão
+CANCELAR (mais uma lacuna de cobertura que essa correção também fecha
+indiretamente, ao mover para um comando que já tinha 7 casos de teste
+próprios).
+
+Com isso, a escrita de Compras que representa risco real de auditoria/
+integridade (solicitação, cotação, pedido, decisão, cancelamento,
+pagamento, recebimento, documentos) passa por comando operacional. Os dois
+itens que restam por `update()` direto (contato via WhatsApp, marcar
+"em análise") são trilha informativa sem proteção equivalente sendo
+pulada - não é urgência, mas fica registrado para não reaparecer como
+"já resolvido" por engano numa sessão futura.
 
 Testes novos: `src/domains/compras/purchase-order-commands.test.js` ganhou
 6 casos para `QUOTATION_SAVED` (criação com autoria/versão/atualização da
