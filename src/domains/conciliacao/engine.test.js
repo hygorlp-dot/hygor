@@ -39,6 +39,12 @@ describe("comandoConciliacaoAutomatica · tradução para o comando do servidor"
     expect(comandoConciliacaoAutomatica(analise)).toMatchObject({type:"CONFIRM_PAYMENT",
       payload:{transactionId:"t2",targetType:"nota",targetId:"n2"}});
   });
+  it("propaga a obra da candidata (achado de 25/08/2026: pagamento a terceiro sem isso caía como custo da empresa)",()=>{
+    const analise={transacaoId:"t2b",classificacaoOperacional:"pronta",acaoRecomendada:"REGISTRAR_PAGAMENTO_E_CONCILIAR",
+      melhorCandidata:{tipo:"terceiro",entidadeId:"tc1",obraId:"obra-77"}};
+    expect(comandoConciliacaoAutomatica(analise)).toMatchObject({type:"CONFIRM_PAYMENT",
+      payload:{transactionId:"t2b",targetType:"terceiro",targetId:"tc1",targetObraId:"obra-77"}});
+  });
   it("mapeia recebimento de medição/entrada de contrato para confirmar recebimento (CONFIRM_RECEIPT)",()=>{
     const analise={transacaoId:"t3",classificacaoOperacional:"pronta",acaoRecomendada:"REGISTRAR_RECEBIMENTO_E_CONCILIAR",
       melhorCandidata:{tipo:"medicao",entidadeId:"m1"}};

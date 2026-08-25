@@ -1813,3 +1813,65 @@ Verificação: suíte completa, `build`, `lint` e `architecture:check` sem
 violação nova (o script fica fora do escopo do dependency-cruiser, como
 os demais em `scripts/`, mas as outras três checagens continuam
 cobrindo o repositório inteiro).
+
+## Correção: pagamento direto a terceiro caía como custo da empresa, não da obra (25/08/2026)
+
+Pedido do usuário ("está tudo correto com o DRE? sendo gravada por obra
+ou empresa? na categoria correta?") levou a uma auditoria do caminho
+completo candidata → comando → mutação → DRE para os 3 tipos de comando
+que o lote de confirmação automática (seção anterior) pode aprovar sem
+revisão individual: nota, pedido, medição, medição de terceiro,
+funcionário, título de folha e **terceiro** (pagamento direto a um
+terceirizado, sem medição vinculada).
+
+Categoria sempre esteve correta (herdada da entidade de origem, ou fixa
+e certa para pagamento a terceiro). Obra estava correta em todos os
+casos MENOS um: `tipo==="terceiro"`. A cadeia completa:
+
+- `matching.js` já monta a candidata com um campo `obraId` (herdado do
+  índice construído em `selectors.js`) - mas **`selectors.js` era o
+  único indexador que não passava `obraId` ao indexar terceirizados**
+  (`nota`, `pedido`, `medicao`, `medicaoTerc` sempre passaram; só
+  `terceiro` faltava), apesar do cadastro de terceirizados já exigir
+  obra (`TerceirosView.jsx`).
+- Mesmo se a candidata tivesse `obraId`, nada o levava adiante: nem o
+  clique manual de "Confirmar" na tela (`ConciliacaoView.jsx`), nem o
+  tradutor do lote automático (`comandoConciliacaoAutomatica`),
+  passavam esse campo no payload do comando `CONFIRM_PAYMENT`.
+- E a mutação (`registrarPagamentoEConciliar`, branch `tipo==="terceiro"`
+  em `mutations.js`) usava `tr.obraId` como única fonte - um campo que
+  **nunca é preenchido em lugar nenhum do sistema** (nem na importação
+  do OFX, nem em nenhuma tela), confirmado por busca no domínio inteiro.
+
+Resultado antes da correção: o custo não se perdia (entrava no DRE
+normalmente, com categoria certa), mas caía como custo da empresa em vez
+da obra certa, com um aviso de qualidade de dado
+(`THIRD_PARTY_PAYMENT_WITHOUT_MEASUREMENT`, severidade "warning") sem
+nenhuma tela existente para realocar depois - um beco sem saída.
+
+Correção (5 pontos, sem UI nova - o dado já existia, só não fluía):
+
+1. `selectors.js`: indexador de terceirizados passa a incluir
+   `obraId: t.obraId`.
+2. `ConciliacaoView.jsx`: o clique manual de confirmar passa
+   `targetObraId: c.obraId` no payload.
+3. `engine.js` (`comandoConciliacaoAutomatica`): o tradutor do lote
+   automático também passa `targetObraId: candidata.obraId`.
+4. `reconciliation-command.js`: o handler de `CONFIRM_PAYMENT` valida
+   `targetObraId` contra `data.obras` (mesma cautela de `knownWorks` em
+   `allocateTransaction` - um id inventado é ignorado, nunca persistido
+   cru) e repassa para a mutação.
+5. `mutations.js`: `registrarPagamentoEConciliar` aceita o novo
+   parâmetro `obraId` e o usa como fonte primária (`obraId || tr.obraId
+   || null`), preservando o fallback antigo (hoje sempre vazio, mas
+   inofensivo mantê-lo).
+
+Testes novos: candidata de terceiro carrega `obraId` do cadastro
+(`matching.test.js`); mutação usa o `obraId` informado e cai para `null`
+sem ele, nunca inventando (`mutations.test.js`); comando do servidor
+valida contra `data.obras` e ignora id inexistente
+(`reconciliation-command.test.js`); tradutor do lote propaga
+`targetObraId` (`engine.test.js`).
+
+Verificação: suíte completa (246 arquivos/1368 testes), `build`, `lint`
+e `architecture:check` sem violação.

@@ -99,8 +99,13 @@ export const criarIndicesFinanceiros = (data) => {
     indexar(p, { tipo: "pedido", valor: saldo, documento: p.numero, obraId: p.obraId });
   });
 
+  // Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): faltava
+  // obraId aqui - único tipo indexado sem ele, apesar do cadastro de
+  // terceirizados já exigir obra (TerceirosView.jsx). Sem isso, todo
+  // pagamento direto a um terceiro (sem medição) caía como custo da empresa
+  // em vez da obra certa no DRE, mesmo a candidata já sabendo a obra.
   (data.terceirizados || []).forEach(t => {
-    indexar(t, { tipo: "terceiro", valor: 0, documento: t.documento, contraparte: t.nome, pixKey: t.pixKey });
+    indexar(t, { tipo: "terceiro", valor: 0, documento: t.documento, contraparte: t.nome, pixKey: t.pixKey, obraId: t.obraId });
   });
   (data.medicoesTerc || []).forEach(m => {
     if (m.pagamentoId) return; // já quitada

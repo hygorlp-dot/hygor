@@ -97,7 +97,7 @@ export const comandoConciliacaoAutomatica=(analise)=>{
     return {type:"LINK_EXISTING_PAYMENT",payload:{transactionId,targetType:candidata.tipo,targetId:candidata.entidadeId,paymentId:candidata.pagamentoId||"",observacao}};
   }
   if(analise.acaoRecomendada===ACAO_CONCILIACAO.REGISTRAR_PAGAMENTO_E_CONCILIAR){
-    return {type:"CONFIRM_PAYMENT",payload:{transactionId,targetType:candidata.tipo,targetId:candidata.entidadeId,observacao}};
+    return {type:"CONFIRM_PAYMENT",payload:{transactionId,targetType:candidata.tipo,targetId:candidata.entidadeId,targetObraId:candidata.obraId||"",observacao}};
   }
   if(analise.acaoRecomendada===ACAO_CONCILIACAO.REGISTRAR_RECEBIMENTO_E_CONCILIAR){
     return {type:"CONFIRM_RECEIPT",payload:{transactionId,targetType:candidata.tipo,targetId:candidata.entidadeId,observacao}};

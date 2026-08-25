@@ -106,7 +106,7 @@ export const vincularPagamentoExistente = (data, { transacaoId, tipo, entidadeId
 // regras de cada módulo), liga a transação e marca parcial/quitada
 // conforme o saldo. Nunca cria um lançamento genérico paralelo.
 export const registrarPagamentoEConciliar = (data, params) => {
-  const { transacaoId, tipo, entidadeId, valor, dataPagamento, operador, observacao = "" } = params;
+  const { transacaoId, tipo, entidadeId, valor, dataPagamento, operador, observacao = "", obraId = "" } = params;
   const tr = transacaoPorId(data, transacaoId);
   if (!tr) return { data, resumo: { ok: false, motivo: "Transação não encontrada" } };
   if (tr.status === "conciliado") return { data, resumo: { ok: false, motivo: "Transação já conciliada" } };
@@ -215,7 +215,7 @@ export const registrarPagamentoEConciliar = (data, params) => {
   } else if (tipo === "terceiro") {
     const pagamentoId = gerarIdConc("pgterc");
     const novoPagTerceiro = {
-      id: pagamentoId, tercId: entidadeId, obraId: tr.obraId || null,
+      id: pagamentoId, tercId: entidadeId, obraId: obraId || tr.obraId || null,
       pagador: "obra", data: dataPagamento || tr.data,
       amount: Math.abs(Number(valor ?? tr.valor)), liquido: Math.abs(Number(valor ?? tr.valor)),
       issRetido: 0, inssRetido: 0,

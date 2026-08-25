@@ -139,10 +139,18 @@ export const applyReconciliationCommand = (data, command = {}, actor = {}) => {
     if(checked.error)return invalid(data,checked.error);
     if(!["nota","pedido","medicaoTerc","terceiro","funcionario","tituloFolha"].includes(payload.targetType))return invalid(data,"Origem de pagamento inválida.");
     if(!positiveId(payload.targetId))return invalid(data,"Selecione a obrigação a pagar.");
+    // Só usada por tipo==="terceiro" (o único destino sem obra própria já
+    // cadastrada) - achado de 25/08/2026: sem isso, pagamento direto a
+    // terceiro sem medição sempre caía como custo da empresa no DRE, mesmo
+    // a candidata do motor já sabendo a obra certa (ver selectors.js).
+    // Validada contra data.obras para nunca persistir um id inventado -
+    // mesmo padrão de knownWorks em allocateTransaction (acima).
+    const knownWorks=new Set((data.obras||[]).map(work=>String(work.id)));
+    const targetObraId=positiveId(payload.targetObraId)&&knownWorks.has(String(payload.targetObraId))?String(payload.targetObraId):"";
     return registrarPagamentoEConciliar(data,{
       transacaoId:transactionId,tipo:payload.targetType,entidadeId:payload.targetId,
       valor:transactionAmount(checked.transaction),dataPagamento:checked.transaction.data,
-      observacao:text(payload.observacao),operador:actor,
+      obraId:targetObraId,observacao:text(payload.observacao),operador:actor,
     });
   }
 

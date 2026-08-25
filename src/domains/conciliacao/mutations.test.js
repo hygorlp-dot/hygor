@@ -121,6 +121,28 @@ describe("B. registrar pagamento de obrigação existente e conciliar", () => {
     });
     expect(quitado.comercial.contratos[0].entradaPaga).toBe(true);
   });
+
+  // Achado de 25/08/2026: pagamento direto a terceiro (sem medição) usava
+  // tr.obraId, que nunca é preenchido em lugar nenhum do sistema - o custo
+  // sempre caía como "empresa" no DRE em vez da obra certa. O parâmetro
+  // obraId (vindo da candidata do motor, que já sabe a obra do cadastro do
+  // terceirizado) corrige isso sem quebrar o fallback antigo.
+  test("pagamento direto a terceiro usa o obraId informado (da candidata do motor), não o da transação", () => {
+    const data = { ...dataBase(), terceirizados: [{ id: "tc1", nome: "João Eletricista", obraId: "obra-77" }] };
+    const { data: next } = registrarPagamentoEConciliar(data, {
+      transacaoId: "t1", tipo: "terceiro", entidadeId: "tc1", valor: 500, dataPagamento: "2026-01-10", operador, obraId: "obra-77",
+    });
+    expect(next.pagsTerceiros).toHaveLength(1);
+    expect(next.pagsTerceiros[0].obraId).toBe("obra-77");
+  });
+
+  test("pagamento direto a terceiro sem obraId informado cai para null (nunca inventa obra)", () => {
+    const data = dataBase();
+    const { data: next } = registrarPagamentoEConciliar(data, {
+      transacaoId: "t1", tipo: "terceiro", entidadeId: "tc1", valor: 500, dataPagamento: "2026-01-10", operador,
+    });
+    expect(next.pagsTerceiros[0].obraId).toBeFalsy();
+  });
 });
 
 describe("C. criar lançamento novo - exige verificação de duplicidade prévia", () => {

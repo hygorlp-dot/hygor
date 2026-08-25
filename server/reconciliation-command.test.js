@@ -41,6 +41,25 @@ describe("reconciliation command server boundary",()=>{
     expect(result.data.notasFiscais[0].pagamentos[0].valor).toBe(300);
   });
 
+  // Achado de 25/08/2026: pagamento a terceiro sem obra validada sempre
+  // caía como custo da empresa no DRE. targetObraId corrige isso, mas só
+  // quando aponta para uma obra que realmente existe (mesma cautela de
+  // knownWorks em allocateTransaction) - um id inventado é ignorado, nunca
+  // persistido cru.
+  test("confirma pagamento a terceiro usando a obra informada, quando ela existe",()=>{
+    const data={...fixture(),obras:[{id:"obra-77",name:"Obra 77"}],terceirizados:[{id:"tc1",nome:"João",obraId:"obra-77"}]};
+    const result=applyReconciliationCommand(data,{type:RECONCILIATION_COMMAND.CONFIRM_PAYMENT,payload:{transactionId:"debit",targetType:"terceiro",targetId:"tc1",targetObraId:"obra-77"}},actor);
+    expect(result.resumo.ok).toBe(true);
+    expect(result.data.pagsTerceiros[0].obraId).toBe("obra-77");
+  });
+
+  test("ignora targetObraId que não corresponde a nenhuma obra existente",()=>{
+    const data={...fixture(),obras:[{id:"obra-77",name:"Obra 77"}],terceirizados:[{id:"tc1",nome:"João",obraId:"obra-77"}]};
+    const result=applyReconciliationCommand(data,{type:RECONCILIATION_COMMAND.CONFIRM_PAYMENT,payload:{transactionId:"debit",targetType:"terceiro",targetId:"tc1",targetObraId:"obra-inventada"}},actor);
+    expect(result.resumo.ok).toBe(true);
+    expect(result.data.pagsTerceiros[0].obraId).toBeFalsy();
+  });
+
   test("exige motivo para reverter uma conciliação",()=>{
     const first=applyReconciliationCommand(fixture(),{type:RECONCILIATION_COMMAND.CONFIRM_RECEIPT,payload:{transactionId:"credit",targetType:"medicao",targetId:"m1"}},actor);
     const result=applyReconciliationCommand(first.data,{type:RECONCILIATION_COMMAND.REVERSE_RECONCILIATION,payload:{transactionId:"credit"}},actor);

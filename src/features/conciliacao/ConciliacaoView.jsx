@@ -288,7 +288,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     const valor = Number(String(pagamentoForm.valor||"").replace(",", "."));
     if (!(valor > 0)) { showToast("Informe o valor pago.", "error"); return; }
     if(Math.abs(valor-Math.abs(Number(tr.valor||0)))>0.01){showToast("Para baixa parcial, use o rateio N:N. A confirmação simples usa todo o valor do extrato.","warn");return;}
-    const ok=await executarConciliacaoNoServidor({type:"CONFIRM_PAYMENT",payload:{transactionId:tr.id,targetType:c.tipo,targetId:c.entidadeId,observacao:`Sugestão ${c.confianca||""}`}},"O servidor não confirmou o pagamento.");
+    const ok=await executarConciliacaoNoServidor({type:"CONFIRM_PAYMENT",payload:{transactionId:tr.id,targetType:c.tipo,targetId:c.entidadeId,targetObraId:c.obraId||"",observacao:`Sugestão ${c.confianca||""}`}},"O servidor não confirmou o pagamento.");
     if(!ok)return;
     fecharCandidato();
     showToast("Pagamento registrado e conciliado.");

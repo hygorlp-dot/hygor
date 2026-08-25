@@ -50,6 +50,19 @@ describe("motor de candidatos - nunca decide sozinho, só pontua", () => {
     expect(nota.motivos.some(item=>item.includes("Identificador bancário"))).toBe(true);
   });
 
+  // Achado de 25/08/2026: era o único tipo indexado sem obraId (ver
+  // selectors.js), apesar do cadastro de terceirizados já exigir obra -
+  // um pagamento direto a terceiro sem medição caía como custo da empresa
+  // em vez da obra certa no DRE.
+  test("candidata de pagamento direto a terceiro carrega a obra do cadastro do terceirizado", () => {
+    const comTerceiro = { ...data, terceirizados: [{ id: "tc1", nome: "João Eletricista", documento: "11122233344", pixKey: "joao@pix.com", obraId: "obra-77" }] };
+    const indices = criarIndicesFinanceiros(comTerceiro);
+    const transacao = { id: "t-terc", valor: -800, data: "2026-01-16", chavePix: "joao@pix.com" };
+    const candidata = gerarCandidatosConciliacao(transacao, comTerceiro, indices).find(c => c.tipo === "terceiro");
+    expect(candidata).toBeTruthy();
+    expect(candidata.obraId).toBe("obra-77");
+  });
+
   test("período bancário fechado bloqueia a confirmação", () => {
     const fechado={...data,fechamentosBancarios:[{status:"fechado",dataInicio:"2026-01-01",dataFim:"2026-01-31"}]};
     const nota=gerarCandidatosConciliacao({id:"t-fechado",valor:-1500,data:"2026-01-16"},fechado,criarIndicesFinanceiros(fechado)).find(item=>item.entidadeId==="n1");
