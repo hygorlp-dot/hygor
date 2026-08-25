@@ -1431,6 +1431,57 @@ Verificação: suíte completa (`npx vitest run`) 241 arquivos/1305 testes
 verdes, `npm run build`, `npm run lint` e `npm run architecture:check`
 sem violação nova.
 
+## Auditoria de comandos operacionais nunca conectados (24/08/2026)
+
+Depois de achar `PURCHASE_REQUEST_CANCELLED` (comando existente, testado,
+mas nunca ligado a nenhum botão), a suspeita óbvia era: existe o mesmo
+padrão em outro lugar do app? Auditoria automatizada (não manual - um
+script varreu todo `export const *_COMMAND=Object.freeze({...})` em
+`src/domains/**` e `server/*.js`, extraiu as 103 chaves de comando
+encontradas, e verificou se `OPERATIONAL_COMMAND.<chave>` aparece em
+algum arquivo `.jsx`/`.js` de `src/` fora do próprio arquivo de definição
+e de testes - ou seja, se existe um ponto de disparo real na interface).
+
+**Resultado**: 8 dos 10 "sem uso" encontrados eram falso positivo do
+método - `CONFIRM_RECEIPT`/`CONFIRM_PAYMENT`/etc. (`server/reconciliation-
+command.js`) são um namespace de comando PRÓPRIO (`RECONCILIATION_COMMAND`,
+mesmo padrão de `ATTENDANCE_COMMAND` - pipeline separado de
+`OPERATIONAL_COMMAND`), e de fato são disparados em
+`src/features/conciliacao/ConciliacaoView.jsx`, só que via
+`RECONCILIATION_COMMAND.X`, não `OPERATIONAL_COMMAND.X` (o texto que o
+script procurava).
+
+Sobraram 2 achados genuínos, nenhum deles com a mesma gravidade do
+cancelamento de solicitação (que tinha um CAMINHO ANTIGO ativo pulando a
+proteção do comando) - aqui não existe caminho antigo nenhum, é
+capacidade construída e testada que nunca ganhou uma tela:
+
+- **`EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED`**
+  (`src/domains/equipamentos/commands.js:509-523`) - vincula um
+  recebimento bancário a uma fatura de locação de equipamento
+  (`rentalInvoiceReceipts`), atualiza `receivedAmountCents`/status da
+  fatura. Módulo de validação (`rental-invoices.js`) e comando existem e
+  são testados (`commands.test.js:237-241`); nenhuma tela em `src/`
+  referencia `rentalInvoiceReceipts` - não há como disparar isso pela
+  interface hoje.
+- **`LOOKAHEAD_PACKAGE_COMMITTED`**
+  (`src/domains/sync/operational-commands.js:508-517`,
+  `commitWorkPackage` em `src/domains/lookahead/commands.js`) - mesma
+  situação: comando testado (`operational-commands.test.js:198`), nenhuma
+  tela referencia `commitWorkPackage`/`packageId`.
+
+**Por que não corrigido nesta rodada**: ao contrário do cancelamento de
+solicitação (só religar um botão a um comando já pronto), estes dois
+exigiriam CONSTRUIR a tela/ação que falta - decisão de produto (o que
+essa tela mostra, onde ela entra no fluxo de Locação/Lookahead), não uma
+correção de lacuna. Registrado para que uma sessão futura saiba que a
+capacidade já existe no backend, testada, só falta o consumidor.
+
+Nenhuma mudança de código nesta auditoria - só leitura, e a comparação
+final linha a linha de cada um dos 2 achados genuínos foi feita manualmente
+(grep dedicado) antes de descartar os 8 falsos positivos, para não deixar
+passar um caso real disfarçado de falso positivo.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
