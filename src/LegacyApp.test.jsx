@@ -13,4 +13,7 @@ vi.mock("./components/ui/alert", () => ({ Alert: () => null, AlertDescription: (
 test("módulo operacional inicializa sem referência circular", async () => {
   const modulo = await import("./LegacyApp");
   expect(typeof modulo.default).toBe("function");
-},20000);
+// Timeout elevado de propósito: com --coverage, a instrumentação do v8 sobre
+// os 20 mil+ linhas de LegacyApp.jsx (e tudo que ele importa) faz o import
+// dinâmico sozinho passar de 20s, mesmo sem nenhum problema de lógica.
+},60000);

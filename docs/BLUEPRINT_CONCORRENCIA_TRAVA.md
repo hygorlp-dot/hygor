@@ -2291,3 +2291,58 @@ natural (virar consumidor real de qualquer um deles) continua
 deliberadamente adiado até haver necessidade concreta, como já registrado
 nas seções de CORE-002/CORE-003 acima - não é para puxar para frente só
 por completude.
+
+## Raio-X do app e ordem de execução das correções (25/08/2026)
+
+Auditoria transversal em seis eixos (arquitetura, core relacional,
+engenharia, manutenibilidade, funcionalidade, coerência com o DRE) sobre
+o app inteiro, incluindo um levantamento dedicado dos domínios ainda não
+auditados nesta sessão: Ponto, RH, Comercial, Planejamento, Equipamentos,
+Qualidade/Segurança/Diário de Obra, Suprimentos/Estoque/Licenciamento.
+Nota média 5,7/10 - fundação modular real onde a migração já chegou,
+lacunas concretas onde ainda não chegou. Dela saiu uma "Ordem de
+Execução" em 5 ondas, sequenciada por risco e dependência (mesmo espírito
+da "Ordem de execução aprovada por risco" de `MATRIZ_MODULOS_10_10.md`).
+
+### Onda 0 - estancar o sangramento (concluída nesta sessão)
+
+1. **Licenciamento ganha CAS.** Era o único domínio do grupo levantado
+   sem nenhuma proteção de concorrência - dois `update()` diretos
+   (checklist de licenciamento e cadastro de condomínio) em
+   `src/LegacyApp.jsx`, zero comando, zero `expectedVersion`. Criado
+   `src/domains/licenciamento/commands.js` (`LICENSING_COMMAND`:
+   `LICENSE_CHECKLIST_SAVED`, `CONDOMINIUM_SAVED`), registrado em
+   `src/domains/sync/operational-commands.js` no mesmo padrão dos outros
+   ~20 módulos de comando. A tela (`Licenciamento` em `LegacyApp.jsx`)
+   passou a receber `dispatchCommand`/`currentUser` e a chamar
+   `dispatchCommand` em vez de `update()` direto, nos dois pontos de
+   entrada (`ObraDetalhe` e o roteador principal). Testado em
+   `src/domains/licenciamento/commands.test.js` (criação, conflito de
+   versão, atualização válida, validação de nome do condomínio).
+2. **Timeout do smoke test sob `--coverage`.** O teste que importa
+   `LegacyApp.jsx` inteiro (`src/LegacyApp.test.jsx`) estourava 20s só
+   com instrumentação de cobertura ligada (não é bug de lógica - é o
+   tamanho do arquivo). Elevado para 60s, com comentário explicando o
+   porquê.
+3. **`src/mobile/*` - decisão registrada, não executada.** Confirmado
+   (de novo, por grep) que nenhuma parte do app importa nada de
+   `src/mobile/*` - é uma camada de UI mobile completa (bottom nav,
+   dashboard, field home, filtros, 14+ símbolos exportados) sem nenhum
+   consumidor. Isso é uma decisão de produto (arquivar vs. reativar), não
+   uma correção técnica - **não foi executada autonomamente** por ser
+   difícil de reverter sem ambiguidade sobre a intenção original; fica
+   registrada aqui como pendente de decisão explícita do usuário.
+
+Verificação: `npx vitest run` (suíte completa + os testes novos),
+`build`, `lint`, `architecture:check`.
+
+### Preparação adiantada para a Onda 2 (em paralelo, background)
+
+Dois agentes rodaram em paralelo às correções acima, sem tocar em código
+de produção, para adiantar o pré-requisito da Onda 2 (aposentar o motor
+de cronograma legado, o item de maior risco isolado do raio-X): testes
+de caracterização para o motor legado de cronograma
+(`src/LegacyApp.jsx:11119-12148`) e para as analytics comerciais
+(`src/LegacyApp.jsx:19384-19580`) - os dois maiores blocos de lógica de
+negócio do repositório sem nenhuma rede de teste. Resultado registrado
+separadamente quando os agentes concluírem.

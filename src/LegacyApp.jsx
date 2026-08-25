@@ -14686,7 +14686,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="equipe"&&<Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} dispatchCommand={dispatchCommand} currentUser={currentUser} onTab={onTab}/></Suspense>}
         {abaConteudo==="terc"&&<Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="equip"&&<Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/></Suspense>}
-        {abaConteudo==="licenca"&&<Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId}/>}
+        {abaConteudo==="licenca"&&<Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:12}}>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${portal.ativo?C.green:C.muted}`,borderRadius:12,padding:16}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}><div><p style={{fontSize:10,fontWeight:900,color:C.blue,textTransform:"uppercase",letterSpacing:.7}}>Experiência do cliente</p><h2 style={{fontSize:22,color:C.text,marginTop:3}}>Portal transparente da obra</h2><p style={{fontSize:11,color:C.muted,marginTop:4,maxWidth:690,lineHeight:1.55}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, folha, margem, conciliação e observações internas permanecem protegidos.</p></div><Btn v={portal.ativo?"danger":"success"} onClick={()=>atualizarPortal({ativo:!portal.ativo})}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
@@ -18096,7 +18096,7 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="", dispatch
 //  Frota própria + de terceiros, locação por obra com desconto ao cliente,
 //  manutenção, transferência entre obras e relatório mensal de lucro.
 // ============================================================================
-function Licenciamento({ data, update, showToast, obraIdFixo="" }) {
+function Licenciamento({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
   const { formGrid } = useBreakpoint();
   const [obraSel,setObraSel]=useState(obraIdFixo);
   const [itemModal,setItemModal]=useState(null);
@@ -18118,12 +18118,21 @@ function Licenciamento({ data, update, showToast, obraIdFixo="" }) {
   const verificacoes=check.tipo==="terras_alpha_caruaru"?LIC_TERRAS_ALPHA_VERIFICACAO:[];
   const verificadas=verificacoes.filter(v=>check.verificacao?.[v.id]?.ok).length;
 
-  const listaLicencas=(mudanca)=>{
-    const atual=(data.licencas||[]).find(l=>l.obraId===obraId);
-    const novo={...check,...mudanca,id:atual?.id||uid(),obraId,updatedAt:new Date().toISOString(),createdAt:atual?.createdAt||check.createdAt||new Date().toISOString()};
-    return atual?(data.licencas||[]).map(l=>l.obraId===obraId?novo:l):[...(data.licencas||[]),novo];
+  const salvar=async(mudanca,extras={})=>{
+    if(!dispatchCommand){showToast?.("O checklist de licenciamento exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.licencas||[]).find(l=>l.obraId===obraId);
+      return {
+        type:OPERATIONAL_COMMAND.LICENSE_CHECKLIST_SAVED,
+        idempotencyKey:`licenca-${obraId}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{license:{...vigente,...check,...mudanca,id:vigente?.id||check.id||uid(),obraId}},
+      };
+    });
+    if(!result?.ok){showToast?.(result?.reason||"Não foi possível salvar o checklist de licenciamento.","error");return;}
+    if(Object.keys(extras).length)update({...data,...extras});
   };
-  const salvar=(mudanca,extras={})=>update({...data,...extras,licencas:listaLicencas(mudanca)});
   const setItem=(docId,campos,extras={})=>salvar({itens:{...check.itens,[docId]:{...(check.itens?.[docId]||{}),...campos}}},extras);
   const ciclarStatus=docId=>{const ordem=["pendente","em_andamento","entregue","aprovado"];const atual=check.itens?.[docId]?.status||"pendente";const prox=atual==="na"?"pendente":ordem[(ordem.indexOf(atual)+1)%ordem.length];setItem(docId,{status:prox,data:["entregue","aprovado"].includes(prox)?today():""});};
 
@@ -18135,11 +18144,22 @@ function Licenciamento({ data, update, showToast, obraIdFixo="" }) {
     showToast?.(condo?`${condo.nome} vinculado à obra.`:"Obra marcada como fora de condomínio.");
   };
 
-  const salvarCondominio=()=>{
+  const salvarCondominio=async()=>{
     if(!condForm.nome.trim()){showToast?.("Informe o nome do condomínio.","error");return;}
-    const reg={...condForm,id:condForm.id||uid(),nome:condForm.nome.trim(),updatedAt:new Date().toISOString(),createdAt:condForm.createdAt||new Date().toISOString()};
-    const lista=condForm.id?(data.condominios||[]).map(x=>x.id===condForm.id?reg:x):[...(data.condominios||[]),reg];
-    update({...data,condominios:lista});setCondForm(condoVazio);showToast?.("Condomínio salvo.");
+    if(!dispatchCommand){showToast?.("O cadastro de condomínio exige conexão com o servidor.","error");return;}
+    const id=condForm.id||uid();
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.condominios||[]).find(x=>x.id===id);
+      return {
+        type:OPERATIONAL_COMMAND.CONDOMINIUM_SAVED,
+        idempotencyKey:`condominio-${id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{condominium:{...vigente,...condForm,id,nome:condForm.nome.trim()}},
+      };
+    });
+    if(!result?.ok){showToast?.(result?.reason||"Não foi possível salvar o condomínio.","error");return;}
+    setCondForm(condoVazio);showToast?.("Condomínio salvo.");
   };
 
   const anexarDocumento=async(doc,file,grupo)=>{
@@ -21562,7 +21582,7 @@ export default function App() {
           {tab === "est"      && <Estoque      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "equip"    && <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "equip_fin"&& <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/></Suspense>}
-          {tab === "licenca"  && <Licenciamento data={data} update={update} showToast={showToast}/>}
+          {tab === "licenca"  && <Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "cmp"      && <Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "fornecedores" && <RankingFornecedores data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "suprimentos" && <Suprimentos data={data} update={update} showToast={showToast} onTab={(t)=>{setObraAberta("");setTab(t);}}/>}

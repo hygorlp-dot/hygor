@@ -77,6 +77,10 @@ import {
   PROJECT_COMMAND,
 } from "../obras/project-commands.js";
 import { fieldReportCompletion } from "../obras/field-report-workflow.js";
+import {
+  applyLicensingCommand,
+  LICENSING_COMMAND,
+} from "../licenciamento/commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -104,6 +108,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...ADVANCE_COMMAND,
   ...COMPANY_CONFIG_COMMAND,
   ...PROJECT_COMMAND,
+  ...LICENSING_COMMAND,
   PROGRESS_RECORD_SAVED:"AVANCO_FISICO_REGISTRADO",
   PROGRESS_RECORD_CANCELLED:"AVANCO_FISICO_CANCELADO",
   WEEKLY_COMMITMENT_COMPLETED:"COMPROMISSO_SEMANAL_CONCLUIDO",
@@ -351,6 +356,17 @@ export const applyOperationalCommand=(data,command)=>{
       ),
     };
   }
+  const licensingResult=applyLicensingCommand(data,command,now);
+  if(licensingResult){
+    if(!licensingResult.ok)return licensingResult;
+    return {
+      ok:true,
+      data:appendReceipt(
+        licensingResult.data,command,licensingResult.entityId,now,
+      ),
+    };
+  }
+
   if(command.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED){
     const result=activateCommercialContract({
       data,contractId:command.payload?.contractId,obraId:command.payload?.obraId,
