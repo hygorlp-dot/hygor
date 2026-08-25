@@ -1,7 +1,7 @@
 import {
   paraCentavos, deCentavos, igualCentavos,
   chaveTransacao, parseOFX, somaRateios, diasEntre,
-  calcConciliacao,
+  calcConciliacao, extrairContraparteDescricaoPix,
   aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
 } from "./calculations";
 
@@ -37,6 +37,59 @@ describe("domínio de conciliação - importação", () => {
     expect(conta).toBe("12345");
     expect(trans).toHaveLength(1);
     expect(trans[0]).toMatchObject({ data: "2026-01-10", valor: -150, fitid: "FIT001", descricao: "Pagamento fornecedor" });
+  });
+
+  // Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): até
+  // esta mudança havia DUAS implementações de parseOFX - esta (nunca
+  // usada de verdade) e uma cópia mais rica em LegacyApp.jsx (a que o app
+  // de fato usava ao importar). Consolidadas aqui - esta é agora a única.
+  test("parseOFX extrai identificadores e contraparte quando o extrato traz as tags estruturadas", () => {
+    const ofx = `
+      <STMTTRN>
+        <DTPOSTED>20260110120000</DTPOSTED>
+        <TRNAMT>-150.00</TRNAMT>
+        <FITID>FIT001</FITID>
+        <TRNTYPE>PAYMENT</TRNTYPE>
+        <NAME>Fornecedor Estruturado LTDA</NAME>
+        <CNPJ>12345678000199</CNPJ>
+        <PIXKEY>fornecedor@pix.com</PIXKEY>
+        <ENDTOENDID>E12345678202601101200abc</ENDTOENDID>
+        <MEMO>Pix enviado: "irrelevante quando NAME já existe"</MEMO>
+      </STMTTRN>
+    `;
+    const { trans } = parseOFX(ofx);
+    expect(trans[0]).toMatchObject({
+      tipoOperacao: "PAYMENT", contraparteNome: "Fornecedor Estruturado LTDA",
+      contraparteDocumento: "12345678000199", chavePix: "fornecedor@pix.com",
+      endToEndId: "E12345678202601101200abc",
+    });
+  });
+
+  test("parseOFX cai para extrair o nome da descrição do PIX quando não há tag NAME (Banco Inter)", () => {
+    const ofx = `
+      <STMTTRN>
+        <DTPOSTED>20260110120000</DTPOSTED>
+        <TRNAMT>-90.00</TRNAMT>
+        <FITID>FIT002</FITID>
+        <MEMO>Pix enviado: "Cp :18236120-JOAO DA SILVA"</MEMO>
+      </STMTTRN>
+    `;
+    const { trans } = parseOFX(ofx);
+    expect(trans[0]).toMatchObject({ contraparteNome: "JOAO DA SILVA", contraparteDocumento: "", chavePix: "" });
+  });
+
+  test("extrairContraparteDescricaoPix reconhece os dois formatos confirmados do Banco Inter", () => {
+    expect(extrairContraparteDescricaoPix('Pix enviado: "Cp :18236120-JOAO DA SILVA"')).toBe("JOAO DA SILVA");
+    expect(extrairContraparteDescricaoPix('Pix recebido: "Cp :10573521-ACM EMPREENDIMENTOS"')).toBe("ACM EMPREENDIMENTOS");
+    expect(extrairContraparteDescricaoPix('Pix enviado: "00019 247280631 JOAO SOUSA"')).toBe("JOAO SOUSA");
+  });
+
+  test("extrairContraparteDescricaoPix nunca inventa um nome a partir de texto sem esse formato", () => {
+    expect(extrairContraparteDescricaoPix("")).toBe("");
+    expect(extrairContraparteDescricaoPix("Tarifa de manutenção de conta")).toBe("");
+    expect(extrairContraparteDescricaoPix('Pix enviado: "Cp :18236120-"')).toBe("");
+    expect(extrairContraparteDescricaoPix('Pix enviado: "Cp :18236120-JOAO"')).toBe(""); // só uma palavra
+    expect(extrairContraparteDescricaoPix('Pix enviado: "12345678901"')).toBe(""); // só dígitos
   });
 
   test("somaRateios fecha com a soma simples dos valores", () => {

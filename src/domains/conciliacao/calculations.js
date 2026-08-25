@@ -26,9 +26,50 @@ export const dataOFXParaISO = (s) => {
   return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
 };
 
+// Extrai o nome da contraparte embutido na descrição de um PIX quando o
+// extrato não traz a tag <NAME> estruturada - achado de 25/08/2026 (ver
+// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, seção "Melhoria: extrair
+// contraparte da descrição do PIX"): o extrato real de uma conta do Banco
+// Inter (identificado no OFX pelo nome corporativo antigo "Banco
+// Intermedium S/A") nunca envia <NAME>/<PIXKEY>/<CPF>/<CNPJ> - mas o nome
+// completo sempre aparece dentro do MEMO em um de dois formatos
+// confirmados contra 794 transações pendentes reais:
+//   Pix enviado: "Cp :18236120-JOAO DA SILVA"
+//   Pix enviado: "00019 247280631 JOAO DA SILVA"
+// Sem essa extração, contraparteNome ficava sempre vazio e o motor de
+// candidatos (matching.js) não tinha como cruzar com o cadastro de
+// funcionários/terceiros/fornecedores por nome - só por PIX/CPF
+// estruturado, que este banco nunca fornece, deixando a fila inteira sem
+// nenhuma transação na classificação "pronta". Falha em vazio ("") sempre
+// que o texto não bater com o padrão esperado - nunca inventa um nome a
+// partir de um código numérico ou texto sem cara de nome (mínimo de duas
+// palavras alfabéticas).
+export const extrairContraparteDescricaoPix = (descricao) => {
+  const bruto = String(descricao || "");
+  const match = bruto.match(/^Pix\s+(?:enviado|recebido)\s*:\s*"(.+)"\s*$/i);
+  const conteudo = match ? match[1].trim() : "";
+  if (!conteudo) return "";
+  const semPrefixo = conteudo
+    .replace(/^Cp\s*:\s*\d+\s*-\s*/i, "")
+    .replace(/^\d+\s+\d+\s+/, "")
+    .trim();
+  if (!/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\s-]*$/.test(semPrefixo)) return "";
+  const palavras = semPrefixo.split(/\s+/).filter(Boolean);
+  if (palavras.length < 2) return "";
+  return semPrefixo;
+};
+
 // OFX é o formato que todo banco brasileiro exporta e, melhor, traz o FITID:
 // um identificador único da transação. É ele que torna a deduplicação exata,
 // em vez de heurística.
+//
+// Achado de 25/08/2026: até esta mudança existiam DUAS implementações
+// deste parser - esta (nunca importada por nenhum código real, só pelo
+// próprio teste deste arquivo) e uma cópia mais rica dentro de
+// LegacyApp.jsx (a que o app de fato usa ao importar um extrato). A
+// divergência só foi percebida ao investigar por que nenhuma transação
+// bancária real chegava à classificação "pronta" - esta função agora É a
+// única fonte, e LegacyApp.jsx importa daqui.
 export const parseOFX = (texto) => {
   const tag = (bloco, t) => {
     const m = bloco.match(new RegExp(`<${t}>([^<\r\n]*)`, "i"));
@@ -37,12 +78,26 @@ export const parseOFX = (texto) => {
   const banco = tag(texto, "ORG") || tag(texto, "BANKID") || "";
   const conta = tag(texto, "ACCTID") || "";
   const blocos = texto.match(/<STMTTRN>[\s\S]*?<\/STMTTRN>/gi) || [];
-  const trans = blocos.map(b => ({
-    data: dataOFXParaISO(tag(b, "DTPOSTED")),
-    descricao: (tag(b, "MEMO") || tag(b, "NAME") || "").trim(),
-    valor: Number(String(tag(b, "TRNAMT")).replace(",", ".")),
-    fitid: tag(b, "FITID"),
-  })).filter(t => t.data && !isNaN(t.valor) && t.valor !== 0);
+  const trans = blocos.map(b => {
+    const descricao = (tag(b, "MEMO") || tag(b, "NAME") || "").trim();
+    const contraparteNome = tag(b, "NAME") || extrairContraparteDescricaoPix(descricao);
+    return {
+      data: dataOFXParaISO(tag(b, "DTPOSTED")),
+      descricao, descricaoOriginal: descricao,
+      valor: Number(String(tag(b, "TRNAMT")).replace(",", ".")),
+      fitid: tag(b, "FITID"),
+      endToEndId: tag(b, "ENDTOENDID") || tag(b, "E2EID"),
+      txid: tag(b, "TXID") || tag(b, "REFNUM"),
+      tipoOperacao: tag(b, "TRNTYPE"),
+      contraparteNome,
+      contraparteDocumento: tag(b, "CPF") || tag(b, "CNPJ") || tag(b, "DOCUMENTO"),
+      chavePix: tag(b, "PIXKEY") || tag(b, "CHAVEPIX") || "",
+      metadadosImportacao: {
+        trnType: tag(b, "TRNTYPE"), checknum: tag(b, "CHECKNUM"),
+        refnum: tag(b, "REFNUM"), memo: tag(b, "MEMO"), name: tag(b, "NAME"),
+      },
+    };
+  }).filter(t => t.data && !isNaN(t.valor) && t.valor !== 0);
   return { banco, conta, trans };
 };
 

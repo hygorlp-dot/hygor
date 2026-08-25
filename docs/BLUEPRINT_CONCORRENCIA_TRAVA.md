@@ -1710,3 +1710,67 @@ vivo em produção (a sessão do navegador está autenticada como
 administrador, que ignora `SECTION_ROLES` por inteiro - não há como
 reproduzir o bloqueio original nem confirmar a liberação para
 "financeiro" sem uma sessão real desse perfil).
+
+## Melhoria: extrair contraparte da descrição do PIX (25/08/2026)
+
+Usuário perguntou se havia "condições de melhoria" depois de ver, em
+produção, que a confirmação em lote (seção anterior) não achou nenhuma
+transação "pronta" entre 794 pendentes. Investigação dos dados reais
+(via `/api/data`, ação `load`, só estatísticas agregadas - nunca
+imprimi nome/documento completo de ninguém neste processo) achou a causa
+exata:
+
+- **PIX/CPF-CNPJ estruturado: ~0%** das 794 transações pendentes têm
+  `chavePix`/`contraparteDocumento` preenchidos - o extrato desta conta
+  (Banco Inter, identificado no OFX pelo nome corporativo antigo "Banco
+  Intermedium S/A") nunca envia essas tags. Isso é uma limitação real do
+  banco, não um bug de código.
+- **Mas o nome completo da contraparte está embutido no texto livre da
+  descrição** (`MEMO`), em um de dois formatos extremamente consistentes
+  (confirmado contra os 794 registros reais, ~77% só nos 15 formatos mais
+  comuns):
+  - `Pix enviado: "Cp :18236120-JOAO DA SILVA"`
+  - `Pix enviado: "00019 247280631 JOAO DA SILVA"`
+- **Achado adicional, mais grave que parecia**: existiam DUAS
+  implementações de `parseOFX` - uma em
+  `src/domains/conciliacao/calculations.js` (testada, mas nunca importada
+  por nenhum código real) e outra, mais rica, dentro de `LegacyApp.jsx`
+  (a que o app de fato usa ao importar um extrato, `descricao`/`fitid`/
+  `txid`/`tipoOperacao` etc.). A divergência escondia que a extração de
+  contraparte nunca rodava de verdade e dava falsa confiança de teste
+  (o `parseOFX` testado não era o `parseOFX` usado).
+
+**Corrigido**: as duas implementações foram consolidadas em
+`src/domains/conciliacao/calculations.js` (única fonte agora -
+`LegacyApp.jsx` importa de lá). Nova função pura
+`extrairContraparteDescricaoPix(descricao)` reconhece os dois formatos do
+Banco Inter e preenche `contraparteNome` como fallback só quando a tag
+`<NAME>` estruturada não existe - nunca sobrescreve um nome já
+estruturado, e nunca inventa um nome a partir de um código numérico ou
+texto sem cara de nome (exige no mínimo duas palavras alfabéticas; falha
+em `""` em qualquer caso ambíguo). Nenhuma mudança no motor de casamento
+(`matching.js`) foi necessária - ele já sabia usar `contraparteNome`,
+só nunca recebia o dado.
+
+**Fora de escopo por falta de dado real**: o usuário também usa
+**Nubank**, mas nenhuma transação pendente na base atual veio de lá (só
+Banco Inter). Não constrói um parser para um formato nunca visto - fica
+pendente até existir uma amostra real (arquivo de exemplo ou descrição
+do formato) para verificar contra dados de verdade, mesmo princípio já
+seguido a sessão inteira.
+
+**Retroatividade, decisão deliberada**: as 794 transações já importadas
+NÃO foram atualizadas retroativamente (isso exigiria um script tocando
+registros financeiros já persistidos, fora do fluxo normal de comando) -
+a melhoria vale a partir do próximo extrato importado. Se fizer sentido
+reprocessar o histórico, é uma decisão separada, a ser pedida
+explicitamente.
+
+Testes novos: `calculations.test.js` ganhou 5 casos (extração com tag
+`<NAME>` estruturada tem prioridade; fallback para a descrição quando não
+há tag; os dois formatos confirmados do Banco Inter; nunca inventa nome a
+partir de texto sem esse formato, incluindo os casos de uma palavra só ou
+puramente numérico).
+
+Verificação: suíte completa (246 arquivos/1362 testes), `build`, `lint`
+e `architecture:check` sem violação.

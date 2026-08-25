@@ -246,6 +246,7 @@ import {
   podeReabrirFechamento, podeArquivarExtrato, podeFecharPeriodo, podeCriarRegra,
   hashArquivo,
   mascararDocumento, mascararChavePix,
+  parseOFX,
 } from "./domains/conciliacao/index.js";
 import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
 const Conciliacao = lazy(() => import("./features/conciliacao/ConciliacaoView"));
@@ -12160,38 +12161,12 @@ export const parseBRConc = (v) => {
   return neg && n > 0 ? -n : n;
 };
 
-// Formato SINAPI com data, fuso BRT ou somente a data → ISO "2024-03-15"
-const ofxData = (s) => {
-  const m = String(s||"").match(/^(\d{4})(\d{2})(\d{2})/);
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
-};
-
-// OFX é o formato que todo banco brasileiro exporta e, melhor, traz o FITID:
-// um identificador único da transação. É ele que torna a deduplicação exata,
-// em vez de heurística.
-export const parseOFX = (texto) => {
-  const tag = (bloco, t) => {
-    const m = bloco.match(new RegExp(`<${t}>([^<\r\n]*)`, "i"));
-    return m ? m[1].trim() : "";
-  };
-  const banco = tag(texto, "ORG") || tag(texto, "BANKID") || "";
-  const conta = tag(texto, "ACCTID") || "";
-  const blocos = texto.match(/<STMTTRN>[\s\S]*?<\/STMTTRN>/gi) || [];
-  const trans = blocos.map(b => {
-    const descricao = (tag(b, "MEMO") || tag(b, "NAME") || "").trim();
-    const e2eId = tag(b,"ENDTOENDID") || tag(b,"ENDTOENDID") || tag(b,"E2EID");
-    const txid = tag(b,"TXID") || tag(b,"REFNUM");
-    const documento = tag(b,"CPF") || tag(b,"CNPJ") || tag(b,"DOCUMENTO");
-    const chavePix = tag(b,"PIXKEY") || tag(b,"CHAVEPIX") || "";
-    return {
-      data:ofxData(tag(b,"DTPOSTED")), descricao, descricaoOriginal:descricao,
-      valor:Number(String(tag(b,"TRNAMT")).replace(",",".")), fitid:tag(b,"FITID"),
-      endToEndId:e2eId, txid, tipoOperacao:tag(b,"TRNTYPE"), contraparteNome:tag(b,"NAME"),
-      contraparteDocumento:documento, chavePix, metadadosImportacao:{trnType:tag(b,"TRNTYPE"),checknum:tag(b,"CHECKNUM"),refnum:tag(b,"REFNUM"),memo:tag(b,"MEMO"),name:tag(b,"NAME")},
-    };
-  }).filter(t => t.data && !isNaN(t.valor) && t.valor !== 0);
-  return { banco, conta, trans };
-};
+// parseOFX foi consolidado em src/domains/conciliacao/calculations.js em
+// 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md) - existiam duas
+// implementações divergentes (esta e uma cópia simplificada, nunca usada,
+// dentro do próprio calculations.js), e a divergência escondia que a
+// extração de contraparte por PIX nunca rodava de fato. Importado do
+// domínio agora, no topo deste arquivo.
 
 // Chave de deduplicação: FITID quando existe; senão, impressão digital da linha.
 export const chaveTransacao = (t) =>

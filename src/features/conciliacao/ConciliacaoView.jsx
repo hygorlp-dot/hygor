@@ -22,7 +22,7 @@ import {
   Badge, Btn, C, Ic, Inp, Modal, PageHero, Sel, TabRow,
   XLSX, carregarXLSX, fmt, fmtDate, today, uid,
   CATS_DESP, CATS_OBRA_CONC,
-  semAcentoConc, parseBRConc, parseOFX, chaveTransacao, somaRateios,
+  semAcentoConc, parseBRConc, chaveTransacao, somaRateios,
   sugerirRateio, diasEntre, sugerirMedicoes, sugerirPagamentoMaoObra,
   periodoPontoDaTransacao,
 } from "../../LegacyApp";
@@ -38,7 +38,7 @@ import {
   comandoConciliacaoAutomatica,
   podeOperarConciliacao, podeOperarConciliacaoTrabalhista, podeDesfazerConciliacao,
   podeReabrirFechamento, podeArquivarExtrato, podeFecharPeriodo, podeCriarRegra,
-  hashArquivo,
+  hashArquivo, parseOFX,
 } from "../../domains/conciliacao/index.js";
 import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "../../domains/conciliacao/pix-card";
 import { executarComandoConciliacao } from "../../api";
