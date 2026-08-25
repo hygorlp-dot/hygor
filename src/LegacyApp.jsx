@@ -4908,9 +4908,9 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
                   <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
                   <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
                   <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
-                  <Bar dataKey="faturamento" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]}/>
-                  <Bar dataKey="recebido" name="Recebido" fill={C.cinza} radius={[5,5,1,1]}/>
-                  <Bar dataKey="lucroBruto" name="Lucro bruto" fill={C.text} radius={[5,5,1,1]}/>
+                  <Bar dataKey="faturamento" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]} isAnimationActive={false}/>
+                  <Bar dataKey="recebido" name="Recebido" fill={C.cinza} radius={[5,5,1,1]} isAnimationActive={false}/>
+                  <Bar dataKey="lucroBruto" name="Lucro bruto" fill={C.text} radius={[5,5,1,1]} isAnimationActive={false}/>
                 </BarChart>
               </ResponsiveContainer>
           </ChartPanel>
@@ -4925,7 +4925,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
                     {name:"Terceiros",     value:Math.round(dre.tercCost),    fill:C.purple},
                     {name:"Rescisões",     value:Math.round(dre.rescTotal),   fill:C.red},
                     {name:"Outras Desp.",  value:Math.round(dre.outrasTotal), fill:C.yellow},
-                  ].filter(d=>d.value>0)} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={2}>
+                  ].filter(d=>d.value>0)} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={2} isAnimationActive={false}>
                     {[C.orange,C.muted,C.purple,C.red,C.yellow].map((c,i)=><Cell key={i} fill={c}/>)}
                   </Pie>
                   <Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
@@ -5003,8 +5003,8 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
                   <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
                   <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>v.toFixed(0)+"%"}/>
                   <Tooltip content={<ArcdChartTooltip formatter={v=>v.toFixed(1)+"%"}/>}/>
-                  <Line type="monotone" dataKey="margemBruta" name="Margem bruta" stroke={C.yellow} strokeWidth={2.5} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:2}} activeDot={{r:5}}/>
-                  <Line type="monotone" dataKey="margemCaixa" name="Margem de caixa" stroke={C.text} strokeWidth={2} dot={{r:3,fill:C.text,stroke:C.card,strokeWidth:2}} strokeDasharray="5 4"/>
+                  <Line type="monotone" dataKey="margemBruta" name="Margem bruta" stroke={C.yellow} strokeWidth={2.5} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:2}} activeDot={{r:5}} isAnimationActive={false}/>
+                  <Line type="monotone" dataKey="margemCaixa" name="Margem de caixa" stroke={C.text} strokeWidth={2} dot={{r:3,fill:C.text,stroke:C.card,strokeWidth:2}} strokeDasharray="5 4" isAnimationActive={false}/>
                 </LineChart>
               </ResponsiveContainer>
           </ChartPanel>
@@ -19002,7 +19002,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         ].map(([l,v,s])=>(
           <div key={l} data-negative={v<0}>
             <p>{l}</p>
-            <strong>{v<0?`(${fmt(Math.abs(v))})`:fmt(v)}</strong>
+            <strong className={razaoCarregando?"dre-kpi-loading":undefined}>{razaoCarregando?"":(v<0?`(${fmt(Math.abs(v))})`:fmt(v))}</strong>
             <span>{s}</span>
           </div>
         ))}
@@ -19152,9 +19152,9 @@ td.val{text-align:right;font-weight:700;min-width:110px}
               <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
               <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
               <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
-              <Bar dataKey="faturamentoTotal" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]}/>
-              <Bar dataKey="lucroBruto" name="Lucro bruto" fill={C.cinza} radius={[5,5,1,1]}/>
-              <Bar dataKey="lucroLiquido" name="Lucro líquido" fill={C.text} radius={[5,5,1,1]}/>
+              <Bar dataKey="faturamentoTotal" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]} isAnimationActive={false}/>
+              <Bar dataKey="lucroBruto" name="Lucro bruto" fill={C.cinza} radius={[5,5,1,1]} isAnimationActive={false}/>
+              <Bar dataKey="lucroLiquido" name="Lucro líquido" fill={C.text} radius={[5,5,1,1]} isAnimationActive={false}/>
             </BarChart>
           </ResponsiveContainer>
       </ChartPanel></div>

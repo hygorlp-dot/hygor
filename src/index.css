@@ -3909,6 +3909,7 @@
 }
 .dre-kpi-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--dre-kpi-color)}
 .dre-kpi-card:hover{transform:translateY(-1px);border-color:#b8bec1;box-shadow:0 7px 18px rgba(30,36,39,.065)}
+.dre-kpi-card:active{transform:translateY(0) scale(.98);box-shadow:0 2px 6px rgba(30,36,39,.08)}
 .dre-kpi-card:focus-visible{outline:3px solid rgba(177,139,25,.22);outline-offset:2px}
 .dre-kpi-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px;color:#737b80;font-size:10px}
 .dre-kpi-footer>b{display:inline-flex;align-items:center;gap:4px;color:#50585d;font-size:9px;white-space:nowrap}
@@ -4013,6 +4014,13 @@
 .dre-company-kpis strong{display:block;margin-top:4px;color:#1f2529;font-size:20px;line-height:1;font-weight:800;letter-spacing:-.5px}
 .dre-company-kpis>div[data-negative="true"] strong{color:#b42328}
 .dre-company-kpis span{display:block;margin-top:5px;color:#7d858a;font-size:9px}
+.dre-company-kpis strong.dre-kpi-loading{
+  width:70%;height:18px;border-radius:4px;
+  background:linear-gradient(90deg,#e6e9ea 25%,#f1f2f2 37%,#e6e9ea 63%);
+  background-size:400% 100%;animation:dre-kpi-skeleton 1.4s ease-in-out infinite;
+}
+@keyframes dre-kpi-skeleton{0%{background-position:100% 50%}100%{background-position:0 50%}}
+@media (prefers-reduced-motion:reduce){.dre-company-kpis strong.dre-kpi-loading{animation:none}}
 .dre-company-panel{display:none}
 .dre-company[data-view="inteligencia"] .dre-company-intelligence,
 .dre-company[data-view="inteligencia"] .dre-company-trend,

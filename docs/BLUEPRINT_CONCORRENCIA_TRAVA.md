@@ -1987,3 +1987,56 @@ Verificação: suíte completa (246 arquivos/1374 testes), `build`, `lint` e
 nesta rodada - a navegação até a tela "Caixa da obra" pelo navegador não
 respondeu durante a investigação; a correção se apoia nos testes de
 domínio e na leitura direta do código de escrita e leitura.
+
+## Crítica de design (DRE por Obra e DRE Empresa) e correções (25/08/2026)
+
+Pedido do usuário: crítica de design/UX das telas `DRE por Obra`
+(`DRELegado`, `LegacyApp.jsx`) e `DRE Empresa` (`DREEmpresa`,
+`LegacyApp.jsx`), no mesmo rigor usado em revisão de design deste
+projeto (hover/press state, curva de easing, consistência entre
+componentes). Achados confirmados por leitura direta do CSS/JSX (não
+suposição), depois implementados a pedido do usuário ("implemente
+tudo"):
+
+1. **`.dre-kpi-card` sem `:active` próprio** ([index.css:3910-3912](src/index.css#L3910-L3912))
+   - tinha hover (`translateY(-1px)`) mas o clique caía só no
+   `button:active{filter:brightness(.94)}` genérico. Adicionado
+   `.dre-kpi-card:active{transform:translateY(0) scale(.98);...}`.
+2. **Gráficos Recharts (`BarChart`/`PieChart`/`LineChart`) das duas telas
+   sem `isAnimationActive` em nenhum lugar** - replay da animação padrão
+   (~1500ms) a cada troca de ano/mês/quinzena/aba, a ação mais repetida
+   de quem usa o DRE no dia a dia. Adicionado `isAnimationActive={false}`
+   em todos os `<Bar>`/`<Pie>`/`<Line>` das duas telas (não nas demais
+   telas do app, que não fizeram parte desta revisão).
+3. **Duas caixas de diálogo na mesma tela (DRE por Obra) com motion
+   oposto**: o modal legado (`Modal`, `detalheKpi`) já tinha entrada
+   `scale(.97)+opacity` com curva própria (`--arcd-ease-standard`,
+   `cubic-bezier(0.2,0,0,1)`) e tokens de duração; o `DesignSystemDialog`
+   (`despModal`) não tinha nenhuma transição - aparecia/sumia instantâneo
+   ([Dialog.jsx](src/design-system/primitives/Dialog.jsx),
+   [styles.css:46-47](src/design-system/primitives/styles.css#L46-L47)).
+   Adicionada a mesma entrada (`scale(.97)+opacity+translateY`, mesmos
+   tokens `--arcd-motion-*`/`--arcd-ease-standard`) em
+   `.arcd-dialog`/`.arcd-dialog-backdrop` - agora todo `Dialog` do design
+   system (não só o do DRE) ganha a mesma qualidade de entrada.
+4. **DRE Empresa: KPIs renderizavam `R$ 0,00` real (de `dreVazio`)
+   enquanto a projeção canônica carregava**, antes do valor de verdade
+   chegar - um número financeiro passando por zero antes do resultado
+   real é o tipo exato de mudança brusca que confunde quem bate o olho
+   rápido. Trocado por um placeholder de shimmer
+   (`.dre-kpi-loading`, respeitando `prefers-reduced-motion`) enquanto
+   `razaoCarregando` - nada de "R$ 0,00" chega a ser renderizado no DOM
+   nesse meio-tempo.
+
+O que já estava bem feito e não foi mexido: o sistema de modal legado em
+si (nunca `scale(0)`, curva custom, tokens de duração,
+`prefers-reduced-motion` zerando tudo) - o problema era só a falta de
+uniformidade entre os dois sistemas de diálogo, não o sistema em si.
+
+Verificação: suíte completa (246 arquivos/1374 testes), `build`, `lint`
+e `architecture:check` sem violação. Mudança puramente visual/CSS+JSX
+sem lógica de dado - não verificada interativamente no navegador nesta
+rodada (login de produção não disponível neste ambiente; tentativa de
+rodar o dev server local também não permitiu navegação). Apoiada na
+leitura direta do código contra os padrões de motion já estabelecidos
+no design system (`motion.css`).

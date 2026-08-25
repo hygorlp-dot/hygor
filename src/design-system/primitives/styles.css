@@ -43,8 +43,10 @@
 .arcd-badge--warning { border-color: var(--arcd-warning-border); background: var(--arcd-warning-surface); color: var(--arcd-warning-text); }
 .arcd-badge--danger { border-color: var(--arcd-danger-border); background: var(--arcd-danger-surface); color: var(--arcd-danger-text); }
 .arcd-badge--info { border-color: var(--arcd-info-border); background: var(--arcd-info-surface); color: var(--arcd-info-text); }
-.arcd-dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: var(--arcd-space-4); background: var(--arcd-surface-overlay); }
-.arcd-dialog { width: min(100%, 40rem); max-height: min(44rem, calc(100dvh - 2rem)); overflow: auto; border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-lg); background: var(--arcd-surface-elevated); box-shadow: var(--arcd-elevation-modal); }
+.arcd-dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: var(--arcd-space-4); background: var(--arcd-surface-overlay); animation: arcd-dialog-backdrop-enter var(--arcd-motion-fast) var(--arcd-ease-standard); }
+.arcd-dialog { width: min(100%, 40rem); max-height: min(44rem, calc(100dvh - 2rem)); overflow: auto; border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-lg); background: var(--arcd-surface-elevated); box-shadow: var(--arcd-elevation-modal); animation: arcd-dialog-panel-enter var(--arcd-motion-normal) var(--arcd-ease-standard); }
+@keyframes arcd-dialog-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes arcd-dialog-panel-enter { from { opacity: 0; transform: scale(.97) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 .arcd-dialog__header { display: flex; align-items: start; justify-content: space-between; gap: var(--arcd-space-4); padding: var(--arcd-space-5); border-bottom: 1px solid var(--arcd-border-default); }
 .arcd-dialog__title { margin: 0; color: var(--arcd-text-primary); font-size: var(--arcd-font-size-lg); line-height: var(--arcd-line-height-tight); }
 .arcd-dialog__body { padding: var(--arcd-space-5); }
