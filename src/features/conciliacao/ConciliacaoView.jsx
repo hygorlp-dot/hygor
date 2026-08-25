@@ -111,16 +111,17 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const analisesPorTransacao=useMemo(()=>new Map((data.transacoes||[]).map(tr=>[
     tr.id,analisarMovimentoConciliacao(tr,data,{indices:indicesFinanceiros,registry:registroIdentidades}),
   ])),[data,indicesFinanceiros,registroIdentidades]);
-  // Só "pronta" entra no lote (score ≥ 95, sem bloqueio, distância segura da
-  // segunda candidata - ver faixaDoScore/preSelecionavel em matching.js).
-  // "revisar"/"investigar" continuam exigindo abrir a transação
-  // individualmente, como já era antes desta mudança.
-  const transacoesProntas=useMemo(()=>{
+  // elegivelLote (calculado pelo motor, engine.js) cobre "pronta" e o
+  // subconjunto de "revisar" sem ambiguidade real com uma segunda candidata
+  // - ampliado em 25/08/2026 (pedido do usuário) além de só "pronta"
+  // original. "investigar", e o restante de "revisar" que tem uma segunda
+  // candidata próxima, continuam exigindo abrir a transação individualmente.
+  const transacoesElegiveisLote=useMemo(()=>{
     const extratosArquivados=new Set((data.extratos||[]).filter(e=>e.status==="arquivado").map(e=>String(e.id)));
     return (data.transacoes||[])
       .filter(tr=>tr.status==="pendente"&&!extratosArquivados.has(String(tr.extratoId||"")))
       .map(tr=>({tr,analise:analisesPorTransacao.get(tr.id)}))
-      .filter(({analise})=>analise?.classificacaoOperacional==="pronta");
+      .filter(({analise})=>analise?.elegivelLote===true);
   },[data.transacoes,data.extratos,analisesPorTransacao]);
   const periodoQuinzenaConc=useMemo(()=>periodoPontoDaTransacao(today()),[]);
   const resumoQuinzena=useMemo(()=>resumoQuinzenaConciliacao(data,{
@@ -260,7 +261,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   // inconsistente.
   const confirmarLotePronto = async () => {
     if (!loteProntoModal || confirmandoLote) return;
-    const itens = transacoesProntas.filter(({ tr }) => !loteProntoModal.excluidas.has(tr.id));
+    const itens = transacoesElegiveisLote.filter(({ tr }) => !loteProntoModal.excluidas.has(tr.id));
     if (!itens.length) return;
     setConfirmandoLote(true);
     let sucesso = 0, falha = 0;
@@ -807,7 +808,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         </label>
         {aba!=="historico"&&!modoConciliacaoRh&&<select aria-label="Tipo de movimento" value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}
         {!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<button type="button" className="reconciliation-toolbar__select-all" onClick={alternarTodas}>{todosSelecionados?"Desmarcar todas":"Selecionar todas"}</button>}
-        {!modoConciliacaoRh&&aba==="pendentes"&&transacoesProntas.length>0&&<Btn size="sm" onClick={()=>setLoteProntoModal({excluidas:new Set()})}><Ic n="check"/> Revisar prontas em lote · {transacoesProntas.length}</Btn>}
+        {!modoConciliacaoRh&&aba==="pendentes"&&transacoesElegiveisLote.length>0&&<Btn size="sm" onClick={()=>setLoteProntoModal({excluidas:new Set()})}><Ic n="check"/> Revisar e confirmar em lote · {transacoesElegiveisLote.length}</Btn>}
         {!modoConciliacaoRh&&aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}
         {!modoConciliacaoRh&&aba==="pendentes"&&calc.pendentes>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar((data.transacoes||[]).filter(t=>t.status==="pendente"),"Ignorar todas as pendentes")}>Ignorar todas · {calc.pendentes}</Btn>}
         {!modoConciliacaoRh&&aba==="ignoradas"&&selecionadas.length>0&&<Btn size="sm" v="info" onClick={()=>reabrir(selecionadas)}>Reabrir selecionadas · {selecionadas.length}</Btn>}
@@ -1046,28 +1047,32 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
       {loteProntoModal&&(()=>{
         const excluidas=loteProntoModal.excluidas;
-        const selecionados=transacoesProntas.filter(({tr})=>!excluidas.has(tr.id));
+        const selecionados=transacoesElegiveisLote.filter(({tr})=>!excluidas.has(tr.id));
         const alternarExclusao=id=>setLoteProntoModal(m=>{
           const proximo=new Set(m.excluidas);
           proximo.has(id)?proximo.delete(id):proximo.add(id);
           return {...m,excluidas:proximo};
         });
-        return <Modal title={`Revisar e confirmar em lote · ${transacoesProntas.length} pronta(s)`} onClose={()=>!confirmandoLote&&setLoteProntoModal(null)} wide>
+        return <Modal title={`Revisar e confirmar em lote · ${transacoesElegiveisLote.length} selecionável(is)`} onClose={()=>!confirmandoLote&&setLoteProntoModal(null)} wide>
           <div style={{display:"flex",flexDirection:"column",gap:9}}>
             <div style={{padding:"9px 10px",border:`1px solid ${C.green}55`,background:`${C.green}0B`,borderRadius:8}}>
-              <b style={{fontSize:11,color:C.green}}>Confiança máxima, sem bloqueio</b>
-              <p style={{fontSize:9,color:C.muted,marginTop:3}}>Cada linha mostra a candidata que o motor escolheu (PIX, CPF/CNPJ, nome ou valor exato). Desmarque qualquer uma que não pareça certa - só as marcadas são confirmadas.</p>
+              <b style={{fontSize:11,color:C.green}}>Sem bloqueio e sem ambiguidade com outra candidata</b>
+              <p style={{fontSize:9,color:C.muted,marginTop:3}}>Cada linha mostra a candidata que o motor escolheu (PIX, CPF/CNPJ, nome ou valor exato) e a faixa de confiança dela. Desmarque qualquer uma que não pareça certa - só as marcadas são confirmadas.</p>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:420,overflowY:"auto"}}>
-              {transacoesProntas.map(({tr,analise})=>{
+              {transacoesElegiveisLote.map(({tr,analise})=>{
                 const excluida=excluidas.has(tr.id);
                 const c=analise?.melhorCandidata;
+                const pronta=analise?.classificacaoOperacional==="pronta";
                 return <label key={tr.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 10px",border:`1px solid ${C.border}`,borderRadius:7,opacity:excluida?0.5:1,cursor:"pointer"}}>
                   <input type="checkbox" checked={!excluida} onChange={()=>alternarExclusao(tr.id)} style={{marginTop:3}}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
                       <b style={{fontSize:10.5,color:C.text}}>{tr.descricao}</b>
-                      <b style={{fontSize:10.5,color:tr.valor>0?C.green:C.red,whiteSpace:"nowrap"}}>{fmt(Math.abs(tr.valor))}</b>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <Badge color={pronta?C.green:C.blue}>{pronta?"pronta":"revisar"}</Badge>
+                        <b style={{fontSize:10.5,color:tr.valor>0?C.green:C.red,whiteSpace:"nowrap"}}>{fmt(Math.abs(tr.valor))}</b>
+                      </div>
                     </div>
                     <p style={{fontSize:9,color:C.muted,marginTop:2}}>{fmtDate(tr.data)} → {c?.titulo||"Candidata"}{c?.subtitulo?` · ${c.subtitulo}`:""}</p>
                     {c?.motivos?.length>0&&<p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{c.motivos.join(" · ")}</p>}

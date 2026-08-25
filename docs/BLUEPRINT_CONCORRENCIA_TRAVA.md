@@ -1875,3 +1875,50 @@ valida contra `data.obras` e ignora id inexistente
 
 Verificação: suíte completa (246 arquivos/1368 testes), `build`, `lint`
 e `architecture:check` sem violação.
+
+## Amplia o lote de confirmação automática além de só "pronta" (25/08/2026)
+
+Pedido do usuário ("corrija e automatize"), escolhendo explicitamente a
+opção de ampliar o lote existente (não uma regra 100% sem clique humano).
+
+O motor (`engine.js`, `analisarMovimentoConciliacao`) passa a devolver um
+campo `elegivelLote` (booleano) além de `classificacaoOperacional`:
+
+- `"pronta"` (score ≥95, sem segunda candidata a menos de 15 pontos)
+  sempre foi e continua elegível.
+- Dentro de `"revisar"` (score 80-94), **só** entra o subconjunto sem uma
+  segunda candidata próxima. `classification()` já classificava como
+  `"revisar"` mesmo quando o score da melhor candidata era ≥95, se
+  houvesse uma segunda candidata forte a menos de 15 pontos - esse
+  subconjunto é ambiguidade real (não dá para saber com segurança qual
+  das duas é o fato certo) e **fica de fora do lote**, mesmo estando
+  tecnicamente em "revisar". Confirmar isso às cegas arriscaria
+  pagar/receber contra o registro errado.
+- `"investigar"`, `"bloqueada"` e `"sem_correspondencia"` continuam fora,
+  como sempre.
+
+`comandoConciliacaoAutomatica` não mudou de comportamento (os mesmos 3
+tipos de `acaoRecomendada` continuam sendo os únicos alcançáveis, agora
+tanto por "pronta" quanto pelo subconjunto elegível de "revisar" - a
+mesma prova estrutural documentada no comentário da função ainda vale).
+
+`ConciliacaoView.jsx`: renomeado `transacoesProntas` →
+`transacoesElegiveisLote` (reflete a nova composição); botão e modal
+atualizados para não afirmar "prontas" quando o lote agora pode incluir
+itens de "revisar" sem ambiguidade; cada linha do modal ganhou um selo
+(`pronta`/`revisar`) para o usuário saber a origem daquela linha antes
+de confirmar. Continua exigindo o mesmo clique humano de sempre - nada
+muda no requisito de revisão, só no que entra na lista revisável.
+
+Testes novos em `engine.test.js`: `elegivelLote` verdadeiro para
+"pronta"; verdadeiro para "revisar" sem segunda candidata próxima;
+falso para "revisar" causado por ambiguidade real entre duas candidatas
+fortes (mesmo fitid, mesmo CNPJ, mesmo valor - score 100 nas duas,
+margem zero).
+
+Verificação: suíte completa (246 arquivos/1371 testes), `build`, `lint`
+e `architecture:check` sem violação. Mudança de UI (modal de lote) não
+verificada em navegador nesta rodada - a tela exige login e dados
+financeiros reais para exercitar o cenário "revisar sem ambiguidade";
+coberta pelos testes de domínio (`engine.test.js`) e pela compilação
+bem-sucedida do JSX.

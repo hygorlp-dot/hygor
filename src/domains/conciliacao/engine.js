@@ -52,6 +52,18 @@ export const analisarMovimentoConciliacao=(transaction,data,options={})=>{
   const candidates=raw.map(candidate=>canonicalCandidate(candidate,identity)).sort((a,b)=>b.score-a.score);
   const best=candidates[0]||null, second=candidates[1]||null;
   const operational=classification(best,second);
+  // Elegível para o lote de confirmação em massa (25/08/2026, pedido do
+  // usuário para ampliar além de só "pronta"): "pronta" sempre entra. Dentro
+  // de "revisar" (score 80-94), só entra o subconjunto SEM ambiguidade real
+  // - quando há uma segunda candidata a menos de 15 pontos da melhor,
+  // classification() já classifica como "revisar" mesmo que o score da
+  // melhor seja alto, porque não dá para saber com segurança qual das duas
+  // é o fato certo. Confirmar isso em lote, sem revisão individual, seria
+  // arriscar pagar/receber contra o registro errado - por isso fica de fora,
+  // mesmo estando em "revisar".
+  const margin=best?Number(best.score||0)-Number(second?.score||0):0;
+  const semAmbiguidade=!second||margin>=15;
+  const elegivelLote=operational==="pronta"||(operational==="revisar"&&semAmbiguidade);
   const missing=[];
   if(!identity.registro)missing.push("contraparte identificada");
   if(!transaction?.fitid&&!transaction?.endToEndId&&!transaction?.txid)missing.push("identificador bancário único");
@@ -59,7 +71,7 @@ export const analisarMovimentoConciliacao=(transaction,data,options={})=>{
   const bestOut=best?{...best,contratoId:best.metadados?.contratoId||null}:null;
   return {
     transacaoId:String(transaction?.id||""),direcao:Number(transaction?.valor)>=0?"entrada":"saida",valorCentavos:Math.abs(paraCentavos(transaction?.valor)),
-    classificacaoOperacional:operational,melhorCandidata:bestOut,alternativas:candidates.slice(1),
+    classificacaoOperacional:operational,elegivelLote,melhorCandidata:bestOut,alternativas:candidates.slice(1),
     identidadeProvavel:{tipo:identity.registro?.tipo||"outro",id:identity.registro?.id||null,nome:identity.registro?.nome||"",score:identity.registro?(identity.conflito?0:Math.min(100,identity.evidencias.length*35)):0,evidencias:identity.evidencias,conflito:identity.conflito},
     acaoRecomendada:actionFor(transaction,bestOut,identity),camposParaConfirmacao:operational==="pronta"?["confirmação humana"]:["contraparte","fato financeiro","confirmação humana"],
     efeitoDRE:best?.tipo==="medicao"||best?.tipo==="entradaContrato"?"receita_existente":best?"custo_existente":"novo_lancamento_revisado",
@@ -78,16 +90,18 @@ export const priorizarFilaConciliacao=(transactions,data,options={})=>{
   });
 };
 
-// Traduz a recomendação do motor para o comando real do servidor -
-// usado pela revisão em lote (confirmar de uma vez todas as transações
-// classificadas "pronta"). Só cobre os 3 tipos de acaoRecomendada que uma
-// classificação "pronta" pode de fato ter: MARCAR_TRANSFERENCIA_INTERNA
-// nunca passa de score 40 (pontuarPix em matching.js), e
+// Traduz a recomendação do motor para o comando real do servidor - usado
+// pela revisão em lote (confirmar de uma vez todas as transações com
+// elegivelLote===true: "pronta", mais o subconjunto de "revisar" sem
+// ambiguidade real - ver o cálculo de elegivelLote acima). Só cobre os 3
+// tipos de acaoRecomendada que essas classificações podem de fato ter:
+// MARCAR_TRANSFERENCIA_INTERNA nunca passa de score 40 (pontuarPix em
+// matching.js, abaixo do piso 80 de "revisar"), e
 // CRIAR_LANCAMENTO_NOVO_COM_REVISAO/SOLICITAR_CORRECAO_CADASTRAL só
 // aparecem quando não há candidata ou há conflito de identidade - as duas
 // situações que classification() (acima) já classifica como
-// "sem_correspondencia"/"bloqueada", nunca "pronta". Por isso os demais
-// casos devolvem null em vez de tentar adivinhar um comando.
+// "sem_correspondencia"/"bloqueada", nunca "pronta"/"revisar". Por isso os
+// demais casos devolvem null em vez de tentar adivinhar um comando.
 export const comandoConciliacaoAutomatica=(analise)=>{
   const candidata=analise?.melhorCandidata;
   if(!candidata)return null;

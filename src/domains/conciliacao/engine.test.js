@@ -16,6 +16,33 @@ describe("contrato canônico de conciliação",()=>{
     const list=priorizarFilaConciliacao([{id:"a",valor:-100,data:"2026-07-20",contraparteNome:"Fornecedor"},{id:"b",valor:-1,data:"2026-07-19"}],{...data,employees:[]});
     expect(list[0].transaction.id).toBe("a");
   });
+  // Achado de 25/08/2026 (pedido do usuário para ampliar o lote além de só
+  // "pronta"): elegivelLote cobre "pronta" e o subconjunto de "revisar" sem
+  // uma segunda candidata próxima - mas NÃO o caso em que "revisar" existe
+  // justamente porque há ambiguidade real entre duas candidatas fortes
+  // (score alto nas duas, margem pequena) - confirmar esse caso em lote
+  // arriscaria pagar contra o fato errado.
+  it("elegivelLote é true para 'pronta'",()=>{
+    const forte={...data,notasFiscais:[{id:"n1",numero:"NF-1",valorLiquido:100,pagamentos:[],fornecedorNome:"Fornecedor",fitid:"fit-1",vencimento:"2026-07-20"}]};
+    const result=analisarMovimentoConciliacao({id:"t1",valor:-100,data:"2026-07-20",fitid:"fit-1"},forte);
+    expect(result.classificacaoOperacional).toBe("pronta");
+    expect(result.elegivelLote).toBe(true);
+  });
+  it("elegivelLote é true para 'revisar' sem segunda candidata próxima (score 80-94, sem ambiguidade)",()=>{
+    const media={...data,notasFiscais:[{id:"n1",numero:"NF-1",valorLiquido:100,pagamentos:[],fornecedorNome:"Fornecedor",documentoFornecedor:"12345678000199",vencimento:"2026-07-20"}]};
+    const result=analisarMovimentoConciliacao({id:"t1",valor:-100,data:"2026-07-20",contraparteNome:"Fornecedor",contraparteDocumento:"12345678000199"},media);
+    expect(result.classificacaoOperacional).toBe("revisar");
+    expect(result.elegivelLote).toBe(true);
+  });
+  it("elegivelLote é false para 'revisar' causado por ambiguidade real entre duas candidatas fortes",()=>{
+    const ambigua={...data,notasFiscais:[
+      {id:"n1",numero:"NF-1",valorLiquido:100,pagamentos:[],fornecedorNome:"Fornecedor",documentoFornecedor:"12345678000199",fitid:"fit-dup"},
+      {id:"n2",numero:"NF-2",valorLiquido:100,pagamentos:[],fornecedorNome:"Fornecedor",documentoFornecedor:"12345678000199",fitid:"fit-dup"},
+    ]};
+    const result=analisarMovimentoConciliacao({id:"t1",valor:-100,data:"2026-07-20",fitid:"fit-dup",contraparteNome:"Fornecedor",contraparteDocumento:"12345678000199"},ambigua);
+    expect(result.classificacaoOperacional).toBe("revisar");
+    expect(result.elegivelLote).toBe(false);
+  });
   it("resume título, liquidação parcial e saldo por pessoa",()=>{
     const summary=resumoQuinzenaConciliacao({...data,employees:[data.employees[0]],titulosFolha:[{id:"f1",employeeId:"e1",liquido:1000,periodoFim:"2026-07-20",liquidacoes:[{valor:400},{valor:600,status:"ESTORNADA"}]}]},{inicio:"2026-07-06",fim:"2026-07-20"});
     expect(summary.totalPrevisto).toBe(1000);expect(summary.totalPago).toBe(400);expect(summary.pagamentosParciais).toHaveLength(1);
