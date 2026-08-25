@@ -14674,7 +14674,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       </>:<div style={{paddingTop:4}}>
         {abaConteudo==="orc"&&<Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}/></Suspense>}
         {abaConteudo==="plan"&&<Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
-        {abaConteudo==="rdo"&&<DiarioObra data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
+        {abaConteudo==="rdo"&&<DiarioObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="qualidade"&&<Qualidade data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="seguranca"&&<SegurancaObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="conferencia"&&<Conferencia data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
@@ -14804,7 +14804,7 @@ const CLIMA_OPC = [
   { v: "impraticavel", l: "Impraticavel", c: C.red    },
 ];
 
-function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
+function DiarioObra({ data, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
   const { cols } = useBreakpoint();
 
   const obras = useMemo(() => (data.obras || []).filter(o => o.status !== "done"), [data.obras]);
@@ -14876,35 +14876,27 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
       showToast?.("Este diário está encerrado e disponível somente para consulta.","error");
       return {ok:false,reason:"read_only"};
     }
+    if(!dispatchCommand){
+      const message="O diário de obra exige conexão com o servidor para ser salvo com segurança.";
+      setSalvamentoRdo({status:"error",at:"",message});
+      showToast?.(message,"error");
+      return {ok:false,reason:message};
+    }
     setSalvamentoRdo({status:"saving",at:"",message:"Salvando alterações..."});
     ultimoSalvamentoFalhoRdoRef.current=mut;
-    if(dispatchCommand){
-      const idempotencyKey=`rdo-${uid()}-${Date.now()}`;
-      const result=await dispatchCommand(atual=>{
-        const existente=(atual.rdos||[]).find(item=>item.obraId===obraId&&item.data===dataRDO);
-        const base=existente
-          ? {...existente,responsavel:existente.responsavel||responsavelAutomatico?.nome||"",responsavelId:existente.responsavelId||responsavelAutomatico?.id||"",registradoPor:existente.registradoPor||currentUser?.nome||"",registradoPorId:existente.registradoPorId||currentUser?.id||""}
-          : {...rdo,id:uid(),criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()};
-        const report=mut(base);
-        return {type:OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,idempotencyKey,expectedVersion:Number(existente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{report}};
-      });
-      if(!result?.ok){const message=result?.reason||"Não foi possível registrar o diário.";setSalvamentoRdo({status:"error",at:"",message});showToast?.(message,"error");return result;}
-      ultimoSalvamentoFalhoRdoRef.current=null;
-      setSalvamentoRdo({status:"saved",at:new Date().toISOString(),message:"Alterações confirmadas pelo servidor."});
-      return result;
-    }
-    const existe = (data.rdos || []).some(r => r.id === rdo.id && rdo.id);
-    let rdos;
-    if (existe) {
-      rdos = (data.rdos || []).map(r => r.id === rdo.id ? mut({ ...r,responsavel:r.responsavel||responsavelAutomatico?.nome||"",responsavelId:r.responsavelId||responsavelAutomatico?.id||"",registradoPor:r.registradoPor||currentUser?.nome||"",registradoPorId:r.registradoPorId||currentUser?.id||"" }) : r);
-    } else {
-      const novo = mut({ ...rdo, id: uid(), criadoEm: new Date().toISOString(), atualizadoEm:new Date().toISOString() });
-      rdos = [...(data.rdos || []), novo];
-    }
-    const result=await update({ ...data, rdos });
-    if(result?.ok===false){const message=result.reason||"Não foi possível registrar o diário.";setSalvamentoRdo({status:"error",at:"",message});return result;}
-    ultimoSalvamentoFalhoRdoRef.current=null;setSalvamentoRdo({status:"saved",at:new Date().toISOString(),message:"Alterações salvas."});
-    return result||{ok:true};
+    const idempotencyKey=`rdo-${uid()}-${Date.now()}`;
+    const result=await dispatchCommand(atual=>{
+      const existente=(atual.rdos||[]).find(item=>item.obraId===obraId&&item.data===dataRDO);
+      const base=existente
+        ? {...existente,responsavel:existente.responsavel||responsavelAutomatico?.nome||"",responsavelId:existente.responsavelId||responsavelAutomatico?.id||"",registradoPor:existente.registradoPor||currentUser?.nome||"",registradoPorId:existente.registradoPorId||currentUser?.id||""}
+        : {...rdo,id:uid(),criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()};
+      const report=mut(base);
+      return {type:OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,idempotencyKey,expectedVersion:Number(existente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{report}};
+    });
+    if(!result?.ok){const message=result?.reason||"Não foi possível registrar o diário.";setSalvamentoRdo({status:"error",at:"",message});showToast?.(message,"error");return result;}
+    ultimoSalvamentoFalhoRdoRef.current=null;
+    setSalvamentoRdo({status:"saved",at:new Date().toISOString(),message:"Alterações confirmadas pelo servidor."});
+    return result;
   };
   const salvarRDO=mut=>{const operacao=filaSalvamentoRdoRef.current.catch(()=>({ok:false})).then(()=>executarSalvarRDO(mut));filaSalvamentoRdoRef.current=operacao;return operacao;};
 
@@ -14949,19 +14941,14 @@ function DiarioObra({ data, update, showToast, currentUser, obraIdFixo="", dispa
     if(!window.confirm(`Cancelar o RDO ${item.codigo||""} de ${fmtDate(item.data)}? O documento será bloqueado e continuará disponível no histórico.`))return false;
     const motivo=window.prompt(`Motivo do cancelamento do RDO ${item.codigo||""} de ${fmtDate(item.data)}:`);
     if(!String(motivo||"").trim())return false;
-    const agora=new Date().toISOString();
-    if(dispatchCommand){
-      const result=await dispatchCommand(atual=>{
-        const vigente=(atual.rdos||[]).find(x=>x.id===item.id);
-        return {type:OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,idempotencyKey:`rdo-cancelamento-${item.id}-${uid()}`,
-          expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{reportId:item.id,reason:String(motivo).trim()}};
-      });
-      if(!result?.ok){showToast?.(result?.reason||"Não foi possível cancelar o diário.","error");return false;}
-    }else {const fallbackResult=await update({...data,rdos:(data.rdos||[]).map(x=>x.id!==item.id?x:{
-      ...x,status:"cancelado",motivoCancelamento:String(motivo).trim(),canceladoEm:agora,
-      canceladoPorId:currentUser?.id||"",canceladoPor:currentUser?.nome||"",atualizadoEm:agora,
-    })});if(fallbackResult?.ok===false){showToast?.(fallbackResult.reason||"Não foi possível cancelar o diário.","error");return false;}}
+    if(!dispatchCommand){showToast?.("Cancelar o diário de obra exige conexão com o servidor.","error");return false;}
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.rdos||[]).find(x=>x.id===item.id);
+      return {type:OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED,idempotencyKey:`rdo-cancelamento-${item.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{reportId:item.id,reason:String(motivo).trim()}};
+    });
+    if(!result?.ok){showToast?.(result?.reason||"Não foi possível cancelar o diário.","error");return false;}
     showToast?.("Diário cancelado e preservado no histórico."); return true;
   };
   const duplicarRdo = async item => {
@@ -21564,7 +21551,7 @@ export default function App() {
           {tab === "orc"    && <Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "plan"   && <Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "plan_suprimentos" && <Suspense fallback={<div className="arcd-page-loading">Carregando suprimentos...</div>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
-          {tab === "rdo"    && <DiarioObra    data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "rdo"    && <DiarioObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conferencia" && <Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} />}
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} dispatchCommand={dispatchOperationalCommand} />}

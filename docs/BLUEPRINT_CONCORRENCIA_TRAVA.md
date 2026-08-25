@@ -2344,5 +2344,42 @@ de cronograma legado, o item de maior risco isolado do raio-X): testes
 de caracterização para o motor legado de cronograma
 (`src/LegacyApp.jsx:11119-12148`) e para as analytics comerciais
 (`src/LegacyApp.jsx:19384-19580`) - os dois maiores blocos de lógica de
-negócio do repositório sem nenhuma rede de teste. Resultado registrado
-separadamente quando os agentes concluírem.
+negócio do repositório sem nenhuma rede de teste.
+
+**Analytics comerciais** (`src/domains/comercial/legacy-analytics-characterization.test.js`,
+40 testes): concluído de primeira. Achou um bug real no processo, não só
+peculiaridades - `npsResumo` soma as notas com `s + p.nota` sem `Number()`,
+enquanto o filtro de validade usa `Number(p.nota)>=0`. Se a nota chegar
+como string (ex.: de formulário/planilha), a soma vira concatenação em vez
+de soma aritmética: duas notas "9" e "8" produzem média 49, não 8,5. Não
+corrigido nesta rodada (é caracterização, não correção) - fica registrado
+como candidato a bug real para uma correção futura. Outros achados: a
+primeira fase do funil em `conversaoPorFase` sempre compara consigo mesma
+(taxa sempre 100%/0%, não é uma taxa de conversão real); leads perdidos
+sem `etapaMaxima` desaparecem de todas as fases do funil; `taxaIndicacao`
+subestima indicações anotadas só por nome livre (sem `indicadoPorClienteId`).
+
+**Motor legado de cronograma** (`src/domains/planejamento/legacy-engine-characterization.test.js`,
+44 testes): o agente caiu por limite de sessão a meio caminho, com o
+arquivo já escrito mas um teste com valor esperado incorreto (a última
+asserção que ele não chegou a rodar antes de cair). Corrigido manualmente
+- os valores errados eram só palpite do agente sobre o resultado, não um
+bug do motor: `desvioAutomatico` calcula 19 dias de desvio (não 24) para
+uma tarefa não iniciada e já vencida, e -5 (não -10) para uma tarefa em
+ritmo acima do previsto - conferido rodando a função de verdade, não
+recalculado à mão.
+
+### Onda 1 - fechar os buracos de concorrência restantes (em andamento)
+
+1. **Diário de Obra perde o fallback sem CAS.** `executarSalvarRDO` e
+   `excluirRdo` (`src/LegacyApp.jsx`, função `DiarioObra`) caíam para
+   `update()` direto, sem `expectedVersion`, sempre que `dispatchCommand`
+   não estava disponível - silenciosamente, sem avisar o usuário que
+   aquela escrita ficou desprotegida. Trocado por uma recusa explícita
+   ("exige conexão com o servidor") nos dois pontos, igual ao padrão já
+   usado em Licenciamento/Segurança/Qualidade. `update` também saiu da
+   assinatura do componente e dos dois pontos de renderização, por ter
+   ficado sem nenhum uso depois da remoção do fallback.
+
+Verificação: suíte completa (250 arquivos/1475 testes), `build`, `lint`
+e `architecture:check` sem violação.
