@@ -1523,6 +1523,77 @@ registrada nas rodadas anteriores desta sessão) e não tenho o PIN para
 logar. Só a compilação e os testes automatizados confirmam corretude de
 código, não a experiência real da tela.
 
+## INCIDENTE: 6 deploys seguidos falharam silenciosamente (25/08/2026)
+
+Usuário pediu "teste" depois de logar manualmente no navegador desta
+sessão para permitir verificação real da tela de recebimento de fatura de
+locação (seção anterior). Ao tentar abrir a tela em produção, o código
+novo simplesmente não estava lá - o chunk JS servido não continha
+`Vincular recebimento` nem `rentalReceiptModal`.
+
+**Investigação**: comparar o conteúdo do chunk servido (`fetch` direto do
+arquivo, `x-vercel-cache: HIT`, `last-modified` de ~8 minutos antes do
+`index.html` mais recente) já indicava dessincronia. A confirmação
+definitiva veio de `gh api repos/.../commits/<sha>/status`, que expõe o
+check de deploy da Vercel por commit:
+
+```
+38ab91d (tela de recebimento)........... failure
+8befb5e (doc auditoria).................. failure
+2c61235 (doc. cotação + cancelamento).... failure
+7d54baf (CORE-003)........................ failure
+823bef6 (QUOTATION_SAVED)................ failure
+7844206 (fix agente IA + bug de e-mail).. failure
+115ad1e (doc. investigação agente IA).... SUCCESS  ← produção real ficou aqui
+```
+
+**Seis commits seguidos falharam no deploy, e ninguém percebeu** -
+inclusive eu, que "confirmei em produção" cada uma dessas rodadas ao
+longo da sessão. A verificação usada até aqui (`fetch` a `/api/data` sem
+sessão, esperando `401`) tem um defeito grave: uma função serverless
+INTOCADA da última versão QUE FUNCIONOU continua respondendo `401`
+perfeitamente bem - o teste não distingue "a versão nova está no ar" de
+"uma versão antiga qualquer ainda está no ar". Todo "verificado em
+produção" desta sessão a partir do commit `7844206` estava, na prática,
+testando a versão de `115ad1e` sem saber disso.
+
+**Causa raiz**: `api/auth.test.js` (criado na rodada do commit `7844206`,
+ver seção "Correção dos achados do agente de IA"). A Vercel, com
+`"framework":"vite"` e a convenção de pasta `api/`, trata TODO arquivo
+`.js` dentro de `api/` como candidato a função serverless própria -
+inclusive um arquivo de teste. `api/auth.test.js` importa `vitest`
+(devDependency, não disponível no empacotamento de função da Vercel) e
+não exporta nenhum handler - isso quebra o build de função da Vercel,
+silenciosamente, sem aparecer em `npm run build` local (que não faz esse
+empacotamento de função nenhuma vez). Nenhum outro arquivo de teste de
+`api/*.js` já existente cometia esse erro - todos os outros sempre
+viveram em `src/integration/` (ex.: `ai-agent-rate-limit.test.js`,
+testando `api/ai-agent.js` de fora). Este foi o único caso, desta sessão,
+em que um teste de handler de API nasceu dentro da própria pasta `api/`.
+
+**Corrigido**: `api/auth.test.js` movido para
+`src/integration/auth-email-matching.test.js` (import ajustado para
+`../../api/auth.js`, mesmo padrão dos demais). `.vercelignore` ganhou
+`api/*.test.js` como cinto de segurança - mesmo que um teste volte a
+nascer ali por engano numa sessão futura, não deve mais derrubar o
+deploy.
+
+**O que isso significa para todo o trabalho de `7844206` a `38ab91d`**:
+nenhuma correção de bug, nenhum comando novo, nenhuma tela e nenhuma
+migration dessas seis rodadas chegou a rodar em produção até agora -
+inclusive a migration 014 (CORE-003) nunca foi de fato aplicada contra o
+Postgres de produção, porque o deploy nunca completou o `prebuild`. Isso
+é bom, no sentido de que "nunca rodou" é mais seguro que "rodou errado" -
+mas significa que a rodada de verificação em produção precisa ser
+refeita do zero para tudo isso assim que o próximo deploy realmente
+suceder.
+
+**Lição sobre verificação, para não repetir**: checar `401`/"função não
+crashou" NUNCA prova que o código atual está no ar. A partir de agora,
+depois de um push, checar o status real do deploy via
+`gh api repos/<owner>/<repo>/commits/<sha>/status` (campo `state`) antes
+de declarar qualquer coisa "verificado em produção".
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`

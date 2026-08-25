@@ -9,7 +9,19 @@ import {beforeAll,beforeEach,describe,expect,it,vi} from "vitest";
 // TANTO a sessão do Supabase Auth quanto um usuário do ArcD tinham e-mail
 // vazio, resolvendo a pessoa errada (o primeiro usuário sem e-mail da
 // lista) em vez de falhar a autenticação por e-mail.
-
+//
+// Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): este
+// arquivo nasceu dentro de api/auth.test.js por engano - a Vercel trata
+// TODO arquivo dentro de api/ como candidato a função serverless
+// (framework "vite" + convenção de api/ do vercel.json), e um arquivo que
+// só importa vitest e não exporta um handler quebra o build inteiro
+// silenciosamente (sem aviso em npm run build local, só no build real da
+// Vercel). Isso derrubou 6 deploys seguidos sem ninguém perceber, porque a
+// verificação em produção usada nesta sessão só checava se a função
+// respondia (401 para sessão inválida) - o que continua funcionando
+// mesmo quando o deploy mais recente falhou e a Vercel serve a versão
+// anterior. Movido para src/integration/, mesmo padrão de todo teste de
+// api/*.js já existente (ex.: ai-agent-rate-limit.test.js).
 const CORE_KEY="arced_ponto_v1";
 const PROFILE_KEY="arced_auth_profiles_v1";
 
@@ -59,7 +71,7 @@ describe("authenticateAppContext · correspondência por accessToken",()=>{
     process.env.SUPABASE_URL="https://auth-email-match.test";
     process.env.SUPABASE_SERVICE_ROLE_KEY="service-role-test";
     vi.resetModules();
-    ({authenticateAppContext}=await import("./auth.js"));
+    ({authenticateAppContext}=await import("../../api/auth.js"));
   },30000);
 
   beforeEach(()=>{

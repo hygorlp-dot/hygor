@@ -18,3 +18,4 @@ CLAUDE.md
 skills-lock.json
 .mcp.json
 .env*
+api/*.test.js
