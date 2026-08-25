@@ -518,16 +518,39 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
 
   (data.caixaObra || []).filter(active).forEach(entry => {
     const kind = String(entry.tipo || entry.natureza || "").toLowerCase();
-    const effect = ["despesa","saida","pagamento"].includes(kind) ? "cash_out" : "cash_in";
+    const isDespesa = ["despesa","saida","pagamento"].includes(kind);
+    const effect = isDespesa ? "cash_out" : "cash_in";
     const id = sourceId(entry, `${entry.obraId}|${entry.data}|${entry.valor}|${entry.descricao}`);
-    add({
-      id:`caixa_obra:${id}:${effect}`, effect, amountCents:positiveCents(entry.valor,entry.amount),
-      date:entry.data || entry.date, obraId:entry.obraId || "", category:entry.categoria || "caixa_obra",
+    const linked = !!(entry.notaFiscalId||entry.pedidoId||entry.medicaoId||entry.pagamentoId);
+    const base = {
+      date:entry.data || entry.date, competence: competenceOf(entry.data || entry.date),
+      obraId:entry.obraId || "", category:entry.categoria || "caixa_obra",
       description:entry.descricao || "Movimento do caixa da obra", sourceType:"caixa_obra",
-      sourceId:id, sourceSubId:entry.pagamentoId || entry.recebimentoId || "",
-      transactionId:entry.transacaoId || "", unallocated:!(entry.notaFiscalId||entry.pedidoId||entry.medicaoId||entry.pagamentoId),
+      sourceId:id, transactionId:entry.transacaoId || "", unallocated:!linked,
       metadata:{efeitoDRE:entry.efeitoDRE||"sem_efeito"},
+    };
+    add({
+      ...base, id:`caixa_obra:${id}:${effect}`, effect, amountCents:positiveCents(entry.valor,entry.amount),
+      sourceSubId:entry.pagamentoId || entry.recebimentoId || "",
     });
+    // Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md):
+    // "despesa" lançada direto no caixa da obra (material, mão de obra ou
+    // terceirizado pago com dinheiro da obra, sem nota/pedido/medição) só
+    // emitia o efeito de caixa acima - nunca virava custo no DRE, mesmo
+    // efeitoDRE já dizendo "custo_obra" há muito tempo (só ficava preso em
+    // metadata, nunca lido por selectDRE). Quando JÁ está vinculada a um
+    // pagamento existente (linked=true - ex.: pagamento de nota/pedido que
+    // também espelha uma saída no caixa da obra), o custo já foi
+    // reconhecido pelo bloco de nota/pedido/medição - emitir de novo aqui
+    // duplicaria; dedup por sourceSubId em add() só cobre cash_in/cash_out,
+    // não cost, por isso o `!linked` abaixo é quem evita a duplicidade.
+    // "Aporte" nunca vira receita da empresa (confirmado com o usuário -
+    // é aporte de capital na obra, não faturamento da construtora).
+    if (isDespesa && !linked) {
+      add({ ...base, id:`caixa_obra:${id}:cost`, effect:"cost", amountCents:positiveCents(entry.valor,entry.amount) });
+      issue("WORK_CASH_EXPENSE_WITHOUT_DOCUMENT","caixa_obra",entry,
+        "Despesa do caixa da obra sem nota/pedido/medição vinculada; custo reconhecido pelo lançamento manual.",{severity:"info"});
+    }
   });
 
   (data.rescisoes || []).filter(active).forEach(rescission => {

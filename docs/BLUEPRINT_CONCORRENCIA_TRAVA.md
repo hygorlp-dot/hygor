@@ -1922,3 +1922,68 @@ verificada em navegador nesta rodada - a tela exige login e dados
 financeiros reais para exercitar o cenário "revisar sem ambiguidade";
 coberta pelos testes de domínio (`engine.test.js`) e pela compilação
 bem-sucedida do JSX.
+
+## Auditoria completa do motor do DRE e correção: despesa do caixa da obra nunca virava custo (25/08/2026)
+
+Pergunta do usuário ("partindo do DRE, todas as informações estão
+corretas?") levou a uma auditoria completa de `ledger.js`/`calculations.js`
+(agente `dre-integration-guardian`, achados confirmados por leitura direta
+do código antes de agir).
+
+**Achado real, mais sério que o do terceiro**: uma despesa lançada direto
+na tela "Caixa da obra" (material, mão de obra ou terceirizado pago com
+dinheiro da obra, sem nota/pedido/medição vinculada) sempre reduzia o
+saldo do caixa (`cash_out`) mas **nunca virava custo no DRE**. O campo
+`efeitoDRE:"custo_obra"` já era gravado em `work-cash-commands.js` desde
+sempre - a intenção estava lá -, mas `ledger.js` só guardava esse valor
+dentro de `metadata` (dado inerte), nunca emitindo o evento `effect:"cost"`
+que `selectDRE` de fato soma. Diferente de todo outro caminho "não
+alocado" do arquivo (terceiro sem medição, folha sem título), esse nem
+emitia aviso de qualidade de dado - o gap era completamente silencioso.
+Confirmado com o usuário: a funcionalidade é usada de verdade em produção.
+
+Confirmado também com o usuário: "aporte" (entrada de capital na obra)
+**nunca deve virar receita da empresa** - só "despesa" vira custo.
+
+Correção em `ledger.js` (bloco `data.caixaObra`): quando a despesa **não**
+está vinculada a nota/pedido/medição/pagamento existente, além do
+`cash_out` de sempre, agora também emite `effect:"cost"` (mesma categoria
+do lançamento) e um aviso informativo (`WORK_CASH_EXPENSE_WITHOUT_DOCUMENT`).
+Quando **está** vinculada (ex.: pagamento de nota que também espelha uma
+saída no caixa da obra, via `payable-payment-commands.js`), o custo já foi
+reconhecido pelo bloco de nota/pedido - **não** emite `cost` de novo, para
+não duplicar (a deduplicação automática de `add()` por `sourceSubId` só
+cobre `cash_in`/`cash_out`, não `cost` - por isso essa checagem manual por
+`linked` é necessária). "Aporte" continua gerando só `cash_in`, nunca
+`cost`/`revenue`.
+
+Como o DRE é recalculado ao vivo a partir do blob de dados (não há
+snapshot armazenado que precise de backfill - `financial-shadow.js` é só
+homologação em sombra, não o que a tela lê), essa correção passa a valer
+retroativamente para todas as despesas do caixa da obra já lançadas, assim
+que o deploy sobe - sem precisar de script de migração.
+
+Testes novos em `ledger.test.js` (`describe("caixa da obra - despesa vira
+custo, aporte nunca vira receita")`): despesa sem vínculo gera custo E
+saída, sem duplicar; despesa já vinculada a um pagamento não duplica o
+custo; aporte nunca vira receita nem custo.
+
+**Achado secundário, sem impacto hoje (não corrigido nesta rodada - código
+morto, baixa prioridade)**: `server/dre-projection.js` passa 4 parâmetros
+(`calcObraTercCost` e outros) para o motor do DRE que nunca são lidos por
+`calculations.js` - sobra de uma refatoração anterior. Fica documentado
+para uma limpeza futura.
+
+**Pontos auditados e confirmados sãos**: os 3 problemas de calibragem já
+documentados anteriormente continuam corrigidos; dedução de duplicidade
+caixa↔nota funciona; filtro de cancelado/estornado é uniforme em todos os
+blocos; "recebimento avulso nunca vira receita" é arquitetura deliberada e
+testada; custo de mão de obra vem exclusivamente do motor de ponto
+(`calcObraLaborCost`), nunca da folha diretamente - não há duplicidade
+entre eles.
+
+Verificação: suíte completa (246 arquivos/1374 testes), `build`, `lint` e
+`architecture:check` sem violação. Não verificado ao vivo em produção
+nesta rodada - a navegação até a tela "Caixa da obra" pelo navegador não
+respondeu durante a investigação; a correção se apoia nos testes de
+domínio e na leitura direta do código de escrita e leitura.

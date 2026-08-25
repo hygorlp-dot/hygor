@@ -96,6 +96,45 @@ describe("razão financeiro único — fixture julho/2026", () => {
   });
 });
 
+// Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): despesa
+// lançada direto no caixa da obra (material, mão de obra ou terceirizado
+// pago com dinheiro da obra) só gerava efeito de caixa - nunca virava custo
+// no DRE, mesmo o campo efeitoDRE já dizendo "custo_obra" (ficava preso em
+// metadata, nunca lido). Confirmado com o usuário: despesa do caixa da obra
+// deve virar custo (de qualquer categoria); aporte nunca vira receita da
+// empresa - é aporte de capital na obra, não faturamento.
+describe("caixa da obra - despesa vira custo, aporte nunca vira receita", () => {
+  test("despesa sem nota/pedido/medição vinculada gera custo E saída de caixa, sem duplicar", () => {
+    const ledger = buildFinancialLedger({ caixaObra: [
+      { id: "cx-1", obraId: "obra-1", tipo: "despesa", categoria: "mao_obra", data: "2026-07-10", valor: 400, descricao: "Diarista" },
+    ] });
+    const custo = ledger.events.filter(e => e.sourceType === "caixa_obra" && e.effect === "cost");
+    const saida = ledger.events.filter(e => e.sourceType === "caixa_obra" && e.effect === "cash_out");
+    expect(custo).toHaveLength(1);
+    expect(custo[0]).toMatchObject({ amountCents: toCents(400), obraId: "obra-1", category: "mao_obra" });
+    expect(saida).toHaveLength(1);
+    expect(saida[0].amountCents).toBe(toCents(400));
+    expect(ledger.issues.some(i => i.code === "WORK_CASH_EXPENSE_WITHOUT_DOCUMENT")).toBe(true);
+  });
+
+  test("despesa JÁ vinculada a um pagamento existente não duplica o custo (já reconhecido pela nota/pedido)", () => {
+    const ledger = buildFinancialLedger({ caixaObra: [
+      { id: "cx-2", obraId: "obra-1", tipo: "despesa", categoria: "material", data: "2026-07-10", valor: 500, descricao: "Pagamento nota X", pagamentoId: "pgnf-1", notaFiscalId: "nf-1" },
+    ] });
+    expect(ledger.events.filter(e => e.sourceType === "caixa_obra" && e.effect === "cost")).toHaveLength(0);
+    expect(ledger.events.filter(e => e.sourceType === "caixa_obra" && e.effect === "cash_out")).toHaveLength(1);
+    expect(ledger.issues.some(i => i.code === "WORK_CASH_EXPENSE_WITHOUT_DOCUMENT")).toBe(false);
+  });
+
+  test("aporte nunca vira receita nem custo - só entrada de caixa", () => {
+    const ledger = buildFinancialLedger({ caixaObra: [
+      { id: "cx-3", obraId: "obra-1", tipo: "aporte", data: "2026-07-05", valor: 5000, descricao: "Aporte do cliente" },
+    ] });
+    const eventos = ledger.events.filter(e => e.sourceType === "caixa_obra");
+    expect(eventos.map(e => e.effect)).toEqual(["cash_in"]);
+  });
+});
+
 describe("status econômicos do razão", () => {
   test("arquivamento preserva o compromisso econômico", () => {
     const ledger=buildFinancialLedger({pedidos:[{
