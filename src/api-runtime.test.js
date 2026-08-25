@@ -1,5 +1,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
+// rolldown é devDependency direta (25/08/2026): o build usa Vite 7/Rollup
+// (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, achado do gráfico Recharts em
+// branco) - antes vinha de carona como dependência transitiva do Vite 8.
 import { parseSync } from "rolldown/utils";
 import { describe, expect, it } from "vitest";
 
