@@ -31,6 +31,27 @@ const comTimeout = async (url, options = {}, ms = 8000) => {
   }
 };
 
+// Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): o CUB-PE
+// some do Dashboard de forma intermitente - reproduzido em produção (duas
+// recargas seguidas da mesma sessão, uma com o gráfico e outra sem). Cada
+// `comTimeout` já limita a chamada individual, mas nada limitava o tempo
+// TOTAL da coleta (listar meses + baixar/ler até 12 PDFs em paralelo) - se
+// mesmo uma dessas chamadas demorar perto do próprio limite, a função
+// inteira do daily-brief pode ultrapassar o tempo de execução da Vercel e
+// morrer sem devolver nada (nem clima, nem notícias). Este orçamento
+// desiste da coleta do CUB isoladamente (devolvendo `fallback`) sem afetar
+// o resto do brief, que já é rápido por natureza.
+export const comOrcamento = async (promise, ms, fallback) => {
+  let venceu = false;
+  const limite = new Promise(resolve => setTimeout(() => { venceu = true; resolve(fallback); }, ms));
+  // `.catch` aqui é defensivo: nenhuma função de coleta deste arquivo rejeita
+  // hoje (todas tratam seu próprio erro e devolvem null/[]), mas comOrcamento
+  // não deve depender disso para nunca derrubar o daily-brief inteiro.
+  const resultado = await Promise.race([promise.catch(() => fallback), limite]);
+  if (venceu) console.error(`Coleta do CUB-PE abandonada após ${ms}ms (orçamento de tempo do daily-brief).`);
+  return resultado;
+};
+
 // Escala padrão da OMS para índice UV.
 const uvLabel = uv => {
   if (uv >= 11) return "extremo";
@@ -114,7 +135,7 @@ const buscarIdsPorAno = async ano => {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": "Mozilla/5.0" },
       body: `ano=${ano}`,
-    }, 10000);
+    }, 6000);
     if (!r.ok) return [];
     const json = await r.json();
     const html = json?.html || "";
@@ -139,7 +160,7 @@ const buscarIdsPorAno = async ano => {
 // 2 dígitos, dá para recuperar os limites de cada número sem ambiguidade.
 const buscarValoresProjetos = async id => {
   try {
-    const r = await comTimeout(`${CUB_SINDUSCON_BASE}/download/${id}/composicaoCubSemDeson`, { headers: { "user-agent": "Mozilla/5.0" } }, 12000);
+    const r = await comTimeout(`${CUB_SINDUSCON_BASE}/download/${id}/composicaoCubSemDeson`, { headers: { "user-agent": "Mozilla/5.0" } }, 5000);
     if (!r.ok) return null;
     const bytes = new Uint8Array(await r.arrayBuffer());
     const { text } = await pdfParse(bytes);
@@ -179,7 +200,7 @@ const buscarCubPE = async () => {
 
 export const buildDailyBrief = async () => {
   const [clima, noticias, noticiasCbicPe, cub] = await Promise.all([
-    buscarClima(), buscarNoticias(), buscarNoticiasCbicPe(), buscarCubPE(),
+    buscarClima(), buscarNoticias(), buscarNoticiasCbicPe(), comOrcamento(buscarCubPE(), 7000, null),
   ]);
   return { ok: true, clima, noticias, noticiasCbicPe, cub, cidade: "Caruaru, PE" };
 };

@@ -3844,12 +3844,24 @@ const CUB_PADRAO_COR={baixo:C.cinza,normal:C.blue,alto:C.yellow,especial:C.yello
 const CUB_PADRAO_LABEL={baixo:"Padrão baixo",normal:"Padrão normal",alto:"Padrão alto",especial:"Especial"};
 const CUB_PADRAO_ORDEM=["baixo","normal","alto","especial"];
 
-function CubChart({cub}){
+// Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): o CUB-PE
+// some do Dashboard de forma intermitente - a coleta depende inteiramente
+// de um site externo (Sinduscon-PE) sem cache nem retry, e falhas
+// silenciosas (`cub===null`) faziam a seção inteira desaparecer sem
+// explicação. Um aviso curto substitui o sumiço - só depois que o
+// carregamento terminou, para não piscar durante a busca normal.
+const CubIndisponivel=()=>(
+  <section className="cub-chart" style={{padding:"12px 14px",border:"1px dashed #d5d9db",borderRadius:10,background:"#f8f9f9"}}>
+    <p style={{fontSize:11,fontWeight:800,color:"#5e666b"}}>Índice de custo (CUB-PE) indisponível no momento</p>
+    <p style={{fontSize:10,color:"#7a8287",marginTop:3}}>A fonte oficial (Sinduscon-PE) não respondeu a tempo. Recarregue a página em alguns minutos.</p>
+  </section>
+);
+function CubChart({cub,carregando=false}){
   const {pick}=useBreakpoint();
   const [edificacaoId,setEdificacaoId]=useState(()=>{
     try{return localStorage.getItem("arcd_cub_edificacao")||"";}catch{return "";}
   });
-  if(!cub)return null;
+  if(!cub)return carregando?null:<CubIndisponivel/>;
   const projetosBase=cub.projetos||[
     {id:"R1-A",label:"R-1",description:"Residência unifamiliar",group:"Residencial · padrão alto"},
     {id:"R8-N",label:"R-8",description:"Residencial · 8 pavimentos",group:"Residencial · padrão normal"},
@@ -3868,7 +3880,7 @@ function CubChart({cub}){
     if(!ed){ed={id:p.label,label:p.label,description:p.description,categoria,padroes:{}};porLabel.set(p.label,ed);edificacoes.push(ed);}
     ed.padroes[padrao]=p.id;
   });
-  if(!edificacoes.length)return null;
+  if(!edificacoes.length)return <CubIndisponivel/>;
   const edificacao=edificacoes.find(e=>e.id===edificacaoId)||edificacoes.find(e=>e.id==="R-1")||edificacoes[0];
   const selecionar=id=>{
     setEdificacaoId(id);
@@ -4203,7 +4215,7 @@ function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, on
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticiasCbicPe} titulo="CBIC Pernambuco" subtitulo="Sinduscon-PE e câmara regional"/>
     </section>
-    <CubChart cub={resumoDiario.cub}/>
+    <CubChart cub={resumoDiario.cub} carregando={resumoDiario.carregando}/>
 
     <section className="dashboard-executive-grid" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
       {[

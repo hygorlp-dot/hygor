@@ -2040,3 +2040,56 @@ rodada (login de produção não disponível neste ambiente; tentativa de
 rodar o dev server local também não permitiu navegação). Apoiada na
 leitura direta do código contra os padrões de motion já estabelecidos
 no design system (`motion.css`).
+
+## Correção: gráfico do CUB-PE sumindo do Dashboard de forma intermitente (25/08/2026)
+
+Usuário reportou que o gráfico não aparecia. Verificado direto em
+produção (sessão autenticada, `https://pontosarcd.vercel.app`): o
+gráfico apareceu com dado real numa recarga e sumiu na recarga seguinte,
+segundos depois - confirmando reprodução real de uma falha intermitente,
+não um relato equivocado.
+
+Causa raiz: `buildDailyBrief` (`server/daily-brief.js`) roda clima,
+notícias e a coleta do CUB-PE em paralelo (`Promise.all`), mas nada
+limitava o tempo TOTAL da coleta do CUB - listar meses via AJAX do
+Sinduscon-PE e depois baixar/ler até 12 PDFs em paralelo, cada download
+com seu próprio timeout individual (10s/12s). Se mesmo uma dessas
+chamadas individuais demorasse perto do próprio limite, a função inteira
+podia ultrapassar o tempo de execução da Vercel e morrer sem devolver
+nada - nem clima, nem notícias, nem CUB -, sem nenhum log de aplicação
+(só o `console.error` de cada função individual, que nunca chegava a
+rodar se a plataforma matasse a função primeiro). Testado isoladamente
+(fora da Vercel) o pipeline sempre respondeu em ~1,5s, o que explica por
+que a falha só aparece em produção e de forma intermitente - a mesma
+dependência de rede que é rápida na maior parte das vezes ocasionalmente
+não é.
+
+Correção:
+
+1. **`comOrcamento(promise, ms, fallback)`** (nova função, exportada e
+   testada isoladamente): dá um teto de tempo a qualquer coleta,
+   devolvendo `fallback` se não terminar a tempo - e nunca propaga uma
+   rejeição (`.catch` defensivo), mesmo que a promise recebida rejeite.
+2. `buildDailyBrief` agora envolve `buscarCubPE()` com um orçamento de
+   7s - se a coleta do CUB não terminar nesse prazo, o resto do brief
+   (clima, notícias) continua respondendo normalmente, só o CUB fica
+   ausente naquela consulta.
+3. Timeouts individuais reduzidos como defesa adicional: listagem de
+   meses 10s→6s, download/leitura de cada PDF 12s→5s.
+4. **`CubChart` não desaparece mais silenciosamente**: antes,
+   `cub===null` (por qualquer motivo) fazia a seção inteira sumir sem
+   nenhuma explicação. Agora, depois que o carregamento termina, mostra
+   um aviso curto ("Índice de custo (CUB-PE) indisponível no momento...
+   recarregue a página em alguns minutos") em vez de nada - mesmo
+   princípio de "no silêncio" já aplicado a outros gaps de dado nesta
+   sessão (avisos de qualidade de dado no DRE).
+
+Testes novos: `server/daily-brief.test.js` (`comOrcamento` devolve o
+valor real quando termina a tempo; devolve o fallback quando não
+termina; devolve o fallback sem propagar erro quando a promise
+rejeita).
+
+Verificação: suíte completa (247 arquivos/1377 testes), `build`, `lint`
+e `architecture:check` sem violação. Testado manualmente fora da Vercel
+que o pipeline completo continua respondendo em ~1,5s com os novos
+timeouts mais curtos (nenhuma regressão em condição normal).
