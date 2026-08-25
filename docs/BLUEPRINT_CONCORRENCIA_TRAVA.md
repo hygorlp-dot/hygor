@@ -1774,3 +1774,42 @@ puramente numérico).
 
 Verificação: suíte completa (246 arquivos/1362 testes), `build`, `lint`
 e `architecture:check` sem violação.
+
+## Backfill retroativo do contraparteNome nas 794 transações pendentes (25/08/2026)
+
+Pedido explícito do usuário: a decisão de "não retroagir", registrada na
+seção anterior, foi revisitada e o usuário pediu para de fato reprocessar
+o histórico.
+
+`scripts/backfill-conciliacao-contraparte-pix.mjs` (registrado como
+`npm run conciliacao:backfill-contraparte-pix`) reaplica
+`extrairContraparteDescricaoPix` sobre as transações já importadas -
+mesma função, mesma garantia de nunca inventar nome, já testada em
+`calculations.test.js`. Escopo deliberadamente restrito:
+
+- só toca transações com `status==="pendente"` (conciliadas/ignoradas
+  ficam como estão - não há motivo para reabrir um registro já fechado);
+- só preenche `contraparteNome` quando esse campo está **vazio** hoje -
+  nunca sobrescreve um valor já existente (mesma garantia da extração
+  em si);
+- roda em modo `--dry-run` por padrão (só lê e relata quantas
+  transações seriam afetadas, com amostra mascarada); `--apply` grava
+  de verdade.
+
+Gravação usa a RPC `company_save_with_audit` (a mesma que toda escrita
+de `api/data.js` usa) - CAS por `updated_at` da linha core e evento em
+`audit_events` na mesma transação, com retry (recalculando os
+candidatos do zero a cada tentativa) se outra gravação concorrente
+mudar a linha entre a leitura e a escrita. `coreFieldsOnly` é reutilizado
+para não regravar por engano os campos que hoje moram em linhas
+separadas (Ponto/Lookahead/Config/Equipamentos/RDO).
+
+Não roda como parte do build/deploy (é uma migração de dado, não de
+schema - mesmo padrão de `apply-financial-shadow.mjs` e
+`seed-split-domain-rows.mjs`) - precisa ser rodado manualmente com as
+credenciais de produção (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`).
+
+Verificação: suíte completa, `build`, `lint` e `architecture:check` sem
+violação nova (o script fica fora do escopo do dependency-cruiser, como
+os demais em `scripts/`, mas as outras três checagens continuam
+cobrindo o repositório inteiro).

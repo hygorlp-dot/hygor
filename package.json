@@ -42,6 +42,7 @@
     "split-rows:seed": "node scripts/seed-split-domain-rows.mjs",
     "attendance-obra-rows:seed": "node scripts/seed-attendance-obra-rows.mjs",
     "registry:shadow-status": "node scripts/check-core-registry-shadow-status.mjs",
+    "conciliacao:backfill-contraparte-pix": "node scripts/backfill-conciliacao-contraparte-pix.mjs",
     "equipment-registry:shadow-status": "node scripts/check-equipment-registry-shadow-status.mjs",
     "procurement-registry:shadow-status": "node scripts/check-procurement-registry-shadow-status.mjs",
     "assets:login": "node scripts/optimize-login-assets.mjs",
