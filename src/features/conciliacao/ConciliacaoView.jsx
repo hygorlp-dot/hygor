@@ -35,6 +35,7 @@ import {
   recebidoEntradaContrato,
   gerarCandidatosConciliacao, FAIXA_CONFIANCA,
   criarRegistroIdentidades, analisarMovimentoConciliacao, resumoQuinzenaConciliacao,
+  comandoConciliacaoAutomatica,
   podeOperarConciliacao, podeOperarConciliacaoTrabalhista, podeDesfazerConciliacao,
   podeReabrirFechamento, podeArquivarExtrato, podeFecharPeriodo, podeCriarRegra,
   hashArquivo,
@@ -67,6 +68,15 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const [entradaForm,setEntradaForm]=useState({tipo:"medicao",contratoId:"",medicaoId:"",obraId:"",categoria:"aporte_cliente",descricao:"",novaParcela:false,novaParcelaDescricao:"",novaParcelaCompetencia:"",novaParcelaValor:""});
   const [transferModal,setTransferModal]=useState(null);     // { trId }
   const [estornoModal,setEstornoModal]=useState(null);       // { trId }
+  // Revisão e confirmação em lote das transações "pronta" (score máximo,
+  // sem bloqueio) - achado de 25/08/2026 (ver
+  // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): o motor de candidatos já
+  // classificava a fila e ordenava "pronta" primeiro, mas a confirmação
+  // sempre exigia abrir cada transação, uma por vez. O usuário pediu
+  // automação com checagem humana final - esta tela é essa checagem final,
+  // só que revisando o lote inteiro de uma vez em vez de N cliques.
+  const [loteProntoModal,setLoteProntoModal]=useState(null); // {excluidas:Set<transacaoId>}
+  const [confirmandoLote,setConfirmandoLote]=useState(false);
   const [mostrarArquivados,setMostrarArquivados]=useState(false);
   // Cadastro de contas bancárias
   const [contaBancariaModal,setContaBancariaModal]=useState(null); // {} novo | conta existente
@@ -101,6 +111,17 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const analisesPorTransacao=useMemo(()=>new Map((data.transacoes||[]).map(tr=>[
     tr.id,analisarMovimentoConciliacao(tr,data,{indices:indicesFinanceiros,registry:registroIdentidades}),
   ])),[data,indicesFinanceiros,registroIdentidades]);
+  // Só "pronta" entra no lote (score ≥ 95, sem bloqueio, distância segura da
+  // segunda candidata - ver faixaDoScore/preSelecionavel em matching.js).
+  // "revisar"/"investigar" continuam exigindo abrir a transação
+  // individualmente, como já era antes desta mudança.
+  const transacoesProntas=useMemo(()=>{
+    const extratosArquivados=new Set((data.extratos||[]).filter(e=>e.status==="arquivado").map(e=>String(e.id)));
+    return (data.transacoes||[])
+      .filter(tr=>tr.status==="pendente"&&!extratosArquivados.has(String(tr.extratoId||"")))
+      .map(tr=>({tr,analise:analisesPorTransacao.get(tr.id)}))
+      .filter(({analise})=>analise?.classificacaoOperacional==="pronta");
+  },[data.transacoes,data.extratos,analisesPorTransacao]);
   const periodoQuinzenaConc=useMemo(()=>periodoPontoDaTransacao(today()),[]);
   const resumoQuinzena=useMemo(()=>resumoQuinzenaConciliacao(data,{
     inicio:periodoQuinzenaConc.days[0]||"",fim:periodoQuinzenaConc.days.at(-1)||"",
@@ -228,6 +249,33 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       showToast(error?.message||erroPadrao||"Não foi possível confirmar a conciliação.","error");
       return false;
     } finally { setConciliando(false); }
+  };
+
+  // Confirma sequencialmente cada transação selecionada no lote - uma por
+  // vez, aguardando o servidor confirmar cada uma antes da próxima. O
+  // servidor revalida tudo de novo contra o estado autoritativo no momento
+  // do commit (mustBePending, saldo, etc.), então mesmo que uma confirmação
+  // anterior do lote afete o saldo de um fato que outra também mirava, a
+  // rejeição aparece como falha isolada daquele item, nunca como dado
+  // inconsistente.
+  const confirmarLotePronto = async () => {
+    if (!loteProntoModal || confirmandoLote) return;
+    const itens = transacoesProntas.filter(({ tr }) => !loteProntoModal.excluidas.has(tr.id));
+    if (!itens.length) return;
+    setConfirmandoLote(true);
+    let sucesso = 0, falha = 0;
+    try {
+      for (const { analise } of itens) {
+        const comando = comandoConciliacaoAutomatica(analise);
+        const ok = comando && await executarConciliacaoNoServidor(comando, "O servidor não confirmou uma das transações do lote.");
+        if (ok) sucesso += 1; else falha += 1;
+      }
+    } finally {
+      setConfirmandoLote(false);
+    }
+    setLoteProntoModal(null);
+    if (falha) showToast(`${sucesso} confirmada(s), ${falha} não confirmada(s) - revise a fila de pendentes.`, "warn");
+    else showToast(`${sucesso} transação(ões) confirmada(s) em lote.`);
   };
 
   const executarVincular = async (tr, c) => {
@@ -759,6 +807,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         </label>
         {aba!=="historico"&&!modoConciliacaoRh&&<select aria-label="Tipo de movimento" value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}
         {!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<button type="button" className="reconciliation-toolbar__select-all" onClick={alternarTodas}>{todosSelecionados?"Desmarcar todas":"Selecionar todas"}</button>}
+        {!modoConciliacaoRh&&aba==="pendentes"&&transacoesProntas.length>0&&<Btn size="sm" onClick={()=>setLoteProntoModal({excluidas:new Set()})}><Ic n="check"/> Revisar prontas em lote · {transacoesProntas.length}</Btn>}
         {!modoConciliacaoRh&&aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}
         {!modoConciliacaoRh&&aba==="pendentes"&&calc.pendentes>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar((data.transacoes||[]).filter(t=>t.status==="pendente"),"Ignorar todas as pendentes")}>Ignorar todas · {calc.pendentes}</Btn>}
         {!modoConciliacaoRh&&aba==="ignoradas"&&selecionadas.length>0&&<Btn size="sm" v="info" onClick={()=>reabrir(selecionadas)}>Reabrir selecionadas · {selecionadas.length}</Btn>}
@@ -994,6 +1043,45 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
           </div>)}
 
       {ignorarModal&&<Modal title={ignorarModal.titulo} onClose={()=>setIgnorarModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{padding:"9px 10px",border:`1px solid ${C.orange}55`,background:`${C.orange}0B`,borderRadius:8}}><b style={{fontSize:11,color:C.orange}}>{ignorarModal.ids.length} transação(ões) · {fmt(ignorarModal.valor)}</b><p style={{fontSize:9,color:C.muted,marginTop:3}}>Elas sairão da fila pendente, permanecerão auditáveis e poderão ser reabertas.</p></div><Inp label="Motivo obrigatório *" value={ignorarModal.motivo} onChange={v=>setIgnorarModal(f=>({...f,motivo:v}))} multiline placeholder="Ex.: transferência entre contas, estorno, movimento sem efeito no DRE..."/><div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setIgnorarModal(null)} full>Cancelar</Btn><Btn v="danger" onClick={confirmarIgnorar} full>Confirmar e ignorar</Btn></div></div></Modal>}
+
+      {loteProntoModal&&(()=>{
+        const excluidas=loteProntoModal.excluidas;
+        const selecionados=transacoesProntas.filter(({tr})=>!excluidas.has(tr.id));
+        const alternarExclusao=id=>setLoteProntoModal(m=>{
+          const proximo=new Set(m.excluidas);
+          proximo.has(id)?proximo.delete(id):proximo.add(id);
+          return {...m,excluidas:proximo};
+        });
+        return <Modal title={`Revisar e confirmar em lote · ${transacoesProntas.length} pronta(s)`} onClose={()=>!confirmandoLote&&setLoteProntoModal(null)} wide>
+          <div style={{display:"flex",flexDirection:"column",gap:9}}>
+            <div style={{padding:"9px 10px",border:`1px solid ${C.green}55`,background:`${C.green}0B`,borderRadius:8}}>
+              <b style={{fontSize:11,color:C.green}}>Confiança máxima, sem bloqueio</b>
+              <p style={{fontSize:9,color:C.muted,marginTop:3}}>Cada linha mostra a candidata que o motor escolheu (PIX, CPF/CNPJ, nome ou valor exato). Desmarque qualquer uma que não pareça certa - só as marcadas são confirmadas.</p>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:420,overflowY:"auto"}}>
+              {transacoesProntas.map(({tr,analise})=>{
+                const excluida=excluidas.has(tr.id);
+                const c=analise?.melhorCandidata;
+                return <label key={tr.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 10px",border:`1px solid ${C.border}`,borderRadius:7,opacity:excluida?0.5:1,cursor:"pointer"}}>
+                  <input type="checkbox" checked={!excluida} onChange={()=>alternarExclusao(tr.id)} style={{marginTop:3}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+                      <b style={{fontSize:10.5,color:C.text}}>{tr.descricao}</b>
+                      <b style={{fontSize:10.5,color:tr.valor>0?C.green:C.red,whiteSpace:"nowrap"}}>{fmt(Math.abs(tr.valor))}</b>
+                    </div>
+                    <p style={{fontSize:9,color:C.muted,marginTop:2}}>{fmtDate(tr.data)} → {c?.titulo||"Candidata"}{c?.subtitulo?` · ${c.subtitulo}`:""}</p>
+                    {c?.motivos?.length>0&&<p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{c.motivos.join(" · ")}</p>}
+                  </div>
+                </label>;
+              })}
+            </div>
+            <div style={{display:"flex",gap:7}}>
+              <Btn v="ghost" onClick={()=>setLoteProntoModal(null)} disabled={confirmandoLote} full>Cancelar</Btn>
+              <Btn onClick={confirmarLotePronto} disabled={confirmandoLote||!selecionados.length} loading={confirmandoLote&&"Confirmando..."} full>Confirmar {selecionados.length} selecionada(s)</Btn>
+            </div>
+          </div>
+        </Modal>;
+      })()}
 
       {entradaModal && (() => {
         const tr=(data.transacoes||[]).find(t=>t.id===entradaModal.trId);

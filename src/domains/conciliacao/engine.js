@@ -78,6 +78,33 @@ export const priorizarFilaConciliacao=(transactions,data,options={})=>{
   });
 };
 
+// Traduz a recomendação do motor para o comando real do servidor -
+// usado pela revisão em lote (confirmar de uma vez todas as transações
+// classificadas "pronta"). Só cobre os 3 tipos de acaoRecomendada que uma
+// classificação "pronta" pode de fato ter: MARCAR_TRANSFERENCIA_INTERNA
+// nunca passa de score 40 (pontuarPix em matching.js), e
+// CRIAR_LANCAMENTO_NOVO_COM_REVISAO/SOLICITAR_CORRECAO_CADASTRAL só
+// aparecem quando não há candidata ou há conflito de identidade - as duas
+// situações que classification() (acima) já classifica como
+// "sem_correspondencia"/"bloqueada", nunca "pronta". Por isso os demais
+// casos devolvem null em vez de tentar adivinhar um comando.
+export const comandoConciliacaoAutomatica=(analise)=>{
+  const candidata=analise?.melhorCandidata;
+  if(!candidata)return null;
+  const observacao=`Confirmação em lote · candidata ${analise.classificacaoOperacional}`;
+  const transactionId=analise.transacaoId;
+  if(analise.acaoRecomendada===ACAO_CONCILIACAO.VINCULAR_PAGAMENTO_EXISTENTE){
+    return {type:"LINK_EXISTING_PAYMENT",payload:{transactionId,targetType:candidata.tipo,targetId:candidata.entidadeId,paymentId:candidata.pagamentoId||"",observacao}};
+  }
+  if(analise.acaoRecomendada===ACAO_CONCILIACAO.REGISTRAR_PAGAMENTO_E_CONCILIAR){
+    return {type:"CONFIRM_PAYMENT",payload:{transactionId,targetType:candidata.tipo,targetId:candidata.entidadeId,observacao}};
+  }
+  if(analise.acaoRecomendada===ACAO_CONCILIACAO.REGISTRAR_RECEBIMENTO_E_CONCILIAR){
+    return {type:"CONFIRM_RECEIPT",payload:{transactionId,targetType:candidata.tipo,targetId:candidata.entidadeId,observacao}};
+  }
+  return null;
+};
+
 export const resumoQuinzenaConciliacao=(data,{inicio,fim}={})=>{
   const inPeriod=value=>!inicio||!fim||(String(value||"")>=inicio&&String(value||"")<=fim);
   const transactions=(data.transacoes||[]).filter(item=>inPeriod(item.data));
