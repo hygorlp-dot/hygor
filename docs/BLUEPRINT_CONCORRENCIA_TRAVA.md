@@ -1639,3 +1639,74 @@ notar esse registro no banco depois e estranhar a origem.
   `executeAttendanceCommand`)
 - `schema.sql:12-19` (definição de `company_app_data`)
 - `docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md` (direção de longo prazo, Fase 2)
+
+## Verificação do módulo de Conciliação Bancária (25/08/2026)
+
+Usuário pediu uma verificação de código e funcionamento do módulo de
+Conciliação (~4.600 linhas: `src/domains/conciliacao/*`,
+`src/features/conciliacao/ConciliacaoView.jsx`,
+`server/reconciliation-*.js`).
+
+**Arquitetura, confirmada sólida**: o núcleo (`mutations.js`,
+`matching.js`, `selectors.js`, `identity.js`, `engine.js`, `payroll.js`)
+é 100% funções puras, sem React/DOM/persistência, com comentários
+explicando o PORQUÊ de cada regra de negócio (ex.: por que medição/entrada
+de contrato admitem recebimento parcial e reuso no índice, mas os demais
+fatos não; por que crédito sem obra/medição não pode virar estorno de
+despesa). O motor de candidatos (`matching.js`) nunca decide sozinho -
+só classifica confiança; toda confirmação passa pelo operador. O caminho
+servidor (`server/reconciliation-command.js` +
+`server/reconciliation-policy.js` + `server/reconciliation-execution.js`)
+já é 100% comando operacional com trava real
+(`executarMutacaoEmpresaBloqueada`), idempotência
+(`reconciliationCommandLog`), autorização por papel verificada DENTRO da
+trava (evita corrida entre checar permissão e persistir), e uma política
+de RH corretamente restrita (só saída de folha/mão de obra, só da própria
+obra do RH).
+
+**Achado real, corrigido**: 4 seções que `ConciliacaoView.jsx` sempre
+gravou por `update()` direto (contas bancárias, regras de
+auto-classificação, fechamento/reabertura de período bancário, rejeição
+de candidata) nunca tiveram entrada em `SECTION_ROLES`
+(`server/section-authorizations.js`). Como `authorizeSectionChanges`
+rejeita qualquer seção desconhecida para todo perfil que não seja
+`admin`, e `src/domains/conciliacao/permissions.js` explicitamente
+autoriza o perfil **"financeiro"** a operar essas 4 telas
+(`CONCILIACAO_OPERAR_ROLES=["admin","financeiro"]`), qualquer usuário
+financeiro (não-admin) que tentasse fechar um período, cadastrar conta
+bancária, criar/editar regra ou rejeitar uma candidata recebia
+`"a seção X não pode ser alterada por esta rota"` do servidor - **só
+administrador conseguia usar essas 4 funcionalidades na prática**, apesar
+da tela mostrar os botões para financeiro normalmente. Verificado
+diretamente contra a função real (`authorizeSectionChanges({role:
+"financeiro"}, {fechamentosBancarios:[...]})` devolvia a mensagem de
+erro) antes de corrigir, não só por leitura de código.
+
+Corrigido: as 4 seções entraram em `SECTION_ROLES` (`admin`+`financeiro`),
+mais um novo `validateBankReconciliationPolicy` (mesmo padrão de
+`validateBudgetBaselinePolicy`/`validatePlanningBaselinePolicy`) que
+mantém exclusivas do administrador as duas transições que uma checagem de
+seção inteira não consegue distinguir: reabrir um período JÁ fechado
+(`status:"fechado"→"reaberto"`) e excluir fisicamente uma regra - as duas
+já eram admin-only no cliente (`podeReabrirFechamento`/
+`podeDesfazerConciliacao`), agora também no servidor. `arquivarExtrato` e
+`extratos`/`historicoConc` foram conferidos e NÃO tinham o mesmo problema
+- são admin-only de propósito, e administrador sempre ignora
+`SECTION_ROLES` (`if(user.role==="admin")return "";`), então o
+bypass client-side coincidia com o único papel que também passa no
+servidor. Testes novos em `server/section-authorizations.test.js` (7
+casos: financeiro autorizado nas 4 seções; rh/engenheiro continuam
+bloqueados; reabrir fechamento e excluir regra continuam admin-only;
+financeiro consegue fechar um período novo e criar/desativar uma regra
+sem removê-la).
+
+Verificação: suíte completa (246 arquivos/1352 testes), `build`, `lint` e
+`architecture:check` sem violação. Deploy confirmado via
+`gh api .../commits/<sha>/status` (`state:"success"`) - mudança é só de
+backend (`api/data.js`, `server/section-authorizations.js`), sem risco do
+cache de chunk de frontend já documentado no incidente anterior desta
+sessão. **Limitação**: não foi possível testar a restrição de papel ao
+vivo em produção (a sessão do navegador está autenticada como
+administrador, que ignora `SECTION_ROLES` por inteiro - não há como
+reproduzir o bloqueio original nem confirmar a liberação para
+"financeiro" sem uma sessão real desse perfil).
