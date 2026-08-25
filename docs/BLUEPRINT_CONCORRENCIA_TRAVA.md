@@ -2270,3 +2270,24 @@ ampliados para caber os dois rótulos sem cortar no topo do gráfico.
 
 Verificação: suíte completa (247 arquivos/1381 testes), `build`, `lint`
 e `architecture:check` sem violação.
+
+## CORE-003 confirmado contra produção (25/08/2026)
+
+Continuando o roteiro do blueprint: CORE-001 e CORE-002 já tinham
+confirmação explícita contra produção; CORE-003 só tinha sido testado
+localmente. Rodado `npm run procurement-registry:shadow-status` contra
+produção (credenciais do usuário, mesmo padrão dos scripts anteriores):
+
+- Última sincronização: menos de 1h antes da checagem
+  (`ator=system:production-deploy`).
+- `core_quotations`: 1 registro.
+- `core_purchase_orders`: 5 registros.
+- **0 divergências** - contagens batendo com o estado atual das tabelas.
+
+Os três primeiros passos de Fase 2 (CORE-001 cadastro, CORE-002
+equipamentos, CORE-003 cotações/pedidos) estão todos confirmados
+sincronizando corretamente em produção, em modo sombra. Próximo passo
+natural (virar consumidor real de qualquer um deles) continua
+deliberadamente adiado até haver necessidade concreta, como já registrado
+nas seções de CORE-002/CORE-003 acima - não é para puxar para frente só
+por completude.
