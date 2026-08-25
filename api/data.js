@@ -32,7 +32,7 @@ import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../ser
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { findSectionConflicts } from "../server/three-way-conflicts.js";
 import { mergeThreeWay } from "../server/three-way-merge.js";
-import { authorizeSectionChanges, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
+import { authorizeSectionChanges, validateBankReconciliationPolicy, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { buildRequestedDreProjectionRows } from "../server/dre-projection.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
@@ -2320,6 +2320,8 @@ export default async function handler(req, res) {
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
       const erroBaselinePlano=validatePlanningBaselinePolicy(atual,{...atual,...sections},usuario);
       if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
+      const erroConciliacaoBancaria=validateBankReconciliationPolicy(atual,{...atual,...sections},usuario);
+      if(erroConciliacaoBancaria)return res.status(403).json({error:erroConciliacaoBancaria});
       if(chaves.includes("conferencias")){
         const baseConferencias=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"conferencias")?baseSections.conferencias:atual?.conferencias;
         const erroPermissao=validarAlteracoesConferencias(usuario,baseConferencias||[],sections.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
@@ -2417,6 +2419,8 @@ export default async function handler(req, res) {
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
       const erroBaselinePlano=validatePlanningBaselinePolicy(atual,incomingPayload,usuario);
       if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
+      const erroConciliacaoBancaria=validateBankReconciliationPolicy(atual,incomingPayload,usuario);
+      if(erroConciliacaoBancaria)return res.status(403).json({error:erroConciliacaoBancaria});
       if(!igual(incomingPayload.conferencias,atual?.conferencias)){
         const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],incomingPayload.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
         if(erroPermissao)return res.status(403).json({error:erroPermissao});

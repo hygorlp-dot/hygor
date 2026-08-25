@@ -19,6 +19,17 @@ const SECTION_ROLES = Object.freeze({
   payments:["admin","financeiro"], medicoes:["admin","financeiro"], outrasDesp:["admin","financeiro"], despesasEmpresa:["admin","financeiro"], caixaObra:["admin","financeiro"], notasFiscais:["admin","financeiro","compras"], documentosMovimentacoes:["admin","financeiro"], transacoes:["admin","financeiro"], reconciliationLinks:["admin","financeiro"], fechamentosFinanceiros:["admin"],
   equipamentos:["admin","engenheiro","engenheiro_auditor","compras","financeiro"], locacoesEquip:["admin","engenheiro","engenheiro_auditor","financeiro"], terceirizados:["admin","rh","engenheiro","engenheiro_auditor","financeiro"], medicoesTerc:["admin","engenheiro","engenheiro_auditor"], pagsTerceiros:["admin","financeiro"],
   comercial:["admin","comercial"],
+  // Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): estas
+  // 4 seções de src/features/conciliacao/ConciliacaoView.jsx (contas
+  // bancárias, regras de auto-classificação, fechamento de período e
+  // rejeição de candidata) sempre gravaram por update() direto, mas nunca
+  // tinham entrada aqui - qualquer usuário não-admin (inclusive
+  // "financeiro", que src/domains/conciliacao/permissions.js
+  // explicitamente autoriza a operar essas telas) recebia
+  // "a seção X não pode ser alterada por esta rota" ao tentar salvar. Só
+  // administrador conseguia usar essas 4 funcionalidades na prática.
+  fechamentosBancarios:["admin","financeiro"], contasBancarias:["admin","financeiro"],
+  regrasConc:["admin","financeiro"], rejeicoesConc:["admin","financeiro"],
 });
 
 const scoped = value => Array.isArray(value) ? value : [];
@@ -249,6 +260,35 @@ export const validatePlanningBaselinePolicy=(previous={},next={},user={})=>{
       if(!approvalRole)return "Somente administrador ou diretoria podem substituir uma baseline aprovada.";
       const revision=[...after.values()].find(candidate=>candidate.revisionOf===id&&String(candidate.reason||"").trim());
       if(!revision)return "Substituir a baseline exige uma nova revisão com justificativa e vínculo à versão anterior.";
+    }
+  }
+  return "";
+};
+
+// BANK-001 (25/08/2026): fechamentosBancarios/regrasConc agora aceitam o
+// perfil "financeiro" (ver SECTION_ROLES acima), mas cada uma tem UMA
+// transição que continua exclusiva do administrador -
+// src/domains/conciliacao/permissions.js já reserva as duas ao mesmo nível
+// elevado (podeReabrirFechamento/podeDesfazerConciliacao) que a tela usa
+// para esconder os botões. SECTION_ROLES sozinho não distingue "financeiro
+// fechando um período novo" de "financeiro reabrindo um já fechado" - as
+// duas mexem na mesma seção - por isso essa checagem por transição,
+// mesmo padrão de validateBudgetBaselinePolicy/validatePlanningBaselinePolicy.
+export const validateBankReconciliationPolicy=(previous={},next={},user={})=>{
+  if(user.role==="admin")return "";
+  if(Object.prototype.hasOwnProperty.call(next,"fechamentosBancarios")){
+    const before=byRecordId(previous.fechamentosBancarios),after=byRecordId(next.fechamentosBancarios);
+    for(const [id,item] of after){
+      const old=before.get(id);
+      if(old&&old.status==="fechado"&&item.status!=="fechado"){
+        return "Somente o administrador pode reabrir um período bancário fechado.";
+      }
+    }
+  }
+  if(Object.prototype.hasOwnProperty.call(next,"regrasConc")){
+    const before=byRecordId(previous.regrasConc),after=byRecordId(next.regrasConc);
+    for(const id of before.keys()){
+      if(!after.has(id))return "Somente o administrador pode excluir uma regra de conciliação.";
     }
   }
   return "";

@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { authorizeSectionChanges,validateBudgetBaselinePolicy,validateNoPhysicalDeletes,validatePlanningBaselinePolicy } from "./section-authorizations.js";
+import { authorizeSectionChanges,validateBankReconciliationPolicy,validateBudgetBaselinePolicy,validateNoPhysicalDeletes,validatePlanningBaselinePolicy } from "./section-authorizations.js";
 describe("autorização de produção",()=>{
   it("permite planejamento somente ao perfil previsto",()=>{
     expect(authorizeSectionChanges({role:"planejamento"},{scheduleActivities:[{id:"a",obraId:"o"}]})).toBe("");
@@ -84,5 +84,45 @@ describe("autorização de produção",()=>{
   });
   it("não permite aprovação de cronograma por perfil operacional",()=>{
     expect(validatePlanningBaselinePolicy({scheduleBaselines:[]},{scheduleBaselines:[{id:"p1",status:"aprovada",approvedAt:"2026-07-26",approvedById:"d1"}]},{role:"planejamento"})).toMatch(/administrador ou diretoria/);
+  });
+
+  // Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): estas
+  // 4 seções da Conciliação Bancária nunca tinham entrada em SECTION_ROLES -
+  // qualquer perfil não-admin (inclusive "financeiro", autorizado pelo
+  // próprio domínio a operar a tela) era rejeitado com
+  // "não pode ser alterada por esta rota" ao tentar salvar.
+  it("permite ao financeiro operar contas bancárias, regras e fechamento de conciliação",()=>{
+    expect(authorizeSectionChanges({role:"financeiro"},{contasBancarias:[{id:"c1"}]})).toBe("");
+    expect(authorizeSectionChanges({role:"financeiro"},{regrasConc:[{id:"r1"}]})).toBe("");
+    expect(authorizeSectionChanges({role:"financeiro"},{fechamentosBancarios:[{id:"f1"}]})).toBe("");
+    expect(authorizeSectionChanges({role:"financeiro"},{rejeicoesConc:[{id:"j1"}]})).toBe("");
+  });
+  it("não permite que rh ou engenheiro alterem a conciliação bancária",()=>{
+    expect(authorizeSectionChanges({role:"rh"},{fechamentosBancarios:[{id:"f1"}]})).toMatch(/permissão/);
+    expect(authorizeSectionChanges({role:"engenheiro"},{contasBancarias:[{id:"c1"}]})).toMatch(/permissão/);
+  });
+  it("reserva reabrir um período bancário fechado ao administrador",()=>{
+    const anterior={fechamentosBancarios:[{id:"f1",status:"fechado"}]};
+    const reaberto={fechamentosBancarios:[{id:"f1",status:"reaberto"}]};
+    expect(validateBankReconciliationPolicy(anterior,reaberto,{role:"financeiro"})).toMatch(/administrador/);
+    expect(validateBankReconciliationPolicy(anterior,reaberto,{role:"admin"})).toBe("");
+  });
+  it("permite ao financeiro fechar um período novo (não é reabertura)",()=>{
+    const anterior={fechamentosBancarios:[]};
+    const fechado={fechamentosBancarios:[{id:"f1",status:"fechado"}]};
+    expect(validateBankReconciliationPolicy(anterior,fechado,{role:"financeiro"})).toBe("");
+  });
+  it("reserva excluir uma regra de conciliação ao administrador",()=>{
+    const anterior={regrasConc:[{id:"r1"},{id:"r2"}]};
+    const semR1={regrasConc:[{id:"r2"}]};
+    expect(validateBankReconciliationPolicy(anterior,semR1,{role:"financeiro"})).toMatch(/administrador/);
+    expect(validateBankReconciliationPolicy(anterior,semR1,{role:"admin"})).toBe("");
+  });
+  it("permite ao financeiro criar ou desativar uma regra (sem remover)",()=>{
+    const anterior={regrasConc:[{id:"r1",ativa:true}]};
+    const desativada={regrasConc:[{id:"r1",ativa:false}]};
+    const nova={regrasConc:[{id:"r1",ativa:true},{id:"r2",ativa:true}]};
+    expect(validateBankReconciliationPolicy(anterior,desativada,{role:"financeiro"})).toBe("");
+    expect(validateBankReconciliationPolicy(anterior,nova,{role:"financeiro"})).toBe("");
   });
 });
