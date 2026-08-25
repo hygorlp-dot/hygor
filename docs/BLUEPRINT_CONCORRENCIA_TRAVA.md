@@ -2369,7 +2369,7 @@ uma tarefa não iniciada e já vencida, e -5 (não -10) para uma tarefa em
 ritmo acima do previsto - conferido rodando a função de verdade, não
 recalculado à mão.
 
-### Onda 1 - fechar os buracos de concorrência restantes (em andamento)
+### Onda 1 - fechar os buracos de concorrência restantes (concluída)
 
 1. **Diário de Obra perde o fallback sem CAS.** `executarSalvarRDO` e
    `excluirRdo` (`src/LegacyApp.jsx`, função `DiarioObra`) caíam para
@@ -2428,5 +2428,19 @@ e `architecture:check` sem violação.
    texto do `LegacyApp.jsx` foi atualizado para checar os arquivos novos.
 
 Verificação: suíte completa (252 arquivos/1501 testes), `build`, `lint`
-e `architecture:check` sem violação. Falta só o item 3 da Onda 1
-(desambiguar os três domínios "Suprimentos").
+e `architecture:check` sem violação.
+
+3. **Desambigua os três "Suprimentos".** Puramente organizacional, sem
+   mudar comportamento nenhum. `function Suprimentos` em `LegacyApp.jsx`
+   (a tela de cotações/curva de compra por prioridade, nada a ver com
+   estoque físico) virou `CotacoesMaterial`; seu rótulo no menu passou
+   de "Suprimentos" para "Cotações", e o `title` da própria tela de
+   "Suprimentos" para "Cotações e curva de compra". O eyebrow de Estoque
+   (que também dizia "Suprimentos") virou "Materiais e insumos". O grupo
+   de menu "Suprimentos" (que agrupa Compras+Estoque na barra lateral) e
+   `src/domains/suprimentos` (motor de marcos/curva ABC, tab "Marcos e
+   Curva A") ficaram como estavam - são os dois usos do nome que já eram
+   corretos; só a tela de cotações precisava sair do meio.
+
+Verificação: suíte completa (252 arquivos/1501 testes), `build`, `lint`
+e `architecture:check` sem violação. **Onda 1 concluída.**

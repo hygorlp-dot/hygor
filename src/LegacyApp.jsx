@@ -13069,7 +13069,11 @@ export function ModalCotacaoWhatsApp({ titulo, itens, obraNome, prazo, fornecedo
   </Modal>;
 }
 
-function Suprimentos({ data, update, showToast, onTab }) {
+// Nomeado CotacoesMaterial (não mais "Suprimentos") para não colidir com o
+// grupo de menu "Suprimentos" (que já agrupa Compras+Estoque) nem com o
+// motor de marcos/curva ABC em src/domains/suprimentos - três coisas
+// diferentes que disputavam o mesmo nome (raio-X de 25/08/2026).
+function CotacoesMaterial({ data, update, showToast, onTab }) {
   const { formGrid } = useBreakpoint();
   const [aba, setAba] = useState("curva");   // curva | precos | alertas
   const [busca, setBusca] = useState("");
@@ -13130,7 +13134,7 @@ function Suprimentos({ data, update, showToast, onTab }) {
     <div className="anim" style={{ display:"flex", flexDirection:"column", gap:12 }}>
       <PageHero
         eyebrow="Compras"
-        title="Suprimentos"
+        title="Cotações e curva de compra"
         description={`${curva.linhas.length} materiais na carteira de obras · ${curva.alertasPesquisa.length} a pesquisar`}
         actions={itensUrgentes.length>0&&<Btn size="sm" v="warning" onClick={()=>setCotWppS(true)}><Ic n="cart"/> Cotar urgentes ({itensUrgentes.length})</Btn>}
       />
@@ -17786,7 +17790,7 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="", dispatch
 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-      <PageHero eyebrow="Suprimentos" title="Estoque" description="Controle físico dos materiais por obra, com alerta de reposição abaixo do mínimo."/>
+      <PageHero eyebrow="Materiais e insumos" title="Estoque" description="Controle físico dos materiais por obra, com alerta de reposição abaixo do mínimo."/>
 
       {/* Aviso de regime - o motivo de o estoque não mexer no DRE */}
       <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"9px 11px"}}>
@@ -20284,7 +20288,7 @@ const TAB_META = {
   licenca:  { label: "Licenciamento", icon: "file", group: "eng_grp" },
   cmp:      { label: "Compras",     icon: "cart",   group: "compras_grp" },
   fornecedores: { label: "Fornecedores", icon: "handshake", group: "compras_grp" },
-  suprimentos: { label: "Suprimentos", icon: "trending", group: "compras_grp" },
+  suprimentos: { label: "Cotações", icon: "trending", group: "compras_grp" },
   cad:      { label: "Cadastros",   icon: "settings", group: "cfg_grp" },
   medicoes: { label: "Medições",   icon: "ruler",   group: "fin_grp" },
   caixa:    { label: "Caixa da obra", icon: "wallet", group: "fin_grp" },
@@ -21563,7 +21567,7 @@ export default function App() {
           {tab === "licenca"  && <Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "cmp"      && <Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "fornecedores" && <RankingFornecedores data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "suprimentos" && <Suprimentos data={data} update={update} showToast={showToast} onTab={(t)=>{setObraAberta("");setTab(t);}}/>}
+          {tab === "suprimentos" && <CotacoesMaterial data={data} update={update} showToast={showToast} onTab={(t)=>{setObraAberta("");setTab(t);}}/>}
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "medicoes" && <Suspense fallback={<div className="arcd-page-loading">Carregando medições...</div>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "caixa"    && <CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
