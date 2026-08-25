@@ -1594,6 +1594,39 @@ depois de um push, checar o status real do deploy via
 `gh api repos/<owner>/<repo>/commits/<sha>/status` (campo `state`) antes
 de declarar qualquer coisa "verificado em produção".
 
+**Resolução, mesmo incidente**: mesmo depois do commit `83ef92f` (a
+correção) reportar deploy `success` via `gh api`, o chunk
+`EquipamentosView-*.js` continuou servindo o hash ANTIGO (pré-38ab91d) -
+segundo problema, distinto do primeiro: cache de build da Vercel
+dessincronizado, provavelmente por reaproveitar o cache incremental do
+último build bem-sucedido (`115ad1e`, 6 commits atrás) sem invalidar
+corretamente os arquivos alterados nos commits que falharam no meio do
+caminho. Diagnosticado comparando o hash produzido por um `npm run build`
+local limpo (`EquipamentosView-BXPfaBpY.js`) contra o hash servido em
+produção (`EquipamentosView-B7iQ9QTv.js`, antigo) - eram diferentes.
+Corrigido com o usuário aprovando explicitamente (`AskUserQuestion`) um
+redeploy de produção manual via Vercel CLI (`vercel --prod --force`,
+ignora cache de build) - a CLI já estava autenticada nesta máquina.
+`vercel link` (necessário antes do deploy manual) criou por engano um
+projeto novo vazio ("hygor", por adivinhar o nome pelo repositório em vez
+do projeto real "pontos") - identificado e removido (`vercel remove`,
+também com aprovação do usuário) antes de prosseguir com o link correto.
+O redeploy forçado produziu exatamente o hash esperado
+(`EquipamentosView-BXPfaBpY.js`, idêntico ao build local) e foi
+promovido/aliasado para `pontosarcd.vercel.app`.
+
+**Verificado de ponta a ponta, com o usuário logado na sessão real**: a
+tela "Vincular recebimento" abre com o número da fatura, saldo em aberto
+e valor pré-preenchido corretos; o seletor de transação bancária mostra
+corretamente "Selecione..." como única opção (não há transação bancária
+de entrada cadastrada nesta empresa agora - comportamento correto do
+filtro, não um bug; não foi possível testar o envio completo por falta de
+dado de transação bancária de teste). Dado de teste criado durante a
+verificação (uma linha de cobrança "Teste vinculo recebimento - CORE-003"
+de R$ 50,00 e a fatura `FAT-202608-001` dela, na locação de
+"VIBRADOR DE CONCRETO" da obra CA1-06) fica registrado aqui para quem
+notar esse registro no banco depois e estranhar a origem.
+
 ## Arquivos referenciados
 
 - `api/data.js:59` (`KEY`), `:370-392` (`lerLinha`), `:578-635`
