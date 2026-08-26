@@ -72,7 +72,17 @@ const itemTotal = (it, bdi) =>
 const compFormVazio = (extra = {}) => ({ id:"", codigo:"", descricao:"", unidade:"UN",
   origemFonte:"PRÓPRIA", origemCodigo:"", origemDataBase:"", origemUf:"", itens:[], ...extra });
 
-export default function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null }) {
+export default function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null, todasObras=null, todosOrcamentosGlobais=null, todosPlanosGlobais=null }) {
+  // Quando aberta de dentro de uma obra (ObraDetalhe), `data` chega ISOLADA
+  // por obra (dadosDaObraIsolados) - data.obras/orcamentos/planos só têm os
+  // registros da obra atual. "Copiar de outra obra" precisa enxergar as
+  // OUTRAS obras para funcionar; os três props acima trazem as listas
+  // completas só para esse recurso, sem alterar o isolamento existente (nem
+  // um único outro uso de data.obras/orcamentos/planos neste arquivo muda -
+  // todos já só olham para a obra atual, que sobrevive ao isolamento).
+  const obrasParaCopia = todasObras || data.obras || [];
+  const orcamentosParaCopia = todosOrcamentosGlobais || data.orcamentos || [];
+  const planosParaCopia = todosPlanosGlobais || data.planos || [];
   const { cols, formGrid } = useBreakpoint();
   const ehAdmin = currentUser?.role === "admin";
   const dataAtualRef = useRef(data);
@@ -990,11 +1000,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const obraDestinoId = obraIdFixo || form.obraId;
     if (!copiarModal?.orcOrigemId) { showToast("Selecione o orçamento de origem.","error"); return; }
     if (!obraDestinoId) { showToast("Selecione a obra de destino.","error"); return; }
-    const orcOrigem = todosOrcamentos.find(o => o.id === copiarModal.orcOrigemId);
+    const orcOrigem = orcamentosParaCopia.find(o => o.id === copiarModal.orcOrigemId);
     if (!orcOrigem) { showToast("Orçamento de origem não encontrado.","error"); return; }
 
-    const planoOrigem = (data.planos||[]).find(p => p.obraId === copiarModal.obraOrigemId);
-    const planoDestinoExistente = (data.planos||[]).find(p => p.obraId === obraDestinoId);
+    const planoOrigem = planosParaCopia.find(p => p.obraId === copiarModal.obraOrigemId);
+    const planoDestinoExistente = planosParaCopia.find(p => p.obraId === obraDestinoId);
     if (planoDestinoExistente?.tarefas?.length && planoOrigem?.tarefas?.length
         && !window.confirm("A obra de destino já tem um cronograma com tarefas. Substituir pelo cronograma copiado?")) {
       return;
@@ -1038,8 +1048,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setSelOrc(novo.id);
     setView("editor");
     showToast(copiouCronograma
-      ? `Orçamento e cronograma copiados de "${data.obras.find(o=>o.id===copiarModal.obraOrigemId)?.name||"outra obra"}".`
-      : `Orçamento copiado de "${data.obras.find(o=>o.id===copiarModal.obraOrigemId)?.name||"outra obra"}". A obra de origem não tinha cronograma para copiar.`);
+      ? `Orçamento e cronograma copiados de "${obrasParaCopia.find(o=>o.id===copiarModal.obraOrigemId)?.name||"outra obra"}".`
+      : `Orçamento copiado de "${obrasParaCopia.find(o=>o.id===copiarModal.obraOrigemId)?.name||"outra obra"}". A obra de origem não tinha cronograma para copiar.`);
   };
 
   const salvarOrc = (patch) => {
@@ -2451,7 +2461,7 @@ ${blocoBDI}
             <p style={{color:C.muted,fontSize:12,marginTop:4}}>Planilha orçamentária com BDI e exportação</p>
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {data.obras.some(o=>o.id!==obraIdFixo)&&<Btn v="ghost" onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setCopiarModal({obraOrigemId:"",orcOrigemId:""});}}><Ic n="copy"/> Copiar de outra obra</Btn>}
+            {obrasParaCopia.some(o=>o.id!==obraIdFixo)&&<Btn v="ghost" onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setCopiarModal({obraOrigemId:"",orcOrigemId:""});}}><Ic n="copy"/> Copiar de outra obra</Btn>}
             <Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>
           </div>
         </div>
@@ -2553,8 +2563,8 @@ ${blocoBDI}
         {/* Modal copiar orçamento (e cronograma) de outra obra */}
         {copiarModal && (() => {
           const obraDestinoId = obraIdFixo || form.obraId;
-          const orcsDaOrigem = todosOrcamentos.filter(o => o.obraId === copiarModal.obraOrigemId);
-          const planoOrigemTemTarefas = !!(data.planos||[]).find(p => p.obraId === copiarModal.obraOrigemId)?.tarefas?.length;
+          const orcsDaOrigem = orcamentosParaCopia.filter(o => o.obraId === copiarModal.obraOrigemId);
+          const planoOrigemTemTarefas = !!planosParaCopia.find(p => p.obraId === copiarModal.obraOrigemId)?.tarefas?.length;
           return (
             <Modal title="Copiar de outra obra" onClose={()=>setCopiarModal(null)} wide>
               <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -2563,11 +2573,11 @@ ${blocoBDI}
                 </p>
                 {!obraIdFixo && (
                   <Sel label="Obra de destino *" value={form.obraId} onChange={F("obraId")}
-                       options={[{v:"",l:"- Selecione -"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+                       options={[{v:"",l:"- Selecione -"}, ...obrasParaCopia.map(o=>({v:o.id,l:o.name}))]}/>
                 )}
                 <Sel label="Obra de origem *" value={copiarModal.obraOrigemId}
                      onChange={v=>setCopiarModal({ obraOrigemId:v, orcOrigemId:"" })}
-                     options={[{v:"",l:"- Selecione -"}, ...data.obras.filter(o=>o.id!==obraDestinoId).map(o=>({v:o.id,l:o.name}))]}/>
+                     options={[{v:"",l:"- Selecione -"}, ...obrasParaCopia.filter(o=>o.id!==obraDestinoId).map(o=>({v:o.id,l:o.name}))]}/>
                 {copiarModal.obraOrigemId && (
                   orcsDaOrigem.length
                     ? <Sel label="Orçamento de origem *" value={copiarModal.orcOrigemId}
@@ -2583,7 +2593,7 @@ ${blocoBDI}
                   </p>
                 )}
                 <Inp label="Nome do novo orçamento" value={form.nome} onChange={F("nome")}
-                     placeholder={copiarModal.orcOrigemId ? `Cópia de ${todosOrcamentos.find(o=>o.id===copiarModal.orcOrigemId)?.nome||""}` : ""}/>
+                     placeholder={copiarModal.orcOrigemId ? `Cópia de ${orcamentosParaCopia.find(o=>o.id===copiarModal.orcOrigemId)?.nome||""}` : ""}/>
                 <div style={{display:"flex",gap:8}}>
                   <Btn v="ghost" onClick={()=>setCopiarModal(null)} full>Cancelar</Btn>
                   <Btn onClick={confirmarCopiaDeObra} full disabled={!copiarModal.orcOrigemId||!obraDestinoId}><Ic n="copy"/> Copiar</Btn>
