@@ -34,6 +34,7 @@ import {
   calculateLineOfBalance,
   calculatePPC,
 } from "../index.js";
+import { compareCpmResults } from "../legacy-canonical-diff.js";
 import { chamarIA } from "../../../api";
 
 export default function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
@@ -94,6 +95,17 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     try{return calculateCanonicalCPM(atividades,dependencias);}
     catch{return {projectDuration:0,criticalPath:[],activities:[]};}
   }, [tarefas, cal]);
+  // Fase 1 da Onda 2 do raio-X (26/08/2026): compara os dois motores em
+  // memória, sem gravar nada - só avisa no console quando divergem, para
+  // começar a acumular sinal sobre se algum dia é seguro cortar o legado.
+  // Um rastro persistente/auditável (mais parecido com o CORE-00X) é um
+  // passo maior, deliberadamente adiado até decidir onde gravar isso.
+  useEffect(()=>{
+    const comparacao=compareCpmResults(critico,cpmCanonico);
+    if(comparacao.divergente){
+      console.warn(`[planejamento] motor legado x canônico divergem na obra ${obraId}`,comparacao.divergencias);
+    }
+  },[critico,cpmCanonico,obraId]);
   const ppcSemanal = useMemo(() => calculatePPC((data.weeklyCommitments||[]).filter(item=>String(item.obraId)===String(obraId))), [data.weeklyCommitments, obraId]);
   const linhaBalanco = useMemo(() => calculateLineOfBalance(tarefas.filter(item=>!item.titulo)), [tarefas]);
   const compromissosDaObra = useMemo(() => (data.weeklyCommitments||[])

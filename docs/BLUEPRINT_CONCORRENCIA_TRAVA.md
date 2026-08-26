@@ -2444,3 +2444,47 @@ e `architecture:check` sem violação.
 
 Verificação: suíte completa (252 arquivos/1501 testes), `build`, `lint`
 e `architecture:check` sem violação. **Onda 1 concluída.**
+
+### Onda 2 - aposentar o motor de cronograma duplicado (Fase 1 concluída, marco de decisão pendente)
+
+Item 7 (caracterizar o motor legado) já tinha sido feito em paralelo à
+Onda 0 - ver seção acima. Item 8 (comparar os dois motores) agora tem
+uma primeira fase real:
+
+**`src/domains/planejamento/legacy-canonical-diff.js`** (novo, puro,
+testado - 5 casos): `compareCpmResults(legado, canonico)` compara a
+saída de `caminhoCritico` (motor legado) com a de `calculateCPM` (motor
+canônico) para a mesma obra - duração total do projeto, conjunto de
+atividades no caminho crítico (nos dois sentidos: só-no-legado e
+só-no-canônico) e folga por atividade (tolerância de 0,01 dia para
+arredondamento). Atividades que só existem em um dos dois motores (ex.:
+migração parcial de dados) são ignoradas, não geram falso positivo.
+
+Ligado em `PlanejamentoView.jsx`: como a tela já calcula os dois motores
+lado a lado a cada render (`critico` e `cpmCanonico`), um `useEffect`
+roda a comparação e usa `console.warn` quando eles divergem para a obra
+aberta - visível a qualquer engenheiro com o DevTools aberto, sem
+bloquear nada, sem gravar nada em disco.
+
+**Por que parou aqui, e não foi direto para um rastro persistente em
+produção (mais parecido com o mecanismo `core_registry_shadow_runs` do
+CORE-00X):** o motor legado vive dentro de `LegacyApp.jsx`, que é JSX
+que depende de mocks de UI para sequer importar (ver
+`legacy-engine-characterization.test.js`) - não dá para rodá-lo de
+dentro de um script Node puro no servidor, do jeito que
+`scripts/apply-core-registry-shadow.mjs` roda para o CORE-00X. Um
+rastro de verdade em produção exigiria uma de duas coisas novas: (a)
+extrair o motor legado para algo importável fora do navegador, ou (b)
+criar um caminho de escrita cliente→servidor só para isto (não existe
+hoje nenhum endpoint genérico de telemetria/auditoria disparável pelo
+cliente). As duas são decisões de escopo, não só código - por isso o
+item 8 fica registrado como "Fase 1" (comparação visível, não
+persistida) até o responsável decidir se vale investir numa Fase 2.
+
+**Item 9 (cortar a tela para o motor canônico e remover o legado)
+continua um marco de decisão explícito, como já estava no roadmap** -
+não foi tocado, e não deveria ser sem acumular sinal real de que os
+dois motores concordam em produção primeiro.
+
+Verificação: suíte completa (253 arquivos/1506 testes), `build`, `lint`
+e `architecture:check` sem violação.
