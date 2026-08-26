@@ -39,6 +39,19 @@ describe("clonarEstruturaOrcamento", () => {
     expect(escavacao.etapaId).toBe(sapatas.id);
   });
 
+  it("por padrão repete a quantidade da obra de origem", () => {
+    const { itens } = clonarEstruturaOrcamento(orcOrigem, gerarIdSequencial("novo"));
+    const escavacao = itens.find(i => i.descricao === "Escavação");
+    expect(escavacao.quantidade).toBe(10);
+  });
+
+  it("zera as quantidades quando zerarQuantidades:true - obra nova quase sempre tem dimensões diferentes", () => {
+    const { itens } = clonarEstruturaOrcamento(orcOrigem, gerarIdSequencial("novo"), { zerarQuantidades: true });
+    const escavacao = itens.find(i => i.descricao === "Escavação");
+    expect(escavacao.quantidade).toBe(0);
+    expect(escavacao.precoUnit).toBe(50); // preço unitário de referência é preservado mesmo zerando
+  });
+
   it("zera codigoNaoEncontrado ao clonar - a base de preços do destino pode ser outra", () => {
     const origem = { etapas: [], itens: [{ id: "i1", etapaId: "", tipo: "item", codigo: "X", codigoNaoEncontrado: true }] };
     const { itens } = clonarEstruturaOrcamento(origem, gerarIdSequencial("novo"));

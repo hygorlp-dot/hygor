@@ -1012,7 +1012,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
     const agora = new Date().toISOString();
     const id = uid();
-    const { etapas, itens, etapaIdMap } = clonarEstruturaOrcamento(orcOrigem, uid);
+    const { etapas, itens, etapaIdMap } = clonarEstruturaOrcamento(orcOrigem, uid, { zerarQuantidades: !copiarModal.repetirQuantidades });
     const novo = {
       id, versionId:id, versionNumber:1, revisionOf:"", versionStatus:"rascunho",
       nome: String(form.nome||"").trim() || `Cópia de ${orcOrigem.nome}`,
@@ -2461,7 +2461,7 @@ ${blocoBDI}
             <p style={{color:C.muted,fontSize:12,marginTop:4}}>Planilha orçamentária com BDI e exportação</p>
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {obrasParaCopia.some(o=>o.id!==obraIdFixo)&&<Btn v="ghost" onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setCopiarModal({obraOrigemId:"",orcOrigemId:""});}}><Ic n="copy"/> Copiar de outra obra</Btn>}
+            {obrasParaCopia.some(o=>o.id!==obraIdFixo)&&<Btn v="ghost" onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setCopiarModal({obraOrigemId:"",orcOrigemId:"",repetirQuantidades:true});}}><Ic n="copy"/> Copiar de outra obra</Btn>}
             <Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>
           </div>
         </div>
@@ -2591,6 +2591,22 @@ ${blocoBDI}
                       ? "Esta origem tem um cronograma montado - será copiado junto, com as datas deslocadas para começar hoje."
                       : "Esta origem ainda não tem cronograma montado - só o orçamento será copiado."}
                   </p>
+                )}
+                {copiarModal.orcOrigemId && (
+                  <label style={{display:"flex",alignItems:"flex-start",gap:9,cursor:"pointer",padding:"8px 11px",
+                          background: copiarModal.repetirQuantidades ? `${C.yellow}10` : C.surface,
+                          border:`1.5px solid ${copiarModal.repetirQuantidades ? C.yellow : C.border}`,borderRadius:6}}>
+                    <div onClick={()=>setCopiarModal(m=>({...m,repetirQuantidades:!m.repetirQuantidades}))}
+                         style={{width:18,height:18,borderRadius:4,flexShrink:0,marginTop:1,
+                                 border:`2px solid ${copiarModal.repetirQuantidades?C.yellow:C.muted}`,background:copiarModal.repetirQuantidades?C.yellow:"transparent",
+                                 display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {copiarModal.repetirQuantidades && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
+                    </div>
+                    <div>
+                      <p style={{fontSize:12.5,fontWeight:700,color:copiarModal.repetirQuantidades?C.yellow:C.text}}>Repetir as quantidades da obra de origem</p>
+                      <p style={{fontSize:10.5,color:C.muted,marginTop:2,lineHeight:1.5}}>Desmarcado, os itens entram com quantidade zerada - a estrutura e o preço unitário de referência vêm, mas você lança a medida real desta obra.</p>
+                    </div>
+                  </label>
                 )}
                 <Inp label="Nome do novo orçamento" value={form.nome} onChange={F("nome")}
                      placeholder={copiarModal.orcOrigemId ? `Cópia de ${orcamentosParaCopia.find(o=>o.id===copiarModal.orcOrigemId)?.nome||""}` : ""}/>

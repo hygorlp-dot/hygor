@@ -22,7 +22,11 @@ const somaDiasSimples = (data, dias) => {
 // Clona etapas (id novo, parentId remapeado) e itens (id novo, etapaId
 // remapeado) de um orçamento de origem. Retorna também o mapa de ids de
 // etapa (origem -> novo), necessário para clonar o cronograma em seguida.
-export function clonarEstruturaOrcamento(orcOrigem, gerarId) {
+// `zerarQuantidades` (padrão: false, repete a quantidade da origem) - obra
+// nova quase sempre tem dimensões diferentes da obra copiada; zerar deixa
+// a estrutura/preço unitário como referência sem carregar uma quantidade
+// que quase certamente está errada para o novo local.
+export function clonarEstruturaOrcamento(orcOrigem, gerarId, { zerarQuantidades = false } = {}) {
   const etapaIdMap = new Map();
   (orcOrigem.etapas || []).forEach(etapa => etapaIdMap.set(etapa.id, gerarId()));
 
@@ -36,6 +40,7 @@ export function clonarEstruturaOrcamento(orcOrigem, gerarId) {
     ...item,
     id: gerarId(),
     etapaId: item.etapaId ? (etapaIdMap.get(item.etapaId) || "") : "",
+    quantidade: zerarQuantidades ? 0 : item.quantidade,
     codigoNaoEncontrado: false,
   }));
 
