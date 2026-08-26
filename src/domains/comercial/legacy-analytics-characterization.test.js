@@ -278,24 +278,16 @@ describe("npsResumo", () => {
     expect(r.promotores).toBe(1);
   });
 
-  test("CARACTERIZAÇÃO: nota gravada como string numérica quebra a soma usada na média", () => {
-    // O filtro usa Number(p.nota) >= 0, então strings numéricas passam. Mas o
-    // cálculo de média usa `ps.reduce((s,p)=>s+p.nota,0)` sem Number(), então
-    // se `nota` vier como string do formulário/planilha, a soma vira
-    // concatenação de string em vez de soma numérica. Isto é uma peculiaridade
-    // real do código hoje, não um comportamento desejável - documentado aqui,
-    // não corrigido.
+  test("nota gravada como string numérica soma corretamente (corrigido em 26/08/2026)", () => {
+    // Achado de 25/08/2026: a soma usada na média não tinha Number(), então
+    // uma nota vinda como string do formulário/planilha virava concatenação
+    // ("0"+"9" -> "09") em vez de soma aritmética. Corrigido na Onda 5 do
+    // raio-X - este teste agora prova a média real, não mais a distorcida.
     const r = mod.npsResumo([
       { nota: "9", data: "2026-01-01" },
       { nota: "8", data: "2026-01-02" },
     ]);
-    // 0 + "9" -> "09" (string); "09" + "8" -> "098" (string); dividido por 2
-    // o JS converte a string "098" de volta para número na divisão.
-    expect(typeof r.media).toBe("number");
-    expect(r.media).toBeCloseTo(98 / 2, 6);
-    // Confirma que NÃO é a média aritmética real (que seria 8.5) - a string
-    // concatenada distorce o resultado.
-    expect(r.media).not.toBeCloseTo(8.5, 6);
+    expect(r.media).toBeCloseTo(8.5, 6);
   });
 });
 

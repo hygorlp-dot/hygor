@@ -16517,34 +16517,48 @@ function Estoque({ data, update, showToast, currentUser, obraIdFixo="", dispatch
   // obra vira solicitacao de compra pre-preenchida com um toque.
   const abaixoMin = useMemo(() => materiaisAbaixoMinimo(data),
     [data.movEstoque, data.materiais, data.obras]);
-  const gerarReposicao = () => {
+  // Onda 5 do raio-X (item 3/3, 26/08/2026): gerava as solicitações direto
+  // via update(), fora do padrão de comando que o resto de Compras já usa
+  // (PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_SAVED). Agora despacha um
+  // comando por obra, sequencialmente, cada um com sua própria validação
+  // e numeração recalculada contra o estado mais fresco do servidor.
+  const gerarReposicao = async () => {
     if (!abaixoMin.length) return;
+    if (!dispatchCommand) { showToast("Gerar reposição automática exige conexão com o servidor.", "error"); return; }
     const porObra = {};
     abaixoMin.forEach(l => { (porObra[l.obraId] = porObra[l.obraId] || []).push(l); });
     const nObras = Object.keys(porObra).length;
     if (!window.confirm(`Gerar ${nObras} solicitação(ões) de reposição?\n\n${abaixoMin.length} material(is) abaixo do mínimo em ${nObras} obra(s). As quantidades já vêm com o déficit calculado — o setor de Compras recebe o alerta na hora.`)) return;
-    const existentes = (data.solicitacoesCompra || []).length;
-    const agora = new Date().toISOString();
-    const novas = Object.entries(porObra).map(([obraId, linhas], ix) => ({
-      id: uid(),
-      numero: `SC-${String(existentes + ix + 1).padStart(4, "0")}`,
-      obraId,
-      solicitanteId: currentUser?.id || "",
-      solicitanteNome: currentUser?.nome || "Estoque",
-      criadoEm: agora, necessidade: "", prioridade: "normal", status: "enviada",
-      observacao: "Reposição automática: materiais abaixo do estoque mínimo.",
-      analisadoEm: "", analisadoPor: "", pedidoId: "",
-      itens: linhas.map(l => ({
-        id: uid(), referenciaId: "", fonteRef: "PRÓPRIO", codigoRef: "",
-        descricaoRef: maiusculoOrcamento(l.descricao), unidadeRef: maiusculoOrcamento(l.unidade),
-        quantidade: l.deficit, precoRef: 0, dataBaseRef: "", ufRef: "",
-        observacao: `Saldo ${l.saldo} / mínimo ${l.minimo}`,
-      })),
-    }));
-    const changeLog = [...data.changeLog, { id: uid(), date: today(), type: "reposicao_estoque",
-      message: `Reposição automática: ${novas.length} solicitação(ões) gerada(s) com ${abaixoMin.length} material(is) abaixo do mínimo` }];
-    update({ ...data, solicitacoesCompra: [...(data.solicitacoesCompra || []), ...novas], changeLog });
-    showToast(`${novas.length} solicitação(ões) de reposição enviada(s) ao setor de Compras.`);
+    const hoje = today();
+    let geradas = 0;
+    for (const [obraId, linhas] of Object.entries(porObra)) {
+      const id = uid();
+      const request = {
+        id, obraId, solicitanteId: currentUser?.id || "", solicitanteNome: currentUser?.nome || "Estoque",
+        necessidade: hoje, prioridade: "normal", status: "enviada",
+        observacao: "Reposição automática: materiais abaixo do estoque mínimo.",
+        analisadoEm: "", analisadoPor: "", pedidoId: "",
+        itens: linhas.map(l => ({
+          id: uid(), materialId: l.materialId, referenciaId: "", fonteRef: "PRÓPRIO", codigoRef: "",
+          descricaoRef: maiusculoOrcamento(l.descricao), unidadeRef: maiusculoOrcamento(l.unidade),
+          quantidade: l.deficit, precoRef: 0, dataBaseRef: "", ufRef: "",
+          observacao: `Saldo ${l.saldo} / mínimo ${l.minimo}`,
+        })),
+      };
+      const result = await dispatchCommand(atual => ({
+        type: OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED,
+        idempotencyKey: `reposicao-${id}-${uid()}`, expectedVersion: 0,
+        actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
+        payload: { request: { ...request, numero: `SC-${String((atual.solicitacoesCompra || []).length + 1).padStart(4, "0")}` } },
+      }));
+      if (result?.ok) geradas++;
+      else showToast?.(result?.reason || `Não foi possível gerar a solicitação de reposição da obra selecionada.`, "error");
+    }
+    if (geradas) {
+      await update({ ...data, changeLog: [...(data.changeLog || []), { id: uid(), date: today(), type: "reposicao_estoque",
+        message: `Reposição automática: ${geradas} solicitação(ões) gerada(s) com ${abaixoMin.length} material(is) abaixo do mínimo` }] });
+      showToast(`${geradas} solicitação(ões) de reposição enviada(s) ao setor de Compras.`);
+    }
   };
 
   const matPorId = useCallback(
@@ -18452,7 +18466,10 @@ export const npsResumo = (pesquisas) => {
   return {
     total: ps.length, promotores: prom, neutros: neut, detratores: detr,
     nps: ((prom - detr) / ps.length) * 100,
-    media: ps.reduce((s, p) => s + p.nota, 0) / ps.length,
+    // Number() é obrigatório aqui: o filtro acima só garante Number(p.nota)>=0,
+    // p.nota em si pode chegar como string (formulário/planilha) - sem isto a
+    // soma vira concatenação (achado de 25/08/2026, ver BLUEPRINT).
+    media: ps.reduce((s, p) => s + Number(p.nota), 0) / ps.length,
   };
 };
 

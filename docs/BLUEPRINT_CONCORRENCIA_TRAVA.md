@@ -2628,3 +2628,29 @@ ao responsável pelo ajuste).
 
 Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
 e `architecture:check` sem violação.
+
+### Item 2/3 - corrige o bug do NPS
+
+`npsResumo` (analytics comerciais) somava `s + p.nota` sem `Number()`,
+enquanto o filtro de validade já usava `Number(p.nota)>=0` - achado e
+documentado na Onda 0 (via teste de caracterização), nunca corrigido.
+Correção de uma linha: `s + Number(p.nota)`. O teste de caracterização
+que documentava o bug foi reescrito para provar o comportamento
+correto (duas notas "9" e "8" agora dão média 8,5, não mais 49).
+
+### Item 3/3 - `gerarReposicao` entra no padrão de comando
+
+Único fluxo de Estoque que tinha ficado de fora da Onda 1 por decisão
+de escopo (gerava `solicitacoesCompra`, que pertence a Compras). Agora
+despacha um `PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_SAVED` por obra,
+sequencialmente, em vez de um `update()` só escrevendo todas as
+solicitações de uma vez. Cada item ganhou `materialId` (a validação do
+comando exige vínculo com o catálogo - o formato antigo não carregava
+esse campo) e `necessidade` passou a ser a data de hoje (a validação
+exige uma data; o antigo formato mandava string vazia, que só não
+quebrava porque nunca passava por validação nenhuma). Numeração (`SC-NNNN`)
+recalculada contra o estado mais fresco do servidor a cada despacho, em
+vez de computada uma vez só no início do lote.
+
+Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
+e `architecture:check` sem violação. **Onda 5 concluída.**
