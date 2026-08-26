@@ -3063,3 +3063,54 @@ de escopo maior e mais arriscadas para uma tela financeira em produção
 empilhamento de painéis do editor, migrar os ~4400 linhas do arquivo
 inteiro para os tokens do design system), por isso não foram feitas
 nesta mesma rodada sem alinhar com o usuário.
+
+### Segunda rodada - desfazer exclusão, painel padrão fechado, mais tokens (26/08/2026)
+
+O usuário pediu para continuar até a nota mínima de 37, mesmo topando
+com mudanças maiores. Feito nesta rodada (commit + `vitest`/`build`/
+`lint`/`architecture:check` verdes a cada passo):
+
+- **User Control and Freedom - desfazer exclusão de verdade**:
+  `delOrc`/`delEtapa` agora guardam o estado de ANTES da exclusão (não
+  um diff) por 8 segundos; um banner "Desfazer" aparece logo após
+  confirmar a remoção de um orçamento ou de uma etapa (com seus
+  subníveis e itens). O texto do `ConfirmDialog` avisa que dá para
+  desfazer. Implementado com estado local do componente, sem tocar no
+  `showToast` global (usado por dezenas de outras telas) - risco menor.
+- **Aesthetic and Minimalist Design - painel padrão fechado**: o
+  "Controle integrado de custos" era o único painel colapsável que
+  abria sozinho (`useState(true)`); os outros já nasciam fechados. Essa
+  era a maior causa isolada do "empilhamento de painéis antes da
+  planilha aparecer" que a Assessment B apontou - agora nasce fechado
+  como os demais.
+- **Consistency and Standards - mais valores migrados para Mono**: o
+  card "Controle integrado de custos" (KPIs Orçado/Comprometido/Saldo/
+  Projeção e a tabela por etapa de 1º nível) e o rodapé de totais
+  (BDI e R$/m²) do editor agora usam `var(--arcd-font-mono)` +
+  `tabular-nums`, no mesmo padrão já aplicado à faixa de KPIs e à
+  linha de item na primeira rodada.
+
+**Achado que revisou a leitura da primeira rodada**: `src/index.css`
+já define `font-family: "IBM Plex Sans"...` no seletor global - ou
+seja, todo texto do arquivo que NÃO tinha `fontFamily` explícito já
+herdava IBM Plex Sans corretamente desde sempre. A não-conformidade
+real nunca foi "o arquivo inteiro ignora a fonte do design system";
+era mais estreita: as ~21 declarações explícitas de `'Inter'`/`'Inter
+Display'` que *sobrescreviam* o padrão (corrigidas na primeira rodada)
+e a ausência de Mono nos valores monetários (corrigida em duas
+rodadas). Migrar "as 4400 linhas inteiras" não é necessário para
+conformidade de fonte - só onde há `fontFamily` explícito e onde há
+valor/código/data que ainda esteja em Sans.
+
+**Reverificado ao vivo em produção** (I-02 OÁSIS, orçamento real de
+209 itens): os 53 ícones de "criar subnível", os 53 de "renomear" e os
+209 pares de setas de reordenar - todos antes em branco - confirmados
+com SVG visível via inspeção do DOM, não só captura de tela. O botão
+"Ajuda" abre o modal com o conteúdo completo. O checkbox de "Encargos
+desonerados" tem `<input type="checkbox">` real por trás (`tabIndex:
+0`), focável por teclado.
+
+Nota reavaliada após esta rodada: ainda não recalculada com uma
+crítica Impeccable nova (isso exigiria rodar o processo completo de
+novo); a expectativa é de leitura mais próxima de 37 dado o alcance
+desta rodada, mas o número exato só é confirmado numa nova crítica.

@@ -163,6 +163,12 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // interface e permite descrever o impacto real da exclusão.
   const [confirmDelOrc, setConfirmDelOrc] = useState(null); // {id, nome}
   const [confirmDelEtapa, setConfirmDelEtapa] = useState(null); // {ids, aviso}
+  // Desfazer exclusão - janela curta para reverter sem precisar reconstruir
+  // etapas/itens na mão. Guarda o estado ANTES da exclusão, não um diff.
+  const [undoOrc, setUndoOrc] = useState(null); // {orc}
+  const [undoEtapa, setUndoEtapa] = useState(null); // {etapasAntes, itensAntes, nome}
+  const undoOrcTimeoutRef = useRef(null);
+  const undoEtapaTimeoutRef = useRef(null);
   // Copiar orçamento (e cronograma, se a obra de origem já tiver um) de
   // outra obra - pedido do usuário em 26/08/2026, em vez de montar tudo do
   // zero a cada obra parecida.
@@ -187,7 +193,10 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // Curva ABC: painel aberto, agrupamento por codigo e classe filtrada.
   const [abcAberta,  setAbcAberta]  = useState(false);
   const [ferramentasOrcAberto,setFerramentasOrcAberto]=useState(false);
-  const [controleCustosAberto,setControleCustosAberto]=useState(true);
+  // Fechado por padrão: a crítica de design apontou 5 painéis empilhados
+  // antes da planilha aparecer - este era o mais pesado (tabela por etapa
+  // de 1º nível) e o único que abria sozinho.
+  const [controleCustosAberto,setControleCustosAberto]=useState(false);
   const [abcAgrupar, setAbcAgrupar] = useState(true);
   const [abcFiltro,  setAbcFiltro]  = useState("todas");   // "todas" | "A" | "B" | "C"
   // Importacao do orcamento (codigo + qtd) cruzada com a base.
@@ -1559,9 +1568,20 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setConfirmDelOrc({ id, nome: alvo?.nome || "" });
   };
   const executarDelOrc = (id) => {
+    const alvo = todosOrcamentos.find(o=>o.id===id);
     update({ ...data, orcamentos: todosOrcamentos.filter(o=>o.id!==id) });
     if (selOrc===id) { setSelOrc(null); setView("lista"); }
+    setUndoOrc({ orc: alvo });
+    window.clearTimeout(undoOrcTimeoutRef.current);
+    undoOrcTimeoutRef.current = window.setTimeout(()=>setUndoOrc(null), 8000);
     showToast("Orçamento removido.");
+  };
+  const desfazerDelOrc = () => {
+    if (!undoOrc) return;
+    window.clearTimeout(undoOrcTimeoutRef.current);
+    update({ ...data, orcamentos: [...(data.orcamentos||[]), undoOrc.orc] });
+    setUndoOrc(null);
+    showToast("Orçamento restaurado.");
   };
 
   //  Itens 
@@ -1881,15 +1901,28 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       if (nItens) aviso += `${nSub?" e":""} ${nItens} item(ns) do orçamento`;
       aviso += ".";
     }
+    aviso += " Dá para desfazer logo em seguida.";
     setConfirmDelEtapa({ ids, aviso });
   };
   const executarDelEtapa = () => {
     const { ids } = confirmDelEtapa;
+    const etapasAntes = orc.etapas;
+    const itensAntes = orc.itens || [];
     salvarOrc({
-      etapas: orc.etapas.filter(e => !ids.includes(e.id)),
-      itens:  (orc.itens||[]).filter(it => !ids.includes(it.etapaId)),
+      etapas: etapasAntes.filter(e => !ids.includes(e.id)),
+      itens:  itensAntes.filter(it => !ids.includes(it.etapaId)),
     });
+    setUndoEtapa({ etapasAntes, itensAntes });
+    window.clearTimeout(undoEtapaTimeoutRef.current);
+    undoEtapaTimeoutRef.current = window.setTimeout(()=>setUndoEtapa(null), 8000);
     showToast("Etapa removida.");
+  };
+  const desfazerDelEtapa = () => {
+    if (!undoEtapa) return;
+    window.clearTimeout(undoEtapaTimeoutRef.current);
+    salvarOrc({ etapas: undoEtapa.etapasAntes, itens: undoEtapa.itensAntes });
+    setUndoEtapa(null);
+    showToast("Etapa restaurada.");
   };
 
   // Na base ORSE alguns identificadores chegam como "codigo/ORSE". A fonte ja
@@ -2481,6 +2514,13 @@ ${blocoBDI}
           </>}
         />
 
+        {undoOrc && (
+          <div style={{background:`${C.blue}0C`,border:`1px solid ${C.blue}55`,borderRadius:8,padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+            <p style={{fontSize:12,color:C.text}}>Orçamento "{undoOrc.orc?.nome}" removido.</p>
+            <Btn size="sm" v="ghost" onClick={desfazerDelOrc}><Ic n="refresh" s={13}/> Desfazer</Btn>
+          </div>
+        )}
+
         {ajudaModal && (
           <Modal title="Como funciona o Orçamento" onClose={()=>setAjudaModal(false)} wide>
             <div style={{display:"flex",flexDirection:"column",gap:14,fontSize:12.5,color:C.text,lineHeight:1.6}}>
@@ -2669,7 +2709,7 @@ ${blocoBDI}
 
         <ConfirmDialog open={!!confirmDelOrc} onOpenChange={aberto=>!aberto&&setConfirmDelOrc(null)}
           title="Remover orçamento" tone="danger" confirmLabel="Remover"
-          description={`Remover "${confirmDelOrc?.nome}"? Esta ação não pode ser desfeita.`}
+          description={`Remover "${confirmDelOrc?.nome}"? Você pode desfazer logo em seguida, mas a opção some depois de alguns segundos.`}
           onConfirm={()=>executarDelOrc(confirmDelOrc.id)}/>
       </div>
     );
@@ -2685,6 +2725,13 @@ ${blocoBDI}
       <button onClick={()=>{setView("lista");setSelOrc(null);}} style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600,padding:0,textAlign:"left",display:"flex",alignItems:"center",gap:4}}>
         ← Todos os orçamentos
       </button>
+
+      {undoEtapa && (
+        <div style={{background:`${C.blue}0C`,border:`1px solid ${C.blue}55`,borderRadius:8,padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+          <p style={{fontSize:12,color:C.text}}>Etapa removida.</p>
+          <Btn size="sm" v="ghost" onClick={desfazerDelEtapa}><Ic n="refresh" s={13}/> Desfazer</Btn>
+        </div>
+      )}
 
       {/* Resumo */}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:8,padding:"14px 16px",boxShadow:`0 1px 4px ${C.shadow}`}}>
@@ -2755,8 +2802,8 @@ ${blocoBDI}
       {orcAba==="orcamento"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
         <button onClick={()=>setControleCustosAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"11px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer",textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="chart" s={15} color={C.green}/><div><p style={{fontSize:12,fontWeight:850,color:C.text}}>Controle integrado de custos</p><p style={{fontSize:9.5,color:C.muted,marginTop:1}}>Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível</p></div></div><Ic n={controleCustosAberto?"chevron":"chevR"} s={14} color={C.muted}/></button>
         {controleCustosAberto&&<div style={{borderTop:`1px solid ${C.line}`,padding:10}}>
-          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginBottom:9}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:15,fontWeight:900,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
-          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface,color:C.muted,textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"7px 8px",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:"8px",fontWeight:800,color:C.text}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",whiteSpace:"nowrap",fontWeight:i===6?850:600,color:i===6&&v<0?C.red:C.text}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginBottom:9}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:15,fontWeight:900,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
+          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface,color:C.muted,textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"7px 8px",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:"8px",fontWeight:800,color:C.text}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",whiteSpace:"nowrap",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontWeight:i===6?850:600,color:i===6&&v<0?C.red:C.text}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
           {Object.values(controleCustos.semApropriacao).some(v=>v>0)&&<p style={{fontSize:9.5,color:C.orange,marginTop:7,lineHeight:1.45}}>Atenção: existem valores sem linha orçamentária vinculada — solicitado {fmt(controleCustos.semApropriacao.solicitado)}, comprometido {fmt(controleCustos.semApropriacao.comprometido)}, recebido {fmt(controleCustos.semApropriacao.recebido)} e aplicado {fmt(controleCustos.semApropriacao.aplicado)}. Eles não foram distribuídos artificialmente entre as etapas.</p>}
           <p style={{fontSize:9,color:C.muted,marginTop:6}}>Projeção atual = maior valor entre orçamento e compromissos assumidos. “Pago” exige pedido vinculado a uma transação conciliada.</p>
         </div>}
@@ -3412,13 +3459,13 @@ ${blocoBDI}
 
       {/* Totais finais */}
       <div style={{background:C.text,color:"#fff",borderRadius:8,padding:"14px 16px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><p style={{fontSize:12,opacity:.75}}>BDI ({orc.bdi}%)</p><p style={{fontSize:12,fontWeight:700}}>{fmt(calc.valorBDI)}</p></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><p style={{fontSize:12,opacity:.75}}>BDI ({orc.bdi}%)</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:12,fontWeight:700}}>{fmt(calc.valorBDI)}</p></div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:9,marginTop:6,borderTop:`1px solid rgba(255,255,255,.2)`}}>
           <p style={{fontSize:13,fontWeight:700}}>TOTAL GERAL</p>
           <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:24,fontWeight:800,color:C.yellow}}>{fmt(calc.total)}</p>
         </div>
         {orc.areaM2>0 && (
-          <p style={{fontSize:11,opacity:.7,textAlign:"right",marginTop:2}}>{fmt(calc.porM2)}/m  {orc.areaM2} m</p>
+          <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:11,opacity:.7,textAlign:"right",marginTop:2}}>{fmt(calc.porM2)}/m  {orc.areaM2} m</p>
         )}
       </div>
 
